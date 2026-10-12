@@ -1,6 +1,9 @@
 package application
 
 import (
+	"log/slog"
+	"time"
+
 	"quizzivy/internal/modules/attempts/application/command"
 	"quizzivy/internal/modules/attempts/application/internal/support"
 	"quizzivy/internal/modules/attempts/application/ports"
@@ -25,6 +28,28 @@ func (a *Application) WithGroupContexts(groups ports.GroupContexts) *Application
 	return a
 }
 
+// WithNotifier supplies the notifier that tells a paper's teachers when it is
+// handed in or flagged, and its student when it is graded. Without one the
+// application tells nobody.
+func (a *Application) WithNotifier(notifier ports.Notifier, logger *slog.Logger) *Application {
+	announcer := &support.Announcer{
+		Notifier: notifier,
+		Briefs:   a.service.Store,
+		Logger:   logger,
+		Now:      func() time.Time { return a.service.Now() },
+	}
+	a.service.Announcer = announcer
+	a.review.Announcer = announcer
+	return a
+}
+
+// WithZones supplies the reader of a caller's calendar zone, which the results
+// export writes its times in. Without it the export uses query.DefaultZone.
+func (a *Application) WithZones(zones ports.Zones) *Application {
+	a.service.Zones = zones
+	return a
+}
+
 type Commands struct {
 	ExpireDue       cqrs.CommandHandler[command.ExpireDue, cqrs.Nothing]
 	Extend          cqrs.CommandHandler[command.Extend, domain.Attempt]
@@ -43,6 +68,9 @@ type Commands struct {
 }
 
 type Queries struct {
+	GradingQueue       cqrs.QueryHandler[query.GradingQueue, domain.GradingQueue]
+	ItemAnalysis       cqrs.QueryHandler[query.ItemAnalysis, domain.ItemAnalysis]
+	ResultsExport      cqrs.QueryHandler[query.ResultsExport, domain.ResultsExport]
 	AnswersForQuestion cqrs.QueryHandler[query.AnswersForQuestion, domain.ByQuestion]
 	Get                cqrs.QueryHandler[query.Get, domain.Session]
 	Monitor            cqrs.QueryHandler[query.Monitor, domain.Monitor]
@@ -73,6 +101,9 @@ func New(repo domain.TimelineRepository, reviewRepo domain.ReviewRepository, sto
 			Void:            command.VoidHandler{Service: service},
 		},
 		Queries: Queries{
+			GradingQueue:       query.GradingQueueHandler{Review: review},
+			ItemAnalysis:       query.ItemAnalysisHandler{Service: service},
+			ResultsExport:      query.ResultsExportHandler{Service: service},
 			AnswersForQuestion: query.AnswersForQuestionHandler{Review: review},
 			Get:                query.GetHandler{Service: service},
 			Monitor:            query.MonitorHandler{Service: service},

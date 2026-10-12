@@ -33,7 +33,13 @@ function result(): AttemptResult {
     attempt,
     testTitle: "Đọc hiểu và nghe theo nhóm",
     maxAttempts: 1,
-    review: { showScore: true, showCorrectAnswers: false, showExplanations: false },
+    review: {
+      showScore: true,
+      showCorrectAnswers: false,
+      showExplanations: false,
+      release: "on_submit",
+      showClassAverage: false,
+    },
     sharedContext,
     sections: [...new Set(questions.map((question) => question.sectionId))].map(
       (id, index) => ({ id, title: `Phần ${index + 1}`, instructions: null }),
@@ -48,7 +54,7 @@ function result(): AttemptResult {
 }
 
 function review(): AttemptReview {
-  const { id, email, fullName, role, hasPassword, mustChangePassword, createdAt } =
+  const { id, email, fullName, hasPassword, mustChangePassword, createdAt } =
     studentUser;
   return {
     attempt: { ...attempt, score: { earned: 1, total: 2, pendingManual: 1 } },
@@ -56,7 +62,6 @@ function review(): AttemptReview {
       id,
       email,
       fullName,
-      role,
       hasPassword,
       linkedProviders: [],
       mustChangePassword,
@@ -84,6 +89,8 @@ function review(): AttemptReview {
     },
     questions: questions.map((question, index) => ({
       ...question,
+      level: null,
+      skill: null,
       type: index === 1 ? "short_answer" : "single_choice",
       tags: [],
       blanks: [],
@@ -132,7 +139,7 @@ async function setup(page: Page, teacher: boolean) {
     route.fulfill({ path: audio, contentType: "audio/mpeg" }),
   );
   await page.goto(
-    teacher ? `/admin/attempts/${attemptId}` : `/app/attempts/${attemptId}/result`,
+    teacher ? `/teacher/attempts/${attemptId}` : `/app/attempts/${attemptId}/result`,
   );
   return () => newPlays;
 }
@@ -159,7 +166,7 @@ for (const width of [320, 1440]) {
     await expect(page.getByRole("heading", { name: previewGroup.title })).toBeVisible();
     await page.getByRole("button", { name: /^Sai/ }).click();
     await expect(page.getByText(questions[1]!.prompt, { exact: true })).toHaveCount(0);
-    const gap = page.getByRole("button", { name: "Ô A — chuyển đến câu 2" });
+    const gap = page.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" });
     await gap.focus();
     await page.keyboard.press("Enter");
     await expect(page.locator(":focus")).toHaveAttribute(
@@ -193,7 +200,7 @@ for (const width of [768, 1440]) {
     await expect(
       page.getByRole("button", { name: "Tạm dừng", exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Ô A — chuyển đến câu 2" }).click();
+    await page.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" }).click();
     await expect(page.locator(":focus")).toHaveAttribute("id", "review-answer");
     await checkLayout(page, `group-review-${width}`);
     await page.getByRole("button", { name: "Chấm theo câu hỏi", exact: true }).click();

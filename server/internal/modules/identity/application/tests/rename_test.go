@@ -24,9 +24,9 @@ func TestRenamingKeepsEverythingElseAboutTheAccount(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	after, err := svc.Commands.Rename.Handle(ctx, command.Rename{
+	after, err := svc.Commands.UpdateProfile.Handle(ctx, command.UpdateProfile{
 		UserID:    id,
-		FullName:  "  Nguyễn Đức Minh  ",
+		Patch:     domain.ProfilePatch{FullName: profileName("  Nguyễn Đức Minh  ")},
 		IP:        "203.0.113.4",
 		UserAgent: "go-test",
 	})
@@ -37,7 +37,7 @@ func TestRenamingKeepsEverythingElseAboutTheAccount(t *testing.T) {
 	if after.FullName != "Nguyễn Đức Minh" {
 		t.Errorf("name is %q; the surrounding spaces should have gone", after.FullName)
 	}
-	if after.Email != before.Email || after.Role != before.Role {
+	if after.Email != before.Email {
 		t.Errorf("rename moved more than the name: %+v -> %+v", before, after)
 	}
 
@@ -70,7 +70,7 @@ func TestAnEmptyOrOversizedNameIsRefused(t *testing.T) {
 		{"   ", domain.ErrNameRequired},
 		{strings.Repeat("a", domain.MaxFullNameLength+1), domain.ErrNameTooLong},
 	} {
-		if _, err := svc.Commands.Rename.Handle(ctx, command.Rename{UserID: id, FullName: tc.name}); !errors.Is(err, tc.want) {
+		if _, err := svc.Commands.UpdateProfile.Handle(ctx, command.UpdateProfile{UserID: id, Patch: domain.ProfilePatch{FullName: profileName(tc.name)}}); !errors.Is(err, tc.want) {
 			t.Errorf("name %q: got %v, want %v", tc.name, err, tc.want)
 		}
 	}
@@ -78,7 +78,7 @@ func TestAnEmptyOrOversizedNameIsRefused(t *testing.T) {
 	// A name at the limit is fine, and counted in runes rather than bytes: 200
 	// Vietnamese letters are 200 characters and rather more bytes.
 	long := strings.Repeat("ữ", domain.MaxFullNameLength)
-	if _, err := svc.Commands.Rename.Handle(ctx, command.Rename{UserID: id, FullName: long}); err != nil {
+	if _, err := svc.Commands.UpdateProfile.Handle(ctx, command.UpdateProfile{UserID: id, Patch: domain.ProfilePatch{FullName: profileName(long)}}); err != nil {
 		t.Errorf("a name of exactly %d runes was refused: %v", domain.MaxFullNameLength, err)
 	}
 }
@@ -89,7 +89,7 @@ func TestRenamingLeavesATrail(t *testing.T) {
 	id, _ := makeUser(t, pool)
 	ctx := context.Background()
 
-	if _, err := svc.Commands.Rename.Handle(ctx, command.Rename{UserID: id, FullName: "Tên Mới", IP: "203.0.113.9"}); err != nil {
+	if _, err := svc.Commands.UpdateProfile.Handle(ctx, command.UpdateProfile{UserID: id, Patch: domain.ProfilePatch{FullName: profileName("Tên Mới")}, IP: "203.0.113.9"}); err != nil {
 		t.Fatal(err)
 	}
 

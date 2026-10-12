@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 /** Shell is the console a route belongs to. */
-export type Shell = "teacher" | "admin" | "student";
+export type Shell = "teacher" | "student";
 
 const skeletons = new Map<Shell, () => ReactNode>();
 
@@ -17,12 +17,13 @@ export function registerSkeleton(shell: Shell, skeleton: () => ReactNode): void 
 /** skeletonFor draws the skeleton registered for the shell at pathname, if any. */
 export function skeletonFor(pathname: string): ReactNode {
   const shell = shellFor(pathname);
-  const skeleton = shell === null ? undefined : skeletons.get(shell);
+  if (shell === null) return null;
+  const skeleton = skeletons.get(shell);
   return skeleton === undefined ? null : skeleton();
 }
 
 function shellFor(pathname: string): Shell | null {
-  if (pathname === "/admin" || pathname.startsWith("/admin/")) return "teacher";
+  if (pathname === "/teacher" || pathname.startsWith("/teacher/")) return "teacher";
   if (pathname.startsWith("/app/attempts/") && !pathname.endsWith("/result"))
     return null;
   if (pathname === "/app" || pathname.startsWith("/app/")) return "student";

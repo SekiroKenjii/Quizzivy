@@ -1,5 +1,11 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 import { adminUser, anonymous, sessionAs, stubApi } from "./support/api";
+import {
+  dashboard23,
+  dashboard23Assignments,
+  dashboard23Summary,
+} from "../support/dashboard23";
+import { contractJson } from "../support/contractResponse";
 
 async function prefer(page: Page, theme: string) {
   await page.addInitScript((value) => {
@@ -9,6 +15,22 @@ async function prefer(page: Page, theme: string) {
 
 const background = (page: Page) =>
   page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+
+const noStudents = async (route: Route) => {
+  await route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify(
+      await contractJson("/teacher/students", "get", 200, {
+        page: 1,
+        pageSize: 20,
+        total: 0,
+        items: [],
+        facets: { total: 0, activeLast7Days: 0 },
+      }).json(),
+    ),
+  });
+};
 
 test("paints a dark preference before the app runs", async ({ page }) => {
   await prefer(page, "dark");
@@ -34,16 +56,94 @@ test("follows the device while the preference is system", async ({ page }) => {
   expect(await background(page)).toBe("rgb(14, 18, 19)");
 });
 
-test("keeps a console not yet rebuilt light under a dark preference", async ({
+test("draws Students in the rebuilt shell under a dark preference", async ({
   page,
 }) => {
-  await stubApi(page, sessionAs(adminUser));
+  const user = { ...adminUser, preferences: { theme: "dark" as const } };
+  await stubApi(page, { ...sessionAs(user), "GET /teacher/students": noStudents });
   await prefer(page, "dark");
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/admin");
+  await page.goto("/teacher/students");
+  await expect(page.getByRole("heading", { name: "Học viên", level: 1 })).toBeVisible();
+  await expect(page.locator('[data-scale="deck"] main')).toBeVisible();
+  await expect(page.locator("[data-columns] main")).toHaveCount(0);
   await expect(
     page.getByRole("navigation", { name: "Điều hướng chính" }),
   ).toBeVisible();
-  await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
-  expect(await background(page)).toBe("rgb(255, 255, 255)");
+  await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+  expect(await background(page)).toBe("rgb(14, 18, 19)");
+});
+
+test("keeps the dark preference through SPA links from the dashboard to Settings and Students", async ({
+  page,
+}) => {
+  const user = { ...adminUser, preferences: { theme: "dark" as const } };
+  await stubApi(page, {
+    ...sessionAs(user),
+    "GET /teacher/dashboard": async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(
+          await contractJson("/teacher/dashboard", "get", 200, dashboard23()).json(),
+        ),
+      });
+    },
+    "GET /teacher/summary": { body: dashboard23Summary() },
+    "GET /me/summary": { body: { unreadNotifications: 0 } },
+    "GET /teacher/assignments": { body: dashboard23Assignments() },
+    "GET /auth/sessions": { body: { items: [] } },
+    "GET /teacher/students": noStudents,
+  });
+  await prefer(page, "dark");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/teacher");
+  await expect(page.locator('[data-slot="teacher-dashboard"]')).toBeVisible();
+  await expect(page.getByText(/14 trong 14 ngày qua/)).toBeVisible();
+  await expect(page.locator('[data-scale="deck"] main')).toBeVisible();
+  await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+  expect(await background(page)).toBe("rgb(14, 18, 19)");
+  expect(await page.evaluate(() => localStorage.getItem("quizzivy.theme"))).toBe(
+    "dark",
+  );
+
+  await page.getByRole("button", { name: "Tài khoản của Thuong" }).click();
+  await page.getByRole("menuitem", { name: "Cài đặt", exact: true }).click();
+  await expect(page).toHaveURL(/\/teacher\/settings$/);
+  await expect(page.getByRole("heading", { name: "Cài đặt", level: 1 })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Họ và tên" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Họ và tên" })).toHaveValue("Thuong");
+  await expect(page.locator('[data-scale="deck"] main')).toBeVisible();
+  await expect(page.locator("[data-columns] main")).toHaveCount(0);
+  await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+  expect(await background(page)).toBe("rgb(14, 18, 19)");
+
+  await page
+    .getByRole("navigation", { name: "Điều hướng chính" })
+    .getByRole("link", { name: "Học viên", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/teacher\/students$/);
+  await expect(page.getByRole("heading", { name: "Học viên", level: 1 })).toBeVisible();
+  await expect(page.locator('[data-scale="deck"] main')).toBeVisible();
+  await expect(page.locator("[data-columns] main")).toHaveCount(0);
+  await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+  expect(await background(page)).toBe("rgb(14, 18, 19)");
+  expect(await page.evaluate(() => localStorage.getItem("quizzivy.theme"))).toBe(
+    "dark",
+  );
+
+  await page
+    .getByRole("navigation", { name: "Điều hướng chính" })
+    .getByRole("link", { name: "Tổng quan", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/teacher$/);
+  await expect(page.locator('[data-slot="teacher-dashboard"]')).toBeVisible();
+  await expect(page.getByText(/14 trong 14 ngày qua/)).toBeVisible();
+  await expect(page.locator('[data-scale="deck"] main')).toBeVisible();
+  await expect(page.locator("[data-columns] main")).toHaveCount(0);
+  await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+  expect(await background(page)).toBe("rgb(14, 18, 19)");
+  expect(await page.evaluate(() => localStorage.getItem("quizzivy.theme"))).toBe(
+    "dark",
+  );
 });

@@ -14,12 +14,12 @@
 -- parameters (m=65536,t=3,p=2) travel with the hash, so whatever defaults
 -- T-1.2 chooses at runtime, this still verifies. A bare hash would silently
 -- stop matching the moment those parameters were tuned.
-INSERT INTO app.users (id, email, full_name, role, password_hash, must_change_password)
+INSERT INTO app.users (id, email, full_name, role_id, password_hash, must_change_password)
 VALUES (
   '01935000-0000-7000-8000-0000000000a1',
   'thuong@quizzivy.com',
   'Thuong',
-  'admin',
+  (SELECT id FROM app.roles WHERE builtin_key = 'admin'),
   '$argon2id$v=19$m=65536,t=3,p=2$NsEIYu5N8g+iv1W9zV2hfQ$HgTGHdo9uosWEPKpMFDPDSUvBOTCc0oVcPvq7FeVIR4',
   false
 )
@@ -30,12 +30,12 @@ ON CONFLICT (id) DO NOTHING;
 -- Same password. Exists so the §5.4 guards have something to redirect: an
 -- `admin` on /app/* and a `student` on /admin/* behave differently, and one
 -- account cannot exercise both.
-INSERT INTO app.users (id, email, full_name, role, password_hash, must_change_password)
+INSERT INTO app.users (id, email, full_name, role_id, password_hash, must_change_password)
 VALUES (
   '01935000-0000-7000-8000-0000000000a2',
   'hocvien@quizzivy.com',
   'Nguyễn Văn An',
-  'student',
+  (SELECT id FROM app.roles WHERE builtin_key = 'student'),
   '$argon2id$v=19$m=65536,t=3,p=2$NsEIYu5N8g+iv1W9zV2hfQ$HgTGHdo9uosWEPKpMFDPDSUvBOTCc0oVcPvq7FeVIR4',
   false
 )

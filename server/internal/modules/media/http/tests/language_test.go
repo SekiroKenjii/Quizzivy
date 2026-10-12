@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -113,7 +114,24 @@ func uploading(filename string, failure error) refusing {
 	}
 }
 
+func updating(body openapi.MediaUpdate, failure error) refusing {
+	transport := mediahttp.NewMedia(&application.Application{Commands: application.Commands{
+		Update: cqrs.HandlerFunc[command.Update, domain.Asset](func(context.Context, command.Update) (domain.Asset, error) {
+			return domain.Asset{}, failure
+		}),
+	}})
+	return func(ctx context.Context, w http.ResponseWriter) error {
+		response, err := transport.UpdateMedia(ctx, openapi.UpdateMediaRequestObject{Id: uuid.New(), Body: &body})
+		if err != nil {
+			return err
+		}
+		return response.VisitUpdateMediaResponse(w)
+	}
+}
+
 func TestMediaRefusalsSpeakTheCallersLanguage(t *testing.T) {
+	renamed := "Tên mới"
+	rename := openapi.MediaUpdate{DisplayName: &renamed}
 	testID := uuid.NewString()
 	inATest := &domain.ReferencedError{Tests: []domain.TestRef{{ID: testID, Title: "Published", Version: 2}}}
 	inAGroup := &domain.ReferencedError{
@@ -173,8 +191,96 @@ func TestMediaRefusalsSpeakTheCallersLanguage(t *testing.T) {
 			serve:  uploading("bai-nghe.mp3", domain.ErrTooLarge),
 			status: http.StatusRequestEntityTooLarge,
 			code:   openapi.MEDIATOOLARGE,
-			vi:     "Tệp vượt quá 10 MB. Vui lòng nén hoặc cắt ngắn tệp.",
-			en:     "The file is larger than 10 MB. Please compress or shorten it.",
+			vi:     "Tệp vượt quá 50 MB. Vui lòng nén hoặc cắt ngắn tệp.",
+			en:     "The file is larger than 50 MB. Please compress or shorten it.",
+		},
+		{
+			name:   "an upload cut off by the transport's own cap",
+			serve:  uploading("bai-nghe.mp3", fmt.Errorf("media: reading upload: %w", &http.MaxBytesError{Limit: 52559872})),
+			status: http.StatusRequestEntityTooLarge,
+			code:   openapi.MEDIATOOLARGE,
+			vi:     "Tệp vượt quá 50 MB. Vui lòng nén hoặc cắt ngắn tệp.",
+			en:     "The file is larger than 50 MB. Please compress or shorten it.",
+		},
+		{
+			name:   "an image over the image limit",
+			serve:  uploading("ban-do.png", domain.ErrImageTooLarge),
+			status: http.StatusRequestEntityTooLarge,
+			code:   openapi.MEDIATOOLARGE,
+			vi:     "Ảnh vượt quá 10 MB. Vui lòng dùng ảnh nhỏ hơn.",
+			en:     "The image is larger than 10 MB. Please use a smaller one.",
+		},
+		{
+			name:   "an upload into a full library",
+			serve:  uploading("bai-nghe.mp3", domain.ErrQuotaExceeded),
+			status: http.StatusConflict,
+			code:   openapi.MEDIAQUOTAEXCEEDED,
+			vi:     "Thư viện đã hết dung lượng. Hãy xoá bớt tệp rồi tải lại.",
+			en:     "Your media library is full. Delete some files, then upload again.",
+		},
+		{
+			name:   "an image uploaded with a play limit",
+			serve:  uploading("ban-do.png", domain.ErrPlayLimitOnImage),
+			status: http.StatusBadRequest,
+			code:   openapi.VALIDATIONFAILED,
+			vi:     "Chỉ tệp âm thanh mới có giới hạn số lần nghe.",
+			en:     "Only an audio file takes a play limit.",
+		},
+		{
+			name:   "an upload with a play limit out of range",
+			serve:  uploading("bai-nghe.mp3", domain.ErrInvalidPlayLimit),
+			status: http.StatusBadRequest,
+			code:   openapi.VALIDATIONFAILED,
+			vi:     "Giới hạn số lần nghe phải từ 0 đến 3.",
+			en:     "The play limit must be between 0 and 3.",
+		},
+		{
+			name:   "renaming a file that is not there",
+			serve:  updating(rename, domain.ErrNotFound),
+			status: http.StatusNotFound,
+			code:   openapi.NOTFOUND,
+			vi:     "Không tìm thấy tệp.",
+			en:     "The file was not found.",
+		},
+		{
+			name:   "renaming a file to a blank name",
+			serve:  updating(rename, domain.ErrInvalidName),
+			status: http.StatusBadRequest,
+			code:   openapi.VALIDATIONFAILED,
+			vi:     "Tên tệp phải có từ 1 đến 200 ký tự.",
+			en:     "The file name must be 1 to 200 characters long.",
+		},
+		{
+			name:   "a play limit on an image",
+			serve:  updating(rename, domain.ErrPlayLimitOnImage),
+			status: http.StatusBadRequest,
+			code:   openapi.VALIDATIONFAILED,
+			vi:     "Chỉ tệp âm thanh mới có giới hạn số lần nghe.",
+			en:     "Only an audio file takes a play limit.",
+		},
+		{
+			name:   "a play limit out of range",
+			serve:  updating(rename, domain.ErrInvalidPlayLimit),
+			status: http.StatusBadRequest,
+			code:   openapi.VALIDATIONFAILED,
+			vi:     "Giới hạn số lần nghe phải từ 0 đến 3.",
+			en:     "The play limit must be between 0 and 3.",
+		},
+		{
+			name:   "a play limit that is not a number",
+			serve:  updating(openapi.MediaUpdate{DefaultMaxPlays: json.RawMessage(`"hai"`)}, nil),
+			status: http.StatusBadRequest,
+			code:   openapi.VALIDATIONFAILED,
+			vi:     "Giới hạn số lần nghe phải từ 0 đến 3.",
+			en:     "The play limit must be between 0 and 3.",
+		},
+		{
+			name:   "an update that changes nothing",
+			serve:  updating(rename, domain.ErrNothingToUpdate),
+			status: http.StatusBadRequest,
+			code:   openapi.VALIDATIONFAILED,
+			vi:     "Cần ít nhất một thay đổi.",
+			en:     "At least one change is needed.",
 		},
 		{
 			name:   "an upload over the length limit",
@@ -212,6 +318,42 @@ func TestMediaRefusalsSpeakTheCallersLanguage(t *testing.T) {
 			if got.message != language.want {
 				t.Errorf("%s with Accept-Language %q answered %q, want %q", c.name, language.accept, got.message, language.want)
 			}
+		}
+	}
+}
+
+func TestARefusedFieldIsNamedInTheDetails(t *testing.T) {
+	renamed := "Tên mới"
+	for name, c := range map[string]struct {
+		serve refusing
+		field string
+	}{
+		"an image uploaded with a play limit": {uploading("ban-do.png", domain.ErrPlayLimitOnImage), "defaultMaxPlays"},
+		"a play limit on an image":            {updating(openapi.MediaUpdate{DisplayName: &renamed}, domain.ErrPlayLimitOnImage), "defaultMaxPlays"},
+		"a blank name":                        {updating(openapi.MediaUpdate{DisplayName: &renamed}, domain.ErrInvalidName), "displayName"},
+	} {
+		handler := httpx.RequireAuth(nil, func(string) (httpx.Principal, error) {
+			return httpx.Principal{UserID: uuid.NewString()}, nil
+		})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if err := c.serve(r.Context(), w); err != nil {
+				t.Fatal(err)
+			}
+		}))
+		request := httptest.NewRequest(http.MethodPost, "/teacher/media", nil)
+		request.Header.Set("Authorization", "Bearer fixture")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		var body struct {
+			Error struct {
+				Message string            `json:"message"`
+				Details map[string]string `json:"details"`
+			} `json:"error"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		if len(body.Error.Details) != 1 || body.Error.Details[c.field] == "" || body.Error.Details[c.field] != body.Error.Message {
+			t.Errorf("%s names %v, want only %q with the message", name, body.Error.Details, c.field)
 		}
 	}
 }

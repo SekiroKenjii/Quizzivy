@@ -66,11 +66,15 @@ func (h Attempts) GetAttemptResult(ctx context.Context, request openapi.GetAttem
 			ShowScore:          result.Review.ShowScore,
 			ShowCorrectAnswers: result.Review.ShowCorrectAnswers,
 			ShowExplanations:   result.Review.ShowExplanations,
+			Release:            openapi.ReviewRelease(result.Review.Release),
+			ShowClassAverage:   result.Review.ShowClassAverage,
 		},
-		TestTitle:   result.TestTitle,
-		MaxAttempts: result.MaxAttempts,
-		Sections:    toAPISections(result.Sections),
-		Questions:   questions,
+		ReleasesAt:   result.ReleasesAt,
+		ClassAverage: result.ClassAverage,
+		TestTitle:    result.TestTitle,
+		MaxAttempts:  result.MaxAttempts,
+		Sections:     toAPISections(result.Sections),
+		Questions:    questions,
 	}, nil
 }
 
@@ -81,7 +85,7 @@ func (h Attempts) toAPIResultQuestion(ctx context.Context, studentID string, q d
 	}
 	out := openapi.ResultQuestion{
 		Id: base.Id, SectionId: base.SectionId, Type: base.Type, Prompt: base.Prompt, PromptContent: base.PromptContent, Points: base.Points,
-		Media: base.Media, Options: base.Options, Blanks: base.Blanks,
+		Media: base.Media, MediaAlt: base.MediaAlt, Options: base.Options, Blanks: base.Blanks,
 		Earned:             q.Earned,
 		PendingManual:      httpapi.Ptr(q.PendingManual),
 		GraderComment:      q.GraderComment,

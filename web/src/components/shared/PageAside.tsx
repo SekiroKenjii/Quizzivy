@@ -1,4 +1,4 @@
-import { useContext, type ReactNode } from "react";
+import { useContext, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { SideColumn } from "@/components/shared/SideColumn";
@@ -16,17 +16,16 @@ interface PageAsideProps {
   /** S-08: below 1024px the navigator is a sheet, so the rail is not drawn. */
   hideBelow?: "lg";
   /** Where the same content goes below `hideBelow`, opened from the screen's own chrome. */
-  sheet?: { open: boolean; onOpenChange: (open: boolean) => void };
+  sheet?: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    always?: boolean;
+    triggerRef?: RefObject<HTMLElement | null> | undefined;
+  };
   children: ReactNode;
 }
 
-/**
- * The one side column every screen goes through, at the two widths F-11 sets
- * and F-13 lets the teacher adjust.
- *
- * Rendered into the shell's slot (layouts/slots.ts) so it sits beside the
- * scrolling main rather than inside it. Without a slot it renders in place.
- */
+/** PageAside places one settings subtree in an inline column or its configured dialog. */
 export function PageAside({
   label,
   side = "right",
@@ -58,7 +57,7 @@ export function PageAside({
   const column = slot === null ? aside : createPortal(aside, slot);
   if (sheet === undefined) return column;
   // One or the other, never both: the same ids cannot exist twice in the document.
-  if (wide) return column;
+  if (wide && !sheet.always) return column;
   return (
     <Dialog open={sheet.open} onOpenChange={sheet.onOpenChange}>
       <DialogContent
@@ -66,6 +65,13 @@ export function PageAside({
           "inset-y-0 right-0 left-auto h-svh max-h-svh w-[min(90vw,24rem)] max-w-none translate-x-0 translate-y-0 space-y-5 overflow-y-auto rounded-none border-y-0 border-r-0 p-5 pt-12 sm:max-w-none",
           side === "left" && "right-auto left-0 border-r border-l-0",
         )}
+        onCloseAutoFocus={(event) => {
+          const trigger = sheet.triggerRef?.current;
+          if (trigger?.isConnected) {
+            event.preventDefault();
+            trigger.focus();
+          }
+        }}
         aria-describedby={undefined}
       >
         <DialogTitle className="sr-only">{label}</DialogTitle>

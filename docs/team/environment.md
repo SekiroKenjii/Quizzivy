@@ -206,6 +206,42 @@ Credentials are the compose defaults: Postgres superuser `postgres`/`postgres`,
 `quizzivy_migrate`/`migrate`, `quizzivy_app`/`app`; MinIO
 `quizzivy`/`quizzivy-dev-secret`. Use `localhost` for both web and API.
 
+## Heavy runs, caches and a private live stack
+
+Written 2026-10-10 (`chore/gates-local-speed`); the policy is in the README, "The heavy lock"
+and "Local gates (G-2)".
+
+- **Heavy runs** go through `scripts/dev/heavy.sh <command>`: two slots, `/tmp/quizzivy-heavy.1.lock`
+  and `.2.lock`, plus the old `/tmp/quizzivy-heavy.lock` held shared so the `flock -o` form still
+  excludes it. `scripts/dev/heavy.sh --status` shows each slot's holder. `HEAVY_SLOTS=1` makes it a
+  single slot again.
+- **Caches.** `pnpm lint` writes `web/node_modules/.cache/eslint/.eslintcache` and
+  `pnpm format:check` `web/node_modules/.cache/prettier/`, both keyed on file content, so a
+  fresh worktree starts cold and a worktree's second run takes seconds. `pnpm lint:ci` and
+  `pnpm format:ci` are what CI runs: no cache. A worktree has its own `node_modules`
+  (`pnpm install --frozen-lockfile --offline` takes 4 s from the store), so caches are not shared.
+- **Changed scope.** `pnpm lint:changed`, `pnpm format:changed` and `pnpm test:changed` act on what
+  changed against `origin/work/redesign-r4` since the merge base; `BASE=origin/<branch>` overrides it.
+  `pnpm test:integration` still runs whole when a page, route or shared component changes.
+- **A private live stack.** With Postgres and MinIO up (steps 4 and 5), from the worktree under test:
+
+  ```
+  export PATH=/root/.local/bin:$PATH GOTOOLCHAIN=go1.27.0
+  scripts/dev/live-stack.sh up <name>
+  scripts/dev/live-stack.sh status <name>
+  scripts/dev/live-stack.sh down <name>
+  ```
+
+  `up` creates `qa_<name>` as `quizzivy_migrate`, runs goose and `seed/*.sql`, builds the API to
+  `/tmp/quizzivy-live/<name>/api` and the web app with `VITE_API_BASE_URL` set to the stack's API,
+  then starts both in their own process groups. Ports are 20000 to 20499 (API) and 20500 to 20999
+  (web), derived from the name and moved on when taken; pids, logs, the generated JWT and join-code
+  keys and the build live in `/tmp/quizzivy-live/<name>/`. It uses the compose MinIO and its
+  `quizzivy-media` bucket and leaves Word import off. `down` stops both, drops the database and
+  removes the directory; objects the API stored in MinIO stay. It never takes the heavy lock, and the
+  build it runs is as heavy as `pnpm build`, so start stacks one at a time. Cookies are shared across
+  ports on `localhost`: use one browser context per stack.
+
 ## What did not work
 
 - **`docker compose build minio`** fails: BuildKit cannot reach the Alpine
@@ -225,7 +261,25 @@ Credentials are the compose defaults: Postgres superuser `postgres`/`postgres`,
   `docker/word-converter` image, which this piece of work did not try to build. With
   `TEST_WORD_CONVERTER_IMAGE` unset they skip and the packages still read `ok`,
   so a green local run says nothing about them. Only CI covers them.
+- **Building `docker/word-converter`** fails (verified 2026-10-12): `apt-get update` in the
+  image reaches `deb.debian.org` through the proxy and gets 403, so `libreoffice-writer`
+  cannot be installed. The converter tests and the converter half of
+  `import.live.spec.ts` run only in CI. Without `IMPORT_DOCKER_BINARY` and
+  `IMPORT_CONVERTER_IMAGE` the worker extracts a `.docx` natively, which is how that spec
+  was run here: build `cmd/api` and `cmd/import-worker`, set `IMPORT_S3_BUCKET=quizzivy-imports`,
+  `IMPORT_WORK_DIR` (absolute, mode 0700), `IMPORT_PROCESSING_ENABLED=true`,
+  `IMPORT_WORKER_WAKE_URL=http://localhost:8091/wake` and `IMPORT_WORKER_WAKE_ADDR=localhost:8091`
+  on both, run the worker, then `pnpm e2e:live` through the wrapper config.
 - **`tsc --noEmit`** checks no files; use `pnpm typecheck`.
+- **`pkill -f` or `pgrep -f` with a pattern from your own command line** matches the
+  shell running it and kills it. Find a server by its port instead
+  (`ss -ltnp 'sport = :8080'`) and stop that PID.
+- **Signing in again for every browser script.** Sign-in is limited to 20 per hour per
+  email, and reusing a stored session's refresh cookie in a second context rotates it and
+  trips reuse detection. Sign in once and keep one browser context per run; restarting your
+  own API clears the limiter.
+- **Imports' `Text*` integration tests** need `TEST_TEXT_IMPORT_*` set locally (five
+  tests); CI provides them.
 
 ## Differences from CI
 
@@ -235,9 +289,9 @@ Credentials are the compose defaults: Postgres superuser `postgres`/`postgres`,
 | pnpm | 10.28.0 | 11.25.0 |
 | Go | 1.24.7 host, 1.27.0 by `GOTOOLCHAIN` | 1.27 |
 | `psql` client | 16.15 (server is 18.6) | 18 |
-| Postgres | `postgres:18` in compose, shared by every run | a service container per job |
-| MinIO image | built on the host from the pinned commits (step 3) | pulled from `ghcr.io`, or built by compose |
-| Browsers | Chromium only, in `/opt/pw-browsers` (`PLAYWRIGHT_BROWSERS_PATH`) | what the Playwright config installs |
+| Postgres | `postgres:18` in compose, shared by every run | a service container per job, `mirror.gcr.io/library/postgres:18` (Docker Hub's anonymous pull limit; `docs/setup/ci.md`) |
+| MinIO image | built on the host from the pinned commits (step 3) | pulled from `ghcr.io`, or built by compose from bases tagged out of `mirror.gcr.io` |
+| Browsers | Chromium 1194 only, in `/opt/pw-browsers` (`PLAYWRIGHT_BROWSERS_PATH`); Playwright 1.62.1 looks for headless shell 1234, so a run launches with `launchOptions.executablePath: '/opt/pw-browsers/chromium'` from an untracked wrapper config. Never `playwright install`, never commit the wrapper | what the Playwright config installs |
 | Parallelism | 4 cores, one shared Postgres | one job per runner |
 | Word converter tests | not run | run |
 | Retries, shards | none unless asked (`CI=1` for CI's Vitest defaults) | Playwright `retries: 2` |

@@ -104,7 +104,7 @@ describe("reordering the outline", () => {
     expect(screen.getByText("Câu ba")).toBeInTheDocument();
   });
 
-  it("shows a publish problem on the offending row instead of its prompt", () => {
+  it("keeps the offending row's title and describes its publish problem", () => {
     const withProblem = new Map(questions);
     withProblem.set("q2", {
       ...questions.get("q2")!,
@@ -125,8 +125,11 @@ describe("reordering the outline", () => {
       />,
     );
 
-    expect(screen.getByText("Câu 2 chưa có đáp án đúng")).toBeInTheDocument();
-    expect(screen.queryByText("Câu hai")).toBeNull();
+    const row = screen.getByRole("button", { name: "Câu hai" });
+    expect(row).toHaveAccessibleDescription("Câu 2 chưa có đáp án đúng");
+    expect(screen.getByRole("button", { name: "Câu ba" })).not.toHaveAttribute(
+      "aria-describedby",
+    );
   });
 });
 

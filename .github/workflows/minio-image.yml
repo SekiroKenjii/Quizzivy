@@ -11,11 +11,13 @@ on:
     paths:
       - docker/minio/**
       - scripts/ci/minio-image.sh
+      - scripts/ci/mirror-images.sh
       - .github/workflows/minio-image.yml
   pull_request:
     paths:
       - docker/minio/**
       - scripts/ci/minio-image.sh
+      - scripts/ci/mirror-images.sh
       - .github/workflows/minio-image.yml
 
 concurrency:
@@ -51,6 +53,7 @@ jobs:
             echo "$image is already published"
             exit 0
           fi
+          scripts/ci/mirror-images.sh golang:1.27-alpine alpine:3.22
           docker build --tag "$image" docker/minio
           docker push "$image"
           echo "published $image" >> "$GITHUB_STEP_SUMMARY"

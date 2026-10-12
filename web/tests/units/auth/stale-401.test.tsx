@@ -36,6 +36,11 @@ import { contractJson } from "@tests/support/contractResponse";
 import { myClass, studentUser } from "@tests/support/fixtures";
 import "@/lib/i18n";
 
+vi.mock("@/lib/drafts/store", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/drafts/store")>()),
+  clearAuthoringDrafts: async () => undefined,
+}));
+
 const BASE = "http://localhost:8080";
 const REQUEST_ID = "019535d9-3df7-79fb-b466-fa907fa17f9e";
 
@@ -193,6 +198,7 @@ describe("a 401 from before signing in", () => {
     const refreshAsked = gate();
     const refresh = gate();
     const exchange = gate();
+    let exchanged = 0;
     server.use(
       http.get(`${BASE}/auth/me`, () => unauthorized()),
       http.post(`${BASE}/auth/refresh`, async () => {
@@ -200,16 +206,26 @@ describe("a 401 from before signing in", () => {
         await refresh.opened;
         return refreshRefused();
       }),
-      googleAnswersAfter(exchange.opened),
+      http.post(`${BASE}/auth/google`, async () => {
+        exchanged += 1;
+        await exchange.opened;
+        return contractJson("/auth/google", "post", 200, {
+          accessToken: "token",
+          expiresIn: 900,
+          user: studentUser,
+        });
+      }),
     );
-
-    arriveFromGoogle();
+    renderHook(() => useBootstrapSession());
     await refreshAsked.opened;
+    arriveFromGoogle();
     exchange.open();
-    expect(await screen.findByText("student home")).toBeInTheDocument();
+    expect(exchanged).toBe(0);
+    expect(screen.queryByText("student home")).not.toBeInTheDocument();
     refresh.open();
+    expect(await screen.findByText("student home")).toBeInTheDocument();
+    expect(exchanged).toBe(1);
     await waitFor(() => expect(useAppState.getState().bootPhase).toBe("ready"));
-
     expectTheNewSessionIntact();
   });
 
@@ -243,6 +259,7 @@ describe("a 401 from before signing in", () => {
   it("keeps a password sign-in made while the boot's refresh was out", async () => {
     const refreshAsked = gate();
     const refresh = gate();
+    let signedIn = 0;
     server.use(
       http.get(`${BASE}/auth/me`, () => unauthorized()),
       http.post(`${BASE}/auth/refresh`, async () => {
@@ -250,25 +267,27 @@ describe("a 401 from before signing in", () => {
         await refresh.opened;
         return refreshRefused();
       }),
-      http.post(`${BASE}/auth/login`, () =>
-        contractJson("/auth/login", "post", 200, {
+      http.post(`${BASE}/auth/login`, () => {
+        signedIn += 1;
+        return contractJson("/auth/login", "post", 200, {
           accessToken: "token",
           expiresIn: 900,
           user: studentUser,
-        }),
-      ),
+        });
+      }),
     );
     const user = userEvent.setup();
-
     open("/login");
     await refreshAsked.opened;
     await user.type(screen.getByLabelText("Email"), studentUser.email);
     await user.type(screen.getByLabelText("Mật khẩu"), "quizzivy-dev");
     await user.click(screen.getByRole("button", { name: "Đăng nhập" }));
-    expect(await screen.findByText("student home")).toBeInTheDocument();
+    expect(signedIn).toBe(0);
+    expect(screen.queryByText("student home")).not.toBeInTheDocument();
     refresh.open();
+    expect(await screen.findByText("student home")).toBeInTheDocument();
+    expect(signedIn).toBe(1);
     await waitFor(() => expect(useAppState.getState().bootPhase).toBe("ready"));
-
     expectTheNewSessionIntact();
   });
 });
@@ -526,60 +545,117 @@ describe("a 401 handled while signing out", () => {
   });
 
   it("leaves no sign-in-again overlay on the login page when the refusal lands before the session is cleared", async () => {
-    const late = gate();
-    server.use(
-      classesRefusedAfter(late.opened),
-      http.post(`${BASE}/auth/logout`, () => new HttpResponse(null, { status: 204 })),
-      http.post(`${BASE}/auth/refresh`, () => refreshRefused()),
-    );
-    const user = userEvent.setup();
-    const { router, page, signedOut } = openSignedIn();
-
-    const failure = api("get", "/app/classes").catch((cause: unknown) => cause);
-    await user.click(await screen.findByRole("button", { name: "sign out" }));
-    await waitFor(() => expect(router.state.navigation.state).not.toBe("idle"));
-    late.open();
-    await waitFor(() => expect(lost).toHaveBeenCalled());
-    expect(useAppState.getState().overlay.kind).toBe("expired");
-    page.open();
-    expect(await screen.findByText("login page")).toBeInTheDocument();
-    await waitFor(() => expect(signedOut).toHaveBeenCalled());
-
-    expectSignedOutOnTheLoginPage(router);
-    expect(await failure).toBeInstanceOf(ApiError);
-  });
-
-  it("leaves none when the refusal lands while the logout request is still out", async () => {
+    const asked = gate();
     const late = gate();
     const logoutAsked = gate();
     const logout = gate();
+    const carried: (string | null)[] = [];
+    let refreshed = 0;
     server.use(
-      classesRefusedAfter(late.opened),
+      http.get(`${BASE}/app/classes`, async ({ request }) => {
+        carried.push(sentWith(request));
+        asked.open();
+        await late.opened;
+        return unauthorized();
+      }),
+      http.post(`${BASE}/auth/logout`, async () => {
+        logoutAsked.open();
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.post(`${BASE}/auth/refresh`, () => {
+        refreshed += 1;
+        return refreshRefused();
+      }),
+    );
+    const user = userEvent.setup();
+    const { router, page, signedOut } = openSignedIn();
+    const failure = api("get", "/app/classes").catch((cause: unknown) => cause);
+    await asked.opened;
+    expect(carried).toEqual(["token-a"]);
+    await user.click(await screen.findByRole("button", { name: "sign out" }));
+    await waitFor(() => expect(router.state.navigation.state).not.toBe("idle"));
+    expect(useAuthStore.getState()).toMatchObject({
+      accessToken: null,
+      user: null,
+      expired: false,
+    });
+    expect(lost).not.toHaveBeenCalled();
+    expect(useAppState.getState().overlay.kind).toBe("none");
+    late.open();
+    expect(await failure).toBeInstanceOf(ApiError);
+    expect(await failure).toMatchObject({ status: 401 });
+    expect(lost).not.toHaveBeenCalled();
+    expect(useAppState.getState().overlay.kind).toBe("none");
+    expect(refreshed).toBe(0);
+    expect(carried).toEqual(["token-a"]);
+    expect(signedOut).not.toHaveBeenCalled();
+    logout.open();
+    page.open();
+    expect(await screen.findByText("login page")).toBeInTheDocument();
+    await waitFor(() => expect(signedOut).toHaveBeenCalled());
+    expectSignedOutOnTheLoginPage(router);
+    expect(await failure).toBeInstanceOf(ApiError);
+    expect(refreshed).toBe(0);
+    expect(carried).toEqual(["token-a"]);
+  });
+
+  it("leaves none when the refusal lands while the logout request is still out", async () => {
+    const asked = gate();
+    const late = gate();
+    const logoutAsked = gate();
+    const logout = gate();
+    const carried: (string | null)[] = [];
+    let refreshed = 0;
+    server.use(
+      http.get(`${BASE}/app/classes`, async ({ request }) => {
+        carried.push(sentWith(request));
+        asked.open();
+        await late.opened;
+        return unauthorized();
+      }),
       http.post(`${BASE}/auth/logout`, async () => {
         logoutAsked.open();
         await logout.opened;
         return new HttpResponse(null, { status: 204 });
       }),
-      http.post(`${BASE}/auth/refresh`, () => refreshRefused()),
+      http.post(`${BASE}/auth/refresh`, () => {
+        refreshed += 1;
+        return refreshRefused();
+      }),
     );
     const user = userEvent.setup();
     const { router, page, signedOut } = openSignedIn();
-
     const failure = api("get", "/app/classes").catch((cause: unknown) => cause);
+    await asked.opened;
+    expect(carried).toEqual(["token-a"]);
     await user.click(await screen.findByRole("button", { name: "sign out" }));
     await logoutAsked.opened;
+    expect(useAuthStore.getState()).toMatchObject({
+      accessToken: null,
+      user: null,
+      expired: false,
+    });
+    expect(lost).not.toHaveBeenCalled();
+    expect(useAppState.getState().overlay.kind).toBe("none");
     late.open();
-    await waitFor(() => expect(lost).toHaveBeenCalled());
-    expect(useAppState.getState().overlay.kind).toBe("expired");
-    expect(router.state.navigation.state).toBe("idle");
+    expect(await failure).toBeInstanceOf(ApiError);
+    expect(await failure).toMatchObject({ status: 401 });
+    expect(lost).not.toHaveBeenCalled();
+    expect(useAppState.getState().overlay.kind).toBe("none");
+    expect(refreshed).toBe(0);
+    expect(carried).toEqual(["token-a"]);
+    expect(signedOut).not.toHaveBeenCalled();
+    expect(router.state.navigation.state).not.toBe("idle");
+    expect(router.state.navigation.location?.pathname).toBe("/login");
     logout.open();
     await waitFor(() => expect(router.state.navigation.state).not.toBe("idle"));
     page.open();
     expect(await screen.findByText("login page")).toBeInTheDocument();
     await waitFor(() => expect(signedOut).toHaveBeenCalled());
-
     expectSignedOutOnTheLoginPage(router);
     expect(await failure).toBeInstanceOf(ApiError);
+    expect(refreshed).toBe(0);
+    expect(carried).toEqual(["token-a"]);
   });
 
   it("leaves a maintenance overlay alone", async () => {

@@ -8,8 +8,14 @@ import { Button } from "@/components/ui/button";
 import { startOrResumeAttempt } from "@/features/take-test/api";
 import { useTick } from "@/hooks/useTick";
 import { ApiError } from "@/lib/api/errors";
+import type { Locale } from "@/lib/i18n";
 import { notify } from "@/lib/toast";
-import { clockTime, formatTime, sameAppDay } from "@/lib/i18n/datetime";
+import {
+  clockTime,
+  formatTime,
+  sameAppDay,
+  useDisplayTimeZone,
+} from "@/lib/i18n/datetime";
 import { continueAttempt, type StudentAssignmentCard } from "../api";
 import { minutesLeft } from "../studentHome";
 import { HOME_PILL } from "./homeStyles";
@@ -24,7 +30,8 @@ import { HOME_PILL } from "./homeStyles";
  * a toast, because it has to outlive the card.
  */
 export function ResumeCard({ card }: Readonly<{ card: StudentAssignmentCard }>) {
-  const { t } = useTranslation();
+  useDisplayTimeZone();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
@@ -40,7 +47,9 @@ export function ResumeCard({ card }: Readonly<{ card: StudentAssignmentCard }>) 
     t("student.home.answered", { answered, total: card.questionCount }),
     sameAppDay(closes, now)
       ? t("student.home.closesToday", { time: formatTime(closes) })
-      : t("student.home.closesOn", { when: clockTime(closes, now) }),
+      : t("student.home.closesOn", {
+          when: clockTime(closes, now, i18n.language as Locale),
+        }),
   ]
     .filter((part) => part != null && part !== "")
     .join(" · ");

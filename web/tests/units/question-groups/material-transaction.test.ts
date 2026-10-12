@@ -72,3 +72,37 @@ test("invalid asset and aggregate content limits do not dispatch partial edits",
   ).toBeNull();
   expect(normal.getText()).toBe("Passage");
 });
+test("an image inserted where an audio block was just inserted keeps the audio", () => {
+  const current = editor();
+  current.commands.setTextSelection(8);
+  const audio = {
+    id: "019535d9-3df7-79fb-b466-fa907fa17fa0",
+    kind: "audio",
+    url: "https://assets.example/audio.mp3",
+  } as MediaAsset;
+  current.view.dispatch(
+    materialTransaction(
+      current.state,
+      current.state.selection.getBookmark(),
+      audio,
+      "Track 1",
+    )!,
+  );
+  current.view.dispatch(
+    materialTransaction(
+      current.state,
+      current.state.selection.getBookmark(),
+      asset,
+      "Diagram",
+    )!,
+  );
+  const kinds = () => {
+    const result = fromEditorJSON(current.getJSON());
+    return result.ok && result.value.format === "semantic_v1"
+      ? result.value.blocks.map((block) => block.type)
+      : [];
+  };
+  expect(kinds()).toEqual(["paragraph", "audio", "image"]);
+  expect(current.commands.undo()).toBe(true);
+  expect(kinds()).toEqual(["paragraph", "audio"]);
+});

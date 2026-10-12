@@ -60,6 +60,10 @@ func (s *Postgres) Enrol(ctx context.Context, in domain.EnrolInput) (domain.Enro
 	if err != nil {
 		return domain.EnrolResult{}, err
 	}
+	studentName, teacherID, err := loadJoiner(ctx, tx, code.classID, userID)
+	if err != nil {
+		return domain.EnrolResult{}, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return domain.EnrolResult{}, fmt.Errorf("commit enrol: %w", err)
 	}
@@ -68,7 +72,21 @@ func (s *Postgres) Enrol(ctx context.Context, in domain.EnrolInput) (domain.Enro
 		UserID:        userID,
 		AlreadyMember: alreadyMember,
 		Class:         class,
+		StudentName:   studentName,
+		TeacherID:     teacherID,
 	}, nil
+}
+
+func loadJoiner(ctx context.Context, tx pgx.Tx, classID, userID string) (string, string, error) {
+	var name, teacherID string
+	err := tx.QueryRow(ctx, `
+		SELECT u.full_name, c.teacher_id::text
+		  FROM app.classes c, app.users u
+		 WHERE c.id = $1::uuid AND u.id = $2::uuid`, classID, userID).Scan(&name, &teacherID)
+	if err != nil {
+		return "", "", fmt.Errorf("load joiner %s of class %s: %w", userID, classID, err)
+	}
+	return name, teacherID, nil
 }
 
 type claimedCode struct {
@@ -165,13 +183,15 @@ func createMember(ctx context.Context, tx pgx.Tx, m domain.NewMember) (string, e
 func loadClass(ctx context.Context, tx pgx.Tx, classID string) (domain.EnrolledClass, error) {
 	const q = `
 		SELECT c.id::text, c.name, c.description, c.self_join_enabled, c.created_at,
-		       (SELECT count(*) FROM app.class_members m WHERE m.class_id = c.id)
+		       (SELECT count(*) FROM app.class_members m WHERE m.class_id = c.id),
+		       c.schedule_label, c.room
 		  FROM app.classes c
 		 WHERE c.id = $1`
 
 	var c domain.EnrolledClass
 	if err := tx.QueryRow(ctx, q, classID).Scan(
 		&c.ID, &c.Name, &c.Description, &c.SelfJoinEnabled, &c.CreatedAt, &c.StudentCount,
+		&c.ScheduleLabel, &c.Room,
 	); err != nil {
 		return domain.EnrolledClass{}, fmt.Errorf("load class %s: %w", classID, err)
 	}

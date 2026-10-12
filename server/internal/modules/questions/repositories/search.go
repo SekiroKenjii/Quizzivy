@@ -48,8 +48,13 @@ func appendFilters(in domain.ListInput, opts filterOpts) ([]any, []string) {
 	}
 	if opts.tags && len(in.Tags) > 0 {
 		args = append(args, in.Tags)
-		where = append(where, fmt.Sprintf(`q.tags && $%d::text[]`, len(args)))
+		operator := "&&"
+		if in.TagMatch == "all" {
+			operator = "@>"
+		}
+		where = append(where, fmt.Sprintf(`q.tags %s $%d::text[]`, operator, len(args)))
 	}
+	args, where = appendMetadataFilters(in, opts, args, where)
 	if in.HasAudio != nil {
 		args = append(args, *in.HasAudio)
 		where = append(where, fmt.Sprintf(
@@ -63,12 +68,14 @@ func appendFilters(in domain.ListInput, opts filterOpts) ([]any, []string) {
 }
 
 type filterOpts struct {
-	types bool
-	tags  bool
+	types  bool
+	tags   bool
+	levels bool
+	skills bool
 }
 
 func allFilters() filterOpts {
-	return filterOpts{types: true, tags: true}
+	return filterOpts{types: true, tags: true, levels: true, skills: true}
 }
 
 // List returns one page of live bank questions, newest first, with the
@@ -144,4 +151,24 @@ func (s *Postgres) attachChildren(ctx context.Context, questions []domain.Questi
 		}
 	}
 	return nil
+}
+
+func appendMetadataFilters(in domain.ListInput, opts filterOpts, args []any, where []string) ([]any, []string) {
+	if opts.levels && len(in.Levels) > 0 {
+		values := make([]string, len(in.Levels))
+		for i, value := range in.Levels {
+			values[i] = string(value)
+		}
+		args = append(args, values)
+		where = append(where, fmt.Sprintf(`q.level = ANY($%d::text[])`, len(args)))
+	}
+	if opts.skills && len(in.Skills) > 0 {
+		values := make([]string, len(in.Skills))
+		for i, value := range in.Skills {
+			values[i] = string(value)
+		}
+		args = append(args, values)
+		where = append(where, fmt.Sprintf(`q.skill = ANY($%d::text[])`, len(args)))
+	}
+	return args, where
 }

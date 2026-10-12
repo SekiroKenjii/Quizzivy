@@ -1,6 +1,9 @@
 DELETE /admin/users/{id} people.users.manage
 DELETE /auth/google/link self
+DELETE /auth/sessions/{familyId} self
+DELETE /me/avatar self
 DELETE /teacher/assignments/{id} teaching.assignments.write
+DELETE /teacher/assignments/{id}/student-overrides/{studentId} teaching.attempts.intervene
 DELETE /teacher/classes/{id} teaching.classes.write
 DELETE /teacher/classes/{id}/join-code teaching.classes.write
 DELETE /teacher/classes/{id}/members/{userId} teaching.classes.write
@@ -16,10 +19,17 @@ GET /app/attempts/{id}/result learning.take_tests
 GET /app/classes learning.take_tests
 GET /app/media/{assetId}/url learning.take_tests
 GET /auth/me self
+GET /auth/sessions self
+GET /me/notification-preferences self
+GET /me/notifications self
+GET /me/summary self
 GET /teacher/assignments workspace.teacher
+GET /teacher/assignments/results.csv teaching.grading
 GET /teacher/assignments/{id} workspace.teacher
 GET /teacher/assignments/{id}/answers teaching.grading
 GET /teacher/assignments/{id}/attempts workspace.teacher
+GET /teacher/assignments/{id}/item-analysis teaching.grading
+GET /teacher/assignments/{id}/student-overrides teaching.attempts.intervene
 GET /teacher/attempts teaching.grading | teaching.attempts.intervene
 GET /teacher/attempts/{id} teaching.grading | teaching.attempts.intervene
 GET /teacher/attempts/{id}/events teaching.grading | teaching.attempts.intervene
@@ -28,6 +38,7 @@ GET /teacher/classes/{id} workspace.teacher
 GET /teacher/classes/{id}/join-code teaching.classes.write
 GET /teacher/classes/{id}/members people.students.read
 GET /teacher/dashboard workspace.teacher
+GET /teacher/grading/queue teaching.grading
 GET /teacher/imports content.tests.write
 GET /teacher/imports/capabilities content.tests.write
 GET /teacher/imports/limits content.tests.write
@@ -42,15 +53,19 @@ GET /teacher/questions workspace.teacher
 GET /teacher/questions/{id} workspace.teacher
 GET /teacher/students people.students.read
 GET /teacher/students/{id} people.students.read
+GET /teacher/summary workspace.teacher
 GET /teacher/tests workspace.teacher
 GET /teacher/tests/{id} workspace.teacher
 GET /teacher/tests/{id}/preview workspace.teacher
 GET /teacher/tests/{id}/versions workspace.teacher
+GET /teacher/tests/{id}/versions/{version}/diff workspace.teacher
 PATCH /app/attempts/{id}/answers learning.take_tests
 PATCH /auth/me self
+PATCH /me/preferences self
 PATCH /teacher/assignments/{id} teaching.assignments.write
 PATCH /teacher/attempts/{id}/note teaching.grading
 PATCH /teacher/classes/{id} teaching.classes.write
+PATCH /teacher/media/{id} content.media.write
 PATCH /teacher/question-groups/{id}/archive content.questions.write
 PATCH /teacher/questions/{id} content.questions.write | content.tests.write
 PATCH /teacher/students/{id} people.students.create
@@ -63,7 +78,11 @@ POST /app/attempts/{id}/submit learning.take_tests
 POST /app/classes/join learning.take_tests
 POST /auth/change-password self
 POST /auth/google/link self
+POST /auth/sessions/revoke-others self
+POST /me/notifications/read self
 POST /teacher/assignments teaching.assignments.write
+POST /teacher/assignments/{id}/duplicate teaching.assignments.write
+POST /teacher/assignments/{id}/extend teaching.assignments.write
 POST /teacher/assignments/{id}/reopen teaching.assignments.write
 POST /teacher/attempts/{id}/extend teaching.attempts.intervene
 POST /teacher/attempts/{id}/finish-grading teaching.grading
@@ -80,18 +99,24 @@ POST /teacher/imports/{id}/commit content.tests.write
 POST /teacher/imports/{id}/process content.tests.write
 POST /teacher/imports/{id}/review/adopt content.tests.write
 POST /teacher/imports/{id}/sources content.tests.write
+POST /teacher/imports/{id}/sources/text content.tests.write
 POST /teacher/media content.media.write
+POST /teacher/media/{id}/replace content.media.write
 POST /teacher/question-groups content.questions.write | content.tests.write
 POST /teacher/question-groups/{id}/copy content.questions.write | content.tests.write
 POST /teacher/questions content.questions.write | content.tests.write
 POST /teacher/questions/tags content.questions.write
 POST /teacher/questions/{id}/duplicate content.questions.write | content.tests.write
 POST /teacher/students people.students.create
+POST /teacher/students/reset-passwords people.students.reset_password
 POST /teacher/students/{id}/reset-password people.students.reset_password
 POST /teacher/tests content.tests.write
 POST /teacher/tests/{id}/duplicate content.tests.write
 POST /teacher/tests/{id}/publish content.tests.publish
 POST /teacher/tests/{id}/versions/{version}/current content.tests.publish
 POST /teacher/tests/{id}/versions/{version}/draft content.tests.write
+PUT /me/avatar self
+PUT /me/notification-preferences self
+PUT /teacher/assignments/{id}/student-overrides teaching.attempts.intervene
 PUT /teacher/imports/{id}/review content.tests.write
 PUT /teacher/question-groups/{id} content.questions.write | content.tests.write

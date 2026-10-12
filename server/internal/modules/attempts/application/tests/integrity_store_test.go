@@ -58,11 +58,11 @@ func seedAttempt(t *testing.T, pool *pgxpool.Pool, startedAt time.Time) (attempt
 			}
 		}
 	})
-	must(pool.QueryRow(ctx, `INSERT INTO app.tests (title, status, current_version, created_by) VALUES ('Integrity', 'published', 1, $1::uuid) RETURNING id::text`, admin).Scan(&testID))
+	must(pool.QueryRow(ctx, `INSERT INTO app.tests (title, status, current_version, created_by, owner_id) VALUES ('Integrity', 'published', 1, $1::uuid, $1::uuid) RETURNING id::text`, admin).Scan(&testID))
 	must(pool.QueryRow(ctx, `INSERT INTO app.test_versions (test_id, version, total_points, published_by) VALUES ($1::uuid, 1, '5.00', $2::uuid) RETURNING id::text`, testID, admin).Scan(&versionID))
 	must(pool.QueryRow(ctx, `INSERT INTO app.test_version_sections (test_version_id, ordinal, title) VALUES ($1::uuid, 0, 'Phần 1') RETURNING id::text`, versionID).Scan(&sectionID))
-	must(pool.QueryRow(ctx, `INSERT INTO app.media_assets (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by)
-		VALUES ('audio', $1, 'audio/mpeg', 1000, 10000, 'a.mp3', sha256(convert_to($1, 'UTF8')), $2::uuid) RETURNING id::text`, "audio/int-"+id+".mp3", admin).Scan(&assetID))
+	must(pool.QueryRow(ctx, `INSERT INTO app.media_assets (kind, storage_key, mime_type, bytes, duration_ms, original_filename, checksum_sha256, uploaded_by, owner_id)
+		VALUES ('audio', $1, 'audio/mpeg', 1000, 10000, 'a.mp3', sha256(convert_to($1, 'UTF8')), $2::uuid, $2::uuid) RETURNING id::text`, "audio/int-"+id+".mp3", admin).Scan(&assetID))
 	must(pool.QueryRow(ctx, `INSERT INTO app.test_version_questions
 		(test_version_section_id, ordinal, type, prompt, points, media_asset_id, media_asset_kind, audio_max_plays, audio_allow_seek, audio_show_transcript_after)
 		VALUES ($1::uuid, 0, 'single_choice', 'Nghe', '5.00', $2::uuid, 'audio', 2, false, false) RETURNING id::text`, sectionID, assetID).Scan(&questionID))

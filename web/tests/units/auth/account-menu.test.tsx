@@ -12,13 +12,13 @@ import { useAuthStore } from "@/stores/auth";
 import { STUDENT } from "../student/support";
 import "@/lib/i18n";
 
-function renderMenu(deck: boolean) {
+function renderMenu() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
         <DeckScale>
-          <AccountMenu settingsTo="/app/settings" deck={deck} />
+          <AccountMenu settingsTo="/app/settings" />
         </DeckScale>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -36,6 +36,7 @@ const itemNames = () =>
 beforeEach(() => {
   useAuthStore.setState({ user: STUDENT });
   writeThemePreference("light");
+  localStorage.removeItem("quizzivy.theme");
 });
 
 afterEach(() => {
@@ -45,7 +46,7 @@ afterEach(() => {
 
 describe("the account menu on a console built to the deck", () => {
   it("shows who is signed in, then Settings, the theme and Sign out, in that order", async () => {
-    const user = renderMenu(true);
+    const user = renderMenu();
     await user.click(trigger());
 
     const menu = screen.getByRole("menu");
@@ -60,7 +61,7 @@ describe("the account menu on a console built to the deck", () => {
   });
 
   it("opens from the keyboard, moves through its items and gives focus back on Escape", async () => {
-    const user = renderMenu(true);
+    const user = renderMenu();
     trigger().focus();
     await user.keyboard("{Enter}");
 
@@ -79,25 +80,60 @@ describe("the account menu on a console built to the deck", () => {
   });
 
   it("switches to the dark theme and back, remembering the choice", async () => {
-    const user = renderMenu(true);
+    useAuthStore.getState().setSession("token", STUDENT);
+    const patches: unknown[] = [];
+    server.use(
+      http.patch("http://localhost:8080/me/preferences", async ({ request }) => {
+        const patch = (await request.json()) as {
+          theme: "light" | "dark" | "system";
+        };
+        patches.push(patch);
+        return HttpResponse.json(patch);
+      }),
+    );
+    const user = renderMenu();
     await user.click(trigger());
     await user.click(screen.getByRole("menuitem", { name: "Chế độ tối" }));
     expect(document.documentElement.classList.contains("dark")).toBe(true);
     expect(localStorage.getItem("quizzivy.theme")).toBe("dark");
 
+    await waitFor(() =>
+      expect(useAuthStore.getState().user?.preferences?.theme).toBe("dark"),
+    );
     await user.click(trigger());
     expect(itemNames()).toEqual(["Cài đặt", "Chế độ sáng", "Đăng xuất"]);
     await user.click(screen.getByRole("menuitem", { name: "Chế độ sáng" }));
     expect(document.documentElement.classList.contains("dark")).toBe(false);
     expect(localStorage.getItem("quizzivy.theme")).toBe("light");
+    await waitFor(() =>
+      expect(useAuthStore.getState().user?.preferences?.theme).toBe("light"),
+    );
+    expect(patches).toEqual([{ theme: "dark" }, { theme: "light" }]);
   });
 
   it("leaves the system setting for an explicit theme when the user picks one", async () => {
+    useAuthStore
+      .getState()
+      .setSession("token", { ...STUDENT, preferences: { theme: "system" } });
+    const patches: unknown[] = [];
+    server.use(
+      http.patch("http://localhost:8080/me/preferences", async ({ request }) => {
+        const patch = (await request.json()) as {
+          theme: "light" | "dark" | "system";
+        };
+        patches.push(patch);
+        return HttpResponse.json(patch);
+      }),
+    );
     writeThemePreference("system");
-    const user = renderMenu(true);
+    const user = renderMenu();
     await user.click(trigger());
     await user.click(screen.getByRole("menuitem", { name: "Chế độ tối" }));
     expect(localStorage.getItem("quizzivy.theme")).toBe("dark");
+    await waitFor(() =>
+      expect(useAuthStore.getState().user?.preferences?.theme).toBe("dark"),
+    );
+    expect(patches).toEqual([{ theme: "dark" }]);
   });
 });
 
@@ -110,7 +146,7 @@ describe("signing out from the deck's menu", () => {
         return new HttpResponse(null, { status: 204 });
       }),
     );
-    const user = renderMenu(true);
+    const user = renderMenu();
     await user.click(trigger());
     await user.click(screen.getByRole("menuitem", { name: "Đăng xuất" }));
     await waitFor(() => expect(ended).toBe(1));
@@ -118,10 +154,20 @@ describe("signing out from the deck's menu", () => {
   });
 });
 
-describe("the account menu on a console not yet rebuilt", () => {
-  it("offers Settings and Sign out and no theme", async () => {
-    const user = renderMenu(false);
-    await user.click(trigger());
-    expect(itemNames()).toEqual(["Cài đặt", "Đăng xuất"]);
+describe("the account menu's Settings link", () => {
+  it("opens the teacher's settings where a console names no other", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <AccountMenu />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await userEvent.setup().click(trigger());
+    expect(screen.getByRole("menuitem", { name: "Cài đặt" })).toHaveAttribute(
+      "href",
+      "/teacher/settings",
+    );
   });
 });

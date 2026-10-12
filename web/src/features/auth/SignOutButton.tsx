@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { authStore } from "@/stores/auth";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,13 @@ export function SignOutButton({
 }>) {
   const { t } = useTranslation();
   const logout = useLogout();
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const [pending, setPending] = useState(false);
 
   return (
@@ -28,7 +36,11 @@ export function SignOutButton({
       disabled={pending}
       onClick={() => {
         setPending(true);
-        void logout();
+        const completion = logout();
+        const lease = authStore.captureActor();
+        void completion.finally(() => {
+          if (mounted.current && authStore.isCurrent(lease)) setPending(false);
+        });
       }}
     >
       <LogOut aria-hidden="true" />

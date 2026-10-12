@@ -6,4 +6,5 @@ var (
 	Deal          DealManager
 	Timelines     TimelineManager
 	Interventions InterventionManager
+	Reviews       ReviewManager
 )

@@ -49,6 +49,36 @@ References: [GitHub scheduled-workflow limitations](https://docs.github.com/en/a
 [notification recipients](https://docs.github.com/en/actions/concepts/workflows-and-actions/notifications-for-workflow-runs),
 [Fly health checks](https://fly.io/docs/reference/health-checks/).
 
+## Request logs and what counts as a server error
+
+Every request logs one `http` line at INFO: `method`, `path`, `status`,
+`duration_ms` and `request_id`. A failure a handler returns also logs one
+`handler` line at ERROR with the same `request_id` and the error, and answers
+`500 INTERNAL`; the permission gate's and the API-reference gate's 500 log only
+the `http` line. Count 5xx from `status`.
+
+A browser that aborts a fetch (TanStack Query cancelling on navigation, a closed
+tab, a dropped connection) is not a fault. A request that fails because its own
+client went away answers and logs `status:499`, nginx's name for it, with no body
+and no ERROR line; a `client_cancelled` line at DEBUG, off in production, names
+the error. A 499 is in no 5xx count. The same holds for the permission gate, the
+API-reference gate and `/healthz`.
+
+The request's own context must be cancelled, and the error either `context
+canceled` or a network timeout. The second is what pgx reports when the cancel
+reaches it while it writes to Postgres: it expires the connection's deadline to
+interrupt the write and returns `write failed: write tcp ...: i/o timeout`,
+which does not name the cancel. The pool sets no write deadline of its own, so on
+a request the client did not cancel the same line is a real fault.
+
+What stays a server error: a `context deadline exceeded` (the pool's two-second
+ping, an upload's two-minute budget), a context the server cancelled while the
+client was still connected, an `i/o timeout` on a request nobody cancelled, and
+any other failure, even on a request the client also cancelled. The maintenance
+gate and the rate limiters have no such path: the first reads its window under a
+context the client cannot cancel, and the others decide from memory, a body they
+cannot read only costing them its key.
+
 ## Backup and recovery drill
 
 The proposed restore-history target is seven days, subject to the owner's Neon
@@ -159,19 +189,43 @@ maintenance window-cancel -window WINDOW_UUID -apply
 maintenance window-end -window WINDOW_UUID -apply
 ```
 
-Scheduling is a dry run until `-apply`. The dry run reports how many attempts and
-assignments would move; read it before applying.
+Scheduling is a dry run until `-apply`. The dry run reports how many attempts,
+assignments and student overrides would move (`attempts`, `assignments` and
+`overrides` in its JSON); read it before applying.
 
 What moves when a window is scheduled, in the same transaction, audited as
 System (no actor, `reason: "maintenance"`, the window id and the database role):
 - every attempt still in progress whose deadline is after the window's start
   gets the window's length added to its deadline (`attempt.extended`);
 - every open assignment that would close inside the window closes that much
-  later (`assignment.extended`).
+  later (`assignment.extended`);
+- every per-student override of a published assignment whose `closes_at` falls
+  inside the window closes that much later (`assignment.override_extended`, one
+  audit row per override, naming the student). An assignment closed early is
+  included, because the override is what keeps its student in.
+
+An override with no `closes_at` (a longer time limit or more attempts only) has
+no close to move, and the overrides of an assignment that was never published
+are left alone.
+
+`window-schedule`, `window-cancel` and `window-end` take the advisory lock
+`(73819, 40)` exclusively. A student's start, a teacher's extension, update or
+reopening of an assignment and the two override writes take it shared, so none
+of them runs between a window's scheduling and the extensions it makes
+(`docs/plan/20-data-model.md` §28).
+
+The override extension updates `app.assignment_student_overrides.closes_at`, so
+the database role behind `MAINTENANCE_DATABASE_URL` needs `SELECT` on the table
+and `UPDATE (closes_at)` on that column. R5's `grant_maintenance_role` migration
+grants both to `quizzivy_maintenance`; until it lands, run `cmd/maintenance` with
+the owner or maintenance credential this document already asks for. A role
+without the grant fails the apply with a permission error, and the transaction
+writes nothing.
 
 `window-cancel` cancels a window that has not ended; `window-end` ends an active
-window now. Both keep the extensions already granted: a deadline that moved does
-not move back. `window-list` prints the upcoming and active windows.
+window now. Both keep the extensions already granted: a deadline or an override
+close that moved does not move back. `window-list` prints the upcoming and
+active windows.
 
 A window takes effect within 30 seconds of being written, which is how long the
 API may serve its cached answer to "is there a window?". Schedule the start at
@@ -222,8 +276,11 @@ The operator supplies `JOIN_CODE_KEY` and `JOIN_CODE_KEY_PREVIOUS` to
    - `pending` is the number of codes that will move.
    - `unopened` lists the codes under the old key whose ciphertext does not
      open, by row and class id, never by code.
-   - `legacy` counts the codes issued before v0.8.0. They hold no ciphertext
-     and cannot be re-keyed; R4 rotates them.
+   - `legacy` counts every code issued before v0.8.0, revoked or expired
+     ones included. They hold no ciphertext and cannot be re-keyed. From
+     v0.10.0 the API replaces the live ones at start-up (see "Legacy join
+     codes" below), so what remains here is revoked or expired, and has
+     nothing to re-key.
 4. Apply it. It walks the codes in batches of 500 (`-batch`), one
    transaction each, and writes only `code_hash`, `code_ciphertext` and
    `key_id`. Joins to the codes in a batch wait until that batch commits, so
@@ -252,6 +309,62 @@ Every code sealed under it becomes unreadable and unredeemable: its class's
 code reads back as `code: null, legacy: false`, and joining with it answers
 `JOIN_CODE_INVALID`. Generate a new key, deploy it, rotate every class's code,
 and tell the teachers to share the new codes.
+
+## Legacy join codes
+
+A code issued before v0.8.0 is held only as its SHA-256 (lookup scheme 1): it
+redeems, but cannot be read back. `jobs.RotateLegacyJoinCodes` replaces each live
+one, once, when the API starts. No operator command is involved; `Serve` starts
+the job beside the prunes, and the `worker` process does not run it.
+
+For every class whose active code is scheme 1, not revoked and not yet expired,
+one transaction revokes that code and issues a sealed one (scheme 2, under the
+current `JOIN_CODE_KEY`). The new code keeps the old one's expiry, use cap (a
+stored NULL stays NULL), use count and creator, and leaves the class's
+self-join switch as it was. A class whose legacy code had reached its cap
+therefore gets a code that is used up: its teacher issues a new one to admit
+more students (F-67). The old code then answers as any replaced code does:
+"revoked" where self-join is open, and as an unknown code where self-join is
+closed or the class is archived. Archived classes are rotated too. Each rotation
+is audited as `class.join_code_rotated` with no actor (the System), the diff
+`{reason: "legacy_rotation", previousHint, hint}`, never a code.
+
+- **Concurrency.** Each class is its own transaction and takes
+  `pg_advisory_xact_lock(73819, 41)`, then the class row (`FOR NO KEY UPDATE`),
+  then re-reads the class's active code. Two machines starting together
+  therefore rotate a class once, and a second run finds nothing to do. A class
+  whose transaction lost a deadlock or serialization conflict is tried once more
+  after the other classes (`docs/plan/20-data-model.md` §28 and §33).
+- **Budget.** Two minutes for the whole run. It never runs on a timer. A class it
+  did not reach, or that failed, waits for the next start-up: restart the app
+  machine or deploy again.
+- **Teachers.** Each affected teacher gets one in-app notification,
+  `join_codes.rotated`, with how many of their classes were rotated and the first
+  five names; a later run adds its count to the same unread row. A failed
+  notification undoes nothing, and a process that stops between a teacher's last
+  rotation and their notification leaves them untold (the next run finds nothing
+  to rotate), so the release note tells the teachers as well.
+- **Logs** (`slog` JSON; none carries a code or a hint, only class and user ids):
+  `legacy_join_codes_found {count}` before the first class when there is one;
+  `legacy_join_codes_rotated {found, rotated, failed, teachers, notify_failed}`
+  after the last; `legacy_join_codes_problem {err}` at Warn for each class left
+  unrotated and each teacher left untold; `legacy_join_codes_failed {err}` when
+  the listing itself failed. A run that finds nothing logs nothing.
+
+Release check: run this with any credential that can read `app.class_join_codes`,
+before and after the deploy. The count before is the number of classes the run will
+rotate (record it for the release note); the count after must be 0, or the classes
+that `legacy_join_codes_rotated` reports as `failed` are waiting for the next
+start-up:
+
+```sql
+SELECT count(*) FROM app.class_join_codes
+ WHERE revoked_at IS NULL AND lookup_scheme = 1 AND expires_at > now();
+```
+
+The lookup branch that still finds a scheme-1 row (so a revoked or expired
+legacy code answers as revoked or expired, not as unknown) stays until R5 removes
+it.
 
 ## Evidence still required in production
 

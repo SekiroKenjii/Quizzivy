@@ -1,488 +1,320 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { http } from "msw";
+import { MemoryRouter } from "react-router";
+import { http, HttpResponse } from "msw";
 import { JoinCodePanel } from "@/features/classes/components/JoinCodePanel";
+import type { Class, JoinCode } from "@/features/classes/api";
 import { Toaster } from "@/components/ui/sonner";
+import { formatDate } from "@/lib/i18n/datetime";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
-import type { components } from "@/lib/api/schema";
 import "@/lib/i18n";
 
 const BASE = "http://localhost:8080";
-const CLASS_ID = "019535d9-3df7-79fb-b466-fa907fa17f9e";
-const FULL_CODE = "K7M3-P9QR";
+const CLASS_ID = "018f0000-0000-7000-8000-0000000000c1";
+const ORIGIN = window.location.origin;
+const TEN_DAYS_ON = new Date(Date.now() + 10 * 86_400_000);
+TEN_DAYS_ON.setUTCHours(16, 59, 59, 0);
+const IN_TEN_DAYS = TEN_DAYS_ON.toISOString();
+const DAYS_LEFT = Math.floor((TEN_DAYS_ON.getTime() - Date.now()) / 86_400_000);
 
-/**
- * The clock is pinned because the panel compares the fixture's `expiresAt`
- * against it: `expired` decides whether the primary button says "Tạo mã mới" or
- * "Mở tham gia bằng mã", so on 27/09/2026 this file would have started failing
- * eight of its tests, and the expired-code block would have gone green for the
- * wrong reason.
- */
-const NOW = new Date("2026-08-29T00:00:00Z");
-
-beforeEach(() => {
-  vi.useFakeTimers({ toFake: ["Date"], now: NOW });
-});
-
-afterEach(() => {
-  vi.useRealTimers();
-});
-
-const klass: components["schemas"]["Class"] = {
+const CODE: JoinCode = {
+  code: "K7QM-2PXA",
+  hint: "2PXA",
+  legacy: false,
+  expiresAt: IN_TEN_DAYS,
+  maxUses: 40,
+  usesCount: 3,
+};
+const KLASS: Class = {
   id: CLASS_ID,
-  name: "Tiếng Anh giao tiếp — Lớp A",
-  studentCount: 12,
-  openAssignmentCount: 0,
-  archivedAt: null,
+  name: "IELTS 6.5 Evening",
+  description: null,
+  scheduleLabel: null,
+  room: null,
+  studentCount: 24,
+  openAssignmentCount: 1,
   selfJoinEnabled: true,
-  createdAt: "2026-01-01T00:00:00Z",
+  archivedAt: null,
   joinCode: {
-    hint: "P9QR",
-    expiresAt: "2026-09-27T00:00:00Z",
-    maxUses: 40,
-    usesCount: 3,
+    hint: CODE.hint,
+    expiresAt: CODE.expiresAt,
+    maxUses: CODE.maxUses,
+    usesCount: CODE.usesCount,
   },
+  createdAt: "2026-08-03T03:00:00Z",
 };
 
-function renderPanel(value = klass) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+let reads = 0;
+let readable: JoinCode | null = CODE;
+let rotations: unknown[] = [];
+let revokes = 0;
+let patches: unknown[] = [];
+
+beforeEach(() => {
+  reads = 0;
+  readable = CODE;
+  rotations = [];
+  revokes = 0;
+  patches = [];
+  server.use(
+    http.get(`${BASE}/teacher/classes/${CLASS_ID}/join-code`, () => {
+      reads += 1;
+      if (readable === null)
+        return HttpResponse.json(
+          {
+            error: {
+              code: "NOT_FOUND",
+              message: "Không có mã.",
+              requestId: "018f0000-0000-7000-8000-0000000000f1",
+            },
+          },
+          { status: 404 },
+        );
+      return contractJson("/teacher/classes/{id}/join-code", "get", 200, readable);
+    }),
+    http.post(`${BASE}/teacher/classes/${CLASS_ID}/join-code`, async ({ request }) => {
+      rotations.push(await request.json());
+      return contractJson("/teacher/classes/{id}/join-code", "post", 201, {
+        code: "B4XN-9TRE",
+        expiresAt: IN_TEN_DAYS,
+        maxUses: 40,
+      });
+    }),
+    http.delete(`${BASE}/teacher/classes/${CLASS_ID}/join-code`, () => {
+      revokes += 1;
+      return new HttpResponse(null, { status: 204 });
+    }),
+    http.patch(`${BASE}/teacher/classes/${CLASS_ID}`, async ({ request }) => {
+      const body = await request.json();
+      patches.push(body);
+      return contractJson("/teacher/classes/{id}", "patch", 200, KLASS);
+    }),
+  );
+});
+
+function renderPanelWithClient(klass: Class = KLASS, canWrite = true) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
   render(
     <QueryClientProvider client={client}>
-      <JoinCodePanel klass={value} />
+      <MemoryRouter>
+        <JoinCodePanel klass={klass} canWrite={canWrite} />
+      </MemoryRouter>
       <Toaster />
     </QueryClientProvider>,
   );
+  return { user: userEvent.setup(), client };
 }
 
-describe("the join code panel", () => {
-  it("shows no full code until a rotation produces one", () => {
+function renderPanel(klass: Class = KLASS, canWrite = true) {
+  return renderPanelWithClient(klass, canWrite).user;
+}
+
+describe("the join code card (DG-01)", () => {
+  it("shows the code in full, when it expires and how much it was used, and never says it is shown once", async () => {
     renderPanel();
-
-    const body = document.body.textContent ?? "";
-    expect(body).not.toContain(FULL_CODE);
-    expect(body).not.toContain("K7M3");
-    // The hint is all that survives, and it is masked.
-    expect(screen.getByText(/••••-P9QR/)).toBeInTheDocument();
-    // And there is no QR to scan, because there is no link to encode.
-    expect(screen.queryByLabelText("Mã QR dẫn tới trang tham gia lớp")).toBeNull();
-  });
-
-  it("shows the counters the teacher needs to judge a code", () => {
-    renderPanel();
-    expect(screen.getByText("3 / 40")).toBeInTheDocument();
-    expect(screen.getByText(/07:00, 27\/09\/2026/)).toBeInTheDocument();
-  });
-
-  it("says the class is closed when there is no active code", () => {
-    const closed = Object.fromEntries(
-      Object.entries(klass).filter(([key]) => key !== "joinCode"),
-    );
-    renderPanel(closed as components["schemas"]["Class"]);
-    expect(screen.getByText(/chưa mở tham gia bằng mã/)).toBeInTheDocument();
-  });
-});
-
-describe("rotating", () => {
-  it("does nothing until the confirmation is accepted", async () => {
-    let rotations = 0;
-    server.use(
-      http.post(`${BASE}/teacher/classes/:id/join-code`, () => {
-        rotations += 1;
-        return contractJson("/teacher/classes/{id}/join-code", "post", 201, {
-          code: FULL_CODE,
-          expiresAt: "2026-09-27T00:00:00Z",
-          maxUses: 40,
-        });
-      }),
-    );
-
-    const user = userEvent.setup();
-    renderPanel();
-
-    await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
-    expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByText(/Mã cũ sẽ ngừng hoạt động ngay/)).toBeInTheDocument();
-    expect(rotations, "opening the dialog must not rotate anything").toBe(0);
-
-    // Backing out leaves the code alone.
-    await user.click(screen.getByRole("button", { name: "Huỷ" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(rotations).toBe(0);
-  });
-
-  it("reveals the code exactly once, with a QR, after confirming", async () => {
-    server.use(
-      http.post(`${BASE}/teacher/classes/:id/join-code`, () =>
-        contractJson("/teacher/classes/{id}/join-code", "post", 201, {
-          code: FULL_CODE,
-          expiresAt: "2026-09-27T00:00:00Z",
-          maxUses: 40,
-        }),
-      ),
-    );
-
-    const user = userEvent.setup();
-    renderPanel();
-
-    await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
-    await user.click(
-      within(await screen.findByRole("dialog")).getByRole("button", {
-        name: "Tạo mã mới",
-      }),
-    );
-
-    expect(await screen.findByText(FULL_CODE)).toBeInTheDocument();
-    expect(screen.getByText(/chỉ hiện một lần/)).toBeInTheDocument();
-    // The QR encodes the join LINK, not the bare code: a phone camera opens it.
-    expect(document.querySelector("svg")).not.toBeNull();
-  });
-
-  it("copies the join link rather than the bare code", async () => {
-    server.use(
-      http.post(`${BASE}/teacher/classes/:id/join-code`, () =>
-        contractJson("/teacher/classes/{id}/join-code", "post", 201, {
-          code: FULL_CODE,
-          expiresAt: "2026-09-27T00:00:00Z",
-          maxUses: 40,
-        }),
-      ),
-    );
-    const user = userEvent.setup();
-    renderPanel();
-    await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
-    await user.click(
-      within(await screen.findByRole("dialog")).getByRole("button", {
-        name: "Tạo mã mới",
-      }),
-    );
-    await screen.findByText(FULL_CODE);
-
-    await user.click(screen.getByRole("button", { name: "Sao chép đường dẫn" }));
-    await waitFor(async () => {
-      expect(await navigator.clipboard.readText()).toMatch(/\/join\/K7M3P9QR$/);
-    });
-  });
-});
-
-describe("G-06's controls around the code", () => {
-  it("pauses and resumes joining from the switch without touching the code", async () => {
-    let sent: unknown = null;
-    server.use(
-      http.patch(`${BASE}/teacher/classes/:id`, async ({ request }) => {
-        sent = await request.json();
-        return contractJson("/teacher/classes/{id}", "patch", 200, {
-          ...klass,
-          selfJoinEnabled: false,
-        });
-      }),
-    );
-    const user = userEvent.setup();
-    renderPanel();
-
-    await user.click(screen.getByRole("switch", { name: "Cho tham gia" }));
-
-    await waitFor(() => expect(sent).toEqual({ selfJoinEnabled: false }));
+    expect(await screen.findByText("K7QM-2PXA", { selector: "p" })).toBeVisible();
     expect(
-      await screen.findByText("Đã tạm ngừng tham gia bằng mã"),
-    ).toBeInTheDocument();
+      screen.getByText(`${formatDate(IN_TEN_DAYS, "vi")}, 23:59`, { exact: false }),
+    ).toBeVisible();
+    expect(screen.getByText(`· còn ${DAYS_LEFT} ngày`)).toBeVisible();
+    expect(screen.getByText("3 / 40")).toBeVisible();
+    expect(screen.queryByText(/một lần/)).toBeNull();
+    expect(reads).toBe(1);
   });
 
-  it("says why joining is off, while the code stays listed", () => {
-    renderPanel({ ...klass, selfJoinEnabled: false });
-
-    expect(screen.getByText(/Đang tạm ngừng/)).toBeInTheDocument();
-    expect(screen.getByText("••••-P9QR")).toBeInTheDocument();
+  it("copies the link in the one format and the bare code", async () => {
+    const user = renderPanel();
+    await screen.findByText("K7QM-2PXA", { selector: "p" });
+    await user.click(screen.getByRole("button", { name: "Chép liên kết" }));
+    expect(await navigator.clipboard.readText()).toBe(`${ORIGIN}/join/K7QM-2PXA`);
+    await user.click(screen.getByRole("button", { name: "Chép mã" }));
+    expect(await navigator.clipboard.readText()).toBe("K7QM-2PXA");
+    expect(await screen.findByText("Đã sao chép mã")).toBeInTheDocument();
   });
 
-  it("offers the bare code and the QR to save beside the link", async () => {
-    server.use(
-      http.post(`${BASE}/teacher/classes/:id/join-code`, () =>
-        contractJson("/teacher/classes/{id}/join-code", "post", 201, {
-          code: FULL_CODE,
-          expiresAt: "2026-09-27T00:00:00Z",
-          maxUses: 40,
-        }),
-      ),
-    );
-    const saved: string[] = [];
-    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
-      this: HTMLAnchorElement,
-    ) {
-      saved.push(this.download);
-    });
-    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
-    Object.assign(URL, {
-      createObjectURL: () => "blob:qr",
-      revokeObjectURL: () => undefined,
-    });
-    const user = userEvent.setup();
-    renderPanel();
-    await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
-    await user.click(
-      within(await screen.findByRole("dialog")).getByRole("button", {
-        name: "Tạo mã mới",
-      }),
-    );
-    await screen.findByText(FULL_CODE);
-
-    await user.click(screen.getByRole("button", { name: "Sao chép mã" }));
-    await waitFor(async () => {
-      expect(await navigator.clipboard.readText()).toBe(FULL_CODE);
-    });
-
-    await user.click(screen.getByRole("button", { name: "Tải QR" }));
-    expect(saved).toEqual([`quizzivy-${FULL_CODE}.svg`]);
+  it("opens the QR for the code", async () => {
+    const user = renderPanel();
+    await screen.findByText("K7QM-2PXA", { selector: "p" });
+    await user.click(screen.getByRole("button", { name: "Mã QR" }));
+    const dialog = await screen.findByRole("dialog", { name: "IELTS 6.5 Evening" });
+    expect(within(dialog).getByText(`${ORIGIN}/join/K7QM-2PXA`)).toBeVisible();
   });
 });
 
-describe("an expired code", () => {
-  const expiredClass: components["schemas"]["Class"] = {
-    ...klass,
-    joinCode: {
-      hint: "P9QR",
-      expiresAt: "2020-01-01T09:00:00Z",
-      maxUses: 40,
-      usesCount: 3,
-    },
-  };
-
-  it("is labelled expired rather than shown as active", () => {
-    renderPanel(expiredClass);
-    expect(screen.getByText("đã hết hạn")).toBeInTheDocument();
-    expect(screen.getByText(/Mã này đã hết hạn/)).toBeInTheDocument();
-  });
-
-  it("offers to ISSUE a code, not to rotate one", () => {
-    // Rotating implies replacing something in use. There is nothing in use.
-    renderPanel(expiredClass);
+describe("a new code", () => {
+  it("asks for its life and its uses, 30 days and 40 by default, refuses an impossible limit, and gives focus back", async () => {
+    const user = renderPanel();
+    await screen.findByText("K7QM-2PXA", { selector: "p" });
+    const opener = screen.getByRole("button", { name: "Mã mới" });
+    await user.click(opener);
+    const dialog = await screen.findByRole("dialog", { name: "Tạo mã mới?" });
+    const uses = within(dialog).getByLabelText("Số lượt tối đa");
+    expect(uses).toHaveValue(40);
     expect(
-      screen.getByRole("button", { name: "Mở tham gia bằng mã" }),
+      within(dialog).getByRole("combobox", { name: "Hết hạn sau" }),
+    ).toHaveTextContent("30 ngày");
+    await user.clear(uses);
+    await user.type(uses, "0");
+    await user.click(within(dialog).getByRole("button", { name: "Tạo mã mới" }));
+    expect(within(dialog).getByText("Hãy nhập số nguyên từ 1 đến 1.000")).toBeVisible();
+    expect(rotations).toEqual([]);
+
+    await user.click(within(dialog).getByRole("combobox", { name: "Hết hạn sau" }));
+    await user.click(await screen.findByRole("option", { name: "7 ngày" }));
+    await user.clear(uses);
+    await user.type(uses, "100");
+    await user.click(within(dialog).getByRole("button", { name: "Tạo mã mới" }));
+    await waitFor(() =>
+      expect(rotations).toEqual([{ expiresInDays: 7, maxUses: 100 }]),
+    );
+    expect(await screen.findByText("Mã tham gia mới: B4XN-9TRE")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(opener).toHaveFocus();
+  });
+
+  it("offers Create code for a class with none, and reads no code", async () => {
+    const user = renderPanel({ ...KLASS, joinCode: null });
+    expect(
+      screen.getByText("Chưa có mã đang dùng. Chỉ bạn thêm được học viên vào lớp."),
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Tạo mã" }));
+    expect(
+      await screen.findByRole("dialog", { name: "Tạo mã tham gia" }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Tạo mã mới" })).toBeNull();
-  });
-
-  it("shows the time, not just the date", () => {
-    renderPanel(expiredClass);
-    expect(screen.getByText(/16:00, 01\/01\/2020/)).toBeInTheDocument();
+    expect(reads).toBe(0);
   });
 });
 
-describe("revoking", () => {
-  it("asks first, like rotating does", async () => {
-    let revocations = 0;
-    server.use(
-      http.delete(`${BASE}/teacher/classes/:id/join-code`, () => {
-        revocations += 1;
-        return new Response(null, { status: 204 });
-      }),
-    );
-
-    const user = userEvent.setup();
-    renderPanel();
-    await user.click(screen.getByRole("button", { name: "Ngừng cho tham gia" }));
-
-    expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    expect(revocations, "opening the dialog must not revoke anything").toBe(0);
-
-    await user.click(screen.getByRole("button", { name: "Huỷ" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(revocations).toBe(0);
-  });
-
-  it("stops displaying a code it has just killed", async () => {
-    server.use(
-      http.post(`${BASE}/teacher/classes/:id/join-code`, () =>
-        contractJson("/teacher/classes/{id}/join-code", "post", 201, {
-          code: FULL_CODE,
-          expiresAt: "2026-09-27T00:00:00Z",
-          maxUses: 40,
-        }),
-      ),
-      http.delete(
-        `${BASE}/teacher/classes/:id/join-code`,
-        () => new Response(null, { status: 204 }),
-      ),
-    );
-
-    const user = userEvent.setup();
-    renderPanel();
-
-    await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
-    await user.click(
-      within(await screen.findByRole("dialog")).getByRole("button", {
-        name: "Tạo mã mới",
-      }),
-    );
-    expect(await screen.findByText(FULL_CODE)).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Xong" }));
-    await waitFor(() => expect(screen.queryByText(FULL_CODE)).not.toBeInTheDocument());
-
-    await user.click(screen.getByRole("button", { name: "Ngừng cho tham gia" }));
-    await user.click(
-      within(await screen.findByRole("dialog")).getByRole("button", {
-        name: "Ngừng cho tham gia",
-      }),
-    );
-
-    await waitFor(() => expect(screen.queryByText(FULL_CODE)).not.toBeInTheDocument());
-    expect(document.body.textContent).not.toContain("K7M3");
+describe("stopping a code", () => {
+  it("asks first, then stops it", async () => {
+    const user = renderPanel();
+    await screen.findByText("K7QM-2PXA", { selector: "p" });
+    await user.click(screen.getByRole("button", { name: "Ngừng" }));
+    const dialog = await screen.findByRole("dialog", { name: "Ngừng mã này?" });
+    expect(revokes).toBe(0);
+    await user.click(within(dialog).getByRole("button", { name: "Ngừng mã" }));
+    await waitFor(() => expect(revokes).toBe(1));
+    expect(await screen.findByText("Đã ngừng mã tham gia")).toBeInTheDocument();
   });
 });
 
-describe("failures", () => {
-  it("tells the teacher when a rotation fails", async () => {
-    server.use(
-      http.post(
-        `${BASE}/teacher/classes/:id/join-code`,
-        () => new Response(null, { status: 500 }),
-      ),
-    );
+describe("an archived class", () => {
+  const ARCHIVED = { ...KLASS, archivedAt: "2026-09-01T00:00:00Z" };
 
-    const user = userEvent.setup();
-    renderPanel();
-    await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
-    await user.click(
-      within(await screen.findByRole("dialog")).getByRole("button", {
-        name: "Tạo mã mới",
-      }),
-    );
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
-    // And no code is claimed to exist.
-    expect(screen.queryByText(FULL_CODE)).toBeNull();
+  it("offers no new code, says to restore it, and still stops its code", async () => {
+    const user = renderPanel(ARCHIVED);
+    await screen.findByText("K7QM-2PXA", { selector: "p" });
+    expect(screen.queryByRole("button", { name: "Mã mới" })).toBeNull();
+    expect(
+      screen.getByText(
+        "Lớp đã lưu trữ nên không ai tham gia được. Khôi phục lớp ở trang Lớp học để tạo mã.",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText(/mã cũ ngừng hoạt động/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Ngừng" }));
+    const dialog = await screen.findByRole("dialog", { name: "Ngừng mã này?" });
+    await user.click(within(dialog).getByRole("button", { name: "Ngừng mã" }));
+    await waitFor(() => expect(revokes).toBe(1));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("switch", { name: "Cho học viên tham gia" })).toHaveFocus();
   });
 
-  it("clears a stale error once something else succeeds", async () => {
+  it("says why when the class was archived elsewhere, and reads the class again", async () => {
     server.use(
-      http.post(
-        `${BASE}/teacher/classes/:id/join-code`,
-        () => new Response(null, { status: 500 }),
-      ),
-      http.delete(
-        `${BASE}/teacher/classes/:id/join-code`,
-        () => new Response(null, { status: 204 }),
-      ),
-    );
-
-    const user = userEvent.setup();
-    renderPanel();
-
-    await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
-    await user.click(
-      within(await screen.findByRole("dialog")).getByRole("button", {
-        name: "Tạo mã mới",
-      }),
-    );
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Ngừng cho tham gia" }));
-    await user.click(
-      within(await screen.findByRole("dialog")).getByRole("button", {
-        name: "Ngừng cho tham gia",
-      }),
-    );
-
-    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
-  });
-});
-
-describe("copying the join link", () => {
-  function withClipboard(value: unknown) {
-    const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
-    Object.defineProperty(navigator, "clipboard", {
-      value,
-      configurable: true,
-      writable: true,
-    });
-    return () => {
-      if (original) Object.defineProperty(navigator, "clipboard", original);
-    };
-  }
-
-  // The copy button exists only once a rotation has produced a plaintext code.
-  async function rotateThenGetCopyButton(user: ReturnType<typeof userEvent.setup>) {
-    server.use(
-      http.post(`${BASE}/teacher/classes/:id/join-code`, () =>
-        contractJson("/teacher/classes/{id}/join-code", "post", 201, {
-          code: FULL_CODE,
-          expiresAt: "2026-09-27T00:00:00Z",
-          maxUses: 40,
-        }),
+      http.post(`${BASE}/teacher/classes/${CLASS_ID}/join-code`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: "CLASS_ARCHIVED",
+              message:
+                "Lớp này đã được lưu trữ nên không thể tạo mã tham gia mới. Hãy khôi phục lớp trước.",
+              requestId: "018f0000-0000-7000-8000-0000000000f2",
+            },
+          },
+          { status: 409 },
+        ),
       ),
     );
-    renderPanel();
-    await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
-    await user.click(
-      within(await screen.findByRole("dialog")).getByRole("button", {
-        name: "Tạo mã mới",
-      }),
-    );
-    await screen.findByText(FULL_CODE);
-    return screen.getByRole("button", { name: "Sao chép đường dẫn" });
-  }
-
-  it("explains a rejected clipboard write instead of going quiet", async () => {
-    const user = userEvent.setup();
-    const copy = await rotateThenGetCopyButton(user);
-
-    const restore = withClipboard({
-      writeText: () => Promise.reject(new Error("denied")),
-    });
-    try {
-      await user.click(copy);
-      expect(await screen.findByText(/Không sao chép được/i)).toBeInTheDocument();
-      // And it must not claim success at the same time.
-      expect(screen.queryByRole("button", { name: "Đã sao chép" })).toBeNull();
-    } finally {
-      restore();
-    }
+    const { user, client } = renderPanelWithClient();
+    const refreshed = vi.spyOn(client, "invalidateQueries");
+    await screen.findByText("K7QM-2PXA", { selector: "p" });
+    await user.click(screen.getByRole("button", { name: "Mã mới" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Tạo mã mới" }));
+    expect(
+      await within(dialog).findByText(
+        "Lớp này đã được lưu trữ nên không thể tạo mã tham gia mới. Hãy khôi phục lớp trước.",
+      ),
+    ).toBeVisible();
+    expect(refreshed).toHaveBeenCalledWith({ queryKey: ["admin-class", CLASS_ID] });
   });
 
-  it("survives a non-secure origin, where navigator.clipboard is undefined", async () => {
-    const user = userEvent.setup();
-    const copy = await rotateThenGetCopyButton(user);
-
-    const restore = withClipboard(undefined);
-    try {
-      // The unguarded version threw synchronously reading .writeText.
-      await user.click(copy);
-      expect(await screen.findByText(/Không sao chép được/i)).toBeInTheDocument();
-    } finally {
-      restore();
-    }
+  it("offers no Create code when it has no code", () => {
+    renderPanel({ ...ARCHIVED, joinCode: null });
+    expect(screen.queryByRole("button", { name: "Tạo mã" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Ngừng" })).toBeNull();
   });
 });
 
-/** Same rule as the temporary password: the code is shown once, so Esc is not a way out. */
-describe("the fresh code dialog", () => {
-  it("ignores Escape and closes only through Xong", async () => {
-    server.use(
-      http.post(`${BASE}/teacher/classes/:id/join-code`, () =>
-        contractJson("/teacher/classes/{id}/join-code", "post", 201, {
-          code: FULL_CODE,
-          expiresAt: "2026-09-27T00:00:00Z",
-          maxUses: 40,
-        }),
+describe("the Students can join switch", () => {
+  it("pauses joining without touching the code, keeping focus while it saves", async () => {
+    const user = renderPanel();
+    const toggle = screen.getByRole("switch", { name: "Cho học viên tham gia" });
+    await user.click(toggle);
+    await waitFor(() => expect(patches).toEqual([{ selfJoinEnabled: false }]));
+    expect(toggle).toHaveFocus();
+    expect(await screen.findByText("Đã tạm ngừng tham gia")).toBeInTheDocument();
+  });
+
+  it("says what a paused class means", () => {
+    renderPanel({ ...KLASS, selfJoinEnabled: false });
+    expect(
+      screen.getByText(
+        "Đang tạm ngừng tham gia. Mã vẫn còn nhưng không ai dùng được cho đến khi bạn bật lại.",
       ),
-    );
-    const user = userEvent.setup();
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        "Gửi mã hoặc liên kết trong buổi học. Tạo mã mới thì mã cũ ngừng hoạt động.",
+      ),
+    ).toBeVisible();
+  });
+
+  it("speaks of no code once the code is stopped", () => {
+    renderPanel({ ...KLASS, selfJoinEnabled: false, joinCode: null });
+    expect(
+      screen.getByText("Chưa có mã đang dùng. Chỉ bạn thêm được học viên vào lớp."),
+    ).toBeVisible();
+    expect(screen.queryByText(/Mã vẫn còn/)).toBeNull();
+    expect(screen.queryByText(/mã cũ ngừng hoạt động/)).toBeNull();
+  });
+});
+
+describe("a code that cannot be read", () => {
+  it("shows its last four characters and says to make a new one", async () => {
+    readable = { ...CODE, code: null, legacy: true };
     renderPanel();
-    await user.click(screen.getByRole("button", { name: "Tạo mã mới" }));
-    await user.click(
-      within(await screen.findByRole("dialog")).getByRole("button", {
-        name: "Tạo mã mới",
-      }),
-    );
-    expect(await screen.findByText(FULL_CODE)).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "Không đọc lại được mã này. Hãy tạo mã mới để gửi cho học viên.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByText("••••-2PXA")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Chép liên kết" })).toBeNull();
+  });
 
-    await user.keyboard("{Escape}");
-    expect(screen.getByText(FULL_CODE)).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Xong" }));
-    expect(screen.queryByText(FULL_CODE)).toBeNull();
+  it("is masked, with nothing to change, for a reader who may not change classes", () => {
+    renderPanel(KLASS, false);
+    expect(screen.getByText("••••-2PXA")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Mã mới" })).toBeNull();
+    expect(
+      screen.getByRole("switch", { name: "Cho học viên tham gia" }),
+    ).toBeDisabled();
+    expect(reads).toBe(0);
   });
 });

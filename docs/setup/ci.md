@@ -13,10 +13,10 @@ rules require; it passes only when every job did what the plan asked of it.
 | Contract | `code` | `make gen-check`: lint the contract, regenerate, fail on drift |
 | Server lint | `server` | vet, staticcheck, golangci-lint, gofmt |
 | Server tests | `server` | unit, integration and end-to-end tiers, the Word converter tests; migrations up, down, up |
-| Web checks | `web` | eslint, typecheck, prettier, integration tests, build |
+| Web checks | `web` | `pnpm lint:ci`, typecheck, `pnpm format:ci`, integration tests, build (lint and format never read a cache) |
 | Web unit | `web` | the unit suite, in shards |
 | E2E | `web` | Playwright against a production build, API stubbed |
-| E2E (live API) | `code` | Playwright against the real API, Postgres and MinIO |
+| E2E (live API) | `code` | Playwright against the real API, Postgres, MinIO and the Word import worker |
 | CI result | — | Fails unless each job above did what the plan said |
 | Sonar | everything | Pushes to `develop` only; not part of the result |
 
@@ -31,7 +31,8 @@ like.
    included or excluded; the longest rule that matches a path decides.
 2. Plan hashes the mode, blob and path of every file in a job's set. The
    workflow, `.github/actions/` and `scripts/ci/` are in every set, so a change
-   to CI itself changes every hash.
+   to CI itself changes every hash. `scripts/dev/` holds the team's local
+   scripts; no job reads it, `plan.test.mjs` fails if one does, and it is in no set.
 3. A job's last step records how it ended, as an artifact kept for 30 days:
    `ci-pass-<job>-<hash>` after a pass, `ci-fail-<job>-<hash>` after a failure,
    nothing when it was cancelled. Plan skips a job when the newest pass for its
@@ -57,7 +58,7 @@ Three cases never use earlier proof:
   job until it passes again.
 
 What the hash cannot see is anything outside the tree: the runner image, the
-`postgres:18` image, the Debian packages the Word converter image installs,
+`postgres:18` image (which `mirror.gcr.io` serves), the Debian packages the Word converter image installs,
 tools fetched at run time. The 30-day expiry and the full run on `main` are
 what bring a job back in front of those.
 
@@ -164,6 +165,28 @@ written on the steps themselves. The steps do not print each test; to see by
 name which of these tests ran, add `-v` to the step's `go test` for one run, as
 the pull request that added the steps did.
 
+## The Word import worker in E2E (live API)
+
+The live job builds the converter image with `.github/actions/word-converter`,
+the same action Server tests uses, so one build recipe serves both. It then
+starts `cmd/import-worker` beside the API, with the API's database, the
+`quizzivy-imports` bucket that `minio-init` creates, an owner-only work
+directory under the runner's temp directory, `IMPORT_DOCKER_BINARY` and the
+image id as `IMPORT_CONVERTER_IMAGE`. The API runs with
+`IMPORT_PROCESSING_ENABLED=true` and the wake URL of the worker's listener.
+The worker keeps its default single global slot: `seed/08` seeds its
+"processing" import as a queued run ten years out, so nothing holds the slot.
+The job fails before the API starts when the build gives no image id, because
+a worker without one would process `.docx` natively and skip the page rendition
+the live spec is there to cover. A failed job prints the worker's log beside
+the API's.
+
+`web/tests/e2e/import.live.spec.ts` takes a synthetic `.docx` exam and key,
+assembled in the test by `web/tests/e2e/support/docx.ts`, from the Imports page
+through the worker to the review and to a draft test whose questions carry
+their keys (#139). The live job's set is `code`, so a change to the worker,
+the converter or the spec runs it; `plan.test.mjs` pins that.
+
 ## MinIO
 
 `.github/workflows/minio-image.yml` builds `docker/minio` once per version of
@@ -172,6 +195,33 @@ package is public, as the repository is; its labels name the licence and where
 the source commits are listed. `.github/actions/minio` pulls that tag and
 falls back to building from source when it is not published, which is what a
 pull request that changes `docker/minio` does on its first run.
+
+## Where CI pulls images from
+
+Docker Hub limits anonymous pulls per address, and a hosted runner shares its
+address with others, so a pull fails intermittently with `toomanyrequests` and
+no test runs. CI therefore pulls every Docker Hub image from Google's mirror,
+`mirror.gcr.io/library/<name>`, which takes no login and has no such limit:
+
+- The `postgres:18` service of **Server tests** and **E2E (live API)** names
+  `mirror.gcr.io/library/postgres:18`. It is the same official image, still
+  PostgreSQL 18, and the tag still follows the 18.x minor release. It is not
+  pinned by digest: a digest the mirror has not cached would fall through to
+  Docker Hub, and the floating tag is what CI ran before. To pin one, append
+  `@sha256:<digest>` to the image in both jobs and bump it deliberately.
+- `scripts/ci/mirror-images.sh` pulls a base from the mirror and tags it under
+  its Docker Hub name, so the build that follows finds it in the local store.
+  `.github/actions/word-converter`, which Server tests and E2E (live API) use, runs it for
+  `debian:trixie-slim` before building the Word converter; `.github/actions/minio` and `minio-image.yml` run it for
+  `golang:1.27-alpine` and `alpine:3.22` before building MinIO. A base the
+  mirror cannot serve prints a warning and is pulled from Docker Hub as before.
+  A new `FROM` on a Docker Hub image adds its name to the call beside the build.
+- MinIO itself comes from `ghcr.io`, and nothing else in the workflows pulls from
+  Docker Hub.
+
+If the mirror ever fails too, the alternative is a Docker Hub login from a
+repository secret, which raises the limit for the account; it needs Thuong to
+create a read-only access token and add it as a secret, and is not built.
 
 ## Branch rules
 

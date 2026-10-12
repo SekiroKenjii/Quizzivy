@@ -39,7 +39,14 @@ export function assignment(
     maxAttempts: 2,
     shuffleQuestions: false,
     shuffleOptions: false,
-    review: { showScore: true, showCorrectAnswers: false, showExplanations: true },
+    review: {
+      showScore: true,
+      showCorrectAnswers: false,
+      showExplanations: true,
+      release: "on_submit",
+      showClassAverage: false,
+    },
+    studentNote: null,
     integrity: {
       requireFullscreen: false,
       blockCopyPaste: true,
@@ -157,7 +164,6 @@ export function review(over: { essayScore?: number | null } = {}): Review {
       id: STUDENT_ID,
       email: "minh@example.com",
       fullName: "Nguyễn Đức Minh",
-      role: "student",
       hasPassword: true,
       linkedProviders: [],
       mustChangePassword: false,
@@ -167,6 +173,8 @@ export function review(over: { essayScore?: number | null } = {}): Review {
     maxAttempts: 2,
     questions: [
       {
+        level: null,
+        skill: null,
         id: CHOICE_ID,
         type: "single_choice",
         prompt: "Thủ đô của Việt Nam?",
@@ -181,6 +189,8 @@ export function review(over: { essayScore?: number | null } = {}): Review {
         updatedAt: "2026-08-20T00:00:00Z",
       },
       {
+        level: null,
+        skill: null,
         id: ESSAY_ID,
         type: "short_answer",
         prompt: "Viết 2–3 câu tả thói quen buổi sáng.",

@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"reflect"
 	"regexp"
 	"slices"
 	"sort"
@@ -28,11 +29,22 @@ func (x *iso) view(op scopedOp, c isoCase, viewer *party, bare bool) string {
 
 var signature = regexp.MustCompile(`[?&]X-Amz-[^"]*`)
 
+func walkedView(op scopedOp) bool {
+	return op.method == http.MethodGet && (op.listing != "" || op.id == "getDashboard" || op.id == "getTeacherSummary" ||
+		strings.HasPrefix(op.id, "listMy") || strings.HasPrefix(op.path, "/me/"))
+}
+
+func filtersByAnId(op scopedOp) bool {
+	return slices.ContainsFunc(op.slots, func(s resourceSlot) bool {
+		return s.In == "query" && op.optional[s.Name] && s.Kind != "none"
+	})
+}
+
 func (x *iso) views(ops []scopedOp) map[string]string {
 	out := map[string]string{}
 	for _, op := range ops {
 		c := x.cases[op.id]
-		if op.method != http.MethodGet || op.listing == "" && op.id != "getDashboard" && !strings.HasPrefix(op.id, "listMy") {
+		if !walkedView(op) {
 			continue
 		}
 		viewer := x.b
@@ -40,8 +52,11 @@ func (x *iso) views(ops []scopedOp) map[string]string {
 			viewer = x.b.student
 		}
 		out[op.id] = x.view(op, c, viewer, true)
-		if slices.ContainsFunc(op.slots, func(s resourceSlot) bool { return s.In == "query" && op.optional[s.Name] }) {
+		if filtersByAnId(op) {
 			out[op.id+" filtered"] = x.view(op, c, viewer, false)
+		}
+		if strings.HasPrefix(op.path, "/me/") && !c.student {
+			out[op.id+" as the student"] = x.view(op, c, x.b.student, true)
 		}
 	}
 	if got := x.b.c.send(http.MethodGet, "/teacher/students/"+x.shared, nil); got.status == http.StatusOK {
@@ -130,7 +145,16 @@ func TestAnotherTeachersIdsAnswerAsMissingOnes(t *testing.T) {
 	var shared *client
 	shared, x.shared = w.sharedStudent(x.b)
 	before := x.views(ops)
+	for _, key := range []string{"listNotifications", "getMySummary", "getNotificationPreferences", "listNotifications as the student", "getMySummary as the student", "getNotificationPreferences as the student"} {
+		if _, walked := before[key]; !walked {
+			t.Fatalf("the walk of %s is missing, so the /me reads are not compared between the two teachers", key)
+		}
+	}
+	if !strings.Contains(before["listNotifications"], x.b.id("notification")) {
+		t.Fatalf("B's own notification is not in the list the walk compares: %s", before["listNotifications"])
+	}
 	x.a = w.teacherWorld("A")
+	x.a.c.must(http.StatusOK, http.MethodPut, "/me/notification-preferences", switchesAllOff())
 	t.Cleanup(func() {
 		if _, err := w.pool.Exec(context.Background(), `
 			UPDATE app.word_imports SET status = 'cancelled'
@@ -204,4 +228,74 @@ func TestAnotherTeachersIdsAnswerAsMissingOnes(t *testing.T) {
 			t.Errorf("the Admin opening the teacher's %s: %d %s", kind, got.status, got.body)
 		}
 	}
+	x.adminListsOwnRows()
+	x.adminsOwnAssignmentNamesEveryTarget()
+}
+
+func (x *iso) adminListsOwnRows() {
+	x.t.Helper()
+	for path, counts := range map[string][]string{
+		"/teacher/tests":                      {"total", "facets.all"},
+		"/teacher/questions":                  {"total", "facets.all", "bankTotal"},
+		"/teacher/question-groups?status=all": {"total"},
+		"/teacher/media":                      {"total", "totalBytes", "facets.all", "facets.unused", "usage.audioBytes", "usage.imageBytes"},
+		"/teacher/imports":                    {"total"},
+		"/teacher/assignments":                {"total", "facets.all"},
+	} {
+		got := x.admin.send(http.MethodGet, path, nil)
+		if got.status != http.StatusOK {
+			x.t.Errorf("the Admin listing %s: %s", path, answer(got))
+			continue
+		}
+		if leaked := append(mentions(got.body, x.a), mentions(got.body, x.b)...); len(leaked) > 0 {
+			x.t.Errorf("the Admin's %s shows a teacher's %v", path, leaked)
+		}
+		for _, field := range counts {
+			var value any = got.json
+			for _, key := range strings.Split(field, ".") {
+				object, _ := value.(map[string]any)
+				value = object[key]
+			}
+			if n, ok := value.(float64); !ok || n != 0 {
+				x.t.Errorf("the Admin's %s counts %s = %v, want 0: the Admin owns nothing here", path, field, value)
+			}
+		}
+	}
+}
+
+func (x *iso) adminsOwnAssignmentNamesEveryTarget() {
+	x.t.Helper()
+	class := x.a.id("class")
+	created := x.admin.assign(x.a.id("test-version"), class)
+	opened := x.admin.must(http.StatusOK, http.MethodGet, "/teacher/assignments/"+id(created), nil)
+	targets, _ := opened["targets"].(map[string]any)
+	if classes, _ := targets["classes"].([]any); len(classes) != 1 || opened["targetCount"] == float64(0) {
+		x.t.Fatalf("the Admin's assignment on the teacher's class opens with targets %v and counts %v", opened["targets"], opened["targetCount"])
+	}
+	for label, path := range map[string]string{
+		"list":                         "/teacher/assignments",
+		"list for the teacher's class": "/teacher/assignments?classId=" + class,
+	} {
+		got := x.admin.must(http.StatusOK, http.MethodGet, path, nil)
+		items, _ := got["items"].([]any)
+		facets, _ := got["facets"].(map[string]any)
+		if len(items) != 1 || got["total"] != float64(1) || facets["all"] != float64(1) {
+			x.t.Errorf("the Admin's %s holds %d rows, total %v and facets %v, want the Admin's one assignment", label, len(items), got["total"], facets)
+			continue
+		}
+		row := items[0].(map[string]any)
+		if id(row) != id(created) || !reflect.DeepEqual(row["targets"], opened["targets"]) || row["targetCount"] != opened["targetCount"] {
+			x.t.Errorf("the Admin's %s names %v and counts %v, want what the assignment opened by id names and counts: %v and %v",
+				label, row["targets"], row["targetCount"], opened["targets"], opened["targetCount"])
+		}
+	}
+}
+
+func switchesAllOff() []map[string]any {
+	events := []string{"attempt.submitted", "attempt.flagged", "assignment.closing", "assignment.due_soon", "result.ready"}
+	out := make([]map[string]any, len(events))
+	for i, event := range events {
+		out[i] = map[string]any{"event": event, "inApp": false, "email": true}
+	}
+	return out
 }

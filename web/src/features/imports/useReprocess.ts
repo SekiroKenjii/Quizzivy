@@ -43,7 +43,7 @@ export function useReprocess(importId: string, flush: () => Promise<void>) {
           queryKey: ["word-import-review", importId],
           refetchType: "none",
         });
-        if (!signal.aborted) void navigate(`/admin/imports/${importId}`);
+        if (!signal.aborted) void navigate(`/teacher/imports/${importId}`);
       };
       try {
         try {

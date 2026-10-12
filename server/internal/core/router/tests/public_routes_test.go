@@ -82,9 +82,17 @@ func TestRegistryHasNoStaleEntries(t *testing.T) {
 		}
 	}
 
-	for _, pattern := range router.RateLimits().Patterns() {
-		if !known[pattern] {
-			t.Errorf("registry limits %q, which is not an operation in api/openapi.yaml", pattern)
+	for name, reg := range map[string]*ratelimit.Registry{
+		"RateLimits":          router.RateLimits(),
+		"PrincipalRateLimits": router.PrincipalRateLimits(),
+	} {
+		if len(reg.Patterns()) == 0 {
+			t.Errorf("%s is empty: the walk is looking at the wrong thing", name)
+		}
+		for _, pattern := range reg.Patterns() {
+			if !known[pattern] {
+				t.Errorf("%s limits %q, which is not an operation in api/openapi.yaml", name, pattern)
+			}
 		}
 	}
 }

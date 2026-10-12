@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import TestBuilderPage from "@/features/tests/pages/TestBuilderPage";
+import TestBuilderPage from "@/features/tests/pages/teacher/TestBuilderPage";
 import { emptyGroup, newGroupQuestion } from "@/features/question-groups/model";
 import type { StoredGroup } from "@/features/question-groups/api";
 import type { Test } from "@/features/tests/api";
@@ -15,6 +15,7 @@ test("a publication finding opens the owned member editor without trying the sta
   const sectionId = crypto.randomUUID();
   const question = newGroupQuestion(i18n.t);
   question.input.prompt = "Câu trong nhóm";
+  question.input.promptContent = null;
   const bundle = emptyGroup("Bài đọc chung");
   bundle.group.members = [{ questionId: question.id, optionOrder: "shuffle" }];
   bundle.questions = [question];
@@ -31,11 +32,15 @@ test("a publication finding opens the owned member editor without trying the sta
     unavailableAssetIds: [],
   };
   const draft: Test = {
+    skills: [],
+    assignments: { live: 0, scheduled: 0, closed: 0 },
+    unpublishedChanges: null,
     id: crypto.randomUUID(),
     title: "Đề thử nhóm",
     description: null,
     status: "draft",
     currentVersion: 0,
+    nextVersion: 1,
     totalPoints: 1,
     questionCount: 1,
     audioCount: 0,
@@ -85,8 +90,8 @@ test("a publication finding opens the owned member editor without trying the sta
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   const router = createMemoryRouter(
-    [{ path: "/admin/tests/:id/edit", element: <TestBuilderPage /> }],
-    { initialEntries: [`/admin/tests/${draft.id}/edit`] },
+    [{ path: "/teacher/tests/:id/edit", element: <TestBuilderPage /> }],
+    { initialEntries: [`/teacher/tests/${draft.id}/edit`] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -96,9 +101,12 @@ test("a publication finding opens the owned member editor without trying the sta
   await screen.findByLabelText("Tên nhóm câu hỏi", { exact: true });
   const user = userEvent.setup();
   await user.click(screen.getByRole("button", { name: "Phát hành" }));
-  const dialog = await screen.findByRole("dialog");
-  expect(within(dialog).getByText("Câu 1 · Đọc hiểu")).toBeVisible();
-  await user.click(within(dialog).getByRole("button", { name: "Đi tới" }));
+  const dialog = await screen.findByRole("dialog", { name: "Phát hành đề thi?" });
+  await user.click(within(dialog).getByRole("button", { name: "Phát hành" }));
+  expect(
+    await within(dialog).findByText("Câu 1 · Đọc hiểu · Chọn đáp án đúng"),
+  ).toBeVisible();
+  await user.click(within(dialog).getByRole("button", { name: "Sửa" }));
   expect(await screen.findByRole("textbox", { name: "Nội dung câu hỏi" })).toHaveValue(
     "Câu trong nhóm",
   );

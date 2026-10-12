@@ -9,7 +9,9 @@ import (
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/paging"
+	"quizzivy/internal/shared/schedule"
 	"quizzivy/internal/shared/visibility"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -30,9 +32,10 @@ func selectAssignment(all, viewer int) string {
 		       a.opens_at, a.closes_at, a.closed_at, a.published_at,
 		       a.duration_minutes, a.max_attempts, a.shuffle_questions, a.shuffle_options,
 		       a.review_show_score, a.review_show_correct_answers, a.review_show_explanations,
+		       a.review_release, a.review_show_class_average,
 		       a.integrity_require_fullscreen, a.integrity_block_copy_paste,
 		       a.integrity_max_focus_loss, a.integrity_on_limit_exceeded::text,
-		       a.integrity_min_away_ms,
+		       a.integrity_min_away_ms, a.student_note,
 		       coalesce((SELECT jsonb_agg(jsonb_build_object('id', c.id::text, 'name', c.name,
 		                                  'studentCount', (SELECT count(*) FROM app.class_members m
 		                                                     JOIN app.users u ON u.id = m.user_id AND u.disabled_at IS NULL
@@ -82,7 +85,10 @@ func selectAssignment(all, viewer int) string {
 		            SELECT ast.user_id FROM app.assignment_students ast
 		             WHERE ast.assignment_id = a.id AND ` + reached + `
 		        ) roster
-		        JOIN app.users u ON u.id = roster.user_id AND u.disabled_at IS NULL)
+		        JOIN app.users u ON u.id = roster.user_id AND u.disabled_at IS NULL),
+		       (SELECT count(*) FROM app.test_version_sections vs
+		          JOIN app.test_version_questions vq ON vq.test_version_section_id = vs.id
+		         WHERE vs.test_version_id = a.test_version_id)
 		  FROM app.assignments a
 		  JOIN app.tests t ON t.id = a.test_id
 		  JOIN app.test_versions v ON v.id = a.test_version_id
@@ -95,10 +101,11 @@ func scanAssignment(row pgx.Row) (domain.Assignment, error) {
 		&a.OpensAt, &a.ClosesAt, &a.ClosedAt, &a.PublishedAt,
 		&a.DurationMin, &a.MaxAttempts, &a.ShuffleQ, &a.ShuffleO,
 		&a.Review.ShowScore, &a.Review.ShowCorrectAnswers, &a.Review.ShowExplanations,
+		&a.Review.Release, &a.Review.ShowClassAverage,
 		&a.Integrity.RequireFullscreen, &a.Integrity.BlockCopyPaste,
 		&a.Integrity.MaxFocusLoss, &a.Integrity.OnLimitExceeded, &a.Integrity.MinAwayMs,
-		&a.Classes, &a.Students, &a.UpdatedAt, &a.PendingGradingCount, &a.PendingManualCount,
-		&a.SubmittedCount, &a.FlaggedCount, &a.TargetCount)
+		&a.StudentNote, &a.Classes, &a.Students, &a.UpdatedAt, &a.PendingGradingCount, &a.PendingManualCount,
+		&a.SubmittedCount, &a.FlaggedCount, &a.TargetCount, &a.QuestionCount)
 	return a, err
 }
 
@@ -125,26 +132,17 @@ func (s *Postgres) get(ctx context.Context, q db.Querier, scope access.Scope, id
 	return a, nil
 }
 
-const derivedStatus = `
-			CASE
-			  WHEN a.published_at IS NULL THEN 'draft'
-			  WHEN a.closed_at IS NOT NULL AND now() >= a.closed_at THEN 'closed'
-			  WHEN now() < a.opens_at THEN 'scheduled'
-			  WHEN now() < a.closes_at THEN 'open'
-			  ELSE 'closed'
-			END`
-
 // Facets counts every status within the same narrowing List applies, minus
 // the status itself, so the tabs never disagree with the rows.
 func (s *Postgres) Facets(ctx context.Context, in domain.ListInput) (domain.Facets, error) {
-	where, args := narrow(domain.ListInput{ClassID: in.ClassID, Scope: in.Scope})
+	where, args := narrow(domain.ListInput{ClassIDs: in.ClassIDs, Query: in.Query, Scope: in.Scope, EveryTarget: in.EveryTarget})
 	var f domain.Facets
 	err := s.QueryRow(ctx, `
 		SELECT count(*),
-		       count(*) FILTER (WHERE `+derivedStatus+` = 'draft'),
-		       count(*) FILTER (WHERE `+derivedStatus+` = 'scheduled'),
-		       count(*) FILTER (WHERE `+derivedStatus+` = 'open'),
-		       count(*) FILTER (WHERE `+derivedStatus+` = 'closed')
+		       count(*) FILTER (WHERE `+schedule.DerivedStatus+` = 'draft'),
+		       count(*) FILTER (WHERE `+schedule.DerivedStatus+` = 'scheduled'),
+		       count(*) FILTER (WHERE `+schedule.DerivedStatus+` = 'open'),
+		       count(*) FILTER (WHERE `+schedule.DerivedStatus+` = 'closed')
 		  FROM app.assignments a
 		 WHERE `+join(where), args...).Scan(&f.All, &f.Draft, &f.Scheduled, &f.Open, &f.Closed)
 	if err != nil {
@@ -160,22 +158,38 @@ func narrow(in domain.ListInput) ([]string, []any) {
 	if !in.Scope.All {
 		args = append(args, opt.String(in.Scope.UserID))
 		where = append(where, `a.id IN `+visibility.AssignmentIDs(1))
-		classTaught = ` AND ac.class_id IN ` + visibility.TaughtClassIDs(1)
+		if !in.EveryTarget {
+			classTaught = ` AND ac.class_id IN ` + visibility.TaughtClassIDs(1)
+		}
 	}
 	if in.Status != nil {
 		args = append(args, string(*in.Status))
-		where = append(where, fmt.Sprintf(derivedStatus+` = $%d`, len(args)))
+		where = append(where, fmt.Sprintf(schedule.DerivedStatus+` = $%d`, len(args)))
 	}
-	if in.ClassID != nil {
-		args = append(args, *in.ClassID)
+	if len(in.ClassIDs) > 0 {
+		args = append(args, in.ClassIDs)
 		where = append(where, fmt.Sprintf(`EXISTS (SELECT 1 FROM app.assignment_classes ac
-		                   WHERE ac.assignment_id = a.id AND ac.class_id = $%d::uuid`, len(args))+classTaught+`)`)
+		                   WHERE ac.assignment_id = a.id AND ac.class_id = ANY($%d::uuid[])`, len(args))+classTaught+`)`)
+	}
+	if q := strings.TrimSpace(in.Query); q != "" {
+		args = append(args, db.EscapeLike(q))
+		where = append(where, searched(len(args), classTaught))
 	}
 	return where, args
 }
 
+func searched(n int, classTaught string) string {
+	like := func(column string) string {
+		return fmt.Sprintf(`app.immutable_unaccent(lower(%s)) LIKE '%%' || app.immutable_unaccent(lower($%d)) || '%%' ESCAPE '\'`, column, n)
+	}
+	return `(EXISTS (SELECT 1 FROM app.tests t WHERE t.id = a.test_id AND ` + like("t.title") + `)
+		    OR EXISTS (SELECT 1 FROM app.assignment_classes ac JOIN app.classes c ON c.id = ac.class_id
+		                WHERE ac.assignment_id = a.id AND ` + like("c.name") + classTaught + `))`
+}
+
 // List returns one page of the assignments the input's scope reaches, newest
-// first, their targets filtered to the classes and students the scope reaches.
+// first, their targets filtered to the classes and students the scope
+// reaches, or every target under EveryTarget.
 func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Assignment, paging.Page, error) {
 	number, limit, offset := paging.Clamp(in.Page, in.Limit, DefaultLimit, MaxLimit)
 	where, args := narrow(in)
@@ -186,7 +200,7 @@ func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Assi
 		return nil, paging.Page{}, fmt.Errorf("assignments: count: %w", err)
 	}
 
-	args = append(args, in.Scope.All, opt.String(in.Scope.UserID))
+	args = append(args, in.Scope.All || in.EveryTarget, opt.String(in.Scope.UserID))
 	embeds := selectAssignment(len(args)-1, len(args))
 	args = append(args, limit, offset)
 	rows, err := s.Query(ctx, embeds+`

@@ -1,4 +1,8 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import type { TFunction } from "i18next";
+import type { components } from "@/lib/api/schema";
+import type { PendingAuthorization } from "@/features/auth/google/pkce";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, CircleAlert, LoaderCircle } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router";
@@ -6,7 +10,10 @@ import { api } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 import { callbackUrl, statesMatch, takePending } from "@/features/auth/google/pkce";
 import { destinationAfterSignIn, preloadStudentHome } from "@/features/auth/home";
-import { useAuthStore } from "@/stores/auth";
+import { authStore } from "@/stores/auth";
+import { useAppState } from "@/stores/appState";
+import { runAccountMutation, signInAccount } from "@/features/auth/accountPreferences";
+import { TransitionPendingError } from "@/lib/api/authTransition";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { AuthLayout } from "@/features/auth/AuthLayout";
@@ -20,22 +27,26 @@ import {
 export default function GoogleCallbackPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [params] = useSearchParams();
-  const setSession = useAuthStore((s) => s.setSession);
-  const setUser = useAuthStore((s) => s.setUser);
+  const mounted = useRef(true);
   const [error, setError] = useState<string | null>(null);
   // Effects run twice under StrictMode, and this one redeems a single-use code.
   const started = useRef(false);
 
   useEffect(() => {
-    if (started.current) return;
+    mounted.current = true;
+    if (started.current)
+      return () => {
+        mounted.current = false;
+      };
     started.current = true;
 
+    let lease = authStore.captureActor();
     void (async () => {
       const pending = takePending();
       const code = params.get("code");
       const state = params.get("state");
-
       if (params.get("error")) {
         await navigate("/login", { replace: true });
         return;
@@ -44,13 +55,18 @@ export default function GoogleCallbackPage() {
         setError(t("login.googleFailed"));
         return;
       }
-
       try {
         if (pending.mode === "link") {
-          const linked = await api("post", "/auth/google/link", {
-            body: { code, codeVerifier: pending.verifier, redirectUri: callbackUrl() },
-          });
-          setUser(linked);
+          const linked = await runAccountMutation(() =>
+            api("post", "/auth/google/link", {
+              body: {
+                code,
+                codeVerifier: pending.verifier,
+                redirectUri: callbackUrl(),
+              },
+            }),
+          );
+          if (!linked || !mounted.current || !authStore.isCurrent(lease)) return;
           await navigate(destinationAfterSignIn(pending.next, linked), {
             replace: true,
           });
@@ -60,40 +76,39 @@ export default function GoogleCallbackPage() {
         // A visitor holding a class code is a student, whatever the exchange says next.
         if (pending.joinCode) preloadStudentHome();
 
-        const result = await api("post", "/auth/google", {
-          body: {
-            code,
-            codeVerifier: pending.verifier,
-            redirectUri: callbackUrl(),
-            ...(pending.joinCode ? { joinCode: pending.joinCode } : {}),
-          },
-        });
-        setSession(result.accessToken, result.user);
-        if (pending.joinCode && result.enrolledClass) {
-          const className = result.enrolledClass.name;
-          const teacherName = readJoinContext()?.teacherName ?? "";
-          clearJoinContext();
-          await navigate(`/join/${pending.joinCode}`, {
-            replace: true,
-            state: joinOutcomeState({
-              kind: "joined",
-              className,
-              teacherName,
+        const operation = signInAccount(
+          "google",
+          (ticket) =>
+            api("post", "/auth/google", {
+              transition: ticket,
+              body: {
+                code,
+                codeVerifier: pending.verifier,
+                redirectUri: callbackUrl(),
+                ...(pending.joinCode ? { joinCode: pending.joinCode } : {}),
+              },
             }),
-          });
-          return;
-        }
-        await navigate(
-          pending.joinCode
-            ? `/join/${pending.joinCode}`
-            : destinationAfterSignIn(pending.next, result.user),
-          { replace: true },
+          queryClient,
+          () => mounted.current,
         );
+        lease = authStore.captureActor();
+        const result = await operation;
+        if (!mounted.current || !authStore.isCurrent(result.actor)) return;
+        useAppState.getState().setBootPhase("ready");
+        const destination = googleDestination(pending, result);
+        await navigate(destination.to, {
+          replace: true,
+          ...(destination.state ? { state: destination.state } : {}),
+        });
       } catch (cause) {
-        setError(cause instanceof ApiError ? cause.message : t("login.googleFailed"));
+        if (!mounted.current || !authStore.isCurrent(lease)) return;
+        setError(callbackError(cause, t));
       }
     })();
-  }, [params, navigate, setSession, setUser, t]);
+    return () => {
+      mounted.current = false;
+    };
+  }, [params, navigate, queryClient, t]);
 
   if (error) {
     return (
@@ -128,4 +143,34 @@ export default function GoogleCallbackPage() {
       </p>
     </AuthLayout>
   );
+}
+
+function callbackError(cause: unknown, t: TFunction) {
+  if (cause instanceof TransitionPendingError)
+    return t("auth.transition.accountPending");
+  if (cause instanceof ApiError) return cause.message;
+  return t("login.googleFailed");
+}
+
+function googleDestination(
+  pending: PendingAuthorization,
+  result: components["schemas"]["GoogleSignInSuccess"],
+) {
+  if (pending.joinCode && result.enrolledClass) {
+    const teacherName = readJoinContext()?.teacherName ?? "";
+    clearJoinContext();
+    return {
+      to: `/join/${pending.joinCode}`,
+      state: joinOutcomeState({
+        kind: "joined",
+        className: result.enrolledClass.name,
+        teacherName,
+      }),
+    };
+  }
+  return {
+    to: pending.joinCode
+      ? `/join/${pending.joinCode}`
+      : destinationAfterSignIn(pending.next, result.user),
+  };
 }

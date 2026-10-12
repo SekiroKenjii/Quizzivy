@@ -16,6 +16,9 @@ import (
 )
 
 func (p ImportProcessing) Extract(ctx context.Context, in ports.DocumentInput) (ports.StageOutput, error) {
+	if in.Format == textFormat {
+		return p.extractText(ctx, in)
+	}
 	if in.Format == pdfFormat {
 		return p.extractPDF(ctx, in)
 	}

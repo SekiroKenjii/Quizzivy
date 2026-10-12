@@ -72,7 +72,7 @@ func restoreSectionGroups(ctx context.Context, tx pgx.Tx, groups *GroupsPostgres
 		if unit.GroupID == "" {
 			continue
 		}
-		source, err := readFrozenGroup(ctx, tx, unit.GroupID)
+		source, err := readFrozenGroup(ctx, tx, unit.GroupID, versionShared)
 		if err != nil {
 			return err
 		}

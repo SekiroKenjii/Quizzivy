@@ -24,6 +24,7 @@ runs:
           docker tag "$image" quizzivy-minio:development
         else
           echo "::notice::$image is not published; building MinIO from source"
+          scripts/ci/mirror-images.sh golang:1.27-alpine alpine:3.22
           docker compose build minio
         fi
         docker compose up -d --wait minio

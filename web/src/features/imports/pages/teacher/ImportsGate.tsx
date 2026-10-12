@@ -1,0 +1,41 @@
+import { useTranslation } from "react-i18next";
+import { Outlet } from "react-router";
+import { useQuery } from "@tanstack/react-query";
+import { EmptyState, LoadError } from "@/components/shared/ListState";
+import { DeckScale } from "@/components/ui/deck-scale";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PageHead } from "@/layouts/shell/PageHead";
+import type { ImportCapabilities } from "../../api";
+import { importCapabilitiesQuery } from "../../queries";
+
+const intakeOf = (capabilities: ImportCapabilities) => capabilities.intakeEnabled;
+
+export default function ImportsGate() {
+  const { t } = useTranslation();
+  const intake = useQuery({ ...importCapabilitiesQuery(), select: intakeOf });
+  if (intake.data === true) return <Outlet />;
+  if (intake.data === false)
+    return (
+      <DeckScale className="mx-auto flex w-full max-w-[1320px] min-w-0 flex-col gap-4">
+        <PageHead
+          title={t("imports.availability.offTitle")}
+          back={{ to: "/teacher/tests", label: t("imports.backToTests") }}
+        />
+        <EmptyState hint={t("imports.availability.offHint")}>
+          {t("imports.availability.off")}
+        </EmptyState>
+      </DeckScale>
+    );
+  if (intake.isPending)
+    return (
+      <div role="status" aria-label={t("common.loading")} className="space-y-3">
+        <Skeleton className="h-8 w-72" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    );
+  return (
+    <LoadError error={intake.error} onRetry={() => void intake.refetch()}>
+      {t("imports.availability.loadFailed")}
+    </LoadError>
+  );
+}

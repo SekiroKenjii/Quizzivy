@@ -13,6 +13,7 @@ import {
   Headphones,
   LoaderCircle,
   Maximize,
+  MessageSquareText,
   Timer,
   type LucideIcon,
 } from "lucide-react";
@@ -22,9 +23,11 @@ import {
   DeckDialogCancel,
 } from "@/components/shared/DeckDialog";
 import { EmptyState, LoadError } from "@/components/shared/ListState";
+import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { enterFullscreen, fullscreenSupported } from "@/features/integrity/fullscreen";
+import { useDueSoonOn } from "@/features/notifications/useDueSoonOn";
 import { startOrResumeAttempt } from "@/features/take-test/api";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useMinute } from "@/hooks/useTick";
@@ -36,6 +39,7 @@ import {
   dayDate,
   formatTime,
   weekdayName,
+  useDisplayTimeZone,
 } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
 import { continueAttempt, getMyAssignment, type StudentAssignmentDetail } from "../api";
@@ -85,11 +89,11 @@ function opensLabel(a: Detail, now: Date, locale: Locale, t: TFunction): string 
   });
 }
 
-function startBody(a: Detail, now: Date, t: TFunction): string {
+function startBody(a: Detail, now: Date, locale: Locale, t: TFunction): string {
   const left = Math.floor((Date.parse(a.closesAt) - now.getTime()) / 60_000);
   return left < a.durationMinutes
     ? t("student.intro.startBodyShort", {
-        time: clockTime(a.closesAt, now),
+        time: clockTime(a.closesAt, now, locale),
         count: Math.max(1, left),
       })
     : t("student.intro.startBody", { minutes: a.durationMinutes });
@@ -109,6 +113,7 @@ function startBody(a: Detail, now: Date, t: TFunction): string {
  * test's close passes. The server decides what the test's state is.
  */
 export default function AssignmentIntroPage() {
+  useDisplayTimeZone();
   const { t, i18n } = useTranslation();
   const locale = i18n.language as Locale;
   const { id } = useParams<{ id: string }>();
@@ -266,8 +271,42 @@ export default function AssignmentIntroPage() {
           })}
         </ul>
       </section>
+      {a.studentNote != null && a.studentNote !== "" && (
+        <TeacherNote name={a.teacherName ?? null} note={a.studentNote} />
+      )}
       <Action key={a.id} assignment={a} now={now} wide={wide} />
     </div>
+  );
+}
+
+function TeacherNote({ name, note }: Readonly<{ name: string | null; note: string }>) {
+  const { t } = useTranslation();
+  const heading = useId();
+  return (
+    <section
+      aria-labelledby={heading}
+      data-slot="teacher-note"
+      className="bg-muted flex gap-3 rounded-xl px-4 py-3.5"
+    >
+      {name === null ? (
+        <span
+          aria-hidden="true"
+          className="bg-card grid size-7.5 flex-none place-items-center rounded-full"
+        >
+          <MessageSquareText className="size-[15px]" />
+        </span>
+      ) : (
+        <Avatar name={name} size="30" className="bg-card text-fg" />
+      )}
+      <div className="text-ui min-w-0 leading-[1.55]">
+        <h2 id={heading} className="mb-0.5 font-medium break-words">
+          {name === null
+            ? t("student.intro.noteFromTeacher")
+            : t("student.intro.noteFrom", { name })}
+        </h2>
+        <p className="break-words whitespace-pre-line">{note}</p>
+      </div>
+    </section>
   );
 }
 
@@ -298,6 +337,16 @@ function IntroSkeleton() {
       </div>
       <Skeleton className="h-12.5 rounded-[11px]" />
     </div>
+  );
+}
+
+function OpensHint() {
+  const { t } = useTranslation();
+  const tellsWhenOpen = useDueSoonOn();
+  return (
+    <span className={HINT}>
+      {t(tellsWhenOpen ? "student.intro.opensNotify" : "student.intro.opensHint")}
+    </span>
   );
 }
 
@@ -372,7 +421,9 @@ function Action({
         <span className={HINT}>
           {a.liveDeadlineAt == null
             ? t("student.intro.startHint")
-            : t("student.intro.resumeHint", { time: clockTime(a.liveDeadlineAt, now) })}
+            : t("student.intro.resumeHint", {
+                time: clockTime(a.liveDeadlineAt, now, locale),
+              })}
         </span>
       </div>
     );
@@ -406,7 +457,7 @@ function Action({
           {opensLabel(a, now, locale, t)}
           <ArrowRight aria-hidden="true" className="size-[18px]" />
         </Button>
-        <span className={HINT}>{t("student.intro.opensHint")}</span>
+        <OpensHint />
       </div>
     );
 
@@ -434,7 +485,7 @@ function Action({
           if (!next && !busy) setOpen(false);
         }}
         title={t("student.intro.startTitle")}
-        description={asked === null ? "" : startBody(a, from, t)}
+        description={asked === null ? "" : startBody(a, from, locale, t)}
       >
         <DeckDialogActions>
           <DeckDialogCancel

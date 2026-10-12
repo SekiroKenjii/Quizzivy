@@ -19,7 +19,6 @@ export function BulkSelectAll<T extends { id: string }>({
         if (element) element.indeterminate = partial;
       }}
       aria-checked={partial ? "mixed" : items.length > 0 && count === items.length}
-      className="indeterminate:bg-primary indeterminate:border-primary indeterminate:after:bg-primary-foreground indeterminate:after:h-0.5 indeterminate:after:w-2 indeterminate:after:content-['']"
       aria-label={t("common.selectPage")}
       checked={items.length > 0 && count === items.length}
       onChange={(event) => selection.selectPage(items, event.target.checked)}

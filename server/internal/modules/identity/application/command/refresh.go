@@ -7,13 +7,16 @@ import (
 	"quizzivy/internal/modules/identity/application/internal/support"
 	"quizzivy/internal/modules/identity/application/model"
 	"quizzivy/internal/modules/identity/domain"
+	"quizzivy/internal/shared/opt"
 )
 
-// Refresh rotates a refresh token (§5.2).
+// Refresh rotates a refresh token (§5.2). The rotation runs on the request's own
+// context, deliberately; docs/plan/30-risks.md R-06 says why.
 type Refresh struct {
 	Token     string
 	UserAgent string
 	IP        string
+	GeoLabel  string
 }
 
 type RefreshHandler struct {
@@ -37,12 +40,9 @@ func (s RefreshHandler) Handle(ctx context.Context, cmd Refresh) (model.RefreshR
 		IssuedAt:  now,
 		ExpiresAt: now.Add(s.RefreshTTL),
 	}
-	if cmd.UserAgent != "" {
-		next.UserAgent = &cmd.UserAgent
-	}
-	if cmd.IP != "" {
-		next.IP = &cmd.IP
-	}
+	next.UserAgent = opt.String(cmd.UserAgent)
+	next.IP = opt.String(cmd.IP)
+	next.GeoLabel = opt.String(cmd.GeoLabel)
 
 	res, err := s.Users.Rotate(ctx, presented[:], next, now)
 	if err != nil {
@@ -57,7 +57,7 @@ func (s RefreshHandler) Handle(ctx context.Context, cmd Refresh) (model.RefreshR
 		return model.RefreshResult{}, domain.ErrRefreshRejected
 	}
 
-	access, err := s.Tokens.Issue(res.User.ID, res.User.Role, res.User.SessionEpoch)
+	access, err := s.Tokens.Issue(res.User.ID, res.User.SessionEpoch)
 	if err != nil {
 		return model.RefreshResult{}, fmt.Errorf("issue access token: %w", err)
 	}

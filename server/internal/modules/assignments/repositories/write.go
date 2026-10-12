@@ -8,6 +8,7 @@ import (
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/audit"
 	"quizzivy/internal/shared/opt"
+	"quizzivy/internal/shared/schedule"
 	"quizzivy/internal/shared/visibility"
 	"time"
 
@@ -19,7 +20,10 @@ var anyAssignment = access.Scope{All: true}
 // Create assigns a version of a test the actor owns to classes the actor
 // teaches and students the actor reaches, or to anything under scope.all. A
 // version, class or student outside that answers exactly as a missing one.
+// CloseNow belongs to Update: a new assignment is never closed, and Create
+// ignores the field, as the contract says.
 func (s *Postgres) Create(ctx context.Context, req domain.Request, in domain.WriteInput) (domain.Assignment, error) {
+	in.CloseNow = false
 	if err := in.Validate(); err != nil {
 		return domain.Assignment{}, err
 	}
@@ -44,18 +48,20 @@ func (s *Postgres) Create(ctx context.Context, req domain.Request, in domain.Wri
 	var id string
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO app.assignments
-		       (test_id, test_version_id, opens_at, closes_at, closed_at,
+		       (test_id, test_version_id, opens_at, closes_at,
 		        duration_minutes, max_attempts, shuffle_questions, shuffle_options,
 		        review_show_score, review_show_correct_answers, review_show_explanations,
+		        review_release, review_show_class_average, student_note,
 		        integrity_require_fullscreen, integrity_block_copy_paste,
 		        integrity_max_focus_loss, integrity_on_limit_exceeded, integrity_min_away_ms,
 		        created_by, published_at)
-		VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-		        $13, $14, $15, $16::app.integrity_action, $17, $18::uuid, $19)
+		VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+		        $12, $13, $14, $15, $16, $17, $18::app.integrity_action, $19, $20::uuid, $21)
 		RETURNING id::text`,
-		testID, in.TestVersionID, in.OpensAt, in.ClosesAt, domain.Schedule.ClosedAtOf(in),
+		testID, in.TestVersionID, in.OpensAt, in.ClosesAt,
 		in.DurationMin, in.MaxAttempts, in.ShuffleQ, in.ShuffleO,
 		in.Review.ShowScore, in.Review.ShowCorrectAnswers, in.Review.ShowExplanations,
+		string(in.Review.Release), in.Review.ShowClassAverage, in.StudentNote,
 		in.Integrity.RequireFullscreen, in.Integrity.BlockCopyPaste,
 		in.Integrity.MaxFocusLoss, in.Integrity.OnLimitExceeded, in.Integrity.MinAwayMs,
 		req.ActorID, domain.Schedule.PublishedAtOf(in)).Scan(&id); err != nil {
@@ -104,7 +110,10 @@ func versionStillFree(ctx context.Context, tx pgx.Tx, assignmentID, next, curren
 	return nil
 }
 
-// Update rewrites an assignment the actor reaches. A new version must belong
+// Update rewrites an assignment the actor reaches, and lengthens the deadline
+// of each attempt in progress that its window now lets run longer, in the
+// same transaction: the maintenance-windows lock, then the assignment row,
+// then the attempt rows. A new version must belong
 // to a test the actor owns; the version already assigned needs no such check,
 // so a teacher reaching the assignment through a class can still close it. The
 // targets are replaced within the actor's reach: classes and students the
@@ -120,32 +129,19 @@ func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.Wri
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	if err := schedule.LockWindows(ctx, tx); err != nil {
+		return domain.Assignment{}, err
+	}
 	current, err := lockForUpdate(ctx, tx, req.Scope(), req.ID)
 	if err != nil {
 		return domain.Assignment{}, err
 	}
-	versionReader := req.Scope()
-	if in.TestVersionID == current.versionID {
-		versionReader = anyAssignment
-	}
-	testID, err := publishedTestFor(ctx, tx, versionReader, in.TestVersionID)
+	testID, err := checkUpdate(ctx, tx, req, in, current)
 	if err != nil {
 		return domain.Assignment{}, err
 	}
-	if err := versionStillFree(ctx, tx, req.ID, in.TestVersionID, current.versionID); err != nil {
-		return domain.Assignment{}, err
-	}
-	if err := checkOptionShuffle(ctx, tx, in); err != nil {
-		return domain.Assignment{}, err
-	}
-	if err := checkTargets(ctx, tx, req.Scope(), req.ID, in); err != nil {
-		return domain.Assignment{}, err
-	}
 
-	next := current.closedAt
-	if in.CloseNow && next == nil {
-		next = &in.Now
-	}
+	next := domain.Schedule.ClosedAtAfter(current.closedAt, in)
 
 	if _, err := tx.Exec(ctx, `
 		UPDATE app.assignments
@@ -155,6 +151,9 @@ func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.Wri
 		       shuffle_questions = $9, shuffle_options = $10,
 		       review_show_score = $11, review_show_correct_answers = $12,
 		       review_show_explanations = $13,
+		       review_release = CASE WHEN $20::boolean THEN $21::text ELSE review_release END,
+		       review_show_class_average = CASE WHEN $22::boolean THEN $23::boolean ELSE review_show_class_average END,
+		       student_note = CASE WHEN $24::boolean THEN $25::text ELSE student_note END,
 		       integrity_require_fullscreen = $14, integrity_block_copy_paste = $15,
 		       integrity_max_focus_loss = $16,
 		       integrity_on_limit_exceeded = $17::app.integrity_action,
@@ -166,7 +165,9 @@ func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.Wri
 		in.Review.ShowScore, in.Review.ShowCorrectAnswers, in.Review.ShowExplanations,
 		in.Integrity.RequireFullscreen, in.Integrity.BlockCopyPaste,
 		in.Integrity.MaxFocusLoss, in.Integrity.OnLimitExceeded,
-		in.Integrity.MinAwayMs, domain.Schedule.NextPublishedAt(current.publishedAt, in)); err != nil {
+		in.Integrity.MinAwayMs, domain.Schedule.NextPublishedAt(current.publishedAt, in),
+		in.ReleaseSet, string(in.Review.Release), in.ClassAverageSet, in.Review.ShowClassAverage,
+		in.StudentNoteSet, in.StudentNote); err != nil {
 		return domain.Assignment{}, fmt.Errorf("assignments: update: %w", err)
 	}
 	if err := replaceTargets(ctx, tx, req.Scope(), req.ID, in); err != nil {
@@ -183,6 +184,9 @@ func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.Wri
 	}); err != nil {
 		return domain.Assignment{}, err
 	}
+	if _, err := schedule.RecomputeDeadlines(ctx, tx, recomputeFor(req, nil, "assignment_updated", in.Now)); err != nil {
+		return domain.Assignment{}, err
+	}
 
 	saved, err := s.get(ctx, tx, req.Scope(), req.ID, false)
 	if err != nil {
@@ -197,16 +201,67 @@ func (s *Postgres) Update(ctx context.Context, req domain.Request, in domain.Wri
 // lockedRow is what Update needs of the row it is about to overwrite.
 type lockedRow struct {
 	versionID             string
+	opensAt, closesAt     time.Time
 	closedAt, publishedAt *time.Time
+	durationMin           int
+	maxAttempts           int
+}
+
+func checkUpdate(ctx context.Context, tx pgx.Tx, req domain.Request, in domain.WriteInput, current lockedRow) (string, error) {
+	if err := requireUnlocked(current, in); err != nil {
+		return "", err
+	}
+	if err := requireStaysClosed(current, in); err != nil {
+		return "", err
+	}
+	versionReader := req.Scope()
+	if in.TestVersionID == current.versionID {
+		versionReader = anyAssignment
+	}
+	testID, err := publishedTestFor(ctx, tx, versionReader, in.TestVersionID)
+	if err != nil {
+		return "", err
+	}
+	if err := versionStillFree(ctx, tx, req.ID, in.TestVersionID, current.versionID); err != nil {
+		return "", err
+	}
+	if err := checkOptionShuffle(ctx, tx, in); err != nil {
+		return "", err
+	}
+	if err := checkTargets(ctx, tx, req.Scope(), req.ID, in); err != nil {
+		return "", err
+	}
+	return testID, nil
+}
+
+func requireUnlocked(current lockedRow, in domain.WriteInput) error {
+	status := domain.Schedule.StatusAt(in.Now, current.publishedAt, current.opensAt, current.closesAt, current.closedAt)
+	if status != domain.Open {
+		return nil
+	}
+	if in.TestVersionID != current.versionID || in.DurationMin != current.durationMin || in.MaxAttempts != current.maxAttempts {
+		return domain.ErrAssignmentLocked
+	}
+	return nil
+}
+
+func requireStaysClosed(current lockedRow, in domain.WriteInput) error {
+	if domain.Schedule.Reopens(current.publishedAt, current.closedAt, current.opensAt, current.closesAt, in) {
+		return domain.ErrReopens
+	}
+	return nil
 }
 
 func lockForUpdate(ctx context.Context, tx pgx.Tx, scope access.Scope, id string) (lockedRow, error) {
 	var row lockedRow
 	err := tx.QueryRow(ctx, `
-		SELECT test_version_id::text, closed_at, published_at FROM app.assignments
+		SELECT test_version_id::text, opens_at, closes_at, closed_at, published_at,
+		       duration_minutes, max_attempts
+		  FROM app.assignments
 		 WHERE id = $1::uuid AND ($2::boolean OR id IN `+visibility.AssignmentIDs(3)+`) FOR UPDATE`,
 		id, scope.All, opt.String(scope.UserID)).
-		Scan(&row.versionID, &row.closedAt, &row.publishedAt)
+		Scan(&row.versionID, &row.opensAt, &row.closesAt, &row.closedAt, &row.publishedAt,
+			&row.durationMin, &row.maxAttempts)
 	switch {
 	case err == nil:
 		return row, nil

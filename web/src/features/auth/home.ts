@@ -3,12 +3,12 @@ import { hasWorkspace } from "./permissions";
 
 /**
  * Where a signed-in user belongs (§3's route trees): the teacher's tree for
- * the teacher or admin workspace, which share it until R4, and the student
+ * the teacher or admin workspace, which share it until R5, and the student
  * app otherwise.
  */
 export function homePathFor(user: Pick<User, "workspaces"> | null | undefined): string {
   return hasWorkspace(user, "teacher") || hasWorkspace(user, "admin")
-    ? "/admin"
+    ? "/teacher"
     : "/app";
 }
 

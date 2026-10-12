@@ -91,18 +91,19 @@ type claimedToken struct {
 	expiresAt  time.Time
 	revokedAt  *time.Time
 	replacedBy *string
+	geoLabel   *string
 }
 
 func claimToken(ctx context.Context, tx pgx.Tx, tokenHash []byte) (claimedToken, error) {
 	const claim = `
-		SELECT id::text, user_id::text, family_id::text, expires_at, revoked_at, replaced_by
+		SELECT id::text, user_id::text, family_id::text, expires_at, revoked_at, replaced_by, geo_label
 		  FROM app.refresh_tokens
 		 WHERE token_hash = $1
 		   FOR UPDATE`
 
 	var c claimedToken
 	err := tx.QueryRow(ctx, claim, tokenHash).Scan(
-		&c.id, &c.userID, &c.familyID, &c.expiresAt, &c.revokedAt, &c.replacedBy)
+		&c.id, &c.userID, &c.familyID, &c.expiresAt, &c.revokedAt, &c.replacedBy, &c.geoLabel)
 	return c, err
 }
 
@@ -140,13 +141,17 @@ func revokeDisabledFamily(ctx context.Context, tx pgx.Tx, claimed claimedToken, 
 func issueSuccessor(ctx context.Context, tx pgx.Tx, claimed claimedToken, next domain.RefreshTokenRecord, now time.Time) error {
 	const issue = `
 		INSERT INTO app.refresh_tokens
-		       (user_id, family_id, token_hash, issued_at, expires_at, user_agent, ip)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		       (user_id, family_id, token_hash, issued_at, expires_at, user_agent, ip, geo_label)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id`
+	geoLabel := next.GeoLabel
+	if geoLabel == nil {
+		geoLabel = claimed.geoLabel
+	}
 	var successorID string
 	if err := tx.QueryRow(ctx, issue,
 		claimed.userID, claimed.familyID, next.TokenHash, next.IssuedAt, next.ExpiresAt,
-		next.UserAgent, next.IP,
+		next.UserAgent, next.IP, geoLabel,
 	).Scan(&successorID); err != nil {
 		return fmt.Errorf("issue successor token: %w", err)
 	}

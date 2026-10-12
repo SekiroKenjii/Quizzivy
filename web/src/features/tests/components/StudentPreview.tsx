@@ -6,8 +6,26 @@ import { Markdown } from "@/components/shared/Markdown";
 import { DeckScale } from "@/components/ui/deck-scale";
 import { QuestionSheet } from "@/features/take-test/components/QuestionSheet";
 import type { components } from "@/lib/api/schema";
+import { cn } from "@/lib/utils";
 
 type StudentQuestion = components["schemas"]["StudentQuestion"];
+
+/**
+ * PreviewMark flags a question of the preview as new or changed against
+ * another version: `tone` picks the outline and the chip's colours, `label`
+ * is the chip's text.
+ */
+export type PreviewMark = Readonly<{ tone: "added" | "changed"; label: string }>;
+
+const MARK_OUTLINE: Record<PreviewMark["tone"], string> = {
+  added: "outline-success-ink",
+  changed: "outline-warning-ink",
+};
+
+const MARK_CHIP: Record<PreviewMark["tone"], string> = {
+  added: "bg-success-soft text-success-ink",
+  changed: "bg-warning-soft text-warning-ink",
+};
 
 function ignoreAnswer() {
   return undefined;
@@ -17,17 +35,20 @@ function ignoreAnswer() {
  * StudentPreview renders frozen questions and their shared context as the
  * student's paper draws them: the engine's passage and question panes, one
  * under the other, on a deck surface. Nothing can be answered: every control
- * is disabled and no answer is written.
+ * is disabled and no answer is written. `marks`, keyed by question id,
+ * outlines a question with a dashed line and names it in a chip.
  */
 export function StudentPreview({
   questions,
   sections = [],
   groups = [],
+  marks,
   onRetryMedia,
 }: Readonly<{
   questions: StudentQuestion[];
   sections?: components["schemas"]["StudentSection"][];
   groups?: components["schemas"]["StudentGroup"][];
+  marks?: ReadonlyMap<string, PreviewMark> | undefined;
   onRetryMedia?: (() => void) | undefined;
 }>) {
   const { t } = useTranslation();
@@ -46,6 +67,7 @@ export function StudentPreview({
         {questions.map((question, index) => {
           const group = contexts.get(question.id);
           const section = sectionById.get(question.sectionId);
+          const mark = marks?.get(question.id);
           return (
             <li key={question.id} className="flex min-w-0 flex-col gap-3">
               {section && questions[index - 1]?.sectionId !== section.id ? (
@@ -64,12 +86,31 @@ export function StudentPreview({
                   onRetryMedia={onRetryMedia}
                 />
               ) : null}
-              <div className="bg-sidebar min-w-0 rounded-xl border px-4 py-4.5">
+              <div
+                data-preview-mark={mark?.tone}
+                className={cn(
+                  "bg-sidebar min-w-0 rounded-xl border px-4 py-4.5",
+                  mark &&
+                    `outline-[1.5px] outline-offset-[6px] outline-dashed ${MARK_OUTLINE[mark.tone]}`,
+                )}
+              >
                 <QuestionSheet
                   question={question}
                   number={index + 1}
                   total={questions.length}
                   headingId={questionAnchor(question.id)}
+                  action={
+                    mark ? (
+                      <span
+                        className={cn(
+                          "text-2xs inline-flex h-5 flex-none items-center rounded-[6px] px-1.75 font-semibold whitespace-nowrap",
+                          MARK_CHIP[mark.tone],
+                        )}
+                      >
+                        {mark.label}
+                      </span>
+                    ) : undefined
+                  }
                   audio={
                     question.media?.kind === "audio" && question.media.url ? (
                       <AudioPlayer

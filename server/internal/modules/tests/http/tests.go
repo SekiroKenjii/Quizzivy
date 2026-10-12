@@ -22,7 +22,7 @@ func (h Tests) ListTests(ctx context.Context, request openapi.ListTestsRequestOb
 		return nil, httpx.ErrNotImplemented
 	}
 
-	in := domain.ListInput{Scope: httpapi.ScopeFromContext(ctx)}
+	in := domain.ListInput{Scope: httpapi.ScopeFromContext(ctx).Own()}
 	if request.Params.Status != nil {
 		status := domain.Status(*request.Params.Status)
 		in.Status = &status
@@ -106,6 +106,11 @@ func (h Tests) CreateTest(ctx context.Context, request openapi.CreateTestRequest
 	}
 
 	t, err := h.app.Commands.Create.Handle(ctx, command.Create{Request: req, Title: request.Body.Title, Description: request.Body.Description})
+	var invalid *domain.ValidationError
+	if errors.As(err, &invalid) {
+		return openapi.CreateTest400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+			testValidationError(ctx, invalid))}, nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -267,13 +272,20 @@ func toAPITest(t domain.Test) (openapi.Test, error) {
 		Description:    t.Description,
 		Status:         openapi.TestStatus(t.Status),
 		CurrentVersion: t.CurrentVersion,
+		NextVersion:    t.NextVersion,
 		TotalPoints:    points,
 		QuestionCount:  t.QuestionCount,
 		AudioCount:     t.AudioCount,
+		Skills:         make([]openapi.QuestionSkill, len(t.Skills)),
+		Assignments:    openapi.TestAssignmentCounts{Live: t.Assignments.Live, Scheduled: t.Assignments.Scheduled, Closed: t.Assignments.Closed},
 		CreatedAt:      t.CreatedAt,
 		UpdatedAt:      t.UpdatedAt,
 		DeletedAt:      t.DeletedAt,
 		Sections:       make([]openapi.TestSection, len(t.Sections)),
+	}
+	out.UnpublishedChanges = t.UnpublishedChanges
+	for i, skill := range t.Skills {
+		out.Skills[i] = openapi.QuestionSkill(skill)
 	}
 	for i, sec := range t.Sections {
 		ids := make([]openapi.Uuid, len(sec.QuestionIDs))
@@ -321,15 +333,23 @@ func testVersion(v domain.Version) (openapi.TestVersion, error) {
 	if err != nil {
 		return openapi.TestVersion{}, err
 	}
+	skills := make([]openapi.QuestionSkill, len(v.Skills))
+	for i, skill := range v.Skills {
+		skills[i] = openapi.QuestionSkill(skill)
+	}
 	return openapi.TestVersion{
-		Id:            httpapi.ParseUUID(v.ID),
-		Version:       v.Version,
-		TotalPoints:   points,
-		QuestionCount: v.QuestionCount,
-		AudioCount:    v.AudioCount,
-		ManualCount:   v.ManualCount,
-		PublishedAt:   v.PublishedAt,
-		PublishedBy:   v.PublishedBy,
+		Id:              httpapi.ParseUUID(v.ID),
+		Version:         v.Version,
+		TotalPoints:     points,
+		QuestionCount:   v.QuestionCount,
+		AudioCount:      v.AudioCount,
+		ManualCount:     v.ManualCount,
+		Skills:          skills,
+		PublishedAt:     v.PublishedAt,
+		PublishedBy:     v.PublishedBy,
+		AssignmentCount: v.AssignmentCount,
+		ChangeNote:      v.ChangeNote,
+		TestUpdatedAt:   v.TestUpdatedAt,
 	}, nil
 }
 
@@ -402,6 +422,7 @@ func toStudentQuestion(q domain.PreviewQuestion) (openapi.StudentQuestion, error
 		Type:          openapi.QuestionType(q.Type),
 		Prompt:        q.Prompt,
 		PromptContent: q.PromptContent,
+		MediaAlt:      q.MediaAlt,
 		Points:        points,
 	}
 	if len(q.Options) > 0 {

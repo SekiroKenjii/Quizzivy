@@ -4,6 +4,14 @@
  */
 const PLACEHOLDER = /\{\{(\d+)\}\}/g;
 
+/** BLANK_GAP is how a blank is drawn in a prompt shown as one line of plain text. */
+export const BLANK_GAP = "___";
+
+/** blanksAsGaps draws every `{{n}}` marker in `prompt` as `BLANK_GAP`. */
+export function blanksAsGaps(prompt: string): string {
+  return prompt.replace(PLACEHOLDER, BLANK_GAP);
+}
+
 /** The distinct ordinals a prompt refers to, sorted. */
 export function promptPlaceholders(prompt: string): number[] {
   const seen = new Set<number>();

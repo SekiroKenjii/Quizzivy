@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 
 /** ThemePreference is what the user chose; `system` follows the device. */
 export type ThemePreference = "light" | "dark" | "system";
@@ -10,8 +10,8 @@ const STORAGE_KEY = "quizzivy.theme";
 const DARK_QUERY = "(prefers-color-scheme: dark)";
 
 const listeners = new Set<() => void>();
-let forcedLight = 0;
 let unsaved: ThemePreference | null = null;
+let accountValue: ThemePreference | null = null;
 
 /**
  * readThemePreference returns the stored preference, or `light` when nothing
@@ -19,6 +19,7 @@ let unsaved: ThemePreference | null = null;
  * keep is returned for as long as the page lives.
  */
 export function readThemePreference(): ThemePreference {
+  if (accountValue !== null) return accountValue;
   if (unsaved !== null) return unsaved;
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -31,6 +32,7 @@ export function readThemePreference(): ThemePreference {
 
 /** writeThemePreference stores the preference and applies it at once. */
 export function writeThemePreference(preference: ThemePreference): void {
+  if (accountValue !== null) accountValue = preference;
   try {
     localStorage.setItem(STORAGE_KEY, preference);
     unsaved = null;
@@ -47,7 +49,6 @@ function systemIsDark(): boolean {
 }
 
 function resolve(): ResolvedTheme {
-  if (forcedLight > 0) return "light";
   const preference = readThemePreference();
   if (preference === "system") return systemIsDark() ? "dark" : "light";
   return preference;
@@ -105,18 +106,9 @@ export function useThemePreference(): ThemePreference {
   return useSyncExternalStore(subscribe, readThemePreference, () => "light");
 }
 
-/**
- * useForcedLightTheme keeps the page light while the calling component is
- * mounted, whatever the preference, and restores the preference on unmount.
- * Screens not yet rebuilt to the deck call it: they were never drawn dark.
- */
-export function useForcedLightTheme(): void {
-  useEffect(() => {
-    forcedLight += 1;
-    apply();
-    return () => {
-      forcedLight -= 1;
-      apply();
-    };
-  }, []);
+/** setAccountTheme applies authoritative account presentation while leaving anonymous storage behavior intact. */
+export function setAccountTheme(value: ThemePreference | null) {
+  accountValue = value;
+  if (value !== null) writeThemePreference(value);
+  apply();
 }

@@ -110,7 +110,7 @@ func TestEveryTeacherAttemptOperationCarriesTheCallersScope(t *testing.T) {
 				},
 			}
 			students := cqrs.HandlerFunc[identityquery.StudentAccount, identitydomain.Account](func(_ context.Context, q identityquery.StudentAccount) (identitydomain.Account, error) {
-				return identitydomain.Account{ID: q.ID, Role: "student"}, nil
+				return identitydomain.Account{ID: q.ID}, nil
 			})
 			h := attemptshttp.NewAttempts(app, nil, students, nil)
 			ctx := reachContext(t, principal)

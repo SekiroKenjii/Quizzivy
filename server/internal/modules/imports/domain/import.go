@@ -28,6 +28,9 @@ var (
 
 const MaxSourceBytes int64 = 25 << 20
 
+const MaxPasteCharacters = 100000
+const MaxPasteLines = 20000
+
 // Statuses in which a teacher may add or replace a source; a new source set returns the import to awaiting_sources.
 func AcceptsSources(status string) bool {
 	return status == "awaiting_sources" || status == "failed" || status == "needs_review"
@@ -44,6 +47,7 @@ type Import struct {
 	TestID                       *string
 	FilesRemovedAt               *time.Time
 	ClosedIdle                   bool
+	ReviewCounts                 *ReviewCounts
 }
 
 // RunSummary is the latest processing run as the teacher sees it.
@@ -58,6 +62,7 @@ type RunSummary struct {
 type Source struct {
 	ID, ImportID, UploadID, Role, Filename, Format, StorageKey, UploadedBy string
 	ExpectedRevision, Bytes, SourceRevision                                int64
+	Characters                                                             *int
 	SHA256                                                                 []byte
 	Ready                                                                  bool
 	CreatedAt                                                              time.Time
@@ -83,13 +88,26 @@ type Receipt struct {
 // Filter selects a page of the imports Scope created, or every one under
 // scope.all; a zero Scope matches nothing.
 type Filter struct {
-	Search, Status string
-	Page, Limit    int
-	Scope          access.Scope
+	Search      string
+	Status      []string
+	Page, Limit int
+	Scope       access.Scope
 }
+
+// ReviewCounts describes the current draft's unresolved findings, never a pending candidate.
+type ReviewCounts struct {
+	NeedsAction, ToConfirm int
+}
+
+// StatusFacets counts matching imports independently of the selected statuses.
+type StatusFacets struct {
+	All, Processing, NeedsReview, Failed, Committed, Cancelled int
+}
+
 type List struct {
-	Items []Import
-	Page  paging.Page
+	Items  []Import
+	Page   paging.Page
+	Facets StatusFacets
 }
 
 // Quotas bounds retained reservations as well as completed sources; failed storage writes do not evade accounting.

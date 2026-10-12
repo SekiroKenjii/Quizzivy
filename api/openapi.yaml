@@ -32,7 +32,8 @@ info:
     - Paths are split by audience: `/teacher/*` is the teaching workspace,
       `/admin/*` the Admin console, `/app/*` the student app, and `/auth/*`
       the caller's own session. `/public/*` and `/join/*` hold open operations
-      only, and `/me/*` is reserved for the caller's own settings (R4). Each
+      only, and `/me/*` holds the caller's own notifications and settings,
+      whatever their role. Each
       tree accepts only the permissions that belong to it, and the server
       refuses to start when an operation's `x-permission` does not fit its
       tree.
@@ -61,15 +62,19 @@ info:
       `kind` is the owned resource the id names: `test`, `test-version`,
       `section`, `question`, `version-question`, `version-recording`,
       `question-group`, `media`, `import`, `import-source`, `class`,
-      `assignment`, `attempt` or `student`. The two `version-` kinds are a
+      `assignment`, `attempt`, `student`, `notification` or `override`. The two `version-` kinds are a
       question and a group recording of a published version, as grading and
       the student's autosave, events and plays name them. A section unit's
       `id` names a question or a group, as its `kind` says, and is declared
       as a question; the suite checks the group branch separately.
       `kind` is `none` for an id that names no owned resource: an option, a
       gap, a session, an idempotency key, a fresh identity the caller
-      supplies, or an id the operation resolves only inside the resource its
-      path names, such as a group's own members on `updateQuestionGroup`.
+      supplies, a cursor that only marks a position in the caller's own list
+      (`before` on `listNotifications`), or an id the operation resolves only
+      inside the resource its path names, such as a group's own members on
+      `updateQuestionGroup`.
+      An `override` is named by the id of the student it is on, beside the
+      assignment in the same path: `DELETE /teacher/assignments/{id}/student-overrides/{studentId}`.
       Every `/teacher/*` list names the kind it lists in `x-resource-list`.
       The two-teacher isolation suite reads both: another owner's id answers
       exactly as a missing id does.
@@ -112,6 +117,11 @@ tags:
     description: Admin access to the API reference served beside the API.
   - name: student
   - name: take-test
+  - name: me
+    description: |
+      The caller's own notifications and notification switches, for any
+      signed-in user. Every operation reads and writes the caller's rows only:
+      none takes a user id, and none answers 403 or 404 for an id.
 
 components:
 
@@ -500,11 +510,14 @@ components:
         - LAST_LOGIN_METHOD
         - REFRESH_TOKEN_INVALID
         - REFRESH_TOKEN_REUSED
+        - SESSION_IS_CURRENT
         # join codes — distinct, but see JoinPreviewResponse on what they may not carry
         - JOIN_CODE_INVALID
         - JOIN_CODE_EXPIRED
         - JOIN_CODE_EXHAUSTED
         - JOIN_CODE_REVOKED
+        # classes
+        - CLASS_ARCHIVED
         # students
         - EMAIL_TAKEN
         - STUDENT_SHARED
@@ -525,6 +538,9 @@ components:
         - MEDIA_TOO_LARGE
         - MEDIA_TOO_LONG
         - MEDIA_UNREADABLE
+        - MEDIA_KIND_MISMATCH
+        - MEDIA_QUOTA_EXCEEDED
+        - IMAGE_DIMENSIONS
         # Word imports
         - IMPORT_CONFLICT
         - IMPORT_QUOTA_EXCEEDED
@@ -539,6 +555,7 @@ components:
         # attempts
         - ASSIGNMENT_NOT_OPEN
         - ASSIGNMENT_NOT_CLOSED
+        - ASSIGNMENT_CLOSED
         - ATTEMPT_LIMIT_REACHED
         - ATTEMPT_CLOSED
         - ATTEMPT_IN_PROGRESS
@@ -548,6 +565,7 @@ components:
         - DEADLINE_NOT_REACHED
         - GRADING_INCOMPLETE
         - VERSION_LOCKED
+        - ASSIGNMENT_LOCKED
         # availability
         - MAINTENANCE
         - MAINTENANCE_SCHEDULED
@@ -629,17 +647,35 @@ components:
         id: { $ref: '#/components/schemas/Uuid' }
         role: { $ref: '#/components/schemas/ImportSourceRole' }
         filename: { type: string, minLength: 1, maxLength: 255 }
-        format: { type: string, enum: [docx, doc, pdf] }
+        format: { type: string, enum: [docx, doc, pdf, text] }
+        characters: { type: integer, minimum: 1, maximum: 100000 }
         bytes: { type: integer, format: int64, minimum: 1, maximum: 26214400 }
         sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
         uploadedBy: { $ref: '#/components/schemas/Uuid' }
         createdAt: { $ref: '#/components/schemas/Timestamp' }
+      oneOf:
+        - properties:
+            format: { enum: [text] }
+          required: [characters]
+        - properties:
+            format: { enum: [docx, doc, pdf] }
+          not: { required: [characters] }
+    PasteImportSource:
+      type: object
+      additionalProperties: false
+      required: [uploadId, expectedRevision, text]
+      properties:
+        uploadId: { $ref: '#/components/schemas/Uuid' }
+        expectedRevision: { type: integer, format: int64, minimum: 1 }
+        text: { type: string, minLength: 1, maxLength: 100000, pattern: '\S' }
     WordImport:
       type: object
       additionalProperties: false
       required: [id, title, status, revision, sourceRevision, sources, pendingUploads, createdBy, createdAt, updatedAt]
       description: |
-        Belongs to the teacher who created it (`createdBy`); every import with `scope.all`.
+        Belongs to the teacher who created it (`createdBy`). `scope.all` reaches
+        any import by id; the history (`listWordImports`) holds only the
+        caller's own.
         Sources are private originals, never learner media. Source revision zero
         means no completed source set. Upload completion does not mean recognition.
         Pending uploads are durable reservations and cannot be downloaded or processed.
@@ -678,6 +714,78 @@ components:
           description: |
             Present and true when retention closed this import because nobody
             touched it for the idle period, rather than a teacher cancelling it.
+    WordImportHistoryItem:
+      type: object
+      additionalProperties: false
+      required: [id, title, status, revision, sourceRevision, sources, pendingUploads, createdBy, createdAt, updatedAt, reviewCounts]
+      description: |
+        History-only current draft counts; unknown for a draft untouched since deploy.
+        Belongs to the teacher who created it (`createdBy`). `scope.all` reaches
+        any import by id; the history (`listWordImports`) holds only the
+        caller's own.
+        Sources are private originals, never learner media. Source revision zero
+        means no completed source set. Upload completion does not mean recognition.
+        Pending uploads are durable reservations and cannot be downloaded or processed.
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        status: { $ref: '#/components/schemas/ImportStatus' }
+        revision: { type: integer, format: int64, minimum: 1 }
+        sourceRevision: { type: integer, format: int64, minimum: 0 }
+        sources:
+          type: array
+          maxItems: 2
+          items: { $ref: '#/components/schemas/ImportSource' }
+        pendingUploads: { type: integer, minimum: 0 }
+        createdBy: { $ref: '#/components/schemas/Uuid' }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+        run: { $ref: '#/components/schemas/ImportRun' }
+        draftRevision:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Zero until processing has produced a reviewable draft.
+        testId:
+          $ref: '#/components/schemas/Uuid'
+          description: The draft test created by commit.
+        filesRemovedAt:
+          $ref: '#/components/schemas/Timestamp'
+          description: |
+            When retention removed this import's original files and review draft.
+            Set only on committed or cancelled imports. Afterwards the history row
+            and source metadata remain, but downloads, the source view and the
+            review answer 410 IMPORT_FILES_REMOVED.
+        closedIdle:
+          type: boolean
+          description: |
+            Present and true when retention closed this import because nobody
+            touched it for the idle period, rather than a teacher cancelling it.
+        reviewCounts:
+          oneOf: [{ $ref: '#/components/schemas/ImportReviewCounts' }, { type: 'null' }]
+    ImportReviewCounts:
+      type: object
+      additionalProperties: false
+      required: [needsAction, toConfirm]
+      description: Findings from the current review body, never a pending reprocessing candidate.
+      properties:
+        needsAction: { type: integer, minimum: 0 }
+        toConfirm: { type: integer, minimum: 0 }
+    ImportStatusFacets:
+      type: object
+      additionalProperties: false
+      required: [all, processing, needsReview, failed, committed, cancelled]
+      description: Counts under the same search and caller-owned scope, ignoring the status filter.
+      properties:
+        all: { type: integer, minimum: 0 }
+        processing:
+          type: integer
+          minimum: 0
+          description: awaiting_sources, queued, processing and committing together.
+        needsReview: { type: integer, minimum: 0 }
+        failed: { type: integer, minimum: 0 }
+        committed: { type: integer, minimum: 0 }
+        cancelled: { type: integer, minimum: 0 }
     ImportRun:
       type: object
       additionalProperties: false
@@ -752,8 +860,9 @@ components:
     ImportLimits:
       type: object
       additionalProperties: false
-      required: [maxBytes, formats]
+      required: [maxBytes, formats, pasteMaxCharacters]
       properties:
+        pasteMaxCharacters: { type: integer, minimum: 1, maximum: 100000 }
         maxBytes: { type: integer, format: int64, minimum: 1 }
         formats:
           type: array
@@ -1094,13 +1203,6 @@ components:
 
     # ------------------------------------------------------------------ auth
 
-    Role:
-      type: string
-      enum: [admin, student]
-      description: |
-        Guards are written so a third role (`teacher`, limited admin) can be
-        added without restructuring (§1.1).
-
     PermissionKey:
       type: string
       enum:
@@ -1154,17 +1256,24 @@ components:
         no role is granted them, and only the Admin holds them. The Admin
         holds every key, and `learning.take_tests` only when that cell is
         turned on. `scope.all` reads and edits any teacher's content, classes
-        and people.
+        and people by id, and widens the lists of classes, students and
+        attempts and the dashboard's figures to every teacher's. It does not
+        widen the teaching workspace's six content lists: `listTests`,
+        `listQuestions`, `listQuestionGroups`, `listMedia`, `listWordImports`
+        and `listAssignments`, with their facets, tags and counts, hold the
+        caller's own rows for every caller (for assignments, those the caller
+        created and those that target a class the caller teaches).
 
     User:
       type: object
-      required: [id, email, fullName, role, hasPassword, linkedProviders, mustChangePassword, createdAt]
+      required: [id, email, fullName, hasPassword, linkedProviders, mustChangePassword, createdAt]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         email: { type: string, format: email, maxLength: 254 }
         fullName: { type: string, minLength: 1, maxLength: 200 }
-        role: { $ref: '#/components/schemas/Role' }
+        displayName: { type: string, minLength: 1, maxLength: 80 }
+        avatarUrl: { type: string, format: uri, maxLength: 2048 }
         hasPassword:
           type: boolean
           description: false for Google-only accounts. Gates the unlink affordance.
@@ -1176,6 +1285,24 @@ components:
           type: boolean
           description: Forces `/change-password`. Always false for Google-only users (§5.4).
         createdAt: { $ref: '#/components/schemas/Timestamp' }
+
+    UserPreferences:
+      type: object
+      description: Stored account preferences; omitted keys use client defaults without materializing them.
+      additionalProperties: false
+      properties:
+        theme: { type: string, enum: [light, dark, system] }
+        compactTables: { type: boolean }
+        largerTestText: { type: boolean }
+        assignmentDefaults:
+          type: object
+          additionalProperties: false
+          properties:
+            durationMinutes: { type: integer, minimum: 1, maximum: 600 }
+            shuffleQuestions: { type: boolean }
+            showScore: { type: boolean }
+            blockCopyPaste: { type: boolean }
+            requireFullscreen: { type: boolean }
 
     Workspace:
       type: string
@@ -1196,16 +1323,26 @@ components:
         extended with `allOf` (issue #41). `User` stays where a response
         describes someone else, so a student's permissions never reach a
         teacher's payload.
-
-        `role` keeps its two legacy values, derived from the role, so a tab
-        still open on v0.7.0 keeps routing.
-      required: [id, email, fullName, role, hasPassword, linkedProviders, mustChangePassword, createdAt, permissions, workspaces]
+      required: [id, email, fullName, hasPassword, linkedProviders, mustChangePassword, createdAt, permissions, workspaces]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         email: { type: string, format: email, maxLength: 254 }
         fullName: { type: string, minLength: 1, maxLength: 200 }
-        role: { $ref: '#/components/schemas/Role' }
+        displayName: { type: string, minLength: 1, maxLength: 80 }
+        avatarUrl:
+          type: string
+          format: uri
+          maxLength: 2048
+          description: |
+            The caller's profile photo as a presigned `GET`, valid 24 hours and
+            minted again on every response that carries it. Absent when the
+            caller has no photo. Set and cleared by `setAvatar` and
+            `deleteAvatar`.
+        phone: { type: string, pattern: '^[0-9+ ]{6,20}$' }
+        locale: { type: string, enum: [vi, en] }
+        timeZone: { type: string, minLength: 1, maxLength: 64 }
+        preferences: { $ref: '#/components/schemas/UserPreferences' }
         hasPassword:
           type: boolean
           description: false for Google-only accounts. Gates the unlink affordance.
@@ -1262,6 +1399,78 @@ components:
         violations:
           type: array
           items: { $ref: '#/components/schemas/PublishValidationError' }
+
+    GradingQueue:
+      type: object
+      additionalProperties: false
+      required: [groups, items, answersRemaining, studentsWaiting]
+      description: Complete filtered pending counts with a deterministic prefix of at most 200 saved answers.
+      properties:
+        groups:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/GradingQueueGroup' }
+          description: Only groups represented in items, in queue order; remaining counts each group's complete filtered work.
+        items:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/GradingQueueItem' }
+        answersRemaining: { type: integer, minimum: 0 }
+        studentsWaiting: { type: integer, minimum: 0, description: Distinct student UUIDs across all filtered eligible answers. }
+
+    GradingQueueGroup:
+      type: object
+      additionalProperties: false
+      required: [key, kind, label, sub, remaining]
+      properties:
+        key:
+          type: string
+          minLength: 36
+          maxLength: 73
+          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?$'
+          description: Canonical lowercase student UUID, or assignmentUUID:versionQuestionUUID in question mode.
+        kind: { type: string, enum: [student, question] }
+        label: { type: string, description: Raw current student full name or decimal paper question number for client localization. }
+        sub: { type: string, description: Live assignment title of this group's first returned item. }
+        remaining: { type: integer, minimum: 1, description: Complete filtered eligible answer count; may exceed the returned prefix for this group. }
+
+    GradingQueueItem:
+      type: object
+      additionalProperties: false
+      required: [attemptId, questionId, assignmentId, assignmentTitle, studentId, studentName, questionNumber, type, prompt, answer, points, score, comment]
+      description: One saved pending-manual answer and its frozen teacher question; identity is attemptId plus questionId.
+      properties:
+        attemptId: { $ref: '#/components/schemas/Uuid' }
+        questionId: { $ref: '#/components/schemas/Uuid' }
+        assignmentId: { $ref: '#/components/schemas/Uuid' }
+        assignmentTitle: { type: string }
+        studentId: { $ref: '#/components/schemas/Uuid' }
+        studentName: { type: string, description: Raw current full name, without private account fields. }
+        questionNumber: { type: integer, minimum: 1, description: One-based section/question paper order, independent of the student's shuffle. }
+        type: { $ref: '#/components/schemas/QuestionType' }
+        prompt: { type: string, minLength: 1 }
+        promptContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionPromptContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+        answer: { $ref: '#/components/schemas/Answer' }
+        points: { $ref: '#/components/schemas/Points' }
+        score: { type: [number, 'null'], format: double, minimum: 0, description: Manual score; null while this answer remains in the pending queue. }
+        comment: { type: [string, 'null'] }
+        media:
+          oneOf: [{ $ref: '#/components/schemas/MediaAsset' }, { type: 'null' }]
+        audio:
+          oneOf: [{ $ref: '#/components/schemas/AudioPolicy' }, { type: 'null' }]
+        transcript: { type: [string, 'null'] }
+        options: { type: array, items: { $ref: '#/components/schemas/AdminQuestionOption' } }
+        blanks: { type: array, items: { $ref: '#/components/schemas/AdminQuestionBlank' } }
+        explanation: { type: [string, 'null'] }
+        explanationContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+        sampleAnswer: { type: [string, 'null'] }
+        sharedContext: { $ref: '#/components/schemas/SharedReviewContext' }
 
     QuestionAnswerRow:
       type: object
@@ -1320,13 +1529,36 @@ components:
         `other`.
       enum: [assignments, attempts, audit, members, owned_content, other]
 
+    MediaReplacementCounts:
+      type: object
+      additionalProperties: false
+      required: [questions, groups]
+      properties:
+        questions: { type: integer, minimum: 0 }
+        groups: { type: integer, minimum: 0 }
+    MediaReplacement:
+      type: object
+      additionalProperties: false
+      required: [asset, repointed, left]
+      properties:
+        asset: { $ref: '#/components/schemas/LibraryAsset' }
+        repointed:
+          $ref: '#/components/schemas/MediaReplacementCounts'
+          description: Distinct live question rows and groups actually changed; question rows differ from LibraryAsset.questionCount's derived usage.
+        left:
+          $ref: '#/components/schemas/MediaReplacementCounts'
+          description: Other owners' live question rows and groups still using the old asset; excludes versions, import reviews and late same-owner bindings.
     LibraryAsset:
       type: object
       description: |
-        A MediaAsset as the teacher's media library lists it, with how many published
-        versions reference it. Flat for the same reason (issue #41) -- this is
+        A MediaAsset as the teacher's media library lists it: with the name the
+        library shows, its default play limit, an image's size in pixels, how
+        many questions use the file and how many published versions reference
+        it. Flat for the same reason (issue #41) -- this is
         the site that was actually shipping a body its own contract rejected.
-      required: [id, kind, url, mimeType, bytes, originalFilename, createdAt]
+      required:
+        [id, kind, url, mimeType, bytes, originalFilename, createdAt,
+         displayName, defaultMaxPlays, width, height, questionCount]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
@@ -1341,6 +1573,42 @@ components:
         durationMs: { type: [integer, 'null'], description: Audio only. }
         originalFilename: { type: string }
         createdAt: { $ref: '#/components/schemas/Timestamp' }
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: |
+            The name the library shows: the one `updateMedia` stored, or
+            `originalFilename` while none was set.
+        defaultMaxPlays:
+          type: [integer, 'null']
+          minimum: 0
+          maximum: 3
+          description: |
+            The default play limit stored with this audio, for a client to
+            start a question's own limit from when it attaches the file; the
+            server applies it to nothing. `0` is unlimited and `null` is not
+            set. Always `null` for an image.
+        width:
+          type: [integer, 'null']
+          minimum: 1
+          description: |
+            An image's width in pixels. `null` for audio, and for an image
+            whose header could not be read; `width` and `height` are `null`
+            together.
+        height:
+          type: [integer, 'null']
+          minimum: 1
+          description: An image's height in pixels; `null` exactly when `width` is.
+        questionCount:
+          type: integer
+          minimum: 0
+          description: |
+            How many questions use the file, each counted once: a question
+            that is not deleted and attaches it, and every member that is not
+            deleted of a question group whose recordings or materials hold it.
+            Any owner's questions count. A published version, and a group with
+            no member, add nothing here; `usageCount` counts versions.
         usageCount:
           type: integer
           description: Published-version references. Non-zero blocks delete (§8).
@@ -1351,12 +1619,68 @@ components:
             The published tests behind `usageCount`, one entry per version,
             so the blocked-delete dialog can name them (A-07).
 
+    MediaFacets:
+      type: object
+      description: |
+        How many files of the caller's library each tab holds for the CURRENT
+        search, ignoring the `kind` and `unused` filters themselves, so that
+        choosing a tab does not zero the others. `unused` counts the files
+        whose `questionCount` is zero.
+      required: [all, audio, image, unused]
+      additionalProperties: false
+      properties:
+        all: { type: integer, minimum: 0 }
+        audio: { type: integer, minimum: 0 }
+        image: { type: integer, minimum: 0 }
+        unused: { type: integer, minimum: 0 }
+
+    MediaUsage:
+      type: object
+      description: |
+        The bytes the caller's whole library holds, whatever the search and
+        the filters, beside the quota an upload is measured against. A deleted
+        or replaced file counts in neither figure.
+      required: [audioBytes, imageBytes, quotaBytes]
+      additionalProperties: false
+      properties:
+        audioBytes: { type: integer, format: int64, minimum: 0 }
+        imageBytes: { type: integer, format: int64, minimum: 0 }
+        quotaBytes:
+          type: integer
+          format: int64
+          minimum: 1
+          description: The most one owner's library may hold, as the deployment sets it.
+
+    MediaUpdate:
+      type: object
+      description: |
+        What `updateMedia` changes. A property left out keeps its stored
+        value.
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Trimmed by the server; a name that is blank once trimmed is refused.
+        defaultMaxPlays:
+          type: [integer, 'null']
+          minimum: 0
+          maximum: 3
+          description: |
+            `0` is unlimited and `null` clears the limit. A number is refused
+            for an image.
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+
     StudentAssignmentDetail:
       type: object
       description: |
         The intro screen's card: what StudentAssignmentCard carries, without
         `classId`, `classIds` and `liveAnsweredCount`, plus the policies §10.2 states in
-        plain Vietnamese before the student starts.
+        plain Vietnamese before the student starts. The window it states is the
+        student's own, as in StudentAssignmentCard.
       required:
         [id, testTitle, status, opensAt, closesAt, durationMinutes,
          attemptsUsed, maxAttempts, questionCount, totalPoints, review,
@@ -1382,8 +1706,15 @@ components:
         lastAttemptId: { oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }] }
         lastSubmittedAt: { type: [string, 'null'], format: date-time }
         score: { oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }] }
-        review: { $ref: '#/components/schemas/ReviewPolicy' }
+        review:
+          $ref: '#/components/schemas/ReviewPolicy'
+          description: |
+            On the intro's detail these are the stored flags, and `release` says
+            when they apply; they become effective only on the student's result.
         integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
+        studentNote:
+          type: [string, 'null']
+          description: The teacher's note for the students, plain text. Null or absent when there is none.
         hasAudio:
           type: boolean
           description: Any question audio or shared recording on the assigned frozen version.
@@ -1505,6 +1836,28 @@ components:
           description: Memberships in classes the caller teaches, or every one with `scope.all`. The table truncates; the drawer lists them.
         stats: { $ref: '#/components/schemas/StudentStats' }
 
+    StudentPasswordReset:
+      type: object
+      description: One student `resetStudentsPasswords` reset. The password is shown once.
+      required: [studentId, fullName, email, temporaryPassword]
+      additionalProperties: false
+      properties:
+        studentId: { $ref: '#/components/schemas/Uuid' }
+        fullName: { type: string, minLength: 1, maxLength: 200 }
+        email: { type: string, format: email, maxLength: 254 }
+        temporaryPassword: { type: string }
+
+    StudentResetFailure:
+      type: object
+      description: One student `resetStudentsPasswords` did not reset, and why.
+      required: [studentId, code]
+      additionalProperties: false
+      properties:
+        studentId: { $ref: '#/components/schemas/Uuid' }
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+          description: One of `NOT_FOUND`, `FORBIDDEN`, `STUDENT_SHARED` or `INTERNAL`.
+
     StudentFacets:
       type: object
       description: |
@@ -1532,6 +1885,42 @@ components:
         expiresIn: { type: integer, description: Seconds. }
         user: { $ref: '#/components/schemas/CurrentUser' }
 
+    Session:
+      type: object
+      description: |
+        One sign-in of the caller that is still live: a refresh-token family
+        that is neither revoked nor expired (§5.2). It is the caller's own and
+        nobody else's. It carries no IP address, no raw user agent and nothing
+        that could be presented as a credential.
+
+        `device` is computed from the user agent when the list is read and is
+        made only of names from a closed list, "Mac · Chrome", "Mac" or
+        "Chrome", never of any part of the header itself. It is null, and
+        `deviceKind` is `unknown`, when neither the system nor the browser is
+        recognised; the client words that case in the reader's language.
+        `deviceKind` picks the icon. An iPad that asks for desktop sites sends
+        a Mac user agent and reads as one.
+
+        `location` is "City, CC", the place of the request that last signed in
+        or refreshed this session, taken from the edge's location headers and
+        only where the server trusts them. It is null otherwise. `lastUsedAt`
+        is that same moment, so it is at most one access-token lifetime old.
+      required: [familyId, device, deviceKind, location, lastUsedAt, current]
+      additionalProperties: false
+      properties:
+        familyId:
+          $ref: '#/components/schemas/Uuid'
+        device: { type: [string, 'null'], maxLength: 40 }
+        deviceKind: { type: string, enum: [computer, phone, tablet, unknown] }
+        location: { type: [string, 'null'], maxLength: 80 }
+        lastUsedAt: { $ref: '#/components/schemas/Timestamp' }
+        current:
+          type: boolean
+          description: |
+            True for the session the request's refresh cookie belongs to. False
+            for every session when the request carries no cookie that names a
+            live session of the caller.
+
     # ---------------------------------------------------------------- classes
 
     Class:
@@ -1542,6 +1931,16 @@ components:
         id: { $ref: '#/components/schemas/Uuid' }
         name: { type: string, minLength: 1, maxLength: 120 }
         description: { type: [string, 'null'] }
+        scheduleLabel:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 120
+          description: When the class meets, as its teacher worded it ("Thứ 3, 5 · 18:00"). Plain text, trimmed; `null` for none.
+        room:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 60
+          description: Where the class meets. Plain text, trimmed; `null` for none.
         studentCount: { type: integer, minimum: 0 }
         openAssignmentCount:
           type: integer
@@ -1557,6 +1956,68 @@ components:
           description: Teacher responses only. Never present on a `/app/*` response.
           oneOf:
             - $ref: '#/components/schemas/JoinCodeInfo'
+            - type: 'null'
+        averageScore:
+          description: |
+            Teacher responses only. Never present on a `/app/*` response: a student
+            does not see how the class did. The sum of earned points over the sum of
+            total points of the best graded attempt (the highest score, the later
+            attempt on a tie) of each **current member** on each assignment that
+            targets the class, with the manual answers still unmarked in those
+            attempts as `pendingManual`. A student who has left the class counts for
+            nothing. Voided attempts and attempts not yet graded are ignored. `null`
+            when nothing is graded yet.
+          oneOf:
+            - $ref: '#/components/schemas/AttemptScore'
+            - type: 'null'
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+
+    ClassListItem:
+      type: object
+      description: |
+        A row of `listClasses`: every property of `Class`, with `joinCode` read in
+        full. It repeats `Class` rather than extending it so that no other
+        operation's response carries a readable code; a test holds the two property
+        lists together. `joinCode.code` is the code when the request asked for codes
+        with `withCodes`, the caller holds `teaching.classes.write`, and
+        `getJoinCode` would read that class's code for that caller; otherwise it is
+        `null`.
+      required: [id, name, studentCount, openAssignmentCount, selfJoinEnabled, archivedAt, createdAt, averageScore]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: [string, 'null'] }
+        scheduleLabel:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 120
+          description: When the class meets, as its teacher worded it ("Thứ 3, 5 · 18:00"). Plain text, trimmed; `null` for none.
+        room:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 60
+          description: Where the class meets. Plain text, trimmed; `null` for none.
+        studentCount: { type: integer, minimum: 0 }
+        openAssignmentCount:
+          type: integer
+          minimum: 0
+          description: Assignments whose derived status is `open` and that target this class (G-08).
+        selfJoinEnabled: { type: boolean }
+        archivedAt:
+          description: Set once archived. An archived class leaves every picker and keeps its record (G-08).
+          oneOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - type: 'null'
+        joinCode:
+          description: The active code with its metadata, or `null` for a class with none. Teacher responses only.
+          oneOf:
+            - $ref: '#/components/schemas/JoinCode'
+            - type: 'null'
+        averageScore:
+          description: As `Class.averageScore`; `null` when nothing is graded yet.
+          oneOf:
+            - $ref: '#/components/schemas/AttemptScore'
             - type: 'null'
         createdAt: { $ref: '#/components/schemas/Timestamp' }
 
@@ -1634,9 +2095,10 @@ components:
     MyClass:
       type: object
       description: |
-        A class as its student sees it (S-10): the name, who teaches it and
-        when they joined. Never the join code or the roster.
-      required: [id, name, description, teacherName, joinedAt]
+        A class as its student sees it (S-10): the name, who teaches it, when
+        and where it meets, and when they joined. Never the join code, a count,
+        the roster or an average.
+      required: [id, name, description, teacherName, teacherAvatarUrl, scheduleLabel, room, joinedAt]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
@@ -1645,6 +2107,15 @@ components:
         teacherName:
           type: [string, 'null']
           description: The display name of the class's own teacher.
+        teacherAvatarUrl:
+          type: [string, 'null']
+          description: The teacher's profile photo, a presigned GET valid 24 hours; `null` when the teacher has none or no store is configured.
+        scheduleLabel:
+          type: [string, 'null']
+          description: When the class meets, as its teacher worded it.
+        room:
+          type: [string, 'null']
+          description: Where the class meets.
         joinedAt: { $ref: '#/components/schemas/Timestamp' }
 
     # ------------------------------------------------------------------ media
@@ -1655,8 +2126,17 @@ components:
 
     MediaAsset:
       type: object
+      description: |
+        A stored file as a question, a preview and a student's paper carry it.
+        `x-media-limits` is what an upload may be (§11.1): audio of at most
+        `audioBytes` and `durationMs`, an image of at most `imageBytes`. The
+        server's constants and the web's pre-check are tested against it.
       required: [id, kind, url, mimeType, bytes, originalFilename, createdAt]
       additionalProperties: false
+      x-media-limits:
+        audioBytes: 52428800
+        imageBytes: 10485760
+        durationMs: 300000
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         kind: { $ref: '#/components/schemas/MediaKind' }
@@ -1670,7 +2150,11 @@ components:
         mimeType:
           type: string
           enum: [audio/mpeg, audio/mp4, audio/aac, image/png, image/jpeg, image/webp]
-        bytes: { type: integer, minimum: 1, maximum: 10485760 }
+        bytes:
+          type: integer
+          minimum: 1
+          maximum: 52428800
+          description: At most `audioBytes` for audio, and `imageBytes` for an image.
         durationMs:
           type: [integer, 'null']
           minimum: 1
@@ -1708,6 +2192,14 @@ components:
     QuestionType:
       type: string
       enum: [single_choice, multiple_choice, true_false, fill_blank, short_answer]
+
+    QuestionLevel:
+      type: string
+      enum: [pre_a1, a1, a2, b1, b2, c1, c2]
+
+    QuestionSkill:
+      type: string
+      enum: [grammar, vocabulary, reading, listening, writing, speaking]
 
     AudioPolicy:
       type: object
@@ -2014,7 +2506,7 @@ components:
       description: |
         How many questions each type holds for the CURRENT tag and search,
         ignoring the type filter itself. Backs A-06's rail counts.
-      required: [all, single_choice, multiple_choice, true_false, fill_blank, short_answer]
+      required: [all, single_choice, multiple_choice, true_false, fill_blank, short_answer, levels, skills]
       additionalProperties: false
       properties:
         all: { type: integer, minimum: 0 }
@@ -2023,14 +2515,41 @@ components:
         true_false: { type: integer, minimum: 0 }
         fill_blank: { type: integer, minimum: 0 }
         short_answer: { type: integer, minimum: 0 }
+        levels:
+          type: object
+          additionalProperties: false
+          required: [pre_a1, a1, a2, b1, b2, c1, c2]
+          properties:
+            pre_a1: { type: integer, minimum: 0 }
+            a1: { type: integer, minimum: 0 }
+            a2: { type: integer, minimum: 0 }
+            b1: { type: integer, minimum: 0 }
+            b2: { type: integer, minimum: 0 }
+            c1: { type: integer, minimum: 0 }
+            c2: { type: integer, minimum: 0 }
+        skills:
+          type: object
+          additionalProperties: false
+          required: [grammar, vocabulary, reading, listening, writing, speaking]
+          properties:
+            grammar: { type: integer, minimum: 0 }
+            vocabulary: { type: integer, minimum: 0 }
+            reading: { type: integer, minimum: 0 }
+            listening: { type: integer, minimum: 0 }
+            writing: { type: integer, minimum: 0 }
+            speaking: { type: integer, minimum: 0 }
 
     AdminQuestion:
       type: object
-      required: [id, type, prompt, points, tags, createdAt, updatedAt]
+      required: [id, type, prompt, points, tags, level, skill, createdAt, updatedAt]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         type: { $ref: '#/components/schemas/QuestionType' }
+        level:
+          oneOf: [{ $ref: '#/components/schemas/QuestionLevel' }, { type: 'null' }]
+        skill:
+          oneOf: [{ $ref: '#/components/schemas/QuestionSkill' }, { type: 'null' }]
         promptContent:
           oneOf: [{ $ref: '#/components/schemas/QuestionPromptContent' }, { type: 'null' }]
           x-go-type: json.RawMessage
@@ -2044,6 +2563,10 @@ components:
             `{{1}}`, `{{2}}`, 1-indexed, matching `blanks[].ordinal`.
         media:
           oneOf: [{ $ref: '#/components/schemas/MediaAsset' }, { type: 'null' }]
+        mediaAlt:
+          type: [string, 'null']
+          description: |
+            The alt text a teacher wrote for the question's image; absent or null when there is none, and always when `media` is not an image.
         audio:
           oneOf: [{ $ref: '#/components/schemas/AudioPolicy' }, { type: 'null' }]
         transcript: { type: [string, 'null'] }
@@ -2154,6 +2677,10 @@ components:
         prompt: { type: string }
         media:
           oneOf: [{ $ref: '#/components/schemas/MediaAsset' }, { type: 'null' }]
+        mediaAlt:
+          type: [string, 'null']
+          description: |
+            The alt text frozen with the version for the question's image, for a screen reader. Absent when the question has none or its media is not an image. It is a description, not an answer key.
         audio:
           oneOf: [{ $ref: '#/components/schemas/AudioPolicy' }, { type: 'null' }]
         options: { type: array, items: { $ref: '#/components/schemas/StudentOption' } }
@@ -2235,6 +2762,10 @@ components:
         prompt: { type: string }
         media:
           oneOf: [{ $ref: '#/components/schemas/MediaAsset' }, { type: 'null' }]
+        mediaAlt:
+          type: [string, 'null']
+          description: |
+            The alt text frozen with the version for the question's image, as on `StudentQuestion`. Present under every review policy: the picture was already on the paper.
         options: { type: array, items: { $ref: '#/components/schemas/StudentOption' } }
         blanks: { type: array, items: { $ref: '#/components/schemas/StudentBlank' } }
         points: { $ref: '#/components/schemas/Points' }
@@ -2413,6 +2944,17 @@ components:
           maxItems: 200
           items: { $ref: '#/components/schemas/GroupQuestionInput' }
 
+    StoredQuestionGroupBundle:
+      type: object
+      additionalProperties: false
+      required: [group, questions]
+      properties:
+        group: { $ref: '#/components/schemas/QuestionGroup' }
+        questions:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/StoredGroupQuestionInput' }
+
     GroupQuestionInput:
       type: object
       additionalProperties: false
@@ -2421,12 +2963,20 @@ components:
         id: { $ref: '#/components/schemas/Uuid' }
         input: { $ref: '#/components/schemas/QuestionInput' }
 
+    StoredGroupQuestionInput:
+      type: object
+      additionalProperties: false
+      required: [id, input]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        input: { $ref: '#/components/schemas/StoredQuestionInput' }
+
     StoredQuestionGroup:
       type: object
       additionalProperties: false
       required: [bundle, ownerSectionId, revision, archivedAt, createdAt, updatedAt, assets, unavailableAssetIds]
       properties:
-        bundle: { $ref: '#/components/schemas/QuestionGroupBundle' }
+        bundle: { $ref: '#/components/schemas/StoredQuestionGroupBundle' }
         ownerSectionId: { type: [string, 'null'], format: uuid }
         revision: { type: integer, format: int64, minimum: 1 }
         testUpdatedAt:
@@ -2524,9 +3074,22 @@ components:
           items: { $ref: '#/components/schemas/DraftSectionUnit' }
           description: Complete mixed order when the section has shared groups; absent on historical standalone outlines.
 
+    TestAssignmentCounts:
+      type: object
+      description: |
+        The assignments that name any version of a test, by derived status
+        (`AssignmentStatus`), whoever created them. `live` counts the `open`
+        ones. Drafts are not counted. Backs the tests card's "2 live".
+      required: [live, scheduled, closed]
+      additionalProperties: false
+      properties:
+        live: { type: integer, minimum: 0 }
+        scheduled: { type: integer, minimum: 0 }
+        closed: { type: integer, minimum: 0 }
+
     Test:
       type: object
-      required: [id, title, status, currentVersion, totalPoints, questionCount, audioCount, sections, createdAt, updatedAt]
+      required: [id, title, status, currentVersion, nextVersion, totalPoints, questionCount, audioCount, skills, assignments, unpublishedChanges, sections, createdAt, updatedAt]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
@@ -2537,12 +3100,44 @@ components:
           type: integer
           minimum: 0
           description: 0 while never published. A `published` test always has ≥ 1.
+        nextVersion:
+          type: integer
+          minimum: 1
+          description: |
+            Read-only: the server computes it and a client never sends it. The
+            number the next publish of this test will take: one more than
+            the highest version ever published, whether or not that version
+            still exists, so it is 1 for a test never published. Deleting the
+            newest version does not lower it, and the publish and this field
+            read the same count. It is not `currentVersion + 1` and not the
+            highest listed version + 1, and a client that names the version
+            about to be published reads it from here.
         totalPoints: { $ref: '#/components/schemas/Points' }
         questionCount: { type: integer, minimum: 0 }
         audioCount:
           type: integer
           minimum: 0
           description: Draft questions with their own audio or a shared group recording, counted once per question. Backs A-03's headphone badge.
+        skills:
+          type: array
+          items: { $ref: '#/components/schemas/QuestionSkill' }
+          description: Sorted distinct non-null skills of the current draft, including grouped members.
+        assignments: { $ref: '#/components/schemas/TestAssignmentCounts' }
+        unpublishedChanges:
+          type: [integer, 'null']
+          minimum: 0
+          description: |
+            How many changes the draft holds against the test's latest version:
+            the length of `getTestVersionDiff`'s `changes` for that version
+            against `draft`, so 0 means the draft is the latest version. It is
+            what the unpublished-changes banner reads.
+
+            Only `getTest` computes it. It is null for a test with no version,
+            in every row of `listTests`, in the answer of a write, and when a
+            group of the draft or of the latest version cannot be read; the
+            page then shows no banner. A
+            bank edit to a question the draft uses counts, though it never
+            moves `updatedAt`.
         sections:
           type: array
           items: { $ref: '#/components/schemas/TestSection' }
@@ -2557,13 +3152,21 @@ components:
       description: Immutable. Editing a published test creates a new one; in-flight attempts keep theirs (§7).
       required:
         [id, version, totalPoints, questionCount, audioCount, manualCount,
-         publishedAt, publishedBy]
+         skills, publishedAt, publishedBy, assignmentCount, changeNote]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         version: { type: integer, minimum: 1 }
         totalPoints: { $ref: '#/components/schemas/Points' }
         questionCount: { type: integer, minimum: 0 }
+        skills:
+          type: array
+          items: { $ref: '#/components/schemas/QuestionSkill' }
+          description: |
+            Sorted distinct non-null skills of the questions this version froze,
+            grouped members included: the version's counterpart of `Test.skills`.
+            It is read from the version's own questions, so editing the draft or
+            the bank after the publish does not change it.
         audioCount:
           type: integer
           minimum: 0
@@ -2577,6 +3180,141 @@ components:
             commit to it.
         publishedAt: { $ref: '#/components/schemas/Timestamp' }
         publishedBy: { type: string, description: Display name. }
+        assignmentCount:
+          type: integer
+          minimum: 0
+          description: |
+            Every assignment that names this version, drafts included, whoever
+            created it. A version with one cannot be deleted, so this is what
+            "In use · {n} assignments" and the disabled Delete read.
+        changeNote:
+          type: [string, 'null']
+          maxLength: 200
+          description: The note the teacher left when publishing. Null for a version published without one.
+        testUpdatedAt:
+          $ref: '#/components/schemas/Timestamp'
+          description: |
+            `publishTest` only: the test's `updatedAt` after the publish, which
+            the publish itself moves. A caller that goes on saving the draft
+            sends it as `expectedUpdatedAt`, or its next save answers
+            `STALE_WRITE`. Absent from every other answer.
+
+    DiffSide:
+      type: object
+      description: One of the two papers a diff compares.
+      required: [kind]
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum: [draft, version]
+        version:
+          type: integer
+          minimum: 1
+          description: The server sends it exactly when `kind` is `version`. The schema does not tie the two together.
+        publishedAt:
+          $ref: '#/components/schemas/Timestamp'
+          description: The server sends it exactly when `kind` is `version`. The schema does not tie the two together.
+
+    DiffChangeKind:
+      type: string
+      description: |
+        What one change reports. A question is never reported twice under one
+        kind. An edit to the shared material of a group, or to a section,
+        reaches each of its questions as one `changed` entry (field `context`
+        or `section`), so `Test.unpublishedChanges` counts it once per
+        question.
+
+        | Kind | The question | `params` |
+        |---|---|---|
+        | `added` | in `to` only; `questionNumber` and `questionId` are its place in `to` | `prompt` |
+        | `removed` | in `from` only; `questionNumber` and `questionId` are its place in `from` | `prompt` |
+        | `changed` | in both; `questionNumber` and `questionId` are its place in `to` | `fields` |
+        | `answer` | in both, with a different answer key; its place in `to` | `answerFrom`, `answerTo` for a choice question; none otherwise |
+        | `points` | none: the test's total changed; no `questionNumber`, no `questionId` | `pointsFrom`, `pointsTo` |
+
+        A question that changed in its words and in its key is reported twice,
+        once as `changed` and once as `answer`. Moving a question to another
+        place in the paper is not a change.
+      enum: [added, removed, changed, answer, points]
+
+    DiffField:
+      type: string
+      description: |
+        The part of a question that differs, for a `changed` entry.
+        `prompt` and `explanation` cover the text and the rich content;
+        `options` the text and content of the choices in their order, `blanks`
+        the gaps and their case rule, and `media` the attachment with its audio
+        policy and transcript. `context` is the shared material of the group
+        the question belongs to, or its being in a group at all, and `section`
+        the part of the paper it sits in. The correct options and the accepted
+        answers are not here: they are `answer` entries.
+      enum: [type, prompt, options, blanks, media, points, explanation, context, section]
+
+    DiffChangeParams:
+      type: object
+      description: |
+        One closed set of fields for every kind; `DiffChangeKind` says which of
+        them a kind carries. Plain values only.
+      additionalProperties: false
+      properties:
+        prompt:
+          type: string
+          maxLength: 200
+          description: The question's prompt as plain text, cut to 200 characters with `…` in place of the rest.
+        fields:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/DiffField' }
+        answerFrom:
+          type: array
+          items: { type: string, minLength: 1, maxLength: 3 }
+          description: The labels (`A`, `B`, …) of the correct options in `from`, in order.
+        answerTo:
+          type: array
+          items: { type: string, minLength: 1, maxLength: 3 }
+          description: The labels of the correct options in `to`, in order.
+        pointsFrom: { $ref: '#/components/schemas/Points' }
+        pointsTo: { $ref: '#/components/schemas/Points' }
+
+    DiffChange:
+      type: object
+      required: [kind, params]
+      additionalProperties: false
+      properties:
+        kind: { $ref: '#/components/schemas/DiffChangeKind' }
+        questionNumber:
+          type: integer
+          minimum: 1
+          description: The question's number in its paper, counting across sections.
+        questionId:
+          $ref: '#/components/schemas/Uuid'
+          description: |
+            The question's id in the paper `questionNumber` counts in: the
+            frozen question of a version, the bank question of the draft. It is
+            the id the preview of that version carries.
+        params: { $ref: '#/components/schemas/DiffChangeParams' }
+
+    TestVersionDiff:
+      type: object
+      description: What differs between two papers of one test.
+      required: [from, to, changes]
+      additionalProperties: false
+      properties:
+        from:
+          description: |
+            The older paper. Null only for `against=previous` on the first
+            version, which has nothing before it: every question is then an
+            `added` one.
+          oneOf: [{ $ref: '#/components/schemas/DiffSide' }, { type: 'null' }]
+        to: { $ref: '#/components/schemas/DiffSide' }
+        changes:
+          type: array
+          items: { $ref: '#/components/schemas/DiffChange' }
+          description: |
+            Ordered by kind (`added`, `removed`, `changed`, `answer`, `points`)
+            and then by question number.
 
     PublishValidationError:
       type: object
@@ -2620,14 +3358,50 @@ components:
         arriving, so nothing has to flip a row on a schedule. A draft is
         invisible to students and counts towards nothing.
 
+    ReviewRelease:
+      type: string
+      enum: [on_submit, after_close]
+      description: |
+        When a student's result is released. `on_submit` is as soon as they
+        hand in. `after_close` is once the assignment has closed for them, at
+        its effective close: until then the result withholds the score, the
+        marks, the answer key and the explanations through the same path a
+        policy that hides them takes, and carries `releasesAt`.
+
     ReviewPolicy:
       type: object
+      description: |
+        What the assignment lets a student see, as the server reads it. On the
+        student's result the three flags are the **effective** ones: all three
+        read false while an `after_close` release has not come, whatever the
+        teacher chose.
+      required: [showScore, showCorrectAnswers, showExplanations, release, showClassAverage]
+      additionalProperties: false
+      properties:
+        showScore: { type: boolean, default: true }
+        showCorrectAnswers: { type: boolean, default: false }
+        showExplanations: { type: boolean, default: false }
+        release: { $ref: '#/components/schemas/ReviewRelease' }
+        showClassAverage:
+          type: boolean
+          description: |
+            Whether the result may carry `classAverage`. It says what the
+            teacher chose; whether the average is there is `classAverage`.
+
+    ReviewPolicyInput:
+      type: object
+      description: |
+        The review policy a teacher writes. `release` and `showClassAverage`
+        are optional: a create without them gets `on_submit` and false, and a
+        PATCH without them keeps what is stored.
       required: [showScore, showCorrectAnswers, showExplanations]
       additionalProperties: false
       properties:
         showScore: { type: boolean, default: true }
         showCorrectAnswers: { type: boolean, default: false }
         showExplanations: { type: boolean, default: false }
+        release: { $ref: '#/components/schemas/ReviewRelease' }
+        showClassAverage: { type: boolean }
 
     IntegrityPolicy:
       type: object
@@ -2659,7 +3433,7 @@ components:
       required:
         [id, testId, testVersionId, testVersion, testTitle, targets, window,
          publishedAt, updatedAt, durationMinutes, maxAttempts, shuffleQuestions,
-         shuffleOptions, review, integrity, status]
+         shuffleOptions, review, integrity, studentNote, status]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
@@ -2719,9 +3493,16 @@ components:
         shuffleOptions: { type: boolean }
         review: { $ref: '#/components/schemas/ReviewPolicy' }
         integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
+        studentNote:
+          type: [string, 'null']
+          description: The note for the students, as stored. Null when there is none.
         status: { $ref: '#/components/schemas/AssignmentStatus' }
         submittedCount: { type: integer, minimum: 0, description: Distinct enabled students with at least one handed-in non-voided attempt. }
         targetCount: { type: integer, minimum: 0 }
+        questionCount:
+          type: integer
+          minimum: 0
+          description: Questions on the pinned version, counted as `TestVersion.questionCount` counts them.
         flaggedCount: { type: integer, minimum: 0 }
         pendingManualCount:
           type: integer
@@ -2731,6 +3512,58 @@ components:
           type: integer
           minimum: 0
           description: Handed-in attempts with a manual answer still unmarked (G-09's "Chờ chấm").
+
+    DuplicateAssignmentInput:
+      type: object
+      required: [classIds]
+      additionalProperties: false
+      properties:
+        classIds:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Uuid' }
+          description: The classes the copy is assigned to. May be empty, since the copy is a draft and is given its targets later.
+
+    ItemAnalysis:
+      type: object
+      required: [handedIn, items]
+      additionalProperties: false
+      properties:
+        handedIn:
+          type: integer
+          minimum: 0
+          description: |
+            The papers the figures range over: for each student the caller
+            reaches, their latest handed-in attempt that is not voided.
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ItemAnalysisItem' }
+          description: Sorted by `correctRate` ascending, a question with none last, then by `number`.
+
+    ItemAnalysisItem:
+      type: object
+      required: [questionId, number, type, promptExcerpt, answered, correctRate]
+      additionalProperties: false
+      properties:
+        questionId: { $ref: '#/components/schemas/Uuid' }
+        number: { type: integer, minimum: 1, description: The question's place on the paper, counted across sections. }
+        type: { $ref: '#/components/schemas/QuestionType' }
+        promptExcerpt: { type: string, maxLength: 140, description: The prompt as plain text with its whitespace collapsed, cut at 140 characters. }
+        answered:
+          type: integer
+          minimum: 0
+          description: Papers with an answer that says something to this question.
+        correctRate:
+          type: [number, 'null']
+          format: double
+          minimum: 0
+          maximum: 1
+          description: |
+            Papers that earned the question's full points, over the papers that
+            have a mark for it. A question left unanswered counts against it; a
+            manually marked answer the teacher has not marked yet counts for
+            neither side. Null when no paper has a mark for it.
 
     # ---------------------------------------------------------------- attempts
 
@@ -3009,6 +3842,15 @@ components:
         focusLossCount: { type: [integer, 'null'] }
         flagged: { type: boolean }
         audioOverLimit: { type: boolean, description: Reported, never enforced (§11.4). }
+        extendedTo:
+          type: [string, 'null']
+          format: date-time
+          description: >-
+            This student's own close, when an override of theirs reaches past the
+            assignment's own: "Extended to …". Absent or null when they have none,
+            or theirs is no later. While it is ahead of `serverTime` the student
+            can still start or carry on, even if the assignment has closed early
+            or its window has ended.
 
     AttemptListRow:
       type: object
@@ -3028,28 +3870,137 @@ components:
     Dashboard:
       type: object
       description: |
-        §8's teacher dashboard needs five counts that spec §15 has no endpoint for. One
-        round trip, not five. Every figure covers what the caller reaches: the assignments
-        they created or that target a class they teach, the papers the grading queue shows
-        them on those assignments, and the students of the classes they teach. With
-        `scope.all` it covers everything.
-      required: [openAssignments, awaitingGrading, activeStudents, flaggedAttempts, recentAttempts]
+        The Teacher dashboard covers the caller's own teaching, including an Admin:
+        assignments they created or targeting classes they teach, reachable papers on
+        them, and their classes. Its repository supports scope.all for a future Admin
+        console, but this operation never requests it. Legacy fields retain their
+        meaning; T-R4.23 stops reading openAssignments, activeStudents, totalStudents
+        and recentAttempts, and R5 removes them. Range affects submissions only.
+      required: [openAssignments, awaitingGrading, activeStudents, flaggedAttempts, newestFlaggedAttempt, recentAttempts, takingNow, submissions, today, recentActivity]
       additionalProperties: false
       properties:
         closingSoon: { type: integer, minimum: 0, description: Open assignments closing within the next 24 hours. }
         waitingStudents: { type: integer, minimum: 0, description: Distinct students with unmarked manual answers in handed-in papers. }
         oldestWaitingAt: { type: [string, 'null'], format: date-time }
-        totalStudents: { type: integer, minimum: 0, description: 'Enabled student accounts in the classes the caller teaches; every enabled student account with `scope.all`.' }
+        totalStudents: { type: integer, minimum: 0, description: 'Enabled student-like accounts in the classes the caller teaches, for an Admin too; this operation never requests the repository wide scope.' }
         nextClosing:
           oneOf: [{ $ref: '#/components/schemas/ClosingAssignment' }, { type: 'null' }]
         openAssignments: { type: integer, minimum: 0 }
         awaitingGrading: { type: integer, minimum: 0 }
-        activeStudents: { type: integer, minimum: 0, description: 'Of those students, the ones who started an attempt in the last seven days on an assignment the caller reaches. With `scope.all`, every enabled account that started an attempt in the last seven days, whatever its role.' }
+        activeStudents: { type: integer, minimum: 0, description: 'Of the enabled student-like members of classes the caller teaches, those who started an attempt in the last seven days on an assignment they reach; an Admin has the same own scope and cannot request the repository wide reading here.' }
         flaggedAttempts: { type: integer, minimum: 0 }
+        newestFlaggedAttempt:
+          oneOf: [{ $ref: '#/components/schemas/DashboardFlaggedAttempt' }, { type: 'null' }]
+          description: Newest started currently flagged reachable paper, ordered by started_at then id descending, from the flagged count statement snapshot; null without grading or intervention permission or a matching paper. Historical, voided and former-roster papers remain eligible.
         recentAttempts:
           type: array
           maxItems: 10
           items: { $ref: '#/components/schemas/AttemptListRow' }
+
+        takingNow: { $ref: '#/components/schemas/DashboardTakingNow' }
+        submissions: { $ref: '#/components/schemas/DashboardSubmissions' }
+        today:
+          type: array
+          maxItems: 20
+          items: { $ref: '#/components/schemas/DashboardToday' }
+        recentActivity:
+          type: array
+          maxItems: 10
+          items: { $ref: '#/components/schemas/DashboardActivity' }
+
+    DashboardFlaggedAttempt:
+      type: object
+      additionalProperties: false
+      required: [assignmentId, attemptId]
+      properties:
+        assignmentId: { type: string, format: uuid }
+        attemptId: { type: string, format: uuid }
+
+    DashboardTakingNow:
+      type: object
+      additionalProperties: false
+      required: [students, assignments, assignmentId]
+      description: Distinct students and assignments with reachable in-progress attempts before their deadline.
+      properties:
+        students: { type: integer, minimum: 0 }
+        assignments: { type: integer, minimum: 0 }
+        assignmentId:
+          type: [string, 'null']
+          format: uuid
+          description: Assignment of the newest started reachable in-progress paper strictly before its deadline at the supplied application clock, ordered by started_at then id descending, from the taking count statement snapshot; null when none qualifies.
+
+    DashboardSubmissions:
+      type: object
+      additionalProperties: false
+      required: [days, total, averagePercent]
+      description: Handed-in papers within the chosen calendar range in the actor's zone, including graded papers.
+      properties:
+        days:
+          type: array
+          minItems: 7
+          maxItems: 30
+          description: One entry per day, oldest first and today last, including zero days.
+          items: { $ref: '#/components/schemas/DashboardDay' }
+        total: { type: integer, minimum: 0 }
+        averagePercent:
+          type: [integer, 'null']
+          minimum: 0
+          maximum: 100
+          description: Mean graded paper percentage, rounded half up; null when no graded paper has a score.
+
+    DashboardDay:
+      type: object
+      additionalProperties: false
+      required: [date, count]
+      properties:
+        date: { type: string, format: date }
+        count: { type: integer, minimum: 0 }
+
+    DashboardToday:
+      type: object
+      additionalProperties: false
+      required: [kind, at, assignmentId, title, notSubmitted]
+      description: Published assignment openings and effective closings today in the actor's zone, oldest first.
+      properties:
+        kind: { type: string, enum: [opens, closes] }
+        at: { $ref: '#/components/schemas/Timestamp' }
+        assignmentId: { $ref: '#/components/schemas/Uuid' }
+        title: { type: string }
+        notSubmitted:
+          type: integer
+          minimum: 0
+          description: Distinct enabled reached targets without a submitted, timed-out or graded attempt on this assignment.
+
+    DashboardActivity:
+      type: object
+      additionalProperties: false
+      required: [kind, at, studentName, subject, flagged]
+      description: Latest ten activities, newest first; one row per non-voided attempt, plus student-like joins by code into taught classes.
+      properties:
+        kind: { type: string, enum: [submitted, started, joined] }
+        at: { $ref: '#/components/schemas/Timestamp' }
+        studentName: { type: string }
+        subject: { type: string }
+        flagged: { type: boolean }
+
+    TeacherSummary:
+      type: object
+      additionalProperties: false
+      required: [liveAssignments, answersToGrade, unreadNotifications]
+      description: Cheap nav counts in the caller's own teaching scope, for an Admin too.
+      properties:
+        liveAssignments:
+          type: [integer, 'null']
+          minimum: 0
+          description: Rows the caller's Assignments list shows as open; always a number under the current workspace.teacher gate.
+        answersToGrade:
+          type: [integer, 'null']
+          minimum: 0
+          description: Unmarked manual answers in reachable handed-in papers; null without teaching.grading, when the count is not run.
+        unreadNotifications:
+          type: integer
+          minimum: 0
+          description: The caller's own unread notifications.
 
     ClosingAssignment:
       type: object
@@ -3064,6 +4015,13 @@ components:
 
     StudentAssignmentCard:
       type: object
+      description: |
+        `status`, `closesAt`, `durationMinutes` and `maxAttempts` are the
+        signed-in student's own: when a teacher has given this student an
+        override, they are the later close, the longer time limit and the added
+        attempts (T-R4.12), and an assignment that closed for everyone else
+        reads `open` here while the student's close is still ahead. Nothing in
+        the card says an override exists or why.
       required:
         [id, testTitle, status, opensAt, closesAt, durationMinutes,
          attemptsUsed, maxAttempts, questionCount, totalPoints]
@@ -3123,6 +4081,158 @@ components:
           oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }]
           description: Only when the assignment's `review.showScore` is on.
 
+    # ----------------------------------------------------------- notifications
+
+    NotificationKind:
+      type: string
+      description: |
+        What a notification is about. The server sends no sentence: the client
+        words the item from `kind` and `params` in the reader's language.
+
+        Each kind carries exactly these `params`:
+
+        | Kind | For | Params |
+        |---|---|---|
+        | `attempt.submitted` | a teacher | `title`, `count`, `toGrade` |
+        | `attempt.flagged` | a teacher | `studentName`, `title`, `focusLost` |
+        | `assignment.closing` | a teacher | `title`, `notSubmitted` |
+        | `class.joined` | a teacher | `studentName`, `className` |
+        | `join_codes.rotated` | a teacher | `count`, `classNames` |
+        | `assignment.opened` | a student | `title`, `closesAt` |
+        | `assignment.due_soon` | a student | `title`, `closesAt` |
+        | `assignment.extended` | a student | `title`, `closesAt` |
+        | `result.ready` | a student | `title` |
+      enum:
+        - attempt.submitted
+        - attempt.flagged
+        - assignment.closing
+        - class.joined
+        - join_codes.rotated
+        - assignment.opened
+        - assignment.due_soon
+        - assignment.extended
+        - result.ready
+
+    NotificationAudience:
+      type: string
+      enum: [teacher, student]
+      description: |
+        The console that reads a notification, and so which of the caller's
+        notifications a bell counts, lists and clears. Which kinds each one
+        reads is the "For" column of the table in `NotificationKind`, and every
+        kind belongs to exactly one.
+
+        Where an operation takes it, it is optional, and leaving it out keeps
+        the behaviour from before it existed: every kind. An Admin who takes
+        tests holds rows of both, and each of their two bells passes its own.
+        It only narrows: the rows are still the caller's own and nobody else's.
+
+    NotificationEvent:
+      type: string
+      description: |
+        One switch of the notification settings. `attempt.submitted`,
+        `attempt.flagged` and `assignment.closing` are the teacher's;
+        `assignment.due_soon` and `result.ready` the student's. A switch
+        governs the kind of the same name, and `assignment.due_soon` also
+        governs `assignment.opened` and `assignment.extended`. `class.joined`
+        and `join_codes.rotated` have no switch.
+      enum:
+        - attempt.submitted
+        - attempt.flagged
+        - assignment.closing
+        - assignment.due_soon
+        - result.ready
+
+    NotificationParams:
+      type: object
+      description: |
+        What the client builds a notification's sentence from. One closed set
+        of fields for every kind; `NotificationKind` says which of them a kind
+        carries. Plain values only: never markup, never a score, a band or an
+        answer. A name is a copy taken when the notification was written.
+      additionalProperties: false
+      properties:
+        title: { type: string, minLength: 1, maxLength: 300, description: The title of the test the assignment gives. }
+        count:
+          type: integer
+          minimum: 0
+          description: Papers handed in (`attempt.submitted`), or classes whose join code was replaced (`join_codes.rotated`).
+        toGrade: { type: integer, minimum: 0, description: 'Of the papers handed in, those with an answer waiting for a mark.' }
+        focusLost: { type: integer, minimum: 0, description: Times the student left the test. }
+        notSubmitted: { type: integer, minimum: 0, description: Students who have not handed in. }
+        studentName: { type: string, minLength: 1, maxLength: 200 }
+        className: { type: string, minLength: 1, maxLength: 200 }
+        classNames:
+          type: array
+          maxItems: 5
+          items: { type: string, minLength: 1, maxLength: 200 }
+          description: At most five names; `count` holds how many classes there are.
+        closesAt: { $ref: '#/components/schemas/Timestamp' }
+
+    NotificationTarget:
+      type: object
+      description: |
+        Where a click on the notification goes: a page the client resolves from
+        `route`, never a URL. `assignmentId` is present for `assignment` and
+        `studentAssignment`, and `attemptId` for `attempt` and `result`; either
+        may accompany any other route.
+      required: [route]
+      additionalProperties: false
+      properties:
+        route:
+          type: string
+          description: |
+            `assignment`, `attempt`, `grading` and `classes` are pages of the
+            teaching workspace; `result` and `studentAssignment` are the
+            student's result and the student's page of an assignment.
+          enum: [assignment, attempt, grading, classes, result, studentAssignment]
+        assignmentId: { $ref: '#/components/schemas/Uuid' }
+        attemptId: { $ref: '#/components/schemas/Uuid' }
+
+    Notification:
+      type: object
+      required: [id, kind, params, target, createdAt, readAt]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        kind: { $ref: '#/components/schemas/NotificationKind' }
+        params: { $ref: '#/components/schemas/NotificationParams' }
+        target:
+          description: Null when the notification leads nowhere.
+          oneOf: [{ $ref: '#/components/schemas/NotificationTarget' }, { type: 'null' }]
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        readAt:
+          type: [string, 'null']
+          format: date-time
+          description: |
+            When the caller marked it read; null while it is unread. A
+            notification that is written again after it was read, as a count
+            that grew is, is unread again.
+
+    NotificationPreference:
+      type: object
+      required: [event, inApp, email]
+      additionalProperties: false
+      properties:
+        event: { $ref: '#/components/schemas/NotificationEvent' }
+        inApp: { type: boolean, description: 'While false, no notification this switch governs is written for the caller.' }
+        email: { type: boolean, description: Stored and returned. Nothing is sent by email yet. }
+
+    NotificationPreferences:
+      type: array
+      description: Every `NotificationEvent` once. The server answers them in the enum's order.
+      minItems: 5
+      maxItems: 5
+      items: { $ref: '#/components/schemas/NotificationPreference' }
+
+    MySummary:
+      type: object
+      description: What the caller's shell shows before any page is open.
+      required: [unreadNotifications]
+      additionalProperties: false
+      properties:
+        unreadNotifications: { type: integer, minimum: 0 }
+
     # ----------------------------------------------------------- write shapes
 
     QuestionInput:
@@ -3132,13 +4242,17 @@ components:
         schema cannot express — single_choice and true_false need exactly one correct
         option (true_false has exactly two options), multiple_choice needs at least one correct
         option, a `fill_blank` needs exact gapId bindings for rich prompts or matching
-        `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset — are validated by the
+        `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset and alt text an image — are validated by the
         server and again at publish (§8). Failing them returns
         `VALIDATION_FAILED` with per-field `details`.
       required: [type, prompt, points]
       additionalProperties: false
       properties:
         type: { $ref: '#/components/schemas/QuestionType' }
+        level:
+          oneOf: [{ $ref: '#/components/schemas/QuestionLevel' }, { type: 'null' }]
+        skill:
+          oneOf: [{ $ref: '#/components/schemas/QuestionSkill' }, { type: 'null' }]
         promptContent:
           oneOf: [{ $ref: '#/components/schemas/QuestionPromptContent' }, { type: 'null' }]
           x-go-type: json.RawMessage
@@ -3148,6 +4262,98 @@ components:
           minLength: 1
           description: Legacy Markdown, or exact plain projection when promptContent is present. `fill_blank` uses stable gapId bindings in rich content and `{{n}}` placeholders in legacy Markdown.
         mediaAssetId: { type: [string, 'null'], format: uuid }
+        mediaAlt:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 1000
+          description: |
+            Alt text for the question's image, for screen readers (1 to 1000 characters). Refused with a field error on `mediaAlt` unless `mediaAssetId` names an image; send null, or omit it, to clear it. A write replaces the stored value, as it does for `level` and `skill`, so an update that leaves it out clears it.
+        audio:
+          oneOf: [{ $ref: '#/components/schemas/AudioPolicy' }, { type: 'null' }]
+          description: Required if and only if the asset is audio (§7).
+        transcript:
+          type: [string, 'null']
+          description: Audio questions only. Teacher-authored; the student sees it only per policy.
+        options:
+          type: array
+          maxItems: 8
+          items:
+            type: object
+            required: [text, isCorrect]
+            additionalProperties: false
+            properties:
+              id: { type: [string, 'null'], format: uuid, description: Omit to create. }
+              content:
+                oneOf: [{ $ref: '#/components/schemas/OptionContent' }, { type: 'null' }]
+                x-go-type: json.RawMessage
+                x-go-type-skip-optional-pointer: true
+              text: { type: string, minLength: 1 }
+              isCorrect: { type: boolean }
+          description: Order in the array is the stored ordinal.
+        blanks:
+          type: array
+          items:
+            type: object
+            required: [ordinal, acceptedAnswers]
+            additionalProperties: false
+            properties:
+              id: { type: [string, 'null'], format: uuid }
+              gapId: { type: [string, 'null'], pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$' }
+              ordinal: { type: integer, minimum: 1, maximum: 32767 }
+              acceptedAnswers:
+                type: array
+                minItems: 1
+                items: { type: string, minLength: 1 }
+              caseSensitive: { type: boolean, default: false }
+        points:
+          allOf: [{ $ref: '#/components/schemas/Points' }]
+          exclusiveMinimum: 0
+          multipleOf: 0.01
+        explanationContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+        explanation: { type: [string, 'null'] }
+        sampleAnswer:
+          type: [string, 'null']
+          description: '`short_answer` only. Rejected on any other type.'
+        tags: { type: array, items: { type: string, minLength: 1 } }
+
+    StoredQuestionInput:
+      type: object
+      description: |
+        Stored editable content used by teacher reads, bodyless copies and version
+        restoration. Existing choice arrays retain their length; the eight-option
+        limit applies to authoring requests. Cross-field rules that a single
+        schema cannot express — single_choice and true_false need exactly one correct
+        option (true_false has exactly two options), multiple_choice needs at least one correct
+        option, a `fill_blank` needs exact gapId bindings for rich prompts or matching
+        `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset and alt text an image — are validated by the
+        server and again at publish (§8). Failing them returns
+        `VALIDATION_FAILED` with per-field `details`.
+      required: [type, prompt, points, level, skill]
+      additionalProperties: false
+      properties:
+        type: { $ref: '#/components/schemas/QuestionType' }
+        level:
+          oneOf: [{ $ref: '#/components/schemas/QuestionLevel' }, { type: 'null' }]
+        skill:
+          oneOf: [{ $ref: '#/components/schemas/QuestionSkill' }, { type: 'null' }]
+        promptContent:
+          oneOf: [{ $ref: '#/components/schemas/QuestionPromptContent' }, { type: 'null' }]
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+        prompt:
+          type: string
+          minLength: 1
+          description: Legacy Markdown, or exact plain projection when promptContent is present. `fill_blank` uses stable gapId bindings in rich content and `{{n}}` placeholders in legacy Markdown.
+        mediaAssetId: { type: [string, 'null'], format: uuid }
+        mediaAlt:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 1000
+          description: |
+            Alt text for the question's image, as stored. Absent or null when there is none.
         audio:
           oneOf: [{ $ref: '#/components/schemas/AudioPolicy' }, { type: 'null' }]
           description: Required if and only if the asset is audio (§7).
@@ -3198,6 +4404,57 @@ components:
           description: '`short_answer` only. Rejected on any other type.'
         tags: { type: array, items: { type: string, minLength: 1 } }
 
+
+
+    StudentOverride:
+      type: object
+      description: |
+        What one teacher changed about one student's turn at an assignment.
+        Teacher-only: nothing here, the reason least of all, reaches the
+        student's payloads.
+      required: [studentId, studentName, closesAt, durationMinutes, extraAttempts, reason, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        studentId: { $ref: '#/components/schemas/Uuid' }
+        studentName: { type: string }
+        closesAt:
+          type: [string, 'null']
+          format: date-time
+          description: The student's own close. Null when the override leaves the close alone. It never closes the student sooner than the assignment does.
+        durationMinutes:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 600
+          description: The student's time limit. Null when the assignment's applies.
+        extraAttempts: { type: integer, minimum: 0, maximum: 10, description: Attempts added to the assignment's `maxAttempts`. }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+
+    StudentOverrideInput:
+      type: object
+      required: [studentIds, reason]
+      additionalProperties: false
+      properties:
+        studentIds:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Uuid' }
+        extendBy:
+          type: integer
+          minimum: 1
+          maximum: 10080
+          description: Minutes added to each student's current close. Not with `closesAt`.
+        closesAt:
+          $ref: '#/components/schemas/Timestamp'
+          description: Must be ahead. Not with `extendBy`.
+        durationMinutes: { type: integer, minimum: 1, maximum: 600 }
+        extraAttempts: { type: integer, minimum: 0, maximum: 10 }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        notify: { type: boolean, description: Absent means false. }
+
     AssignmentInput:
       type: object
       required: [testVersionId, targets, window, durationMinutes, maxAttempts, review, integrity]
@@ -3221,7 +4478,7 @@ components:
             opensAt: { $ref: '#/components/schemas/Timestamp' }
             closesAt: { $ref: '#/components/schemas/Timestamp' }
         durationMinutes: { type: integer, minimum: 1, maximum: 600 }
-        maxAttempts: { type: integer, minimum: 1, default: 1 }
+        maxAttempts: { type: integer, minimum: 1, maximum: 99, default: 1 }
         shuffleQuestions:
           type: boolean
           default: false
@@ -3230,8 +4487,19 @@ components:
           type: boolean
           default: false
           description: Rejected with VALIDATION_FAILED on shuffleOptions when the selected version contains a group member with fixed option-label dependencies.
-        review: { $ref: '#/components/schemas/ReviewPolicy' }
+        review: { $ref: '#/components/schemas/ReviewPolicyInput' }
         integrity: { $ref: '#/components/schemas/IntegrityPolicy' }
+        studentNote:
+          type: [string, 'null']
+          maxLength: 500
+          x-go-type: json.RawMessage
+          x-go-type-skip-optional-pointer: true
+          description: |
+            A note for the students, drawn on the Test intro. Plain text,
+            trimmed by the server; an empty one, or one that is blank once
+            trimmed, is the same as none. The 500 characters are counted before trimming. Omitted,
+            a create has none and a PATCH keeps the stored note; `null` clears
+            it.
         draft:
           type: boolean
           default: false
@@ -3243,7 +4511,12 @@ components:
             of saving one is to come back to it.
         closeNow:
           type: boolean
-          description: PATCH only. Sets `closedAt`, closing the assignment before `closesAt`.
+          description: |
+            PATCH only; a create ignores it. Sets `closedAt`, closing the
+            assignment before `closesAt`. It is refused with `400
+            VALIDATION_FAILED` naming `closeNow` while `window.opensAt` is
+            still ahead, because an assignment cannot close before it opens,
+            whatever its status.
 
 paths:
 
@@ -3581,36 +4854,44 @@ paths:
       operationId: updateCurrentUser
       x-permission: self
       tags: [auth]
-      summary: Rename yourself
+      summary: Update your profile
       description: |
-        The one thing an account may change about itself, and the only write
-        behind the "Hồ sơ" card both settings boards draw (S-10, S-17).
-
-        The name is the account's own; the email is not. An address is issued
-        by the teacher or arrives from Google, it is the login, and moving it
-        would move who the account is — so it stays read-only here and only
-        `PATCH /teacher/students/{id}` can change it. Role, password and provider
-        links each have their own endpoint for the same reason.
-
-        Bounds match `users_full_name_check` and createStudent.
+        Updates only supplied profile fields. Omission preserves a field;
+        null clears displayName or phone. Names are trimmed, while phone
+        keeps the literal accepted pattern. timeZone must be a valid stable
+        IANA zone or UTC; blank and Local are refused. Email, role, password,
+        provider links and photo changes use their separate operations.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [fullName]
+              minProperties: 1
               additionalProperties: false
               properties:
                 fullName: { type: string, minLength: 1, maxLength: 200 }
+                displayName:
+                  type: [string, 'null']
+                  minLength: 1
+                  maxLength: 80
+                  x-go-type: json.RawMessage
+                  x-go-type-skip-optional-pointer: true
+                phone:
+                  type: [string, 'null']
+                  pattern: '^[0-9+ ]{6,20}$'
+                  x-go-type: json.RawMessage
+                  x-go-type-skip-optional-pointer: true
+                locale: { type: string, enum: [vi, en] }
+                timeZone: { type: string, minLength: 1, maxLength: 64 }
       responses:
         '200':
-          description: Saved. The whole user, so the client can replace its session copy.
+          description: The whole persisted caller profile and permissions.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/CurrentUser' }
         '400':
-          description: '`VALIDATION_FAILED` — the name is empty or too long.'
+          description: '`VALIDATION_FAILED` — a supplied field is invalid.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -3805,6 +5086,128 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /auth/sessions:
+    get:
+      operationId: listSessions
+      x-permission: self
+      tags: [auth]
+      summary: The caller's signed-in devices
+      description: |
+        Every live session of the caller, one row per sign-in, and no one
+        else's. The session of the request's refresh cookie comes first with
+        `current: true`; the others follow by `lastUsedAt`, newest first, then
+        by `familyId`. At most 100 rows: a caller with more sees the newest
+        ones, and "sign out the others" still ends them all.
+
+        The calling session is identified by the refresh cookie, which reaches
+        this endpoint because it is scoped `Path=/auth`. Without a cookie that
+        names a live session of the caller, the list is still returned and no
+        row is current.
+
+        **Leak review.** Each row holds a handle, a label built from a closed
+        list of names, a city and a country code, and a time, all of the
+        caller's own session. A row holds no IP address, no raw user agent, no
+        token or hash and no expiry. The location is the approximate place of
+        the last sign-in or refresh, which the caller can already see on their
+        own device. Responses are `no-store`.
+      responses:
+        '200':
+          description: The live sessions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                additionalProperties: false
+                properties:
+                  items:
+                    type: array
+                    maxItems: 100
+                    items: { $ref: '#/components/schemas/Session' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/sessions/revoke-others:
+    post:
+      operationId: revokeOtherSessions
+      x-permission: self
+      tags: [auth]
+      summary: Sign out every other device
+      description: |
+        Revokes every live session of the caller except the calling one, and
+        only when there is one to revoke also moves the caller's session epoch
+        and forgets the cached principal, so the access tokens of the sessions
+        that ended stop working at once on the server that took the request
+        and within 10 seconds on any other (§5). The epoch is the caller's,
+        so the caller's own access token is refused on its next request as
+        well; the client's single-flight refresh replaces it and the calling
+        session keeps its place. With nothing to revoke nothing is written, the
+        epoch does not move and `revoked` is 0.
+
+        The calling session is identified by the refresh cookie. When the
+        request carries none that names a live session of the caller, the
+        answer is `401 UNAUTHORIZED` and nothing is written: the server cannot
+        tell the caller's session from the others, and a holder of an access
+        token alone is not enough to sign an account out everywhere.
+
+        Limited to 5 a minute and 30 an hour per signed-in user.
+      responses:
+        '200':
+          description: The other sessions are revoked.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [revoked]
+                additionalProperties: false
+                properties:
+                  revoked:
+                    type: integer
+                    minimum: 0
+                    description: How many sessions this call ended.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /auth/sessions/{familyId}:
+    delete:
+      operationId: revokeSession
+      x-permission: self
+      tags: [auth]
+      summary: Sign out one device
+      description: |
+        Revokes one live session of the caller, moves the caller's session
+        epoch and forgets the cached principal in the same command, so the
+        access tokens of every session of the caller are refused on their next
+        request, at once on the server that took the request and within 10
+        seconds on any other (§5). The sessions that were not revoked refresh
+        and carry on; the revoked one cannot refresh.
+
+        The id of another user's session, of one that is revoked or expired and
+        of one that never existed answer alike: `404 NOT_FOUND`. The calling
+        session is refused with `409 SESSION_IS_CURRENT`; signing out of it is
+        `POST /auth/logout`.
+
+        The calling session is identified by the refresh cookie. When the
+        request carries none that names a live session of the caller, the
+        answer is `401 UNAUTHORIZED` and nothing is written.
+
+        Limited to 10 a minute and 60 an hour per signed-in user.
+      parameters:
+        - name: familyId
+          in: path
+          required: true
+          description: The `familyId` of a session `listSessions` returned.
+          schema: { $ref: '#/components/schemas/Uuid' }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`SESSION_IS_CURRENT` — the session is the one making the request.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
 
   # =============================================================== teacher/tests
 
@@ -4237,12 +5640,31 @@ paths:
 
         Republishing an unchanged test still creates a version — this is an
         append-only history, not a diff.
+
+        The body is optional. `changeNote` is kept with the version and is
+        trimmed first; a note that is empty after trimming is no note.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                changeNote:
+                  type: [string, 'null']
+                  maxLength: 200
+                  description: >-
+                    What changed in this version, in the teacher's words. Shown
+                    in the version history. The 200-character limit applies to
+                    the text as sent, before it is trimmed.
       responses:
         '201':
-          description: Published.
+          description: Published. `testUpdatedAt` is present.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/TestVersion' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: |
@@ -4318,6 +5740,57 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: The version is referenced or current. Archiving does not prevent deletion of an unused, non-current version.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /teacher/tests/{id}/versions/{version}/diff:
+    parameters:
+      - { $ref: '#/components/parameters/IdPath' }
+      - name: version
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    get:
+      operationId: getTestVersionDiff
+      x-resource:
+        - { in: path, name: id, kind: test }
+      x-permission: workspace.teacher
+      tags: [teacher-tests]
+      summary: What changed between a version and another paper
+      description: |
+        Compares the version in the path with another paper of the same test
+        and lists what a teacher would call a change. The older paper is
+        `from` and the newer `to`; the draft is always the newer. Reads only:
+        nothing is written, and no row is locked.
+
+        Questions are matched by the bank question they were frozen from, and
+        the ones left over by identical content, because restoring a version as
+        a draft copies its questions. So a question that was restored and then
+        edited reads as `removed` and `added`, not as `changed`. Order alone is
+        never a change.
+      parameters:
+        - name: against
+          in: query
+          required: true
+          schema: { type: string, pattern: '^(previous|draft|[1-9][0-9]*)$' }
+          description: |
+            `previous` is the highest version below the path version, so the
+            path version is `to`; on the first version there is none, `from` is
+            null and every question is `added`. `draft` is the test's draft, so
+            the path version is `from`. A number is another version of the test:
+            the lower of the two is `from`. The path version itself is refused
+            with 400, and a version that does not exist is 404.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TestVersionDiff' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: A group of one of the two papers cannot be read, so there is no paper to compare. For the draft (`against=draft`) the builder reports the cause when the teacher publishes; for a version it is stored data that no longer reads back.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -4465,6 +5938,23 @@ paths:
           schema:
             type: array
             items: { type: string }
+        - name: level
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/QuestionLevel' }
+        - name: skill
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/QuestionSkill' }
+        - name: tagMatch
+          in: query
+          schema: { type: string, enum: [any, all], default: any }
         - name: hasAudio
           in: query
           description: A-06's "Chỉ câu có audio".
@@ -4717,11 +6207,18 @@ paths:
       x-permission: content.tests.write
       tags: [teacher-imports]
       summary: Search private import history
-      description: Paginated history of the caller's imports (every teacher's with `scope.all`), with accent-insensitive title and current filename search.
+      description: Paginated history of the imports the caller created, for every caller (`scope.all` does not widen it), with accent-insensitive title and current filename search.
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Query'
-        - { name: status, in: query, schema: { $ref: '#/components/schemas/ImportStatus' } }
+        - name: status
+          in: query
+          style: form
+          explode: true
+          description: Repeated statuses are OR-ed; a single status remains valid.
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/ImportStatus' }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
       responses:
         '200':
@@ -4732,11 +6229,12 @@ paths:
                 allOf:
                   - $ref: '#/components/schemas/PageInfo'
                   - type: object
-                    required: [items]
+                    required: [items, facets]
                     properties:
                       items:
                         type: array
-                        items: { $ref: '#/components/schemas/WordImport' }
+                        items: { $ref: '#/components/schemas/WordImportHistoryItem' }
+                      facets: { $ref: '#/components/schemas/ImportStatusFacets' }
   /teacher/imports/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:
@@ -4830,6 +6328,69 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '429':
           description: IMPORT_QUOTA_EXCEEDED or IMPORT_BUSY — retry after capacity is available.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /teacher/imports/{id}/sources/text:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: pasteImportSource
+      x-resource:
+        - { in: path, name: id, kind: import }
+        - { in: body, name: /uploadId, kind: none }
+      x-permission: content.tests.write
+      tags: [teacher-imports]
+      summary: Store a private pasted-text exam source
+      description: |
+        Plain text only, normalized to NFC and stored as pasted-text.txt with role exam.
+        At most 100000 Unicode code points and 20000 nonblank lines; no NUL.
+        The default raw JSON body limit applies independently of text length.
+        Identical normalized text with the same uploadId and expectedRevision replays
+        the original immutable receipt; changed content conflicts. Quotas, intake
+        capacity, ownership and retention are shared with file uploads.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PasteImportSource' }
+      responses:
+        '201':
+          description: Stored and associated with one source revision.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportUploadReceipt' }
+        '400':
+          description: Malformed text request.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: Import not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: IMPORT_CONFLICT — stale revision, invalid lifecycle or conflicting upload identity.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413':
+          description: IMPORT_SOURCE_TOO_LARGE — normalized character or nonblank line limit exceeded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '415':
+          description: IMPORT_SOURCE_UNSUPPORTED or IMPORT_SOURCE_INVALID — invalid UTF-8, NUL or empty text.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429':
+          description: IMPORT_QUOTA_EXCEEDED or IMPORT_BUSY — retry after capacity is available.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501':
+          description: Private source intake is not configured.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -5162,10 +6723,26 @@ paths:
       operationId: listMedia
       x-resource-list: media
       x-permission: workspace.teacher
-      description: The §8 media library, with a usage count so referenced assets can be shown as undeletable.
+      description: |
+        The §8 media library: the caller's own files, whatever the caller
+        holds, newest first. A deleted file is not listed, and neither is one
+        that was replaced. Each row carries how many questions use it and how
+        many published versions reference it, so a file that cannot be deleted
+        can be shown as such. `q` is matched on `displayName` and on
+        `originalFilename`, without accents and without case.
       tags: [teacher-media]
       parameters:
         - { name: kind, in: query, schema: { $ref: '#/components/schemas/MediaKind' } }
+        - name: unused
+          in: query
+          required: false
+          description: |
+            `true` keeps only the files whose `questionCount` is zero. `false`
+            is the same as leaving it out. A file that only a published
+            version or an empty group still holds is unused here, and
+            `deleteMedia` still refuses it.
+          schema: { type: boolean, default: false }
+        - $ref: '#/components/parameters/Query'
         - $ref: '#/components/parameters/Page'
         # Inline: the default is per resource, and
         # TestEveryPageSizeMatchesItsContract reads it from here.
@@ -5186,7 +6763,7 @@ paths:
                 allOf:
                   - $ref: '#/components/schemas/PageInfo'
                   - type: object
-                    required: [items, totalBytes]
+                    required: [items, totalBytes, facets, usage]
                     properties:
                       items:
                         type: array
@@ -5194,7 +6771,12 @@ paths:
                       totalBytes:
                         type: integer
                         minimum: 0
-                        description: Every live asset the filter matches, not just this page, for A-07's "18 tệp · 42 MB".
+                        description: |
+                          Every file the search and the filters match, not
+                          just this page, for A-07's "18 tệp · 42 MB". `total`
+                          follows them in the same way.
+                      facets: { $ref: '#/components/schemas/MediaFacets' }
+                      usage: { $ref: '#/components/schemas/MediaUsage' }
           headers:
             Cache-Control:
               description: |
@@ -5213,19 +6795,39 @@ paths:
       tags: [teacher-media]
       summary: Upload an audio or image asset
       description: |
-        Upload goes **through the backend** in v1 — the files are small, volume
-        is low, and the backend must validate anyway. Presigned direct-to-R2 is
-        the P1 optimisation, and the client contract will not change beyond this
-        one call (§11.1).
+        Upload goes **through the backend** in v1 — volume is low, and the
+        backend must validate anyway. Presigned direct-to-R2 is the P1
+        optimisation, and the client contract will not change beyond this one
+        call (§11.1).
 
-        Validation order is size → magic bytes → duration, so an oversized
-        upload is cut off before anything is parsed. **Never trusts the
-        `Content-Type` header or the file extension** (§11.1): the type comes
-        from sniffing, and the duration from probing the container.
+        The file part is streamed to disk and never held in memory.
+        Audio is mp3 or m4a, at most 50 MB and 5 minutes; an image is png,
+        jpg or webp, at most 10 MB (`MediaAsset`'s `x-media-limits`).
+        Validation order is the audio size → magic bytes → the image size →
+        duration, so an oversized upload is cut off before anything is parsed.
+        **Never trusts the `Content-Type` header or the file extension**
+        (§11.1): the type comes from sniffing, and the duration from probing
+        the container. An image's pixel size is read from its header; an image
+        whose header cannot be read is stored without one.
+
+        The file joins the caller's library, which may hold at most the
+        deployment's quota (`listMedia`'s `usage.quotaBytes`); a file that
+        would take it past the quota is not kept.
 
         Assets are immutable. Re-uploading the same file creates a new row with
         a new key; it never overwrites (§11.1). That is what lets a version
         snapshot reference an asset without copying the file.
+      x-max-body-bytes: 52559872
+      parameters:
+        - name: defaultMaxPlays
+          in: query
+          required: false
+          description: |
+            The default play limit to store with the audio, as
+            `LibraryAsset.defaultMaxPlays` reads it; `0` is unlimited. Left
+            out, none is set. Audio only: sent with a file that turns out to
+            be an image, the upload is refused and nothing is stored.
+          schema: { type: integer, minimum: 0, maximum: 3 }
       requestBody:
         required: true
         content:
@@ -5247,8 +6849,18 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/MediaAsset' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409':
+          description: |
+            `MEDIA_QUOTA_EXCEEDED` — the caller's library would hold more than
+            its quota with this file. Nothing was stored.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '413':
-          description: '`MEDIA_TOO_LARGE` — over 10 MB (§11.1).'
+          description: |
+            `MEDIA_TOO_LARGE` — over 50 MB, or an image over 10 MB (§11.1).
+            The message names the limit that was passed.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -5262,8 +6874,101 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
 
+  /teacher/media/{id}/replace:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: replaceMedia
+      x-permission: content.media.write
+      x-resource: [{ in: path, name: id, kind: media }]
+      tags: [teacher-media]
+      summary: Replace a library file without changing published versions
+      description: |
+        Creates a new immutable file of the same kind, retaining the old owner's
+        display name and default play limit. Repoints that owner's editable
+        questions and bank or draft-owned groups atomically. Published versions,
+        other owners' rows and import review documents retain the old live file.
+        The old file leaves the library but remains readable and bindable.
+        Missing, foreign, deleted and already replaced IDs answer the same 404
+        before multipart bytes are read, after routing, authentication and header validation.
+        Audio is mp3 or m4a, at most 50 MB and 5 minutes; an image is png,
+        jpg or webp, at most 10 MB (MediaAsset's x-media-limits). Identification
+        and streamed validation match uploadMedia; kind is checked before storage.
+        Quota is the old owner's, excluding the old bytes. Every changed group
+        revision advances once, so cached question and group data must be reloaded.
+        This operation is not idempotent. An uncertain commit or a committed
+        replacement whose response fails returns an internal error and retains
+        the new object; retrying the old ID may answer 404. Failed storage
+        compensation also returns an internal error, without public internal details.
+      x-max-body-bytes: 52559872
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '201':
+          description: Replaced; asset is the new library file under the retained name.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaReplacement' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: MEDIA_QUOTA_EXCEEDED — the old owner's library would exceed its quota; no replacement committed and fresh-object compensation succeeded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413':
+          description: |
+            `MEDIA_TOO_LARGE` — over 50 MB, or an image over 10 MB (§11.1).
+            The message names the limit that was passed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '415':
+          description: |
+            `MEDIA_TYPE_UNSUPPORTED` (not mp3/m4a — §11.1 and §17.3),
+            `MEDIA_TOO_LONG` (over 5 minutes), or `MEDIA_UNREADABLE` (sniffed
+            correctly but the duration could not be probed — rejected rather
+            than stored with an unknown duration). `MEDIA_KIND_MISMATCH` means
+            the identified file differs from the old asset's kind.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
   /teacher/media/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    patch:
+      operationId: updateMedia
+      x-resource:
+        - { in: path, name: id, kind: media }
+      x-permission: content.media.write
+      tags: [teacher-media]
+      summary: Rename a file or set its default play limit
+      description: |
+        Changes the name the library shows for a file and the default play
+        limit stored with it; the stored file and its `originalFilename` never
+        change, and neither does a question that uses it. It reaches the
+        caller's own file, or any file with `scope.all`, as `deleteMedia`
+        does. A missing, deleted or replaced file, and another owner's,
+        answer the same 404. The change is audited.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MediaUpdate' }
+      responses:
+        '200':
+          description: The file as the library now lists it.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LibraryAsset' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
     delete:
       operationId: deleteMedia
       x-resource:
@@ -5295,13 +7000,35 @@ paths:
       x-permission: workspace.teacher
       description: |
         Backs the §8 assignments list. `status` is derived per assignment, not
-        stored (D-18). `classId` narrows the list to assignments that target
-        that class (G-06's "Xem tất cả", G-12); the facets follow it, so the
-        tab counts are the class's and never disagree with the rows.
+        stored (D-18). The list holds the assignments the caller created and
+        those that target a class the caller teaches, for every caller:
+        `scope.all` does not widen it. A row names only the target classes and
+        students the caller reaches, and `targetCount` counts those; for a
+        caller who holds `scope.all` that is every target, as in
+        `getAssignment`.
+        `classId` narrows the list to assignments that target
+        any of the classes named, one or several (G-06's "Xem tất cả", G-12);
+        the facets follow it, so the tab counts are those of the classes and
+        never disagree with the rows. A class the caller does not teach lists
+        nothing, as a missing class does, unless the caller holds `scope.all`:
+        it then lists those of the caller's own assignments that target it.
+        `q` keeps the assignments whose test title, or the name of a target
+        class the caller reaches, contains the text; it is accent-insensitive
+        and the facets follow it too. Every row carries `questionCount`.
       tags: [teacher-assignments]
       parameters:
         - { name: status, in: query, schema: { $ref: '#/components/schemas/AssignmentStatus' } }
-        - { name: classId, in: query, schema: { $ref: '#/components/schemas/Uuid' } }
+        - name: classId
+          in: query
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: array
+            maxItems: 50
+            uniqueItems: true
+            items: { $ref: '#/components/schemas/Uuid' }
+        - $ref: '#/components/parameters/Query'
         - $ref: '#/components/parameters/Page'
         # Inline: the default is per resource, and
         # TestEveryPageSizeMatchesItsContract reads it from here.
@@ -5353,6 +7080,75 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
 
+  /teacher/assignments/results.csv:
+    get:
+      operationId: exportResultsCsv
+      x-resource:
+        - { in: query, name: ids, kind: assignment }
+      x-permission: teaching.grading
+      tags: [teacher-assignments]
+      summary: Download the results of up to 50 assignments as a CSV file
+      description: |
+        One row per student of each assignment the caller reaches, in the order
+        of `ids` and then by name, for the students the caller reaches: the
+        roster the assignment's Students tab draws, so a student who has not
+        started has a row. The attempt that stands for a student is the one
+        that tab shows: their latest attempt that is not voided, else the
+        latest. Columns: Assignment (the test's title), Version, Class (the
+        target classes the caller reaches that the student belongs to, joined
+        by `; `), Student, Email, Status, Score, Max, Percent (score over max,
+        one decimal), Submitted (in the caller's own time zone, named in the
+        header; the default zone when the stored one is invalid), Focus lost
+        and Flagged. Score, Max and Percent are empty until every manually
+        marked answer of the attempt has a mark. Headers and the Status and
+        Flagged words follow `Accept-Language`, Vietnamese by default.
+
+        The file is UTF-8 with a byte-order mark and CRLF line ends, so
+        spreadsheets open it correctly. A cell that a spreadsheet would run as
+        a formula (it starts with `=`, `+`, `-`, `@`, a tab or a carriage
+        return, also after leading spaces, or with the full-width forms of the
+        first four) is written with a leading `'`. Overdue attempts are closed
+        before the file is read, as the monitor does.
+
+        An id the caller does not reach answers 404 for the whole request, as
+        a missing one does. More than 20000 rows answer 422. The response is
+        `private, no-store`, and a caller is limited to 10 files a minute and
+        60 an hour.
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          style: form
+          explode: true
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 50
+            uniqueItems: true
+            items: { $ref: '#/components/schemas/Uuid' }
+      responses:
+        '200':
+          description: The file.
+          headers:
+            Content-Disposition:
+              required: true
+              description: '`attachment; filename="results-YYYYMMDD.csv"`.'
+              schema: { type: string }
+            Cache-Control:
+              required: true
+              description: '`private, no-store`.'
+              schema: { type: string }
+          content:
+            text/csv:
+              schema: { type: string, format: binary }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: '`VALIDATION_FAILED` — the assignments hold more than 20000 rows; `details.ids` says so. Pick fewer.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
   /teacher/assignments/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     delete:
@@ -5398,6 +7194,34 @@ paths:
         Re-pointing an untouched assignment at a corrected version is a
         legitimate workflow; doing it once students have started is not.
         Existing attempts always carry their own version regardless (§7).
+
+        While the assignment is `open`, a **change** to `testVersionId`,
+        `durationMinutes` or `maxAttempts` is refused with `ASSIGNMENT_LOCKED`
+        (DG-65: only "Test & timing" locks); sending the stored value passes,
+        and every other field stays editable. Outside `open` the version check
+        above is the only one.
+
+        A **closed** assignment, by its window or by an early close, at the
+        moment of the request, stays closed: a `window` that would make it
+        `scheduled` or `open` again, or that opens after the early close the
+        assignment keeps, is refused with `ASSIGNMENT_CLOSED`, because that is
+        a reopening and `reopenAssignment` does it, asking for a reason and
+        writing its own audit entry. A request that leaves it closed passes:
+        the stored window, an earlier `closesAt`, `closeNow` (while `opensAt`
+        is not ahead of now) and every other field. An early close is never
+        lifted here.
+
+        `review.release`, `review.showClassAverage` and `studentNote` are
+        partial: omitted, they keep what is stored. `studentNote: null` clears
+        the note. Every other field is replaced as before.
+
+        An attempt already in progress moves with a later close, in the same
+        transaction: its deadline becomes the earlier of its start plus the
+        student's time limit and the student's own close, when that is later
+        than the deadline it has. A deadline never moves earlier, so a shorter
+        close, or `closeNow`, leaves every attempt in progress where it is, and
+        an attempt whose deadline has already passed is over and is not
+        revived. Each attempt moved is audited as `attempt.extended`.
       requestBody:
         required: true
         content:
@@ -5412,10 +7236,70 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: '`VERSION_LOCKED` — attempts exist, so the version cannot be changed.'
+          description: |
+            `ASSIGNMENT_LOCKED` — the assignment is open, so the version, the
+            duration and the attempts cannot be changed; `ASSIGNMENT_CLOSED` —
+            the assignment is closed and the window would open it again, so it
+            is reopened with `reopenAssignment`; `VERSION_LOCKED` — attempts
+            exist, so the version cannot be changed; or `TEST_NOT_PUBLISHED`.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /teacher/grading/queue:
+    get:
+      operationId: listGradingQueue
+      x-permission: teaching.grading
+      x-resource:
+        - { in: query, name: assignmentId, kind: assignment }
+        - { in: query, name: studentId, kind: student }
+      x-resource-list: attempt
+      tags: [teacher-attempts]
+      summary: Pending manual answers in grading order
+      description: |
+        Read-only queue of reachable submitted or timed_out papers' saved answers
+        requiring manual grading with no manual score. Graded, voided, in-progress,
+        missing saved answers and marked zero scores are excluded. Normal
+        AssignmentIDs and Papers reach apply; scope.all widens the existing read.
+        Filters apply before complete counts, grouping and the first 200 items.
+        Groups order by their earliest known eligible submitted_at ascending,
+        all-null groups last, then student UUID or assignment/question UUID tuple.
+        Within a group items order by submitted_at ascending nulls last, attempt
+        UUID, paper ordinal and frozen question UUID. Only represented groups are
+        returned, with full remaining counts even when split at the cap.
+        Each supplied reference is independently checked: unknown and foreign
+        references answer the same 404, while reachable empty intersections are
+        empty successes. studentId selects an already authorized historical paper
+        taker, not a student-account target: it requires either a current strict
+        student-like account in StudentIDs reach or existing history satisfying
+        BOTH AssignmentIDs and Papers reach, independent of status or pending work.
+        A privileged account without reached history cannot use the strict branch.
+        Membership, counts, reference flags and prefix share one statement snapshot;
+        later immutable-content and signed-media enrichment is not a live whole
+        response snapshot. Names and titles are current text; question/group keys
+        and content are frozen. Grades and completion use existing gradeAttempt
+        and finishGrading; this read never writes or finishes a paper.
+      parameters:
+        - name: mode
+          in: query
+          schema: { type: string, enum: [student, question], default: student }
+        - name: assignmentId
+          in: query
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - name: studentId
+          in: query
+          description: Historical paper-taker identity filter, not a strict student-account lookup.
+          schema: { $ref: '#/components/schemas/Uuid' }
+      responses:
+        '200':
+          description: Full filtered counts and the first 200 pending answers.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GradingQueue' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /teacher/assignments/{id}/answers:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -5462,6 +7346,70 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
 
+  /teacher/assignments/{id}/duplicate:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: duplicateAssignment
+      x-resource:
+        - { in: path, name: id, kind: assignment }
+        - { in: body, name: /classIds/-, kind: class }
+      x-permission: teaching.assignments.write
+      tags: [teacher-assignments]
+      summary: Copy an assignment as a draft
+      description: |
+        Creates a **draft** that pins the same version and keeps the original's
+        time limit, attempts, shuffle flags, review options, integrity policy
+        and note to students, owned by the caller. Its window opens now and
+        lasts as long as the original's (`closesAt - opensAt`). It is assigned
+        to `classIds` and to no student by name; students never see a draft.
+        The original is not changed.
+
+        The original must be one the caller reaches, and its version one the
+        caller may assign (a published test of their own, or any under
+        `scope.all`): otherwise 409 `TEST_NOT_PUBLISHED`. A class the caller
+        does not teach answers 400 as an unknown one does.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DuplicateAssignmentInput' }
+      responses:
+        '201':
+          description: The draft.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Assignment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`TEST_NOT_PUBLISHED` — the original''s version is not one the caller can assign.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /teacher/assignments/{id}/item-analysis:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getItemAnalysis
+      x-resource:
+        - { in: path, name: id, kind: assignment }
+      x-resource-list: version-question
+      x-permission: teaching.grading
+      tags: [teacher-attempts]
+      summary: How often students got each question wrong
+      description: |
+        Every question of the pinned version, hardest first, over the papers
+        handed in by the students the caller reaches (see `handedIn`). Overdue
+        attempts are closed before it is read, as the monitor does. A question
+        no paper has a mark for sorts last with a null rate.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ItemAnalysis' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /teacher/assignments/{id}/reopen:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     post:
@@ -5475,6 +7423,12 @@ paths:
         `closesAt` and its early close, if any, is lifted, so every student
         with attempts left can go back in. Only a closed assignment can be
         reopened, and only to a moment still ahead. Audited with the reason.
+
+        An attempt still in progress moves with it, in the same transaction,
+        as it does on `extendAssignment`: its deadline becomes the earlier of
+        its start plus the student's time limit and the student's own close,
+        when that is later than the deadline it has. An attempt whose deadline
+        has already passed is over and is not revived.
       requestBody:
         required: true
         content:
@@ -5499,6 +7453,188 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /teacher/assignments/{id}/extend:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: extendAssignment
+      x-resource:
+        - { in: path, name: id, kind: assignment }
+      x-permission: teaching.assignments.write
+      tags: [teacher-assignments]
+      description: |
+        Moves the assignment's `closesAt` later by `minutes`, for everyone. A
+        draft, a scheduled and an open assignment can be extended; a **closed**
+        one goes through `reopenAssignment` instead and answers
+        `ASSIGNMENT_CLOSED` here. Audited with the old and new close, in the
+        statement that moves it.
+
+        `notify` says the teacher wants the students told. It is recorded with
+        the audit entry. When it is true, each enabled student of a published
+        assignment whose own close the extension changed is sent an
+        `assignment.extended` notification naming the close they now have,
+        once the extension has committed: a student without an override, and
+        one whose override closes before the new close. A student whose
+        override closes at or after it keeps the close they had and is told
+        nothing. A failure to send is logged and never fails the extension.
+
+        An attempt already in progress moves with it, in the same transaction:
+        its deadline becomes the earlier of its start plus the student's time
+        limit and the student's own close, when that is later than the deadline
+        it has. A deadline never moves earlier, a student whose own
+        override already closes later keeps it, and an attempt whose deadline
+        has already passed is over and is not revived. Each attempt moved is
+        audited as `attempt.extended`. A student who starts afterwards gets the new
+        close, even if the start and the extension run at the same moment.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [minutes]
+              additionalProperties: false
+              properties:
+                minutes: { type: integer, minimum: 1, maximum: 10080 }
+                notify: { type: boolean, description: Absent means false. }
+      responses:
+        '200':
+          description: Extended.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Assignment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`ASSIGNMENT_CLOSED` — a closed assignment is reopened, not extended.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /teacher/assignments/{id}/student-overrides:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: listStudentOverrides
+      x-resource:
+        - { in: path, name: id, kind: assignment }
+      x-resource-list: override
+      x-permission: teaching.attempts.intervene
+      tags: [teacher-assignments]
+      summary: The overrides on an assignment the caller reaches
+      description: |
+        Every override on the assignment for a student the caller reaches, by
+        student name. It is not paged: an assignment holds at most one override
+        per targeted student.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                additionalProperties: false
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/StudentOverride' } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      operationId: setStudentOverrides
+      x-resource:
+        - { in: path, name: id, kind: assignment }
+        - { in: body, name: /studentIds/-, kind: student }
+      x-permission: teaching.attempts.intervene
+      tags: [teacher-assignments]
+      description: |
+        Gives each named student an override, or changes the one they have: a
+        later close, a longer time limit, more attempts, with the reason. It is
+        an accommodation, so it can open an assignment that has closed for
+        everyone else, for those students alone.
+
+        A field the request names replaces the stored one and a field it
+        leaves out keeps it, so lengthening a student's time does not take
+        away the attempts they were given. The reason always replaces; the
+        audit log keeps every earlier one. An override is removed with
+        `deleteStudentOverride`, not by sending zeros: a request that would
+        leave a row changing nothing is a `VALIDATION_FAILED`.
+
+        `closesAt` must be ahead of the database's clock. `extendBy` adds minutes to the student's
+        current close (their override's, when it is later, else the
+        assignment's) and is refused with `ASSIGNMENT_CLOSED` for a student
+        whose close has passed: a closed assignment is reopened for a student
+        with `closesAt`. A request names `extendBy` or `closesAt`, not both,
+        and at least one of the four. An override never shortens a close: the
+        later of it and the assignment's own is the student's.
+
+        Every id in `studentIds` must be a student of the assignment the caller
+        reaches: in a target class they teach or named on an assignment they
+        created, enabled, with a student role. One that is not answers `422
+        VALIDATION_FAILED` for the whole request and names the ids in
+        `details.studentIds`; nothing is written. A student who does not exist
+        and one the caller may not know exist answer the same.
+
+        Audited per student with the old and new values, in the statement that
+        writes them. `notify` is recorded with them. When it is true and the
+        request moves a close (`extendBy` or `closesAt`), each student named
+        whose override now closes after the assignment's own close is sent an
+        `assignment.extended` notification naming their close, once the
+        override has committed; more attempts or a longer time limit move no
+        close and tell nobody. A failure to send is logged and never fails the
+        request.
+
+        Each named student's attempt in progress moves with the override, as it
+        does on `extendAssignment`: its deadline becomes the earlier of its
+        start plus the student's time limit and the student's own close, when
+        that is later than the deadline it has. An attempt whose deadline has
+        already passed is over and is not revived.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StudentOverrideInput' }
+      responses:
+        '200':
+          description: The overrides as they now stand, by student name.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                additionalProperties: false
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/StudentOverride' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`ASSIGNMENT_CLOSED` — `extendBy` names a student whose close has passed.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: '`VALIDATION_FAILED` — `details.studentIds` names the ids that are not students of this assignment the caller reaches.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /teacher/assignments/{id}/student-overrides/{studentId}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+      - { name: studentId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    delete:
+      operationId: deleteStudentOverride
+      x-resource:
+        - { in: path, name: id, kind: assignment }
+        - { in: path, name: studentId, kind: override }
+      x-permission: teaching.attempts.intervene
+      tags: [teacher-assignments]
+      description: |
+        Takes the override off one student: they have the assignment's own
+        window from then on. An override that does not exist is a 404, as one
+        on an assignment or a student the caller does not reach is. Audited
+        with the values removed. An attempt in progress keeps its deadline: a
+        deadline never moves earlier.
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /teacher/assignments/{id}/attempts:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -5932,13 +8068,42 @@ paths:
       operationId: getDashboard
       x-permission: workspace.teacher
       tags: [teacher-attempts]
-      description: The five counts §8 needs and spec §15 has no endpoint for, over what the caller reaches. One round trip.
+      description: The dashboard in the caller's own teaching scope, Admin included; the repository wide scope is never requested here.
+      parameters:
+        - name: range
+          in: query
+          description: Calendar range for submissions only; all other dashboard figures keep their own windows.
+          schema: { type: string, enum: [7d, 14d, 30d], default: 14d }
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Dashboard' }
+
+  /teacher/summary:
+    get:
+      operationId: getTeacherSummary
+      x-permission: workspace.teacher
+      tags: [teacher-attempts]
+      description: |
+        Three nav counts in the caller's own teaching scope, Admin included; answersToGrade is null without teaching.grading.
+
+        `audience` narrows `unreadNotifications` to one console's kinds and
+        changes neither of the other two counts. The teacher's bell passes
+        `teacher`; without it the count is every kind the caller has.
+      parameters:
+        - name: audience
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/NotificationAudience' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TeacherSummary' }
+        '400': { $ref: '#/components/responses/BadRequest' }
 
   # ==================================================== teacher/students+classes
 
@@ -5953,7 +8118,24 @@ paths:
       tags: [teacher-students]
       parameters:
         - $ref: '#/components/parameters/Query'
-        - { name: classId, in: query, schema: { $ref: '#/components/schemas/Uuid' } }
+        - name: classId
+          in: query
+          description: |
+            Only students who are in at least one of these classes (`classId=a&classId=b`;
+            one value still works). A class the caller does not reach matches nothing,
+            as a missing class does.
+          schema:
+            type: array
+            maxItems: 50
+            items: { $ref: '#/components/schemas/Uuid' }
+        - name: mustChangePassword
+          in: query
+          description: |
+            `true` lists only the accounts still on a temporary password; after a
+            `resetStudentsPasswords` whose answer was lost, those are the students
+            whose password must be reset again. `false` lists only the others.
+            Absent lists both.
+          schema: { type: boolean }
         - name: status
           in: query
           description: |
@@ -6033,6 +8215,80 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /teacher/students/reset-passwords:
+    post:
+      operationId: resetStudentsPasswords
+      x-resource:
+        - { in: body, name: /studentIds/-, kind: student }
+      x-permission: people.students.reset_password
+      tags: [teacher-students]
+      summary: Reset the passwords of up to 40 students at once
+      description: |
+        Does for each student what `resetStudentPassword` does, one transaction
+        each: a new temporary password, `mustChangePassword` set, every refresh
+        family revoked, the session epoch moved, one audit row. The same guards
+        apply to each student, in the same order (`student` in the caller's reach
+        and student-like, the subset rule, then the shared-student rule), so a
+        batch cannot do what one reset cannot.
+
+        A student that fails does not stop the others: `failed` names it with
+        `NOT_FOUND` (another teacher's student, a disabled one, a missing id, an
+        account that is not a student, all alike), `FORBIDDEN` (the student's
+        permissions are not a subset of the caller's), `STUDENT_SHARED` (someone
+        else also reaches the student, so only a holder of `people.users.manage`
+        may reset them) or `INTERNAL` (a fault with that student alone, logged on
+        the server). The answer is 200 whenever the request was accepted, even
+        when every student failed. `items` and `failed` keep the order of
+        `studentIds`.
+
+        Each `temporaryPassword` is returned **once** and stored nowhere: the
+        server keeps only its hash. A reset that committed before the connection
+        dropped has lost its password for good; those students are on a
+        temporary password, so `listStudents` with `mustChangePassword=true`
+        lists them for another reset. The answer is never cached. Repeating a
+        request resets the same students again with new passwords.
+
+        Limited to 2 a minute and 10 an hour per signed-in user, a call counting
+        once however many students it names.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [studentIds]
+              additionalProperties: false
+              properties:
+                studentIds:
+                  type: array
+                  minItems: 1
+                  maxItems: 40
+                  uniqueItems: true
+                  items: { $ref: '#/components/schemas/Uuid' }
+      responses:
+        '200':
+          description: The batch ran. Passwords are returned **once**.
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, failed]
+                additionalProperties: false
+                properties:
+                  items:
+                    type: array
+                    maxItems: 40
+                    items: { $ref: '#/components/schemas/StudentPasswordReset' }
+                  failed:
+                    type: array
+                    maxItems: 40
+                    items: { $ref: '#/components/schemas/StudentResetFailure' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
 
   /teacher/students/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -6201,6 +8457,17 @@ paths:
         Classes, newest first. Paginated and searchable like every other list:
         §1.3 promised single-digit classes, and a development database already
         holds over a hundred, which is what broke the class pickers.
+
+        **Codes.** Each item's `joinCode.code` is a bearer secret, so it is opened
+        only when the request says `withCodes=true`, which the class cards send and
+        the pickers do not. It is then the code exactly when `getJoinCode` would
+        read it for the same caller and class: the caller holds
+        `teaching.classes.write`, reaches the class, and the code is readable (not
+        a legacy code, and sealed under a key this server holds). In every other
+        case `code` is `null`, a missing permission included, which is not an
+        error. The answer is never cached, whether or not codes are asked for, and
+        the operation is limited like the others that reveal one: 60 a minute and
+        600 an hour per user.
       tags: [teacher-classes]
       parameters:
         - $ref: '#/components/parameters/Query'
@@ -6221,9 +8488,17 @@ paths:
             type: string
             enum: [active, joinable, archived, all]
             default: active
+        - name: withCodes
+          in: query
+          required: false
+          description: Open each item's join code. Only the screen that shows codes asks.
+          schema: { type: boolean, default: false }
       responses:
         '200':
           description: OK
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
           content:
             application/json:
               schema:
@@ -6232,8 +8507,9 @@ paths:
                   - type: object
                     required: [items, facets]
                     properties:
-                      items: { type: array, items: { $ref: '#/components/schemas/Class' } }
+                      items: { type: array, items: { $ref: '#/components/schemas/ClassListItem' } }
                       facets: { $ref: '#/components/schemas/ClassFacets' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
     post:
       operationId: createClass
       x-permission: teaching.classes.write
@@ -6250,6 +8526,14 @@ paths:
               properties:
                 name: { type: string, minLength: 1, maxLength: 120 }
                 description: { type: [string, 'null'] }
+                scheduleLabel:
+                  type: [string, 'null']
+                  maxLength: 120
+                  description: Plain text, trimmed by the server; omitted, `null` and blank are all none. The 120 characters are counted before trimming.
+                room:
+                  type: [string, 'null']
+                  maxLength: 60
+                  description: As `scheduleLabel`, 60 characters.
                 selfJoinEnabled: { type: boolean, default: true }
       responses:
         '201':
@@ -6301,7 +8585,7 @@ paths:
       x-resource:
         - { in: path, name: id, kind: class }
       x-permission: teaching.classes.write
-      description: Edits name and description, toggles self-join, or archives and restores. Disabling self-join does not revoke the existing code; use the delete endpoint for that.
+      description: Edits name, description, schedule and room, toggles self-join, or archives and restores. Disabling self-join does not revoke the existing code; use the delete endpoint for that.
       tags: [teacher-classes]
       requestBody:
         required: true
@@ -6313,6 +8597,22 @@ paths:
               properties:
                 name: { type: string, minLength: 1, maxLength: 120 }
                 description: { type: [string, 'null'] }
+                scheduleLabel:
+                  type: [string, 'null']
+                  maxLength: 120
+                  x-go-type: json.RawMessage
+                  x-go-type-skip-optional-pointer: true
+                  description: |
+                    Plain text, trimmed by the server; a value that is blank once
+                    trimmed is the same as none. Omitted, the stored value is kept;
+                    `null` or blank clears it. The 120 characters are counted before
+                    trimming.
+                room:
+                  type: [string, 'null']
+                  maxLength: 60
+                  x-go-type: json.RawMessage
+                  x-go-type-skip-optional-pointer: true
+                  description: As `scheduleLabel`, 60 characters.
                 selfJoinEnabled: { type: boolean }
                 archived: { type: boolean, description: 'true archives, false restores; either is idempotent.' }
       responses:
@@ -6464,6 +8764,15 @@ paths:
         per-class constraint cannot be violated. Previously enrolled students are
         unaffected (§6.1).
 
+        An archived class is refused with `409 CLASS_ARCHIVED` and nothing is
+        written: its current code, if any, stays as it was. Nobody can join an
+        archived class, so a code issued for one would be a dead secret that
+        reads as live. The archived check runs after the class has been found
+        for the caller, so another teacher's archived class answers 404 exactly
+        as a missing one does. Restore the class (`updateClass` with
+        `archived: false`) to rotate again. `revokeJoinCode` stays allowed on an
+        archived class.
+
         The plaintext code is returned here, and `getJoinCode` reads it again.
         It is stored encrypted under a key the database does not hold, with a
         keyed hash to find it, so a database dump does not hand over class
@@ -6475,7 +8784,16 @@ paths:
               type: object
               additionalProperties: false
               properties:
-                expiresInDays: { type: integer, minimum: 1, maximum: 365, default: 30 }
+                expiresInDays:
+                  type: integer
+                  minimum: 1
+                  maximum: 365
+                  default: 30
+                  description: |
+                    The code works through 23:59:59 on the day this many days from
+                    today, in the caller's time zone: the profile preference, or
+                    `Asia/Ho_Chi_Minh` when there is none or it cannot be read. A code
+                    made at any hour of a day expires at the end of the same day.
                 maxUses:
                   type: integer
                   minimum: 1
@@ -6513,6 +8831,11 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`CLASS_ARCHIVED` — the class is archived, so it can have no new code.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
     delete:
       operationId: revokeJoinCode
       x-resource:
@@ -7032,6 +9355,25 @@ paths:
                 properties:
                   attempt: { $ref: '#/components/schemas/Attempt' }
                   review: { $ref: '#/components/schemas/ReviewPolicy' }
+                  releasesAt:
+                    $ref: '#/components/schemas/Timestamp'
+                    description: |
+                      Present only while an `after_close` release is withheld: when
+                      it ends for this student, their effective close. Absent
+                      otherwise.
+                  classAverage:
+                    type: number
+                    format: double
+                    minimum: 0
+                    maximum: 100
+                    description: |
+                      The class average as a percent: the mean, over the students
+                      who qualify, of each one's best graded attempt as earned over
+                      total. Present only when `review.showClassAverage` is on, this
+                      result is released, the assignment has closed, and at least 3
+                      students qualify: a targeted active account with a graded
+                      attempt. Voided, ungraded and unstarted work counts for
+                      nothing. It is an aggregate: no student is named.
                   testTitle: { type: string }
                   maxAttempts: { type: integer, minimum: 1, description: For "Lượt 1/2" under the score (S-09). }
                   sections:
@@ -7091,3 +9433,311 @@ paths:
                   url: { type: string, format: uri }
                   expiresAt: { $ref: '#/components/schemas/Timestamp' }
         '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ======================================================================== me
+
+  /me/notifications:
+    get:
+      operationId: listNotifications
+      x-resource:
+        - { in: query, name: before, kind: none }
+      x-permission: self
+      tags: [me]
+      summary: The caller's notifications, newest first
+      description: |
+        The caller's own notifications and nobody else's, read or unread,
+        newest first. A notification first written more than 180 days ago is
+        deleted, once a day.
+
+        Before it reads, the server writes the notifications the passing of
+        time has earned the caller, at most once in five minutes: an
+        assignment that opened, a close a day or an hour away, an assignment
+        about to close with students still to hand in, and a result an
+        after-close release has made ready. A moment older than seven days is
+        not made up, and one the caller already holds is left as it is.
+
+        Paged by a cursor, not by a page number: ask again with `before` set
+        to `nextBefore` for the next older page. Ids are time-ordered, so a
+        notification written while the caller pages never moves a row from one
+        page to the next.
+      parameters:
+        - name: audience
+          in: query
+          required: false
+          description: |
+            Only the kinds this console reads (`NotificationAudience`). The
+            page, `limit` and `nextBefore` count the narrowed list, so a page
+            is never empty because the other console's rows filled it. Left
+            out, every kind.
+          schema: { $ref: '#/components/schemas/NotificationAudience' }
+        - name: before
+          in: query
+          required: false
+          description: |
+            A notification id, as `nextBefore` gave it: the page holds the
+            caller's notifications older than it. It is a position in the
+            caller's own list and never a lookup: an id the caller does not
+            hold, another user's or nobody's, only bounds the page, which
+            still holds the caller's rows alone.
+          schema: { $ref: '#/components/schemas/Uuid' }
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: One page. An empty `items` when the caller has none, or none older than `before`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextBefore]
+                additionalProperties: false
+                properties:
+                  items:
+                    type: array
+                    maxItems: 50
+                    items: { $ref: '#/components/schemas/Notification' }
+                  nextBefore:
+                    type: [string, 'null']
+                    format: uuid
+                    description: The id of the last item when older notifications exist, else null.
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /me/notifications/read:
+    post:
+      operationId: markNotificationsRead
+      x-resource:
+        - { in: body, name: /ids/-, kind: notification }
+      x-permission: self
+      tags: [me]
+      summary: Mark the caller's notifications read
+      description: |
+        With `ids`, marks those of the caller's notifications that are unread;
+        without it, every unread one. A notification already read keeps the
+        time it was first read.
+
+        It marks the caller's own notifications only. An id that is another
+        user's, already read or not a notification at all is skipped, and the
+        answer is the same 204 whatever matched, so it tells the caller
+        nothing about an id that is not theirs.
+
+        With `audience`, only that console's kinds are marked, with `ids` or
+        without: an id of the other console's kind is skipped like any other
+        id that does not match, and "every unread one" becomes every unread
+        one of that console. Left out, every kind, as before.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  items: { $ref: '#/components/schemas/Uuid' }
+                  description: Absent means every unread notification the caller has (of `audience`, when it is given).
+                audience: { $ref: '#/components/schemas/NotificationAudience' }
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /me/preferences:
+    patch:
+      operationId: updatePreferences
+      x-permission: self
+      tags: [auth]
+      summary: Update your stored preferences
+      description: |
+        Merges supplied top-level keys into the caller's stored preferences;
+        assignmentDefaults replaces that whole nested object. False is a
+        supplied value and an empty object is a no-op. Null and unknown keys
+        are refused. Raw request bytes and the normalized merged JSONB object
+        each have an inclusive 8192-byte cap; exceeding either answers
+        400 VALIDATION_FAILED after the existing authentication gates.
+      x-max-body-bytes: 8192
+      x-body-limit-status: 400
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserPreferences' }
+      responses:
+        '200':
+          description: The merged persisted preferences, without materialized defaults.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserPreferences' }
+        '400':
+          description: '`VALIDATION_FAILED` — the shape or either byte cap is invalid.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/Maintenance' }
+
+  /me/avatar:
+    put:
+      operationId: setAvatar
+      x-permission: self
+      tags: [me]
+      summary: Set your profile photo
+      description: |
+        Replaces the caller's photo. The file is a PNG or a JPEG of at most
+        2 MiB, and each side is between 200 and 2048 pixels. The server stores
+        a 256 x 256 PNG made from the centred square of the upload, so the
+        original file, its metadata (EXIF, ICC, comments) and its name are
+        never kept. The response is the whole `CurrentUser`, whose `avatarUrl`
+        names the new photo; the previous one is deleted.
+
+        Checked in this order, each before the next costs anything: the size,
+        the type from the first bytes (the part's `Content-Type` and the file's
+        extension are never read), the image header, the dimensions and the
+        memory the image would need, and only then the decode. At most two
+        images are decoded at a time across the server. The caller may set a
+        photo ten times an hour.
+
+        The file may be exactly 2 MiB; the request may carry 16 KiB more than
+        that for the multipart framing, so a file of 2 MiB and one byte is
+        refused by the size check with `MEDIA_TOO_LARGE`, and a request far
+        beyond it is cut off before the handler with the same answer.
+      x-max-body-bytes: 2113536
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+            # Deliberately no `encoding.file.contentType`: the type is decided
+            # by sniffing the bytes, as for `uploadMedia`.
+      responses:
+        '200':
+          description: Stored. The whole persisted caller, with the new `avatarUrl`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CurrentUser' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '413':
+          description: '`MEDIA_TOO_LARGE` — the upload is over 2 MiB.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '415':
+          description: |
+            `MEDIA_TYPE_UNSUPPORTED` (not a PNG or a JPEG), `MEDIA_UNREADABLE`
+            (sniffed correctly but the header or the pixels cannot be read) or
+            `IMAGE_DIMENSIONS` (a side under 200 or over 2048 pixels, an
+            image that would need more memory to decode than the server
+            allows, or a JPEG of more than 32 scans, which a decoder that
+            cannot be cancelled would spend minutes on). Nothing was stored.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501':
+          description: Object storage is not configured, so no photo can be kept.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '503': { $ref: '#/components/responses/Maintenance' }
+    delete:
+      operationId: deleteAvatar
+      x-permission: self
+      tags: [me]
+      summary: Remove your profile photo
+      description: |
+        Clears the caller's photo and deletes its object, best effort. A caller
+        with no photo gets the same answer. The response is the whole
+        `CurrentUser`, without `avatarUrl`.
+      responses:
+        '200':
+          description: Cleared. The whole persisted caller.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CurrentUser' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/Maintenance' }
+
+  /me/summary:
+    get:
+      operationId: getMySummary
+      x-permission: self
+      tags: [me]
+      summary: The counts the caller's shell shows
+      description: |
+        How many of the caller's notifications are unread: the dot on the
+        bell. One count over the caller's own rows, cheap enough to poll. It
+        writes the caller's due-time notifications first, exactly as
+        `listNotifications` does, so the count includes them.
+
+        `audience` counts one console's kinds only (`NotificationAudience`),
+        so the student's bell does not light for a teacher kind the same
+        account holds, nor the reverse. Left out, every kind.
+      parameters:
+        - name: audience
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/NotificationAudience' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MySummary' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /me/notification-preferences:
+    get:
+      operationId: getNotificationPreferences
+      x-permission: self
+      tags: [me]
+      summary: The caller's notification switches
+      description: |
+        All five switches, whatever the caller's role. One the caller never
+        saved answers its default: `inApp` true and `email` false.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPreferences' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      operationId: updateNotificationPreferences
+      x-permission: self
+      tags: [me]
+      summary: Replace the caller's notification switches
+      description: |
+        Takes all five switches at once, each event exactly once and in any
+        order, and stores them for the caller. A client that draws only some
+        of them sends the others back as it read them.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NotificationPreferences' }
+      responses:
+        '200':
+          description: Saved. The five switches as stored.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPreferences' }
+        '400':
+          description: '`VALIDATION_FAILED`: an event is unknown, repeated or missing, or the body is not the five switches.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }

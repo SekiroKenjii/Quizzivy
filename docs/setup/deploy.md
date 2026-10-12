@@ -282,6 +282,100 @@ If the API is ever rolled back to v0.8.0, roll Pages back to its previous
 deployment with it: the v0.9.0 result page reads `sections`, which v0.8.0 does
 not send, and a graded result would not open. Prefer a hotfix.
 
+## Rolling out v0.10.0 (R4)
+
+R2's contract steps ship inside this release (`docs/plan/74-r4.md` T-R4.49). `release_command` runs
+`migrate up` before the new version takes traffic, so v0.9.0 keeps serving while a migration
+applies, and keeps serving if the deploy stops after one.
+
+**`00105_drop_users_legacy_role.sql`** drops `users.role`, its trigger, its index and
+`app.user_role`, and the API stops naming a role (`User.role`, `CurrentUser.role`, the access
+token's claim).
+
+**`00106_validate_ownership.sql`** validates the five owner constraints (`classes.teacher_id`, and
+`owner_id` on `tests`, `questions`, `question_groups` and `media_assets`) and drops the five
+`BEFORE INSERT` fill triggers with their three functions (`docs/plan/20-data-model.md` §43).
+
+- Before the merge, read the machine versions: `fly status -a quizzivy-api` lists each machine with
+  its release, and `fly releases -a quizzivy-api` dates the releases. No machine may be older than
+  the release that deployed v0.8.0 (2026-10-03), in either process group, for at least seven days.
+  v0.8.0 and v0.9.0 never name `users.role` and name the owner in every insert, so they keep working
+  on the new schema; v0.7.0 does neither, and its inserts into the four content tables and `classes`
+  would fail.
+- Rehearse on a Neon branch of production, both scripts in one run. Before the migrations, `psql
+  "$BRANCH_DSN" -v before=1 -f docs/setup/rehearsals/r4-legacy-role.sql > legacy-before.txt` and the
+  same with `r4-ownership.sql > ownership-before.txt`; then `goose up` as `quizzivy_migrate` (time
+  each migration); then both scripts again without `-v before=1` into `legacy-after.txt` and
+  `ownership-after.txt`. In each script, section A must read the same before and after, and every
+  "must be" line of section B must print what it says. Section P of `ownership-before.txt` must
+  show 0 rows without an owner on every line. Add `-v scan=1` to the first `r4-ownership.sql` run
+  for the cost of each table's validation scan, which the PR records per table. Delete the branch.
+- 00105 holds ACCESS EXCLUSIVE on `app.users` for milliseconds. 00106's validations hold SHARE UPDATE
+  EXCLUSIVE and block neither a read nor a write; its drops hold ACCESS EXCLUSIVE on the five owner
+  tables for milliseconds, last, to commit. Each migration gives up on a lock after five seconds.
+- The API deploys first, so the v0.9.0 bundle meets an API whose responses carry no `role`. That
+  bundle never reads it, and a tab left open keeps working.
+- If a migration stops, its transaction rolled back whole: the schema, the version row and v0.9.0 are
+  as they were, and a redeploy retries it. The codes, by what to do:
+  - `55P03` (a lock did not arrive within five seconds): find the long query or open transaction on
+    `app.users` (00105) or on the five owner tables (00106) in `pg_stat_activity`, and redeploy.
+  - `40P01` (the deadlock detector ended the migration): 00106 only. A transaction of v0.9.0 that
+    touches two of the five tables in the opposite order, and is open at that moment, deadlocks with
+    the migration, and the detector ends one of the two after a second. If it ends the migration,
+    redeploy as for `55P03`. If it ends the v0.9.0 transaction instead, the migration proceeds and
+    that one request fails with a server error; repeating it works. Either way nothing else is lost.
+  - `23502` (a row without what the migration validates): the message names the table. For 00105 a
+    user has no `role_id`; for 00106 a row has no owner, which the constraint has refused since R2, so
+    someone dropped it. Set the owner from `created_by` (`uploaded_by` for media) and redeploy.
+- Roll forward, not back past v0.8.0: Down restores the column from what each role holds and the
+  triggers for a v0.7.0 that nothing in production runs, and nothing runs either in production.
+- **`00103_compose_text_nfc.sql`** rewrites decomposed text to NFC (F-37). It disables the
+  `updated_at` trigger on eight tables by name (`tests`, `questions`, `question_groups`, `classes`,
+  `assignments`, `assignment_student_overrides`, `users`, `word_imports`), which takes SHARE ROW
+  EXCLUSIVE on each until it commits: every write to those tables waits for it, and a v0.9.0
+  transaction holding a write on one of them for more than five seconds stops it with `55P03`. Do as
+  above: find the transaction in `pg_stat_activity` and redeploy. The migration is idempotent; a
+  second run changes nothing.
+- **At start-up** the API replaces every live join code issued before v0.8.0 (`jobs.RotateLegacyJoinCodes`,
+  spec §6.1, `operations.md` "Legacy join codes"). The log shows `legacy_join_codes_rotated` with the
+  count only when there was one to rotate; a production with none logs nothing. A class not reached
+  within the two-minute budget waits for the next start-up.
+- **No import run should be queued or running at the deploy.** The v3 worker retires a v2 run that is
+  ten minutes past due (`PIPELINE_RETIRED`), and its teacher starts it again.
+- **v0.10.0 shipped without the production-branch rehearsal**, by the owner's decision of 2026-10-12,
+  as v0.9.0 did: every migration passed up, down to 00079 and up again on a seeded scratch database
+  (0.17 s in all), and none rewrites a table. The runbook for the rehearsal is
+  `docs/setup/rehearsals/r4-neon-rehearsal.md`, for the day it is run.
+
+### Rolling v0.10.0 back
+
+Prefer a hotfix. If the API must go back to v0.9.0, redeploy the v0.9.0 image (`fly releases -a
+quizzivy-api`, then `fly deploy --image <v0.9.0 image> -a quizzivy-api`) and roll Pages back to its
+previous deployment **in the same hour**: the v0.10.0 bundle calls 25 operations v0.9.0 does not
+serve (`getTeacherSummary`, `listNotifications`, `listSessions`, `setStudentOverrides`,
+`pasteImportSource`, `replaceMedia` and others), so the teacher dashboard, the bell, Settings →
+Devices, per-student extensions, text import, media rename and replace and the version diff would
+fail. Run no Down migration: v0.9.0's migrate binary sees a database at 00106 and has nothing to run,
+and v0.9.0 starts on this schema, because every change through 00104 is additive and 00105 and 00106
+remove only what v0.9.0 never names.
+
+What v0.9.0 then does with what v0.10.0 wrote:
+- Per-student overrides are ignored, so an extended student loses the extension; a review released
+  "after close" shows on submit.
+- Notifications, preferences, photos, display names and device locations are ignored; the rows stay.
+- A replaced media file is listed in the library again; audio above 10 MiB stays served.
+- Questions keep `level`, `skill` and `media_alt`, but a version published under v0.9.0 is
+  snapshotted without them.
+- A pasted-text import queued since the deploy is retired `PIPELINE_RETIRED` by the v2 worker ten
+  minutes after it falls due; its teacher runs it again after rolling forward.
+- Access tokens minted by v0.10.0 carry no `role` claim; v0.9.0 does not require one, so sessions
+  survive.
+- **Legacy join codes do not come back.** The start-up job revoked every pre-v0.8.0 code and issued
+  sealed ones, which v0.9.0 redeems. The codes teachers shared after the deploy stay valid; the old
+  printed ones stay revoked.
+- `00084`'s Down leaves its constraint `NOT VALID` for the same reason. Never roll back past v0.8.0
+  (the join-code key).
+
 ## Interrupted index builds in v0.8.0 (R2)
 
 R2 (v0.8.0) builds eight indexes `CONCURRENTLY`, one per file: `00057` and

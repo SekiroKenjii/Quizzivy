@@ -82,8 +82,8 @@ func TestEveryDeclaredValueIsKnown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(requirements) != 97 {
-		t.Errorf("%d operations declare a permission, want 97", len(requirements))
+	if len(requirements) != 122 {
+		t.Errorf("%d operations declare a permission, want 122", len(requirements))
 	}
 	for pattern, requirement := range requirements {
 		for _, k := range requirement.Keys() {
@@ -222,7 +222,7 @@ func sendAs(t *testing.T, h http.Handler, issuer *identitytoken.Issuer, method, 
 		req.Header.Set("Content-Type", "application/json")
 	}
 	if userID != "" {
-		token, err := issuer.Issue(userID, "admin", 0)
+		token, err := issuer.Issue(userID, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -319,16 +319,16 @@ func TestThePermissionGateRunsAfterAuthenticationAndBeforeTheBody(t *testing.T) 
 
 func TestRateLimitsRunBeforeAuthenticationAndThePermissionGate(t *testing.T) {
 	issuer := testIssuer(t)
-	path := "/teacher/students/01935000-0000-7000-8000-0000000000e1/reset-password"
+	path := "/app/classes/join"
 	for name, c := range map[string]struct {
 		user string
 		want int
 	}{
 		"anonymous": {"", http.StatusUnauthorized},
-		"student":   {studentUser, http.StatusForbidden},
+		"teacher":   {teacherUser, http.StatusForbidden},
 	} {
 		h := roleRouter(t, issuer, rolePrincipals())
-		for i := 1; i <= 5; i++ {
+		for i := 1; i <= 120; i++ {
 			if rec := sendAs(t, h, issuer, http.MethodPost, path, c.user, ""); rec.Code != c.want {
 				t.Fatalf("%s request %d: %d, want %d within the budget", name, i, rec.Code, c.want)
 			}
@@ -421,8 +421,8 @@ func TestTheAssistantMeetsOnlyItsSixRows(t *testing.T) {
 			t.Errorf("%s as the Assistant: %d, want %d", pattern, got, want)
 		}
 	}
-	if refused != 33 {
-		t.Errorf("the Assistant is refused %d operations, want 33: twenty-one staff operations and the twelve /app ones", refused)
+	if refused != 39 {
+		t.Errorf("the Assistant is refused %d operations, want 39: twenty-seven staff operations and the twelve /app ones", refused)
 	}
 }
 

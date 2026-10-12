@@ -69,3 +69,41 @@ func AssignmentIDs(n int) string {
 func Papers(all, viewer int, assignment, student string) string {
 	return fmt.Sprintf(`($%d::boolean OR %s IN %s OR %s IN %s)`, all, assignment, AuthoredAssignmentIDs(viewer), student, StudentIDs(viewer))
 }
+
+// Roster is the one definition of the accounts an assignment is addressed to,
+// as a subquery of user ids for the SQL expression assignment names: members
+// of every class it targets, and the students named on it. Callers add the
+// enabled and student-like conditions.
+func Roster(assignment string) string {
+	return `(SELECT m.user_id FROM app.assignment_classes ac
+	   JOIN app.class_members m ON m.class_id = ac.class_id
+	  WHERE ac.assignment_id = ` + assignment + `
+	 UNION
+	 SELECT ast.user_id FROM app.assignment_students ast
+	  WHERE ast.assignment_id = ` + assignment + `)`
+}
+
+// PaperReaders is Papers read the other way: the teachers who reach one
+// paper, as a subquery of user ids for the SQL expressions assignment and
+// student name. They are the assignment's creator, and each teacher of a
+// class the assignment targets who reaches the student as StudentIDs says:
+// the student is a member of a class that teacher teaches, an account that
+// teacher created, or an individual target of an assignment that teacher
+// created. A teacher of another target class who does not reach the student
+// is not among them.
+func PaperReaders(assignment, student string) string {
+	return `(SELECT x.created_by FROM app.assignments x
+	  WHERE x.id = ` + assignment + ` AND x.created_by IS NOT NULL
+	 UNION
+	 SELECT c.teacher_id FROM app.assignment_classes ac
+	   JOIN app.classes c ON c.id = ac.class_id
+	  WHERE ac.assignment_id = ` + assignment + ` AND c.teacher_id IS NOT NULL
+	    AND (EXISTS (SELECT 1 FROM app.class_members m
+	                   JOIN app.classes k ON k.id = m.class_id
+	                  WHERE m.user_id = ` + student + ` AND k.teacher_id = c.teacher_id)
+	      OR EXISTS (SELECT 1 FROM app.users v
+	                  WHERE v.id = ` + student + ` AND v.created_by = c.teacher_id)
+	      OR EXISTS (SELECT 1 FROM app.assignment_students ast
+	                   JOIN app.assignments y ON y.id = ast.assignment_id
+	                  WHERE ast.user_id = ` + student + ` AND y.created_by = c.teacher_id)))`
+}

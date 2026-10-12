@@ -59,15 +59,15 @@ func seedReachability(t *testing.T, pool *pgxpool.Pool) reachabilityFixture {
 		must(pool.QueryRow(ctx, `
 			INSERT INTO app.media_assets
 			       (kind, storage_key, mime_type, bytes, duration_ms, original_filename,
-			        checksum_sha256, uploaded_by)
+			        checksum_sha256, uploaded_by, owner_id)
 			VALUES ('audio', $1, 'audio/mpeg', 1024, 10000, 'nghe.mp3',
-			        sha256(convert_to($1, 'UTF8')), $2)
+			        sha256(convert_to($1, 'UTF8')), $2, $2)
 			RETURNING id::text`, "reach/"+id+"-"+nonce(t)+".mp3", author).Scan(target))
 	}
 
 	var testID, versionID, sectionID, assignmentID string
-	must(pool.QueryRow(ctx, `INSERT INTO app.tests (title, status, current_version, created_by)
-		VALUES ('Reachability','published',1,$1) RETURNING id::text`, author).Scan(&testID))
+	must(pool.QueryRow(ctx, `INSERT INTO app.tests (title, status, current_version, created_by, owner_id)
+		VALUES ('Reachability','published',1,$1,$1) RETURNING id::text`, author).Scan(&testID))
 	must(pool.QueryRow(ctx, `INSERT INTO app.test_versions (test_id, version, total_points, published_by)
 		VALUES ($1,1,'2.00',$2) RETURNING id::text`, testID, author).Scan(&versionID))
 	must(pool.QueryRow(ctx, `INSERT INTO app.test_version_sections (test_version_id, ordinal, title)

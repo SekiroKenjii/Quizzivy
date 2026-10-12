@@ -4,18 +4,27 @@ import (
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/validation"
 	"time"
+	"unicode/utf8"
 )
 
 // ListInput selects a page of the assignments Scope reaches
 // (visibility.AssignmentIDs), or every one under scope.all; a zero Scope
-// matches nothing, and so does a ClassID of a class the scope does not teach.
+// matches nothing, and so does a class of ClassIDs the scope does not teach
+// unless EveryTarget is set.
 type ListInput struct {
 	Status *Status
-	// ClassID narrows the list to assignments that target the class (G-12).
-	ClassID *string
-	Page    int
-	Limit   int
-	Scope   access.Scope
+	// ClassIDs narrows the list to assignments that target any of the classes (G-12).
+	ClassIDs []string
+	// Query keeps the assignments whose test title, or the name of a target
+	// class the scope reaches, contains it, ignoring case and accents.
+	Query string
+	Page  int
+	Limit int
+	Scope access.Scope
+	// EveryTarget lifts the reach from the targets and leaves it on the rows,
+	// for a caller who holds scope.all and lists their own: a row names and
+	// counts all its classes and students, and ClassIDs match any class.
+	EveryTarget bool
 }
 
 // Request is the actor behind a write, for the audit row and for reach. A
@@ -50,6 +59,13 @@ type WriteInput struct {
 	Review        Review
 	Integrity     Integrity
 	CloseNow      bool
+	// ReleaseSet, ClassAverageSet and StudentNoteSet say that the request
+	// named the field. A create takes Review and StudentNote as they stand; an
+	// update keeps the stored value of a field it did not name.
+	ReleaseSet      bool
+	ClassAverageSet bool
+	StudentNote     *string
+	StudentNoteSet  bool
 	// Draft withholds it from students.
 	Draft bool
 	Now   time.Time
@@ -60,6 +76,18 @@ func (in WriteInput) Validate() error {
 
 	if !in.ClosesAt.After(in.OpensAt) {
 		fields = append(fields, FieldError{Field: "window.closesAt", Message: "Thời điểm đóng phải sau thời điểm mở."})
+	}
+
+	if in.CloseNow && in.OpensAt.After(in.Now) {
+		fields = append(fields, FieldError{Field: "closeNow", Message: "Không thể đóng ngay khi thời điểm mở còn ở phía trước."})
+	}
+
+	if !in.Review.Release.Valid() {
+		fields = append(fields, FieldError{Field: "review.release", Message: "Thời điểm công bố kết quả không hợp lệ."})
+	}
+
+	if in.StudentNote != nil && utf8.RuneCountInString(*in.StudentNote) > MaxStudentNote {
+		fields = append(fields, FieldError{Field: "studentNote", Message: "Ghi chú cho học viên tối đa 500 ký tự."})
 	}
 
 	if !in.Draft && len(in.ClassIDs) == 0 && len(in.StudentIDs) == 0 {

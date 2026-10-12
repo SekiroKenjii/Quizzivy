@@ -133,6 +133,21 @@ func tinyPNG(t *testing.T) []byte {
 	return b.Bytes()
 }
 
+func avatarPNG(t *testing.T) []byte {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, 300, 300))
+	for y := 0; y < 300; y++ {
+		for x := 0; x < 300; x++ {
+			img.Set(x, y, color.RGBA{R: uint8(x), G: uint8(y), B: 120, A: 255})
+		}
+	}
+	var b bytes.Buffer
+	if err := png.Encode(&b, img); err != nil {
+		t.Fatal(err)
+	}
+	return b.Bytes()
+}
+
 func tinyDocx(t *testing.T) []byte {
 	t.Helper()
 	var b bytes.Buffer
@@ -255,6 +270,10 @@ func (w *world) teacherWorld(name string) *party {
 
 	assignment := c.assign(versionID, p.ids["class"])
 	p.ids["assignment"] = id(assignment)
+	c.must(http.StatusOK, http.MethodPut, "/teacher/assignments/"+p.ids["assignment"]+"/student-overrides", map[string]any{
+		"studentIds": []string{p.ids["student"]}, "extraAttempts": 1, "reason": "Cách ly " + name,
+	})
+	p.ids["override"] = p.ids["student"]
 
 	learner := w.signedIn(user["email"].(string), created["temporaryPassword"].(string))
 	session := learner.must(http.StatusOK, http.MethodPost, "/app/assignments/"+p.ids["assignment"]+"/attempts", nil)
@@ -263,6 +282,8 @@ func (w *world) teacherWorld(name string) *party {
 	p.ids["version-question"] = id(session["questions"].([]any)[0].(map[string]any))
 	learner.must(http.StatusOK, http.MethodPost, "/app/attempts/"+p.ids["attempt"]+"/submit",
 		map[string]any{"sessionId": session["sessionId"], "reason": "manual"})
+
+	p.ids["notification"] = w.notification(p.userID, name)
 
 	sitting := c.must(http.StatusCreated, http.MethodPost, "/teacher/students", map[string]any{
 		"email": "dang-lam-" + name + "-" + nonce(w.t) + "@example.com", "fullName": "Học viên đang làm " + name, "classIds": []string{p.ids["class"]},
@@ -278,6 +299,18 @@ func (w *world) teacherWorld(name string) *party {
 		"media":             p.ids["media"],
 	}}
 	return p
+}
+
+func (w *world) notification(userID, name string) string {
+	w.t.Helper()
+	var id string
+	if err := w.pool.QueryRow(context.Background(), `
+		INSERT INTO app.notifications (user_id, kind, params, dedupe_key)
+		VALUES ($1::uuid, 'class.joined', jsonb_build_object('studentName', 'Học viên ' || $2::text, 'className', 'Lớp cách ly ' || $2::text), 'isolation')
+		RETURNING id::text`, userID, name).Scan(&id); err != nil {
+		w.t.Fatalf("%s's notification: %v", name, err)
+	}
+	return id
 }
 
 func (w *world) sharedStudent(p *party) (*client, string) {
@@ -354,8 +387,10 @@ func (w *world) snapshotOf(p *party) string {
 		  UNION ALL SELECT row_to_json(x)::text FROM app.class_join_codes x JOIN app.classes c ON c.id = x.class_id WHERE c.teacher_id = $1::uuid
 		  UNION ALL SELECT row_to_json(x)::text FROM app.class_members x JOIN app.classes c ON c.id = x.class_id WHERE c.teacher_id = $1::uuid
 		  UNION ALL SELECT row_to_json(x)::text FROM app.assignments x WHERE x.created_by = $1::uuid
+		  UNION ALL SELECT row_to_json(x)::text FROM app.assignment_student_overrides x JOIN app.assignments a ON a.id = x.assignment_id WHERE a.created_by = $1::uuid
 		  UNION ALL SELECT row_to_json(x)::text FROM app.attempts x JOIN app.assignments a ON a.id = x.assignment_id WHERE a.created_by = $1::uuid
 		  UNION ALL SELECT row_to_json(x)::text FROM app.attempt_answers x JOIN app.attempts at ON at.id = x.attempt_id JOIN app.assignments a ON a.id = at.assignment_id WHERE a.created_by = $1::uuid
+		  UNION ALL SELECT row_to_json(x)::text FROM app.notifications x WHERE x.user_id = $1::uuid
 		  UNION ALL SELECT row_to_json(u)::text FROM app.users u WHERE u.id = $2::uuid
 		)
 		SELECT md5(string_agg(r, '|' ORDER BY r)) || ':' || count(*) FROM rows`, p.userID, p.ids["student"]).Scan(&digest); err != nil {

@@ -10,7 +10,11 @@ import {
   type Json,
   type Operation,
 } from "@tests/support/openapi";
-import { MAX_BYTES, MAX_DURATION_MS } from "@/features/media/limits";
+import {
+  MAX_AUDIO_BYTES,
+  MAX_DURATION_MS,
+  MAX_IMAGE_BYTES,
+} from "@/features/media/limits";
 
 /**
  * Structural invariants of api/openapi.yaml. Ported from api/contract_check.py,
@@ -70,6 +74,31 @@ describe("§13.5: the student-payload boundary", () => {
   it("exposes no grading key from any /app/* success response", () => {
     const leaks = ops.filter(({ path }) => path.startsWith("/app/")).flatMap(leaksIn);
     expect(leaks).toEqual([]);
+  });
+
+  it("exposes no grading key from any /me/* success response, the notifications among them", () => {
+    const mine = ops.filter(({ path }) => path.startsWith("/me/"));
+    const list = mine.find(({ op }) => op.operationId === "listNotifications");
+    expect(list?.path).toBe("/me/notifications");
+    const walked = propertyNames(doc, jsonResponseSchema(list?.op, 200));
+    for (const reached of ["items", "kind", "params", "title", "studentName", "target"])
+      expect(walked.has(reached), `the walk does not reach ${reached}`).toBe(true);
+    expect(mine.flatMap(leaksIn)).toEqual([]);
+  });
+
+  it("finds a grading key under /me/* when one is there", () => {
+    const leaky = structuredClone(doc);
+    leaky.components.schemas.NotificationParams.properties.sampleAnswer = {
+      type: "string",
+    };
+    const found = operations(leaky)
+      .filter(({ path }) => path.startsWith("/me/"))
+      .flatMap((o) =>
+        successStatuses(o.op).filter((status) =>
+          propertyNames(leaky, jsonResponseSchema(o.op, status)).has("sampleAnswer"),
+        ),
+      );
+    expect(found).toEqual(["200"]);
   });
 
   it("keeps StudentQuestion clean in isolation", () => {
@@ -255,12 +284,26 @@ describe("§11.1's upload limits agree across the layers", () => {
     Json
   >;
   const properties = asset["properties"] as Record<string, Record<string, Json>>;
+  const limits = asset["x-media-limits"] as Record<string, Json>;
 
-  it("MAX_BYTES matches MediaAsset.bytes.maximum", () => {
-    expect(properties["bytes"]?.["maximum"]).toBe(MAX_BYTES);
+  it("the three constants are MediaAsset's x-media-limits", () => {
+    expect(limits).toEqual({
+      audioBytes: MAX_AUDIO_BYTES,
+      imageBytes: MAX_IMAGE_BYTES,
+      durationMs: MAX_DURATION_MS,
+    });
+  });
+
+  it("MAX_AUDIO_BYTES matches MediaAsset.bytes.maximum", () => {
+    expect(properties["bytes"]?.["maximum"]).toBe(MAX_AUDIO_BYTES);
   });
 
   it("MAX_DURATION_MS matches MediaAsset.durationMs.maximum", () => {
     expect(properties["durationMs"]?.["maximum"]).toBe(MAX_DURATION_MS);
+  });
+
+  it("the transport lets through the largest audio and its multipart framing", () => {
+    const upload = ops.find((o) => o.op["operationId"] === "uploadMedia");
+    expect(upload?.op["x-max-body-bytes"]).toBe(MAX_AUDIO_BYTES + 128 * 1024);
   });
 });

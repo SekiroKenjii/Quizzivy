@@ -10,6 +10,7 @@ import (
 	"quizzivy/internal/modules/imports/application/ports"
 	"quizzivy/internal/modules/imports/domain"
 	"quizzivy/internal/shared/actor"
+	"quizzivy/internal/shared/content"
 	"strings"
 	"time"
 	"unicode"
@@ -37,7 +38,14 @@ type UploadHandler struct {
 	Legacy    bool
 }
 
+const maxFilename = 255
+
 func (h UploadHandler) Handle(ctx context.Context, in Upload) (domain.Receipt, error) {
+	in.Filename = content.NFCWithin(in.Filename, maxFilename)
+	return h.handlePrepared(ctx, in, sourceFormat(in.Filename, h.Legacy), nil)
+}
+
+func (h UploadHandler) handlePrepared(ctx context.Context, in Upload, format string, characters *int) (domain.Receipt, error) {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 	select {
@@ -46,7 +54,6 @@ func (h UploadHandler) Handle(ctx context.Context, in Upload) (domain.Receipt, e
 	default:
 		return domain.Receipt{}, domain.ErrBusy
 	}
-	format := sourceFormat(in.Filename, h.Legacy)
 	if format == "" {
 		return domain.Receipt{}, domain.ErrUnsupported
 	}
@@ -62,10 +69,12 @@ func (h UploadHandler) Handle(ctx context.Context, in Upload) (domain.Receipt, e
 	if err != nil {
 		return domain.Receipt{}, err
 	}
-	if err := h.inspect(ctx, file, n, format); err != nil {
-		return domain.Receipt{}, err
+	if format != "text" {
+		if err := h.inspect(ctx, file, n, format); err != nil {
+			return domain.Receipt{}, err
+		}
 	}
-	source, err := h.Repo.Reserve(ctx, domain.Reserve{Actor: in.Actor, Source: domain.Source{ImportID: in.ImportID, UploadID: in.UploadID, ExpectedRevision: in.ExpectedRevision, Role: in.Role, Filename: in.Filename, Format: format, Bytes: n, SHA256: checksum}}, h.Quotas)
+	source, err := h.Repo.Reserve(ctx, domain.Reserve{Actor: in.Actor, Source: domain.Source{ImportID: in.ImportID, UploadID: in.UploadID, ExpectedRevision: in.ExpectedRevision, Role: in.Role, Filename: in.Filename, Format: format, Characters: characters, Bytes: n, SHA256: checksum}}, h.Quotas)
 	if err != nil {
 		return domain.Receipt{}, err
 	}

@@ -65,7 +65,7 @@ func recordCommand[C, R any](seen map[string]access.Scope, op string, actorOf fu
 	})
 }
 
-func TestEveryImportOperationCarriesTheCallersScope(t *testing.T) {
+func TestTheHistoryListsOwnRowsAndEveryOtherImportOperationCarriesTheCallersScope(t *testing.T) {
 	for name, principal := range map[string]access.Principal{
 		"a Teacher": {UserID: uuid.NewString(), Permissions: access.NewSet(access.ContentTestsWrite)},
 		"an Admin":  {UserID: uuid.NewString(), Permissions: access.NewSet(access.All()...)},
@@ -146,8 +146,11 @@ func TestEveryImportOperationCarriesTheCallersScope(t *testing.T) {
 					t.Fatalf("%s: %v", op, err)
 				}
 			}
-			want := access.Scope{UserID: principal.UserID, All: principal.Permissions.Has(access.ScopeAll)}
 			for op := range calls {
+				want := access.Scope{UserID: principal.UserID, All: principal.Permissions.Has(access.ScopeAll)}
+				if op == "list" {
+					want = access.Scope{UserID: principal.UserID}
+				}
 				if got, ok := seen[op]; !ok || got != want {
 					t.Errorf("%s ran in %+v (reached %v), want %+v", op, got, ok, want)
 				}

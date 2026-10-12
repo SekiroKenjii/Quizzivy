@@ -15,6 +15,16 @@ type UpdateGroup struct {
 type UpdateGroupHandler struct{ *support.Groups }
 
 func (s UpdateGroupHandler) Handle(ctx context.Context, cmd UpdateGroup) (domain.StoredGroup, error) {
+	composed, err := cmd.Bundle.Composed()
+	if err != nil {
+		return domain.StoredGroup{}, err
+	}
+	cmd.Bundle = composed
+	for _, question := range cmd.Bundle.Questions {
+		if err := question.Input.ValidateAuthoring(); err != nil {
+			return domain.StoredGroup{}, err
+		}
+	}
 	bundle, err := s.Prepare(ctx, cmd.Mutation.Actor.Scope, cmd.Bundle)
 	if err != nil {
 		return domain.StoredGroup{}, err

@@ -5,9 +5,13 @@ import ForbiddenPage from "@/app/pages/ForbiddenPage";
 import { RequireSession } from "@/app/guards/RequireSession";
 import { StudentArea, TeacherWorkspace } from "@/app/guards/RequireWorkspace";
 import { HomeRedirect } from "@/app/guards/HomeRedirect";
+import {
+  AssignmentPapersRedirect,
+  LegacyTeacherRedirect,
+} from "@/app/LegacyTeacherRedirect";
 
 /**
- * §3's three route trees: public, /admin for the teacher, /app for students.
+ * §3's three route trees: public, /teacher for the teacher, /app for students.
  *
  * Guards are pathless routes so the tree structure states who may see what,
  * rather than each page re-checking.
@@ -43,116 +47,285 @@ const authTree: RouteObject = {
   ],
 };
 
-const adminTree: RouteObject = {
-  path: "admin",
+const teacherTree: RouteObject = {
+  path: "teacher",
   element: <TeacherWorkspace />,
   children: [
     {
-      lazy: page(() => import("@/layouts/AdminLayout")),
+      lazy: page(() => import("@/layouts/TeacherLayout")),
       children: [
-        { index: true, lazy: page(() => import("@/app/pages/AdminDashboardPage")) },
+        {
+          index: true,
+          handle: { crumb: [{ key: "teacherShell.nav.dashboard" }], width: 1320 },
+          lazy: page(
+            () => import("@/features/dashboard/pages/teacher/TeacherDashboardPage"),
+          ),
+        },
         {
           path: "tests",
-          lazy: page(() => import("@/features/tests/pages/TestsListPage")),
+          handle: { crumb: [{ key: "teacherShell.nav.tests" }], width: 1320 },
+          lazy: page(() => import("@/features/tests/pages/teacher/TestsListPage")),
         },
         {
           path: "tests/:id",
-          lazy: page(() => import("@/features/tests/pages/TestDetailPage")),
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.tests", to: "/teacher/tests" },
+              { key: "tests.detail.crumb" },
+            ],
+            width: 1320,
+          },
+          lazy: page(() => import("@/features/tests/pages/teacher/TestDetailPage")),
         },
 
         {
           path: "tests/:id/edit",
-          lazy: page(() => import("@/features/tests/pages/TestBuilderPage")),
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.tests", to: "/teacher/tests" },
+              { key: "builder.titleLabel" },
+            ],
+            width: 1320,
+          },
+          lazy: page(() => import("@/features/tests/pages/teacher/TestBuilderPage")),
         },
         {
           path: "imports",
-          lazy: page(() => import("@/features/imports/pages/ImportsGate")),
+          lazy: page(() => import("@/features/imports/pages/teacher/ImportsGate")),
           children: [
             {
               index: true,
-              lazy: page(() => import("@/features/imports/pages/ImportsListPage")),
+              handle: {
+                crumb: [
+                  { key: "teacherShell.nav.tests", to: "/teacher/tests" },
+                  { key: "imports.historyTitle" },
+                ],
+                width: 1320,
+              },
+              lazy: page(
+                () => import("@/features/imports/pages/teacher/ImportsListPage"),
+              ),
             },
             {
               path: "new",
-              lazy: page(() => import("@/features/imports/pages/NewImportPage")),
+              handle: {
+                crumb: [
+                  { key: "teacherShell.nav.tests", to: "/teacher/tests" },
+                  { key: "imports.historyTitle", to: "/teacher/imports" },
+                  { key: "imports.newCrumb" },
+                ],
+                width: 860,
+              },
+              lazy: page(
+                () => import("@/features/imports/pages/teacher/NewImportPage"),
+              ),
             },
             {
               path: ":id",
-              lazy: page(() => import("@/features/imports/pages/ImportDetailPage")),
+              handle: {
+                crumb: [
+                  { key: "teacherShell.nav.tests", to: "/teacher/tests" },
+                  { key: "imports.historyTitle", to: "/teacher/imports" },
+                  { key: "imports.detail.pageTitle" },
+                ],
+                width: 720,
+              },
+              lazy: page(
+                () => import("@/features/imports/pages/teacher/ImportDetailPage"),
+              ),
             },
             {
               path: ":id/review",
-              lazy: page(() => import("@/features/imports/pages/ImportReviewPage")),
+              handle: {
+                crumb: [
+                  { key: "teacherShell.nav.tests", to: "/teacher/tests" },
+                  { key: "imports.historyTitle", to: "/teacher/imports" },
+                  { key: "imports.review.crumb" },
+                ],
+                width: "full",
+                sidebar: "collapsed",
+              },
+              lazy: page(
+                () => import("@/features/imports/pages/teacher/ImportReviewPage"),
+              ),
+            },
+            {
+              path: ":id/confirm",
+              handle: {
+                crumb: [
+                  { key: "teacherShell.nav.tests", to: "/teacher/tests" },
+                  { key: "imports.historyTitle", to: "/teacher/imports" },
+                  { key: "imports.confirm.crumb" },
+                ],
+                width: 1320,
+              },
+              lazy: page(
+                () => import("@/features/imports/pages/teacher/ImportConfirmPage"),
+              ),
             },
           ],
         },
         {
           path: "question-bank",
-          lazy: page(() => import("@/features/question-bank/pages/QuestionBankPage")),
+          handle: { crumb: [{ key: "teacherShell.nav.questionBank" }], width: 1320 },
+          lazy: page(
+            () => import("@/features/question-bank/pages/teacher/QuestionBankPage"),
+          ),
         },
         {
           path: "question-bank/groups",
-          lazy: page(() => import("@/features/question-groups/pages/GroupsListPage")),
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.questionBank", to: "/teacher/question-bank" },
+              { key: "groups.bankTitle" },
+            ],
+            width: 1320,
+          },
+          lazy: page(
+            () => import("@/features/question-groups/pages/teacher/GroupsListPage"),
+          ),
         },
         {
           path: "question-bank/groups/:id",
-          lazy: page(() => import("@/features/question-groups/pages/GroupEditorPage")),
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.questionBank", to: "/teacher/question-bank" },
+              { key: "groups.bankTitle", to: "/teacher/question-bank/groups" },
+              { key: "groups.one" },
+            ],
+            width: 1320,
+          },
+          lazy: page(
+            () => import("@/features/question-groups/pages/teacher/GroupEditorPage"),
+          ),
         },
         {
           path: "question-bank/new",
-          lazy: page(() => import("@/features/question-bank/pages/QuestionEditorPage")),
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.questionBank", to: "/teacher/question-bank" },
+              { key: "questionEditor.newTitle" },
+            ],
+            width: 1320,
+          },
+          lazy: page(
+            () => import("@/features/question-bank/pages/teacher/QuestionEditorPage"),
+          ),
         },
         {
           path: "question-bank/:id",
-          lazy: page(() => import("@/features/question-bank/pages/QuestionEditorPage")),
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.questionBank", to: "/teacher/question-bank" },
+              { key: "questionEditor.editTitle" },
+            ],
+            width: 1320,
+          },
+          lazy: page(
+            () => import("@/features/question-bank/pages/teacher/QuestionEditorPage"),
+          ),
         },
         {
           path: "media",
-          lazy: page(() => import("@/features/media/pages/MediaLibraryPage")),
+          handle: { crumb: [{ key: "media.title" }], width: 1320 },
+          lazy: page(() => import("@/features/media/pages/teacher/MediaPage")),
         },
         {
           path: "assignments",
-          lazy: page(() => import("@/features/assignments/pages/AssignmentsListPage")),
+          handle: { crumb: [{ key: "teacherShell.nav.assignments" }], width: 1320 },
+          lazy: page(
+            () => import("@/features/assignments/pages/teacher/AssignmentsListPage"),
+          ),
         },
         {
           path: "assignments/new",
-          lazy: page(() => import("@/features/assignments/pages/AssignmentFormPage")),
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.assignments", to: "/teacher/assignments" },
+              { key: "assignments.new" },
+            ],
+            width: 1080,
+          },
+          lazy: page(
+            () => import("@/features/assignments/pages/teacher/AssignmentWizardPage"),
+          ),
         },
         {
           path: "assignments/:id",
-          lazy: page(() => import("@/features/assignments/pages/AssignmentDetailPage")),
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.assignments", to: "/teacher/assignments" },
+              { key: "assignmentDetail.title" },
+            ],
+            width: 1320,
+          },
+          lazy: page(
+            () => import("@/features/assignments/pages/teacher/AssignmentDetailPage"),
+          ),
         },
         {
           path: "assignments/:id/edit",
-          lazy: page(() => import("@/features/assignments/pages/AssignmentFormPage")),
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.assignments", to: "/teacher/assignments" },
+              { key: "assignments.edit" },
+            ],
+            width: 1080,
+          },
+          lazy: page(
+            () => import("@/features/assignments/pages/teacher/AssignmentWizardPage"),
+          ),
         },
         {
           path: "assignments/:id/attempts",
-          lazy: page(() => import("@/features/attempts/pages/AssignmentAttemptsPage")),
+          element: <AssignmentPapersRedirect />,
         },
         {
           path: "attempts/:id",
-          lazy: page(() => import("@/features/attempts/pages/AttemptReviewPage")),
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.assignments", to: "/teacher/assignments" },
+              { key: "assignmentDetail.title" },
+              { key: "review.title" },
+            ],
+            width: 1320,
+          },
+          lazy: page(
+            () => import("@/features/attempts/pages/teacher/AttemptReviewPage"),
+          ),
         },
         {
           path: "grading",
-          lazy: page(() => import("@/features/attempts/pages/GradingQueuePage")),
+          handle: { crumb: [{ key: "teacherShell.nav.grading" }], width: 1320 },
+          lazy: page(() => import("@/features/attempts/pages/teacher/GradingPage")),
         },
         {
           path: "students",
-          lazy: page(() => import("@/features/students/pages/StudentsListPage")),
+          handle: { crumb: [{ key: "teacherShell.nav.students" }], width: 1320 },
+          lazy: page(() => import("@/features/students/pages/teacher/StudentsPage")),
         },
         {
           path: "classes",
-          lazy: page(() => import("@/features/classes/pages/ClassesListPage")),
+          handle: { crumb: [{ key: "teacherShell.nav.classes" }], width: 1320 },
+          lazy: page(() => import("@/features/classes/pages/teacher/ClassesPage")),
         },
         {
           path: "classes/:id",
-          lazy: page(() => import("@/features/classes/pages/ClassDetailPage")),
+          handle: {
+            crumb: [
+              { key: "teacherShell.nav.classes", to: "/teacher/classes" },
+              { key: "classDetail.crumb" },
+            ],
+            width: 1320,
+          },
+          lazy: page(() => import("@/features/classes/pages/teacher/ClassDetailPage")),
         },
         {
           path: "settings/:section?",
-          lazy: page(() => import("@/features/auth/pages/AdminSettingsPage")),
+          handle: { crumb: [{ key: "nav.settings" }], width: 1080 },
+          lazy: page(
+            () => import("@/features/settings/pages/teacher/TeacherSettingsPage"),
+          ),
         },
       ],
     },
@@ -227,7 +400,7 @@ const protectedTree: RouteObject = {
       path: "change-password",
       lazy: page(() => import("@/features/auth/pages/ChangePasswordPage")),
     },
-    adminTree,
+    teacherTree,
     studentTree,
     takeTestTree,
   ],
@@ -240,6 +413,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <HomeRedirect /> },
       authTree,
+      { path: "admin/*", element: <LegacyTeacherRedirect /> },
       protectedTree,
       // Eager, like the guard that also renders it.
       { path: "403", element: <ForbiddenPage /> },

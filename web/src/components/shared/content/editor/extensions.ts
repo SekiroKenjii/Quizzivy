@@ -9,7 +9,8 @@ import Subscript from "@tiptap/extension-subscript";
 import Superscript from "@tiptap/extension-superscript";
 import { fromEditorDoc, toEditorJSON } from "./adapter";
 import { isOptionContent, plainOptionContent } from "../optionContent";
-import { validEditorProfile } from "./profile";
+import { validEditorProfile, type EditorProfile } from "./profile";
+import { clipboardHasText } from "./clipboardText";
 import { safeContentURL } from "../validation";
 
 const Gap = Node.create({
@@ -40,12 +41,42 @@ function assetNode(name: string) {
   });
 }
 
-export type EditorNotice = "pasteBlocked" | "editBlocked" | "pasteStale";
+/** EditorNotice names a message of the notice band; "file" is the host's notice for a pasted or dropped file. */
+export type EditorNotice = "pasteBlocked" | "editBlocked" | "pasteStale" | "file";
+
+function pastePlainText(
+  view: EditorView,
+  event: ClipboardEvent,
+  profile: EditorProfile,
+  notify: (notice: EditorNotice) => void,
+) {
+  const text = event.clipboardData?.getData("text/plain") ?? "";
+  if (profile !== "option") {
+    view.pasteText(text, event);
+    return;
+  }
+  const document = plainOptionContent(text);
+  if (!isOptionContent(document)) {
+    notify("pasteBlocked");
+    return;
+  }
+  const paragraph = view.state.schema.nodeFromJSON(toEditorJSON(document)).firstChild;
+  if (paragraph)
+    view.dispatch(
+      view.state.tr
+        .replaceSelection(new Slice(paragraph.content, 0, 0))
+        .scrollIntoView(),
+    );
+}
+
+function droppedNotice(event: DragEvent): EditorNotice {
+  return event.dataTransfer?.files.length ? "file" : "pasteBlocked";
+}
 
 /** contentExtensions limits the editor to the W03 candidate content vocabulary. */
 export function contentExtensions(
   notify: (notice: EditorNotice) => void = () => undefined,
-  profile: "document" | "option" | "question" | "prompt" = "document",
+  profile: EditorProfile = "document",
   previewPaste: (view: EditorView, html: string) => void = () => notify("pasteBlocked"),
 ) {
   let plainPaste = false;
@@ -156,47 +187,37 @@ export function contentExtensions(
               paste(view, event) {
                 const preferPlain = plainPaste;
                 plainPaste = false;
-                if (event.clipboardData?.files.length) {
-                  event.preventDefault();
-                  notify("pasteBlocked");
-                  return true;
-                }
-                const html = !preferPlain && event.clipboardData?.getData("text/html");
-                if (html) {
+                const clipboard = event.clipboardData;
+                if (!clipboard) return false;
+                const html = preferPlain ? "" : clipboard.getData("text/html");
+                if (html && clipboardHasText(html)) {
                   event.preventDefault();
                   previewPaste(view, html);
                   return true;
                 }
-                if (profile !== "option") return false;
-                event.preventDefault();
-                const text = event.clipboardData?.getData("text/plain") ?? "";
-                const document = plainOptionContent(text);
-                if (!isOptionContent(document)) {
-                  notify("pasteBlocked");
+                const text = clipboard.getData("text/plain");
+                if (!text && (html || clipboard.files.length)) {
+                  event.preventDefault();
+                  notify("file");
                   return true;
                 }
-                const paragraph = view.state.schema.nodeFromJSON(
-                  toEditorJSON(document),
-                ).firstChild;
-                if (paragraph)
-                  view.dispatch(
-                    view.state.tr
-                      .replaceSelection(new Slice(paragraph.content, 0, 0))
-                      .scrollIntoView(),
-                  );
+                if (profile !== "option" && !html && !clipboard.files.length)
+                  return false;
+                event.preventDefault();
+                pastePlainText(view, event, profile, notify);
                 return true;
               },
               drop(view, event) {
                 if (view.dragging) return false;
                 event.preventDefault();
-                notify("pasteBlocked");
+                notify(droppedNotice(event));
                 return true;
               },
             },
             handleDrop(_view, event, _slice, moved) {
               if (moved) return false;
               event.preventDefault();
-              notify("pasteBlocked");
+              notify(droppedNotice(event));
               return true;
             },
           },

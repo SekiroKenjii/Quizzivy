@@ -10,33 +10,39 @@ import (
 	"quizzivy/internal/core/router"
 	accessapp "quizzivy/internal/modules/access/application"
 	attemptsrepo "quizzivy/internal/modules/attempts/repositories"
+	classesapp "quizzivy/internal/modules/classes/application"
 	classesdomain "quizzivy/internal/modules/classes/domain"
 	identityapp "quizzivy/internal/modules/identity/application"
 	identitytoken "quizzivy/internal/modules/identity/application/token"
 	importsworker "quizzivy/internal/modules/imports/application/worker"
+	notificationsapp "quizzivy/internal/modules/notifications/application"
 	"quizzivy/internal/platform/config"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/platform/imagesafe"
 )
 
-// Assembly is what Build produces: the transports the router serves, the token verifiers the auth middleware and the docs gate need, the access application that resolves who a request acts as, and the identity application the background jobs drive.
+// Assembly is what Build produces: the transports the router serves, the token verifiers the auth middleware and the docs gate need, the access application that resolves who a request acts as, and the identity and notifications applications the background jobs drive.
 type Assembly struct {
 	Modules       router.Modules
 	Principals    *accessapp.Application
 	Tokens        *identitytoken.Issuer
 	Docs          *identitytoken.Issuer
 	Identity      *identityapp.Application
+	Classes       *classesapp.Application
+	Notifications *notificationsapp.Application
 	ImportSweeper *importsworker.Sweeper
 	Maintenance   httpx.MaintenanceSource
 }
 
-// Build refuses when app.permissions lacks a key this binary was compiled with, or when the join-code keys derive a zero or shared key id, then assembles every module against the pool in dependency order: attempts' student statistics feed classes and identity, classes' enrolment feeds identity's Google sign-in, media feeds questions, tests and attempts.
+// Build refuses when app.permissions lacks a key this binary was compiled with, or when the join-code keys derive a zero or shared key id, then assembles every module against the pool in dependency order: notifications depends on no module and is built first, so that its Notify command can be handed to any module as a port; attempts' student statistics feed classes and identity, classes' enrolment feeds identity's Google sign-in, media feeds questions, tests and attempts.
 func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db.Pool) (Assembly, error) {
 	dbx := db.NewContext(pool.Pool)
 	principals, err := accessModule(ctx, dbx)
 	if err != nil {
 		return Assembly{}, err
 	}
+	notificationsApp := notifications(dbx)
 	stats := attemptsrepo.NewStudentStats(dbx)
 
 	keys, err := classesdomain.NewJoinCodeKeys(cfg.JoinCodeKey, cfg.JoinCodeKeyPrevious)
@@ -45,12 +51,16 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	}
 	previousKeyID, rotating := keys.PreviousID()
 	logger.Info("join code keys", "current_key_id", keys.CurrentID(), "previous_key_id", previousKeyID, "rotating", rotating)
-	classesApp := classes(dbx, stats, keys)
+	classesApp := classes(dbx, stats, keys, notificationsApp.Commands.Notify, logger)
 	identityApp, tokens, err := identity(cfg, logger, dbx, stats, classesApp.Commands.EnrolNewMember)
 	if err != nil {
 		return Assembly{}, err
 	}
 	identityApp.SetPrincipals(principals)
+	attachClassPorts(classesApp, identityApp, stats)
+	if err := attachAvatars(ctx, cfg, logger, identityApp, imagesafe.New(imagesafe.NewGate(photoDecodeSlots))); err != nil {
+		return Assembly{}, err
+	}
 	docs, err := identitytoken.NewDocsIssuer(cfg.JWTSigningKey)
 	if err != nil {
 		return Assembly{}, err
@@ -65,21 +75,22 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	}
 	questionsApp, questionsRepo := questions(dbx, mediaApp)
 	testsApp := tests(dbx, questionsRepo, mediaRepo, mediaApp)
-	attemptsApp := attempts(dbx).WithGroupContexts(testsApp.Queries.GroupContexts)
+	attemptsApp := attempts(dbx, notificationsApp.Commands.Notify, logger).WithGroupContexts(testsApp.Queries.GroupContexts).WithZones(adapters.ProfileZone{Query: identityApp.Queries.EffectiveZone})
 	availabilityApp, availabilityTransport := availability(dbx, logger)
 
 	return Assembly{
 		Modules: router.Modules{
-			Imports:      importsTransport,
-			Dashboard:    dashboard(dbx),
-			Classes:      classesTransport(classesApp),
-			Identity:     identityTransport(cfg, identityApp, docs),
-			Questions:    questionsTransport(questionsApp, mediaApp),
-			Media:        mediaTransport(mediaApp),
-			Tests:        testsTransport(testsApp, mediaApp),
-			Assignments:  assignments(dbx),
-			Attempts:     attemptsTransport(attemptsApp, mediaApp, identityApp, logger),
-			Availability: availabilityTransport,
+			Imports:       importsTransport,
+			Dashboard:     dashboard(dbx, notificationsApp, identityApp),
+			Classes:       classesTransport(classesApp),
+			Identity:      identityTransport(cfg, identityApp, docs),
+			Questions:     questionsTransport(questionsApp, mediaApp),
+			Media:         mediaTransport(mediaApp),
+			Tests:         testsTransport(testsApp, mediaApp),
+			Assignments:   assignments(dbx, notificationsApp.Commands.Notify, logger),
+			Attempts:      attemptsTransport(attemptsApp, mediaApp, identityApp, logger),
+			Availability:  availabilityTransport,
+			Notifications: notificationsTransport(notificationsApp, logger),
 		},
 		Principals:    principals,
 		Maintenance:   adapters.MaintenanceGate{Current: availabilityApp.Queries.CurrentWindow},
@@ -87,5 +98,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 		Tokens:        tokens,
 		Docs:          docs,
 		Identity:      identityApp,
+		Classes:       classesApp,
+		Notifications: notificationsApp,
 	}, nil
 }

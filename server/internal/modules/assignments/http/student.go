@@ -75,11 +75,8 @@ func (h Assignments) GetMyAssignment(ctx context.Context, request openapi.GetMyA
 		LiveDeadlineAt:  card.LiveDeadlineAt,
 		LastSubmittedAt: card.LastSubmittedAt,
 		Score:           card.Score,
-		Review: openapi.ReviewPolicy{
-			ShowScore:          d.Review.ShowScore,
-			ShowCorrectAnswers: d.Review.ShowCorrectAnswers,
-			ShowExplanations:   d.Review.ShowExplanations,
-		},
+		Review:          toAPIReview(d.Review),
+		StudentNote:     d.StudentNote,
 		Integrity: openapi.IntegrityPolicy{
 			RequireFullscreen: d.Integrity.RequireFullscreen,
 			BlockCopyPaste:    d.Integrity.BlockCopyPaste,

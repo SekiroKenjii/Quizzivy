@@ -7,8 +7,9 @@ import (
 
 // Review carries what the review handlers share: their ports and the helpers they call.
 type Review struct {
-	Repo   domain.ReviewRepository
-	Groups ports.GroupContexts
+	Repo      domain.ReviewRepository
+	Groups    ports.GroupContexts
+	Announcer *Announcer
 }
 
 func NewReview(repo domain.ReviewRepository) *Review {

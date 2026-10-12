@@ -61,8 +61,8 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, totalPoints string) world {
 		return err
 	}())
 	must(pool.QueryRow(ctx,
-		`INSERT INTO app.tests (title, status, current_version, created_by)
-		 VALUES ($1,'published',1,$2::uuid) RETURNING id::text`,
+		`INSERT INTO app.tests (title, status, current_version, created_by, owner_id)
+		 VALUES ($1,'published',1,$2::uuid,$2::uuid) RETURNING id::text`,
 		"De "+id, w.admin).Scan(&w.testID))
 	must(pool.QueryRow(ctx,
 		`INSERT INTO app.test_versions (test_id, version, total_points, published_by)
@@ -359,7 +359,7 @@ func TestFacetsCountTheFilteredSetNotTheWholeTable(t *testing.T) {
 		t.Errorf("unfiltered total %d is not larger than the filtered %d", all.Total, narrowed.Total)
 	}
 
-	byClass, err := store.Queries.StudentFacets.Handle(ctx, query.StudentFacets{Query: domain.StudentQuery{Scope: everyone, ClassID: w.class}})
+	byClass, err := store.Queries.StudentFacets.Handle(ctx, query.StudentFacets{Query: domain.StudentQuery{Scope: everyone, ClassIDs: []string{w.class}}})
 	if err != nil {
 		t.Fatal(err)
 	}

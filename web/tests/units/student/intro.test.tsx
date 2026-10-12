@@ -269,7 +269,13 @@ describe("before you start, per policy", () => {
 
   it("says nothing of what is seen after submitting when the review hides the score", async () => {
     show({
-      review: { showScore: false, showCorrectAnswers: true, showExplanations: true },
+      review: {
+        showScore: false,
+        showCorrectAnswers: true,
+        showExplanations: true,
+        release: "on_submit",
+        showClassAverage: false,
+      },
     });
     expect((await rules()).join(" ")).not.toMatch(/điểm|đáp án|giải thích/);
   });
@@ -322,6 +328,73 @@ describe("before you start, per policy", () => {
       "Attempts",
     ]);
     expect(screen.getByText("0 of 2")).toBeInTheDocument();
+  });
+});
+
+describe("the teacher's note", () => {
+  const NOTE = "Mang theo máy tính cầm tay.\nKhông dùng điện thoại.";
+
+  async function noteBlock(name: string) {
+    const heading = await screen.findByRole("heading", { level: 2, name });
+    return heading.closest("section")!;
+  }
+
+  it("is drawn between 'Before you start' and the action, under the teacher's name", async () => {
+    show({ studentNote: NOTE, teacherName: "Hoàng Thương" });
+    const note = await noteBlock("Ghi chú từ Hoàng Thương");
+    const before = screen
+      .getByRole("heading", { level: 2, name: "Trước khi bắt đầu" })
+      .closest("section")!;
+    const action = await startButton();
+    expect(before.compareDocumentPosition(note)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(note.compareDocumentPosition(action)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(within(note).getByText("TH")).toBeInTheDocument();
+    expect(note.querySelector("p")!.textContent).toBe(NOTE);
+  });
+
+  it("is left out when the teacher wrote none", async () => {
+    show({ studentNote: null, teacherName: "Hoàng Thương" });
+    await startButton();
+    expect(screen.queryByText(/Ghi chú từ/)).not.toBeInTheDocument();
+    expect(document.querySelector('[data-slot="teacher-note"]')).toBeNull();
+  });
+
+  it("is left out when the server sends no note at all", async () => {
+    show({ teacherName: "Hoàng Thương" });
+    await startButton();
+    expect(document.querySelector('[data-slot="teacher-note"]')).toBeNull();
+  });
+
+  it("says 'your teacher' when the teacher is not known", async () => {
+    show({ studentNote: NOTE, teacherName: null });
+    const note = await noteBlock("Ghi chú từ giáo viên");
+    expect(note.querySelector("p")!.textContent).toBe(NOTE);
+  });
+
+  it("is plain text: markup in it is shown as typed and runs nothing", async () => {
+    const typed =
+      '<b>Đọc kỹ</b> <img src=x onerror="alert(1)"> **đề** [link](https://example.test)';
+    show({ studentNote: typed, teacherName: "Hoàng Thương" });
+    const note = await noteBlock("Ghi chú từ Hoàng Thương");
+    expect(note.querySelector("p")!.textContent).toBe(typed);
+    expect(note.querySelector("b, img, a, strong")).toBeNull();
+  });
+});
+
+describe("the score sentence of a result released after the close", () => {
+  it("says the score comes once the test closes", async () => {
+    show({
+      review: {
+        showScore: true,
+        showCorrectAnswers: true,
+        showExplanations: false,
+        release: "after_close",
+        showClassAverage: false,
+      },
+    });
+    const list = await rules();
+    expect(list.at(-1)).toBe("Bạn sẽ xem được điểm và đáp án đúng sau khi bài đóng.");
+    expect(list.join(" ")).not.toMatch(/sau khi nộp/);
   });
 });
 
@@ -467,6 +540,102 @@ describe("the cover under the action", () => {
   );
 });
 
+describe("what a paper that has not opened promises", () => {
+  const PREFERENCES = `${BASE}/me/notification-preferences`;
+  const EVENTS = [
+    "attempt.submitted",
+    "attempt.flagged",
+    "assignment.closing",
+    "assignment.due_soon",
+    "result.ready",
+  ] as const;
+
+  function switches(dueSoon: boolean) {
+    return EVENTS.map((event) => ({
+      event,
+      inApp: event === "assignment.due_soon" ? dueSoon : true,
+      email: false,
+    }));
+  }
+
+  function counting(dueSoon = true) {
+    const count = { read: 0 };
+    server.use(
+      http.get(PREFERENCES, () => {
+        count.read += 1;
+        return contractJson(
+          "/me/notification-preferences",
+          "get",
+          200,
+          switches(dueSoon),
+        );
+      }),
+    );
+    return count;
+  }
+
+  function waiting() {
+    show({
+      status: "scheduled",
+      opensAt: "2026-09-01T01:00:00Z",
+      closesAt: "2026-09-20T14:00:00Z",
+    });
+    return screen.findByRole("heading", { level: 1 });
+  }
+
+  it("says it will notify a student whose 'Test due soon' switch is on", async () => {
+    await waiting();
+    expect(
+      await screen.findByText("Chúng tôi sẽ báo cho bạn khi bài mở."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Bạn bắt đầu được khi bài mở.")).toBeNull();
+  });
+
+  it("keeps the plain line for a student who switched 'Test due soon' off", async () => {
+    const count = counting(false);
+    await waiting();
+    await waitFor(() => expect(count.read).toBe(1));
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    expect(screen.getByText("Bạn bắt đầu được khi bài mở.")).toBeInTheDocument();
+    expect(screen.queryByText("Chúng tôi sẽ báo cho bạn khi bài mở.")).toBeNull();
+  });
+
+  it("keeps the plain line while the switches are unread, then promises", async () => {
+    server.use(
+      http.get(PREFERENCES, async () => {
+        await delay(500);
+        return contractJson("/me/notification-preferences", "get", 200, switches(true));
+      }),
+    );
+    await waiting();
+    expect(screen.getByText("Bạn bắt đầu được khi bài mở.")).toBeInTheDocument();
+    await act(() => vi.advanceTimersByTimeAsync(600));
+    expect(
+      await screen.findByText("Chúng tôi sẽ báo cho bạn khi bài mở."),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the plain line when the switches cannot be read", async () => {
+    server.use(http.get(PREFERENCES, () => HttpResponse.json({}, { status: 500 })));
+    await waiting();
+    expect(await screen.findByText("Bạn bắt đầu được khi bài mở.")).toBeInTheDocument();
+  });
+
+  it("does not read the switches for a test that is open", async () => {
+    const count = counting();
+    show();
+    await screen.findByRole("button", { name: "Bắt đầu làm bài" });
+    expect(count.read).toBe(0);
+  });
+
+  it("does not read the switches for a student with no attempt left", async () => {
+    const count = counting();
+    show({ attemptsUsed: 2, maxAttempts: 2 });
+    await screen.findByText("Bạn đã dùng hết số lượt làm bài.");
+    expect(count.read).toBe(0);
+  });
+});
+
 describe("a paper that has not opened", () => {
   async function waiting(opensAt: string) {
     show({ status: "scheduled", opensAt, closesAt: "2026-09-20T14:00:00Z" });
@@ -503,7 +672,9 @@ describe("a paper that has not opened", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(calls).toEqual([]);
     expect(request).not.toHaveBeenCalled();
-    expect(screen.getByText("Bạn bắt đầu được khi bài mở.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Chúng tôi sẽ báo cho bạn khi bài mở."),
+    ).toBeInTheDocument();
   });
 
   it("takes 'not open yet' from the server, not from this device's clock", async () => {
@@ -1405,6 +1576,28 @@ describe("a tab left open", () => {
 });
 
 describe("in English", () => {
+  it("reads the teacher's note and the after-close score sentence in English", async () => {
+    await i18n.changeLanguage("en");
+    show({
+      studentNote: "Bring a calculator.",
+      teacherName: "Hoàng Thương",
+      review: {
+        showScore: true,
+        showCorrectAnswers: false,
+        showExplanations: false,
+        release: "after_close",
+        showClassAverage: false,
+      },
+    });
+    const note = (
+      await screen.findByRole("heading", { level: 2, name: "Note from Hoàng Thương" })
+    ).closest("section")!;
+    expect(note).toHaveTextContent("Bring a calculator.");
+    expect(
+      screen.getByText("You will see your score after the test closes."),
+    ).toBeInTheDocument();
+  });
+
   it("reads the short window in English, singular and plural", async () => {
     await i18n.changeLanguage("en");
     const user = userEvent.setup();
@@ -1443,7 +1636,9 @@ describe("in English", () => {
       closesAt: "2026-09-20T14:00:00Z",
     });
     expect(await screen.findByRole("button")).toHaveAccessibleName("Opens Monday");
-    expect(screen.getByText("You can start once it opens.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("We will notify you when it opens."),
+    ).toBeInTheDocument();
   });
 
   it("reads today's opening in English", async () => {

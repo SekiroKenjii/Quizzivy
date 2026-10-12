@@ -95,7 +95,7 @@ describe("what the student routes import", () => {
   });
 
   it("would be caught: the teacher's routes, walked the same way, reach all three", () => {
-    const modules = named(reachable(routesOf("adminTree")));
+    const modules = named(reachable(routesOf("teacherTree")));
     expect(modules.filter((path) => SIDE_COLUMNS.includes(path))).toEqual(SIDE_COLUMNS);
   });
 

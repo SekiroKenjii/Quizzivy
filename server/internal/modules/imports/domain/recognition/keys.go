@@ -110,6 +110,9 @@ func (r *keyReader) read(l *line) {
 }
 
 func (r *keyReader) entries(l *line, from int) []keyEntry {
+	if entries := prefixedKeyEntries(l, from, r.origin); len(entries) > 0 {
+		return entries
+	}
 	if entries := lineEntries(l, from, r.origin); len(entries) > 0 {
 		return entries
 	}

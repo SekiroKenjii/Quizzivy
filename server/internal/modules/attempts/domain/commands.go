@@ -34,16 +34,19 @@ type FlushInput struct {
 	BeaconToken string
 }
 
+// CreateInput starts an attempt. ExpectedDeadlineAt is the deadline the caller
+// worked out from its own earlier read of the rules, which the maintenance
+// check looks at first; the deadline stored is the one the rules give when
+// Create reads them again under a lock, at StartedAt.
 type CreateInput struct {
-	AssignmentID  string
-	TestVersionID string
-	StudentID     string
-	AttemptNo     int
-	SessionID     string
-	Seed          int64
-	BeaconHash    []byte
-	StartedAt     time.Time
-	DeadlineAt    time.Time
+	AssignmentID       string
+	StudentID          string
+	AttemptNo          int
+	SessionID          string
+	Seed               int64
+	BeaconHash         []byte
+	StartedAt          time.Time
+	ExpectedDeadlineAt time.Time
 }
 
 type ResumeInput struct {
