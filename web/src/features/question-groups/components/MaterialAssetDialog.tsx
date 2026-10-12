@@ -47,7 +47,7 @@ export function MaterialAssetDialog({
   const fileInput = useRef<HTMLInputElement>(null);
   const upload = useMediaUpload({ kind, onUploaded: setChosen });
   const library = useLazyList({
-    queryKey: ["admin-media", "group-picker", kind],
+    queryKey: ["teacher-media", "group-picker", kind],
     fetchPage: (page, signal) => listMedia({ kind, page, limit: 20 }, signal),
   });
 
@@ -85,7 +85,7 @@ export function MaterialAssetDialog({
                       size="sm"
                       onClick={() =>
                         void queryClient.invalidateQueries({
-                          queryKey: ["admin-media", "group-picker", kind],
+                          queryKey: ["teacher-media", "group-picker", kind],
                         })
                       }
                     >

@@ -63,8 +63,8 @@ export function StudentDrawer({
 
   const invalidate = () =>
     Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["admin-students"] }),
-      queryClient.invalidateQueries({ queryKey: ["admin-student", student.id] }),
+      queryClient.invalidateQueries({ queryKey: ["teacher-students"] }),
+      queryClient.invalidateQueries({ queryKey: ["teacher-student", student.id] }),
     ]);
 
   const setDisabled = useMutation({
@@ -74,8 +74,8 @@ export function StudentDrawer({
       setConfirming(null);
       toast(t(disabled ? "students.disabled" : "students.enabled"));
       await invalidate();
-      await queryClient.invalidateQueries({ queryKey: ["admin-classes"] });
-      await queryClient.invalidateQueries({ queryKey: ["admin-assignments"] });
+      await queryClient.invalidateQueries({ queryKey: ["teacher-classes"] });
+      await queryClient.invalidateQueries({ queryKey: ["teacher-assignments"] });
     },
     onError: (cause) => setError(failureMessage(cause, t("students.disableFailed"))),
   });

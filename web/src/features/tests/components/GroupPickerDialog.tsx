@@ -65,7 +65,7 @@ function GroupChoices({
   const [error, setError] = useState<string | null>(null);
   const search = useDebounced(query.trim(), 300);
   const list = useQuery({
-    queryKey: ["admin-groups", "picker", search, page],
+    queryKey: ["teacher-groups", "picker", search, page],
     queryFn: ({ signal }) =>
       listGroups({ q: search, page, limit: 20, status: "active" }, signal),
     placeholderData: keepPreviousData,

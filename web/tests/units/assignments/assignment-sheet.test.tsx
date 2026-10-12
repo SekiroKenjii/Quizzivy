@@ -802,11 +802,11 @@ describe("assignment outer-state recovery and roster URL regressions", () => {
       if (state === "noWorkspace") await act(() => grant([], false));
       else if (state === "loading")
         await act(() => {
-          void client.resetQueries({ queryKey: ["admin-assignment", ASSIGNMENT_ID] });
+          void client.resetQueries({ queryKey: ["teacher-assignment", ASSIGNMENT_ID] });
         });
       else
         await act(() =>
-          client.invalidateQueries({ queryKey: ["admin-assignment", ASSIGNMENT_ID] }),
+          client.invalidateQueries({ queryKey: ["teacher-assignment", ASSIGNMENT_ID] }),
         );
       await waitFor(() => expect(screen.queryByLabelText("Ghi chú riêng")).toBeNull());
       expect(screen.queryByText("hidden dirty draft")).toBeNull();
