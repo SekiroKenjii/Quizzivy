@@ -1172,40 +1172,40 @@ paper's footer; the sheet's focus rules, Esc included (the deck's Esc clears a s
 sheet does not use, S 1530); `forgetRailWidth`; `answered()`; the header, which this task does
 not change (`header.test.tsx` passes untouched).
 **Done when:**
-- [ ] The rail is the engine's own `<aside>` named "Sections" ("Các phần"): 236px, `--sidebar`,
+- [x] The rail is the engine's own `<aside>` named "Sections" ("Các phần"): 236px, `--sidebar`,
       a right border, padding 16px 14px, gap 16px, scrolling by itself. It shows when the
       engine is at least 900 wide on a question with no shared content and at least 1180 on one
       with it, and never below 768 (DG-191). It imports neither `SideColumn`, `PageAside` nor
       `useColumnWidth`: `tests/units/student/side-column.test.ts` passes untouched.
-- [ ] Per section: its title (12.5px, line-height 1.35; 600 `--fg` for the open question's
+- [x] Per section: its title (12.5px, line-height 1.35; 600 `--fg` for the open question's
       section, 500 `--muted-fg` otherwise) and "n / m" answered (11.5px, tabular); a grid of
       five columns, gap 5px, of 34px squares (radius 8, 1.5px border, 12.5px 600). The title is
       the section's whole title, not the deck's part after " · ". A paper of one untitled part
       shows the grid with no heading.
-- [ ] A square: answered is filled primary; partly answered is `--accent-soft` with a primary
+- [x] A square: answered is filled primary; partly answered is `--accent-soft` with a primary
       border; empty is `--card` with `--border`. The open question adds the `--accent-c` border
       and `0 0 0 2px var(--accent-soft)`. A flag is a 9px `--warning` dot with a 2px `--card`
       border at the top right. Names keep today's parts ("Câu 23", the part, "đang xem", "đã
       trả lời", "đã đánh dấu") and add "trả lời một phần".
-- [ ] `progress(question, answer)` returns `none`, `partly` or `full`. Partly is a fill-in with
+- [x] `progress(question, answer)` returns `none`, `partly` or `full`. Partly is a fill-in with
       at least one blank typed and not all. `answered()` is unchanged and still equals
       `progress === "full"`; `answered.test.ts` gains the partly cases and loses none.
       `liveAnsweredCount`'s SQL rule is not touched.
-- [ ] Legend, pinned to the rail's foot and at the sheet's end, 11.5px: "Answered" (11px
+- [x] Legend, pinned to the rail's foot and at the sheet's end, 11.5px: "Answered" (11px
       square, radius 3), "Partly" (11px, `--accent-soft`, 1px primary border), "Flagged" (9px
       round).
-- [ ] The footer strip is gone at every width. With the rail: Previous, the key hint centred
+- [x] The footer strip is gone at every width. With the rail: Previous, the key hint centred
       (two 22px `<kbd>` "←" "→", then "to move between questions · A–D to choose an answer", or
       "to move · A–D to choose" beside shared content; 12.5px muted, one line, ellipsis), Next.
       On a question with no options the hint stops at "to move". A to E and F keep working;
       the hint names what the deck names (DG-191).
-- [ ] Without the rail, at every width: Previous (icon only below 768), the grid button (flex
+- [x] Without the rail, at every width: Previous (icon only below 768), the grid button (flex
       1, 44px, radius 10, 1px border, `--card`, 14px 500, the `layout-grid` icon at 16px), Next.
       Its label is "{no} · {answered}/{total}" beside shared content from 768 and below 420,
       otherwise "Question {no} · {answered} of {total} done"; it truncates with an ellipsis and
       never breaks onto two lines. A screen reader hears the long form and that it opens a
       dialog.
-- [ ] The grid button opens the sheet at any width. Below 768: pinned to the bottom, radius 16px
+- [x] The grid button opens the sheet at any width. Below 768: pinned to the bottom, radius 16px
       16px 0 0. From 768: a card 560px wide, centred, 76px from the bottom, radius 14px. Both:
       1px border, at most 80% of the height, padding 12px 16px 20px, gap 16px, the 40 by 4
       grabber. One block per section (title and "n / m"), six columns, gap 5px, squares 42px
@@ -1213,13 +1213,13 @@ not change (`header.test.tsx` passes untouched).
       dialog keeps the name "Questions" and the answered total for a screen reader. Focus
       starts on the open question's square, is trapped, Esc and the backdrop close, focus
       returns to the button unless a square took it.
-- [ ] The sheet closes if the engine grows past the rail's threshold while it is open.
-- [ ] The Submit dialog lists a partly answered question under "Go to", as it already does (it
+- [x] The sheet closes if the engine grows past the rail's threshold while it is open.
+- [x] The Submit dialog lists a partly answered question under "Go to", as it already does (it
       is not answered); its counts and sentences do not change.
-- [ ] Strings. New: `takeTest.{sectionsRail,railDone,legendPartly,dotPartly,keysHint,
+- [x] Strings. New: `takeTest.{sectionsRail,railDone,legendPartly,dotPartly,keysHint,
       keysHintShort,keysHintMove,gridLabel,gridLabelShort}`. Removed, in their own commit:
       `takeTest.{navPosition,navAnswered,navCount}`.
-- [ ] Tests: `navigator.test.tsx` keeps every case of "the question sheet", "on a paper whose
+- [x] Tests: `navigator.test.tsx` keeps every case of "the question sheet", "on a paper whose
       time is up", the sealed-paper cases and "the retired rail's remembered width"; its "the
       footer from 768" cases become rail cases at 900 and 1180 and grid-button cases at 768 and
       1024 beside shared content; `breakpoint.test.tsx` crosses 768, 900 and 1180 with an answer
@@ -1227,10 +1227,31 @@ not change (`header.test.tsx` passes untouched).
       the timer in the header, and draws no rail and no shortcut hint", keeps its header
       assertions and has its last two inverted (a rail at 900, a hint in the footer);
       `keyboard.test.tsx` is unchanged but for the hint.
-- [ ] Compared with the deck's papers s1 and s9 (T-D4.3's sessions) at the five widths and at
+- [x] Compared with the deck's papers s1 and s9 (T-D4.3's sessions) at the five widths and at
       419 / 420, 899 / 900 and 1179 / 1180, light and dark: the rail, its squares in the four states, the legend,
       the hint, the grid button in both label forms, the sheet in both shapes. In Vietnamese at
       320 the grid button stays on one line.
+
+**As built:** the rail is `SectionRail.tsx`; the footer, the grid button, the sheet and the
+pieces both share (`SectionBlocks`, `Legend`) are in `Navigator.tsx`. `Paper` reads three more
+widths from `useEngineWidthAtLeast` (420, 900, 1180) and puts the rail first in `<main>`, so
+the panes keep their place and nothing remounts when it comes or goes. `DotState` gains
+`partly` beside `answered`, so `SubmitDialog.tsx` is untouched. A paper of one titled section
+heads its block too (the deck's s1 does); only an untitled one has none. The key hint is a
+`<p>`; on a question with no options (a fill-in or a short answer) it reads
+`keysHintMove`, "to move". The sheet keeps its name and states the grid button's long label
+as its description, both `sr-only`. The deck's `<kbd>` carries `font: 600 11px/18px
+inherit`, which is invalid CSS, so the deck renders the browser's monospace at the hint's
+12.5px and weight 400; the product's `<kbd>` sets no font and renders the same. The rail's
+squares keep the open one in view (`scrollIntoView`, as the strip did). Tests rewritten to
+the new frame, case for case: `navigator.test.tsx`'s "the footer from 768" cases became "the
+rail" (at 900) and "the rail beside shared content" (1179 / 1180, the grid button at 768 and
+1024, coming and going between questions); `breakpoint.test.tsx` crosses 768 and 900, and
+1180 beside a passage; `panes.test.tsx`'s "uses the question pane alone" counts the rail in
+`<main>`; `submit-dialog.test.tsx`'s "with the strip" case reads the rail and gains the
+partly-answered chip; `keyboard.test.tsx` moves its sheet locator and gains the hint;
+`student-interactions.spec.ts` gains the navigator at 320, 419, 420, 899, 900 and 1440.
+DG-80's "Footer and sheet" sentence is trimmed in this PR, as DG-80 asks.
 
 ### T-D4.5 — Engine: question pane surface, section header, question line and stimulus head
 **Depends on:** T-D4.4
