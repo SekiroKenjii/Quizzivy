@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 import { QuestionAudio } from "@/features/take-test/components/QuestionAudio";
 import { recordAudioPlay, type StudentQuestion } from "@/features/take-test/api";
 import { useTakeTestStore } from "@/features/take-test/store";
 import { beginSession, clearSession, pending } from "@/features/integrity/buffer";
-import { session } from "./support";
+import { renderWithPaper, session } from "./support";
 import "@/lib/i18n";
 
 vi.mock("@/features/take-test/api", () => ({
@@ -87,7 +87,9 @@ const pressPlay = () => fireEvent.click(screen.getByRole("button", { name: "Phá
 const recorded = () => pending().map((event) => [event.kind, event.questionId]);
 
 function mount() {
-  return render(<QuestionAudio question={question} onExpired={() => undefined} />);
+  return renderWithPaper(
+    <QuestionAudio question={question} onExpired={() => undefined} />,
+  );
 }
 
 it("records the play, then its end, for the question", () => {
@@ -141,7 +143,7 @@ it("records a jump the player put back", () => {
 });
 
 it("records no seek when the teacher allowed seeking", () => {
-  render(
+  renderWithPaper(
     <QuestionAudio
       question={{
         ...question,

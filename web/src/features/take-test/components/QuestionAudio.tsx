@@ -1,8 +1,7 @@
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
-import { recordAudioEvent } from "@/features/integrity/useIntegrityMonitor";
-import { useTakeTestStore } from "../store";
+import { usePaper } from "../paper";
 import type { StudentQuestion } from "../api";
 
 /** The listening half of a question (§11.3, §11.4). */
@@ -15,9 +14,14 @@ export function QuestionAudio({
   onExpired: () => void;
 }>) {
   const { t } = useTranslation();
-  const played = useTakeTestStore((s) => s.audioPlays[question.id] ?? 0);
-  const notePlay = useTakeTestStore((s) => s.notePlay);
-  const attemptId = useTakeTestStore((s) => s.attemptId);
+  const {
+    questionPlays,
+    onAudioPlay,
+    onAudioEnded,
+    onAudioBlocked,
+    onAudioSeekBlocked,
+  } = usePaper();
+  const played = questionPlays[question.id] ?? 0;
 
   if (question.media?.kind !== "audio") return null;
   const maxPlays = question.audio?.maxPlays ?? null;
@@ -31,23 +35,10 @@ export function QuestionAudio({
         allowSeek={question.audio?.allowSeek ?? false}
         preload="metadata"
         hint={playsHint(t, played, maxPlays)}
-        onPlay={() => {
-          notePlay(question.id);
-          if (attemptId !== null)
-            recordAudioEvent(attemptId, "audio_play", question.id);
-        }}
-        onEnded={() => {
-          if (attemptId !== null)
-            recordAudioEvent(attemptId, "audio_ended", question.id);
-        }}
-        onBlocked={() => {
-          if (attemptId !== null)
-            recordAudioEvent(attemptId, "audio_blocked", question.id);
-        }}
-        onSeekBlocked={() => {
-          if (attemptId !== null)
-            recordAudioEvent(attemptId, "audio_seek", question.id);
-        }}
+        onPlay={() => onAudioPlay(question.id)}
+        onEnded={() => onAudioEnded(question.id)}
+        onBlocked={() => onAudioBlocked(question.id)}
+        onSeekBlocked={() => onAudioSeekBlocked(question.id)}
         onRetry={onExpired}
       />
       {maxPlays !== null && played >= maxPlays && (

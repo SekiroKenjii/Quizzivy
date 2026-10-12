@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 import { GroupListening } from "@/features/take-test/components/GroupContext";
 import { recordGroupAudioPlay } from "@/features/take-test/api";
 import { useTakeTestStore } from "@/features/take-test/store";
 import { useGroupPlaybackStore } from "@/features/take-test/groupPlayback";
 import { beginSession, clearSession, pending } from "@/features/integrity/buffer";
 import { previewGroup } from "@tests/support/groupPreview";
-import { session } from "./support";
+import { renderWithPaper, session } from "./support";
 import "@/lib/i18n";
 
 vi.mock("@/features/take-test/api", () => ({
@@ -68,7 +68,9 @@ afterEach(() => {
 const audio = () => document.querySelector("audio") as HTMLAudioElement;
 const pressPlay = () => fireEvent.click(screen.getByRole("button", { name: "Phát" }));
 const mount = () =>
-  render(<GroupListening group={previewGroup} onRetryMedia={() => undefined} />);
+  renderWithPaper(
+    <GroupListening group={previewGroup} onRetryMedia={() => undefined} />,
+  );
 const duration = () => pending().at(-1)?.meta;
 const advance = (ms: number) => vi.setSystemTime(Date.now() + ms);
 const flush = () => act(() => useGroupPlaybackStore.getState().flush());

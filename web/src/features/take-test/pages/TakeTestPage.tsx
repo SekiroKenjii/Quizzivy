@@ -15,7 +15,6 @@ import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { LoadError } from "@/components/shared/ListState";
-import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
 import { EngineHeader, LeaveButton } from "../components/EngineHeader";
 import { LeaveDialog } from "../components/LeaveDialog";
@@ -37,23 +36,21 @@ import { useClipboardNotice } from "@/features/integrity/useClipboardNotice";
 import { useIntegrityMonitor } from "@/features/integrity/useIntegrityMonitor";
 import { answered } from "../answered";
 import { getAttempt, type Answer, type StudentQuestion } from "../api";
-import {
-  groupBySection,
-  opensSection,
-  sectionAt,
-  type SectionGroup,
-} from "../sections";
+import { groupBySection, opensSection, sectionAt } from "../sections";
 import {
   clearOpenQuestion,
   readOpenQuestion,
   writeOpenQuestion,
 } from "../openQuestion";
 import { hasPassage, questionShowing, useKeptScroll } from "../panes";
+import { PaperSourceContext, useLivePaperSource, usePaper } from "../paper";
 import { questionKind } from "../questionType";
 import { useTakeTestStore } from "../store";
 import { useLeave } from "../useLeave";
+import { useEngineWidthAtLeast } from "../width";
 
 const PICK_KEYS = "abcde";
+const WIDE_PX = 768;
 
 /**
  * TakeTestPage is the engine, one question at a time, with the navigator as
@@ -73,7 +70,7 @@ export default function TakeTestPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { attemptId } = useParams<{ attemptId: string }>();
-  const wide = useMediaQuery("(min-width: 768px)");
+  const wide = useEngineWidthAtLeast(WIDE_PX);
 
   const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading");
   const [loadError, setLoadError] = useState<unknown>(null);
@@ -82,7 +79,6 @@ export default function TakeTestPage() {
   const [jumps, countJump] = useReducer((n: number) => n + 1, 0);
 
   const questions = useTakeTestStore((s) => s.questions);
-  const sections = useTakeTestStore((s) => s.sections);
   const answers = useTakeTestStore((s) => s.answers);
   const flags = useTakeTestStore((s) => s.flags);
   const sessionId = useTakeTestStore((s) => s.sessionId);
@@ -98,12 +94,9 @@ export default function TakeTestPage() {
   const toggleFlag = useTakeTestStore((s) => s.toggleFlag);
   const reset = useTakeTestStore((s) => s.reset);
   const leave = useLeave();
+  const paper = useLivePaperSource();
 
   const [reloads, reload] = useReducer((n: number) => n + 1, 0);
-  const groups = useMemo(
-    () => groupBySection(sections, questions),
-    [sections, questions],
-  );
   const question = questions[Math.min(index, questions.length - 1)];
   const ended = submitState === "done";
 
@@ -257,16 +250,16 @@ export default function TakeTestPage() {
     return <Notice>{t("takeTest.empty")}</Notice>;
   }
 
-  const dots: DotState[] = questions.map((q) => ({
-    id: q.id,
-    answered: answered(q, answers[q.id]),
-    flagged: flags.has(q.id),
-  }));
+  const dots = dotsOf(questions, answers, flags);
 
   if (submitState === "done" && submittedAt !== null) {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
-        {wide && <EngineHeader wide leading={null} live={false} />}
+        {wide && (
+          <PaperSourceContext value={paper}>
+            <EngineHeader wide leading={null} live={false} />
+          </PaperSourceContext>
+        )}
         <SubmittedScreen
           reason={submitReason ?? "manual"}
           submittedAt={submittedAt}
@@ -298,24 +291,19 @@ export default function TakeTestPage() {
 
   return (
     <>
-      <Paper
-        wide={wide}
-        index={index}
-        jumps={jumps}
-        question={question}
-        total={questions.length}
-        group={sectionAt(groups, index)}
-        sectioned={groups.length > 1}
-        dots={dots}
-        groups={groups}
-        status={strikeIndicator}
-        fullscreenBar={watching && integrity.requireFullscreen && !fullscreen}
-        onLeave={leave.ask}
-        onMove={setIndex}
-        onJump={jump}
-        onSubmit={() => setSubmitAsked(true)}
-        onReload={reload}
-      />
+      <PaperSourceContext value={paper}>
+        <Paper
+          index={index}
+          jumps={jumps}
+          status={strikeIndicator}
+          fullscreenBar={watching && integrity.requireFullscreen && !fullscreen}
+          onLeave={leave.ask}
+          onMove={setIndex}
+          onJump={jump}
+          onSubmit={() => setSubmitAsked(true)}
+          onReload={reload}
+        />
+      </PaperSourceContext>
       <SubmitDialog
         open={submitAsked}
         dots={dots}
@@ -328,33 +316,25 @@ export default function TakeTestPage() {
   );
 }
 
-function Paper({
-  wide,
-  index,
-  jumps,
-  question,
-  total,
-  group,
-  sectioned,
-  dots,
-  groups,
-  status,
-  fullscreenBar,
-  onLeave,
-  onMove,
-  onJump,
-  onSubmit,
-  onReload,
-}: Readonly<{
-  wide: boolean;
+function dotsOf(
+  questions: StudentQuestion[],
+  answers: Readonly<Record<string, Answer>>,
+  flags: ReadonlySet<string>,
+): DotState[] {
+  return questions.map((q) => ({
+    id: q.id,
+    answered: answered(q, answers[q.id]),
+    flagged: flags.has(q.id),
+  }));
+}
+
+/**
+ * PaperProps is what the host of a paper decides: the open question, the
+ * strike count, the fullscreen bar, and what each control does.
+ */
+export type PaperProps = Readonly<{
   index: number;
   jumps: number;
-  question: StudentQuestion;
-  total: number;
-  group: SectionGroup | null;
-  sectioned: boolean;
-  dots: DotState[];
-  groups: SectionGroup[];
   status: ReactNode;
   fullscreenBar: boolean;
   onLeave: () => void;
@@ -362,15 +342,54 @@ function Paper({
   onJump: (index: number) => void;
   onSubmit: () => void;
   onReload: () => void;
-}>) {
+}>;
+
+/**
+ * Paper is the engine's paper open at question `index`: the header, the
+ * passage pane and the question pane with the navigator. It reads the paper
+ * from the nearest PaperSourceContext and the width from
+ * useEngineWidthAtLeast, and draws nothing for a paper with no questions.
+ */
+export function Paper(props: PaperProps) {
+  const { questions } = usePaper();
+  const question = questions[Math.min(props.index, questions.length - 1)];
+  if (question === undefined) return null;
+  return <PaperAt {...props} question={question} />;
+}
+
+function PaperAt({
+  index,
+  jumps,
+  question,
+  status,
+  fullscreenBar,
+  onLeave,
+  onMove,
+  onJump,
+  onSubmit,
+  onReload,
+}: PaperProps & Readonly<{ question: StudentQuestion }>) {
   const { t } = useTranslation();
-  const sealed = useTakeTestStore(
-    (state) => state.lock === "superseded" || state.lock === "closed",
-  );
+  const wide = useEngineWidthAtLeast(WIDE_PX);
+  const {
+    questions,
+    sections,
+    groups: sharedGroups,
+    answers,
+    flags,
+    lock,
+  } = usePaper();
+  const sealed = lock === "superseded" || lock === "closed";
   const submit = sealed ? undefined : onSubmit;
+  const groups = useMemo(
+    () => groupBySection(sections, questions),
+    [sections, questions],
+  );
+  const group = sectionAt(groups, index);
+  const sectioned = groups.length > 1;
+  const dots = dotsOf(questions, answers, flags);
+  const total = questions.length;
   const answerPanel = useRef<HTMLDivElement>(null);
-  const sharedGroups = useTakeTestStore((state) => state.groups);
-  const questions = useTakeTestStore((state) => state.questions);
   const contexts = useMemo(
     () =>
       new Map(

@@ -1,4 +1,7 @@
+import { createElement, type ReactElement, type ReactNode } from "react";
+import { render } from "@testing-library/react";
 import type { AttemptSession } from "@/features/take-test/api";
+import { PaperSourceContext, useLivePaperSource } from "@/features/take-test/paper";
 
 /** A payload the store can hydrate from, with only the parts it reads. */
 export function session(over: {
@@ -41,3 +44,15 @@ export function text(value: string) {
 }
 
 export { viewport } from "@tests/support/viewport";
+
+function LivePaper({ children }: Readonly<{ children: ReactNode }>) {
+  return createElement(PaperSourceContext, { value: useLivePaperSource() }, children);
+}
+
+/**
+ * renderWithPaper renders an engine component inside the live paper source,
+ * filled from the stores exactly as TakeTestPage fills it.
+ */
+export function renderWithPaper(ui: ReactElement) {
+  return render(ui, { wrapper: LivePaper });
+}

@@ -11,24 +11,26 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSaveStatus, type SaveStatus } from "../saveStatus";
-import { useTakeTestStore, type LockReason } from "../store";
+import { usePaper, type PaperSource } from "../paper";
 import { NoticeBar } from "./NoticeBar";
 
-const LINE: Record<SaveStatus, { icon: LucideIcon; label: string }> = {
+const LINE: Record<PaperSource["saveStatus"], { icon: LucideIcon; label: string }> = {
   saved: { icon: CloudCheck, label: "takeTest.allSaved" },
   saving: { icon: Loader, label: "takeTest.saving" },
   offline: { icon: CloudOff, label: "takeTest.saveOffline" },
   failed: { icon: CloudAlert, label: "takeTest.saveFailed" },
 };
 
-const LOCKED: Record<LockReason, { icon: LucideIcon; label: string }> = {
+const LOCKED: Record<
+  NonNullable<PaperSource["lock"]>,
+  { icon: LucideIcon; label: string }
+> = {
   superseded: { icon: MonitorSmartphone, label: "takeTest.lockedSuperseded" },
   deadline: { icon: TimerOff, label: "takeTest.lockedDeadline" },
   closed: { icon: Lock, label: "takeTest.lockedClosed" },
 };
 
-function troubled(status: SaveStatus): boolean {
+function troubled(status: PaperSource["saveStatus"]): boolean {
   return status === "offline" || status === "failed";
 }
 
@@ -40,7 +42,7 @@ function troubled(status: SaveStatus): boolean {
  */
 export function SaveState() {
   const { t } = useTranslation();
-  const status = useSaveStatus();
+  const status = usePaper().saveStatus;
   const { icon: Icon, label } = LINE[status];
   const trouble = troubled(status);
   return (
@@ -67,7 +69,7 @@ export function SaveState() {
  */
 export function SaveAnnouncement() {
   const { t } = useTranslation();
-  const status = useSaveStatus();
+  const status = usePaper().saveStatus;
   return (
     <span role="status" className="sr-only">
       {troubled(status) ? t(LINE[status].label) : ""}
@@ -93,8 +95,7 @@ export function SaveStrip({
   indicator: ReactNode;
 }>) {
   const { t } = useTranslation();
-  const lock = useTakeTestStore((s) => s.lock);
-  const status = useSaveStatus();
+  const { lock, saveStatus: status } = usePaper();
 
   if (lock !== null) {
     return <NoticeBar icon={LOCKED[lock].icon}>{t(LOCKED[lock].label)}</NoticeBar>;
