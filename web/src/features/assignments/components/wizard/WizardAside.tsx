@@ -41,7 +41,7 @@ export function WizardAside({
   return (
     <aside
       aria-label={t("assignments.wizard.aside.label")}
-      className="sticky top-0 flex min-w-0 flex-[2_1_280px] flex-col gap-3 self-start"
+      className="sticky top-0 flex min-w-0 flex-[1_1_100%] flex-col gap-3 self-start @min-[794px]/wizard:min-w-60 @min-[794px]/wizard:flex-[0_1_300px]"
     >
       <div className="bg-card shadow-card border-border rounded-xl border p-4">
         <dl className="border-border m-0 mb-3.5 flex flex-col gap-2 border-b pb-3.5">

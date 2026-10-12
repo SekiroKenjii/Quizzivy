@@ -284,7 +284,7 @@ export function Monitor({
             void change("q", value);
           }}
           placeholder={t("papers.search")}
-          className="min-w-0 flex-[1_1_180px]"
+          className="max-w-(--field-max) min-w-0 flex-[1_1_180px]"
         />
         <Select
           value={filter}

@@ -180,7 +180,7 @@ describe("the teacher's route table", () => {
   it("still reads a route that declares a handle between its path and its page", () => {
     const withHandles = ROUTER.replace(
       /(path: "[^"]+"|index: true),/g,
-      '$1,\n          handle: { crumb: { key: "nav.tests" }, width: 1080 },',
+      '$1,\n          handle: { crumb: { key: "nav.tests" }, sidebar: "collapsed" },',
     );
     expect(withHandles).not.toBe(ROUTER);
     expect(routesOf(withHandles)).toEqual(TEACHER_TREE);

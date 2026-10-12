@@ -45,10 +45,7 @@ export default function NewImportPage() {
       </>
     );
   return (
-    <div
-      className="mx-auto flex w-full max-w-[860px] min-w-0 flex-col gap-4.5"
-      data-scale="deck"
-    >
+    <div className="flex w-full min-w-0 flex-col gap-4.5" data-scale="deck">
       {header}
       <Segmented
         size="lg"

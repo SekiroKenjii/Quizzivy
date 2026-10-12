@@ -288,6 +288,7 @@ function TitleField({
         id={id}
         value={value}
         maxLength={TITLE_MAX}
+        className="max-w-(--field-max)"
         disabled={locked || disabled}
         placeholder={pasting ? fallback : t("imports.upload.titlePlaceholder")}
         onChange={(event) => onChange(event.target.value)}

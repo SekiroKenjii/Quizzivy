@@ -212,10 +212,7 @@ export default function MediaPage() {
   };
 
   return (
-    <div
-      className="mx-auto flex w-full max-w-[1320px] min-w-0 flex-col gap-4"
-      data-scale="deck"
-    >
+    <div className="flex w-full min-w-0 flex-col gap-4" data-scale="deck">
       <PageHead
         title={t("media.title")}
         description={t("media.description")}
