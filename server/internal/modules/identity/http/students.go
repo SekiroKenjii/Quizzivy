@@ -213,7 +213,10 @@ func (h Identity) ResetStudentPassword(ctx context.Context, request openapi.Rese
 }
 
 // ResetStudentsPasswords resets up to 40 students, each as ResetStudentPassword
-// resets one. The answer is the only place the temporary passwords exist.
+// resets one. The answer is the only place the temporary passwords exist. A
+// student named twice is refused with 400 whatever the spelling of the id: the
+// schema's uniqueItems compares the text, so "A" and "a" pass it, and two
+// resets of one student would hand out two passwords of which one is dead.
 func (h Identity) ResetStudentsPasswords(ctx context.Context, request openapi.ResetStudentsPasswordsRequestObject) (openapi.ResetStudentsPasswordsResponseObject, error) {
 	if h.app == nil || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
@@ -221,6 +224,10 @@ func (h Identity) ResetStudentsPasswords(ctx context.Context, request openapi.Re
 	req, ok := studentRequest(ctx)
 	if !ok {
 		return nil, httpx.ErrNotImplemented
+	}
+	if namesAStudentTwice(request.Body.StudentIds) {
+		return openapi.ResetStudentsPasswords400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+			httpapi.FieldError(ctx, "studentIds", httpx.Text(ctx, "Mỗi học viên chỉ được nêu một lần.", "Each student can be named only once.")))}, nil
 	}
 
 	ids := make([]string, len(request.Body.StudentIds))
@@ -248,6 +255,17 @@ func (h Identity) ResetStudentsPasswords(ctx context.Context, request openapi.Re
 		out.Body.Failed[i] = openapi.StudentResetFailure{StudentId: httpapi.ParseUUID(failure.StudentID), Code: resetFailureCode(failure.Reason)}
 	}
 	return out, nil
+}
+
+func namesAStudentTwice(ids []openapi_types.UUID) bool {
+	seen := make(map[openapi_types.UUID]struct{}, len(ids))
+	for _, id := range ids {
+		if _, again := seen[id]; again {
+			return true
+		}
+		seen[id] = struct{}{}
+	}
+	return false
 }
 
 func resetFailureCode(reason error) openapi.ErrorCode {

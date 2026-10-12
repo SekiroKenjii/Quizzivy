@@ -35,7 +35,8 @@ type Repository interface {
 	// and then by name.
 	LegacyCodeClasses(ctx context.Context, now time.Time) ([]LegacyCodeClass, error)
 	// RotateLegacyCode revokes the class's active code and issues the sealed
-	// one in a single transaction, and reports whether it did. It writes
+	// one, which keeps the old one's expiry, use cap, use count and creator,
+	// in a single transaction, and reports whether it did. It writes
 	// nothing and reports false when, read again under the lock, the class
 	// has no active legacy code that outlives in.Now. A transaction the
 	// database aborted as a deadlock or serialization victim answers

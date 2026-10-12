@@ -120,7 +120,8 @@ R2 sealed the codes it issued (D-27); R4 replaced the rest, once, at the first
 start-up of v0.10.0 (T-R4.22, `jobs.RotateLegacyJoinCodes`, `docs/setup/operations.md`
 "Legacy join codes"). Each class is its own transaction under advisory lock
 `(73819, 41)`, so two machines rotate it once. The new code keeps the old one's
-expiry and use cap and starts unused; the class's self-join switch is not touched;
+expiry, use cap and use count (F-67), so a code at its cap is used up again; the class's
+self-join switch is not touched;
 the audit row says `legacy_rotation` and carries hints only. Each affected teacher is
 told once, in the app, by a `join_codes.rotated` notification that names how many
 classes and the first five (T-R4.41 shows the callout on Classes while it is

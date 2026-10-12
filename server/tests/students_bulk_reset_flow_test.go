@@ -261,6 +261,47 @@ func TestABulkResetRejectsWhatTheContractForbids(t *testing.T) {
 	}
 }
 
+func TestABulkResetRefusesTheSameStudentNamedTwiceHoweverItIsSpelled(t *testing.T) {
+	r := newResetRig(t)
+	student := r.student(r.a, r.rootA)
+	learner := r.w.signedIn(student.email, student.password)
+	before := r.account(student.id)
+
+	for label, c := range map[string]struct {
+		ids        []string
+		namesField bool
+	}{
+		"the same text twice":       {ids: []string{student.id, student.id}},
+		"the id, then in capitals":  {ids: []string{student.id, strings.ToUpper(student.id)}, namesField: true},
+		"capitals, then the id":     {ids: []string{strings.ToUpper(student.id), student.id}, namesField: true},
+		"two spellings and a third": {ids: []string{student.id, uuid.NewString(), strings.ToUpper(student.id)}, namesField: true},
+	} {
+		reaching, _ := r.staff("admin")
+		status, _, body := r.reset(reaching, c.ids...)
+		if status != http.StatusBadRequest || reaching.errorCode(body) != "VALIDATION_FAILED" {
+			t.Errorf("%s answered %d %v, want 400 VALIDATION_FAILED as a repeated id does", label, status, body)
+			continue
+		}
+		details, _ := body["error"].(map[string]any)["details"].(map[string]any)
+		if _, named := details["studentIds"]; c.namesField && !named {
+			t.Errorf("%s: details %v, want studentIds named", label, details)
+		}
+	}
+	if after := r.account(student.id); after != before {
+		t.Errorf("a refused request reset the student: %q became %q", before, after)
+	}
+	learner.must(http.StatusOK, http.MethodGet, "/auth/me", nil)
+
+	body := r.mustReset(r.a, student.id)
+	if got := idsOf(objects(body["items"]), "studentId"); !slices.Equal(got, []string{student.id}) || len(objects(body["failed"])) != 0 {
+		t.Errorf("the student named once was reset as %v with failures %v", got, body["failed"])
+	}
+	if got, _ := learner.call(http.MethodGet, "/auth/me", nil); got != http.StatusUnauthorized {
+		t.Errorf("the student's old token answered %d after the one reset, want 401", got)
+	}
+	r.nothingKeptThePasswords()
+}
+
 func TestTheBulkResetIsLimitedPerUserAndRefusedCallersSpendNothing(t *testing.T) {
 	r := newResetRig(t)
 	mine := r.student(r.a, r.rootA)

@@ -28,8 +28,8 @@ func TestStartUpRotatesALegacyJoinCodeAndTellsItsTeacher(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := w.pool.Exec(context.Background(), `
-		INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, max_uses, created_by)
-		VALUES ($1::uuid, $2, $3, now() + interval '30 days', 40, $4::uuid)`,
+		INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, max_uses, uses_count, created_by)
+		VALUES ($1::uuid, $2, $3, now() + interval '30 days', 40, 12, $4::uuid)`,
 		classID, classesdomain.JoinCodes.Hash(old), classesdomain.JoinCodes.Hint(old), teacher.me(t)); err != nil {
 		t.Fatalf("the v0.7.0 insert: %v", err)
 	}
@@ -87,8 +87,8 @@ func TestStartUpRotatesALegacyJoinCodeAndTellsItsTeacher(t *testing.T) {
 	}
 	fresh, _ := current["code"].(string)
 	if canonical := classesdomain.JoinCodes.Normalize(fresh); len(canonical) != classesdomain.Length || canonical == old ||
-		current["usesCount"] != float64(0) || current["maxUses"] != float64(40) {
-		t.Fatalf("after start-up the code reads %v, want a new sealed code with the old one's cap", current)
+		current["usesCount"] != float64(12) || current["maxUses"] != float64(40) {
+		t.Fatalf("after start-up the code reads %v, want a new sealed code with the old one's cap and use count", current)
 	}
 
 	anyone := w.browser()
