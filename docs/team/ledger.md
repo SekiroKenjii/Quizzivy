@@ -7,21 +7,24 @@ start at [README.md](README.md) "Resuming".
 
 ## Checkpoint
 
-- **As of:** 2026-10-12, 00:20 UTC.
-- **Base:** `work/redesign-r4` at `733cf1e2` (#510 merged).
+- **As of:** 2026-10-12, 04:25 UTC.
+- **Base:** `work/redesign-r4` at `a598a44d` (#513 merged).
 - **Objective:** unchanged: R4 to v0.10.0, then D4 (v0.11.0) (T-24). The Tech Lead merges into
   `work/redesign-r4` on green CI (T-37); a release to `main` needs the user.
 - **In flight** (at most three agents, T-36):
 
   | Task | PR | Owner | State |
   |---|---|---|---|
-  | T-R4.40 students | #504 | frontend, lane 2 | round 3: VER-40's QA-40-1 to 5; then a VER-40 retest |
-  | QA-42 and QA-505-1 follow-ups | #509 | frontend, lane 2 | green; VER-509 running |
-  | T-R4.51a, the development seed | #511 | platform | the Tech Lead's review; media rows have no objects (README's copy step) |
+  | T-R4.50, the Tech Lead's half, and this checkpoint | #517 | Tech Lead | merge on green |
+  | F-65, the seed's import holding the worker's slot | #518 | platform | drops #513's CI workaround (`IMPORT_WORKER_GLOBAL_LIMIT: "2"`), then green |
+  | UI minors (F-21, F-50, F-15, F-47, F-38, F-25, F-26, F-44) | not yet | frontend, lane 2, `/home/user/wt-minors` | building |
+  | T-R4.51, the deck comparison of every `/teacher/*` route | not yet | tester, `/home/user/wt-r451` | sweep running |
 
 - **Waiting on the user:** the seven days of production `legacy_admin_path` counts for
-  T-R4.49 A; the release to `main` at T-R4.52; whether Remove and Move on Students act only on
-  the filtered class (O-R below; built default: every class, named).
+  T-R4.49 A; the release to `main` at T-R4.52; O-R4.20 (Remove and Move on Students); whether
+  to delete the local-dev MinIO objects the E2E runs left (about 72 in `quizzivy-imports`, ids in
+  `/tmp/claude-0/imports-ids-139.txt`, and the five audio files in `quizzivy-media`); the
+  T-R4.51 items that need Firefox, WebKit, Word or Google Docs.
 
 ## Roster and models
 
@@ -69,9 +72,13 @@ Taken from merged pull requests on 2026-10-10. The plan's "Done when" boxes lag 
 - **Merged later on 2026-10-11 and on 2026-10-12:** DG-170's web half (#499), F-63 (#500),
   the ledger (#501), the notifications plan-test fixture (#502), 41 (#498), 42 (#503), the
   T-35 / VER-26 / VER-41 follow-ups (#505), F-24 (#506), the scratch-database drop (#508),
-  SR-420-2 to 4 (#507) and F-64 (#510).
+  SR-420-2 to 4 (#507) and F-64 (#510); then QA-42 and QA-505-1 (#509), QA-40-6 (#514),
+  40 (#504), the dev seed 51a (#511), 50's server half (#516), 48 (#515) and #139's live import
+  E2E (#513).
 - **In flight:** see the checkpoint.
-- **Order (2026-10-12):** 40 (#504) round 3 → retest → merge; #509 → merge; then 48 (lane 2);
+- **Order (2026-10-12, 04:25):** #517 → #518; lane 2's UI minors; 51's comparison → its
+  findings to their owners; 52's checklist to the user. 49 A waits on the user.
+- **Order (2026-10-12, superseded):** 40 (#504) round 3 → retest → merge; #509 → merge; then 48 (lane 2);
   51a seed (platform) → 51's comparison and #139; 50 (Tech Lead); 52. 49 A waits on the user.
 - **Order (2026-10-11, evening, superseded):** lane 1: 40. Lane 2: 41 → 42. Backend: F-63, then frontend
   help or 49 A. Then 48, and the close-out: 50, 51, 52.
@@ -379,7 +386,7 @@ and any reversal of the defaults above.
 | SR-472-1 to 4 | The Principal's security review of #472: a progressive JPEG of near-empty scans holds a decode slot for minutes (major); the PNG estimate misses Adam7 and `tRNS`; a decoder panic leaves no trace; a 2 MiB file cannot be uploaded. | senior_swe_backend | fix round on #472 |
 | INC-2 | The handover lost unpushed work: #485's round 2, the R4 merge into the bell branch, and T-R4.49 C. | Tech Lead | closed: restarted from the pushed heads (T-34) |
 | F-56 | SR-49B-1 and 2 (the rehearsal printed timings; no test pinned a staff sitter's review) | senior_swe_backend | fixed on #486 (`fb490ab5`, `66e3db04`) |
-| F-54 | `AssignmentFormPage`, which carried spec §10.5 in full, is no longer routed (T-R4.46). | T-R4.48 | open: delete with the old tree |
+| F-54 | `AssignmentFormPage`, which carried spec §10.5 in full, is no longer routed (T-R4.46). | T-R4.48 | fixed: deleted in #515 |
 | F-53 | The temporary password `word-word-NN` is about 18.45 bits. Options: (A) as is, (B) a third word, about 24.4 bits, before T-R4.40 (recommended), (C) a 24-hour expiry (R5 size). | the user | closed: option B, shipped in #481 |
 | F-57 | Settings loses unsaved Profile edits on reload or leaving, without a warning (VER-43). Disclosed in #485. | the user | closed: yes, a warning; shipped in #485 |
 | F-58 | "Mark all read" marks student-side items the teacher bell does not show; for an Admin who takes tests the dot and the list can disagree. | frontend, lane 2 | fixed by DG-170 (#495, #499) |
@@ -394,11 +401,13 @@ and any reversal of the defaults above.
 | INC-3 | After a container restart dockerd would not start: a stale `/var/run/docker.pid`. Removing it, starting dockerd and `docker compose up -d db minio` recovered with the volumes intact. | Tech Lead | closed: add the check to the session-start hook with F-13 |
 | F-64 | `rotateJoinCode` issued a code for an archived class (found in #509). | senior_swe_backend | fixed (#510): 409 `CLASS_ARCHIVED`, read under the class lock; redemption already refused |
 | QA-41-1 to 4 | VER-41: focus after a card's dialog, the card's text height, the QR dialog width, the vi footer at 360. | frontend, lane 2 | fixed (#505) |
-| QA-505-1 | #505's footer fix truncated the vi Expired and Used up notes alike. | frontend, lane 2 | on #509 |
-| QA-42-1 to 5 | VER-42: a partial Add students, focus after Remove, the 404 heading, copy after Stop, copy and format; and two T-35 leftovers (BulkActions, FormDialog's select). | frontend, lane 2 | on #509 |
-| QA-40-1 to 5 | VER-40: focus after Done (bulk reset, Add student), the Classes chips overflow, ResetSheet at 360 (major); the vi pill and header width (minor). The passwords, SR-40-1, permissions, T-35 and the deck geometry passed. | frontend, lane 2 | round 3 on #504 |
+| QA-505-1 | #505's footer fix truncated the vi Expired and Used up notes alike. | frontend, lane 2 | fixed (#509) |
+| QA-42-1 to 5 | VER-42: a partial Add students, focus after Remove, the 404 heading, copy after Stop, copy and format; and two T-35 leftovers (BulkActions, FormDialog's select). | frontend, lane 2 | fixed (#509) |
+| QA-40-1 to 5 | VER-40: focus after Done (bulk reset, Add student), the Classes chips overflow, ResetSheet at 360 (major); the vi pill and header width (minor). The passwords, SR-40-1, permissions, T-35 and the deck geometry passed. | frontend, lane 2 | fixed (#504, #514) |
 | INC-4 | The SR-420 agent started in lane 1's worktree, the Tech Lead's working directory at launch, and checked out its branch there; the Tech Lead's base merge for #504 landed on it (`7d637134`, kept: a plain base merge under a wrong message). Nothing wrong reached #504. | Tech Lead | closed: T-40 |
-| O-R (Students) | Should Remove and Move act only on the class the Class facet filters to, when exactly one is chosen? Built: every class, named in the confirmation. | the user | open: T-R4.50 moves it to `40-open-items.md` |
+| O-R (Students) | Should Remove and Move act only on the class the Class facet filters to, when exactly one is chosen? Built: every class, named in the confirmation. | the user | open: O-R4.20 in `40-open-items.md` (#517) |
+| F-65 | `seed/08` held one import run `running` on a ten-year lease, which took the worker's only slot: a local worker at the default limit queued every new import, and #513's live job needed a limit of 2. | platform | on #518: the run is `queued` ten years out |
+| T48-1 | #515's rewritten wizard zone case clicked a stepper nine times and timed out at CI's 5 s (6.5 s). | Tech Lead | fixed on #515: two steps, 2.6 s |
 
 ## Reviews
 
@@ -477,7 +486,9 @@ and any reversal of the defaults above.
 ## Next action
 
 As each hand-off arrives:
-- **#504** round 3 → a VER-40 retest of QA-40-1 to 5 → merge. Then lane 2 starts T-R4.48.
-- **#509** after VER-509 → merge.
-- **#511** (T-R4.51a) → the Tech Lead's review → merge; then 51's browser comparison and #139.
-- The Tech Lead writes T-R4.50 once 48 is in; T-R4.52's checklist goes to the user.
+- **#517** green → merge. **#518**: the platform engineer merges the base, removes the CI
+  workaround and its `ci.md` sentence → green → merge.
+- **Lane 2's UI-minors PR** → review → merge.
+- **T-R4.51** → the tester's matrix PR; each deviation to its owner; the DG-16 timing decides the
+  paste footer's copy.
+- Then T-R4.52's checklist to the user, with 49 A's counts.
