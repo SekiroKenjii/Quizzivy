@@ -387,6 +387,11 @@ describe("starting a Word import", () => {
       await within(files).findByText("DOCX hoặc PDF · tối đa 25 MB mỗi tệp"),
     ).toBeInTheDocument();
     expect(within(files).getAllByText("Bắt buộc")).toHaveLength(1);
+    for (const drop of within(files).getAllByText("Kéo tệp vào đây hoặc chọn tệp"))
+      expect(drop).toHaveClass("text-ui", "leading-normal");
+    expect(screen.getByText(/^Hệ thống tự nhận diện phần, nhóm câu/)).toHaveClass(
+      "text-pretty",
+    );
     expect(within(files).getAllByText("Kéo tệp vào đây hoặc chọn tệp")).toHaveLength(2);
     expect(
       screen.getByText(/^Hệ thống tự nhận diện phần, nhóm câu/),

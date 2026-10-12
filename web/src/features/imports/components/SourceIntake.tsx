@@ -293,7 +293,7 @@ function TitleField({
       />
       <p className="text-muted-fg text-meta leading-normal">{hint}</p>
       {deck ? (
-        <p className="text-muted-fg text-meta mt-1.5 border-t pt-2.5 leading-[1.55]">
+        <p className="text-muted-fg text-meta mt-1.5 border-t pt-2.5 leading-[1.55] text-pretty">
           {t("imports.upload.recognitionNote")}
         </p>
       ) : null}
@@ -468,7 +468,7 @@ function IntakeFooter({
     >
       {deck ? (
         <>
-          <span className="text-muted-fg text-meta min-w-0 flex-[1_1_220px]">
+          <span className="text-muted-fg text-meta min-w-0 flex-[1_1_220px] leading-normal">
             {hint}
           </span>
           <Button

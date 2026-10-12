@@ -170,7 +170,7 @@ export default function ImportsListPage() {
                   </span>
                 </div>
               </div>
-              <div role="rowgroup" className="divide-border divide-y">
+              <div role="rowgroup">
                 {data.items.map((item) => (
                   <HistoryRow
                     key={item.id}
@@ -285,7 +285,7 @@ function HistoryRow({
     <div
       role="row"
       className={cn(
-        "grid grid-cols-[32px_auto_minmax(0,1fr)_auto_32px] items-center gap-2.5 px-4 py-3.5 text-[13.5px]",
+        "grid grid-cols-[32px_auto_minmax(0,1fr)_auto_32px] items-center gap-2.5 border-t px-4 py-3.5 text-[13.5px] first:border-t-0 @[960px]/import-history:first:border-t",
         "@[960px]/import-history:min-h-[62px] @[960px]/import-history:gap-3 @[960px]/import-history:py-0",
         GRID,
       )}
@@ -391,7 +391,7 @@ function HistoryRow({
           asChild
           size="sm"
           variant="outline"
-          className="h-auto min-h-8 max-w-full rounded-md py-1 whitespace-normal in-data-[scale=deck]:h-auto in-data-[scale=deck]:rounded-md"
+          className="h-auto min-h-8 max-w-full rounded-md py-1 leading-[normal] whitespace-normal in-data-[scale=deck]:h-auto in-data-[scale=deck]:rounded-md"
         >
           <Link
             to={importActionHref(item)}
