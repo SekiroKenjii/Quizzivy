@@ -2203,7 +2203,10 @@ components:
 
     AudioPolicy:
       type: object
-      description: Present if and only if the attached asset is audio (§7).
+      description: |
+        Present if and only if the attached asset is audio (§7). This is the
+        authoring shape, read and written by teachers; a student receives
+        `StudentAudioPolicy`.
       required: [maxPlays, allowSeek, showTranscriptAfterSubmit]
       additionalProperties: false
       properties:
@@ -2216,6 +2219,35 @@ components:
             penalised (§11.4).
         allowSeek: { type: boolean, description: Defaults to false for listening (§11.1). }
         showTranscriptAfterSubmit: { type: boolean }
+        allowPause:
+          type: boolean
+          description: |
+            Whether a student may pause the recording once it is playing (§11.1);
+            `true` when none was ever set. The server always sends it. In a request
+            an absent field means "do not change it": a create stores `true`, and an
+            update keeps the value already stored for the same question (by its id),
+            for the same member question of a group (by its id in the bundle) and for
+            the same recording (by its id). An audio policy or a recording that is new
+            in the request is a create. A client that does not know the field therefore
+            can never switch pausing back on by saving.
+
+    StudentAudioPolicy:
+      type: object
+      description: |
+        The audio rules a student's engine reads, for a question's audio and for a
+        group's recording. The shape of `AudioPolicy` with every field required,
+        because the engine never guesses a rule the server did not send. These are
+        rules the student is meant to read; nothing here is an answer key.
+      required: [maxPlays, allowSeek, showTranscriptAfterSubmit, allowPause]
+      additionalProperties: false
+      properties:
+        maxPlays:
+          type: [integer, 'null']
+          minimum: 1
+          description: '`null` is unlimited. Advisory, as on `AudioPolicy` (§11.4).'
+        allowSeek: { type: boolean }
+        showTranscriptAfterSubmit: { type: boolean }
+        allowPause: { type: boolean, description: Whether the student may pause the recording once it is playing (§11.1). }
 
     QuestionContent:
       type: object
@@ -2639,8 +2671,8 @@ components:
       type: object
       description: |
         One part of the paper, in test order. `instructions` is the teacher's
-        text to the student for this part; the engine shows it above the
-        section's first question and the navigator groups the numbers under
+        text to the student for this part; the engine shows it above each of the
+        section's questions and the navigator groups the numbers under
         `title` (S-05, S-06, S-08).
       required: [id, title, instructions]
       additionalProperties: false
@@ -2682,7 +2714,7 @@ components:
           description: |
             The alt text frozen with the version for the question's image, for a screen reader. Absent when the question has none or its media is not an image. It is a description, not an answer key.
         audio:
-          oneOf: [{ $ref: '#/components/schemas/AudioPolicy' }, { type: 'null' }]
+          oneOf: [{ $ref: '#/components/schemas/StudentAudioPolicy' }, { type: 'null' }]
         options: { type: array, items: { $ref: '#/components/schemas/StudentOption' } }
         blanks: { type: array, items: { $ref: '#/components/schemas/StudentBlank' } }
         points: { $ref: '#/components/schemas/Points' }
@@ -2716,7 +2748,7 @@ components:
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         assetId: { $ref: '#/components/schemas/Uuid' }
-        policy: { $ref: '#/components/schemas/AudioPolicy' }
+        policy: { $ref: '#/components/schemas/StudentAudioPolicy' }
 
     SharedReviewContext:
       type: object
