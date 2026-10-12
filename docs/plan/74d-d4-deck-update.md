@@ -930,7 +930,7 @@ fifth entries. No file under `web/` or `server/` changed.
 **Size:** S
 **Done when (v2; the one-line head notes are on the branch `docs/d4-deck-v2-plan` already, so this
 task completes each into the task's own bullets):**
-- [ ] `75-r5.md`: **T-R5.12** `range` becomes `today | 7d | 30d | all | custom` with `from` and
+- [x] `75-r5.md`: **T-R5.12** `range` becomes `today | 7d | 30d | all | custom` with `from` and
       `to` dates (inclusive, in the viewer's zone) for `custom`, and `q` matches the actor's
       name, the action's sentence and the entity's label; **T-R5.26** draws the v2 filter row
       (the live search with a clear button and `aria-label="Search audit log"`, the Date range
@@ -941,35 +941,35 @@ task completes each into the task's own bullets):**
       credits" meter row and the attention item; **T-R5.28a** notes the sticky nav; **T-R5.28b**
       adds the row to Plan & usage; a new **T-R5.35 — AI credits** (M) draws the page of
       inventory row A-05 on D4's `/admin/ai/*` operations, with DG-196's one rule.
-- [ ] `76-r6.md`: **T-R6.10** gains "the AI's Generate offers "True / False / Not given" and its
+- [x] `76-r6.md`: **T-R6.10** gains "the AI's Generate offers "True / False / Not given" and its
       Check applies "Change to Not given" and "Add word limit" once the types exist (DG-202)";
       **T-R6.11** gains "Suggest a score takes the band form: the four criteria as reasons and the
       band as the score (DG-202)".
-- [ ] `77-r7.md`: **T-R7.23** gains the kinds `ai.allowance_warning`, `ai.credit_request` and
+- [x] `77-r7.md`: **T-R7.23** gains the kinds `ai.allowance_warning`, `ai.credit_request` and
       `ai.credit_request.decided` in the Email column.
-- [ ] `78-r8.md`: **T-R8.12** describes v2's two screens (inventory rows V-17 and V-18): the
+- [x] `78-r8.md`: **T-R8.12** describes v2's two screens (inventory rows V-17 and V-18): the
       Attendance page as the cross-class list of sessions in three cards, and the register as
       the Attendance tab of Class detail with the session picker, search, the progress row and
       its filters, selection and bulk marks, notes, the sticky save bar and the "not marked"
       confirm; **T-R8.6** gains a note on DG-198 (no student operation; `unmarked` stays).
-- [ ] `80-r10.md`: **T-R10.12** draws the word list's progress card with its legend filters in
+- [x] `80-r10.md`: **T-R10.12** draws the word list's progress card with its legend filters in
       place of the four tiles, and adds "Generate from text" opening the AI panel's `vocab` kind
       (a `POST /teacher/ai/words/generate` operation under `ai.use`, metered as section G
       describes); **T-R10.13** notes the sticky asides.
 **Done when (fourth export, unchanged):**
-- [ ] `76-r6.md`, the head. Old: "The student engine asks students to "Choose two" and counts
+- [x] `76-r6.md`, the head. Old: "The student engine asks students to "Choose two" and counts
       words against a limit." New: "Since the fourth export (2026-10-04) the Student page draws
       True / False / Not given, matching, a multiple choice capped at two picks and a word
       limit on the take-test screen (DG-60, DG-194)." Old: "cloze groups (question groups,
       unchanged)". New: "cloze groups (question groups; the engine shows a run of gap-bound
       members as one stop, T-D4.10)".
-- [ ] **T-R6.10**, TFNG bullet. Old: "under the header "True, false or not given"". New: "with
+- [x] **T-R6.10**, TFNG bullet. Old: "under the header "True, false or not given"". New: "with
       the type label "True / False / Not given"".
-- [ ] **T-R6.10**, "Choose N". Old: "the header reads "Choose two", with the number in words in
+- [x] **T-R6.10**, "Choose N". Old: "the header reads "Choose two", with the number in words in
       both locales". New: "the type label stays "Multiple choice"; the hint line reads "Choose
       two answers.", with the number in words in both locales; one pick of two is "Partly" in
       the rail and the sheet (`progress`, T-D4.4)".
-- [ ] **T-R6.10**, Matching. Old: "the options are listed once with their roman numerals, then
+- [x] **T-R6.10**, Matching. Old: "the options are listed once with their roman numerals, then
       one row per lettered item with an option select". New: "one card per item (1.5px border,
       primary once matched, radius 11) with its key, its text and a radiogroup of chips, one
       per option key (38 by 38px from 1024, 44px below it, radius 9); a chip used by another
@@ -978,25 +978,45 @@ task completes each into the task's own bullets):**
       shared content and the engine is at least 1000 wide, a 220px card lists the options
       once, each with the item that uses it; keys are shown as authored (DG-194); a matching
       is one question, one number and one square, "Partly" until every item is matched".
-- [ ] **T-R6.10**, last bullet. Old: "TFNG, "Choose two" and the word counter are compared with
+- [x] **T-R6.10**, last bullet. Old: "TFNG, "Choose two" and the word counter are compared with
       the deck's fixture paper. Matching and essay frames are listed for DG-80 and DG-60."
       New: "TFNG, the two-pick multiple choice, the word counter and matching are compared
       with the deck's papers s1, s2 and s9. The essay frame is listed for DG-80 and DG-60."
-- [ ] **T-R6.10** gains: "`progress()` (T-D4.4) follows T-R6.6's rules for the new types; the
+- [x] **T-R6.10** gains: "`progress()` (T-D4.4) follows T-R6.6's rules for the new types; the
       Submit dialog's sentence becomes the deck's "Unanswered gaps, matches and questions score
       zero." once matching exists."
-- [ ] **T-R6.9b**. Old: "The draft preview renders the new types through the engine's
+- [x] **T-R6.9b**. Old: "The draft preview renders the new types through the engine's
       components." New: "The preview-mode engine (T-D4.16) renders the new types."
-- [ ] **T-R6.5** gains: "the projection carries each matching item's and option's key as
+- [x] **T-R6.5** gains: "the projection carries each matching item's and option's key as
       authored."
-- [ ] `76-r6.md`, Open items: "True / false answers already marked 0" is removed (fixed:
+- [x] `76-r6.md`, Open items: "True / false answers already marked 0" is removed (fixed:
       `attempts/domain/grading.go:100-110` reads `optionIds`). Added: "Matching on the Student
       page (DG-194): three key styles and the nouns "pick the {pick} for each {what}" have no
       model; default, keys as authored and no nouns." and "A per-question hint line and an
       image caption (DG-189) have no field; default, not built."
-- [ ] `77-r7.md`, **T-R7.18**: Touches gains `SharedContentDialog.tsx`, and its read-only
+- [x] `77-r7.md`, **T-R7.18**: Touches gains `SharedContentDialog.tsx`, and its read-only
       bullet names the dialog for a Can-use recipient. **O-R7.7** notes that "From Media" in
       that dialog is a third place that opens the media picker.
+
+**As built:** the head notes on `75-r5.md`, `77-r7.md`, `78-r8.md` and `80-r10.md` (the
+`docs/d4-deck-v2-plan` branch) are folded into the tasks' own bullets and removed; `78-r8.md`'s
+T-R8.12 is rewritten to v2's two screens. Where a bullet needed a fact the deck does not give,
+this task wrote the default and the lead should read it:
+
+- **Server reads the v2 screens need.** T-R5.12's `q` matches the action's sentence on the
+  server, so `domain/actions.go` holds each action's `vi` and `en` sentence and `catalog_test.go`
+  keeps them equal to the locale files. T-R5.18's usage read gains `aiCredits` and its attention
+  list `ai_credit_requests`, through a port typed as T-D4.31's credits query. T-R8.6's sessions
+  list gains `since`, `marked`, `room`, `studentCount`, `counts` and `notMarked`, and T-R8.2's
+  marks table a nullable `note`. T-R10.4's stats gain `bands` and its words list `band`, for the
+  word list's progress card.
+- **Rules.** A note needs a status (422 otherwise) and is never copied into the audit row; the
+  Attendance page's "Today" card lists started sessions only (O-R8.6); the AI kinds' emails have
+  no recipient switch (T-R7.23); T-R10.12 adds the `generateWords` operation to the `ai`
+  module, which section G prices but T-D4.32 does not list.
+- **Stale text outside the list.** `76-r6.md` said true / false answers score 0; the grader has
+  read `optionIds` since `grading.go:100-110`, so the design note and the release note say the
+  fix is made.
 
 Also waiting for a later release, with no task here: the sign card, the word tiles, the image
 caption and the per-question hint (DG-189, with DG-109's inline media in R6 if at all); a
