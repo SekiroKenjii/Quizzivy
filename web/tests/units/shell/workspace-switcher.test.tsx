@@ -66,6 +66,7 @@ describe("the workspace block", () => {
       "src",
       "/brand/quizzivy-mark-color.svg",
     );
+    expect(console.warn).not.toHaveBeenCalledWith(expect.stringContaining("(B-05)"));
   });
 
   it("leaves the tile alone when collapsed, and lets it name the product", () => {

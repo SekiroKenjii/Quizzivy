@@ -74,6 +74,15 @@ describe("the Profile card", () => {
     expect(screen.queryByText("Bạn có thay đổi chưa lưu.")).toBeNull();
   });
 
+  it("lays its fields in at most three columns of at least 260px, each at most 480px (DG-205)", () => {
+    renderProfile();
+    const cell = field("Họ và tên").parentElement!;
+    expect(cell).toHaveClass("max-w-(--field-max)");
+    expect(cell.parentElement!.className).toContain(
+      "grid-cols-[repeat(auto-fit,minmax(max(min(260px,100%),calc((100%_-_2.5rem)/3)),1fr))]",
+    );
+  });
+
   it("raises the DirtyBar on an edit, and Discard restores what was saved", async () => {
     renderProfile();
     const user = userEvent.setup();

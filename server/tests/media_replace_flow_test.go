@@ -31,12 +31,15 @@ func TestMediaReplacementWholeApplicationRetainsOwnerAndOldObject(t *testing.T) 
 	adminEmail, adminPassword := w.createStaff("admin")
 	admin := w.signedIn(adminEmail, adminPassword)
 	result := replacementSend(t, admin, http.StatusCreated, "/teacher/media/"+id(old)+"/replace", new(filePayload(t, "mới.png", drawing)))
-	if len(result) != 3 {
+	if len(result) != 4 {
 		t.Fatal("replacement envelope has unexpected fields")
 	}
 	asset := result["asset"].(map[string]any)
 	repointed := result["repointed"].(map[string]any)
 	left := result["left"].(map[string]any)
+	if previous := result["previous"].(map[string]any); id(previous) != id(old) || len(previous) != 5 || previous["deleteAt"] == nil || len(previous["usedIn"].([]any)) != 0 {
+		t.Fatalf("the old file is answered as %v, want its id, size, URL, no test and a removal time", previous)
+	}
 	if id(asset) == id(old) || asset["displayName"] != "Tên được giữ" || asset["originalFilename"] != "mới.png" || repointed["questions"] != float64(1) || repointed["groups"] != float64(0) || left["questions"] != float64(0) || left["groups"] != float64(0) || len(repointed) != 2 || len(left) != 2 {
 		t.Fatal("replacement identity, metadata or counts differ")
 	}

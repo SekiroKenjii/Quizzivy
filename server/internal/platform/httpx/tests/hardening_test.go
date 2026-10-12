@@ -35,7 +35,7 @@ func TestRequestLimitPreservesOrdinaryBodiesAndStreamingUploads(t *testing.T) {
 				w.WriteHeader(http.StatusNoContent)
 			})
 			recorder := httptest.NewRecorder()
-			httpx.LimitRequestBody(map[string]struct{}{"POST /teacher/media": {}}, 100, nil)(next).ServeHTTP(recorder, request)
+			httpx.LimitRequestBody(quiet, map[string]struct{}{"POST /teacher/media": {}}, 100, nil)(next).ServeHTTP(recorder, request)
 			if recorder.Code != http.StatusNoContent {
 				t.Fatalf("status=%d", recorder.Code)
 			}

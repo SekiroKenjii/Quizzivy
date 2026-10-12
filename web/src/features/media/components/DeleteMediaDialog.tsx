@@ -3,7 +3,12 @@ import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { deleteMedia, type LibraryAsset } from "@/features/media/api";
+import {
+  deleteMedia,
+  type LibraryAsset,
+  type MediaRetirement,
+} from "@/features/media/api";
+import { RetentionNote } from "@/features/media/components/RetentionNote";
 import {
   failureMessage,
   referencingTests,
@@ -13,9 +18,12 @@ import {
 /**
  * DeleteMediaDialog asks before a library file is deleted, or, when a
  * published version uses it, says it cannot be and names those versions
- * (DG-09). A refusal from the server that names versions turns the dialog
- * into that notice. `onDeleted` runs once the file is gone, before the dialog
- * closes, so it can point `returnFocus` at what survives the file.
+ * (DG-09). Before it asks, it says that the file is deleted for good seven
+ * days later and cannot be restored, with its download (DG-206). A refusal
+ * from the server that names versions turns the dialog into the notice.
+ * `onDeleted` runs once the file is gone, before the dialog closes, with what
+ * the server says became of it, so it can point `returnFocus` at what
+ * survives the file.
  */
 export function DeleteMediaDialog({
   returnFocus,
@@ -26,13 +34,13 @@ export function DeleteMediaDialog({
   asset: LibraryAsset | null;
   returnFocus: RefObject<HTMLElement | null>;
   onOpenChange: (open: boolean) => void;
-  onDeleted: () => void;
+  onDeleted: (retired: MediaRetirement | undefined) => void;
 }>) {
   const { t } = useTranslation();
   const remove = useMutation({
     mutationFn: (id: string) => deleteMedia(id),
-    onSuccess: () => {
-      onDeleted();
+    onSuccess: (retired: MediaRetirement | undefined) => {
+      onDeleted(retired);
       onOpenChange(false);
     },
   });
@@ -79,7 +87,11 @@ export function DeleteMediaDialog({
       onConfirm={() => {
         if (asset !== null) remove.mutate(asset.id);
       }}
-    />
+    >
+      {asset === null ? null : (
+        <RetentionNote asset={asset}>{t("media.deleteGone")}</RetentionNote>
+      )}
+    </ConfirmDialog>
   );
 }
 

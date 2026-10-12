@@ -53,7 +53,7 @@ export function TeacherSkeleton() {
           <Skeleton className="size-8" />
           <Skeleton className="size-8 rounded-full" />
         </div>
-        <div className="mx-auto flex w-full max-w-330 flex-1 flex-col gap-4.5 p-7">
+        <div className="mx-auto flex w-full max-w-[calc(var(--page-max)+2*var(--page-gutter))] flex-1 flex-col gap-4.5 px-(--page-gutter) pt-(--page-pad-top) pb-7">
           <Skeleton className="h-6.5 w-50 rounded-sm" />
           <Skeleton className="h-3 w-70 max-w-full rounded-sm" />
           <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">

@@ -92,7 +92,7 @@ export default function AttemptReviewPage() {
     onSuccess: async (_, flagged) => {
       toast(t(flagToastKey(flagged)));
       await invalidate();
-      await queryClient.invalidateQueries({ queryKey: ["admin-attempts"] });
+      await queryClient.invalidateQueries({ queryKey: ["teacher-attempts"] });
     },
     onError: (cause) => setFailure(failureMessage(cause, t("review.flagFailed"))),
   });
@@ -656,7 +656,7 @@ async function invalidateReview(
   if (assignmentId !== undefined) {
     await queryClient.invalidateQueries({ queryKey: monitorKey(assignmentId) });
   }
-  await queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
+  await queryClient.invalidateQueries({ queryKey: ["teacher-dashboard"] });
 }
 
 function flagToastKey(flagged: boolean): string {

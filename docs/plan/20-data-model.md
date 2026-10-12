@@ -1368,6 +1368,7 @@ listed here matches the spec.
 | D-39 | `classes` gains a nullable `schedule_label`, 1 to 120 characters, and a nullable `room`, 1 to 60 | The deck's class card and the student's class say when and where a class meets, and the model had no field for either (T-R4.18). Free text the teacher words, not a structured timetable, so one column each. Nullable with no default, so the previous release's insert keeps working; the commands trim and store NULL for a blank value, so the checks never meet an empty string (§41) |
 | D-40 | `word_import_drafts` gains nullable `open_action_count` and `open_confirm_count`, `integer` and not negative | The history lists each import with "{n} need action" and "{n} to confirm" (T-R4.21), which are derived from the review body, and a body can be 8 MiB, so the page cannot parse one per row. The counts are written with the body in the same statement (processing result, review save, adoption), from `domain.Assess(body).Summary`. `integer` and not `smallint`, because a valid draft can exceed 32,767 derived findings and a count must not become a new authoring limit. Nullable with no default and no backfill: NULL means a draft this binary has not assessed, which is not zero, and the previous release's insert keeps working (§26) |
 | D-41 | `word_import_sources.format` admits `text`, and `characters integer` (1 to 100000) is non-null exactly for a text source | A pasted test is a fourth source format, stored as a private `.txt` like any original (T-R4.55, `17-word-import.md` §1.41). The character count is the NFC code-point count the intake measured, so the history can say "{n} characters" without reading the object; bytes and hash cannot rebuild it. Nullable with no default, so a file insert from the previous release stays valid. `00090`'s Down restores the file-only CHECK `NOT VALID`, so retained text rows do not block it. `00091`'s Down drops the column, and its Up then refuses, atomically, while any text row is retained, because `word_import_sources_characters_format` is validated at once and no count can be rebuilt: nothing invents one (§23) |
+| D-43 | `media_assets` gains nullable `unreferenced_at` and `purged_at`, and the six tables that name a file get a trigger that refuses a purged one and clears the wait of a retired one | A replaced or deleted file keeps its object until seven days after nothing names it, then the sweep removes the object and marks the row; the row stays for the audit trail and the `replaced_by` chain, and the trigger is what makes "nothing can name a removed file" the database's rule and not a convention every writer must keep (F-68, §45) |
 
 ---
 
@@ -1480,8 +1481,16 @@ the file it adds.
 | `00104_add_classes_schedule_room.sql` | `classes.schedule_label` and `classes.room`, each with its check (1 to 120 and 1 to 60 characters), added with the column; 00103 is reserved for F-37, which merges first, and the second of the two renumbers if the order inverts | R4 (T-R4.18), D-39 |
 | `00105_drop_users_legacy_role.sql` | Validates `users_role_id_not_null`; drops `users_sync_legacy_role`, `users_role_active_idx`, `users.role` and `app.user_role`; `lock_timeout` 5 s | R4 (T-R4.49, T-R3.1), D-25, §42 |
 | `00106_validate_ownership.sql` | Validates the five owner constraints; drops the five fill triggers and their three functions; `lock_timeout` 5 s | R4 (T-R4.49, T-R3.2), D-22, D-23, §43 |
+| `00111_add_media_assets_retention.sql` | `media_assets.unreferenced_at`, `media_assets.purged_at` and `media_assets_purged_check` (a purged file was unreferenced first), nullable with no default | R4 (F-68), D-43, §45 |
+| `00112_index_media_assets_retired.sql` | `media_assets_retired_idx (owner_id) WHERE purged_at IS NULL AND (deleted_at IS NOT NULL OR replaced_by IS NOT NULL)`, `CONCURRENTLY` | R4 (F-68), D-43, §45 |
+| `00113_guard_purged_media_bindings.sql` | `app.media_asset_binding_guard()` and its `BEFORE INSERT OR UPDATE OF media_asset_id` trigger on `questions`, `group_recordings`, `group_stimulus_assets`, `test_version_questions`, `test_version_group_recordings` and `test_version_group_assets` | R4 (F-68), D-43, §45 |
 
 Notes on migration mechanics (§13.7):
+
+- **D4's `00107`–`00110` are renumbered after `00113` at D4's develop sync.** Production holds
+  `00111`–`00113` (F-68) before D4 ships, and goose refuses a migration numbered below the
+  database's version, so the four files `work/deck-d4` already holds take the next four numbers
+  when that branch merges `develop`.
 
 - Every file has a `-- +goose Down` that is actually correct. CI runs `up` then
   `down` then `up` against a clean `postgres:18` (T-0.17), so an unreversible
@@ -2972,3 +2981,110 @@ the objects and a bare insert is filled again; validating blocks neither a read 
 insert that omits an owner is refused; and the not-validated constraints in `app` equal an explicit
 list, which is empty once 00105 and 00106 have both run. A later expand step adds its constraint
 to that list and its contract step removes it, so a forgotten `NOT VALID` fails CI.
+
+## 45. A file that left the library (F-68)
+
+The owner's decision of 2026-10-12. A media file leaves the library when it is replaced
+(`replaced_by`) or deleted (`deleted_at`). Until F-68 its object stayed in storage for ever and
+the file stopped counting toward its owner's quota at once, even while a published version
+still served it. Now the file counts while anything names it, and its object is removed seven
+days after nothing does.
+
+**Three states.** A file is in the library (`deleted_at` and `replaced_by` NULL), or it is
+retired (one of them set, `purged_at` NULL), or it is purged (`purged_at` set: its object is
+gone and the row stays). A retired file is held while a row names it and pending while none
+does. `media/repositories/retention.go` holds the two predicates, `retiredFile` and
+`namedFile`, and every query below is built on them.
+
+**What names a file.** A row of any of the six tables whose foreign key to `media_assets` is
+`ON DELETE RESTRICT`: a question that is not deleted (`questions.media_asset_id`), a group's
+recording or material (`group_recordings`, `group_stimulus_assets`, archived groups and the
+drafts of deleted tests included, as `GroupReferences` counts them for the delete check), and a
+frozen version's question, recording or material (`test_version_questions`,
+`test_version_group_recordings`, `test_version_group_assets`). Attempts, results and grading
+read an asset only through those three version tables, so a version that holds a file holds it
+for them. A deleted question names nothing: a deleted bank question would otherwise pin a file
+for ever. An import review draft names a file in JSON, not in a row, so it does not hold one;
+a draft that still names a file the sweep removed fails at its commit as one that is gone.
+
+**Columns (00111).** `unreferenced_at` is when the file was last seen named by nothing.
+`replaceMedia` and `deleteMedia` write it in their transaction after the write that retires the
+file, when nothing names it (`markRetired`), and leave it NULL when something does. The sweep
+writes it for a file whose last name went afterwards, which no write announces, so the wait
+starts within one sweep period of the truth (an hour). A binding of the file clears it (00113),
+and the sweep clears it for a file it finds named. `purged_at` is when the sweep removed the
+object. `media_assets_purged_check` says a purged file was unreferenced first. 00112 is the
+partial index of the retired files, which the usage figures and the sweep read. A file that
+left the library before F-68 has no date: the first sweep dates it, and its object goes seven
+days after that sweep.
+
+**The quota (`repositories.CheckQuota`).** One statement sums the owner's files that are in the
+library or retired and named, under the same advisory lock `(73820, owner)` (§28). An upload
+checks before it inserts with `Add` the new bytes. A replacement takes the lock, inserts the
+new file, repoints the editable references and marks the old one, and checks last with `Add`
+zero, so the sum is the state after the replacement: the old file counts exactly when a row
+still names it after the repoint, and the check needs no "leave this file out" argument
+(`QuotaCheck.LeaveOut` is gone). A replacement that published versions hold needs room for
+both files. A refusal rolls everything back, and the command deletes the fresh object as it
+does for every other refusal.
+
+**Usage.** `Usage` adds `HeldBytes` (retired and named, counted toward the quota),
+`PendingBytes` (retired and unnamed, counted toward nothing) and `PendingDeleteAt` (the earliest
+`unreferenced_at` of those plus seven days; a file the sweep has not dated yet counts as dated
+now). The figures follow the scope as the library figures do, so the teacher workspace passes
+`.Own()` and `scope.all` sums every owner.
+
+**The sweep (`command.Sweep`, `jobs.SweepRetiredMedia`).** The API runs it at start-up and
+every hour, five minutes at most, and ten minutes after a failure or a file it could not
+remove, on every machine and only where media storage is configured. One pass:
+
+1. `Observe` dates the retired files nothing names and clears the date of those named again,
+   in two statements.
+2. `Due` lists the retired files dated at or before now minus seven days, in id order, a
+   hundred at a time.
+3. `Purge` takes one file in its own transaction. `SELECT … FOR UPDATE SKIP LOCKED` takes the
+   row, so a file that a second sweep or a writer holds is skipped. Under the lock it checks
+   again that the file is due and unnamed (a file named again has its date cleared and is left),
+   deletes the object, sets `purged_at` and writes the audit row `media.purged` with no actor.
+   Once the delete has succeeded, the mark, the audit row and the commit run under their own ten
+   seconds and not under the sweep's budget, so a sweep whose time ends at that moment still
+   records the removal; if they still fail, `Purge` answers a `PurgeMarkError` and the job logs
+   the file's id at ERROR.
+   The object goes before the row is marked: a failure of the delete, of the mark or of the
+   commit leaves the row for the next pass, whose delete of an object already gone succeeds
+   (`storage.Client.Delete` treats `NoSuchKey` as success). The delete has thirty seconds, so a
+   stalled storage cannot hold a row lock for long.
+
+**Why it cannot race a writer.** A writer that freezes or binds a file takes the row first
+(`LockForVersionUse`, which answers not found for a purged file, as it does for a deleted one),
+then writes. Not every writer takes it: a bank question's write checks `Readable` and inserts,
+and the foreign key's share lock does not conflict with the sweep's update of an unrelated
+column. 00113 closes that for every writer at once. Each of the six tables has a
+`BEFORE INSERT OR UPDATE OF media_asset_id` trigger that, for a changed non-null binding,
+updates the file's row to clear `unreferenced_at` and then refuses the write with
+`check_violation` (constraint `media_assets_purged_binding`) if the file is purged. The update
+takes the row lock when the file is waiting for removal, so the writer waits for a sweep that
+holds it and then sees `purged_at`; a writer that comes first holds the lock and clears the date,
+and the sweep skips the row and finds it named. A file that is not waiting is not locked.
+`Readable`, `Get`, `LockForVersionUse` and `SoftDelete` treat a purged file as gone, and the
+library predicate excludes it, so a replaced file cannot reappear if its successor's row is
+removed (`replaced_by` is `ON DELETE SET NULL`).
+
+**The switch.** `MEDIA_RETENTION_SWEEP` (`on` by default, or `off`; anything else stops the
+start-up) is read where `core.Serve` starts the sweep. Off starts nothing and logs a warning;
+quota counting and the dating by replace and delete are not behind it. A bank question's write
+that names a file the sweep removed in the instant between its `Readable` check and its insert
+meets the trigger, which the questions repository maps to the missing-file refusal.
+
+**Tests.** `media/application/tests/retention_test.go` (the quota with a version holding the old
+file, the dating by a replace, a delete and the sweep, the seven days and not before, a publish
+and a writer racing the sweep in both orders, two sweeps, a failed delete, a purged file read by
+nobody), `retention_storage_test.go` (MinIO), `sweep_test.go`, `core/jobs/tests/media_retention_test.go`
+and `tests/media_retention_flow_test.go` (the answers over HTTP). Each race test fails when the
+lock, the skip or the trigger is taken out.
+
+**Rollout.** Expand only. The columns are nullable and the trigger does nothing until a file is
+purged, so v0.10.0 runs on the new schema. A file v0.10.0 replaced or deleted is dated by the
+first sweep of the new binary and removed seven days later, so the first object is removed
+seven days after the new binary starts. Down drops the triggers, the function, the index and the columns; nothing
+restores an object a sweep removed.

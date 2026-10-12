@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import NewImportPage from "@/features/imports/pages/teacher/NewImportPage";
+import ImportWorkspacePage from "@/features/imports/pages/teacher/ImportWorkspacePage";
 import { CrumbTailContext, type PageCrumb } from "@/layouts/shell/crumbs";
 import { dayMonth } from "@/lib/i18n/datetime";
 import { notify } from "@/lib/toast";
@@ -139,7 +139,7 @@ function renderPage(entry = "/teacher/imports/new?source=paste") {
   const crumbs: (readonly PageCrumb[] | null)[] = [];
   const router = createMemoryRouter(
     [
-      { path: "/teacher/imports/new", element: <NewImportPage /> },
+      { path: "/teacher/imports/new", element: <ImportWorkspacePage /> },
       { path: "/teacher/imports/:id", element: <p>detail page</p> },
       { path: "/teacher/imports", element: <p>history page</p> },
     ],
@@ -189,7 +189,12 @@ describe("the paste page before anything is pasted", () => {
     expect(screen.queryByRole("button", { name: /mẫu|sample/i })).toBeNull();
     expect(screen.queryByRole("button", { name: "Xoá hết" })).toBeNull();
     expect(screen.queryByText(/Văn bản thuần/)).toBeNull();
-    expect(screen.queryByText("Đã tìm thấy")).toBeNull();
+    expect(screen.queryByText(/câu được nhận diện/)).toBeNull();
+    expect(
+      within(screen.getByRole("region", { name: "Đã đọc được" })).getByText(
+        "Dán nội dung đề để xem những gì được nhận diện.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("keeps the layout tips open while the box is empty and offers the example", () => {
@@ -209,21 +214,24 @@ describe("the paste page before anything is pasted", () => {
 });
 
 describe("what the page finds in pasted text", () => {
-  it("counts, names the kind, fills the title and folds the tips away", async () => {
+  it("counts in the status pane, lists what needs checking, names the kind, fills the title and folds the tips away (DG-207)", async () => {
     renderPage();
     paste(READY);
-    expect(await screen.findByText("Đã tìm thấy")).toBeInTheDocument();
-    const found = screen.getByText("Đã tìm thấy").parentElement!;
-    expect(within(found).getByText("Phần").nextSibling).toHaveTextContent("1");
-    expect(within(found).getByText("Câu hỏi").nextSibling).toHaveTextContent("2");
-    expect(within(found).getByText("Có đáp án").nextSibling).toHaveTextContent("1");
-    expect(within(found).getByText("Cần đáp án").nextSibling).toHaveTextContent("1");
-    expect(within(found).getByText("Cần đáp án").parentElement).toHaveClass(
-      "bg-warning-soft",
-    );
+    const readAs = screen.getByRole("region", { name: "Đã đọc được" });
     expect(
-      screen.getByText("Câu 2 chưa có đáp án. Bạn có thể nhập khi rà soát."),
+      await within(readAs).findByText("2 câu được nhận diện · 1 cần kiểm tra"),
     ).toBeInTheDocument();
+    expect(
+      within(readAs).getByText(
+        "Cập nhật khi bạn gõ. Sửa định dạng trong ô dán trước khi bắt đầu.",
+      ),
+    ).toBeInTheDocument();
+    const items = within(readAs).getByRole("list", { name: "Mục cần kiểm tra" });
+    expect(
+      within(items)
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual(["Câu 2Chưa có đáp ánCần kiểm tra"]);
     expect(
       screen.getByText(/^Hình ảnh và âm thanh không được dán/),
     ).toBeInTheDocument();
@@ -246,26 +254,37 @@ describe("what the page finds in pasted text", () => {
     ).toBeInTheDocument();
   });
 
-  it("names six unanswered questions, then how many more", async () => {
+  it("lists eight unanswered questions, then how many more", async () => {
     renderPage();
     paste(
       Array.from({ length: 8 }, (_, i) => `${i + 1}. Question ${i + 1}`).join("\n"),
     );
     expect(
-      await screen.findByText(
-        "Câu 1, 2, 3, 4, 5, 6 và 2 câu khác chưa có đáp án. Bạn có thể nhập khi rà soát.",
-      ),
+      await screen.findByText("8 câu được nhận diện · 8 cần kiểm tra"),
     ).toBeInTheDocument();
+    const items = screen.getByRole("list", { name: "Mục cần kiểm tra" });
+    expect(within(items).getAllByRole("listitem")).toHaveLength(8);
+    expect(within(items).getByText("Câu 8")).toBeInTheDocument();
+    paste(
+      Array.from({ length: 11 }, (_, i) => `${i + 1}. Question ${i + 1}`).join("\n"),
+    );
+    expect(
+      await screen.findByText("11 câu được nhận diện · 11 cần kiểm tra"),
+    ).toBeInTheDocument();
+    const more = screen.getByRole("list", { name: "Mục cần kiểm tra" });
+    expect(within(more).getAllByRole("listitem")).toHaveLength(9);
+    expect(within(more).getByText("3 câu khác")).toBeInTheDocument();
   });
 
   it("names a label used twice in one part, even one the count leaves out", async () => {
     renderPage();
     paste("1. First?\nAnswer: a\n2. Second?\nAnswer: b\n2. Second again?\nAnswer: c");
     expect(
-      await screen.findByText(/^Số 2 xuất hiện hai lần trong cùng một phần\./),
+      await screen.findByText("Số này xuất hiện hai lần trong cùng một phần"),
     ).toBeInTheDocument();
-    const found = screen.getByText("Đã tìm thấy").parentElement!;
-    expect(within(found).getByText("Câu hỏi").nextSibling).toHaveTextContent("2");
+    expect(
+      screen.getByText("2 câu được nhận diện · 1 cần kiểm tra"),
+    ).toBeInTheDocument();
   });
 
   it("holds Start back until the server is known to process imports", async () => {

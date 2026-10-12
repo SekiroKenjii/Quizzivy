@@ -83,12 +83,12 @@ function NewAssignment() {
 function EditAssignment({ id }: Readonly<{ id: string }>) {
   const { t } = useTranslation();
   const existing = useQuery({
-    queryKey: ["admin-assignment", id],
+    queryKey: ["teacher-assignment", id],
     queryFn: ({ signal }) => getAssignment(id, signal),
   });
   const testId = existing.data?.testId;
   const versions = useQuery({
-    queryKey: ["admin-test-versions", testId],
+    queryKey: ["teacher-test-versions", testId],
     queryFn: ({ signal }) => listVersions(testId ?? "", signal),
     enabled: testId !== undefined,
   });
@@ -187,9 +187,11 @@ function Wizard({
     },
     onSuccess: async (saved, { asDraft, body }) => {
       leaving.current = true;
-      await queryClient.invalidateQueries({ queryKey: ["admin-assignments"] });
-      await queryClient.invalidateQueries({ queryKey: ["admin-assignment", saved.id] });
-      await queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
+      await queryClient.invalidateQueries({ queryKey: ["teacher-assignments"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["teacher-assignment", saved.id],
+      });
+      await queryClient.invalidateQueries({ queryKey: ["teacher-dashboard"] });
       if (asDraft) {
         notify.success(t("assignments.wizard.savedDraft"));
         void navigate("/teacher/assignments?status=draft");
@@ -258,8 +260,8 @@ function Wizard({
         }
       />
       <WizardStepper steps={steps} current={step} onOpen={open} />
-      <div className="flex flex-wrap items-start gap-3.5">
-        <section className="bg-card shadow-card border-border min-w-0 flex-[3_1_460px] rounded-xl border">
+      <div className="@container/wizard flex flex-wrap items-start gap-3.5">
+        <section className="bg-card shadow-card border-border min-w-0 flex-[1_1_480px] rounded-xl border">
           <div className="p-4.5">
             {step === 0 && (
               <TestStep

@@ -61,7 +61,7 @@ const PROCESSING_STATUSES = [
   "committing",
 ] as const;
 const GRID =
-  "@[960px]/import-history:grid-cols-[minmax(200px,2.4fr)_minmax(160px,1fr)_minmax(150px,1.4fr)_minmax(110px,1fr)_minmax(150px,1fr)_32px]";
+  "@[960px]/import-history:grid-cols-[minmax(200px,2.4fr)_minmax(160px,1fr)_minmax(150px,1.4fr)_minmax(110px,1fr)_minmax(150px,1fr)_32px] @[1240px]/import-history:grid-cols-[minmax(200px,2.4fr)_minmax(160px,1fr)_130px_minmax(150px,1.4fr)_minmax(110px,1fr)_minmax(150px,1fr)_32px]";
 const CHIP = "in-data-[scale=deck]:rounded-sm in-data-[scale=deck]:px-2";
 const ALL = "all";
 const HISTORY_POLL_MS = 5000;
@@ -135,58 +135,63 @@ export default function ImportsListPage() {
   );
 
   const results = (data: NonNullable<typeof list.data>) => {
+    const pager = (frame: "card" | "plain") => (
+      <Pager
+        page={data.page}
+        pageSize={data.pageSize}
+        total={data.total}
+        noun={(count) => t("imports.history.noun", { count })}
+        sizes={PAGE_SIZES}
+        frame={frame}
+      />
+    );
     if (data.total > 0)
-      return (
-        <>
-          {data.items.length > 0 ? (
-            <div className="@container/import-history min-w-0">
-              <Card
-                role="table"
-                aria-label={t("imports.historyTitle")}
-                className="gap-0 overflow-hidden py-0"
-              >
-                <div role="rowgroup" className="hidden @[960px]/import-history:block">
-                  <div
-                    role="row"
-                    className={cn(
-                      "bg-muted text-meta text-muted-fg grid h-10 items-center gap-3 px-4 font-medium",
-                      GRID,
-                    )}
+      return data.items.length > 0 ? (
+        <div className="@container/import-history min-w-0">
+          <Card className="gap-0 overflow-hidden py-0">
+            <div role="table" aria-label={t("imports.historyTitle")}>
+              <div role="rowgroup" className="hidden @[960px]/import-history:block">
+                <div
+                  role="row"
+                  className={cn(
+                    "bg-muted text-meta text-muted-fg grid h-10 items-center gap-3 px-4 font-medium",
+                    GRID,
+                  )}
+                >
+                  <span role="columnheader">{t("imports.history.file")}</span>
+                  <span role="columnheader">{t("imports.columnStatus")}</span>
+                  <span
+                    role="columnheader"
+                    className="hidden @[1240px]/import-history:block"
                   >
-                    <span role="columnheader">{t("imports.history.file")}</span>
-                    <span role="columnheader">{t("imports.columnStatus")}</span>
-                    <span role="columnheader">{t("imports.history.review")}</span>
-                    <span role="columnheader">{t("imports.history.test")}</span>
-                    <span role="columnheader" className="sr-only">
-                      {t("imports.columnActions")}
-                    </span>
-                    <span role="columnheader" className="sr-only">
-                      {t("common.actions")}
-                    </span>
-                  </div>
+                    {t("imports.upload.source")}
+                  </span>
+                  <span role="columnheader">{t("imports.history.review")}</span>
+                  <span role="columnheader">{t("imports.history.test")}</span>
+                  <span role="columnheader" className="sr-only">
+                    {t("imports.columnActions")}
+                  </span>
+                  <span role="columnheader" className="sr-only">
+                    {t("common.actions")}
+                  </span>
                 </div>
-                <div role="rowgroup" className="divide-border divide-y">
-                  {data.items.map((item) => (
-                    <HistoryRow
-                      key={item.id}
-                      item={item}
-                      locale={locale}
-                      processing={canStart}
-                    />
-                  ))}
-                </div>
-              </Card>
+              </div>
+              <div role="rowgroup">
+                {data.items.map((item) => (
+                  <HistoryRow
+                    key={item.id}
+                    item={item}
+                    locale={locale}
+                    processing={canStart}
+                  />
+                ))}
+              </div>
             </div>
-          ) : null}
-          <Pager
-            page={data.page}
-            pageSize={data.pageSize}
-            total={data.total}
-            noun={(count) => t("imports.history.noun", { count })}
-            sizes={PAGE_SIZES}
-            frame="plain"
-          />
-        </>
+            {pager("card")}
+          </Card>
+        </div>
+      ) : (
+        pager("plain")
       );
     if (filtered)
       return (
@@ -209,10 +214,7 @@ export default function ImportsListPage() {
   };
 
   return (
-    <div
-      className="mx-auto flex w-full max-w-[1320px] min-w-0 flex-col gap-4"
-      data-scale="deck"
-    >
+    <div className="flex w-full min-w-0 flex-col gap-4" data-scale="deck">
       <PageHead
         className="[&>div:first-child]:max-w-[720px] [&>div:first-child]:flex-[1_1_360px]"
         title={t("imports.historyTitle")}
@@ -286,7 +288,7 @@ function HistoryRow({
     <div
       role="row"
       className={cn(
-        "grid grid-cols-[32px_auto_minmax(0,1fr)_auto_32px] items-center gap-2.5 px-4 py-3.5 text-[13.5px]",
+        "grid grid-cols-[32px_auto_minmax(0,1fr)_auto_32px] items-center gap-2.5 border-t px-4 py-3.5 text-[13.5px] first:border-t-0 @[960px]/import-history:first:border-t",
         "@[960px]/import-history:min-h-[62px] @[960px]/import-history:gap-3 @[960px]/import-history:py-0",
         GRID,
       )}
@@ -345,7 +347,13 @@ function HistoryRow({
       </div>
       <div
         role="cell"
-        className="text-muted-fg col-[2/6] row-start-2 flex min-w-0 flex-wrap items-center gap-1.5 text-[12.5px] @[960px]/import-history:col-[3] @[960px]/import-history:row-start-1 @[960px]/import-history:text-[13px]"
+        className="text-muted-fg hidden min-w-0 truncate text-[13px] @[1240px]/import-history:col-[3] @[1240px]/import-history:row-start-1 @[1240px]/import-history:block"
+      >
+        {sourceKind(exam?.format, t)}
+      </div>
+      <div
+        role="cell"
+        className="text-muted-fg col-[2/6] row-start-2 flex min-w-0 flex-wrap items-center gap-1.5 text-[12.5px] @[960px]/import-history:col-[3] @[960px]/import-history:row-start-1 @[960px]/import-history:text-[13px] @[1240px]/import-history:col-[4]"
       >
         <span className="inline-flex @[960px]/import-history:hidden">
           <ImportStatusBadge status={item.status} />
@@ -354,7 +362,7 @@ function HistoryRow({
       </div>
       <div
         role="cell"
-        className="col-[2/4] row-start-3 min-w-0 truncate text-[13px] @[960px]/import-history:col-[4] @[960px]/import-history:row-start-1 @[960px]/import-history:text-[13.5px]"
+        className="col-[2/4] row-start-3 min-w-0 truncate text-[13px] @[960px]/import-history:col-[4] @[960px]/import-history:row-start-1 @[960px]/import-history:text-[13.5px] @[1240px]/import-history:col-[5]"
       >
         <span className="text-muted-fg @[960px]/import-history:hidden">
           {t("imports.history.test")}:{" "}
@@ -386,13 +394,13 @@ function HistoryRow({
       </div>
       <div
         role="cell"
-        className="col-[4/6] row-start-3 justify-self-end @[960px]/import-history:col-[5] @[960px]/import-history:row-start-1 @[960px]/import-history:justify-self-start"
+        className="col-[4/6] row-start-3 justify-self-end @[960px]/import-history:col-[5] @[960px]/import-history:row-start-1 @[960px]/import-history:justify-self-start @[1240px]/import-history:col-[6]"
       >
         <Button
           asChild
           size="sm"
           variant="outline"
-          className="h-auto min-h-8 max-w-full rounded-md py-1 whitespace-normal in-data-[scale=deck]:h-auto in-data-[scale=deck]:rounded-md"
+          className="h-auto min-h-8 max-w-full rounded-md py-1 leading-[normal] whitespace-normal in-data-[scale=deck]:h-auto in-data-[scale=deck]:rounded-md"
         >
           <Link
             to={importActionHref(item)}
@@ -404,12 +412,19 @@ function HistoryRow({
       </div>
       <div
         role="cell"
-        className="col-[5] row-start-1 self-start @[960px]/import-history:col-[6] @[960px]/import-history:self-center"
+        className="col-[5] row-start-1 self-start @[960px]/import-history:col-[6] @[960px]/import-history:self-center @[1240px]/import-history:col-[7]"
       >
         <ImportDownloadMenu item={item} />
       </div>
     </div>
   );
+}
+
+function sourceKind(format: string | undefined, t: TFunction): string {
+  if (format === "text") return t("imports.history.pastedText");
+  if (format === "pdf") return t("imports.history.formatPdf");
+  if (format === "docx" || format === "doc") return t("imports.history.formatWord");
+  return "—";
 }
 
 function reviewLabel(item: WordImport, t: TFunction): string {

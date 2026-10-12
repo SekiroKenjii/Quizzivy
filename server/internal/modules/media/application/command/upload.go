@@ -44,7 +44,7 @@ func (s UploadHandler) Handle(ctx context.Context, cmd Upload) (domain.Asset, er
 	if err != nil {
 		return domain.Asset{}, err
 	}
-	if err := domain.Assets.CheckQuota(held.AudioBytes+held.ImageBytes, intake.Bytes, s.Quota); err != nil {
+	if err := domain.Assets.CheckQuota(held.CountedBytes(), intake.Bytes, s.Quota); err != nil {
 		return domain.Asset{}, err
 	}
 

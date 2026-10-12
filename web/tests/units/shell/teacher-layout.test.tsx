@@ -12,7 +12,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useContentWidthAtLeast } from "@/layouts/shell/contentWidth";
 import { useCrumbs } from "@/layouts/shell/crumbs";
-import type { ContentWidth, TeacherHandle } from "@/layouts/shell/handle";
+import type { TeacherHandle } from "@/layouts/shell/handle";
 import { writeSidebarState } from "@/layouts/shell/sidebarState";
 import { writeThemePreference } from "@/lib/theme";
 import { useAuthStore } from "@/stores/auth";
@@ -130,11 +130,9 @@ describe("the teacher shell from 768", () => {
     expect(main).toHaveClass(
       "overflow-x-hidden",
       "overflow-y-auto",
-      "px-3.5",
-      "pt-4",
+      "px-(--page-gutter)",
+      "pt-(--page-pad-top)",
       "pb-8",
-      "min-[768px]:px-7",
-      "min-[768px]:pt-6",
       "min-[768px]:pb-10",
     );
   });
@@ -239,7 +237,7 @@ describe("the sidebar's counts", () => {
     serveSummary(QUIET);
     const { client } = renderShell("/teacher", [home()]);
     await waitFor(() =>
-      expect(client.getQueryState(["admin-dashboard", "summary"])?.status).toBe(
+      expect(client.getQueryState(["teacher-dashboard", "summary"])?.status).toBe(
         "success",
       ),
     );
@@ -262,7 +260,7 @@ describe("the sidebar's counts", () => {
     const seen = failSummary();
     const { client } = renderShell("/teacher", [home()]);
     await waitFor(() =>
-      expect(client.getQueryState(["admin-dashboard", "summary"])?.status).toBe(
+      expect(client.getQueryState(["teacher-dashboard", "summary"])?.status).toBe(
         "error",
       ),
     );
@@ -278,7 +276,7 @@ describe("the sidebar's counts", () => {
     await within(nav()).findByRole("link", { name: LIVE });
 
     serveSummary({ ...summaryBody, liveAssignments: 4 });
-    await act(() => client.invalidateQueries({ queryKey: ["admin-dashboard"] }));
+    await act(() => client.invalidateQueries({ queryKey: ["teacher-dashboard"] }));
     expect(
       await within(nav()).findByRole("link", {
         name: /^Bài giao\s*4 bài giao đang mở$/,
@@ -286,7 +284,7 @@ describe("the sidebar's counts", () => {
     ).toBeInTheDocument();
 
     failSummary();
-    await act(() => client.invalidateQueries({ queryKey: ["admin-dashboard"] }));
+    await act(() => client.invalidateQueries({ queryKey: ["teacher-dashboard"] }));
     await waitFor(() => expect(badges()).toHaveLength(0));
   });
 
@@ -517,26 +515,32 @@ describe("the breadcrumb trail and the document title", () => {
 
 describe("the page's frame", () => {
   it.each([
-    [undefined, "max-w-330"],
-    [1320, "max-w-330"],
-    [1080, "max-w-270"],
-    [860, "max-w-215"],
-    [720, "max-w-180"],
-  ] as [ContentWidth | undefined, string][])(
-    "centres a page of width %s under %s",
-    async (width, limit) => {
-      serveSummary(QUIET);
-      const handle = crumbed("teacherShell.nav.tests", width ? { width } : {});
-      renderShell("/teacher", [{ index: true, handle, element: <p>trang</p> }]);
-      const page = (await screen.findByText("trang")).parentElement!;
-      expect(page).toHaveAttribute("data-slot", "page");
-      expect(page.parentElement).toBe(screen.getByRole("main"));
-      expect(page).toHaveClass("mx-auto", "w-full", limit);
-      expect(page.className.match(/max-w-/g)).toHaveLength(1);
-    },
-  );
+    ["a list", crumbed("teacherShell.nav.tests")],
+    [
+      "a page that starts collapsed",
+      crumbed("teacherShell.nav.tests", { sidebar: "collapsed" }),
+    ],
+    ["a route with no trail", { crumb: [] }],
+  ])("renders %s in the one frame every page shares", async (_, handle) => {
+    serveSummary(QUIET);
+    renderShell("/teacher", [{ index: true, handle, element: <p>trang</p> }]);
+    const page = (await screen.findByText("trang")).parentElement!;
+    expect(page).toHaveAttribute("data-slot", "page");
+    expect(page.parentElement).toBe(screen.getByRole("main"));
+    expect(page).toHaveClass("mx-auto", "w-full", "max-w-(--page-max)");
+    expect(page.className.match(/max-w-/g)).toHaveLength(1);
+  });
 
-  it("sets no limit on a full-width page", async () => {
+  it("ignores a width a stale handle still declares", async () => {
+    serveSummary(QUIET);
+    const handle = { ...crumbed("assignments.new"), width: 1080 };
+    renderShell("/teacher", [{ index: true, handle, element: <p>trang</p> }]);
+    const page = (await screen.findByText("trang")).parentElement!;
+    expect(page).toHaveClass("max-w-(--page-max)");
+    expect(page.className.match(/max-w-/g)).toHaveLength(1);
+  });
+
+  it("lifts the maximum for the one full-width page, the import review", async () => {
     serveSummary(QUIET);
     renderShell("/teacher", [{ index: true, handle: REVIEW, element: <p>trang</p> }]);
     const page = (await screen.findByText("trang")).parentElement!;

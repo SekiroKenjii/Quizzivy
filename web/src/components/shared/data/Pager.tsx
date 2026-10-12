@@ -44,7 +44,7 @@ const SIZE_TRIGGER =
   "border-border bg-card text-fg rounded-seg dark:bg-card dark:hover:bg-card in-data-[scale=deck]:bg-card dark:in-data-[scale=deck]:bg-card dark:in-data-[scale=deck]:hover:bg-card in-data-[scale=deck]:text-sm gap-1.75 px-2.5 py-0 pr-2 font-normal shadow-none [&_svg]:size-3.25";
 
 const ARROW =
-  "bg-card text-fg hover:bg-muted rounded-seg grid size-8 flex-none place-items-center border";
+  "bg-card text-fg hover:bg-muted rounded-seg grid size-11 flex-none place-items-center border min-[768px]:size-8";
 
 const ARROW_OFF = "pointer-events-none opacity-45";
 

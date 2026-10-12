@@ -29,7 +29,7 @@ export function ClassAssignmentsCard({ classId }: Readonly<{ classId: string }>)
   const locale = useLocale();
   const now = new Date();
   const assignments = useQuery({
-    queryKey: ["admin-assignments", { classId }],
+    queryKey: ["teacher-assignments", { classId }],
     queryFn: ({ signal }) => listAssignments({ classId, limit: 100 }, signal),
   });
   const facets = assignments.data?.facets;

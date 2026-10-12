@@ -7,38 +7,32 @@ start at [README.md](README.md) "Resuming".
 
 ## Checkpoint
 
-- **As of:** 2026-10-12, 10:35 UTC.
-- **Base:** `develop` at `aa0e0d29` (#530: R4 merged in); `release/0.10.0` cut from it.
-- **Objective:** v0.10.0 to `main` and Fly, with the owner's go of 2026-10-12 ("release as
-  v0.9.0 did; what cannot be checked in the infra does not block"), then D4 (v0.11.0) (T-24).
-- **In flight:** the release PR to `main`; then the tag, the back-merge, and the read-only
-  production checks (`/livez`, `/healthz`, `legacy_join_codes_rotated` in the API log).
+- **As of:** 2026-10-12, 23:30 UTC.
+- **Base:** `develop` at `3c41b326`, cut as `release/0.10.1` for `main`. `main` is at `e06511fc` (v0.10.0 and hotfix #532).
+- **Objective:** ship v0.10.1. Then D4 (v0.11.0) on `work/deck-d4`.
+- **v0.10.1 carries:**
+  - F-68, the media retention: migrations 00111 to 00113, the contract's `previous`/`heldBytes`, and the sweep with its `MEDIA_RETENTION_SWEEP` switch (#548, #550, #553).
+  - The page frame, DG-205 (#547, #552).
+  - The import workspace, DG-207 (#557).
+  - Grading pane heights (#555): T-D4.21, moved forward at a teacher's escalation.
+  - The avatar photo (#556).
+  - F-69 to F-73, QA-51-9 to 13 and the query-key rename (#534 to #543).
 - **Decided by the owner today:**
-  - Deploy to Fly; the VPS path (#434) is later work.
-  - A rotated legacy join code keeps its use count (F-67, #527).
-  - No Neon rehearsal; the `api` record stays grey.
-  - The `/admin` alias stays (T-R4.49 A to R5).
+  - A replaced file is kept while a published test holds it, and deleted for good seven days after none does. The dialog warns before the action and offers a download. No bell, no restore (F-68).
+  - The design team's page-width design is approved (c1472f4c). There are no form columns, and the 1600px cap holds at 2560.
+  - Settings' Language and Time zone stay apply-on-save (DG-158).
+  - Grading moves into v0.10.1. The owner gave the go for v0.10.1.
+- **The tag** `v0.10.1` on the release merge is the owner's to push. The session's proxy refuses tag pushes.
+- **D4 in flight:**
+  - Merged into `work/deck-d4`: T-D4.1, .19, .13, .3, .4, .5, .6 and .30.
+  - Open: T-D4.7 (#559), T-D4.31 (credits, migrations from 00118), and the `develop` sync. The sync renumbers D4's 00107 to 00110 as 00114 to 00117.
 - **Waiting on the user:**
   - O-R4.20: Remove and Move on Students.
-  - O-R4.21: the refresh window (keepalive or a reuse interval).
-  - The media replace accounting (F-68, below).
-  - The infra checks the release could not run: Neon, phone smoke, the v0.9.0 checks, compute hours.
-  - Whether to delete the local-dev MinIO objects the E2E runs left.
-- **Follow-ups after the release** (one PR each, before D4 starts):
-  - F-68: `replaceMedia`'s quota accounting, the review's option (c): count a replaced file
-    while a version holds it, then a sweep. The owner's policy decides. Declare the 429 in the
-    contract with it.
-  - F-69: the class monitor lists a non-student member who has not sat; the export no longer does.
-  - F-70: other `uniqueItems` uuid arrays (`duplicateAssignment.classIds`, the overrides'
-    `studentIds`) may repeat under case variants.
-  - F-71: `APP_DATABASE_URL` is unset in CI, so one app-role test skips there (platform).
-  - QA-51-9: the Brand dev warning.
-  - QA-51-10's rest: a reset socket on the response write is still a 500.
-  - QA-51-11: the Imports pager in the card.
-  - QA-51-12: line-heights.
-  - QA-51-13: the formats line.
-  - The `admin-*` query-key rename (T-R4.48).
-  - O-R4.23: the student payload's flag.
+  - O-R4.21: the refresh window.
+  - The infra checks no release here can run: Neon, the phone smoke, compute hours.
+  - The local MinIO objects left by E2E runs.
+  - `legacy_join_codes_rotated` in the API log (the deploy token cannot read logs).
+  - A check on a real Android phone of T-D4.7's tap straight after a swipe.
 
 ## Roster and models
 
@@ -422,6 +416,8 @@ and any reversal of the defaults above.
 | O-R (Students) | Should Remove and Move act only on the class the Class facet filters to, when exactly one is chosen? Built: every class, named in the confirmation. | the user | open: O-R4.20 in `40-open-items.md` (#517) |
 | F-65 | `seed/08` held one import run `running` on a ten-year lease, which took the worker's only slot: a local worker at the default limit queued every new import, and #513's live job needed a limit of 2. | platform | on #518: the run is `queued` ten years out |
 | T48-1 | #515's rewritten wizard zone case clicked a stepper nine times and timed out at CI's 5 s (6.5 s). | Tech Lead | fixed on #515: two steps, 2.6 s |
+| INC-5 | The v0.10.0 deploy (run 38238171020) crash-looped the API machine: "IMPORT_WORK_DIR must be a private directory with mode 0700". The image ships `/home/nonroot/imports` through `COPY`, which lands at 0755, and `MkdirAll` leaves an existing directory's mode alone; every test made the directory itself. Migrations 00080 to 00106 had applied; the worker started; Pages was skipped and kept v0.9.0. The API was down from about 10:45 UTC. | Tech Lead | fixed: hotfix #532 (`e06511fc`), `wiring.PrivateWorkDir` narrows the image's directory at start-up; F-72 |
+| F-72 | No CI job starts the production image, so a start-up check that depends on the image's file system passes every test and fails only on Fly (INC-5). A job that builds the `Dockerfile` and runs `/app/api` and `/app/import-worker` as `nonroot` until they listen, or refuse on configuration, would have caught it. | platform | open: before D4's first deploy |
 
 ## Reviews
 
@@ -499,10 +495,6 @@ and any reversal of the defaults above.
 
 ## Next action
 
-As each hand-off arrives:
-- **#517** green → merge. **#518**: the platform engineer merges the base, removes the CI
-  workaround and its `ci.md` sentence → green → merge.
-- **Lane 2's UI-minors PR** → review → merge.
-- **T-R4.51** → the tester's matrix PR; each deviation to its owner; the DG-16 timing decides the
-  paste footer's copy.
-- Then T-R4.52's checklist to the user, with 49 A's counts.
+- The back-merge PR (`main` into `develop`) → green → merge.
+- F-72 (platform), then F-68 to F-71 and the QA-51 minors, at most three agents at once.
+- Then D4 from `74d-d4-deck-update.md`, on `work/deck-d4` cut from `develop`.

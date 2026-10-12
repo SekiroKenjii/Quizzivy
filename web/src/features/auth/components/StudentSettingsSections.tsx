@@ -89,6 +89,7 @@ export function StudentProfileSection() {
   const fullName = useAuthStore((s) => s.user?.fullName);
   const email = useAuthStore((s) => s.user?.email);
   const displayName = useAuthStore((s) => s.user?.displayName);
+  const avatarUrl = useAuthStore((s) => s.user?.avatarUrl);
   const preferenceStatus = useAccountPreferenceStatus();
   const mounted = useMounted();
   const [failure, setFailure] = useState<string | null>(null);
@@ -149,6 +150,7 @@ export function StudentProfileSection() {
         <div className="flex items-center gap-3.5">
           <Avatar
             name={displayName ?? fullName}
+            src={avatarUrl}
             size="56"
             tone="self"
             className="text-stat-sm"

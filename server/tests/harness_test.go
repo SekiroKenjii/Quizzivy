@@ -41,10 +41,7 @@ func boot(t *testing.T, configure ...func(*config.Config)) *world {
 
 func bootLogging(t *testing.T, logger *slog.Logger, configure ...func(*config.Config)) *world {
 	t.Helper()
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Skip("TEST_DATABASE_URL is not set; the end-to-end suite needs a database")
-	}
+	cfg := e2eConfig(t, configure...)
 	ctx := context.Background()
 	var app *core.App
 	var server *httptest.Server
@@ -60,25 +57,6 @@ func bootLogging(t *testing.T, logger *slog.Logger, configure ...func(*config.Co
 			pool.Close()
 		}
 	})
-	cfg := config.Config{
-		Port:                        "0",
-		Env:                         "test",
-		DatabaseURL:                 dsn,
-		AllowedOrigins:              []string{"http://localhost:5173"},
-		MaxConcurrentPasswordHashes: 4,
-		JWTSigningKey:               []byte(strings.Repeat("e2e-signing-key-", 2)),
-		JoinCodeKey:                 []byte(strings.Repeat("e2e-join-code-k", 2) + "ey"),
-		AccessTokenTTL:              15 * time.Minute,
-		RefreshTokenTTL:             30 * 24 * time.Hour,
-	}
-	for _, c := range configure {
-		c(&cfg)
-	}
-	if fixtures != nil {
-		if err := fixtures.route(&cfg); err != nil {
-			t.Fatalf("fixture storage: %v", err)
-		}
-	}
 	var err error
 	app, err = core.New(ctx, cfg, logger)
 	if err != nil {
@@ -89,11 +67,40 @@ func bootLogging(t *testing.T, logger *slog.Logger, configure ...func(*config.Co
 		t.Fatalf("router: %v", err)
 	}
 	server = httptest.NewServer(handler)
-	pool, err = pgxpool.New(ctx, dsn)
+	pool, err = pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
 		t.Fatalf("pool: %v", err)
 	}
 	return &world{t: t, server: server, pool: pool}
+}
+
+func e2eConfig(t *testing.T, configure ...func(*config.Config)) config.Config {
+	t.Helper()
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	if dsn == "" {
+		t.Skip("TEST_DATABASE_URL is not set; the end-to-end suite needs a database")
+	}
+	cfg := config.Config{
+		Port:                        "0",
+		Env:                         "test",
+		DatabaseURL:                 dsn,
+		AllowedOrigins:              []string{"http://localhost:5173"},
+		MaxConcurrentPasswordHashes: 4,
+		JWTSigningKey:               []byte(strings.Repeat("e2e-signing-key-", 2)),
+		JoinCodeKey:                 []byte(strings.Repeat("e2e-join-code-k", 2) + "ey"),
+		AccessTokenTTL:              15 * time.Minute,
+		RefreshTokenTTL:             30 * 24 * time.Hour,
+		MediaRetentionSweep:         true,
+	}
+	for _, c := range configure {
+		c(&cfg)
+	}
+	if fixtures != nil {
+		if err := fixtures.route(&cfg); err != nil {
+			t.Fatalf("fixture storage: %v", err)
+		}
+	}
+	return cfg
 }
 
 func nonce(t *testing.T) string {

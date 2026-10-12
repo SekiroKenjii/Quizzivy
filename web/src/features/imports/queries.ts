@@ -1,6 +1,7 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import {
   getWordImportCapabilities,
+  getWordImportLimits,
   getWordImportSource,
   type ImportSourceRole,
   type WordImport,
@@ -11,6 +12,15 @@ export function importCapabilitiesQuery() {
   return queryOptions({
     queryKey: ["word-import-capabilities"],
     queryFn: ({ signal }) => getWordImportCapabilities(signal),
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** importLimitsQuery reads the formats, size and paste length this deployment accepts for an import's sources. */
+export function importLimitsQuery() {
+  return queryOptions({
+    queryKey: ["word-import-limits"],
+    queryFn: ({ signal }) => getWordImportLimits(signal),
     staleTime: 5 * 60_000,
   });
 }

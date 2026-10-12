@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import ImportDetailPage from "@/features/imports/pages/teacher/ImportDetailPage";
+import ImportWorkspacePage from "@/features/imports/pages/teacher/ImportWorkspacePage";
 import { formatDateTime } from "@/lib/i18n/datetime";
 import { ProcessingPanel } from "@/features/imports/components/ProcessingPanel";
 import type { ImportReview, ImportRun, WordImport } from "@/features/imports/api";
@@ -23,7 +23,7 @@ import {
   source,
   wordImport,
 } from "./fixtures";
-import "@/lib/i18n";
+import i18n from "@/lib/i18n";
 
 let current: WordImport;
 let result: ImportReview;
@@ -44,6 +44,7 @@ beforeEach(() => {
     capabilities(),
     http.get(`${BASE}/teacher/imports/limits`, () =>
       contractJson("/teacher/imports/limits", "get", 200, {
+        pasteMaxCharacters: 100000,
         maxBytes: 25 * 1024 * 1024,
         formats: ["docx", "pdf"],
       }),
@@ -72,7 +73,7 @@ function renderDetail() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
-      { path: "/teacher/imports/:id", element: <ImportDetailPage /> },
+      { path: "/teacher/imports/:id", element: <ImportWorkspacePage /> },
       { path: "/teacher/imports/:id/review", element: <p>review destination</p> },
       { path: "/teacher/imports", element: <p>history destination</p> },
     ],
@@ -311,10 +312,14 @@ describe("processing result data and real actions", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Dừng ở “Kiểm tra tệp”")).toBeInTheDocument();
     expect(screen.getByText(/PDF_NO_TEXT/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Thay tệp đề thi" })).toHaveAttribute(
-      "href",
-      expect.stringMatching(/^#/),
+    const sources = screen.getByRole("region", { name: "Nguồn" });
+    const exam = within(sources).getByRole("group", { name: "Tải tệp đề thi" });
+    expect(exam.parentElement).toHaveTextContent(
+      i18n.t("imports.runError.PDF_NO_TEXT"),
     );
+    expect(
+      within(sources).getByRole("button", { name: "Thay tệp đề thi" }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Thử xử lý lại" })).toBeNull();
     expect(reviewReads).toBe(0);
   });

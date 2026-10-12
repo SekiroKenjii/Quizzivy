@@ -225,7 +225,7 @@ func (h Identity) ResetStudentsPasswords(ctx context.Context, request openapi.Re
 	if !ok {
 		return nil, httpx.ErrNotImplemented
 	}
-	if namesAStudentTwice(request.Body.StudentIds) {
+	if httpapi.RepeatsAnID(request.Body.StudentIds) {
 		return openapi.ResetStudentsPasswords400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
 			httpapi.FieldError(ctx, "studentIds", httpx.Text(ctx, "Mỗi học viên chỉ được nêu một lần.", "Each student can be named only once.")))}, nil
 	}
@@ -255,17 +255,6 @@ func (h Identity) ResetStudentsPasswords(ctx context.Context, request openapi.Re
 		out.Body.Failed[i] = openapi.StudentResetFailure{StudentId: httpapi.ParseUUID(failure.StudentID), Code: resetFailureCode(failure.Reason)}
 	}
 	return out, nil
-}
-
-func namesAStudentTwice(ids []openapi_types.UUID) bool {
-	seen := make(map[openapi_types.UUID]struct{}, len(ids))
-	for _, id := range ids {
-		if _, again := seen[id]; again {
-			return true
-		}
-		seen[id] = struct{}{}
-	}
-	return false
 }
 
 func resetFailureCode(reason error) openapi.ErrorCode {

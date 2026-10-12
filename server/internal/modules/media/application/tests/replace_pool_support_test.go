@@ -73,7 +73,7 @@ func (w *replacementWorld) cleanup(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	for _, sql := range []string{
-		`DELETE FROM app.audit_log WHERE actor_user_id=ANY($1::uuid[])`,
+		`DELETE FROM app.audit_log WHERE actor_user_id=ANY($1::uuid[]) OR entity_id IN(SELECT id FROM app.media_assets WHERE owner_id=ANY($1::uuid[]) OR uploaded_by=ANY($1::uuid[]))`,
 		`DELETE FROM app.word_import_drafts WHERE import_id IN(SELECT id FROM app.word_imports WHERE created_by=ANY($1::uuid[]))`,
 		`DELETE FROM app.word_import_runs WHERE import_id IN(SELECT id FROM app.word_imports WHERE created_by=ANY($1::uuid[]))`,
 		`UPDATE app.word_imports SET source_revision=NULL WHERE created_by=ANY($1::uuid[])`,

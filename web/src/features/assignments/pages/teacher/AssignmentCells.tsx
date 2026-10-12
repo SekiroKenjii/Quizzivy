@@ -40,13 +40,15 @@ export function AssignmentStatusPill({
 
 /**
  * AssignmentCell is the Assignment column: the title, "Test v{n} · {q}
- * questions", what is left to grade in warning ink, and `inline`, the
- * "classes · when" line, when the table has hidden those columns.
+ * questions", what is left to grade in warning ink when `toGrade` (the table
+ * has hidden its To grade column), and `inline`, the classes, when the table
+ * has hidden Assigned to.
  */
 export function AssignmentCell({
   assignment,
+  toGrade: showToGrade,
   inline,
-}: Readonly<{ assignment: Assignment; inline: string | null }>) {
+}: Readonly<{ assignment: Assignment; toGrade: boolean; inline: string | null }>) {
   const { t } = useTranslation();
   const toGrade = assignment.pendingGradingCount ?? 0;
   return (
@@ -59,7 +61,7 @@ export function AssignmentCell({
             count: assignment.questionCount ?? 0,
           })}
         </span>
-        {toGrade > 0 ? (
+        {showToGrade && toGrade > 0 ? (
           <span className="text-warning-ink font-medium">
             {t("assignments.list.toGrade", { count: toGrade })}
           </span>
@@ -69,6 +71,21 @@ export function AssignmentCell({
         <span className="text-muted-fg truncate text-[12.5px]">{inline}</span>
       )}
     </span>
+  );
+}
+
+/**
+ * ToGradeCount is the To grade column: how many answers of the assignment
+ * wait for a grade, in warning ink, or a dash when none do.
+ */
+export function ToGradeCount({ assignment }: Readonly<{ assignment: Assignment }>) {
+  const toGrade = assignment.pendingGradingCount ?? 0;
+  return toGrade > 0 ? (
+    <span className="text-warning-ink text-[13px] font-medium tabular-nums">
+      {toGrade}
+    </span>
+  ) : (
+    <span className="text-muted-fg text-[13px]">—</span>
   );
 }
 
