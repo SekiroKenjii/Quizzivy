@@ -109,7 +109,7 @@ func (s *Reviews) questions(ctx context.Context, versionID string) ([]domain.Rev
 		SELECT q.id::text, q.type::text, q.prompt, q.points,
 		       q.media_asset_id::text, q.media_asset_kind::text, m.mime_type, m.original_filename,
 		       m.bytes, m.duration_ms, m.created_at,
-		       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after,
+		       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after, coalesce(q.audio_allow_pause, true),
 		       q.transcript, q.explanation, q.sample_answer, q.prompt_content, q.explanation_content,
 		       coalesce(gm.group_id::text,'')
 		  FROM app.test_version_questions q
@@ -149,10 +149,11 @@ func scanReviewQuestion(rows pgx.Rows) (domain.ReviewQuestion, error) {
 		mediaBytes, durationMs, maxPlays       *int
 		createdAt                              *time.Time
 		allowSeek, showTranscript              *bool
+		allowPause                             bool
 	)
 	if err := rows.Scan(&q.ID, &q.Type, &q.Prompt, &q.Points,
 		&mediaID, &mediaKind, &mimeType, &filename, &mediaBytes, &durationMs, &createdAt,
-		&maxPlays, &allowSeek, &showTranscript,
+		&maxPlays, &allowSeek, &showTranscript, &allowPause,
 		&q.Transcript, &q.Explanation, &q.SampleAnswer, &q.PromptContent, &q.ExplanationContent, &q.GroupID); err != nil {
 		return domain.ReviewQuestion{}, fmt.Errorf("review: scan question: %w", err)
 	}
@@ -165,7 +166,7 @@ func scanReviewQuestion(rows pgx.Rows) (domain.ReviewQuestion, error) {
 	}
 	if allowSeek != nil && showTranscript != nil {
 		q.Audio = &domain.AudioPolicy{
-			MaxPlays: maxPlays, AllowSeek: *allowSeek, ShowTranscriptAfterSubmit: *showTranscript,
+			MaxPlays: maxPlays, AllowSeek: *allowSeek, ShowTranscriptAfterSubmit: *showTranscript, AllowPause: allowPause,
 		}
 	}
 	return q, nil
