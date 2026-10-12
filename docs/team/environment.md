@@ -143,6 +143,7 @@ Run from `/home/user/Quizzivy`. Each step is safe to repeat. The hook does steps
    export PGHOST=localhost PGPORT=5432 PGUSER=postgres PGPASSWORD=postgres
    export TEST_DATABASE_URL='postgres://quizzivy_migrate:migrate@localhost:5432/quizzivy?sslmode=disable'
    export TEST_DESTRUCTIVE=1 S3_ACCESS_KEY_ID=quizzivy S3_SECRET_ACCESS_KEY=quizzivy-dev-secret
+   export APP_DATABASE_URL='postgres://quizzivy_app:app@localhost:5432/quizzivy?sslmode=disable'
    T=$(mktemp -d); J=$T/journal.json
 
    createdb --owner=quizzivy_migrate quizzivy_grading_queue
