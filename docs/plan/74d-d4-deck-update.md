@@ -241,10 +241,9 @@ sub-PRs there); they reach `develop` with v0.10.0.
 **Two fields a task here may carry** beyond the form of `74-r4.md`. "Reopens" names the R4
 task whose result the task changes. "Frozen" lists what the task leaves exactly as it is.
 
-**The gap rows.** T-D4.1 opens fourteen rows in `docs/design/gaps.md`. Their ids are the next
-free ones when it runs: `develop` ends at DG-119 today, the R4 branch holds DG-122 and reserves
-DG-120 and DG-121, and R4 may open more. This file calls them **DG-182** to **DG-195** (DG-182 is
-the first free id), and T-D4.1 replaces each label here with its id.
+**The gap rows.** T-D4.1 opened twenty-one rows in `docs/design/gaps.md` on 2026-10-12: DG-182 to
+DG-195 for the fourth export and DG-196 to DG-202 for v2. `develop` held DG-181 as its highest id
+that day (R4 used up to it), so DG-182 was the first free id.
 
 **If Thuong allows the documents to go ahead of R4.** The lead has asked whether the import and
 a documents-only amendment of the six R4 tasks may still happen before those tasks are built.
@@ -255,7 +254,7 @@ change:
   requests target `develop`. With them change T-D4.1's "Depends on" and its last bullet, the
   "Branches" paragraph, the decision "The import lands on `work/deck-d4`", section A's
   opening paragraph and step 1 of "Order of work". The gap rows take their ids on that day, so
-  the `DG+n` labels, "The gap rows" and fact 7 go.
+  "The gap rows" and fact 7 go.
 - **A fifteenth gap row returns**, for the weeks in which the deck is ahead of the engine: an
   engine change is compared with the Student page at tag `v0.9.0` until the engine chain
   ships. It returns with its bullet in AGENTS.md.
@@ -381,9 +380,8 @@ task that builds the row, or the gap row that records why nothing is built.
 6. **Three thresholds are new to the engine: 420, 900 and 1180** (and 1000 for R6's matching).
    At `fd9c763a`, `web/tests/support/viewport.ts` answers every `min-width` query alike. Engine
    unit tests need the numeric form T-R4.3a adds, which is on `develop` from v0.10.0.
-7. **Gap ids are taken when T-D4.1 runs.** `develop` ends at DG-119 today; `work/redesign-r4`
-   holds DG-122 and reserves DG-120 and DG-121 for T-R4.2a and T-R4.1a. DG-182 is the first id
-   free after R4.
+7. **Gap ids were taken when T-D4.1 ran.** `develop` ended at DG-181 on 2026-10-12, the R4
+   rows included, so the new rows are DG-182 to DG-202.
 8. **Migration numbers are taken at merge.** `develop` ends at 00079 today. T-R3.1 and T-R3.2
    ("numbers from 00080", `73-r3.md`), R4's migrations and this export's `allowPause` all
    number above it, in the order they merge.
@@ -569,7 +567,7 @@ Read against the fourth export (`uiux/update-teacher-student-view` @ `fd66dd6a`,
 the export the six tables above inventory) and `uiux/update-uiux-v2` @ `26b60795`. Five pages
 changed; `github.md`, `support.js`, `qz-controls.js`, the SVGs, `brand/`, Splash and System pages
 are byte-identical to the fourth export, so with the three files above the manifest changes in
-**eight** files and `node scripts/check-design-deck.mjs` still prints "Deck OK: 15 files, 7 pages".
+**six** files (seven with itself) and `node scripts/check-design-deck.mjs` still prints "Deck OK: 15 files, 7 pages".
 No file is added; the three `<dc-import name="Quizzivy Student">` mounts are unchanged; no `<link>`,
 font, token, colour, radius, shadow or keyframe moved (`qz-pulse` and `qzSpin`, which the AI panel
 uses, exist in the fourth export). Every new icon name exists in the web's `lucide-react` 0.548.
@@ -675,9 +673,9 @@ D4 merges.
 
 ## A. The import
 
-T-D4.1 is the first pull request into `work/deck-d4`. It changes eight files of fifteen: the five
-pages v2 touched, `github.md` (the fourth export's), and the manifest; the other seven are
-byte-identical to the third import. No test reads a deck file (`grep "design/deck"` under `web/`
+T-D4.1 is the first pull request into `work/deck-d4`. It changes six of the deck's fifteen files
+against the third import: the five pages v2 touched and `github.md` (the fourth export's); the
+other nine are byte-identical to it. The manifest is the seventh file the pull request changes. No test reads a deck file (`grep "design/deck"` under `web/`
 and `scripts/` finds the token comment, the CI plan test and the check script only), so the import
 cannot turn a unit suite red. From its merge the engine on `work/deck-d4` is behind the deck of
 record until section B ships, and the four R4 screens of section F and the AI surfaces of section G
@@ -688,7 +686,7 @@ until those ship. That state never reaches `develop`.
 **Touches:** `docs/design/deck/{Quizzivy Teacher.dc.html,Quizzivy Admin.dc.html,Quizzivy Student.dc.html,Quizzivy Landing.dc.html,Quizzivy Sign in.dc.html,github.md,MANIFEST.sha256}`, `docs/design/README.md`, `docs/design/gaps.md`, `scripts/check-design-deck.mjs`, `AGENTS.md` ("Redesign in progress"), `docs/plan/74d-d4-deck-update.md` (the gap ids)
 **Size:** S
 **Done when:**
-- [ ] The seven files are copied byte for byte from `origin/uiux/update-uiux-v2` @ `26b60795`
+- [x] The seven files are copied byte for byte from `origin/uiux/update-uiux-v2` @ `26b60795`
       (Thuong's v2 export, 2026-10-10, 10:44, which carries the fourth export of 2026-10-04,
       17:31 in every file it did not touch), and hash to `184536f0…` (Teacher), `8c043d26…`
       (Admin), `dc6d6077…` (Student), `52196e86…` (Landing), `15ab7e2b…` (Sign in) and
@@ -696,12 +694,12 @@ until those ship. That state never reaches `develop`.
       the v2 export changed". The other seven files still hash to the manifest. `screenshots/`,
       `uploads/` and `.thumbnail` are not imported. Neither UIUX branch updated the manifest; this
       task regenerates it (Thuong's standing instruction).
-- [ ] `MANIFEST.sha256` is regenerated with README's command, and
+- [x] `MANIFEST.sha256` is regenerated with README's command, and
       `node scripts/check-design-deck.mjs` prints "Deck OK: 15 files, 7 pages".
-- [ ] The check script reads `<dc-import name="X">` as a reference to `X.dc.html`: the Teacher
+- [x] The check script reads `<dc-import name="X">` as a reference to `X.dc.html`: the Teacher
       page now mounts the Student page three times (T 4978, 5756, 5850) and nothing checked it.
       A page that imports a missing page fails the script; the PR shows that failure once.
-- [ ] README, "Log": a fourth entry, dated the day of the import and naming the export's date,
+- [x] README, "Log": a fourth entry, dated the day of the import and naming the export's date,
       with the two hashes, the sizes (Student 123,460 to 173,426
       bytes, Teacher 781,532 to 794,309) and the screens: Student take test (one data-driven
       screen: sections rail, stimulus pane for a passage, a cloze passage or a recording, the
@@ -716,10 +714,10 @@ until those ship. That state never reaches `develop`.
       join-code card; sticky side columns and the collapsed sidebar's separator; the Attendance
       page and the class-detail Attendance tab; the Audit log's search and date range; the word
       list's progress card; and the persona renames.
-- [ ] README, "Reading a page": the Teacher page mounts the Student page through `dc-import`
+- [x] README, "Reading a page": the Teacher page mounts the Student page through `dc-import`
       with the props `exam` and `dark`; on the Student page `renderVals()` is `renderValsBase()`
       overlaid by `examVals()`, which holds every take-test rule.
-- [ ] README, "Prototype chrome never ships" and the demo-data paragraphs gain: `previewExam`,
+- [x] README, "Prototype chrome never ships" and the demo-data paragraphs gain: `previewExam`,
       `builderPreviewVals`, `sharedVals`' `pickFile` (always "part-1-asking-the-way.mp3") and
       `+plays || 99`; the Student fixtures `EXAMS`, `EX_RAW`, `EX_GROUP`, `EX_MATCH`, `EX_UL`,
       `EX_SIGN`, `AUD_LEN`, `MAP_CELLS`, including their answer keys (the seventh tuple entry
@@ -739,7 +737,7 @@ until those ship. That state never reaches `develop`.
       minimum run), the Admin fixtures `AI_POOL`, `AI_DAY`, `AI_DAYS`, `AI_TEACHERS` and
       `AI_REQ0`, the attendance fixtures `ATT_TODAY`, `ATT_ROOM` and `ATT_SES`, and the fixture
       persona (Giàu Bùi, Thường Võ, the demo accounts).
-- [ ] README, "Not imported": "ten red-pen markups" becomes eleven, with one new row: "Student
+- [x] README, "Not imported": "ten red-pen markups" becomes eleven, with one new row: "Student
       take test, a cloze: the gap's options cut in one row and the footer's count cut | Options
       wrap in a grid of 132px minimum; the count gives way to a key hint when the rail shows,
       and is a short form otherwise". Under the table, the two defects the drawing shows and
@@ -747,9 +745,9 @@ until those ship. That state never reaches `develop`.
       overlapping its own second line (S 1011), and the header's "All answers saved" on two
       lines (the label is now `white-space: nowrap` and the leave button `flex: none`, S 952,
       963; the product already truncates the line and pins the button).
-- [ ] README gains "Defaults taken with the fourth import (DG-182 to DG-195)", one line per row
+- [x] README gains "Defaults taken with the fourth import (DG-182 to DG-195)", one line per row
       below, and "Defaults taken with v2 (DG-196 to DG-202)".
-- [ ] `gaps.md`, existing rows (v2):
+- [x] `gaps.md`, existing rows (v2):
       - **DG-01**: **Answered, 2026-10-10**: the class-detail card shows the full code, the link,
         the QR and Copy code / Copy link / Download QR, and the New-code dialog says "Share the
         code, the link or the QR with your students."; the "Meanwhile" rule is deleted (T-D4.23
@@ -760,7 +758,7 @@ until those ship. That state never reaches `develop`.
       - **DG-100**: the testimonials now name the owner as "Centre manager"; placeholders still
         stand until consent
       - **DG-36**: the AI panel joins the list of dialogs with no Esc, no focus trap and no return
-- [ ] `gaps.md`, existing rows:
+- [x] `gaps.md`, existing rows:
       - **DG-80**: the row's first sentence becomes "Since the fourth import the deck draws a
         passage, a cloze passage and a recording as shared content, the sections navigator (a
         rail and a sheet), fill in the blank, an image above the prompt and the phone drawer."
@@ -781,7 +779,7 @@ until those ship. That state never reaches `develop`.
       - **DG-115**: "The Student preview dialog was not redrawn" is answered (DG-188)
       - **DG-116**, **DG-36**: the Shared content dialog and the preview overlay join the list
         of dialogs with no name, no Esc and no focus trap
-- [ ] `gaps.md`, new rows, numbered from the first id free in the file on the day of the pull
+- [x] `gaps.md`, new rows, numbered from the first id free in the file on the day of the pull
       request. DG-182 goes in "Decisions that override the current drawings" only if the owner
       confirms Q3; until then all fourteen are Open, with these "Meanwhile" texts:
       - **DG-182** Student › Take test, a recording at its play limit. The deck locks it ("No
@@ -899,18 +897,32 @@ until those ship. That state never reaches `develop`.
         and fixes "Change to Not given", "Add word limit" and a matching heading. Meanwhile: D4
         suggests a score in the grading card's own set (0 to max in 0.5 steps); the band form,
         the TFNG type and the word-limit fix join in R6 (T-R6.10, T-R6.11).
-- [ ] `gaps.md`'s preface gains the paragraph for DG-182 to DG-195, in the manner of the one
+- [x] `gaps.md`'s preface gains the paragraph for DG-182 to DG-195, in the manner of the one
       for DG-108 to DG-116, and one for DG-196 to DG-202 (v2, 2026-10-10).
-- [ ] This file: every `DG+n` label is replaced by the id its row took, in a commit that holds
-      nothing else.
-- [ ] AGENTS.md, "Redesign in progress": the bullet that says the design team's exports are not
+- [x] This file: every `DG+n` label is replaced by the id its row took, in a commit that holds
+      nothing else. (`DG+1` to `DG+21` became DG-182 to DG-202.)
+- [x] AGENTS.md, "Redesign in progress": the bullet that says the design team's exports are not
       the deck of record is replaced by "Since the fourth import (D4, T-D4.1) the deck of record
       is the design team's v2 export of 2026-10-10, 10:44, which carries the fourth export of
       2026-10-04. D4 (`docs/plan/74d-d4-deck-update.md`) rebuilds the take-test engine, the
       builder's shared content and the three previews to it, and builds the AI assistant it
       draws."
-- [ ] The PR says which screens changed. No file under `web/` or `server/` changes. The pull
+- [x] The PR says which screens changed. No file under `web/` or `server/` changes. The pull
       request targets `work/deck-d4`: `develop` keeps the third import until D4 merges.
+
+**As built:** the six changed files were copied with `git show origin/uiux/update-uiux-v2:<path>`
+and hash to the values above. The v2 branch holds sixteen files under `docs/design/`, none of them
+`screenshots/`, `uploads/` or `.thumbnail`, and the manifest is regenerated for the same fifteen
+paths. Against the third import exactly six files changed, so with the manifest the import
+touches seven; the plan's earlier "eight" added the fourth export's three files to v2's five
+without noticing that the Student and Teacher pages are in both lists. The check
+script reads `<dc-import name="X">` through a third loop in `localReferences`; a Teacher page
+that imports a page nobody ships fails with "references Quizzivy Nowhere.dc.html, which is not
+in the deck", where the previous script printed "Deck OK". `gaps.md` takes DG-182 to DG-195 (the
+fourth export) and DG-196 to DG-202 (v2) in the sections Take test and student, Teaching, Roles,
+users and the Admin console, Foundations and accessibility, and Collaboration, schedule,
+insights, learn; DG-01 is **Answered**. README's log names the two imports as its fourth and
+fifth entries. No file under `web/` or `server/` changed.
 
 ### T-D4.19 — R5 to R10 plan corrections
 **Depends on:** T-D4.1
@@ -2959,14 +2971,13 @@ minors' data)
 
 ### The gap rows T-D4.1 opens
 
-Fourteen new rows in `docs/design/gaps.md`, all Open. DG-182 moves to "Decisions that override
-the current drawings" only if the owner confirms Q3's default. Their ids are assigned when
-T-D4.1 runs, the first one being the next free id after the last row `develop` holds then: R4
-has DG-120 to DG-122 and may use more. T-D4.1 replaces the labels below, and every `DG+n` in
-this file, with the ids it took. If a `develop` sync later brings a row with the same id, the
-D4 row is renumbered at that sync. The full "Meanwhile" texts are in T-D4.1.
+Twenty-one new rows in `docs/design/gaps.md`, all Open: DG-182 to DG-195 for the fourth export
+and DG-196 to DG-202 for v2. DG-182 moves to "Decisions that override the current drawings" only
+if the owner confirms Q3's default. T-D4.1 took the ids on 2026-10-12, the first one being the
+next free id after `develop`'s DG-181. If a `develop` sync later brings a row with the same id,
+the D4 row is renumbered at that sync. The full "Meanwhile" texts are in `gaps.md`.
 
-| Label | Where | What the row records | Question | Built by |
+| ID | Where | What the row records | Question | Built by |
 |---|---|---|---|---|
 | DG-182 | Student › Take test, a recording at its play limit | The deck locks the recording; the product keeps it live and reports extra plays | Q3 | T-D4.8 |
 | DG-183 | Teacher › Question media and Shared content; Student › the recording card | "Students can pause" as one boolean, `allowPause`; "you can pause once" is read as a note | Q4 | T-D4.13, T-D4.9, T-D4.15 |
