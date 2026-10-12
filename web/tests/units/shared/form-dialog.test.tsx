@@ -196,6 +196,42 @@ it("keeps focus in a list's search box while pending, with its choices off (T-35
   expect(screen.getByRole("checkbox", { name: "Lớp A" })).toBeDisabled();
 });
 
+it("keeps focus on a select while pending, opening nothing and changing nothing (T-35)", async () => {
+  const user = userEvent.setup();
+  const props = {
+    open: true,
+    onOpenChange: () => {},
+    title: "Mã mới",
+    initial: { expires: "30" },
+    fields: [
+      {
+        kind: "select",
+        name: "expires",
+        label: "Hết hạn sau",
+        options: [
+          { value: "30", label: "30 ngày" },
+          { value: "7", label: "7 ngày" },
+        ],
+      },
+    ] as readonly FormField<{ expires: string }>[],
+    submitLabel: "Tạo mã",
+    onSubmit: () => {},
+  };
+  const view = render(<FormDialog {...props} />);
+  const select = screen.getByRole("combobox", { name: "Hết hạn sau" });
+
+  select.focus();
+  view.rerender(<FormDialog {...props} pending />);
+  expect(select).toHaveFocus();
+  expect(select).not.toBeDisabled();
+  expect(select).toHaveAttribute("aria-disabled", "true");
+  await user.keyboard("{Enter}");
+  await user.click(select);
+  expect(screen.queryByRole("listbox")).toBeNull();
+  expect(select).toHaveTextContent("30 ngày");
+  expect(select).toHaveFocus();
+});
+
 it("keeps the submit focusable when a caller passes disabled and pending together", () => {
   render(
     <FormDialog

@@ -28,7 +28,8 @@ const TWO_COLUMNS = 1000;
  * then, side by side from 1000px of content (two thirds and one third), the
  * members and the class's assignments, and the join code and the class's own
  * words. Writing anything needs `teaching.classes.write`; without it the
- * page reads. A class that is missing, or another teacher's, is not found.
+ * page reads. A class that is missing, or another teacher's, is not found;
+ * any other failure keeps the plain "Class" heading above a load error.
  */
 export default function ClassDetailPage() {
   useDisplayTimeZone();
@@ -42,19 +43,18 @@ export default function ClassDetailPage() {
   const klass = useQuery({
     queryKey: ["admin-class", id],
     queryFn: ({ signal }) => fetchClass(id, signal),
-    retry: (count, cause) =>
-      !(cause instanceof ApiError && cause.status === 404) && count < 2,
   });
 
   if (klass.isPending) return <DetailSkeleton />;
-  if (klass.isError)
+  if (klass.isError) {
+    const missing = klass.error instanceof ApiError && klass.error.status === 404;
     return (
       <DeckScale className="mx-auto flex w-full max-w-[1320px] min-w-0 flex-col gap-4">
         <PageHead
-          title={t("classDetail.notFoundTitle")}
+          title={t(missing ? "classDetail.notFoundTitle" : "classDetail.crumb")}
           back={{ to: "/teacher/classes", label: t("teacherShell.nav.classes") }}
         />
-        {klass.error instanceof ApiError && klass.error.status === 404 ? (
+        {missing ? (
           <p className="text-muted-fg text-sm">{t("classDetail.notFound")}</p>
         ) : (
           <LoadError error={klass.error} onRetry={() => void klass.refetch()}>
@@ -63,6 +63,7 @@ export default function ClassDetailPage() {
         )}
       </DeckScale>
     );
+  }
 
   const data = klass.data;
   return (
