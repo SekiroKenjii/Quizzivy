@@ -87,7 +87,7 @@ export default function TeacherDashboardPage() {
   const create = useMutation({
     mutationFn: () => createTest(t("tests.untitled")),
     onSuccess: async (test) => {
-      await client.invalidateQueries({ queryKey: ["admin-tests"] });
+      await client.invalidateQueries({ queryKey: ["teacher-tests"] });
       if (workspace && writeTests) void navigate(`/teacher/tests/${test.id}/edit`);
     },
     onSettled: () => {

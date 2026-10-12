@@ -193,19 +193,10 @@ func exportedRows(t *testing.T, teacher *client, assignmentID string) map[string
 	return rows
 }
 
-func TestTheResultsExportLeavesOutStaffWhoOnlyJoinedAClassAndKeepsThoseWhoSat(t *testing.T) {
-	w := boot(t)
-	email, password := w.createStaff("teacher")
-	teacher := w.signedIn(email, password)
-	tag := nonce(t)
-	classID := teacher.class("Lớp có quản trị " + tag)
-	_, versionID := teacher.publishedVersion("Đề có quản trị " + tag)
-	assignment := teacher.assign(versionID, classID)
-	pupil := w.studentNamed(teacher, classID, "Trần Thị Bình")
-	pupil.sit(id(assignment))
-
+func (w *world) adminWhoTakesTestsJoins(teacher *client, classID string) *client {
+	w.t.Helper()
 	granted := false
-	t.Cleanup(func() {
+	w.t.Cleanup(func() {
 		if !granted {
 			return
 		}
@@ -213,7 +204,7 @@ func TestTheResultsExportLeavesOutStaffWhoOnlyJoinedAClassAndKeepsThoseWhoSat(t 
 			DELETE FROM app.role_permissions
 			 WHERE permission_key = 'learning.take_tests'
 			   AND role_id = (SELECT r.id FROM app.roles r WHERE r.builtin_key = 'admin')`); err != nil {
-			t.Errorf("removing the Admin role's Take tests grant: %v", err)
+			w.t.Errorf("removing the Admin role's Take tests grant: %v", err)
 		}
 	})
 	grant, err := w.pool.Exec(context.Background(), `
@@ -221,7 +212,7 @@ func TestTheResultsExportLeavesOutStaffWhoOnlyJoinedAClassAndKeepsThoseWhoSat(t 
 		SELECT r.id, 'learning.take_tests' FROM app.roles r WHERE r.builtin_key = 'admin'
 		ON CONFLICT (role_id, permission_key) DO NOTHING`)
 	if err != nil {
-		t.Fatal(err)
+		w.t.Fatal(err)
 	}
 	granted = grant.RowsAffected() > 0
 	adminEmail, adminPassword := w.createStaff("admin")
@@ -232,8 +223,22 @@ func TestTheResultsExportLeavesOutStaffWhoOnlyJoinedAClassAndKeepsThoseWhoSat(t 
 	if err := w.pool.QueryRow(context.Background(), `
 		SELECT EXISTS (SELECT 1 FROM app.class_members m JOIN app.users u ON u.id = m.user_id
 		                WHERE m.class_id = $1::uuid AND u.email = $2)`, classID, adminEmail).Scan(&member); err != nil || !member {
-		t.Fatalf("the Admin who takes tests is not a member of the class: %v", err)
+		w.t.Fatalf("the Admin who takes tests is not a member of the class: %v", err)
 	}
+	return taker
+}
+
+func TestTheResultsExportLeavesOutStaffWhoOnlyJoinedAClassAndKeepsThoseWhoSat(t *testing.T) {
+	w := boot(t)
+	email, password := w.createStaff("teacher")
+	teacher := w.signedIn(email, password)
+	tag := nonce(t)
+	classID := teacher.class("Lớp có quản trị " + tag)
+	_, versionID := teacher.publishedVersion("Đề có quản trị " + tag)
+	assignment := teacher.assign(versionID, classID)
+	pupil := w.studentNamed(teacher, classID, "Trần Thị Bình")
+	pupil.sit(id(assignment))
+	taker := w.adminWhoTakesTestsJoins(teacher, classID)
 
 	const staffName = "Cô Thương"
 	rows := exportedRows(t, teacher, id(assignment))
@@ -246,5 +251,52 @@ func TestTheResultsExportLeavesOutStaffWhoOnlyJoinedAClassAndKeepsThoseWhoSat(t 
 	sat := rows[staffName]
 	if sat == nil || len(rows) != 2 || sat[5] == "Chưa làm" || sat[1] == "" {
 		t.Errorf("an Admin who sat the paper reads %q among %q, want their result kept beside the student's", sat, rows)
+	}
+}
+
+func monitorRows(t *testing.T, teacher *client, assignmentID string) map[string]string {
+	t.Helper()
+	monitor := teacher.must(http.StatusOK, http.MethodGet, "/teacher/assignments/"+assignmentID+"/attempts", nil)
+	states := map[string]string{}
+	for _, row := range monitor["rows"].([]any) {
+		listed := row.(map[string]any)
+		name := listed["fullName"].(string)
+		if _, again := states[name]; again {
+			t.Fatalf("the monitor names %s twice: %v", name, monitor["rows"])
+		}
+		states[name] = listed["state"].(string)
+	}
+	return states
+}
+
+func TestTheMonitorListsStaffWhoOnlyJoinedAClassOnlyOnceTheySatAsTheExportDoes(t *testing.T) {
+	w := boot(t)
+	email, password := w.createStaff("teacher")
+	teacher := w.signedIn(email, password)
+	tag := nonce(t)
+	classID := teacher.class("Lớp giám sát " + tag)
+	_, versionID := teacher.publishedVersion("Đề giám sát " + tag)
+	assignment := teacher.assign(versionID, classID)
+	w.studentNamed(teacher, classID, "Trần Thị Bình")
+	taker := w.adminWhoTakesTestsJoins(teacher, classID)
+
+	const staffName = "Cô Thương"
+	states := monitorRows(t, teacher, id(assignment))
+	if _, listed := states[staffName]; listed || len(states) != 1 || states["Trần Thị Bình"] != "not_started" {
+		t.Errorf("the monitor lists %v, want only the student who has not started and not the Admin who joined the class", states)
+	}
+	exported := exportedRows(t, teacher, id(assignment))
+	if len(exported) != len(states) {
+		t.Errorf("the monitor lists %v where the export lists %q", states, exported)
+	}
+
+	taker.sit(id(assignment))
+	states = monitorRows(t, teacher, id(assignment))
+	if state, listed := states[staffName]; !listed || state == "not_started" || len(states) != 2 {
+		t.Errorf("after the Admin sat the paper the monitor lists %v, want their paper beside the student", states)
+	}
+	exported = exportedRows(t, teacher, id(assignment))
+	if len(exported) != len(states) || exported[staffName] == nil {
+		t.Errorf("the monitor lists %v where the export lists %q", states, exported)
 	}
 }

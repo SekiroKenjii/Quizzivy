@@ -130,10 +130,10 @@ export function FileSlot({
         {name === null ? (
           <>
             <span className="min-w-0 flex-[1_1_200px]">
-              <span className="text-ui block">
+              <span className="text-ui block leading-normal">
                 {over ? t("imports.upload.dropActive") : t("imports.upload.dropText")}
               </span>
-              <span className="text-muted-fg block text-xs">
+              <span className="text-muted-fg block text-xs leading-normal">
                 {t(`imports.upload.${role}Hint`)}
               </span>
             </span>
@@ -223,10 +223,10 @@ function FileDetails({
   const { t, i18n } = useTranslation();
   return (
     <span className="min-w-0 flex-[1_1_220px]">
-      <span className="text-ui block truncate font-medium" title={name}>
+      <span className="text-ui block truncate leading-normal font-medium" title={name}>
         {name}
       </span>
-      <span className="text-muted-fg flex flex-wrap items-center gap-1.5 text-xs">
+      <span className="text-muted-fg flex flex-wrap items-center gap-1.5 text-xs leading-normal">
         <SlotPhase slot={slot} />
         {bytes === null ? null : <span>· {formatBytes(bytes)}</span>}
       </span>

@@ -35,7 +35,7 @@ export function TestStep({
   const client = useQueryClient();
   const [query, setQuery] = useState("");
   const search = useDebounced(query.trim(), 250);
-  const queryKey = ["admin-tests", "wizard", { q: search }];
+  const queryKey = ["teacher-tests", "wizard", { q: search }];
   const tests = useLazyList({
     queryKey,
     fetchPage: (page, signal) =>
@@ -50,7 +50,7 @@ export function TestStep({
   function choose(testId: string) {
     const test = tests.items.find((item) => item.id === testId);
     const versions = client.getQueryData<{ items: TestVersion[] }>([
-      "admin-test-versions",
+      "teacher-test-versions",
       testId,
     ]);
     const version = versions?.items.find(
@@ -115,7 +115,7 @@ export function TestStep({
 function TestRow({ test }: Readonly<{ test: Test }>) {
   const { t } = useTranslation();
   const versions = useQuery({
-    queryKey: ["admin-test-versions", test.id],
+    queryKey: ["teacher-test-versions", test.id],
     queryFn: ({ signal }) => listVersions(test.id, signal),
   });
   const current = versions.data?.items.find(

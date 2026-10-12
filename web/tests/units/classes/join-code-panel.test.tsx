@@ -251,7 +251,7 @@ describe("an archived class", () => {
         "Lớp này đã được lưu trữ nên không thể tạo mã tham gia mới. Hãy khôi phục lớp trước.",
       ),
     ).toBeVisible();
-    expect(refreshed).toHaveBeenCalledWith({ queryKey: ["admin-class", CLASS_ID] });
+    expect(refreshed).toHaveBeenCalledWith({ queryKey: ["teacher-class", CLASS_ID] });
   });
 
   it("offers no Create code when it has no code", () => {

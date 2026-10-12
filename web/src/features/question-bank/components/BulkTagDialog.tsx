@@ -83,7 +83,7 @@ export function BulkTagDialog({
       setRecent(next);
       queryClient.setQueryDefaults(recentKey, { gcTime: Infinity });
       queryClient.setQueryData(recentKey, next);
-      await queryClient.invalidateQueries({ queryKey: ["admin-questions"] });
+      await queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
       onApplied();
       close();
       toast(t("bank.tagged"));

@@ -31,7 +31,7 @@ export default function GroupEditorPage() {
   const { id = "" } = useParams();
   const owner = useAuthStore((state) => state.user?.id ?? "");
   const query = useQuery({
-    queryKey: ["admin-group", id],
+    queryKey: ["teacher-group", id],
     queryFn: ({ signal }) => getGroup(id, signal),
   });
   if (query.isPending) return <ListSkeleton rows={8} />;
@@ -79,8 +79,8 @@ function Editor({
           [...previous, ...saved.assets].map((asset) => [asset.id, asset]),
         ).values(),
       ]);
-      client.setQueryData(["admin-group", id], saved);
-      void client.invalidateQueries({ queryKey: ["admin-groups"] });
+      client.setQueryData(["teacher-group", id], saved);
+      void client.invalidateQueries({ queryKey: ["teacher-groups"] });
       return saved;
     },
   });
@@ -112,8 +112,8 @@ function Editor({
     try {
       const saved = await createGroup({ bundle: independentBundle(editor.bundle) });
       await editor.discardLocal();
-      client.setQueryData(["admin-group", saved.bundle.group.id], saved);
-      void client.invalidateQueries({ queryKey: ["admin-groups"] });
+      client.setQueryData(["teacher-group", saved.bundle.group.id], saved);
+      void client.invalidateQueries({ queryKey: ["teacher-groups"] });
       leaving.current = true;
       void navigate(`/teacher/question-bank/groups/${saved.bundle.group.id}`);
     } catch (cause) {

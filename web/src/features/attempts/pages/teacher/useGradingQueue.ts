@@ -222,9 +222,9 @@ export function useGradingQueue(params: GradingQueueParams) {
       ["teacher-grading"],
       reviewKey(item.attemptId),
       monitorKey(item.assignmentId),
-      ["admin-attempts"],
-      ["admin-answers-by-question", item.assignmentId],
-      ["admin-dashboard"],
+      ["teacher-attempts"],
+      ["teacher-answers-by-question", item.assignmentId],
+      ["teacher-dashboard"],
     ])
       void client.invalidateQueries({ queryKey });
   };

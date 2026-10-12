@@ -43,7 +43,7 @@ export function AddStudentsDialog({
 }>) {
   const { t } = useTranslation();
   const students = useQuery({
-    queryKey: ["admin-students", "wizard", "all-active"],
+    queryKey: ["teacher-students", "wizard", "all-active"],
     queryFn: ({ signal }) => allActiveStudents(signal),
     enabled: open,
   });

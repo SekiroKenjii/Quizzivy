@@ -17,7 +17,7 @@ function excerptLine(excerpt: string): string {
 }
 
 function itemAnalysisKey(assignmentId: string) {
-  return ["admin-assignment", assignmentId, "item-analysis"] as const;
+  return ["teacher-assignment", assignmentId, "item-analysis"] as const;
 }
 
 /**
