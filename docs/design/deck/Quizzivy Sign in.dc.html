@@ -53,7 +53,7 @@ input::placeholder{color:var(--muted-fg)}
 <span style="position:relative;display:flex;align-items:center"><input value="{{ pw }}" onChange="{{ onPw }}" onKeyDown="{{ onEnter }}" type="{{ pwType }}" autocomplete="current-password" style="width:100%;height:46px;border:1px solid var(--border);border-radius:10px;padding:0 46px 0 14px;font-size:15px;font-weight:400;background:var(--bg);outline:0" style-focus="border-color:var(--ring)"><button onClick="{{ togglePwShow }}" aria-label="{{ pwShowLabel }}" style="position:absolute;right:6px;width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:8px;background:transparent;cursor:pointer;color:var(--muted-fg)" style-hover="background:var(--hover);color:var(--fg)"><i class="icon-{{ pwIcon }}" style="font-size:17px"></i></button></span>
 </label>
 <button onClick="{{ submitLogin }}" style="display:flex;align-items:center;justify-content:center;gap:8px;height:46px;border-radius:10px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:15px;font-weight:600;opacity:{{ loginOp }}" style-hover="opacity:.92"><sc-if value="{{ busy }}" hint-placeholder-val="{{ false }}"><i class="icon-loader" style="font-size:17px"></i></sc-if>{{ loginLabel }}</button>
-<div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:10px;background:var(--muted);font-size:12.5px;color:var(--muted-fg)"><span style="font-weight:600;color:var(--fg)">Demo accounts</span><span>Student: giabao.ng@gmail.com · Teacher: thuong@quizzivy.com · Admin: quang.tran@quizzivy.com · any password with 6+ characters. <b>newstudent@gmail.com</b> shows the first sign-in flow.</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:10px;background:var(--muted);font-size:12.5px;color:var(--muted-fg)"><span style="font-weight:600;color:var(--fg)">Demo accounts</span><span>Student: giabao.ng@gmail.com · Teacher: giau.bui@quizzivy.com · Admin: thuong.vo@quizzivy.com · any password with 6+ characters. <b>newstudent@gmail.com</b> shows the first sign-in flow.</span></div>
 <p style="margin:0;text-align:center;font-size:13.5px;color:var(--muted-fg)">Have a class code? <button onClick="{{ goJoin }}" style="border:0;background:transparent;padding:0;font-size:13.5px;color:var(--fg);font-weight:500;text-decoration:underline;text-underline-offset:3px;cursor:pointer">Join a class</button></p>
 </div>
 </sc-if>
@@ -119,8 +119,8 @@ input::placeholder{color:var(--muted-fg)}
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
-const USERS = { 'giabao.ng@gmail.com': 'Quizzivy Student.dc.html', 'thuong@quizzivy.com': 'Quizzivy Teacher.dc.html', 'quang.tran@quizzivy.com': 'Quizzivy Admin.dc.html', 'newstudent@gmail.com': 'change' };
-const CLASSES = { T6NB4WLQ: { name: 'TOEIC 600 Weekend', teacher: 'Hoàng Thương', tInit: 'TH', schedule: 'Sat · Sun, 09:00 · Room 4', count: 22 }, W3RT8KDZ: { name: 'IELTS Writing Clinic', teacher: 'Phan Minh Đức', tInit: 'ĐP', schedule: 'Thu, 19:30 · Room 2', count: 14 } };
+const USERS = { 'giabao.ng@gmail.com': 'Quizzivy Student.dc.html', 'giau.bui@quizzivy.com': 'Quizzivy Teacher.dc.html', 'thuong.vo@quizzivy.com': 'Quizzivy Admin.dc.html', 'newstudent@gmail.com': 'change' };
+const CLASSES = { T6NB4WLQ: { name: 'TOEIC 600 Weekend', teacher: 'Giàu Bùi', tInit: 'GB', schedule: 'Sat · Sun, 09:00 · Room 4', count: 22 }, W3RT8KDZ: { name: 'IELTS Writing Clinic', teacher: 'Phan Minh Đức', tInit: 'ĐP', schedule: 'Thu, 19:30 · Room 2', count: 14 } };
 
 class Component extends DCLogic {
   state = { route: 'login', w: 1200, dark: false, email: '', pw: '', showPw: false, err: null, busy: false, code: '', np: '', np2: '', fromJoin: null };
