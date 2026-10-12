@@ -261,6 +261,15 @@ and "Local gates (G-2)".
   `docker/word-converter` image, which this piece of work did not try to build. With
   `TEST_WORD_CONVERTER_IMAGE` unset they skip and the packages still read `ok`,
   so a green local run says nothing about them. Only CI covers them.
+- **Building `docker/word-converter`** fails (verified 2026-10-12): `apt-get update` in the
+  image reaches `deb.debian.org` through the proxy and gets 403, so `libreoffice-writer`
+  cannot be installed. The converter tests and the converter half of
+  `import.live.spec.ts` run only in CI. Without `IMPORT_DOCKER_BINARY` and
+  `IMPORT_CONVERTER_IMAGE` the worker extracts a `.docx` natively, which is how that spec
+  was run here: build `cmd/api` and `cmd/import-worker`, set `IMPORT_S3_BUCKET=quizzivy-imports`,
+  `IMPORT_WORK_DIR` (absolute, mode 0700), `IMPORT_PROCESSING_ENABLED=true`,
+  `IMPORT_WORKER_WAKE_URL=http://localhost:8091/wake` and `IMPORT_WORKER_WAKE_ADDR=localhost:8091`
+  on both, run the worker, then `pnpm e2e:live` through the wrapper config.
 - **`tsc --noEmit`** checks no files; use `pnpm typecheck`.
 - **`pkill -f` or `pgrep -f` with a pattern from your own command line** matches the
   shell running it and kills it. Find a server by its port instead

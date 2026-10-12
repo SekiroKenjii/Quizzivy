@@ -48,7 +48,7 @@ const matches = (ids: readonly string[], re: RegExp) =>
   ids.map((i) => i.replace(/\\/g, "/")).filter((i) => re.test(i));
 
 const ADMIN =
-  /\/(layouts\/AdminLayout|layouts\/Teacher(Layout|Shell|Skeleton)|features\/[^/]+\/pages\/teacher\/|app\/pages\/AdminDashboardPage|features\/(tests|question-bank|media|students)\/)/;
+  /\/(layouts\/(Teacher(Layout|Skeleton)|shell\/(?!contentWidth\.)|teacherNav\.)|features\/[^/]+\/pages\/teacher\/|features\/(tests|question-bank|media|students)\/)/;
 const STUDENT_PAGES = [
   "layouts/StudentLayout",
   "features/assignments/pages/StudentHomePage",
@@ -68,7 +68,7 @@ const CLEARED_AT_SIGN_OUT = [
 ];
 
 const DRAG = /\/@dnd-kit\//;
-const SHELL = /\/src\/layouts\/TeacherShell\./;
+const SHELL = /\/src\/layouts\/TeacherLayout\./;
 const ROUTE_MODULE = /\/src\/((layouts|app\/pages)\/|features\/[^/]+\/pages\/)/;
 
 const reachedFrom = (roots: readonly OutputChunk[]) => {
