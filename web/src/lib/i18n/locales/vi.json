@@ -382,6 +382,7 @@
     "expiresAt": "Hết hạn",
     "uses": "Lượt dùng",
     "noActiveCode": "Chưa có mã đang dùng. Chỉ bạn thêm được học viên vào lớp.",
+    "archivedNoCode": "Lớp đã lưu trữ nên không ai tham gia được. Khôi phục lớp ở trang Lớp học để tạo mã.",
     "copyLink": "Chép liên kết",
     "rotate": "Mã mới",
     "issue": "Tạo mã",
@@ -409,7 +410,8 @@
     "revokeConfirm": "Ngừng mã",
     "removeConfirmBody": "Bài đã nộp và điểm của học viên vẫn được giữ. Học viên có thể vào lại bằng mã.",
     "removeConfirm": "Xoá",
-    "studentCount": "{{count}} học viên",
+    "studentCount_one": "{{count}} học viên",
+    "studentCount_other": "{{count}} học viên",
     "searchMembers": "Tìm học viên",
     "expiresToday": "· hết hạn hôm nay",
     "unlimited": "không giới hạn",
@@ -528,8 +530,8 @@
     "joinCode": "Mã tham gia",
     "maskedCode": "••••-{{hint}}",
     "codeState": {
-      "expired": "Đã hết hạn",
-      "usedUp": "Đã hết lượt"
+      "expired": "Hết hạn",
+      "usedUp": "Hết lượt"
     },
     "noCode": "Chưa có mã tham gia",
     "createCode": "Tạo mã",
@@ -1537,7 +1539,7 @@
     "new": "Giao bài mới",
     "test": "Đề thi",
     "statusColumn": "Trạng thái",
-    "progress": "Đã nộp",
+    "progress": "Tiến độ",
     "loadFailed": "Không tải được danh sách bài giao.",
     "createFailed": "Không giao được bài. Vui lòng thử lại.",
     "step1": "1 · Đề thi",
@@ -1646,7 +1648,7 @@
       "audioUnlimited": "Bài có câu nghe; bạn nghe lại được không giới hạn."
     },
     "summaryTitle": "Tóm tắt",
-    "progressValue": "{{submitted}}/{{total}}",
+    "progressValue": "{{submitted}} / {{total}}",
     "latestVersion": "mới nhất: bản v{{version}}",
     "saveDraft": "Lưu nháp",
     "needTargets": "Chọn lớp hoặc học viên trước khi giao.",
