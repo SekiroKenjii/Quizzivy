@@ -41,7 +41,7 @@ export function AddToTestDialog({
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const tests = useLazyList({
-    queryKey: ["admin-tests", "picker", { status: "all" }],
+    queryKey: ["teacher-tests", "picker", { status: "all" }],
     fetchPage: (page, signal) => listTests({ page, limit: 20 }, signal),
     enabled: open,
   });
@@ -74,8 +74,8 @@ export function AddToTestDialog({
     },
     onSuccess: async () => {
       setError(null);
-      await queryClient.invalidateQueries({ queryKey: ["admin-tests"] });
-      await queryClient.invalidateQueries({ queryKey: ["admin-questions"] });
+      await queryClient.invalidateQueries({ queryKey: ["teacher-tests"] });
+      await queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
       onAdded();
       onOpenChange(false);
       toast(t("bank.addedToTest"));
@@ -163,7 +163,7 @@ function SectionList({
 }>) {
   const { t } = useTranslation();
   const test = useQuery({
-    queryKey: ["admin-test", testId],
+    queryKey: ["teacher-test", testId],
     queryFn: ({ signal }) => getTest(testId, signal),
   });
 

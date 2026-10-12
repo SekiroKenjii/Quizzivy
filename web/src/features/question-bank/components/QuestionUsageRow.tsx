@@ -19,7 +19,7 @@ export function QuestionUsageRow({
 }: Readonly<{ questionId: string; prompt: string }>) {
   const { t } = useTranslation();
   const usage = useQuery({
-    queryKey: ["admin-question-usage", questionId],
+    queryKey: ["teacher-question-usage", questionId],
     queryFn: ({ signal }) => getQuestion(questionId, signal),
     staleTime: 0,
   });

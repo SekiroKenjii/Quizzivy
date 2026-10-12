@@ -31,7 +31,7 @@ import { BankFilterPanel, type BankFilterChange } from "./BankFilterPanel";
 import { activeFilterCount, promptLine, readBankFilters } from "./bankFilters";
 import { BANK_ASIDE_WIDTH, bankColumns } from "./bankColumns";
 
-const QUERY_KEY = ["admin-questions"] as const;
+const QUERY_KEY = ["teacher-questions"] as const;
 
 const SEARCH =
   "w-auto min-w-0 flex-[1_1_240px] [&_input]:bg-card [&_input]:border-border [&_input]:h-8.5 [&_input]:pl-8.5 [&_input]:text-sm [&_svg]:top-[9.5px] [&_svg]:size-3.75";

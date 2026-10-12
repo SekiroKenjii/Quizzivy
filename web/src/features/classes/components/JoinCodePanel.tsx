@@ -72,7 +72,7 @@ export function JoinCodePanel({
   const queryClient = useQueryClient();
   const info = klass.joinCode ?? null;
   const code = useQuery({
-    queryKey: ["admin-class", klass.id, "code"],
+    queryKey: ["teacher-class", klass.id, "code"],
     queryFn: ({ signal }) => getJoinCode(klass.id, signal),
     enabled: canWrite && info !== null,
     gcTime: 0,

@@ -111,7 +111,7 @@ export default function TestBuilderPage() {
   const { id = "" } = useParams();
 
   const test = useQuery({
-    queryKey: ["admin-test", id],
+    queryKey: ["teacher-test", id],
     queryFn: ({ signal }) => getTest(id, signal),
   });
 
@@ -199,9 +199,9 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     const ids = [...groupOwners(savedOutline.current).keys()];
     const known = new Map<string, StoredGroup>();
     for (const id of ids) {
-      const group = queryClient.getQueryData<StoredGroup>(["admin-group", id]);
+      const group = queryClient.getQueryData<StoredGroup>(["teacher-group", id]);
       if (group) {
-        await queryClient.cancelQueries({ queryKey: ["admin-group", id] });
+        await queryClient.cancelQueries({ queryKey: ["teacher-group", id] });
         known.set(id, group);
       }
     }
@@ -224,13 +224,13 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       const moved = previous.has(id) && previous.get(id) !== ownerSectionId;
       const group = known.get(id);
       if (group)
-        queryClient.setQueryData<StoredGroup>(["admin-group", id], {
+        queryClient.setQueryData<StoredGroup>(["teacher-group", id], {
           ...group,
           ownerSectionId,
           revision: group.revision + (moved ? 1 : 0),
           testUpdatedAt: saved.updatedAt,
         });
-      else void queryClient.invalidateQueries({ queryKey: ["admin-group", id] });
+      else void queryClient.invalidateQueries({ queryKey: ["teacher-group", id] });
       if (id === groupBridge.current?.id)
         groupBridge.current.advanceOwner(moved, saved.updatedAt);
     }
@@ -238,7 +238,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     version.current = saved.updatedAt;
     latestOutline.current = reconcileSections(latestOutline.current, submitted, saved);
     setSections(latestOutline.current);
-    queryClient.setQueryData(["admin-test", test.id], saved);
+    queryClient.setQueryData(["teacher-test", test.id], saved);
   }
 
   const outline = useAutosave<{ title: string; sections: OutlineSection[] }>({
@@ -272,7 +272,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
 
   const loaded = useQueries({
     queries: questionIds.map((questionId) => ({
-      queryKey: ["admin-question", questionId],
+      queryKey: ["teacher-question", questionId],
       queryFn: ({ signal }: { signal: AbortSignal }) => getQuestion(questionId, signal),
       staleTime: 60_000,
     })),
@@ -289,7 +289,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   );
   const loadedGroups = useQueries({
     queries: groupIds.map((id) => ({
-      queryKey: ["admin-group", id],
+      queryKey: ["teacher-group", id],
       refetchOnWindowFocus: false,
       queryFn: ({ signal }: { signal: AbortSignal }) => getGroup(id, signal),
       staleTime: 60_000,
@@ -394,7 +394,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     setCreating(true);
     try {
       const created = await createQuestion(starterQuestion(t));
-      queryClient.setQueryData(["admin-question", created.id], created);
+      queryClient.setQueryData(["teacher-question", created.id], created);
       setStarterIds((current) => new Set([...current, created.id]));
       appendQuestions([created.id]);
     } catch (cause) {
@@ -443,12 +443,12 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       setViolations(null);
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: ["admin-test", test.id],
+          queryKey: ["teacher-test", test.id],
           refetchType: "all",
         }),
-        queryClient.invalidateQueries({ queryKey: ["admin-test-versions", test.id] }),
-        queryClient.invalidateQueries({ queryKey: ["admin-test-preview", test.id] }),
-        queryClient.invalidateQueries({ queryKey: ["admin-tests"] }),
+        queryClient.invalidateQueries({ queryKey: ["teacher-test-versions", test.id] }),
+        queryClient.invalidateQueries({ queryKey: ["teacher-test-preview", test.id] }),
+        queryClient.invalidateQueries({ queryKey: ["teacher-tests"] }),
       ]);
       notify.success(t("builder.publishDone"), {
         action: {
@@ -475,7 +475,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     try {
       await flushQuestion.current?.();
       const copy = await duplicateQuestion(questionId);
-      queryClient.setQueryData(["admin-question", copy.id], copy);
+      queryClient.setQueryData(["teacher-question", copy.id], copy);
       const current = latestOutline.current;
       updateOutline(
         current.map((section) => {
@@ -544,14 +544,14 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   }
 
   async function saveGroup(bundle: GroupBundle, revision: number) {
-    await queryClient.cancelQueries({ queryKey: ["admin-group", bundle.group.id] });
+    await queryClient.cancelQueries({ queryKey: ["teacher-group", bundle.group.id] });
     const saved = await updateGroup(bundle.group.id, {
       bundle,
       expectedRevision: revision,
       expectedTestUpdatedAt: version.current,
     });
     version.current = saved.testUpdatedAt ?? version.current;
-    queryClient.setQueryData(["admin-group", bundle.group.id], saved);
+    queryClient.setQueryData(["teacher-group", bundle.group.id], saved);
     return saved;
   }
 
@@ -579,7 +579,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
             });
         version.current = saved.testUpdatedAt ?? version.current;
         groupBridge.current?.advanceOwner(false, version.current);
-        queryClient.setQueryData(["admin-group", saved.bundle.group.id], saved);
+        queryClient.setQueryData(["teacher-group", saved.bundle.group.id], saved);
         const next = latestOutline.current.map((item, index) =>
           index === sectionIndex
             ? withUnits(item, [
@@ -654,7 +654,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   async function removeOwnedGroup(id: string) {
     await writes.run(async () => {
       const group =
-        queryClient.getQueryData<StoredGroup>(["admin-group", id]) ??
+        queryClient.getQueryData<StoredGroup>(["teacher-group", id]) ??
         (await getGroup(id));
       await deleteGroup(id, group.revision, version.current);
       const fresh = await getTest(test.id);
@@ -665,7 +665,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       savedOutline.current = next;
       setTitle(fresh.title);
       setSections(next);
-      queryClient.setQueryData(["admin-test", test.id], fresh);
+      queryClient.setQueryData(["teacher-test", test.id], fresh);
       if (selectedGroupId === id) {
         setSelectedGroupId(null);
         setSelectedId(null);
@@ -684,14 +684,14 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         ...questionIds.map((id) =>
           queryClient.query({
             staleTime: 60_000,
-            queryKey: ["admin-question", id],
+            queryKey: ["teacher-question", id],
             queryFn: ({ signal }) => getQuestion(id, signal),
           }),
         ),
         ...groupIds.map((id) =>
           queryClient.query({
             staleTime: 60_000,
-            queryKey: ["admin-group", id],
+            queryKey: ["teacher-group", id],
             queryFn: ({ signal }) => getGroup(id, signal),
           }),
         ),
@@ -1217,7 +1217,7 @@ function QuestionPane({
 }>) {
   const { t } = useTranslation();
   const question = useQuery({
-    queryKey: ["admin-question", questionId],
+    queryKey: ["teacher-question", questionId],
     queryFn: ({ signal }) => getQuestion(questionId, signal),
   });
 
@@ -1288,10 +1288,10 @@ function QuestionForm({
   const autosave = useAutosave<QuestionValues>({
     refuse,
     save: async (next) => {
-      await queryClient.cancelQueries({ queryKey: ["admin-question", questionId] });
+      await queryClient.cancelQueries({ queryKey: ["teacher-question", questionId] });
       const saved = await updateQuestion(questionId, next);
-      queryClient.setQueryData(["admin-question", questionId], saved);
-      void queryClient.invalidateQueries({ queryKey: ["admin-questions"] });
+      queryClient.setQueryData(["teacher-question", questionId], saved);
+      void queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
     },
   });
 

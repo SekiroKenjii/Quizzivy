@@ -53,7 +53,7 @@ import { useDebounced } from "@/lib/useDebounced";
 import { StudentCard } from "./StudentCells";
 import { studentColumns } from "./studentColumns";
 
-const QUERY_KEY = ["admin-students"] as const;
+const QUERY_KEY = ["teacher-students"] as const;
 
 const ACCOUNTS = ["active", "reset", "suspended"] as const;
 type AccountFacet = (typeof ACCOUNTS)[number];
@@ -437,14 +437,14 @@ export default function StudentsPage() {
     placeholderData: keepPreviousData,
   });
   const classes = useQuery({
-    queryKey: ["admin-classes", "picker", { limit: 100 }],
+    queryKey: ["teacher-classes", "picker", { limit: 100 }],
     queryFn: ({ signal }) => fetchClasses({ limit: 100 }, signal),
     staleTime: 60_000,
   });
   const ownClasses = classes.data?.items ?? [];
   const items = students.data?.items;
   const detail = useQuery({
-    queryKey: ["admin-student", selectedId],
+    queryKey: ["teacher-student", selectedId],
     queryFn: ({ signal }) => getStudent(selectedId ?? "", signal),
     enabled: selectedId !== null,
     initialData: () => items?.find((student) => student.id === selectedId),
@@ -475,7 +475,7 @@ export default function StudentsPage() {
   const refreshAll = () =>
     Promise.all([
       invalidate(),
-      client.invalidateQueries({ queryKey: ["admin-classes"] }),
+      client.invalidateQueries({ queryKey: ["teacher-classes"] }),
     ]);
   const data = students.data;
   const selecting = canMove || canReset || canManage;

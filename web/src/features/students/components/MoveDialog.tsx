@@ -88,7 +88,7 @@ export function MoveDialog({
       ...students.flatMap((s) => s.classes.map((c) => c.id)),
     ]);
     await Promise.all([
-      client.invalidateQueries({ queryKey: ["admin-students"] }),
+      client.invalidateQueries({ queryKey: ["teacher-students"] }),
       ...[...touched].map((id) => invalidateClassMembership(client, id)),
     ]);
     setPending(false);

@@ -195,7 +195,7 @@ describe("actual roster intervention origin focus", () => {
       ),
     );
     await act(() =>
-      client.invalidateQueries({ queryKey: ["admin-monitor", ASSIGNMENT_ID] }),
+      client.invalidateQueries({ queryKey: ["teacher-monitor", ASSIGNMENT_ID] }),
     );
     await waitFor(() => expect(trigger.isConnected).toBe(false));
     await user.click(within(dialog).getByRole("button", { name: "Huỷ" }));
