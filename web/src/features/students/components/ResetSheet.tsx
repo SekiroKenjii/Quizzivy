@@ -19,7 +19,9 @@ import {
 /**
  * ResetSheet shows temporary passwords the server returned once: each
  * student's name, email and password with its own Copy, a warning that they
- * are shown only now, and Print, which prints this sheet alone. Students a
+ * are shown only now, and Print, which prints this sheet alone. Where the
+ * sheet is too narrow for a row on one line, the name and email take a line
+ * of their own above the password and Copy. Students a
  * reset did not reach are listed under it with the reason. It closes only
  * through Done or its close button, never on Escape or a click outside, so a
  * password is not lost by accident; Escape moves focus to Done instead, one
@@ -79,7 +81,7 @@ export function ResetSheet({
                   key={credential.studentId}
                   className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3.5 py-2.5"
                 >
-                  <span className="min-w-0 flex-1">
+                  <span className="min-w-0 flex-[1_1_12rem]">
                     <span className="text-ui block leading-normal font-medium break-words">
                       {credential.fullName}
                     </span>
