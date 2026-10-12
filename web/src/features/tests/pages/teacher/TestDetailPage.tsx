@@ -632,7 +632,7 @@ function PreviewFrame({
 }>) {
   const { t } = useTranslation();
   return (
-    <div className="bg-sidebar max-h-[680px] overflow-y-auto p-5">
+    <div className="bg-sidebar relative max-h-[680px] overflow-y-auto p-5">
       <div
         data-preview-viewport={phone ? "phone" : "desktop"}
         className={cn(

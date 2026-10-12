@@ -59,10 +59,12 @@ type Drawer = { at: string } | "left" | null;
  * collapsed or expanded as the user last chose; a route that asks for a
  * collapsed start gets one for the visit and leaves that choice alone. Below
  * 768px the sidebar is a drawer that closes on every navigation.
- * `<main>` is the scroller and the element pages measure their width by. It
- * sets the page's padding and maximum width, returns to the top and takes
- * focus when the route changes, and does neither when only a parameter
- * does. One outlet serves every width, so a page keeps its state across 768.
+ * `<main>` is the scroller, the containing block of everything positioned in
+ * the page, so nothing in it extends the document, and the element pages
+ * measure their width by. It sets the page's padding and maximum width,
+ * returns to the top and takes focus when the route changes, and does neither
+ * when only a parameter does. One outlet serves every width, so a page keeps
+ * its state across 768.
  */
 export default function TeacherLayout() {
   const { t } = useTranslation();
@@ -192,7 +194,7 @@ export default function TeacherLayout() {
           <main
             ref={registerMain}
             tabIndex={-1}
-            className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3.5 pt-4 pb-8 outline-none! min-[768px]:px-7 min-[768px]:pt-6 min-[768px]:pb-10"
+            className="relative min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3.5 pt-4 pb-8 outline-none! min-[768px]:px-7 min-[768px]:pt-6 min-[768px]:pb-10"
           >
             {registered && (
               <div
