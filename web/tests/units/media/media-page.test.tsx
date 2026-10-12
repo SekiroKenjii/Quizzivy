@@ -269,7 +269,7 @@ describe("the Media page", () => {
 
     fireEvent.error(map.querySelector("img")!);
     expect(
-      lastClient.isFetching({ queryKey: ["admin-media"] }),
+      lastClient.isFetching({ queryKey: ["teacher-media"] }),
       "a fresh URL that fails is not an expiry",
     ).toBe(0);
     expect(lists).toHaveLength(1);
@@ -283,7 +283,7 @@ describe("the Media page", () => {
       const again = (await screen.findByText("Directions map.png")).closest("article")!;
       later.mockReturnValue(now + 22 * 60_000);
       fireEvent.error(again.querySelector("img")!);
-      expect(lastClient.isFetching({ queryKey: ["admin-media"] })).toBe(1);
+      expect(lastClient.isFetching({ queryKey: ["teacher-media"] })).toBe(1);
       await waitFor(() => expect(lists).toHaveLength(2));
     } finally {
       later.mockRestore();

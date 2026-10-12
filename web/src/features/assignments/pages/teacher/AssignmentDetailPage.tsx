@@ -130,9 +130,9 @@ export default function AssignmentDetailPage() {
   useCrumbs(a === undefined ? null : [{ label: a.testTitle }]);
   const refresh = async () => {
     await Promise.all([
-      client.invalidateQueries({ queryKey: ["admin-assignment", id] }),
-      client.invalidateQueries({ queryKey: ["admin-assignments"] }),
-      client.invalidateQueries({ queryKey: ["admin-dashboard"] }),
+      client.invalidateQueries({ queryKey: ["teacher-assignment", id] }),
+      client.invalidateQueries({ queryKey: ["teacher-assignments"] }),
+      client.invalidateQueries({ queryKey: ["teacher-dashboard"] }),
       client.invalidateQueries({ queryKey: monitorKey(id) }),
       client.invalidateQueries({ queryKey: overridesKey(id) }),
     ]);
@@ -340,7 +340,7 @@ function useAssignmentReads(
   tab: ReturnType<typeof detailTab>,
 ) {
   const assignment = useQuery({
-    queryKey: ["admin-assignment", id],
+    queryKey: ["teacher-assignment", id],
     queryFn: ({ signal }) => getAssignment(id, signal),
     enabled: workspace && id !== "",
   });
@@ -359,13 +359,13 @@ function useAssignmentReads(
   useRefetchOnResume(monitor.refetch, live && monitor.isSuccess);
   const testId = a?.testId;
   const versions = useQuery({
-    queryKey: ["admin-test-versions", testId],
+    queryKey: ["teacher-test-versions", testId],
     queryFn: ({ signal }) => listVersions(testId ?? "", signal),
     enabled: a !== undefined && testId !== undefined,
   });
   const version = versions.data?.items.find((v) => v.id === a?.testVersionId);
   const preview = useQuery({
-    queryKey: ["admin-test-preview", testId, a?.testVersion],
+    queryKey: ["teacher-test-preview", testId, a?.testVersion],
     queryFn: ({ signal }) => previewTest(testId ?? "", a?.testVersion, signal),
     enabled: a !== undefined && tab === "questions",
   });

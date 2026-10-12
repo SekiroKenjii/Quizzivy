@@ -16,6 +16,7 @@ import {
   type WordImport,
 } from "./api";
 import { refreshAvailability } from "./availability";
+import { listFormats } from "./formats";
 import { importCapabilitiesQuery } from "./queries";
 
 /** SOURCE_ROLES orders the upload: the exam first, then its optional key. */
@@ -74,7 +75,7 @@ export function precheckFile(
   if (!limits.formats.some((format) => name.endsWith(`.${format}`)))
     return t("imports.upload.rejectType", {
       name: file.name,
-      formats: limits.formats.map((format) => `.${format}`).join(", "),
+      formats: listFormats(limits.formats, "extension", "or", t),
     });
   if (file.size > limits.maxBytes)
     return t("imports.upload.rejectSize", {

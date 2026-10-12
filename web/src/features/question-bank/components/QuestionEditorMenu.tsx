@@ -62,7 +62,7 @@ export function QuestionEditorMenu({
   const duplicate = useMutation({
     mutationFn: () => duplicateQuestion(question.id),
     onSuccess: async (copy) => {
-      await queryClient.invalidateQueries({ queryKey: ["admin-questions"] });
+      await queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
       toast(t("bank.duplicated"));
       onOpen(copy.id);
     },
@@ -73,7 +73,7 @@ export function QuestionEditorMenu({
     mutationFn: () => deleteQuestion(question.id),
     onSuccess: async () => {
       setConfirming(false);
-      await queryClient.invalidateQueries({ queryKey: ["admin-questions"] });
+      await queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
       toast(t("bank.deleted"));
       onDeleted();
     },
@@ -83,7 +83,7 @@ export function QuestionEditorMenu({
         setConfirming(false);
         setBlocked(tests);
         void queryClient.invalidateQueries({
-          queryKey: ["admin-question", question.id],
+          queryKey: ["teacher-question", question.id],
         });
         return;
       }
@@ -139,7 +139,7 @@ export function QuestionEditorMenu({
         returnFocus={trigger}
         onAdded={() =>
           void queryClient.invalidateQueries({
-            queryKey: ["admin-question", question.id],
+            queryKey: ["teacher-question", question.id],
           })
         }
       />

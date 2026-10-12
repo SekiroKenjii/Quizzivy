@@ -1227,9 +1227,11 @@ export interface paths {
          *     `classId` narrows the list to assignments that target
          *     any of the classes named, one or several (G-06's "Xem tất cả", G-12);
          *     the facets follow it, so the tab counts are those of the classes and
-         *     never disagree with the rows. A class the caller does not teach lists
-         *     nothing, as a missing class does, unless the caller holds `scope.all`:
-         *     it then lists those of the caller's own assignments that target it.
+         *     never disagree with the rows. A class named twice, in whatever spelling
+         *     of its id, answers 400 `VALIDATION_FAILED`. A class the caller does not
+         *     teach lists nothing, as a missing class does, unless the caller holds
+         *     `scope.all`: it then lists those of the caller's own assignments that
+         *     target it.
          *     `q` keeps the assignments whose test title, or the name of a target
          *     class the caller reaches, contains the text; it is accent-insensitive
          *     and the facets follow it too. Every row carries `questionCount`.
@@ -8615,6 +8617,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     createAssignment: {

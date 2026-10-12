@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -31,11 +32,14 @@ func SecurityHeaders(next http.Handler) http.Handler {
 const StreamingReadTimeout = 110 * time.Second
 
 // LimitRequestBody bounds non-streaming requests before the contract validator buffers them; a body it cannot finish
-// reading answers 408 REQUEST_INCOMPLETE, whatever stopped the read.
-func LimitRequestBody(streaming map[string]struct{}, defaultLimit int64, routeLimits map[string]RequestBodyLimit) func(http.Handler) http.Handler {
+// reading answers 408 REQUEST_INCOMPLETE, whatever stopped the read. A streamed upload gets StreamingReadTimeout
+// through http.ResponseController, which reaches the connection only if every writer wrapped around the server's
+// implements Unwrap; when it cannot, logger records a WARN named streaming_read_deadline and the upload is held to
+// the server-wide read timeout.
+func LimitRequestBody(logger *slog.Logger, streaming map[string]struct{}, defaultLimit int64, routeLimits map[string]RequestBodyLimit) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if streamingRequestBody(w, r, streaming, routeLimits) {
+			if streamingRequestBody(logger, w, r, streaming, routeLimits) {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -66,14 +70,16 @@ func bodyTooLarge(r *http.Request, limit int64) string {
 	return fmt.Sprintf(TextFor(r, "Dữ liệu gửi lên vượt quá giới hạn %g MiB.", "The submitted data exceeds the %g MiB limit."), float64(limit)/(1<<20))
 }
 
-func streamingRequestBody(w http.ResponseWriter, r *http.Request, streaming map[string]struct{}, limits map[string]RequestBodyLimit) bool {
+func streamingRequestBody(logger *slog.Logger, w http.ResponseWriter, r *http.Request, streaming map[string]struct{}, limits map[string]RequestBodyLimit) bool {
 	if r.Body == nil {
 		return true
 	}
 	if _, ok := streaming[r.Pattern]; !ok {
 		return false
 	}
-	_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(StreamingReadTimeout))
+	if err := http.NewResponseController(w).SetReadDeadline(time.Now().Add(StreamingReadTimeout)); err != nil {
+		logger.Warn("streaming_read_deadline", "err", err, "path", r.URL.Path, "request_id", RequestIDFromContext(r.Context()))
+	}
 	if limit := limits[r.Pattern].Bytes; limit > 0 {
 		r.Body = http.MaxBytesReader(w, r.Body, limit)
 	}

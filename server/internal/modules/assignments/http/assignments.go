@@ -17,10 +17,15 @@ func msgAssignmentNotFound(ctx context.Context) string {
 	return httpx.Text(ctx, "Không tìm thấy bài giao.", "The assignment was not found.")
 }
 
-// ListAssignments backs §8's assignments list and A-01's "Bài đang mở".
+// ListAssignments backs §8's assignments list and A-01's "Bài đang mở". A class
+// named twice is refused with 400 whatever the spelling of its id.
 func (h Assignments) ListAssignments(ctx context.Context, request openapi.ListAssignmentsRequestObject) (openapi.ListAssignmentsResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
+	}
+	if httpapi.RepeatsAnID(httpapi.Deref(request.Params.ClassId)) {
+		return openapi.ListAssignments400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+			httpapi.FieldError(ctx, "classId", httpx.Text(ctx, "Mỗi lớp chỉ được nêu một lần.", "Each class can be named only once.")))}, nil
 	}
 
 	scope := httpapi.ScopeFromContext(ctx)

@@ -100,7 +100,7 @@ function ClassCards({
 }>) {
   const { t } = useTranslation();
   const client = useQueryClient();
-  const queryKey = ["admin-classes", "wizard"];
+  const queryKey = ["teacher-classes", "wizard"];
   const list = useLazyList({
     queryKey,
     fetchPage: (page, signal) => fetchClasses({ page, limit: PAGE }, signal),

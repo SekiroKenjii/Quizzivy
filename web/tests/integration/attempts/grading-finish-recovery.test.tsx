@@ -678,7 +678,7 @@ it("repeated student names remain distinct while one student's assignments stay 
 
 function Summary() {
   const summary = useQuery({
-    queryKey: ["admin-dashboard", "summary"],
+    queryKey: ["teacher-dashboard", "summary"],
     queryFn: ({ signal }) => getTeacherSummary(signal),
   });
   return <p>Manual answers waiting: {summary.data?.answersToGrade}</p>;

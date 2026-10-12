@@ -399,10 +399,10 @@ function SettingsEditDialog({
   const save = useMutation({
     mutationFn: () => updateAssignment(a.id, settingsBody(group, a, draft, status)),
     onSuccess: async (saved) => {
-      client.setQueryData(["admin-assignment", a.id], saved);
+      client.setQueryData(["teacher-assignment", a.id], saved);
       toast(t("assignmentDetail.settings.saved", { group: title }));
       onClose();
-      await client.invalidateQueries({ queryKey: ["admin-assignments"] });
+      await client.invalidateQueries({ queryKey: ["teacher-assignments"] });
     },
     onError: (cause) =>
       setError(cause instanceof ApiError ? cause.message : t("common.actionFailed")),
@@ -526,7 +526,7 @@ function ClassChips({
 }>) {
   const { t } = useTranslation();
   const classes = useQuery({
-    queryKey: ["admin-classes", "picker", { limit: 100 }],
+    queryKey: ["teacher-classes", "picker", { limit: 100 }],
     queryFn: ({ signal }) => fetchClasses({ limit: 100 }, signal),
     staleTime: 60_000,
   });

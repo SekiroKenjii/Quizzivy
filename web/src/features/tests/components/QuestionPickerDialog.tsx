@@ -96,7 +96,7 @@ function Picker({
   const [ticked, setTicked] = useState<readonly string[]>([]);
   const search = useDebounced(query.trim(), 250);
   const bank = useInfiniteQuery({
-    queryKey: ["admin-questions", "picker", search],
+    queryKey: ["teacher-questions", "picker", search],
     initialPageParam: 1,
     queryFn: ({ pageParam, signal }) =>
       listQuestions(

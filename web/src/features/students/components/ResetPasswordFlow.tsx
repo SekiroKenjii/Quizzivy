@@ -92,7 +92,7 @@ export function ResetPasswordFlow({
     setError(null);
     try {
       setOutcome(one === undefined ? await resetMany(students) : await resetOne(one));
-      void client.invalidateQueries({ queryKey: ["admin-students"] });
+      void client.invalidateQueries({ queryKey: ["teacher-students"] });
     } catch (cause) {
       setError(refusalOf(cause, t));
     } finally {

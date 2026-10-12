@@ -52,7 +52,7 @@ export function BuilderGroupPane(props: Readonly<PaneProps>) {
   const { t } = useTranslation();
   const owner = useAuthStore((state) => state.user?.id ?? "");
   const query = useQuery({
-    queryKey: ["admin-group", props.id],
+    queryKey: ["teacher-group", props.id],
     staleTime: 60_000,
     refetchOnWindowFocus: false,
     queryFn: ({ signal }) => getGroup(props.id, signal),

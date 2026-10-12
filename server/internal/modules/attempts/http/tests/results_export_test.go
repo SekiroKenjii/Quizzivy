@@ -38,12 +38,17 @@ func exportTransport(export domain.ResultsExport, err error) attemptshttp.Attemp
 
 func exportedIn(t *testing.T, acceptLanguage string, transport attemptshttp.Attempts) openapi.ExportResultsCsvResponseObject {
 	t.Helper()
+	return exportedNaming(t, acceptLanguage, transport, uuid.New())
+}
+
+func exportedNaming(t *testing.T, acceptLanguage string, transport attemptshttp.Attempts, ids ...openapi.Uuid) openapi.ExportResultsCsvResponseObject {
+	t.Helper()
 	var response openapi.ExportResultsCsvResponseObject
 	var served error
 	handler := httpx.WithRequestMeta(func(*http.Request) string { return "203.0.113.9" })(
 		http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 			response, served = transport.ExportResultsCsv(r.Context(), openapi.ExportResultsCsvRequestObject{
-				Params: openapi.ExportResultsCsvParams{Ids: []openapi.Uuid{uuid.New()}},
+				Params: openapi.ExportResultsCsvParams{Ids: ids},
 			})
 		}))
 	request := httptest.NewRequest(http.MethodGet, "/teacher/assignments/results.csv", nil)
@@ -257,4 +262,52 @@ func TestTheItemAnalysisKeepsAnUnmarkedQuestionsRateAsNull(t *testing.T) {
 
 func equalRecords(a, b [][]string) bool {
 	return slices.EqualFunc(a, b, func(x, y []string) bool { return slices.Equal(x, y) })
+}
+
+func TestAnAssignmentNamedTwiceIsRefusedBeforeTheExportReadsAnything(t *testing.T) {
+	assignment, other := uuid.New(), uuid.New()
+	reads := 0
+	transport := attemptshttp.NewAttempts(&application.Application{Queries: application.Queries{
+		ResultsExport: cqrs.HandlerFunc[query.ResultsExport, domain.ResultsExport](func(context.Context, query.ResultsExport) (domain.ResultsExport, error) {
+			reads++
+			return sampleExport(), nil
+		}),
+	}}, nil, nil, nil)
+
+	for _, c := range []struct {
+		accept  string
+		message string
+	}{
+		{"", "Mỗi bài giao chỉ được nêu một lần."},
+		{"en", "Each assignment can be named only once."},
+	} {
+		refused, ok := exportedNaming(t, c.accept, transport, assignment, other, assignment).(openapi.ExportResultsCsv400JSONResponse)
+		if !ok {
+			t.Fatalf("Accept-Language %q: an assignment named twice was not answered 400", c.accept)
+		}
+		raw, err := json.Marshal(refused)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var wire struct {
+			Error struct {
+				Code    string         `json:"code"`
+				Message string         `json:"message"`
+				Details map[string]any `json:"details"`
+			} `json:"error"`
+		}
+		if err := json.Unmarshal(raw, &wire); err != nil {
+			t.Fatal(err)
+		}
+		if wire.Error.Code != "VALIDATION_FAILED" || wire.Error.Message != c.message || wire.Error.Details["ids"] != c.message {
+			t.Errorf("Accept-Language %q: the refusal reads %s, want VALIDATION_FAILED naming ids with %q", c.accept, raw, c.message)
+		}
+	}
+	if reads != 0 {
+		t.Errorf("the export read %d times for a request it refuses", reads)
+	}
+
+	if _, ok := exportedNaming(t, "", transport, assignment, other).(openapi.ExportResultsCsv200TextcsvResponse); !ok || reads != 1 {
+		t.Errorf("two different assignments were refused or read %d times, want one read", reads)
+	}
 }

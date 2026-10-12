@@ -18,10 +18,15 @@ import (
 const exportTimeLayout = "2006-01-02 15:04"
 
 // ExportResultsCsv writes the roster rows of up to 50 assignments as a CSV
-// file a spreadsheet opens, times in the caller's own calendar zone.
+// file a spreadsheet opens, times in the caller's own calendar zone. An
+// assignment named twice is refused with 400 whatever the spelling of its id.
 func (h Attempts) ExportResultsCsv(ctx context.Context, request openapi.ExportResultsCsvRequestObject) (openapi.ExportResultsCsvResponseObject, error) {
 	if h.app == nil || h.app.Queries.ResultsExport == nil {
 		return nil, httpx.ErrNotImplemented
+	}
+	if httpapi.RepeatsAnID(request.Params.Ids) {
+		return openapi.ExportResultsCsv400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+			httpapi.FieldError(ctx, "ids", httpx.Text(ctx, "Mỗi bài giao chỉ được nêu một lần.", "Each assignment can be named only once.")))}, nil
 	}
 	ids := make([]string, len(request.Params.Ids))
 	for i, id := range request.Params.Ids {

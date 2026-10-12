@@ -97,7 +97,7 @@ function Picker({
   const [selected, setSelected] = useState<LibraryAsset | null>(null);
   const search = useDebounced(query.trim(), 300);
   const library = useInfiniteQuery({
-    queryKey: ["admin-media", "picker", kind, search],
+    queryKey: ["teacher-media", "picker", kind, search],
     initialPageParam: 1,
     queryFn: ({ pageParam, signal }) =>
       listMedia(
