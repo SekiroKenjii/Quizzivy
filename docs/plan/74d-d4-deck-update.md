@@ -1388,28 +1388,28 @@ panes' container only and never touches `visibilitychange`, `blur`, `copy`, `pas
 `useKeptScroll`'s promise that a hidden pane keeps its place; the rule that the keys answer and
 flag only a question on screen.
 **Done when:**
-- [ ] Below 768, shared content is a drawer from the left, not a switcher: `min(88% of the
+- [x] Below 768, shared content is a drawer from the left, not a switcher: `min(88% of the
       width, 420px)` wide, over the question, `transform .32s cubic-bezier(.22,.8,.24,1)`,
       `--shadow-lg` while open, a backdrop that darkens to 45% of the overlay token (no literal
       colour: `no-raw-colours.test.ts` stays green).
-- [ ] Closed, a handle at the left edge, 42% down: 30 by 84px, radius 0 12px 12px 0, `--card`,
+- [x] Closed, a handle at the left edge, 42% down: 30 by 84px, radius 0 12px 12px 0, `--card`,
       1px border without the left side, the `file-text` or `audio-lines` icon (15px), a 7px
       `--accent-c` dot while the group's recording plays, `chevrons-right` (14px, muted),
       `--shadow-lg`.
       It is named, in English as the deck has it, "Open the passage" or "Open the audio".
-- [ ] Until a group's drawer has been opened once in this attempt, the handle nudges (7px,
+- [x] Until a group's drawer has been opened once in this attempt, the handle nudges (7px,
       1.4s, three times, after 0.4s) and a tip shows beside it (`role="status"`, primary,
       12.5px, at most 220px): "The passage is here. Swipe right or tap to read it." or "The
       recording is here. Swipe right or tap to open it.". Remembered per group in
       `sessionStorage['quizzivy.stimulus-seen.<attemptId>']`, inside try/catch.
-- [ ] Open, a sticky bar: "Swipe left to go back to the question" (12px, muted,
+- [x] Open, a sticky bar: "Swipe left to go back to the question" (12px, muted,
       `chevrons-left`) and a 34px close button.
-- [ ] A swipe starts after 10px when it is more horizontal than 1.2 times its vertical travel;
+- [x] A swipe starts after 10px when it is more horizontal than 1.2 times its vertical travel;
       released past a quarter of the drawer's width it opens, and an open drawer closes when
       dragged back past 30%. `touch-action: pan-y`; a click within 60ms of a drag does nothing;
       a tap on an option is never swallowed (a unit test taps one right after a vertical
       scroll).
-- [ ] What the deck does not draw (DG-190): opening moves focus to the close button and closing
+- [x] What the deck does not draw (DG-190): opening moves focus to the close button and closing
       returns it to the handle; Esc and the backdrop close; the closed drawer is `inert` and
       stays mounted, so the place in the passage and a playing recording survive; under
       `prefers-reduced-motion` there is no nudge, no tip animation and no slide. The deck
@@ -1417,21 +1417,50 @@ flag only a question on screen.
       `aria-hidden` leaves the gap buttons inside it reachable by Tab, and DG-190 records the
       choice. The drawer's own background is `--bg`, stated on the pane (S 1041), since it now
       lies over the question.
-- [ ] A gap tapped in the drawer closes it and lands on its question or blank, as today. A
+- [x] A gap tapped in the drawer closes it and lands on its question or blank, as today. A
       move by the arrows, a square or "Go to" closes it: all of them go through the engine's
       one move function, where the deck's arrow keys bypass `go()` and leave the drawer open
       (S 1616, DG-191). While it is open the keys that answer
       or flag do nothing. The footer stays where it is, under the backdrop.
-- [ ] Crossing 768 with the drawer open shows both panes; the same pane element is used on both
+- [x] Crossing 768 with the drawer open shows both panes; the same pane element is used on both
       sides, so nothing inside it remounts.
-- [ ] Strings. New: `takeTest.{openPassage,openRecording,drawerHint,drawerClose,tipPassage,
+- [x] Strings. New: `takeTest.{openPassage,openRecording,drawerHint,drawerClose,tipPassage,
       tipRecording}`. Removed, in their own commit: `takeTest.{passage,paneSwitch}`.
-- [ ] Tests: every case of `panes.test.tsx`'s "the panes below 768" is rewritten to the drawer
+- [x] Tests: every case of `panes.test.tsx`'s "the panes below 768" is rewritten to the drawer
       (the PR lists each pair); `group-context.test.tsx`'s phone cases follow; pointer events
       drive the three thresholds; `student-engine.phone.spec.ts` swipes for real in
       mobile-chromium, and checks that no sideways scroll appears at 320.
-- [ ] Compared with s9 question 23 and s1 at 360 and 767, light and dark: the handle, the tip,
+- [x] Compared with s9 question 23 and s1 at 360 and 767, light and dark: the handle, the tip,
       the open drawer, its bar and the backdrop.
+
+**As built:** the handle, the tip, the backdrop and the bar are in `StimulusDrawer.tsx`; the
+drawer is `GroupContext`'s own article, given a `drawer` (`DrawerPane`) below 768, so the same
+element serves both sides of 768. The state is `useStimulusDrawer` in `panes.ts`, beside
+`useDrawerSwipe`, `useSeenStimuli` and `useSharedAudioPlaying`: the drawer is open for one
+`visit` of a question, so every move closes it; `dismiss` closes it for a gap without moving
+the focus to the handle. Esc is a window listener while it is open that stands aside for an
+open dialog; the click a swipe leaves behind is swallowed by a native capture listener on the
+panes, because React's `onChange` for a radio comes from the native click. The panes, the
+question's scroller and the drawer are all `touch-action: pan-y`, since a scroll container
+decides its own; a horizontal swipe that starts on a rich table scrolls the table. The playing
+dot reads the media events of the group's recordings (`data-shared-audio`), which stay in the
+question pane until T-D4.8. The backdrop is `--overlay` at the drawer's progress: 0.40 alpha in
+light and 0.60 in dark against the deck's 0.45 in both, with no literal colour. The close
+button is the deck's 34px and opts out of the 44px floor, as the handle does (Q21). `Paper`
+takes an optional `attemptId` for the seen-groups key; without one it remembers in memory.
+Pairs in `panes.test.tsx`, "the panes below 768": the switcher case became the closed drawer
+and its handle, plus opening, closing to the handle, Esc and the backdrop; the English
+switcher, the deck's English handle, tip and bar; "names the question in the switcher" the
+nudge and tip remembered per attempt (and a browser that refuses storage); the keys case the
+keys under an open drawer; the arrows case the arrows closing it; the two "shows the question
+again" cases "stays closed"; the Submit dialog case closing and landing; "keeps the student's
+place" both panes' places; the two "no switcher" cases "no handle"; "grows past 768" the same
+element on both sides; the answer-typed case unchanged but for the handle. New there: the
+swipe's three thresholds, following the finger, a vertical scroll and its tap, and the 60ms
+swallow. `group-context.test.tsx`'s phone cases follow, with the playing dot; the navigator's
+"hides with the question" became "stays under the backdrop"; `student-engine.phone.spec.ts`
+swipes with real touches (CDP) and taps; `group-attempt.spec.ts` opens the drawer at 320 and
+checks for sideways scroll there with it open.
 
 ### T-D4.8 — Engine: the recording card in the stimulus pane, and what spends a play
 **Depends on:** T-D4.7

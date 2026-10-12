@@ -11,16 +11,18 @@ for (const width of [320, 768, 1440]) {
     const material = page.getByRole("heading", {
       name: previewGroup.stimuli[0]!.title,
     });
-    const passageTab = page.getByRole("button", { name: "Ngữ liệu", exact: true });
+    const handle = page.getByRole("button", { name: "Mở ngữ liệu", exact: true });
     if (width === 320) {
-      await expect(material).toBeHidden();
-      await passageTab.click();
-      await expect(material).toBeVisible();
-      await page.getByRole("button", { name: "Câu 1", exact: true }).click();
-      await expect(material).toBeHidden();
+      await expect(material).not.toBeInViewport();
+      await handle.click();
+      await expect(material).toBeInViewport();
+      await engineFits(page);
+      await page.getByRole("button", { name: "Đóng", exact: true }).click();
+      await expect(material).not.toBeInViewport();
+      await expect(handle).toBeFocused();
     } else {
       await expect(material).toBeVisible();
-      await expect(passageTab).toHaveCount(0);
+      await expect(handle).toHaveCount(0);
     }
     await expect(page.getByText("Còn 2 lượt nghe")).toBeVisible();
     await page.getByRole("button", { name: "Phát", exact: true }).click();
@@ -41,12 +43,14 @@ for (const width of [320, 768, 1440]) {
     await expect(page.getByText("Lượt nghe đang chờ đồng bộ.")).toHaveCount(0);
     expect(seen.size).toBe(1);
     if (width === 320) {
-      await expect(page.getByText("Lịch hoạt động", { exact: true })).toBeHidden();
+      await expect(
+        page.getByText("Lịch hoạt động", { exact: true }),
+      ).not.toBeInViewport();
       await expect(
         page.getByRole("button", { name: "Phát", exact: true }),
       ).toBeVisible();
-      await passageTab.click();
-      await expect(page.getByText("Lịch hoạt động", { exact: true })).toBeVisible();
+      await handle.click();
+      await expect(page.getByText("Lịch hoạt động", { exact: true })).toBeInViewport();
     }
     const gap = page.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" });
     await gap.focus();
