@@ -9,7 +9,6 @@ import { EmptyState, LoadError } from "@/components/shared/ListState";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { useCrumbs } from "@/layouts/shell/crumbs";
 import { ApiError } from "@/lib/api/errors";
-import { nfc } from "@/lib/nfc";
 import {
   getWordImport,
   getWordImportReview,
@@ -22,6 +21,7 @@ import { ConfirmPreview } from "../../components/confirm/ConfirmPreview";
 import { ConfirmSummary } from "../../components/confirm/ConfirmSummary";
 import { statusLine } from "../../components/confirm/statusLine";
 import { useImportCommit } from "../../useImportCommit";
+import { importName } from "../../importName";
 
 /**
  * ImportConfirmPage is an import's "Preview and create": the saved review's
@@ -48,14 +48,7 @@ export default function ImportConfirmPage() {
     client.getQueryState(["word-import-review", id])?.dataUpdateCount ?? 0;
   const [cachedUpdates] = useState(updates);
   const fresh = updates() > cachedUpdates;
-  useCrumbs(
-    value.data
-      ? [
-          { label: nfc(value.data.title), to: `/teacher/imports/${id}/review` },
-          { label: t("imports.confirm.crumb") },
-        ]
-      : null,
-  );
+  useCrumbs(value.data ? [{ label: importName(value.data, t) }] : null);
 
   if (value.isPending || (review.isPending && !review.isError))
     return <ConfirmSkeleton />;

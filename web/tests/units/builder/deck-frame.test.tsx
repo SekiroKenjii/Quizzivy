@@ -74,9 +74,12 @@ const question: components["schemas"]["AdminQuestion"] = {
 
 import { viewport } from "@tests/support/viewport";
 import { registerContentElement } from "@/layouts/shell/contentWidth";
+import { CrumbTailContext, type PageCrumb } from "@/layouts/shell/crumbs";
 
 let patches: { title?: string }[] = [];
+let tails: (readonly PageCrumb[] | null)[] = [];
 beforeEach(() => {
+  tails = [];
   viewport(1024);
   localStorage.removeItem("quizzivy.builder.outline");
   patches = [];
@@ -117,7 +120,9 @@ function renderBuilder() {
   return {
     ...render(
       <QueryClientProvider client={client}>
-        <RouterProvider router={router} />
+        <CrumbTailContext value={(tail) => tails.push(tail)}>
+          <RouterProvider router={router} />
+        </CrumbTailContext>
       </QueryClientProvider>,
     ),
     user: userEvent.setup(),
@@ -141,6 +146,16 @@ describe("the deck builder frame", () => {
     await waitFor(() => expect(patches.at(-1)?.title).toBe("Revised title"), {
       timeout: 3000,
     });
+  });
+  it("names the test in the breadcrumb as the teacher types its title", async () => {
+    const { user } = renderBuilder();
+    await waitFor(() => expect(tails.at(-1)).toEqual([{ label: "Unit 5" }]));
+    await user.click(screen.getByRole("button", { name: "Tên đề thi" }));
+    const input = screen.getByRole("textbox", { name: "Tên đề thi" });
+    await user.clear(input);
+    expect(tails.at(-1)).toEqual([{ label: "Đề thi chưa đặt tên" }]);
+    await user.type(input, "Revised");
+    expect(tails.at(-1)).toEqual([{ label: "Revised" }]);
   });
   it("blurs on Escape and uses the real Untitled fallback for empty text", async () => {
     const { user } = renderBuilder();

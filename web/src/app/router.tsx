@@ -95,7 +95,13 @@ const teacherTree: RouteObject = {
           children: [
             {
               index: true,
-              handle: { crumb: [{ key: "imports.historyTitle" }], width: 1320 },
+              handle: {
+                crumb: [
+                  { key: "teacherShell.nav.tests", to: "/teacher/tests" },
+                  { key: "imports.historyTitle" },
+                ],
+                width: 1320,
+              },
               lazy: page(
                 () => import("@/features/imports/pages/teacher/ImportsListPage"),
               ),
@@ -105,8 +111,8 @@ const teacherTree: RouteObject = {
               handle: {
                 crumb: [
                   { key: "teacherShell.nav.tests", to: "/teacher/tests" },
-                  { key: "tests.importHistory", to: "/teacher/imports" },
-                  { key: "imports.newTitle" },
+                  { key: "imports.historyTitle", to: "/teacher/imports" },
+                  { key: "imports.newCrumb" },
                 ],
                 width: 860,
               },
@@ -118,6 +124,7 @@ const teacherTree: RouteObject = {
               path: ":id",
               handle: {
                 crumb: [
+                  { key: "teacherShell.nav.tests", to: "/teacher/tests" },
                   { key: "imports.historyTitle", to: "/teacher/imports" },
                   { key: "imports.detail.pageTitle" },
                 ],
@@ -132,7 +139,7 @@ const teacherTree: RouteObject = {
               handle: {
                 crumb: [
                   { key: "teacherShell.nav.tests", to: "/teacher/tests" },
-                  { key: "tests.importHistory", to: "/teacher/imports" },
+                  { key: "imports.historyTitle", to: "/teacher/imports" },
                   { key: "imports.review.crumb" },
                 ],
                 width: "full",
@@ -147,8 +154,7 @@ const teacherTree: RouteObject = {
               handle: {
                 crumb: [
                   { key: "teacherShell.nav.tests", to: "/teacher/tests" },
-                  { key: "tests.importHistory", to: "/teacher/imports" },
-                  { key: "imports.review.crumb" },
+                  { key: "imports.historyTitle", to: "/teacher/imports" },
                   { key: "imports.confirm.crumb" },
                 ],
                 width: 1320,

@@ -23,13 +23,26 @@ function applyLink(editor: Editor, href: string, inLink: boolean) {
   else chain.setLink({ href }).run();
 }
 
+const PANEL_WIDTH = 272;
+const FIELD_INSET = 6;
+
+function offsetInField(button: HTMLElement | null): number {
+  const field = button?.closest("[role=toolbar]")?.parentElement;
+  if (!button || !field) return 0;
+  const start = button.getBoundingClientRect().left;
+  const inner = field.getBoundingClientRect().left + field.clientLeft;
+  const last = inner + field.clientWidth - FIELD_INSET - PANEL_WIDTH;
+  return Math.max(inner + FIELD_INSET, Math.min(start, last)) - start;
+}
+
 /**
  * LinkPanel is the open link popover, anchored to the toolbar's "Link"
- * button. The address opens with the caret after its text, so a typed host
- * follows "https://". Enter applies the address, an address `safeContentURL` refuses is
- * reported in an alert, and with no selection the address without its scheme
- * becomes the text. Esc returns focus to the button; applying or removing
- * returns it to the editor.
+ * button: 6px below it and at its left edge, moved left as far as it takes to
+ * end 6px inside the field, as the deck places it. The address opens with the
+ * caret after its text, so a typed host follows "https://". Enter applies the
+ * address, an address `safeContentURL` refuses is reported in an alert, and
+ * with no selection the address without its scheme becomes the text. Esc
+ * returns focus to the button; applying or removing returns it to the editor.
  */
 export function LinkPanel({
   editor,
@@ -47,6 +60,7 @@ export function LinkPanel({
   const [invalid, setInvalid] = useState(false);
   const done = useRef(false);
   const input = useRef<HTMLInputElement>(null);
+  const [alignOffset] = useState(() => offsetInField(anchor.current));
 
   function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -76,6 +90,8 @@ export function LinkPanel({
       <PopoverAnchor virtualRef={anchor} />
       <PopoverContent
         align="start"
+        alignOffset={alignOffset}
+        sideOffset={6}
         collisionPadding={8}
         aria-label={t("contentEditor.link")}
         className="w-68 max-w-[calc(100vw-24px)] rounded-[10px] p-1.5 data-[scale=deck]:rounded-[10px] data-[scale=deck]:p-1.5"

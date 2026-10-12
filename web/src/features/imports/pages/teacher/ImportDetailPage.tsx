@@ -28,6 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 import { formatRelative, formatDateTime } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
+import { useCrumbs } from "@/layouts/shell/crumbs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, failureMessage } from "@/lib/api/errors";
 import {
@@ -63,6 +64,7 @@ import {
   runErrorKey,
   PROCESSING_STAGES,
 } from "../../status";
+import { importName } from "../../importName";
 
 type Store = (next: WordImport) => Promise<void>;
 
@@ -81,6 +83,7 @@ export default function ImportDetailPage() {
     refetchIntervalInBackground: false,
   });
   const status = query.data?.status;
+  useCrumbs(query.data ? [{ label: importName(query.data, t) }] : null);
 
   useEffect(() => {
     if (status === "needs_review")
@@ -168,7 +171,7 @@ function DetailHead({ value }: Readonly<{ value: WordImport }>) {
   const key = value.sources.find((source) => source.role === "answer_key");
   const started = value.run?.createdAt ?? value.createdAt;
   const text = exam?.format === "text";
-  const name = text ? t("imports.detail.pastedText") : (exam?.filename ?? value.title);
+  const name = importName(value, t);
   return (
     <header className="flex min-w-0 flex-col gap-3">
       {value.status === "processing" ||

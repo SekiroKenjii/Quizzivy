@@ -7,10 +7,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, LoadError } from "@/components/shared/ListState";
 import { useCrumbs } from "@/layouts/shell/crumbs";
 import { ApiError } from "@/lib/api/errors";
-import { nfc } from "@/lib/nfc";
 import { getWordImport, getWordImportReview } from "../../api";
 import { ReviewWorkspace } from "../../components/review/ReviewWorkspace";
 import { IMPORT_POLL_MS, isActiveStatus } from "../../status";
+import { importName } from "../../importName";
 
 /**
  * ImportReviewPage is the route of an import's review: it loads the import
@@ -53,7 +53,7 @@ function ReviewRoute({ id, onReload }: Readonly<{ id: string; onReload: () => vo
     queryFn: ({ signal }) => getWordImportReview(id, signal),
     refetchOnMount: "always",
   });
-  useCrumbs(value.data ? [{ label: nfc(value.data.title) }] : null);
+  useCrumbs(value.data ? [{ label: importName(value.data, t) }] : null);
   const updates = () =>
     client.getQueryState(["word-import-review", id])?.dataUpdateCount ?? 0;
   const [cachedUpdates] = useState(updates);

@@ -172,11 +172,7 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
     >
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1
-            ref={heading}
-            tabIndex={-1}
-            className="text-2xl leading-[1.5] font-semibold tracking-[-0.02em] outline-none"
-          >
+          <h1 ref={heading} tabIndex={-1} className="text-h1 outline-none">
             {t("grading.title")}
           </h1>
           {(model.queue.data || params.assignmentId || params.studentId) && (

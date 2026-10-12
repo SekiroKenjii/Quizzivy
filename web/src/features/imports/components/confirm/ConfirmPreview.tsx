@@ -44,7 +44,7 @@ export function ConfirmPreview({
           ]}
         />
       </div>
-      <div className="bg-sidebar max-h-160 overflow-y-auto p-5">
+      <div className="bg-sidebar relative max-h-160 overflow-y-auto p-5">
         <div
           data-preview-viewport={device}
           className={cn(
