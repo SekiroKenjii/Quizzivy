@@ -111,6 +111,7 @@ export function ResultRules({
       >
         <Segmented
           fill
+          size="lg"
           label={t("assignments.wizard.release")}
           value={review.release ?? "on_submit"}
           options={[
@@ -169,6 +170,7 @@ export function IntegrityRules({
         <span className="flex flex-col gap-2">
           <Segmented
             fill
+            size="lg"
             label={t("assignments.wizard.leaving")}
             value={mode}
             options={[
@@ -215,6 +217,7 @@ export function IntegrityRules({
       >
         <Segmented
           fill
+          size="lg"
           label={t("assignments.wizard.action")}
           value={integrity.onLimitExceeded}
           options={[

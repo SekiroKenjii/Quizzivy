@@ -497,6 +497,37 @@ it("adds a wrapping equal-width form row without changing the default", () => {
     );
 });
 
+it("draws a large form row 32px high with 13px labels, as the wizard's rule groups (F-47)", () => {
+  render(
+    <DeckScale>
+      <Segmented
+        label="Hàng"
+        value="a"
+        onChange={() => {}}
+        options={[
+          { value: "a", label: "Một" },
+          { value: "b", label: "Hai" },
+        ]}
+        size="lg"
+        fill
+      />
+    </DeckScale>,
+  );
+  for (const button of screen.getAllByRole("button")) {
+    expect(button).toHaveClass(
+      "h-8",
+      "in-data-[scale=deck]:h-8",
+      "px-3",
+      "text-[0.8125rem]",
+    );
+    expect(button).toHaveClass("flex-1", "justify-center");
+    expect(button).not.toHaveClass("h-7.5");
+    expect(button).not.toHaveClass("in-data-[scale=deck]:h-7.5");
+    expect(button).not.toHaveClass("text-meta");
+    expect(button).not.toHaveClass("px-2.5");
+  }
+});
+
 it("disables an option, says why, and leaves the others as they were", async () => {
   const onChange = vi.fn();
   render(
