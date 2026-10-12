@@ -46,7 +46,7 @@ func studentGroup(ctx context.Context, group domain.PreviewGroup, resolve func(c
 	for j, recording := range group.Recordings {
 		item.Recordings[j] = openapi.StudentGroupRecording{
 			Id: httpapi.ParseUUID(recording.ID), AssetId: httpapi.ParseUUID(recording.AssetID),
-			Policy: openapi.AudioPolicy{MaxPlays: recording.Policy.MaxPlays, AllowSeek: recording.Policy.AllowSeek, ShowTranscriptAfterSubmit: recording.Policy.ShowTranscriptAfterSubmit},
+			Policy: openapi.StudentAudioPolicy{MaxPlays: recording.Policy.MaxPlays, AllowSeek: recording.Policy.AllowSeek, ShowTranscriptAfterSubmit: recording.Policy.ShowTranscriptAfterSubmit, AllowPause: recording.Policy.PauseAllowed()},
 		}
 	}
 	for _, id := range group.AssetIDs {

@@ -60,7 +60,7 @@ func readFrozenGroup(ctx context.Context, tx pgx.Tx, id, lock string) (domain.Gr
 
 func readFrozenMembers(ctx context.Context, tx pgx.Tx, bundle *domain.GroupBundle) error {
 	rows, err := tx.Query(ctx, `SELECT q.id::text,q.type::text,q.prompt,q.prompt_content,q.explanation_content,q.points::text,
-		q.media_asset_id::text,q.media_asset_kind::text,q.audio_max_plays,q.audio_allow_seek,q.audio_show_transcript_after,
+		q.media_asset_id::text,q.media_asset_kind::text,q.audio_max_plays,q.audio_allow_seek,q.audio_show_transcript_after,coalesce(q.audio_allow_pause,true),
 		q.transcript,q.explanation,q.sample_answer,m.ordinal,m.option_order,q.level,q.skill,q.media_alt
 		FROM app.test_version_group_members m JOIN app.test_version_questions q ON q.id=m.question_id
 		WHERE m.group_id=$1 ORDER BY m.ordinal`, bundle.Group.ID)
@@ -74,10 +74,11 @@ func readFrozenMembers(ctx context.Context, tx pgx.Tx, bundle *domain.GroupBundl
 		var member domain.GroupMember
 		var ordinal int
 		var allow, show *bool
+		var pause bool
 		var maxPlays *int
 		in := &question.Input
 		if err := rows.Scan(&question.ID, &in.Type, &in.Prompt, &in.PromptContent, &in.ExplanationContent, &in.Points,
-			&in.MediaAssetID, &question.MediaAssetKind, &maxPlays, &allow, &show, &in.Transcript, &in.Explanation, &in.SampleAnswer, &ordinal, &member.OptionOrder, &in.Level, &in.Skill, &in.MediaAlt); err != nil {
+			&in.MediaAssetID, &question.MediaAssetKind, &maxPlays, &allow, &show, &pause, &in.Transcript, &in.Explanation, &in.SampleAnswer, &ordinal, &member.OptionOrder, &in.Level, &in.Skill, &in.MediaAlt); err != nil {
 			return err
 		}
 		if ordinal != len(bundle.Questions) {
@@ -85,7 +86,7 @@ func readFrozenMembers(ctx context.Context, tx pgx.Tx, bundle *domain.GroupBundl
 		}
 		in.Tags = []string{}
 		if allow != nil && show != nil {
-			in.Audio = &questions.AudioPolicy{MaxPlays: maxPlays, AllowSeek: *allow, ShowTranscriptAfterSubmit: *show}
+			in.Audio = &questions.AudioPolicy{MaxPlays: maxPlays, AllowSeek: *allow, ShowTranscriptAfterSubmit: *show, AllowPause: &pause}
 		}
 		member.QuestionID = question.ID
 		byID[question.ID] = len(bundle.Questions)

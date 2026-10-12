@@ -118,11 +118,11 @@ func (b previewBatch) gaps(ctx context.Context, tx pgx.Tx, stimulusIDs []string)
 }
 
 func (b previewBatch) recordings(ctx context.Context, tx pgx.Tx, ids []string) error {
-	return eachRow(ctx, tx, `SELECT group_id::text,id::text,media_asset_id::text,max_plays,allow_seek,show_transcript_after_submit
+	return eachRow(ctx, tx, `SELECT group_id::text,id::text,media_asset_id::text,max_plays,allow_seek,show_transcript_after_submit,allow_pause
         FROM app.test_version_group_recordings WHERE group_id=ANY($1::uuid[]) ORDER BY group_id,id`, ids, func(rows pgx.Rows) error {
 		var group string
 		var recording domain.PreviewRecording
-		if err := rows.Scan(&group, &recording.ID, &recording.AssetID, &recording.Policy.MaxPlays, &recording.Policy.AllowSeek, &recording.Policy.ShowTranscriptAfterSubmit); err != nil {
+		if err := rows.Scan(&group, &recording.ID, &recording.AssetID, &recording.Policy.MaxPlays, &recording.Policy.AllowSeek, &recording.Policy.ShowTranscriptAfterSubmit, &recording.Policy.AllowPause); err != nil {
 			return err
 		}
 		g := &b.groups[b.position[group]]
