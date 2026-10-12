@@ -157,7 +157,7 @@ integration test asserts they are equal. Labels and defaults are the deck's
 | `ai.use` | Use AI features (D19 to D22; D4, T-D4.32) | Content | ✓ | ✓ | | |
 | `ai.credits.manage` | Manage AI credits (D21; D4, T-D4.32) | System | ✓ | | | |
 
-The two AI rows are not in the deck's matrix (DG+18 in `74d`, asked of the design team); they are
+The two AI rows are not in the deck's matrix (DG-199 in `74d`, asked of the design team); they are
 drawn in the matrix's own style until then. `ai.use` gates every `/teacher/ai/*` operation and the
 import's "Read with AI"; `ai.credits.manage` gates `/admin/ai/*` (the pool, allowances, rules and
 requests). Neither is a pseudo-key: a role may hold every teaching key and no AI.
