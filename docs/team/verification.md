@@ -195,6 +195,67 @@ Run all of these and record the output in the evidence:
   product: no nav item, palette entry or button may point at them).
   Dialogs, menus and sheets are opened by clicking the same control on both pages.
 
+#### Document scroll: a standing step for every screen
+
+A page has one scroller, and headless Chromium hides it: its default launch
+adds `--hide-scrollbars`, so a second, window-level scrollbar never shows and
+`scrollWidth <= innerWidth` cannot see it. QA-51-1 shipped on ten teacher routes
+for that reason (`docs/team/verification-r4-51.md`, section 5). This check runs
+on every screen a task changes, on every route at T-R4.51, and on every route
+again at T-R4.52, in a browser that shows its scrollbars.
+
+1. Launch Chromium with `ignoreDefaultArgs: ['--hide-scrollbars']` (Playwright's
+   `launchOptions`), never the default. Use `localhost` and a fresh context.
+2. At **1280x700, 768x700 and 360x700**, settled (no skeleton, fonts loaded),
+   run the probe below. Add a short height for any screen that scrolls, and a
+   state per screen with its tallest content (a long list, an open editor, the
+   engine with eight options).
+3. Expect, for the document: `docOverflowY` 0, `docOverflowX` 0, `winScrollbar` 0.
+   Expect, for every inner scroller (`overflow-y: auto|scroll` with
+   `scrollHeight > clientHeight`, a textarea excepted): `past` at most 1.5 px,
+   that is, the scroller does not run past its content. An empty strip under the
+   last row of a scroller is the inner-scroller variant of the same defect.
+4. A failure reads the same in both: an element positioned absolutely inside a
+   scroller that is not its containing block (`sr-only` inputs and paragraphs
+   are the usual ones) sits at its static position, below the fold, and the
+   scroller's `overflow` does not clip it. Each scroller (`<main>` in
+   `TeacherLayout`, `StudentLayout`, the engine's question pane and the pages
+   that hold their own) is `position: relative`. `web/tests/e2e/document-scroll.spec.ts`
+   pins that for the screens it names; it does not replace the step for a new screen.
+5. Run the control once per session so the probe is known to fail when it should:
+   set `main.style.position = 'static'` on the test detail at 1280x700 and append
+   an `sr-only` box at `top: 3000px`; `docOverflowY` must be above 0 and
+   `winScrollbar` 15. A probe that cannot fail proves nothing.
+
+```js
+const probe = () => {
+  const de = document.scrollingElement;
+  const res = { docOverflowY: de.scrollHeight - innerHeight, docOverflowX: de.scrollWidth - innerWidth,
+    winScrollbar: innerWidth - document.documentElement.clientWidth, scrollers: [], pastContent: [] };
+  for (const e of document.querySelectorAll('body, body *')) {
+    const cs = getComputedStyle(e);
+    if (!/(auto|scroll|overlay)/.test(cs.overflowY) || e.tagName === 'TEXTAREA') continue;
+    if (e.scrollHeight <= e.clientHeight + 1) continue;
+    const top = e.getBoundingClientRect().top;
+    let extent = 0;
+    for (const d of e.querySelectorAll('*')) {
+      const r = d.getBoundingClientRect(), s = getComputedStyle(d);
+      if ((r.width <= 1 && r.height <= 1) || s.display === 'none' || s.visibility === 'hidden' || s.position === 'fixed') continue;
+      let bottom = r.bottom;
+      for (let a = d.parentElement; a && a !== e; a = a.parentElement)
+        if (getComputedStyle(a).overflowY !== 'visible') bottom = Math.min(bottom, a.getBoundingClientRect().bottom);
+      extent = Math.max(extent, bottom - top + e.scrollTop);
+    }
+    extent += parseFloat(cs.paddingBottom) || 0;
+    const rec = { el: e.tagName.toLowerCase() + '.' + String(e.className).split(/\s+/).slice(0, 3).join('.'),
+      client: e.clientHeight, scroll: e.scrollHeight, past: +(e.scrollHeight - extent).toFixed(1) };
+    res.scrollers.push(rec);
+    if (rec.past > 1.5) res.pastContent.push(rec);
+  }
+  return res;
+};
+```
+
 ### 4.4 Data shaped like the deck's fixtures
 
 The deck's fixtures are constants at the top of its script (`TESTS`, `BANK`,
@@ -246,7 +307,8 @@ DG-117, the main scrollbar (15 px when scrollbars show; compare at 1280 with
 and without), prototype chrome that never ships (screen-switcher pills, demo
 accounts, "Try" hints, canvas theme buttons, "Coming next").
 Also assert on the product page alone:
-`document.documentElement.scrollWidth <= innerWidth` (never scrolls sideways),
+`document.documentElement.scrollWidth <= innerWidth` (never scrolls sideways) and
+the document-scroll probe of section 4.3, with scrollbars shown,
 no raw colour (the unit test covers source; check computed colours resolve from
 tokens), `data-scale="deck"` present on the root.
 
