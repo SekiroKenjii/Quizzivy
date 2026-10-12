@@ -744,7 +744,8 @@ BEGIN
   VALUES (run_id, iid, 1, pg_temp.did('run-request:' || n), pg_temp.lan(), 2, 'word-pipeline-v3',
           run->>'status', run->>'stage', 1, 3, 1,
           CASE WHEN running THEN worker END, CASE WHEN running THEN now() + interval '10 years' END,
-          created + interval '1 minute', run->>'error',
+          CASE WHEN run->>'status' = 'queued' THEN now() + interval '10 years' ELSE created + interval '1 minute' END,
+          run->>'error',
           CASE WHEN run->>'status' = 'succeeded' THEN jsonb_build_object(
             'version', 'word-pipeline-v3', 'candidateSetId', pg_temp.did('candidate:' || n),
             'sources', (SELECT jsonb_agg(jsonb_build_object(
@@ -844,13 +845,14 @@ SELECT pg_temp.put_import(3, 'IELTS Reading Pack B', 'failed', 5, interval '18 h
     {"kind":"failed","stage":"source_validation","claim":1,"attempt":1,"error":"SOURCE_INVALID"}]}$r$::jsonb,
   NULL, NULL, NULL);
 
--- An exam and its answer key being read. The run holds a lease for ten years
--- so no worker takes it over: it stays "Processing" for a comparison.
+-- An exam and its answer key being read. The run is queued at the extraction
+-- stage and not due for ten years, so no worker claims it and it holds none
+-- of the worker's slots: it stays "Processing" for a comparison.
 SELECT pg_temp.put_import(4, 'Grade 9 Mock Test 4', 'processing', 4, interval '20 minutes',
   jsonb_build_array(
     jsonb_build_object('role', 'exam', 'filename', 'Grade 9 Mock Test 4.docx', 'format', 'docx', 'bytes', 1258291, 'digest', 'seed-08-grade-9-mock-test-4'),
     jsonb_build_object('role', 'answer_key', 'filename', 'Answer key Tests 1–5.docx', 'format', 'docx', 'bytes', 88064, 'digest', 'seed-08-answer-key-tests-1-5')),
-  $r${"status":"running","stage":"extraction","events":[
+  $r${"status":"queued","stage":"extraction","events":[
     {"kind":"queued","stage":"queued","claim":0,"attempt":0},
     {"kind":"claimed","stage":"source_validation","claim":1,"attempt":1},
     {"kind":"stage","stage":"normalization","claim":1,"attempt":1},
