@@ -37,11 +37,7 @@ func contractDatabase(t *testing.T) (*sql.DB, string) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = admin.Close() })
-	t.Cleanup(func() {
-		if _, err := admin.Exec(`DROP DATABASE IF EXISTS ` + name + ` WITH (FORCE)`); err != nil {
-			t.Errorf("dropping %s: %v", name, err)
-		}
-	})
+	t.Cleanup(func() { dropScratchDatabase(t, admin, name) })
 	if _, err := admin.Exec(`CREATE DATABASE ` + name); err != nil {
 		t.Fatalf("creating %s: %v", name, err)
 	}
