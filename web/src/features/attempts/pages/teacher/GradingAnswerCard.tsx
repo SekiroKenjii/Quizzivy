@@ -87,10 +87,10 @@ export function GradingAnswerCard({
     <section
       ref={card}
       tabIndex={-1}
-      className="bg-card shadow-card flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border outline-none"
+      className="bg-card shadow-card flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border outline-none min-[768px]:min-h-0"
       aria-label={t("grading.answerCard")}
     >
-      <div className="space-y-4.5 px-5 py-4.5">
+      <div className="space-y-4.5 px-5 py-4.5 min-[768px]:min-h-0 min-[768px]:flex-[1_1_auto] min-[768px]:overflow-y-auto">
         <div className="flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex min-w-0 items-center gap-2.5">
             <Avatar name={item.studentName} className="size-8.5" />

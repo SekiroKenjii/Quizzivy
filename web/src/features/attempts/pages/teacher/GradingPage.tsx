@@ -68,6 +68,7 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
       ) + 1
     : 0;
   const acknowledged = model.savedCount;
+  const panes = Boolean(model.queue.data && selected && !model.candidate);
   const heading = useRef<HTMLHeadingElement>(null);
   const focusHeading =
     (location.state as { focus?: string } | null)?.focus === HEADING_FOCUS;
@@ -170,153 +171,163 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
       aria-label={t("grading.title")}
       className="flex min-w-0 flex-col gap-4"
     >
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 ref={heading} tabIndex={-1} className="text-h1 outline-none">
-            {t("grading.title")}
-          </h1>
-          {(model.queue.data || params.assignmentId || params.studentId) && (
-            <p className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px]">
-              {model.queue.data &&
-                t("grading.remaining", {
-                  answers: model.queue.data.answersRemaining,
-                  students: model.queue.data.studentsWaiting,
-                })}
-              <FilterChips model={model} params={params} onChange={change} />
-            </p>
-          )}
-        </div>
-        <div
-          role="group"
-          aria-label={t("grading.mode")}
-          className="bg-muted flex gap-0.5 rounded-[9px] p-0.75"
-        >
-          {(["student", "question"] as const).map((value) => (
-            <Button
-              key={value}
-              size="sm"
-              variant="ghost"
-              aria-pressed={mode === value}
-              disabled={model.busy}
-              className={cn(
-                "h-7.5 rounded-[7px] px-3",
-                mode === value
-                  ? "bg-card! text-foreground shadow-[var(--qz-shadow),0_0_0_1px_var(--border)]"
-                  : "text-muted-foreground",
-              )}
-              onClick={() => change("mode", value)}
-            >
-              {t(value === "student" ? "grading.byStudent" : "grading.byQuestion")}
-            </Button>
-          ))}
-        </div>
-      </header>
-      {model.error && (
-        <Alert variant="danger">
-          <AlertDescription>{model.error}</AlertDescription>
-        </Alert>
-      )}
-      {Object.values(model.finishes).map((state) => (
-        <Alert key={state.item.attemptId} variant="danger">
-          <AlertDescription>
-            <p>{t("grading.finishFailed")}</p>
-            <p>{state.error}</p>
-            <div className="mt-2 flex gap-2">
+      <div
+        className={cn(
+          "flex min-w-0 flex-col gap-4",
+          panes && "min-[768px]:h-[calc(100vh-120px)] min-[768px]:min-h-140",
+        )}
+      >
+        <header className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 ref={heading} tabIndex={-1} className="text-h1 outline-none">
+              {t("grading.title")}
+            </h1>
+            {(model.queue.data || params.assignmentId || params.studentId) && (
+              <p className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px]">
+                {model.queue.data &&
+                  t("grading.remaining", {
+                    answers: model.queue.data.answersRemaining,
+                    students: model.queue.data.studentsWaiting,
+                  })}
+                <FilterChips model={model} params={params} onChange={change} />
+              </p>
+            )}
+          </div>
+          <div
+            role="group"
+            aria-label={t("grading.mode")}
+            className="bg-muted flex gap-0.5 rounded-[9px] p-0.75"
+          >
+            {(["student", "question"] as const).map((value) => (
               <Button
+                key={value}
+                size="sm"
+                variant="ghost"
+                aria-pressed={mode === value}
                 disabled={model.busy}
-                onClick={() => void model.retryFinish(state)}
+                className={cn(
+                  "h-7.5 rounded-[7px] px-3",
+                  mode === value
+                    ? "bg-card! text-foreground shadow-[var(--qz-shadow),0_0_0_1px_var(--border)]"
+                    : "text-muted-foreground",
+                )}
+                onClick={() => change("mode", value)}
               >
-                {t("grading.retryFinish")}
+                {t(value === "student" ? "grading.byStudent" : "grading.byQuestion")}
               </Button>
-              <Button asChild variant="outline">
-                <Link
-                  to={`/teacher/attempts/${state.item.attemptId}`}
-                  aria-disabled={model.busy}
-                  onClick={(event) =>
-                    openReview(event, `/teacher/attempts/${state.item.attemptId}`)
-                  }
+            ))}
+          </div>
+        </header>
+        {model.error && (
+          <Alert variant="danger">
+            <AlertDescription>{model.error}</AlertDescription>
+          </Alert>
+        )}
+        {Object.values(model.finishes).map((state) => (
+          <Alert key={state.item.attemptId} variant="danger">
+            <AlertDescription>
+              <p>{t("grading.finishFailed")}</p>
+              <p>{state.error}</p>
+              <div className="mt-2 flex gap-2">
+                <Button
+                  disabled={model.busy}
+                  onClick={() => void model.retryFinish(state)}
                 >
-                  {t("grading.openReview")}
-                </Link>
-              </Button>
-            </div>
-          </AlertDescription>
-        </Alert>
-      ))}
-      {model.queue.isPending && <ListSkeleton />}
-      {model.queue.isError && (
-        <LoadError error={model.queue.error} onRetry={() => void model.queue.refetch()}>
-          {t("grading.loadFailed")}
-        </LoadError>
-      )}
-      {model.queue.data && (
-        <>
-          {model.queue.data.answersRemaining > model.queue.data.items.length && (
-            <p role="status" className="text-muted-foreground text-xs">
-              {t("grading.prefix", {
-                shown: model.queue.data.items.length,
-                total: model.queue.data.answersRemaining,
-              })}
-            </p>
-          )}
-          {selected && !model.candidate ? (
-            <div className="flex min-w-0 flex-wrap items-start gap-3.5">
-              <GradingQueueAside
-                queue={model.queue.data}
-                items={model.items}
-                selected={selected}
-                mode={mode}
-                busy={model.busy}
-                onSelect={(item) => void model.select(item)}
-              />
-              <div className="w-full min-w-0 flex-[3_1_520px]">
-                <div
-                  role="progressbar"
-                  aria-label={t("grading.windowProgress")}
-                  aria-valuemin={0}
-                  aria-valuemax={model.items.length}
-                  aria-valuenow={acknowledged}
-                  className="bg-muted h-0.75 overflow-hidden rounded-t-xl"
-                >
+                  {t("grading.retryFinish")}
+                </Button>
+                <Button asChild variant="outline">
+                  <Link
+                    to={`/teacher/attempts/${state.item.attemptId}`}
+                    aria-disabled={model.busy}
+                    onClick={(event) =>
+                      openReview(event, `/teacher/attempts/${state.item.attemptId}`)
+                    }
+                  >
+                    {t("grading.openReview")}
+                  </Link>
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        ))}
+        {model.queue.isPending && <ListSkeleton />}
+        {model.queue.isError && (
+          <LoadError
+            error={model.queue.error}
+            onRetry={() => void model.queue.refetch()}
+          >
+            {t("grading.loadFailed")}
+          </LoadError>
+        )}
+        {model.queue.data && (
+          <>
+            {model.queue.data.answersRemaining > model.queue.data.items.length && (
+              <p role="status" className="text-muted-foreground text-xs">
+                {t("grading.prefix", {
+                  shown: model.queue.data.items.length,
+                  total: model.queue.data.answersRemaining,
+                })}
+              </p>
+            )}
+            {selected && !model.candidate ? (
+              <div className="flex min-w-0 flex-wrap items-start gap-3.5 min-[768px]:min-h-0 min-[768px]:flex-[1_1_auto] min-[768px]:flex-nowrap min-[768px]:items-stretch">
+                <GradingQueueAside
+                  queue={model.queue.data}
+                  items={model.items}
+                  selected={selected}
+                  mode={mode}
+                  busy={model.busy}
+                  onSelect={(item) => void model.select(item)}
+                />
+                <div className="w-full min-w-0 flex-[3_1_520px] min-[768px]:flex min-[768px]:min-h-0 min-[768px]:flex-col">
                   <div
-                    className="bg-brand h-full transition-[width] duration-200 [transition-timing-function:ease] motion-reduce:transition-none"
-                    style={{
-                      width: `${model.items.length ? (acknowledged / model.items.length) * 100 : 0}%`,
-                    }}
+                    role="progressbar"
+                    aria-label={t("grading.windowProgress")}
+                    aria-valuemin={0}
+                    aria-valuemax={model.items.length}
+                    aria-valuenow={acknowledged}
+                    className="bg-muted h-0.75 overflow-hidden rounded-t-xl"
+                  >
+                    <div
+                      className="bg-brand h-full transition-[width] duration-200 [transition-timing-function:ease] motion-reduce:transition-none"
+                      style={{
+                        width: `${model.items.length ? (acknowledged / model.items.length) * 100 : 0}%`,
+                      }}
+                    />
+                  </div>
+                  <GradingAnswerCard
+                    key={gradingItemKey(selected)}
+                    item={selected}
+                    draft={model.draft}
+                    busy={model.busy}
+                    finishReady={model.finishReady?.attemptId === selected.attemptId}
+                    position={position}
+                    total={groupItems.length}
+                    onScore={(points) => void model.pickScore(selected, points)}
+                    onComment={(comment) => model.comment(selected, comment)}
+                    onPrevious={() => model.move(-1)}
+                    onNext={(numericIntent = false) =>
+                      void (model.finishReady?.attemptId === selected.attemptId
+                        ? model.confirmFinish()
+                        : model.next(numericIntent))
+                    }
+                    onRetryMaterial={() => void model.queue.refetch()}
+                    onReview={(event) =>
+                      openReview(event, `/teacher/attempts/${selected.attemptId}`)
+                    }
                   />
                 </div>
-                <GradingAnswerCard
-                  key={gradingItemKey(selected)}
-                  item={selected}
-                  draft={model.draft}
-                  busy={model.busy}
-                  finishReady={model.finishReady?.attemptId === selected.attemptId}
-                  position={position}
-                  total={groupItems.length}
-                  onScore={(points) => void model.pickScore(selected, points)}
-                  onComment={(comment) => model.comment(selected, comment)}
-                  onPrevious={() => model.move(-1)}
-                  onNext={(numericIntent = false) =>
-                    void (model.finishReady?.attemptId === selected.attemptId
-                      ? model.confirmFinish()
-                      : model.next(numericIntent))
-                  }
-                  onRetryMaterial={() => void model.queue.refetch()}
-                  onReview={(event) =>
-                    openReview(event, `/teacher/attempts/${selected.attemptId}`)
-                  }
-                />
               </div>
-            </div>
-          ) : (
-            !model.candidate && (
-              <EmptyState hint={t("grading.emptyHint")}>
-                {t("grading.empty")}
-              </EmptyState>
-            )
-          )}
-        </>
-      )}
+            ) : (
+              !model.candidate && (
+                <EmptyState hint={t("grading.emptyHint")}>
+                  {t("grading.empty")}
+                </EmptyState>
+              )
+            )}
+          </>
+        )}
+      </div>
       <Recovery model={model} onReview={openReview} />
       <ConfirmDialog
         open={blocker.state === "blocked"}
