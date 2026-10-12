@@ -19,7 +19,7 @@ import (
 // Every name config.Load reads. Cleared before each case so a developer's own
 // shell -- which has all of these set, from the repo's .env -- cannot make a
 // deployment look bootable when it is not.
-var configuredBy = []string{
+var configuredBy = slices.Concat(aiVariables, []string{
 	"API_PORT", "APP_ENV", "CLIENT_IP_HEADER", "CORS_ALLOWED_ORIGINS", "DATABASE_URL",
 	"GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI", "JWT_SIGNING_KEY",
 	"JOIN_CODE_KEY", "JOIN_CODE_KEY_PREVIOUS",
@@ -30,7 +30,7 @@ var configuredBy = []string{
 	"IMPORT_WORKER_WAKE_ADDR", "IMPORT_WORKER_IDLE_POLL", "IMPORT_DOCKER_BINARY", "IMPORT_CONVERTER_IMAGE",
 	"IMPORT_ACTOR_COUNT", "IMPORT_GLOBAL_COUNT", "IMPORT_SOURCES_PER_ITEM", "IMPORT_ACTOR_MIB",
 	"IMPORT_GLOBAL_MIB", "MEDIA_OWNER_QUOTA_MIB",
-}
+})
 
 // What `fly secrets set` supplies, by name, per docs/setup/dns.md. Values are
 // placeholders: this asks whether the NAMES add up to a config Load accepts,

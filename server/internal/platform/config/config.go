@@ -48,6 +48,8 @@ type Config struct {
 
 	JoinCodeKey         []byte
 	JoinCodeKeyPrevious []byte
+
+	AI AI
 }
 
 const defaultMaxConcurrentPasswordHashes = 4
@@ -98,6 +100,9 @@ func Load() (Config, error) {
 	}
 
 	if err := loadImports(&cfg); err != nil {
+		return cfg, err
+	}
+	if err := loadAI(&cfg); err != nil {
 		return cfg, err
 	}
 
