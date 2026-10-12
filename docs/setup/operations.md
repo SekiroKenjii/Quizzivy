@@ -439,6 +439,72 @@ back-off that honours `Retry-After`, never sends a 4xx again, and gives a call
 60 seconds (120 with a PDF). A 401, 402 or 403 from the provider is the key or
 the account, not a reason to retry: read the provider console.
 
+## AI credits
+
+The AI assistant is metered in credits (D21): one credit is $0.001 of the provider's list price,
+so the $200 pool is 200,000 credits a month. Each teacher has an allowance under it (20,000 by
+default), a call reserves its ceiling before it reaches the provider and settles what the provider
+metered after, and the database refuses a reservation that would overspend either the pool or the
+allowance (`docs/plan/20-data-model.md` §46). A month is the calendar month in `APP_TIMEZONE`
+(`Asia/Ho_Chi_Minh` when unset), and the pool, the allowances and the used credits start over on
+the 1st. Credits an Admin adds do not carry over; a teacher's custom allowance and pause do.
+
+Until the Admin's AI credits page exists (R5, T-R5.35) the console is `cmd/maintenance`, the
+operator's tool, run with `MAINTENANCE_DATABASE_URL` as the other commands are. Every write names
+who is running it and is a dry run until `-apply`; a dry run runs the same code as the Admin
+operation inside a transaction it rolls back, so it reports exactly what would happen, writes
+nothing and tells nobody. The report is JSON.
+
+```sh
+maintenance ai-credits status
+maintenance ai-credits set-allowance -user USER_UUID -credits 50000 -operator thuong
+maintenance ai-credits set-allowance -user USER_UUID -default -operator thuong -apply
+maintenance ai-credits pause  -user USER_UUID -operator thuong -apply
+maintenance ai-credits resume -user USER_UUID -operator thuong -apply
+maintenance ai-credits add-credits -credits 50000 -operator thuong -apply
+maintenance ai-credits approve -request REQUEST_UUID -operator thuong -apply
+maintenance ai-credits decline -request REQUEST_UUID -operator thuong -apply
+maintenance ai-credits set-rules -default-allowance 50000 -warn-percent 90 -on-limit pause -operator thuong
+maintenance ai-reservations-sweep
+```
+
+- **`status`** reads the current month: the pool (plan, added, used, held, left), the days to go and
+  what the month is on course to use (`onPace`, credits used divided by the days elapsed times the
+  days in the month) with whether that `withinPool`, the teachers with their allowance, use and
+  standing (`on_track`, `near_limit` from the warning share, `at_limit`, `paused`), the requests
+  waiting, and the rules. It lists the Admin and every user who holds `ai.use`, and anyone who has
+  used AI this month.
+- **`set-allowance`** takes `-credits N` (1,000 to 10,000,000), the teacher's own monthly figure,
+  which a change of the default leaves alone, or `-default`. Credits an approved request added this
+  month stay on top of either. It takes effect at once and the use so far still counts, so a figure
+  below what the teacher has used is refused. **`pause`** and **`resume`** stop and restore a
+  teacher; the buttons stay visible and say why.
+- **`add-credits`** is the Admin's approval to spend beyond the plan: the pool is never overspent
+  without it. The audit row names who approved. The product bills nobody; the extra is paid for
+  outside Quizzivy (DG-196).
+- **`approve`** raises the teacher's allowance for the request's month by the amount and
+  **`decline`** changes nothing but the status; both tell the teacher. An earlier month's request
+  can only be declined.
+- **`set-rules`** takes any of `-default-allowance` (rewrites this month's allowances that are not
+  custom, never below what a teacher has used), `-warn-percent` (50 to 99) and `-on-limit`
+  (`pause`, or `request` to let a teacher ask for more).
+- **`ai-reservations-sweep`** returns the credits of calls that never finished, which a process
+  that died mid-call leaves held. The API does the same hourly when the provider is configured
+  (`ReleaseStaleAiReservations`), so the command is for reading the count first or releasing at
+  once. A reservation older than ten minutes is stale; a call lasts at most two minutes.
+
+Every write is one `audit_log` row (`ai.allowance.updated`, `ai.credits.added`,
+`ai.rules.updated`, `ai.credit_request.approved`, `ai.credit_request.declined`) with no actor,
+`reason: "maintenance"` and the operator in `details`. The ledger (`app.ai_usage_ledger`) has a row
+for every call the provider metered, with its token counts and the provider's request id; to
+reconcile a month with the provider's invoice, sum its `credits` and compare the tokens. Neither the
+ledger nor `audit_log` can be rewritten by the application role.
+
+The credits tables exist whether or not `ANTHROPIC_API_KEY` is set, so allowances can be arranged
+before the key is. Until R5's `grant_maintenance_role` (T-R5.17a) runs, use the owner or
+maintenance credential; that migration must grant the role what these commands write
+(`docs/plan/20-data-model.md` §46, "Privileges").
+
 ## Evidence still required in production
 
 - Neon project/branch and observed history window: pending access.

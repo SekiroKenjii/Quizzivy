@@ -134,12 +134,12 @@ rolling deploy without a fill trigger):
 | `NNNNN_add_group_recordings_allow_pause.sql` | T-D4.13 |
 | `NNNNN_add_test_version_group_recordings_allow_pause.sql` | T-D4.13 |
 | `NNNNN_add_ai_permissions.sql` (two rows in `app.permissions`, `ai.use` granted to the Teacher role) | T-D4.32 |
-| `NNNNN_create_ai_settings.sql` | T-D4.31 |
-| `NNNNN_create_ai_credit_periods.sql` | T-D4.31 |
-| `NNNNN_create_ai_teacher_credits.sql` | T-D4.31 |
-| `NNNNN_create_ai_reservations.sql` | T-D4.31 |
-| `NNNNN_create_ai_usage_ledger.sql` (append-only: no `UPDATE` or `DELETE` for the app role) | T-D4.31 |
-| `NNNNN_create_ai_credit_requests.sql` | T-D4.31 |
+| `00118_create_ai_settings.sql` | T-D4.31 |
+| `00119_create_ai_credit_periods.sql` | T-D4.31 |
+| `00120_create_ai_teacher_credits.sql` | T-D4.31 |
+| `00121_create_ai_reservations.sql` | T-D4.31 |
+| `00122_create_ai_usage_ledger.sql` (append-only: no `UPDATE` or `DELETE` for the app role) | T-D4.31 |
+| `00123_create_ai_credit_requests.sql` | T-D4.31 |
 | `NNNNN_add_word_imports_read_with_ai.sql` (`boolean NOT NULL DEFAULT false`) | T-D4.33 |
 
 The AI tables are new and empty, so none is `-- +goose NO TRANSACTION` and the v0.10.0 binary is
@@ -2349,7 +2349,7 @@ live smoke (it needs the key and belongs to T-D4.32's smoke), and the 501 and st
 **Touches:** `migrations/NNNNN_create_ai_settings.sql`, `NNNNN_create_ai_credit_periods.sql`, `NNNNN_create_ai_teacher_credits.sql`, `NNNNN_create_ai_reservations.sql`, `NNNNN_create_ai_usage_ledger.sql`, `NNNNN_create_ai_credit_requests.sql` (new; numbered at merge), `server/internal/modules/ai/{domain/{credits.go,feature.go},application/command/{reserve.go,settle.go,release.go,request_credits.go,decide_request.go,set_allowance.go,add_credits.go,set_rules.go},application/query/{usage.go,admin_credits.go},repositories/{credits.go,ledger.go,requests.go}}` (new), `server/internal/core/jobs/ai_reservations.go` (new), `server/cmd/maintenance/main.go` (`ai-credits`), `api/openapi.yaml` (`/admin/ai/*`, `GET /teacher/ai/usage`, `POST /teacher/ai/credit-requests`; the shapes ride in T-D4.32's contract PR), `server/internal/modules/notifications/` (three kinds), `server/internal/modules/ai/application/tests/credits_test.go` (new, integration), `docs/plan/20-data-model.md` (§12, the six tables), `docs/setup/operations.md` (the command)
 **Size:** L
 **Done when:**
-- [ ] Six migrations, one concern each, Down working, all on new empty tables (none is
+- [x] Six migrations, one concern each, Down working, all on new empty tables (none is
       `-- +goose NO TRANSACTION`):
       - `app.ai_settings` (one row, seeded by the migration: `pool_credits` 200,000 (D21),
         `default_allowance_credits` 20,000, `warn_percent` 80, `on_teacher_limit` `request`);
@@ -2371,7 +2371,7 @@ live smoke (it needs the key and belongs to T-D4.32's smoke), and the 501 and st
         pending | approved | declined, decided_by, decided_at, created_at)`.
       Every insert names its owner (`user_id`); `20-data-model.md` §12 records the six with the
       reasoning (D-nn), and why the ledger is append-only.
-- [ ] `Reserve(ctx, actor, feature, ceiling)`: one transaction locks the period row and the
+- [x] `Reserve(ctx, actor, feature, ceiling)`: one transaction locks the period row and the
       teacher row (`FOR UPDATE`, creating either if absent), adds the ceiling to both
       `reserved_credits`, and writes the reservation; a constraint violation (`pgerrcode`
       check violation) answers `402 AI_CREDITS_EXHAUSTED` with `detail.scope` `teacher` or
@@ -2380,10 +2380,10 @@ live smoke (it needs the key and belongs to T-D4.32's smoke), and the 501 and st
       reservation, and raises `ai.allowance_warning` once a month when the teacher crosses
       `warn_percent`. `Release` deletes the reservation and subtracts it. The three are one
       package the operations call; nothing else touches the balances.
-- [ ] `core/jobs.ReleaseStaleAiReservations` releases reservations older than 10 minutes;
+- [x] `core/jobs.ReleaseStaleAiReservations` releases reservations older than 10 minutes;
       `cmd/maintenance ai-reservations-sweep` runs it, under the maintenance role's grant in the
       same migration set.
-- [ ] Operations (the contract rides in T-D4.32's PR; the code is here): `GET /teacher/ai/usage`
+- [x] Operations (the contract rides in T-D4.32's PR; the code is here): `GET /teacher/ai/usage`
       (`ai.use`: the month's used, allowance, left, paused, and the five category sums the
       Settings card draws) and `POST /teacher/ai/credit-requests` (`ai.use`; amount 1,000 to
       100,000 and a reason; one pending request per teacher per month; `ai.credit_request` to
@@ -2395,17 +2395,77 @@ live smoke (it needs the key and belongs to T-D4.32's smoke), and the 501 and st
       the amount; both notify the teacher with `ai.credit_request.decided`). Every admin write is
       one `audit_log` row through the data-modifying CTE pattern. The "On pace for" projection is
       `used / days elapsed × days in month`, computed in the query.
-- [ ] `cmd/maintenance ai-credits {status,set-allowance,add-credits,approve,decline,pause,
+- [x] `cmd/maintenance ai-credits {status,set-allowance,add-credits,approve,decline,pause,
       resume,set-rules}` calls the same application commands as the operations, audited as
       System with the operator named in `details`; it is Thuong's console until R5's T-R5.35
       (Q28). `operations.md` documents it.
-- [ ] `credits_test.go` (integration): a reservation that would cross the pool is refused by the
+- [x] `credits_test.go` (integration): a reservation that would cross the pool is refused by the
       constraint and nothing is written; two concurrent reservations against a pool with room for
       one leave exactly one; settle moves exactly the metered amount; release returns it; a
       paused teacher is refused before any lock; the month rolls over in `APP_TIMEZONE`; the
       ledger refuses an `UPDATE` as the app role; a rule change rewrites non-custom allowances
       only; approve raises the allowance and writes the audit row.
 - [ ] Rehearsed on a Neon branch of production; the timings go in the release PR.
+
+**As built:** Six migrations, `00118` to `00123`, one table each, none `NO TRANSACTION`, each Down a
+`DROP TABLE`; `20-data-model.md` §46 and D-44 to D-49 record them, with the reasoning. The two
+constraints are named `ai_credit_periods_within_pool` and `ai_teacher_credits_within_allowance`, and
+the repository tells the teacher's refusal from the pool's by the constraint's name, trying the
+teacher's first. Three columns go beyond the list above, each for a reason the data model gives:
+`granted_credits` (what approved requests added this month, part of the allowance and not carried
+over, so a change of the default rule and a new month treat a grant right), `warned_at` (the warning
+once a month is a flag written in the same statement as the crossing) and `custom` and `paused`
+copied from the teacher's latest earlier row when a month's first row is created
+(`ai_teacher_credits_user_idx`), because both belong to the person and the plan's per-month row
+would otherwise lose an Admin's pause on the 1st. The app role has no `UPDATE` or `DELETE` on the
+ledger, and `privileges_test.go` lists it beside `audit_log`.
+
+`modules/ai` gains `domain` (the credit arithmetic, the months, the features with their category and
+the plan's ceiling, the repository port), `application` (`Reserve`, `Settle`, `Release`, `Finish`,
+`ReleaseStale`, `RequestCredits`, `DecideRequest`, `SetAllowance`, `AddCredits`, `SetRules`; the
+`Usage` and `AdminCredits` queries) and `repositories`. Every statement that moves a credit takes the
+month's row and then the teacher's (`FOR NO KEY UPDATE`, which does not block the foreign keys
+that point at them), and the sweep and `Settle` take both before they delete the reservation, so the
+order is one everywhere. `Settle` charges `min(metered, reserved)`, so it cannot fail on the pool's
+constraint after the provider has been paid; the ledger keeps the real token counts and the log
+notes an overrun. Credits are `ceil(sum(tokens x price) / 1e9)` over `config.MicroUSD` prices, with
+cache writes charged at the input price because the configuration prices none. The tier prices
+reach the application through `domain.Prices`, built in `core/wiring/ai.go`; `modules/ai` imports
+no platform package but `db` in `repositories`.
+
+**`Finish`** is the one place that decides settle or release, from T-D4.30's note that the
+`Completer` returns the usage with `ErrRefused` and `ErrInvalidResponse`: those two settle what the
+provider billed, and `ErrUnavailable`, `ErrRejected`, a cancelled caller and any other error
+release; a response that reports no tokens releases whatever the error. T-D4.32's operations call
+it and not `Settle` and `Release` separately. T-D4.32's "releases on failure" below is amended to
+say so.
+
+The operations' application code is here; their transport (`modules/ai/http/ai.go`), contract and
+rate limits are T-D4.32's, as its `Touches` says, and so are four things that need the contract:
+the `NotificationKind` enum and table for `ai.allowance_warning`, `ai.credit_request` and
+`ai.credit_request.decided`, the new `NotificationParams` properties (`used`, `allowance`,
+`credits`, `teacherName`, `decision`), the three kinds' place in `kindsByAudience` (the teacher's
+bell), and their words in `web/src/features/notifications/kinds.ts` (vi, en). The notifications
+domain already knows the three kinds, their params types and dedupe keys, writes them without a
+switch, and no console lists them until the audience table does, so the web never sees an
+unknown kind. They are moved to T-D4.32's Done-when below.
+
+`ReleaseStaleAiReservations` runs once at start-up and hourly, and only when the provider is
+configured: every poll wakes a scale-to-zero database, and a leftover of a dead process costs a
+teacher a few hundred credits for at most an hour and ten minutes. `cmd/maintenance` gains
+`ai-credits {status,set-allowance,add-credits,approve,decline,pause,resume,set-rules}` and
+`ai-reservations-sweep`, in `core/maintenance/ai.go` beside the other commands (`cmd/maintenance/
+main.go` only parses). They run the Admin operations' handlers as System with a required
+`-operator`, and a dry run is the same handler inside a transaction that is rolled back with no
+notifier. The maintenance role's grant is not in a migration: `quizzivy_maintenance` does not exist
+until T-R5.17a, so the commands run as `MAINTENANCE_DATABASE_URL`'s credential, and §46 lists what
+`grant_maintenance_role` must add. `APP_TIMEZONE` was documented and never read; `config.AppLocation()`
+reads it (`Asia/Ho_Chi_Minh`, with a fixed +07:00 fallback on a host without zone data).
+`operations.md` ("AI credits") documents the console. An allowance edit is not subject to the subset
+rule (`access.CanActOn`); see the open question in the pull request.
+
+Not done here: the Neon rehearsal (T-D4.40's migration rehearsal runs the six files on a branch of
+production and puts the timings in the release pull request).
 
 ### T-D4.32 — The teacher operations and the contract
 **Depends on:** T-D4.30, T-D4.31. D4's second contract pull request; T-D4.31's and T-D4.33's shapes ride in it
@@ -2446,12 +2506,20 @@ live smoke (it needs the key and belongs to T-D4.32's smoke), and the 501 and st
       NOT_IMPLEMENTED` with that code; `PublicStatus` gains `ai: boolean`, read from
       `Config.AIEnabled()` and never from the provider; `core/router/{modules.go,server.go}` gain
       the AI transport.
+- [ ] What T-D4.31 left for the contract: `NotificationKind` gains `ai.allowance_warning`,
+      `ai.credit_request` and `ai.credit_request.decided`, with their rows in its table;
+      `NotificationParams` gains `used`, `allowance`, `credits` (integers, 0 or more),
+      `teacherName` (1 to 200 characters) and `decision` (`approved` or `declined`), and the
+      three `Params` types in `notifications/domain/params.go` (`AllowanceWarning`,
+      `CreditRequest`, `CreditRequestDecided`) go into `params_test.go`'s `everyKind`;
+      `kindsByAudience` lists the three for the teacher's bell; `kinds.ts` words them in vi and en.
 - [ ] `PrincipalRateLimits()` gains every AI operation at 10 a minute and 100 an hour per actor,
       the clean-up at 3 an hour, the credit request at 5 an hour; `credential_limits_test.go`'s
       form of assertion lists them.
-- [ ] Each operation reserves its ceiling (the table above) before the call, settles the metered
-      usage after it, and releases on failure; the response carries `usage: {credits, left}` for
-      the panel's footer. With the adapter nil: 501. With the budget gone: 402 as T-D4.31 says.
+- [ ] Each operation reserves its ceiling (the table above) before the call and ends the
+      reservation with `Commands.Finish`, which settles the metered usage, including what a refusal
+      or an unparseable answer was billed (T-D4.30), and releases when nothing was billed; the
+      response carries `usage: {credits, left}` for the panel's footer. With the adapter nil: 501. With the budget gone: 402 as T-D4.31 says.
       A provider failure after retries: `503 AI_UNAVAILABLE` with `Retry-After`, and the
       reservation released.
 - [ ] Data minimisation is tested, not described: `operations_test.go` drives each operation
