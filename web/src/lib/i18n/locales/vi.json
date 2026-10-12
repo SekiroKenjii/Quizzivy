@@ -2104,7 +2104,7 @@
     "accountHeader": "Tài khoản",
     "account": {
       "active": "Đang hoạt động",
-      "reset": "Đã đặt lại mật khẩu",
+      "reset": "Mật khẩu tạm",
       "suspended": "Đã khoá"
     },
     "classFacet": "Lớp",

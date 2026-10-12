@@ -61,7 +61,7 @@ describe("the Students list", () => {
     expect(an).toHaveTextContent("82%");
     expect(an).toHaveTextContent(CLASS_A.name);
     expect(an).toHaveTextContent("Đang hoạt động");
-    expect(await rowOf("Trần Thị Bình")).toHaveTextContent("Đã đặt lại mật khẩu");
+    expect(await rowOf("Trần Thị Bình")).toHaveTextContent("Mật khẩu tạm");
   });
 
   it("keeps a student's classes on one line in their cell: two chips and +N naming the rest (QA-40-2)", async () => {
