@@ -102,12 +102,7 @@ export function BootSplash({ router }: Readonly<{ router: DataRouter }>) {
   }
 
   const skeleton =
-    leave === "leaving"
-      ? skeletonFor(
-          router.state.location.pathname,
-          router.state.matches.at(-1)?.route.handle,
-        )
-      : null;
+    leave === "leaving" ? skeletonFor(router.state.location.pathname) : null;
   return (
     <>
       {skeleton !== null && (
