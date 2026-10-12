@@ -33,8 +33,8 @@ describe("dashboard public derivations", () => {
       hash: "#work",
     });
     expect(dashboardKeys.home("7d")).not.toEqual(dashboardKeys.home("30d"));
-    expect(dashboardKeys.home("7d")[0]).toBe("admin-dashboard");
-    expect(dashboardKeys.summary).toEqual(["admin-dashboard", "summary"]);
+    expect(dashboardKeys.home("7d")[0]).toBe("teacher-dashboard");
+    expect(dashboardKeys.summary).toEqual(["teacher-dashboard", "summary"]);
   });
   it.each([
     ["04:59", "evening"],

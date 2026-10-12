@@ -237,7 +237,7 @@ describe("the sidebar's counts", () => {
     serveSummary(QUIET);
     const { client } = renderShell("/teacher", [home()]);
     await waitFor(() =>
-      expect(client.getQueryState(["admin-dashboard", "summary"])?.status).toBe(
+      expect(client.getQueryState(["teacher-dashboard", "summary"])?.status).toBe(
         "success",
       ),
     );
@@ -260,7 +260,7 @@ describe("the sidebar's counts", () => {
     const seen = failSummary();
     const { client } = renderShell("/teacher", [home()]);
     await waitFor(() =>
-      expect(client.getQueryState(["admin-dashboard", "summary"])?.status).toBe(
+      expect(client.getQueryState(["teacher-dashboard", "summary"])?.status).toBe(
         "error",
       ),
     );
@@ -276,7 +276,7 @@ describe("the sidebar's counts", () => {
     await within(nav()).findByRole("link", { name: LIVE });
 
     serveSummary({ ...summaryBody, liveAssignments: 4 });
-    await act(() => client.invalidateQueries({ queryKey: ["admin-dashboard"] }));
+    await act(() => client.invalidateQueries({ queryKey: ["teacher-dashboard"] }));
     expect(
       await within(nav()).findByRole("link", {
         name: /^Bài giao\s*4 bài giao đang mở$/,
@@ -284,7 +284,7 @@ describe("the sidebar's counts", () => {
     ).toBeInTheDocument();
 
     failSummary();
-    await act(() => client.invalidateQueries({ queryKey: ["admin-dashboard"] }));
+    await act(() => client.invalidateQueries({ queryKey: ["teacher-dashboard"] }));
     await waitFor(() => expect(badges()).toHaveLength(0));
   });
 

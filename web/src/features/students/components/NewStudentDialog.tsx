@@ -80,8 +80,8 @@ export function NewStudentDialog({
         temporaryPassword: created.temporaryPassword,
       });
       await Promise.all([
-        client.invalidateQueries({ queryKey: ["admin-students"] }),
-        client.invalidateQueries({ queryKey: ["admin-classes"] }),
+        client.invalidateQueries({ queryKey: ["teacher-students"] }),
+        client.invalidateQueries({ queryKey: ["teacher-classes"] }),
       ]);
     } catch (cause) {
       setError(

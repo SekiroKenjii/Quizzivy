@@ -162,7 +162,7 @@ func TestGroupArchiveRestoreAndDeleteRequireCurrentRevision(t *testing.T) {
 	if err := tx.QueryRow(ctx, `SELECT count(*) FROM app.audit_log WHERE entity_id=$1`, stored.Bundle.Group.ID).Scan(&events); err != nil || events != 5 {
 		t.Fatalf("audit history lost: %d, %v", events, err)
 	}
-	if err := mediarepo.NewPostgres(db.NewContext(tx)).SoftDelete(ctx, mediadomain.DeleteInput{ID: asset, ActorID: author, Now: time.Now()}); err != nil {
+	if _, err := mediarepo.NewPostgres(db.NewContext(tx)).SoftDelete(ctx, mediadomain.DeleteInput{ID: asset, ActorID: author, Now: time.Now()}); err != nil {
 		t.Fatalf("deleted graph retained media references: %v", err)
 	}
 	if _, err := tx.Exec(ctx, `SET CONSTRAINTS ALL IMMEDIATE`); err != nil {

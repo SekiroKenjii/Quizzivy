@@ -41,32 +41,41 @@ func ownerOf(in domain.InsertInput) string {
 }
 
 // QuotaCheck is one owner's library measured against Quota with Add more
-// bytes in it. LeaveOut, when set, is an asset whose bytes are not counted,
-// as the one a new file replaces.
+// bytes in it.
 type QuotaCheck struct {
-	OwnerID  string
-	Add      int64
-	Quota    int64
-	LeaveOut string
+	OwnerID string
+	Add     int64
+	Quota   int64
 }
 
-// RequireQuota answers ErrQuotaExceeded when the owner's library, with Add
-// more bytes, would hold more than Quota. It first takes the owner's
-// transaction advisory lock, so two writers of one library decide one after
-// the other, and it must run in the transaction that then writes the row.
-func RequireQuota(ctx context.Context, tx pgx.Tx, in QuotaCheck) error {
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(73820, hashtext($1::uuid::text))`, in.OwnerID); err != nil {
+// LockQuota takes the owner's transaction advisory lock, so the writers of one
+// library decide one after the other. It must run in the transaction that then
+// writes the row the check is for.
+func LockQuota(ctx context.Context, tx pgx.Tx, ownerID string) error {
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(73820, hashtext($1::uuid::text))`, ownerID); err != nil {
 		return fmt.Errorf("media: quota lock: %w", err)
 	}
-	from, args := library(libraryFilter{scope: access.Scope{UserID: in.OwnerID}})
-	args = append(args, opt.String(in.LeaveOut))
-	var held int64
-	err := tx.QueryRow(ctx, `SELECT coalesce(sum(a.bytes), 0)::bigint`+from+fmt.Sprintf(`
-		   AND ($%[1]d::uuid IS NULL OR a.id <> $%[1]d::uuid)`, len(args)), args...).Scan(&held)
+	return nil
+}
+
+// CheckQuota answers ErrQuotaExceeded when the owner's library and the retired
+// files something still names, with Add more bytes, would hold more than Quota.
+// The caller holds LockQuota's lock.
+func CheckQuota(ctx context.Context, tx pgx.Tx, in QuotaCheck) error {
+	counted, err := countedBytes(ctx, tx, in.OwnerID)
 	if err != nil {
-		return fmt.Errorf("media: quota sum: %w", err)
+		return err
 	}
-	return domain.Assets.CheckQuota(held, in.Add, in.Quota)
+	return domain.Assets.CheckQuota(counted, in.Add, in.Quota)
+}
+
+// RequireQuota takes the owner's quota lock and then checks the quota. It must
+// run in the transaction that then writes the row.
+func RequireQuota(ctx context.Context, tx pgx.Tx, in QuotaCheck) error {
+	if err := LockQuota(ctx, tx, in.OwnerID); err != nil {
+		return err
+	}
+	return CheckQuota(ctx, tx, in)
 }
 
 // Insert writes one asset row and its audit row in the caller's transaction.
@@ -123,11 +132,11 @@ func (s *Postgres) Insert(ctx context.Context, in domain.InsertInput) (domain.As
 	return a, nil
 }
 
-// Get returns one live asset.
+// Get returns one asset that is neither deleted nor purged.
 func (s *Postgres) Get(ctx context.Context, id string) (domain.Asset, error) {
 	a, err := scanAsset(s.QueryRow(ctx, `SELECT `+assetColumns+`
 		  FROM app.media_assets a
-		 WHERE a.id = $1 AND a.deleted_at IS NULL`, id))
+		 WHERE a.id = $1 AND a.deleted_at IS NULL AND a.purged_at IS NULL`, id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Asset{}, domain.ErrNotFound
 	}

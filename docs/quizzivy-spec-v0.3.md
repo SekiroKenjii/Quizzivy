@@ -5,9 +5,18 @@
 
 **Changes since v0.91**
 
-The design team's page-width design, approved by the owner on 2026-10-12 (DG-205, Decided). Numbered v0.92 to stay clear of v0.90 (`work/deck-d4`) and v0.91 (F-68).
+The design team's page-width design, approved by the owner on 2026-10-12 (DG-205, Decided). Numbered v0.92 to stay clear of v0.90, the deck update on `work/deck-d4`.
 
 - §8, §12 Every route in `TeacherLayout` renders in one page frame: the full content width up to `--page-max` (1600px), centred beyond it at every width, 2560 included, inside gutters of 14, 28 and 40px. A route's handle no longer declares a width (it was 1320 by default, 1080, 860, 720 or full); the import review alone keeps `width: "full"`. Containers fill the frame; a field is at most 480px wide and prose at most 72ch. The student app's columns are unchanged.
+
+**Changes since v0.90**
+
+R4, F-68 (v0.90 is the deck update on `work/deck-d4`): a replaced or deleted media file is kept for the tests that use it, then removed.
+
+- §11.1 The quota counts the library and the replaced or deleted files that something still uses, so a replacement that published versions hold needs room for both files. `replaceMedia` answers `previous` (the old file, the versions that hold it, a URL to download it, and when its object goes), declares its 429, and `deleteMedia` answers 200 with the same shape where it answered 204. `usage` gains `heldBytes`, `pendingBytes` and `pendingDeleteAt`.
+- §11.2 A file that left the library stays in storage until seven days after nothing names it, then the API's sweep deletes its object and marks the row; nothing restores it and nothing notifies the teacher.
+- §13.3 `media_assets` gains `unreferenced_at` and `purged_at`; a trigger on the six tables that name a file refuses a purged one and stops the wait of a retired one (migrations 00111 to 00113, `docs/plan/20-data-model.md` §45).
+- §15 The media lines.
 
 **Changes since v0.88**
 
@@ -2116,7 +2125,7 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 - In the question editor, an audio question has: file upload, transcript textarea (admin-authored, optional), and the `AudioPolicy` controls (`maxPlays` default 2, `allowSeek` default **false**, `showTranscriptAfterSubmit` default true).
 - Accepted: `audio/mpeg` (.mp3) and `audio/mp4` / `audio/aac` (.m4a). **Reject everything else** with a plain message. These two cover every current browser without transcoding; supporting `.ogg`/`.wav`/`.webm` means either transcoding or a Safari support matrix, and neither is worth it in v1.
 - Limits: audio 50 MB and 5 minutes; an image (PNG, JPEG or WebP) 10 MB (DG-63). Validate **server-side** by sniffing magic bytes and probing duration — never trust the `Content-Type` header or the file extension. The file is streamed to disk, never held in memory, and an image's size in pixels is read from its header.
-- A teacher's library holds at most 5 GB unless the deployment sets another quota (`MEDIA_OWNER_QUOTA_MIB`). An upload that would take it past the quota is refused with `MEDIA_QUOTA_EXCEEDED`. A deleted file no longer counts, and neither does a replaced one.
+- A teacher's library holds at most 5 GB unless the deployment sets another quota (`MEDIA_OWNER_QUOTA_MIB`). An upload that would take it past the quota is refused with `MEDIA_QUOTA_EXCEEDED`. A file that is deleted or replaced leaves the library at once and counts toward the quota only while something still names it: a published version, another owner's content, or a question that attaches it outside any group. `GET /teacher/media` reports those bytes as `usage.heldBytes`, so a replacement needs room for the new file and, while a published version holds the old one, for the old one too. The files nothing names are `usage.pendingBytes`, and count toward nothing (§11.2).
 - In the library a file can be renamed, and audio can be given a default play limit: unlimited, or 1 to 3. The stored file and its original filename never change. The limit is stored with the file for the editor to start a question's own limit from; it changes no question by itself.
 - Upload goes **through the Go backend** in v1 (low volume, and the backend must validate anyway). Presigned direct-to-R2 upload is the P1 optimisation; design the API so switching does not change the client contract beyond the upload call.
 - Assets are **immutable**. Re-uploading creates a new `media_assets` row; it never overwrites an existing key. This is what lets `test_version_questions` reference an asset without copying the file.
@@ -2129,8 +2138,9 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
   readable asset. The response counts distinct changed questions/groups and other owners'
   live editable questions/groups left on the old asset; historical versions and imports
   are excluded. Late same-owner bindings may retain the old asset and are excluded from
-  the left counts. The old file leaves the library and quota, but remains available to existing
-  bindings and later publication/import materialization. An internal error can follow a
+  the left counts. The old file leaves the library, and its owner's quota once nothing names it, but remains available to existing
+  bindings and later publication/import materialization. The answer's `previous` names the published versions that still
+  use it, a URL to download it and the time its object goes. An internal error can follow a
   commit, or its outcome can be unknown; both retain the new object. A retry against the
   replaced old library ID can answer 404. Replacement does not promise idempotent retries
   or an atomic transaction with object storage.
@@ -2142,6 +2152,7 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 - Bucket `quizzivy-media`, key `audio/{asset_id}.{ext}`. Bucket is **private**; no public listing, no public read.
 - Served via **short-lived signed URLs** (10 min), minted per request by the backend. The frontend treats `MediaAsset.url` as expiring and refetches on `403`.
 - `Cache-Control: private, max-age=600` — long enough to survive a replay, short enough that the signed URL does not outlive its cache entry.
+- **A file that left the library is kept, then removed (F-68).** The object of a deleted or replaced file stays in storage until seven days after nothing names it: no question, group, material or published version, whoever owns it. The sweep then deletes the object and marks the row `purged_at`. The row stays, the file cannot be restored, and no notification follows: the teacher is told when they act, by the answers of `replaceMedia` and `deleteMedia` (`previous` and `deleteAt`, with a URL to download the file) and by `usage` (`heldBytes`, `pendingBytes`, `pendingDeleteAt`). The API runs the sweep at start-up and every hour on every machine (`jobs.SweepRetiredMedia`). It dates the files nothing names yet, cancels the wait of a file something names again, and removes the due ones one at a time under the row's lock. A row that a second sweep or a writer holds is skipped, so no object is deleted twice, and a publish that freezes a file again before the sweep takes it keeps it. A delete that fails leaves the row for the next run, ten minutes later. A purged file can be named by nothing: `LockForVersionUse` and `Readable` answer not found, and the database refuses the row. An import review that still names a file the sweep removed fails at its commit as one that is gone.
 - Honest note: `controlsList="nodownload"` and hiding the URL are **not** protection. A determined student can save the file. Signed short-lived URLs raise the cost slightly; do not invest further. If a listening file must never leak, do not put it online.
 
 ### 11.3 Player component
@@ -2476,6 +2487,9 @@ CREATE TABLE app.media_assets (
   owner_id          uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
   created_at        timestamptz NOT NULL DEFAULT now(),
   deleted_at        timestamptz,
+  unreferenced_at   timestamptz,                   -- when a deleted or replaced file was last seen named by nothing; its object goes seven days on; F-68
+  purged_at         timestamptz,                   -- when the sweep removed its object; the row stays; F-68
+  CONSTRAINT media_assets_purged_check CHECK (purged_at IS NULL OR unreferenced_at IS NOT NULL),
   CHECK (kind <> 'audio' OR duration_ms IS NOT NULL),
   CONSTRAINT media_assets_bytes_by_kind
     CHECK (bytes > 0 AND bytes <= CASE WHEN kind = 'audio' THEN 52428800 ELSE 10485760 END),
@@ -2486,7 +2500,7 @@ CREATE TABLE app.media_assets (
 CREATE INDEX ON app.media_assets (kind, created_at DESC);
 ```
 
-The library's fields are R4's (migrations 00082 to 00084, D-29). `display_name` is what the library shows and renaming changes it alone; `original_filename` and the stored object never change. `default_max_plays` is an audio file's default play limit, 0 to 3 with 0 unlimited, which the editor starts a question's own limit from and which changes no question. `replaced_by` is set on the old row when a file is replaced: that row stays, because published versions still reference it, and it leaves the library list and the owner's quota (§11.1). `width` and `height` are read from an image's header at upload, so a row stored before 00083 has none. The size limit depends on the kind, 50 MiB for audio and 10 MiB for an image. One owner's library may hold `MEDIA_OWNER_QUOTA_MIB` (5 GiB by default); the writers of one library take advisory lock `(73820, hashtext(owner))` before they sum it (`docs/plan/20-data-model.md` §28).
+The library's fields are R4's (migrations 00082 to 00084, D-29). `display_name` is what the library shows and renaming changes it alone; `original_filename` and the stored object never change. `default_max_plays` is an audio file's default play limit, 0 to 3 with 0 unlimited, which the editor starts a question's own limit from and which changes no question. `replaced_by` is set on the old row when a file is replaced: that row stays, because published versions still reference it, and it leaves the library list and the owner's quota (§11.1). `width` and `height` are read from an image's header at upload, so a row stored before 00083 has none. The size limit depends on the kind, 50 MiB for audio and 10 MiB for an image. One owner's library may hold `MEDIA_OWNER_QUOTA_MIB` (5 GiB by default), counting the files in it and the deleted or replaced files that something still names; the writers of one library take advisory lock `(73820, hashtext(owner))` before they sum it (`docs/plan/20-data-model.md` §28). `unreferenced_at` and `purged_at` are the retention of a file that left the library (§11.2; migrations 00111 to 00113, `docs/plan/20-data-model.md` §45): a row that names a purged file is refused by a trigger on the six tables that name a file, and one that names a file waiting for its removal clears the date.
 
 **Question bank** — normalize; do not stuff options into `jsonb`. Options and blanks are ordered, queried, and graded against.
 
@@ -2798,11 +2812,11 @@ POST   /teacher/tests/:id/duplicate
 GET    /teacher/questions?type=&tag=&tagMatch=any|all&level=&skill=&hasAudio=&q=&page=&limit=
 POST   /teacher/questions | PATCH /:id | DELETE /:id
 POST   /teacher/media?defaultMaxPlays=  multipart → MediaAsset (validates mime, size, duration, quota)
-GET    /teacher/media?kind=&unused=&q=&page=&limit=   rows, totalBytes, facets and usage against the quota
+GET    /teacher/media?kind=&unused=&q=&page=&limit=   rows, totalBytes, facets and usage (library, held and pending bytes) against the quota
 PATCH  /teacher/media/:id               {displayName?, defaultMaxPlays?} → the library row
-POST   /teacher/media/:id/replace       multipart → {asset, repointed: {questions, groups}, left: {questions, groups}};
-                                          415 MEDIA_KIND_MISMATCH for a file of the other kind (§11.1)
-DELETE /teacher/media/:id               409 if referenced by a published version
+POST   /teacher/media/:id/replace       multipart → {asset, repointed: {questions, groups}, left: {questions, groups}, previous};
+                                          415 MEDIA_KIND_MISMATCH for a file of the other kind (§11.1); 429 past ten a minute
+DELETE /teacher/media/:id               409 if referenced by a published version; 200 → {id, bytes, url, usedIn, deleteAt}
 GET    /teacher/assignments?status=&classId=&classId=&q=&page=&limit= | POST | GET /:id | PATCH /:id
                                         rows carry questionCount; classId repeats (any of them)
                                         PATCH 409 ASSIGNMENT_LOCKED while the assignment is open and the

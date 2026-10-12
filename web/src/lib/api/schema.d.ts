@@ -1131,7 +1131,9 @@ export interface paths {
          *
          *     The file joins the caller's library, which may hold at most the
          *     deployment's quota (`listMedia`'s `usage.quotaBytes`); a file that
-         *     would take it past the quota is not kept.
+         *     would take it past the quota is not kept. The quota counts the files
+         *     in the library and the replaced or deleted files that something still
+         *     uses (`usage.heldBytes`).
          *
          *     Assets are immutable. Re-uploading the same file creates a new row with
          *     a new key; it never overwrites (§11.1). That is what lets a version
@@ -1162,13 +1164,23 @@ export interface paths {
          *     questions and bank or draft-owned groups atomically. Published versions,
          *     other owners' rows and import review documents retain the old live file.
          *     The old file leaves the library but remains readable and bindable.
+         *
+         *     What becomes of the old file is `previous`. While a published version or
+         *     another owner's content still uses it, it stays in storage and keeps
+         *     counting toward the owner's quota (`listMedia`'s `usage.heldBytes`).
+         *     Seven days after nothing uses it, it is removed from storage for good;
+         *     nothing restores it, and `previous.url` is the chance to download it.
          *     Missing, foreign, deleted and already replaced IDs answer the same 404
          *     before multipart bytes are read, after routing, authentication and header validation.
          *     Audio is mp3 or m4a, at most 50 MB and 5 minutes; an image is png,
          *     jpg or webp, at most 10 MB (MediaAsset's x-media-limits). Identification
          *     and streamed validation match uploadMedia; kind is checked before storage.
-         *     Quota is the old owner's, excluding the old bytes. Every changed group
+         *     Quota is the old owner's: the library with the new file in it, and the
+         *     old file only while something still uses it, so a replacement that
+         *     published versions hold needs room for both files. Every changed group
          *     revision advances once, so cached question and group data must be reloaded.
+         *     A caller may replace ten files a minute and sixty an hour; beyond that
+         *     the answer is 429 with `Retry-After`, before the file is read.
          *     This operation is not idempotent. An uncertain commit or a committed
          *     replacement whose response fails returns an internal error and retains
          *     the new object; retrying the old ID may answer 404. Failed storage
@@ -1193,7 +1205,15 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** @description Soft-deletes an unreferenced asset. The R2 object itself is retained; lifecycle cleanup is deliberately out of v1 scope. */
+        /**
+         * @description Soft-deletes an unreferenced asset: it leaves the library at once and
+         *     its object is removed from storage seven days after nothing uses it,
+         *     which `deleteMedia` has just checked for published versions and
+         *     independent groups. Nothing restores it; the answer's `url` is the
+         *     chance to download it. A file a live question outside any group still
+         *     attaches keeps counting toward the quota (`listMedia`'s
+         *     `usage.heldBytes`) and is removed seven days after that stops.
+         */
         delete: operations["deleteMedia"];
         options?: never;
         head?: never;
@@ -3710,10 +3730,46 @@ export interface components {
         };
         MediaReplacement: {
             asset: components["schemas"]["LibraryAsset"];
+            /**
+             * @description The old file, which has left the library, and what keeps it in
+             *     storage. A server always sends it; a client reads its absence as a
+             *     server from before files were kept for the tests that use them.
+             */
+            previous?: components["schemas"]["MediaRetirement"];
             /** @description Distinct live question rows and groups actually changed; question rows differ from LibraryAsset.questionCount's derived usage. */
             repointed: components["schemas"]["MediaReplacementCounts"];
             /** @description Other owners' live question rows and groups still using the old asset; excludes versions, import reviews and late same-owner bindings. */
             left: components["schemas"]["MediaReplacementCounts"];
+        };
+        /**
+         * @description A file that has left the library, because `replaceMedia` replaced it or
+         *     `deleteMedia` deleted it, and what keeps it in storage. The file stays
+         *     readable for as long as anything uses it, and in its owner's quota
+         *     (`MediaUsage.heldBytes`). Seven days after nothing uses it, it is
+         *     removed from storage for good and cannot be restored, so `url` is the
+         *     teacher's chance to download it.
+         */
+        MediaRetirement: {
+            id: components["schemas"]["Uuid"];
+            /** Format: int64 */
+            bytes: number;
+            /** @description Short-lived signed URL of the old file (§11.2). */
+            url: string;
+            /**
+             * @description The published test versions that still use the file, one entry per
+             *     version, as `LibraryAsset.usedIn` lists them; a client counts the
+             *     distinct test `id`s for "used by N published tests". Always empty
+             *     after `deleteMedia`, which refuses a file a version uses.
+             */
+            usedIn: components["schemas"]["ReferencingTest"][];
+            /**
+             * Format: date-time
+             * @description When the file is removed from storage, if nothing uses it now: seven
+             *     days from now. `null` while a published version, or content of
+             *     another owner, still uses it; the removal is then seven days after
+             *     the last of them stops, and that time is not known yet.
+             */
+            deleteAt: string | null;
         };
         /**
          * @description A MediaAsset as the teacher's media library lists it: with the name the
@@ -3784,9 +3840,24 @@ export interface components {
             unused: number;
         };
         /**
-         * @description The bytes the caller's whole library holds, whatever the search and
-         *     the filters, beside the quota an upload is measured against. A deleted
-         *     or replaced file counts in neither figure.
+         * @description What the caller's library holds, beside the quota an upload is
+         *     measured against. `audioBytes` and `imageBytes` are the files in the
+         *     library, whatever the search and the filters.
+         *
+         *     A file that was replaced or deleted leaves those two figures but not
+         *     the quota while anything still uses it: a published test version, or
+         *     content of another owner. `heldBytes` is those files, and the quota
+         *     check counts `audioBytes + imageBytes + heldBytes`.
+         *
+         *     Seven days after nothing uses a replaced or deleted file it is removed
+         *     from storage for good. `pendingBytes` is the files waiting for that and
+         *     `pendingDeleteAt` the earliest time one of them goes. They count toward
+         *     neither the quota nor the figures above; they are for information.
+         *
+         *     A server always sends `heldBytes`, `pendingBytes` and `pendingDeleteAt`.
+         *     They are not required so that a client built for this contract still
+         *     reads a server from before files were kept for the tests that use them,
+         *     where a missing figure means none held and none pending.
          */
         MediaUsage: {
             /** Format: int64 */
@@ -3798,6 +3869,25 @@ export interface components {
              * @description The most one owner's library may hold, as the deployment sets it.
              */
             quotaBytes: number;
+            /**
+             * Format: int64
+             * @description Replaced or deleted files that published test versions, or content
+             *     of another owner, still use. They count toward the quota until
+             *     nothing uses them.
+             */
+            heldBytes?: number;
+            /**
+             * Format: int64
+             * @description Replaced or deleted files that nothing uses any more and that wait
+             *     seven days for removal. They do not count toward the quota.
+             */
+            pendingBytes?: number;
+            /**
+             * Format: date-time
+             * @description The earliest time one of the files in `pendingBytes` is removed
+             *     from storage; `null` or absent when none waits.
+             */
+            pendingDeleteAt?: string | null;
         };
         /**
          * @description What `updateMedia` changes. A property left out keeps its stored
@@ -8385,8 +8475,9 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             /**
-             * @description `MEDIA_QUOTA_EXCEEDED` — the caller's library would hold more than
-             *     its quota with this file. Nothing was stored.
+             * @description `MEDIA_QUOTA_EXCEEDED` — the caller's library, with the files it
+             *     still holds, would hold more than its quota with this file.
+             *     Nothing was stored.
              */
             409: {
                 headers: {
@@ -8453,7 +8544,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
-            /** @description MEDIA_QUOTA_EXCEEDED — the old owner's library would exceed its quota; no replacement committed and fresh-object compensation succeeded. */
+            /** @description MEDIA_QUOTA_EXCEEDED — the old owner's library would exceed its quota, counting the old file while something still uses it; no replacement committed and fresh-object compensation succeeded. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -8489,6 +8580,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            429: components["responses"]["TooManyRequests"];
         };
     };
     deleteMedia: {
@@ -8502,7 +8594,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            204: components["responses"]["NoContent"];
+            /** @description Deleted; the answer says when the file's object goes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaRetirement"];
+                };
+            };
             404: components["responses"]["NotFound"];
             /**
              * @description `MEDIA_REFERENCED` — a published version or independent question group still uses it (§8, §15).

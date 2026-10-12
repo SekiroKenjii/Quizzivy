@@ -80,7 +80,7 @@ export default function ClassesPage() {
   const [size] = usePageSize(PAGE_SIZES);
   const [page] = usePage(tab);
   const classes = useQuery({
-    queryKey: ["admin-classes", { status: tab, page, size, withCodes: canWrite }],
+    queryKey: ["teacher-classes", { status: tab, page, size, withCodes: canWrite }],
     queryFn: ({ signal }) =>
       fetchClasses({ status: tab, page, limit: size, withCodes: canWrite }, signal),
     placeholderData: keepPreviousData,
@@ -318,7 +318,9 @@ export default function ClassesPage() {
           await deleteClass(deleting.id);
           settling.current = deleting.id;
         }}
-        onDeleted={() => queryClient.invalidateQueries({ queryKey: ["admin-classes"] })}
+        onDeleted={() =>
+          queryClient.invalidateQueries({ queryKey: ["teacher-classes"] })
+        }
       />
     </DeckScale>
   );

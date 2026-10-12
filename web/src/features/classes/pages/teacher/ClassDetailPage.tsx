@@ -41,7 +41,7 @@ export default function ClassDetailPage() {
   const addButton = useRef<HTMLButtonElement>(null);
   const [adding, setAdding] = useState(false);
   const klass = useQuery({
-    queryKey: ["admin-class", id],
+    queryKey: ["teacher-class", id],
     queryFn: ({ signal }) => fetchClass(id, signal),
   });
 

@@ -34,13 +34,13 @@ const TAB_LABELS = {
   unused: "media.tabUnused",
 } as const;
 const EDITED_BY_REPLACE = [
-  "admin-media",
-  "admin-question",
-  "admin-questions",
-  "admin-group",
-  "admin-groups",
-  "admin-test",
-  "admin-test-preview",
+  "teacher-media",
+  "teacher-question",
+  "teacher-questions",
+  "teacher-group",
+  "teacher-groups",
+  "teacher-test",
+  "teacher-test-preview",
 ] as const;
 
 function toTab(value: string | null): Tab {
@@ -68,7 +68,7 @@ export default function MediaPage() {
   const [size] = usePageSize(PAGE_SIZES);
   const [page] = usePage(JSON.stringify({ search, tab }));
   const library = useQuery({
-    queryKey: ["admin-media", { search, tab, page, size }],
+    queryKey: ["teacher-media", { search, tab, page, size }],
     queryFn: ({ signal }) =>
       listMedia(
         {
@@ -94,7 +94,7 @@ export default function MediaPage() {
     else toast(t(files.length === 0 ? "media.rejectFolder" : "media.rejectMany"));
   }, !dialogOpen);
 
-  const refresh = () => void client.invalidateQueries({ queryKey: ["admin-media"] });
+  const refresh = () => void client.invalidateQueries({ queryKey: ["teacher-media"] });
   const refreshEdited = () => {
     for (const key of EDITED_BY_REPLACE)
       void client.invalidateQueries({ queryKey: [key] });

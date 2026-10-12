@@ -29,7 +29,7 @@ export function DuplicateAssignmentDialog({
   const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
   const classes = useQuery({
-    queryKey: ["admin-classes", "picker", { limit: 100 }],
+    queryKey: ["teacher-classes", "picker", { limit: 100 }],
     queryFn: ({ signal }) => fetchClasses({ limit: 100 }, signal),
     enabled: open,
     staleTime: 60_000,

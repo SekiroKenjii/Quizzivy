@@ -383,7 +383,7 @@ describe("actual Teacher dashboard readings and actions", () => {
     await screen.findByText(/Chưa có điểm/);
     expect(within(region("Bài nộp")).getAllByRole("row")).toHaveLength(8);
     data.submissions.averagePercent = 0;
-    await act(() => client.invalidateQueries({ queryKey: ["admin-dashboard"] }));
+    await act(() => client.invalidateQueries({ queryKey: ["teacher-dashboard"] }));
     expect(await screen.findByText(/điểm trung bình 0%/)).toBeInTheDocument();
   });
   it.each([

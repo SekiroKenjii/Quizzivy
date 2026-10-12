@@ -13,12 +13,12 @@ type SetDraft = Dispatch<SetStateAction<AssignmentDraft>>;
  */
 export function usePickFromQuery(testId: string | null, setDraft: SetDraft) {
   const test = useQuery({
-    queryKey: ["admin-test", testId],
+    queryKey: ["teacher-test", testId],
     queryFn: ({ signal }) => getTest(testId ?? "", signal),
     enabled: testId !== null,
   });
   const versions = useQuery({
-    queryKey: ["admin-test-versions", testId],
+    queryKey: ["teacher-test-versions", testId],
     queryFn: ({ signal }) => listVersions(testId ?? "", signal),
     enabled: testId !== null,
   });
@@ -43,7 +43,7 @@ export function usePickFromQuery(testId: string | null, setDraft: SetDraft) {
  */
 export function useClassFromQuery(classId: string | null, setDraft: SetDraft) {
   const klass = useQuery({
-    queryKey: ["admin-class", classId],
+    queryKey: ["teacher-class", classId],
     queryFn: ({ signal }) => fetchClass(classId ?? "", signal),
     enabled: classId !== null,
   });

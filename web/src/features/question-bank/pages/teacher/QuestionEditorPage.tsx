@@ -59,7 +59,7 @@ export default function QuestionEditorPage() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const existing = useQuery({
-    queryKey: ["admin-question", id],
+    queryKey: ["teacher-question", id],
     queryFn: ({ signal }) => getQuestion(id ?? "", signal),
     enabled: id !== undefined,
   });
@@ -156,8 +156,8 @@ function Editor({
       question === null ? createQuestion(body) : updateQuestion(question.id, body),
     onSuccess: async (saved) => {
       setDirty(false);
-      await queryClient.invalidateQueries({ queryKey: ["admin-questions"] });
-      await queryClient.invalidateQueries({ queryKey: ["admin-question", saved.id] });
+      await queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
+      await queryClient.invalidateQueries({ queryKey: ["teacher-question", saved.id] });
       toast(t("questionEditor.saved"));
       if (question === null) {
         leaving.current = true;

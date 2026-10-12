@@ -175,7 +175,7 @@ describe("the actual route's controlled outgoing sheet", { timeout: 15_000 }, ()
     fireEvent.click(link);
     expect(router.state.location.pathname).toBe(path);
     await act(() =>
-      client.invalidateQueries({ queryKey: ["admin-attempt", ATTEMPT_ID] }),
+      client.invalidateQueries({ queryKey: ["teacher-attempt", ATTEMPT_ID] }),
     );
     expect(reviews).toEqual([ATTEMPT_ID]);
     end(sheet);
@@ -248,7 +248,7 @@ describe("the actual route's controlled outgoing sheet", { timeout: 15_000 }, ()
     expect(sheet).toHaveAttribute("data-state", "closed");
     release();
     await waitFor(() =>
-      expect(client.getQueryData(["admin-attempt", ATTEMPT_ID])).toBeDefined(),
+      expect(client.getQueryData(["teacher-attempt", ATTEMPT_ID])).toBeDefined(),
     );
     expect(sheet).not.toHaveAccessibleName("Late private name");
     expect(screen.queryByLabelText("Ghi chú riêng")).toBeNull();
@@ -277,7 +277,7 @@ describe("the actual route's controlled outgoing sheet", { timeout: 15_000 }, ()
     end(sheet);
     end(document.querySelector('[data-slot="sheet-overlay"]')!);
     await waitFor(() => expect(sheet.isConnected).toBe(false));
-    client.setQueryData(["admin-assignment", other], assignment({ id: other }));
+    client.setQueryData(["teacher-assignment", other], assignment({ id: other }));
     await act(() => router.navigate(`/teacher/assignments/${other}`));
     await screen.findByRole("heading", { level: 1 });
     await act(() => router.navigate(path));

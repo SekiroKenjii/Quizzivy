@@ -105,6 +105,17 @@ func (s *Service) Describe(ctx context.Context, assets []domain.Asset) error {
 	return nil
 }
 
+// SignRetired gives a file that left the library the signed URL its owner
+// downloads it from.
+func (s *Service) SignRetired(ctx context.Context, retired domain.Retired) (domain.Retired, error) {
+	url, err := s.Object.SignedURL(ctx, retired.Asset.StorageKey, s.TTL)
+	if err != nil {
+		return domain.Retired{}, err
+	}
+	retired.Asset.URL = url
+	return retired, nil
+}
+
 func (s *Service) Mint(ctx context.Context, asset domain.Asset) (model.SignedURLResult, error) {
 	url, err := s.Object.SignedURL(ctx, asset.StorageKey, s.TTL)
 	if err != nil {

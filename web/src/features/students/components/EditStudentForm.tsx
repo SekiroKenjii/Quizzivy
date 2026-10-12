@@ -31,8 +31,10 @@ export function EditStudentForm({
   const save = useMutation({
     mutationFn: (values: EditStudentValues) => updateStudent(student.id, values),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["admin-students"] });
-      await queryClient.invalidateQueries({ queryKey: ["admin-student", student.id] });
+      await queryClient.invalidateQueries({ queryKey: ["teacher-students"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["teacher-student", student.id],
+      });
       toast(t("students.saved"));
       onDone();
     },

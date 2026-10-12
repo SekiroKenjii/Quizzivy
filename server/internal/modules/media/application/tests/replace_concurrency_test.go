@@ -227,7 +227,7 @@ func TestReplacementPoolDeletionWinsBeforeLockedRecheck(t *testing.T) {
 	in := w.input(old, w.a, domain.KindImage, 30, 30)
 	answer := w.startReplacement(in)
 	w.blocked(t, tr, "FOR UPDATE", pid)
-	if err := repositories.NewPostgres(db.NewContext(tx)).SoftDelete(context.Background(), domain.DeleteInput{ID: old, ActorID: w.a, Now: time.Now()}); err != nil {
+	if _, err := repositories.NewPostgres(db.NewContext(tx)).SoftDelete(context.Background(), domain.DeleteInput{ID: old, ActorID: w.a, Now: time.Now()}); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.Commit(context.Background()); err != nil {

@@ -55,7 +55,7 @@ import { moment, nameOf, type ListTab } from "./assignmentWindow";
 import { DuplicateAssignmentDialog } from "./DuplicateAssignmentDialog";
 import { ExtendAssignmentsDialog } from "./ExtendAssignmentsDialog";
 
-const QUERY_KEY = ["admin-assignments"] as const;
+const QUERY_KEY = ["teacher-assignments"] as const;
 const TABS: readonly ListTab[] = ["open", "scheduled", "closed", "draft"];
 const EXPORT_LIMIT = 50;
 
@@ -349,7 +349,7 @@ export default function AssignmentsListPage() {
     placeholderData: keepPreviousData,
   });
   const classes = useQuery({
-    queryKey: ["admin-classes", "picker", { limit: 100 }],
+    queryKey: ["teacher-classes", "picker", { limit: 100 }],
     queryFn: ({ signal }) => fetchClasses({ limit: 100 }, signal),
     staleTime: 60_000,
   });

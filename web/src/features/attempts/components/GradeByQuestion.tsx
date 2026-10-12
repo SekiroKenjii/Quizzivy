@@ -58,8 +58,8 @@ export function GradeByQuestion({
       });
       await queryClient.invalidateQueries({ queryKey: reviewKey(row.attemptId) });
       await queryClient.invalidateQueries({ queryKey: monitorKey(assignmentId) });
-      await queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
-      await queryClient.invalidateQueries({ queryKey: ["admin-attempts"] });
+      await queryClient.invalidateQueries({ queryKey: ["teacher-dashboard"] });
+      await queryClient.invalidateQueries({ queryKey: ["teacher-attempts"] });
     },
     onError: (cause) =>
       setFailure(cause instanceof ApiError ? cause.message : t("review.saveFailed")),
