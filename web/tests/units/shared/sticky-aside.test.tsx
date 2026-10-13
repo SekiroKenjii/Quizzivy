@@ -51,13 +51,13 @@ describe("StickyAside (V-02)", () => {
     expect(column).not.toHaveClass("sticky-column");
   });
 
-  it("docks the deck's way: 16px from the top, capped at the window less 88px, scrolling", () => {
+  it("docks the deck's way: 16px from the top, capped at the window less 112px, scrolling", () => {
     const css = read("index.css");
     const utility = /@utility sticky-column \{([^}]*)\}/.exec(css)?.[1] ?? "";
 
     expect(utility).toMatch(/position:\s*sticky;/);
     expect(utility).toMatch(/top:\s*16px;/);
-    expect(utility).toMatch(/max-height:\s*calc\(100vh - 88px\);/);
+    expect(utility).toMatch(/max-height:\s*calc\(100vh - 112px\);/);
     expect(utility).toMatch(/overflow-y:\s*auto;/);
   });
 });

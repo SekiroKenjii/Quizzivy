@@ -2172,7 +2172,7 @@ collapsed, and nothing expanded or in the drawer; the Admin console is R5's and 
 component. `StickyAside` (`components/shared/StickyAside.tsx`) is an `aside` (or the `as` it is
 given) that always carries the deck's allowance (`-mx-0.5 -mt-px -mb-0.5 px-0.5 pt-px pb-0.5`) and
 sticks with `docked`, or behind a host's container query on the `sticky-column` utility
-(`index.css`: `position: sticky; top: 16px; max-height: calc(100vh - 88px); overflow-y: auto`).
+(`index.css`: `position: sticky; top: 16px; max-height: calc(100vh - 112px); overflow-y: auto`). The cap is 112px, not the deck's 88: our `<main>` adds 24px of top padding above the 16px offset, so a stuck column starts 40px under the top bar, and the deck's cap would end it 8px below the window. 112 ends it 16px above, as the deck's geometry intends (TL, review of #564).
 The hosts: the wizard from `@min-[794px]/wizard` (basis 304px and minimum 244px, so the card stays
 300 and 240 inside the allowance); the question editor's settings, now a card inside the aside,
 from `@min-[900px]/qe`; Class detail's column, a `div`, with `docked={two}` (1000px of content, as

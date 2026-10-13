@@ -185,7 +185,7 @@
 @utility sticky-column {
   position: sticky;
   top: 16px;
-  max-height: calc(100vh - 88px);
+  max-height: calc(100vh - 112px);
   overflow-y: auto;
 }
 
