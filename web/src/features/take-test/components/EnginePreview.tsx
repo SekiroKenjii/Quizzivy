@@ -119,12 +119,6 @@ export function EnginePreview({
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (question === undefined) return;
-    if (
-      event.currentTarget.querySelector(
-        '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
-      )
-    )
-      return;
     const key = paperKey(event.nativeEvent, {
       stops,
       index: open,
@@ -133,6 +127,12 @@ export function EnginePreview({
       answers,
     });
     if (key === null) return;
+    if (
+      event.currentTarget.querySelector(
+        '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
+      )
+    )
+      return;
     event.preventDefault();
     if (key.kind === "flag") {
       if (key.questionId !== null) toggleFlag(key.questionId);

@@ -175,14 +175,14 @@ export default function TakeTestPage() {
   };
   const handleShortcut = useEffectEvent((event: KeyboardEvent) => {
     if (lock !== null || submitState !== "idle" || question === undefined) return;
+    const key = paperKey(event, { stops, index, question, questions, answers });
+    if (key === null) return;
     if (
       document.querySelector(
         '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
       )
     )
       return;
-    const key = paperKey(event, { stops, index, question, questions, answers });
-    if (key === null) return;
     event.preventDefault();
     switch (key.kind) {
       case "open":
