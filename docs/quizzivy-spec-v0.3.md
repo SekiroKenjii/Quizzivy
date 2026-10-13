@@ -1908,7 +1908,7 @@ flat results/reviews keep their existing payload and require no group reader.
 | `/teacher/grading` | Grading queue | Unmarked manual answers across the caller's assignments, by student or by question (below). `teaching.grading`. |
 | `/teacher/students` | Students | Table with search, class and account (Google or password) filters; create into one's own classes; edit; reset one password or up to 40 (§5.4). |
 | `/teacher/classes`, `/teacher/classes/:id` | Classes | Cards with their codes; CRUD, schedule and room, members, **join-code card** (§6.4). |
-| `/teacher/settings/:section?` | Settings | Profile, Sign-in & security (password, Google, signed-in devices), Notifications, Assignment defaults, Appearance, AI assistant (`ai.use`; Availability: D4, T-D4.38) and the API reference for its holders. |
+| `/teacher/settings/:section?` | Settings | Profile, Sign-in & security (password, Google, signed-in devices), Notifications, Assignment defaults, Appearance, AI assistant (`ai.use`) and the API reference for its holders. |
 
 **The AI assistant's surfaces** (D19 to D22; V-06 to V-14 of the v2 deck, `docs/plan/74d-d4-deck-update.md` section G). *Availability: D4, T-D4.34 to T-D4.39.* The operations behind every one are built (§15), and each web task removes its own line from this block when it ships. A panel is a dialog, so none adds a route.
 
