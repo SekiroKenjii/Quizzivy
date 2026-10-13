@@ -1748,17 +1748,41 @@ five prompts.
 **Size:** S
 **Frozen:** the prompt's stored text; the answer shape.
 **Done when:**
-- [ ] A `single_choice` or `true_false` question whose prompt is plain (no `promptContent`),
+- [x] A `single_choice` or `true_false` question whose prompt is plain (no `promptContent`),
       one line, with exactly one run of three or more underscores and no other Markdown
       marker, is drawn as the deck's sentence: 18px (20px larger), weight 500, line-height 1.8,
       the run replaced by a box (at least 88px wide, padding 0 10px, radius 7, a 2px bottom
       border): empty on `--muted` with a `--ring` line, or the chosen option's plain text on
       `--accent-soft` with an `--accent-c` line. A screen reader hears "blank" or the chosen
       text in place.
-- [ ] Any other prompt prints as written. `sentence-gap.test.ts` lists the refusals: two runs,
+- [x] Any other prompt prints as written. `sentence-gap.test.ts` lists the refusals: two runs,
       a rich prompt, a prompt of several lines, multiple choice, a run of two underscores.
-- [ ] Compared with s9 questions 5 and 12 at 360 and 1280, light and dark. This task is
+- [x] Compared with s9 questions 5 and 12 at 360 and 1280, light and dark. This task is
       dropped without loss if the answer to Q17 is that the sentence is printed as written.
+
+**As built:** `sentenceGap(question)` returns the text before and after the gap, or null. Q17
+had no answer, so its default is built. "No other Markdown marker" is read conservatively,
+as characters: outside the run there is no `_`, `*`, `` ` ``, `~`, `[`, `]`, `<`, `>` or
+`\`, no HTML entity, and the line does not open with a heading (`#`), a list item (`-`, `+`)
+or a numbered item (`1.`, `1)`); `|` is allowed, since one line cannot be a table. The
+prompt is trimmed, so a trailing line break is still one line, and composed to NFC, as its
+Markdown is; diacritics play no part in the rule. The run may be longer than three (the deck
+splits on exactly `___`). The box is a `<span>` in the sentence's `<p>`: empty, a
+non-breaking space hidden from assistive technology and "chỗ trống" / "blank" in `sr-only`
+(new key `takeTest.sentenceGap`); chosen, the option's `text`, or "Đúng" / "Sai" for a
+canonical true/false option as `OptionText` names it. `--accent-c` and `--accent-soft` are
+the `brand` and `brand-soft` utilities. It is not focusable, so it takes no ring; the rows
+keep theirs. `max-w-full` and `break-words` keep a long option inside a 360px column, which
+the deck does not draw. The teacher's previews draw `QuestionSheet`, so they show the gap
+too: `detail.test.tsx`, `detail-versions.test.tsx` and `preview-and-leave.test.tsx` found
+the preview by the literal prompt "They ___ …" and now find it as a screen reader reads the
+sentence (`tests/support/gapSentence.ts`); their fixtures are unchanged. The builder's
+prompt field and the import both write `promptContent`, so on content made in the product
+today the rule fires only for prompts kept in Markdown; a rich prompt that is one plain
+paragraph prints as written, as the rule says. Compared with s9 questions 5 and 12 at 360
+and 1280, light and dark, empty and chosen: the sentence and the box equal the deck's in
+position, size, type, padding, radius and colour in all 16 cells; the question sits 35px
+lower at 360 for the paper's integrity line above it, which the deck's paper has not.
 
 ---
 
