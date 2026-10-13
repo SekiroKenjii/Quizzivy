@@ -1,7 +1,15 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.103 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.104 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.103**
+
+D4, T-D4.12: the engine as D4 built it, and the settings line as it reads.
+
+- §8 Settings › AI assistant quotes its reset line as built: "It resets on {date}", the first day of the next month.
+- §9 The engine shows one stop at a time, a question or a cloze's run of gaps. Every question carries its section's title and instructions. The sections rail shows from 900px, or from 1180px beside shared content; the footer holds a key hint beside the rail and the grid button with its question sheet elsewhere, and there is no strip of numbers. A cloze run is one screen with its line, its chips and its gap card, and the arrows move by stop.
+- §12 The engine's thresholds (420, 900, 1180 and 1024) are on its own width, a preview frame's in a preview; the touch-target exceptions name the rail's squares, the drawer's handle and close button, and the grid button.
 
 **Changes since v0.102**
 
@@ -2446,10 +2454,11 @@ Deliberate. Do not "improve" them with trendy defaults.
 
 **The student app and the engine, as built in R3 (v0.9.0).** The source is `Quizzivy Student.dc.html`. What the deck does not draw, and where the product departs from it, is in `docs/design/gaps.md` (DG-80 to DG-89, DG-102 to DG-107, DG-119).
 
-- **One breakpoint, 768px.** The shell and the engine change their chrome there and nowhere else: destinations in the top bar or bottom tabs, side-by-side panes or the drawer over the question, the number strip or the count button with its sheet. A page keeps its state across it.
+- **One breakpoint, 768px.** The shell changes its chrome there and nowhere else: destinations in the top bar or bottom tabs. The engine changes there too: side-by-side panes or the drawer over the question, and the question sheet as a bottom sheet or a centred card. A page keeps its state across it.
+- **The engine's thresholds** are on the engine's own width, which in a teacher's preview is the frame's: below 420 the grid button reads its short label; from 900 the sections rail shows on a question with no shared content, and from 1180 beside it, never below 768; at 1024 the 44px floor ends and the blank, the answer field, the sheet's squares and the seek track take their wide sizes. Crossing any of them keeps an answer being typed, and nothing in the panes remounts.
 - **One centred column per page:** Home and Classes at most 960px, the test intro 720px, the result 820px, Settings 760px. No page has a side panel. In the engine the passage column is at most 640px and the question column 600px.
 - **Classes** are cards in a grid that fills the row, with 280px as a card's least width. A card is not a link.
-- **Touch targets.** Below 1024px the student surfaces put a 44px floor on buttons, and so does the engine in a teacher's preview frame narrower than 1024px, whatever the window's width. A control the deck draws keeps the deck's size: the header's 36px ✕, the 32px flag toggle, the strip's 34px squares, the dialogs' 42px buttons (46px for the one button of the "you left the test" alert). The engine's Previous and Next, the count button and the question sheet's squares are 44px. An option row is at least 52px high.
+- **Touch targets.** Below 1024px the student surfaces put a 44px floor on buttons, and so does the engine in a teacher's preview frame narrower than 1024px, whatever the window's width. A control the deck draws keeps the deck's size: the header's 36px ✕, the 32px flag toggle, the rail's 34px squares, the drawer's 30px handle and 34px close button, the dialogs' 42px buttons (46px for the one button of the "you left the test" alert). The engine's Previous and Next, the grid button and the question sheet's squares are 44px (the squares 42px from 1024). An option row is at least 52px high.
 - **Dialogs** use the deck's frame: 440px (420px for the "you left the test" alert) or the width less 24px, no close button, the actions at the right; the alert has one button, as wide as the dialog. A dialog with a field sits 12% from the top below 768, so the keyboard does not cover it (DG-103).
 - **The timer** is a pill centred in the header's free space. Each digit sits in a cell one zero wide, because Be Vietnam Pro has no tabular figures and the pill would otherwise change width every second. Under five minutes it takes the danger tones.
 - **Text in a test.** The passage is 16px on a 1.75 line and cannot be selected, the prompt 17px, an option 15px. "Chữ lớn hơn khi làm bài" raises them to 18, 19 and 17px; the signed-in choice is an account preference mirrored in this browser; anonymous choices remain local.
@@ -2464,7 +2473,7 @@ The rules below carry over from v0.43, restated in the deck's tokens, except tha
 - **Typography:** Be Vietnam Pro, self-hosted (latin, latin-ext and vietnamese subsets, 400–700, upright and italic; the CSP allows no font host). Every character the UI draws is in the loaded font faces; a symbol the font lacks is an icon (`KeyGlyph` for ⌘, ↵, ↑ and ↓), or a character it has, such as the en dash for a range. Content is shown in NFC: the server composes the text a person types before it stores it, the rich content editor composes what it writes, and a view composes what it draws, because a row saved before the server did can still be decomposed. The deck's scale: 3xs 10.5, 2xs 11, caption 11.5, xs 12, meta 12.5, sm 13, ui 13.5, base 14, body 14.5, md 15, title 16, lg 17, stat-sm 18, xl 20, stat 22, h1 24, h1-student 26, kpi-sm 28, kpi 30, display 34px. Phone text inputs stay at 16px to avoid input zoom; student touch targets follow the R3 rule above; seek tracks have a 44px hit area. `leading-relaxed` in the test view.
 - **Icons:** lucide-react, 16px dense / 20px nav, consistent stroke, `aria-hidden` unless standalone.
 - **Density:** admin tables dense (~40px rows). Student pages are the centred columns of the R3 rules above. The teacher's pages follow the deck's tables and cards inside the content-width rules of §8. The student test view stays spacious: one question at a time, beside its passage from 768px when it has one.
-- **Action hierarchy:** resume is primary; opening an assignment's intro is secondary. Deadline pills turn amber only within 24 hours. The 320px test footer has previous as an icon, the count button that opens the question sheet, and Next or Finish. In the Submit dialog the two buttons stay in reach while a long list of unanswered questions scrolls. Submission confirmation offers the submitted paper directly.
+- **Action hierarchy:** resume is primary; opening an assignment's intro is secondary. Deadline pills turn amber only within 24 hours. The 320px test footer has previous as an icon, the grid button that opens the question sheet, and Next or Finish. In the Submit dialog the two buttons stay in reach while a long list of unanswered questions scrolls. Submission confirmation offers the submitted paper directly.
 - **Explicit states:** single- and multiple-choice instructions identify selection behaviour without revealing the key. The save line says saved, saving, offline or failed; exhausted audio allowances explain continued playback is recorded. Login exposes class joining and a reversible password visibility toggle. Signed-in join screens identify the current account and provide a way back.
 - **Motion.** The deck's keyframes, and what the old consoles still carry:
   - 150ms control feedback, and the settings panels' 150ms ease-out `settings-enter` entrance.
