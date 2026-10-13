@@ -2166,7 +2166,7 @@ with the v2 deck again at the five widths in two themes, and adds one closing li
       on the builder, the wizard, Test detail, the bank, the editor, the review, Class detail
       and Settings; the collapsed sidebar at 1024 in both consoles.
 
-**As built:** #<PR> (two commits: the separator, then the columns). `Sidebar` draws the separator
+**As built:** #564 (two commits: the separator, then the columns). `Sidebar` draws the separator
 (`bg-border mx-2.5 mb-1 h-px`, 23 × 1 px inside the 60px rail) before each labelled group while
 collapsed, and nothing expanded or in the drawer; the Admin console is R5's and takes the same
 component. `StickyAside` (`components/shared/StickyAside.tsx`) is an `aside` (or the `as` it is
