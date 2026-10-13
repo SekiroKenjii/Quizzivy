@@ -1,4 +1,13 @@
-import { remainingMs, type LockReason } from "./store";
+import type { LockReason } from "./store";
+
+/**
+ * remainingMs is the time left until `deadlineAt` on the SERVER's clock: the
+ * device's time corrected by `offsetMs`, never Date.now() alone, and never
+ * below zero.
+ */
+export function remainingMs(state: { deadlineAt: number; offsetMs: number }): number {
+  return Math.max(0, state.deadlineAt - (Date.now() + state.offsetMs));
+}
 
 /**
  * timeLeft is the time the student still has, in milliseconds on the server's

@@ -2523,12 +2523,18 @@ fullscreen, play counting); `preview.ts`'s stripping of keys and transcripts.
       deck runs a 45:00 timer; the save line's sentence; content is the teacher's own, not a
       fixture.
 
-**As built:** one pull request, five commits (the moves; the frame-aware thresholds and sheet; the
-preview; the group preview spec's focus check; this note). `Paper` moved from `TakeTestPage.tsx` to `components/Paper.tsx`,
+**As built:** one pull request (the moves; the frame-aware thresholds and sheet; the preview; the
+group preview spec's focus check; this note; then E2E 1 read through the engine, the store cut out
+of the preview's imports, and the engine's keys checking for a dialog only for a key they take). `Paper` moved from `TakeTestPage.tsx` to `components/Paper.tsx`,
 `useLivePaperSource` from `paper.ts` to `livePaper.ts`, `dotsOf` to `answered.ts`, and the
 engine's keys to `shortcuts.ts` (`paperKey`, which TakeTestPage acts on as before), with no change,
-so `EnginePreview` (`take-test/components/EnginePreview.tsx`, exported by `take-test/index.ts`)
-mounts `Paper` with no store, `livePaper`, integrity monitor or autosave in its imports. It holds
+and `remainingMs` from `store.ts` to `timeLeft.ts` (the store re-exports it), so
+`EnginePreview` (`take-test/components/EnginePreview.tsx`, exported by `take-test/index.ts`)
+mounts `Paper` with no store, `livePaper` or integrity monitor in its imports:
+`preview-imports.test.ts` makes each of the three throw when loaded and imports the preview. The
+one integrity module left in its graph is `integrity/fullscreen.ts`, through `FullscreenBar`,
+which asks for fullscreen only on a click and is not drawn, since the preview passes
+`fullscreenBar={false}`. It holds
 the paper's answers, flags and open question in component state, with every audio callback a
 no-op, and `Paper`'s `preview` mode draws `EngineHeader`'s preview (no leave button, no Submit,
 the chip, `NoTimeLimit` in the timer's place, `UnsavedLine` as the save line, no
