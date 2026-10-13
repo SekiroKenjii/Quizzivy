@@ -16,7 +16,7 @@ import { defaultRows, review } from "../attempts/fixtures";
 const rows = defaultRows();
 
 describe("assignment detail pure contracts", () => {
-  it("counts handed-in and real flags independently of filtering and excludes pending scores from its graded mean", () => {
+  it("counts each progress group as its roster filter shows it, a voided flag excluded, and excludes pending scores from its graded mean", () => {
     const all = [
       ...rows,
       {
@@ -44,7 +44,8 @@ describe("assignment detail pure contracts", () => {
       total: 7,
       submitted: 4,
       inProgress: 1,
-      flagged: 2,
+      notStarted: 1,
+      flagged: 1,
       pending: 4,
       average: 45,
     });
@@ -86,6 +87,8 @@ describe("assignment detail pure contracts", () => {
     expect(rosterMatches({ ...rows[0]!, state: "voided" }, "flagged", "")).toBe(false);
     expect(rosterMatches(rows[2]!, "notStarted", "")).toBe(true);
     expect(rosterMatches(rows[0]!, "submitted", "")).toBe(false);
+    expect(rosterMatches(rows[0]!, "inProgress", "")).toBe(true);
+    expect(rosterMatches(rows[1]!, "inProgress", "")).toBe(false);
     expect(
       orderedRoster([
         { ...rows[0]!, studentId: "b" },
@@ -133,6 +136,7 @@ describe("assignment detail pure contracts", () => {
     expect(detailTab("questions")).toBe("questions");
     expect(detailTab("settings")).toBe("settings");
     expect(rosterFilter("flagged")).toBe("flagged");
+    expect(rosterFilter("inProgress")).toBe("inProgress");
     expect(rosterFilter("settings")).toBe("all");
   });
 

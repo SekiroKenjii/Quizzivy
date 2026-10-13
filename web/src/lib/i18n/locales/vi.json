@@ -2718,6 +2718,7 @@
     "tabs": {
       "all": "Tất cả",
       "submitted": "Đã nộp",
+      "inProgress": "Đang làm",
       "pending": "Chờ chấm",
       "flagged": "Cần xem lại",
       "notStarted": "Chưa nộp"
@@ -3828,6 +3829,23 @@
     "unavailable": "Không thể mở bài giao này.",
     "submitted": "Đã nộp",
     "average": "Điểm trung bình",
+    "progress": {
+      "submittedOf": "Đã nộp {{submitted}}/{{total}}",
+      "allSubmitted_one": "Đã nộp đủ {{count}}/{{count}}",
+      "allSubmitted_other": "Đã nộp đủ {{count}}/{{count}}",
+      "notAssigned": "Chưa giao cho học viên nào",
+      "average": "Trung bình",
+      "filterLabel": "Lọc học viên",
+      "showOnly": "Chỉ hiện học viên {{group}}",
+      "showEveryone": "Hiện tất cả học viên",
+      "loadFailed": "Chưa tải được tiến độ.",
+      "groups": {
+        "submitted": "Đã nộp",
+        "inProgress": "Đang làm",
+        "notStarted": "Chưa bắt đầu",
+        "flagged": "Bị gắn cờ"
+      }
+    },
     "tabsLabel": "Nội dung bài giao",
     "tabs": {
       "students": "Học viên",
