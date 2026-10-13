@@ -3005,14 +3005,14 @@ the 256 MiB sandbox included; `BenchmarkRenderForty*` in `pdftext/tests` repeats
       sentence "Your allowance is used up. Ask for more in Settings." (or "The school's AI pool
       is used up this month."); `403 AI_PAUSED` as "AI is paused for your account."; a response
       that fails the schema as the warning callout. No demo content ever renders.
-- [ ] Entry points. The builder's title bar gains "AI check" and "Generate" before Preview
+- [x] Entry points. The builder's title bar gains "AI check" and "Generate" before Preview
       (V-09) and is re-measured for one row at 768 collapsed, 1024, 1280 and 1440 in both
       languages (T-R4.31a's rule); Preview still flushes pending edits first, and so do both AI
       buttons. The bank's header gains "Clean up" and "Generate" (V-08). Test detail gains "Make a
       variant" (V-12), disabled without a published version. Every entry point is drawn only when
       `useAiAvailable()` (the status read and `ai.use`) is true, and disabled with a tooltip when
       the usage read says paused or exhausted (Q34).
-- [ ] Generate: the source chips offer the test's shared-content passages by title ("Passage 1 ·
+- [x] Generate: the source chips offer the test's shared-content passages by title ("Passage 1 ·
       …") and "Start empty"; types are the five stored types (TFNG joins in R6, DG-202); "Add {n}
       to {section}" creates the accepted items as questions in the open question's section
       through the existing writes, with the "AI draft" tag when the preference is on, and opens
@@ -3020,18 +3020,18 @@ the 256 MiB sandbox included; `BenchmarkRenderForty*` in `pdftext/tests` repeats
 - [x] Check: findings as drawn; "{fix}" is one click only for a fix whose write exists (option
       text, accepted answer, explanation) and calls `updateQuestion` with the payload; otherwise
       "Open question" and "Dismiss" only (DG-202).
-- [ ] Variant: the before / after cards; "Save {n} changes as a draft" calls `duplicateTest` into
+- [x] Variant: the before / after cards; "Save {n} changes as a draft" calls `duplicateTest` into
       "{title} · Variant" and applies the accepted changes to the copy's draft questions through
       `updateQuestion`; the toast reads "Variant saved as a draft. Open the variant." with a link
       (DG-197).
-- [ ] Clean up: a duplicate card offers "Open" for each question and "Keep both"; no merge
+- [x] Clean up: a duplicate card offers "Open" for each question and "Keep both"; no merge
       (DG-197); "Add tags to {n} questions" is the bulk tag write.
 - [x] Every write a primary makes goes through the existing mutation hooks and their autosave
       flushes; the panel itself calls only `/teacher/ai/*`. A unit test spies on the API module
       and finds no write from `features/ai/`.
-- [ ] Strings vi first, en from the deck, listed in the PR; `features/ai/` is a lazy chunk;
+- [x] Strings vi first, en from the deck, listed in the PR; `features/ai/` is a lazy chunk;
       `router-chunks.test.ts` passes untouched.
-- [ ] Compared with the deck at 360, 768, 1024, 1280 and 1440, light and dark: the panel in its
+- [x] Compared with the deck at 360, 768, 1024, 1280 and 1440, light and dark: the panel in its
       three stages for each kind, and the three headers. Known differences: DG-197, DG-201, DG-202.
 
 **As built (T-D4.34a, the panel and the builder):** The task ran past 800 lines, so it is two pull
@@ -3085,6 +3085,42 @@ collapsed, 1280 and 1440 in both sidebar states, where the deck has one; the act
 row at 768 in both sidebar states and at 1024 expanded, as the deck's; at 360 the deck's three rows.
 At 768 expanded Publish goes to a third row (the deck keeps the actions on one): the Versions icon
 the deck no longer draws needs 42px, and the row is 3px short in English.
+
+**As built (T-D4.34b, the bank and Test detail):** The bank's header gains "Clean up" and
+"Generate" before New question (`question-bank/components/BankAiActions.tsx`), and Test detail
+"Make a variant" before Open builder (`tests/components/VariantAction.tsx`); both load the panel
+lazily and keep the rules of 34a. "Make a variant" is drawn disabled, with "Publish the test before
+making a variant." as its tooltip, while the test has no published version; the builder's Generate
+uses the same form ("Add a section first.") in place of a bare disabled button.
+
+**A variant never writes to the test it copies.** `duplicateTest` copies a draft's outline, and a
+section's standalone questions are copied by reference: the copy names the same bank questions. So
+`updateQuestion` on "the copy's questions", as the box above says, would change the original's draft
+too. `tests/aiVariant.ts` checks every changed question against `questionSchema` first (a change
+that cannot be saved stops the whole save before a write), then calls `duplicateTest`, duplicates
+each changed question with `duplicateQuestion`, writes the changes to the duplicate with
+`updateQuestion` (its option ids mapped from the original's by position, `withVariant` in
+`question-bank/aiDrafts.ts`), and saves the copy's outline with each duplicate in place of its
+original and the title "{title} · Variant" (cut to 200 characters by the test's title). Questions in
+a shared-context group are never named by the operation (it reads `questionIds`), so a variant's
+groups are the copy's own. The toast is "Variant saved as a draft." with "Open the variant", which
+opens the new test's detail.
+
+The clean-up's duplicate card offers "Open one", "Open other" (links to the bank editor) and
+"Keep both", which only drops the card; nothing merges. Kept tag suggestions go through
+`tagQuestions`, one call for each distinct set of tags; with no tag suggestion left the primary is
+"Done". `truncated` is the info line "This scan read {n} questions, not the whole bank. Apply these and
+run it again." The usage line names each count in its own plural ("Used in 4 tests and 1 test").
+Generate in the bank has no source chips (the bank has no passage) and saves with "Save {n} to the
+bank" and the deck's toast.
+
+Compared in Chromium against the deck at the five widths, light and dark: the three kinds' panels
+within 1px of the deck's geometry in every stage, the differences being DG-197 (no merge; "Open"
+for each), DG-201 (no sample callout; metered credits) and DG-202 (five types). The headers keep
+the deck's rows where the product draws what the deck draws; the bank's header has no Share or
+Import (not in the product) and so wraps later than the deck's, and Test detail has no Share. No
+header scrolls sideways at any cell, in either language. Focus returns to the opening button in
+every cell.
 
 ### T-D4.35 — Question editor: "Write with AI" and "Suggest wrong options"
 **Depends on:** T-D4.32, T-D4.34 (shares `features/ai/api.ts` and the credit note)
