@@ -1336,6 +1336,8 @@
     "publishing": "Đang phát hành…",
     "versions": "Phiên bản",
     "previewAsStudent": "Xem như học viên",
+    "previewTitle": "Xem như học viên · {{title}}",
+    "previewClose": "Đóng bản xem trước",
     "stay": "Ở lại",
     "leave": "Rời đi",
     "leaveBody": "Thay đổi vừa gõ chưa được lưu. Ở lại vài giây để lưu xong, hoặc rời đi và mất phần chưa lưu.",
@@ -1459,9 +1461,6 @@
     "changeNotePlaceholder": "Phiên bản này thay đổi gì",
     "publishDone": "Đã phát hành. Giờ bạn có thể giao bài.",
     "assign": "Giao bài",
-    "previewPrevious": "Câu trước",
-    "previewNext": "Câu tiếp",
-    "previewPosition": "Câu {{n}} / {{total}}",
     "editor": {
       "question": "Câu hỏi",
       "questionNumber": "Câu {{number}}",
@@ -1667,8 +1666,6 @@
         "device": "Khung xem",
         "computer": "Máy tính",
         "phone": "Điện thoại",
-        "foot_one": "{{count}} câu hỏi. Học viên không thấy đáp án.",
-        "foot_other": "{{count}} câu hỏi. Học viên không thấy đáp án.",
         "failed": "Không tải được bản xem trước."
       },
       "compare": {
@@ -1681,10 +1678,6 @@
           "changed": "Sửa",
           "answer": "Đáp án",
           "points": "Điểm"
-        },
-        "mark": {
-          "added": "Mới",
-          "changed": "Đã sửa"
         },
         "added": "Câu {{n}} · “{{prompt}}”",
         "removed": "Câu {{n}} của phiên bản {{version}} · “{{prompt}}”",
@@ -1760,6 +1753,7 @@
     "noun_other": "đề thi"
   },
   "preview": {
+    "frame": "Màn hình của học viên",
     "questionNumber": "Câu {{n}}",
     "materialUnavailable": "Ngữ liệu chưa tải được. Hãy tải lại bản xem trước.",
     "sharedAudioHint": "Nghe thử không tính lượt làm bài.",
@@ -4038,10 +4032,6 @@
       "device": "Khung xem",
       "computer": "Máy tính",
       "phone": "Điện thoại",
-      "foot_one": "{{count}} câu hỏi. Học viên không thấy đáp án và ghi chú của bạn.",
-      "foot_other": "{{count}} câu hỏi. Học viên không thấy đáp án và ghi chú của bạn.",
-      "footSome_one": "Đang hiện {{shown}} trên {{count}} câu hỏi. Học viên không thấy đáp án và ghi chú của bạn.",
-      "footSome_other": "Đang hiện {{shown}} trên {{count}} câu hỏi. Học viên không thấy đáp án và ghi chú của bạn.",
       "previewEmpty": "Chưa có câu hỏi nào để xem trước.",
       "summaryTitle": "Tóm tắt",
       "rowIncluded": "Câu đưa vào đề",

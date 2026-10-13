@@ -17,15 +17,12 @@ type ImportGapLink = ImportDraftGroup["gaps"][number];
 
 /**
  * DraftPreview is an import draft in the shape the student's paper takes:
- * the questions it can draw, their sections and shared passages, and
- * `included`, the questions still in the test, which can exceed
- * `questions.length` while a question has a type the paper cannot draw.
+ * the questions it can draw, their sections and shared passages.
  */
 export interface DraftPreview {
   questions: StudentQuestion[];
   sections: StudentSection[];
   groups: StudentGroup[];
-  included: number;
 }
 
 const DRAWN: ReadonlySet<string> = new Set<QuestionType>([
@@ -125,7 +122,7 @@ function asGroup(
  * exclusion reasons) reaches the result. Excluded questions are left out.
  */
 export function draftPreview(sections: readonly ImportDraftSection[]): DraftPreview {
-  const out: DraftPreview = { questions: [], sections: [], groups: [], included: 0 };
+  const out: DraftPreview = { questions: [], sections: [], groups: [] };
   for (const section of sections) {
     out.sections.push({
       id: section.id,
@@ -134,7 +131,6 @@ export function draftPreview(sections: readonly ImportDraftSection[]): DraftPrev
     });
     for (const item of section.items) {
       const members = item.question ? [item.question] : (item.group?.questions ?? []);
-      out.included += members.filter((member) => member.excluded === undefined).length;
       const drawn = members
         .filter(isDrawn)
         .map((member) => asStudent(section.id, member));

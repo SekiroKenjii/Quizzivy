@@ -1,45 +1,131 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import {
-  DialogShell,
-  DialogShellBody,
-  DialogShellFooter,
-  DialogShellHeader,
-} from "@/components/shared/form/DialogShell";
-import { Button } from "@/components/ui/button";
+import { Eye, Monitor, Smartphone, X } from "lucide-react";
+import { Dialog as Primitive } from "radix-ui";
+import { Segmented } from "@/components/ui/segmented";
+import { StudentPreview } from "@/features/tests/components/StudentPreview";
 import { StudentPreviewPane } from "@/features/tests/components/StudentPreviewPane";
+import {
+  WINDOW_FRAME,
+  type PreviewDevice,
+} from "@/features/tests/components/previewFrame";
 import type { AdminQuestion } from "@/features/question-bank/api";
 import type { components } from "@/lib/api/schema";
 import type { StoredGroup } from "@/features/question-groups/api";
 import { groupPreview, studentAudioPolicy } from "@/features/question-groups/preview";
+import { preventLocalEscapeDismissal } from "@/lib/localEscape";
 import type { OutlineSection } from "../outline";
 import { unitsOf } from "../outlineUnits";
 
 type StudentQuestion = components["schemas"]["StudentQuestion"];
 
 /**
- * DraftPreviewDialog is the builder's "Student preview" for a draft: the
- * outline's questions in the shape a student receives, with the key
- * stripped, drawn by the engine's readers through `StudentPreview`. Previous
- * and Next step through the questions, scrolling the body alone so that
- * each sits at its top with its passage above it, and it opens on `startAt`,
- * the question being edited.
+ * DraftPreviewDialog is the builder's "Student preview" for a draft: a modal
+ * over the whole window whose bar names the test, switches the frame between
+ * Computer and Phone and closes it, and whose frame holds the outline's
+ * questions in the shape a student receives, with the key stripped, drawn
+ * by the engine's readers through `StudentPreview`. It writes nothing; the
+ * builder saves what is pending before it opens it. Esc and "Close preview"
+ * close it through `onOpenChange`, focus stays inside while it is open, and
+ * on close it returns to the control that opened it, or to the `<main>` that
+ * control was in when it has gone.
  */
 export function DraftPreviewDialog({
   open,
+  title,
   questions,
   sections,
   groups = [],
-  startAt = null,
   onOpenChange,
 }: Readonly<{
   open: boolean;
+  title: string;
   questions: { sectionId: string; question: AdminQuestion }[];
   sections?: OutlineSection[];
   groups?: StoredGroup[];
-  startAt?: string | null;
   onOpenChange: (open: boolean) => void;
+}>) {
+  const { t } = useTranslation();
+  const [device, setDevice] = useState<PreviewDevice>("desktop");
+  const opener = useRef<HTMLElement | null>(null);
+  const page = useRef<HTMLElement | null>(null);
+  return (
+    <Primitive.Root open={open} onOpenChange={onOpenChange}>
+      <Primitive.Portal>
+        <Primitive.Overlay className="bg-overlay fixed inset-0 z-(--z-dialog)" />
+        <Primitive.Content
+          data-scale="deck"
+          aria-label={t("builder.previewAsStudent")}
+          aria-labelledby={undefined}
+          aria-describedby={undefined}
+          className="text-fg fixed inset-0 z-(--z-dialog) flex flex-col gap-3 p-3.5 outline-none!"
+          onEscapeKeyDown={preventLocalEscapeDismissal}
+          onOpenAutoFocus={() => {
+            const active = document.activeElement;
+            opener.current =
+              active instanceof HTMLElement && active !== document.body ? active : null;
+            page.current = opener.current?.closest("main") ?? null;
+          }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            const target = opener.current?.isConnected ? opener.current : page.current;
+            opener.current = null;
+            page.current = null;
+            const active = document.activeElement;
+            if (active === null || active === document.body) target?.focus();
+          }}
+        >
+          <div className="bg-card shadow-float flex flex-none flex-wrap items-center gap-2.5 rounded-xl border py-2 pr-2.5 pl-3.5">
+            <Eye aria-hidden="true" className="size-4 flex-none" />
+            <Primitive.Title className="min-w-0 flex-1 truncate text-base font-semibold">
+              {t("builder.previewTitle", { title })}
+            </Primitive.Title>
+            <Segmented
+              size="sm"
+              label={t("tests.detail.preview.device")}
+              value={device}
+              onChange={(value) => setDevice(value === "phone" ? "phone" : "desktop")}
+              options={[
+                {
+                  value: "desktop",
+                  label: t("tests.detail.preview.computer"),
+                  icon: Monitor,
+                },
+                {
+                  value: "phone",
+                  label: t("tests.detail.preview.phone"),
+                  icon: Smartphone,
+                },
+              ]}
+            />
+            <Primitive.Close
+              aria-label={t("builder.previewClose")}
+              className="hover:bg-hover grid size-8.5 flex-none cursor-pointer place-items-center rounded-[8px]"
+            >
+              <X aria-hidden="true" className="size-4.5" />
+            </Primitive.Close>
+          </div>
+          <div className="flex min-h-0 flex-1 justify-center">
+            <StudentPreviewPane device={device} sizes={WINDOW_FRAME}>
+              {open ? (
+                <DraftPaper questions={questions} sections={sections} groups={groups} />
+              ) : null}
+            </StudentPreviewPane>
+          </div>
+        </Primitive.Content>
+      </Primitive.Portal>
+    </Primitive.Root>
+  );
+}
+
+function DraftPaper({
+  questions,
+  sections,
+  groups,
+}: Readonly<{
+  questions: { sectionId: string; question: AdminQuestion }[];
+  sections: OutlineSection[] | undefined;
+  groups: StoredGroup[];
 }>) {
   const { t } = useTranslation();
   const standalone = new Map(
@@ -80,99 +166,9 @@ export function DraftPreviewDialog({
           : [],
       ),
     ) ?? [];
-  return (
-    <DialogShell open={open} onOpenChange={onOpenChange} width={720}>
-      <DialogShellHeader
-        title={t("builder.previewAsStudent")}
-        description={t("builder.previewHint")}
-      />
-      {open ? (
-        <Pages
-          questions={displayed}
-          groups={shared}
-          start={Math.max(
-            0,
-            displayed.findIndex((question) => question.id === startAt),
-          )}
-          onClose={() => onOpenChange(false)}
-        />
-      ) : null}
-    </DialogShell>
-  );
-}
-
-function Pages({
-  questions,
-  groups,
-  start,
-  onClose,
-}: Readonly<{
-  questions: StudentQuestion[];
-  groups: components["schemas"]["StudentGroup"][];
-  start: number;
-  onClose: () => void;
-}>) {
-  const { t } = useTranslation();
-  const body = useRef<HTMLDivElement>(null);
-  const [index, setIndex] = useState(start);
-  const total = questions.length;
-  useLayoutEffect(() => {
-    const scroller = body.current;
-    const item = scroller?.querySelector("ol")?.children[index];
-    if (!scroller || !(item instanceof HTMLElement)) return;
-    const offset =
-      item.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
-    const padding = Number.parseFloat(getComputedStyle(scroller).paddingTop) || 0;
-    scroller.scrollTop += offset - padding;
-  }, [index]);
-  return (
-    <>
-      <DialogShellBody ref={body}>
-        {total === 0 ? (
-          <p className="text-muted-fg text-sm">{t("builder.previewEmpty")}</p>
-        ) : (
-          <StudentPreviewPane questions={questions} groups={groups} />
-        )}
-      </DialogShellBody>
-      <DialogShellFooter className="flex-nowrap items-center justify-between">
-        {total > 0 ? (
-          <span className="flex min-w-0 items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={index === 0}
-              onClick={() => setIndex(index - 1)}
-            >
-              <ChevronLeft aria-hidden="true" />
-              <span className="max-[519px]:sr-only">
-                {t("builder.previewPrevious")}
-              </span>
-            </Button>
-            <span
-              role="status"
-              className="text-muted-fg text-sm whitespace-nowrap tabular-nums"
-            >
-              {t("builder.previewPosition", { n: index + 1, total })}
-            </span>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={index >= total - 1}
-              onClick={() => setIndex(index + 1)}
-            >
-              <span className="max-[519px]:sr-only">{t("builder.previewNext")}</span>
-              <ChevronRight aria-hidden="true" />
-            </Button>
-          </span>
-        ) : (
-          <span />
-        )}
-        <Button type="button" onClick={onClose}>
-          {t("common.close")}
-        </Button>
-      </DialogShellFooter>
-    </>
-  );
+  if (displayed.length === 0)
+    return <p className="text-muted-fg text-sm">{t("builder.previewEmpty")}</p>;
+  return <StudentPreview questions={displayed} groups={shared} />;
 }
 
 /** §13.5's boundary, applied client-side: nothing that grades survives the mapping. */

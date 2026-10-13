@@ -1336,6 +1336,8 @@
     "publishing": "Publishing…",
     "versions": "Versions",
     "previewAsStudent": "Student preview",
+    "previewTitle": "Student preview · {{title}}",
+    "previewClose": "Close preview",
     "stay": "Stay",
     "leave": "Leave",
     "leaveBody": "What you just typed has not been saved. Stay a few seconds for it to land, or leave and lose it.",
@@ -1459,9 +1461,6 @@
     "changeNotePlaceholder": "What changed in this version",
     "publishDone": "Published. You can now assign it.",
     "assign": "Assign",
-    "previewPrevious": "Previous",
-    "previewNext": "Next",
-    "previewPosition": "Question {{n}} of {{total}}",
     "editor": {
       "question": "Question",
       "questionNumber": "Question {{number}}",
@@ -1667,8 +1666,6 @@
         "device": "Preview size",
         "computer": "Computer",
         "phone": "Phone",
-        "foot_one": "{{count}} question. Answers are hidden from students.",
-        "foot_other": "{{count}} questions. Answers are hidden from students.",
         "failed": "Could not load the preview."
       },
       "compare": {
@@ -1681,10 +1678,6 @@
           "changed": "Changed",
           "answer": "Answer",
           "points": "Points"
-        },
-        "mark": {
-          "added": "New",
-          "changed": "Changed"
         },
         "added": "Question {{n}} · “{{prompt}}”",
         "removed": "Question {{n}} of version {{version}} · “{{prompt}}”",
@@ -1760,6 +1753,7 @@
     "noun_other": "tests"
   },
   "preview": {
+    "frame": "The student's screen",
     "questionNumber": "Question {{n}}",
     "materialUnavailable": "Material unavailable. Reload the preview to try again.",
     "sharedAudioHint": "Preview playback does not use attempt allowances.",
@@ -4038,10 +4032,6 @@
       "device": "Preview size",
       "computer": "Computer",
       "phone": "Phone",
-      "foot_one": "{{count}} question. Answers and your notes are hidden from students.",
-      "foot_other": "{{count}} questions. Answers and your notes are hidden from students.",
-      "footSome_one": "Showing {{shown}} of {{count}} question. Answers and your notes are hidden from students.",
-      "footSome_other": "Showing {{shown}} of {{count}} questions. Answers and your notes are hidden from students.",
       "previewEmpty": "There are no questions to preview yet.",
       "summaryTitle": "Summary",
       "rowIncluded": "Questions included",
