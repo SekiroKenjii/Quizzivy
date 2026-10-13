@@ -2143,10 +2143,10 @@ with the v2 deck again at the five widths in two themes, and adds one closing li
 **Touches:** `web/src/layouts/shell/Sidebar.tsx`, `web/src/components/shared/StickyAside.tsx` (new), `web/src/features/tests/pages/teacher/{TestBuilderPage,TestDetailPage}.tsx`, `web/src/features/assignments/{pages/teacher/AssignmentWizardPage.tsx,components/wizard/WizardAside.tsx}`, `web/src/features/question-bank/pages/teacher/{QuestionBankPage,QuestionEditorPage}.tsx`, `web/src/features/imports/pages/teacher/ImportReviewPage.tsx`, `web/src/features/classes/pages/teacher/ClassDetailPage.tsx`, `web/src/features/settings/pages/teacher/TeacherSettingsPage.tsx`, `web/tests/units/shell/sidebar.test.tsx`, `web/tests/units/shared/sticky-aside.test.tsx` (new), `web/tests/units/builder/` (the outline's geometry case)
 **Size:** S
 **Done when:**
-- [ ] `Sidebar` draws a 1px `--border` `role="separator"` (margin 0 10px 4px) between nav groups
+- [x] `Sidebar` draws a 1px `--border` `role="separator"` (margin 0 10px 4px) between nav groups
       while their labels are hidden (collapsed), in both consoles (V-01, A-01); the drawer and
       the expanded sidebar are unchanged.
-- [ ] One `StickyAside` wraps every side column: `position: sticky; top: 16px; max-height:
+- [x] One `StickyAside` wraps every side column: `position: sticky; top: 16px; max-height:
       calc(100vh − 88px); overflow-y: auto; padding 1px 2px 2px; margin −1px −2px −2px` (the
       deck's allowance for focus rings), from a content width the host passes (the wizard
       keeps its `@min-[794px]/wizard` container query, which `StickyAside` takes over from
@@ -2157,14 +2157,49 @@ with the v2 deck again at the five widths in two themes, and adds one closing li
       import review is full-bleed (`width: "full"`), so its 1000 is its container too;
       the version history keeps its own `top: 16px` and cap;
       the bank's filter aside gets `top: 16px` from 1024 and stays `top: 0` below (V-02).
-- [ ] The builder's outline is sticky and scrolls inside itself whenever the builder splits
+- [x] The builder's outline is sticky and scrolls inside itself whenever the builder splits
       (`outPos`, `outMaxH`, `outOv`, T 1633 and 8690); a section's "…" menu still escapes it
       (V-03): one unit case opens the menu on the last section of a long outline and finds it
       unclipped.
-- [ ] No string changes; no behaviour changes (a behavioural change never rides in a refactor).
-- [ ] Compared with the deck at 1024, 1280 and 1440 with a long page scrolled, light and dark,
+- [x] No string changes; no behaviour changes (a behavioural change never rides in a refactor).
+- [x] Compared with the deck at 1024, 1280 and 1440 with a long page scrolled, light and dark,
       on the builder, the wizard, Test detail, the bank, the editor, the review, Class detail
       and Settings; the collapsed sidebar at 1024 in both consoles.
+
+**As built:** #<PR> (two commits: the separator, then the columns). `Sidebar` draws the separator
+(`bg-border mx-2.5 mb-1 h-px`, 23 × 1 px inside the 60px rail) before each labelled group while
+collapsed, and nothing expanded or in the drawer; the Admin console is R5's and takes the same
+component. `StickyAside` (`components/shared/StickyAside.tsx`) is an `aside` (or the `as` it is
+given) that always carries the deck's allowance (`-mx-0.5 -mt-px -mb-0.5 px-0.5 pt-px pb-0.5`) and
+sticks with `docked`, or behind a host's container query on the `sticky-column` utility
+(`index.css`: `position: sticky; top: 16px; max-height: calc(100vh - 88px); overflow-y: auto`).
+The hosts: the wizard from `@min-[794px]/wizard` (basis 304px and minimum 244px, so the card stays
+300 and 240 inside the allowance); the question editor's settings, now a card inside the aside,
+from `@min-[900px]/qe`; Class detail's column, a `div`, with `docked={two}` (1000px of content, as
+before); the settings nav from `@min-[768px]/settings`, a container `SettingsLayout`'s root now
+declares (its row basis and cap grow by 4px and its column minimum is 204px, so the links keep
+their width); and the outline with `docked={split}`, in a first pane that now stretches to the
+row, since a sticky box cannot move inside a pane as tall as itself. **The review's aside is
+Preview and create's** (`ImportConfirmPage.tsx`, from `@min-[1000px]/confirm`): the deck's
+`wiSide` (T 1886) is that screen's summary, and the review workspace (`ImportReviewPage`) has no
+side column, so it is untouched. The version history keeps its own card, now `sticky-column`, and
+the bank's filters are `top-4` (they render only from 1024; below it they are a sheet).
+`AssignmentWizardPage` and `TeacherSettingsPage` did not change. Every threshold is below the
+frame's 1600px, so `<main>`'s content width and each host's container agree, and the deck's
+`tw` numbers keep their meaning inside the frame; two do not quite: the settings nav sticks from
+768px of content although it docks from about 704 (it is static, not overlapping, in between),
+where the deck sticks it from a 768px window; and `top: 16px` is measured from `<main>`'s content
+edge, under its 24px top padding, so a stuck column starts 40px below the top bar and a capped one
+ends 8px below the window, as the deck's own numbers place it. Tests:
+`tests/units/shell/sidebar.test.tsx` (new, 4), `tests/units/shared/sticky-aside.test.tsx` (new, 11),
+`tests/units/builder/deck-frame.test.tsx` (the outline sticky while split and static stacked; the
+last of 24 sections' menu opens outside the scrolling column), and
+`tests/units/shared/settings-layout.test.tsx` (the nav's new classes and its container query).
+The comparison was measured on a live stack with `getBoundingClientRect` at 1024, 1280 and 1440,
+900 and 640 high, light and dark, sidebar expanded and collapsed, with a 25-section draft and a
+mocked 30-question Preview and create; the deck itself could not render in the container
+(unpkg.com, which serves its React and Babel, answers 403 through the proxy), so the app was
+compared with the deck's markup and `layoutVals` numbers, not side by side.
 
 ### T-D4.21 — Grading: the pane's heights
 **Reopens:** T-R4.28
