@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen, waitFor, fireEvent } from "@testing-library/react";
+import {
+  act,
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
@@ -272,4 +279,56 @@ it("uses the pinned title and section marquee geometry on the actual builder", a
     section.querySelector<HTMLElement>('.qz-marquee-track [aria-hidden="true"]')!.style
       .paddingLeft,
   ).toBe("28px");
+});
+
+describe("the outline column (V-02, V-03)", () => {
+  const column = () =>
+    screen
+      .getByRole("button", { name: "Thao tác với phần" })
+      .closest<HTMLElement>("[data-sticky-aside]")!;
+
+  it("sticks and scrolls inside itself while the builder splits, and is static stacked", async () => {
+    const view = viewport(1024);
+    const area = document.createElement("main");
+    Object.defineProperty(area, "offsetWidth", { value: 594 });
+    act(() => registerContentElement(area));
+    renderBuilder();
+    await screen.findByLabelText("Nội dung câu hỏi");
+    expect(column()).toHaveClass("sticky-column");
+    act(() => view.resize(767));
+    expect(column()).not.toHaveClass("sticky-column");
+    act(() => view.resize(1024));
+    const small = document.createElement("main");
+    Object.defineProperty(small, "offsetWidth", { value: 593 });
+    act(() => registerContentElement(small));
+    expect(column()).not.toHaveClass("sticky-column");
+  });
+
+  it("opens the last section's menu of a long outline outside the scrolling column", async () => {
+    const sections = Array.from({ length: 24 }, (_, index) => ({
+      id: `018f0000-0000-7000-8000-0000000001${String(index).padStart(2, "0")}`,
+      ordinal: index,
+      title: `Phần ${index + 1}`,
+      instructions: null,
+      questionIds: index === 0 ? [QUESTION_ID] : [],
+    }));
+    server.use(
+      http.get(`${BASE}/teacher/tests/:id`, () =>
+        contractJson("/teacher/tests/{id}", "get", 200, { ...test, sections }),
+      ),
+    );
+    const { user } = renderBuilder();
+    await screen.findByLabelText("Nội dung câu hỏi");
+    const triggers = screen.getAllByRole("button", { name: "Thao tác với phần" });
+    expect(triggers).toHaveLength(24);
+    const scroller = triggers.at(-1)!.closest<HTMLElement>("[data-sticky-aside]")!;
+    expect(scroller).toHaveClass("sticky-column");
+    await user.click(triggers.at(-1)!);
+    const menu = await screen.findByRole("menu");
+    expect(scroller.contains(menu)).toBe(false);
+    expect(menu.closest("[data-sticky-aside]")).toBeNull();
+    expect(
+      within(menu).getByRole("menuitem", { name: "Di chuyển xuống" }),
+    ).toHaveAttribute("aria-disabled", "true");
+  });
 });

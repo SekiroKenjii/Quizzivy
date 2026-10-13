@@ -190,7 +190,12 @@ const listening: StudentQuestion[] = [
       originalFilename: "q1.mp3",
       createdAt: "2026-09-01T00:00:00.000Z",
     },
-    audio: { maxPlays: 2, allowSeek: false, showTranscriptAfterSubmit: false },
+    audio: {
+      maxPlays: 2,
+      allowSeek: false,
+      showTranscriptAfterSubmit: false,
+      allowPause: true,
+    },
   },
 ];
 

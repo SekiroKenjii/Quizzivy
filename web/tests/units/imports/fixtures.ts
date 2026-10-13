@@ -195,9 +195,18 @@ export function sourceView(
   };
 }
 
-export function errorBody(code: string, message: string) {
+export function errorBody(
+  code: string,
+  message: string,
+  details?: Record<string, unknown>,
+) {
   return {
-    error: { code, message, requestId: "018f0000-0000-7000-8000-0000000000ff" },
+    error: {
+      code,
+      message,
+      requestId: "018f0000-0000-7000-8000-0000000000ff",
+      ...(details ? { details } : {}),
+    },
   };
 }
 

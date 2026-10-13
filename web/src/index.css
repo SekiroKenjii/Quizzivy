@@ -22,6 +22,18 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* engine-lg is lg (1024px) for the take-test engine: the window's width, except
+   inside a preview frame narrower than 1024px, which marks itself
+   data-engine-narrow, so a phone frame on a wide window draws the phone's
+   sizes. Outside a frame it is exactly lg. */
+@custom-variant engine-lg {
+  @media (width >= 64rem) {
+    &:where(:not([data-engine-narrow] *)) {
+      @slot;
+    }
+  }
+}
+
 :root {
   color-scheme: light;
   --radius: 0.375rem;
@@ -174,6 +186,19 @@
   :root {
     --page-gutter: 40px;
   }
+}
+
+/*
+  A side column docked beside its page's content (V-02): it sticks 16px below
+  the top of the page's scroller and, once taller than the window less the top
+  bar and 16px above and below it, scrolls inside itself. StickyAside applies
+  it, as `sticky-column` or behind a host's container query.
+*/
+@utility sticky-column {
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 112px);
+  overflow-y: auto;
 }
 
 @theme inline {
@@ -340,6 +365,13 @@
       min-width: 2.75rem;
     }
   }
+
+  [data-engine-narrow]
+    .student-surface
+    :where(button, [data-slot="button"], [data-slot="select-item"]) {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
 }
 
 /* The student's tab bar is 65px; the deck puts a toast 84px from the bottom
@@ -351,6 +383,27 @@
 :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+@keyframes qz-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(7px);
+  }
+}
+
+@keyframes qz-tip {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @keyframes qz-marquee {

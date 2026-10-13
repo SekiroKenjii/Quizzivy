@@ -18,24 +18,38 @@ import {
 import { gradingKey, monitorKey, reviewKey } from "../../keys";
 import {
   gradingItemKey,
+  groupReadyPapers,
   mergeQueueOrder,
   nextOpenItem,
   scanGradingCandidates,
   scoreOptions,
 } from "./gradingRecovery";
 
-/** GradingDraft retains the acknowledged mark separately from the current comment and score intent. */
+/**
+ * GradingDraft retains the acknowledged mark separately from the current
+ * comment and score intent; `filled` marks a score laid by `fill` rather than
+ * by a score button, which writes at once.
+ */
 export interface GradingDraft {
   item: GradingQueueItem;
   points: number | null;
   comment: string;
   acknowledged: { points: number; comment: string } | null;
+  filled?: boolean;
 }
 
 /** FinishState retains explicit completion recovery independently of pending queue membership. */
 export interface FinishState {
-  item: Pick<GradingQueueItem, "attemptId" | "assignmentId" | "studentId">;
+  item: Pick<
+    GradingQueueItem,
+    "attemptId" | "assignmentId" | "assignmentTitle" | "studentId" | "studentName"
+  >;
   error: string;
+}
+
+/** CheckFinish is what a Finish from a ready paper's check ended with: the paper whose check opens next, or null after the last. */
+export interface CheckFinish {
+  next: AttemptListRow | null;
 }
 
 function ungradedHere(draft: GradingDraft | undefined, item: GradingQueueItem) {
@@ -102,16 +116,31 @@ function commentUnsettled(item: GradingQueueItem, draft: GradingDraft | undefine
   return comment !== saved || (draft.points === null && comment !== "");
 }
 
+function scoreUnsettled(item: GradingQueueItem, draft: GradingDraft | undefined) {
+  if (!draft?.filled || draft.points === null) return false;
+  return draft.points !== (draft.acknowledged?.points ?? item.score);
+}
+
 /**
  * useGradingQueue serializes explicit marks and Finish actions under the
- * mounted actor and filter owner, and reports through `unsettled` a comment
- * on the selected answer that no Grade has saved. It sets state during render
- * in three places, and each converges because its own write turns off the
- * condition it tests: new queue data is recorded in `order` (and a vanished
- * open answer added to `held`, which `vanishedOpen` then skips); `open`
- * stores the selected item it is compared with; and the open-answer sync
- * writes an acknowledged draft, after which `ungradedHere` is false. A change
- * to `ungradedHere` or `vanishedOpen` must keep that, or the render loops.
+ * mounted actor and filter owner, and reports through `unsettled` a comment,
+ * or a score `fill` laid, on the selected answer that no Grade has saved, and
+ * through `unsavedScore` whether that score is among it. `readyGroups` holds
+ * the papers waiting for an explicit Finish in the order the card lists them;
+ * `candidate` is the one whose check is open, and a Finish from it opens the
+ * next one, toasts, and sets `announcement` for a polite live region;
+ * `finished` lists the papers finished here, whose names outlive the reads
+ * that held them. `fill`
+ * lays a score and a comment over an answer's draft and saves nothing: Save &
+ * next, or the flush a move makes, writes them as it writes a typed comment.
+ * It sets state
+ * during render in three places, and each converges because its own write
+ * turns off the condition it tests: new queue data is recorded in `order`
+ * (and a vanished open answer added to `held`, which `vanishedOpen` then
+ * skips); `open` stores the selected item it is compared with; and the
+ * open-answer sync writes an acknowledged draft, after which `ungradedHere`
+ * is false. A change to `ungradedHere` or `vanishedOpen` must keep that, or
+ * the render loops.
  */
 export function useGradingQueue(params: GradingQueueParams) {
   const { t } = useTranslation();
@@ -130,8 +159,11 @@ export function useGradingQueue(params: GradingQueueParams) {
   const [finishes, setFinishes] = useState<Record<string, FinishState>>({});
   const [finishReady, setFinishReady] = useState<FinishState["item"] | null>(null);
   const [completed, setCompleted] = useState<ReadonlySet<string>>(new Set());
+  const [finished, setFinished] = useState<readonly FinishState["item"][]>([]);
   const [picked, setPicked] = useState<string | null>(null);
   const [candidate, setCandidate] = useState<AttemptListRow | null>(null);
+  const [checkFailure, setCheckFailure] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState("");
   const [open, setOpen] = useState<GradingQueueItem | null>(null);
   const [held, setHeld] = useState<ReadonlyMap<string, GradingQueueItem>>(new Map());
   const mode = params.mode ?? "student";
@@ -176,12 +208,26 @@ export function useGradingQueue(params: GradingQueueParams) {
     queryFn: ({ signal }) => scanGradingCandidates(signal, assignment, student),
     retry: false,
   });
+  const candidateKey = (id: string | undefined) => [
+    "teacher-grading-candidate",
+    actor.generation,
+    id,
+  ];
   const candidateReview = useQuery({
-    queryKey: ["teacher-grading-candidate", actor.generation, candidate?.id],
+    queryKey: candidateKey(candidate?.id),
     queryFn: ({ signal }) => getAttemptForReview(candidate!.id, signal),
     enabled: candidate !== null,
     retry: false,
   });
+  const readyGroups = useMemo(
+    () =>
+      groupReadyPapers((recovery.data ?? []).filter((row) => !completed.has(row.id))),
+    [recovery.data, completed],
+  );
+  const readyPapers = useMemo(
+    () => readyGroups.flatMap((group) => group.rows),
+    [readyGroups],
+  );
   const items = useMemo(() => {
     const shown = new Map<string, GradingQueueItem>();
     for (const item of queue.data?.items ?? [])
@@ -209,7 +255,10 @@ export function useGradingQueue(params: GradingQueueParams) {
       : null;
   useOpenAnswerSync(actor.generation, heldOpen, queue.dataUpdatedAt, drafts, setDrafts);
   const draft = selected ? drafts[gradingItemKey(selected)] : undefined;
-  const unsettled = selected ? commentUnsettled(selected, draft) : false;
+  const unsavedScore = selected ? scoreUnsettled(selected, draft) : false;
+  const unsettled = selected
+    ? unsavedScore || commentUnsettled(selected, draft)
+    : false;
   const notify = (cause: unknown) => failureMessage(cause, t("grading.saveFailed"));
   const ungraded = (item: GradingQueueItem) =>
     item.score === null && drafts[gradingItemKey(item)]?.acknowledged == null;
@@ -283,7 +332,7 @@ export function useGradingQueue(params: GradingQueueParams) {
     if (!Number.isFinite(points) || points < 0 || points > item.points || !acquire())
       return;
     setFinishReady(null);
-    const next = { ...draftFor(item), points };
+    const next = { ...draftFor(item), points, filled: false };
     setDrafts((previous) => ({ ...previous, [gradingItemKey(item)]: next }));
     setPicked(gradingItemKey(item));
     const result = (async () => {
@@ -310,6 +359,28 @@ export function useGradingQueue(params: GradingQueueParams) {
       [gradingItemKey(item)]: { ...draftFor(item), comment: value },
     }));
   };
+  const fill = (item: GradingQueueItem, points: number, value: string) => {
+    if (
+      !Number.isFinite(points) ||
+      points < 0 ||
+      points > item.points ||
+      !current() ||
+      lock.current
+    )
+      return false;
+    setFinishReady(null);
+    setDrafts((previous) => ({
+      ...previous,
+      [gradingItemKey(item)]: {
+        ...draftFor(item),
+        points,
+        comment: value,
+        filled: true,
+      },
+    }));
+    setPicked(gradingItemKey(item));
+    return true;
+  };
   const select = async (item: GradingQueueItem) => {
     if (!acquire()) return;
     try {
@@ -317,7 +388,6 @@ export function useGradingQueue(params: GradingQueueParams) {
       if (current()) {
         setPicked(gradingItemKey(item));
         setFinishReady(null);
-        setCandidate(null);
       }
     } catch (cause) {
       if (current()) setError(notify(cause));
@@ -357,12 +427,13 @@ export function useGradingQueue(params: GradingQueueParams) {
     await finishGrading(item.attemptId, signal());
     if (!current()) return;
     setCompleted((previous) => new Set([...previous, item.attemptId]));
+    setFinished((previous) => [...previous, item]);
     setFinishes((previous) => {
       const next = { ...previous };
       delete next[item.attemptId];
       return next;
     });
-    setCandidate(null);
+    setCandidate((open) => (open?.id === item.attemptId ? null : open));
     invalidate(item);
   };
   const rememberFinish = (item: FinishState["item"], cause: unknown) => {
@@ -487,47 +558,58 @@ export function useGradingQueue(params: GradingQueueParams) {
       release();
     }
   };
-  const selectCandidate = async (row: AttemptListRow) => {
-    if (!acquire()) return;
-    try {
-      if (selected) await flush(selected);
-      if (current()) {
-        setFinishReady(null);
-        setCandidate(row);
-      }
-    } catch (cause) {
-      if (current()) setError(notify(cause));
-    } finally {
-      release();
-    }
+  const openCheck = (row: AttemptListRow | null) => {
+    if (!current()) return;
+    setCheckFailure(null);
+    setCandidate(row);
   };
-  const finishCandidate = async () => {
-    if (!candidate || !acquire()) return;
+  const finishCandidate = async (): Promise<CheckFinish | null> => {
+    if (!candidate || !acquire()) return null;
+    const row = candidate;
     const item = {
-      attemptId: candidate.id,
-      assignmentId: candidate.assignmentId,
-      studentId: candidate.studentId,
+      attemptId: row.id,
+      assignmentId: row.assignmentId,
+      assignmentTitle: row.testTitle,
+      studentId: row.studentId,
+      studentName: row.studentName,
     };
+    const index = readyPapers.findIndex((paper) => paper.id === row.id);
+    const following = nextOpenItem(readyPapers, index, (paper) => paper.id !== row.id);
+    setCheckFailure(null);
     try {
       const fresh = await getAttemptForReview(item.attemptId, signal());
-      if (!current()) return;
+      if (!current()) return null;
       if (
         fresh.attempt.id !== item.attemptId ||
         fresh.attempt.assignmentId !== item.assignmentId ||
-        fresh.attempt.studentId !== item.studentId ||
+        fresh.attempt.studentId !== item.studentId
+      ) {
+        setError(t("grading.pendingUnknown"));
+        return null;
+      }
+      if (
         fresh.attempt.score?.pendingManual !== 0 ||
         !["submitted", "timed_out"].includes(fresh.attempt.status)
       ) {
-        setError(t("grading.pendingUnknown"));
-        return;
+        client.setQueryData(candidateKey(item.attemptId), fresh);
+        return null;
       }
-      try {
-        await finish(item);
-      } catch (cause) {
-        rememberFinish(item, cause);
-      }
-    } catch (cause) {
-      if (current()) setError(notify(cause));
+      await finish(item);
+      if (!current()) return null;
+      setCandidate(following);
+      toast(t("grading.finishedToast", { name: row.studentName }));
+      setAnnouncement(
+        following
+          ? t("grading.finishedNext", {
+              name: row.studentName,
+              next: following.studentName,
+            })
+          : t("grading.finishedToast", { name: row.studentName }),
+      );
+      return { next: following };
+    } catch {
+      if (current()) setCheckFailure(item.attemptId);
+      return null;
     } finally {
       release();
     }
@@ -542,23 +624,33 @@ export function useGradingQueue(params: GradingQueueParams) {
     selected,
     draft,
     unsettled,
+    unsavedScore,
     savedCount,
     busy,
     error,
     finishes,
     finishReady,
     completed,
+    finished,
     candidate,
     candidateReview,
+    checkFailure,
+    announcement,
+    readyGroups,
+    readyPapers,
     pickScore,
     comment,
+    fill,
     select,
     leave,
     move,
     next,
     confirmFinish,
     retryFinish,
-    selectCandidate,
+    openCheck,
     finishCandidate,
   };
 }
+
+/** GradingQueueModel is what useGradingQueue returns. */
+export type GradingQueueModel = ReturnType<typeof useGradingQueue>;

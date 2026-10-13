@@ -166,7 +166,9 @@ for (const width of [320, 1440]) {
     await expect(page.getByRole("heading", { name: previewGroup.title })).toBeVisible();
     await page.getByRole("button", { name: /^Sai/ }).click();
     await expect(page.getByText(questions[1]!.prompt, { exact: true })).toHaveCount(0);
-    const gap = page.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" });
+    const gap = page.getByRole("button", {
+      name: `Câu 2, ${questions[1]!.options![0]!.text}`,
+    });
     await gap.focus();
     await page.keyboard.press("Enter");
     await expect(page.locator(":focus")).toHaveAttribute(

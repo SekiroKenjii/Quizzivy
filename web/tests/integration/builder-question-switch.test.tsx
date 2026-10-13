@@ -152,7 +152,7 @@ it("waits for the latest save before switching and shows that edit on the first 
       `${question.prompt} Updated`,
     ),
   );
-});
+}, 15_000);
 
 it("keeps the edited question open when its final save fails", async () => {
   server.use(

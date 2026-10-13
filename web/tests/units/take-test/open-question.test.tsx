@@ -31,9 +31,9 @@ const NOW = new Date("2026-09-22T05:00:00.000Z");
 const MINUTE = 60_000;
 const KEY = "quizzivy.open-question.att-1";
 const OTHER_KEY = "quizzivy.open-question.att-2";
-const FIRST = "Câu 1 trên 3 · Chọn một đáp án";
-const SECOND = "Câu 2 trên 3 · Trả lời ngắn";
-const THIRD = "Câu 3 trên 3 · Đúng hay sai";
+const FIRST = "Câu 1 trên 3 · Một đáp án";
+const SECOND = "Câu 2 trên 3 · Tự luận";
+const THIRD = "Câu 3 trên 3 · Đúng/Sai";
 
 const questions: StudentQuestion[] = [
   {
@@ -280,7 +280,7 @@ describe("the open question across a reload", () => {
     );
     await reload(view);
 
-    expect(line()).toBe("Câu 3 trên 3 · Trả lời ngắn");
+    expect(line()).toBe("Câu 3 trên 3 · Tự luận");
     expect(screen.getByText("Describe the map")).toBeInTheDocument();
   });
 

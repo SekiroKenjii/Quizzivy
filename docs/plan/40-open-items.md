@@ -476,8 +476,9 @@ redraws the screen is followed.
 
 ### O-R4.8 — "Students can pause", "Matching" and "Not given" · R6
 **Default:** none has a model (DG-111, DG-113). "Students can pause" is not
-built and the two existing playback switches stay; "Matching" and the "Include
-“Not given”" switch arrive in R6 with their question types.
+built in R4 (D4 builds it as `allowPause`: T-D4.13, DG-183) and the two
+existing playback switches stay; "Matching" and the "Include “Not given”"
+switch arrive in R6 with their question types.
 
 ---
 

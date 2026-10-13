@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -59,5 +60,31 @@ func TestImportWorkerRejectsUnboundedOrMutableRuntime(t *testing.T) {
 		if _, err := config.LoadImportWorker(); err == nil {
 			t.Fatalf("unsafe worker configuration accepted: %v", extra)
 		}
+	}
+}
+
+func TestImportWorkerReadsTheAIAssistantAsTheAPIDoes(t *testing.T) {
+	workerEnvironment(t, merge(fullAI(), nil))
+	cfg, err := config.LoadImportWorker()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.Base.AIEnabled() || cfg.Base.AI.Capable.Model != "capable-model-fixture" || cfg.Base.AI.Capable.Prices.Output != 10_000_001 {
+		t.Fatalf("worker AI configuration = %+v", cfg.Base.AI)
+	}
+	if strings.Contains(fmt.Sprintf("%v %+v", cfg.Base.AI, cfg), fixtureKey) {
+		t.Fatal("the worker's configuration prints the provider key")
+	}
+}
+
+func TestImportWorkerWithoutTheKeyHasNoAssistantAndWithAHalfSetOneWillNotStart(t *testing.T) {
+	workerEnvironment(t, nil)
+	cfg, err := config.LoadImportWorker()
+	if err != nil || cfg.Base.AIEnabled() {
+		t.Fatalf("no key: enabled %v, err %v", cfg.Base.AIEnabled(), err)
+	}
+	workerEnvironment(t, without(fullAI(), "AI_TIER_CAPABLE_MODEL"))
+	if _, err := config.LoadImportWorker(); err == nil || !strings.Contains(err.Error(), "AI_TIER_CAPABLE_MODEL") {
+		t.Fatalf("a key with a missing tier: %v", err)
 	}
 }

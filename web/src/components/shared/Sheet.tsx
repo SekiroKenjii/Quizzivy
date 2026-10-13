@@ -7,11 +7,18 @@ import { useDeckScale } from "@/components/ui/deck-scale";
 import { preventLocalEscapeDismissal } from "@/lib/localEscape";
 import { cn } from "@/lib/utils";
 
-type SheetWidth = 320 | 380 | 420;
+type SheetWidth = 320 | 380 | 420 | 560;
 
 const FRAMES: Record<
   SheetWidth,
-  { panel: string; header: string; body: string; footer: string }
+  {
+    panel: string;
+    header: string;
+    body: string;
+    footer: string;
+    title?: string;
+    subtitle?: string;
+  }
 > = {
   320: {
     panel: "w-[min(320px,100%)]",
@@ -31,6 +38,15 @@ const FRAMES: Record<
     body: "gap-4.5 p-4.5",
     footer: "px-4.5 py-3.5",
   },
+  560: {
+    panel: "w-[min(560px,100%)]",
+    header:
+      "items-start border-b py-4 pr-4 pl-4.5 [&>button:last-child]:text-muted-fg [&>button:last-child]:hover:text-fg",
+    body: "gap-4.5 p-4.5",
+    footer: "flex-wrap items-center gap-x-2.5 px-4.5 py-3",
+    title: "leading-[1.35]",
+    subtitle: "mt-0.5 text-pretty",
+  },
 };
 
 const MOTION =
@@ -38,7 +54,7 @@ const MOTION =
 
 /**
  * Sheet is the panel the Teacher deck pins to the right edge: a modal dialog
- * of the deck's 320, 380 or 420px, or the whole width when the window is
+ * of the deck's 320, 380, 420 or 560px, or the whole width when the window is
  * narrower. `title` names it and is drawn in the header with `subtitle` under
  * it, `leading` before it and the close button after it; the body is the only
  * part that scrolls, and `footer` stays under it. Esc, the backdrop and the
@@ -113,11 +129,16 @@ export function Sheet({
           >
             {leading}
             <div className="min-w-0 flex-1">
-              <Primitive.Title className="text-md font-semibold">
+              <Primitive.Title className={cn("text-md font-semibold", frame.title)}>
                 {title}
               </Primitive.Title>
               {subtitle !== undefined && (
-                <Primitive.Description className="text-muted-fg text-meta leading-normal">
+                <Primitive.Description
+                  className={cn(
+                    "text-muted-fg text-meta leading-normal",
+                    frame.subtitle,
+                  )}
+                >
                   {subtitle}
                 </Primitive.Description>
               )}

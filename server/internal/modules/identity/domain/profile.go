@@ -44,10 +44,19 @@ type AvatarWrite struct {
 
 // Preferences is the account's stored top-level preferences without materialized defaults.
 type Preferences struct {
+	AI                 *AIPreferences      `json:"ai,omitempty"`
 	AssignmentDefaults *AssignmentDefaults `json:"assignmentDefaults,omitempty"`
 	CompactTables      *bool               `json:"compactTables,omitempty"`
 	LargerTestText     *bool               `json:"largerTestText,omitempty"`
 	Theme              *string             `json:"theme,omitempty"`
+}
+
+// AIPreferences are the account's choices about the AI assistant. An omitted field uses the client's default, and the server's where it reads one: reading student answers is on unless it is false.
+type AIPreferences struct {
+	Language           *string `json:"language,omitempty"`
+	TagDrafts          *bool   `json:"tagDrafts,omitempty"`
+	ReadStudentAnswers *bool   `json:"readStudentAnswers,omitempty"`
+	ReadImports        *bool   `json:"readImports,omitempty"`
 }
 
 // AssignmentDefaults supplies optional values for future assignment forms.

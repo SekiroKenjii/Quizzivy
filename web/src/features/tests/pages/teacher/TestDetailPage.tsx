@@ -39,17 +39,20 @@ import {
   type TestStatus,
   type TestVersion,
 } from "@/features/tests/api";
+import { PaperPreview, PaperSkeleton } from "@/features/tests/components/PaperPreview";
 import {
-  StudentPreview,
-  type PreviewMark,
-} from "@/features/tests/components/StudentPreview";
+  PreviewFrameMessage,
+  StudentPreviewPane,
+} from "@/features/tests/components/StudentPreviewPane";
+import { PANEL_FRAME } from "@/features/tests/components/previewFrame";
+import { VariantAction } from "@/features/tests/components/VariantAction";
 import { VersionChanges } from "@/features/tests/components/VersionChanges";
 import {
   VersionHistory,
   type VersionAction,
 } from "@/features/tests/components/VersionHistory";
 import { assignedLabel } from "@/features/tests/testFacts";
-import { diffSummary, previewMarks } from "@/features/tests/versionDiff";
+import { diffSummary } from "@/features/tests/versionDiff";
 import { useContentWidthAtLeast } from "@/layouts/shell/contentWidth";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { ApiError } from "@/lib/api/errors";
@@ -300,7 +303,7 @@ function TestDetail({ test }: Readonly<{ test: Test }>) {
           <aside
             id="versions"
             aria-labelledby="test-version-history"
-            className="bg-card shadow-card sticky top-0 flex min-w-0 flex-col gap-2.5 rounded-xl border p-3.5"
+            className="bg-card shadow-card sticky-column flex min-w-0 flex-col gap-2.5 rounded-xl border p-3.5"
           >
             <h2 id="test-version-history" className="text-base font-semibold">
               {t("tests.detail.versionHistory")}
@@ -413,6 +416,7 @@ function DetailHead({
               {t("tests.detail.versionHistory")}
             </Button>
           )}
+          <VariantAction test={test} className={HEAD_BUTTON} />
           <Button asChild variant="outline" className={HEAD_BUTTON}>
             <Link to={`/teacher/tests/${test.id}/edit`}>
               <Pencil aria-hidden="true" />
@@ -578,13 +582,7 @@ function PreviewPanel({
       {notPublished ? (
         <NotPublished testId={id} />
       ) : (
-        <PreviewFrame
-          preview={preview}
-          phone={params.phone}
-          marks={
-            compareOn && diff.data ? previewMarks(diff.data.changes, t) : undefined
-          }
-        />
+        <PreviewFrame title={nfc(test.title)} preview={preview} phone={params.phone} />
       )}
     </section>
   );
@@ -622,51 +620,37 @@ function NotPublished({ testId }: Readonly<{ testId: string }>) {
 }
 
 function PreviewFrame({
+  title,
   preview,
   phone,
-  marks,
 }: Readonly<{
+  title: string;
   preview: UseQueryResult<Awaited<ReturnType<typeof previewTest>>>;
   phone: boolean;
-  marks: ReadonlyMap<string, PreviewMark> | undefined;
 }>) {
   const { t } = useTranslation();
   return (
-    <div className="bg-sidebar relative max-h-[680px] overflow-y-auto p-5">
-      <div
-        data-preview-viewport={phone ? "phone" : "desktop"}
-        className={cn(
-          "bg-bg mx-auto flex max-w-full min-w-0 flex-col gap-4.5 border p-5.5",
-          phone ? "w-[390px] rounded-[24px]" : "w-full rounded-xl",
-        )}
-      >
-        {preview.isPending ? (
-          <div aria-busy="true" className="flex flex-col gap-3">
-            <Skeleton className="h-5 w-1/2" />
-            <Skeleton className="h-32 w-full rounded-xl" />
-            <Skeleton className="h-32 w-full rounded-xl" />
-          </div>
-        ) : null}
+    <div className="bg-sidebar p-4">
+      <StudentPreviewPane device={phone ? "phone" : "desktop"} sizes={PANEL_FRAME}>
+        {preview.isPending ? <PaperSkeleton /> : null}
         {preview.isError ? (
-          <LoadError error={preview.error} onRetry={() => void preview.refetch()}>
-            {t("tests.detail.preview.failed")}
-          </LoadError>
+          <PreviewFrameMessage>
+            <LoadError error={preview.error} onRetry={() => void preview.refetch()}>
+              {t("tests.detail.preview.failed")}
+            </LoadError>
+          </PreviewFrameMessage>
         ) : null}
         {preview.isSuccess ? (
-          <>
-            <StudentPreview
-              questions={preview.data.questions}
-              sections={preview.data.sections ?? []}
-              groups={preview.data.groups ?? []}
-              marks={marks}
-              onRetryMedia={() => void preview.refetch()}
-            />
-            <p className="text-muted-fg text-meta text-center">
-              {t("tests.detail.preview.foot", { count: preview.data.questions.length })}
-            </p>
-          </>
+          <PaperPreview
+            key={preview.data.version}
+            title={title}
+            questions={preview.data.questions}
+            sections={preview.data.sections ?? []}
+            groups={preview.data.groups ?? []}
+            onReload={() => void preview.refetch()}
+          />
         ) : null}
-      </div>
+      </StudentPreviewPane>
     </div>
   );
 }

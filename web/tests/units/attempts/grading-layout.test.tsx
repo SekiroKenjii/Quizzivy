@@ -184,7 +184,7 @@ it("from 768 holds the page's panes at the viewport's height beside each other",
   expect(within(page).getByRole("heading", { level: 1 })).toBeInTheDocument();
   expect(
     within(page).queryByRole("region", {
-      name: "Bài sẵn sàng để xem lại hoặc hoàn tất",
+      name: "Sẵn sàng hoàn tất",
     }),
   ).toBeNull();
 });

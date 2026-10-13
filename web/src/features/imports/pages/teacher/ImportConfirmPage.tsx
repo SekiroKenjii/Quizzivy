@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, LoadError } from "@/components/shared/ListState";
+import { StickyAside } from "@/components/shared/StickyAside";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { useCrumbs } from "@/layouts/shell/crumbs";
 import { ApiError } from "@/lib/api/errors";
@@ -26,8 +27,9 @@ import { importName } from "../../importName";
 /**
  * ImportConfirmPage is an import's "Preview and create": the saved review's
  * draft as students will see it, its summary, and "Create draft test", or the
- * draft already created. It reads the import and its review afresh on entry,
- * so it never shows a review cached before the teacher's last save, and
+ * draft already created; from 1000px of content the summary is a column that
+ * sticks as the preview scrolls. It reads the import and its review afresh on
+ * entry, so it never shows a review cached before the teacher's last save, and
  * follows them after, so a conflict's re-read shows the newer review.
  */
 export default function ImportConfirmPage() {
@@ -228,8 +230,10 @@ function ConfirmFrame({
         </aside>
       ) : (
         <div className="grid min-w-0 items-start gap-4 @min-[1000px]/confirm:grid-cols-[minmax(0,1fr)_360px]">
-          <ConfirmPreview sections={review.draft.sections} />
-          <aside className="flex min-w-0 flex-col gap-3">{children}</aside>
+          <ConfirmPreview title={review.draft.title} sections={review.draft.sections} />
+          <StickyAside className="@min-[1000px]/confirm:sticky-column flex min-w-0 flex-col gap-3">
+            {children}
+          </StickyAside>
         </div>
       )}
     </div>

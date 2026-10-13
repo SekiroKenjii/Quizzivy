@@ -57,15 +57,43 @@ func (s *GroupsPostgres) lockGroupAssets(ctx context.Context, tx pgx.Tx, scope a
 	return s.media.RequireReadable(ctx, tx, scope, ids)
 }
 
-func insertGroupRecordings(ctx context.Context, tx pgx.Tx, group domain.QuestionGroup) error {
+func storedRecordingPauses(ctx context.Context, tx pgx.Tx, groupID string) (map[string]bool, error) {
+	rows, err := tx.Query(ctx, `SELECT id::text, allow_pause FROM app.group_recordings WHERE group_id=$1`, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	pauses := make(map[string]bool)
+	for rows.Next() {
+		var id string
+		var allowed bool
+		if err := rows.Scan(&id, &allowed); err != nil {
+			return nil, err
+		}
+		pauses[id] = allowed
+	}
+	return pauses, rows.Err()
+}
+
+func insertGroupRecordings(ctx context.Context, tx pgx.Tx, group domain.QuestionGroup, stored map[string]bool) error {
 	for _, recording := range group.Recordings {
-		_, err := tx.Exec(ctx, `INSERT INTO app.group_recordings (id,group_id,media_asset_id,max_plays,allow_seek,show_transcript_after_submit,transcript)
-			VALUES ($1,$2,$3,$4,$5,$6,$7)`, recording.ID, group.ID, recording.AssetID, recording.Policy.MaxPlays, recording.Policy.AllowSeek, recording.Policy.ShowTranscriptAfterSubmit, recording.Transcript)
+		_, err := tx.Exec(ctx, `INSERT INTO app.group_recordings (id,group_id,media_asset_id,max_plays,allow_seek,show_transcript_after_submit,transcript,allow_pause)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`, recording.ID, group.ID, recording.AssetID, recording.Policy.MaxPlays, recording.Policy.AllowSeek, recording.Policy.ShowTranscriptAfterSubmit, recording.Transcript, recordingPause(recording, stored))
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func recordingPause(recording domain.GroupRecording, stored map[string]bool) bool {
+	if recording.Policy.AllowPause != nil {
+		return *recording.Policy.AllowPause
+	}
+	if allowed, exists := stored[strings.ToLower(recording.ID)]; exists {
+		return allowed
+	}
+	return true
 }
 
 func insertGroupMaterials(ctx context.Context, tx pgx.Tx, group domain.QuestionGroup) error {

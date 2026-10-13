@@ -10,11 +10,18 @@ import { Toaster } from "@/components/ui/sonner";
 import { formatDate } from "@/lib/i18n/datetime";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
+import { downloadJoinQr } from "@/features/classes/joinQrImage";
 import "@/lib/i18n";
+
+vi.mock("@/features/classes/joinQrImage", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/classes/joinQrImage")>()),
+  downloadJoinQr: vi.fn(),
+}));
 
 const BASE = "http://localhost:8080";
 const CLASS_ID = "018f0000-0000-7000-8000-0000000000c1";
 const ORIGIN = window.location.origin;
+const HOST = window.location.host;
 const TEN_DAYS_ON = new Date(Date.now() + 10 * 86_400_000);
 TEN_DAYS_ON.setUTCHours(16, 59, 59, 0);
 const IN_TEN_DAYS = TEN_DAYS_ON.toISOString();
@@ -54,6 +61,7 @@ let revokes = 0;
 let patches: unknown[] = [];
 
 beforeEach(() => {
+  vi.mocked(downloadJoinQr).mockClear();
   reads = 0;
   readable = CODE;
   rotations = [];
@@ -123,6 +131,7 @@ describe("the join code card (DG-01)", () => {
     ).toBeVisible();
     expect(screen.getByText(`· còn ${DAYS_LEFT} ngày`)).toBeVisible();
     expect(screen.getByText("3 / 40")).toBeVisible();
+    expect(screen.getByText(`${HOST}/join/K7QM-2PXA`, { selector: "p" })).toBeVisible();
     expect(screen.queryByText(/một lần/)).toBeNull();
     expect(reads).toBe(1);
   });
@@ -137,12 +146,48 @@ describe("the join code card (DG-01)", () => {
     expect(await screen.findByText("Đã sao chép mã")).toBeInTheDocument();
   });
 
-  it("opens the QR for the code", async () => {
+  it("copies the code and the link in the deck's order, then downloads the QR", async () => {
     const user = renderPanel();
     await screen.findByText("K7QM-2PXA", { selector: "p" });
-    await user.click(screen.getByRole("button", { name: "Mã QR" }));
-    const dialog = await screen.findByRole("dialog", { name: "IELTS 6.5 Evening" });
-    expect(within(dialog).getByText(`${ORIGIN}/join/K7QM-2PXA`)).toBeVisible();
+    const share = screen
+      .getAllByRole("button")
+      .filter((button) =>
+        ["Chép mã", "Chép liên kết", "Tải mã QR"].includes(button.textContent),
+      );
+    expect(share.map((button) => button.textContent)).toEqual([
+      "Chép mã",
+      "Chép liên kết",
+      "Tải mã QR",
+    ]);
+    await user.click(screen.getByRole("button", { name: "Tải mã QR" }));
+    expect(downloadJoinQr).toHaveBeenCalledTimes(1);
+    const [frame, code] = vi.mocked(downloadJoinQr).mock.calls[0] ?? [];
+    expect(code).toBe("K7QM-2PXA");
+    expect(frame?.querySelector("svg")).not.toBeNull();
+  });
+
+  it("opens the QR full size for the projector, keeps focus in it, and gives it back", async () => {
+    const user = renderPanel();
+    await screen.findByText("K7QM-2PXA", { selector: "p" });
+    const opener = screen.getByRole("button", { name: "Hiện mã QR cỡ lớn" });
+    expect(opener).toHaveAttribute("title", "Hiện cỡ lớn để chiếu lên màn hình");
+    expect(opener).not.toHaveClass("opacity-40");
+    await user.click(opener);
+    const dialog = await screen.findByRole("dialog", {
+      name: "Tham gia IELTS 6.5 Evening",
+    });
+    expect(dialog).toHaveAccessibleDescription(
+      "Chiếu mã này lên màn hình. Học viên quét mã hoặc nhập mã.",
+    );
+    expect(within(dialog).getByRole("img", { name: /K7QM-2PXA/ })).toBeInTheDocument();
+    expect(within(dialog).getByText(`${HOST}/join/K7QM-2PXA`)).toBeVisible();
+    for (let step = 0; step < 4; step += 1) {
+      await user.tab();
+      expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    }
+    await user.click(within(dialog).getByRole("button", { name: "Xong" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(opener).toHaveFocus();
   });
 });
 
@@ -172,7 +217,20 @@ describe("a new code", () => {
     await waitFor(() =>
       expect(rotations).toEqual([{ expiresInDays: 7, maxUses: 100 }]),
     );
-    expect(await screen.findByText("Mã tham gia mới: B4XN-9TRE")).toBeInTheDocument();
+    const issued = await screen.findByRole("dialog", { name: "Mã tham gia mới" });
+    expect(issued).toHaveAccessibleDescription(
+      "Gửi mã, liên kết hoặc mã QR cho học viên.",
+    );
+    expect(within(issued).getByText("B4XN-9TRE")).toBeVisible();
+    expect(within(issued).getByText(`${HOST}/join/B4XN-9TRE`)).toBeVisible();
+    expect(issued).toContainElement(document.activeElement as HTMLElement);
+    await user.click(within(issued).getByRole("button", { name: "Chép mã" }));
+    expect(await navigator.clipboard.readText()).toBe("B4XN-9TRE");
+    await user.click(within(issued).getByRole("button", { name: "Chép liên kết" }));
+    expect(await navigator.clipboard.readText()).toBe(`${ORIGIN}/join/B4XN-9TRE`);
+    await user.click(within(issued).getByRole("button", { name: "Tải xuống" }));
+    expect(vi.mocked(downloadJoinQr).mock.calls.at(-1)?.[1]).toBe("B4XN-9TRE");
+    await user.click(within(issued).getByRole("button", { name: "Xong" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(opener).toHaveFocus();
   });
@@ -215,7 +273,7 @@ describe("an archived class", () => {
         "Lớp đã lưu trữ nên không ai tham gia được. Khôi phục lớp ở trang Lớp học để tạo mã.",
       ),
     ).toBeVisible();
-    expect(screen.queryByText(/mã cũ ngừng hoạt động/)).toBeNull();
+    expect(screen.queryByText(/ngừng hoạt động/)).toBeNull();
     await user.click(screen.getByRole("button", { name: "Ngừng" }));
     const dialog = await screen.findByRole("dialog", { name: "Ngừng mã này?" });
     await user.click(within(dialog).getByRole("button", { name: "Ngừng mã" }));
@@ -271,18 +329,28 @@ describe("the Students can join switch", () => {
     expect(await screen.findByText("Đã tạm ngừng tham gia")).toBeInTheDocument();
   });
 
-  it("says what a paused class means", () => {
-    renderPanel({ ...KLASS, selfJoinEnabled: false });
+  it("marks a paused code with a chip, fades its QR, and says so in the QR dialog", async () => {
+    const user = renderPanel({ ...KLASS, selfJoinEnabled: false });
+    await screen.findByText("K7QM-2PXA", { selector: "p" });
+    expect(screen.getByText("Tạm ngừng tham gia")).toBeVisible();
     expect(
-      screen.getByText(
-        "Đang tạm ngừng tham gia. Mã vẫn còn nhưng không ai dùng được cho đến khi bạn bật lại.",
-      ),
+      screen.getByText("Tạo mã mới thì mã, liên kết và mã QR cũ đều ngừng hoạt động."),
     ).toBeVisible();
-    expect(
-      screen.getByText(
-        "Gửi mã hoặc liên kết trong buổi học. Tạo mã mới thì mã cũ ngừng hoạt động.",
-      ),
-    ).toBeVisible();
+    const opener = screen.getByRole("button", { name: "Hiện mã QR cỡ lớn" });
+    expect(opener).toHaveClass("opacity-40");
+    await user.click(opener);
+    const dialog = await screen.findByRole("dialog", {
+      name: "Tham gia IELTS 6.5 Evening",
+    });
+    expect(dialog).toHaveAccessibleDescription(
+      "Đang tạm ngừng tham gia nên mã này chưa dùng được cho đến khi bạn bật lại.",
+    );
+  });
+
+  it("shows no chip while students can join", async () => {
+    renderPanel();
+    await screen.findByText("K7QM-2PXA", { selector: "p" });
+    expect(screen.queryByText("Tạm ngừng tham gia")).toBeNull();
   });
 
   it("speaks of no code once the code is stopped", () => {
@@ -290,8 +358,8 @@ describe("the Students can join switch", () => {
     expect(
       screen.getByText("Chưa có mã đang dùng. Chỉ bạn thêm được học viên vào lớp."),
     ).toBeVisible();
-    expect(screen.queryByText(/Mã vẫn còn/)).toBeNull();
-    expect(screen.queryByText(/mã cũ ngừng hoạt động/)).toBeNull();
+    expect(screen.queryByText("Tạm ngừng tham gia")).toBeNull();
+    expect(screen.queryByText(/ngừng hoạt động/)).toBeNull();
   });
 });
 
@@ -306,6 +374,9 @@ describe("a code that cannot be read", () => {
     ).toBeVisible();
     expect(screen.getByText("••••-2PXA")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Chép liên kết" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Chép mã" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Tải mã QR" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Hiện mã QR cỡ lớn" })).toBeNull();
   });
 
   it("is masked, with nothing to change, for a reader who may not change classes", () => {

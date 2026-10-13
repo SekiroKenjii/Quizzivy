@@ -8,23 +8,56 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useEngineLayer } from "../frame";
 import type { SectionGroup } from "../sections";
+import { isRun, type Stop } from "../stops";
 
 /**
  * DotState is what one question's square shows: whether the question is
- * answered and whether the student flagged it. The page computes the list
- * once; the strip, the question sheet and the Submit dialog read it.
+ * answered, whether it is partly answered (a fill-in with some of its blanks
+ * typed, which is not answered), and whether the student flagged it. The page
+ * computes the list once; the rail, the question sheet and the Submit dialog
+ * read it.
  */
 export interface DotState {
   id: string;
   answered: boolean;
+  partly: boolean;
   flagged: boolean;
+}
+
+/**
+ * KeysHint is what the footer says after the arrow keys while the rail
+ * shows: the long sentence, the short one beside shared content, or how to
+ * move only, on a question with no options to choose.
+ */
+export type KeysHint = "long" | "short" | "move";
+
+/**
+ * Squares is what a set of question squares reads: every question's state,
+ * the open question, the paper's sections, the stop of every question when
+ * the paper has runs, and the move to a question.
+ */
+export interface Squares {
+  dots: DotState[];
+  current: number;
+  groups: SectionGroup[];
+  stops?: readonly Stop[] | undefined;
+  onJump: (index: number) => void;
 }
 
 const RAIL_WIDTH_KEY = "quizzivy.column.studentNavigator";
 
 const STEP =
   "inline-flex h-11 flex-none items-center gap-1.5 rounded-lg text-base leading-none";
+
+const ARROW_KEYS = ["←", "→"] as const;
+
+const HINT_KEYS = {
+  long: "takeTest.keysHint",
+  short: "takeTest.keysHintShort",
+  move: "takeTest.keysHintMove",
+} as const;
 
 function forgetRailWidth() {
   try {
@@ -34,44 +67,48 @@ function forgetRailWidth() {
   }
 }
 
-interface Squares {
-  dots: DotState[];
-  current: number;
-  groups: SectionGroup[];
-  onJump: (index: number) => void;
-}
-
 /**
- * Navigator is the engine's footer, under the question pane: Previous, the
- * questions, and Next, which on the last question is Finish and asks to hand
- * the paper in. From 768 the questions are a strip of numbered squares that
- * wraps and, past four rows, scrolls inside itself. Below 768 one button
- * says which question is open and how many are answered, and opens the same
- * squares in a bottom sheet. A square is filled when its question is
- * answered, has the accent border when it is the one on screen and an amber
- * dot when it is flagged. On a paper of several parts the strip leaves a gap
- * between parts, the sheet names each part, and a square's name includes its
- * part. Without `onFinish` the last question offers no Finish. On mount it
- * deletes the width the retired navigator rail remembered in this browser.
+ * Navigator is the engine's footer, under the question pane: Previous, a
+ * middle and Next, which on the last stop is Finish and asks to hand the
+ * paper in. Previous opens `back` and Next opens `ahead`, the first question
+ * of the stop before and after; null marks the first or the last stop. While
+ * the sections rail shows (`rail`), the middle is the key
+ * hint: the arrow keys, then `hint`'s sentence. Otherwise, at every width, it
+ * is the grid button, which says which question is open and how many are
+ * answered, in the short form when `short`, and opens the question sheet: a
+ * bottom sheet below 768 and a floating card from 768 (`wide`), where
+ * Previous also shows its label. Without `onFinish` the last question offers
+ * no Finish. On mount it deletes the width the old resizable rail remembered
+ * in this browser.
  */
 export function Navigator({
   wide,
+  rail,
+  hint,
+  short,
   dots,
   current,
   groups,
+  stops,
+  back,
+  ahead,
   onMove,
   onJump,
   onFinish,
 }: Readonly<
   Squares & {
     wide: boolean;
+    rail: boolean;
+    hint: KeysHint;
+    short: boolean;
+    back: number | null;
+    ahead: number | null;
     onMove: (index: number) => void;
     onFinish?: (() => void) | undefined;
   }
 >) {
   const { t } = useTranslation();
   useEffect(forgetRailWidth, []);
-  const last = current >= dots.length - 1;
 
   return (
     <nav
@@ -85,25 +122,35 @@ export function Navigator({
       <button
         type="button"
         aria-label={t("takeTest.previousQuestion")}
-        disabled={current === 0}
+        disabled={back === null}
         className={cn(
           STEP,
           "bg-card hover:bg-muted border px-3.5 font-medium disabled:pointer-events-none disabled:opacity-40",
         )}
-        onClick={() => onMove(Math.max(0, current - 1))}
+        onClick={() => {
+          if (back !== null) onMove(back);
+        }}
       >
         <ArrowLeft aria-hidden="true" className="size-4" />
         {wide && t("takeTest.previous")}
       </button>
-      {wide ? (
-        <Strip dots={dots} current={current} groups={groups} onJump={onJump} />
+      {rail ? (
+        <KeyHint hint={hint} />
       ) : (
-        <SheetButton dots={dots} current={current} groups={groups} onJump={onJump} />
+        <SheetButton
+          wide={wide}
+          short={short}
+          dots={dots}
+          current={current}
+          groups={groups}
+          stops={stops}
+          onJump={onJump}
+        />
       )}
-      {last ? (
+      {ahead === null ? (
         onFinish !== undefined && <Step onClick={onFinish}>{t("takeTest.finish")}</Step>
       ) : (
-        <Step label={t("takeTest.nextQuestion")} onClick={() => onMove(current + 1)}>
+        <Step label={t("takeTest.nextQuestion")} onClick={() => onMove(ahead)}>
           {t("takeTest.next")}
         </Step>
       )}
@@ -132,69 +179,80 @@ function Step({
   );
 }
 
-function Strip({ dots, current, groups, onJump }: Readonly<Squares>) {
-  const now = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    now.current?.scrollIntoView?.({ block: "nearest" });
-  }, [current]);
-
+function KeyHint({ hint }: Readonly<{ hint: KeysHint }>) {
+  const { t } = useTranslation();
   return (
-    <div className="-m-1 flex max-h-40 min-w-0 flex-1 flex-wrap justify-center gap-[5px] overflow-y-auto p-1">
-      {partsOf(groups, dots).flatMap((part, at) =>
-        part.squares.map(({ dot, index }, place) => (
-          <Square
-            key={dot.id}
-            ref={index === current ? now : undefined}
-            dot={dot}
-            index={index}
-            current={current}
-            part={part.title}
-            className={cn(
-              "size-8.5 min-h-0 rounded-md text-sm leading-none tabular-nums",
-              at > 0 && place === 0 && "ml-3",
-            )}
-            flagRing="border-bg"
-            onJump={onJump}
-          />
-        )),
-      )}
-    </div>
+    <p className="text-muted-fg text-meta flex min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden leading-normal whitespace-nowrap">
+      <span className="inline-flex flex-none gap-[3px]">
+        {ARROW_KEYS.map((key) => (
+          <Key key={key}>{key}</Key>
+        ))}
+      </span>
+      <span className="truncate">{t(HINT_KEYS[hint])}</span>
+    </p>
   );
 }
 
-function SheetButton({ dots, current, groups, onJump }: Readonly<Squares>) {
+function Key({ children }: Readonly<{ children: string }>) {
+  return (
+    <kbd className="bg-card text-fg inline-flex h-5.5 min-w-5.5 items-center justify-center rounded-[5px] border border-b-2 px-[5px] font-sans">
+      {children}
+    </kbd>
+  );
+}
+
+function SheetButton({
+  wide,
+  short,
+  dots,
+  current,
+  groups,
+  stops,
+  onJump,
+}: Readonly<Squares & { wide: boolean; short: boolean }>) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const opener = useRef<HTMLButtonElement>(null);
   const now = useRef<HTMLButtonElement>(null);
-  const answered = dots.filter((dot) => dot.answered).length;
+  const counts = {
+    no: current + 1,
+    answered: dots.filter((dot) => dot.answered).length,
+    total: dots.length,
+  };
+  const label = t("takeTest.gridLabel", counts);
+  const layer = useEngineLayer();
 
   return (
     <>
       <button
         ref={opener}
         type="button"
+        aria-label={label}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="bg-card hover:bg-muted inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden rounded-lg border text-base leading-[1.2] font-medium"
+        className="bg-card hover:bg-muted inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border px-1.5 text-base leading-none font-medium whitespace-nowrap"
         onClick={() => setOpen(true)}
       >
         <LayoutGrid aria-hidden="true" className="size-4 flex-none" />
-        <span className="sr-only">{t("takeTest.navTitle")}:</span>{" "}
-        <span className="flex min-w-0 flex-wrap justify-center gap-x-[0.23em]">
-          <span className="whitespace-nowrap">
-            {t("takeTest.navPosition", { n: current + 1, total: dots.length })}
-          </span>{" "}
-          <span className="whitespace-nowrap">
-            {t("takeTest.navAnswered", { answered })}
-          </span>
+        <span className="min-w-0 truncate leading-normal">
+          {short ? t("takeTest.gridLabelShort", counts) : label}
         </span>
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
+          container={layer}
           showCloseButton={false}
-          className="bg-card shadow-float top-auto right-0 bottom-0 left-0 flex max-h-[85svh] max-w-none translate-x-0 translate-y-0 flex-col gap-3.5 rounded-t-3xl rounded-b-none border-0 px-4 pt-2.5 pb-5 sm:max-w-none"
-          style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
+          className={cn(
+            "bg-card shadow-float top-auto flex max-h-[80%] max-w-none translate-x-0 translate-y-0 flex-col gap-4 overflow-y-auto border px-4 pt-3 pb-5 sm:max-w-none",
+            wide
+              ? "right-[calc(50%-280px)] bottom-[76px] left-[calc(50%-280px)] w-auto rounded-2xl"
+              : "right-0 bottom-0 left-0 rounded-t-3xl rounded-b-none",
+          )}
+          style={
+            wide
+              ? undefined
+              : { paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }
+          }
           onOpenAutoFocus={(event) => {
             if (now.current === null) return;
             event.preventDefault();
@@ -210,62 +268,164 @@ function SheetButton({ dots, current, groups, onJump }: Readonly<Squares>) {
             aria-hidden="true"
             className="bg-border h-1 w-10 flex-none self-center rounded-full"
           />
-          <div className="flex items-center justify-between gap-3">
-            <DialogTitle className="text-md leading-normal font-semibold">
-              {t("takeTest.navTitle")}
-            </DialogTitle>
-            <DialogDescription className="text-muted-fg text-meta leading-normal">
-              {t("takeTest.navCount", { answered, total: dots.length })}
-            </DialogDescription>
-          </div>
-          <div className="-m-1 flex min-h-0 flex-col gap-3.5 overflow-y-auto p-1">
-            {partsOf(groups, dots).map((part) => (
-              <div key={part.id} className="flex flex-col gap-2">
-                {part.title ? (
-                  <h3 className="text-muted-fg text-meta leading-normal font-semibold tracking-[0.02em] uppercase">
-                    {part.title}
-                  </h3>
-                ) : null}
-                <div className="grid grid-cols-6 gap-2">
-                  {part.squares.map(({ dot, index }) => (
-                    <Square
-                      key={dot.id}
-                      ref={index === current ? now : undefined}
-                      dot={dot}
-                      index={index}
-                      current={current}
-                      part={part.title}
-                      className="rounded-ctl h-11 text-base leading-none"
-                      flagRing="border-card"
-                      onJump={(next) => {
-                        setOpen(false);
-                        onJump(next);
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="text-muted-fg flex flex-wrap gap-x-3.5 gap-y-1 text-xs leading-normal">
-            <span className="flex items-center gap-1.5">
-              <span
-                aria-hidden="true"
-                className="bg-primary size-3 flex-none rounded-[3px]"
-              />
-              {t("takeTest.legendAnswered")}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span
-                aria-hidden="true"
-                className="bg-warning size-2.5 flex-none rounded-full"
-              />
-              {t("takeTest.legendFlagged")}
-            </span>
-          </div>
+          <DialogTitle className="sr-only">{t("takeTest.navTitle")}</DialogTitle>
+          <DialogDescription className="sr-only">{label}</DialogDescription>
+          <SectionBlocks
+            shape="sheet"
+            dots={dots}
+            current={current}
+            groups={groups}
+            stops={stops}
+            currentRef={now}
+            onJump={(next) => {
+              setOpen(false);
+              onJump(next);
+            }}
+          />
+          <Legend oneScreen={stops?.some(isRun) === true} />
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+/**
+ * SectionBlocks draws one block per section of the paper: the section's
+ * title, beside how many of its questions are answered, over a grid of its
+ * questions' squares, five columns of 34px squares in the rail and six in
+ * the sheet. A section with no title has no heading. On a paper of several
+ * sections a square's name includes its section. The squares of a run are
+ * tied within a row and named for the run; while the run is open each of
+ * them has the current ring, and the open gap's square the lime one.
+ * `currentRef` receives the open question's square.
+ */
+export function SectionBlocks({
+  shape,
+  dots,
+  current,
+  groups,
+  stops,
+  currentRef,
+  onJump,
+}: Readonly<
+  Squares & {
+    shape: "rail" | "sheet";
+    currentRef: Ref<HTMLButtonElement>;
+  }
+>) {
+  const { t } = useTranslation();
+  const named = groups.length > 1;
+  const columns = shape === "rail" ? 5 : 6;
+  const open = stops?.[current];
+  const openRun = isRun(open) ? open : null;
+  return partsOf(groups, dots).map((part) => {
+    const on = part.squares.some(({ index }) => index === current);
+    return (
+      <div key={part.id} className="flex flex-col gap-2">
+        {part.title !== "" && (
+          <div className="flex items-start justify-between gap-2">
+            <h3
+              className={cn(
+                "text-meta min-w-0 flex-1 leading-[1.35]",
+                on ? "text-fg font-semibold" : "text-muted-fg font-medium",
+              )}
+            >
+              {part.title}
+            </h3>
+            <span className="text-caption text-muted-fg leading-normal whitespace-nowrap tabular-nums">
+              {t("takeTest.railDone", {
+                done: part.squares.filter(({ dot }) => dot.answered).length,
+                total: part.squares.length,
+              })}
+            </span>
+          </div>
+        )}
+        <div
+          className={cn(
+            "grid gap-[5px]",
+            shape === "rail" ? "grid-cols-5" : "grid-cols-6",
+          )}
+        >
+          {part.squares.map(({ dot, index }, column) => {
+            const stop = stops?.[index];
+            const run = isRun(stop) ? stop : null;
+            const next = part.squares[column + 1]?.index;
+            return (
+              <Square
+                key={dot.id}
+                ref={index === current ? currentRef : undefined}
+                dot={dot}
+                index={index}
+                current={current}
+                part={named ? part.title : ""}
+                run={run}
+                inOpenRun={run !== null && run === openRun}
+                tied={
+                  run !== null &&
+                  next !== undefined &&
+                  run.positions.includes(next) &&
+                  (column + 1) % columns !== 0
+                }
+                className={shape === "rail" ? "h-8.5 min-h-0" : "engine-lg:h-10.5 h-11"}
+                onJump={onJump}
+              />
+            );
+          })}
+        </div>
+      </div>
+    );
+  });
+}
+
+/**
+ * Legend names the marks a square can carry: answered, partly answered and
+ * flagged, and, on a paper with runs (`oneScreen`), the tie between the
+ * squares that share one screen.
+ */
+export function Legend({
+  className,
+  oneScreen = false,
+}: Readonly<{ className?: string; oneScreen?: boolean }>) {
+  const { t } = useTranslation();
+  return (
+    <div
+      className={cn(
+        "text-muted-fg text-caption flex flex-wrap gap-x-3.5 gap-y-1.5 leading-normal",
+        className,
+      )}
+    >
+      <span className="flex items-center gap-1.5">
+        <span
+          aria-hidden="true"
+          className="bg-primary size-[11px] flex-none rounded-[3px]"
+        />
+        {t("takeTest.legendAnswered")}
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span
+          aria-hidden="true"
+          className="bg-brand-soft border-primary size-[11px] flex-none rounded-[3px] border"
+        />
+        {t("takeTest.legendPartly")}
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span
+          aria-hidden="true"
+          className="bg-warning size-[9px] flex-none rounded-full"
+        />
+        {t("takeTest.legendFlagged")}
+      </span>
+      {oneScreen && (
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden="true" className="inline-flex flex-none items-center">
+            <span className="border-ring size-[11px] rounded-[3px] border-[1.5px]" />
+            <span className="bg-ring h-0.5 w-1" />
+            <span className="border-ring size-[11px] rounded-[3px] border-[1.5px]" />
+          </span>
+          {t("takeTest.legendOneScreen")}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -277,7 +437,7 @@ interface Part {
 
 function partsOf(groups: SectionGroup[], dots: DotState[]): Part[] {
   const squares = dots.map((dot, index) => ({ dot, index }));
-  if (groups.length < 2) return [{ id: "paper", title: "", squares }];
+  if (groups.length === 0) return [{ id: "paper", title: "", squares }];
   return groups.map((group) => ({
     id: group.section.id,
     title: group.section.title,
@@ -288,10 +448,21 @@ function partsOf(groups: SectionGroup[], dots: DotState[]): Part[] {
   }));
 }
 
-function toneOf(dot: DotState, on: boolean): string {
-  const fill = dot.answered ? "bg-primary text-primary-fg" : "bg-card text-fg";
-  if (on) return `${fill} border-brand`;
-  return dot.answered ? `${fill} border-primary` : `${fill} border-border`;
+function fillOf(dot: DotState): string {
+  if (dot.answered) return "bg-primary text-primary-fg";
+  if (dot.partly) return "bg-brand-soft text-fg";
+  return "bg-card text-fg";
+}
+
+function toneOf(dot: DotState, on: boolean, run: boolean, inOpenRun: boolean): string {
+  if (on && run) return `${fillOf(dot)} border-primary ring-2 ring-brand`;
+  if (on) return `${fillOf(dot)} border-brand ring-2 ring-brand-soft`;
+  const marked = dot.answered || dot.partly;
+  return cn(
+    fillOf(dot),
+    marked ? "border-primary" : "border-border",
+    inOpenRun && "ring-brand-soft ring-2",
+  );
 }
 
 function Square({
@@ -300,8 +471,10 @@ function Square({
   index,
   current,
   part,
+  run,
+  inOpenRun,
+  tied,
   className,
-  flagRing,
   onJump,
 }: Readonly<{
   ref: Ref<HTMLButtonElement> | undefined;
@@ -309,8 +482,10 @@ function Square({
   index: number;
   current: number;
   part: string;
+  run: Stop | null;
+  inOpenRun: boolean;
+  tied: boolean;
   className: string;
-  flagRing: string;
   onJump: (index: number) => void;
 }>) {
   const { t } = useTranslation();
@@ -320,7 +495,14 @@ function Square({
     part,
     on ? t("takeTest.dotCurrent") : "",
     dot.answered ? t("takeTest.dotAnswered") : "",
+    dot.partly ? t("takeTest.dotPartly") : "",
     dot.flagged ? t("takeTest.dotFlagged") : "",
+    run === null
+      ? ""
+      : t("takeTest.dotInRun", {
+          from: (run.positions[0] ?? 0) + 1,
+          to: (run.positions.at(-1) ?? 0) + 1,
+        }),
   ].filter((piece) => piece !== "");
 
   return (
@@ -330,8 +512,8 @@ function Square({
       aria-current={on ? "true" : undefined}
       aria-label={name.join(", ")}
       className={cn(
-        "relative min-w-0 flex-none border-[1.5px] font-semibold",
-        toneOf(dot, on),
+        "text-meta relative min-w-0 rounded-md border-[1.5px] p-0 leading-none font-semibold tabular-nums",
+        toneOf(dot, on, run !== null, inOpenRun),
         className,
       )}
       onClick={() => onJump(index)}
@@ -340,10 +522,13 @@ function Square({
       {dot.flagged && (
         <span
           aria-hidden="true"
-          className={cn(
-            "bg-warning absolute -top-1 -right-1 size-2.5 rounded-full border-2",
-            flagRing,
-          )}
+          className="bg-warning border-card absolute -top-1 -right-1 size-[9px] rounded-full border-2"
+        />
+      )}
+      {tied && (
+        <span
+          aria-hidden="true"
+          className="bg-ring pointer-events-none absolute top-1/2 left-[calc(100%+1.5px)] -mt-px h-0.5 w-[5px]"
         />
       )}
     </button>

@@ -153,6 +153,7 @@ func TestEveryPartOfAQuestionHasItsOwnField(t *testing.T) {
 		{"media removed", func(q *domain.DraftQuestion) { q.MediaAssetID = nil }, []domain.ChangedField{domain.FieldMedia}},
 		{"audio plays", func(q *domain.DraftQuestion) { plays := 3; q.MaxPlays = &plays }, []domain.ChangedField{domain.FieldMedia}},
 		{"audio seek", func(q *domain.DraftQuestion) { seek := true; q.AllowSeek = &seek }, []domain.ChangedField{domain.FieldMedia}},
+		{"audio pause", func(q *domain.DraftQuestion) { pause := false; q.AllowPause = &pause }, []domain.ChangedField{domain.FieldMedia}},
 		{"transcript", func(q *domain.DraftQuestion) { q.Transcript = textOf("Lời khác") }, []domain.ChangedField{domain.FieldMedia}},
 		{"explanation", func(q *domain.DraftQuestion) { q.Explanation = textOf("Vì lý do khác") }, []domain.ChangedField{domain.FieldExplanation}},
 		{"explanation removed", func(q *domain.DraftQuestion) { q.Explanation = nil }, []domain.ChangedField{domain.FieldExplanation}},
@@ -543,6 +544,38 @@ func TestARecordingPolicyAndTranscriptBelongToTheGroup(t *testing.T) {
 	}
 	if changes := compare(t, recorded(2, "a"), recorded(2, "b")); len(changes) != 2 {
 		t.Errorf("a different transcript: changes = %+v, want the context of both members", changes)
+	}
+}
+
+func TestAPauseRuleThatWasNeverSetIsTheRuleOfOne(t *testing.T) {
+	audio := func(pause *bool) domain.DraftContent {
+		q := choiceQuestion("q1", "Một", "1.00", true, false)
+		q.MediaAssetID = textOf("0195a000-0000-7000-8000-000000000001")
+		q.AllowSeek, q.ShowTranscript, q.AllowPause = new(bool), new(bool), pause
+		return onePart(q)
+	}
+	on, off := true, false
+	if changes := compare(t, audio(nil), audio(&on)); len(changes) != 0 {
+		t.Errorf("an unset pause rule against true: changes = %+v, want none", changes)
+	}
+	if changes := compare(t, audio(nil), audio(&off)); len(changes) != 1 {
+		t.Errorf("an unset pause rule against false: changes = %+v, want one", changes)
+	}
+}
+
+func TestARecordingsPauseRuleBelongsToTheGroup(t *testing.T) {
+	recorded := func(pause *bool) domain.DraftContent {
+		p := groupedPaper("Đoạn văn", [4]string{"q1", "q2", "stim-1", "gap-1"}, "fixed")
+		p.Sections[0].Groups[0].Group.Recordings = []domain.GroupRecording{{ID: "rec", AssetID: "0195A000-0000-7000-8000-000000000001"}}
+		p.Sections[0].Groups[0].Group.Recordings[0].Policy.AllowPause = pause
+		return p
+	}
+	on, off := true, false
+	if changes := compare(t, recorded(nil), recorded(&on)); len(changes) != 0 {
+		t.Errorf("an unset pause rule against true: changes = %+v, want none", changes)
+	}
+	if changes := compare(t, recorded(&on), recorded(&off)); len(changes) != 2 {
+		t.Errorf("a different pause rule: changes = %+v, want the context of both members", changes)
 	}
 }
 

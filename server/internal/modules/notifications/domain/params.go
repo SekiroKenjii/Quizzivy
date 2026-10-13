@@ -31,6 +31,11 @@ type fields struct {
 	ClassName    *string    `json:"className,omitempty"`
 	ClassNames   *[]string  `json:"classNames,omitempty"`
 	ClosesAt     *time.Time `json:"closesAt,omitempty"`
+	Used         *int       `json:"used,omitempty"`
+	Allowance    *int       `json:"allowance,omitempty"`
+	Credits      *int       `json:"credits,omitempty"`
+	TeacherName  *string    `json:"teacherName,omitempty"`
+	Decision     *string    `json:"decision,omitempty"`
 }
 
 // Encode returns p as the object the store keeps and the reader is sent. It
@@ -48,7 +53,9 @@ func Encode(p Params) ([]byte, error) {
 
 func (f fields) valid() bool {
 	return within(f.Title, maxTitle) && within(f.StudentName, maxName) && within(f.ClassName, maxName) &&
+		within(f.TeacherName, maxName) && decided(f.Decision) &&
 		counted(f.Count) && counted(f.ToGrade) && counted(f.FocusLost) && counted(f.NotSubmitted) &&
+		counted(f.Used) && counted(f.Allowance) && counted(f.Credits) &&
 		named(f.ClassNames, f.Count) && (f.ClosesAt == nil || !f.ClosesAt.IsZero())
 }
 
@@ -73,6 +80,10 @@ func within(text *string, limit int) bool {
 	}
 	n := utf8.RuneCountInString(*text)
 	return n >= 1 && n <= limit
+}
+
+func decided(decision *string) bool {
+	return decision == nil || *decision == DecisionApproved || *decision == DecisionDeclined
 }
 
 func counted(n *int) bool {
@@ -200,4 +211,46 @@ func (Ready) Kind() Kind { return ResultReady }
 
 func (p Ready) fields() fields {
 	return fields{Title: &p.Title}
+}
+
+// The decisions a CreditRequestDecided notice reports.
+const (
+	DecisionApproved = "approved"
+	DecisionDeclined = "declined"
+)
+
+// AllowanceWarning is AIAllowanceWarning's params: the credits a teacher has used this month and the allowance they were measured against.
+type AllowanceWarning struct {
+	Used      int
+	Allowance int
+}
+
+func (AllowanceWarning) Kind() Kind { return AIAllowanceWarning }
+
+func (p AllowanceWarning) fields() fields {
+	return fields{Used: &p.Used, Allowance: &p.Allowance}
+}
+
+// CreditRequest is AICreditRequest's params: the teacher who asked and how many credits they asked for.
+type CreditRequest struct {
+	TeacherName string
+	Credits     int
+}
+
+func (CreditRequest) Kind() Kind { return AICreditRequest }
+
+func (p CreditRequest) fields() fields {
+	return fields{TeacherName: &p.TeacherName, Credits: &p.Credits}
+}
+
+// CreditRequestDecided is AICreditRequestDecided's params: how many credits the teacher asked for and whether an Admin approved or declined them, as DecisionApproved or DecisionDeclined.
+type CreditRequestDecided struct {
+	Credits  int
+	Decision string
+}
+
+func (CreditRequestDecided) Kind() Kind { return AICreditRequestDecided }
+
+func (p CreditRequestDecided) fields() fields {
+	return fields{Credits: &p.Credits, Decision: &p.Decision}
 }

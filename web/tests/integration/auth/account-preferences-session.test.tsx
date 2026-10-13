@@ -368,7 +368,7 @@ it.each(["unmount", "new-window"] as const)(
       http.get("http://localhost:8080/public/status", async () => {
         entered = true;
         await response.promise;
-        return HttpResponse.json({ maintenance: null });
+        return HttpResponse.json({ maintenance: null, ai: false });
       }),
     );
     const original = {

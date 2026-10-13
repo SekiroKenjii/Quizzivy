@@ -109,6 +109,9 @@ function SidebarBody({
                 {t(group.label)}
               </p>
             )}
+            {group.label !== undefined && collapsed && (
+              <div role="separator" className="bg-border mx-2.5 mb-1 h-px flex-none" />
+            )}
             <ul className="flex flex-col gap-px">
               {group.items.map((item) => (
                 <li key={item.id}>
@@ -139,8 +142,8 @@ function SidebarBody({
  * the workspace block, the destinations in their groups, and the account
  * button at its foot. Expanded it is 248px wide. Collapsed it is 60px: an
  * icon for each destination, whose label is its `title` and stays its
- * accessible name, and no badge. The destination with `activeId` is the
- * current page.
+ * accessible name, no badge, and a separator in place of each group's label.
+ * The destination with `activeId` is the current page.
  */
 export function Sidebar({
   collapsed,

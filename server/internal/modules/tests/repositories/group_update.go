@@ -58,13 +58,17 @@ func (s *GroupsPostgres) replaceGroupGraph(ctx context.Context, tx pgx.Tx, in do
 	if _, err := tx.Exec(ctx, `SET CONSTRAINTS app.questions_context_ordinal_key DEFERRED`); err != nil {
 		return err
 	}
+	pauses, err := storedRecordingPauses(ctx, tx, in.ID)
+	if err != nil {
+		return err
+	}
 	if err := clearGroupMaterials(ctx, tx, in.ID); err != nil {
 		return err
 	}
 	if err := s.replaceGroupMembers(ctx, tx, in, ids); err != nil {
 		return err
 	}
-	if err := insertGroupRecordings(ctx, tx, in.Bundle.Group); err != nil {
+	if err := insertGroupRecordings(ctx, tx, in.Bundle.Group, pauses); err != nil {
 		return err
 	}
 	if err := insertGroupMaterials(ctx, tx, in.Bundle.Group); err != nil {

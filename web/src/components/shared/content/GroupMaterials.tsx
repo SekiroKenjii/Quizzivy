@@ -4,6 +4,7 @@ import type { components } from "@/lib/api/schema";
 import { nfc } from "@/lib/nfc";
 import { ContentView, type AssetRenderer } from "./ContentView";
 import { ContentImage } from "./ContentImage";
+import { hasReading } from "./materials";
 
 type StudentGroup = components["schemas"]["StudentGroup"];
 export type MaterialGap = StudentGroup["stimuli"][number]["gaps"][number];
@@ -16,8 +17,10 @@ export type GroupAudioRenderer = (
 
 /**
  * GroupMaterials renders frozen, learner-safe content using only the group's
- * authorized asset bindings. A material whose title is `omitTitle` draws no
- * heading: the caller has already drawn those words above it.
+ * authorized asset bindings. A material whose title, in NFC, is `omitTitle`
+ * draws no heading: the caller has already drawn those words above it.
+ * Neither does a material with nothing to read. With `gapCard`, a material
+ * that holds a gap is drawn in the deck's cloze card.
  */
 export function GroupMaterials({
   group,
@@ -25,12 +28,14 @@ export function GroupMaterials({
   renderGap,
   onRetryMedia,
   omitTitle,
+  gapCard = false,
 }: Readonly<{
   group: StudentGroup;
   renderAudio: GroupAudioRenderer;
   renderGap: (gap: MaterialGap, label: string) => ReactNode;
   onRetryMedia?: (() => void) | undefined;
   omitTitle?: string | undefined;
+  gapCard?: boolean;
 }>) {
   const { t } = useTranslation();
   const assets = useMemo(
@@ -59,27 +64,34 @@ export function GroupMaterials({
       {group.instructions ? <ContentView document={group.instructions} /> : null}
       {group.stimuli.map((material) => {
         const gaps = new Map(material.gaps.map((gap) => [gap.gapId, gap]));
+        const view = (
+          <ContentView
+            document={material.content}
+            renderAsset={renderAsset}
+            renderGap={(gap) => {
+              const binding = gaps.get(gap.id);
+              return binding ? (
+                renderGap(binding, gap.label)
+              ) : (
+                <span className="content-gap">{nfc(gap.label)}</span>
+              );
+            }}
+          />
+        );
         return (
           <section
             key={material.id}
             className="flex min-w-0 flex-col gap-2"
-            aria-label={material.title}
+            aria-label={hasReading(material) ? material.title : undefined}
           >
-            {material.title !== omitTitle && (
+            {nfc(material.title) !== omitTitle && hasReading(material) && (
               <h4 className="text-sm font-medium">{nfc(material.title)}</h4>
             )}
-            <ContentView
-              document={material.content}
-              renderAsset={renderAsset}
-              renderGap={(gap) => {
-                const binding = gaps.get(gap.id);
-                return binding ? (
-                  renderGap(binding, gap.label)
-                ) : (
-                  <span className="content-gap">{nfc(gap.label)}</span>
-                );
-              }}
-            />
+            {gapCard && material.gaps.length > 0 ? (
+              <div className="content-cloze">{view}</div>
+            ) : (
+              view
+            )}
           </section>
         );
       })}

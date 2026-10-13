@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useState } from "react";
-import { act, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QuestionBody } from "@/features/take-test/components/QuestionBody";
 import { QuestionCard } from "@/features/take-test/components/QuestionCard";
@@ -11,6 +11,8 @@ import { useTakeTestStore } from "@/features/take-test/store";
 import type { Answer, StudentQuestion } from "@/features/take-test/api";
 import { writeLargerTestText } from "@/lib/testText";
 import i18n from "@/lib/i18n";
+import { PaperSourceContext, type PaperSource } from "@/features/take-test/paper";
+import { renderWithPaper, viewport } from "./support";
 
 beforeEach(() => {
   localStorage.clear();
@@ -26,6 +28,12 @@ function question(
   over: Partial<StudentQuestion> & { type: StudentQuestion["type"] },
 ): StudentQuestion {
   return { id: "q1", sectionId: "s1", prompt: "Prompt", points: 1, ...over };
+}
+
+function renderCard(q: StudentQuestion) {
+  return renderWithPaper(
+    <QuestionCard question={q} number={1} total={1} onAudioExpired={vi.fn()} />,
+  );
 }
 
 function renderQuestion(q: StudentQuestion, answer?: Answer) {
@@ -99,7 +107,7 @@ describe("single_choice", () => {
       "px-3.5",
       "py-2.5",
       "text-md",
-      "leading-[1.45]",
+      "leading-[1.4]",
       "hover:border-ring",
     );
     const marker = within(row).getByText("B");
@@ -113,7 +121,7 @@ describe("single_choice", () => {
     expect(marker.querySelector("svg")).toBeNull();
   });
 
-  it("gives the chosen option a primary border and a check in place of its letter", () => {
+  it("gives the chosen option a primary border and keeps its letter, light on the primary marker", () => {
     renderQuestion(question({ type: "single_choice", options }), {
       type: "choice",
       optionIds: ["o2"],
@@ -124,8 +132,8 @@ describe("single_choice", () => {
     expect(row).not.toHaveClass("hover:border-ring");
     const marker = row.querySelector<HTMLElement>("span[aria-hidden]")!;
     expect(marker).toHaveClass("border-primary", "bg-primary", "text-primary-fg");
-    expect(marker).not.toHaveTextContent("B");
-    expect(marker.querySelector("svg")).toHaveClass("size-3.5");
+    expect(marker).toHaveTextContent(/^B$/);
+    expect(marker.querySelector("svg")).toBeNull();
     const other = screen.getByRole("radio", { name: "is living" }).parentElement!;
     expect(other).toHaveClass("border-border");
     expect(within(other).getByText("C")).toBeInTheDocument();
@@ -182,10 +190,11 @@ describe("multiple_choice", () => {
       name: "has been living",
     }).parentElement!;
     expect(chosen.querySelector("span[aria-hidden]")).toHaveClass(
-      "rounded-[6px]",
+      "rounded-[7px]",
       "bg-primary",
     );
-    expect(within(chosen.parentElement!).getByText("B")).toHaveClass("rounded-[6px]");
+    expect(chosen.querySelector("span[aria-hidden]")).toHaveTextContent(/^A$/);
+    expect(within(chosen.parentElement!).getByText("B")).toHaveClass("rounded-[7px]");
     expect(within(chosen.parentElement!).getByText("B")).not.toHaveClass(
       "rounded-full",
     );
@@ -194,6 +203,99 @@ describe("multiple_choice", () => {
     );
     expect(hint).toHaveClass("text-muted-fg", "text-sm", "-mt-2");
     expect(hint).not.toHaveClass("sr-only");
+  });
+});
+
+describe("the options' columns", () => {
+  const short = ["went", "goes", "gone", "going"].map((text, index) => ({
+    id: `s${index + 1}`,
+    text,
+  }));
+  const rows = (choices: NonNullable<StudentQuestion["options"]>) => {
+    renderQuestion(question({ type: "single_choice", options: choices }));
+    return screen.getByRole("radiogroup");
+  };
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("lays four short options in two columns below 768", () => {
+    viewport(359);
+    expect(rows(short)).toHaveClass("grid", "grid-cols-2", "gap-2");
+  });
+
+  it("lays them in up to four columns from 768", () => {
+    viewport(768);
+    expect(rows(short)).toHaveClass("grid-cols-4");
+    cleanup();
+    expect(rows(short.slice(0, 3))).toHaveClass("grid-cols-3");
+    cleanup();
+    expect(rows([...short, { id: "s5", text: "to go" }])).toHaveClass("grid-cols-4");
+  });
+
+  it("keeps one column when one option is longer than 16 characters", () => {
+    viewport(1280);
+    expect(
+      rows([...short.slice(0, 3), { id: "long", text: "has been going on" }]),
+    ).toHaveClass("grid-cols-1");
+    cleanup();
+    expect(
+      rows([...short.slice(0, 3), { id: "edge", text: "sixteen letters!" }]),
+    ).toHaveClass("grid-cols-4");
+  });
+
+  it("keeps one column when an option has rich content", () => {
+    viewport(1280);
+    expect(
+      rows([
+        ...short.slice(0, 3),
+        {
+          id: "rich",
+          text: "gone",
+          content: {
+            format: "semantic_v1",
+            blocks: [
+              {
+                type: "paragraph",
+                content: [{ type: "text", text: "gone", marks: ["bold"] }],
+              },
+            ],
+          },
+        },
+      ]),
+    ).toHaveClass("grid-cols-1");
+  });
+
+  it("keeps one column beside shared content", () => {
+    viewport(1280);
+    const source = {
+      groups: [
+        {
+          id: "g1",
+          sectionId: "s1",
+          title: "Reading",
+          questionIds: ["q1"],
+          stimuli: [
+            {
+              id: "m1",
+              title: "Reading",
+              content: { format: "semantic_v1", blocks: [] },
+              gaps: [],
+            },
+          ],
+          recordings: [],
+          assets: [],
+        },
+      ],
+    } as unknown as PaperSource;
+    render(
+      <PaperSourceContext value={source}>
+        <QuestionBody
+          question={question({ type: "single_choice", options: short })}
+          answer={undefined}
+          onAnswer={vi.fn()}
+        />
+      </PaperSourceContext>,
+    );
+    expect(screen.getByRole("radiogroup")).toHaveClass("grid-cols-1");
   });
 });
 
@@ -224,6 +326,171 @@ describe("true_false", () => {
     await userEvent.click(screen.getByRole("radio", { name: "Sai" }));
     expect(onAnswer).toHaveBeenCalledWith({ type: "choice", optionIds: ["f"] });
     expect(onAnswer).toHaveBeenCalledOnce();
+  });
+});
+
+describe("a choice sentence with its gap", () => {
+  const sentence = (over: Partial<StudentQuestion> = {}) =>
+    question({
+      type: "single_choice",
+      prompt: "If I ___ you, I would study harder.",
+      options: [
+        { id: "o1", text: "am" },
+        { id: "o2", text: "were" },
+      ],
+      ...over,
+    });
+
+  function Answering({ q }: Readonly<{ q: StudentQuestion }>) {
+    const [answer, setAnswer] = useState<Answer | undefined>(undefined);
+    return <QuestionBody question={q} answer={answer} onAnswer={setAnswer} />;
+  }
+
+  const paragraph = () => screen.getByText(/^If I/, { selector: "p" });
+  const box = () => paragraph().querySelector<HTMLElement>(":scope > span")!;
+
+  it("draws the sentence at 18px, medium, on a 1.8 line, in place of the prompt", () => {
+    renderQuestion(sentence());
+    expect(paragraph()).toHaveClass(
+      "text-[1.125rem]",
+      "font-medium",
+      "leading-[1.8]",
+      "text-pretty",
+    );
+    expect(paragraph()).toHaveTextContent("If I chỗ trống you, I would study harder.");
+    expect(document.body.textContent).not.toContain("___");
+  });
+
+  it("draws an empty gap as the deck's muted box with a ring line, heard as a blank", () => {
+    renderQuestion(sentence());
+    expect(box()).toHaveClass(
+      "inline-block",
+      "min-w-22",
+      "px-2.5",
+      "rounded-[7px]",
+      "border-b-2",
+      "bg-muted",
+      "border-ring",
+    );
+    expect(within(box()).getByText("chỗ trống")).toHaveClass("sr-only");
+    expect(box().querySelector('[aria-hidden="true"]')?.textContent).toBe(" ");
+  });
+
+  it("fills the gap with the chosen option on the accent tones and writes the same answer", async () => {
+    const onAnswer = vi.fn();
+    const q = sentence();
+    const { rerender } = render(
+      <QuestionBody question={q} answer={undefined} onAnswer={onAnswer} />,
+    );
+    await userEvent.click(screen.getByRole("radio", { name: "were" }));
+    expect(onAnswer).toHaveBeenCalledWith({ type: "choice", optionIds: ["o2"] });
+    rerender(
+      <QuestionBody
+        question={q}
+        answer={{ type: "choice", optionIds: ["o2"] }}
+        onAnswer={onAnswer}
+      />,
+    );
+    expect(box().textContent).toBe("were");
+    expect(box()).toHaveClass("bg-brand-soft", "border-brand");
+    expect(box()).not.toHaveClass("bg-muted");
+    expect(box()).not.toHaveClass("border-ring");
+    expect(paragraph()).toHaveTextContent("If I were you, I would study harder.");
+    expect(screen.queryByText("chỗ trống")).toBeNull();
+  });
+
+  it("follows the student's choice as it changes", async () => {
+    render(<Answering q={sentence()} />);
+    await userEvent.click(screen.getByRole("radio", { name: "am" }));
+    expect(box().textContent).toBe("am");
+    await userEvent.click(screen.getByRole("radio", { name: "were" }));
+    expect(box().textContent).toBe("were");
+  });
+
+  it("names a canonical true/false option in the reader's language", () => {
+    renderQuestion(
+      sentence({
+        type: "true_false",
+        prompt: "The sun rises in the ___.",
+        options: [
+          { id: "t", text: "True" },
+          { id: "f", text: "False" },
+        ],
+      }),
+      { type: "choice", optionIds: ["t"] },
+    );
+    expect(screen.getByText(/^The sun/, { selector: "p" }).textContent).toBe(
+      "The sun rises in the Đúng.",
+    );
+  });
+
+  it("keeps a Vietnamese sentence and option whole, composed", () => {
+    renderQuestion(
+      sentence({
+        prompt: "Cô ấy ___ ở Hà Nội từ năm 2019.",
+        options: [
+          { id: "o1", text: "đã sống".normalize("NFD") },
+          { id: "o2", text: "sống" },
+        ],
+      }),
+      { type: "choice", optionIds: ["o1"] },
+    );
+    expect(screen.getByText(/^Cô ấy/, { selector: "p" }).textContent).toBe(
+      "Cô ấy đã sống ở Hà Nội từ năm 2019.".normalize("NFC"),
+    );
+  });
+
+  it("says blank in English", async () => {
+    await i18n.changeLanguage("en");
+    try {
+      renderQuestion(sentence());
+      expect(paragraph()).toHaveTextContent("If I blank you, I would study harder.");
+    } finally {
+      await i18n.changeLanguage("vi");
+    }
+  });
+
+  it("raises the sentence to 20px with larger text", () => {
+    localStorage.setItem("quizzivy.testText", "large");
+    renderQuestion(sentence());
+    expect(paragraph()).toHaveClass("text-xl", "leading-[1.8]");
+    expect(paragraph()).not.toHaveClass("text-[1.125rem]");
+  });
+
+  it("draws a rich prompt of one plain paragraph as the same sentence", () => {
+    const prompt = "If I ___ you, I would study harder.";
+    renderQuestion(
+      sentence({
+        promptContent: {
+          format: "semantic_v1",
+          blocks: [
+            { type: "paragraph", content: [{ type: "text", text: prompt, marks: [] }] },
+          ],
+        },
+      }),
+      { type: "choice", optionIds: ["o2"] },
+    );
+    expect(paragraph()).toHaveClass("text-[1.125rem]", "font-medium", "leading-[1.8]");
+    expect(box().textContent).toBe("were");
+    expect(box()).toHaveClass("bg-brand-soft", "border-brand");
+    expect(paragraph()).toHaveTextContent("If I were you, I would study harder.");
+    expect(document.body.textContent).not.toContain("___");
+  });
+
+  it("prints any other prompt as written", () => {
+    const { unmount } = render(
+      <QuestionBody
+        question={sentence({ prompt: "She ___ to school and ___ home." })}
+        answer={{ type: "choice", optionIds: ["o1"] }}
+        onAnswer={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByText("She ___ to school and ___ home.").parentElement,
+    ).toHaveClass("text-lg", "leading-[1.6]!");
+    unmount();
+    renderQuestion(sentence({ type: "multiple_choice", prompt: "Pick ___ of them." }));
+    expect(screen.getByText("Pick ___ of them.")).toBeInTheDocument();
   });
 });
 
@@ -356,9 +623,24 @@ describe("short_answer", () => {
       "py-[13px]",
       "leading-[1.45]",
       "focus:border-primary",
-      "lg:text-md",
+      "engine-lg:text-md",
     );
+    expect(field).toHaveAttribute("autocomplete", "off");
+    expect(field).toHaveAttribute("spellcheck", "false");
     expect(screen.getByText("0 từ")).toHaveClass("text-meta", "text-muted-fg");
+  });
+
+  it("counts one word in the singular in English", async () => {
+    await i18n.changeLanguage("en");
+    try {
+      renderQuestion(question({ type: "short_answer" }), {
+        type: "text",
+        value: "Parks",
+      });
+      expect(screen.getByText("1 word")).toBeInTheDocument();
+    } finally {
+      await i18n.changeLanguage("vi");
+    }
   });
 
   it("keeps an answer written on several lines", async () => {
@@ -399,7 +681,7 @@ describe("a locked paper", () => {
   });
 
   it("refuses edits through the card once the store is locked", () => {
-    render(
+    renderWithPaper(
       <QuestionCard
         question={question({ type: "single_choice", options })}
         number={1}
@@ -454,8 +736,7 @@ describe("blank ordering", () => {
  * one rule and the server applies another.
  */
 describe("what the question says it is worth", () => {
-  const render1 = (q: StudentQuestion) =>
-    render(<QuestionCard question={q} number={1} total={1} onAudioExpired={vi.fn()} />);
+  const render1 = renderCard;
 
   it("names the per-blank share, as S-05 writes it", () => {
     render1(
@@ -522,8 +803,7 @@ describe("what the question says it is worth", () => {
 });
 
 describe("the fill-blank matching rule (S-05)", () => {
-  const render1 = (q: StudentQuestion) =>
-    render(<QuestionCard question={q} number={1} total={1} onAudioExpired={vi.fn()} />);
+  const render1 = renderCard;
 
   it("says capitals do not matter when no blank is case-sensitive", () => {
     render1(
@@ -570,11 +850,11 @@ describe("larger text in tests", () => {
     expect(prompt).toHaveClass("text-[1.1875rem]", "leading-[1.6]!");
     expect(prompt).not.toHaveClass("text-lg");
     const row = screen.getByRole("radio", { name: "have lived" }).parentElement!;
-    expect(row).toHaveClass("text-lg", "leading-[1.45]");
+    expect(row).toHaveClass("text-lg", "leading-[1.4]");
     expect(row).not.toHaveClass("text-md");
   });
 
-  it("raises the blanks and the answer field to 17px", () => {
+  it("raises the sentence to 20px, the blanks with it, and the answer field to 17px", () => {
     localStorage.setItem("quizzivy.testText", "large");
     const { unmount } = render(
       <QuestionBody
@@ -587,7 +867,10 @@ describe("larger text in tests", () => {
         onAnswer={vi.fn()}
       />,
     );
-    expect(screen.getByRole("textbox")).toHaveClass("text-lg");
+    expect(screen.getByRole("textbox")).toHaveClass("text-[length:inherit]");
+    expect(screen.getByRole("textbox").closest(".text-xl")).toHaveClass(
+      "leading-[2.1]!",
+    );
     unmount();
     renderQuestion(question({ type: "short_answer" }));
     expect(screen.getByRole("textbox")).toHaveClass("text-lg", "py-3", "min-h-13");
@@ -608,22 +891,89 @@ describe("a fill-in's blanks", () => {
     blanks: [{ id: "b1", ordinal: 1, caseSensitive: false }],
   });
 
-  it("sit in the sentence as deck fields, never under 16px where a phone would zoom", () => {
+  it("sit in the sentence as the deck's underlined fields, never under 16px where a phone would zoom", () => {
     renderQuestion(fill);
     const blank = screen.getByRole("textbox", { name: "Chỗ trống 1" });
     expect(blank).toHaveClass(
       "inline-block",
       "h-11",
-      "lg:h-10",
-      "w-32",
+      "engine-lg:h-9.5",
+      "border-0",
+      "border-b-2",
+      "border-ring",
+      "bg-muted",
+      "rounded-t-[6px]",
+      "rounded-b-none",
+      "px-2",
+      "text-left",
+      "font-medium",
+      "text-[length:var(--text-input)]",
+      "engine-lg:text-[length:inherit]",
+    );
+    expect(blank).not.toHaveClass(
       "rounded-ctl",
       "border-[1.5px]",
       "bg-card",
-      "focus:border-primary",
-      "text-[length:var(--text-input)]",
-      "lg:text-md",
+      "text-center",
     );
+    expect(blank).toHaveAttribute("placeholder", "nhập ở đây");
+    expect(blank).toHaveAttribute("autocomplete", "off");
+    expect(blank).toHaveAttribute("spellcheck", "false");
     expect(blank.closest("p")).toHaveTextContent("If it tomorrow.");
+    expect(blank.closest(".text-\\[1\\.125rem\\]")).toHaveClass(
+      "leading-[2.1]!",
+      "font-medium",
+    );
+  });
+
+  it("is up to 340px wide alone in its sentence and 128px beside another blank", () => {
+    renderQuestion(fill);
+    expect(screen.getByRole("textbox", { name: "Chỗ trống 1" })).toHaveClass(
+      "w-[min(100%,340px)]",
+    );
+    cleanup();
+    renderQuestion(
+      question({
+        type: "fill_blank",
+        prompt: "If it {{1}} tomorrow, we {{2}} home.",
+        blanks: [
+          { id: "b1", ordinal: 1, caseSensitive: false },
+          { id: "b2", ordinal: 2, caseSensitive: false },
+        ],
+      }),
+    );
+    for (const blank of screen.getAllByRole("textbox")) {
+      expect(blank).toHaveClass("w-32");
+      expect(blank).not.toHaveClass("w-[min(100%,340px)]");
+    }
+  });
+
+  it("is 128px in a table, even as the only blank", () => {
+    renderQuestion(
+      question({
+        type: "fill_blank",
+        prompt: "| Verb | Past |\n| --- | --- |\n| go | {{1}} |",
+        blanks: [{ id: "b1", ordinal: 1, caseSensitive: false }],
+      }),
+    );
+    const blank = screen.getByRole("textbox", { name: "Chỗ trống 1" });
+    expect(blank.closest("table")).not.toBeNull();
+    expect(blank).toHaveClass("w-32");
+  });
+
+  it("underlines in the primary tone once typed, and still writes the fill-in answer", async () => {
+    const onAnswer = renderQuestion(fill, {
+      type: "fill_blank",
+      values: { b1: "rains" },
+    });
+    const blank = screen.getByRole("textbox", { name: "Chỗ trống 1" });
+    expect(blank).toHaveClass("border-primary");
+    expect(blank).not.toHaveClass("border-ring");
+    await userEvent.type(blank, "!");
+    expect(onAnswer).toHaveBeenLastCalledWith({
+      type: "fill_blank",
+      values: { b1: "rains!" },
+    });
   });
 
   it("stay legible in a rich table on the paper surface", () => {
@@ -682,10 +1032,10 @@ describe("a type this page has no renderer for", () => {
           ] as const
         ).map((type) => questionLine({ type }, 4, 8, i18n.t)),
       ).toEqual([
-        "Question 4 of 8 · Choose one",
-        "Question 4 of 8 · Choose one or more",
-        "Question 4 of 8 · True or false",
-        "Question 4 of 8 · Fill in the blanks",
+        "Question 4 of 8 · Single choice",
+        "Question 4 of 8 · Multiple choice",
+        "Question 4 of 8 · True / False",
+        "Question 4 of 8 · Fill in the blank",
         "Question 4 of 8 · Short answer",
       ]);
       expect(questionLine(unknown, 4, 8, i18n.t)).toBe("Question 4 of 8");
@@ -727,7 +1077,7 @@ describe("a type this page has no renderer for", () => {
   });
 
   it("writes nothing to the store through the card, which keeps the flag toggle", () => {
-    render(
+    renderWithPaper(
       <QuestionCard question={unknown} number={3} total={8} onAudioExpired={vi.fn()} />,
     );
     expect(screen.getByRole("status")).toHaveTextContent(
@@ -778,7 +1128,7 @@ describe("the question sheet", () => {
       />,
     );
     expect(screen.queryByRole("button")).toBeNull();
-    const line = screen.getByText("Câu 2 trên 5 · Chọn một đáp án");
+    const line = screen.getByText("Câu 2 trên 5 · Một đáp án");
     expect(line).not.toHaveAttribute("id");
     expect(line).not.toHaveAttribute("tabindex");
   });

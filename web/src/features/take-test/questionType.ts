@@ -34,7 +34,8 @@ export function questionKind(question: Pick<StudentQuestion, "type">): QuestionK
 }
 
 /**
- * questionLine is the line above a question, "Question 4 of 8 · Choose one".
+ * questionLine is the line above a question, "Question 4 of 8 · Single
+ * choice": the type is named as the builder's type menu names it.
  * An unknown type has no label, so its line stops at the position.
  */
 export function questionLine(
@@ -50,5 +51,33 @@ export function questionLine(
     n: number,
     total,
     type: t(LABEL[question.type]),
+  });
+}
+
+/**
+ * clozeLine is the line above a stop that holds gaps of a cloze: "Questions
+ * 23–27 of 34 · Cloze · 5 gaps" for the whole cloze, "… · 3 of 5 gaps" for
+ * part of it, and "Question 26 of 34 · Cloze · 1 of 5 gaps" for a gap shown
+ * on its own. `positions` are the stop's, `size` the cloze's number of gaps.
+ */
+export function clozeLine(
+  positions: readonly number[],
+  size: number,
+  total: number,
+  t: TFunction,
+): string {
+  const from = (positions[0] ?? 0) + 1;
+  const to = (positions.at(-1) ?? 0) + 1;
+  const shown = positions.length;
+  return t("takeTest.cloze.line", {
+    position:
+      from === to
+        ? t("takeTest.questionOf", { n: from, total })
+        : t("takeTest.cloze.questions", { from, to, total }),
+    type: t("takeTest.cloze.type"),
+    gaps:
+      shown === size
+        ? t("takeTest.cloze.gaps", { count: size })
+        : t("takeTest.cloze.gapsOf", { shown, count: size }),
   });
 }

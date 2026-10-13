@@ -3,16 +3,15 @@ branch: main
 path: web/src
 
 ## Last sync
-date: 2026-10-03T17:53:01Z
-branch read: develop (rich question content editor)
+date: 2026-10-04T09:04:30Z
+branch read: develop (question group graph: migrations/00037, 00002)
 
 ### Updated in this project
-- Test builder prompt and explanation use the rich content editor: toolbar from ContentToolbar.tsx, table row tools, gap for fill-in-the-blank
-- Paste from Word/Docs opens "Preview content after pasting" (PastePreview.tsx); pasted or dropped images upload to Media
-- Rich text ⇄ Markdown switch with conversion preview (RichProseEditor.tsx) and a Markdown toolbar with Write/Preview
-- Question media block (QuestionMediaField.tsx) with Media library picker, audio plays/pause and transcript
+- Student take-test screen rebuilt as one data-driven screen: layout comes from a group's shared content (passage, cloze passage or recording), answers from the Test builder's question types
+- Test builder groups get "Shared content" (passage with cloze gaps bound to questions, or audio with plays, pause and transcript)
 
 ## Sync history
+- 2026-10-03T17:53:01Z · previous sync
 - 2026-09-26T01:58:51Z · main · Word/PDF import release, storage split, sharing
 - 2026-09-25T09:05:37Z · develop · API reference, test versions, Word import
 

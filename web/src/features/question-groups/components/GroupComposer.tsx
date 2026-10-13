@@ -1,5 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { Editor } from "@tiptap/react";
 import { ArrowDown, ArrowUp, FileText, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmptyState } from "@/components/shared/ListState";
 import { ContentEditor } from "@/components/shared/content/editor/ContentEditor";
+import { removeGap } from "@/components/shared/content/editor/gapCommands";
 import { isQuestionContent } from "@/components/shared/content/questionContent";
 import { QuestionEditor } from "@/features/question-bank/components/QuestionEditor";
 import { AudioPolicyPanel } from "@/features/question-bank/components/AudioPolicyPanel";
@@ -36,6 +38,12 @@ import { GapBindings } from "./GapBindings";
 import { MaterialContent } from "./MaterialContent";
 import { cn } from "@/lib/utils";
 
+/**
+ * GroupComposer edits a question group's bundle: its title, instructions,
+ * shared materials and member questions, handing every change to `onChange`.
+ * `titleFocus` is a request: each new value puts focus in the title field
+ * with its text selected, and undefined asks for nothing.
+ */
 export function GroupComposer({
   bundle,
   assets,
@@ -45,6 +53,7 @@ export function GroupComposer({
   selectedQuestionId,
   onSelectedQuestionChange,
   embedded = false,
+  titleFocus,
 }: Readonly<{
   bundle: GroupBundle;
   assets: MediaAsset[];
@@ -54,8 +63,15 @@ export function GroupComposer({
   selectedQuestionId?: string | undefined;
   onSelectedQuestionChange?: (id: string | null) => void;
   embedded?: boolean;
+  titleFocus?: number | undefined;
 }>) {
   const { t } = useTranslation();
+  const titleField = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (titleFocus === undefined) return;
+    titleField.current?.focus();
+    titleField.current?.select();
+  }, [titleFocus]);
   const [selected, setSelected] = useState(
     selectedQuestionId ?? bundle.group.stimuli[0]?.id ?? "instructions",
   );
@@ -179,6 +195,7 @@ export function GroupComposer({
       <Field>
         <FieldLabel htmlFor="shared-group-title">{t("groups.titleLabel")}</FieldLabel>
         <Input
+          ref={titleField}
           id="shared-group-title"
           value={bundle.group.title}
           maxLength={200}
@@ -501,6 +518,7 @@ function MaterialPane({
 }>) {
   const { t } = useTranslation();
   const [preview, setPreview] = useState(false);
+  const [editor, setEditor] = useState<Editor | null>(null);
   return (
     <div className="flex min-w-0 flex-col gap-5">
       <Field>
@@ -548,8 +566,14 @@ function MaterialPane({
         onChange={onChange}
         onAsset={onAsset}
         onRefresh={onRefresh}
+        onEditor={setEditor}
       />
-      <GapBindings material={material} bundle={bundle} onChange={onChange} />
+      <GapBindings
+        material={material}
+        bundle={bundle}
+        onChange={onChange}
+        onRemove={editor ? (gapId) => removeGap(editor, gapId) : undefined}
+      />
       <RecordingSettings
         recordings={bundle.group.recordings.filter(
           (recording) => materialAssets([material]).get(recording.assetId) === "audio",

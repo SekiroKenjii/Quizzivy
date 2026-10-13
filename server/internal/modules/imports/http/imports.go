@@ -16,16 +16,24 @@ import (
 	"quizzivy/internal/modules/imports/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/actor"
 )
 
 type Imports struct {
 	app   *application.Application
 	slots chan struct{}
+	ai    bool
 }
 
 func New(app *application.Application) Imports {
 	return Imports{app: app, slots: make(chan struct{}, 1)}
+}
+
+// WithAI says whether the AI assistant is configured on this server. Without it an import cannot ask to be read with AI.
+func (h Imports) WithAI(enabled bool) Imports {
+	h.ai = enabled
+	return h
 }
 
 func (h Imports) CreateWordImport(ctx context.Context, request openapi.CreateWordImportRequestObject) (openapi.CreateWordImportResponseObject, error) {
@@ -36,11 +44,27 @@ func (h Imports) CreateWordImport(ctx context.Context, request openapi.CreateWor
 	if !ok || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
-	v, err := h.app.Commands.Create.Handle(ctx, command.Create{RequestID: request.Body.RequestId.String(), Title: request.Body.Title, Actor: actor.Actor(a)})
+	readWithAi := request.Body.ReadWithAi != nil && *request.Body.ReadWithAi
+	if readWithAi {
+		if refusal := h.refuseAI(ctx); refusal != nil {
+			return refusal, nil
+		}
+	}
+	v, err := h.app.Commands.Create.Handle(ctx, command.Create{RequestID: request.Body.RequestId.String(), Title: request.Body.Title, ReadWithAi: readWithAi, Actor: actor.Actor(a)})
 	if err != nil {
 		return importFailure(ctx, err)
 	}
 	return openapi.CreateWordImport201JSONResponse(toImport(v)), nil
+}
+func (h Imports) refuseAI(ctx context.Context) *failure {
+	principal, _ := httpx.PrincipalFromContext(ctx)
+	if !h.ai {
+		return &failure{status: http.StatusUnprocessableEntity, body: httpapi.FieldError(ctx, "readWithAi", httpx.Text(ctx, "Máy chủ này chưa bật trợ lý AI nên chưa thể đọc tệp bằng AI.", "The AI assistant is not enabled on this server, so files cannot be read with AI."))}
+	}
+	if !principal.Access.Permissions.Has(access.AIUse) {
+		return &failure{status: http.StatusUnprocessableEntity, body: httpapi.FieldError(ctx, "readWithAi", httpx.Text(ctx, "Tài khoản của bạn chưa được dùng tính năng AI.", "Your account is not allowed to use AI features."))}
+	}
+	return nil
 }
 func (h Imports) GetWordImport(ctx context.Context, request openapi.GetWordImportRequestObject) (openapi.GetWordImportResponseObject, error) {
 	if h.app == nil {
@@ -199,6 +223,9 @@ func toImport(v domain.Import) openapi.WordImport {
 	if v.ClosedIdle {
 		out.ClosedIdle = &v.ClosedIdle
 	}
+	if v.ReadWithAi {
+		out.ReadWithAi = &v.ReadWithAi
+	}
 	if r := v.Run; r != nil {
 		out.Run = &openapi.ImportRun{Id: httpapi.ParseUUID(r.ID), Status: openapi.ImportRunStatus(r.Status), Stage: openapi.ImportRunStage(r.Stage), Attempt: r.Attempt, MaxAttempts: r.MaxAttempts, ErrorCode: r.ErrorCode, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
 		if r.Profile.KeyPaper > 0 {
@@ -213,7 +240,7 @@ func toSource(s domain.Source) openapi.ImportSource {
 
 func toHistoryItem(v domain.Import) openapi.WordImportHistoryItem {
 	base := toImport(v)
-	out := openapi.WordImportHistoryItem{Id: base.Id, Title: base.Title, Status: base.Status, Revision: base.Revision, SourceRevision: base.SourceRevision, CreatedBy: base.CreatedBy, CreatedAt: base.CreatedAt, UpdatedAt: base.UpdatedAt, PendingUploads: base.PendingUploads, Sources: base.Sources, DraftRevision: base.DraftRevision, TestId: base.TestId, FilesRemovedAt: base.FilesRemovedAt, ClosedIdle: base.ClosedIdle, Run: base.Run}
+	out := openapi.WordImportHistoryItem{Id: base.Id, Title: base.Title, Status: base.Status, Revision: base.Revision, SourceRevision: base.SourceRevision, CreatedBy: base.CreatedBy, CreatedAt: base.CreatedAt, UpdatedAt: base.UpdatedAt, PendingUploads: base.PendingUploads, Sources: base.Sources, DraftRevision: base.DraftRevision, TestId: base.TestId, FilesRemovedAt: base.FilesRemovedAt, ClosedIdle: base.ClosedIdle, ReadWithAi: base.ReadWithAi, Run: base.Run}
 	if v.ReviewCounts != nil {
 		out.ReviewCounts = &openapi.ImportReviewCounts{NeedsAction: v.ReviewCounts.NeedsAction, ToConfirm: v.ReviewCounts.ToConfirm}
 	}

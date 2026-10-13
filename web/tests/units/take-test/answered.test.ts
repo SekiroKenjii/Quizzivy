@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { answered } from "@/features/take-test/answered";
+import { answered, progress } from "@/features/take-test/answered";
 import type { StudentQuestion } from "@/features/take-test/api";
 
 /** Any question; only `blanks` is ever read. */
@@ -105,5 +105,61 @@ describe("answered, for a fill_blank", () => {
     expect(answered(twoBlanks, { type: "fill_blank", values: { stale: "x" } })).toBe(
       false,
     );
+  });
+});
+
+/** The navigator's three states: answered is full, a fill-in with some blanks is partly. */
+describe("progress", () => {
+  it("is partly for a fill-in with some blanks typed and not all", () => {
+    expect(progress(twoBlanks, { type: "fill_blank", values: { b1: "went" } })).toBe(
+      "partly",
+    );
+    expect(
+      progress(twoBlanks, { type: "fill_blank", values: { b1: "went", b2: " \t" } }),
+    ).toBe("partly");
+    expect(
+      progress(twoBlanks, { type: "fill_blank", values: { b1: " ", b2: "has" } }),
+    ).toBe("partly");
+  });
+
+  it("is none for a fill-in with no blank typed, or typed only into blanks it does not have", () => {
+    expect(progress(twoBlanks, undefined)).toBe("none");
+    expect(progress(twoBlanks, { type: "fill_blank", values: {} })).toBe("none");
+    expect(
+      progress(twoBlanks, { type: "fill_blank", values: { b1: " ", b2: "" } }),
+    ).toBe("none");
+    expect(progress(twoBlanks, { type: "fill_blank", values: { stale: "x" } })).toBe(
+      "none",
+    );
+    expect(
+      progress(question({ type: "fill_blank" }), {
+        type: "fill_blank",
+        values: { b1: "went" },
+      }),
+    ).toBe("none");
+  });
+
+  it("is full exactly when answered is true", () => {
+    const cases: [StudentQuestion, Parameters<typeof answered>[1]][] = [
+      [question(), undefined],
+      [question(), { type: "choice", optionIds: [] }],
+      [question(), { type: "choice", optionIds: ["o1"] }],
+      [question(), { type: "true_false", value: false }],
+      [question(), { type: "text", value: "   " }],
+      [question(), { type: "text", value: "I wake up at six." }],
+      [question(), { type: "essay", value: "words" } as never],
+      [twoBlanks, { type: "fill_blank", values: { b1: "went" } }],
+      [twoBlanks, { type: "fill_blank", values: { b1: "went", b2: "has" } }],
+    ];
+    for (const [item, answer] of cases) {
+      expect(progress(item, answer) === "full").toBe(answered(item, answer) === true);
+    }
+  });
+
+  it("is never partly for a choice or a text answer", () => {
+    const multiple = question({ type: "multiple_choice" });
+    expect(progress(multiple, { type: "choice", optionIds: ["o1"] })).toBe("full");
+    expect(progress(multiple, { type: "choice", optionIds: [] })).toBe("none");
+    expect(progress(question(), { type: "text", value: " " })).toBe("none");
   });
 });

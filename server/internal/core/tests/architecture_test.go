@@ -98,6 +98,95 @@ func TestTheTestsModuleIsHeldToTheRules(t *testing.T) {
 	}
 }
 
+func TestTheProviderClientIsReachedOnlyThroughTheCompositionRoot(t *testing.T) {
+	cases := []struct {
+		from, to string
+		allowed  bool
+	}{
+		{"core/adapters/ai.go", "platform/anthropic", true},
+		{"core/wiring/ai.go", "platform/anthropic", true},
+		{"platform/anthropic/client.go", "platform/anthropic", true},
+		{"modules/ai/application/command/reserve.go", "platform/anthropic", false},
+		{"modules/ai/application/ports/completer.go", "platform/anthropic", false},
+		{"modules/ai/http/ai.go", "platform/anthropic", false},
+		{"modules/ai/repositories/credits.go", "platform/anthropic", false},
+		{"modules/ai/domain/credits.go", "platform/anthropic", false},
+		{"modules/imports/application/command/process.go", "platform/anthropic", false},
+		{"platform/pdftext/render.go", "platform/anthropic", false},
+		{"shared/access/scope.go", "platform/anthropic", false},
+		{"platform/anthropic/client.go", "core/adapters", false},
+		{"platform/anthropic/client.go", "modules/ai/application/ports", false},
+		{"modules/ai/application/ports/completer.go", "platform/config", false},
+		{"modules/ai/domain/credits.go", "platform/db", false},
+	}
+	for _, c := range cases {
+		if got := forbidden(c.from, c.to) == ""; got != c.allowed {
+			t.Errorf("%s importing %s: allowed = %v, want %v", c.from, c.to, got, c.allowed)
+		}
+	}
+}
+
+func TestTheAIModuleKeepsToItsLayers(t *testing.T) {
+	cases := []struct {
+		from, to string
+		allowed  bool
+	}{
+		{"modules/ai/domain/credits.go", "shared/actor", true},
+		{"modules/ai/domain/credits.go", "shared/validation", true},
+		{"modules/ai/domain/credits.go", "platform/config", false},
+		{"modules/ai/application/command/settle.go", "platform/config", false},
+		{"modules/ai/application/command/settle.go", "platform/db", false},
+		{"modules/ai/application/command/reserve.go", "modules/ai/repositories", false},
+		{"modules/ai/application/internal/support/service.go", "modules/notifications/application/command", true},
+		{"modules/ai/application/internal/support/service.go", "modules/notifications/domain", true},
+		{"modules/ai/application/internal/support/service.go", "modules/notifications/repositories", false},
+		{"modules/ai/repositories/credits.go", "platform/db", true},
+		{"modules/ai/repositories/credits.go", "modules/notifications/domain", true},
+		{"modules/ai/repositories/credits.go", "modules/notifications/application", false},
+		{"modules/ai/http/ai.go", "modules/ai/repositories", false},
+		{"core/maintenance/ai.go", "modules/ai/repositories", true},
+		{"core/wiring/ai.go", "modules/ai/repositories", true},
+		{"core/jobs/ai_reservations.go", "modules/ai/application", true},
+	}
+	for _, c := range cases {
+		if got := forbidden(c.from, c.to) == ""; got != c.allowed {
+			t.Errorf("%s importing %s: allowed = %v, want %v", c.from, c.to, got, c.allowed)
+		}
+	}
+}
+
+func TestOnlyThePlatformClientImportsTheProviderSDK(t *testing.T) {
+	var offences []string
+	for _, root := range []struct{ dir, prefix string }{{filepath.Join("..", ".."), ""}, {filepath.Join("..", "..", "..", "cmd"), "cmd/"}} {
+		err := filepath.WalkDir(root.dir, func(path string, d os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			rel := root.prefix + filepath.ToSlash(strings.TrimPrefix(path, root.dir+string(filepath.Separator)))
+			if d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") || inTestDirectory(rel) {
+				return nil
+			}
+			file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)
+			if err != nil {
+				return err
+			}
+			for _, imp := range file.Imports {
+				if target := strings.Trim(imp.Path.Value, `"`); strings.HasPrefix(target, providerSDK) && !strings.HasPrefix(rel, providerClient+"/") {
+					offences = append(offences, rel+" imports "+target)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	sort.Strings(offences)
+	for _, o := range offences {
+		t.Errorf("%s: only platform/anthropic imports the provider's SDK", o)
+	}
+}
+
 func inTestDirectory(rel string) bool {
 	parts := strings.Split(rel, "/")
 	for i, part := range parts[:len(parts)-1] {
@@ -111,6 +200,11 @@ func inTestDirectory(rel string) bool {
 	}
 	return false
 }
+
+const (
+	providerClient = "platform/anthropic"
+	providerSDK    = "github.com/anthropics/anthropic-sdk-go"
+)
 
 type place struct {
 	area   string
@@ -133,6 +227,9 @@ func locate(rel string) place {
 
 func forbidden(from, to string) string {
 	src, dst := locate(from), locate(to)
+	if strings.HasPrefix(to, providerClient) && src.area != "core" && !strings.HasPrefix(from, providerClient) {
+		return "the provider client is reached through core/adapters and the ai module's ports"
+	}
 	switch src.area {
 	case "core":
 		return ""

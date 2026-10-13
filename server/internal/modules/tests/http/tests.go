@@ -445,10 +445,11 @@ func toStudentQuestion(q domain.PreviewQuestion) (openapi.StudentQuestion, error
 		sq.Blanks = &blanks
 	}
 	if q.AllowSeek != nil && q.ShowScript != nil {
-		sq.Audio = &openapi.AudioPolicy{
+		sq.Audio = &openapi.StudentAudioPolicy{
 			MaxPlays:                  q.MaxPlays,
 			AllowSeek:                 *q.AllowSeek,
 			ShowTranscriptAfterSubmit: *q.ShowScript,
+			AllowPause:                q.AllowPause,
 		}
 	}
 	return sq, nil

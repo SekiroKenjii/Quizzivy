@@ -252,8 +252,14 @@ describe("findings and runs", () => {
       "PDF_PROTECTED",
       "PDF_INVALID",
       "PDF_TOO_LARGE",
+      "PDF_TOO_LONG_FOR_AI",
+      "AI_UNREADABLE",
     ]) {
       expect(isRetryable(code)).toBe(false);
+      expect(runErrorKey(code)).toBe(code);
+    }
+    for (const code of ["AI_CREDITS_EXHAUSTED", "AI_PAUSED"]) {
+      expect(isRetryable(code)).toBe(true);
       expect(runErrorKey(code)).toBe(code);
     }
     expect(runErrorKey("SOMETHING_NEW")).toBe("UNKNOWN");

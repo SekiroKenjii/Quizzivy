@@ -1,6 +1,11 @@
 /**
  * Package tests is the tests feature's surface for other features: the
- * student's paper as a preview, which the import's "Preview and create" page
- * draws its draft through.
+ * engine's preview of a paper and the frame it is shown in, which the
+ * import's "Preview and create" page draws its draft through.
  */
-export { StudentPreview } from "./components/StudentPreview";
+export { PaperPreview } from "./components/PaperPreview";
+export {
+  PreviewFrameMessage,
+  StudentPreviewPane,
+} from "./components/StudentPreviewPane";
+export { PANEL_FRAME, type PreviewDevice } from "./components/previewFrame";

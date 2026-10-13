@@ -335,6 +335,33 @@ describe("a pasted import in the history", () => {
   });
 });
 
+describe("an import read with AI in the history", () => {
+  it("says so in the row's meta, and only there", async () => {
+    items = [
+      wordImport({
+        id: "018f0000-0000-7000-8000-000000000141",
+        title: "Đề quét",
+        sources: [source("exam", { filename: "de-quet.pdf", format: "pdf" })],
+        readWithAi: true,
+      }),
+      wordImport({
+        id: "018f0000-0000-7000-8000-000000000142",
+        title: "Đề Word",
+        sources: [source("exam")],
+      }),
+    ];
+    renderHistory();
+    const read = (
+      await screen.findByRole("link", { name: "de-quet.pdf (Đề quét)" })
+    ).closest<HTMLElement>("[role=row]")!;
+    expect(within(read).getByText(/^.+ · Đọc bằng AI$/)).toBeInTheDocument();
+    const plain = screen
+      .getByRole("link", { name: "de-thi-hk1.docx (Đề Word)" })
+      .closest<HTMLElement>("[role=row]")!;
+    expect(within(plain).queryByText(/Đọc bằng AI/)).toBeNull();
+  });
+});
+
 describe("the history's Source column (DG-205)", () => {
   it("names each import's source kind, shown from 1240px of the history's width", async () => {
     items = [

@@ -65,14 +65,14 @@ func readGroupMaterials(ctx context.Context, tx pgx.Tx, group *domain.QuestionGr
 
 func readGroupRecordings(ctx context.Context, tx pgx.Tx, group *domain.QuestionGroup, tables groupGraphTables) error {
 	rows, err := tx.Query(ctx, fmt.Sprintf(`SELECT id::text, media_asset_id::text, max_plays, allow_seek,
-		show_transcript_after_submit, transcript FROM %s WHERE group_id=$1 ORDER BY id`, tables.recordings), group.ID)
+		show_transcript_after_submit, allow_pause, transcript FROM %s WHERE group_id=$1 ORDER BY id`, tables.recordings), group.ID)
 	if err != nil {
 		return err
 	}
 	group.Recordings, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.GroupRecording, error) {
 		var recording domain.GroupRecording
 		err := row.Scan(&recording.ID, &recording.AssetID, &recording.Policy.MaxPlays,
-			&recording.Policy.AllowSeek, &recording.Policy.ShowTranscriptAfterSubmit, &recording.Transcript)
+			&recording.Policy.AllowSeek, &recording.Policy.ShowTranscriptAfterSubmit, &recording.Policy.AllowPause, &recording.Transcript)
 		return recording, err
 	})
 	return err

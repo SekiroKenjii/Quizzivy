@@ -44,6 +44,8 @@ Decided by Thuong on 2026-10-10 for the AI assistant the design team's v2 export
 | D21 | AI budget | The centre has $200 of API credit a month; that is the pool. Use beyond it happens only when an Admin approves extra credit, which Thuong pays for (the deck's "Add credits"). The accounting is a hard stop, never a soft warning: a credit unit mapped to the provider's token cost, metered per call from the reported usage, with per-teacher allowances under the pool. |
 | D22 | AI release | Built in D4, the release right after R4, not a release of its own; D4's lanes, tasks and version are reshaped to fit. |
 
+As built (D4, T-D4.30 to T-D4.33; spec v0.99): with `ANTHROPIC_API_KEY` unset every AI operation answers `501 AI_OFF` and `GET /public/status` says `ai: false`, which is what the web (T-D4.34 to T-D4.39) reads to draw no AI entry point. The deck's "AI didn't respond" is the state for a provider that was asked and did not answer (`503 AI_UNAVAILABLE`), and it never shows sample content (DG-201). The admin-managed configuration D19 calls for is the environment (`ANTHROPIC_API_KEY`, the two tiers and their prices, `docs/setup/operations.md`) and the centre's rules in `app.ai_settings`.
+
 ## 2. The release train
 
 | Rel | Version | Name | Plan file |
@@ -63,8 +65,8 @@ Decided by Thuong on 2026-10-10 for the AI assistant the design team's v2 export
 | R10 | v0.17.0 | Learn: vocabulary and flashcards, courses and lessons | `80-r10.md` |
 | R11 | v1.0.0 | Landing, leads, and v1.0 hardening | `81-r11.md` |
 
-The release files `75-r5.md` to `80-r10.md` still carry their first-planned version in their
-titles; D4's release task (T-D4.18) corrects them to the versions above (Q29, decided 2026-10-10).
+D4's release task (T-D4.18) set the titles of `75-r5.md` to `80-r10.md`, and the versions they
+name, to the ones above (Q29, decided 2026-10-10).
 
 **Ordering rules.**
 
@@ -157,7 +159,7 @@ integration test asserts they are equal. Labels and defaults are the deck's
 | `ai.use` | Use AI features (D19 to D22; D4, T-D4.32) | Content | ✓ | ✓ | | |
 | `ai.credits.manage` | Manage AI credits (D21; D4, T-D4.32) | System | ✓ | | | |
 
-The two AI rows are not in the deck's matrix (DG+18 in `74d`, asked of the design team); they are
+The two AI rows are not in the deck's matrix (DG-199 in `74d`, asked of the design team); they are
 drawn in the matrix's own style until then. `ai.use` gates every `/teacher/ai/*` operation and the
 import's "Read with AI"; `ai.credits.manage` gates `/admin/ai/*` (the pool, allowances, rules and
 requests). Neither is a pseudo-key: a role may hold every teaching key and no AI.
@@ -397,8 +399,9 @@ No production change; PRs straight to `develop`, riding to production in v0.7.0.
   a prompt or an explanation need a contract change that runs through the publish snapshot,
   the student payload and the engine. Default: built, as D1 requires, in R6; `76-r6.md` gains
   the tasks when Thuong confirms. The alternative is to build them in R4. "Students can pause"
-  (DG-111) is unbuilt until D4, which builds it as `allowPause` on its own default
-  (`74d-d4-deck-update.md`, T-D4.13 and Q4). One default leaves something drawn unbuilt in
+  (DG-111) is built in D4 as `allowPause` on its own default (`74d-d4-deck-update.md`, T-D4.13
+  and Q4, DG-183): T-D4.13 stores and serves it, T-D4.9 acts on it in the engine and T-D4.15
+  draws the switch. One default leaves something drawn unbuilt in
   every release: the review's "Markdown" mode (DG-114). If Thuong confirms it, it is a D1
   exception recorded in §2 with its DG entry; so is "Students can pause" if he declines it
   in D4.
@@ -413,5 +416,5 @@ No production change; PRs straight to `develop`, riding to production in v0.7.0.
   student answers" is a per-teacher switch on by default; paused or exhausted buttons are visible
   and disabled with the reason. **Still open (Q35):** the student-facing sentence on the Test
   intro about cloud processing, which waits for Thuong's wording, and the provider account's
-  data-retention setting, which he confirms. The import page's sentence (D4) and the privacy
-  notice (R11) are decided.
+  data-retention setting, which he confirms. The import page's sentence is built in the Sources
+  pane (T-D4.33), and the privacy notice (R11) is decided.

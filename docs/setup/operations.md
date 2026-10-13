@@ -450,6 +450,168 @@ The lookup branch that still finds a scheme-1 row (so a revoked or expired
 legacy code answers as revoked or expired, not as unknown) stays until R5 removes
 it.
 
+## AI provider key and tiers
+
+The AI assistant (D19, `docs/plan/74d-d4-deck-update.md` section G) calls
+Anthropic's Messages API through `platform/anthropic`. It is off unless
+`ANTHROPIC_API_KEY` is set: with the key unset nothing else below is read, the
+assistant's adapter is nil, its operations answer 501 and the web draws no AI
+entry point. The API never logs the key, and no error, log line or panic the
+client produces carries it.
+
+With the key set, both tiers and all six prices are required, and the API
+refuses to start, naming the variable, when one is missing or malformed:
+
+| Variable | Holds |
+|---|---|
+| `ANTHROPIC_API_KEY` | the provider's API key |
+| `AI_TIER_FAST_MODEL`, `AI_TIER_CAPABLE_MODEL` | the provider's model identifier for each tier; the capable tier must accept images and PDF pages |
+| `AI_TIER_FAST_PRICE_INPUT`, `AI_TIER_FAST_PRICE_OUTPUT`, `AI_TIER_FAST_PRICE_CACHE_READ` | the fast tier's list price in US dollars per million tokens, such as `0.10` |
+| `AI_TIER_CAPABLE_PRICE_INPUT`, `AI_TIER_CAPABLE_PRICE_OUTPUT`, `AI_TIER_CAPABLE_PRICE_CACHE_READ` | the capable tier's |
+
+A price is a plain decimal with at most six decimals between 0.001 and 1000. A
+price per token or per thousand tokens would make a credit (0.001 US dollars)
+undercount the pool, so it is refused. No model identifier is written in the
+repository: take both from the provider's current model list.
+
+- **Set** them as Fly secrets, all nine in one command so they reach the
+  machines in the same release, and then deploy:
+  ```sh
+  fly secrets set --stage ANTHROPIC_API_KEY=<key> \
+    AI_TIER_FAST_MODEL=<model> AI_TIER_CAPABLE_MODEL=<model> \
+    AI_TIER_FAST_PRICE_INPUT=<usd> AI_TIER_FAST_PRICE_OUTPUT=<usd> AI_TIER_FAST_PRICE_CACHE_READ=<usd> \
+    AI_TIER_CAPABLE_PRICE_INPUT=<usd> AI_TIER_CAPABLE_PRICE_OUTPUT=<usd> AI_TIER_CAPABLE_PRICE_CACHE_READ=<usd>
+  ```
+  The startup log line `ai assistant enabled` names both models; `ai
+  assistant disabled` means no key was read.
+- **Rotate** the key by creating the new one in the provider console, running
+  `fly secrets set ANTHROPIC_API_KEY=<new key>` (which restarts the machines
+  on it) and revoking the old one once the log line is back. A call in flight
+  during the restart can fail once.
+- **The import worker** reads the same nine variables when it starts: Fly secrets
+  reach every process group, so nothing more is set. It meters the "Read with AI"
+  of scanned PDFs (`docs/setup/word-import-worker.md`) through the same credits.
+  With the key unset or misconfigured the worker refuses a scan as `PDF_NO_TEXT`
+  or refuses to start, as the API does.
+- **Change a model or a price** by setting its secret and deploying. Prices and
+  models are read once, at start-up; a call is metered at the prices the
+  process started with, so re-read them whenever the provider's list price
+  changes.
+- **Never** paste the key into a log, a ticket, a chat or a workflow. No
+  GitHub workflow environment holds it, and it never appears in a test
+  fixture: a task that calls the provider for real does so on the builder's
+  machine, with the key in `.env`.
+- **Before the key is set in production**, the provider account's data
+  retention setting is the owner's to confirm
+  (`docs/plan/70-redesign-overview.md` §10).
+
+The client sends a 429 or a 5xx again up to three times with a doubling
+back-off that honours `Retry-After`, never sends a 4xx again, and gives a call
+60 seconds (120 with a PDF). A 401, 402 or 403 from the provider is the key or
+the account, not a reason to retry: read the provider console.
+
+## AI credits
+
+The AI assistant is metered in credits (D21): one credit is $0.001 of the provider's list price,
+so the $200 pool is 200,000 credits a month. Each teacher has an allowance under it (20,000 by
+default), a call reserves its ceiling before it reaches the provider and settles what the provider
+metered after, and the database refuses a reservation that would overspend either the pool or the
+allowance (`docs/plan/20-data-model.md` §46). A month is the calendar month in `APP_TIMEZONE`
+(`Asia/Ho_Chi_Minh` when unset), and the pool, the allowances and the used credits start over on
+the 1st. Credits an Admin adds do not carry over; a teacher's custom allowance and pause do.
+
+Until the Admin's AI credits page exists (R5, T-R5.35) the console is `cmd/maintenance`, the
+operator's tool, run with `MAINTENANCE_DATABASE_URL` as the other commands are. Every write names
+who is running it and is a dry run until `-apply`; a dry run runs the same code as the Admin
+operation inside a transaction it rolls back, so it reports exactly what would happen, writes
+nothing and tells nobody. The report is JSON.
+
+```sh
+maintenance ai-credits status
+maintenance ai-credits set-allowance -user USER_UUID -credits 50000 -operator thuong
+maintenance ai-credits set-allowance -user USER_UUID -default -operator thuong -apply
+maintenance ai-credits pause  -user USER_UUID -operator thuong -apply
+maintenance ai-credits resume -user USER_UUID -operator thuong -apply
+maintenance ai-credits add-credits -credits 50000 -operator thuong -apply
+maintenance ai-credits approve -request REQUEST_UUID -operator thuong -apply
+maintenance ai-credits decline -request REQUEST_UUID -operator thuong -apply
+maintenance ai-credits set-rules -default-allowance 50000 -warn-percent 90 -on-limit pause -operator thuong
+maintenance ai-reservations-sweep
+```
+
+- **`status`** reads the current month: the pool (plan, added, used, held, left), the days to go and
+  what the month is on course to use (`onPace`, credits used divided by the days elapsed times the
+  days in the month) with whether that `withinPool`, the teachers with their allowance, use and
+  standing (`on_track`, `near_limit` from the warning share, `at_limit`, `paused`), the requests
+  waiting, and the rules. It lists the Admin and every user who holds `ai.use`, and anyone who has
+  used AI this month.
+- **`set-allowance`** takes `-credits N` (1,000 to 10,000,000), the teacher's own monthly figure,
+  which a change of the default leaves alone, or `-default`. Credits an approved request added this
+  month stay on top of either. It takes effect at once and the use so far still counts, so a figure
+  below what the teacher has used is refused. **`pause`** and **`resume`** stop and restore a
+  teacher; the buttons stay visible and say why.
+- **`add-credits`** is the Admin's approval to spend beyond the plan: the pool is never overspent
+  without it. The audit row names who approved. The product bills nobody; the extra is paid for
+  outside Quizzivy (DG-196).
+- **`approve`** raises the teacher's allowance for the request's month by the amount and
+  **`decline`** changes nothing but the status; both tell the teacher. An earlier month's request
+  can only be declined.
+- **`set-rules`** takes any of `-default-allowance` (rewrites this month's allowances that are not
+  custom, never below what a teacher has used), `-warn-percent` (50 to 99) and `-on-limit`
+  (`pause`, or `request` to let a teacher ask for more).
+- **`ai-reservations-sweep`** returns the credits of calls that never finished, which a process
+  that died mid-call leaves held. The API does the same hourly when the provider is configured
+  (`ReleaseStaleAiReservations`), so the command is for reading the count first or releasing at
+  once. A reservation older than ten minutes is stale; a call lasts at most two minutes.
+
+Every write is one `audit_log` row (`ai.allowance.updated`, `ai.credits.added`,
+`ai.rules.updated`, `ai.credit_request.approved`, `ai.credit_request.declined`) with no actor,
+`reason: "maintenance"` and the operator in `details`. The ledger (`app.ai_usage_ledger`) has a row
+for every call the provider metered, with its token counts and the provider's request id; to
+reconcile a month with the provider's invoice, sum its `credits` and compare the tokens. Neither the
+ledger nor `audit_log` can be rewritten by the application role.
+
+The credits tables exist whether or not `ANTHROPIC_API_KEY` is set, so allowances can be arranged
+before the key is. Until R5's `grant_maintenance_role` (T-R5.17a) runs, use the owner or
+maintenance credential; that migration must grant the role what these commands write
+(`docs/plan/20-data-model.md` §46, "Privileges").
+
+## What the assistant logs, and the live smoke
+
+None of these lines carries the key, a prompt or a student's words; each names the feature and,
+where the provider answered, its `request_id`, which is what the provider's console searches by.
+
+| Line | Level | Means |
+|---|---|---|
+| `ai assistant enabled` / `ai assistant disabled (no ANTHROPIC_API_KEY)` | INFO | Start-up. The first names both models. |
+| `anthropic_retry` | WARN | The provider answered 429 or 5xx, or a stream ended overloaded; the client waits and tries again, three times at most. |
+| `ai call failed` | WARN | After the retries, or on a refusal or an answer no decoder could use. The teacher saw `503 AI_UNAVAILABLE`; what the provider billed was settled and the rest released. |
+| `ai call rejected` | ERROR | The provider refused the request itself, which is the key, the account or a model name. Read the provider console. The teacher saw the same 503. |
+| `ai call failed unexpectedly` | ERROR | An error that is none of the above. |
+| `ai clean-up` | INFO | One bank clean-up: how many calls it made and how many gave a usable answer, whether the 45-second budget ran out, and every `request_id` of the pass. The ledger gets one row for the pass and keeps only the ids that fit 200 characters, so this line is where all of them are. |
+| `ai clean-up: an answer had nothing usable` | WARN | One call of a clean-up answered something no decoder could use. It was billed and settled; the other calls' findings were returned with `truncated` set. |
+| `ai clean-up: the smallest call can cost more than the reservation` | ERROR | At the configured prices not even one call of the clean-up fits its 200-credit ceiling, so none was made and nothing was reserved: the fast tier's prices are wrong. The teacher saw `503 AI_UNAVAILABLE`. |
+| `ai reservation not ended` | ERROR | `Finish` could not settle or release a call. The sweep returns the credits once the reservation is ten minutes old. |
+| `ai call cost more than its ceiling` | WARN | The provider metered more than the feature reserves. The teacher was charged the ceiling and the ledger keeps the real token counts. |
+| `released stale ai reservations` / `ai reservation sweep failed` | INFO / WARN | The hourly sweep and its failure, which the next hour retries. |
+| `import read with ai` / `ai import settled` | INFO | The worker's record of a scan it read: pages, pages it could not read, credits held and charged. |
+
+A deploy while a bank clean-up runs (the server waits 15 seconds to shut down, and a pass can take
+45) cuts the request before `Finish`, so the 200 credits it reserved stay held, with no line to say so.
+The sweep returns them once the reservation is ten minutes old, at start-up and hourly, so for at most
+an hour and ten minutes; nothing is charged, since nothing was settled.
+
+**The live smoke** needs the owner's key and is not in CI. On the builder's machine, with the nine
+variables in `.env` (`.env.example` lists them) and the API running against a database that holds
+the seed: generate three questions from a test's passage, check the seeded test, suggest a score
+for a seeded short answer that waits for a mark, run "Clean up" on a bank of a few hundred questions (the ledger gets one row for it, and its `request_id` lists the calls), and, for T-D4.33, create an import with "Read with
+AI" on from a two-page scan of the corpus and let the worker read it. Then read the ledger back:
+`maintenance ai-credits status` prints the pool's used credits and the teacher's use, and the rows
+are `select feature, tier, credits, request_id from app.ai_usage_ledger order by created_at desc`
+run as the owner. The pool's used credits must have moved by the sum of the rows. Paste the
+credits and the ledger rows into the pull request, never the key and never a response, which may
+hold a student's words.
+
 ## Evidence still required in production
 
 - Neon project/branch and observed history window: pending access.

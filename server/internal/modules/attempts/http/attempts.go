@@ -213,10 +213,11 @@ func (h Attempts) toAPIStudentQuestion(ctx context.Context, studentID string, q 
 		out.Blanks = &blanks
 	}
 	if q.Audio != nil {
-		out.Audio = &openapi.AudioPolicy{
+		out.Audio = &openapi.StudentAudioPolicy{
 			MaxPlays:                  q.Audio.MaxPlays,
 			AllowSeek:                 q.Audio.AllowSeek,
 			ShowTranscriptAfterSubmit: q.Audio.ShowTranscriptAfterSubmit,
+			AllowPause:                q.Audio.AllowPause,
 		}
 	}
 	if q.Media == nil {

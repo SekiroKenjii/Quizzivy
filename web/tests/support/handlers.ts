@@ -65,6 +65,9 @@ export const handlers = [
   http.get(`${BASE}/me/notifications`, () =>
     contractJson("/me/notifications", "get", 200, { items: [], nextBefore: null }),
   ),
+  http.get(`${BASE}/public/status`, () =>
+    contractJson("/public/status", "get", 200, { maintenance: null, ai: false }),
+  ),
   http.get(`${BASE}/teacher/imports/capabilities`, () =>
     contractJson("/teacher/imports/capabilities", "get", 200, {
       intakeEnabled: true,

@@ -2,6 +2,14 @@ import type { components } from "@/lib/api/schema";
 import type { MediaAsset } from "@/features/media/api";
 import type { GroupBundle } from "./api";
 
+type AudioPolicy = components["schemas"]["AudioPolicy"];
+type StudentAudioPolicy = components["schemas"]["StudentAudioPolicy"];
+
+/** studentAudioPolicy gives a teacher's audio policy the shape a student's engine reads; a policy that does not say allows pausing, as the server's reads do. */
+export function studentAudioPolicy(policy: AudioPolicy): StudentAudioPolicy {
+  return { ...policy, allowPause: policy.allowPause ?? true };
+}
+
 /** groupPreview projects editable teacher content into the learner renderer without keys, explanations or transcripts; preview-only option identities are stable within each question. */
 export function groupPreview(bundle: GroupBundle, assets: MediaAsset[]) {
   const { group } = bundle;
@@ -23,7 +31,7 @@ export function groupPreview(bundle: GroupBundle, assets: MediaAsset[]) {
           points: input.points,
           media: media.get(input.mediaAssetId ?? "") ?? null,
           mediaAlt: input.mediaAlt ?? null,
-          audio: input.audio ?? null,
+          audio: input.audio ? studentAudioPolicy(input.audio) : null,
           options: (input.options ?? []).map((option, index) => ({
             id: option.id ?? `${member.questionId}-option-${index}`,
             text: option.text,
@@ -54,7 +62,7 @@ export function groupPreview(bundle: GroupBundle, assets: MediaAsset[]) {
     recordings: group.recordings.map((recording) => ({
       id: recording.id,
       assetId: recording.assetId,
-      policy: recording.policy,
+      policy: studentAudioPolicy(recording.policy),
     })),
     assets,
   };

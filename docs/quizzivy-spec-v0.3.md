@@ -1,7 +1,76 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.96 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.105 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.104**
+
+D4, T-D4.18: the release review of listening (#602).
+
+- §11.3 Leaving the test page forgets every remembered place, as a reload does, so coming back to the same attempt or starting another spends a play. The text said "cleared with the attempt"; the player restored a place after the page had cleared it, and a new attempt in the same tab could resume one for free.
+
+**Changes since v0.103**
+
+D4, T-D4.12: the engine and the teacher's AI surfaces described as D4 built them. No behaviour changed in this version; the text caught up with T-D4.4 to T-D4.10a, T-D4.22 and T-D4.36 to T-D4.38.
+
+- §9 The engine shows one question at a time, except a run of a cloze's gaps, which is one screen with its own line, chips and gap card, stepped over as a whole; every gap keeps its number, square, flag and points (T-D4.10a). A section's title and instructions stand above each of its questions, not only the first (T-D4.5). The stimulus pane's kicker and heading and the question pane's surface and widths are stated. "Navigation" replaces "Footer": the sections rail from 900px, or 1180px beside shared content, with the key hint in the footer; the grid button and the question sheet everywhere else, a bottom sheet below 768 and a 560px card from it; three square states; no strip (T-D4.4). The arrows move by screen, and Esc also closes the drawer.
+- §12 "One breakpoint, 768px" is the shell's and the engine's chrome; a new bullet records the engine's other thresholds (420, 900, 1180, the drawer's 88% up to 420px, and the 1024px sizes) and their one width source. The touch-target bullet names the rail's 34px squares, the drawer's handle and close button and the sheet's 44px and 42px squares in place of the strip; the engine's question column is 720px alone. The recording card's lime track is the audio player rule's one exception.
+- §10.4 The assignment's Flagged count leaves out voided attempts, as T-D4.22 built it.
+- §8 The grading card and Assignment detail › Questions draw a line, not nothing, while "Let AI read student answers" is off; Settings › AI assistant says the date the allowance resets and shows a waiting request. No "Availability: D4" marker is left in §8 or §12.
+
+**Changes since v0.102**
+
+D4, T-D4.21b: Grading when nothing is left to mark, and papers ready to finish.
+
+- §8 The grading page's empty states and its "Sẵn sàng hoàn tất" list: "Đã chấm xong tất cả" only after a complete check of the papers, each paper's check read fresh before Finish, the next paper's check after a Finish, and the list folded below the panes while answers wait. Finish stays explicit.
+
+**Changes since v0.101**
+
+D4, T-D4.16: the teacher's three previews draw the take-test engine in their frames.
+
+- §7.3 and §12 The builder's preview, Test detail and the import's "Preview and create" hold the take-test engine, answerable, with what is chosen kept only while the preview is open and nothing saved, recorded for integrity or counted as a play. The header has the "Student view" chip in Submit's place and no leave button; the timer's place holds a pill reading "––:––", named "The time limit is set when the test is assigned"; the save line reads "Answers here are not saved."; Finish says "This is a preview. Students submit here." (DG-188).
+- §12 The engine's 1024px sizes and its 44px floor follow a preview frame's width, so the phone frame on a wide window draws a phone's controls.
+
+**Changes since v0.100**
+
+The bank clean-up is a bounded pass, not one call (T-D4.32 follow-up 1).
+
+- §15 One `cleanUpQuestionBank` request reserves its 200 credits once, makes at most five calls to the provider at the same time inside 45 seconds, and ends with one settlement of what the calls were billed. Tags are suggested for the first 200 questions without any, 50 to a call; duplicates are looked for by comparing every pair of the questions read by their words, and one call judges the closest pairs, cut to the best that fit 100,000 bytes, at most 20 returned. The 300,000-character cap and the first-60 cap are gone; `truncated` also covers a part of the pass that failed or ran out of time, a duplicates call cut to fit its size, and a search for look-alikes that stopped at its work limit. The shapes of the request and the response did not change.
+
+**Changes since v0.99**
+
+D4 follow-ups: the grading leave guard counts a filled score, and the phone's shared content is described as T-D4.7 built it.
+
+- §12 On the grading card, leaving the page with a score filled from the suggestion and not yet saved asks first ("Rời trang khi điểm chưa lưu?"), as a typed comment already did.
+- §7.3, §9 and §12 Below 768px a group's shared content is a drawer from the left over the question, opened from a handle at the screen's edge or by a swipe, not the "Ngữ liệu | Câu n" switcher T-D4.7 removed. The Panes bullet says how it opens, closes, nudges the first time and keeps its place; nothing it describes changed in the product.
+
+**Changes since v0.98**
+
+D4, T-D4.40: the AI assistant (D19 to D22, decided by Thuong on 2026-10-10). The server side is built (T-D4.30 to T-D4.33); the web surfaces are T-D4.34 to T-D4.39, and all have shipped: T-D4.34, the panel and the builder, bank and Test detail entry points; T-D4.35, the question editor's "Write with AI" and "Suggest wrong options"; T-D4.36, the grading card's "Suggest a score"; T-D4.37, Explain results; T-D4.38, Settings › AI assistant; and T-D4.39, the import card.
+
+- §1.3 The assistant suggests and never decides, and its credits are a budget, not a payment.
+- §2 The provider is Anthropic's API, called through `platform/anthropic` behind the ai module's `Completer` port. Two tiers, their models and their prices are configuration, and no model identifier is committed. With `ANTHROPIC_API_KEY` unset the assistant is off.
+- §8 The teacher's AI surfaces, Settings › AI assistant, and the Admin "AI credits" page (Availability: R5; until then `cmd/maintenance ai-credits`).
+- §12 The panels' rules: the acceptance rule, the disabled-with-reason rule, the credit note and the failure states.
+- §13.10 The six AI tables, the two constraints that make the pool a hard stop, and the append-only `ai_usage_ledger`.
+- §15 Sixteen operations under `/teacher/ai/*` and `/admin/ai/*`, `PublicStatus.ai`, `UserPreferences.ai`, `readWithAi` on the import, three notification kinds (twelve in all), the AI error codes and the rate limits.
+- §16 "Read with AI": a scanned PDF is read by the assistant when the teacher's import asks for it, and is refused as before when it does not. The "no OCR" and "text layer only" sentences say so.
+- §17 Decision 4: cloud AI processing is on for the assistant's features (D19), with per-feature minimisation (D20) and a pool-constrained budget (D21).
+- "Changes since v0.7" and "Changes since v0.41": the sentences that kept cloud processing a candidate and ruled out OCR are marked superseded for these features.
+
+**Changes since v0.97**
+
+D4, T-D4.9: a recording that cannot be paused (DG-183).
+
+- §11.3 With `allowPause` false the card's button is inert while the recording plays (`aria-disabled`, 45% opacity) and the status says the recording can't be paused, before the first play and while it plays. A pause from elsewhere (a headset button, another recording, leaving the question or the group, a lock) still happens, reads "Paused", and Resume continues it for no play; nothing new is recorded.
+
+**Changes since v0.96**
+
+D4, T-D4.8: the recording card in the stimulus pane, and what spends a play (DG-193).
+
+- §9 A shared recording's card stands at its audio node in the stimulus pane, the drawer below 768px, and no longer in the question pane; with several recordings each card is headed by its node's label.
+- §11.3 The engine's player is the deck's recording card: a 52px button (Play, Pause, Resume, Play again), the track, the time and a play counter, and a status line. A play in progress keeps its place for the tab's life when its question or group is left, and starting one player pauses the others.
+- §11.4 A play is spent when playback starts with no play in progress; a resume spends none and sends no `audio_play`. A place that cannot be put back counts as a play.
 
 **Changes since v0.95**
 
@@ -41,6 +110,15 @@ R4, F-68 (v0.90 is the deck update on `work/deck-d4`): a replaced or deleted med
 - §11.2 A file that left the library stays in storage until seven days after nothing names it, then the API's sweep deletes its object and marks the row; nothing restores it and nothing notifies the teacher.
 - §13.3 `media_assets` gains `unreferenced_at` and `purged_at`; a trigger on the six tables that name a file refuses a purged one and stops the wait of a retired one (migrations 00111 to 00113, `docs/plan/20-data-model.md` §45).
 - §15 The media lines.
+
+**Changes since v0.89**
+
+D4, T-D4.13 (DG-183): a teacher can stop students pausing a recording.
+
+- §7 `AudioPolicy` gains `allowPause: boolean`, default true. A student receives `StudentAudioPolicy`, the same four fields all present, for a question's audio and for a group's recording.
+- §11.1 The audio controls are four: `maxPlays`, `allowSeek`, `showTranscriptAfterSubmit` and `allowPause` ("Students can pause", default **true**), on a question's audio and on a group's recording. A create that leaves it out stores true. An update that leaves it out keeps the stored value, of the same question by its id, of a group's member question by its id in the bundle and of a recording by its id, so a tab loaded before the release or a recovery draft from the device cannot switch pausing back on; an audio policy or a recording that is new in the request is a create. Publish, restore as a draft, duplicate and group copy carry the value, and a version freezes it.
+- §13 `questions.audio_allow_pause` and `test_version_questions.audio_allow_pause` are nullable and read as true when NULL; `group_recordings.allow_pause` and `test_version_group_recordings.allow_pause` are `boolean NOT NULL DEFAULT true` (migrations 00114 to 00117).
+- §15 `createQuestion`, `updateQuestion`, `createQuestionGroup` and `updateQuestionGroup` accept `allowPause` and answer with it; the student's paper, the preview and the result send `StudentAudioPolicy`.
 
 **Changes since v0.88**
 
@@ -854,7 +932,8 @@ R1, "Foundations and front door" (v0.7.0, `docs/plan/71-r1.md`):
 
 - §16 Word import also takes PDF (D-10, decided 2026-09-25):
   - Only a PDF with a text layer can be read. A scan fails with `PDF_NO_TEXT`;
-    there is no OCR.
+    there is no OCR. (Superseded in v0.99 for an import that asks for "Read with
+    AI": the assistant reads the scan's pages, §16. There is still no local OCR.)
   - Underline, bold and colour are not read from a PDF, and every PDF draft says
     so. Keys come from a key file or explicit `1. A` lines.
   - PDFium reads the file inside a WebAssembly sandbox in the worker. No
@@ -1097,6 +1176,9 @@ R1, "Foundations and front door" (v0.7.0, `docs/plan/71-r1.md`):
   safe publication/delivery and operational release gates. It is not yet released.
 - Both cloud and private AI processing remain candidates for measured evaluation;
   provider selection and external exam-data processing are not enabled by default.
+  **Superseded by D19 (v0.99) for the AI assistant's features:** cloud processing is
+  on, with the provider chosen and the data each feature sends decided (§2, §17).
+  Private inference is still a candidate (`docs/plan/17-word-import.md` §8).
 
 **Changes since v0.6**
 
@@ -1167,7 +1249,8 @@ Roles are data (`app.roles`), one per user (`users.role_id`). The four built-in 
 
 ### 1.3 Non-goals (v1)
 
-- **Payments and subscriptions.**
+- **Payments and subscriptions.** The AI assistant's credits (§13.10) are a budget that stops the assistant, not a payment: the product bills nobody and takes no card. What the centre spends with the provider is paid for outside Quizzivy.
+- **An AI that decides.** The assistant suggests; a teacher accepts, edits or drops. Nothing it returns is saved as a grade, a question or a comment by itself, and no AI response reaches a student.
 - **Open public sign-up.** Self-signup exists but is gated behind a class join code (§6). There is no "create an account" entry point without one.
 - **Multi-tenant / multiple schools.** One organization with several teachers. Each class, test, question, question group and media asset has an owning teacher, and each Word import its creator (§5); the Admin reaches them all. No org/tenant scoping in the schema.
 - **Hard proctoring** — webcam, screen recording, screen-lock, remote inspection. §10 covers browser-signal monitoring only; see §10.5 on its limits.
@@ -1196,6 +1279,7 @@ Fixed unless Thuong approves a change. Do not swap libraries silently.
 | Dates | date-fns + date-fns-tz | `Asia/Ho_Chi_Minh` default |
 | HTTP | native `fetch` wrapped in `src/lib/api/client.ts` | No axios |
 | Google auth | Google Identity Services | Authorization Code + PKCE, exchanged server-side (§5.3) |
+| AI assistant | Anthropic's API, through the official Go SDK in `platform/anthropic` | Reached only through the ai module's `Completer` port, wired in `core`. Two tiers, fast and capable (the capable one reads images and PDF pages); each tier's model and its three prices are configuration (`AI_TIER_*`), and no model identifier is written in the code or the documents. Off unless `ANTHROPIC_API_KEY` is set. §8, §15, §16, §17 |
 | Audio | native `<audio>` element + custom React controls | No wavesurfer.js, no howler. See §11.3 |
 | Object storage | Cloudflare R2 (S3-compatible) | Audio and image assets. `aws-sdk-go-v2/s3` on the backend |
 | Markdown | react-markdown + rehype-sanitize | Never `dangerouslySetInnerHTML` with server content |
@@ -1507,7 +1591,11 @@ interface AudioPolicy {
   maxPlays: number | null;              // null = unlimited
   allowSeek: boolean;                   // default false for listening
   showTranscriptAfterSubmit: boolean;
+  allowPause?: boolean;                 // default true; the server always sends it (§11.1)
 }
+
+// What a student receives: the same four fields, all present.
+interface StudentAudioPolicy extends Required<AudioPolicy> {}
 
 interface Question {
   id; type: QuestionType;
@@ -1796,8 +1884,14 @@ read one coherent frozen version, and expose ordered sections/groups plus safe
 material bindings. Their projection never selects answer keys or transcripts;
 media URLs come only from relational bindings on that version. Group material
 appears before its first member, and material gaps link to the corresponding
-question. Teacher playback consumes no student allowance. Desktop and 320px phone
-preview modes run inside the existing admin shell (minimum supported width 768px).
+question. Teacher playback consumes no student allowance. The builder's preview,
+Test detail and the import's "Preview and create" draw the take-test engine in a
+frame, Computer or a 390px phone, laid out by the frame's width rather than the
+window's (T-D4.16, DG-188): the paper can be answered, and what is chosen is kept
+only while the preview is open; nothing is saved, recorded for integrity or
+counted as a play, no time is shown, because a time limit is the assignment's,
+and Finish says that students submit there. The question group's preview dialog
+and Assignment detail keep the read-only paper.
 Existing version questions and historical attempts are unchanged.
 
 Archived tests must be restored before creating a draft from a version or changing
@@ -1813,11 +1907,14 @@ relational bindings on a version the learner has an attempt on; assignment
 targeting alone grants no media access. A missing context reader fails explicitly
 instead of serving grouped questions without their materials. Learner material
 is drawn by the renderer the teacher's preview shares: in a passage pane beside
-the question from 768px, and below 768px behind the "Ngữ liệu | Câu n" switcher,
-which shows one pane at a time, the question first (§9). Shared recordings are
-drawn in the question pane at every width, never in the passage, so their
-controls show whenever the question does; below 768px they are out of view while
-the passage is showing, and stay mounted. Stable gap targets navigate to the
+the question from 768px, and below 768px in a drawer from the left that lies
+over the question and opens from a handle at the screen's edge or by a swipe
+(§9). A shared recording's card is drawn at its audio node in the stimulus pane,
+in reading order, the drawer below 768px; with several recordings each card is
+headed by its node's label, and a recording no node names is drawn after the
+materials. The pane stays
+mounted while the student moves between the group's questions and across 768px,
+so a recording plays on behind a closed drawer. Stable gap targets navigate to the
 question or blank input without losing pending answers. Group players stay mounted
 across child navigation.
 
@@ -1848,7 +1945,7 @@ flat results/reviews keep their existing payload and require no group reader.
 | `/teacher/tests` | Tests list | Cards: title, status, skills, #questions, total points, updated. Filter by status. Create / duplicate / archive; permanent delete for unreferenced archived tests. A new test opens in the builder. |
 | `/teacher/tests/:id/edit` | Test builder | Left: outline with drag-to-reorder. Right: question editor incl. **question media** (§11.1). Autosave debounced 1.5s. **Publish** validates: `points > 0`; choice questions have ≥1 correct option; `fill_blank` has ≥1 accepted answer per blank; audio questions have a processed asset; no empty sections. Publishing takes an optional change note. |
 | `/teacher/tests/:id` | Test detail | Student-eye preview of any version, with its history, the unpublished changes and the diff between versions. Restore a snapshot into a draft, select the default for future assignments, or delete an unused non-default version. |
-| `/teacher/imports`, `/teacher/imports/new`, `/teacher/imports/:id`, `…/review`, `…/confirm` | Word import | History; one workspace per import for upload or paste and processing, its Sources pane beside its status pane (DG-207); the review workspace; preview and create (§16, `docs/plan/18-word-import-ux.md`). Shown only while `GET /teacher/imports/capabilities` reports intake enabled. |
+| `/teacher/imports`, `/teacher/imports/new`, `/teacher/imports/:id`, `…/review`, `…/confirm` | Word import | History; one workspace per import for upload or paste and processing, its Sources pane beside its status pane (DG-207); the review workspace; preview and create (§16, `docs/plan/18-word-import-ux.md`). Shown only while `GET /teacher/imports/capabilities` reports intake enabled. The Sources pane says what leaves Quizzivy when an import is read with AI (§16). |
 | `/teacher/question-bank`, `/teacher/question-bank/new`, `/teacher/question-bank/:id` | Question bank and editor | Type, level, skill and tag filters + full-text search. CRUD. Media badge + inline preview. |
 | `/teacher/question-bank/groups`, `/teacher/question-bank/groups/:id` | Group bank/editor | Independent complete-group copies, materials and member editing, shared recording policies, revision-safe autosave and account-scoped local recovery. |
 | `/teacher/media` | Media library | Uploaded audio/images: name, duration, size, where used. Rename, replace with the same kind, set an audio file's default play limit (§11.1). Delete blocked if referenced by any published version. |
@@ -1859,7 +1956,29 @@ flat results/reviews keep their existing payload and require no group reader.
 | `/teacher/grading` | Grading queue | Unmarked manual answers across the caller's assignments, by student or by question (below). `teaching.grading`. |
 | `/teacher/students` | Students | Table with search, class and account (Google or password) filters; create into one's own classes; edit; reset one password or up to 40 (§5.4). |
 | `/teacher/classes`, `/teacher/classes/:id` | Classes | Cards with their codes; CRUD, schedule and room, members, **join-code card** (§6.4). |
-| `/teacher/settings/:section?` | Settings | Profile, Sign-in & security (password, Google, signed-in devices), Notifications, Assignment defaults, Appearance, and the API reference for its holders. |
+| `/teacher/settings/:section?` | Settings | Profile, Sign-in & security (password, Google, signed-in devices), Notifications, Assignment defaults, Appearance, AI assistant (`ai.use`) and the API reference for its holders. |
+
+**The AI assistant's surfaces** (D19 to D22; V-06 to V-14 of the v2 deck, `docs/plan/74d-d4-deck-update.md` section G). Every row is built: the first three in T-D4.34, the question editor's in T-D4.35, the grading card in T-D4.36, Assignment detail › Questions in T-D4.37 and the import workspace's in T-D4.39; Settings › AI assistant is T-D4.38's. The operations behind every one are built (§15). A panel is a dialog, so none adds a route.
+
+Every entry point is drawn only while `GET /public/status` says `ai` and the caller holds `ai.use`. For a teacher who is paused, or whose allowance or the centre's pool is used up, it is drawn disabled with the reason, not hidden (§12).
+
+| Where | Entry point | Operation |
+|---|---|---|
+| Test builder, title bar | "AI check" and "Generate" before Preview; both flush pending edits first, as Preview does | `checkTestWithAi`, `generateAiQuestions` |
+| Question bank, header | "Clean up" and "Generate" | `cleanUpQuestionBank`, `generateAiQuestions` |
+| Test detail | "Make a variant", disabled without a published version | `makeTestVariant`, then `duplicateTest`, `duplicateQuestion` and `updateQuestion` |
+| Question editor, in the bank and in the builder | "Write with AI" on the Explanation; "Suggest wrong options" on a single or multiple choice question | `writeAiExplanation`, `suggestAiDistractors` |
+| Grading card | "Suggest a score" on a short answer while "Let AI read student answers" is on; with it off, one line that says so and links to Settings › AI assistant | `suggestAiScore` |
+| Assignment detail › Questions | "Explain results with AI", under the same switch (with it off, the same kind of line); "Make a practice set" opens Generate and saves a new draft test "{title} · Practice" | `explainAssignmentResults`, then `createQuestion`, `createTest` and `updateTest` |
+| Import workspace, Sources pane | the "Read with AI" card, which mirrors the preference "Read imports with AI" | `createWordImport` with `readWithAi` |
+
+A variant is a new draft test named "{title} · Variant", never a version of the open one. A copied draft names the same bank questions as the test it copies, so each changed question is duplicated and the change is written to the duplicate: the test and its questions are untouched. The bank clean-up merges nothing: a near-duplicate offers "Open" for each question and "Keep both", and tag suggestions apply through the bulk tag write (DG-197).
+
+**Settings › AI assistant** (`/teacher/settings/ai`, `ai.use`) holds the month's usage from `getAiUsage` (used of the allowance, what is left, a bar and the five rows generation, grading, explanations, imports and checks, with the date the allowance resets, the first of the next month in `APP_TIMEZONE`: "It resets on 1 November"), the preferences (`UserPreferences.ai`: the language the assistant writes in, tagging what it drafts as "AI draft", letting it read student answers, reading imports with it), and "Ask for more credits" (1,000 to 100,000 and a reason of at most 500 characters) while the centre's rule is to take requests and none is waiting, and the request waiting, with its date, until an Admin decides it (DG-200). With the assistant off the section says "AI is not turned on for this school." (DG-201).
+
+**Admin › AI credits** is the pool, the requests waiting, the teachers with their month and the rules. *Availability: R5* (T-R5.35, in the Admin console R5 builds; none exists before). D4 ships its operations (§15) and `cmd/maintenance ai-credits` (`docs/setup/operations.md`), which the owner uses until then. The rule for a pool that runs out has one value, pause everyone; "Add credits" is the Admin's approval, and the product bills nobody (DG-196).
+
+No student screen mentions the assistant. The Test intro's sentence about cloud processing waits for Thuong's wording (§17).
 
 The teacher home API (`getDashboard`) accepts `range=7d|14d|30d`, defaulting
 to `14d`. Only `submissions` depends on this range: one zero-padded calendar day
@@ -1906,6 +2025,20 @@ come from the published version. The aggregate, groups and item prefix share one
 statement snapshot; later immutable enrichment does not claim a whole-request
 repeatable-read snapshot. Reading or exhausting the queue never finishes grading;
 the teacher still invokes Finish explicitly. The rebuilt web queue is T-R4.28.
+
+When nothing is left to mark (T-D4.21b) the header reads "Không còn câu trả lời nào cần
+chấm." and the page checks for papers that are marked but not finished: every submitted and
+timed-out paper the caller reaches with nothing waiting for a mark (`listAttempts`,
+`pendingGrading=false`, read to the end), under the queue's filters. "Đã chấm xong tất cả" shows
+only after that check completes and finds none; while it runs, or after it fails, the page says only
+that no answers are left to mark. The papers it finds are listed under "Sẵn sàng hoàn tất", below
+the panes, grouped by assignment with the oldest hand-in first, five to a group before "Show
+more". A row's Review opens its check, read fresh from `getAttemptForReview`: the score, the
+answers given, whether the teacher marked it, it was marked automatically or it was left blank, and
+any flag. Finish grading there is enabled only while that read's `pendingManual` is 0, and the paper
+is read again before the request; after a Finish the next paper's check opens with focus on its
+Finish. While answers wait the list folds to one line and the header links to it. Nothing finishes
+on its own, and there is no Finish for a whole assignment.
 
 Teacher list behaviour (approved change request, 2026-09-22):
 
@@ -1971,7 +2104,8 @@ Shared:
 
 ---
 
-**The engine** shows one question at a time.
+**The engine** shows one question at a time, except that a run of a cloze's gaps
+is one screen ("A cloze" below).
 
 - **Header.** The ✕ ("Thoát khỏi bài làm"), from 768 the title over the save
   line, the timer, and "Nộp bài". The ✕ asks first, except on a locked paper,
@@ -1986,15 +2120,63 @@ Shared:
   rearms automatic submission at the device's recorded deadline, whichever
   request was refused and even after a second refusal. Submission can still
   fail and retry. A deadline refusal never replaces a closed or superseded lock.
-- **Panes.** A question whose group has something to read shows a passage pane
-  beside the question pane from 768, each scrolling by itself. Below 768 a
-  "Ngữ liệu | Câu n" switcher shows one at a time, the question first and again
-  after every move.
-- **Footer.** Under the question pane: Previous, the questions, and Next, which
-  is "Hoàn tất" on the last question. From 768 the questions are a strip of
-  numbered squares. Below 768 a button ("4 / 8 · đã trả lời 3") opens them in a
-  bottom sheet. A square shows answered, current and flagged, and on a paper of
-  several parts the strip and the sheet keep the parts apart.
+- **Section head.** Above every question the question column states its
+  section's title over its instructions, so a part's instructions are read on
+  each of its questions, not only on the first. A paper of one section with no
+  instructions has no head, nor has a section with neither a title nor
+  instructions. A group's own instructions stay in the stimulus pane, under its
+  heading.
+- **Panes.** A question whose group has shared content (a material or a
+  recording) shows the stimulus pane beside the question pane from 768, each
+  scrolling by itself. The question pane is then on the sidebar's surface with
+  its column at most 600px wide; alone, or on a phone, it is on the page's
+  background at most 720px wide. The stimulus pane leads with the group's title
+  as a kicker over the heading of its first material with something to read; a
+  material that is only a recording has no heading, and a shared recording's
+  card stands at its audio node (§11.3). Below 768 the
+  question fills the screen and the shared content is a drawer from the left
+  over it, 88% of the width and at most 420px, above a darkened backdrop. A
+  handle at the left edge ("Mở ngữ liệu", or "Mở bài nghe" for a recording,
+  with a dot while the group's recording plays) or a swipe to the right opens
+  it; a swipe back, Esc, the backdrop or its close button closes it and returns
+  focus to the handle. Until the student has opened a group's drawer once in
+  the attempt, the handle nudges (not under reduced motion) and a tip beside it
+  says what is there. A closed drawer stays mounted and inert, so the place in
+  the passage and a playing recording survive. Every move to another question
+  closes it, and so does a gap tapped inside it, which lands on its question or
+  blank; while it is open the keys that answer or flag do nothing. Crossing 768
+  with it open shows both panes, with nothing remounted.
+- **Navigation.** Under the question pane: Previous, a middle, and Next, which
+  is "Hoàn tất" on the last screen. The sections rail ("Các phần"), a 236px
+  column before the panes, shows when the engine is at least 900px wide on a
+  question with no shared content and at least 1180px wide on one with it, and
+  never below 768, so from 900 to 1179px it comes and goes between questions.
+  It holds one block per section, the section's title beside "n / m" answered
+  over a five-column grid of squares, and the legend at its foot. While it
+  shows, the footer's middle is the key hint ("← → để chuyển câu · A–D để chọn
+  đáp án"; "để chuyển · A–D để chọn" beside shared content; "để chuyển câu" on
+  a question with no options). Otherwise, at every width, the middle is the
+  grid button, "Câu 4 · đã làm 3 trên 8" ("4 · 3/8" beside shared content from
+  768 and below 420px), which opens the question sheet: a bottom sheet below
+  768 and a 560px card from 768, with the same blocks in six columns and the
+  legend; its name and the answered total are for a screen reader only. It opens on
+  the open question's square, keeps focus inside, closes on Esc, the backdrop
+  or a square, and closes when the engine grows past the rail's threshold.
+  A square is answered (filled), partly answered (a fill-in with some of its
+  blanks typed, which still counts as unanswered) or empty; the open question's
+  square is ringed in lime and a flag is an amber dot. There is no strip of
+  numbered squares.
+- **A cloze.** Two or more consecutive single-choice members of a group, each
+  bound by a gap of one material and none with an image or audio of its own, are
+  one screen: "Câu 23–27 trên 34 · Điền từ vào đoạn văn · 5 chỗ trống". It
+  prints their shared plain prompt once (or each member's own prompt in the gap
+  card), a chip per gap, and the open gap's card with its options and its worth;
+  a choice opens the next gap with no answer, going round. Previous, Next and
+  the arrows step over the whole run. Every gap stays a question with its own
+  number, square, flag, points and result row: the squares are tied within a
+  row ("Cùng màn hình" in the legend) and all ringed while the run is open. A
+  member with media, or a gap left alone, is a question of its own whose line
+  says "Điền từ vào đoạn văn · 1 trong 5 chỗ trống".
 - **Submitting.** "Nộp bài" in the header and "Hoàn tất" open the Submit
   dialog, the only way a student hands a paper in: answered, flagged, time left, and a
   "Đến câu" chip for each unanswered question. There is no review page.
@@ -2021,9 +2203,10 @@ Shared:
   again only when the student continues the attempt there. A tab that holds
   no session is given the current one. Such a read still replaces the
   attempt's beacon token, and two tabs of one browser can share a session.
-- **Keys.** A–E choose an option; a sixth has no key, because F flags the
-  question. The arrows move between questions and stop at either end. Esc
-  closes a dialog or the sheet. None acts in a text field or another control
+- **Keys.** A–E choose an option, on a cloze for the open gap; a sixth has no
+  key, because F flags the question. The arrows move between screens, as
+  Previous and Next do, and stop at either end. Esc closes a dialog, the sheet
+  or the drawer. None acts in a text field or another control
   that owns the key, with Ctrl, Alt or the command key held, while a dialog or
   the question sheet is open, or on a locked paper.
 
@@ -2081,7 +2264,9 @@ Announced, visible, never silent.
 
 ### 10.4 Teacher review
 
-What the teacher sees, by D8 (R4). One tone marks "Flagged" everywhere, the danger tokens (`features/integrity/tones.ts`): the dashboard's figure and its Recent activity marker, the assignment's Flagged stat, the roster's row, the attempt sheet and the attempt page, and the flagged notification.
+What the teacher sees, by D8 (R4). One tone marks "Flagged" everywhere, the danger tokens (`features/integrity/tones.ts`): the dashboard's figure and its Recent activity marker, the assignment's Flagged count, the roster's row, the attempt sheet and the attempt page, and the flagged notification.
+
+- **The Flagged count** on Assignment detail's progress card (T-D4.22) counts the flagged attempts that are not voided: exactly the rows its filter shows, over the whole roster whatever the search. A flagged attempt that is later voided leaves the count.
 
 - **The roster** (the assignment's Students tab) shows Focus lost as "—" or "{n}×", in danger ink after a flag icon once the attempt is flagged, on a row in the danger's soft tone. Where the column is hidden, the same mark sits under the student's name.
 - **The attempt sheet** draws a compact timeline from the start (info) to "Submitted" (success, once handed in). Leaving the test and an automatic submission are danger, with the time away on the label ("Left fullscreen · 14 s"); every other kind keeps a neutral dot.
@@ -2146,7 +2331,8 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 
 ### 11.1 Admin: upload and attach
 
-- In the question editor, an audio question has: file upload, transcript textarea (admin-authored, optional), and the `AudioPolicy` controls (`maxPlays` default 2, `allowSeek` default **false**, `showTranscriptAfterSubmit` default true).
+- In the question editor, an audio question has: file upload, transcript textarea (admin-authored, optional), and the `AudioPolicy` controls (`maxPlays` default 2, `allowSeek` default **false**, `showTranscriptAfterSubmit` default true, `allowPause` default **true**).
+- `allowPause` is "Students can pause" (T-D4.13, DG-183). It is a rule a student is meant to read, not a key, and it applies to a question's audio and to a group's recording alike. A create that leaves it out stores true. **An update that leaves it out keeps the stored value**, for a question by its id, for a member question of a group by its id in the bundle and for a recording by its id; an audio policy that is new in the request (the question had none, or an image) and a recording under a new id are creates and read true. The rule exists because `updateQuestion` and `updateQuestionGroup` replace the whole object, and a tab loaded before this release, or a recovery draft saved on the device, sends none. Publish freezes the value in both snapshots; restoring a version as a draft, duplicating a test and copying a group carry it; the teacher's preview, the student's paper and the teacher's review read it. A question or version from before the control reads true.
 - Accepted: `audio/mpeg` (.mp3) and `audio/mp4` / `audio/aac` (.m4a). **Reject everything else** with a plain message. These two cover every current browser without transcoding; supporting `.ogg`/`.wav`/`.webm` means either transcoding or a Safari support matrix, and neither is worth it in v1.
 - Limits: audio 50 MB and 5 minutes; an image (PNG, JPEG or WebP) 10 MB (DG-63). Validate **server-side** by sniffing magic bytes and probing duration — never trust the `Content-Type` header or the file extension. The file is streamed to disk, never held in memory, and an image's size in pixels is read from its header.
 - A teacher's library holds at most 5 GB unless the deployment sets another quota (`MEDIA_OWNER_QUOTA_MIB`). An upload that would take it past the quota is refused with `MEDIA_QUOTA_EXCEEDED`. A file that is deleted or replaced leaves the library at once and counts toward the quota only while something still names it: a published version, another owner's content, or a question that attaches it outside any group. `GET /teacher/media` reports those bytes as `usage.heldBytes`, so a replacement needs room for the new file and, while a published version holds the old one, for the old one too. The files nothing names are `usage.pendingBytes`, and count toward nothing (§11.2).
@@ -2185,6 +2371,7 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 `web/src/features/media/components/AudioPlayer.tsx`. Custom controls over a native `<audio>`; no third-party audio library.
 
 - Controls: play/pause, elapsed/total time, a progress bar that is **display-only when `allowSeek` is false**, and a plays-remaining indicator. The total shown is the server's probed length when it is known; the file's own length drives the track and the seek.
+- The engine draws it as the deck's recording card (`layout="card"`), for a question's own audio and for a shared recording alike: a 52px round button named Play, Pause, Resume (a paused play in progress) or Play again (after an end), a 6px track in the brand accent with the seek control over it when `allowSeek` is on, the time and a counter under it ("Play 1 of 2", which reads 1 before the first play; "Play n" with no limit; "Played n/N times" at and past the limit), and a status line: "Press play when you are ready.", "Playing", "Paused", "Finished · 1 play left" (or "Finished" with no limit) and, at the limit, "You have used all N plays." with "You can keep listening. Additional plays are recorded for your teacher to review." The button stays live at the limit (§11.4). A refused play's sentence takes the status line's place.
 - `preload="metadata"` so duration renders without downloading the file.
 - **Autoplay is impossible** — browsers block audio without a user gesture. The first play is always a tap. Do not attempt to auto-start; do not treat the block as an error state.
   A play refused with `NotAllowedError` says so under the player, which stays
@@ -2192,15 +2379,18 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
   nothing. Other playback rejections or a file-load failure show the
   expired-link card.
 - iOS Safari: only one audio element plays at a time, and playback must originate from a gesture handler (not an async continuation). Call `.play()` synchronously in the click handler; do not `await` anything before it.
+- `allowPause: false` (§11.1): while the recording plays the button is inert, marked `aria-disabled` (never the native `disabled`, so it keeps its focus and its name), at 45% opacity, and a press does nothing; the status reads "Playing · this recording can’t be paused", and before the first play "Press play when you are ready. It can’t be paused once it starts." It cannot stop playback stopping: a headset or OS media button, another recording starting, leaving the question or the group, or a lock still pauses it. The card then reads "Paused", and Resume continues the play in progress without spending a play. Nothing new is recorded: the product reports what it can see and does not pretend the pause could not happen. A payload without the field, from an API older than the tab, pauses freely.
 - `allowSeek: false` implementation: no `<input type="range">`, and an `onSeeking` handler that resets `currentTime` to the last known position. Note that OS-level media controls can still seek in some browsers — record an `audio_seek` event rather than pretending it cannot happen.
 - Accessibility: real `<button>` elements, `aria-label` on each, keyboard-operable, `aria-live` announcement of plays remaining. When `showTranscriptAfterSubmit` is on, the transcript appears on the result page — this is also the accessibility fallback for hard-of-hearing students.
-- One player instance per question. Navigating away pauses and releases it.
+- One player instance per question, and one per shared recording, which stays mounted while the student moves between its group's questions. Leaving the question or the group, by any means, pauses and releases it. A play in progress and its position are remembered in memory, per question or recording (`media/playback.ts`), so coming back to the question or the group resumes there without spending a play. Leaving the test page, by any means, forgets every place, as a reload does: coming back to the same attempt, or starting another, spends a play. Starting one player pauses any other that is playing.
+- Each play that starts the recording sends an `audio_play` event; resuming a paused play sends none.
 
 ### 11.4 `maxPlays` — server-authoritative
 
 The obvious client-side counter resets on reload, which makes the limit meaningless. So:
 
-- Each `play` calls `POST /app/attempts/:id/audio-play`; the server increments `attempt_audio_plays (attempt_id, question_id, plays)` and the count is returned in `GET /app/attempts/:id` as `audioPlays`. The `audio_play` event the player records beside it (§10.6) only reports the play and changes no count.
+- A play is spent when playback starts and no play is in progress: from 0:00, or after the recording ended. A resume after a pause spends none. With seeking allowed, moving inside a play in progress spends nothing. A remembered place (§11.3) is put back once the element has its metadata, and the no-seek guard is told the new position first, so a restore is never reported as a blocked seek. If playback then runs more than 0.5s short of the remembered point (the browser refused the seek, or the metadata never came), the start is counted as a play after all and the place forgotten: a place that cannot be put back is never free.
+- Each play calls `POST /app/attempts/:id/audio-play`; the server increments `attempt_audio_plays (attempt_id, question_id, plays)` and the count is returned in `GET /app/attempts/:id` as `audioPlays`. The `audio_play` event the player records beside it (§10.6) only reports the play and changes no count.
 - Client renders remaining plays from the server value, optimistically decrements on play, and reconciles on the next fetch.
 - Playback is **optimistic**: a failed event POST does not block the audio. A student who goes offline to farm replays will show a gap in the event log, which is exactly what the integrity timeline is for. Blocking playback on a network round-trip would punish bad wifi far more often than it would catch anyone.
 - On submit, the server rejects nothing based on play count. Over-limit plays are reported to the teacher, not enforced retroactively.
@@ -2278,12 +2468,21 @@ Deliberate. Do not "improve" them with trendy defaults.
 - **Gutters by width:** `--page-gutter` 14px below 768, 28px from 768 and 40px from 1920; top padding 16 / 24px.
 - **Size the content, not the page.** The page head (title, description, actions, the wizard's stepper) spans the frame, and cards, lists, tables and steppers fill it. Only text is capped: a field is at most `--field-max` (480px) wide, prose at most `--prose-max` (72ch). There are no form columns: New assignment's summary docks on the right at 300px beside a form that fills, and Settings' fields flow into at most three columns, each field at most 480px. Assignments shows Assigned to from 1240px of content, Submitted from 760 and To grade from 900; the Imports history adds Source from 1240. Inner reflows follow the content-width bands of §8 or a container query, never a new viewport breakpoint.
 
-**The student app and the engine, as built in R3 (v0.9.0).** The source is `Quizzivy Student.dc.html`. What the deck does not draw, and where the product departs from it, is in `docs/design/gaps.md` (DG-80 to DG-89, DG-102 to DG-107, DG-119).
+**The AI assistant's panels** (D4; DG-201). Built in T-D4.34 (the panel), T-D4.35 (the question editor's suggestions), T-D4.36 (the grading card) and T-D4.37 (Explain results). The server enforces what it can (§15); these are the rules the web draws.
 
-- **One breakpoint, 768px.** The shell and the engine change their chrome there and nowhere else: destinations in the top bar or bottom tabs, side-by-side panes or the pane switcher, the number strip or the count button with its sheet. A page keeps its state across it.
-- **One centred column per page:** Home and Classes at most 960px, the test intro 720px, the result 820px, Settings 760px. No page has a side panel. In the engine the passage column is at most 640px and the question column 600px.
+- **The acceptance rule.** What the assistant returns is a suggestion, never a record. A panel's primary button saves only the items the teacher kept, through the writes that already exist (the section and bank question writes, `updateQuestion`, `duplicateTest`, the bulk tag write), and `features/ai/` itself calls nothing but `/teacher/ai/*`. "Use this" and "Use score and comment" fill a field and save nothing; the teacher's own Save does. On the grading card the filled score and comment are the answer's draft, unlike a score button, which saves at once: Save & next writes them, and so does moving to another answer, as it writes a typed comment; leaving the page with a filled score unsaved asks first, as it does for a typed comment. A question the assistant drafted carries the tag "AI draft" while the preference for tagging is on, until a teacher edits or approves it. No sample output is ever drawn.
+- **The disabled-with-reason rule.** An entry point is hidden only when the server has no assistant (`PublicStatus.ai` is false) or the caller lacks `ai.use`. For a teacher who is paused or out of credits it stays visible and disabled, with the reason as its tooltip and in the panel's footer: "AI is paused for your account.", "Your allowance is used up. Ask for more in Settings." or "The school's AI pool is used up this month." (`AI_PAUSED`, `AI_CREDITS_EXHAUSTED` with `details.scope`). The two features that send a student's answer text are not offered while the teacher's "Let AI read student answers" is off: in place of "Explain results with AI" the Questions card says in one line that it needs the switch, with a link to Settings › AI assistant, and the grading card says in one line that suggestions are off in Settings › AI assistant.
+- **The question editor's suggestions** (V-10), in the bank's editor and the builder's pane, which share the editor (DG-108). "Write with AI" sits in the Explanation's label row and "Suggest wrong options" beside Add option on a single or multiple choice question; each opens an inline panel under its field, not a drawer. Before asking, the editor checks the deck's two guards as toasts ("Write the question first", "Mark the correct answer first"). Both operations read the stored question, so the builder saves its pending edit first, and the bank, whose Save is explicit, asks for a save ("Save the question first") while what the assistant reads (the type, prompt, written options, accepted answers and sample answer) differs from what is stored; an empty option is not read and does not count. The explanation is written in the teacher's preferred language; "Shorter" keeps the language of the one shown and "In Vietnamese" / "In English" asks for the other. "Use this" replaces the field's text in the form it holds (rich content, or Markdown) and "Add" fills the first empty option that is not marked correct, or adds one while there are fewer than eight (DG-63); neither saves, so the builder's autosave or the bank's Save writes them. A panel that answered ends with the call's credit note. A failure, or an answer with no suggestion, is a line in the panel; the button is the way to try again.
+- **The credit note.** A panel's footer says what the call cost and what is left, from the answer's `usage` and in credits, never in money. The deck's costs are placeholders: the product shows no figure it has not metered.
+- **Failure.** A provider that did not answer, refused, or answered something that fails the schema is the warning callout "AI didn't respond. Try again in a minute." with "Try again" (`AI_UNAVAILABLE`, which asks for 30 seconds). A panel closes on Esc, keeps focus inside while open and returns it to the button that opened it (DG-36).
+
+**The student app and the engine, as built in R3 (v0.9.0) and D4.** The source is `Quizzivy Student.dc.html`. What the deck does not draw, and where the product departs from it, is in `docs/design/gaps.md` (DG-80 to DG-89, DG-102 to DG-107, DG-119, DG-182 to DG-194).
+
+- **One breakpoint for the shell, 768px.** The student shell changes its chrome there and nowhere else (destinations in the top bar or bottom tabs), and so does the engine's: side-by-side panes or the drawer over the question, and the sheet as a card or a bottom sheet. A page keeps its state across it.
+- **The engine's other thresholds** are its own, read through one width source (`useEngineWidthAtLeast`): the window's width, or a preview frame's (§7.3). The sections rail shows from 900px on a question with no shared content and from 1180px on one with it, and the grid button with its sheet stands in for it everywhere else; the grid button's label takes its short form below 420px (and beside shared content from 768); the drawer is 88% of the width, at most 420px; the engine's 1024px sizes (`engine-lg:`, below) follow the same source. Crossing any of them remounts nothing and keeps what is typed.
+- **One centred column per page:** Home and Classes at most 960px, the test intro 720px, the result 820px, Settings 760px. No page has a side panel. In the engine the passage column is at most 640px and the question column 600px beside shared content, 720px alone.
 - **Classes** are cards in a grid that fills the row, with 280px as a card's least width. A card is not a link.
-- **Touch targets.** Below 1024px the student surfaces put a 44px floor on buttons. A control the deck draws keeps the deck's size: the header's 36px ✕, the 32px flag toggle, the strip's 34px squares, the dialogs' 42px buttons (46px for the one button of the "you left the test" alert). The engine's Previous and Next, the count button and the question sheet's squares are 44px. An option row is at least 52px high.
+- **Touch targets.** Below 1024px the student surfaces put a 44px floor on buttons, and so does the engine in a teacher's preview frame narrower than 1024px, whatever the window's width. A control the deck draws keeps the deck's size: the header's 36px ✕, the 32px flag toggle, the rail's 34px squares (never below 900px), the drawer's 30 × 84px handle and 34px close button, the dialogs' 42px buttons (46px for the one button of the "you left the test" alert). The engine's Previous and Next and the grid button are 44px, and the question sheet's squares 44px below 1024px and 42px from it. An option row is at least 52px high; a cloze card's option row is 48px.
 - **Dialogs** use the deck's frame: 440px (420px for the "you left the test" alert) or the width less 24px, no close button, the actions at the right; the alert has one button, as wide as the dialog. A dialog with a field sits 12% from the top below 768, so the keyboard does not cover it (DG-103).
 - **The timer** is a pill centred in the header's free space. Each digit sits in a cell one zero wide, because Be Vietnam Pro has no tabular figures and the pill would otherwise change width every second. Under five minutes it takes the danger tones.
 - **Text in a test.** The passage is 16px on a 1.75 line and cannot be selected, the prompt 17px, an option 15px. "Chữ lớn hơn khi làm bài" raises them to 18, 19 and 17px; the signed-in choice is an account preference mirrored in this browser; anonymous choices remain local.
@@ -2297,8 +2496,8 @@ The rules below carry over from v0.43, restated in the deck's tokens, except tha
 - **Forbidden:** decorative gradients, glassmorphism/backdrop blur, pulsing rings, glow effects, radii beyond the deck's (the old consoles keep `rounded-md` controls and `rounded-lg` cards), emoji in UI chrome.
 - **Typography:** Be Vietnam Pro, self-hosted (latin, latin-ext and vietnamese subsets, 400–700, upright and italic; the CSP allows no font host). Every character the UI draws is in the loaded font faces; a symbol the font lacks is an icon (`KeyGlyph` for ⌘, ↵, ↑ and ↓), or a character it has, such as the en dash for a range. Content is shown in NFC: the server composes the text a person types before it stores it, the rich content editor composes what it writes, and a view composes what it draws, because a row saved before the server did can still be decomposed. The deck's scale: 3xs 10.5, 2xs 11, caption 11.5, xs 12, meta 12.5, sm 13, ui 13.5, base 14, body 14.5, md 15, title 16, lg 17, stat-sm 18, xl 20, stat 22, h1 24, h1-student 26, kpi-sm 28, kpi 30, display 34px. Phone text inputs stay at 16px to avoid input zoom; student touch targets follow the R3 rule above; seek tracks have a 44px hit area. `leading-relaxed` in the test view.
 - **Icons:** lucide-react, 16px dense / 20px nav, consistent stroke, `aria-hidden` unless standalone.
-- **Density:** admin tables dense (~40px rows). Student pages are the centred columns of the R3 rules above. The teacher's pages follow the deck's tables and cards inside the content-width rules of §8. The student test view stays spacious: one question at a time, beside its passage from 768px when it has one.
-- **Action hierarchy:** resume is primary; opening an assignment's intro is secondary. Deadline pills turn amber only within 24 hours. The 320px test footer has previous as an icon, the count button that opens the question sheet, and Next or Finish. In the Submit dialog the two buttons stay in reach while a long list of unanswered questions scrolls. Submission confirmation offers the submitted paper directly.
+- **Density:** admin tables dense (~40px rows). Student pages are the centred columns of the R3 rules above. The teacher's pages follow the deck's tables and cards inside the content-width rules of §8. The student test view stays spacious: one question at a time (a cloze's run is one screen), beside its shared content from 768px when it has some.
+- **Action hierarchy:** resume is primary; opening an assignment's intro is secondary. Deadline pills turn amber only within 24 hours. The 320px test footer has previous as an icon, the grid button that opens the question sheet, and Next or Finish. In the Submit dialog the two buttons stay in reach while a long list of unanswered questions scrolls. Submission confirmation offers the submitted paper directly.
 - **Explicit states:** single- and multiple-choice instructions identify selection behaviour without revealing the key. The save line says saved, saving, offline or failed; exhausted audio allowances explain continued playback is recorded. Login exposes class joining and a reversible password visibility toggle. Signed-in join screens identify the current account and provide a way back.
 - **Motion.** The deck's keyframes, and what the old consoles still carry:
   - 150ms control feedback, and the settings panels' 150ms ease-out `settings-enter` entrance.
@@ -2311,7 +2510,7 @@ The rules below carry over from v0.43, restated in the deck's tokens, except tha
   - The test builder outline's drag-and-drop reorder slide (dnd-kit); the deck draws a drop line instead.
 
   Under `prefers-reduced-motion` the marquee, live dot, breath, shimmer and indeterminate bar each have a static state, not a shorter one: an ellipsis, a solid dot, a still mark, flat `--muted`, a fixed 40% bar. Everything else is cut to 0.01ms by the global reduced-motion block. Exam inputs remain stationary. The rebuilt consoles (R3–R5) replace the old consoles' motion with the deck's.
-- **Audio player:** monochrome. A filled `--primary` play button, a thin `--secondary` track with a `--primary` fill. No waveform visualisation, no equaliser animation, no colored accents.
+- **Audio player:** monochrome. A filled `--primary` play button, a thin `--secondary` track with a `--primary` fill. The engine's recording card (§11.3) is the one exception, as the deck draws it: its 6px track on `--muted` fills with the lime `--accent-c`, which marks progress. No waveform visualisation, no equaliser animation, no other colored accents.
 - **Front door:** sign-in, forgot password, join and change password share the brand frame, with the brand panel from 900px, except join, which stays one column. On join, the class name is large and there is one primary button. This is the first thing a new student sees — it should look calm and legitimate, not like a marketing page.
 - **Dark mode:** in scope from R1.
   - The preference is light, dark or system, stored in `localStorage['quizzivy.theme']`.
@@ -2548,6 +2747,8 @@ Down refuses existing rich fill-blank rows instead of silently discarding bindin
 No legacy rows are rewritten, no grading keys move, and the same read-compatible rollback floor
 applies after prose writes.
 
+Migrations `00114` to `00117` (D4, T-D4.13) add the pause rule of §11.1, one column each. `questions.audio_allow_pause` and `test_version_questions.audio_allow_pause` are nullable `boolean`s with no default, no backfill and `CHECK (audio_allow_pause IS NULL OR media_asset_kind IS NOT DISTINCT FROM 'audio')`, and every reader takes `COALESCE(…, true)`. They are nullable because the previous binary inserts these rows during a rolling deploy and writes no value, and because `questions_audio_policy_iff_audio` is a biconditional over the other two policy columns, which this column therefore stays out of. `group_recordings.allow_pause` and `test_version_group_recordings.allow_pause` are `boolean NOT NULL DEFAULT true`: a recording always has its whole policy, and a constant default is stored without a rewrite. None of the four rewrites or indexes a populated table.
+
 ```sql
 CREATE TABLE app.questions (
   id              uuid PRIMARY KEY DEFAULT uuidv7(),
@@ -2558,6 +2759,7 @@ CREATE TABLE app.questions (
   audio_max_plays integer CHECK (audio_max_plays IS NULL OR audio_max_plays > 0),
   audio_allow_seek boolean NOT NULL DEFAULT false,
   audio_show_transcript_after boolean NOT NULL DEFAULT true,
+  audio_allow_pause boolean,                       -- D4: NULL reads as true; audio only (00114)
   transcript      text,
   points          numeric(8,2) NOT NULL CHECK (points > 0),
   explanation     text,
@@ -2595,8 +2797,8 @@ test_versions(id, test_id, version, published_at, total_points, change_note, UNI
 test_version_sections(id, test_version_id, ordinal, title, instructions)
 test_version_questions(id, test_version_section_id, ordinal, source_question_id,
                        type, prompt, media_asset_id, media_alt, audio_max_plays, audio_allow_seek,
-                       audio_show_transcript_after, transcript, points, explanation, sample_answer,
-                       level, skill)
+                       audio_show_transcript_after, audio_allow_pause, transcript, points, explanation,
+                       sample_answer, level, skill)
 test_version_options(id, test_version_question_id, ordinal, text, is_correct)
 test_version_blanks / test_version_blank_answers
 ```
@@ -2735,6 +2937,25 @@ Use PG18's `OLD`/`NEW` in `RETURNING` to capture the diff in the same statement 
 - The API reads the table into a snapshot at most every 30 s, and only while requests arrive. During an active window it answers 503 (§15), and it refuses an attempt start that would run into a window.
 - A start and a schedule take the same advisory lock (73819, 40), so a new attempt is either refused or extended. So do every other writer of an assignment's window or overrides: the teacher's extension, the assignment update, the reopening and the two override writes (shared, as a start does), so none of them runs between a window's scheduling and its extensions.
 
+### 13.10 AI credits
+
+The assistant's budget (D21) is six tables, migrations `00118` to `00123` (`docs/plan/20-data-model.md` §46). All are new and empty, so a previous binary is unaffected, and they exist whether or not `ANTHROPIC_API_KEY` is set. A credit is $0.001 of the provider's list price: a call costs `ceil(sum(tokens × price) / 1e9)` from the provider's reported usage and the tier's configured prices, held as integer millionths of a dollar per million tokens, so no call is rounded across a credit by floating point. The centre has a pool of 200,000 credits a month ($200) and every teacher an allowance under it, 20,000 by default.
+
+| Table | Holds |
+|---|---|
+| `ai_settings` | One row, written by its migration: the pool the plan sets, the default allowance, the share of an allowance at which a teacher is told (80) and the rule for a teacher who runs out, `request` or `pause`. The pool has one rule for running out, pause everyone (DG-196). |
+| `ai_credit_periods` | One row a month, created by the month's first use from `ai_settings`: `pool_credits`, `added_credits` (an Admin's approval, not carried over), `used_credits`, `reserved_credits`. |
+| `ai_teacher_credits` | One row per teacher and month: `allowance_credits` (with the `granted_credits` that approved requests added), `custom`, `paused`, `used_credits`, `reserved_credits`, `warned_at`. `custom` and `paused` follow the person into the next month. |
+| `ai_reservations` | The ceiling a call holds until it settles or is released. A leftover older than ten minutes is returned by `ReleaseStaleAiReservations` (hourly, and `maintenance ai-reservations-sweep`). |
+| `ai_usage_ledger` | One row per settled call: the actor, the feature, the tier, the four token counts the provider reported, the credits charged and the provider's request id. |
+| `ai_credit_requests` | A teacher's request for more credits, `pending`, `approved` or `declined`, with who decided and when. A partial unique index allows one pending request per teacher and month. |
+
+- **The hard stop is two constraints.** `ai_credit_periods_within_pool` and `ai_teacher_credits_within_allowance` each say `used + reserved <= total`, and every credit moves in an `UPDATE` of those rows. The database refuses the call that would overspend, and no code path has to remember to. A reservation locks the month's row and then the teacher's, in that order everywhere, so two calls cannot deadlock. A settlement charges the least of the metered credits and what was reserved, so a call the provider has been paid for is never refused.
+- **A month** is the calendar month in `APP_TIMEZONE` (`Asia/Ho_Chi_Minh` when unset). The pool, the allowances and the use start over on the 1st; credits an Admin adds do not carry over.
+- **`ai_usage_ledger` is append-only**, as `audit_log` and `attempt_events` are: the application role has no `UPDATE` or `DELETE` on it, so no handler can rewrite what was spent. Its `user_id` is set to NULL by the foreign key when a person is deleted, so a row outlives its actor.
+- **Every Admin write is one `audit_log` row**, from a data-modifying CTE, so the diff cannot disagree with the change. A write from `cmd/maintenance ai-credits` is System: no actor, `reason: "maintenance"` and the operator in `details`.
+- **Two permission keys** (migration `00124`): `ai.use` in Content, granted to the Teacher role, and `ai.credits.manage` in System, granted to no built-in role; the Admin's wildcard holds both (`docs/plan/70-redesign-overview.md` §4.1). The import's `word_imports.read_with_ai` (migration `00125`, `boolean NOT NULL DEFAULT false`) is §16's.
+
 ---
 
 ## 14. Testing & definition of done
@@ -2773,9 +2994,11 @@ Base `VITE_API_BASE_URL`, JSON, `Authorization: Bearer <access>`.
 
 ```
 # public (unauthenticated — rate-limited, §6.5)
-GET    /public/status                   → {maintenance: {startsAt, endsAt, active} | null}
+GET    /public/status                   → {maintenance: {startsAt, endsAt, active} | null, ai}
                                           same answer for everyone, Cache-Control public 30 s,
-                                          120/min and 2,000/h per IP
+                                          120/min and 2,000/h per IP; ai is true when the AI
+                                          assistant is configured, read from configuration and
+                                          never from the provider
 POST   /join/preview                    {joinCode} → {classId, className, teacherName}
 POST   /auth/login                      {email,password} → {accessToken,user: CurrentUser}
 POST   /auth/google                     {code,codeVerifier,redirectUri,joinCode?} → {accessToken,user: CurrentUser}
@@ -2788,7 +3011,8 @@ PATCH  /auth/me                         {fullName?,displayName?|null,phone?|null
                                           → CurrentUser; at least one supplied field;
                                           omitted fields unchanged; unknown zone400 VALIDATION_FAILED
 PATCH  /me/preferences                 top-level UserPreferences merge → UserPreferences;
-                                          nested assignmentDefaults replaces its key, {} no-op;
+                                          nested assignmentDefaults and ai {language, tagDrafts,
+                                          readStudentAnswers, readImports} replace their key, {} no-op;
                                           raw/stored UTF8 cap8192 bytes,400 on excess
 GET    /me/notifications?before=&limit=&audience= → {items: [Notification], nextBefore}; the caller's own,
                                           newest first (20 by default, 50 at most), of one console's
@@ -2836,6 +3060,9 @@ GET    /teacher/tests/:id/versions/:version/diff?against=previous|draft|<n>
 POST   /teacher/tests/:id/duplicate
 GET    /teacher/questions?type=&tag=&tagMatch=any|all&level=&skill=&hasAudio=&q=&page=&limit=
 POST   /teacher/questions | PATCH /:id | DELETE /:id
+                                        an audio policy carries allowPause (§11.1): optional in a request,
+                                        where a create stores true and an update keeps the stored value;
+                                        always sent in an answer. The group writes follow the same rule
 POST   /teacher/media?defaultMaxPlays=  multipart → MediaAsset (validates mime, size, duration, quota)
 GET    /teacher/media?kind=&unused=&q=&page=&limit=   rows, totalBytes, facets and usage (library, held and pending bytes) against the quota
 PATCH  /teacher/media/:id               {displayName?, defaultMaxPlays?} → the library row
@@ -2906,7 +3133,9 @@ DELETE /teacher/classes/:id/join-code   revoke, disable self-join
 # teacher: Word imports (content.tests.write; the caller's own imports, §16)
 GET    /teacher/imports/capabilities    → {intakeEnabled, processingEnabled, retention}
 GET    /teacher/imports/limits          → {maxBytes, formats, pasteMaxCharacters}
-POST   /teacher/imports                 {requestId, title} → 201 WordImport, idempotent on requestId
+POST   /teacher/imports                 {requestId, title, readWithAi?} → 201 WordImport, idempotent on requestId;
+                                          422 VALIDATION_FAILED naming readWithAi when it is true and the server
+                                          has no assistant or the caller lacks ai.use (§16)
 GET    /teacher/imports?status=&status=&q=&page=&limit= → {items: [WordImportHistoryItem], facets}; every item
                                           carries reviewCounts {needsAction, toConfirm} or null
 GET    /teacher/imports/:id             → WordImport with its current sources
@@ -2921,11 +3150,47 @@ GET    /teacher/imports/:id/review | PUT | POST /:id/review/adopt   the draft, t
 GET    /teacher/imports/:id/source?role= → one source's extracted blocks
 POST   /teacher/imports/:id/commit      → one draft test
 
+# teacher: AI assistant (ai.use; a suggestion only, nothing is saved; 501 AI_OFF without a provider)
+POST   /teacher/ai/questions/generate   {source | testId + stimulusId, types (the five stored), count 3|5|8,
+                                          level b1|b2|c1, explanations, language}
+                                          → {items: [{type, prompt, options?, answerKey, explanation}], usage}
+POST   /teacher/ai/tests/:id/check      {checks ⊆ key|clarity|giveaway|language, language?} → {findings: [{severity,
+                                          questionId, number, type, title, issue, fix: {kind, description, label?,
+                                          payload?}}], usage}; 422 for a draft with no question or over 120,000 characters
+POST   /teacher/ai/tests/:id/variant    {changes ⊆ reword|reorder|distract, difficulty same|easier|harder} → {changes:
+                                          [{questionId, number, kind, title, before, after, payload}], usage}; 422 as check
+POST   /teacher/ai/questions/:id/explanation {language, length?} → {text, usage}; 422 without an answer key
+POST   /teacher/ai/questions/:id/distractors → {items: [{text, why}] (up to 4), usage}; 422 unless a single or
+                                          multiple choice question with a key
+POST   /teacher/ai/attempts/:attemptId/answers/:questionId/score-suggestion
+                                        → {score (0 to the points, steps of 0.5), confidence, reasons, comment, usage};
+                                          also needs teaching.grading and the caller's readStudentAnswers (403
+                                          AI_READ_OFF); 409 ATTEMPT_IN_PROGRESS | ATTEMPT_VOIDED; 422 for an answer the
+                                          grader marked itself or the student left empty
+POST   /teacher/ai/assignments/:id/insights → {basis, items: [{kind, title, body, action, questionNumbers, types}]
+                                          (up to 4), usage}; the same gates; 422 when no paper is handed in
+POST   /teacher/ai/bank/cleanup         {checks ⊆ duplicates|tags, language?} → {scanned, truncated, duplicates, tags,
+                                          usage} over the caller's own questions only, even for scope.all; 3 an hour
+GET    /teacher/ai/usage                → {month, used, allowance, left, paused, requests, pending, categories}
+POST   /teacher/ai/credit-requests      {amount 1,000..100,000, reason} → 201 AiCreditRequest; 409 AI_REQUESTS_OFF |
+                                          AI_REQUEST_PENDING; 5 an hour
+
 # admin
 DELETE /admin/users/:id                 a disabled student only, else 409 RESOURCE_NOT_ARCHIVED;
                                           403 FORBIDDEN when the subset rule refuses,
                                           409 RESOURCE_REFERENCED {referencedBy}
 POST   /admin/docs-session              opens the API reference for fifteen minutes (§5.5)
+
+# admin: AI credits (ai.credits.manage)
+GET    /admin/ai/credits                → {month, pool, daysToGo, onPace, withinPool, allowances, active, idle,
+                                          teachers, requests, rules}
+PATCH  /admin/ai/rules                  {defaultAllowance?, warnPercent? 50..99, onTeacherLimit? pause|request}
+                                          → {rules, rewritten}
+POST   /admin/ai/credits/additions      {credits} → 201 AiPool; the approval to spend beyond the plan
+PUT    /admin/ai/teachers/:userId/allowance {custom?, credits?, paused?} → AiTeacherMonth; 409
+                                          AI_ALLOWANCE_BELOW_USE; the subset rule applies (FORBIDDEN)
+POST   /admin/ai/credit-requests/:id/approve | /decline → {request, allowance}; 409 AI_REQUEST_DECIDED |
+                                          AI_REQUEST_EXPIRED; the subset rule applies
 
 # student
 POST   /app/classes/join                {joinCode} → Class      (already-authed path)
@@ -2939,6 +3204,9 @@ POST   /app/assignments/:id/attempts    → create or resume → Attempt + order
                                           startOrResumeAttempt accepts resume; a Continue never
                                           starts an attempt (#237)
 GET    /app/attempts/:id                → Attempt + questions + serverTime + audioPlays
+                                       a question's audio and a group recording's policy are
+                                       StudentAudioPolicy: maxPlays, allowSeek, showTranscriptAfterSubmit
+                                       and allowPause, all present
                                        optional session names the tab's held session;
                                        a different session on a live attempt answers
                                        200 with superseded:true, that held session id,
@@ -2981,7 +3249,17 @@ validator's 400 response; malformed or schema-invalid bodies are
 `400 VALIDATION_FAILED`, and so is a request that carries the character U+0000 in
 a body string, a body member name, a query parameter or a path segment (v0.83).
 
-**Notifications** (R4). `GET /me/notifications`, `POST /me/notifications/read`, `GET /me/summary` and the five switches are the caller's own and need only `self`. A notification is a `kind` and its `params`; the server sends no sentence and the reader's console words it. Nine kinds exist: for a teacher `attempt.submitted`, `attempt.flagged`, `assignment.closing`, `class.joined` and `join_codes.rotated`, and for a student `assignment.opened`, `assignment.due_soon`, `assignment.extended` and `result.ready`. Five switches govern seven of them: `attempt.submitted`, `attempt.flagged`, `assignment.closing` and `result.ready` each their own kind, and `assignment.due_soon` the student kinds `assignment.opened`, `assignment.due_soon` and `assignment.extended`. `class.joined` and `join_codes.rotated` have none. A switch that is off writes nothing. A list is newest first, 20 by default and 50 at most, and is the only keyset list in the contract (`before`); every other list is offset-paginated (O-20). `audience` (v0.79) narrows a list, a count and a marking to one console's kinds.
+**The AI assistant** (D4). With no provider (`ANTHROPIC_API_KEY` unset, so `Assembly.AI` is nil) every `/teacher/ai/*` and `/admin/ai/*` operation answers `501 NOT_IMPLEMENTED` with the code `AI_OFF`, before it reads anything, and `PublicStatus.ai` is false. Otherwise a suggestion operation, which needs `ai.use`, goes in this order: it reads what it will send through the caller's own scope (another teacher's id answers as a missing one), reserves its feature's ceiling in credits (generate 200, check 300, variant 300, explanation 20, wrong options 20, score 30, insights 60, bank clean-up 200), calls the provider, and ends the reservation with `Finish`, the one place that settles or releases. `Finish` settles what the provider billed, including the tokens of a refusal or of an answer that could not be used, and releases the rest, also when the handler panics or the caller goes away. The answer carries `usage {credits, left}`.
+
+- **Refusals.** A paused teacher is refused before any lock: `403 AI_PAUSED`. An allowance or a pool that cannot cover the ceiling is `402 AI_CREDITS_EXHAUSTED` with `details.scope` `teacher` or `pool`, and nothing is held. `403 AI_READ_OFF` is a teacher whose `readStudentAnswers` is off asking for a feature that sends a student's answer. A provider that stays down after three retries, refuses, answers something no decoder can use, or rejects the request (a bad key or account, logged at ERROR for an operator) is `503 AI_UNAVAILABLE` with `Retry-After: 30`, and nothing is written. The other codes are `AI_REQUESTS_OFF`, `AI_REQUEST_PENDING`, `AI_REQUEST_DECIDED`, `AI_REQUEST_EXPIRED` and `AI_ALLOWANCE_BELOW_USE`.
+- **The bank clean-up is one pass.** It reserves its 200 credits once, before the first call, and plans only the calls whose worst case at the configured prices fits that reservation. It makes at most five calls at the same time (up to four of 50 questions to tag, and one that judges the closest pairs of prompts) inside 45 seconds, which with the 10 seconds allowed to settle keeps it under the proxy's 60-second idle timeout, and ends with one `Finish` of the usage of every call the provider billed, on success, on a failed call, when the caller goes away and when a call panics. A call that fails, a call cut off by the time and a call the reservation could not cover leave what the other calls found in the answer with `truncated` true, and what was billed is settled; only a pass in which no call gave a usable answer is `503 AI_UNAVAILABLE`. A rewording that shares few words with the original is not found, and neither is a prompt typed without its diacritics next to its accented twin, because pairs are chosen by the words their prompts share, as typed; a duplicates call too long for its cap is cut to the best pairs that fit and the answer is `truncated`, never refused.
+- **What a suggestion is checked against.** A score is moved to the nearest multiple of 0.5 up to the question's points; a wrong option that repeats an option is dropped; a clean-up tag for a question the call did not ask about, and a duplicate pair the call did not offer, are dropped; a formatted question is read for its words and never rewritten.
+- **What leaves the system (D20).** Each prompt carries only what its feature needs. Generate: the pasted or chosen passage (its first 8,000 characters), the types, count, level and language. Check and variant: the draft's prompts, options, keys, explanations and passages, up to 120,000 characters. Explanation and wrong options: the one question. Bank clean-up: the prompts, types and tags of the caller's own questions, newest first, at most 2,000 read, named q1 to qN in every call so that no id is sent; no call carries more than 50 questions to tag (the first 200 that have no tags, with the tags the bank already uses so a suggestion reuses them) or more than the questions of the 100 closest pairs of prompts, and a question without a pair is never sent for duplicates. Score: the question, its accepted or sample answers and the student's answer text. Insights: per question the correct rate and the eight most frequent wrong answer texts with their counts. No operation sends a student's name, email, id or class, an attempt id, or who wrote what; `operations_test.go` and `ai_flow_test.go` assert it with a fixture whose student is named in every other field. The two features that carry a student's words also need `teaching.grading`, and the score suggestion only for a short answer waiting for a mark by hand. No AI response reaches a student payload.
+- **The subset rule.** The three Admin writes that name one teacher (`setAiAllowance`, which also pauses and resumes, and the two credit-request decisions) call `access.CanActOn`; a target outside the subset answers `403 FORBIDDEN`. `cmd/maintenance ai-credits` runs the same handlers as System and is not asked.
+- **Limits per signed-in user.** The seven suggestions and the console writes 10 a minute and 100 an hour, the bank clean-up 3 an hour, the credit request 5 an hour, and the two reads (`getAiUsage`, `getAiCredits`) 60 a minute and 600 an hour.
+- **Notifications.** Three kinds join the nine, all for the teacher's bell and none with a switch: `ai.allowance_warning` (once a month, when use crosses the warning share), `ai.credit_request` (to every holder of `ai.credits.manage`) and `ai.credit_request.decided`. Their params are `used`, `allowance`, `credits`, `teacherName` and `decision`.
+
+**Notifications** (R4). `GET /me/notifications`, `POST /me/notifications/read`, `GET /me/summary` and the five switches are the caller's own and need only `self`. A notification is a `kind` and its `params`; the server sends no sentence and the reader's console words it. Twelve kinds exist: for a teacher `attempt.submitted`, `attempt.flagged`, `assignment.closing`, `class.joined`, `join_codes.rotated` and the three AI kinds above, and for a student `assignment.opened`, `assignment.due_soon`, `assignment.extended` and `result.ready`. Five switches govern seven of them: `attempt.submitted`, `attempt.flagged`, `assignment.closing` and `result.ready` each their own kind, and `assignment.due_soon` the student kinds `assignment.opened`, `assignment.due_soon` and `assignment.extended`. `class.joined`, `join_codes.rotated` and the three AI kinds have none. A switch that is off writes nothing. A list is newest first, 20 by default and 50 at most, and is the only keyset list in the contract (`before`); every other list is offset-paginated (O-20). `audience` (v0.79) narrows a list, a count and a marking to one console's kinds.
 
 *Who is told, and when.* A notification is written after the change that caused it has committed, under a budget of its own that the end of the request does not cancel; a failure is logged and never fails the request. The teachers are the assignment's creator and the teachers of a target class the student belongs to (`visibility.PaperReaders`, the rule that lets a teacher see a paper, read the other way), each once, so a teacher of another class is told nothing about this student. `attempt.submitted` merges the papers handed in on one assignment into one notification per fifteen minutes, a timed-out paper being a hand-in; `attempt.flagged` is written once, when the integrity policy flags a paper, and never for a teacher's own flag or under `warn`; `class.joined`, which has no switch, on a join by code; `join_codes.rotated` by the start-up rotation (§6.1). The student is told `assignment.extended` when `notify` is true on an extension (everyone whose close it moved) or on an override that moves a close (those it gave time past the assignment's own close), and `result.ready` when a teacher finishes grading and the review policy shows the score at that moment; a `result.ready` notification carries the title and the attempt, never a score. *Due-time items.* `GET /me/summary` and `GET /me/notifications` first write what the passing of time has earned the caller, at most once in five minutes per caller in the serving process; there is no timer and no job. A moment older than seven days is not made up, a row the caller already holds is left as it is, read or not, and a switch that is off writes nothing. For a student: `assignment.opened` (when the assignment opened or was published, whichever is later), `assignment.due_soon` a day and an hour before the student's own close (an override and an early close included) while they have handed nothing in and have an attempt left and the test was available at that moment, and `result.ready` at the close of an `after_close` release for a paper with nothing waiting for a mark. For a teacher: `assignment.closing` an hour before the assignment's close, with the number of students they reach who have not handed in and whose own close is the assignment's. A close that moves earns its reminders again.
 
@@ -3028,8 +3306,10 @@ documents, explicit answer evidence, shared context, semantic formatting,
 recoverable review and atomic draft creation are required before general release.
 Imported and manually authored exams must share rendering, publication and
 grading contracts. Missing answers remain unknown; OCR, answer generation and
-automatic publication are excluded. PDF input is limited to a text layer (D-10), and a test pasted as plain text is accepted as an exam source too (D-11). Each accepted detailed
+automatic publication are excluded. PDF input is limited to a text layer (D-10) unless the teacher asks for "Read with AI" (below), and a test pasted as plain text is accepted as an exam source too (D-11). Each accepted detailed
 contract updates the relevant sections above and OpenAPI before implementation.
+
+**D4, the deck update and the AI assistant** (v0.11.0; `docs/plan/74d-d4-deck-update.md`). The release after R4 rebuilds the take-test engine, the builder's shared content and the three previews to the v2 deck, and adds the AI assistant (D19 to D22): the provider adapter and its tiers (T-D4.30), the credits (T-D4.31), the sixteen operations (T-D4.32), "Read with AI" in the import (T-D4.33), the teacher's surfaces and Settings › AI assistant (T-D4.34 to T-D4.39), and these documents (T-D4.40). It ships when, with the key unset, every AI operation answers 501 and no entry point is drawn; with the key set, a live smoke meters one generation, one score suggestion and one scanned page and reads them back from the ledger; and a reservation that would overspend the pool is refused by its constraint. The Admin's AI credits page is R5's (T-R5.35), on D4's operations.
 
 The native source intake checkpoint is configured separately from learner media.
 `IMPORT_S3_BUCKET` names a separate private bucket; `IMPORT_WORK_DIR` is an absolute,
@@ -3165,7 +3445,9 @@ bold or colour marks for recognition, and the draft says so in an informational
 finding. A scan, a locked
 file, a broken file or one over the limits fails with `PDF_NO_TEXT`,
 `PDF_PROTECTED`, `PDF_INVALID` or `PDF_TOO_LARGE`, and the teacher needs another
-file.
+file; a scan is read instead when the import asked for "Read with AI".
+
+**Read with AI** (D4, T-D4.33; `docs/plan/17-word-import.md` §1.42). `createWordImport` takes `readWithAi` (default false), stored on the import in `word_imports.read_with_ai` and fixed from then on. It is refused with `422 VALIDATION_FAILED` naming `readWithAi` when the server has no assistant or the caller lacks `ai.use`. It matters only to a PDF that fails the text-layer check: a `.docx`, a pasted text and a PDF with a text layer take the path they always took, send nothing and spend nothing. The worker draws up to 40 pages in the PDFium sandbox (a longer file fails `PDF_TOO_LONG_FOR_AI` before anything is held or sent; a scan over the general 60-page limit stays `PDF_TOO_LARGE`), reserves 60 credits a page for the whole file before the first call (a shortfall is `AI_CREDITS_EXHAUSTED` or `AI_PAUSED` with nothing sent), and sends the pages to the capable tier four at a time. The teacher who started the run pays, in one ledger row for the file. What comes back is each page's printed lines, not questions: they become `pdf-lines-v1` evidence, and the recognizer, its source links, review and the transactional commit are the text layer's, so the provider is an untrusted reader and writes no field of a draft. A page the service cannot read is a review-required finding on that page, never a silent gap; every page read counts toward one informational finding, "{n} pages were read by an AI service outside Quizzivy", which is the import's record of what left the system; a file with no readable page fails `AI_UNREADABLE`, and a provider that stays down fails `PROVIDER_UNAVAILABLE`, which is terminal because a retry would pay for the pages again. An import whose scan was read keeps the extraction, so processing it again spends nothing. The Sources pane says that scanned pages are read by an AI service outside Quizzivy and that pages with selectable text are not sent. No check refuses a file that names a student: it would be a false sense of safety, and the teacher carries the responsibility for the file.
 
 Each accepted exam/key addition or replacement creates an immutable source set,
 retaining its unchanged companion and prior originals. Uploads require the current
@@ -3294,11 +3576,12 @@ Thuong approved two ownership/recovery policies for this milestone:
 
 ## 17. Decisions taken inside the answers — worth a second look
 
-All original open questions are closed. These three sub-decisions were made while implementing the answers, and are the ones most likely to want changing.
+All original open questions are closed. These sub-decisions were made while implementing the answers, and are the ones most likely to want changing.
 
 1. **Self-join is Google-only** (§6.3). Password self-signup needs verified email, which needs an email provider. If Thuong wants that in v1, add Resend/SES and an `email_verifications` table — the join flow itself is unchanged. *Decide before Phase 1.*
 2. **No admin approval queue for self-join** (§6.5). Rotate-and-remove is judged sufficient for a small practice. If enrolments become high-volume or a code leaks in practice, add a `pending` membership state. *Non-blocking.*
 3. **mp3 and m4a only** (§11.1). Covers every current browser with no transcoding. Adding `.ogg`/`.wav` means a transcoding pipeline or a Safari support matrix. *Decide before Phase 2.*
+4. **Cloud AI processing is on for the assistant's features** (D19), **with per-feature minimisation** (D20) **and a pool-constrained budget** (D21), decided by Thuong on 2026-10-10. The provider is Anthropic's API. Each feature sends only what it needs and none sends a student's name, email or id (§15). The centre's $200 a month is a hard stop that only credits an Admin adds can lift, and the product bills nobody (§13.10). Removing `ANTHROPIC_API_KEY` turns the assistant off and changes nothing else. *Two pieces stay open and block nothing: the student-facing sentence about cloud processing on the Test intro waits for Thuong's wording and is not built, and the provider account's data-retention setting is his to confirm before the key is set in production (`docs/plan/70-redesign-overview.md` §10).*
 
 ---
 

@@ -27,6 +27,9 @@ function localReferences(html) {
       found.add(target.split('#')[0].replace(/^\.\//, ''));
     }
   }
+  for (const [, name] of html.matchAll(/<dc-import\s+name="([^"{}]+)"/g)) {
+    found.add(`${name}.dc.html`);
+  }
   return found;
 }
 

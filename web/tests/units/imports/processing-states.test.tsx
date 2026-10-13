@@ -293,6 +293,37 @@ describe("processing result data and real actions", () => {
     expect(reviewReads).toBe(0);
   });
 
+  it.each([
+    ["PDF_TOO_LONG_FOR_AI", "PDF quá dài để AI đọc", true],
+    ["AI_UNREADABLE", "AI không đọc được tệp này", true],
+    ["AI_CREDITS_EXHAUSTED", "Không đủ tín dụng AI", false],
+    ["AI_PAUSED", "Việc dùng AI đang bị tạm dừng", false],
+  ])(
+    "explains %s when the AI reader stops a scanned PDF",
+    async (code, title, newFile) => {
+      current = wordImport({
+        status: "failed",
+        readWithAi: true,
+        sources: [
+          source("exam", { filename: "scanned.pdf", format: "pdf" }),
+          source("answer_key"),
+        ],
+        run: run({ status: "failed", stage: "extraction", errorCode: code }),
+      });
+      renderDetail();
+      expect(await screen.findByText(title)).toBeInTheDocument();
+      expect(screen.getByText(new RegExp(code))).toBeInTheDocument();
+      const sources = screen.getByRole("region", { name: "Nguồn" });
+      expect(
+        within(sources).queryByRole("button", { name: "Thay tệp đề thi" }) !== null,
+      ).toBe(newFile);
+      expect(screen.queryByText(i18n.t("imports.runError.UNKNOWN"))).toBeNull();
+      expect(
+        screen.getByText(i18n.t(`imports.runError.${code}`), { exact: false }),
+      ).toBeInTheDocument();
+    },
+  );
+
   it("names a real PDF error and stopped stage while preserving its original error code", async () => {
     current = wordImport({
       status: "failed",

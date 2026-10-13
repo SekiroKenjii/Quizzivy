@@ -44,7 +44,28 @@ export function sectionAt(groups: SectionGroup[], index: number): SectionGroup |
   return groups.find((group) => group.indexes.includes(index)) ?? null;
 }
 
-/** S-05 states a section's instructions once, on its first question in presentation order. */
-export function opensSection(group: SectionGroup, index: number): boolean {
-  return group.indexes[0] === index;
+/**
+ * SectionHead is what the question column says above every question of a
+ * section: its title and, when it has some, its instructions.
+ */
+export interface SectionHead {
+  title: string;
+  instructions: string;
+}
+
+/**
+ * sectionHead is the head above the questions of `group` (S-05, DG-192): the
+ * section's title over its instructions. A paper of one section with no
+ * instructions has none, and neither has a section with no title and no
+ * instructions.
+ */
+export function sectionHead(
+  groups: SectionGroup[],
+  group: SectionGroup | null,
+): SectionHead | null {
+  if (group === null) return null;
+  const title = group.section.title.trim();
+  const instructions = group.section.instructions?.trim() ?? "";
+  if (instructions === "" && (groups.length < 2 || title === "")) return null;
+  return { title, instructions };
 }

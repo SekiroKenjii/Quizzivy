@@ -13,7 +13,13 @@ import {
 import { FLUSH_DEBOUNCE_MS, useTakeTestStore } from "@/features/take-test/store";
 import { ApiError } from "@/lib/api/errors";
 import i18n from "@/lib/i18n";
-import { DECK_ATTEMPT, DECK_LEFT_MS, deckSaved, deckSession } from "./deckSession";
+import {
+  DECK_ATTEMPT,
+  DECK_LEFT_MS,
+  deckMockTestSession,
+  deckSaved,
+  deckSession,
+} from "./deckSession";
 import { text, viewport } from "./support";
 
 vi.mock("@/features/take-test/api", () => ({
@@ -255,6 +261,33 @@ describe("the Submit dialog", () => {
     expect(dialog()).toHaveAccessibleName("Nộp bài khi còn 4 câu chưa trả lời?");
     expect(facts()["Đã trả lời"]).toHaveTextContent(/^4 \/ 8$/);
     expect(chips().map((chip) => chip.textContent)).toEqual(["4", "6", "7", "8"]);
+  });
+
+  it("gives a partly answered question a chip and leaves the counts as they are", async () => {
+    const paper = deckSession(NOW);
+    const blanks = [
+      { id: "blank-1", ordinal: 1, caseSensitive: false },
+      { id: "blank-2", ordinal: 2, caseSensitive: false },
+    ];
+    await open(DECK_LEFT_MS, {
+      questions: paper.questions.map((item) =>
+        item.id === q(5)
+          ? { ...item, type: "fill_blank", prompt: "Parks {{1}} and {{2}}.", blanks }
+          : item,
+      ),
+      answers: {
+        ...paper.answers,
+        [q(5)]: { type: "fill_blank", values: { "blank-1": "matter" } },
+      },
+    });
+    expect(
+      screen.getByRole("button", { name: "Câu 5, trả lời một phần", hidden: true }),
+    ).toBeInTheDocument();
+    await ask();
+
+    expect(dialog()).toHaveAccessibleName(UNANSWERED);
+    expect(facts()["Đã trả lời"]).toHaveTextContent(/^3 \/ 8$/);
+    expect(chips().map((chip) => chip.textContent)).toEqual(["4", "5", "6", "7", "8"]);
   });
 
   it("asks one plain question when every question is answered", async () => {
@@ -610,20 +643,22 @@ describe("the Submit dialog", () => {
     expect(onQuestion(8)).toBeInTheDocument();
   });
 
-  it("stays over the paper it was opened from, with the strip and the header still under it", async () => {
+  it("stays over the paper it was opened from, with the rail, the footer and the header still under it", async () => {
     await open();
-    const strip = () =>
+    const rail = () =>
+      within(screen.getByRole("complementary", { name: "Các phần", hidden: true }));
+    const footer = () =>
       within(screen.getByRole("navigation", { name: "Danh sách câu", hidden: true }));
-    fireEvent.click(strip().getByRole("button", { name: "Câu 8" }));
-    fireEvent.click(strip().getByRole("button", { name: "Hoàn tất" }));
+    fireEvent.click(rail().getByRole("button", { name: "Câu 8" }));
+    fireEvent.click(footer().getByRole("button", { name: "Hoàn tất" }));
     await pass(0);
 
     expect(dialog()).toHaveAccessibleName(UNANSWERED);
     expect(
-      strip().getByRole("button", { name: "Hoàn tất", hidden: true }),
+      footer().getByRole("button", { name: "Hoàn tất", hidden: true }),
     ).toBeInTheDocument();
     expect(
-      strip().getByRole("button", { name: "Câu 8, đang xem", hidden: true }),
+      rail().getByRole("button", { name: "Câu 8, đang xem", hidden: true }),
     ).toBeInTheDocument();
     expect(
       header().getByRole("button", { name: "Thoát khỏi bài làm", hidden: true }),
@@ -691,6 +726,49 @@ describe("the Submit dialog", () => {
       "flex-none",
     );
   });
+
+  it("counts the five empty gaps of a cloze as five unanswered, and a chip opens the run on its gap", async () => {
+    const mock = deckMockTestSession(NOW);
+    const answers = Object.fromEntries(
+      mock.questions.flatMap((question, at) => {
+        if (at >= 22 && at <= 26) return [];
+        const blank = question.blanks?.[0];
+        return [
+          [
+            question.id,
+            blank === undefined
+              ? { type: "choice" as const, optionIds: [question.options![0]!.id] }
+              : { type: "fill_blank" as const, values: { [blank.id]: "worked" } },
+          ],
+        ];
+      }),
+    );
+    await open(DECK_LEFT_MS, {
+      sections: mock.sections,
+      questions: mock.questions,
+      groups: mock.groups ?? [],
+      answers,
+    });
+    await ask();
+
+    expect(dialog()).toHaveAccessibleName(UNANSWERED);
+    expect(facts()["Đã trả lời"]).toHaveTextContent(/^29 \/ 34$/);
+    expect(chips().map((chip) => chip.textContent)).toEqual([
+      "23",
+      "24",
+      "25",
+      "26",
+      "27",
+    ]);
+
+    fireEvent.click(inDialog().getByRole("button", { name: "Câu 25" }));
+    await pass(0);
+    noDialog();
+    expect(screen.getByRole("group", { name: "Chỗ trống 25" })).toBeInTheDocument();
+    expect(
+      document.getElementById(`answer-question-${mock.questions[24]!.id}`),
+    ).toHaveFocus();
+  });
 });
 
 describe("the Submit dialog on a phone", () => {
@@ -707,7 +785,7 @@ describe("the Submit dialog on a phone", () => {
     await pass(0);
     noDialog();
 
-    fireEvent.click(screen.getByRole("button", { name: /^Danh sách câu: / }));
+    fireEvent.click(screen.getByRole("button", { name: /^Câu 1 · đã làm 3 trên 8$/ }));
     await pass(0);
     expect(dialog()).toHaveAccessibleName("Danh sách câu");
     expect(inDialog().queryByRole("button", { name: /nộp|hoàn tất/i })).toBeNull();

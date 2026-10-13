@@ -25,8 +25,9 @@ const adminTree = "/admin/"
 // repeats a key, when a hidden key appears outside /admin/, when a path lies
 // outside every tree, or when a key does not belong to its path's tree:
 // /teacher/ takes content, teaching and people.students keys and
-// workspace.teacher; /admin/ takes people.users.manage, people.roles.manage,
-// system keys, scope.all and workspace.admin; /app/ takes learning.take_tests;
+// ai.use and workspace.teacher; /admin/ takes people.users.manage,
+// people.roles.manage, system keys, ai.credits.manage, scope.all and
+// workspace.admin; /app/ takes learning.take_tests;
 // /auth/ and /me/ take self; /public/ and /join/ hold open operations only.
 func PermissionRequirements(spec *openapi3.T, scheme string) (map[string]access.Requirement, error) {
 	out := map[string]access.Requirement{}
@@ -117,11 +118,11 @@ type pathTree struct {
 
 var pathTrees = []pathTree{
 	{"/teacher/", func(k access.Key) bool {
-		return k == access.WorkspaceTeacher || hasAnyPrefix(string(k), "content.", "teaching.", "people.students.")
+		return k == access.WorkspaceTeacher || k == access.AIUse || hasAnyPrefix(string(k), "content.", "teaching.", "people.students.")
 	}},
 	{adminTree, func(k access.Key) bool {
 		return k == access.WorkspaceAdmin || k == access.PeopleUsersManage || k == access.PeopleRolesManage ||
-			k == access.ScopeAll || strings.HasPrefix(string(k), "system.")
+			k == access.ScopeAll || k == access.AICreditsManage || strings.HasPrefix(string(k), "system.")
 	}},
 	{"/app/", func(k access.Key) bool { return k == access.LearningTakeTests }},
 	{"/auth/", func(k access.Key) bool { return k == access.Self }},

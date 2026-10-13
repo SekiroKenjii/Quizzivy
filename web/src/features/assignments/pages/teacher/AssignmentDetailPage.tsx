@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useEffectEvent,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -38,7 +39,6 @@ import {
 } from "lucide-react";
 import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { StatStrip } from "@/components/shared/stats/StatStrip";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,11 +59,11 @@ import {
 } from "@/features/attempts/api";
 import { AttemptSheet } from "@/features/attempts/components/AttemptSheet";
 import { Monitor } from "@/features/attempts/components/Monitor";
+import { ProgressCard } from "@/features/attempts/components/ProgressCard";
 import { SheetNoteController } from "@/features/attempts/components/sheetNotes";
 import { POLL_MS, monitorKey, reviewKey } from "@/features/attempts/keys";
-import { FLAGGED } from "@/features/integrity/tones";
 import { listVersions, previewTest, type TestVersion } from "@/features/tests/api";
-import { StudentPreviewPane } from "@/features/tests/components/StudentPreviewPane";
+import { InlineStudentPreview } from "@/features/tests/components/InlineStudentPreview";
 import { useIdlePolling, useRefetchOnResume } from "@/hooks/useIdlePolling";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { useCrumbs } from "@/layouts/shell/crumbs";
@@ -71,6 +71,8 @@ import { ApiError } from "@/lib/api/errors";
 import { formatMoment, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useAuthStore } from "@/stores/auth";
 import { getAssignment, updateAssignment, type Assignment } from "../../api";
+import { useAssignmentInsights } from "../../assignmentInsights";
+import { AiInsightsAction, AiInsightsPanel } from "../../components/AiInsightsPanel";
 import { CloseEarlyDialog } from "../../components/CloseEarlyDialog";
 import { ItemAnalysis } from "../../components/ItemAnalysis";
 import { ReopenStudentDialog } from "../../components/ReopenStudentDialog";
@@ -78,7 +80,14 @@ import { SettingsGroups } from "../../components/SettingsGroups";
 import { keepsTimeAfter, overridesKey } from "../../overrides";
 import { toInput } from "../../input";
 import { statusAt } from "../../status";
-import { assignmentStats, detailTab, firstPendingPaper } from "./assignmentDetail";
+import {
+  PROGRESS_GROUPS,
+  assignmentStats,
+  detailTab,
+  firstPendingPaper,
+  rosterFilter,
+  type ProgressGroup,
+} from "./assignmentDetail";
 import { assignmentDetailLocation } from "./assignmentDetailUrl";
 import { moment } from "./assignmentWindow";
 import { DuplicateAssignmentDialog } from "./DuplicateAssignmentDialog";
@@ -93,6 +102,8 @@ export default function AssignmentDetailPage() {
   const navigate = useNavigate();
   const params = new URLSearchParams(location.search);
   const tab = detailTab(params.get("tab"));
+  const roster = rosterFilter(params.get("roster"));
+  const selectedGroup = PROGRESS_GROUPS.find((group) => group === roster) ?? null;
   const attemptId = params.get("attempt");
   const workspace = useWorkspace("teacher");
   const write = useCan("teaching.assignments.write");
@@ -104,6 +115,7 @@ export default function AssignmentDetailPage() {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const headingAfterPublish = useRef(false);
   const { notes, recoveryPanel, noteFocusRequest } = useSheetDrafts();
+  const insights = useAssignmentInsights(id);
 
   const { assignment, a, now, status, monitor, version, preview } = useAssignmentReads(
     id,
@@ -127,6 +139,11 @@ export default function AssignmentDetailPage() {
     setSheetIdentity(null);
   const sheetAttempt =
     attemptId || (sheetIdentity?.assignmentId === id ? sheetIdentity.attemptId : null);
+  const monitorRows = monitor.isSuccess ? monitor.data.rows : undefined;
+  const stats = useMemo(
+    () => (monitorRows === undefined ? null : assignmentStats(monitorRows)),
+    [monitorRows],
+  );
   useCrumbs(a === undefined ? null : [{ label: a.testTitle }]);
   const refresh = async () => {
     await Promise.all([
@@ -215,10 +232,19 @@ export default function AssignmentDetailPage() {
         </EmptyState>
       </>
     );
-  const stats = monitor.isSuccess ? assignmentStats(monitor.data.rows) : null;
-  const eligible = monitor.isSuccess ? firstPendingPaper(monitor.data.rows) : undefined;
+  const eligible =
+    monitorRows === undefined ? undefined : firstPendingPaper(monitorRows);
   const openAttempt = (selected: string) =>
     navigate(assignmentDetailLocation(location, { attempt: selected }));
+  const showGroup = (group: ProgressGroup | null) =>
+    void navigate(
+      assignmentDetailLocation(location, {
+        tab: "students",
+        roster: group,
+        page: null,
+      }),
+      { replace: true },
+    );
   return (
     <div className="flex min-w-0 flex-col gap-4.5">
       <PageHead
@@ -259,7 +285,12 @@ export default function AssignmentDetailPage() {
       )}
       <DraftHint a={a} status={status} />
       {recoveryPanel !== null && !attemptId && recoveryPanel}
-      <DetailStats stats={stats} />
+      <DetailProgress
+        monitor={monitor}
+        stats={stats}
+        selected={selectedGroup}
+        onSelect={showGroup}
+      />
       <Tabs
         value={tab}
         onValueChange={(value) =>
@@ -285,7 +316,19 @@ export default function AssignmentDetailPage() {
           />
         </TabsContent>
         <TabsContent value="questions" className="space-y-4 pt-4.5">
-          <ItemAnalysis assignmentId={a.id} />
+          <ItemAnalysis
+            assignmentId={a.id}
+            action={(handedIn) => (
+              <AiInsightsAction insights={insights} handedIn={handedIn} />
+            )}
+          >
+            <AiInsightsPanel
+              insights={insights}
+              assignmentId={a.id}
+              testTitle={a.testTitle}
+              groups={preview.data?.groups}
+            />
+          </ItemAnalysis>
           <TestCard a={a} version={version} closed={status === "closed"} />
           <QuestionsPanel preview={preview} a={a} />
         </TabsContent>
@@ -753,33 +796,26 @@ function GradeAction({
   );
 }
 
-function DetailStats({
+function DetailProgress({
+  monitor,
   stats,
-}: Readonly<{ stats: ReturnType<typeof assignmentStats> | null }>) {
-  const { t } = useTranslation();
+  selected,
+  onSelect,
+}: Readonly<{
+  monitor: UseQueryResult<Awaited<ReturnType<typeof getMonitor>>, Error>;
+  stats: ReturnType<typeof assignmentStats> | null;
+  selected: ProgressGroup | null;
+  onSelect: (group: ProgressGroup | null) => void;
+}>) {
+  if (monitor.isError)
+    return <ProgressCard state="error" onRetry={() => void monitor.refetch()} />;
+  if (stats === null) return <ProgressCard state="pending" />;
   return (
-    <StatStrip
-      items={[
-        {
-          label: t("assignmentDetail.submitted"),
-          value: stats === null ? "—" : String(stats.submitted),
-          suffix: stats === null ? undefined : ` / ${stats.total}`,
-        },
-        {
-          label: t("monitor.cards.inProgress"),
-          value: stats === null ? "—" : String(stats.inProgress),
-        },
-        {
-          label: t("assignmentDetail.average"),
-          value: stats?.average == null ? "—" : String(stats.average),
-          suffix: stats?.average == null ? undefined : "%",
-        },
-        {
-          label: t("assignments.detail.flagged"),
-          value: stats === null ? "—" : String(stats.flagged),
-          tone: (stats?.flagged ?? 0) > 0 ? FLAGGED.tone : "default",
-        },
-      ]}
+    <ProgressCard
+      state="ready"
+      figures={stats}
+      selected={selected}
+      onSelect={onSelect}
     />
   );
 }
@@ -836,7 +872,7 @@ function QuestionsPanel({
   if (preview.data.questions.length === 0)
     return <EmptyState>{t("assignmentDetail.noQuestions")}</EmptyState>;
   return (
-    <StudentPreviewPane
+    <InlineStudentPreview
       questions={preview.data.questions}
       sections={preview.data.sections ?? []}
       groups={preview.data.groups ?? []}
