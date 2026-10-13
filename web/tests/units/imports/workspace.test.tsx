@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
@@ -7,6 +7,9 @@ import ImportWorkspacePage from "@/features/imports/pages/teacher/ImportWorkspac
 import type { WordImport } from "@/features/imports/api";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
+import { teacherUser } from "@tests/support/fixtures";
+import { useAuthStore } from "@/stores/auth";
+import { aiOn } from "../ai/support";
 import {
   BASE,
   IMPORT_ID,
@@ -84,6 +87,20 @@ describe("the AI reader's privacy note", () => {
     expect(await within(sources).findByText(new RegExp(note))).toBeInTheDocument();
   });
 
+  it("names the AI reader on the reading stage of an import that asked for it", async () => {
+    current = wordImport({
+      status: "processing",
+      run: run(),
+      readWithAi: true,
+      sources: [source("exam", { filename: "scan.pdf", format: "pdf" })],
+    });
+    renderAt(`/teacher/imports/${IMPORT_ID}`);
+    const status = await screen.findByRole("region", { name: "Tiến trình" });
+    const reading = within(status).getByText("Đọc nội dung").closest("li")!;
+    expect(within(reading).getByText("Bản quét được đọc bằng AI")).toBeInTheDocument();
+    expect(within(status).getAllByText("Bản quét được đọc bằng AI")).toHaveLength(1);
+  });
+
   it.each([[undefined], [false]])(
     "says nothing for an import that did not ask (readWithAi %s)",
     async (readWithAi) => {
@@ -95,8 +112,62 @@ describe("the AI reader's privacy note", () => {
       renderAt(`/teacher/imports/${IMPORT_ID}`);
       await screen.findByRole("region", { name: "Nguồn" });
       expect(screen.queryByText(new RegExp(note))).toBeNull();
+      expect(screen.queryByText("Bản quét được đọc bằng AI")).toBeNull();
     },
   );
+});
+
+describe("the draft's Read with AI card (DG-207)", () => {
+  beforeEach(() =>
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    ),
+  );
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    useAuthStore.setState({ accessToken: null, user: null });
+  });
+
+  it("sits in the Sources pane after the files and before the privacy note, which gains the AI sentence while it is on", async () => {
+    aiOn();
+    renderAt("/teacher/imports/new");
+    const sources = await screen.findByRole("region", { name: "Nguồn" });
+    const toggle = await within(sources).findByRole("switch", { name: "Đọc bằng AI" });
+    const key = within(sources).getByLabelText("Tệp đáp án");
+    const privacy = within(sources).getByText(
+      "Nội dung của bạn được xử lý ở đâu.",
+    ).parentElement!;
+    expect(
+      key.compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      toggle.compareDocumentPosition(privacy) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(privacy).not.toHaveTextContent(/dịch vụ AI bên ngoài Quizzivy/);
+    toggle.click();
+    await waitFor(() =>
+      expect(privacy).toHaveTextContent(
+        /Trang quét hoặc ảnh chụp trong lượt nhập này được một dịch vụ AI bên ngoài Quizzivy đọc\. Trang có chữ chọn được không bị gửi đi\.$/,
+      ),
+    );
+  });
+
+  it("is not drawn on an import that already exists", async () => {
+    aiOn();
+    useAuthStore.setState({
+      user: { ...teacherUser, preferences: { ai: { readImports: true } } },
+    });
+    current = wordImport({ status: "awaiting_sources", sources: [] });
+    renderAt(`/teacher/imports/${IMPORT_ID}`);
+    await screen.findByLabelText("Tệp đề thi");
+    expect(screen.queryByRole("switch", { name: "Đọc bằng AI" })).toBeNull();
+  });
 });
 
 describe("the import workspace (DG-207)", () => {

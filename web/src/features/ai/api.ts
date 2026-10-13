@@ -139,3 +139,17 @@ export function suggestAiScore(
     signal ? { path, signal } : { path },
   );
 }
+
+/** AiInsight is one pattern the assistant noticed in an assignment's results, and what to do about it. */
+export type AiInsight = Schemas["AiInsight"];
+/** AiInsightsResult is what one explanation of an assignment's results found, and how many papers it read. */
+export type AiInsightsResult = Schemas["AiInsightsResult"];
+
+/** explainAssignmentResults asks what an assignment's results show and writes nothing. */
+export function explainAssignmentResults(id: string, signal?: AbortSignal) {
+  return api(
+    "post",
+    "/teacher/ai/assignments/{id}/insights",
+    signal ? { path: { id }, signal } : { path: { id } },
+  );
+}

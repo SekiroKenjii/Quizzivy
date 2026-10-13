@@ -3326,15 +3326,56 @@ note wraps in place of the deck's 12px "Sample output" line (DG-201).
 **Touches:** `web/src/features/assignments/pages/teacher/AssignmentDetailPage.tsx` (the Questions tab), `web/src/features/assignments/components/AiInsightsPanel.tsx` (new), locales, `web/tests/units/assignments/insights.test.tsx` (new)
 **Size:** S
 **Done when:**
-- [ ] The Questions tab's header row gains the button and the panel of V-06; "Review answers"
+- [x] The Questions tab's header row gains the button and the panel of V-06; "Review answers"
       opens Grading narrowed to the assignment; "Make a practice set" opens the Generate panel
       with the insight's types preselected and the primary "Save as practice test", which calls
       `duplicateTest`'s create path for a new draft test "{title} · Practice" with the accepted
       questions. "Based on {n} attempts" is the operation's `basis`; "Hide insights" closes the
       panel for the visit.
-- [ ] Hidden without `readStudentAnswers`; disabled with the reason when exhausted; "Try again"
+- [x] Hidden without `readStudentAnswers`; disabled with the reason when exhausted; "Try again"
       on 503.
-- [ ] Unit tests; compared with the deck at 360, 1024 and 1280, light and dark.
+- [x] Unit tests; compared with the deck at 360, 1024 and 1280, light and dark.
+
+**As built:** `features/assignments/components/AiInsightsPanel.tsx` draws the button and the
+panel, `features/assignments/assignmentInsights.ts` holds the call for the visit. The call lives in
+the page (`useAssignmentInsights`), so a tab change keeps what was read; "Hide insights" resets it
+and returns focus to the button, and another assignment's id never shows the last one's answer.
+`ItemAnalysis` gains a header slot (`action`, given the number handed in) and a slot under it.
+The button is `AiEntryButton`, which gains `busy` (the spinner in the icon's place, `aria-busy`, a
+press ignored): "Explain results with AI", "Reading results…" while it reads, "Refresh" after. It is
+drawn only with `useAiAvailable()` and inside the card `teaching.grading` already gates; it is
+disabled with the reason while paused or out of credits (`useAiBlock`), and with "No papers handed
+in yet." while the analysis counts none. **`readStudentAnswers` off** (the Tech Lead's brief, which
+replaces "hidden"): the button's place holds one line, "To explain results with AI, turn on “Let AI
+read student answers” in Settings › AI assistant.", the last words a link to `/teacher/settings/ai`.
+Failures sit under the header as a callout: 503, a dropped connection or a 5xx is "AI didn't
+respond. Try again in a minute." with "Try again"; 402 (by scope) and `AI_PAUSED` the block
+sentence, and the month is read again; `AI_READ_OFF` the line above; 422 "No papers handed in yet.";
+`AI_OFF` reads the status again so the button goes; anything else the server's message. The panel
+is a `section` named by its "What AI noticed" heading; the cards are a list; an answer with no
+items says "AI found nothing to point out in these results.". The answer's `usage` updates the
+cached month. **Read-only:** the call sends no body, and nothing in the panel writes;
+`insights.test.tsx` spies on the API client through a run, a refresh and Hide and finds only GETs
+and the insights POST, and no student name in the panel (the fixture names one). **The practice
+set** is the only write, made by the Generate panel's primary: `generateKind` gains a `practice`
+destination ("Save as practice test", the deck's toast "Practice test with {n} questions saved as a
+draft in Tests") and `types`, the insight's types preselected (the default pair when it names
+none). Its passages are the assigned version's shared-content stimuli from the preview, sent as
+text (no `testId`, since the draft's stimuli may differ from the version's). `tests/aiPractice.ts`
+creates each kept question with `createQuestion` (tagged "AI draft" while the preference is on),
+then `createTest` with "{title} · Practice" (cut to 200 characters) and saves its outline with one
+section, "Section 1", holding them; no other test is touched. `duplicateTest` is not called: it
+copies a whole draft, and a practice set holds only the new questions. **Compared with the deck**
+side by side with the deck's open assignment's Questions tab and its four sample insights (served
+with `window.claude` answering them, so the "sample" note does not show), the app on a production
+build with the same four, English, sidebar expanded, at 360, 768, 1024, 1280 and 1440, light and
+dark: every box, font, weight, line height, colour, border, radius, padding and gap of the header
+row, the button (idle and done), the panel, its head, the basis, the close button and the four
+cards with their tiles, titles, bodies and actions equals the deck's within 0.5px. Not visible:
+Tailwind's transparent ring layers before the same `--shadow`, and `border-color` on elements with
+no border. The intro line now uses the deck's line height of 1.5 (it was 1.45), which moved the
+header by 0.7px at one line. `teacher-shell.spec.ts` gains the panel's geometry, focus ring and
+focus return at 360, 768, 1280 and 1440 in both themes.
 
 ### T-D4.38 — Settings › AI assistant, and the credit request
 **Depends on:** T-D4.32 (the usage read, the request operation, `UserPreferences.ai`)
@@ -3417,18 +3458,53 @@ the interface's language, tags on, answers on, imports off), which T-D4.39 reads
 **Touches:** `web/src/features/imports/components/{SourceIntake,ProcessingPanel}.tsx`, `web/src/features/imports/pages/teacher/{ImportWorkspacePage,ImportsListPage}.tsx`, locales, `web/tests/units/imports/{upload-flow,workspace,processing-states,history}.test.tsx`
 **Size:** S
 **Done when:**
-- [ ] The toggle card of V-11 sits in the Sources pane of `ImportWorkspacePage` (DG-207) between
+- [x] The toggle card of V-11 sits in the Sources pane of `ImportWorkspacePage` (DG-207) between
       the sources and the privacy note, in the draft state only, prefilled from
       `preferences.ai.readImports`, switching the accepts line; the privacy note gains the
       sentence of T-D4.33 while it is on; `createImport` carries `readWithAi`. Absent without
       `useAiAvailable()`; disabled with the reason when exhausted (the 402 would otherwise
       arrive after upload). The card lives in `SourceIntake`, so the page frame (DG-205) and the
       pane split are not touched.
-- [ ] The status pane (`ProcessingPanel`) and the history (`ImportsListPage`) show the reader's
+- [x] The status pane (`ProcessingPanel`) and the history (`ImportsListPage`) show the reader's
       log line and meta (T-D4.33).
-- [ ] Unit tests in `upload-flow.test.tsx` and `workspace.test.tsx`; compared with the approved
+- [x] Unit tests in `upload-flow.test.tsx` and `workspace.test.tsx`; compared with the approved
       page-width design's import workspace (`deck/page-width-proposal/`) and the v2 deck's V-11
       at 360 and 1280, light and dark.
+
+**As built:** One pull request; no contract, migration or server change. The card is
+`components/ReadWithAiCard.tsx` and the choice `useReadWithAi.ts`, both in `features/imports/`,
+on `features/ai/`'s `useAiAvailable` and `useAiBlock` and `features/auth/`'s `aiPreferencesOf`.
+- **Where and when.** `SourceIntake` draws the card after the exam and key slots, inside the file
+  mode's block, so the page frame and the pane split are untouched and the card is hidden, with
+  its state kept, in paste mode. It is offered for a new import (`/teacher/imports/new`) only,
+  while `useAiAvailable()` is true and the server's limits list `pdf`: with no PDF accepted the
+  switch would change nothing. An import awaiting files or failed keeps T-D4.33's note and draws
+  no card, because `readWithAi` is fixed at create.
+- **What it sends.** It starts from `preferences.ai.readImports` (off by default); a change applies
+  to this import and writes no preference. Start sends `readWithAi: true` on `createWordImport`
+  only while it is on; off, the body is today's. Pasted text never sends it. A change of the
+  choice, like a change of the title, takes a new `requestId`. Once the import exists (an upload
+  failed after the create) the card is locked to the import's own value with "The import was
+  created with this choice.". A `422` naming `readWithAi` shows the server's message and reads the
+  status and the usage again, so the card goes when the assistant has.
+- **Blocked.** Paused, or out of allowance or pool (`useAiBlock`): the switch shows off, stays
+  focusable with `aria-disabled`, ignores a press, and the reason (`ai.blocked.*`, the panels'
+  sentences) is a line under the hint and its description. Start then sends no `readWithAi`.
+- **What changes while on.** The accepts line reads `imports.upload.limitsAi` (formats and size
+  from the server, as before), the privacy note appends `imports.upload.privacyAi`, and the
+  "Read the content" stage of the status pane says "Scans read with AI"; the same stage line shows
+  for an import with `readWithAi` in every later state. The history row's meta ends "· Read with
+  AI". The contract carries no credits, so neither the deck's "About 400 credits per page" nor the
+  proposal's "Uses 1 AI credit · 18 left" is drawn (§12: no figure the product has not metered).
+  Settings' "Read imports with AI" hint (T-D4.38) still carries the deck's figure.
+- **Compared with the deck** (served with React, react-dom, Babel and lucide from their npm
+  tarballs through route interception) at 360, 768, 1280 and 1440, light and dark: the card's
+  border, radius, padding, gap, the 32px tile and its tones, the title and hint type and colour,
+  the 38 x 22 switch and its 18px thumb equal the deck's at every width; the card's width is the
+  Sources pane's (DG-205, DG-207), so its height follows the hint's wrap, which is one line
+  shorter without the credit figure. The order (files, card, privacy note) is the page-width
+  design's. No sideways scroll; the switch's ring is 2px `--focus` in both themes. Vietnamese,
+  off and blocked, was checked at 360 and 1280.
 
 ### T-D4.40 — Documents for the AI assistant
 **Depends on:** T-D4.32 merged (the behaviour exists); runs before T-D4.12

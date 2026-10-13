@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { ListSkeleton, LoadError } from "@/components/shared/ListState";
@@ -25,8 +25,19 @@ function itemAnalysisKey(assignmentId: string) {
  * version, hardest first, with its share of full marks as a bar in danger
  * below 40%, warning below 65% and success otherwise. It needs
  * `teaching.grading`; without it the card says so and reads nothing.
+ * `action` draws the right of its header row from the number of papers
+ * handed in (null until read), and `children` sit between that row and the
+ * questions.
  */
-export function ItemAnalysis({ assignmentId }: Readonly<{ assignmentId: string }>) {
+export function ItemAnalysis({
+  assignmentId,
+  action,
+  children,
+}: Readonly<{
+  assignmentId: string;
+  action?: (handedIn: number | null) => ReactNode;
+  children?: ReactNode;
+}>) {
   const { t } = useTranslation();
   const grading = useCan("teaching.grading");
   const introId = useId();
@@ -45,9 +56,13 @@ export function ItemAnalysis({ assignmentId }: Readonly<{ assignmentId: string }
     );
   return (
     <section className={CARD} aria-label={t("assignmentDetail.analysis.title")}>
-      <p id={introId} className="text-muted-fg text-ui px-4 py-3.5">
-        {t("assignmentDetail.analysis.intro")}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2.5 px-4 py-3.5">
+        <p id={introId} className="text-muted-fg text-ui leading-normal">
+          {t("assignmentDetail.analysis.intro")}
+        </p>
+        {action?.(analysis.isSuccess ? analysis.data.handedIn : null)}
+      </div>
+      {children}
       {analysis.isPending && (
         <div className="border-t p-4">
           <ListSkeleton rows={4} />

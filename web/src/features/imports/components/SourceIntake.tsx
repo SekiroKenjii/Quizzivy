@@ -23,13 +23,16 @@ import type { WordImport } from "../api";
 import { listFormats } from "../formats";
 import { importLimitsQuery } from "../queries";
 import { usePastedText, type PasteState } from "../usePastedText";
+import { useReadWithAi } from "../useReadWithAi";
 import { SOURCE_ROLES, useSourceIntake } from "../useSourceIntake";
 import { FileSlot } from "./FileSlot";
 import { PasteField } from "./PasteField";
 import { PasteFindings } from "./PasteFindings";
+import { ReadWithAiCard } from "./ReadWithAiCard";
 
 const TITLE_MAX = 200;
 const PASTE_MAX = 100_000;
+const DEFAULT_FORMATS: readonly string[] = ["docx"];
 
 function pasteHint(
   state: PasteState,
@@ -87,10 +90,11 @@ function titleFromFilename(name: string): string {
  * its two panes: `sources`, the files or the pasted-text box; `findings`, what
  * the quick count found in pasted text (null in file mode); `details`, the
  * title and how the content is read; and `footer`, the error, the hint and
- * Start.
+ * Start. `readWithAi` says the files are, or will be, read with AI.
  */
 export interface IntakeParts {
   pasting: boolean;
+  readWithAi: boolean;
   sources: ReactNode;
   findings: ReactNode;
   details: ReactNode;
@@ -103,7 +107,9 @@ export interface IntakeParts {
  * the exam and optional key, and one action that uploads what changed and
  * queues processing. For a new import, `fileMode` false shows the pasted-text
  * box in place of the files; the files, the text and a typed title survive a
- * switch, and leaving with text that has not started asks first. It owns the
+ * switch, and leaving with text that has not started asks first. A new file
+ * import offers the "Read with AI" card while the assistant is available and
+ * PDFs are accepted, and sends `readWithAi` when it is on. It owns the
  * form and its state, and `children` lays the parts out; `examAlert` draws a
  * note under the exam's file, given `onChoose`, which opens its file picker.
  */
@@ -149,9 +155,9 @@ export function SourceIntake({
   const title = typedTitle ?? (pasting ? paste.firstLine : suggested);
   const askTitle = existing === null;
   const titleLocked = intake.importId !== null;
-  const accept = (limits.data?.formats ?? ["docx"])
-    .map((format) => `.${format}`)
-    .join(",");
+  const formats = limits.data?.formats ?? DEFAULT_FORMATS;
+  const ai = useReadWithAi(askTitle && formats.includes("pdf"), intake.readWithAi);
+  const accept = formats.map((format) => `.${format}`).join(",");
   const filesReady = intake.ready && (!askTitle || title.trim() !== "");
   const pasteReady = !intake.busy && paste.state === "ready";
   const canStart = enabled && (pasting ? pasteReady : filesReady);
@@ -174,7 +180,7 @@ export function SourceIntake({
   function submit() {
     if (!canStart) return;
     if (!pasting) {
-      void intake.start(title.trim());
+      void intake.start(title.trim(), ai.asks);
       return;
     }
     const exact = paste.sendable();
@@ -189,6 +195,7 @@ export function SourceIntake({
           failed={limits.isError}
           maxBytes={limits.data?.maxBytes}
           formats={limits.data?.formats}
+          ai={ai.on}
           onRetry={() => void limits.refetch()}
         />
         {SOURCE_ROLES.map((role) => (
@@ -204,6 +211,15 @@ export function SourceIntake({
             onRemove={() => intake.remove(role)}
           />
         ))}
+        {ai.offered ? (
+          <ReadWithAiCard
+            on={ai.on}
+            blocked={ai.blocked}
+            locked={ai.locked}
+            busy={intake.busy}
+            onChange={ai.choose}
+          />
+        ) : null}
       </div>
       {askTitle ? (
         <div hidden={!pasting}>
@@ -260,6 +276,7 @@ export function SourceIntake({
     >
       {children({
         pasting,
+        readWithAi: !pasting && ai.on,
         sources,
         findings: pasting ? (
           <PasteFindings scan={paste.scan} state={paste.state} max={pasteMax} />
@@ -437,12 +454,14 @@ function LimitsLine({
   failed,
   maxBytes,
   formats,
+  ai,
   onRetry,
 }: Readonly<{
   pending: boolean;
   failed: boolean;
   maxBytes: number | undefined;
   formats: readonly string[] | undefined;
+  ai: boolean;
   onRetry: () => void;
 }>) {
   const { t } = useTranslation();
@@ -461,12 +480,13 @@ function LimitsLine({
         </Button>
       </p>
     );
+  const values = {
+    formats: listFormats(formats, "extension", "and", t),
+    size: formatBytes(maxBytes),
+  };
   return (
     <p className="bg-muted rounded-md px-3 py-2.5 text-sm leading-[1.55]">
-      {t("imports.upload.limits", {
-        formats: listFormats(formats, "extension", "and", t),
-        size: formatBytes(maxBytes),
-      })}
+      {ai ? t("imports.upload.limitsAi", values) : t("imports.upload.limits", values)}
     </p>
   );
 }

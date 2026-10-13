@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
 import { ApiError, failureMessage } from "@/lib/api/errors";
+import { AI_STATUS_KEY, AI_USAGE_KEY } from "@/features/ai/api";
 import { formatBytes } from "@/features/media/format";
+import type { components } from "@/lib/api/schema";
 import {
   createWordImport,
   getWordImport,
@@ -32,6 +34,8 @@ export interface SourceSlot {
 }
 
 type Slots = Record<ImportSourceRole, SourceSlot>;
+
+type Schemas = components["schemas"];
 
 interface Pinned {
   uploadId: string | null;
@@ -87,6 +91,20 @@ export function precheckFile(
   return null;
 }
 
+function refusesReadWithAi(cause: unknown): boolean {
+  return (
+    cause instanceof ApiError &&
+    cause.status === 422 &&
+    cause.details !== undefined &&
+    "readWithAi" in cause.details
+  );
+}
+
+function refreshAi(client: QueryClient) {
+  void client.invalidateQueries({ queryKey: AI_STATUS_KEY });
+  void client.invalidateQueries({ queryKey: AI_USAGE_KEY });
+}
+
 const REFUSED: ReadonlySet<number> = new Set([400, 409, 413, 415]);
 const FILE_FAULTS: ReadonlySet<number> = new Set([400, 413, 415]);
 
@@ -95,10 +113,13 @@ const FILE_FAULTS: ReadonlySet<number> = new Set([400, 413, 415]);
  * then the key against the revision the exam produced, or with `startText`
  * sends pasted text as the exam, and queues processing. Each step keeps its
  * request identity across retries until its input changes, and a conflict
- * re-reads the import first. Every import an upload
- * or a re-read returns is reported through `onChanged`. With `replacing`,
- * starting requires a newly chosen file. Unmounting aborts an intake in
- * progress without reporting it.
+ * re-reads the import first. `start` asks for the files to be read with AI
+ * when its `readWithAi` is true, which only a new import takes; a refusal of
+ * it reads the assistant's status and usage again. The returned `readWithAi`
+ * is the import's own choice once it exists, and null before. Every import
+ * an upload or a re-read returns is reported through `onChanged`. With
+ * `replacing`, starting requires a newly chosen file. Unmounting aborts an
+ * intake in progress without reporting it.
  */
 export function useSourceIntake({
   existing,
@@ -121,11 +142,14 @@ export function useSourceIntake({
   const current = useRef<WordImport | null>(existing);
   const latest = useRef<WordImport | null>(existing);
   const [importId, setImportId] = useState<string | null>(existing?.id ?? null);
+  const [readWithAi, setReadWithAi] = useState<boolean | null>(
+    existing === null ? null : existing.readWithAi === true,
+  );
   const pinned = useRef<Record<ImportSourceRole, Pinned>>({
     exam: UNPINNED,
     answer_key: UNPINNED,
   });
-  const created = useRef<{ requestId: string; title: string } | null>(null);
+  const created = useRef<Schemas["CreateWordImport"] | null>(null);
   const processed = useRef<{ requestId: string; revision: number } | null>(null);
   const files = useRef<Record<ImportSourceRole, File | null>>({
     exam: null,
@@ -179,7 +203,11 @@ export function useSourceIntake({
     onChanged?.(fresh);
   }
 
-  async function ensureImport(title: string, signal: AbortSignal): Promise<WordImport> {
+  async function ensureImport(
+    title: string,
+    readWithAi: boolean,
+    signal: AbortSignal,
+  ): Promise<WordImport> {
     const known = latest.current;
     if (
       current.current !== null &&
@@ -188,11 +216,20 @@ export function useSourceIntake({
     )
       current.current = known;
     if (current.current !== null) return current.current;
-    if (created.current === null || created.current.title !== title)
-      created.current = { requestId: crypto.randomUUID(), title };
+    if (
+      created.current === null ||
+      created.current.title !== title ||
+      (created.current.readWithAi === true) !== readWithAi
+    )
+      created.current = {
+        requestId: crypto.randomUUID(),
+        title,
+        ...(readWithAi ? { readWithAi: true } : {}),
+      };
     const made = await createWordImport(created.current, signal);
     current.current = made;
     setImportId(made.id);
+    setReadWithAi(made.readWithAi === true);
     return made;
   }
 
@@ -288,7 +325,7 @@ export function useSourceIntake({
     }
   }
 
-  async function run(title: string, send: Send) {
+  async function run(title: string, readWithAi: boolean, send: Send) {
     const controller = new AbortController();
     running.current = controller;
     const { signal } = controller;
@@ -300,7 +337,7 @@ export function useSourceIntake({
         staleTime: 0,
       });
       if (!capabilities.processingEnabled || signal.aborted) return;
-      const target = await send(await ensureImport(title, signal), signal);
+      const target = await send(await ensureImport(title, readWithAi, signal), signal);
       if (target === null || signal.aborted) return;
       if (!target.sources.some((source) => source.role === "exam")) {
         setError(t("imports.upload.examRequired"));
@@ -322,6 +359,7 @@ export function useSourceIntake({
       if (signal.aborted) return;
       setError(failureMessage(cause, t("imports.upload.startFailed")));
       refreshAvailability(client, cause);
+      if (refusesReadWithAi(cause)) refreshAi(client);
       if (
         cause instanceof ApiError &&
         cause.status === 409 &&
@@ -341,13 +379,14 @@ export function useSourceIntake({
   return {
     slots,
     importId,
+    readWithAi,
     busy,
     error,
     choose,
     remove,
-    start: (title: string) => run(title, sendFiles),
+    start: (title: string, readWithAi = false) => run(title, readWithAi, sendFiles),
     startText: (title: string, text: string) =>
-      run(title, (into, signal) => sendText(text, into, signal)),
+      run(title, false, (into, signal) => sendText(text, into, signal)),
     ready: examReady && keyReady && !busy && (!replacing || changed),
   };
 }

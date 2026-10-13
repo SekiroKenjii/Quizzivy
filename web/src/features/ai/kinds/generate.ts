@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import { BookOpenText, Eraser, Library, Plus, Sparkles } from "lucide-react";
+import { BookOpenText, Eraser, FilePlus, Library, Plus, Sparkles } from "lucide-react";
 import { trueFalseLabelKey } from "@/components/shared/content/trueFalse";
 import {
   generateAiQuestions,
@@ -24,19 +24,23 @@ export interface GeneratedDraft {
   level: AiLevel;
 }
 
+type QuestionType = AiGeneratedQuestion["type"];
+
 /**
  * GenerateContext is what a page gives the Generate panel: the test whose
- * passages it offers, where the kept questions go, and `save`, the page's own
- * write for them, which tags each with `tag` when it is not null.
+ * passages it offers, the question types to start from when not the default,
+ * where the kept questions go (a section, the bank, or a new practice test),
+ * and `save`, the page's own write for them, which tags each with `tag` when
+ * it is not null.
  */
 export interface GenerateContext {
   testId?: string;
   passages: readonly AiPassage[];
-  destination: { kind: "section"; title: string } | { kind: "bank" };
+  types?: readonly QuestionType[];
+  destination:
+    { kind: "section"; title: string } | { kind: "bank" } | { kind: "practice" };
   save: (drafts: readonly GeneratedDraft[], tag: string | null) => Promise<void>;
 }
-
-type QuestionType = AiGeneratedQuestion["type"];
 
 interface GenerateValues {
   source: string;
@@ -57,13 +61,21 @@ const TYPES: readonly QuestionType[] = [
   "fill_blank",
   "short_answer",
 ];
+const DEFAULT_TYPES: readonly QuestionType[] = ["single_choice", "true_false"];
 const COUNTS = ["3", "5", "8"] as const;
 const LEVELS = ["b1", "b2", "c1"] as const;
 const SOURCE_MIN = 40;
 const SOURCE_MAX = 20000;
 
+const PRIMARY_ICONS = { section: Plus, bank: Library, practice: FilePlus } as const;
+
 function isLevel(value: string): value is AiLevel {
   return (LEVELS as readonly string[]).includes(value);
+}
+
+function initialTypes(preset: readonly QuestionType[] | undefined) {
+  const types = TYPES.filter((type) => preset?.includes(type));
+  return types.length > 0 ? types : DEFAULT_TYPES;
 }
 
 function request(
@@ -139,7 +151,7 @@ export const generateKind: AiKind<GenerateValues, GenerateItem, GenerateContext>
   emptyKey: "ai.generate.empty",
   initial: (context) => ({
     source: context.passages[0]?.text ?? "",
-    types: ["single_choice", "true_false"],
+    types: initialTypes(context.types),
     count: "5",
     level: "b2",
     explanations: true,
@@ -228,26 +240,32 @@ export const generateKind: AiKind<GenerateValues, GenerateItem, GenerateContext>
   summary: (items, selected, t) =>
     t("ai.generate.summary", { n: selected, total: items.length }),
   primary: {
-    icon: ({ context }) => (context.destination.kind === "bank" ? Library : Plus),
-    label: (selected, { t, context }) =>
-      context.destination.kind === "bank"
-        ? t("ai.generate.saveToBank", { count: selected.length })
-        : t("ai.generate.addTo", {
-            count: selected.length,
-            section: context.destination.title,
-          }),
+    icon: ({ context }) => PRIMARY_ICONS[context.destination.kind],
+    label: (selected, { t, context }) => {
+      const { destination } = context;
+      if (destination.kind === "practice") return t("ai.generate.saveAsPractice");
+      if (destination.kind === "bank")
+        return t("ai.generate.saveToBank", { count: selected.length });
+      return t("ai.generate.addTo", {
+        count: selected.length,
+        section: destination.title,
+      });
+    },
     apply: async (selected, { t, context, tagDrafts }) => {
       await context.save(
         selected.map(({ question, level }) => ({ question, level })),
         tagDrafts ? t("ai.draftTag") : null,
       );
-      if (context.destination.kind === "bank")
+      const { destination } = context;
+      if (destination.kind === "practice")
+        return t("ai.generate.savedPractice", { count: selected.length });
+      if (destination.kind === "bank")
         return t(tagDrafts ? "ai.generate.savedTagged" : "ai.generate.saved", {
           count: selected.length,
         });
       return t("ai.generate.added", {
         count: selected.length,
-        section: context.destination.title,
+        section: destination.title,
       });
     },
   },

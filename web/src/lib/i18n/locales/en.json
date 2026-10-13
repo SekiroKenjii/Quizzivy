@@ -131,7 +131,10 @@
       "saved_other": "{{count}} questions saved to the bank",
       "savedTagged_one": "{{count}} question saved to the bank with an AI draft tag",
       "savedTagged_other": "{{count}} questions saved to the bank with an AI draft tag",
-      "invalid": "Question {{n}} as AI wrote it can’t be saved. Clear it and try again."
+      "invalid": "Question {{n}} as AI wrote it can’t be saved. Clear it and try again.",
+      "saveAsPractice": "Save as practice test",
+      "savedPractice_one": "Practice test with {{count}} question saved as a draft in Tests",
+      "savedPractice_other": "Practice test with {{count}} questions saved as a draft in Tests"
     },
     "check": {
       "title": "Check this test with AI",
@@ -3318,6 +3321,10 @@
       "limitsLoading": "Loading file limits…",
       "limitsFailed": "Couldn't load the file limits. The server still checks them on upload.",
       "limits": "Accepts {{formats}} files up to {{size}} each. Files with a password or macros are refused, and so are scanned or photographed PDFs (with no selectable text).",
+      "limitsAi": "Accepts {{formats}} files up to {{size}} each, including scanned or photographed PDFs. Files with a password or macros are refused.",
+      "aiTitle": "Read with AI",
+      "aiHint": "Handles scans, photos of printed tests and unusual layouts.",
+      "aiLocked": "The import was created with this choice.",
       "titleLabel": "Test title",
       "titlePlaceholder": "Name of the draft test",
       "titleHint": "Filled in from the exam filename. You can change it.",
@@ -3416,7 +3423,8 @@
       "attempt": "Attempt {{attempt}} of {{max}}",
       "textCheck": "Check the text",
       "charactersChecked": "{{count}} characters checked",
-      "plainText": "Plain text · no formatting"
+      "plainText": "Plain text · no formatting",
+      "withAi": "Scans read with AI"
     },
     "textRunError": {
       "SOURCE_INVALID": "The pasted text or a companion file could not be read. Check the sources and start a new import.",
@@ -3930,6 +3938,7 @@
       "noun_one": "import",
       "noun_other": "imports",
       "withKey": "with {{name}}",
+      "readWithAi": "Read with AI",
       "noTest": "none yet",
       "openTest": "Open test {{title}}",
       "actionsNamed": "Actions for {{title}}",
@@ -4195,6 +4204,20 @@
       "empty": "No papers handed in yet.",
       "noPermission": "Seeing which questions students got wrong needs the grading permission.",
       "loadFailed": "Could not load the question statistics."
+    },
+    "insights": {
+      "explain": "Explain results with AI",
+      "reading": "Reading results…",
+      "refresh": "Refresh",
+      "title": "What AI noticed",
+      "basis_one": "Based on {{count}} attempt",
+      "basis_other": "Based on {{count}} attempts",
+      "hide": "Hide insights",
+      "empty": "AI found nothing to point out in these results.",
+      "review": "Review answers",
+      "practice": "Make a practice set",
+      "practiceTitle": "{{title}} · Practice",
+      "readOff": "To explain results with AI, turn on “Let AI read student answers” in <settings>Settings › AI assistant</settings>."
     },
     "settings": {
       "shown": "Shown",
