@@ -7,10 +7,20 @@ import type { MediaAsset, MediaKind } from "@/features/media/api";
 import { materialTransaction } from "../materialTransaction";
 import { MaterialAssetDialog } from "./MaterialAssetDialog";
 
+/**
+ * MaterialTools is a material editor's row of insert buttons, one for each
+ * of `kinds`: an image or a recording at the caret, through
+ * `MaterialAssetDialog`.
+ */
 export function MaterialTools({
   editor,
+  kinds,
   onAsset,
-}: Readonly<{ editor: Editor; onAsset: (asset: MediaAsset) => void }>) {
+}: Readonly<{
+  editor: Editor;
+  kinds: readonly MediaKind[];
+  onAsset: (asset: MediaAsset) => void;
+}>) {
   const { t } = useTranslation();
   const [assetKind, setAssetKind] = useState<MediaKind | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -58,28 +68,32 @@ export function MaterialTools({
         aria-label={t("groups.materialTools")}
         className="flex flex-wrap gap-1 border-b p-2"
       >
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            remember();
-            setAssetKind("image");
-          }}
-        >
-          <ImagePlus aria-hidden="true" />
-          {t("groups.image")}
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            remember();
-            setAssetKind("audio");
-          }}
-        >
-          <Music2 aria-hidden="true" />
-          {t("groups.audio")}
-        </Button>
+        {kinds.includes("image") && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              remember();
+              setAssetKind("image");
+            }}
+          >
+            <ImagePlus aria-hidden="true" />
+            {t("groups.image")}
+          </Button>
+        )}
+        {kinds.includes("audio") && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              remember();
+              setAssetKind("audio");
+            }}
+          >
+            <Music2 aria-hidden="true" />
+            {t("groups.audio")}
+          </Button>
+        )}
       </div>
       {error ? (
         <p role="alert" className="px-3 py-2 text-sm">

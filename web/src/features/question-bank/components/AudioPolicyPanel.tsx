@@ -15,6 +15,7 @@ interface AudioPolicyPanelProps {
   transcript: string;
   onPolicyChange: (policy: AudioPolicy) => void;
   onTranscriptChange: (transcript: string) => void;
+  transcriptHint?: string | undefined;
 }
 
 /**
@@ -22,13 +23,15 @@ interface AudioPolicyPanelProps {
  * media block draws them under the player: "Plays" as a radiogroup of Once,
  * Twice and Unlimited, with a stored count outside the three shown as a
  * fourth option while it is the value (DG-111); "Allow skipping ahead" and
- * "Show transcript after submitting"; and the optional transcript.
+ * "Show transcript after submitting"; and the optional transcript, whose
+ * hint is "Optional" unless the host gives `transcriptHint`.
  */
 export function AudioPolicyPanel({
   policy,
   transcript,
   onPolicyChange,
   onTranscriptChange,
+  transcriptHint,
 }: Readonly<AudioPolicyPanelProps>) {
   const { t } = useTranslation();
   const playsLabel = useId();
@@ -91,7 +94,7 @@ export function AudioPolicyPanel({
         >
           {t("questionEditor.questionMedia.transcript")}
           <span className="text-muted-fg font-normal">
-            {t("questionEditor.questionMedia.optional")}
+            {transcriptHint ?? t("questionEditor.questionMedia.optional")}
           </span>
         </label>
         <Textarea

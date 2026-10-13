@@ -48,9 +48,11 @@ const SHARED_ICONS = {
  * selecting, moving or removing it. `fileNames` maps an audio asset id to
  * the file name the line prints. Rename and Shared content only ask the
  * builder to act: the group's title is written by its editor, never here.
- * Rename asks once the menu has closed, so the focus it moves to the title
- * is not taken back by the menu; Remove group hands over the menu's trigger,
- * where focus returns when its confirmation closes.
+ * Rename and Shared content ask once the menu has closed, so the focus they
+ * move is not taken back by the menu; Shared content leaves focus on the
+ * trigger until its dialog opens. Shared content, from the menu or from the
+ * line, and Remove group hand over the control they were asked from, the
+ * menu's trigger or the line, where focus returns when their dialog closes.
  */
 export function OutlineGroupRow({
   id,
@@ -79,7 +81,7 @@ export function OutlineGroupRow({
   canDown: boolean;
   onSelect: (questionId?: string) => void;
   onRename: () => void;
-  onSharedContent: () => void;
+  onSharedContent: (opener: HTMLElement | null) => void;
   onStep: (direction: -1 | 1) => void;
   onRemove: (opener: HTMLElement | null) => void;
 }>) {
@@ -185,13 +187,13 @@ function GroupActions({
   canUp: boolean;
   canDown: boolean;
   onRename: () => void;
-  onSharedContent: () => void;
+  onSharedContent: (opener: HTMLElement | null) => void;
   onStep: (direction: -1 | 1) => void;
   onRemove: (opener: HTMLElement | null) => void;
 }>) {
   const { t } = useTranslation();
   const trigger = useRef<HTMLButtonElement>(null);
-  const afterClose = useRef<(() => void) | null>(null);
+  const afterClose = useRef<{ run: () => void; focusTrigger: boolean } | null>(null);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -215,22 +217,29 @@ function GroupActions({
         align="end"
         className="w-48 data-[state=closed]:animate-none! data-[state=open]:animate-none!"
         onCloseAutoFocus={(event) => {
-          const action = afterClose.current;
+          const next = afterClose.current;
           afterClose.current = null;
-          if (!action) return;
-          event.preventDefault();
-          action();
+          if (!next) return;
+          if (!next.focusTrigger) event.preventDefault();
+          next.run();
         }}
       >
         <DropdownMenuItem
           onSelect={() => {
-            afterClose.current = onRename;
+            afterClose.current = { run: onRename, focusTrigger: false };
           }}
         >
           <Pencil aria-hidden="true" />
           {t("builder.renameGroup")}
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onSharedContent}>
+        <DropdownMenuItem
+          onSelect={() => {
+            afterClose.current = {
+              run: () => onSharedContent(trigger.current),
+              focusTrigger: true,
+            };
+          }}
+        >
           <PanelLeft aria-hidden="true" />
           {t("builder.sharedContent")}
         </DropdownMenuItem>
@@ -314,13 +323,16 @@ function GroupMembers({
 function SharedContentButton({
   line,
   onClick,
-}: Readonly<{ line: SharedContentLine; onClick: () => void }>) {
+}: Readonly<{
+  line: SharedContentLine;
+  onClick: (opener: HTMLElement) => void;
+}>) {
   const Icon = SHARED_ICONS[line.kind];
   return (
     <button
       type="button"
       className="text-muted-fg hover:bg-muted mb-0.5 ml-6.5 flex w-[calc(100%-1.625rem)] items-center gap-1.5 rounded-[6px] px-1.5 py-1 text-left text-xs leading-[1.45]"
-      onClick={onClick}
+      onClick={(event) => onClick(event.currentTarget)}
     >
       <Icon aria-hidden="true" className="size-3.25 shrink-0" />
       <span className="min-w-0 truncate leading-[18px]">{line.text}</span>

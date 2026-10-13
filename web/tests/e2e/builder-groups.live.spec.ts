@@ -1,5 +1,8 @@
+import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import { signInAsAdmin } from "./support/live";
+
+const AUDIO = fileURLToPath(new URL("./fixtures/unit5-listening.mp3", import.meta.url));
 
 async function saved(page: Page) {
   await expect(page.locator('[role="status"][data-state="saved"]')).toBeVisible();
@@ -157,4 +160,85 @@ test("mixed builder saves new sections, moves complete groups, copies context an
   await expect(page.getByText("Đã phát hành. Giờ bạn có thể giao bài.")).toBeVisible();
   await page.goto(builderPath.replace(/\/edit$/, ""));
   await expect(page).toHaveURL(builderPath.replace(/\/edit$/, ""));
+});
+
+test("the Shared content dialog saves a recording, then a passage over it, in the shapes the real API accepts", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await signInAsAdmin(page);
+  await page.goto("/teacher/tests");
+  await page.getByRole("button", { name: "Đề thi mới", exact: true }).click();
+  await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+\/edit$/);
+  await page.getByRole("button", { name: "Thêm phần", exact: true }).click();
+  await saved(page);
+  await page
+    .getByRole("button", { name: "Thêm nhóm câu dùng chung", exact: true })
+    .click();
+  const title = `Nghe và đọc ${Date.now()}`;
+  await page.getByLabel("Tên nhóm câu hỏi", { exact: true }).fill(title);
+  await page.getByRole("button", { name: "Thêm câu hỏi", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Nội dung câu hỏi", exact: true })
+    .fill("Người nói hẹn gặp ở đâu?");
+  await saved(page);
+  const group = page.locator("[data-outline-group]").first();
+  const dialogName = `Nội dung dùng chung của “${title}”`;
+  const groupSaved = () =>
+    page.waitForResponse(
+      (response) =>
+        response.request().method() === "PUT" &&
+        /\/teacher\/question-groups\/[^/]+$/.test(new URL(response.url()).pathname),
+    );
+
+  await group
+    .getByRole("button", { name: `Thao tác với nhóm ${title}`, exact: true })
+    .click();
+  await page
+    .getByRole("menuitem", { name: "Nội dung dùng chung", exact: true })
+    .click();
+  let dialog = page.getByRole("dialog", { name: dialogName });
+  await dialog.getByRole("button", { name: "Bài nghe", exact: true }).click();
+  await dialog.getByLabel("Chọn tệp từ máy").setInputFiles(AUDIO);
+  await expect(dialog.getByText("unit5-listening.mp3", { exact: true })).toBeVisible({
+    timeout: 30_000,
+  });
+  let response = groupSaved();
+  await dialog.getByRole("button", { name: "Lưu", exact: true }).click();
+  expect((await response).status()).toBe(200);
+  await expect(dialog).toBeHidden();
+  const audioLine = group.getByRole("button", {
+    name: "Bài nghe · unit5-listening.mp3 · 2 lượt nghe",
+    exact: true,
+  });
+  await expect(audioLine).toBeVisible();
+
+  await audioLine.click();
+  dialog = page.getByRole("dialog", { name: dialogName });
+  await dialog.getByRole("button", { name: "Bài đọc", exact: true }).click();
+  await dialog
+    .getByRole("textbox", { name: "Tiêu đề", exact: true })
+    .fill("Lịch câu lạc bộ");
+  await dialog
+    .getByRole("textbox", { name: "Bài đọc", exact: true })
+    .fill("Câu lạc bộ mở cửa vào thứ Bảy.");
+  await dialog.getByRole("button", { name: "Lưu", exact: true }).click();
+  const confirm = page.getByRole("dialog", { name: "Thay nội dung dùng chung?" });
+  await expect(confirm).toContainText("unit5-listening.mp3");
+  response = groupSaved();
+  await confirm.getByRole("button", { name: "Thay và lưu", exact: true }).click();
+  expect((await response).status()).toBe(200);
+  await expect(dialog).toBeHidden();
+  await expect(
+    group.getByRole("button", { name: "Bài đọc · Lịch câu lạc bộ", exact: true }),
+  ).toBeVisible();
+
+  await page.reload();
+  await expect(
+    page
+      .locator("[data-outline-group]")
+      .first()
+      .getByRole("button", { name: "Bài đọc · Lịch câu lạc bộ", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("Người nói hẹn gặp ở đâu?").first()).toBeVisible();
 });

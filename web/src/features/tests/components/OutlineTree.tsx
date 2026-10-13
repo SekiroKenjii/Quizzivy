@@ -105,6 +105,7 @@ interface OutlineTreeProps {
   selectedGroupId?: string | null;
   onSelectGroup?: (id: string, questionId?: string) => void;
   onRenameGroup?: (id: string) => void;
+  onOpenSharedContent?: (id: string, opener: HTMLElement | null) => void;
   onCreateGroup?: () => void;
   onRemoveGroup?: (id: string, opener: HTMLElement | null) => void;
   onRemoveSection?: (index: number) => void;
@@ -114,6 +115,8 @@ interface OutlineTreeProps {
  * OutlineTree edits test sections and whole question or shared-context units
  * in reading order. `groupFiles` maps an audio asset id of a group's
  * materials to its file name, for the group's shared-content line.
+ * `onOpenSharedContent` asks for a group's Shared content dialog, naming the
+ * control focus returns to when it closes.
  */
 export function OutlineTree({
   sections,
@@ -130,6 +133,7 @@ export function OutlineTree({
   selectedGroupId,
   onSelectGroup,
   onRenameGroup,
+  onOpenSharedContent,
   onCreateGroup,
   onRemoveGroup,
   onRemoveSection,
@@ -452,7 +456,9 @@ export function OutlineTree({
                                   onSelectGroup?.(unit.id, questionId)
                                 }
                                 onRename={() => onRenameGroup?.(unit.id)}
-                                onSharedContent={() => onSelectGroup?.(unit.id)}
+                                onSharedContent={(opener) =>
+                                  onOpenSharedContent?.(unit.id, opener)
+                                }
                                 onStep={(direction) => step(unitKey(unit), direction)}
                                 onRemove={(opener) => onRemoveGroup?.(unit.id, opener)}
                               />

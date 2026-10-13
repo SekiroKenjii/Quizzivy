@@ -160,6 +160,11 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     groupId: string;
     request: number;
   } | null>(null);
+  const [sharedRequest, setSharedRequest] = useState<{
+    groupId: string;
+    request: number;
+  } | null>(null);
+  const sharedOpener = useRef<HTMLElement | null>(null);
   const [pickingGroup, setPickingGroup] = useState(false);
   const [removing, setRemoving] = useState<
     { groupId: string } | { sectionIndex: number } | null
@@ -533,15 +538,25 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     notify.success(t("builder.removedFromTest"));
   }
 
-  async function selectGroup(groupId: string, questionId?: string, focusTitle = false) {
+  async function selectGroup(
+    groupId: string,
+    questionId?: string,
+    ask?: "title" | "sharedContent",
+  ) {
     const request = ++selectionRequest.current;
-    const askTitle = () =>
+    const askPane = () => {
       setTitleFocus((current) =>
-        focusTitle ? { groupId, request: (current?.request ?? 0) + 1 } : null,
+        ask === "title" ? { groupId, request: (current?.request ?? 0) + 1 } : null,
       );
+      setSharedRequest((current) =>
+        ask === "sharedContent"
+          ? { groupId, request: (current?.request ?? 0) + 1 }
+          : null,
+      );
+    };
     if (selectedGroupId === groupId) {
       setSelectedId(questionId ?? null);
-      askTitle();
+      askPane();
       return;
     }
     try {
@@ -551,7 +566,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       setSelectedId(questionId ?? null);
       setActiveBundle(null);
       setQuestionStatus({ kind: "idle" });
-      askTitle();
+      askPane();
     } catch (cause) {
       report(cause);
     }
@@ -768,6 +783,12 @@ function Builder({ test }: Readonly<{ test: Test }>) {
           titleFocus={
             titleFocus?.groupId === selectedGroupId ? titleFocus.request : undefined
           }
+          sharedContent={
+            sharedRequest?.groupId === selectedGroupId
+              ? sharedRequest.request
+              : undefined
+          }
+          sharedContentOpener={sharedOpener}
         />
       );
     if (selectedId === null)
@@ -908,7 +929,11 @@ function Builder({ test }: Readonly<{ test: Test }>) {
                   groupFiles={groupFiles}
                   selectedGroupId={selectedGroupId}
                   onSelectGroup={(id, questionId) => void selectGroup(id, questionId)}
-                  onRenameGroup={(id) => void selectGroup(id, undefined, true)}
+                  onRenameGroup={(id) => void selectGroup(id, undefined, "title")}
+                  onOpenSharedContent={(id, opener) => {
+                    sharedOpener.current = opener;
+                    void selectGroup(id, undefined, "sharedContent");
+                  }}
                   onCreateGroup={() => void insertGroup().catch(() => undefined)}
                   onRemoveGroup={(id, opener) => {
                     removeOpener.current = opener;
