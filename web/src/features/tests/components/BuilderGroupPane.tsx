@@ -40,13 +40,15 @@ interface PaneProps {
   retryRef: RefObject<(() => void) | null>;
   bridgeRef: RefObject<GroupPaneBridge | null>;
   onStatus: (status: AutosaveStatus) => void;
+  titleFocus?: number | undefined;
 }
 
 /**
  * BuilderGroupPane edits a shared-context group in the builder's editor pane,
  * framed as the question editor is: a header with the group's title, its save
  * state and "Save a copy to the bank", then the group's alerts and the
- * embedded `GroupComposer`.
+ * embedded `GroupComposer`. `titleFocus` is passed to the composer: each
+ * new value puts focus in the group's title field.
  */
 export function BuilderGroupPane(props: Readonly<PaneProps>) {
   const { t } = useTranslation();
@@ -90,6 +92,7 @@ function GroupForm({
   retryRef,
   bridgeRef,
   onStatus,
+  titleFocus,
 }: Readonly<PaneProps & { stored: StoredGroup; recovery: RecoveryState }>) {
   const { t } = useTranslation();
   const [assets, setAssets] = useState(stored.assets);
@@ -210,6 +213,7 @@ function GroupForm({
         ) : null}
         <GroupComposer
           embedded
+          titleFocus={titleFocus}
           bundle={editor.bundle}
           assets={assets}
           selectedQuestionId={selectedQuestionId ?? undefined}

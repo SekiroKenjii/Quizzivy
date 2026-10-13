@@ -19,11 +19,7 @@ import { cn } from "@/lib/utils";
 import { EngineHeader, LeaveButton } from "../components/EngineHeader";
 import { LeaveDialog } from "../components/LeaveDialog";
 import { Navigator, type DotState, type KeysHint } from "../components/Navigator";
-import {
-  GroupContext,
-  GroupListening,
-  type DrawerPane,
-} from "../components/GroupContext";
+import { GroupContext, type DrawerPane } from "../components/GroupContext";
 import { DrawerBackdrop, DrawerHandle, DrawerTip } from "../components/StimulusDrawer";
 import type { MaterialGap } from "@/components/shared/content/GroupMaterials";
 import { hasReading } from "@/components/shared/content/materials";
@@ -33,6 +29,7 @@ import { SectionRail } from "../components/SectionRail";
 import { SubmitDialog } from "../components/SubmitDialog";
 import { SubmittedScreen } from "../components/SubmittedScreen";
 import { releaseSession } from "@/features/integrity/release";
+import { forgetAllPlaces } from "@/features/media/playback";
 import { FullscreenBar } from "@/features/integrity/components/FullscreenBar";
 import { exitFullscreen } from "@/features/integrity/fullscreen";
 import { StrikeDialog } from "@/features/integrity/components/StrikeDialog";
@@ -49,7 +46,7 @@ import {
   writeOpenQuestion,
 } from "../openQuestion";
 import {
-  hasPassage,
+  hasSharedContent,
   questionShowing,
   useKeptScroll,
   useSharedAudioPlaying,
@@ -177,6 +174,7 @@ export default function TakeTestPage() {
         });
       }
       reset({ keepDraft: true });
+      forgetAllPlaces();
     },
     [attemptId, reset],
   );
@@ -439,7 +437,7 @@ function PaperAt({
     [questions],
   );
   const context = contexts.get(question.id);
-  const passage = hasPassage(context) ? context : undefined;
+  const passage = hasSharedContent(context) ? context : undefined;
   const visit = `${question.id}:${jumps}`;
   const drawerMode = !wide && passage !== undefined;
   const panes = useRef<HTMLElement>(null);
@@ -552,15 +550,6 @@ function PaperAt({
                 number={index + 1}
                 total={total}
                 onAudioExpired={onReload}
-                lead={
-                  context && (
-                    <GroupListening
-                      key={context.id}
-                      group={context}
-                      onRetryMedia={onReload}
-                    />
-                  )
-                }
               />
             </div>
           </div>

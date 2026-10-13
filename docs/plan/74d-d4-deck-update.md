@@ -1499,11 +1499,11 @@ today the passage pane prints that material's heading and the node's label
 (`GroupContext.tsx:62`) while the player sits in the question pane (`GroupListening`).
 
 **Done when:**
-- [ ] The card is drawn at its audio node, in reading order, in the stimulus pane (the drawer
+- [x] The card is drawn at its audio node, in reading order, in the stimulus pane (the drawer
       below 768), in place of today's label line: `GroupContext`'s `renderAudio`, which
       already receives the node, the asset and the recording, returns the player.
       `GroupListening` leaves the question pane and its `stimuli.length === 0` branch goes.
-- [ ] A material whose content is only audio nodes draws no heading (T-D4.5) and no label: a
+- [x] A material whose content is only audio nodes draws no heading (T-D4.5) and no label: a
       listening group is the kicker and the card, as drawn (S 1054-1056, 1074-1097). A
       material with text and audio keeps its heading and has the card where the node stands.
       A group with several recordings has each card at its own node, and only then is the
@@ -1511,37 +1511,37 @@ today the passage pane prints that material's heading and the node's label
       is empty), so two cards can be told apart; with one recording nothing is printed and the
       label is the card's accessible name. Never the same recording twice: no list of
       recordings is drawn before or after the materials.
-- [ ] A recording no audio node names is a payload the server refuses; if one arrives anyway
+- [x] A recording no audio node names is a payload the server refuses; if one arrives anyway
       its card is drawn after the materials, so no payload can hide a recording.
       `hasPassage` becomes "has shared content" (`stimuli` or `recordings`), which is the same
       answer as today for every group the server accepts. One unit case keeps the refused
       shape, named for what it is.
-- [ ] The shared player stays mounted across the group's questions and across 768 (the pane is
+- [x] The shared player stays mounted across the group's questions and across 768 (the pane is
       keyed by the group and is the same element on both sides, T-D4.7). Leaving the group by
       any means (Previous, Next, the arrow keys, a square, "Go to", a gap) pauses its
       recording, because the pane unmounts; the deck pauses on a click that changes the
       section and not on the arrow keys, which is a slip of the prototype (DG-191, DG-193).
-- [ ] `AudioPlayer` gains `layout="card"`, used by the engine and the teacher's preview only:
+- [x] `AudioPlayer` gains `layout="card"`, used by the engine and the teacher's preview only:
       padding 18px, radius 14, 1px border, `--card`, `--shadow`; a 52px round primary button
       with a 22px icon (play, pause, or `rotate-ccw` after a finished play); a 6px track on
       `--muted` filled `--accent-c`; under it the time "0:00 / 2:34" and, at the far end, "Play
       {n} of {N}" (12.5px, tabular), which reads 1 before the first play; then a status line
       with a 15px headphones icon (13px, muted). The same `toggle()` serves both layouts;
       `audio-player-card.test.tsx` repeats the same-tick assertion for the card.
-- [ ] Status and names, as drawn: "Press play when you are ready.", "Playing", "Paused",
+- [x] Status and names, as drawn: "Press play when you are ready.", "Playing", "Paused",
       "Finished · 1 play left" (plural in both languages); the button is "Play", "Pause",
       "Resume" or "Play again". With no limit the counter reads "Play {n}" and the finished
       line "Finished" (DG-193).
-- [ ] The status line has a place for the blocked sentence (`media.playBlocked`).
-- [ ] At the limit the button stays live (DG-182, spec §11.4, the canary's "still plays when
+- [x] The status line has a place for the blocked sentence (`media.playBlocked`).
+- [x] At the limit the button stays live (DG-182, spec §11.4, the canary's "still plays when
       the hint says none are left"): no lock icon, the status reads "You have used all {N}
       plays." and the product's "You can keep listening. Additional plays are recorded for your
       teacher to review." follows; the counter reads "Played {n}/{N} times".
-- [ ] A play is spent when playback starts and no play is in progress; a resume after a pause
+- [x] A play is spent when playback starts and no play is in progress; a resume after a pause
       spends none. `AudioPlayer` calls `onPlay` for the first and `onResume` for the second;
       both hosts count on `onPlay` only. With seeking allowed, moving inside a play in
       progress spends nothing.
-- [ ] A play in progress and its position are remembered for the tab's life per recording or
+- [x] A play in progress and its position are remembered for the tab's life per recording or
       question (`playback.ts`, memory only, cleared with the attempt), so coming back to a
       group resumes where it stopped without a play; a reload forgets, and the next start
       counts. The restore must not meet the no-seek guard, which would put a remounted
@@ -1556,16 +1556,16 @@ today the passage pane prints that material's heading and the node's label
         remembered point (the restore was refused, or the metadata never came), the start is
         counted as a play through `onPlay` and the memory is cleared. A place that cannot be
         put back is never free.
-- [ ] Starting one recording pauses any other that is playing.
-- [ ] A question's own audio (`QuestionAudio`) takes the same card, in the question pane, with
+- [x] Starting one recording pauses any other that is playing.
+- [x] A question's own audio (`QuestionAudio`) takes the same card, in the question pane, with
       the same rules. A recording keeps "Allow skipping ahead": when it is on, the seek control
       lies over the 6px track. The scope line and the sync line with its Retry stay under a
       shared recording (DG-80).
-- [ ] Spec §11.3 and §11.4 are changed in this PR: "Each play that starts the recording sends
+- [x] Spec §11.3 and §11.4 are changed in this PR: "Each play that starts the recording sends
       an `audio_play` event; resuming a paused play sends none", one instance per recording
       that keeps its place while its group is left, and the rule above for a place that
       cannot be put back. Version bumped per §18.
-- [ ] Unit tests, which cannot see playback (jsdom plays nothing, and the existing tests stub
+- [x] Unit tests, which cannot see playback (jsdom plays nothing, and the existing tests stub
       `play`, `pause` and `paused` only): `audio-player-resume.test.tsx` (a pause and a resume
       call `onPlay` once; a second start after the end calls it twice; a remembered play
       resumes with `play()` in the click's tick and no `onPlay`; an empty memory counts; a
@@ -1573,20 +1573,58 @@ today the passage pane prints that material's heading and the node's label
       does); `question-audio-events.test.tsx` gains "a resume records no second play";
       `group-context.test.tsx` gains the card at its node for an audio-only material, a mixed
       material and two recordings, all on the validated shape.
-- [ ] `panes.test.tsx`: the fixture at 93-100 (`stimuli: []` with a recording) is retired as
+- [x] `panes.test.tsx`: the fixture at 93-100 (`stimuli: []` with a recording) is retired as
       the listening fixture, because the server refuses it; its case "draws a group that has
       only recordings inside the question pane" becomes "draws a listening group's recording
       in the stimulus pane, with no heading", on T-D4.3's s2 group. The PR lists the pair.
-- [ ] Browser proof, because the free replay cannot be seen in jsdom: `audio-plays.live.spec.ts`
+- [x] Browser proof, because the free replay cannot be seen in jsdom: `audio-plays.live.spec.ts`
       gains (a) a pause and a resume with the server's count still 1, and (b) with seeking
       off: start a group's recording, leave the group mid-play, come back, resume, and assert
       that `currentTime` is past the remembered point and the server's count is still 1. Its
       existing assertions are unchanged. `student-engine.phone.spec.ts` repeats (b) in
       mobile-chromium against the stubbed API, counting the `group-audio-play` requests.
-- [ ] Compared with s2 question 1 (part 1's recording: T-D4.3's fixture gives it choice
+- [x] Compared with s2 question 1 (part 1's recording: T-D4.3's fixture gives it choice
       members) at the five widths, light and dark: the card at rest, playing, paused and
       finished. Question 6 is the deck's recording that cannot be paused and is T-D4.9's
       comparison. The lock state is a known difference (DG-182).
+
+**As built:** the memory is `features/media/playback.ts` (`keepPlace`, `recallPlace`,
+`forgetPlace`, `forgetAllPlaces`, and `takeTurn`/`releaseTurn` for the one player sounding);
+`TakeTestPage` forgets every place as the attempt closes. `AudioPlayer` keys a host's memory by
+`place` (`recording:<id>` or `question:<id>`). "A play in progress" is a start this player saw,
+with no end since, and a position past 0:00 or a place still to be put back: a pause before any
+sound, at 0:00, leaves "Play" on the button and the next press spends a play, as the deck's
+`toggle` does (S 1681) and as the frozen `shared-audio-events.test.tsx` already counts it. The
+guard compares with a ref (`guardAt`) where it read the `position` state, so the restore can set
+it before `currentTime`. The card's phase (ready, playing, paused, finished) comes from the
+player's own state and, for "finished", from the host's count, so a card that comes back after
+a finished play, or after a reload, reads "Play again". A finished card shows the whole track
+and the total, as the deck does at `t >= len`; the icons are outlines, as the deck's lucide
+font draws them. "At the limit" is a finished card with `played >= limit`; while a play runs
+past the limit the counter reads "Played n/N times" and the extra-plays line shows.
+`GroupListening` stays as the card list for a recording no node names (the refused shape),
+which `shared-audio-events.test.tsx` renders untouched; its "nothing to read" branch is gone,
+and `hasPassage` is `hasSharedContent`. With several recordings the printed label falls back to
+"Recording n" for a blank one (the validated shape refuses an empty label, so a blank is
+whitespace). `QuestionCard` loses its `lead` prop. `GroupMaterials.tsx` needed no change: the
+audio-only rule was T-D4.5's, and the label line was `GroupContext`'s renderer. The teacher's
+preview keeps its own player until T-D4.16 draws the engine there. New keys under `media.`:
+`resume`, `playAgain`, `playOf`, `playN`, `playedOf`, `statusReady`, `statusPlaying`,
+`statusPaused`, `statusFinished`, `statusFinishedLeft`, `statusUsedAll`, `extraPlays`; removed,
+in their own commit: `takeTest.{playsLeft,playsUsed,extraPlaysRecorded,sharedAudioUnlimited}`.
+`panes.test.tsx`'s pair: "draws a group that has only recordings inside the question pane"
+became "draws a listening group's recording in the stimulus pane, with no heading" (s2), and
+the phone's "has no handle for a group that has only recordings" became "puts a listening
+group's recording in the drawer, behind the audio handle"; the refused shape is
+`group-context.test.tsx`'s "still draws a recording no audio node names". Tests that pinned the
+old frame moved with it: `group-attempt.spec.ts` (the counter, the card in the drawer at 320,
+"Play again" after the reload), `audio-events.spec.ts` ("Play again" after the end; new: a
+pause and a resume record one play), and the phone spec's 44px case opens the drawer.
+`audio-plays.live.spec.ts`: E2E 8 now reaches 2/2 through a resume (count still 1 after a
+reload) and a second play after the end, since its old second press is now a resume; E2E 8b
+authors a group recording in the builder and proves (b). The stubbed group recording is served
+with byte ranges (`fulfillWithRanges`), as object storage serves it: without them Chrome cannot
+seek, and the phone spec's second new case proves that such a place counts as a new play.
 
 ### T-D4.9 — Engine: a recording that cannot be paused
 **Depends on:** T-D4.8, T-D4.13
@@ -1861,21 +1899,21 @@ edited.
 **Touches:** `web/src/features/tests/components/{OutlineTree,OutlineGroupRow}.tsx`, `web/src/features/tests/pages/teacher/TestBuilderPage.tsx` (selecting the group from the line and from the menu items, nothing else), `web/src/features/tests/components/BuilderGroupPane.tsx` and `web/src/features/question-groups/components/GroupComposer.tsx` (focus on the title field when Rename asks; no save path changes), locales, `web/tests/units/builder/` (the outline's cases)
 **Size:** S
 **Done when:**
-- [ ] The deck's "group" stays the product's section (DG-186). A section's "…" menu is R4's
+- [x] The deck's "group" stays the product's section (DG-186). A section's "…" menu is R4's
       (Rename, Instructions, Move up, Move down, Remove group) and gains no "Shared content":
       the export's menu entry `mi('Shared content', 'panel-left', …)` (T 6986) is on every
       group, and a section has no shared content to hold.
-- [ ] A shared-context group keeps its own row inside its section (`OutlineGroupRow`). The
+- [x] A shared-context group keeps its own row inside its section (`OutlineGroupRow`). The
       buttons R4 left on the row give way to a "…" menu: Rename, Shared content (the
       `panel-left` icon, the export's third item), Move up, Move down (disabled at the ends),
       Remove group. Move up, Move down and Remove group do what their buttons did; the row's
       drag, its keyboard equivalents and its focus ring are R4's.
-- [ ] Rename is new on this row: R4 gives Rename to a section's menu only, and a group's
+- [x] Rename is new on this row: R4 gives Rename to a section's menu only, and a group's
       title has one field, in `BuilderGroupPane` (`shared-group-title`). Rename selects the
       group and puts focus in that field with its text selected. The title is saved by the
       group's editor, and the outline calls no operation: a rename in the outline would be a
       second writer of the bundle (T-D4.14, "One writer").
-- [ ] Under the row's header, while the group is open, the export's shared-content line
+- [x] Under the row's header, while the group is open, the export's shared-content line
       (T 1581-1587, the button on `sec.editShared`; its text is the script's `sharedText`,
       T 6968) in the instructions line's geometry:
       margin 0 0 4px 26px, padding 4px 6px, radius 6px, 12px `--muted-fg`, a 13px icon, one
@@ -1884,19 +1922,51 @@ edited.
       "· unlimited plays", with "1 play" in the singular (the prototype prints "1 plays"). A
       group that holds more than one material, or both kinds, reads "{n} materials · {m}
       recordings". A group with no shared content shows no line.
-- [ ] The line is a button. It and the "Shared content" item select the group, which opens
+- [x] The line is a button. It and the "Shared content" item select the group, which opens
       `BuilderGroupPane`, until T-D4.14 opens the dialog. Selecting the group, from the line
       or from either item, saves what is pending in the open question first, as selecting a
       row does today.
-- [ ] Unit tests: the line in each form (a passage with and without gaps, a recording with a
+- [x] Unit tests: the line in each form (a passage with and without gaps, a recording with a
       limit, with one play and with no limit, more than one material, none); the menu's items
       and their disabled states; "Rename opens the group, focuses its title and sends no
       request"; "a pending edit is saved when the line is pressed".
-- [ ] Compared with the deck at 360, 768, 1024, 1280 and 1440, light and dark, on a
+- [x] Compared with the deck at 360, 768, 1024, 1280 and 1440, light and dark, on a
       shared-context group holding one passage: the deck's fixture shows "Passage · Why cities
       need green space" under its first group (`INIT_SECS`, T 6632). Known difference: the line
       and the item are on the group's row, not on the section's (DG-186).
-- [ ] Keys vi first, en from the deck, listed in the PR.
+- [x] Keys vi first, en from the deck, listed in the PR.
+
+**As built:** one pull request, two commits (the row, then this note). `OutlineGroupRow` keeps R4's
+grip, disclosure, title and summary; its Move up, Move down and Delete buttons became one "…"
+trigger (`builder.groupActions`, "Thao tác với nhóm {title}"), 24px and shown on hover, focus and
+while open from 768px as a section's is, and at 44px only while the group is selected below it
+(DG-135). The menu is the export's: Rename, Shared content (`panel-left`), Move up, Move down
+(disabled by `stepUnit` at the outline's ends, which the old buttons never were), a separator and
+Remove group. Rename runs once the menu has closed (`onCloseAutoFocus`), because a focus moved
+while the menu's focus scope is mounted is taken back; Remove group hands its trigger to the
+builder's confirmation as `returnFocus`, since the menu item it opened from is gone when the
+dialog closes. The line is `sharedContentLine` (`features/tests/sharedContentLine.ts`): one
+material with no audio is a passage, one material that is one recording and nothing to read
+(empty paragraphs aside) is audio, anything else is "{n} materials · {m} recordings", even with
+no recording ("2 materials · 0 recordings"). The file name is the asset's `originalFilename`, as
+the composer's recording select prints it, from the `assets` of each loaded group, which the
+builder passes to the outline as `groupFiles`; a name it does not hold is left out ("Audio · 2
+plays"), so the export's "no file yet" has no use. Rename selects the group through
+`selectGroup` with a title request, `BuilderGroupPane` hands it to `GroupComposer` as
+`titleFocus`, and the composer focuses and selects `shared-group-title`; no request leaves the
+outline. The line and Shared content select the group through the same `selectGroup`, which
+flushes the open question first. Tests: `tests/units/builder/group-row.test.tsx` (new, 16: the
+line's forms in both languages, its geometry and its collapse, the menu's order, icons, disabled
+ends and keyboard use, its escape from the scrolling column, and on the real builder Rename's
+focus with and without the group already open, the focus after a cancelled removal, and the
+pending edit saved before the line opens the group); `builder-groups.live.spec.ts` now moves and
+removes the group through its menu. Measured on a live stack with `getBoundingClientRect` at 360,
+768, 1024, 1280 and 1440, light and dark, the sidebar expanded (768 to 1440), collapsed (1024 to
+1440) and a drawer (360): the line is 26px high, 26px in from the header, 12px `--muted-fg` with a 13px
+icon, 4px 6px padding, radius 6, an ellipsis, flush under the header and 4px above the members;
+the menu is 192px and inside the window at every width; no horizontal scroll. The deck itself
+could not render (unpkg.com does not answer through the proxy), so it was compared with its
+markup and script (`sec.hasShared`, `sec.sharedText`, `sec.menu`), not side by side.
 
 ### T-D4.2b — Group pane: the gap row
 **Reopens:** T-R4.34 (question groups, restyled)
