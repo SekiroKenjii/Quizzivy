@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   forgetPlace,
   keepPlace,
+  placeEra,
   recallPlace,
   releaseTurn,
   takeTurn,
@@ -90,13 +91,20 @@ const RESTORE_SLACK_S = 0.5;
  * a paused play calls `onResume` and spends none. Given `place`, a play in
  * progress and its position outlive the player; the next one under that key
  * puts the position back once the element has its metadata, and calls
- * `onPlay` after all if playback runs short of it. Starting one player pauses
- * any other that is playing. Unmounting pauses it (§11.3: one instance per
- * question, and navigating away releases it). With `allowPause` false a press
- * while playing does nothing; the button says so with `aria-disabled` and
- * stays focusable.
+ * `onPlay` after all if playback runs short of it. A host that gives the
+ * player another `place` gets a new player, element and all: the one leaving
+ * keeps its place, and the next starts from its own. A place kept after
+ * forgetAllPlaces closed the memory the player mounted under is dropped.
+ * Starting one player pauses any other that is playing. Unmounting pauses it
+ * (§11.3: one instance per question, and navigating away releases it). With
+ * `allowPause` false a press while playing does nothing; the button says so
+ * with `aria-disabled` and stays focusable.
  */
-export function AudioPlayer({
+export function AudioPlayer(props: Readonly<AudioPlayerProps>) {
+  return <PlacedPlayer key={props.place} {...props} />;
+}
+
+function PlacedPlayer({
   src,
   label,
   disabled = false,
@@ -132,8 +140,8 @@ export function AudioPlayer({
   const blocked = blockedFor === src;
   const ended = useEffectEvent(() => onEnded?.());
   const countLate = useEffectEvent(() => onPlay?.());
-  const keepAway = useEffectEvent((at: number) => {
-    if (place !== undefined) keepPlace(place, at);
+  const keepAway = useEffectEvent((at: number, since: number) => {
+    if (place !== undefined) keepPlace(place, at, since);
   });
   const forgetAway = useEffectEvent(() => {
     if (place !== undefined) forgetPlace(place);
@@ -146,6 +154,7 @@ export function AudioPlayer({
   useEffect(() => {
     const element = audio.current;
     if (!element) return;
+    const since = placeEra();
 
     const restore = () => {
       const at = restoreTo.current;
@@ -202,7 +211,7 @@ export function AudioPlayer({
       const at = element.currentTime;
       if (liveRef.current && restoreTo.current === null && at > 0) {
         restoreTo.current = at;
-        keepAway(at);
+        keepAway(at, since);
       }
       releaseTurn(element);
       element.pause();
