@@ -79,7 +79,7 @@ var wrongAnswersSQL = `
 	   WHERE btrim(coalesce(g.text, '')) <> ''
 	   GROUP BY g.question_id, left(g.text, 200)
 	), ranked AS (
-	  SELECT c.*, row_number() OVER (PARTITION BY c.question_id ORDER BY c.papers DESC, c.text) AS rank
+	  SELECT c.question_id, c.text, c.papers, row_number() OVER (PARTITION BY c.question_id ORDER BY c.papers DESC, c.text) AS rank
 	    FROM counted c
 	)
 	SELECT n.id::text, n.number, n.type, coalesce(k.key, ''), (SELECT count(*) FROM papers),
