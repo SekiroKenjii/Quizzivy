@@ -3245,20 +3245,65 @@ every cell.
 **Touches:** `web/src/features/question-bank/components/{QuestionEditor,ExplanationField,OptionsEditor,AiExplanationPanel (new),AiDistractorsPanel (new)}.tsx`, locales, `web/tests/units/question-bank/editor-ai.test.tsx` (new)
 **Size:** M
 **Done when:**
-- [ ] On both pages that mount `QuestionEditor` (the bank and the builder, DG-108): the
+- [x] On both pages that mount `QuestionEditor` (the bank and the builder, DG-108): the
       Explanation label row gains "Write with AI" (28px; "Writing…"; "Write again" after), the
       field keeps its `<label for>` (DG-138: the deck's `aria-label` is not taken); the panel
       "Suggested explanation" with "Use this" (writes the text into the field through the editor's
       own change handler, so autosave sees it), "Shorter", "In Vietnamese" / "In English", and
       "Discard" (V-10). The explanation is written in the preference's language.
-- [ ] For single and multiple choice: "Suggest wrong options" beside Add option; the panel
+- [x] For single and multiple choice: "Suggest wrong options" beside Add option; the panel
       "Suggested wrong options" with up to four rows, "Add" fills the first empty option or
       appends while under the cap of 8 (DG-63; the deck's 6 is not taken), "Added" after; the
       error line on 503.
-- [ ] Both guarded by "Write the question first" / "Mark the correct answer first" as toasts;
+- [x] Both guarded by "Write the question first" / "Mark the correct answer first" as toasts;
       both hidden without `useAiAvailable()`; both disabled with the reason when paused or
       exhausted.
-- [ ] Unit tests on both hosts; compared with the deck at 360 and 1280, light and dark.
+- [x] Unit tests on both hosts; compared with the deck at 360 and 1280, light and dark.
+
+**As built:** the editor the two pages share is not `QuestionEditor` itself but its parts: the
+bank's `QuestionEditorPage` and the builder's `BuilderQuestionEditor` both compose
+`QuestionPromptAnswers` (the answer area, so `OptionsEditor`) and `ExplanationField`, which moved
+to its own file. Each takes an optional `QuestionAi` (`question-bank/questionAi.ts`), and only those
+two pages pass one, so the group composer and the import review, which mount `QuestionEditor` on
+questions the operations cannot read yet, draw neither suggestion. `useAiSuggestion` runs one
+suggestion (the guards, the page's `prepare`, the call, `features/ai/outcome.ts` for the usage and
+the failure); `AiExplanationPanel` and `AiDistractorsPanel` draw the two panels. `features/ai/api.ts`
+gains `writeAiExplanation` and `suggestAiDistractors`, and `AiEntryButton` a ghost variant for
+"Suggest wrong options".
+
+- **The stored question is what the assistant reads.** Both operations read the question by id, so
+  the editor makes the stored copy match first: the builder's `prepare` flushes the question's
+  autosave, and the bank's, whose Save is explicit, answers "Save the question first" (a toast)
+  while the fields the assistant reads differ from the last save (`aiReadsOf`: type, prompt,
+  written options, accepted answers, sample answer). Editing only the explanation, the points or
+  the tags does not stop a call. An empty option is not read: it cannot be stored and is what "Add"
+  fills, so in the builder a flush the autosave refuses only because of an empty option still asks.
+  A new question in the bank has no id and gets the same toast.
+- **The guards** are the deck's toasts, checked on the editor's own values before `prepare`: no
+  prompt, or no correct option with text (a blank with no accepted answer). A short answer passes,
+  as in the deck; the server's `422` for a missing sample answer is the panel's line.
+- **"Use this"** replaces the explanation in the form the field holds (`withExplanation`): a rich
+  document of paragraphs while the field is rich, the plain text while it is Markdown, then remounts
+  the field on the new value and returns focus to the button. **"Shorter"** keeps the language of the
+  suggestion shown; "In Vietnamese" / "In English" asks for the other language than the preference.
+  The panel closes while a new one is written, as the deck's does.
+- **"Add"** (`withDistractor`) fills the first empty option that is not marked correct, else adds
+  one while there are fewer than 8, else the editor's own "Up to 8 options" toast; "Added" stays
+  focusable (`aria-disabled`). An answer with no suggestion is the error line, as the deck's.
+- **Failures** are a line in the panel: `503` and a dropped connection the deck's sentence, `402`
+  and `403 AI_PAUSED` the block sentence (and the buttons then hold, with it as their tooltip),
+  anything else the server's message. The button is the retry. **The credit note** of the call ends
+  each panel that answered (spec §12), which the deck does not draw.
+- **The label row** keeps R4's "Rich text | Markdown" after "Write with AI". With the product's
+  longer hint the two wrap under the label below 1440 (at 1440 they sit on the label's row, as the
+  deck's button does).
+
+Measured in Chromium at 360, 768, 1280 and 1440, light and dark (English against the deck's question
+route with its AI state set; Vietnamese for wrapping), on the bank's editor and the builder's pane:
+the buttons, the panels, their titles, text, rows and actions match the deck's sizes, type, radii,
+padding and colours in both themes; the panels are taller by the credit note; no cell scrolls
+sideways. Focus rings are `--focus`, and closing a panel returns focus to its button.
+
 
 ### T-D4.36 — Grading: "Suggest a score"
 **Depends on:** T-D4.32, T-D4.34
