@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
+import type { LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,15 +24,60 @@ export function ListSkeleton({ rows = 5 }: Readonly<{ rows?: number }>) {
   );
 }
 
+const EMPTY_TONES = {
+  neutral: "bg-muted text-fg",
+  muted: "bg-muted text-muted-fg",
+  success: "bg-success-soft text-success-ink",
+  warning: "bg-warning-soft text-warning-ink",
+} as const;
+
+/** EmptyStateTone names the colours of an EmptyState's icon tile. */
+export type EmptyStateTone = keyof typeof EMPTY_TONES;
+
+/**
+ * EmptyState is the dashed card of an empty list: one sentence and at most one
+ * action. With an `icon` it draws the deck's tile (44px, coloured by `tone`)
+ * above a 16/600 title, which `titleRef` can take focus on; without one it is
+ * the plain card every earlier caller draws.
+ */
 export function EmptyState({
   children,
   hint,
   action,
+  icon: Icon,
+  tone = "muted",
+  titleRef,
 }: Readonly<{
   children: string;
   hint?: string;
   action?: ReactNode;
+  icon?: LucideIcon;
+  tone?: EmptyStateTone;
+  titleRef?: Ref<HTMLHeadingElement>;
 }>) {
+  if (Icon !== undefined)
+    return (
+      <div className="bg-card flex flex-col items-center gap-2.5 rounded-xl border border-dashed px-4.5 py-7 text-center min-[768px]:px-6 min-[768px]:py-10">
+        <span
+          className={`grid size-11 place-items-center rounded-xl ${EMPTY_TONES[tone]}`}
+        >
+          <Icon aria-hidden="true" className="size-5.5" />
+        </span>
+        <h2
+          ref={titleRef}
+          tabIndex={-1}
+          className="mt-1 text-[16px] font-semibold tracking-[-0.01em] outline-none"
+        >
+          {children}
+        </h2>
+        {hint === undefined ? null : (
+          <p className="text-muted-fg max-w-[46ch] text-[14px] leading-normal text-pretty">
+            {hint}
+          </p>
+        )}
+        {action === undefined ? null : <div className="mt-1.5">{action}</div>}
+      </div>
+    );
   return (
     <div className="rounded-lg border border-dashed p-8 text-center">
       <p className="text-sm">{children}</p>
