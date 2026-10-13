@@ -36,6 +36,34 @@ The compiled module is kept, so only the first PDF after start-up pays the
 roughly 2.5 s compile. A scan, a locked file, a broken file and an oversized one
 fail with `PDF_NO_TEXT`, `PDF_PROTECTED`, `PDF_INVALID` and `PDF_TOO_LARGE`.
 
+**Scans with AI.** An import created with `readWithAi` (T-D4.33, plan 17 §1.42) reads a PDF
+that has no text layer with the AI assistant instead of failing it as `PDF_NO_TEXT`. The
+worker loads `ANTHROPIC_API_KEY` and the tier settings as the API does
+(`docs/setup/operations.md`, "AI provider key and tiers"); without them a scan is still
+refused. For such a file the worker:
+
+- draws every page in the same PDFium sandbox, as a JPEG of at most 1568 pixels and 1 MiB,
+  in at most three minutes and the sandbox's 256 MiB. Forty pages of 300 dpi scans took
+  about 30 s and 322 MiB resident, forty 12-megapixel photographs about 33 s and 530 MiB,
+  so the worker's 1 GB machine holds either beside its 512 MiB Go target;
+- refuses a file of more than 40 pages as `PDF_TOO_LONG_FOR_AI`, before it holds or sends
+  anything;
+- reserves 60 credits a page for the whole file from the teacher who started the run, and
+  refuses a shortfall as `AI_CREDITS_EXHAUSTED` (or `AI_PAUSED`) with nothing sent;
+- sends the pages to the capable tier four at a time, and settles in one ledger row what
+  the finished pages billed, releasing the rest, whatever way the read ends;
+- fails `PROVIDER_UNAVAILABLE` when the provider stays down or the read outlasts ten
+  minutes, and `AI_UNREADABLE` when no page could be read. Both are terminal: the retry
+  would pay for the pages again.
+
+A run may now take up to 15 minutes while the assistant is on (5 otherwise), which the
+one-minute lease covers through its heartbeat. The log has `import read with ai` (source,
+role, pages, unreadable pages, credits) and `ai import settled` (the reservation and what
+it charged); neither holds a page, a line or a response. If a worker dies mid-read, the
+hourly reservation sweep of the API returns the credits held. Migration `00125` adds
+`word_imports.read_with_ai` and must run before the API that sends it; a v0.10.x worker
+that claims such an import refuses a scan as `PDF_NO_TEXT`, so deploy both together.
+
 A pasted test (`POST /teacher/imports/{id}/sources/text`, source format `text`)
 needs no converter, no sandbox and no Docker, whatever the worker's settings. The
 API stores the NFC-normalised text as a private `pasted-text.txt` in the import
