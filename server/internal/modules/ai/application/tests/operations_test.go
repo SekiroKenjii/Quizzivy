@@ -538,3 +538,52 @@ func TestAnOperationThatNeedsThePreferredLanguageReadsItOnlyWhenTheRequestNamesN
 		t.Errorf("asked %d times, text %q; want the requested language used without asking", o.reads.asked, o.completer.text())
 	}
 }
+
+func mentions(text, token string) bool {
+	for i := 0; ; {
+		at := strings.Index(text[i:], token)
+		if at < 0 {
+			return false
+		}
+		start, end := i+at, i+at+len(token)
+		before := start == 0 || !strings.ContainsRune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-", rune(text[start-1]))
+		after := end == len(text) || !strings.ContainsRune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-", rune(text[end]))
+		if before && after {
+			return true
+		}
+		i = end
+	}
+}
+
+func TestNoIdentifierOfAPersonOrARecordReachesAPromptButTheContentDoes(t *testing.T) {
+	content := map[string]string{
+		"generate": "Cities around the world", "check": "What did planners see parks as?", "variant": "What did planners see parks as?",
+		"explanation": "She ___ in Hanoi", "distractors": "has lived", "score": "green space", "insights": "parks", "cleanup": "Choose the form",
+	}
+	for _, op := range operations() {
+		o := newOps(t, true)
+		o.reads.question.Options = []domain.Option{{ID: "OPTION-ID-1", Text: "has lived", Correct: true}, {ID: "OPTION-ID-2", Text: "lived"}}
+		o.reads.paper.Questions[0].ID = "PAPER-QUESTION-ID"
+		for i := range o.reads.paper.Questions[0].Options {
+			o.reads.paper.Questions[0].Options[i].ID = fmt.Sprintf("PAPER-OPTION-ID-%d", i)
+		}
+		for i := range o.reads.bank.Questions {
+			o.reads.bank.Questions[i].ID = fmt.Sprintf("BANK-ID-%d", i)
+		}
+		if _, err := op.run(o); err != nil {
+			t.Fatalf("%s: %v", op.name, err)
+		}
+		sent := o.completer.text()
+		if !strings.Contains(sent, content[op.name]) {
+			t.Errorf("%s: the prompt lacks the content it is asked about (%q):\n%s", op.name, content[op.name], sent)
+		}
+		for _, secret := range []string{
+			teacherID, "t-1", "s-1", "q-1", "a-1", "as-1", "OPTION-ID", "PAPER-QUESTION-ID", "PAPER-OPTION-ID", "BANK-ID",
+			"0198f5f0-0000-7000-8000-0000000000b1", "0198f5f0-0000-7000-8000-0000000000c1",
+		} {
+			if mentions(sent, secret) {
+				t.Errorf("%s: the prompt carries %q, an identifier of a person or a record", op.name, secret)
+			}
+		}
+	}
+}
