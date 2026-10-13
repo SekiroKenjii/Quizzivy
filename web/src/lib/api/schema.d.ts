@@ -2657,10 +2657,14 @@ export interface paths {
         /**
          * Find near-duplicates and untagged questions in your bank
          * @description Reads the prompts, types and tags of the caller's own questions only,
-         *     newest first and at most 2,000, even for a caller who holds
-         *     `scope.all`; shared questions are skipped. Nothing changes until the
-         *     caller confirms through the existing writes. Limited to three calls an
-         *     hour.
+         *     newest first, at most 2,000 and at most 300,000 characters of them,
+         *     even for a caller who holds `scope.all`; shared questions are skipped.
+         *     Duplicates are looked for among all the questions read, at most 20
+         *     pairs; tags are suggested for the first 60 questions that have none.
+         *     `truncated` is true when the bank held more than one call reads or more
+         *     untagged questions than it tags: apply the suggestions and run it
+         *     again. Nothing changes until the caller confirms through the existing
+         *     writes. Limited to three calls an hour.
          */
         post: operations["cleanUpQuestionBank"];
         delete?: never;
@@ -6290,7 +6294,9 @@ export interface components {
         };
         /**
          * @description Over the caller's own questions only, newest first, at most 2,000 of
-         *     them: `truncated` says the bank holds more.
+         *     them and at most 300,000 characters: `scanned` is how many were read,
+         *     and `truncated` says the bank held more than that, or more untagged
+         *     questions than the 60 one call suggests tags for.
          */
         AiCleanupResult: {
             scanned: number;
@@ -11715,7 +11721,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The question is not marked by hand, or the student left it unanswered. */
+            /** @description The question is not a short answer waiting for a mark by hand (the grader marked this answer itself), or the student left it unanswered. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -11789,7 +11795,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             402: components["responses"]["AiCreditsExhausted"];
             403: components["responses"]["AiNotAllowed"];
-            /** @description The caller owns no question to look at, or owns more than one call reads. */
+            /** @description The caller owns no question to look at. */
             422: {
                 headers: {
                     [name: string]: unknown;
