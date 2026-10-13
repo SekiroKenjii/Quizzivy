@@ -962,11 +962,11 @@ describe("larger text in tests", () => {
     const user = userEvent.setup();
     await open(deckSession(NOW));
     for (let moves = 0; moves < 4; moves++) await user.click(next());
-    expect(screen.getByRole("textbox")).toHaveClass("lg:text-md", "py-[13px]");
+    expect(screen.getByRole("textbox")).toHaveClass("engine-lg:text-md", "py-[13px]");
 
     act(() => writeLargerTestText(true));
     expect(screen.getByRole("textbox")).toHaveClass("text-lg", "py-3");
-    expect(screen.getByRole("textbox")).not.toHaveClass("lg:text-md");
+    expect(screen.getByRole("textbox")).not.toHaveClass("engine-lg:text-md");
   });
 });
 
