@@ -32,6 +32,9 @@ var everyKind = []struct {
 	{domain.DueSoon{Title: "Đề giữa kỳ", ClosesAt: closes}, domain.AssignmentDueSoon, []string{"closesAt", "title"}},
 	{domain.Extended{Title: "Đề giữa kỳ", ClosesAt: closes}, domain.AssignmentExtended, []string{"closesAt", "title"}},
 	{domain.Ready{Title: "Đề giữa kỳ"}, domain.ResultReady, []string{"title"}},
+	{domain.AllowanceWarning{Used: 16_500, Allowance: 20_000}, domain.AIAllowanceWarning, []string{"allowance", "used"}},
+	{domain.CreditRequest{TeacherName: "Nguyễn Thị Lan", Credits: 20_000}, domain.AICreditRequest, []string{"credits", "teacherName"}},
+	{domain.CreditRequestDecided{Credits: 20_000, Decision: domain.DecisionApproved}, domain.AICreditRequestDecided, []string{"credits", "decision"}},
 }
 
 func contract(t *testing.T) *openapi3.T {
