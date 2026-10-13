@@ -80,6 +80,66 @@ async function publishListeningTest(page: Page, title: string) {
   await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+$/, { timeout: 30_000 });
 }
 
+function playedTo(page: Page) {
+  return page
+    .locator("audio")
+    .evaluate((element: HTMLAudioElement) => element.currentTime);
+}
+
+async function addChoiceQuestion(page: Page, prompt: string) {
+  await page.getByLabel("Nội dung câu hỏi", { exact: true }).fill(prompt);
+  for (const [index, text] of ["Rẽ trái", "Đi thẳng"].entries()) {
+    await page
+      .getByPlaceholder(`Lựa chọn ${String.fromCharCode(65 + index)}`)
+      .fill(text);
+  }
+  await page.getByLabel("Đánh dấu A là đáp án đúng", { exact: true }).check();
+}
+
+async function publishGroupListeningTest(page: Page, title: string) {
+  await page.goto("/teacher/tests");
+  await page.getByRole("button", { name: "Đề thi mới" }).first().click();
+  await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+\/edit$/);
+  await page.getByRole("button", { name: "Tên đề thi", exact: true }).click();
+  await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).fill(title);
+  await page.getByRole("textbox", { name: "Tên đề thi", exact: true }).press("Enter");
+  await page.getByRole("button", { name: "Thêm phần" }).click();
+  const sectionName = page.getByRole("textbox", { name: "Tên phần", exact: true });
+  await expect(sectionName).toBeFocused();
+  await sectionName.press("Enter");
+
+  await page.getByRole("button", { name: "Thêm câu hỏi" }).click();
+  await addChoiceQuestion(page, "Câu hỏi riêng, ngoài nhóm nghe.");
+  await expect(page.locator('[role="status"][data-state="saved"]')).toBeVisible({
+    timeout: 15_000,
+  });
+
+  await page
+    .getByRole("button", { name: "Thêm nhóm câu dùng chung", exact: true })
+    .click();
+  await page.getByLabel("Tên nhóm câu hỏi", { exact: true }).fill("Hỏi đường");
+  await page.getByRole("button", { name: "Thêm ngữ liệu", exact: true }).click();
+  await page.getByLabel("Tên ngữ liệu", { exact: true }).fill("Hỏi đường");
+  await page.getByRole("textbox", { name: "Nội dung ngữ liệu", exact: true }).click();
+  await page
+    .getByRole("group", { name: "Chèn nội dung vào ngữ liệu" })
+    .getByRole("button", { name: "Bài nghe", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Chọn tệp từ máy").setInputFiles(AUDIO);
+  await expect(dialog.getByText(/^Đã chọn: /)).toBeVisible({ timeout: 60_000 });
+  await dialog.getByRole("button", { name: "Chèn vào ngữ liệu", exact: true }).click();
+  await expect(dialog).toBeHidden();
+
+  await page.getByRole("button", { name: "Thêm câu hỏi", exact: true }).last().click();
+  await addChoiceQuestion(page, "Minh nên đi hướng nào?");
+  await expect(page.locator('[role="status"][data-state="saved"]')).toBeVisible({
+    timeout: 15_000,
+  });
+  await publishInBuilder(page);
+  await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+$/, { timeout: 30_000 });
+}
+
 test("E2E 8: the listening count is the server's and survives a reload", async ({
   browser,
 }) => {
@@ -109,17 +169,32 @@ test("E2E 8: the listening count is the server's and survives a reload", async (
       .click();
     await expect(page).toHaveURL(/\/app\/attempts\/[0-9a-f-]+$/);
 
-    const play = page.getByRole("button", { name: "Phát" });
-    await expect(page.getByText("Còn 2 lượt nghe")).toBeVisible();
+    const card = page.getByRole("group", { name: "Đoạn ghi âm của câu hỏi" });
+    const position = () => playedTo(page);
+    await expect(card.getByText("Lượt nghe 1/2", { exact: true })).toBeVisible();
 
-    await play.click();
-    await expect(page.getByText("Còn 1 lượt nghe")).toBeVisible();
-    await page.getByRole("button", { name: "Tạm dừng" }).click();
+    await card.getByRole("button", { name: "Phát", exact: true }).click();
+    await expect.poll(position).toBeGreaterThan(1);
+    await card.getByRole("button", { name: "Tạm dừng", exact: true }).click();
+    const stoppedAt = await position();
+    await card.getByRole("button", { name: "Nghe tiếp", exact: true }).click();
+    await expect.poll(position).toBeGreaterThan(stoppedAt);
+    await expect(
+      card.getByRole("button", { name: "Phát lại", exact: true }),
+    ).toBeVisible({
+      timeout: 20_000,
+    });
 
-    await play.click();
-    await expect(page.getByText("Đã nghe 2/2 lượt")).toBeVisible();
+    await page.reload();
+    await expect(
+      card.getByText("Đã nghe xong · còn 1 lượt", { exact: true }),
+    ).toBeVisible({ timeout: 30_000 });
 
-    // The whole point. The tab's own count goes with the reload, so a "Còn 0"
+    await card.getByRole("button", { name: "Phát lại", exact: true }).click();
+    await expect(card.getByText("Lượt nghe 2/2", { exact: true })).toBeVisible();
+    await expect(page.getByText("Đã nghe 2/2 lượt")).toBeVisible({ timeout: 20_000 });
+
+    // The whole point. The tab's own count goes with the reload, so a "2/2"
     // that comes back was read from attempt_audio_plays.
     await page.reload();
     await expect(page.getByText("Đã nghe 2/2 lượt")).toBeVisible({ timeout: 30_000 });
@@ -146,4 +221,65 @@ test("E2E 8: the listening count is the server's and survives a reload", async (
     outcome.status === "rejected" ? [outcome.reason] : [],
   );
   if (failures.length) throw new AggregateError(failures, "Context cleanup failed");
+});
+
+test("E2E 8b: a group's recording left mid-play resumes where it stopped, for no play", async ({
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  const title = `E2E 8b — ${Date.now()}`;
+  const teacher = await browser.newContext();
+  const student = await browser.newContext();
+  try {
+    const admin = await teacher.newPage();
+    await signInAsAdmin(admin);
+    await publishGroupListeningTest(admin, title);
+    await assignToClass(admin, title);
+
+    const page = await student.newPage();
+    const plays = new Set<string>();
+    page.on("request", (request) => {
+      if (request.method() === "POST" && request.url().endsWith("/group-audio-play")) {
+        plays.add((request.postDataJSON() as { playId: string }).playId);
+      }
+    });
+    await signInAsStudent(page);
+    const paper = page.getByRole("main").getByRole("link").filter({ hasText: title });
+    await expect(paper).toBeVisible({ timeout: 30_000 });
+    await paper.click();
+    await page.getByRole("button", { name: "Bắt đầu làm bài" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Bắt đầu", exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/app\/attempts\/[0-9a-f-]+$/);
+
+    const next = page.getByRole("button", { name: "Câu sau", exact: true });
+    const back = page.getByRole("button", { name: "Câu trước", exact: true });
+    const card = page.getByRole("article").getByRole("group");
+    const position = () => playedTo(page);
+
+    await next.click();
+    await card.getByRole("button", { name: "Phát", exact: true }).click();
+    await expect.poll(position).toBeGreaterThan(2);
+    await back.click();
+    await expect(page.locator("audio")).toHaveCount(0);
+    await next.click();
+    await expect(card.getByText("Đã tạm dừng", { exact: true })).toBeVisible();
+    await expect.poll(position).toBeGreaterThan(2);
+    const remembered = await position();
+    await card.getByRole("button", { name: "Nghe tiếp", exact: true }).click();
+    await expect.poll(position).toBeGreaterThan(remembered + 0.5);
+    expect(plays.size).toBe(1);
+
+    await page.reload();
+    await expect(card.getByText("Lượt nghe 1/2", { exact: true })).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(
+      card.getByText("Đã nghe xong · còn 1 lượt", { exact: true }),
+    ).toBeVisible();
+  } finally {
+    await Promise.allSettled([teacher.close(), student.close()]);
+  }
 });
