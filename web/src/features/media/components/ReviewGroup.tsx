@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { GapChip, type GapMark } from "@/components/shared/content/GapChip";
 import { GroupMaterials } from "@/components/shared/content/GroupMaterials";
 import {
   Card,
@@ -9,16 +10,33 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { components } from "@/lib/api/schema";
+import { cn } from "@/lib/utils";
 import { AudioPlayer } from "./AudioPlayer";
 
 type StudentGroup = components["schemas"]["StudentGroup"];
 
-/** ReviewGroup shows frozen context and only server-released transcripts without recording new plays. */
+/**
+ * GapWord is what a result's gap shows for its question: the student's word,
+ * or null for no answer, and its mark.
+ */
+export interface GapWord {
+  word: string | null;
+  mark: GapMark;
+}
+
+/**
+ * ReviewGroup shows frozen context and only server-released transcripts
+ * without recording new plays. Given `gapWords`, a gap bound to a question
+ * it names is the result's chip, the student's word in the verdict's colour,
+ * on a passage drawn at the cloze's line height; any gap leads to its
+ * question through `onQuestion`.
+ */
 export function ReviewGroup({
   group,
   transcripts,
   plays,
   numbers,
+  gapWords,
   onQuestion,
   onRetry,
 }: Readonly<{
@@ -26,6 +44,7 @@ export function ReviewGroup({
   transcripts: Readonly<Record<string, string>>;
   plays?: Readonly<Record<string, number>> | undefined;
   numbers: ReadonlyMap<string, number>;
+  gapWords?: ReadonlyMap<string, GapWord> | undefined;
   onQuestion?: ((questionId: string) => void) | undefined;
   onRetry: () => void;
 }>) {
@@ -47,7 +66,12 @@ export function ReviewGroup({
           })}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex min-w-0 flex-col gap-5">
+      <CardContent
+        className={cn(
+          "flex min-w-0 flex-col gap-5",
+          gapWords !== undefined && "content-review-gaps",
+        )}
+      >
         {group.recordings.map((recording, index) => {
           const asset = assets.get(recording.assetId);
           const transcript = transcripts[recording.id];
@@ -109,6 +133,22 @@ export function ReviewGroup({
             const number = numbers.get(gap.questionId);
             if (!onQuestion || number === undefined)
               return <span className="content-gap">{label}</span>;
+            const shown =
+              gap.kind === "question" ? gapWords?.get(gap.questionId) : undefined;
+            if (shown !== undefined) {
+              return (
+                <GapChip
+                  number={number}
+                  word={shown.word}
+                  mark={shown.mark}
+                  label={t("result.cloze.chip", {
+                    n: number,
+                    word: shown.word ?? t("result.noAnswer"),
+                  })}
+                  onClick={() => onQuestion(gap.questionId)}
+                />
+              );
+            }
             return (
               <button
                 className="content-gap"

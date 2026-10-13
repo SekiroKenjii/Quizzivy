@@ -2940,7 +2940,11 @@
     "replayFreely": "Replay freely after submitting",
     "showTranscript": "Show transcript",
     "noTranscript": "The transcript isn't shown.",
-    "teacherComment": "Teacher's comment"
+    "teacherComment": "Teacher's comment",
+    "cloze": {
+      "questions": "Questions {{from}}–{{to}}",
+      "chip": "Question {{n}}, {{word}}"
+    }
   },
   "queue": {
     "summary": {
