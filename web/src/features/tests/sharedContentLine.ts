@@ -1,11 +1,11 @@
 import type { TFunction } from "i18next";
 import type { GroupBundle } from "@/features/question-groups/api";
 import {
-  materialAssets,
   materialGaps,
   type GroupMaterial,
   type GroupRecording,
 } from "@/features/question-groups/model";
+import { readSharedContent } from "@/features/question-groups/sharedContent";
 
 /**
  * SharedContentLine is the outline's one-line summary of a shared-context
@@ -18,7 +18,8 @@ export interface SharedContentLine {
 
 /**
  * sharedContentLine summarises a group's shared content as the deck's
- * outline line does. One material with no recording reads
+ * outline line does, reading it as the Shared content dialog does
+ * (`readSharedContent`). One material with no recording reads
  * "Passage · {title}", plus its gap count when it has gaps. One material that
  * is a single recording and nothing to read reads
  * "Audio · {file} · {plays}", where `fileNames` maps an asset id to its file
@@ -33,21 +34,11 @@ export function sharedContentLine(
   t: TFunction,
 ): SharedContentLine | null {
   const { stimuli, recordings } = bundle.group;
-  const [material, ...others] = stimuli;
-  if (!material) return null;
-  if (others.length === 0) {
-    const audio = [...materialAssets([material])].flatMap(([assetId, kind]) =>
-      kind === "audio" ? [assetId] : [],
-    );
-    if (audio.length === 0) return passageLine(material, t);
-    const [assetId] = audio;
-    if (audio.length === 1 && assetId && !holdsReading(material))
-      return audioLine(
-        fileNames.get(assetId),
-        recordings.find((recording) => recording.assetId === assetId),
-        t,
-      );
-  }
+  if (stimuli.length === 0) return null;
+  const content = readSharedContent(bundle);
+  if (content?.kind === "passage") return passageLine(content.material, t);
+  if (content?.kind === "audio")
+    return audioLine(fileNames.get(content.recording.assetId), content.recording, t);
   return {
     kind: "materials",
     text: [
@@ -73,37 +64,18 @@ function passageLine(material: GroupMaterial, t: TFunction): SharedContentLine {
 
 function audioLine(
   fileName: string | undefined,
-  recording: GroupRecording | undefined,
+  recording: GroupRecording,
   t: TFunction,
 ): SharedContentLine {
-  const maxPlays = recording?.policy.maxPlays;
+  const maxPlays = recording.policy.maxPlays;
   return {
     kind: "audio",
     text: [
       t("builder.sharedAudio"),
       ...(fileName ? [fileName] : []),
-      ...(maxPlays === undefined
-        ? []
-        : [
-            maxPlays === null
-              ? t("builder.sharedUnlimitedPlays")
-              : t("builder.sharedPlays", { count: maxPlays }),
-          ]),
+      maxPlays === null
+        ? t("builder.sharedUnlimitedPlays")
+        : t("builder.sharedPlays", { count: maxPlays }),
     ].join(SEPARATOR),
   };
-}
-
-function holdsReading(material: GroupMaterial): boolean {
-  const content = material.content;
-  if (content.format !== "semantic_v1") return true;
-  return content.blocks.some(
-    (block) =>
-      block.type !== "audio" &&
-      !(
-        block.type === "paragraph" &&
-        block.content.every(
-          (inline) => inline.type === "text" && inline.text.trim() === "",
-        )
-      ),
-  );
 }

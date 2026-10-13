@@ -217,6 +217,7 @@ function renderTree(value: GroupBundle, initial: OutlineSection[] = sections()) 
     onChange: vi.fn(),
     onSelectGroup: vi.fn(),
     onRenameGroup: vi.fn(),
+    onOpenSharedContent: vi.fn(),
     onRemoveGroup: vi.fn(),
   };
   function Harness() {
@@ -235,6 +236,7 @@ function renderTree(value: GroupBundle, initial: OutlineSection[] = sections()) 
         onSelect={vi.fn()}
         onSelectGroup={handlers.onSelectGroup}
         onRenameGroup={handlers.onRenameGroup}
+        onOpenSharedContent={handlers.onOpenSharedContent}
         onRemoveGroup={handlers.onRemoveGroup}
         onChange={(next) => {
           handlers.onChange(next);
@@ -252,7 +254,7 @@ const groupMenu = () =>
 
 describe("the group's row in the outline", () => {
   it("shows the line under the open group in the instructions line's geometry", async () => {
-    const { user, onSelectGroup } = renderTree(bundle([passage(TITLE)]));
+    const { user, onOpenSharedContent } = renderTree(bundle([passage(TITLE)]));
 
     const shared = screen.getByRole("button", { name: `Bài đọc · ${TITLE}` });
     expect(shared).toHaveClass(
@@ -268,7 +270,7 @@ describe("the group's row in the outline", () => {
     expect(within(shared).getByText(`Bài đọc · ${TITLE}`)).toHaveClass("truncate");
 
     await user.click(shared);
-    expect(onSelectGroup).toHaveBeenCalledWith(GROUP_ID);
+    expect(onOpenSharedContent).toHaveBeenCalledWith(GROUP_ID, shared);
 
     await user.click(
       screen.getByRole("button", { name: "Reading club", expanded: true }),
@@ -328,15 +330,16 @@ describe("the group's row in the outline", () => {
   });
 
   it("moves, removes, renames and opens the group from its items", async () => {
-    const { user, onChange, onRemoveGroup, onRenameGroup, onSelectGroup } = renderTree(
-      bundle([passage(TITLE)]),
-    );
+    const { user, onChange, onRemoveGroup, onRenameGroup, onOpenSharedContent } =
+      renderTree(bundle([passage(TITLE)]));
 
     await user.click(groupMenu());
     await user.click(
       await screen.findByRole("menuitem", { name: "Nội dung dùng chung" }),
     );
-    expect(onSelectGroup).toHaveBeenCalledWith(GROUP_ID);
+    await waitFor(() =>
+      expect(onOpenSharedContent).toHaveBeenCalledWith(GROUP_ID, groupMenu()),
+    );
 
     await user.click(groupMenu());
     await user.click(await screen.findByRole("menuitem", { name: "Đổi tên" }));
@@ -356,14 +359,16 @@ describe("the group's row in the outline", () => {
   });
 
   it("opens and runs the menu from the keyboard, and returns focus to its trigger", async () => {
-    const { user, onSelectGroup } = renderTree(bundle([passage(TITLE)]));
+    const { user, onOpenSharedContent } = renderTree(bundle([passage(TITLE)]));
 
     groupMenu().focus();
     await user.keyboard("{Enter}");
     const menu = await screen.findByRole("menu");
     expect(within(menu).getByRole("menuitem", { name: "Đổi tên" })).toHaveFocus();
     await user.keyboard("{ArrowDown}{Enter}");
-    expect(onSelectGroup).toHaveBeenCalledWith(GROUP_ID);
+    await waitFor(() =>
+      expect(onOpenSharedContent).toHaveBeenCalledWith(GROUP_ID, groupMenu()),
+    );
     await waitFor(() => expect(groupMenu()).toHaveFocus());
   });
 });
@@ -493,13 +498,15 @@ describe("the group's row in the builder", () => {
 
   it("keeps focus in the title when Rename asks again while the group is open", async () => {
     const user = renderBuilder();
-    await user.click(
-      await screen.findByRole(
-        "button",
-        { name: `Bài đọc · ${TITLE}` },
-        { timeout: 5000 },
-      ),
+    await screen.findByRole(
+      "button",
+      { name: `Bài đọc · ${TITLE}` },
+      { timeout: 5000 },
     );
+    const heading = screen
+      .getAllByRole("button", { name: "Reading club" })
+      .find((button) => !button.hasAttribute("aria-expanded"));
+    await user.click(heading!);
     const field = await screen.findByLabelText("Tên nhóm câu hỏi");
     expect(field).not.toHaveFocus();
 
