@@ -27,6 +27,9 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useContentWidthAtLeast } from "@/layouts/shell/contentWidth";
 import { useCrumbs } from "@/layouts/shell/crumbs";
 import { PageAsideSlot } from "@/layouts/slots";
+import { contentPlainText } from "@/components/shared/content/plainText";
+import type { AiFinding } from "@/features/ai/api";
+import { withFix } from "@/features/question-bank/aiDrafts";
 import {
   createQuestion,
   duplicateQuestion,
@@ -81,6 +84,7 @@ import {
 } from "../../components/BuilderGroupPane";
 import { GroupPickerDialog } from "../../components/GroupPickerDialog";
 import { BuilderWrites } from "../../BuilderWrites";
+import { BuilderAiActions, type BuilderAi } from "../../components/BuilderAiActions";
 import {
   editableOutline,
   findUnit,
@@ -183,6 +187,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   const [deleting, setDeleting] = useState(false);
   const [creating, setCreating] = useState(false);
   const [previewing, setPreviewing] = useState(false);
+  const [editorEpoch, setEditorEpoch] = useState(0);
 
   const selectionRequest = useRef(0);
   const [starterIds, setStarterIds] = useState<ReadonlySet<string>>(new Set());
@@ -406,6 +411,34 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       ),
     );
     void selectQuestion(first);
+  }
+
+  async function addGenerated(values: QuestionValues[]) {
+    const ids: string[] = [];
+    try {
+      for (const value of values) {
+        const created = await createQuestion(value);
+        queryClient.setQueryData(["teacher-question", created.id], created);
+        ids.push(created.id);
+      }
+    } finally {
+      appendQuestions(ids);
+      void queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
+    }
+  }
+
+  async function fixQuestion(finding: AiFinding) {
+    await flushQuestion.current?.();
+    const questionId = finding.questionId;
+    await queryClient.cancelQueries({ queryKey: ["teacher-question", questionId] });
+    const fresh = await getQuestion(questionId);
+    const saved = await updateQuestion(
+      questionId,
+      withFix(toFormValues(fresh), finding),
+    );
+    queryClient.setQueryData(["teacher-question", questionId], saved);
+    void queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
+    if (selectedId === questionId) setEditorEpoch((epoch) => epoch + 1);
   }
 
   async function onCreateQuestion() {
@@ -765,6 +798,29 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     }),
   );
 
+  const ai: BuilderAi = {
+    testId: test.id,
+    title: title.trim() || t("tests.untitled"),
+    passages: groupIds.flatMap(
+      (groupId) =>
+        groups.get(groupId)?.group.stimuli.flatMap((stimulus) => {
+          const text = contentPlainText(stimulus.content).trim();
+          return text === "" ? [] : [{ id: stimulus.id, title: stimulus.title, text }];
+        }) ?? [],
+    ),
+    section: sections[destinationIndex()]?.title ?? null,
+    prepare: async () => {
+      setPublishError(null);
+      await flushQuestion.current?.();
+      await outline.flush();
+    },
+    add: addGenerated,
+    fix: fixQuestion,
+    open: (questionId) => void selectQuestion(questionId),
+    numberOf: (questionId) => positionOf(sections, questionId, groups),
+    onPrepareFailed: report,
+  };
+
   function activeEditor() {
     if (selectedGroupId)
       return (
@@ -800,7 +856,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     const questionId = selectedId;
     return (
       <QuestionPane
-        key={questionId}
+        key={`${questionId}:${editorEpoch}`}
         questionId={questionId}
         number={positionOf(sections, questionId, groups)}
         clearStarterPrompt={starterIds.has(questionId)}
@@ -846,7 +902,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
           <AutosaveStatusLabel status={saveStatus} deck />
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Button
             variant="ghost"
             size="icon"
@@ -857,6 +913,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
           >
             <History aria-hidden="true" />
           </Button>
+          <BuilderAiActions ai={ai} />
           <Button
             variant="outline"
             size="md"

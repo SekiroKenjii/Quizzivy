@@ -70,6 +70,98 @@
     "view": "Xem",
     "delete": "Xoá"
   },
+  "ai": {
+    "draftTag": "Bản nháp AI",
+    "keep": "Giữ lại",
+    "correct": "Đáp án đúng",
+    "answer": "Đáp án",
+    "questionNumber": "Câu {{n}}",
+    "unavailable": "AI chưa phản hồi. Hãy thử lại sau một phút.",
+    "tryAgain": "Thử lại",
+    "failed": "AI chưa làm được việc này.",
+    "applyFailed": "Chưa lưu được. Hãy thử lại.",
+    "stop": "Dừng",
+    "startOver": "Làm lại từ đầu",
+    "done": "Xong",
+    "selectAll": "Chọn tất cả",
+    "clearSelection": "Bỏ chọn",
+    "blocked": {
+      "paused": "AI đang tạm dừng với tài khoản của bạn.",
+      "teacher": "Bạn đã dùng hết hạn mức. Hãy xin thêm trong Cài đặt.",
+      "pool": "Quỹ AI của trung tâm đã hết trong tháng này."
+    },
+    "credits": {
+      "left": "Còn {{left}} tín dụng trong tháng này",
+      "used": "Đã dùng {{credits}} tín dụng · còn {{left}}"
+    },
+    "entry": {
+      "check": "Kiểm tra AI",
+      "generate": "Tạo câu hỏi"
+    },
+    "generate": {
+      "title": "Tạo câu hỏi",
+      "subtitle": "Từ một bài đọc, một bản ghi lời hoặc một chủ đề. Câu hỏi đến dưới dạng bản nháp để bạn kiểm tra.",
+      "run": "Tạo",
+      "step1": "Đang đọc nguồn",
+      "step2": "Đang viết câu hỏi",
+      "step3": "Đang đối chiếu từng đáp án với nguồn",
+      "empty": "Không có câu nào. Hãy thử một nguồn dài hơn hoặc lựa chọn khác.",
+      "source": "Nguồn",
+      "sourcePlaceholder": "Dán một bài đọc hoặc bản ghi lời, hoặc mô tả một chủ đề",
+      "passage": "Bài đọc {{n}} · {{title}}",
+      "startEmpty": "Bắt đầu trống",
+      "types": "Dạng câu hỏi",
+      "count": "Số câu",
+      "level": "Trình độ",
+      "explanations": "Viết lời giải thích cho từng câu",
+      "explanationsSub": "Học viên xem được sau khi kết quả được công bố.",
+      "needSource": "Hãy thêm một nguồn dài ít nhất vài câu",
+      "needType": "Hãy chọn ít nhất một dạng câu hỏi",
+      "explanation": "Giải thích",
+      "summary": "Đã chọn {{n}}/{{total}} · kiểm tra từng câu trước khi thêm",
+      "addTo_one": "Thêm {{count}} câu vào {{section}}",
+      "addTo_other": "Thêm {{count}} câu vào {{section}}",
+      "saveToBank_one": "Lưu {{count}} câu vào ngân hàng",
+      "saveToBank_other": "Lưu {{count}} câu vào ngân hàng",
+      "added_one": "Đã thêm {{count}} câu hỏi vào {{section}}. Hãy kiểm tra từng câu trước khi xuất bản.",
+      "added_other": "Đã thêm {{count}} câu hỏi vào {{section}}. Hãy kiểm tra từng câu trước khi xuất bản.",
+      "saved_one": "Đã lưu {{count}} câu hỏi vào ngân hàng",
+      "saved_other": "Đã lưu {{count}} câu hỏi vào ngân hàng",
+      "savedTagged_one": "Đã lưu {{count}} câu hỏi vào ngân hàng, kèm thẻ Bản nháp AI",
+      "savedTagged_other": "Đã lưu {{count}} câu hỏi vào ngân hàng, kèm thẻ Bản nháp AI",
+      "invalid": "Câu {{n}} AI viết chưa lưu được như hiện tại. Hãy bỏ chọn câu đó rồi thử lại."
+    },
+    "check": {
+      "title": "Kiểm tra đề bằng AI",
+      "subtitle": "Tìm đáp án không khớp với bài đọc, câu chữ chưa rõ và những câu để lộ đáp án.",
+      "run": "Chạy kiểm tra",
+      "step1": "Đang đọc câu hỏi và bài đọc",
+      "step2": "Đang đối chiếu đáp án với văn bản",
+      "step3": "Đang xem câu chữ và các lựa chọn",
+      "empty": "Không còn gì cần xem. Đề đã sẵn sàng để xuất bản.",
+      "lookFor": "Tìm",
+      "kinds": {
+        "key": "Đáp án sai hoặc đáng ngờ",
+        "clarity": "Câu chữ chưa rõ",
+        "giveaway": "Câu để lộ đáp án",
+        "language": "Chính tả và ngữ pháp"
+      },
+      "info": "Đối chiếu các câu hỏi trong “{{title}}” với bài đọc của chúng. Không có gì thay đổi cho đến khi bạn áp dụng một cách sửa.",
+      "needCheck": "Hãy chọn ít nhất một mục cần tìm",
+      "applyFix": "Áp dụng cách sửa",
+      "fixed": "Đã cập nhật câu {{n}}",
+      "openQuestion": "Mở câu hỏi",
+      "dismiss": "Bỏ qua",
+      "severity": {
+        "likely_error": "Có thể sai",
+        "worth_a_look": "Nên xem lại",
+        "minor": "Nhỏ"
+      },
+      "suggestedFix": "Cách sửa gợi ý",
+      "summary_one": "{{count}} điều nên xem lại",
+      "summary_other": "{{count}} điều nên xem lại"
+    }
+  },
   "api": {
     "unavailable": "Không kết nối được với máy chủ. Vui lòng thử lại.",
     "failed": "Đã xảy ra lỗi. Vui lòng thử lại."
