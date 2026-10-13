@@ -80,21 +80,34 @@ const memoryPages = 4096
 
 // Read returns the text of data, or ErrEncrypted, ErrNoText, ErrLimit or ErrInvalid.
 func (r *Reader) Read(ctx context.Context, data []byte, limits Limits) (Document, error) {
+	var doc Document
+	err := r.sandboxed(ctx, limits.Timeout, func(instance pdfium.Pdfium) error {
+		var err error
+		doc, err = read(instance, data, limits)
+		return err
+	})
+	if err != nil {
+		return Document{}, err
+	}
+	return doc, nil
+}
+
+func (r *Reader) sandboxed(ctx context.Context, timeout time.Duration, work func(pdfium.Pdfium) error) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	ctx, cancel := context.WithTimeout(ctx, limits.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	pool, err := r.start()
 	if err != nil {
-		return Document{}, err
+		return err
 	}
 	defer func() { _ = pool.Close() }()
 	instance, err := pool.GetInstanceWithContext(ctx)
 	if err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
-			return Document{}, ctxErr
+			return ctxErr
 		}
-		return Document{}, fmt.Errorf("pdftext: sandbox unavailable: %w", err)
+		return fmt.Errorf("pdftext: sandbox unavailable: %w", err)
 	}
 	killed := make(chan struct{})
 	stop := context.AfterFunc(ctx, func() {
@@ -108,11 +121,11 @@ func (r *Reader) Read(ctx context.Context, data []byte, limits Limits) (Document
 		}
 		<-killed
 	}()
-	doc, err := read(instance, data, limits)
+	err = work(instance)
 	if ctxErr := ctx.Err(); ctxErr != nil {
-		return Document{}, ctxErr
+		return ctxErr
 	}
-	return doc, err
+	return err
 }
 
 // Close releases the compiled module; a later Read compiles it again.
@@ -148,28 +161,39 @@ func (r *Reader) start() (pdfium.Pool, error) {
 	return pool, nil
 }
 
-func read(instance pdfium.Pdfium, data []byte, limits Limits) (Document, error) {
+func openDocument(instance pdfium.Pdfium, data []byte, maxPages int) (doc references.FPDF_DOCUMENT, pages int, closeDoc func(), err error) {
 	opened, err := instance.OpenDocument(&requests.OpenDocument{File: &data})
 	if err != nil {
 		if errors.Is(err, pdfiumerrors.ErrPassword) || errors.Is(err, pdfiumerrors.ErrSecurity) {
-			return Document{}, ErrEncrypted
+			return "", 0, nil, ErrEncrypted
 		}
-		return Document{}, ErrInvalid
+		return "", 0, nil, ErrInvalid
 	}
-	defer func() {
+	closeDoc = func() {
 		_, _ = instance.FPDF_CloseDocument(&requests.FPDF_CloseDocument{Document: opened.Document})
-	}()
+	}
 	count, err := instance.FPDF_GetPageCount(&requests.FPDF_GetPageCount{Document: opened.Document})
 	if err != nil {
-		return Document{}, ErrInvalid
+		closeDoc()
+		return "", 0, nil, ErrInvalid
 	}
-	if count.PageCount < 1 || count.PageCount > limits.Pages {
-		return Document{}, ErrLimit
+	if count.PageCount < 1 || count.PageCount > maxPages {
+		closeDoc()
+		return "", 0, nil, ErrLimit
 	}
-	out := Document{Pages: count.PageCount}
+	return opened.Document, count.PageCount, closeDoc, nil
+}
+
+func read(instance pdfium.Pdfium, data []byte, limits Limits) (Document, error) {
+	doc, pages, closeDoc, err := openDocument(instance, data, limits.Pages)
+	if err != nil {
+		return Document{}, err
+	}
+	defer closeDoc()
+	out := Document{Pages: pages}
 	runes := 0
-	for page := range count.PageCount {
-		found, err := pageLines(instance, opened.Document, page)
+	for page := range pages {
+		found, err := pageLines(instance, doc, page)
 		if err != nil {
 			return Document{}, err
 		}

@@ -140,7 +140,7 @@ rolling deploy without a fill trigger):
 | `00122_create_ai_usage_ledger.sql` (append-only: no `UPDATE` or `DELETE` for the app role) | T-D4.31 |
 | `00123_create_ai_credit_requests.sql` | T-D4.31 |
 | `00124_add_ai_permissions.sql` (two rows in `app.permissions`, `ai.use` granted to the Teacher role) | T-D4.32 |
-| `NNNNN_add_word_imports_read_with_ai.sql` (`boolean NOT NULL DEFAULT false`) | T-D4.33 |
+| `00125_add_word_imports_read_with_ai.sql` (`boolean NOT NULL DEFAULT false`) | T-D4.33 |
 
 The AI tables are new and empty, so none is `-- +goose NO TRANSACTION` and the v0.10.0 binary is
 unaffected by them; `read_with_ai` has a constant default. The permission rows must be in the
@@ -2861,10 +2861,10 @@ For the release: the live smoke is not done here, as it needs the owner's key. `
 **Touches:** `migrations/NNNNN_add_word_imports_read_with_ai.sql` (new), `server/internal/modules/imports/{domain/{source.go,pdf.go},application/command/{create.go,process.go},repositories/imports.go,http/imports.go}`, `server/cmd/import-worker/`, `server/internal/core/adapters/{import_pdf.go,import_ai_reader.go (new)}`, `server/internal/platform/pdftext/` (page rendering through `go-pdfium`), `server/internal/modules/imports/application/tests/ai_reader_test.go` (new), `docs/plan/17-word-import.md` (§1, a checkpoint; §8's "not enabled by default" superseded by D19), `docs/plan/18-word-import-ux.md` §4, `docs/setup/word-import-worker.md`
 **Size:** L
 **Done when:**
-- [ ] `createImport` takes `readWithAi: boolean` (default false; refused with 422 when the
+- [x] `createImport` takes `readWithAi: boolean` (default false; refused with 422 when the
       adapter is nil or the caller lacks `ai.use`); `WordImport` carries it; the column has a
       constant default, so the v0.10.0 binary keeps inserting.
-- [ ] With it on, a PDF that fails the text-layer check (`PDF_NO_TEXT`) is not refused: the
+- [x] With it on, a PDF that fails the text-layer check (`PDF_NO_TEXT`) is not refused: the
       worker renders its pages (up to 40; a longer file is refused with `PDF_TOO_LONG_FOR_AI`
       naming the limit), **reserves 60 credits a page before the first call** (a refusal is the
       import's failed state "Not enough AI credits for {n} pages", never a half-read file), sends
@@ -2873,18 +2873,63 @@ For the release: the live smoke is not done here, as it needs the owner's key. `
       still passes validation, review and the transactional commit; a page the model cannot read
       is a finding on that page, not a silent gap. A `.docx` or a PDF with a text layer is read
       as today whether or not the switch is on.
-- [ ] The processing log names the reader ("Read 12 pages with AI · 190 credits"); the history
+- [x] The processing log names the reader ("Read 12 pages with AI · 190 credits"); the history
       row's meta shows it; the privacy note in the Sources pane of the import workspace
       (`18-word-import-ux.md` §4) says what left the system ("The pages of this file were read by an AI service outside Quizzivy.").
-- [ ] Nothing of a student leaves: the import holds exam documents; the task adds a check that
+- [x] Nothing of a student leaves: the import holds exam documents; the task adds a check that
       refuses a file whose metadata or first page names it as a student's submission is **not**
       attempted (a false sense of safety); the page's sentence carries the responsibility.
-- [ ] `ai_reader_test.go`: a scanned fixture (the corpus of 17 §1.1 has 49 two-page PDFs; one is
+- [x] `ai_reader_test.go`: a scanned fixture (the corpus of 17 §1.1 has 49 two-page PDFs; one is
       rendered to images in the test) goes through a fake `Completer` and yields candidates the
       recogniser accepts; the reservation precedes the first call; a mid-file failure releases the
       remainder and fails the import; the 40-page refusal; the switch off keeps today's
       `PDF_NO_TEXT`.
-- [ ] Live smoke: one two-page scan from the corpus, read for real; the credits in the PR.
+- [ ] Live smoke: one two-page scan from the corpus, read for real; the credits in the PR. Needs the owner's key; run at release.
+
+**As built:** Migration `00125_add_word_imports_read_with_ai.sql` (`boolean NOT NULL DEFAULT false`;
+`20-data-model.md` §47). **No dependency is added**: pages are drawn by the go-pdfium WebAssembly
+runtime that already reads the text layer (`pdftext.Reader.Render`, in the same wazero sandbox: no
+filesystem, no network, 256 MiB, now a three-minute deadline for a rendering), and the JPEG is
+encoded by it. The production image is the same distroless static image with the same two binaries.
+`createWordImport` answers 422 `VALIDATION_FAILED` with `details.readWithAi` when the server has no
+provider or the caller lacks `ai.use`; the 422 is documented on the operation (a response only, no
+schema changed). `WordImport` and the history item carry `readWithAi` when true.
+
+The reading lives in `imports/application/reader`, which holds the credits through the ai module's
+`Reserve` and `Finish` handlers and the `Completer` (all typed as the other module's ports, wired in
+`core/wiring/import_worker.go`; `core/adapters/import_ai_reader.go` draws the pages). **What the model
+returns is the page's printed lines, not questions**: they become `pdf-lines-v1` evidence, so the
+deterministic recognizer, its source links, review and commit are unchanged, and the model has no
+field of a draft to write. The prompt and decoder are `ai/domain/prompts/read_page.go`
+(`readable` and `lines` only; a line is cut to 2,000 characters, a page to 300 lines). A scan is read
+only when the text-layer path would have said `PDF_NO_TEXT`; a longer file than 40 pages is refused as
+`PDF_TOO_LONG_FOR_AI` before anything is held, and a scan over the 60-page general limit stays
+`PDF_TOO_LARGE`, as it is without the switch. The reservation is `60 x pages` before the first call
+(`AI_CREDITS_EXHAUSTED` / `AI_PAUSED`, nothing sent), pages go four at a time, and one `Finish` at the
+end settles the summed usage in one ledger row and releases the rest, also for a failure, a
+cancelled context (on a context that is not cancelled) and a panic. A provider failure fails the
+import `PROVIDER_UNAVAILABLE` (terminal: a retry would pay the pages again); a read that finds no
+readable page fails `AI_UNREADABLE`. An unreadable page keeps a hidden marker block and a
+review-required `AI_PAGE_UNREADABLE` finding on it; every page read adds to one informational
+`AI_PAGE_READ` finding, which is the "log line" a teacher sees (the contract carries no credits, so
+"Read 12 pages with AI · 190 credits" is the worker's log, `import read with ai` and `ai import
+settled`, and the Settings usage card's import row, not a web line). A reprocess of a read scan reuses
+its extraction and spends nothing. The worker loads the provider settings as the API does, and its
+per-run timeout is 15 minutes while the assistant is on.
+
+The web's change is the Sources pane's note (`imports.upload.privacyAi`) for an import with
+`readWithAi`, in the awaiting-files and started states, the two findings' titles and help, and the
+messages for the four failures. The note says that scanned pages are read by an AI service outside
+Quizzivy and pages with selectable text are not sent, rather than the past-tense sentence of the Done
+when above, which would be false for a text-layer PDF; the finding's title, "{n} pages were read by an
+AI service outside Quizzivy", is that sentence, counted. The toggle card is T-D4.39's, and the failure
+"Not enough AI credits for {n} pages" has no {n}: a run's error is a code, and the contract is closed.
+
+Measured on this container (4 cores): forty 300 dpi A4 scans took 30.6 s and 322 MiB resident, forty
+12-megapixel photographs 32.6 s and 478 MiB (528 MiB on a second rendering in the same process), with
+the 256 MiB sandbox included; `BenchmarkRenderForty*` in `pdftext/tests` repeats it. The live smoke
+(one two-page scan, read for real) needs the owner's key and is run at release.
+
 
 ### T-D4.34 — The AI panel and its entry points: the builder, the bank, Test detail
 **Depends on:** T-D4.32; T-D4.2a and T-D4.14 merged (the builder's title bar is shared); T-D4.20
