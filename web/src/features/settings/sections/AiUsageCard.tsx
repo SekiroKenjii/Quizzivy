@@ -13,8 +13,9 @@ import { QueryStates } from "@/components/shared/ListState";
 import { SettingsCard } from "@/components/shared/SettingsCard";
 import { ProgressBar } from "@/components/shared/stats/ProgressBar";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { AiCreditCategory, AiMonthUsage } from "@/features/settings/aiApi";
-import { credits, resetsOn } from "@/features/settings/aiCredits";
+import type { AiCreditCategory, AiMonthUsage } from "@/features/ai/api";
+import { credits, resetsOn } from "@/features/ai/credits";
+import { AI_BLOCK_KEYS, blockOf } from "@/features/ai/useAiAvailable";
 import { AiCreditRequest } from "@/features/settings/sections/AiCreditRequest";
 import { useLocale } from "@/lib/i18n/useLocale";
 
@@ -39,14 +40,13 @@ function UsageSkeleton() {
 
 function Limit({ usage }: Readonly<{ usage: AiMonthUsage }>) {
   const { t } = useTranslation();
-  if (usage.paused)
-    return <Callout tone="warning">{t("settings.ai.usage.paused")}</Callout>;
-  if (usage.left > 0) return null;
+  const block = blockOf(usage);
+  if (block === null) return null;
   return (
     <Callout tone="warning">
-      {usage.used >= usage.allowance
+      {block === "teacher"
         ? t("settings.ai.usage.allowanceUsed")
-        : t("settings.ai.usage.poolUsed")}
+        : t(AI_BLOCK_KEYS[block])}
     </Callout>
   );
 }

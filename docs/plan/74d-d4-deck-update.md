@@ -3116,7 +3116,7 @@ the 256 MiB sandbox included; `BenchmarkRenderForty*` in `pdftext/tests` repeats
 **Reuses:** `Sheet` (side, 560px), `Segmented`, `Switch`, `Callout`, the deck's chip and pill primitives, `BulkTagDialog`'s write, `duplicateTest`, the section unit writes
 **Size:** L
 **Done when:**
-- [ ] `AiPanel` is the deck's drawer (V-14) on the `Sheet` primitive from the right,
+- [x] `AiPanel` is the deck's drawer (V-14) on the `Sheet` primitive from the right,
       `min(560px, 100%)`, with the three stages, the field types, the run steps and skeleton, the
       item cards and the footer's credit note from the operation's `usage`; and the states the
       deck lacks (DG-201): Esc, a focus trap and return (DG-36); "Try again" on `503`; the 402
@@ -3135,7 +3135,7 @@ the 256 MiB sandbox included; `BenchmarkRenderForty*` in `pdftext/tests` repeats
       to {section}" creates the accepted items as questions in the open question's section
       through the existing writes, with the "AI draft" tag when the preference is on, and opens
       the first; in the bank "Save {n} to the bank"; the toast is the deck's.
-- [ ] Check: findings as drawn; "{fix}" is one click only for a fix whose write exists (option
+- [x] Check: findings as drawn; "{fix}" is one click only for a fix whose write exists (option
       text, accepted answer, explanation) and calls `updateQuestion` with the payload; otherwise
       "Open question" and "Dismiss" only (DG-202).
 - [ ] Variant: the before / after cards; "Save {n} changes as a draft" calls `duplicateTest` into
@@ -3144,13 +3144,65 @@ the 256 MiB sandbox included; `BenchmarkRenderForty*` in `pdftext/tests` repeats
       (DG-197).
 - [ ] Clean up: a duplicate card offers "Open" for each question and "Keep both"; no merge
       (DG-197); "Add tags to {n} questions" is the bulk tag write.
-- [ ] Every write a primary makes goes through the existing mutation hooks and their autosave
+- [x] Every write a primary makes goes through the existing mutation hooks and their autosave
       flushes; the panel itself calls only `/teacher/ai/*`. A unit test spies on the API module
       and finds no write from `features/ai/`.
 - [ ] Strings vi first, en from the deck, listed in the PR; `features/ai/` is a lazy chunk;
       `router-chunks.test.ts` passes untouched.
 - [ ] Compared with the deck at 360, 768, 1024, 1280 and 1440, light and dark: the panel in its
       three stages for each kind, and the three headers. Known differences: DG-197, DG-201, DG-202.
+
+**As built (T-D4.34a, the panel and the builder):** The task ran past 800 lines, so it is two pull
+requests under one id: T-D4.34a (the panel, Generate and Check, the builder's title bar) and
+T-D4.34b (the bank, Test detail, Variant and Clean up). The boxes above that 34a closes are ticked;
+the entry-point, Generate, strings and comparison boxes close with 34b.
+
+The panel is the `Sheet` at a new 560 frame (`min(560px, 100%)`, the header aligned to the top for
+the two-line subtitle, a 1.35 title with the subtitle 2px under it, a muted close button, a footer
+that wraps). A kind is a config object (`features/ai/kind.ts`, `kinds/{generate,check}.ts`): its
+fields, the check that stops a run, the run, how an item is drawn and what its primary saves. The
+host page hands in a context that holds every write, so `features/ai/` imports the API client in
+`api.ts` alone and names only `/teacher/ai/*` and `/public/status` there;
+`tests/units/ai/no-writes.test.tsx` spies on the client through both kinds' runs, a primary and a
+fix and asserts it, and checks the sources. `AiPanel` is loaded with `lazy()` by its host (its own
+20 kB chunk in the build); `router-chunks.test.ts` passes untouched.
+
+`useAiAvailable()` is `ai.use` and `PublicStatus.ai`; without `ai.use` the status is not read. The
+usage read (`getAiUsage`) decides the disabled state: `paused`, or nothing `left`, which is the
+teacher's allowance when `used` has reached it and the pool otherwise. A blocked entry point is
+`aria-disabled`, focusable, with the reason as its tooltip. The footer shows only metered figures:
+"{left} credits left this month" before a run and "Used {credits} credits · {left} left" after it,
+from the answer's `usage`, which also updates the cached month; the deck's "About {cost}" is a
+placeholder and is not drawn. The deck's 3.2 s minimum run is demo pacing and is not built: the
+steps advance every 1.3 s while the call runs. Failures: a 5xx, a dropped connection or an answer
+that fails the schema is the warning callout "AI didn't respond. Try again in a minute." with "Try
+again", over the fields as they were; `402` (by `details.scope`) and `403 AI_PAUSED` are the
+footer's sentence with Run disabled, and the usage is read again; `501 AI_OFF` reads the status
+again, so the entry points go; anything else shows the server's message. Stop aborts the request.
+
+Generate offers the open test's shared-content materials that have text, in outline order, as
+"Passage {n} · {title}"; choosing one copies its text into the field, and while the text is
+unchanged the request names `testId` and `stimulusId`, otherwise it sends the text as `source`
+(at most 20,000 characters). A kept question becomes bank values in
+`question-bank/aiDrafts.ts` (`draftQuestion`: one point, the level asked for, the canonical
+True/False options, a blank's first `___` as its one gap, a short answer's key as its sample
+answer), is checked against `questionSchema` before anything is sent, and is created with
+`createQuestion`; the builder appends the ids to the open question's section through the outline's
+autosave and opens the first. The tag is "AI draft" in the teacher's interface language
+(`ai.draftTag`, "Bản nháp AI" in Vietnamese) while `UserPreferences.ai.tagDrafts` is not false. A
+check's one-click fix flushes the open editor, reads the question again, applies the payload
+(`withFix`) and saves it with `updateQuestion`; an open editor of that question is mounted again on
+the saved copy. "Q{n}" is the builder's own number for the question when it is in the outline. The
+check's first step reads "Reading the questions and passages" (the deck's "Reading both passages"
+names its demo's two).
+
+The title bar keeps R4's Versions icon before the two buttons, and its actions row now wraps, as the
+deck's does (with two more buttons it overflowed at 360). Measured in Chromium (Be Vietnam Pro
+loaded), Publish's top against the title's, in both languages and themes: one row at 1024
+collapsed, 1280 and 1440 in both sidebar states, where the deck has one; the actions on a second
+row at 768 in both sidebar states and at 1024 expanded, as the deck's; at 360 the deck's three rows.
+At 768 expanded Publish goes to a third row (the deck keeps the actions on one): the Versions icon
+the deck no longer draws needs 42px, and the row is 3px short in English.
 
 ### T-D4.35 — Question editor: "Write with AI" and "Suggest wrong options"
 **Depends on:** T-D4.32, T-D4.34 (shares `features/ai/api.ts` and the credit note)

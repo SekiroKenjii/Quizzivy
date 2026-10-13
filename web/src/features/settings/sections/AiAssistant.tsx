@@ -2,7 +2,8 @@ import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { LoadError } from "@/components/shared/ListState";
 import { Skeleton } from "@/components/ui/skeleton";
-import { aiUsageQuery, isAiOff, useAiConfigured } from "@/features/settings/aiApi";
+import { aiUsageQuery, isAiOff } from "@/features/ai/api";
+import { useAiStatus } from "@/features/ai/useAiAvailable";
 import { AiPreferencesSection } from "@/features/settings/sections/AiPreferences";
 import { AiUsageCard } from "@/features/settings/sections/AiUsageCard";
 
@@ -16,7 +17,7 @@ import { AiUsageCard } from "@/features/settings/sections/AiUsageCard";
  */
 export function AiAssistantSection({ shown }: Readonly<{ shown: boolean }>) {
   const { t } = useTranslation();
-  const configured = useAiConfigured(shown);
+  const configured = useAiStatus(shown);
   const usage = useQuery({
     ...aiUsageQuery(),
     enabled: shown && configured.data === true,

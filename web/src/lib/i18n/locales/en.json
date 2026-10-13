@@ -70,6 +70,98 @@
     "view": "View",
     "delete": "Delete"
   },
+  "ai": {
+    "draftTag": "AI draft",
+    "keep": "Keep this",
+    "correct": "Correct answer",
+    "answer": "Answer",
+    "questionNumber": "Q{{n}}",
+    "unavailable": "AI didn’t respond. Try again in a minute.",
+    "tryAgain": "Try again",
+    "failed": "AI couldn’t do this.",
+    "applyFailed": "That couldn’t be saved. Try again.",
+    "stop": "Stop",
+    "startOver": "Start over",
+    "done": "Done",
+    "selectAll": "Select all",
+    "clearSelection": "Clear selection",
+    "blocked": {
+      "paused": "AI is paused for your account.",
+      "teacher": "Your allowance is used up. Ask for more in Settings.",
+      "pool": "The school’s AI pool is used up this month."
+    },
+    "credits": {
+      "left": "{{left}} credits left this month",
+      "used": "Used {{credits}} credits · {{left}} left"
+    },
+    "entry": {
+      "check": "AI check",
+      "generate": "Generate"
+    },
+    "generate": {
+      "title": "Generate questions",
+      "subtitle": "From a passage, a transcript or a topic. Questions arrive as drafts for you to check.",
+      "run": "Generate",
+      "step1": "Reading the source",
+      "step2": "Writing questions",
+      "step3": "Checking every answer against the source",
+      "empty": "Nothing found. Try a longer source or different options.",
+      "source": "Source",
+      "sourcePlaceholder": "Paste a passage or transcript, or describe a topic",
+      "passage": "Passage {{n}} · {{title}}",
+      "startEmpty": "Start empty",
+      "types": "Question types",
+      "count": "How many",
+      "level": "Level",
+      "explanations": "Write an explanation for each question",
+      "explanationsSub": "Students see it after results are released.",
+      "needSource": "Add a source of at least a few sentences",
+      "needType": "Pick at least one question type",
+      "explanation": "Explanation",
+      "summary": "{{n}} of {{total}} selected · check each one before adding",
+      "addTo_one": "Add {{count}} to {{section}}",
+      "addTo_other": "Add {{count}} to {{section}}",
+      "saveToBank_one": "Save {{count}} to the bank",
+      "saveToBank_other": "Save {{count}} to the bank",
+      "added_one": "{{count}} question added to {{section}}. Check it before publishing.",
+      "added_other": "{{count}} questions added to {{section}}. Check each one before publishing.",
+      "saved_one": "{{count}} question saved to the bank",
+      "saved_other": "{{count}} questions saved to the bank",
+      "savedTagged_one": "{{count}} question saved to the bank with an AI draft tag",
+      "savedTagged_other": "{{count}} questions saved to the bank with an AI draft tag",
+      "invalid": "Question {{n}} as AI wrote it can’t be saved. Clear it and try again."
+    },
+    "check": {
+      "title": "Check this test with AI",
+      "subtitle": "Looks for answer keys that don’t match the passage, unclear wording and questions that give answers away.",
+      "run": "Run check",
+      "step1": "Reading the questions and passages",
+      "step2": "Checking answers against the text",
+      "step3": "Looking at wording and options",
+      "empty": "Nothing left to look at. The test is ready to publish.",
+      "lookFor": "Look for",
+      "kinds": {
+        "key": "Wrong or doubtful answers",
+        "clarity": "Unclear wording",
+        "giveaway": "Answers given away",
+        "language": "Spelling and grammar"
+      },
+      "info": "Checks the questions in “{{title}}” against their passages. Nothing changes until you apply a fix.",
+      "needCheck": "Pick at least one thing to look for",
+      "applyFix": "Apply fix",
+      "fixed": "Q{{n}} updated",
+      "openQuestion": "Open question",
+      "dismiss": "Dismiss",
+      "severity": {
+        "likely_error": "Likely error",
+        "worth_a_look": "Worth a look",
+        "minor": "Minor"
+      },
+      "suggestedFix": "Suggested fix",
+      "summary_one": "{{count}} thing worth a look",
+      "summary_other": "{{count}} things worth a look"
+    }
+  },
   "api": {
     "unavailable": "Can't reach the server. Try again.",
     "failed": "Something went wrong. Try again."
@@ -738,9 +830,7 @@
         "bar": "{{used}} of {{limit}} credits used",
         "byFeature": "Usage by feature",
         "loadFailed": "Couldn't load your AI usage.",
-        "paused": "AI is paused for your account.",
         "allowanceUsed": "Your allowance is used up this month.",
-        "poolUsed": "The school's AI pool is used up this month.",
         "categories": {
           "generation": "Generating questions and variants",
           "grading": "Grading suggestions",
