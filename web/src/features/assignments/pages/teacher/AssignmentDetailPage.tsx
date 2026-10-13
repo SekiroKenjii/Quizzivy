@@ -71,6 +71,8 @@ import { ApiError } from "@/lib/api/errors";
 import { formatMoment, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useAuthStore } from "@/stores/auth";
 import { getAssignment, updateAssignment, type Assignment } from "../../api";
+import { useAssignmentInsights } from "../../assignmentInsights";
+import { AiInsightsAction, AiInsightsPanel } from "../../components/AiInsightsPanel";
 import { CloseEarlyDialog } from "../../components/CloseEarlyDialog";
 import { ItemAnalysis } from "../../components/ItemAnalysis";
 import { ReopenStudentDialog } from "../../components/ReopenStudentDialog";
@@ -113,6 +115,7 @@ export default function AssignmentDetailPage() {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const headingAfterPublish = useRef(false);
   const { notes, recoveryPanel, noteFocusRequest } = useSheetDrafts();
+  const insights = useAssignmentInsights(id);
 
   const { assignment, a, now, status, monitor, version, preview } = useAssignmentReads(
     id,
@@ -313,7 +316,19 @@ export default function AssignmentDetailPage() {
           />
         </TabsContent>
         <TabsContent value="questions" className="space-y-4 pt-4.5">
-          <ItemAnalysis assignmentId={a.id} />
+          <ItemAnalysis
+            assignmentId={a.id}
+            action={(handedIn) => (
+              <AiInsightsAction insights={insights} handedIn={handedIn} />
+            )}
+          >
+            <AiInsightsPanel
+              insights={insights}
+              assignmentId={a.id}
+              testTitle={a.testTitle}
+              groups={preview.data?.groups}
+            />
+          </ItemAnalysis>
           <TestCard a={a} version={version} closed={status === "closed"} />
           <QuestionsPanel preview={preview} a={a} />
         </TabsContent>
