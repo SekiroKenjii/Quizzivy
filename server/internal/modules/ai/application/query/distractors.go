@@ -36,7 +36,7 @@ func (h DistractorsHandler) Handle(ctx context.Context, q Distractors) (Suggeste
 	if err != nil {
 		return Suggested{}, err
 	}
-	got, err := asker{h.Service}.ask(ctx, q.Actor, prompt)
+	got, err := asker(h).ask(ctx, q.Actor, prompt)
 	if err != nil {
 		return Suggested{}, err
 	}

@@ -38,7 +38,7 @@ func (h VariantHandler) Handle(ctx context.Context, q Variant) (Varied, error) {
 	if err != nil {
 		return Varied{}, err
 	}
-	got, err := asker{h.Service}.ask(ctx, q.Actor, prompt)
+	got, err := asker(h).ask(ctx, q.Actor, prompt)
 	if err != nil {
 		return Varied{}, err
 	}

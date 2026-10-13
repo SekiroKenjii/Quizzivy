@@ -136,38 +136,49 @@ func tidyChange(c rawChange, q domain.PaperQuestion) (Change, bool) {
 	out := Change{QuestionID: q.ID, Number: q.Number, Kind: c.Kind, Title: clip(oneLine(q.Prompt), 140)}
 	switch c.Kind {
 	case VariantReword:
-		prompt := strings.TrimSpace(c.Prompt)
-		if q.Rich || q.Type == FillBlank || prompt == "" || len([]rune(prompt)) > 2000 || sameText(prompt, q.Prompt) {
-			return Change{}, false
-		}
-		out.Before, out.After, out.Prompt = clip(q.Prompt, 2000), prompt, prompt
+		return reword(out, c, q)
 	case VariantReorder:
-		order, ok := permutation(c.Order, len(q.Options))
-		if !choiceQuestion(q) || q.OrderFixed || len(q.Options) < 3 || !ok {
-			return Change{}, false
-		}
-		out.Before, out.After = describeOrder(q.Options, identity(len(q.Options))), describeOrder(q.Options, order)
-		for _, i := range order {
-			if q.Options[i].ID == "" {
-				return Change{}, false
-			}
-			out.OptionOrder = append(out.OptionOrder, q.Options[i].ID)
-		}
+		return reorder(out, c, q)
 	case VariantDistract:
-		i, text := letterIndex(c.Option), clip(oneLine(c.Text), 500)
-		if !choiceQuestion(q) || q.Rich || i < 0 || i >= len(q.Options) || q.Options[i].Correct || q.Options[i].ID == "" || text == "" {
-			return Change{}, false
-		}
-		for _, o := range q.Options {
-			if sameText(o.Text, text) {
-				return Change{}, false
-			}
-		}
-		out.Before, out.After = letter(i)+" · "+clip(q.Options[i].Text, 500), letter(i)+" · "+text
-		out.OptionID, out.Text = q.Options[i].ID, text
-	default:
+		return distract(out, c, q)
+	}
+	return Change{}, false
+}
+
+func reword(out Change, c rawChange, q domain.PaperQuestion) (Change, bool) {
+	prompt := strings.TrimSpace(c.Prompt)
+	if q.Rich || q.Type == FillBlank || prompt == "" || len([]rune(prompt)) > 2000 || sameText(prompt, q.Prompt) {
 		return Change{}, false
 	}
+	out.Before, out.After, out.Prompt = clip(q.Prompt, 2000), prompt, prompt
+	return out, true
+}
+
+func reorder(out Change, c rawChange, q domain.PaperQuestion) (Change, bool) {
+	order, ok := permutation(c.Order, len(q.Options))
+	if !choiceQuestion(q) || q.OrderFixed || len(q.Options) < 3 || !ok {
+		return Change{}, false
+	}
+	out.Before, out.After = describeOrder(q.Options, identity(len(q.Options))), describeOrder(q.Options, order)
+	for _, i := range order {
+		if q.Options[i].ID == "" {
+			return Change{}, false
+		}
+		out.OptionOrder = append(out.OptionOrder, q.Options[i].ID)
+	}
+	return out, true
+}
+
+func distract(out Change, c rawChange, q domain.PaperQuestion) (Change, bool) {
+	i, text := letterIndex(c.Option), clip(oneLine(c.Text), 500)
+	if !choiceQuestion(q) || q.Rich || i < 0 || i >= len(q.Options) || q.Options[i].Correct || q.Options[i].ID == "" || text == "" {
+		return Change{}, false
+	}
+	if slices.ContainsFunc(q.Options, func(o domain.Option) bool { return sameText(o.Text, text) }) {
+		return Change{}, false
+	}
+	out.Before, out.After = letter(i)+" · "+clip(q.Options[i].Text, 500), letter(i)+" · "+text
+	out.OptionID, out.Text = q.Options[i].ID, text
 	return out, true
 }
 

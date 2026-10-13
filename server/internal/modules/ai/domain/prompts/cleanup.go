@@ -98,66 +98,91 @@ func quotedPrompt(s string) string {
 // DecodeCleanup reads the provider's answer. A reference that names no question, a pair of one question, a repeated pair and a tag suggestion for a question that has tags are dropped, as is whatever was not asked for; tags are lower case, at most four, and a level is kept only for a question with none.
 func DecodeCleanup(raw json.RawMessage, in CleanupInput) (CleanupFindings, error) {
 	var answer struct {
-		Duplicates []struct {
-			A   string `json:"a"`
-			B   string `json:"b"`
-			Why string `json:"why"`
-		} `json:"duplicates"`
-		Tags []struct {
-			Question string   `json:"question"`
-			Tags     []string `json:"tags"`
-			Level    string   `json:"level"`
-		} `json:"tags"`
+		Duplicates []rawDuplicate `json:"duplicates"`
+		Tags       []rawTag       `json:"tags"`
 	}
 	if err := decode(raw, &answer); err != nil {
 		return CleanupFindings{}, err
 	}
-	at := func(r string) (int, bool) {
-		for i := range in.Questions {
-			if ref(i) == strings.ToLower(strings.TrimSpace(r)) {
-				return i, true
-			}
-		}
-		return 0, false
-	}
 	out := CleanupFindings{Duplicates: []Duplicate{}, Tags: []TagSuggestion{}}
 	if slices.Contains(in.Checks, CleanupDuplicates) {
-		pairs := map[[2]int]bool{}
-		for _, d := range answer.Duplicates {
-			a, okA := at(d.A)
-			b, okB := at(d.B)
-			why := clip(oneLine(d.Why), 300)
-			if !okA || !okB || a == b || why == "" || len(out.Duplicates) == MaxDuplicates {
-				continue
-			}
-			pair := [2]int{min(a, b), max(a, b)}
-			if pairs[pair] {
-				continue
-			}
-			pairs[pair] = true
-			out.Duplicates = append(out.Duplicates, Duplicate{A: in.Questions[pair[0]], B: in.Questions[pair[1]], Why: why})
-		}
+		out.Duplicates = keptDuplicates(answer.Duplicates, in.Questions)
 	}
 	if slices.Contains(in.Checks, CleanupTags) {
-		tagged := map[int]bool{}
-		for _, t := range answer.Tags {
-			i, ok := at(t.Question)
-			if !ok || len(in.Questions[i].Tags) > 0 || tagged[i] || len(out.Tags) == MaxTagSuggestions {
-				continue
-			}
-			tags := lowered(distinct(t.Tags, 4, 40))
-			if len(tags) == 0 {
-				continue
-			}
-			tagged[i] = true
-			suggestion := TagSuggestion{Question: in.Questions[i], Tags: tags}
-			if level := strings.ToLower(strings.TrimSpace(t.Level)); in.Questions[i].Level == "" && slices.Contains(levels, level) {
-				suggestion.Level = level
-			}
-			out.Tags = append(out.Tags, suggestion)
-		}
+		out.Tags = keptTags(answer.Tags, in.Questions)
 	}
 	return out, nil
+}
+
+type rawDuplicate struct {
+	A   string `json:"a"`
+	B   string `json:"b"`
+	Why string `json:"why"`
+}
+
+type rawTag struct {
+	Question string   `json:"question"`
+	Tags     []string `json:"tags"`
+	Level    string   `json:"level"`
+}
+
+func questionAt(questions []domain.BankQuestion, reference string) (int, bool) {
+	want := strings.ToLower(strings.TrimSpace(reference))
+	for i := range questions {
+		if ref(i) == want {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+func keptDuplicates(rows []rawDuplicate, questions []domain.BankQuestion) []Duplicate {
+	out := []Duplicate{}
+	pairs := map[[2]int]bool{}
+	for _, d := range rows {
+		if len(out) == MaxDuplicates {
+			break
+		}
+		a, okA := questionAt(questions, d.A)
+		b, okB := questionAt(questions, d.B)
+		why := clip(oneLine(d.Why), 300)
+		pair := [2]int{min(a, b), max(a, b)}
+		if !okA || !okB || a == b || why == "" || pairs[pair] {
+			continue
+		}
+		pairs[pair] = true
+		out = append(out, Duplicate{A: questions[pair[0]], B: questions[pair[1]], Why: why})
+	}
+	return out
+}
+
+func keptTags(rows []rawTag, questions []domain.BankQuestion) []TagSuggestion {
+	out := []TagSuggestion{}
+	tagged := map[int]bool{}
+	for _, t := range rows {
+		if len(out) == MaxTagSuggestions {
+			break
+		}
+		i, ok := questionAt(questions, t.Question)
+		if !ok || len(questions[i].Tags) > 0 || tagged[i] {
+			continue
+		}
+		tags := lowered(distinct(t.Tags, 4, 40))
+		if len(tags) == 0 {
+			continue
+		}
+		tagged[i] = true
+		out = append(out, TagSuggestion{Question: questions[i], Tags: tags, Level: suggestedLevel(t.Level, questions[i])})
+	}
+	return out
+}
+
+func suggestedLevel(level string, q domain.BankQuestion) string {
+	level = strings.ToLower(strings.TrimSpace(level))
+	if q.Level == "" && slices.Contains(levels, level) {
+		return level
+	}
+	return ""
 }
 
 func lowered(texts []string) []string {

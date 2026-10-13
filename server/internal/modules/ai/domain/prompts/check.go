@@ -160,21 +160,17 @@ func tidyFix(f rawFix, issue string, q domain.PaperQuestion) Fix {
 	}
 	switch f.Kind {
 	case FixOptionText:
-		i := letterIndex(f.Option)
-		if q.Rich || i < 0 || i >= len(q.Options) || q.Options[i].ID == "" || sameText(q.Options[i].Text, text) {
+		id, ok := replaceableOption(f.Option, text, q)
+		if !ok {
 			return advice
 		}
-		fix.OptionID = q.Options[i].ID
+		fix.OptionID = id
 	case FixAcceptedAnswer:
-		if q.Type != FillBlank || f.Blank < 1 || f.Blank > len(q.Blanks) || q.Blanks[f.Blank-1].ID == "" {
+		id, ok := extendableBlank(f.Blank, text, q)
+		if !ok {
 			return advice
 		}
-		for _, accepted := range q.Blanks[f.Blank-1].Accepted {
-			if sameText(accepted, text) {
-				return advice
-			}
-		}
-		fix.BlankID = q.Blanks[f.Blank-1].ID
+		fix.BlankID = id
 	case FixExplanation:
 		if q.Rich {
 			return advice
@@ -183,4 +179,23 @@ func tidyFix(f rawFix, issue string, q domain.PaperQuestion) Fix {
 		return advice
 	}
 	return fix
+}
+
+func replaceableOption(letter, text string, q domain.PaperQuestion) (string, bool) {
+	i := letterIndex(letter)
+	if q.Rich || i < 0 || i >= len(q.Options) || q.Options[i].ID == "" || sameText(q.Options[i].Text, text) {
+		return "", false
+	}
+	return q.Options[i].ID, true
+}
+
+func extendableBlank(number int, text string, q domain.PaperQuestion) (string, bool) {
+	if q.Type != FillBlank || number < 1 || number > len(q.Blanks) || q.Blanks[number-1].ID == "" {
+		return "", false
+	}
+	blank := q.Blanks[number-1]
+	if slices.ContainsFunc(blank.Accepted, func(accepted string) bool { return sameText(accepted, text) }) {
+		return "", false
+	}
+	return blank.ID, true
 }

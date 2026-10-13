@@ -3,6 +3,7 @@ package prompts
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"quizzivy/internal/modules/ai/domain"
@@ -92,46 +93,42 @@ func DecodeGenerate(raw json.RawMessage, in GenerateInput) ([]Question, error) {
 }
 
 func tidyQuestion(q rawQuestion, in GenerateInput) (Question, bool) {
-	asked := false
-	for _, t := range in.Types {
-		asked = asked || t == q.Type
-	}
 	prompt := strings.TrimSpace(q.Prompt)
-	if !asked || prompt == "" || len([]rune(prompt)) > 2000 {
+	if !slices.Contains(in.Types, q.Type) || prompt == "" || len([]rune(prompt)) > 2000 {
 		return Question{}, false
 	}
 	out := Question{Type: q.Type, Prompt: prompt}
 	if in.Explanations {
 		out.Explanation = clip(q.Explanation, 2000)
 	}
+	return withKey(out, q)
+}
+
+func withKey(out Question, q rawQuestion) (Question, bool) {
 	switch q.Type {
 	case SingleChoice, MultipleChoice:
 		out.Options = distinct(q.Options, 8, 500)
 		out.AnswerKey = matchingOptions(out.Options, q.Answers)
-		if len(out.Options) < 2 || len(out.AnswerKey) == 0 || len(out.AnswerKey) >= len(out.Options) {
-			return Question{}, false
-		}
-		if q.Type == SingleChoice && len(out.AnswerKey) != 1 {
-			return Question{}, false
-		}
+		return out, choiceKeyHolds(out)
 	case TrueFalse:
 		out.Options = []string{"True", "False"}
 		out.AnswerKey = matchingOptions(out.Options, q.Answers)
-		if len(out.AnswerKey) != 1 {
-			return Question{}, false
-		}
+		return out, len(out.AnswerKey) == 1
 	case FillBlank:
 		out.AnswerKey = distinct(q.Answers, 8, 100)
-		if strings.Count(prompt, "___") != 1 || len(out.AnswerKey) == 0 {
-			return Question{}, false
-		}
+		return out, strings.Count(out.Prompt, "___") == 1 && len(out.AnswerKey) > 0
 	case ShortAnswer:
 		out.AnswerKey = distinct(q.Answers, 8, 200)
-		if len(out.AnswerKey) == 0 {
-			return Question{}, false
-		}
+		return out, len(out.AnswerKey) > 0
 	}
 	return out, true
+}
+
+func choiceKeyHolds(q Question) bool {
+	if len(q.Options) < 2 || len(q.AnswerKey) == 0 || len(q.AnswerKey) >= len(q.Options) {
+		return false
+	}
+	return q.Type != SingleChoice || len(q.AnswerKey) == 1
 }
 
 func matchingOptions(options, answers []string) []string {

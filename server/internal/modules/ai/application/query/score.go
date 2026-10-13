@@ -48,7 +48,7 @@ func (h ScoreHandler) Handle(ctx context.Context, q Score) (Scored, error) {
 		return Scored{}, domain.ErrUnanswered
 	}
 	in := prompts.ScoreInput{Answer: graded, Language: h.LanguageFor(ctx, q.Actor.ID, "")}
-	got, err := asker{h.Service}.ask(ctx, q.Actor, prompts.Score(in))
+	got, err := asker(h).ask(ctx, q.Actor, prompts.Score(in))
 	if err != nil {
 		return Scored{}, err
 	}

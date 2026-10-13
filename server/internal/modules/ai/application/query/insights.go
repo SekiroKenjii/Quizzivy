@@ -45,7 +45,7 @@ func (h InsightsHandler) Handle(ctx context.Context, q Insights) (Interpreted, e
 	if err != nil {
 		return Interpreted{}, err
 	}
-	got, err := asker{h.Service}.ask(ctx, q.Actor, prompt)
+	got, err := asker(h).ask(ctx, q.Actor, prompt)
 	if err != nil {
 		return Interpreted{}, err
 	}

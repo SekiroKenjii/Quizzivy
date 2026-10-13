@@ -38,7 +38,7 @@ func (h CheckHandler) Handle(ctx context.Context, q Check) (Checked, error) {
 	if err != nil {
 		return Checked{}, err
 	}
-	got, err := asker{h.Service}.ask(ctx, q.Actor, prompt)
+	got, err := asker(h).ask(ctx, q.Actor, prompt)
 	if err != nil {
 		return Checked{}, err
 	}

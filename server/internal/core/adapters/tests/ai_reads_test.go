@@ -54,7 +54,7 @@ func reviewOf(status attemptsdomain.Status, answers map[string]attemptsdomain.Re
 }
 
 func grading(review attemptsdomain.Review, err error) adapters.AIGrading {
-	return adapters.AIGrading{Review: cqrs.HandlerFunc[attemptsquery.Review, attemptsdomain.Review](func(_ context.Context, q attemptsquery.Review) (attemptsdomain.Review, error) {
+	return adapters.AIGrading{Review: cqrs.HandlerFunc[attemptsquery.Review, attemptsdomain.Review](func(context.Context, attemptsquery.Review) (attemptsdomain.Review, error) {
 		return review, err
 	})}
 }

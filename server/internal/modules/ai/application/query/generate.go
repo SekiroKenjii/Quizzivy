@@ -44,7 +44,7 @@ func (h GenerateHandler) Handle(ctx context.Context, q Generate) (Generated, err
 		return Generated{}, err
 	}
 	in := prompts.GenerateInput{Source: source, Types: q.Types, Count: q.Count, Level: q.Level, Explanations: q.Explanations, Language: h.LanguageFor(ctx, q.Actor.ID, q.Language)}
-	got, err := asker{h.Service}.ask(ctx, q.Actor, prompts.Generate(in))
+	got, err := asker(h).ask(ctx, q.Actor, prompts.Generate(in))
 	if err != nil {
 		return Generated{}, err
 	}

@@ -490,7 +490,7 @@ func TestGenerateNeedsExactlyOneSourceOfAFewSentences(t *testing.T) {
 		mod    func(q *query.Generate)
 		fields []string
 	}{
-		"no source":              {func(q *query.Generate) {}, []string{"source"}},
+		"no source":              {func(*query.Generate) {}, []string{"source"}},
 		"both sources":           {func(q *query.Generate) { q.Source, q.TestID, q.StimulusID = sourceText, "t", "s" }, []string{"source"}},
 		"a test with no passage": {func(q *query.Generate) { q.TestID = "t" }, []string{"stimulusId"}},
 		"a short source":         {func(q *query.Generate) { q.Source = "Too short." }, []string{"source"}},

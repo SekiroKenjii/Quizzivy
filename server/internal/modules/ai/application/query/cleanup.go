@@ -42,7 +42,7 @@ func (h CleanupHandler) Handle(ctx context.Context, q Cleanup) (Cleaned, error) 
 	if err != nil {
 		return Cleaned{}, err
 	}
-	got, err := asker{h.Service}.ask(ctx, q.Actor, prompt)
+	got, err := asker(h).ask(ctx, q.Actor, prompt)
 	if err != nil {
 		return Cleaned{}, err
 	}

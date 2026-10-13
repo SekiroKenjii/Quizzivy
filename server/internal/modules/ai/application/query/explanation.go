@@ -37,7 +37,7 @@ func (h ExplanationHandler) Handle(ctx context.Context, q Explanation) (Explaine
 	if err != nil {
 		return Explained{}, err
 	}
-	got, err := asker{h.Service}.ask(ctx, q.Actor, prompt)
+	got, err := asker(h).ask(ctx, q.Actor, prompt)
 	if err != nil {
 		return Explained{}, err
 	}

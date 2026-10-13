@@ -161,7 +161,7 @@ func plainDocument(raw json.RawMessage) bool {
 		return false
 	}
 	for _, block := range document.Blocks {
-		if block.Type != "paragraph" {
+		if block.Type != textParagraph {
 			return false
 		}
 		for _, node := range block.Content {

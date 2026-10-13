@@ -91,13 +91,7 @@ func Insights(in InsightsInput) (Prompt, error) {
 // DecodeInsights reads the provider's answer. An insight with no title or body is dropped, an unknown kind reads as a problem and an unknown action as none, the question numbers keep only questions of the paper, and no more than MaxInsights are kept; if none is left the answer is ErrUnusable.
 func DecodeInsights(raw json.RawMessage, in InsightsInput) ([]Insight, error) {
 	var answer struct {
-		Insights []struct {
-			Kind      string `json:"kind"`
-			Title     string `json:"title"`
-			Body      string `json:"body"`
-			Action    string `json:"action"`
-			Questions []int  `json:"questions"`
-		} `json:"insights"`
+		Insights []rawInsight `json:"insights"`
 	}
 	if err := decode(raw, &answer); err != nil {
 		return nil, err
@@ -108,34 +102,60 @@ func DecodeInsights(raw json.RawMessage, in InsightsInput) ([]Insight, error) {
 	}
 	var out []Insight
 	for _, r := range answer.Insights {
-		insight := Insight{Kind: InsightProblem, Action: ActionNone, Title: clip(oneLine(r.Title), 200), Body: clip(oneLine(r.Body), 1000)}
-		if len(out) == MaxInsights || insight.Title == "" || insight.Body == "" {
-			continue
+		if len(out) == MaxInsights {
+			break
 		}
-		if slices.Contains([]string{InsightKey, InsightProblem, InsightStrength}, r.Kind) {
-			insight.Kind = r.Kind
+		if insight, ok := tidyInsight(r, types); ok {
+			out = append(out, insight)
 		}
-		if slices.Contains([]string{ActionReview, ActionPractice}, r.Action) {
-			insight.Action = r.Action
-		}
-		insight.QuestionNumbers, insight.Types = []int{}, []string{}
-		for _, n := range r.Questions {
-			if _, on := types[n]; on && !slices.Contains(insight.QuestionNumbers, n) && len(insight.QuestionNumbers) < 20 {
-				insight.QuestionNumbers = append(insight.QuestionNumbers, n)
-			}
-		}
-		slices.Sort(insight.QuestionNumbers)
-		for _, t := range QuestionTypes() {
-			for _, n := range insight.QuestionNumbers {
-				if types[n] == t && !slices.Contains(insight.Types, t) {
-					insight.Types = append(insight.Types, t)
-				}
-			}
-		}
-		out = append(out, insight)
 	}
 	if len(out) == 0 {
 		return nil, ErrUnusable
 	}
 	return out, nil
+}
+
+type rawInsight struct {
+	Kind      string `json:"kind"`
+	Title     string `json:"title"`
+	Body      string `json:"body"`
+	Action    string `json:"action"`
+	Questions []int  `json:"questions"`
+}
+
+func tidyInsight(r rawInsight, types map[int]string) (Insight, bool) {
+	insight := Insight{Kind: InsightProblem, Action: ActionNone, Title: clip(oneLine(r.Title), 200), Body: clip(oneLine(r.Body), 1000)}
+	if insight.Title == "" || insight.Body == "" {
+		return Insight{}, false
+	}
+	if slices.Contains([]string{InsightKey, InsightProblem, InsightStrength}, r.Kind) {
+		insight.Kind = r.Kind
+	}
+	if slices.Contains([]string{ActionReview, ActionPractice}, r.Action) {
+		insight.Action = r.Action
+	}
+	insight.QuestionNumbers = knownNumbers(r.Questions, types)
+	insight.Types = typesOfNumbers(insight.QuestionNumbers, types)
+	return insight, true
+}
+
+func knownNumbers(numbers []int, types map[int]string) []int {
+	out := []int{}
+	for _, n := range numbers {
+		if _, on := types[n]; on && !slices.Contains(out, n) && len(out) < 20 {
+			out = append(out, n)
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
+func typesOfNumbers(numbers []int, types map[int]string) []string {
+	out := []string{}
+	for _, t := range QuestionTypes() {
+		if slices.ContainsFunc(numbers, func(n int) bool { return types[n] == t }) {
+			out = append(out, t)
+		}
+	}
+	return out
 }
