@@ -2570,6 +2570,12 @@
       "filled": "Đã điền {{filled}}/{{count}} chỗ trống",
       "chip": "Chỗ trống {{n}}, {{word}}",
       "empty": "trống"
+    },
+    "preview": {
+      "studentView": "Góc nhìn học viên",
+      "finish": "Đây là bản xem trước. Học viên nộp bài ở đây.",
+      "noTimeLimit": "Thời gian làm bài được đặt khi giao bài",
+      "notSaved": "Câu trả lời ở đây không được lưu."
     }
   },
   "integrity": {

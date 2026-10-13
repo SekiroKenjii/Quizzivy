@@ -43,20 +43,27 @@ const SHORT_LABEL_PX = 420;
  * PaperProps is what the host of a paper decides: the attempt, under which
  * the drawers a student has opened are remembered (none, in memory only),
  * the open question, the strike count, the fullscreen bar, and what each
- * control does.
+ * control does. A `preview` paper is a teacher's: it has no leave button and
+ * no Submit, its header is EngineHeader's preview, its panes are a section
+ * rather than the page's `<main>`, Finish on the last stop calls
+ * `onSubmit`, and it takes the focus only once the teacher moves, never as
+ * it opens on a page.
  */
-export type PaperProps = Readonly<{
-  attemptId?: string | undefined;
-  index: number;
-  jumps: number;
-  status: ReactNode;
-  fullscreenBar: boolean;
-  onLeave: () => void;
-  onMove: (index: number) => void;
-  onJump: (index: number) => void;
-  onSubmit: () => void;
-  onReload: () => void;
-}>;
+export type PaperProps = Readonly<
+  {
+    attemptId?: string | undefined;
+    index: number;
+    jumps: number;
+    status: ReactNode;
+    fullscreenBar: boolean;
+    onMove: (index: number) => void;
+    onJump: (index: number) => void;
+    onSubmit: () => void;
+    onReload: () => void;
+  } & (
+    { preview?: false; onLeave: () => void } | { preview: true; onLeave?: undefined }
+  )
+>;
 
 /**
  * Paper is the engine's paper open at question `index`: the header, the
@@ -90,6 +97,7 @@ function PaperAt({
   question,
   status,
   fullscreenBar,
+  preview = false,
   onLeave,
   onMove,
   onJump,
@@ -165,7 +173,7 @@ function PaperAt({
   });
   const sheet = useRef<HTMLDivElement>(null);
   const onSheetScroll = useKeptScroll(sheet, false, screen);
-  const landOn = useLanding(visit, sheet, answerPanel);
+  const landOn = useLanding(visit, sheet, answerPanel, !preview);
 
   const jumpToGap = (gap: MaterialGap) => {
     const landing = gapLanding(gap, questions, numbers);
@@ -186,19 +194,21 @@ function PaperAt({
   const head = sectionHead(groups, group);
   const besideShared = wide && passage !== undefined;
   const rail = wide && (passage === undefined ? railFits : railFitsBesideShared);
+  const Panes = preview ? "section" : "main";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <EngineHeader
+      <PaperHeader
         wide={wide}
         status={status}
-        leading={<LeaveButton onClick={onLeave} />}
+        preview={preview}
+        onLeave={onLeave}
         onSubmit={submit}
       />
       <SaveStrip wide={wide} indicator={status} />
       {fullscreenBar && <FullscreenBar />}
 
-      <main
+      <Panes
         ref={panes}
         tabIndex={-1}
         aria-label={t("takeTest.dotLabel", { n: index + 1 })}
@@ -293,8 +303,32 @@ function PaperAt({
           />
         )}
         {drawerMode && !drawerOut && fresh && <DrawerTip kind={kind} />}
-      </main>
+      </Panes>
     </div>
+  );
+}
+
+function PaperHeader({
+  wide,
+  status,
+  preview,
+  onLeave,
+  onSubmit,
+}: Readonly<{
+  wide: boolean;
+  status: ReactNode;
+  preview: boolean;
+  onLeave: (() => void) | undefined;
+  onSubmit: (() => void) | undefined;
+}>) {
+  return (
+    <EngineHeader
+      wide={wide}
+      status={status}
+      leading={onLeave === undefined ? null : <LeaveButton onClick={onLeave} />}
+      preview={preview}
+      onSubmit={onSubmit}
+    />
   );
 }
 
@@ -386,15 +420,19 @@ function useLanding(
   visit: string,
   sheetRef: RefObject<HTMLDivElement | null>,
   panelRef: RefObject<HTMLDivElement | null>,
+  focusOnOpen: boolean,
 ) {
   const target = useRef<string | null>(null);
+  const first = useRef(visit);
+  const moved = useRef(focusOnOpen);
   const [request, ask] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
+    if (visit !== first.current) moved.current = true;
     const id = target.current;
     target.current = null;
     if (id === null) {
       if (sheetRef.current) sheetRef.current.scrollTop = 0;
-      panelRef.current?.focus({ preventScroll: true });
+      if (moved.current) panelRef.current?.focus({ preventScroll: true });
       return;
     }
     const element = document.getElementById(id) ?? panelRef.current;

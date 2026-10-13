@@ -39,8 +39,11 @@ import {
   type TestStatus,
   type TestVersion,
 } from "@/features/tests/api";
-import { StudentPreview } from "@/features/tests/components/StudentPreview";
-import { StudentPreviewPane } from "@/features/tests/components/StudentPreviewPane";
+import { PaperPreview, PaperSkeleton } from "@/features/tests/components/PaperPreview";
+import {
+  PreviewFrameMessage,
+  StudentPreviewPane,
+} from "@/features/tests/components/StudentPreviewPane";
 import { PANEL_FRAME } from "@/features/tests/components/previewFrame";
 import { VariantAction } from "@/features/tests/components/VariantAction";
 import { VersionChanges } from "@/features/tests/components/VersionChanges";
@@ -579,7 +582,7 @@ function PreviewPanel({
       {notPublished ? (
         <NotPublished testId={id} />
       ) : (
-        <PreviewFrame preview={preview} phone={params.phone} />
+        <PreviewFrame title={nfc(test.title)} preview={preview} phone={params.phone} />
       )}
     </section>
   );
@@ -617,9 +620,11 @@ function NotPublished({ testId }: Readonly<{ testId: string }>) {
 }
 
 function PreviewFrame({
+  title,
   preview,
   phone,
 }: Readonly<{
+  title: string;
   preview: UseQueryResult<Awaited<ReturnType<typeof previewTest>>>;
   phone: boolean;
 }>) {
@@ -627,24 +632,22 @@ function PreviewFrame({
   return (
     <div className="bg-sidebar p-4">
       <StudentPreviewPane device={phone ? "phone" : "desktop"} sizes={PANEL_FRAME}>
-        {preview.isPending ? (
-          <div aria-busy="true" className="flex flex-col gap-3">
-            <Skeleton className="h-5 w-1/2" />
-            <Skeleton className="h-32 w-full rounded-xl" />
-            <Skeleton className="h-32 w-full rounded-xl" />
-          </div>
-        ) : null}
+        {preview.isPending ? <PaperSkeleton /> : null}
         {preview.isError ? (
-          <LoadError error={preview.error} onRetry={() => void preview.refetch()}>
-            {t("tests.detail.preview.failed")}
-          </LoadError>
+          <PreviewFrameMessage>
+            <LoadError error={preview.error} onRetry={() => void preview.refetch()}>
+              {t("tests.detail.preview.failed")}
+            </LoadError>
+          </PreviewFrameMessage>
         ) : null}
         {preview.isSuccess ? (
-          <StudentPreview
+          <PaperPreview
+            key={preview.data.version}
+            title={title}
             questions={preview.data.questions}
             sections={preview.data.sections ?? []}
             groups={preview.data.groups ?? []}
-            onRetryMedia={() => void preview.refetch()}
+            onReload={() => void preview.refetch()}
           />
         ) : null}
       </StudentPreviewPane>

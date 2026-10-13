@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -9,6 +9,10 @@ import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import { gapSentence } from "@tests/support/gapSentence";
 import "@/lib/i18n";
+
+beforeAll(async () => {
+  await import("@/features/take-test");
+});
 
 const BASE = "http://localhost:8080";
 const TEST_ID = "018f0000-0000-7000-8000-0000000000a1";
@@ -127,7 +131,7 @@ describe("the builder's bar", () => {
 
     const dialog = await screen.findByRole("dialog", { name: "Xem như học viên" });
     expect(
-      within(dialog).getByText(gapSentence("They ___ to the museum.")),
+      await within(dialog).findByText(gapSentence("They ___ to the museum.")),
     ).toBeInTheDocument();
     expect(within(dialog).getByText("went")).toBeInTheDocument();
     expect(within(dialog).getByText("have gone")).toBeInTheDocument();
@@ -180,17 +184,25 @@ describe("the builder's bar", () => {
     expect(
       within(dialog).getByRole("button", { name: "Đóng bản xem trước" }),
     ).toBeVisible();
-    expect(within(dialog).queryByRole("button", { name: "Câu trước" })).toBeNull();
-    expect(within(dialog).queryByRole("button", { name: "Câu tiếp" })).toBeNull();
-    expect(within(dialog).queryByRole("status")).toBeNull();
+    const bar = within(dialog).getByRole("heading", {
+      name: "Xem như học viên · Unit 5",
+    }).parentElement!;
+    expect(
+      within(bar)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["Máy tính", "Điện thoại", ""]);
     expect(
       within(dialog).queryByText(
         "Những gì học viên thấy. Câu trả lời ở đây không được lưu.",
       ),
     ).toBeNull();
+    const frame = within(dialog).getByRole("region", { name: "Màn hình của học viên" });
+    expect(frame).toHaveClass("h-full", "flex-col");
+    expect(frame).not.toHaveClass("overflow-y-auto");
     expect(
-      within(dialog).getByRole("region", { name: "Màn hình của học viên" }),
-    ).toHaveClass("overflow-y-auto");
+      await within(frame).findByRole("button", { name: "Hoàn tất" }),
+    ).toBeInTheDocument();
   });
 
   it("switches the frame between Computer and Phone", async () => {
