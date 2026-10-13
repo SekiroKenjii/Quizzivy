@@ -142,10 +142,10 @@ export function nextEmptyGap(
  * content, or rich content that is one paragraph of unmarked text projecting
  * to the prompt), and null otherwise.
  */
-export function sharedPrompt(
+export function sharedPrompt<Q extends Question>(
   stop: Stop,
-  questions: readonly Question[],
-): Question | null {
+  questions: readonly Q[],
+): Q | null {
   const members = stop.positions.flatMap((at) => {
     const question = questions[at];
     return question === undefined ? [] : [question];
