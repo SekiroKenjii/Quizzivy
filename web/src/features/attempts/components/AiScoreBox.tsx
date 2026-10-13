@@ -222,7 +222,9 @@ function ScoreSuggestion({
         )}
       </div>
       {stage.name === "idle" && stop !== null && (
-        <AiCreditNote text={t(AI_BLOCK_KEYS[stop])} warning />
+        <div className="flex">
+          <AiCreditNote text={t(AI_BLOCK_KEYS[stop])} warning />
+        </div>
       )}
       {stage.name === "idle" && stage.failure?.kind === "unavailable" && (
         <Callout
