@@ -576,6 +576,34 @@ before the key is. Until R5's `grant_maintenance_role` (T-R5.17a) runs, use the 
 maintenance credential; that migration must grant the role what these commands write
 (`docs/plan/20-data-model.md` §46, "Privileges").
 
+## What the assistant logs, and the live smoke
+
+None of these lines carries the key, a prompt or a student's words; each names the feature and,
+where the provider answered, its `request_id`, which is what the provider's console searches by.
+
+| Line | Level | Means |
+|---|---|---|
+| `ai assistant enabled` / `ai assistant disabled (no ANTHROPIC_API_KEY)` | INFO | Start-up. The first names both models. |
+| `anthropic_retry` | WARN | The provider answered 429 or 5xx, or a stream ended overloaded; the client waits and tries again, three times at most. |
+| `ai call failed` | WARN | After the retries, or on a refusal or an answer no decoder could use. The teacher saw `503 AI_UNAVAILABLE`; what the provider billed was settled and the rest released. |
+| `ai call rejected` | ERROR | The provider refused the request itself, which is the key, the account or a model name. Read the provider console. The teacher saw the same 503. |
+| `ai call failed unexpectedly` | ERROR | An error that is none of the above. |
+| `ai reservation not ended` | ERROR | `Finish` could not settle or release a call. The sweep returns the credits once the reservation is ten minutes old. |
+| `ai call cost more than its ceiling` | WARN | The provider metered more than the feature reserves. The teacher was charged the ceiling and the ledger keeps the real token counts. |
+| `released stale ai reservations` / `ai reservation sweep failed` | INFO / WARN | The hourly sweep and its failure, which the next hour retries. |
+| `import read with ai` / `ai import settled` | INFO | The worker's record of a scan it read: pages, pages it could not read, credits held and charged. |
+
+**The live smoke** needs the owner's key and is not in CI. On the builder's machine, with the nine
+variables in `.env` (`.env.example` lists them) and the API running against a database that holds
+the seed: generate three questions from a test's passage, check the seeded test, suggest a score
+for a seeded short answer that waits for a mark, and, for T-D4.33, create an import with "Read with
+AI" on from a two-page scan of the corpus and let the worker read it. Then read the ledger back:
+`maintenance ai-credits status` prints the pool's used credits and the teacher's use, and the rows
+are `select feature, tier, credits, request_id from app.ai_usage_ledger order by created_at desc`
+run as the owner. The pool's used credits must have moved by the sum of the rows. Paste the
+credits and the ledger rows into the pull request, never the key and never a response, which may
+hold a student's words.
+
 ## Evidence still required in production
 
 - Neon project/branch and observed history window: pending access.
