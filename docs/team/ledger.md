@@ -7,32 +7,30 @@ start at [README.md](README.md) "Resuming".
 
 ## Checkpoint
 
-- **As of:** 2026-10-12, 23:30 UTC.
-- **Base:** `develop` at `3c41b326`, cut as `release/0.10.1` for `main`. `main` is at `e06511fc` (v0.10.0 and hotfix #532).
-- **Objective:** ship v0.10.1. Then D4 (v0.11.0) on `work/deck-d4`.
-- **v0.10.1 carries:**
-  - F-68, the media retention: migrations 00111 to 00113, the contract's `previous`/`heldBytes`, and the sweep with its `MEDIA_RETENTION_SWEEP` switch (#548, #550, #553).
-  - The page frame, DG-205 (#547, #552).
-  - The import workspace, DG-207 (#557).
-  - Grading pane heights (#555): T-D4.21, moved forward at a teacher's escalation.
-  - The avatar photo (#556).
-  - F-69 to F-73, QA-51-9 to 13 and the query-key rename (#534 to #543).
-- **Decided by the owner today:**
-  - A replaced file is kept while a published test holds it, and deleted for good seven days after none does. The dialog warns before the action and offers a download. No bell, no restore (F-68).
-  - The design team's page-width design is approved (c1472f4c). There are no form columns, and the 1600px cap holds at 2560.
-  - Settings' Language and Time zone stay apply-on-save (DG-158).
-  - Grading moves into v0.10.1. The owner gave the go for v0.10.1.
-- **The tag** `v0.10.1` on the release merge is the owner's to push. The session's proxy refuses tag pushes.
-- **D4 in flight:**
-  - Merged into `work/deck-d4`: T-D4.1, .19, .13, .3, .4, .5, .6 and .30.
-  - Open: T-D4.7 (#559), T-D4.31 (credits, migrations from 00118), and the `develop` sync. The sync renumbers D4's 00107 to 00110 as 00114 to 00117.
+- **As of:** 2026-10-13, 20:40 UTC.
+- **Base:** `develop` at `30c85029`, where `work/deck-d4` was merged (#599), is cut as `release/0.11.0` for `main`. `main` is at `4098f784` (v0.10.1).
+- **Objective:** ship v0.11.0 (D4). Then R5 (v0.12.0).
+- **v0.11.0 carries all of `docs/plan/74d-d4-deck-update.md`:**
+  - the student engine (the rail, the sheet, the drawer, the recording card, the cloze as one stop);
+  - `allowPause`;
+  - the builder's shared content and the three previews;
+  - the four R4 screens v2 redraws, and Grading's finish states;
+  - the AI assistant: migrations 00118 to 00125, and the chunked clean-up;
+  - T-D4.12's verification;
+  - the release review's fixes (#601, #602).
+- **Release evidence** is in 74d's release checklist. The three-reviewer review found no blocker left. The Neon rehearsal ran on a deleted branch of production.
+- **The tag** `v0.11.0` on the release merge is the owner's to push. The session's proxy refuses tag pushes. `v0.10.1` (on `4098f784`) is still the owner's to push too.
 - **Waiting on the user:**
-  - O-R4.20: Remove and Move on Students.
-  - O-R4.21: the refresh window.
-  - The infra checks no release here can run: Neon, the phone smoke, compute hours.
+  - Thuong's go before `main`.
+  - The AI secrets on Fly, or leave the AI off.
+  - The live AI smokes with the key.
+  - The real-phone and iOS checks, and the Android tap after a swipe.
+  - Thuong's review of "Tự luận".
+  - Dropping the scratch database `qa_d412` on the local Postgres (no superuser here).
+  - Rotating the admin password shared in chat on 2026-10-13.
+  - O-R4.20 and O-R4.21.
   - The local MinIO objects left by E2E runs.
-  - `legacy_join_codes_rotated` in the API log (the deploy token cannot read logs).
-  - A check on a real Android phone of T-D4.7's tap straight after a swipe.
+- **Design team:** T-D4.8's "Finished" copy after a reload mid-play (74d follow-up 3).
 
 ## Roster and models
 

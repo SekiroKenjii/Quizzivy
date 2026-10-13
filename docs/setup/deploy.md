@@ -376,6 +376,55 @@ What v0.9.0 then does with what v0.10.0 wrote:
 - `00084`'s Down leaves its constraint `NOT VALID` for the same reason. Never roll back past v0.8.0
   (the join-code key).
 
+## Rolling out v0.11.0 (D4)
+
+D4 adds twelve migrations and changes no existing column (`docs/plan/74d-d4-deck-update.md`, the
+release checklist). `release_command` runs `migrate up` before the new version takes traffic, so
+v0.10.1 keeps serving while they apply.
+
+- **00114 to 00117** add `allowPause` ("Students can pause") to a question's audio and a group's
+  recording, live and frozen in a version. The question columns are nullable with no default and no
+  backfill, and a reader takes NULL as true, the value every recording had before the control
+  existed. The recording columns are `NOT NULL DEFAULT true`, a constant default, so nothing is
+  rewritten.
+- **00118 to 00123** create the AI assistant's tables: the settings row (a 200,000-credit monthly pool
+  and a 20,000-credit allowance per teacher), the month's pool, each teacher's allowance,
+  reservations, the append-only usage ledger and credit requests. The pool and the allowance are CHECK
+  constraints, so the database refuses a call that would overspend.
+- **00124** adds `ai.use` (to the Teacher role) and `ai.credits.manage`. **00125** adds
+  `word_imports.read_with_ai`.
+- **Rehearsed on a Neon branch of production on 2026-10-13.** The branch was at 00113, with 205
+  questions, 257 frozen questions, 12 attempts and 7 assignments. Every migration went up, down to
+  00113 and up again, each in one transaction with its version row, in about 0.8 s, which was almost
+  all the round trip from where it ran. `ai_settings` read 200000 and 20000. A reservation past the
+  pool was refused with `23514` (`ai_credit_periods_within_pool`), and nothing was written. The app
+  role holds only INSERT and SELECT on the ledger. The branch was deleted.
+- **The AI is off until `ANTHROPIC_API_KEY` and the tier variables are set** as Fly secrets
+  (`.env.example`, `docs/setup/operations.md`). Without them every AI operation answers `501 AI_OFF`,
+  no AI control is drawn, and the release is still complete.
+- The API deploys first, then Pages. The v0.10.1 bundle meets an API whose student payloads carry
+  `allowPause`, which that bundle ignores; a teacher's tab of v0.10.1 that saves an audio policy
+  without the field keeps the stored value.
+- Attempts in progress keep their answers, flags and play counts. The draft and flag formats and the
+  open-question key did not change. A recording playing at the reload costs one play, as does leaving
+  the test page mid-play and coming back (spec §11.3).
+
+### Rolling v0.11.0 back
+
+Prefer a hotfix. Run no Down migration. If the API must go back to v0.10.1, roll Pages back to its
+previous deployment **in the same hour**: the v0.11.0 bundle sends `allowPause` and calls the AI
+operations, which v0.10.1 does not serve.
+
+While v0.10.1 runs on the v0.11.0 schema, either during the rolling deploy or after a rollback:
+- **A teacher who removes or replaces the audio of a question last saved by v0.11.0 gets a server
+  error.** v0.11.0 stores `audio_allow_pause` on every audio question. v0.10.1 does not clear it when
+  the audio goes, and `questions_allow_pause_only_with_audio` refuses the row. It affects only that
+  edit; roll forward. To unblock one question by hand, as `quizzivy_migrate`:
+  `UPDATE app.questions SET audio_allow_pause = NULL WHERE id = '<id>';`
+- A group saved by v0.10.1 writes its recordings back with the default, so a stored "Students can
+  pause: off" turns on again. Check the group after rolling forward.
+- AI usage, allowances, requests and the ledger stay in their tables. v0.10.1 ignores them.
+
 ## Interrupted index builds in v0.8.0 (R2)
 
 R2 (v0.8.0) builds eight indexes `CONCURRENTLY`, one per file: `00057` and

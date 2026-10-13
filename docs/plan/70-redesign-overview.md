@@ -65,8 +65,8 @@ As built (D4, T-D4.30 to T-D4.33; spec v0.99): with `ANTHROPIC_API_KEY` unset ev
 | R10 | v0.17.0 | Learn: vocabulary and flashcards, courses and lessons | `80-r10.md` |
 | R11 | v1.0.0 | Landing, leads, and v1.0 hardening | `81-r11.md` |
 
-The release files `75-r5.md` to `80-r10.md` still carry their first-planned version in their
-titles; D4's release task (T-D4.18) corrects them to the versions above (Q29, decided 2026-10-10).
+D4's release task (T-D4.18) set the titles of `75-r5.md` to `80-r10.md`, and the versions they
+name, to the ones above (Q29, decided 2026-10-10).
 
 **Ordering rules.**
 
