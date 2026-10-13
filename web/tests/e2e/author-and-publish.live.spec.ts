@@ -154,10 +154,24 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
 
   // Six questions, one of each type plus the audio one, in the student payload.
+  // The preview is the engine, one question at a time: the first opens it, and
+  // five steps reach the sixth, the last, with its recording.
+  const paper = page.getByRole("region", { name: "Màn hình của học viên" });
   await expect(
-    page.getByText("They chỗ trống to the museum last weekend.", { exact: true }),
+    paper.getByText("They chỗ trống to the museum last weekend.", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("Người phụ nữ đề nghị làm gì?")).toBeVisible();
+  await expect(paper.getByText(/^Câu 1 trên 6 · /)).toBeVisible();
+  for (let step = 0; step < 5; step += 1) {
+    await paper.getByRole("button", { name: "Câu sau", exact: true }).click();
+  }
+  await expect(paper.getByText(/^Câu 6 trên 6 · /)).toBeVisible();
+  await expect(paper.getByText("Người phụ nữ đề nghị làm gì?")).toBeVisible();
+  await expect(
+    paper.getByRole("group", { name: "Đoạn ghi âm của câu hỏi" }),
+  ).toBeVisible();
+  await expect(
+    paper.getByRole("button", { name: "Hoàn tất", exact: true }),
+  ).toBeVisible();
 
   // And the version history records it: six questions, six points, by name.
   // At 1280 the history is the sheet the header opens.
