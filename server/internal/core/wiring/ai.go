@@ -4,10 +4,16 @@ import (
 	"log/slog"
 
 	"quizzivy/internal/core/adapters"
+	accessapp "quizzivy/internal/modules/access/application"
 	aiapp "quizzivy/internal/modules/ai/application"
 	"quizzivy/internal/modules/ai/application/ports"
 	"quizzivy/internal/modules/ai/domain"
+	aihttp "quizzivy/internal/modules/ai/http"
 	airepo "quizzivy/internal/modules/ai/repositories"
+	attemptsapp "quizzivy/internal/modules/attempts/application"
+	identityapp "quizzivy/internal/modules/identity/application"
+	questionsapp "quizzivy/internal/modules/questions/application"
+	testsapp "quizzivy/internal/modules/tests/application"
 	"quizzivy/internal/platform/config"
 	"quizzivy/internal/platform/db"
 )
@@ -26,17 +32,33 @@ func ai(cfg config.Config, logger *slog.Logger) (ports.Completer, error) {
 	return completer, nil
 }
 
-func aiCredits(cfg config.Config, dbx db.Context, notifier ports.Notifier, logger *slog.Logger) (*aiapp.Application, error) {
+type aiModules struct {
+	access    *accessapp.Application
+	identity  *identityapp.Application
+	questions *questionsapp.Application
+	tests     *testsapp.Application
+	attempts  *attemptsapp.Application
+}
+
+// aiAssistant builds the credits model, the suggestions over what they read, and their transport. The application is built with or without a provider: the console and the maintenance commands set allowances either way, and the transport answers 501 while the Completer is nil.
+func aiAssistant(cfg config.Config, dbx db.Context, notifier ports.Notifier, logger *slog.Logger, completer ports.Completer, m aiModules) (*aiapp.Application, aihttp.AI, error) {
 	zone, err := config.AppLocation()
 	if err != nil {
-		return nil, err
+		return nil, aihttp.AI{}, err
 	}
-	return aiapp.New(airepo.NewPostgres(dbx), aiapp.Options{
-		Prices:   aiPrices(cfg.AI),
-		Zone:     zone,
-		Notifier: notifier,
-		Logger:   logger,
-	}), nil
+	app := aiapp.New(airepo.NewPostgres(dbx), aiapp.Options{
+		Prices:    aiPrices(cfg.AI),
+		Zone:      zone,
+		Notifier:  notifier,
+		Logger:    logger,
+		Completer: completer,
+		Tests:     adapters.AITests{Test: m.tests.Queries.Get, Group: m.tests.Queries.Group, Question: m.questions.Queries.Get},
+		Questions: adapters.AIQuestions{Question: m.questions.Queries.Get, List: m.questions.Queries.List},
+		Grading:   adapters.AIGrading{Review: m.attempts.Queries.Review},
+		Analysis:  adapters.AIAnalysis{Items: m.attempts.Queries.ItemAnalysis, Wrong: m.attempts.Queries.WrongAnswers},
+		People:    adapters.AIPeople{User: m.identity.Queries.CurrentUser, Principal: m.access.Queries.ResolvePrincipal},
+	})
+	return app, aihttp.NewAI(app, completer != nil), nil
 }
 
 func aiPrices(cfg config.AI) domain.Prices {

@@ -561,6 +561,7 @@ func TestTheAdminViewHoldsThePoolTheTeachersTheirStandingAndTheRules(t *testing.
 	month := w.newMonth()
 	w.period(month, 10_000)
 	idle, busy, near, gone, stopped := w.teacher(), w.teacher(), w.teacher(), w.teacher(), w.teacher()
+	assistant := w.user("assistant")
 	rules := w.rules()
 	for _, id := range []string{busy, near, gone, stopped} {
 		w.allowance(month, id, 1_000)
@@ -570,7 +571,6 @@ func TestTheAdminViewHoldsThePoolTheTeachersTheirStandingAndTheRules(t *testing.
 	w.exec(`UPDATE app.ai_teacher_credits SET used_credits = 1000 WHERE month = $1::date AND user_id = $2::uuid`, month, gone)
 	w.exec(`UPDATE app.ai_teacher_credits SET used_credits = 1000, paused = true WHERE month = $1::date AND user_id = $2::uuid`, month, stopped)
 	w.exec(`UPDATE app.ai_credit_periods SET used_credits = 2_200, added_credits = 500 WHERE month = $1::date`, month)
-	w.exec(`UPDATE app.users SET role_id = (SELECT id FROM app.roles WHERE builtin_key = 'teacher') WHERE id = $1::uuid`, idle)
 
 	w.at(month.Add(14*24*time.Hour - 7*time.Hour))
 	view, err := w.app.Queries.AdminCredits.Handle(context.Background(), query.AdminCredits{})
@@ -610,8 +610,14 @@ func TestTheAdminViewHoldsThePoolTheTeachersTheirStandingAndTheRules(t *testing.
 	if view.Allowances < 4_000 || view.Active < 4 {
 		t.Errorf("allowances %d, active %d", view.Allowances, view.Active)
 	}
-	if _, listed := standing[idle]; listed {
-		t.Error("a teacher with no ai.use grant and no use was listed")
+	if got, listed := standing[idle]; !listed || got.Used != 0 || got.Status != domain.StatusOnTrack {
+		t.Errorf("a teacher who holds ai.use and has used nothing reads %+v (listed %v), want an idle row on track", got, listed)
+	}
+	if view.Idle < 1 {
+		t.Errorf("idle = %d, want the teacher who has used nothing counted", view.Idle)
+	}
+	if _, listed := standing[assistant]; listed {
+		t.Error("an Assistant, who holds no ai.use grant and used nothing, was listed")
 	}
 }
 

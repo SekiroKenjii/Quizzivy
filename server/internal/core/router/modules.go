@@ -1,6 +1,7 @@
 package router
 
 import (
+	aihttp "quizzivy/internal/modules/ai/http"
 	assignmentshttp "quizzivy/internal/modules/assignments/http"
 	attemptshttp "quizzivy/internal/modules/attempts/http"
 	availabilityhttp "quizzivy/internal/modules/availability/http"
@@ -16,6 +17,7 @@ import (
 
 // Modules is every module's transport, as core assembled it.
 type Modules struct {
+	AI            aihttp.AI
 	Imports       importshttp.Imports
 	Dashboard     dashboardhttp.Dashboard
 	Classes       classeshttp.Classes

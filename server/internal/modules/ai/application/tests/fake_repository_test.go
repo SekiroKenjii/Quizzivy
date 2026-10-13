@@ -11,6 +11,7 @@ import (
 	"quizzivy/internal/modules/ai/application"
 	"quizzivy/internal/modules/ai/domain"
 	notificationscommand "quizzivy/internal/modules/notifications/application/command"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/cqrs"
 )
 
@@ -44,6 +45,8 @@ type fakeRepository struct {
 	decidedErr  error
 	adminOut    domain.AdminCredits
 	currentRule domain.Rules
+	usageOut    domain.MonthUsage
+	owners      map[string]string
 }
 
 func (f *fakeRepository) Reserve(_ context.Context, in domain.ReserveInput) (domain.Reservation, error) {
@@ -85,7 +88,16 @@ func (f *fakeRepository) ReleaseStale(_ context.Context, cutoff time.Time) (doma
 }
 
 func (f *fakeRepository) Usage(_ context.Context, month time.Time, _ string) (domain.MonthUsage, error) {
-	return domain.MonthUsage{Month: month}, nil
+	out := f.usageOut
+	out.Month = month
+	return out, nil
+}
+
+func (f *fakeRepository) RequestOwner(_ context.Context, id string) (string, error) {
+	if owner, ok := f.owners[id]; ok {
+		return owner, nil
+	}
+	return teacherID, nil
 }
 
 func (f *fakeRepository) Admin(_ context.Context, month time.Time) (domain.AdminCredits, error) {
@@ -161,7 +173,18 @@ func newFixture(t *testing.T) fixture {
 	logs := &bytes.Buffer{}
 	app := application.New(repo, application.Options{
 		Prices: testPrices, Zone: saigon, Notifier: notifier, Logger: slog.New(slog.NewTextHandler(logs, nil)),
+		People: everyoneAlike{},
 	})
 	app.SetClock(func() time.Time { return september })
 	return fixture{repo: repo, app: app, notifier: notifier, logs: logs}
+}
+
+type everyoneAlike struct{}
+
+func (everyoneAlike) Preferences(context.Context, string) (domain.Preferences, error) {
+	return domain.Preferences{Language: domain.English, ReadStudentAnswers: true}, nil
+}
+
+func (everyoneAlike) Permissions(context.Context, string) (access.Set, error) {
+	return access.Set{}, nil
 }
