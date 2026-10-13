@@ -10,6 +10,8 @@ const expected = {
   vi: {
     leaveTitle: "Rời trang khi nhận xét chưa lưu?",
     leaveBody: "Nhận xét bạn đang viết cho câu trả lời này chưa được lưu.",
+    leaveScoreTitle: "Rời trang khi điểm chưa lưu?",
+    leaveScoreBody: "Điểm bạn đã điền cho câu trả lời này chưa được lưu.",
     saveAndLeave: "Lưu và rời đi",
     stay: "Ở lại",
     queueRow: "{{name}} · {{assignment}} · {{remaining}}",
@@ -85,6 +87,8 @@ const expected = {
   en: {
     leaveTitle: "Leave with an unsaved comment?",
     leaveBody: "The comment you are writing for this answer has not been saved.",
+    leaveScoreTitle: "Leave with an unsaved score?",
+    leaveScoreBody: "The score you filled in for this answer has not been saved.",
     saveAndLeave: "Save and leave",
     stay: "Stay",
     queueRow: "{{name}} · {{assignment}} · {{remaining}}",

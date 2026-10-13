@@ -1815,6 +1815,32 @@ pane padding); the rail's section titles are the paper's whole titles (T-D4.4); 
 point on the fixture where the drawing gives it 2; the Student deck's card has no worth line
 (DG-184); below 768 the column sits 35px lower under the integrity strip (T-D4.7).
 
+**As built (T-D4.10b, the result):** `ResultPage` divides the result's questions with T-D4.10a's
+`paperStops` over the shared context's groups. A run whose members share one plain prompt
+(`sharedPrompt`, now generic over the question type) prints it once, under a run line ("Câu 23–27 ·
+Điền từ vào đoạn văn · 5 chỗ trống", 12.5px 500 muted, over the prompt at 14px 500), above the
+first of the run's rows the filter keeps; under "Sai" it stands above 24. Those rows are
+`ReviewItem`'s `compact` form: the number in 14px 600 and "Bạn trả lời …" on one line with the
+points at its end, 12px of padding, and the correct answer, the explanation and the comment under
+it as before. Own prompts print in every row as today. `ReviewGroup` takes `gapWords` (question id
+to the student's word and its mark), which only the student's result passes, so the teacher's
+grading views are unchanged: a gap bound to a choice question is then `GapChip` with a `mark`, the
+result's 28px chip (64px at least, padding 0 9px 0 4px, 14px 600), on `--success-soft` with a
+`--success` border when correct and `--danger-soft` with `--danger` when wrong, a wrong word struck
+through and no word an em dash; a policy that hides marks leaves it neutral (the engine's filled or
+empty chip). A passage that holds a chip is 15px with 2.3 lines (`.content-review-gaps`, only on
+the student's result). The chip is named "Câu 23, relax" or "Câu 26, Chưa trả lời" and leads to
+its row as the old gap did. New keys: `result.cloze.{questions,chip}`; the line reuses
+`takeTest.cloze.{line,type,gaps,gapsOf}`. Tests: `result.test.tsx` gains "a cloze on the result"
+(the run line and the one-line rows, the run line under a filter, own prompts, the chips' marks and
+their way to the row, neutral chips under a closed policy); its gap case and `group-review.spec.ts`'s
+student case find the chip by its new name and assert its mark. Compared with drawing 3 of `Cloze
+Decision.dc.html` (both prompt modes, light and dark) in a production build at 360, 768, 1024, 1280
+and 1440, light and dark, English and Vietnamese: the chips, the run line, the shared prompt and
+the rows equal the drawing's in size, type and colour, and no cell scrolls sideways. Known
+differences: the group card's header and the material's own heading are `ReviewGroup`'s, as
+before; the drawing's passage sits in a plainer card.
+
 ### T-D4.11 — Engine: a choice sentence with its gap
 **Depends on:** T-D4.6
 **Touches:** `web/src/features/take-test/components/QuestionBody.tsx`, `web/src/features/take-test/sentenceGap.ts` (new), `web/tests/units/take-test/{sentence-gap.test.ts (new),renderers.test.tsx}`
@@ -2361,7 +2387,7 @@ label (Q25).
 **Touches:** `web/src/features/tests/components/{DraftPreviewDialog,StudentPreviewPane}.tsx`, `web/src/features/tests/pages/teacher/TestDetailPage.tsx`, `web/src/features/tests/components/StudentPreview.tsx` (the compare outline and chips T-R4.30 added go), `web/src/features/imports/pages/teacher/ImportConfirmPage.tsx`, locales, `web/tests/units/builder/preview-and-leave.test.tsx`, `web/tests/units/tests/`, `web/tests/units/imports/`
 **Size:** M
 **Done when:**
-- [ ] The builder's Preview opens a full-window overlay in place of R4's 720px dialog
+- [x] The builder's Preview opens a full-window overlay in place of R4's 720px dialog
       (T 5737-5761; the script's `builderPreviewVals`, T 6896-6901): `role="dialog"` named
       "Student preview", `--overlay`, padding 14px, gap 12px. Its bar is a card (radius 12px,
       `--shadow-lg`, padding 8px 10px 8px 14px) with the eye icon (16px), "Student preview ·
@@ -2369,36 +2395,90 @@ label (Q25).
       the icons `monitor` and `smartphone`) and a 34px "Close preview". Under the bar, a frame
       as tall as the space left: `min(1320px, 100%)` wide with a 12px radius for Computer,
       390px wide with a 28px radius for Phone.
-- [ ] There is no Previous / Next. Pending edits are flushed before the overlay opens, as
+- [x] There is no Previous / Next. Pending edits are flushed before the overlay opens, as
       before R4's dialog. Esc closes it, focus is trapped and returns to Preview: the export
       draws none of the three (DG-36).
-- [ ] Test detail (T 5846-5853, under `td.hasPreview`): the preview is a frame on `--sidebar`
+- [x] Test detail (T 5846-5853, under `td.hasPreview`): the preview is a frame on `--sidebar`
       with 16px of padding. Computer is full width, 620px high, radius 12px; Phone is 390px
       wide, 720px high, radius 24px. "Changes from version {prev}" keeps its Added / Changed /
       Answer / Points rows above the frame, and nothing inside the frame is outlined or
       carries a "New" or "Changed" chip (Q23). The line "Showing {k} of {n} questions…" goes.
       The not-published state and `?version=&compare=1&device=phone&history=1` are R4's.
-- [ ] The import's preview (T 4975-4980, the frame sized by `wi.pvW` and `wi.pvH`) is Test
+- [x] The import's preview (T 4975-4980, the frame sized by `wi.pvW` and `wi.pvH`) is Test
       detail's frame, with the same two sizes. It holds the whole review draft through R4's
       adapter, never a fixture, with answers and notes left out. "Showing {k} of {n}
       questions…" goes (Q24).
-- [ ] One frame component serves the three hosts (`StudentPreviewPane`); a host passes its
+- [x] One frame component serves the three hosts (`StudentPreviewPane`); a host passes its
       sizes. In all three the frame holds R4's `StudentPreview`, scrolling inside it, until
       T-D4.16 puts the engine there (DG-188).
-- [ ] Strings: "Close preview" and the bar's title are new, vi first. The keys of the retired
+- [x] Strings: "Close preview" and the bar's title are new, vi first. The keys of the retired
       dialog's sub line, Previous / Next, the two chips and the count line are removed in
       their own commit. The PR lists each test that pinned a retired frame beside the case that
       replaces it.
-- [ ] Unit tests. `preview-and-leave.test.tsx`: an edit still pending is saved before the
+- [x] Unit tests. `preview-and-leave.test.tsx`: an edit still pending is saved before the
       overlay opens (today's one preview case does not assert it); Esc closes the overlay and
       focus returns to Preview; "Computer | Phone" changes the frame's size. Under
       `tests/units/tests/`: with compare on, the rows stand above the frame and nothing
       inside it carries an outline or a chip; the frame's two sizes. Under
       `tests/units/imports/`: the frame holds the whole review draft, with no count line, no
       answer and no note.
-- [ ] Compared with the deck at 1280 and 1440 (Computer) and with Phone selected, and at 360,
+- [x] Compared with the deck at 1280 and 1440 (Computer) and with Phone selected, and at 360,
       768 and 1024 for the bar and the overlay, light and dark. Known difference, under DG-188:
       the frame's content.
+
+**As built:** one pull request, six commits (the bar and the frame; the retired strings; the
+scroller's positioning; the overlay's labels; the frame's width for the engine; this note).
+`StudentPreviewPane` is now the frame alone: a bordered box on `--bg` with `--shadow`, centred
+and `max-w-full`, sized by the classes a host passes (`previewFrame.ts`: `PANEL_FRAME` 100% ×
+620px r12 or 390 × 720px r24 for Test detail and "Preview and create", `WINDOW_FRAME` `h-full`
+`min(1320px,100%)` r12 or 390px r28 for the builder), holding a scroller (`relative`,
+`overflow-y-auto`, padding 22px) that is a `role="region"` named "Màn hình của học viên" /
+"The student's screen" (`preview.frame`) with `tabIndex=0`, so a paper with nothing focusable
+still scrolls by keyboard. The frame measures itself with a ResizeObserver and provides
+`EngineWidthContext` (T-D4.3's seam): without it the 390px frame on a wide window drew the
+options four to a row, one word wide; T-D4.16's engine reads the same value. The R4 pane with
+its own "Desktop | Phone" toggle, which the question group's preview dialog and Assignment detail
+still use, is kept unchanged as `InlineStudentPreview`; neither host is in this task.
+`DraftPreviewDialog` is the overlay on Radix's Dialog: `--overlay` behind, a content box
+`fixed inset-0`, padding 14px, gap 12px, `aria-label` "Xem như học viên" (`builder.previewAsStudent`,
+the export's name; the bar's text is the Radix title but not the name), the bar (card, radius 12,
+`--shadow-lg`, padding 8 10 8 14, gap 10) with the 16px eye, "Xem như học viên · {title}"
+(`builder.previewTitle`, 14px 600, truncated), the Segmented `sm` with Test detail's "Máy tính |
+Điện thoại" keys and a 34px "Đóng bản xem trước" (`builder.previewClose`). It sits at
+`--z-dialog` (85), not the deck's 95, so toasts (90) and menus (100) stay above it as everywhere
+else; the deck has no layer scale. Esc closes it, Radix traps focus, and on close focus returns to
+the control that opened it (Preview), or to `<main>` if that control has gone, as `Sheet` does. The
+builder still flushes the open question and the outline before it opens (`openPreview`, unchanged);
+`startAt` and the Previous / Next paging went with the dialog. Test detail's frame sits on
+`--sidebar` with 16px of padding under "Changes from version {n}", whose rows are R4's; the
+compare outline, the chips (`PreviewMark`, `previewMarks`) and the count lines are removed, and
+so is the import adapter's `included` count, which only the count line read. Tests that pinned a
+retired frame: `bank-picker-and-preview.test.tsx` "steps through the questions with Previous and
+Next" (removed; replaced by `preview-and-leave.test.tsx` "covers the window with a bar and a
+frame, and has no Previous or Next"); `detail-versions.test.tsx` "lists the changes and marks the
+questions they touch" (now "lists the changes above the frame and marks nothing inside it");
+`detail.test.tsx` "renders the default version" (the count line is now asserted absent) and the
+phone case (now asserts both sizes); `confirm.test.tsx` "shows every included question … and
+switches to the phone frame" and "says how many it shows…" (now "holds the whole review draft …
+no count line, no answer and no note", "draws Test detail's two frames" and "draws the questions
+the paper can draw, with no count of the others"); `preview-adapter.test.ts`'s two `included`
+assertions. New: `preview-and-leave.test.tsx` (a pending title edit is sent and answered before
+the overlay opens; Esc and "Đóng bản xem trước" close it and focus returns to Preview; Tab stays
+inside; "Máy tính | Điện thoại" changes the frame's classes) and `tests/units/tests/preview-frame.test.tsx`
+(the sizes, the region, the measured width). `document-scroll.spec.ts` caught a frame scroller
+without `relative` (the paper's `sr-only` labels lengthened it by 599px), fixed in its own commit.
+Compared in Chromium with the deck (React, Babel and lucide from their npm tarballs through route
+interception) at 360, 768, 1024, 1280 and 1440, light and dark, Computer and Phone, 60 cells: the
+overlay, the bar, the eye, the title's type, the segment track and buttons (28px, 12.5px 500),
+the close button and the frame equal the deck's in position, size, radius, padding, colour,
+border and shadow within 0.5px, except that each segment button is 1px narrower (the `sm`
+Segmented's 13px icon, against the deck's 14px, as on Test detail since R4). On Test detail and
+"Preview and create" the wrapper's padding and colour and the frame's width, height, radius,
+border, background and shadow equal the deck's in every cell; the frame starts lower or higher
+only by what stands above the section (the deck's fixture has a draft banner; DG-122's 30px h1 on
+"Preview and create"). No cell scrolls sideways. In Vietnamese at 360 the bar's title keeps 24px
+and ellipsizes, as the deck's English one does at 37px. Known difference, under DG-188: the
+frame's content is R4's read-only paper until T-D4.16.
 
 ### T-D4.16 — Preview: the take-test screen in the frame
 **Depends on:** T-D4.2c, T-D4.3, T-D4.4, T-D4.5, T-D4.7, T-D4.8 (and T-D4.10 if it is built)
@@ -2550,6 +2630,47 @@ a 40-line answer in an 800px-high window, and one at 360. The "compared with the
 by those measured cases, not by a recorded side-by-side with the deck. The page frame (DG-205)
 did not change this task: the grading page fills the frame like every other, and the numeric
 score field keeps its `--field-max` cap.
+
+### T-D4.21b — Grading: nothing left to mark, and papers ready to finish
+**Reopens:** T-R4.28 (Finish recovery below the panes)
+**Depends on:** T-D4.21, T-D4.36
+**Deck:** `page-width-proposal/Grading Finish States.dc.html` (the design team's answer of
+2026-10-13; its notes 1 to 9, the "Which state shows" table, "Other cases" and "Every English
+line" are the specification)
+**Touches:** `web/src/features/attempts/pages/teacher/GradingPage.tsx`,
+`web/src/features/attempts/{gradingMessages.ts,useGradingQueue.ts,gradingRecovery.ts}`,
+`web/src/components/shared/ListState.tsx`, locales, `web/tests/units/attempts/`,
+`web/tests/e2e/teacher-grading.spec.ts`
+**Size:** M
+**No contract change:** every figure in a row's check comes from `getAttemptForReview`, which
+the recovery panel already reads; `finishGrading` is unchanged. Finish stays explicit and nothing
+finishes on its own.
+**Done when:**
+- [ ] The header reads "No answers left." on an empty queue; while answers wait it adds the
+      "{n} papers ready to finish" link, which unfolds the card and moves focus to it. The DG-136
+      chip stays last and keeps its focus rule.
+- [ ] The empty state's variant follows the table: running check, failed check (Try again), papers
+      to finish (variant b, "Review {n} papers" opens the oldest paper's check and focuses its
+      Finish), and "All graded" (variant a) only after a complete check, naming the filter with
+      "Show all assignments" / "Show all students" when the queue is narrowed. `EmptyState` gains
+      optional icon and tone props (the 44px tile, 16/600 title); existing callers do not change.
+- [ ] The card: "Ready to finish" with its count and sentence; Refresh (replacing Rescan) beside
+      "Checked {time}" from the query's last update, "Checking…" while it runs, a 44px icon button
+      at 360; folded to one line while answers wait; the 180px scroll box goes.
+- [ ] Rows grouped by assignment, oldest hand-in first for groups and rows, five per group then
+      "Show {n} more" / "Show fewer"; a single group has no header; two groups sharing a title add
+      the earliest hand-in date. A row shows "Handed in …", "Time ran out" and "Flagged" from the
+      list row, and one Review / Close button with `aria-expanded`; one check open at a time.
+- [ ] The check (today's candidate panel, moved into the row): score, "{a} of {t} answered", how
+      it was marked (you marked n / automatically / left blank), the flag and blank lines; Finish
+      disabled unless `pendingManual === 0`, with the "now waiting to be marked" line otherwise.
+- [ ] After Finish: the row leaves, a toast, the polite live region "… Next: {name}.", the next
+      row's check opens with focus on its Finish (its group unfolds if needed); after the last,
+      focus goes to the empty state's title.
+- [ ] Finish failures: inside the check above its buttons; the answer card's alert names the
+      student. Strings as the page lists them, `grading.rescan` retired, vi written first.
+- [ ] Unit cases for each table row, grouping and Show more, the check's three kinds, the focus
+      moves and the failures; E2E at 360, 768 and 1280, light and dark, compared with the page.
 
 ### T-D4.22 — Assignment detail: the progress card and the roster filters
 **Reopens:** T-R4.25 (the four stat tiles)
@@ -3400,7 +3521,9 @@ without saving. `useGradingQueue` gains `fill(item, points, comment)`, which lay
 answer's draft and writes nothing (refused while a save is in flight); the score button shows
 pressed and the comment field holds the text. Save & next writes them through `flush`, and so does
 `j`/`k` or a click on another answer, which already flush a pending comment. A route change does
-not: the leave dialog appears only for an unsaved comment, as before. `grading-ai.test.tsx` spies
+not: the leave dialog appeared only for an unsaved comment, so a filled score with an empty or
+unchanged comment was lost; the D4 follow-ups (item 9 of "Follow-ups from the built tasks") make
+the dialog ask for it too. `grading-ai.test.tsx` spies
 on the API client and finds no `POST /teacher/attempts/{id}/grade` after "Use score and comment",
 then one with the suggested points and comment after Save & next; it also reads the box's source
 for any import of the attempts API.
@@ -3607,7 +3730,8 @@ on `features/ai/`'s `useAiAvailable` and `useAiBlock` and `features/auth/`'s `ai
   for an import with `readWithAi` in every later state. The history row's meta ends "· Read with
   AI". The contract carries no credits, so neither the deck's "About 400 credits per page" nor the
   proposal's "Uses 1 AI credit · 18 left" is drawn (§12: no figure the product has not metered).
-  Settings' "Read imports with AI" hint (T-D4.38) still carries the deck's figure.
+  Settings' "Read imports with AI" hint (T-D4.38) carried the deck's figure until the D4
+  follow-ups dropped it there too.
 - **Compared with the deck** (served with React, react-dom, Babel and lucide from their npm
   tarballs through route interception) at 360, 768, 1280 and 1440, light and dark: the card's
   border, radius, padding, gap, the 32px tile and its tones, the title and hint type and colour,
@@ -4195,7 +4319,7 @@ the D4 row is renumbered at that sync. The full "Meanwhile" texts are in `gaps.m
 |---|---|---|---|---|
 | DG-182 | Student › Take test, a recording at its play limit | The deck locks the recording; the product keeps it live and reports extra plays | Q3 | T-D4.8 |
 | DG-183 | Teacher › Question media and Shared content; Student › the recording card | "Students can pause" as one boolean, `allowPause`; "you can pause once" is read as a note | Q4 | T-D4.13, T-D4.9, T-D4.15 |
-| DG-184 | Student › Take test, a cloze | One item with n gaps on the Student page, one question per gap in the builder; the product keeps one question per gap (Q6 answered, #581) | Q6 | T-D4.10a, T-D4.10b |
+| DG-184 | Student › Take test and Result, a cloze | One item with n gaps on the Student page, one question per gap in the builder; the product keeps one question per gap (Q6 answered, #581) | Q6 | T-D4.10a, T-D4.10b |
 | DG-185 | Student › Take test, numbers and counts | "Question 23 of 31" against 35; a matching counts five or one; every question has one number | Q7 | T-D4.10a |
 | DG-186 | Teacher › Test builder, the group | The deck's group carries shared content; the product keeps a section and a shared-context group | Q8 | T-D4.2a, T-D4.14 |
 | DG-187 | Teacher › Test builder, the Shared content dialog | A textarea, one passage or one recording, loose gap rules, "MP3, M4A or WAV up to 25 MB", two switches missing; "on the left" reworded | Q9, Q10, Q25 | T-D4.2b, T-D4.14 |
@@ -4256,7 +4380,7 @@ export; DG-01 (Answered), DG-22, DG-71, DG-106, DG-100 and DG-63 (a second note)
 
 Recorded by T-D4.40 on 2026-10-13 from the "As built" notes and the reviews of T-D4.7 to T-D4.11
 and T-D4.30 to T-D4.33. None blocks a task or the release; each says where it would be done. None
-is built here.
+is built here. Item 8 came from T-D4.10a, and items 9 and 10 from the Tech Lead's reviews of T-D4.36 and T-D4.39.
 
 1. **The chunked bank clean-up.** T-D4.32 built `cleanUpQuestionBank` as one bounded call on the
    fast tier: at most 2,000 of the caller's own questions and 300,000 characters, at most 20
@@ -4278,18 +4402,24 @@ is built here.
    the student may not have heard the end. The number is right; the word may not be. Default: as
    built. Ask the design team whether a recording with a count and no remembered place should read
    "Played" instead.
-4. **The spec still describes the pane switcher T-D4.7 replaced with the drawer.** Three places
+4. [x] **The spec still describes the pane switcher T-D4.7 replaced with the drawer.** Three places
    say "Ngữ liệu | Câu n" or "the pane switcher": §7.3's paragraph on learner material, §9's
    "Panes" bullet and §12's "One breakpoint, 768px" bullet. T-D4.12 already rewrites §9 and §12 for
    the rail and the sheet (its box on S-05, S-06 and S-08); it replaces these sentences too, and
    §7.3's, and the engine paragraph of `AGENTS.md`, which says "a switcher shows one pane at a
    time". T-D4.7 did not touch the spec.
-5. **An E2E for T-D4.9's inert Pause button.** T-D4.9 is proved in jsdom (`audio-player-pause`,
+
+   **As built (D4 follow-ups):** spec v0.100 rewrites the three sentences to T-D4.7's drawer;
+   `AGENTS.md`'s engine paragraph stays with T-D4.12.
+5. [x] **An E2E for T-D4.9's inert Pause button.** T-D4.9 is proved in jsdom (`audio-player-pause`,
    `group-context`, `question-audio-events`) and by the comparison with the deck; no Playwright
    case presses the inert button in a real browser. Add one in `audio-events.spec.ts` or the phone
    spec: start s2 part 2's recording, click the button with `force: true` (Playwright counts an
    `aria-disabled` button as not enabled), and assert the recording is still playing and the play
    count has not moved. S, web; T-D4.12.
+
+   **As built (D4 follow-ups):** `audio-events.spec.ts` presses a question recording's inert Pause
+   with Space and Enter (lint refuses `force: true`) and finds it playing on, its line shown, one play.
 6. **A real-Android check of T-D4.7's tap after a swipe.** The drawer swallows the click a swipe
    leaves behind for 60 ms and never swallows a tap that follows a scroll. That is proved with
    real touches from CDP in mobile-chromium and in jsdom, not on a real Android phone, whose touch
@@ -4325,3 +4455,15 @@ is built here.
    run of a cloze's gaps is one screen. T-D4.12 rewrites §9 and §12 for the rail and the sheet, and
    adds the run, its line, the ties and the move by stop there. T-D4.10a left the spec's version
    alone, to keep it out of the lanes running beside it.
+9. [x] **The grading leave guard after "Use score and comment" (T-D4.36, the Tech Lead's
+   review).** A score filled from the suggestion and not yet saved was dropped on a route change
+   without a word when the suggested comment was empty or matched the saved one.
+
+   **As built (D4 follow-ups):** a score laid by `fill` is unsaved work until a Grade saves it, and
+   the dialog then reads "Rời trang khi điểm chưa lưu?"; every way of saving is unchanged.
+10. [x] **The credit figure in Settings (T-D4.38 against T-D4.39).** Settings' "Read imports with
+   AI" hint carried the deck's "About 400 credits per page", which the import card leaves out (§12:
+   no figure the product has not metered).
+
+   **As built (D4 follow-ups):** the hint ends after its first sentence in vi and en, as the import
+   card's does.

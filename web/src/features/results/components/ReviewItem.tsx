@@ -156,16 +156,21 @@ function points(
  * in danger only when it was marked and earned nothing. A question's own
  * recording, its transcript by the recording's own rule, and the grader's
  * comment follow. Nothing here is read from a field the policy removed.
+ * A gap of a run whose shared prompt is printed above it is `compact`: its
+ * number and what was answered share one line, and the prompt is not
+ * repeated.
  */
 export function ReviewItem({
   question,
   number,
   review,
+  compact = false,
   onRetry,
 }: Readonly<{
   question: ResultQuestion;
   number: number;
   review: AttemptResult["review"];
+  compact?: boolean;
   onRetry: () => void;
 }>) {
   const { t, i18n } = useTranslation();
@@ -178,11 +183,30 @@ export function ReviewItem({
   const struck = mark === "wrong" && answer.kind !== "none";
   const audio = question.media?.kind === "audio" ? question.media : null;
   const explanation = review.showExplanations ? (question.explanation ?? null) : null;
+  const answered = (
+    <>
+      <span className="text-muted-fg">{t("result.youAnswered")} </span>
+      <span
+        data-slot="given"
+        className={cn("font-medium", struck && "text-danger-ink line-through")}
+      >
+        <GivenText answer={answer} type={question.type} />
+      </span>
+    </>
+  );
+  const score = earned !== null && (
+    <span className="text-muted-fg text-meta leading-normal whitespace-nowrap">
+      {earned}
+    </span>
+  );
 
   return (
     <article
       data-verdict={mark}
-      className="bg-card flex gap-3 rounded-xl border px-4 py-3.5"
+      className={cn(
+        "bg-card flex gap-3 rounded-xl border px-4",
+        compact ? "py-3" : "py-3.5",
+      )}
     >
       <span
         className={cn("grid size-6.5 flex-none place-items-center rounded-full", tone)}
@@ -191,29 +215,31 @@ export function ReviewItem({
         {label !== null && <span className="sr-only">{t(label)}</span>}
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5 break-words">
-        <div className="flex justify-between gap-2.5">
-          <div className="min-w-0 flex-1">
-            <span className="float-left text-base leading-normal font-medium whitespace-pre">
-              {numbered}
-            </span>
-            <Prompt question={question} />
+        {compact ? (
+          <div className="flex items-baseline justify-between gap-2.5">
+            <p className={LINE}>
+              <strong className="mr-0.5 text-base font-semibold">
+                {numbered.trimEnd()}
+              </strong>{" "}
+              {answered}
+            </p>
+            {score}
           </div>
-          {earned !== null && (
-            <span className="text-muted-fg text-meta leading-normal whitespace-nowrap">
-              {earned}
-            </span>
-          )}
-        </div>
-        <QuestionImage question={question} onRetry={onRetry} />
-        <p className={LINE}>
-          <span className="text-muted-fg">{t("result.youAnswered")} </span>
-          <span
-            data-slot="given"
-            className={cn("font-medium", struck && "text-danger-ink line-through")}
-          >
-            <GivenText answer={answer} type={question.type} />
-          </span>
-        </p>
+        ) : (
+          <>
+            <div className="flex justify-between gap-2.5">
+              <div className="min-w-0 flex-1">
+                <span className="float-left text-base leading-normal font-medium whitespace-pre">
+                  {numbered}
+                </span>
+                <Prompt question={question} />
+              </div>
+              {score}
+            </div>
+            <QuestionImage question={question} onRetry={onRetry} />
+            <p className={LINE}>{answered}</p>
+          </>
+        )}
         {key !== null && (
           <p className={LINE}>
             <span className="text-muted-fg">{t("result.correctAnswer")} </span>

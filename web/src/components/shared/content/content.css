@@ -116,6 +116,27 @@
   background: var(--card);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
+.content-chip[data-size="result"] {
+  min-width: 64px;
+  height: 28px;
+  padding: 0 9px 0 4px;
+  font-size: 14px;
+}
+.content-chip[data-state="correct"] {
+  border-color: var(--success);
+  background: var(--success-soft);
+}
+.content-chip[data-state="wrong"] {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+}
+.content-chip[data-state="wrong"][data-word] .content-chip-word {
+  text-decoration: line-through;
+}
+.content-review-gaps .semantic-content:has(.content-chip) {
+  font-size: 15px;
+  line-height: 2.3;
+}
 .content-chip-number {
   display: inline-flex;
   flex: none;

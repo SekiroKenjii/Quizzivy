@@ -1,50 +1,54 @@
-import { useState, type ComponentProps } from "react";
-import { Monitor, Smartphone } from "lucide-react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { EngineWidthContext } from "@/features/take-test/width";
 import { cn } from "@/lib/utils";
-import { StudentPreview } from "./StudentPreview";
+import type { PreviewDevice, PreviewFrameSizes } from "./previewFrame";
 
-/** StudentPreviewPane lets teachers inspect the same learner content at desktop or phone width. */
-export function StudentPreviewPane(
-  props: Readonly<ComponentProps<typeof StudentPreview>>,
-) {
+/**
+ * StudentPreviewPane is the frame every teacher preview of a paper draws:
+ * a bordered screen on `--bg`, centred, at the size `sizes` gives `device`
+ * (`PANEL_FRAME` or `WINDOW_FRAME`), whose content scrolls inside it. The
+ * scroller is a named region a keyboard can reach, so a paper with nothing
+ * focusable still scrolls, and it positions what it holds, so a visually
+ * hidden label inside cannot lengthen the page around it. The frame measures
+ * its own width and gives it to the engine's readers through
+ * `EngineWidthContext`, so a 390px phone frame draws the phone's layout on a
+ * wide window; without a ResizeObserver they read the window's width.
+ */
+export function StudentPreviewPane({
+  device,
+  sizes,
+  children,
+}: Readonly<{
+  device: PreviewDevice;
+  sizes: PreviewFrameSizes;
+  children: ReactNode;
+}>) {
   const { t } = useTranslation();
-  const [mode, setMode] = useState("desktop");
+  const [width, setWidth] = useState<number | null>(null);
+  const measure = useCallback((frame: HTMLDivElement | null) => {
+    if (frame === null || typeof ResizeObserver !== "function") return;
+    const observer = new ResizeObserver(() => setWidth(frame.clientWidth));
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, []);
   return (
-    <div className="flex min-w-0 flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-muted-foreground text-xs">
-          {mode === "phone" ? t("preview.phoneWidth") : t("preview.desktopWidth")}
-        </p>
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          size="sm"
-          value={mode}
-          onValueChange={(value) => {
-            if (value) setMode(value);
-          }}
-          aria-label={t("preview.displayMode")}
-        >
-          <ToggleGroupItem value="desktop">
-            <Monitor aria-hidden="true" />
-            {t("preview.desktop")}
-          </ToggleGroupItem>
-          <ToggleGroupItem value="phone">
-            <Smartphone aria-hidden="true" />
-            {t("preview.phone")}
-          </ToggleGroupItem>
-        </ToggleGroup>
-      </div>
+    <div
+      ref={measure}
+      data-preview-viewport={device}
+      className={cn(
+        "bg-bg shadow-card mx-auto max-w-full min-w-0 overflow-hidden border",
+        sizes[device],
+      )}
+    >
       <div
-        data-preview-viewport={mode}
-        className={cn(
-          "mx-auto max-w-full min-w-0",
-          mode === "phone" ? "w-[320px] rounded-xl border p-3" : "w-full",
-        )}
+        role="region"
+        aria-label={t("preview.frame")}
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Scroll regions need keyboard access independently of their content.
+        tabIndex={0}
+        className="relative flex h-full min-w-0 flex-col gap-4.5 overflow-y-auto overscroll-contain p-5.5 -outline-offset-2"
       >
-        <StudentPreview {...props} />
+        <EngineWidthContext value={width}>{children}</EngineWidthContext>
       </div>
     </div>
   );

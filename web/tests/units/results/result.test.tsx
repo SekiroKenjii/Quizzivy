@@ -240,9 +240,9 @@ it("keeps shared material under a result filter and follows gaps to a hidden que
   );
   expect(screen.getByText(group.title)).toBeVisible();
   expect(screen.queryByText(body.questions[1]!.prompt)).not.toBeInTheDocument();
-  await user.click(
-    screen.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" }),
-  );
+  const gap = screen.getByRole("button", { name: "Câu 2, Đi bộ" });
+  expect(gap).toHaveAttribute("data-state", "correct");
+  await user.click(gap);
   expect(screen.getByText(body.questions[1]!.prompt)).toBeVisible();
   expect(screen.getByRole("button", { name: "Tất cả" })).toHaveAttribute(
     "aria-pressed",
@@ -1747,5 +1747,141 @@ describe("the class average", () => {
     renderResult();
     await screen.findByText(/Bạn trả lời đúng/);
     expect(screen.queryByText(/Điểm trung bình của lớp/)).not.toBeInTheDocument();
+  });
+});
+
+describe("a cloze on the result", () => {
+  const PROMPT = "Read the passage and choose the best option for each gap.";
+  const WORDS = [
+    ["relax", "relaxing"],
+    ["do", "make"],
+    ["cover", "covered"],
+    ["any", "some"],
+    ["do", "make"],
+  ] as const;
+
+  function clozePaper(
+    over: { prompt?: (n: number) => string; review?: Review } = {},
+  ): AttemptResult {
+    const review = over.review ?? OPEN;
+    const picks = [[0], [1], [0], null, [1]] as const;
+    const correct = [0, 1, 1, 1, 1];
+    const members = WORDS.map((texts, at) =>
+      choice(at + 1, texts, picks[at] === null ? null : [...picks[at]!], {
+        prompt: over.prompt?.(at + 1) ?? PROMPT,
+        ...(review.showScore ? { earned: correct[at] === picks[at]?.[0] ? 1 : 0 } : {}),
+        ...(review.showCorrectAnswers
+          ? { correctOptionIds: [uuid("b", (at + 1) * 10 + correct[at]!)] }
+          : {}),
+      }),
+    );
+    const gaps = members.map((member, at) => ({
+      kind: "question" as const,
+      gapId: `gap-${at + 1}`,
+      questionId: member.id,
+    }));
+    return {
+      ...scored(members, { review }),
+      sharedContext: {
+        groups: [
+          {
+            ...previewGroup,
+            questionIds: members.map((member) => member.id),
+            stimuli: [
+              {
+                id: "018f0000-0000-7000-8000-00000000f901",
+                title: "Green spaces in big cities",
+                content: {
+                  format: "semantic_v1",
+                  blocks: [
+                    {
+                      type: "paragraph",
+                      content: gaps.flatMap((gap, at) => [
+                        { type: "text", text: `Part ${at + 1} `, marks: [] },
+                        { type: "gap", id: gap.gapId, label: String(at + 1) },
+                      ]),
+                    },
+                  ],
+                },
+                gaps,
+              },
+            ],
+            recordings: [],
+            assets: [],
+          },
+        ],
+        transcripts: {},
+        audioPlays: {},
+      },
+    };
+  }
+
+  const runLine = () => document.querySelector("[data-slot=run-line]");
+  const chip = (name: string) => screen.getByRole("button", { name });
+
+  it("prints a shared prompt once on a run line, over one-line rows", async () => {
+    serve(clozePaper());
+    renderResult();
+    expect(
+      await screen.findByText("Câu 1–5 · Điền từ vào đoạn văn · 5 chỗ trống"),
+    ).toBeVisible();
+    expect(screen.getAllByText(PROMPT)).toHaveLength(1);
+    expect(runLine()).toHaveTextContent(PROMPT);
+    const rows = [...document.querySelectorAll("[data-slot=result-answers] article")];
+    expect(rows).toHaveLength(5);
+    expect(rows[0]).toHaveTextContent(/1\. Bạn trả lời relax1 \/ 1$/);
+    expect(rows[1]).toHaveTextContent("1 / 1");
+    expect(rows[3]).toHaveTextContent(/4\. Bạn trả lời Chưa trả lời/);
+    expect(within(rows[2] as HTMLElement).getByText("covered")).toBeVisible();
+  });
+
+  it("keeps the run line above the first row a filter keeps", async () => {
+    serve(clozePaper());
+    renderResult();
+    await screen.findByText(PROMPT);
+    await userEvent.setup().click(screen.getByRole("button", { name: "Sai" }));
+    const rows = [...document.querySelectorAll("[data-slot=result-answers] article")];
+    expect(rows.map((row) => row.querySelector("strong")?.textContent)).toEqual([
+      "3.",
+      "4.",
+    ]);
+    expect(runLine()).not.toBeNull();
+    expect(
+      runLine()!.compareDocumentPosition(rows[0]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("prints each gap's own prompt in its row when the prompts differ", async () => {
+    serve(clozePaper({ prompt: (n) => `Own prompt of gap ${n}` }));
+    renderResult();
+    expect(await screen.findByText("Own prompt of gap 1")).toBeVisible();
+    expect(screen.getByText("Own prompt of gap 5")).toBeVisible();
+    expect(runLine()).toBeNull();
+  });
+
+  it("shows the student's words in the passage in the colour of each mark, and leads to the row", async () => {
+    serve(clozePaper());
+    renderResult();
+    await screen.findByText(PROMPT);
+    expect(chip("Câu 1, relax")).toHaveAttribute("data-state", "correct");
+    expect(chip("Câu 3, cover")).toHaveAttribute("data-state", "wrong");
+    expect(chip("Câu 3, cover")).toHaveAttribute("data-word");
+    expect(chip("Câu 4, Chưa trả lời")).toHaveAttribute("data-state", "wrong");
+    expect(chip("Câu 4, Chưa trả lời")).not.toHaveAttribute("data-word");
+    expect(chip("Câu 4, Chưa trả lời")).toHaveTextContent("—");
+    await userEvent.setup().click(chip("Câu 3, cover"));
+    expect(document.activeElement).toHaveAttribute(
+      "id",
+      `result-question-${uuid("a", 3)}`,
+    );
+  });
+
+  it("keeps the passage's words neutral when the policy hides marks", async () => {
+    serve(clozePaper({ review: CLOSED }));
+    renderResult();
+    await screen.findByText(PROMPT);
+    expect(chip("Câu 1, relax")).toHaveAttribute("data-state", "filled");
+    expect(chip("Câu 3, cover")).toHaveAttribute("data-state", "filled");
+    expect(chip("Câu 4, Chưa trả lời")).toHaveAttribute("data-state", "empty");
   });
 });

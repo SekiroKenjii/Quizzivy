@@ -349,8 +349,10 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
         onOpenChange={(open) => {
           if (!open && blocker.state === "blocked") blocker.reset();
         }}
-        title={t("grading.leaveTitle")}
-        description={t("grading.leaveBody")}
+        title={t(model.unsavedScore ? "grading.leaveScoreTitle" : "grading.leaveTitle")}
+        description={t(
+          model.unsavedScore ? "grading.leaveScoreBody" : "grading.leaveBody",
+        )}
         confirmLabel={t("grading.saveAndLeave")}
         cancelLabel={t("grading.stay")}
         pending={model.busy}
