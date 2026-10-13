@@ -164,13 +164,15 @@ describe("the settings navigation", () => {
     at("/teacher/settings");
     expect(nav()).toHaveClass(
       "flex",
-      "flex-[0_1_100%]",
-      "max-w-full",
+      "-mx-0.5",
+      "px-0.5",
+      "flex-[0_1_calc(100%+4px)]",
+      "max-w-[calc(100%+4px)]",
       "gap-0.5",
       "overflow-x-auto",
       "min-[768px]:flex-col",
       "min-[768px]:flex-none",
-      "min-[768px]:min-w-50",
+      "min-[768px]:min-w-51",
     );
     expect(nav().className).not.toMatch(/(^|\s)(md|lg):/);
     expect(nav().parentElement).toHaveClass(
@@ -179,6 +181,13 @@ describe("the settings navigation", () => {
       "items-start",
       "gap-6",
     );
+  });
+
+  it("sticks from 768px of its own layout's width, never by the viewport", () => {
+    at("/teacher/settings");
+    expect(nav().parentElement).toHaveClass("@container/settings");
+    expect(nav()).toHaveClass("@min-[768px]/settings:sticky-column");
+    expect(nav()).not.toHaveClass("sticky-column");
   });
 
   it("goes to a section through its link", async () => {

@@ -221,7 +221,7 @@ export default function QuestionBankPage() {
 
       <div className="flex items-start gap-3.5">
         {wide && (
-          <aside aria-label={t("bank.filters")} className="sticky top-0 w-55 flex-none">
+          <aside aria-label={t("bank.filters")} className="sticky top-4 w-55 flex-none">
             {panel}
           </aside>
         )}

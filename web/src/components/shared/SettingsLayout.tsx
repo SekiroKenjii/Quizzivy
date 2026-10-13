@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { Link } from "react-router";
 import type { LucideIcon } from "lucide-react";
 
+import { StickyAside } from "@/components/shared/StickyAside";
 import { revealWithin } from "@/lib/revealWithin";
 import { cn } from "@/lib/utils";
 
@@ -22,8 +23,9 @@ export type SettingsSection = {
  * link per section beside the current section's content. From 768px the
  * links are a column of 200px, or as wide as the longest label; below it
  * they are one row that scrolls sideways and brings the current link into
- * view. Every section's content is rendered and stays mounted, hidden unless
- * it is the current one, so a form keeps what was typed while another
+ * view. From 768px of the layout's own width the column sticks as the page
+ * scrolls. Every section's content is rendered and stays mounted, hidden
+ * unless it is the current one, so a form keeps what was typed while another
  * section is shown. An `active` that names no section shows the first.
  */
 export function SettingsLayout({
@@ -47,12 +49,13 @@ export function SettingsLayout({
   }, [current]);
 
   return (
-    <div className="flex flex-wrap items-start gap-6">
-      <nav
+    <div className="@container/settings flex flex-wrap items-start gap-6">
+      <StickyAside
+        as="nav"
         ref={nav}
         aria-label={label}
         onFocus={(event) => revealWithin(event.currentTarget, event.target)}
-        className="flex max-w-full min-w-0 flex-[0_1_100%] [scrollbar-width:none] gap-0.5 overflow-x-auto min-[768px]:min-w-50 min-[768px]:flex-none min-[768px]:flex-col [&::-webkit-scrollbar]:hidden"
+        className="@min-[768px]/settings:sticky-column flex max-w-[calc(100%+4px)] min-w-0 flex-[0_1_calc(100%+4px)] [scrollbar-width:none] gap-0.5 overflow-x-auto min-[768px]:min-w-51 min-[768px]:flex-none min-[768px]:flex-col [&::-webkit-scrollbar]:hidden"
       >
         {sections.map(({ id, label: name, icon: Icon, to }) => (
           <Link
@@ -68,7 +71,7 @@ export function SettingsLayout({
             {name}
           </Link>
         ))}
-      </nav>
+      </StickyAside>
       <div className="min-w-0 flex-[1_1_480px]">
         {sections.map(({ id, content }) => (
           <div
