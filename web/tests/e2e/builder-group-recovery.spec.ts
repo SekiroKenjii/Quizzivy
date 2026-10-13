@@ -124,3 +124,134 @@ test("leaving an offline group keeps an acknowledged local draft and restores it
   await expect(page).toHaveURL(/\/teacher\/tests$/);
   expect(stored.bundle.group.title).toBe("Nhóm cần khôi phục");
 });
+
+test("a Shared content save cut off by a reload is offered back from the device with the dialog's content", async ({
+  page,
+}) => {
+  const testId = "019535d9-3df7-79fb-b466-fa907fa17fb1";
+  const sectionId = "019535d9-3df7-79fb-b466-fa907fa17fb2";
+  const groupId = "019535d9-3df7-79fb-b466-fa907fa17fb3";
+  const stamp = "2026-09-24T00:00:00Z";
+  let holding = true;
+  const sent: components["schemas"]["GroupUpdateInput"][] = [];
+  let stored: components["schemas"]["StoredQuestionGroup"] = {
+    bundle: {
+      group: {
+        id: groupId,
+        title: "Nhóm đọc hiểu",
+        instructions: null,
+        members: [],
+        stimuli: [
+          {
+            id: "019535d9-3df7-79fb-b466-fa907fa17fb4",
+            title: "Bài đọc cũ",
+            content: {
+              format: "semantic_v1",
+              blocks: [
+                {
+                  type: "paragraph",
+                  content: [
+                    { type: "text", text: "Công viên làm mát phố.", marks: [] },
+                  ],
+                },
+              ],
+            },
+            gaps: [],
+          },
+        ],
+        recordings: [],
+      },
+      questions: [],
+    },
+    ownerSectionId: sectionId,
+    revision: 1,
+    testUpdatedAt: stamp,
+    archivedAt: null,
+    createdAt: stamp,
+    updatedAt: stamp,
+    assets: [],
+    unavailableAssetIds: [],
+  };
+  const draft: components["schemas"]["Test"] = {
+    skills: [],
+    assignments: { live: 0, scheduled: 0, closed: 0 },
+    unpublishedChanges: null,
+    id: testId,
+    title: "Đề nội dung dùng chung",
+    description: null,
+    status: "draft",
+    currentVersion: 0,
+    nextVersion: 1,
+    totalPoints: 0,
+    questionCount: 0,
+    audioCount: 0,
+    sections: [
+      {
+        id: sectionId,
+        ordinal: 0,
+        title: "Phần 1",
+        questionIds: [],
+        units: [{ kind: "group", id: groupId }],
+      },
+    ],
+    createdAt: stamp,
+    updatedAt: stamp,
+  };
+  await stubApi(page, {
+    ...sessionAs(adminUser),
+    [`GET /teacher/tests/${testId}`]: (route) => route.fulfill({ json: draft }),
+    [`GET /teacher/question-groups/${groupId}`]: (route) =>
+      route.fulfill({ json: stored }),
+    [`PUT /teacher/question-groups/${groupId}`]: (route) => {
+      const input = route
+        .request()
+        .postDataJSON() as components["schemas"]["GroupUpdateInput"];
+      sent.push(input);
+      if (holding) return;
+      expect(input.expectedRevision).toBe(stored.revision);
+      stored = {
+        ...stored,
+        bundle: storedGroupBundle(input.bundle),
+        revision: stored.revision + 1,
+      };
+      return route.fulfill({ json: stored });
+    },
+  });
+  page.on("dialog", (dialog) => void dialog.accept());
+  await page.goto(`/teacher/tests/${testId}/edit`);
+  const outline = page.locator(`[data-outline-group="${groupId}"]`);
+  await outline
+    .getByRole("button", { name: "Bài đọc · Bài đọc cũ", exact: true })
+    .click();
+  const shared = page.getByRole("dialog", {
+    name: "Nội dung dùng chung của “Nhóm đọc hiểu”",
+  });
+  await shared
+    .getByRole("textbox", { name: "Tiêu đề", exact: true })
+    .fill("Bài đọc mới");
+  await shared.getByRole("button", { name: "Lưu", exact: true }).click();
+  await expect.poll(() => sent.length).toBe(1);
+  expect(sent[0]?.bundle.group.stimuli[0]?.title).toBe("Bài đọc mới");
+
+  await page.reload();
+  await page.getByRole("button", { name: "Khôi phục bản nháp", exact: true }).click();
+  await expect(
+    outline.getByRole("button", { name: "Bài đọc · Bài đọc mới", exact: true }),
+  ).toBeVisible();
+  expect(stored.bundle.group.stimuli[0]?.title).toBe("Bài đọc cũ");
+
+  holding = false;
+  await outline
+    .getByRole("button", { name: "Bài đọc · Bài đọc mới", exact: true })
+    .click();
+  const reopened = page.getByRole("dialog", {
+    name: "Nội dung dùng chung của “Nhóm đọc hiểu”",
+  });
+  const title = reopened.getByRole("textbox", { name: "Tiêu đề", exact: true });
+  await expect(title).toHaveValue("Bài đọc mới");
+  await title.fill("Bài đọc đã lưu");
+  await reopened.getByRole("button", { name: "Lưu", exact: true }).click();
+  await expect(reopened).toBeHidden();
+  expect(stored.revision).toBe(2);
+  expect(stored.bundle.group.stimuli[0]?.title).toBe("Bài đọc đã lưu");
+});
