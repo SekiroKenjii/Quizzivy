@@ -1,7 +1,21 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.98 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.99 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.98**
+
+D4, T-D4.40: the AI assistant (D19 to D22, decided by Thuong on 2026-10-10). The server side is built (T-D4.30 to T-D4.33); the web surfaces are T-D4.34 to T-D4.39 and carry "Availability: D4" in §8 until each ships.
+
+- §1.3 The assistant suggests and never decides, and its credits are a budget, not a payment.
+- §2 The provider is Anthropic's API, called through `platform/anthropic` behind the ai module's `Completer` port. Two tiers, their models and their prices are configuration, and no model identifier is committed. With `ANTHROPIC_API_KEY` unset the assistant is off.
+- §8 The teacher's AI surfaces, Settings › AI assistant, and the Admin "AI credits" page (Availability: R5; until then `cmd/maintenance ai-credits`).
+- §12 The panels' rules: the acceptance rule, the disabled-with-reason rule, the credit note and the failure states.
+- §13.10 The six AI tables, the two constraints that make the pool a hard stop, and the append-only `ai_usage_ledger`.
+- §15 Sixteen operations under `/teacher/ai/*` and `/admin/ai/*`, `PublicStatus.ai`, `UserPreferences.ai`, `readWithAi` on the import, three notification kinds (twelve in all), the AI error codes and the rate limits.
+- §16 "Read with AI": a scanned PDF is read by the assistant when the teacher's import asks for it, and is refused as before when it does not. The "no OCR" and "text layer only" sentences say so.
+- §17 Decision 4: cloud AI processing is on for the assistant's features (D19), with per-feature minimisation (D20) and a pool-constrained budget (D21).
+- "Changes since v0.7" and "Changes since v0.41": the sentences that kept cloud processing a candidate and ruled out OCR are marked superseded for these features.
 
 **Changes since v0.97**
 
@@ -877,7 +891,8 @@ R1, "Foundations and front door" (v0.7.0, `docs/plan/71-r1.md`):
 
 - §16 Word import also takes PDF (D-10, decided 2026-09-25):
   - Only a PDF with a text layer can be read. A scan fails with `PDF_NO_TEXT`;
-    there is no OCR.
+    there is no OCR. (Superseded in v0.99 for an import that asks for "Read with
+    AI": the assistant reads the scan's pages, §16. There is still no local OCR.)
   - Underline, bold and colour are not read from a PDF, and every PDF draft says
     so. Keys come from a key file or explicit `1. A` lines.
   - PDFium reads the file inside a WebAssembly sandbox in the worker. No
@@ -1120,6 +1135,9 @@ R1, "Foundations and front door" (v0.7.0, `docs/plan/71-r1.md`):
   safe publication/delivery and operational release gates. It is not yet released.
 - Both cloud and private AI processing remain candidates for measured evaluation;
   provider selection and external exam-data processing are not enabled by default.
+  **Superseded by D19 (v0.99) for the AI assistant's features:** cloud processing is
+  on, with the provider chosen and the data each feature sends decided (§2, §17).
+  Private inference is still a candidate (`docs/plan/17-word-import.md` §8).
 
 **Changes since v0.6**
 
@@ -1190,7 +1208,8 @@ Roles are data (`app.roles`), one per user (`users.role_id`). The four built-in 
 
 ### 1.3 Non-goals (v1)
 
-- **Payments and subscriptions.**
+- **Payments and subscriptions.** The AI assistant's credits (§13.10) are a budget that stops the assistant, not a payment: the product bills nobody and takes no card. What the centre spends with the provider is paid for outside Quizzivy.
+- **An AI that decides.** The assistant suggests; a teacher accepts, edits or drops. Nothing it returns is saved as a grade, a question or a comment by itself, and no AI response reaches a student.
 - **Open public sign-up.** Self-signup exists but is gated behind a class join code (§6). There is no "create an account" entry point without one.
 - **Multi-tenant / multiple schools.** One organization with several teachers. Each class, test, question, question group and media asset has an owning teacher, and each Word import its creator (§5); the Admin reaches them all. No org/tenant scoping in the schema.
 - **Hard proctoring** — webcam, screen recording, screen-lock, remote inspection. §10 covers browser-signal monitoring only; see §10.5 on its limits.
@@ -1219,6 +1238,7 @@ Fixed unless Thuong approves a change. Do not swap libraries silently.
 | Dates | date-fns + date-fns-tz | `Asia/Ho_Chi_Minh` default |
 | HTTP | native `fetch` wrapped in `src/lib/api/client.ts` | No axios |
 | Google auth | Google Identity Services | Authorization Code + PKCE, exchanged server-side (§5.3) |
+| AI assistant | Anthropic's API, through the official Go SDK in `platform/anthropic` | Reached only through the ai module's `Completer` port, wired in `core`. Two tiers, fast and capable (the capable one reads images and PDF pages); each tier's model and its three prices are configuration (`AI_TIER_*`), and no model identifier is written in the code or the documents. Off unless `ANTHROPIC_API_KEY` is set. §8, §15, §16, §17 |
 | Audio | native `<audio>` element + custom React controls | No wavesurfer.js, no howler. See §11.3 |
 | Object storage | Cloudflare R2 (S3-compatible) | Audio and image assets. `aws-sdk-go-v2/s3` on the backend |
 | Markdown | react-markdown + rehype-sanitize | Never `dangerouslySetInnerHTML` with server content |
@@ -1877,7 +1897,7 @@ flat results/reviews keep their existing payload and require no group reader.
 | `/teacher/tests` | Tests list | Cards: title, status, skills, #questions, total points, updated. Filter by status. Create / duplicate / archive; permanent delete for unreferenced archived tests. A new test opens in the builder. |
 | `/teacher/tests/:id/edit` | Test builder | Left: outline with drag-to-reorder. Right: question editor incl. **question media** (§11.1). Autosave debounced 1.5s. **Publish** validates: `points > 0`; choice questions have ≥1 correct option; `fill_blank` has ≥1 accepted answer per blank; audio questions have a processed asset; no empty sections. Publishing takes an optional change note. |
 | `/teacher/tests/:id` | Test detail | Student-eye preview of any version, with its history, the unpublished changes and the diff between versions. Restore a snapshot into a draft, select the default for future assignments, or delete an unused non-default version. |
-| `/teacher/imports`, `/teacher/imports/new`, `/teacher/imports/:id`, `…/review`, `…/confirm` | Word import | History; one workspace per import for upload or paste and processing, its Sources pane beside its status pane (DG-207); the review workspace; preview and create (§16, `docs/plan/18-word-import-ux.md`). Shown only while `GET /teacher/imports/capabilities` reports intake enabled. |
+| `/teacher/imports`, `/teacher/imports/new`, `/teacher/imports/:id`, `…/review`, `…/confirm` | Word import | History; one workspace per import for upload or paste and processing, its Sources pane beside its status pane (DG-207); the review workspace; preview and create (§16, `docs/plan/18-word-import-ux.md`). Shown only while `GET /teacher/imports/capabilities` reports intake enabled. The Sources pane says what leaves Quizzivy when an import is read with AI (§16). |
 | `/teacher/question-bank`, `/teacher/question-bank/new`, `/teacher/question-bank/:id` | Question bank and editor | Type, level, skill and tag filters + full-text search. CRUD. Media badge + inline preview. |
 | `/teacher/question-bank/groups`, `/teacher/question-bank/groups/:id` | Group bank/editor | Independent complete-group copies, materials and member editing, shared recording policies, revision-safe autosave and account-scoped local recovery. |
 | `/teacher/media` | Media library | Uploaded audio/images: name, duration, size, where used. Rename, replace with the same kind, set an audio file's default play limit (§11.1). Delete blocked if referenced by any published version. |
@@ -1888,7 +1908,29 @@ flat results/reviews keep their existing payload and require no group reader.
 | `/teacher/grading` | Grading queue | Unmarked manual answers across the caller's assignments, by student or by question (below). `teaching.grading`. |
 | `/teacher/students` | Students | Table with search, class and account (Google or password) filters; create into one's own classes; edit; reset one password or up to 40 (§5.4). |
 | `/teacher/classes`, `/teacher/classes/:id` | Classes | Cards with their codes; CRUD, schedule and room, members, **join-code card** (§6.4). |
-| `/teacher/settings/:section?` | Settings | Profile, Sign-in & security (password, Google, signed-in devices), Notifications, Assignment defaults, Appearance, and the API reference for its holders. |
+| `/teacher/settings/:section?` | Settings | Profile, Sign-in & security (password, Google, signed-in devices), Notifications, Assignment defaults, Appearance, AI assistant (`ai.use`; Availability: D4, T-D4.38) and the API reference for its holders. |
+
+**The AI assistant's surfaces** (D19 to D22; V-06 to V-14 of the v2 deck, `docs/plan/74d-d4-deck-update.md` section G). *Availability: D4, T-D4.34 to T-D4.39.* The operations behind every one are built (§15), and each web task removes its own line from this block when it ships. A panel is a dialog, so none adds a route.
+
+Every entry point is drawn only while `GET /public/status` says `ai` and the caller holds `ai.use`. For a teacher who is paused, or whose allowance or the centre's pool is used up, it is drawn disabled with the reason, not hidden (§12).
+
+| Where | Entry point | Operation |
+|---|---|---|
+| Test builder, title bar | "AI check" and "Generate" before Preview; both flush pending edits first, as Preview does | `checkTestWithAi`, `generateAiQuestions` |
+| Question bank, header | "Clean up" and "Generate" | `cleanUpQuestionBank`, `generateAiQuestions` |
+| Test detail | "Make a variant", disabled without a published version | `makeTestVariant`, then `duplicateTest` and `updateQuestion` |
+| Question editor, in the bank and in the builder | "Write with AI" on the Explanation; "Suggest wrong options" on a single or multiple choice question | `writeAiExplanation`, `suggestAiDistractors` |
+| Grading card | "Suggest a score" on a short answer, drawn only while "Let AI read student answers" is on | `suggestAiScore` |
+| Assignment detail › Questions | "Explain results with AI", under the same switch | `explainAssignmentResults` |
+| Import workspace, Sources pane | the "Read with AI" card, which mirrors the preference "Read imports with AI" | `createWordImport` with `readWithAi` |
+
+A variant is a new draft test named "{title} · Variant", never a version of the open one, and the bank clean-up merges nothing: a near-duplicate offers "Open" for each question and "Keep both", and tag suggestions apply through the bulk tag write (DG-197).
+
+**Settings › AI assistant** (`/teacher/settings/ai`, `ai.use`) holds the month's usage from `getAiUsage` (used of the allowance, what is left, a bar and the five rows generation, grading, explanations, imports and checks, with "Usage resets on the 1st" counted in `APP_TIMEZONE`), the preferences (`UserPreferences.ai`: the language the assistant writes in, tagging what it drafts as "AI draft", letting it read student answers, reading imports with it), and "Ask for more credits" (1,000 to 100,000 and a reason) while the centre's rule is to take requests and none is waiting (DG-200). With the assistant off the section says "AI is not turned on for this school." (DG-201).
+
+**Admin › AI credits** is the pool, the requests waiting, the teachers with their month and the rules. *Availability: R5* (T-R5.35, in the Admin console R5 builds; none exists before). D4 ships its operations (§15) and `cmd/maintenance ai-credits` (`docs/setup/operations.md`), which the owner uses until then. The rule for a pool that runs out has one value, pause everyone; "Add credits" is the Admin's approval, and the product bills nobody (DG-196).
+
+No student screen mentions the assistant. The Test intro's sentence about cloud processing waits for Thuong's wording (§17).
 
 The teacher home API (`getDashboard`) accepts `range=7d|14d|30d`, defaulting
 to `14d`. Only `submissions` depends on this range: one zero-padded calendar day
@@ -2311,6 +2353,13 @@ Deliberate. Do not "improve" them with trendy defaults.
 - **One frame, up to 1600px.** `TeacherLayout` puts every route in the same frame: the full content width up to `--page-max` (1600px), then centred, at every width, 2560 included. So every page, its loading, empty, error and not-found states included, starts at one left edge and has one width at each viewport and sidebar state. The one named exception is the import review, full-bleed with the sidebar collapsed (`handle.width: "full"`). The values are tokens in `src/index.css`; no other route or page sets a maximum, and `page-frame.test.ts` refuses a teacher page that centres itself in a narrower box.
 - **Gutters by width:** `--page-gutter` 14px below 768, 28px from 768 and 40px from 1920; top padding 16 / 24px.
 - **Size the content, not the page.** The page head (title, description, actions, the wizard's stepper) spans the frame, and cards, lists, tables and steppers fill it. Only text is capped: a field is at most `--field-max` (480px) wide, prose at most `--prose-max` (72ch). There are no form columns: New assignment's summary docks on the right at 300px beside a form that fills, and Settings' fields flow into at most three columns, each field at most 480px. Assignments shows Assigned to from 1240px of content, Submitted from 760 and To grade from 900; the Imports history adds Source from 1240. Inner reflows follow the content-width bands of §8 or a container query, never a new viewport breakpoint.
+
+**The AI assistant's panels** (D4; DG-201). *Availability: D4, T-D4.34 to T-D4.38.* The server enforces what it can (§15); these are the rules the web draws.
+
+- **The acceptance rule.** What the assistant returns is a suggestion, never a record. A panel's primary button saves only the items the teacher kept, through the writes that already exist (the section and bank question writes, `updateQuestion`, `duplicateTest`, the bulk tag write), and `features/ai/` itself calls nothing but `/teacher/ai/*`. "Use this" and "Use score and comment" fill a field and save nothing; the teacher's own Save does. A question the assistant drafted carries the tag "AI draft" while the preference for tagging is on, until a teacher edits or approves it. No sample output is ever drawn.
+- **The disabled-with-reason rule.** An entry point is hidden only when the server has no assistant (`PublicStatus.ai` is false) or the caller lacks `ai.use`. For a teacher who is paused or out of credits it stays visible and disabled, with the reason as its tooltip and in the panel's footer: "AI is paused for your account.", "Your allowance is used up. Ask for more in Settings." or "The school's AI pool is used up this month." (`AI_PAUSED`, `AI_CREDITS_EXHAUSTED` with `details.scope`). The two features that send a student's answer text are not offered while the teacher's "Let AI read student answers" is off: Explain results is hidden, and the grading card says in one line that suggestions are off in Settings › AI assistant.
+- **The credit note.** A panel's footer says what the call cost and what is left, from the answer's `usage` and in credits, never in money. The deck's costs are placeholders: the product shows no figure it has not metered.
+- **Failure.** A provider that did not answer, refused, or answered something that fails the schema is the warning callout "AI didn't respond. Try again in a minute." with "Try again" (`AI_UNAVAILABLE`, which asks for 30 seconds). A panel closes on Esc, keeps focus inside while open and returns it to the button that opened it (DG-36).
 
 **The student app and the engine, as built in R3 (v0.9.0).** The source is `Quizzivy Student.dc.html`. What the deck does not draw, and where the product departs from it, is in `docs/design/gaps.md` (DG-80 to DG-89, DG-102 to DG-107, DG-119).
 
@@ -2772,6 +2821,25 @@ Use PG18's `OLD`/`NEW` in `RETURNING` to capture the diff in the same statement 
 - The API reads the table into a snapshot at most every 30 s, and only while requests arrive. During an active window it answers 503 (§15), and it refuses an attempt start that would run into a window.
 - A start and a schedule take the same advisory lock (73819, 40), so a new attempt is either refused or extended. So do every other writer of an assignment's window or overrides: the teacher's extension, the assignment update, the reopening and the two override writes (shared, as a start does), so none of them runs between a window's scheduling and its extensions.
 
+### 13.10 AI credits
+
+The assistant's budget (D21) is six tables, migrations `00118` to `00123` (`docs/plan/20-data-model.md` §46). All are new and empty, so a previous binary is unaffected, and they exist whether or not `ANTHROPIC_API_KEY` is set. A credit is $0.001 of the provider's list price: a call costs `ceil(sum(tokens × price) / 1e9)` from the provider's reported usage and the tier's configured prices, held as integer millionths of a dollar per million tokens, so no call is rounded across a credit by floating point. The centre has a pool of 200,000 credits a month ($200) and every teacher an allowance under it, 20,000 by default.
+
+| Table | Holds |
+|---|---|
+| `ai_settings` | One row, written by its migration: the pool the plan sets, the default allowance, the share of an allowance at which a teacher is told (80) and the rule for a teacher who runs out, `request` or `pause`. The pool has one rule for running out, pause everyone (DG-196). |
+| `ai_credit_periods` | One row a month, created by the month's first use from `ai_settings`: `pool_credits`, `added_credits` (an Admin's approval, not carried over), `used_credits`, `reserved_credits`. |
+| `ai_teacher_credits` | One row per teacher and month: `allowance_credits` (with the `granted_credits` that approved requests added), `custom`, `paused`, `used_credits`, `reserved_credits`, `warned_at`. `custom` and `paused` follow the person into the next month. |
+| `ai_reservations` | The ceiling a call holds until it settles or is released. A leftover older than ten minutes is returned by `ReleaseStaleAiReservations` (hourly, and `maintenance ai-reservations-sweep`). |
+| `ai_usage_ledger` | One row per settled call: the actor, the feature, the tier, the four token counts the provider reported, the credits charged and the provider's request id. |
+| `ai_credit_requests` | A teacher's request for more credits, `pending`, `approved` or `declined`, with who decided and when. A partial unique index allows one pending request per teacher and month. |
+
+- **The hard stop is two constraints.** `ai_credit_periods_within_pool` and `ai_teacher_credits_within_allowance` each say `used + reserved <= total`, and every credit moves in an `UPDATE` of those rows. The database refuses the call that would overspend, and no code path has to remember to. A reservation locks the month's row and then the teacher's, in that order everywhere, so two calls cannot deadlock. A settlement charges the least of the metered credits and what was reserved, so a call the provider has been paid for is never refused.
+- **A month** is the calendar month in `APP_TIMEZONE` (`Asia/Ho_Chi_Minh` when unset). The pool, the allowances and the use start over on the 1st; credits an Admin adds do not carry over.
+- **`ai_usage_ledger` is append-only**, as `audit_log` and `attempt_events` are: the application role has no `UPDATE` or `DELETE` on it, so no handler can rewrite what was spent. Its `user_id` is set to NULL by the foreign key when a person is deleted, so a row outlives its actor.
+- **Every Admin write is one `audit_log` row**, from a data-modifying CTE, so the diff cannot disagree with the change. A write from `cmd/maintenance ai-credits` is System: no actor, `reason: "maintenance"` and the operator in `details`.
+- **Two permission keys** (migration `00124`): `ai.use` in Content, granted to the Teacher role, and `ai.credits.manage` in System, granted to no built-in role; the Admin's wildcard holds both (`docs/plan/70-redesign-overview.md` §4.1). The import's `word_imports.read_with_ai` (migration `00125`, `boolean NOT NULL DEFAULT false`) is §16's.
+
 ---
 
 ## 14. Testing & definition of done
@@ -2810,9 +2878,11 @@ Base `VITE_API_BASE_URL`, JSON, `Authorization: Bearer <access>`.
 
 ```
 # public (unauthenticated — rate-limited, §6.5)
-GET    /public/status                   → {maintenance: {startsAt, endsAt, active} | null}
+GET    /public/status                   → {maintenance: {startsAt, endsAt, active} | null, ai}
                                           same answer for everyone, Cache-Control public 30 s,
-                                          120/min and 2,000/h per IP
+                                          120/min and 2,000/h per IP; ai is true when the AI
+                                          assistant is configured, read from configuration and
+                                          never from the provider
 POST   /join/preview                    {joinCode} → {classId, className, teacherName}
 POST   /auth/login                      {email,password} → {accessToken,user: CurrentUser}
 POST   /auth/google                     {code,codeVerifier,redirectUri,joinCode?} → {accessToken,user: CurrentUser}
@@ -2825,7 +2895,8 @@ PATCH  /auth/me                         {fullName?,displayName?|null,phone?|null
                                           → CurrentUser; at least one supplied field;
                                           omitted fields unchanged; unknown zone400 VALIDATION_FAILED
 PATCH  /me/preferences                 top-level UserPreferences merge → UserPreferences;
-                                          nested assignmentDefaults replaces its key, {} no-op;
+                                          nested assignmentDefaults and ai {language, tagDrafts,
+                                          readStudentAnswers, readImports} replace their key, {} no-op;
                                           raw/stored UTF8 cap8192 bytes,400 on excess
 GET    /me/notifications?before=&limit=&audience= → {items: [Notification], nextBefore}; the caller's own,
                                           newest first (20 by default, 50 at most), of one console's
@@ -2946,7 +3017,9 @@ DELETE /teacher/classes/:id/join-code   revoke, disable self-join
 # teacher: Word imports (content.tests.write; the caller's own imports, §16)
 GET    /teacher/imports/capabilities    → {intakeEnabled, processingEnabled, retention}
 GET    /teacher/imports/limits          → {maxBytes, formats, pasteMaxCharacters}
-POST   /teacher/imports                 {requestId, title} → 201 WordImport, idempotent on requestId
+POST   /teacher/imports                 {requestId, title, readWithAi?} → 201 WordImport, idempotent on requestId;
+                                          422 VALIDATION_FAILED naming readWithAi when it is true and the server
+                                          has no assistant or the caller lacks ai.use (§16)
 GET    /teacher/imports?status=&status=&q=&page=&limit= → {items: [WordImportHistoryItem], facets}; every item
                                           carries reviewCounts {needsAction, toConfirm} or null
 GET    /teacher/imports/:id             → WordImport with its current sources
@@ -2961,11 +3034,47 @@ GET    /teacher/imports/:id/review | PUT | POST /:id/review/adopt   the draft, t
 GET    /teacher/imports/:id/source?role= → one source's extracted blocks
 POST   /teacher/imports/:id/commit      → one draft test
 
+# teacher: AI assistant (ai.use; a suggestion only, nothing is saved; 501 AI_OFF without a provider)
+POST   /teacher/ai/questions/generate   {source | testId + stimulusId, types (the five stored), count 3|5|8,
+                                          level b1|b2|c1, explanations, language}
+                                          → {items: [{type, prompt, options?, answerKey, explanation}], usage}
+POST   /teacher/ai/tests/:id/check      {checks ⊆ key|clarity|giveaway|language, language?} → {findings: [{severity,
+                                          questionId, number, type, title, issue, fix: {kind, description, label?,
+                                          payload?}}], usage}; 422 for a draft with no question or over 120,000 characters
+POST   /teacher/ai/tests/:id/variant    {changes ⊆ reword|reorder|distract, difficulty same|easier|harder} → {changes:
+                                          [{questionId, number, kind, title, before, after, payload}], usage}; 422 as check
+POST   /teacher/ai/questions/:id/explanation {language, length?} → {text, usage}; 422 without an answer key
+POST   /teacher/ai/questions/:id/distractors → {items: [{text, why}] (up to 4), usage}; 422 unless a single or
+                                          multiple choice question with a key
+POST   /teacher/ai/attempts/:attemptId/answers/:questionId/score-suggestion
+                                        → {score (0 to the points, steps of 0.5), confidence, reasons, comment, usage};
+                                          also needs teaching.grading and the caller's readStudentAnswers (403
+                                          AI_READ_OFF); 409 ATTEMPT_IN_PROGRESS | ATTEMPT_VOIDED; 422 for an answer the
+                                          grader marked itself or the student left empty
+POST   /teacher/ai/assignments/:id/insights → {basis, items: [{kind, title, body, action, questionNumbers, types}]
+                                          (up to 4), usage}; the same gates; 422 when no paper is handed in
+POST   /teacher/ai/bank/cleanup         {checks ⊆ duplicates|tags, language?} → {scanned, truncated, duplicates, tags,
+                                          usage} over the caller's own questions only, even for scope.all; 3 an hour
+GET    /teacher/ai/usage                → {month, used, allowance, left, paused, requests, pending, categories}
+POST   /teacher/ai/credit-requests      {amount 1,000..100,000, reason} → 201 AiCreditRequest; 409 AI_REQUESTS_OFF |
+                                          AI_REQUEST_PENDING; 5 an hour
+
 # admin
 DELETE /admin/users/:id                 a disabled student only, else 409 RESOURCE_NOT_ARCHIVED;
                                           403 FORBIDDEN when the subset rule refuses,
                                           409 RESOURCE_REFERENCED {referencedBy}
 POST   /admin/docs-session              opens the API reference for fifteen minutes (§5.5)
+
+# admin: AI credits (ai.credits.manage)
+GET    /admin/ai/credits                → {month, pool, daysToGo, onPace, withinPool, allowances, active, idle,
+                                          teachers, requests, rules}
+PATCH  /admin/ai/rules                  {defaultAllowance?, warnPercent? 50..99, onTeacherLimit? pause|request}
+                                          → {rules, rewritten}
+POST   /admin/ai/credits/additions      {credits} → 201 AiPool; the approval to spend beyond the plan
+PUT    /admin/ai/teachers/:userId/allowance {custom?, credits?, paused?} → AiTeacherMonth; 409
+                                          AI_ALLOWANCE_BELOW_USE; the subset rule applies (FORBIDDEN)
+POST   /admin/ai/credit-requests/:id/approve | /decline → {request, allowance}; 409 AI_REQUEST_DECIDED |
+                                          AI_REQUEST_EXPIRED; the subset rule applies
 
 # student
 POST   /app/classes/join                {joinCode} → Class      (already-authed path)
@@ -3024,7 +3133,16 @@ validator's 400 response; malformed or schema-invalid bodies are
 `400 VALIDATION_FAILED`, and so is a request that carries the character U+0000 in
 a body string, a body member name, a query parameter or a path segment (v0.83).
 
-**Notifications** (R4). `GET /me/notifications`, `POST /me/notifications/read`, `GET /me/summary` and the five switches are the caller's own and need only `self`. A notification is a `kind` and its `params`; the server sends no sentence and the reader's console words it. Nine kinds exist: for a teacher `attempt.submitted`, `attempt.flagged`, `assignment.closing`, `class.joined` and `join_codes.rotated`, and for a student `assignment.opened`, `assignment.due_soon`, `assignment.extended` and `result.ready`. Five switches govern seven of them: `attempt.submitted`, `attempt.flagged`, `assignment.closing` and `result.ready` each their own kind, and `assignment.due_soon` the student kinds `assignment.opened`, `assignment.due_soon` and `assignment.extended`. `class.joined` and `join_codes.rotated` have none. A switch that is off writes nothing. A list is newest first, 20 by default and 50 at most, and is the only keyset list in the contract (`before`); every other list is offset-paginated (O-20). `audience` (v0.79) narrows a list, a count and a marking to one console's kinds.
+**The AI assistant** (D4). With no provider (`ANTHROPIC_API_KEY` unset, so `Assembly.AI` is nil) every `/teacher/ai/*` and `/admin/ai/*` operation answers `501 NOT_IMPLEMENTED` with the code `AI_OFF`, before it reads anything, and `PublicStatus.ai` is false. Otherwise a suggestion operation, which needs `ai.use`, goes in this order: it reads what it will send through the caller's own scope (another teacher's id answers as a missing one), reserves its feature's ceiling in credits (generate 200, check 300, variant 300, explanation 20, wrong options 20, score 30, insights 60, bank clean-up 200), calls the provider, and ends the reservation with `Finish`, the one place that settles or releases. `Finish` settles what the provider billed, including the tokens of a refusal or of an answer that could not be used, and releases the rest, also when the handler panics or the caller goes away. The answer carries `usage {credits, left}`.
+
+- **Refusals.** A paused teacher is refused before any lock: `403 AI_PAUSED`. An allowance or a pool that cannot cover the ceiling is `402 AI_CREDITS_EXHAUSTED` with `details.scope` `teacher` or `pool`, and nothing is held. `403 AI_READ_OFF` is a teacher whose `readStudentAnswers` is off asking for a feature that sends a student's answer. A provider that stays down after three retries, refuses, answers something no decoder can use, or rejects the request (a bad key or account, logged at ERROR for an operator) is `503 AI_UNAVAILABLE` with `Retry-After: 30`, and nothing is written. The other codes are `AI_REQUESTS_OFF`, `AI_REQUEST_PENDING`, `AI_REQUEST_DECIDED`, `AI_REQUEST_EXPIRED` and `AI_ALLOWANCE_BELOW_USE`.
+- **What a suggestion is checked against.** A score is moved to the nearest multiple of 0.5 up to the question's points; a wrong option that repeats an option is dropped; a clean-up tag for a question the call did not read is dropped; a formatted question is read for its words and never rewritten.
+- **What leaves the system (D20).** Each prompt carries only what its feature needs. Generate: the pasted or chosen passage (its first 8,000 characters), the types, count, level and language. Check and variant: the draft's prompts, options, keys, explanations and passages, up to 120,000 characters. Explanation and wrong options: the one question. Bank clean-up: the prompts, types and tags of the caller's own questions, newest first, at most 2,000 and 300,000 characters, named q1 to qN so that no id is sent; duplicates are looked for among all of them, at most 20 pairs, and tags are suggested for the first 60 that have none. Score: the question, its accepted or sample answers and the student's answer text. Insights: per question the correct rate and the eight most frequent wrong answer texts with their counts. No operation sends a student's name, email, id or class, an attempt id, or who wrote what; `operations_test.go` and `ai_flow_test.go` assert it with a fixture whose student is named in every other field. The two features that carry a student's words also need `teaching.grading`, and the score suggestion only for a short answer waiting for a mark by hand. No AI response reaches a student payload.
+- **The subset rule.** The three Admin writes that name one teacher (`setAiAllowance`, which also pauses and resumes, and the two credit-request decisions) call `access.CanActOn`; a target outside the subset answers `403 FORBIDDEN`. `cmd/maintenance ai-credits` runs the same handlers as System and is not asked.
+- **Limits per signed-in user.** The seven suggestions and the console writes 10 a minute and 100 an hour, the bank clean-up 3 an hour, the credit request 5 an hour, and the two reads (`getAiUsage`, `getAiCredits`) 60 a minute and 600 an hour.
+- **Notifications.** Three kinds join the nine, all for the teacher's bell and none with a switch: `ai.allowance_warning` (once a month, when use crosses the warning share), `ai.credit_request` (to every holder of `ai.credits.manage`) and `ai.credit_request.decided`. Their params are `used`, `allowance`, `credits`, `teacherName` and `decision`.
+
+**Notifications** (R4). `GET /me/notifications`, `POST /me/notifications/read`, `GET /me/summary` and the five switches are the caller's own and need only `self`. A notification is a `kind` and its `params`; the server sends no sentence and the reader's console words it. Twelve kinds exist: for a teacher `attempt.submitted`, `attempt.flagged`, `assignment.closing`, `class.joined`, `join_codes.rotated` and the three AI kinds above, and for a student `assignment.opened`, `assignment.due_soon`, `assignment.extended` and `result.ready`. Five switches govern seven of them: `attempt.submitted`, `attempt.flagged`, `assignment.closing` and `result.ready` each their own kind, and `assignment.due_soon` the student kinds `assignment.opened`, `assignment.due_soon` and `assignment.extended`. `class.joined`, `join_codes.rotated` and the three AI kinds have none. A switch that is off writes nothing. A list is newest first, 20 by default and 50 at most, and is the only keyset list in the contract (`before`); every other list is offset-paginated (O-20). `audience` (v0.79) narrows a list, a count and a marking to one console's kinds.
 
 *Who is told, and when.* A notification is written after the change that caused it has committed, under a budget of its own that the end of the request does not cancel; a failure is logged and never fails the request. The teachers are the assignment's creator and the teachers of a target class the student belongs to (`visibility.PaperReaders`, the rule that lets a teacher see a paper, read the other way), each once, so a teacher of another class is told nothing about this student. `attempt.submitted` merges the papers handed in on one assignment into one notification per fifteen minutes, a timed-out paper being a hand-in; `attempt.flagged` is written once, when the integrity policy flags a paper, and never for a teacher's own flag or under `warn`; `class.joined`, which has no switch, on a join by code; `join_codes.rotated` by the start-up rotation (§6.1). The student is told `assignment.extended` when `notify` is true on an extension (everyone whose close it moved) or on an override that moves a close (those it gave time past the assignment's own close), and `result.ready` when a teacher finishes grading and the review policy shows the score at that moment; a `result.ready` notification carries the title and the attempt, never a score. *Due-time items.* `GET /me/summary` and `GET /me/notifications` first write what the passing of time has earned the caller, at most once in five minutes per caller in the serving process; there is no timer and no job. A moment older than seven days is not made up, a row the caller already holds is left as it is, read or not, and a switch that is off writes nothing. For a student: `assignment.opened` (when the assignment opened or was published, whichever is later), `assignment.due_soon` a day and an hour before the student's own close (an override and an early close included) while they have handed nothing in and have an attempt left and the test was available at that moment, and `result.ready` at the close of an `after_close` release for a paper with nothing waiting for a mark. For a teacher: `assignment.closing` an hour before the assignment's close, with the number of students they reach who have not handed in and whose own close is the assignment's. A close that moves earns its reminders again.
 
@@ -3071,8 +3189,10 @@ documents, explicit answer evidence, shared context, semantic formatting,
 recoverable review and atomic draft creation are required before general release.
 Imported and manually authored exams must share rendering, publication and
 grading contracts. Missing answers remain unknown; OCR, answer generation and
-automatic publication are excluded. PDF input is limited to a text layer (D-10), and a test pasted as plain text is accepted as an exam source too (D-11). Each accepted detailed
+automatic publication are excluded. PDF input is limited to a text layer (D-10) unless the teacher asks for "Read with AI" (below), and a test pasted as plain text is accepted as an exam source too (D-11). Each accepted detailed
 contract updates the relevant sections above and OpenAPI before implementation.
+
+**D4, the deck update and the AI assistant** (v0.11.0; `docs/plan/74d-d4-deck-update.md`). The release after R4 rebuilds the take-test engine, the builder's shared content and the three previews to the v2 deck, and adds the AI assistant (D19 to D22): the provider adapter and its tiers (T-D4.30), the credits (T-D4.31), the sixteen operations (T-D4.32), "Read with AI" in the import (T-D4.33), the teacher's surfaces and Settings › AI assistant (T-D4.34 to T-D4.39), and these documents (T-D4.40). It ships when, with the key unset, every AI operation answers 501 and no entry point is drawn; with the key set, a live smoke meters one generation, one score suggestion and one scanned page and reads them back from the ledger; and a reservation that would overspend the pool is refused by its constraint. The Admin's AI credits page is R5's (T-R5.35), on D4's operations.
 
 The native source intake checkpoint is configured separately from learner media.
 `IMPORT_S3_BUCKET` names a separate private bucket; `IMPORT_WORK_DIR` is an absolute,
@@ -3208,7 +3328,9 @@ bold or colour marks for recognition, and the draft says so in an informational
 finding. A scan, a locked
 file, a broken file or one over the limits fails with `PDF_NO_TEXT`,
 `PDF_PROTECTED`, `PDF_INVALID` or `PDF_TOO_LARGE`, and the teacher needs another
-file.
+file; a scan is read instead when the import asked for "Read with AI".
+
+**Read with AI** (D4, T-D4.33; `docs/plan/17-word-import.md` §1.42). `createWordImport` takes `readWithAi` (default false), stored on the import in `word_imports.read_with_ai` and fixed from then on. It is refused with `422 VALIDATION_FAILED` naming `readWithAi` when the server has no assistant or the caller lacks `ai.use`. It matters only to a PDF that fails the text-layer check: a `.docx`, a pasted text and a PDF with a text layer take the path they always took, send nothing and spend nothing. The worker draws up to 40 pages in the PDFium sandbox (a longer file fails `PDF_TOO_LONG_FOR_AI` before anything is held or sent; a scan over the general 60-page limit stays `PDF_TOO_LARGE`), reserves 60 credits a page for the whole file before the first call (a shortfall is `AI_CREDITS_EXHAUSTED` or `AI_PAUSED` with nothing sent), and sends the pages to the capable tier four at a time. The teacher who started the run pays, in one ledger row for the file. What comes back is each page's printed lines, not questions: they become `pdf-lines-v1` evidence, and the recognizer, its source links, review and the transactional commit are the text layer's, so the provider is an untrusted reader and writes no field of a draft. A page the service cannot read is a review-required finding on that page, never a silent gap; every page read counts toward one informational finding, "{n} pages were read by an AI service outside Quizzivy", which is the import's record of what left the system; a file with no readable page fails `AI_UNREADABLE`, and a provider that stays down fails `PROVIDER_UNAVAILABLE`, which is terminal because a retry would pay for the pages again. An import whose scan was read keeps the extraction, so processing it again spends nothing. The Sources pane says that scanned pages are read by an AI service outside Quizzivy and that pages with selectable text are not sent. No check refuses a file that names a student: it would be a false sense of safety, and the teacher carries the responsibility for the file.
 
 Each accepted exam/key addition or replacement creates an immutable source set,
 retaining its unchanged companion and prior originals. Uploads require the current
@@ -3337,11 +3459,12 @@ Thuong approved two ownership/recovery policies for this milestone:
 
 ## 17. Decisions taken inside the answers — worth a second look
 
-All original open questions are closed. These three sub-decisions were made while implementing the answers, and are the ones most likely to want changing.
+All original open questions are closed. These sub-decisions were made while implementing the answers, and are the ones most likely to want changing.
 
 1. **Self-join is Google-only** (§6.3). Password self-signup needs verified email, which needs an email provider. If Thuong wants that in v1, add Resend/SES and an `email_verifications` table — the join flow itself is unchanged. *Decide before Phase 1.*
 2. **No admin approval queue for self-join** (§6.5). Rotate-and-remove is judged sufficient for a small practice. If enrolments become high-volume or a code leaks in practice, add a `pending` membership state. *Non-blocking.*
 3. **mp3 and m4a only** (§11.1). Covers every current browser with no transcoding. Adding `.ogg`/`.wav` means a transcoding pipeline or a Safari support matrix. *Decide before Phase 2.*
+4. **Cloud AI processing is on for the assistant's features** (D19), **with per-feature minimisation** (D20) **and a pool-constrained budget** (D21), decided by Thuong on 2026-10-10. The provider is Anthropic's API. Each feature sends only what it needs and none sends a student's name, email or id (§15). The centre's $200 a month is a hard stop that only credits an Admin adds can lift, and the product bills nobody (§13.10). Removing `ANTHROPIC_API_KEY` turns the assistant off and changes nothing else. *Two pieces stay open and block nothing: the student-facing sentence about cloud processing on the Test intro waits for Thuong's wording and is not built, and the provider account's data-retention setting is his to confirm before the key is set in production (`docs/plan/70-redesign-overview.md` §10).*
 
 ---
 
