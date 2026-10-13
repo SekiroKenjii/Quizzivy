@@ -1,4 +1,4 @@
-import type { AiFinding } from "@/features/ai/api";
+import type { AiFinding, AiVariantChange } from "@/features/ai/api";
 import type { GeneratedDraft } from "@/features/ai/kinds/generate";
 import type { QuestionValues } from "./questionSchema";
 import { trueFalseOptions } from "./questionType";
@@ -112,4 +112,58 @@ export function withFix(values: QuestionValues, finding: AiFinding): QuestionVal
     case "none":
       return values;
   }
+}
+
+function reordered(
+  options: QuestionValues["options"],
+  order: readonly string[],
+): QuestionValues["options"] {
+  const rank = new Map(order.map((id, index) => [id, index]));
+  const last = order.length;
+  return [...options].sort(
+    (a, b) => (rank.get(a.id ?? "") ?? last) - (rank.get(b.id ?? "") ?? last),
+  );
+}
+
+function withChange(
+  values: QuestionValues,
+  change: AiVariantChange,
+  id: (optionId: string) => string,
+): QuestionValues {
+  const { prompt, optionOrder, optionId, text } = change.payload;
+  switch (change.kind) {
+    case "reword":
+      return prompt === undefined ? values : { ...values, prompt, promptContent: null };
+    case "reorder":
+      return optionOrder === undefined
+        ? values
+        : { ...values, options: reordered(values.options, optionOrder.map(id)) };
+    case "distract":
+      if (optionId === undefined || text === undefined) return values;
+      return {
+        ...values,
+        options: values.options.map((option) =>
+          option.id === id(optionId) && !option.isCorrect
+            ? { id: option.id, text, isCorrect: false }
+            : option,
+        ),
+      };
+  }
+}
+
+/**
+ * withVariant applies a variant's kept changes to a question's values: a
+ * reworded prompt as plain text, the options in their new order, or a wrong
+ * option's new text; a correct option is never rewritten. The changes name
+ * the options of the question they were proposed for, and `ids` maps each of
+ * those ids to the id of the matching option in `values`, for a copy whose
+ * options have ids of their own.
+ */
+export function withVariant(
+  values: QuestionValues,
+  changes: readonly AiVariantChange[],
+  ids: ReadonlyMap<string, string> = new Map(),
+): QuestionValues {
+  const id = (optionId: string) => ids.get(optionId) ?? optionId;
+  return changes.reduce((next, change) => withChange(next, change, id), values);
 }

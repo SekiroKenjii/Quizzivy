@@ -96,7 +96,9 @@
     },
     "entry": {
       "check": "Kiểm tra AI",
-      "generate": "Tạo câu hỏi"
+      "generate": "Tạo câu hỏi",
+      "cleanup": "Dọn dẹp",
+      "variant": "Tạo biến thể"
     },
     "generate": {
       "title": "Tạo câu hỏi",
@@ -160,6 +162,81 @@
       "suggestedFix": "Cách sửa gợi ý",
       "summary_one": "{{count}} điều nên xem lại",
       "summary_other": "{{count}} điều nên xem lại"
+    },
+    "needsVersion": "Hãy phát hành đề trước khi tạo biến thể.",
+    "needsSection": "Hãy thêm một phần trước.",
+    "variant": {
+      "title": "Tạo biến thể của đề",
+      "subtitle": "Một bản thứ hai cho lớp khác hoặc cho lần làm lại, để học viên không chép đáp án của nhau.",
+      "run": "Tạo biến thể",
+      "step1": "Đang đọc đề",
+      "step2": "Đang viết lại câu hỏi",
+      "step3": "Đang kiểm tra để mọi đáp án vẫn khớp",
+      "empty": "Không có thay đổi nào để gợi ý. Hãy thử lựa chọn khác.",
+      "what": "Thay đổi gì",
+      "changes": {
+        "reword": "Diễn đạt lại câu hỏi",
+        "reorder": "Đổi thứ tự lựa chọn",
+        "distract": "Lựa chọn sai mới"
+      },
+      "difficulty": "Độ khó",
+      "difficulties": {
+        "same": "Giữ nguyên",
+        "easier": "Dễ hơn một chút",
+        "harder": "Khó hơn một chút"
+      },
+      "info": "Đáp án, điểm và bài đọc giữ nguyên. Biến thể được lưu thành một đề nháp mới, nên học viên không thấy gì thay đổi cho đến khi bạn phát hành nó.",
+      "needChange": "Hãy chọn ít nhất một điều cần thay đổi",
+      "kinds": {
+        "reword": "Đã diễn đạt lại",
+        "reorder": "Đã đổi thứ tự lựa chọn",
+        "distract": "Lựa chọn sai mới"
+      },
+      "before": "Trước",
+      "after": "Sau",
+      "summary": "Giữ {{n}}/{{total}} thay đổi",
+      "save_one": "Lưu {{count}} thay đổi thành bản nháp",
+      "save_other": "Lưu {{count}} thay đổi thành bản nháp",
+      "saved": "Đã lưu biến thể thành đề nháp.",
+      "open": "Mở biến thể",
+      "testTitle": "{{title}} · Biến thể",
+      "invalid": "Thay đổi cho câu {{n}} chưa lưu được như hiện tại. Hãy bỏ chọn nó rồi thử lại."
+    },
+    "cleanup": {
+      "title": "Dọn dẹp ngân hàng câu hỏi",
+      "subtitle": "Tìm những câu gần trùng nhau và những câu chưa có thẻ, để tìm kiếm và bộ lọc hoạt động tốt hơn.",
+      "run": "Quét ngân hàng",
+      "step1": "Đang đọc câu hỏi của bạn",
+      "step2": "Đang so sánh các câu giống nhau",
+      "step3": "Đang gợi ý thẻ",
+      "empty": "Xong rồi. Ngân hàng của bạn đã gọn gàng.",
+      "lookFor": "Tìm",
+      "checks": {
+        "duplicates": "Câu gần trùng",
+        "tags": "Thiếu thẻ"
+      },
+      "info": "Quét các câu hỏi bạn sở hữu. Câu được chia sẻ với bạn sẽ được bỏ qua, và không có gì thay đổi cho đến khi bạn xác nhận.",
+      "needCheck": "Hãy chọn ít nhất một mục cần tìm",
+      "truncated_one": "Lần quét này đọc {{count}} câu, chưa hết ngân hàng. Hãy áp dụng các gợi ý này rồi chạy lại.",
+      "truncated_other": "Lần quét này đọc {{count}} câu, chưa hết ngân hàng. Hãy áp dụng các gợi ý này rồi chạy lại.",
+      "missingTags": "Thiếu thẻ",
+      "duplicate": "Có thể trùng",
+      "usedIn": "Dùng trong {{a}} và {{b}}",
+      "one": "Câu này",
+      "other": "Câu kia",
+      "openOne": "Mở câu này",
+      "openOther": "Mở câu kia",
+      "keepBoth": "Giữ cả hai",
+      "duplicates_one": "{{count}} cặp có thể trùng",
+      "duplicates_other": "{{count}} cặp có thể trùng",
+      "untagged_one": "{{count}} câu thiếu thẻ",
+      "untagged_other": "{{count}} câu thiếu thẻ",
+      "addTags_one": "Thêm thẻ cho {{count}} câu",
+      "addTags_other": "Thêm thẻ cho {{count}} câu",
+      "tagged_one": "Đã thêm thẻ cho {{count}} câu",
+      "tagged_other": "Đã thêm thẻ cho {{count}} câu",
+      "testCount_one": "{{count}} đề",
+      "testCount_other": "{{count}} đề"
     }
   },
   "api": {
