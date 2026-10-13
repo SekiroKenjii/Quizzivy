@@ -5,7 +5,9 @@ import {
   Clock,
   FileCheck,
   Flag,
+  Hand,
   RotateCw,
+  Sparkles,
   SquarePen,
   UserPlus,
   type LucideIcon,
@@ -44,6 +46,9 @@ export const KIND_LOOK: Record<
   "assignment.due_soon": { icon: Clock, tone: "warning" },
   "assignment.extended": { icon: Clock, tone: "info" },
   "result.ready": { icon: CircleCheck, tone: "success" },
+  "ai.allowance_warning": { icon: Sparkles, tone: "warning" },
+  "ai.credit_request": { icon: Hand, tone: "warning" },
+  "ai.credit_request.decided": { icon: Sparkles, tone: "info" },
 };
 /** TEACHER_EVENTS lists the teacher's switches in contract order. */
 export const TEACHER_EVENTS = [
@@ -63,6 +68,9 @@ const teacherKinds = new Set<NotificationKind>([
   "assignment.closing",
   "class.joined",
   "join_codes.rotated",
+  "ai.allowance_warning",
+  "ai.credit_request",
+  "ai.credit_request.decided",
 ]);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function idPath(prefix: string, id: string | undefined, suffix = "") {
@@ -138,6 +146,9 @@ function timedSentence(
     t,
   );
 }
+function credits(value: number, locale: Locale) {
+  return new Intl.NumberFormat(locale).format(value);
+}
 const sentences: Record<
   NotificationKind,
   (params: NotificationParams, t: TFunction, locale: Locale) => string | null
@@ -212,6 +223,34 @@ const sentences: Record<
     hasText(p.title)
       ? literalSentence("notifications.kind.resultReady", { title: p.title }, t)
       : null,
+  "ai.allowance_warning": (p, t, locale) =>
+    hasCount(p.used) && hasCount(p.allowance)
+      ? literalSentence(
+          "notifications.kind.aiWarning",
+          { used: credits(p.used, locale), allowance: credits(p.allowance, locale) },
+          t,
+        )
+      : null,
+  "ai.credit_request": (p, t, locale) =>
+    hasText(p.teacherName) && hasCount(p.credits)
+      ? literalSentence(
+          "notifications.kind.aiRequest",
+          { teacherName: p.teacherName, credits: credits(p.credits, locale) },
+          t,
+        )
+      : null,
+  "ai.credit_request.decided": (p, t, locale) => {
+    if (
+      !hasCount(p.credits) ||
+      (p.decision !== "approved" && p.decision !== "declined")
+    )
+      return null;
+    const key =
+      p.decision === "approved"
+        ? "notifications.kind.aiApproved"
+        : "notifications.kind.aiDeclined";
+    return literalSentence(key, { credits: credits(p.credits, locale) }, t);
+  },
 };
 
 /** describeNotification returns a complete localised row or null for an unknown kind or missing sentence input, preserving grading fallback for readers who cannot grade. */

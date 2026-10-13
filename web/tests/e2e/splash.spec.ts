@@ -111,7 +111,7 @@ test("maintenance at boot shows the maintenance page until the status says it is
           }),
     "GET /public/status": (route) =>
       route.fulfill({
-        json: { maintenance: over ? null : { ...window, active: true } },
+        json: { maintenance: over ? null : { ...window, active: true }, ai: false },
       }),
   });
   await page.goto("/app");
