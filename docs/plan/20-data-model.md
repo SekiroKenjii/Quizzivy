@@ -1371,6 +1371,12 @@ listed here matches the spec.
 | D-41 | `word_import_sources.format` admits `text`, and `characters integer` (1 to 100000) is non-null exactly for a text source | A pasted test is a fourth source format, stored as a private `.txt` like any original (T-R4.55, `17-word-import.md` §1.41). The character count is the NFC code-point count the intake measured, so the history can say "{n} characters" without reading the object; bytes and hash cannot rebuild it. Nullable with no default, so a file insert from the previous release stays valid. `00090`'s Down restores the file-only CHECK `NOT VALID`, so retained text rows do not block it. `00091`'s Down drops the column, and its Up then refuses, atomically, while any text row is retained, because `word_import_sources_characters_format` is validated at once and no count can be rebuilt: nothing invents one (§23) |
 | D-42 | `questions` and `test_version_questions` gain a nullable `audio_allow_pause`, present only with audio; `group_recordings` and `test_version_group_recordings` gain `allow_pause boolean NOT NULL DEFAULT true` | "Students can pause" is a fourth audio control, on a question's audio and on a group's recording (DG-111, DG-183, T-D4.13). The question columns are nullable and read as `COALESCE(…, true)` because the previous binary inserts those rows during the rolling deploy and writes no value, and because `questions_audio_policy_iff_audio` is a biconditional over the other two policy columns, which this one is kept out of; `questions_allow_pause_only_with_audio` and `tvq_allow_pause_only_with_audio` hold the one direction the way `questions_max_plays_only_with_audio` does. A recording always has its whole policy, so its column is NOT NULL with a constant default, which PostgreSQL stores without a rewrite. A write that leaves the field out keeps the stored value (§44), so a client that strips the key cannot switch pausing back on |
 | D-43 | `media_assets` gains nullable `unreferenced_at` and `purged_at`, and the six tables that name a file get a trigger that refuses a purged one and clears the wait of a retired one | A replaced or deleted file keeps its object until seven days after nothing names it, then the sweep removes the object and marks the row; the row stays for the audit trail and the `replaced_by` chain, and the trigger is what makes "nothing can name a removed file" the database's rule and not a convention every writer must keep (F-68, §45) |
+| D-44 | Add `ai_settings`, one row (a boolean primary key that only `true` satisfies), written by `00118` with the plan: a 200,000-credit pool, a 20,000-credit default allowance, a warning at 80% and requests on | The AI assistant's rules are the centre's, not a teacher's, and the app cannot run the budget without them, so the migration writes the row (D-21, D21 in plan 70 §1). The pool has one rule, pause everyone (DG-196), so there is no column for what happens when it runs out. The allowance bounds (1,000 to 10,000,000) and the warning share (1 to 99) are checks; the narrower ranges the Admin may pick (50 to 99) are the command's (§46, T-D4.31) |
+| D-45 | Add `ai_credit_periods (month, pool_credits, added_credits, used_credits, reserved_credits)` with `ai_credit_periods_within_pool CHECK (used_credits + reserved_credits <= pool_credits + added_credits)` | D21: the pool is never overspent without an Admin's approval, so the hard stop is a constraint and not a check in a handler. `month` is the first day of the month in the centre's zone, enforced as a date on day 1; `pool_credits` is copied from `ai_settings` when the month's first use creates the row, so a later change of the plan never rewrites a month that has begun; `added_credits` is the Admin's approval and does not carry over (§46, T-D4.31) |
+| D-46 | Add `ai_teacher_credits (month, user_id, allowance_credits, granted_credits, custom, paused, used_credits, reserved_credits, warned_at)` with `ai_teacher_credits_within_allowance CHECK (used_credits + reserved_credits <= allowance_credits)` and `ai_teacher_credits_user_idx (user_id, month DESC)` | The same constraint for a teacher's allowance. Three columns go beyond the task's list because the model needs them: `granted_credits` keeps what approved requests added to this month apart from the teacher's own allowance, so a change of the default rule and a new month treat it right; `warned_at` makes the warning at `warn_percent` once a month a fact of the row and not a read-then-write; and `custom` and `paused` belong to the person, so a month's first row copies them from the teacher's latest earlier row, which the index serves (§46, T-D4.31) |
+| D-47 | Add `ai_reservations (id, month, user_id, feature, credits, created_at)` with a composite foreign key to `ai_teacher_credits (month, user_id)` and a `feature` slug checked by pattern, not an enum | A call holds its ceiling until it settles or is released, and a row that outlives its call is returned by the sweep after ten minutes. The foreign key is `RESTRICT` on purpose: deleting a teacher's month while a call holds credits would strand them in the pool for ever. `feature` is a slug for the reason `notifications.kind` is (D-28): a feature added by a release adds no migration |
+| D-48 | Add `ai_usage_ledger`, append-only: `UPDATE` and `DELETE` are revoked from the app role in the file that creates it | One row per settled call with the actor, the feature, the tier, the four token counts the provider reported, the credits charged and the provider's request id, so a month's invoice reconciles with the pool. A ledger the application can rewrite proves nothing, which is why `audit_log` and `attempt_events` are the same (D-01, §11). `user_id` is `ON DELETE SET NULL`, run by the table's owner, so a row outlives its actor |
+| D-49 | Add `ai_credit_requests`, with a partial unique index `ai_credit_requests_one_pending_idx (user_id, month) WHERE status = 'pending'` | At most one request per teacher per month is waiting (DG-200), which the index makes a fact of the data and not a race between two clicks. `decided_by` is `ON DELETE SET NULL` and is NULL when the console decided, which the audit row says. It is the one foreign key left unindexed on purpose: the table gains a row per request, and removing an Admin scans a few hundred |
 
 ---
 
@@ -1490,6 +1496,12 @@ the file it adds.
 | `00115_add_test_version_questions_audio_allow_pause.sql` | `test_version_questions.audio_allow_pause` (nullable, no default) and `tvq_allow_pause_only_with_audio`, added with the column | D4 (T-D4.13), D-42 |
 | `00116_add_group_recordings_allow_pause.sql` | `group_recordings.allow_pause boolean NOT NULL DEFAULT true` | D4 (T-D4.13), D-42 |
 | `00117_add_test_version_group_recordings_allow_pause.sql` | `test_version_group_recordings.allow_pause boolean NOT NULL DEFAULT true` | D4 (T-D4.13), D-42 |
+| `00118_create_ai_settings.sql` | `ai_settings`, its five checks and the `updated_at` trigger, and the one row the plan sets | D4 (T-D4.31), D-44, §46 |
+| `00119_create_ai_credit_periods.sql` | `ai_credit_periods` with `ai_credit_periods_within_pool` | D4 (T-D4.31), D-45, §46 |
+| `00120_create_ai_teacher_credits.sql` | `ai_teacher_credits` with `ai_teacher_credits_within_allowance`, `ai_teacher_credits_user_idx` and the `updated_at` trigger | D4 (T-D4.31), D-46, §46 |
+| `00121_create_ai_reservations.sql` | `ai_reservations`, its composite foreign key and its two indexes | D4 (T-D4.31), D-47, §46 |
+| `00122_create_ai_usage_ledger.sql` | `ai_usage_ledger`, its indexes, and `REVOKE UPDATE, DELETE` from the app role | D4 (T-D4.31), D-48, §46 |
+| `00123_create_ai_credit_requests.sql` | `ai_credit_requests`, `ai_credit_requests_one_pending_idx` and two more indexes | D4 (T-D4.31), D-49, §46 |
 
 Notes on migration mechanics (§13.7):
 
@@ -3148,3 +3160,90 @@ purged, so v0.10.0 runs on the new schema. A file v0.10.0 replaced or deleted is
 first sweep of the new binary and removed seven days later, so the first object is removed
 seven days after the new binary starts. Down drops the triggers, the function, the index and the columns; nothing
 restores an object a sweep removed.
+
+## 46. The AI assistant's credits (T-D4.31)
+
+Six migrations (`00118` to `00123`, one table each, none `-- +goose NO TRANSACTION`, all on new
+empty tables, so the previous binary is unaffected) hold the budget of the AI assistant that D19
+to D22 approved. A credit is $0.001 of the provider's list price; the centre has a pool of
+200,000 a month ($200), every teacher an allowance under it (20,000 by default), and a call
+reserves its ceiling before it reaches the provider and settles what the provider metered after.
+
+**The hard stop is two constraints.** `ai_credit_periods_within_pool` and
+`ai_teacher_credits_within_allowance` each say `used + reserved <= total`, and every credit that
+moves does it in an `UPDATE` of those rows, so the database refuses the call that would overspend
+and no code path has to remember to. `Reserve` takes the month's row and then the teacher's
+(`FOR NO KEY UPDATE`, which does not block the foreign keys that point at them), adds the ceiling
+to both `reserved_credits`, and inserts the reservation. A check violation is mapped from its
+constraint's name: `ai_teacher_credits_within_allowance` is the teacher's refusal and
+`ai_credit_periods_within_pool` the pool's, and the teacher's is tried first so a teacher who is
+out of credits is told so when the pool is short too. A paused teacher is refused by an unlocked
+read before the transaction begins, and again under the lock.
+
+**One lock order, everywhere.** The month's pool row, then the teacher's row, then the
+reservation. `Settle` and `Release` lock both parents before they delete the reservation, and the
+sweep selects whose they are, locks the pools and then the teachers in key order, and only then
+deletes and returns in one statement. The admin writes that touch one teacher's row take only
+that row; `SetRules` locks `ai_settings` first, which a first use also takes `FOR SHARE` while it
+creates the rows from it. No path takes a teacher's row and then the pool's, so no two can
+deadlock. `TestTwoConcurrentReservationsAgainstAPoolWithRoomForOneLeaveExactlyOne` runs the race
+twenty-five times.
+
+**A settlement cannot fail on the pool's constraint.** `Settle` charges `min(metered, reserved)`.
+Moving `reserved` down by the reservation and `used` up by no more than that can only lower what
+the constraints add up, so a call the provider has already been paid for is never refused; a call
+that cost more than its ceiling is logged, and the ledger keeps the provider's real token counts.
+A settlement for a reservation the sweep already returned writes nothing and answers
+`ErrReservationGone`: the sweep takes only reservations older than ten minutes and a call lasts at
+most 120 seconds.
+
+**Credits are integer arithmetic.** `credits = ceil((input x p_in + output x p_out + cache_read x
+p_cache + cache_write x p_in) / 1e9)` with the prices in millionths of a dollar per million tokens
+(`config.MicroUSD`), so no call is rounded across a credit by floating point. The configuration
+has no price for a cache write; the client does not ask for caching today, and a write is charged
+at the input price, which never undercounts by more than the provider's write premium.
+
+**The allowance follows the person, the grant follows the month.** `custom` and `paused` are
+copied from the teacher's latest earlier row when a month's first row is created (the lookup is
+`ai_teacher_credits_user_idx`), so an Admin's pause or custom figure outlives the first of the
+month. `granted_credits` is what approved requests added to this month's allowance; it is part of
+`allowance_credits`, is not carried over, and survives a change of the default rule. A custom
+allowance is stored as the figure given plus the month's grants. `SetRules` rewrites the month's
+rows that are not custom to `greatest(default + granted, used + reserved)`, so lowering the
+default never breaks the constraint or takes back a credit that was spent; `SetAllowance` for one
+teacher refuses a figure below the use with `ErrAllowanceBelowUse` instead of raising it.
+
+**The warning is raised once.** `warned_at` is written in the `UPDATE` that records the use, in
+the same statement that tests `used x 100 >= allowance x warn_percent`, and `old.warned_at IS NULL
+AND new.warned_at IS NOT NULL` in its `RETURNING` says this call crossed it. The notification is
+sent after the settlement commits, through `cqrs.Announce`, so a failure to tell never fails the
+settlement.
+
+**Who is a teacher here.** The Admin's page lists every active user whose role is the Admin
+(the wildcard) or holds `ai.use`, and every user with a row that month. An allowance, a pause or a
+request needs an active user who is not in `app.student_like_roles`. The managers a request tells
+are the active users of the Admin role and of any role that holds `ai.credits.manage`. Both keys
+are inserted by T-D4.32's migration; until it runs only the Admin matches, which is what the
+wildcard means.
+
+**Every Admin write is one statement with its audit row.** `ai.rules.updated`,
+`ai.credits.added`, `ai.allowance.updated`, `ai.credit_request.approved` and
+`ai.credit_request.declined` are written by a data-modifying CTE that feeds `audit_log` from the
+changed row's `old` and `new`, so the diff cannot disagree with the change. A command run from
+`cmd/maintenance ai-credits` is System: `actor_user_id` is NULL and the diff carries `reason:
+"maintenance"` and the operator. The console's dry run runs the same handlers inside a
+transaction it rolls back, with no notifier, so nothing is written and nobody is told.
+
+**Privileges.** The app role has full DML on the five tables that hold balances and requests
+(the default privileges of `00009`) and only `INSERT` and `SELECT` on `ai_usage_ledger`;
+`privileges_test.go` lists the ledger beside `audit_log` and `attempt_events`. `cmd/maintenance`
+runs as the owner or maintenance credential `MAINTENANCE_DATABASE_URL` names. When R5's
+`grant_maintenance_role` moves it to `quizzivy_maintenance`, `ai-credits` and
+`ai-reservations-sweep` need `SELECT`, `INSERT` and `UPDATE` on `ai_credit_periods` and
+`ai_teacher_credits`, `SELECT` and `UPDATE` on `ai_settings` and `ai_credit_requests`, `SELECT` and
+`DELETE` on `ai_reservations`, `INSERT` and `UPDATE` on `notifications` (the upsert that tells a
+teacher), `INSERT` on `audit_log`, and `SELECT` on the users, roles and grants they read; they
+never write the ledger.
+
+**Down.** Each file drops its table; the order is the reverse of the up. A Down loses the month's
+balances, the ledger and the requests, and nothing else references them.
