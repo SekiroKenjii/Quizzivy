@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { failureMessage } from "@/lib/api/errors";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { notify } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 import { credits } from "../credits";
 import type { AiUsage } from "../api";
 import {
@@ -432,9 +433,14 @@ function PrimaryButton({
   onClick: () => void;
 }>) {
   return (
-    <Button className={FOOTER_BUTTON} disabled={disabled} onClick={onClick}>
+    <Button
+      className={cn(FOOTER_BUTTON, "max-w-full min-w-0 shrink")}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+    >
       <Icon aria-hidden="true" />
-      {label}
+      <span className="min-w-0 truncate">{label}</span>
     </Button>
   );
 }
