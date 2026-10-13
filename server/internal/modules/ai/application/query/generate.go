@@ -79,5 +79,8 @@ func (h GenerateHandler) source(ctx context.Context, q Generate) (string, error)
 	if utf8.RuneCountInString(text) < MinSource {
 		refused.Add("source", "add a source of at least a few sentences")
 	}
-	return text, refused.OrNil()
+	if err := refused.OrNil(); err != nil {
+		return "", err
+	}
+	return text, nil
 }

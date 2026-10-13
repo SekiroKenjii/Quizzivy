@@ -12,7 +12,7 @@ import (
 	"quizzivy/internal/modules/ai/domain"
 )
 
-// ErrUnusable is an answer that is valid JSON for the schema and has nothing the operation can return.
+// ErrUnusable is an answer the operation can return nothing from: one that does not match its schema, or that matches it and has nothing usable left after the decoder's checks.
 var ErrUnusable = errors.New("prompts: the answer has nothing usable")
 
 // The five stored question types.
@@ -45,10 +45,10 @@ func decode(raw json.RawMessage, into any) error {
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(into); err != nil {
-		return fmt.Errorf("prompts: the answer does not match its schema: %w", err)
+		return fmt.Errorf("%w: the answer does not match its schema: %v", ErrUnusable, err)
 	}
 	if dec.More() {
-		return errors.New("prompts: the answer holds more than one value")
+		return fmt.Errorf("%w: the answer holds more than one value", ErrUnusable)
 	}
 	return nil
 }
