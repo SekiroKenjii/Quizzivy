@@ -20,6 +20,7 @@ import {
   FileUp,
   Info,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -449,8 +450,19 @@ function SourcesPane({ value }: Readonly<{ value: WordImport }>) {
           removed={value.filesRemovedAt !== undefined}
           pillOf={(source) => pillOf(value, source)}
         />
+        <AiNote value={value} />
       </PaneBody>
     </Pane>
+  );
+}
+
+function AiNote({ value }: Readonly<{ value: WordImport }>) {
+  const { t } = useTranslation();
+  if (value.readWithAi !== true) return null;
+  return (
+    <Callout icon={Sparkles} size="md">
+      {t("imports.upload.privacyAi")}
+    </Callout>
   );
 }
 
@@ -494,7 +506,10 @@ function FileWorkspace({
             statusFirst={failed}
             sources={
               <Pane title={t("imports.upload.source")}>
-                <PaneBody>{parts.sources}</PaneBody>
+                <PaneBody>
+                  {parts.sources}
+                  <AiNote value={value} />
+                </PaneBody>
               </Pane>
             }
             status={

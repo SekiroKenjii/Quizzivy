@@ -7,6 +7,7 @@ import { http } from "msw";
 import TestBuilderPage from "@/features/tests/pages/teacher/TestBuilderPage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
+import { gapSentence } from "@tests/support/gapSentence";
 import "@/lib/i18n";
 
 const BASE = "http://localhost:8080";
@@ -125,7 +126,9 @@ describe("the builder's bar", () => {
     await user.click(screen.getByRole("button", { name: "Xem trước" }));
 
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText("They ___ to the museum.")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(gapSentence("They ___ to the museum.")),
+    ).toBeInTheDocument();
     expect(within(dialog).getByText("went")).toBeInTheDocument();
     expect(within(dialog).getByText("have gone")).toBeInTheDocument();
     expect(within(dialog).queryByText(/đáp án đúng/i)).toBeNull();

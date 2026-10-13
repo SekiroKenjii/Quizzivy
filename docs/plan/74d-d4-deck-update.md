@@ -140,7 +140,7 @@ rolling deploy without a fill trigger):
 | `00122_create_ai_usage_ledger.sql` (append-only: no `UPDATE` or `DELETE` for the app role) | T-D4.31 |
 | `00123_create_ai_credit_requests.sql` | T-D4.31 |
 | `00124_add_ai_permissions.sql` (two rows in `app.permissions`, `ai.use` granted to the Teacher role) | T-D4.32 |
-| `NNNNN_add_word_imports_read_with_ai.sql` (`boolean NOT NULL DEFAULT false`) | T-D4.33 |
+| `00125_add_word_imports_read_with_ai.sql` (`boolean NOT NULL DEFAULT false`) | T-D4.33 |
 
 The AI tables are new and empty, so none is `-- +goose NO TRANSACTION` and the v0.10.0 binary is
 unaffected by them; `read_with_ai` has a constant default. The permission rows must be in the
@@ -186,6 +186,13 @@ The web lane is the long one, about ten L or M tasks in series; the server lane 
   T-D4.33's `readWithAi` field ride in T-D4.32's pull request, so the contract changes twice in
   D4. If another release's contract lane is open on `develop` at the same time, the two take
   turns, and whoever merges second reruns `make gen`.
+  **Exception, recorded by T-D4.40:** the contract changed a third time, in T-D4.33 (#570):
+  `createWordImport` gained a documented `422 VALIDATION_FAILED` with `details.readWithAi`, for an
+  import that asks to be read with AI on a server with no assistant or from a caller without
+  `ai.use`. It is a response only; no schema changed, and `make gen` was its own commit. The Tech
+  Lead accepted it because no other contract pull request was open. D4's exit criterion that the
+  AI operations are the only operations added still holds; where this file says the contract
+  "changes twice", read it as twice for operations and a third time for this response.
 - Migrations are numbered at the merge into `work/deck-d4` and renumbered at a `develop` sync
   that brings a higher number (70 §3).
 - Removed locale keys and `make gen` output are their own commits. A behavioural change never
@@ -1748,17 +1755,41 @@ five prompts.
 **Size:** S
 **Frozen:** the prompt's stored text; the answer shape.
 **Done when:**
-- [ ] A `single_choice` or `true_false` question whose prompt is plain (no `promptContent`),
+- [x] A `single_choice` or `true_false` question whose prompt is plain (no `promptContent`),
       one line, with exactly one run of three or more underscores and no other Markdown
       marker, is drawn as the deck's sentence: 18px (20px larger), weight 500, line-height 1.8,
       the run replaced by a box (at least 88px wide, padding 0 10px, radius 7, a 2px bottom
       border): empty on `--muted` with a `--ring` line, or the chosen option's plain text on
       `--accent-soft` with an `--accent-c` line. A screen reader hears "blank" or the chosen
       text in place.
-- [ ] Any other prompt prints as written. `sentence-gap.test.ts` lists the refusals: two runs,
+- [x] Any other prompt prints as written. `sentence-gap.test.ts` lists the refusals: two runs,
       a rich prompt, a prompt of several lines, multiple choice, a run of two underscores.
-- [ ] Compared with s9 questions 5 and 12 at 360 and 1280, light and dark. This task is
+- [x] Compared with s9 questions 5 and 12 at 360 and 1280, light and dark. This task is
       dropped without loss if the answer to Q17 is that the sentence is printed as written.
+
+**As built:** `sentenceGap(question)` returns the text before and after the gap, or null. Q17
+had no answer, so its default is built. "No other Markdown marker" is read conservatively,
+as characters: outside the run there is no `_`, `*`, `` ` ``, `~`, `[`, `]`, `<`, `>` or
+`\`, no HTML entity, and the line does not open with a heading (`#`), a list item (`-`, `+`)
+or a numbered item (`1.`, `1)`); `|` is allowed, since one line cannot be a table. The
+prompt is trimmed, so a trailing line break is still one line, and composed to NFC, as its
+Markdown is; diacritics play no part in the rule. The run may be longer than three (the deck
+splits on exactly `___`). The box is a `<span>` in the sentence's `<p>`: empty, a
+non-breaking space hidden from assistive technology and "chỗ trống" / "blank" in `sr-only`
+(new key `takeTest.sentenceGap`); chosen, the option's `text`, or "Đúng" / "Sai" for a
+canonical true/false option as `OptionText` names it. `--accent-c` and `--accent-soft` are
+the `brand` and `brand-soft` utilities. It is not focusable, so it takes no ring; the rows
+keep theirs. `max-w-full` and `break-words` keep a long option inside a 360px column, which
+the deck does not draw. The teacher's previews draw `QuestionSheet`, so they show the gap
+too: `detail.test.tsx`, `detail-versions.test.tsx` and `preview-and-leave.test.tsx` found
+the preview by the literal prompt "They ___ …" and now find it as a screen reader reads the
+sentence (`tests/support/gapSentence.ts`); their fixtures are unchanged. The builder's
+prompt field and the import both write `promptContent`, so on content made in the product
+today the rule fires only for prompts kept in Markdown; a rich prompt that is one plain
+paragraph prints as written, as the rule says. Compared with s9 questions 5 and 12 at 360
+and 1280, light and dark, empty and chosen: the sentence and the box equal the deck's in
+position, size, type, padding, radius and colour in all 16 cells; the question sits 35px
+lower at 360 for the paper's integrity line above it, which the deck's paper has not.
 
 ---
 
@@ -2886,10 +2917,10 @@ For the release: the live smoke is not done here, as it needs the owner's key. `
 **Touches:** `migrations/NNNNN_add_word_imports_read_with_ai.sql` (new), `server/internal/modules/imports/{domain/{source.go,pdf.go},application/command/{create.go,process.go},repositories/imports.go,http/imports.go}`, `server/cmd/import-worker/`, `server/internal/core/adapters/{import_pdf.go,import_ai_reader.go (new)}`, `server/internal/platform/pdftext/` (page rendering through `go-pdfium`), `server/internal/modules/imports/application/tests/ai_reader_test.go` (new), `docs/plan/17-word-import.md` (§1, a checkpoint; §8's "not enabled by default" superseded by D19), `docs/plan/18-word-import-ux.md` §4, `docs/setup/word-import-worker.md`
 **Size:** L
 **Done when:**
-- [ ] `createImport` takes `readWithAi: boolean` (default false; refused with 422 when the
+- [x] `createImport` takes `readWithAi: boolean` (default false; refused with 422 when the
       adapter is nil or the caller lacks `ai.use`); `WordImport` carries it; the column has a
       constant default, so the v0.10.0 binary keeps inserting.
-- [ ] With it on, a PDF that fails the text-layer check (`PDF_NO_TEXT`) is not refused: the
+- [x] With it on, a PDF that fails the text-layer check (`PDF_NO_TEXT`) is not refused: the
       worker renders its pages (up to 40; a longer file is refused with `PDF_TOO_LONG_FOR_AI`
       naming the limit), **reserves 60 credits a page before the first call** (a refusal is the
       import's failed state "Not enough AI credits for {n} pages", never a half-read file), sends
@@ -2898,18 +2929,63 @@ For the release: the live smoke is not done here, as it needs the owner's key. `
       still passes validation, review and the transactional commit; a page the model cannot read
       is a finding on that page, not a silent gap. A `.docx` or a PDF with a text layer is read
       as today whether or not the switch is on.
-- [ ] The processing log names the reader ("Read 12 pages with AI · 190 credits"); the history
+- [x] The processing log names the reader ("Read 12 pages with AI · 190 credits"); the history
       row's meta shows it; the privacy note in the Sources pane of the import workspace
       (`18-word-import-ux.md` §4) says what left the system ("The pages of this file were read by an AI service outside Quizzivy.").
-- [ ] Nothing of a student leaves: the import holds exam documents; the task adds a check that
+- [x] Nothing of a student leaves: the import holds exam documents; the task adds a check that
       refuses a file whose metadata or first page names it as a student's submission is **not**
       attempted (a false sense of safety); the page's sentence carries the responsibility.
-- [ ] `ai_reader_test.go`: a scanned fixture (the corpus of 17 §1.1 has 49 two-page PDFs; one is
+- [x] `ai_reader_test.go`: a scanned fixture (the corpus of 17 §1.1 has 49 two-page PDFs; one is
       rendered to images in the test) goes through a fake `Completer` and yields candidates the
       recogniser accepts; the reservation precedes the first call; a mid-file failure releases the
       remainder and fails the import; the 40-page refusal; the switch off keeps today's
       `PDF_NO_TEXT`.
-- [ ] Live smoke: one two-page scan from the corpus, read for real; the credits in the PR.
+- [ ] Live smoke: one two-page scan from the corpus, read for real; the credits in the PR. Needs the owner's key; run at release.
+
+**As built:** Migration `00125_add_word_imports_read_with_ai.sql` (`boolean NOT NULL DEFAULT false`;
+`20-data-model.md` §47). **No dependency is added**: pages are drawn by the go-pdfium WebAssembly
+runtime that already reads the text layer (`pdftext.Reader.Render`, in the same wazero sandbox: no
+filesystem, no network, 256 MiB, now a three-minute deadline for a rendering), and the JPEG is
+encoded by it. The production image is the same distroless static image with the same two binaries.
+`createWordImport` answers 422 `VALIDATION_FAILED` with `details.readWithAi` when the server has no
+provider or the caller lacks `ai.use`; the 422 is documented on the operation (a response only, no
+schema changed). `WordImport` and the history item carry `readWithAi` when true.
+
+The reading lives in `imports/application/reader`, which holds the credits through the ai module's
+`Reserve` and `Finish` handlers and the `Completer` (all typed as the other module's ports, wired in
+`core/wiring/import_worker.go`; `core/adapters/import_ai_reader.go` draws the pages). **What the model
+returns is the page's printed lines, not questions**: they become `pdf-lines-v1` evidence, so the
+deterministic recognizer, its source links, review and commit are unchanged, and the model has no
+field of a draft to write. The prompt and decoder are `ai/domain/prompts/read_page.go`
+(`readable` and `lines` only; a line is cut to 2,000 characters, a page to 300 lines). A scan is read
+only when the text-layer path would have said `PDF_NO_TEXT`; a longer file than 40 pages is refused as
+`PDF_TOO_LONG_FOR_AI` before anything is held, and a scan over the 60-page general limit stays
+`PDF_TOO_LARGE`, as it is without the switch. The reservation is `60 x pages` before the first call
+(`AI_CREDITS_EXHAUSTED` / `AI_PAUSED`, nothing sent), pages go four at a time, and one `Finish` at the
+end settles the summed usage in one ledger row and releases the rest, also for a failure, a
+cancelled context (on a context that is not cancelled) and a panic. A provider failure fails the
+import `PROVIDER_UNAVAILABLE` (terminal: a retry would pay the pages again); a read that finds no
+readable page fails `AI_UNREADABLE`. An unreadable page keeps a hidden marker block and a
+review-required `AI_PAGE_UNREADABLE` finding on it; every page read adds to one informational
+`AI_PAGE_READ` finding, which is the "log line" a teacher sees (the contract carries no credits, so
+"Read 12 pages with AI · 190 credits" is the worker's log, `import read with ai` and `ai import
+settled`, and the Settings usage card's import row, not a web line). A reprocess of a read scan reuses
+its extraction and spends nothing. The worker loads the provider settings as the API does, and its
+per-run timeout is 15 minutes while the assistant is on.
+
+The web's change is the Sources pane's note (`imports.upload.privacyAi`) for an import with
+`readWithAi`, in the awaiting-files and started states, the two findings' titles and help, and the
+messages for the four failures. The note says that scanned pages are read by an AI service outside
+Quizzivy and pages with selectable text are not sent, rather than the past-tense sentence of the Done
+when above, which would be false for a text-layer PDF; the finding's title, "{n} pages were read by an
+AI service outside Quizzivy", is that sentence, counted. The toggle card is T-D4.39's, and the failure
+"Not enough AI credits for {n} pages" has no {n}: a run's error is a code, and the contract is closed.
+
+Measured on this container (4 cores): forty 300 dpi A4 scans took 30.6 s and 322 MiB resident, forty
+12-megapixel photographs 32.6 s and 478 MiB (528 MiB on a second rendering in the same process), with
+the 256 MiB sandbox included; `BenchmarkRenderForty*` in `pdftext/tests` repeats it. The live smoke
+(one two-page scan, read for real) needs the owner's key and is run at release.
+
 
 ### T-D4.34 — The AI panel and its entry points: the builder, the bank, Test detail
 **Depends on:** T-D4.32; T-D4.2a and T-D4.14 merged (the builder's title bar is shared); T-D4.20
@@ -3049,7 +3125,7 @@ For the release: the live smoke is not done here, as it needs the owner's key. `
 **Touches:** `docs/quizzivy-spec-v0.3.md` (§1.3, §2, §8, §12, §13, §15, §16, §17, the "Changes since" head; version per §18), `AGENTS.md` ("Non-negotiable", "High-risk areas", "Repository map", "The composition root"), `docs/plan/70-redesign-overview.md` (§4.1 is on the branch; §10), `docs/plan/17-word-import.md` §8, `docs/plan/18-word-import-ux.md` §4, `docs/design/gaps.md` (DG-196 to DG-202 "what was built"), `docs/setup/operations.md`
 **Size:** S
 **Done when:**
-- [ ] The spec: §2 names the provider behind `platform/anthropic` and the tiers as
+- [x] The spec: §2 names the provider behind `platform/anthropic` and the tiers as
       configuration; §8 gains the teacher AI surfaces and Settings › AI assistant, and the Admin
       "AI credits" page with "Availability: R5"; §12 records the panel's rules (the acceptance
       rule, the disabled-with-reason rule, the credit note); §13 the six tables and the
@@ -3057,16 +3133,58 @@ For the release: the live smoke is not done here, as it needs the owner's key. `
       is on for the assistant's features (D19), with per-feature minimisation (D20) and a
       pool-constrained budget (D21)"; the "Changes since v0.7" sentence is marked superseded by
       D19 for these features. Version bumped per §18, after #429's v0.64.
-- [ ] AGENTS.md: "Non-negotiable" gains "The AI assistant never writes a grade, a question or a
+- [x] AGENTS.md: "Non-negotiable" gains "The AI assistant never writes a grade, a question or a
       comment: a suggestion is stored only when a teacher accepts it through an existing write;
       no AI operation sends a student's name, email or id; `ANTHROPIC_API_KEY` is never logged";
       "High-risk areas" gains `server/internal/modules/ai/` and `web/src/features/ai/`; the
       composition-root table gains `adapters/ai.go`'s nil rule and `wiring/ai.go`; the repository
       map gains the module and `platform/anthropic`.
-- [ ] `17-word-import.md` §8 and `18-word-import-ux.md` §4 record D19 (cloud approved; the
+- [x] `17-word-import.md` §8 and `18-word-import-ux.md` §4 record D19 (cloud approved; the
       admin-managed configuration is the environment and `ai_settings`; the page says what is
       sent); 70 §10 keeps the open item on Q35's two remaining pieces.
-- [ ] `gaps.md`: DG-196 to DG-202 say what was built.
+- [x] `gaps.md`: DG-196 to DG-202 say what was built.
+
+**As built:** Documents only; no code, contract or migration changed. The head on `work/deck-d4`
+was v0.98 (T-D4.9), so the spec is **v0.99**, and its "Changes since v0.98" lists every section.
+- **Spec.** §1.3 gains two non-goals (credits are a budget and not a payment; an AI that decides).
+  §2 gains the provider's row. §8 gains the AI surfaces as a table of entry points and the
+  operation behind each, Settings › AI assistant at `/teacher/settings/ai`, and the Admin "AI
+  credits" page. §12 gains the panels' four rules (acceptance, disabled-with-reason, the credit
+  note, failure). §13 gains **§13.10**, beside the maintenance windows of §13.9, because §13.3 is a
+  sketch that lists no AI table: the six tables, the two constraints, the lock order, the month,
+  the append-only ledger and the audit rows. §15 gains the sixteen operations in the endpoint
+  listing, `PublicStatus.ai`, `UserPreferences.ai`, `readWithAi` and its 422, a paragraph on the
+  assistant (the reserve, call and `Finish` order, the refusals and codes, what each feature
+  sends, the subset rule, the limits), and the count of notification kinds (twelve). §16 gains
+  D4's scope and a "Read with AI" paragraph, and the "text layer only" and "no OCR" sentences say
+  "unless the import asked for it". §17 gains decision 4. The "Changes since v0.7" and "v0.41"
+  sentences are marked superseded by D19 for these features and left in place.
+- **What §8 and §12 say about the web.** T-D4.34 to T-D4.39 are not built, so both sections give
+  the surfaces as decided and mark them "Availability: D4"; the Admin page is "Availability: R5".
+  Each web task removes its own line when it ships, and T-D4.12 checks that none is left.
+- **Where the spec follows what was built and not the sketch.** The clean-up is one bounded call,
+  not chunks (T-D4.32's review: at most 60 untagged questions and 300,000 characters); a provider
+  4xx is `503 AI_UNAVAILABLE`; the import's "Read N pages with AI · M credits" is the worker's log
+  and the Sources pane says what leaves instead; "Not enough AI credits for {n} pages" is a run's
+  failure code, not a sentence with a number; the contract changed a third time with a documented
+  422 (see "Lanes").
+- **AGENTS.md.** "Non-negotiable" gains one bullet (the assistant writes no grade, question or
+  comment; nothing identifying a student leaves; the key is a `config.Secret` and is never
+  logged; no model identifier is committed; the ledger is append-only). "High-risk areas" gains
+  `web/src/features/ai/` (from T-D4.34) and `server/internal/modules/ai/` and a paragraph on the
+  reserve and `Finish` rule. The composition-root table gains `adapters/ai.go`'s nil rule,
+  `wiring/ai.go`, the import worker's `scanReader` (T-D4.33), `ai_reads.go`, `PDFPages` and
+  `ReleaseStaleAiReservations`; the repository map gains `modules/ai` and `platform/anthropic`.
+- **Other documents.** `70-redesign-overview.md` §1 records what D19 became (501 `AI_OFF`, the
+  environment and `ai_settings` as the admin-managed configuration) and §10 keeps the open item
+  on Q35's two pieces. `17-word-import.md` §8 and `18-word-import-ux.md` §4 record D19.
+  `gaps.md` DG-196, DG-197 and DG-199 to DG-202 each gain a "Built in D4" note for what the server
+  built; the web tasks add theirs, and DG-198 is R8's. `operations.md` gains the assistant's log
+  lines and the live-smoke procedure.
+- **Checks.** `node scripts/check-design-deck.mjs` ("Deck OK: 20 files, 8 pages") because
+  `gaps.md` is under `docs/design/`; the CI planner's tests do not read these files.
+- **Not done here.** The migration rehearsal that step 6 of the order of work pairs with this task
+  needs a Neon branch of production. It stays in the release checklist, with T-D4.31's last box.
 
 ---
 
@@ -3078,6 +3196,10 @@ For the release: the live smoke is not done here, as it needs the owner's key. `
 - [ ] The four redrawn R4 screens (section F) and every AI surface (section G) are compared with
       the v2 deck at 360, 768, 1024, 1280 and 1440, light and dark, with the sidebar collapsed
       where the deck draws a separator; the differences listed are DG-196 to DG-202's and no other.
+- [ ] The spec's "Availability: D4" lines (§8 and §12, placed by T-D4.40) are gone: each of
+      T-D4.34 to T-D4.39 removes its own when it ships, and this task checks that none is left and
+      that §8's AI block and §12's panel rules say what was built. The follow-ups under "Open
+      items" are read, and each is built or left with a reason.
 - [ ] `74-r4.md`: T-R4.4, T-R4.25, T-R4.26, T-R4.27a, T-R4.28, T-R4.30, T-R4.32, T-R4.33,
       T-R4.36, T-R4.38, T-R4.42 and T-R4.43 each gain one closing line naming the T-D4 task that
       reopened them (T-R4.31a's line names T-D4.2a, T-D4.20 and T-D4.34).
@@ -3249,7 +3371,7 @@ minimisation per feature, no personal identifier to the provider unless a featur
 without it, and none does (D20); a $200 monthly pool, exceeded only when an Admin approves extra
 credit that Thuong pays for, a hard stop, a credit unit metered from reported usage (D21); built in
 D4, the release after R4 (D22). The spec records them in the task that ships the behaviour
-(T-D4.40), not on the planning branch, because #429 takes v0.64.
+(T-D4.40, which wrote it as spec v0.99), not on the planning branch.
 
 ### Blocking, or close to it
 
@@ -3624,3 +3746,55 @@ export; DG-01 (Answered), DG-22, DG-71, DG-106, DG-100 and DG-63 (a second note)
 - **Builders.** The engine chain takes one builder for its whole length and, at times, a
   second for T-D4.6 or T-D4.11; the server task, the builder chain and the preview chain take
   one each. Never more than four work at once (70 §3).
+
+### Follow-ups from the built tasks
+
+Recorded by T-D4.40 on 2026-10-13 from the "As built" notes and the reviews of T-D4.7 to T-D4.11
+and T-D4.30 to T-D4.33. None blocks a task or the release; each says where it would be done. None
+is built here.
+
+1. **The chunked bank clean-up.** T-D4.32 built `cleanUpQuestionBank` as one bounded call on the
+   fast tier: at most 2,000 of the caller's own questions and 300,000 characters, at most 20
+   duplicate pairs, tags for the first 60 untagged, and `truncated` when the bank held more
+   (the panel says "Apply these and run it again"). The plan sketched chunks, with duplicates found
+   across chunks, inside a 60-second budget. That pass is not built: it needs a way to compare
+   questions that are never in the same chunk, and an answer that continues. Default: the one call
+   stands. Revisit after the owner has seen a real bank run (item 2).
+2. **The live smokes of T-D4.32 and T-D4.33.** Both need the owner's key, so both "Done when"
+   boxes stay open: one generation, one check, one score suggestion, and one two-page scan read
+   for real, with the metered credits and the ledger rows pasted into the release pull request
+   (never the key or a response). The procedure is `docs/setup/operations.md`, "What the assistant
+   logs, and the live smoke". It runs once, at the release, with the exit criteria's ledger
+   read-back.
+3. **T-D4.8's "Finished" copy after a reload in the middle of a play.** A play in progress at a
+   reload costs one play and the release notes say so. The card that comes back then has a count
+   above zero and no play in progress, which `phaseOf` reads as a finished play: a full track, the
+   button "Play again" and the status "Finished" ("Finished · {n} plays left" under a limit), though
+   the student may not have heard the end. The number is right; the word may not be. Default: as
+   built. Ask the design team whether a recording with a count and no remembered place should read
+   "Played" instead.
+4. **The spec still describes the pane switcher T-D4.7 replaced with the drawer.** Three places
+   say "Ngữ liệu | Câu n" or "the pane switcher": §7.3's paragraph on learner material, §9's
+   "Panes" bullet and §12's "One breakpoint, 768px" bullet. T-D4.12 already rewrites §9 and §12 for
+   the rail and the sheet (its box on S-05, S-06 and S-08); it replaces these sentences too, and
+   §7.3's, and the engine paragraph of `AGENTS.md`, which says "a switcher shows one pane at a
+   time". T-D4.7 did not touch the spec.
+5. **An E2E for T-D4.9's inert Pause button.** T-D4.9 is proved in jsdom (`audio-player-pause`,
+   `group-context`, `question-audio-events`) and by the comparison with the deck; no Playwright
+   case presses the inert button in a real browser. Add one in `audio-events.spec.ts` or the phone
+   spec: start s2 part 2's recording, click the button with `force: true` (Playwright counts an
+   `aria-disabled` button as not enabled), and assert the recording is still playing and the play
+   count has not moved. S, web; T-D4.12.
+6. **A real-Android check of T-D4.7's tap after a swipe.** The drawer swallows the click a swipe
+   leaves behind for 60 ms and never swallows a tap that follows a scroll. That is proved with
+   real touches from CDP in mobile-chromium and in jsdom, not on a real Android phone, whose touch
+   timing differs from the emulator's. Add to T-D4.12's real-phone box: swipe the drawer open and
+   closed, then tap an option at once, and see that the option is chosen and the drawer does not
+   move.
+7. **T-D4.11's gap rule does not reach a prompt made in the product.** The sentence gap fires only
+   for a prompt with no `promptContent`, and the builder's prompt field and the import both write
+   `promptContent`, so on content made today it fires only for a prompt kept in Markdown (T-D4.11
+   "As built", #571). The Tech Lead widens the rule to a rich prompt that is one plain paragraph
+   (with the run of underscores in its text and no mark, gap or media): **T-D4.11b**. It changes
+   Q17's default, the refusal "a rich prompt" in `sentence-gap.test.ts`, and the comparison with
+   s9 questions 5 and 12. Recorded here; not built.

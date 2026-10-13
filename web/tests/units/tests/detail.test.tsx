@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import { http } from "msw";
 import { registerContentElement } from "@/layouts/shell/contentWidth";
+import { gapSentence } from "@tests/support/gapSentence";
 import { server } from "@tests/support/server";
 import {
   BASE,
@@ -13,6 +14,8 @@ import {
   testFixture,
   versionFixture,
 } from "./detailHarness";
+
+const PUBLISHED_SENTENCE = gapSentence(PUBLISHED_PROMPT);
 
 beforeEach(serveDetail);
 
@@ -88,7 +91,7 @@ describe("the test detail's header", () => {
 
   it("offers the history in the header only below the two columns", async () => {
     renderDetail();
-    await screen.findByText(PUBLISHED_PROMPT);
+    await screen.findByText(PUBLISHED_SENTENCE);
     expect(screen.queryByRole("button", { name: "Lịch sử phiên bản" })).toBeNull();
     expect(
       screen.getByRole("complementary", { name: "Lịch sử phiên bản" }),
@@ -97,7 +100,7 @@ describe("the test detail's header", () => {
     cleanup();
     narrow();
     renderDetail();
-    await screen.findByText(PUBLISHED_PROMPT);
+    await screen.findByText(PUBLISHED_SENTENCE);
     expect(screen.getByRole("button", { name: "Lịch sử phiên bản" })).toBeVisible();
     expect(
       screen.queryByRole("complementary", { name: "Lịch sử phiên bản" }),
@@ -109,7 +112,7 @@ describe("the test detail's preview", () => {
   it("renders the default version, not the draft", async () => {
     renderDetail();
 
-    expect(await screen.findByText(PUBLISHED_PROMPT)).toBeInTheDocument();
+    expect(await screen.findByText(PUBLISHED_SENTENCE)).toBeInTheDocument();
     expect(screen.getByText("Phiên bản 1 · mặc định cho bài giao mới")).toBeVisible();
     expect(screen.getByText("1 câu hỏi. Học viên không thấy đáp án.")).toBeVisible();
     expect(detail.previewVersions).toEqual([1]);
@@ -117,7 +120,7 @@ describe("the test detail's preview", () => {
 
   it("does not change after the draft is edited", async () => {
     renderDetail();
-    await screen.findByText(PUBLISHED_PROMPT);
+    await screen.findByText(PUBLISHED_SENTENCE);
 
     detail.test = testFixture({
       title: "Unit 5 (đang sửa)",
@@ -130,13 +133,13 @@ describe("the test detail's preview", () => {
     expect(
       await screen.findByRole("heading", { level: 1, name: "Unit 5 (đang sửa)" }),
     ).toBeVisible();
-    expect(await screen.findByText(PUBLISHED_PROMPT)).toBeInTheDocument();
+    expect(await screen.findByText(PUBLISHED_SENTENCE)).toBeInTheDocument();
     expect(detail.previewVersions).toEqual([1, 1]);
   });
 
   it("carries no grading key into the preview", async () => {
     renderDetail();
-    await screen.findByText(PUBLISHED_PROMPT);
+    await screen.findByText(PUBLISHED_SENTENCE);
 
     expect(document.body.textContent ?? "").not.toContain("isCorrect");
     expect(screen.getByText("went")).toBeInTheDocument();
@@ -158,7 +161,7 @@ describe("the test detail's preview", () => {
 
   it("draws the phone frame from the address and returns to the computer", async () => {
     const { user, router } = renderDetail(`/teacher/tests/${TEST_ID}?device=phone`);
-    await screen.findByText(PUBLISHED_PROMPT);
+    await screen.findByText(PUBLISHED_SENTENCE);
 
     const frame = document.querySelector("[data-preview-viewport]");
     expect(frame).toHaveAttribute("data-preview-viewport", "phone");
@@ -237,7 +240,7 @@ describe("the test detail's states", () => {
 
   it("reaches the header's controls by keyboard, back link first", async () => {
     const { user } = renderDetail();
-    await screen.findByText(PUBLISHED_PROMPT);
+    await screen.findByText(PUBLISHED_SENTENCE);
 
     await user.tab();
     expect(document.activeElement).toHaveTextContent("Đề thi");

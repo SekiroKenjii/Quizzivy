@@ -14,10 +14,13 @@ type DocumentBody interface {
 }
 
 // DocumentInput separates original-source ownership from the immutable native/normalized identity used by extraction coordinates.
+// ReadWithAi says the teacher asked for scans to be read by the AI assistant, and RequestedBy is the teacher whose credits pay for it.
 type DocumentInput struct {
 	OriginalID, Identity, Role, Format string
 	Body                               DocumentBody
 	Bytes                              int64
+	ReadWithAi                         bool
+	RequestedBy                        string
 }
 
 // StageOutput owns transient files until Close; the plan and fresh readers must describe the same immutable bytes.

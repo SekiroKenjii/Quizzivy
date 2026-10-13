@@ -5,7 +5,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"quizzivy/internal/modules/imports/application/ports"
+	"quizzivy/internal/modules/imports/application/reader"
 	"quizzivy/internal/modules/imports/application/worker"
 	"quizzivy/internal/modules/imports/domain"
 	"quizzivy/internal/platform/pdftext"
@@ -17,9 +19,12 @@ const conversionFailed = "CONVERSION_FAILED"
 
 // ImportProcessing bridges the isolated converter and the native Word and PDF
 // extractors to durable worker stages. Without PDF, PDF sources fail as unsupported.
+// With AI, a PDF without a text layer is read by the assistant when its import asked for that; without it the scan is refused as before.
 type ImportProcessing struct {
 	Converter *wordconvert.Converter
 	PDF       *pdftext.Reader
+	AI        *reader.Reader
+	Logger    *slog.Logger
 	ImageID   string
 	WorkDir   string
 }

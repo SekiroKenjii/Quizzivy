@@ -29,9 +29,10 @@ const (
 )
 
 type pdfInventory struct {
-	Version string `json:"version"`
-	Pages   int    `json:"pages"`
-	Lines   int    `json:"lines"`
+	Version  string `json:"version"`
+	Pages    int    `json:"pages"`
+	Lines    int    `json:"lines"`
+	ReadWith string `json:"readWith,omitempty"`
 }
 
 func (p ImportProcessing) extractPDF(ctx context.Context, in ports.DocumentInput) (ports.StageOutput, error) {
@@ -45,8 +46,12 @@ func (p ImportProcessing) extractPDF(ctx context.Context, in ports.DocumentInput
 	if _, err := io.ReadFull(io.NewSectionReader(in.Body, 0, in.Bytes), data); err != nil {
 		return ports.StageOutput{}, fmt.Errorf("read pdf source: %w", err)
 	}
+	readsScans := in.ReadWithAi && p.AI != nil
 	doc, err := p.PDF.Read(ctx, data, pdftext.DefaultLimits())
 	if err != nil {
+		if readsScans && errors.Is(err, pdftext.ErrNoText) {
+			return p.extractScan(ctx, in, data)
+		}
 		return ports.StageOutput{}, pdfFailure(ctx, err)
 	}
 	if len(doc.Lines) > maxPDFLines {
@@ -54,6 +59,9 @@ func (p ImportProcessing) extractPDF(ctx context.Context, in ports.DocumentInput
 	}
 	evidence := PDFEvidence(doc, in.Identity, in.Role)
 	if !readableText(evidence, doc.Pages) {
+		if readsScans {
+			return p.extractScan(ctx, in, data)
+		}
 		return ports.StageOutput{}, worker.Failure{Code: pdfNoText}
 	}
 	return stageExtraction(ctx, p.WorkDir, in, extracted[pdftext.Line]{

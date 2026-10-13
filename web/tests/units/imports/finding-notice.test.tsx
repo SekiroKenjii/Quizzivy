@@ -67,6 +67,42 @@ describe("a PDF note in the review", () => {
     expect(screen.queryByText(/đối tượng trong tài liệu không đọc được/)).toBeNull();
   });
 
+  it("says how many pages the AI service read, as information that needs no decision", () => {
+    show(
+      finding({
+        id: "f5",
+        code: "UNSUPPORTED_DOCUMENT_OBJECT",
+        field: "AI_PAGE_READ",
+        severity: "informational",
+        count: 12,
+      }),
+    );
+    expect(
+      screen.getByText("12 trang đã được một dịch vụ AI bên ngoài Quizzivy đọc"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/đối chiếu các câu với trang gốc/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Xác nhận đã kiểm tra" })).toBeNull();
+    expect(screen.queryByText(/đối tượng trong tài liệu không đọc được/)).toBeNull();
+  });
+
+  it("asks for a decision about a page the AI service could not read", () => {
+    show(
+      finding({
+        id: "f6",
+        code: "UNSUPPORTED_DOCUMENT_OBJECT",
+        field: "AI_PAGE_UNREADABLE",
+        severity: "review_required",
+        count: 1,
+        evidence: [{ sourceId: "s", blockId: "p3-l1", start: 0, end: 5 }],
+      }),
+    );
+    expect(screen.getByText("1 trang AI không đọc được")).toBeInTheDocument();
+    expect(screen.getByText(/Hãy thêm các câu đó bằng tay/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Xác nhận đã kiểm tra" }),
+    ).toBeInTheDocument();
+  });
+
   it("keeps the generic title for a Word object", () => {
     show(
       finding({
