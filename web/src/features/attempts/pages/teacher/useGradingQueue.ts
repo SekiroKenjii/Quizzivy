@@ -24,12 +24,17 @@ import {
   scoreOptions,
 } from "./gradingRecovery";
 
-/** GradingDraft retains the acknowledged mark separately from the current comment and score intent. */
+/**
+ * GradingDraft retains the acknowledged mark separately from the current
+ * comment and score intent; `filled` marks a score laid by `fill` rather than
+ * by a score button, which writes at once.
+ */
 export interface GradingDraft {
   item: GradingQueueItem;
   points: number | null;
   comment: string;
   acknowledged: { points: number; comment: string } | null;
+  filled?: boolean;
 }
 
 /** FinishState retains explicit completion recovery independently of pending queue membership. */
@@ -102,12 +107,18 @@ function commentUnsettled(item: GradingQueueItem, draft: GradingDraft | undefine
   return comment !== saved || (draft.points === null && comment !== "");
 }
 
+function scoreUnsettled(item: GradingQueueItem, draft: GradingDraft | undefined) {
+  if (!draft?.filled || draft.points === null) return false;
+  return draft.points !== (draft.acknowledged?.points ?? item.score);
+}
+
 /**
  * useGradingQueue serializes explicit marks and Finish actions under the
- * mounted actor and filter owner, and reports through `unsettled` a comment
- * on the selected answer that no Grade has saved. `fill` lays a score and a
- * comment over an answer's draft and saves nothing: Save & next, or the flush
- * a move makes, writes them as it writes a typed comment. It sets state
+ * mounted actor and filter owner, and reports through `unsettled` a comment,
+ * or a score `fill` laid, on the selected answer that no Grade has saved, and
+ * through `unsavedScore` whether that score is among it. `fill` lays a score
+ * and a comment over an answer's draft and saves nothing: Save & next, or the
+ * flush a move makes, writes them as it writes a typed comment. It sets state
  * during render in three places, and each converges because its own write
  * turns off the condition it tests: new queue data is recorded in `order`
  * (and a vanished open answer added to `held`, which `vanishedOpen` then
@@ -212,7 +223,10 @@ export function useGradingQueue(params: GradingQueueParams) {
       : null;
   useOpenAnswerSync(actor.generation, heldOpen, queue.dataUpdatedAt, drafts, setDrafts);
   const draft = selected ? drafts[gradingItemKey(selected)] : undefined;
-  const unsettled = selected ? commentUnsettled(selected, draft) : false;
+  const unsavedScore = selected ? scoreUnsettled(selected, draft) : false;
+  const unsettled = selected
+    ? unsavedScore || commentUnsettled(selected, draft)
+    : false;
   const notify = (cause: unknown) => failureMessage(cause, t("grading.saveFailed"));
   const ungraded = (item: GradingQueueItem) =>
     item.score === null && drafts[gradingItemKey(item)]?.acknowledged == null;
@@ -286,7 +300,7 @@ export function useGradingQueue(params: GradingQueueParams) {
     if (!Number.isFinite(points) || points < 0 || points > item.points || !acquire())
       return;
     setFinishReady(null);
-    const next = { ...draftFor(item), points };
+    const next = { ...draftFor(item), points, filled: false };
     setDrafts((previous) => ({ ...previous, [gradingItemKey(item)]: next }));
     setPicked(gradingItemKey(item));
     const result = (async () => {
@@ -325,7 +339,12 @@ export function useGradingQueue(params: GradingQueueParams) {
     setFinishReady(null);
     setDrafts((previous) => ({
       ...previous,
-      [gradingItemKey(item)]: { ...draftFor(item), points, comment: value },
+      [gradingItemKey(item)]: {
+        ...draftFor(item),
+        points,
+        comment: value,
+        filled: true,
+      },
     }));
     setPicked(gradingItemKey(item));
     return true;
@@ -562,6 +581,7 @@ export function useGradingQueue(params: GradingQueueParams) {
     selected,
     draft,
     unsettled,
+    unsavedScore,
     savedCount,
     busy,
     error,
