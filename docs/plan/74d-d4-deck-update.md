@@ -3923,7 +3923,7 @@ was v0.98 (T-D4.9), so the spec is **v0.99**, and its "Changes since v0.98" list
 ### T-D4.12 — Suites, browser verification and documents
 **Depends on:** T-D4.2a to T-D4.2c, T-D4.3 to T-D4.11, T-D4.13 to T-D4.16, T-D4.20 to T-D4.23, T-D4.30 to T-D4.40, as far as each is in the release
 **Done when (v2):**
-- [ ] The four redrawn R4 screens (section F) and every AI surface (section G) are compared with
+- [x] The four redrawn R4 screens (section F) and every AI surface (section G) are compared with
       the v2 deck at 360, 768, 1024, 1280 and 1440, light and dark, with the sidebar collapsed
       where the deck draws a separator; the differences listed are DG-196 to DG-202's and no other.
 - [x] The spec's "Availability: D4" lines (§8 and §12, placed by T-D4.40) are gone: each of
@@ -3933,32 +3933,39 @@ was v0.98 (T-D4.9), so the spec is **v0.99**, and its "Changes since v0.98" list
 - [x] `74-r4.md`: T-R4.4, T-R4.25, T-R4.26, T-R4.27a, T-R4.28, T-R4.30, T-R4.32, T-R4.33,
       T-R4.36, T-R4.38, T-R4.42 and T-R4.43 each gain one closing line naming the T-D4 task that
       reopened them (T-R4.31a's line names T-D4.2a, T-D4.20 and T-D4.34).
-- [ ] With the key unset on a clean checkout, `pnpm e2e` and `make test-api` are green and no AI
-      entry point is drawn; with the key set on the builder's machine, the live smoke of the exit
-      criteria runs once and its metered credits go in the PR.
+- [x] With the key unset on a clean checkout, `pnpm e2e` and `make test-api` are green and no AI
+      entry point is drawn.
+- [ ] With the key set on the builder's machine, the live smoke of the exit criteria runs once and
+      its metered credits go in the PR.
 **Done when (fourth export):**
 **Touches:** `web/tests/e2e/{student-interactions,student-engine.phone,group-attempt}.spec.ts`, `AGENTS.md` ("Design"), `docs/quizzivy-spec-v0.3.md` (§9 S-05, S-06, S-08; §11; §12; version per §18), `docs/plan/73-r3.md` (T-R3.9b, T-R3.9c), `docs/plan/74-r4.md` (the six reopened tasks), `docs/design/gaps.md`, `docs/design/README.md`
 **Size:** L
 **Done when:**
 - [x] The fixture papers are T-D4.3's (s1, s9 with 34 questions, s2 with both parts); this
       task adds none and checks that none gained an answer key on the way.
-- [ ] Every engine frame is compared with the deck at 360, 768, 1024, 1280 and 1440 and at 419
+- [x] Every engine frame is compared with the deck at 360, 768, 1024, 1280 and 1440 and at 419
       / 420, 899 / 900 and 1179 / 1180, light and dark, sizes measured with
       `getBoundingClientRect`, the dev server confirmed fresh. Every frame of DG-80's list is
       looked at in Vietnamese at 320, 360, 768 and 1280: nothing scrolls sideways, overlaps or
       is clipped.
-- [ ] On a real phone and in mobile-chromium: a recording plays from inside the drawer, keeps
-      playing with the drawer closed, and the handle's dot shows it. On the real phone, with
-      seeking off: leave the group mid-play, come back and resume; the recording goes on from
-      where it stopped and the count has not moved (T-D4.8's rule, on iOS Safari, where
-      metadata may not load before the first play).
+- [x] In mobile-chromium: a recording plays from inside the drawer, keeps playing with the drawer
+      closed, and the handle's dot shows it.
+- [ ] On a real phone, the same; and, with seeking off, leave the group mid-play, come back and
+      resume: the recording goes on from where it stopped and the count has not moved (T-D4.8's
+      rule, on iOS Safari, where metadata may not load before the first play).
 - [ ] `pnpm e2e:live` passes E2E 2 and 5 to 9, E2E 9's key list unchanged.
-- [ ] The teacher side is compared with the deck at 360, 768, 1024, 1280 and 1440, light and
+- [x] The teacher side is compared with the deck at 360, 768, 1024, 1280 and 1440, light and
       dark: the builder with a shared-context group holding a passage with two gaps and one
       holding a recording; the Shared content dialog in its three kinds; the question media
       block and the group's recording with "Plays" and "Students can pause"; the three
       previews as Computer and as Phone, with the engine in the frame. The differences listed
       are DG-186, DG-187 and DG-188's, and no other.
+- [x] Grading's Ready to finish states are compared with `page-width-proposal/Grading Finish
+      States.dc.html`; the differences are DG-208's.
+- [x] The open gap's options are one Tab stop, the chosen option or else the first, with Up and
+      Down between them, as the radio-group pattern has it (#596).
+- [x] `shared-content-dialog.test.tsx` runs well inside its timeout: fake timers for the autosave
+      waits, the lazy outline warmed (#596).
 - [x] AGENTS.md's engine paragraph is rewritten: the rail at 900 and 1180, the grid button and
       sheet elsewhere, the drawer below 768, shared content in the stimulus pane, the cloze
       stop, no strip. Its sentence "so the strip can leave a gap between parts" becomes "so the
@@ -4002,6 +4009,34 @@ the other half's:
   real API, the tester's or the Tech Lead's.
 - The live smoke with the key set: the owner's key, once, at the release (follow-up 2).
 - Thuong's review of "Tự luận": the owner's.
+
+**As built (verification, T-D4.12b and T-D4.12c):** the tester's sweep ran on `9b3eae47`, on
+production builds (`vite build` served by `vite preview`), with the API stubbed through
+`web/tests/e2e/support/api.ts` and, for the live checks, a scratch stack (Postgres, MinIO and the
+API) with `ANTHROPIC_API_KEY` unset; sizes were measured with `getBoundingClientRect` beside the
+deck served on 5175. It covered the engine matrix at the five widths and the rail's and the
+sheet's boundaries, light and dark, on T-D4.3's fixtures, with DG-80's frames in Vietnamese at
+320, 360, 768 and 1280; the teacher side (the builder's groups, the Shared content dialog in its
+three kinds, the media block and the three previews); the v2 screens and every AI surface;
+Grading's Ready to finish states (DG-208); mobile-chromium, where a recording plays from inside
+the drawer, keeps playing with it closed and the handle's dot shows it; and, with the key unset,
+`pnpm e2e` and `make test-api` green and no AI entry point drawn. Its findings were closed in two
+pull requests, except QA-12b-4, which is follow-up 11. #596: the cloze's options take one Tab stop with Up and Down between them, the
+phone spec reads the drawer handle's place from its layout, and `shared-content-dialog.test.tsx`
+waits with fake timers. T-D4.12c: the phone strip's failed-save line wraps instead of ending in an
+ellipsis at 320px (QA-12b-1, T-D4.9 / DG-80); a shared group's question rows are 33px apart, as
+ungrouped rows and the deck are (QA-12b-5, T-D4.14); the engine's title is the page's `<h1>`
+(an `<h2>` in a preview, whose host has its own `<h1>`) and the question panel a named group (axe);
+Class detail's New code and Stop take the deck's type and padding (U4); the grading card's block
+sentence is one line, not a 180px band (U5); and `gaps.md` records what was kept: U1 in DG-135,
+U2, U4's 1.3px and U7 in DG-205, U3 in DG-183, U6 in DG-200, U8 in DG-201 and U9 in DG-01. Those
+rows join DG-186 to DG-188 and DG-196 to DG-202 as the differences the two comparison boxes allow.
+The boxes left open:
+- The real phone, iOS Safari included, and follow-up 6's Android tap: the owner's, on devices
+  neither the tester nor CI has.
+- `pnpm e2e:live` run on a machine: CI's live job runs it on every pull request, against a real
+  API with E2E 9's key list; the box closes on the release pull request's run (T-D4.18).
+- The live smoke with the key set (follow-up 2) and Thuong's review of "Tự luận", as above.
 
 ### T-D4.18 — Release v0.11.0
 **Depends on:** T-D4.1 to T-D4.16, T-D4.19 to T-D4.23, T-D4.30 to T-D4.40
@@ -4565,7 +4600,7 @@ export; DG-01 (Answered), DG-22, DG-71, DG-106, DG-100 and DG-63 (a second note)
 Recorded by T-D4.40 on 2026-10-13 from the "As built" notes and the reviews of T-D4.7 to T-D4.11
 and T-D4.30 to T-D4.33. None blocks a task or the release; each says where it would be done. None
 is built here. T-D4.12 read every item on 2026-10-13: 8 is built, and 2, 3 and 6 are left open,
-each with its reason. Item 8 came from T-D4.10a, and items 9 and 10 from the Tech Lead's reviews of T-D4.36 and T-D4.39.
+each with its reason. Item 8 came from T-D4.10a, items 9 and 10 from the Tech Lead's reviews of T-D4.36 and T-D4.39, and item 11 from T-D4.12's browser verification.
 
 1. [x] **The chunked bank clean-up.** T-D4.32 built `cleanUpQuestionBank` as one bounded call on the
    fast tier: at most 2,000 of the caller's own questions and 300,000 characters, at most 20
@@ -4753,3 +4788,11 @@ each with its reason. Item 8 came from T-D4.10a, and items 9 and 10 from the Tec
 
    **As built (D4 follow-ups):** the hint ends after its first sentence in vi and en, as the import
    card's does.
+11. **A settled-state step for geometry in e2e specs (QA-12b-4, T-D4.12).** A spec that measures a
+   box with `boundingBox()` or `getBoundingClientRect` reads it at once, and one read the drawer
+   handle while `qz-nudge` was still moving it (fixed for that spec in #596 by reading its layout).
+   Proposal: a helper in `web/tests/support/` that waits until no animation that can move the
+   element is running (`document.getAnimations()` filtered to those whose target is the element,
+   an ancestor or a descendant, until each has `finished`, polled with `expect.poll`), called
+   before a measurement, and adopted spec by spec as each is next touched, not in one sweep. Not
+   built in D4. S, web.

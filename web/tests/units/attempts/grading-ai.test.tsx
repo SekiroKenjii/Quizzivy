@@ -356,9 +356,12 @@ describe("the grading card's Suggest a score", () => {
     aiOn({ usage: month({ paused: true }) });
     renderGrading();
     const box = await screen.findByRole("region", { name: "Gợi ý của AI" });
-    expect(
-      await within(box).findByText("AI đang tạm dừng với tài khoản của bạn."),
-    ).toBeVisible();
+    const reason = await within(box).findByText(
+      "AI đang tạm dừng với tài khoản của bạn.",
+    );
+    expect(reason).toBeVisible();
+    expect(reason.closest("p")?.parentElement).toHaveClass("flex");
+    expect(reason.closest("p")?.parentElement).not.toHaveClass("flex-col");
     expect(within(box).getByRole("button", { name: "Gợi ý điểm" })).toBeDisabled();
   });
 

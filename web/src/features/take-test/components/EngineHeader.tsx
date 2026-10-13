@@ -18,7 +18,10 @@ import { usePaper } from "../paper";
  * A `preview` header, a teacher's, has no leading control and no Submit but
  * the chip "Student view"; its save line says nothing is saved, and the
  * timer's place holds a pill of the same size with no time, because a time
- * limit is the assignment's and a preview has none.
+ * limit is the assignment's and a preview has none. While the paper is live
+ * its title is the page's `<h1>`, read but not drawn below 768; a preview's
+ * is an `<h2>`, because the teacher's page around it has the `<h1>`. A
+ * submitted paper's title is plain text, since the end state has the `<h1>`.
  */
 export function EngineHeader({
   wide,
@@ -49,11 +52,20 @@ export function EngineHeader({
       )}
     >
       {leading}
+      {!wide && live && (
+        <PaperTitle live preview={preview} className="sr-only">
+          {title}
+        </PaperTitle>
+      )}
       {wide && (
         <div className="flex min-w-0 flex-col">
-          <span className="truncate text-base leading-[1.3] font-semibold">
+          <PaperTitle
+            live={live}
+            preview={preview}
+            className="truncate text-base leading-[1.3] font-semibold"
+          >
             {title}
-          </span>
+          </PaperTitle>
           {live && !locked && (
             <span className="text-muted-fg flex min-w-0 items-center gap-[5px] text-xs leading-[1.3]">
               {preview ? <UnsavedLine /> : <SaveState />}
@@ -81,6 +93,22 @@ export function EngineHeader({
       )}
     </header>
   );
+}
+
+function PaperTitle({
+  live,
+  preview,
+  className,
+  children,
+}: Readonly<{
+  live: boolean;
+  preview: boolean;
+  className: string;
+  children: ReactNode;
+}>) {
+  if (!live) return <span className={className}>{children}</span>;
+  if (preview) return <h2 className={className}>{children}</h2>;
+  return <h1 className={className}>{children}</h1>;
 }
 
 /**

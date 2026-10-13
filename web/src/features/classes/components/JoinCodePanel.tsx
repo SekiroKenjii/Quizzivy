@@ -311,17 +311,17 @@ function CodeActions({
             <Button
               ref={rotateRef}
               variant="outline"
-              className="h-8.5 flex-1 in-data-[scale=deck]:h-8.5"
+              className="h-8.5 flex-1 in-data-[scale=deck]:h-8.5 in-data-[scale=deck]:text-sm"
               onClick={onRotate}
             >
-              <RotateCw aria-hidden="true" />
+              <RotateCw aria-hidden="true" className="size-3.5" />
               {rotateLabel}
             </Button>
           )}
           {hasCode ? (
             <Button
               variant="ghost"
-              className="text-muted-fg h-8.5 in-data-[scale=deck]:h-8.5"
+              className="text-muted-fg h-8.5 font-normal in-data-[scale=deck]:h-8.5 in-data-[scale=deck]:px-3 in-data-[scale=deck]:text-sm"
               onClick={onStop}
             >
               {t("classDetail.stop")}
