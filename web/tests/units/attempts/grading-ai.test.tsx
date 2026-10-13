@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
@@ -242,6 +242,66 @@ describe("the grading card's Suggest a score", () => {
     expect(
       await screen.findByText("Câu trả lời 1/1 của Hà", { exact: false }),
     ).toBeVisible();
+  });
+
+  it("asks before a route change drops a filled score, and Save and leave writes it", async () => {
+    serve(() => contractJson(SCORE_PATH, "post", 200, { ...suggestion, comment: "" }));
+    const { router, user } = renderGrading();
+    const box = await screen.findByRole("region", { name: "Gợi ý của AI" });
+    await user.click(within(box).getByRole("button", { name: "Gợi ý điểm" }));
+    await user.click(
+      await within(box).findByRole("button", { name: "Dùng điểm và nhận xét" }),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Chấm 0,5 điểm" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      ),
+    );
+    expect(screen.getByLabelText(/^Nhận xét/)).toHaveValue("");
+
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
+
+    await act(() => router.navigate("/teacher/settings/ai"));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Rời trang khi điểm chưa lưu?",
+    });
+    expect(
+      within(dialog).getByText("Điểm bạn đã điền cho câu trả lời này chưa được lưu."),
+    ).toBeVisible();
+    expect(screen.queryByText("settings page")).toBeNull();
+    expect(graded).toEqual([]);
+
+    await user.click(within(dialog).getByRole("button", { name: "Lưu và rời đi" }));
+    expect(await screen.findByText("settings page")).toBeVisible();
+    expect(graded).toEqual([
+      { items: [{ questionId: ESSAY_ID, points: 0.5, comment: null }] },
+    ]);
+  });
+
+  it("lets a route change go without asking once Save & next has saved the fill", async () => {
+    const { router, user } = renderGrading();
+    const box = await screen.findByRole("region", { name: "Gợi ý của AI" });
+    await user.click(within(box).getByRole("button", { name: "Gợi ý điểm" }));
+    await user.click(
+      await within(box).findByRole("button", { name: "Dùng điểm và nhận xét" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Lưu & câu tiếp theo" }));
+    await waitFor(() => expect(graded).toHaveLength(1));
+    expect(
+      await screen.findByText("Câu trả lời 1/1 của Hà", { exact: false }),
+    ).toBeVisible();
+
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(false);
+
+    await act(() => router.navigate("/teacher/settings/ai"));
+    expect(await screen.findByText("settings page")).toBeVisible();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(graded).toHaveLength(1);
   });
 
   it("sends no student's name, only the attempt and question it names", async () => {

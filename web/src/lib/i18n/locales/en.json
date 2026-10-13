@@ -993,7 +993,7 @@
         "readStudentAnswers": "Let AI read student answers",
         "readStudentAnswersHint": "Needed for grading suggestions and class insights. Student names are never sent.",
         "readImports": "Read imports with AI",
-        "readImportsHint": "Handles scanned PDFs, photos of printed tests and unusual layouts. About 400 credits per page."
+        "readImportsHint": "Handles scanned PDFs, photos of printed tests and unusual layouts."
       }
     }
   },
