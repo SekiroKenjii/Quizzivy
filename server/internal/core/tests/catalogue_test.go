@@ -136,7 +136,7 @@ func TestTheBuiltInGrantsAreTheMatrixCellByCell(t *testing.T) {
 		access.BuiltinAdmin: {},
 		access.BuiltinTeacher: {
 			access.ContentTestsWrite, access.ContentTestsPublish, access.ContentQuestionsWrite,
-			access.ContentMediaWrite, access.ContentShare,
+			access.ContentMediaWrite, access.ContentShare, access.AIUse,
 			access.TeachingClassesWrite, access.TeachingAssignmentsWrite, access.TeachingGrading,
 			access.TeachingAttemptsIntervene, access.TeachingAttendance,
 			access.PeopleStudentsRead, access.PeopleStudentsCreate, access.PeopleStudentsResetPassword,
