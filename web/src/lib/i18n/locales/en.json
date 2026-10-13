@@ -608,7 +608,8 @@
       "appearance": "Appearance",
       "api": "API reference",
       "notifications": "Notifications",
-      "defaults": "Assignment defaults"
+      "defaults": "Assignment defaults",
+      "ai": "AI assistant"
     },
     "preferenceSaving": "Saving preference…",
     "preferenceSaved": "Preference saved.",
@@ -723,6 +724,65 @@
         "copyHint": "Stops copying questions or pasting answers",
         "fullscreen": "Require fullscreen",
         "fullscreenHint": "Asks the student to return if they leave"
+      }
+    },
+    "ai": {
+      "off": "AI is not turned on for this school.",
+      "loadFailed": "Couldn't load the AI assistant's status.",
+      "usage": {
+        "title": "AI usage this month",
+        "hint": "Your school gives each teacher a monthly allowance.",
+        "hintReset": "Your school gives each teacher a monthly allowance. It resets on {{date}}.",
+        "of": "of {{limit}} credits",
+        "left": "{{left}} left",
+        "bar": "{{used}} of {{limit}} credits used",
+        "byFeature": "Usage by feature",
+        "loadFailed": "Couldn't load your AI usage.",
+        "paused": "AI is paused for your account.",
+        "allowanceUsed": "Your allowance is used up this month.",
+        "poolUsed": "The school's AI pool is used up this month.",
+        "categories": {
+          "generation": "Generating questions and variants",
+          "grading": "Grading suggestions",
+          "explanations": "Explanations and wrong options",
+          "imports": "Reading imports",
+          "checks": "Checks, word lists and insights"
+        }
+      },
+      "request": {
+        "prompt": "Need more credits this month?",
+        "open": "Ask for more credits",
+        "hint": "Your admin is told and decides. You can have one request waiting each month.",
+        "amount": "Credits",
+        "amountHint": "From {{min}} to {{max}}",
+        "reason": "Reason",
+        "reasonHint": "Tell your admin what the credits are for. Up to {{max}} characters.",
+        "send": "Send request",
+        "sending": "Sending…",
+        "sent": "Request sent. Your admin will be told.",
+        "pending": "Waiting for your admin: {{amount}} more credits",
+        "pendingMeta": "Sent on {{date}}. Your admin will decide.",
+        "errors": {
+          "amount": "Enter a whole number from {{min}} to {{max}}.",
+          "reasonRequired": "Give a reason.",
+          "reasonTooLong": "A reason is at most {{max}} characters."
+        }
+      },
+      "prefs": {
+        "title": "Preferences",
+        "hint": "Applies to every AI feature in your workspace. AI output is always a draft until you approve it.",
+        "language": "Explanations and feedback in",
+        "languageHint": "You can still switch language on any suggestion.",
+        "languages": {
+          "en": "English",
+          "vi": "Tiếng Việt"
+        },
+        "tagDrafts": "Tag AI drafts",
+        "tagDraftsHint": "Adds an “AI draft” tag until you edit or approve the item. Only teachers see it.",
+        "readStudentAnswers": "Let AI read student answers",
+        "readStudentAnswersHint": "Needed for grading suggestions and class insights. Student names are never sent.",
+        "readImports": "Read imports with AI",
+        "readImportsHint": "Handles scanned PDFs, photos of printed tests and unusual layouts. About 400 credits per page."
       }
     }
   },

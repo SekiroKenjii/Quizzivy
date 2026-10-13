@@ -3208,22 +3208,76 @@ the 256 MiB sandbox included; `BenchmarkRenderForty*` in `pdftext/tests` repeats
 **Touches:** `web/src/features/settings/sections/AiAssistant.tsx` (new), `web/src/features/settings/pages/teacher/TeacherSettingsPage.tsx` (`/teacher/settings/ai`), `web/src/features/auth/preferences.ts` (`ai` defaults), locales, `web/tests/units/settings/ai-assistant.test.tsx` (new), `web/tests/e2e/settings-navigation.spec.ts`
 **Size:** M
 **Done when:**
-- [ ] The sixth section (V-13): the usage card from `GET /teacher/ai/usage` (used of allowance,
+- [x] The sixth section (V-13): the usage card from `GET /teacher/ai/usage` (used of allowance,
       left, the bar, the five category rows) with "Usage resets on {1 Month}" computed in
       `APP_TIMEZONE`; the Preferences card (`UserPreferences.ai {language, tagDrafts,
       readStudentAnswers, readImports}`, saved through `PATCH /auth/me` as the other
       preferences are; defaults en-or-vi from the locale, on, on, off) with the deck's three
       switches and the language segment.
-- [ ] "Ask for more credits" under the usage card (DG-200): amount and reason, `POST
+- [x] "Ask for more credits" under the usage card (DG-200): amount and reason, `POST
       /teacher/ai/credit-requests`; "Request sent. Your admin will be told."; the pending request
       shown until decided; hidden while the rule is "Pause until next month".
-- [ ] With AI off (501): the section shows one sentence, "AI is not turned on for this school."
+- [x] With AI off (501): the section shows one sentence, "AI is not turned on for this school."
       (DG-201), and the nav keeps the item so the teacher knows where it would be.
-- [ ] The `handle.permission` of the section is `ai.use`; a teacher without it gets the 403 page
+- [x] The `handle.permission` of the section is `ai.use`; a teacher without it gets the 403 page
       as the other sections do (T-R5.20's guard pattern, built here for the teacher tree if it is
       not there yet).
-- [ ] Unit tests and the settings E2E spec's navigation case; compared with the deck at 360, 768
+- [x] Unit tests and the settings E2E spec's navigation case; compared with the deck at 360, 768
       and 1280, light and dark.
+
+**As built:** one pull request, three commits (the section, this note, and the section in
+`settings.spec.ts`'s list of the teacher's sections, which the first CI run caught). The section is
+`sections/AiAssistant.tsx`, which composes `AiUsageCard`, `AiCreditRequest` and `AiPreferences`;
+the reads, the mutation and the status query are `features/settings/aiApi.ts`, the form's schema
+`aiCreditRequestSchema.ts` (with its `Expect<Equal<…>>` against `requestAiCredits`' body), the
+figures `aiCredits.ts`, and the defaults `features/auth/preferences.ts` (`aiPreferencesOf`:
+the interface's language, tags on, answers on, imports off), which T-D4.39 reads.
+
+- **Not offered without `ai.use`, rather than the 403 page.** Every section of Settings renders
+  inside one route (`settings/:section?`) and stays mounted, so a route guard cannot gate one
+  section without remounting the others and losing their unsaved edits. The section is built as
+  Assignment defaults and API reference are: no nav item, and `/teacher/settings/ai` is replaced
+  by `/teacher/settings`. The Tech Lead's brief allowed "not offered, or shown off"; the
+  Done-when's 403 is amended to this.
+- **Off.** With `PublicStatus.ai` false, or `getAiUsage` answering `501 AI_OFF`, the nav keeps
+  the item and the section says one sentence, "AI is not turned on for this school." (DG-201).
+  The section reads nothing until it is first shown: `GET /public/status` (kept 30 s, as the
+  route lets a browser keep it), then `GET /teacher/ai/usage`, so a visit to another section
+  costs no AI read.
+- **The usage card** is the deck's at every width: the reset date is the first of the month
+  after `month`, which the server counts in `APP_TIMEZONE` ("1 November", "1 tháng 11"); the
+  bar is `ProgressBar` (8px, accent, round); a warning callout says when the teacher is paused,
+  when the allowance is used up, or when the centre's pool is (`left` 0 with the allowance not
+  used up), in the spec's words (§12).
+- **The request (DG-200)** is a row under the card's rows, "Need more credits this month?" and
+  an outline "Ask for more credits", which opens the form in place: amount (digits, 1,000 to
+  100,000) and reason (at most 500), Cancel and "Send request", the fields in the Profile
+  section's grid (at most three columns, each at most `--field-max`, DG-205). Sending goes
+  through `useRequestAiCredits`; a ref taken before `mutate` makes a double press send once
+  (the unit case fails without it). The answer becomes the cached usage's `pending`, the toast
+  says "Request sent. Your admin will be told.", and focus moves to the waiting request, which
+  shows the amount, the day it was sent and the reason until an admin decides. A 409 shows the
+  server's message and rereads the usage, which then shows the waiting request or hides the
+  control. Nothing is drawn while `requests` is false (the rule is pause). Typing in the form
+  counts as an unsaved change for Settings' leave guard.
+- **The preferences** save at once, as Appearance's do, the whole `ai` object through
+  `PATCH /me/preferences` (the object is replaced whole by the merge); while one saves the
+  controls answer `aria-disabled`, and a failed save toasts the server's message and shows the
+  stored value again.
+- **Shared helpers.** T-D4.34 (`features/ai/`) was in flight, so this task keeps its own small
+  `useAiConfigured` (the status query, key `["public-status"]`), `aiUsageQuery` (key
+  `["ai-usage"]`) and credit formatting in `features/settings/`, and its own strings under
+  `settings.ai.*`, including the three "paused / allowance / pool" sentences. T-D4.34's merge
+  reconciles them with `useAiAvailable` and the credit note.
+- **Compared with the deck** (served with React, react-dom, Babel and lucide from their npm
+  tarballs through route interception, `verification-r4-51.md`) at 360, 768, 1024, 1280 and
+  1440, light and dark: both cards' heights, every usage row, the bar, the segment and the
+  switches equal the deck's at every width; up to 1280 their x and width too. At 1440 the cards
+  are 56px wider and start 28px left of the deck's, because the page fills its frame (DG-205)
+  where the deck centres 1080px. At 360 everything sits 12px higher, as on every Settings
+  section (the page head, DG-122). The request row, its form and the waiting request are not
+  drawn by the deck (DG-200); they were checked at 360, 768 and 1280 in Vietnamese, with no
+  sideways scroll and a 2px `--focus` ring on every control.
 
 ### T-D4.39 — Imports: the "Read with AI" card
 **Depends on:** T-D4.33, T-D4.38 (the preference's default)
