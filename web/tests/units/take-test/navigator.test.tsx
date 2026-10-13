@@ -59,6 +59,51 @@ const twoParts = paper({
   questions: [...questions.slice(0, 2), { ...questions[2]!, sectionId: "s2" }],
 });
 
+const fillIn: StudentQuestion = {
+  id: "q2",
+  sectionId: "s1",
+  type: "fill_blank",
+  prompt: "She {{1}} home and {{2}} dinner.",
+  points: 1,
+  blanks: [
+    { id: "b1", ordinal: 1, caseSensitive: false },
+    { id: "b2", ordinal: 2, caseSensitive: false },
+  ],
+};
+
+function withPassage(base: AttemptSession, questionIds: string[]): AttemptSession {
+  return {
+    ...base,
+    groups: [
+      {
+        id: "g1",
+        sectionId: "s1",
+        title: "Bài đọc",
+        questionIds,
+        stimuli: [
+          {
+            id: "st1",
+            title: "Bài đọc",
+            content: {
+              format: "semantic_v1",
+              blocks: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "Một đoạn văn.", marks: [] }],
+                },
+              ],
+            },
+            gaps: [],
+          },
+        ],
+        recordings: [],
+        assets: [],
+      },
+    ],
+    groupAudioPlays: {},
+  };
+}
+
 function long(count: number): AttemptSession {
   return paper({
     questions: Array.from({ length: count }, (_, index) => ({
@@ -91,12 +136,15 @@ const store = () => useTakeTestStore.getState();
 const onQuestion = (n: number) => screen.queryByRole("main", { name: `Câu ${n}` });
 const nav = () => screen.getByRole("navigation", { name: NAV });
 const footer = () => within(nav());
-const countButton = () => screen.getByRole("button", { name: /^Danh sách câu: / });
+const gridButton = () => screen.getByRole("button", { name: /^Câu \d+ · đã làm / });
+const rail = () => screen.getByRole("complementary", { name: "Các phần" });
+const noRail = () => expect(screen.queryByRole("complementary")).toBeNull();
 const noSheet = () => waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 const squares = (frame: HTMLElement) =>
   within(frame)
     .getAllByRole("button")
     .filter((button) => /^\d+$/.test(button.textContent ?? ""));
+const hint = () => nav().querySelector("p");
 const flagDot = (square: HTMLElement | undefined) =>
   square?.querySelector("span[aria-hidden='true']") ?? null;
 const panel = (id: string) => document.getElementById(`answer-question-${id}`);
@@ -125,7 +173,7 @@ afterEach(async () => {
 });
 
 describe("the footer below 768", () => {
-  it("holds Previous as an icon, the count button and Next, under the question", async () => {
+  it("holds Previous as an icon, the grid button and Next, under the question", async () => {
     await open();
 
     expect(nav().parentElement).toBe(panel("q1")?.closest("section"));
@@ -141,10 +189,11 @@ describe("the footer below 768", () => {
       "pb-2.5",
       "px-3.5",
     );
+    noRail();
 
     const controls = footer().getAllByRole("button");
     expect(controls).toHaveLength(3);
-    const [previous, count, next] = controls;
+    const [previous, grid, next] = controls;
     expect(previous).toHaveAccessibleName("Câu trước");
     expect(previous).toHaveTextContent(/^$/);
     expect(previous).toBeDisabled();
@@ -158,20 +207,24 @@ describe("the footer below 768", () => {
       "font-medium",
       "disabled:opacity-40",
     );
-    expect(count).toHaveAccessibleName("Danh sách câu: 1 / 3 · đã trả lời 0");
-    expect(count).toHaveAttribute("aria-haspopup", "dialog");
-    expect(count).toHaveAttribute("aria-expanded", "false");
-    expect(count).toHaveClass(
+    expect(grid).toHaveAccessibleName("Câu 1 · đã làm 0 trên 3");
+    expect(grid).toHaveTextContent(/^1 · 0\/3$/);
+    expect(grid).toHaveAttribute("aria-haspopup", "dialog");
+    expect(grid).toHaveAttribute("aria-expanded", "false");
+    expect(grid).toHaveClass(
       "h-11",
       "min-w-0",
       "flex-1",
       "gap-2",
-      "overflow-hidden",
       "rounded-lg",
       "border",
       "bg-card",
+      "text-base",
       "font-medium",
+      "whitespace-nowrap",
     );
+    expect(grid?.querySelector("svg")).toHaveClass("size-4", "flex-none");
+    expect(grid?.querySelector("span")).toHaveClass("min-w-0", "truncate");
     expect(next).toHaveAccessibleName("Câu sau");
     expect(next).toHaveTextContent(/^Sau$/);
     expect(next).toHaveClass(
@@ -183,33 +236,46 @@ describe("the footer below 768", () => {
       "px-4",
       "font-semibold",
     );
+    expect(hint()).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("counts the question on screen and the answers as they change", async () => {
     const user = userEvent.setup();
     await open();
-    expect(countButton()).toHaveTextContent("1 / 3 · đã trả lời 0");
+    expect(gridButton()).toHaveTextContent("1 · 0/3");
 
     await user.click(screen.getByRole("radio", { name: /Beta/ }));
-    expect(countButton()).toHaveTextContent("1 / 3 · đã trả lời 1");
+    expect(gridButton()).toHaveTextContent("1 · 1/3");
 
     await user.click(footer().getByRole("button", { name: "Câu sau" }));
     expect(onQuestion(2)).toBeInTheDocument();
-    expect(countButton()).toHaveTextContent("2 / 3 · đã trả lời 1");
+    expect(gridButton()).toHaveTextContent("2 · 1/3");
+    expect(gridButton()).toHaveAccessibleName("Câu 2 · đã làm 1 trên 3");
     expect(footer().getByRole("button", { name: "Câu trước" })).toBeEnabled();
 
     await user.click(footer().getByRole("button", { name: "Câu trước" }));
     expect(onQuestion(1)).toBeInTheDocument();
   });
 
-  it("reads 4 / 8 with three answered on the deck's paper", async () => {
+  it("says the long form from 420 and the short one below it", async () => {
+    const view = viewport(420);
+    await open();
+    expect(gridButton()).toHaveTextContent(/^Câu 1 · đã làm 0 trên 3$/);
+
+    act(() => view.resize(419));
+    expect(gridButton()).toHaveTextContent(/^1 · 0\/3$/);
+    expect(gridButton()).toHaveAccessibleName("Câu 1 · đã làm 0 trên 3");
+  });
+
+  it("reads question 4 with three answered on the deck's paper", async () => {
     const user = userEvent.setup();
     await open(deckSession(new Date(now)));
     for (let moves = 0; moves < 3; moves++) {
       await user.click(footer().getByRole("button", { name: "Câu sau" }));
     }
-    expect(countButton()).toHaveAccessibleName("Danh sách câu: 4 / 8 · đã trả lời 3");
+    expect(gridButton()).toHaveAccessibleName("Câu 4 · đã làm 3 trên 8");
+    expect(gridButton()).toHaveTextContent(/^4 · 3\/8$/);
   });
 
   it("turns Next into Finish on the last question, which opens the Submit dialog", async () => {
@@ -231,46 +297,21 @@ describe("the footer below 768", () => {
     expect(submitAttempt).not.toHaveBeenCalled();
   });
 
-  it("hides with the question while the passage shows", async () => {
+  it("stays where it is, under the backdrop, while the drawer is open", async () => {
     const user = userEvent.setup();
-    const base = paper();
-    await open({
-      ...base,
-      groups: [
-        {
-          id: "g1",
-          sectionId: "s1",
-          title: "Bài đọc",
-          questionIds: ["q1", "q2", "q3"],
-          stimuli: [
-            {
-              id: "st1",
-              title: "Bài đọc",
-              content: {
-                format: "semantic_v1",
-                blocks: [
-                  {
-                    type: "paragraph",
-                    content: [{ type: "text", text: "Một đoạn văn.", marks: [] }],
-                  },
-                ],
-              },
-              gaps: [],
-            },
-          ],
-          recordings: [],
-          assets: [],
-        },
-      ],
-      groupAudioPlays: {},
-    });
-    expect(nav()).toBeVisible();
+    await open(withPassage(paper(), ["q1", "q2", "q3"]));
+    const footer = nav();
+    expect(footer).toBeVisible();
 
-    await user.click(screen.getByRole("button", { name: "Ngữ liệu" }));
-    expect(screen.queryByRole("navigation", { name: NAV })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Mở ngữ liệu" }));
+    const backdrop = document.querySelector("[data-drawer-backdrop]")!;
+    expect(nav()).toBe(footer);
+    expect(footer).toBeVisible();
+    expect(backdrop.parentElement).toContainElement(footer);
     expect(
-      screen.getByRole("navigation", { name: NAV, hidden: true }),
-    ).not.toBeVisible();
+      footer.compareDocumentPosition(backdrop) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(backdrop).toHaveClass("absolute", "inset-0", "z-[55]");
   });
 });
 
@@ -305,35 +346,36 @@ describe("shortcuts", () => {
 });
 
 describe("the question sheet", () => {
-  it("opens from the count button with the title, the answered count, six columns of 44px squares and the legend", async () => {
+  it("opens from the grid button as a bottom sheet: no visible title or total, a block per section of six columns of 44px squares, and the legend", async () => {
     const user = userEvent.setup();
     await open();
     await user.click(screen.getByRole("radio", { name: /Beta/ }));
-    const opener = countButton();
+    const opener = gridButton();
     await user.click(opener);
 
     const dialog = await screen.findByRole("dialog", { name: NAV });
     expect(opener).toHaveAttribute("aria-expanded", "true");
-    expect(dialog).toHaveAccessibleDescription("Đã trả lời 1 trên 3");
+    expect(dialog).toHaveAccessibleDescription("Câu 1 · đã làm 1 trên 3");
     expect(dialog).toHaveClass(
       "top-auto",
       "right-0",
       "bottom-0",
       "left-0",
-      "max-h-[85svh]",
+      "max-h-[80%]",
       "max-w-none",
       "sm:max-w-none",
       "translate-x-0",
       "translate-y-0",
       "flex",
       "flex-col",
-      "gap-3.5",
+      "gap-4",
+      "overflow-y-auto",
       "rounded-t-3xl",
       "rounded-b-none",
-      "border-0",
+      "border",
       "bg-card",
       "px-4",
-      "pt-2.5",
+      "pt-3",
       "pb-5",
       "shadow-float",
     );
@@ -346,54 +388,95 @@ describe("the question sheet", () => {
     );
     expect(dialog.firstElementChild).toHaveAttribute("aria-hidden", "true");
     expect(within(dialog).getByRole("heading", { level: 2, name: NAV })).toHaveClass(
-      "text-md",
-      "font-semibold",
+      "sr-only",
     );
-    expect(within(dialog).getByText("Đã trả lời 1 trên 3")).toHaveClass(
-      "text-muted-fg",
-      "text-meta",
-    );
+    expect(within(dialog).getByText("Câu 1 · đã làm 1 trên 3")).toHaveClass("sr-only");
 
-    const all = within(dialog).getAllByRole("button");
+    const all = squares(dialog);
     expect(all.map((square) => square.textContent)).toEqual(["1", "2", "3"]);
     expect(all[0]).toHaveAccessibleName("Câu 1, đang xem, đã trả lời");
     expect(all[0]).toHaveAttribute("aria-current", "true");
     expect(all[1]).toHaveAccessibleName("Câu 2");
     expect(all[1]).not.toHaveAttribute("aria-current");
     expect(all[2]).toHaveAccessibleName("Câu 3");
-    expect(all[0]?.parentElement).toHaveClass("grid", "grid-cols-6", "gap-2");
+    expect(all[0]?.parentElement).toHaveClass("grid", "grid-cols-6", "gap-[5px]");
     for (const square of all) {
       expect(square).toHaveClass(
         "h-11",
+        "engine-lg:h-10.5",
         "min-w-0",
-        "rounded-ctl",
+        "rounded-md",
         "border-[1.5px]",
-        "text-base",
+        "text-meta",
         "font-semibold",
+        "tabular-nums",
       );
     }
-    expect(all[0]?.parentElement?.parentElement?.parentElement).toHaveClass(
-      "min-h-0",
-      "overflow-y-auto",
-      "gap-3.5",
+
+    const heading = within(dialog).getByRole("heading", { level: 3 });
+    expect(heading).toHaveTextContent(/^Phần 1$/);
+    expect(heading).toHaveClass("text-meta", "text-fg", "font-semibold");
+    expect(heading.nextElementSibling).toHaveTextContent(/^1 \/ 3$/);
+    expect(heading.nextElementSibling).toHaveClass(
+      "text-caption",
+      "text-muted-fg",
+      "tabular-nums",
     );
-    expect(within(dialog).queryByRole("heading", { level: 3 })).toBeNull();
 
     const answered = within(dialog).getByText("Đã trả lời");
     expect(answered.firstElementChild).toHaveClass(
       "bg-primary",
-      "size-3",
+      "size-[11px]",
       "rounded-[3px]",
+    );
+    const partly = within(dialog).getByText("Trả lời một phần");
+    expect(partly.firstElementChild).toHaveClass(
+      "bg-brand-soft",
+      "border-primary",
+      "border",
+      "size-[11px]",
     );
     const flagged = within(dialog).getByText("Đã đánh dấu");
     expect(flagged.firstElementChild).toHaveClass(
       "bg-warning",
-      "size-2.5",
+      "size-[9px]",
       "rounded-full",
     );
     expect(answered.parentElement).toBe(flagged.parentElement);
-    expect(answered.parentElement).toHaveClass("text-muted-fg", "text-xs", "gap-x-3.5");
-    expect(answered.parentElement?.children).toHaveLength(2);
+    expect(answered.parentElement).toHaveClass(
+      "text-muted-fg",
+      "text-caption",
+      "gap-x-3.5",
+    );
+    expect(answered.parentElement?.children).toHaveLength(3);
+    expect(dialog.lastElementChild).toBe(answered.parentElement);
+  });
+
+  it("is a card 560px wide and 76px from the bottom from 768, beside shared content at 1024", async () => {
+    viewport(1024);
+    const user = userEvent.setup();
+    await open(withPassage(paper(), ["q1", "q2", "q3"]));
+    noRail();
+    expect(gridButton()).toHaveTextContent(/^1 · 0\/3$/);
+    await user.click(gridButton());
+
+    const dialog = await screen.findByRole("dialog", { name: NAV });
+    expect(dialog).toHaveClass(
+      "left-[calc(50%-280px)]",
+      "right-[calc(50%-280px)]",
+      "bottom-[76px]",
+      "top-auto",
+      "w-auto",
+      "rounded-2xl",
+      "border",
+      "max-h-[80%]",
+      "px-4",
+      "pt-3",
+      "pb-5",
+      "gap-4",
+    );
+    expect(dialog).not.toHaveClass("rounded-t-3xl", "bottom-0");
+    expect(squares(dialog)).toHaveLength(3);
   });
 
   it("fills an answered square, rings the one on screen with the accent and dots a flagged one", async () => {
@@ -402,31 +485,37 @@ describe("the question sheet", () => {
     await user.click(screen.getByRole("radio", { name: /Beta/ }));
     await user.click(screen.getByRole("button", { name: "Đánh dấu xem lại" }));
     await user.click(footer().getByRole("button", { name: "Câu sau" }));
-    await user.click(countButton());
+    await user.click(gridButton());
 
     const [first, second, third] = squares(await screen.findByRole("dialog"));
     expect(first).toHaveAccessibleName("Câu 1, đã trả lời, đã đánh dấu");
     expect(first).toHaveClass("bg-primary", "text-primary-fg", "border-primary");
-    expect(first).not.toHaveClass("border-brand");
+    expect(first).not.toHaveClass("border-brand", "ring-2");
     expect(flagDot(first)).toHaveClass(
       "bg-warning",
       "absolute",
       "-top-1",
       "-right-1",
-      "size-2.5",
+      "size-[9px]",
       "rounded-full",
       "border-2",
       "border-card",
     );
 
     expect(second).toHaveAccessibleName("Câu 2, đang xem");
-    expect(second).toHaveClass("bg-card", "text-fg", "border-brand");
+    expect(second).toHaveClass(
+      "bg-card",
+      "text-fg",
+      "border-brand",
+      "ring-2",
+      "ring-brand-soft",
+    );
     expect(second).not.toHaveClass("border-border");
     expect(flagDot(second)).toBeNull();
 
     expect(third).toHaveAccessibleName("Câu 3");
     expect(third).toHaveClass("bg-card", "text-fg", "border-border");
-    expect(third).not.toHaveClass("bg-primary");
+    expect(third).not.toHaveClass("bg-primary", "ring-2");
     expect(flagDot(third)).toBeNull();
   });
 
@@ -434,24 +523,29 @@ describe("the question sheet", () => {
     const user = userEvent.setup();
     await open();
     await user.click(screen.getByRole("radio", { name: /Alpha/ }));
-    await user.click(countButton());
+    await user.click(gridButton());
 
     const [first] = squares(await screen.findByRole("dialog"));
-    expect(first).toHaveClass("bg-primary", "text-primary-fg", "border-brand");
+    expect(first).toHaveClass(
+      "bg-primary",
+      "text-primary-fg",
+      "border-brand",
+      "ring-2",
+    );
     expect(first).not.toHaveClass("border-primary");
   });
 
   it("goes to a question from its square, closes, and lands on that question", async () => {
     const user = userEvent.setup();
     await open();
-    await user.click(countButton());
+    await user.click(gridButton());
     await user.click(within(await screen.findByRole("dialog")).getByText("3"));
 
     await noSheet();
     expect(onQuestion(3)).toBeInTheDocument();
     expect(panel("q3")).toHaveFocus();
-    expect(countButton()).toHaveTextContent("3 / 3 · đã trả lời 0");
-    expect(countButton()).toHaveAttribute("aria-expanded", "false");
+    expect(gridButton()).toHaveTextContent("3 · 0/3");
+    expect(gridButton()).toHaveAttribute("aria-expanded", "false");
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(panel("q3")).toHaveFocus();
   });
@@ -460,7 +554,7 @@ describe("the question sheet", () => {
     const user = userEvent.setup();
     await open();
     await user.click(footer().getByRole("button", { name: "Câu sau" }));
-    await user.click(countButton());
+    await user.click(gridButton());
     await user.click(
       within(await screen.findByRole("dialog")).getByRole("button", {
         name: "Câu 2, đang xem",
@@ -476,7 +570,7 @@ describe("the question sheet", () => {
     const user = userEvent.setup();
     await open();
     await user.click(footer().getByRole("button", { name: "Câu sau" }));
-    await user.click(countButton());
+    await user.click(gridButton());
 
     const dialog = await screen.findByRole("dialog");
     const [first, second, third] = squares(dialog);
@@ -493,7 +587,7 @@ describe("the question sheet", () => {
   it("closes on Esc and gives the focus back to the button that opened it", async () => {
     const user = userEvent.setup();
     await open();
-    const opener = countButton();
+    const opener = gridButton();
     await user.click(opener);
     await screen.findByRole("dialog");
 
@@ -507,7 +601,7 @@ describe("the question sheet", () => {
   it("closes on the backdrop and gives the focus back", async () => {
     const user = userEvent.setup();
     await open();
-    const opener = countButton();
+    const opener = gridButton();
     await user.click(opener);
     await screen.findByRole("dialog");
     const backdrop = document.querySelector<HTMLElement>(
@@ -524,7 +618,7 @@ describe("the question sheet", () => {
   it("has only the squares: no close button and no way to hand the paper in", async () => {
     const user = userEvent.setup();
     await open();
-    await user.click(countButton());
+    await user.click(gridButton());
     const dialog = await screen.findByRole("dialog");
 
     expect(within(dialog).getAllByRole("button")).toHaveLength(3);
@@ -533,10 +627,11 @@ describe("the question sheet", () => {
     ).toBeNull();
   });
 
-  it("heads each part and names the part in each square on a paper of several parts", async () => {
+  it("heads each part with its answered count and names the part in each square on a paper of several parts", async () => {
     const user = userEvent.setup();
     await open(twoParts);
-    await user.click(countButton());
+    await user.click(screen.getByRole("radio", { name: /Alpha/ }));
+    await user.click(gridButton());
     const dialog = await screen.findByRole("dialog");
 
     const headings = within(dialog).getAllByRole("heading", { level: 3 });
@@ -544,18 +639,20 @@ describe("the question sheet", () => {
       "Phần 1 · Ngữ pháp",
       "Phần 2 · Nghe",
     ]);
-    expect(headings[0]).toHaveClass(
-      "text-muted-fg",
-      "text-meta",
-      "font-semibold",
-      "uppercase",
+    expect(headings.map((heading) => heading.nextElementSibling?.textContent)).toEqual([
+      "1 / 2",
+      "0 / 1",
+    ]);
+    expect(headings[0]).toHaveClass("text-meta", "text-fg", "font-semibold");
+    expect(headings[1]).toHaveClass("text-meta", "text-muted-fg", "font-medium");
+    const grids = headings.map(
+      (heading) => heading.parentElement?.nextElementSibling as HTMLElement,
     );
-    const grids = headings.map((heading) => heading.nextElementSibling as HTMLElement);
     expect(grids[0]).toHaveClass("grid-cols-6");
     expect(squares(grids[0]!).map((square) => square.textContent)).toEqual(["1", "2"]);
     expect(squares(grids[1]!).map((square) => square.textContent)).toEqual(["3"]);
     expect(squares(dialog).map((square) => square.getAttribute("aria-label"))).toEqual([
-      "Câu 1, Phần 1 · Ngữ pháp, đang xem",
+      "Câu 1, Phần 1 · Ngữ pháp, đang xem, đã trả lời",
       "Câu 2, Phần 1 · Ngữ pháp",
       "Câu 3, Phần 2 · Nghe",
     ]);
@@ -573,7 +670,7 @@ describe("the question sheet", () => {
         questions: [...questions.slice(0, 2), { ...questions[2]!, sectionId: "lost" }],
       }),
     );
-    await user.click(countButton());
+    await user.click(gridButton());
     const dialog = await screen.findByRole("dialog");
 
     expect(
@@ -588,110 +685,117 @@ describe("the question sheet", () => {
     ]);
   });
 
-  it("scrolls the squares inside itself on a long paper", async () => {
+  it("scrolls inside itself on a long paper", async () => {
     const user = userEvent.setup();
     await open(long(80));
-    expect(countButton()).toHaveTextContent("1 / 80 · đã trả lời 0");
-    await user.click(countButton());
+    expect(gridButton()).toHaveTextContent("1 · 0/80");
+    await user.click(gridButton());
     const dialog = await screen.findByRole("dialog");
 
     expect(squares(dialog)).toHaveLength(80);
-    expect(dialog).toHaveAccessibleDescription("Đã trả lời 0 trên 80");
-    expect(dialog).toHaveClass("max-h-[85svh]");
-    expect(squares(dialog)[0]?.closest(".overflow-y-auto")).toHaveClass(
-      "-m-1",
-      "p-1",
-      "min-h-0",
-    );
+    expect(dialog).toHaveAccessibleDescription("Câu 1 · đã làm 0 trên 80");
+    expect(dialog).toHaveClass("max-h-[80%]", "overflow-y-auto");
   });
 
-  it("goes away when the window grows past 768, where the strip takes over", async () => {
-    const view = viewport("phone");
+  it("takes the card's shape at 768 and goes away when the engine grows past 900, where the rail takes over", async () => {
+    const view = viewport(767);
     const user = userEvent.setup();
     await open();
-    await user.click(countButton());
-    await screen.findByRole("dialog");
+    await user.click(gridButton());
+    expect(await screen.findByRole("dialog")).toHaveClass("rounded-t-3xl");
 
-    act(() => view.resize("desktop"));
+    act(() => view.resize(768));
+    expect(screen.getByRole("dialog")).toHaveClass("rounded-2xl", "bottom-[76px]");
+
+    act(() => view.resize(900));
     await noSheet();
-    expect(squares(nav())).toHaveLength(3);
-    expect(screen.queryByRole("button", { name: /^Danh sách câu: / })).toBeNull();
+    expect(squares(rail())).toHaveLength(3);
+    expect(screen.queryByRole("button", { name: /^Câu \d+ · đã làm / })).toBeNull();
   });
 });
 
-describe("the footer from 768", () => {
-  beforeEach(() => viewport("desktop"));
+describe("the rail", () => {
+  beforeEach(() => viewport(900));
 
-  it("holds Previous with its label, the strip of 34px squares and Next, under the question", async () => {
+  it("stands at the paper's left edge from 900, with Previous, the key hint and Next in the footer", async () => {
     await open();
 
-    expect(nav().parentElement).toBe(panel("q1")?.closest("section"));
-    expect(nav()).toHaveClass(
-      "bg-bg",
-      "flex",
-      "gap-2.5",
-      "border-t",
-      "pt-2.5",
-      "pb-2.5",
-      "px-6",
-    );
-    expect(screen.getByRole("main")).toHaveClass(
-      "flex",
-      "min-h-0",
-      "min-w-0",
-      "flex-1",
-    );
-    expect(nav()).not.toHaveClass("px-3.5");
-
-    const controls = footer().getAllByRole("button");
-    expect(controls.map((control) => control.textContent)).toEqual([
-      "Trước",
-      "1",
-      "2",
-      "3",
-      "Sau",
-    ]);
-    expect(controls[0]).toHaveAccessibleName("Câu trước");
-    expect(controls[4]).toHaveAccessibleName("Câu sau");
-    expect(controls[0]).toBeDisabled();
-    expect(controls[0]).toHaveClass(
-      "h-11",
-      "rounded-lg",
-      "border",
-      "bg-card",
+    expect(screen.getByRole("main").firstElementChild).toBe(rail());
+    expect(rail().tagName).toBe("ASIDE");
+    expect(rail()).toHaveClass(
+      "w-59",
+      "flex-none",
+      "bg-sidebar",
+      "border-r",
       "px-3.5",
+      "py-4",
+      "flex",
+      "flex-col",
+      "gap-4",
+      "overflow-y-auto",
     );
-    expect(controls[4]).toHaveClass("h-11", "rounded-lg", "bg-primary", "px-4");
-
-    const strip = controls[1]?.parentElement;
-    expect(strip).toHaveClass(
-      "-m-1",
-      "p-1",
-      "min-w-0",
-      "flex-1",
-      "flex-wrap",
-      "justify-center",
+    const heading = within(rail()).getByRole("heading", { level: 3 });
+    expect(heading).toHaveTextContent(/^Phần 1$/);
+    expect(heading).toHaveClass(
+      "text-meta",
+      "leading-[1.35]",
+      "text-fg",
+      "font-semibold",
+    );
+    expect(heading.nextElementSibling).toHaveTextContent(/^0 \/ 3$/);
+    expect(squares(rail())[0]?.parentElement).toHaveClass(
+      "grid",
+      "grid-cols-5",
       "gap-[5px]",
     );
-    for (const square of squares(nav())) {
+    for (const square of squares(rail())) {
       expect(square).toHaveClass(
-        "size-8.5",
+        "h-8.5",
         "min-h-0",
         "min-w-0",
-        "flex-none",
         "rounded-md",
         "border-[1.5px]",
-        "text-sm",
+        "text-meta",
         "font-semibold",
         "tabular-nums",
       );
-      expect(square).not.toHaveClass("ml-3");
     }
-    expect(screen.queryByRole("button", { name: /^Danh sách câu: / })).toBeNull();
+    const legend = within(rail()).getByText("Trả lời một phần").parentElement;
+    expect(legend).toBe(rail().lastElementChild);
+    expect(legend).toHaveClass("mt-auto", "pt-2", "text-caption");
+
+    expect(nav().parentElement).toBe(panel("q1")?.closest("section"));
+    expect(nav()).toHaveClass("px-6");
+    const controls = footer().getAllByRole("button");
+    expect(controls.map((control) => control.textContent)).toEqual(["Trước", "Sau"]);
+    expect(controls[0]).toHaveAccessibleName("Câu trước");
+    expect(controls[0]).toBeDisabled();
+    expect(controls[1]).toHaveAccessibleName("Câu sau");
+    expect(hint()).toHaveTextContent(/^←→để chuyển câu · A–D để chọn đáp án$/);
+    expect(hint()).toHaveClass(
+      "flex-1",
+      "min-w-0",
+      "justify-center",
+      "text-meta",
+      "text-muted-fg",
+      "whitespace-nowrap",
+      "overflow-hidden",
+    );
+    const keys = hint()!.querySelectorAll("kbd");
+    expect([...keys].map((key) => key.textContent)).toEqual(["←", "→"]);
+    expect(keys[0]).toHaveClass(
+      "h-5.5",
+      "min-w-5.5",
+      "border",
+      "border-b-2",
+      "bg-card",
+    );
+    expect(hint()?.lastElementChild).toHaveClass("truncate");
+    expect(screen.queryByRole("button", { name: /^Câu \d+ · đã làm / })).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("keeps the title, the save line and the timer in the header, and draws no rail and no shortcut hint", async () => {
+  it("keeps the title, the save line and the timer in the header, and draws a rail at 900 and a hint in the footer", async () => {
     await open();
 
     const header = within(screen.getByRole("banner"));
@@ -702,14 +806,24 @@ describe("the footer from 768", () => {
     expect(
       header.getByRole("timer", { name: "Thời gian còn lại" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Câu 1 trên 3 · Chọn một đáp án")).toBeInTheDocument();
+    expect(screen.getByText("Câu 1 trên 3 · Một đáp án")).toBeInTheDocument();
 
-    expect(screen.queryByRole("complementary")).toBeNull();
     expect(screen.queryByRole("separator")).toBeNull();
     expect(document.querySelector("[data-side-column]")).toBeNull();
-    expect(screen.queryByText(/Phím tắt/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Xem lại & nộp" })).toBeNull();
     expect(panel("q1")?.querySelectorAll("button")).toHaveLength(1);
+    expect(screen.getByRole("complementary")).toBe(rail());
+    expect(
+      footer().getByText("để chuyển câu · A–D để chọn đáp án"),
+    ).toBeInTheDocument();
+  });
+
+  it("is not drawn below 900", async () => {
+    viewport(899);
+    await open();
+    noRail();
+    expect(gridButton()).toHaveTextContent(/^Câu 1 · đã làm 0 trên 3$/);
+    expect(hint()).toBeNull();
   });
 
   it("fills an answered square, rings the one on screen with the accent and dots a flagged one", async () => {
@@ -719,7 +833,7 @@ describe("the footer from 768", () => {
     await user.click(screen.getByRole("button", { name: "Đánh dấu xem lại" }));
     await user.click(footer().getByRole("button", { name: "Câu sau" }));
 
-    const [first, second, third] = squares(nav());
+    const [first, second, third] = squares(rail());
     expect(first).toHaveAccessibleName("Câu 1, đã trả lời, đã đánh dấu");
     expect(first).not.toHaveAttribute("aria-current");
     expect(first).toHaveClass("bg-primary", "text-primary-fg", "border-primary");
@@ -727,15 +841,15 @@ describe("the footer from 768", () => {
       "bg-warning",
       "-top-1",
       "-right-1",
-      "size-2.5",
+      "size-[9px]",
       "rounded-full",
       "border-2",
-      "border-bg",
+      "border-card",
     );
 
     expect(second).toHaveAccessibleName("Câu 2, đang xem");
     expect(second).toHaveAttribute("aria-current", "true");
-    expect(second).toHaveClass("bg-card", "text-fg", "border-brand");
+    expect(second).toHaveClass("bg-card", "text-fg", "border-brand", "ring-2");
     expect(flagDot(second)).toBeNull();
 
     expect(third).toHaveAccessibleName("Câu 3");
@@ -743,31 +857,54 @@ describe("the footer from 768", () => {
 
     await user.click(footer().getByRole("button", { name: "Câu trước" }));
     await user.click(screen.getByRole("button", { name: "Đã đánh dấu" }));
-    expect(flagDot(squares(nav())[0])).toBeNull();
-    expect(squares(nav())[0]).toHaveAccessibleName("Câu 1, đang xem, đã trả lời");
-    expect(squares(nav())[0]).toHaveClass("bg-primary", "border-brand");
+    expect(flagDot(squares(rail())[0])).toBeNull();
+    expect(squares(rail())[0]).toHaveAccessibleName("Câu 1, đang xem, đã trả lời");
+    expect(squares(rail())[0]).toHaveClass("bg-primary", "border-brand");
+    expect(within(rail()).getByText("1 / 3")).toBeInTheDocument();
+  });
+
+  it("marks a fill-in with some of its blanks typed as partly answered, and as answered once all are", async () => {
+    const user = userEvent.setup();
+    await open(paper({ questions: [questions[0]!, fillIn, questions[2]!] }));
+    await user.click(footer().getByRole("button", { name: "Câu sau" }));
+    await user.type(screen.getByRole("textbox", { name: "Chỗ trống 1" }), "went");
+    expect(squares(rail())[1]).toHaveAccessibleName(
+      "Câu 2, đang xem, trả lời một phần",
+    );
+    expect(squares(rail())[1]).toHaveClass("bg-brand-soft", "text-fg", "border-brand");
+
+    await user.click(footer().getByRole("button", { name: "Câu sau" }));
+    const partly = squares(rail())[1];
+    expect(partly).toHaveAccessibleName("Câu 2, trả lời một phần");
+    expect(partly).toHaveClass("bg-brand-soft", "text-fg", "border-primary");
+    expect(within(rail()).getByText("0 / 3")).toBeInTheDocument();
+
+    await user.click(partly!);
+    await user.type(screen.getByRole("textbox", { name: "Chỗ trống 2" }), "cooked");
+    expect(squares(rail())[1]).toHaveAccessibleName("Câu 2, đang xem, đã trả lời");
+    expect(squares(rail())[1]).toHaveClass("bg-primary", "text-primary-fg");
+    expect(within(rail()).getByText("1 / 3")).toBeInTheDocument();
   });
 
   it("goes to a question from its square and lands on it", async () => {
     const user = userEvent.setup();
     await open();
-    await user.click(footer().getByRole("button", { name: "Câu 3" }));
+    await user.click(within(rail()).getByRole("button", { name: "Câu 3" }));
 
     expect(onQuestion(3)).toBeInTheDocument();
     expect(panel("q3")).toHaveFocus();
-    expect(footer().getByRole("button", { name: "Câu 3, đang xem" })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
-    expect(footer().getByRole("button", { name: "Câu 1" })).not.toHaveAttribute(
+    expect(
+      within(rail()).getByRole("button", { name: "Câu 3, đang xem" }),
+    ).toHaveAttribute("aria-current", "true");
+    expect(within(rail()).getByRole("button", { name: "Câu 1" })).not.toHaveAttribute(
       "aria-current",
     );
   });
 
-  it("turns Next into Finish on the last question, which opens the Submit dialog the header's Submit opens", async () => {
+  it("leaves Next to turn into Finish on the last question, which opens the Submit dialog the header's Submit opens", async () => {
     const user = userEvent.setup();
     await open();
-    await user.click(footer().getByRole("button", { name: "Câu 3" }));
+    await user.click(within(rail()).getByRole("button", { name: "Câu 3" }));
 
     expect(footer().queryByRole("button", { name: "Câu sau" })).toBeNull();
     await user.click(footer().getByRole("button", { name: "Hoàn tất" }));
@@ -789,65 +926,52 @@ describe("the footer from 768", () => {
     );
   });
 
-  it("leaves a gap between parts, names the part in each square, and states a part's instructions on its first question", async () => {
+  it("heads each part with its count, names the part in each square, and heads each question with its part", async () => {
     const user = userEvent.setup();
     await open(twoParts);
 
-    const [first, second, third] = squares(nav());
+    const headings = within(rail()).getAllByRole("heading", { level: 3 });
+    expect(headings.map((heading) => heading.textContent)).toEqual([
+      "Phần 1 · Ngữ pháp",
+      "Phần 2 · Nghe",
+    ]);
+    expect(headings.map((heading) => heading.nextElementSibling?.textContent)).toEqual([
+      "0 / 2",
+      "0 / 1",
+    ]);
+    expect(headings[0]).toHaveClass("text-fg", "font-semibold");
+    expect(headings[1]).toHaveClass("text-muted-fg", "font-medium");
+
+    const [first, second, third] = squares(rail());
     expect(first).toHaveAccessibleName("Câu 1, Phần 1 · Ngữ pháp, đang xem");
     expect(second).toHaveAccessibleName("Câu 2, Phần 1 · Ngữ pháp");
     expect(third).toHaveAccessibleName("Câu 3, Phần 2 · Nghe");
-    expect(first).not.toHaveClass("ml-3");
-    expect(second).not.toHaveClass("ml-3");
-    expect(third).toHaveClass("ml-3", "size-8.5");
-    expect(footer().queryByRole("heading")).toBeNull();
 
     const pane = () => within(screen.getByRole("main"));
-    expect(pane().getByText("Phần 1 · Ngữ pháp")).toBeInTheDocument();
-    expect(pane().getByText("Câu 1 trên 3 · Chọn một đáp án")).toBeInTheDocument();
-    expect(screen.queryByRole("note")).toBeNull();
+    expect(pane().getByText("Câu 1 trên 3 · Một đáp án")).toBeInTheDocument();
+    expect(panel("q1")).toHaveTextContent(/^Phần 1 · Ngữ phápCâu 1 trên 3/);
 
     await user.click(third!);
-    expect(pane().getByText("Phần 2 · Nghe")).toBeInTheDocument();
-    expect(pane().getByText("Câu 3 trên 3 · Đúng hay sai")).toBeInTheDocument();
-    expect(screen.getByRole("note")).toHaveTextContent(
-      "Nghe đoạn hội thoại rồi trả lời.",
+    expect(headings[0]).toHaveClass("text-muted-fg", "font-medium");
+    expect(
+      within(rail()).getByRole("heading", { level: 3, name: "Phần 2 · Nghe" }),
+    ).toHaveClass("text-fg", "font-semibold");
+    expect(pane().getByText("Câu 3 trên 3 · Đúng/Sai")).toBeInTheDocument();
+    expect(panel("q3")).toHaveTextContent(
+      /^Phần 2 · NgheNghe đoạn hội thoại rồi trả lời\.Câu 3 trên 3/,
     );
-  });
-
-  it("puts the gap before the first square of a later part only", async () => {
-    await open(
-      paper({
-        sections: [
-          { id: "s1", title: "Phần 1", instructions: null },
-          { id: "s2", title: "Phần 2", instructions: null },
-        ],
-        questions: [
-          questions[0]!,
-          { ...questions[1]!, sectionId: "s2" },
-          { ...questions[2]!, sectionId: "s2" },
-        ],
-      }),
-    );
-
-    const [first, second, third] = squares(nav());
-    expect(first).not.toHaveClass("ml-3");
-    expect(second).toHaveClass("ml-3");
-    expect(second).toHaveAccessibleName("Câu 2, Phần 2");
-    expect(third).not.toHaveClass("ml-3");
-    expect(third).toHaveAccessibleName("Câu 3, Phần 2");
   });
 
   it("names no part in a square on a paper of one part", async () => {
     await open();
-    expect(squares(nav()).map((square) => square.getAttribute("aria-label"))).toEqual([
+    expect(squares(rail()).map((square) => square.getAttribute("aria-label"))).toEqual([
       "Câu 1, đang xem",
       "Câu 2",
       "Câu 3",
     ]);
   });
 
-  it("keeps a long paper's strip within four rows and brings the open question into view", async () => {
+  it("scrolls by itself on a long paper and brings the open question into view", async () => {
     const seen: Element[] = [];
     const scrollIntoView = vi
       .spyOn(Element.prototype, "scrollIntoView")
@@ -857,26 +981,81 @@ describe("the footer from 768", () => {
     const user = userEvent.setup();
     await open(long(40));
 
-    const strip = squares(nav())[0]?.parentElement;
-    expect(squares(nav())).toHaveLength(40);
-    expect(strip).toHaveClass("max-h-40", "overflow-y-auto", "flex-wrap");
-    expect(seen.at(-1)).toBe(squares(nav())[0]);
-    expect(scrollIntoView).toHaveBeenLastCalledWith({ block: "nearest" });
+    expect(squares(rail())).toHaveLength(40);
+    expect(rail()).toHaveClass("overflow-y-auto");
+    expect(seen).toContain(squares(rail())[0]);
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
 
-    await user.click(footer().getByRole("button", { name: "Câu 37" }));
-    expect(seen.at(-1)).toBe(squares(nav())[36]);
-    expect(seen.at(-1)).toHaveAttribute("aria-current", "true");
+    await user.click(within(rail()).getByRole("button", { name: "Câu 37" }));
+    expect(seen).toContain(squares(rail())[36]);
+    expect(squares(rail())[36]).toHaveAttribute("aria-current", "true");
   });
 
-  it("swaps the strip for the count button when the window shrinks below 768", async () => {
-    const view = viewport("desktop");
+  it("says only how to move on a question with no options", async () => {
+    const user = userEvent.setup();
     await open();
-    expect(squares(nav())).toHaveLength(3);
+    await user.click(footer().getByRole("button", { name: "Câu sau" }));
+    expect(hint()).toHaveTextContent(/^←→để chuyển câu$/);
+  });
 
-    act(() => view.resize("phone"));
-    expect(squares(nav())).toHaveLength(0);
-    expect(countButton()).toHaveTextContent("1 / 3 · đã trả lời 0");
+  it("gives way to the grid button when the window shrinks below 900", async () => {
+    const view = viewport(900);
+    await open();
+    expect(squares(rail())).toHaveLength(3);
+
+    act(() => view.resize(899));
+    noRail();
+    expect(gridButton()).toHaveTextContent("Câu 1 · đã làm 0 trên 3");
+    expect(footer().getByRole("button", { name: "Câu trước" })).toHaveTextContent(
+      "Trước",
+    );
+
+    act(() => view.resize(767));
+    expect(gridButton()).toHaveTextContent("Câu 1 · đã làm 0 trên 3");
     expect(footer().getByRole("button", { name: "Câu trước" })).toHaveTextContent(/^$/);
+  });
+});
+
+describe("the rail beside shared content", () => {
+  it("waits for 1180, and the footer's hint is the short one", async () => {
+    const view = viewport(1179);
+    await open(withPassage(paper(), ["q1", "q2", "q3"]));
+    noRail();
+    expect(gridButton()).toHaveTextContent(/^1 · 0\/3$/);
+    expect(gridButton()).toHaveAccessibleName("Câu 1 · đã làm 0 trên 3");
+
+    act(() => view.resize(1180));
+    expect(squares(rail())).toHaveLength(3);
+    expect(screen.getByRole("main").firstElementChild).toBe(rail());
+    expect(hint()).toHaveTextContent(/^←→để chuyển · A–D để chọn$/);
+    expect(screen.queryByRole("button", { name: /^Câu \d+ · đã làm / })).toBeNull();
+  });
+
+  it("shows the grid button's short label at 768 and the long one with no shared content", async () => {
+    viewport(768);
+    const user = userEvent.setup();
+    await open(withPassage(paper(), ["q2", "q3"]));
+    expect(gridButton()).toHaveTextContent(/^Câu 1 · đã làm 0 trên 3$/);
+
+    await user.click(footer().getByRole("button", { name: "Câu sau" }));
+    expect(gridButton()).toHaveTextContent(/^2 · 0\/3$/);
+  });
+
+  it("comes and goes between questions from 900 to 1179", async () => {
+    viewport(1024);
+    const user = userEvent.setup();
+    await open(withPassage(paper(), ["q2", "q3"]));
+    expect(squares(rail())).toHaveLength(3);
+    expect(hint()).toHaveTextContent("để chuyển câu · A–D để chọn đáp án");
+
+    await user.click(within(rail()).getByRole("button", { name: "Câu 2" }));
+    expect(onQuestion(2)).toBeInTheDocument();
+    noRail();
+    expect(gridButton()).toHaveTextContent(/^2 · 0\/3$/);
+
+    await user.click(footer().getByRole("button", { name: "Câu trước" }));
+    expect(onQuestion(1)).toBeInTheDocument();
+    expect(squares(rail())).toHaveLength(3);
   });
 });
 
@@ -887,7 +1066,7 @@ describe.each(["superseded", "closed"] as const)(
       viewport("desktop");
       const user = userEvent.setup();
       await open();
-      await user.click(footer().getByRole("button", { name: "Câu 3" }));
+      await user.click(within(rail()).getByRole("button", { name: "Câu 3" }));
       expect(footer().getByRole("button", { name: "Hoàn tất" })).toBeInTheDocument();
 
       act(() => store().lockNow(lock));
@@ -899,7 +1078,8 @@ describe.each(["superseded", "closed"] as const)(
         footer()
           .getAllByRole("button")
           .map((control) => control.textContent),
-      ).toEqual(["Trước", "1", "2", "3"]);
+      ).toEqual(["Trước"]);
+      expect(squares(rail())).toHaveLength(3);
       expect(
         within(screen.getByRole("banner")).queryByRole("button", { name: "Nộp bài" }),
       ).toBeNull();
@@ -919,7 +1099,7 @@ describe.each(["superseded", "closed"] as const)(
       const user = userEvent.setup();
       await open();
       act(() => store().lockNow(lock));
-      await user.click(countButton());
+      await user.click(gridButton());
       await user.click(within(await screen.findByRole("dialog")).getByText("3"));
       await noSheet();
 
@@ -935,7 +1115,7 @@ describe("on a paper whose time is up", () => {
     viewport("desktop");
     const user = userEvent.setup();
     await open();
-    await user.click(footer().getByRole("button", { name: "Câu 3" }));
+    await user.click(within(rail()).getByRole("button", { name: "Câu 3" }));
     act(() => store().lockNow("deadline"));
 
     expect(
@@ -948,16 +1128,17 @@ describe("on a paper whose time is up", () => {
   });
 });
 
-describe("the footer in English", () => {
+describe("the navigator in English", () => {
   beforeEach(async () => {
     await i18n.changeLanguage("en");
   });
 
-  it("is the deck's wording from 768", async () => {
-    viewport("desktop");
+  it("is the deck's wording beside the rail", async () => {
+    viewport(1280);
     const user = userEvent.setup();
     await open(deckSession(new Date(now)));
     const bar = within(screen.getByRole("navigation", { name: "Questions" }));
+    const sections = within(screen.getByRole("complementary", { name: "Sections" }));
 
     expect(bar.getByRole("button", { name: "Previous question" })).toHaveTextContent(
       /^Previous$/,
@@ -965,36 +1146,62 @@ describe("the footer in English", () => {
     expect(bar.getByRole("button", { name: "Next question" })).toHaveTextContent(
       /^Next$/,
     );
-    expect(bar.getByRole("button", { name: "Question 1, current, answered" })).toBe(
-      squares(screen.getByRole("navigation"))[0],
-    );
-    expect(bar.getByRole("button", { name: "Question 4" })).toBeInTheDocument();
+    expect(
+      bar.getByText("to move between questions · A–D to choose an answer"),
+    ).toBeInTheDocument();
+    expect(
+      sections.getByRole("heading", { name: "Reading passage 1" }),
+    ).toBeInTheDocument();
+    expect(sections.getByText("3 / 8")).toBeInTheDocument();
+    expect(
+      sections.getByRole("button", { name: "Question 1, current, answered" }),
+    ).toBe(squares(screen.getByRole("complementary"))[0]);
+    expect(sections.getByRole("button", { name: "Question 4" })).toBeInTheDocument();
+    expect(sections.getByText("Answered")).toBeInTheDocument();
+    expect(sections.getByText("Partly")).toBeInTheDocument();
+    expect(sections.getByText("Flagged")).toBeInTheDocument();
 
-    await user.click(bar.getByRole("button", { name: "Question 8" }));
+    await user.click(sections.getByRole("button", { name: "Question 8" }));
     expect(bar.queryByRole("button", { name: "Next question" })).toBeNull();
     expect(bar.getByRole("button", { name: "Finish" })).toBeInTheDocument();
   });
 
-  it("is the deck's wording below 768, in the button and in the sheet", async () => {
+  it("is the deck's wording in the grid button and the sheet, in both label forms", async () => {
+    const view = viewport(600);
     const user = userEvent.setup();
     await open(deckSession(new Date(now)));
     for (let moves = 0; moves < 3; moves++) {
       await user.click(screen.getByRole("button", { name: "Next question" }));
     }
-    const count = screen.getByRole("button", { name: /^Questions: / });
-    expect(count).toHaveTextContent("4 / 8 · 3 answered");
-    expect(count).toHaveAccessibleName("Questions: 4 / 8 · 3 answered");
+    const grid = () => screen.getByRole("button", { name: "Question 4 · 3 of 8 done" });
+    expect(grid()).toHaveTextContent(/^Question 4 · 3 of 8 done$/);
+    act(() => view.resize(360));
+    expect(grid()).toHaveTextContent(/^4 · 3\/8$/);
 
-    await user.click(count);
+    await user.click(grid());
     const dialog = await screen.findByRole("dialog", { name: "Questions" });
-    expect(dialog).toHaveAccessibleDescription("3 of 8 answered");
+    expect(dialog).toHaveAccessibleDescription("Question 4 · 3 of 8 done");
     expect(within(dialog).getByText("Answered")).toBeInTheDocument();
+    expect(within(dialog).getByText("Partly")).toBeInTheDocument();
     expect(within(dialog).getByText("Flagged")).toBeInTheDocument();
     await waitFor(() =>
       expect(
         within(dialog).getByRole("button", { name: "Question 4, current" }),
       ).toHaveFocus(),
     );
+  });
+
+  it("names a partly answered square", async () => {
+    viewport(1280);
+    const user = userEvent.setup();
+    await open(paper({ questions: [fillIn, questions[2]!] }));
+    await user.type(screen.getByRole("textbox", { name: "Blank 1" }), "went");
+    expect(
+      within(screen.getByRole("complementary")).getByRole("button", {
+        name: "Question 1, current, partly answered",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("navigation")).toHaveTextContent(/←→to move/);
   });
 });
 

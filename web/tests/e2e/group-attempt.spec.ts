@@ -8,45 +8,60 @@ for (const width of [320, 768, 1440]) {
   }) => {
     await page.setViewportSize({ width, height: 900 });
     const seen = await startGroupPaper(page);
-    const material = page.getByRole("heading", { name: previewGroup.title });
-    const passageTab = page.getByRole("button", { name: "Ngữ liệu", exact: true });
+    const material = page.getByRole("heading", {
+      name: previewGroup.stimuli[0]!.title,
+    });
+    const handle = page.getByRole("button", { name: "Mở ngữ liệu", exact: true });
+    const card = page.getByRole("group", { name: "Hội thoại mẫu", exact: true });
+    const audio = page.locator("audio");
     if (width === 320) {
-      await expect(material).toBeHidden();
-      await passageTab.click();
-      await expect(material).toBeVisible();
-      await page.getByRole("button", { name: "Câu 1", exact: true }).click();
-      await expect(material).toBeHidden();
+      await expect(material).not.toBeInViewport();
+      await handle.click();
+      await expect(material).toBeInViewport();
+      await engineFits(page);
     } else {
       await expect(material).toBeVisible();
-      await expect(passageTab).toHaveCount(0);
+      await expect(handle).toHaveCount(0);
     }
-    await expect(page.getByText("Còn 2 lượt nghe")).toBeVisible();
-    await page.getByRole("button", { name: "Phát", exact: true }).click();
-    await expect(page.getByText("Còn 1 lượt nghe")).toBeVisible();
+    await card.scrollIntoViewIfNeeded();
+    await expect(card.getByText("Lượt nghe 1/2", { exact: true })).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Tạm dừng", exact: true }),
+      card.getByText("Bấm phát khi bạn đã sẵn sàng.", { exact: true }),
     ).toBeVisible();
+    await card.getByRole("button", { name: "Phát", exact: true }).click();
+    await expect(
+      card.getByRole("button", { name: "Tạm dừng", exact: true }),
+    ).toBeVisible();
+    await expect(card.getByText("Đang phát", { exact: true })).toBeVisible();
+    if (width === 320) {
+      await page.getByRole("button", { name: "Đóng", exact: true }).click();
+      await expect(material).not.toBeInViewport();
+      await expect(handle).toBeFocused();
+    }
     await page.getByRole("button", { name: "Câu sau", exact: true }).click();
     await expect(
       page.getByText(previewQuestions[2]!.prompt, { exact: true }),
     ).toBeVisible();
-    await expect(page.locator("audio")).toHaveCount(1);
-    await expect(
-      page.getByRole("button", { name: "Tạm dừng", exact: true }),
-    ).toBeVisible();
+    await expect(audio).toHaveCount(1);
+    expect(await audio.evaluate((element: HTMLAudioElement) => element.paused)).toBe(
+      false,
+    );
     await page.reload();
-    await expect(page.getByText("Còn 1 lượt nghe")).toBeVisible();
+    if (width === 320) {
+      await expect(material).not.toBeInViewport();
+      await handle.click();
+      await expect(material).toBeInViewport();
+    }
+    await card.scrollIntoViewIfNeeded();
+    await expect(
+      card.getByText("Đã nghe xong · còn 1 lượt", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      card.getByRole("button", { name: "Phát lại", exact: true }),
+    ).toBeVisible();
     await expect(page.getByText("Lượt nghe đang chờ đồng bộ.")).toHaveCount(0);
     expect(seen.size).toBe(1);
-    if (width === 320) {
-      await expect(page.getByText("Lịch hoạt động", { exact: true })).toBeHidden();
-      await expect(
-        page.getByRole("button", { name: "Phát", exact: true }),
-      ).toBeVisible();
-      await passageTab.click();
-      await expect(page.getByText("Lịch hoạt động", { exact: true })).toBeVisible();
-    }
-    const gap = page.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" });
+    const gap = page.getByRole("button", { name: "Chỗ trống 2, trống" });
     await gap.focus();
     await page.keyboard.press("Enter");
     await expect(page.locator(":focus")).toHaveAttribute(

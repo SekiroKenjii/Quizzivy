@@ -111,8 +111,20 @@ tags:
   - name: teacher-attempts
   - name: teacher-students
   - name: teacher-classes
+  - name: teacher-ai
+    description: |
+      The AI assistant's suggestions and the teacher's own credits. Every
+      operation answers a suggestion or a figure and never writes a grade, a
+      question or a comment: a teacher accepts a suggestion through the
+      existing write. With no provider configured every one answers
+      `501 AI_OFF`.
   - name: admin-users
     description: The Admin console's people operations. In R2 only the deletion of a student account lives here.
+  - name: admin-ai
+    description: |
+      The AI credits console: the pool, the teachers' allowances, their
+      requests for more and the centre's rules. With no provider configured
+      every operation answers `501 AI_OFF`.
   - name: admin-docs
     description: Admin access to the API reference served beside the API.
   - name: student
@@ -233,6 +245,45 @@ components:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
     NoContent:
       description: Success, no body.
+    AiOff:
+      description: |
+        `AI_OFF` — the AI assistant is not configured on this server (no provider
+        key). Nothing was reserved or metered. `GET /public/status` says `ai: false`.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    AiNotAllowed:
+      description: |
+        `AI_PAUSED` — an Admin paused AI for this teacher; nothing was reserved.
+        `AI_READ_OFF` — the teacher's `ai.readStudentAnswers` preference is off,
+        and the operation would send a student's answer (`suggestAiScore`,
+        `explainAssignmentResults`). `FORBIDDEN` — `suggestAiScore` and
+        `explainAssignmentResults` also need `teaching.grading`.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    AiCreditsExhausted:
+      description: |
+        `AI_CREDITS_EXHAUSTED` — the teacher's allowance or the centre's pool
+        cannot cover the call. `details.scope` is `teacher` or `pool`. Nothing
+        was written, and no call was made to the provider.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    AiUnavailable:
+      description: |
+        `AI_UNAVAILABLE` — the provider timed out, was overloaded, refused, or
+        answered something the server could not use. The reservation was
+        settled for what the provider billed, if anything, and released
+        otherwise. A later attempt may succeed.
+      headers:
+        Retry-After:
+          required: true
+          description: Seconds until the caller may try again.
+          schema: { type: integer, minimum: 1 }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   schemas:
     ContentDocument:
@@ -462,12 +513,20 @@ components:
     PublicStatus:
       type: object
       description: What `GET /public/status` answers.
-      required: [maintenance]
+      required: [maintenance, ai]
       additionalProperties: false
       properties:
         maintenance:
           description: The next maintenance window that has not ended, or `null`.
           oneOf: [{ $ref: '#/components/schemas/MaintenanceWindow' }, { type: 'null' }]
+        ai:
+          type: boolean
+          description: |
+            Whether the AI assistant is configured. It reads the server's
+            configuration and never asks the provider, so it says nothing about
+            the provider being reachable. When false every `/teacher/ai/*` and
+            `/admin/ai/*` operation answers `501 AI_OFF`, and the web draws no
+            AI entry point.
 
     MaintenanceWindow:
       type: object
@@ -566,6 +625,17 @@ components:
         - GRADING_INCOMPLETE
         - VERSION_LOCKED
         - ASSIGNMENT_LOCKED
+        # AI assistant
+        - AI_OFF
+        - AI_PAUSED
+        - AI_READ_OFF
+        - AI_CREDITS_EXHAUSTED
+        - AI_UNAVAILABLE
+        - AI_REQUESTS_OFF
+        - AI_REQUEST_PENDING
+        - AI_REQUEST_DECIDED
+        - AI_REQUEST_EXPIRED
+        - AI_ALLOWANCE_BELOW_USE
         # availability
         - MAINTENANCE
         - MAINTENANCE_SCHEDULED
@@ -714,6 +784,9 @@ components:
           description: |
             Present and true when retention closed this import because nobody
             touched it for the idle period, rather than a teacher cancelling it.
+        readWithAi:
+          type: boolean
+          description: Whether the files are read with the AI assistant. Absent means false.
     WordImportHistoryItem:
       type: object
       additionalProperties: false
@@ -761,6 +834,9 @@ components:
           description: |
             Present and true when retention closed this import because nobody
             touched it for the idle period, rather than a teacher cancelling it.
+        readWithAi:
+          type: boolean
+          description: Whether the files are read with the AI assistant. Absent means false.
         reviewCounts:
           oneOf: [{ $ref: '#/components/schemas/ImportReviewCounts' }, { type: 'null' }]
     ImportReviewCounts:
@@ -810,6 +886,12 @@ components:
           $ref: '#/components/schemas/Uuid'
           description: Scoped to the actor; replay with the same title returns the same import, changed title conflicts.
         title: { type: string, minLength: 1, maxLength: 200, pattern: '\S' }
+        readWithAi:
+          type: boolean
+          description: |
+            Read the files with the AI assistant, so a scanned or photographed
+            PDF is read instead of refused. Absent means false. When it is true
+            the pages of the files are sent to an AI service outside Quizzivy.
     ImportUploadReceipt:
       type: object
       additionalProperties: false
@@ -1211,6 +1293,7 @@ components:
         - content.questions.write
         - content.media.write
         - content.share
+        - ai.use
         - teaching.classes.write
         - teaching.assignments.write
         - teaching.grading
@@ -1224,6 +1307,7 @@ components:
         - system.audit.read
         - system.settings.write
         - learning.take_tests
+        - ai.credits.manage
         - scope.all
         - system.api_reference
         - system.data_export
@@ -1238,6 +1322,7 @@ components:
         - `content.questions.write`: Manage question bank
         - `content.media.write`: Upload and delete media
         - `content.share`: Share own content with other teachers
+        - `ai.use`: Use AI features
         - `teaching.classes.write`: Create classes
         - `teaching.assignments.write`: Assign tests to classes
         - `teaching.grading`: Grade answers
@@ -1251,6 +1336,12 @@ components:
         - `system.audit.read`: View audit log
         - `system.settings.write`: Change system settings
         - `learning.take_tests`: Take tests and view own results
+        - `ai.credits.manage`: Manage AI credits
+
+        `ai.use` gates every `/teacher/ai/*` operation and the import's "Read
+        with AI"; `ai.credits.manage` gates every `/admin/ai/*` operation. The
+        Admin holds both, the built-in Teacher holds `ai.use`, and a custom role
+        may hold either alone. `ai.credits.manage` opens no workspace by itself.
 
         The last four keys in the enum are hidden: no matrix row shows them,
         no role is granted them, and only the Admin holds them. The Admin
@@ -1303,6 +1394,26 @@ components:
             showScore: { type: boolean }
             blockCopyPaste: { type: boolean }
             requireFullscreen: { type: boolean }
+        ai:
+          type: object
+          description: |
+            The AI assistant's preferences. Like `assignmentDefaults`, the object
+            is replaced whole by a merge, and an omitted key uses the client's
+            default: the language of the interface, tags on, reading student
+            answers on, reading imports off. The server reads
+            `readStudentAnswers` before an operation sends a student's answer.
+          additionalProperties: false
+          properties:
+            language: { $ref: '#/components/schemas/AiLanguage' }
+            tagDrafts:
+              type: boolean
+              description: Tag what the assistant writes as an AI draft until a teacher edits or approves it.
+            readStudentAnswers:
+              type: boolean
+              description: Let the assistant read student answers, for grading suggestions and results insights. Never a name.
+            readImports:
+              type: boolean
+              description: Read scanned and unusual imports with the assistant.
 
     Workspace:
       type: string
@@ -2276,7 +2387,10 @@ components:
 
     AudioPolicy:
       type: object
-      description: Present if and only if the attached asset is audio (§7).
+      description: |
+        Present if and only if the attached asset is audio (§7). This is the
+        authoring shape, read and written by teachers; a student receives
+        `StudentAudioPolicy`.
       required: [maxPlays, allowSeek, showTranscriptAfterSubmit]
       additionalProperties: false
       properties:
@@ -2289,6 +2403,35 @@ components:
             penalised (§11.4).
         allowSeek: { type: boolean, description: Defaults to false for listening (§11.1). }
         showTranscriptAfterSubmit: { type: boolean }
+        allowPause:
+          type: boolean
+          description: |
+            Whether a student may pause the recording once it is playing (§11.1);
+            `true` when none was ever set. The server always sends it. In a request
+            an absent field means "do not change it": a create stores `true`, and an
+            update keeps the value already stored for the same question (by its id),
+            for the same member question of a group (by its id in the bundle) and for
+            the same recording (by its id). An audio policy or a recording that is new
+            in the request is a create. A client that does not know the field therefore
+            can never switch pausing back on by saving.
+
+    StudentAudioPolicy:
+      type: object
+      description: |
+        The audio rules a student's engine reads, for a question's audio and for a
+        group's recording. The shape of `AudioPolicy` with every field required,
+        because the engine never guesses a rule the server did not send. These are
+        rules the student is meant to read; nothing here is an answer key.
+      required: [maxPlays, allowSeek, showTranscriptAfterSubmit, allowPause]
+      additionalProperties: false
+      properties:
+        maxPlays:
+          type: [integer, 'null']
+          minimum: 1
+          description: '`null` is unlimited. Advisory, as on `AudioPolicy` (§11.4).'
+        allowSeek: { type: boolean }
+        showTranscriptAfterSubmit: { type: boolean }
+        allowPause: { type: boolean, description: Whether the student may pause the recording once it is playing (§11.1). }
 
     QuestionContent:
       type: object
@@ -2712,8 +2855,8 @@ components:
       type: object
       description: |
         One part of the paper, in test order. `instructions` is the teacher's
-        text to the student for this part; the engine shows it above the
-        section's first question and the navigator groups the numbers under
+        text to the student for this part; the engine shows it above each of the
+        section's questions and the navigator groups the numbers under
         `title` (S-05, S-06, S-08).
       required: [id, title, instructions]
       additionalProperties: false
@@ -2755,7 +2898,7 @@ components:
           description: |
             The alt text frozen with the version for the question's image, for a screen reader. Absent when the question has none or its media is not an image. It is a description, not an answer key.
         audio:
-          oneOf: [{ $ref: '#/components/schemas/AudioPolicy' }, { type: 'null' }]
+          oneOf: [{ $ref: '#/components/schemas/StudentAudioPolicy' }, { type: 'null' }]
         options: { type: array, items: { $ref: '#/components/schemas/StudentOption' } }
         blanks: { type: array, items: { $ref: '#/components/schemas/StudentBlank' } }
         points: { $ref: '#/components/schemas/Points' }
@@ -2789,7 +2932,7 @@ components:
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         assetId: { $ref: '#/components/schemas/Uuid' }
-        policy: { $ref: '#/components/schemas/AudioPolicy' }
+        policy: { $ref: '#/components/schemas/StudentAudioPolicy' }
 
     SharedReviewContext:
       type: object
@@ -4154,6 +4297,584 @@ components:
           oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }]
           description: Only when the assignment's `review.showScore` is on.
 
+    # ------------------------------------------------------------------ ai
+
+    AiLanguage:
+      type: string
+      enum: [vi, en]
+      description: |
+        The language the text a suggestion writes for a person is written in.
+        The assistant keeps the language of the material it was given for the
+        content of a question.
+
+    AiUsage:
+      type: object
+      description: |
+        What a call cost and what remains, for the panel's footer. `credits` is
+        what the provider's usage came to, never more than the call's ceiling.
+      required: [credits, left]
+      additionalProperties: false
+      properties:
+        credits: { type: integer, minimum: 0, description: Credits the call was charged. }
+        left: { type: integer, minimum: 0, description: The least of what remains of the teacher's allowance and of the centre's pool, after the call. }
+
+    AiGenerateRequest:
+      type: object
+      description: |
+        Exactly one source: `source` (text the teacher pasted), or `testId`
+        with `stimulusId` (a shared-content passage of the test's draft). The
+        first 8,000 characters of a source are sent. Nothing about a student is
+        ever sent.
+      required: [types, count, level, explanations, language]
+      additionalProperties: false
+      properties:
+        source: { type: string, minLength: 40, maxLength: 20000 }
+        testId: { $ref: '#/components/schemas/Uuid' }
+        stimulusId: { $ref: '#/components/schemas/Uuid' }
+        types:
+          type: array
+          minItems: 1
+          maxItems: 5
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/QuestionType' }
+        count: { type: integer, enum: [3, 5, 8] }
+        level: { type: string, enum: [b1, b2, c1] }
+        explanations: { type: boolean, description: Write an explanation for each question. }
+        language: { $ref: '#/components/schemas/AiLanguage' }
+
+    AiGeneratedQuestion:
+      type: object
+      description: |
+        A draft question. For a choice type `options` holds the options in order
+        and `answerKey` the text of each correct one, exactly as written in
+        `options`; a true/false question has the options `True` and `False`. For
+        `fill_blank` the prompt holds `___` for the gap and `answerKey` the
+        accepted answers; for `short_answer` it holds the sample answer.
+      required: [type, prompt, answerKey, explanation]
+      additionalProperties: false
+      properties:
+        type: { $ref: '#/components/schemas/QuestionType' }
+        prompt: { type: string, minLength: 1, maxLength: 2000 }
+        options:
+          type: array
+          minItems: 2
+          maxItems: 8
+          items: { type: string, minLength: 1, maxLength: 500 }
+        answerKey:
+          type: array
+          minItems: 1
+          maxItems: 8
+          items: { type: string, minLength: 1, maxLength: 500 }
+        explanation: { type: string, maxLength: 2000, description: Empty when the request did not ask for explanations. }
+
+    AiGenerateResult:
+      type: object
+      required: [items, usage]
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          maxItems: 8
+          items: { $ref: '#/components/schemas/AiGeneratedQuestion' }
+        usage: { $ref: '#/components/schemas/AiUsage' }
+
+    AiCheckKind:
+      type: string
+      enum: [key, clarity, giveaway, language]
+      description: Wrong or doubtful answers, unclear wording, answers given away, spelling and grammar.
+
+    AiCheckRequest:
+      type: object
+      required: [checks]
+      additionalProperties: false
+      properties:
+        checks:
+          type: array
+          minItems: 1
+          maxItems: 4
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/AiCheckKind' }
+        language: { $ref: '#/components/schemas/AiLanguage' }
+
+    AiFixPayload:
+      type: object
+      description: |
+        What a one-click fix writes, through `updateQuestion`, into the question
+        it names: `text` replaces the option `optionId` (`option_text`), is added
+        as an accepted answer of the blank `blankId` (`accepted_answer`), or
+        becomes the explanation (`explanation`).
+      required: [text]
+      additionalProperties: false
+      properties:
+        optionId: { $ref: '#/components/schemas/Uuid' }
+        blankId: { $ref: '#/components/schemas/Uuid' }
+        text: { type: string, minLength: 1, maxLength: 2000 }
+
+    AiFix:
+      type: object
+      description: |
+        `kind` is `none` when the fix is advice only; `payload` is then absent.
+        Otherwise `payload` is present, and names an option or a blank of the
+        question when the kind needs one.
+      required: [kind, description]
+      additionalProperties: false
+      properties:
+        kind: { type: string, enum: [option_text, accepted_answer, explanation, none] }
+        description: { type: string, minLength: 1, maxLength: 500, description: The fix in a sentence. }
+        label: { type: string, minLength: 1, maxLength: 80, description: The one-click button's label. Absent when `kind` is `none`. }
+        payload: { $ref: '#/components/schemas/AiFixPayload' }
+
+    AiFinding:
+      type: object
+      required: [severity, questionId, number, type, title, issue, fix]
+      additionalProperties: false
+      properties:
+        severity: { type: string, enum: [likely_error, worth_a_look, minor] }
+        questionId: { $ref: '#/components/schemas/Uuid' }
+        number: { type: integer, minimum: 1, description: The question's 1-based place in the draft. }
+        type: { $ref: '#/components/schemas/QuestionType' }
+        title: { type: string, minLength: 1, maxLength: 300, description: The question's prompt, shortened. }
+        issue: { type: string, minLength: 1, maxLength: 1000 }
+        fix: { $ref: '#/components/schemas/AiFix' }
+
+    AiCheckResult:
+      type: object
+      required: [findings, usage]
+      additionalProperties: false
+      properties:
+        findings:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/AiFinding' }
+        usage: { $ref: '#/components/schemas/AiUsage' }
+
+    AiVariantKind:
+      type: string
+      enum: [reword, reorder, distract]
+      description: Reword questions, reorder options, write new wrong options.
+
+    AiVariantRequest:
+      type: object
+      required: [changes, difficulty]
+      additionalProperties: false
+      properties:
+        changes:
+          type: array
+          minItems: 1
+          maxItems: 3
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/AiVariantKind' }
+        difficulty: { type: string, enum: [same, easier, harder] }
+
+    AiVariantPayload:
+      type: object
+      description: |
+        What a change writes, through `updateQuestion`, into the same question
+        of the copy: `prompt` replaces the prompt (`reword`); `optionOrder`
+        lists every option of the question in its new order (`reorder`);
+        `optionId` and `text` replace the text of one wrong option (`distract`).
+      additionalProperties: false
+      properties:
+        prompt: { type: string, minLength: 1, maxLength: 2000 }
+        optionOrder:
+          type: array
+          minItems: 2
+          maxItems: 8
+          items: { $ref: '#/components/schemas/Uuid' }
+        optionId: { $ref: '#/components/schemas/Uuid' }
+        text: { type: string, minLength: 1, maxLength: 500 }
+
+    AiVariantChange:
+      type: object
+      required: [questionId, number, kind, title, before, after, payload]
+      additionalProperties: false
+      properties:
+        questionId: { $ref: '#/components/schemas/Uuid' }
+        number: { type: integer, minimum: 1, description: The question's 1-based place in the draft, which the copy keeps. }
+        kind: { $ref: '#/components/schemas/AiVariantKind' }
+        title: { type: string, minLength: 1, maxLength: 300 }
+        before: { type: string, maxLength: 2000 }
+        after: { type: string, maxLength: 2000 }
+        payload: { $ref: '#/components/schemas/AiVariantPayload' }
+
+    AiVariantResult:
+      type: object
+      required: [changes, usage]
+      additionalProperties: false
+      properties:
+        changes:
+          type: array
+          maxItems: 300
+          items: { $ref: '#/components/schemas/AiVariantChange' }
+        usage: { $ref: '#/components/schemas/AiUsage' }
+
+    AiExplanationRequest:
+      type: object
+      required: [language]
+      additionalProperties: false
+      properties:
+        language: { $ref: '#/components/schemas/AiLanguage' }
+        length: { type: string, enum: [short, normal], description: Absent means normal. }
+
+    AiExplanationResult:
+      type: object
+      required: [text, usage]
+      additionalProperties: false
+      properties:
+        text: { type: string, minLength: 1, maxLength: 2000 }
+        usage: { $ref: '#/components/schemas/AiUsage' }
+
+    AiDistractor:
+      type: object
+      required: [text, why]
+      additionalProperties: false
+      properties:
+        text: { type: string, minLength: 1, maxLength: 500 }
+        why: { type: string, minLength: 1, maxLength: 200, description: Why a learner might pick it. }
+
+    AiDistractorsResult:
+      type: object
+      required: [items, usage]
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          maxItems: 4
+          items: { $ref: '#/components/schemas/AiDistractor' }
+        usage: { $ref: '#/components/schemas/AiUsage' }
+
+    AiScoreSuggestion:
+      type: object
+      description: |
+        `score` is one of the multiples of 0.5 from 0 to the question's points:
+        what the model proposed is moved to the nearest one. Nothing is saved;
+        a teacher marks the answer with `gradeAttempt`.
+      required: [score, confidence, reasons, comment, usage]
+      additionalProperties: false
+      properties:
+        score: { $ref: '#/components/schemas/Points' }
+        confidence: { type: string, enum: [high, medium, low] }
+        reasons:
+          type: array
+          maxItems: 4
+          items: { type: string, minLength: 1, maxLength: 300 }
+        comment: { type: string, maxLength: 1000, description: A comment to the student, for the teacher to keep, change or drop. }
+        usage: { $ref: '#/components/schemas/AiUsage' }
+
+    AiInsight:
+      type: object
+      description: |
+        `questionNumbers` are the questions the insight is about, by their
+        place on the paper, and `types` the distinct types of those questions,
+        for a practice set. A pattern in answers; never a judgement of a student.
+      required: [kind, title, body, action, questionNumbers, types]
+      additionalProperties: false
+      properties:
+        kind: { type: string, enum: [key, problem, strength] }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        body: { type: string, minLength: 1, maxLength: 1000 }
+        action: { type: string, enum: [review, practice, none] }
+        questionNumbers:
+          type: array
+          maxItems: 20
+          items: { type: integer, minimum: 1 }
+        types:
+          type: array
+          maxItems: 5
+          items: { $ref: '#/components/schemas/QuestionType' }
+
+    AiInsightsResult:
+      type: object
+      required: [basis, items, usage]
+      additionalProperties: false
+      properties:
+        basis: { type: integer, minimum: 0, description: How many handed-in papers the insights are based on. }
+        items:
+          type: array
+          maxItems: 4
+          items: { $ref: '#/components/schemas/AiInsight' }
+        usage: { $ref: '#/components/schemas/AiUsage' }
+
+    AiCleanupCheck:
+      type: string
+      enum: [duplicates, tags]
+      description: Near-duplicate questions, and questions with no tags.
+
+    AiCleanupRequest:
+      type: object
+      required: [checks]
+      additionalProperties: false
+      properties:
+        checks:
+          type: array
+          minItems: 1
+          maxItems: 2
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/AiCleanupCheck' }
+        language: { $ref: '#/components/schemas/AiLanguage' }
+
+    AiQuestionRef:
+      type: object
+      required: [questionId, prompt, usedInTests]
+      additionalProperties: false
+      properties:
+        questionId: { $ref: '#/components/schemas/Uuid' }
+        prompt: { type: string, minLength: 1, maxLength: 300 }
+        usedInTests: { type: integer, minimum: 0, description: Draft outlines that use the question. }
+
+    AiDuplicate:
+      type: object
+      required: [a, b, why]
+      additionalProperties: false
+      properties:
+        a: { $ref: '#/components/schemas/AiQuestionRef' }
+        b: { $ref: '#/components/schemas/AiQuestionRef' }
+        why: { type: string, minLength: 1, maxLength: 300 }
+
+    AiTagSuggestion:
+      type: object
+      required: [questionId, prompt, tags]
+      additionalProperties: false
+      properties:
+        questionId: { $ref: '#/components/schemas/Uuid' }
+        prompt: { type: string, minLength: 1, maxLength: 300 }
+        level: { $ref: '#/components/schemas/QuestionLevel' }
+        tags:
+          type: array
+          minItems: 1
+          maxItems: 4
+          items: { type: string, minLength: 1, maxLength: 40 }
+
+    AiCleanupResult:
+      type: object
+      description: |
+        Over the caller's own questions only, newest first, at most 2,000 of
+        them: `scanned` is how many were read, and `truncated` says the bank
+        held more than that, or more untagged questions than the 200 one
+        request suggests tags for, or that part of the pass failed or ran out
+        of time.
+      required: [scanned, truncated, duplicates, tags, usage]
+      additionalProperties: false
+      properties:
+        scanned: { type: integer, minimum: 0 }
+        truncated: { type: boolean }
+        duplicates:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/AiDuplicate' }
+        tags:
+          type: array
+          maxItems: 200
+          items: { $ref: '#/components/schemas/AiTagSuggestion' }
+        usage: { $ref: '#/components/schemas/AiUsage' }
+
+    AiCreditCategory:
+      type: string
+      enum: [generation, grading, explanations, imports, checks]
+      description: |
+        The Settings card's rows: generating questions and variants, grading
+        suggestions, explanations and wrong options, reading imports, and
+        checks, word lists and insights.
+
+    AiCategorySum:
+      type: object
+      required: [category, credits]
+      additionalProperties: false
+      properties:
+        category: { $ref: '#/components/schemas/AiCreditCategory' }
+        credits: { type: integer, minimum: 0 }
+
+    AiRequestStatus:
+      type: string
+      enum: [pending, approved, declined]
+
+    AiCreditRequest:
+      type: object
+      required: [id, userId, month, amount, reason, status, createdAt]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        userId: { $ref: '#/components/schemas/Uuid' }
+        month: { type: string, format: date, description: The first day of the month the request is for. }
+        amount: { type: integer, minimum: 1000, maximum: 100000 }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        status: { $ref: '#/components/schemas/AiRequestStatus' }
+        decidedAt: { $ref: '#/components/schemas/Timestamp' }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+
+    AiMonthUsage:
+      type: object
+      description: |
+        One teacher's month. `left` is the least of what remains of the
+        allowance and of the pool, never below zero. `requests` says whether the
+        centre takes requests for more credits (its rule is to ask, not to
+        pause); `pending` is the teacher's undecided request this month.
+      required: [month, used, allowance, left, paused, requests, pending, categories]
+      additionalProperties: false
+      properties:
+        month: { type: string, format: date, description: The first day of the month, counted in the centre's time zone. }
+        used: { type: integer, minimum: 0 }
+        allowance: { type: integer, minimum: 0 }
+        left: { type: integer, minimum: 0 }
+        paused: { type: boolean }
+        requests: { type: boolean }
+        pending:
+          oneOf: [{ $ref: '#/components/schemas/AiCreditRequest' }, { type: 'null' }]
+        categories:
+          type: array
+          minItems: 5
+          maxItems: 5
+          description: The five rows of the usage card, in the order it draws them.
+          items: { $ref: '#/components/schemas/AiCategorySum' }
+
+    AiCreditRequestInput:
+      type: object
+      required: [amount, reason]
+      additionalProperties: false
+      properties:
+        amount: { type: integer, minimum: 1000, maximum: 100000 }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+
+    AiRules:
+      type: object
+      required: [poolCredits, defaultAllowance, warnPercent, onTeacherLimit]
+      additionalProperties: false
+      properties:
+        poolCredits: { type: integer, minimum: 0, description: The plan for a month that has not begun. }
+        defaultAllowance: { type: integer, minimum: 1000, maximum: 10000000, description: What a teacher without a custom allowance may use in a month. }
+        warnPercent: { type: integer, minimum: 50, maximum: 99, description: The share of the allowance at which the teacher is told. }
+        onTeacherLimit: { type: string, enum: [pause, request], description: Pause a teacher who runs out, or let them ask for more. }
+
+    AiRulesInput:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        defaultAllowance: { type: integer, minimum: 1000, maximum: 10000000 }
+        warnPercent: { type: integer, minimum: 50, maximum: 99 }
+        onTeacherLimit: { type: string, enum: [pause, request] }
+
+    AiRulesChange:
+      type: object
+      required: [rules, rewritten]
+      additionalProperties: false
+      properties:
+        rules: { $ref: '#/components/schemas/AiRules' }
+        rewritten: { type: integer, minimum: 0, description: How many of this month's allowances the new default rewrote. }
+
+    AiPool:
+      type: object
+      description: The centre's month. `total` is `plan` plus `added`; `left` counts calls in flight as spent.
+      required: [plan, added, used, reserved, total, left]
+      additionalProperties: false
+      properties:
+        plan: { type: integer, minimum: 0 }
+        added: { type: integer, minimum: 0 }
+        used: { type: integer, minimum: 0 }
+        reserved: { type: integer, minimum: 0 }
+        total: { type: integer, minimum: 0 }
+        left: { type: integer, minimum: 0 }
+
+    AiCreditsAddition:
+      type: object
+      required: [credits]
+      additionalProperties: false
+      properties:
+        credits: { type: integer, minimum: 1, maximum: 10000000 }
+
+    AiTeacherStatus:
+      type: string
+      enum: [on_track, near_limit, at_limit, paused]
+
+    AiTeacherMonth:
+      type: object
+      description: |
+        One teacher's month on the Admin page. `allowance` includes `granted`,
+        the credits approved requests added; `custom` says the allowance was set
+        for this teacher and a change of the default leaves it.
+      required: [userId, name, email, allowance, granted, used, reserved, custom, paused, status]
+      additionalProperties: false
+      properties:
+        userId: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string }
+        email: { type: string, format: email }
+        allowance: { type: integer, minimum: 0 }
+        granted: { type: integer, minimum: 0 }
+        used: { type: integer, minimum: 0 }
+        reserved: { type: integer, minimum: 0 }
+        custom: { type: boolean }
+        paused: { type: boolean }
+        status: { $ref: '#/components/schemas/AiTeacherStatus' }
+
+    AiAllowanceInput:
+      type: object
+      description: |
+        Changes how much one teacher may use this month, or pauses or resumes
+        them. `custom: true` sets the teacher's own allowance to `credits`;
+        `custom: false` returns them to the default and takes no `credits`.
+        An omitted field keeps what is stored.
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        custom: { type: boolean }
+        credits: { type: integer, minimum: 1000, maximum: 10000000 }
+        paused: { type: boolean }
+
+    AiPendingRequest:
+      type: object
+      description: A request waiting for an Admin, with the standing of the teacher who made it.
+      required: [id, userId, teacherName, month, amount, reason, createdAt, used, allowance]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        userId: { $ref: '#/components/schemas/Uuid' }
+        teacherName: { type: string }
+        month: { type: string, format: date }
+        amount: { type: integer, minimum: 1000, maximum: 100000 }
+        reason: { type: string, minLength: 1, maxLength: 500 }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        used: { type: integer, minimum: 0 }
+        allowance: { type: integer, minimum: 0 }
+
+    AiAdminCredits:
+      type: object
+      description: |
+        The Admin's view of the current month. `onPace` is the credits the month
+        is on course to use, `used` over the days elapsed times the days in the
+        month, and `withinPool` says it fits the pool. `allowances` is the sum
+        of the teachers' allowances, which may exceed the pool. `active` counts
+        teachers who used AI this month and `idle` those who hold `ai.use` and
+        have not.
+      required: [month, pool, daysToGo, onPace, withinPool, allowances, active, idle, teachers, requests, rules]
+      additionalProperties: false
+      properties:
+        month: { type: string, format: date }
+        pool: { $ref: '#/components/schemas/AiPool' }
+        daysToGo: { type: integer, minimum: 0 }
+        onPace: { type: integer, minimum: 0 }
+        withinPool: { type: boolean }
+        allowances: { type: integer, minimum: 0 }
+        active: { type: integer, minimum: 0 }
+        idle: { type: integer, minimum: 0 }
+        teachers:
+          type: array
+          items: { $ref: '#/components/schemas/AiTeacherMonth' }
+        requests:
+          type: array
+          items: { $ref: '#/components/schemas/AiPendingRequest' }
+        rules: { $ref: '#/components/schemas/AiRules' }
+
+    AiCreditDecision:
+      type: object
+      description: |
+        A request after a decision. `allowance` is the teacher's allowance for
+        the month after an approval, and zero after a decline.
+      required: [request, allowance]
+      additionalProperties: false
+      properties:
+        request: { $ref: '#/components/schemas/AiCreditRequest' }
+        allowance: { type: integer, minimum: 0 }
+
     # ----------------------------------------------------------- notifications
 
     NotificationKind:
@@ -4175,6 +4896,13 @@ components:
         | `assignment.due_soon` | a student | `title`, `closesAt` |
         | `assignment.extended` | a student | `title`, `closesAt` |
         | `result.ready` | a student | `title` |
+        | `ai.allowance_warning` | a teacher | `used`, `allowance` |
+        | `ai.credit_request` | a teacher | `teacherName`, `credits` |
+        | `ai.credit_request.decided` | a teacher | `credits`, `decision` |
+
+        The three `ai.*` kinds are for the teacher's bell. `ai.credit_request`
+        is written for every holder of `ai.credits.manage`, who reads it in the
+        teacher workspace until the Admin console has a bell of its own.
       enum:
         - attempt.submitted
         - attempt.flagged
@@ -4185,6 +4913,9 @@ components:
         - assignment.due_soon
         - assignment.extended
         - result.ready
+        - ai.allowance_warning
+        - ai.credit_request
+        - ai.credit_request.decided
 
     NotificationAudience:
       type: string
@@ -4241,6 +4972,11 @@ components:
           items: { type: string, minLength: 1, maxLength: 200 }
           description: At most five names; `count` holds how many classes there are.
         closesAt: { $ref: '#/components/schemas/Timestamp' }
+        used: { type: integer, minimum: 0, description: AI credits the teacher has used this month. }
+        allowance: { type: integer, minimum: 0, description: The teacher's AI allowance this month, in credits. }
+        credits: { type: integer, minimum: 0, description: AI credits a request asks for. }
+        teacherName: { type: string, minLength: 1, maxLength: 200, description: The teacher who asked for credits. }
+        decision: { type: string, enum: [approved, declined], description: How an Admin decided a request for credits. }
 
     NotificationTarget:
       type: object
@@ -6269,6 +7005,14 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: |
+            VALIDATION_FAILED with `details.readWithAi` — the import asked to be read
+            with AI, but the AI assistant is not enabled on this server or the caller
+            does not hold `ai.use`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '429':
           description: IMPORT_QUOTA_EXCEEDED — configured actor or installation quota reached.
           content:
@@ -6342,8 +7086,10 @@ paths:
       description: |
         One multipart file part named file, at most 25 MiB. The filename ends in
         .docx or .pdf, or in .doc when legacy conversion is enabled (see limits), and
-        the detected content must agree with it. A PDF is read from its text layer
-        only; a scanned PDF fails processing with PDF_NO_TEXT.
+        the detected content must agree with it. A PDF is read from its text layer;
+        a scanned PDF fails processing with PDF_NO_TEXT, unless the import was
+        created with readWithAi, in which case its pages are read by the AI
+        assistant (at most 40 pages, else PDF_TOO_LONG_FOR_AI).
         The body Content-Type is not evidence of the detected document type.
         Retry with identical uploadId, role, expectedRevision, filename and bytes.
         A changed replay conflicts. Completion creates exactly one source revision;
@@ -8549,6 +9295,178 @@ paths:
               schema: { type: string }
               description: '`quizzivy_docs=<token>; Path=/docs; Max-Age=900; HttpOnly; Secure; SameSite=Strict`'
 
+  /admin/ai/credits:
+    get:
+      operationId: getAiCredits
+      x-permission: ai.credits.manage
+      tags: [admin-ai]
+      summary: The month's AI credits
+      description: |
+        The pool, the teachers with their month, the requests waiting and the
+        rules in force. The projection is `used` over the days elapsed times
+        the days in the month, computed from the server's clock.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiAdminCredits' }
+        '501': { $ref: '#/components/responses/AiOff' }
+
+  /admin/ai/rules:
+    patch:
+      operationId: updateAiRules
+      x-permission: ai.credits.manage
+      tags: [admin-ai]
+      summary: Change the centre's AI rules
+      description: |
+        A supplied field is changed and the others are kept. A new default
+        allowance rewrites this month's allowances that are not custom, never
+        below what a teacher has already used. One audit row names the caller.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiRulesInput' }
+      responses:
+        '200':
+          description: The rules after the change.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiRulesChange' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '501': { $ref: '#/components/responses/AiOff' }
+
+  /admin/ai/credits/additions:
+    post:
+      operationId: addAiCredits
+      x-permission: ai.credits.manage
+      tags: [admin-ai]
+      summary: Add credits to this month's pool
+      description: |
+        How an Admin approves use beyond the plan: the pool is never overspent
+        without it. The credits do not carry into next month. The audit row
+        names the caller as the approver.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiCreditsAddition' }
+      responses:
+        '201':
+          description: The pool after the addition.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiPool' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '501': { $ref: '#/components/responses/AiOff' }
+
+  /admin/ai/teachers/{userId}/allowance:
+    parameters:
+      - { name: userId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    put:
+      operationId: setAiAllowance
+      x-permission: ai.credits.manage
+      tags: [admin-ai]
+      summary: Change a teacher's AI allowance, or pause or resume them
+      description: |
+        Takes effect at once and usage so far still counts, so an allowance
+        below it is refused (`AI_ALLOWANCE_BELOW_USE`). Approved requests'
+        credits stay on top. Subject to the subset rule: the teacher's
+        permissions, except `learning.take_tests`, must be a subset of the
+        caller's (`FORBIDDEN`), as for a student's account. One audit row names
+        the caller.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiAllowanceInput' }
+      responses:
+        '200':
+          description: The teacher's month after the change.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiTeacherMonth' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`FORBIDDEN` — the teacher''s permissions are not a subset of the caller''s.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: 'No such teacher: the id names no active user who is not a student.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: '`AI_ALLOWANCE_BELOW_USE` — the allowance is below what the teacher has used or holds this month.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501': { $ref: '#/components/responses/AiOff' }
+
+  /admin/ai/credit-requests/{id}/approve:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: approveAiCreditRequest
+      x-permission: ai.credits.manage
+      tags: [admin-ai]
+      summary: Approve a request for more credits
+      description: |
+        Raises the teacher's allowance for the request's month by the amount and
+        tells the teacher. Subject to the subset rule, as `setAiAllowance` is.
+        One audit row names the caller.
+      responses:
+        '200':
+          description: The decided request and the teacher's allowance.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiCreditDecision' }
+        '403':
+          description: '`FORBIDDEN` — the teacher''s permissions are not a subset of the caller''s.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: |
+            `AI_REQUEST_DECIDED` — decided already. `AI_REQUEST_EXPIRED` — the
+            request is from an earlier month, whose allowance is no longer the
+            teacher's.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501': { $ref: '#/components/responses/AiOff' }
+
+  /admin/ai/credit-requests/{id}/decline:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: declineAiCreditRequest
+      x-permission: ai.credits.manage
+      tags: [admin-ai]
+      summary: Decline a request for more credits
+      description: |
+        Changes only the request's status and tells the teacher. Subject to the
+        subset rule, as `setAiAllowance` is. One audit row names the caller.
+      responses:
+        '200':
+          description: The decided request; `allowance` is zero.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiCreditDecision' }
+        '403':
+          description: '`FORBIDDEN` — the teacher''s permissions are not a subset of the caller''s.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`AI_REQUEST_DECIDED` — decided already.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501': { $ref: '#/components/responses/AiOff' }
+
   /teacher/classes:
     get:
       operationId: listClasses
@@ -8958,6 +9876,369 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
 
   # =================================================================== student
+
+  /teacher/ai/questions/generate:
+    post:
+      operationId: generateAiQuestions
+      x-resource:
+        - { in: body, name: /testId, kind: test }
+        - { in: body, name: /stimulusId, kind: none }
+      x-permission: ai.use
+      tags: [teacher-ai]
+      summary: Draft questions from a passage, a transcript or a topic
+      description: |
+        Answers draft questions and writes nothing: the teacher adds the ones
+        they keep through `createQuestion` or the section writes. Exactly one
+        source is named: `source`, or `testId` with `stimulusId`, which is a
+        shared-content passage of the test's draft and which `stimulusId`
+        resolves only inside that test. Only the source text and the settings
+        are sent to the provider.
+
+        Reserves the call's ceiling before it reaches the provider and settles
+        what the provider billed after; `usage` says what it cost.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiGenerateRequest' }
+      responses:
+        '200':
+          description: Draft questions, at most `count` of them, fewer when the provider's answer held some that could not be used.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiGenerateResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '402': { $ref: '#/components/responses/AiCreditsExhausted' }
+        '403': { $ref: '#/components/responses/AiNotAllowed' }
+        '404':
+          description: No such test or passage in the caller's reach.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501': { $ref: '#/components/responses/AiOff' }
+        '503': { $ref: '#/components/responses/AiUnavailable' }
+
+  /teacher/ai/tests/{id}/check:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: checkTestWithAi
+      x-resource:
+        - { in: path, name: id, kind: test }
+      x-permission: ai.use
+      tags: [teacher-ai]
+      summary: Look for mistakes in a test's draft
+      description: |
+        Reads the draft's prompts, options, keys, explanations and shared
+        passages, and answers what is worth a look, hardest first. Nothing is
+        changed: a one-click `fix` is written by the caller through
+        `updateQuestion`. No student data and no assignment is sent.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiCheckRequest' }
+      responses:
+        '200':
+          description: The findings; empty when nothing is left to look at.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiCheckResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '402': { $ref: '#/components/responses/AiCreditsExhausted' }
+        '403': { $ref: '#/components/responses/AiNotAllowed' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: The draft has no question to check, or holds more than one call reads.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501': { $ref: '#/components/responses/AiOff' }
+        '503': { $ref: '#/components/responses/AiUnavailable' }
+
+  /teacher/ai/tests/{id}/variant:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: makeTestVariant
+      x-resource:
+        - { in: path, name: id, kind: test }
+      x-permission: ai.use
+      tags: [teacher-ai]
+      summary: Propose a variant of a test
+      description: |
+        Reads the draft's questions, options and keys and proposes rewordings,
+        reorderings and new wrong options. Answers, points and passages stay
+        the same. Nothing is saved: the caller copies the test with
+        `duplicateTest` and applies the changes they keep to the copy's
+        questions, which sit at the same `number`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiVariantRequest' }
+      responses:
+        '200':
+          description: The proposed changes, in paper order.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiVariantResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '402': { $ref: '#/components/responses/AiCreditsExhausted' }
+        '403': { $ref: '#/components/responses/AiNotAllowed' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: The draft has no question to vary, or holds more than one call reads.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501': { $ref: '#/components/responses/AiOff' }
+        '503': { $ref: '#/components/responses/AiUnavailable' }
+
+  /teacher/ai/questions/{id}/explanation:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: writeAiExplanation
+      x-resource:
+        - { in: path, name: id, kind: question }
+      x-permission: ai.use
+      tags: [teacher-ai]
+      summary: Write an explanation for a question's answer
+      description: |
+        Reads the stored question (its prompt, options, key and type) and writes
+        a short explanation students can read after results are released.
+        Nothing is saved.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiExplanationRequest' }
+      responses:
+        '200':
+          description: The explanation.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiExplanationResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '402': { $ref: '#/components/responses/AiCreditsExhausted' }
+        '403': { $ref: '#/components/responses/AiNotAllowed' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: The question has no answer key to explain.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501': { $ref: '#/components/responses/AiOff' }
+        '503': { $ref: '#/components/responses/AiUnavailable' }
+
+  /teacher/ai/questions/{id}/distractors:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: suggestAiDistractors
+      x-resource:
+        - { in: path, name: id, kind: question }
+      x-permission: ai.use
+      tags: [teacher-ai]
+      summary: Suggest wrong options for a choice question
+      description: |
+        Reads the stored question's prompt, key and existing options and
+        suggests up to four wrong options that are not among them. Nothing is
+        saved.
+      responses:
+        '200':
+          description: One to four suggestions, none of them an option the question already has.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiDistractorsResult' }
+        '402': { $ref: '#/components/responses/AiCreditsExhausted' }
+        '403': { $ref: '#/components/responses/AiNotAllowed' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: The question is not a single or multiple choice question, or has no key.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501': { $ref: '#/components/responses/AiOff' }
+        '503': { $ref: '#/components/responses/AiUnavailable' }
+
+  /teacher/ai/attempts/{attemptId}/answers/{questionId}/score-suggestion:
+    parameters:
+      - { name: attemptId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+      - { name: questionId, in: path, required: true, schema: { $ref: '#/components/schemas/Uuid' } }
+    post:
+      operationId: suggestAiScore
+      x-resource:
+        - { in: path, name: attemptId, kind: attempt }
+        - { in: path, name: questionId, kind: version-question }
+      x-permission: ai.use
+      tags: [teacher-ai]
+      summary: Suggest a score for a short answer
+      description: |
+        Reads the question's prompt, type, points and accepted or sample
+        answers and the student's answer text, and proposes a score and a
+        comment. The student's name, email, id and class, the attempt's id and
+        the student's other answers are never sent. The caller must hold
+        `teaching.grading` as well as `ai.use`, the attempt must be one they
+        reach as the grading reads do, and their `ai.readStudentAnswers`
+        preference must be on (`AI_READ_OFF`). The reasons and the comment are
+        written in the language of the caller's `ai.language` preference. The
+        AI never writes a mark: a teacher saves one with `gradeAttempt`.
+      responses:
+        '200':
+          description: The suggestion.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiScoreSuggestion' }
+        '402': { $ref: '#/components/responses/AiCreditsExhausted' }
+        '403': { $ref: '#/components/responses/AiNotAllowed' }
+        '404':
+          description: The attempt, or a question that is not on its paper, is not in the caller's reach.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: |
+            `ATTEMPT_IN_PROGRESS` or `ATTEMPT_VOIDED` — nothing to grade yet, or
+            nothing that counts.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: The question is not a short answer waiting for a mark by hand (the grader marked this answer itself), or the student left it unanswered.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501': { $ref: '#/components/responses/AiOff' }
+        '503': { $ref: '#/components/responses/AiUnavailable' }
+
+  /teacher/ai/assignments/{id}/insights:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: explainAssignmentResults
+      x-resource:
+        - { in: path, name: id, kind: assignment }
+      x-permission: ai.use
+      tags: [teacher-ai]
+      summary: Explain how an assignment's results came out
+      description: |
+        Reads, per question, the correct rate and the eight most frequent wrong
+        answer texts with their counts, over the papers handed in by the
+        students the caller reaches, and writes what the class got wrong and
+        what to do about it. No name, id or attempt is sent, and nothing says
+        who wrote what. The caller needs `teaching.grading` as well as `ai.use`,
+        and their `ai.readStudentAnswers` preference must be on
+        (`AI_READ_OFF`). The text is written in the language of the caller's
+        `ai.language` preference.
+      responses:
+        '200':
+          description: Up to four insights.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiInsightsResult' }
+        '402': { $ref: '#/components/responses/AiCreditsExhausted' }
+        '403': { $ref: '#/components/responses/AiNotAllowed' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: No paper has been handed in, so there is nothing to explain.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501': { $ref: '#/components/responses/AiOff' }
+        '503': { $ref: '#/components/responses/AiUnavailable' }
+
+  /teacher/ai/bank/cleanup:
+    post:
+      operationId: cleanUpQuestionBank
+      x-resource-list: question
+      x-permission: ai.use
+      tags: [teacher-ai]
+      summary: Find near-duplicates and untagged questions in your bank
+      description: |
+        Reads the prompts, types and tags of the caller's own questions only,
+        newest first, at most 2,000 of them, even for a caller who holds
+        `scope.all`; shared questions are skipped. One request is one bounded
+        pass of at most five calls to the provider at the same time, inside
+        about a minute, that reserves its credits once and is charged once.
+        Tags are suggested for the first 200 questions that have none, 50 to a
+        call. Duplicates are looked for among all the questions read by
+        comparing every pair by its words, and one call judges the closest
+        pairs, at most 20 of them are returned; a rewording that shares few
+        words with the original is not found. `truncated` is true when the
+        pass left something undone: the bank held more than it reads or more
+        untagged questions than it tags, or part of the pass failed or ran out
+        of time. Apply the suggestions and run it again. Nothing changes until
+        the caller confirms through the existing writes. Limited to three calls
+        an hour.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiCleanupRequest' }
+      responses:
+        '200':
+          description: The suggestions.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiCleanupResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '402': { $ref: '#/components/responses/AiCreditsExhausted' }
+        '403': { $ref: '#/components/responses/AiNotAllowed' }
+        '422':
+          description: The caller owns no question to look at.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501': { $ref: '#/components/responses/AiOff' }
+        '503': { $ref: '#/components/responses/AiUnavailable' }
+
+  /teacher/ai/usage:
+    get:
+      operationId: getAiUsage
+      x-permission: ai.use
+      tags: [teacher-ai]
+      summary: Your AI credits this month
+      description: |
+        What the caller has used, their allowance, what is left of it and of the
+        centre's pool, whether they are paused, whether the centre takes
+        requests for more, their undecided request and the five category sums
+        the Settings card draws. Reads only: a teacher who has not used AI gets
+        the allowance a first use would give.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiMonthUsage' }
+        '501': { $ref: '#/components/responses/AiOff' }
+
+  /teacher/ai/credit-requests:
+    post:
+      operationId: requestAiCredits
+      x-permission: ai.use
+      tags: [teacher-ai]
+      summary: Ask for more credits this month
+      description: |
+        One undecided request per teacher per month. Every holder of
+        `ai.credits.manage` is told. Limited to five calls an hour.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AiCreditRequestInput' }
+      responses:
+        '201':
+          description: Recorded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiCreditRequest' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409':
+          description: |
+            `AI_REQUESTS_OFF` — the centre's rule is to pause a teacher who runs
+            out, so it takes no requests. `AI_REQUEST_PENDING` — the caller's
+            request this month is undecided.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501': { $ref: '#/components/responses/AiOff' }
 
   /app/classes:
     get:

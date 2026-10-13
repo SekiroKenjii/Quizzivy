@@ -52,7 +52,7 @@ input::placeholder,textarea::placeholder{color:var(--muted-fg)}
 <nav style="flex:1;overflow-y:auto;overflow-x:hidden;padding:4px 8px;display:flex;flex-direction:column;gap:14px">
 <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="3">
 <div style="display:flex;flex-direction:column;gap:1px">
-<sc-if value="{{ g.showLabel }}" hint-placeholder-val="{{ true }}"><div style="font-size:11.5px;font-weight:500;color:var(--muted-fg);padding:4px 10px">{{ g.label }}</div></sc-if>
+<sc-if value="{{ g.showLabel }}" hint-placeholder-val="{{ true }}"><div style="font-size:11.5px;font-weight:500;color:var(--muted-fg);padding:4px 10px">{{ g.label }}</div></sc-if><sc-if value="{{ g.showSep }}" hint-placeholder-val="{{ false }}"><div role="separator" style="height:1px;background:var(--border);margin:0 10px 4px"></div></sc-if>
 <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3">
 <button onClick="{{ it.go }}" title="{{ it.label }}" style="display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border:0;border-radius:7px;cursor:pointer;text-align:left;background:{{ it.bg }};color:{{ it.fg }};font-weight:{{ it.weight }};font-size:13.5px;justify-content:{{ it.justify }}" style-hover="background:var(--hover);color:var(--fg)">
 <i class="icon-{{ it.icon }}" style="font-size:16px;flex:none"></i>
@@ -66,13 +66,13 @@ input::placeholder,textarea::placeholder{color:var(--muted-fg)}
 <sc-if value="{{ userMenuOpen }}" hint-placeholder-val="{{ false }}">
 <div onClick="{{ toggleUser }}" style="position:fixed;inset:0;z-index:59"></div>
 <div style="position:absolute;left:8px;bottom:60px;width:240px;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg);padding:6px;z-index:60">
-<div style="display:flex;align-items:center;gap:10px;padding:6px 8px 10px;border-bottom:1px solid var(--border);margin-bottom:4px"><span style="width:32px;height:32px;flex:none;border-radius:8px;background:var(--muted);display:grid;place-items:center;font-size:12px;font-weight:600">TQ</span><span style="min-width:0"><span style="display:block;font-size:13px;font-weight:600">Trần Quang</span><span style="display:block;font-size:12px;color:var(--muted-fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">quang.tran@quizzivy.com</span></span></div>
+<div style="display:flex;align-items:center;gap:10px;padding:6px 8px 10px;border-bottom:1px solid var(--border);margin-bottom:4px"><span style="width:32px;height:32px;flex:none;border-radius:8px;background:var(--muted);display:grid;place-items:center;font-size:12px;font-weight:600">TV</span><span style="min-width:0"><span style="display:block;font-size:13px;font-weight:600">Thường Võ</span><span style="display:block;font-size:12px;color:var(--muted-fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">thuong.vo@quizzivy.com</span></span></div>
 <sc-for list="{{ userMenu }}" as="um" hint-placeholder-count="4"><button onClick="{{ um.go }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:8px;border:0;border-radius:6px;background:transparent;cursor:pointer;font-size:13px;text-align:left;color:{{ um.color }};border-top:{{ um.border }}" style-hover="background:var(--hover)"><i class="icon-{{ um.icon }}" style="font-size:15px"></i><span style="flex:1">{{ um.label }}</span><sc-if value="{{ um.ext }}" hint-placeholder-val="{{ false }}"><i class="icon-arrow-up-right" style="font-size:13px;color:var(--muted-fg)"></i></sc-if></button></sc-for>
 </div>
 </sc-if>
 <button onClick="{{ toggleUser }}" aria-label="Account menu" style="width:100%;display:flex;align-items:center;gap:10px;padding:6px;border:0;background:{{ userBtnBg }};border-radius:8px;cursor:pointer;text-align:left;justify-content:{{ userJustify }}" style-hover="background:var(--hover)">
-<span style="width:32px;height:32px;flex:none;border-radius:8px;background:var(--muted);display:grid;place-items:center;font-size:12px;font-weight:600">TQ</span>
-<sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}"><span style="flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25"><span style="font-weight:500;font-size:13px">Trần Quang</span><span style="font-size:12px;color:var(--muted-fg)">Administrator</span></span><i class="icon-chevrons-up-down" style="font-size:15px;color:var(--muted-fg)"></i></sc-if>
+<span style="width:32px;height:32px;flex:none;border-radius:8px;background:var(--muted);display:grid;place-items:center;font-size:12px;font-weight:600">TV</span>
+<sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}"><span style="flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25"><span style="font-weight:500;font-size:13px">Thường Võ</span><span style="font-size:12px;color:var(--muted-fg)">Administrator</span></span><i class="icon-chevrons-up-down" style="font-size:15px;color:var(--muted-fg)"></i></sc-if>
 </button>
 </div>
 </aside>
@@ -311,11 +311,16 @@ input::placeholder,textarea::placeholder{color:var(--muted-fg)}
 </div>
 <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
 <div role="tablist" style="flex:0 1 auto;min-width:0;max-width:100%;display:flex;padding:3px;background:var(--muted);border-radius:9px;gap:2px;overflow-x:auto;scrollbar-width:none"><sc-for list="{{ auditFilters }}" as="af" hint-placeholder-count="5"><button onClick="{{ af.go }}" role="tab" aria-selected="{{ af.on }}" style="flex:none;border:0;border-radius:7px;height:30px;padding:0 12px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;background:{{ af.bg }};color:{{ af.fg }};box-shadow:{{ af.shadow }};font-weight:500">{{ af.label }}<span style="min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--primary);color:var(--primary-fg);font-size:11px;font-weight:600;line-height:1;display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums">{{ af.count }}</span></button></sc-for></div>
-<div style="flex:0 1 auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label style="flex:0 1 260px;min-width:200px;display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border:1px solid var(--border);border-radius:8px;background:var(--card)"><i class="icon-search" style="font-size:15px;color:var(--muted-fg)"></i><input size="1" placeholder="Search person or entity" style="border:0;outline:0;background:transparent;flex:1;min-width:0;font-size:13px"></label><span style="flex:none;display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);font-size:13px;white-space:nowrap"><i class="icon-calendar" style="font-size:14px;color:var(--muted-fg)"></i>Last 7 days</span></div>
+<div style="flex:1 1 380px;min-width:0;display:flex;gap:8px;align-items:center;justify-content:flex-end">
+<label style="flex:1 1 260px;max-width:320px;min-width:150px;display:flex;align-items:center;gap:8px;height:36px;padding:0 6px 0 10px;border:1px solid var(--border);border-radius:8px;background:var(--card)"><i class="icon-search" style="font-size:15px;color:var(--muted-fg)"></i><input size="1" value="{{ auditQ }}" onChange="{{ onAuditQ }}" placeholder="Search person, action or entity" aria-label="Search audit log" style="border:0;outline:0;background:transparent;flex:1;min-width:0;font-size:13px"><sc-if value="{{ auditQ }}" hint-placeholder-val="{{ false }}"><button onClick="{{ clearAuditQ }}" aria-label="Clear search" style="width:24px;height:24px;flex:none;display:grid;place-items:center;border:0;border-radius:6px;background:transparent;cursor:pointer;color:var(--muted-fg);padding:0" style-hover="background:var(--hover);color:var(--fg)"><i class="icon-x" style="font-size:13px"></i></button></sc-if></label>
+<button onClick="{{ auditRangeMenu }}" aria-label="Date range" style="flex:none;display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 10px 0 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap;box-shadow:var(--shadow)" style-hover="background:var(--muted)"><i class="icon-calendar" style="font-size:15px;color:var(--muted-fg)"></i>{{ auditRangeLabel }}<i class="icon-chevron-down" style="font-size:14px;color:var(--muted-fg)"></i></button>
+<sc-if value="{{ auditFiltered }}" hint-placeholder-val="{{ false }}"><button onClick="{{ auditReset }}" style="flex:none;height:36px;padding:0 10px;border-radius:8px;border:0;background:transparent;cursor:pointer;font-size:13px;font-weight:500;color:var(--muted-fg);white-space:nowrap" style-hover="background:var(--muted);color:var(--fg)">Reset</button></sc-if>
+</div>
 </div>
 <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow-x:auto">
 <div>
 <div style="display:grid;grid-template-columns:{{ aCols }};gap:12px;padding:0 16px;height:40px;align-items:center;font-size:12.5px;color:var(--muted-fg);font-weight:500;background:var(--muted)"><sc-if value="{{ ac.when }}" hint-placeholder-val="{{ true }}"><span>When</span></sc-if><span>Who</span><span>Action</span><sc-if value="{{ ac.entity }}" hint-placeholder-val="{{ true }}"><span>Entity</span></sc-if><sc-if value="{{ ac.ip }}" hint-placeholder-val="{{ true }}"><span>IP address</span></sc-if><span></span></div>
+<sc-if value="{{ auditEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:32px 16px;text-align:center;font-size:13.5px;color:var(--muted-fg);border-top:1px solid var(--border)">No entries match these filters.</div></sc-if>
 <sc-for list="{{ auditRows }}" as="a" hint-placeholder-count="8">
 <div onClick="{{ a.toggle }}" style="display:grid;grid-template-columns:{{ aCols }};gap:12px;padding:0 16px;min-height:50px;align-items:center;border-top:1px solid var(--border);font-size:13.5px;cursor:pointer;background:{{ a.bg }}" style-hover="background:var(--muted)">
 <sc-if value="{{ ac.when }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:var(--muted-fg);font-variant-numeric:tabular-nums;white-space:nowrap">{{ a.when }}</span></sc-if>
@@ -373,7 +378,7 @@ input::placeholder,textarea::placeholder{color:var(--muted-fg)}
 <div data-screen-label="System settings" style="max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:18px">
 <div><h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em">System settings</h1><p style="margin:2px 0 0;color:var(--muted-fg);font-size:14px">Applies to everyone in Quizzivy English Centre.</p></div>
 <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap">
-<nav style="flex:0 1 {{ setNavW }};min-width:0;display:flex;flex-direction:{{ setNavDir }};gap:2px;overflow-x:auto;max-width:100%">
+<nav style="flex:0 1 {{ setNavW }};min-width:0;display:flex;flex-direction:{{ setNavDir }};gap:2px;overflow-x:auto;max-width:100%;position:{{ setNavPos }};top:16px;align-self:flex-start">
 <sc-for list="{{ setTabs }}" as="st" hint-placeholder-count="4"><button onClick="{{ st.go }}" style="display:flex;align-items:center;gap:10px;height:36px;padding:0 12px;border:0;border-radius:8px;cursor:pointer;text-align:left;white-space:nowrap;font-size:13.5px;background:{{ st.bg }};color:{{ st.fg }};font-weight:{{ st.weight }}" style-hover="background:var(--hover);color:var(--fg)"><i class="icon-{{ st.icon }}" style="font-size:16px"></i>{{ st.label }}</button></sc-for>
 </nav>
 <div style="flex:1 1 480px;min-width:0;display:flex;flex-direction:column;gap:14px">
@@ -425,6 +430,52 @@ input::placeholder,textarea::placeholder{color:var(--muted-fg)}
 <div style="position:sticky;bottom:12px;display:flex;align-items:center;gap:10px;padding:10px 12px 10px 16px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg)"><span style="flex:1;font-size:13px;color:var(--muted-fg)">You have unsaved changes.</span><button onClick="{{ setDiscard }}" style="height:34px;padding:0 12px;border-radius:8px;border:0;background:transparent;cursor:pointer;font-size:13px;font-weight:500" style-hover="background:var(--muted)">Discard</button><button onClick="{{ setSave }}" style="height:34px;padding:0 14px;border-radius:8px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:13px;font-weight:500">Save changes</button></div>
 </sc-if>
 </div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ r.ai }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="AI credits" style="max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap">
+<div style="min-width:0"><h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em">AI credits</h1><p style="margin:2px 0 0;color:var(--muted-fg);font-size:14px;text-wrap:pretty">Monthly allowances for AI features. Usage resets on 1 October.</p></div>
+<button onClick="{{ aic.addCredits }}" style="display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:13.5px;font-weight:500;white-space:nowrap;box-shadow:var(--shadow)" style-hover="background:var(--muted)"><i class="icon-plus" style="font-size:15px"></i>Add credits</button>
+</div>
+
+<section style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:18px 20px;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap"><span style="font-size:15px;font-weight:600">Centre pool · September</span><span style="font-size:12.5px;color:var(--muted-fg)">{{ aic.poolNote }}</span></div>
+<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><span style="font-size:28px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;line-height:1.2">{{ aic.used }}</span><span style="font-size:14px;color:var(--muted-fg);font-variant-numeric:tabular-nums">of {{ aic.pool }} credits used</span></div>
+<div style="height:10px;border-radius:10px;background:var(--muted);overflow:hidden;position:relative"><div style="height:100%;width:{{ aic.pct }};background:{{ aic.barColor }};border-radius:10px;transition:width .3s"></div><div title="Projected by 30 September" style="position:absolute;top:0;bottom:0;left:{{ aic.projPct }};width:2px;background:var(--fg);opacity:.35"></div></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px">
+<sc-for list="{{ aic.facts }}" as="fc" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:12.5px;color:var(--muted-fg)">{{ fc.label }}</span><span style="font-size:15px;font-weight:600;font-variant-numeric:tabular-nums">{{ fc.value }}</span><span style="font-size:12px;color:{{ fc.hintColor }};text-wrap:pretty">{{ fc.hint }}</span></div></sc-for>
+</div>
+</section>
+
+<sc-for list="{{ aic.requests }}" as="rq" hint-placeholder-count="1">
+<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px 12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--card);box-shadow:var(--shadow)">
+<span style="width:32px;height:32px;flex:none;border-radius:8px;background:var(--warning-soft);color:var(--warning-ink);display:grid;place-items:center"><i class="icon-hand" style="font-size:16px"></i></span>
+<span style="flex:1 1 280px;min-width:0"><span style="display:block;font-size:13.5px;font-weight:500">{{ rq.title }}</span><span style="display:block;font-size:12.5px;color:var(--muted-fg);text-wrap:pretty">{{ rq.why }}</span></span>
+<span style="display:flex;gap:6px;flex-wrap:wrap"><button onClick="{{ rq.decline }}" style="height:32px;padding:0 12px;border-radius:8px;border:0;background:transparent;cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap" style-hover="background:var(--muted)">Decline</button><button onClick="{{ rq.approve }}" style="display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:8px;border:0;background:var(--primary);color:var(--primary-fg);cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap" style-hover="opacity:.9"><i class="icon-check" style="font-size:14px"></i>{{ rq.approveLabel }}</button></span>
+</div>
+</sc-for>
+
+<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+<section style="flex:2 1 560px;min-width:0;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden">
+<div style="padding:14px 16px;display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap"><span style="font-size:15px;font-weight:600">Teachers</span><span style="font-size:12.5px;color:var(--muted-fg)">{{ aic.tSub }}</span></div>
+<sc-for list="{{ aic.rows }}" as="t" hint-placeholder-count="6">
+<div style="display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--border)">
+<span style="flex:1 1 190px;min-width:0;display:flex;align-items:center;gap:10px"><span style="width:32px;height:32px;flex:none;border-radius:50%;background:var(--muted);display:grid;place-items:center;font-size:11.5px;font-weight:600">{{ t.initials }}</span><span style="min-width:0"><span style="display:block;font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.name }}</span><span style="display:block;font-size:12px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.email }}</span></span></span>
+<span style="flex:2 1 220px;min-width:0;display:flex;flex-direction:column;gap:6px"><span style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px;font-variant-numeric:tabular-nums"><span style="font-weight:500">{{ t.used }}</span><span style="color:var(--muted-fg)">{{ t.allow }}</span></span><span style="display:block;height:6px;border-radius:6px;background:var(--muted);overflow:hidden"><span style="display:block;height:100%;width:{{ t.pct }};background:{{ t.color }}"></span></span></span>
+<span style="flex:0 0 104px"><span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;background:{{ t.stBg }};color:{{ t.stFg }}"><span style="width:6px;height:6px;flex:none;border-radius:50%;background:{{ t.stDot }}"></span>{{ t.st }}</span></span>
+<button onClick="{{ t.edit }}" aria-label="Edit allowance" title="Edit allowance" style="width:30px;height:30px;flex:none;display:grid;place-items:center;border:0;border-radius:7px;background:transparent;cursor:pointer;color:var(--muted-fg)" style-hover="background:var(--hover);color:var(--fg)"><i class="icon-pencil" style="font-size:15px"></i></button>
+</div>
+</sc-for>
+</section>
+<section style="flex:1 1 320px;min-width:0;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);position:{{ aic.rulesPos }};top:16px;align-self:flex-start">
+<div style="padding:14px 16px"><div style="font-size:15px;font-weight:600">Rules</div><div style="font-size:13px;color:var(--muted-fg);text-wrap:pretty">For every teacher without a custom allowance.</div></div>
+<div style="padding:0 16px 4px;display:flex;flex-direction:column">
+<sc-for list="{{ aic.rules }}" as="ru" hint-placeholder-count="4"><div style="display:flex;flex-direction:column;gap:8px;padding:14px 0;border-top:1px solid var(--border)"><span><span style="display:block;font-size:13.5px;font-weight:500">{{ ru.label }}</span><span style="display:block;font-size:12.5px;color:var(--muted-fg);text-wrap:pretty">{{ ru.hint }}</span></span><div style="display:flex;padding:3px;background:var(--muted);border-radius:9px;gap:2px;flex-wrap:wrap;align-self:flex-start;max-width:100%"><sc-for list="{{ ru.opts }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.go }}" style="border:0;border-radius:7px;height:30px;padding:0 12px;font-size:12.5px;cursor:pointer;white-space:nowrap;font-weight:500;background:{{ o.bg }};color:{{ o.fg }};box-shadow:{{ o.shadow }}">{{ o.label }}</button></sc-for></div></div></sc-for>
+</div>
+</section>
 </div>
 </div>
 </sc-if>
@@ -547,8 +598,8 @@ const STATUS = {
 };
 const ROLE = { admin: ['Admin', 'shield'], teacher: ['Teacher', 'graduation-cap'], student: ['Student', 'user'] };
 const USERS = [
-  ['Trần Quang', 'quang.tran@quizzivy.com', 'admin', 'pg', '—', 'Now', 'active'],
-  ['Hoàng Thương', 'thuong@quizzivy.com', 'teacher', 'pg', '4 classes', '5 min ago', 'active'],
+  ['Thường Võ', 'thuong.vo@quizzivy.com', 'admin', 'pg', '—', 'Now', 'active'],
+  ['Giàu Bùi', 'giau.bui@quizzivy.com', 'teacher', 'pg', '4 classes', '5 min ago', 'active'],
   ['Phan Minh Đức', 'duc.phan@quizzivy.com', 'teacher', 'g', '2 classes', 'Yesterday', 'active'],
   ['Trần Minh Anh', 'minhanh.tran@gmail.com', 'student', 'g', 'IELTS 6.5 Evening', '5 min ago', 'active'],
   ['Lê Hoàng Nam', 'nam.le@gmail.com', 'student', 'p', 'IELTS 6.5 Evening', '12 min ago', 'active'],
@@ -562,26 +613,26 @@ const USERS = [
 ];
 const TOTALS = { all: 312, teacher: 9, student: 300, admin: 3, disabled: 6 };
 const CLASSES = [
-  ['IELTS 6.5 Evening', 'Mon · Wed · Fri, 18:00', 'Hoàng Thương', 24, 'K7QM-2PXA', 'Jun 2026', true],
-  ['IELTS Foundation A', 'Tue · Thu, 17:30', 'Hoàng Thương', 16, 'B4XN-9TRE', 'Jul 2026', true],
-  ['TOEIC 600 Weekend', 'Sat · Sun, 09:00', 'Hoàng Thương', 22, 'T6NB-4WLQ', 'Aug 2026', true],
-  ['Kids Starters B', 'Sat, 14:00', 'Hoàng Thương', 12, 'S2DK-7HQM', 'Aug 2026', true],
+  ['IELTS 6.5 Evening', 'Mon · Wed · Fri, 18:00', 'Giàu Bùi', 24, 'K7QM-2PXA', 'Jun 2026', true],
+  ['IELTS Foundation A', 'Tue · Thu, 17:30', 'Giàu Bùi', 16, 'B4XN-9TRE', 'Jul 2026', true],
+  ['TOEIC 600 Weekend', 'Sat · Sun, 09:00', 'Giàu Bùi', 22, 'T6NB-4WLQ', 'Aug 2026', true],
+  ['Kids Starters B', 'Sat, 14:00', 'Giàu Bùi', 12, 'S2DK-7HQM', 'Aug 2026', true],
   ['IELTS Writing Clinic', 'Thu, 19:30', 'Phan Minh Đức', 14, 'W3RT-8KDZ', 'Sep 2026', true],
   ['Business English B1', 'Tue, 12:00', 'Phan Minh Đức', 10, 'E5MF-2PZR', 'Sep 2026', true],
   ['Summer Camp 2026', 'Jul – Aug', 'Lý Thanh Vân', 30, '—', 'May 2026', false],
 ];
 const AUDIT = [
-  ['24 Sep, 20:31', 'Hoàng Thương', 'attempt', 'Extended attempt by 10 minutes', 'Attempt · Lê Hoàng Nam', '14.161.22.8', [['ends_at', '21:00', '21:10']]],
-  ['24 Sep, 19:05', 'Trần Quang', 'password', 'Reset password', 'User · Đặng Quốc Huy', '113.22.4.19', [['must_change_password', 'false', 'true']]],
-  ['24 Sep, 16:40', 'Hoàng Thương', 'test', 'Published test', 'Test · Mid-term Reading Mock v3', '14.161.22.8', [['status', 'draft', 'published'], ['version', '2', '3']]],
-  ['24 Sep, 15:20', 'Hoàng Thương', 'test', 'Shared test with Phan Minh Đức', 'Test · Mid-term Reading Mock', '14.161.22.8', [['shared_with', '—', 'Phan Minh Đức (can edit)']]],
-  ['24 Sep, 11:12', 'Hoàng Thương', 'class', 'Rotated join code', 'Class · IELTS 6.5 Evening', '14.161.22.8', [['code', 'H2LV-5QNC', 'K7QM-2PXA']]],
+  ['24 Sep, 20:31', 'Giàu Bùi', 'attempt', 'Extended attempt by 10 minutes', 'Attempt · Lê Hoàng Nam', '14.161.22.8', [['ends_at', '21:00', '21:10']]],
+  ['24 Sep, 19:05', 'Thường Võ', 'password', 'Reset password', 'User · Đặng Quốc Huy', '113.22.4.19', [['must_change_password', 'false', 'true']]],
+  ['24 Sep, 16:40', 'Giàu Bùi', 'test', 'Published test', 'Test · Mid-term Reading Mock v3', '14.161.22.8', [['status', 'draft', 'published'], ['version', '2', '3']]],
+  ['24 Sep, 15:20', 'Giàu Bùi', 'test', 'Shared test with Phan Minh Đức', 'Test · Mid-term Reading Mock', '14.161.22.8', [['shared_with', '—', 'Phan Minh Đức (can edit)']]],
+  ['24 Sep, 11:12', 'Giàu Bùi', 'class', 'Rotated join code', 'Class · IELTS 6.5 Evening', '14.161.22.8', [['code', 'H2LV-5QNC', 'K7QM-2PXA']]],
   ['23 Sep, 21:48', 'Phan Minh Đức', 'attempt', 'Voided attempt', 'Attempt · Ngô Thanh Tùng', '27.72.100.3', [['status', 'submitted', 'void'], ['reason', '—', 'Wrong test assigned']]],
-  ['23 Sep, 15:02', 'Trần Quang', 'user', 'Disabled account', 'User · Lý Thanh Vân', '113.22.4.19', [['disabled_at', 'null', '2026-09-23 15:02']]],
-  ['23 Sep, 09:30', 'Hoàng Thương', 'class', 'Enrolled 3 students', 'Class · IELTS Foundation A', '14.161.22.8', [['members', '13', '16']]],
-  ['22 Sep, 18:20', 'Hoàng Thương', 'media', 'Deleted media file', 'Media · old-listening-01.mp3', '14.161.22.8', [['used_in', '0 questions', 'deleted']]],
+  ['23 Sep, 15:02', 'Thường Võ', 'user', 'Disabled account', 'User · Lý Thanh Vân', '113.22.4.19', [['disabled_at', 'null', '2026-09-23 15:02']]],
+  ['23 Sep, 09:30', 'Giàu Bùi', 'class', 'Enrolled 3 students', 'Class · IELTS Foundation A', '14.161.22.8', [['members', '13', '16']]],
+  ['22 Sep, 18:20', 'Giàu Bùi', 'media', 'Deleted media file', 'Media · old-listening-01.mp3', '14.161.22.8', [['used_in', '0 questions', 'deleted']]],
   ['22 Sep, 03:00', 'System', 'import', 'Removed import files under retention', 'Import · Midterm Listening.docx', '—', [['files', '2 files · 3.4 MB', 'removed'], ['history', 'kept', 'kept']]],
-  ['22 Sep, 10:05', 'Trần Quang', 'user', 'Changed role', 'User · Phan Minh Đức', '113.22.4.19', [['role', 'student', 'teacher']]],
+  ['22 Sep, 10:05', 'Thường Võ', 'user', 'Changed role', 'User · Phan Minh Đức', '113.22.4.19', [['role', 'student', 'teacher']]],
 ];
 const AUDIT_DOT = { attempt: 'var(--warning)', password: 'var(--danger)', test: 'var(--success)', class: 'var(--info)', user: 'var(--danger)', media: 'var(--muted-fg)', import: 'var(--warning)' };
 const PERMS = [
@@ -591,6 +642,16 @@ const PERMS = [
   ['System', [['View audit log', null, [1, 0, 0, 0]], ['Change system settings', null, [1, 0, 0, 0]], ['Take tests and view own results', null, [0, 0, 0, 1]]]],
 ];
 const ROLE_NAMES = ['Admin', 'Teacher', 'Assistant', 'Student'];
+const AI_POOL = 200000, AI_DAY = 24, AI_DAYS = 30;
+const AI_TEACHERS = [
+  ['Giàu Bùi', 'giau.bui@quizzivy.com', 18420, null],
+  ['Phan Minh Đức', 'duc.phan@quizzivy.com', 41300, null],
+  ['Đinh Quốc Bảo', 'bao.dinh@quizzivy.com', 30100, 80000],
+  ['Ngô Thu Trang', 'trang.ngo@quizzivy.com', 12880, null],
+  ['Trương Văn Khải', 'khai.truong@quizzivy.com', 20000, 20000],
+  ['Hà Mỹ Linh', 'linh.ha@quizzivy.com', 2140, null],
+];
+const AI_REQ0 = [{ email: 'duc.phan@quizzivy.com', name: 'Phan Minh Đức', amt: 20000, why: '“Grading the Writing Task 2 mock for two classes this week.” · 2 hours ago' }];
 
 class Component extends DCLogic {
   state = { route: 'overview', dark: false, collapsed: false, drawer: false, w: 1280, ws: false, userTab: 'all', userQ: '', sel: {}, sheet: null, add: false, nu: { name: '', email: '', role: 'student' }, confirm: null, toast: null, pages: {}, perms: null, classTab: 'active', codes: {}, auditOpen: {}, auditF: 'all', setTab: 'org', setDirty: false, org: null, signin: null, domains: null, domainDraft: '', roleOver: {}, statusOver: {}, extraUsers: [] };
@@ -697,7 +758,70 @@ class Component extends DCLogic {
       groups: G.map(g => ({ name: g[0], icon: g[1], n: g[2], desc: g[3], path: g[4], go: () => open(g[0]) })),
     } };
   }
-  renderVals() { return { ...this.renderValsA(), ...this.apiVals(this.state) }; }
+  aiAdminVals(s, v) {
+    const F = d => this.openForm(d), T = m => this.toast(m);
+    const fmt = n => Math.round(n).toLocaleString('en-US');
+    const SEG = on => ({ bg: on ? 'var(--card)' : 'transparent', fg: on ? 'var(--fg)' : 'var(--muted-fg)', shadow: on ? 'var(--shadow), 0 0 0 1px var(--border)' : 'none' });
+    const D = { allow: 50000, warn: 80, atLimit: 'request', pool: 'pause', ...(s.aiDef || {}) };
+    const setD = p => this.setState(st => ({ aiDef: { ...(st.aiDef || {}), ...p } }));
+    const over = s.aiOver || {}; const reqs = s.aiReq || AI_REQ0;
+    const pool = AI_POOL + (s.aiExtra || 0);
+    const list = AI_TEACHERS.map(([name, email, used, custom]) => { const o = over[email] || {}; const c = o.custom !== undefined ? o.custom : custom; return { name, email, used, custom: c, allow: c || D.allow, paused: !!o.paused }; });
+    const used = list.reduce((a, t) => a + t.used, 0); const sumAllow = list.reduce((a, t) => a + t.allow, 0);
+    const proj = used / AI_DAY * AI_DAYS; const pct = used / pool * 100;
+    const tone = { ok: ['On track', 'var(--success-soft)', 'var(--success-ink)', 'var(--success)', 'var(--accent-c)'], near: ['Near limit', 'var(--warning-soft)', 'var(--warning-ink)', 'var(--warning)', 'var(--warning)'], limit: ['At limit', 'var(--danger-soft)', 'var(--danger-ink)', 'var(--danger)', 'var(--danger)'], paused: ['Paused', 'var(--danger-soft)', 'var(--danger-ink)', 'var(--danger)', 'var(--danger)'] };
+    const edit = t => F({ title: 'AI allowance · ' + t.name, desc: fmt(t.used) + ' credits used so far this month.', icon: 'sparkles', submit: 'Save', fields: [
+      { name: 'mode', type: 'seg', label: 'Monthly allowance', opts: [['default', 'Default · ' + fmt(D.allow)], ['custom', 'Custom']], def: t.custom ? 'custom' : 'default' },
+      { name: 'amt', type: 'number', label: 'Credits per month', when: x => x.mode === 'custom', def: String(t.custom || D.allow), hint: 'Takes effect right away. Usage so far still counts.' },
+      { name: 'paused', type: 'toggle', text: 'Pause AI for this teacher', sub: 'AI buttons stay visible but can’t be used until you turn this off.', def: t.paused },
+    ], validate: x => x.mode === 'custom' && !(Number(x.amt) >= 1000) ? { amt: 'Enter at least 1,000' } : null,
+      onSubmit: x => { this.setState(st => ({ aiOver: { ...(st.aiOver || {}), [t.email]: { custom: x.mode === 'custom' ? Math.round(Number(x.amt)) : null, paused: !!x.paused } } })); T('Allowance saved for ' + t.name); } });
+    const out = {}; const tw = s.w - (s.w < 768 ? 28 : (s.collapsed ? 60 : 248) + 56);
+    out.setNavPos = s.w < 768 ? 'static' : 'sticky';
+    out.aic = {
+      rulesPos: tw >= 900 ? 'sticky' : 'static',
+      used: fmt(used), pool: fmt(pool), pct: Math.min(100, pct).toFixed(1) + '%', projPct: Math.min(99.5, proj / pool * 100).toFixed(1) + '%',
+      barColor: pct >= 90 ? 'var(--danger)' : pct >= 75 ? 'var(--warning)' : 'var(--accent-c)',
+      poolNote: 'Centre plan ' + fmt(AI_POOL) + (s.aiExtra ? ' + ' + fmt(s.aiExtra) + ' added' : '') + ' · resets 1 October',
+      facts: [
+        { label: 'Left this month', value: fmt(Math.max(0, pool - used)), hint: (AI_DAYS - AI_DAY) + ' days to go', hintColor: 'var(--muted-fg)' },
+        { label: 'On pace for', value: '≈ ' + fmt(Math.round(proj / 100) * 100), hint: proj > pool ? 'More than the pool. Add credits or lower allowances.' : 'by 30 September, within the pool', hintColor: proj > pool ? 'var(--warning-ink)' : 'var(--muted-fg)' },
+        { label: 'Teacher allowances', value: fmt(sumAllow), hint: 'Can add up to more than the pool, since few teachers use all of theirs', hintColor: 'var(--muted-fg)' },
+      ],
+      addCredits: () => F({ title: 'Add credits to this month', desc: 'Added to the centre pool right away and billed on your next invoice. Added credits don’t carry over to next month.', icon: 'plus', submit: 'Add credits', fields: [{ name: 'amt', type: 'seg', label: 'Amount', opts: [['50000', '50,000'], ['100000', '100,000'], ['250000', '250,000']], def: '50000' }], onSubmit: x => { this.setState(st => ({ aiExtra: (st.aiExtra || 0) + Number(x.amt) })); T(fmt(Number(x.amt)) + ' credits added to the pool'); } }),
+      requests: reqs.map(rq => { const t = list.find(x => x.email === rq.email) || { allow: D.allow, used: 0 }; return { title: rq.name + ' asked for ' + fmt(rq.amt) + ' more credits · ' + fmt(t.used) + ' of ' + fmt(t.allow) + ' used', why: rq.why, approveLabel: 'Approve ' + fmt(rq.amt),
+        approve: () => { this.setState(st => ({ aiReq: (st.aiReq || AI_REQ0).filter(x => x !== rq), aiOver: { ...(st.aiOver || {}), [rq.email]: { ...((st.aiOver || {})[rq.email] || {}), custom: t.allow + rq.amt } } })); T(rq.name + '’s allowance is now ' + fmt(t.allow + rq.amt) + ' this month'); },
+        decline: () => { this.setState(st => ({ aiReq: (st.aiReq || AI_REQ0).filter(x => x !== rq) })); T(rq.name + ' will be told the request was declined'); } }; }),
+      tSub: list.length + ' teachers used AI this month · 3 haven’t yet',
+      rows: list.slice().sort((a, b) => b.used / b.allow - a.used / a.allow).map(t => { const p = t.used / t.allow * 100; const k = t.paused ? 'paused' : p >= 100 ? (D.atLimit === 'request' ? 'limit' : 'paused') : p >= D.warn ? 'near' : 'ok'; const tn = tone[k];
+        return { name: t.name, email: t.email, initials: initials(t.name), used: fmt(t.used), allow: 'of ' + fmt(t.allow) + (t.custom ? ' · custom' : ''), pct: Math.min(100, p).toFixed(1) + '%', color: tn[4], st: tn[0], stBg: tn[1], stFg: tn[2], stDot: tn[3], edit: () => edit(t) }; }),
+      rules: [
+        { label: 'Monthly allowance per teacher', hint: 'Teachers see their balance in Settings → AI assistant.', opts: [[20000, '20,000'], [50000, '50,000'], [100000, '100,000']].map(([val, label]) => ({ label, go: () => setD({ allow: val }), ...SEG(D.allow === val) })) },
+        { label: 'Warn the teacher at', hint: 'They get a notification and an email.', opts: [[80, '80%'], [90, '90%']].map(([val, label]) => ({ label, go: () => setD({ warn: val }), ...SEG(D.warn === val) })) },
+        { label: 'When a teacher runs out', hint: 'Requests appear at the top of this page.', opts: [['pause', 'Pause until next month'], ['request', 'Let them ask for more']].map(([val, label]) => ({ label, go: () => setD({ atLimit: val }), ...SEG(D.atLimit === val) })) },
+        { label: 'When the centre pool runs out', hint: 'Extra use is billed on the next invoice.', opts: [['pause', 'Pause AI for everyone'], ['extra', 'Allow 10% extra']].map(([val, label]) => ({ label, go: () => setD({ pool: val }), ...SEG(D.pool === val) })) },
+      ],
+    };
+    const aiRow = { label: 'AI credits', value: fmt(used) + ' of ' + fmt(pool) + ' this month', pct: Math.min(100, pct).toFixed(0) + '%', color: 'var(--accent-c)' };
+    if (Array.isArray(v.storage)) out.storage = [...v.storage, aiRow];
+    if (Array.isArray(v.usage)) out.usage = [...v.usage, aiRow];
+    if (Array.isArray(v.attention) && reqs.length) { const t = list.find(x => x.email === reqs[0].email); out.attention = [{ icon: 'sparkles', bg: 'var(--accent-soft)', fg: 'var(--accent-ink)', title: reqs.length + (reqs.length > 1 ? ' teachers asked' : ' teacher asked') + ' for more AI credits', hint: reqs[0].name + (t ? ' · ' + fmt(t.used) + ' of ' + fmt(t.allow) + ' used' : ''), go: () => this.go('ai') }, ...v.attention]; }
+    return out;
+  }
+  auditUiVals(s) {
+    const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const dl = v => { const p = (v || '').split('-'); return p.length === 3 ? Number(p[2]) + ' ' + MON[Number(p[1]) - 1] : ''; };
+    const rg = s.auditRange || '7d'; const R = { today: 'Today', '7d': 'Last 7 days', '30d': 'Last 30 days', all: 'All time' };
+    const custom = () => this.openForm({ title: 'Custom date range', icon: 'calendar', submit: 'Apply', fields: [{ name: 'from', type: 'date', label: 'From', req: true, def: s.auditFrom || '2026-09-18' }, { name: 'to', type: 'date', label: 'To', req: true, def: s.auditTo || '2026-09-24' }], validate: x => x.from && x.to && x.from > x.to ? { to: 'Must be on or after the start date' } : null, onSubmit: x => this.setState({ auditRange: 'custom', auditFrom: x.from, auditTo: x.to }) });
+    return {
+      auditQ: s.auditQ || '', onAuditQ: e => this.setState({ auditQ: e.target.value }), clearAuditQ: e => { e && e.preventDefault && e.preventDefault(); this.setState({ auditQ: '' }); },
+      auditRangeLabel: rg === 'custom' ? dl(s.auditFrom) + ' – ' + dl(s.auditTo) : R[rg],
+      auditRangeMenu: e => this.openMenu(e, () => [...Object.entries(R).map(([k, label]) => ({ label, check: rg === k, go: () => this.setState({ auditRange: k, menu: null }) })), { label: 'Custom range…', icon: 'calendar-range', sep: true, go: custom }], { w: 220 }),
+      auditFiltered: !!(s.auditQ || '').trim() || rg !== '7d', auditReset: () => this.setState({ auditQ: '', auditRange: '7d', auditFrom: null, auditTo: null }),
+      auditEmpty: !!this._auditEmpty,
+    };
+  }
+  renderVals() { const a = { ...this.renderValsA(), ...this.apiVals(this.state) }; const b = { ...a, ...this.aiAdminVals(this.state, a), ...this.auditUiVals(this.state) }; return { ...b, navGroups: (b.navGroups || []).map(g => ({ ...g, showSep: !!g.label && !g.showLabel })) }; }
   renderValsA() { const v = this.renderValsInner(); return { ...v, ...this.engineVals(this.state), ...this.wireA(this.state, v) }; }
   wireA(s, v) {
     const F = d => this.openForm(d), T = m => this.toast(m);
@@ -747,7 +871,7 @@ class Component extends DCLogic {
     out.classRows = [...(s.classTab === 'archived' ? [] : exRows), ...(v.classRows || [])].filter(c => s.classTab === 'archived' || !arch.includes(c.name)).map(c => ({ ...c, menu: e => this.openMenu(e, () => [{ label: 'Edit class', icon: 'pencil', go: () => classForm(c) }, { label: 'Change teacher', icon: 'user-round-cog', go: () => F({ title: 'Change teacher', desc: c.name, icon: 'user-round-cog', submit: 'Change', fields: [{ name: 't', type: 'select', label: 'New teacher', opts: TEACH, def: c.teacher }, { name: 'n', type: 'toggle', text: 'Tell both teachers', def: true }], onSubmit: x => T(c.name + ' now taught by ' + x.t) }) }, { label: 'Rotate join code', icon: 'refresh-cw', go: c.rotate }, arch.includes(c.name) || s.classTab === 'archived' ? { label: 'Restore class', icon: 'archive-restore', sep: true, go: () => this.setState(st => ({ archivedCls: (st.archivedCls || []).filter(n => n !== c.name) })) } : { label: 'Archive class', icon: 'archive', danger: true, sep: true, go: () => this.confirmForm('Archive ' + c.name + '?', 'Students can no longer join or start tests. Results are kept.', 'Archive', () => this.setState(st => ({ archivedCls: [...(st.archivedCls || []), c.name] })), true) }]) }));
     out.toastExport = () => F({ title: 'Export audit log', icon: 'download', submit: 'Export', fields: [{ name: 'range', type: 'seg', label: 'Period', opts: ['Last 7 days', 'Last 30 days', 'This year'] }, { name: 'fmt', type: 'seg', label: 'Format', opts: ['CSV', 'JSON'] }, { name: 'f', type: 'toggle', text: 'Only the current filter', def: s.auditF !== 'all' }], onSubmit: x => T('Exporting ' + x.range.toLowerCase() + ' as ' + x.fmt) });
     out.toastLogo = () => F({ title: 'Replace logo', icon: 'image', submit: 'Save logo', fields: [{ name: 'f', type: 'file', req: true, accept: 'Square SVG or PNG, at least 256 × 256', sample: 'centre-logo.svg' }, { name: 'dark', type: 'file', label: 'Version for dark mode', accept: 'Optional · light logo on transparent', sample: 'centre-logo-dark.svg' }], onSubmit: () => { this.setState({ setDirty: true }); T('Logo uploaded. Save settings to apply.'); } });
-    out.toastExportAll = () => F({ title: 'Export all data?', desc: 'Users, classes, tests and results as a ZIP. The download link expires after 24 hours.', icon: 'download', submit: 'Request export', fields: [{ name: 'email', type: 'email', label: 'Send the link to', def: 'quang.tran@quizzivy.com', req: true }, { name: 'ans', type: 'toggle', text: 'Include attempt answers', sub: 'Makes the file much larger', def: false }], onSubmit: x => T('Export requested. Link goes to ' + x.email) });
+    out.toastExportAll = () => F({ title: 'Export all data?', desc: 'Users, classes, tests and results as a ZIP. The download link expires after 24 hours.', icon: 'download', submit: 'Request export', fields: [{ name: 'email', type: 'email', label: 'Send the link to', def: 'thuong.vo@quizzivy.com', req: true }, { name: 'ans', type: 'toggle', text: 'Include attempt answers', sub: 'Makes the file much larger', def: false }], onSubmit: x => T('Export requested. Link goes to ' + x.email) });
     return out;
   }
   renderValsInner() {
@@ -761,10 +885,10 @@ class Component extends DCLogic {
       { label: '', showLabel: false, items: [item('overview', 'Overview', 'layout-dashboard')] },
       { label: 'People', showLabel: showLabels, items: [item('users', 'Users', 'users', 4), item('roles', 'Roles & permissions', 'key-round')] },
       { label: 'Teaching', showLabel: showLabels, items: [item('classes', 'Classes', 'graduation-cap')] },
-      { label: 'System', showLabel: showLabels, items: [item('audit', 'Audit log', 'scroll-text'), item('apiref', 'API reference', 'book-open-text'), item('settings', 'Settings', 'settings')] },
+      { label: 'System', showLabel: showLabels, items: [item('ai', 'AI credits', 'sparkles', (s.aiReq || AI_REQ0).length || null), item('audit', 'Audit log', 'scroll-text'), item('apiref', 'API reference', 'book-open-text'), item('settings', 'Settings', 'settings')] },
     ];
-    const titles = { overview: 'Overview', users: 'Users', roles: 'Roles & permissions', classes: 'Classes', audit: 'Audit log', apiref: 'API reference', settings: 'Settings' };
-    const r = { overview: route === 'overview', users: route === 'users', roles: route === 'roles', classes: route === 'classes', audit: route === 'audit', apiref: route === 'apiref', settings: route === 'settings' };
+    const titles = { overview: 'Overview', users: 'Users', roles: 'Roles & permissions', classes: 'Classes', audit: 'Audit log', apiref: 'API reference', settings: 'Settings', ai: 'AI credits' };
+    const r = { overview: route === 'overview', users: route === 'users', roles: route === 'roles', classes: route === 'classes', audit: route === 'audit', apiref: route === 'apiref', ai: route === 'ai', settings: route === 'settings' };
 
     // users
     const allUsers = [...s.extraUsers, ...USERS].map((u, i) => ({ id: u[1], name: u[0], email: u[1], role: s.roleOver[u[1]] || u[2], methods: u[3], classes: u[4], last: u[5], status: s.statusOver[u[1]] || u[6] }));
@@ -789,8 +913,12 @@ class Component extends DCLogic {
     const cls = CLASSES.filter(c => s.classTab === 'active' ? c[6] : !c[6]);
 
     // audit
-    const auditRows = AUDIT.filter(a => s.auditF === 'all' || a[2] === s.auditF || (s.auditF === 'user' && a[2] === 'password'));
-    const ap = this.pager('audit', s.auditF === 'all' ? 1248 : auditRows.length * 12, auditRows.length ? auditRows : AUDIT, 'entries');
+    const aq = (s.auditQ || '').trim().toLowerCase(); const rg = s.auditRange || '7d';
+    const inRange = a => { const d = Number(a[0].split(' ')[0]); if (rg === 'today') return d === 24; if (rg === '7d') return d >= 18; if (rg === 'custom') { const f0 = Number((s.auditFrom || '').slice(8, 10)) || 1, f1 = Number((s.auditTo || '').slice(8, 10)) || 31; return d >= f0 && d <= f1; } return true; };
+    const aFiltered = !!aq || rg !== '7d';
+    const auditRows = AUDIT.filter(a => (s.auditF === 'all' || a[2] === s.auditF || (s.auditF === 'user' && a[2] === 'password')) && inRange(a) && (!aq || (a[1] + ' ' + a[3] + ' ' + a[4]).toLowerCase().includes(aq)));
+    const ap = this.pager('audit', aFiltered ? auditRows.length : s.auditF === 'all' ? 1248 : auditRows.length * 12, aFiltered ? auditRows : (auditRows.length ? auditRows : AUDIT), 'entries');
+    this._auditEmpty = aFiltered && !auditRows.length;
 
     // settings
     const org = { name: 'Quizzivy English Centre', short: 'Quizzivy', site: 'quizzivy.com', ...(s.org || {}) };

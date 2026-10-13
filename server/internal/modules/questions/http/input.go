@@ -21,7 +21,7 @@ func ToAPIInput(in domain.Input) (openapi.StoredQuestionInput, error) {
 		out.MediaAssetId = httpapi.Ptr(httpapi.ParseUUID(*in.MediaAssetID))
 	}
 	if in.Audio != nil {
-		out.Audio = &openapi.AudioPolicy{MaxPlays: in.Audio.MaxPlays, AllowSeek: in.Audio.AllowSeek, ShowTranscriptAfterSubmit: in.Audio.ShowTranscriptAfterSubmit}
+		out.Audio = &openapi.AudioPolicy{MaxPlays: in.Audio.MaxPlays, AllowSeek: in.Audio.AllowSeek, ShowTranscriptAfterSubmit: in.Audio.ShowTranscriptAfterSubmit, AllowPause: httpapi.Ptr(in.Audio.PauseAllowed())}
 	}
 	options := make([]struct {
 		Content   json.RawMessage `json:"content,omitempty"`

@@ -7,6 +7,7 @@ import {
   restore as restoreEvents,
 } from "@/features/integrity/buffer";
 import { ApiError } from "@/lib/api/errors";
+import { remainingMs } from "./timeLeft";
 import {
   getAttempt,
   recordAudioPlay,
@@ -482,14 +483,6 @@ export function cancelScheduledFlush() {
   }
 }
 
-/** Remaining time, from the SERVER's clock. */
-export function remainingMs(
-  state: Pick<TakeTestState, "deadlineAt" | "offsetMs">,
-): number {
-  // Never Date.now() alone.
-  return Math.max(0, state.deadlineAt - (Date.now() + state.offsetMs));
-}
-
 function refusedDeadline(error: unknown): number | null {
   return error instanceof ApiError && error.code === "DEADLINE_NOT_REACHED"
     ? serverDeadline(error.details?.["deadlineAt"])
@@ -531,7 +524,7 @@ export const takeTestStore = {
   flush: () => useTakeTestStore.getState().flush(),
 };
 
-export { getAttempt };
+export { getAttempt, remainingMs };
 
 function persistPending(state: TakeTestState) {
   if (state.attemptId === null || state.studentId === null || state.sessionId === null)

@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 import { QuestionAudio } from "@/features/take-test/components/QuestionAudio";
 import { recordAudioPlay, type StudentQuestion } from "@/features/take-test/api";
 import { useTakeTestStore } from "@/features/take-test/store";
+import { forgetAllPlaces } from "@/features/media/playback";
 import { beginSession, clearSession, pending } from "@/features/integrity/buffer";
-import { session } from "./support";
+import { renderWithPaper, session } from "./support";
 import "@/lib/i18n";
 
 vi.mock("@/features/take-test/api", () => ({
@@ -37,7 +38,12 @@ const question: StudentQuestion = {
     originalFilename: "q1.mp3",
     createdAt: "2026-09-01T00:00:00.000Z",
   },
-  audio: { maxPlays: 2, allowSeek: false, showTranscriptAfterSubmit: false },
+  audio: {
+    maxPlays: 2,
+    allowSeek: false,
+    showTranscriptAfterSubmit: false,
+    allowPause: true,
+  },
 };
 
 let play: ReturnType<typeof vi.fn>;
@@ -77,6 +83,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  forgetAllPlaces();
   clearSession("att-1");
   useTakeTestStore.getState().reset();
   vi.restoreAllMocks();
@@ -87,7 +94,9 @@ const pressPlay = () => fireEvent.click(screen.getByRole("button", { name: "Phá
 const recorded = () => pending().map((event) => [event.kind, event.questionId]);
 
 function mount() {
-  return render(<QuestionAudio question={question} onExpired={() => undefined} />);
+  return renderWithPaper(
+    <QuestionAudio question={question} onExpired={() => undefined} />,
+  );
 }
 
 it("records the play, then its end, for the question", () => {
@@ -141,11 +150,16 @@ it("records a jump the player put back", () => {
 });
 
 it("records no seek when the teacher allowed seeking", () => {
-  render(
+  renderWithPaper(
     <QuestionAudio
       question={{
         ...question,
-        audio: { maxPlays: 2, allowSeek: true, showTranscriptAfterSubmit: false },
+        audio: {
+          maxPlays: 2,
+          allowSeek: true,
+          showTranscriptAfterSubmit: false,
+          allowPause: true,
+        },
       }}
       onExpired={() => undefined}
     />,
@@ -180,5 +194,67 @@ it("records nothing for a pause before the start, and still counts the play", as
 
   expect(recorded()).toEqual([["audio_play", "q1"]]);
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(counted).toHaveBeenCalledTimes(1);
+});
+
+it("records no second play for a resume", () => {
+  mount();
+
+  pressPlay();
+  fireEvent.play(audio());
+  audio().currentTime = 4;
+  fireEvent.timeUpdate(audio());
+  paused = true;
+  fireEvent.pause(audio());
+  fireEvent.click(screen.getByRole("button", { name: "Nghe tiếp" }));
+  paused = true;
+  fireEvent.ended(audio());
+
+  expect(recorded()).toEqual([
+    ["audio_play", "q1"],
+    ["audio_ended", "q1"],
+  ]);
+  expect(counted).toHaveBeenCalledTimes(1);
+});
+
+it("resumes a play left on another question where it stopped, recording nothing new", () => {
+  const view = mount();
+  pressPlay();
+  audio().currentTime = 6;
+  fireEvent.timeUpdate(audio());
+  view.unmount();
+
+  mount();
+  fireEvent.click(screen.getByRole("button", { name: "Nghe tiếp" }));
+  fireEvent.loadedMetadata(audio());
+
+  expect(audio().currentTime).toBe(6);
+  expect(recorded()).toEqual([["audio_play", "q1"]]);
+  expect(counted).toHaveBeenCalledTimes(1);
+});
+
+it("keeps a question's recording that cannot be paused playing, and a stop from elsewhere resumes for no play", () => {
+  renderWithPaper(
+    <QuestionAudio
+      question={{ ...question, audio: { ...question.audio!, allowPause: false } }}
+      onExpired={() => undefined}
+    />,
+  );
+
+  pressPlay();
+  fireEvent.play(audio());
+  audio().currentTime = 3;
+  fireEvent.timeUpdate(audio());
+  const inert = screen.getByRole("button", { name: "Tạm dừng" });
+  expect(inert).toHaveAttribute("aria-disabled", "true");
+  fireEvent.click(inert);
+  expect(HTMLMediaElement.prototype.pause).not.toHaveBeenCalled();
+
+  paused = true;
+  fireEvent.pause(audio());
+  fireEvent.click(screen.getByRole("button", { name: "Nghe tiếp" }));
+
+  expect(play).toHaveBeenCalledTimes(2);
+  expect(recorded()).toEqual([["audio_play", "q1"]]);
   expect(counted).toHaveBeenCalledTimes(1);
 });

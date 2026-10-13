@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -7,6 +7,9 @@ import { http } from "msw";
 import ImportWorkspacePage from "@/features/imports/pages/teacher/ImportWorkspacePage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
+import { teacherUser } from "@tests/support/fixtures";
+import { useAuthStore } from "@/stores/auth";
+import { aiOn, month } from "../ai/support";
 import {
   BASE,
   capabilities,
@@ -18,7 +21,7 @@ import {
 import "@/lib/i18n";
 
 type Call =
-  | { kind: "create"; requestId: string; title: string }
+  | { kind: "create"; requestId: string; title: string; readWithAi?: boolean }
   | { kind: "upload"; role: string; uploadId: string; expectedRevision: number }
   | { kind: "process"; requestId: string; expectedRevision: number };
 
@@ -494,5 +497,226 @@ describe("starting a Word import", () => {
     expect(user.router.state.historyAction, "the draft's address is replaced").toBe(
       "REPLACE",
     );
+  });
+});
+
+describe("the Read with AI card (V-11)", () => {
+  const card = "Đọc bằng AI";
+  const scansAccepted =
+    /^Nhận tệp \.docx và \.pdf, tối đa 25 MB mỗi tệp, kể cả PDF chụp hoặc scan\./;
+  const scansRefused =
+    /^Nhận tệp \.docx và \.pdf, tối đa 25 MB mỗi tệp\. Không nhận .* PDF chụp hoặc scan/;
+  const privacyAi =
+    /Trang quét hoặc ảnh chụp trong lượt nhập này được một dịch vụ AI bên ngoài Quizzivy đọc\./;
+
+  beforeEach(() =>
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    ),
+  );
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    useAuthStore.setState({ accessToken: null, user: null });
+  });
+
+  function readImports(on: boolean) {
+    useAuthStore.setState({
+      user: { ...teacherUser, preferences: { ai: { readImports: on } } },
+    });
+  }
+
+  async function startWith(user: ReturnType<typeof renderPage>, file: File) {
+    await user.upload(screen.getByLabelText("Tệp đề thi"), file);
+    await user.click(screen.getByRole("button", { name: "Bắt đầu xử lý" }));
+    expect(await screen.findByText("detail page")).toBeInTheDocument();
+    return calls.find((call) => call.kind === "create");
+  }
+
+  it("is absent while the server has no assistant", async () => {
+    aiOn({ ai: false });
+    renderPage();
+    await screen.findByText(scansRefused);
+    expect(screen.queryByRole("switch", { name: card })).toBeNull();
+  });
+
+  it("is absent for a teacher without ai.use", async () => {
+    aiOn();
+    useAuthStore.setState({
+      user: {
+        ...teacherUser,
+        permissions: teacherUser.permissions.filter((key) => key !== "ai.use"),
+      },
+    });
+    renderPage();
+    await screen.findByText(scansRefused);
+    expect(screen.queryByRole("switch", { name: card })).toBeNull();
+  });
+
+  it("starts off, as the imports preference does by default, and creates as before", async () => {
+    aiOn();
+    const user = renderPage();
+    const toggle = await screen.findByRole("switch", { name: card });
+    expect(toggle).not.toBeChecked();
+    expect(toggle).toHaveAccessibleDescription(
+      "Đọc được bản quét, ảnh chụp đề in và bố cục lạ.",
+    );
+    expect(screen.getByText(scansRefused)).toBeInTheDocument();
+    expect(screen.queryByText(privacyAi)).toBeNull();
+    const create = await startWith(user, docx("de-thi.docx"));
+    expect(create).not.toHaveProperty("readWithAi");
+  });
+
+  it("starts on from the preference, switches the accepts line and the privacy note, and sends readWithAi", async () => {
+    aiOn();
+    readImports(true);
+    const user = renderPage();
+    const toggle = await screen.findByRole("switch", { name: card });
+    expect(toggle).toBeChecked();
+    expect(screen.getByText(scansAccepted)).toBeInTheDocument();
+    expect(screen.getByText(privacyAi)).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Các bước sẽ chạy" })).getByText(
+        "Bản quét được đọc bằng AI",
+      ),
+    ).toBeInTheDocument();
+    const create = await startWith(
+      user,
+      new File(["%PDF-1.4"], "scan.pdf", { type: "application/pdf" }),
+    );
+    expect(create).toMatchObject({ title: "scan", readWithAi: true });
+  });
+
+  it("turns on for this import alone, with the keyboard, and writes no preference", async () => {
+    aiOn();
+    const user = renderPage();
+    const toggle = await screen.findByRole("switch", { name: card });
+    toggle.focus();
+    await user.keyboard(" ");
+    expect(toggle).toBeChecked();
+    expect(screen.getByText(scansAccepted)).toBeInTheDocument();
+    expect(useAuthStore.getState().user?.preferences?.ai).toBeUndefined();
+    const create = await startWith(user, docx("de-thi.docx"));
+    expect(create).toMatchObject({ readWithAi: true });
+  });
+
+  it("stays drawn but cannot be turned on while the allowance is used up, and says why", async () => {
+    aiOn({ usage: month({ used: 20000, left: 0 }) });
+    readImports(true);
+    const user = renderPage();
+    await screen.findByText("Bạn đã dùng hết hạn mức. Hãy xin thêm trong Cài đặt.");
+    const toggle = screen.getByRole("switch", { name: card });
+    expect(toggle).toHaveAttribute("aria-disabled", "true");
+    expect(toggle).not.toBeChecked();
+    expect(toggle).toHaveAccessibleDescription(
+      /Bạn đã dùng hết hạn mức\. Hãy xin thêm trong Cài đặt\.$/,
+    );
+    await user.click(toggle);
+    expect(toggle).not.toBeChecked();
+    expect(screen.getByText(scansRefused)).toBeInTheDocument();
+    const create = await startWith(user, docx("de-thi.docx"));
+    expect(create).not.toHaveProperty("readWithAi");
+  });
+
+  it("says why while the teacher is paused", async () => {
+    aiOn({ usage: month({ paused: true }) });
+    renderPage();
+    expect(
+      await screen.findByText("AI đang tạm dừng với tài khoản của bạn."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: card })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
+  it("is not offered for pasted text, which is sent as before", async () => {
+    aiOn();
+    readImports(true);
+    const user = renderPage("/teacher/imports/new?source=paste");
+    await screen.findByRole("region", { name: "Đã đọc được" });
+    expect(screen.queryByRole("switch", { name: card })).toBeNull();
+    expect(screen.queryByText(privacyAi)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Tải tệp lên" }));
+    expect(await screen.findByRole("switch", { name: card })).toBeChecked();
+  });
+
+  it("is not offered when the server takes no PDF", async () => {
+    aiOn();
+    server.use(
+      http.get(`${BASE}/teacher/imports/limits`, () =>
+        contractJson("/teacher/imports/limits", "get", 200, {
+          pasteMaxCharacters: 100000,
+          maxBytes: 25 * 1024 * 1024,
+          formats: ["docx"],
+        }),
+      ),
+    );
+    renderPage();
+    await screen.findByText(/^Nhận tệp \.docx, tối đa 25 MB/);
+    expect(screen.queryByRole("switch", { name: card })).toBeNull();
+  });
+
+  it("reads the assistant again when the create refuses readWithAi, and then creates without it", async () => {
+    aiOn();
+    readImports(true);
+    let ai = true;
+    let refused = false;
+    server.use(
+      http.get(`${BASE}/public/status`, () =>
+        contractJson("/public/status", "get", 200, { maintenance: null, ai }),
+      ),
+      http.post(`${BASE}/teacher/imports`, async ({ request }) => {
+        const body = (await request.json()) as {
+          requestId: string;
+          title: string;
+          readWithAi?: boolean;
+        };
+        calls.push({ kind: "create", ...body });
+        if (body.readWithAi === true && !refused) {
+          refused = true;
+          ai = false;
+          return contractJson(
+            "/teacher/imports",
+            "post",
+            422,
+            errorBody("VALIDATION_FAILED", "Máy chủ chưa bật trợ lý AI.", {
+              readWithAi: "unavailable",
+            }),
+          );
+        }
+        return contractJson(
+          "/teacher/imports",
+          "post",
+          201,
+          wordImport({
+            title: body.title,
+            status: "awaiting_sources",
+            revision,
+            sourceRevision: 0,
+            sources: [],
+          }),
+        );
+      }),
+    );
+    const user = renderPage();
+    await screen.findByRole("switch", { name: card });
+    await user.upload(screen.getByLabelText("Tệp đề thi"), docx("de-thi.docx"));
+    await user.click(screen.getByRole("button", { name: "Bắt đầu xử lý" }));
+    expect(await screen.findByText("Máy chủ chưa bật trợ lý AI.")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByRole("switch", { name: card })).toBeNull(),
+    );
+    await user.click(screen.getByRole("button", { name: "Bắt đầu xử lý" }));
+    expect(await screen.findByText("detail page")).toBeInTheDocument();
+    const creates = calls.filter((call) => call.kind === "create");
+    expect(creates).toHaveLength(2);
+    expect(creates[1]).not.toHaveProperty("readWithAi");
+    expect(creates[1]?.requestId).not.toBe(creates[0]?.requestId);
   });
 });

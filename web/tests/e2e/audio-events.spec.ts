@@ -13,7 +13,13 @@ const SOURCE = "https://assets.example/unit5-listening.mp3";
 const BLOCKED =
   "Trình duyệt chưa phát được âm thanh. Hãy bấm phát lại; nếu vẫn không nghe được, hãy kiểm tra quyền phát âm thanh của trang này.";
 
-async function open(page: Page, silentForMs = 0) {
+async function open(
+  page: Page,
+  {
+    silentForMs = 0,
+    allowPause = true,
+  }: { silentForMs?: number; allowPause?: boolean } = {},
+) {
   const data = paper();
   data.questions[0] = {
     ...data.questions[0]!,
@@ -27,7 +33,12 @@ async function open(page: Page, silentForMs = 0) {
       originalFilename: "unit5-listening.mp3",
       createdAt: data.serverTime,
     },
-    audio: { maxPlays: 2, allowSeek: false, showTranscriptAfterSubmit: false },
+    audio: {
+      maxPlays: 2,
+      allowSeek: false,
+      showTranscriptAfterSubmit: false,
+      allowPause,
+    },
   };
   let firstAsked: number | null = null;
   await page.route(SOURCE, async (route) => {
@@ -81,13 +92,100 @@ test("a play that runs to the end is recorded with its end", async ({ page }) =>
     page.getByRole("button", { name: "Tạm dừng", exact: true }),
   ).toBeVisible();
   await expect(page.getByText(/^0:0[1-9] \/ 0:10$/)).toBeVisible();
-  await expect(play).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("button", { name: "Phát lại", exact: true })).toBeVisible(
+    { timeout: 15_000 },
+  );
+  await expect(
+    page.getByText("Đã nghe xong · còn 1 lượt", { exact: true }),
+  ).toBeVisible();
 
   await page.locator("label").filter({ hasText: "Đáp án A" }).click();
   await expect.poll(recorded.audioEvents).toEqual([
     ["audio_play", "q1"],
     ["audio_ended", "q1"],
   ]);
+  expect(recorded.countedPlays()).toBe(1);
+});
+
+test("a pause and a resume record one play and its end", async ({ page }) => {
+  test.setTimeout(60_000);
+  const recorded = await open(page);
+  const audio = page.locator("audio");
+  await expect
+    .poll(() => audio.evaluate((element: HTMLAudioElement) => element.readyState))
+    .toBeGreaterThan(0);
+
+  await page.getByRole("button", { name: "Phát", exact: true }).click();
+  await expect
+    .poll(() => audio.evaluate((element: HTMLAudioElement) => element.currentTime))
+    .toBeGreaterThan(1);
+  await page.getByRole("button", { name: "Tạm dừng", exact: true }).click();
+  await expect(page.getByText("Đã tạm dừng", { exact: true })).toBeVisible();
+  const stoppedAt = await audio.evaluate(
+    (element: HTMLAudioElement) => element.currentTime,
+  );
+  await page.getByRole("button", { name: "Nghe tiếp", exact: true }).click();
+  await expect
+    .poll(() => audio.evaluate((element: HTMLAudioElement) => element.currentTime))
+    .toBeGreaterThan(stoppedAt);
+  await expect(page.getByRole("button", { name: "Phát lại", exact: true })).toBeVisible(
+    { timeout: 15_000 },
+  );
+
+  await page.locator("label").filter({ hasText: "Đáp án A" }).click();
+  await expect.poll(recorded.audioEvents).toEqual([
+    ["audio_play", "q1"],
+    ["audio_ended", "q1"],
+  ]);
+  expect(recorded.countedPlays()).toBe(1);
+});
+
+test("a recording that cannot be paused plays on through a press of its inert button", async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  const recorded = await open(page, { allowPause: false });
+  const audio = page.locator("audio");
+  const position = () =>
+    audio.evaluate((element: HTMLAudioElement) => element.currentTime);
+  const paused = () => audio.evaluate((element: HTMLAudioElement) => element.paused);
+  await expect
+    .poll(() => audio.evaluate((element: HTMLAudioElement) => element.readyState))
+    .toBeGreaterThan(0);
+  await expect(
+    page.getByText(
+      "Bấm phát khi bạn đã sẵn sàng. Bài nghe này không tạm dừng được sau khi bắt đầu.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Phát", exact: true }).click();
+  const pause = page.getByRole("button", { name: "Tạm dừng", exact: true });
+  await expect(pause).toHaveAttribute("aria-disabled", "true");
+  await expect(
+    page.getByText("Đang phát · bài nghe này không tạm dừng được", { exact: true }),
+  ).toBeVisible();
+  await expect.poll(position).toBeGreaterThan(0.5);
+
+  await pause.focus();
+  await expect(pause).toBeFocused();
+  for (const key of ["Space", "Enter"]) {
+    const pressedAt = await position();
+    await page.keyboard.press(key);
+    await expect.poll(position).toBeGreaterThan(pressedAt + 0.5);
+    expect(await paused()).toBe(false);
+  }
+  await expect(
+    page.getByText("Đang phát · bài nghe này không tạm dừng được", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("Đã tạm dừng", { exact: true })).toHaveCount(0);
+  await expect(pause).toHaveAttribute("aria-disabled", "true");
+  expect(recorded.countedPlays()).toBe(1);
+
+  await page.locator("label").filter({ hasText: "Đáp án A" }).click();
+  await expect
+    .poll(() => recorded.audioEvents().filter(([kind]) => kind !== "audio_ended"))
+    .toEqual([["audio_play", "q1"]]);
   expect(recorded.countedPlays()).toBe(1);
 });
 
@@ -108,7 +206,7 @@ test("a blocked play is recorded", async ({ page }) => {
 });
 
 test("a pause before the audio has started shows no error", async ({ page }) => {
-  const recorded = await open(page, 3_000);
+  const recorded = await open(page, { silentForMs: 3_000 });
   const play = page.getByRole("button", { name: "Phát", exact: true });
   const recordingArrivedOrPlayerGone = () =>
     page.evaluate(() => {

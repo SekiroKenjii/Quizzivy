@@ -16,6 +16,7 @@ const policy = z.object({
   maxPlays: z.number().int().min(1).nullable(),
   allowSeek: z.boolean(),
   showTranscriptAfterSubmit: z.boolean(),
+  allowPause: z.boolean().exactOptional(),
 });
 const question = z.object({
   type: z.enum([
@@ -144,6 +145,59 @@ export function readGroupRecovery(
   )
     return null;
   return { ...parsed.data, bundle };
+}
+
+type AudioPolicy = GroupBundle["group"]["recordings"][number]["policy"];
+
+/**
+ * withStoredPause gives each audio policy of a recovered draft that has no
+ * `allowPause` the value `stored` holds for the same recording or member
+ * question, by id, and true where `stored` holds none. A draft written before
+ * the field existed therefore restores the rule last saved, and cannot switch
+ * pausing back on. A policy that has the field keeps it.
+ */
+export function withStoredPause(
+  recovery: GroupRecovery,
+  stored: GroupBundle,
+): GroupRecovery {
+  const recordings = new Map(
+    stored.group.recordings.map((recording) => [
+      recording.id,
+      recording.policy.allowPause,
+    ]),
+  );
+  const questions = new Map(
+    stored.questions.map((question) => [question.id, question.input.audio?.allowPause]),
+  );
+  const { group, questions: members } = recovery.bundle;
+  return {
+    ...recovery,
+    bundle: {
+      group: {
+        ...group,
+        recordings: group.recordings.map((recording) => ({
+          ...recording,
+          policy: withPause(recording.policy, recordings.get(recording.id)),
+        })),
+      },
+      questions: members.map((question) =>
+        question.input.audio
+          ? {
+              ...question,
+              input: {
+                ...question.input,
+                audio: withPause(question.input.audio, questions.get(question.id)),
+              },
+            }
+          : question,
+      ),
+    },
+  };
+}
+
+function withPause(policy: AudioPolicy, stored: boolean | undefined): AudioPolicy {
+  if (policy.allowPause !== undefined) return policy;
+  return { ...policy, allowPause: stored ?? true };
 }
 
 /** independentBundle remaps graph identities while preserving material gap and rich blank links for recovery as a new bank group. */

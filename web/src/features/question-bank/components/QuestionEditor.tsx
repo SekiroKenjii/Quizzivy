@@ -5,10 +5,8 @@ import { PageAside } from "@/components/shared/PageAside";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { MediaAsset } from "@/features/media/api";
 import { QuestionMediaField } from "@/features/question-bank/components/QuestionMediaField";
-import {
-  ExplanationField,
-  QuestionPromptAnswers,
-} from "@/features/question-bank/components/QuestionPromptAnswers";
+import { ExplanationField } from "@/features/question-bank/components/ExplanationField";
+import { QuestionPromptAnswers } from "@/features/question-bank/components/QuestionPromptAnswers";
 import { TagsField } from "@/features/question-bank/components/TagsField";
 import type {
   QuestionType,

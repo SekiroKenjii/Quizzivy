@@ -68,7 +68,14 @@ type AudioPolicy struct {
 	MaxPlays                  *int
 	AllowSeek                 bool
 	ShowTranscriptAfterSubmit bool
+	// AllowPause nil means the writer did not say: a create stores true and an
+	// update keeps the stored value. A policy read from storage always has it.
+	AllowPause *bool
 }
+
+// PauseAllowed reports whether a student may pause the recording. A policy
+// that does not say allows it, as every recording did before the control.
+func (p AudioPolicy) PauseAllowed() bool { return p.AllowPause == nil || *p.AllowPause }
 
 // TypeFacets is how many bank questions each type holds for one search.
 type TypeFacets struct {

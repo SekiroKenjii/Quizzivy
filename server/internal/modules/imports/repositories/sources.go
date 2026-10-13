@@ -15,7 +15,17 @@ func (s *Postgres) Sources(ctx context.Context, importID string, revision int64)
 	if err == nil && len(sources) == 0 {
 		return nil, domain.ErrNotFound
 	}
-	return sources, err
+	if err != nil {
+		return sources, err
+	}
+	var readWithAi bool
+	if err := s.QueryRow(ctx, `SELECT read_with_ai FROM app.word_imports WHERE id=$1`, importID).Scan(&readWithAi); err != nil {
+		return nil, err
+	}
+	for i := range sources {
+		sources[i].ReadWithAi = readWithAi
+	}
+	return sources, nil
 }
 
 func (s *Postgres) Reserve(ctx context.Context, in domain.Reserve, quotas domain.Quotas) (domain.Source, error) {

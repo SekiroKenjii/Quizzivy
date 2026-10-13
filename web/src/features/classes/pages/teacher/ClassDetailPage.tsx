@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { DeckScale } from "@/components/ui/deck-scale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadError } from "@/components/shared/ListState";
+import { StickyAside } from "@/components/shared/StickyAside";
 import { useCan } from "@/features/auth/permissions";
 import { fetchClass } from "@/features/classes/api";
 import { AddMemberDialog } from "@/features/classes/components/AddMemberDialog";
@@ -27,7 +28,7 @@ const TWO_COLUMNS = 1000;
  * Classes, the name with its student count, Add student and Assign to class;
  * then, side by side from 1000px of content (two thirds and one third), the
  * members and the class's assignments, and the join code and the class's own
- * words. Writing anything needs `teaching.classes.write`; without it the
+ * words, which stick as the page scrolls. Writing anything needs `teaching.classes.write`; without it the
  * page reads. A class that is missing, or another teacher's, is not found;
  * any other failure keeps the plain "Class" heading above a load error.
  */
@@ -107,10 +108,14 @@ export default function ClassDetailPage() {
           <ClassMembersCard klass={data} canWrite={canWrite} />
           <ClassAssignmentsCard classId={data.id} />
         </div>
-        <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))] items-start gap-4.5">
+        <StickyAside
+          as="div"
+          docked={two}
+          className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))] items-start gap-4.5"
+        >
           <JoinCodePanel klass={data} canWrite={canWrite} />
           <ClassSettingsCard klass={data} canWrite={canWrite} />
-        </div>
+        </StickyAside>
       </div>
 
       <AddMemberDialog

@@ -22,6 +22,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"quizzivy/internal/core"
+	"quizzivy/internal/core/wiring"
 	identitydomain "quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/platform/config"
 )
@@ -41,6 +42,11 @@ func boot(t *testing.T, configure ...func(*config.Config)) *world {
 
 func bootLogging(t *testing.T, logger *slog.Logger, configure ...func(*config.Config)) *world {
 	t.Helper()
+	return assemble(t, logger, nil, configure...)
+}
+
+func assemble(t *testing.T, logger *slog.Logger, options []wiring.Option, configure ...func(*config.Config)) *world {
+	t.Helper()
 	cfg := e2eConfig(t, configure...)
 	ctx := context.Background()
 	var app *core.App
@@ -58,7 +64,7 @@ func bootLogging(t *testing.T, logger *slog.Logger, configure ...func(*config.Co
 		}
 	})
 	var err error
-	app, err = core.New(ctx, cfg, logger)
+	app, err = core.New(ctx, cfg, logger, options...)
 	if err != nil {
 		t.Fatalf("assemble the application: %v", err)
 	}

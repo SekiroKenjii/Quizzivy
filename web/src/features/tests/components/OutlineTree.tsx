@@ -88,6 +88,8 @@ export interface OutlineQuestion {
 
 type DropPosition = "before" | "after" | undefined;
 
+const NO_FILES: ReadonlyMap<string, string> = new Map();
+
 interface OutlineTreeProps {
   sections: OutlineSection[];
   questions: Map<string, OutlineQuestion>;
@@ -99,14 +101,23 @@ interface OutlineTreeProps {
   onPickFromBank: (opener: HTMLElement) => void;
   onAddSection: () => void;
   groups?: Map<string, GroupBundle>;
+  groupFiles?: ReadonlyMap<string, string>;
   selectedGroupId?: string | null;
   onSelectGroup?: (id: string, questionId?: string) => void;
+  onRenameGroup?: (id: string) => void;
+  onOpenSharedContent?: (id: string, opener: HTMLElement | null) => void;
   onCreateGroup?: () => void;
-  onRemoveGroup?: (id: string) => void;
+  onRemoveGroup?: (id: string, opener: HTMLElement | null) => void;
   onRemoveSection?: (index: number) => void;
 }
 
-/** OutlineTree edits test sections and whole question or shared-context units in reading order. */
+/**
+ * OutlineTree edits test sections and whole question or shared-context units
+ * in reading order. `groupFiles` maps an audio asset id of a group's
+ * materials to its file name, for the group's shared-content line.
+ * `onOpenSharedContent` asks for a group's Shared content dialog, naming the
+ * control focus returns to when it closes.
+ */
 export function OutlineTree({
   sections,
   questions,
@@ -118,8 +129,11 @@ export function OutlineTree({
   onPickFromBank,
   onAddSection,
   groups = new Map(),
+  groupFiles = NO_FILES,
   selectedGroupId,
   onSelectGroup,
+  onRenameGroup,
+  onOpenSharedContent,
   onCreateGroup,
   onRemoveGroup,
   onRemoveSection,
@@ -420,14 +434,33 @@ export function OutlineTree({
                                 id={unit.id}
                                 group={groups.get(unit.id)}
                                 numbering={numbering}
+                                fileNames={groupFiles}
                                 drop={dropPosition(dropTarget, unitKey(unit))}
                                 selected={selectedGroupId === unit.id}
                                 selectedQuestionId={selectedId}
+                                canUp={
+                                  stepUnit(
+                                    sections,
+                                    findUnit(sections, unitKey(unit))!,
+                                    -1,
+                                  ) !== null
+                                }
+                                canDown={
+                                  stepUnit(
+                                    sections,
+                                    findUnit(sections, unitKey(unit))!,
+                                    1,
+                                  ) !== null
+                                }
                                 onSelect={(questionId) =>
                                   onSelectGroup?.(unit.id, questionId)
                                 }
+                                onRename={() => onRenameGroup?.(unit.id)}
+                                onSharedContent={(opener) =>
+                                  onOpenSharedContent?.(unit.id, opener)
+                                }
                                 onStep={(direction) => step(unitKey(unit), direction)}
-                                onRemove={() => onRemoveGroup?.(unit.id)}
+                                onRemove={(opener) => onRemoveGroup?.(unit.id, opener)}
                               />
                             ) : (
                               <OutlineRow

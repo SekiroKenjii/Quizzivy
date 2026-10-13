@@ -454,7 +454,7 @@ describe("useful pinned assignment panels", () => {
     mount();
     expect(await screen.findByText("Chưa có học viên.")).toBeInTheDocument();
     expect(screen.queryByRole("table")).toBeNull();
-    expect(screen.getByText("/ 0")).toBeInTheDocument();
+    expect(screen.getByText("Chưa giao cho học viên nào")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Chấm .* câu trả lời/ })).toBeNull();
   });
 });

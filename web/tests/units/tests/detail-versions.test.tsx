@@ -1,7 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import i18n from "@/lib/i18n";
 import { registerContentElement } from "@/layouts/shell/contentWidth";
+import { gapSentence } from "@tests/support/gapSentence";
 import {
   ADDED_PROMPT,
   FIRST_QUESTION,
@@ -14,6 +15,13 @@ import {
   testFixture,
   versionFixture,
 } from "./detailHarness";
+
+beforeAll(async () => {
+  await import("@/features/take-test");
+});
+
+const PUBLISHED_SENTENCE = gapSentence(PUBLISHED_PROMPT);
+const SECOND_SQUARE = /^Câu 2\b/;
 
 beforeEach(serveDetail);
 
@@ -53,7 +61,7 @@ describe("the version history", () => {
   it("draws a card per version with its use, its stats and who published it", async () => {
     twoVersions();
     renderDetail();
-    await screen.findByText(PUBLISHED_PROMPT, {}, { timeout: 5000 });
+    await screen.findByText(PUBLISHED_SENTENCE, {}, { timeout: 5000 });
 
     const latest = within(await waitFor(() => card(2)));
     expect(latest.getByText("Phiên bản 2")).toBeVisible();
@@ -136,7 +144,7 @@ describe("the version history", () => {
     detail.test = testFixture({ currentVersion: 2 });
     detail.versions = [versionFixture(1), versionFixture(2), versionFixture(3)];
     const { user, router } = renderDetail(`/teacher/tests/${TEST_ID}?version=3`);
-    await screen.findByText(ADDED_PROMPT);
+    await screen.findByRole("button", { name: SECOND_SQUARE });
     expect(detail.previewVersions).toEqual([3]);
 
     await user.click(within(card(3)).getByRole("button", { name: "Xoá" }));
@@ -229,11 +237,13 @@ describe("the version history", () => {
     detail.test = testFixture({ currentVersion: 2 });
     detail.versions = [versionFixture(1), versionFixture(2)];
     const { user, router } = renderDetail();
-    await screen.findByText(ADDED_PROMPT);
+    await screen.findByRole("button", { name: SECOND_SQUARE });
 
     await user.click(within(card(1)).getByRole("button", { name: /Phiên bản 1/ }));
 
-    await waitFor(() => expect(screen.queryByText(ADDED_PROMPT)).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: SECOND_SQUARE })).toBeNull(),
+    );
     expect(router.state.location.search).toBe("?version=1");
     expect(
       within(card(1)).getByRole("button", { name: /Phiên bản 1/ }),
@@ -245,7 +255,7 @@ describe("the version history", () => {
     detail.test = testFixture({ currentVersion: 2 });
     detail.versions = [versionFixture(1), versionFixture(2)];
     const { user, router } = renderDetail();
-    await screen.findByText(ADDED_PROMPT);
+    await screen.findByRole("button", { name: SECOND_SQUARE });
 
     await user.click(screen.getByRole("button", { name: "Lịch sử phiên bản" }));
     const sheet = await screen.findByRole("dialog", { name: "Lịch sử phiên bản" });
@@ -286,10 +296,10 @@ describe("the version history", () => {
 });
 
 describe("changes from the previous version", () => {
-  it("lists the changes and marks the questions they touch", async () => {
+  it("lists the changes above the frame and marks nothing inside it", async () => {
     twoVersions();
     const { user, router } = renderDetail();
-    await screen.findByText(ADDED_PROMPT);
+    await screen.findByRole("button", { name: SECOND_SQUARE });
 
     const toggle = screen.getByRole("button", { name: "Thay đổi so với phiên bản 1" });
     expect(toggle).toHaveAttribute("aria-pressed", "false");
@@ -310,18 +320,25 @@ describe("changes from the previous version", () => {
         .map((row) => row.firstElementChild?.textContent),
     ).toEqual(["Thêm", "Đáp án", "Điểm"]);
 
-    expect(screen.getByText("Mới")).toBeVisible();
-    expect(screen.getByText("Đã sửa")).toBeVisible();
-    expect(document.querySelectorAll("[data-preview-mark]")).toHaveLength(2);
+    const frame = document.querySelector<HTMLElement>("[data-preview-viewport]")!;
+    expect(
+      changes.compareDocumentPosition(frame) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      within(frame).getByRole("button", { name: SECOND_SQUARE }),
+    ).toBeInTheDocument();
+    expect(within(frame).queryByText("Mới")).toBeNull();
+    expect(within(frame).queryByText("Đã sửa")).toBeNull();
+    expect(frame.querySelector("[class*='outline-dashed']")).toBeNull();
     expect(detail.diffs).toEqual(["2:1"]);
   });
 
   it("is not offered for the first version", async () => {
     renderDetail(`/teacher/tests/${TEST_ID}?compare=1`);
-    await screen.findByText(PUBLISHED_PROMPT);
+    await screen.findByText(PUBLISHED_SENTENCE);
 
     expect(screen.queryByRole("button", { name: /Thay đổi so với/ })).toBeNull();
-    expect(document.querySelectorAll("[data-preview-mark]")).toHaveLength(0);
+    expect(screen.queryByRole("region", { name: /Thay đổi so với/ })).toBeNull();
   });
 
   it("says when nothing changed", async () => {
@@ -475,7 +492,7 @@ describe("publishing the draft from the detail", () => {
 
   it("shows no banner when the draft matches the latest version", async () => {
     renderDetail();
-    await screen.findByText(PUBLISHED_PROMPT);
+    await screen.findByText(PUBLISHED_SENTENCE);
 
     expect(screen.queryByText("Bản nháp có thay đổi chưa phát hành.")).toBeNull();
   });

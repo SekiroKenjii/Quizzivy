@@ -38,6 +38,7 @@ type Repository interface {
 	LoadResult(ctx context.Context, a AttemptRecord, now time.Time) (Result, error)
 	Monitor(ctx context.Context, scope access.Scope, assignmentID string, now time.Time) (Monitor, error)
 	ItemAnalysis(ctx context.Context, scope access.Scope, assignmentID string) (ItemAnalysis, error)
+	WrongAnswers(ctx context.Context, scope access.Scope, assignmentID string) (WrongAnswers, error)
 	Results(ctx context.Context, scope access.Scope, assignmentIDs []string) ([]ResultRow, error)
 	Extend(ctx context.Context, req Request, attemptID string, minutes int, reason string, now time.Time) (Attempt, error)
 	Void(ctx context.Context, req Request, attemptID, reason string, now time.Time) (Attempt, error)

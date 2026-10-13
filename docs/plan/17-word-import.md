@@ -1309,6 +1309,62 @@ and §12.
   rule now reads in Word and PDF files, is not recorded in the repository; the
   corpus is never committed.
 
+### 1.42 Read with AI (D4, T-D4.33)
+
+Decided with the AI assistant (D19 to D22, 2026-10-10), which turned on cloud processing with data
+minimisation: a teacher who creates an import may ask for its scanned and photographed PDFs to be
+read by the AI assistant instead of refused (§1.39 "No text"). It is the one place the import sends
+anything outside Quizzivy, and §8's rule holds: the provider receives a bounded bundle and returns
+untrusted candidates, and the deterministic recognition, validation, review and transactional commit
+stay what decide what enters a test.
+
+- **The switch.** `createWordImport.readWithAi` (default false) is stored on the import
+  (`word_imports.read_with_ai`, migration `00125`) and cannot change. It is refused with 422
+  `VALIDATION_FAILED` (`details.readWithAi`) when the server has no `ANTHROPIC_API_KEY` or the caller
+  lacks `ai.use`. A worker without the key refuses a scan as `PDF_NO_TEXT`, whatever its import asked.
+- **What is read.** Only a PDF that fails the text-layer check (§1.39): an empty layer, or under 20
+  visible characters a page. A `.docx`, a pasted text and a PDF with a text layer take exactly the
+  path they took, with the switch on or off, send nothing, and spend nothing.
+- **Pages.** `platform/pdftext` draws every page in the same PDFium WebAssembly sandbox as the text
+  reader: no filesystem, no network, 256 MiB, a three-minute deadline. A page is a JPEG of at most
+  1568 pixels on its longest side (the size a vision model takes without scaling), quality 85, at most
+  1 MiB. A file of more than 40 pages fails `PDF_TOO_LONG_FOR_AI` before anything is reserved or
+  sent. Forty pages of 300 dpi scans took about 30 s and 322 MiB resident, forty 12-megapixel photographs
+  about 33 s and 530 MiB (a 4-core container, one process doing nothing else); the worker's 1 GB
+  machine holds either beside its 512 MiB Go target.
+- **Credits.** `Read` holds 60 credits a page (the `import` feature's ceiling) for the whole file
+  before the first page is sent, so a file is never half read for want of credits: a shortfall is
+  `AI_CREDITS_EXHAUSTED` and a paused teacher `AI_PAUSED`, with nothing sent and nothing held. The
+  teacher who pays is the one who started the run. Pages go to the capable tier four at a time. The
+  reservation ends once, in one ledger row for the file, with the summed usage: it settles what the
+  finished pages billed and releases the rest, on success, on failure and on a cancelled context
+  (which settles under a context that is not cancelled, so a stopped worker returns the credits).
+- **What comes back.** Each page's printed lines, in reading order, with a tab between cells that
+  sit side by side. The model is asked to transcribe and nothing more: not to correct, solve or mark an
+  answer, and to skip handwriting. The lines become `pdf-lines-v1` evidence with the same ids
+  (`p2-l14`), so page furniture, side-by-side questions, the recognizer, its source links, review and
+  commit are the PDF text layer's. A line is cut to 2,000 characters, a page to 300 lines, control
+  characters are dropped and the text is NFC. The answer is decoded against a schema that holds only
+  `readable` and `lines`; the provider has no tool and writes no field of a draft.
+- **A page the model cannot read** (it says so, refuses, or answers something that fails the
+  schema) is a finding on that page, not a gap: a hidden marker block `p3-l1` carries
+  `AI_PAGE_UNREADABLE`, a review-required `UNSUPPORTED_DOCUMENT_OBJECT` finding the teacher resolves.
+  Every other page counts toward one informational `AI_PAGE_READ` finding, whose count is the pages
+  read; that finding is the import's record of what left the system. A file with no readable page, or
+  under 20 characters a page, fails `AI_UNREADABLE`.
+- **Failures** are terminal (the credits of a retried read would be spent again): a provider that
+  stays down, rejects the request or outlasts the ten-minute read fails `PROVIDER_UNAVAILABLE`, after
+  the finished pages are settled. The teacher chooses "Process again". An import that already read its
+  scan keeps the extraction, so processing it again (another key paper) does not read it twice.
+- **Nothing of a student.** An import holds exam documents. A check that refuses a file whose
+  metadata or first page names a student is not attempted: it would be a false sense of safety. The
+  Sources pane says what is sent, and the teacher carries the responsibility for the file.
+- **The worker** loads `ANTHROPIC_API_KEY` and the tier settings as the API does, builds the credits
+  application over its own pool, and raises its per-run timeout from 5 to 15 minutes while the
+  assistant is on. `PipelineVersion` stays `word-pipeline-v3`: bumping it would fail every queued run
+  at the deploy. A v0.10.x worker that claims an import made with the switch refuses a scan as
+  `PDF_NO_TEXT`, so deploy the API and the worker together.
+
 ## 2. Current code and the actual gaps
 
 | Area | Verified current behavior | Required work |
@@ -1593,6 +1649,17 @@ the recognizer holdout run. No staffing or calendar commitment is implied here.
 | Scans/encryption/corruption | Actionable unsupported/invalid state; no OCR or lossy fallback disguised as success |
 
 ## 8. Cloud API versus private inference
+
+**Update (D19, decided by Thuong on 2026-10-10; §1.42).** Cloud processing is approved for the AI
+assistant's features, the provider is Anthropic's API, and "Read with AI" is built on it. The
+"admin-managed approved configuration" this section and `18-word-import-ux.md` §4 ask for is the
+server's environment (`ANTHROPIC_API_KEY`, the fast and capable tiers and their prices, set by the
+operator as secrets) and the centre's rules in `app.ai_settings`; a teacher chooses no model and no
+infrastructure, only whether to read one import with AI, and the Sources pane says in plain language
+what leaves the system. The kill switch is removing the key, which turns every AI feature off at
+the next start. The rest of this section, the comparison and the private path, still describes the
+measurements to make before a vendor and model are fixed for any other use, and private inference
+is an unbuilt candidate.
 
 Both approaches use **the same local extraction, source inventory, validation,
 review and transactional commit**. AI receives a bounded evidence bundle and

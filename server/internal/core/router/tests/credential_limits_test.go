@@ -157,3 +157,24 @@ func TestTheDetectorSeesAJoinCodeAtAnyDepth(t *testing.T) {
 		t.Error("a notice's code with no expiry was taken for a join code")
 	}
 }
+
+func TestEveryAIOperationIsLimitedPerUserAndNotPerAddress(t *testing.T) {
+	spec := freshSpec(t)
+	byAddress, byPrincipal := router.RateLimits(), router.PrincipalRateLimits()
+	var found []string
+	eachOperation(spec, func(pattern string, op *openapi3.Operation) {
+		if !strings.Contains(pattern, " /teacher/ai/") && !strings.Contains(pattern, " /admin/ai/") {
+			return
+		}
+		found = append(found, pattern)
+		if _, perAddress := byAddress.Lookup(pattern); perAddress {
+			t.Errorf("%s (%s) is limited per address; a suggestion spends the user's credits, so its budget is the user's", op.OperationID, pattern)
+		}
+		if _, perActor := byPrincipal.Lookup(pattern); !perActor {
+			t.Errorf("%s (%s) spends credits or moves them and has no per-user limit", op.OperationID, pattern)
+		}
+	})
+	if len(found) != 16 {
+		t.Errorf("%d AI operations found, want 16: ten for the teacher and six for the console", len(found))
+	}
+}

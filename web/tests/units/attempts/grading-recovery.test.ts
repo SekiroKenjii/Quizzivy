@@ -3,6 +3,8 @@ import { http } from "msw";
 import {
   scanGradingCandidates,
   gradingGroupKey,
+  groupReadyPapers,
+  paperCheck,
   mergeQueueOrder,
   nextOpenItem,
   scoreOptions,
@@ -10,7 +12,14 @@ import {
 import type { AttemptListRow, GradingQueueItem } from "@/features/attempts/api";
 import { contractJson } from "@tests/support/contractResponse";
 import { server } from "@tests/support/server";
-import { BASE, ASSIGNMENT_ID, STUDENT_ID, ESSAY_ID } from "./fixtures";
+import {
+  BASE,
+  ASSIGNMENT_ID,
+  STUDENT_ID,
+  ESSAY_ID,
+  CHOICE_ID,
+  review,
+} from "./fixtures";
 
 function row(
   index: number,
@@ -167,4 +176,59 @@ it("nextOpenItem looks after the current item first, wraps round, and answers nu
   expect(nextOpenItem(items, -1, (item) => open.has(item))).toBe("a");
   expect(nextOpenItem(items, 0, () => false)).toBeNull();
   expect(nextOpenItem([], -1, () => true)).toBeNull();
+});
+
+it("groups ready papers by assignment, oldest hand-in first for groups and rows, an unknown hand-in last", () => {
+  const paper = (index: number, assignmentId: string, submittedAt: string | null) => ({
+    ...row(index),
+    assignmentId,
+    testTitle: assignmentId === ASSIGNMENT_ID ? "Reading" : "Vocab",
+    submittedAt,
+  });
+  const other = "018f0000-0000-7000-8000-0000000000d2";
+  const groups = groupReadyPapers([
+    paper(1, ASSIGNMENT_ID, "2026-09-23T08:00:00Z"),
+    paper(2, other, "2026-09-22T09:00:00Z"),
+    paper(3, ASSIGNMENT_ID, null),
+    paper(4, ASSIGNMENT_ID, "2026-09-22T10:00:00Z"),
+    paper(5, other, "2026-09-24T07:00:00Z"),
+  ]);
+  expect(groups.map((group) => group.title)).toEqual(["Vocab", "Reading"]);
+  expect(groups[0]!.rows.map((paper) => paper.id.slice(-1))).toEqual(["2", "5"]);
+  expect(groups[1]!.rows.map((paper) => paper.id.slice(-1))).toEqual(["4", "1", "3"]);
+  expect(groups[1]!.earliest).toBe("2026-09-22T10:00:00Z");
+});
+
+it("reads a check's three kinds, the answered count, the flag and whether Finish may be offered", () => {
+  const hand = review({ essayScore: 3 });
+  expect(paperCheck(hand)).toEqual({
+    score: { earned: 8, total: 10, pendingManual: 0 },
+    answered: 2,
+    questions: 2,
+    marking: { kind: "hand", marked: 1 },
+    flagged: false,
+    focusLosses: 1,
+    finishable: true,
+  });
+  const auto = review({ essayScore: 3 });
+  auto.answers[ESSAY_ID]!.requiresManual = false;
+  auto.answers[ESSAY_ID]!.answer = null;
+  expect(paperCheck(auto)).toMatchObject({ answered: 1, marking: { kind: "auto" } });
+  const blank = review({ essayScore: 0 });
+  blank.answers[CHOICE_ID]!.answer = null;
+  blank.answers[ESSAY_ID]!.answer = null;
+  blank.attempt.integrity = { focusLossCount: 4, flagged: true };
+  expect(paperCheck(blank)).toMatchObject({
+    answered: 0,
+    marking: { kind: "blank" },
+    flagged: true,
+    focusLosses: 4,
+  });
+  expect(paperCheck(review()).finishable).toBe(false);
+  const graded = review({ essayScore: 3 });
+  graded.attempt.status = "graded";
+  expect(paperCheck(graded).finishable).toBe(false);
+  const unknown = review({ essayScore: 3 });
+  delete unknown.attempt.score;
+  expect(paperCheck(unknown)).toMatchObject({ score: null, finishable: false });
 });

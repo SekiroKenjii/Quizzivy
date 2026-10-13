@@ -21,10 +21,12 @@ var informationalSource = map[string]bool{
 	"ANCILLARY_CONTENT_REQUIRES_REVIEW": true,
 	"PDF_MARKS_UNAVAILABLE":             true,
 	"TEXT_MARKS_UNAVAILABLE":            true,
+	"AI_PAGE_READ":                      true,
 }
 
 var reviewedOutsideExam = map[string]bool{
 	"PDF_REPEATED_LINE_REQUIRES_REVIEW": true,
+	"AI_PAGE_UNREADABLE":                true,
 }
 
 func (b *builder) notice(code string, severity domain.Severity, target, field string, count int, evidence []domain.SourceRef) {

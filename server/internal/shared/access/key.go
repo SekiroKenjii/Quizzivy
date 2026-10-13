@@ -18,6 +18,7 @@ const (
 	ContentQuestionsWrite       Key = "content.questions.write"
 	ContentMediaWrite           Key = "content.media.write"
 	ContentShare                Key = "content.share"
+	AIUse                       Key = "ai.use"
 	TeachingClassesWrite        Key = "teaching.classes.write"
 	TeachingAssignmentsWrite    Key = "teaching.assignments.write"
 	TeachingGrading             Key = "teaching.grading"
@@ -31,6 +32,7 @@ const (
 	SystemAuditRead             Key = "system.audit.read"
 	SystemSettingsWrite         Key = "system.settings.write"
 	LearningTakeTests           Key = "learning.take_tests"
+	AICreditsManage             Key = "ai.credits.manage"
 	ScopeAll                    Key = "scope.all"
 	SystemAPIReference          Key = "system.api_reference"
 	SystemDataExport            Key = "system.data_export"
@@ -48,10 +50,10 @@ const (
 )
 
 var catalogue = []Key{
-	ContentTestsWrite, ContentTestsPublish, ContentQuestionsWrite, ContentMediaWrite, ContentShare,
+	ContentTestsWrite, ContentTestsPublish, ContentQuestionsWrite, ContentMediaWrite, ContentShare, AIUse,
 	TeachingClassesWrite, TeachingAssignmentsWrite, TeachingGrading, TeachingAttemptsIntervene, TeachingAttendance,
 	PeopleStudentsRead, PeopleStudentsCreate, PeopleStudentsResetPassword, PeopleUsersManage, PeopleRolesManage,
-	SystemAuditRead, SystemSettingsWrite, LearningTakeTests,
+	SystemAuditRead, SystemSettingsWrite, LearningTakeTests, AICreditsManage,
 	ScopeAll, SystemAPIReference, SystemDataExport, SystemLeads,
 }
 

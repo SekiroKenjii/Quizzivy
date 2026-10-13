@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupBySection, opensSection, sectionAt } from "@/features/take-test/sections";
+import { groupBySection, sectionAt, sectionHead } from "@/features/take-test/sections";
 import type { StudentQuestion, StudentSection } from "@/features/take-test/api";
 
 const sections: StudentSection[] = [
@@ -36,7 +36,7 @@ describe("groupBySection", () => {
   });
 });
 
-describe("sectionAt and opensSection", () => {
+describe("sectionAt and sectionHead", () => {
   const groups = groupBySection(sections, [
     question("q1", "s1"),
     question("q2", "s1"),
@@ -49,10 +49,34 @@ describe("sectionAt and opensSection", () => {
     expect(sectionAt(groups, 7)).toBeNull();
   });
 
-  it("opens a part on its first question only", () => {
-    const grammar = sectionAt(groups, 0)!;
-    expect(opensSection(grammar, 0)).toBe(true);
-    expect(opensSection(grammar, 1)).toBe(false);
-    expect(opensSection(sectionAt(groups, 2)!, 2)).toBe(true);
+  it("heads every question of a part, not only its first, with its title and instructions", () => {
+    expect(sectionHead(groups, sectionAt(groups, 0))).toEqual({
+      title: "Ngữ pháp",
+      instructions: "",
+    });
+    expect(sectionHead(groups, sectionAt(groups, 1))).toEqual({
+      title: "Ngữ pháp",
+      instructions: "",
+    });
+    expect(sectionHead(groups, sectionAt(groups, 2))).toEqual({
+      title: "Nghe",
+      instructions: "Nghe đoạn hội thoại rồi trả lời.",
+    });
+    expect(sectionHead(groups, null)).toBeNull();
+  });
+
+  it("leaves out the head of a one-part paper with no instructions, and keeps one with them", () => {
+    const one = groupBySection([sections[0]!], [question("q1", "s1")]);
+    expect(sectionHead(one, one[0]!)).toBeNull();
+    const listening = groupBySection([sections[1]!], [question("q1", "s2")]);
+    expect(sectionHead(listening, listening[0]!)).toEqual({
+      title: "Nghe",
+      instructions: "Nghe đoạn hội thoại rồi trả lời.",
+    });
+  });
+
+  it("leaves out the head of an untitled part with no instructions on a paper of several", () => {
+    const lost = groupBySection(sections, [question("q1", "s1"), question("q2", "s9")]);
+    expect(sectionHead(lost, lost[1]!)).toBeNull();
   });
 });

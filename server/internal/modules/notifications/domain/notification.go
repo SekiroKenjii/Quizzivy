@@ -25,6 +25,10 @@ const (
 	AssignmentDueSoon  Kind = "assignment.due_soon"
 	AssignmentExtended Kind = "assignment.extended"
 	ResultReady        Kind = "result.ready"
+
+	AIAllowanceWarning     Kind = "ai.allowance_warning"
+	AICreditRequest        Kind = "ai.credit_request"
+	AICreditRequestDecided Kind = "ai.credit_request.decided"
 )
 
 var governing = map[Kind]Event{
@@ -37,7 +41,10 @@ var governing = map[Kind]Event{
 	ResultReady:        EventResultReady,
 }
 
-var switchless = map[Kind]bool{ClassJoined: true, JoinCodesRotated: true}
+var switchless = map[Kind]bool{
+	ClassJoined: true, JoinCodesRotated: true,
+	AIAllowanceWarning: true, AICreditRequest: true, AICreditRequestDecided: true,
+}
 
 // Known reports whether k is a kind this binary writes and words.
 func (k Kind) Known() bool {

@@ -65,6 +65,7 @@ type AudioPolicy struct {
 	MaxPlays                  *int
 	AllowSeek                 bool
 	ShowTranscriptAfterSubmit bool
+	AllowPause                bool
 }
 
 type Integrity struct {

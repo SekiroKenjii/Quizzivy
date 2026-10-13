@@ -29,7 +29,7 @@ func questionInput(q DraftQuestion) questionsdomain.Input {
 		Explanation: q.Explanation, SampleAnswer: q.SampleAnswer,
 	}
 	if q.AllowSeek != nil || q.ShowTranscript != nil || q.MaxPlays != nil {
-		in.Audio = &questionsdomain.AudioPolicy{MaxPlays: q.MaxPlays}
+		in.Audio = &questionsdomain.AudioPolicy{MaxPlays: q.MaxPlays, AllowPause: q.AllowPause}
 		if q.AllowSeek != nil {
 			in.Audio.AllowSeek = *q.AllowSeek
 		}

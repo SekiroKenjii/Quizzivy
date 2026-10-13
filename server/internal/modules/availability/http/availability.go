@@ -15,6 +15,13 @@ const cacheControl = "public, max-age=30"
 // Availability serves the public maintenance status.
 type Availability struct {
 	app *application.Application
+	ai  bool
+}
+
+// WithAI returns the transport saying whether the AI assistant is configured. It is read from configuration and never from the provider.
+func (h Availability) WithAI(configured bool) Availability {
+	h.ai = configured
+	return h
 }
 
 // NewAvailability builds the transport. A nil application answers 501.
@@ -23,7 +30,8 @@ func NewAvailability(app *application.Application) Availability {
 }
 
 // GetPublicStatus implements GET /public/status: the next window that has not
-// ended, or null, cacheable for as long as the snapshot behind it.
+// ended, or null, and whether the AI assistant is configured, cacheable for as
+// long as the snapshot behind it.
 func (h Availability) GetPublicStatus(ctx context.Context, _ openapi.GetPublicStatusRequestObject) (openapi.GetPublicStatusResponseObject, error) {
 	if h.app == nil {
 		return nil, httpx.ErrNotImplemented
@@ -32,7 +40,7 @@ func (h Availability) GetPublicStatus(ctx context.Context, _ openapi.GetPublicSt
 	if err != nil {
 		return nil, err
 	}
-	body := openapi.PublicStatus{}
+	body := openapi.PublicStatus{Ai: h.ai}
 	if status.Window != nil {
 		body.Maintenance = &openapi.MaintenanceWindow{
 			StartsAt: status.Window.StartsAt.UTC(),

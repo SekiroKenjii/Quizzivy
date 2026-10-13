@@ -25,7 +25,7 @@ const purgedMediaBinding = "media_assets_purged_binding"
 const questionColumns = `
 	       q.id::text, q.type::text, q.prompt, q.prompt_content, q.explanation_content,
 	       q.media_asset_id::text, q.media_asset_kind::text, q.media_alt,
-	       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after,
+	       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after, coalesce(q.audio_allow_pause, true),
 	       q.transcript, q.points::text, q.explanation, q.sample_answer,
 	       q.tags, q.level, q.skill,
 	       (SELECT count(DISTINCT s.test_id)
@@ -40,9 +40,10 @@ func scanQuestion(row pgx.Row, extra ...any) (domain.Question, error) {
 	var typ string
 	var maxPlays *int
 	var allowSeek, showTranscript *bool
+	var allowPause bool
 
 	fields := []any{&q.ID, &typ, &q.Prompt, &q.PromptContent, &q.ExplanationContent, &q.MediaAssetID, &q.MediaAssetKind, &q.MediaAlt,
-		&maxPlays, &allowSeek, &showTranscript, &q.Transcript, &q.Points,
+		&maxPlays, &allowSeek, &showTranscript, &allowPause, &q.Transcript, &q.Points,
 		&q.Explanation, &q.SampleAnswer, &q.Tags, &q.Level, &q.Skill, &q.UsedInTests, &q.CreatedAt, &q.UpdatedAt}
 	err := row.Scan(append(fields, extra...)...)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -58,6 +59,7 @@ func scanQuestion(row pgx.Row, extra ...any) (domain.Question, error) {
 			MaxPlays:                  maxPlays,
 			AllowSeek:                 *allowSeek,
 			ShowTranscriptAfterSubmit: *showTranscript,
+			AllowPause:                &allowPause,
 		}
 	}
 	return q, nil
@@ -197,11 +199,12 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 	}
 
 	var maxPlays *int
-	var allowSeek, showTranscript *bool
+	var allowSeek, showTranscript, allowPause *bool
 	if in.Input.Audio != nil {
 		maxPlays = in.Input.Audio.MaxPlays
 		allowSeek = &in.Input.Audio.AllowSeek
 		showTranscript = &in.Input.Audio.ShowTranscriptAfterSubmit
+		allowPause = in.Input.Audio.AllowPause
 	}
 
 	var kind *string
@@ -222,13 +225,15 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 			       tags = $13, prompt_content = $14, explanation_content = $15,
 			       context_ordinal = coalesce($16, context_ordinal),
 			       context_option_order = coalesce($17, context_option_order),
-			       level = $18, skill = $19, media_alt = $20
+			       level = $18, skill = $19, media_alt = $20,
+			       audio_allow_pause = CASE WHEN $7::boolean IS NULL THEN NULL
+			                                ELSE coalesce($21::boolean, audio_allow_pause, true) END
 			 WHERE id = $1 AND deleted_at IS NULL
 			 RETURNING id::text`,
 			id, string(in.Input.Type), in.Input.Prompt, in.Input.MediaAssetID, kind,
 			maxPlays, allowSeek, showTranscript, in.Input.Transcript,
 			in.Input.Points, in.Input.Explanation, in.Input.SampleAnswer,
-			in.Input.Tags, nullableContent(in.Input.PromptContent), nullableContent(in.Input.ExplanationContent), ordinal, optionOrder, in.Input.Level, in.Input.Skill, mediaAlt).Scan(&id)
+			in.Input.Tags, nullableContent(in.Input.PromptContent), nullableContent(in.Input.ExplanationContent), ordinal, optionOrder, in.Input.Level, in.Input.Skill, mediaAlt, allowPause).Scan(&id)
 	} else {
 		var createID *string
 		if ownership != nil {
@@ -239,17 +244,19 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 			       (type, prompt, media_asset_id, media_asset_kind,
 			        audio_max_plays, audio_allow_seek, audio_show_transcript_after,
 			        transcript, points, explanation, sample_answer, tags, created_by, prompt_content, explanation_content,
-			        id, context_group_id, context_ordinal, context_option_order, owner_id, level, skill, media_alt)
+			        id, context_group_id, context_ordinal, context_option_order, owner_id, level, skill, media_alt,
+			        audio_allow_pause)
 			VALUES ($1::app.question_type, $2, $3, $4::app.media_kind, $5, $6, $7,
 			        $8, $9::numeric, $10, $11, $12, $13, $14, $15,
 			        coalesce($16::uuid, uuidv7()), $17, $18, $19,
-			        coalesce((SELECT g.owner_id FROM app.question_groups g WHERE g.id = $17), $20::uuid, $13), $21, $22, $23)
+			        coalesce((SELECT g.owner_id FROM app.question_groups g WHERE g.id = $17), $20::uuid, $13), $21, $22, $23,
+			        CASE WHEN $6::boolean IS NULL THEN NULL ELSE coalesce($24::boolean, true) END)
 			RETURNING id::text`,
 			string(in.Input.Type), in.Input.Prompt, in.Input.MediaAssetID, kind,
 			maxPlays, allowSeek, showTranscript, in.Input.Transcript,
 			in.Input.Points, in.Input.Explanation, in.Input.SampleAnswer,
 			in.Input.Tags, in.ActorID, nullableContent(in.Input.PromptContent), nullableContent(in.Input.ExplanationContent),
-			createID, groupID, ordinal, optionOrder, opt.String(in.OwnerID), in.Input.Level, in.Input.Skill, mediaAlt).Scan(&id)
+			createID, groupID, ordinal, optionOrder, opt.String(in.OwnerID), in.Input.Level, in.Input.Skill, mediaAlt, allowPause).Scan(&id)
 	}
 	if err != nil {
 		return domain.Question{}, writeFailure(err)

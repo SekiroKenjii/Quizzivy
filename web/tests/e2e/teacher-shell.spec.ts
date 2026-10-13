@@ -18,6 +18,7 @@ async function prepare(
   page: Page,
   theme: "light" | "dark" = "light",
   collapsed = false,
+  extra: Parameters<typeof stubApi>[1] = {},
 ) {
   await page.addInitScript(
     ({ theme, collapsed }) => {
@@ -85,6 +86,7 @@ async function prepare(
       note = body.note;
       await route.fulfill({ json: { note } });
     },
+    ...extra,
   });
 }
 
@@ -344,26 +346,182 @@ test("sheet and overlay entry/exit have native 200ms ease intermediate frames an
   expect(await sheet.evaluate((node) => node.getAnimations().length)).toBe(0);
 });
 
-test("stat strip changes from two to four columns at the measured 640px content boundary", async ({
+for (const theme of ["light", "dark"] as const) {
+  for (const width of [360, 768, 1024, 1280, 1440]) {
+    test(`progress card at ${width}px in ${theme} draws the deck's card inside the page`, async ({
+      page,
+    }) => {
+      await prepare(page, theme);
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(path);
+      const card = page.locator('[data-slot="progress-card"]');
+      await expect(card.getByText("Đã nộp 1/3")).toBeVisible();
+      const box = await card.evaluate((node) => {
+        const style = getComputedStyle(node);
+        const outer = node.getBoundingClientRect();
+        const inside = [...node.querySelectorAll("*")].every((child) => {
+          const rect = child.getBoundingClientRect();
+          return rect.left >= outer.left - 0.5 && rect.right <= outer.right + 0.5;
+        });
+        return {
+          padding: style.padding,
+          radius: style.borderRadius,
+          main: document.querySelector("main")!.getBoundingClientRect().width,
+          width: outer.width,
+          inside,
+        };
+      });
+      expect(box.padding).toBe("12px 16px");
+      expect(box.radius).toBe("12px");
+      expect(box.inside).toBe(true);
+      expect(box.width).toBeLessThanOrEqual(box.main);
+      await expect(card.getByText("Đã nộp 1/3")).toHaveCSS("font-size", "13.5px");
+      await expect(card.getByText("Đã nộp 1/3")).toHaveCSS("font-weight", "600");
+      await expect(card.locator('[data-slot="progress-bar"]')).toHaveCSS(
+        "height",
+        "8px",
+      );
+      const legend = card.getByRole("group", { name: "Lọc học viên" });
+      const flagged = legend.getByRole("button", { name: "Bị gắn cờ 1" });
+      await expect(flagged).toHaveCSS("height", "28px");
+      await expect(flagged).toHaveCSS("border-radius", "7px");
+      await expect(flagged).toHaveCSS("font-size", "12.5px");
+      await expect(card.getByText("—")).toHaveCSS("font-size", "15px");
+      await noOverflow(page);
+    });
+  }
+}
+
+test("the progress legend filters the roster from the keyboard and names the filter in the URL", async ({
   page,
 }) => {
   await prepare(page);
-  await page.setViewportSize({ width: 943, height: 900 });
-  await page.goto(path);
-  const strip = page.locator("main dl").first();
-  await expect(strip).toBeVisible();
-  expect(
-    await strip.evaluate(
-      (node) => getComputedStyle(node).gridTemplateColumns.split(" ").length,
-    ),
-  ).toBe(2);
-  await page.setViewportSize({ width: 944, height: 900 });
-  await expect
-    .poll(() =>
-      strip.evaluate(
-        (node) => getComputedStyle(node).gridTemplateColumns.split(" ").length,
-      ),
-    )
-    .toBe(4);
-  await noOverflow(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`${path}?tab=questions&page=2`);
+  const legend = page.getByRole("group", { name: "Lọc học viên" });
+  const inProgress = legend.getByRole("button", { name: "Đang làm 1" });
+  await inProgress.focus();
+  await expect(inProgress).toHaveCSS("outline-style", "solid");
+  await expect(inProgress).toHaveCSS("outline-width", "2px");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\?tab=students&roster=inProgress$/);
+  await expect(inProgress).toHaveAttribute("aria-pressed", "true");
+  const table = page.getByRole("table", { name: "Học viên được giao bài" });
+  await expect(table.getByRole("row")).toHaveCount(2);
+  await expect(table.getByText(student)).toBeVisible();
+  await page.keyboard.press("Space");
+  await expect(page).toHaveURL(/\?tab=students$/);
+  await expect(table.getByRole("row")).toHaveCount(4);
 });
+
+const insightStubs: Parameters<typeof stubApi>[1] = {
+  "GET /public/status": { body: { maintenance: null, ai: true } },
+  "GET /teacher/ai/usage": {
+    body: {
+      month: "2026-10-01",
+      used: 1200,
+      allowance: 20000,
+      left: 18800,
+      paused: false,
+      requests: true,
+      pending: null,
+      categories: [],
+    },
+  },
+  [`GET /teacher/assignments/${ASSIGNMENT_ID}/item-analysis`]: {
+    body: {
+      handedIn: 18,
+      items: [
+        {
+          questionId: "018f0000-0000-7000-8000-000000000101",
+          number: 27,
+          type: "short_answer",
+          promptExcerpt: "Term for streets closed to cars",
+          answered: 18,
+          correctRate: 0.22,
+        },
+      ],
+    },
+  },
+  [`POST /teacher/ai/assignments/${ASSIGNMENT_ID}/insights`]: {
+    body: {
+      basis: 18,
+      items: [
+        {
+          kind: "key",
+          title: "Câu 27: phần lớn câu sai gần đúng",
+          body: "11 trên 14 câu sai là “playing street” hoặc “play street”.",
+          action: "review",
+          questionNumbers: [27],
+          types: ["short_answer"],
+        },
+        {
+          kind: "problem",
+          title: "Câu 31: Đúng và Sai đang bị nhầm",
+          body: "9 trên 18 chọn Sai khi đáp án là Đúng.",
+          action: "practice",
+          questionNumbers: [31],
+          types: ["true_false"],
+        },
+        {
+          kind: "strength",
+          title: "Câu hỏi ý chính làm tốt",
+          body: "83% làm đúng câu 3.",
+          action: "none",
+          questionNumbers: [3],
+          types: ["single_choice"],
+        },
+      ],
+      usage: { credits: 60, left: 18740 },
+    },
+  },
+};
+
+for (const theme of ["light", "dark"] as const) {
+  for (const width of [360, 768, 1280, 1440]) {
+    test(`AI insights at ${width}px in ${theme} draw the deck's panel inside the Questions card`, async ({
+      page,
+    }) => {
+      await prepare(page, theme, false, insightStubs);
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${path}?tab=questions`);
+      const explain = page.getByRole("button", { name: "Giải thích kết quả bằng AI" });
+      await expect(explain).toHaveCSS("height", "32px");
+      await expect(explain).toHaveCSS("border-radius", "8px");
+      await expect(explain).toHaveCSS("font-size", "13px");
+      await explain.focus();
+      await expect(explain).toHaveCSS("outline-style", "solid");
+      await expect(explain).toHaveCSS("outline-width", "2px");
+      await page.keyboard.press("Enter");
+      const panel = page.locator('[data-slot="ai-insights"]');
+      await expect(panel.getByText("Dựa trên 18 bài làm")).toBeVisible();
+      await expect(panel).toHaveCSS("padding", "14px");
+      await expect(panel).toHaveCSS("border-radius", "10px");
+      const card = panel.getByRole("listitem").first();
+      await expect(card).toHaveCSS("padding", "12px");
+      await expect(card).toHaveCSS("border-radius", "9px");
+      await expect(card.locator("span[aria-hidden]").first()).toHaveCSS(
+        "width",
+        "28px",
+      );
+      await expect(card.getByRole("link", { name: "Xem lại bài làm" })).toHaveCSS(
+        "height",
+        "30px",
+      );
+      const box = await panel.evaluate((node) => {
+        const outer = node.closest("section[aria-label]")!.getBoundingClientRect();
+        const inner = node.getBoundingClientRect();
+        return { left: inner.left - outer.left, right: outer.right - inner.right };
+      });
+      expect(box.left).toBeCloseTo(17, 0);
+      expect(box.right).toBeCloseTo(17, 0);
+      await noOverflow(page);
+      const hide = panel.getByRole("button", { name: "Ẩn nhận xét" });
+      await hide.focus();
+      await expect(hide).toHaveCSS("outline-width", "2px");
+      await page.keyboard.press("Enter");
+      await expect(panel).toBeHidden();
+      await expect(explain).toBeFocused();
+    });
+  }
+}

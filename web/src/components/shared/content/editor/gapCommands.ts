@@ -23,3 +23,21 @@ export function insertGap(editor: Editor, gapLabel?: (() => string) | undefined)
     })
     .run();
 }
+
+/**
+ * removeGap deletes the gap whose id is `id` from the editor's document and
+ * leaves the caret where it stood, without scrolling. The deletion is one step
+ * of the editor's history, so undo brings the gap back; a document with no
+ * such gap is left alone.
+ */
+export function removeGap(editor: Editor, id: string) {
+  let range: { from: number; to: number } | undefined;
+  editor.state.doc.descendants((node, pos) => {
+    if (range) return false;
+    if (node.type.name === "gap" && node.attrs.id === id)
+      range = { from: pos, to: pos + node.nodeSize };
+    return true;
+  });
+  if (!range) return;
+  editor.chain().deleteRange(range).focus(range.from, { scrollIntoView: false }).run();
+}

@@ -9,6 +9,8 @@ import (
 	"quizzivy/internal/core/adapters"
 	"quizzivy/internal/core/router"
 	accessapp "quizzivy/internal/modules/access/application"
+	aiapp "quizzivy/internal/modules/ai/application"
+	aiports "quizzivy/internal/modules/ai/application/ports"
 	attemptsrepo "quizzivy/internal/modules/attempts/repositories"
 	classesapp "quizzivy/internal/modules/classes/application"
 	classesdomain "quizzivy/internal/modules/classes/domain"
@@ -35,10 +37,31 @@ type Assembly struct {
 	ImportSweeper *importsworker.Sweeper
 	Media         *mediaapp.Application
 	Maintenance   httpx.MaintenanceSource
+	// AI is the provider behind the AI assistant's port, nil when no ANTHROPIC_API_KEY is set.
+	AI aiports.Completer
+	// AICredits is the credits model the AI operations reserve and settle through and the console sets allowances through. It is built with or without the provider.
+	AICredits *aiapp.Application
+}
+
+// Option changes how Build assembles the application.
+type Option func(*options)
+
+type options struct {
+	completer    aiports.Completer
+	hasCompleter bool
+}
+
+// WithCompleter serves the AI assistant from completer in place of the configured provider, a nil one turning the assistant off. It is for tests that drive the whole application against a provider they control.
+func WithCompleter(completer aiports.Completer) Option {
+	return func(o *options) { o.completer, o.hasCompleter = completer, true }
 }
 
 // Build refuses when app.permissions lacks a key this binary was compiled with, or when the join-code keys derive a zero or shared key id, then assembles every module against the pool in dependency order: notifications depends on no module and is built first, so that its Notify command can be handed to any module as a port; attempts' student statistics feed classes and identity, classes' enrolment feeds identity's Google sign-in, media feeds questions, tests and attempts.
-func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db.Pool) (Assembly, error) {
+func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db.Pool, opts ...Option) (Assembly, error) {
+	var chosen options
+	for _, opt := range opts {
+		opt(&chosen)
+	}
 	dbx := db.NewContext(pool.Pool)
 	principals, err := accessModule(ctx, dbx)
 	if err != nil {
@@ -67,6 +90,13 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	if err != nil {
 		return Assembly{}, err
 	}
+	completer, err := ai(cfg, logger)
+	if err != nil {
+		return Assembly{}, err
+	}
+	if chosen.hasCompleter {
+		completer = chosen.completer
+	}
 	mediaApp, mediaRepo, err := media(ctx, cfg, logger, dbx)
 	if err != nil {
 		return Assembly{}, err
@@ -75,13 +105,21 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	if err != nil {
 		return Assembly{}, err
 	}
+	importsTransport = importsTransport.WithAI(completer != nil)
 	questionsApp, questionsRepo := questions(dbx, mediaApp)
 	testsApp := tests(dbx, questionsRepo, mediaRepo, mediaApp)
 	attemptsApp := attempts(dbx, notificationsApp.Commands.Notify, logger).WithGroupContexts(testsApp.Queries.GroupContexts).WithZones(adapters.ProfileZone{Query: identityApp.Queries.EffectiveZone})
-	availabilityApp, availabilityTransport := availability(dbx, logger)
+	availabilityApp, availabilityTransport := availability(dbx, logger, cfg.AIEnabled())
+	aiApp, aiTransport, err := aiAssistant(cfg, dbx, notificationsApp.Commands.Notify, logger, completer, aiModules{
+		access: principals, identity: identityApp, questions: questionsApp, tests: testsApp, attempts: attemptsApp,
+	})
+	if err != nil {
+		return Assembly{}, err
+	}
 
 	return Assembly{
 		Modules: router.Modules{
+			AI:            aiTransport,
 			Imports:       importsTransport,
 			Dashboard:     dashboard(dbx, notificationsApp, identityApp),
 			Classes:       classesTransport(classesApp),
@@ -96,6 +134,8 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 		},
 		Principals:    principals,
 		Maintenance:   adapters.MaintenanceGate{Current: availabilityApp.Queries.CurrentWindow},
+		AI:            completer,
+		AICredits:     aiApp,
 		ImportSweeper: sweeper,
 		Media:         mediaApp,
 		Tokens:        tokens,

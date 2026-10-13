@@ -52,7 +52,7 @@ type App struct {
 
 // New opens the database and builds every module. The returned App owns the
 // pool, so the caller must Close it.
-func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, error) {
+func New(ctx context.Context, cfg config.Config, logger *slog.Logger, opts ...wiring.Option) (*App, error) {
 	pool, err := db.Open(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return nil, err
@@ -62,7 +62,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		return nil, err
 	}
 
-	assembly, err := wiring.Build(ctx, cfg, logger, pool)
+	assembly, err := wiring.Build(ctx, cfg, logger, pool, opts...)
 	if err != nil {
 		pool.Close()
 		return nil, err
@@ -93,6 +93,9 @@ func (a *App) Serve(ctx context.Context) error {
 	go jobs.PruneRefreshTokens(ctx, a.logger, a.assembly.Identity)
 	go jobs.PruneNotifications(ctx, a.logger, a.assembly.Notifications)
 	go jobs.RotateLegacyJoinCodes(ctx, a.logger, a.assembly.Classes)
+	if a.assembly.AI != nil {
+		go jobs.ReleaseStaleAiReservations(ctx, a.logger, a.assembly.AICredits)
+	}
 	if sweeper := a.assembly.ImportSweeper; sweeper != nil {
 		go jobs.SweepImportFiles(ctx, a.logger, sweeper.Sweep, jobs.ImportRetention{Every: 24 * time.Hour, Retry: time.Hour, Budget: 5 * time.Minute})
 	}

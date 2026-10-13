@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { studentUser, stubApi } from "./support/api";
 import { engineFits, paper, start, type Session } from "./support/engine";
 
 test("rich table blanks preserve frozen answer bindings and reload on a 320px phone", async ({
@@ -177,3 +178,106 @@ test("a reload opens the question that was open", async ({ page }) => {
   await expect(third).toBeVisible();
   await expect(page.getByText("Chọn đáp án", { exact: true })).toBeHidden();
 });
+
+for (const [width, form] of [
+  [320, "short"],
+  [419, "short"],
+  [420, "long"],
+  [899, "long"],
+  [900, "rail"],
+  [1440, "rail"],
+] as const) {
+  const drawn =
+    form === "rail"
+      ? "the rail and the key hint"
+      : `the grid button, ${form} label on one line`;
+  test(`the navigator at ${width}px is ${drawn}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await start(page);
+    const footer = page.getByRole("navigation", { name: "Danh sách câu" });
+    const rail = page.getByRole("complementary", { name: "Các phần" });
+    const grid = footer.getByRole("button", { name: "Câu 1 · đã làm 0 trên 3" });
+    if (form === "rail") {
+      await expect(rail).toBeVisible();
+      await expect(grid).toHaveCount(0);
+      await expect(footer).toContainText("để chuyển câu · A–D để chọn đáp án");
+      const box = (await rail.boundingBox())!;
+      expect(box.width).toBe(236);
+      expect(box.x).toBe(0);
+      const square = (await rail
+        .getByRole("button", { name: "Câu 1, đang xem", exact: true })
+        .boundingBox())!;
+      expect(square.height).toBe(34);
+    } else {
+      await expect(rail).toHaveCount(0);
+      await expect(grid).toHaveText(
+        form === "short" ? "1 · 0/3" : "Câu 1 · đã làm 0 trên 3",
+      );
+      const label = grid.locator("span");
+      const [button, text] = await Promise.all([
+        grid.boundingBox(),
+        label.boundingBox(),
+      ]);
+      expect(button!.height).toBe(44);
+      expect(text!.height).toBeLessThan(24);
+      expect(await label.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(
+        true,
+      );
+    }
+    await engineFits(page);
+  });
+}
+
+for (const [locale, failed] of [
+  ["vi", "Chưa lưu được. Đang thử lại…"],
+  ["en", "Could not save. Trying again…"],
+] as const) {
+  for (const width of [320, 360]) {
+    test(`a failed save on a ${width}px phone in ${locale} reads whole beside the strike count`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 800 });
+      await page.addInitScript(
+        (lang) => localStorage.setItem("quizzivy.locale", lang),
+        locale,
+      );
+      const data = paper();
+      data.integrity = { ...data.integrity, maxFocusLoss: 2, onLimitExceeded: "flag" };
+      await stubApi(page, {
+        "GET /auth/me": { body: { ...studentUser, locale } },
+        "GET /app/attempts/paper": { body: data },
+        "PATCH /app/attempts/paper/answers": {
+          status: 500,
+          body: { error: { code: "INTERNAL", message: "down", requestId: "e2e" } },
+        },
+        "POST /app/attempts/paper/events": { body: {} },
+      });
+      await page.goto("/app/attempts/paper");
+      await page.locator("label").filter({ hasText: "Đáp án A" }).click();
+
+      const line = page.locator('[data-slot="save-strip"]').getByText(failed, {
+        exact: true,
+      });
+      await expect(line).toBeVisible();
+      const drawn = await line.evaluate((node) => {
+        const strip = node.closest("[data-slot='save-strip']")!;
+        const count = strip.lastElementChild!.getBoundingClientRect();
+        const box = node.getBoundingClientRect();
+        const style = getComputedStyle(node);
+        return {
+          clipped: node.scrollWidth > node.clientWidth,
+          ellipsis: style.textOverflow === "ellipsis",
+          rows: Math.round(box.height / parseFloat(style.lineHeight)),
+          besideCount: box.right <= count.left,
+          inWindow: strip.getBoundingClientRect().right <= innerWidth,
+        };
+      });
+      expect(drawn.clipped).toBe(false);
+      expect(drawn.ellipsis).toBe(false);
+      expect(drawn.rows).toBeLessThanOrEqual(2);
+      expect(drawn.besideCount).toBe(true);
+      expect(drawn.inWindow).toBe(true);
+      await engineFits(page);
+    });
+  }
+}

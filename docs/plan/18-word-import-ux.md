@@ -101,9 +101,20 @@ sent in plain language. This uses an admin-managed approved configuration. Teach
 do not choose infrastructure/model knobs on every import. Private mode must not
 silently use cloud when unavailable.
 
+"Read with AI" (plan 17 §1.42, D4) is that case, and D19 decided it on 2026-10-10: cloud
+processing is approved, the admin-managed configuration is the server's environment and
+`ai_settings` (plan 17 §8), and the page says what is sent. The Sources pane of an import that asked
+for it says that scanned or photographed pages are read by an AI service outside Quizzivy and
+that pages with selectable text are not sent. The review reports what left the system as an
+informational note, "{n} pages were read by an AI service outside Quizzivy", and a page the
+service could not read as a note that asks for a decision. A scan that is refused names why
+and what to do: a file over 40 pages, no readable page, too few credits (nothing was sent and
+none was used) or a paused teacher. The card that turns it on is the Imports task T-D4.39.
+
 Preflight handles password protection, mismatched extension, corruption, macros,
 scans and limits distinctly. The exam and the key may each be `.docx` or a PDF
-with a text layer; the limits line says a scanned PDF is refused. A PDF that
+with a text layer; the limits line says a scanned PDF is refused unless the import is read
+with AI. A PDF that
 turns out to be a scan, locked, broken or too long fails processing with its own
 message and asks for another file (plan 17 §1.39). Replacing a rejected file preserves the other valid
 inputs. A partially uploaded companion key never appears as fully received.

@@ -76,7 +76,7 @@ func (c *contexts) print(bundle GroupBundle) string {
 	}
 	for _, recording := range group.Recordings {
 		policy := recording.Policy
-		body.Recordings = append(body.Recordings, c.encoder.json(strings.ToLower(recording.AssetID), policy.MaxPlays, policy.AllowSeek, policy.ShowTranscriptAfterSubmit, recording.Transcript))
+		body.Recordings = append(body.Recordings, c.encoder.json(strings.ToLower(recording.AssetID), policy.MaxPlays, policy.AllowSeek, policy.ShowTranscriptAfterSubmit, policy.PauseAllowed(), recording.Transcript))
 	}
 	slices.Sort(body.Recordings)
 	return c.encoder.json(body)

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -23,6 +23,10 @@ import {
   wordImport,
 } from "./fixtures";
 import "@/lib/i18n";
+
+beforeAll(async () => {
+  await import("@/features/take-test");
+});
 
 interface Commit {
   requestId: string;
@@ -419,21 +423,41 @@ describe("the summary", () => {
 });
 
 describe("the preview", () => {
-  it("shows every included question with answers hidden, and switches to the phone frame", async () => {
+  it("holds the whole review draft in the frame, with no count line, no answer and no note", async () => {
     current = open();
     const { user } = await renderConfirm();
-    expect(
-      screen.getByText("3 câu hỏi. Học viên không thấy đáp án và ghi chú của bạn."),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("Question 3")).toBeNull();
+    const frame = document.querySelector<HTMLElement>("[data-preview-viewport]")!;
+
+    expect(await within(frame).findByText("Question 1")).toBeInTheDocument();
+    expect(within(frame).getAllByRole("button", { name: /^Câu \d/ })).toHaveLength(3);
+    expect(within(frame).getAllByRole("radio").length).toBeGreaterThan(0);
+    expect(within(frame).queryAllByRole("radio", { checked: true })).toEqual([]);
+    await user.click(within(frame).getByRole("button", { name: "Câu sau" }));
+    expect(within(frame).getByText("Question 2")).toBeInTheDocument();
+    await user.click(within(frame).getByRole("button", { name: "Câu sau" }));
+    expect(within(frame).getByText("Question 4.1")).toBeInTheDocument();
+    expect(within(frame).getByText("The park is near.")).toBeInTheDocument();
+    expect(within(frame).getByRole("button", { name: "Hoàn tất" })).toBeInTheDocument();
+    expect(within(frame).queryByText("Question 3")).toBeNull();
+    expect(within(frame).queryByText("Trùng câu 1")).toBeNull();
+    expect(frame.textContent ?? "").not.toMatch(/không thấy đáp án|ghi chú/);
+    expect(screen.queryByText(/Học viên không thấy đáp án và ghi chú/)).toBeNull();
+  });
+
+  it("draws Test detail's two frames, and switches to the phone", async () => {
+    current = open();
+    const { user } = await renderConfirm();
     const frame = document.querySelector("[data-preview-viewport]");
     expect(frame).toHaveAttribute("data-preview-viewport", "desktop");
+    expect(frame).toHaveClass("h-[620px]", "w-full", "rounded-xl", "max-w-full");
+    expect(frame?.parentElement).toHaveClass("bg-sidebar", "p-4");
 
     await user.click(screen.getByRole("button", { name: "Điện thoại" }));
     expect(frame).toHaveAttribute("data-preview-viewport", "phone");
+    expect(frame).toHaveClass("h-[720px]", "w-[390px]", "rounded-[24px]");
   });
 
-  it("says how many it shows when the paper cannot draw a question", async () => {
+  it("draws the questions the paper can draw, with no count of the others", async () => {
     current = review(
       [
         section([
@@ -444,11 +468,11 @@ describe("the preview", () => {
       [],
     );
     await renderConfirm();
-    expect(
-      screen.getByText(
-        "Đang hiện 1 trên 2 câu hỏi. Học viên không thấy đáp án và ghi chú của bạn.",
-      ),
-    ).toBeInTheDocument();
+    const frame = document.querySelector<HTMLElement>("[data-preview-viewport]")!;
+    expect(await within(frame).findByText("Question 1")).toBeInTheDocument();
+    expect(within(frame).getAllByRole("button", { name: /^Câu \d/ })).toHaveLength(1);
+    expect(within(frame).queryByText("Question 2")).toBeNull();
+    expect(screen.queryByText(/Đang hiện 1 trên 2 câu hỏi/)).toBeNull();
   });
 });
 

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef, useState } from "react";
+import { lazy, Suspense, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/skeleton";
 import { markdownToQuestionContent } from "@/components/shared/content/editor/markdown";
@@ -25,7 +25,8 @@ const EXPLANATION = { minHeight: 84, fontSize: 14 };
  * is stored in: rich content in the rich editor, a Markdown string in the
  * Markdown editor; a field with no text opens as rich text. Only "Switch to
  * Markdown" and "Apply conversion" change the stored form. `clearOnFocus`
- * hides the builder's starter prompt in either form until it is replaced.
+ * hides the builder's starter prompt in either form until it is replaced, and
+ * `action` goes in the header, before the mode switch.
  */
 export function QuestionProseField({
   text,
@@ -36,6 +37,7 @@ export function QuestionProseField({
   prompt = false,
   clearOnFocus = false,
   placeholder,
+  action,
   onChange,
 }: Readonly<{
   text: string;
@@ -46,6 +48,7 @@ export function QuestionProseField({
   prompt?: boolean;
   clearOnFocus?: boolean;
   placeholder?: string | undefined;
+  action?: ReactNode;
   onChange: (text: string, content: QuestionContent | null) => void;
 }>) {
   const { t } = useTranslation();
@@ -73,6 +76,7 @@ export function QuestionProseField({
           hint={hint}
           mode={field.mode}
           onMode={field.ask}
+          action={action}
         />
       </div>
       {field.mode === "rich" ? (

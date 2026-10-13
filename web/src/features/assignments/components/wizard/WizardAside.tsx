@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Eye, SquarePen } from "lucide-react";
+import { StickyAside } from "@/components/shared/StickyAside";
 import type { AssignmentDraft } from "@/features/assignments/draft";
 import { previewRules } from "@/features/assignments/studentRules";
 import { windowDays } from "@/features/assignments/wizardValues";
@@ -10,6 +11,8 @@ import type { Locale } from "@/lib/i18n";
  * what students will read on the Test intro (the same sentences, from
  * `previewRules`), and how much grading by hand the assignment will make.
  * `students` is the roster's count, or null while it is being counted.
+ * Beside the step from 794px of the wizard's container, it sticks as the
+ * page scrolls.
  */
 export function WizardAside({
   draft,
@@ -39,9 +42,9 @@ export function WizardAside({
   ];
 
   return (
-    <aside
+    <StickyAside
       aria-label={t("assignments.wizard.aside.label")}
-      className="sticky top-0 flex min-w-0 flex-[1_1_100%] flex-col gap-3 self-start @min-[794px]/wizard:min-w-60 @min-[794px]/wizard:flex-[0_1_300px]"
+      className="@min-[794px]/wizard:sticky-column flex min-w-0 flex-[1_1_100%] flex-col gap-3 self-start @min-[794px]/wizard:min-w-61 @min-[794px]/wizard:flex-[0_1_304px]"
     >
       <div className="bg-card shadow-card border-border rounded-xl border p-4">
         <dl className="border-border m-0 mb-3.5 flex flex-col gap-2 border-b pb-3.5">
@@ -83,6 +86,6 @@ export function WizardAside({
           </span>
         </p>
       )}
-    </aside>
+    </StickyAside>
   );
 }

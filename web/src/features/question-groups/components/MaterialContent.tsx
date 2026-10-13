@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import type { Editor } from "@tiptap/react";
 import { useTranslation } from "react-i18next";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { ContentEditor } from "@/components/shared/content/editor/ContentEditor"
 import { ContentView } from "@/components/shared/content/ContentView";
 import { ContentImage } from "@/components/shared/content/ContentImage";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
-import type { MediaAsset } from "@/features/media/api";
+import type { MediaAsset, MediaKind } from "@/features/media/api";
 import {
   changeMaterialContent,
   materialGaps,
@@ -16,6 +17,17 @@ import {
 } from "../model";
 import { MaterialTools } from "./MaterialTools";
 
+const BOTH_KINDS: readonly MediaKind[] = ["image", "audio"];
+
+/**
+ * MaterialContent edits a material's text: the content editor with its
+ * insert tools, or a textarea for a material stored as Markdown, and the
+ * read-only view while `preview`. A gap's binding outlives the gap's removal
+ * from the text, so undo brings both back. `label` names the editor
+ * ("Material content" unless given), `placeholder` is its empty text,
+ * `minHeight` and `fontSize` size its body as `ContentEditor` does, and
+ * `assetKinds` limits the insert tools, both kinds unless given.
+ */
 export function MaterialContent({
   material,
   preview,
@@ -23,6 +35,12 @@ export function MaterialContent({
   onChange,
   onAsset,
   onRefresh,
+  onEditor,
+  label,
+  placeholder,
+  minHeight,
+  fontSize,
+  assetKinds = BOTH_KINDS,
 }: Readonly<{
   material: GroupMaterial;
   preview: boolean;
@@ -30,6 +48,12 @@ export function MaterialContent({
   onChange: (material: GroupMaterial) => void;
   onAsset: (asset: MediaAsset) => void;
   onRefresh: () => void;
+  onEditor?: ((editor: Editor | null) => void) | undefined;
+  label?: string | undefined;
+  placeholder?: string | undefined;
+  minHeight?: number | undefined;
+  fontSize?: number | undefined;
+  assetKinds?: readonly MediaKind[];
 }>) {
   const { t } = useTranslation();
   const bindings = useRef(new Map<string, GroupGapBinding>());
@@ -40,7 +64,10 @@ export function MaterialContent({
           <ContentEditor
             key={material.id}
             initialContent={material.content}
-            label={t("groups.materialContent")}
+            label={label ?? t("groups.materialContent")}
+            placeholder={placeholder}
+            minHeight={minHeight}
+            fontSize={fontSize}
             onChange={(content) => {
               const active = new Set(material.gaps.map((binding) => binding.gapId));
               for (const gap of materialGaps(material))
@@ -54,12 +81,15 @@ export function MaterialContent({
               });
               onChange(next);
             }}
-            tools={(editor) => <MaterialTools editor={editor} onAsset={onAsset} />}
+            tools={(editor) => (
+              <MaterialTools editor={editor} kinds={assetKinds} onAsset={onAsset} />
+            )}
+            onEditor={onEditor}
           />
         ) : (
           <Field>
             <FieldLabel htmlFor={`legacy-material-${material.id}`}>
-              {t("groups.materialContent")}
+              {label ?? t("groups.materialContent")}
             </FieldLabel>
             <Textarea
               id={`legacy-material-${material.id}`}

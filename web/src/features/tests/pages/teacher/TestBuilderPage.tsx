@@ -22,10 +22,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MarqueeText } from "@/components/shared/MarqueeText";
 import { SplitPane } from "@/components/shared/SplitPane";
+import { StickyAside } from "@/components/shared/StickyAside";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useContentWidthAtLeast } from "@/layouts/shell/contentWidth";
 import { useCrumbs } from "@/layouts/shell/crumbs";
 import { PageAsideSlot } from "@/layouts/slots";
+import { contentPlainText } from "@/components/shared/content/plainText";
+import type { AiFinding } from "@/features/ai/api";
+import { withFix } from "@/features/question-bank/aiDrafts";
 import {
   createQuestion,
   duplicateQuestion,
@@ -33,6 +37,7 @@ import {
   toFormValues,
   updateQuestion,
 } from "@/features/question-bank/api";
+import { aiReadsOf, type QuestionAi } from "@/features/question-bank/questionAi";
 import {
   questionSchema,
   type QuestionValues,
@@ -57,6 +62,7 @@ import {
 } from "@/features/tests/components/AutosaveStatusLabel";
 import { QuestionPickerDialog } from "@/features/tests/components/QuestionPickerDialog";
 import {
+  AutosaveRefused,
   mergeAutosave,
   useAutosave,
   type AutosaveStatus,
@@ -80,6 +86,7 @@ import {
 } from "../../components/BuilderGroupPane";
 import { GroupPickerDialog } from "../../components/GroupPickerDialog";
 import { BuilderWrites } from "../../BuilderWrites";
+import { BuilderAiActions, type BuilderAi } from "../../components/BuilderAiActions";
 import {
   editableOutline,
   findUnit,
@@ -91,7 +98,7 @@ import {
   unitsOf,
   withUnits,
 } from "../../outlineUnits";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, failureMessage } from "@/lib/api/errors";
 import { notify } from "@/lib/toast";
 import { FormDialog } from "@/components/shared/form/FormDialog";
 
@@ -155,11 +162,21 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       : null,
   );
   const [activeBundle, setActiveBundle] = useState<GroupBundle | null>(null);
+  const [titleFocus, setTitleFocus] = useState<{
+    groupId: string;
+    request: number;
+  } | null>(null);
+  const [sharedRequest, setSharedRequest] = useState<{
+    groupId: string;
+    request: number;
+  } | null>(null);
+  const sharedOpener = useRef<HTMLElement | null>(null);
   const [pickingGroup, setPickingGroup] = useState(false);
   const [removing, setRemoving] = useState<
     { groupId: string } | { sectionIndex: number } | null
   >(null);
   const groupBridge = useRef<GroupPaneBridge | null>(null);
+  const removeOpener = useRef<HTMLElement | null>(null);
   const [writes] = useState(() => new BuilderWrites());
   const savedOutline = useRef(editableOutline(test));
   const sectionIds = useRef(
@@ -172,6 +189,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   const [deleting, setDeleting] = useState(false);
   const [creating, setCreating] = useState(false);
   const [previewing, setPreviewing] = useState(false);
+  const [editorEpoch, setEditorEpoch] = useState(0);
 
   const selectionRequest = useRef(0);
   const [starterIds, setStarterIds] = useState<ReadonlySet<string>>(new Set());
@@ -302,6 +320,14 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   );
   if (activeBundle && groupIds.includes(activeBundle.group.id))
     groups.set(activeBundle.group.id, activeBundle);
+  const groupFiles = new Map(
+    loadedGroups.flatMap(
+      (result) =>
+        result.data?.assets.map(
+          (asset) => [asset.id, asset.originalFilename] as const,
+        ) ?? [],
+    ),
+  );
 
   const byId = useMemo(() => {
     const map = new Map<string, OutlineQuestion>();
@@ -387,6 +413,34 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       ),
     );
     void selectQuestion(first);
+  }
+
+  async function addGenerated(values: QuestionValues[]) {
+    const ids: string[] = [];
+    try {
+      for (const value of values) {
+        const created = await createQuestion(value);
+        queryClient.setQueryData(["teacher-question", created.id], created);
+        ids.push(created.id);
+      }
+    } finally {
+      appendQuestions(ids);
+      void queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
+    }
+  }
+
+  async function fixQuestion(finding: AiFinding) {
+    await flushQuestion.current?.();
+    const questionId = finding.questionId;
+    await queryClient.cancelQueries({ queryKey: ["teacher-question", questionId] });
+    const fresh = await getQuestion(questionId);
+    const saved = await updateQuestion(
+      questionId,
+      withFix(toFormValues(fresh), finding),
+    );
+    queryClient.setQueryData(["teacher-question", questionId], saved);
+    void queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
+    if (selectedId === questionId) setEditorEpoch((epoch) => epoch + 1);
   }
 
   async function onCreateQuestion() {
@@ -519,10 +573,25 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     notify.success(t("builder.removedFromTest"));
   }
 
-  async function selectGroup(groupId: string, questionId?: string) {
+  async function selectGroup(
+    groupId: string,
+    questionId?: string,
+    ask?: "title" | "sharedContent",
+  ) {
     const request = ++selectionRequest.current;
+    const askPane = () => {
+      setTitleFocus((current) =>
+        ask === "title" ? { groupId, request: (current?.request ?? 0) + 1 } : null,
+      );
+      setSharedRequest((current) =>
+        ask === "sharedContent"
+          ? { groupId, request: (current?.request ?? 0) + 1 }
+          : null,
+      );
+    };
     if (selectedGroupId === groupId) {
       setSelectedId(questionId ?? null);
+      askPane();
       return;
     }
     try {
@@ -532,6 +601,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       setSelectedId(questionId ?? null);
       setActiveBundle(null);
       setQuestionStatus({ kind: "idle" });
+      askPane();
     } catch (cause) {
       report(cause);
     }
@@ -730,6 +800,29 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     }),
   );
 
+  const ai: BuilderAi = {
+    testId: test.id,
+    title: title.trim() || t("tests.untitled"),
+    passages: groupIds.flatMap(
+      (groupId) =>
+        groups.get(groupId)?.group.stimuli.flatMap((stimulus) => {
+          const text = contentPlainText(stimulus.content).trim();
+          return text === "" ? [] : [{ id: stimulus.id, title: stimulus.title, text }];
+        }) ?? [],
+    ),
+    section: sections[destinationIndex()]?.title ?? null,
+    prepare: async () => {
+      setPublishError(null);
+      await flushQuestion.current?.();
+      await outline.flush();
+    },
+    add: addGenerated,
+    fix: fixQuestion,
+    open: (questionId) => void selectQuestion(questionId),
+    numberOf: (questionId) => positionOf(sections, questionId, groups),
+    onPrepareFailed: report,
+  };
+
   function activeEditor() {
     if (selectedGroupId)
       return (
@@ -745,6 +838,15 @@ function Builder({ test }: Readonly<{ test: Test }>) {
           retryRef={retryQuestion}
           bridgeRef={groupBridge}
           onStatus={setQuestionStatus}
+          titleFocus={
+            titleFocus?.groupId === selectedGroupId ? titleFocus.request : undefined
+          }
+          sharedContent={
+            sharedRequest?.groupId === selectedGroupId
+              ? sharedRequest.request
+              : undefined
+          }
+          sharedContentOpener={sharedOpener}
         />
       );
     if (selectedId === null)
@@ -756,7 +858,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     const questionId = selectedId;
     return (
       <QuestionPane
-        key={questionId}
+        key={`${questionId}:${editorEpoch}`}
         questionId={questionId}
         number={positionOf(sections, questionId, groups)}
         clearStarterPrompt={starterIds.has(questionId)}
@@ -802,7 +904,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
           <AutosaveStatusLabel status={saveStatus} deck />
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Button
             variant="ghost"
             size="icon"
@@ -813,6 +915,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
           >
             <History aria-hidden="true" />
           </Button>
+          <BuilderAiActions ai={ai} />
           <Button
             variant="outline"
             size="md"
@@ -874,33 +977,46 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         storageKey="quizzivy.builder.outline"
         split={split}
         className="items-stretch gap-y-3.5"
-        firstClassName="self-start"
         secondClassName="flex min-w-0 items-start"
         first={
-          <fieldset disabled={creating} className="contents">
-            <Suspense fallback={<ListSkeleton rows={5} />}>
-              <OutlineTree
-                sections={sections}
-                groups={groups}
-                selectedGroupId={selectedGroupId}
-                onSelectGroup={(id, questionId) => void selectGroup(id, questionId)}
-                onCreateGroup={() => void insertGroup().catch(() => undefined)}
-                onRemoveGroup={(id) => setRemoving({ groupId: id })}
-                onRemoveSection={(sectionIndex) => setRemoving({ sectionIndex })}
-                questions={byId}
-                selectedId={selectedId}
-                creating={creating}
-                onSelect={(questionId) => void selectQuestion(questionId)}
-                onChange={updateOutline}
-                onCreateQuestion={() => void onCreateQuestion()}
-                onPickFromBank={(opener) => {
-                  pickerOpener.current = opener;
-                  setPicking(true);
-                }}
-                onAddSection={onAddSection}
-              />
-            </Suspense>
-          </fieldset>
+          <StickyAside as="div" docked={split}>
+            <fieldset disabled={creating} className="contents">
+              <Suspense fallback={<ListSkeleton rows={5} />}>
+                <OutlineTree
+                  sections={sections}
+                  groups={groups}
+                  groupFiles={groupFiles}
+                  selectedGroupId={selectedGroupId}
+                  onSelectGroup={(id, questionId) => void selectGroup(id, questionId)}
+                  onRenameGroup={(id) => void selectGroup(id, undefined, "title")}
+                  onOpenSharedContent={(id, opener) => {
+                    sharedOpener.current = opener;
+                    void selectGroup(id, undefined, "sharedContent");
+                  }}
+                  onCreateGroup={() => void insertGroup().catch(() => undefined)}
+                  onRemoveGroup={(id, opener) => {
+                    removeOpener.current = opener;
+                    setRemoving({ groupId: id });
+                  }}
+                  onRemoveSection={(sectionIndex) => {
+                    removeOpener.current = null;
+                    setRemoving({ sectionIndex });
+                  }}
+                  questions={byId}
+                  selectedId={selectedId}
+                  creating={creating}
+                  onSelect={(questionId) => void selectQuestion(questionId)}
+                  onChange={updateOutline}
+                  onCreateQuestion={() => void onCreateQuestion()}
+                  onPickFromBank={(opener) => {
+                    pickerOpener.current = opener;
+                    setPicking(true);
+                  }}
+                  onAddSection={onAddSection}
+                />
+              </Suspense>
+            </fieldset>
+          </StickyAside>
         }
         second={
           <div data-columns className="flex min-w-0 flex-1 items-start">
@@ -942,6 +1058,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       <ConfirmDialog
         open={removing !== null}
         onOpenChange={(open) => !open && !creating && setRemoving(null)}
+        returnFocus={removeOpener}
         title={
           doomedSection
             ? t("builder.removeSectionTitle", { title: doomedSection.title })
@@ -1075,10 +1192,10 @@ function Builder({ test }: Readonly<{ test: Test }>) {
 
       <DraftPreviewDialog
         open={previewing}
+        title={title.trim() || t("tests.untitled")}
         questions={draftQuestions}
         sections={sections}
         groups={loadedGroups.flatMap((result) => (result.data ? [result.data] : []))}
-        startAt={selectedId}
         onOpenChange={setPreviewing}
       />
 
@@ -1285,11 +1402,13 @@ function QuestionForm({
     [t],
   );
 
+  const storedReads = useRef(aiReadsOf(values));
   const autosave = useAutosave<QuestionValues>({
     refuse,
     save: async (next) => {
       await queryClient.cancelQueries({ queryKey: ["teacher-question", questionId] });
       const saved = await updateQuestion(questionId, next);
+      storedReads.current = aiReadsOf(next);
       queryClient.setQueryData(["teacher-question", questionId], saved);
       void queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
     },
@@ -1309,9 +1428,27 @@ function QuestionForm({
     onStatus(status);
   }, [onStatus, status]);
 
+  const ai: QuestionAi = {
+    prepare: async () => {
+      try {
+        await flush();
+      } catch (cause) {
+        if (aiReadsOf(values) !== storedReads.current)
+          return {
+            refusal:
+              cause instanceof AutosaveRefused
+                ? cause.message
+                : failureMessage(cause, t("questionEditor.saveFailed")),
+          };
+      }
+      return { id: questionId };
+    },
+  };
+
   return (
     <BuilderQuestionEditor
       value={values}
+      ai={ai}
       asset={asset}
       number={number}
       clearPromptOnFocus={clearStarterPrompt}
