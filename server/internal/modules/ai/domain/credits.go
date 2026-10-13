@@ -42,6 +42,8 @@ const microUSDPerMillionTokens = 1_000_000
 
 const maxTokens = 1 << 31
 
+const framingTokens = 1_000
+
 // Tier names a class of model, as the ledger records it.
 type Tier string
 
@@ -96,6 +98,11 @@ func (p Price) Credits(t Tokens) (int64, error) {
 	micro := t.Input*p.Input + t.Output*p.Output + t.CacheRead*p.CacheRead + t.CacheWrite*p.Input
 	unit := int64(microUSDPerCredit) * microUSDPerMillionTokens
 	return (micro + unit - 1) / unit, nil
+}
+
+// Bound is the most credits one call can cost at p, which a reservation must cover before the call is made: a call that sends promptBytes bytes of system prompt, user turn and schema, plus the provider's own framing, and writes at most maxTokens. A token covers at least one byte, so the byte count bounds the input tokens whatever the language, and every input token is priced as an uncached one, which is the dearest an input token is charged.
+func (p Price) Bound(promptBytes, maxTokens int) (int64, error) {
+	return p.Credits(Tokens{Input: int64(promptBytes) + framingTokens, Output: int64(maxTokens)})
 }
 
 // Limit is what happens to a teacher who has used the allowance.
