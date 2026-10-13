@@ -1,4 +1,10 @@
-import { listAttempts, type AttemptListRow, type GradingQueueItem } from "../../api";
+import {
+  listAttempts,
+  type AttemptListRow,
+  type AttemptReview,
+  type AttemptScore,
+  type GradingQueueItem,
+} from "../../api";
 
 /** scanGradingCandidates exhausts both settled statuses without claiming a concurrent snapshot. */
 export async function scanGradingCandidates(
@@ -109,4 +115,87 @@ export function scoreOptions(max: number) {
   );
   if (choices.at(-1) !== max) choices.push(max);
   return choices.length <= 9 ? choices : [];
+}
+
+/** ReadyGroup is one assignment's papers waiting for an explicit Finish. */
+export interface ReadyGroup {
+  assignmentId: string;
+  title: string;
+  earliest: string | null;
+  rows: AttemptListRow[];
+}
+
+function handedIn(row: AttemptListRow) {
+  return row.submittedAt ? Date.parse(row.submittedAt) : Number.POSITIVE_INFINITY;
+}
+
+function byHandIn(a: AttemptListRow, b: AttemptListRow) {
+  const left = handedIn(a);
+  const right = handedIn(b);
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
+}
+
+/**
+ * groupReadyPapers groups papers by assignment and orders the groups and the
+ * rows inside each by the oldest hand-in first; a paper without a hand-in time
+ * goes last, and ties keep the order the scan returned.
+ */
+export function groupReadyPapers(rows: readonly AttemptListRow[]): ReadyGroup[] {
+  const groups = new Map<string, ReadyGroup>();
+  for (const row of [...rows].sort(byHandIn)) {
+    const group = groups.get(row.assignmentId);
+    if (group) group.rows.push(row);
+    else
+      groups.set(row.assignmentId, {
+        assignmentId: row.assignmentId,
+        title: row.testTitle,
+        earliest: row.submittedAt ?? null,
+        rows: [row],
+      });
+  }
+  return [...groups.values()];
+}
+
+/** PaperKind is how a paper was marked: blank, automatically, or by hand. */
+export type PaperKind =
+  { kind: "blank" } | { kind: "auto" } | { kind: "hand"; marked: number };
+
+/** PaperCheck is what a ready paper's check shows, read from a fresh review. */
+export interface PaperCheck {
+  score: AttemptScore | null;
+  answered: number;
+  questions: number;
+  marking: PaperKind;
+  flagged: boolean;
+  focusLosses: number;
+  finishable: boolean;
+}
+
+/**
+ * paperCheck reads a review: the score, the questions with a non-null answer,
+ * how the paper was marked (blank when nothing was answered, by hand when any
+ * answer needs hand marking, otherwise automatically), its flag, and whether
+ * Finish may be offered, which needs a handed-in paper whose pendingManual is
+ * exactly 0.
+ */
+export function paperCheck(review: AttemptReview): PaperCheck {
+  const entries = review.questions.map((question) => review.answers[question.id]);
+  const answered = entries.filter((entry) => entry?.answer != null).length;
+  const marked = entries.filter((entry) => entry?.requiresManual === true).length;
+  const score = review.attempt.score ?? null;
+  let marking: PaperKind = { kind: "auto" };
+  if (answered === 0) marking = { kind: "blank" };
+  else if (marked > 0) marking = { kind: "hand", marked };
+  return {
+    score,
+    answered,
+    questions: review.questions.length,
+    marking,
+    flagged: review.attempt.integrity?.flagged === true,
+    focusLosses: review.attempt.integrity?.focusLossCount ?? 0,
+    finishable:
+      score?.pendingManual === 0 &&
+      (review.attempt.status === "submitted" || review.attempt.status === "timed_out"),
+  };
 }

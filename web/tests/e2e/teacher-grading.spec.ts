@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 import { adminUser, sessionAs, stubApi } from "./support/api";
 import { contractJson } from "../support/contractResponse";
 import {
@@ -8,7 +8,7 @@ import {
   ESSAY_ID,
   review,
 } from "../units/attempts/fixtures";
-import type { GradingQueueItem } from "../../src/features/attempts/api";
+import type { AttemptListRow, GradingQueueItem } from "../../src/features/attempts/api";
 
 async function prepare(page: Page, theme: "light" | "dark") {
   let grades = 0;
@@ -131,12 +131,16 @@ for (const theme of ["light", "dark"] as const) {
       expect(counts.finishes()).toBe(0);
       await page.getByRole("button", { name: "Hoàn tất chấm" }).click();
       await expect(
-        page.getByText("Điểm đã lưu, nhưng chưa hoàn tất chấm bài."),
+        page.getByText(
+          "Đã lưu điểm cho Nguyễn Đức Minh, nhưng chưa hoàn tất chấm bài.",
+        ),
       ).toBeVisible();
       await page.getByRole("button", { name: "Thử hoàn tất lại" }).click();
       await expect.poll(counts.finishes).toBe(2);
       expect(counts.grades()).toBe(1);
-      await expect(page.getByText("Không có câu trả lời chờ chấm")).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "Đã chấm xong tất cả" }),
+      ).toBeVisible();
     });
   }
 }
@@ -441,6 +445,220 @@ for (const theme of ["light", "dark"] as const) {
         .toBe(true);
       await page.getByRole("button", { name: "Lưu & câu tiếp theo" }).click();
       await expect.poll(counts.grades).toBe(1);
+    });
+  }
+}
+
+async function prepareFinish(page: Page, theme: "light" | "dark", waiting: boolean) {
+  const finished = new Set<string>();
+  const papers: AttemptListRow[] = Array.from({ length: 7 }, (_, index) => {
+    const n = String(index + 1).padStart(12, "0");
+    return {
+      id: `018f0000-0000-7000-8000-${n}`,
+      studentId: `018f0000-0000-7000-9000-${n}`,
+      studentName: `Học viên có tên khá dài số ${index + 1}`,
+      assignmentId:
+        index === 6 ? "018f0000-0000-7000-8000-0000000000d2" : ASSIGNMENT_ID,
+      testTitle: index === 6 ? "Vocab Quiz: Travel" : "Reading Mock 3",
+      status: index === 1 ? "timed_out" : "submitted",
+      submittedAt: `2026-09-22T0${index + 1}:00:00Z`,
+      pendingManual: 0,
+      flagged: index === 1,
+    };
+  });
+  const item: GradingQueueItem = {
+    attemptId: ATTEMPT_ID,
+    questionId: ESSAY_ID,
+    assignmentId: ASSIGNMENT_ID,
+    assignmentTitle: "Writing Mock 2",
+    studentId: STUDENT_ID,
+    studentName: "Phan Mỹ Duyên",
+    questionNumber: 2,
+    type: "short_answer",
+    prompt: "Write about your morning.",
+    answer: { type: "text", value: "I wake up at six every day." },
+    points: 1,
+    score: null,
+    comment: null,
+  };
+  await page.addInitScript(() => localStorage.setItem("quizzivy.locale", "vi"));
+  await page.emulateMedia({ colorScheme: theme });
+  const user = { ...adminUser, preferences: { theme } };
+  const perPaper = Object.fromEntries(
+    papers.flatMap((paper) => {
+      const read = review({ essayScore: 3 });
+      read.attempt = {
+        ...read.attempt,
+        id: paper.id,
+        assignmentId: paper.assignmentId,
+        studentId: paper.studentId,
+        status: paper.status,
+        integrity: { focusLossCount: paper.flagged ? 3 : 0, flagged: paper.flagged },
+      };
+      return [
+        [
+          `GET /teacher/attempts/${paper.id}`,
+          async (route: Route) =>
+            route.fulfill({
+              json: await contractJson(
+                "/teacher/attempts/{id}",
+                "get",
+                200,
+                read,
+              ).json(),
+            }),
+        ],
+        [
+          `POST /teacher/attempts/${paper.id}/finish-grading`,
+          async (route: Route) => {
+            finished.add(paper.id);
+            await route.fulfill({
+              json: await contractJson(
+                "/teacher/attempts/{id}/finish-grading",
+                "post",
+                200,
+                {
+                  ...read.attempt,
+                  status: "graded",
+                },
+              ).json(),
+            });
+          },
+        ],
+      ];
+    }),
+  );
+  await stubApi(page, {
+    ...sessionAs(user),
+    "GET /teacher/summary": {
+      body: {
+        liveAssignments: 1,
+        answersToGrade: waiting ? 1 : 0,
+        unreadNotifications: 0,
+      },
+    },
+    "GET /teacher/grading/queue": {
+      body: {
+        items: waiting ? [item] : [],
+        groups: waiting
+          ? [
+              {
+                key: STUDENT_ID,
+                kind: "student",
+                label: item.studentName,
+                sub: item.assignmentTitle,
+                remaining: 1,
+              },
+            ]
+          : [],
+        answersRemaining: waiting ? 1 : 0,
+        studentsWaiting: waiting ? 1 : 0,
+      },
+    },
+    "GET /teacher/attempts": async (route) => {
+      const status = new URL(route.request().url()).searchParams.get("status");
+      const items = papers.filter(
+        (paper) => paper.status === status && !finished.has(paper.id),
+      );
+      await route.fulfill({
+        json: await contractJson("/teacher/attempts", "get", 200, {
+          items,
+          total: items.length,
+          page: 1,
+          pageSize: 100,
+        }).json(),
+      });
+    },
+    ...perPaper,
+  });
+  return { finished: () => finished.size };
+}
+
+const heights = { 360: [44, 44], 768: [36, 40], 1280: [32, 36] } as const;
+
+for (const theme of ["light", "dark"] as const) {
+  for (const width of [360, 768, 1280] as const) {
+    test(`an empty queue lists the papers ready to finish at ${width}px in ${theme}`, async ({
+      page,
+    }) => {
+      const counts = await prepareFinish(page, theme, false);
+      const [small, large] = heights[width];
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/teacher/grading");
+      await expect(
+        page.getByRole("heading", { name: "Không còn câu trả lời cần chấm" }),
+      ).toBeVisible();
+      await expect(page.getByText("Không còn câu trả lời nào cần chấm.")).toBeVisible();
+      const card = page.getByRole("region", { name: "Sẵn sàng hoàn tất" });
+      await expect(card.getByRole("heading", { level: 3 })).toHaveText([
+        "Reading Mock 3· 6 bài",
+        "Vocab Quiz: Travel· 1 bài",
+      ]);
+      await expect(card.getByRole("button", { name: /^Xem bài/ })).toHaveCount(6);
+      await expect(card.getByRole("button", { name: "Hiện thêm 1 bài" })).toHaveCSS(
+        "height",
+        `${large}px`,
+      );
+      const refresh = card.getByRole("button", { name: "Làm mới" });
+      await expect(refresh).toHaveCSS("height", `${small}px`);
+      if (width === 360) await expect(refresh).toHaveCSS("width", "44px");
+      const review = page.getByRole("button", { name: "Xem 7 bài" });
+      await expect(review).toHaveCSS("height", `${large}px`);
+      await review.click();
+      const finish = card.getByRole("button", { name: "Hoàn tất chấm" });
+      await expect(finish).toBeFocused();
+      await expect(finish).toHaveCSS("height", `${large}px`);
+      await expect(card.getByText("Hết giờ")).toBeVisible();
+      await expect
+        .poll(() =>
+          page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+        )
+        .toBe(true);
+      await finish.click();
+      await expect(
+        page.getByText("Đã hoàn tất chấm bài của Học viên có tên khá dài số 1.", {
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(page.locator("p[aria-live=polite].sr-only")).toHaveText(
+        "Đã hoàn tất chấm bài của Học viên có tên khá dài số 1. Tiếp theo: Học viên có tên khá dài số 2.",
+      );
+      await expect.poll(counts.finished).toBe(1);
+      await expect(card.getByRole("button", { name: "Hoàn tất chấm" })).toBeFocused();
+      await expect(
+        card
+          .getByRole("button", { name: "Đóng", expanded: true })
+          .locator("xpath=ancestor::li"),
+      ).toContainText("Học viên có tên khá dài số 2");
+      await expect(card.getByRole("button", { name: /^Xem bài/ })).toHaveCount(5);
+    });
+
+    test(`the card folds below the panes while answers wait at ${width}px in ${theme}`, async ({
+      page,
+    }) => {
+      await prepareFinish(page, theme, true);
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/teacher/grading");
+      const card = page.getByRole("region", { name: "Sẵn sàng hoàn tất" });
+      const show = card.getByRole("button", { name: "Hiện" });
+      await expect(show).toHaveAttribute("aria-expanded", "false");
+      const panes = await page.getByRole("complementary").locator("..").boundingBox();
+      const folded = await card.boundingBox();
+      expect(folded!.y).toBeGreaterThanOrEqual(panes!.y + panes!.height);
+      await page.getByRole("button", { name: "7 bài sẵn sàng hoàn tất" }).click();
+      await expect(
+        card.getByRole("heading", { name: "Sẵn sàng hoàn tất" }),
+      ).toBeFocused();
+      await expect(card.getByRole("button", { name: /^Xem bài/ })).toHaveCount(6);
+      await expect(card.getByRole("button", { name: "Ẩn" })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+      await expect
+        .poll(() =>
+          page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+        )
+        .toBe(true);
     });
   }
 }
