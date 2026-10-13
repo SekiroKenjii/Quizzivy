@@ -53,12 +53,6 @@ func (a *assistant) sent() []aiports.Request {
 	return append([]aiports.Request(nil), a.requests...)
 }
 
-func (a *assistant) forget() {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.requests = nil
-}
-
 func (a *assistant) failWith(err error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
