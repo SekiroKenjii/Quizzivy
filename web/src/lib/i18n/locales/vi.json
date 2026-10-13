@@ -1649,7 +1649,6 @@
       "notSubmitted": "Chưa nộp: {{count}}",
       "pending": "Chờ chấm",
       "pendingHint": "{{count}} câu còn cần chấm",
-      "flagged": "Cần xem lại",
       "flaggedHint": "Rời trang quá {{count}} lần",
       "flaggedHintNone": "Không giới hạn rời trang",
       "test": "Đề thi",
@@ -2384,7 +2383,6 @@
     "score": "Điểm",
     "cards": {
       "submitted": "Đã nộp",
-      "inProgress": "Đang làm",
       "notStarted": "Chưa bắt đầu",
       "flagged": "Cần xem lại",
       "closesIn": "Đóng sau"
@@ -3828,7 +3826,6 @@
     "title": "Bài giao",
     "unavailable": "Không thể mở bài giao này.",
     "submitted": "Đã nộp",
-    "average": "Điểm trung bình",
     "progress": {
       "submittedOf": "Đã nộp {{submitted}}/{{total}}",
       "allSubmitted_one": "Đã nộp đủ {{count}}/{{count}}",
