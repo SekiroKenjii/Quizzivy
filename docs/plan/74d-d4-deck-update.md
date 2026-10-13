@@ -1785,8 +1785,8 @@ too: `detail.test.tsx`, `detail-versions.test.tsx` and `preview-and-leave.test.t
 the preview by the literal prompt "They ___ …" and now find it as a screen reader reads the
 sentence (`tests/support/gapSentence.ts`); their fixtures are unchanged. The builder's
 prompt field and the import both write `promptContent`, so on content made in the product
-today the rule fires only for prompts kept in Markdown; a rich prompt that is one plain
-paragraph prints as written, as the rule says. Compared with s9 questions 5 and 12 at 360
+today the rule fired only for prompts kept in Markdown; T-D4.11b (follow-up 7) widens it to a
+rich prompt that is one plain paragraph. Compared with s9 questions 5 and 12 at 360
 and 1280, light and dark, empty and chosen: the sentence and the box equal the deck's in
 position, size, type, padding, radius and colour in all 16 cells; the question sits 35px
 lower at 360 for the paper's integrity line above it, which the deck's paper has not.
@@ -2221,7 +2221,7 @@ is DG-63's and wraps at 360, and the title field is 16px below 1024 as every pro
 **Touches:** `web/src/features/question-bank/components/AudioPolicyPanel.tsx`, `web/src/features/question-bank/{audioPolicy.ts,questionSchema.ts}`, `web/src/features/question-groups/{model.ts,recovery.ts}`, locales, `web/tests/units/question-bank/editor.test.tsx`, `web/tests/units/question-groups/{recovery-compat.test.ts,recording-plays.test.tsx}` (new)
 **Size:** S
 **Done when:**
-- [ ] "Plays" is one control everywhere (DG-69, Q25). T-R4.65 built "Once | Twice | Unlimited"
+- [x] "Plays" is one control everywhere (DG-69, Q25). T-R4.65 built "Once | Twice | Unlimited"
       for a question's audio, with a stored other value as a fourth option while it is the
       value. A group's recording shows the same control, in the group pane and in the Shared
       content dialog: `AudioPolicyPanel` is the one component for both, and if R4 left the
@@ -2229,14 +2229,14 @@ is DG-63's and wraps at 360, and the title field is 16px below 1024 as every pro
       export's third drawing, a select with "3 plays" (T 1714-1719), is not taken. A unit
       case in the group pane: a recording stored with 3 plays shows "3" as a fourth option,
       and choosing "Twice" saves 2.
-- [ ] `AudioPolicyPanel` shows "Students can pause" under "Plays", on by default, for a
+- [x] `AudioPolicyPanel` shows "Students can pause" under "Plays", on by default, for a
       question's audio and for a group's recording; it saves `allowPause`. A policy read
       without the field shows the switch on.
-- [ ] Both parsers carry the field instead of stripping it: `audioPolicySchema`
+- [x] Both parsers carry the field instead of stripping it: `audioPolicySchema`
       (`questionSchema.ts:14-18`) and the recovery draft's `policy` (`recovery.ts:15-19`) are
       `z.object`, which drops a key it does not name, so each gains `allowPause` as an
       optional boolean. `QuestionValuesAreAcceptedByTheContract` still holds.
-- [ ] A recovery draft stored before this task has no `allowPause`. When it is restored, a
+- [x] A recovery draft stored before this task has no `allowPause`. When it is restored, a
       policy without the field takes the value the server's bundle holds for the same
       recording or member question (`GroupRecoveryGate` has `stored`), and true where the
       server has none, so the switch shows the truth and an old draft cannot switch pausing
@@ -2245,9 +2245,49 @@ is DG-63's and wraps at 360, and the title field is 16px below 1024 as every pro
       `take-test/draft-compat.test.ts`, reads a draft written without the field (a literal in
       the test), restores it over a group whose recording has `allowPause: false`, and
       asserts the restored and the saved bundle both read false.
-- [ ] A test saves it off for a question and for a recording and reads it back.
-- [ ] The media block and the group pane's recording are compared with the deck again at 360
+- [x] A test saves it off for a question and for a recording and reads it back.
+- [x] The media block and the group pane's recording are compared with the deck again at 360
       and 1280, light and dark.
+
+**As built:** one pull request, two commits (the switch and the parsers, then this note).
+"Plays" was already one control: T-D4.14 left the group pane's recording and the Shared content
+dialog on `AudioPolicyPanel`, so nothing moved; `recording-plays.test.tsx` pins it in the builder's
+group pane (a stored 3 shows "3 plays" as a fourth option; Twice saves 2, and the fourth goes). The
+panel draws "Students can pause" (`questionEditor.questionMedia.allowPause`) between "Plays" and
+"Allow skipping ahead", checked when the policy has no `allowPause`, and its change writes the
+field. `DEFAULT_AUDIO_POLICY` gains `allowPause: true`, so a new question's audio, a new recording
+in the pane and a new recording in the dialog send the drawn default rather than leaving the
+server to fill it; `shared-content-dialog.test.tsx`'s stored recording takes the field for that
+reason. The panel's three switches are the primitive's `sm` (36 by 20, 16px knob): the deck draws
+the pause switch 34 by 20 and the bank editor's two at 36 by 20, and the primitive has no 34.
+`audioPolicySchema` and the recovery draft's `policy` take `allowPause: z.boolean().exactOptional()`:
+`.optional()` would infer `boolean | undefined`, which `exactOptionalPropertyTypes` does not let
+`QuestionValuesAreAcceptedByTheContract` assign to the contract's `allowPause?: boolean`. The
+builder's question pane and the group editor save their values unparsed and already carried the
+field; the bank's Question editor saves `questionSchema`'s output, which stripped it. A recovered
+draft is merged in `GroupRecoveryGate`, where `stored` is: `withStoredPause` (`recovery.ts`) fills
+each recording's and member question's missing `allowPause` from the stored bundle by id, and true
+where the server has none, before the editor mounts, so the switch, the next device write and the
+next save all carry the stored rule, and a conflicting draft copied to the bank through
+`independentBundle` keeps it too. It runs when the children render rather than in the gate's effect,
+whose dependencies are the owner and the id; `useGroupEditor` reads `recovered` only on mount.
+`useGroupEditor` and the draft's version are not changed. Tests: `recovery-compat.test.ts` (new, 4: a
+literal draft without the field is read, restores false for the recording and the member question
+and true for a recording the server lacks, saves both false through `useGroupEditor`, and a draft
+that has the field keeps it); `recording-plays.test.tsx` (new, 4, through `BuilderGroupPane`: the
+fourth option, the switch's place and default, pausing saved off and read back off, and a pre-switch
+draft restored off over a stored false); `editor-page.test.tsx` saves it off for a bank question and
+reads it back; `editor.test.tsx` and `shared-content-dialog.test.tsx` see the switch on by default.
+Compared with the deck (React, Babel and lucide from their npm tarballs) at 360 and 1280, light and
+dark, in the question media block, the group pane's recording and the Shared content dialog: the
+Plays group (185 by 30, radius 7, `--muted`), its options (26px, 12px 500), the label (12.5px 400,
+8px gap), the switch's place (18px after the group at 1280, wrapping under it at 360), its track
+(`--primary` on, `--border` off, both themes) and its 16px white knob equal the deck's; no
+horizontal scroll; the focus ring is 2px `--focus` offset 2px. Known differences: the switch is
+36px wide against 34 (the primitive's size); the row holds "Allow skipping ahead" and "Show
+transcript after submitting" (DG-111), so it is 81px tall at 1280 and 141 at 360 against the deck's
+51 and 81; and the dialog shows the same row instead of the export's select and its 500-weight
+label (Q25).
 
 ### T-D4.2c — Previews: the bar and the frame
 **Reopens:** T-R4.31b (the builder's Student preview), T-R4.30 (Test detail's preview), T-R4.39 (the import's preview)
@@ -3626,7 +3666,8 @@ student answers?** (design)
 **Q17. A choice sentence with a gap that fills with the chosen option: what marks the gap?**
 (design)
 - Default: a plain one-line prompt with exactly one run of three or more underscores, on a
-  single-choice or true/false question (T-D4.11). Anything else prints as written.
+  single-choice or true/false question (T-D4.11), or a rich prompt that is one paragraph of
+  unmarked text meeting the same test (T-D4.11b). Anything else prints as written.
 - Cost of the other answer: T-D4.11 is dropped, or a field marks the gap (a contract change).
 
 **Q18. Sign cards, 60px word tiles, the hint line and the image caption: what in the data
@@ -3874,10 +3915,28 @@ is built here.
    timing differs from the emulator's. Add to T-D4.12's real-phone box: swipe the drawer open and
    closed, then tap an option at once, and see that the option is chosen and the drawer does not
    move.
-7. **T-D4.11's gap rule does not reach a prompt made in the product.** The sentence gap fires only
-   for a prompt with no `promptContent`, and the builder's prompt field and the import both write
-   `promptContent`, so on content made today it fires only for a prompt kept in Markdown (T-D4.11
-   "As built", #571). The Tech Lead widens the rule to a rich prompt that is one plain paragraph
-   (with the run of underscores in its text and no mark, gap or media): **T-D4.11b**. It changes
-   Q17's default, the refusal "a rich prompt" in `sentence-gap.test.ts`, and the comparison with
-   s9 questions 5 and 12. Recorded here; not built.
+7. [x] **T-D4.11's gap rule does not reach a prompt made in the product.** The sentence gap fired
+   only for a prompt with no `promptContent`, and the builder's prompt field and the import both
+   write `promptContent`, so on content made today it fired only for a prompt kept in Markdown
+   (T-D4.11 "As built", #571). The Tech Lead widens the rule to a rich prompt that is one plain
+   paragraph (with the run of underscores in its text and no mark, gap or media): **T-D4.11b**.
+   It changes Q17's default, the refusal "a rich prompt" in `sentence-gap.test.ts`, and the
+   comparison with s9 questions 5 and 12.
+
+   **As built (T-D4.11b):** `sentenceGap` accepts `promptContent` when it is valid question
+   prompt content (`isQuestionPromptContent`), its plain projection (`contentPlainText`) is
+   exactly the stored `prompt`, and it is one `paragraph` block whose children are all `text`
+   nodes with no marks; adjacent unmarked text nodes count as one text. The prompt then goes
+   through T-D4.11's test unchanged (trim, NFC, one line, one run, no other marker), so a `*`
+   or `_` typed as plain rich text still refuses the gap. Anything else prints as today: a mark,
+   a link, a line break, a gap node, a heading, a second block, an image, legacy Markdown
+   content, content that does not validate, and content whose projection is not the prompt,
+   which `QuestionProse` reports as invalid and still does. T-D4.11's "a rich prompt" refusal
+   was content without `marks`, which does not validate, so it still refuses and is renamed
+   "rich content that does not validate"; no other case changed. `GapSentence` and the answer
+   shape are untouched. E2E 1 (`author-and-publish.live.spec.ts`) authors its choice prompt in
+   the builder, so the test's preview now draws it as the sentence; the spec finds it as a
+   screen reader reads it ("They chỗ trống to the museum last weekend."). In a production build of the engine, the rich prompt "If I ___ you, I
+   would study harder." measures exactly as the same prompt in Markdown at 360 and 1280, light
+   and dark, empty and chosen (the sentence 500 18px/32.4px, the box 88 × 30.8px empty), which
+   is the drawing T-D4.11 matched to s9 questions 5 and 12; no horizontal scroll.

@@ -974,6 +974,7 @@
       "unlimited": "Không giới hạn",
       "playsCount_one": "{{count}} lần",
       "playsCount_other": "{{count}} lần",
+      "allowPause": "Cho học sinh tạm dừng",
       "allowSeek": "Cho tua tới",
       "showTranscript": "Hiện lời thoại sau khi nộp",
       "transcript": "Lời thoại",

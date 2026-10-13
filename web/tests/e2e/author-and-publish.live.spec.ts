@@ -154,7 +154,9 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
 
   // Six questions, one of each type plus the audio one, in the student payload.
-  await expect(page.getByText("They ___ to the museum last weekend.")).toBeVisible();
+  await expect(
+    page.getByText("They chỗ trống to the museum last weekend.", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("Người phụ nữ đề nghị làm gì?")).toBeVisible();
 
   // And the version history records it: six questions, six points, by name.

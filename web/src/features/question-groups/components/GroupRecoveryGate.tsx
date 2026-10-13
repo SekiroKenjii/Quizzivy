@@ -5,13 +5,19 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ListSkeleton } from "@/components/shared/ListState";
 import { openDraftScope, type DraftScope, type LocalDraft } from "@/lib/drafts/store";
 import type { StoredGroup } from "../api";
-import { readGroupRecovery, type GroupRecovery } from "../recovery";
+import { readGroupRecovery, withStoredPause, type GroupRecovery } from "../recovery";
 
 export type RecoveryState = {
   scope: DraftScope | null;
   draft: LocalDraft | null;
   recovery: GroupRecovery | null;
 };
+/**
+ * GroupRecoveryGate reads the group's device-recovery draft and offers it
+ * before the editor mounts. The children receive the draft the teacher chose,
+ * with each audio policy the draft lacks `allowPause` for filled from `stored`
+ * (`withStoredPause`).
+ */
 export function GroupRecoveryGate({
   owner,
   stored,
@@ -72,5 +78,6 @@ export function GroupRecoveryGate({
         </div>
       </div>
     );
-  return <>{children(loaded)}</>;
+  const recovery = loaded.recovery && withStoredPause(loaded.recovery, stored.bundle);
+  return <>{children({ ...loaded, recovery })}</>;
 }

@@ -974,6 +974,7 @@
       "unlimited": "Unlimited",
       "playsCount_one": "{{count}} play",
       "playsCount_other": "{{count}} plays",
+      "allowPause": "Students can pause",
       "allowSeek": "Allow skipping ahead",
       "showTranscript": "Show transcript after submitting",
       "transcript": "Transcript",

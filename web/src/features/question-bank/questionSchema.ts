@@ -18,6 +18,7 @@ const audioPolicySchema = z.object({
   maxPlays: z.number().int().min(1).nullable(),
   allowSeek: z.boolean(),
   showTranscriptAfterSubmit: z.boolean(),
+  allowPause: z.boolean().exactOptional(),
 });
 
 const optionSchema = z
