@@ -232,3 +232,29 @@ it("resumes a play left on another question where it stopped, recording nothing 
   expect(recorded()).toEqual([["audio_play", "q1"]]);
   expect(counted).toHaveBeenCalledTimes(1);
 });
+
+it("keeps a question's recording that cannot be paused playing, and a stop from elsewhere resumes for no play", () => {
+  renderWithPaper(
+    <QuestionAudio
+      question={{ ...question, audio: { ...question.audio!, allowPause: false } }}
+      onExpired={() => undefined}
+    />,
+  );
+
+  pressPlay();
+  fireEvent.play(audio());
+  audio().currentTime = 3;
+  fireEvent.timeUpdate(audio());
+  const inert = screen.getByRole("button", { name: "Tạm dừng" });
+  expect(inert).toHaveAttribute("aria-disabled", "true");
+  fireEvent.click(inert);
+  expect(HTMLMediaElement.prototype.pause).not.toHaveBeenCalled();
+
+  paused = true;
+  fireEvent.pause(audio());
+  fireEvent.click(screen.getByRole("button", { name: "Nghe tiếp" }));
+
+  expect(play).toHaveBeenCalledTimes(2);
+  expect(recorded()).toEqual([["audio_play", "q1"]]);
+  expect(counted).toHaveBeenCalledTimes(1);
+});

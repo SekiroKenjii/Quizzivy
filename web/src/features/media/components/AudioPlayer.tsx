@@ -33,6 +33,11 @@ interface AudioPlayerProps {
   durationMs?: number | null | undefined;
   /** §11.1: false locks the track to display-only for a student. */
   allowSeek?: boolean;
+  /**
+   * §11.1: false makes the button inert while the recording plays. A pause
+   * from elsewhere still happens, and "Resume" continues it for no play.
+   */
+  allowPause?: boolean | undefined;
   /** Right-hand hint, e.g. "Còn 1 lượt nghe". Read from the server, never counted here. */
   hint?: string | undefined;
   /**
@@ -87,7 +92,9 @@ const RESTORE_SLACK_S = 0.5;
  * puts the position back once the element has its metadata, and calls
  * `onPlay` after all if playback runs short of it. Starting one player pauses
  * any other that is playing. Unmounting pauses it (§11.3: one instance per
- * question, and navigating away releases it).
+ * question, and navigating away releases it). With `allowPause` false a press
+ * while playing does nothing; the button says so with `aria-disabled` and
+ * stays focusable.
  */
 export function AudioPlayer({
   src,
@@ -95,6 +102,7 @@ export function AudioPlayer({
   disabled = false,
   durationMs,
   allowSeek = true,
+  allowPause = true,
   hint,
   size = "default",
   layout,
@@ -229,7 +237,7 @@ export function AudioPlayer({
         }
         setFailedFor(src);
       });
-    } else {
+    } else if (allowPause) {
       element.pause();
     }
   }
@@ -269,6 +277,7 @@ export function AudioPlayer({
     />
   );
   const phase = phaseOf(playing, live && position > 0, live, plays);
+  const inert = playing && !allowPause;
   const seek = allowSeek ? (
     <SeekRange
       disabled={disabled}
@@ -293,6 +302,8 @@ export function AudioPlayer({
         blocked={blocked}
         disabled={disabled}
         allowSeek={allowSeek}
+        allowPause={allowPause}
+        inert={inert}
         fraction={fraction}
         position={shownPosition}
         total={shownTotal}
@@ -311,9 +322,10 @@ export function AudioPlayer({
         type="button"
         onClick={toggle}
         disabled={disabled}
+        aria-disabled={inert || undefined}
         aria-label={playing ? t("media.pause") : t("media.play")}
         className={cn(
-          "bg-primary text-primary-foreground grid flex-none place-content-center rounded-full",
+          "bg-primary text-primary-foreground grid flex-none place-content-center rounded-full aria-disabled:opacity-45",
           buttonSize(size),
         )}
       >
@@ -454,7 +466,8 @@ const BUTTON_NAME = {
  * seeking is allowed, the time and the play counter, and the status line
  * with its headphones, which also holds the sentence for a play the browser
  * refused. A finished play shows the whole track. At the limit the button
- * stays live (spec §11.4, DG-182).
+ * stays live (spec §11.4, DG-182). A recording that cannot be paused dims the
+ * button while it plays, and says so before the first play and while playing.
  */
 function RecordingCard({
   label,
@@ -463,6 +476,8 @@ function RecordingCard({
   blocked,
   disabled,
   allowSeek,
+  allowPause,
+  inert,
   fraction,
   position,
   total,
@@ -476,6 +491,8 @@ function RecordingCard({
   blocked: boolean;
   disabled: boolean;
   allowSeek: boolean;
+  allowPause: boolean;
+  inert: boolean;
   fraction: number;
   position: number;
   total: number;
@@ -499,8 +516,9 @@ function RecordingCard({
           type="button"
           onClick={onToggle}
           disabled={disabled}
+          aria-disabled={inert || undefined}
           aria-label={t(BUTTON_NAME[phase])}
-          className="bg-primary text-primary-fg grid size-13 flex-none place-content-center rounded-full disabled:opacity-45"
+          className="bg-primary text-primary-fg grid size-13 flex-none place-content-center rounded-full disabled:opacity-45 aria-disabled:opacity-45"
         >
           <Icon className="size-5.5" aria-hidden="true" />
         </button>
@@ -541,7 +559,7 @@ function RecordingCard({
           className="text-muted-fg flex items-center gap-2 text-sm leading-normal"
         >
           <Headphones className="size-[15px] flex-none" aria-hidden="true" />
-          {statusText(t, phase, plays)}
+          {statusText(t, phase, plays, allowPause)}
         </p>
       )}
       {spent && <p className="text-muted-fg text-meta">{t("media.extraPlays")}</p>}
@@ -563,10 +581,19 @@ function counterText(t: TFunction, plays: PlayCount, spent: boolean): string {
   return t("media.playOf", { n, limit: plays.limit });
 }
 
-function statusText(t: TFunction, phase: Phase, plays: PlayCount | undefined): string {
-  if (phase === "playing") return t("media.statusPlaying");
+function statusText(
+  t: TFunction,
+  phase: Phase,
+  plays: PlayCount | undefined,
+  allowPause: boolean,
+): string {
+  if (phase === "playing") {
+    return t(allowPause ? "media.statusPlaying" : "media.statusPlayingNoPause");
+  }
   if (phase === "paused") return t("media.statusPaused");
-  if (phase === "ready") return t("media.statusReady");
+  if (phase === "ready") {
+    return t(allowPause ? "media.statusReady" : "media.statusReadyNoPause");
+  }
   const limit = plays?.limit ?? null;
   if (limit === null) return t("media.statusFinished");
   const left = limit - (plays?.played ?? 0);
