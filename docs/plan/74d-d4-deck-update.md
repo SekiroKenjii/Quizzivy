@@ -3334,7 +3334,9 @@ without saving. `useGradingQueue` gains `fill(item, points, comment)`, which lay
 answer's draft and writes nothing (refused while a save is in flight); the score button shows
 pressed and the comment field holds the text. Save & next writes them through `flush`, and so does
 `j`/`k` or a click on another answer, which already flush a pending comment. A route change does
-not: the leave dialog appears only for an unsaved comment, as before. `grading-ai.test.tsx` spies
+not: the leave dialog appeared only for an unsaved comment, so a filled score with an empty or
+unchanged comment was lost; the D4 follow-ups (item 8 of "Follow-ups from the built tasks") make
+the dialog ask for it too. `grading-ai.test.tsx` spies
 on the API client and finds no `POST /teacher/attempts/{id}/grade` after "Use score and comment",
 then one with the suggested points and comment after Save & next; it also reads the box's source
 for any import of the attempts API.
