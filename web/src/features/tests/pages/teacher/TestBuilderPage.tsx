@@ -156,11 +156,16 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       : null,
   );
   const [activeBundle, setActiveBundle] = useState<GroupBundle | null>(null);
+  const [titleFocus, setTitleFocus] = useState<{
+    groupId: string;
+    request: number;
+  } | null>(null);
   const [pickingGroup, setPickingGroup] = useState(false);
   const [removing, setRemoving] = useState<
     { groupId: string } | { sectionIndex: number } | null
   >(null);
   const groupBridge = useRef<GroupPaneBridge | null>(null);
+  const removeOpener = useRef<HTMLElement | null>(null);
   const [writes] = useState(() => new BuilderWrites());
   const savedOutline = useRef(editableOutline(test));
   const sectionIds = useRef(
@@ -303,6 +308,14 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   );
   if (activeBundle && groupIds.includes(activeBundle.group.id))
     groups.set(activeBundle.group.id, activeBundle);
+  const groupFiles = new Map(
+    loadedGroups.flatMap(
+      (result) =>
+        result.data?.assets.map(
+          (asset) => [asset.id, asset.originalFilename] as const,
+        ) ?? [],
+    ),
+  );
 
   const byId = useMemo(() => {
     const map = new Map<string, OutlineQuestion>();
@@ -520,10 +533,15 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     notify.success(t("builder.removedFromTest"));
   }
 
-  async function selectGroup(groupId: string, questionId?: string) {
+  async function selectGroup(groupId: string, questionId?: string, focusTitle = false) {
     const request = ++selectionRequest.current;
+    const askTitle = () =>
+      setTitleFocus((current) =>
+        focusTitle ? { groupId, request: (current?.request ?? 0) + 1 } : null,
+      );
     if (selectedGroupId === groupId) {
       setSelectedId(questionId ?? null);
+      askTitle();
       return;
     }
     try {
@@ -533,6 +551,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       setSelectedId(questionId ?? null);
       setActiveBundle(null);
       setQuestionStatus({ kind: "idle" });
+      askTitle();
     } catch (cause) {
       report(cause);
     }
@@ -746,6 +765,9 @@ function Builder({ test }: Readonly<{ test: Test }>) {
           retryRef={retryQuestion}
           bridgeRef={groupBridge}
           onStatus={setQuestionStatus}
+          titleFocus={
+            titleFocus?.groupId === selectedGroupId ? titleFocus.request : undefined
+          }
         />
       );
     if (selectedId === null)
@@ -883,11 +905,19 @@ function Builder({ test }: Readonly<{ test: Test }>) {
                 <OutlineTree
                   sections={sections}
                   groups={groups}
+                  groupFiles={groupFiles}
                   selectedGroupId={selectedGroupId}
                   onSelectGroup={(id, questionId) => void selectGroup(id, questionId)}
+                  onRenameGroup={(id) => void selectGroup(id, undefined, true)}
                   onCreateGroup={() => void insertGroup().catch(() => undefined)}
-                  onRemoveGroup={(id) => setRemoving({ groupId: id })}
-                  onRemoveSection={(sectionIndex) => setRemoving({ sectionIndex })}
+                  onRemoveGroup={(id, opener) => {
+                    removeOpener.current = opener;
+                    setRemoving({ groupId: id });
+                  }}
+                  onRemoveSection={(sectionIndex) => {
+                    removeOpener.current = null;
+                    setRemoving({ sectionIndex });
+                  }}
                   questions={byId}
                   selectedId={selectedId}
                   creating={creating}
@@ -944,6 +974,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       <ConfirmDialog
         open={removing !== null}
         onOpenChange={(open) => !open && !creating && setRemoving(null)}
+        returnFocus={removeOpener}
         title={
           doomedSection
             ? t("builder.removeSectionTitle", { title: doomedSection.title })

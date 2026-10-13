@@ -1861,21 +1861,21 @@ edited.
 **Touches:** `web/src/features/tests/components/{OutlineTree,OutlineGroupRow}.tsx`, `web/src/features/tests/pages/teacher/TestBuilderPage.tsx` (selecting the group from the line and from the menu items, nothing else), `web/src/features/tests/components/BuilderGroupPane.tsx` and `web/src/features/question-groups/components/GroupComposer.tsx` (focus on the title field when Rename asks; no save path changes), locales, `web/tests/units/builder/` (the outline's cases)
 **Size:** S
 **Done when:**
-- [ ] The deck's "group" stays the product's section (DG-186). A section's "…" menu is R4's
+- [x] The deck's "group" stays the product's section (DG-186). A section's "…" menu is R4's
       (Rename, Instructions, Move up, Move down, Remove group) and gains no "Shared content":
       the export's menu entry `mi('Shared content', 'panel-left', …)` (T 6986) is on every
       group, and a section has no shared content to hold.
-- [ ] A shared-context group keeps its own row inside its section (`OutlineGroupRow`). The
+- [x] A shared-context group keeps its own row inside its section (`OutlineGroupRow`). The
       buttons R4 left on the row give way to a "…" menu: Rename, Shared content (the
       `panel-left` icon, the export's third item), Move up, Move down (disabled at the ends),
       Remove group. Move up, Move down and Remove group do what their buttons did; the row's
       drag, its keyboard equivalents and its focus ring are R4's.
-- [ ] Rename is new on this row: R4 gives Rename to a section's menu only, and a group's
+- [x] Rename is new on this row: R4 gives Rename to a section's menu only, and a group's
       title has one field, in `BuilderGroupPane` (`shared-group-title`). Rename selects the
       group and puts focus in that field with its text selected. The title is saved by the
       group's editor, and the outline calls no operation: a rename in the outline would be a
       second writer of the bundle (T-D4.14, "One writer").
-- [ ] Under the row's header, while the group is open, the export's shared-content line
+- [x] Under the row's header, while the group is open, the export's shared-content line
       (T 1581-1587, the button on `sec.editShared`; its text is the script's `sharedText`,
       T 6968) in the instructions line's geometry:
       margin 0 0 4px 26px, padding 4px 6px, radius 6px, 12px `--muted-fg`, a 13px icon, one
@@ -1884,19 +1884,51 @@ edited.
       "· unlimited plays", with "1 play" in the singular (the prototype prints "1 plays"). A
       group that holds more than one material, or both kinds, reads "{n} materials · {m}
       recordings". A group with no shared content shows no line.
-- [ ] The line is a button. It and the "Shared content" item select the group, which opens
+- [x] The line is a button. It and the "Shared content" item select the group, which opens
       `BuilderGroupPane`, until T-D4.14 opens the dialog. Selecting the group, from the line
       or from either item, saves what is pending in the open question first, as selecting a
       row does today.
-- [ ] Unit tests: the line in each form (a passage with and without gaps, a recording with a
+- [x] Unit tests: the line in each form (a passage with and without gaps, a recording with a
       limit, with one play and with no limit, more than one material, none); the menu's items
       and their disabled states; "Rename opens the group, focuses its title and sends no
       request"; "a pending edit is saved when the line is pressed".
-- [ ] Compared with the deck at 360, 768, 1024, 1280 and 1440, light and dark, on a
+- [x] Compared with the deck at 360, 768, 1024, 1280 and 1440, light and dark, on a
       shared-context group holding one passage: the deck's fixture shows "Passage · Why cities
       need green space" under its first group (`INIT_SECS`, T 6632). Known difference: the line
       and the item are on the group's row, not on the section's (DG-186).
-- [ ] Keys vi first, en from the deck, listed in the PR.
+- [x] Keys vi first, en from the deck, listed in the PR.
+
+**As built:** one pull request, two commits (the row, then this note). `OutlineGroupRow` keeps R4's
+grip, disclosure, title and summary; its Move up, Move down and Delete buttons became one "…"
+trigger (`builder.groupActions`, "Thao tác với nhóm {title}"), 24px and shown on hover, focus and
+while open from 768px as a section's is, and at 44px only while the group is selected below it
+(DG-135). The menu is the export's: Rename, Shared content (`panel-left`), Move up, Move down
+(disabled by `stepUnit` at the outline's ends, which the old buttons never were), a separator and
+Remove group. Rename runs once the menu has closed (`onCloseAutoFocus`), because a focus moved
+while the menu's focus scope is mounted is taken back; Remove group hands its trigger to the
+builder's confirmation as `returnFocus`, since the menu item it opened from is gone when the
+dialog closes. The line is `sharedContentLine` (`features/tests/sharedContentLine.ts`): one
+material with no audio is a passage, one material that is one recording and nothing to read
+(empty paragraphs aside) is audio, anything else is "{n} materials · {m} recordings", even with
+no recording ("2 materials · 0 recordings"). The file name is the asset's `originalFilename`, as
+the composer's recording select prints it, from the `assets` of each loaded group, which the
+builder passes to the outline as `groupFiles`; a name it does not hold is left out ("Audio · 2
+plays"), so the export's "no file yet" has no use. Rename selects the group through
+`selectGroup` with a title request, `BuilderGroupPane` hands it to `GroupComposer` as
+`titleFocus`, and the composer focuses and selects `shared-group-title`; no request leaves the
+outline. The line and Shared content select the group through the same `selectGroup`, which
+flushes the open question first. Tests: `tests/units/builder/group-row.test.tsx` (new, 16: the
+line's forms in both languages, its geometry and its collapse, the menu's order, icons, disabled
+ends and keyboard use, its escape from the scrolling column, and on the real builder Rename's
+focus with and without the group already open, the focus after a cancelled removal, and the
+pending edit saved before the line opens the group); `builder-groups.live.spec.ts` now moves and
+removes the group through its menu. Measured on a live stack with `getBoundingClientRect` at 360,
+768, 1024, 1280 and 1440, light and dark, the sidebar expanded (768 to 1440), collapsed (1024 to
+1440) and a drawer (360): the line is 26px high, 26px in from the header, 12px `--muted-fg` with a 13px
+icon, 4px 6px padding, radius 6, an ellipsis, flush under the header and 4px above the members;
+the menu is 192px and inside the window at every width; no horizontal scroll. The deck itself
+could not render (unpkg.com does not answer through the proxy), so it was compared with its
+markup and script (`sec.hasShared`, `sec.sharedText`, `sec.menu`), not side by side.
 
 ### T-D4.2b — Group pane: the gap row
 **Reopens:** T-R4.34 (question groups, restyled)
