@@ -1,7 +1,15 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.96 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.97 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.96**
+
+D4, T-D4.8: the recording card in the stimulus pane, and what spends a play (DG-193).
+
+- §9 A shared recording's card stands at its audio node in the stimulus pane, the drawer below 768px, and no longer in the question pane; with several recordings each card is headed by its node's label.
+- §11.3 The engine's player is the deck's recording card: a 52px button (Play, Pause, Resume, Play again), the track, the time and a play counter, and a status line. A play in progress keeps its place for the tab's life when its question or group is left, and starting one player pauses the others.
+- §11.4 A play is spent when playback starts with no play in progress; a resume spends none and sends no `audio_play`. A place that cannot be put back counts as a play.
 
 **Changes since v0.95**
 
@@ -1827,10 +1835,12 @@ targeting alone grants no media access. A missing context reader fails explicitl
 instead of serving grouped questions without their materials. Learner material
 is drawn by the renderer the teacher's preview shares: in a passage pane beside
 the question from 768px, and below 768px behind the "Ngữ liệu | Câu n" switcher,
-which shows one pane at a time, the question first (§9). Shared recordings are
-drawn in the question pane at every width, never in the passage, so their
-controls show whenever the question does; below 768px they are out of view while
-the passage is showing, and stay mounted. Stable gap targets navigate to the
+which shows one pane at a time, the question first (§9). A shared recording's
+card is drawn at its audio node in the stimulus pane, in reading order, the drawer
+below 768px; with several recordings each card is headed by its node's label,
+and a recording no node names is drawn after the materials. The pane stays
+mounted while the student moves between the group's questions and across 768px,
+so a recording plays on behind a closed drawer. Stable gap targets navigate to the
 question or blank input without losing pending answers. Group players stay mounted
 across child navigation.
 
@@ -2199,6 +2209,7 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 `web/src/features/media/components/AudioPlayer.tsx`. Custom controls over a native `<audio>`; no third-party audio library.
 
 - Controls: play/pause, elapsed/total time, a progress bar that is **display-only when `allowSeek` is false**, and a plays-remaining indicator. The total shown is the server's probed length when it is known; the file's own length drives the track and the seek.
+- The engine draws it as the deck's recording card (`layout="card"`), for a question's own audio and for a shared recording alike: a 52px round button named Play, Pause, Resume (a paused play in progress) or Play again (after an end), a 6px track in the brand accent with the seek control over it when `allowSeek` is on, the time and a counter under it ("Play 1 of 2", which reads 1 before the first play; "Play n" with no limit; "Played n/N times" at and past the limit), and a status line: "Press play when you are ready.", "Playing", "Paused", "Finished · 1 play left" (or "Finished" with no limit) and, at the limit, "You have used all N plays." with "You can keep listening. Additional plays are recorded for your teacher to review." The button stays live at the limit (§11.4). A refused play's sentence takes the status line's place.
 - `preload="metadata"` so duration renders without downloading the file.
 - **Autoplay is impossible** — browsers block audio without a user gesture. The first play is always a tap. Do not attempt to auto-start; do not treat the block as an error state.
   A play refused with `NotAllowedError` says so under the player, which stays
@@ -2208,13 +2219,15 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 - iOS Safari: only one audio element plays at a time, and playback must originate from a gesture handler (not an async continuation). Call `.play()` synchronously in the click handler; do not `await` anything before it.
 - `allowSeek: false` implementation: no `<input type="range">`, and an `onSeeking` handler that resets `currentTime` to the last known position. Note that OS-level media controls can still seek in some browsers — record an `audio_seek` event rather than pretending it cannot happen.
 - Accessibility: real `<button>` elements, `aria-label` on each, keyboard-operable, `aria-live` announcement of plays remaining. When `showTranscriptAfterSubmit` is on, the transcript appears on the result page — this is also the accessibility fallback for hard-of-hearing students.
-- One player instance per question. Navigating away pauses and releases it.
+- One player instance per question, and one per shared recording, which stays mounted while the student moves between its group's questions. Leaving the question or the group, by any means, pauses and releases it. A play in progress and its position are remembered in memory for the tab's life, per question or recording (`media/playback.ts`), and cleared with the attempt, so coming back resumes there without spending a play; a reload forgets them. Starting one player pauses any other that is playing.
+- Each play that starts the recording sends an `audio_play` event; resuming a paused play sends none.
 
 ### 11.4 `maxPlays` — server-authoritative
 
 The obvious client-side counter resets on reload, which makes the limit meaningless. So:
 
-- Each `play` calls `POST /app/attempts/:id/audio-play`; the server increments `attempt_audio_plays (attempt_id, question_id, plays)` and the count is returned in `GET /app/attempts/:id` as `audioPlays`. The `audio_play` event the player records beside it (§10.6) only reports the play and changes no count.
+- A play is spent when playback starts and no play is in progress: from 0:00, or after the recording ended. A resume after a pause spends none. With seeking allowed, moving inside a play in progress spends nothing. A remembered place (§11.3) is put back once the element has its metadata, and the no-seek guard is told the new position first, so a restore is never reported as a blocked seek. If playback then runs more than 0.5s short of the remembered point (the browser refused the seek, or the metadata never came), the start is counted as a play after all and the place forgotten: a place that cannot be put back is never free.
+- Each play calls `POST /app/attempts/:id/audio-play`; the server increments `attempt_audio_plays (attempt_id, question_id, plays)` and the count is returned in `GET /app/attempts/:id` as `audioPlays`. The `audio_play` event the player records beside it (§10.6) only reports the play and changes no count.
 - Client renders remaining plays from the server value, optimistically decrements on play, and reconciles on the next fetch.
 - Playback is **optimistic**: a failed event POST does not block the audio. A student who goes offline to farm replays will show a gap in the event log, which is exactly what the integrity timeline is for. Blocking playback on a network round-trip would punish bad wifi far more often than it would catch anyone.
 - On submit, the server rejects nothing based on play count. Over-limit plays are reported to the teacher, not enforced retroactively.
