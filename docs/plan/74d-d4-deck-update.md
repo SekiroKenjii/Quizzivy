@@ -3336,18 +3336,53 @@ the interface's language, tags on, answers on, imports off), which T-D4.39 reads
 **Touches:** `web/src/features/imports/components/{SourceIntake,ProcessingPanel}.tsx`, `web/src/features/imports/pages/teacher/{ImportWorkspacePage,ImportsListPage}.tsx`, locales, `web/tests/units/imports/{upload-flow,workspace,processing-states,history}.test.tsx`
 **Size:** S
 **Done when:**
-- [ ] The toggle card of V-11 sits in the Sources pane of `ImportWorkspacePage` (DG-207) between
+- [x] The toggle card of V-11 sits in the Sources pane of `ImportWorkspacePage` (DG-207) between
       the sources and the privacy note, in the draft state only, prefilled from
       `preferences.ai.readImports`, switching the accepts line; the privacy note gains the
       sentence of T-D4.33 while it is on; `createImport` carries `readWithAi`. Absent without
       `useAiAvailable()`; disabled with the reason when exhausted (the 402 would otherwise
       arrive after upload). The card lives in `SourceIntake`, so the page frame (DG-205) and the
       pane split are not touched.
-- [ ] The status pane (`ProcessingPanel`) and the history (`ImportsListPage`) show the reader's
+- [x] The status pane (`ProcessingPanel`) and the history (`ImportsListPage`) show the reader's
       log line and meta (T-D4.33).
-- [ ] Unit tests in `upload-flow.test.tsx` and `workspace.test.tsx`; compared with the approved
+- [x] Unit tests in `upload-flow.test.tsx` and `workspace.test.tsx`; compared with the approved
       page-width design's import workspace (`deck/page-width-proposal/`) and the v2 deck's V-11
       at 360 and 1280, light and dark.
+
+**As built:** One pull request; no contract, migration or server change. The card is
+`components/ReadWithAiCard.tsx` and the choice `useReadWithAi.ts`, both in `features/imports/`,
+on `features/ai/`'s `useAiAvailable` and `useAiBlock` and `features/auth/`'s `aiPreferencesOf`.
+- **Where and when.** `SourceIntake` draws the card after the exam and key slots, inside the file
+  mode's block, so the page frame and the pane split are untouched and the card is hidden, with
+  its state kept, in paste mode. It is offered for a new import (`/teacher/imports/new`) only,
+  while `useAiAvailable()` is true and the server's limits list `pdf`: with no PDF accepted the
+  switch would change nothing. An import awaiting files or failed keeps T-D4.33's note and draws
+  no card, because `readWithAi` is fixed at create.
+- **What it sends.** It starts from `preferences.ai.readImports` (off by default); a change applies
+  to this import and writes no preference. Start sends `readWithAi: true` on `createWordImport`
+  only while it is on; off, the body is today's. Pasted text never sends it. A change of the
+  choice, like a change of the title, takes a new `requestId`. Once the import exists (an upload
+  failed after the create) the card is locked to the import's own value with "The import was
+  created with this choice.". A `422` naming `readWithAi` shows the server's message and reads the
+  status and the usage again, so the card goes when the assistant has.
+- **Blocked.** Paused, or out of allowance or pool (`useAiBlock`): the switch shows off, stays
+  focusable with `aria-disabled`, ignores a press, and the reason (`ai.blocked.*`, the panels'
+  sentences) is a line under the hint and its description. Start then sends no `readWithAi`.
+- **What changes while on.** The accepts line reads `imports.upload.limitsAi` (formats and size
+  from the server, as before), the privacy note appends `imports.upload.privacyAi`, and the
+  "Read the content" stage of the status pane says "Scans read with AI"; the same stage line shows
+  for an import with `readWithAi` in every later state. The history row's meta ends "· Read with
+  AI". The contract carries no credits, so neither the deck's "About 400 credits per page" nor the
+  proposal's "Uses 1 AI credit · 18 left" is drawn (§12: no figure the product has not metered).
+  Settings' "Read imports with AI" hint (T-D4.38) still carries the deck's figure.
+- **Compared with the deck** (served with React, react-dom, Babel and lucide from their npm
+  tarballs through route interception) at 360, 768, 1280 and 1440, light and dark: the card's
+  border, radius, padding, gap, the 32px tile and its tones, the title and hint type and colour,
+  the 38 x 22 switch and its 18px thumb equal the deck's at every width; the card's width is the
+  Sources pane's (DG-205, DG-207), so its height follows the hint's wrap, which is one line
+  shorter without the credit figure. The order (files, card, privacy note) is the page-width
+  design's. No sideways scroll; the switch's ring is 2px `--focus` in both themes. Vietnamese,
+  off and blocked, was checked at 360 and 1280.
 
 ### T-D4.40 — Documents for the AI assistant
 **Depends on:** T-D4.32 merged (the behaviour exists); runs before T-D4.12
