@@ -305,6 +305,111 @@ describe("a run of a cloze", () => {
     expect(within(card()).getByText("1 điểm")).toBeVisible();
   });
 
+  describe("a repeated click", () => {
+    const optionAt = (index: number) => within(card()).getAllByRole("radio")[index]!;
+    const chosen = (no: number, index: number) => ({
+      type: "choice",
+      optionIds: [member(no).options![index]!.id],
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("answers one gap and opens the next on a double click", async () => {
+      const user = userEvent.setup();
+      mount();
+      await screen.findByText(RUN_LINE);
+      await user.dblClick(optionAt(1));
+
+      const { answers } = useTakeTestStore.getState();
+      expect(Object.keys(answers)).toEqual([member(23).id]);
+      expect(answers[member(23).id]).toEqual(chosen(23, 1));
+      expect(card()).toHaveAccessibleName("Chỗ trống 24");
+      expect(optionAt(1)).toHaveAttribute("aria-checked", "false");
+    });
+
+    it("answers one gap when a second click on the option comes within the window", async () => {
+      vi.useFakeTimers({ toFake: ["performance"] });
+      const user = userEvent.setup();
+      mount();
+      await screen.findByText(RUN_LINE);
+      await user.click(optionAt(1));
+      vi.advanceTimersByTime(349);
+      await user.click(optionAt(1));
+
+      expect(Object.keys(useTakeTestStore.getState().answers)).toEqual([member(23).id]);
+      expect(card()).toHaveAccessibleName("Chỗ trống 24");
+      expect(optionAt(1)).toHaveAttribute("aria-checked", "false");
+    });
+
+    it("takes a click on another option within the window for a choice of its own", async () => {
+      vi.useFakeTimers({ toFake: ["performance"] });
+      const user = userEvent.setup();
+      mount();
+      await screen.findByText(RUN_LINE);
+      await user.click(optionAt(1));
+      vi.advanceTimersByTime(100);
+      await user.click(optionAt(2));
+
+      const { answers } = useTakeTestStore.getState();
+      expect(Object.keys(answers)).toEqual([member(23).id, member(24).id]);
+      expect(answers[member(24).id]).toEqual(chosen(24, 2));
+      expect(card()).toHaveAccessibleName("Chỗ trống 25");
+    });
+
+    it("answers two gaps when the second click comes after the window", async () => {
+      vi.useFakeTimers({ toFake: ["performance"] });
+      const user = userEvent.setup();
+      mount();
+      await screen.findByText(RUN_LINE);
+      await user.click(optionAt(1));
+      vi.advanceTimersByTime(350);
+      await user.click(optionAt(1));
+
+      const { answers } = useTakeTestStore.getState();
+      expect(Object.keys(answers)).toEqual([member(23).id, member(24).id]);
+      expect(answers[member(24).id]).toEqual(chosen(24, 1));
+      expect(card()).toHaveAccessibleName("Chỗ trống 25");
+    });
+
+    it("leaves a key pressed twice answering two gaps, with Enter, Space and a letter", async () => {
+      vi.useFakeTimers({ toFake: ["performance"] });
+      const user = userEvent.setup();
+      mount();
+      await screen.findByText(RUN_LINE);
+      optionAt(1).focus();
+      await user.keyboard("{Enter}{Enter}");
+      expect(card()).toHaveAccessibleName("Chỗ trống 25");
+      await user.keyboard("  ");
+      expect(card()).toHaveAccessibleName("Chỗ trống 27");
+      fireEvent.keyDown(window, { key: "c" });
+
+      const { answers } = useTakeTestStore.getState();
+      expect(answers[member(23).id]).toEqual(chosen(23, 1));
+      expect(answers[member(24).id]).toEqual(chosen(24, 1));
+      expect(answers[member(25).id]).toEqual(chosen(25, 1));
+      expect(answers[member(26).id]).toEqual(chosen(26, 1));
+      expect(answers[member(27).id]).toEqual(chosen(27, 2));
+      expect(Object.keys(answers)).toHaveLength(5);
+    });
+
+    it("takes a key pressed right after a click for a choice of its own", async () => {
+      vi.useFakeTimers({ toFake: ["performance"] });
+      const user = userEvent.setup();
+      mount();
+      await screen.findByText(RUN_LINE);
+      await user.click(optionAt(1));
+      await user.keyboard("{Enter}");
+
+      expect(Object.keys(useTakeTestStore.getState().answers)).toEqual([
+        member(23).id,
+        member(24).id,
+      ]);
+      expect(card()).toHaveAccessibleName("Chỗ trống 25");
+    });
+  });
+
   it("refuses edits on a locked paper and keeps the answers legible", async () => {
     mount();
     await screen.findByText(RUN_LINE);

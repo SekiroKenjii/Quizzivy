@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from "react";
+import { useRef, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { OptionText } from "@/components/shared/content/OptionText";
 import { PAPER_SURFACE } from "@/components/shared/content/paperSurface";
@@ -24,6 +24,8 @@ const OPTION =
 const MARKER =
   "grid size-6.5 flex-none place-items-center rounded-full border-[1.5px] text-xs font-semibold";
 const ARROW_STEP: Readonly<Record<string, number>> = { ArrowDown: 1, ArrowUp: -1 };
+const REPEAT_CLICK_MS = 350;
+type ClickAdvance = Readonly<{ position: number; at: number }>;
 const CHIP =
   "relative inline-flex h-8 min-h-0 max-w-full min-w-0 items-center gap-1.5 rounded-md border-[1.5px] pr-2.5 pl-[5px] text-sm leading-none font-medium whitespace-nowrap";
 
@@ -36,8 +38,12 @@ const CHIP =
  * "Gap 25", how many of the run's gaps are filled, the member's own prompt
  * when there is no shared one, its options and what it is worth. Choosing an
  * option writes that member's answer and opens the next gap with no answer,
- * going round; a chip opens its gap. A polite live region names the open gap.
- * A locked paper keeps the answers legible and refuses edits.
+ * going round; a chip opens its gap. A click that repeats the one that opened
+ * the gap, the second click of a double click or a click on the same option
+ * within 350ms of it, chooses nothing, so a double click or a double tap
+ * answers one gap; a choice made with a key is never taken for a repeat. A
+ * polite live region names the open gap. A locked paper keeps the answers
+ * legible and refuses edits.
  */
 export function ClozeBody({
   stop,
@@ -55,6 +61,7 @@ export function ClozeBody({
   const { t, i18n } = useTranslation();
   const larger = useLargerTestText();
   const { questions, answers, setAnswer, flags, lock } = usePaper();
+  const clickAdvance = useRef<ClickAdvance | null>(null);
   const locked = lock !== null;
   const question = questions[open];
   if (question === undefined) return null;
@@ -68,14 +75,20 @@ export function ClozeBody({
     .map((at) => String(at + 1));
   const list = new Intl.ListFormat(i18n.language, { type: "conjunction" });
 
-  const choose = (optionId: string) => {
+  const choose = (optionId: string, position: number, clicks: number) => {
+    const now = performance.now();
+    const fromPointer = clicks > 0;
+    if (fromPointer && repeatsAdvance(clickAdvance.current, position, clicks, now))
+      return;
     const answer: Answer = { type: "choice", optionIds: [optionId] };
     setAnswer(question.id, answer);
     const next = nextEmptyGap(stop, open, questions, {
       ...answers,
       [question.id]: answer,
     });
-    if (next !== null) onOpen(next);
+    if (next === null) return;
+    clickAdvance.current = fromPointer ? { position, at: now } : null;
+    onOpen(next);
   };
 
   return (
@@ -146,6 +159,16 @@ export function ClozeBody({
       </p>
     </div>
   );
+}
+
+function repeatsAdvance(
+  last: ClickAdvance | null,
+  position: number,
+  clicks: number,
+  now: number,
+): boolean {
+  if (clicks > 1) return true;
+  return last !== null && last.position === position && now - last.at < REPEAT_CLICK_MS;
 }
 
 function stripTone(open: boolean, word: string | null): string {
@@ -232,7 +255,7 @@ function GapCard({
   answer: Answer | undefined;
   larger: boolean;
   disabled: boolean;
-  onChoose: (optionId: string) => void;
+  onChoose: (optionId: string, position: number, clicks: number) => void;
 }>) {
   const { t } = useTranslation();
   const title = t("takeTest.cloze.gap", { n: number });
@@ -288,7 +311,7 @@ function GapCard({
                 selected ? "border-primary" : "border-border",
                 !disabled && !selected && "hover:border-ring",
               )}
-              onClick={() => onChoose(option.id)}
+              onClick={(event) => onChoose(option.id, index, event.detail)}
             >
               <span
                 aria-hidden="true"
