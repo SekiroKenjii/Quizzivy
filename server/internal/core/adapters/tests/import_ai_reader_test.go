@@ -136,7 +136,8 @@ func TestAScanIsReadByAIOnlyWhenTheImportAskedAndTheAssistantIsOn(t *testing.T) 
 
 func TestAScanReadByAIIsStagedAsPDFEvidenceWithItsFindings(t *testing.T) {
 	w := newScanWorld(t, func(call int64) (aiports.Response, error) {
-		return page(fmt.Sprintf("%d. Which one is a fruit?", call), fmt.Sprintf("A. apple %d\tB. chair\tC. table\tD. door", call), "Trang 1")
+		fruit := []string{"", "apple", "banana", "cherry"}[call]
+		return page("1. Which one is a "+fruit+"?", "A. "+fruit+"\tB. chair\tC. table\tD. door", "Trang 1")
 	})
 	out, err := extractWith(t, w.engine, scanpdf.Build(2), true)
 	if err != nil {
