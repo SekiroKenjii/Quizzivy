@@ -1650,9 +1650,16 @@ the recognizer holdout run. No staffing or calendar commitment is implied here.
 
 ## 8. Cloud API versus private inference
 
-**Update (D19, §1.42).** For "Read with AI" the cloud API path is chosen and built. The rest of
-this section, the comparison and the private path, still describes the measurements to make before
-the vendor and model are fixed for other uses.
+**Update (D19, decided by Thuong on 2026-10-10; §1.42).** Cloud processing is approved for the AI
+assistant's features, the provider is Anthropic's API, and "Read with AI" is built on it. The
+"admin-managed approved configuration" this section and `18-word-import-ux.md` §4 ask for is the
+server's environment (`ANTHROPIC_API_KEY`, the fast and capable tiers and their prices, set by the
+operator as secrets) and the centre's rules in `app.ai_settings`; a teacher chooses no model and no
+infrastructure, only whether to read one import with AI, and the Sources pane says in plain language
+what leaves the system. The kill switch is removing the key, which turns every AI feature off at
+the next start. The rest of this section, the comparison and the private path, still describes the
+measurements to make before a vendor and model are fixed for any other use, and private inference
+is an unbuilt candidate.
 
 Both approaches use **the same local extraction, source inventory, validation,
 review and transactional commit**. AI receives a bounded evidence bundle and

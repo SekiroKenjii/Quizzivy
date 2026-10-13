@@ -186,6 +186,13 @@ The web lane is the long one, about ten L or M tasks in series; the server lane 
   T-D4.33's `readWithAi` field ride in T-D4.32's pull request, so the contract changes twice in
   D4. If another release's contract lane is open on `develop` at the same time, the two take
   turns, and whoever merges second reruns `make gen`.
+  **Exception, recorded by T-D4.40:** the contract changed a third time, in T-D4.33 (#570):
+  `createWordImport` gained a documented `422 VALIDATION_FAILED` with `details.readWithAi`, for an
+  import that asks to be read with AI on a server with no assistant or from a caller without
+  `ai.use`. It is a response only; no schema changed, and `make gen` was its own commit. The Tech
+  Lead accepted it because no other contract pull request was open. D4's exit criterion that the
+  AI operations are the only operations added still holds; where this file says the contract
+  "changes twice", read it as twice for operations and a third time for this response.
 - Migrations are numbered at the merge into `work/deck-d4` and renumbered at a `develop` sync
   that brings a higher number (70 §3).
 - Removed locale keys and `make gen` output are their own commits. A behavioural change never
@@ -3069,7 +3076,7 @@ the 256 MiB sandbox included; `BenchmarkRenderForty*` in `pdftext/tests` repeats
 **Touches:** `docs/quizzivy-spec-v0.3.md` (§1.3, §2, §8, §12, §13, §15, §16, §17, the "Changes since" head; version per §18), `AGENTS.md` ("Non-negotiable", "High-risk areas", "Repository map", "The composition root"), `docs/plan/70-redesign-overview.md` (§4.1 is on the branch; §10), `docs/plan/17-word-import.md` §8, `docs/plan/18-word-import-ux.md` §4, `docs/design/gaps.md` (DG-196 to DG-202 "what was built"), `docs/setup/operations.md`
 **Size:** S
 **Done when:**
-- [ ] The spec: §2 names the provider behind `platform/anthropic` and the tiers as
+- [x] The spec: §2 names the provider behind `platform/anthropic` and the tiers as
       configuration; §8 gains the teacher AI surfaces and Settings › AI assistant, and the Admin
       "AI credits" page with "Availability: R5"; §12 records the panel's rules (the acceptance
       rule, the disabled-with-reason rule, the credit note); §13 the six tables and the
@@ -3077,16 +3084,58 @@ the 256 MiB sandbox included; `BenchmarkRenderForty*` in `pdftext/tests` repeats
       is on for the assistant's features (D19), with per-feature minimisation (D20) and a
       pool-constrained budget (D21)"; the "Changes since v0.7" sentence is marked superseded by
       D19 for these features. Version bumped per §18, after #429's v0.64.
-- [ ] AGENTS.md: "Non-negotiable" gains "The AI assistant never writes a grade, a question or a
+- [x] AGENTS.md: "Non-negotiable" gains "The AI assistant never writes a grade, a question or a
       comment: a suggestion is stored only when a teacher accepts it through an existing write;
       no AI operation sends a student's name, email or id; `ANTHROPIC_API_KEY` is never logged";
       "High-risk areas" gains `server/internal/modules/ai/` and `web/src/features/ai/`; the
       composition-root table gains `adapters/ai.go`'s nil rule and `wiring/ai.go`; the repository
       map gains the module and `platform/anthropic`.
-- [ ] `17-word-import.md` §8 and `18-word-import-ux.md` §4 record D19 (cloud approved; the
+- [x] `17-word-import.md` §8 and `18-word-import-ux.md` §4 record D19 (cloud approved; the
       admin-managed configuration is the environment and `ai_settings`; the page says what is
       sent); 70 §10 keeps the open item on Q35's two remaining pieces.
-- [ ] `gaps.md`: DG-196 to DG-202 say what was built.
+- [x] `gaps.md`: DG-196 to DG-202 say what was built.
+
+**As built:** Documents only; no code, contract or migration changed. The head on `work/deck-d4`
+was v0.98 (T-D4.9), so the spec is **v0.99**, and its "Changes since v0.98" lists every section.
+- **Spec.** §1.3 gains two non-goals (credits are a budget and not a payment; an AI that decides).
+  §2 gains the provider's row. §8 gains the AI surfaces as a table of entry points and the
+  operation behind each, Settings › AI assistant at `/teacher/settings/ai`, and the Admin "AI
+  credits" page. §12 gains the panels' four rules (acceptance, disabled-with-reason, the credit
+  note, failure). §13 gains **§13.10**, beside the maintenance windows of §13.9, because §13.3 is a
+  sketch that lists no AI table: the six tables, the two constraints, the lock order, the month,
+  the append-only ledger and the audit rows. §15 gains the sixteen operations in the endpoint
+  listing, `PublicStatus.ai`, `UserPreferences.ai`, `readWithAi` and its 422, a paragraph on the
+  assistant (the reserve, call and `Finish` order, the refusals and codes, what each feature
+  sends, the subset rule, the limits), and the count of notification kinds (twelve). §16 gains
+  D4's scope and a "Read with AI" paragraph, and the "text layer only" and "no OCR" sentences say
+  "unless the import asked for it". §17 gains decision 4. The "Changes since v0.7" and "v0.41"
+  sentences are marked superseded by D19 for these features and left in place.
+- **What §8 and §12 say about the web.** T-D4.34 to T-D4.39 are not built, so both sections give
+  the surfaces as decided and mark them "Availability: D4"; the Admin page is "Availability: R5".
+  Each web task removes its own line when it ships, and T-D4.12 checks that none is left.
+- **Where the spec follows what was built and not the sketch.** The clean-up is one bounded call,
+  not chunks (T-D4.32's review: at most 60 untagged questions and 300,000 characters); a provider
+  4xx is `503 AI_UNAVAILABLE`; the import's "Read N pages with AI · M credits" is the worker's log
+  and the Sources pane says what leaves instead; "Not enough AI credits for {n} pages" is a run's
+  failure code, not a sentence with a number; the contract changed a third time with a documented
+  422 (see "Lanes").
+- **AGENTS.md.** "Non-negotiable" gains one bullet (the assistant writes no grade, question or
+  comment; nothing identifying a student leaves; the key is a `config.Secret` and is never
+  logged; no model identifier is committed; the ledger is append-only). "High-risk areas" gains
+  `web/src/features/ai/` (from T-D4.34) and `server/internal/modules/ai/` and a paragraph on the
+  reserve and `Finish` rule. The composition-root table gains `adapters/ai.go`'s nil rule,
+  `wiring/ai.go`, the import worker's `scanReader` (T-D4.33), `ai_reads.go`, `PDFPages` and
+  `ReleaseStaleAiReservations`; the repository map gains `modules/ai` and `platform/anthropic`.
+- **Other documents.** `70-redesign-overview.md` §1 records what D19 became (501 `AI_OFF`, the
+  environment and `ai_settings` as the admin-managed configuration) and §10 keeps the open item
+  on Q35's two pieces. `17-word-import.md` §8 and `18-word-import-ux.md` §4 record D19.
+  `gaps.md` DG-196, DG-197 and DG-199 to DG-202 each gain a "Built in D4" note for what the server
+  built; the web tasks add theirs, and DG-198 is R8's. `operations.md` gains the assistant's log
+  lines and the live-smoke procedure.
+- **Checks.** `node scripts/check-design-deck.mjs` ("Deck OK: 20 files, 8 pages") because
+  `gaps.md` is under `docs/design/`; the CI planner's tests do not read these files.
+- **Not done here.** The migration rehearsal that step 6 of the order of work pairs with this task
+  needs a Neon branch of production. It stays in the release checklist, with T-D4.31's last box.
 
 ---
 
@@ -3098,6 +3147,10 @@ the 256 MiB sandbox included; `BenchmarkRenderForty*` in `pdftext/tests` repeats
 - [ ] The four redrawn R4 screens (section F) and every AI surface (section G) are compared with
       the v2 deck at 360, 768, 1024, 1280 and 1440, light and dark, with the sidebar collapsed
       where the deck draws a separator; the differences listed are DG-196 to DG-202's and no other.
+- [ ] The spec's "Availability: D4" lines (§8 and §12, placed by T-D4.40) are gone: each of
+      T-D4.34 to T-D4.39 removes its own when it ships, and this task checks that none is left and
+      that §8's AI block and §12's panel rules say what was built. The follow-ups under "Open
+      items" are read, and each is built or left with a reason.
 - [ ] `74-r4.md`: T-R4.4, T-R4.25, T-R4.26, T-R4.27a, T-R4.28, T-R4.30, T-R4.32, T-R4.33,
       T-R4.36, T-R4.38, T-R4.42 and T-R4.43 each gain one closing line naming the T-D4 task that
       reopened them (T-R4.31a's line names T-D4.2a, T-D4.20 and T-D4.34).
@@ -3269,7 +3322,7 @@ minimisation per feature, no personal identifier to the provider unless a featur
 without it, and none does (D20); a $200 monthly pool, exceeded only when an Admin approves extra
 credit that Thuong pays for, a hard stop, a credit unit metered from reported usage (D21); built in
 D4, the release after R4 (D22). The spec records them in the task that ships the behaviour
-(T-D4.40), not on the planning branch, because #429 takes v0.64.
+(T-D4.40, which wrote it as spec v0.99), not on the planning branch.
 
 ### Blocking, or close to it
 
@@ -3644,3 +3697,55 @@ export; DG-01 (Answered), DG-22, DG-71, DG-106, DG-100 and DG-63 (a second note)
 - **Builders.** The engine chain takes one builder for its whole length and, at times, a
   second for T-D4.6 or T-D4.11; the server task, the builder chain and the preview chain take
   one each. Never more than four work at once (70 §3).
+
+### Follow-ups from the built tasks
+
+Recorded by T-D4.40 on 2026-10-13 from the "As built" notes and the reviews of T-D4.7 to T-D4.11
+and T-D4.30 to T-D4.33. None blocks a task or the release; each says where it would be done. None
+is built here.
+
+1. **The chunked bank clean-up.** T-D4.32 built `cleanUpQuestionBank` as one bounded call on the
+   fast tier: at most 2,000 of the caller's own questions and 300,000 characters, at most 20
+   duplicate pairs, tags for the first 60 untagged, and `truncated` when the bank held more
+   (the panel says "Apply these and run it again"). The plan sketched chunks, with duplicates found
+   across chunks, inside a 60-second budget. That pass is not built: it needs a way to compare
+   questions that are never in the same chunk, and an answer that continues. Default: the one call
+   stands. Revisit after the owner has seen a real bank run (item 2).
+2. **The live smokes of T-D4.32 and T-D4.33.** Both need the owner's key, so both "Done when"
+   boxes stay open: one generation, one check, one score suggestion, and one two-page scan read
+   for real, with the metered credits and the ledger rows pasted into the release pull request
+   (never the key or a response). The procedure is `docs/setup/operations.md`, "What the assistant
+   logs, and the live smoke". It runs once, at the release, with the exit criteria's ledger
+   read-back.
+3. **T-D4.8's "Finished" copy after a reload in the middle of a play.** A play in progress at a
+   reload costs one play and the release notes say so. The card that comes back then has a count
+   above zero and no play in progress, which `phaseOf` reads as a finished play: a full track, the
+   button "Play again" and the status "Finished" ("Finished · {n} plays left" under a limit), though
+   the student may not have heard the end. The number is right; the word may not be. Default: as
+   built. Ask the design team whether a recording with a count and no remembered place should read
+   "Played" instead.
+4. **The spec still describes the pane switcher T-D4.7 replaced with the drawer.** Three places
+   say "Ngữ liệu | Câu n" or "the pane switcher": §7.3's paragraph on learner material, §9's
+   "Panes" bullet and §12's "One breakpoint, 768px" bullet. T-D4.12 already rewrites §9 and §12 for
+   the rail and the sheet (its box on S-05, S-06 and S-08); it replaces these sentences too, and
+   §7.3's, and the engine paragraph of `AGENTS.md`, which says "a switcher shows one pane at a
+   time". T-D4.7 did not touch the spec.
+5. **An E2E for T-D4.9's inert Pause button.** T-D4.9 is proved in jsdom (`audio-player-pause`,
+   `group-context`, `question-audio-events`) and by the comparison with the deck; no Playwright
+   case presses the inert button in a real browser. Add one in `audio-events.spec.ts` or the phone
+   spec: start s2 part 2's recording, click the button with `force: true` (Playwright counts an
+   `aria-disabled` button as not enabled), and assert the recording is still playing and the play
+   count has not moved. S, web; T-D4.12.
+6. **A real-Android check of T-D4.7's tap after a swipe.** The drawer swallows the click a swipe
+   leaves behind for 60 ms and never swallows a tap that follows a scroll. That is proved with
+   real touches from CDP in mobile-chromium and in jsdom, not on a real Android phone, whose touch
+   timing differs from the emulator's. Add to T-D4.12's real-phone box: swipe the drawer open and
+   closed, then tap an option at once, and see that the option is chosen and the drawer does not
+   move.
+7. **T-D4.11's gap rule does not reach a prompt made in the product.** The sentence gap fires only
+   for a prompt with no `promptContent`, and the builder's prompt field and the import both write
+   `promptContent`, so on content made today it fires only for a prompt kept in Markdown (T-D4.11
+   "As built", #571). The Tech Lead widens the rule to a rich prompt that is one plain paragraph
+   (with the run of underscores in its text and no mark, gap or media): **T-D4.11b**. It changes
+   Q17's default, the refusal "a rich prompt" in `sentence-gap.test.ts`, and the comparison with
+   s9 questions 5 and 12. Recorded here; not built.
