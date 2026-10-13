@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MarqueeText } from "@/components/shared/MarqueeText";
 import { SplitPane } from "@/components/shared/SplitPane";
+import { StickyAside } from "@/components/shared/StickyAside";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useContentWidthAtLeast } from "@/layouts/shell/contentWidth";
 import { useCrumbs } from "@/layouts/shell/crumbs";
@@ -874,33 +875,34 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         storageKey="quizzivy.builder.outline"
         split={split}
         className="items-stretch gap-y-3.5"
-        firstClassName="self-start"
         secondClassName="flex min-w-0 items-start"
         first={
-          <fieldset disabled={creating} className="contents">
-            <Suspense fallback={<ListSkeleton rows={5} />}>
-              <OutlineTree
-                sections={sections}
-                groups={groups}
-                selectedGroupId={selectedGroupId}
-                onSelectGroup={(id, questionId) => void selectGroup(id, questionId)}
-                onCreateGroup={() => void insertGroup().catch(() => undefined)}
-                onRemoveGroup={(id) => setRemoving({ groupId: id })}
-                onRemoveSection={(sectionIndex) => setRemoving({ sectionIndex })}
-                questions={byId}
-                selectedId={selectedId}
-                creating={creating}
-                onSelect={(questionId) => void selectQuestion(questionId)}
-                onChange={updateOutline}
-                onCreateQuestion={() => void onCreateQuestion()}
-                onPickFromBank={(opener) => {
-                  pickerOpener.current = opener;
-                  setPicking(true);
-                }}
-                onAddSection={onAddSection}
-              />
-            </Suspense>
-          </fieldset>
+          <StickyAside as="div" docked={split}>
+            <fieldset disabled={creating} className="contents">
+              <Suspense fallback={<ListSkeleton rows={5} />}>
+                <OutlineTree
+                  sections={sections}
+                  groups={groups}
+                  selectedGroupId={selectedGroupId}
+                  onSelectGroup={(id, questionId) => void selectGroup(id, questionId)}
+                  onCreateGroup={() => void insertGroup().catch(() => undefined)}
+                  onRemoveGroup={(id) => setRemoving({ groupId: id })}
+                  onRemoveSection={(sectionIndex) => setRemoving({ sectionIndex })}
+                  questions={byId}
+                  selectedId={selectedId}
+                  creating={creating}
+                  onSelect={(questionId) => void selectQuestion(questionId)}
+                  onChange={updateOutline}
+                  onCreateQuestion={() => void onCreateQuestion()}
+                  onPickFromBank={(opener) => {
+                    pickerOpener.current = opener;
+                    setPicking(true);
+                  }}
+                  onAddSection={onAddSection}
+                />
+              </Suspense>
+            </fieldset>
+          </StickyAside>
         }
         second={
           <div data-columns className="flex min-w-0 flex-1 items-start">

@@ -300,7 +300,7 @@ function TestDetail({ test }: Readonly<{ test: Test }>) {
           <aside
             id="versions"
             aria-labelledby="test-version-history"
-            className="bg-card shadow-card sticky top-0 flex min-w-0 flex-col gap-2.5 rounded-xl border p-3.5"
+            className="bg-card shadow-card sticky-column flex min-w-0 flex-col gap-2.5 rounded-xl border p-3.5"
           >
             <h2 id="test-version-history" className="text-base font-semibold">
               {t("tests.detail.versionHistory")}
