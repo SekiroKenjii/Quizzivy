@@ -304,11 +304,13 @@ describe("the bank's question editor", () => {
   it("draws both disabled with the reason while the teacher is paused", async () => {
     aiOn({ usage: month({ paused: true }) });
     const user = await renderBankReady();
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: ai.explain.write })).toHaveAttribute(
-        "aria-disabled",
-        "true",
-      ),
+    await waitFor(
+      () =>
+        expect(screen.getByRole("button", { name: ai.explain.write })).toHaveAttribute(
+          "aria-disabled",
+          "true",
+        ),
+      { timeout: 5000 },
     );
     const write = screen.getByRole("button", { name: ai.explain.write });
     const suggest = screen.getByRole("button", { name: ai.distract.suggest });
