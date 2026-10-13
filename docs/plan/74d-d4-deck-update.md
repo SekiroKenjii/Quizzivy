@@ -612,7 +612,7 @@ names the D4 task, or the release and the correction T-D4.19 makes.
 | V-14 the AI panel | T 6540-6750; `aiVals` T 9470-9591; `AI_K` T 7577-7663; `aiOpen`, `aiStart` T 9405-9429 | not drawn | A right-side `role="dialog"` named by its title, `min(560px, 100%)` wide, full height, `--card`, a left border, `--shadow-lg`, over a `--overlay` backdrop (z 75 / 76). Header (padding 16px 16px 16px 18px): a 36px accent icon tile, the title (15px 600), the sub (12.5px muted), Close (32px). Body (padding 18, gap 18) in three stages. **Setup**: fields by type: source chips (28px pills with an icon: "Passage 1 · Urban green space", "Start empty"), a textarea (13.5px, `--bg`), a segmented control (30px), toggle chips (30px pills, `aria-pressed`, a check when on), a toggle card (border, radius 10), an info callout (`--muted`, `info` icon). **Running**: three step lines (a check in `--success`, a spinner, or a 7px dot) advancing every 1.3s, then a pulsing skeleton (`qz-pulse`); a run lasts at least 3.2s. **Done**: in the demo a warning callout "AI didn’t respond, so this is sample output. Try again in a minute."; a summary line (13px muted) and "Select all" / "Clear selection"; a dashed empty card; item cards (border, radius 12, padding 14; `--ring` border when selected): a `role="checkbox"` "Keep this" (18px) when selectable, tone pills, a right-aligned meta, a 14px 500 title, a 13px body, lettered options (the correct one in success tones with a check), an "Answer" pill, a before / after grid (the before struck through for a variant), dashed "+ {tag}" chips, a note with a bold label, action buttons (30px; the primary filled). Footer: a credit note with `coins` ("About {cost} credits · {left} left this month"; after a run "Used about {cost} credits"; or the validation sentence with `circle-alert` in warning ink), a secondary (Cancel / Stop / Start over), a primary (the run label with `sparkles`; after a run the apply label, at .5 opacity until something is selected; "Done" when the kind applies nothing). No Esc, no focus trap, no focus return (DG-36) | nothing in the product | new (AI) | web L | T-D4.34 |
 | V-14a Generate questions (`gen`) | T 7577-7605 | — | "Generate questions" / "From a passage, a transcript or a topic. Questions arrive as drafts for you to check.". Fields: Source (8 rows; chips "Passage 1 · …" with the test's passage, "Start empty"; placeholder "Paste a passage or transcript, or describe a topic"), Question types (Single choice, True / False / Not given, Fill in the blank, Short answer; default single and tf), How many 3 / 5 / 8 (5), Level B1 / B2 / C1 (B2), "Write an explanation for each question" / "Students see it after results are released." (on). Validation: "Add a source of at least a few sentences" under 40 characters, "Pick at least one question type". Steps: Reading the source, Writing questions, Checking every answer against the source. Items: tags the type, the level, "AI draft" (when tagging is on); the prompt; options with the key marked; an "Answer" pill for blank and short; the explanation as a note. Primary: in the builder "Add {n} to {section}" (appends the picks to the open question's section and opens the first; toast "{n} questions added to {section}. Check each one before publishing."); in the bank "Save {n} to the bank" ("… with an AI draft tag"); from insights "Save as practice test" ("Practice test with {n} questions saved as a draft in Tests"). Cost 1,800 | the section and bank question writes exist; `tfng` is R6 | new (AI); TFNG is offered once R6 ships | — | T-D4.32, T-D4.34 |
 | V-14b Check this test (`check`) | T 7606-7617 | — | "Check this test with AI" / "Looks for answer keys that don’t match the passage, unclear wording and questions that give answers away.". Look for: Wrong or doubtful answers, Unclear wording, Answers given away, Spelling and grammar (all on); info "Checks the questions in “{title}” against their passages. Nothing changes until you apply a fix.". Steps: Reading both passages, Checking answers against the text, Looking at wording and options. Items: tags Likely error (danger) / Worth a look (warning) / Minor (info) and "Q{n}"; meta the type; title the question's; body the issue; note "Suggested fix"; actions "{fix label}" (applies and toasts), "Open question", "Dismiss". Summary "{n} things worth a look"; empty "Nothing left to look at. The test is ready to publish."; no primary. Cost 2,400 | the draft read; `updateQuestion` for a fix; the demo's fixes name R6 types and `maxWords` | new (AI); fixes whose write exists are one click, the rest open the question | — | T-D4.32, T-D4.34 |
-| V-14c Clean up the bank (`dups`) | T 7618-7633 | — | "Clean up the question bank" / "Finds near-duplicates and questions with missing tags, so search and filters work better.". Look for: Near-duplicates, Missing tags; info "Scans the questions you own. Questions shared with you are skipped, and nothing changes until you confirm.". Steps: Reading 1,284 questions, Comparing similar questions, Suggesting tags. A duplicate card (not selectable): "Possible duplicate", meta "Used in 4 tests and 1 test", the reason as title, One / Other, actions "Merge into one" (toast "Merged. Tests that used either question now share one copy.") and "Keep both". A tag card: "Missing tags", the level, the prompt, dashed "+ {tag}" chips; primary "Add tags to {n} questions". Empty "All done. Your bank is tidy.". Cost 3,200 | `listQuestions` with `Own()`; the bulk tag write (T-R4.32); no merge operation | new (AI); no merge (DG-197): a duplicate card has "Open" for each and "Keep both". One call reads at most 2,000 questions and 300,000 characters, finds at most 20 duplicate pairs and suggests tags for the first 60 untagged questions; the response's `truncated` tells the panel to say "Apply these and run it again" (T-D4.32 As built) | — | T-D4.32, T-D4.34 |
+| V-14c Clean up the bank (`dups`) | T 7618-7633 | — | "Clean up the question bank" / "Finds near-duplicates and questions with missing tags, so search and filters work better.". Look for: Near-duplicates, Missing tags; info "Scans the questions you own. Questions shared with you are skipped, and nothing changes until you confirm.". Steps: Reading 1,284 questions, Comparing similar questions, Suggesting tags. A duplicate card (not selectable): "Possible duplicate", meta "Used in 4 tests and 1 test", the reason as title, One / Other, actions "Merge into one" (toast "Merged. Tests that used either question now share one copy.") and "Keep both". A tag card: "Missing tags", the level, the prompt, dashed "+ {tag}" chips; primary "Add tags to {n} questions". Empty "All done. Your bank is tidy.". Cost 3,200 | `listQuestions` with `Own()`; the bulk tag write (T-R4.32); no merge operation | new (AI); no merge (DG-197): a duplicate card has "Open" for each and "Keep both". One request reads at most 2,000 questions, suggests tags for the first 200 untagged ones, finds at most 20 duplicate pairs by comparing every pair of the bank by its words and having one call judge the closest, and settles once; the response's `truncated` tells the panel to say "Apply these and run it again" (T-D4.32 As built, and its follow-up 1) | — | T-D4.32, T-D4.34 |
 | V-14d Generate words (`vocab`) | T 7634-7648; the button T 3678-3682 | — | "Generate words from a text" / "Picks the words your students need to understand a passage, with meanings and new example sentences.": Text (7 rows), How many words 8 / 12 / 20, Students’ level A2 / B1 / B2, Meanings in Tiếng Việt \| English; items the term, part of speech and level as tags, the meaning, the example as a note; primary "Add {n} to {list}". Cost 1,200 | word lists are R10 (T-R10.4, T-R10.12) | R10: the entity does not exist before it | — | R10 (T-D4.19: T-R10.12 gains the button and the kind) |
 | V-15 class detail: tabs | T 4145-4155; `cdTabs`, `cdOverview`, `cdAttTab` T 9655-9658 | One screen | Underline tabs Overview \| Attendance under the header; Attendance carries an accent badge with the number of sessions not yet taken | T-R4.42 (one screen); attendance is R8's | R8 | S (R8) | R8 (T-D4.19) |
 | V-16 class detail: join-code card | T 4287-4345; `cdCodeFull`, `cdLink`, `cdQrOp`, `cdShowQr`, `cdShare` T 8328-8331; `VIA` T 8303; `fresh` T 8320 | "••••-{last 4}" in a box, "The full code is shown only once, when it is created."; the paused paragraph; link rows; the New-code dialog "Copy it now. After you close this, only the last 4 characters are shown."; "Joined via" "Code ••{hint}" | A 112px QR button (`qr-code` 88px, `cursor: zoom-in`, `--qr-bg`; "Show full size for the projector"; opacity .4 while joining is paused) opening a 420px dialog "Join {class}" ("Show this on the projector. Students scan it or type the code." or "Joining is paused, so this code won’t work until you turn it back on."); beside it the full code (22px monospace, 600, letter-spacing .08em) with the join link under it (12.5px muted, ellipsis) and a "Joining paused" chip (`pause`, warning tones) in place of the paragraph; a row of three outline buttons (32px, flex 1, ellipsis) Copy code (`copy`), Copy link (`link`), Download QR (`download`); Expires and Uses under a 1px divider; the footer "A new code makes the old code, link and QR stop working."; the New-code dialog's desc "Share the code, the link or the QR with your students."; members' "Joined via" shows the full code | T-R4.42 built DG-01 (the full code, no "shown only once") in the fourth export's geometry | reopens R4 (T-R4.42); **DG-01 is Answered** by v2 | S | T-D4.23 |
@@ -3103,7 +3103,8 @@ production and puts the timings in the release pull request).
         action}]}` (kind `assignment`; the same preference gate);
       - `/teacher/ai/bank/cleanup` `{checks}` → `{duplicates: [{a, b, why, usage}], tags:
         [{questionId, prompt, level, tags}]}` over the caller's own rows, in chunks, capped at
-        2,000 questions and a 60s budget (`x-resource-list`). As built, one call bounded as below.
+        2,000 questions and a 60s budget (`x-resource-list`). As built, one call bounded as below; a bounded
+        pass of several calls since follow-up 1.
       Every operation declares its `x-resource` kinds and has its isolation-suite entry; another
       teacher's id answers as a missing one. `make gen` is its own commit; MSW fixtures validate
       with ajv; `pnpm typecheck` passes.
@@ -3180,16 +3181,16 @@ billed is settled and the rest released (`Finish`, run from a `defer`, so a pani
 client also returns the held credits), and nothing is written.
 `makeTestVariant` and `checkTestWithAi` read the test's draft, one question read per question,
 bounded by 120,000 characters of paper; a question with formatted text is read for its words and
-never rewritten (a reword of one is dropped). `cleanUpQuestionBank` is one call on the fast tier,
-not the chunks and 60 seconds the sketch above says, and it is bounded so its answer fits the
-tokens it is given: it reads at most 2,000 of the caller's own questions and at most 300,000
-characters of them (`prompts.FitCleanup` cuts a longer bank to the prefix that fits, which keeps a
-call under the provider's 100K-token price step and inside a 200K-token context), names them `q1`
-to `qN` so no id is sent, asks for at most 20 pairs of duplicates, and asks tags for at most the
-first 60 questions that have none, with `MaxTokens` 3,000. The decoder drops a tag suggestion for
-any other question. `truncated` is true when the bank held more than the call read or more
-untagged questions than it tagged, and the panel says to apply the suggestions and run it again.
-The full chunked pass, with duplicates across chunks, inside the 60-second budget, is a follow-up.
+never rewritten (a reword of one is dropped). `cleanUpQuestionBank` was built as one call on the fast tier,
+not the chunks and 60 seconds the sketch above says, and bounded so its answer fits the tokens it
+is given: at most 2,000 of the caller's own questions and 300,000 characters of them
+(`prompts.FitCleanup`), named `q1` to `qN` so no id is sent, at most 20 pairs of duplicates and tags
+for the first 60 questions that have none, with `MaxTokens` 3,000. The decoder dropped a tag
+suggestion for any other question, and `truncated` was true when the bank held more than the call
+read or more untagged questions than it tagged, and the panel says to apply the suggestions and run
+it again. The chunked pass, with duplicates across chunks, inside the 60-second budget, is
+follow-up 1 of "Follow-ups from the built tasks", built after this task; its "As built" says what
+replaced this paragraph's bounds (the 300,000 characters, `FitCleanup` and the first 60 are gone).
 `suggestAiScore` and
 `explainAssignmentResults` also need `teaching.grading`, because they read what a grading read
 reads, and a score is suggested only for a short answer that waits for a mark by hand
@@ -3783,8 +3784,9 @@ was v0.98 (T-D4.9), so the spec is **v0.99**, and its "Changes since v0.98" list
 - **What §8 and §12 say about the web.** T-D4.34 to T-D4.39 are not built, so both sections give
   the surfaces as decided and mark them "Availability: D4"; the Admin page is "Availability: R5".
   Each web task removes its own line when it ships, and T-D4.12 checks that none is left.
-- **Where the spec follows what was built and not the sketch.** The clean-up is one bounded call,
-  not chunks (T-D4.32's review: at most 60 untagged questions and 300,000 characters); a provider
+- **Where the spec follows what was built and not the sketch.** The clean-up is a bounded pass of at
+  most five calls (T-D4.32's follow-up 1: tags for the first 200 untagged questions, duplicates
+  chosen by the words two prompts share); a provider
   4xx is `503 AI_UNAVAILABLE`; the import's "Read N pages with AI · M credits" is the worker's log
   and the Sources pane says what leaves instead; "Not enough AI credits for {n} pages" is a run's
   failure code, not a sentence with a number; the contract changed a third time with a documented
@@ -4372,6 +4374,10 @@ export; DG-01 (Answered), DG-22, DG-71, DG-106, DG-100 and DG-63 (a second note)
 - **The design team's next sync should read `server/internal/modules/ai/` and
   `web/src/features/ai/`** once they exist, and draw the states DG-201 lists and the rows DG-199
   and DG-200 ask for.
+- **The bank clean-up's word model has no unaccent.** Duplicate candidates come from the words of the
+  prompts as typed (T-D4.32 follow-up 1), so a prompt without its diacritics is not paired with its
+  accented twin, and a rewording that shares few words is not found either. Watch it in the live
+  smoke (follow-up 2) before building anything.
 - **Builders.** The engine chain takes one builder for its whole length and, at times, a
   second for T-D4.6 or T-D4.11; the server task, the builder chain and the preview chain take
   one each. Never more than four work at once (70 §3).
@@ -4382,13 +4388,86 @@ Recorded by T-D4.40 on 2026-10-13 from the "As built" notes and the reviews of T
 and T-D4.30 to T-D4.33. None blocks a task or the release; each says where it would be done. None
 is built here. Item 8 came from T-D4.10a, and items 9 and 10 from the Tech Lead's reviews of T-D4.36 and T-D4.39.
 
-1. **The chunked bank clean-up.** T-D4.32 built `cleanUpQuestionBank` as one bounded call on the
+1. [x] **The chunked bank clean-up.** T-D4.32 built `cleanUpQuestionBank` as one bounded call on the
    fast tier: at most 2,000 of the caller's own questions and 300,000 characters, at most 20
    duplicate pairs, tags for the first 60 untagged, and `truncated` when the bank held more
    (the panel says "Apply these and run it again"). The plan sketched chunks, with duplicates found
    across chunks, inside a 60-second budget. That pass is not built: it needs a way to compare
    questions that are never in the same chunk, and an answer that continues. Default: the one call
    stands. Revisit after the owner has seen a real bank run (item 2).
+
+   **As built (T-D4.32 follow-up 1):** the contract's shapes and `truncated`'s meaning did not change;
+   two descriptions in `api/openapi.yaml` that stated the old bounds were reworded (its own commit and
+   its own `make gen` commit, and the generated diff is comments and the embedded spec). The answer
+   "continues" the way it did, by `truncated` and a second run; what changed is how much one run
+   reaches.
+
+   *The pass.* `CleanupHandler` reads the bank (`Own`, at most 2,000), plans its calls from what it
+   reads, reserves `FeatureCleanup.Ceiling()` (200, unchanged) once, makes every call at the same time
+   (at most five: up to four tagging calls and one that judges duplicates) under a 45-second context
+   (`Service.CleanupBudget`), and ends with one `Finish`. The settlement and the read of what is left
+   share one 10-second deadline of their own, so a pass ends inside 55 seconds, under the 60-second
+   idle timeout of Fly's proxy, which would answer 502 for a request that was already settled. Tags are asked of the first 200 questions that have none (the contract's own
+   `maxItems`), 50 to a call so each answer fits `MaxTokens` 3,000, and each call carries the 30 tags
+   the bank uses most so a suggestion reuses them. A tagging call sends only its 50 questions.
+
+   *Duplicates across chunks.* Chunks never meet, so no chunk is asked for duplicates. Every pair of
+   the bank is compared locally by the distinct words of its prompts (`domain.SimilarQuestions`:
+   Jaccard at least 0.3 over word ids, through an inverted index of the words that are in few
+   prompts; only the first 200 distinct words of a prompt count; a prompt of fewer than three words
+   and a stem repeated more than eight times are left out; a question is in at most three pairs; a
+   work limit of 100 million merge steps stops the search, and then `truncated` is true: 0.7 s on a
+   bank built to exhaust it, 0.4 s for 2,000 prompts of forty words from a skewed vocabulary, 0.1 s
+   for fifteen words), and one call judges the closest 100 pairs, sending only the questions in them,
+   each under its reference in the whole bank, and keeping at most 20. That call is cut to the best
+   pairs whose text fits `MaxCleanupBytes` (100,000 bytes, a token being at least a byte, so the
+   price step holds in any language): `prompts.FitDuplicates` keeps the longest prefix of the ranked
+   pairs, and `truncated` is true when it dropped any. The prompt clips at 160 runes and a tag at 40,
+   so a bank of 3-byte letters at those lengths fills 200 questions with more than 200,000 bytes and
+   keeps about half the pairs; the pass's own choice of pairs is never a `422`. A tagging call (50
+   lines and a vocabulary of 30 tags) stays under 40,000 bytes whatever the letters. Chosen over a per-chunk model pass because that pass sees only the pairs inside one
+   chunk, so a pair whose halves are in two chunks needs a further round over what every chunk
+   passes on, costs a call for every chunk, and sends the whole bank; this one sends the candidates
+   only, costs one call, finds a pair wherever its halves sit, and costs nothing when no pair looks
+   alike. Its limit is the price: a rewording that shares few words with the original (the deck's
+   "Summarise the chart…" against "Write a summary of the chart…", about 0.27) is
+   not a candidate; the deck's first pair (about 0.46) is. The word model has no unaccent: a prompt
+   typed without its diacritics ("Tai sao bau troi…") is never paired with its accented twin, which a
+   bank imported from several sources may well hold; the live smoke (item 2) is where to see whether
+   it matters. Embeddings, or `app.immutable_unaccent` in the words, are the next step if a real bank
+   shows misses; the port has none.
+
+   *One reservation, one settlement.* `session` (in `query/ask.go`) reserves, runs, and ends from a
+   `defer` with `Finish(Tally.Response())`. `command.Tally` sums the usage of the calls that
+   `command.Billed` says were billed (the rule `Finish` also applies: a completion, a refusal, an
+   answer that was not an object), joins their request ids (the ledger keeps 200 characters, so ids
+   that do not fit whole are left out of the row; the pass logs them all), and a call that billed
+   nothing adds nothing. So a failed call in the middle settles what the others cost and releases the
+   rest, a cancelled caller (`Finish` runs on `context.WithoutCancel`) and a panic in any call do the
+   same (the panic is recovered in its goroutine, the other calls finish, and it is raised again
+   once, so the reservation is ended once and the process's recoverer still sees it). `ask` is a
+   session of one call, so the seven single-call features reserve and finish through the same code.
+   The ledger gets one row for a pass. The tier has one source, `prompts.CleanupTier`, which the
+   prompts carry, the fit reads from each prompt and the session takes from the plan. A call is
+   planned only if its worst case at the tier's configured prices (`Price.Bound`: its bytes as tokens, a token being at least a byte, plus 1,000
+   for the provider's framing, plus `MaxTokens`) fits what is left of the reservation; calls that do
+   not are dropped, last first, and `truncated` is true. A pass whose first call does not fit answers
+   unavailable before it reserves, logged at error, since the prices are configuration.
+
+   *What the answer does.* A call that fails, is cut by the time or does not fit leaves what the other
+   calls found in a 200 with `truncated` true and a charge for what was billed; it answers `503` only
+   when no call gave a usable answer (a pass whose refusals were billed still settles them). A tidy
+   bank (nothing to tag, no candidate pair) makes no call but reserves and releases, so a paused or
+   exhausted teacher is refused as for any AI operation. `Scanned` is the questions read.
+
+   A deploy while a pass runs (the server waits 15 seconds to shut down, a pass can take 45) cuts
+   the request before `Finish`; the 200 credits stay held until the sweep returns them once the
+   reservation is ten minutes old, which it does at start-up and hourly, so for at most an hour and
+   ten minutes (`docs/setup/operations.md`).
+
+   Not done: the live smoke on a real bank (item 2), which also tells whether 0.3 and 100 candidates
+   are right and whether the missing unaccent matters. An estimate, not a metering: a full pass at the plan's indicative fast prices is about 6
+   credits, against the ceiling of 200 and the sketch's ≈ 13.
 2. **The live smokes of T-D4.32 and T-D4.33.** Both need the owner's key, so both "Done when"
    boxes stay open: one generation, one check, one score suggestion, and one two-page scan read
    for real, with the metered credits and the ledger rows pasted into the release pull request

@@ -588,15 +588,23 @@ where the provider answered, its `request_id`, which is what the provider's cons
 | `ai call failed` | WARN | After the retries, or on a refusal or an answer no decoder could use. The teacher saw `503 AI_UNAVAILABLE`; what the provider billed was settled and the rest released. |
 | `ai call rejected` | ERROR | The provider refused the request itself, which is the key, the account or a model name. Read the provider console. The teacher saw the same 503. |
 | `ai call failed unexpectedly` | ERROR | An error that is none of the above. |
+| `ai clean-up` | INFO | One bank clean-up: how many calls it made and how many gave a usable answer, whether the 45-second budget ran out, and every `request_id` of the pass. The ledger gets one row for the pass and keeps only the ids that fit 200 characters, so this line is where all of them are. |
+| `ai clean-up: an answer had nothing usable` | WARN | One call of a clean-up answered something no decoder could use. It was billed and settled; the other calls' findings were returned with `truncated` set. |
+| `ai clean-up: the smallest call can cost more than the reservation` | ERROR | At the configured prices not even one call of the clean-up fits its 200-credit ceiling, so none was made and nothing was reserved: the fast tier's prices are wrong. The teacher saw `503 AI_UNAVAILABLE`. |
 | `ai reservation not ended` | ERROR | `Finish` could not settle or release a call. The sweep returns the credits once the reservation is ten minutes old. |
 | `ai call cost more than its ceiling` | WARN | The provider metered more than the feature reserves. The teacher was charged the ceiling and the ledger keeps the real token counts. |
 | `released stale ai reservations` / `ai reservation sweep failed` | INFO / WARN | The hourly sweep and its failure, which the next hour retries. |
 | `import read with ai` / `ai import settled` | INFO | The worker's record of a scan it read: pages, pages it could not read, credits held and charged. |
 
+A deploy while a bank clean-up runs (the server waits 15 seconds to shut down, and a pass can take
+45) cuts the request before `Finish`, so the 200 credits it reserved stay held, with no line to say so.
+The sweep returns them once the reservation is ten minutes old, at start-up and hourly, so for at most
+an hour and ten minutes; nothing is charged, since nothing was settled.
+
 **The live smoke** needs the owner's key and is not in CI. On the builder's machine, with the nine
 variables in `.env` (`.env.example` lists them) and the API running against a database that holds
 the seed: generate three questions from a test's passage, check the seeded test, suggest a score
-for a seeded short answer that waits for a mark, and, for T-D4.33, create an import with "Read with
+for a seeded short answer that waits for a mark, run "Clean up" on a bank of a few hundred questions (the ledger gets one row for it, and its `request_id` lists the calls), and, for T-D4.33, create an import with "Read with
 AI" on from a two-page scan of the corpus and let the worker read it. Then read the ledger back:
 `maintenance ai-credits status` prints the pool's used credits and the teacher's use, and the rows
 are `select feature, tier, credits, request_id from app.ai_usage_ledger order by created_at desc`

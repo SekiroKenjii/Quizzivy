@@ -244,3 +244,21 @@ func TestChangedKeepsWhatTheInputDoesNotName(t *testing.T) {
 		t.Error("Changed modified its receiver")
 	}
 }
+
+func TestABoundCoversTheLargestCallAThePromptCanMakeAtTheTiersPrices(t *testing.T) {
+	fast := listPrices.Fast
+	got, err := fast.Bound(8_000, 3_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := int64(3); got != want {
+		t.Errorf("a call of 8,000 bytes and 3,000 tokens is bounded at %d credits, want %d (9,000 input tokens at $0.10 and 3,000 output at $0.50 per million)", got, want)
+	}
+	exact, err := fast.Credits(domain.Tokens{Input: 9_000, Output: 3_000})
+	if err != nil || got < exact {
+		t.Errorf("a call that read 9,000 tokens and wrote 3,000 cost %d, over its bound of %d", exact, got)
+	}
+	if _, err := fast.Bound(1<<31, 1); err == nil {
+		t.Error("a prompt of two billion bytes was bounded")
+	}
+}

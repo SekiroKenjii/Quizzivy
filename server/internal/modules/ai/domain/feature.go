@@ -65,10 +65,11 @@ func (f Feature) Category() Category {
 	return features[f].category
 }
 
-// Ceiling is the most credits one call of f reserves, which the plan sets from
-// the feature's tier, its largest input and its token limit (the import reads
-// a page at a time, so its ceiling is for one page). It is zero for an unknown
-// feature.
+// Ceiling is the most credits one request for f reserves, which the plan sets
+// from the feature's tier, its largest input and its token limit (the import
+// reads a page at a time, so its ceiling is for one page). The bank clean-up
+// makes several calls and reserves its ceiling once, for all of them. It is
+// zero for an unknown feature.
 func (f Feature) Ceiling() int64 {
 	return features[f].ceiling
 }

@@ -602,8 +602,10 @@ to these. Do not refactor them opportunistically while doing something else.
 **The AI assistant** reads student answers, holds a paid key and meters money.
 An operation reserves its feature's ceiling before the provider is called and
 ends the reservation with `Finish`, the one place on the call path that settles
-or releases. Only `Reserve`, `Settle`, `Release` and the stale-reservation sweep
-touch `used_credits` and `reserved_credits`, and the pool and each teacher's
+or releases. An operation of several calls, the bank clean-up, reserves once,
+sums what its calls were billed (`command.Tally`) and ends with one `Finish`.
+Only `Reserve`, `Settle`, `Release` and the stale-reservation sweep touch
+`used_credits` and `reserved_credits`, and the pool and each teacher's
 allowance are two constraints the database enforces. Prompts live in
 `modules/ai/domain/prompts/`. Only `core` imports `platform/anthropic`, and the
 module's domain and application layers import no platform package. Run the five

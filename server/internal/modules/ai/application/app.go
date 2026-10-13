@@ -12,7 +12,7 @@ import (
 	"quizzivy/internal/shared/cqrs"
 )
 
-// Application is every use case of the AI assistant. The commands change the credits model and the queries read it. The eight suggestion queries also spend: each reserves its feature's ceiling, calls the provider and settles what it billed, through Reserve and Finish, which with Settle and Release are the only code that moves a balance on the call path. No query writes a grade, a question or a comment.
+// Application is every use case of the AI assistant. The commands change the credits model and the queries read it. The eight suggestion queries also spend: each reserves its feature's ceiling, calls the provider and settles what it billed, through Reserve and Finish, which with Settle and Release are the only code that moves a balance on the call path. The bank clean-up makes several calls under its one reservation and ends it with one Finish of their summed usage. No query writes a grade, a question or a comment.
 type Application struct {
 	Commands Commands
 	Queries  Queries
@@ -50,18 +50,19 @@ type Queries struct {
 	Cleanup      cqrs.QueryHandler[query.Cleanup, query.Cleaned]
 }
 
-// Options is what the application takes from outside its module: the price of each tier, the calendar zone months are counted in, the way to tell a user (nil tells no one) and the logger. Completer is the provider and nil when none is configured, so every suggestion answers domain.ErrOff; Tests, Questions, Grading, Analysis and People are what the suggestions read.
+// Options is what the application takes from outside its module: the price of each tier, the calendar zone months are counted in, the way to tell a user (nil tells no one), the logger and the time one bank clean-up may spend with the provider (zero is support.DefaultCleanupBudget). Completer is the provider and nil when none is configured, so every suggestion answers domain.ErrOff; Tests, Questions, Grading, Analysis and People are what the suggestions read.
 type Options struct {
-	Prices    domain.Prices
-	Zone      *time.Location
-	Notifier  ports.Notifier
-	Logger    *slog.Logger
-	Completer ports.Completer
-	Tests     ports.Tests
-	Questions ports.Questions
-	Grading   ports.Grading
-	Analysis  ports.Analysis
-	People    ports.People
+	Prices        domain.Prices
+	Zone          *time.Location
+	Notifier      ports.Notifier
+	Logger        *slog.Logger
+	CleanupBudget time.Duration
+	Completer     ports.Completer
+	Tests         ports.Tests
+	Questions     ports.Questions
+	Grading       ports.Grading
+	Analysis      ports.Analysis
+	People        ports.People
 }
 
 // New builds the application over repo. A nil Zone counts months in Asia/Ho_Chi_Minh's fixed offset.
@@ -76,6 +77,9 @@ func New(repo domain.Repository, opts Options) *Application {
 	service.Grading, service.Analysis, service.People = opts.Grading, opts.Analysis, opts.People
 	if opts.Logger != nil {
 		service.Logger = opts.Logger
+	}
+	if opts.CleanupBudget > 0 {
+		service.CleanupBudget = opts.CleanupBudget
 	}
 	return &Application{
 		Commands: Commands{
