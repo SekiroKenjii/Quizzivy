@@ -85,7 +85,6 @@ func translations(ctx context.Context) []translation {
 	}
 }
 
-// failureOf is the answer to an error an operation returned, and nil with the error itself when it is not one the contract names. A refused reservation names the budget that could not cover it; a call that produced nothing asks the caller to try again.
 func failureOf(ctx context.Context, err error) (*failure, error) {
 	var exhausted *domain.Exhausted
 	var invalid *validation.Error

@@ -24,7 +24,6 @@ type answer struct {
 	Usage  domain.Usage
 }
 
-// ask is the one way an operation reaches the provider. It reserves the feature's ceiling before the call, makes it, and ends the reservation with Finish whatever the call did: what the provider billed is settled and the rest released. It answers domain.ErrOff while no provider is configured, whatever Reserve refuses as Reserve does (domain.ErrPaused, *domain.Exhausted), and domain.ErrUnavailable for a provider that timed out, was overloaded, refused or answered something that is not a complete object. Any other failure, a key or a request the provider rejected, is returned for the transport to answer 500, and the log names it without the request.
 func (a asker) ask(ctx context.Context, who actor.Actor, p prompts.Prompt) (answer, error) {
 	if a.Completer == nil {
 		return answer{}, domain.ErrOff

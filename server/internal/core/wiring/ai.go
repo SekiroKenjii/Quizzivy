@@ -40,7 +40,6 @@ type aiModules struct {
 	attempts  *attemptsapp.Application
 }
 
-// aiAssistant builds the credits model, the suggestions over what they read, and their transport. The application is built with or without a provider: the console and the maintenance commands set allowances either way, and the transport answers 501 while the Completer is nil.
 func aiAssistant(cfg config.Config, dbx db.Context, notifier ports.Notifier, logger *slog.Logger, completer ports.Completer, m aiModules) (*aiapp.Application, aihttp.AI, error) {
 	zone, err := config.AppLocation()
 	if err != nil {

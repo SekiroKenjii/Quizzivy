@@ -461,7 +461,6 @@ func TestTheVariantSchemaCarriesTheDecksChangesAndKeepsOnlyThoseItCanApply(t *te
 		}
 		rows = append(rows, r)
 	}
-	// Q8 has five options in the deck and four here, so its reorder is not a permutation of its options and is dropped.
 	answer := map[string]any{"changes": rows}
 	prompt, err := prompts.Variant(in)
 	if err != nil {
