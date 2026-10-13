@@ -3225,6 +3225,10 @@
       "limitsLoading": "Loading file limits…",
       "limitsFailed": "Couldn't load the file limits. The server still checks them on upload.",
       "limits": "Accepts {{formats}} files up to {{size}} each. Files with a password or macros are refused, and so are scanned or photographed PDFs (with no selectable text).",
+      "limitsAi": "Accepts {{formats}} files up to {{size}} each, including scanned or photographed PDFs. Files with a password or macros are refused.",
+      "aiTitle": "Read with AI",
+      "aiHint": "Handles scans, photos of printed tests and unusual layouts.",
+      "aiLocked": "The import was created with this choice.",
       "titleLabel": "Test title",
       "titlePlaceholder": "Name of the draft test",
       "titleHint": "Filled in from the exam filename. You can change it.",
@@ -3323,7 +3327,8 @@
       "attempt": "Attempt {{attempt}} of {{max}}",
       "textCheck": "Check the text",
       "charactersChecked": "{{count}} characters checked",
-      "plainText": "Plain text · no formatting"
+      "plainText": "Plain text · no formatting",
+      "withAi": "Scans read with AI"
     },
     "textRunError": {
       "SOURCE_INVALID": "The pasted text or a companion file could not be read. Check the sources and start a new import.",
@@ -3837,6 +3842,7 @@
       "noun_one": "import",
       "noun_other": "imports",
       "withKey": "with {{name}}",
+      "readWithAi": "Read with AI",
       "noTest": "none yet",
       "openTest": "Open test {{title}}",
       "actionsNamed": "Actions for {{title}}",
