@@ -166,6 +166,22 @@
       "summary_one": "{{count}} điều nên xem lại",
       "summary_other": "{{count}} điều nên xem lại"
     },
+    "score": {
+      "title": "Gợi ý của AI",
+      "idle": "So sánh câu trả lời với các đáp án được chấp nhận. Bạn quyết định điểm.",
+      "run": "Gợi ý điểm",
+      "running": "Đang đọc câu trả lời…",
+      "confidence": {
+        "high": "Độ tin cậy cao",
+        "medium": "Độ tin cậy trung bình",
+        "low": "Độ tin cậy thấp"
+      },
+      "outOf": "/ {{max}}",
+      "comment": "Nhận xét cho học viên:",
+      "use": "Dùng điểm và nhận xét",
+      "filled": "Đã điền điểm và nhận xét. Hãy kiểm tra lại, rồi bấm Lưu & câu tiếp theo.",
+      "off": "Gợi ý của AI đang tắt trong <settings>Cài đặt › Trợ lý AI</settings>."
+    },
     "needsVersion": "Hãy phát hành đề trước khi tạo biến thể.",
     "needsSection": "Hãy thêm một phần trước.",
     "variant": {

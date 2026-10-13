@@ -166,6 +166,22 @@
       "summary_one": "{{count}} thing worth a look",
       "summary_other": "{{count}} things worth a look"
     },
+    "score": {
+      "title": "AI suggestion",
+      "idle": "Compares the answer with the accepted answers. You decide the score.",
+      "run": "Suggest a score",
+      "running": "Reading the answer…",
+      "confidence": {
+        "high": "High confidence",
+        "medium": "Medium confidence",
+        "low": "Low confidence"
+      },
+      "outOf": "/ {{max}}",
+      "comment": "Comment for the student:",
+      "use": "Use score and comment",
+      "filled": "Score and comment filled in. Check them, then Save & next.",
+      "off": "AI suggestions are off in <settings>Settings › AI assistant</settings>."
+    },
     "needsVersion": "Publish the test before making a variant.",
     "needsSection": "Add a section first.",
     "variant": {

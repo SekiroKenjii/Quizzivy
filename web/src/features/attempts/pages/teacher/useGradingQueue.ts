@@ -105,13 +105,16 @@ function commentUnsettled(item: GradingQueueItem, draft: GradingDraft | undefine
 /**
  * useGradingQueue serializes explicit marks and Finish actions under the
  * mounted actor and filter owner, and reports through `unsettled` a comment
- * on the selected answer that no Grade has saved. It sets state during render
- * in three places, and each converges because its own write turns off the
- * condition it tests: new queue data is recorded in `order` (and a vanished
- * open answer added to `held`, which `vanishedOpen` then skips); `open`
- * stores the selected item it is compared with; and the open-answer sync
- * writes an acknowledged draft, after which `ungradedHere` is false. A change
- * to `ungradedHere` or `vanishedOpen` must keep that, or the render loops.
+ * on the selected answer that no Grade has saved. `fill` lays a score and a
+ * comment over an answer's draft and saves nothing: Save & next, or the flush
+ * a move makes, writes them as it writes a typed comment. It sets state
+ * during render in three places, and each converges because its own write
+ * turns off the condition it tests: new queue data is recorded in `order`
+ * (and a vanished open answer added to `held`, which `vanishedOpen` then
+ * skips); `open` stores the selected item it is compared with; and the
+ * open-answer sync writes an acknowledged draft, after which `ungradedHere`
+ * is false. A change to `ungradedHere` or `vanishedOpen` must keep that, or
+ * the render loops.
  */
 export function useGradingQueue(params: GradingQueueParams) {
   const { t } = useTranslation();
@@ -309,6 +312,23 @@ export function useGradingQueue(params: GradingQueueParams) {
       ...previous,
       [gradingItemKey(item)]: { ...draftFor(item), comment: value },
     }));
+  };
+  const fill = (item: GradingQueueItem, points: number, value: string) => {
+    if (
+      !Number.isFinite(points) ||
+      points < 0 ||
+      points > item.points ||
+      !current() ||
+      lock.current
+    )
+      return false;
+    setFinishReady(null);
+    setDrafts((previous) => ({
+      ...previous,
+      [gradingItemKey(item)]: { ...draftFor(item), points, comment: value },
+    }));
+    setPicked(gradingItemKey(item));
+    return true;
   };
   const select = async (item: GradingQueueItem) => {
     if (!acquire()) return;
@@ -552,6 +572,7 @@ export function useGradingQueue(params: GradingQueueParams) {
     candidateReview,
     pickScore,
     comment,
+    fill,
     select,
     leave,
     move,

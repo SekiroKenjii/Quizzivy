@@ -38,6 +38,8 @@ export type AiDuplicate = Schemas["AiDuplicate"];
 export type AiCleanupResult = Schemas["AiCleanupResult"];
 /** AiTagSuggestion is the tags proposed for one untagged question. */
 export type AiTagSuggestion = Schemas["AiTagSuggestion"];
+/** AiScoreSuggestion is a proposed score and comment for one short answer, which saves nothing. */
+export type AiScoreSuggestion = Schemas["AiScoreSuggestion"];
 
 /**
  * AI_STATUS_KEY is the query key of `GET /public/status`, the whole answer,
@@ -119,6 +121,23 @@ export function cleanUpQuestionBank(
   signal?: AbortSignal,
 ) {
   return api("post", "/teacher/ai/bank/cleanup", signal ? { body, signal } : { body });
+}
+
+/**
+ * suggestAiScore asks for a score and a comment on one short answer of an
+ * attempt and writes nothing: a teacher saves a mark with the grading write.
+ */
+export function suggestAiScore(
+  attemptId: string,
+  questionId: string,
+  signal?: AbortSignal,
+): Promise<AiScoreSuggestion> {
+  const path = { attemptId, questionId };
+  return api(
+    "post",
+    "/teacher/ai/attempts/{attemptId}/answers/{questionId}/score-suggestion",
+    signal ? { path, signal } : { path },
+  );
 }
 
 /** AiInsight is one pattern the assistant noticed in an assignment's results, and what to do about it. */

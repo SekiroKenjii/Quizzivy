@@ -3265,16 +3265,61 @@ every cell.
 **Touches:** `web/src/features/attempts/components/{GradingCard,AiScoreBox (new)}.tsx`, locales, `web/tests/units/attempts/grading-ai.test.tsx` (new)
 **Size:** S
 **Done when:**
-- [ ] Between the student answer and Score, while the teacher's `readStudentAnswers` is on and
+- [x] Between the student answer and Score, while the teacher's `readStudentAnswers` is on and
       AI is available: the box of V-07 with its idle, running and done states; the confidence
       pill; "{score} / {max}"; the reasons; the comment; "Use score and comment" sets the score
       button and the comment field through the card's own handlers (nothing is saved until the
       teacher's Save & next, as today) and toasts the deck's sentence; "Try again". The idle
       sentence is the short-answer one; the band sentence waits for R6 (DG-202).
-- [ ] With the preference off the box is absent and a line under the answer reads "AI
+- [x] With the preference off the box is absent and a line under the answer reads "AI
       suggestions are off in Settings › AI assistant." (one sentence, from deck parts).
-- [ ] Unit tests: the gate, the fill, that no request carries the student's name (the fixture
+- [x] Unit tests: the gate, the fill, that no request carries the student's name (the fixture
       names one); compared with the deck at 360 and 1280, light and dark.
+
+**As built:** The grading page's card is `pages/teacher/GradingAnswerCard.tsx`;
+`components/GradingCard.tsx` is the attempt review's marking card, which V-07 does not draw and
+which gains nothing. The box is `attempts/components/AiScoreBox.tsx`, handed to the card by
+`GradingPage` as its `suggestion` slot for a `short_answer` item, so the card itself reads no AI
+state and its unit tests mount it as before. It stands directly above Score, after the accepted
+answers and the sample answer, which is where the deck puts it relative to Score.
+
+**A score button saves at once; the suggestion does not.** The card's score buttons call
+`pickScore`, which writes the grade, so "Use score and comment" cannot go through `onScore`
+without saving. `useGradingQueue` gains `fill(item, points, comment)`, which lays both over the
+answer's draft and writes nothing (refused while a save is in flight); the score button shows
+pressed and the comment field holds the text. Save & next writes them through `flush`, and so does
+`j`/`k` or a click on another answer, which already flush a pending comment. A route change does
+not: the leave dialog appears only for an unsaved comment, as before. `grading-ai.test.tsx` spies
+on the API client and finds no `POST /teacher/attempts/{id}/grade` after "Use score and comment",
+then one with the suggested points and comment after Save & next; it also reads the box's source
+for any import of the attempts API.
+
+`suggestAiScore` is in `features/ai/api.ts`. The panel's failure reading and usage settling moved
+from `AiPanel.tsx` to `features/ai/outcome.ts` (`aiFailureOf`, `refreshAfterAiFailure`,
+`settleAiUsage`) so the box and the panel share them. States: idle (the short-answer sentence,
+DG-202), running ("Reading the answer…" with the spinner, still under reduced motion), done (the
+confidence pill in the success, warning or danger tones, "{score} / {max}" in the locale's
+figures, the reasons, "Comment for the student:" when the comment is not empty, "Use score and
+comment", "Try again" and the credit note "Used {credits} credits · {left} left" where the deck
+draws its demo line). `503` and a dropped connection are the warning callout with "Try again";
+`402` and `403 AI_PAUSED`, or a usage read that says paused or exhausted, show the block sentence
+with the button disabled; `403 AI_READ_OFF` turns the box into the off line; `501 AI_OFF` reads
+the status again; `422` and anything else show the server's message. Leaving the answer aborts a
+run, and a suggestion is not kept for the answer when the card moves on. With
+`readStudentAnswers` false the box is the line "AI suggestions are off in Settings › AI
+assistant." whose last words link to `/teacher/settings/ai`; the Trans tag is `<settings>`,
+since i18next parses `<link>` as a void HTML element.
+
+The request is a body-less `POST` naming the attempt and the question; the unit case whose
+fixture names the student in the queue row and the assignment title asserts that neither the
+name nor the student id is in the URL, the body or the client call. `teacher-grading.spec.ts`
+adds ten cases (360, 768, 1024, 1280 and 1440, light and dark): the box above Score, the 30px
+button, the 17px score, the fill, no write until Save & next, no sideways scroll. Compared in
+Chromium against the deck's grading screen (first item, the deck's demo suggestion served as the
+operation's answer) at the same widths and both themes, sidebar expanded: every measured box
+(the frame, title, idle sentence, buttons, pill, score, reasons, comment card) within 0.6px and
+the same computed colours, except the done frame, 0.8px taller at 360 to 1024 where the credit
+note wraps in place of the deck's 12px "Sample output" line (DG-201).
 
 ### T-D4.37 — Assignment detail: "Explain results with AI"
 **Depends on:** T-D4.32, T-D4.34, T-D4.22
