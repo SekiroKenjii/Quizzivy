@@ -19,7 +19,8 @@ export type GroupAudioRenderer = (
  * GroupMaterials renders frozen, learner-safe content using only the group's
  * authorized asset bindings. A material whose title, in NFC, is `omitTitle`
  * draws no heading: the caller has already drawn those words above it.
- * Neither does a material with nothing to read.
+ * Neither does a material with nothing to read. With `gapCard`, a material
+ * that holds a gap is drawn in the deck's cloze card.
  */
 export function GroupMaterials({
   group,
@@ -27,12 +28,14 @@ export function GroupMaterials({
   renderGap,
   onRetryMedia,
   omitTitle,
+  gapCard = false,
 }: Readonly<{
   group: StudentGroup;
   renderAudio: GroupAudioRenderer;
   renderGap: (gap: MaterialGap, label: string) => ReactNode;
   onRetryMedia?: (() => void) | undefined;
   omitTitle?: string | undefined;
+  gapCard?: boolean;
 }>) {
   const { t } = useTranslation();
   const assets = useMemo(
@@ -61,6 +64,20 @@ export function GroupMaterials({
       {group.instructions ? <ContentView document={group.instructions} /> : null}
       {group.stimuli.map((material) => {
         const gaps = new Map(material.gaps.map((gap) => [gap.gapId, gap]));
+        const view = (
+          <ContentView
+            document={material.content}
+            renderAsset={renderAsset}
+            renderGap={(gap) => {
+              const binding = gaps.get(gap.id);
+              return binding ? (
+                renderGap(binding, gap.label)
+              ) : (
+                <span className="content-gap">{nfc(gap.label)}</span>
+              );
+            }}
+          />
+        );
         return (
           <section
             key={material.id}
@@ -70,18 +87,11 @@ export function GroupMaterials({
             {nfc(material.title) !== omitTitle && hasReading(material) && (
               <h4 className="text-sm font-medium">{nfc(material.title)}</h4>
             )}
-            <ContentView
-              document={material.content}
-              renderAsset={renderAsset}
-              renderGap={(gap) => {
-                const binding = gaps.get(gap.id);
-                return binding ? (
-                  renderGap(binding, gap.label)
-                ) : (
-                  <span className="content-gap">{nfc(gap.label)}</span>
-                );
-              }}
-            />
+            {gapCard && material.gaps.length > 0 ? (
+              <div className="content-cloze">{view}</div>
+            ) : (
+              view
+            )}
           </section>
         );
       })}

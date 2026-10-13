@@ -2495,13 +2495,17 @@
     "audioLabel": "Question audio",
     "imageLabel": "Question image",
     "flagOff": "Flag for review",
+    "flagQuestion": "Flag question {{n}}",
+    "flaggedQuestion": "Question {{n}} flagged",
     "flagOn": "Flagged",
     "navTitle": "Questions",
     "legendAnswered": "Answered",
     "legendFlagged": "Flagged",
+    "legendOneScreen": "One screen",
     "dotLabel": "Question {{n}}",
     "dotAnswered": "answered",
     "dotFlagged": "flagged",
+    "dotInRun": "cloze questions {{from}} to {{to}}",
     "dotCurrent": "current",
     "sectionsRail": "Sections",
     "railDone": "{{done}} / {{total}}",
@@ -2557,7 +2561,22 @@
     "chooseSingle": "Choose one answer.",
     "viewSubmitted": "View submitted paper",
     "unknownType": "Question {{n}} is a new kind of question that this page cannot show yet. Reload the page to answer it; your answers are kept.",
-    "reloadPage": "Reload the page"
+    "reloadPage": "Reload the page",
+    "cloze": {
+      "type": "Cloze",
+      "line": "{{position}} · {{type}} · {{gaps}}",
+      "questions": "Questions {{from}}–{{to}} of {{total}}",
+      "gaps_one": "{{count}} gap",
+      "gaps_other": "{{count}} gaps",
+      "gapsOf": "{{shown}} of {{count}} gaps",
+      "hint": "The gaps are in the passage. Pick a gap here or in the passage.",
+      "elsewhereOne": "Gap {{list}} has its own screen.",
+      "elsewhereMany": "Gaps {{list}} have their own screens.",
+      "gap": "Gap {{n}}",
+      "filled": "{{filled}} of {{count}} gaps filled",
+      "chip": "Gap {{n}}, {{word}}",
+      "empty": "empty"
+    }
   },
   "integrity": {
     "left": {

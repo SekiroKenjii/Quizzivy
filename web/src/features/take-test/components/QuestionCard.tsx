@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Flag } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -9,17 +10,23 @@ import type { StudentQuestion } from "../api";
 /**
  * QuestionCard is the paper-connected renderer: the one place a question is
  * joined to the answer being written into it and to its flag. A locked paper
- * keeps the answers legible and refuses edits.
+ * keeps the answers legible and refuses edits. A host may word the `line`
+ * above the question, and have the flag name the question (`namesFlag`), as
+ * a gap of a cloze shown on its own does.
  */
 export function QuestionCard({
   question,
   number,
   total,
+  line,
+  namesFlag = false,
   onAudioExpired,
 }: Readonly<{
   question: StudentQuestion;
   number: number;
   total: number;
+  line?: string | undefined;
+  namesFlag?: boolean;
   onAudioExpired: () => void;
 }>) {
   const { answers, setAnswer, lock } = usePaper();
@@ -30,7 +37,14 @@ export function QuestionCard({
       question={question}
       number={number}
       total={total}
-      action={<FlagToggle questionId={question.id} disabled={locked} />}
+      line={line}
+      action={
+        <FlagToggle
+          questionId={question.id}
+          number={namesFlag ? number : undefined}
+          disabled={locked}
+        />
+      }
       audio={<QuestionAudio question={question} onExpired={onAudioExpired} />}
       answer={answers[question.id]}
       onAnswer={(next) => setAnswer(question.id, next)}
@@ -40,10 +54,22 @@ export function QuestionCard({
   );
 }
 
-function FlagToggle({
+function flagLabel(flagged: boolean, number: number | undefined, t: TFunction): string {
+  if (number === undefined) return t(flagged ? "takeTest.flagOn" : "takeTest.flagOff");
+  return t(flagged ? "takeTest.flaggedQuestion" : "takeTest.flagQuestion", {
+    n: number,
+  });
+}
+
+/**
+ * FlagToggle flags a question for review. Given the question's `number`, it
+ * names it: "Flag question 25", then "Question 25 flagged".
+ */
+export function FlagToggle({
   questionId,
+  number,
   disabled,
-}: Readonly<{ questionId: string; disabled: boolean }>) {
+}: Readonly<{ questionId: string; number?: number | undefined; disabled: boolean }>) {
   const { t } = useTranslation();
   const { flags, toggleFlag } = usePaper();
   const flagged = flags.has(questionId);
@@ -61,7 +87,7 @@ function FlagToggle({
       onClick={() => toggleFlag(questionId)}
     >
       <Flag className="size-3.5" aria-hidden="true" />
-      {t(flagged ? "takeTest.flagOn" : "takeTest.flagOff")}
+      {flagLabel(flagged, number, t)}
     </button>
   );
 }

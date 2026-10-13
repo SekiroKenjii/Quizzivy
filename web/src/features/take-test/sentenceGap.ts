@@ -1,8 +1,5 @@
 import { contentPlainText } from "@/components/shared/content/plainText";
-import {
-  isQuestionPromptContent,
-  type QuestionPromptContent,
-} from "@/components/shared/content/questionContent";
+import { isQuestionPromptContent } from "@/components/shared/content/questionContent";
 import { nfc } from "@/lib/nfc";
 import type { StudentQuestion } from "./api";
 
@@ -50,7 +47,12 @@ export function sentenceGap(
   return { before, after };
 }
 
-function isPlainParagraph(content: QuestionPromptContent, prompt: string): boolean {
+/**
+ * isPlainParagraph reports whether a question's rich prompt is plain text in
+ * all but name: valid prompt content that projects exactly to `prompt` and is
+ * one paragraph of unmarked text.
+ */
+export function isPlainParagraph(content: unknown, prompt: string): boolean {
   if (!isQuestionPromptContent(content) || contentPlainText(content) !== prompt) {
     return false;
   }

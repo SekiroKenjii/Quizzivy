@@ -13,7 +13,13 @@ import {
 import { FLUSH_DEBOUNCE_MS, useTakeTestStore } from "@/features/take-test/store";
 import { ApiError } from "@/lib/api/errors";
 import i18n from "@/lib/i18n";
-import { DECK_ATTEMPT, DECK_LEFT_MS, deckSaved, deckSession } from "./deckSession";
+import {
+  DECK_ATTEMPT,
+  DECK_LEFT_MS,
+  deckMockTestSession,
+  deckSaved,
+  deckSession,
+} from "./deckSession";
 import { text, viewport } from "./support";
 
 vi.mock("@/features/take-test/api", () => ({
@@ -719,6 +725,49 @@ describe("the Submit dialog", () => {
       "overflow-y-auto",
       "flex-none",
     );
+  });
+
+  it("counts the five empty gaps of a cloze as five unanswered, and a chip opens the run on its gap", async () => {
+    const mock = deckMockTestSession(NOW);
+    const answers = Object.fromEntries(
+      mock.questions.flatMap((question, at) => {
+        if (at >= 22 && at <= 26) return [];
+        const blank = question.blanks?.[0];
+        return [
+          [
+            question.id,
+            blank === undefined
+              ? { type: "choice" as const, optionIds: [question.options![0]!.id] }
+              : { type: "fill_blank" as const, values: { [blank.id]: "worked" } },
+          ],
+        ];
+      }),
+    );
+    await open(DECK_LEFT_MS, {
+      sections: mock.sections,
+      questions: mock.questions,
+      groups: mock.groups ?? [],
+      answers,
+    });
+    await ask();
+
+    expect(dialog()).toHaveAccessibleName(UNANSWERED);
+    expect(facts()["Đã trả lời"]).toHaveTextContent(/^29 \/ 34$/);
+    expect(chips().map((chip) => chip.textContent)).toEqual([
+      "23",
+      "24",
+      "25",
+      "26",
+      "27",
+    ]);
+
+    fireEvent.click(inDialog().getByRole("button", { name: "Câu 25" }));
+    await pass(0);
+    noDialog();
+    expect(screen.getByRole("group", { name: "Chỗ trống 25" })).toBeInTheDocument();
+    expect(
+      document.getElementById(`answer-question-${mock.questions[24]!.id}`),
+    ).toHaveFocus();
   });
 });
 

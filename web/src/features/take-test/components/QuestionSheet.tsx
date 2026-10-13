@@ -11,7 +11,8 @@ import type { Answer, StudentQuestion } from "../api";
 
 /**
  * QuestionSheet is the question pane's column, as the deck draws it: the line
- * "Question 4 of 8 · Single choice" with `action` at its far end, then `lead`,
+ * "Question 4 of 8 · Single choice", or `line` when the host words it, with
+ * `action` at its far end, then `lead`,
  * the question's recording and image, the prompt and the answer, and under
  * the answer what the question is worth. A short answer says its worth beside
  * the word count. A type this page has no renderer for gets UnknownType in
@@ -24,6 +25,7 @@ export function QuestionSheet({
   question,
   number,
   total,
+  line,
   headingId,
   action,
   lead,
@@ -36,6 +38,7 @@ export function QuestionSheet({
   question: StudentQuestion;
   number: number;
   total: number;
+  line?: string | undefined;
   headingId?: string | undefined;
   action?: ReactNode;
   lead?: ReactNode;
@@ -55,7 +58,7 @@ export function QuestionSheet({
           tabIndex={headingId === undefined ? undefined : -1}
           className="text-muted-fg min-w-0 scroll-mt-6 rounded-sm text-sm font-medium"
         >
-          {questionLine(question, number, total, t)}
+          {line ?? questionLine(question, number, total, t)}
         </p>
         {action}
       </div>

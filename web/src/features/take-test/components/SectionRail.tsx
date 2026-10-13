@@ -1,14 +1,22 @@
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Legend, SectionBlocks, type Squares } from "./Navigator";
+import { isRun } from "../stops";
 
 /**
  * SectionRail is the engine's sections rail, the column at the paper's left
  * edge: every section's title and answered count over a grid of its
- * questions' squares, scrolling by itself, with the legend at its foot. The
+ * questions' squares, scrolling by itself, with the legend at its foot,
+ * which names the tie between a run's squares on a paper that has one. The
  * page decides when it shows; it keeps the open question's square in view.
  */
-export function SectionRail({ dots, current, groups, onJump }: Readonly<Squares>) {
+export function SectionRail({
+  dots,
+  current,
+  groups,
+  stops,
+  onJump,
+}: Readonly<Squares>) {
   const { t } = useTranslation();
   const now = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -25,10 +33,11 @@ export function SectionRail({ dots, current, groups, onJump }: Readonly<Squares>
         dots={dots}
         current={current}
         groups={groups}
+        stops={stops}
         currentRef={now}
         onJump={onJump}
       />
-      <Legend className="mt-auto pt-2" />
+      <Legend className="mt-auto pt-2" oneScreen={stops?.some(isRun) === true} />
     </aside>
   );
 }
