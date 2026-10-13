@@ -1815,6 +1815,32 @@ pane padding); the rail's section titles are the paper's whole titles (T-D4.4); 
 point on the fixture where the drawing gives it 2; the Student deck's card has no worth line
 (DG-184); below 768 the column sits 35px lower under the integrity strip (T-D4.7).
 
+**As built (T-D4.10b, the result):** `ResultPage` divides the result's questions with T-D4.10a's
+`paperStops` over the shared context's groups. A run whose members share one plain prompt
+(`sharedPrompt`, now generic over the question type) prints it once, under a run line ("Câu 23–27 ·
+Điền từ vào đoạn văn · 5 chỗ trống", 12.5px 500 muted, over the prompt at 14px 500), above the
+first of the run's rows the filter keeps; under "Sai" it stands above 24. Those rows are
+`ReviewItem`'s `compact` form: the number in 14px 600 and "Bạn trả lời …" on one line with the
+points at its end, 12px of padding, and the correct answer, the explanation and the comment under
+it as before. Own prompts print in every row as today. `ReviewGroup` takes `gapWords` (question id
+to the student's word and its mark), which only the student's result passes, so the teacher's
+grading views are unchanged: a gap bound to a choice question is then `GapChip` with a `mark`, the
+result's 28px chip (64px at least, padding 0 9px 0 4px, 14px 600), on `--success-soft` with a
+`--success` border when correct and `--danger-soft` with `--danger` when wrong, a wrong word struck
+through and no word an em dash; a policy that hides marks leaves it neutral (the engine's filled or
+empty chip). A passage that holds a chip is 15px with 2.3 lines (`.content-review-gaps`, only on
+the student's result). The chip is named "Câu 23, relax" or "Câu 26, Chưa trả lời" and leads to
+its row as the old gap did. New keys: `result.cloze.{questions,chip}`; the line reuses
+`takeTest.cloze.{line,type,gaps,gapsOf}`. Tests: `result.test.tsx` gains "a cloze on the result"
+(the run line and the one-line rows, the run line under a filter, own prompts, the chips' marks and
+their way to the row, neutral chips under a closed policy); its gap case and `group-review.spec.ts`'s
+student case find the chip by its new name and assert its mark. Compared with drawing 3 of `Cloze
+Decision.dc.html` (both prompt modes, light and dark) in a production build at 360, 768, 1024, 1280
+and 1440, light and dark, English and Vietnamese: the chips, the run line, the shared prompt and
+the rows equal the drawing's in size, type and colour, and no cell scrolls sideways. Known
+differences: the group card's header and the material's own heading are `ReviewGroup`'s, as
+before; the drawing's passage sits in a plainer card.
+
 ### T-D4.11 — Engine: a choice sentence with its gap
 **Depends on:** T-D4.6
 **Touches:** `web/src/features/take-test/components/QuestionBody.tsx`, `web/src/features/take-test/sentenceGap.ts` (new), `web/tests/units/take-test/{sentence-gap.test.ts (new),renderers.test.tsx}`
@@ -4195,7 +4221,7 @@ the D4 row is renumbered at that sync. The full "Meanwhile" texts are in `gaps.m
 |---|---|---|---|---|
 | DG-182 | Student › Take test, a recording at its play limit | The deck locks the recording; the product keeps it live and reports extra plays | Q3 | T-D4.8 |
 | DG-183 | Teacher › Question media and Shared content; Student › the recording card | "Students can pause" as one boolean, `allowPause`; "you can pause once" is read as a note | Q4 | T-D4.13, T-D4.9, T-D4.15 |
-| DG-184 | Student › Take test, a cloze | One item with n gaps on the Student page, one question per gap in the builder; the product keeps one question per gap (Q6 answered, #581) | Q6 | T-D4.10a, T-D4.10b |
+| DG-184 | Student › Take test and Result, a cloze | One item with n gaps on the Student page, one question per gap in the builder; the product keeps one question per gap (Q6 answered, #581) | Q6 | T-D4.10a, T-D4.10b |
 | DG-185 | Student › Take test, numbers and counts | "Question 23 of 31" against 35; a matching counts five or one; every question has one number | Q7 | T-D4.10a |
 | DG-186 | Teacher › Test builder, the group | The deck's group carries shared content; the product keeps a section and a shared-context group | Q8 | T-D4.2a, T-D4.14 |
 | DG-187 | Teacher › Test builder, the Shared content dialog | A textarea, one passage or one recording, loose gap rules, "MP3, M4A or WAV up to 25 MB", two switches missing; "on the left" reworded | Q9, Q10, Q25 | T-D4.2b, T-D4.14 |

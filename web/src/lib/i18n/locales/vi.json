@@ -2984,7 +2984,11 @@
     "replayFreely": "Nghe lại thoải mái sau khi nộp",
     "showTranscript": "Xem lời thoại",
     "noTranscript": "Lời thoại không được hiển thị.",
-    "teacherComment": "Nhận xét của giáo viên"
+    "teacherComment": "Nhận xét của giáo viên",
+    "cloze": {
+      "questions": "Câu {{from}}–{{to}}",
+      "chip": "Câu {{n}}, {{word}}"
+    }
   },
   "queue": {
     "summary": {

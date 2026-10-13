@@ -1,1 +1,1 @@
-export { ReviewGroup } from "./components/ReviewGroup";
+export { ReviewGroup, type GapWord } from "./components/ReviewGroup";
