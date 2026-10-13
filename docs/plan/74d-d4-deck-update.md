@@ -3281,15 +3281,56 @@ every cell.
 **Touches:** `web/src/features/assignments/pages/teacher/AssignmentDetailPage.tsx` (the Questions tab), `web/src/features/assignments/components/AiInsightsPanel.tsx` (new), locales, `web/tests/units/assignments/insights.test.tsx` (new)
 **Size:** S
 **Done when:**
-- [ ] The Questions tab's header row gains the button and the panel of V-06; "Review answers"
+- [x] The Questions tab's header row gains the button and the panel of V-06; "Review answers"
       opens Grading narrowed to the assignment; "Make a practice set" opens the Generate panel
       with the insight's types preselected and the primary "Save as practice test", which calls
       `duplicateTest`'s create path for a new draft test "{title} · Practice" with the accepted
       questions. "Based on {n} attempts" is the operation's `basis`; "Hide insights" closes the
       panel for the visit.
-- [ ] Hidden without `readStudentAnswers`; disabled with the reason when exhausted; "Try again"
+- [x] Hidden without `readStudentAnswers`; disabled with the reason when exhausted; "Try again"
       on 503.
-- [ ] Unit tests; compared with the deck at 360, 1024 and 1280, light and dark.
+- [x] Unit tests; compared with the deck at 360, 1024 and 1280, light and dark.
+
+**As built:** `features/assignments/components/AiInsightsPanel.tsx` draws the button and the
+panel, `features/assignments/assignmentInsights.ts` holds the call for the visit. The call lives in
+the page (`useAssignmentInsights`), so a tab change keeps what was read; "Hide insights" resets it
+and returns focus to the button, and another assignment's id never shows the last one's answer.
+`ItemAnalysis` gains a header slot (`action`, given the number handed in) and a slot under it.
+The button is `AiEntryButton`, which gains `busy` (the spinner in the icon's place, `aria-busy`, a
+press ignored): "Explain results with AI", "Reading results…" while it reads, "Refresh" after. It is
+drawn only with `useAiAvailable()` and inside the card `teaching.grading` already gates; it is
+disabled with the reason while paused or out of credits (`useAiBlock`), and with "No papers handed
+in yet." while the analysis counts none. **`readStudentAnswers` off** (the Tech Lead's brief, which
+replaces "hidden"): the button's place holds one line, "To explain results with AI, turn on “Let AI
+read student answers” in Settings › AI assistant.", the last words a link to `/teacher/settings/ai`.
+Failures sit under the header as a callout: 503, a dropped connection or a 5xx is "AI didn't
+respond. Try again in a minute." with "Try again"; 402 (by scope) and `AI_PAUSED` the block
+sentence, and the month is read again; `AI_READ_OFF` the line above; 422 "No papers handed in yet.";
+`AI_OFF` reads the status again so the button goes; anything else the server's message. The panel
+is a `section` named by its "What AI noticed" heading; the cards are a list; an answer with no
+items says "AI found nothing to point out in these results.". The answer's `usage` updates the
+cached month. **Read-only:** the call sends no body, and nothing in the panel writes;
+`insights.test.tsx` spies on the API client through a run, a refresh and Hide and finds only GETs
+and the insights POST, and no student name in the panel (the fixture names one). **The practice
+set** is the only write, made by the Generate panel's primary: `generateKind` gains a `practice`
+destination ("Save as practice test", the deck's toast "Practice test with {n} questions saved as a
+draft in Tests") and `types`, the insight's types preselected (the default pair when it names
+none). Its passages are the assigned version's shared-content stimuli from the preview, sent as
+text (no `testId`, since the draft's stimuli may differ from the version's). `tests/aiPractice.ts`
+creates each kept question with `createQuestion` (tagged "AI draft" while the preference is on),
+then `createTest` with "{title} · Practice" (cut to 200 characters) and saves its outline with one
+section, "Section 1", holding them; no other test is touched. `duplicateTest` is not called: it
+copies a whole draft, and a practice set holds only the new questions. **Compared with the deck**
+side by side with the deck's open assignment's Questions tab and its four sample insights (served
+with `window.claude` answering them, so the "sample" note does not show), the app on a production
+build with the same four, English, sidebar expanded, at 360, 768, 1024, 1280 and 1440, light and
+dark: every box, font, weight, line height, colour, border, radius, padding and gap of the header
+row, the button (idle and done), the panel, its head, the basis, the close button and the four
+cards with their tiles, titles, bodies and actions equals the deck's within 0.5px. Not visible:
+Tailwind's transparent ring layers before the same `--shadow`, and `border-color` on elements with
+no border. The intro line now uses the deck's line height of 1.5 (it was 1.45), which moved the
+header by 0.7px at one line. `teacher-shell.spec.ts` gains the panel's geometry, focus ring and
+focus return at 360, 768, 1280 and 1440 in both themes.
 
 ### T-D4.38 — Settings › AI assistant, and the credit request
 **Depends on:** T-D4.32 (the usage read, the request operation, `UserPreferences.ai`)

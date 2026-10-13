@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
-import type { LucideIcon } from "lucide-react";
+import { LoaderCircle, type LucideIcon } from "lucide-react";
 import { Tooltip } from "@/components/shared/Tooltip";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -10,13 +10,15 @@ import { AI_BLOCK_KEYS, type AiBlock } from "../useAiAvailable";
  * AiEntryButton is an outlined button that opens an AI panel, its icon in the
  * accent ink. While `blocked` names why the assistant cannot be used, or
  * `unavailable` why this entry cannot, the button stays visible and focusable
- * but does nothing, and the reason is its tooltip (Q34).
+ * but does nothing, and the reason is its tooltip (Q34). While `busy`, a
+ * spinner takes the icon's place and a press does nothing.
  */
 export function AiEntryButton({
   icon: Icon,
   label,
   blocked,
   unavailable,
+  busy = false,
   className,
   onClick,
   ...rest
@@ -26,6 +28,7 @@ export function AiEntryButton({
     label: string;
     blocked: AiBlock | null;
     unavailable?: string | null | undefined;
+    busy?: boolean;
   } & Omit<ComponentProps<typeof Button>, "children" | "variant">
 >) {
   const { t } = useTranslation();
@@ -36,15 +39,23 @@ export function AiEntryButton({
       variant="outline"
       {...rest}
       aria-disabled={reason === null ? undefined : true}
+      aria-busy={busy || undefined}
       className={cn(
         "aria-disabled:hover:bg-card aria-disabled:cursor-default aria-disabled:opacity-50",
         className,
       )}
       onClick={(event) => {
-        if (reason === null) onClick?.(event);
+        if (reason === null && !busy) onClick?.(event);
       }}
     >
-      <Icon aria-hidden="true" className="text-brand-ink" />
+      {busy ? (
+        <LoaderCircle
+          aria-hidden="true"
+          className="animate-spin motion-reduce:animate-none"
+        />
+      ) : (
+        <Icon aria-hidden="true" className="text-brand-ink" />
+      )}
       {label}
     </Button>
   );

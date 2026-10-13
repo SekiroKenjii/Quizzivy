@@ -131,7 +131,10 @@
       "saved_other": "Đã lưu {{count}} câu hỏi vào ngân hàng",
       "savedTagged_one": "Đã lưu {{count}} câu hỏi vào ngân hàng, kèm thẻ Bản nháp AI",
       "savedTagged_other": "Đã lưu {{count}} câu hỏi vào ngân hàng, kèm thẻ Bản nháp AI",
-      "invalid": "Câu {{n}} AI viết chưa lưu được như hiện tại. Hãy bỏ chọn câu đó rồi thử lại."
+      "invalid": "Câu {{n}} AI viết chưa lưu được như hiện tại. Hãy bỏ chọn câu đó rồi thử lại.",
+      "saveAsPractice": "Lưu thành đề luyện tập",
+      "savedPractice_one": "Đã lưu đề luyện tập gồm {{count}} câu thành bản nháp trong Đề thi",
+      "savedPractice_other": "Đã lưu đề luyện tập gồm {{count}} câu thành bản nháp trong Đề thi"
     },
     "check": {
       "title": "Kiểm tra đề bằng AI",
@@ -4185,6 +4188,20 @@
       "empty": "Chưa có bài nộp nào.",
       "noPermission": "Cần quyền chấm bài để xem học viên làm sai câu nào.",
       "loadFailed": "Không tải được thống kê câu hỏi."
+    },
+    "insights": {
+      "explain": "Giải thích kết quả bằng AI",
+      "reading": "Đang đọc kết quả…",
+      "refresh": "Làm mới",
+      "title": "AI nhận thấy",
+      "basis_one": "Dựa trên {{count}} bài làm",
+      "basis_other": "Dựa trên {{count}} bài làm",
+      "hide": "Ẩn nhận xét",
+      "empty": "AI không thấy điều gì đáng lưu ý trong kết quả này.",
+      "review": "Xem lại bài làm",
+      "practice": "Tạo bài luyện tập",
+      "practiceTitle": "{{title}} · Luyện tập",
+      "readOff": "Để AI giải thích kết quả, hãy bật “Cho AI đọc bài làm của học viên” trong <settings>Cài đặt › Trợ lý AI</settings>."
     },
     "settings": {
       "shown": "Hiện",
