@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import type { Editor } from "@tiptap/react";
 import { useTranslation } from "react-i18next";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ export function MaterialContent({
   onChange,
   onAsset,
   onRefresh,
+  onEditor,
 }: Readonly<{
   material: GroupMaterial;
   preview: boolean;
@@ -30,6 +32,7 @@ export function MaterialContent({
   onChange: (material: GroupMaterial) => void;
   onAsset: (asset: MediaAsset) => void;
   onRefresh: () => void;
+  onEditor?: ((editor: Editor | null) => void) | undefined;
 }>) {
   const { t } = useTranslation();
   const bindings = useRef(new Map<string, GroupGapBinding>());
@@ -55,6 +58,7 @@ export function MaterialContent({
               onChange(next);
             }}
             tools={(editor) => <MaterialTools editor={editor} onAsset={onAsset} />}
+            onEditor={onEditor}
           />
         ) : (
           <Field>
