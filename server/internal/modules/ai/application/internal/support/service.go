@@ -2,6 +2,7 @@ package support
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -9,17 +10,24 @@ import (
 	"quizzivy/internal/modules/ai/domain"
 	notificationscommand "quizzivy/internal/modules/notifications/application/command"
 	notificationsdomain "quizzivy/internal/modules/notifications/domain"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/cqrs"
 )
 
-// Service carries what the credits handlers share: the store, the tiers' prices, the calendar zone months are counted in, the clock, and the way to tell a user.
+// Service carries what the handlers share: the store, the tiers' prices, the calendar zone months are counted in, the clock, the way to tell a user, and the ports to the provider and to what the operations read. A nil Completer is an assistant that is off; a nil read port is one its operation cannot be asked of.
 type Service struct {
-	Repo     domain.Repository
-	Prices   domain.Prices
-	Zone     *time.Location
-	Now      func() time.Time
-	Notifier ports.Notifier
-	Logger   *slog.Logger
+	Repo      domain.Repository
+	Prices    domain.Prices
+	Zone      *time.Location
+	Now       func() time.Time
+	Notifier  ports.Notifier
+	Logger    *slog.Logger
+	Completer ports.Completer
+	Tests     ports.Tests
+	Questions ports.Questions
+	Grading   ports.Grading
+	Analysis  ports.Analysis
+	People    ports.People
 }
 
 // NewService returns a Service whose clock is the system's and whose logger discards.
@@ -82,4 +90,55 @@ func (s *Service) TellDecision(ctx context.Context, decided domain.Decided) {
 // TokensOf converts what the provider reported into what the ledger records.
 func TokensOf(u ports.Usage) domain.Tokens {
 	return domain.Tokens{Input: u.InputTokens, Output: u.OutputTokens, CacheRead: u.CacheReadTokens, CacheWrite: u.CacheWriteTokens}
+}
+
+// MayActOn applies the subset rule to a command that acts on one teacher: the teacher's permissions, except learning.take_tests, must be a subset of the author's (access.CanActOn). A teacher who does not exist is domain.ErrNotATeacher and one the author may not act on is domain.ErrForbidden. System is the maintenance console, which has no permissions to compare and is run with the operator's own database credential, so it is not asked.
+func (s *Service) MayActOn(ctx context.Context, by domain.Author, teacherID string) error {
+	if by.System() {
+		return nil
+	}
+	if s.People == nil {
+		return errors.New("ai: no way to read a teacher's permissions")
+	}
+	target, err := s.People.Permissions(ctx, teacherID)
+	if errors.Is(err, domain.ErrNotFound) {
+		return domain.ErrNotATeacher
+	}
+	if err != nil {
+		return err
+	}
+	if !access.CanActOn(by.Grants, target) {
+		return domain.ErrForbidden
+	}
+	return nil
+}
+
+// LanguageFor is the language to write in: the one the request named, or else the teacher's preference, or Vietnamese when that cannot be read.
+func (s *Service) LanguageFor(ctx context.Context, userID string, requested domain.Language) domain.Language {
+	if requested.Valid() {
+		return requested
+	}
+	if s.People == nil {
+		return domain.Vietnamese
+	}
+	prefs, err := s.People.Preferences(ctx, userID)
+	if err != nil || !prefs.Language.Valid() {
+		return domain.Vietnamese
+	}
+	return prefs.Language
+}
+
+// MayReadStudentAnswers is nil when the teacher lets the assistant read student answers and domain.ErrReadOff when they turned it off. A preference that cannot be read refuses, so an answer is never sent on a guess.
+func (s *Service) MayReadStudentAnswers(ctx context.Context, userID string) error {
+	if s.People == nil {
+		return errors.New("ai: no way to read a teacher's preferences")
+	}
+	prefs, err := s.People.Preferences(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if !prefs.ReadStudentAnswers {
+		return domain.ErrReadOff
+	}
+	return nil
 }

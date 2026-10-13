@@ -82,8 +82,8 @@ func TestEveryDeclaredValueIsKnown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(requirements) != 122 {
-		t.Errorf("%d operations declare a permission, want 122", len(requirements))
+	if len(requirements) != 138 {
+		t.Errorf("%d operations declare a permission, want 138", len(requirements))
 	}
 	for pattern, requirement := range requirements {
 		for _, k := range requirement.Keys() {
@@ -375,6 +375,9 @@ func throughGate(h http.Handler, pattern, token string) int {
 func TestEachRoleMeetsExactlyTheOperationsItsPermissionsAllow(t *testing.T) {
 	h, requirements, _ := isolatedGate(t, rolePrincipals())
 	adminOnly := map[string]bool{"POST /admin/docs-session": true, "DELETE /admin/users/{id}": true}
+	for _, pattern := range []string{"GET /admin/ai/credits", "PATCH /admin/ai/rules", "POST /admin/ai/credits/additions", "PUT /admin/ai/teachers/{userId}/allowance", "POST /admin/ai/credit-requests/{id}/approve", "POST /admin/ai/credit-requests/{id}/decline"} {
+		adminOnly[pattern] = true
+	}
 	for pattern, requirement := range requirements {
 		staff := strings.Contains(pattern, " /teacher/") || strings.Contains(pattern, " /admin/")
 		student := strings.Contains(pattern, " /app/")
@@ -421,8 +424,8 @@ func TestTheAssistantMeetsOnlyItsSixRows(t *testing.T) {
 			t.Errorf("%s as the Assistant: %d, want %d", pattern, got, want)
 		}
 	}
-	if refused != 39 {
-		t.Errorf("the Assistant is refused %d operations, want 39: twenty-seven staff operations and the twelve /app ones", refused)
+	if refused != 55 {
+		t.Errorf("the Assistant is refused %d operations, want 55: twenty-seven staff operations, the sixteen AI ones and the twelve /app ones", refused)
 	}
 }
 
@@ -489,6 +492,8 @@ func TestPermissionTreesMatchPaths(t *testing.T) {
 		{name: "a key on the me tree", path: "/me/rosters", method: "GET", value: "teaching.grading", want: `GET /me/rosters: "teaching.grading" does not belong under /me/`},
 		{name: "self on the teacher tree", path: "/teacher/rosters", method: "GET", value: "self", want: `GET /teacher/rosters: "self" does not belong under /teacher/`},
 		{name: "the admin workspace on the teacher tree", path: "/teacher/rosters", method: "GET", value: "workspace.admin", want: `GET /teacher/rosters: "workspace.admin" does not belong under /teacher/`},
+		{name: "the credits key on the teacher tree", path: "/teacher/rosters", method: "GET", value: "ai.credits.manage", want: `GET /teacher/rosters: "ai.credits.manage" does not belong under /teacher/`},
+		{name: "the use key on the admin tree", path: "/admin/rosters", method: "GET", value: "ai.use", want: `GET /admin/rosters: "ai.use" does not belong under /admin/`},
 		{name: "a student key on the teacher tree", path: "/teacher/rosters", method: "GET", value: "learning.take_tests", want: `GET /teacher/rosters: "learning.take_tests" does not belong under /teacher/`},
 		{name: "one stray key in a list", path: "/teacher/rosters", method: "GET", value: []any{"teaching.grading", "people.roles.manage"}, want: `GET /teacher/rosters: "people.roles.manage" does not belong under /teacher/`},
 		{name: "a gated operation on the public tree", path: "/public/rosters", method: "GET", value: "self", want: `GET /public/rosters: "self" does not belong under /public/`},
@@ -521,6 +526,8 @@ func TestPermissionTreesMatchPaths(t *testing.T) {
 		{"/admin/roles", "people.roles.manage"},
 		{"/admin/everything", "scope.all"},
 		{"/teacher/students", "people.students.create"},
+		{"/teacher/ai/usage", "ai.use"},
+		{"/admin/ai/credits", "ai.credits.manage"},
 		{"/app/assignments", "learning.take_tests"},
 		{"/auth/sessions", "self"},
 	} {

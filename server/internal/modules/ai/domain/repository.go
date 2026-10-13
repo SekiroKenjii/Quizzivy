@@ -29,6 +29,8 @@ type Repository interface {
 	SetRules(ctx context.Context, in SetRulesInput) (RulesChange, error)
 	// CreateRequest records a request, answering ErrRequestsOff while the rule is to pause, ErrRequestPending while one is waiting and ErrNotATeacher for a user who is not one.
 	CreateRequest(ctx context.Context, in CreateRequestInput) (Filed, error)
+	// RequestOwner reads whose request it is, whatever its status, and answers ErrRequestNotFound for an id that is none.
+	RequestOwner(ctx context.Context, id string) (string, error)
 	// DecideRequest approves or declines a pending request and writes the audit row in the same statement. An approval raises the teacher's allowance for the request's month by the amount.
 	DecideRequest(ctx context.Context, in DecideInput) (Decided, error)
 }

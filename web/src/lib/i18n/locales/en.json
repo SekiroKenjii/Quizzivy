@@ -2292,7 +2292,11 @@
       "opened": "{{title}} is open and closes at {{when}}",
       "dueSoon": "{{title}} closes at {{when}}",
       "extended": "{{title}} now closes at {{when}}",
-      "resultReady": "Your result for {{title}} is ready"
+      "resultReady": "Your result for {{title}} is ready",
+      "aiWarning": "You have used {{used}} of your {{allowance}} AI credits this month",
+      "aiRequest": "{{teacherName}} asked for {{credits}} more AI credits",
+      "aiApproved": "Your request for {{credits}} more AI credits was approved",
+      "aiDeclined": "Your request for {{credits}} more AI credits was declined"
     },
     "bell": {
       "label": "Notifications",

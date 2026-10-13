@@ -34,6 +34,9 @@ func validPreferences(p domain.Preferences) bool {
 	if p.Theme != nil && *p.Theme != "light" && *p.Theme != "dark" && *p.Theme != "system" {
 		return false
 	}
+	if ai := p.AI; ai != nil && ai.Language != nil && *ai.Language != "vi" && *ai.Language != "en" {
+		return false
+	}
 	if p.AssignmentDefaults != nil && p.AssignmentDefaults.DurationMinutes != nil {
 		duration := *p.AssignmentDefaults.DurationMinutes
 		return duration >= 1 && duration <= 600

@@ -21,9 +21,14 @@ var now = time.Date(2026, 10, 1, 15, 0, 0, 0, time.FixedZone("ICT", 7*60*60))
 
 func status(t *testing.T, window *domain.Window) *httptest.ResponseRecorder {
 	t.Helper()
+	return statusOf(t, window, false)
+}
+
+func statusOf(t *testing.T, window *domain.Window, ai bool) *httptest.ResponseRecorder {
+	t.Helper()
 	app := application.New(repo{window: window}, nil)
 	app.SetClock(func() time.Time { return now })
-	out, err := availabilityhttp.NewAvailability(app).GetPublicStatus(context.Background(), openapi.GetPublicStatusRequestObject{})
+	out, err := availabilityhttp.NewAvailability(app).WithAI(ai).GetPublicStatus(context.Background(), openapi.GetPublicStatusRequestObject{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +44,7 @@ func TestNoWindowIsNull(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("status %d", response.Code)
 	}
-	if got := response.Body.String(); got != "{\"maintenance\":null}\n" {
+	if got := response.Body.String(); got != "{\"ai\":false,\"maintenance\":null}\n" {
 		t.Errorf("body %q, want maintenance null", got)
 	}
 	if got := response.Header().Get("Cache-Control"); got != "public, max-age=30" {
@@ -49,7 +54,7 @@ func TestNoWindowIsNull(t *testing.T) {
 
 func TestAComingWindowIsAnnouncedInUTC(t *testing.T) {
 	response := status(t, &domain.Window{StartsAt: now.Add(time.Hour), EndsAt: now.Add(2 * time.Hour)})
-	want := "{\"maintenance\":{\"active\":false,\"endsAt\":\"2026-10-01T10:00:00Z\",\"startsAt\":\"2026-10-01T09:00:00Z\"}}\n"
+	want := "{\"ai\":false,\"maintenance\":{\"active\":false,\"endsAt\":\"2026-10-01T10:00:00Z\",\"startsAt\":\"2026-10-01T09:00:00Z\"}}\n"
 	if got := response.Body.String(); got != want {
 		t.Errorf("body %q, want %q", got, want)
 	}
@@ -57,7 +62,7 @@ func TestAComingWindowIsAnnouncedInUTC(t *testing.T) {
 
 func TestAWindowUnderWayIsActive(t *testing.T) {
 	response := status(t, &domain.Window{StartsAt: now.Add(-time.Minute), EndsAt: now.Add(time.Hour)})
-	want := "{\"maintenance\":{\"active\":true,\"endsAt\":\"2026-10-01T09:00:00Z\",\"startsAt\":\"2026-10-01T07:59:00Z\"}}\n"
+	want := "{\"ai\":false,\"maintenance\":{\"active\":true,\"endsAt\":\"2026-10-01T09:00:00Z\",\"startsAt\":\"2026-10-01T07:59:00Z\"}}\n"
 	if got := response.Body.String(); got != want {
 		t.Errorf("body %q, want %q", got, want)
 	}
@@ -66,5 +71,14 @@ func TestAWindowUnderWayIsActive(t *testing.T) {
 func TestWithoutTheModuleTheStatusIsNotImplemented(t *testing.T) {
 	if _, err := availabilityhttp.NewAvailability(nil).GetPublicStatus(context.Background(), openapi.GetPublicStatusRequestObject{}); err == nil {
 		t.Error("a transport with no application answered")
+	}
+}
+
+func TestTheStatusSaysWhetherTheAssistantIsConfigured(t *testing.T) {
+	if got := statusOf(t, nil, true).Body.String(); got != "{\"ai\":true,\"maintenance\":null}\n" {
+		t.Errorf("body %q, want ai true", got)
+	}
+	if got := statusOf(t, nil, false).Body.String(); got != "{\"ai\":false,\"maintenance\":null}\n" {
+		t.Errorf("body %q, want ai false", got)
 	}
 }

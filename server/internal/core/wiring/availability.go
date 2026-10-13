@@ -9,7 +9,7 @@ import (
 	"quizzivy/internal/platform/db"
 )
 
-func availability(dbx db.Context, logger *slog.Logger) (*availabilityapp.Application, availabilityhttp.Availability) {
+func availability(dbx db.Context, logger *slog.Logger, ai bool) (*availabilityapp.Application, availabilityhttp.Availability) {
 	app := availabilityapp.New(availabilityrepo.NewPostgres(dbx), logger)
-	return app, availabilityhttp.NewAvailability(app)
+	return app, availabilityhttp.NewAvailability(app).WithAI(ai)
 }
