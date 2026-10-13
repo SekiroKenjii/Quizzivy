@@ -37,6 +37,7 @@ import {
   toFormValues,
   updateQuestion,
 } from "@/features/question-bank/api";
+import { aiReadsOf, type QuestionAi } from "@/features/question-bank/questionAi";
 import {
   questionSchema,
   type QuestionValues,
@@ -61,6 +62,7 @@ import {
 } from "@/features/tests/components/AutosaveStatusLabel";
 import { QuestionPickerDialog } from "@/features/tests/components/QuestionPickerDialog";
 import {
+  AutosaveRefused,
   mergeAutosave,
   useAutosave,
   type AutosaveStatus,
@@ -96,7 +98,7 @@ import {
   unitsOf,
   withUnits,
 } from "../../outlineUnits";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, failureMessage } from "@/lib/api/errors";
 import { notify } from "@/lib/toast";
 import { FormDialog } from "@/components/shared/form/FormDialog";
 
@@ -1400,11 +1402,13 @@ function QuestionForm({
     [t],
   );
 
+  const storedReads = useRef(aiReadsOf(values));
   const autosave = useAutosave<QuestionValues>({
     refuse,
     save: async (next) => {
       await queryClient.cancelQueries({ queryKey: ["teacher-question", questionId] });
       const saved = await updateQuestion(questionId, next);
+      storedReads.current = aiReadsOf(next);
       queryClient.setQueryData(["teacher-question", questionId], saved);
       void queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
     },
@@ -1424,9 +1428,27 @@ function QuestionForm({
     onStatus(status);
   }, [onStatus, status]);
 
+  const ai: QuestionAi = {
+    prepare: async () => {
+      try {
+        await flush();
+      } catch (cause) {
+        if (aiReadsOf(values) !== storedReads.current)
+          return {
+            refusal:
+              cause instanceof AutosaveRefused
+                ? cause.message
+                : failureMessage(cause, t("questionEditor.saveFailed")),
+          };
+      }
+      return { id: questionId };
+    },
+  };
+
   return (
     <BuilderQuestionEditor
       value={values}
+      ai={ai}
       asset={asset}
       number={number}
       clearPromptOnFocus={clearStarterPrompt}

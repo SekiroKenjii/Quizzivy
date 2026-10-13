@@ -7,11 +7,17 @@ import { Callout } from "@/components/shared/Callout";
 import { IconTile } from "@/components/shared/IconTile";
 import { Sheet } from "@/components/shared/Sheet";
 import { Button } from "@/components/ui/button";
-import { ApiError, failureMessage } from "@/lib/api/errors";
+import { failureMessage } from "@/lib/api/errors";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { notify } from "@/lib/toast";
 import { credits } from "../credits";
-import { AI_STATUS_KEY, AI_USAGE_KEY, type AiMonthUsage, type AiUsage } from "../api";
+import type { AiUsage } from "../api";
+import {
+  aiFailureOf,
+  refreshAfterAiFailure,
+  settleAiUsage,
+  type AiFailure,
+} from "../outcome";
 import { AiWriteError, type AiCardAction, type AiEnv, type AiKind } from "../kind";
 import { checkKind, type CheckContext } from "../kinds/check";
 import { cleanupKind, type CleanupContext } from "../kinds/cleanup";
@@ -23,7 +29,6 @@ import {
   useAiLanguage,
   useAiLeft,
   useAiTagsDrafts,
-  type AiBlock,
 } from "../useAiAvailable";
 import { AiCreditNote } from "./AiCreditNote";
 import { AiItemCard } from "./AiItemCard";
@@ -37,15 +42,10 @@ export type AiPanelRequest =
   | { kind: "variant"; context: VariantContext }
   | { kind: "cleanup"; context: CleanupContext };
 
-type Failure =
-  | { kind: "unavailable" }
-  | { kind: "blocked"; block: AiBlock }
-  | { kind: "error"; message: string };
-
 type Keyed<I> = { key: string; item: I };
 
 type Stage<I> =
-  | { name: "setup"; failure: Failure | null }
+  | { name: "setup"; failure: AiFailure | null }
   | { name: "running" }
   | {
       name: "done";
@@ -61,19 +61,6 @@ function writeFailure(cause: unknown, fallback: string): string {
   return cause instanceof AiWriteError
     ? cause.message
     : failureMessage(cause, fallback);
-}
-
-function failureOf(cause: unknown, t: (key: string) => string): Failure {
-  if (!(cause instanceof ApiError)) return { kind: "unavailable" };
-  if (cause.code === "AI_CREDITS_EXHAUSTED")
-    return {
-      kind: "blocked",
-      block: cause.details?.["scope"] === "pool" ? "pool" : "teacher",
-    };
-  if (cause.code === "AI_PAUSED") return { kind: "blocked", block: "paused" };
-  if (cause.code === "AI_UNAVAILABLE" || cause.status === 0 || cause.status >= 500)
-    return { kind: "unavailable" };
-  return { kind: "error", message: failureMessage(cause, t("ai.failed")) };
 }
 
 /**
@@ -139,12 +126,6 @@ function AiKindPanel<F, I, C>({
       : null;
   const stop = failedBlock ?? block;
 
-  function settleUsage(usage: AiUsage) {
-    queryClient.setQueryData<AiMonthUsage>(AI_USAGE_KEY, (month) =>
-      month ? { ...month, used: month.used + usage.credits, left: usage.left } : month,
-    );
-  }
-
   async function start() {
     if (problem !== null || stop !== null) return;
     run.current?.abort();
@@ -155,7 +136,7 @@ function AiKindPanel<F, I, C>({
     try {
       const result = await kind.run(values, env, controller.signal);
       if (controller.signal.aborted) return;
-      settleUsage(result.usage);
+      settleAiUsage(queryClient, result.usage);
       const items = result.items.map((item, index) => ({ key: `k${index}`, item }));
       const card = (item: I) => kind.card(item, { ...env, close: onClose });
       setStage({
@@ -169,11 +150,8 @@ function AiKindPanel<F, I, C>({
       });
     } catch (cause) {
       if (controller.signal.aborted) return;
-      const failure = failureOf(cause, t);
-      if (failure.kind === "blocked")
-        void queryClient.invalidateQueries({ queryKey: AI_USAGE_KEY });
-      if (cause instanceof ApiError && cause.code === "AI_OFF")
-        void queryClient.invalidateQueries({ queryKey: AI_STATUS_KEY });
+      const failure = aiFailureOf(cause, t("ai.failed"));
+      refreshAfterAiFailure(queryClient, cause, failure);
       setStage({ name: "setup", failure });
     }
   }

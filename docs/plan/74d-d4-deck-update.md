@@ -3299,36 +3299,126 @@ every cell.
 **Touches:** `web/src/features/question-bank/components/{QuestionEditor,ExplanationField,OptionsEditor,AiExplanationPanel (new),AiDistractorsPanel (new)}.tsx`, locales, `web/tests/units/question-bank/editor-ai.test.tsx` (new)
 **Size:** M
 **Done when:**
-- [ ] On both pages that mount `QuestionEditor` (the bank and the builder, DG-108): the
+- [x] On both pages that mount `QuestionEditor` (the bank and the builder, DG-108): the
       Explanation label row gains "Write with AI" (28px; "Writing…"; "Write again" after), the
       field keeps its `<label for>` (DG-138: the deck's `aria-label` is not taken); the panel
       "Suggested explanation" with "Use this" (writes the text into the field through the editor's
       own change handler, so autosave sees it), "Shorter", "In Vietnamese" / "In English", and
       "Discard" (V-10). The explanation is written in the preference's language.
-- [ ] For single and multiple choice: "Suggest wrong options" beside Add option; the panel
+- [x] For single and multiple choice: "Suggest wrong options" beside Add option; the panel
       "Suggested wrong options" with up to four rows, "Add" fills the first empty option or
       appends while under the cap of 8 (DG-63; the deck's 6 is not taken), "Added" after; the
       error line on 503.
-- [ ] Both guarded by "Write the question first" / "Mark the correct answer first" as toasts;
+- [x] Both guarded by "Write the question first" / "Mark the correct answer first" as toasts;
       both hidden without `useAiAvailable()`; both disabled with the reason when paused or
       exhausted.
-- [ ] Unit tests on both hosts; compared with the deck at 360 and 1280, light and dark.
+- [x] Unit tests on both hosts; compared with the deck at 360 and 1280, light and dark.
+
+**As built:** the editor the two pages share is not `QuestionEditor` itself but its parts: the
+bank's `QuestionEditorPage` and the builder's `BuilderQuestionEditor` both compose
+`QuestionPromptAnswers` (the answer area, so `OptionsEditor`) and `ExplanationField`, which moved
+to its own file. Each takes an optional `QuestionAi` (`question-bank/questionAi.ts`), and only those
+two pages pass one, so the group composer and the import review, which mount `QuestionEditor` on
+questions the operations cannot read yet, draw neither suggestion. `useAiSuggestion` runs one
+suggestion (the guards, the page's `prepare`, the call, `features/ai/outcome.ts` for the usage and
+the failure); `AiExplanationPanel` and `AiDistractorsPanel` draw the two panels. `features/ai/api.ts`
+gains `writeAiExplanation` and `suggestAiDistractors`, and `AiEntryButton` a ghost variant for
+"Suggest wrong options".
+
+- **The stored question is what the assistant reads.** Both operations read the question by id, so
+  the editor makes the stored copy match first: the builder's `prepare` flushes the question's
+  autosave, and the bank's, whose Save is explicit, answers "Save the question first" (a toast)
+  while the fields the assistant reads differ from the last save (`aiReadsOf`: type, prompt,
+  written options, accepted answers, sample answer). Editing only the explanation, the points or
+  the tags does not stop a call. An empty option is not read: it cannot be stored and is what "Add"
+  fills, so in the builder a flush the autosave refuses only because of an empty option still asks.
+  A new question in the bank has no id and gets the same toast.
+- **The guards** are the deck's toasts, checked on the editor's own values before `prepare`: no
+  prompt, or no correct option with text (a blank with no accepted answer). A short answer passes,
+  as in the deck; the server's `422` for a missing sample answer is the panel's line.
+- **"Use this"** replaces the explanation in the form the field holds (`withExplanation`): a rich
+  document of paragraphs while the field is rich, the plain text while it is Markdown, then remounts
+  the field on the new value and returns focus to the button. **"Shorter"** keeps the language of the
+  suggestion shown; "In Vietnamese" / "In English" asks for the other language than the preference.
+  The panel closes while a new one is written, as the deck's does.
+- **"Add"** (`withDistractor`) fills the first empty option that is not marked correct, else adds
+  one while there are fewer than 8, else the editor's own "Up to 8 options" toast; "Added" stays
+  focusable (`aria-disabled`). An answer with no suggestion is the error line, as the deck's.
+- **Failures** are a line in the panel: `503` and a dropped connection the deck's sentence, `402`
+  and `403 AI_PAUSED` the block sentence (and the buttons then hold, with it as their tooltip),
+  anything else the server's message. The button is the retry. **The credit note** of the call ends
+  each panel that answered (spec §12), which the deck does not draw.
+- **The label row** keeps R4's "Rich text | Markdown" after "Write with AI". With the product's
+  longer hint the two wrap under the label below 1440 (at 1440 they sit on the label's row, as the
+  deck's button does).
+
+Measured in Chromium at 360, 768, 1280 and 1440, light and dark (English against the deck's question
+route with its AI state set; Vietnamese for wrapping), on the bank's editor and the builder's pane:
+the buttons, the panels, their titles, text, rows and actions match the deck's sizes, type, radii,
+padding and colours in both themes; the panels are taller by the credit note; no cell scrolls
+sideways. Focus rings are `--focus`, and closing a panel returns focus to its button.
+
 
 ### T-D4.36 — Grading: "Suggest a score"
 **Depends on:** T-D4.32, T-D4.34
 **Touches:** `web/src/features/attempts/components/{GradingCard,AiScoreBox (new)}.tsx`, locales, `web/tests/units/attempts/grading-ai.test.tsx` (new)
 **Size:** S
 **Done when:**
-- [ ] Between the student answer and Score, while the teacher's `readStudentAnswers` is on and
+- [x] Between the student answer and Score, while the teacher's `readStudentAnswers` is on and
       AI is available: the box of V-07 with its idle, running and done states; the confidence
       pill; "{score} / {max}"; the reasons; the comment; "Use score and comment" sets the score
       button and the comment field through the card's own handlers (nothing is saved until the
       teacher's Save & next, as today) and toasts the deck's sentence; "Try again". The idle
       sentence is the short-answer one; the band sentence waits for R6 (DG-202).
-- [ ] With the preference off the box is absent and a line under the answer reads "AI
+- [x] With the preference off the box is absent and a line under the answer reads "AI
       suggestions are off in Settings › AI assistant." (one sentence, from deck parts).
-- [ ] Unit tests: the gate, the fill, that no request carries the student's name (the fixture
+- [x] Unit tests: the gate, the fill, that no request carries the student's name (the fixture
       names one); compared with the deck at 360 and 1280, light and dark.
+
+**As built:** The grading page's card is `pages/teacher/GradingAnswerCard.tsx`;
+`components/GradingCard.tsx` is the attempt review's marking card, which V-07 does not draw and
+which gains nothing. The box is `attempts/components/AiScoreBox.tsx`, handed to the card by
+`GradingPage` as its `suggestion` slot for a `short_answer` item, so the card itself reads no AI
+state and its unit tests mount it as before. It stands directly above Score, after the accepted
+answers and the sample answer, which is where the deck puts it relative to Score.
+
+**A score button saves at once; the suggestion does not.** The card's score buttons call
+`pickScore`, which writes the grade, so "Use score and comment" cannot go through `onScore`
+without saving. `useGradingQueue` gains `fill(item, points, comment)`, which lays both over the
+answer's draft and writes nothing (refused while a save is in flight); the score button shows
+pressed and the comment field holds the text. Save & next writes them through `flush`, and so does
+`j`/`k` or a click on another answer, which already flush a pending comment. A route change does
+not: the leave dialog appears only for an unsaved comment, as before. `grading-ai.test.tsx` spies
+on the API client and finds no `POST /teacher/attempts/{id}/grade` after "Use score and comment",
+then one with the suggested points and comment after Save & next; it also reads the box's source
+for any import of the attempts API.
+
+`suggestAiScore` is in `features/ai/api.ts`. The panel's failure reading and usage settling moved
+from `AiPanel.tsx` to `features/ai/outcome.ts` (`aiFailureOf`, `refreshAfterAiFailure`,
+`settleAiUsage`) so the box and the panel share them. States: idle (the short-answer sentence,
+DG-202), running ("Reading the answer…" with the spinner, still under reduced motion), done (the
+confidence pill in the success, warning or danger tones, "{score} / {max}" in the locale's
+figures, the reasons, "Comment for the student:" when the comment is not empty, "Use score and
+comment", "Try again" and the credit note "Used {credits} credits · {left} left" where the deck
+draws its demo line). `503` and a dropped connection are the warning callout with "Try again";
+`402` and `403 AI_PAUSED`, or a usage read that says paused or exhausted, show the block sentence
+with the button disabled; `403 AI_READ_OFF` turns the box into the off line; `501 AI_OFF` reads
+the status again; `422` and anything else show the server's message. Leaving the answer aborts a
+run, and a suggestion is not kept for the answer when the card moves on. With
+`readStudentAnswers` false the box is the line "AI suggestions are off in Settings › AI
+assistant." whose last words link to `/teacher/settings/ai`; the Trans tag is `<settings>`,
+since i18next parses `<link>` as a void HTML element.
+
+The request is a body-less `POST` naming the attempt and the question; the unit case whose
+fixture names the student in the queue row and the assignment title asserts that neither the
+name nor the student id is in the URL, the body or the client call. `teacher-grading.spec.ts`
+adds ten cases (360, 768, 1024, 1280 and 1440, light and dark): the box above Score, the 30px
+button, the 17px score, the fill, no write until Save & next, no sideways scroll. Compared in
+Chromium against the deck's grading screen (first item, the deck's demo suggestion served as the
+operation's answer) at the same widths and both themes, sidebar expanded: every measured box
+(the frame, title, idle sentence, buttons, pill, score, reasons, comment card) within 0.6px and
+the same computed colours, except the done frame, 0.8px taller at 360 to 1024 where the credit
+note wraps in place of the deck's 12px "Sample output" line (DG-201).
 
 ### T-D4.37 — Assignment detail: "Explain results with AI"
 **Depends on:** T-D4.32, T-D4.34, T-D4.22
@@ -3467,18 +3557,53 @@ the interface's language, tags on, answers on, imports off), which T-D4.39 reads
 **Touches:** `web/src/features/imports/components/{SourceIntake,ProcessingPanel}.tsx`, `web/src/features/imports/pages/teacher/{ImportWorkspacePage,ImportsListPage}.tsx`, locales, `web/tests/units/imports/{upload-flow,workspace,processing-states,history}.test.tsx`
 **Size:** S
 **Done when:**
-- [ ] The toggle card of V-11 sits in the Sources pane of `ImportWorkspacePage` (DG-207) between
+- [x] The toggle card of V-11 sits in the Sources pane of `ImportWorkspacePage` (DG-207) between
       the sources and the privacy note, in the draft state only, prefilled from
       `preferences.ai.readImports`, switching the accepts line; the privacy note gains the
       sentence of T-D4.33 while it is on; `createImport` carries `readWithAi`. Absent without
       `useAiAvailable()`; disabled with the reason when exhausted (the 402 would otherwise
       arrive after upload). The card lives in `SourceIntake`, so the page frame (DG-205) and the
       pane split are not touched.
-- [ ] The status pane (`ProcessingPanel`) and the history (`ImportsListPage`) show the reader's
+- [x] The status pane (`ProcessingPanel`) and the history (`ImportsListPage`) show the reader's
       log line and meta (T-D4.33).
-- [ ] Unit tests in `upload-flow.test.tsx` and `workspace.test.tsx`; compared with the approved
+- [x] Unit tests in `upload-flow.test.tsx` and `workspace.test.tsx`; compared with the approved
       page-width design's import workspace (`deck/page-width-proposal/`) and the v2 deck's V-11
       at 360 and 1280, light and dark.
+
+**As built:** One pull request; no contract, migration or server change. The card is
+`components/ReadWithAiCard.tsx` and the choice `useReadWithAi.ts`, both in `features/imports/`,
+on `features/ai/`'s `useAiAvailable` and `useAiBlock` and `features/auth/`'s `aiPreferencesOf`.
+- **Where and when.** `SourceIntake` draws the card after the exam and key slots, inside the file
+  mode's block, so the page frame and the pane split are untouched and the card is hidden, with
+  its state kept, in paste mode. It is offered for a new import (`/teacher/imports/new`) only,
+  while `useAiAvailable()` is true and the server's limits list `pdf`: with no PDF accepted the
+  switch would change nothing. An import awaiting files or failed keeps T-D4.33's note and draws
+  no card, because `readWithAi` is fixed at create.
+- **What it sends.** It starts from `preferences.ai.readImports` (off by default); a change applies
+  to this import and writes no preference. Start sends `readWithAi: true` on `createWordImport`
+  only while it is on; off, the body is today's. Pasted text never sends it. A change of the
+  choice, like a change of the title, takes a new `requestId`. Once the import exists (an upload
+  failed after the create) the card is locked to the import's own value with "The import was
+  created with this choice.". A `422` naming `readWithAi` shows the server's message and reads the
+  status and the usage again, so the card goes when the assistant has.
+- **Blocked.** Paused, or out of allowance or pool (`useAiBlock`): the switch shows off, stays
+  focusable with `aria-disabled`, ignores a press, and the reason (`ai.blocked.*`, the panels'
+  sentences) is a line under the hint and its description. Start then sends no `readWithAi`.
+- **What changes while on.** The accepts line reads `imports.upload.limitsAi` (formats and size
+  from the server, as before), the privacy note appends `imports.upload.privacyAi`, and the
+  "Read the content" stage of the status pane says "Scans read with AI"; the same stage line shows
+  for an import with `readWithAi` in every later state. The history row's meta ends "· Read with
+  AI". The contract carries no credits, so neither the deck's "About 400 credits per page" nor the
+  proposal's "Uses 1 AI credit · 18 left" is drawn (§12: no figure the product has not metered).
+  Settings' "Read imports with AI" hint (T-D4.38) still carries the deck's figure.
+- **Compared with the deck** (served with React, react-dom, Babel and lucide from their npm
+  tarballs through route interception) at 360, 768, 1280 and 1440, light and dark: the card's
+  border, radius, padding, gap, the 32px tile and its tones, the title and hint type and colour,
+  the 38 x 22 switch and its 18px thumb equal the deck's at every width; the card's width is the
+  Sources pane's (DG-205, DG-207), so its height follows the hint's wrap, which is one line
+  shorter without the credit figure. The order (files, card, privacy note) is the page-width
+  design's. No sideways scroll; the switch's ring is 2px `--focus` in both themes. Vietnamese,
+  off and blocked, was checked at 360 and 1280.
 
 ### T-D4.40 — Documents for the AI assistant
 **Depends on:** T-D4.32 merged (the behaviour exists); runs before T-D4.12
