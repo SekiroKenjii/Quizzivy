@@ -1,7 +1,9 @@
 # Design
 
 `deck/` is the product design: seven Claude Design pages that draw every screen of the three
-consoles, the front door and the public site. **It is the single source of truth for the UI.**
+consoles, the front door and the public site, and in `page-width-proposal/` three later answers
+from the design team (the page width, the cloze, Grading's finish states). **It is the single
+source of truth for the UI.**
 It replaced the earlier hand-built mockups (`docs/design/mockups`, removed with T-R0.1) and every
 rule that came with them. Where the product deliberately departs from the deck, the departure is
 listed below, and the reason is in the plan (`docs/plan/70-redesign-overview.md`).
@@ -166,8 +168,8 @@ Thuong has not decided these; the plan builds them until he or the design team a
   (DG-114).
 
 Defaults taken on 2026-10-12, with the fourth import (DG-182 to DG-195 in `docs/design/gaps.md`).
-Thuong has not decided these either; D4 (`docs/plan/74d-d4-deck-update.md`) builds them until he or
-the design team answers:
+Thuong has not decided these either. D4 (`docs/plan/74d-d4-deck-update.md`, v0.11.0) built them, and
+each row in `gaps.md` says how; a later answer from him or the design team reopens the row:
 
 - **A recording never locks at its play limit.** The button stays live and the status reports the
   extra plays, as spec §11.4 says (DG-182).

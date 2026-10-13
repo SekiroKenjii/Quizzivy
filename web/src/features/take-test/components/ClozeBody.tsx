@@ -93,8 +93,8 @@ export function ClozeBody({
 
   return (
     <div className={cn("flex flex-col gap-4.5", PAPER_SURFACE)}>
-      <div className="flex items-start justify-between gap-2.5">
-        <p className="text-muted-fg min-w-0 flex-1 pt-1.5 text-sm font-medium text-pretty">
+      <div className="flex items-center justify-between gap-2.5">
+        <p className="text-muted-fg min-w-0 flex-1 text-sm font-medium text-pretty">
           {clozeLine(stop.positions, cloze.positions.length, total, t)}
         </p>
         <FlagToggle questionId={question.id} number={open + 1} disabled={locked} />

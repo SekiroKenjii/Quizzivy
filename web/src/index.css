@@ -398,11 +398,11 @@
 @keyframes qz-tip {
   from {
     opacity: 0;
-    transform: translate(-4px, -50%);
+    transform: translateX(-4px);
   }
   to {
     opacity: 1;
-    transform: translate(0, -50%);
+    transform: none;
   }
 }
 

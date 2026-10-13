@@ -3954,7 +3954,7 @@ was v0.98 (T-D4.9), so the spec is **v0.99**, and its "Changes since v0.98" list
 - [ ] On a real phone, the same; and, with seeking off, leave the group mid-play, come back and
       resume: the recording goes on from where it stopped and the count has not moved (T-D4.8's
       rule, on iOS Safari, where metadata may not load before the first play).
-- [ ] `pnpm e2e:live` passes E2E 2 and 5 to 9, E2E 9's key list unchanged.
+- [x] `pnpm e2e:live` passes E2E 2 and 5 to 9, E2E 9's key list unchanged.
 - [x] The teacher side is compared with the deck at 360, 768, 1024, 1280 and 1440, light and
       dark: the builder with a shared-context group holding a passage with two gaps and one
       holding a recording; the Shared content dialog in its three kinds; the question media
@@ -4035,9 +4035,55 @@ rows join DG-186 to DG-188 and DG-196 to DG-202 as the differences the two compa
 The boxes left open:
 - The real phone, iOS Safari included, and follow-up 6's Android tap: the owner's, on devices
   neither the tester nor CI has.
-- `pnpm e2e:live` run on a machine: CI's live job runs it on every pull request, against a real
-  API with E2E 9's key list; the box closes on the release pull request's run (T-D4.18).
 - The live smoke with the key set (follow-up 2) and Thuong's review of "Tự luận", as above.
+
+**As built (the second verification, #600):** one pull request after #594 to #596, merged with `develop` after #597, #601 and #602.
+Three side-by-side comparisons on production builds, each against the pinned deck (`Deck OK: 22 files, 10 pages`) with its CDN files
+served from npm and the app's own Be Vietnam Pro, sizes from `getBoundingClientRect`:
+
+- **Engine.** Every frame of s1, s9 (34 questions) and s2 at 360, 768, 1024, 1280 and 1440 and at
+  419 / 420, 899 / 900 and 1179 / 1180, light and dark. Four differences were fixed and measured
+  again equal to the deck: the drawer's tip hung 25.5px above the handle while it animated (the
+  `qz-tip` keyframes carried the -50% the tip's class already sets), the grid button's 8px padding
+  cut its short label with an ellipsis from 768 to about 772px, a cloze stop's line was 6px taller
+  when it wrapped, and the footer's key caps were the mono face DG-141 rules out. The rest is
+  DG-60, DG-80, DG-184, DG-185 and DG-189 to DG-194, and DG-212. DG-80's list in Vietnamese at 320,
+  360, 768 and 1280, light and dark, on a paper built for it: 472 cells, 468 with nothing that
+  scrolls sideways, overlaps, is clipped or covered; the four others are the "Saving…" line, which
+  below 768 shows only for a failed or offline save (DG-80). DG-80's timer widths depend on the
+  font files the deck loads; with ours the structure holds and the figures differ.
+- **Teacher, fourth export.** The builder with a passage group and a recording group, the Shared
+  content dialog in its three kinds, the media block and the group's recording with "Plays" and
+  "Students can pause", and the three previews as Computer and Phone, at the five widths, light
+  and dark: no sideways scroll. The group's "…" menu took the deck's 200px. The rest is DG-186 to
+  DG-188, and DG-210 and DG-211.
+- **Teacher, v2.** Section F's four screens, the eight sticky columns and the collapsed sidebar's
+  separator, and every AI surface, at the five widths, light and dark, with the sidebar collapsed
+  from 768. The blocked and failure states the deck does not draw (DG-201) were checked for
+  behaviour and strings. The Generate panel's apply button, "Thêm 5 câu vào Passage 1 · Urban green
+  space", was nowrap and could not shrink, so at 360 it ran 18px out of the sheet in Vietnamese; it
+  now truncates inside the footer, its whole label kept as its name and title, measured inside the
+  sheet in both languages at 360, 768 and 1280 with an 80-character section title. The rest is
+  DG-196 to DG-208's, and DG-210 and DG-211.
+
+Suites on the merged head: `make test-api` green (end-to-end with no skip; integration skips only
+the Word converter's twelve, which need its image and a non-root worker, on the branch point too);
+`pnpm lint`, `typecheck`, `format:check`, the unit and integration suites, `build`, `pnpm e2e` and
+`pnpm e2e:content` green, with the key unset, and no AI entry point drawn while the server has no
+assistant (`builder/ai-entry`, `question-bank/bank-ai` and `settings/ai-assistant` assert it). On
+a machine shared with the comparisons, about forty unit and integration tests timed out at the
+5s limit and passed when run alone; the builder's question-switch test, which mounts the whole
+builder and takes 3.3s alone, has its own 15s timeout, its assertions unchanged. The AI clean-up
+race test (`TestTwoCleanupsRacingForOnePoolWithRoomForOneLeaveExactlyOne`) relied on a 20ms sleep
+to hold the first reservation and failed when the second start was 300ms late; it now holds the
+reservation until a clean-up returns. `pnpm e2e:live` passes all fourteen, E2E 2 and 5 to 9 among
+them, with E2E 9 unchanged since v0.10.0; E2E 10 needs Word imports configured
+(`IMPORT_S3_BUCKET`, `IMPORT_WORK_DIR`, the worker), as `.env.example` says. A new phone spec plays
+a recording inside the drawer, closes it, and sees the recording go on and the handle's dot.
+
+Left open, with reasons: the real-phone checks, follow-up 6's swipe-then-tap among them (the
+owner's phone); the live smoke with the key, follow-up 2 (the owner's key); Thuong's review of
+"Tự luận". Follow-up 3 is a question for the design team, also asked in DG-212.
 
 ### T-D4.18 — Release v0.11.0
 **Depends on:** T-D4.1 to T-D4.16, T-D4.19 to T-D4.23, T-D4.30 to T-D4.40
