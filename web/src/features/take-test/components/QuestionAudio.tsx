@@ -1,10 +1,14 @@
-import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import { usePaper } from "../paper";
 import type { StudentQuestion } from "../api";
 
-/** The listening half of a question (§11.3, §11.4). */
+/**
+ * QuestionAudio is the listening half of a question (§11.3, §11.4): the
+ * recording card in the question pane. A start counts a play and records it;
+ * a resume does neither. A play in progress keeps its place while the
+ * student is on another question.
+ */
 export function QuestionAudio({
   question,
   onExpired,
@@ -24,45 +28,22 @@ export function QuestionAudio({
   const played = questionPlays[question.id] ?? 0;
 
   if (question.media?.kind !== "audio") return null;
-  const maxPlays = question.audio?.maxPlays ?? null;
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <AudioPlayer
-        src={question.media.url}
-        label={t("takeTest.audioLabel")}
-        durationMs={question.media.durationMs}
-        allowSeek={question.audio?.allowSeek ?? false}
-        preload="metadata"
-        hint={playsHint(t, played, maxPlays)}
-        onPlay={() => onAudioPlay(question.id)}
-        onEnded={() => onAudioEnded(question.id)}
-        onBlocked={() => onAudioBlocked(question.id)}
-        onSeekBlocked={() => onAudioSeekBlocked(question.id)}
-        onRetry={onExpired}
-      />
-      {maxPlays !== null && played >= maxPlays && (
-        <p role="status" className="text-muted-fg text-meta">
-          {t("takeTest.extraPlaysRecorded")}
-        </p>
-      )}
-    </div>
+    <AudioPlayer
+      layout="card"
+      src={question.media.url}
+      label={t("takeTest.audioLabel")}
+      durationMs={question.media.durationMs}
+      allowSeek={question.audio?.allowSeek ?? false}
+      preload="metadata"
+      plays={{ played, limit: question.audio?.maxPlays ?? null }}
+      place={`question:${question.id}`}
+      onPlay={() => onAudioPlay(question.id)}
+      onEnded={() => onAudioEnded(question.id)}
+      onBlocked={() => onAudioBlocked(question.id)}
+      onSeekBlocked={() => onAudioSeekBlocked(question.id)}
+      onRetry={onExpired}
+    />
   );
-}
-
-/**
- * "Còn 2 lượt nghe", or nothing at all when the teacher set no limit.
- *
- * Never negative. Over-limit plays are real and are reported to the teacher
- * (§11.4), but counting down past zero on the student's screen would read as an
- * accusation in a place that cannot explain itself.
- */
-function playsHint(
-  t: TFunction,
-  played: number,
-  maxPlays: number | null,
-): string | undefined {
-  if (maxPlays === null) return undefined;
-  if (played >= maxPlays) return t("takeTest.playsUsed", { played, limit: maxPlays });
-  return t("takeTest.playsLeft", { count: maxPlays - played });
 }

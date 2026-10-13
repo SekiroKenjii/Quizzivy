@@ -12,12 +12,18 @@ import {
 import type { StudentGroup } from "./api";
 
 /**
- * hasPassage reports whether a group brings something to read beside its
- * questions. Such a group gets the passage pane; a group with recordings
- * only is drawn inside the question pane.
+ * hasSharedContent reports whether a group brings shared content beside its
+ * questions: a material, or a recording. Such a group gets the stimulus pane,
+ * which draws each recording's card at its audio node. The server refuses a
+ * recording that no material names, so for every group it accepts this is
+ * the same as having a material.
  */
-export function hasPassage(group: StudentGroup | undefined): group is StudentGroup {
-  return group !== undefined && group.stimuli.length > 0;
+export function hasSharedContent(
+  group: StudentGroup | undefined,
+): group is StudentGroup {
+  return (
+    group !== undefined && (group.stimuli.length > 0 || group.recordings.length > 0)
+  );
 }
 
 /**
