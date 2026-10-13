@@ -10,6 +10,7 @@ import (
 )
 
 // ImportWorker contains the standalone processor's storage/runtime limits without API signing or Google credentials.
+// Base.AI is the AI assistant's provider, read as the API reads it; with no ANTHROPIC_API_KEY a scanned PDF is refused whatever its import asked for.
 // DockerBinary and ImageID are set together or not at all; without them the worker processes DOCX natively only.
 // WakeAddress is where the API's wake signal arrives; IdlePoll is the longest an idle worker waits without one.
 type ImportWorker struct {
@@ -36,6 +37,9 @@ func LoadImportWorker() (ImportWorker, error) {
 	}
 	if w.Base.ImportBucket == "" {
 		return w, fmt.Errorf("worker requires private import storage")
+	}
+	if err := loadAI(&w.Base); err != nil {
+		return w, err
 	}
 	if (w.DockerBinary != "" || w.ImageID != "") && (!filepath.IsAbs(w.DockerBinary) || !regexp.MustCompile(`^sha256:[a-f0-9]{64}$`).MatchString(w.ImageID)) {
 		return w, fmt.Errorf("legacy conversion requires an absolute IMPORT_DOCKER_BINARY and an immutable IMPORT_CONVERTER_IMAGE together")
