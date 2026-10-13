@@ -4649,9 +4649,10 @@ components:
       type: object
       description: |
         Over the caller's own questions only, newest first, at most 2,000 of
-        them and at most 300,000 characters: `scanned` is how many were read,
-        and `truncated` says the bank held more than that, or more untagged
-        questions than the 60 one call suggests tags for.
+        them: `scanned` is how many were read, and `truncated` says the bank
+        held more than that, or more untagged questions than the 200 one
+        request suggests tags for, or that part of the pass failed or ran out
+        of time.
       required: [scanned, truncated, duplicates, tags, usage]
       additionalProperties: false
       properties:
@@ -10152,14 +10153,20 @@ paths:
       summary: Find near-duplicates and untagged questions in your bank
       description: |
         Reads the prompts, types and tags of the caller's own questions only,
-        newest first, at most 2,000 and at most 300,000 characters of them,
-        even for a caller who holds `scope.all`; shared questions are skipped.
-        Duplicates are looked for among all the questions read, at most 20
-        pairs; tags are suggested for the first 60 questions that have none.
-        `truncated` is true when the bank held more than one call reads or more
-        untagged questions than it tags: apply the suggestions and run it
-        again. Nothing changes until the caller confirms through the existing
-        writes. Limited to three calls an hour.
+        newest first, at most 2,000 of them, even for a caller who holds
+        `scope.all`; shared questions are skipped. One request is one bounded
+        pass of at most five calls to the provider at the same time, inside
+        about a minute, that reserves its credits once and is charged once.
+        Tags are suggested for the first 200 questions that have none, 50 to a
+        call. Duplicates are looked for among all the questions read by
+        comparing every pair by its words, and one call judges the closest
+        pairs, at most 20 of them are returned; a rewording that shares few
+        words with the original is not found. `truncated` is true when the
+        pass left something undone: the bank held more than it reads or more
+        untagged questions than it tags, or part of the pass failed or ran out
+        of time. Apply the suggestions and run it again. Nothing changes until
+        the caller confirms through the existing writes. Limited to three calls
+        an hour.
       requestBody:
         required: true
         content:
