@@ -317,6 +317,13 @@ files in `deck/` byte for byte:
   changes. It draws a cloze as one question per gap shown as one screen (T-D4.10's default) and
   the pieces T-D4.10 adds: the run's ties and current ring in the rail and the sheet, the flag
   naming the open gap, the "{k} of {m} gaps" line, the hint, and the result's run line.
+- 2026-10-13 — The design team's answer on Grading's two undrawn states (T-D4.21b), from
+  `origin/uiux/grading-finish-states` at `fe9422c7`: `page-width-proposal/Grading Finish
+  States.dc.html` is added, `github.md` maps it, and `Cloze Decision.dc.html` gains a
+  `text-size-adjust` rule. The branch did not regenerate the manifest; it is regenerated here. It
+  draws the empty queue (all graded, or papers still to finish) and the "Ready to finish" card at
+  1280, 768 and 360, light and dark: Review on the row with Finish inside its check, the card
+  folded below the panes while answers wait, rows grouped by assignment, and every English line.
 
 ## The brand
 

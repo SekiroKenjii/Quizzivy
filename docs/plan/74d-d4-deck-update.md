@@ -2631,6 +2631,47 @@ by those measured cases, not by a recorded side-by-side with the deck. The page 
 did not change this task: the grading page fills the frame like every other, and the numeric
 score field keeps its `--field-max` cap.
 
+### T-D4.21b — Grading: nothing left to mark, and papers ready to finish
+**Reopens:** T-R4.28 (Finish recovery below the panes)
+**Depends on:** T-D4.21, T-D4.36
+**Deck:** `page-width-proposal/Grading Finish States.dc.html` (the design team's answer of
+2026-10-13; its notes 1 to 9, the "Which state shows" table, "Other cases" and "Every English
+line" are the specification)
+**Touches:** `web/src/features/attempts/pages/teacher/GradingPage.tsx`,
+`web/src/features/attempts/{gradingMessages.ts,useGradingQueue.ts,gradingRecovery.ts}`,
+`web/src/components/shared/ListState.tsx`, locales, `web/tests/units/attempts/`,
+`web/tests/e2e/teacher-grading.spec.ts`
+**Size:** M
+**No contract change:** every figure in a row's check comes from `getAttemptForReview`, which
+the recovery panel already reads; `finishGrading` is unchanged. Finish stays explicit and nothing
+finishes on its own.
+**Done when:**
+- [ ] The header reads "No answers left." on an empty queue; while answers wait it adds the
+      "{n} papers ready to finish" link, which unfolds the card and moves focus to it. The DG-136
+      chip stays last and keeps its focus rule.
+- [ ] The empty state's variant follows the table: running check, failed check (Try again), papers
+      to finish (variant b, "Review {n} papers" opens the oldest paper's check and focuses its
+      Finish), and "All graded" (variant a) only after a complete check, naming the filter with
+      "Show all assignments" / "Show all students" when the queue is narrowed. `EmptyState` gains
+      optional icon and tone props (the 44px tile, 16/600 title); existing callers do not change.
+- [ ] The card: "Ready to finish" with its count and sentence; Refresh (replacing Rescan) beside
+      "Checked {time}" from the query's last update, "Checking…" while it runs, a 44px icon button
+      at 360; folded to one line while answers wait; the 180px scroll box goes.
+- [ ] Rows grouped by assignment, oldest hand-in first for groups and rows, five per group then
+      "Show {n} more" / "Show fewer"; a single group has no header; two groups sharing a title add
+      the earliest hand-in date. A row shows "Handed in …", "Time ran out" and "Flagged" from the
+      list row, and one Review / Close button with `aria-expanded`; one check open at a time.
+- [ ] The check (today's candidate panel, moved into the row): score, "{a} of {t} answered", how
+      it was marked (you marked n / automatically / left blank), the flag and blank lines; Finish
+      disabled unless `pendingManual === 0`, with the "now waiting to be marked" line otherwise.
+- [ ] After Finish: the row leaves, a toast, the polite live region "… Next: {name}.", the next
+      row's check opens with focus on its Finish (its group unfolds if needed); after the last,
+      focus goes to the empty state's title.
+- [ ] Finish failures: inside the check above its buttons; the answer card's alert names the
+      student. Strings as the page lists them, `grading.rescan` retired, vi written first.
+- [ ] Unit cases for each table row, grouping and Show more, the check's three kinds, the focus
+      moves and the failures; E2E at 360, 768 and 1280, light and dark, compared with the page.
+
 ### T-D4.22 — Assignment detail: the progress card and the roster filters
 **Reopens:** T-R4.25 (the four stat tiles)
 **Depends on:** T-D4.1
@@ -3480,7 +3521,9 @@ without saving. `useGradingQueue` gains `fill(item, points, comment)`, which lay
 answer's draft and writes nothing (refused while a save is in flight); the score button shows
 pressed and the comment field holds the text. Save & next writes them through `flush`, and so does
 `j`/`k` or a click on another answer, which already flush a pending comment. A route change does
-not: the leave dialog appears only for an unsaved comment, as before. `grading-ai.test.tsx` spies
+not: the leave dialog appeared only for an unsaved comment, so a filled score with an empty or
+unchanged comment was lost; the D4 follow-ups (item 9 of "Follow-ups from the built tasks") make
+the dialog ask for it too. `grading-ai.test.tsx` spies
 on the API client and finds no `POST /teacher/attempts/{id}/grade` after "Use score and comment",
 then one with the suggested points and comment after Save & next; it also reads the box's source
 for any import of the attempts API.
@@ -3687,7 +3730,8 @@ on `features/ai/`'s `useAiAvailable` and `useAiBlock` and `features/auth/`'s `ai
   for an import with `readWithAi` in every later state. The history row's meta ends "· Read with
   AI". The contract carries no credits, so neither the deck's "About 400 credits per page" nor the
   proposal's "Uses 1 AI credit · 18 left" is drawn (§12: no figure the product has not metered).
-  Settings' "Read imports with AI" hint (T-D4.38) still carries the deck's figure.
+  Settings' "Read imports with AI" hint (T-D4.38) carried the deck's figure until the D4
+  follow-ups dropped it there too.
 - **Compared with the deck** (served with React, react-dom, Babel and lucide from their npm
   tarballs through route interception) at 360, 768, 1280 and 1440, light and dark: the card's
   border, radius, padding, gap, the 32px tile and its tones, the title and hint type and colour,
@@ -4336,7 +4380,7 @@ export; DG-01 (Answered), DG-22, DG-71, DG-106, DG-100 and DG-63 (a second note)
 
 Recorded by T-D4.40 on 2026-10-13 from the "As built" notes and the reviews of T-D4.7 to T-D4.11
 and T-D4.30 to T-D4.33. None blocks a task or the release; each says where it would be done. None
-is built here.
+is built here. Item 8 came from T-D4.10a, and items 9 and 10 from the Tech Lead's reviews of T-D4.36 and T-D4.39.
 
 1. **The chunked bank clean-up.** T-D4.32 built `cleanUpQuestionBank` as one bounded call on the
    fast tier: at most 2,000 of the caller's own questions and 300,000 characters, at most 20
@@ -4358,18 +4402,24 @@ is built here.
    the student may not have heard the end. The number is right; the word may not be. Default: as
    built. Ask the design team whether a recording with a count and no remembered place should read
    "Played" instead.
-4. **The spec still describes the pane switcher T-D4.7 replaced with the drawer.** Three places
+4. [x] **The spec still describes the pane switcher T-D4.7 replaced with the drawer.** Three places
    say "Ngữ liệu | Câu n" or "the pane switcher": §7.3's paragraph on learner material, §9's
    "Panes" bullet and §12's "One breakpoint, 768px" bullet. T-D4.12 already rewrites §9 and §12 for
    the rail and the sheet (its box on S-05, S-06 and S-08); it replaces these sentences too, and
    §7.3's, and the engine paragraph of `AGENTS.md`, which says "a switcher shows one pane at a
    time". T-D4.7 did not touch the spec.
-5. **An E2E for T-D4.9's inert Pause button.** T-D4.9 is proved in jsdom (`audio-player-pause`,
+
+   **As built (D4 follow-ups):** spec v0.100 rewrites the three sentences to T-D4.7's drawer;
+   `AGENTS.md`'s engine paragraph stays with T-D4.12.
+5. [x] **An E2E for T-D4.9's inert Pause button.** T-D4.9 is proved in jsdom (`audio-player-pause`,
    `group-context`, `question-audio-events`) and by the comparison with the deck; no Playwright
    case presses the inert button in a real browser. Add one in `audio-events.spec.ts` or the phone
    spec: start s2 part 2's recording, click the button with `force: true` (Playwright counts an
    `aria-disabled` button as not enabled), and assert the recording is still playing and the play
    count has not moved. S, web; T-D4.12.
+
+   **As built (D4 follow-ups):** `audio-events.spec.ts` presses a question recording's inert Pause
+   with Space and Enter (lint refuses `force: true`) and finds it playing on, its line shown, one play.
 6. **A real-Android check of T-D4.7's tap after a swipe.** The drawer swallows the click a swipe
    leaves behind for 60 ms and never swallows a tap that follows a scroll. That is proved with
    real touches from CDP in mobile-chromium and in jsdom, not on a real Android phone, whose touch
@@ -4405,3 +4455,15 @@ is built here.
    run of a cloze's gaps is one screen. T-D4.12 rewrites §9 and §12 for the rail and the sheet, and
    adds the run, its line, the ties and the move by stop there. T-D4.10a left the spec's version
    alone, to keep it out of the lanes running beside it.
+9. [x] **The grading leave guard after "Use score and comment" (T-D4.36, the Tech Lead's
+   review).** A score filled from the suggestion and not yet saved was dropped on a route change
+   without a word when the suggested comment was empty or matched the saved one.
+
+   **As built (D4 follow-ups):** a score laid by `fill` is unsaved work until a Grade saves it, and
+   the dialog then reads "Rời trang khi điểm chưa lưu?"; every way of saving is unchanged.
+10. [x] **The credit figure in Settings (T-D4.38 against T-D4.39).** Settings' "Read imports with
+   AI" hint carried the deck's "About 400 credits per page", which the import card leaves out (§12:
+   no figure the product has not metered).
+
+   **As built (D4 follow-ups):** the hint ends after its first sentence in vi and en, as the import
+   card's does.

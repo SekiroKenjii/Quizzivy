@@ -993,7 +993,7 @@
         "readStudentAnswers": "Cho AI đọc bài làm của học viên",
         "readStudentAnswersHint": "Cần cho gợi ý chấm điểm và nhận xét về lớp. Tên học viên không bao giờ được gửi đi.",
         "readImports": "Đọc tệp nhập bằng AI",
-        "readImportsHint": "Xử lý PDF quét, ảnh chụp đề in và bố cục lạ. Khoảng 400 tín dụng mỗi trang."
+        "readImportsHint": "Xử lý PDF quét, ảnh chụp đề in và bố cục lạ."
       }
     }
   },

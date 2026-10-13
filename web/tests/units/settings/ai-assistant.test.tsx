@@ -171,6 +171,18 @@ describe("Settings › AI assistant", () => {
     ).not.toBeChecked();
   });
 
+  it("names no credit figure for reading imports, which the product does not meter", async () => {
+    signIn(teacherUser);
+    serves();
+    renderSettings("/teacher/settings/ai");
+
+    const prefs = await screen.findByRole("region", { name: "Tùy chọn" }, LOAD);
+    expect(
+      within(prefs).getByRole("switch", { name: "Đọc tệp nhập bằng AI" }),
+    ).toHaveAccessibleDescription("Xử lý PDF quét, ảnh chụp đề in và bố cục lạ.");
+    expect(within(prefs).queryByText(/tín dụng/)).toBeNull();
+  });
+
   it("saves a switch as the whole ai object and shows it at once", async () => {
     signIn({ ...teacherUser, preferences: { ai: { language: "en" } } });
     serves();
