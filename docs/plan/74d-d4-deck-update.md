@@ -1632,24 +1632,47 @@ seek, and the phone spec's second new case proves that such a place counts as a 
 **Size:** S
 **Frozen:** as T-D4.8.
 **Done when:**
-- [ ] `AudioPlayer` takes `allowPause` (default true). When false and playing, the button is
+- [x] `AudioPlayer` takes `allowPause` (default true). When false and playing, the button is
       `aria-disabled`, at opacity .45, and a click does nothing; the status reads "Playing ·
       this recording can’t be paused"; before the first play it reads "Press play when you are
       ready. It can’t be paused once it starts."
-- [ ] If playback stops anyway (a headset button, another recording starting, leaving the
+- [x] If playback stops anyway (a headset button, another recording starting, leaving the
       group, a lock), the card reads "Paused" and "Resume" continues without a play. Nothing
       new is recorded: the product reports what it can see and does not pretend the pause
       could not happen.
-- [ ] Both hosts pass `policy.allowPause`, which T-D4.13 makes required in the two student
+- [x] Both hosts pass `policy.allowPause`, which T-D4.13 makes required in the two student
       shapes; a payload without the field (a tab that loaded before the API) pauses freely.
       T-D4.3's s2 session already gives part 2's recording `allowPause: false`, as the deck
       has it (`canPause: false`, S 1503): it took the field when T-D4.13 made it required.
-- [ ] Spec §11.3 says what `allowPause` does, and what it cannot stop.
-- [ ] `audio-player-pause.test.tsx` covers the inert button, the two sentences and the free
+- [x] Spec §11.3 says what `allowPause` does, and what it cannot stop.
+- [x] `audio-player-pause.test.tsx` covers the inert button, the two sentences and the free
       resume; the canary passes untouched.
-- [ ] Compared with s2 question 6 (the deck's recording that cannot be paused) at 360 and
+- [x] Compared with s2 question 6 (the deck's recording that cannot be paused) at 360 and
       1280, light and dark: before the first play, playing with the inert button, and paused
       by leaving the group.
+
+**As built:** `AudioPlayer` takes `allowPause` (default true, so an absent field pauses
+freely). With it false, `toggle()`'s pause branch does nothing while the element plays; the
+play branch is unchanged, so `element.play()` is still the first thing a press does. The
+button keeps its name ("Pause", as the deck's `btnLabel`), its icon and its focus ring, takes
+`aria-disabled="true"` and `aria-disabled:opacity-45`, and is never natively disabled; the row
+and `sm` players take the same rule, though no host passes it to them yet. The two sentences are
+`media.statusReadyNoPause` and `media.statusPlayingNoPause`; "Paused", "Resume" and the free
+resume are T-D4.8's, unchanged, so a stop from a headset button, another recording taking its
+turn, leaving the group or a lock reads "Paused" and continues through `onResume`.
+`QuestionAudio` passes `question.audio?.allowPause` and `SharedAudio` passes
+`recording.policy.allowPause`. Spec v0.98 changes §11.3. Beyond the new
+`audio-player-pause.test.tsx`, `group-context.test.tsx` gains s2 part 2's sentence and inert
+button through the engine, and `question-audio-events.test.tsx` gains "a stop from elsewhere
+resumes for no play" for a question's audio. Compared with s2 question 6 at 360 (in the drawer)
+and 1280, light and dark, in the three states: card, button (52px), opacity (.45 while playing,
+1 otherwise), the button's name and the card's text equal the deck's in every cell; the
+differences are the focus ring (the deck draws none), the track's fill (the fixture's file is
+10s, and the track follows the file's length), the scope line (DG-80) and, below 768, the card
+35px lower under the engine's integrity strip, which the deck does not draw (T-D4.7's frame),
+and 284.8px wide against 285, so the playing sentence breaks one word earlier.
+Playwright counts an `aria-disabled` button as not enabled, so a spec that presses the inert
+button clicks it with `force: true`.
 
 ### T-D4.10 — Engine: a cloze as one stop
 **Depends on:** T-D4.5, T-D4.7; the design team's answer to Q6 (DG-184), or the default once the team has had the question for two working days
