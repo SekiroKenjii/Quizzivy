@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.99 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.100 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.99**
+
+D4 follow-ups: the phone's shared content is described as T-D4.7 built it.
+
+- §7.3, §9 and §12 Below 768px a group's shared content is a drawer from the left over the question, opened from a handle at the screen's edge or by a swipe, not the "Ngữ liệu | Câu n" switcher T-D4.7 removed. The Panes bullet says how it opens, closes, nudges the first time and keeps its place; nothing it describes changed in the product.
 
 **Changes since v0.98**
 
@@ -1860,11 +1866,12 @@ relational bindings on a version the learner has an attempt on; assignment
 targeting alone grants no media access. A missing context reader fails explicitly
 instead of serving grouped questions without their materials. Learner material
 is drawn by the renderer the teacher's preview shares: in a passage pane beside
-the question from 768px, and below 768px behind the "Ngữ liệu | Câu n" switcher,
-which shows one pane at a time, the question first (§9). A shared recording's
-card is drawn at its audio node in the stimulus pane, in reading order, the drawer
-below 768px; with several recordings each card is headed by its node's label,
-and a recording no node names is drawn after the materials. The pane stays
+the question from 768px, and below 768px in a drawer from the left that lies
+over the question and opens from a handle at the screen's edge or by a swipe
+(§9). A shared recording's card is drawn at its audio node in the stimulus pane,
+in reading order, the drawer below 768px; with several recordings each card is
+headed by its node's label, and a recording no node names is drawn after the
+materials. The pane stays
 mounted while the student moves between the group's questions and across 768px,
 so a recording plays on behind a closed drawer. Stable gap targets navigate to the
 question or blank input without losing pending answers. Group players stay mounted
@@ -2058,9 +2065,19 @@ Shared:
   request was refused and even after a second refusal. Submission can still
   fail and retry. A deadline refusal never replaces a closed or superseded lock.
 - **Panes.** A question whose group has something to read shows a passage pane
-  beside the question pane from 768, each scrolling by itself. Below 768 a
-  "Ngữ liệu | Câu n" switcher shows one at a time, the question first and again
-  after every move.
+  beside the question pane from 768, each scrolling by itself. Below 768 the
+  question fills the screen and the shared content is a drawer from the left
+  over it, 88% of the width and at most 420px, above a darkened backdrop. A
+  handle at the left edge ("Mở ngữ liệu", or "Mở bài nghe" for a recording,
+  with a dot while the group's recording plays) or a swipe to the right opens
+  it; a swipe back, Esc, the backdrop or its close button closes it and returns
+  focus to the handle. Until the student has opened a group's drawer once in
+  the attempt, the handle nudges (not under reduced motion) and a tip beside it
+  says what is there. A closed drawer stays mounted and inert, so the place in
+  the passage and a playing recording survive. Every move to another question
+  closes it, and so does a gap tapped inside it, which lands on its question or
+  blank; while it is open the keys that answer or flag do nothing. Crossing 768
+  with it open shows both panes, with nothing remounted.
 - **Footer.** Under the question pane: Previous, the questions, and Next, which
   is "Hoàn tất" on the last question. From 768 the questions are a strip of
   numbered squares. Below 768 a button ("4 / 8 · đã trả lời 3") opens them in a
@@ -2364,7 +2381,7 @@ Deliberate. Do not "improve" them with trendy defaults.
 
 **The student app and the engine, as built in R3 (v0.9.0).** The source is `Quizzivy Student.dc.html`. What the deck does not draw, and where the product departs from it, is in `docs/design/gaps.md` (DG-80 to DG-89, DG-102 to DG-107, DG-119).
 
-- **One breakpoint, 768px.** The shell and the engine change their chrome there and nowhere else: destinations in the top bar or bottom tabs, side-by-side panes or the pane switcher, the number strip or the count button with its sheet. A page keeps its state across it.
+- **One breakpoint, 768px.** The shell and the engine change their chrome there and nowhere else: destinations in the top bar or bottom tabs, side-by-side panes or the drawer over the question, the number strip or the count button with its sheet. A page keeps its state across it.
 - **One centred column per page:** Home and Classes at most 960px, the test intro 720px, the result 820px, Settings 760px. No page has a side panel. In the engine the passage column is at most 640px and the question column 600px.
 - **Classes** are cards in a grid that fills the row, with 280px as a card's least width. A card is not a link.
 - **Touch targets.** Below 1024px the student surfaces put a 44px floor on buttons. A control the deck draws keeps the deck's size: the header's 36px ✕, the 32px flag toggle, the strip's 34px squares, the dialogs' 42px buttons (46px for the one button of the "you left the test" alert). The engine's Previous and Next, the count button and the question sheet's squares are 44px. An option row is at least 52px high.
