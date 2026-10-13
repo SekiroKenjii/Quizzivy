@@ -158,7 +158,6 @@ describe("draftPreview", () => {
       "short",
       "member",
     ]);
-    expect(preview.included).toBe(6);
     expect(preview.sections).toEqual([
       { id: "part-1", title: "Phần 1", instructions: "Chọn đáp án đúng." },
       { id: "part-2", title: "Phần 2", instructions: null },
@@ -177,14 +176,13 @@ describe("draftPreview", () => {
     expect(group?.instructions?.blocks).toHaveLength(2);
   });
 
-  it("counts a question the paper cannot draw as included but not shown", () => {
+  it("leaves out a question the paper cannot draw", () => {
     const preview = draftPreview([
       section([
         question({ id: "single", label: "1" }),
         question({ id: "odd", label: "2", type: "unsupported", prompt: text("Drag") }),
       ]),
     ]);
-    expect(preview.questions).toHaveLength(1);
-    expect(preview.included).toBe(2);
+    expect(preview.questions.map((item) => item.id)).toEqual(["single"]);
   });
 });

@@ -1295,6 +1295,8 @@
     "publishing": "Đang phát hành…",
     "versions": "Phiên bản",
     "previewAsStudent": "Xem như học viên",
+    "previewTitle": "Xem như học viên · {{title}}",
+    "previewClose": "Đóng bản xem trước",
     "stay": "Ở lại",
     "leave": "Rời đi",
     "leaveBody": "Thay đổi vừa gõ chưa được lưu. Ở lại vài giây để lưu xong, hoặc rời đi và mất phần chưa lưu.",
@@ -1719,6 +1721,7 @@
     "noun_other": "đề thi"
   },
   "preview": {
+    "frame": "Màn hình của học viên",
     "questionNumber": "Câu {{n}}",
     "materialUnavailable": "Ngữ liệu chưa tải được. Hãy tải lại bản xem trước.",
     "sharedAudioHint": "Nghe thử không tính lượt làm bài.",

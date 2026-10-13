@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { StudentPreviewPane } from "@/features/tests/components/StudentPreviewPane";
+import { InlineStudentPreview } from "@/features/tests/components/InlineStudentPreview";
 import type { MediaAsset } from "@/features/media/api";
 import type { GroupBundle } from "../api";
 import { groupPreview } from "../preview";
@@ -62,6 +62,6 @@ function PreviewBody({
   onRefresh,
 }: Readonly<{ bundle: GroupBundle; assets: MediaAsset[]; onRefresh: () => void }>) {
   return (
-    <StudentPreviewPane {...groupPreview(bundle, assets)} onRetryMedia={onRefresh} />
+    <InlineStudentPreview {...groupPreview(bundle, assets)} onRetryMedia={onRefresh} />
   );
 }

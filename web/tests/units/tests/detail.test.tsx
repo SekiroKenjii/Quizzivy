@@ -114,7 +114,7 @@ describe("the test detail's preview", () => {
 
     expect(await screen.findByText(PUBLISHED_SENTENCE)).toBeInTheDocument();
     expect(screen.getByText("Phiên bản 1 · mặc định cho bài giao mới")).toBeVisible();
-    expect(screen.getByText("1 câu hỏi. Học viên không thấy đáp án.")).toBeVisible();
+    expect(screen.queryByText(/Học viên không thấy đáp án/)).toBeNull();
     expect(detail.previewVersions).toEqual([1]);
   });
 
@@ -165,6 +165,8 @@ describe("the test detail's preview", () => {
 
     const frame = document.querySelector("[data-preview-viewport]");
     expect(frame).toHaveAttribute("data-preview-viewport", "phone");
+    expect(frame).toHaveClass("h-[720px]", "w-[390px]", "rounded-[24px]", "max-w-full");
+    expect(frame?.parentElement).toHaveClass("bg-sidebar", "p-4");
     expect(screen.getByRole("button", { name: "Điện thoại" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -172,6 +174,8 @@ describe("the test detail's preview", () => {
 
     await user.click(screen.getByRole("button", { name: "Máy tính" }));
     expect(frame).toHaveAttribute("data-preview-viewport", "desktop");
+    expect(frame).toHaveClass("h-[620px]", "w-full", "rounded-xl", "max-w-full");
+    expect(frame).not.toHaveClass("w-[390px]");
     expect(router.state.location.search).toBe("");
   });
 

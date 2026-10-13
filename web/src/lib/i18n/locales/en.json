@@ -1295,6 +1295,8 @@
     "publishing": "Publishing…",
     "versions": "Versions",
     "previewAsStudent": "Student preview",
+    "previewTitle": "Student preview · {{title}}",
+    "previewClose": "Close preview",
     "stay": "Stay",
     "leave": "Leave",
     "leaveBody": "What you just typed has not been saved. Stay a few seconds for it to land, or leave and lose it.",
@@ -1719,6 +1721,7 @@
     "noun_other": "tests"
   },
   "preview": {
+    "frame": "The student's screen",
     "questionNumber": "Question {{n}}",
     "materialUnavailable": "Material unavailable. Reload the preview to try again.",
     "sharedAudioHint": "Preview playback does not use attempt allowances.",
