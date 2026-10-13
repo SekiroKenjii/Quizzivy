@@ -8,14 +8,23 @@ import { modules } from "@/app/modules";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import { listMyAssignments } from "@/features/assignments/api";
-import { ReviewGroup } from "@/features/media";
+import { QuestionProse } from "@/components/shared/content/QuestionProse";
+import { ReviewGroup, type GapWord } from "@/features/media";
+import { questionKind } from "@/features/take-test/questionType";
+import {
+  chosenWord,
+  isRun,
+  paperStops,
+  sharedPrompt,
+  type Stop,
+} from "@/features/take-test/stops";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useTick } from "@/hooks/useTick";
 import { ApiError } from "@/lib/api/errors";
 import type { Locale } from "@/lib/i18n";
 import { clockTime, dayDate, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
-import { getAttemptResult, type AttemptResult } from "../api";
+import { getAttemptResult, type AttemptResult, type ResultQuestion } from "../api";
 import { ResultFailure, ResultSkeleton } from "../components/ResultStates";
 import { ResultTiles } from "../components/ResultTiles";
 import { ReviewItem } from "../components/ReviewItem";
@@ -25,6 +34,7 @@ import {
   justNow,
   resultView,
   shownUnder,
+  verdict,
   type Filter,
   type Summary,
 } from "../resultView";
@@ -103,6 +113,66 @@ function metaLine(
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
+function gapWordsOf(data: AttemptResult, t: TFunction): Map<string, GapWord> {
+  const byId = new Map(data.questions.map((question) => [question.id, question]));
+  const bound = (data.sharedContext?.groups ?? []).flatMap((group) =>
+    group.stimuli.flatMap((material) =>
+      material.gaps.flatMap((gap) => {
+        const question = gap.kind === "question" ? byId.get(gap.questionId) : undefined;
+        return question !== undefined && questionKind(question) === "choice"
+          ? [question]
+          : [];
+      }),
+    ),
+  );
+  return new Map(
+    bound.map((question) => {
+      const mark = verdict(question, data.review);
+      return [
+        question.id,
+        {
+          word: chosenWord(question, question.answer ?? undefined, t),
+          mark: mark === "correct" || mark === "wrong" ? mark : null,
+        },
+      ];
+    }),
+  );
+}
+
+function RunLine({
+  stop,
+  prompt,
+}: Readonly<{
+  stop: Stop & { cloze: NonNullable<Stop["cloze"]> };
+  prompt: ResultQuestion;
+}>) {
+  const { t } = useTranslation();
+  const shown = stop.positions.length;
+  const size = stop.cloze.positions.length;
+  return (
+    <div data-slot="run-line" className="flex flex-col gap-0.5 px-0.5 pt-1 pb-0.5">
+      <p className="text-muted-fg text-meta leading-normal font-medium">
+        {t("takeTest.cloze.line", {
+          position: t("result.cloze.questions", {
+            from: (stop.positions[0] ?? 0) + 1,
+            to: (stop.positions.at(-1) ?? 0) + 1,
+          }),
+          type: t("takeTest.cloze.type"),
+          gaps:
+            shown === size
+              ? t("takeTest.cloze.gaps", { count: size })
+              : t("takeTest.cloze.gapsOf", { shown, count: size }),
+        })}
+      </p>
+      <QuestionProse
+        className="text-base leading-normal! font-medium text-pretty"
+        text={prompt.prompt}
+        content={prompt.promptContent}
+      />
+    </div>
+  );
+}
+
 /**
  * ResultPage is the student's result for one attempt, as the design deck
  * draws it: the summary card with the score ring, the paper's class and
@@ -111,7 +181,11 @@ function metaLine(
  * The class comes from the assignment lists the shell already holds, which
  * the page reads again only when nothing holds them. Shared
  * material stays above the first of its questions that the filter keeps, and
- * a gap in it leads to its question even when the filter hides that one.
+ * a gap in it leads to its question even when the filter hides that one. A
+ * gap bound to a choice question shows the student's word in the colour of
+ * its mark. A run of a cloze whose gaps share one prompt prints it once, on
+ * a run line above the run's first row the filter keeps, and its rows are
+ * one line each.
  * Images and tables in the material and the prompts keep the light paper
  * surface in dark mode. From 768px the page draws its own way back; below
  * that the shell's header has it.
@@ -198,6 +272,10 @@ function Loaded({
       group,
     ]),
   );
+  const stops = paperStops(questions, data.sharedContext?.groups ?? []);
+  const positions = new Map(questions.map((question, index) => [question.id, index]));
+  const gapWords = gapWordsOf(data, t);
+  const headed = new Set<Stop>();
   const jump = (id: string) => {
     target.current = id;
     setChip("all");
@@ -282,6 +360,10 @@ function Loaded({
         )}
         {shown.map((question) => {
           const group = contexts.get(question.id);
+          const stop = stops[positions.get(question.id) ?? -1];
+          const prompt = isRun(stop) ? sharedPrompt(stop, questions) : null;
+          const opensRun = isRun(stop) && prompt !== null && !headed.has(stop);
+          if (opensRun) headed.add(stop);
           return (
             <div key={question.id} className="flex min-w-0 flex-col gap-2.5">
               {group && data.sharedContext && (
@@ -290,10 +372,12 @@ function Loaded({
                   numbers={numbers}
                   transcripts={data.sharedContext.transcripts}
                   plays={data.sharedContext.audioPlays}
+                  gapWords={gapWords}
                   onQuestion={jump}
                   onRetry={onRetry}
                 />
               )}
+              {opensRun && <RunLine stop={stop} prompt={prompt} />}
               <div
                 id={`result-question-${question.id}`}
                 tabIndex={-1}
@@ -303,6 +387,7 @@ function Loaded({
                   question={question}
                   number={numbers.get(question.id) ?? 0}
                   review={review}
+                  compact={prompt !== null}
                   onRetry={onRetry}
                 />
               </div>

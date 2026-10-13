@@ -18,6 +18,7 @@ import { LoadError } from "@/components/shared/ListState";
 import { cn } from "@/lib/utils";
 import { EngineHeader, LeaveButton } from "../components/EngineHeader";
 import { LeaveDialog } from "../components/LeaveDialog";
+import { ClozeBody } from "../components/ClozeBody";
 import { Navigator, type DotState, type KeysHint } from "../components/Navigator";
 import { GroupContext, type DrawerPane } from "../components/GroupContext";
 import { DrawerBackdrop, DrawerHandle, DrawerTip } from "../components/StimulusDrawer";
@@ -53,7 +54,15 @@ import {
   useStimulusDrawer,
 } from "../panes";
 import { PaperSourceContext, useLivePaperSource, usePaper } from "../paper";
-import { questionKind } from "../questionType";
+import { clozeLine, questionKind } from "../questionType";
+import {
+  isRun,
+  openAfterChoice,
+  paperStops,
+  stepBack,
+  stepOn,
+  type Stop,
+} from "../stops";
 import { useTakeTestStore } from "../store";
 import { useLeave } from "../useLeave";
 import { useEngineWidthAtLeast } from "../width";
@@ -71,7 +80,9 @@ const SHORT_LABEL_PX = 420;
  * is the only way to hand the paper in. The header is the deck's at every
  * width; below 768px a strip under it says when a save has failed or the
  * device is offline, and is otherwise absent. The keys are the deck's: the
- * arrows move and stop at either end, A to E choose, F flags. None acts in a
+ * arrows move by stop and stop at either end, A to E choose, F flags; on a
+ * run of a cloze they choose and flag for the open gap, and a choice opens
+ * the run's next gap with no answer. None acts in a
  * text field, while a dialog or the question sheet is open, or on a locked
  * paper. Once the attempt is submitted, by the student, the timer or an
  * auto-submit, the page shows the submitted screen and leaves the fullscreen
@@ -91,6 +102,7 @@ export default function TakeTestPage() {
   const [jumps, countJump] = useReducer((n: number) => n + 1, 0);
 
   const questions = useTakeTestStore((s) => s.questions);
+  const groups = useTakeTestStore((s) => s.groups);
   const answers = useTakeTestStore((s) => s.answers);
   const flags = useTakeTestStore((s) => s.flags);
   const sessionId = useTakeTestStore((s) => s.sessionId);
@@ -109,6 +121,7 @@ export default function TakeTestPage() {
   const paper = useLivePaperSource();
 
   const [reloads, reload] = useReducer((n: number) => n + 1, 0);
+  const stops = useMemo(() => paperStops(questions, groups), [questions, groups]);
   const question = questions[Math.min(index, questions.length - 1)];
   const ended = submitState === "done";
 
@@ -187,6 +200,9 @@ export default function TakeTestPage() {
     else if (ready && openId !== undefined) writeOpenQuestion(attemptId, openId);
   }, [attemptId, openId, ready, ended]);
 
+  const openAt = (target: number | null) => {
+    if (target !== null) setIndex(target);
+  };
   const handleShortcut = useEffectEvent((event: KeyboardEvent) => {
     if (lock !== null || submitState !== "idle" || question === undefined) return;
     if (
@@ -207,11 +223,11 @@ export default function TakeTestPage() {
     switch (event.key) {
       case "ArrowRight":
         event.preventDefault();
-        setIndex(Math.min(questions.length - 1, index + 1));
+        openAt(stepOn(stops, index));
         return;
       case "ArrowLeft":
         event.preventDefault();
-        setIndex(Math.max(0, index - 1));
+        openAt(stepBack(stops, index));
         return;
       case "f":
       case "F":
@@ -229,7 +245,9 @@ export default function TakeTestPage() {
       questionShowing(question.id)
     ) {
       event.preventDefault();
-      setAnswer(question.id, chooseOption(question, answers[question.id], option.id));
+      const answer = chooseOption(question, answers[question.id], option.id);
+      setAnswer(question.id, answer);
+      openAt(openAfterChoice(stops, index, questions, answers, answer));
     }
   });
   useEffect(() => {
@@ -378,7 +396,10 @@ export type PaperProps = Readonly<{
  * sheet, and its label takes the short form beside shared content from 768px
  * and below 420px. It reads the paper from the nearest PaperSourceContext and
  * the width from useEngineWidthAtLeast, and draws nothing for a paper with no
- * questions.
+ * questions. A run of a cloze is one stop: ClozeBody draws it, open on the
+ * gap at `index`, Previous and Next step over it, and a gap opened inside it
+ * keeps the column's scroll and focus; a gap of a cloze shown on its own
+ * says so in its line.
  */
 export function Paper(props: PaperProps) {
   const { questions } = usePaper();
@@ -436,9 +457,15 @@ function PaperAt({
     () => new Map(questions.map((item, i) => [item.id, i + 1])),
     [questions],
   );
+  const stops = useMemo(
+    () => paperStops(questions, sharedGroups),
+    [questions, sharedGroups],
+  );
+  const stop = stops[index] ?? { positions: [index], cloze: null };
+  const screen = questions[stop.positions[0] ?? index]?.id ?? question.id;
   const context = contexts.get(question.id);
   const passage = hasSharedContent(context) ? context : undefined;
-  const visit = `${question.id}:${jumps}`;
+  const visit = `${screen}:${jumps}`;
   const drawerMode = !wide && passage !== undefined;
   const panes = useRef<HTMLElement>(null);
   const playing = useSharedAudioPlaying(panes);
@@ -462,7 +489,7 @@ function PaperAt({
     attemptId,
   });
   const sheet = useRef<HTMLDivElement>(null);
-  const onSheetScroll = useKeptScroll(sheet, false, question.id);
+  const onSheetScroll = useKeptScroll(sheet, false, screen);
   const landOn = useLanding(visit, sheet, answerPanel);
 
   const jumpToGap = (gap: MaterialGap) => {
@@ -505,7 +532,13 @@ function PaperAt({
         {...swipeHandlers}
       >
         {rail && (
-          <SectionRail dots={dots} current={index} groups={groups} onJump={onJump} />
+          <SectionRail
+            dots={dots}
+            current={index}
+            groups={groups}
+            stops={stops}
+            onJump={onJump}
+          />
         )}
         {passage !== undefined && (
           <GroupContext
@@ -513,6 +546,7 @@ function PaperAt({
             group={passage}
             sectionTitle={group?.section.title}
             numbers={numbers}
+            openId={question.id}
             onGap={jumpToGap}
             onRetryMedia={onReload}
             wide={wide}
@@ -545,11 +579,13 @@ function PaperAt({
               )}
             >
               {head && <SectionHeader head={head} />}
-              <QuestionCard
+              <StopBody
+                stop={stop}
                 question={question}
-                number={index + 1}
+                index={index}
                 total={total}
-                onAudioExpired={onReload}
+                onMove={onMove}
+                onReload={onReload}
               />
             </div>
           </div>
@@ -561,6 +597,9 @@ function PaperAt({
             dots={dots}
             current={index}
             groups={groups}
+            stops={stops}
+            back={stepBack(stops, index)}
+            ahead={stepOn(stops, index)}
             onMove={onMove}
             onJump={onJump}
             onFinish={submit}
@@ -581,6 +620,49 @@ function PaperAt({
         {drawerMode && !drawerOut && fresh && <DrawerTip kind={kind} />}
       </main>
     </div>
+  );
+}
+
+function StopBody({
+  stop,
+  question,
+  index,
+  total,
+  onMove,
+  onReload,
+}: Readonly<{
+  stop: Stop;
+  question: StudentQuestion;
+  index: number;
+  total: number;
+  onMove: (index: number) => void;
+  onReload: () => void;
+}>) {
+  const { t } = useTranslation();
+  if (isRun(stop)) {
+    return (
+      <ClozeBody
+        stop={stop}
+        cloze={stop.cloze}
+        open={index}
+        total={total}
+        onOpen={onMove}
+      />
+    );
+  }
+  return (
+    <QuestionCard
+      question={question}
+      number={index + 1}
+      total={total}
+      line={
+        stop.cloze === null
+          ? undefined
+          : clozeLine(stop.positions, stop.cloze.positions.length, total, t)
+      }
+      namesFlag={stop.cloze !== null}
+      onAudioExpired={onReload}
+    />
   );
 }
 

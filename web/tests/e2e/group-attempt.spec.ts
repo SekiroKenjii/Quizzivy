@@ -61,7 +61,7 @@ for (const width of [320, 768, 1440]) {
     ).toBeVisible();
     await expect(page.getByText("Lượt nghe đang chờ đồng bộ.")).toHaveCount(0);
     expect(seen.size).toBe(1);
-    const gap = page.getByRole("button", { name: "Chỗ trống A — chuyển đến câu 2" });
+    const gap = page.getByRole("button", { name: "Chỗ trống 2, trống" });
     await gap.focus();
     await page.keyboard.press("Enter");
     await expect(page.locator(":focus")).toHaveAttribute(

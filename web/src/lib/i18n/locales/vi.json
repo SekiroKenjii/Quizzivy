@@ -2489,13 +2489,17 @@
     "audioLabel": "Đoạn ghi âm của câu hỏi",
     "imageLabel": "Hình ảnh của câu hỏi",
     "flagOff": "Đánh dấu xem lại",
+    "flagQuestion": "Đánh dấu câu {{n}}",
+    "flaggedQuestion": "Đã đánh dấu câu {{n}}",
     "flagOn": "Đã đánh dấu",
     "navTitle": "Danh sách câu",
     "legendAnswered": "Đã trả lời",
     "legendFlagged": "Đã đánh dấu",
+    "legendOneScreen": "Cùng màn hình",
     "dotLabel": "Câu {{n}}",
     "dotAnswered": "đã trả lời",
     "dotFlagged": "đã đánh dấu",
+    "dotInRun": "bài điền từ câu {{from}} đến {{to}}",
     "dotCurrent": "đang xem",
     "sectionsRail": "Các phần",
     "railDone": "{{done}} / {{total}}",
@@ -2551,7 +2555,22 @@
     "chooseSingle": "Chọn một đáp án.",
     "viewSubmitted": "Xem bài đã nộp",
     "unknownType": "Câu {{n}} thuộc dạng câu hỏi mới mà trang này chưa hiển thị được. Hãy tải lại trang để làm câu này; các câu trả lời của bạn vẫn được giữ.",
-    "reloadPage": "Tải lại trang"
+    "reloadPage": "Tải lại trang",
+    "cloze": {
+      "type": "Điền từ vào đoạn văn",
+      "line": "{{position}} · {{type}} · {{gaps}}",
+      "questions": "Câu {{from}}–{{to}} trên {{total}}",
+      "gaps_one": "{{count}} chỗ trống",
+      "gaps_other": "{{count}} chỗ trống",
+      "gapsOf": "{{shown}} trong {{count}} chỗ trống",
+      "hint": "Các chỗ trống nằm trong đoạn văn. Chọn chỗ trống ở đây hoặc trong đoạn văn.",
+      "elsewhereOne": "Chỗ trống {{list}} có màn hình riêng.",
+      "elsewhereMany": "Các chỗ trống {{list}} có màn hình riêng.",
+      "gap": "Chỗ trống {{n}}",
+      "filled": "Đã điền {{filled}}/{{count}} chỗ trống",
+      "chip": "Chỗ trống {{n}}, {{word}}",
+      "empty": "trống"
+    }
   },
   "integrity": {
     "left": {
@@ -2959,7 +2978,11 @@
     "replayFreely": "Nghe lại thoải mái sau khi nộp",
     "showTranscript": "Xem lời thoại",
     "noTranscript": "Lời thoại không được hiển thị.",
-    "teacherComment": "Nhận xét của giáo viên"
+    "teacherComment": "Nhận xét của giáo viên",
+    "cloze": {
+      "questions": "Câu {{from}}–{{to}}",
+      "chip": "Câu {{n}}, {{word}}"
+    }
   },
   "queue": {
     "summary": {

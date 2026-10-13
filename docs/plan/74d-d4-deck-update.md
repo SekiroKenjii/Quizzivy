@@ -1682,9 +1682,10 @@ Playwright counts an `aria-disabled` button as not enabled, so a spec that press
 button clicks it with `force: true`.
 
 ### T-D4.10 — Engine: a cloze as one stop
-**Depends on:** T-D4.5, T-D4.7; the design team's answer to Q6 (DG-184), or the default once the team has had the question for two working days
+**Depends on:** T-D4.5, T-D4.7; the design team's answer to Q6 (DG-184), given on 2026-10-13 (#581): the default
 **Touches:** `web/src/features/take-test/stops.ts` (new), `web/src/features/take-test/components/{ClozeBody.tsx (new),GroupContext.tsx,QuestionSheet.tsx,Navigator.tsx}`, `web/src/features/take-test/pages/TakeTestPage.tsx`, `web/src/components/shared/content/{GroupMaterials.tsx,content.css}`, locales, `web/tests/units/take-test/{stops.test.ts (new),cloze.test.tsx (new),group-context,keyboard,submit-dialog}.test.tsx`, `web/tests/e2e/group-attempt.spec.ts`
-**Size:** L
+**Size:** L, built as T-D4.10a (the engine) and T-D4.10b (the result), because the engine alone
+ran past 800 lines
 **Frozen:** one `choice` answer per member question, keyed by its id (autosave, drafts, the
 stranded-draft save, grading and the result are untouched); one square, one flag and one "Go
 to" chip per question; the number of a question is its position; the integrity monitor's
@@ -1696,8 +1697,24 @@ empty, and it may carry rich prompt content, its own image or audio and its own 
 `StudentQuestion` 2112-2144). The deck's cloze has one prompt for five gaps; the product has
 five prompts.
 
+**The design team's answer.** Q6 was answered on 2026-10-13 (#581) with this task's default,
+drawn in `docs/design/deck/page-width-proposal/Cloze Decision.dc.html`: one question per gap,
+shown as one screen. The Frozen list does not change. The answer adds eight pieces, built here:
+
+1. Ties between a run's squares and a "One screen" entry in the legend, in the rail and the sheet
+   (T-D4.10a).
+2. The current ring on every square of the open run; the open gap's square has the lime ring and
+   `aria-current` (T-D4.10a).
+3. The flag button names the open gap's question (T-D4.10a).
+4. The line reads "{k} of {m} gaps" for part of a cloze, and "Cloze" on a gap shown on its own
+   (T-D4.10a).
+5. The run's hint names the gaps that have their own screens (T-D4.10a).
+6. Result: a shared prompt is printed once on a run line, over one-line rows (T-D4.10b).
+7. Result: the passage's words in the verdict colour, "recommended, can follow" (T-D4.10b).
+8. The Vietnamese name for a cloze, "Điền từ vào đoạn văn", and the keys above, vi first (both).
+
 **Done when:**
-- [ ] `stops.ts` finds a cloze run: two or more consecutive `single_choice` members of one
+- [x] `stops.ts` finds a cloze run: two or more consecutive `single_choice` members of one
       group, each bound by a `GroupQuestionGap` to a gap of the same material, and none with
       media of its own. A member that carries an image or audio ends the run and is a stop of
       one question, drawn by `QuestionSheet` as today (a player belongs to one mounted
@@ -1705,7 +1722,7 @@ five prompts.
       question. `stops.test.ts` covers a run, a run broken by another type, a run broken by a
       member with an image and by one with audio, a lone bound member, a gap bound to a
       blank, and a paper with no groups.
-- [ ] A run is one screen. Its line reads "Questions 23–27 of 34 · Cloze · 5 gaps" on
+- [x] A run is one screen. Its line reads "Questions 23–27 of 34 · Cloze · 5 gaps" on
       T-D4.3's s9 session; the total is the paper's question count (35 once R6 adds the
       matching, DG-185). Then "The gaps are in the passage. Pick a gap here or in the
       passage." (12.5px, muted), a strip of chips (32px, radius 8, a 20px circle with the
@@ -1713,22 +1730,22 @@ five prompts.
       card (`--sidebar`, 1px border, radius 12, padding 14px) with "Gap 23" (13.5px 600),
       "{k} of {m} gaps filled", and the open gap's options in `repeat(auto-fill,
       minmax(132px, 1fr))`, gap 8px, rows 46px with the round letter marker.
-- [ ] Each member's own words stay on screen. When every member of the run has the same plain
+- [x] Each member's own words stay on screen. When every member of the run has the same plain
       prompt and none has rich prompt content, that prompt is printed once above the hint at
       17px, as the deck draws its single prompt, and not again in the card. Otherwise nothing
       is printed above the hint, and the card shows the open member's own prompt (plain or
       rich, 15px) between its header and its options. In both cases the card ends with the
       open member's worth line, as `QuestionSheet` prints it (DG-80), so a run whose members
       are worth different points says so gap by gap.
-- [ ] Choosing an option writes that member's `choice` answer and opens the next gap with no
+- [x] Choosing an option writes that member's `choice` answer and opens the next gap with no
       answer. Previous and Next and the arrows move by stop; a square, a "Go to" chip or a gap
       in the passage opens the run on that member's gap. A to E choose for the open gap; F
       flags its question.
-- [ ] The open-question key keeps holding a question's id: on a run it is the open gap's
+- [x] The open-question key keeps holding a question's id: on a run it is the open gap's
       member, written on every change of gap. A reload reopens the run on the gap of the
       stored question, and `cloze.test.tsx` has the case. `open-question.test.tsx` passes
       untouched.
-- [ ] In the passage, a material that holds a gap is drawn in the deck's card (padding 18px
+- [x] In the passage, a material that holds a gap is drawn in the deck's card (padding 18px
       20px, 1px border, radius 12, `--card`, line-height 2.3). A gap bound to a choice question
       is the chip: at least 76px wide, 30px high, radius 7, 1.5px border, the 20px primary
       circle with the question's number, then the chosen option's text (its plain text, with an
@@ -1736,18 +1753,93 @@ five prompts.
       open `--card` with a primary border and `0 0 0 3px var(--accent-soft)`. A gap bound to a
       blank keeps today's underline and goes to its blank. The chip is drawn for a lone bound
       member too, and in the teacher's preview with no chosen word.
-- [ ] The rail and the sheet keep one square per question; the squares of a run all open it,
+- [x] The rail and the sheet keep one square per question; the squares of a run all open it,
       and the open gap's square is the current one. No square reads "Partly" for a cloze.
-- [ ] The Submit dialog's counts and chips do not change (`submit-dialog.test.tsx` passes with
+- [x] The Submit dialog's counts and chips do not change (`submit-dialog.test.tsx` passes with
       one new case: five empty gaps are five unanswered).
-- [ ] `cloze.test.tsx` covers both prompt cases (one shared prompt printed once; five
+- [x] `cloze.test.tsx` covers both prompt cases (one shared prompt printed once; five
       different prompts, each shown with its gap; a rich prompt in the card), the worth line
       of the open member, and that choosing writes one `choice` answer under that member's id.
-- [ ] Compared with s9 question 23 at 360, 768, 1024, 1280 and 1440, light and dark, with no
+- [x] Compared with s9 question 23 at 360, 768, 1024, 1280 and 1440, light and dark, with no
       gap, two gaps and all five chosen. Known differences, all DG-184 and DG-185: gap numbers
       are question numbers, the line reads a range and "of 34", five squares stand where the
       deck draws one, and each gap shows its own member's prompt and worth where the deck has
       one prompt for all five.
+
+**As built (T-D4.10a, the engine):** `take-test/stops.ts` holds `paperStops(questions, groups)`,
+the stop of every position; a stop carries its `Cloze`, the material's single-choice-bound members,
+so a gap shown on its own still knows its cloze. "Media of its own" is `question.media`, an image or
+an audio (prompt content carries no media). A binding to a question outside its group, or to a
+member that is not single choice, makes no cloze. `stepBack` and `stepOn` move by stop and land on
+a stop's first question from either side; the key handler, Previous and Next all use them. A plain
+prompt is one with no `promptContent` or with rich content that is one plain paragraph
+(`isPlainParagraph`, now exported from `sentenceGap.ts`, T-D4.11b's reading), so a prompt made in
+the builder can be shared. A choice opens the next gap with no answer, going round from the open
+one as the design team's drawing does (the Student deck started from the first), and stays put
+when none is empty. `ClozeBody` draws the run. Its options are buttons with `role="radio"` in a
+`radiogroup`, not native radios, because a native radio chooses on the arrow keys and every choice
+opens the next gap; they are keyed by position, so focus stays in place when the next gap opens,
+and a polite live region names the open gap. `Paper` keys the visit and the kept scroll by the
+stop, so a gap opened inside the run (a chip, a choice) keeps the column's scroll and focus, while
+a square, a "Go to" chip or a passage gap lands as any move does. A gap on its own goes through
+`QuestionCard` with `line` and `namesFlag`. The navigator takes `back` and `ahead`. A run's squares
+are tied within a row (a 5 by 2px `--ring` span, `aria-hidden`); every square of the open run
+carries `ring-2 ring-brand-soft`, and the open gap's `border-primary ring-2 ring-brand`. Its
+`aria-current` stays `"true"`, as on every current square, where the drawing writes `"step"`. A
+square's name ends "bài điền từ câu 23 đến 27". The legend's "One screen" shows only on a paper
+with a run. In the passage, `GapChip` (`components/shared/content/`) draws the chip and
+`GroupMaterials` takes `gapCard` for the card; both styles are in `content.css`, which is unlayered,
+so the chip's focus ring is set there in `--focus`. The engine names a chip "Chỗ trống 25, relax" or
+"…, trống", as the drawing reads it; the teacher's preview draws it with no word and keeps its "go
+to question" link and name. New keys: `takeTest.{flagQuestion,flaggedQuestion,legendOneScreen,
+dotInRun}` and `takeTest.cloze.{type,line,questions,gaps_one,gaps_other,gapsOf,hint,elsewhereOne,
+elsewhereMany,gap,filled,chip,empty}`; a gap count is bound to its noun by a no-break space, and
+`takeTest.cloze.type` sits outside `takeTest.type`, which `type-names.test.ts` holds equal to the
+builder's menu. Tests: `stops.test.ts` (a run; broken by another type, an image, audio; a lone
+member; two materials; a blank; a member outside its group; no groups; stepping; going round; the
+shared prompt; the word), `cloze.test.tsx` (the screen and its English, one choice answer under
+the member's id, going round, the strip and the passage, the keys, the steps, a reload, own prompts
+with a rich one and their worth, a lock, a gap with media and a gap left alone, the ties and rings
+in the rail and the sheet), and `submit-dialog.test.tsx`'s new case. Moved with the chip, no
+assertion dropped: `group-context.test.tsx` (six locators, and the underline class became the
+chip's empty state) and `group-attempt.spec.ts` (one locator). `open-question.test.tsx` and every
+Frozen suite of section B pass untouched. Spec §9 still says "one question at a time" (follow-up
+8). Compared in a production build with drawing 2 of `Cloze Decision.dc.html` at 1280 (none, two
+and all five chosen, the run open on each gap, light and dark, English and Vietnamese) and with the
+Student deck's s9 question 23 at 360, 768, 1024, 1280 and 1440, light and dark: the strip's chips,
+the card and its header, the option rows (48px) and their markers, the worth line, the passage's
+chips (30px high, 76px at least), the cloze card (padding 18px 20px, 36.8px lines) and the rail's
+ties equal the drawing's in size, type and colour in every cell, and no cell scrolls sideways.
+Known differences: the question column is 12px narrower and 4px lower than the drawing's (T-D4.5's
+pane padding); the rail's section titles are the paper's whole titles (T-D4.4); gap 25 is worth 1
+point on the fixture where the drawing gives it 2; the Student deck's card has no worth line
+(DG-184); below 768 the column sits 35px lower under the integrity strip (T-D4.7).
+
+**As built (T-D4.10b, the result):** `ResultPage` divides the result's questions with T-D4.10a's
+`paperStops` over the shared context's groups. A run whose members share one plain prompt
+(`sharedPrompt`, now generic over the question type) prints it once, under a run line ("Câu 23–27 ·
+Điền từ vào đoạn văn · 5 chỗ trống", 12.5px 500 muted, over the prompt at 14px 500), above the
+first of the run's rows the filter keeps; under "Sai" it stands above 24. Those rows are
+`ReviewItem`'s `compact` form: the number in 14px 600 and "Bạn trả lời …" on one line with the
+points at its end, 12px of padding, and the correct answer, the explanation and the comment under
+it as before. Own prompts print in every row as today. `ReviewGroup` takes `gapWords` (question id
+to the student's word and its mark), which only the student's result passes, so the teacher's
+grading views are unchanged: a gap bound to a choice question is then `GapChip` with a `mark`, the
+result's 28px chip (64px at least, padding 0 9px 0 4px, 14px 600), on `--success-soft` with a
+`--success` border when correct and `--danger-soft` with `--danger` when wrong, a wrong word struck
+through and no word an em dash; a policy that hides marks leaves it neutral (the engine's filled or
+empty chip). A passage that holds a chip is 15px with 2.3 lines (`.content-review-gaps`, only on
+the student's result). The chip is named "Câu 23, relax" or "Câu 26, Chưa trả lời" and leads to
+its row as the old gap did. New keys: `result.cloze.{questions,chip}`; the line reuses
+`takeTest.cloze.{line,type,gaps,gapsOf}`. Tests: `result.test.tsx` gains "a cloze on the result"
+(the run line and the one-line rows, the run line under a filter, own prompts, the chips' marks and
+their way to the row, neutral chips under a closed policy); its gap case and `group-review.spec.ts`'s
+student case find the chip by its new name and assert its mark. Compared with drawing 3 of `Cloze
+Decision.dc.html` (both prompt modes, light and dark) in a production build at 360, 768, 1024, 1280
+and 1440, light and dark, English and Vietnamese: the chips, the run line, the shared prompt and
+the rows equal the drawing's in size, type and colour, and no cell scrolls sideways. Known
+differences: the group card's header and the material's own heading are `ReviewGroup`'s, as
+before; the drawing's passage sits in a plainer card.
 
 ### T-D4.11 — Engine: a choice sentence with its gap
 **Depends on:** T-D4.6
@@ -3849,6 +3941,10 @@ a phase of its own after v0.10.0, and R4 is not amended to the export while it i
 2026-10-04: no, and they get no release of their own. They ship with v0.10.0; R2's contract
 steps ship as T-R4.49 if v0.9.1 has not shipped before R4.
 
+**Q6. Is a cloze one question with n gaps, or n questions?** Answered by the design team,
+2026-10-13 (#581): n questions, one per gap, shown as one screen (T-D4.10). The question and its
+default stay below, under "Blocking, or close to it", with the answer.
+
 **D19 to D22 (D-AI-1 to D-AI-4). The AI assistant.** Decided by Thuong, 2026-10-10, recorded in
 `70-redesign-overview.md` §1: Anthropic's API for every AI feature, cloud processing approved
 and on, the adapter behind a module port that answers 501 with the key unset (D19); data
@@ -3908,6 +4004,9 @@ D4, the release after R4 (D22). The spec records them in the task that ships the
   contract change, M, in a do-not-guess area.
 
 **Q6. Is a cloze one question with n gaps, or n questions?** (design, then owner)
+- **Answered** by the design team on 2026-10-13 (#581): the default, one question per gap,
+  shown as one screen. The drawing is `docs/design/deck/page-width-proposal/Cloze Decision.dc.html`;
+  its eight additions are listed under T-D4.10. No data, contract or Frozen item changes.
 - Student page: one item, "Question 23 of 31 · Cloze · 5 gaps", one square, sub-ids 23.1 to
   23.5. Teacher page: "Each gap is answered by a single-choice question in this group", which
   is the product's model. The builder's own preview never passes a gap to the Student page.
@@ -4176,8 +4275,8 @@ the D4 row is renumbered at that sync. The full "Meanwhile" texts are in `gaps.m
 |---|---|---|---|---|
 | DG-182 | Student › Take test, a recording at its play limit | The deck locks the recording; the product keeps it live and reports extra plays | Q3 | T-D4.8 |
 | DG-183 | Teacher › Question media and Shared content; Student › the recording card | "Students can pause" as one boolean, `allowPause`; "you can pause once" is read as a note | Q4 | T-D4.13, T-D4.9, T-D4.15 |
-| DG-184 | Student › Take test, a cloze | One item with n gaps on the Student page, one question per gap in the builder; the product keeps one question per gap | Q6 | T-D4.10 |
-| DG-185 | Student › Take test, numbers and counts | "Question 23 of 31" against 35; a matching counts five or one; every question has one number | Q7 | T-D4.10 |
+| DG-184 | Student › Take test and Result, a cloze | One item with n gaps on the Student page, one question per gap in the builder; the product keeps one question per gap (Q6 answered, #581) | Q6 | T-D4.10a, T-D4.10b |
+| DG-185 | Student › Take test, numbers and counts | "Question 23 of 31" against 35; a matching counts five or one; every question has one number | Q7 | T-D4.10a |
 | DG-186 | Teacher › Test builder, the group | The deck's group carries shared content; the product keeps a section and a shared-context group | Q8 | T-D4.2a, T-D4.14 |
 | DG-187 | Teacher › Test builder, the Shared content dialog | A textarea, one passage or one recording, loose gap rules, "MP3, M4A or WAV up to 25 MB", two switches missing; "on the left" reworded | Q9, Q10, Q25 | T-D4.2b, T-D4.14 |
 | DG-188 | Teacher › the three previews | An answerable take-test screen with a running 45:00 timer and "All answers saved"; the product shows no time and claims no save | Q11 | T-D4.2c, T-D4.16 |
@@ -4208,9 +4307,9 @@ export; DG-01 (Answered), DG-22, DG-71, DG-106, DG-100 and DG-63 (a second note)
 - **A newer export.** D4 starts weeks after the export it describes. If the design team sends
   another before T-D4.1 runs, the inventory is redone against it and this file is corrected
   before any task starts.
-- **Q6 and Q7 decide the largest task.** T-D4.10 (L) builds the default. If the design team
-  answers "one question with n gaps", T-D4.10 is not built and the cloze becomes an R6-sized
-  track with its own plan.
+- **Q6 and Q7 decided the largest task.** The design team answered Q6 with the default on
+  2026-10-13 (#581), so T-D4.10 builds it (T-D4.10a, T-D4.10b) and no R6-sized cloze track
+  exists. Q7 has no answer; its default stands.
 - **The preview's 45:00 timer.** A test has no time limit until it is assigned, so no answer
   from the design team alone makes the deck's timer buildable; it needs a field on the test
   (Q11).
@@ -4302,3 +4401,7 @@ is built here.
    would study harder." measures exactly as the same prompt in Markdown at 360 and 1280, light
    and dark, empty and chosen (the sentence 500 18px/32.4px, the box 88 × 30.8px empty), which
    is the drawing T-D4.11 matched to s9 questions 5 and 12; no horizontal scroll.
+8. **Spec §9 on the cloze run.** §9 says "The engine shows one question at a time"; since T-D4.10a a
+   run of a cloze's gaps is one screen. T-D4.12 rewrites §9 and §12 for the rail and the sheet, and
+   adds the run, its line, the ties and the move by stop there. T-D4.10a left the spec's version
+   alone, to keep it out of the lanes running beside it.
