@@ -83,6 +83,16 @@ conflict to know: the skill teaches the pre-18
   contract and run `make gen`. CI fails on drift.
 - **`attempt_events` and `audit_log` are append-only.** The app role has no
   `UPDATE` or `DELETE` on them. Do not grant it.
+- **The AI assistant never writes a grade, a question or a comment.** A
+  suggestion is stored only when a teacher accepts it through an existing write
+  (the import's reader returns printed lines as evidence, and review and the
+  transactional commit decide what enters a test). No AI operation sends a
+  student's name, email or id, a class or an attempt id; `operations_test.go` and
+  `ai_flow_test.go` assert it. `ANTHROPIC_API_KEY` is a `config.Secret`, is never
+  logged, and no error, log line or panic carries it. The tiers' models and
+  prices are configuration, and no model identifier is committed.
+  `ai_usage_ledger` is append-only like `audit_log`: the app role has no
+  `UPDATE` or `DELETE` on it.
 - **The refresh call is single-flight.** Concurrent 401s must await one shared
   promise. Parallel rotations trip reuse detection and log the user out on every
   cold load. See `docs/plan/30-risks.md` R-06.
@@ -160,10 +170,10 @@ module:
 | package | holds |
 |---|---|
 | `core` (`core.go`) | `App`: config, signals, lifecycle, `Handler()`, `Serve()` |
-| `core/wiring` | `Build`: one file per module, repository → `Application` → transport, in dependency order, starting with `access.go`, which refuses a database whose `app.permissions` lacks a key this binary knows; returns the `Assembly` (transports, the access application as `Principals`, token issuer, identity application) |
-| `core/adapters` | platform clients behind module ports (`Google`, `AudioProbe`), one module's handlers behind another's port (`Media`, `MediaKinds`), and `Principals`: the access module's `ResolvePrincipal` as `httpx.PrincipalResolver` |
+| `core/wiring` | `Build`: one file per module, repository → `Application` → transport, in dependency order, starting with `access.go`, which refuses a database whose `app.permissions` lacks a key this binary knows; returns the `Assembly` (transports, the access application as `Principals`, token issuer, identity application, the AI `Completer` and the AI credits application). `ai.go` builds the AI module over the provider, which is nil without `ANTHROPIC_API_KEY`; `import_worker.go` gives the import worker the same provider and credits (`scanReader`) when the key is set, and no reader when it is not |
+| `core/adapters` | platform clients behind module ports (`Google`, `AudioProbe`, and `AI`, the Anthropic client behind the ai module's `Completer`), one module's handlers behind another's port (`Media`, `MediaKinds`, and `ai_reads.go`: the tests, questions, attempts and identity reads the AI operations take), and `Principals`: the access module's `ResolvePrincipal` as `httpx.PrincipalResolver`. `adapters.NewAI` returns a nil `Completer` without the key, and every AI operation then answers `501 AI_OFF` and `GET /public/status` says `ai: false`, as media does without storage; `PDFPages` draws a scan's pages for the worker's AI reader |
 | `core/router` | `Deps`, whose `Principals` resolves who a request acts as for the permission and docs gates (`New` refuses a nil one), `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/livez`, `/healthz`, `/docs`, the `/admin` alias until v0.9.1 (T-R3.3)), `RateLimits` (per address or body field) and `PrincipalRateLimits` (per signed-in user) for contract operations, and `ServiceRateLimits` for the routes beside it |
-| `core/jobs` | background commands (`PruneRefreshTokens`, `PruneNotifications`) |
+| `core/jobs` | background commands (`PruneRefreshTokens`, `PruneNotifications`, and `ReleaseStaleAiReservations`, which runs only when the provider is configured) |
 | `platform/httpserver` | the HTTP server, its timeouts and graceful shutdown |
 
 A new module is wired in `wiring/<module>.go`. An optional dependency stays a
@@ -187,13 +197,16 @@ web/               quizzivy-web
   tests/           units/ integration/ e2e/ support/ -- see web/tests/README.md
 server/            Go module `quizzivy`: a modular monolith
   internal/core/     composition root: wiring/ router/ adapters/ jobs/
-  internal/platform/ technical adapters (db context + repository base, storage, google, probe, httpx, httpserver, apidocs, ...)
+  internal/platform/ technical adapters (db context + repository base, storage, google, probe, httpx, httpserver, apidocs, anthropic, ...);
+                     anthropic is the AI provider's client and the only package that imports its SDK
   internal/shared/   kernel: cqrs, actor, paging, audit, stats, opt, validation, content,
                      access (permission keys, Principal, Scope, CanActOn), visibility (who a teacher reaches),
                      answered (when a saved answer counts as answered), schedule (the assignment status and close rules, a student's override of them, and the lock and recompute that move a deadline in progress)
   internal/modules/  one directory per bounded context, four layers each:
                      domain/ application/{command,query,ports,model} repositories/ http/, tests in <layer>/tests/;
                      access (roles, grants, the principal cache) has no http/ until R5;
+                     ai (the provider port, the credits and the eight suggestions) is D4's, with
+                     domain/prompts/ for each feature's prompt and schema;
                      notifications (the store, the kinds and their producers, the
                      due-time items, a user's switches) is R4's
   tests/             end-to-end tests (build tag e2e)
@@ -579,11 +592,25 @@ Design for longer Vietnamese strings; avoid fixed-width labels.
 ## High-risk areas — extra care
 
 `features/take-test/`, `features/integrity/`, `features/media/`,
-`server/internal/modules/access/`, and anything touching `attempts`,
+`web/src/features/ai/`, `server/internal/modules/access/`,
+`server/internal/modules/ai/`, and anything touching `attempts`,
 `test_versions`, `users.role_id` or an owner column (`owner_id` on tests,
 questions, question groups and media assets; `classes.teacher_id`;
 `users.created_by`). Run the relevant unit tests before and after every change
 to these. Do not refactor them opportunistically while doing something else.
+
+**The AI assistant** reads student answers, holds a paid key and meters money.
+An operation reserves its feature's ceiling before the provider is called and
+ends the reservation with `Finish`, the one place on the call path that settles
+or releases. Only `Reserve`, `Settle`, `Release` and the stale-reservation sweep
+touch `used_credits` and `reserved_credits`, and the pool and each teacher's
+allowance are two constraints the database enforces. Prompts live in
+`modules/ai/domain/prompts/`. Only `core` imports `platform/anthropic`, and the
+module's domain and application layers import no platform package. Run the five
+canaries and `make test-api-integration` on a task's branch point and its last
+commit, and put both runs in the pull request. A task never needs the key to
+pass CI: every suite covers the nil adapter's 501 and the web's hidden entry
+points, and the live smoke runs on the builder's machine with the key in `.env`.
 
 **Access and ownership.** A write that ends someone's access revokes their
 refresh families, bumps `session_epoch` and calls `Principals.Forget` in one
