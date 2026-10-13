@@ -133,13 +133,13 @@ rolling deploy without a fill trigger):
 | `NNNNN_add_test_version_questions_audio_allow_pause.sql` | T-D4.13 |
 | `NNNNN_add_group_recordings_allow_pause.sql` | T-D4.13 |
 | `NNNNN_add_test_version_group_recordings_allow_pause.sql` | T-D4.13 |
-| `NNNNN_add_ai_permissions.sql` (two rows in `app.permissions`, `ai.use` granted to the Teacher role) | T-D4.32 |
 | `00118_create_ai_settings.sql` | T-D4.31 |
 | `00119_create_ai_credit_periods.sql` | T-D4.31 |
 | `00120_create_ai_teacher_credits.sql` | T-D4.31 |
 | `00121_create_ai_reservations.sql` | T-D4.31 |
 | `00122_create_ai_usage_ledger.sql` (append-only: no `UPDATE` or `DELETE` for the app role) | T-D4.31 |
 | `00123_create_ai_credit_requests.sql` | T-D4.31 |
+| `00124_add_ai_permissions.sql` (two rows in `app.permissions`, `ai.use` granted to the Teacher role) | T-D4.32 |
 | `NNNNN_add_word_imports_read_with_ai.sql` (`boolean NOT NULL DEFAULT false`) | T-D4.33 |
 
 The AI tables are new and empty, so none is `-- +goose NO TRANSACTION` and the v0.10.0 binary is
@@ -2553,7 +2553,8 @@ until T-R5.17a, so the commands run as `MAINTENANCE_DATABASE_URL`'s credential, 
 `grant_maintenance_role` must add. `APP_TIMEZONE` was documented and never read; `config.AppLocation()`
 reads it (`Asia/Ho_Chi_Minh`, with a fixed +07:00 fallback on a host without zone data).
 `operations.md` ("AI credits") documents the console. An allowance edit is not subject to the subset
-rule (`access.CanActOn`); see the open question in the pull request.
+rule (`access.CanActOn`) in this task, which T-D4.32 applies to the application commands; the
+console, as System, is not asked.
 
 Not done here: the Neon rehearsal (T-D4.40's migration rehearsal runs the six files on a branch of
 production and puts the timings in the release pull request).
@@ -2563,7 +2564,7 @@ production and puts the timings in the release pull request).
 **Touches:** `api/openapi.yaml` (`PermissionKey` gains `ai.use` and `ai.credits.manage`; the `/teacher/ai/*` and `/admin/ai/*` operations; `WordImport.readWithAi` and `createImport`'s field; `PublicStatus.ai`; `UserPreferences.ai`), `server/gen/openapi/`, `web/src/lib/api/schema.d.ts`, `migrations/NNNNN_add_ai_permissions.sql` (new), `server/internal/platform/httpx/permissions.go` (the two keys' trees), `server/internal/core/router/{ratelimits.go,tests/testdata/permissions.golden}`, `server/tests/isolation_cases_test.go`, `server/internal/modules/ai/{domain/prompts/*.go,application/{query/{generate,check,variant,explanation,distractors,score,insights,cleanup}.go,ports/{tests,questions,grading,analysis}.go}},http/ai.go}` (new), `server/internal/core/adapters/ai_reads.go` (new: the ports over the tests, questions, attempts and assignments modules), `server/internal/modules/attempts/{application/query/wrong_answers.go,repositories/analysis.go}` (the aggregate), `server/internal/modules/ai/application/tests/{prompts_test.go,operations_test.go}` (new), `docs/plan/70-redesign-overview.md` §4.1 (two rows; on the branch already)
 **Size:** L
 **Done when:**
-- [ ] The contract. `PermissionKey` gains `ai.use` ("Use AI features", Content, Admin and
+- [x] The contract. `PermissionKey` gains `ai.use` ("Use AI features", Content, Admin and
       Teacher) and `ai.credits.manage` ("Manage AI credits", System, Admin); the migration
       inserts both into `app.permissions` (`in_matrix` true, DG-199) and grants `ai.use` to the
       built-in Teacher role; the Admin wildcard holds both. `httpx.PermissionRequirements` lets
@@ -2592,44 +2593,106 @@ production and puts the timings in the release pull request).
       Every operation declares its `x-resource` kinds and has its isolation-suite entry; another
       teacher's id answers as a missing one. `make gen` is its own commit; MSW fixtures validate
       with ajv; `pnpm typecheck` passes.
-- [ ] What T-D4.30 left for the contract: `ErrorCode` gains `AI_OFF`, and with the adapter nil
+- [x] The subset rule (the Tech Lead's decision of 2026-10-13). Every `/admin/ai/*` write that
+      targets one teacher (`setAiAllowance`, which also pauses and resumes, and the two credit
+      request decisions) calls `access.CanActOn(actor, target)` in the application command, where
+      `Author` carries the caller's effective permissions; a target outside the subset answers
+      `403 FORBIDDEN` with the words of the user-admin operations. The maintenance console
+      (System) is not asked: `CanActOn` compares two permission sets and System has none. One
+      end-to-end case: a custom role holding only `ai.credits.manage` cannot pause an Admin.
+- [x] What T-D4.30 left for the contract: `ErrorCode` gains `AI_OFF`, and with the adapter nil
       (`Assembly.AI == nil`) every `/teacher/ai/*` and `/admin/ai/*` operation answers `501
       NOT_IMPLEMENTED` with that code; `PublicStatus` gains `ai: boolean`, read from
       `Config.AIEnabled()` and never from the provider; `core/router/{modules.go,server.go}` gain
       the AI transport.
-- [ ] What T-D4.31 left for the contract: `NotificationKind` gains `ai.allowance_warning`,
+- [x] What T-D4.31 left for the contract: `NotificationKind` gains `ai.allowance_warning`,
       `ai.credit_request` and `ai.credit_request.decided`, with their rows in its table;
       `NotificationParams` gains `used`, `allowance`, `credits` (integers, 0 or more),
       `teacherName` (1 to 200 characters) and `decision` (`approved` or `declined`), and the
       three `Params` types in `notifications/domain/params.go` (`AllowanceWarning`,
       `CreditRequest`, `CreditRequestDecided`) go into `params_test.go`'s `everyKind`;
       `kindsByAudience` lists the three for the teacher's bell; `kinds.ts` words them in vi and en.
-- [ ] `PrincipalRateLimits()` gains every AI operation at 10 a minute and 100 an hour per actor,
+- [x] `PrincipalRateLimits()` gains every AI operation at 10 a minute and 100 an hour per actor,
       the clean-up at 3 an hour, the credit request at 5 an hour; `credential_limits_test.go`'s
       form of assertion lists them.
-- [ ] Each operation reserves its ceiling (the table above) before the call and ends the
+- [x] Each operation reserves its ceiling (the table above) before the call and ends the
       reservation with `Commands.Finish`, which settles the metered usage, including what a refusal
       or an unparseable answer was billed (T-D4.30), and releases when nothing was billed; the
       response carries `usage: {credits, left}` for the panel's footer. With the adapter nil: 501. With the budget gone: 402 as T-D4.31 says.
       A provider failure after retries: `503 AI_UNAVAILABLE` with `Retry-After`, and the
       reservation released.
-- [ ] Data minimisation is tested, not described: `operations_test.go` drives each operation
+- [x] Data minimisation is tested, not described: `operations_test.go` drives each operation
       against a fake `Completer` that records the request, and asserts that no student name,
       email, user id, attempt id or class name appears in any content block; the score and
       insights cases run with a fixture whose student is named in every other field.
-- [ ] The wrong-answer aggregate (`attempts/application/query/wrong_answers.go`): per question of
+- [x] The wrong-answer aggregate (`attempts/application/query/wrong_answers.go`): per question of
       an assignment's default version, the distinct normalised answer texts that did not earn
       full points with their counts, the eight most frequent, over handed-in attempts in scope;
       choice answers as option letters; `x-permission` through the insights operation only.
-- [ ] Prompts: one Go constant per feature with its schema; every prompt names the UI language
+- [x] Prompts: one Go constant per feature with its schema; every prompt names the UI language
       for any student-facing text; the insights prompt asks for patterns and actions, never a
       judgement of a student; `prompts_test.go` parses the deck's demo arrays against each
       schema and asserts the snapping of a suggested score to the allowed set.
-- [ ] Leak review in the PR: no AI response reaches a student; the four forbidden keys are not
+- [x] Leak review in the PR: no AI response reaches a student; the four forbidden keys are not
       involved; `payload_test.go` and `openapi-contract.test.ts` pass with their lists untouched.
 - [ ] Live smoke on the builder's machine (the key in `.env`): one generation from the deck's
       passage, one check of a seeded test, one score suggestion on a seeded short answer; the
-      metered credits and the ledger rows pasted in the PR, the responses not.
+      metered credits and the ledger rows pasted in the PR, the responses not. Needs the owner's
+      key; run at release.
+
+**As built:** One migration, `00124_add_ai_permissions.sql`: the two rows in `app.permissions`
+(`ai.use` in Content at ordinal 6, `ai.credits.manage` in System at 4, both `in_matrix`), and
+`ai.use` granted to the built-in Teacher role, written only where that role exists. The System
+group already numbered its four hidden keys 4 to 7 and the catalogue lists hidden keys last, so
+they move up by one; `(group_key, ordinal)` is unique and not deferrable, so the Up moves them out
+of the way (+100) and back (-99) as two statements and the Down reverses it. Because the Teacher
+now holds `ai.use`, T-D4.31's integration case that expected no Teacher in the Admin's list was
+changed: an idle Teacher is listed, an Assistant is not. The web's Admin and Teacher permission
+fixtures carry the keys as the migration grants them.
+
+The contract adds sixteen operations: ten under `/teacher/ai/*` (`ai.use`) and the six of
+T-D4.31's console under `/admin/ai/*` (`ai.credits.manage`); `PublicStatus.ai` (required, so the
+status fixtures changed); `UserPreferences.ai` (`language`, `tagDrafts`, `readStudentAnswers`,
+`readImports`, stored in the preferences document, reading answers on unless it is false);
+`readWithAi` on `WordImport`, `WordImportHistoryItem` and `CreateWordImport`, optional and
+absent for false (a property with a default is required in the generated request type), which the
+imports transport ignores until T-D4.33; the three notification kinds; and the error codes
+`AI_OFF`, `AI_PAUSED`, `AI_READ_OFF`, `AI_CREDITS_EXHAUSTED` (402, `details.scope` is `teacher` or
+`pool`), `AI_UNAVAILABLE` (503 with `Retry-After: 30`), `AI_REQUESTS_OFF`, `AI_REQUEST_PENDING`,
+`AI_REQUEST_DECIDED`, `AI_REQUEST_EXPIRED` and `AI_ALLOWANCE_BELOW_USE`. A provider that refused,
+answered something that is not an object, or answered something no decoder can use is the same
+503: what the provider billed is settled and the rest released (`Finish`), and nothing is written.
+`makeTestVariant` and `checkTestWithAi` read the test's draft, one question read per question,
+bounded by 120,000 characters of paper; a question with formatted text is read for its words and
+never rewritten (a reword of one is dropped). `cleanUpQuestionBank` is one call on the fast tier
+over at most 2,000 of the caller's own questions, named `q1` to `qN` in the prompt so no id is
+sent, and not the chunks and 60 seconds the sketch above says. `suggestAiScore` and
+`explainAssignmentResults` also need `teaching.grading`, because they read what a grading read
+reads.
+
+The ports are typed as other modules' handlers and wired in `core/adapters/ai_reads.go`, so
+`modules/ai` imports none of them; a nil `Completer` is `501 AI_OFF` before a read, and
+`wiring.WithCompleter` (and `core.New`'s options) is the seam by which the end-to-end world runs the
+whole application over a provider a test controls. The wrong-answer aggregate is one statement in
+`attempts/repositories/wrong_answers.go`, not `analysis.go`: the latest handed-in paper of each
+student, answers that did not earn full points and were marked, lower-cased with spaces collapsed,
+choice answers as option letters, blanks joined with " | ", the eight most frequent by count and
+then text.
+
+Data minimisation is tested at three levels: the prompts' own tests, `operations_test.go` (no id,
+actor or option id in any prompt, and the content is), and `ai_flow_test.go` over the real
+adapters (a student named, e-mailed and classed in every other field; none of it, nor the teacher's
+own identity, reaches a prompt, while the answer and its key do). The isolation suite holds an
+entry for each of the ten operations and asserts the provider was asked five times, once each for
+the caller's own work, and never for another teacher's or a missing id.
+
+Per-user limits: the eight suggestions and the console writes at 10 a minute and 100 an hour, the
+clean-up at 3 an hour, the credit request at 5 an hour, and the two reads (`getAiUsage`,
+`getAiCredits`) at 60 a minute and 600 an hour, since a page draws them on every visit.
+
+For the release: the live smoke is not done here, as it needs the owner's key. `20-data-model.md`
+§46 lists what `grant_maintenance_role` must add for `ai-credits` and `ai-reservations-sweep`, and
+`75-r5.md` T-R5.17a now says so.
 
 ### T-D4.33 — "Read with AI" in the import worker
 **Depends on:** T-D4.30, T-D4.31; T-D4.32 merged (its contract PR carries `readWithAi`)
