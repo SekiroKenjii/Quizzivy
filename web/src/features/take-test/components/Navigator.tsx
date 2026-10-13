@@ -195,7 +195,7 @@ function KeyHint({ hint }: Readonly<{ hint: KeysHint }>) {
 
 function Key({ children }: Readonly<{ children: string }>) {
   return (
-    <kbd className="bg-card text-fg inline-flex h-5.5 min-w-5.5 items-center justify-center rounded-[5px] border border-b-2 px-[5px] font-mono">
+    <kbd className="bg-card text-fg inline-flex h-5.5 min-w-5.5 items-center justify-center rounded-[5px] border border-b-2 px-[5px]">
       {children}
     </kbd>
   );
@@ -230,7 +230,7 @@ function SheetButton({
         aria-label={label}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="bg-card hover:bg-muted inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border px-2 text-base leading-none font-medium whitespace-nowrap"
+        className="bg-card hover:bg-muted inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border px-1.5 text-base leading-none font-medium whitespace-nowrap"
         onClick={() => setOpen(true)}
       >
         <LayoutGrid aria-hidden="true" className="size-4 flex-none" />
