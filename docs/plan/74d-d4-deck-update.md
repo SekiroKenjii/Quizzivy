@@ -4032,7 +4032,8 @@ served from npm and the app's own Be Vietnam Pro, sizes from `getBoundingClientR
   sheet in both languages at 360, 768 and 1280 with an 80-character section title. The rest is
   DG-196 to DG-208's, and DG-210 and DG-211.
 
-Suites on the merged head: `make test-api` green (unit, integration, end-to-end with no skip);
+Suites on the merged head: `make test-api` green (end-to-end with no skip; integration skips only
+the Word converter's twelve, which need its image and a non-root worker, on the branch point too);
 `pnpm lint`, `typecheck`, `format:check`, the unit and integration suites, `build`, `pnpm e2e` and
 `pnpm e2e:content` green, with the key unset, and no AI entry point drawn while the server has no
 assistant (`builder/ai-entry`, `question-bank/bank-ai` and `settings/ai-assistant` assert it). On
