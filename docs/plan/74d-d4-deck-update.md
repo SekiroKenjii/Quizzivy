@@ -1814,6 +1814,7 @@ Known differences: the question column is 12px narrower and 4px lower than the d
 pane padding); the rail's section titles are the paper's whole titles (T-D4.4); gap 25 is worth 1
 point on the fixture where the drawing gives it 2; the Student deck's card has no worth line
 (DG-184); below 768 the column sits 35px lower under the integrity strip (T-D4.7).
+QA-REV3-1 (T-D4.18c): a click that repeats the one that opened a gap (`detail > 1`, or the same option within 350ms) chooses nothing, so a double click or tap answers one gap; Space, Enter and A to E are never taken for a repeat.
 
 **As built (T-D4.10b, the result):** `ResultPage` divides the result's questions with T-D4.10a's
 `paperStops` over the shared context's groups. A run whose members share one plain prompt
