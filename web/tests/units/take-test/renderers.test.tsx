@@ -457,6 +457,26 @@ describe("a choice sentence with its gap", () => {
     expect(paragraph()).not.toHaveClass("text-[1.125rem]");
   });
 
+  it("draws a rich prompt of one plain paragraph as the same sentence", () => {
+    const prompt = "If I ___ you, I would study harder.";
+    renderQuestion(
+      sentence({
+        promptContent: {
+          format: "semantic_v1",
+          blocks: [
+            { type: "paragraph", content: [{ type: "text", text: prompt, marks: [] }] },
+          ],
+        },
+      }),
+      { type: "choice", optionIds: ["o2"] },
+    );
+    expect(paragraph()).toHaveClass("text-[1.125rem]", "font-medium", "leading-[1.8]");
+    expect(box().textContent).toBe("were");
+    expect(box()).toHaveClass("bg-brand-soft", "border-brand");
+    expect(paragraph()).toHaveTextContent("If I were you, I would study harder.");
+    expect(document.body.textContent).not.toContain("___");
+  });
+
   it("prints any other prompt as written", () => {
     const { unmount } = render(
       <QuestionBody

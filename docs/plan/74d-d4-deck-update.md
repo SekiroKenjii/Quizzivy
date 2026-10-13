@@ -1785,8 +1785,8 @@ too: `detail.test.tsx`, `detail-versions.test.tsx` and `preview-and-leave.test.t
 the preview by the literal prompt "They ___ …" and now find it as a screen reader reads the
 sentence (`tests/support/gapSentence.ts`); their fixtures are unchanged. The builder's
 prompt field and the import both write `promptContent`, so on content made in the product
-today the rule fires only for prompts kept in Markdown; a rich prompt that is one plain
-paragraph prints as written, as the rule says. Compared with s9 questions 5 and 12 at 360
+today the rule fired only for prompts kept in Markdown; T-D4.11b (follow-up 7) widens it to a
+rich prompt that is one plain paragraph. Compared with s9 questions 5 and 12 at 360
 and 1280, light and dark, empty and chosen: the sentence and the box equal the deck's in
 position, size, type, padding, radius and colour in all 16 cells; the question sits 35px
 lower at 360 for the paper's integrity line above it, which the deck's paper has not.
@@ -2491,24 +2491,73 @@ score field keeps its `--field-max` cap.
 **Touches:** `web/src/features/assignments/pages/teacher/AssignmentDetailPage.tsx`, `web/src/features/attempts/components/{Monitor.tsx,ProgressCard.tsx (new)}`, locales, `web/tests/units/assignments/detail.test.tsx`, `web/tests/units/attempts/monitor.test.tsx`
 **Size:** M
 **Done when:**
-- [ ] The four `StatStrip` tiles give way to the card (V-05, T 607-631): "{n} of {total}
+- [x] The four `StatStrip` tiles give way to the card (V-05, T 607-631): "{n} of {total}
       submitted" ("All {n} submitted"; "Not assigned yet" with no target), an 8px two-segment bar
       (submitted `--success`, in progress `--info`), a legend of `aria-pressed` buttons (28px,
       radius 7, 12.5px) each with a dot or, for Flagged, the flag icon in danger ink, and a count
       in `--fg` (Flagged's in danger ink), then "Average {avg}" (15px 600) after a 1px divider.
       The counts are the monitor's whole-assignment counts, not the page's.
-- [ ] A legend button filters the roster to its group (Submitted includes timed out, as the
+- [x] A legend button filters the roster to its group (Submitted includes timed out, as the
       monitor groups them), opens the Students tab, resets the page and names the filter in the
       URL (`?roster=`, which T-R4.25's redirect already writes); pressing it again shows
       everyone; an entry hides at 0 unless it is the one selected; opening the page from the
       list clears the filter. The tooltip reads "Show only {group}" / "Show everyone".
-- [ ] The average keeps T-R4.25's rule (the rounded mean of graded ratios; "—" with none).
-- [ ] Strings: `assignmentDetail.progress.{submittedOf,allSubmitted,notAssigned,average,
+- [x] The average keeps T-R4.25's rule (the rounded mean of graded ratios; "—" with none).
+- [x] Strings: `assignmentDetail.progress.{submittedOf,allSubmitted,notAssigned,average,
       showOnly,showEveryone}`, vi first; the four tile keys go in their own commit if nothing else
       reads them.
-- [ ] Unit tests: the three sentences, the bar's widths, a filter press and release, the hidden
+- [x] Unit tests: the three sentences, the bar's widths, a filter press and release, the hidden
       zero entries, the URL; compared with the deck at 360, 768, 1024, 1280 and 1440 on a live
       assignment with flagged papers, light and dark. Known difference: none expected.
+
+**As built:** one pull request, three commits (the card and the filters, the removal of the
+tiles' keys, this note). `ProgressCard` (`features/attempts/components/ProgressCard.tsx`) draws
+the deck's card on `--card` (radius 12, 1px `--border`, `--shadow`, padding 12 × 16, gaps 10 × 16,
+wrapping): the sentence at 13.5px 600 (`assignmentDetail.progress.{submittedOf,allSubmitted,
+notAssigned}`), the bar (`flex: 1 1 160px`, at least 120px, 8px, `--muted`, segments `--success`
+and `--info` as shares of every row, `transition: width .2s` except under reduced motion and
+hidden from a screen reader, which the sentence and the legend already tell), the legend as a
+`role="group"` "Filter students" (`progress.filterLabel`) of `aria-pressed` buttons (28px, radius 7,
+12.5px `--muted-fg`, 9px padding, a transparent border that turns `--border` on `--muted` when
+pressed, an 8px dot or the 12px flag in `--danger-ink`, the count 600 in `--fg` or `--danger-ink`),
+and "Average" (`progress.average`) with its value at 15px 600 after a 1px `--border` and 14px of
+padding. Each button's name is "{group} {n}", so a screen reader hears the count; its tooltip is the
+shared `Tooltip` (hover and keyboard focus), "Show only {group}" or "Show everyone"
+(`progress.showOnly`, `progress.showEveryone`, the group lowercased). The legend's labels are
+`progress.groups.{submitted,inProgress,notStarted,flagged}`; Flagged is "Bị gắn cờ", as on the
+dashboard. While the monitor loads the card holds two skeleton bars (`role="status"`); when it
+fails it says "Couldn't load progress." with Retry (`progress.loadFailed`), not as an alert, since
+the Students tab's own error card is one. **Counts:** `assignmentStats` counts each group as
+`rosterMatches` filters it, over the whole monitor whatever the search or filter, so a count is
+always the rows its press shows: Submitted is submitted, timed out and graded; a flagged attempt
+that was later voided is no longer counted as Flagged (T-R4.25's tile counted it, though its
+filter never showed it), and `assignment-detail-logic.test.ts` says so. **Filter:** a press
+writes `?tab=students&roster={group}` and drops `?page=` (replace, as the select does); a second
+press removes `roster`. `RosterFilter` gains `inProgress`, and the roster's select keeps its five
+filters (pinned by `papers.test.tsx`) and gains "In progress" (`papers.tabs.inProgress`), so the
+select and the legend read and write one value and Needs grading stays reachable; the search box
+stays too. The list's rows link to the page without a query, so opening an assignment from it
+clears the filter. The three keys only the tiles read went in their own commit
+(`assignmentDetail.average`, `monitor.cards.inProgress`, `assignments.detail.flagged`); the rest of
+`monitor.cards` was already unread and is left alone. `StatStrip` has no other host now and is
+kept, with its own tests. Tests: `detail.test.tsx` gains ten cases (the three sentences, the bar's
+widths and the average, a press and release by mouse and keyboard with the URL, the whole-monitor
+counts under a search, the hidden zero entries and a selected zero, both tooltips, the filter
+dropped on opening from the list, and the skeleton and the retry); `monitor.test.tsx` one (the
+select's In progress presses the legend's); `teacher-shell.spec.ts` replaces the stat strip's
+640px case with the card's geometry at 360, 768, 1024, 1280 and 1440 in both themes, and a press
+and release from the keyboard with its 2px focus outline and its URL. **Compared with the deck**
+side by side with the deck's open assignment ("Mid-term Reading Mock": 18 of 24 submitted, 2 in progress, 4
+not started, 1 flagged, 78%), the app on a production build with a stubbed monitor holding the same
+figures (no live API), English, sidebar expanded, at the five widths, light and dark, idle and with
+Flagged pressed: every box, font, weight, colour, border, radius, padding and gap equals the deck's
+within 0.5px, and the card wraps to the same height at every width (164.75, 146.75, 84.25, 54, 54).
+The two differences are not visible: the computed `box-shadow` carries Tailwind's transparent ring
+layers before the same `--shadow`, and a button's text has a space between the label and the count
+for its accessible name (a whitespace node in a flex box, so it renders nothing). The deck was
+served with React 18.3.1, react-dom 18.3.1, `@babel/standalone` 7.29.0 and `lucide-static` 0.469.0
+from their npm tarballs by route interception, as in `docs/team/verification-r4-51.md`. The
+page frame (DG-205) did not change: the card adds no threshold.
 
 ### T-D4.23 — Class detail: the join-code card, v2
 **Reopens:** T-R4.42 (the join-code card)
@@ -3588,7 +3637,8 @@ student answers?** (design)
 **Q17. A choice sentence with a gap that fills with the chosen option: what marks the gap?**
 (design)
 - Default: a plain one-line prompt with exactly one run of three or more underscores, on a
-  single-choice or true/false question (T-D4.11). Anything else prints as written.
+  single-choice or true/false question (T-D4.11), or a rich prompt that is one paragraph of
+  unmarked text meeting the same test (T-D4.11b). Anything else prints as written.
 - Cost of the other answer: T-D4.11 is dropped, or a field marks the gap (a contract change).
 
 **Q18. Sign cards, 60px word tiles, the hint line and the image caption: what in the data
@@ -3836,10 +3886,28 @@ is built here.
    timing differs from the emulator's. Add to T-D4.12's real-phone box: swipe the drawer open and
    closed, then tap an option at once, and see that the option is chosen and the drawer does not
    move.
-7. **T-D4.11's gap rule does not reach a prompt made in the product.** The sentence gap fires only
-   for a prompt with no `promptContent`, and the builder's prompt field and the import both write
-   `promptContent`, so on content made today it fires only for a prompt kept in Markdown (T-D4.11
-   "As built", #571). The Tech Lead widens the rule to a rich prompt that is one plain paragraph
-   (with the run of underscores in its text and no mark, gap or media): **T-D4.11b**. It changes
-   Q17's default, the refusal "a rich prompt" in `sentence-gap.test.ts`, and the comparison with
-   s9 questions 5 and 12. Recorded here; not built.
+7. [x] **T-D4.11's gap rule does not reach a prompt made in the product.** The sentence gap fired
+   only for a prompt with no `promptContent`, and the builder's prompt field and the import both
+   write `promptContent`, so on content made today it fired only for a prompt kept in Markdown
+   (T-D4.11 "As built", #571). The Tech Lead widens the rule to a rich prompt that is one plain
+   paragraph (with the run of underscores in its text and no mark, gap or media): **T-D4.11b**.
+   It changes Q17's default, the refusal "a rich prompt" in `sentence-gap.test.ts`, and the
+   comparison with s9 questions 5 and 12.
+
+   **As built (T-D4.11b):** `sentenceGap` accepts `promptContent` when it is valid question
+   prompt content (`isQuestionPromptContent`), its plain projection (`contentPlainText`) is
+   exactly the stored `prompt`, and it is one `paragraph` block whose children are all `text`
+   nodes with no marks; adjacent unmarked text nodes count as one text. The prompt then goes
+   through T-D4.11's test unchanged (trim, NFC, one line, one run, no other marker), so a `*`
+   or `_` typed as plain rich text still refuses the gap. Anything else prints as today: a mark,
+   a link, a line break, a gap node, a heading, a second block, an image, legacy Markdown
+   content, content that does not validate, and content whose projection is not the prompt,
+   which `QuestionProse` reports as invalid and still does. T-D4.11's "a rich prompt" refusal
+   was content without `marks`, which does not validate, so it still refuses and is renamed
+   "rich content that does not validate"; no other case changed. `GapSentence` and the answer
+   shape are untouched. E2E 1 (`author-and-publish.live.spec.ts`) authors its choice prompt in
+   the builder, so the test's preview now draws it as the sentence; the spec finds it as a
+   screen reader reads it ("They chỗ trống to the museum last weekend."). In a production build of the engine, the rich prompt "If I ___ you, I
+   would study harder." measures exactly as the same prompt in Markdown at 360 and 1280, light
+   and dark, empty and chosen (the sentence 500 18px/32.4px, the box 88 × 30.8px empty), which
+   is the drawing T-D4.11 matched to s9 questions 5 and 12; no horizontal scroll.

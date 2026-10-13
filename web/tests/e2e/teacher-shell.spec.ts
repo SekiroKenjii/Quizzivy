@@ -344,26 +344,70 @@ test("sheet and overlay entry/exit have native 200ms ease intermediate frames an
   expect(await sheet.evaluate((node) => node.getAnimations().length)).toBe(0);
 });
 
-test("stat strip changes from two to four columns at the measured 640px content boundary", async ({
+for (const theme of ["light", "dark"] as const) {
+  for (const width of [360, 768, 1024, 1280, 1440]) {
+    test(`progress card at ${width}px in ${theme} draws the deck's card inside the page`, async ({
+      page,
+    }) => {
+      await prepare(page, theme);
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(path);
+      const card = page.locator('[data-slot="progress-card"]');
+      await expect(card.getByText("Đã nộp 1/3")).toBeVisible();
+      const box = await card.evaluate((node) => {
+        const style = getComputedStyle(node);
+        const outer = node.getBoundingClientRect();
+        const inside = [...node.querySelectorAll("*")].every((child) => {
+          const rect = child.getBoundingClientRect();
+          return rect.left >= outer.left - 0.5 && rect.right <= outer.right + 0.5;
+        });
+        return {
+          padding: style.padding,
+          radius: style.borderRadius,
+          main: document.querySelector("main")!.getBoundingClientRect().width,
+          width: outer.width,
+          inside,
+        };
+      });
+      expect(box.padding).toBe("12px 16px");
+      expect(box.radius).toBe("12px");
+      expect(box.inside).toBe(true);
+      expect(box.width).toBeLessThanOrEqual(box.main);
+      await expect(card.getByText("Đã nộp 1/3")).toHaveCSS("font-size", "13.5px");
+      await expect(card.getByText("Đã nộp 1/3")).toHaveCSS("font-weight", "600");
+      await expect(card.locator('[data-slot="progress-bar"]')).toHaveCSS(
+        "height",
+        "8px",
+      );
+      const legend = card.getByRole("group", { name: "Lọc học viên" });
+      const flagged = legend.getByRole("button", { name: "Bị gắn cờ 1" });
+      await expect(flagged).toHaveCSS("height", "28px");
+      await expect(flagged).toHaveCSS("border-radius", "7px");
+      await expect(flagged).toHaveCSS("font-size", "12.5px");
+      await expect(card.getByText("—")).toHaveCSS("font-size", "15px");
+      await noOverflow(page);
+    });
+  }
+}
+
+test("the progress legend filters the roster from the keyboard and names the filter in the URL", async ({
   page,
 }) => {
   await prepare(page);
-  await page.setViewportSize({ width: 943, height: 900 });
-  await page.goto(path);
-  const strip = page.locator("main dl").first();
-  await expect(strip).toBeVisible();
-  expect(
-    await strip.evaluate(
-      (node) => getComputedStyle(node).gridTemplateColumns.split(" ").length,
-    ),
-  ).toBe(2);
-  await page.setViewportSize({ width: 944, height: 900 });
-  await expect
-    .poll(() =>
-      strip.evaluate(
-        (node) => getComputedStyle(node).gridTemplateColumns.split(" ").length,
-      ),
-    )
-    .toBe(4);
-  await noOverflow(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`${path}?tab=questions&page=2`);
+  const legend = page.getByRole("group", { name: "Lọc học viên" });
+  const inProgress = legend.getByRole("button", { name: "Đang làm 1" });
+  await inProgress.focus();
+  await expect(inProgress).toHaveCSS("outline-style", "solid");
+  await expect(inProgress).toHaveCSS("outline-width", "2px");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\?tab=students&roster=inProgress$/);
+  await expect(inProgress).toHaveAttribute("aria-pressed", "true");
+  const table = page.getByRole("table", { name: "Học viên được giao bài" });
+  await expect(table.getByRole("row")).toHaveCount(2);
+  await expect(table.getByText(student)).toBeVisible();
+  await page.keyboard.press("Space");
+  await expect(page).toHaveURL(/\?tab=students$/);
+  await expect(table.getByRole("row")).toHaveCount(4);
 });

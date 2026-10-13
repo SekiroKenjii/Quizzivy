@@ -1679,7 +1679,6 @@
       "notSubmitted": "Not submitted: {{count}}",
       "pending": "To grade",
       "pendingHint": "{{count}} answers still need grading",
-      "flagged": "To review",
       "flaggedHint": "Left the page more than {{count}} times",
       "flaggedHintNone": "No limit on leaving the page",
       "test": "Test",
@@ -2415,7 +2414,6 @@
     "score": "Score",
     "cards": {
       "submitted": "Submitted",
-      "inProgress": "In progress",
       "notStarted": "Not started",
       "flagged": "Needs review",
       "closesIn": "Closes in"
@@ -2749,6 +2747,7 @@
     "tabs": {
       "all": "All",
       "submitted": "Submitted",
+      "inProgress": "In progress",
       "pending": "Awaiting grading",
       "flagged": "Needs review",
       "notStarted": "Not submitted"
@@ -3873,7 +3872,23 @@
     "title": "Assignment",
     "unavailable": "This assignment is unavailable.",
     "submitted": "Submitted",
-    "average": "Average",
+    "progress": {
+      "submittedOf": "{{submitted}} of {{total}} submitted",
+      "allSubmitted_one": "{{count}} of {{count}} submitted",
+      "allSubmitted_other": "All {{count}} submitted",
+      "notAssigned": "Not assigned yet",
+      "average": "Average",
+      "filterLabel": "Filter students",
+      "showOnly": "Show only {{group}}",
+      "showEveryone": "Show everyone",
+      "loadFailed": "Couldn't load progress.",
+      "groups": {
+        "submitted": "Submitted",
+        "inProgress": "In progress",
+        "notStarted": "Not started",
+        "flagged": "Flagged"
+      }
+    },
     "tabsLabel": "Assignment panels",
     "tabs": {
       "students": "Students",
