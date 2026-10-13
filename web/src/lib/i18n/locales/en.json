@@ -131,7 +131,10 @@
       "saved_other": "{{count}} questions saved to the bank",
       "savedTagged_one": "{{count}} question saved to the bank with an AI draft tag",
       "savedTagged_other": "{{count}} questions saved to the bank with an AI draft tag",
-      "invalid": "Question {{n}} as AI wrote it can’t be saved. Clear it and try again."
+      "invalid": "Question {{n}} as AI wrote it can’t be saved. Clear it and try again.",
+      "saveAsPractice": "Save as practice test",
+      "savedPractice_one": "Practice test with {{count}} question saved as a draft in Tests",
+      "savedPractice_other": "Practice test with {{count}} questions saved as a draft in Tests"
     },
     "check": {
       "title": "Check this test with AI",
@@ -4179,6 +4182,20 @@
       "empty": "No papers handed in yet.",
       "noPermission": "Seeing which questions students got wrong needs the grading permission.",
       "loadFailed": "Could not load the question statistics."
+    },
+    "insights": {
+      "explain": "Explain results with AI",
+      "reading": "Reading results…",
+      "refresh": "Refresh",
+      "title": "What AI noticed",
+      "basis_one": "Based on {{count}} attempt",
+      "basis_other": "Based on {{count}} attempts",
+      "hide": "Hide insights",
+      "empty": "AI found nothing to point out in these results.",
+      "review": "Review answers",
+      "practice": "Make a practice set",
+      "practiceTitle": "{{title}} · Practice",
+      "readOff": "To explain results with AI, turn on “Let AI read student answers” in <settings>Settings › AI assistant</settings>."
     },
     "settings": {
       "shown": "Shown",
