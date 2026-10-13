@@ -17,6 +17,8 @@ const AiPanel = lazy(() => import("@/features/ai/components/AiPanel"));
 
 const ENTRY = "shadow-card h-9";
 
+type BuilderPanel = "generate" | "check";
+
 /**
  * BuilderAi is what the builder hands its AI panels: the open test, its
  * passages, the section new questions join (null when it has none), and the
@@ -47,11 +49,11 @@ export function BuilderAiActions({ ai }: Readonly<{ ai: BuilderAi }>) {
   const { t } = useTranslation();
   const available = useAiAvailable();
   const blocked = useAiBlock(available);
-  const [open, setOpen] = useState<AiPanelRequest["kind"] | null>(null);
+  const [open, setOpen] = useState<BuilderPanel | null>(null);
 
   if (!available) return null;
 
-  async function start(kind: AiPanelRequest["kind"]) {
+  async function start(kind: BuilderPanel) {
     try {
       await ai.prepare();
       setOpen(kind);
@@ -70,7 +72,7 @@ export function BuilderAiActions({ ai }: Readonly<{ ai: BuilderAi }>) {
     await ai.add(values);
   }
 
-  function requestFor(kind: AiPanelRequest["kind"]): AiPanelRequest {
+  function requestFor(kind: BuilderPanel): AiPanelRequest {
     if (kind === "generate")
       return {
         kind,
@@ -109,7 +111,7 @@ export function BuilderAiActions({ ai }: Readonly<{ ai: BuilderAi }>) {
         blocked={blocked}
         size="md"
         className={ENTRY}
-        disabled={ai.section === null}
+        unavailable={ai.section === null ? t("ai.needsSection") : null}
         onClick={() => void start("generate")}
       />
       {open !== null && (

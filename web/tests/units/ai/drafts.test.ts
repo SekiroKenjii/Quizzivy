@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { AiFinding, AiGeneratedQuestion } from "@/features/ai/api";
-import { draftQuestion, withFix } from "@/features/question-bank/aiDrafts";
+import type {
+  AiFinding,
+  AiGeneratedQuestion,
+  AiVariantChange,
+} from "@/features/ai/api";
+import { draftQuestion, withFix, withVariant } from "@/features/question-bank/aiDrafts";
 import {
   questionSchema,
   type QuestionValues,
@@ -193,5 +197,77 @@ describe("a check's fix", () => {
       }).explanation,
     ).toBe("Because.");
     expect(fixed({ kind: "none", description: "Think about it." })).toBe(values);
+  });
+});
+
+describe("a variant's changes", () => {
+  const A = "018f0000-0000-7000-8000-0000000000d1";
+  const B = "018f0000-0000-7000-8000-0000000000d2";
+  const C = "018f0000-0000-7000-8000-0000000000d3";
+  const values: QuestionValues = {
+    ...draft({
+      type: "single_choice",
+      prompt: "Pick one.",
+      options: ["a", "b", "c"],
+      answerKey: ["b"],
+      explanation: "",
+    }),
+    promptContent: null,
+    options: [
+      { id: A, text: "a", isCorrect: false },
+      { id: B, text: "b", isCorrect: true },
+      { id: C, text: "c", isCorrect: false },
+    ],
+  };
+
+  function change(kind: AiVariantChange["kind"], payload: AiVariantChange["payload"]) {
+    return {
+      questionId: "q",
+      number: 1,
+      kind,
+      title: "t",
+      before: "",
+      after: "",
+      payload,
+    };
+  }
+
+  it("rewords, reorders and replaces a wrong option, keeping the key", () => {
+    const next = withVariant(values, [
+      change("reword", { prompt: "Choose one." }),
+      change("reorder", { optionOrder: [C, B, A] }),
+      change("distract", { optionId: C, text: "see" }),
+    ]);
+    expect(next.prompt).toBe("Choose one.");
+    expect(next.options).toEqual([
+      { id: C, text: "see", isCorrect: false },
+      { id: B, text: "b", isCorrect: true },
+      { id: A, text: "a", isCorrect: false },
+    ]);
+  });
+
+  it("never rewrites the correct option", () => {
+    expect(
+      withVariant(values, [change("distract", { optionId: B, text: "x" })]).options[1],
+    ).toEqual({ id: B, text: "b", isCorrect: true });
+  });
+
+  it("names a copy's options through the id map", () => {
+    const copy = {
+      ...values,
+      options: values.options.map((o, i) => ({ ...o, id: `c${i}` })),
+    };
+    const ids = new Map([
+      [A, "c0"],
+      [B, "c1"],
+      [C, "c2"],
+    ]);
+    expect(
+      withVariant(
+        copy,
+        [change("reorder", { optionOrder: [B, C, A] })],
+        ids,
+      ).options.map((o) => o.id),
+    ).toEqual(["c1", "c2", "c0"]);
   });
 });

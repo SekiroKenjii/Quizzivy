@@ -57,6 +57,37 @@ beforeEach(() => {
         usage: { credits: 500, left: 1000 },
       }),
     ),
+    http.post(`${BASE}/teacher/ai/tests/:id/variant`, () =>
+      contractJson("/teacher/ai/tests/{id}/variant", "post", 200, {
+        changes: [
+          {
+            questionId: QUESTION_ID,
+            number: 1,
+            kind: "reword",
+            title: "What do cities rethink?",
+            before: "What do cities rethink?",
+            after: "What are cities rethinking?",
+            payload: { prompt: "What are cities rethinking?" },
+          },
+        ],
+        usage: { credits: 300, left: 300 },
+      }),
+    ),
+    http.post(`${BASE}/teacher/ai/bank/cleanup`, () =>
+      contractJson("/teacher/ai/bank/cleanup", "post", 200, {
+        scanned: 1,
+        truncated: false,
+        duplicates: [],
+        tags: [
+          {
+            questionId: QUESTION_ID,
+            prompt: "What do cities rethink?",
+            tags: ["cities"],
+          },
+        ],
+        usage: { credits: 200, left: 100 },
+      }),
+    ),
     http.post(`${BASE}/teacher/ai/tests/:id/check`, () =>
       contractJson("/teacher/ai/tests/{id}/check", "post", 200, {
         findings: [
@@ -86,7 +117,7 @@ afterEach(() => {
 });
 
 describe("features/ai", () => {
-  it("calls only /teacher/ai/* while a primary and a fix save, which go to the host", async () => {
+  it("calls only /teacher/ai/* through every kind, while each primary and a fix save through the host", async () => {
     const save = vi.fn(() => Promise.resolve());
     const generate = renderWithApp(
       <AiPanel
@@ -136,10 +167,51 @@ describe("features/ai", () => {
       await within(checkDialog).findByRole("button", { name: "Add explanation" }),
     );
     expect(fix).toHaveBeenCalledTimes(1);
+    check.unmount();
+
+    const saveVariant = vi.fn(() => Promise.resolve(TEST_ID));
+    const variant = renderWithApp(
+      <AiPanel
+        request={{
+          kind: "variant",
+          context: { testId: TEST_ID, title: "Unit 5", save: saveVariant },
+        }}
+        onClose={() => undefined}
+      />,
+    );
+    const variantDialog = await screen.findByRole("dialog");
+    await variant.user.click(
+      within(variantDialog).getByRole("button", { name: ai.variant.run }),
+    );
+    await variant.user.click(
+      await within(variantDialog).findByRole("button", {
+        name: "Lưu 1 thay đổi thành bản nháp",
+      }),
+    );
+    expect(saveVariant).toHaveBeenCalledTimes(1);
+    variant.unmount();
+
+    const tag = vi.fn(() => Promise.resolve());
+    const cleanup = renderWithApp(
+      <AiPanel
+        request={{ kind: "cleanup", context: { href: (id) => `/q/${id}`, tag } }}
+        onClose={() => undefined}
+      />,
+    );
+    const cleanupDialog = await screen.findByRole("dialog");
+    await cleanup.user.click(
+      within(cleanupDialog).getByRole("button", { name: ai.cleanup.run }),
+    );
+    await cleanup.user.click(
+      await within(cleanupDialog).findByRole("button", { name: "Thêm thẻ cho 1 câu" }),
+    );
+    expect(tag).toHaveBeenCalledTimes(1);
 
     const calls = reached();
     expect(calls).toContain("post /teacher/ai/questions/generate");
     expect(calls).toContain("post /teacher/ai/tests/{id}/check");
+    expect(calls).toContain("post /teacher/ai/tests/{id}/variant");
+    expect(calls).toContain("post /teacher/ai/bank/cleanup");
     expect(calls.filter((call) => !allowed(call))).toEqual([]);
   });
 
@@ -165,15 +237,19 @@ describe("features/ai", () => {
   });
 
   it("is loaded lazily by every page that opens it", () => {
-    const hosts = ["features/tests/components/BuilderAiActions.tsx"].map((path) =>
-      readFileSync(resolve(FEATURE, "..", "..", path), "utf8"),
-    );
+    const hosts = [
+      "features/tests/components/BuilderAiActions.tsx",
+      "features/tests/components/VariantAction.tsx",
+      "features/question-bank/components/BankAiActions.tsx",
+    ].map((path) => readFileSync(resolve(FEATURE, "..", "..", path), "utf8"));
     for (const source of hosts) {
       expect(source).toMatch(
         /lazy\(\(\) => import\("@\/features\/ai\/components\/AiPanel"\)\)/,
       );
       expect(source).not.toMatch(/^import AiPanel/m);
-      expect(source).not.toMatch(/^import \{[^}]*\b(generateKind|checkKind)\b/m);
+      expect(source).not.toMatch(
+        /^import \{[^}]*\b(generateKind|checkKind|variantKind|cleanupKind)\b/m,
+      );
     }
   });
 });

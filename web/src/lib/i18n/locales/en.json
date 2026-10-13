@@ -96,7 +96,9 @@
     },
     "entry": {
       "check": "AI check",
-      "generate": "Generate"
+      "generate": "Generate",
+      "cleanup": "Clean up",
+      "variant": "Make a variant"
     },
     "generate": {
       "title": "Generate questions",
@@ -160,6 +162,81 @@
       "suggestedFix": "Suggested fix",
       "summary_one": "{{count}} thing worth a look",
       "summary_other": "{{count}} things worth a look"
+    },
+    "needsVersion": "Publish the test before making a variant.",
+    "needsSection": "Add a section first.",
+    "variant": {
+      "title": "Make a variant of this test",
+      "subtitle": "A second version for another class or a retake, so students can’t share answers.",
+      "run": "Make variant",
+      "step1": "Reading the test",
+      "step2": "Rewriting questions",
+      "step3": "Checking that every answer still matches",
+      "empty": "No changes to suggest. Try other options.",
+      "what": "What to change",
+      "changes": {
+        "reword": "Reword questions",
+        "reorder": "Reorder options",
+        "distract": "New wrong options"
+      },
+      "difficulty": "Difficulty",
+      "difficulties": {
+        "same": "Keep the same",
+        "easier": "A little easier",
+        "harder": "A little harder"
+      },
+      "info": "Answers, points and passages stay the same. The variant is saved as a new draft test, so nothing changes for students until you publish it.",
+      "needChange": "Pick at least one thing to change",
+      "kinds": {
+        "reword": "Reworded",
+        "reorder": "Options reordered",
+        "distract": "New wrong option"
+      },
+      "before": "Before",
+      "after": "After",
+      "summary": "{{n}} of {{total}} changes kept",
+      "save_one": "Save {{count}} change as a draft",
+      "save_other": "Save {{count}} changes as a draft",
+      "saved": "Variant saved as a draft.",
+      "open": "Open the variant",
+      "testTitle": "{{title}} · Variant",
+      "invalid": "The change to Q{{n}} can’t be saved as it is. Clear it and try again."
+    },
+    "cleanup": {
+      "title": "Clean up the question bank",
+      "subtitle": "Finds near-duplicates and questions with missing tags, so search and filters work better.",
+      "run": "Scan bank",
+      "step1": "Reading your questions",
+      "step2": "Comparing similar questions",
+      "step3": "Suggesting tags",
+      "empty": "All done. Your bank is tidy.",
+      "lookFor": "Look for",
+      "checks": {
+        "duplicates": "Near-duplicates",
+        "tags": "Missing tags"
+      },
+      "info": "Scans the questions you own. Questions shared with you are skipped, and nothing changes until you confirm.",
+      "needCheck": "Pick at least one thing to look for",
+      "truncated_one": "This scan read {{count}} question, not the whole bank. Apply these and run it again.",
+      "truncated_other": "This scan read {{count}} questions, not the whole bank. Apply these and run it again.",
+      "missingTags": "Missing tags",
+      "duplicate": "Possible duplicate",
+      "usedIn": "Used in {{a}} and {{b}}",
+      "one": "One",
+      "other": "Other",
+      "openOne": "Open one",
+      "openOther": "Open other",
+      "keepBoth": "Keep both",
+      "duplicates_one": "{{count}} possible duplicate",
+      "duplicates_other": "{{count}} possible duplicates",
+      "untagged_one": "{{count}} question missing tags",
+      "untagged_other": "{{count}} questions missing tags",
+      "addTags_one": "Add tags to {{count}} question",
+      "addTags_other": "Add tags to {{count}} questions",
+      "tagged_one": "Tags added to {{count}} question",
+      "tagged_other": "Tags added to {{count}} questions",
+      "testCount_one": "{{count}} test",
+      "testCount_other": "{{count}} tests"
     }
   },
   "api": {

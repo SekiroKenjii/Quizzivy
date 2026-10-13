@@ -43,6 +43,7 @@ import {
   StudentPreview,
   type PreviewMark,
 } from "@/features/tests/components/StudentPreview";
+import { VariantAction } from "@/features/tests/components/VariantAction";
 import { VersionChanges } from "@/features/tests/components/VersionChanges";
 import {
   VersionHistory,
@@ -413,6 +414,7 @@ function DetailHead({
               {t("tests.detail.versionHistory")}
             </Button>
           )}
+          <VariantAction test={test} className={HEAD_BUTTON} />
           <Button asChild variant="outline" className={HEAD_BUTTON}>
             <Link to={`/teacher/tests/${test.id}/edit`}>
               <Pencil aria-hidden="true" />

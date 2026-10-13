@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router";
 import { Check, Sparkles, type LucideIcon } from "lucide-react";
 import { Callout } from "@/components/shared/Callout";
 import { IconTile } from "@/components/shared/IconTile";
@@ -12,7 +13,9 @@ import { notify } from "@/lib/toast";
 import { AI_STATUS_KEY, AI_USAGE_KEY, type AiMonthUsage, type AiUsage } from "../api";
 import { AiWriteError, type AiCardAction, type AiEnv, type AiKind } from "../kind";
 import { checkKind, type CheckContext } from "../kinds/check";
+import { cleanupKind, type CleanupContext } from "../kinds/cleanup";
 import { generateKind, type GenerateContext } from "../kinds/generate";
+import { variantKind, type VariantContext } from "../kinds/variant";
 import {
   AI_BLOCK_KEYS,
   useAiBlock,
@@ -29,7 +32,9 @@ import { AiRunSteps } from "./AiRunSteps";
 /** AiPanelRequest names the panel to open and what its host page gives it. */
 export type AiPanelRequest =
   | { kind: "generate"; context: GenerateContext }
-  | { kind: "check"; context: CheckContext };
+  | { kind: "check"; context: CheckContext }
+  | { kind: "variant"; context: VariantContext }
+  | { kind: "cleanup"; context: CleanupContext };
 
 type Failure =
   | { kind: "unavailable" }
@@ -92,6 +97,14 @@ export default function AiPanel({
       return (
         <AiKindPanel kind={checkKind} context={request.context} onClose={onClose} />
       );
+    case "variant":
+      return (
+        <AiKindPanel kind={variantKind} context={request.context} onClose={onClose} />
+      );
+    case "cleanup":
+      return (
+        <AiKindPanel kind={cleanupKind} context={request.context} onClose={onClose} />
+      );
   }
 }
 
@@ -103,6 +116,7 @@ function AiKindPanel<F, I, C>({
   const { t } = useTranslation();
   const locale = useLocale();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const language = useAiLanguage();
   const tagDrafts = useAiTagsDrafts();
   const block = useAiBlock(true);
@@ -215,8 +229,15 @@ function AiKindPanel<F, I, C>({
     setActionError(null);
     setBusy(true);
     try {
-      const message = await kind.primary.apply(selected, env);
-      notify.success(message);
+      const done = await kind.primary.apply(selected, env);
+      if (typeof done === "string") notify.success(done);
+      else
+        notify.success(done.message, {
+          action: {
+            label: done.action.label,
+            onClick: () => void navigate(done.action.href),
+          },
+        });
       onClose();
     } catch (cause) {
       setActionError(writeFailure(cause, t("ai.applyFailed")));
@@ -296,7 +317,9 @@ function AiKindPanel<F, I, C>({
           >
             {t("ai.startOver")}
           </Button>
-          {kind.primary !== null && done.items.length > 0 ? (
+          {kind.primary !== null &&
+          done.items.length > 0 &&
+          (kind.primary.available?.(done.items.map(({ item }) => item)) ?? true) ? (
             <PrimaryButton
               icon={kind.primary.icon(env)}
               label={kind.primary.label(selectedItems, env)}

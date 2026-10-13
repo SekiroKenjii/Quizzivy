@@ -114,11 +114,21 @@ export interface AiCardEnv<C> extends AiEnv<C> {
   close: () => void;
 }
 
-/** AiPrimary is a panel's primary button after a run: its label and the write it asks the host for, which answers the toast. */
+/** AiDone is the toast a primary answers: its sentence, and a link to follow when there is one. */
+export type AiDone =
+  string | { message: string; action: { label: string; href: string } };
+
+/**
+ * AiPrimary is a panel's primary button after a run: its label and the write
+ * it asks the host for, which answers the toast. `available` says whether the
+ * answer holds anything it can save; without it, or when it says no, the
+ * button is "Done".
+ */
 export interface AiPrimary<I, C> {
   icon: (env: AiEnv<C>) => LucideIcon;
+  available?: (items: readonly I[]) => boolean;
   label: (selected: readonly I[], env: AiEnv<C>) => string;
-  apply: (selected: readonly I[], env: AiEnv<C>) => Promise<string>;
+  apply: (selected: readonly I[], env: AiEnv<C>) => Promise<AiDone>;
 }
 
 /**
