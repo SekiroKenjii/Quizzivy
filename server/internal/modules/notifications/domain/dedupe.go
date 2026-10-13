@@ -69,3 +69,20 @@ func ClosingKey(assignmentID string, closes time.Time) string {
 func ReadyKey(attemptID string) string {
 	return "ready:" + attemptID
 }
+
+// AllowanceWarningKey is the dedupe key of a teacher's warning that the month's
+// allowance is nearly used. The month is its first day, as YYYY-MM-DD.
+func AllowanceWarningKey(month string) string {
+	return "ai_warning:" + month
+}
+
+// CreditRequestKey is the dedupe key of an Admin being told of one request.
+func CreditRequestKey(requestID string) string {
+	return "ai_request:" + requestID
+}
+
+// CreditDecisionKey is the dedupe key of a teacher being told how one request
+// was decided.
+func CreditDecisionKey(requestID string) string {
+	return "ai_decision:" + requestID
+}
