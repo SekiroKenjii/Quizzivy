@@ -78,6 +78,64 @@
   border-bottom: 1px solid currentColor;
   font-variant-numeric: tabular-nums;
 }
+.content-cloze {
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+}
+.content-cloze .semantic-content {
+  line-height: 2.3;
+}
+.content-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 76px;
+  max-width: 100%;
+  height: 30px;
+  min-height: 0;
+  margin: 0 3px;
+  padding: 0 10px 0 5px;
+  border: 1.5px solid var(--ring);
+  border-radius: 7px;
+  background: var(--muted);
+  color: var(--fg);
+  vertical-align: middle;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+.content-chip[data-state="filled"] {
+  border-color: var(--border);
+  background: var(--accent-soft);
+}
+.content-chip[data-state="open"] {
+  border-color: var(--primary);
+  background: var(--card);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.content-chip-number {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: var(--primary);
+  color: var(--primary-fg);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.content-chip-word {
+  min-width: 0;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .content-asset {
   display: flex;
   flex-direction: column;
@@ -89,6 +147,10 @@
 .semantic-content :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 3px;
+}
+.semantic-content .content-chip:focus-visible {
+  outline-color: var(--focus);
+  outline-offset: 2px;
 }
 
 .content-editor:has(.ProseMirror-focused),

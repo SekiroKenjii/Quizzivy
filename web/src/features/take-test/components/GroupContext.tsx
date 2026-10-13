@@ -1,5 +1,6 @@
 import { memo, useMemo, useRef, type Ref } from "react";
 import { useTranslation } from "react-i18next";
+import { GapChip } from "@/components/shared/content/GapChip";
 import {
   GroupMaterials,
   type MaterialGap,
@@ -13,6 +14,8 @@ import { PassageBody } from "./PassageBody";
 import { DrawerBar } from "./StimulusDrawer";
 import { useKeptScroll } from "../panes";
 import { usePaper } from "../paper";
+import { questionKind } from "../questionType";
+import { chosenWord } from "../stops";
 import type { StudentGroup } from "../api";
 
 /**
@@ -48,8 +51,11 @@ function paneClasses(wide: boolean, drawer: DrawerPane | undefined): string {
  * GroupContext is the stimulus pane: the material a group of questions
  * shares, scrolling by itself beside the question, headed as materialsHead
  * says, with the section's title as the kicker when the heading already
- * says the group's. Its text cannot be selected. A gap in the material is a
- * button that goes to the question or blank it stands for. Each recording's
+ * says the group's. Its text cannot be selected. A material that holds a gap
+ * is drawn in the cloze card. A gap bound to a choice question is a chip
+ * with the question's number and the chosen word, open while `openId` is
+ * its question; a gap bound to a blank is underlined. Either goes to the
+ * question or blank it stands for. Each recording's
  * card stands at its audio node; with several, the node's label is printed
  * above each card, and a recording no node names, which the server refuses,
  * is drawn after the materials so no payload can hide one. Given `drawer`,
@@ -61,6 +67,7 @@ export const GroupContext = memo(function GroupContext({
   group,
   sectionTitle,
   numbers,
+  openId,
   onGap,
   onRetryMedia,
   wide,
@@ -69,12 +76,14 @@ export const GroupContext = memo(function GroupContext({
   group: StudentGroup;
   sectionTitle?: string | undefined;
   numbers: ReadonlyMap<string, number>;
+  openId?: string | undefined;
   onGap: (gap: MaterialGap) => void;
   onRetryMedia: () => void;
   wide: boolean;
   drawer?: DrawerPane | undefined;
 }>) {
   const { t } = useTranslation();
+  const { questions, answers } = usePaper();
   const pane = useRef<HTMLElement>(null);
   const onScroll = useKeptScroll(pane, false);
   const head = materialsHead(group, sectionTitle);
@@ -125,11 +134,31 @@ export const GroupContext = memo(function GroupContext({
               onRetry={onRetryMedia}
             />
           )}
+          gapCard
           renderGap={(gap, label) => {
             const number = numbers.get(gap.questionId);
-            return number == null ? (
-              <span className="content-gap">{label}</span>
-            ) : (
+            if (number == null) return <span className="content-gap">{label}</span>;
+            const question = questions[number - 1];
+            if (
+              gap.kind === "question" &&
+              question !== undefined &&
+              questionKind(question) === "choice"
+            ) {
+              const word = chosenWord(question, answers[question.id], t);
+              return (
+                <GapChip
+                  number={number}
+                  word={word}
+                  open={question.id === openId}
+                  label={t("takeTest.cloze.chip", {
+                    n: number,
+                    word: word ?? t("takeTest.cloze.empty"),
+                  })}
+                  onClick={() => onGap(gap)}
+                />
+              );
+            }
+            return (
               <button
                 type="button"
                 className="content-gap items-end"
