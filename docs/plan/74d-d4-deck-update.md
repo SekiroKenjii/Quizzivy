@@ -1936,24 +1936,55 @@ markup and script (`sec.hasShared`, `sec.sharedText`, `sec.menu`), not side by s
 **Touches:** `web/src/features/question-groups/components/GapBindings.tsx`, locales, `web/tests/units/content/gap-bindings.test.tsx`
 **Size:** XS
 **Done when:**
-- [ ] `GapBindings` takes the row the export draws (T 1670-1693): a dashed chip "gap {n}" (at
+- [x] `GapBindings` takes the row the export draws (T 1670-1693): a dashed chip "gap {n}" (at
       least 52px wide, 24px high, 1.5px dashed `--ring`, `--muted`, 12px 600), a 32px select
       whose first entry is "Choose a question…", a danger border while the gap is unbound, and
       a 28px "Remove gap". An unbound row is also named as unbound for a screen reader, so the
       state is not carried by the border alone.
-- [ ] Above the rows: "Optional: add gaps for a cloze. Each gap is answered by a choice
+- [x] Above the rows: "Optional: add gaps for a cloze. Each gap is answered by a choice
       question or a blank in this group, shown at the gap." The export's sentence says "a
       single-choice question"; the product also binds a gap to a blank (DG-187).
-- [ ] The rules do not change (DG-187; `model.ts:113-155`, `group_validation.go:176-212`): a gap
+- [x] The rules do not change (DG-187; `model.ts:113-155`, `group_validation.go:176-212`): a gap
       is inserted at the caret by the editor's "Insert gap", a target is a choice member or one
       blank of a fill-in, a target is used once and shows disabled elsewhere, and a group with
       an unbound gap does not save. The export's "[gap n]" appended at the end of the text, any
       question as a target and a saved unbound gap are not taken.
-- [ ] `gap-bindings.test.tsx` passes with only its locators moved, and gains the unbound row's
+- [x] `gap-bindings.test.tsx` passes with only its locators moved, and gains the unbound row's
       name. `group-authoring.spec.ts`, `group-authoring.live.spec.ts` and
       `builder-groups.live.spec.ts` are green.
-- [ ] Compared with the deck at 360 and 1280, light and dark, in the builder's group pane and
+- [x] Compared with the deck at 360 and 1280, light and dark, in the builder's group pane and
       in the bank's group editor, which share the component.
+
+**As built:** one pull request, two commits (the row, then this note). The row is the export's:
+a chip "gap {n}" (`groups.gapChip`, "chỗ trống {n}" in Vietnamese, so wider than 52px), a 32px
+select at 12.5px with 8px padding and radius 7 on `--card`, and a 28px ghost "Remove gap"
+(`groups.removeGap`, "Xoá chỗ trống {n}", one name per row) with the 14px `x`; rows 6px apart,
+8px between their parts, the hint 12px `--muted-fg` 12px above them. The rows share one grid
+(`grid-cols-subgrid`), so the selects line up when two chips differ by a few pixels. The select's
+first entry, "Choose a question…", is today's "Remove binding" moved into the export's place: it
+unbinds the gap, and while the gap is unbound it is what the select reads. The bound border is
+`--input`, the product's control border (DG-30), and the unbound one `--danger` through
+`aria-invalid`. An unbound row is a `role="group"` named "Gap {n}, not linked"
+(`groups.gapLabelUnbound`), a bound one "Gap {n}" (`groups.gapLabel`); the select is "Question
+for gap {n}" (`groups.gapTarget`, the export's `aria-label`) whatever its state, so a locator holds
+across a bind. "Remove gap" deletes the gap from the material's text, as the export's does, not
+only its binding, which the first entry already does: `removeGap` (`gapCommands.ts`) deletes the
+gap node through the material's editor and leaves the caret where it was, so it is one undo step
+and undo brings back the gap and its binding (`MaterialContent` keeps a removed gap's binding for
+undo, as for a chip deleted in the text). That needs the editor beside the rows, so
+`MaterialContent` passes `onEditor` and `GroupComposer`'s material pane holds it; `GapBindings`
+draws the button only when the host passes `onRemove`, for T-D4.14's dialog to pass its own. The
+hint shows on every rich-text material, with or without gaps, as the export draws it; a Markdown
+material has no rows and no hint. The targets keep the product's labels ("Question {n}", "Question
+{n} · blank {b}"), not the export's "Question {id} · {title}". Locators moved in
+`group-authoring.spec.ts` (the select's name, the unbind entry, its text); `gap-bindings.test.tsx`
+gains "an unbound gap's row is named as unbound, and Remove gap takes the gap out of the text",
+on the real `GroupComposer`. Measured on a live stack with `getBoundingClientRect` at 360 and 1280,
+light and dark, in the bank's group editor and the builder's group pane: every value above, no
+horizontal scroll, and the focus ring 2px `--focus` offset 2px on the select and on Remove gap.
+The chip's 1.5px border computes as 1px in this Chromium at device pixel ratio 1 and 2, as an inline
+`border: 1.5px` does, so the deck's own chip would too. The deck could not render here (its CDN
+scripts do not load), so it was compared with its markup and script (`shc.gaps`, T 754, 2940).
 
 ### T-D4.14 — Builder: the Shared content dialog
 **Depends on:** T-D4.2a, T-D4.2b. It builds on what R4 left on `develop`: the builder (T-R4.31a, T-R4.31b), the group editor (T-R4.34), `useMediaUpload` (T-R4.35), the content editor (T-R4.63) and `AudioPolicyPanel` with "Choose from Media" (T-R4.65)
