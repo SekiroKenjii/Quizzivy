@@ -430,6 +430,27 @@ func isolationCases() map[string]isoCase {
 		"getAttemptResult": {student: true},
 		"getMediaUrl":      {student: true},
 
+		"generateAiQuestions": {
+			as: map[string]string{"body /testId": "listening-test"},
+			body: func(_ *iso, own *party, _ string) any {
+				group := own.c.must(http.StatusOK, http.MethodGet, "/teacher/question-groups/"+own.id("listening-group"), nil)
+				stimuli := group["bundle"].(map[string]any)["group"].(map[string]any)["stimuli"].([]any)
+				return map[string]any{
+					"testId": "", "stimulusId": stimuli[0].(map[string]any)["id"], "types": []any{"short_answer"},
+					"count": 3, "level": "b1", "explanations": false, "language": "en",
+				}
+			},
+		},
+		"checkTestWithAi":          {body: fixed(map[string]any{"checks": []any{"key"}})},
+		"makeTestVariant":          {body: fixed(map[string]any{"changes": []any{"reword"}, "difficulty": "same"})},
+		"writeAiExplanation":       {body: fixed(map[string]any{"language": "en"})},
+		"suggestAiDistractors":     {},
+		"suggestAiScore":           {},
+		"explainAssignmentResults": {},
+		"cleanUpQuestionBank":      {},
+		"getAiUsage":               {},
+		"requestAiCredits":         {},
+
 		"listNotifications": {},
 		"markNotificationsRead": {
 			excuse: map[string]string{"body /ids/-": ownOnly},

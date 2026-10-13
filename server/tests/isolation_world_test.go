@@ -11,6 +11,7 @@ import (
 	"image/color"
 	"image/png"
 	"io"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -23,6 +24,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"quizzivy/internal/core/wiring"
+	aiports "quizzivy/internal/modules/ai/application/ports"
 	"quizzivy/internal/platform/config"
 )
 
@@ -35,11 +38,20 @@ func storageEnv(name, fallback string) string {
 
 func bootWithStorage(t *testing.T) *world {
 	t.Helper()
+	return bootAssistedWithStorage(t, nil)
+}
+
+func bootAssistedWithStorage(t *testing.T, completer aiports.Completer) *world {
+	t.Helper()
 	work := t.TempDir()
 	if err := os.Chmod(work, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	return boot(t, func(c *config.Config) {
+	var options []wiring.Option
+	if completer != nil {
+		options = append(options, wiring.WithCompleter(completer))
+	}
+	return assemble(t, slog.New(slog.DiscardHandler), options, withPrices, func(c *config.Config) {
 		c.S3Endpoint = storageEnv("S3_ENDPOINT", "http://localhost:9000")
 		c.S3Region = storageEnv("S3_REGION", "us-east-1")
 		c.S3Bucket = storageEnv("S3_BUCKET", "quizzivy-media")

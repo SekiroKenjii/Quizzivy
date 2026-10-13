@@ -118,7 +118,8 @@ func (x *iso) groupUnit(group string) sent {
 }
 
 func TestAnotherTeachersIdsAnswerAsMissingOnes(t *testing.T) {
-	w := bootWithStorage(t)
+	provider := newAssistant()
+	w := bootAssistedWithStorage(t, provider)
 	x := &iso{t: t, w: w, cases: isolationCases()}
 	ops := scopedOperations(t)
 
@@ -193,6 +194,9 @@ func TestAnotherTeachersIdsAnswerAsMissingOnes(t *testing.T) {
 		x.substitute(op, x.cases[op.id])
 	}
 
+	if got := len(provider.sent()); got != 5 {
+		t.Errorf("the provider was asked %d times, want 5: once each for the check, variant, explanation, distractors and insights of the caller's own work, and never for another teacher's or a missing id", got)
+	}
 	theirs, absent, mine = x.commitReviewWith(x.a.id("media")), x.commitReviewWith(uuid.NewString()), x.commitReviewWith(x.b.id("media"))
 	if success(absent) || answer(theirs) != answer(absent) {
 		t.Errorf("committing a review that holds another teacher's image answered\n  %s\nwhere a missing image answers\n  %s", answer(theirs), answer(absent))
