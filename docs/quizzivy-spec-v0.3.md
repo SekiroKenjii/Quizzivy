@@ -1910,7 +1910,7 @@ flat results/reviews keep their existing payload and require no group reader.
 | `/teacher/classes`, `/teacher/classes/:id` | Classes | Cards with their codes; CRUD, schedule and room, members, **join-code card** (§6.4). |
 | `/teacher/settings/:section?` | Settings | Profile, Sign-in & security (password, Google, signed-in devices), Notifications, Assignment defaults, Appearance, AI assistant (`ai.use`) and the API reference for its holders. |
 
-**The AI assistant's surfaces** (D19 to D22; V-06 to V-14 of the v2 deck, `docs/plan/74d-d4-deck-update.md` section G). *Availability: D4, T-D4.35, T-D4.36 and T-D4.39* (the first three rows are built, T-D4.34, and Assignment detail › Questions, T-D4.37; Settings › AI assistant is T-D4.38's). The operations behind every one are built (§15), and each web task removes its own line from this block when it ships. A panel is a dialog, so none adds a route.
+**The AI assistant's surfaces** (D19 to D22; V-06 to V-14 of the v2 deck, `docs/plan/74d-d4-deck-update.md` section G). *Availability: D4, T-D4.35 and T-D4.36* (the first three rows are built, T-D4.34, Assignment detail › Questions, T-D4.37, and the import workspace's, T-D4.39; Settings › AI assistant is T-D4.38's). The operations behind every one are built (§15), and each web task removes its own line from this block when it ships. A panel is a dialog, so none adds a route.
 
 Every entry point is drawn only while `GET /public/status` says `ai` and the caller holds `ai.use`. For a teacher who is paused, or whose allowance or the centre's pool is used up, it is drawn disabled with the reason, not hidden (§12).
 

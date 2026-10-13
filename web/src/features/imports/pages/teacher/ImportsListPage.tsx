@@ -331,6 +331,9 @@ function HistoryRow({
             {key ? (
               <> · {t("imports.history.withKey", { name: key.filename })}</>
             ) : null}
+            {item.readWithAi === true ? (
+              <> · {t("imports.history.readWithAi")}</>
+            ) : null}
           </p>
           {item.pendingUploads > 0 ? (
             <p className="text-muted-fg text-xs">
