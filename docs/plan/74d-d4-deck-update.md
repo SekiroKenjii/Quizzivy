@@ -2565,7 +2565,7 @@ page frame (DG-205) did not change: the card adds no threshold.
 **Touches:** `web/src/features/classes/components/{JoinCodePanel,JoinQr,JoinQrDialog (new)}.tsx`, `web/src/features/classes/pages/teacher/ClassDetailPage.tsx` (members' "Joined via"), locales, `web/tests/units/classes/join-code.test.tsx`
 **Size:** S
 **Done when:**
-- [ ] The card (V-16, T 4287-4345): a 112px QR button (`--qr-bg` / `--qr-fg`, radius 10, 1px
+- [x] The card (V-16, T 4287-4345): a 112px QR button (`--qr-bg` / `--qr-fg`, radius 10, 1px
       border, `cursor: zoom-in`, named "Show full size for the projector", at opacity .4 while
       joining is paused) that opens a 420px dialog "Join {class}" with the QR at full size and
       "Show this on the projector. Students scan it or type the code." (or "Joining is paused, so
@@ -2579,11 +2579,40 @@ page frame (DG-205) did not change: the card adds no threshold.
       the no-code state are T-R4.42's.
 - [ ] Members' "Joined via" shows the full code in monospace where T-R4.42 showed "Code
       ••{hint}" (the code is always shown in full to its teacher, D5, DG-01).
-- [ ] DG-01 is marked Answered in `gaps.md` and its "Meanwhile" rule deleted (T-D4.1 opens the
+- [x] DG-01 is marked Answered in `gaps.md` and its "Meanwhile" rule deleted (T-D4.1 opens the
       row; this task closes it).
-- [ ] Strings vi first; unit tests for the paused state, the dialog and the three buttons;
+- [x] Strings vi first; unit tests for the paused state, the dialog and the three buttons;
       compared with the deck at 360, 768, 1024, 1280 and 1440, light and dark, with joining on
       and paused.
+
+**As built:**
+- **Files:** `components/JoinCodePanel.tsx` (the card), `components/JoinQrDialog.tsx` (new: the
+  projector dialog and the New join code dialog on `DialogShell`, which traps focus and gives it
+  back), `components/JoinQr.tsx` (the link without its scheme, the code at line height 1.5, as the
+  deck's QR field draws them; `ShowQrDialog` on Classes reads it too), `joinLink.ts`
+  (`joinLinkLabel`, and `useCopyJoinCode` beside `useCopyJoinLink`), in `features/classes/`. The
+  task named `join-code.test.tsx`; the card's suite is `join-code-panel.test.tsx`, extended there.
+- **The card:** the 112px QR button draws the real QR of the join link on `--qr-bg` / `--qr-fg`,
+  named "Show QR code full size" with the title "Show full size for the projector", as the deck
+  has both; Download QR still rasterises the hidden `JoinQr` on the paper tokens. A code that
+  cannot be read back, or a reader without `teaching.classes.write`, shows "••••-{hint}" with no
+  QR and no share row (DG-180), and the chip while joining is paused.
+- **New code** now opens the New join code dialog with the code the rotation returned, in place
+  of the toast that named it; Done gives focus back to New code. Classes keeps its toast (DG-178).
+- **Not built:** members' "Joined via" in full. `ClassMember` carries `joinCodeHint` only, so the
+  full code needs a contract field, and a code a member used may since have been revoked or
+  rotated; that is a §6 decision for the Tech Lead, not a display change. The column still shows
+  "Code ••{hint}" (DG-01's row says so).
+- **Keys:** thirteen `classDetail` keys added, vi first; `classDetail.qr`, `selfJoinOffHint` and
+  `codeShareHint` removed in their own commit.
+- **Measured** against the deck served locally (React, Babel and lucide from their npm tarballs)
+  at 360, 768, 1024, 1280 and 1440, light and dark, joining on and paused, the sidebar expanded,
+  collapsed and as the drawer (36 cells): the card's size equals the deck's in every cell but
+  1440 collapsed, where the page's column is 1.3px wider; the QR button, code, chip, share row,
+  Expires and Uses and footer are within 0.5px and equal in every computed colour. New code is
+  5.5px wider, T-R4.42's 13.5px label against the deck's 13px. Both dialogs are the deck's width
+  and within 0.6px of its height, the shared `DialogShellHeader`'s difference. The link keeps
+  the code's dash, `joinLinkOf`'s one format (DG-01), where the deck drops it.
 
 ---
 
