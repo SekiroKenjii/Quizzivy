@@ -22,6 +22,18 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* engine-lg is lg (1024px) for the take-test engine: the window's width, except
+   inside a preview frame narrower than 1024px, which marks itself
+   data-engine-narrow, so a phone frame on a wide window draws the phone's
+   sizes. Outside a frame it is exactly lg. */
+@custom-variant engine-lg {
+  @media (width >= 64rem) {
+    &:where(:not([data-engine-narrow] *)) {
+      @slot;
+    }
+  }
+}
+
 :root {
   color-scheme: light;
   --radius: 0.375rem;
@@ -352,6 +364,13 @@
       min-height: 2.75rem;
       min-width: 2.75rem;
     }
+  }
+
+  [data-engine-narrow]
+    .student-surface
+    :where(button, [data-slot="button"], [data-slot="select-item"]) {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
   }
 }
 

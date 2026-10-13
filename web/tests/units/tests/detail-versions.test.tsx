@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import i18n from "@/lib/i18n";
 import { registerContentElement } from "@/layouts/shell/contentWidth";
@@ -16,7 +16,12 @@ import {
   versionFixture,
 } from "./detailHarness";
 
+beforeAll(async () => {
+  await import("@/features/take-test");
+});
+
 const PUBLISHED_SENTENCE = gapSentence(PUBLISHED_PROMPT);
+const SECOND_SQUARE = /^Câu 2\b/;
 
 beforeEach(serveDetail);
 
@@ -139,7 +144,7 @@ describe("the version history", () => {
     detail.test = testFixture({ currentVersion: 2 });
     detail.versions = [versionFixture(1), versionFixture(2), versionFixture(3)];
     const { user, router } = renderDetail(`/teacher/tests/${TEST_ID}?version=3`);
-    await screen.findByText(ADDED_PROMPT);
+    await screen.findByRole("button", { name: SECOND_SQUARE });
     expect(detail.previewVersions).toEqual([3]);
 
     await user.click(within(card(3)).getByRole("button", { name: "Xoá" }));
@@ -232,11 +237,13 @@ describe("the version history", () => {
     detail.test = testFixture({ currentVersion: 2 });
     detail.versions = [versionFixture(1), versionFixture(2)];
     const { user, router } = renderDetail();
-    await screen.findByText(ADDED_PROMPT);
+    await screen.findByRole("button", { name: SECOND_SQUARE });
 
     await user.click(within(card(1)).getByRole("button", { name: /Phiên bản 1/ }));
 
-    await waitFor(() => expect(screen.queryByText(ADDED_PROMPT)).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: SECOND_SQUARE })).toBeNull(),
+    );
     expect(router.state.location.search).toBe("?version=1");
     expect(
       within(card(1)).getByRole("button", { name: /Phiên bản 1/ }),
@@ -248,7 +255,7 @@ describe("the version history", () => {
     detail.test = testFixture({ currentVersion: 2 });
     detail.versions = [versionFixture(1), versionFixture(2)];
     const { user, router } = renderDetail();
-    await screen.findByText(ADDED_PROMPT);
+    await screen.findByRole("button", { name: SECOND_SQUARE });
 
     await user.click(screen.getByRole("button", { name: "Lịch sử phiên bản" }));
     const sheet = await screen.findByRole("dialog", { name: "Lịch sử phiên bản" });
@@ -292,7 +299,7 @@ describe("changes from the previous version", () => {
   it("lists the changes above the frame and marks nothing inside it", async () => {
     twoVersions();
     const { user, router } = renderDetail();
-    await screen.findByText(ADDED_PROMPT);
+    await screen.findByRole("button", { name: SECOND_SQUARE });
 
     const toggle = screen.getByRole("button", { name: "Thay đổi so với phiên bản 1" });
     expect(toggle).toHaveAttribute("aria-pressed", "false");
@@ -317,7 +324,9 @@ describe("changes from the previous version", () => {
     expect(
       changes.compareDocumentPosition(frame) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(within(frame).getByText(ADDED_PROMPT)).toBeInTheDocument();
+    expect(
+      within(frame).getByRole("button", { name: SECOND_SQUARE }),
+    ).toBeInTheDocument();
     expect(within(frame).queryByText("Mới")).toBeNull();
     expect(within(frame).queryByText("Đã sửa")).toBeNull();
     expect(frame.querySelector("[class*='outline-dashed']")).toBeNull();

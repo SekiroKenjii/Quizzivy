@@ -4,6 +4,7 @@ import {
   CloudAlert,
   CloudCheck,
   CloudOff,
+  Eye,
   Loader,
   Lock,
   MonitorSmartphone,
@@ -58,6 +59,21 @@ export function SaveState() {
         className={cn("size-3 flex-none", status === "saving" && "animate-spin")}
       />
       <span className="truncate">{t(label)}</span>
+    </span>
+  );
+}
+
+/**
+ * UnsavedLine stands where a teacher's preview of the paper would have the
+ * save line: answers chosen there are kept only while it is open, so it says
+ * they are not saved, beside the eye, and never claims a save.
+ */
+export function UnsavedLine() {
+  const { t } = useTranslation();
+  return (
+    <span className="flex min-w-0 items-center gap-[5px]">
+      <Eye aria-hidden="true" className="size-3 flex-none" />
+      <span className="truncate">{t("takeTest.preview.notSaved")}</span>
     </span>
   );
 }

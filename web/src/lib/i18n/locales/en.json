@@ -2570,6 +2570,12 @@
       "filled": "{{filled}} of {{count}} gaps filled",
       "chip": "Gap {{n}}, {{word}}",
       "empty": "empty"
+    },
+    "preview": {
+      "studentView": "Student view",
+      "finish": "This is a preview. Students submit here.",
+      "noTimeLimit": "The time limit is set when the test is assigned",
+      "notSaved": "Answers here are not saved."
     }
   },
   "integrity": {

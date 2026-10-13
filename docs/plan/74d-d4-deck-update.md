@@ -2487,14 +2487,14 @@ frame's content is R4's read-only paper until T-D4.16.
 **Frozen:** the live engine's wiring in `TakeTestPage` (store, autosave, drafts, integrity,
 fullscreen, play counting); `preview.ts`'s stripping of keys and transcripts.
 **Done when:**
-- [ ] `EnginePreview` mounts `Paper` from a paper source held in component state and a width
+- [x] `EnginePreview` mounts `Paper` from a paper source held in component state and a width
       source that measures its frame (T-D4.3's two seams). It imports no store, starts no
       autosave, writes no draft and no open-question key, mounts no integrity monitor, asks
       for no fullscreen and counts no play; a unit test spies on each and finds no call.
-- [ ] Its header has no leave button and no Submit, and shows the chip "Student view" (30px,
+- [x] Its header has no leave button and no Submit, and shows the chip "Student view" (30px,
       radius 999, `--info-soft` / `--info-ink`, 12.5px 600, a 14px eye). Finish raises the
       info toast "This is a preview. Students submit here."
-- [ ] No timer runs and no time is shown, because none of the three hosts has one: a test has
+- [x] No timer runs and no time is shown, because none of the three hosts has one: a test has
       no time limit, `durationMinutes` is the assignment's (`api/openapi.yaml` 3175, 3195;
       `Assignment` 2640-2645), and `previewTest` returns `version`, `questions`, `sections`
       and `groups` only (4391-4398), as the builder draft and the review draft do. In the
@@ -2502,26 +2502,87 @@ fullscreen, play counting); `preview.ts`'s stripping of keys and transcripts.
       reading "––:––", not a `timer`, named "The time limit is set when the test is assigned"
       ("Thời gian làm bài được đặt khi giao bài"), so the header keeps its width in the
       390px frame. `Clock` is not mounted. Listed under DG-188 beside the deck's 45:00.
-- [ ] The save line does not claim a save. Where the engine says "All answers saved" the
+- [x] The save line does not claim a save. Where the engine says "All answers saved" the
       preview says "Answers here are not saved." ("Câu trả lời ở đây không được lưu."), with
       the eye icon, and no "Saving…" follows a pick; the deck's preview keeps the live save
       line (S 961-963, 1617), which DG-188 lists as a slip.
-- [ ] The integrity policy is the assignment's too (`IntegrityPolicy`, 2615-2637), so the
+- [x] The integrity policy is the assignment's too (`IntegrityPolicy`, 2615-2637), so the
       preview has none: pasting into an answer is allowed, nothing is counted, no strike line
       and no fullscreen bar are drawn.
-- [ ] Answers can be chosen and are kept only while the preview is open (Q11).
-- [ ] The three hosts mount it in the frames T-D4.2c built: the builder
+- [x] Answers can be chosen and are kept only while the preview is open (Q11).
+- [x] The three hosts mount it in the frames T-D4.2c built: the builder
       from the draft through `preview.ts`, Test detail from `previewTest` for the selected
       version, the import from the review draft's adapter. `StudentPreview.tsx` is removed
       when nothing imports it.
-- [ ] At 390px the frame shows the phone engine (the drawer, the grid button) on a desktop
+- [x] At 390px the frame shows the phone engine (the drawer, the grid button) on a desktop
       window: the width comes from the frame, never from the viewport.
-- [ ] The engine enters the teacher tree as a lazy chunk; `router-chunks.test.ts` passes
+- [x] The engine enters the teacher tree as a lazy chunk; `router-chunks.test.ts` passes
       untouched.
-- [ ] The three previews are compared with the deck at 1280 and 1440 (Computer) and at 390
+- [x] The three previews are compared with the deck at 1280 and 1440 (Computer) and at 390
       (Phone), light and dark. Known differences, all under DG-188: the placeholder where the
       deck runs a 45:00 timer; the save line's sentence; content is the teacher's own, not a
       fixture.
+
+**As built:** one pull request (the moves; the frame-aware thresholds and sheet; the preview; the
+group preview spec's focus check; this note; then E2E 1 read through the engine, the store cut out
+of the preview's imports, and the engine's keys checking for a dialog only for a key they take). `Paper` moved from `TakeTestPage.tsx` to `components/Paper.tsx`,
+`useLivePaperSource` from `paper.ts` to `livePaper.ts`, `dotsOf` to `answered.ts`, and the
+engine's keys to `shortcuts.ts` (`paperKey`, which TakeTestPage acts on as before), with no change,
+and `remainingMs` from `store.ts` to `timeLeft.ts` (the store re-exports it), so
+`EnginePreview` (`take-test/components/EnginePreview.tsx`, exported by `take-test/index.ts`)
+mounts `Paper` with no store, `livePaper` or integrity monitor in its imports:
+`preview-imports.test.ts` makes each of the three throw when loaded and imports the preview. The
+one integrity module left in its graph is `integrity/fullscreen.ts`, through `FullscreenBar`,
+which asks for fullscreen only on a click and is not drawn, since the preview passes
+`fullscreenBar={false}`. It holds
+the paper's answers, flags and open question in component state, with every audio callback a
+no-op, and `Paper`'s `preview` mode draws `EngineHeader`'s preview (no leave button, no Submit,
+the chip, `NoTimeLimit` in the timer's place, `UnsavedLine` as the save line, no
+`SaveAnnouncement`), its panes as a `<section>` rather than a second `<main>`, and Finish as
+`notify.info` with the eye. A preview paper takes the focus only once the teacher moves (on Test
+detail it would otherwise take it from the page as it loads), and the engine's keys act on
+`keydown` inside it, the open-dialog check scoped to it. `preview.test.tsx` subscribes to both
+stores and spies on `saveAnswers`, `submitAttempt`, `getAttempt`, both play records,
+`writeDraft`, `writeOpenQuestion`, `Storage.setItem`, `fetch`, `useIntegrityMonitor`,
+`recordAudioEvent`, `recordSharedAudioEvent`, `enterFullscreen`, `exitFullscreen` and
+`requestFullscreen` while it answers, flags, plays both recordings, types, pastes (not prevented)
+and finishes, and finds no call; a last case shows the subscription does catch a write.
+The thresholds: the engine's `lg:` classes (the blank and the answer field, the sheet's squares,
+the seek track of `AudioPlayer`) are now `engine-lg:`, a custom variant that is `lg:` except
+under `[data-engine-narrow]`, which `StudentPreviewPane` sets on its region below 1024px of
+measured width; the same mark puts `.student-surface`'s 44px floor on a narrow frame. So the 390px
+frame draws a phone's sizes on a wide window, a computer frame narrower than 1024px draws what a
+student's window that wide would, and under `FocusLayout`, where nothing carries the mark, the
+generated rules are the old ones (`:where`, so no specificity is added; they sort after the base
+utilities in `index.css`'s output, as `lg:` did). The question sheet is a Radix dialog that
+portals to the body; `Navigator` portals it into `EngineLayerContext`'s element
+(`take-test/frame.ts`), which `EnginePreview` provides, and `DialogContent` gained a `container`
+prop; the preview root is `[contain:layout]`, so the sheet and its backdrop sit in the frame. The
+frame's region now holds the engine at full height with no padding and no `tabIndex`; hosts draw
+their loading, error and empty states in `PreviewFrameMessage`. The engine is loaded through
+`PaperPreview` (`tests/components/`), a `lazy` of `@/features/take-test`, into a chunk the three
+hosts share with `TakeTestPage`; `router-chunks.test.ts` passes untouched. Test detail keys the
+preview by version, so another version starts at its first question. `StudentPreview.tsx` stays:
+`InlineStudentPreview` (the group preview dialog and Assignment detail, outside this task)
+imports it, and `group-preview.test.tsx` covers it unchanged. Tests moved: `preview-and-leave`
+(the bar holds only the segment and Close; the frame is the engine's, with its Finish),
+`detail-versions` (version 2 is read from its second square, as one question shows at a time),
+`confirm` (the draft is stepped through with Next), `preview-frame` (the engine in the region; the
+narrow mark at 388 and 1000px, none at 1250), `navigator`, `renderers` and `panes` (the renamed
+classes), `group-preview.spec.ts` (the engine in the frame, the drawer at the phone's width, the
+version switch) and `document-scroll.spec.ts` (the first question's prompt). Compared in Chromium
+with the deck (its React, Babel and lucide from their npm tarballs, the app's Be Vietnam Pro for its
+Google Fonts link) on all three hosts at 1280 and 1440, Computer and Phone, and the overlay at 360,
+768 and 1024 in both, light and dark, 36 cells, measured relative to the frame: the frame, the
+header (60px, its border), the title, the pill (36px, its width, radius, `--muted`), the chip
+(30px, 121.5px in English, radius, `--info-soft` / `--info-ink`, 12.5px 600, 10px padding), Next
+and the grid button equal the deck's within 0.5px. The pill sits 6px to the right where the title
+column shows, because "Answers here are not saved." is longer than "All answers saved" (18.5px on
+the import, whose title is the draft's); on Test detail at 1280 and the overlay at 1024 the rail
+shows where the deck's grid button does, because the deck's first question is beside a passage
+and ours is not. No cell scrolls sideways. In Vietnamese at 360 the chip is 150px and the header
+still fits the frame. Known differences, under DG-188: the placeholder, the save line, the
+content.
 
 ---
 

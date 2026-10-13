@@ -339,7 +339,7 @@ export function AudioPlayer({
       <div className="min-w-0 flex-1">
         <div
           data-seek={allowSeek}
-          className="relative flex h-3 items-center data-[seek=true]:h-11 lg:data-[seek=true]:h-3"
+          className="engine-lg:data-[seek=true]:h-3 relative flex h-3 items-center data-[seek=true]:h-11"
         >
           <div className="bg-secondary h-1 w-full overflow-hidden rounded-full">
             <div
@@ -525,7 +525,7 @@ function RecordingCard({
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div
             data-seek={allowSeek}
-            className="relative flex h-1.5 items-center data-[seek=true]:h-11 lg:data-[seek=true]:h-3"
+            className="engine-lg:data-[seek=true]:h-3 relative flex h-1.5 items-center data-[seek=true]:h-11"
           >
             <div className="bg-muted h-1.5 w-full overflow-hidden rounded-[6px]">
               <div

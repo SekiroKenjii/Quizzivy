@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useEngineLayer } from "../frame";
 import type { SectionGroup } from "../sections";
 import { isRun, type Stop } from "../stops";
 
@@ -219,6 +220,7 @@ function SheetButton({
     total: dots.length,
   };
   const label = t("takeTest.gridLabel", counts);
+  const layer = useEngineLayer();
 
   return (
     <>
@@ -238,6 +240,7 @@ function SheetButton({
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
+          container={layer}
           showCloseButton={false}
           className={cn(
             "bg-card shadow-float top-auto flex max-h-[80%] max-w-none translate-x-0 translate-y-0 flex-col gap-4 overflow-y-auto border px-4 pt-3 pb-5 sm:max-w-none",
@@ -363,7 +366,7 @@ export function SectionBlocks({
                   run.positions.includes(next) &&
                   (column + 1) % columns !== 0
                 }
-                className={shape === "rail" ? "h-8.5 min-h-0" : "h-11 lg:h-10.5"}
+                className={shape === "rail" ? "h-8.5 min-h-0" : "engine-lg:h-10.5 h-11"}
                 onJump={onJump}
               />
             );
