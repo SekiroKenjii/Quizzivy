@@ -5,11 +5,12 @@
 
 **Changes since v0.103**
 
-D4, T-D4.12: the engine as D4 built it, and the settings line as it reads.
+D4, T-D4.12: the engine and the teacher's AI surfaces described as D4 built them. No behaviour changed in this version; the text caught up with T-D4.4 to T-D4.10a, T-D4.22 and T-D4.36 to T-D4.38.
 
-- §8 Settings › AI assistant quotes its reset line as built: "It resets on {date}", the first day of the next month.
-- §9 The engine shows one stop at a time, a question or a cloze's run of gaps. Every question carries its section's title and instructions. The sections rail shows from 900px, or from 1180px beside shared content; the footer holds a key hint beside the rail and the grid button with its question sheet elsewhere, and there is no strip of numbers. A cloze run is one screen with its line, its chips and its gap card, and the arrows move by stop.
-- §12 The engine's thresholds (420, 900, 1180 and 1024) are on its own width, a preview frame's in a preview; the touch-target exceptions name the rail's squares, the drawer's handle and close button, and the grid button.
+- §9 The engine shows one question at a time, except a run of a cloze's gaps, which is one screen with its own line, chips and gap card, stepped over as a whole; every gap keeps its number, square, flag and points (T-D4.10a). A section's title and instructions stand above each of its questions, not only the first (T-D4.5). The stimulus pane's kicker and heading and the question pane's surface and widths are stated. "Navigation" replaces "Footer": the sections rail from 900px, or 1180px beside shared content, with the key hint in the footer; the grid button and the question sheet everywhere else, a bottom sheet below 768 and a 560px card from it; three square states; no strip (T-D4.4). The arrows move by screen, and Esc also closes the drawer.
+- §12 "One breakpoint, 768px" is the shell's and the engine's chrome; a new bullet records the engine's other thresholds (420, 900, 1180, the drawer's 88% up to 420px, and the 1024px sizes) and their one width source. The touch-target bullet names the rail's 34px squares, the drawer's handle and close button and the sheet's 44px and 42px squares in place of the strip; the engine's question column is 720px alone. The recording card's lime track is the audio player rule's one exception.
+- §10.4 The assignment's Flagged count leaves out voided attempts, as T-D4.22 built it.
+- §8 The grading card and Assignment detail › Questions draw a line, not nothing, while "Let AI read student answers" is off; Settings › AI assistant says the date the allowance resets and shows a waiting request. No "Availability: D4" marker is left in §8 or §12.
 
 **Changes since v0.102**
 
@@ -1961,13 +1962,13 @@ Every entry point is drawn only while `GET /public/status` says `ai` and the cal
 | Question bank, header | "Clean up" and "Generate" | `cleanUpQuestionBank`, `generateAiQuestions` |
 | Test detail | "Make a variant", disabled without a published version | `makeTestVariant`, then `duplicateTest`, `duplicateQuestion` and `updateQuestion` |
 | Question editor, in the bank and in the builder | "Write with AI" on the Explanation; "Suggest wrong options" on a single or multiple choice question | `writeAiExplanation`, `suggestAiDistractors` |
-| Grading card | "Suggest a score" on a short answer, drawn only while "Let AI read student answers" is on | `suggestAiScore` |
-| Assignment detail › Questions | "Explain results with AI", under the same switch; "Make a practice set" opens Generate and saves a new draft test "{title} · Practice" | `explainAssignmentResults`, then `createQuestion`, `createTest` and `updateTest` |
+| Grading card | "Suggest a score" on a short answer while "Let AI read student answers" is on; with it off, one line that says so and links to Settings › AI assistant | `suggestAiScore` |
+| Assignment detail › Questions | "Explain results with AI", under the same switch (with it off, the same kind of line); "Make a practice set" opens Generate and saves a new draft test "{title} · Practice" | `explainAssignmentResults`, then `createQuestion`, `createTest` and `updateTest` |
 | Import workspace, Sources pane | the "Read with AI" card, which mirrors the preference "Read imports with AI" | `createWordImport` with `readWithAi` |
 
 A variant is a new draft test named "{title} · Variant", never a version of the open one. A copied draft names the same bank questions as the test it copies, so each changed question is duplicated and the change is written to the duplicate: the test and its questions are untouched. The bank clean-up merges nothing: a near-duplicate offers "Open" for each question and "Keep both", and tag suggestions apply through the bulk tag write (DG-197).
 
-**Settings › AI assistant** (`/teacher/settings/ai`, `ai.use`) holds the month's usage from `getAiUsage` (used of the allowance, what is left, a bar and the five rows generation, grading, explanations, imports and checks, with "It resets on {date}", the first day of the next month, the month being counted in `APP_TIMEZONE`), the preferences (`UserPreferences.ai`: the language the assistant writes in, tagging what it drafts as "AI draft", letting it read student answers, reading imports with it), and "Ask for more credits" (1,000 to 100,000 and a reason) while the centre's rule is to take requests and none is waiting (DG-200). With the assistant off the section says "AI is not turned on for this school." (DG-201).
+**Settings › AI assistant** (`/teacher/settings/ai`, `ai.use`) holds the month's usage from `getAiUsage` (used of the allowance, what is left, a bar and the five rows generation, grading, explanations, imports and checks, with the date the allowance resets, the first of the next month in `APP_TIMEZONE`: "It resets on 1 November"), the preferences (`UserPreferences.ai`: the language the assistant writes in, tagging what it drafts as "AI draft", letting it read student answers, reading imports with it), and "Ask for more credits" (1,000 to 100,000 and a reason of at most 500 characters) while the centre's rule is to take requests and none is waiting, and the request waiting, with its date, until an Admin decides it (DG-200). With the assistant off the section says "AI is not turned on for this school." (DG-201).
 
 **Admin › AI credits** is the pool, the requests waiting, the teachers with their month and the rules. *Availability: R5* (T-R5.35, in the Admin console R5 builds; none exists before). D4 ships its operations (§15) and `cmd/maintenance ai-credits` (`docs/setup/operations.md`), which the owner uses until then. The rule for a pool that runs out has one value, pause everyone; "Add credits" is the Admin's approval, and the product bills nobody (DG-196).
 
@@ -2097,7 +2098,8 @@ Shared:
 
 ---
 
-**The engine** shows one stop at a time: a question, or the run of a cloze's gaps on one screen (below).
+**The engine** shows one question at a time, except that a run of a cloze's gaps
+is one screen ("A cloze" below).
 
 - **Header.** The ✕ ("Thoát khỏi bài làm"), from 768 the title over the save
   line, the timer, and "Nộp bài". The ✕ asks first, except on a locked paper,
@@ -2112,8 +2114,20 @@ Shared:
   rearms automatic submission at the device's recorded deadline, whichever
   request was refused and even after a second refusal. Submission can still
   fail and retry. A deadline refusal never replaces a closed or superseded lock.
-- **Panes.** A question whose group has something to read shows a passage pane
-  beside the question pane from 768, each scrolling by itself. Below 768 the
+- **Section head.** Above every question the question column states its
+  section's title over its instructions, so a part's instructions are read on
+  each of its questions, not only on the first. A paper of one section with no
+  instructions has no head, nor has a section with neither a title nor
+  instructions. A group's own instructions stay in the stimulus pane, under its
+  heading.
+- **Panes.** A question whose group has shared content (a material or a
+  recording) shows the stimulus pane beside the question pane from 768, each
+  scrolling by itself. The question pane is then on the sidebar's surface with
+  its column at most 600px wide; alone, or on a phone, it is on the page's
+  background at most 720px wide. The stimulus pane leads with the group's title
+  as a kicker over the heading of its first material with something to read; a
+  material that is only a recording has no heading, and a shared recording's
+  card stands at its audio node (§11.3). Below 768 the
   question fills the screen and the shared content is a drawer from the left
   over it, 88% of the width and at most 420px, above a darkened backdrop. A
   handle at the left edge ("Mở ngữ liệu", or "Mở bài nghe" for a recording,
@@ -2126,36 +2140,37 @@ Shared:
   closes it, and so does a gap tapped inside it, which lands on its question or
   blank; while it is open the keys that answer or flag do nothing. Crossing 768
   with it open shows both panes, with nothing remounted.
-- **Section header.** Above every question, at the top of the question
-  column: the section's title over its instructions, with a rule under them.
-  It is left out on a paper of one section with no instructions and for an
-  untitled section with no instructions, and the instructions line is left out
-  for a section that has none. A group's own title heads the
-  stimulus pane, and a group's recording is a card there (§11.3).
-- **Sections rail.** Where the engine is at least 900px wide on a question with
-  no shared content, or at least 1180px beside it, and never below 768, a rail
-  ("Các phần") stands before the panes: each part's title, "n / m" answered and
-  a grid of its squares, with a legend at its foot. A square is answered,
-  partly answered (a fill-in with some of its blanks typed) or empty; the open
-  question's is ringed, and a flag is a dot on it.
-- **Footer.** Under the question pane: Previous and Next, which is "Hoàn tất"
-  on the last stop. With the rail a key hint stands between them. Without it,
-  at every width, the grid button does ("Câu 4 · đã làm 3 trên 8", or
-  "4 · 3/8" beside shared content from 768 and below 420), and opens the
-  question sheet: pinned to the bottom below 768, a 560px card from 768, with
-  one block of squares per part and the same legend. The rail and the sheet
-  head each part. There is no strip of numbers.
-- **A cloze.** Two or more consecutive single-choice members of one group, each
-  bound to a gap of the same material and none with an image or audio of its
-  own, are one stop. Its line reads "Câu 23–27 trên 34 · Điền từ vào đoạn văn ·
-  5 chỗ trống". The members' shared plain prompt is printed once (otherwise the
-  open member's own prompt is in the gap card), then a hint, a chip per gap
-  with its chosen word, and the open gap's card with its options and its own
-  worth. Choosing an option answers that gap's question and opens the next gap
-  with no answer. In the passage each gap is a chip with the chosen word, and
-  opens the run on its gap. Each gap keeps its own number, square, flag, points
-  and result row: the run's squares are tied, and all open the run. Previous,
-  Next and the arrows move by stop.
+- **Navigation.** Under the question pane: Previous, a middle, and Next, which
+  is "Hoàn tất" on the last screen. The sections rail ("Các phần"), a 236px
+  column before the panes, shows when the engine is at least 900px wide on a
+  question with no shared content and at least 1180px wide on one with it, and
+  never below 768, so from 900 to 1179px it comes and goes between questions.
+  It holds one block per section, the section's title beside "n / m" answered
+  over a five-column grid of squares, and the legend at its foot. While it
+  shows, the footer's middle is the key hint ("← → để chuyển câu · A–D để chọn
+  đáp án"; "để chuyển · A–D để chọn" beside shared content; "để chuyển câu" on
+  a question with no options). Otherwise, at every width, the middle is the
+  grid button, "Câu 4 · đã làm 3 trên 8" ("4 · 3/8" beside shared content from
+  768 and below 420px), which opens the question sheet: a bottom sheet below
+  768 and a 560px card from 768, with the same blocks in six columns and the
+  legend; its name and the answered total are for a screen reader only. It opens on
+  the open question's square, keeps focus inside, closes on Esc, the backdrop
+  or a square, and closes when the engine grows past the rail's threshold.
+  A square is answered (filled), partly answered (a fill-in with some of its
+  blanks typed, which still counts as unanswered) or empty; the open question's
+  square is ringed in lime and a flag is an amber dot. There is no strip of
+  numbered squares.
+- **A cloze.** Two or more consecutive single-choice members of a group, each
+  bound by a gap of one material and none with an image or audio of its own, are
+  one screen: "Câu 23–27 trên 34 · Điền từ vào đoạn văn · 5 chỗ trống". It
+  prints their shared plain prompt once (or each member's own prompt in the gap
+  card), a chip per gap, and the open gap's card with its options and its worth;
+  a choice opens the next gap with no answer, going round. Previous, Next and
+  the arrows step over the whole run. Every gap stays a question with its own
+  number, square, flag, points and result row: the squares are tied within a
+  row ("Cùng màn hình" in the legend) and all ringed while the run is open. A
+  member with media, or a gap left alone, is a question of its own whose line
+  says "Điền từ vào đoạn văn · 1 trong 5 chỗ trống".
 - **Submitting.** "Nộp bài" in the header and "Hoàn tất" open the Submit
   dialog, the only way a student hands a paper in: answered, flagged, time left, and a
   "Đến câu" chip for each unanswered question. There is no review page.
@@ -2182,9 +2197,10 @@ Shared:
   again only when the student continues the attempt there. A tab that holds
   no session is given the current one. Such a read still replaces the
   attempt's beacon token, and two tabs of one browser can share a session.
-- **Keys.** A–E choose an option; a sixth has no key, because F flags the
-  question. The arrows move between stops and stop at either end. Esc
-  closes a dialog or the sheet. None acts in a text field or another control
+- **Keys.** A–E choose an option, on a cloze for the open gap; a sixth has no
+  key, because F flags the question. The arrows move between screens, as
+  Previous and Next do, and stop at either end. Esc closes a dialog, the sheet
+  or the drawer. None acts in a text field or another control
   that owns the key, with Ctrl, Alt or the command key held, while a dialog or
   the question sheet is open, or on a locked paper.
 
@@ -2242,7 +2258,9 @@ Announced, visible, never silent.
 
 ### 10.4 Teacher review
 
-What the teacher sees, by D8 (R4). One tone marks "Flagged" everywhere, the danger tokens (`features/integrity/tones.ts`): the dashboard's figure and its Recent activity marker, the assignment's Flagged stat, the roster's row, the attempt sheet and the attempt page, and the flagged notification.
+What the teacher sees, by D8 (R4). One tone marks "Flagged" everywhere, the danger tokens (`features/integrity/tones.ts`): the dashboard's figure and its Recent activity marker, the assignment's Flagged count, the roster's row, the attempt sheet and the attempt page, and the flagged notification.
+
+- **The Flagged count** on Assignment detail's progress card (T-D4.22) counts the flagged attempts that are not voided: exactly the rows its filter shows, over the whole roster whatever the search. A flagged attempt that is later voided leaves the count.
 
 - **The roster** (the assignment's Students tab) shows Focus lost as "—" or "{n}×", in danger ink after a flag icon once the attempt is flagged, on a row in the danger's soft tone. Where the column is hidden, the same mark sits under the student's name.
 - **The attempt sheet** draws a compact timeline from the start (info) to "Submitted" (success, once handed in). Leaving the test and an automatic submission are danger, with the time away on the label ("Left fullscreen · 14 s"); every other kind keeps a neutral dot.
@@ -2452,13 +2470,13 @@ Deliberate. Do not "improve" them with trendy defaults.
 - **The credit note.** A panel's footer says what the call cost and what is left, from the answer's `usage` and in credits, never in money. The deck's costs are placeholders: the product shows no figure it has not metered.
 - **Failure.** A provider that did not answer, refused, or answered something that fails the schema is the warning callout "AI didn't respond. Try again in a minute." with "Try again" (`AI_UNAVAILABLE`, which asks for 30 seconds). A panel closes on Esc, keeps focus inside while open and returns it to the button that opened it (DG-36).
 
-**The student app and the engine, as built in R3 (v0.9.0).** The source is `Quizzivy Student.dc.html`. What the deck does not draw, and where the product departs from it, is in `docs/design/gaps.md` (DG-80 to DG-89, DG-102 to DG-107, DG-119).
+**The student app and the engine, as built in R3 (v0.9.0) and D4.** The source is `Quizzivy Student.dc.html`. What the deck does not draw, and where the product departs from it, is in `docs/design/gaps.md` (DG-80 to DG-89, DG-102 to DG-107, DG-119, DG-182 to DG-194).
 
-- **One breakpoint, 768px.** The shell changes its chrome there and nowhere else: destinations in the top bar or bottom tabs. The engine changes there too: side-by-side panes or the drawer over the question, and the question sheet as a bottom sheet or a centred card. A page keeps its state across it.
-- **The engine's thresholds** are on the engine's own width, which in a teacher's preview is the frame's: below 420 the grid button reads its short label; from 900 the sections rail shows on a question with no shared content, and from 1180 beside it, never below 768; at 1024 the 44px floor ends and the blank, the answer field, the sheet's squares and the seek track take their wide sizes. Crossing any of them keeps an answer being typed, and nothing in the panes remounts.
-- **One centred column per page:** Home and Classes at most 960px, the test intro 720px, the result 820px, Settings 760px. No page has a side panel. In the engine the passage column is at most 640px and the question column 600px.
+- **One breakpoint for the shell, 768px.** The student shell changes its chrome there and nowhere else (destinations in the top bar or bottom tabs), and so does the engine's: side-by-side panes or the drawer over the question, and the sheet as a card or a bottom sheet. A page keeps its state across it.
+- **The engine's other thresholds** are its own, read through one width source (`useEngineWidthAtLeast`): the window's width, or a preview frame's (§7.3). The sections rail shows from 900px on a question with no shared content and from 1180px on one with it, and the grid button with its sheet stands in for it everywhere else; the grid button's label takes its short form below 420px (and beside shared content from 768); the drawer is 88% of the width, at most 420px; the engine's 1024px sizes (`engine-lg:`, below) follow the same source. Crossing any of them remounts nothing and keeps what is typed.
+- **One centred column per page:** Home and Classes at most 960px, the test intro 720px, the result 820px, Settings 760px. No page has a side panel. In the engine the passage column is at most 640px and the question column 600px beside shared content, 720px alone.
 - **Classes** are cards in a grid that fills the row, with 280px as a card's least width. A card is not a link.
-- **Touch targets.** Below 1024px the student surfaces put a 44px floor on buttons, and so does the engine in a teacher's preview frame narrower than 1024px, whatever the window's width. A control the deck draws keeps the deck's size: the header's 36px ✕, the 32px flag toggle, the rail's 34px squares, the drawer's 30px handle and 34px close button, the dialogs' 42px buttons (46px for the one button of the "you left the test" alert). The engine's Previous and Next, the grid button and the question sheet's squares are 44px (the squares 42px from 1024). An option row is at least 52px high.
+- **Touch targets.** Below 1024px the student surfaces put a 44px floor on buttons, and so does the engine in a teacher's preview frame narrower than 1024px, whatever the window's width. A control the deck draws keeps the deck's size: the header's 36px ✕, the 32px flag toggle, the rail's 34px squares (never below 900px), the drawer's 30 × 84px handle and 34px close button, the dialogs' 42px buttons (46px for the one button of the "you left the test" alert). The engine's Previous and Next and the grid button are 44px, and the question sheet's squares 44px below 1024px and 42px from it. An option row is at least 52px high; a cloze card's option row is 48px.
 - **Dialogs** use the deck's frame: 440px (420px for the "you left the test" alert) or the width less 24px, no close button, the actions at the right; the alert has one button, as wide as the dialog. A dialog with a field sits 12% from the top below 768, so the keyboard does not cover it (DG-103).
 - **The timer** is a pill centred in the header's free space. Each digit sits in a cell one zero wide, because Be Vietnam Pro has no tabular figures and the pill would otherwise change width every second. Under five minutes it takes the danger tones.
 - **Text in a test.** The passage is 16px on a 1.75 line and cannot be selected, the prompt 17px, an option 15px. "Chữ lớn hơn khi làm bài" raises them to 18, 19 and 17px; the signed-in choice is an account preference mirrored in this browser; anonymous choices remain local.
@@ -2472,7 +2490,7 @@ The rules below carry over from v0.43, restated in the deck's tokens, except tha
 - **Forbidden:** decorative gradients, glassmorphism/backdrop blur, pulsing rings, glow effects, radii beyond the deck's (the old consoles keep `rounded-md` controls and `rounded-lg` cards), emoji in UI chrome.
 - **Typography:** Be Vietnam Pro, self-hosted (latin, latin-ext and vietnamese subsets, 400–700, upright and italic; the CSP allows no font host). Every character the UI draws is in the loaded font faces; a symbol the font lacks is an icon (`KeyGlyph` for ⌘, ↵, ↑ and ↓), or a character it has, such as the en dash for a range. Content is shown in NFC: the server composes the text a person types before it stores it, the rich content editor composes what it writes, and a view composes what it draws, because a row saved before the server did can still be decomposed. The deck's scale: 3xs 10.5, 2xs 11, caption 11.5, xs 12, meta 12.5, sm 13, ui 13.5, base 14, body 14.5, md 15, title 16, lg 17, stat-sm 18, xl 20, stat 22, h1 24, h1-student 26, kpi-sm 28, kpi 30, display 34px. Phone text inputs stay at 16px to avoid input zoom; student touch targets follow the R3 rule above; seek tracks have a 44px hit area. `leading-relaxed` in the test view.
 - **Icons:** lucide-react, 16px dense / 20px nav, consistent stroke, `aria-hidden` unless standalone.
-- **Density:** admin tables dense (~40px rows). Student pages are the centred columns of the R3 rules above. The teacher's pages follow the deck's tables and cards inside the content-width rules of §8. The student test view stays spacious: one question at a time, beside its passage from 768px when it has one.
+- **Density:** admin tables dense (~40px rows). Student pages are the centred columns of the R3 rules above. The teacher's pages follow the deck's tables and cards inside the content-width rules of §8. The student test view stays spacious: one question at a time (a cloze's run is one screen), beside its shared content from 768px when it has some.
 - **Action hierarchy:** resume is primary; opening an assignment's intro is secondary. Deadline pills turn amber only within 24 hours. The 320px test footer has previous as an icon, the grid button that opens the question sheet, and Next or Finish. In the Submit dialog the two buttons stay in reach while a long list of unanswered questions scrolls. Submission confirmation offers the submitted paper directly.
 - **Explicit states:** single- and multiple-choice instructions identify selection behaviour without revealing the key. The save line says saved, saving, offline or failed; exhausted audio allowances explain continued playback is recorded. Login exposes class joining and a reversible password visibility toggle. Signed-in join screens identify the current account and provide a way back.
 - **Motion.** The deck's keyframes, and what the old consoles still carry:
@@ -2486,7 +2504,7 @@ The rules below carry over from v0.43, restated in the deck's tokens, except tha
   - The test builder outline's drag-and-drop reorder slide (dnd-kit); the deck draws a drop line instead.
 
   Under `prefers-reduced-motion` the marquee, live dot, breath, shimmer and indeterminate bar each have a static state, not a shorter one: an ellipsis, a solid dot, a still mark, flat `--muted`, a fixed 40% bar. Everything else is cut to 0.01ms by the global reduced-motion block. Exam inputs remain stationary. The rebuilt consoles (R3–R5) replace the old consoles' motion with the deck's.
-- **Audio player:** monochrome. A filled `--primary` play button, a thin `--secondary` track with a `--primary` fill. No waveform visualisation, no equaliser animation, no colored accents.
+- **Audio player:** monochrome. A filled `--primary` play button, a thin `--secondary` track with a `--primary` fill. The engine's recording card (§11.3) is the one exception, as the deck draws it: its 6px track on `--muted` fills with the lime `--accent-c`, which marks progress. No waveform visualisation, no equaliser animation, no other colored accents.
 - **Front door:** sign-in, forgot password, join and change password share the brand frame, with the brand panel from 900px, except join, which stays one column. On join, the class name is large and there is one primary button. This is the first thing a new student sees — it should look calm and legitimate, not like a marketing page.
 - **Dark mode:** in scope from R1.
   - The preference is light, dark or system, stored in `localStorage['quizzivy.theme']`.

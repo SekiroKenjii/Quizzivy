@@ -141,7 +141,7 @@ test("the passage is a drawer from the left that the student swipes open and clo
   await expect(prompt).toBeVisible();
   await expect(footer(page)).toBeVisible();
   const box = (await handle.boundingBox())!;
-  expect(box.x).toBe(0);
+  expect(await handle.evaluate((element: HTMLElement) => element.offsetLeft)).toBe(0);
   expect(Math.round(box.width)).toBe(30);
   expect(Math.round(box.height)).toBe(84);
 

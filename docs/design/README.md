@@ -2,7 +2,8 @@
 
 `deck/` is the product design: seven Claude Design pages that draw every screen of the three
 consoles, the front door and the public site, and in `page-width-proposal/` three later answers
-from the design team (the page width, the cloze, Grading's finish states). **It is the single source of truth for the UI.**
+from the design team (the page width, the cloze, Grading's finish states). **It is the single
+source of truth for the UI.**
 It replaced the earlier hand-built mockups (`docs/design/mockups`, removed with T-R0.1) and every
 rule that came with them. Where the product deliberately departs from the deck, the departure is
 listed below, and the reason is in the plan (`docs/plan/70-redesign-overview.md`).

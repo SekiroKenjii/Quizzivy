@@ -1,3 +1,4 @@
+import type { KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { OptionText } from "@/components/shared/content/OptionText";
 import { PAPER_SURFACE } from "@/components/shared/content/paperSurface";
@@ -22,6 +23,7 @@ const OPTION =
   "bg-card text-fg flex min-h-11.5 min-w-0 items-center gap-3 rounded-[11px] border-[1.5px] px-3.5 py-2.5 text-left leading-[1.4] disabled:cursor-default disabled:opacity-60";
 const MARKER =
   "grid size-6.5 flex-none place-items-center rounded-full border-[1.5px] text-xs font-semibold";
+const ARROW_STEP: Readonly<Record<string, number>> = { ArrowDown: 1, ArrowUp: -1 };
 const CHIP =
   "relative inline-flex h-8 min-h-0 max-w-full min-w-0 items-center gap-1.5 rounded-md border-[1.5px] pr-2.5 pl-[5px] text-sm leading-none font-medium whitespace-nowrap";
 
@@ -197,6 +199,20 @@ function GapStripChip({
   );
 }
 
+function moveFocusInGroup(event: KeyboardEvent<HTMLButtonElement>) {
+  const step = ARROW_STEP[event.key];
+  const group = event.currentTarget.closest<HTMLElement>('[role="radiogroup"]');
+  if (step === undefined || group === null) return;
+  if (event.altKey || event.ctrlKey || event.metaKey) return;
+  const radios = Array.from(
+    group.querySelectorAll<HTMLButtonElement>('[role="radio"]:not(:disabled)'),
+  );
+  const at = radios.indexOf(event.currentTarget);
+  if (at < 0) return;
+  event.preventDefault();
+  radios[(at + step + radios.length) % radios.length]?.focus();
+}
+
 function GapCard({
   question,
   number,
@@ -221,6 +237,11 @@ function GapCard({
   const { t } = useTranslation();
   const title = t("takeTest.cloze.gap", { n: number });
   const chosen = new Set(answer?.type === "choice" ? answer.optionIds : []);
+  const options = question.options ?? [];
+  const tabStop = Math.max(
+    options.findIndex((option) => chosen.has(option.id)),
+    0,
+  );
   return (
     <div
       role="group"
@@ -250,7 +271,7 @@ function GapCard({
         aria-label={t("takeTest.answerOptions")}
         className="grid grid-cols-[repeat(auto-fill,minmax(132px,1fr))] gap-2"
       >
-        {(question.options ?? []).map((option, index) => {
+        {options.map((option, index) => {
           const selected = chosen.has(option.id);
           return (
             <button
@@ -258,6 +279,8 @@ function GapCard({
               type="button"
               role="radio"
               aria-checked={selected}
+              tabIndex={index === tabStop ? 0 : -1}
+              onKeyDown={moveFocusInGroup}
               disabled={disabled}
               className={cn(
                 larger ? "text-lg" : "text-md",

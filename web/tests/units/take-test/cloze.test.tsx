@@ -96,6 +96,44 @@ describe("a run of a cloze", () => {
     expect(screen.getByRole("button", { name: "Đánh dấu câu 23" })).toBeVisible();
   });
 
+  it("keeps one option of the open gap in the Tab order: the chosen one, else the first", async () => {
+    const user = userEvent.setup();
+    mount();
+    await screen.findByText(RUN_LINE);
+    expect(
+      within(card())
+        .getAllByRole("radio")
+        .map((radio) => radio.tabIndex),
+    ).toEqual([0, -1, -1, -1]);
+
+    await user.click(option("relaxed"));
+    await user.click(strip(23, "relaxed"));
+    expect(card()).toHaveAccessibleName("Chỗ trống 23");
+    expect(
+      within(card())
+        .getAllByRole("radio")
+        .map((radio) => radio.tabIndex),
+    ).toEqual([-1, -1, 0, -1]);
+  });
+
+  it("moves focus through the open gap's options with Up and Down, round the ends, and chooses nothing", async () => {
+    const user = userEvent.setup();
+    mount();
+    await screen.findByText(RUN_LINE);
+    const radios = within(card()).getAllByRole("radio");
+
+    radios[0]!.focus();
+    await user.keyboard("{ArrowDown}");
+    expect(radios[1]).toHaveFocus();
+    await user.keyboard("{ArrowUp}{ArrowUp}");
+    expect(radios[3]).toHaveFocus();
+    await user.keyboard("{ArrowDown}");
+    expect(radios[0]).toHaveFocus();
+    for (const radio of radios) expect(radio).toHaveAttribute("aria-checked", "false");
+    expect(useTakeTestStore.getState().answers).toEqual({});
+    expect(card()).toHaveAccessibleName("Chỗ trống 23");
+  });
+
   it("reads the deck's line in English", async () => {
     await i18n.changeLanguage("en");
     mount();
