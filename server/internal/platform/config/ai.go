@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -129,4 +130,22 @@ func parsePricePerMillion(name string) (MicroUSD, error) {
 		return 0, fmt.Errorf("%s must be between 0.001 and 1000 US dollars per million tokens; a price per token or per thousand tokens would undercount the pool", name)
 	}
 	return price, nil
+}
+
+const defaultAppTimezone = "Asia/Ho_Chi_Minh"
+
+// AppLocation reads APP_TIMEZONE, the calendar zone the AI assistant's months are counted in, as Load would. An unset variable means Asia/Ho_Chi_Minh, and a name the host cannot load is refused with the variable's name, except the default itself, which falls back to its fixed offset so a host without zone data still counts months where the centre does.
+func AppLocation() (*time.Location, error) {
+	name := strings.TrimSpace(os.Getenv("APP_TIMEZONE"))
+	if name == "" {
+		name = defaultAppTimezone
+	}
+	location, err := time.LoadLocation(name)
+	if err == nil {
+		return location, nil
+	}
+	if name == defaultAppTimezone {
+		return time.FixedZone(defaultAppTimezone, 7*60*60), nil
+	}
+	return nil, fmt.Errorf("APP_TIMEZONE must name an IANA time zone this host knows, such as %s", defaultAppTimezone)
 }

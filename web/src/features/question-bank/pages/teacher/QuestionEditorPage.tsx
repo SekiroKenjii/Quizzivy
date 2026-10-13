@@ -11,6 +11,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleAlert } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmptyState, LoadError } from "@/components/shared/ListState";
+import { StickyAside } from "@/components/shared/StickyAside";
 import { Button } from "@/components/ui/button";
 import { DeckScale } from "@/components/ui/deck-scale";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -255,27 +256,32 @@ function Editor({
           />
           <ExplanationField value={values} onChange={change} />
         </div>
-        <aside aria-label={t("questionEditor.settings")} className={CARD}>
-          <div className="flex flex-col gap-3">
-            <p className={GROUP_LABEL}>{t("questionEditor.settingsLabel")}</p>
-            <QuestionSettingsFields value={values} onChange={change} />
+        <StickyAside
+          aria-label={t("questionEditor.settings")}
+          className="@min-[900px]/qe:sticky-column min-w-0"
+        >
+          <div className={CARD}>
+            <div className="flex flex-col gap-3">
+              <p className={GROUP_LABEL}>{t("questionEditor.settingsLabel")}</p>
+              <QuestionSettingsFields value={values} onChange={change} />
+            </div>
+            <hr className="border-border" />
+            <div className="flex flex-col gap-3">
+              <p className={GROUP_LABEL}>{t("questionEditor.mediaLabel")}</p>
+              <QuestionMediaField
+                value={values}
+                asset={asset}
+                onChange={change}
+                onAssetChange={setAsset}
+                onRefresh={() => {
+                  void onRefreshAsset().then((fresh) => {
+                    if (fresh) setAsset(fresh);
+                  });
+                }}
+              />
+            </div>
           </div>
-          <hr className="border-border" />
-          <div className="flex flex-col gap-3">
-            <p className={GROUP_LABEL}>{t("questionEditor.mediaLabel")}</p>
-            <QuestionMediaField
-              value={values}
-              asset={asset}
-              onChange={change}
-              onAssetChange={setAsset}
-              onRefresh={() => {
-                void onRefreshAsset().then((fresh) => {
-                  if (fresh) setAsset(fresh);
-                });
-              }}
-            />
-          </div>
-        </aside>
+        </StickyAside>
       </div>
 
       <ConfirmDialog

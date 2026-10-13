@@ -134,12 +134,12 @@ rolling deploy without a fill trigger):
 | `NNNNN_add_group_recordings_allow_pause.sql` | T-D4.13 |
 | `NNNNN_add_test_version_group_recordings_allow_pause.sql` | T-D4.13 |
 | `NNNNN_add_ai_permissions.sql` (two rows in `app.permissions`, `ai.use` granted to the Teacher role) | T-D4.32 |
-| `NNNNN_create_ai_settings.sql` | T-D4.31 |
-| `NNNNN_create_ai_credit_periods.sql` | T-D4.31 |
-| `NNNNN_create_ai_teacher_credits.sql` | T-D4.31 |
-| `NNNNN_create_ai_reservations.sql` | T-D4.31 |
-| `NNNNN_create_ai_usage_ledger.sql` (append-only: no `UPDATE` or `DELETE` for the app role) | T-D4.31 |
-| `NNNNN_create_ai_credit_requests.sql` | T-D4.31 |
+| `00118_create_ai_settings.sql` | T-D4.31 |
+| `00119_create_ai_credit_periods.sql` | T-D4.31 |
+| `00120_create_ai_teacher_credits.sql` | T-D4.31 |
+| `00121_create_ai_reservations.sql` | T-D4.31 |
+| `00122_create_ai_usage_ledger.sql` (append-only: no `UPDATE` or `DELETE` for the app role) | T-D4.31 |
+| `00123_create_ai_credit_requests.sql` | T-D4.31 |
 | `NNNNN_add_word_imports_read_with_ai.sql` (`boolean NOT NULL DEFAULT false`) | T-D4.33 |
 
 The AI tables are new and empty, so none is `-- +goose NO TRANSACTION` and the v0.10.0 binary is
@@ -1899,21 +1899,21 @@ edited.
 **Touches:** `web/src/features/tests/components/{OutlineTree,OutlineGroupRow}.tsx`, `web/src/features/tests/pages/teacher/TestBuilderPage.tsx` (selecting the group from the line and from the menu items, nothing else), `web/src/features/tests/components/BuilderGroupPane.tsx` and `web/src/features/question-groups/components/GroupComposer.tsx` (focus on the title field when Rename asks; no save path changes), locales, `web/tests/units/builder/` (the outline's cases)
 **Size:** S
 **Done when:**
-- [ ] The deck's "group" stays the product's section (DG-186). A section's "…" menu is R4's
+- [x] The deck's "group" stays the product's section (DG-186). A section's "…" menu is R4's
       (Rename, Instructions, Move up, Move down, Remove group) and gains no "Shared content":
       the export's menu entry `mi('Shared content', 'panel-left', …)` (T 6986) is on every
       group, and a section has no shared content to hold.
-- [ ] A shared-context group keeps its own row inside its section (`OutlineGroupRow`). The
+- [x] A shared-context group keeps its own row inside its section (`OutlineGroupRow`). The
       buttons R4 left on the row give way to a "…" menu: Rename, Shared content (the
       `panel-left` icon, the export's third item), Move up, Move down (disabled at the ends),
       Remove group. Move up, Move down and Remove group do what their buttons did; the row's
       drag, its keyboard equivalents and its focus ring are R4's.
-- [ ] Rename is new on this row: R4 gives Rename to a section's menu only, and a group's
+- [x] Rename is new on this row: R4 gives Rename to a section's menu only, and a group's
       title has one field, in `BuilderGroupPane` (`shared-group-title`). Rename selects the
       group and puts focus in that field with its text selected. The title is saved by the
       group's editor, and the outline calls no operation: a rename in the outline would be a
       second writer of the bundle (T-D4.14, "One writer").
-- [ ] Under the row's header, while the group is open, the export's shared-content line
+- [x] Under the row's header, while the group is open, the export's shared-content line
       (T 1581-1587, the button on `sec.editShared`; its text is the script's `sharedText`,
       T 6968) in the instructions line's geometry:
       margin 0 0 4px 26px, padding 4px 6px, radius 6px, 12px `--muted-fg`, a 13px icon, one
@@ -1922,19 +1922,51 @@ edited.
       "· unlimited plays", with "1 play" in the singular (the prototype prints "1 plays"). A
       group that holds more than one material, or both kinds, reads "{n} materials · {m}
       recordings". A group with no shared content shows no line.
-- [ ] The line is a button. It and the "Shared content" item select the group, which opens
+- [x] The line is a button. It and the "Shared content" item select the group, which opens
       `BuilderGroupPane`, until T-D4.14 opens the dialog. Selecting the group, from the line
       or from either item, saves what is pending in the open question first, as selecting a
       row does today.
-- [ ] Unit tests: the line in each form (a passage with and without gaps, a recording with a
+- [x] Unit tests: the line in each form (a passage with and without gaps, a recording with a
       limit, with one play and with no limit, more than one material, none); the menu's items
       and their disabled states; "Rename opens the group, focuses its title and sends no
       request"; "a pending edit is saved when the line is pressed".
-- [ ] Compared with the deck at 360, 768, 1024, 1280 and 1440, light and dark, on a
+- [x] Compared with the deck at 360, 768, 1024, 1280 and 1440, light and dark, on a
       shared-context group holding one passage: the deck's fixture shows "Passage · Why cities
       need green space" under its first group (`INIT_SECS`, T 6632). Known difference: the line
       and the item are on the group's row, not on the section's (DG-186).
-- [ ] Keys vi first, en from the deck, listed in the PR.
+- [x] Keys vi first, en from the deck, listed in the PR.
+
+**As built:** one pull request, two commits (the row, then this note). `OutlineGroupRow` keeps R4's
+grip, disclosure, title and summary; its Move up, Move down and Delete buttons became one "…"
+trigger (`builder.groupActions`, "Thao tác với nhóm {title}"), 24px and shown on hover, focus and
+while open from 768px as a section's is, and at 44px only while the group is selected below it
+(DG-135). The menu is the export's: Rename, Shared content (`panel-left`), Move up, Move down
+(disabled by `stepUnit` at the outline's ends, which the old buttons never were), a separator and
+Remove group. Rename runs once the menu has closed (`onCloseAutoFocus`), because a focus moved
+while the menu's focus scope is mounted is taken back; Remove group hands its trigger to the
+builder's confirmation as `returnFocus`, since the menu item it opened from is gone when the
+dialog closes. The line is `sharedContentLine` (`features/tests/sharedContentLine.ts`): one
+material with no audio is a passage, one material that is one recording and nothing to read
+(empty paragraphs aside) is audio, anything else is "{n} materials · {m} recordings", even with
+no recording ("2 materials · 0 recordings"). The file name is the asset's `originalFilename`, as
+the composer's recording select prints it, from the `assets` of each loaded group, which the
+builder passes to the outline as `groupFiles`; a name it does not hold is left out ("Audio · 2
+plays"), so the export's "no file yet" has no use. Rename selects the group through
+`selectGroup` with a title request, `BuilderGroupPane` hands it to `GroupComposer` as
+`titleFocus`, and the composer focuses and selects `shared-group-title`; no request leaves the
+outline. The line and Shared content select the group through the same `selectGroup`, which
+flushes the open question first. Tests: `tests/units/builder/group-row.test.tsx` (new, 16: the
+line's forms in both languages, its geometry and its collapse, the menu's order, icons, disabled
+ends and keyboard use, its escape from the scrolling column, and on the real builder Rename's
+focus with and without the group already open, the focus after a cancelled removal, and the
+pending edit saved before the line opens the group); `builder-groups.live.spec.ts` now moves and
+removes the group through its menu. Measured on a live stack with `getBoundingClientRect` at 360,
+768, 1024, 1280 and 1440, light and dark, the sidebar expanded (768 to 1440), collapsed (1024 to
+1440) and a drawer (360): the line is 26px high, 26px in from the header, 12px `--muted-fg` with a 13px
+icon, 4px 6px padding, radius 6, an ellipsis, flush under the header and 4px above the members;
+the menu is 192px and inside the window at every width; no horizontal scroll. The deck itself
+could not render (unpkg.com does not answer through the proxy), so it was compared with its
+markup and script (`sec.hasShared`, `sec.sharedText`, `sec.menu`), not side by side.
 
 ### T-D4.2b — Group pane: the gap row
 **Reopens:** T-R4.34 (question groups, restyled)
@@ -2181,10 +2213,10 @@ with the v2 deck again at the five widths in two themes, and adds one closing li
 **Touches:** `web/src/layouts/shell/Sidebar.tsx`, `web/src/components/shared/StickyAside.tsx` (new), `web/src/features/tests/pages/teacher/{TestBuilderPage,TestDetailPage}.tsx`, `web/src/features/assignments/{pages/teacher/AssignmentWizardPage.tsx,components/wizard/WizardAside.tsx}`, `web/src/features/question-bank/pages/teacher/{QuestionBankPage,QuestionEditorPage}.tsx`, `web/src/features/imports/pages/teacher/ImportReviewPage.tsx`, `web/src/features/classes/pages/teacher/ClassDetailPage.tsx`, `web/src/features/settings/pages/teacher/TeacherSettingsPage.tsx`, `web/tests/units/shell/sidebar.test.tsx`, `web/tests/units/shared/sticky-aside.test.tsx` (new), `web/tests/units/builder/` (the outline's geometry case)
 **Size:** S
 **Done when:**
-- [ ] `Sidebar` draws a 1px `--border` `role="separator"` (margin 0 10px 4px) between nav groups
+- [x] `Sidebar` draws a 1px `--border` `role="separator"` (margin 0 10px 4px) between nav groups
       while their labels are hidden (collapsed), in both consoles (V-01, A-01); the drawer and
       the expanded sidebar are unchanged.
-- [ ] One `StickyAside` wraps every side column: `position: sticky; top: 16px; max-height:
+- [x] One `StickyAside` wraps every side column: `position: sticky; top: 16px; max-height:
       calc(100vh − 88px); overflow-y: auto; padding 1px 2px 2px; margin −1px −2px −2px` (the
       deck's allowance for focus rings), from a content width the host passes (the wizard
       keeps its `@min-[794px]/wizard` container query, which `StickyAside` takes over from
@@ -2195,14 +2227,49 @@ with the v2 deck again at the five widths in two themes, and adds one closing li
       import review is full-bleed (`width: "full"`), so its 1000 is its container too;
       the version history keeps its own `top: 16px` and cap;
       the bank's filter aside gets `top: 16px` from 1024 and stays `top: 0` below (V-02).
-- [ ] The builder's outline is sticky and scrolls inside itself whenever the builder splits
+- [x] The builder's outline is sticky and scrolls inside itself whenever the builder splits
       (`outPos`, `outMaxH`, `outOv`, T 1633 and 8690); a section's "…" menu still escapes it
       (V-03): one unit case opens the menu on the last section of a long outline and finds it
       unclipped.
-- [ ] No string changes; no behaviour changes (a behavioural change never rides in a refactor).
-- [ ] Compared with the deck at 1024, 1280 and 1440 with a long page scrolled, light and dark,
+- [x] No string changes; no behaviour changes (a behavioural change never rides in a refactor).
+- [x] Compared with the deck at 1024, 1280 and 1440 with a long page scrolled, light and dark,
       on the builder, the wizard, Test detail, the bank, the editor, the review, Class detail
       and Settings; the collapsed sidebar at 1024 in both consoles.
+
+**As built:** #564 (two commits: the separator, then the columns). `Sidebar` draws the separator
+(`bg-border mx-2.5 mb-1 h-px`, 23 × 1 px inside the 60px rail) before each labelled group while
+collapsed, and nothing expanded or in the drawer; the Admin console is R5's and takes the same
+component. `StickyAside` (`components/shared/StickyAside.tsx`) is an `aside` (or the `as` it is
+given) that always carries the deck's allowance (`-mx-0.5 -mt-px -mb-0.5 px-0.5 pt-px pb-0.5`) and
+sticks with `docked`, or behind a host's container query on the `sticky-column` utility
+(`index.css`: `position: sticky; top: 16px; max-height: calc(100vh - 112px); overflow-y: auto`). The cap is 112px, not the deck's 88: our `<main>` adds 24px of top padding above the 16px offset, so a stuck column starts 40px under the top bar, and the deck's cap would end it 8px below the window. 112 ends it 16px above, as the deck's geometry intends (TL, review of #564).
+The hosts: the wizard from `@min-[794px]/wizard` (basis 304px and minimum 244px, so the card stays
+300 and 240 inside the allowance); the question editor's settings, now a card inside the aside,
+from `@min-[900px]/qe`; Class detail's column, a `div`, with `docked={two}` (1000px of content, as
+before); the settings nav from `@min-[768px]/settings`, a container `SettingsLayout`'s root now
+declares (its row basis and cap grow by 4px and its column minimum is 204px, so the links keep
+their width); and the outline with `docked={split}`, in a first pane that now stretches to the
+row, since a sticky box cannot move inside a pane as tall as itself. **The review's aside is
+Preview and create's** (`ImportConfirmPage.tsx`, from `@min-[1000px]/confirm`): the deck's
+`wiSide` (T 1886) is that screen's summary, and the review workspace (`ImportReviewPage`) has no
+side column, so it is untouched. The version history keeps its own card, now `sticky-column`, and
+the bank's filters are `top-4` (they render only from 1024; below it they are a sheet).
+`AssignmentWizardPage` and `TeacherSettingsPage` did not change. Every threshold is below the
+frame's 1600px, so `<main>`'s content width and each host's container agree, and the deck's
+`tw` numbers keep their meaning inside the frame; two do not quite: the settings nav sticks from
+768px of content although it docks from about 704 (it is static, not overlapping, in between),
+where the deck sticks it from a 768px window; and `top: 16px` is measured from `<main>`'s content
+edge, under its 24px top padding, so a stuck column starts 40px below the top bar and a capped one
+ends 8px below the window, as the deck's own numbers place it. Tests:
+`tests/units/shell/sidebar.test.tsx` (new, 4), `tests/units/shared/sticky-aside.test.tsx` (new, 11),
+`tests/units/builder/deck-frame.test.tsx` (the outline sticky while split and static stacked; the
+last of 24 sections' menu opens outside the scrolling column), and
+`tests/units/shared/settings-layout.test.tsx` (the nav's new classes and its container query).
+The comparison was measured on a live stack with `getBoundingClientRect` at 1024, 1280 and 1440,
+900 and 640 high, light and dark, sidebar expanded and collapsed, with a 25-section draft and a
+mocked 30-question Preview and create; the deck itself could not render in the container
+(unpkg.com, which serves its React and Babel, answers 403 through the proxy), so the app was
+compared with the deck's markup and `layoutVals` numbers, not side by side.
 
 ### T-D4.21 — Grading: the pane's heights
 **Reopens:** T-R4.28
@@ -2443,7 +2510,7 @@ live smoke (it needs the key and belongs to T-D4.32's smoke), and the 501 and st
 **Touches:** `migrations/NNNNN_create_ai_settings.sql`, `NNNNN_create_ai_credit_periods.sql`, `NNNNN_create_ai_teacher_credits.sql`, `NNNNN_create_ai_reservations.sql`, `NNNNN_create_ai_usage_ledger.sql`, `NNNNN_create_ai_credit_requests.sql` (new; numbered at merge), `server/internal/modules/ai/{domain/{credits.go,feature.go},application/command/{reserve.go,settle.go,release.go,request_credits.go,decide_request.go,set_allowance.go,add_credits.go,set_rules.go},application/query/{usage.go,admin_credits.go},repositories/{credits.go,ledger.go,requests.go}}` (new), `server/internal/core/jobs/ai_reservations.go` (new), `server/cmd/maintenance/main.go` (`ai-credits`), `api/openapi.yaml` (`/admin/ai/*`, `GET /teacher/ai/usage`, `POST /teacher/ai/credit-requests`; the shapes ride in T-D4.32's contract PR), `server/internal/modules/notifications/` (three kinds), `server/internal/modules/ai/application/tests/credits_test.go` (new, integration), `docs/plan/20-data-model.md` (§12, the six tables), `docs/setup/operations.md` (the command)
 **Size:** L
 **Done when:**
-- [ ] Six migrations, one concern each, Down working, all on new empty tables (none is
+- [x] Six migrations, one concern each, Down working, all on new empty tables (none is
       `-- +goose NO TRANSACTION`):
       - `app.ai_settings` (one row, seeded by the migration: `pool_credits` 200,000 (D21),
         `default_allowance_credits` 20,000, `warn_percent` 80, `on_teacher_limit` `request`);
@@ -2465,7 +2532,7 @@ live smoke (it needs the key and belongs to T-D4.32's smoke), and the 501 and st
         pending | approved | declined, decided_by, decided_at, created_at)`.
       Every insert names its owner (`user_id`); `20-data-model.md` §12 records the six with the
       reasoning (D-nn), and why the ledger is append-only.
-- [ ] `Reserve(ctx, actor, feature, ceiling)`: one transaction locks the period row and the
+- [x] `Reserve(ctx, actor, feature, ceiling)`: one transaction locks the period row and the
       teacher row (`FOR UPDATE`, creating either if absent), adds the ceiling to both
       `reserved_credits`, and writes the reservation; a constraint violation (`pgerrcode`
       check violation) answers `402 AI_CREDITS_EXHAUSTED` with `detail.scope` `teacher` or
@@ -2474,10 +2541,10 @@ live smoke (it needs the key and belongs to T-D4.32's smoke), and the 501 and st
       reservation, and raises `ai.allowance_warning` once a month when the teacher crosses
       `warn_percent`. `Release` deletes the reservation and subtracts it. The three are one
       package the operations call; nothing else touches the balances.
-- [ ] `core/jobs.ReleaseStaleAiReservations` releases reservations older than 10 minutes;
+- [x] `core/jobs.ReleaseStaleAiReservations` releases reservations older than 10 minutes;
       `cmd/maintenance ai-reservations-sweep` runs it, under the maintenance role's grant in the
       same migration set.
-- [ ] Operations (the contract rides in T-D4.32's PR; the code is here): `GET /teacher/ai/usage`
+- [x] Operations (the contract rides in T-D4.32's PR; the code is here): `GET /teacher/ai/usage`
       (`ai.use`: the month's used, allowance, left, paused, and the five category sums the
       Settings card draws) and `POST /teacher/ai/credit-requests` (`ai.use`; amount 1,000 to
       100,000 and a reason; one pending request per teacher per month; `ai.credit_request` to
@@ -2489,17 +2556,77 @@ live smoke (it needs the key and belongs to T-D4.32's smoke), and the 501 and st
       the amount; both notify the teacher with `ai.credit_request.decided`). Every admin write is
       one `audit_log` row through the data-modifying CTE pattern. The "On pace for" projection is
       `used / days elapsed × days in month`, computed in the query.
-- [ ] `cmd/maintenance ai-credits {status,set-allowance,add-credits,approve,decline,pause,
+- [x] `cmd/maintenance ai-credits {status,set-allowance,add-credits,approve,decline,pause,
       resume,set-rules}` calls the same application commands as the operations, audited as
       System with the operator named in `details`; it is Thuong's console until R5's T-R5.35
       (Q28). `operations.md` documents it.
-- [ ] `credits_test.go` (integration): a reservation that would cross the pool is refused by the
+- [x] `credits_test.go` (integration): a reservation that would cross the pool is refused by the
       constraint and nothing is written; two concurrent reservations against a pool with room for
       one leave exactly one; settle moves exactly the metered amount; release returns it; a
       paused teacher is refused before any lock; the month rolls over in `APP_TIMEZONE`; the
       ledger refuses an `UPDATE` as the app role; a rule change rewrites non-custom allowances
       only; approve raises the allowance and writes the audit row.
 - [ ] Rehearsed on a Neon branch of production; the timings go in the release PR.
+
+**As built:** Six migrations, `00118` to `00123`, one table each, none `NO TRANSACTION`, each Down a
+`DROP TABLE`; `20-data-model.md` §46 and D-44 to D-49 record them, with the reasoning. The two
+constraints are named `ai_credit_periods_within_pool` and `ai_teacher_credits_within_allowance`, and
+the repository tells the teacher's refusal from the pool's by the constraint's name, trying the
+teacher's first. Three columns go beyond the list above, each for a reason the data model gives:
+`granted_credits` (what approved requests added this month, part of the allowance and not carried
+over, so a change of the default rule and a new month treat a grant right), `warned_at` (the warning
+once a month is a flag written in the same statement as the crossing) and `custom` and `paused`
+copied from the teacher's latest earlier row when a month's first row is created
+(`ai_teacher_credits_user_idx`), because both belong to the person and the plan's per-month row
+would otherwise lose an Admin's pause on the 1st. The app role has no `UPDATE` or `DELETE` on the
+ledger, and `privileges_test.go` lists it beside `audit_log`.
+
+`modules/ai` gains `domain` (the credit arithmetic, the months, the features with their category and
+the plan's ceiling, the repository port), `application` (`Reserve`, `Settle`, `Release`, `Finish`,
+`ReleaseStale`, `RequestCredits`, `DecideRequest`, `SetAllowance`, `AddCredits`, `SetRules`; the
+`Usage` and `AdminCredits` queries) and `repositories`. Every statement that moves a credit takes the
+month's row and then the teacher's (`FOR NO KEY UPDATE`, which does not block the foreign keys
+that point at them), and the sweep and `Settle` take both before they delete the reservation, so the
+order is one everywhere. `Settle` charges `min(metered, reserved)`, so it cannot fail on the pool's
+constraint after the provider has been paid; the ledger keeps the real token counts and the log
+notes an overrun. Credits are `ceil(sum(tokens x price) / 1e9)` over `config.MicroUSD` prices, with
+cache writes charged at the input price because the configuration prices none. The tier prices
+reach the application through `domain.Prices`, built in `core/wiring/ai.go`; `modules/ai` imports
+no platform package but `db` in `repositories`.
+
+**`Finish`** is the one place that decides settle or release, from T-D4.30's note that the
+`Completer` returns the usage with `ErrRefused` and `ErrInvalidResponse`: those two settle what the
+provider billed, and `ErrUnavailable`, `ErrRejected`, a cancelled caller and any other error
+release; a response that reports no tokens releases whatever the error. T-D4.32's operations call
+it and not `Settle` and `Release` separately. T-D4.32's "releases on failure" below is amended to
+say so.
+
+The operations' application code is here; their transport (`modules/ai/http/ai.go`), contract and
+rate limits are T-D4.32's, as its `Touches` says, and so are four things that need the contract:
+the `NotificationKind` enum and table for `ai.allowance_warning`, `ai.credit_request` and
+`ai.credit_request.decided`, the new `NotificationParams` properties (`used`, `allowance`,
+`credits`, `teacherName`, `decision`), the three kinds' place in `kindsByAudience` (the teacher's
+bell), and their words in `web/src/features/notifications/kinds.ts` (vi, en). The notifications
+domain already knows the three kinds, their params types and dedupe keys, writes them without a
+switch, and no console lists them until the audience table does, so the web never sees an
+unknown kind. They are moved to T-D4.32's Done-when below.
+
+`ReleaseStaleAiReservations` runs once at start-up and hourly, and only when the provider is
+configured: every poll wakes a scale-to-zero database, and a leftover of a dead process costs a
+teacher a few hundred credits for at most an hour and ten minutes. `cmd/maintenance` gains
+`ai-credits {status,set-allowance,add-credits,approve,decline,pause,resume,set-rules}` and
+`ai-reservations-sweep`, in `core/maintenance/ai.go` beside the other commands (`cmd/maintenance/
+main.go` only parses). They run the Admin operations' handlers as System with a required
+`-operator`, and a dry run is the same handler inside a transaction that is rolled back with no
+notifier. The maintenance role's grant is not in a migration: `quizzivy_maintenance` does not exist
+until T-R5.17a, so the commands run as `MAINTENANCE_DATABASE_URL`'s credential, and §46 lists what
+`grant_maintenance_role` must add. `APP_TIMEZONE` was documented and never read; `config.AppLocation()`
+reads it (`Asia/Ho_Chi_Minh`, with a fixed +07:00 fallback on a host without zone data).
+`operations.md` ("AI credits") documents the console. An allowance edit is not subject to the subset
+rule (`access.CanActOn`); see the open question in the pull request.
+
+Not done here: the Neon rehearsal (T-D4.40's migration rehearsal runs the six files on a branch of
+production and puts the timings in the release pull request).
 
 ### T-D4.32 — The teacher operations and the contract
 **Depends on:** T-D4.30, T-D4.31. D4's second contract pull request; T-D4.31's and T-D4.33's shapes ride in it
@@ -2540,12 +2667,20 @@ live smoke (it needs the key and belongs to T-D4.32's smoke), and the 501 and st
       NOT_IMPLEMENTED` with that code; `PublicStatus` gains `ai: boolean`, read from
       `Config.AIEnabled()` and never from the provider; `core/router/{modules.go,server.go}` gain
       the AI transport.
+- [ ] What T-D4.31 left for the contract: `NotificationKind` gains `ai.allowance_warning`,
+      `ai.credit_request` and `ai.credit_request.decided`, with their rows in its table;
+      `NotificationParams` gains `used`, `allowance`, `credits` (integers, 0 or more),
+      `teacherName` (1 to 200 characters) and `decision` (`approved` or `declined`), and the
+      three `Params` types in `notifications/domain/params.go` (`AllowanceWarning`,
+      `CreditRequest`, `CreditRequestDecided`) go into `params_test.go`'s `everyKind`;
+      `kindsByAudience` lists the three for the teacher's bell; `kinds.ts` words them in vi and en.
 - [ ] `PrincipalRateLimits()` gains every AI operation at 10 a minute and 100 an hour per actor,
       the clean-up at 3 an hour, the credit request at 5 an hour; `credential_limits_test.go`'s
       form of assertion lists them.
-- [ ] Each operation reserves its ceiling (the table above) before the call, settles the metered
-      usage after it, and releases on failure; the response carries `usage: {credits, left}` for
-      the panel's footer. With the adapter nil: 501. With the budget gone: 402 as T-D4.31 says.
+- [ ] Each operation reserves its ceiling (the table above) before the call and ends the
+      reservation with `Commands.Finish`, which settles the metered usage, including what a refusal
+      or an unparseable answer was billed (T-D4.30), and releases when nothing was billed; the
+      response carries `usage: {credits, left}` for the panel's footer. With the adapter nil: 501. With the budget gone: 402 as T-D4.31 says.
       A provider failure after retries: `503 AI_UNAVAILABLE` with `Retry-After`, and the
       reservation released.
 - [ ] Data minimisation is tested, not described: `operations_test.go` drives each operation

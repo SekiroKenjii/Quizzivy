@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MarqueeText } from "@/components/shared/MarqueeText";
 import { SplitPane } from "@/components/shared/SplitPane";
+import { StickyAside } from "@/components/shared/StickyAside";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useContentWidthAtLeast } from "@/layouts/shell/contentWidth";
 import { useCrumbs } from "@/layouts/shell/crumbs";
@@ -155,11 +156,16 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       : null,
   );
   const [activeBundle, setActiveBundle] = useState<GroupBundle | null>(null);
+  const [titleFocus, setTitleFocus] = useState<{
+    groupId: string;
+    request: number;
+  } | null>(null);
   const [pickingGroup, setPickingGroup] = useState(false);
   const [removing, setRemoving] = useState<
     { groupId: string } | { sectionIndex: number } | null
   >(null);
   const groupBridge = useRef<GroupPaneBridge | null>(null);
+  const removeOpener = useRef<HTMLElement | null>(null);
   const [writes] = useState(() => new BuilderWrites());
   const savedOutline = useRef(editableOutline(test));
   const sectionIds = useRef(
@@ -302,6 +308,14 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   );
   if (activeBundle && groupIds.includes(activeBundle.group.id))
     groups.set(activeBundle.group.id, activeBundle);
+  const groupFiles = new Map(
+    loadedGroups.flatMap(
+      (result) =>
+        result.data?.assets.map(
+          (asset) => [asset.id, asset.originalFilename] as const,
+        ) ?? [],
+    ),
+  );
 
   const byId = useMemo(() => {
     const map = new Map<string, OutlineQuestion>();
@@ -519,10 +533,15 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     notify.success(t("builder.removedFromTest"));
   }
 
-  async function selectGroup(groupId: string, questionId?: string) {
+  async function selectGroup(groupId: string, questionId?: string, focusTitle = false) {
     const request = ++selectionRequest.current;
+    const askTitle = () =>
+      setTitleFocus((current) =>
+        focusTitle ? { groupId, request: (current?.request ?? 0) + 1 } : null,
+      );
     if (selectedGroupId === groupId) {
       setSelectedId(questionId ?? null);
+      askTitle();
       return;
     }
     try {
@@ -532,6 +551,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       setSelectedId(questionId ?? null);
       setActiveBundle(null);
       setQuestionStatus({ kind: "idle" });
+      askTitle();
     } catch (cause) {
       report(cause);
     }
@@ -745,6 +765,9 @@ function Builder({ test }: Readonly<{ test: Test }>) {
           retryRef={retryQuestion}
           bridgeRef={groupBridge}
           onStatus={setQuestionStatus}
+          titleFocus={
+            titleFocus?.groupId === selectedGroupId ? titleFocus.request : undefined
+          }
         />
       );
     if (selectedId === null)
@@ -874,33 +897,42 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         storageKey="quizzivy.builder.outline"
         split={split}
         className="items-stretch gap-y-3.5"
-        firstClassName="self-start"
         secondClassName="flex min-w-0 items-start"
         first={
-          <fieldset disabled={creating} className="contents">
-            <Suspense fallback={<ListSkeleton rows={5} />}>
-              <OutlineTree
-                sections={sections}
-                groups={groups}
-                selectedGroupId={selectedGroupId}
-                onSelectGroup={(id, questionId) => void selectGroup(id, questionId)}
-                onCreateGroup={() => void insertGroup().catch(() => undefined)}
-                onRemoveGroup={(id) => setRemoving({ groupId: id })}
-                onRemoveSection={(sectionIndex) => setRemoving({ sectionIndex })}
-                questions={byId}
-                selectedId={selectedId}
-                creating={creating}
-                onSelect={(questionId) => void selectQuestion(questionId)}
-                onChange={updateOutline}
-                onCreateQuestion={() => void onCreateQuestion()}
-                onPickFromBank={(opener) => {
-                  pickerOpener.current = opener;
-                  setPicking(true);
-                }}
-                onAddSection={onAddSection}
-              />
-            </Suspense>
-          </fieldset>
+          <StickyAside as="div" docked={split}>
+            <fieldset disabled={creating} className="contents">
+              <Suspense fallback={<ListSkeleton rows={5} />}>
+                <OutlineTree
+                  sections={sections}
+                  groups={groups}
+                  groupFiles={groupFiles}
+                  selectedGroupId={selectedGroupId}
+                  onSelectGroup={(id, questionId) => void selectGroup(id, questionId)}
+                  onRenameGroup={(id) => void selectGroup(id, undefined, true)}
+                  onCreateGroup={() => void insertGroup().catch(() => undefined)}
+                  onRemoveGroup={(id, opener) => {
+                    removeOpener.current = opener;
+                    setRemoving({ groupId: id });
+                  }}
+                  onRemoveSection={(sectionIndex) => {
+                    removeOpener.current = null;
+                    setRemoving({ sectionIndex });
+                  }}
+                  questions={byId}
+                  selectedId={selectedId}
+                  creating={creating}
+                  onSelect={(questionId) => void selectQuestion(questionId)}
+                  onChange={updateOutline}
+                  onCreateQuestion={() => void onCreateQuestion()}
+                  onPickFromBank={(opener) => {
+                    pickerOpener.current = opener;
+                    setPicking(true);
+                  }}
+                  onAddSection={onAddSection}
+                />
+              </Suspense>
+            </fieldset>
+          </StickyAside>
         }
         second={
           <div data-columns className="flex min-w-0 flex-1 items-start">
@@ -942,6 +974,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       <ConfirmDialog
         open={removing !== null}
         onOpenChange={(open) => !open && !creating && setRemoving(null)}
+        returnFocus={removeOpener}
         title={
           doomedSection
             ? t("builder.removeSectionTitle", { title: doomedSection.title })

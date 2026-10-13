@@ -16,7 +16,8 @@ import (
 
 // Usage is the line printed when a command or a flag is not understood.
 const Usage = "usage: maintenance <command> [flags]\n" +
-	"commands: retain-integrity, anonymize-student, window-schedule, window-list, window-cancel, window-end, rekey-join-codes\n" +
+	"commands: retain-integrity, anonymize-student, window-schedule, window-list, window-cancel, window-end, rekey-join-codes,\n" +
+	"  ai-credits <status|set-allowance|add-credits|approve|decline|pause|resume|set-rules>, ai-reservations-sweep\n" +
 	"every command takes -timeout <duration> (default 1m); writes are dry runs until -apply"
 
 // Command is one parsed invocation: what to run and how long it may take.
@@ -115,6 +116,7 @@ var commands = map[string]spec{
 			}, nil
 		}
 	},
+	aiSweep: sweepSpec,
 	"window-end": func(fs *flag.FlagSet) func() (runner, error) {
 		apply := fs.Bool("apply", false, "end now; omitted means dry run")
 		window := fs.String("window", "", "window UUID")
@@ -140,6 +142,9 @@ func Parse(args []string) (Command, error) {
 		return parseLegacy(args)
 	}
 	name := args[0]
+	if name == aiCredits {
+		return parseAICredits(args[1:])
+	}
 	build, ok := commands[name]
 	if !ok {
 		return Command{}, fmt.Errorf("unknown command %q\n%s", name, Usage)

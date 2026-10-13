@@ -58,8 +58,9 @@ test("mixed builder saves new sections, moves complete groups, copies context an
       /\/teacher\/tests\/[^/]+$/.test(new URL(response.url()).pathname),
   );
   await original
-    .getByRole("button", { name: `Đưa nhóm ${title} xuống`, exact: true })
+    .getByRole("button", { name: `Thao tác với nhóm ${title}`, exact: true })
     .click();
+  await page.getByRole("menuitem", { name: "Di chuyển xuống", exact: true }).click();
   await prompt.fill("Theo lịch, câu lạc bộ mở cửa vào ngày nào?");
   expect((await moving).status()).toBe(200);
   await saved(page);
@@ -114,8 +115,9 @@ test("mixed builder saves new sections, moves complete groups, copies context an
   );
   await page
     .locator(`[data-outline-group="${originalId}"]`)
-    .getByRole("button", { name: `Xoá nhóm ${title}`, exact: true })
+    .getByRole("button", { name: `Thao tác với nhóm ${title}`, exact: true })
     .click();
+  await page.getByRole("menuitem", { name: "Xoá nhóm", exact: true }).click();
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Xoá", exact: true })
