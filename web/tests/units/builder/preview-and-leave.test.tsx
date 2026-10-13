@@ -125,7 +125,7 @@ describe("the builder's bar", () => {
 
     await user.click(screen.getByRole("button", { name: "Xem trước" }));
 
-    const dialog = await screen.findByRole("dialog");
+    const dialog = await screen.findByRole("dialog", { name: "Xem như học viên" });
     expect(
       within(dialog).getByText(gapSentence("They ___ to the museum.")),
     ).toBeInTheDocument();
@@ -133,6 +133,127 @@ describe("the builder's bar", () => {
     expect(within(dialog).getByText("have gone")).toBeInTheDocument();
     expect(within(dialog).queryByText(/đáp án đúng/i)).toBeNull();
     expect(dialog.innerHTML).not.toContain("isCorrect");
+  });
+
+  it("saves an edit still pending before the overlay opens", async () => {
+    const patched: unknown[] = [];
+    let release: () => void = () => undefined;
+    server.use(
+      http.patch(`${BASE}/teacher/tests/:id`, async ({ request }) => {
+        patched.push(await request.json());
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return contractJson("/teacher/tests/{id}", "patch", 200, {
+          ...test,
+          title: "Unit 5 (sửa)",
+        });
+      }),
+    );
+    const { user, title } = await renderBuilder();
+    await user.type(title, " (sửa)");
+
+    await user.click(screen.getByRole("button", { name: "Xem trước" }));
+
+    await waitFor(() => expect(patched).toHaveLength(1));
+    expect(patched[0]).toMatchObject({ title: "Unit 5 (sửa)" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    release();
+    const dialog = await screen.findByRole("dialog", { name: "Xem như học viên" });
+    expect(
+      within(dialog).getByRole("heading", { name: "Xem như học viên · Unit 5 (sửa)" }),
+    ).toBeVisible();
+  });
+
+  it("covers the window with a bar and a frame, and has no Previous or Next", async () => {
+    const { user } = await renderBuilder();
+    await screen.findAllByText("They ___ to the museum.");
+
+    await user.click(screen.getByRole("button", { name: "Xem trước" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Xem như học viên" });
+    expect(dialog).toHaveClass("fixed", "inset-0", "p-3.5", "gap-3");
+    expect(
+      within(dialog).getByRole("heading", { name: "Xem như học viên · Unit 5" }),
+    ).toHaveClass("truncate");
+    expect(within(dialog).getByRole("group", { name: "Khung xem" })).toBeVisible();
+    expect(
+      within(dialog).getByRole("button", { name: "Đóng bản xem trước" }),
+    ).toBeVisible();
+    expect(within(dialog).queryByRole("button", { name: "Câu trước" })).toBeNull();
+    expect(within(dialog).queryByRole("button", { name: "Câu tiếp" })).toBeNull();
+    expect(within(dialog).queryByRole("status")).toBeNull();
+    expect(
+      within(dialog).queryByText(
+        "Những gì học viên thấy. Câu trả lời ở đây không được lưu.",
+      ),
+    ).toBeNull();
+    expect(
+      within(dialog).getByRole("region", { name: "Màn hình của học viên" }),
+    ).toHaveClass("overflow-y-auto");
+  });
+
+  it("switches the frame between Computer and Phone", async () => {
+    const { user } = await renderBuilder();
+    await screen.findAllByText("They ___ to the museum.");
+    await user.click(screen.getByRole("button", { name: "Xem trước" }));
+    const dialog = await screen.findByRole("dialog", { name: "Xem như học viên" });
+    const frame = dialog.querySelector("[data-preview-viewport]");
+
+    expect(frame).toHaveAttribute("data-preview-viewport", "desktop");
+    expect(frame).toHaveClass(
+      "h-full",
+      "w-[min(1320px,100%)]",
+      "rounded-xl",
+      "max-w-full",
+    );
+    expect(within(dialog).getByRole("button", { name: "Máy tính" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await user.click(within(dialog).getByRole("button", { name: "Điện thoại" }));
+    expect(frame).toHaveAttribute("data-preview-viewport", "phone");
+    expect(frame).toHaveClass("h-full", "w-[390px]", "rounded-[28px]", "max-w-full");
+    expect(frame).not.toHaveClass("w-[min(1320px,100%)]");
+
+    await user.click(within(dialog).getByRole("button", { name: "Máy tính" }));
+    expect(frame).toHaveAttribute("data-preview-viewport", "desktop");
+  });
+
+  it("keeps focus inside, closes on Esc and returns focus to Xem trước", async () => {
+    const { user } = await renderBuilder();
+    await screen.findAllByText("They ___ to the museum.");
+    const opener = screen.getByRole("button", { name: "Xem trước" });
+
+    await user.click(opener);
+    const dialog = await screen.findByRole("dialog", { name: "Xem như học viên" });
+    await waitFor(() =>
+      expect(dialog).toContainElement(document.activeElement as HTMLElement),
+    );
+    for (let step = 0; step < 6; step += 1) {
+      await user.tab();
+      expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    }
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(opener).toHaveFocus();
+  });
+
+  it("closes on Đóng bản xem trước and returns focus to Xem trước", async () => {
+    const { user } = await renderBuilder();
+    await screen.findAllByText("They ___ to the museum.");
+    const opener = screen.getByRole("button", { name: "Xem trước" });
+
+    await user.click(opener);
+    const dialog = await screen.findByRole("dialog", { name: "Xem như học viên" });
+    await user.click(
+      within(dialog).getByRole("button", { name: "Đóng bản xem trước" }),
+    );
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(opener).toHaveFocus();
   });
 
   it("sends Phiên bản to the detail's history card, not the same page as the preview", async () => {

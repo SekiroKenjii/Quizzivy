@@ -1192,10 +1192,10 @@ function Builder({ test }: Readonly<{ test: Test }>) {
 
       <DraftPreviewDialog
         open={previewing}
+        title={title.trim() || t("tests.untitled")}
         questions={draftQuestions}
         sections={sections}
         groups={loadedGroups.flatMap((result) => (result.data ? [result.data] : []))}
-        startAt={selectedId}
         onOpenChange={setPreviewing}
       />
 

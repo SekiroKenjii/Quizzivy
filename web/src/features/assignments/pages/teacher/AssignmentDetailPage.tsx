@@ -63,7 +63,7 @@ import { ProgressCard } from "@/features/attempts/components/ProgressCard";
 import { SheetNoteController } from "@/features/attempts/components/sheetNotes";
 import { POLL_MS, monitorKey, reviewKey } from "@/features/attempts/keys";
 import { listVersions, previewTest, type TestVersion } from "@/features/tests/api";
-import { StudentPreviewPane } from "@/features/tests/components/StudentPreviewPane";
+import { InlineStudentPreview } from "@/features/tests/components/InlineStudentPreview";
 import { useIdlePolling, useRefetchOnResume } from "@/hooks/useIdlePolling";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { useCrumbs } from "@/layouts/shell/crumbs";
@@ -872,7 +872,7 @@ function QuestionsPanel({
   if (preview.data.questions.length === 0)
     return <EmptyState>{t("assignmentDetail.noQuestions")}</EmptyState>;
   return (
-    <StudentPreviewPane
+    <InlineStudentPreview
       questions={preview.data.questions}
       sections={preview.data.sections ?? []}
       groups={preview.data.groups ?? []}

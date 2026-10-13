@@ -419,21 +419,36 @@ describe("the summary", () => {
 });
 
 describe("the preview", () => {
-  it("shows every included question with answers hidden, and switches to the phone frame", async () => {
+  it("holds the whole review draft in the frame, with no count line, no answer and no note", async () => {
+    current = open();
+    await renderConfirm();
+    const frame = document.querySelector<HTMLElement>("[data-preview-viewport]")!;
+
+    for (const prompt of ["Question 1", "Question 2", "Question 4.1"])
+      expect(within(frame).getByText(prompt)).toBeInTheDocument();
+    expect(within(frame).getByText("The park is near.")).toBeInTheDocument();
+    expect(within(frame).queryByText("Question 3")).toBeNull();
+    expect(within(frame).queryByText("Trùng câu 1")).toBeNull();
+    expect(within(frame).getAllByRole("radio").length).toBeGreaterThan(0);
+    expect(within(frame).queryAllByRole("radio", { checked: true })).toEqual([]);
+    expect(frame.textContent ?? "").not.toMatch(/không thấy đáp án|ghi chú/);
+    expect(screen.queryByText(/Học viên không thấy đáp án và ghi chú/)).toBeNull();
+  });
+
+  it("draws Test detail's two frames, and switches to the phone", async () => {
     current = open();
     const { user } = await renderConfirm();
-    expect(
-      screen.getByText("3 câu hỏi. Học viên không thấy đáp án và ghi chú của bạn."),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("Question 3")).toBeNull();
     const frame = document.querySelector("[data-preview-viewport]");
     expect(frame).toHaveAttribute("data-preview-viewport", "desktop");
+    expect(frame).toHaveClass("h-[620px]", "w-full", "rounded-xl", "max-w-full");
+    expect(frame?.parentElement).toHaveClass("bg-sidebar", "p-4");
 
     await user.click(screen.getByRole("button", { name: "Điện thoại" }));
     expect(frame).toHaveAttribute("data-preview-viewport", "phone");
+    expect(frame).toHaveClass("h-[720px]", "w-[390px]", "rounded-[24px]");
   });
 
-  it("says how many it shows when the paper cannot draw a question", async () => {
+  it("draws the questions the paper can draw, with no count of the others", async () => {
     current = review(
       [
         section([
@@ -444,11 +459,10 @@ describe("the preview", () => {
       [],
     );
     await renderConfirm();
-    expect(
-      screen.getByText(
-        "Đang hiện 1 trên 2 câu hỏi. Học viên không thấy đáp án và ghi chú của bạn.",
-      ),
-    ).toBeInTheDocument();
+    const frame = document.querySelector<HTMLElement>("[data-preview-viewport]")!;
+    expect(within(frame).getByText("Question 1")).toBeInTheDocument();
+    expect(within(frame).queryByText("Question 2")).toBeNull();
+    expect(screen.queryByText(/Đang hiện 1 trên 2 câu hỏi/)).toBeNull();
   });
 });
 

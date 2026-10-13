@@ -2,27 +2,27 @@ import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Monitor, Smartphone } from "lucide-react";
 import { Segmented } from "@/components/ui/segmented";
-import { StudentPreview } from "@/features/tests";
-import { cn } from "@/lib/utils";
+import {
+  PANEL_FRAME,
+  StudentPreview,
+  StudentPreviewPane,
+  type PreviewDevice,
+} from "@/features/tests";
 import type { ImportDraftSection } from "../../api";
 import { draftPreview } from "../../previewAdapter";
 
-type Device = "desktop" | "phone";
-
 /**
  * ConfirmPreview is "What students will see": every question still in the
- * import's saved draft, drawn by the student's paper with answers hidden, in
- * a computer-wide or a 390px phone frame, and a foot line counting them.
+ * import's saved draft, drawn by the student's paper with answers and notes
+ * left out, in Test detail's computer or phone frame.
  */
 export function ConfirmPreview({
   sections,
 }: Readonly<{ sections: readonly ImportDraftSection[] }>) {
   const { t } = useTranslation();
   const titleId = useId();
-  const [device, setDevice] = useState<Device>("desktop");
+  const [device, setDevice] = useState<PreviewDevice>("desktop");
   const preview = useMemo(() => draftPreview(sections), [sections]);
-  const phone = device === "phone";
-  const shown = preview.questions.length;
 
   return (
     <section
@@ -44,15 +44,9 @@ export function ConfirmPreview({
           ]}
         />
       </div>
-      <div className="bg-sidebar relative max-h-160 overflow-y-auto p-5">
-        <div
-          data-preview-viewport={device}
-          className={cn(
-            "bg-bg mx-auto flex max-w-full min-w-0 flex-col gap-4.5 border p-5.5",
-            phone ? "w-[390px] rounded-[24px]" : "w-full rounded-xl",
-          )}
-        >
-          {shown === 0 ? (
+      <div className="bg-sidebar p-4">
+        <StudentPreviewPane device={device} sizes={PANEL_FRAME}>
+          {preview.questions.length === 0 ? (
             <p className="text-muted-fg text-base">
               {t("imports.confirm.previewEmpty")}
             </p>
@@ -63,12 +57,7 @@ export function ConfirmPreview({
               groups={preview.groups}
             />
           )}
-          <p className="text-muted-fg text-meta text-center">
-            {shown === preview.included
-              ? t("imports.confirm.foot", { count: preview.included })
-              : t("imports.confirm.footSome", { shown, count: preview.included })}
-          </p>
-        </div>
+        </StudentPreviewPane>
       </div>
     </section>
   );

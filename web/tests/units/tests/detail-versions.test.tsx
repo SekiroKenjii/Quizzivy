@@ -289,7 +289,7 @@ describe("the version history", () => {
 });
 
 describe("changes from the previous version", () => {
-  it("lists the changes and marks the questions they touch", async () => {
+  it("lists the changes above the frame and marks nothing inside it", async () => {
     twoVersions();
     const { user, router } = renderDetail();
     await screen.findByText(ADDED_PROMPT);
@@ -313,9 +313,14 @@ describe("changes from the previous version", () => {
         .map((row) => row.firstElementChild?.textContent),
     ).toEqual(["Thêm", "Đáp án", "Điểm"]);
 
-    expect(screen.getByText("Mới")).toBeVisible();
-    expect(screen.getByText("Đã sửa")).toBeVisible();
-    expect(document.querySelectorAll("[data-preview-mark]")).toHaveLength(2);
+    const frame = document.querySelector<HTMLElement>("[data-preview-viewport]")!;
+    expect(
+      changes.compareDocumentPosition(frame) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(within(frame).getByText(ADDED_PROMPT)).toBeInTheDocument();
+    expect(within(frame).queryByText("Mới")).toBeNull();
+    expect(within(frame).queryByText("Đã sửa")).toBeNull();
+    expect(frame.querySelector("[class*='outline-dashed']")).toBeNull();
     expect(detail.diffs).toEqual(["2:1"]);
   });
 
@@ -324,7 +329,7 @@ describe("changes from the previous version", () => {
     await screen.findByText(PUBLISHED_SENTENCE);
 
     expect(screen.queryByRole("button", { name: /Thay đổi so với/ })).toBeNull();
-    expect(document.querySelectorAll("[data-preview-mark]")).toHaveLength(0);
+    expect(screen.queryByRole("region", { name: /Thay đổi so với/ })).toBeNull();
   });
 
   it("says when nothing changed", async () => {
