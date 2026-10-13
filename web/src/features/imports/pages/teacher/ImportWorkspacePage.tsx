@@ -178,7 +178,11 @@ function DraftWorkspace() {
               >
                 <PaneBody>
                   {parts.sources}
-                  <Privacy processing={processing} retention={retention} />
+                  <Privacy
+                    processing={processing}
+                    retention={retention}
+                    readWithAi={parts.readWithAi}
+                  />
                 </PaneBody>
               </Pane>
             }
@@ -209,7 +213,11 @@ function DraftStatus({
       }
     >
       {notices}
-      {parts.pasting ? parts.findings : <ProcessingPanel run={undefined} />}
+      {parts.pasting ? (
+        parts.findings
+      ) : (
+        <ProcessingPanel run={undefined} readWithAi={parts.readWithAi} />
+      )}
       <PaneBody ruled>
         {intro}
         {parts.details}
@@ -235,7 +243,12 @@ function FormatsLine() {
 function Privacy({
   processing,
   retention,
-}: Readonly<{ processing: boolean; retention: ImportRetention | undefined }>) {
+  readWithAi,
+}: Readonly<{
+  processing: boolean;
+  retention: ImportRetention | undefined;
+  readWithAi: boolean;
+}>) {
   const { t } = useTranslation();
   return (
     <>
@@ -249,6 +262,7 @@ function Privacy({
             ? t("imports.upload.processingOn")
             : t("imports.upload.processingUnknown"),
         })}
+        {readWithAi ? <> {t("imports.upload.privacyAi")}</> : null}
       </Callout>
       {retention === undefined ? null : (
         <p className="text-muted-fg text-xs leading-relaxed">
@@ -519,6 +533,7 @@ function FileWorkspace({
                   <ProcessingPanel
                     run={value.run}
                     exam={value.sources.find((source) => source.role === "exam")}
+                    readWithAi={value.readWithAi === true}
                     failed
                   />
                   <PaneBody ruled>
@@ -650,12 +665,13 @@ function StatusPane({
 }>) {
   const { t } = useTranslation();
   const exam = value.sources.find((source) => source.role === "exam");
+  const readWithAi = value.readWithAi === true;
   switch (value.status) {
     case "awaiting_sources":
       return (
         <Pane title={t("imports.workspace.steps")}>
           {notices}
-          <ProcessingPanel run={undefined} exam={exam} />
+          <ProcessingPanel run={undefined} exam={exam} readWithAi={readWithAi} />
           <PaneBody ruled>
             <AwaitingActions
               value={value}
@@ -669,7 +685,7 @@ function StatusPane({
       return (
         <Pane title={t("imports.workspace.progress")}>
           {notices}
-          <ProcessingPanel run={value.run} exam={exam} failed />
+          <ProcessingPanel run={value.run} exam={exam} readWithAi={readWithAi} failed />
           <PaneBody ruled>
             <Stopped value={value} onChange={onChange} canRetry={processing} />
             <FailedActions value={value} onChange={onChange} processing={processing} />
@@ -681,7 +697,7 @@ function StatusPane({
       return (
         <Pane title={t("imports.workspace.progress")}>
           {notices}
-          <ProcessingPanel run={value.run} exam={exam} />
+          <ProcessingPanel run={value.run} exam={exam} readWithAi={readWithAi} />
           <PaneBody ruled>
             <RunningActions value={value} onChange={onChange} />
           </PaneBody>
@@ -694,6 +710,7 @@ function StatusPane({
           <ProcessingPanel
             run={value.run}
             exam={exam}
+            readWithAi={readWithAi}
             failed={value.run?.status === "failed"}
           />
           <PaneBody ruled>

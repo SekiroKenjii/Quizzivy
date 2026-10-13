@@ -131,7 +131,10 @@
       "saved_other": "Đã lưu {{count}} câu hỏi vào ngân hàng",
       "savedTagged_one": "Đã lưu {{count}} câu hỏi vào ngân hàng, kèm thẻ Bản nháp AI",
       "savedTagged_other": "Đã lưu {{count}} câu hỏi vào ngân hàng, kèm thẻ Bản nháp AI",
-      "invalid": "Câu {{n}} AI viết chưa lưu được như hiện tại. Hãy bỏ chọn câu đó rồi thử lại."
+      "invalid": "Câu {{n}} AI viết chưa lưu được như hiện tại. Hãy bỏ chọn câu đó rồi thử lại.",
+      "saveAsPractice": "Lưu thành đề luyện tập",
+      "savedPractice_one": "Đã lưu đề luyện tập gồm {{count}} câu thành bản nháp trong Đề thi",
+      "savedPractice_other": "Đã lưu đề luyện tập gồm {{count}} câu thành bản nháp trong Đề thi"
     },
     "check": {
       "title": "Kiểm tra đề bằng AI",
@@ -162,6 +165,22 @@
       "suggestedFix": "Cách sửa gợi ý",
       "summary_one": "{{count}} điều nên xem lại",
       "summary_other": "{{count}} điều nên xem lại"
+    },
+    "score": {
+      "title": "Gợi ý của AI",
+      "idle": "So sánh câu trả lời với các đáp án được chấp nhận. Bạn quyết định điểm.",
+      "run": "Gợi ý điểm",
+      "running": "Đang đọc câu trả lời…",
+      "confidence": {
+        "high": "Độ tin cậy cao",
+        "medium": "Độ tin cậy trung bình",
+        "low": "Độ tin cậy thấp"
+      },
+      "outOf": "/ {{max}}",
+      "comment": "Nhận xét cho học viên:",
+      "use": "Dùng điểm và nhận xét",
+      "filled": "Đã điền điểm và nhận xét. Hãy kiểm tra lại, rồi bấm Lưu & câu tiếp theo.",
+      "off": "Gợi ý của AI đang tắt trong <settings>Cài đặt › Trợ lý AI</settings>."
     },
     "needsVersion": "Hãy phát hành đề trước khi tạo biến thể.",
     "needsSection": "Hãy thêm một phần trước.",
@@ -237,6 +256,31 @@
       "tagged_other": "Đã thêm thẻ cho {{count}} câu",
       "testCount_one": "{{count}} đề",
       "testCount_other": "{{count}} đề"
+    },
+    "explain": {
+      "write": "Viết bằng AI",
+      "writing": "Đang viết…",
+      "again": "Viết lại",
+      "title": "Lời giải thích gợi ý",
+      "use": "Dùng bản này",
+      "shorter": "Ngắn hơn",
+      "inVietnamese": "Bằng tiếng Việt",
+      "inEnglish": "Bằng tiếng Anh",
+      "discard": "Bỏ qua",
+      "used": "Đã thêm lời giải thích. Bạn có thể sửa tùy ý."
+    },
+    "distract": {
+      "suggest": "Gợi ý lựa chọn sai",
+      "thinking": "Đang nghĩ…",
+      "title": "Lựa chọn sai gợi ý",
+      "close": "Đóng gợi ý",
+      "add": "Thêm",
+      "added": "Đã thêm"
+    },
+    "guard": {
+      "prompt": "Hãy viết câu hỏi trước",
+      "key": "Hãy đánh dấu đáp án đúng trước",
+      "save": "Hãy lưu câu hỏi trước"
     }
   },
   "api": {
@@ -3325,6 +3369,10 @@
       "limitsLoading": "Đang tải giới hạn tệp…",
       "limitsFailed": "Không tải được giới hạn tệp. Máy chủ vẫn kiểm tra khi tải lên.",
       "limits": "Nhận tệp {{formats}}, tối đa {{size}} mỗi tệp. Không nhận tệp có mật khẩu hoặc chứa macro, và PDF chụp hoặc scan (không có chữ chọn được).",
+      "limitsAi": "Nhận tệp {{formats}}, tối đa {{size}} mỗi tệp, kể cả PDF chụp hoặc scan. Không nhận tệp có mật khẩu hoặc chứa macro.",
+      "aiTitle": "Đọc bằng AI",
+      "aiHint": "Đọc được bản quét, ảnh chụp đề in và bố cục lạ.",
+      "aiLocked": "Lượt nhập đã được tạo với lựa chọn này.",
       "titleLabel": "Tên đề",
       "titlePlaceholder": "Tên của bản nháp đề",
       "titleHint": "Tự điền từ tên tệp đề. Bạn có thể sửa.",
@@ -3423,7 +3471,8 @@
       "attempt": "Lần thử {{attempt}}/{{max}}",
       "textCheck": "Kiểm tra văn bản",
       "charactersChecked": "Đã kiểm tra {{count}} ký tự",
-      "plainText": "Văn bản thuần · không có định dạng"
+      "plainText": "Văn bản thuần · không có định dạng",
+      "withAi": "Bản quét được đọc bằng AI"
     },
     "textRunError": {
       "SOURCE_INVALID": "Không đọc được văn bản đã dán hoặc một tệp đi kèm. Hãy kiểm tra các nguồn rồi bắt đầu một lần nhập mới.",
@@ -3937,6 +3986,7 @@
       "noun_one": "lượt nhập",
       "noun_other": "lượt nhập",
       "withKey": "kèm {{name}}",
+      "readWithAi": "Đọc bằng AI",
       "noTest": "chưa có",
       "openTest": "Mở đề {{title}}",
       "actionsNamed": "Thao tác với {{title}}",
@@ -4202,6 +4252,20 @@
       "empty": "Chưa có bài nộp nào.",
       "noPermission": "Cần quyền chấm bài để xem học viên làm sai câu nào.",
       "loadFailed": "Không tải được thống kê câu hỏi."
+    },
+    "insights": {
+      "explain": "Giải thích kết quả bằng AI",
+      "reading": "Đang đọc kết quả…",
+      "refresh": "Làm mới",
+      "title": "AI nhận thấy",
+      "basis_one": "Dựa trên {{count}} bài làm",
+      "basis_other": "Dựa trên {{count}} bài làm",
+      "hide": "Ẩn nhận xét",
+      "empty": "AI không thấy điều gì đáng lưu ý trong kết quả này.",
+      "review": "Xem lại bài làm",
+      "practice": "Tạo bài luyện tập",
+      "practiceTitle": "{{title}} · Luyện tập",
+      "readOff": "Để AI giải thích kết quả, hãy bật “Cho AI đọc bài làm của học viên” trong <settings>Cài đặt › Trợ lý AI</settings>."
     },
     "settings": {
       "shown": "Hiện",

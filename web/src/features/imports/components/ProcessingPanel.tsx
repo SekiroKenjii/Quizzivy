@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { Check, LoaderCircle, X } from "lucide-react";
+import { Check, LoaderCircle, Sparkles, X } from "lucide-react";
 import { useTick } from "@/hooks/useTick";
 import { countdown } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
@@ -38,15 +38,18 @@ function rowStates(run: ImportRun | undefined, failed: boolean): RowState[] {
  * names the current stage, the time elapsed and the attempt while the run is
  * queued or running. Without a run every stage waits, as before a start.
  * With `failed`, the stage the run stopped at is marked failed and nothing
- * spins. It shows no percentage.
+ * spins. With `readWithAi`, the reading stage says that scans are read with
+ * AI. It shows no percentage.
  */
 export function ProcessingPanel({
   run,
   exam,
+  readWithAi = false,
   failed = false,
 }: Readonly<{
   run: ImportRun | undefined;
   exam?: ImportSource | undefined;
+  readWithAi?: boolean;
   failed?: boolean;
 }>) {
   const { t } = useTranslation();
@@ -70,6 +73,7 @@ export function ProcessingPanel({
             index={index}
             state={states[index] ?? "waiting"}
             exam={text ? exam : undefined}
+            readWithAi={readWithAi && !text}
           />
         ))}
       </ol>
@@ -87,11 +91,13 @@ function StageRow({
   index,
   state,
   exam,
+  readWithAi,
 }: Readonly<{
   stage: Stage;
   index: number;
   state: RowState;
   exam: ImportSource | undefined;
+  readWithAi: boolean;
 }>) {
   const { t } = useTranslation();
   const marked = state === "current" || state === "failed";
@@ -108,6 +114,12 @@ function StageRow({
       <StageMark state={state} index={index} />
       <span className="min-w-0 flex-1">{stageLabel(stage, exam !== undefined, t)}</span>
       {state === "done" ? <TextReceipt stage={stage} exam={exam} /> : null}
+      {readWithAi && stage.key === "read" ? (
+        <span className="text-muted-fg inline-flex items-center gap-1 text-right text-xs font-normal">
+          <Sparkles aria-hidden="true" className="text-brand-ink size-3.5" />
+          {t("imports.processing.withAi")}
+        </span>
+      ) : null}
       <span className="sr-only">{t(`imports.processing.state.${state}`)}</span>
     </li>
   );

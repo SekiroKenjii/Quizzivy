@@ -14,6 +14,7 @@ import { gradingGroupKey, gradingItemKey, scoreOptions } from "./gradingRecovery
 import { useGradingQueue } from "./useGradingQueue";
 import { GradingQueueAside } from "./GradingQueueAside";
 import { GradingAnswerCard } from "./GradingAnswerCard";
+import { AiScoreBox } from "../../components/AiScoreBox";
 import "@/features/attempts/gradingMessages";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
@@ -314,6 +315,20 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
                     onRetryMaterial={() => void model.queue.refetch()}
                     onReview={(event) =>
                       openReview(event, `/teacher/attempts/${selected.attemptId}`)
+                    }
+                    suggestion={
+                      selected.type === "short_answer" && (
+                        <AiScoreBox
+                          key={gradingItemKey(selected)}
+                          attemptId={selected.attemptId}
+                          questionId={selected.questionId}
+                          max={selected.points}
+                          busy={model.busy}
+                          onUse={(points, comment) =>
+                            model.fill(selected, points, comment)
+                          }
+                        />
+                      )
                     }
                   />
                 </div>

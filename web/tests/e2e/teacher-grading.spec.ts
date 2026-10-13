@@ -299,3 +299,148 @@ test("below 768 the page stays static and the queue keeps its 180px cap", async 
   const column = await queue.locator("../..").boundingBox();
   expect(column?.height).toBeGreaterThan(800 - 120);
 });
+
+async function prepareAi(page: Page, theme: "light" | "dark") {
+  let grades = 0;
+  let suggestions = 0;
+  const item: GradingQueueItem = {
+    attemptId: ATTEMPT_ID,
+    questionId: ESSAY_ID,
+    assignmentId: ASSIGNMENT_ID,
+    assignmentTitle: "Mid-term Reading Mock",
+    studentId: STUDENT_ID,
+    studentName: "Nguyễn Đức Minh",
+    questionNumber: 27,
+    type: "short_answer",
+    prompt: "What are the car-free streets called? Write NO MORE THAN TWO WORDS.",
+    answer: { type: "text", value: "play street" },
+    points: 1,
+    score: null,
+    comment: null,
+    sampleAnswer: "play streets",
+  };
+  await page.addInitScript(() => localStorage.setItem("quizzivy.locale", "vi"));
+  await page.emulateMedia({ colorScheme: theme });
+  const user = { ...adminUser, preferences: { theme } };
+  await stubApi(page, {
+    ...sessionAs(user),
+    "GET /public/status": { body: { maintenance: null, ai: true } },
+    "GET /teacher/ai/usage": {
+      body: {
+        month: "2026-10-01",
+        used: 1200,
+        allowance: 20000,
+        left: 18800,
+        paused: false,
+        requests: true,
+        pending: null,
+        categories: [],
+      },
+    },
+    "GET /teacher/summary": {
+      body: { liveAssignments: 1, answersToGrade: 1, unreadNotifications: 0 },
+    },
+    "GET /teacher/grading/queue": async (route) => {
+      await route.fulfill({
+        json: await contractJson("/teacher/grading/queue", "get", 200, {
+          items: [item],
+          groups: [
+            {
+              key: STUDENT_ID,
+              kind: "student",
+              label: item.studentName,
+              sub: item.assignmentTitle,
+              remaining: 1,
+            },
+          ],
+          answersRemaining: 1,
+          studentsWaiting: 1,
+        }).json(),
+      });
+    },
+    "GET /teacher/attempts": { body: { items: [], total: 0, page: 1, pageSize: 100 } },
+    [`POST /teacher/ai/attempts/${ATTEMPT_ID}/answers/${ESSAY_ID}/score-suggestion`]:
+      async (route) => {
+        suggestions += 1;
+        await route.fulfill({
+          json: await contractJson(
+            "/teacher/ai/attempts/{attemptId}/answers/{questionId}/score-suggestion",
+            "post",
+            200,
+            {
+              score: 0.5,
+              confidence: "medium",
+              reasons: [
+                "Right idea, but the passage uses the plural “play streets”.",
+                "The word form counts in IELTS-style marking.",
+              ],
+              comment: "Very close! Check the plural: the passage says “play streets”.",
+              usage: { credits: 400, left: 18400 },
+            },
+          ).json(),
+        });
+      },
+    [`POST /teacher/attempts/${ATTEMPT_ID}/grade`]: async (route) => {
+      grades += 1;
+      await route.fulfill({
+        json: await contractJson("/teacher/attempts/{id}/grade", "post", 200, {
+          earned: 0.5,
+          total: 1,
+          pendingManual: 0,
+        }).json(),
+      });
+    },
+  });
+  return { grades: () => grades, suggestions: () => suggestions };
+}
+
+for (const theme of ["light", "dark"] as const) {
+  for (const width of [360, 768, 1024, 1280, 1440]) {
+    test(`Suggest a score fills the card and Save & next saves it at ${width}px in ${theme}`, async ({
+      page,
+    }) => {
+      const counts = await prepareAi(page, theme);
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/teacher/grading");
+      const box = page.getByRole("region", { name: "Gợi ý của AI" });
+      const run = box.getByRole("button", { name: "Gợi ý điểm" });
+      await expect(run).toHaveCSS("height", "30px");
+      const order = await page
+        .getByRole("region", { name: "Câu trả lời đang chấm" })
+        .evaluate((card) => {
+          const answer = card.querySelector("[aria-label='Gợi ý của AI']");
+          const score = [...card.querySelectorAll("legend")].find(
+            (legend) => legend.textContent === "Điểm",
+          );
+          return (
+            answer !== null &&
+            score !== undefined &&
+            answer.getBoundingClientRect().bottom <= score.getBoundingClientRect().top
+          );
+        });
+      expect(order).toBe(true);
+      await run.click();
+      await expect(box.getByText("Độ tin cậy trung bình")).toBeVisible();
+      const score = box.getByText("/ 1", { exact: true }).locator("..");
+      await expect(score).toHaveText("0,5 / 1");
+      await expect(score).toHaveCSS("font-size", "17px");
+      await box.getByRole("button", { name: "Dùng điểm và nhận xét" }).click();
+      await expect(page.getByRole("button", { name: "Chấm 0,5 điểm" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      await expect(page.getByLabel(/^Nhận xét/)).toHaveValue(
+        "Very close! Check the plural: the passage says “play streets”.",
+      );
+      expect(counts.suggestions()).toBe(1);
+      expect(counts.grades()).toBe(0);
+      await expect
+        .poll(() =>
+          page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+        )
+        .toBe(true);
+      await page.getByRole("button", { name: "Lưu & câu tiếp theo" }).click();
+      await expect.poll(counts.grades).toBe(1);
+    });
+  }
+}

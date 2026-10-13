@@ -8,9 +8,10 @@ import type { ProseMode } from "../proseMode";
 
 /**
  * ProseModeHeader is the field's header: its label, an optional hint, and
- * "Rich text | Markdown" on the right. The label names the field; the hint,
- * outside it as `{id}-hint`, is for the field to name in `aria-describedby`. `markdownBlocked` disables "Markdown"
- * and says why under the header.
+ * "Rich text | Markdown" on the right, after `action` when one is given. The
+ * label names the field; the hint, outside it as `{id}-hint`, is for the field
+ * to name in `aria-describedby`. `markdownBlocked` disables "Markdown" and
+ * says why under the header.
  */
 export function ProseModeHeader({
   id,
@@ -19,6 +20,7 @@ export function ProseModeHeader({
   mode,
   onMode,
   markdownBlocked,
+  action,
 }: Readonly<{
   id: string;
   label: string;
@@ -26,10 +28,29 @@ export function ProseModeHeader({
   mode: ProseMode;
   onMode: (mode: ProseMode) => void;
   markdownBlocked?: string | undefined;
+  action?: ReactNode;
 }>) {
   const { t } = useTranslation();
   const reason = `${id}-markdown-blocked`;
   const blocked = markdownBlocked !== undefined && mode === "rich";
+  const modes = (
+    <Segmented
+      size="xs"
+      label={t("proseMode.label", { label })}
+      value={mode}
+      onChange={(value) => onMode(value as ProseMode)}
+      options={[
+        { value: "rich", label: t("proseMode.rich"), icon: Type },
+        {
+          value: "markdown",
+          label: t("proseMode.markdown"),
+          icon: FileCode,
+          disabled: blocked,
+          describedBy: blocked ? reason : undefined,
+        },
+      ]}
+    />
+  );
   return (
     <div className="mb-1.5 flex flex-col gap-1">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
@@ -44,22 +65,14 @@ export function ProseModeHeader({
             </>
           )}
         </span>
-        <Segmented
-          size="xs"
-          label={t("proseMode.label", { label })}
-          value={mode}
-          onChange={(value) => onMode(value as ProseMode)}
-          options={[
-            { value: "rich", label: t("proseMode.rich"), icon: Type },
-            {
-              value: "markdown",
-              label: t("proseMode.markdown"),
-              icon: FileCode,
-              disabled: blocked,
-              describedBy: blocked ? reason : undefined,
-            },
-          ]}
-        />
+        {action === undefined ? (
+          modes
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            {action}
+            {modes}
+          </div>
+        )}
       </div>
       {blocked && (
         <p id={reason} className="text-muted-fg text-xs">

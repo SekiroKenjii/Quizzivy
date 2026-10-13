@@ -241,6 +241,7 @@ describe("features/ai", () => {
       "features/tests/components/BuilderAiActions.tsx",
       "features/tests/components/VariantAction.tsx",
       "features/question-bank/components/BankAiActions.tsx",
+      "features/assignments/components/AiInsightsPanel.tsx",
     ].map((path) => readFileSync(resolve(FEATURE, "..", "..", path), "utf8"));
     for (const source of hosts) {
       expect(source).toMatch(

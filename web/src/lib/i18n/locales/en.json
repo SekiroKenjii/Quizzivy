@@ -131,7 +131,10 @@
       "saved_other": "{{count}} questions saved to the bank",
       "savedTagged_one": "{{count}} question saved to the bank with an AI draft tag",
       "savedTagged_other": "{{count}} questions saved to the bank with an AI draft tag",
-      "invalid": "Question {{n}} as AI wrote it can’t be saved. Clear it and try again."
+      "invalid": "Question {{n}} as AI wrote it can’t be saved. Clear it and try again.",
+      "saveAsPractice": "Save as practice test",
+      "savedPractice_one": "Practice test with {{count}} question saved as a draft in Tests",
+      "savedPractice_other": "Practice test with {{count}} questions saved as a draft in Tests"
     },
     "check": {
       "title": "Check this test with AI",
@@ -162,6 +165,22 @@
       "suggestedFix": "Suggested fix",
       "summary_one": "{{count}} thing worth a look",
       "summary_other": "{{count}} things worth a look"
+    },
+    "score": {
+      "title": "AI suggestion",
+      "idle": "Compares the answer with the accepted answers. You decide the score.",
+      "run": "Suggest a score",
+      "running": "Reading the answer…",
+      "confidence": {
+        "high": "High confidence",
+        "medium": "Medium confidence",
+        "low": "Low confidence"
+      },
+      "outOf": "/ {{max}}",
+      "comment": "Comment for the student:",
+      "use": "Use score and comment",
+      "filled": "Score and comment filled in. Check them, then Save & next.",
+      "off": "AI suggestions are off in <settings>Settings › AI assistant</settings>."
     },
     "needsVersion": "Publish the test before making a variant.",
     "needsSection": "Add a section first.",
@@ -237,6 +256,31 @@
       "tagged_other": "Tags added to {{count}} questions",
       "testCount_one": "{{count}} test",
       "testCount_other": "{{count}} tests"
+    },
+    "explain": {
+      "write": "Write with AI",
+      "writing": "Writing…",
+      "again": "Write again",
+      "title": "Suggested explanation",
+      "use": "Use this",
+      "shorter": "Shorter",
+      "inVietnamese": "In Vietnamese",
+      "inEnglish": "In English",
+      "discard": "Discard",
+      "used": "Explanation added. Edit it as you like."
+    },
+    "distract": {
+      "suggest": "Suggest wrong options",
+      "thinking": "Thinking…",
+      "title": "Suggested wrong options",
+      "close": "Close suggestions",
+      "add": "Add",
+      "added": "Added"
+    },
+    "guard": {
+      "prompt": "Write the question first",
+      "key": "Mark the correct answer first",
+      "save": "Save the question first"
     }
   },
   "api": {
@@ -3325,6 +3369,10 @@
       "limitsLoading": "Loading file limits…",
       "limitsFailed": "Couldn't load the file limits. The server still checks them on upload.",
       "limits": "Accepts {{formats}} files up to {{size}} each. Files with a password or macros are refused, and so are scanned or photographed PDFs (with no selectable text).",
+      "limitsAi": "Accepts {{formats}} files up to {{size}} each, including scanned or photographed PDFs. Files with a password or macros are refused.",
+      "aiTitle": "Read with AI",
+      "aiHint": "Handles scans, photos of printed tests and unusual layouts.",
+      "aiLocked": "The import was created with this choice.",
       "titleLabel": "Test title",
       "titlePlaceholder": "Name of the draft test",
       "titleHint": "Filled in from the exam filename. You can change it.",
@@ -3423,7 +3471,8 @@
       "attempt": "Attempt {{attempt}} of {{max}}",
       "textCheck": "Check the text",
       "charactersChecked": "{{count}} characters checked",
-      "plainText": "Plain text · no formatting"
+      "plainText": "Plain text · no formatting",
+      "withAi": "Scans read with AI"
     },
     "textRunError": {
       "SOURCE_INVALID": "The pasted text or a companion file could not be read. Check the sources and start a new import.",
@@ -3937,6 +3986,7 @@
       "noun_one": "import",
       "noun_other": "imports",
       "withKey": "with {{name}}",
+      "readWithAi": "Read with AI",
       "noTest": "none yet",
       "openTest": "Open test {{title}}",
       "actionsNamed": "Actions for {{title}}",
@@ -4202,6 +4252,20 @@
       "empty": "No papers handed in yet.",
       "noPermission": "Seeing which questions students got wrong needs the grading permission.",
       "loadFailed": "Could not load the question statistics."
+    },
+    "insights": {
+      "explain": "Explain results with AI",
+      "reading": "Reading results…",
+      "refresh": "Refresh",
+      "title": "What AI noticed",
+      "basis_one": "Based on {{count}} attempt",
+      "basis_other": "Based on {{count}} attempts",
+      "hide": "Hide insights",
+      "empty": "AI found nothing to point out in these results.",
+      "review": "Review answers",
+      "practice": "Make a practice set",
+      "practiceTitle": "{{title}} · Practice",
+      "readOff": "To explain results with AI, turn on “Let AI read student answers” in <settings>Settings › AI assistant</settings>."
     },
     "settings": {
       "shown": "Shown",

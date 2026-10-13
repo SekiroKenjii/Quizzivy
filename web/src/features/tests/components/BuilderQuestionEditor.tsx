@@ -15,12 +15,11 @@ import {
 import { Input } from "@/components/ui/input";
 import type { MediaAsset } from "@/features/media/api";
 import { QuestionMediaField } from "@/features/question-bank/components/QuestionMediaField";
-import {
-  ExplanationField,
-  QuestionPromptAnswers,
-} from "@/features/question-bank/components/QuestionPromptAnswers";
+import { ExplanationField } from "@/features/question-bank/components/ExplanationField";
+import { QuestionPromptAnswers } from "@/features/question-bank/components/QuestionPromptAnswers";
 import { QUESTION_TYPE_ICONS } from "@/features/question-bank/components/questionTypeIcons";
 import { TagsField } from "@/features/question-bank/components/TagsField";
+import type { QuestionAi } from "@/features/question-bank/questionAi";
 import type {
   QuestionType,
   QuestionValues,
@@ -44,7 +43,9 @@ export type BuilderQuestionActions = Readonly<{
  * Points and the "…" menu (Duplicate, Move to section, Delete question); then
  * the prompt, the answer area with its grading note, the question media, and
  * "More options" holding the explanation above the tags. The type menu keeps
- * the other types disabled while gaps bind answers, as the bank does.
+ * the other types disabled while gaps bind answers, as the bank does. `ai`
+ * offers "Write with AI" and "Suggest wrong options", as the bank's editor
+ * does.
  */
 export function BuilderQuestionEditor({
   value,
@@ -52,6 +53,7 @@ export function BuilderQuestionEditor({
   number,
   clearPromptOnFocus,
   actions,
+  ai,
   onChange,
   onAssetChange,
   onRefresh,
@@ -61,6 +63,7 @@ export function BuilderQuestionEditor({
   number: number | null;
   clearPromptOnFocus: boolean;
   actions: BuilderQuestionActions;
+  ai?: QuestionAi | undefined;
   onChange: (value: QuestionValues) => void;
   onAssetChange: (asset: MediaAsset | null) => void;
   onRefresh?: (() => void) | undefined;
@@ -115,6 +118,7 @@ export function BuilderQuestionEditor({
         <QuestionPromptAnswers
           value={value}
           clearPromptOnFocus={clearPromptOnFocus}
+          ai={ai}
           onChange={onChange}
         />
 
@@ -131,7 +135,7 @@ export function BuilderQuestionEditor({
             {t("builder.editor.moreOptions")}
           </summary>
           <div className="mt-3 flex flex-col gap-3.5">
-            <ExplanationField value={value} onChange={onChange} />
+            <ExplanationField value={value} ai={ai} onChange={onChange} />
             <TagsField
               tags={value.tags}
               onChange={(tags) => onChange({ ...value, tags })}
