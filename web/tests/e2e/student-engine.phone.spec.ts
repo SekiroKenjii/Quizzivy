@@ -233,6 +233,29 @@ test("the recording's play button and Return to fullscreen keep the 44px floor",
   expect(back.width).toBeGreaterThanOrEqual(44);
 });
 
+test("a recording played inside the drawer keeps playing once it closes, and the handle shows its dot", async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await startGroupPaper(page, { lone: true });
+  const handle = page.getByRole("button", { name: "Mở ngữ liệu", exact: true });
+  const card = page.getByRole("group", { name: "Hội thoại mẫu", exact: true });
+  const position = () =>
+    page.locator("audio").evaluate((element: HTMLAudioElement) => element.currentTime);
+
+  await footer(page).getByRole("button", { name: "Câu sau", exact: true }).tap();
+  await expect(handle.locator(".bg-brand")).toHaveCount(0);
+  await handle.tap();
+  await card.getByRole("button", { name: "Phát", exact: true }).tap();
+  await expect.poll(position).toBeGreaterThan(1);
+  await page.getByRole("button", { name: "Đóng", exact: true }).tap();
+
+  await expect(handle).toBeVisible();
+  await expect(handle.locator(".bg-brand")).toHaveCount(1);
+  const closedAt = await position();
+  await expect.poll(position).toBeGreaterThan(closedAt + 0.5);
+});
+
 test("a recording left mid-play resumes where it stopped, and spends no second play", async ({
   page,
 }) => {
