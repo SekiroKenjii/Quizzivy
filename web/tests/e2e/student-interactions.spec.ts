@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { sessionAs, studentUser, stubApi } from "./support/api";
+import { studentUser, stubApi } from "./support/api";
 import { engineFits, paper, start, type Session } from "./support/engine";
 
 test("rich table blanks preserve frozen answer bindings and reload on a 320px phone", async ({
@@ -244,7 +244,7 @@ for (const [locale, failed] of [
       const data = paper();
       data.integrity = { ...data.integrity, maxFocusLoss: 2, onLimitExceeded: "flag" };
       await stubApi(page, {
-        ...sessionAs({ ...studentUser, locale }),
+        "GET /auth/me": { body: { ...studentUser, locale } },
         "GET /app/attempts/paper": { body: data },
         "PATCH /app/attempts/paper/answers": {
           status: 500,
