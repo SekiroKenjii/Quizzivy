@@ -497,3 +497,33 @@ it("pauses a recording when the student leaves its group, and resumes it there f
   fireEvent.timeUpdate(again);
   expect(recordGroupAudioPlay).toHaveBeenCalledTimes(1);
 });
+
+it("draws part 2's recording, which cannot be paused, with its sentence and an inert button while it plays", async () => {
+  const user = userEvent.setup();
+  vi.mocked(getAttempt).mockResolvedValue(deckListeningSession(new Date()));
+  const { container } = mount();
+  await screen.findByRole("article", { name: "Part 1 · Asking the way" });
+  expect(screen.queryByText(/không tạm dừng được/)).not.toBeInTheDocument();
+
+  for (let step = 0; step < 5; step += 1)
+    await user.click(screen.getByRole("button", { name: "Câu sau" }));
+  const pane = await screen.findByRole("article", { name: "Part 2 · A guided walk" });
+  expect(
+    within(pane).getByText(
+      "Bấm phát khi bạn đã sẵn sàng. Bài nghe này không tạm dừng được sau khi bắt đầu.",
+    ),
+  ).toBeVisible();
+
+  const audio = container.querySelector("audio")!;
+  fireEvent.click(within(pane).getByRole("button", { name: "Phát" }));
+  vi.spyOn(audio, "paused", "get").mockReturnValue(false);
+  fireEvent.play(audio);
+  const inert = within(pane).getByRole("button", { name: "Tạm dừng" });
+  expect(inert).toHaveAttribute("aria-disabled", "true");
+  vi.mocked(HTMLMediaElement.prototype.pause).mockClear();
+  fireEvent.click(inert);
+  expect(HTMLMediaElement.prototype.pause).not.toHaveBeenCalled();
+  expect(
+    within(pane).getByText("Đang phát · bài nghe này không tạm dừng được"),
+  ).toBeVisible();
+});

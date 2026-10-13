@@ -105,6 +105,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	if err != nil {
 		return Assembly{}, err
 	}
+	importsTransport = importsTransport.WithAI(completer != nil)
 	questionsApp, questionsRepo := questions(dbx, mediaApp)
 	testsApp := tests(dbx, questionsRepo, mediaRepo, mediaApp)
 	attemptsApp := attempts(dbx, notificationsApp.Commands.Notify, logger).WithGroupContexts(testsApp.Queries.GroupContexts).WithZones(adapters.ProfileZone{Query: identityApp.Queries.EffectiveZone})

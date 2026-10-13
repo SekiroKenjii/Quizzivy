@@ -47,6 +47,7 @@ type Import struct {
 	TestID                       *string
 	FilesRemovedAt               *time.Time
 	ClosedIdle                   bool
+	ReadWithAi                   bool
 	ReviewCounts                 *ReviewCounts
 }
 
@@ -65,11 +66,13 @@ type Source struct {
 	Characters                                                             *int
 	SHA256                                                                 []byte
 	Ready                                                                  bool
+	ReadWithAi                                                             bool
 	CreatedAt                                                              time.Time
 }
 
 type Create struct {
 	RequestID, Title string
+	ReadWithAi       bool
 	Actor            actor.Actor
 }
 type Reserve struct {

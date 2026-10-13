@@ -242,6 +242,7 @@ function SharedAudio({
         label={label}
         durationMs={asset.durationMs}
         allowSeek={recording.policy.allowSeek}
+        allowPause={recording.policy.allowPause}
         disabled={locked}
         preload="metadata"
         plays={{ played, limit: recording.policy.maxPlays ?? null }}

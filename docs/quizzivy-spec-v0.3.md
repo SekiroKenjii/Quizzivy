@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.97 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.98 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.97**
+
+D4, T-D4.9: a recording that cannot be paused (DG-183).
+
+- §11.3 With `allowPause` false the card's button is inert while the recording plays (`aria-disabled`, 45% opacity) and the status says the recording can't be paused, before the first play and while it plays. A pause from elsewhere (a headset button, another recording, leaving the question or the group, a lock) still happens, reads "Paused", and Resume continues it for no play; nothing new is recorded.
 
 **Changes since v0.96**
 
@@ -2217,6 +2223,7 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
   nothing. Other playback rejections or a file-load failure show the
   expired-link card.
 - iOS Safari: only one audio element plays at a time, and playback must originate from a gesture handler (not an async continuation). Call `.play()` synchronously in the click handler; do not `await` anything before it.
+- `allowPause: false` (§11.1): while the recording plays the button is inert, marked `aria-disabled` (never the native `disabled`, so it keeps its focus and its name), at 45% opacity, and a press does nothing; the status reads "Playing · this recording can’t be paused", and before the first play "Press play when you are ready. It can’t be paused once it starts." It cannot stop playback stopping: a headset or OS media button, another recording starting, leaving the question or the group, or a lock still pauses it. The card then reads "Paused", and Resume continues the play in progress without spending a play. Nothing new is recorded: the product reports what it can see and does not pretend the pause could not happen. A payload without the field, from an API older than the tab, pauses freely.
 - `allowSeek: false` implementation: no `<input type="range">`, and an `onSeeking` handler that resets `currentTime` to the last known position. Note that OS-level media controls can still seek in some browsers — record an `audio_seek` event rather than pretending it cannot happen.
 - Accessibility: real `<button>` elements, `aria-label` on each, keyboard-operable, `aria-live` announcement of plays remaining. When `showTranscriptAfterSubmit` is on, the transcript appears on the result page — this is also the accessibility fallback for hard-of-hearing students.
 - One player instance per question, and one per shared recording, which stays mounted while the student moves between its group's questions. Leaving the question or the group, by any means, pauses and releases it. A play in progress and its position are remembered in memory for the tab's life, per question or recording (`media/playback.ts`), and cleared with the attempt, so coming back resumes there without spending a play; a reload forgets them. Starting one player pauses any other that is playing.

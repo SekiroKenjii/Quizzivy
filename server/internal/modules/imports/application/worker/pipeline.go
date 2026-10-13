@@ -58,7 +58,7 @@ func (p Pipeline) process(ctx context.Context, run domain.Run, progress func(str
 	if err := progress("extraction"); err != nil {
 		return domain.Outcome{}, err
 	}
-	documents, err := p.extractSources(ctx, run.Claim(), prepared)
+	documents, err := p.extractSources(ctx, run.Claim(), run.RequestedBy, prepared)
 	if err != nil {
 		return domain.Outcome{}, err
 	}
@@ -97,11 +97,11 @@ func (p Pipeline) normalizeSources(ctx context.Context, claim domain.Claim, sour
 	return prepared, nil
 }
 
-func (p Pipeline) extractSources(ctx context.Context, claim domain.Claim, prepared []pipelineSource) ([]domain.EvidenceDocument, error) {
+func (p Pipeline) extractSources(ctx context.Context, claim domain.Claim, requestedBy string, prepared []pipelineSource) ([]domain.EvidenceDocument, error) {
 	documents := make([]domain.EvidenceDocument, 0, len(prepared))
 	for i := range prepared {
 		s := &prepared[i]
-		if err := p.extract(ctx, claim, s); err != nil {
+		if err := p.extract(ctx, claim, requestedBy, s); err != nil {
 			return nil, err
 		}
 		evidence, err := p.evidence(ctx, *s)
@@ -124,7 +124,7 @@ func (p Pipeline) normalize(ctx context.Context, c domain.Claim, s domain.Source
 	})
 }
 
-func (p Pipeline) extract(ctx context.Context, c domain.Claim, s *pipelineSource) error {
+func (p Pipeline) extract(ctx context.Context, c domain.Claim, requestedBy string, s *pipelineSource) error {
 	key, size, digest, format := s.source.StorageKey, s.source.Bytes, s.source.SHA256, s.source.Format
 	if format == "doc" {
 		file, err := artifactKind(s.normalization, "normalized_docx")
@@ -140,7 +140,7 @@ func (p Pipeline) extract(ctx context.Context, c domain.Claim, s *pipelineSource
 			return ports.StageOutput{}, err
 		}
 		defer removeStaging(file)
-		return p.Engine.Extract(ctx, ports.DocumentInput{OriginalID: s.source.ID, Identity: s.identity, Role: s.source.Role, Format: format, Body: file, Bytes: size})
+		return p.Engine.Extract(ctx, ports.DocumentInput{OriginalID: s.source.ID, Identity: s.identity, Role: s.source.Role, Format: format, Body: file, Bytes: size, ReadWithAi: s.source.ReadWithAi, RequestedBy: requestedBy})
 	})
 	s.extraction = set
 	return err

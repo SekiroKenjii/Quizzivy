@@ -1503,6 +1503,7 @@ the file it adds.
 | `00122_create_ai_usage_ledger.sql` | `ai_usage_ledger`, its indexes, and `REVOKE UPDATE, DELETE` from the app role | D4 (T-D4.31), D-48, §46 |
 | `00123_create_ai_credit_requests.sql` | `ai_credit_requests`, `ai_credit_requests_one_pending_idx` and two more indexes | D4 (T-D4.31), D-49, §46 |
 | `00124_add_ai_permissions.sql` | `ai.use` (Content, ordinal 6) and `ai.credits.manage` (System, ordinal 4) in `app.permissions`, both `in_matrix`; the System group's four hidden ordinals move up one, in two statements because `(group_key, ordinal)` is unique and not deferrable; `ai.use` granted to the built-in Teacher role | D4 (T-D4.32), DG-199, §46 |
+| `00125_add_word_imports_read_with_ai.sql` | `word_imports.read_with_ai boolean NOT NULL DEFAULT false`; a constant default, so the v0.10.x binary keeps inserting | D4 (T-D4.33), §47 |
 
 Notes on migration mechanics (§13.7):
 
@@ -3248,3 +3249,15 @@ never write the ledger.
 
 **Down.** Each file drops its table; the order is the reverse of the up. A Down loses the month's
 balances, the ledger and the requests, and nothing else references them.
+
+## 47. Reading a scan with AI (T-D4.33)
+
+One migration, `00125_add_word_imports_read_with_ai.sql`, adds `word_imports.read_with_ai boolean NOT
+NULL DEFAULT false`. The default is a constant, which PostgreSQL 18 records in the catalog without
+rewriting the table, and the v0.10.x binary inserts imports without naming the column, so they read
+as false and the old binary is unaffected. The column belongs to the import, not to a run: a teacher
+chooses it when creating the import (`createWordImport.readWithAi`), it is fixed from then on, and a
+replay of the create with a different value conflicts (`IMPORT_CONFLICT`) as a changed title does.
+The worker reads it through `Sources`, which sets `Source.ReadWithAi` on every source of the run.
+There is no index and no check: nothing filters on it. The Down drops the column and loses which
+imports asked for AI, and nothing else.

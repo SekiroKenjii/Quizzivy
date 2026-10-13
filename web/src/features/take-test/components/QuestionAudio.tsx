@@ -36,6 +36,7 @@ export function QuestionAudio({
       label={t("takeTest.audioLabel")}
       durationMs={question.media.durationMs}
       allowSeek={question.audio?.allowSeek ?? false}
+      allowPause={question.audio?.allowPause}
       preload="metadata"
       plays={{ played, limit: question.audio?.maxPlays ?? null }}
       place={`question:${question.id}`}

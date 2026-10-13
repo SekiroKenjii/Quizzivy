@@ -837,8 +837,10 @@ export interface paths {
          * Upload a private Word or PDF source and create an immutable source set
          * @description One multipart file part named file, at most 25 MiB. The filename ends in
          *     .docx or .pdf, or in .doc when legacy conversion is enabled (see limits), and
-         *     the detected content must agree with it. A PDF is read from its text layer
-         *     only; a scanned PDF fails processing with PDF_NO_TEXT.
+         *     the detected content must agree with it. A PDF is read from its text layer;
+         *     a scanned PDF fails processing with PDF_NO_TEXT, unless the import was
+         *     created with readWithAi, in which case its pages are read by the AI
+         *     assistant (at most 40 pages, else PDF_TOO_LONG_FOR_AI).
          *     The body Content-Type is not evidence of the detected document type.
          *     Retry with identical uploadId, role, expectedRevision, filename and bytes.
          *     A changed replay conflicts. Completion creates exactly one source revision;
@@ -8666,6 +8668,19 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             /** @description IMPORT_CONFLICT — request identity already used with different input. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description VALIDATION_FAILED with `details.readWithAi` — the import asked to be read
+             *     with AI, but the AI assistant is not enabled on this server or the caller
+             *     does not hold `ai.use`.
+             */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

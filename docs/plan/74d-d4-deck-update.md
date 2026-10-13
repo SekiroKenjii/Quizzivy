@@ -140,7 +140,7 @@ rolling deploy without a fill trigger):
 | `00122_create_ai_usage_ledger.sql` (append-only: no `UPDATE` or `DELETE` for the app role) | T-D4.31 |
 | `00123_create_ai_credit_requests.sql` | T-D4.31 |
 | `00124_add_ai_permissions.sql` (two rows in `app.permissions`, `ai.use` granted to the Teacher role) | T-D4.32 |
-| `NNNNN_add_word_imports_read_with_ai.sql` (`boolean NOT NULL DEFAULT false`) | T-D4.33 |
+| `00125_add_word_imports_read_with_ai.sql` (`boolean NOT NULL DEFAULT false`) | T-D4.33 |
 
 The AI tables are new and empty, so none is `-- +goose NO TRANSACTION` and the v0.10.0 binary is
 unaffected by them; `read_with_ai` has a constant default. The permission rows must be in the
@@ -1632,24 +1632,47 @@ seek, and the phone spec's second new case proves that such a place counts as a 
 **Size:** S
 **Frozen:** as T-D4.8.
 **Done when:**
-- [ ] `AudioPlayer` takes `allowPause` (default true). When false and playing, the button is
+- [x] `AudioPlayer` takes `allowPause` (default true). When false and playing, the button is
       `aria-disabled`, at opacity .45, and a click does nothing; the status reads "Playing ·
       this recording can’t be paused"; before the first play it reads "Press play when you are
       ready. It can’t be paused once it starts."
-- [ ] If playback stops anyway (a headset button, another recording starting, leaving the
+- [x] If playback stops anyway (a headset button, another recording starting, leaving the
       group, a lock), the card reads "Paused" and "Resume" continues without a play. Nothing
       new is recorded: the product reports what it can see and does not pretend the pause
       could not happen.
-- [ ] Both hosts pass `policy.allowPause`, which T-D4.13 makes required in the two student
+- [x] Both hosts pass `policy.allowPause`, which T-D4.13 makes required in the two student
       shapes; a payload without the field (a tab that loaded before the API) pauses freely.
       T-D4.3's s2 session already gives part 2's recording `allowPause: false`, as the deck
       has it (`canPause: false`, S 1503): it took the field when T-D4.13 made it required.
-- [ ] Spec §11.3 says what `allowPause` does, and what it cannot stop.
-- [ ] `audio-player-pause.test.tsx` covers the inert button, the two sentences and the free
+- [x] Spec §11.3 says what `allowPause` does, and what it cannot stop.
+- [x] `audio-player-pause.test.tsx` covers the inert button, the two sentences and the free
       resume; the canary passes untouched.
-- [ ] Compared with s2 question 6 (the deck's recording that cannot be paused) at 360 and
+- [x] Compared with s2 question 6 (the deck's recording that cannot be paused) at 360 and
       1280, light and dark: before the first play, playing with the inert button, and paused
       by leaving the group.
+
+**As built:** `AudioPlayer` takes `allowPause` (default true, so an absent field pauses
+freely). With it false, `toggle()`'s pause branch does nothing while the element plays; the
+play branch is unchanged, so `element.play()` is still the first thing a press does. The
+button keeps its name ("Pause", as the deck's `btnLabel`), its icon and its focus ring, takes
+`aria-disabled="true"` and `aria-disabled:opacity-45`, and is never natively disabled; the row
+and `sm` players take the same rule, though no host passes it to them yet. The two sentences are
+`media.statusReadyNoPause` and `media.statusPlayingNoPause`; "Paused", "Resume" and the free
+resume are T-D4.8's, unchanged, so a stop from a headset button, another recording taking its
+turn, leaving the group or a lock reads "Paused" and continues through `onResume`.
+`QuestionAudio` passes `question.audio?.allowPause` and `SharedAudio` passes
+`recording.policy.allowPause`. Spec v0.98 changes §11.3. Beyond the new
+`audio-player-pause.test.tsx`, `group-context.test.tsx` gains s2 part 2's sentence and inert
+button through the engine, and `question-audio-events.test.tsx` gains "a stop from elsewhere
+resumes for no play" for a question's audio. Compared with s2 question 6 at 360 (in the drawer)
+and 1280, light and dark, in the three states: card, button (52px), opacity (.45 while playing,
+1 otherwise), the button's name and the card's text equal the deck's in every cell; the
+differences are the focus ring (the deck draws none), the track's fill (the fixture's file is
+10s, and the track follows the file's length), the scope line (DG-80) and, below 768, the card
+35px lower under the engine's integrity strip, which the deck does not draw (T-D4.7's frame),
+and 284.8px wide against 285, so the playing sentence breaks one word earlier.
+Playwright counts an `aria-disabled` button as not enabled, so a spec that presses the inert
+button clicks it with `force: true`.
 
 ### T-D4.10 — Engine: a cloze as one stop
 **Depends on:** T-D4.5, T-D4.7; the design team's answer to Q6 (DG-184), or the default once the team has had the question for two working days
@@ -1725,17 +1748,41 @@ five prompts.
 **Size:** S
 **Frozen:** the prompt's stored text; the answer shape.
 **Done when:**
-- [ ] A `single_choice` or `true_false` question whose prompt is plain (no `promptContent`),
+- [x] A `single_choice` or `true_false` question whose prompt is plain (no `promptContent`),
       one line, with exactly one run of three or more underscores and no other Markdown
       marker, is drawn as the deck's sentence: 18px (20px larger), weight 500, line-height 1.8,
       the run replaced by a box (at least 88px wide, padding 0 10px, radius 7, a 2px bottom
       border): empty on `--muted` with a `--ring` line, or the chosen option's plain text on
       `--accent-soft` with an `--accent-c` line. A screen reader hears "blank" or the chosen
       text in place.
-- [ ] Any other prompt prints as written. `sentence-gap.test.ts` lists the refusals: two runs,
+- [x] Any other prompt prints as written. `sentence-gap.test.ts` lists the refusals: two runs,
       a rich prompt, a prompt of several lines, multiple choice, a run of two underscores.
-- [ ] Compared with s9 questions 5 and 12 at 360 and 1280, light and dark. This task is
+- [x] Compared with s9 questions 5 and 12 at 360 and 1280, light and dark. This task is
       dropped without loss if the answer to Q17 is that the sentence is printed as written.
+
+**As built:** `sentenceGap(question)` returns the text before and after the gap, or null. Q17
+had no answer, so its default is built. "No other Markdown marker" is read conservatively,
+as characters: outside the run there is no `_`, `*`, `` ` ``, `~`, `[`, `]`, `<`, `>` or
+`\`, no HTML entity, and the line does not open with a heading (`#`), a list item (`-`, `+`)
+or a numbered item (`1.`, `1)`); `|` is allowed, since one line cannot be a table. The
+prompt is trimmed, so a trailing line break is still one line, and composed to NFC, as its
+Markdown is; diacritics play no part in the rule. The run may be longer than three (the deck
+splits on exactly `___`). The box is a `<span>` in the sentence's `<p>`: empty, a
+non-breaking space hidden from assistive technology and "chỗ trống" / "blank" in `sr-only`
+(new key `takeTest.sentenceGap`); chosen, the option's `text`, or "Đúng" / "Sai" for a
+canonical true/false option as `OptionText` names it. `--accent-c` and `--accent-soft` are
+the `brand` and `brand-soft` utilities. It is not focusable, so it takes no ring; the rows
+keep theirs. `max-w-full` and `break-words` keep a long option inside a 360px column, which
+the deck does not draw. The teacher's previews draw `QuestionSheet`, so they show the gap
+too: `detail.test.tsx`, `detail-versions.test.tsx` and `preview-and-leave.test.tsx` found
+the preview by the literal prompt "They ___ …" and now find it as a screen reader reads the
+sentence (`tests/support/gapSentence.ts`); their fixtures are unchanged. The builder's
+prompt field and the import both write `promptContent`, so on content made in the product
+today the rule fires only for prompts kept in Markdown; a rich prompt that is one plain
+paragraph prints as written, as the rule says. Compared with s9 questions 5 and 12 at 360
+and 1280, light and dark, empty and chosen: the sentence and the box equal the deck's in
+position, size, type, padding, radius and colour in all 16 cells; the question sits 35px
+lower at 360 for the paper's integrity line above it, which the deck's paper has not.
 
 ---
 
@@ -2868,10 +2915,10 @@ For the release: the live smoke is not done here, as it needs the owner's key. `
 **Touches:** `migrations/NNNNN_add_word_imports_read_with_ai.sql` (new), `server/internal/modules/imports/{domain/{source.go,pdf.go},application/command/{create.go,process.go},repositories/imports.go,http/imports.go}`, `server/cmd/import-worker/`, `server/internal/core/adapters/{import_pdf.go,import_ai_reader.go (new)}`, `server/internal/platform/pdftext/` (page rendering through `go-pdfium`), `server/internal/modules/imports/application/tests/ai_reader_test.go` (new), `docs/plan/17-word-import.md` (§1, a checkpoint; §8's "not enabled by default" superseded by D19), `docs/plan/18-word-import-ux.md` §4, `docs/setup/word-import-worker.md`
 **Size:** L
 **Done when:**
-- [ ] `createImport` takes `readWithAi: boolean` (default false; refused with 422 when the
+- [x] `createImport` takes `readWithAi: boolean` (default false; refused with 422 when the
       adapter is nil or the caller lacks `ai.use`); `WordImport` carries it; the column has a
       constant default, so the v0.10.0 binary keeps inserting.
-- [ ] With it on, a PDF that fails the text-layer check (`PDF_NO_TEXT`) is not refused: the
+- [x] With it on, a PDF that fails the text-layer check (`PDF_NO_TEXT`) is not refused: the
       worker renders its pages (up to 40; a longer file is refused with `PDF_TOO_LONG_FOR_AI`
       naming the limit), **reserves 60 credits a page before the first call** (a refusal is the
       import's failed state "Not enough AI credits for {n} pages", never a half-read file), sends
@@ -2880,18 +2927,63 @@ For the release: the live smoke is not done here, as it needs the owner's key. `
       still passes validation, review and the transactional commit; a page the model cannot read
       is a finding on that page, not a silent gap. A `.docx` or a PDF with a text layer is read
       as today whether or not the switch is on.
-- [ ] The processing log names the reader ("Read 12 pages with AI · 190 credits"); the history
+- [x] The processing log names the reader ("Read 12 pages with AI · 190 credits"); the history
       row's meta shows it; the privacy note in the Sources pane of the import workspace
       (`18-word-import-ux.md` §4) says what left the system ("The pages of this file were read by an AI service outside Quizzivy.").
-- [ ] Nothing of a student leaves: the import holds exam documents; the task adds a check that
+- [x] Nothing of a student leaves: the import holds exam documents; the task adds a check that
       refuses a file whose metadata or first page names it as a student's submission is **not**
       attempted (a false sense of safety); the page's sentence carries the responsibility.
-- [ ] `ai_reader_test.go`: a scanned fixture (the corpus of 17 §1.1 has 49 two-page PDFs; one is
+- [x] `ai_reader_test.go`: a scanned fixture (the corpus of 17 §1.1 has 49 two-page PDFs; one is
       rendered to images in the test) goes through a fake `Completer` and yields candidates the
       recogniser accepts; the reservation precedes the first call; a mid-file failure releases the
       remainder and fails the import; the 40-page refusal; the switch off keeps today's
       `PDF_NO_TEXT`.
-- [ ] Live smoke: one two-page scan from the corpus, read for real; the credits in the PR.
+- [ ] Live smoke: one two-page scan from the corpus, read for real; the credits in the PR. Needs the owner's key; run at release.
+
+**As built:** Migration `00125_add_word_imports_read_with_ai.sql` (`boolean NOT NULL DEFAULT false`;
+`20-data-model.md` §47). **No dependency is added**: pages are drawn by the go-pdfium WebAssembly
+runtime that already reads the text layer (`pdftext.Reader.Render`, in the same wazero sandbox: no
+filesystem, no network, 256 MiB, now a three-minute deadline for a rendering), and the JPEG is
+encoded by it. The production image is the same distroless static image with the same two binaries.
+`createWordImport` answers 422 `VALIDATION_FAILED` with `details.readWithAi` when the server has no
+provider or the caller lacks `ai.use`; the 422 is documented on the operation (a response only, no
+schema changed). `WordImport` and the history item carry `readWithAi` when true.
+
+The reading lives in `imports/application/reader`, which holds the credits through the ai module's
+`Reserve` and `Finish` handlers and the `Completer` (all typed as the other module's ports, wired in
+`core/wiring/import_worker.go`; `core/adapters/import_ai_reader.go` draws the pages). **What the model
+returns is the page's printed lines, not questions**: they become `pdf-lines-v1` evidence, so the
+deterministic recognizer, its source links, review and commit are unchanged, and the model has no
+field of a draft to write. The prompt and decoder are `ai/domain/prompts/read_page.go`
+(`readable` and `lines` only; a line is cut to 2,000 characters, a page to 300 lines). A scan is read
+only when the text-layer path would have said `PDF_NO_TEXT`; a longer file than 40 pages is refused as
+`PDF_TOO_LONG_FOR_AI` before anything is held, and a scan over the 60-page general limit stays
+`PDF_TOO_LARGE`, as it is without the switch. The reservation is `60 x pages` before the first call
+(`AI_CREDITS_EXHAUSTED` / `AI_PAUSED`, nothing sent), pages go four at a time, and one `Finish` at the
+end settles the summed usage in one ledger row and releases the rest, also for a failure, a
+cancelled context (on a context that is not cancelled) and a panic. A provider failure fails the
+import `PROVIDER_UNAVAILABLE` (terminal: a retry would pay the pages again); a read that finds no
+readable page fails `AI_UNREADABLE`. An unreadable page keeps a hidden marker block and a
+review-required `AI_PAGE_UNREADABLE` finding on it; every page read adds to one informational
+`AI_PAGE_READ` finding, which is the "log line" a teacher sees (the contract carries no credits, so
+"Read 12 pages with AI · 190 credits" is the worker's log, `import read with ai` and `ai import
+settled`, and the Settings usage card's import row, not a web line). A reprocess of a read scan reuses
+its extraction and spends nothing. The worker loads the provider settings as the API does, and its
+per-run timeout is 15 minutes while the assistant is on.
+
+The web's change is the Sources pane's note (`imports.upload.privacyAi`) for an import with
+`readWithAi`, in the awaiting-files and started states, the two findings' titles and help, and the
+messages for the four failures. The note says that scanned pages are read by an AI service outside
+Quizzivy and pages with selectable text are not sent, rather than the past-tense sentence of the Done
+when above, which would be false for a text-layer PDF; the finding's title, "{n} pages were read by an
+AI service outside Quizzivy", is that sentence, counted. The toggle card is T-D4.39's, and the failure
+"Not enough AI credits for {n} pages" has no {n}: a run's error is a code, and the contract is closed.
+
+Measured on this container (4 cores): forty 300 dpi A4 scans took 30.6 s and 322 MiB resident, forty
+12-megapixel photographs 32.6 s and 478 MiB (528 MiB on a second rendering in the same process), with
+the 256 MiB sandbox included; `BenchmarkRenderForty*` in `pdftext/tests` repeats it. The live smoke
+(one two-page scan, read for real) needs the owner's key and is run at release.
+
 
 ### T-D4.34 — The AI panel and its entry points: the builder, the bank, Test detail
 **Depends on:** T-D4.32; T-D4.2a and T-D4.14 merged (the builder's title bar is shared); T-D4.20
