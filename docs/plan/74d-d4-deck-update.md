@@ -2646,31 +2646,77 @@ line" are the specification)
 the recovery panel already reads; `finishGrading` is unchanged. Finish stays explicit and nothing
 finishes on its own.
 **Done when:**
-- [ ] The header reads "No answers left." on an empty queue; while answers wait it adds the
+- [x] The header reads "No answers left." on an empty queue; while answers wait it adds the
       "{n} papers ready to finish" link, which unfolds the card and moves focus to it. The DG-136
       chip stays last and keeps its focus rule.
-- [ ] The empty state's variant follows the table: running check, failed check (Try again), papers
+- [x] The empty state's variant follows the table: running check, failed check (Try again), papers
       to finish (variant b, "Review {n} papers" opens the oldest paper's check and focuses its
       Finish), and "All graded" (variant a) only after a complete check, naming the filter with
       "Show all assignments" / "Show all students" when the queue is narrowed. `EmptyState` gains
       optional icon and tone props (the 44px tile, 16/600 title); existing callers do not change.
-- [ ] The card: "Ready to finish" with its count and sentence; Refresh (replacing Rescan) beside
+- [x] The card: "Ready to finish" with its count and sentence; Refresh (replacing Rescan) beside
       "Checked {time}" from the query's last update, "Checking…" while it runs, a 44px icon button
       at 360; folded to one line while answers wait; the 180px scroll box goes.
-- [ ] Rows grouped by assignment, oldest hand-in first for groups and rows, five per group then
+- [x] Rows grouped by assignment, oldest hand-in first for groups and rows, five per group then
       "Show {n} more" / "Show fewer"; a single group has no header; two groups sharing a title add
       the earliest hand-in date. A row shows "Handed in …", "Time ran out" and "Flagged" from the
       list row, and one Review / Close button with `aria-expanded`; one check open at a time.
-- [ ] The check (today's candidate panel, moved into the row): score, "{a} of {t} answered", how
+- [x] The check (today's candidate panel, moved into the row): score, "{a} of {t} answered", how
       it was marked (you marked n / automatically / left blank), the flag and blank lines; Finish
       disabled unless `pendingManual === 0`, with the "now waiting to be marked" line otherwise.
-- [ ] After Finish: the row leaves, a toast, the polite live region "… Next: {name}.", the next
+- [x] After Finish: the row leaves, a toast, the polite live region "… Next: {name}.", the next
       row's check opens with focus on its Finish (its group unfolds if needed); after the last,
       focus goes to the empty state's title.
-- [ ] Finish failures: inside the check above its buttons; the answer card's alert names the
+- [x] Finish failures: inside the check above its buttons; the answer card's alert names the
       student. Strings as the page lists them, `grading.rescan` retired, vi written first.
-- [ ] Unit cases for each table row, grouping and Show more, the check's three kinds, the focus
+- [x] Unit cases for each table row, grouping and Show more, the check's three kinds, the focus
       moves and the failures; E2E at 360, 768 and 1280, light and dark, compared with the page.
+
+**As built:** No contract or server change. `useGradingQueue` groups the scan's rows
+(`groupReadyPapers` in `gradingRecovery.ts`: by `assignmentId`, the oldest `submittedAt` first for
+groups and rows, a row without one last) and exposes them as `readyGroups`/`readyPapers`; the
+candidate is the row whose check is open (`openCheck`, no lock and no flush now that the panes stay
+up), and `paperCheck` reads the check from the review: the score, the questions with a non-null
+answer against all questions, "Left blank" when none, "You marked n answers" when n answers
+`requiresManual`, otherwise "Marked automatically", and the flag from `attempt.integrity`.
+`finishCandidate` rereads the paper; a changed count or status is written into the check's query,
+so the check shows the waiting line with Finish disabled and nothing is sent. On success the row
+leaves, a toast and the polite live region speak, and the hook returns the next paper in order
+(wrapping round, `nextOpenItem`); the page opens its check, unfolds its group if it is past the
+fifth row, and focuses its Finish once the read matches (the Full paper review link when Finish is
+disabled, the check itself when the read failed). After the last paper focus goes to the empty
+state's title, or to the page heading while the panes show. The card is
+`pages/teacher/GradingReadyCard.tsx`; the empty-state variant and the header link are in
+`GradingPage.tsx`. `EmptyState` gains `icon`, `tone` (neutral, muted, success, warning) and
+`titleRef`; without `icon` it renders as before. The scan's states: running while the first read
+or a retry after an error is out, failed after an error, done otherwise; a Refresh with rows keeps
+them and reads "Checking…". While answers wait the card is drawn for papers to finish or a failed
+check, and not while the check runs (note 8 and the table; the page's script also draws it
+running). The answer card's Finish failure names the student (FinishState's item gains
+`studentName` and `assignmentTitle`) and drops the server's message line, which the deck does not
+draw; a failure from a check is a line inside it, and Finish grading is the retry. The keyboard
+shortcuts ignore keys inside the card, in place of being off while a check was open. Departures,
+each for the data or a decided rule: "Flagged" and the check's flag line use the danger tones of
+`features/integrity/tones.ts` (spec §10.4, D8: one tone for "Flagged"), not the drawing's warning
+tones; a paper the teacher flagged with no focus loss reads `checkFlagged_zero` ("Flagged. Check
+the full paper before you finish."); "All graded" names the filter only when the queue, the scan or
+a paper finished in this visit holds its name, and otherwise reads the unfiltered sentence;
+`common.retry` keeps today's "Retry" / "Thử lại"; a row's date is the app's `dayDate` and
+`formatTime`. Controls are 44px below 768, 36px (40px for Finish, Full paper review, Show more
+and the empty state's action) from 768 and 32px (36px) from 1024, the drawing's 768 and 1280
+frames. Tests: `grading-finish.test.tsx` (new, 20 cases: each table row, grouping and Show more,
+the shared-title date, the row's pills and one open check, the three kinds, the flag, the waiting
+line, the reread refusal, the failure and its retry, the focus after Finish and after the last,
+the filtered "All graded" and Show all, the folded card and its link, Refresh);
+`grading-recovery.test.ts` adds the grouping and the check's reading; the integration suite and
+`grading-messages.test.ts` follow the rewritten strings; `teacher-grading.spec.ts` adds twelve
+cases (360, 768 and 1280, light and dark: the empty queue's list, Review, the focused Finish, the
+toast and live region, the next check, the heights, no sideways scroll; and the card folded below
+the panes with its link). Compared in Chromium with the page (React, Babel and lucide from their
+npm tarballs by route interception, the deck's demo data served as the API) at 360, 768, 1024,
+1280 and 1440, light and dark: every measured box within 0.6px, the card within 1.3px of the
+frame, and the same computed colours, except the Flagged tones above, the row's weekday (the
+drawing's demo dates name the wrong weekday) and the avatar's initials (the app's `Avatar`).
 
 ### T-D4.22 — Assignment detail: the progress card and the roster filters
 **Reopens:** T-R4.25 (the four stat tiles)
