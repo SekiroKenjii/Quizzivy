@@ -888,7 +888,6 @@ components:
         title: { type: string, minLength: 1, maxLength: 200, pattern: '\S' }
         readWithAi:
           type: boolean
-          default: false
           description: |
             Read the files with the AI assistant, so a scanned or photographed
             PDF is read instead of refused. Absent means false. When it is true
@@ -4515,7 +4514,7 @@ components:
       additionalProperties: false
       properties:
         language: { $ref: '#/components/schemas/AiLanguage' }
-        length: { type: string, enum: [short, normal], default: normal }
+        length: { type: string, enum: [short, normal], description: Absent means normal. }
 
     AiExplanationResult:
       type: object
