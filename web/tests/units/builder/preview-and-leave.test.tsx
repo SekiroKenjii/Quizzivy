@@ -176,9 +176,7 @@ describe("the builder's bar", () => {
     expect(
       within(dialog).getByRole("heading", { name: "Xem như học viên · Unit 5" }),
     ).toHaveClass("truncate");
-    expect(
-      within(dialog).getByRole("group", { name: "Kích thước bản xem trước" }),
-    ).toBeVisible();
+    expect(within(dialog).getByRole("group", { name: "Khung xem" })).toBeVisible();
     expect(
       within(dialog).getByRole("button", { name: "Đóng bản xem trước" }),
     ).toBeVisible();

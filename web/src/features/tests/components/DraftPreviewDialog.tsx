@@ -82,12 +82,20 @@ export function DraftPreviewDialog({
             </Primitive.Title>
             <Segmented
               size="sm"
-              label={t("preview.displayMode")}
+              label={t("tests.detail.preview.device")}
               value={device}
               onChange={(value) => setDevice(value === "phone" ? "phone" : "desktop")}
               options={[
-                { value: "desktop", label: t("preview.desktop"), icon: Monitor },
-                { value: "phone", label: t("preview.phone"), icon: Smartphone },
+                {
+                  value: "desktop",
+                  label: t("tests.detail.preview.computer"),
+                  icon: Monitor,
+                },
+                {
+                  value: "phone",
+                  label: t("tests.detail.preview.phone"),
+                  icon: Smartphone,
+                },
               ]}
             />
             <Primitive.Close
