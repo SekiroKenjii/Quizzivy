@@ -12,6 +12,7 @@ import { LoadError } from "@/components/shared/ListState";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { Sheet } from "@/components/shared/Sheet";
 import { AddToTestDialog } from "@/features/question-bank/components/AddToTestDialog";
+import { BankAiActions } from "@/features/question-bank/components/BankAiActions";
 import { BulkTagDialog } from "@/features/question-bank/components/BulkTagDialog";
 import {
   deleteQuestion,
@@ -215,7 +216,12 @@ export default function QuestionBankPage() {
                 total: figure.format(data.bankTotal),
               })
         }
-        actions={newQuestion}
+        actions={
+          <>
+            <BankAiActions />
+            {newQuestion}
+          </>
+        }
       />
       <BankNavigation />
 

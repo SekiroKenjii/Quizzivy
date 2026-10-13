@@ -26,6 +26,19 @@ export type AiCheckKind = Schemas["AiCheckKind"];
 /** AiFinding is one thing a test check found worth a look. */
 export type AiFinding = Schemas["AiFinding"];
 
+/** AiVariantKind is one kind of change a variant makes. */
+export type AiVariantKind = Schemas["AiVariantKind"];
+/** AiVariantChange is one proposed change to a question of a variant. */
+export type AiVariantChange = Schemas["AiVariantChange"];
+/** AiCleanupCheck is one thing a bank clean-up looks for. */
+export type AiCleanupCheck = Schemas["AiCleanupCheck"];
+/** AiDuplicate is a pair of the caller's questions that look alike. */
+export type AiDuplicate = Schemas["AiDuplicate"];
+/** AiCleanupResult is what one bank clean-up found. */
+export type AiCleanupResult = Schemas["AiCleanupResult"];
+/** AiTagSuggestion is the tags proposed for one untagged question. */
+export type AiTagSuggestion = Schemas["AiTagSuggestion"];
+
 /**
  * AI_STATUS_KEY is the query key of `GET /public/status`, the whole answer,
  * which every reader shares and narrows with `select`.
@@ -85,4 +98,25 @@ export function checkTestWithAi(
     "/teacher/ai/tests/{id}/check",
     signal ? { path: { id }, body, signal } : { path: { id }, body },
   );
+}
+
+/** makeTestVariant asks for a variant's changes to a test's draft and writes nothing. */
+export function makeTestVariant(
+  id: string,
+  body: Schemas["AiVariantRequest"],
+  signal?: AbortSignal,
+) {
+  return api(
+    "post",
+    "/teacher/ai/tests/{id}/variant",
+    signal ? { path: { id }, body, signal } : { path: { id }, body },
+  );
+}
+
+/** cleanUpQuestionBank asks for near-duplicates and missing tags in the caller's own questions and writes nothing. */
+export function cleanUpQuestionBank(
+  body: Schemas["AiCleanupRequest"],
+  signal?: AbortSignal,
+) {
+  return api("post", "/teacher/ai/bank/cleanup", signal ? { body, signal } : { body });
 }
