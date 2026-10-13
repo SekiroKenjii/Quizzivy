@@ -42,10 +42,6 @@ this file describe the code as it is and name the release that changes them.
 - **R4** moved the teacher web routes from `/admin/*` to `/teacher/*` (T-R4.5);
   an old `/admin/*` bookmark redirects to the same path under `/teacher` until
   R5 builds the Admin console at `/admin`.
-- **Since the fourth import (D4, T-D4.1)** the deck of record is the design team's
-  v2 export of 2026-10-10, 10:44, which carries the fourth export of 2026-10-04. D4
-  (`docs/plan/74d-d4-deck-update.md`) rebuilds the take-test engine, the builder's
-  shared content and the three previews to it, and builds the AI assistant it draws.
 
 ## Sources of truth, in order
 
@@ -504,8 +500,8 @@ hover and focus and is static under `prefers-reduced-motion`.
 Integrity UI follows the deck (decided 2026-09-26). On the student side: the
 red timer in the last five minutes, and "Your teacher has been told" once a
 student is past the allowance under `flag` or `auto_submit`; a `warn` policy
-never names the teacher. Flags and "Flagged" in the teacher's roster follow in
-R4 (T-R4.46). The teacher judges; the app reports —
+never names the teacher. Since R4 (T-R4.46) the teacher's roster shows the
+flags and "Flagged". The teacher judges; the app reports —
 the product never concludes that a student cheated.
 
 The student app lives in `StudentLayout`, whose one outlet stays mounted at
@@ -548,20 +544,38 @@ collapsing the sidebar can move a page into its next layout. A unit test of a
 page in the shell calls `contentWidth(px)` (`tests/support/contentWidth.ts`)
 first, because jsdom measures 0.
 
-The take-test engine runs in `FocusLayout` and branches at the same 768px.
-From 768, a question whose group has something to read splits into a passage
-pane and a question pane, and the question pane's footer is Previous, a strip
-of numbered squares and Next. Below 768 a switcher shows one pane at a time,
-and the footer's count button opens the squares in a bottom sheet. There is no
-navigator column and no width preference. The timer draws each digit in a cell
-one zero wide, because Be Vietnam Pro has no tabular figures. Unit tests of a
-phone board pin `viewport("phone")` (`tests/support/viewport.ts`); jsdom
-answers "wide" by default.
+The take-test engine runs in `FocusLayout` and asks every width question through
+`useEngineWidthAtLeast` (`take-test/width.ts`): the window's width there, and the
+frame's measured width in a teacher's preview (`EngineWidthContext`). It branches
+at the shell's 768px. From 768, a question whose group has shared content (a
+material or a recording) splits into the stimulus pane and the question pane; the
+question pane is on `--sidebar` with a column at most 600px wide beside shared
+content, and on `--bg` at most 720px alone or on a phone. Below 768 the shared
+content is a drawer from the left over the question, `min(88%, 420px)` wide, opened
+from a handle at the screen's edge or by a swipe; closed, it stays mounted and
+`inert`, so the place in the passage and a playing recording survive. A shared
+recording's card stands at its audio node in the stimulus pane (the drawer below
+768), never in the question pane. Above every question the column states its
+section's title and instructions (`sectionHead`; nothing on a paper of one section
+with no instructions). The sections rail, a 236px `<aside>` before the panes, shows
+from 900px on a question with no shared content and from 1180px on one with it, so
+from 900 to 1179 it comes and goes between questions; the footer is then Previous,
+the key hint and Next. Everywhere else the footer's middle is the grid button,
+which opens the question sheet, a bottom sheet below 768 and a 560px card from it;
+its label takes the short form beside shared content from 768 and below 420.
+There is no strip of numbered squares, no navigator column and no width
+preference. Two or more consecutive single-choice members bound to gaps of one
+material, none with an image or audio of its own, are one stop (`paperStops`,
+`ClozeBody`): Previous, Next and the arrows step over the run, and its squares stay
+one per question, tied within a row. The timer draws each digit in a cell one zero
+wide, because Be Vietnam Pro has no tabular figures. Unit tests of a phone board
+pin `viewport("phone")`, and a test of the rail's thresholds passes the width as a
+number (`tests/support/viewport.ts`); jsdom answers "wide" by default.
 
 A paper's questions are dealt inside their section: `DealManager.Present`
-keeps section order and shuffles within each, so the strip can leave a gap
-between parts and the sheet can head each one. A single-section paper deals
-exactly as it did before sections reached the payload.
+keeps section order and shuffles within each, so the rail and the sheet can head
+each part. A single-section paper deals exactly as it did before sections
+reached the payload.
 
 ## Language
 
