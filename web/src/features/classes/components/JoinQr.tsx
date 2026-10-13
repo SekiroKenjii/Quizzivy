@@ -1,13 +1,13 @@
 import type { Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { QRCodeSVG } from "qrcode.react";
-import { joinLinkOf } from "@/features/classes/joinLink";
+import { joinLinkLabel, joinLinkOf } from "@/features/classes/joinLink";
 import { QR_INK, QR_PAPER } from "@/features/classes/joinQrImage";
 
 /**
  * JoinQr is a class's join link as a QR code on a paper-white square, the
- * code under it in mono and the link under that, as the deck's QR dialog
- * draws it. Its ref is the frame `downloadJoinQr` rasterises.
+ * code under it in mono and the link without its scheme under that, as the
+ * deck's QR dialogs draw it. Its ref is the frame `downloadJoinQr` rasterises.
  */
 export function JoinQr({
   code,
@@ -33,7 +33,7 @@ export function JoinQr({
       </div>
       <span className="text-stat font-mono font-semibold tracking-[.1em]">{code}</span>
       <span className="text-muted-fg text-meta max-w-full text-center wrap-anywhere">
-        {link}
+        {joinLinkLabel(code)}
       </span>
     </div>
   );
