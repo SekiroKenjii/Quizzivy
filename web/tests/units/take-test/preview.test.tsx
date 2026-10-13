@@ -285,6 +285,10 @@ describe("the engine's preview", () => {
     expect(pill.textContent).toBe("––:––");
     expect(screen.queryByRole("timer")).toBeNull();
     expect(within(header).getByText("Câu trả lời ở đây không được lưu.")).toBeVisible();
+    expect(
+      within(header).getByRole("heading", { level: 2, name: "Unit 4 · Listening" }),
+    ).toHaveClass("truncate", "font-semibold");
+    expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
 
     await user.click(screen.getByRole("radio", { name: /At the station/ }));
     expect(screen.queryByText("Đang lưu…")).toBeNull();
@@ -342,7 +346,10 @@ describe("the engine's preview", () => {
     const { container } = render(<Preview width={388} />);
     const header = screen.getByRole("banner");
 
-    expect(within(header).queryByText("Unit 4 · Listening")).toBeNull();
+    expect(
+      within(header).getByRole("heading", { level: 2, name: "Unit 4 · Listening" }),
+    ).toHaveClass("sr-only");
+    expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
     expect(within(header).getByText("Góc nhìn học viên")).toBeVisible();
     expect(screen.queryByRole("complementary", { name: "Các phần" })).toBeNull();
     const grid = screen.getByRole("button", { name: "Câu 1 · đã làm 0 trên 3" });

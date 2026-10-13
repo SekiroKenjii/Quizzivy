@@ -256,6 +256,7 @@ function PaperAt({
             <div
               ref={answerPanel}
               id={`answer-question-${question.id}`}
+              role="group"
               tabIndex={-1}
               aria-label={t("takeTest.dotLabel", { n: index + 1 })}
               className={cn(

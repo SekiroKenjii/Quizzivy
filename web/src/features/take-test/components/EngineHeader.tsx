@@ -18,7 +18,10 @@ import { usePaper } from "../paper";
  * A `preview` header, a teacher's, has no leading control and no Submit but
  * the chip "Student view"; its save line says nothing is saved, and the
  * timer's place holds a pill of the same size with no time, because a time
- * limit is the assignment's and a preview has none.
+ * limit is the assignment's and a preview has none. While the paper is live
+ * its title is the page's `<h1>`, read but not drawn below 768; a preview's
+ * is an `<h2>`, because the teacher's page around it has the `<h1>`. A
+ * submitted paper's title is plain text, since the end state has the `<h1>`.
  */
 export function EngineHeader({
   wide,
@@ -40,6 +43,7 @@ export function EngineHeader({
   const locked = lock !== null;
   const closed = lock === "closed";
   const clock = preview ? <NoTimeLimit /> : <Clock />;
+  const Title = titleElement(live, preview);
 
   return (
     <header
@@ -49,11 +53,12 @@ export function EngineHeader({
       )}
     >
       {leading}
+      {!wide && live && <Title className="sr-only">{title}</Title>}
       {wide && (
         <div className="flex min-w-0 flex-col">
-          <span className="truncate text-base leading-[1.3] font-semibold">
+          <Title className="truncate text-base leading-[1.3] font-semibold">
             {title}
-          </span>
+          </Title>
           {live && !locked && (
             <span className="text-muted-fg flex min-w-0 items-center gap-[5px] text-xs leading-[1.3]">
               {preview ? <UnsavedLine /> : <SaveState />}
@@ -81,6 +86,11 @@ export function EngineHeader({
       )}
     </header>
   );
+}
+
+function titleElement(live: boolean, preview: boolean): "h1" | "h2" | "span" {
+  if (!live) return "span";
+  return preview ? "h2" : "h1";
 }
 
 /**

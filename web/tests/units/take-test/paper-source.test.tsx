@@ -264,7 +264,7 @@ describe("a paper drawn from a source with no store", () => {
 
   it("takes its width from a measured frame over the window's", () => {
     const { unmount } = render(<Host />);
-    expect(screen.getByText("Unit 4 · Listening")).toBeInTheDocument();
+    expect(screen.getByText("Unit 4 · Listening")).not.toHaveClass("sr-only");
     unmount();
 
     render(
@@ -272,6 +272,6 @@ describe("a paper drawn from a source with no store", () => {
         <Host />
       </EngineWidthContext>,
     );
-    expect(screen.queryByText("Unit 4 · Listening")).toBeNull();
+    expect(screen.getByText("Unit 4 · Listening")).toHaveClass("sr-only");
   });
 });
