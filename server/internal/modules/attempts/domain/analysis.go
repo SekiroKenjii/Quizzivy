@@ -59,3 +59,27 @@ type ResultsExport struct {
 	Zone string
 	Rows []ResultRow
 }
+
+// MaxWrongAnswers is how many distinct wrong answer texts a question reports.
+const MaxWrongAnswers = 8
+
+// WrongAnswers is, for each question of an assignment's pinned version in paper order, its key and the distinct answer texts that did not earn full points with how many papers gave each: HandedIn papers, one per student the reader reaches (their latest handed-in attempt that is not voided), as in ItemAnalysis. An answer that says nothing, and one not yet marked, is not a wrong answer. The text of a text answer is lower case with its spaces collapsed; a choice answer is its option letters; a true/false answer is True or False; a fill-in is its blanks' values in order. Nothing names a student or an attempt.
+type WrongAnswers struct {
+	HandedIn  int
+	Questions []QuestionWrongAnswers
+}
+
+// QuestionWrongAnswers is one question's key in words (option letters for a choice question) and its most frequent wrong answers, the most frequent first.
+type QuestionWrongAnswers struct {
+	QuestionID string
+	Number     int
+	Type       string
+	Key        string
+	Wrong      []WrongAnswer
+}
+
+// WrongAnswer is a distinct wrong answer text and the papers that gave it.
+type WrongAnswer struct {
+	Text  string
+	Count int
+}
