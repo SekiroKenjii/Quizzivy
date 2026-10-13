@@ -66,9 +66,11 @@ func (a asker) session(ctx context.Context, who actor.Actor, feature domain.Feat
 	s := &session{asker: a, feature: feature, tier: tier, reservation: reservation}
 	returned := false
 	defer func() {
-		settled := s.end(ctx)
+		endCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), finishBudget)
+		defer cancel()
+		settled := s.end(endCtx)
 		if returned && err == nil {
-			usage = domain.Usage{Credits: settled.Charged, Left: a.left(ctx, who.ID)}
+			usage = domain.Usage{Credits: settled.Charged, Left: a.left(endCtx, who.ID)}
 		}
 	}()
 	err = body(s)
@@ -85,9 +87,7 @@ func (a asker) left(ctx context.Context, userID string) int64 {
 }
 
 func (s *session) end(ctx context.Context) domain.Settled {
-	finishCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), finishBudget)
-	defer cancel()
-	settled, err := command.FinishHandler{Service: s.Service}.Handle(finishCtx, command.Finish{
+	settled, err := command.FinishHandler{Service: s.Service}.Handle(ctx, command.Finish{
 		Reservation: s.reservation, Tier: s.tier, Response: s.tally.Response(),
 	})
 	if err != nil {

@@ -14,8 +14,8 @@ import (
 	"quizzivy/internal/shared/cqrs"
 )
 
-// DefaultCleanupBudget is how long one bank clean-up may spend with the provider: the plan's 60 seconds less the time the answer needs to be settled and written.
-const DefaultCleanupBudget = 55 * time.Second
+// DefaultCleanupBudget is how long one bank clean-up may spend with the provider: the plan's 60 seconds, which is also the idle timeout of the proxy in front of the API, less the ten seconds the settlement and the read of what is left may take.
+const DefaultCleanupBudget = 45 * time.Second
 
 // Service carries what the handlers share: the store, the tiers' prices, the calendar zone months are counted in, the clock, the way to tell a user, the time one bank clean-up may spend with the provider, and the ports to the provider and to what the operations read. A nil Completer is an assistant that is off; a nil read port is one its operation cannot be asked of.
 type Service struct {

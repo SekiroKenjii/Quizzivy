@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -717,7 +718,8 @@ func deckBank() []domain.BankQuestion {
 
 func TestTheDuplicatesCallJudgesOnlyTheCandidatePairsAndSendsNoId(t *testing.T) {
 	bank := deckBank()
-	in := prompts.DuplicatesInput{Bank: bank, Pairs: domain.SimilarQuestions(bank, prompts.MaxCandidatePairs), Language: domain.English}
+	candidates, _ := domain.SimilarQuestions(bank, prompts.MaxCandidatePairs)
+	in := prompts.DuplicatesInput{Bank: bank, Pairs: candidates, Language: domain.English}
 	if len(in.Pairs) != 1 || in.Pairs[0].A != 0 || in.Pairs[0].B != 1 {
 		t.Fatalf("the deck's pair is not a candidate: %+v", in.Pairs)
 	}
@@ -865,28 +867,87 @@ func TestATaggingAnswerKeepsOnlyWhatWasAskedAbout(t *testing.T) {
 	}
 }
 
-func TestACleanupCallLongerThanTheCapIsRefused(t *testing.T) {
+func TestTheWholeBankInOneTaggingCallIsRefused(t *testing.T) {
 	bank := untaggedBank(2000).Questions
 	asked := make([]int, len(bank))
 	for i := range asked {
 		asked[i] = i
-	}
-	for i := range bank {
 		bank[i].Prompt = strings.Repeat("word ", 40)
 	}
 	if _, err := prompts.Tagging(prompts.TaggingInput{Bank: bank, Asked: asked}); !errors.Is(err, domain.ErrTooLarge) {
 		t.Errorf("the whole bank in one tagging call: %v, want ErrTooLarge", err)
 	}
-	largest := make([]domain.BankQuestion, 0, 2*prompts.MaxCandidatePairs)
-	pairs := make([]domain.SimilarPair, 0, prompts.MaxCandidatePairs)
-	for i := range prompts.MaxCandidatePairs {
-		for range 2 {
-			largest = append(largest, domain.BankQuestion{Type: "multiple_choice", Level: "pre_a1", Tags: []string{strings.Repeat("t", 80), strings.Repeat("u", 80), "c", "d", "e"}, Prompt: strings.Repeat("w", 400)})
-		}
-		pairs = append(pairs, domain.SimilarPair{A: 2 * i, B: 2*i + 1})
+}
+
+func longestQuestion(letter string, tags []string) domain.BankQuestion {
+	return domain.BankQuestion{Type: "multiple_choice", Level: "pre_a1", Tags: tags, Prompt: strings.Repeat(letter, 400)}
+}
+
+func TestNoCleanupCallIsLongerThanTheCapWhateverTheLetters(t *testing.T) {
+	for name, letter := range map[string]string{"ASCII": "w", "three-byte Vietnamese": "ế", "four-byte": "😀"} {
+		t.Run(name, func(t *testing.T) {
+			tags := []string{strings.Repeat(letter, 80), strings.Repeat(letter, 80), strings.Repeat(letter, 80), strings.Repeat(letter, 80)}
+			var bank []domain.BankQuestion
+			for range 30 {
+				tagged := longestQuestion(letter, tags)
+				tagged.Tags = []string{strings.Repeat(letter, 36) + strconv.Itoa(len(bank)), strings.Repeat(letter, 36) + "b", strings.Repeat(letter, 36) + "c", strings.Repeat(letter, 36) + "d"}
+				bank = append(bank, tagged)
+			}
+			asked := make([]int, 0, prompts.TagChunkSize)
+			for range prompts.TagChunkSize {
+				asked = append(asked, len(bank))
+				bank = append(bank, longestQuestion(letter, nil))
+			}
+			tagging, err := prompts.Tagging(prompts.TaggingInput{Bank: bank, Asked: asked})
+			if err != nil {
+				t.Fatalf("the largest tagging call, 50 questions at the clipped length and a vocabulary of 30 tags: %v", err)
+			}
+			if len(tagging.User) > prompts.MaxCleanupBytes/2 {
+				t.Errorf("the largest tagging call is %d bytes, over half the cap of %d", len(tagging.User), prompts.MaxCleanupBytes)
+			}
+
+			members := make([]domain.BankQuestion, 0, 2*prompts.MaxCandidatePairs)
+			pairs := make([]domain.SimilarPair, 0, prompts.MaxCandidatePairs)
+			for i := range prompts.MaxCandidatePairs {
+				members = append(members, longestQuestion(letter, tags), longestQuestion(letter, tags))
+				pairs = append(pairs, domain.SimilarPair{A: 2 * i, B: 2*i + 1, Score: 0.9})
+			}
+			in := prompts.DuplicatesInput{Bank: members, Pairs: pairs, Language: domain.Vietnamese}
+			fit, dropped, err := prompts.FitDuplicates(in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			prompt, err := prompts.Duplicates(fit)
+			if err != nil || len(prompt.User) > prompts.MaxCleanupBytes {
+				t.Fatalf("the fitted duplicates call is %d bytes, %v; want it inside the cap", len(prompt.User), err)
+			}
+			_, whole := prompts.Duplicates(in)
+			if overrun := errors.Is(whole, domain.ErrTooLarge); overrun != dropped || overrun != (letter != "w") {
+				t.Errorf("200 members of %s: the whole call is too large %v, FitDuplicates dropped %v; want both exactly when the letters are multi-byte", name, overrun, dropped)
+			}
+			if !dropped {
+				if len(fit.Pairs) != len(pairs) {
+					t.Errorf("a call that fits kept %d of %d pairs", len(fit.Pairs), len(pairs))
+				}
+				return
+			}
+			if len(fit.Pairs) == 0 || len(fit.Pairs) >= len(pairs) || !slices.Equal(fit.Pairs, pairs[:len(fit.Pairs)]) {
+				t.Errorf("kept %d of %d pairs, want the best ones first and fewer than all", len(fit.Pairs), len(pairs))
+			}
+			if longer, _, _ := prompts.FitDuplicates(prompts.DuplicatesInput{Bank: members, Pairs: pairs[:len(fit.Pairs)+1]}); len(longer.Pairs) != len(fit.Pairs) {
+				t.Errorf("one more pair still fits, so %d was not the most", len(fit.Pairs))
+			}
+		})
 	}
-	prompt, err := prompts.Duplicates(prompts.DuplicatesInput{Bank: largest, Pairs: pairs, Language: domain.Vietnamese})
-	if err != nil || len(prompt.User) > 90_000 {
-		t.Errorf("the largest duplicates call is %d characters, %v, want it inside the cap with room to spare", len(prompt.User), err)
+}
+
+func TestFitDuplicatesRefusesAPairOutsideTheBankAndKeepsNothingForNoPair(t *testing.T) {
+	bank := deckBank()
+	if _, _, err := prompts.FitDuplicates(prompts.DuplicatesInput{Bank: bank, Pairs: []domain.SimilarPair{{A: 0, B: 40}}}); err == nil {
+		t.Error("a pair outside the bank was fitted")
+	}
+	fit, dropped, err := prompts.FitDuplicates(prompts.DuplicatesInput{Bank: bank})
+	if err != nil || dropped || len(fit.Pairs) != 0 {
+		t.Errorf("no pair: %+v, dropped %v, %v", fit, dropped, err)
 	}
 }

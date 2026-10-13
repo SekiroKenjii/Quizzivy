@@ -2,9 +2,11 @@ package domain_test
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"golang.org/x/text/unicode/norm"
 
@@ -23,8 +25,8 @@ func TestTwoQuestionsAreComparedWhereverTheySitInTheBank(t *testing.T) {
 	bank := distinctBank(2000)
 	bank[3].Prompt = "Which tense does the sentence use: she has lived in Hanoi since 2019?"
 	bank[1950].Prompt = "Which tense does the sentence use: she has lived in Hanoi since 2020?"
-	pairs := domain.SimilarQuestions(bank, 100)
-	if len(pairs) != 1 || pairs[0].A != 3 || pairs[0].B != 1950 || pairs[0].Score < 0.8 {
+	pairs, complete := domain.SimilarQuestions(bank, 100)
+	if !complete || len(pairs) != 1 || pairs[0].A != 3 || pairs[0].B != 1950 || pairs[0].Score < 0.8 {
 		t.Fatalf("pairs %+v, want the one pair at 3 and 1950", pairs)
 	}
 }
@@ -36,7 +38,7 @@ func TestTheDecksDuplicatePairIsACandidateAndAnUnrelatedPairIsNot(t *testing.T) 
 		{Prompt: "Which word is closest in meaning to “reluctant”?"},
 		{Prompt: "Name the capital city of France and one river that flows through it."},
 	}
-	pairs := domain.SimilarQuestions(bank, 10)
+	pairs, _ := domain.SimilarQuestions(bank, 10)
 	if len(pairs) != 1 || pairs[0].A != 0 || pairs[0].B != 1 {
 		t.Errorf("pairs %+v, want only the deck's first pair", pairs)
 	}
@@ -50,7 +52,7 @@ func TestTheClosestPairsComeFirstAndTiesGoByPlace(t *testing.T) {
 		{Prompt: "nine ten eleven twelve thirteen"},
 		{Prompt: "nine ten eleven twelve thirteen"},
 	}
-	pairs := domain.SimilarQuestions(bank, 10)
+	pairs, _ := domain.SimilarQuestions(bank, 10)
 	got := make([][2]int, len(pairs))
 	for i, p := range pairs {
 		got[i] = [2]int{p.A, p.B}
@@ -59,7 +61,7 @@ func TestTheClosestPairsComeFirstAndTiesGoByPlace(t *testing.T) {
 	if !slices.Equal(got, want) {
 		t.Errorf("pairs %v, want %v: exact copies first, by place, then the one-word differences", got, want)
 	}
-	if limited := domain.SimilarQuestions(bank, 2); len(limited) != 2 || limited[0] != pairs[0] || limited[1] != pairs[1] {
+	if limited, _ := domain.SimilarQuestions(bank, 2); len(limited) != 2 || limited[0] != pairs[0] || limited[1] != pairs[1] {
 		t.Errorf("a limit of two gave %+v", limited)
 	}
 }
@@ -70,7 +72,8 @@ func TestAQuestionIsInAtMostThreePairs(t *testing.T) {
 		bank[i] = domain.BankQuestion{Prompt: fmt.Sprintf("the sunny garden gate opens at seven tag%d", i)}
 	}
 	degree := map[int]int{}
-	for _, p := range domain.SimilarQuestions(bank, 100) {
+	pairs, _ := domain.SimilarQuestions(bank, 100)
+	for _, p := range pairs {
 		degree[p.A]++
 		degree[p.B]++
 	}
@@ -90,11 +93,11 @@ func TestAStemUsedManyTimesAndAPromptTooShortToCompareAreLeftOut(t *testing.T) {
 		bank = append(bank, domain.BankQuestion{Prompt: "Choose the correct answer for the blank."})
 	}
 	bank = append(bank, domain.BankQuestion{Prompt: "Define abate."}, domain.BankQuestion{Prompt: "Define abate."})
-	if pairs := domain.SimilarQuestions(bank, 100); len(pairs) != 0 {
+	if pairs, _ := domain.SimilarQuestions(bank, 100); len(pairs) != 0 {
 		t.Errorf("pairs %+v, want none: a stem nine questions reuse is a template and two words are too few", pairs)
 	}
 	eight := bank[:8]
-	if pairs := domain.SimilarQuestions(eight, 100); len(pairs) == 0 {
+	if pairs, _ := domain.SimilarQuestions(eight, 100); len(pairs) == 0 {
 		t.Error("a stem used eight times is a copy and found")
 	}
 }
@@ -110,7 +113,7 @@ func TestCaseSpacingPunctuationAndNormalisationDoNotCount(t *testing.T) {
 	if composed == decomposed {
 		t.Fatal("the fixture is not in two forms")
 	}
-	pairs := domain.SimilarQuestions(bank, 10)
+	pairs, _ := domain.SimilarQuestions(bank, 10)
 	if len(pairs) == 0 || pairs[0].Score != 1 {
 		t.Errorf("pairs %+v, want the three spellings of one prompt to match completely", pairs)
 	}
@@ -125,15 +128,69 @@ func TestSimilarQuestionsIsDeterministicAndBoundedOnABigBank(t *testing.T) {
 		}
 		bank = append(bank, domain.BankQuestion{Prompt: strings.Join(words, " ")})
 	}
-	first := domain.SimilarQuestions(bank, 100)
-	second := domain.SimilarQuestions(bank, 100)
-	if !slices.Equal(first, second) {
+	first, complete := domain.SimilarQuestions(bank, 100)
+	second, _ := domain.SimilarQuestions(bank, 100)
+	if !complete || !slices.Equal(first, second) {
 		t.Error("the same bank gave two answers")
 	}
 	if len(first) > 100 {
 		t.Errorf("%d pairs for a limit of 100", len(first))
 	}
-	if domain.SimilarQuestions(bank, 0) != nil || domain.SimilarQuestions(bank[:1], 10) != nil {
+	none, completeNone := domain.SimilarQuestions(bank, 0)
+	one, completeOne := domain.SimilarQuestions(bank[:1], 10)
+	if none != nil || one != nil || !completeNone || !completeOne {
 		t.Error("a limit of none and a bank of one find pairs")
+	}
+}
+
+func TestOnlyTheFirstTwoHundredDistinctWordsOfAPromptCount(t *testing.T) {
+	var head, tailA, tailB []string
+	for i := range 200 {
+		head = append(head, fmt.Sprintf("w%d", i))
+	}
+	for i := range 100 {
+		tailA = append(tailA, fmt.Sprintf("alpha%d", i))
+		tailB = append(tailB, fmt.Sprintf("beta%d", i))
+	}
+	bank := []domain.BankQuestion{
+		{Prompt: strings.Join(append(slices.Clone(head), tailA...), " ")},
+		{Prompt: strings.Join(append(slices.Clone(head), tailB...), " ")},
+	}
+	pairs, _ := domain.SimilarQuestions(bank, 10)
+	if len(pairs) != 1 || pairs[0].Score != 1 {
+		t.Errorf("pairs %+v, want the two prompts alike in their first 200 words to match completely", pairs)
+	}
+}
+
+func TestAPromptTypedWithoutItsDiacriticsIsNotPairedWithItsAccentedTwin(t *testing.T) {
+	bank := []domain.BankQuestion{
+		{Prompt: "Tại sao bầu trời có màu xanh vào ban ngày?"},
+		{Prompt: "Tai sao bau troi co mau xanh vao ban ngay?"},
+	}
+	if pairs, _ := domain.SimilarQuestions(bank, 10); len(pairs) != 0 {
+		t.Errorf("pairs %+v: the words are compared as they are typed, with their accents", pairs)
+	}
+}
+
+func TestTheSearchStopsAtItsWorkLimitOnABankBuiltToExhaustIt(t *testing.T) {
+	r := rand.New(rand.NewPCG(5, 6))
+	bank := make([]domain.BankQuestion, 1000)
+	for i := range bank {
+		words := make([]string, 0, 300)
+		for _, w := range r.Perm(5000)[:300] {
+			words = append(words, fmt.Sprintf("v%d", w))
+		}
+		bank[i].Prompt = strings.Join(words, " ")
+	}
+	start := time.Now()
+	first, complete := domain.SimilarQuestions(bank, 100)
+	if complete {
+		t.Error("1,000 prompts of 200 words that all share words were searched to the end")
+	}
+	if took := time.Since(start); took > 20*time.Second {
+		t.Errorf("the search took %v", took)
+	}
+	if second, _ := domain.SimilarQuestions(bank, 100); !slices.Equal(first, second) {
+		t.Error("a search that stopped early gave two answers")
 	}
 }

@@ -39,7 +39,7 @@ func (t *Tally) Add(response ports.Response, err error) {
 	}
 }
 
-// Response is the sum as the response Finish takes: the total usage of the billed calls, and their request ids in order, separated by commas. The ledger keeps at most 200 characters of request id, so ids that do not fit whole are left out of it (the pass logs them all); the id of one call is never cut.
+// Response is the sum as the response Finish takes: the total usage of the billed calls, and their request ids sorted and separated by commas. The ledger keeps at most 200 characters of request id, so ids that do not fit whole are left out of it (the pass logs them all); the id of one call is never cut.
 func (t *Tally) Response() ports.Response {
 	t.mu.Lock()
 	defer t.mu.Unlock()

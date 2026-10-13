@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -18,15 +19,18 @@ const (
 	CleanupTags       = "tags"
 )
 
-// The bounds of one clean-up. It asks tags for at most MaxTagsAsked of the questions that have none, TagChunkSize to a call, so each answer fits the tokens it is given however large the bank is, and it asks the provider to judge at most MaxCandidatePairs pairs of questions that look alike, of which it keeps at most MaxDuplicatesAsked. A call longer than MaxCleanupChars is refused with domain.ErrTooLarge, which keeps it under the provider's long-prompt price step; the largest call a clean-up makes, 200 lines of at most 400 characters, is 80,000.
+// The bounds of one clean-up. It asks tags for at most MaxTagsAsked of the questions that have none, TagChunkSize to a call, so each answer fits the tokens it is given however large the bank is, and it asks the provider to judge at most MaxCandidatePairs pairs of questions that look alike, of which it keeps at most MaxDuplicatesAsked. A call whose user turn is longer than MaxCleanupBytes is refused with domain.ErrTooLarge. A token covers at least a byte, so that keeps a call under the provider's 100,000-token price step in any language. A tagging call never reaches it (50 lines of at most about 700 bytes and a vocabulary of about 5,000, whatever the letters); a duplicates call can, on a bank of long multi-byte prompts and tags, which FitDuplicates cuts to fit.
 const (
 	TagChunkSize       = 50
 	MaxTagChunks       = 4
 	MaxTagsAsked       = TagChunkSize * MaxTagChunks
 	MaxCandidatePairs  = 100
 	MaxDuplicatesAsked = 20
-	MaxCleanupChars    = 100_000
+	MaxCleanupBytes    = 100_000
 )
+
+// CleanupTier is the tier every call of a clean-up runs on.
+const CleanupTier = domain.TierFast
 
 // MaxTagSuggestions bounds the tag suggestions one clean-up returns.
 const MaxTagSuggestions = 200
@@ -109,7 +113,7 @@ type TaggingInput struct {
 	Asked []int
 }
 
-// Tagging builds the request that proposes tags for the Asked questions. It sends their prompts, types and levels, and the tags the bank already uses, so that a suggestion reuses a tag a teacher has chosen. It answers domain.ErrNothingToRead when nothing is asked, an error for a place outside the bank, and domain.ErrTooLarge for a call longer than MaxCleanupChars.
+// Tagging builds the request that proposes tags for the Asked questions. It sends their prompts, types and levels, and the tags the bank already uses, so that a suggestion reuses a tag a teacher has chosen. It answers domain.ErrNothingToRead when nothing is asked, an error for a place outside the bank, and domain.ErrTooLarge for a call longer than MaxCleanupBytes.
 func Tagging(in TaggingInput) (Prompt, error) {
 	if len(in.Asked) == 0 {
 		return Prompt{}, domain.ErrNothingToRead
@@ -128,7 +132,7 @@ func Tagging(in TaggingInput) (Prompt, error) {
 	b.WriteString("\nFor every question above give 1-4 short lower-case tags and, if it shows level=?, its CEFR level (pre_a1, a1, a2, b1, b2, c1 or c2); level is \"\" if you cannot tell or the question shows one already. " +
 		"Mention no question that is not listed.\n" +
 		"Return {\"tags\":[{\"question\":\"q3\",\"tags\":[\"...\"],\"level\":\"b1\"}]}.")
-	return finished(Prompt{Feature: domain.FeatureCleanup, Tier: domain.TierFast, System: tagsSystem, User: b.String(), Schema: json.RawMessage(tagsSchema), MaxTokens: cleanupMaxTokens})
+	return finished(Prompt{Feature: domain.FeatureCleanup, Tier: CleanupTier, System: tagsSystem, User: b.String(), Schema: json.RawMessage(tagsSchema), MaxTokens: cleanupMaxTokens})
 }
 
 // DecodeTagging reads the provider's answer to Tagging. A reference that names no question, a question the call did not ask about, a repeated question and a suggestion with no tag are dropped; tags are lower case, at most four, and a level is kept only for a question with none. The suggestions come in bank order.
@@ -167,15 +171,40 @@ type DuplicatesInput struct {
 	Language domain.Language
 }
 
-// Duplicates builds the request that judges which candidate pairs are duplicates. It sends only the questions that are in a pair, each once under its reference in the whole bank, and the pairs, so two questions that no part of the bank holds together are read together here. It answers domain.ErrNothingToRead when there is no pair, an error for a pair outside the bank, and domain.ErrTooLarge for a call longer than MaxCleanupChars.
+// Duplicates builds the request that judges which candidate pairs are duplicates. It sends only the questions that are in a pair, each once under its reference in the whole bank, and the pairs, so two questions that no part of the bank holds together are read together here. It answers domain.ErrNothingToRead when there is no pair, an error for a pair outside the bank, and domain.ErrTooLarge for a call longer than MaxCleanupBytes, which FitDuplicates keeps from happening.
 func Duplicates(in DuplicatesInput) (Prompt, error) {
+	user, err := duplicatesUser(in)
+	if err != nil {
+		return Prompt{}, err
+	}
+	return finished(Prompt{Feature: domain.FeatureCleanup, Tier: CleanupTier, System: duplicatesSystem, User: user, Schema: json.RawMessage(duplicatesSchema), MaxTokens: cleanupMaxTokens})
+}
+
+// FitDuplicates keeps the most pairs of in, best first, whose Duplicates call is not longer than MaxCleanupBytes, and reports whether it dropped any. The pairs are the pass's own choice and not the teacher's input, so a bank that fills the call with long multi-byte prompts is answered with a smaller call and not refused. It answers an error for a pair outside the bank, as Duplicates does, and keeps no pair for an input that has none.
+func FitDuplicates(in DuplicatesInput) (fit DuplicatesInput, dropped bool, err error) {
 	if len(in.Pairs) == 0 {
-		return Prompt{}, domain.ErrNothingToRead
+		return in, false, nil
+	}
+	if _, err := duplicatesUser(in); err != nil {
+		return in, false, err
+	}
+	kept := sort.Search(len(in.Pairs), func(k int) bool {
+		user, _ := duplicatesUser(DuplicatesInput{Bank: in.Bank, Pairs: in.Pairs[:k+1], Language: in.Language})
+		return len(user) > MaxCleanupBytes
+	})
+	fit = in
+	fit.Pairs = in.Pairs[:kept]
+	return fit, kept < len(in.Pairs), nil
+}
+
+func duplicatesUser(in DuplicatesInput) (string, error) {
+	if len(in.Pairs) == 0 {
+		return "", domain.ErrNothingToRead
 	}
 	var members []int
 	for _, p := range in.Pairs {
 		if p.A < 0 || p.B <= p.A || p.B >= len(in.Bank) {
-			return Prompt{}, fmt.Errorf("prompts: pair %d, %d is not two questions of the bank of %d", p.A, p.B, len(in.Bank))
+			return "", fmt.Errorf("prompts: pair %d, %d is not two questions of the bank of %d", p.A, p.B, len(in.Bank))
 		}
 		members = append(members, p.A, p.B)
 	}
@@ -194,7 +223,7 @@ func Duplicates(in DuplicatesInput) (Prompt, error) {
 		"Write the reasons in %s. Report only pairs from the list above and never a pair that is fine; use [] if no candidate is a duplicate.\n"+
 		"Return {\"duplicates\":[{\"a\":\"q1\",\"b\":\"q2\",\"why\":\"...\"}]}.",
 		MaxDuplicatesAsked, in.Language.Name())
-	return finished(Prompt{Feature: domain.FeatureCleanup, Tier: domain.TierFast, System: duplicatesSystem, User: b.String(), Schema: json.RawMessage(duplicatesSchema), MaxTokens: cleanupMaxTokens})
+	return b.String(), nil
 }
 
 // DecodeDuplicates reads the provider's answer to Duplicates. A pair is kept only if the call offered it, once, with its questions in bank order and a reason; a reference that names no question, a pair that was not offered and a pair without a reason are dropped, and so is any pair past MaxDuplicatesAsked.
@@ -241,7 +270,7 @@ type rawTag struct {
 }
 
 func finished(p Prompt) (Prompt, error) {
-	if len(p.User) > MaxCleanupChars {
+	if len(p.User) > MaxCleanupBytes {
 		return Prompt{}, domain.ErrTooLarge
 	}
 	return p, nil

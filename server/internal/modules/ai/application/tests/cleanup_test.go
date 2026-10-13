@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"regexp"
 	"slices"
 	"strconv"
@@ -630,4 +631,81 @@ func TestATallyKeepsTheRequestIdsThatFitTheLedgerWhole(t *testing.T) {
 	if got.RequestID != want || len(got.RequestID) > 200 || got.Usage.InputTokens != 3 {
 		t.Errorf("request id %q (%d), tokens %d; want the two ids that fit whole and all three calls counted", got.RequestID, len(got.RequestID), got.Usage.InputTokens)
 	}
+}
+
+func multiByteTwins(pairs int) []domain.BankQuestion {
+	tag := strings.Repeat("ế", 80)
+	bank := make([]domain.BankQuestion, 0, 2*pairs)
+	for i := range pairs {
+		var twin [2][]string
+		for j := range 25 {
+			word := fmt.Sprintf("%s%03d%c", strings.Repeat("ế", 8), i, 'a'+j)
+			twin[0], twin[1] = append(twin[0], word), append(twin[1], word)
+		}
+		twin[1][24] = fmt.Sprintf("%s%03dz", strings.Repeat("ế", 8), i)
+		for k := range twin {
+			bank = append(bank, domain.BankQuestion{
+				ID: fmt.Sprintf("twin-%d-%d", i, k), Type: "multiple_choice", Level: "pre_a1", Tags: []string{tag, tag, tag, tag}, Prompt: strings.Join(twin[k], " "),
+			})
+		}
+	}
+	return bank
+}
+
+func TestADuplicatesCallTooLongOnMultiByteTextIsCutToFitAndTheAnswerIsTruncatedNotRefused(t *testing.T) {
+	completer := &scripted{respond: func(_ context.Context, req ports.Request) (ports.Response, error) { return answered(req) }}
+	bank := multiByteTwins(prompts.MaxCandidatePairs)
+	o := cleanupOps(t, completer, 0, bank)
+	got, err := o.app.Queries.Cleanup.Handle(context.Background(), query.Cleanup{Actor: teacher, Checks: []string{prompts.CleanupDuplicates}})
+	if err != nil {
+		t.Fatalf("err = %v, want a smaller call and not a refusal of the pass's own choice", err)
+	}
+	requests := completer.seen()
+	if len(requests) != 1 {
+		t.Fatalf("%d provider calls, want the one duplicates call", len(requests))
+	}
+	user := requests[0].Blocks[0].Text
+	offered := len(offeredRefs.FindAllString(user, -1))
+	if len(user) > prompts.MaxCleanupBytes || offered == 0 || offered >= prompts.MaxCandidatePairs || len(listed(requests[0])) != 2*offered {
+		t.Errorf("the call is %d bytes with %d pairs over %d questions, want fewer than %d pairs inside the cap of %d", len(user), offered, len(listed(requests[0])), prompts.MaxCandidatePairs, prompts.MaxCleanupBytes)
+	}
+	if !got.Truncated || len(got.Findings.Duplicates) != prompts.MaxDuplicatesAsked || got.Scanned != len(bank) {
+		t.Errorf("truncated %v, %d duplicates, scanned %d; want the pairs the call kept, at most %d, and truncated", got.Truncated, len(got.Findings.Duplicates), got.Scanned, prompts.MaxDuplicatesAsked)
+	}
+	onlyEnded(t, o, 1)
+
+	ascii := cleanupOps(t, completer, 0, multiByteTwinsOfLetter("e", prompts.MaxCandidatePairs))
+	if got, err := ascii.app.Queries.Cleanup.Handle(context.Background(), query.Cleanup{Actor: teacher, Checks: []string{prompts.CleanupDuplicates}}); err != nil || got.Truncated {
+		t.Errorf("truncated %v, %v: the same bank in ASCII fits and is not cut", got.Truncated, err)
+	}
+}
+
+func multiByteTwinsOfLetter(letter string, pairs int) []domain.BankQuestion {
+	bank := multiByteTwins(pairs)
+	for i := range bank {
+		bank[i].Prompt = strings.ReplaceAll(bank[i].Prompt, "ế", letter)
+		for j := range bank[i].Tags {
+			bank[i].Tags[j] = strings.ReplaceAll(bank[i].Tags[j], "ế", letter)
+		}
+	}
+	return bank
+}
+
+func TestASearchForLookAlikesThatStopsAtItsWorkLimitIsSaidToBeTruncated(t *testing.T) {
+	r := rand.New(rand.NewPCG(5, 6))
+	bank := make([]domain.BankQuestion, 1000)
+	for i := range bank {
+		words := make([]string, 0, 300)
+		for _, w := range r.Perm(5000)[:300] {
+			words = append(words, fmt.Sprintf("v%d", w))
+		}
+		bank[i] = domain.BankQuestion{ID: fmt.Sprintf("long-%d", i), Type: "short_answer", Prompt: strings.Join(words, " "), Tags: []string{"grammar"}}
+	}
+	completer := &scripted{respond: func(_ context.Context, req ports.Request) (ports.Response, error) { return answered(req) }}
+	o := cleanupOps(t, completer, 0, bank)
+	got, err := o.app.Queries.Cleanup.Handle(context.Background(), query.Cleanup{Actor: teacher, Checks: []string{prompts.CleanupDuplicates}})
+	if err != nil || !got.Truncated || len(completer.seen()) != 0 {
+		t.Errorf("truncated %v, %d calls, %v; want a pass that found no pair before its limit, said so, and asked nobody", got.Truncated, len(completer.seen()), err)
+	}
+	onlyEnded(t, o, 0)
 }
