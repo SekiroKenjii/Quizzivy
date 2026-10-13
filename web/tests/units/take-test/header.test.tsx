@@ -179,14 +179,26 @@ describe("the header at 1280", () => {
     expect(controls[0]).toHaveClass("size-9", "min-h-0", "min-w-0");
     expect(controls[1]).toHaveClass("h-9.5", "min-h-0", "bg-primary");
 
-    expect(banner().getByText(TITLE)).toHaveClass("truncate", "font-semibold");
-    expect(banner().getByText(SAVED)).toBeInTheDocument();
+    expect(banner().getByRole("heading", { level: 1, name: TITLE })).toHaveClass(
+      "truncate",
+      "font-semibold",
+    );
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(banner().getByText(SAVED)).toHaveClass("truncate");
     expect(timer()).toHaveTextContent("38:12");
     expect(timer()).toHaveClass("mx-auto", "h-9", "rounded-full", "tabular-nums");
 
     expect(strip()).toBeNull();
     expect(banner().queryByText(/^Câu \d/)).toBeNull();
     expect(screen.queryByRole("progressbar")).toBeNull();
+  });
+
+  it("names the open question's panel as a group, so its label is read", async () => {
+    await open();
+    expect(screen.getByRole("group", { name: "Câu 1" })).toHaveAttribute(
+      "id",
+      "answer-question-q1",
+    );
   });
 
   it("keeps each digit in a cell one zero wide, so the pill does not move as it ticks", async () => {
@@ -363,6 +375,8 @@ describe("the header at 1280", () => {
       screen.getByRole("heading", { name: "Bài đã được nộp." }),
     ).toBeInTheDocument();
     expect(banner().getByText(TITLE)).toBeInTheDocument();
+    expect(banner().queryByRole("heading")).toBeNull();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(banner().queryByRole("button")).toBeNull();
     expect(screen.queryByRole("timer")).toBeNull();
     expect(banner().queryByText(SAVED)).toBeNull();
@@ -676,7 +690,7 @@ describe("the header on a phone", () => {
     viewport("phone");
   });
 
-  it("is leave, the timer and Submit, with no title and no save line", async () => {
+  it("is leave, the timer and Submit, with the title only for a screen reader and no save line", async () => {
     await open();
 
     const header = screen.getByRole("banner");
@@ -685,7 +699,9 @@ describe("the header on a phone", () => {
     expect(controls.map((control) => control.textContent)).toEqual(["", "Nộp bài"]);
     expect(controls[0]).toHaveAccessibleName("Thoát khỏi bài làm");
     expect(timer()).toHaveTextContent("38:12");
-    expect(banner().queryByText(TITLE)).toBeNull();
+    expect(banner().getByRole("heading", { level: 1, name: TITLE })).toHaveClass(
+      "sr-only",
+    );
     expect(screen.queryByText(SAVED)).toBeNull();
     expect(strip()).toBeNull();
     expect(header.nextElementSibling).toBe(columns());
@@ -722,6 +738,7 @@ describe("the header on a phone", () => {
     await pass(FLUSH_DEBOUNCE_MS);
     expect(strip()).toHaveTextContent(FAILED);
     expect(strip()).not.toHaveClass("min-h-[35px]");
+    expect(within(strip()!).getByText(FAILED)).not.toHaveClass("truncate");
     expect(within(strip()!).getByText(FAILED).parentElement).toHaveClass(
       "text-danger-ink",
     );

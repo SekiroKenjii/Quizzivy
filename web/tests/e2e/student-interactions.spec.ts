@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { studentUser, stubApi } from "./support/api";
 import { engineFits, paper, start, type Session } from "./support/engine";
 
 test("rich table blanks preserve frozen answer bindings and reload on a 320px phone", async ({
@@ -225,4 +226,58 @@ for (const [width, form] of [
     }
     await engineFits(page);
   });
+}
+
+for (const [locale, failed] of [
+  ["vi", "Chưa lưu được. Đang thử lại…"],
+  ["en", "Could not save. Trying again…"],
+] as const) {
+  for (const width of [320, 360]) {
+    test(`a failed save on a ${width}px phone in ${locale} reads whole beside the strike count`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 800 });
+      await page.addInitScript(
+        (lang) => localStorage.setItem("quizzivy.locale", lang),
+        locale,
+      );
+      const data = paper();
+      data.integrity = { ...data.integrity, maxFocusLoss: 2, onLimitExceeded: "flag" };
+      await stubApi(page, {
+        "GET /auth/me": { body: { ...studentUser, locale } },
+        "GET /app/attempts/paper": { body: data },
+        "PATCH /app/attempts/paper/answers": {
+          status: 500,
+          body: { error: { code: "INTERNAL", message: "down", requestId: "e2e" } },
+        },
+        "POST /app/attempts/paper/events": { body: {} },
+      });
+      await page.goto("/app/attempts/paper");
+      await page.locator("label").filter({ hasText: "Đáp án A" }).click();
+
+      const line = page.locator('[data-slot="save-strip"]').getByText(failed, {
+        exact: true,
+      });
+      await expect(line).toBeVisible();
+      const drawn = await line.evaluate((node) => {
+        const strip = node.closest("[data-slot='save-strip']")!;
+        const count = strip.lastElementChild!.getBoundingClientRect();
+        const box = node.getBoundingClientRect();
+        const style = getComputedStyle(node);
+        return {
+          clipped: node.scrollWidth > node.clientWidth,
+          ellipsis: style.textOverflow === "ellipsis",
+          rows: Math.round(box.height / parseFloat(style.lineHeight)),
+          besideCount: box.right <= count.left,
+          inWindow: strip.getBoundingClientRect().right <= innerWidth,
+        };
+      });
+      expect(drawn.clipped).toBe(false);
+      expect(drawn.ellipsis).toBe(false);
+      expect(drawn.rows).toBeLessThanOrEqual(2);
+      expect(drawn.besideCount).toBe(true);
+      expect(drawn.inWindow).toBe(true);
+      await engineFits(page);
+    });
+  }
 }

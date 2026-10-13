@@ -102,7 +102,7 @@ titles; D4's release task (T-D4.18) corrects them to the versions above (Q29, de
   When every task is ticked, `work/redesign-r<k>` → `develop` (`--no-ff`), then
   `release/0.<x>.0` → `main`. R0 PRs go straight to `develop`. D4 runs the same way under its
   own names: tasks `T-D4.<n>`, branches `feature/t-d4-<nn>-<slug>`, the integration branch
-  `work/deck-d4`, and `release/0.10.1`. Merging to `main` deploys, so it waits for Thuong's go
+  `work/deck-d4`, and `release/0.11.0` (`74d` Q29). Merging to `main` deploys, so it waits for Thuong's go
   every time.
 - **One task, one branch, one PR**, under ~800 non-generated lines; XL tasks split into lettered
   sub-PRs under one id.

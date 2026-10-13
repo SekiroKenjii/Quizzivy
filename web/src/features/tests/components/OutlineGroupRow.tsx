@@ -281,7 +281,7 @@ function GroupMembers({
   );
   const members = group.group.members;
   return (
-    <div className="ml-4.5 flex flex-col gap-0.5 border-l pl-1.5">
+    <div className="ml-4.5 flex flex-col gap-px border-l pl-1.5">
       {members.map((member) => {
         const input = questions.get(member.questionId);
         const Icon = QUESTION_TYPE_ICONS[input?.type ?? "single_choice"];
