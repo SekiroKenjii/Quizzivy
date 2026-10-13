@@ -3541,7 +3541,8 @@ on `features/ai/`'s `useAiAvailable` and `useAiBlock` and `features/auth/`'s `ai
   for an import with `readWithAi` in every later state. The history row's meta ends "· Read with
   AI". The contract carries no credits, so neither the deck's "About 400 credits per page" nor the
   proposal's "Uses 1 AI credit · 18 left" is drawn (§12: no figure the product has not metered).
-  Settings' "Read imports with AI" hint (T-D4.38) still carries the deck's figure.
+  Settings' "Read imports with AI" hint (T-D4.38) carried the deck's figure until the D4
+  follow-ups dropped it there too.
 - **Compared with the deck** (served with React, react-dom, Babel and lucide from their npm
   tarballs through route interception) at 360, 768, 1280 and 1440, light and dark: the card's
   border, radius, padding, gap, the 32px tile and its tones, the title and hint type and colour,
