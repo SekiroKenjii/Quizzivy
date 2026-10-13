@@ -153,3 +153,38 @@ export function explainAssignmentResults(id: string, signal?: AbortSignal) {
     signal ? { path: { id }, signal } : { path: { id } },
   );
 }
+
+/** AiExplanationRequest names the language and the length of an explanation. */
+export type AiExplanationRequest = Schemas["AiExplanationRequest"];
+/** AiDistractor is one suggested wrong option, with why a learner might pick it. */
+export type AiDistractor = Schemas["AiDistractor"];
+/** AiDistractorsResult is up to four suggested wrong options and what the call cost. */
+export type AiDistractorsResult = Schemas["AiDistractorsResult"];
+
+/**
+ * writeAiExplanation asks for an explanation of a stored question's answer
+ * and writes nothing: the teacher's own save writes what they keep.
+ */
+export function writeAiExplanation(
+  id: string,
+  body: AiExplanationRequest,
+  signal?: AbortSignal,
+) {
+  return api(
+    "post",
+    "/teacher/ai/questions/{id}/explanation",
+    signal ? { path: { id }, body, signal } : { path: { id }, body },
+  );
+}
+
+/**
+ * suggestAiDistractors asks for wrong options for a stored choice question
+ * and writes nothing: the teacher's own save writes what they add.
+ */
+export function suggestAiDistractors(id: string, signal?: AbortSignal) {
+  return api(
+    "post",
+    "/teacher/ai/questions/{id}/distractors",
+    signal ? { path: { id }, signal } : { path: { id } },
+  );
+}
