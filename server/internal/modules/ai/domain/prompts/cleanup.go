@@ -15,8 +15,18 @@ const (
 	CleanupTags       = "tags"
 )
 
-// MaxCleanupChars is the most characters of questions one clean-up reads; a longer bank is ErrTooLarge.
-const MaxCleanupChars = 600_000
+// MaxCleanupChars is the most characters of questions one clean-up reads, which keeps a call under the provider's long-prompt price step; FitCleanup cuts a longer bank to what fits.
+const MaxCleanupChars = 300_000
+
+// MaxTagsAsked is how many of the questions marked tags=none one clean-up asks tags for, the first ones listed, so the answer fits the tokens it is given however large the bank. A bank with more says so in its answer's truncated, and a second run, after the first tags are applied, reaches the next.
+const MaxTagsAsked = 60
+
+// MaxDuplicatesAsked is how many pairs of near-duplicates one clean-up asks for.
+const MaxDuplicatesAsked = 20
+
+const cleanupMaxTokens = 3000
+
+const cleanupHeader = "Questions (reference, type, level, tags, prompt):\n"
 
 // CleanupInput is what "Clean up the bank" sends: the prompts, types, levels and tags of the caller's own questions, each under a short reference the answer uses, so no id is sent. Language is the language the reasons are written in.
 type CleanupInput struct {
@@ -64,38 +74,80 @@ func Cleanup(in CleanupInput) (Prompt, error) {
 		return Prompt{}, domain.ErrNothingToRead
 	}
 	var b strings.Builder
-	b.WriteString("Questions (reference, type, level, tags, prompt):\n")
+	b.WriteString(cleanupHeader)
 	for i, q := range in.Questions {
-		level, tags := q.Level, strings.Join(q.Tags, ",")
-		if level == "" {
-			level = "?"
-		}
-		if tags == "" {
-			tags = "none"
-		}
-		fmt.Fprintf(&b, "%s [%s] level=%s tags=%s: %s\n", ref(i), q.Type, level, tags, quotedPrompt(q.Prompt))
+		b.WriteString(cleanupLine(i, q))
 		if b.Len() > MaxCleanupChars {
 			return Prompt{}, domain.ErrTooLarge
 		}
 	}
 	var what []string
 	if slices.Contains(in.Checks, CleanupDuplicates) {
-		what = append(what, "duplicates = pairs of questions that test the same thing in nearly the same words (report each pair once, with a reason)")
+		what = append(what, fmt.Sprintf("duplicates = at most %d pairs of questions that test the same thing in nearly the same words, the clearest first (report each pair once, with a reason)", MaxDuplicatesAsked))
 	}
 	if slices.Contains(in.Checks, CleanupTags) {
-		what = append(what, "tags = for each question marked tags=none, 1-4 short lower-case tags and, if it shows level=?, its CEFR level (pre_a1, a1, a2, b1, b2, c1 or c2)")
+		what = append(what, fmt.Sprintf("tags = for at most %d of the questions marked tags=none, the first ones listed, 1-4 short lower-case tags and, if it shows level=?, its CEFR level (pre_a1, a1, a2, b1, b2, c1 or c2)", MaxTagsAsked))
 	}
 	fmt.Fprintf(&b, "\nFind: %s.\nWrite the reasons in %s. Never mention a question that is fine; use [] for what you did not look for. For a question you tag, level is \"\" if you cannot tell.\n"+
 		"Return {\"duplicates\":[{\"a\":\"q1\",\"b\":\"q2\",\"why\":\"...\"}],\"tags\":[{\"question\":\"q3\",\"tags\":[\"...\"],\"level\":\"b1\"}]}.",
 		strings.Join(what, "; "), in.Language.Name())
-	return Prompt{Feature: domain.FeatureCleanup, Tier: domain.TierFast, System: cleanupSystem, User: b.String(), Schema: json.RawMessage(cleanupSchema), MaxTokens: 8000}, nil
+	return Prompt{Feature: domain.FeatureCleanup, Tier: domain.TierFast, System: cleanupSystem, User: b.String(), Schema: json.RawMessage(cleanupSchema), MaxTokens: cleanupMaxTokens}, nil
+}
+
+func cleanupLine(i int, q domain.BankQuestion) string {
+	level, tags := q.Level, strings.Join(q.Tags, ",")
+	if level == "" {
+		level = "?"
+	}
+	if tags == "" {
+		tags = "none"
+	}
+	return fmt.Sprintf("%s [%s] level=%s tags=%s: %s\n", ref(i), q.Type, level, tags, quotedPrompt(q.Prompt))
+}
+
+// FitCleanup returns the longest run of questions, from the first, whose lines fit MaxCleanupChars, and whether any were cut.
+func FitCleanup(questions []domain.BankQuestion) ([]domain.BankQuestion, bool) {
+	size := len(cleanupHeader)
+	for i, q := range questions {
+		size += len(cleanupLine(i, q))
+		if size > MaxCleanupChars {
+			return questions[:i], true
+		}
+	}
+	return questions, false
+}
+
+// Capped reports whether the input holds more questions without tags than one clean-up asks tags for, when it asks for tags at all.
+func (in CleanupInput) Capped() bool {
+	return slices.Contains(in.Checks, CleanupTags) && len(untagged(in.Questions)) > MaxTagsAsked
+}
+
+func untagged(questions []domain.BankQuestion) []int {
+	var out []int
+	for i, q := range questions {
+		if len(q.Tags) == 0 {
+			out = append(out, i)
+		}
+	}
+	return out
+}
+
+func askedTags(questions []domain.BankQuestion) map[int]bool {
+	out := map[int]bool{}
+	for _, i := range untagged(questions) {
+		if len(out) == MaxTagsAsked {
+			break
+		}
+		out[i] = true
+	}
+	return out
 }
 
 func quotedPrompt(s string) string {
 	return `"` + clip(oneLine(strings.ReplaceAll(s, `"`, "'")), 160) + `"`
 }
 
-// DecodeCleanup reads the provider's answer. A reference that names no question, a pair of one question, a repeated pair and a tag suggestion for a question that has tags are dropped, as is whatever was not asked for; tags are lower case, at most four, and a level is kept only for a question with none.
+// DecodeCleanup reads the provider's answer. A reference that names no question, a pair of one question, a repeated pair and a tag suggestion for a question that has tags or was not among the first MaxTagsAsked without are dropped, as is whatever was not asked for; tags are lower case, at most four, and a level is kept only for a question with none.
 func DecodeCleanup(raw json.RawMessage, in CleanupInput) (CleanupFindings, error) {
 	var answer struct {
 		Duplicates []rawDuplicate `json:"duplicates"`
@@ -159,12 +211,13 @@ func keptDuplicates(rows []rawDuplicate, questions []domain.BankQuestion) []Dupl
 func keptTags(rows []rawTag, questions []domain.BankQuestion) []TagSuggestion {
 	out := []TagSuggestion{}
 	tagged := map[int]bool{}
+	asked := askedTags(questions)
 	for _, t := range rows {
 		if len(out) == MaxTagSuggestions {
 			break
 		}
 		i, ok := questionAt(questions, t.Question)
-		if !ok || len(questions[i].Tags) > 0 || tagged[i] {
+		if !ok || !asked[i] || tagged[i] {
 			continue
 		}
 		tags := lowered(distinct(t.Tags, 4, 40))

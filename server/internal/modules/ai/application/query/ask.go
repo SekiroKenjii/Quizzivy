@@ -24,6 +24,8 @@ type answer struct {
 	Usage  domain.Usage
 }
 
+var errNoAnswer = errors.New("ai: the provider call did not return")
+
 func (a asker) ask(ctx context.Context, who actor.Actor, p prompts.Prompt) (answer, error) {
 	if a.Completer == nil {
 		return answer{}, domain.ErrOff
@@ -32,17 +34,7 @@ func (a asker) ask(ctx context.Context, who actor.Actor, p prompts.Prompt) (answ
 	if err != nil {
 		return answer{}, err
 	}
-	tier := ports.Tier(p.Tier)
-	response, callErr := a.Completer.Complete(ctx, ports.Request{
-		Tier: tier, System: p.System, Blocks: []ports.Block{ports.TextBlock(p.User)}, Schema: p.Schema, MaxTokens: p.MaxTokens,
-	})
-
-	finishCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), finishBudget)
-	defer cancel()
-	settled, finishErr := command.FinishHandler{Service: a.Service}.Handle(finishCtx, command.Finish{Reservation: reservation, Tier: tier, Response: response, Err: callErr})
-	if finishErr != nil {
-		a.Logger.ErrorContext(ctx, "ai reservation not ended", "feature", p.Feature, "reservation", reservation.ID, "error", finishErr)
-	}
+	response, settled, callErr := a.call(ctx, p, reservation)
 	if callErr != nil {
 		return answer{}, a.failure(ctx, p.Feature, response.RequestID, callErr)
 	}
@@ -53,15 +45,36 @@ func (a asker) ask(ctx context.Context, who actor.Actor, p prompts.Prompt) (answ
 	return answer{Object: response.Object, Usage: domain.Usage{Credits: settled.Charged, Left: left}}, nil
 }
 
+func (a asker) call(ctx context.Context, p prompts.Prompt, reservation domain.Reservation) (response ports.Response, settled domain.Settled, callErr error) {
+	tier := ports.Tier(p.Tier)
+	callErr = errNoAnswer
+	defer func() {
+		finishCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), finishBudget)
+		defer cancel()
+		var finishErr error
+		settled, finishErr = command.FinishHandler{Service: a.Service}.Handle(finishCtx, command.Finish{Reservation: reservation, Tier: tier, Response: response, Err: callErr})
+		if finishErr != nil {
+			a.Logger.ErrorContext(ctx, "ai reservation not ended", "feature", p.Feature, "reservation", reservation.ID, "error", finishErr)
+		}
+	}()
+	response, callErr = a.Completer.Complete(ctx, ports.Request{
+		Tier: tier, System: p.System, Blocks: []ports.Block{ports.TextBlock(p.User)}, Schema: p.Schema, MaxTokens: p.MaxTokens,
+	})
+	return response, settled, callErr
+}
+
 func (a asker) failure(ctx context.Context, feature domain.Feature, requestID string, err error) error {
 	switch {
+	case errors.Is(err, ports.ErrRejected):
+		a.Logger.ErrorContext(ctx, "ai call rejected", "feature", feature, "request_id", requestID, "error", err)
+		return fmt.Errorf("%w: %w", domain.ErrUnavailable, err)
 	case errors.Is(err, ports.ErrUnavailable), errors.Is(err, ports.ErrRefused), errors.Is(err, ports.ErrInvalidResponse):
 		a.Logger.WarnContext(ctx, "ai call failed", "feature", feature, "request_id", requestID, "error", err)
 		return fmt.Errorf("%w: %w", domain.ErrUnavailable, err)
 	case ctx.Err() != nil:
 		return ctx.Err()
 	}
-	a.Logger.ErrorContext(ctx, "ai call rejected", "feature", feature, "request_id", requestID, "error", err)
+	a.Logger.ErrorContext(ctx, "ai call failed unexpectedly", "feature", feature, "request_id", requestID, "error", err)
 	return fmt.Errorf("ai: %s: %w", feature, err)
 }
 

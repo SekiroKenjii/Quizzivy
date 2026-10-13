@@ -66,13 +66,14 @@ type Bank struct {
 	Truncated bool
 }
 
-// GradedAnswer is one student answer and the question it answers, without anything that says who gave it: no name, no id, no class, no attempt. Points is the question's points, Accepted the answers it accepts or the sample answer, and Answer the student's text.
+// GradedAnswer is one student answer and the question it answers, without anything that says who gave it: no name, no id, no class, no attempt. Points is the question's points, Accepted the answers it accepts or the sample answer, Answer the student's text, and Manual whether the answer waits for a teacher's mark; an answer the grader marked itself does not.
 type GradedAnswer struct {
 	Type     string
 	Prompt   string
 	Points   float64
 	Accepted []string
 	Answer   string
+	Manual   bool
 }
 
 // WrongAnswer is a distinct wrong answer text and how many papers gave it.

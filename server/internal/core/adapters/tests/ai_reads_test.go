@@ -61,13 +61,13 @@ func grading(review attemptsdomain.Review, err error) adapters.AIGrading {
 
 func TestAGradedAnswerCarriesTheQuestionAndTheTextAndNothingThatNamesTheStudent(t *testing.T) {
 	typed := []byte(`{"type":"text","value":"The person is a teacher."}`)
-	g := grading(reviewOf(attemptsdomain.Submitted, map[string]attemptsdomain.ReviewAnswer{shortID: {Payload: typed}}), nil)
+	g := grading(reviewOf(attemptsdomain.Submitted, map[string]attemptsdomain.ReviewAnswer{shortID: {Payload: typed, RequiresManual: true}}), nil)
 
 	got, err := g.Answer(context.Background(), access.Scope{UserID: "t"}, attemptID, strings.ToUpper(shortID))
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := aidomain.GradedAnswer{Type: "short_answer", Prompt: "Who teaches a class?", Points: 2, Accepted: []string{"A teacher."}, Answer: "The person is a teacher."}
+	want := aidomain.GradedAnswer{Type: "short_answer", Prompt: "Who teaches a class?", Points: 2, Accepted: []string{"A teacher."}, Answer: "The person is a teacher.", Manual: true}
 	if fmt.Sprintf("%+v", got) != fmt.Sprintf("%+v", want) {
 		t.Errorf("answer %+v, want %+v", got, want)
 	}
@@ -349,5 +349,15 @@ func TestAPassageIsFoundInTheDraftsGroupsOrNotFound(t *testing.T) {
 		if _, err := r.Passage(context.Background(), access.Scope{UserID: "t"}, ids[0], ids[1]); !errors.Is(err, aidomain.ErrNotFound) {
 			t.Errorf("%s: %v", name, err)
 		}
+	}
+}
+
+func TestAnAnswerTheGraderMarkedItselfIsNotReportedAsWaitingForAMark(t *testing.T) {
+	typed := []byte(`{"type":"text","value":"A teacher."}`)
+	g := grading(reviewOf(attemptsdomain.Graded, map[string]attemptsdomain.ReviewAnswer{shortID: {Payload: typed}}), nil)
+
+	got, err := g.Answer(context.Background(), access.Scope{UserID: "t"}, attemptID, shortID)
+	if err != nil || got.Manual || got.Answer != "A teacher." {
+		t.Errorf("answer %+v, %v, want the text read and Manual false", got, err)
 	}
 }

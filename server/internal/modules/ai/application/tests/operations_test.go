@@ -15,6 +15,7 @@ import (
 	"quizzivy/internal/modules/ai/application/ports"
 	"quizzivy/internal/modules/ai/application/query"
 	"quizzivy/internal/modules/ai/domain"
+	"quizzivy/internal/modules/ai/domain/prompts"
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/actor"
 )
@@ -74,15 +75,20 @@ func canned(req ports.Request) string {
 	return `{}`
 }
 
+func textOf(r ports.Request) string {
+	all := []string{r.System}
+	for _, b := range r.Blocks {
+		all = append(all, b.Text)
+	}
+	return strings.Join(all, "\n")
+}
+
 func (c *fakeCompleter) text() string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	var all []string
 	for _, r := range c.requests {
-		all = append(all, r.System)
-		for _, b := range r.Blocks {
-			all = append(all, b.Text)
-		}
+		all = append(all, textOf(r))
 	}
 	return strings.Join(all, "\n")
 }
@@ -177,7 +183,7 @@ func newOps(t *testing.T, configured bool) ops {
 			{ID: "b2", Type: "single_choice", Prompt: "Choose the form: He ___ since 2020.", Tags: []string{"grammar"}, UsedInTests: 2},
 			{ID: "b3", Type: "short_answer", Prompt: "Name one park.", Level: ""},
 		}},
-		answer: domain.GradedAnswer{Type: "short_answer", Prompt: "What should cities plan first?", Points: 1, Accepted: []string{"public green space"}, Answer: "green space"},
+		answer: domain.GradedAnswer{Type: "short_answer", Prompt: "What should cities plan first?", Points: 1, Accepted: []string{"public green space"}, Answer: "green space", Manual: true},
 		results: domain.Results{HandedIn: 18, Questions: []domain.ResultQuestion{
 			{Number: 1, Type: "short_answer", Prompt: "Cities should plan?", Key: "public green space", Wrong: []domain.WrongAnswer{{Text: "parks", Count: 3}}},
 		}},
@@ -318,7 +324,7 @@ func TestACallThatFailsIsSettledOnlyForWhatTheProviderBilledAndTheCallerIsToldTo
 		"the provider is down":                {fmt.Errorf("%w: 529", ports.ErrUnavailable), ports.Usage{}, false, true},
 		"a refusal, which was billed":         {fmt.Errorf("%w: stop", ports.ErrRefused), ports.Usage{InputTokens: 40, OutputTokens: 5}, true, true},
 		"an answer cut off, which was billed": {fmt.Errorf("%w: cut", ports.ErrInvalidResponse), ports.Usage{InputTokens: 40, OutputTokens: 4096}, true, true},
-		"a rejected request":                  {fmt.Errorf("%w: 400", ports.ErrRejected), ports.Usage{}, false, false},
+		"a rejected request":                  {fmt.Errorf("%w: 400", ports.ErrRejected), ports.Usage{}, false, true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			o := newOps(t, true)
@@ -418,11 +424,12 @@ func TestAScoreSuggestionIsRefusedForAnythingButAMarkedByHandAnsweredQuestion(t 
 		err    error
 		want   error
 	}{
-		"a choice question": {domain.GradedAnswer{Type: "single_choice", Answer: "x"}, nil, domain.ErrNotManual},
-		"a blank answer":    {domain.GradedAnswer{Type: "short_answer", Points: 1, Answer: " \t "}, nil, domain.ErrUnanswered},
-		"in progress":       {domain.GradedAnswer{}, domain.ErrAttemptInProgress, domain.ErrAttemptInProgress},
-		"voided":            {domain.GradedAnswer{}, domain.ErrAttemptVoided, domain.ErrAttemptVoided},
-		"out of reach":      {domain.GradedAnswer{}, domain.ErrNotFound, domain.ErrNotFound},
+		"a choice question":                       {domain.GradedAnswer{Type: "single_choice", Answer: "x"}, nil, domain.ErrNotManual},
+		"a short answer the grader marked itself": {domain.GradedAnswer{Type: "short_answer", Points: 1, Answer: "x"}, nil, domain.ErrNotManual},
+		"a blank answer":                          {domain.GradedAnswer{Type: "short_answer", Points: 1, Answer: " \t ", Manual: true}, nil, domain.ErrUnanswered},
+		"in progress":                             {domain.GradedAnswer{}, domain.ErrAttemptInProgress, domain.ErrAttemptInProgress},
+		"voided":                                  {domain.GradedAnswer{}, domain.ErrAttemptVoided, domain.ErrAttemptVoided},
+		"out of reach":                            {domain.GradedAnswer{}, domain.ErrNotFound, domain.ErrNotFound},
 	} {
 		t.Run(name, func(t *testing.T) {
 			o := newOps(t, true)
@@ -585,5 +592,117 @@ func TestNoIdentifierOfAPersonOrARecordReachesAPromptButTheContentDoes(t *testin
 				t.Errorf("%s: the prompt carries %q, an identifier of a person or a record", op.name, secret)
 			}
 		}
+	}
+}
+
+func TestARejectedRequestIsLoggedAsAnErrorAndAnswersAsUnavailable(t *testing.T) {
+	o := newOps(t, true)
+	o.completer.fail = fmt.Errorf("%w: 400 invalid_request_error", ports.ErrRejected)
+	_, err := operations()[1].run(o)
+	if !errors.Is(err, domain.ErrUnavailable) || !errors.Is(err, ports.ErrRejected) {
+		t.Fatalf("err = %v, want unavailable wrapping the rejection", err)
+	}
+	if !strings.Contains(o.logs.String(), "level=ERROR") || !strings.Contains(o.logs.String(), "ai call rejected") {
+		t.Errorf("the rejection is not logged at error:\n%s", o.logs.String())
+	}
+	if len(o.repo.released) != 1 || len(o.repo.settled) != 0 {
+		t.Errorf("released %d, settled %d, want the reservation released", len(o.repo.released), len(o.repo.settled))
+	}
+}
+
+type panickingCompleter struct{}
+
+func (panickingCompleter) Complete(context.Context, ports.Request) (ports.Response, error) {
+	panic("the provider client crashed")
+}
+
+func TestAPanicInTheProviderCallStillReleasesTheReservation(t *testing.T) {
+	o := newOps(t, true)
+	app := application.New(o.repo, application.Options{
+		Prices: testPrices, Zone: saigon, Logger: slog.New(slog.DiscardHandler),
+		Completer: panickingCompleter{}, Tests: o.reads, Questions: o.reads, Grading: o.reads, Analysis: o.reads, People: o.reads,
+	})
+	app.SetClock(func() time.Time { return september })
+
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Error("the panic was swallowed")
+			}
+		}()
+		_, _ = app.Queries.Check.Handle(context.Background(), query.Check{Actor: teacher, TestID: "t-1", Checks: []string{"key"}})
+	}()
+	if len(o.repo.reserved) != 1 || len(o.repo.released) != 1 || len(o.repo.settled) != 0 {
+		t.Errorf("reserved %d, released %d, settled %d, want the held credits returned and nothing charged", len(o.repo.reserved), len(o.repo.released), len(o.repo.settled))
+	}
+}
+
+func untaggedBank(n int) domain.Bank {
+	var bank domain.Bank
+	for i := range n {
+		bank.Questions = append(bank.Questions, domain.BankQuestion{ID: fmt.Sprintf("untagged-%d", i), Type: "short_answer", Prompt: fmt.Sprintf("Question number %d.", i)})
+	}
+	return bank
+}
+
+func TestACleanupAsksTagsForAtMostSixtyUntaggedQuestionsAndSaysTheBankHadMore(t *testing.T) {
+	o := newOps(t, true)
+	o.reads.bank = untaggedBank(prompts.MaxTagsAsked + 40)
+	o.completer.object = func(ports.Request) string {
+		tags := make([]string, 0, prompts.MaxTagsAsked+10)
+		for i := range prompts.MaxTagsAsked + 10 {
+			tags = append(tags, fmt.Sprintf(`{"question":"q%d","tags":["nouns"],"level":"b1"}`, i+1))
+		}
+		return `{"duplicates":[],"tags":[` + strings.Join(tags, ",") + `]}`
+	}
+	got, err := o.app.Queries.Cleanup.Handle(context.Background(), query.Cleanup{Actor: teacher, Checks: []string{"tags"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.Truncated || got.Scanned != prompts.MaxTagsAsked+40 {
+		t.Errorf("scanned %d truncated %v, want every question read and the answer marked truncated", got.Scanned, got.Truncated)
+	}
+	if len(got.Findings.Tags) != prompts.MaxTagsAsked {
+		t.Errorf("%d tag suggestions kept, want the first %d: a suggestion for a question past the cap was not asked for", len(got.Findings.Tags), prompts.MaxTagsAsked)
+	}
+	sent := o.completer.requests[0]
+	if !strings.Contains(textOf(sent), fmt.Sprintf("for at most %d of the questions marked tags=none, the first ones listed", prompts.MaxTagsAsked)) {
+		t.Errorf("the prompt does not bound the tags it asks for:\n%s", textOf(sent))
+	}
+	if sent.MaxTokens != 3000 {
+		t.Errorf("the clean-up allows %d tokens, want 3000", sent.MaxTokens)
+	}
+}
+
+func TestACleanupWithinTheCapsIsNotTruncated(t *testing.T) {
+	o := newOps(t, true)
+	o.reads.bank = untaggedBank(prompts.MaxTagsAsked)
+	got, err := o.app.Queries.Cleanup.Handle(context.Background(), query.Cleanup{Actor: teacher, Checks: []string{"tags"}})
+	if err != nil || got.Truncated || got.Scanned != prompts.MaxTagsAsked {
+		t.Errorf("scanned %d truncated %v, %v, want a bank at the cap read whole", got.Scanned, got.Truncated, err)
+	}
+	o = newOps(t, true)
+	o.reads.bank = untaggedBank(prompts.MaxTagsAsked + 5)
+	got, err = o.app.Queries.Cleanup.Handle(context.Background(), query.Cleanup{Actor: teacher, Checks: []string{"duplicates"}})
+	if err != nil || got.Truncated {
+		t.Errorf("truncated %v, %v: a clean-up that asked for no tags has no tag cap to pass", got.Truncated, err)
+	}
+}
+
+func TestABankLongerThanTheCharacterBudgetIsCutAndSaidToBeTruncatedAndNotRefused(t *testing.T) {
+	o := newOps(t, true)
+	long := strings.Repeat("word ", 40)
+	for range 2000 {
+		o.reads.bank.Questions = append(o.reads.bank.Questions, domain.BankQuestion{Type: "short_answer", Prompt: long, Tags: []string{"nouns"}})
+	}
+	got, err := o.app.Queries.Cleanup.Handle(context.Background(), query.Cleanup{Actor: teacher, Checks: []string{"duplicates"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.Truncated || got.Scanned == 0 || got.Scanned >= 2000 {
+		t.Errorf("scanned %d truncated %v, want a prefix of the bank", got.Scanned, got.Truncated)
+	}
+	if n := len(textOf(o.completer.requests[0])); n > prompts.MaxCleanupChars+2000 {
+		t.Errorf("the prompt is %d characters, want about %d at most", n, prompts.MaxCleanupChars)
 	}
 }

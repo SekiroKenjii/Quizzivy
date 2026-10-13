@@ -4649,7 +4649,9 @@ components:
       type: object
       description: |
         Over the caller's own questions only, newest first, at most 2,000 of
-        them: `truncated` says the bank holds more.
+        them and at most 300,000 characters: `scanned` is how many were read,
+        and `truncated` says the bank held more than that, or more untagged
+        questions than the 60 one call suggests tags for.
       required: [scanned, truncated, duplicates, tags, usage]
       additionalProperties: false
       properties:
@@ -10089,7 +10091,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '422':
-          description: The question is not marked by hand, or the student left it unanswered.
+          description: The question is not a short answer waiting for a mark by hand (the grader marked this answer itself), or the student left it unanswered.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -10140,10 +10142,14 @@ paths:
       summary: Find near-duplicates and untagged questions in your bank
       description: |
         Reads the prompts, types and tags of the caller's own questions only,
-        newest first and at most 2,000, even for a caller who holds
-        `scope.all`; shared questions are skipped. Nothing changes until the
-        caller confirms through the existing writes. Limited to three calls an
-        hour.
+        newest first, at most 2,000 and at most 300,000 characters of them,
+        even for a caller who holds `scope.all`; shared questions are skipped.
+        Duplicates are looked for among all the questions read, at most 20
+        pairs; tags are suggested for the first 60 questions that have none.
+        `truncated` is true when the bank held more than one call reads or more
+        untagged questions than it tags: apply the suggestions and run it
+        again. Nothing changes until the caller confirms through the existing
+        writes. Limited to three calls an hour.
       requestBody:
         required: true
         content:
@@ -10159,7 +10165,7 @@ paths:
         '402': { $ref: '#/components/responses/AiCreditsExhausted' }
         '403': { $ref: '#/components/responses/AiNotAllowed' }
         '422':
-          description: The caller owns no question to look at, or owns more than one call reads.
+          description: The caller owns no question to look at.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }

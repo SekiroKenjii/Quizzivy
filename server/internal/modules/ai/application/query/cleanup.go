@@ -12,14 +12,14 @@ import (
 // MaxCleanupQuestions is the most of a bank one clean-up reads.
 const MaxCleanupQuestions = 2000
 
-// Cleanup finds near-duplicates and untagged questions among the caller's own questions, newest first and at most MaxCleanupQuestions, even for a caller whose scope reaches everyone's. Questions shared with the caller are skipped. It changes nothing. It answers domain.ErrNothingToRead for a caller who owns none and domain.ErrTooLarge for a bank too long to read at once.
+// Cleanup finds near-duplicates and untagged questions among the caller's own questions, newest first, at most MaxCleanupQuestions and at most prompts.MaxCleanupChars of them, even for a caller whose scope reaches everyone's. It asks tags for the first prompts.MaxTagsAsked questions without any. Questions shared with the caller are skipped. It changes nothing. It answers domain.ErrNothingToRead for a caller who owns none.
 type Cleanup struct {
 	Actor    actor.Actor
 	Checks   []string
 	Language domain.Language
 }
 
-// Cleaned is what the clean-up found, how many questions it read, whether the bank held more, and what the call cost.
+// Cleaned is what the clean-up found, how many questions it read, whether the bank held more than it read or more untagged questions than it asked tags for, and what the call cost.
 type Cleaned struct {
 	Scanned   int
 	Truncated bool
@@ -37,7 +37,8 @@ func (h CleanupHandler) Handle(ctx context.Context, q Cleanup) (Cleaned, error) 
 	if err != nil {
 		return Cleaned{}, err
 	}
-	in := prompts.CleanupInput{Questions: bank.Questions, Checks: q.Checks, Language: h.LanguageFor(ctx, q.Actor.ID, q.Language)}
+	fit, cut := prompts.FitCleanup(bank.Questions)
+	in := prompts.CleanupInput{Questions: fit, Checks: q.Checks, Language: h.LanguageFor(ctx, q.Actor.ID, q.Language)}
 	prompt, err := prompts.Cleanup(in)
 	if err != nil {
 		return Cleaned{}, err
@@ -50,5 +51,5 @@ func (h CleanupHandler) Handle(ctx context.Context, q Cleanup) (Cleaned, error) 
 	if err != nil {
 		return Cleaned{}, unusable(err)
 	}
-	return Cleaned{Scanned: len(bank.Questions), Truncated: bank.Truncated, Findings: findings, Usage: got.Usage}, nil
+	return Cleaned{Scanned: len(fit), Truncated: bank.Truncated || cut || in.Capped(), Findings: findings, Usage: got.Usage}, nil
 }

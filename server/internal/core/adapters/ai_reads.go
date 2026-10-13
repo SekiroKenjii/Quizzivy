@@ -286,7 +286,8 @@ func (g AIGrading) Answer(ctx context.Context, scope access.Scope, attemptID, qu
 		if !strings.EqualFold(q.ID, questionID) {
 			continue
 		}
-		out := aidomain.GradedAnswer{Type: q.Type, Prompt: q.Prompt, Points: q.Points, Answer: answerText(review.Answers[q.ID].Payload)}
+		saved := review.Answers[q.ID]
+		out := aidomain.GradedAnswer{Type: q.Type, Prompt: q.Prompt, Points: q.Points, Answer: answerText(saved.Payload), Manual: saved.RequiresManual}
 		if sample := deref(q.SampleAnswer); sample != "" {
 			out.Accepted = []string{sample}
 		}

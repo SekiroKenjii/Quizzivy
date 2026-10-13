@@ -194,8 +194,8 @@ func TestAnotherTeachersIdsAnswerAsMissingOnes(t *testing.T) {
 		x.substitute(op, x.cases[op.id])
 	}
 
-	if got := len(provider.sent()); got != 5 {
-		t.Errorf("the provider was asked %d times, want 5: once each for the check, variant, explanation, distractors and insights of the caller's own work, and never for another teacher's or a missing id", got)
+	if got := len(provider.sent()); got != 8 {
+		t.Errorf("the provider was asked %d times, want 8: once for each id slot of the generation, check, variant, explanation, distractors, score suggestion (two slots) and insights that names the caller's own work, and never for another teacher's or a missing id", got)
 	}
 	theirs, absent, mine = x.commitReviewWith(x.a.id("media")), x.commitReviewWith(uuid.NewString()), x.commitReviewWith(x.b.id("media"))
 	if success(absent) || answer(theirs) != answer(absent) {

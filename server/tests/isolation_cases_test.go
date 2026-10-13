@@ -445,7 +445,7 @@ func isolationCases() map[string]isoCase {
 		"makeTestVariant":          {body: fixed(map[string]any{"changes": []any{"reword"}, "difficulty": "same"})},
 		"writeAiExplanation":       {body: fixed(map[string]any{"language": "en"})},
 		"suggestAiDistractors":     {},
-		"suggestAiScore":           {},
+		"suggestAiScore":           {as: map[string]string{"path attemptId": "ai-attempt", "path questionId": "ai-question"}},
 		"explainAssignmentResults": {},
 		"cleanUpQuestionBank":      {},
 		"getAiUsage":               {},

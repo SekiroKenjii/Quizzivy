@@ -742,3 +742,70 @@ func TestTheCleanupSchemaCarriesTheDecksDuplicatesAndTagsAndSendsNoId(t *testing
 		t.Errorf("an empty bank: %v", err)
 	}
 }
+
+func TestTheCleanupPromptBoundsWhatItAsksForAndTheDecoderKeepsOnlyWhatWasAsked(t *testing.T) {
+	var bank []domain.BankQuestion
+	for i := range prompts.MaxTagsAsked + 2 {
+		bank = append(bank, domain.BankQuestion{ID: fmt.Sprintf("b%d", i), Type: prompts.ShortAnswer, Prompt: fmt.Sprintf("Prompt %d", i)})
+	}
+	bank[1].Tags = []string{"grammar"}
+	in := prompts.CleanupInput{Questions: bank, Checks: []string{prompts.CleanupDuplicates, prompts.CleanupTags}, Language: domain.English}
+	if !in.Capped() {
+		t.Fatal("a bank with more untagged questions than the cap is not capped")
+	}
+	if (prompts.CleanupInput{Questions: bank, Checks: []string{prompts.CleanupDuplicates}}).Capped() {
+		t.Error("a clean-up that asks for no tags is capped")
+	}
+	if (prompts.CleanupInput{Questions: bank[:prompts.MaxTagsAsked], Checks: []string{prompts.CleanupTags}}).Capped() {
+		t.Error("a bank at the cap, with one question tagged, is capped")
+	}
+	prompt, err := prompts.Cleanup(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"for at most 60 of the questions marked tags=none, the first ones listed", "at most 20 pairs"} {
+		if !strings.Contains(prompt.User, want) {
+			t.Errorf("the prompt lacks %q", want)
+		}
+	}
+	if prompt.MaxTokens != 3000 {
+		t.Errorf("MaxTokens = %d, want 3000", prompt.MaxTokens)
+	}
+	rows := []map[string]any{}
+	for i := range bank {
+		rows = append(rows, map[string]any{"question": fmt.Sprintf("q%d", i+1), "tags": []string{"nouns"}, "level": ""})
+	}
+	got, err := prompts.DecodeCleanup(marshal(t, map[string]any{"duplicates": []any{}, "tags": rows}), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Tags) != prompts.MaxTagsAsked {
+		t.Fatalf("%d tag suggestions, want the first %d untagged questions", len(got.Tags), prompts.MaxTagsAsked)
+	}
+	for _, tag := range got.Tags {
+		if tag.Question.ID == "b1" || tag.Question.ID == fmt.Sprintf("b%d", prompts.MaxTagsAsked+1) {
+			t.Errorf("a suggestion for %s, which was tagged or past the cap", tag.Question.ID)
+		}
+	}
+}
+
+func TestFitCleanupKeepsTheLongestPrefixThatFitsTheBudget(t *testing.T) {
+	long := strings.Repeat("word ", 40)
+	var bank []domain.BankQuestion
+	for range 2000 {
+		bank = append(bank, domain.BankQuestion{Type: prompts.ShortAnswer, Prompt: long})
+	}
+	fit, cut := prompts.FitCleanup(bank)
+	if !cut || len(fit) == 0 || len(fit) >= len(bank) {
+		t.Fatalf("kept %d of %d, cut %v", len(fit), len(bank), cut)
+	}
+	if _, err := prompts.Cleanup(prompts.CleanupInput{Questions: fit}); err != nil {
+		t.Errorf("what fits was refused: %v", err)
+	}
+	if _, err := prompts.Cleanup(prompts.CleanupInput{Questions: bank}); !errors.Is(err, domain.ErrTooLarge) {
+		t.Errorf("the whole bank: %v, want ErrTooLarge", err)
+	}
+	if all, cut := prompts.FitCleanup(bank[:10]); cut || len(all) != 10 {
+		t.Errorf("a small bank was cut: %d, %v", len(all), cut)
+	}
+}

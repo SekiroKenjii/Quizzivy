@@ -211,6 +211,11 @@ func TestTheAssistantAnswersWhatHappenedWhenTheProviderFailsOrTheAllowanceRunsOu
 	if used := teacher.must(http.StatusOK, http.MethodGet, "/teacher/ai/usage", nil)["used"]; used != float64(0) {
 		t.Errorf("a failed call was charged %v", used)
 	}
+	provider.failWith(aiports.ErrRejected)
+	status, header, body = check()
+	if status != http.StatusServiceUnavailable || teacher.errorCode(body) != "AI_UNAVAILABLE" || header.Get("Retry-After") != "30" {
+		t.Fatalf("a request the provider rejected answered %d %v with Retry-After %q, want the same 503 as a provider that is down", status, body, header.Get("Retry-After"))
+	}
 	provider.failWith(nil)
 
 	admin.must(http.StatusOK, http.MethodPut, "/admin/ai/teachers/"+teacherID+"/allowance", map[string]any{"custom": true, "credits": 1000})
@@ -228,8 +233,8 @@ func TestTheAssistantAnswersWhatHappenedWhenTheProviderFailsOrTheAllowanceRunsOu
 		t.Errorf("the refusal names scope %v, want teacher", scope)
 	}
 	asked := len(provider.sent())
-	if asked != 4 {
-		t.Errorf("the provider was asked %d times, want the failed call and the three that fit", asked)
+	if asked != 5 {
+		t.Errorf("the provider was asked %d times, want the two failed calls and the three that fit", asked)
 	}
 
 	admin.must(http.StatusOK, http.MethodPut, "/admin/ai/teachers/"+teacherID+"/allowance", map[string]any{"paused": true})

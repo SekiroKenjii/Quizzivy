@@ -11,7 +11,7 @@ import (
 	"quizzivy/internal/shared/actor"
 )
 
-// Score suggests a mark for a short answer. The caller must hold teaching.grading (Grants) and must have left on the preference that lets the assistant read student answers, else domain.ErrMissingPermission and domain.ErrReadOff. It sends the question, its accepted answers and the student's answer text, and nothing that says who the student is. It writes no mark. It answers domain.ErrNotFound for an attempt the caller does not reach or a question not on its paper, domain.ErrAttemptInProgress and domain.ErrAttemptVoided for a paper that cannot be marked, domain.ErrNotManual for a question that is not short_answer and domain.ErrUnanswered for a blank answer.
+// Score suggests a mark for a short answer. The caller must hold teaching.grading (Grants) and must have left on the preference that lets the assistant read student answers, else domain.ErrMissingPermission and domain.ErrReadOff. It sends the question, its accepted answers and the student's answer text, and nothing that says who the student is. It writes no mark. It answers domain.ErrNotFound for an attempt the caller does not reach or a question not on its paper, domain.ErrAttemptInProgress and domain.ErrAttemptVoided for a paper that cannot be marked, domain.ErrNotManual for a question that is not short_answer or whose answer the grader marked itself, and domain.ErrUnanswered for a blank answer.
 type Score struct {
 	Actor      actor.Actor
 	Grants     access.Set
@@ -46,6 +46,9 @@ func (h ScoreHandler) Handle(ctx context.Context, q Score) (Scored, error) {
 	}
 	if strings.TrimSpace(graded.Answer) == "" {
 		return Scored{}, domain.ErrUnanswered
+	}
+	if !graded.Manual {
+		return Scored{}, domain.ErrNotManual
 	}
 	in := prompts.ScoreInput{Answer: graded, Language: h.LanguageFor(ctx, q.Actor.ID, "")}
 	got, err := asker(h).ask(ctx, q.Actor, prompts.Score(in))
