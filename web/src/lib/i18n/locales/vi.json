@@ -3050,6 +3050,7 @@
       "privacy": "Tệp và văn bản đã dán chỉ thuộc lượt nhập của bạn, không phải tài liệu học viên. {{processing}}",
       "processingOn": "Máy chủ đang bật tiếp nhận và xử lý tài liệu.",
       "processingUnknown": "Đang kiểm tra khả năng xử lý của máy chủ.",
+      "privacyAi": "Trang quét hoặc ảnh chụp trong lượt nhập này được một dịch vụ AI bên ngoài Quizzivy đọc. Trang có chữ chọn được không bị gửi đi.",
       "readyHint": "Kiểm tra tên đề và tệp trước khi bắt đầu.",
       "chooseHint": "Thêm tệp đề thi để tiếp tục."
     },
@@ -3155,7 +3156,11 @@
       "PDF_NO_TEXT": "Tệp PDF này không có chữ chọn được, thường là bản scan hoặc ảnh chụp. Hãy dùng tệp Word, hoặc PDF xuất trực tiếp từ Word.",
       "PDF_PROTECTED": "Tệp PDF có mật khẩu. Hãy dùng bản không đặt mật khẩu.",
       "PDF_INVALID": "Tệp PDF bị hỏng hoặc không đọc được. Hãy xuất lại PDF, hoặc dùng tệp Word.",
-      "PDF_TOO_LARGE": "Tệp PDF quá dài hoặc quá phức tạp để đọc (tối đa 60 trang). Hãy tách đề rồi tải lên lại."
+      "PDF_TOO_LARGE": "Tệp PDF quá dài hoặc quá phức tạp để đọc (tối đa 60 trang). Hãy tách đề rồi tải lên lại.",
+      "PDF_TOO_LONG_FOR_AI": "Tệp PDF này dài hơn 40 trang, là mức tối đa AI đọc trong một tệp. Hãy tách đề thành các tệp ngắn hơn rồi tải lên lại.",
+      "AI_UNREADABLE": "AI không đọc được trang nào của tệp này. Hãy kiểm tra các trang đã thẳng và rõ nét rồi tải lên lại, hoặc dùng tệp Word.",
+      "AI_CREDITS_EXHAUSTED": "Không đủ tín dụng AI để đọc tệp này, nên chưa có trang nào được gửi đi và chưa mất tín dụng nào. Hãy nhờ quản trị viên cấp thêm tín dụng AI rồi xử lý lại, hoặc dùng tệp Word.",
+      "AI_PAUSED": "Quản trị viên đã tạm dừng việc dùng AI của bạn nên chưa đọc được tệp này. Hãy liên hệ quản trị viên, hoặc dùng tệp Word."
     },
     "reprocess": {
       "failed": "Lần xử lý lại gần nhất không hoàn tất. Bản rà soát hiện tại không thay đổi.",
@@ -3422,7 +3427,9 @@
         "PDF_MARKS_UNAVAILABLE": "Tệp PDF không giữ được gạch chân, in đậm hay màu chữ. Nếu câu hỏi hoặc đáp án dựa vào các dấu này, hãy đánh dấu lại khi rà soát.",
         "TEXT_MARKS_UNAVAILABLE": "Văn bản thuần không giữ được gạch chân, in đậm hay màu chữ. Nếu câu hỏi hoặc đáp án dựa vào các dấu này, hãy đánh dấu lại khi rà soát.",
         "PDF_REPEATED_LINE_REQUIRES_REVIEW": "Các dòng này lặp lại ở đầu hoặc cuối nhiều trang nên được coi là tiêu đề trang và bỏ khỏi đề. Nếu đó là nội dung của đề, ví dụ một yêu cầu đề bài, hãy thêm lại khi rà soát.",
-        "PDF_COLUMNS_REQUIRE_REVIEW": "Trang PDF có vẻ chia hai cột nên các câu hai bên bị ghép vào cùng một dòng. Hãy tách lại các câu được chỉ ra, hoặc dùng tệp Word của đề."
+        "PDF_COLUMNS_REQUIRE_REVIEW": "Trang PDF có vẻ chia hai cột nên các câu hai bên bị ghép vào cùng một dòng. Hãy tách lại các câu được chỉ ra, hoặc dùng tệp Word của đề.",
+        "AI_PAGE_READ": "Các trang này được AI đọc từ hình ảnh nên có thể sai một chữ hoặc một dấu. Hãy đối chiếu các câu với trang gốc trước khi tạo đề.",
+        "AI_PAGE_UNREADABLE": "AI không đọc được trang này nên các câu trên trang chưa có trong đề. Hãy thêm các câu đó bằng tay, hoặc tải lên bản rõ hơn."
       },
       "objectTitles": {
         "PDF_MARKS_UNAVAILABLE": "PDF không giữ định dạng chữ",
@@ -3430,7 +3437,11 @@
         "PDF_REPEATED_LINE_REQUIRES_REVIEW_one": "{{count}} dòng lặp lại ở đầu hoặc cuối trang đã được bỏ ra",
         "PDF_REPEATED_LINE_REQUIRES_REVIEW_other": "{{count}} dòng lặp lại ở đầu hoặc cuối trang đã được bỏ ra",
         "PDF_COLUMNS_REQUIRE_REVIEW_one": "{{count}} dòng có hai câu nằm cạnh nhau",
-        "PDF_COLUMNS_REQUIRE_REVIEW_other": "{{count}} dòng có hai câu nằm cạnh nhau"
+        "PDF_COLUMNS_REQUIRE_REVIEW_other": "{{count}} dòng có hai câu nằm cạnh nhau",
+        "AI_PAGE_READ_one": "{{count}} trang đã được một dịch vụ AI bên ngoài Quizzivy đọc",
+        "AI_PAGE_READ_other": "{{count}} trang đã được một dịch vụ AI bên ngoài Quizzivy đọc",
+        "AI_PAGE_UNREADABLE_one": "{{count}} trang AI không đọc được",
+        "AI_PAGE_UNREADABLE_other": "{{count}} trang AI không đọc được"
       }
     },
     "review": {
@@ -3661,6 +3672,10 @@
       "PDF_PROTECTED": "PDF được bảo vệ bằng mật khẩu",
       "PDF_INVALID": "PDF không hợp lệ",
       "PDF_TOO_LARGE": "PDF vượt quá giới hạn",
+      "PDF_TOO_LONG_FOR_AI": "PDF quá dài để AI đọc",
+      "AI_UNREADABLE": "AI không đọc được tệp này",
+      "AI_CREDITS_EXHAUSTED": "Không đủ tín dụng AI",
+      "AI_PAUSED": "Việc dùng AI đang bị tạm dừng",
       "CONVERSION_FAILED": "Không chuyển đổi được tài liệu",
       "STORAGE_INTEGRITY_FAILED": "Bản gốc đã lưu không còn nguyên vẹn",
       "STOPPED": "Không thể tiếp tục nhận diện đáp án",
