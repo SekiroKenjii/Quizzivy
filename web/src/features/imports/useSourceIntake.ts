@@ -116,10 +116,10 @@ const FILE_FAULTS: ReadonlySet<number> = new Set([400, 413, 415]);
  * re-reads the import first. `start` asks for the files to be read with AI
  * when its `readWithAi` is true, which only a new import takes; a refusal of
  * it reads the assistant's status and usage again. The returned `readWithAi`
- * is the import's own choice once it exists, and null before. Every import an upload or
- * a re-read returns is reported through `onChanged`. With `replacing`,
- * starting requires a newly chosen file. Unmounting aborts an intake in
- * progress without reporting it.
+ * is the import's own choice once it exists, and null before. Every import
+ * an upload or a re-read returns is reported through `onChanged`. With
+ * `replacing`, starting requires a newly chosen file. Unmounting aborts an
+ * intake in progress without reporting it.
  */
 export function useSourceIntake({
   existing,
