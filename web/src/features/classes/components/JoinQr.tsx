@@ -31,7 +31,9 @@ export function JoinQr({
           aria-label={t("classes.qrLabel", { code })}
         />
       </div>
-      <span className="text-stat font-mono font-semibold tracking-[.1em]">{code}</span>
+      <span className="text-stat font-mono leading-normal font-semibold tracking-[.1em] whitespace-nowrap">
+        {code}
+      </span>
       <span className="text-muted-fg text-meta max-w-full text-center wrap-anywhere">
         {joinLinkLabel(code)}
       </span>

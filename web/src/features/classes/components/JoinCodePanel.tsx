@@ -55,7 +55,7 @@ const NEXT = {
 } as const;
 
 const SHARE =
-  "bg-card hover:bg-muted rounded-seg inline-flex h-8 min-w-0 flex-[1_1_auto] items-center justify-center gap-1.5 border px-2.5 text-meta font-medium whitespace-nowrap [&_svg]:size-3.5 [&_svg]:flex-none";
+  "bg-card hover:bg-muted inline-flex h-8 min-w-0 rounded-md flex-[1_1_auto] items-center justify-center gap-1.5 border px-2.5 text-meta font-medium whitespace-nowrap [&_svg]:size-3.5 [&_svg]:flex-none";
 
 /**
  * JoinCodePanel is the class's join code card, as the v2 deck draws it
@@ -376,7 +376,7 @@ function CodeSummary({
           {paused ? (
             <Badge
               variant="warning"
-              className="mt-0.5 max-w-full in-data-[scale=deck]:px-2 [&>svg]:size-3"
+              className="mt-0.5 max-w-full border-0 in-data-[scale=deck]:px-2 [&>svg]:size-3"
             >
               <Pause aria-hidden="true" />
               <span className="truncate">{t("classDetail.joiningPaused")}</span>
@@ -407,7 +407,7 @@ function CodeSummary({
           </div>
         </div>
       )}
-      <dl className="text-ui m-0 flex flex-col gap-2 border-t pt-3">
+      <dl className="text-ui m-0 flex flex-col gap-2 border-t pt-3 leading-normal">
         <div className="flex justify-between gap-3">
           <dt className="text-muted-fg">{t("classDetail.expiresAt")}</dt>
           <dd className="m-0 text-right">
