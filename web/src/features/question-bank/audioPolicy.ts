@@ -11,4 +11,5 @@ export const DEFAULT_AUDIO_POLICY: AudioPolicy = {
   maxPlays: 2,
   allowSeek: false,
   showTranscriptAfterSubmit: true,
+  allowPause: true,
 };
