@@ -43,7 +43,6 @@ export function EngineHeader({
   const locked = lock !== null;
   const closed = lock === "closed";
   const clock = preview ? <NoTimeLimit /> : <Clock />;
-  const Title = titleElement(live, preview);
 
   return (
     <header
@@ -53,12 +52,20 @@ export function EngineHeader({
       )}
     >
       {leading}
-      {!wide && live && <Title className="sr-only">{title}</Title>}
+      {!wide && live && (
+        <PaperTitle live preview={preview} className="sr-only">
+          {title}
+        </PaperTitle>
+      )}
       {wide && (
         <div className="flex min-w-0 flex-col">
-          <Title className="truncate text-base leading-[1.3] font-semibold">
+          <PaperTitle
+            live={live}
+            preview={preview}
+            className="truncate text-base leading-[1.3] font-semibold"
+          >
             {title}
-          </Title>
+          </PaperTitle>
           {live && !locked && (
             <span className="text-muted-fg flex min-w-0 items-center gap-[5px] text-xs leading-[1.3]">
               {preview ? <UnsavedLine /> : <SaveState />}
@@ -88,9 +95,20 @@ export function EngineHeader({
   );
 }
 
-function titleElement(live: boolean, preview: boolean): "h1" | "h2" | "span" {
-  if (!live) return "span";
-  return preview ? "h2" : "h1";
+function PaperTitle({
+  live,
+  preview,
+  className,
+  children,
+}: Readonly<{
+  live: boolean;
+  preview: boolean;
+  className: string;
+  children: ReactNode;
+}>) {
+  if (!live) return <span className={className}>{children}</span>;
+  if (preview) return <h2 className={className}>{children}</h2>;
+  return <h1 className={className}>{children}</h1>;
 }
 
 /**
