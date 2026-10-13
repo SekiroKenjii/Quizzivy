@@ -49,7 +49,7 @@ function renderAt(path = "/app/attempts/a1"): {
 function status(maintenance: unknown) {
   server.use(
     http.get(`${BASE}/public/status`, () =>
-      contractJson("/public/status", "get", 200, { maintenance }),
+      contractJson("/public/status", "get", 200, { maintenance, ai: false }),
     ),
   );
 }

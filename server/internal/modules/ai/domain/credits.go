@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/actor"
 )
 
@@ -119,17 +120,18 @@ type Rules struct {
 	OnTeacherLimit   Limit
 }
 
-// Author is who a credits command acts for: a signed-in user, or System when UserID is empty, in which case Operator names the person who ran cmd/maintenance.
+// Author is who a credits command acts for: a signed-in user, or System when UserID is empty, in which case Operator names the person who ran cmd/maintenance. Grants are the signed-in user's effective permissions, which a command that acts on one teacher compares with that teacher's under the subset rule; System holds none and is not asked.
 type Author struct {
 	UserID    string
 	IP        string
 	UserAgent string
 	Operator  string
+	Grants    access.Set
 }
 
-// AuthorOf is the Author for a signed-in user.
-func AuthorOf(a actor.Actor) Author {
-	return Author{UserID: a.ID, IP: a.IP, UserAgent: a.UserAgent}
+// AuthorOf is the Author for a signed-in user holding grants.
+func AuthorOf(a actor.Actor, grants access.Set) Author {
+	return Author{UserID: a.ID, IP: a.IP, UserAgent: a.UserAgent, Grants: grants}
 }
 
 // System reports whether the command was run from the console and not by a signed-in user.

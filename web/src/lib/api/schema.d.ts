@@ -2140,6 +2140,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/ai/credits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The month's AI credits
+         * @description The pool, the teachers with their month, the requests waiting and the
+         *     rules in force. The projection is `used` over the days elapsed times
+         *     the days in the month, computed from the server's clock.
+         */
+        get: operations["getAiCredits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/ai/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the centre's AI rules
+         * @description A supplied field is changed and the others are kept. A new default
+         *     allowance rewrites this month's allowances that are not custom, never
+         *     below what a teacher has already used. One audit row names the caller.
+         */
+        patch: operations["updateAiRules"];
+        trace?: never;
+    };
+    "/admin/ai/credits/additions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add credits to this month's pool
+         * @description How an Admin approves use beyond the plan: the pool is never overspent
+         *     without it. The credits do not carry into next month. The audit row
+         *     names the caller as the approver.
+         */
+        post: operations["addAiCredits"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/ai/teachers/{userId}/allowance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a teacher's AI allowance, or pause or resume them
+         * @description Takes effect at once and usage so far still counts, so an allowance
+         *     below it is refused (`AI_ALLOWANCE_BELOW_USE`). Approved requests'
+         *     credits stay on top. Subject to the subset rule: the teacher's
+         *     permissions, except `learning.take_tests`, must be a subset of the
+         *     caller's (`FORBIDDEN`), as for a student's account. One audit row names
+         *     the caller.
+         */
+        put: operations["setAiAllowance"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/ai/credit-requests/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a request for more credits
+         * @description Raises the teacher's allowance for the request's month by the amount and
+         *     tells the teacher. Subject to the subset rule, as `setAiAllowance` is.
+         *     One audit row names the caller.
+         */
+        post: operations["approveAiCreditRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/ai/credit-requests/{id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decline a request for more credits
+         * @description Changes only the request's status and tells the teacher. Subject to the
+         *     subset rule, as `setAiAllowance` is. One audit row names the caller.
+         */
+        post: operations["declineAiCreditRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teacher/classes": {
         parameters: {
             query?: never;
@@ -2313,6 +2453,266 @@ export interface paths {
          *     retry that changes nothing.
          */
         delete: operations["revokeJoinCode"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/ai/questions/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Draft questions from a passage, a transcript or a topic
+         * @description Answers draft questions and writes nothing: the teacher adds the ones
+         *     they keep through `createQuestion` or the section writes. Exactly one
+         *     source is named: `source`, or `testId` with `stimulusId`, which is a
+         *     shared-content passage of the test's draft and which `stimulusId`
+         *     resolves only inside that test. Only the source text and the settings
+         *     are sent to the provider.
+         *
+         *     Reserves the call's ceiling before it reaches the provider and settles
+         *     what the provider billed after; `usage` says what it cost.
+         */
+        post: operations["generateAiQuestions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/ai/tests/{id}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Look for mistakes in a test's draft
+         * @description Reads the draft's prompts, options, keys, explanations and shared
+         *     passages, and answers what is worth a look, hardest first. Nothing is
+         *     changed: a one-click `fix` is written by the caller through
+         *     `updateQuestion`. No student data and no assignment is sent.
+         */
+        post: operations["checkTestWithAi"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/ai/tests/{id}/variant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Propose a variant of a test
+         * @description Reads the draft's questions, options and keys and proposes rewordings,
+         *     reorderings and new wrong options. Answers, points and passages stay
+         *     the same. Nothing is saved: the caller copies the test with
+         *     `duplicateTest` and applies the changes they keep to the copy's
+         *     questions, which sit at the same `number`.
+         */
+        post: operations["makeTestVariant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/ai/questions/{id}/explanation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write an explanation for a question's answer
+         * @description Reads the stored question (its prompt, options, key and type) and writes
+         *     a short explanation students can read after results are released.
+         *     Nothing is saved.
+         */
+        post: operations["writeAiExplanation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/ai/questions/{id}/distractors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest wrong options for a choice question
+         * @description Reads the stored question's prompt, key and existing options and
+         *     suggests up to four wrong options that are not among them. Nothing is
+         *     saved.
+         */
+        post: operations["suggestAiDistractors"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/ai/attempts/{attemptId}/answers/{questionId}/score-suggestion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attemptId: components["schemas"]["Uuid"];
+                questionId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest a score for a short answer
+         * @description Reads the question's prompt, type, points and accepted or sample
+         *     answers and the student's answer text, and proposes a score and a
+         *     comment. The student's name, email, id and class, the attempt's id and
+         *     the student's other answers are never sent. The caller must hold
+         *     `teaching.grading` as well as `ai.use`, the attempt must be one they
+         *     reach as the grading reads do, and their `ai.readStudentAnswers`
+         *     preference must be on (`AI_READ_OFF`). The reasons and the comment are
+         *     written in the language of the caller's `ai.language` preference. The
+         *     AI never writes a mark: a teacher saves one with `gradeAttempt`.
+         */
+        post: operations["suggestAiScore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/ai/assignments/{id}/insights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Explain how an assignment's results came out
+         * @description Reads, per question, the correct rate and the eight most frequent wrong
+         *     answer texts with their counts, over the papers handed in by the
+         *     students the caller reaches, and writes what the class got wrong and
+         *     what to do about it. No name, id or attempt is sent, and nothing says
+         *     who wrote what. The caller needs `teaching.grading` as well as `ai.use`,
+         *     and their `ai.readStudentAnswers` preference must be on
+         *     (`AI_READ_OFF`). The text is written in the language of the caller's
+         *     `ai.language` preference.
+         */
+        post: operations["explainAssignmentResults"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/ai/bank/cleanup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Find near-duplicates and untagged questions in your bank
+         * @description Reads the prompts, types and tags of the caller's own questions only,
+         *     newest first, at most 2,000 and at most 300,000 characters of them,
+         *     even for a caller who holds `scope.all`; shared questions are skipped.
+         *     Duplicates are looked for among all the questions read, at most 20
+         *     pairs; tags are suggested for the first 60 questions that have none.
+         *     `truncated` is true when the bank held more than one call reads or more
+         *     untagged questions than it tags: apply the suggestions and run it
+         *     again. Nothing changes until the caller confirms through the existing
+         *     writes. Limited to three calls an hour.
+         */
+        post: operations["cleanUpQuestionBank"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/ai/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your AI credits this month
+         * @description What the caller has used, their allowance, what is left of it and of the
+         *     centre's pool, whether they are paused, whether the centre takes
+         *     requests for more, their undecided request and the five category sums
+         *     the Settings card draws. Reads only: a teacher who has not used AI gets
+         *     the allowance a first use would give.
+         */
+        get: operations["getAiUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teacher/ai/credit-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for more credits this month
+         * @description One undecided request per teacher per month. Every holder of
+         *     `ai.credits.manage` is told. Limited to five calls an hour.
+         */
+        post: operations["requestAiCredits"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3028,6 +3428,14 @@ export interface components {
         PublicStatus: {
             /** @description The next maintenance window that has not ended, or `null`. */
             maintenance: components["schemas"]["MaintenanceWindow"] | null;
+            /**
+             * @description Whether the AI assistant is configured. It reads the server's
+             *     configuration and never asks the provider, so it says nothing about
+             *     the provider being reachable. When false every `/teacher/ai/*` and
+             *     `/admin/ai/*` operation answers `501 AI_OFF`, and the web draws no
+             *     AI entry point.
+             */
+            ai: boolean;
         };
         MaintenanceWindow: {
             startsAt: components["schemas"]["Timestamp"];
@@ -3055,7 +3463,7 @@ export interface components {
          *     be sent again.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -3171,6 +3579,8 @@ export interface components {
              *     touched it for the idle period, rather than a teacher cancelling it.
              */
             closedIdle?: boolean;
+            /** @description Whether the files are read with the AI assistant. Absent means false. */
+            readWithAi?: boolean;
         };
         /**
          * @description History-only current draft counts; unknown for a draft untouched since deploy.
@@ -3214,6 +3624,8 @@ export interface components {
              *     touched it for the idle period, rather than a teacher cancelling it.
              */
             closedIdle?: boolean;
+            /** @description Whether the files are read with the AI assistant. Absent means false. */
+            readWithAi?: boolean;
             reviewCounts: components["schemas"]["ImportReviewCounts"] | null;
         };
         /** @description Findings from the current review body, never a pending reprocessing candidate. */
@@ -3249,6 +3661,12 @@ export interface components {
             /** @description Scoped to the actor; replay with the same title returns the same import, changed title conflicts. */
             requestId: components["schemas"]["Uuid"];
             title: string;
+            /**
+             * @description Read the files with the AI assistant, so a scanned or photographed
+             *     PDF is read instead of refused. Absent means false. When it is true
+             *     the pages of the files are sent to an AI service outside Quizzivy.
+             */
+            readWithAi?: boolean;
         };
         ImportUploadReceipt: {
             import: components["schemas"]["WordImport"];
@@ -3500,6 +3918,7 @@ export interface components {
          *     - `content.questions.write`: Manage question bank
          *     - `content.media.write`: Upload and delete media
          *     - `content.share`: Share own content with other teachers
+         *     - `ai.use`: Use AI features
          *     - `teaching.classes.write`: Create classes
          *     - `teaching.assignments.write`: Assign tests to classes
          *     - `teaching.grading`: Grade answers
@@ -3513,6 +3932,12 @@ export interface components {
          *     - `system.audit.read`: View audit log
          *     - `system.settings.write`: Change system settings
          *     - `learning.take_tests`: Take tests and view own results
+         *     - `ai.credits.manage`: Manage AI credits
+         *
+         *     `ai.use` gates every `/teacher/ai/*` operation and the import's "Read
+         *     with AI"; `ai.credits.manage` gates every `/admin/ai/*` operation. The
+         *     Admin holds both, the built-in Teacher holds `ai.use`, and a custom role
+         *     may hold either alone. `ai.credits.manage` opens no workspace by itself.
          *
          *     The last four keys in the enum are hidden: no matrix row shows them,
          *     no role is granted them, and only the Admin holds them. The Admin
@@ -3527,7 +3952,7 @@ export interface components {
          *     created and those that target a class the caller teaches).
          * @enum {string}
          */
-        PermissionKey: "content.tests.write" | "content.tests.publish" | "content.questions.write" | "content.media.write" | "content.share" | "teaching.classes.write" | "teaching.assignments.write" | "teaching.grading" | "teaching.attempts.intervene" | "teaching.attendance" | "people.students.read" | "people.students.create" | "people.students.reset_password" | "people.users.manage" | "people.roles.manage" | "system.audit.read" | "system.settings.write" | "learning.take_tests" | "scope.all" | "system.api_reference" | "system.data_export" | "system.leads";
+        PermissionKey: "content.tests.write" | "content.tests.publish" | "content.questions.write" | "content.media.write" | "content.share" | "ai.use" | "teaching.classes.write" | "teaching.assignments.write" | "teaching.grading" | "teaching.attempts.intervene" | "teaching.attendance" | "people.students.read" | "people.students.create" | "people.students.reset_password" | "people.users.manage" | "people.roles.manage" | "system.audit.read" | "system.settings.write" | "learning.take_tests" | "ai.credits.manage" | "scope.all" | "system.api_reference" | "system.data_export" | "system.leads";
         User: {
             id: components["schemas"]["Uuid"];
             /** Format: email */
@@ -3555,6 +3980,22 @@ export interface components {
                 showScore?: boolean;
                 blockCopyPaste?: boolean;
                 requireFullscreen?: boolean;
+            };
+            /**
+             * @description The AI assistant's preferences. Like `assignmentDefaults`, the object
+             *     is replaced whole by a merge, and an omitted key uses the client's
+             *     default: the language of the interface, tags on, reading student
+             *     answers on, reading imports off. The server reads
+             *     `readStudentAnswers` before an operation sends a student's answer.
+             */
+            ai?: {
+                language?: components["schemas"]["AiLanguage"];
+                /** @description Tag what the assistant writes as an AI draft until a teacher edits or approves it. */
+                tagDrafts?: boolean;
+                /** @description Let the assistant read student answers, for grading suggestions and results insights. Never a name. */
+                readStudentAnswers?: boolean;
+                /** @description Read scanned and unusual imports with the assistant. */
+                readImports?: boolean;
             };
         };
         /**
@@ -5629,6 +6070,404 @@ export interface components {
             score?: components["schemas"]["AttemptScore"] | null;
         };
         /**
+         * @description The language the text a suggestion writes for a person is written in.
+         *     The assistant keeps the language of the material it was given for the
+         *     content of a question.
+         * @enum {string}
+         */
+        AiLanguage: "vi" | "en";
+        /**
+         * @description What a call cost and what remains, for the panel's footer. `credits` is
+         *     what the provider's usage came to, never more than the call's ceiling.
+         */
+        AiUsage: {
+            /** @description Credits the call was charged. */
+            credits: number;
+            /** @description The least of what remains of the teacher's allowance and of the centre's pool */
+            left: number;
+        };
+        /**
+         * @description Exactly one source: `source` (text the teacher pasted), or `testId`
+         *     with `stimulusId` (a shared-content passage of the test's draft). The
+         *     first 8,000 characters of a source are sent. Nothing about a student is
+         *     ever sent.
+         */
+        AiGenerateRequest: {
+            source?: string;
+            testId?: components["schemas"]["Uuid"];
+            stimulusId?: components["schemas"]["Uuid"];
+            types: components["schemas"]["QuestionType"][];
+            /** @enum {integer} */
+            count: 3 | 5 | 8;
+            /** @enum {string} */
+            level: "b1" | "b2" | "c1";
+            /** @description Write an explanation for each question. */
+            explanations: boolean;
+            language: components["schemas"]["AiLanguage"];
+        };
+        /**
+         * @description A draft question. For a choice type `options` holds the options in order
+         *     and `answerKey` the text of each correct one, exactly as written in
+         *     `options`; a true/false question has the options `True` and `False`. For
+         *     `fill_blank` the prompt holds `___` for the gap and `answerKey` the
+         *     accepted answers; for `short_answer` it holds the sample answer.
+         */
+        AiGeneratedQuestion: {
+            type: components["schemas"]["QuestionType"];
+            prompt: string;
+            options?: string[];
+            answerKey: string[];
+            /** @description Empty when the request did not ask for explanations. */
+            explanation: string;
+        };
+        AiGenerateResult: {
+            items: components["schemas"]["AiGeneratedQuestion"][];
+            usage: components["schemas"]["AiUsage"];
+        };
+        /**
+         * @description Wrong or doubtful answers, unclear wording, answers given away, spelling and grammar.
+         * @enum {string}
+         */
+        AiCheckKind: "key" | "clarity" | "giveaway" | "language";
+        AiCheckRequest: {
+            checks: components["schemas"]["AiCheckKind"][];
+            language?: components["schemas"]["AiLanguage"];
+        };
+        /**
+         * @description What a one-click fix writes, through `updateQuestion`, into the question
+         *     it names: `text` replaces the option `optionId` (`option_text`), is added
+         *     as an accepted answer of the blank `blankId` (`accepted_answer`), or
+         *     becomes the explanation (`explanation`).
+         */
+        AiFixPayload: {
+            optionId?: components["schemas"]["Uuid"];
+            blankId?: components["schemas"]["Uuid"];
+            text: string;
+        };
+        /**
+         * @description `kind` is `none` when the fix is advice only; `payload` is then absent.
+         *     Otherwise `payload` is present, and names an option or a blank of the
+         *     question when the kind needs one.
+         */
+        AiFix: {
+            /** @enum {string} */
+            kind: "option_text" | "accepted_answer" | "explanation" | "none";
+            /** @description The fix in a sentence. */
+            description: string;
+            /** @description The one-click button's label. Absent when `kind` is `none`. */
+            label?: string;
+            payload?: components["schemas"]["AiFixPayload"];
+        };
+        AiFinding: {
+            /** @enum {string} */
+            severity: "likely_error" | "worth_a_look" | "minor";
+            questionId: components["schemas"]["Uuid"];
+            /** @description The question's 1-based place in the draft. */
+            number: number;
+            type: components["schemas"]["QuestionType"];
+            /** @description The question's prompt */
+            title: string;
+            issue: string;
+            fix: components["schemas"]["AiFix"];
+        };
+        AiCheckResult: {
+            findings: components["schemas"]["AiFinding"][];
+            usage: components["schemas"]["AiUsage"];
+        };
+        /**
+         * @description Reword questions, reorder options, write new wrong options.
+         * @enum {string}
+         */
+        AiVariantKind: "reword" | "reorder" | "distract";
+        AiVariantRequest: {
+            changes: components["schemas"]["AiVariantKind"][];
+            /** @enum {string} */
+            difficulty: "same" | "easier" | "harder";
+        };
+        /**
+         * @description What a change writes, through `updateQuestion`, into the same question
+         *     of the copy: `prompt` replaces the prompt (`reword`); `optionOrder`
+         *     lists every option of the question in its new order (`reorder`);
+         *     `optionId` and `text` replace the text of one wrong option (`distract`).
+         */
+        AiVariantPayload: {
+            prompt?: string;
+            optionOrder?: components["schemas"]["Uuid"][];
+            optionId?: components["schemas"]["Uuid"];
+            text?: string;
+        };
+        AiVariantChange: {
+            questionId: components["schemas"]["Uuid"];
+            /** @description The question's 1-based place in the draft */
+            number: number;
+            kind: components["schemas"]["AiVariantKind"];
+            title: string;
+            before: string;
+            after: string;
+            payload: components["schemas"]["AiVariantPayload"];
+        };
+        AiVariantResult: {
+            changes: components["schemas"]["AiVariantChange"][];
+            usage: components["schemas"]["AiUsage"];
+        };
+        AiExplanationRequest: {
+            language: components["schemas"]["AiLanguage"];
+            /**
+             * @description Absent means normal.
+             * @enum {string}
+             */
+            length?: "short" | "normal";
+        };
+        AiExplanationResult: {
+            text: string;
+            usage: components["schemas"]["AiUsage"];
+        };
+        AiDistractor: {
+            text: string;
+            /** @description Why a learner might pick it. */
+            why: string;
+        };
+        AiDistractorsResult: {
+            items: components["schemas"]["AiDistractor"][];
+            usage: components["schemas"]["AiUsage"];
+        };
+        /**
+         * @description `score` is one of the multiples of 0.5 from 0 to the question's points:
+         *     what the model proposed is moved to the nearest one. Nothing is saved;
+         *     a teacher marks the answer with `gradeAttempt`.
+         */
+        AiScoreSuggestion: {
+            score: components["schemas"]["Points"];
+            /** @enum {string} */
+            confidence: "high" | "medium" | "low";
+            reasons: string[];
+            /** @description A comment to the student */
+            comment: string;
+            usage: components["schemas"]["AiUsage"];
+        };
+        /**
+         * @description `questionNumbers` are the questions the insight is about, by their
+         *     place on the paper, and `types` the distinct types of those questions,
+         *     for a practice set. A pattern in answers; never a judgement of a student.
+         */
+        AiInsight: {
+            /** @enum {string} */
+            kind: "key" | "problem" | "strength";
+            title: string;
+            body: string;
+            /** @enum {string} */
+            action: "review" | "practice" | "none";
+            questionNumbers: number[];
+            types: components["schemas"]["QuestionType"][];
+        };
+        AiInsightsResult: {
+            /** @description How many handed-in papers the insights are based on. */
+            basis: number;
+            items: components["schemas"]["AiInsight"][];
+            usage: components["schemas"]["AiUsage"];
+        };
+        /**
+         * @description Near-duplicate questions, and questions with no tags.
+         * @enum {string}
+         */
+        AiCleanupCheck: "duplicates" | "tags";
+        AiCleanupRequest: {
+            checks: components["schemas"]["AiCleanupCheck"][];
+            language?: components["schemas"]["AiLanguage"];
+        };
+        AiQuestionRef: {
+            questionId: components["schemas"]["Uuid"];
+            prompt: string;
+            /** @description Draft outlines that use the question. */
+            usedInTests: number;
+        };
+        AiDuplicate: {
+            a: components["schemas"]["AiQuestionRef"];
+            b: components["schemas"]["AiQuestionRef"];
+            why: string;
+        };
+        AiTagSuggestion: {
+            questionId: components["schemas"]["Uuid"];
+            prompt: string;
+            level?: components["schemas"]["QuestionLevel"];
+            tags: string[];
+        };
+        /**
+         * @description Over the caller's own questions only, newest first, at most 2,000 of
+         *     them and at most 300,000 characters: `scanned` is how many were read,
+         *     and `truncated` says the bank held more than that, or more untagged
+         *     questions than the 60 one call suggests tags for.
+         */
+        AiCleanupResult: {
+            scanned: number;
+            truncated: boolean;
+            duplicates: components["schemas"]["AiDuplicate"][];
+            tags: components["schemas"]["AiTagSuggestion"][];
+            usage: components["schemas"]["AiUsage"];
+        };
+        /**
+         * @description The Settings card's rows: generating questions and variants, grading
+         *     suggestions, explanations and wrong options, reading imports, and
+         *     checks, word lists and insights.
+         * @enum {string}
+         */
+        AiCreditCategory: "generation" | "grading" | "explanations" | "imports" | "checks";
+        AiCategorySum: {
+            category: components["schemas"]["AiCreditCategory"];
+            credits: number;
+        };
+        /** @enum {string} */
+        AiRequestStatus: "pending" | "approved" | "declined";
+        AiCreditRequest: {
+            id: components["schemas"]["Uuid"];
+            userId: components["schemas"]["Uuid"];
+            /**
+             * Format: date
+             * @description The first day of the month the request is for.
+             */
+            month: string;
+            amount: number;
+            reason: string;
+            status: components["schemas"]["AiRequestStatus"];
+            decidedAt?: components["schemas"]["Timestamp"];
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        /**
+         * @description One teacher's month. `left` is the least of what remains of the
+         *     allowance and of the pool, never below zero. `requests` says whether the
+         *     centre takes requests for more credits (its rule is to ask, not to
+         *     pause); `pending` is the teacher's undecided request this month.
+         */
+        AiMonthUsage: {
+            /**
+             * Format: date
+             * @description The first day of the month
+             */
+            month: string;
+            used: number;
+            allowance: number;
+            left: number;
+            paused: boolean;
+            requests: boolean;
+            pending: components["schemas"]["AiCreditRequest"] | null;
+            /** @description The five rows of the usage card, in the order it draws them. */
+            categories: components["schemas"]["AiCategorySum"][];
+        };
+        AiCreditRequestInput: {
+            amount: number;
+            reason: string;
+        };
+        AiRules: {
+            /** @description The plan for a month that has not begun. */
+            poolCredits: number;
+            /** @description What a teacher without a custom allowance may use in a month. */
+            defaultAllowance: number;
+            /** @description The share of the allowance at which the teacher is told. */
+            warnPercent: number;
+            /**
+             * @description Pause a teacher who runs out
+             * @enum {string}
+             */
+            onTeacherLimit: "pause" | "request";
+        };
+        AiRulesInput: {
+            defaultAllowance?: number;
+            warnPercent?: number;
+            /** @enum {string} */
+            onTeacherLimit?: "pause" | "request";
+        };
+        AiRulesChange: {
+            rules: components["schemas"]["AiRules"];
+            /** @description How many of this month's allowances the new default rewrote. */
+            rewritten: number;
+        };
+        /** @description The centre's month. `total` is `plan` plus `added`; `left` counts calls in flight as spent. */
+        AiPool: {
+            plan: number;
+            added: number;
+            used: number;
+            reserved: number;
+            total: number;
+            left: number;
+        };
+        AiCreditsAddition: {
+            credits: number;
+        };
+        /** @enum {string} */
+        AiTeacherStatus: "on_track" | "near_limit" | "at_limit" | "paused";
+        /**
+         * @description One teacher's month on the Admin page. `allowance` includes `granted`,
+         *     the credits approved requests added; `custom` says the allowance was set
+         *     for this teacher and a change of the default leaves it.
+         */
+        AiTeacherMonth: {
+            userId: components["schemas"]["Uuid"];
+            name: string;
+            /** Format: email */
+            email: string;
+            allowance: number;
+            granted: number;
+            used: number;
+            reserved: number;
+            custom: boolean;
+            paused: boolean;
+            status: components["schemas"]["AiTeacherStatus"];
+        };
+        /**
+         * @description Changes how much one teacher may use this month, or pauses or resumes
+         *     them. `custom: true` sets the teacher's own allowance to `credits`;
+         *     `custom: false` returns them to the default and takes no `credits`.
+         *     An omitted field keeps what is stored.
+         */
+        AiAllowanceInput: {
+            custom?: boolean;
+            credits?: number;
+            paused?: boolean;
+        };
+        /** @description A request waiting for an Admin, with the standing of the teacher who made it. */
+        AiPendingRequest: {
+            id: components["schemas"]["Uuid"];
+            userId: components["schemas"]["Uuid"];
+            teacherName: string;
+            /** Format: date */
+            month: string;
+            amount: number;
+            reason: string;
+            createdAt: components["schemas"]["Timestamp"];
+            used: number;
+            allowance: number;
+        };
+        /**
+         * @description The Admin's view of the current month. `onPace` is the credits the month
+         *     is on course to use, `used` over the days elapsed times the days in the
+         *     month, and `withinPool` says it fits the pool. `allowances` is the sum
+         *     of the teachers' allowances, which may exceed the pool. `active` counts
+         *     teachers who used AI this month and `idle` those who hold `ai.use` and
+         *     have not.
+         */
+        AiAdminCredits: {
+            /** Format: date */
+            month: string;
+            pool: components["schemas"]["AiPool"];
+            daysToGo: number;
+            onPace: number;
+            withinPool: boolean;
+            allowances: number;
+            active: number;
+            idle: number;
+            teachers: components["schemas"]["AiTeacherMonth"][];
+            requests: components["schemas"]["AiPendingRequest"][];
+            rules: components["schemas"]["AiRules"];
+        };
+        /**
+         * @description A request after a decision. `allowance` is the teacher's allowance for
+         *     the month after an approval, and zero after a decline.
+         */
+        AiCreditDecision: {
+            request: components["schemas"]["AiCreditRequest"];
+            allowance: number;
+        };
+        /**
          * @description What a notification is about. The server sends no sentence: the client
          *     words the item from `kind` and `params` in the reader's language.
          *
@@ -5645,9 +6484,16 @@ export interface components {
          *     | `assignment.due_soon` | a student | `title`, `closesAt` |
          *     | `assignment.extended` | a student | `title`, `closesAt` |
          *     | `result.ready` | a student | `title` |
+         *     | `ai.allowance_warning` | a teacher | `used`, `allowance` |
+         *     | `ai.credit_request` | a teacher | `teacherName`, `credits` |
+         *     | `ai.credit_request.decided` | a teacher | `credits`, `decision` |
+         *
+         *     The three `ai.*` kinds are for the teacher's bell. `ai.credit_request`
+         *     is written for every holder of `ai.credits.manage`, who reads it in the
+         *     teacher workspace until the Admin console has a bell of its own.
          * @enum {string}
          */
-        NotificationKind: "attempt.submitted" | "attempt.flagged" | "assignment.closing" | "class.joined" | "join_codes.rotated" | "assignment.opened" | "assignment.due_soon" | "assignment.extended" | "result.ready";
+        NotificationKind: "attempt.submitted" | "attempt.flagged" | "assignment.closing" | "class.joined" | "join_codes.rotated" | "assignment.opened" | "assignment.due_soon" | "assignment.extended" | "result.ready" | "ai.allowance_warning" | "ai.credit_request" | "ai.credit_request.decided";
         /**
          * @description The console that reads a notification, and so which of the caller's
          *     notifications a bell counts, lists and clears. Which kinds each one
@@ -5693,6 +6539,19 @@ export interface components {
             /** @description At most five names; `count` holds how many classes there are. */
             classNames?: string[];
             closesAt?: components["schemas"]["Timestamp"];
+            /** @description AI credits the teacher has used this month. */
+            used?: number;
+            /** @description The teacher's AI allowance this month */
+            allowance?: number;
+            /** @description AI credits a request asks for. */
+            credits?: number;
+            /** @description The teacher who asked for credits. */
+            teacherName?: string;
+            /**
+             * @description How an Admin decided a request for credits.
+             * @enum {string}
+             */
+            decision?: "approved" | "declined";
         };
         /**
          * @description Where a click on the notification goes: a page the client resolves from
@@ -6012,6 +6871,62 @@ export interface components {
                 [name: string]: unknown;
             };
             content?: never;
+        };
+        /**
+         * @description `AI_OFF` — the AI assistant is not configured on this server (no provider
+         *     key). Nothing was reserved or metered. `GET /public/status` says `ai: false`.
+         */
+        AiOff: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /**
+         * @description `AI_PAUSED` — an Admin paused AI for this teacher; nothing was reserved.
+         *     `AI_READ_OFF` — the teacher's `ai.readStudentAnswers` preference is off,
+         *     and the operation would send a student's answer (`suggestAiScore`,
+         *     `explainAssignmentResults`). `FORBIDDEN` — `suggestAiScore` and
+         *     `explainAssignmentResults` also need `teaching.grading`.
+         */
+        AiNotAllowed: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /**
+         * @description `AI_CREDITS_EXHAUSTED` — the teacher's allowance or the centre's pool
+         *     cannot cover the call. `details.scope` is `teacher` or `pool`. Nothing
+         *     was written, and no call was made to the provider.
+         */
+        AiCreditsExhausted: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /**
+         * @description `AI_UNAVAILABLE` — the provider timed out, was overloaded, refused, or
+         *     answered something the server could not use. The reservation was
+         *     settled for what the provider billed, if anything, and released
+         *     otherwise. A later attempt may succeed.
+         */
+        AiUnavailable: {
+            headers: {
+                /** @description Seconds until the caller may try again. */
+                "Retry-After": number;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
         };
     };
     parameters: {
@@ -9966,6 +10881,222 @@ export interface operations {
             };
         };
     };
+    getAiCredits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiAdminCredits"];
+                };
+            };
+            501: components["responses"]["AiOff"];
+        };
+    };
+    updateAiRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiRulesInput"];
+            };
+        };
+        responses: {
+            /** @description The rules after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiRulesChange"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            501: components["responses"]["AiOff"];
+        };
+    };
+    addAiCredits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiCreditsAddition"];
+            };
+        };
+        responses: {
+            /** @description The pool after the addition. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiPool"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            501: components["responses"]["AiOff"];
+        };
+    };
+    setAiAllowance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiAllowanceInput"];
+            };
+        };
+        responses: {
+            /** @description The teacher's month after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiTeacherMonth"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `FORBIDDEN` — the teacher's permissions are not a subset of the caller's. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such teacher: the id names no active user who is not a student. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `AI_ALLOWANCE_BELOW_USE` — the allowance is below what the teacher has used or holds this month. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            501: components["responses"]["AiOff"];
+        };
+    };
+    approveAiCreditRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The decided request and the teacher's allowance. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiCreditDecision"];
+                };
+            };
+            /** @description `FORBIDDEN` — the teacher's permissions are not a subset of the caller's. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /**
+             * @description `AI_REQUEST_DECIDED` — decided already. `AI_REQUEST_EXPIRED` — the
+             *     request is from an earlier month, whose allowance is no longer the
+             *     teacher's.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            501: components["responses"]["AiOff"];
+        };
+    };
+    declineAiCreditRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The decided request; `allowance` is zero. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiCreditDecision"];
+                };
+            };
+            /** @description `FORBIDDEN` — the teacher's permissions are not a subset of the caller's. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description `AI_REQUEST_DECIDED` — decided already. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            501: components["responses"]["AiOff"];
+        };
+    };
     listClasses: {
         parameters: {
             query?: {
@@ -10347,6 +11478,394 @@ export interface operations {
             204: components["responses"]["NoContent"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    generateAiQuestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiGenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Draft questions, at most `count` of them, fewer when the provider's answer held some that could not be used. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiGenerateResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            402: components["responses"]["AiCreditsExhausted"];
+            403: components["responses"]["AiNotAllowed"];
+            /** @description No such test or passage in the caller's reach. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            501: components["responses"]["AiOff"];
+            503: components["responses"]["AiUnavailable"];
+        };
+    };
+    checkTestWithAi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description The findings; empty when nothing is left to look at. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiCheckResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            402: components["responses"]["AiCreditsExhausted"];
+            403: components["responses"]["AiNotAllowed"];
+            404: components["responses"]["NotFound"];
+            /** @description The draft has no question to check, or holds more than one call reads. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            501: components["responses"]["AiOff"];
+            503: components["responses"]["AiUnavailable"];
+        };
+    };
+    makeTestVariant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiVariantRequest"];
+            };
+        };
+        responses: {
+            /** @description The proposed changes, in paper order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiVariantResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            402: components["responses"]["AiCreditsExhausted"];
+            403: components["responses"]["AiNotAllowed"];
+            404: components["responses"]["NotFound"];
+            /** @description The draft has no question to vary, or holds more than one call reads. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            501: components["responses"]["AiOff"];
+            503: components["responses"]["AiUnavailable"];
+        };
+    };
+    writeAiExplanation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiExplanationRequest"];
+            };
+        };
+        responses: {
+            /** @description The explanation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiExplanationResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            402: components["responses"]["AiCreditsExhausted"];
+            403: components["responses"]["AiNotAllowed"];
+            404: components["responses"]["NotFound"];
+            /** @description The question has no answer key to explain. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            501: components["responses"]["AiOff"];
+            503: components["responses"]["AiUnavailable"];
+        };
+    };
+    suggestAiDistractors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One to four suggestions, none of them an option the question already has. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiDistractorsResult"];
+                };
+            };
+            402: components["responses"]["AiCreditsExhausted"];
+            403: components["responses"]["AiNotAllowed"];
+            404: components["responses"]["NotFound"];
+            /** @description The question is not a single or multiple choice question, or has no key. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            501: components["responses"]["AiOff"];
+            503: components["responses"]["AiUnavailable"];
+        };
+    };
+    suggestAiScore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attemptId: components["schemas"]["Uuid"];
+                questionId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The suggestion. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiScoreSuggestion"];
+                };
+            };
+            402: components["responses"]["AiCreditsExhausted"];
+            403: components["responses"]["AiNotAllowed"];
+            /** @description The attempt, or a question that is not on its paper, is not in the caller's reach. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `ATTEMPT_IN_PROGRESS` or `ATTEMPT_VOIDED` — nothing to grade yet, or
+             *     nothing that counts.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The question is not a short answer waiting for a mark by hand (the grader marked this answer itself), or the student left it unanswered. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            501: components["responses"]["AiOff"];
+            503: components["responses"]["AiUnavailable"];
+        };
+    };
+    explainAssignmentResults: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Up to four insights. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiInsightsResult"];
+                };
+            };
+            402: components["responses"]["AiCreditsExhausted"];
+            403: components["responses"]["AiNotAllowed"];
+            404: components["responses"]["NotFound"];
+            /** @description No paper has been handed in, so there is nothing to explain. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            501: components["responses"]["AiOff"];
+            503: components["responses"]["AiUnavailable"];
+        };
+    };
+    cleanUpQuestionBank: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiCleanupRequest"];
+            };
+        };
+        responses: {
+            /** @description The suggestions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiCleanupResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            402: components["responses"]["AiCreditsExhausted"];
+            403: components["responses"]["AiNotAllowed"];
+            /** @description The caller owns no question to look at. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            501: components["responses"]["AiOff"];
+            503: components["responses"]["AiUnavailable"];
+        };
+    };
+    getAiUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiMonthUsage"];
+                };
+            };
+            501: components["responses"]["AiOff"];
+        };
+    };
+    requestAiCredits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiCreditRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Recorded. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiCreditRequest"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /**
+             * @description `AI_REQUESTS_OFF` — the centre's rule is to pause a teacher who runs
+             *     out, so it takes no requests. `AI_REQUEST_PENDING` — the caller's
+             *     request this month is undecided.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            501: components["responses"]["AiOff"];
         };
     };
     listMyClasses: {

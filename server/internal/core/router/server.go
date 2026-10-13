@@ -4,6 +4,7 @@ import (
 	"log/slog"
 
 	"quizzivy/gen/openapi"
+	aihttp "quizzivy/internal/modules/ai/http"
 	assignmentshttp "quizzivy/internal/modules/assignments/http"
 	attemptshttp "quizzivy/internal/modules/attempts/http"
 	availabilityhttp "quizzivy/internal/modules/availability/http"
@@ -21,6 +22,7 @@ import (
 
 // Server implements the generated StrictServerInterface by embedding each module's handlers.
 type Server struct {
+	aihttp.AI
 	dashboardhttp.Dashboard
 	classeshttp.Classes
 	importshttp.Imports

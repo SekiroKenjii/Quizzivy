@@ -2294,7 +2294,11 @@
       "opened": "{{title}} is open and closes at {{when}}",
       "dueSoon": "{{title}} closes at {{when}}",
       "extended": "{{title}} now closes at {{when}}",
-      "resultReady": "Your result for {{title}} is ready"
+      "resultReady": "Your result for {{title}} is ready",
+      "aiWarning": "You have used {{used}} of your {{allowance}} AI credits this month",
+      "aiRequest": "{{teacherName}} asked for {{credits}} more AI credits",
+      "aiApproved": "Your request for {{credits}} more AI credits was approved",
+      "aiDeclined": "Your request for {{credits}} more AI credits was declined"
     },
     "bell": {
       "label": "Notifications",
@@ -2870,10 +2874,13 @@
     "selectionChanged": "The content changed. Close the dialog and select the insertion point again.",
     "recordingPolicy": "Audio policy",
     "sharedPolicyHint": "The allowance is shared across this group and survives learner navigation and reloads.",
-    "gapBindings": "Gap links",
-    "gapHint": "Link every gap to a choice question or a specific answer blank. Each target can be linked once.",
+    "gapHint": "Optional: add gaps for a cloze. Each gap is answered by a choice question or a blank in this group, shown at the gap.",
     "gapLabel": "Gap {{label}}",
-    "chooseTarget": "Choose a question or answer blank",
+    "gapLabelUnbound": "Gap {{label}}, not linked",
+    "gapChip": "gap {{label}}",
+    "gapTarget": "Question for gap {{label}}",
+    "removeGap": "Remove gap {{label}}",
+    "chooseTarget": "Choose a question…",
     "questionTarget": "Question {{number}}",
     "blankTarget": "Question {{number}} · blank {{blank}}",
     "titleRequired": "Enter a group name between 1 and 200 characters.",
@@ -2924,7 +2931,6 @@
     "select": "Select group {{title}}",
     "standalone": "Standalone questions",
     "legacyMaterial": "This historical material uses Markdown. Edit the source and use Preview material to review it.",
-    "removeBinding": "Remove binding",
     "moveMaterialUp": "Move material up",
     "moveMaterialDown": "Move material down"
   },

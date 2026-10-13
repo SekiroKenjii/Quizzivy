@@ -51,3 +51,34 @@ func (e *Exhausted) Error() string {
 }
 
 func (e *Exhausted) Is(target error) bool { return target == ErrExhausted }
+
+var (
+	// ErrOff is an operation asked of an assistant that has no provider configured.
+	ErrOff = errors.New("ai: the assistant is not configured")
+	// ErrUnavailable is a call that produced nothing a teacher can use: the provider failed after its retries, refused, or answered something that fails the operation's own checks. What the provider billed was settled; the rest was released.
+	ErrUnavailable = errors.New("ai: the provider gave no usable answer")
+	// ErrReadOff is an operation that would send a student's answer, asked by a teacher who has turned that off.
+	ErrReadOff = errors.New("ai: the teacher does not let the assistant read student answers")
+	// ErrForbidden is a write to a teacher the actor may not act on under the subset rule.
+	ErrForbidden = errors.New("ai: the actor may not act on this teacher")
+	// ErrMissingPermission is an operation that needs a second permission the actor lacks: marking by hand, for a suggestion that reads a student's answer.
+	ErrMissingPermission = errors.New("ai: the actor lacks a permission the operation needs")
+	// ErrNotFound is a test, passage, question, attempt or assignment that does not exist or that the caller does not reach: the two answer alike.
+	ErrNotFound = errors.New("ai: no such item in the caller's reach")
+	// ErrNothingToRead is an operation whose material is empty: a draft with no question, a bank with none of the caller's own, an assignment nobody handed in.
+	ErrNothingToRead = errors.New("ai: there is nothing to read")
+	// ErrTooLarge is an operation whose material is more than one call reads.
+	ErrTooLarge = errors.New("ai: there is too much to read at once")
+	// ErrNotChoice is a request for wrong options on a question that is not a single or multiple choice question.
+	ErrNotChoice = errors.New("ai: the question is not a choice question")
+	// ErrNoKey is a question with no answer key to explain.
+	ErrNoKey = errors.New("ai: the question has no answer key")
+	// ErrNotManual is a score suggestion for a question that is not marked by hand.
+	ErrNotManual = errors.New("ai: the question is not marked by hand")
+	// ErrUnanswered is a score suggestion for an answer the student left empty.
+	ErrUnanswered = errors.New("ai: the student left the question unanswered")
+	// ErrAttemptInProgress is a score suggestion for a paper not yet handed in.
+	ErrAttemptInProgress = errors.New("ai: the attempt is still in progress")
+	// ErrAttemptVoided is a score suggestion for a paper that does not count.
+	ErrAttemptVoided = errors.New("ai: the attempt is voided")
+)

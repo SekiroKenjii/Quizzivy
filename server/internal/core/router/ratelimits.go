@@ -31,6 +31,24 @@ func RateLimits() *ratelimit.Registry {
 	return reg
 }
 
+var aiSuggestions = []string{
+	"POST /teacher/ai/questions/generate",
+	"POST /teacher/ai/tests/{id}/check",
+	"POST /teacher/ai/tests/{id}/variant",
+	"POST /teacher/ai/questions/{id}/explanation",
+	"POST /teacher/ai/questions/{id}/distractors",
+	"POST /teacher/ai/attempts/{attemptId}/answers/{questionId}/score-suggestion",
+	"POST /teacher/ai/assignments/{id}/insights",
+}
+
+var aiConsoleWrites = []string{
+	"PATCH /admin/ai/rules",
+	"POST /admin/ai/credits/additions",
+	"PUT /admin/ai/teachers/{userId}/allowance",
+	"POST /admin/ai/credit-requests/{id}/approve",
+	"POST /admin/ai/credit-requests/{id}/decline",
+}
+
 // PrincipalRateLimits declares the limits counted per signed-in user, wherever
 // the user connects from: each entry has no per-address bucket and one bucket,
 // perActor, keyed by ratelimit.PrincipalKey. They are applied after the
@@ -55,6 +73,17 @@ func PrincipalRateLimits() *ratelimit.Registry {
 	perActor("GET /teacher/assignments/results.csv", ratelimit.PerMinute(10), ratelimit.PerHour(60))
 	perActor("PUT /me/avatar", ratelimit.PerHour(10))
 	perActor("POST /teacher/media/{id}/replace", ratelimit.PerMinute(10), ratelimit.PerHour(60))
+	for _, pattern := range aiSuggestions {
+		perActor(pattern, ratelimit.PerMinute(10), ratelimit.PerHour(100))
+	}
+	perActor("POST /teacher/ai/bank/cleanup", ratelimit.PerHour(3))
+	perActor("POST /teacher/ai/credit-requests", ratelimit.PerHour(5))
+	for _, pattern := range []string{"GET /teacher/ai/usage", "GET /admin/ai/credits"} {
+		perActor(pattern, ratelimit.PerMinute(60), ratelimit.PerHour(600))
+	}
+	for _, pattern := range aiConsoleWrites {
+		perActor(pattern, ratelimit.PerMinute(10), ratelimit.PerHour(100))
+	}
 	return reg
 }
 

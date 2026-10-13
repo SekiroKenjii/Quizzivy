@@ -12,6 +12,7 @@ DELETE /teacher/question-groups/{id} content.questions.write | content.tests.wri
 DELETE /teacher/questions/{id} content.questions.write
 DELETE /teacher/tests/{id} content.tests.write
 DELETE /teacher/tests/{id}/versions/{version} content.tests.publish
+GET /admin/ai/credits ai.credits.manage
 GET /app/assignments learning.take_tests
 GET /app/assignments/{id} learning.take_tests
 GET /app/attempts/{id} learning.take_tests
@@ -23,6 +24,7 @@ GET /auth/sessions self
 GET /me/notification-preferences self
 GET /me/notifications self
 GET /me/summary self
+GET /teacher/ai/usage ai.use
 GET /teacher/assignments workspace.teacher
 GET /teacher/assignments/results.csv teaching.grading
 GET /teacher/assignments/{id} workspace.teacher
@@ -59,6 +61,7 @@ GET /teacher/tests/{id} workspace.teacher
 GET /teacher/tests/{id}/preview workspace.teacher
 GET /teacher/tests/{id}/versions workspace.teacher
 GET /teacher/tests/{id}/versions/{version}/diff workspace.teacher
+PATCH /admin/ai/rules ai.credits.manage
 PATCH /app/attempts/{id}/answers learning.take_tests
 PATCH /auth/me self
 PATCH /me/preferences self
@@ -70,6 +73,9 @@ PATCH /teacher/question-groups/{id}/archive content.questions.write
 PATCH /teacher/questions/{id} content.questions.write | content.tests.write
 PATCH /teacher/students/{id} people.students.create
 PATCH /teacher/tests/{id} content.tests.write
+POST /admin/ai/credit-requests/{id}/approve ai.credits.manage
+POST /admin/ai/credit-requests/{id}/decline ai.credits.manage
+POST /admin/ai/credits/additions ai.credits.manage
 POST /admin/docs-session system.api_reference
 POST /app/assignments/{id}/attempts learning.take_tests
 POST /app/attempts/{id}/audio-play learning.take_tests
@@ -80,6 +86,15 @@ POST /auth/change-password self
 POST /auth/google/link self
 POST /auth/sessions/revoke-others self
 POST /me/notifications/read self
+POST /teacher/ai/assignments/{id}/insights ai.use
+POST /teacher/ai/attempts/{attemptId}/answers/{questionId}/score-suggestion ai.use
+POST /teacher/ai/bank/cleanup ai.use
+POST /teacher/ai/credit-requests ai.use
+POST /teacher/ai/questions/generate ai.use
+POST /teacher/ai/questions/{id}/distractors ai.use
+POST /teacher/ai/questions/{id}/explanation ai.use
+POST /teacher/ai/tests/{id}/check ai.use
+POST /teacher/ai/tests/{id}/variant ai.use
 POST /teacher/assignments teaching.assignments.write
 POST /teacher/assignments/{id}/duplicate teaching.assignments.write
 POST /teacher/assignments/{id}/extend teaching.assignments.write
@@ -115,6 +130,7 @@ POST /teacher/tests/{id}/duplicate content.tests.write
 POST /teacher/tests/{id}/publish content.tests.publish
 POST /teacher/tests/{id}/versions/{version}/current content.tests.publish
 POST /teacher/tests/{id}/versions/{version}/draft content.tests.write
+PUT /admin/ai/teachers/{userId}/allowance ai.credits.manage
 PUT /me/avatar self
 PUT /me/notification-preferences self
 PUT /teacher/assignments/{id}/student-overrides teaching.attempts.intervene

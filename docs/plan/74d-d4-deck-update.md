@@ -133,13 +133,13 @@ rolling deploy without a fill trigger):
 | `NNNNN_add_test_version_questions_audio_allow_pause.sql` | T-D4.13 |
 | `NNNNN_add_group_recordings_allow_pause.sql` | T-D4.13 |
 | `NNNNN_add_test_version_group_recordings_allow_pause.sql` | T-D4.13 |
-| `NNNNN_add_ai_permissions.sql` (two rows in `app.permissions`, `ai.use` granted to the Teacher role) | T-D4.32 |
 | `00118_create_ai_settings.sql` | T-D4.31 |
 | `00119_create_ai_credit_periods.sql` | T-D4.31 |
 | `00120_create_ai_teacher_credits.sql` | T-D4.31 |
 | `00121_create_ai_reservations.sql` | T-D4.31 |
 | `00122_create_ai_usage_ledger.sql` (append-only: no `UPDATE` or `DELETE` for the app role) | T-D4.31 |
 | `00123_create_ai_credit_requests.sql` | T-D4.31 |
+| `00124_add_ai_permissions.sql` (two rows in `app.permissions`, `ai.use` granted to the Teacher role) | T-D4.32 |
 | `NNNNN_add_word_imports_read_with_ai.sql` (`boolean NOT NULL DEFAULT false`) | T-D4.33 |
 
 The AI tables are new and empty, so none is `-- +goose NO TRANSACTION` and the v0.10.0 binary is
@@ -605,7 +605,7 @@ names the D4 task, or the release and the correction T-D4.19 makes.
 | V-14 the AI panel | T 6540-6750; `aiVals` T 9470-9591; `AI_K` T 7577-7663; `aiOpen`, `aiStart` T 9405-9429 | not drawn | A right-side `role="dialog"` named by its title, `min(560px, 100%)` wide, full height, `--card`, a left border, `--shadow-lg`, over a `--overlay` backdrop (z 75 / 76). Header (padding 16px 16px 16px 18px): a 36px accent icon tile, the title (15px 600), the sub (12.5px muted), Close (32px). Body (padding 18, gap 18) in three stages. **Setup**: fields by type: source chips (28px pills with an icon: "Passage 1 · Urban green space", "Start empty"), a textarea (13.5px, `--bg`), a segmented control (30px), toggle chips (30px pills, `aria-pressed`, a check when on), a toggle card (border, radius 10), an info callout (`--muted`, `info` icon). **Running**: three step lines (a check in `--success`, a spinner, or a 7px dot) advancing every 1.3s, then a pulsing skeleton (`qz-pulse`); a run lasts at least 3.2s. **Done**: in the demo a warning callout "AI didn’t respond, so this is sample output. Try again in a minute."; a summary line (13px muted) and "Select all" / "Clear selection"; a dashed empty card; item cards (border, radius 12, padding 14; `--ring` border when selected): a `role="checkbox"` "Keep this" (18px) when selectable, tone pills, a right-aligned meta, a 14px 500 title, a 13px body, lettered options (the correct one in success tones with a check), an "Answer" pill, a before / after grid (the before struck through for a variant), dashed "+ {tag}" chips, a note with a bold label, action buttons (30px; the primary filled). Footer: a credit note with `coins` ("About {cost} credits · {left} left this month"; after a run "Used about {cost} credits"; or the validation sentence with `circle-alert` in warning ink), a secondary (Cancel / Stop / Start over), a primary (the run label with `sparkles`; after a run the apply label, at .5 opacity until something is selected; "Done" when the kind applies nothing). No Esc, no focus trap, no focus return (DG-36) | nothing in the product | new (AI) | web L | T-D4.34 |
 | V-14a Generate questions (`gen`) | T 7577-7605 | — | "Generate questions" / "From a passage, a transcript or a topic. Questions arrive as drafts for you to check.". Fields: Source (8 rows; chips "Passage 1 · …" with the test's passage, "Start empty"; placeholder "Paste a passage or transcript, or describe a topic"), Question types (Single choice, True / False / Not given, Fill in the blank, Short answer; default single and tf), How many 3 / 5 / 8 (5), Level B1 / B2 / C1 (B2), "Write an explanation for each question" / "Students see it after results are released." (on). Validation: "Add a source of at least a few sentences" under 40 characters, "Pick at least one question type". Steps: Reading the source, Writing questions, Checking every answer against the source. Items: tags the type, the level, "AI draft" (when tagging is on); the prompt; options with the key marked; an "Answer" pill for blank and short; the explanation as a note. Primary: in the builder "Add {n} to {section}" (appends the picks to the open question's section and opens the first; toast "{n} questions added to {section}. Check each one before publishing."); in the bank "Save {n} to the bank" ("… with an AI draft tag"); from insights "Save as practice test" ("Practice test with {n} questions saved as a draft in Tests"). Cost 1,800 | the section and bank question writes exist; `tfng` is R6 | new (AI); TFNG is offered once R6 ships | — | T-D4.32, T-D4.34 |
 | V-14b Check this test (`check`) | T 7606-7617 | — | "Check this test with AI" / "Looks for answer keys that don’t match the passage, unclear wording and questions that give answers away.". Look for: Wrong or doubtful answers, Unclear wording, Answers given away, Spelling and grammar (all on); info "Checks the questions in “{title}” against their passages. Nothing changes until you apply a fix.". Steps: Reading both passages, Checking answers against the text, Looking at wording and options. Items: tags Likely error (danger) / Worth a look (warning) / Minor (info) and "Q{n}"; meta the type; title the question's; body the issue; note "Suggested fix"; actions "{fix label}" (applies and toasts), "Open question", "Dismiss". Summary "{n} things worth a look"; empty "Nothing left to look at. The test is ready to publish."; no primary. Cost 2,400 | the draft read; `updateQuestion` for a fix; the demo's fixes name R6 types and `maxWords` | new (AI); fixes whose write exists are one click, the rest open the question | — | T-D4.32, T-D4.34 |
-| V-14c Clean up the bank (`dups`) | T 7618-7633 | — | "Clean up the question bank" / "Finds near-duplicates and questions with missing tags, so search and filters work better.". Look for: Near-duplicates, Missing tags; info "Scans the questions you own. Questions shared with you are skipped, and nothing changes until you confirm.". Steps: Reading 1,284 questions, Comparing similar questions, Suggesting tags. A duplicate card (not selectable): "Possible duplicate", meta "Used in 4 tests and 1 test", the reason as title, One / Other, actions "Merge into one" (toast "Merged. Tests that used either question now share one copy.") and "Keep both". A tag card: "Missing tags", the level, the prompt, dashed "+ {tag}" chips; primary "Add tags to {n} questions". Empty "All done. Your bank is tidy.". Cost 3,200 | `listQuestions` with `Own()`; the bulk tag write (T-R4.32); no merge operation | new (AI); no merge (DG-197): a duplicate card has "Open" for each and "Keep both" | — | T-D4.32, T-D4.34 |
+| V-14c Clean up the bank (`dups`) | T 7618-7633 | — | "Clean up the question bank" / "Finds near-duplicates and questions with missing tags, so search and filters work better.". Look for: Near-duplicates, Missing tags; info "Scans the questions you own. Questions shared with you are skipped, and nothing changes until you confirm.". Steps: Reading 1,284 questions, Comparing similar questions, Suggesting tags. A duplicate card (not selectable): "Possible duplicate", meta "Used in 4 tests and 1 test", the reason as title, One / Other, actions "Merge into one" (toast "Merged. Tests that used either question now share one copy.") and "Keep both". A tag card: "Missing tags", the level, the prompt, dashed "+ {tag}" chips; primary "Add tags to {n} questions". Empty "All done. Your bank is tidy.". Cost 3,200 | `listQuestions` with `Own()`; the bulk tag write (T-R4.32); no merge operation | new (AI); no merge (DG-197): a duplicate card has "Open" for each and "Keep both". One call reads at most 2,000 questions and 300,000 characters, finds at most 20 duplicate pairs and suggests tags for the first 60 untagged questions; the response's `truncated` tells the panel to say "Apply these and run it again" (T-D4.32 As built) | — | T-D4.32, T-D4.34 |
 | V-14d Generate words (`vocab`) | T 7634-7648; the button T 3678-3682 | — | "Generate words from a text" / "Picks the words your students need to understand a passage, with meanings and new example sentences.": Text (7 rows), How many words 8 / 12 / 20, Students’ level A2 / B1 / B2, Meanings in Tiếng Việt \| English; items the term, part of speech and level as tags, the meaning, the example as a note; primary "Add {n} to {list}". Cost 1,200 | word lists are R10 (T-R10.4, T-R10.12) | R10: the entity does not exist before it | — | R10 (T-D4.19: T-R10.12 gains the button and the kind) |
 | V-15 class detail: tabs | T 4145-4155; `cdTabs`, `cdOverview`, `cdAttTab` T 9655-9658 | One screen | Underline tabs Overview \| Attendance under the header; Attendance carries an accent badge with the number of sessions not yet taken | T-R4.42 (one screen); attendance is R8's | R8 | S (R8) | R8 (T-D4.19) |
 | V-16 class detail: join-code card | T 4287-4345; `cdCodeFull`, `cdLink`, `cdQrOp`, `cdShowQr`, `cdShare` T 8328-8331; `VIA` T 8303; `fresh` T 8320 | "••••-{last 4}" in a box, "The full code is shown only once, when it is created."; the paused paragraph; link rows; the New-code dialog "Copy it now. After you close this, only the last 4 characters are shown."; "Joined via" "Code ••{hint}" | A 112px QR button (`qr-code` 88px, `cursor: zoom-in`, `--qr-bg`; "Show full size for the projector"; opacity .4 while joining is paused) opening a 420px dialog "Join {class}" ("Show this on the projector. Students scan it or type the code." or "Joining is paused, so this code won’t work until you turn it back on."); beside it the full code (22px monospace, 600, letter-spacing .08em) with the join link under it (12.5px muted, ellipsis) and a "Joining paused" chip (`pause`, warning tones) in place of the paragraph; a row of three outline buttons (32px, flex 1, ellipsis) Copy code (`copy`), Copy link (`link`), Download QR (`download`); Expires and Uses under a 1px divider; the footer "A new code makes the old code, link and QR stop working."; the New-code dialog's desc "Share the code, the link or the QR with your students."; members' "Joined via" shows the full code | T-R4.42 built DG-01 (the full code, no "shown only once") in the fourth export's geometry | reopens R4 (T-R4.42); **DG-01 is Answered** by v2 | S | T-D4.23 |
@@ -1997,24 +1997,55 @@ markup and script (`sec.hasShared`, `sec.sharedText`, `sec.menu`), not side by s
 **Touches:** `web/src/features/question-groups/components/GapBindings.tsx`, locales, `web/tests/units/content/gap-bindings.test.tsx`
 **Size:** XS
 **Done when:**
-- [ ] `GapBindings` takes the row the export draws (T 1670-1693): a dashed chip "gap {n}" (at
+- [x] `GapBindings` takes the row the export draws (T 1670-1693): a dashed chip "gap {n}" (at
       least 52px wide, 24px high, 1.5px dashed `--ring`, `--muted`, 12px 600), a 32px select
       whose first entry is "Choose a question…", a danger border while the gap is unbound, and
       a 28px "Remove gap". An unbound row is also named as unbound for a screen reader, so the
       state is not carried by the border alone.
-- [ ] Above the rows: "Optional: add gaps for a cloze. Each gap is answered by a choice
+- [x] Above the rows: "Optional: add gaps for a cloze. Each gap is answered by a choice
       question or a blank in this group, shown at the gap." The export's sentence says "a
       single-choice question"; the product also binds a gap to a blank (DG-187).
-- [ ] The rules do not change (DG-187; `model.ts:113-155`, `group_validation.go:176-212`): a gap
+- [x] The rules do not change (DG-187; `model.ts:113-155`, `group_validation.go:176-212`): a gap
       is inserted at the caret by the editor's "Insert gap", a target is a choice member or one
       blank of a fill-in, a target is used once and shows disabled elsewhere, and a group with
       an unbound gap does not save. The export's "[gap n]" appended at the end of the text, any
       question as a target and a saved unbound gap are not taken.
-- [ ] `gap-bindings.test.tsx` passes with only its locators moved, and gains the unbound row's
+- [x] `gap-bindings.test.tsx` passes with only its locators moved, and gains the unbound row's
       name. `group-authoring.spec.ts`, `group-authoring.live.spec.ts` and
       `builder-groups.live.spec.ts` are green.
-- [ ] Compared with the deck at 360 and 1280, light and dark, in the builder's group pane and
+- [x] Compared with the deck at 360 and 1280, light and dark, in the builder's group pane and
       in the bank's group editor, which share the component.
+
+**As built:** one pull request, two commits (the row, then this note). The row is the export's:
+a chip "gap {n}" (`groups.gapChip`, "chỗ trống {n}" in Vietnamese, so wider than 52px), a 32px
+select at 12.5px with 8px padding and radius 7 on `--card`, and a 28px ghost "Remove gap"
+(`groups.removeGap`, "Xoá chỗ trống {n}", one name per row) with the 14px `x`; rows 6px apart,
+8px between their parts, the hint 12px `--muted-fg` 12px above them. The rows share one grid
+(`grid-cols-subgrid`), so the selects line up when two chips differ by a few pixels. The select's
+first entry, "Choose a question…", is today's "Remove binding" moved into the export's place: it
+unbinds the gap, and while the gap is unbound it is what the select reads. The bound border is
+`--input`, the product's control border (DG-30), and the unbound one `--danger` through
+`aria-invalid`. An unbound row is a `role="group"` named "Gap {n}, not linked"
+(`groups.gapLabelUnbound`), a bound one "Gap {n}" (`groups.gapLabel`); the select is "Question
+for gap {n}" (`groups.gapTarget`, the export's `aria-label`) whatever its state, so a locator holds
+across a bind. "Remove gap" deletes the gap from the material's text, as the export's does, not
+only its binding, which the first entry already does: `removeGap` (`gapCommands.ts`) deletes the
+gap node through the material's editor and leaves the caret where it was, so it is one undo step
+and undo brings back the gap and its binding (`MaterialContent` keeps a removed gap's binding for
+undo, as for a chip deleted in the text). That needs the editor beside the rows, so
+`MaterialContent` passes `onEditor` and `GroupComposer`'s material pane holds it; `GapBindings`
+draws the button only when the host passes `onRemove`, for T-D4.14's dialog to pass its own. The
+hint shows on every rich-text material, with or without gaps, as the export draws it; a Markdown
+material has no rows and no hint. The targets keep the product's labels ("Question {n}", "Question
+{n} · blank {b}"), not the export's "Question {id} · {title}". Locators moved in
+`group-authoring.spec.ts` (the select's name, the unbind entry, its text); `gap-bindings.test.tsx`
+gains "an unbound gap's row is named as unbound, and Remove gap takes the gap out of the text",
+on the real `GroupComposer`. Measured on a live stack with `getBoundingClientRect` at 360 and 1280,
+light and dark, in the bank's group editor and the builder's group pane: every value above, no
+horizontal scroll, and the focus ring 2px `--focus` offset 2px on the select and on Remove gap.
+The chip's 1.5px border computes as 1px in this Chromium at device pixel ratio 1 and 2, as an inline
+`border: 1.5px` does, so the deck's own chip would too. The deck could not render here (its CDN
+scripts do not load), so it was compared with its markup and script (`shc.gaps`, T 754, 2940).
 
 ### T-D4.14 — Builder: the Shared content dialog
 **Depends on:** T-D4.2a, T-D4.2b. It builds on what R4 left on `develop`: the builder (T-R4.31a, T-R4.31b), the group editor (T-R4.34), `useMediaUpload` (T-R4.35), the content editor (T-R4.63) and `AudioPolicyPanel` with "Choose from Media" (T-R4.65)
@@ -2646,7 +2677,8 @@ until T-R5.17a, so the commands run as `MAINTENANCE_DATABASE_URL`'s credential, 
 `grant_maintenance_role` must add. `APP_TIMEZONE` was documented and never read; `config.AppLocation()`
 reads it (`Asia/Ho_Chi_Minh`, with a fixed +07:00 fallback on a host without zone data).
 `operations.md` ("AI credits") documents the console. An allowance edit is not subject to the subset
-rule (`access.CanActOn`); see the open question in the pull request.
+rule (`access.CanActOn`) in this task, which T-D4.32 applies to the application commands; the
+console, as System, is not asked.
 
 Not done here: the Neon rehearsal (T-D4.40's migration rehearsal runs the six files on a branch of
 production and puts the timings in the release pull request).
@@ -2656,7 +2688,7 @@ production and puts the timings in the release pull request).
 **Touches:** `api/openapi.yaml` (`PermissionKey` gains `ai.use` and `ai.credits.manage`; the `/teacher/ai/*` and `/admin/ai/*` operations; `WordImport.readWithAi` and `createImport`'s field; `PublicStatus.ai`; `UserPreferences.ai`), `server/gen/openapi/`, `web/src/lib/api/schema.d.ts`, `migrations/NNNNN_add_ai_permissions.sql` (new), `server/internal/platform/httpx/permissions.go` (the two keys' trees), `server/internal/core/router/{ratelimits.go,tests/testdata/permissions.golden}`, `server/tests/isolation_cases_test.go`, `server/internal/modules/ai/{domain/prompts/*.go,application/{query/{generate,check,variant,explanation,distractors,score,insights,cleanup}.go,ports/{tests,questions,grading,analysis}.go}},http/ai.go}` (new), `server/internal/core/adapters/ai_reads.go` (new: the ports over the tests, questions, attempts and assignments modules), `server/internal/modules/attempts/{application/query/wrong_answers.go,repositories/analysis.go}` (the aggregate), `server/internal/modules/ai/application/tests/{prompts_test.go,operations_test.go}` (new), `docs/plan/70-redesign-overview.md` §4.1 (two rows; on the branch already)
 **Size:** L
 **Done when:**
-- [ ] The contract. `PermissionKey` gains `ai.use` ("Use AI features", Content, Admin and
+- [x] The contract. `PermissionKey` gains `ai.use` ("Use AI features", Content, Admin and
       Teacher) and `ai.credits.manage` ("Manage AI credits", System, Admin); the migration
       inserts both into `app.permissions` (`in_matrix` true, DG-199) and grants `ai.use` to the
       built-in Teacher role; the Admin wildcard holds both. `httpx.PermissionRequirements` lets
@@ -2681,48 +2713,124 @@ production and puts the timings in the release pull request).
         action}]}` (kind `assignment`; the same preference gate);
       - `/teacher/ai/bank/cleanup` `{checks}` → `{duplicates: [{a, b, why, usage}], tags:
         [{questionId, prompt, level, tags}]}` over the caller's own rows, in chunks, capped at
-        2,000 questions and a 60s budget (`x-resource-list`).
+        2,000 questions and a 60s budget (`x-resource-list`). As built, one call bounded as below.
       Every operation declares its `x-resource` kinds and has its isolation-suite entry; another
       teacher's id answers as a missing one. `make gen` is its own commit; MSW fixtures validate
       with ajv; `pnpm typecheck` passes.
-- [ ] What T-D4.30 left for the contract: `ErrorCode` gains `AI_OFF`, and with the adapter nil
+- [x] The subset rule (the Tech Lead's decision of 2026-10-13). Every `/admin/ai/*` write that
+      targets one teacher (`setAiAllowance`, which also pauses and resumes, and the two credit
+      request decisions) calls `access.CanActOn(actor, target)` in the application command, where
+      `Author` carries the caller's effective permissions; a target outside the subset answers
+      `403 FORBIDDEN` with the words of the user-admin operations. The maintenance console
+      (System) is not asked: `CanActOn` compares two permission sets and System has none. One
+      end-to-end case: a custom role holding only `ai.credits.manage` cannot pause an Admin.
+- [x] What T-D4.30 left for the contract: `ErrorCode` gains `AI_OFF`, and with the adapter nil
       (`Assembly.AI == nil`) every `/teacher/ai/*` and `/admin/ai/*` operation answers `501
       NOT_IMPLEMENTED` with that code; `PublicStatus` gains `ai: boolean`, read from
       `Config.AIEnabled()` and never from the provider; `core/router/{modules.go,server.go}` gain
       the AI transport.
-- [ ] What T-D4.31 left for the contract: `NotificationKind` gains `ai.allowance_warning`,
+- [x] What T-D4.31 left for the contract: `NotificationKind` gains `ai.allowance_warning`,
       `ai.credit_request` and `ai.credit_request.decided`, with their rows in its table;
       `NotificationParams` gains `used`, `allowance`, `credits` (integers, 0 or more),
       `teacherName` (1 to 200 characters) and `decision` (`approved` or `declined`), and the
       three `Params` types in `notifications/domain/params.go` (`AllowanceWarning`,
       `CreditRequest`, `CreditRequestDecided`) go into `params_test.go`'s `everyKind`;
       `kindsByAudience` lists the three for the teacher's bell; `kinds.ts` words them in vi and en.
-- [ ] `PrincipalRateLimits()` gains every AI operation at 10 a minute and 100 an hour per actor,
+- [x] `PrincipalRateLimits()` gains every AI operation at 10 a minute and 100 an hour per actor,
       the clean-up at 3 an hour, the credit request at 5 an hour; `credential_limits_test.go`'s
       form of assertion lists them.
-- [ ] Each operation reserves its ceiling (the table above) before the call and ends the
+- [x] Each operation reserves its ceiling (the table above) before the call and ends the
       reservation with `Commands.Finish`, which settles the metered usage, including what a refusal
       or an unparseable answer was billed (T-D4.30), and releases when nothing was billed; the
       response carries `usage: {credits, left}` for the panel's footer. With the adapter nil: 501. With the budget gone: 402 as T-D4.31 says.
       A provider failure after retries: `503 AI_UNAVAILABLE` with `Retry-After`, and the
       reservation released.
-- [ ] Data minimisation is tested, not described: `operations_test.go` drives each operation
+- [x] Data minimisation is tested, not described: `operations_test.go` drives each operation
       against a fake `Completer` that records the request, and asserts that no student name,
       email, user id, attempt id or class name appears in any content block; the score and
       insights cases run with a fixture whose student is named in every other field.
-- [ ] The wrong-answer aggregate (`attempts/application/query/wrong_answers.go`): per question of
+- [x] The wrong-answer aggregate (`attempts/application/query/wrong_answers.go`): per question of
       an assignment's default version, the distinct normalised answer texts that did not earn
       full points with their counts, the eight most frequent, over handed-in attempts in scope;
       choice answers as option letters; `x-permission` through the insights operation only.
-- [ ] Prompts: one Go constant per feature with its schema; every prompt names the UI language
+- [x] Prompts: one Go constant per feature with its schema; every prompt names the UI language
       for any student-facing text; the insights prompt asks for patterns and actions, never a
       judgement of a student; `prompts_test.go` parses the deck's demo arrays against each
       schema and asserts the snapping of a suggested score to the allowed set.
-- [ ] Leak review in the PR: no AI response reaches a student; the four forbidden keys are not
+- [x] Leak review in the PR: no AI response reaches a student; the four forbidden keys are not
       involved; `payload_test.go` and `openapi-contract.test.ts` pass with their lists untouched.
 - [ ] Live smoke on the builder's machine (the key in `.env`): one generation from the deck's
       passage, one check of a seeded test, one score suggestion on a seeded short answer; the
-      metered credits and the ledger rows pasted in the PR, the responses not.
+      metered credits and the ledger rows pasted in the PR, the responses not. Needs the owner's
+      key; run at release.
+
+**As built:** One migration, `00124_add_ai_permissions.sql`: the two rows in `app.permissions`
+(`ai.use` in Content at ordinal 6, `ai.credits.manage` in System at 4, both `in_matrix`), and
+`ai.use` granted to the built-in Teacher role, written only where that role exists. The System
+group already numbered its four hidden keys 4 to 7 and the catalogue lists hidden keys last, so
+they move up by one; `(group_key, ordinal)` is unique and not deferrable, so the Up moves them out
+of the way (+100) and back (-99) as two statements and the Down reverses it. Because the Teacher
+now holds `ai.use`, T-D4.31's integration case that expected no Teacher in the Admin's list was
+changed: an idle Teacher is listed, an Assistant is not. The web's Admin and Teacher permission
+fixtures carry the keys as the migration grants them.
+
+The contract adds sixteen operations: ten under `/teacher/ai/*` (`ai.use`) and the six of
+T-D4.31's console under `/admin/ai/*` (`ai.credits.manage`); `PublicStatus.ai` (required, so the
+status fixtures changed); `UserPreferences.ai` (`language`, `tagDrafts`, `readStudentAnswers`,
+`readImports`, stored in the preferences document, reading answers on unless it is false);
+`readWithAi` on `WordImport`, `WordImportHistoryItem` and `CreateWordImport`, optional and
+absent for false (a property with a default is required in the generated request type), which the
+imports transport ignores until T-D4.33; the three notification kinds; and the error codes
+`AI_OFF`, `AI_PAUSED`, `AI_READ_OFF`, `AI_CREDITS_EXHAUSTED` (402, `details.scope` is `teacher` or
+`pool`), `AI_UNAVAILABLE` (503 with `Retry-After: 30`), `AI_REQUESTS_OFF`, `AI_REQUEST_PENDING`,
+`AI_REQUEST_DECIDED`, `AI_REQUEST_EXPIRED` and `AI_ALLOWANCE_BELOW_USE`. A provider that refused,
+answered something that is not an object, answered something no decoder can use, or rejected the
+request (`ErrRejected`, logged at error for an operator to read) is the same 503: what the provider
+billed is settled and the rest released (`Finish`, run from a `defer`, so a panic in the provider
+client also returns the held credits), and nothing is written.
+`makeTestVariant` and `checkTestWithAi` read the test's draft, one question read per question,
+bounded by 120,000 characters of paper; a question with formatted text is read for its words and
+never rewritten (a reword of one is dropped). `cleanUpQuestionBank` is one call on the fast tier,
+not the chunks and 60 seconds the sketch above says, and it is bounded so its answer fits the
+tokens it is given: it reads at most 2,000 of the caller's own questions and at most 300,000
+characters of them (`prompts.FitCleanup` cuts a longer bank to the prefix that fits, which keeps a
+call under the provider's 100K-token price step and inside a 200K-token context), names them `q1`
+to `qN` so no id is sent, asks for at most 20 pairs of duplicates, and asks tags for at most the
+first 60 questions that have none, with `MaxTokens` 3,000. The decoder drops a tag suggestion for
+any other question. `truncated` is true when the bank held more than the call read or more
+untagged questions than it tagged, and the panel says to apply the suggestions and run it again.
+The full chunked pass, with duplicates across chunks, inside the 60-second budget, is a follow-up.
+`suggestAiScore` and
+`explainAssignmentResults` also need `teaching.grading`, because they read what a grading read
+reads, and a score is suggested only for a short answer that waits for a mark by hand
+(`ReviewAnswer.RequiresManual`); an answer the grader marked itself is `ErrNotManual`.
+
+The ports are typed as other modules' handlers and wired in `core/adapters/ai_reads.go`, so
+`modules/ai` imports none of them; a nil `Completer` is `501 AI_OFF` before a read, and
+`wiring.WithCompleter` (and `core.New`'s options) is the seam by which the end-to-end world runs the
+whole application over a provider a test controls. The wrong-answer aggregate is one statement in
+`attempts/repositories/wrong_answers.go`, not `analysis.go`: the latest handed-in paper of each
+student, answers that did not earn full points and were marked, lower-cased with spaces collapsed,
+choice answers as option letters, blanks joined with " | ", the eight most frequent by count and
+then text.
+
+Data minimisation is tested at three levels: the prompts' own tests, `operations_test.go` (no id,
+actor or option id in any prompt, and the content is), and `ai_flow_test.go` over the real
+adapters (a student named, e-mailed and classed in every other field; none of it, nor the teacher's
+own identity, reaches a prompt, while the answer and its key do). The isolation suite holds an
+entry for each of the ten operations. Its world has a passage of more than forty characters in
+the listening group and a handed-in short answer, so the generation and the score suggestion
+reach the provider for the caller's own id too; the suite asserts the provider was asked eight
+times, once for each id slot that names the caller's own work (the score suggestion has two), and
+never for another teacher's or a missing id.
+
+Per-user limits: the eight suggestions and the console writes at 10 a minute and 100 an hour, the
+clean-up at 3 an hour, the credit request at 5 an hour, and the two reads (`getAiUsage`,
+`getAiCredits`) at 60 a minute and 600 an hour, since a page draws them on every visit.
+
+For the release: the live smoke is not done here, as it needs the owner's key. `20-data-model.md`
+§46 lists what `grant_maintenance_role` must add for `ai-credits` and `ai-reservations-sweep`, and
+`75-r5.md` T-R5.17a now says so.
 
 ### T-D4.33 — "Read with AI" in the import worker
 **Depends on:** T-D4.30, T-D4.31; T-D4.32 merged (its contract PR carries `readWithAi`)

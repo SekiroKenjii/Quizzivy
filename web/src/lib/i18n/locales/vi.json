@@ -2294,7 +2294,11 @@
       "opened": "{{title}} đã mở, đóng lúc {{when}}",
       "dueSoon": "{{title}} đóng lúc {{when}}",
       "extended": "{{title}} được gia hạn đến {{when}}",
-      "resultReady": "{{title}} đã có kết quả"
+      "resultReady": "{{title}} đã có kết quả",
+      "aiWarning": "Bạn đã dùng {{used}} trên {{allowance}} tín dụng AI trong tháng này",
+      "aiRequest": "{{teacherName}} xin thêm {{credits}} tín dụng AI",
+      "aiApproved": "Yêu cầu thêm {{credits}} tín dụng AI của bạn đã được duyệt",
+      "aiDeclined": "Yêu cầu thêm {{credits}} tín dụng AI của bạn đã bị từ chối"
     },
     "bell": {
       "label": "Thông báo",
@@ -2870,10 +2874,13 @@
     "selectionChanged": "Nội dung đã thay đổi. Đóng hộp thoại và chọn lại vị trí chèn.",
     "recordingPolicy": "Quy định bài nghe",
     "sharedPolicyHint": "Lượt nghe tính chung cho các câu trong nhóm, giữ nguyên khi học viên đổi câu hoặc tải lại trang.",
-    "gapBindings": "Liên kết chỗ trống",
-    "gapHint": "Mỗi chỗ trống phải liên kết tới một câu trắc nghiệm hoặc một ô trả lời cụ thể. Một câu/ô trả lời chỉ được liên kết một lần.",
+    "gapHint": "Không bắt buộc: thêm chỗ trống để làm bài điền từ. Mỗi chỗ trống được trả lời bằng một câu trắc nghiệm hoặc một ô trả lời trong nhóm này, hiện ngay tại chỗ trống.",
     "gapLabel": "Chỗ trống {{label}}",
-    "chooseTarget": "Chọn câu hoặc ô trả lời",
+    "gapLabelUnbound": "Chỗ trống {{label}}, chưa liên kết",
+    "gapChip": "chỗ trống {{label}}",
+    "gapTarget": "Câu hỏi cho chỗ trống {{label}}",
+    "removeGap": "Xoá chỗ trống {{label}}",
+    "chooseTarget": "Chọn câu hỏi…",
     "questionTarget": "Câu {{number}}",
     "blankTarget": "Câu {{number}} · chỗ trống {{blank}}",
     "titleRequired": "Nhập tên nhóm từ 1 đến 200 ký tự.",
@@ -2924,7 +2931,6 @@
     "select": "Chọn nhóm {{title}}",
     "standalone": "Câu hỏi đơn",
     "legacyMaterial": "Ngữ liệu cũ giữ định dạng Markdown. Bạn có thể sửa nội dung và dùng Xem ngữ liệu để kiểm tra.",
-    "removeBinding": "Bỏ liên kết",
     "moveMaterialUp": "Chuyển ngữ liệu lên",
     "moveMaterialDown": "Chuyển ngữ liệu xuống"
   },

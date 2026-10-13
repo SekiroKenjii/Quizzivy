@@ -10,7 +10,7 @@ import (
 var (
 	teacherGrants = access.NewSet(
 		access.ContentTestsWrite, access.ContentTestsPublish, access.ContentQuestionsWrite,
-		access.ContentMediaWrite, access.ContentShare,
+		access.ContentMediaWrite, access.ContentShare, access.AIUse,
 		access.TeachingClassesWrite, access.TeachingAssignmentsWrite, access.TeachingGrading,
 		access.TeachingAttemptsIntervene, access.TeachingAttendance,
 		access.PeopleStudentsRead, access.PeopleStudentsCreate, access.PeopleStudentsResetPassword,
@@ -24,19 +24,19 @@ var (
 	adminTakingTests = access.NewSet(access.All()...)
 )
 
-func TestTheCatalogueHoldsTwentyTwoDistinctKeysWithTheHiddenFourLast(t *testing.T) {
+func TestTheCatalogueHoldsTwentyFourDistinctKeysWithTheHiddenFourLast(t *testing.T) {
 	all := access.All()
-	if len(all) != 22 {
-		t.Fatalf("len(All()) = %d, want 22", len(all))
+	if len(all) != 24 {
+		t.Fatalf("len(All()) = %d, want 24", len(all))
 	}
-	if access.NewSet(all...).Len() != 22 {
+	if access.NewSet(all...).Len() != 24 {
 		t.Fatal("All() repeats a key")
 	}
 	for i, k := range all {
 		if !k.Known() || k.Pseudo() {
 			t.Errorf("%q: Known() = %v, Pseudo() = %v", k, k.Known(), k.Pseudo())
 		}
-		if want := i >= 18; k.Hidden() != want {
+		if want := i >= 20; k.Hidden() != want {
 			t.Errorf("%q at %d: Hidden() = %v, want %v", k, i, k.Hidden(), want)
 		}
 	}

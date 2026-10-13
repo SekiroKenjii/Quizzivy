@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { Editor } from "@tiptap/react";
 import { ArrowDown, ArrowUp, FileText, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmptyState } from "@/components/shared/ListState";
 import { ContentEditor } from "@/components/shared/content/editor/ContentEditor";
+import { removeGap } from "@/components/shared/content/editor/gapCommands";
 import { isQuestionContent } from "@/components/shared/content/questionContent";
 import { QuestionEditor } from "@/features/question-bank/components/QuestionEditor";
 import { AudioPolicyPanel } from "@/features/question-bank/components/AudioPolicyPanel";
@@ -516,6 +518,7 @@ function MaterialPane({
 }>) {
   const { t } = useTranslation();
   const [preview, setPreview] = useState(false);
+  const [editor, setEditor] = useState<Editor | null>(null);
   return (
     <div className="flex min-w-0 flex-col gap-5">
       <Field>
@@ -563,8 +566,14 @@ function MaterialPane({
         onChange={onChange}
         onAsset={onAsset}
         onRefresh={onRefresh}
+        onEditor={setEditor}
       />
-      <GapBindings material={material} bundle={bundle} onChange={onChange} />
+      <GapBindings
+        material={material}
+        bundle={bundle}
+        onChange={onChange}
+        onRemove={editor ? (gapId) => removeGap(editor, gapId) : undefined}
+      />
       <RecordingSettings
         recordings={bundle.group.recordings.filter(
           (recording) => materialAssets([material]).get(recording.assetId) === "audio",

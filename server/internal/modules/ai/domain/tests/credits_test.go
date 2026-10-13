@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"quizzivy/internal/modules/ai/domain"
+	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/actor"
 )
 
@@ -203,8 +204,8 @@ func TestACategoryListIsACopy(t *testing.T) {
 }
 
 func TestTheConsoleActsAsSystemAndASignedInUserAsThemselves(t *testing.T) {
-	user := domain.AuthorOf(actor.Actor{ID: "u-1", IP: "203.0.113.9", UserAgent: "Firefox"})
-	if user.System() || user.UserID != "u-1" || user.IP != "203.0.113.9" || user.UserAgent != "Firefox" {
+	user := domain.AuthorOf(actor.Actor{ID: "u-1", IP: "203.0.113.9", UserAgent: "Firefox"}, access.NewSet(access.AICreditsManage))
+	if user.System() || user.UserID != "u-1" || user.IP != "203.0.113.9" || user.UserAgent != "Firefox" || !user.Grants.Has(access.AICreditsManage) {
 		t.Errorf("a signed-in author is %+v", user)
 	}
 	if !(domain.Author{Operator: "thuong"}).System() {
