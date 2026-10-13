@@ -4577,10 +4577,15 @@ is built here. Item 8 came from T-D4.10a, and items 9 and 10 from the Tech Lead'
    would study harder." measures exactly as the same prompt in Markdown at 360 and 1280, light
    and dark, empty and chosen (the sentence 500 18px/32.4px, the box 88 × 30.8px empty), which
    is the drawing T-D4.11 matched to s9 questions 5 and 12; no horizontal scroll.
-8. **Spec §9 on the cloze run.** §9 says "The engine shows one question at a time"; since T-D4.10a a
+8. [x] **Spec §9 on the cloze run.** §9 says "The engine shows one question at a time"; since T-D4.10a a
    run of a cloze's gaps is one screen. T-D4.12 rewrites §9 and §12 for the rail and the sheet, and
    adds the run, its line, the ties and the move by stop there. T-D4.10a left the spec's version
    alone, to keep it out of the lanes running beside it.
+
+   **As built (T-D4.12):** §9's engine opens on "one stop at a time" and gains a bullet on the cloze:
+   what makes a run, its line, the shared prompt or the open member's own, the chips, the card and
+   its worth, the next gap with no answer, the passage's chips, the tied squares and the move by stop.
+   The keys move between stops.
 9. [x] **The grading leave guard after "Use score and comment" (T-D4.36, the Tech Lead's
    review).** A score filled from the suggestion and not yet saved was dropped on a route change
    without a word when the suggested comment was empty or matched the saved one.
