@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -132,6 +132,10 @@ const standalone: components["schemas"]["AdminQuestion"] = {
   updatedAt: STAMP,
 };
 
+beforeAll(async () => {
+  await import("@/features/tests/components/OutlineTree");
+});
+
 let stored: StoredGroup;
 let puts: UpdateInput[];
 let answer: "ok" | "fail" | "stale";
@@ -151,6 +155,7 @@ function storeGroup(value: GroupBundle) {
 }
 
 beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
   viewport(1280);
   installIntersectionObserver();
   puts = [];
@@ -229,6 +234,10 @@ beforeEach(() => {
   );
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 function renderBuilder() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
@@ -240,7 +249,10 @@ function renderBuilder() {
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
-  return userEvent.setup({ applyAccept: false });
+  return userEvent.setup({
+    applyAccept: false,
+    advanceTimers: vi.advanceTimersByTime,
+  });
 }
 
 async function line(name: string) {
@@ -326,7 +338,7 @@ describe("the Shared content dialog", () => {
         screen.getByRole("button", { name: "Bài đọc · Parks and heat" }),
       ).toHaveFocus(),
     );
-    await new Promise((resolve) => setTimeout(resolve, 1700));
+    await vi.advanceTimersByTimeAsync(1700);
     expect(puts).toHaveLength(1);
   });
 
@@ -339,7 +351,8 @@ describe("the Shared content dialog", () => {
 
     await user.type(screen.getByLabelText("Tên nhóm câu hỏi"), " B");
 
-    await waitFor(() => expect(puts).toHaveLength(2), { timeout: 4000 });
+    await vi.advanceTimersByTimeAsync(1500);
+    await waitFor(() => expect(puts).toHaveLength(2));
     expect(puts[1]?.expectedRevision).toBe(2);
     expect(puts[1]?.bundle.group.title).toBe("Reading club B");
     expect(puts[1]?.bundle.group.stimuli[0]?.title).toBe(`${TITLE}!`);
@@ -506,19 +519,23 @@ describe("the Shared content dialog", () => {
     expect(puts).toHaveLength(2);
   });
 
-  it("closes on Cancel without asking when nothing changed, asks before discarding an edit, and sends nothing", async () => {
+  it("closes on Cancel without asking when nothing changed, and sends nothing", async () => {
     const user = renderBuilder();
-    let dialog = await openFromLine(user, `Bài đọc · ${TITLE}`);
+    const dialog = await openFromLine(user, `Bài đọc · ${TITLE}`);
     await user.click(within(dialog).getByRole("button", { name: "Huỷ" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() =>
       expect(screen.getByRole("button", { name: `Bài đọc · ${TITLE}` })).toHaveFocus(),
     );
+    expect(puts).toEqual([]);
+  });
 
-    dialog = await openFromLine(user, `Bài đọc · ${TITLE}`);
+  it("asks before discarding an edit, and sends nothing", async () => {
+    const user = renderBuilder();
+    const dialog = await openFromLine(user, `Bài đọc · ${TITLE}`);
     await user.type(titleField(dialog), "!");
     await user.keyboard("{Escape}");
-    let confirm = await screen.findByRole("dialog", { name: "Bỏ các thay đổi?" });
+    const confirm = await screen.findByRole("dialog", { name: "Bỏ các thay đổi?" });
     await user.click(within(confirm).getByRole("button", { name: "Tiếp tục sửa" }));
     await waitFor(() =>
       expect(screen.queryByRole("dialog", { name: "Bỏ các thay đổi?" })).toBeNull(),
@@ -526,8 +543,8 @@ describe("the Shared content dialog", () => {
     expect(titleField(dialog)).toHaveValue(`${TITLE}!`);
 
     await user.click(within(dialog).getByRole("button", { name: "Huỷ" }));
-    confirm = await screen.findByRole("dialog", { name: "Bỏ các thay đổi?" });
-    await user.click(within(confirm).getByRole("button", { name: "Bỏ thay đổi" }));
+    const again = await screen.findByRole("dialog", { name: "Bỏ các thay đổi?" });
+    await user.click(within(again).getByRole("button", { name: "Bỏ thay đổi" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByRole("button", { name: `Bài đọc · ${TITLE}` })).toBeVisible();
     expect(puts).toEqual([]);
