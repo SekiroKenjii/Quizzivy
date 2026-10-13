@@ -86,7 +86,9 @@ for (const width of [768, 1440]) {
       frame.getByRole("img", { name: "Thời gian làm bài được đặt khi giao bài" }),
     ).toBeVisible();
     await expect(frame.getByRole("button", { name: "Nộp bài" })).toHaveCount(0);
-    expect(await page.locator(":focus").count()).toBe(0);
+    expect(
+      await frame.evaluate((element) => element.contains(document.activeElement)),
+    ).toBe(false);
 
     await frame.getByRole("button", { name: "Câu sau", exact: true }).click();
     await frame.getByRole("button", { name: "Câu sau", exact: true }).click();
