@@ -329,6 +329,151 @@ describe("true_false", () => {
   });
 });
 
+describe("a choice sentence with its gap", () => {
+  const sentence = (over: Partial<StudentQuestion> = {}) =>
+    question({
+      type: "single_choice",
+      prompt: "If I ___ you, I would study harder.",
+      options: [
+        { id: "o1", text: "am" },
+        { id: "o2", text: "were" },
+      ],
+      ...over,
+    });
+
+  function Answering({ q }: Readonly<{ q: StudentQuestion }>) {
+    const [answer, setAnswer] = useState<Answer | undefined>(undefined);
+    return <QuestionBody question={q} answer={answer} onAnswer={setAnswer} />;
+  }
+
+  const paragraph = () => screen.getByText(/^If I/, { selector: "p" });
+  const box = () => paragraph().querySelector<HTMLElement>(":scope > span")!;
+
+  it("draws the sentence at 18px, medium, on a 1.8 line, in place of the prompt", () => {
+    renderQuestion(sentence());
+    expect(paragraph()).toHaveClass(
+      "text-[1.125rem]",
+      "font-medium",
+      "leading-[1.8]",
+      "text-pretty",
+    );
+    expect(paragraph()).toHaveTextContent("If I chỗ trống you, I would study harder.");
+    expect(document.body.textContent).not.toContain("___");
+  });
+
+  it("draws an empty gap as the deck's muted box with a ring line, heard as a blank", () => {
+    renderQuestion(sentence());
+    expect(box()).toHaveClass(
+      "inline-block",
+      "min-w-22",
+      "px-2.5",
+      "rounded-[7px]",
+      "border-b-2",
+      "bg-muted",
+      "border-ring",
+    );
+    expect(within(box()).getByText("chỗ trống")).toHaveClass("sr-only");
+    expect(box().querySelector('[aria-hidden="true"]')?.textContent).toBe(" ");
+  });
+
+  it("fills the gap with the chosen option on the accent tones and writes the same answer", async () => {
+    const onAnswer = vi.fn();
+    const q = sentence();
+    const { rerender } = render(
+      <QuestionBody question={q} answer={undefined} onAnswer={onAnswer} />,
+    );
+    await userEvent.click(screen.getByRole("radio", { name: "were" }));
+    expect(onAnswer).toHaveBeenCalledWith({ type: "choice", optionIds: ["o2"] });
+    rerender(
+      <QuestionBody
+        question={q}
+        answer={{ type: "choice", optionIds: ["o2"] }}
+        onAnswer={onAnswer}
+      />,
+    );
+    expect(box().textContent).toBe("were");
+    expect(box()).toHaveClass("bg-brand-soft", "border-brand");
+    expect(box()).not.toHaveClass("bg-muted");
+    expect(box()).not.toHaveClass("border-ring");
+    expect(paragraph()).toHaveTextContent("If I were you, I would study harder.");
+    expect(screen.queryByText("chỗ trống")).toBeNull();
+  });
+
+  it("follows the student's choice as it changes", async () => {
+    render(<Answering q={sentence()} />);
+    await userEvent.click(screen.getByRole("radio", { name: "am" }));
+    expect(box().textContent).toBe("am");
+    await userEvent.click(screen.getByRole("radio", { name: "were" }));
+    expect(box().textContent).toBe("were");
+  });
+
+  it("names a canonical true/false option in the reader's language", () => {
+    renderQuestion(
+      sentence({
+        type: "true_false",
+        prompt: "The sun rises in the ___.",
+        options: [
+          { id: "t", text: "True" },
+          { id: "f", text: "False" },
+        ],
+      }),
+      { type: "choice", optionIds: ["t"] },
+    );
+    expect(screen.getByText(/^The sun/, { selector: "p" }).textContent).toBe(
+      "The sun rises in the Đúng.",
+    );
+  });
+
+  it("keeps a Vietnamese sentence and option whole, composed", () => {
+    renderQuestion(
+      sentence({
+        prompt: "Cô ấy ___ ở Hà Nội từ năm 2019.",
+        options: [
+          { id: "o1", text: "đã sống".normalize("NFD") },
+          { id: "o2", text: "sống" },
+        ],
+      }),
+      { type: "choice", optionIds: ["o1"] },
+    );
+    expect(screen.getByText(/^Cô ấy/, { selector: "p" }).textContent).toBe(
+      "Cô ấy đã sống ở Hà Nội từ năm 2019.".normalize("NFC"),
+    );
+  });
+
+  it("says blank in English", async () => {
+    await i18n.changeLanguage("en");
+    try {
+      renderQuestion(sentence());
+      expect(paragraph()).toHaveTextContent("If I blank you, I would study harder.");
+    } finally {
+      await i18n.changeLanguage("vi");
+    }
+  });
+
+  it("raises the sentence to 20px with larger text", () => {
+    localStorage.setItem("quizzivy.testText", "large");
+    renderQuestion(sentence());
+    expect(paragraph()).toHaveClass("text-xl", "leading-[1.8]");
+    expect(paragraph()).not.toHaveClass("text-[1.125rem]");
+  });
+
+  it("prints any other prompt as written", () => {
+    const { unmount } = render(
+      <QuestionBody
+        question={sentence({ prompt: "She ___ to school and ___ home." })}
+        answer={{ type: "choice", optionIds: ["o1"] }}
+        onAnswer={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByText("She ___ to school and ___ home.").parentElement,
+    ).toHaveClass("text-lg", "leading-[1.6]!");
+    unmount();
+    renderQuestion(sentence({ type: "multiple_choice", prompt: "Pick ___ of them." }));
+    expect(screen.getByText("Pick ___ of them.")).toBeInTheDocument();
+  });
+});
+
 describe("fill_blank", () => {
   it("keeps focus and the full answer while the controlled value changes", async () => {
     const q = question({

@@ -2149,6 +2149,7 @@
     "answerOptions": "Answer options",
     "blankLabel": "Blank {{n}}",
     "blankPlaceholder": "type here",
+    "sentenceGap": "blank",
     "yourAnswer": "Your answer",
     "answerPlaceholder": "Type your answer",
     "wordCount_one": "{{count}} word",

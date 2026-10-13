@@ -1,21 +1,27 @@
 import { RichBlankPrompt } from "@/components/shared/content/RichBlankPrompt";
 import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { OptionText } from "@/components/shared/content/OptionText";
+import { trueFalseLabelKey } from "@/components/shared/content/trueFalse";
 import { createContext, useContext, useId, useMemo, type ComponentProps } from "react";
 import type { ExtraProps } from "react-markdown";
 import { useTranslation } from "react-i18next";
 import { Markdown } from "@/components/shared/Markdown";
+import { nfc } from "@/lib/nfc";
 import { useLargerTestText } from "@/lib/testText";
 import { cn } from "@/lib/utils";
 import { blankInputs } from "./blankInputs";
 import { PaperSourceContext } from "../paper";
 import { questionKind } from "../questionType";
+import { sentenceGap, type SentenceGap } from "../sentenceGap";
 import { useEngineWidthAtLeast } from "../width";
 import { worth } from "../worth";
 import type { Answer, StudentQuestion } from "../api";
 
 const PROMPT = "leading-[1.6]! font-medium text-pretty";
 const SENTENCE = "leading-[2.1]! font-medium text-pretty";
+const GAP_SENTENCE = "leading-[1.8] font-medium text-pretty";
+const GAP =
+  "mx-[3px] inline-block max-w-full min-w-22 rounded-[7px] border-b-2 px-2.5 text-center leading-[1.6] break-words";
 const SHORT_OPTION = 16;
 const COLUMNS = ["grid-cols-1", "grid-cols-2", "grid-cols-3", "grid-cols-4"];
 const HINT = "text-muted-fg -mt-2 text-sm";
@@ -51,11 +57,12 @@ function textSizes(larger: boolean) {
 
 /**
  * QuestionBody is what a student answers, one question at a time: the prompt
- * at 17px, then the options as rows with letter markers, in columns when they
- * are all short and the question has no shared content, the blanks as the
- * deck's underlined fields inside an 18px sentence, or the answer field with
- * its word count. "Larger text in tests" raises the prompt to 19px, the
- * sentence to 20px and the answers to 17px. A type this page has no renderer
+ * at 17px, or a choice prompt's one gap as the deck's 18px sentence that
+ * shows the chosen option, then the options as rows with letter markers, in
+ * columns when they are all short and the question has no shared content;
+ * the blanks as the deck's underlined fields inside an 18px sentence; or the
+ * answer field with its word count. "Larger text in tests" raises the prompt
+ * to 19px, both sentences to 20px and the answers to 17px. A type this page has no renderer
  * for draws nothing here and never calls `onAnswer`: QuestionSheet puts
  * UnknownType in its place.
  */
@@ -129,6 +136,7 @@ function Choice({ question, answer, onAnswer, disabled, larger }: Readonly<Props
   const chosen = new Set(
     answer !== undefined && "optionIds" in answer ? answer.optionIds : [],
   );
+  const gap = sentenceGap(question);
 
   const toggle = (optionId: string) => {
     if (multiple) {
@@ -143,11 +151,20 @@ function Choice({ question, answer, onAnswer, disabled, larger }: Readonly<Props
 
   return (
     <div className="flex flex-col gap-4.5">
-      <QuestionProse
-        className={cn(size.prompt, PROMPT)}
-        text={question.prompt}
-        content={question.promptContent}
-      />
+      {gap === null ? (
+        <QuestionProse
+          className={cn(size.prompt, PROMPT)}
+          text={question.prompt}
+          content={question.promptContent}
+        />
+      ) : (
+        <GapSentence
+          gap={gap}
+          className={size.sentence}
+          chosen={options.find((option) => chosen.has(option.id))}
+          type={question.type}
+        />
+      )}
       <p id={instructionId} className={multiple ? HINT : "sr-only"}>
         {t(multiple ? "takeTest.chooseMultiple" : "takeTest.chooseSingle")}
       </p>
@@ -203,6 +220,42 @@ function Choice({ question, answer, onAnswer, disabled, larger }: Readonly<Props
         })}
       </div>
     </div>
+  );
+}
+
+function GapSentence({
+  gap,
+  className,
+  chosen,
+  type,
+}: Readonly<{
+  gap: SentenceGap;
+  className: string;
+  chosen: NonNullable<StudentQuestion["options"]>[number] | undefined;
+  type: StudentQuestion["type"];
+}>) {
+  const { t } = useTranslation();
+  if (chosen === undefined) {
+    return (
+      <p className={cn(className, GAP_SENTENCE)}>
+        {gap.before}
+        <span className={cn(GAP, "bg-muted border-ring")}>
+          <span aria-hidden="true">{"\u00a0"}</span>
+          <span className="sr-only">{t("takeTest.sentenceGap")}</span>
+        </span>
+        {gap.after}
+      </p>
+    );
+  }
+  const canonical = trueFalseLabelKey(type, chosen.text, chosen.content);
+  return (
+    <p className={cn(className, GAP_SENTENCE)}>
+      {gap.before}
+      <span className={cn(GAP, "bg-brand-soft border-brand")}>
+        {canonical === null ? nfc(chosen.text) : t(canonical)}
+      </span>
+      {gap.after}
+    </p>
   );
 }
 
