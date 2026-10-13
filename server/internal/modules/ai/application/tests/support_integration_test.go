@@ -102,6 +102,7 @@ func (w *world) build() {
 	notifications := notificationsapp.New(notificationsrepo.NewPostgres(dbx))
 	w.app = application.New(repositories.NewPostgres(dbx), application.Options{
 		Prices: testPrices, Zone: saigon, Notifier: notifications.Commands.Notify, Logger: slog.New(slog.DiscardHandler),
+		People: everyoneAlike{},
 	})
 	w.app.SetClock(func() time.Time { return *w.clock.Load() })
 	w.rememberRules()

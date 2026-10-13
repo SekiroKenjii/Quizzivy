@@ -148,3 +148,16 @@ func (p *Postgres) DecideRequest(ctx context.Context, in domain.DecideInput) (do
 	}
 	return out, nil
 }
+
+// RequestOwner reads the teacher a request belongs to, which the subset rule needs before a decision is written.
+func (p *Postgres) RequestOwner(ctx context.Context, id string) (string, error) {
+	var userID string
+	err := p.QueryRow(ctx, `SELECT user_id::text FROM app.ai_credit_requests WHERE id = $1::uuid`, id).Scan(&userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", domain.ErrRequestNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("ai: read the request's owner: %w", err)
+	}
+	return userID, nil
+}

@@ -14,7 +14,6 @@ import {
   getAttempt,
   saveAnswers,
   type AttemptSession,
-  type StudentGroup,
   type StudentQuestion,
 } from "@/features/take-test/api";
 import { useTakeTestStore } from "@/features/take-test/store";
@@ -24,6 +23,7 @@ import { contractJson } from "@tests/support/contractResponse";
 import {
   DECK_ATTEMPT,
   DECK_PASSAGE,
+  deckListeningSession,
   deckPassageSession,
   deckSaved,
   deckSession,
@@ -74,51 +74,6 @@ function twoParts(paper: AttemptSession): AttemptSession {
   };
 }
 
-function listening(paper: AttemptSession): AttemptSession {
-  const asset = "018f0000-0000-7000-8000-00000000d001";
-  const group: StudentGroup = {
-    id: "018f0000-0000-7000-8000-00000000d002",
-    sectionId: paper.sections[0]!.id,
-    title: "Hội thoại ở bưu điện",
-    questionIds: paper.questions.slice(0, 2).map((question) => question.id),
-    instructions: {
-      format: "semantic_v1",
-      blocks: [
-        {
-          type: "paragraph",
-          content: [{ type: "text", text: "Nghe rồi trả lời hai câu.", marks: [] }],
-        },
-      ],
-    },
-    stimuli: [],
-    recordings: [
-      {
-        id: "018f0000-0000-7000-8000-00000000d003",
-        assetId: asset,
-        policy: {
-          maxPlays: 2,
-          allowSeek: false,
-          showTranscriptAfterSubmit: false,
-          allowPause: true,
-        },
-      },
-    ],
-    assets: [
-      {
-        id: asset,
-        kind: "audio",
-        mimeType: "audio/mpeg",
-        bytes: 2048,
-        durationMs: 30_000,
-        originalFilename: "post-office.mp3",
-        createdAt: "2026-09-20T00:00:00Z",
-        url: "https://assets.example/post-office.mp3",
-      },
-    ],
-  };
-  return { ...paper, groups: [group], groupAudioPlays: {} };
-}
-
 beforeEach(async () => {
   viewport("desktop");
   localStorage.clear();
@@ -148,7 +103,7 @@ describe("the deck's fixtures", () => {
       contractJson("/app/attempts/{id}", "get", 200, deckPassageSession(NOW)),
     ).not.toThrow();
     expect(() =>
-      contractJson("/app/attempts/{id}", "get", 200, listening(deckSession(NOW))),
+      contractJson("/app/attempts/{id}", "get", 200, deckListeningSession(NOW)),
     ).not.toThrow();
   });
 });
@@ -437,45 +392,38 @@ describe("the panes from 768", () => {
     const head = sheet().firstElementChild as HTMLElement;
     expect(within(head).getByText("Phần 1 · Nghe")).toHaveClass("uppercase");
     expect(head).toHaveTextContent("Mỗi đoạn nghe được hai lần.");
-    const play = within(sheet()).getByRole("button", { name: "Phát" });
+    const card = within(sheet()).getByRole("group", {
+      name: "Đoạn ghi âm của câu hỏi",
+    });
+    const play = within(card).getByRole("button", { name: "Phát" });
     expect(play).toBeVisible();
-    expect(play).toHaveClass("in-data-[scale=deck]:size-10");
-    expect(play.parentElement).toHaveClass(
-      "in-data-[scale=deck]:bg-card",
-      "in-data-[scale=deck]:rounded-[11px]",
-      "in-data-[scale=deck]:border-[1.5px]",
-      "in-data-[scale=deck]:px-3.5",
-      "in-data-[scale=deck]:py-2.5",
-    );
-    expect(within(sheet()).getByText("Còn 2 lượt nghe")).toHaveClass(
-      "in-data-[scale=deck]:text-meta",
-    );
+    expect(play).toHaveClass("size-13", "rounded-full");
+    expect(card).toHaveClass("bg-card", "rounded-2xl", "border", "p-4.5");
+    expect(within(card).getByText("Lượt nghe 1/2")).toBeVisible();
   });
 
-  it("draws a group that has only recordings inside the question pane", async () => {
+  it("draws a listening group's recording in the stimulus pane, with no heading", async () => {
     const user = userEvent.setup();
-    const { container } = await open(listening(deckSession(NOW)));
+    const { container } = await open(deckListeningSession(NOW));
 
-    expect(screen.queryByRole("article")).toBeNull();
-    const pane = within(sheet());
+    const pane = screen.getByRole("article", { name: "Part 1 · Asking the way" });
+    expect(within(pane).queryAllByRole("heading")).toHaveLength(0);
+    const card = within(pane).getByRole("group", { name: "Asking the way" });
+    expect(within(card).getByRole("button", { name: "Phát" })).toBeVisible();
+    expect(within(card).getByText("Lượt nghe 1/2")).toBeVisible();
     expect(
-      pane.getByRole("heading", { level: 2, name: "Hội thoại ở bưu điện" }),
+      within(pane).getByText("Lượt nghe dùng chung cho các câu trong nhóm này."),
     ).toBeVisible();
-    expect(pane.getByText("Nghe rồi trả lời hai câu.")).toBeVisible();
-    const recording = pane.getByRole("group", { name: "Bài nghe 1" });
-    expect(recording).toBeVisible();
-    expect(
-      recording.compareDocumentPosition(pane.getByRole("radiogroup")) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(pane.getByText("Còn 2 lượt nghe")).toBeVisible();
+    expect(within(sheet()).queryByRole("button", { name: "Phát" })).toBeNull();
     const audio = container.querySelector("audio");
 
     await user.click(next());
     expect(container.querySelector("audio")).toBe(audio);
-    await user.click(next());
-    expect(container.querySelector("audio")).toBeNull();
-    expect(within(sheet()).queryByRole("heading")).toBeNull();
+    for (let step = 0; step < 4; step += 1) await user.click(next());
+    expect(
+      screen.getByRole("article", { name: "Part 2 · A guided walk" }),
+    ).toBeInTheDocument();
+    expect(container.querySelector("audio")).not.toBe(audio);
   });
 
   it("draws a question's own image in the question pane, on the paper surface", async () => {
@@ -921,10 +869,17 @@ describe("the panes below 768", () => {
     expect(questionPane()).toBeVisible();
   });
 
-  it("has no handle for a group that has only recordings", async () => {
-    await open(listening(deckSession(NOW)));
-    expect(handle()).toBeNull();
-    expect(within(sheet()).getByRole("button", { name: "Phát" })).toBeVisible();
+  it("puts a listening group's recording in the drawer, behind the audio handle", async () => {
+    const user = userEvent.setup();
+    await open(deckListeningSession(NOW));
+    const audioHandle = screen.getByRole("button", { name: "Mở bài nghe" });
+    expect(drawer()).toHaveAttribute("inert");
+    expect(drawer()).toContainElement(document.querySelector("audio"));
+    expect(within(sheet()).queryByRole("button", { name: "Phát" })).toBeNull();
+
+    await user.click(audioHandle);
+    const card = within(drawer()).getByRole("group", { name: "Asking the way" });
+    expect(within(card).getByRole("button", { name: "Phát" })).toBeVisible();
   });
 
   it("shows both panes when an open drawer grows past 768, with the same pane element", async () => {

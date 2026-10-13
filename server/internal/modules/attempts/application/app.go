@@ -70,6 +70,7 @@ type Commands struct {
 type Queries struct {
 	GradingQueue       cqrs.QueryHandler[query.GradingQueue, domain.GradingQueue]
 	ItemAnalysis       cqrs.QueryHandler[query.ItemAnalysis, domain.ItemAnalysis]
+	WrongAnswers       cqrs.QueryHandler[query.WrongAnswers, domain.WrongAnswers]
 	ResultsExport      cqrs.QueryHandler[query.ResultsExport, domain.ResultsExport]
 	AnswersForQuestion cqrs.QueryHandler[query.AnswersForQuestion, domain.ByQuestion]
 	Get                cqrs.QueryHandler[query.Get, domain.Session]
@@ -103,6 +104,7 @@ func New(repo domain.TimelineRepository, reviewRepo domain.ReviewRepository, sto
 		Queries: Queries{
 			GradingQueue:       query.GradingQueueHandler{Review: review},
 			ItemAnalysis:       query.ItemAnalysisHandler{Service: service},
+			WrongAnswers:       query.WrongAnswersHandler{Service: service},
 			ResultsExport:      query.ResultsExportHandler{Service: service},
 			AnswersForQuestion: query.AnswersForQuestionHandler{Review: review},
 			Get:                query.GetHandler{Service: service},

@@ -133,13 +133,13 @@ rolling deploy without a fill trigger):
 | `NNNNN_add_test_version_questions_audio_allow_pause.sql` | T-D4.13 |
 | `NNNNN_add_group_recordings_allow_pause.sql` | T-D4.13 |
 | `NNNNN_add_test_version_group_recordings_allow_pause.sql` | T-D4.13 |
-| `NNNNN_add_ai_permissions.sql` (two rows in `app.permissions`, `ai.use` granted to the Teacher role) | T-D4.32 |
 | `00118_create_ai_settings.sql` | T-D4.31 |
 | `00119_create_ai_credit_periods.sql` | T-D4.31 |
 | `00120_create_ai_teacher_credits.sql` | T-D4.31 |
 | `00121_create_ai_reservations.sql` | T-D4.31 |
 | `00122_create_ai_usage_ledger.sql` (append-only: no `UPDATE` or `DELETE` for the app role) | T-D4.31 |
 | `00123_create_ai_credit_requests.sql` | T-D4.31 |
+| `00124_add_ai_permissions.sql` (two rows in `app.permissions`, `ai.use` granted to the Teacher role) | T-D4.32 |
 | `NNNNN_add_word_imports_read_with_ai.sql` (`boolean NOT NULL DEFAULT false`) | T-D4.33 |
 
 The AI tables are new and empty, so none is `-- +goose NO TRANSACTION` and the v0.10.0 binary is
@@ -605,7 +605,7 @@ names the D4 task, or the release and the correction T-D4.19 makes.
 | V-14 the AI panel | T 6540-6750; `aiVals` T 9470-9591; `AI_K` T 7577-7663; `aiOpen`, `aiStart` T 9405-9429 | not drawn | A right-side `role="dialog"` named by its title, `min(560px, 100%)` wide, full height, `--card`, a left border, `--shadow-lg`, over a `--overlay` backdrop (z 75 / 76). Header (padding 16px 16px 16px 18px): a 36px accent icon tile, the title (15px 600), the sub (12.5px muted), Close (32px). Body (padding 18, gap 18) in three stages. **Setup**: fields by type: source chips (28px pills with an icon: "Passage 1 · Urban green space", "Start empty"), a textarea (13.5px, `--bg`), a segmented control (30px), toggle chips (30px pills, `aria-pressed`, a check when on), a toggle card (border, radius 10), an info callout (`--muted`, `info` icon). **Running**: three step lines (a check in `--success`, a spinner, or a 7px dot) advancing every 1.3s, then a pulsing skeleton (`qz-pulse`); a run lasts at least 3.2s. **Done**: in the demo a warning callout "AI didn’t respond, so this is sample output. Try again in a minute."; a summary line (13px muted) and "Select all" / "Clear selection"; a dashed empty card; item cards (border, radius 12, padding 14; `--ring` border when selected): a `role="checkbox"` "Keep this" (18px) when selectable, tone pills, a right-aligned meta, a 14px 500 title, a 13px body, lettered options (the correct one in success tones with a check), an "Answer" pill, a before / after grid (the before struck through for a variant), dashed "+ {tag}" chips, a note with a bold label, action buttons (30px; the primary filled). Footer: a credit note with `coins` ("About {cost} credits · {left} left this month"; after a run "Used about {cost} credits"; or the validation sentence with `circle-alert` in warning ink), a secondary (Cancel / Stop / Start over), a primary (the run label with `sparkles`; after a run the apply label, at .5 opacity until something is selected; "Done" when the kind applies nothing). No Esc, no focus trap, no focus return (DG-36) | nothing in the product | new (AI) | web L | T-D4.34 |
 | V-14a Generate questions (`gen`) | T 7577-7605 | — | "Generate questions" / "From a passage, a transcript or a topic. Questions arrive as drafts for you to check.". Fields: Source (8 rows; chips "Passage 1 · …" with the test's passage, "Start empty"; placeholder "Paste a passage or transcript, or describe a topic"), Question types (Single choice, True / False / Not given, Fill in the blank, Short answer; default single and tf), How many 3 / 5 / 8 (5), Level B1 / B2 / C1 (B2), "Write an explanation for each question" / "Students see it after results are released." (on). Validation: "Add a source of at least a few sentences" under 40 characters, "Pick at least one question type". Steps: Reading the source, Writing questions, Checking every answer against the source. Items: tags the type, the level, "AI draft" (when tagging is on); the prompt; options with the key marked; an "Answer" pill for blank and short; the explanation as a note. Primary: in the builder "Add {n} to {section}" (appends the picks to the open question's section and opens the first; toast "{n} questions added to {section}. Check each one before publishing."); in the bank "Save {n} to the bank" ("… with an AI draft tag"); from insights "Save as practice test" ("Practice test with {n} questions saved as a draft in Tests"). Cost 1,800 | the section and bank question writes exist; `tfng` is R6 | new (AI); TFNG is offered once R6 ships | — | T-D4.32, T-D4.34 |
 | V-14b Check this test (`check`) | T 7606-7617 | — | "Check this test with AI" / "Looks for answer keys that don’t match the passage, unclear wording and questions that give answers away.". Look for: Wrong or doubtful answers, Unclear wording, Answers given away, Spelling and grammar (all on); info "Checks the questions in “{title}” against their passages. Nothing changes until you apply a fix.". Steps: Reading both passages, Checking answers against the text, Looking at wording and options. Items: tags Likely error (danger) / Worth a look (warning) / Minor (info) and "Q{n}"; meta the type; title the question's; body the issue; note "Suggested fix"; actions "{fix label}" (applies and toasts), "Open question", "Dismiss". Summary "{n} things worth a look"; empty "Nothing left to look at. The test is ready to publish."; no primary. Cost 2,400 | the draft read; `updateQuestion` for a fix; the demo's fixes name R6 types and `maxWords` | new (AI); fixes whose write exists are one click, the rest open the question | — | T-D4.32, T-D4.34 |
-| V-14c Clean up the bank (`dups`) | T 7618-7633 | — | "Clean up the question bank" / "Finds near-duplicates and questions with missing tags, so search and filters work better.". Look for: Near-duplicates, Missing tags; info "Scans the questions you own. Questions shared with you are skipped, and nothing changes until you confirm.". Steps: Reading 1,284 questions, Comparing similar questions, Suggesting tags. A duplicate card (not selectable): "Possible duplicate", meta "Used in 4 tests and 1 test", the reason as title, One / Other, actions "Merge into one" (toast "Merged. Tests that used either question now share one copy.") and "Keep both". A tag card: "Missing tags", the level, the prompt, dashed "+ {tag}" chips; primary "Add tags to {n} questions". Empty "All done. Your bank is tidy.". Cost 3,200 | `listQuestions` with `Own()`; the bulk tag write (T-R4.32); no merge operation | new (AI); no merge (DG-197): a duplicate card has "Open" for each and "Keep both" | — | T-D4.32, T-D4.34 |
+| V-14c Clean up the bank (`dups`) | T 7618-7633 | — | "Clean up the question bank" / "Finds near-duplicates and questions with missing tags, so search and filters work better.". Look for: Near-duplicates, Missing tags; info "Scans the questions you own. Questions shared with you are skipped, and nothing changes until you confirm.". Steps: Reading 1,284 questions, Comparing similar questions, Suggesting tags. A duplicate card (not selectable): "Possible duplicate", meta "Used in 4 tests and 1 test", the reason as title, One / Other, actions "Merge into one" (toast "Merged. Tests that used either question now share one copy.") and "Keep both". A tag card: "Missing tags", the level, the prompt, dashed "+ {tag}" chips; primary "Add tags to {n} questions". Empty "All done. Your bank is tidy.". Cost 3,200 | `listQuestions` with `Own()`; the bulk tag write (T-R4.32); no merge operation | new (AI); no merge (DG-197): a duplicate card has "Open" for each and "Keep both". One call reads at most 2,000 questions and 300,000 characters, finds at most 20 duplicate pairs and suggests tags for the first 60 untagged questions; the response's `truncated` tells the panel to say "Apply these and run it again" (T-D4.32 As built) | — | T-D4.32, T-D4.34 |
 | V-14d Generate words (`vocab`) | T 7634-7648; the button T 3678-3682 | — | "Generate words from a text" / "Picks the words your students need to understand a passage, with meanings and new example sentences.": Text (7 rows), How many words 8 / 12 / 20, Students’ level A2 / B1 / B2, Meanings in Tiếng Việt \| English; items the term, part of speech and level as tags, the meaning, the example as a note; primary "Add {n} to {list}". Cost 1,200 | word lists are R10 (T-R10.4, T-R10.12) | R10: the entity does not exist before it | — | R10 (T-D4.19: T-R10.12 gains the button and the kind) |
 | V-15 class detail: tabs | T 4145-4155; `cdTabs`, `cdOverview`, `cdAttTab` T 9655-9658 | One screen | Underline tabs Overview \| Attendance under the header; Attendance carries an accent badge with the number of sessions not yet taken | T-R4.42 (one screen); attendance is R8's | R8 | S (R8) | R8 (T-D4.19) |
 | V-16 class detail: join-code card | T 4287-4345; `cdCodeFull`, `cdLink`, `cdQrOp`, `cdShowQr`, `cdShare` T 8328-8331; `VIA` T 8303; `fresh` T 8320 | "••••-{last 4}" in a box, "The full code is shown only once, when it is created."; the paused paragraph; link rows; the New-code dialog "Copy it now. After you close this, only the last 4 characters are shown."; "Joined via" "Code ••{hint}" | A 112px QR button (`qr-code` 88px, `cursor: zoom-in`, `--qr-bg`; "Show full size for the projector"; opacity .4 while joining is paused) opening a 420px dialog "Join {class}" ("Show this on the projector. Students scan it or type the code." or "Joining is paused, so this code won’t work until you turn it back on."); beside it the full code (22px monospace, 600, letter-spacing .08em) with the join link under it (12.5px muted, ellipsis) and a "Joining paused" chip (`pause`, warning tones) in place of the paragraph; a row of three outline buttons (32px, flex 1, ellipsis) Copy code (`copy`), Copy link (`link`), Download QR (`download`); Expires and Uses under a 1px divider; the footer "A new code makes the old code, link and QR stop working."; the New-code dialog's desc "Share the code, the link or the QR with your students."; members' "Joined via" shows the full code | T-R4.42 built DG-01 (the full code, no "shown only once") in the fourth export's geometry | reopens R4 (T-R4.42); **DG-01 is Answered** by v2 | S | T-D4.23 |
@@ -1499,11 +1499,11 @@ today the passage pane prints that material's heading and the node's label
 (`GroupContext.tsx:62`) while the player sits in the question pane (`GroupListening`).
 
 **Done when:**
-- [ ] The card is drawn at its audio node, in reading order, in the stimulus pane (the drawer
+- [x] The card is drawn at its audio node, in reading order, in the stimulus pane (the drawer
       below 768), in place of today's label line: `GroupContext`'s `renderAudio`, which
       already receives the node, the asset and the recording, returns the player.
       `GroupListening` leaves the question pane and its `stimuli.length === 0` branch goes.
-- [ ] A material whose content is only audio nodes draws no heading (T-D4.5) and no label: a
+- [x] A material whose content is only audio nodes draws no heading (T-D4.5) and no label: a
       listening group is the kicker and the card, as drawn (S 1054-1056, 1074-1097). A
       material with text and audio keeps its heading and has the card where the node stands.
       A group with several recordings has each card at its own node, and only then is the
@@ -1511,37 +1511,37 @@ today the passage pane prints that material's heading and the node's label
       is empty), so two cards can be told apart; with one recording nothing is printed and the
       label is the card's accessible name. Never the same recording twice: no list of
       recordings is drawn before or after the materials.
-- [ ] A recording no audio node names is a payload the server refuses; if one arrives anyway
+- [x] A recording no audio node names is a payload the server refuses; if one arrives anyway
       its card is drawn after the materials, so no payload can hide a recording.
       `hasPassage` becomes "has shared content" (`stimuli` or `recordings`), which is the same
       answer as today for every group the server accepts. One unit case keeps the refused
       shape, named for what it is.
-- [ ] The shared player stays mounted across the group's questions and across 768 (the pane is
+- [x] The shared player stays mounted across the group's questions and across 768 (the pane is
       keyed by the group and is the same element on both sides, T-D4.7). Leaving the group by
       any means (Previous, Next, the arrow keys, a square, "Go to", a gap) pauses its
       recording, because the pane unmounts; the deck pauses on a click that changes the
       section and not on the arrow keys, which is a slip of the prototype (DG-191, DG-193).
-- [ ] `AudioPlayer` gains `layout="card"`, used by the engine and the teacher's preview only:
+- [x] `AudioPlayer` gains `layout="card"`, used by the engine and the teacher's preview only:
       padding 18px, radius 14, 1px border, `--card`, `--shadow`; a 52px round primary button
       with a 22px icon (play, pause, or `rotate-ccw` after a finished play); a 6px track on
       `--muted` filled `--accent-c`; under it the time "0:00 / 2:34" and, at the far end, "Play
       {n} of {N}" (12.5px, tabular), which reads 1 before the first play; then a status line
       with a 15px headphones icon (13px, muted). The same `toggle()` serves both layouts;
       `audio-player-card.test.tsx` repeats the same-tick assertion for the card.
-- [ ] Status and names, as drawn: "Press play when you are ready.", "Playing", "Paused",
+- [x] Status and names, as drawn: "Press play when you are ready.", "Playing", "Paused",
       "Finished · 1 play left" (plural in both languages); the button is "Play", "Pause",
       "Resume" or "Play again". With no limit the counter reads "Play {n}" and the finished
       line "Finished" (DG-193).
-- [ ] The status line has a place for the blocked sentence (`media.playBlocked`).
-- [ ] At the limit the button stays live (DG-182, spec §11.4, the canary's "still plays when
+- [x] The status line has a place for the blocked sentence (`media.playBlocked`).
+- [x] At the limit the button stays live (DG-182, spec §11.4, the canary's "still plays when
       the hint says none are left"): no lock icon, the status reads "You have used all {N}
       plays." and the product's "You can keep listening. Additional plays are recorded for your
       teacher to review." follows; the counter reads "Played {n}/{N} times".
-- [ ] A play is spent when playback starts and no play is in progress; a resume after a pause
+- [x] A play is spent when playback starts and no play is in progress; a resume after a pause
       spends none. `AudioPlayer` calls `onPlay` for the first and `onResume` for the second;
       both hosts count on `onPlay` only. With seeking allowed, moving inside a play in
       progress spends nothing.
-- [ ] A play in progress and its position are remembered for the tab's life per recording or
+- [x] A play in progress and its position are remembered for the tab's life per recording or
       question (`playback.ts`, memory only, cleared with the attempt), so coming back to a
       group resumes where it stopped without a play; a reload forgets, and the next start
       counts. The restore must not meet the no-seek guard, which would put a remounted
@@ -1556,16 +1556,16 @@ today the passage pane prints that material's heading and the node's label
         remembered point (the restore was refused, or the metadata never came), the start is
         counted as a play through `onPlay` and the memory is cleared. A place that cannot be
         put back is never free.
-- [ ] Starting one recording pauses any other that is playing.
-- [ ] A question's own audio (`QuestionAudio`) takes the same card, in the question pane, with
+- [x] Starting one recording pauses any other that is playing.
+- [x] A question's own audio (`QuestionAudio`) takes the same card, in the question pane, with
       the same rules. A recording keeps "Allow skipping ahead": when it is on, the seek control
       lies over the 6px track. The scope line and the sync line with its Retry stay under a
       shared recording (DG-80).
-- [ ] Spec §11.3 and §11.4 are changed in this PR: "Each play that starts the recording sends
+- [x] Spec §11.3 and §11.4 are changed in this PR: "Each play that starts the recording sends
       an `audio_play` event; resuming a paused play sends none", one instance per recording
       that keeps its place while its group is left, and the rule above for a place that
       cannot be put back. Version bumped per §18.
-- [ ] Unit tests, which cannot see playback (jsdom plays nothing, and the existing tests stub
+- [x] Unit tests, which cannot see playback (jsdom plays nothing, and the existing tests stub
       `play`, `pause` and `paused` only): `audio-player-resume.test.tsx` (a pause and a resume
       call `onPlay` once; a second start after the end calls it twice; a remembered play
       resumes with `play()` in the click's tick and no `onPlay`; an empty memory counts; a
@@ -1573,20 +1573,58 @@ today the passage pane prints that material's heading and the node's label
       does); `question-audio-events.test.tsx` gains "a resume records no second play";
       `group-context.test.tsx` gains the card at its node for an audio-only material, a mixed
       material and two recordings, all on the validated shape.
-- [ ] `panes.test.tsx`: the fixture at 93-100 (`stimuli: []` with a recording) is retired as
+- [x] `panes.test.tsx`: the fixture at 93-100 (`stimuli: []` with a recording) is retired as
       the listening fixture, because the server refuses it; its case "draws a group that has
       only recordings inside the question pane" becomes "draws a listening group's recording
       in the stimulus pane, with no heading", on T-D4.3's s2 group. The PR lists the pair.
-- [ ] Browser proof, because the free replay cannot be seen in jsdom: `audio-plays.live.spec.ts`
+- [x] Browser proof, because the free replay cannot be seen in jsdom: `audio-plays.live.spec.ts`
       gains (a) a pause and a resume with the server's count still 1, and (b) with seeking
       off: start a group's recording, leave the group mid-play, come back, resume, and assert
       that `currentTime` is past the remembered point and the server's count is still 1. Its
       existing assertions are unchanged. `student-engine.phone.spec.ts` repeats (b) in
       mobile-chromium against the stubbed API, counting the `group-audio-play` requests.
-- [ ] Compared with s2 question 1 (part 1's recording: T-D4.3's fixture gives it choice
+- [x] Compared with s2 question 1 (part 1's recording: T-D4.3's fixture gives it choice
       members) at the five widths, light and dark: the card at rest, playing, paused and
       finished. Question 6 is the deck's recording that cannot be paused and is T-D4.9's
       comparison. The lock state is a known difference (DG-182).
+
+**As built:** the memory is `features/media/playback.ts` (`keepPlace`, `recallPlace`,
+`forgetPlace`, `forgetAllPlaces`, and `takeTurn`/`releaseTurn` for the one player sounding);
+`TakeTestPage` forgets every place as the attempt closes. `AudioPlayer` keys a host's memory by
+`place` (`recording:<id>` or `question:<id>`). "A play in progress" is a start this player saw,
+with no end since, and a position past 0:00 or a place still to be put back: a pause before any
+sound, at 0:00, leaves "Play" on the button and the next press spends a play, as the deck's
+`toggle` does (S 1681) and as the frozen `shared-audio-events.test.tsx` already counts it. The
+guard compares with a ref (`guardAt`) where it read the `position` state, so the restore can set
+it before `currentTime`. The card's phase (ready, playing, paused, finished) comes from the
+player's own state and, for "finished", from the host's count, so a card that comes back after
+a finished play, or after a reload, reads "Play again". A finished card shows the whole track
+and the total, as the deck does at `t >= len`; the icons are outlines, as the deck's lucide
+font draws them. "At the limit" is a finished card with `played >= limit`; while a play runs
+past the limit the counter reads "Played n/N times" and the extra-plays line shows.
+`GroupListening` stays as the card list for a recording no node names (the refused shape),
+which `shared-audio-events.test.tsx` renders untouched; its "nothing to read" branch is gone,
+and `hasPassage` is `hasSharedContent`. With several recordings the printed label falls back to
+"Recording n" for a blank one (the validated shape refuses an empty label, so a blank is
+whitespace). `QuestionCard` loses its `lead` prop. `GroupMaterials.tsx` needed no change: the
+audio-only rule was T-D4.5's, and the label line was `GroupContext`'s renderer. The teacher's
+preview keeps its own player until T-D4.16 draws the engine there. New keys under `media.`:
+`resume`, `playAgain`, `playOf`, `playN`, `playedOf`, `statusReady`, `statusPlaying`,
+`statusPaused`, `statusFinished`, `statusFinishedLeft`, `statusUsedAll`, `extraPlays`; removed,
+in their own commit: `takeTest.{playsLeft,playsUsed,extraPlaysRecorded,sharedAudioUnlimited}`.
+`panes.test.tsx`'s pair: "draws a group that has only recordings inside the question pane"
+became "draws a listening group's recording in the stimulus pane, with no heading" (s2), and
+the phone's "has no handle for a group that has only recordings" became "puts a listening
+group's recording in the drawer, behind the audio handle"; the refused shape is
+`group-context.test.tsx`'s "still draws a recording no audio node names". Tests that pinned the
+old frame moved with it: `group-attempt.spec.ts` (the counter, the card in the drawer at 320,
+"Play again" after the reload), `audio-events.spec.ts` ("Play again" after the end; new: a
+pause and a resume record one play), and the phone spec's 44px case opens the drawer.
+`audio-plays.live.spec.ts`: E2E 8 now reaches 2/2 through a resume (count still 1 after a
+reload) and a second play after the end, since its old second press is now a resume; E2E 8b
+authors a group recording in the builder and proves (b). The stubbed group recording is served
+with byte ranges (`fulfillWithRanges`), as object storage serves it: without them Chrome cannot
+seek, and the phone spec's second new case proves that such a place counts as a new play.
 
 ### T-D4.9 — Engine: a recording that cannot be paused
 **Depends on:** T-D4.8, T-D4.13
@@ -2616,7 +2654,8 @@ until T-R5.17a, so the commands run as `MAINTENANCE_DATABASE_URL`'s credential, 
 `grant_maintenance_role` must add. `APP_TIMEZONE` was documented and never read; `config.AppLocation()`
 reads it (`Asia/Ho_Chi_Minh`, with a fixed +07:00 fallback on a host without zone data).
 `operations.md` ("AI credits") documents the console. An allowance edit is not subject to the subset
-rule (`access.CanActOn`); see the open question in the pull request.
+rule (`access.CanActOn`) in this task, which T-D4.32 applies to the application commands; the
+console, as System, is not asked.
 
 Not done here: the Neon rehearsal (T-D4.40's migration rehearsal runs the six files on a branch of
 production and puts the timings in the release pull request).
@@ -2626,7 +2665,7 @@ production and puts the timings in the release pull request).
 **Touches:** `api/openapi.yaml` (`PermissionKey` gains `ai.use` and `ai.credits.manage`; the `/teacher/ai/*` and `/admin/ai/*` operations; `WordImport.readWithAi` and `createImport`'s field; `PublicStatus.ai`; `UserPreferences.ai`), `server/gen/openapi/`, `web/src/lib/api/schema.d.ts`, `migrations/NNNNN_add_ai_permissions.sql` (new), `server/internal/platform/httpx/permissions.go` (the two keys' trees), `server/internal/core/router/{ratelimits.go,tests/testdata/permissions.golden}`, `server/tests/isolation_cases_test.go`, `server/internal/modules/ai/{domain/prompts/*.go,application/{query/{generate,check,variant,explanation,distractors,score,insights,cleanup}.go,ports/{tests,questions,grading,analysis}.go}},http/ai.go}` (new), `server/internal/core/adapters/ai_reads.go` (new: the ports over the tests, questions, attempts and assignments modules), `server/internal/modules/attempts/{application/query/wrong_answers.go,repositories/analysis.go}` (the aggregate), `server/internal/modules/ai/application/tests/{prompts_test.go,operations_test.go}` (new), `docs/plan/70-redesign-overview.md` §4.1 (two rows; on the branch already)
 **Size:** L
 **Done when:**
-- [ ] The contract. `PermissionKey` gains `ai.use` ("Use AI features", Content, Admin and
+- [x] The contract. `PermissionKey` gains `ai.use` ("Use AI features", Content, Admin and
       Teacher) and `ai.credits.manage` ("Manage AI credits", System, Admin); the migration
       inserts both into `app.permissions` (`in_matrix` true, DG-199) and grants `ai.use` to the
       built-in Teacher role; the Admin wildcard holds both. `httpx.PermissionRequirements` lets
@@ -2651,48 +2690,124 @@ production and puts the timings in the release pull request).
         action}]}` (kind `assignment`; the same preference gate);
       - `/teacher/ai/bank/cleanup` `{checks}` → `{duplicates: [{a, b, why, usage}], tags:
         [{questionId, prompt, level, tags}]}` over the caller's own rows, in chunks, capped at
-        2,000 questions and a 60s budget (`x-resource-list`).
+        2,000 questions and a 60s budget (`x-resource-list`). As built, one call bounded as below.
       Every operation declares its `x-resource` kinds and has its isolation-suite entry; another
       teacher's id answers as a missing one. `make gen` is its own commit; MSW fixtures validate
       with ajv; `pnpm typecheck` passes.
-- [ ] What T-D4.30 left for the contract: `ErrorCode` gains `AI_OFF`, and with the adapter nil
+- [x] The subset rule (the Tech Lead's decision of 2026-10-13). Every `/admin/ai/*` write that
+      targets one teacher (`setAiAllowance`, which also pauses and resumes, and the two credit
+      request decisions) calls `access.CanActOn(actor, target)` in the application command, where
+      `Author` carries the caller's effective permissions; a target outside the subset answers
+      `403 FORBIDDEN` with the words of the user-admin operations. The maintenance console
+      (System) is not asked: `CanActOn` compares two permission sets and System has none. One
+      end-to-end case: a custom role holding only `ai.credits.manage` cannot pause an Admin.
+- [x] What T-D4.30 left for the contract: `ErrorCode` gains `AI_OFF`, and with the adapter nil
       (`Assembly.AI == nil`) every `/teacher/ai/*` and `/admin/ai/*` operation answers `501
       NOT_IMPLEMENTED` with that code; `PublicStatus` gains `ai: boolean`, read from
       `Config.AIEnabled()` and never from the provider; `core/router/{modules.go,server.go}` gain
       the AI transport.
-- [ ] What T-D4.31 left for the contract: `NotificationKind` gains `ai.allowance_warning`,
+- [x] What T-D4.31 left for the contract: `NotificationKind` gains `ai.allowance_warning`,
       `ai.credit_request` and `ai.credit_request.decided`, with their rows in its table;
       `NotificationParams` gains `used`, `allowance`, `credits` (integers, 0 or more),
       `teacherName` (1 to 200 characters) and `decision` (`approved` or `declined`), and the
       three `Params` types in `notifications/domain/params.go` (`AllowanceWarning`,
       `CreditRequest`, `CreditRequestDecided`) go into `params_test.go`'s `everyKind`;
       `kindsByAudience` lists the three for the teacher's bell; `kinds.ts` words them in vi and en.
-- [ ] `PrincipalRateLimits()` gains every AI operation at 10 a minute and 100 an hour per actor,
+- [x] `PrincipalRateLimits()` gains every AI operation at 10 a minute and 100 an hour per actor,
       the clean-up at 3 an hour, the credit request at 5 an hour; `credential_limits_test.go`'s
       form of assertion lists them.
-- [ ] Each operation reserves its ceiling (the table above) before the call and ends the
+- [x] Each operation reserves its ceiling (the table above) before the call and ends the
       reservation with `Commands.Finish`, which settles the metered usage, including what a refusal
       or an unparseable answer was billed (T-D4.30), and releases when nothing was billed; the
       response carries `usage: {credits, left}` for the panel's footer. With the adapter nil: 501. With the budget gone: 402 as T-D4.31 says.
       A provider failure after retries: `503 AI_UNAVAILABLE` with `Retry-After`, and the
       reservation released.
-- [ ] Data minimisation is tested, not described: `operations_test.go` drives each operation
+- [x] Data minimisation is tested, not described: `operations_test.go` drives each operation
       against a fake `Completer` that records the request, and asserts that no student name,
       email, user id, attempt id or class name appears in any content block; the score and
       insights cases run with a fixture whose student is named in every other field.
-- [ ] The wrong-answer aggregate (`attempts/application/query/wrong_answers.go`): per question of
+- [x] The wrong-answer aggregate (`attempts/application/query/wrong_answers.go`): per question of
       an assignment's default version, the distinct normalised answer texts that did not earn
       full points with their counts, the eight most frequent, over handed-in attempts in scope;
       choice answers as option letters; `x-permission` through the insights operation only.
-- [ ] Prompts: one Go constant per feature with its schema; every prompt names the UI language
+- [x] Prompts: one Go constant per feature with its schema; every prompt names the UI language
       for any student-facing text; the insights prompt asks for patterns and actions, never a
       judgement of a student; `prompts_test.go` parses the deck's demo arrays against each
       schema and asserts the snapping of a suggested score to the allowed set.
-- [ ] Leak review in the PR: no AI response reaches a student; the four forbidden keys are not
+- [x] Leak review in the PR: no AI response reaches a student; the four forbidden keys are not
       involved; `payload_test.go` and `openapi-contract.test.ts` pass with their lists untouched.
 - [ ] Live smoke on the builder's machine (the key in `.env`): one generation from the deck's
       passage, one check of a seeded test, one score suggestion on a seeded short answer; the
-      metered credits and the ledger rows pasted in the PR, the responses not.
+      metered credits and the ledger rows pasted in the PR, the responses not. Needs the owner's
+      key; run at release.
+
+**As built:** One migration, `00124_add_ai_permissions.sql`: the two rows in `app.permissions`
+(`ai.use` in Content at ordinal 6, `ai.credits.manage` in System at 4, both `in_matrix`), and
+`ai.use` granted to the built-in Teacher role, written only where that role exists. The System
+group already numbered its four hidden keys 4 to 7 and the catalogue lists hidden keys last, so
+they move up by one; `(group_key, ordinal)` is unique and not deferrable, so the Up moves them out
+of the way (+100) and back (-99) as two statements and the Down reverses it. Because the Teacher
+now holds `ai.use`, T-D4.31's integration case that expected no Teacher in the Admin's list was
+changed: an idle Teacher is listed, an Assistant is not. The web's Admin and Teacher permission
+fixtures carry the keys as the migration grants them.
+
+The contract adds sixteen operations: ten under `/teacher/ai/*` (`ai.use`) and the six of
+T-D4.31's console under `/admin/ai/*` (`ai.credits.manage`); `PublicStatus.ai` (required, so the
+status fixtures changed); `UserPreferences.ai` (`language`, `tagDrafts`, `readStudentAnswers`,
+`readImports`, stored in the preferences document, reading answers on unless it is false);
+`readWithAi` on `WordImport`, `WordImportHistoryItem` and `CreateWordImport`, optional and
+absent for false (a property with a default is required in the generated request type), which the
+imports transport ignores until T-D4.33; the three notification kinds; and the error codes
+`AI_OFF`, `AI_PAUSED`, `AI_READ_OFF`, `AI_CREDITS_EXHAUSTED` (402, `details.scope` is `teacher` or
+`pool`), `AI_UNAVAILABLE` (503 with `Retry-After: 30`), `AI_REQUESTS_OFF`, `AI_REQUEST_PENDING`,
+`AI_REQUEST_DECIDED`, `AI_REQUEST_EXPIRED` and `AI_ALLOWANCE_BELOW_USE`. A provider that refused,
+answered something that is not an object, answered something no decoder can use, or rejected the
+request (`ErrRejected`, logged at error for an operator to read) is the same 503: what the provider
+billed is settled and the rest released (`Finish`, run from a `defer`, so a panic in the provider
+client also returns the held credits), and nothing is written.
+`makeTestVariant` and `checkTestWithAi` read the test's draft, one question read per question,
+bounded by 120,000 characters of paper; a question with formatted text is read for its words and
+never rewritten (a reword of one is dropped). `cleanUpQuestionBank` is one call on the fast tier,
+not the chunks and 60 seconds the sketch above says, and it is bounded so its answer fits the
+tokens it is given: it reads at most 2,000 of the caller's own questions and at most 300,000
+characters of them (`prompts.FitCleanup` cuts a longer bank to the prefix that fits, which keeps a
+call under the provider's 100K-token price step and inside a 200K-token context), names them `q1`
+to `qN` so no id is sent, asks for at most 20 pairs of duplicates, and asks tags for at most the
+first 60 questions that have none, with `MaxTokens` 3,000. The decoder drops a tag suggestion for
+any other question. `truncated` is true when the bank held more than the call read or more
+untagged questions than it tagged, and the panel says to apply the suggestions and run it again.
+The full chunked pass, with duplicates across chunks, inside the 60-second budget, is a follow-up.
+`suggestAiScore` and
+`explainAssignmentResults` also need `teaching.grading`, because they read what a grading read
+reads, and a score is suggested only for a short answer that waits for a mark by hand
+(`ReviewAnswer.RequiresManual`); an answer the grader marked itself is `ErrNotManual`.
+
+The ports are typed as other modules' handlers and wired in `core/adapters/ai_reads.go`, so
+`modules/ai` imports none of them; a nil `Completer` is `501 AI_OFF` before a read, and
+`wiring.WithCompleter` (and `core.New`'s options) is the seam by which the end-to-end world runs the
+whole application over a provider a test controls. The wrong-answer aggregate is one statement in
+`attempts/repositories/wrong_answers.go`, not `analysis.go`: the latest handed-in paper of each
+student, answers that did not earn full points and were marked, lower-cased with spaces collapsed,
+choice answers as option letters, blanks joined with " | ", the eight most frequent by count and
+then text.
+
+Data minimisation is tested at three levels: the prompts' own tests, `operations_test.go` (no id,
+actor or option id in any prompt, and the content is), and `ai_flow_test.go` over the real
+adapters (a student named, e-mailed and classed in every other field; none of it, nor the teacher's
+own identity, reaches a prompt, while the answer and its key do). The isolation suite holds an
+entry for each of the ten operations. Its world has a passage of more than forty characters in
+the listening group and a handed-in short answer, so the generation and the score suggestion
+reach the provider for the caller's own id too; the suite asserts the provider was asked eight
+times, once for each id slot that names the caller's own work (the score suggestion has two), and
+never for another teacher's or a missing id.
+
+Per-user limits: the eight suggestions and the console writes at 10 a minute and 100 an hour, the
+clean-up at 3 an hour, the credit request at 5 an hour, and the two reads (`getAiUsage`,
+`getAiCredits`) at 60 a minute and 600 an hour, since a page draws them on every visit.
+
+For the release: the live smoke is not done here, as it needs the owner's key. `20-data-model.md`
+§46 lists what `grant_maintenance_role` must add for `ai-credits` and `ai-reservations-sweep`, and
+`75-r5.md` T-R5.17a now says so.
 
 ### T-D4.33 — "Read with AI" in the import worker
 **Depends on:** T-D4.30, T-D4.31; T-D4.32 merged (its contract PR carries `readWithAi`)

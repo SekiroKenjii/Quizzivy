@@ -86,7 +86,45 @@ test("a play that runs to the end is recorded with its end", async ({ page }) =>
     page.getByRole("button", { name: "Tạm dừng", exact: true }),
   ).toBeVisible();
   await expect(page.getByText(/^0:0[1-9] \/ 0:10$/)).toBeVisible();
-  await expect(play).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("button", { name: "Phát lại", exact: true })).toBeVisible(
+    { timeout: 15_000 },
+  );
+  await expect(
+    page.getByText("Đã nghe xong · còn 1 lượt", { exact: true }),
+  ).toBeVisible();
+
+  await page.locator("label").filter({ hasText: "Đáp án A" }).click();
+  await expect.poll(recorded.audioEvents).toEqual([
+    ["audio_play", "q1"],
+    ["audio_ended", "q1"],
+  ]);
+  expect(recorded.countedPlays()).toBe(1);
+});
+
+test("a pause and a resume record one play and its end", async ({ page }) => {
+  test.setTimeout(60_000);
+  const recorded = await open(page);
+  const audio = page.locator("audio");
+  await expect
+    .poll(() => audio.evaluate((element: HTMLAudioElement) => element.readyState))
+    .toBeGreaterThan(0);
+
+  await page.getByRole("button", { name: "Phát", exact: true }).click();
+  await expect
+    .poll(() => audio.evaluate((element: HTMLAudioElement) => element.currentTime))
+    .toBeGreaterThan(1);
+  await page.getByRole("button", { name: "Tạm dừng", exact: true }).click();
+  await expect(page.getByText("Đã tạm dừng", { exact: true })).toBeVisible();
+  const stoppedAt = await audio.evaluate(
+    (element: HTMLAudioElement) => element.currentTime,
+  );
+  await page.getByRole("button", { name: "Nghe tiếp", exact: true }).click();
+  await expect
+    .poll(() => audio.evaluate((element: HTMLAudioElement) => element.currentTime))
+    .toBeGreaterThan(stoppedAt);
+  await expect(page.getByRole("button", { name: "Phát lại", exact: true })).toBeVisible(
+    { timeout: 15_000 },
+  );
 
   await page.locator("label").filter({ hasText: "Đáp án A" }).click();
   await expect.poll(recorded.audioEvents).toEqual([

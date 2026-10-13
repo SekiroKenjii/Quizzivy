@@ -12,7 +12,7 @@ var builtinGrants = map[access.Builtin]access.Set{
 	access.BuiltinAdmin: access.NewSet(access.All()...).Without(access.LearningTakeTests),
 	access.BuiltinTeacher: access.NewSet(
 		access.ContentTestsWrite, access.ContentTestsPublish, access.ContentQuestionsWrite,
-		access.ContentMediaWrite, access.ContentShare,
+		access.ContentMediaWrite, access.ContentShare, access.AIUse,
 		access.TeachingClassesWrite, access.TeachingAssignmentsWrite, access.TeachingGrading,
 		access.TeachingAttemptsIntervene, access.TeachingAttendance,
 		access.PeopleStudentsRead, access.PeopleStudentsCreate, access.PeopleStudentsResetPassword,

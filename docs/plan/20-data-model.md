@@ -1502,6 +1502,7 @@ the file it adds.
 | `00121_create_ai_reservations.sql` | `ai_reservations`, its composite foreign key and its two indexes | D4 (T-D4.31), D-47, §46 |
 | `00122_create_ai_usage_ledger.sql` | `ai_usage_ledger`, its indexes, and `REVOKE UPDATE, DELETE` from the app role | D4 (T-D4.31), D-48, §46 |
 | `00123_create_ai_credit_requests.sql` | `ai_credit_requests`, `ai_credit_requests_one_pending_idx` and two more indexes | D4 (T-D4.31), D-49, §46 |
+| `00124_add_ai_permissions.sql` | `ai.use` (Content, ordinal 6) and `ai.credits.manage` (System, ordinal 4) in `app.permissions`, both `in_matrix`; the System group's four hidden ordinals move up one, in two statements because `(group_key, ordinal)` is unique and not deferrable; `ai.use` granted to the built-in Teacher role | D4 (T-D4.32), DG-199, §46 |
 
 Notes on migration mechanics (§13.7):
 

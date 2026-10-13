@@ -231,8 +231,10 @@ unit, integration and end-to-end in that order.
   lists (`listTests`, `listQuestions`, `listQuestionGroups`, `listMedia`,
   `listWordImports`, `listAssignments`) pass
   `httpapi.ScopeFromContext(ctx).Own()`, with their facets, tags and counts,
-  so an Admin's list holds what a teacher's would (DG-53). A read or a write
-  by id never calls `Own`.
+  so an Admin's list holds what a teacher's would (DG-53). The AI bank
+  clean-up's read of the caller's questions (`AIQuestions.Own`, in
+  `core/adapters/ai_reads.go`) is a seventh. A read or a
+  write by id never calls `Own`.
 - **Student targets go through `app.student_like_roles` and nothing else.** No
   query reads `users.role` to decide who is a student, so an Admin with "Take
   tests" turned on is never a student target.

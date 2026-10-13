@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Flag } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -16,13 +15,11 @@ export function QuestionCard({
   question,
   number,
   total,
-  lead,
   onAudioExpired,
 }: Readonly<{
   question: StudentQuestion;
   number: number;
   total: number;
-  lead?: ReactNode;
   onAudioExpired: () => void;
 }>) {
   const { answers, setAnswer, lock } = usePaper();
@@ -34,7 +31,6 @@ export function QuestionCard({
       number={number}
       total={total}
       action={<FlagToggle questionId={question.id} disabled={locked} />}
-      lead={lead}
       audio={<QuestionAudio question={question} onExpired={onAudioExpired} />}
       answer={answers[question.id]}
       onAnswer={(next) => setAnswer(question.id, next)}

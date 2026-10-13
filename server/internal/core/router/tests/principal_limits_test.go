@@ -41,7 +41,30 @@ var thePerActorLimits = map[string][]ratelimit.Rule{
 	"POST /teacher/media/{id}/replace":           {{Burst: 10, Window: time.Minute}, {Burst: 60, Window: time.Hour}},
 	"DELETE /auth/sessions/{familyId}":           {{Burst: 10, Window: time.Minute}, {Burst: 60, Window: time.Hour}},
 	"POST /auth/sessions/revoke-others":          {{Burst: 5, Window: time.Minute}, {Burst: 30, Window: time.Hour}},
+
+	"POST /teacher/ai/questions/generate":                                         aiSuggestion,
+	"POST /teacher/ai/tests/{id}/check":                                           aiSuggestion,
+	"POST /teacher/ai/tests/{id}/variant":                                         aiSuggestion,
+	"POST /teacher/ai/questions/{id}/explanation":                                 aiSuggestion,
+	"POST /teacher/ai/questions/{id}/distractors":                                 aiSuggestion,
+	"POST /teacher/ai/attempts/{attemptId}/answers/{questionId}/score-suggestion": aiSuggestion,
+	"POST /teacher/ai/assignments/{id}/insights":                                  aiSuggestion,
+	"POST /teacher/ai/bank/cleanup":                                               {{Burst: 3, Window: time.Hour}},
+	"POST /teacher/ai/credit-requests":                                            {{Burst: 5, Window: time.Hour}},
+	"GET /teacher/ai/usage":                                                       aiRead,
+	"GET /admin/ai/credits":                                                       aiRead,
+	"PATCH /admin/ai/rules":                                                       aiConsole,
+	"POST /admin/ai/credits/additions":                                            aiConsole,
+	"PUT /admin/ai/teachers/{userId}/allowance":                                   aiConsole,
+	"POST /admin/ai/credit-requests/{id}/approve":                                 aiConsole,
+	"POST /admin/ai/credit-requests/{id}/decline":                                 aiConsole,
 }
+
+var (
+	aiSuggestion = []ratelimit.Rule{{Burst: 10, Window: time.Minute}, {Burst: 100, Window: time.Hour}}
+	aiConsole    = aiSuggestion
+	aiRead       = []ratelimit.Rule{{Burst: 60, Window: time.Minute}, {Burst: 600, Window: time.Hour}}
+)
 
 func sendFrom(t *testing.T, h http.Handler, issuer *identitytoken.Issuer, method, path, userID, address, body string) *httptest.ResponseRecorder {
 	t.Helper()

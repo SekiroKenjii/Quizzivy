@@ -268,7 +268,7 @@ func TestAddCreditsIsBoundedAndNamesTheApprover(t *testing.T) {
 	if err != nil || pool.Added != 50_000 {
 		t.Fatalf("pool %+v, %v", pool, err)
 	}
-	if got := f.repo.additions[0]; got.By != by || got.Credits != 50_000 || got.Month.Format(time.DateOnly) != "2090-09-01" {
+	if got := f.repo.additions[0]; got.By.UserID != by.UserID || got.By.IP != by.IP || got.Credits != 50_000 || got.Month.Format(time.DateOnly) != "2090-09-01" {
 		t.Errorf("stored %+v", got)
 	}
 }

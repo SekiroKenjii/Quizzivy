@@ -1,5 +1,6 @@
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Page, type Route } from "@playwright/test";
 import { sessionAs, studentUser, stubApi } from "./api";
 import {
   previewGroup,
@@ -97,9 +98,15 @@ const recordingId = previewGroup.recordings[0]!.id;
 /**
  * startGroupPaper opens the engine on two questions that share a passage and
  * a recording, and returns the play ids the server has seen. The first play
- * request is lost on the way back.
+ * request is lost on the way back. With `lone`, the paper opens on a question
+ * of its own first, so a student can leave the group and come back; with
+ * `seekable` false, the recording is served without byte ranges, so the
+ * browser cannot put a position back.
  */
-export async function startGroupPaper(page: Page) {
+export async function startGroupPaper(
+  page: Page,
+  { lone = false, seekable = true } = {},
+) {
   const seen = new Set<string>();
   let loseFirstResponse = true;
   const now = new Date().toISOString();
@@ -116,7 +123,7 @@ export async function startGroupPaper(page: Page) {
     },
     testTitle: "Đọc và nghe theo nhóm",
     sections: [previewSection],
-    questions: previewQuestions.slice(1),
+    questions: lone ? previewQuestions : previewQuestions.slice(1),
     groups: [previewGroup],
     audioPlays: {},
     answers: {},
@@ -155,7 +162,9 @@ export async function startGroupPaper(page: Page) {
     },
   });
   await page.route("https://assets.example/synthetic.mp3", (route) =>
-    route.fulfill({ path: audio, contentType: "audio/mpeg" }),
+    seekable
+      ? fulfillWithRanges(route, audio)
+      : route.fulfill({ path: audio, contentType: "audio/mpeg" }),
   );
   await page.goto(`/app/attempts/${groupAttemptId}`);
   return seen;
@@ -169,6 +178,26 @@ export async function startGroupPaper(page: Page) {
  * fixed. A rich table's own scroll box is left out, because scrolling there is
  * how a wide table is read.
  */
+/**
+ * fulfillWithRanges answers a media request from the file at `path` as object
+ * storage does, honouring a byte range, so the browser can seek in it.
+ */
+export async function fulfillWithRanges(route: Route, path: string) {
+  const body = readFileSync(path);
+  const range = /^bytes=(\d*)-(\d*)$/.exec(route.request().headers()["range"] ?? "");
+  const headers = { "accept-ranges": "bytes" };
+  if (range === null)
+    return route.fulfill({ status: 200, body, contentType: "audio/mpeg", headers });
+  const start = range[1] ? Number(range[1]) : 0;
+  const end = range[2] ? Math.min(Number(range[2]), body.length - 1) : body.length - 1;
+  return route.fulfill({
+    status: 206,
+    body: body.subarray(start, end + 1),
+    contentType: "audio/mpeg",
+    headers: { ...headers, "content-range": `bytes ${start}-${end}/${body.length}` },
+  });
+}
+
 export async function engineFits(page: Page) {
   await expect
     .poll(() =>

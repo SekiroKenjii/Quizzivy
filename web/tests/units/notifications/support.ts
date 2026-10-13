@@ -79,6 +79,33 @@ export const notices: Notification[] = [
   createdAt: "2026-10-01T12:00:00Z",
   readAt: null,
 })) as Notification[];
+export const aiNotices: Notification[] = [
+  {
+    kind: "ai.allowance_warning",
+    params: { used: 16_500, allowance: 20_000 },
+    target: null,
+  },
+  {
+    kind: "ai.credit_request",
+    params: { teacherName: "Nguyễn Thị Lan", credits: 20_000 },
+    target: null,
+  },
+  {
+    kind: "ai.credit_request.decided",
+    params: { credits: 20_000, decision: "approved" },
+    target: null,
+  },
+  {
+    kind: "ai.credit_request.decided",
+    params: { credits: 5_000, decision: "declined" },
+    target: null,
+  },
+].map((row, index) => ({
+  ...row,
+  id: id(index + 101),
+  createdAt: "2026-10-01T12:00:00Z",
+  readAt: null,
+})) as Notification[];
 export const preferences: NotificationPreference[] = [
   "attempt.submitted",
   "attempt.flagged",

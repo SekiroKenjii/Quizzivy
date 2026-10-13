@@ -11,6 +11,7 @@ import (
 	"image/color"
 	"image/png"
 	"io"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -23,6 +24,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"quizzivy/internal/core/wiring"
+	aiports "quizzivy/internal/modules/ai/application/ports"
 	"quizzivy/internal/platform/config"
 )
 
@@ -35,11 +38,20 @@ func storageEnv(name, fallback string) string {
 
 func bootWithStorage(t *testing.T) *world {
 	t.Helper()
+	return bootAssistedWithStorage(t, nil)
+}
+
+func bootAssistedWithStorage(t *testing.T, completer aiports.Completer) *world {
+	t.Helper()
 	work := t.TempDir()
 	if err := os.Chmod(work, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	return boot(t, func(c *config.Config) {
+	var options []wiring.Option
+	if completer != nil {
+		options = append(options, wiring.WithCompleter(completer))
+	}
+	return assemble(t, slog.New(slog.DiscardHandler), options, withPrices, func(c *config.Config) {
 		c.S3Endpoint = storageEnv("S3_ENDPOINT", "http://localhost:9000")
 		c.S3Region = storageEnv("S3_REGION", "us-east-1")
 		c.S3Bucket = storageEnv("S3_BUCKET", "quizzivy-media")
@@ -283,6 +295,8 @@ func (w *world) teacherWorld(name string) *party {
 	learner.must(http.StatusOK, http.MethodPost, "/app/attempts/"+p.ids["attempt"]+"/submit",
 		map[string]any{"sessionId": session["sessionId"], "reason": "manual"})
 
+	p.ids["ai-question"], p.ids["ai-attempt"] = w.handedInShortAnswer(p, c, learner, name)
+
 	p.ids["notification"] = w.notification(p.userID, name)
 
 	sitting := c.must(http.StatusCreated, http.MethodPost, "/teacher/students", map[string]any{
@@ -299,6 +313,29 @@ func (w *world) teacherWorld(name string) *party {
 		"media":             p.ids["media"],
 	}}
 	return p
+}
+
+func (w *world) handedInShortAnswer(p *party, teacher, learner *client, name string) (question, attempt string) {
+	w.t.Helper()
+	bank := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/questions", map[string]any{
+		"type": "short_answer", "prompt": "Ai dạy học trong lớp?", "points": 1, "sampleAnswer": "Giáo viên.",
+	})
+	test := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/tests", map[string]any{"title": "Đề trả lời ngắn " + name + " " + nonce(w.t)})
+	teacher.must(http.StatusOK, http.MethodPatch, "/teacher/tests/"+id(test), map[string]any{
+		"expectedUpdatedAt": test["updatedAt"],
+		"sections":          []map[string]any{{"title": "Phần 1", "questionIds": []string{id(bank)}}},
+	})
+	version := id(teacher.must(http.StatusCreated, http.MethodPost, "/teacher/tests/"+id(test)+"/publish", nil))
+	assignment := teacher.assign(version, p.ids["class"])
+	session := learner.must(http.StatusOK, http.MethodPost, "/app/assignments/"+id(assignment)+"/attempts", nil)
+	question = id(session["questions"].([]any)[0].(map[string]any))
+	attempt = id(session["attempt"].(map[string]any))
+	learner.must(http.StatusOK, http.MethodPatch, "/app/attempts/"+attempt+"/answers", map[string]any{
+		"sessionId": session["sessionId"],
+		"answers":   map[string]any{question: map[string]any{"type": "text", "value": "Cô giáo dạy học."}},
+	})
+	learner.must(http.StatusOK, http.MethodPost, "/app/attempts/"+attempt+"/submit", map[string]any{"sessionId": session["sessionId"], "reason": "manual"})
+	return question, attempt
 }
 
 func (w *world) notification(userID, name string) string {
@@ -330,8 +367,12 @@ func (w *world) listeningVersion(p *party) string {
 	})
 	p.ids["listening-test"] = id(test)
 	p.ids["listening-section"] = test["sections"].([]any)[0].(map[string]any)["id"].(string)
+	bundle := groupBundle(p, uuid.NewString(), "/bundle/group/recordings/-/assetId")
+	stimulus := bundle["group"].(map[string]any)["stimuli"].([]any)[0].(map[string]any)
+	material := stimulus["content"].(map[string]any)
+	material["blocks"] = append(material["blocks"].([]any), textDoc("Parks give a town room to breathe, to play and to meet.")["blocks"].([]any)...)
 	group := p.c.must(http.StatusCreated, http.MethodPost, "/teacher/question-groups", map[string]any{
-		"bundle":                groupBundle(p, uuid.NewString(), "/bundle/group/recordings/-/assetId"),
+		"bundle":                bundle,
 		"ownerSectionId":        p.ids["listening-section"],
 		"expectedTestUpdatedAt": test["updatedAt"],
 	})
