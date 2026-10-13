@@ -2605,8 +2605,9 @@ export interface paths {
          *     the student's other answers are never sent. The caller must hold
          *     `teaching.grading` as well as `ai.use`, the attempt must be one they
          *     reach as the grading reads do, and their `ai.readStudentAnswers`
-         *     preference must be on (`AI_READ_OFF`). The AI never writes a mark:
-         *     a teacher saves one with `gradeAttempt`.
+         *     preference must be on (`AI_READ_OFF`). The reasons and the comment are
+         *     written in the language of the caller's `ai.language` preference. The
+         *     AI never writes a mark: a teacher saves one with `gradeAttempt`.
          */
         post: operations["suggestAiScore"];
         delete?: never;
@@ -2634,7 +2635,8 @@ export interface paths {
          *     what to do about it. No name, id or attempt is sent, and nothing says
          *     who wrote what. The caller needs `teaching.grading` as well as `ai.use`,
          *     and their `ai.readStudentAnswers` preference must be on
-         *     (`AI_READ_OFF`).
+         *     (`AI_READ_OFF`). The text is written in the language of the caller's
+         *     `ai.language` preference.
          */
         post: operations["explainAssignmentResults"];
         delete?: never;
@@ -6178,7 +6180,6 @@ export interface components {
             changes: components["schemas"]["AiVariantKind"][];
             /** @enum {string} */
             difficulty: "same" | "easier" | "harder";
-            language?: components["schemas"]["AiLanguage"];
         };
         /**
          * @description What a change writes, through `updateQuestion`, into the same question
@@ -6240,9 +6241,6 @@ export interface components {
             /** @description A comment to the student */
             comment: string;
             usage: components["schemas"]["AiUsage"];
-        };
-        AiInsightsRequest: {
-            language?: components["schemas"]["AiLanguage"];
         };
         /**
          * @description `questionNumbers` are the questions the insight is about, by their
@@ -11543,7 +11541,7 @@ export interface operations {
             402: components["responses"]["AiCreditsExhausted"];
             403: components["responses"]["AiNotAllowed"];
             404: components["responses"]["NotFound"];
-            /** @description The draft has no question to check. */
+            /** @description The draft has no question to check, or holds more than one call reads. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -11584,7 +11582,7 @@ export interface operations {
             402: components["responses"]["AiCreditsExhausted"];
             403: components["responses"]["AiNotAllowed"];
             404: components["responses"]["NotFound"];
-            /** @description The draft has no question to vary. */
+            /** @description The draft has no question to vary, or holds more than one call reads. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -11649,7 +11647,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The suggestions; empty when the provider offered none that were new. */
+            /** @description One to four suggestions, none of them an option the question already has. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -11740,11 +11738,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["AiInsightsRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Up to four insights. */
             200: {
@@ -11755,7 +11749,6 @@ export interface operations {
                     "application/json": components["schemas"]["AiInsightsResult"];
                 };
             };
-            400: components["responses"]["BadRequest"];
             402: components["responses"]["AiCreditsExhausted"];
             403: components["responses"]["AiNotAllowed"];
             404: components["responses"]["NotFound"];
@@ -11797,7 +11790,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             402: components["responses"]["AiCreditsExhausted"];
             403: components["responses"]["AiNotAllowed"];
-            /** @description The caller owns no question to look at. */
+            /** @description The caller owns no question to look at, or owns more than one call reads. */
             422: {
                 headers: {
                     [name: string]: unknown;
