@@ -3926,11 +3926,11 @@ was v0.98 (T-D4.9), so the spec is **v0.99**, and its "Changes since v0.98" list
 - [ ] The four redrawn R4 screens (section F) and every AI surface (section G) are compared with
       the v2 deck at 360, 768, 1024, 1280 and 1440, light and dark, with the sidebar collapsed
       where the deck draws a separator; the differences listed are DG-196 to DG-202's and no other.
-- [ ] The spec's "Availability: D4" lines (§8 and §12, placed by T-D4.40) are gone: each of
+- [x] The spec's "Availability: D4" lines (§8 and §12, placed by T-D4.40) are gone: each of
       T-D4.34 to T-D4.39 removes its own when it ships, and this task checks that none is left and
       that §8's AI block and §12's panel rules say what was built. The follow-ups under "Open
       items" are read, and each is built or left with a reason.
-- [ ] `74-r4.md`: T-R4.4, T-R4.25, T-R4.26, T-R4.27a, T-R4.28, T-R4.30, T-R4.32, T-R4.33,
+- [x] `74-r4.md`: T-R4.4, T-R4.25, T-R4.26, T-R4.27a, T-R4.28, T-R4.30, T-R4.32, T-R4.33,
       T-R4.36, T-R4.38, T-R4.42 and T-R4.43 each gain one closing line naming the T-D4 task that
       reopened them (T-R4.31a's line names T-D4.2a, T-D4.20 and T-D4.34).
 - [ ] With the key unset on a clean checkout, `pnpm e2e` and `make test-api` are green and no AI
@@ -3940,7 +3940,7 @@ was v0.98 (T-D4.9), so the spec is **v0.99**, and its "Changes since v0.98" list
 **Touches:** `web/tests/e2e/{student-interactions,student-engine.phone,group-attempt}.spec.ts`, `AGENTS.md` ("Design"), `docs/quizzivy-spec-v0.3.md` (§9 S-05, S-06, S-08; §11; §12; version per §18), `docs/plan/73-r3.md` (T-R3.9b, T-R3.9c), `docs/plan/74-r4.md` (the six reopened tasks), `docs/design/gaps.md`, `docs/design/README.md`
 **Size:** L
 **Done when:**
-- [ ] The fixture papers are T-D4.3's (s1, s9 with 34 questions, s2 with both parts); this
+- [x] The fixture papers are T-D4.3's (s1, s9 with 34 questions, s2 with both parts); this
       task adds none and checks that none gained an answer key on the way.
 - [ ] Every engine frame is compared with the deck at 360, 768, 1024, 1280 and 1440 and at 419
       / 420, 899 / 900 and 1179 / 1180, light and dark, sizes measured with
@@ -3959,24 +3959,49 @@ was v0.98 (T-D4.9), so the spec is **v0.99**, and its "Changes since v0.98" list
       block and the group's recording with "Plays" and "Students can pause"; the three
       previews as Computer and as Phone, with the engine in the frame. The differences listed
       are DG-186, DG-187 and DG-188's, and no other.
-- [ ] AGENTS.md's engine paragraph is rewritten: the rail at 900 and 1180, the grid button and
+- [x] AGENTS.md's engine paragraph is rewritten: the rail at 900 and 1180, the grid button and
       sheet elsewhere, the drawer below 768, shared content in the stimulus pane, the cloze
       stop, no strip. Its sentence "so the strip can leave a gap between parts" becomes "so the
       rail and the sheet can head each part".
-- [ ] Spec S-05 says a section's title and instructions show above each of its questions;
+- [x] Spec S-05 says a section's title and instructions show above each of its questions;
       S-06 and S-08 describe the rail and the sheet; §12 records the thresholds.
-- [ ] `73-r3.md`: T-R3.9b's and T-R3.9c's "As built" each gain one closing line naming the
+- [x] `73-r3.md`: T-R3.9b's and T-R3.9c's "As built" each gain one closing line naming the
       T-D4 tasks that replaced the switcher, the strip, the first-question instructions and the
       shared recordings' place. Their text is not rewritten.
-- [ ] `74-r4.md`: T-R4.31a, T-R4.31b, T-R4.30, T-R4.34, T-R4.39 and T-R4.65 each gain one
+- [x] `74-r4.md`: T-R4.31a, T-R4.31b, T-R4.30, T-R4.34, T-R4.39 and T-R4.65 each gain one
       closing line naming the T-D4 task that reopened it and what it replaced. Their text is
       not rewritten.
-- [ ] AGENTS.md, "Redesign in progress": T-D4.1's bullet leaves; the engine paragraph under
+- [x] AGENTS.md, "Redesign in progress": T-D4.1's bullet leaves; the engine paragraph under
       "Design" carries the rules.
-- [ ] `gaps.md`: DG-80's list is trimmed as T-D4.1 says; the rows DG-182 to DG-194 say what was
+- [x] `gaps.md`: DG-80's list is trimmed as T-D4.1 says; the rows DG-182 to DG-194 say what was
       built.
 - [ ] Thuong reviews the Vietnamese type names the engine shares with the builder's type menu
       since T-D4.5: "Tự luận" (essay) names the short answer.
+
+**As built (documents, T-D4.12a):** one pull request, one commit per document. `AGENTS.md`'s engine
+paragraph, spec v0.104 (§9, §12, §10.4 and §8), the closing lines in `73-r3.md` and `74-r4.md`, and
+`gaps.md`'s DG-80 and DG-182 to DG-194 were each checked against `web/src/features/take-test/` (the
+thresholds in `Paper.tsx`, `panes.ts`, `SectionRail.tsx` and `Navigator.tsx`),
+`web/src/features/ai/` and its hosts, and this file's As built paragraphs. `74-r4.md` takes
+seventeen lines, the two boxes' lists together. Each was checked against the Reopens lines of
+T-D4.2a to T-D4.2c, T-D4.15 and T-D4.20 to T-D4.23; T-R4.26 and T-R4.36 have no Reopens line, and
+theirs name what T-D4.37 and T-D4.39 added (their Touches). T-R4.38's line says T-D4.20 named it and
+changed nothing there, since its As built found no side column on the review workspace and made
+Preview and create's summary sticky (T-R4.39's line). The fixture papers are T-D4.3's
+(`deckSession.ts`: s1 with 8, s9 with 34 in four sections, s2 with both parts and 10, as
+`deck-fixtures.test.ts` asserts), and none carries `isCorrect`, `acceptedAnswers`, `sampleAnswer` or
+a transcript. `gaps.md` takes DG-209 for the roster's select and search, which T-D4.22 kept and no
+row recorded. No deck file changed, so `docs/design/README.md` is untouched. The boxes left open are
+the other half's:
+- The v2 comparison, the engine and teacher comparisons and the DG-80 frames in Vietnamese: the
+  tester's browser verification, on its own branch.
+- The real phone and mobile-chromium: the tester's, and it also carries follow-up 6 (on a real
+  Android phone, swipe the drawer open and closed, then tap an option at once: the option is
+  chosen and the drawer does not move).
+- `pnpm e2e:live`, and `pnpm e2e` and `make test-api` with the key unset: a run against the
+  real API, the tester's or the Tech Lead's.
+- The live smoke with the key set: the owner's key, once, at the release (follow-up 2).
+- Thuong's review of "Tự luận": the owner's.
 
 ### T-D4.18 — Release v0.11.0
 **Depends on:** T-D4.1 to T-D4.16, T-D4.19 to T-D4.23, T-D4.30 to T-D4.40
@@ -4084,6 +4109,52 @@ answers. "Owner" is Thuong; "design" is the design team. Nothing waits for an an
 exceptions: the play-limit lock (Q3) is not built without the owner, and T-D4.10 gives the
 design team two working days on Q6, counted from the day the question is sent, which need not
 wait for T-D4.1.
+
+**Where each item stands** (read by T-D4.12 on 2026-10-13). "Built" is the default, or the answer,
+as the named task shipped it; "left" says who still owes what. The items' text below is unchanged.
+
+| Item | Stands |
+|---|---|
+| Q1, Q2 | Decided; nothing to build |
+| Q3 | Default built (T-D4.8, DG-182); left with the owner, who may still change §11.4 |
+| Q4 | Default built (T-D4.13, T-D4.9, T-D4.15, DG-183) |
+| Q5 | Default built (T-D4.8, DG-193) |
+| Q6 | Answered (#581) and built (T-D4.10a, T-D4.10b, DG-184) |
+| Q7 | Default built (T-D4.10a, DG-185); no answer from the design team |
+| Q8 | Default built (T-D4.2a, T-D4.14, DG-186) |
+| Q9, Q10 | Default built (T-D4.14, T-D4.2b; the card at its node, T-D4.8; DG-187) |
+| Q11 | Default built (T-D4.2c, T-D4.16, DG-188); a running timer would need a field on the test |
+| Q12 | Default built (T-D4.4, DG-191) |
+| Q13 | Default built (T-D4.7, DG-190) |
+| Q14 | Default built (T-D4.5, DG-192) |
+| Q15 | Default built (T-D4.5); left with Thuong for the Vietnamese ("Tự luận"), T-D4.12's last box |
+| Q16, Q19 | Default built (T-D4.6) |
+| Q17 | Default built (T-D4.11), widened to a plain rich paragraph (T-D4.11b) |
+| Q18 | Default: not built (DG-189) |
+| Q20, Q21 | Default built (T-D4.4, DG-191; the letters on a cloze card, T-D4.10a) |
+| Q22 | Default: no cap; R6's `selectCount` (T-R6.5) decides |
+| Q23, Q24 | Default built (T-D4.2c) |
+| Q25 | Default built (T-D4.15's one control; T-D4.14's limits and both switches) |
+| Q26 | Moot: T-D4.1 imported after v0.10.0, and T-D4.12 recorded each reopened R4 task in `74-r4.md` |
+| Q27 | Left with the design team's next sync (DG-195) |
+| Q28 | Built for D4 (T-D4.31's operations and `cmd/maintenance ai-credits`); the page is R5's T-R5.35 |
+| Q29 | T-D4.18 takes v0.11.0 |
+| Q30, Q31 | Built (T-D4.31: 20,000 credits in `00118_create_ai_settings.sql`; one pool rule, DG-196) |
+| Q32 | Built (T-D4.34, DG-197) |
+| Q33 | Built (T-D4.38's switch, gating T-D4.36 and T-D4.37) |
+| Q34 | Built (T-D4.34 to T-D4.39, DG-201) |
+| Q35 | Default built (T-D4.33, T-D4.39); two items left with Thuong (70 §10) |
+| D19 to D22 | Built (T-D4.30 to T-D4.40) |
+| The documents ahead of R4 | Moot: R4 shipped first (Q26) |
+| A newer export, before and after v2 | None came before T-D4.1; the design team's later answers are in `deck/page-width-proposal/` |
+| Q6 and Q7 decided the largest task | Built (T-D4.10a, T-D4.10b) |
+| The preview's 45:00 timer | Left: needs a time limit on the test (Q11, DG-188) |
+| "Students can pause" in the other documents | Done by T-D4.13 |
+| Migration numbers | Done: assigned at merge (T-D4.13's renumbering to 00114 to 00117) |
+| Line numbers of code | A reading note; nothing to build |
+| The design team's next sync and the AI module | Left with the design team (DG-199 to DG-201) |
+| The clean-up's word model has no unaccent | Left for the live smoke (follow-up 2) |
+| Builders | A process note; nothing to build |
 
 ### Decided
 
@@ -4493,7 +4564,8 @@ export; DG-01 (Answered), DG-22, DG-71, DG-106, DG-100 and DG-63 (a second note)
 
 Recorded by T-D4.40 on 2026-10-13 from the "As built" notes and the reviews of T-D4.7 to T-D4.11
 and T-D4.30 to T-D4.33. None blocks a task or the release; each says where it would be done. None
-is built here. Item 8 came from T-D4.10a, and items 9 and 10 from the Tech Lead's reviews of T-D4.36 and T-D4.39.
+is built here. T-D4.12 read every item on 2026-10-13: 8 is built, and 2, 3 and 6 are left open,
+each with its reason. Item 8 came from T-D4.10a, and items 9 and 10 from the Tech Lead's reviews of T-D4.36 and T-D4.39.
 
 1. [x] **The chunked bank clean-up.** T-D4.32 built `cleanUpQuestionBank` as one bounded call on the
    fast tier: at most 2,000 of the caller's own questions and 300,000 characters, at most 20
@@ -4581,6 +4653,9 @@ is built here. Item 8 came from T-D4.10a, and items 9 and 10 from the Tech Lead'
    (never the key or a response). The procedure is `docs/setup/operations.md`, "What the assistant
    logs, and the live smoke". It runs once, at the release, with the exit criteria's ledger
    read-back.
+
+   **Left open (T-D4.12):** it needs the owner's key, which no branch and no CI run holds; it runs
+   once at the release (T-D4.18), and T-D4.12's live-smoke box stays open with it.
 3. **T-D4.8's "Finished" copy after a reload in the middle of a play.** A play in progress at a
    reload costs one play and the release notes say so. The card that comes back then has a count
    above zero and no play in progress, which `phaseOf` reads as a finished play: a full track, the
@@ -4588,6 +4663,19 @@ is built here. Item 8 came from T-D4.10a, and items 9 and 10 from the Tech Lead'
    the student may not have heard the end. The number is right; the word may not be. Default: as
    built. Ask the design team whether a recording with a count and no remembered place should read
    "Played" instead.
+
+   **Left open (T-D4.12):** a design question, so nothing changes until the design team answers.
+   *Brief for the design team.* A recording with a play limit is reloaded while it plays. The play
+   counts (spec §11.4: a play is spent when it starts, and the server is told then), and the place
+   it reached is kept in memory only, so after the reload the card knows the count and nothing
+   else. It then looks exactly like a recording that played to its end: the track full, "Play
+   again", and "Finished · 1 play left" (or "Finished" with no limit, "You have used all 2 plays."
+   at the limit). The student may not have heard the end, so "Finished" may say more than the
+   product knows. Please draw the card for "played, end not seen": for example "Played · 1 play
+   left" with an empty track and "Play again", or confirm that "Finished" stands for both. Whatever
+   is drawn, the button stays live and a new start counts as a play (DG-182, DG-193); telling the
+   two apart in the browser (an end remembered in the tab's session storage) needs no contract
+   change.
 4. [x] **The spec still describes the pane switcher T-D4.7 replaced with the drawer.** Three places
    say "Ngữ liệu | Câu n" or "the pane switcher": §7.3's paragraph on learner material, §9's
    "Panes" bullet and §12's "One breakpoint, 768px" bullet. T-D4.12 already rewrites §9 and §12 for
@@ -4612,6 +4700,9 @@ is built here. Item 8 came from T-D4.10a, and items 9 and 10 from the Tech Lead'
    timing differs from the emulator's. Add to T-D4.12's real-phone box: swipe the drawer open and
    closed, then tap an option at once, and see that the option is chosen and the drawer does not
    move.
+
+   **Left open (T-D4.12):** it needs a real Android phone, which neither the documents half nor CI
+   has; T-D4.12's As built lists it with the real-phone box, which the tester runs.
 7. [x] **T-D4.11's gap rule does not reach a prompt made in the product.** The sentence gap fired
    only for a prompt with no `promptContent`, and the builder's prompt field and the import both
    write `promptContent`, so on content made today it fired only for a prompt kept in Markdown
@@ -4637,10 +4728,19 @@ is built here. Item 8 came from T-D4.10a, and items 9 and 10 from the Tech Lead'
    would study harder." measures exactly as the same prompt in Markdown at 360 and 1280, light
    and dark, empty and chosen (the sentence 500 18px/32.4px, the box 88 × 30.8px empty), which
    is the drawing T-D4.11 matched to s9 questions 5 and 12; no horizontal scroll.
-8. **Spec §9 on the cloze run.** §9 says "The engine shows one question at a time"; since T-D4.10a a
+8. [x] **Spec §9 on the cloze run.** §9 says "The engine shows one question at a time"; since T-D4.10a a
    run of a cloze's gaps is one screen. T-D4.12 rewrites §9 and §12 for the rail and the sheet, and
    adds the run, its line, the ties and the move by stop there. T-D4.10a left the spec's version
    alone, to keep it out of the lanes running beside it.
+
+   **As built (T-D4.12):** spec v0.104. §9 opens "one question at a time, except that a run of a
+   cloze's gaps is one screen", and its new "A cloze" bullet gives the run (consecutive
+   single-choice members bound to gaps of one material, none with media of its own), its line
+   ("Câu 23–27 trên 34 · Điền từ vào đoạn văn · 5 chỗ trống"), the shared prompt or each member's
+   own, the chips and the gap card, the choice that opens the next empty gap, the ties and rings
+   of its squares, and a gap on its own. "Keys" says the arrows move by screen and the letters
+   choose for the open gap; §12's density rule says a cloze's run is one screen and its option rows
+   are 48px.
 9. [x] **The grading leave guard after "Use score and comment" (T-D4.36, the Tech Lead's
    review).** A score filled from the suggestion and not yet saved was dropped on a route change
    without a word when the suggested comment was empty or matched the saved one.
