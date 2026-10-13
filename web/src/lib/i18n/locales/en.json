@@ -830,9 +830,7 @@
         "bar": "{{used}} of {{limit}} credits used",
         "byFeature": "Usage by feature",
         "loadFailed": "Couldn't load your AI usage.",
-        "paused": "AI is paused for your account.",
         "allowanceUsed": "Your allowance is used up this month.",
-        "poolUsed": "The school's AI pool is used up this month.",
         "categories": {
           "generation": "Generating questions and variants",
           "grading": "Grading suggestions",

@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useCan } from "@/features/auth/permissions";
+import { aiPreferencesOf } from "@/features/auth/preferences";
+import type { components } from "@/lib/api/schema";
+import { asLocale } from "@/lib/i18n/useLocale";
 import { useAuthStore } from "@/stores/auth";
 import {
-  AI_STATUS_KEY,
-  AI_USAGE_KEY,
-  getAiUsage,
-  readAiStatus,
+  aiUsageQuery,
+  publicStatusQuery,
   type AiLanguage,
   type AiMonthUsage,
 } from "./api";
@@ -25,6 +26,16 @@ export const AI_BLOCK_KEYS: Readonly<Record<AiBlock, string>> = {
   pool: "ai.blocked.pool",
 };
 
+const aiOf = (status: components["schemas"]["PublicStatus"]) => status.ai;
+
+/**
+ * useAiStatus reads whether the server has an AI assistant
+ * (`PublicStatus.ai`), while `enabled`, from the shared status query.
+ */
+export function useAiStatus(enabled: boolean) {
+  return useQuery({ ...publicStatusQuery(), select: aiOf, enabled });
+}
+
 /**
  * useAiAvailable reports whether AI entry points are drawn at all: the server
  * has an assistant (`PublicStatus.ai`) and the signed-in user holds `ai.use`.
@@ -32,12 +43,7 @@ export const AI_BLOCK_KEYS: Readonly<Record<AiBlock, string>> = {
  */
 export function useAiAvailable(): boolean {
   const allowed = useCan("ai.use");
-  const status = useQuery({
-    queryKey: AI_STATUS_KEY,
-    queryFn: ({ signal }) => readAiStatus(signal),
-    enabled: allowed,
-    staleTime: 60_000,
-  });
+  const status = useAiStatus(allowed);
   return allowed && status.data === true;
 }
 
@@ -59,39 +65,30 @@ export function blockOf(usage: AiMonthUsage): AiBlock | null {
  * call it cannot take.
  */
 export function useAiBlock(available: boolean): AiBlock | null {
-  const usage = useQuery({
-    queryKey: AI_USAGE_KEY,
-    queryFn: ({ signal }) => getAiUsage(signal),
-    enabled: available,
-    staleTime: 30_000,
-    select: blockOf,
-  });
+  const usage = useQuery({ ...aiUsageQuery(), enabled: available, select: blockOf });
   return available ? (usage.data ?? null) : null;
 }
 
+const leftOf = (month: AiMonthUsage) => month.left;
+
 /** useAiLeft subscribes to the credits the teacher has left this month, or null until read. */
 export function useAiLeft(): number | null {
-  const usage = useQuery({
-    queryKey: AI_USAGE_KEY,
-    queryFn: ({ signal }) => getAiUsage(signal),
-    staleTime: 30_000,
-    select: (month: AiMonthUsage) => month.left,
-  });
+  const usage = useQuery({ ...aiUsageQuery(), select: leftOf });
   return usage.data ?? null;
 }
 
 /**
  * useAiLanguage is the language the assistant writes in for the signed-in
- * teacher: their preference, else the language of the interface.
+ * teacher: their preference, else the language of the interface
+ * (`aiPreferencesOf`).
  */
 export function useAiLanguage(): AiLanguage {
   const { i18n } = useTranslation();
-  const stored = useAuthStore((s) => s.user?.preferences?.ai?.language);
-  if (stored) return stored;
-  return i18n.resolvedLanguage?.startsWith("en") ? "en" : "vi";
+  const locale = asLocale(i18n.language);
+  return useAuthStore((s) => aiPreferencesOf(s.user?.preferences?.ai, locale).language);
 }
 
-/** useAiTagsDrafts reports whether what the assistant drafts is tagged, which is on unless turned off. */
+/** useAiTagsDrafts reports whether what the assistant drafts is tagged, which is on unless turned off (`aiPreferencesOf`). */
 export function useAiTagsDrafts(): boolean {
-  return useAuthStore((s) => s.user?.preferences?.ai?.tagDrafts !== false);
+  return useAuthStore((s) => aiPreferencesOf(s.user?.preferences?.ai, "vi").tagDrafts);
 }

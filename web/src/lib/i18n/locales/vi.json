@@ -88,7 +88,7 @@
     "blocked": {
       "paused": "AI đang tạm dừng với tài khoản của bạn.",
       "teacher": "Bạn đã dùng hết hạn mức. Hãy xin thêm trong Cài đặt.",
-      "pool": "Quỹ AI của trung tâm đã hết trong tháng này."
+      "pool": "Trung tâm đã dùng hết tín dụng AI của tháng này."
     },
     "credits": {
       "left": "Còn {{left}} tín dụng trong tháng này",
@@ -830,9 +830,7 @@
         "bar": "Đã dùng {{used}} trên {{limit}} tín dụng",
         "byFeature": "Mức dùng theo tính năng",
         "loadFailed": "Không tải được mức dùng AI.",
-        "paused": "AI đang tạm dừng với tài khoản của bạn.",
         "allowanceUsed": "Bạn đã dùng hết hạn mức tháng này.",
-        "poolUsed": "Trung tâm đã dùng hết tín dụng AI của tháng này.",
         "categories": {
           "generation": "Tạo câu hỏi và bản biến thể",
           "grading": "Gợi ý chấm điểm",

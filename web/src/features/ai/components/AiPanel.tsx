@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, Sparkles, type LucideIcon } from "lucide-react";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ApiError, failureMessage } from "@/lib/api/errors";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { notify } from "@/lib/toast";
+import { credits } from "../credits";
 import { AI_STATUS_KEY, AI_USAGE_KEY, type AiMonthUsage, type AiUsage } from "../api";
 import { AiWriteError, type AiCardAction, type AiEnv, type AiKind } from "../kind";
 import { checkKind, type CheckContext } from "../kinds/check";
@@ -112,7 +113,6 @@ function AiKindPanel<F, I, C>({
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const run = useRef<AbortController | null>(null);
-  const figures = useMemo(() => new Intl.NumberFormat(locale), [locale]);
 
   useEffect(() => () => run.current?.abort(), []);
 
@@ -245,8 +245,8 @@ function AiKindPanel<F, I, C>({
       return {
         warning: false,
         text: t("ai.credits.used", {
-          credits: figures.format(done.usage.credits),
-          left: figures.format(done.usage.left),
+          credits: credits(done.usage.credits, locale),
+          left: credits(done.usage.left, locale),
         }),
       };
     if (problem !== null) return { warning: true, text: t(problem) };
@@ -254,7 +254,7 @@ function AiKindPanel<F, I, C>({
     if (left !== null)
       return {
         warning: false,
-        text: t("ai.credits.left", { left: figures.format(left) }),
+        text: t("ai.credits.left", { left: credits(left, locale) }),
       };
     return null;
   })();

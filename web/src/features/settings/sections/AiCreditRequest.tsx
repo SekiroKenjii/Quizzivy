@@ -8,12 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  useRequestAiCredits,
-  type AiCreditRequest as Request,
-  type AiMonthUsage,
-} from "@/features/settings/aiApi";
-import { credits } from "@/features/settings/aiCredits";
+import type { AiCreditRequest as Request, AiMonthUsage } from "@/features/ai/api";
+import { credits } from "@/features/ai/credits";
+import { useRequestAiCredits } from "@/features/settings/aiApi";
 import {
   AI_REASON_MAX,
   AI_REQUEST_MAX,

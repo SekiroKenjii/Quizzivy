@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { credits, resetsOn } from "@/features/settings/aiCredits";
+import { credits, resetsOn } from "@/features/ai/credits";
 
 describe("the usage card's words", () => {
   it("names the first day of the next month as the deck writes it", () => {
