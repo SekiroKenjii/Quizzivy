@@ -4186,7 +4186,7 @@ export; DG-01 (Answered), DG-22, DG-71, DG-106, DG-100 and DG-63 (a second note)
 
 Recorded by T-D4.40 on 2026-10-13 from the "As built" notes and the reviews of T-D4.7 to T-D4.11
 and T-D4.30 to T-D4.33. None blocks a task or the release; each says where it would be done. None
-is built here.
+is built here. Items 8 and 9 came later, from the Tech Lead's reviews of T-D4.36 and T-D4.39.
 
 1. **The chunked bank clean-up.** T-D4.32 built `cleanUpQuestionBank` as one bounded call on the
    fast tier: at most 2,000 of the caller's own questions and 300,000 characters, at most 20
@@ -4208,18 +4208,24 @@ is built here.
    the student may not have heard the end. The number is right; the word may not be. Default: as
    built. Ask the design team whether a recording with a count and no remembered place should read
    "Played" instead.
-4. **The spec still describes the pane switcher T-D4.7 replaced with the drawer.** Three places
+4. [x] **The spec still describes the pane switcher T-D4.7 replaced with the drawer.** Three places
    say "Ngữ liệu | Câu n" or "the pane switcher": §7.3's paragraph on learner material, §9's
    "Panes" bullet and §12's "One breakpoint, 768px" bullet. T-D4.12 already rewrites §9 and §12 for
    the rail and the sheet (its box on S-05, S-06 and S-08); it replaces these sentences too, and
    §7.3's, and the engine paragraph of `AGENTS.md`, which says "a switcher shows one pane at a
    time". T-D4.7 did not touch the spec.
-5. **An E2E for T-D4.9's inert Pause button.** T-D4.9 is proved in jsdom (`audio-player-pause`,
+
+   **As built (D4 follow-ups):** spec v0.100 rewrites the three sentences to T-D4.7's drawer;
+   `AGENTS.md`'s engine paragraph stays with T-D4.12.
+5. [x] **An E2E for T-D4.9's inert Pause button.** T-D4.9 is proved in jsdom (`audio-player-pause`,
    `group-context`, `question-audio-events`) and by the comparison with the deck; no Playwright
    case presses the inert button in a real browser. Add one in `audio-events.spec.ts` or the phone
    spec: start s2 part 2's recording, click the button with `force: true` (Playwright counts an
    `aria-disabled` button as not enabled), and assert the recording is still playing and the play
    count has not moved. S, web; T-D4.12.
+
+   **As built (D4 follow-ups):** `audio-events.spec.ts` presses a question recording's inert Pause
+   with Space and Enter (lint refuses `force: true`) and finds it playing on, its line shown, one play.
 6. **A real-Android check of T-D4.7's tap after a swipe.** The drawer swallows the click a swipe
    leaves behind for 60 ms and never swallows a tap that follows a scroll. That is proved with
    real touches from CDP in mobile-chromium and in jsdom, not on a real Android phone, whose touch
@@ -4251,3 +4257,15 @@ is built here.
    would study harder." measures exactly as the same prompt in Markdown at 360 and 1280, light
    and dark, empty and chosen (the sentence 500 18px/32.4px, the box 88 × 30.8px empty), which
    is the drawing T-D4.11 matched to s9 questions 5 and 12; no horizontal scroll.
+8. [x] **The grading leave guard after "Use score and comment" (T-D4.36, the Tech Lead's
+   review).** A score filled from the suggestion and not yet saved was dropped on a route change
+   without a word when the suggested comment was empty or matched the saved one.
+
+   **As built (D4 follow-ups):** a score laid by `fill` is unsaved work until a Grade saves it, and
+   the dialog then reads "Rời trang khi điểm chưa lưu?"; every way of saving is unchanged.
+9. [x] **The credit figure in Settings (T-D4.38 against T-D4.39).** Settings' "Read imports with
+   AI" hint carried the deck's "About 400 credits per page", which the import card leaves out (§12:
+   no figure the product has not metered).
+
+   **As built (D4 follow-ups):** the hint ends after its first sentence in vi and en, as the import
+   card's does.
