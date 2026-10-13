@@ -1,7 +1,14 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.100 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.101 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.100**
+
+D4, T-D4.16: the teacher's three previews draw the take-test engine in their frames.
+
+- §7.3 and §12 The builder's preview, Test detail and the import's "Preview and create" hold the take-test engine, answerable, with what is chosen kept only while the preview is open and nothing saved, recorded for integrity or counted as a play. The header has the "Student view" chip in Submit's place and no leave button; the timer's place holds a pill reading "––:––", named "The time limit is set when the test is assigned"; the save line reads "Answers here are not saved."; Finish says "This is a preview. Students submit here." (DG-188).
+- §12 The engine's 1024px sizes and its 44px floor follow a preview frame's width, so the phone frame on a wide window draws a phone's controls.
 
 **Changes since v0.99**
 
@@ -1850,8 +1857,14 @@ read one coherent frozen version, and expose ordered sections/groups plus safe
 material bindings. Their projection never selects answer keys or transcripts;
 media URLs come only from relational bindings on that version. Group material
 appears before its first member, and material gaps link to the corresponding
-question. Teacher playback consumes no student allowance. Desktop and 320px phone
-preview modes run inside the existing admin shell (minimum supported width 768px).
+question. Teacher playback consumes no student allowance. The builder's preview,
+Test detail and the import's "Preview and create" draw the take-test engine in a
+frame, Computer or a 390px phone, laid out by the frame's width rather than the
+window's (T-D4.16, DG-188): the paper can be answered, and what is chosen is kept
+only while the preview is open; nothing is saved, recorded for integrity or
+counted as a play, no time is shown, because a time limit is the assignment's,
+and Finish says that students submit there. The question group's preview dialog
+and Assignment detail keep the read-only paper.
 Existing version questions and historical attempts are unchanged.
 
 Archived tests must be restored before creating a draft from a version or changing
@@ -2385,7 +2398,7 @@ Deliberate. Do not "improve" them with trendy defaults.
 - **One breakpoint, 768px.** The shell and the engine change their chrome there and nowhere else: destinations in the top bar or bottom tabs, side-by-side panes or the drawer over the question, the number strip or the count button with its sheet. A page keeps its state across it.
 - **One centred column per page:** Home and Classes at most 960px, the test intro 720px, the result 820px, Settings 760px. No page has a side panel. In the engine the passage column is at most 640px and the question column 600px.
 - **Classes** are cards in a grid that fills the row, with 280px as a card's least width. A card is not a link.
-- **Touch targets.** Below 1024px the student surfaces put a 44px floor on buttons. A control the deck draws keeps the deck's size: the header's 36px ✕, the 32px flag toggle, the strip's 34px squares, the dialogs' 42px buttons (46px for the one button of the "you left the test" alert). The engine's Previous and Next, the count button and the question sheet's squares are 44px. An option row is at least 52px high.
+- **Touch targets.** Below 1024px the student surfaces put a 44px floor on buttons, and so does the engine in a teacher's preview frame narrower than 1024px, whatever the window's width. A control the deck draws keeps the deck's size: the header's 36px ✕, the 32px flag toggle, the strip's 34px squares, the dialogs' 42px buttons (46px for the one button of the "you left the test" alert). The engine's Previous and Next, the count button and the question sheet's squares are 44px. An option row is at least 52px high.
 - **Dialogs** use the deck's frame: 440px (420px for the "you left the test" alert) or the width less 24px, no close button, the actions at the right; the alert has one button, as wide as the dialog. A dialog with a field sits 12% from the top below 768, so the keyboard does not cover it (DG-103).
 - **The timer** is a pill centred in the header's free space. Each digit sits in a cell one zero wide, because Be Vietnam Pro has no tabular figures and the pill would otherwise change width every second. Under five minutes it takes the danger tones.
 - **Text in a test.** The passage is 16px on a 1.75 line and cannot be selected, the prompt 17px, an option 15px. "Chữ lớn hơn khi làm bài" raises them to 18, 19 and 17px; the signed-in choice is an account preference mirrored in this browser; anonymous choices remain local.
