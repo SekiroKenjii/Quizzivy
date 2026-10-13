@@ -2149,6 +2149,7 @@
     "answerOptions": "Các phương án",
     "blankLabel": "Chỗ trống {{n}}",
     "blankPlaceholder": "nhập ở đây",
+    "sentenceGap": "chỗ trống",
     "yourAnswer": "Bài làm của bạn",
     "answerPlaceholder": "Nhập câu trả lời",
     "wordCount_one": "{{count}} từ",
