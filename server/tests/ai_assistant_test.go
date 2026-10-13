@@ -77,7 +77,8 @@ var answers = map[string]string{
 	"distractors": `{"distractors":[{"text":"slowly","why":"An adverb."},{"text":"happy","why":"An adjective."}]}`,
 	"score":       `{"score":0.5,"confidence":"medium","reasons":["Names the idea but gives no example."],"comment":"Add an example."}`,
 	"insights":    `{"insights":[{"kind":"problem","title":"A question many missed","body":"Most papers missed the same point.","action":"review","questions":[]}]}`,
-	"duplicates":  `{"duplicates":[],"tags":[]}`,
+	"duplicates":  `{"duplicates":[]}`,
+	"tags":        `{"tags":[]}`,
 }
 
 func answerTo(req aiports.Request) json.RawMessage {
