@@ -1785,8 +1785,8 @@ too: `detail.test.tsx`, `detail-versions.test.tsx` and `preview-and-leave.test.t
 the preview by the literal prompt "They ___ …" and now find it as a screen reader reads the
 sentence (`tests/support/gapSentence.ts`); their fixtures are unchanged. The builder's
 prompt field and the import both write `promptContent`, so on content made in the product
-today the rule fires only for prompts kept in Markdown; a rich prompt that is one plain
-paragraph prints as written, as the rule says. Compared with s9 questions 5 and 12 at 360
+today the rule fired only for prompts kept in Markdown; T-D4.11b (follow-up 7) widens it to a
+rich prompt that is one plain paragraph. Compared with s9 questions 5 and 12 at 360
 and 1280, light and dark, empty and chosen: the sentence and the box equal the deck's in
 position, size, type, padding, radius and colour in all 16 cells; the question sits 35px
 lower at 360 for the paper's integrity line above it, which the deck's paper has not.
@@ -3494,7 +3494,8 @@ student answers?** (design)
 **Q17. A choice sentence with a gap that fills with the chosen option: what marks the gap?**
 (design)
 - Default: a plain one-line prompt with exactly one run of three or more underscores, on a
-  single-choice or true/false question (T-D4.11). Anything else prints as written.
+  single-choice or true/false question (T-D4.11), or a rich prompt that is one paragraph of
+  unmarked text meeting the same test (T-D4.11b). Anything else prints as written.
 - Cost of the other answer: T-D4.11 is dropped, or a field marks the gap (a contract change).
 
 **Q18. Sign cards, 60px word tiles, the hint line and the image caption: what in the data
@@ -3742,10 +3743,26 @@ is built here.
    timing differs from the emulator's. Add to T-D4.12's real-phone box: swipe the drawer open and
    closed, then tap an option at once, and see that the option is chosen and the drawer does not
    move.
-7. **T-D4.11's gap rule does not reach a prompt made in the product.** The sentence gap fires only
-   for a prompt with no `promptContent`, and the builder's prompt field and the import both write
-   `promptContent`, so on content made today it fires only for a prompt kept in Markdown (T-D4.11
-   "As built", #571). The Tech Lead widens the rule to a rich prompt that is one plain paragraph
-   (with the run of underscores in its text and no mark, gap or media): **T-D4.11b**. It changes
-   Q17's default, the refusal "a rich prompt" in `sentence-gap.test.ts`, and the comparison with
-   s9 questions 5 and 12. Recorded here; not built.
+7. [x] **T-D4.11's gap rule does not reach a prompt made in the product.** The sentence gap fired
+   only for a prompt with no `promptContent`, and the builder's prompt field and the import both
+   write `promptContent`, so on content made today it fired only for a prompt kept in Markdown
+   (T-D4.11 "As built", #571). The Tech Lead widens the rule to a rich prompt that is one plain
+   paragraph (with the run of underscores in its text and no mark, gap or media): **T-D4.11b**.
+   It changes Q17's default, the refusal "a rich prompt" in `sentence-gap.test.ts`, and the
+   comparison with s9 questions 5 and 12.
+
+   **As built (T-D4.11b):** `sentenceGap` accepts `promptContent` when it is valid question
+   prompt content (`isQuestionPromptContent`), its plain projection (`contentPlainText`) is
+   exactly the stored `prompt`, and it is one `paragraph` block whose children are all `text`
+   nodes with no marks; adjacent unmarked text nodes count as one text. The prompt then goes
+   through T-D4.11's test unchanged (trim, NFC, one line, one run, no other marker), so a `*`
+   or `_` typed as plain rich text still refuses the gap. Anything else prints as today: a mark,
+   a link, a line break, a gap node, a heading, a second block, an image, legacy Markdown
+   content, content that does not validate, and content whose projection is not the prompt,
+   which `QuestionProse` reports as invalid and still does. T-D4.11's "a rich prompt" refusal
+   was content without `marks`, which does not validate, so it still refuses and is renamed
+   "rich content that does not validate"; no other case changed. `GapSentence` and the answer
+   shape are untouched. In a production build of the engine, the rich prompt "If I ___ you, I
+   would study harder." measures exactly as the same prompt in Markdown at 360 and 1280, light
+   and dark, empty and chosen (the sentence 500 18px/32.4px, the box 88 × 30.8px empty), which
+   is the drawing T-D4.11 matched to s9 questions 5 and 12; no horizontal scroll.
