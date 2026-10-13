@@ -311,7 +311,6 @@ files in `deck/` byte for byte:
   for eight Teacher screens at seven widths, the tokens behind it, the workspace pager and the
   merged import workspace (not yet built). The check script changed with this import: a page's
   references resolve from the page's own folder.
-
 - 2026-10-13 — The design team's answer to Q6 (#581, DG-184, DG-185): `page-width-proposal/Cloze
   Decision.dc.html` is added, and `Page Width Proposal.dc.html` and `github.md` are updated to
   link it. #581 did not regenerate the manifest; the manifest is regenerated here, and no page
