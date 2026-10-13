@@ -1420,9 +1420,6 @@
     "changeNotePlaceholder": "What changed in this version",
     "publishDone": "Published. You can now assign it.",
     "assign": "Assign",
-    "previewPrevious": "Previous",
-    "previewNext": "Next",
-    "previewPosition": "Question {{n}} of {{total}}",
     "editor": {
       "question": "Question",
       "questionNumber": "Question {{number}}",
@@ -1628,8 +1625,6 @@
         "device": "Preview size",
         "computer": "Computer",
         "phone": "Phone",
-        "foot_one": "{{count}} question. Answers are hidden from students.",
-        "foot_other": "{{count}} questions. Answers are hidden from students.",
         "failed": "Could not load the preview."
       },
       "compare": {
@@ -1642,10 +1637,6 @@
           "changed": "Changed",
           "answer": "Answer",
           "points": "Points"
-        },
-        "mark": {
-          "added": "New",
-          "changed": "Changed"
         },
         "added": "Question {{n}} · “{{prompt}}”",
         "removed": "Question {{n}} of version {{version}} · “{{prompt}}”",
@@ -3971,10 +3962,6 @@
       "device": "Preview size",
       "computer": "Computer",
       "phone": "Phone",
-      "foot_one": "{{count}} question. Answers and your notes are hidden from students.",
-      "foot_other": "{{count}} questions. Answers and your notes are hidden from students.",
-      "footSome_one": "Showing {{shown}} of {{count}} question. Answers and your notes are hidden from students.",
-      "footSome_other": "Showing {{shown}} of {{count}} questions. Answers and your notes are hidden from students.",
       "previewEmpty": "There are no questions to preview yet.",
       "summaryTitle": "Summary",
       "rowIncluded": "Questions included",

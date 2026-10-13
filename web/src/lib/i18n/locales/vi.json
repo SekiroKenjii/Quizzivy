@@ -1420,9 +1420,6 @@
     "changeNotePlaceholder": "Phiên bản này thay đổi gì",
     "publishDone": "Đã phát hành. Giờ bạn có thể giao bài.",
     "assign": "Giao bài",
-    "previewPrevious": "Câu trước",
-    "previewNext": "Câu tiếp",
-    "previewPosition": "Câu {{n}} / {{total}}",
     "editor": {
       "question": "Câu hỏi",
       "questionNumber": "Câu {{number}}",
@@ -1628,8 +1625,6 @@
         "device": "Khung xem",
         "computer": "Máy tính",
         "phone": "Điện thoại",
-        "foot_one": "{{count}} câu hỏi. Học viên không thấy đáp án.",
-        "foot_other": "{{count}} câu hỏi. Học viên không thấy đáp án.",
         "failed": "Không tải được bản xem trước."
       },
       "compare": {
@@ -1642,10 +1637,6 @@
           "changed": "Sửa",
           "answer": "Đáp án",
           "points": "Điểm"
-        },
-        "mark": {
-          "added": "Mới",
-          "changed": "Đã sửa"
         },
         "added": "Câu {{n}} · “{{prompt}}”",
         "removed": "Câu {{n}} của phiên bản {{version}} · “{{prompt}}”",
@@ -3971,10 +3962,6 @@
       "device": "Khung xem",
       "computer": "Máy tính",
       "phone": "Điện thoại",
-      "foot_one": "{{count}} câu hỏi. Học viên không thấy đáp án và ghi chú của bạn.",
-      "foot_other": "{{count}} câu hỏi. Học viên không thấy đáp án và ghi chú của bạn.",
-      "footSome_one": "Đang hiện {{shown}} trên {{count}} câu hỏi. Học viên không thấy đáp án và ghi chú của bạn.",
-      "footSome_other": "Đang hiện {{shown}} trên {{count}} câu hỏi. Học viên không thấy đáp án và ghi chú của bạn.",
       "previewEmpty": "Chưa có câu hỏi nào để xem trước.",
       "summaryTitle": "Tóm tắt",
       "rowIncluded": "Câu đưa vào đề",
