@@ -2076,7 +2076,7 @@ Shared:
 
 ---
 
-**The engine** shows one question at a time.
+**The engine** shows one stop at a time: a question, or the run of a cloze's gaps on one screen (below).
 
 - **Header.** The ✕ ("Thoát khỏi bài làm"), from 768 the title over the save
   line, the timer, and "Nộp bài". The ✕ asks first, except on a locked paper,
@@ -2105,11 +2105,36 @@ Shared:
   closes it, and so does a gap tapped inside it, which lands on its question or
   blank; while it is open the keys that answer or flag do nothing. Crossing 768
   with it open shows both panes, with nothing remounted.
-- **Footer.** Under the question pane: Previous, the questions, and Next, which
-  is "Hoàn tất" on the last question. From 768 the questions are a strip of
-  numbered squares. Below 768 a button ("4 / 8 · đã trả lời 3") opens them in a
-  bottom sheet. A square shows answered, current and flagged, and on a paper of
-  several parts the strip and the sheet keep the parts apart.
+- **Section header.** Above every question, at the top of the question
+  column: the section's title over its instructions, with a rule under them.
+  It is left out on a paper of one section with no instructions and for an
+  untitled section with no instructions, and the instructions line is left out
+  for a section that has none. A group's own title heads the
+  stimulus pane, and a group's recording is a card there (§11.3).
+- **Sections rail.** Where the engine is at least 900px wide on a question with
+  no shared content, or at least 1180px beside it, and never below 768, a rail
+  ("Các phần") stands before the panes: each part's title, "n / m" answered and
+  a grid of its squares, with a legend at its foot. A square is answered,
+  partly answered (a fill-in with some of its blanks typed) or empty; the open
+  question's is ringed, and a flag is a dot on it.
+- **Footer.** Under the question pane: Previous and Next, which is "Hoàn tất"
+  on the last stop. With the rail a key hint stands between them. Without it,
+  at every width, the grid button does ("Câu 4 · đã làm 3 trên 8", or
+  "4 · 3/8" beside shared content from 768 and below 420), and opens the
+  question sheet: pinned to the bottom below 768, a 560px card from 768, with
+  one block of squares per part and the same legend. The rail and the sheet
+  head each part. There is no strip of numbers.
+- **A cloze.** Two or more consecutive single-choice members of one group, each
+  bound to a gap of the same material and none with an image or audio of its
+  own, are one stop. Its line reads "Câu 23–27 trên 34 · Điền từ vào đoạn văn ·
+  5 chỗ trống". The members' shared plain prompt is printed once (otherwise the
+  open member's own prompt is in the gap card), then a hint, a chip per gap
+  with its chosen word, and the open gap's card with its options and its own
+  worth. Choosing an option answers that gap's question and opens the next gap
+  with no answer. In the passage each gap is a chip with the chosen word, and
+  opens the run on its gap. Each gap keeps its own number, square, flag, points
+  and result row: the run's squares are tied, and all open the run. Previous,
+  Next and the arrows move by stop.
 - **Submitting.** "Nộp bài" in the header and "Hoàn tất" open the Submit
   dialog, the only way a student hands a paper in: answered, flagged, time left, and a
   "Đến câu" chip for each unanswered question. There is no review page.
@@ -2137,7 +2162,7 @@ Shared:
   no session is given the current one. Such a read still replaces the
   attempt's beacon token, and two tabs of one browser can share a session.
 - **Keys.** A–E choose an option; a sixth has no key, because F flags the
-  question. The arrows move between questions and stop at either end. Esc
+  question. The arrows move between stops and stop at either end. Esc
   closes a dialog or the sheet. None acts in a text field or another control
   that owns the key, with Ctrl, Alt or the command key held, while a dialog or
   the question sheet is open, or on a locked paper.
