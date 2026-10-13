@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<style>
+html,body{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;-webkit-font-smoothing:antialiased}
+[data-qz]{--bg:#ffffff;--sidebar:#f7f8f8;--card:#ffffff;--muted:#f2f4f4;--hover:#eceff0;--fg:#1b2123;--muted-fg:#646c6e;--border:#e4e7e8;--primary:#252c2e;--primary-fg:#fafbfb;--ring:#9aa3a5;--shadow:0 1px 2px rgba(20,28,30,.05);--shadow-lg:0 12px 32px -8px rgba(20,28,30,.18),0 2px 6px rgba(20,28,30,.06);--accent-c:#a4ca3e;--accent-soft:#f1f7e0;--accent-ink:#4f6c12;--success:oklch(.62 .14 155);--success-soft:oklch(.96 .03 155);--success-ink:oklch(.42 .1 155);--warning:oklch(.74 .15 70);--warning-soft:oklch(.96 .04 80);--warning-ink:oklch(.48 .11 60);--danger:oklch(.59 .2 27);--danger-soft:oklch(.96 .03 27);--danger-ink:oklch(.48 .17 27);--info-soft:oklch(.96 .02 230);--info-ink:oklch(.45 .09 235);--focus:var(--muted-fg);--anno:oklch(.6 .19 330);color-scheme:light}
+[data-qz="dark"]{--bg:#0e1213;--sidebar:#0a0d0e;--card:#131819;--muted:#1a2022;--hover:#20282a;--fg:#ecefef;--muted-fg:#98a0a2;--border:#252d2f;--primary:#ecefef;--primary-fg:#141a1b;--ring:#5d6769;--shadow:0 1px 2px rgba(0,0,0,.3);--shadow-lg:0 16px 40px -8px rgba(0,0,0,.6);--accent-soft:rgba(164,202,62,.13);--accent-ink:#c2e070;--success-soft:oklch(.3 .05 155);--success-ink:oklch(.8 .12 155);--warning-soft:oklch(.32 .06 70);--warning-ink:oklch(.85 .12 80);--danger-soft:oklch(.3 .08 27);--danger-ink:oklch(.78 .13 27);--info-soft:oklch(.3 .05 235);--info-ink:oklch(.8 .08 230);--anno:oklch(.74 .17 330);color-scheme:dark}
+[data-qz] *{box-sizing:border-box}
+[data-qz] :focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+[data-qz] a{color:var(--fg);text-decoration:underline;text-underline-offset:3px}
+[data-qz] a:hover{color:var(--muted-fg)}
+[data-qz] button{font:inherit;color:inherit}
+[data-qz] [class^="icon-"]{line-height:1;display:inline-block}
+</style>
+</helmet>
+<div data-qz="{{ theme }}" style="min-height:100vh;background:var(--sidebar);color:var(--fg);font-family:'Be Vietnam Pro',ui-sans-serif,system-ui,sans-serif;font-size:14px;line-height:1.5">
+<div style="max-width:1440px;margin:0 auto;padding:40px clamp(16px,3vw,40px) 80px;display:flex;flex-direction:column;gap:52px">
+
+<header data-screen-label="Cover" style="display:flex;flex-direction:column;gap:16px;max-width:920px">
+  <div style="display:flex;align-items:center;gap:10px">
+    <span style="display:grid;place-items:center;width:32px;height:32px;flex:none;border-radius:8px;background:var(--card);border:1px solid var(--border)"><sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}"><img src="web/public/brand/quizzivy-mark-color.svg" alt="" style="height:18px;width:auto"></sc-if><sc-if value="{{ isDark }}" hint-placeholder-val="{{ false }}"><img src="web/public/brand/quizzivy-mark-on-dark.svg" alt="" style="height:18px;width:auto"></sc-if></span>
+    <span style="font-size:13px;color:var(--muted-fg)">Quizzivy · Teacher › Grading · Design answer · 13 Oct 2026</span>
+  </div>
+  <h1 style="margin:0;font-size:40px;line-height:1.1;font-weight:600;letter-spacing:-0.025em;text-wrap:balance">Grading when nothing is left to mark</h1>
+  <p style="margin:0;font-size:17px;line-height:1.55;color:var(--muted-fg);text-wrap:pretty">These are the two states the deck never drew: an empty queue, and papers that are marked but not finished. Below are the three answers you asked for, both states at 1280, 768 and 360 in light and dark, the other cases, and every English line. The rules stay as they are: Finish is always explicit and nothing finishes automatically. Nothing here needs an API change.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:8px">
+    <span style="display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:var(--card);border:1px solid var(--border);font-size:12px;color:var(--muted-fg);white-space:nowrap">Source: work/deck-d4 · GradingPage.tsx, gradingMessages.ts</span>
+    <span style="display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:var(--card);border:1px solid var(--border);font-size:12px;color:var(--muted-fg);white-space:nowrap">DG-136 filter chip</span>
+  </div>
+</header>
+
+<section data-screen-label="Answers" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(400px,100%),1fr));gap:16px;align-items:start">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+    <span style="font-size:12px;font-weight:600;color:var(--muted-fg);letter-spacing:.04em;text-transform:uppercase">Finish from the row?</span>
+    <strong style="font-size:17px;font-weight:600;line-height:1.35">No. The row's button is Review, and Finish is one step away.</strong>
+    <ul style="margin:0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:7px;color:var(--muted-fg);text-wrap:pretty">
+      <li>The row comes from the attempt list, which has no score and no answered count, and nothing in it says a paper is blank. A Finish button on the row would send a result the teacher hasn't seen, including a 0 for a blank paper or a result on a flagged one.</li>
+      <li><span style="color:var(--fg)">Review opens a check inside the row.</span> It's built from a fresh read of the paper and shows the score, how many answers were given, how the paper was marked and any flag. Finish grading sits under it.</li>
+      <li><span style="color:var(--fg)">After a Finish, the next paper's check opens</span> with focus on its Finish button. For 14 auto-marked quizzes that's one Review, then 14 Finishes, each one after seeing the score.</li>
+    </ul>
+  </div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+    <span style="font-size:12px;font-weight:600;color:var(--muted-fg);letter-spacing:.04em;text-transform:uppercase">Beside the queue too?</span>
+    <strong style="font-size:17px;font-weight:600;line-height:1.35">No. It stays below the panes, folded to one line while answers are waiting.</strong>
+    <ul style="margin:0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:7px;color:var(--muted-fg);text-wrap:pretty">
+      <li>While answers are waiting, the job is marking them. The answer card already offers Finish once a paper's last hand-marked answer has a score.</li>
+      <li>The queue column is 300px wide and already scrolls. A second list there would squeeze both, and at 768 there's no room for it.</li>
+      <li><span style="color:var(--fg)">The header line links to it:</span> "18 answers left from 6 students · 26 papers ready to finish". The link unfolds the card and moves focus to it.</li>
+    </ul>
+  </div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+    <span style="font-size:12px;font-weight:600;color:var(--muted-fg);letter-spacing:.04em;text-transform:uppercase">A long list?</span>
+    <strong style="font-size:17px;font-weight:600;line-height:1.35">Group it by assignment, five papers per group, then "Show N more".</strong>
+    <ul style="margin:0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:7px;color:var(--muted-fg);text-wrap:pretty">
+      <li>The page already reads the list to the end, so paging would only hide papers that are already loaded.</li>
+      <li>Teachers finish an assignment's papers together, and a test is usually all auto-marked or partly hand-marked, so the group is the unit they work in.</li>
+      <li><span style="color:var(--fg)">Oldest hand-in first</span>, for groups and for rows. The 180px scroll box goes, and the card grows with the page. A single group (a narrowed queue) drops its header.</li>
+    </ul>
+  </div>
+</section>
+
+<div style="position:sticky;top:12px;z-index:30;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg)">
+  <sc-for list="{{ ctl }}" as="cg" hint-placeholder-count="5"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:500;color:var(--muted-fg);white-space:nowrap">{{ cg.label }}</span><div role="group" aria-label="{{ cg.label }}" style="display:inline-flex;flex-wrap:wrap;gap:2px;padding:3px;background:var(--muted);border-radius:9px"><sc-for list="{{ cg.opts }}" as="o" hint-placeholder-count="2"><button type="button" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="height:28px;padding:0 10px;border:0;border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer;white-space:nowrap;background:{{ o.bg }};color:{{ o.fg }};box-shadow:{{ o.ring }}">{{ o.label }}</button></sc-for></div></div></sc-for>
+  <div style="display:flex;gap:8px;margin-left:auto">
+    <button type="button" onClick="{{ reset }}" style="height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><i class="icon-rotate-ccw" style="font-size:14px"></i>Reset</button>
+    <button type="button" aria-pressed="{{ anno }}" onClick="{{ toggleAnno }}" style="height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><span style="width:10px;height:10px;border-radius:50%;background:var(--anno)"></span>{{ annoLabel }}</button>
+  </div>
+</div>
+
+<section data-screen-label="Frames" style="display:flex;flex-direction:column;gap:16px">
+  <div style="display:flex;flex-direction:column;gap:6px;max-width:800px">
+    <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.015em">The page at 1280, 768 and 360</h2>
+    <p style="margin:0;color:var(--muted-fg);text-wrap:pretty">The three frames share one state. Use the bar above to switch states. Inside the frames, Review opens a check, Finish grading removes the paper and opens the next one, and Show more, Refresh and the filter chip all work. The shell is drawn plainly so the page stands out: 248px sidebar from 768, a drawer below that, and 28 or 14px gutters, as the page-width proposal sets them.</p>
+  </div>
+  <div ref="{{ stageRef }}" style="width:100%;display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+    <sc-for list="{{ frames }}" as="f" hint-placeholder-count="3">
+      <figure style="margin:0;display:flex;flex-direction:column;gap:8px;width:{{ f.ow }}px;max-width:100%">
+        <figcaption style="font-size:12.5px;color:var(--muted-fg)"><strong style="color:var(--fg);font-weight:600">{{ f.title }}</strong> · {{ f.sub }}</figcaption>
+        <div style="width:{{ f.ow }}px;height:{{ f.oh }}px;overflow:hidden;border-radius:12px;border:1px solid var(--border);box-shadow:var(--shadow-lg);background:var(--bg)">
+          <div data-screen-label="{{ f.screen }}" style="width:{{ f.w }}px;height:{{ f.h }}px;transform:scale({{ f.s }});transform-origin:0 0;display:flex;background:var(--bg);color:var(--fg);font-size:14px">
+            <sc-if value="{{ f.side }}" hint-placeholder-val="{{ true }}">
+              <aside style="width:248px;flex:none;border-right:1px solid var(--border);background:var(--sidebar);display:flex;flex-direction:column">
+                <div style="height:56px;flex:none;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--border)"><span style="width:28px;height:28px;border-radius:8px;background:var(--card);border:1px solid var(--border);display:grid;place-items:center"><sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}"><img src="web/public/brand/quizzivy-mark-color.svg" alt="" style="height:16px;width:auto"></sc-if><sc-if value="{{ isDark }}" hint-placeholder-val="{{ false }}"><img src="web/public/brand/quizzivy-mark-on-dark.svg" alt="" style="height:16px;width:auto"></sc-if></span><span style="font-size:15px;font-weight:600">Quizzivy</span></div>
+                <nav style="padding:12px 10px;display:flex;flex-direction:column;gap:2px">
+                  <span style="padding:4px 10px 6px;font-size:11.5px;font-weight:600;color:var(--muted-fg);letter-spacing:.04em;text-transform:uppercase">Teaching</span>
+                  <sc-for list="{{ nav }}" as="n" hint-placeholder-count="7"><span style="height:36px;display:flex;align-items:center;gap:10px;padding:0 10px;border-radius:8px;font-size:13.5px;background:{{ n.bg }};font-weight:{{ n.weight }};color:{{ n.fg }}"><i class="icon-{{ n.icon }}" style="font-size:16px"></i><span style="flex:1">{{ n.label }}</span><sc-if value="{{ n.hasBadge }}" hint-placeholder-val="{{ false }}"><span style="min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--primary);color:var(--primary-fg);font-size:11px;font-weight:600;display:grid;place-items:center">{{ n.badge }}</span></sc-if></span></sc-for>
+                </nav>
+              </aside>
+            </sc-if>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;position:relative">
+              <div style="height:56px;flex:none;display:flex;align-items:center;gap:10px;padding:{{ f.barPad }};border-bottom:1px solid var(--border);background:var(--bg)">
+                <sc-if value="{{ f.phone }}" hint-placeholder-val="{{ false }}"><span style="width:44px;height:44px;margin-left:-8px;display:grid;place-items:center;border-radius:8px"><i class="icon-menu" style="font-size:20px"></i></span><span style="font-size:15px;font-weight:600">Grading</span></sc-if>
+                <sc-if value="{{ f.notPhone }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:var(--muted-fg)">Teaching</span><i class="icon-chevron-right" style="font-size:13px;color:var(--muted-fg)"></i><span style="font-size:13px;font-weight:500">Grading</span></sc-if>
+                <span style="flex:1"></span>
+                <span style="width:36px;height:36px;display:grid;place-items:center;border-radius:8px;color:var(--muted-fg)"><i class="icon-bell" style="font-size:18px"></i></span>
+                <span style="width:32px;height:32px;border-radius:50%;background:var(--muted);display:grid;place-items:center;font-size:11.5px;font-weight:600">GB</span>
+              </div>
+              <div style="flex:1;min-height:0;overflow-y:auto;padding:{{ f.pad }}">
+                <section aria-label="Grading" style="display:flex;flex-direction:column;gap:16px">
+                  <header style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px">
+                    <div style="min-width:0">
+                      <h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.02em">Grading</h1>
+                      <p style="margin:2px 0 0;font-size:14px;color:var(--muted-fg);display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px">
+                        <span>{{ pg.sub }}</span>
+                        <sc-if value="{{ pg.hasLink }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ pg.openCard }}" style="border:0;background:none;padding:0;font-size:14px;color:var(--fg);font-weight:500;text-decoration:underline;text-underline-offset:3px;cursor:pointer">{{ pg.link }}</button></sc-if>
+                        <sc-if value="{{ pg.hasChip }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:4px;height:24px;max-width:100%;padding:0 2px 0 10px;border-radius:999px;background:var(--muted);font-size:12px;font-weight:500;color:var(--fg)"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ pg.chip }}</span><button type="button" onClick="{{ pg.clearFilter }}" aria-label="{{ pg.chipAria }}" style="width:20px;height:20px;border:0;border-radius:50%;background:transparent;display:grid;place-items:center;cursor:pointer;color:var(--muted-fg)" style-hover="background:var(--hover)"><i class="icon-x" style="font-size:12px"></i></button></span></sc-if>
+                        <sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--anno);color:#fff;font-size:11px;font-weight:700">1</span></sc-if>
+                      </p>
+                    </div>
+                    <div style="display:flex;padding:3px;background:var(--muted);border-radius:9px;gap:2px"><span style="height:30px;padding:0 12px;border-radius:7px;font-size:13px;font-weight:500;display:inline-flex;align-items:center;background:var(--card);box-shadow:var(--shadow),0 0 0 1px var(--border);white-space:nowrap">By student</span><span style="height:30px;padding:0 12px;border-radius:7px;font-size:13px;font-weight:500;display:inline-flex;align-items:center;color:var(--muted-fg);white-space:nowrap">By question</span></div>
+                  </header>
+
+                  <sc-if value="{{ pg.waiting }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;gap:14px;flex-wrap:{{ f.paneWrap }};height:{{ f.paneH }}">
+                      <aside style="flex:1 1 260px;max-width:{{ f.asideMax }};min-width:0;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden">
+                        <div style="padding:12px 14px;font-size:12.5px;color:var(--muted-fg);font-weight:500;border-bottom:1px solid var(--border)">Students waiting</div>
+                        <sc-for list="{{ waitRows }}" as="w" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:{{ w.bg }};box-shadow:{{ w.bar }}"><span style="width:30px;height:30px;flex:none;border-radius:50%;background:var(--muted);display:grid;place-items:center;font-size:11px;font-weight:600">{{ w.ini }}</span><span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ w.name }}</span><span style="display:block;font-size:12px;color:var(--muted-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ w.sub }}</span></span><span style="font-size:12px;font-weight:500;font-variant-numeric:tabular-nums">{{ w.left }}</span></div></sc-for>
+                      </aside>
+                      <div style="flex:3 1 520px;min-width:0;height:{{ f.mainPaneH }};background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column">
+                        <div style="height:3px;background:var(--muted)"><div style="height:100%;width:35%;background:var(--accent-c)"></div></div>
+                        <div style="flex:1;margin:14px;border-radius:10px;background:repeating-linear-gradient(135deg,var(--muted) 0 8px,transparent 8px 16px);display:grid;place-items:center;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted-fg);text-align:center;padding:12px">Answer being graded · as built</div>
+                      </div>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ pg.hasEmpty }}" hint-placeholder-val="{{ true }}">
+                    <div style="border:1px dashed var(--border);border-radius:12px;background:var(--card);padding:{{ f.emptyPad }};display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;position:relative">
+                      <sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:12px;left:12px;display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--anno);color:#fff;font-size:11px;font-weight:700">2</span></sc-if>
+                      <span style="width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:{{ em.tileBg }};color:{{ em.tileFg }}"><i class="icon-{{ em.icon }}" style="font-size:22px"></i></span>
+                      <h2 style="margin:4px 0 0;font-size:16px;font-weight:600;letter-spacing:-0.01em">{{ em.title }}</h2>
+                      <p style="margin:0;max-width:46ch;font-size:14px;line-height:1.5;color:var(--muted-fg);text-wrap:pretty">{{ em.body }}</p>
+                      <sc-if value="{{ em.hasAction }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ em.act }}" style="margin-top:6px;height:{{ f.btnH2 }};padding:0 14px;border-radius:9px;border:1px solid var(--border);background:var(--card);font-size:13.5px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap" style-hover="background:var(--hover)">{{ em.actLabel }}<sc-if value="{{ em.hasActIcon }}" hint-placeholder-val="{{ false }}"><i class="icon-{{ em.actIcon }}" style="font-size:15px"></i></sc-if></button></sc-if>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ pg.hasCard }}" hint-placeholder-val="{{ true }}">
+                    <section aria-label="Ready to finish" style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden">
+                      <div style="padding:14px 16px;display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:10px 16px">
+                        <div style="flex:1 1 260px;min-width:0;display:flex;flex-direction:column;gap:4px">
+                          <div style="display:flex;align-items:center;gap:8px"><h2 style="margin:0;font-size:15px;font-weight:600">Ready to finish</h2><sc-if value="{{ pg.hasCount }}" hint-placeholder-val="{{ true }}"><span style="min-width:22px;height:20px;padding:0 7px;border-radius:999px;background:var(--muted);font-size:12px;font-weight:600;display:grid;place-items:center;font-variant-numeric:tabular-nums">{{ pg.count }}</span></sc-if><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--anno);color:#fff;font-size:11px;font-weight:700">3</span></sc-if></div>
+                          <sc-if value="{{ pg.cardOpen }}" hint-placeholder-val="{{ true }}"><p style="margin:0;font-size:13px;color:var(--muted-fg);max-width:72ch;text-wrap:pretty">{{ cp.hint }}</p></sc-if>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:10px;flex:none">
+                          <sc-if value="{{ pg.cardOpen }}" hint-placeholder-val="{{ true }}"><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--anno);color:#fff;font-size:11px;font-weight:700">4</span></sc-if><span style="font-size:12.5px;color:var(--muted-fg);white-space:nowrap">{{ pg.checked }}</span><button type="button" onClick="{{ pg.refresh }}" disabled="{{ pg.refreshing }}" aria-label="Refresh" style="height:{{ f.btnH }};min-width:{{ f.btnH }};padding:{{ f.refreshPad }};border-radius:8px;border:1px solid var(--border);background:var(--card);font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;opacity:{{ pg.refreshOp }}" style-hover="background:var(--hover)"><i class="icon-refresh-cw" style="font-size:14px"></i><sc-if value="{{ f.notPhone }}" hint-placeholder-val="{{ true }}">{{ pg.refreshLabel }}</sc-if></button></sc-if>
+                          <sc-if value="{{ pg.foldable }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ pg.toggleCard }}" aria-expanded="{{ pg.cardOpen }}" style="height:{{ f.btnH }};padding:0 10px 0 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap" style-hover="background:var(--hover)">{{ pg.foldLabel }}<i class="icon-{{ pg.foldIcon }}" style="font-size:15px"></i></button><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--anno);color:#fff;font-size:11px;font-weight:700">8</span></sc-if></sc-if>
+                        </div>
+                      </div>
+                      <sc-if value="{{ pg.cardOpen }}" hint-placeholder-val="{{ true }}">
+                        <sc-if value="{{ pg.scanFailed }}" hint-placeholder-val="{{ false }}"><div role="alert" style="margin:0 16px 14px;padding:12px 14px;border-radius:10px;background:var(--warning-soft);color:var(--warning-ink);display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px"><i class="icon-triangle-alert" style="font-size:16px"></i><span style="flex:1 1 220px;font-size:13.5px;font-weight:500;text-wrap:pretty">{{ cp.scanFailed }}</span><button type="button" onClick="{{ pg.retryScan }}" style="height:{{ f.btnH }};padding:0 12px;border-radius:8px;border:1px solid currentColor;background:transparent;color:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap">Try again</button></div></sc-if>
+                        <sc-if value="{{ pg.scanLoading }}" hint-placeholder-val="{{ false }}"><div role="status" aria-label="Loading" style="padding:4px 16px 16px;display:flex;flex-direction:column;gap:8px"><span style="height:36px;border-radius:8px;background:var(--muted)"></span><span style="height:36px;border-radius:8px;background:var(--muted)"></span><span style="height:36px;width:60%;border-radius:8px;background:var(--muted)"></span></div></sc-if>
+                        <sc-for list="{{ groups }}" as="g" hint-placeholder-count="2">
+                          <div style="border-top:1px solid var(--border)">
+                            <sc-if value="{{ g.head }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;padding:9px 16px;background:var(--sidebar);font-size:12.5px"><strong style="font-weight:600">{{ g.title }}</strong><span style="color:var(--muted-fg)">· {{ g.count }}</span><sc-if value="{{ g.pin5 }}" hint-placeholder-val="{{ false }}"><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--anno);color:#fff;font-size:11px;font-weight:700">5</span></sc-if></sc-if></div></sc-if>
+                            <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="3">
+                              <div style="border-top:{{ r.sep }};background:{{ r.bg }}">
+                                <div style="display:flex;align-items:center;gap:12px;padding:{{ f.rowPad }}">
+                                  <span style="width:30px;height:30px;flex:none;border-radius:50%;background:var(--muted);display:grid;place-items:center;font-size:11px;font-weight:600">{{ r.ini }}</span>
+                                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                                    <span style="font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span>
+                                    <span style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:12px;color:var(--muted-fg)"><span>{{ r.sub }}</span><sc-if value="{{ r.timed }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 7px;border-radius:999px;border:1px solid var(--border);font-size:11.5px;white-space:nowrap"><i class="icon-timer-off" style="font-size:12px"></i>Time ran out</span></sc-if><sc-if value="{{ r.flag }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 7px;border-radius:999px;background:var(--warning-soft);color:var(--warning-ink);font-size:11.5px;font-weight:500;white-space:nowrap"><i class="icon-flag" style="font-size:12px"></i>Flagged</span></sc-if></span>
+                                  </span>
+                                  <sc-if value="{{ r.pin6 }}" hint-placeholder-val="{{ false }}"><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:20px;height:20px;flex:none;border-radius:50%;background:var(--anno);color:#fff;font-size:11px;font-weight:700">6</span></sc-if></sc-if>
+                                  <button type="button" onClick="{{ r.toggle }}" aria-expanded="{{ r.open }}" aria-label="{{ r.aria }}" style="height:{{ f.btnH }};padding:0 12px;flex:none;border-radius:8px;border:1px solid var(--border);background:var(--card);font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="background:var(--hover)">{{ r.btn }}</button>
+                                </div>
+                                <sc-if value="{{ r.open }}" hint-placeholder-val="{{ false }}">
+                                  <div style="padding:{{ f.checkPad }};display:flex;flex-direction:column;gap:12px;position:relative">
+                                    <sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:24px;top:2px;display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--anno);color:#fff;font-size:11px;font-weight:700">7</span></sc-if>
+                                    <sc-if value="{{ r.loading }}" hint-placeholder-val="{{ false }}"><div role="status" style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12.5px;color:var(--muted-fg)">Loading the paper…</span><span style="height:28px;width:220px;max-width:100%;border-radius:7px;background:var(--muted)"></span><span style="height:36px;width:300px;max-width:100%;border-radius:8px;background:var(--muted)"></span></div></sc-if>
+                                    <sc-if value="{{ r.ready }}" hint-placeholder-val="{{ true }}">
+                                      <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 18px">
+                                        <span style="display:flex;flex-direction:column"><span style="font-size:12px;color:var(--muted-fg)">Score</span><span style="font-size:20px;font-weight:600;line-height:1.2;font-variant-numeric:tabular-nums">{{ r.score }}</span></span>
+                                        <span style="font-size:13px;color:var(--muted-fg);padding-bottom:2px">{{ r.answered }}</span>
+                                        <span style="display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:999px;background:{{ r.kindBg }};color:{{ r.kindFg }};font-size:12px;font-weight:500;white-space:nowrap;margin-bottom:1px"><i class="icon-{{ r.kindIcon }}" style="font-size:13px"></i>{{ r.kind }}</span>
+                                      </div>
+                                      <sc-if value="{{ r.flag }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:9px;background:var(--warning-soft);color:var(--warning-ink);font-size:13px;text-wrap:pretty"><i class="icon-flag" style="font-size:14px;margin-top:2px"></i><span>{{ r.flagMsg }}</span></div></sc-if>
+                                      <sc-if value="{{ r.blank }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:9px;background:var(--muted);font-size:13px;text-wrap:pretty"><i class="icon-info" style="font-size:14px;margin-top:2px;color:var(--muted-fg)"></i><span>{{ cp.checkBlank }}</span></div></sc-if>
+                                      <p style="margin:0;font-size:12.5px;color:var(--muted-fg)">{{ r.tells }}</p>
+                                      <div style="display:flex;flex-wrap:wrap;gap:8px">
+                                        <button type="button" onClick="{{ r.finish }}" disabled="{{ r.finishing }}" style="flex:{{ f.btnFlex }};height:{{ f.btnH2 }};padding:0 16px;border-radius:9px;border:0;background:var(--primary);color:var(--primary-fg);font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap;opacity:{{ r.finOp }}">{{ r.finLabel }}</button>
+                                        <button type="button" style="flex:{{ f.btnFlex }};height:{{ f.btnH2 }};padding:0 14px;border-radius:9px;border:1px solid var(--border);background:var(--card);font-size:13.5px;font-weight:500;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:6px" style-hover="background:var(--hover)">Full paper review<i class="icon-arrow-up-right" style="font-size:14px"></i></button>
+                                      </div>
+                                    </sc-if>
+                                  </div>
+                                </sc-if>
+                              </div>
+                            </sc-for>
+                            <sc-if value="{{ g.hasMore }}" hint-placeholder-val="{{ false }}"><div style="border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;padding:0 8px"><button type="button" onClick="{{ g.toggleMore }}" style="flex:1;height:{{ f.btnH2 }};border:0;background:transparent;font-size:13px;font-weight:500;color:var(--muted-fg);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px" style-hover="color:var(--fg)">{{ g.moreLabel }}<i class="icon-{{ g.moreIcon }}" style="font-size:14px"></i></button><sc-if value="{{ g.pin8 }}" hint-placeholder-val="{{ false }}"><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:20px;height:20px;flex:none;border-radius:50%;background:var(--anno);color:#fff;font-size:11px;font-weight:700">9</span></sc-if></sc-if></div></sc-if>
+                          </div>
+                        </sc-for>
+                      </sc-if>
+                    </section>
+                  </sc-if>
+                </section>
+              </div>
+              <sc-if value="{{ toast.show }}" hint-placeholder-val="{{ false }}"><div role="status" style="position:absolute;left:50%;bottom:20px;transform:translateX(-50%);max-width:calc(100% - 28px);display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;background:var(--primary);color:var(--primary-fg);box-shadow:var(--shadow-lg);font-size:13px;font-weight:500"><i class="icon-circle-check" style="font-size:15px"></i><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ toast.text }}</span></div></sc-if>
+            </div>
+          </div>
+        </div>
+      </figure>
+    </sc-for>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr));gap:20px;align-items:start">
+    <ol style="margin:0;list-style:none;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:4px 16px">
+      <li style="display:grid;grid-template-columns:24px 1fr;gap:10px;padding:10px 0"><span style="display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--anno);color:#fff;font-size:11px;font-weight:700">1</span><span style="text-wrap:pretty"><strong style="font-weight:600">Header line.</strong> <span style="color:var(--muted-fg)">An empty queue reads "No answers left." instead of "0 answers left from 0 students.". While answers are waiting, the line adds a link, "26 papers ready to finish", that unfolds the card and moves focus to it. The DG-136 chip comes last, and removing it moves focus to the heading, as built.</span></span></li>
+      <li style="display:grid;grid-template-columns:24px 1fr;gap:10px;padding:10px 0;border-top:1px solid var(--border)"><span style="display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--anno);color:#fff;font-size:11px;font-weight:700">2</span><span style="text-wrap:pretty"><strong style="font-weight:600">Empty state.</strong> <span style="color:var(--muted-fg)">A dashed card with a 44px tile, a 16/600 title, one 14px sentence (46ch at most) and at most one action. Its variant comes from the queue and the check (see the table). Variant (b)'s action, "Review 26 papers", opens the oldest paper's check and moves focus to its Finish.</span></span></li>
+      <li style="display:grid;grid-template-columns:24px 1fr;gap:10px;padding:10px 0;border-top:1px solid var(--border)"><span style="display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--anno);color:#fff;font-size:11px;font-weight:700">3</span><span style="text-wrap:pretty"><strong style="font-weight:600">Card title and sentence.</strong> <span style="color:var(--muted-fg)">"Ready to finish", then a count of the papers that pass the filter. The sentence says what Finish does for the student and why a score may not show yet.</span></span></li>
+      <li style="display:grid;grid-template-columns:24px 1fr;gap:10px;padding:10px 0;border-top:1px solid var(--border)"><span style="display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--anno);color:#fff;font-size:11px;font-weight:700">4</span><span style="text-wrap:pretty"><strong style="font-weight:600">Refresh.</strong> <span style="color:var(--muted-fg)">This replaces "Rescan". It sits beside "Checked 10:42", the time of the last complete check, taken from the query's last update. While it runs, the button reads "Checking…" and the rows stay where they are. It still refetches both the list and the queue. At 360 it's a 44px icon button.</span></span></li>
+      <li style="display:grid;grid-template-columns:24px 1fr;gap:10px;padding:10px 0;border-top:1px solid var(--border)"><span style="display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--anno);color:#fff;font-size:11px;font-weight:700">5</span><span style="text-wrap:pretty"><strong style="font-weight:600">Group header.</strong> <span style="color:var(--muted-fg)">The test title and the group's paper count, on a <code style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px">--sidebar</code> strip. Rows are grouped by <code style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px">assignmentId</code>. If two groups share a title, the header adds the group's earliest hand-in date.</span></span></li>
+    </ol>
+    <ol start="6" style="margin:0;list-style:none;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:4px 16px">
+      <li style="display:grid;grid-template-columns:24px 1fr;gap:10px;padding:10px 0"><span style="display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--anno);color:#fff;font-size:11px;font-weight:700">6</span><span style="text-wrap:pretty"><strong style="font-weight:600">Row.</strong> <span style="color:var(--muted-fg)">Avatar, name, "Handed in Mon 22 Sep, 21:14", plus "Time ran out" for <code style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px">timed_out</code> and "Flagged" for <code style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px">flagged</code>. All of this comes from the attempt list row. The one button, "Review" or "Close", opens and closes the check and carries <code style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px">aria-expanded</code>. Only one check is open at a time.</span></span></li>
+      <li style="display:grid;grid-template-columns:24px 1fr;gap:10px;padding:10px 0;border-top:1px solid var(--border)"><span style="display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--anno);color:#fff;font-size:11px;font-weight:700">7</span><span style="text-wrap:pretty"><strong style="font-weight:600">Check.</strong> <span style="color:var(--muted-fg)">It's today's candidate panel, moved into the row. It reads <code style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px">getAttemptForReview</code> and shows the score (earned / total), the answers given (non-null answers), and how the paper was marked:</span></span>
+        <span></span><ul style="margin:6px 0 0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:3px;color:var(--muted-fg)"><li>"You marked n answers" when n answers need hand marking and all have a manual score;</li><li>"Marked automatically" when no answer needs hand marking;</li><li>"Left blank" when no answer was given.</li></ul>
+        <span></span><span style="color:var(--muted-fg);margin-top:6px;text-wrap:pretty">A flagged paper gets a warning line, and a blank one a line about the 0. Finish stays disabled unless <code style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px">pendingManual === 0</code>, as built.</span>
+      </li>
+      <li style="display:grid;grid-template-columns:24px 1fr;gap:10px;padding:10px 0;border-top:1px solid var(--border)"><span style="display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--primary);color:var(--primary-fg);font-size:11px;font-weight:700"><i class="icon-arrow-right" style="font-size:11px"></i></span><span style="text-wrap:pretty"><strong style="font-weight:600">After Finish.</strong> <span style="color:var(--muted-fg)">The row leaves the list, a toast says "Grading finished for Trần Minh Anh.", and the next paper in order opens its check. Focus goes to that check's Finish once it loads. A polite live region says "Grading finished for Trần Minh Anh. Next: Lê Hoàng Nam.". When it was the last paper, focus goes to the empty state's title.</span></span></li>
+      <li style="display:grid;grid-template-columns:24px 1fr;gap:10px;padding:10px 0;border-top:1px solid var(--border)"><span style="display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--anno);color:#fff;font-size:11px;font-weight:700">8</span><span style="text-wrap:pretty"><strong style="font-weight:600">Folded while answers are waiting.</strong> <span style="color:var(--muted-fg)">The card sits below the panes. Folded, it shows only the title, the count and Show. It's drawn when there is at least one paper to finish, or when the check failed.</span></span></li>
+      <li style="display:grid;grid-template-columns:24px 1fr;gap:10px;padding:10px 0;border-top:1px solid var(--border)"><span style="display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--anno);color:#fff;font-size:11px;font-weight:700">9</span><span style="text-wrap:pretty"><strong style="font-weight:600">Show more.</strong> <span style="color:var(--muted-fg)">Five rows per group, then "Show 9 more" or "Show fewer". A group opens fully if the next check falls past its fifth row.</span></span></li>
+    </ol>
+  </div>
+</section>
+
+<section data-screen-label="State table" style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;flex-direction:column;gap:6px;max-width:800px">
+    <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.015em">Which state shows</h2>
+    <p style="margin:0;color:var(--muted-fg);text-wrap:pretty">"All graded" shows only after a complete check of the papers. While the check is running, or after it fails, the page says only what it knows: no answers are left to mark.</p>
+  </div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow-x:auto">
+    <div style="min-width:760px">
+      <div style="display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,.8fr) minmax(0,1.3fr) minmax(0,1.1fr);gap:14px;padding:10px 16px;background:var(--muted);font-size:12px;font-weight:500;color:var(--muted-fg)"><span>Queue</span><span>Check of papers</span><span>Empty state</span><span>Card</span></div>
+      <div style="display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,.8fr) minmax(0,1.3fr) minmax(0,1.1fr);gap:14px;padding:11px 16px;border-top:1px solid var(--border);font-size:13.5px;align-items:baseline"><span>Answers waiting</span><span style="color:var(--muted-fg)">any</span><span style="color:var(--muted-fg)">none: the panes show</span><span>Folded below the panes, if there are papers to finish or the check failed</span></div>
+      <div style="display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,.8fr) minmax(0,1.3fr) minmax(0,1.1fr);gap:14px;padding:11px 16px;border-top:1px solid var(--border);font-size:13.5px;align-items:baseline"><span>Empty</span><span>Running</span><span><strong style="font-weight:600">No answers left to mark</strong> · "Checking for papers that still need finishing…"</span><span>Open, three loading rows</span></div>
+      <div style="display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,.8fr) minmax(0,1.3fr) minmax(0,1.1fr);gap:14px;padding:11px 16px;border-top:1px solid var(--border);font-size:13.5px;align-items:baseline"><span>Empty</span><span>Failed</span><span><strong style="font-weight:600">No answers left to mark</strong> · "We couldn't check every paper…" · Try again</span><span>Open, with the warning and Try again</span></div>
+      <div style="display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,.8fr) minmax(0,1.3fr) minmax(0,1.1fr);gap:14px;padding:11px 16px;border-top:1px solid var(--border);font-size:13.5px;align-items:baseline;background:var(--accent-soft)"><span>Empty</span><span>Done, 1 or more papers</span><span><strong style="font-weight:600">(b) No answers left to mark</strong> · "26 papers are marked but not finished…" · Review 26 papers</span><span>Open</span></div>
+      <div style="display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,.8fr) minmax(0,1.3fr) minmax(0,1.1fr);gap:14px;padding:11px 16px;border-top:1px solid var(--border);font-size:13.5px;align-items:baseline;background:var(--accent-soft)"><span>Empty</span><span>Done, no papers</span><span><strong style="font-weight:600">(a) All graded</strong> · "Every paper handed in so far is marked and finished." With a filter, it names the filter and offers Show all.</span><span>Not drawn</span></div>
+    </div>
+  </div>
+</section>
+
+<section data-screen-label="Other cases" style="display:flex;flex-direction:column;gap:16px">
+  <div style="display:flex;flex-direction:column;gap:6px;max-width:800px">
+    <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.015em">Other cases</h2>
+    <p style="margin:0;color:var(--muted-fg);text-wrap:pretty">These are drawn at the 1280 card width. The first and last can also be seen in the frames, with Check: Failed and Filter.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:16px;align-items:start">
+    <figure style="margin:0;display:flex;flex-direction:column;gap:8px">
+      <figcaption style="font-size:12.5px;color:var(--muted-fg)"><strong style="color:var(--fg);font-weight:600">The check of papers didn't finish</strong> · today "The scan is incomplete. It does not prove completion."</figcaption>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px">
+        <div style="border:1px dashed var(--border);border-radius:12px;background:var(--card);padding:28px 20px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px"><span style="width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--warning-soft);color:var(--warning-ink)"><i class="icon-triangle-alert" style="font-size:22px"></i></span><strong style="font-size:16px;font-weight:600">No answers left to mark</strong><span style="max-width:46ch;color:var(--muted-fg);text-wrap:pretty">We couldn't check every paper, so some may still need finishing.</span><span style="margin-top:6px;height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--border);display:inline-flex;align-items:center;font-size:13.5px;font-weight:500">Try again</span></div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><strong style="font-size:15px;font-weight:600">Ready to finish</strong><span style="height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--border);display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500"><i class="icon-refresh-cw" style="font-size:14px"></i>Refresh</span></div><div style="padding:12px 14px;border-radius:10px;background:var(--warning-soft);color:var(--warning-ink);display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px"><i class="icon-triangle-alert" style="font-size:16px"></i><span style="flex:1 1 220px;font-size:13.5px;font-weight:500">Some papers couldn't be loaded, so this list may be incomplete.</span><span style="height:32px;padding:0 12px;border-radius:8px;border:1px solid currentColor;display:inline-flex;align-items:center;font-size:13px;font-weight:500">Try again</span></div></div>
+        <span style="font-size:12.5px;color:var(--muted-fg);text-wrap:pretty">Rows already found stay under the warning. The request ID line from <code style="font-family:ui-monospace,Menlo,monospace">LoadError</code> stays under the sentence, as built.</span>
+      </div>
+    </figure>
+    <figure style="margin:0;display:flex;flex-direction:column;gap:8px">
+      <figcaption style="font-size:12.5px;color:var(--muted-fg)"><strong style="color:var(--fg);font-weight:600">The mark saved but Finish failed</strong> · today "The mark was saved, but grading has not been finished."</figcaption>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px">
+        <span style="font-size:12px;font-weight:500;color:var(--muted-fg)">From the answer card (the last hand-marked answer, then Finish): under the header</span>
+        <div role="alert" style="padding:12px 14px;border-radius:10px;background:var(--danger-soft);color:var(--danger-ink);display:flex;flex-direction:column;gap:10px"><span style="display:flex;gap:8px;align-items:flex-start;font-size:13.5px;font-weight:500"><i class="icon-circle-alert" style="font-size:16px;margin-top:1px"></i>Marks saved for Phạm Thu Hà, but grading isn't finished yet.</span><span style="display:flex;flex-wrap:wrap;gap:8px;padding-left:24px"><span style="height:32px;padding:0 12px;border-radius:8px;background:var(--danger-ink);color:var(--bg);display:inline-flex;align-items:center;font-size:13px;font-weight:600">Try Finish again</span><span style="height:32px;padding:0 12px;border-radius:8px;border:1px solid currentColor;display:inline-flex;align-items:center;font-size:13px;font-weight:500">Full paper review</span></span></div>
+        <span style="font-size:12px;font-weight:500;color:var(--muted-fg)">From a row's check: inside the check, above its buttons</span>
+        <div style="background:var(--sidebar);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:10px"><span style="display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--danger-ink);font-weight:500"><i class="icon-circle-alert" style="font-size:15px;margin-top:2px"></i>Couldn't finish grading. The marks are saved; try again.</span><span style="display:flex;gap:8px"><span style="height:36px;padding:0 16px;border-radius:9px;background:var(--primary);color:var(--primary-fg);display:inline-flex;align-items:center;font-size:13.5px;font-weight:600">Finish grading</span><span style="height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--border);background:var(--card);display:inline-flex;align-items:center;font-size:13.5px;font-weight:500">Full paper review</span></span></div>
+        <span style="font-size:12.5px;color:var(--muted-fg);text-wrap:pretty">The row stays in place, and Finish grading is the retry. The answer card's alert names the student, because the teacher has already moved on to the next answer.</span>
+      </div>
+    </figure>
+    <figure style="margin:0;display:flex;flex-direction:column;gap:8px">
+      <figcaption style="font-size:12.5px;color:var(--muted-fg)"><strong style="color:var(--fg);font-weight:600">The paper changed after the list loaded</strong> · today's <code style="font-family:ui-monospace,Menlo,monospace">pendingUnknown</code></figcaption>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px">
+        <div style="background:var(--sidebar);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:10px"><span style="display:flex;gap:8px;align-items:flex-start;font-size:13px;text-wrap:pretty"><i class="icon-info" style="font-size:15px;margin-top:2px;color:var(--muted-fg)"></i>An answer on this paper is now waiting to be marked, so it can't be finished yet.</span><span style="display:flex;gap:8px"><span style="height:36px;padding:0 16px;border-radius:9px;background:var(--primary);color:var(--primary-fg);display:inline-flex;align-items:center;font-size:13.5px;font-weight:600;opacity:.4">Finish grading</span><span style="height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--border);background:var(--card);display:inline-flex;align-items:center;font-size:13.5px;font-weight:500">Full paper review</span></span></div>
+        <p style="margin:10px 0 0;font-size:12.5px;color:var(--muted-fg);text-wrap:pretty">This shows when <code style="font-family:ui-monospace,Menlo,monospace">pendingManual</code> isn't 0 on the fresh read, for example after a regrade reopened an answer. The row leaves the list on the next Refresh, because the answer is back in the queue.</p>
+      </div>
+    </figure>
+    <figure style="margin:0;display:flex;flex-direction:column;gap:8px">
+      <figcaption style="font-size:12.5px;color:var(--muted-fg)"><strong style="color:var(--fg);font-weight:600">A narrowed queue with nothing left</strong> · DG-136, opened from an assignment</figcaption>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:14px">
+        <div><strong style="display:block;font-size:24px;font-weight:600;letter-spacing:-0.02em">Grading</strong><span style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:14px;color:var(--muted-fg)">No answers left.<span style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 2px 0 10px;border-radius:999px;background:var(--muted);font-size:12px;font-weight:500;color:var(--fg)">Reading Mock 3<span style="width:20px;height:20px;display:grid;place-items:center;color:var(--muted-fg)"><i class="icon-x" style="font-size:12px"></i></span></span></span></div>
+        <div style="border:1px dashed var(--border);border-radius:12px;background:var(--card);padding:28px 20px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px"><span style="width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--success-soft);color:var(--success-ink)"><i class="icon-circle-check" style="font-size:22px"></i></span><strong style="font-size:16px;font-weight:600">All graded</strong><span style="max-width:46ch;color:var(--muted-fg);text-wrap:pretty">Every paper handed in for Reading Mock 3 is marked and finished.</span><span style="margin-top:6px;height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--border);display:inline-flex;align-items:center;font-size:13.5px;font-weight:500">Show all assignments</span></div>
+        <span style="font-size:12.5px;color:var(--muted-fg);text-wrap:pretty">"Show all assignments" does what the chip's × does, and moves focus the same way. For a student, the line reads "Every paper Lê Hoàng Nam handed in is marked and finished." with "Show all students". If papers are waiting to be finished, it's variant (b) and the card lists only that assignment's papers, with no group header.</span>
+      </div>
+    </figure>
+  </div>
+</section>
+
+<section data-screen-label="Copy" style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;flex-direction:column;gap:6px;max-width:800px">
+    <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.015em">Every English line</h2>
+    <p style="margin:0;color:var(--muted-fg);text-wrap:pretty">Keys live in <code style="font-family:ui-monospace,Menlo,monospace;font-size:13px">gradingMessages.ts</code> unless noted. "New" keys are new, "Rewritten" keys keep their key with new words, and "As today" keys don't change. The frames above use these exact strings.</p>
+  </div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow-x:auto">
+    <div style="min-width:820px">
+      <div style="display:grid;grid-template-columns:120px minmax(0,1fr) minmax(0,2fr) 92px;gap:14px;padding:10px 16px;background:var(--muted);font-size:12px;font-weight:500;color:var(--muted-fg)"><span>Where</span><span>Key</span><span>English</span><span>Status</span></div>
+      <sc-for list="{{ copyRows }}" as="c" hint-placeholder-count="12"><div style="display:grid;grid-template-columns:120px minmax(0,1fr) minmax(0,2fr) 92px;gap:14px;padding:9px 16px;border-top:1px solid var(--border);font-size:13px;align-items:baseline"><span style="color:var(--muted-fg)">{{ c.where }}</span><code style="font-family:ui-monospace,Menlo,monospace;font-size:12px;overflow-wrap:anywhere">{{ c.key }}</code><span style="text-wrap:pretty">{{ c.en }}</span><span style="font-size:12px;font-weight:500;color:{{ c.tone }}">{{ c.status }}</span></div></sc-for>
+    </div>
+  </div>
+  <p style="margin:0;font-size:12.5px;color:var(--muted-fg);text-wrap:pretty">Retired: <code style="font-family:ui-monospace,Menlo,monospace">grading.rescan</code>. Plural keys use i18next's _one / _other, as <code style="font-family:ui-monospace,Menlo,monospace">score_one</code> does today.</p>
+</section>
+
+<section data-screen-label="Handoff" style="display:flex;flex-direction:column;gap:14px">
+  <div style="display:flex;flex-direction:column;gap:6px;max-width:800px">
+    <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.015em">What changes in the code</h2>
+    <p style="margin:0;color:var(--muted-fg);text-wrap:pretty">The rules, endpoints and data stay as they are. Everything in the check comes from the review read the panel already makes.</p>
+  </div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow-x:auto">
+    <div style="min-width:720px">
+      <div style="display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.3fr) 60px;gap:14px;padding:10px 16px;background:var(--muted);font-size:12px;font-weight:500;color:var(--muted-fg)"><span>Change</span><span>Where</span><span>Size</span></div>
+      <div style="display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.3fr) 60px;gap:14px;padding:11px 16px;border-top:1px solid var(--border);font-size:13.5px;align-items:baseline"><span>Optional <code style="font-family:ui-monospace,Menlo,monospace;font-size:12px">icon</code> and <code style="font-family:ui-monospace,Menlo,monospace;font-size:12px">tone</code> props on EmptyState: the 44px tile and a 16/600 title. Existing callers don't change.</span><code style="font-family:ui-monospace,Menlo,monospace;font-size:12px;overflow-wrap:anywhere">components/shared/ListState.tsx</code><span>XS</span></div>
+      <div style="display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.3fr) 60px;gap:14px;padding:11px 16px;border-top:1px solid var(--border);font-size:13.5px;align-items:baseline"><span>Pick the empty-state variant from the queue and the list query (pending, error, rows); "No answers left."; the "N papers ready to finish" link</span><code style="font-family:ui-monospace,Menlo,monospace;font-size:12px;overflow-wrap:anywhere">GradingPage.tsx (QueuePage)</code><span>S</span></div>
+      <div style="display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.3fr) 60px;gap:14px;padding:11px 16px;border-top:1px solid var(--border);font-size:13.5px;align-items:baseline"><span>Card: new title and sentence; Refresh with "Checked {time}" from <code style="font-family:ui-monospace,Menlo,monospace;font-size:12px">dataUpdatedAt</code>; folded while answers are waiting; drop <code style="font-family:ui-monospace,Menlo,monospace;font-size:12px">max-h-45</code></span><code style="font-family:ui-monospace,Menlo,monospace;font-size:12px;overflow-wrap:anywhere">GradingPage.tsx (Recovery)</code><span>S</span></div>
+      <div style="display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.3fr) 60px;gap:14px;padding:11px 16px;border-top:1px solid var(--border);font-size:13.5px;align-items:baseline"><span>Group by <code style="font-family:ui-monospace,Menlo,monospace;font-size:12px">assignmentId</code>, oldest <code style="font-family:ui-monospace,Menlo,monospace;font-size:12px">submittedAt</code> first; five rows, then Show more; no header for a single group</span><code style="font-family:ui-monospace,Menlo,monospace;font-size:12px;overflow-wrap:anywhere">GradingPage.tsx (Recovery)</code><span>S</span></div>
+      <div style="display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.3fr) 60px;gap:14px;padding:11px 16px;border-top:1px solid var(--border);font-size:13.5px;align-items:baseline"><span>Move the candidate panel into its row, add the score, answered count, how it was marked, and the flag and blank lines, from the review read</span><code style="font-family:ui-monospace,Menlo,monospace;font-size:12px;overflow-wrap:anywhere">GradingPage.tsx, useGradingQueue.ts</code><span>S</span></div>
+      <div style="display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.3fr) 60px;gap:14px;padding:11px 16px;border-top:1px solid var(--border);font-size:13.5px;align-items:baseline"><span>After <code style="font-family:ui-monospace,Menlo,monospace;font-size:12px">finishCandidate</code>: toast, live region, open the next row's check and focus its Finish</span><code style="font-family:ui-monospace,Menlo,monospace;font-size:12px;overflow-wrap:anywhere">useGradingQueue.ts</code><span>XS</span></div>
+      <div style="display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.3fr) 60px;gap:14px;padding:11px 16px;border-top:1px solid var(--border);font-size:13.5px;align-items:baseline"><span>Finish failure inside the check; the answer card's alert names the student</span><code style="font-family:ui-monospace,Menlo,monospace;font-size:12px;overflow-wrap:anywhere">GradingPage.tsx</code><span>XS</span></div>
+      <div style="display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.3fr) 60px;gap:14px;padding:11px 16px;border-top:1px solid var(--border);font-size:13.5px;align-items:baseline"><span>The English lines above; Vietnamese from your side</span><code style="font-family:ui-monospace,Menlo,monospace;font-size:12px;overflow-wrap:anywhere">gradingMessages.ts</code><span>XS</span></div>
+    </div>
+  </div>
+  <p style="margin:0;font-size:12.5px;color:var(--muted-fg);text-wrap:pretty">Not proposed: a group's "Finish all". If teachers ask for it, it should be a confirm dialog that counts the blank and flagged papers before it sends anything. Read from <code style="font-family:ui-monospace,Menlo,monospace">work/deck-d4</code>: GradingPage.tsx, GradingQueueAside.tsx, gradingRecovery.ts, gradingMessages.ts, ListState.tsx, api.ts, openapi.yaml (AttemptListRow, AttemptScore, getAttemptForReview, finishGrading), and the deck's Grading screen.</p>
+</section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
+const G = [
+  { id: 'a1', title: 'Reading Mock 3', total: 40 },
+  { id: 'a3', title: 'Unit 4 · Listening: Directions', total: 10 },
+  { id: 'a2', title: 'Vocab Quiz: Travel', total: 20 }
+];
+const NAM = 'Lê Hoàng Nam';
+const R = [];
+const add = (g, name, at, o) => { const t = G.find(x => x.id === g).total; R.push({ id: 'r' + R.length, g, name, at, timed: false, flag: false, focus: 0, total: t, answered: t, ...o }); };
+[['Trần Minh Anh', 'Mon 22 Sep, 21:14', { earned: 34 }], [NAM, 'Mon 22 Sep, 21:30', { earned: 27, answered: 38, timed: true, flag: true, focus: 3 }], ['Phạm Thu Hà', 'Tue 23 Sep, 08:02', { earned: 31 }], ['Nguyễn Gia Bảo', 'Tue 23 Sep, 09:45', { earned: 0, answered: 0, kind: 'blank' }], ['Đặng Quốc Huy', 'Tue 23 Sep, 10:10', { earned: 29 }], ['Võ Thanh Tâm', 'Tue 23 Sep, 11:32', { earned: 36 }], ['Bùi Ngọc Lan', 'Tue 23 Sep, 13:05', { earned: 33, answered: 39 }], ['Hoàng Đức Minh', 'Tue 23 Sep, 15:40', { earned: 25, answered: 35, timed: true }], ['Đỗ Khánh Linh', 'Tue 23 Sep, 19:12', { earned: 38 }]]
+  .forEach(([n, a, o]) => add('a1', n, a, { kind: 'hand', marked: 2, ...o }));
+[[NAM, 'Tue 23 Sep, 14:02', 7], ['Lý Thảo Vy', 'Tue 23 Sep, 14:20', 8], ['Trịnh Gia Huy', 'Tue 23 Sep, 16:48', 9]].forEach(([n, a, e]) => add('a3', n, a, { kind: 'auto', earned: e }));
+['Phan Mỹ Duyên', NAM, 'Vũ Hải Đăng', 'Mai Anh Thư', 'Cao Minh Khoa', 'Đinh Tuệ Nhi', 'Lâm Quang Vinh', 'Tạ Ngọc Hân', 'Hồ Phúc An', 'Dương Thùy Linh', 'Kiều Bảo Ngọc', 'Lưu Đức Anh', 'Chu Hà My', 'Quách Tấn Phát']
+  .forEach((n, i) => add('a2', n, 'Wed 24 Sep, ' + String(7 + Math.floor(i / 3)).padStart(2, '0') + ':' + String((i * 13) % 60).padStart(2, '0'), { kind: 'auto', earned: [17, 14, 19, 16, 18, 12, 20, 15, 17, 13, 18, 16, 19, 11][i] }));
+
+const COPY = [
+  ['Header', 'grading.remainingNone', 'No answers left.', 'New'],
+  ['Header', 'grading.remaining', '{{answers}} answers left from {{students}} students.', 'As today'],
+  ['Header', 'grading.readyLink_one / _other', '{{count}} paper ready to finish / {{count}} papers ready to finish', 'New'],
+  ['Empty (a)', 'grading.empty', 'All graded', 'Rewritten'],
+  ['Empty (a)', 'grading.emptyHint', 'Every paper handed in so far is marked and finished.', 'Rewritten'],
+  ['Empty (a)', 'grading.emptyHintAssignment', 'Every paper handed in for {{title}} is marked and finished.', 'New'],
+  ['Empty (a)', 'grading.emptyHintStudent', 'Every paper {{name}} handed in is marked and finished.', 'New'],
+  ['Empty (a)', 'grading.showAllAssignments / showAllStudents', 'Show all assignments / Show all students', 'New'],
+  ['Empty (b)', 'grading.emptyToFinish', 'No answers left to mark', 'New'],
+  ['Empty (b)', 'grading.emptyToFinishHint_one', '1 paper is marked but not finished, so its student doesn’t have a result yet.', 'New'],
+  ['Empty (b)', 'grading.emptyToFinishHint_other', '{{count}} papers are marked but not finished, so their students don’t have results yet.', 'New'],
+  ['Empty (b)', 'grading.reviewPapers_one / _other', 'Review 1 paper / Review {{count}} papers', 'New'],
+  ['Empty', 'grading.emptyChecking', 'Checking for papers that still need finishing…', 'New'],
+  ['Empty', 'grading.emptyUnsure', 'We couldn’t check every paper, so some may still need finishing.', 'New'],
+  ['Card', 'grading.recoveryTitle', 'Ready to finish', 'Rewritten'],
+  ['Card', 'grading.recoveryHint', 'Finishing a paper tells the student their result is ready; they see the score when the test’s review settings allow it.', 'Rewritten'],
+  ['Card', 'grading.checkedAt', 'Checked {{time}}', 'New'],
+  ['Card', 'grading.refresh / refreshing', 'Refresh / Checking…', 'New'],
+  ['Card', 'grading.show / hide', 'Show / Hide', 'New'],
+  ['Card', 'grading.scanFailed', 'Some papers couldn’t be loaded, so this list may be incomplete.', 'Rewritten'],
+  ['Card', 'common.retry', 'Try again', 'As today'],
+  ['Group', 'grading.groupCount_one / _other', '1 paper / {{count}} papers', 'New'],
+  ['Group', 'grading.showMore / showFewer', 'Show {{count}} more / Show fewer', 'New'],
+  ['Row', 'grading.handedIn', 'Handed in {{time}}', 'New'],
+  ['Row', 'grading.timedOut', 'Time ran out', 'New'],
+  ['Row', 'grading.flagged', 'Flagged', 'New'],
+  ['Row', 'grading.review / close', 'Review / Close', 'New'],
+  ['Row', 'grading.candidate', 'Review {{name}}’s paper for {{title}} (aria-label)', 'Rewritten'],
+  ['Check', 'grading.checkLoading', 'Loading the paper…', 'New'],
+  ['Check', 'grading.checkScore', 'Score', 'New'],
+  ['Check', 'grading.checkAnswered', '{{answered}} of {{total}} answered', 'New'],
+  ['Check', 'grading.kindHand_one / _other', 'You marked 1 answer / You marked {{count}} answers', 'New'],
+  ['Check', 'grading.kindAuto', 'Marked automatically', 'New'],
+  ['Check', 'grading.kindBlank', 'Left blank', 'New'],
+  ['Check', 'grading.checkFlagged_one', 'Flagged: left the test once. Check the full paper before you finish.', 'New'],
+  ['Check', 'grading.checkFlagged_other', 'Flagged: left the test {{count}} times. Check the full paper before you finish.', 'New'],
+  ['Check', 'grading.checkBlank', 'Finishing records a score of 0. To let the student try again, reset the attempt from the assignment’s roster instead.', 'New'],
+  ['Check', 'grading.ready', 'Finishing tells {{name}} their result is ready.', 'Rewritten'],
+  ['Check', 'grading.pendingUnknown', 'An answer on this paper is now waiting to be marked, so it can’t be finished yet.', 'Rewritten'],
+  ['Check', 'review.finish', 'Finish grading', 'As today'],
+  ['Check', 'grading.finishing', 'Finishing…', 'New'],
+  ['Check', 'grading.openReview', 'Full paper review', 'As today'],
+  ['Check', 'grading.reviewFailed', 'Couldn’t load this paper.', 'Rewritten'],
+  ['After Finish', 'grading.finishedToast', 'Grading finished for {{name}}.', 'New'],
+  ['After Finish', 'grading.finishedNext', 'Grading finished for {{name}}. Next: {{next}}. (live region)', 'New'],
+  ['Finish failed', 'grading.finishFailed', 'Marks saved for {{name}}, but grading isn’t finished yet.', 'Rewritten'],
+  ['Finish failed', 'grading.retryFinish', 'Try Finish again', 'Rewritten'],
+  ['Finish failed', 'grading.checkFinishFailed', 'Couldn’t finish grading. The marks are saved; try again.', 'New']
+];
+const HINT = 'Finishing a paper tells the student their result is ready; they see the score when the test’s review settings allow it.';
+const ini = n => { const w = n.split(' '); return (w[0][0] + w[w.length - 1][0]).toUpperCase(); };
+
+class Component extends DCLogic {
+  state = { theme: null, queue: 'empty', scan: 'ok', filter: 'all', done: {}, open: 'r0', check: { r0: 'ready' }, finishing: null, more: {}, cardOpen: false, toast: null, refreshing: false, checked: '10:42', anno: true, stageW: 1280 };
+  stageRef = React.createRef();
+  timers = [];
+
+  componentDidMount() {
+    const el = this.stageRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    this.ro = new ResizeObserver(es => { const w = Math.round(es[0].contentRect.width); if (w && w !== this.state.stageW) this.setState({ stageW: w }); });
+    this.ro.observe(el);
+  }
+  componentWillUnmount() { if (this.ro) this.ro.disconnect(); this.timers.forEach(clearTimeout); }
+  later(fn, ms) { this.timers.push(setTimeout(fn, ms)); }
+
+  pass(st, r) { return st.filter === 'asg' ? r.g === 'a1' : st.filter === 'stu' ? r.name === NAM : true; }
+  order(st) { const vis = R.filter(r => !st.done[r.id] && this.pass(st, r)); return G.flatMap(g => vis.filter(r => r.g === g.id)); }
+  moreFor(st, id) {
+    const r = R.find(x => x.id === id); if (!r) return st.more;
+    const idx = this.order(st).filter(x => x.g === r.g).findIndex(x => x.id === id);
+    return idx >= 5 ? { ...st.more, [r.g]: true } : st.more;
+  }
+  openCheck(id) {
+    this.setState(st => ({ open: id, check: { ...st.check, [id]: 'loading' }, more: this.moreFor(st, id) }));
+    this.later(() => this.setState(st => ({ check: { ...st.check, [id]: 'ready' } })), 450);
+  }
+  finish(id) {
+    if (this.state.finishing) return;
+    this.setState({ finishing: id });
+    this.later(() => {
+      const st = this.state, ord = this.order(st), i = ord.findIndex(r => r.id === id), row = ord[i];
+      const next = ord[i + 1] || null;
+      this.setState({ done: { ...st.done, [id]: true }, finishing: null, toast: 'Grading finished for ' + (row ? row.name : '') + '.', open: null });
+      this.later(() => this.setState({ toast: null }), 2600);
+      if (next) this.openCheck(next.id);
+    }, 450);
+  }
+  seg(opts, cur, set) {
+    return opts.map(([v, label]) => { const on = v === cur; return { label, on, pick: () => set(v), bg: on ? 'var(--card)' : 'transparent', fg: on ? 'var(--fg)' : 'var(--muted-fg)', ring: on ? 'var(--shadow)' : 'none' }; });
+  }
+
+  renderVals() {
+    const s = this.state, p = this.props || {};
+    const theme = s.theme ?? p.theme ?? 'light';
+    const ord = this.order(s), count = ord.length, empty = s.queue === 'empty';
+    const allDone = R.every(r => s.done[r.id]);
+    const fName = s.filter === 'asg' ? 'Reading Mock 3' : s.filter === 'stu' ? NAM : '';
+
+    let em = null;
+    if (empty) {
+      if (s.scan === 'loading') em = { icon: 'hourglass', tileBg: 'var(--muted)', tileFg: 'var(--muted-fg)', title: 'No answers left to mark', body: 'Checking for papers that still need finishing…' };
+      else if (s.scan === 'failed') em = { icon: 'triangle-alert', tileBg: 'var(--warning-soft)', tileFg: 'var(--warning-ink)', title: 'No answers left to mark', body: 'We couldn’t check every paper, so some may still need finishing.', actLabel: 'Try again', act: () => this.retryScan() };
+      else if (!count) em = { icon: 'circle-check', tileBg: 'var(--success-soft)', tileFg: 'var(--success-ink)', title: 'All graded', body: s.filter === 'asg' ? 'Every paper handed in for Reading Mock 3 is marked and finished.' : s.filter === 'stu' ? 'Every paper ' + NAM + ' handed in is marked and finished.' : 'Every paper handed in so far is marked and finished.', actLabel: s.filter === 'asg' ? 'Show all assignments' : s.filter === 'stu' ? 'Show all students' : null, act: () => this.setState({ filter: 'all' }) };
+      else em = { icon: 'clipboard-check', tileBg: 'var(--muted)', tileFg: 'var(--fg)', title: 'No answers left to mark', body: count === 1 ? '1 paper is marked but not finished, so its student doesn’t have a result yet.' : count + ' papers are marked but not finished, so their students don’t have results yet.', actLabel: count === 1 ? 'Review 1 paper' : 'Review ' + count + ' papers', actIcon: 'arrow-down', act: () => ord[0] && this.openCheck(ord[0].id) };
+      em.hasAction = !!em.actLabel; em.hasActIcon = !!em.actIcon;
+    }
+    const cardOpen = empty || s.cardOpen;
+    const showCard = empty ? !(s.scan === 'ok' && !count) : (count > 0 || s.scan !== 'ok');
+    const waitSub = s.filter === 'asg' ? '7 answers left from 3 students.' : s.filter === 'stu' ? '2 answers left from 1 student.' : '18 answers left from 6 students.';
+
+    const pg = {
+      waiting: !empty, hasEmpty: !!em, hasCard: showCard, cardOpen, foldable: !empty,
+      sub: empty ? 'No answers left.' : waitSub,
+      hasLink: !empty && count > 0, link: count === 1 ? '1 paper ready to finish' : count + ' papers ready to finish',
+      openCard: () => this.setState({ cardOpen: true }),
+      hasChip: !!fName, chip: fName, chipAria: 'Remove filter: ' + fName, clearFilter: () => this.setState({ filter: 'all' }),
+      hasCount: s.scan === 'ok', count,
+      checked: s.refreshing ? '' : 'Checked ' + s.checked, refreshing: s.refreshing, refreshOp: s.refreshing ? 0.6 : 1, refreshLabel: s.refreshing ? 'Checking…' : 'Refresh',
+      refresh: () => { this.setState({ refreshing: true }); this.later(() => this.setState({ refreshing: false, checked: '10:43' }), 700); },
+      toggleCard: () => this.setState(st => ({ cardOpen: !st.cardOpen })), foldLabel: s.cardOpen ? 'Hide' : 'Show', foldIcon: s.cardOpen ? 'chevron-up' : 'chevron-down',
+      scanFailed: s.scan === 'failed', scanLoading: s.scan === 'loading', retryScan: () => this.retryScan()
+    };
+    this.retryScan = () => { this.setState({ scan: 'loading' }); this.later(() => this.setState({ scan: 'ok' }), 700); };
+
+    const showList = s.scan === 'ok';
+    const gs = showList ? G.map(g => ({ g, rows: ord.filter(r => r.g === g.id) })).filter(x => x.rows.length) : [];
+    let pin8 = false;
+    const groups = gs.map(({ g, rows }, gi) => {
+      const more = !!s.more[g.id], shown = more ? rows : rows.slice(0, 5), hasMore = rows.length > 5;
+      const gp8 = hasMore && !pin8; if (gp8) pin8 = true;
+      return {
+        title: g.title, head: gs.length > 1, count: rows.length === 1 ? '1 paper' : rows.length + ' papers', pin5: gi === 0,
+        hasMore, pin8: gp8, moreLabel: more ? 'Show fewer' : 'Show ' + (rows.length - 5) + ' more', moreIcon: more ? 'chevron-up' : 'chevron-down',
+        toggleMore: () => this.setState(st => ({ more: { ...st.more, [g.id]: !st.more[g.id] } })),
+        rows: shown.map((r, ri) => {
+          const open = s.open === r.id, ck = s.check[r.id], fin = s.finishing === r.id;
+          const kind = r.kind === 'blank' ? ['Left blank', 'var(--muted)', 'var(--muted-fg)', 'circle-dashed'] : r.kind === 'auto' ? ['Marked automatically', 'var(--info-soft)', 'var(--info-ink)', 'cpu'] : ['You marked ' + r.marked + ' answers', 'var(--success-soft)', 'var(--success-ink)', 'square-pen'];
+          return {
+            name: r.name, ini: ini(r.name), sub: 'Handed in ' + r.at, timed: r.timed, flag: r.flag, open, sep: ri ? '1px solid var(--border)' : '0',
+            bg: open ? 'var(--sidebar)' : 'transparent', btn: open ? 'Close' : 'Review', aria: open ? 'Close' : 'Review ' + r.name + '’s paper for ' + g.title,
+            toggle: () => open ? this.setState({ open: null }) : this.openCheck(r.id), pin6: gi === 0 && ri === 0,
+            loading: open && ck === 'loading', ready: open && ck === 'ready',
+            score: r.earned + ' / ' + r.total, answered: r.answered + ' of ' + r.total + ' answered',
+            kind: kind[0], kindBg: kind[1], kindFg: kind[2], kindIcon: kind[3], blank: r.kind === 'blank',
+            flagMsg: 'Flagged: left the test ' + (r.focus === 1 ? 'once' : r.focus + ' times') + '. Check the full paper before you finish.',
+            tells: 'Finishing tells ' + r.name + ' their result is ready.',
+            finish: () => this.finish(r.id), finishing: fin, finLabel: fin ? 'Finishing…' : 'Finish grading', finOp: fin ? 0.6 : 1
+          };
+        })
+      };
+    });
+
+    const W = s.stageW || 1280, two = W >= 900;
+    const s1 = Math.min(1, W / 1280), s2 = two ? Math.min(1, (W - 20) / 1128) : Math.min(1, W / 768), s3 = two ? s2 : Math.min(1, W / 360);
+    const mk = (w, h, sc, k, title, sub) => ({
+      w, h, s: sc, ow: Math.floor(w * sc), oh: Math.floor(h * sc), title, sub, screen: 'Grading · ' + w,
+      side: k !== 'phone', phone: k === 'phone', notPhone: k !== 'phone', pins: s.anno && k === 'desk',
+      barPad: k === 'phone' ? '0 14px' : '0 28px', pad: k === 'phone' ? '16px 14px 72px' : '24px 28px 72px',
+      btnH: { desk: '32px', tab: '36px', phone: '44px' }[k], btnH2: { desk: '36px', tab: '40px', phone: '44px' }[k], btnFlex: k === 'phone' ? '1 1 140px' : '0 0 auto',
+      refreshPad: k === 'phone' ? '0' : '0 12px',
+      rowPad: k === 'phone' ? '12px 14px' : '10px 16px', checkPad: k === 'phone' ? '4px 14px 16px' : '4px 16px 16px 58px',
+      emptyPad: k === 'phone' ? '28px 18px' : '40px 24px', paneWrap: k === 'phone' ? 'wrap' : 'nowrap', paneH: k === 'phone' ? 'auto' : '440px',
+      asideMax: k === 'phone' ? '100%' : '300px', mainPaneH: k === 'phone' ? '240px' : 'auto'
+    });
+    const frames = [mk(1280, 820, s1, 'desk', '1280', 'sidebar open, 948px content'), mk(768, 1000, s2, 'tab', '768', 'sidebar open, 464px content'), mk(360, 800, s3, 'phone', '360', 'sidebar in the drawer, 332px content')];
+
+    const nav = [['layout-dashboard', 'Dashboard'], ['clipboard-list', 'Assignments'], ['square-pen', 'Grading', 1], ['graduation-cap', 'Classes'], ['users', 'Students'], ['file-text', 'Tests'], ['library', 'Question bank']].map(([icon, label, on]) => ({ icon, label, bg: on ? 'var(--hover)' : 'transparent', weight: on ? 600 : 500, fg: on ? 'var(--fg)' : 'var(--muted-fg)', hasBadge: !!on && !empty, badge: s.filter === 'asg' ? 7 : s.filter === 'stu' ? 2 : 18 }));
+    const waitRows = [['Phan Mỹ Duyên', 'Writing Task 1 · Mock 2', '3 left', 1], ['Vũ Hải Đăng', 'Writing Task 1 · Mock 2', '4 left'], ['Mai Anh Thư', 'Reading Mock 3', '2 left'], ['Cao Minh Khoa', 'Reading Mock 3', '2 left']].map(([name, sub, left, on]) => ({ name, sub, left, ini: ini(name), bg: on ? 'var(--muted)' : 'transparent', bar: on ? 'inset 2px 0 0 var(--accent-c)' : 'none' }));
+
+    const tone = { New: 'var(--accent-ink)', Rewritten: 'var(--info-ink)', 'As today': 'var(--muted-fg)' };
+    return {
+      theme, isLight: theme !== 'dark', isDark: theme === 'dark',
+      ctl: [
+        { label: 'Queue', opts: this.seg([['waiting', 'Answers waiting'], ['empty', 'Empty']], s.queue, v => this.setState({ queue: v, cardOpen: false })) },
+        { label: 'Papers to finish', opts: this.seg([['some', '26'], ['none', 'None']], allDone ? 'none' : 'some', v => this.setState(v === 'none' ? { done: Object.fromEntries(R.map(r => [r.id, true])), open: null } : { done: {}, open: 'r0', check: { r0: 'ready' } })) },
+        { label: 'Check', opts: this.seg([['ok', 'Done'], ['loading', 'Running'], ['failed', 'Failed']], s.scan, v => this.setState({ scan: v })) },
+        { label: 'Filter', opts: this.seg([['all', 'None'], ['asg', 'Reading Mock 3'], ['stu', NAM]], s.filter, v => this.setState({ filter: v })) },
+        { label: 'Theme', opts: this.seg([['light', 'Light'], ['dark', 'Dark']], theme, v => this.setState({ theme: v })) }
+      ],
+      reset: () => this.setState({ queue: 'empty', scan: 'ok', filter: 'all', done: {}, open: 'r0', check: { r0: 'ready' }, more: {}, cardOpen: false, toast: null }),
+      anno: s.anno, annoLabel: s.anno ? 'Hide annotations' : 'Show annotations', toggleAnno: () => this.setState(x => ({ anno: !x.anno })),
+      stageRef: this.stageRef, frames, nav, waitRows, pg, em: em || {}, cp: { hint: HINT, scanFailed: 'Some papers couldn’t be loaded, so this list may be incomplete.', checkBlank: 'Finishing records a score of 0. To let the student try again, reset the attempt from the assignment’s roster instead.' },
+      groups, toast: { show: !!s.toast, text: s.toast || '' },
+      copyRows: COPY.map(([where, key, en, status]) => ({ where, key, en, status, tone: tone[status] }))
+    };
+  }
+}
+</script>
+</body>
+</html>
