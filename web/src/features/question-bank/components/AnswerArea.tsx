@@ -4,6 +4,7 @@ import { GradingNote } from "./GradingNote";
 import { OptionsEditor } from "./OptionsEditor";
 import { SampleAnswerField } from "./SampleAnswerField";
 import { TrueFalseField } from "./TrueFalseField";
+import type { QuestionAi } from "../questionAi";
 import type { QuestionValues } from "../questionSchema";
 
 /**
@@ -13,20 +14,27 @@ import type { QuestionValues } from "../questionSchema";
  * GapAnswers while it is rich text: stored as rich content, or open in the
  * rich editor, which is when the host passes `onInsertGap`, the prompt's own
  * gap command for GapAnswers' empty card. A prompt in Markdown keeps
- * BlanksEditor.
+ * BlanksEditor. `ai` offers "Suggest wrong options" on a choice question.
  */
 export function AnswerArea({
   value,
+  ai,
   onChange,
   onInsertGap,
 }: Readonly<{
   value: QuestionValues;
+  ai?: QuestionAi | undefined;
   onChange: (value: QuestionValues) => void;
   onInsertGap?: (() => void) | undefined;
 }>) {
   return (
     <div data-answer-area="" className="flex flex-col gap-2.5">
-      <AnswerBlock value={value} onChange={onChange} onInsertGap={onInsertGap} />
+      <AnswerBlock
+        value={value}
+        ai={ai}
+        onChange={onChange}
+        onInsertGap={onInsertGap}
+      />
       <GradingNote type={value.type} />
     </div>
   );
@@ -34,10 +42,12 @@ export function AnswerArea({
 
 function AnswerBlock({
   value,
+  ai,
   onChange,
   onInsertGap,
 }: Readonly<{
   value: QuestionValues;
+  ai: QuestionAi | undefined;
   onChange: (value: QuestionValues) => void;
   onInsertGap?: (() => void) | undefined;
 }>) {
@@ -49,6 +59,7 @@ function AnswerBlock({
           key={value.type}
           options={value.options}
           multiple={value.type === "multiple_choice"}
+          suggest={ai === undefined ? undefined : { ai, question: value }}
           onChange={(options) => onChange({ ...value, options })}
         />
       );

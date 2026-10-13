@@ -26,13 +26,12 @@ import {
 } from "@/features/question-bank/api";
 import { QuestionEditorMenu } from "@/features/question-bank/components/QuestionEditorMenu";
 import { QuestionMediaField } from "@/features/question-bank/components/QuestionMediaField";
-import {
-  ExplanationField,
-  QuestionPromptAnswers,
-} from "@/features/question-bank/components/QuestionPromptAnswers";
+import { ExplanationField } from "@/features/question-bank/components/ExplanationField";
+import { QuestionPromptAnswers } from "@/features/question-bank/components/QuestionPromptAnswers";
 import { QuestionSettingsFields } from "@/features/question-bank/components/QuestionSettingsFields";
 import { QuestionTypeControl } from "@/features/question-bank/components/QuestionTypeControl";
 import { QuestionUsageBanner } from "@/features/question-bank/components/QuestionUsageBanner";
+import { aiReadsOf, type QuestionAi } from "@/features/question-bank/questionAi";
 import {
   blockingIssue,
   emptyQuestion,
@@ -140,6 +139,7 @@ function Editor({
   );
   const [asset, setAsset] = useState<MediaAsset | null>(question?.media ?? null);
   const [dirty, setDirty] = useState(false);
+  const [storedReads, setStoredReads] = useState(() => aiReadsOf(values));
   const [error, setError] = useState<string | null>(null);
   const leaving = useRef(false);
   const [leaveThen, setLeaveThen] = useState<(() => void) | null>(null);
@@ -155,8 +155,9 @@ function Editor({
   const save = useMutation({
     mutationFn: (body: QuestionValues) =>
       question === null ? createQuestion(body) : updateQuestion(question.id, body),
-    onSuccess: async (saved) => {
+    onSuccess: async (saved, body) => {
       setDirty(false);
+      setStoredReads(aiReadsOf(body));
       await queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
       await queryClient.invalidateQueries({ queryKey: ["teacher-question", saved.id] });
       toast(t("questionEditor.saved"));
@@ -188,6 +189,15 @@ function Editor({
     }
     save.mutate(parsed.data);
   }
+
+  const ai: QuestionAi = {
+    prepare: () =>
+      Promise.resolve(
+        question === null || aiReadsOf(values) !== storedReads
+          ? { refusal: t("ai.guard.save") }
+          : { id: question.id },
+      ),
+  };
 
   function confirmLeave(proceed: () => void) {
     if (dirty) setLeaveThen(() => proceed);
@@ -252,9 +262,10 @@ function Editor({
           <QuestionPromptAnswers
             value={values}
             promptLabel={t("questionEditor.question")}
+            ai={ai}
             onChange={change}
           />
-          <ExplanationField value={values} onChange={change} />
+          <ExplanationField value={values} ai={ai} onChange={change} />
         </div>
         <StickyAside
           aria-label={t("questionEditor.settings")}

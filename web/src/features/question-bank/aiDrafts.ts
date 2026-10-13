@@ -1,6 +1,11 @@
+import { contentPlainText } from "@/components/shared/content/plainText";
+import {
+  isQuestionContent,
+  type QuestionContent,
+} from "@/components/shared/content/questionContent";
 import type { AiFinding, AiVariantChange } from "@/features/ai/api";
 import type { GeneratedDraft } from "@/features/ai/kinds/generate";
-import type { QuestionValues } from "./questionSchema";
+import { MAX_OPTIONS, type QuestionValues } from "./questionSchema";
 import { trueFalseOptions } from "./questionType";
 
 const GAP = /_{3,}/;
@@ -166,4 +171,61 @@ export function withVariant(
 ): QuestionValues {
   const id = (optionId: string) => ids.get(optionId) ?? optionId;
   return changes.reduce((next, change) => withChange(next, change, id), values);
+}
+
+function paragraphs(text: string): QuestionContent {
+  return {
+    format: "semantic_v1",
+    blocks: text
+      .trim()
+      .split(/\n\s*\n/u)
+      .map((paragraph) => ({
+        type: "paragraph" as const,
+        content: paragraph
+          .split("\n")
+          .flatMap((line, index) => [
+            ...(index > 0 ? [{ type: "break" as const }] : []),
+            ...(line === "" ? [] : [{ type: "text" as const, text: line, marks: [] }]),
+          ]),
+      })),
+  };
+}
+
+/**
+ * withExplanation puts an explanation the assistant wrote in place of the
+ * question's own, in the form the field holds: rich content while the field is
+ * rich (it has content, or no text), a plain string while it is Markdown.
+ */
+export function withExplanation(values: QuestionValues, text: string): QuestionValues {
+  const rich =
+    values.explanationContent != null || (values.explanation ?? "").trim() === "";
+  const document = rich ? paragraphs(text) : null;
+  if (document === null || !isQuestionContent(document))
+    return { ...values, explanation: text, explanationContent: null };
+  return {
+    ...values,
+    explanation: contentPlainText(document),
+    explanationContent: document,
+  };
+}
+
+/**
+ * withDistractor adds a suggested wrong option to a choice question's options:
+ * into the first empty option not marked correct, or as a new last option
+ * while there are fewer than MAX_OPTIONS. It is null when every option is
+ * written and there is no room for another.
+ */
+export function withDistractor(
+  options: QuestionValues["options"],
+  text: string,
+): QuestionValues["options"] | null {
+  const empty = options.findIndex(
+    (option) => !option.isCorrect && option.text.trim() === "",
+  );
+  if (empty >= 0)
+    return options.map((option, index) =>
+      index === empty ? { id: option.id, text, isCorrect: false } : option,
+    );
+  if (options.length >= MAX_OPTIONS) return null;
+  return [...options, { id: null, text, isCorrect: false }];
 }

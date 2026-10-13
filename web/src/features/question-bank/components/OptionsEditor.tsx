@@ -1,11 +1,19 @@
-import { useId, useState } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Plus, TriangleAlert, X } from "lucide-react";
+import { Check, Plus, Sparkles, TriangleAlert, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
+import { suggestAiDistractors, type AiDistractorsResult } from "@/features/ai/api";
+import { AiEntryButton } from "@/features/ai/components/AiEntryButton";
+import { credits } from "@/features/ai/credits";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { cn } from "@/lib/utils";
+import { AiDistractorsPanel } from "./AiDistractorsPanel";
 import { OptionField } from "./OptionField";
+import { withDistractor } from "../aiDrafts";
+import type { QuestionAi } from "../questionAi";
 import { optionLetter } from "../questionType";
+import { aiFailureText, useAiSuggestion } from "../useAiSuggestion";
 import {
   choiceProblems,
   MAX_OPTIONS,
@@ -18,6 +26,8 @@ interface OptionsEditorProps {
   options: Option[];
   multiple: boolean;
   onChange: (options: Option[]) => void;
+  /** The question these options belong to and its page's AI, for "Suggest wrong options". */
+  suggest?: { ai: QuestionAi; question: QuestionValues } | undefined;
 }
 
 /**
@@ -26,11 +36,15 @@ interface OptionsEditorProps {
  * option" stops at eight with an error toast and remove at two. For multiple
  * choice it says when nothing is ticked, which blocks saving, and when only
  * one is, which is a warning only: the server takes one correct answer.
+ * Given `suggest`, "Suggest wrong options" (V-10) sits beside "Add option"
+ * while the assistant is available, and each suggestion it adds fills the
+ * first empty option or a new one, through `onChange`.
  */
 export function OptionsEditor({
   options,
   multiple,
   onChange,
+  suggest,
 }: Readonly<OptionsEditorProps>) {
   const { t } = useTranslation();
   const [editorEpoch, setEditorEpoch] = useState(0);
@@ -59,6 +73,19 @@ export function OptionsEditor({
     }
     onChange([...options, { id: null, text: "", isCorrect: false }]);
   }
+
+  const addOption = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="text-muted-fg h-7.5 self-start rounded-[7px] px-2.5 text-[12.5px] font-normal in-data-[scale=deck]:rounded-[7px] in-data-[scale=deck]:px-2.5 in-data-[scale=deck]:text-[12.5px]"
+      onClick={add}
+    >
+      <Plus aria-hidden="true" className="size-3.5" />
+      {t("questionEditor.addOption")}
+    </Button>
+  );
 
   return (
     <div className="flex flex-col gap-2">
@@ -150,16 +177,18 @@ export function OptionsEditor({
         })}
       </div>
 
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="text-muted-fg h-7.5 self-start rounded-[7px] px-2.5 text-[12.5px] font-normal in-data-[scale=deck]:rounded-[7px] in-data-[scale=deck]:px-2.5 in-data-[scale=deck]:text-[12.5px]"
-        onClick={add}
-      >
-        <Plus aria-hidden="true" className="size-3.5" />
-        {t("questionEditor.addOption")}
-      </Button>
+      {suggest === undefined ? (
+        addOption
+      ) : (
+        <WithDistractors
+          ai={suggest.ai}
+          question={suggest.question}
+          options={options}
+          onChange={onChange}
+        >
+          {addOption}
+        </WithDistractors>
+      )}
 
       {sentence ? (
         <p
@@ -174,6 +203,99 @@ export function OptionsEditor({
         </p>
       ) : null}
     </div>
+  );
+}
+
+const SUGGEST =
+  "text-muted-fg text-meta hover:bg-muted hover:text-fg dark:hover:bg-muted h-7.5 gap-1.5 rounded-seg px-2.5 font-normal [&_svg:not([class*='size-'])]:size-3.5";
+
+function WithDistractors({
+  ai,
+  question,
+  options,
+  onChange,
+  children,
+}: Readonly<{
+  ai: QuestionAi;
+  question: QuestionValues;
+  options: Option[];
+  onChange: (options: Option[]) => void;
+  children: ReactNode;
+}>) {
+  const { t } = useTranslation();
+  const locale = useLocale();
+  const suggestion = useAiSuggestion<AiDistractorsResult>(ai, question);
+  const [added, setAdded] = useState<ReadonlySet<number>>(() => new Set());
+  const trigger = useRef<HTMLButtonElement>(null);
+  const { stage } = suggestion;
+  const result = stage.name === "done" ? stage.result : null;
+  const open = result !== null || stage.name === "failed";
+
+  function suggestNow() {
+    setAdded(new Set());
+    void suggestion.ask((id, signal) => suggestAiDistractors(id, signal));
+  }
+
+  function addSuggestion(index: number) {
+    const item = result?.items[index];
+    if (item === undefined) return;
+    const next = withDistractor(options, item.text);
+    if (next === null) {
+      toast.error(t("questionEditor.maxOptionsToast", { count: MAX_OPTIONS }));
+      return;
+    }
+    onChange(next);
+    setAdded((current) => new Set(current).add(index));
+  }
+
+  function error(): string | null {
+    if (stage.name === "failed") return aiFailureText(stage.failure, t);
+    return result !== null && result.items.length === 0 ? t("ai.unavailable") : null;
+  }
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-1">
+        {children}
+        {suggestion.offered ? (
+          <AiEntryButton
+            ref={trigger}
+            variant="ghost"
+            icon={Sparkles}
+            label={t(
+              stage.name === "running" ? "ai.distract.thinking" : "ai.distract.suggest",
+            )}
+            blocked={suggestion.block}
+            busy={stage.name === "running"}
+            size="md"
+            className={SUGGEST}
+            onClick={suggestNow}
+          />
+        ) : null}
+      </div>
+      <div aria-live="polite" className="empty:hidden">
+        {suggestion.offered && open ? (
+          <AiDistractorsPanel
+            items={result?.items ?? []}
+            error={error()}
+            note={
+              result === null
+                ? null
+                : t("ai.credits.used", {
+                    credits: credits(result.usage.credits, locale),
+                    left: credits(result.usage.left, locale),
+                  })
+            }
+            added={added}
+            onAdd={addSuggestion}
+            onClose={() => {
+              trigger.current?.focus();
+              suggestion.dismiss();
+            }}
+          />
+        ) : null}
+      </div>
+    </>
   );
 }
 

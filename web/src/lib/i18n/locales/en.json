@@ -256,6 +256,31 @@
       "tagged_other": "Tags added to {{count}} questions",
       "testCount_one": "{{count}} test",
       "testCount_other": "{{count}} tests"
+    },
+    "explain": {
+      "write": "Write with AI",
+      "writing": "Writing…",
+      "again": "Write again",
+      "title": "Suggested explanation",
+      "use": "Use this",
+      "shorter": "Shorter",
+      "inVietnamese": "In Vietnamese",
+      "inEnglish": "In English",
+      "discard": "Discard",
+      "used": "Explanation added. Edit it as you like."
+    },
+    "distract": {
+      "suggest": "Suggest wrong options",
+      "thinking": "Thinking…",
+      "title": "Suggested wrong options",
+      "close": "Close suggestions",
+      "add": "Add",
+      "added": "Added"
+    },
+    "guard": {
+      "prompt": "Write the question first",
+      "key": "Mark the correct answer first",
+      "save": "Save the question first"
     }
   },
   "api": {
