@@ -376,6 +376,9 @@ describe("the Shared content dialog", () => {
     expect(
       within(dialog).getByRole("button", { name: "Thay lecture.mp3" }),
     ).toBeVisible();
+    expect(
+      within(dialog).getByRole("switch", { name: "Cho học sinh tạm dừng" }),
+    ).toBeChecked();
     await user.type(within(dialog).getByLabelText(/Lời thoại/), "Lời thoại bí mật");
     expect(
       within(dialog).getByText("Không bắt buộc. Học viên xem sau khi nộp bài."),
@@ -400,7 +403,12 @@ describe("the Shared content dialog", () => {
       {
         id: expect.any(String),
         assetId: AUDIO_ID,
-        policy: { maxPlays: 2, allowSeek: false, showTranscriptAfterSubmit: true },
+        policy: {
+          maxPlays: 2,
+          allowSeek: false,
+          showTranscriptAfterSubmit: true,
+          allowPause: true,
+        },
         transcript: "Lời thoại bí mật",
       },
     ]);
