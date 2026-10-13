@@ -251,8 +251,13 @@ func TestACleanupThePoolCannotCoverIsRefusedBeforeAnyCall(t *testing.T) {
 
 func TestTwoCleanupsRacingForOnePoolWithRoomForOneLeaveExactlyOne(t *testing.T) {
 	w := newWorld(t)
+	returned := make(chan struct{})
+	var once sync.Once
 	completer := &scripted{respond: func(_ context.Context, req ports.Request) (ports.Response, error) {
-		time.Sleep(20 * time.Millisecond)
+		select {
+		case <-returned:
+		case <-time.After(5 * time.Second):
+		}
 		return answered(req)
 	}}
 	first := w.cleaning(completer, bankOf(40), domain.FeatureCleanup.Ceiling()+10)
@@ -263,6 +268,7 @@ func TestTwoCleanupsRacingForOnePoolWithRoomForOneLeaveExactlyOne(t *testing.T) 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			defer once.Do(func() { close(returned) })
 			_, errs[i] = c.run(context.Background())
 		}()
 	}
