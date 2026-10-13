@@ -4374,6 +4374,10 @@ export; DG-01 (Answered), DG-22, DG-71, DG-106, DG-100 and DG-63 (a second note)
 - **The design team's next sync should read `server/internal/modules/ai/` and
   `web/src/features/ai/`** once they exist, and draw the states DG-201 lists and the rows DG-199
   and DG-200 ask for.
+- **The bank clean-up's word model has no unaccent.** Duplicate candidates come from the words of the
+  prompts as typed (T-D4.32 follow-up 1), so a prompt without its diacritics is not paired with its
+  accented twin, and a rewording that shares few words is not found either. Watch it in the live
+  smoke (follow-up 2) before building anything.
 - **Builders.** The engine chain takes one builder for its whole length and, at times, a
   second for T-D4.6 or T-D4.11; the server task, the builder chain and the preview chain take
   one each. Never more than four work at once (70 §3).
@@ -4400,26 +4404,38 @@ is built here. Item 8 came from T-D4.10a, and items 9 and 10 from the Tech Lead'
 
    *The pass.* `CleanupHandler` reads the bank (`Own`, at most 2,000), plans its calls from what it
    reads, reserves `FeatureCleanup.Ceiling()` (200, unchanged) once, makes every call at the same time
-   (at most five: up to four tagging calls and one that judges duplicates) under a 55-second context
-   (`Service.CleanupBudget`, so the 60 seconds keep room to settle and answer), and ends with one
-   `Finish`. Tags are asked of the first 200 questions that have none (the contract's own
+   (at most five: up to four tagging calls and one that judges duplicates) under a 45-second context
+   (`Service.CleanupBudget`), and ends with one `Finish`. The settlement and the read of what is left
+   share one 10-second deadline of their own, so a pass ends inside 55 seconds, under the 60-second
+   idle timeout of Fly's proxy, which would answer 502 for a request that was already settled. Tags are asked of the first 200 questions that have none (the contract's own
    `maxItems`), 50 to a call so each answer fits `MaxTokens` 3,000, and each call carries the 30 tags
    the bank uses most so a suggestion reuses them. A tagging call sends only its 50 questions.
 
    *Duplicates across chunks.* Chunks never meet, so no chunk is asked for duplicates. Every pair of
    the bank is compared locally by the distinct words of its prompts (`domain.SimilarQuestions`:
-   Jaccard at least 0.3, through an inverted index of the words that are in few prompts; a prompt of
-   fewer than three words and a stem repeated more than eight times are left out; a question is in at
-   most three pairs; about 160 ms for a skewed bank of 2,000), and one call judges the closest 100
-   pairs, sending only the questions in them, each under its reference in the whole bank, and keeping
-   at most 20. Chosen over a per-chunk model pass because that pass sees only the pairs inside one
+   Jaccard at least 0.3 over word ids, through an inverted index of the words that are in few
+   prompts; only the first 200 distinct words of a prompt count; a prompt of fewer than three words
+   and a stem repeated more than eight times are left out; a question is in at most three pairs; a
+   work limit of 100 million merge steps stops the search, and then `truncated` is true: 0.7 s on a
+   bank built to exhaust it, 0.4 s for 2,000 prompts of forty words from a skewed vocabulary, 0.1 s
+   for fifteen words), and one call judges the closest 100 pairs, sending only the questions in them,
+   each under its reference in the whole bank, and keeping at most 20. That call is cut to the best
+   pairs whose text fits `MaxCleanupBytes` (100,000 bytes, a token being at least a byte, so the
+   price step holds in any language): `prompts.FitDuplicates` keeps the longest prefix of the ranked
+   pairs, and `truncated` is true when it dropped any. The prompt clips at 160 runes and a tag at 40,
+   so a bank of 3-byte letters at those lengths fills 200 questions with more than 200,000 bytes and
+   keeps about half the pairs; the pass's own choice of pairs is never a `422`. A tagging call (50
+   lines and a vocabulary of 30 tags) stays under 40,000 bytes whatever the letters. Chosen over a per-chunk model pass because that pass sees only the pairs inside one
    chunk, so a pair whose halves are in two chunks needs a further round over what every chunk
    passes on, costs a call for every chunk, and sends the whole bank; this one sends the candidates
    only, costs one call, finds a pair wherever its halves sit, and costs nothing when no pair looks
    alike. Its limit is the price: a rewording that shares few words with the original (the deck's
    "Summarise the chart…" against "Write a summary of the chart…", about 0.27) is
-   not a candidate; the deck's first pair (about 0.46) is. Embeddings are the next step if a real bank
-   shows misses (item 2); the port has none.
+   not a candidate; the deck's first pair (about 0.46) is. The word model has no unaccent: a prompt
+   typed without its diacritics ("Tai sao bau troi…") is never paired with its accented twin, which a
+   bank imported from several sources may well hold; the live smoke (item 2) is where to see whether
+   it matters. Embeddings, or `app.immutable_unaccent` in the words, are the next step if a real bank
+   shows misses; the port has none.
 
    *One reservation, one settlement.* `session` (in `query/ask.go`) reserves, runs, and ends from a
    `defer` with `Finish(Tally.Response())`. `command.Tally` sums the usage of the calls that
@@ -4431,8 +4447,9 @@ is built here. Item 8 came from T-D4.10a, and items 9 and 10 from the Tech Lead'
    same (the panic is recovered in its goroutine, the other calls finish, and it is raised again
    once, so the reservation is ended once and the process's recoverer still sees it). `ask` is a
    session of one call, so the seven single-call features reserve and finish through the same code.
-   The ledger gets one row for a pass. A call is planned only if its worst case at the tier's
-   configured prices (`Price.Bound`: its bytes as tokens, a token being at least a byte, plus 1,000
+   The ledger gets one row for a pass. The tier has one source, `prompts.CleanupTier`, which the
+   prompts carry, the fit reads from each prompt and the session takes from the plan. A call is
+   planned only if its worst case at the tier's configured prices (`Price.Bound`: its bytes as tokens, a token being at least a byte, plus 1,000
    for the provider's framing, plus `MaxTokens`) fits what is left of the reservation; calls that do
    not are dropped, last first, and `truncated` is true. A pass whose first call does not fit answers
    unavailable before it reserves, logged at error, since the prices are configuration.
@@ -4443,8 +4460,13 @@ is built here. Item 8 came from T-D4.10a, and items 9 and 10 from the Tech Lead'
    bank (nothing to tag, no candidate pair) makes no call but reserves and releases, so a paused or
    exhausted teacher is refused as for any AI operation. `Scanned` is the questions read.
 
+   A deploy while a pass runs (the server waits 15 seconds to shut down, a pass can take 45) cuts
+   the request before `Finish`; the 200 credits stay held until the sweep returns them once the
+   reservation is ten minutes old, which it does at start-up and hourly, so for at most an hour and
+   ten minutes (`docs/setup/operations.md`).
+
    Not done: the live smoke on a real bank (item 2), which also tells whether 0.3 and 100 candidates
-   are right. An estimate, not a metering: a full pass at the plan's indicative fast prices is about 6
+   are right and whether the missing unaccent matters. An estimate, not a metering: a full pass at the plan's indicative fast prices is about 6
    credits, against the ceiling of 200 and the sketch's ≈ 13.
 2. **The live smokes of T-D4.32 and T-D4.33.** Both need the owner's key, so both "Done when"
    boxes stay open: one generation, one check, one score suggestion, and one two-page scan read
