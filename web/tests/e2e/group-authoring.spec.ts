@@ -372,7 +372,10 @@ test("material assets, links and stable gap bindings survive preview and undo", 
   await material.click();
   await page.keyboard.press("Control+End");
   await page.getByRole("button", { name: "Thêm chỗ trống", exact: true }).click();
-  const target = page.getByRole("combobox", { name: "Chỗ trống 1", exact: true });
+  const target = page.getByRole("combobox", {
+    name: "Câu hỏi cho chỗ trống 1",
+    exact: true,
+  });
   await target.click();
   await page.getByRole("option", { name: "Câu 1", exact: true }).click();
   await page.getByRole("button", { name: "Lưu", exact: true }).click();
@@ -380,11 +383,11 @@ test("material assets, links and stable gap bindings survive preview and undo", 
   const originalBinding = state.stored.bundle.group.stimuli[0]!.gaps[0]!;
   expect(originalBinding.questionId).toBe(state.stored.bundle.questions[0]!.id);
   await target.click();
-  await page.getByRole("option", { name: "Bỏ liên kết", exact: true }).click();
+  await page.getByRole("option", { name: "Chọn câu hỏi…", exact: true }).click();
   await material.click();
   await page.keyboard.press("Control+End");
   await page.keyboard.insertText(" kiểm tra");
-  await expect(target).toContainText("Chọn câu hoặc ô trả lời");
+  await expect(target).toContainText("Chọn câu hỏi…");
   await target.click();
   await page.getByRole("option", { name: "Câu 1", exact: true }).click();
   await page.getByRole("button", { name: "Hình ảnh", exact: true }).click();

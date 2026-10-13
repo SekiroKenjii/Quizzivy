@@ -1632,24 +1632,47 @@ seek, and the phone spec's second new case proves that such a place counts as a 
 **Size:** S
 **Frozen:** as T-D4.8.
 **Done when:**
-- [ ] `AudioPlayer` takes `allowPause` (default true). When false and playing, the button is
+- [x] `AudioPlayer` takes `allowPause` (default true). When false and playing, the button is
       `aria-disabled`, at opacity .45, and a click does nothing; the status reads "Playing ·
       this recording can’t be paused"; before the first play it reads "Press play when you are
       ready. It can’t be paused once it starts."
-- [ ] If playback stops anyway (a headset button, another recording starting, leaving the
+- [x] If playback stops anyway (a headset button, another recording starting, leaving the
       group, a lock), the card reads "Paused" and "Resume" continues without a play. Nothing
       new is recorded: the product reports what it can see and does not pretend the pause
       could not happen.
-- [ ] Both hosts pass `policy.allowPause`, which T-D4.13 makes required in the two student
+- [x] Both hosts pass `policy.allowPause`, which T-D4.13 makes required in the two student
       shapes; a payload without the field (a tab that loaded before the API) pauses freely.
       T-D4.3's s2 session already gives part 2's recording `allowPause: false`, as the deck
       has it (`canPause: false`, S 1503): it took the field when T-D4.13 made it required.
-- [ ] Spec §11.3 says what `allowPause` does, and what it cannot stop.
-- [ ] `audio-player-pause.test.tsx` covers the inert button, the two sentences and the free
+- [x] Spec §11.3 says what `allowPause` does, and what it cannot stop.
+- [x] `audio-player-pause.test.tsx` covers the inert button, the two sentences and the free
       resume; the canary passes untouched.
-- [ ] Compared with s2 question 6 (the deck's recording that cannot be paused) at 360 and
+- [x] Compared with s2 question 6 (the deck's recording that cannot be paused) at 360 and
       1280, light and dark: before the first play, playing with the inert button, and paused
       by leaving the group.
+
+**As built:** `AudioPlayer` takes `allowPause` (default true, so an absent field pauses
+freely). With it false, `toggle()`'s pause branch does nothing while the element plays; the
+play branch is unchanged, so `element.play()` is still the first thing a press does. The
+button keeps its name ("Pause", as the deck's `btnLabel`), its icon and its focus ring, takes
+`aria-disabled="true"` and `aria-disabled:opacity-45`, and is never natively disabled; the row
+and `sm` players take the same rule, though no host passes it to them yet. The two sentences are
+`media.statusReadyNoPause` and `media.statusPlayingNoPause`; "Paused", "Resume" and the free
+resume are T-D4.8's, unchanged, so a stop from a headset button, another recording taking its
+turn, leaving the group or a lock reads "Paused" and continues through `onResume`.
+`QuestionAudio` passes `question.audio?.allowPause` and `SharedAudio` passes
+`recording.policy.allowPause`. Spec v0.98 changes §11.3. Beyond the new
+`audio-player-pause.test.tsx`, `group-context.test.tsx` gains s2 part 2's sentence and inert
+button through the engine, and `question-audio-events.test.tsx` gains "a stop from elsewhere
+resumes for no play" for a question's audio. Compared with s2 question 6 at 360 (in the drawer)
+and 1280, light and dark, in the three states: card, button (52px), opacity (.45 while playing,
+1 otherwise), the button's name and the card's text equal the deck's in every cell; the
+differences are the focus ring (the deck draws none), the track's fill (the fixture's file is
+10s, and the track follows the file's length), the scope line (DG-80) and, below 768, the card
+35px lower under the engine's integrity strip, which the deck does not draw (T-D4.7's frame),
+and 284.8px wide against 285, so the playing sentence breaks one word earlier.
+Playwright counts an `aria-disabled` button as not enabled, so a spec that presses the inert
+button clicks it with `force: true`.
 
 ### T-D4.10 — Engine: a cloze as one stop
 **Depends on:** T-D4.5, T-D4.7; the design team's answer to Q6 (DG-184), or the default once the team has had the question for two working days
@@ -1974,24 +1997,55 @@ markup and script (`sec.hasShared`, `sec.sharedText`, `sec.menu`), not side by s
 **Touches:** `web/src/features/question-groups/components/GapBindings.tsx`, locales, `web/tests/units/content/gap-bindings.test.tsx`
 **Size:** XS
 **Done when:**
-- [ ] `GapBindings` takes the row the export draws (T 1670-1693): a dashed chip "gap {n}" (at
+- [x] `GapBindings` takes the row the export draws (T 1670-1693): a dashed chip "gap {n}" (at
       least 52px wide, 24px high, 1.5px dashed `--ring`, `--muted`, 12px 600), a 32px select
       whose first entry is "Choose a question…", a danger border while the gap is unbound, and
       a 28px "Remove gap". An unbound row is also named as unbound for a screen reader, so the
       state is not carried by the border alone.
-- [ ] Above the rows: "Optional: add gaps for a cloze. Each gap is answered by a choice
+- [x] Above the rows: "Optional: add gaps for a cloze. Each gap is answered by a choice
       question or a blank in this group, shown at the gap." The export's sentence says "a
       single-choice question"; the product also binds a gap to a blank (DG-187).
-- [ ] The rules do not change (DG-187; `model.ts:113-155`, `group_validation.go:176-212`): a gap
+- [x] The rules do not change (DG-187; `model.ts:113-155`, `group_validation.go:176-212`): a gap
       is inserted at the caret by the editor's "Insert gap", a target is a choice member or one
       blank of a fill-in, a target is used once and shows disabled elsewhere, and a group with
       an unbound gap does not save. The export's "[gap n]" appended at the end of the text, any
       question as a target and a saved unbound gap are not taken.
-- [ ] `gap-bindings.test.tsx` passes with only its locators moved, and gains the unbound row's
+- [x] `gap-bindings.test.tsx` passes with only its locators moved, and gains the unbound row's
       name. `group-authoring.spec.ts`, `group-authoring.live.spec.ts` and
       `builder-groups.live.spec.ts` are green.
-- [ ] Compared with the deck at 360 and 1280, light and dark, in the builder's group pane and
+- [x] Compared with the deck at 360 and 1280, light and dark, in the builder's group pane and
       in the bank's group editor, which share the component.
+
+**As built:** one pull request, two commits (the row, then this note). The row is the export's:
+a chip "gap {n}" (`groups.gapChip`, "chỗ trống {n}" in Vietnamese, so wider than 52px), a 32px
+select at 12.5px with 8px padding and radius 7 on `--card`, and a 28px ghost "Remove gap"
+(`groups.removeGap`, "Xoá chỗ trống {n}", one name per row) with the 14px `x`; rows 6px apart,
+8px between their parts, the hint 12px `--muted-fg` 12px above them. The rows share one grid
+(`grid-cols-subgrid`), so the selects line up when two chips differ by a few pixels. The select's
+first entry, "Choose a question…", is today's "Remove binding" moved into the export's place: it
+unbinds the gap, and while the gap is unbound it is what the select reads. The bound border is
+`--input`, the product's control border (DG-30), and the unbound one `--danger` through
+`aria-invalid`. An unbound row is a `role="group"` named "Gap {n}, not linked"
+(`groups.gapLabelUnbound`), a bound one "Gap {n}" (`groups.gapLabel`); the select is "Question
+for gap {n}" (`groups.gapTarget`, the export's `aria-label`) whatever its state, so a locator holds
+across a bind. "Remove gap" deletes the gap from the material's text, as the export's does, not
+only its binding, which the first entry already does: `removeGap` (`gapCommands.ts`) deletes the
+gap node through the material's editor and leaves the caret where it was, so it is one undo step
+and undo brings back the gap and its binding (`MaterialContent` keeps a removed gap's binding for
+undo, as for a chip deleted in the text). That needs the editor beside the rows, so
+`MaterialContent` passes `onEditor` and `GroupComposer`'s material pane holds it; `GapBindings`
+draws the button only when the host passes `onRemove`, for T-D4.14's dialog to pass its own. The
+hint shows on every rich-text material, with or without gaps, as the export draws it; a Markdown
+material has no rows and no hint. The targets keep the product's labels ("Question {n}", "Question
+{n} · blank {b}"), not the export's "Question {id} · {title}". Locators moved in
+`group-authoring.spec.ts` (the select's name, the unbind entry, its text); `gap-bindings.test.tsx`
+gains "an unbound gap's row is named as unbound, and Remove gap takes the gap out of the text",
+on the real `GroupComposer`. Measured on a live stack with `getBoundingClientRect` at 360 and 1280,
+light and dark, in the bank's group editor and the builder's group pane: every value above, no
+horizontal scroll, and the focus ring 2px `--focus` offset 2px on the select and on Remove gap.
+The chip's 1.5px border computes as 1px in this Chromium at device pixel ratio 1 and 2, as an inline
+`border: 1.5px` does, so the deck's own chip would too. The deck could not render here (its CDN
+scripts do not load), so it was compared with its markup and script (`shc.gaps`, T 754, 2940).
 
 ### T-D4.14 — Builder: the Shared content dialog
 **Depends on:** T-D4.2a, T-D4.2b. It builds on what R4 left on `develop`: the builder (T-R4.31a, T-R4.31b), the group editor (T-R4.34), `useMediaUpload` (T-R4.35), the content editor (T-R4.63) and `AudioPolicyPanel` with "Choose from Media" (T-R4.65)

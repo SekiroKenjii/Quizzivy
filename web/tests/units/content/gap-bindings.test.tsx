@@ -1,4 +1,6 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { useState } from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { vi } from "vitest";
 import { QuestionBody } from "@/features/take-test/components/QuestionBody";
 import { questionSchema, emptyQuestion } from "@/features/question-bank/questionSchema";
@@ -11,6 +13,14 @@ import { questionGaps } from "@/components/shared/content/gaps";
 import type { QuestionPromptContent } from "@/components/shared/content/questionContent";
 import { GapAnswers } from "@/features/question-bank/components/GapAnswers";
 import { publishProblem } from "@/features/tests/publishProblem";
+import { DeckScale } from "@/components/ui/deck-scale";
+import { GroupComposer } from "@/features/question-groups/components/GroupComposer";
+import {
+  materialGaps,
+  newGroupQuestion,
+  type GroupMaterial,
+} from "@/features/question-groups/model";
+import type { GroupBundle } from "@/features/question-groups/api";
 import { t } from "i18next";
 import "@/lib/i18n";
 
@@ -189,4 +199,76 @@ test("adding a gap keeps old answer keys and appends an empty key with a new ord
   const next = reconcileGapBlanks(added, blanks);
   expect(next.slice(0, 2)).toEqual(blanks);
   expect(next[2]).toMatchObject({ gapId: "new", ordinal: 3, acceptedAnswers: [] });
+});
+
+test("an unbound gap's row is named as unbound, and Remove gap takes the gap out of the text", async () => {
+  const question = newGroupQuestion(t);
+  const material: GroupMaterial = {
+    id: "material",
+    title: "Passage",
+    content: {
+      format: "semantic_v1",
+      blocks: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Cities ", marks: [] },
+            { type: "gap", id: "g1", label: "1" },
+            { type: "text", text: " and parks ", marks: [] },
+            { type: "gap", id: "g2", label: "2" },
+          ],
+        },
+      ],
+    },
+    gaps: [{ kind: "question", questionId: question.id, gapId: "g1" }],
+  };
+  let latest: GroupBundle = {
+    group: {
+      id: "group",
+      title: "Group",
+      members: [{ questionId: question.id, optionOrder: "shuffle" }],
+      stimuli: [material],
+      recordings: [],
+    },
+    questions: [question],
+  };
+  function Host() {
+    const [bundle, setBundle] = useState(latest);
+    latest = bundle;
+    return (
+      <GroupComposer
+        bundle={bundle}
+        assets={[]}
+        onChange={setBundle}
+        onAsset={() => undefined}
+        onRefresh={() => undefined}
+      />
+    );
+  }
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <DeckScale>
+        <Host />
+      </DeckScale>
+    </QueryClientProvider>,
+  );
+  expect(
+    await screen.findByRole("group", { name: "Chỗ trống 2, chưa liên kết" }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("group", { name: "Chỗ trống 1" })).toBeInTheDocument();
+  const unbound = screen.getByRole("combobox", { name: "Câu hỏi cho chỗ trống 2" });
+  expect(unbound).toHaveAttribute("aria-invalid", "true");
+  expect(unbound).toHaveTextContent("Chọn câu hỏi…");
+  expect(
+    screen.getByRole("combobox", { name: "Câu hỏi cho chỗ trống 1" }),
+  ).toHaveAttribute("aria-invalid", "false");
+  fireEvent.click(await screen.findByRole("button", { name: "Xoá chỗ trống 2" }));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("combobox", { name: "Câu hỏi cho chỗ trống 2" }),
+    ).toBeNull(),
+  );
+  const stored = latest.group.stimuli[0]!;
+  expect(materialGaps(stored).map((gap) => gap.id)).toEqual(["g1"]);
+  expect(stored.gaps).toEqual(material.gaps);
 });
