@@ -215,7 +215,7 @@ function GroupActions({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="w-48 data-[state=closed]:animate-none! data-[state=open]:animate-none!"
+        className="w-50 data-[state=closed]:animate-none! data-[state=open]:animate-none!"
         onCloseAutoFocus={(event) => {
           const next = afterClose.current;
           afterClose.current = null;
