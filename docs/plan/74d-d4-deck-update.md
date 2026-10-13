@@ -3196,7 +3196,8 @@ the 256 MiB sandbox included; `BenchmarkRenderForty*` in `pdftext/tests` repeats
 - [x] Unit tests and the settings E2E spec's navigation case; compared with the deck at 360, 768
       and 1280, light and dark.
 
-**As built:** one pull request, two commits (the section, then this note). The section is
+**As built:** one pull request, three commits (the section, this note, and the section in
+`settings.spec.ts`'s list of the teacher's sections, which the first CI run caught). The section is
 `sections/AiAssistant.tsx`, which composes `AiUsageCard`, `AiCreditRequest` and `AiPreferences`;
 the reads, the mutation and the status query are `features/settings/aiApi.ts`, the form's schema
 `aiCreditRequestSchema.ts` (with its `Expect<Equal<…>>` against `requestAiCredits`' body), the
