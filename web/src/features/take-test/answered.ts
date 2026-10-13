@@ -1,4 +1,5 @@
 import type { Answer, StudentQuestion } from "./api";
+import type { DotState } from "./components/Navigator";
 
 /**
  * Whether an answer says anything. S-06's dots and the review's counts both
@@ -47,4 +48,24 @@ export function progress(
     (blank) => (answer.values[blank.id] ?? "").trim() !== "",
   );
   return typed ? "partly" : "none";
+}
+
+/**
+ * dotsOf gives each question of the paper its square's state: answered,
+ * partly answered, flagged.
+ */
+export function dotsOf(
+  questions: StudentQuestion[],
+  answers: Readonly<Record<string, Answer>>,
+  flags: ReadonlySet<string>,
+): DotState[] {
+  return questions.map((q) => {
+    const done = progress(q, answers[q.id]);
+    return {
+      id: q.id,
+      answered: done === "full",
+      partly: done === "partly",
+      flagged: flags.has(q.id),
+    };
+  });
 }

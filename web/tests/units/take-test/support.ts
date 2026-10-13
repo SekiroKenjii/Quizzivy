@@ -1,7 +1,8 @@
 import { createElement, type ReactElement, type ReactNode } from "react";
 import { render } from "@testing-library/react";
 import type { AttemptSession } from "@/features/take-test/api";
-import { PaperSourceContext, useLivePaperSource } from "@/features/take-test/paper";
+import { useLivePaperSource } from "@/features/take-test/livePaper";
+import { PaperSourceContext } from "@/features/take-test/paper";
 
 /** A payload the store can hydrate from, with only the parts it reads. */
 export function session(over: {
