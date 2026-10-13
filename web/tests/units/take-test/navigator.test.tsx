@@ -403,7 +403,7 @@ describe("the question sheet", () => {
     for (const square of all) {
       expect(square).toHaveClass(
         "h-11",
-        "lg:h-10.5",
+        "engine-lg:h-10.5",
         "min-w-0",
         "rounded-md",
         "border-[1.5px]",

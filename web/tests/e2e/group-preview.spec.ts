@@ -72,21 +72,51 @@ async function setup(page: Page) {
 }
 
 for (const width of [768, 1440]) {
-  test(`group preview preserves context and keyboard targets at ${width}px`, async ({
+  test(`the group preview draws the engine in the frame, by the frame's width, at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
     await setup(page);
+    const frame = page.getByRole("region", { name: "Màn hình của học viên" });
     await expect(
-      page.getByText(`${previewGroup.title} · v1`, { exact: true }),
+      frame.getByText(previewQuestions[0]!.prompt, { exact: true }),
     ).toBeVisible();
+    await expect(frame.getByText("Góc nhìn học viên", { exact: true })).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: previewGroup.stimuli[0]!.title }),
+      frame.getByRole("img", { name: "Thời gian làm bài được đặt khi giao bài" }),
     ).toBeVisible();
-    const gap = page.getByRole("link", { name: "Chỗ trống A — chuyển đến câu 3" });
-    await gap.focus();
-    await page.keyboard.press("Enter");
-    await expect(page.locator(":focus")).toContainText("Câu 3");
+    await expect(frame.getByRole("button", { name: "Nộp bài" })).toHaveCount(0);
+    expect(
+      await frame.evaluate((element) => element.contains(document.activeElement)),
+    ).toBe(false);
+
+    await frame.getByRole("button", { name: "Câu sau", exact: true }).click();
+    await frame.getByRole("button", { name: "Câu sau", exact: true }).click();
+    await expect(
+      frame.getByText(previewQuestions[2]!.prompt, { exact: true }),
+    ).toBeVisible();
+    const material = frame.getByRole("heading", {
+      name: previewGroup.stimuli[0]!.title,
+    });
+    const handle = frame.getByRole("button", { name: "Mở ngữ liệu", exact: true });
+    const wideFrame = (await frame.boundingBox())!.width >= 768;
+    if (wideFrame) {
+      await expect(material).toBeVisible();
+      await expect(handle).toHaveCount(0);
+      const gap = frame.getByRole("button", { name: "Chỗ trống 3, trống" });
+      await gap.focus();
+      await page.keyboard.press("Enter");
+      await expect(page.locator(":focus")).toHaveAttribute(
+        "id",
+        `answer-question-${previewQuestions[2]!.id}`,
+      );
+    } else {
+      await handle.click();
+      await expect(material).toBeInViewport();
+      await frame.getByRole("button", { name: "Đóng", exact: true }).click();
+      await expect(handle).toBeFocused();
+    }
+
     await page.getByRole("button", { name: "Điện thoại", exact: true }).click();
     const viewport = page.locator('[data-preview-viewport="phone"]');
     await expect(viewport).toHaveCSS("width", "390px");
@@ -94,28 +124,29 @@ for (const width of [768, 1440]) {
       (element) => element.scrollWidth > element.clientWidth + 1,
     );
     expect(overflow).toBe(false);
-    await gap.focus();
-    await page.keyboard.press("Enter");
-    await expect(page.locator(":focus")).toContainText("Câu 3");
-    const clock = page.getByText("0:00 / 0:01", { exact: true });
-    expect(
-      await clock.evaluate((element) => element.getBoundingClientRect().height),
-    ).toBeLessThan(24);
-    await page
-      .getByText(`${previewGroup.title} · v1`, { exact: true })
-      .scrollIntoViewIfNeeded();
+    await expect(
+      frame.getByText(previewQuestions[2]!.prompt, { exact: true }),
+    ).toBeVisible();
+    await expect(material).not.toBeInViewport();
+    await handle.click();
+    await expect(material).toBeInViewport();
     await page.screenshot({
       path: test.info().outputPath(`group-preview-phone-${width}.png`),
     });
+    await frame.getByRole("button", { name: "Đóng", exact: true }).click();
     await page.getByRole("button", { name: "Máy tính", exact: true }).click();
     await expect(page.locator('[data-preview-viewport="desktop"]')).toBeVisible();
     if (width > 1024) {
       await page.getByRole("button", { name: /^Phiên bản 2/ }).click();
       await expect(
-        page.getByText(`${previewGroup.title} · v2`, { exact: true }),
+        frame.getByText(previewQuestions[0]!.prompt, { exact: true }),
+      ).toBeVisible();
+      await frame.getByRole("button", { name: "Câu sau", exact: true }).click();
+      await expect(
+        frame.getByText(`${previewGroup.title} · v2`, { exact: true }),
       ).toBeVisible();
       await expect(
-        page.getByText(`${previewGroup.title} · v1`, { exact: true }),
+        frame.getByText(`${previewGroup.title} · v1`, { exact: true }),
       ).toHaveCount(0);
     }
   });

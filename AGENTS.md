@@ -519,12 +519,16 @@ maximum width: Home and Classes 960px, Test intro 720px, Result 820px,
 Settings 760px. A new threshold inside a page that is not the shell's 768 is a
 container query on the container named `student`, which the roots of both
 student layouts declare; nothing queries it yet. The thresholds that exist
-beside 768 are not on it: `min-[360px]:` on the Test intro's facts strip, `lg:`
-(1024px, where the 44px floor ends) on the engine's blanks and answer field and
-on the audio player's seek track, and the load-error card's own container,
-`load-error`. `.student-surface`, on the
-shell's `<main>` and on `FocusLayout`, puts a 44px floor on buttons below
-1024px; a control the deck draws smaller opts out in its own classes. No `/app`
+beside 768 are not on it: `min-[360px]:` on the Test intro's facts strip,
+`engine-lg:` (1024px, where the 44px floor ends) on the engine's blanks, answer
+field and sheet squares and on the audio player's seek track, and the
+load-error card's own container, `load-error`. `engine-lg:` is `lg:` except
+inside a teacher's preview frame narrower than 1024px (`data-engine-narrow`),
+where it does not apply, so a phone frame on a wide window draws the phone's
+sizes. `.student-surface`, on the
+shell's `<main>`, on `FocusLayout` and on the engine's preview, puts a 44px
+floor on buttons below 1024px, or in such a frame; a control the deck draws
+smaller opts out in its own classes. No `/app`
 route loads `SideColumn`, directly or through `PageAside`
 (`tests/units/student/side-column.test.ts`), and none imports
 `useColumnWidth`. `DeckDialog`

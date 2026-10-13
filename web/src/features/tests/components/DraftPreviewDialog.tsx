@@ -3,8 +3,11 @@ import { useTranslation } from "react-i18next";
 import { Eye, Monitor, Smartphone, X } from "lucide-react";
 import { Dialog as Primitive } from "radix-ui";
 import { Segmented } from "@/components/ui/segmented";
-import { StudentPreview } from "@/features/tests/components/StudentPreview";
-import { StudentPreviewPane } from "@/features/tests/components/StudentPreviewPane";
+import { PaperPreview } from "@/features/tests/components/PaperPreview";
+import {
+  PreviewFrameMessage,
+  StudentPreviewPane,
+} from "@/features/tests/components/StudentPreviewPane";
 import {
   WINDOW_FRAME,
   type PreviewDevice,
@@ -18,14 +21,15 @@ import type { OutlineSection } from "../outline";
 import { unitsOf } from "../outlineUnits";
 
 type StudentQuestion = components["schemas"]["StudentQuestion"];
+type StudentSection = components["schemas"]["StudentSection"];
 
 /**
  * DraftPreviewDialog is the builder's "Student preview" for a draft: a modal
  * over the whole window whose bar names the test, switches the frame between
  * Computer and Phone and closes it, and whose frame holds the outline's
- * questions in the shape a student receives, with the key stripped, drawn
- * by the engine's readers through `StudentPreview`. It writes nothing; the
- * builder saves what is pending before it opens it. Esc and "Close preview"
+ * questions in the shape a student receives, with the key stripped, on the
+ * take-test engine's preview, where they can be answered until it closes. It
+ * writes nothing; the builder saves what is pending before it opens it. Esc and "Close preview"
  * close it through `onOpenChange`, focus stays inside while it is open, and
  * on close it returns to the control that opened it, or to the `<main>` that
  * control was in when it has gone.
@@ -108,7 +112,12 @@ export function DraftPreviewDialog({
           <div className="flex min-h-0 flex-1 justify-center">
             <StudentPreviewPane device={device} sizes={WINDOW_FRAME}>
               {open ? (
-                <DraftPaper questions={questions} sections={sections} groups={groups} />
+                <DraftPaper
+                  title={title}
+                  questions={questions}
+                  sections={sections}
+                  groups={groups}
+                />
               ) : null}
             </StudentPreviewPane>
           </div>
@@ -119,10 +128,12 @@ export function DraftPreviewDialog({
 }
 
 function DraftPaper({
+  title,
   questions,
   sections,
   groups,
 }: Readonly<{
+  title: string;
   questions: { sectionId: string; question: AdminQuestion }[];
   sections: OutlineSection[] | undefined;
   groups: StoredGroup[];
@@ -140,35 +151,53 @@ function DraftPaper({
       groupPreview(group.bundle, group.assets),
     ]),
   );
+  const outline = (sections ?? []).map((section, at) => ({
+    section,
+    id: section.id ?? `draft-section-${at}`,
+  }));
   const displayed = sections
-    ? sections.flatMap((section) =>
+    ? outline.flatMap(({ section, id }) =>
         unitsOf(section).flatMap((unit) => {
           if (unit.kind === "group")
             return (
               contexts.get(unit.id)?.questions.map((question) => ({
                 ...question,
-                sectionId: section.id ?? "",
+                sectionId: id,
               })) ?? []
             );
           const question = standalone.get(unit.id);
-          return question ? [question] : [];
+          return question ? [{ ...question, sectionId: id }] : [];
         }),
       )
     : [...standalone.values()];
-  const shared =
-    sections?.flatMap((section) =>
-      unitsOf(section).flatMap((unit) =>
-        unit.kind === "group"
-          ? (contexts
-              .get(unit.id)
-              ?.groups.map((group) => ({ ...group, sectionId: section.id ?? "" })) ??
-            [])
-          : [],
-      ),
-    ) ?? [];
+  const shared = outline.flatMap(({ section, id }) =>
+    unitsOf(section).flatMap((unit) =>
+      unit.kind === "group"
+        ? (contexts
+            .get(unit.id)
+            ?.groups.map((group) => ({ ...group, sectionId: id })) ?? [])
+        : [],
+    ),
+  );
+  const papered: StudentSection[] = outline.map(({ section, id }) => ({
+    id,
+    title: section.title,
+    instructions: section.instructions,
+  }));
   if (displayed.length === 0)
-    return <p className="text-muted-fg text-sm">{t("builder.previewEmpty")}</p>;
-  return <StudentPreview questions={displayed} groups={shared} />;
+    return (
+      <PreviewFrameMessage>
+        <p className="text-muted-fg text-sm">{t("builder.previewEmpty")}</p>
+      </PreviewFrameMessage>
+    );
+  return (
+    <PaperPreview
+      title={title}
+      questions={displayed}
+      sections={papered}
+      groups={shared}
+    />
+  );
 }
 
 /** §13.5's boundary, applied client-side: nothing that grades survives the mapping. */

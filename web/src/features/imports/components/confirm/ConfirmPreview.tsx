@@ -4,7 +4,8 @@ import { Monitor, Smartphone } from "lucide-react";
 import { Segmented } from "@/components/ui/segmented";
 import {
   PANEL_FRAME,
-  StudentPreview,
+  PaperPreview,
+  PreviewFrameMessage,
   StudentPreviewPane,
   type PreviewDevice,
 } from "@/features/tests";
@@ -13,12 +14,14 @@ import { draftPreview } from "../../previewAdapter";
 
 /**
  * ConfirmPreview is "What students will see": every question still in the
- * import's saved draft, drawn by the student's paper with answers and notes
- * left out, in Test detail's computer or phone frame.
+ * import's saved draft, on the take-test engine's preview with answers and
+ * notes left out, in Test detail's computer or phone frame. What is chosen
+ * there is kept only while the page is open.
  */
 export function ConfirmPreview({
+  title,
   sections,
-}: Readonly<{ sections: readonly ImportDraftSection[] }>) {
+}: Readonly<{ title: string; sections: readonly ImportDraftSection[] }>) {
   const { t } = useTranslation();
   const titleId = useId();
   const [device, setDevice] = useState<PreviewDevice>("desktop");
@@ -47,11 +50,14 @@ export function ConfirmPreview({
       <div className="bg-sidebar p-4">
         <StudentPreviewPane device={device} sizes={PANEL_FRAME}>
           {preview.questions.length === 0 ? (
-            <p className="text-muted-fg text-base">
-              {t("imports.confirm.previewEmpty")}
-            </p>
+            <PreviewFrameMessage>
+              <p className="text-muted-fg text-base">
+                {t("imports.confirm.previewEmpty")}
+              </p>
+            </PreviewFrameMessage>
           ) : (
-            <StudentPreview
+            <PaperPreview
+              title={title}
               questions={preview.questions}
               sections={preview.sections}
               groups={preview.groups}

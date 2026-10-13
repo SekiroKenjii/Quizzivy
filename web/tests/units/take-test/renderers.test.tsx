@@ -623,7 +623,7 @@ describe("short_answer", () => {
       "py-[13px]",
       "leading-[1.45]",
       "focus:border-primary",
-      "lg:text-md",
+      "engine-lg:text-md",
     );
     expect(field).toHaveAttribute("autocomplete", "off");
     expect(field).toHaveAttribute("spellcheck", "false");
@@ -897,7 +897,7 @@ describe("a fill-in's blanks", () => {
     expect(blank).toHaveClass(
       "inline-block",
       "h-11",
-      "lg:h-9.5",
+      "engine-lg:h-9.5",
       "border-0",
       "border-b-2",
       "border-ring",
@@ -908,7 +908,7 @@ describe("a fill-in's blanks", () => {
       "text-left",
       "font-medium",
       "text-[length:var(--text-input)]",
-      "lg:text-[length:inherit]",
+      "engine-lg:text-[length:inherit]",
     );
     expect(blank).not.toHaveClass(
       "rounded-ctl",

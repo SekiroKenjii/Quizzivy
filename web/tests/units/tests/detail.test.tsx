@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import { http } from "msw";
 import { registerContentElement } from "@/layouts/shell/contentWidth";
@@ -14,6 +14,10 @@ import {
   testFixture,
   versionFixture,
 } from "./detailHarness";
+
+beforeAll(async () => {
+  await import("@/features/take-test");
+});
 
 const PUBLISHED_SENTENCE = gapSentence(PUBLISHED_PROMPT);
 

@@ -230,7 +230,7 @@ function ConfirmFrame({
         </aside>
       ) : (
         <div className="grid min-w-0 items-start gap-4 @min-[1000px]/confirm:grid-cols-[minmax(0,1fr)_360px]">
-          <ConfirmPreview sections={review.draft.sections} />
+          <ConfirmPreview title={review.draft.title} sections={review.draft.sections} />
           <StickyAside className="@min-[1000px]/confirm:sticky-column flex min-w-0 flex-col gap-3">
             {children}
           </StickyAside>

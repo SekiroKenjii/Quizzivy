@@ -29,7 +29,7 @@ const CAPTION = "text-muted-fg text-meta leading-normal";
 const FIELD =
   "border-border bg-card text-fg placeholder:text-muted-fg border-[1.5px] outline-none focus:border-primary disabled:opacity-60";
 const BLANK =
-  "bg-muted text-fg placeholder:text-muted-fg mx-1 inline-block h-11 max-w-full rounded-t-[6px] rounded-b-none border-0 border-b-2 px-2 text-left align-baseline font-medium disabled:opacity-60 lg:h-9.5";
+  "bg-muted text-fg placeholder:text-muted-fg mx-1 inline-block h-11 max-w-full rounded-t-[6px] rounded-b-none border-0 border-b-2 px-2 text-left align-baseline font-medium disabled:opacity-60 engine-lg:h-9.5";
 
 const PAPER_BLANKS = [
   "[&_.content-table-scroll_input]:bg-paper [&_.content-table-scroll_input]:text-paper-fg",
@@ -50,8 +50,8 @@ function textSizes(larger: boolean) {
         prompt: "text-lg",
         sentence: "text-[1.125rem]",
         answer: "text-md",
-        field: "text-[length:var(--text-input)] lg:text-md",
-        blank: "text-[length:var(--text-input)] lg:text-[length:inherit]",
+        field: "text-[length:var(--text-input)] engine-lg:text-md",
+        blank: "text-[length:var(--text-input)] engine-lg:text-[length:inherit]",
       };
 }
 

@@ -47,22 +47,24 @@ function DialogOverlay({
   );
 }
 
-/** DialogContent portals a scoped dialog with optional overlay classes and unchanged default motion. */
+/** DialogContent portals a scoped dialog with optional overlay classes and unchanged default motion, into `container` when one is given and the body otherwise. */
 function DialogContent({
   className,
   children,
   showCloseButton = true,
   overlayClassName,
+  container,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
   overlayClassName?: string;
+  container?: HTMLElement | null;
 }) {
   const { t } = useTranslation();
   const deck = useDeckScale();
 
   return (
-    <DialogPortal data-slot="dialog-portal">
+    <DialogPortal data-slot="dialog-portal" container={container}>
       <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         data-slot="dialog-content"

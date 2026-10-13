@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -23,6 +23,10 @@ import {
   wordImport,
 } from "./fixtures";
 import "@/lib/i18n";
+
+beforeAll(async () => {
+  await import("@/features/take-test");
+});
 
 interface Commit {
   requestId: string;
@@ -421,16 +425,21 @@ describe("the summary", () => {
 describe("the preview", () => {
   it("holds the whole review draft in the frame, with no count line, no answer and no note", async () => {
     current = open();
-    await renderConfirm();
+    const { user } = await renderConfirm();
     const frame = document.querySelector<HTMLElement>("[data-preview-viewport]")!;
 
-    for (const prompt of ["Question 1", "Question 2", "Question 4.1"])
-      expect(within(frame).getByText(prompt)).toBeInTheDocument();
-    expect(within(frame).getByText("The park is near.")).toBeInTheDocument();
-    expect(within(frame).queryByText("Question 3")).toBeNull();
-    expect(within(frame).queryByText("Trùng câu 1")).toBeNull();
+    expect(await within(frame).findByText("Question 1")).toBeInTheDocument();
+    expect(within(frame).getAllByRole("button", { name: /^Câu \d/ })).toHaveLength(3);
     expect(within(frame).getAllByRole("radio").length).toBeGreaterThan(0);
     expect(within(frame).queryAllByRole("radio", { checked: true })).toEqual([]);
+    await user.click(within(frame).getByRole("button", { name: "Câu sau" }));
+    expect(within(frame).getByText("Question 2")).toBeInTheDocument();
+    await user.click(within(frame).getByRole("button", { name: "Câu sau" }));
+    expect(within(frame).getByText("Question 4.1")).toBeInTheDocument();
+    expect(within(frame).getByText("The park is near.")).toBeInTheDocument();
+    expect(within(frame).getByRole("button", { name: "Hoàn tất" })).toBeInTheDocument();
+    expect(within(frame).queryByText("Question 3")).toBeNull();
+    expect(within(frame).queryByText("Trùng câu 1")).toBeNull();
     expect(frame.textContent ?? "").not.toMatch(/không thấy đáp án|ghi chú/);
     expect(screen.queryByText(/Học viên không thấy đáp án và ghi chú/)).toBeNull();
   });
@@ -460,7 +469,8 @@ describe("the preview", () => {
     );
     await renderConfirm();
     const frame = document.querySelector<HTMLElement>("[data-preview-viewport]")!;
-    expect(within(frame).getByText("Question 1")).toBeInTheDocument();
+    expect(await within(frame).findByText("Question 1")).toBeInTheDocument();
+    expect(within(frame).getAllByRole("button", { name: /^Câu \d/ })).toHaveLength(1);
     expect(within(frame).queryByText("Question 2")).toBeNull();
     expect(screen.queryByText(/Đang hiện 1 trên 2 câu hỏi/)).toBeNull();
   });

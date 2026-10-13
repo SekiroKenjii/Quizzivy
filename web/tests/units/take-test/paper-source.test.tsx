@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useState } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Paper } from "@/features/take-test/pages/TakeTestPage";
+import { Paper } from "@/features/take-test/components/Paper";
 import { PaperSourceContext, type PaperSource } from "@/features/take-test/paper";
 import { EngineWidthContext } from "@/features/take-test/width";
 import type {
