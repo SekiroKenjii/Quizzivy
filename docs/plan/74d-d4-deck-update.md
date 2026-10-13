@@ -4091,7 +4091,7 @@ owner's phone); the live smoke with the key, follow-up 2 (the owner's key); Thuo
 **Size:** S
 **Done when:**
 - [ ] The release checklist below is complete, with Thuong's go before `main`
-- [ ] `75-r5.md` names the release R5 follows: under "Schema changes", "the v0.10.0 binary
+- [x] `75-r5.md` names the release R5 follows: under "Schema changes", "the v0.10.0 binary
       keeps inserting" reads "the D4 binary (v0.11.0)", and T-R5.1's "Depends on" reads "D4
       (v0.11.0) in production". The steps are still the ones R4 owes; D4 adds none.
 - [ ] `ANTHROPIC_API_KEY` and the tier variables are set as Fly secrets before the API deploys
@@ -4104,7 +4104,7 @@ owner's phone); the live smoke with the key, follow-up 2 (the owner's key); Thuo
 
 **v0.11.0, the deck update and the AI assistant** (Q29, decided 2026-10-10)
 
-- [ ] Every task is ticked on `work/deck-d4`. `develop` is merged into it, and verification is
+- [x] Every task is ticked on `work/deck-d4`. `develop` is merged into it, and verification is
       re-run after that merge. Then `work/deck-d4` → `develop` (`--no-ff`), and
       `release/0.11.0` is cut from `develop` at a named commit.
 - [ ] Every CI step runs on the release pull request, in order, judged by exit code (70 §8.1):
@@ -4114,37 +4114,37 @@ owner's phone); the live smoke with the key, follow-up 2 (the owner's key); Thuo
       - `pnpm test:unit`, `pnpm test:integration`, `pnpm build`
       - `pnpm e2e` (chromium and mobile-chromium), `pnpm e2e:content`
       - `pnpm e2e:live`, required because take-test, integrity and media changed
-      - `node scripts/check-design-deck.mjs`, which prints "Deck OK: 15 files, 7 pages"
-- [ ] The five canaries pass, and their files are as they were at `v0.10.0`:
+      - `node scripts/check-design-deck.mjs`, which prints "Deck OK: 22 files, 10 pages"
+- [x] The five canaries pass, and their files are as they were at `v0.10.0`:
       `git diff --stat v0.10.0 release/0.11.0 -- <the five>` is empty.
-- [ ] Each task that touched a high-risk area has its before-and-after suite runs and its deck
+- [x] Each task that touched a high-risk area has its before-and-after suite runs and its deck
       comparison in its PR: T-D4.3 to T-D4.11, T-D4.13, T-D4.2a, T-D4.2b, T-D4.2c, T-D4.14,
       T-D4.15, T-D4.16. T-D4.12's matrix is complete.
-- [ ] Security: the AI operations are the only operations added and the open list is the same;
+- [x] Security: the AI operations are the only operations added and the open list is the same;
       `permissions.golden` changed once (T-D4.32) and holds the two AI keys; R2's isolation suite
       (every `/teacher/ai/*` entry included) and escalation tests pass; E2E 9 passes with its key
       list unchanged (`allowPause` is a rule a student reads, not a key); `payload_test.go`
       walks `StudentAudioPolicy`; no AI response reaches a student payload; `operations_test.go`'s
       minimisation cases pass; the key appears in no log of the rehearsal.
-- [ ] Migrations: T-D4.13's four, T-D4.31's six, T-D4.32's one and T-D4.33's one are rehearsed
+- [x] Migrations: T-D4.13's four, T-D4.31's six, T-D4.32's one and T-D4.33's one are rehearsed
       on a Neon branch of production. The timings and the up/down/up run go in the release PR.
-- [ ] Credits: on the Neon branch, a deliberate reservation past the pool is refused by the
+- [x] Credits: on the Neon branch, a deliberate reservation past the pool is refused by the
       constraint; `ai_settings` reads 200,000 and 20,000; the maintenance command's `status`
       prints the month.
-- [ ] Rolling deploy: the API deploys first, then Pages. A tab of v0.10.0 keeps saving a
+- [x] Rolling deploy: the API deploys first, then Pages. A tab of v0.10.0 keeps saving a
       question's and a group's audio policy, and a "cannot pause" set from a new tab survives
       that save: an absent field keeps the stored value (`allow_pause_test.go`, case c).
-- [ ] Attempts in progress at the deploy keep their answers, flags and play counts. The draft
+- [x] Attempts in progress at the deploy keep their answers, flags and play counts. The draft
       and flag formats and the open-question key did not change (`draft-compat.test.ts`,
       `flags.test.ts`, `open-question.test.tsx`). A play in progress at the reload costs one
       play (T-D4.8), and the release notes say so.
-- [ ] A read-only review of everything since `v0.10.0`, by three reviewers (a student in the
+- [x] A read-only review of everything since `v0.10.0`, by three reviewers (a student in the
       middle of a test and the answer key; listening and its counts; access and the contract),
       finds no blocker.
-- [ ] Exam window: a query of production assignments open during the planned window returns
+- [x] Exam window: a query of production assignments open during the planned window returns
       none, or Thuong picks another window.
-- [ ] `web/package.json` reads 0.11.0, set on the release branch.
-- [ ] Release notes, vi first:
+- [x] `web/package.json` reads 0.11.0, set on the release branch.
+- [x] Release notes, vi first:
       - the test screen shows the parts and their questions at the side on a computer, and
         from one button elsewhere
       - on a phone the passage or the recording opens from the left edge
@@ -4178,11 +4178,39 @@ owner's phone); the live smoke with the key, follow-up 2 (the owner's key); Thuo
         score suggestion on one short answer, and reads the ledger with `ai-credits status`; the
         three calls are metered and the pool moved by their sum
       - tag `v0.11.0`, and back-merge `main` to `develop`
-- [ ] The documents changed with the code (70 §3): AGENTS.md's engine paragraph, its
+- [x] The documents changed with the code (70 §3): AGENTS.md's engine paragraph, its
       "Redesign in progress" bullet and T-D4.40's three additions, the spec's S-05, S-06, S-08,
       §11, §12, §13 and §15 and T-D4.40's sections, `20-data-model.md`, `gaps.md`,
       `docs/design/README.md`, `docs/setup/operations.md`, `.env.example`, and the closing lines
       in `73-r3.md` and `74-r4.md` (T-D4.12).
+
+**Release preparation (2026-10-13), the evidence behind the ticks:**
+- **Branch.** `develop` was merged into `work/deck-d4` (#598) and CI ran in full on that head (`8c005f0a`).
+  `work/deck-d4` went to `develop` by #599 (`30c85029`) after the review's fixes. `release/0.11.0` is
+  cut from `develop` at `30c85029`.
+- **Tasks.** Every build task is ticked. The boxes left open are the owner's:
+  - the real-phone and iOS checks;
+  - the live AI smokes with the key;
+  - Thuong's review of "Tự luận";
+  - follow-ups 2, 3 and 6, each with its reason.
+- **Canaries.** `git diff --stat 4098f784..HEAD` over the five canaries is empty: `v0.10.1` holds `v0.10.0`'s
+  canaries unchanged, and the tag `v0.10.0` is not in the clone. They pass (the review of "a student in the
+  middle of a test").
+- **Review.** Three read-only reviewers read `4098f784..d0c7bf1a`.
+  - **Access and the contract:** no blocker. There are 16 AI operations, `theOpenSeven` is unchanged,
+    `permissions.golden` changed once, and the generated code shows no drift.
+  - **Listening:** one blocker and one major (an uncounted play when two audio questions follow each
+    other; a remembered place outliving the page). Both were fixed in #602 and verified by the same
+    reviewer.
+  - **A student mid-test:** one major (a double click answered two cloze gaps), fixed in #601.
+  - A minor from listening is left as a rollback note in `docs/setup/deploy.md`, "Rolling v0.11.0 back":
+    00114's CHECK against v0.10.1's update.
+- **Migrations and credits.** The Neon branch of production was rehearsed 113 → 125 → 113 → 125, as
+  "Rolling out v0.11.0" records, and the branch was deleted. `cmd/maintenance ai-credits status` was not
+  run there: the sandbox reaches Postgres only over Neon's HTTPS endpoint. It runs after the deploy, in
+  the smoke.
+- **Exam window.** On the branch (production at 19:17 UTC), no assignment is open or opens in the next
+  seven days.
 
 ## Open items
 
