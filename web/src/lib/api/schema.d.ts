@@ -3661,9 +3661,8 @@ export interface components {
              * @description Read the files with the AI assistant, so a scanned or photographed
              *     PDF is read instead of refused. Absent means false. When it is true
              *     the pages of the files are sent to an AI service outside Quizzivy.
-             * @default false
              */
-            readWithAi: boolean;
+            readWithAi?: boolean;
         };
         ImportUploadReceipt: {
             import: components["schemas"]["WordImport"];
@@ -6210,10 +6209,10 @@ export interface components {
         AiExplanationRequest: {
             language: components["schemas"]["AiLanguage"];
             /**
-             * @default normal
+             * @description Absent means normal.
              * @enum {string}
              */
-            length: "short" | "normal";
+            length?: "short" | "normal";
         };
         AiExplanationResult: {
             text: string;
