@@ -3946,7 +3946,8 @@ was v0.98 (T-D4.9), so the spec is **v0.99**, and its "Changes since v0.98" list
       - `pnpm test:unit`, `pnpm test:integration`, `pnpm build`
       - `pnpm e2e` (chromium and mobile-chromium), `pnpm e2e:content`
       - `pnpm e2e:live`, required because take-test, integrity and media changed
-      - `node scripts/check-design-deck.mjs`, which prints "Deck OK: 15 files, 7 pages"
+      - `node scripts/check-design-deck.mjs`, which prints "Deck OK: 22 files, 10 pages" (the
+        page-width proposal and the two answers after it added seven files and three pages)
 - [ ] The five canaries pass, and their files are as they were at `v0.10.0`:
       `git diff --stat v0.10.0 release/0.11.0 -- <the five>` is empty.
 - [ ] Each task that touched a high-risk area has its before-and-after suite runs and its deck
