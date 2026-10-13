@@ -1,6 +1,13 @@
 import { Avatar } from "@/components/ui/avatar";
 import { givenName } from "@/features/assignments/studentTime";
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -15,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { ArrowLeft, ArrowRight, FileText } from "lucide-react";
 
-/** GradingAnswerCard preserves the frozen answer and local comment while each chosen score saves immediately; when a save settles with focus lost to the page, it puts focus back on the card's score. */
+/** GradingAnswerCard preserves the frozen answer and local comment while each chosen score saves immediately; when a save settles with focus lost to the page, it puts focus back on the card's score. `suggestion`, the AI's score box, stands directly above the score. */
 export function GradingAnswerCard({
   item,
   draft,
@@ -29,6 +36,7 @@ export function GradingAnswerCard({
   onNext,
   onRetryMaterial,
   onReview,
+  suggestion = null,
 }: Readonly<{
   item: GradingQueueItem;
   draft: GradingDraft | undefined;
@@ -42,6 +50,7 @@ export function GradingAnswerCard({
   onNext: (numericIntent?: boolean) => void;
   onRetryMaterial: () => void;
   onReview: (event: MouseEvent<HTMLAnchorElement>) => void;
+  suggestion?: ReactNode;
 }>) {
   const { t } = useTranslation();
   const locale = useLocale();
@@ -162,6 +171,7 @@ export function GradingAnswerCard({
             <p className="mt-1 text-sm whitespace-pre-wrap">{item.sampleAnswer}</p>
           </div>
         )}
+        {suggestion}
         <fieldset disabled={busy} className="space-y-2">
           <legend className="text-muted-foreground mb-2 text-xs leading-[18px] font-medium">
             {t("grading.scoreLabel")}

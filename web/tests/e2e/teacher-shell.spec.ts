@@ -18,6 +18,7 @@ async function prepare(
   page: Page,
   theme: "light" | "dark" = "light",
   collapsed = false,
+  extra: Parameters<typeof stubApi>[1] = {},
 ) {
   await page.addInitScript(
     ({ theme, collapsed }) => {
@@ -85,6 +86,7 @@ async function prepare(
       note = body.note;
       await route.fulfill({ json: { note } });
     },
+    ...extra,
   });
 }
 
@@ -411,3 +413,115 @@ test("the progress legend filters the roster from the keyboard and names the fil
   await expect(page).toHaveURL(/\?tab=students$/);
   await expect(table.getByRole("row")).toHaveCount(4);
 });
+
+const insightStubs: Parameters<typeof stubApi>[1] = {
+  "GET /public/status": { body: { maintenance: null, ai: true } },
+  "GET /teacher/ai/usage": {
+    body: {
+      month: "2026-10-01",
+      used: 1200,
+      allowance: 20000,
+      left: 18800,
+      paused: false,
+      requests: true,
+      pending: null,
+      categories: [],
+    },
+  },
+  [`GET /teacher/assignments/${ASSIGNMENT_ID}/item-analysis`]: {
+    body: {
+      handedIn: 18,
+      items: [
+        {
+          questionId: "018f0000-0000-7000-8000-000000000101",
+          number: 27,
+          type: "short_answer",
+          promptExcerpt: "Term for streets closed to cars",
+          answered: 18,
+          correctRate: 0.22,
+        },
+      ],
+    },
+  },
+  [`POST /teacher/ai/assignments/${ASSIGNMENT_ID}/insights`]: {
+    body: {
+      basis: 18,
+      items: [
+        {
+          kind: "key",
+          title: "Câu 27: phần lớn câu sai gần đúng",
+          body: "11 trên 14 câu sai là “playing street” hoặc “play street”.",
+          action: "review",
+          questionNumbers: [27],
+          types: ["short_answer"],
+        },
+        {
+          kind: "problem",
+          title: "Câu 31: Đúng và Sai đang bị nhầm",
+          body: "9 trên 18 chọn Sai khi đáp án là Đúng.",
+          action: "practice",
+          questionNumbers: [31],
+          types: ["true_false"],
+        },
+        {
+          kind: "strength",
+          title: "Câu hỏi ý chính làm tốt",
+          body: "83% làm đúng câu 3.",
+          action: "none",
+          questionNumbers: [3],
+          types: ["single_choice"],
+        },
+      ],
+      usage: { credits: 60, left: 18740 },
+    },
+  },
+};
+
+for (const theme of ["light", "dark"] as const) {
+  for (const width of [360, 768, 1280, 1440]) {
+    test(`AI insights at ${width}px in ${theme} draw the deck's panel inside the Questions card`, async ({
+      page,
+    }) => {
+      await prepare(page, theme, false, insightStubs);
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`${path}?tab=questions`);
+      const explain = page.getByRole("button", { name: "Giải thích kết quả bằng AI" });
+      await expect(explain).toHaveCSS("height", "32px");
+      await expect(explain).toHaveCSS("border-radius", "8px");
+      await expect(explain).toHaveCSS("font-size", "13px");
+      await explain.focus();
+      await expect(explain).toHaveCSS("outline-style", "solid");
+      await expect(explain).toHaveCSS("outline-width", "2px");
+      await page.keyboard.press("Enter");
+      const panel = page.locator('[data-slot="ai-insights"]');
+      await expect(panel.getByText("Dựa trên 18 bài làm")).toBeVisible();
+      await expect(panel).toHaveCSS("padding", "14px");
+      await expect(panel).toHaveCSS("border-radius", "10px");
+      const card = panel.getByRole("listitem").first();
+      await expect(card).toHaveCSS("padding", "12px");
+      await expect(card).toHaveCSS("border-radius", "9px");
+      await expect(card.locator("span[aria-hidden]").first()).toHaveCSS(
+        "width",
+        "28px",
+      );
+      await expect(card.getByRole("link", { name: "Xem lại bài làm" })).toHaveCSS(
+        "height",
+        "30px",
+      );
+      const box = await panel.evaluate((node) => {
+        const outer = node.closest("section[aria-label]")!.getBoundingClientRect();
+        const inner = node.getBoundingClientRect();
+        return { left: inner.left - outer.left, right: outer.right - inner.right };
+      });
+      expect(box.left).toBeCloseTo(17, 0);
+      expect(box.right).toBeCloseTo(17, 0);
+      await noOverflow(page);
+      const hide = panel.getByRole("button", { name: "Ẩn nhận xét" });
+      await hide.focus();
+      await expect(hide).toHaveCSS("outline-width", "2px");
+      await page.keyboard.press("Enter");
+      await expect(panel).toBeHidden();
+      await expect(explain).toBeFocused();
+    });
+  }
+}

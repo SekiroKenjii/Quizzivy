@@ -38,6 +38,8 @@ export type AiDuplicate = Schemas["AiDuplicate"];
 export type AiCleanupResult = Schemas["AiCleanupResult"];
 /** AiTagSuggestion is the tags proposed for one untagged question. */
 export type AiTagSuggestion = Schemas["AiTagSuggestion"];
+/** AiScoreSuggestion is a proposed score and comment for one short answer, which saves nothing. */
+export type AiScoreSuggestion = Schemas["AiScoreSuggestion"];
 
 /**
  * AI_STATUS_KEY is the query key of `GET /public/status`, the whole answer,
@@ -119,4 +121,70 @@ export function cleanUpQuestionBank(
   signal?: AbortSignal,
 ) {
   return api("post", "/teacher/ai/bank/cleanup", signal ? { body, signal } : { body });
+}
+
+/**
+ * suggestAiScore asks for a score and a comment on one short answer of an
+ * attempt and writes nothing: a teacher saves a mark with the grading write.
+ */
+export function suggestAiScore(
+  attemptId: string,
+  questionId: string,
+  signal?: AbortSignal,
+): Promise<AiScoreSuggestion> {
+  const path = { attemptId, questionId };
+  return api(
+    "post",
+    "/teacher/ai/attempts/{attemptId}/answers/{questionId}/score-suggestion",
+    signal ? { path, signal } : { path },
+  );
+}
+
+/** AiInsight is one pattern the assistant noticed in an assignment's results, and what to do about it. */
+export type AiInsight = Schemas["AiInsight"];
+/** AiInsightsResult is what one explanation of an assignment's results found, and how many papers it read. */
+export type AiInsightsResult = Schemas["AiInsightsResult"];
+
+/** explainAssignmentResults asks what an assignment's results show and writes nothing. */
+export function explainAssignmentResults(id: string, signal?: AbortSignal) {
+  return api(
+    "post",
+    "/teacher/ai/assignments/{id}/insights",
+    signal ? { path: { id }, signal } : { path: { id } },
+  );
+}
+
+/** AiExplanationRequest names the language and the length of an explanation. */
+export type AiExplanationRequest = Schemas["AiExplanationRequest"];
+/** AiDistractor is one suggested wrong option, with why a learner might pick it. */
+export type AiDistractor = Schemas["AiDistractor"];
+/** AiDistractorsResult is up to four suggested wrong options and what the call cost. */
+export type AiDistractorsResult = Schemas["AiDistractorsResult"];
+
+/**
+ * writeAiExplanation asks for an explanation of a stored question's answer
+ * and writes nothing: the teacher's own save writes what they keep.
+ */
+export function writeAiExplanation(
+  id: string,
+  body: AiExplanationRequest,
+  signal?: AbortSignal,
+) {
+  return api(
+    "post",
+    "/teacher/ai/questions/{id}/explanation",
+    signal ? { path: { id }, body, signal } : { path: { id }, body },
+  );
+}
+
+/**
+ * suggestAiDistractors asks for wrong options for a stored choice question
+ * and writes nothing: the teacher's own save writes what they add.
+ */
+export function suggestAiDistractors(id: string, signal?: AbortSignal) {
+  return api(
+    "post",
+    "/teacher/ai/questions/{id}/distractors",
+    signal ? { path: { id }, signal } : { path: { id } },
+  );
 }
