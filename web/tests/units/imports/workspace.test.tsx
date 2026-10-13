@@ -59,6 +59,46 @@ function paneCell(name: string) {
   return screen.getByRole("region", { name }).parentElement!;
 }
 
+describe("the AI reader's privacy note", () => {
+  const note =
+    "Trang quét hoặc ảnh chụp trong lượt nhập này được một dịch vụ AI bên ngoài Quizzivy đọc.";
+
+  it("tells the Sources pane of an import that asked for AI where scanned pages go", async () => {
+    current = wordImport({ status: "processing", run: run(), readWithAi: true });
+    renderAt(`/teacher/imports/${IMPORT_ID}`);
+    const sources = await screen.findByRole("region", { name: "Nguồn" });
+    expect(within(sources).getByText(new RegExp(note))).toBeInTheDocument();
+    expect(
+      within(sources).getByText(/Trang có chữ chọn được không bị gửi đi/),
+    ).toBeInTheDocument();
+  });
+
+  it("says it in a file import that is still awaiting its files", async () => {
+    current = wordImport({
+      status: "awaiting_sources",
+      sources: [source("exam", { filename: "scan.pdf", format: "pdf" })],
+      readWithAi: true,
+    });
+    renderAt(`/teacher/imports/${IMPORT_ID}`);
+    const sources = await screen.findByRole("region", { name: "Nguồn" });
+    expect(await within(sources).findByText(new RegExp(note))).toBeInTheDocument();
+  });
+
+  it.each([[undefined], [false]])(
+    "says nothing for an import that did not ask (readWithAi %s)",
+    async (readWithAi) => {
+      current = wordImport({
+        status: "processing",
+        run: run(),
+        ...(readWithAi === undefined ? {} : { readWithAi }),
+      });
+      renderAt(`/teacher/imports/${IMPORT_ID}`);
+      await screen.findByRole("region", { name: "Nguồn" });
+      expect(screen.queryByText(new RegExp(note))).toBeNull();
+    },
+  );
+});
+
 describe("the import workspace (DG-207)", () => {
   it("puts the two panes side by side from 960px of content and the Sources pane first in a draft", async () => {
     renderAt("/teacher/imports/new");

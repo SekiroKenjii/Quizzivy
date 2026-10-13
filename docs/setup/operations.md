@@ -488,6 +488,11 @@ repository: take both from the provider's current model list.
   `fly secrets set ANTHROPIC_API_KEY=<new key>` (which restarts the machines
   on it) and revoking the old one once the log line is back. A call in flight
   during the restart can fail once.
+- **The import worker** reads the same nine variables when it starts: Fly secrets
+  reach every process group, so nothing more is set. It meters the "Read with AI"
+  of scanned PDFs (`docs/setup/word-import-worker.md`) through the same credits.
+  With the key unset or misconfigured the worker refuses a scan as `PDF_NO_TEXT`
+  or refuses to start, as the API does.
 - **Change a model or a price** by setting its secret and deploying. Prices and
   models are read once, at start-up; a call is metered at the prices the
   process started with, so re-read them whenever the provider's list price

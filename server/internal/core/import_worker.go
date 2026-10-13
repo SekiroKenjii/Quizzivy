@@ -35,7 +35,7 @@ func RunImportWorker(ctx context.Context, logger *slog.Logger) error {
 	if err := pool.WaitReady(ctx, dbReadyBudget); err != nil {
 		return err
 	}
-	runner, err := wiring.ImportWorker(ctx, cfg, db.NewContext(pool.Pool))
+	runner, err := wiring.ImportWorker(ctx, cfg, db.NewContext(pool.Pool), logger)
 	if err != nil {
 		return err
 	}

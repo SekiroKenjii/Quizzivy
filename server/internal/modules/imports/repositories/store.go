@@ -23,12 +23,12 @@ var anyImport = access.Scope{All: true}
 
 const scopedImport = `($2::boolean OR created_by = $3::uuid)`
 
-const importColumns = `id::text, title, status, revision, coalesce(source_revision,0), created_by::text, created_at, updated_at, files_removed_at, closed_idle`
+const importColumns = `id::text, title, status, revision, coalesce(source_revision,0), created_by::text, created_at, updated_at, files_removed_at, closed_idle, read_with_ai`
 const sourceColumns = `id::text, import_id::text, upload_id::text, expected_revision, role, filename, format, characters, bytes, checksum_sha256, storage_key, uploaded_by::text, ready, coalesce(source_revision,0), created_at`
 
 func scanImport(row pgx.Row) (domain.Import, error) {
 	var v domain.Import
-	err := row.Scan(&v.ID, &v.Title, &v.Status, &v.Revision, &v.SourceRevision, &v.CreatedBy, &v.CreatedAt, &v.UpdatedAt, &v.FilesRemovedAt, &v.ClosedIdle)
+	err := row.Scan(&v.ID, &v.Title, &v.Status, &v.Revision, &v.SourceRevision, &v.CreatedBy, &v.CreatedAt, &v.UpdatedAt, &v.FilesRemovedAt, &v.ClosedIdle, &v.ReadWithAi)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return v, domain.ErrNotFound
 	}
@@ -70,7 +70,7 @@ func createImport(ctx context.Context, tx pgx.Tx, in domain.Create, quotas domai
 	}
 	previous, err := scanImport(tx.QueryRow(ctx, `SELECT `+importColumns+` FROM app.word_imports WHERE created_by=$1 AND request_id=$2`, in.Actor.ID, in.RequestID))
 	if err == nil {
-		if previous.Title != in.Title {
+		if previous.Title != in.Title || previous.ReadWithAi != in.ReadWithAi {
 			return domain.Import{}, domain.ErrConflict
 		}
 		return previous, nil
@@ -85,7 +85,7 @@ func createImport(ctx context.Context, tx pgx.Tx, in domain.Create, quotas domai
 	if actorCount >= quotas.ActorImports || total >= quotas.GlobalImports {
 		return domain.Import{}, domain.ErrQuota
 	}
-	out, err := scanImport(tx.QueryRow(ctx, `INSERT INTO app.word_imports (created_by,request_id,title) VALUES ($1,$2,$3) RETURNING `+importColumns, in.Actor.ID, in.RequestID, in.Title))
+	out, err := scanImport(tx.QueryRow(ctx, `INSERT INTO app.word_imports (created_by,request_id,title,read_with_ai) VALUES ($1,$2,$3,$4) RETURNING `+importColumns, in.Actor.ID, in.RequestID, in.Title, in.ReadWithAi))
 	if err != nil {
 		return domain.Import{}, err
 	}
