@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.101 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.103 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.102**
+
+D4, T-D4.21b: Grading when nothing is left to mark, and papers ready to finish.
+
+- §8 The grading page's empty states and its "Sẵn sàng hoàn tất" list: "Đã chấm xong tất cả" only after a complete check of the papers, each paper's check read fresh before Finish, the next paper's check after a Finish, and the list folded below the panes while answers wait. Finish stays explicit.
 
 **Changes since v0.100**
 
@@ -1991,6 +1997,20 @@ come from the published version. The aggregate, groups and item prefix share one
 statement snapshot; later immutable enrichment does not claim a whole-request
 repeatable-read snapshot. Reading or exhausting the queue never finishes grading;
 the teacher still invokes Finish explicitly. The rebuilt web queue is T-R4.28.
+
+When nothing is left to mark (T-D4.21b) the header reads "Không còn câu trả lời nào cần
+chấm." and the page checks for papers that are marked but not finished: every submitted and
+timed-out paper the caller reaches with nothing waiting for a mark (`listAttempts`,
+`pendingGrading=false`, read to the end), under the queue's filters. "Đã chấm xong tất cả" shows
+only after that check completes and finds none; while it runs, or after it fails, the page says only
+that no answers are left to mark. The papers it finds are listed under "Sẵn sàng hoàn tất", below
+the panes, grouped by assignment with the oldest hand-in first, five to a group before "Show
+more". A row's Review opens its check, read fresh from `getAttemptForReview`: the score, the
+answers given, whether the teacher marked it, it was marked automatically or it was left blank, and
+any flag. Finish grading there is enabled only while that read's `pendingManual` is 0, and the paper
+is read again before the request; after a Finish the next paper's check opens with focus on its
+Finish. While answers wait the list folds to one line and the header links to it. Nothing finishes
+on its own, and there is no Finish for a whole assignment.
 
 Teacher list behaviour (approved change request, 2026-09-22):
 

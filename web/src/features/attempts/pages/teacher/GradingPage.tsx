@@ -1,4 +1,11 @@
-import { useEffect, useEffectEvent, useRef, type MouseEvent } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  type MouseEvent,
+  type Ref,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useBlocker, useLocation, useNavigate } from "react-router";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -7,17 +14,24 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ListSkeleton, LoadError, EmptyState } from "@/components/shared/ListState";
 import { useCan, useWorkspace } from "@/features/auth/permissions";
 import { useAuthStore } from "@/stores/auth";
-import { useLocale } from "@/lib/i18n/useLocale";
-import { formatDateTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
-import type { GradingQueueParams } from "../../api";
+import type { AttemptListRow, GradingQueueParams } from "../../api";
 import { gradingGroupKey, gradingItemKey, scoreOptions } from "./gradingRecovery";
-import { useGradingQueue } from "./useGradingQueue";
+import { useGradingQueue, type GradingQueueModel } from "./useGradingQueue";
 import { GradingQueueAside } from "./GradingQueueAside";
 import { GradingAnswerCard } from "./GradingAnswerCard";
+import { GradingReadyCard, ROWS_SHOWN, type ReadyScan } from "./GradingReadyCard";
 import { AiScoreBox } from "../../components/AiScoreBox";
 import "@/features/attempts/gradingMessages";
 import { cn } from "@/lib/utils";
-import { X } from "lucide-react";
+import {
+  ArrowDown,
+  CircleAlert,
+  CircleCheck,
+  ClipboardCheck,
+  Hourglass,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 
 const HEADING_FOCUS = "grading-heading";
 
@@ -69,8 +83,59 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
       ) + 1
     : 0;
   const acknowledged = model.savedCount;
-  const panes = Boolean(model.queue.data && selected && !model.candidate);
+  const panes = Boolean(model.queue.data && selected);
   const heading = useRef<HTMLHeadingElement>(null);
+  const cardHeading = useRef<HTMLHeadingElement>(null);
+  const emptyTitle = useRef<HTMLHeadingElement>(null);
+  const [cardOpen, setCardOpen] = useState(false);
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const [finishing, setFinishing] = useState<string | null>(null);
+  const [focusFinish, setFocusFinish] = useState<string | null>(null);
+  const [focusTick, setFocusTick] = useState(0);
+  const focusEmpty = useRef(false);
+  useEffect(() => {
+    if (!focusEmpty.current) return;
+    focusEmpty.current = false;
+    (emptyTitle.current ?? heading.current)?.focus();
+  }, [focusTick]);
+  const scan = readyScan(model.recovery);
+  const readyCount = model.readyPapers.length;
+  const showCheck = (row: AttemptListRow, focus: boolean) => {
+    const group = model.readyGroups.find(
+      (candidate) => candidate.assignmentId === row.assignmentId,
+    );
+    if (group && group.rows.findIndex((paper) => paper.id === row.id) >= ROWS_SHOWN)
+      setExpanded((open) => new Set(open).add(row.assignmentId));
+    model.openCheck(row);
+    setFocusFinish(focus ? row.id : null);
+  };
+  const toggleCheck = (row: AttemptListRow) => {
+    if (model.candidate?.id === row.id) {
+      model.openCheck(null);
+      setFocusFinish(null);
+    } else showCheck(row, false);
+  };
+  const finishPaper = async () => {
+    const row = model.candidate;
+    if (!row) return;
+    setFocusFinish(null);
+    setFinishing(row.id);
+    const outcome = await model.finishCandidate();
+    setFinishing(null);
+    if (!outcome) return;
+    if (outcome.next) showCheck(outcome.next, true);
+    else {
+      focusEmpty.current = true;
+      setFocusTick((tick) => tick + 1);
+    }
+  };
+  const toggleMore = (assignmentId: string) =>
+    setExpanded((open) => {
+      const next = new Set(open);
+      if (next.has(assignmentId)) next.delete(assignmentId);
+      else next.add(assignmentId);
+      return next;
+    });
   const focusHeading =
     (location.state as { focus?: string } | null)?.focus === HEADING_FOCUS;
   useEffect(() => {
@@ -131,7 +196,6 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
   const shortcuts = useEffectEvent((event: KeyboardEvent) => {
     if (
       model.busy ||
-      model.candidate ||
       !selected ||
       event.isComposing ||
       event.altKey ||
@@ -143,7 +207,7 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
     if (
       event.target instanceof Element &&
       event.target.closest(
-        "input, textarea, select, [contenteditable]:not([contenteditable=false]), [role=textbox], [role=dialog], [role=menu], [role=listbox]",
+        "input, textarea, select, [contenteditable]:not([contenteditable=false]), [role=textbox], [role=dialog], [role=menu], [role=listbox], [data-grading-ready]",
       )
     )
       return;
@@ -186,10 +250,24 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
             {(model.queue.data || params.assignmentId || params.studentId) && (
               <p className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px]">
                 {model.queue.data &&
-                  t("grading.remaining", {
-                    answers: model.queue.data.answersRemaining,
-                    students: model.queue.data.studentsWaiting,
-                  })}
+                  (model.queue.data.answersRemaining === 0
+                    ? t("grading.remainingNone")
+                    : t("grading.remaining", {
+                        answers: model.queue.data.answersRemaining,
+                        students: model.queue.data.studentsWaiting,
+                      }))}
+                {panes && scan === "done" && readyCount > 0 && (
+                  <button
+                    type="button"
+                    className="text-fg text-[14px] font-medium underline underline-offset-3"
+                    onClick={() => {
+                      setCardOpen(true);
+                      cardHeading.current?.focus();
+                    }}
+                  >
+                    {t("grading.readyLink", { count: readyCount })}
+                  </button>
+                )}
                 <FilterChips model={model} params={params} onChange={change} />
               </p>
             )}
@@ -225,18 +303,27 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
           </Alert>
         )}
         {Object.values(model.finishes).map((state) => (
-          <Alert key={state.item.attemptId} variant="danger">
+          <Alert key={state.item.attemptId} variant="danger" className="px-3.5 py-3">
+            <CircleAlert aria-hidden="true" />
             <AlertDescription>
-              <p>{t("grading.finishFailed")}</p>
-              <p>{state.error}</p>
-              <div className="mt-2 flex gap-2">
+              <p className="text-ui font-medium">
+                {t("grading.finishFailed", { name: state.item.studentName })}
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2">
                 <Button
+                  size="sm"
                   disabled={model.busy}
+                  className="bg-danger-ink text-bg hover:bg-danger-ink/90 h-8 px-3 font-semibold"
                   onClick={() => void model.retryFinish(state)}
                 >
                   {t("grading.retryFinish")}
                 </Button>
-                <Button asChild variant="outline">
+                <Button
+                  asChild
+                  size="sm"
+                  variant="outline"
+                  className="text-danger-ink! h-8 border-current! bg-transparent! px-3"
+                >
                   <Link
                     to={`/teacher/attempts/${state.item.attemptId}`}
                     aria-disabled={model.busy}
@@ -270,7 +357,7 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
                 })}
               </p>
             )}
-            {selected && !model.candidate ? (
+            {selected ? (
               <div className="flex min-w-0 flex-wrap items-start gap-3.5 min-[768px]:min-h-0 min-[768px]:flex-[1_1_auto] min-[768px]:flex-nowrap min-[768px]:items-stretch">
                 <GradingQueueAside
                   queue={model.queue.data}
@@ -334,16 +421,44 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
                 </div>
               </div>
             ) : (
-              !model.candidate && (
-                <EmptyState hint={t("grading.emptyHint")}>
-                  {t("grading.empty")}
-                </EmptyState>
-              )
+              <QueueEmpty
+                model={model}
+                params={params}
+                scan={scan}
+                titleRef={emptyTitle}
+                onReviewOldest={() => {
+                  const oldest = model.readyPapers[0];
+                  if (oldest) showCheck(oldest, true);
+                }}
+                onShowAll={(key) => change(key, "", HEADING_FOCUS)}
+              />
             )}
           </>
         )}
       </div>
-      <Recovery model={model} onReview={openReview} />
+      {model.queue.data &&
+        (panes
+          ? readyCount > 0 || scan === "failed"
+          : scan !== "done" || readyCount > 0) && (
+          <GradingReadyCard
+            model={model}
+            scan={scan}
+            foldable={panes}
+            open={!panes || cardOpen}
+            headingRef={cardHeading}
+            expanded={expanded}
+            finishing={finishing}
+            focusFinish={focusFinish}
+            onFold={() => setCardOpen((open) => !open)}
+            onMore={toggleMore}
+            onToggleCheck={toggleCheck}
+            onFinish={() => void finishPaper()}
+            onReview={openReview}
+          />
+        )}
+      <p aria-live="polite" className="sr-only">
+        {model.announcement}
+      </p>
       <ConfirmDialog
         open={blocker.state === "blocked"}
         onOpenChange={(open) => {
@@ -373,22 +488,16 @@ function FilterChips({
   params,
   onChange,
 }: Readonly<{
-  model: ReturnType<typeof useGradingQueue>;
+  model: GradingQueueModel;
   params: GradingQueueParams;
   onChange: (key: string, value: string, focus?: typeof HEADING_FOCUS) => void;
 }>) {
   const { t } = useTranslation();
   const assignmentName = () =>
-    model.items.find((item) => item.assignmentId === params.assignmentId)
-      ?.assignmentTitle ??
-    model.recovery.data?.find((row) => row.assignmentId === params.assignmentId)
-      ?.testTitle ??
+    knownName(model, "assignment", params.assignmentId ?? "") ??
     t("grading.appliedAssignment");
   const studentName = () =>
-    model.items.find((item) => item.studentId === params.studentId)?.studentName ??
-    model.recovery.data?.find((row) => row.studentId === params.studentId)
-      ?.studentName ??
-    t("grading.appliedStudent");
+    knownName(model, "student", params.studentId ?? "") ?? t("grading.appliedStudent");
   const chips = [
     ...(params.assignmentId ? [{ key: "assignment", name: assignmentName() }] : []),
     ...(params.studentId ? [{ key: "student", name: studentName() }] : []),
@@ -412,127 +521,149 @@ function FilterChips({
   ));
 }
 
-function Recovery({
+function readyScan(recovery: GradingQueueModel["recovery"]): ReadyScan {
+  if (recovery.isPending || (recovery.isError && recovery.isFetching)) return "running";
+  return recovery.isError ? "failed" : "done";
+}
+
+function knownName(
+  model: GradingQueueModel,
+  key: "assignment" | "student",
+  id: string,
+): string | undefined {
+  if (key === "assignment")
+    return (
+      model.items.find((item) => item.assignmentId === id)?.assignmentTitle ??
+      model.recovery.data?.find((row) => row.assignmentId === id)?.testTitle ??
+      model.finished.find((item) => item.assignmentId === id)?.assignmentTitle
+    );
+  return (
+    model.items.find((item) => item.studentId === id)?.studentName ??
+    model.recovery.data?.find((row) => row.studentId === id)?.studentName ??
+    model.finished.find((item) => item.studentId === id)?.studentName
+  );
+}
+
+function filterName(
+  model: GradingQueueModel,
+  params: GradingQueueParams,
+): { key: "assignment" | "student"; name: string | undefined } | null {
+  if (params.assignmentId)
+    return {
+      key: "assignment",
+      name: knownName(model, "assignment", params.assignmentId),
+    };
+  if (params.studentId)
+    return { key: "student", name: knownName(model, "student", params.studentId) };
+  return null;
+}
+
+function QueueEmpty({
   model,
-  onReview,
+  params,
+  scan,
+  titleRef,
+  onReviewOldest,
+  onShowAll,
 }: Readonly<{
-  model: ReturnType<typeof useGradingQueue>;
-  onReview: (event: MouseEvent<HTMLAnchorElement>, to: string) => void;
+  model: GradingQueueModel;
+  params: GradingQueueParams;
+  scan: ReadyScan;
+  titleRef: Ref<HTMLHeadingElement>;
+  onReviewOldest: () => void;
+  onShowAll: (key: "assignment" | "student") => void;
 }>) {
   const { t } = useTranslation();
-  const locale = useLocale();
-  const zone = useDisplayTimeZone();
-  const review = model.candidateReview.data;
-  const candidate = model.candidate;
-  const matches =
-    candidate &&
-    review?.attempt.id === candidate.id &&
-    review.attempt.assignmentId === candidate.assignmentId &&
-    review.attempt.studentId === candidate.studentId;
+  const count = model.readyPapers.length;
+  const action = "h-11 text-ui rounded-[9px] px-3.5 min-[768px]:h-10 lg:h-9";
+  if (scan === "running")
+    return (
+      <EmptyState
+        key="running"
+        icon={Hourglass}
+        tone="muted"
+        titleRef={titleRef}
+        hint={t("grading.emptyChecking")}
+      >
+        {t("grading.emptyToFinish")}
+      </EmptyState>
+    );
+  if (scan === "failed")
+    return (
+      <EmptyState
+        key="failed"
+        icon={TriangleAlert}
+        tone="warning"
+        titleRef={titleRef}
+        hint={t("grading.emptyUnsure")}
+        action={
+          <Button
+            variant="outline"
+            className={action}
+            onClick={() => void model.recovery.refetch()}
+          >
+            {t("common.retry")}
+          </Button>
+        }
+      >
+        {t("grading.emptyToFinish")}
+      </EmptyState>
+    );
+  if (count > 0)
+    return (
+      <EmptyState
+        key="finish"
+        icon={ClipboardCheck}
+        tone="neutral"
+        titleRef={titleRef}
+        hint={t("grading.emptyToFinishHint", { count })}
+        action={
+          <Button
+            variant="outline"
+            disabled={model.busy}
+            className={action}
+            onClick={onReviewOldest}
+          >
+            {t("grading.reviewPapers", { count })}
+            <ArrowDown aria-hidden="true" />
+          </Button>
+        }
+      >
+        {t("grading.emptyToFinish")}
+      </EmptyState>
+    );
+  const filter = filterName(model, params);
+  let hint = t("grading.emptyHint");
+  if (filter?.name)
+    hint =
+      filter.key === "assignment"
+        ? t("grading.emptyHintAssignment", { title: filter.name })
+        : t("grading.emptyHintStudent", { name: filter.name });
   return (
-    <section
-      className="space-y-3 rounded-xl border p-4"
-      aria-label={t("grading.recoveryTitle")}
+    <EmptyState
+      key="graded"
+      icon={CircleCheck}
+      tone="success"
+      titleRef={titleRef}
+      hint={hint}
+      action={
+        filter ? (
+          <Button
+            variant="outline"
+            disabled={model.busy}
+            className={action}
+            onClick={() => onShowAll(filter.key)}
+          >
+            {t(
+              filter.key === "assignment"
+                ? "grading.showAllAssignments"
+                : "grading.showAllStudents",
+            )}
+          </Button>
+        ) : undefined
+      }
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">{t("grading.recoveryTitle")}</h2>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={model.busy || model.recovery.isFetching}
-          onClick={() => {
-            void model.recovery.refetch();
-            void model.queue.refetch();
-          }}
-        >
-          {t("grading.rescan")}
-        </Button>
-      </div>
-      <p className="text-muted-foreground text-xs">{t("grading.recoveryHint")}</p>
-      {model.recovery.isPending && <ListSkeleton rows={2} />}
-      {model.recovery.isError && (
-        <LoadError
-          error={model.recovery.error}
-          onRetry={() => void model.recovery.refetch()}
-        >
-          {t("grading.scanFailed")}
-        </LoadError>
-      )}
-      {model.recovery.data && (
-        <div className="max-h-45 space-y-1 overflow-auto">
-          {model.recovery.data
-            .filter((row) => !model.completed.has(row.id))
-            .map((row) => (
-              <Button
-                key={row.id}
-                aria-label={t("grading.candidate", {
-                  name: row.studentName,
-                  title: row.testTitle,
-                })}
-                variant="ghost"
-                className="h-auto w-full flex-wrap justify-start gap-2 text-left"
-                disabled={model.busy}
-                onClick={() => void model.selectCandidate(row)}
-              >
-                <span>{row.studentName}</span>
-                <span className="text-muted-foreground">{row.testTitle}</span>
-                {row.submittedAt && (
-                  <span className="text-muted-foreground text-xs">
-                    {formatDateTime(row.submittedAt, locale, zone)}
-                  </span>
-                )}
-              </Button>
-            ))}
-        </div>
-      )}
-      {candidate && (
-        <div className="space-y-2 rounded-lg border p-3">
-          {model.candidateReview.isPending && <ListSkeleton rows={2} />}
-          {model.candidateReview.isError && (
-            <LoadError
-              error={model.candidateReview.error}
-              onRetry={() => void model.candidateReview.refetch()}
-            >
-              {t("grading.reviewFailed")}
-            </LoadError>
-          )}
-          {matches && (
-            <>
-              <p className="text-sm">
-                {review.student.fullName} · {review.testTitle}
-              </p>
-              <p className="text-muted-foreground text-xs">
-                {review.attempt.score?.pendingManual === 0
-                  ? t("grading.ready")
-                  : t("grading.pendingUnknown")}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  disabled={
-                    model.busy ||
-                    review.attempt.score?.pendingManual !== 0 ||
-                    !["submitted", "timed_out"].includes(review.attempt.status)
-                  }
-                  onClick={() => void model.finishCandidate()}
-                >
-                  {t("review.finish")}
-                </Button>
-                <Button asChild variant="outline">
-                  <Link
-                    to={`/teacher/attempts/${candidate.id}`}
-                    aria-disabled={model.busy}
-                    onClick={(event) =>
-                      onReview(event, `/teacher/attempts/${candidate.id}`)
-                    }
-                  >
-                    {t("grading.openReview")}
-                  </Link>
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </section>
+      {t("grading.empty")}
+    </EmptyState>
   );
 }

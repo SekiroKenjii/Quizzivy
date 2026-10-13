@@ -153,7 +153,9 @@ it("score0 saves Grade only; failed explicit Finish survives empty queue and ret
   expect(finishes).toBe(0);
   await user.click(await screen.findByRole("button", { name: "Hoàn tất chấm" }));
   expect(
-    await screen.findByText("Điểm đã lưu, nhưng chưa hoàn tất chấm bài."),
+    await screen.findByText(
+      "Đã lưu điểm cho Nguyễn Đức Minh, nhưng chưa hoàn tất chấm bài.",
+    ),
   ).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Chấm 0 điểm" })).toHaveAttribute(
     "aria-pressed",
@@ -376,8 +378,11 @@ it("fresh candidate review enables an explicit Finish without replaying any Grad
   );
   const { user } = mount();
   await user.click(
-    await screen.findByRole("button", {
-      name: "Xem bài của Recovery student: Recovery paper",
+    await screen.findByRole("button", { name: "1 bài sẵn sàng hoàn tất" }),
+  );
+  await user.click(
+    screen.getByRole("button", {
+      name: "Xem bài Recovery paper của Recovery student",
     }),
   );
   const finish = await screen.findByRole("button", { name: "Hoàn tất chấm" });
@@ -414,8 +419,11 @@ it("a candidate with missing current count cannot finish even when its list row 
   );
   const { user } = mount();
   await user.click(
-    await screen.findByRole("button", {
-      name: "Xem bài của Recovery student: Recovery paper",
+    await screen.findByRole("button", { name: "1 bài sẵn sàng hoàn tất" }),
+  );
+  await user.click(
+    screen.getByRole("button", {
+      name: "Xem bài Recovery paper của Recovery student",
     }),
   );
   expect(await screen.findByRole("button", { name: "Hoàn tất chấm" })).toBeDisabled();
@@ -986,7 +994,7 @@ it("explicit Finish rereads current count and refuses a zero that changed after 
     ).not.toBeInTheDocument(),
   );
   expect(screen.getByRole("alert")).toHaveTextContent(
-    "Chưa xác nhận được số câu còn chờ chấm. Xem lại bài trước khi hoàn tất.",
+    "Bài này vừa có câu trả lời chờ chấm, nên chưa thể hoàn tất.",
   );
   expect(finishes).toBe(0);
   expect(grades).toHaveLength(1);
@@ -1025,11 +1033,12 @@ it("keeps Finish recovery text and real retry/review controls together in Alert'
   );
   await user.click(screen.getByRole("button", { name: "Lưu & câu tiếp theo" }));
   await user.click(await screen.findByRole("button", { name: "Hoàn tất chấm" }));
-  const notice = await screen.findByText("Điểm đã lưu, nhưng chưa hoàn tất chấm bài.");
+  const notice = await screen.findByText(
+    "Đã lưu điểm cho Nguyễn Đức Minh, nhưng chưa hoàn tất chấm bài.",
+  );
   const alert = screen.getByRole("alert");
   const description = alert.querySelector(":scope > [data-slot=alert-description]");
   expect(description).toContainElement(notice);
-  expect(description).toContainElement(screen.getByText("Finish failed"));
   expect(description).toContainElement(
     screen.getByRole("button", { name: "Thử hoàn tất lại" }),
   );
@@ -1037,7 +1046,8 @@ it("keeps Finish recovery text and real retry/review controls together in Alert'
     within(alert).getByRole("link", { name: "Xem toàn bộ bài" }),
   );
   expect(description).toHaveClass("col-start-2");
-  expect(alert.children).toHaveLength(1);
+  expect(alert.children).toHaveLength(2);
+  expect(alert.firstElementChild).toHaveAttribute("aria-hidden", "true");
   expect(grades).toHaveLength(1);
   expect(finishes).toBe(1);
   finishFails = false;
@@ -1059,7 +1069,7 @@ it("places a current-count refusal in Alert's content column without sending Fin
   const alert = await screen.findByRole("alert");
   const description = alert.querySelector(":scope > [data-slot=alert-description]");
   expect(description).toHaveTextContent(
-    "Chưa xác nhận được số câu còn chờ chấm. Xem lại bài trước khi hoàn tất.",
+    "Bài này vừa có câu trả lời chờ chấm, nên chưa thể hoàn tất.",
   );
   expect(description).toHaveClass("col-start-2");
   expect(alert.children).toHaveLength(1);
