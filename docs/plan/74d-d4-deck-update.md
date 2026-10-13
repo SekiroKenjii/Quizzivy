@@ -2045,29 +2045,29 @@ teacher's next keystroke in the pane would meet "This group changed elsewhere", 
 draft holding the older materials could be offered back over what the dialog saved.
 
 **Done when:**
-- [ ] No operation is added, and the dialog calls none: it saves through the editor, whose
+- [x] No operation is added, and the dialog calls none: it saves through the editor, whose
       `save` is today's `updateQuestionGroup` (`x-permission: [content.questions.write,
       content.tests.write]`; a group in a test section needs `content.tests.write`), already
       in the isolation suite with its `x-resource` entries. The PR says so.
-- [ ] The dialog is rendered by `BuilderGroupPane`'s form, which holds the editor. "Shared
+- [x] The dialog is rendered by `BuilderGroupPane`'s form, which holds the editor. "Shared
       content" in a shared-context group's menu, and its outline line, select the group and
       ask the pane to open it; the pane answers once its recovery gate has resolved, so a
       recovery draft is offered first, as today, and the dialog opens over the bundle the
       teacher chose.
-- [ ] It is 560px (`min(560px, 100% − 24px)`): "Shared content for “{group}”", "A passage or
+- [x] It is 560px (`min(560px, 100% − 24px)`): "Shared content for “{group}”", "A passage or
       recording shown beside every question in this group. Students see it beside the questions
       while they answer." (the deck's "on the left", reworded because a phone shows a drawer;
       DG-187), a scroll area (gap 12px, at most 56vh), Cancel and Save.
-- [ ] Kind: a full-width Segmented, 30px, "None" (`circle-slash`), "Passage" (`file-text`),
+- [x] Kind: a full-width Segmented, 30px, "None" (`circle-slash`), "Passage" (`file-text`),
       "Audio" (`audio-lines`).
-- [ ] Passage: "Title" (36px, "e.g. Why cities need green space", required, 1 to 200
+- [x] Passage: "Title" (36px, "e.g. Why cities need green space", required, 1 to 200
       characters); "Passage" is the content editor in T-R4.63's frame with the placeholder
       "Paste or type the passage students read" (DG-187), and the hint "Optional: add gaps for
       a cloze. …" over T-D4.2b's `GapBindings` rows. The editor's toolbar holds the dialog's
       only "Insert gap" (T-R4.63 shows it for the `document` profile, at the caret); the
       deck's separate 30px button beside the hint is not built, so there are never two
       (DG-187).
-- [ ] Audio: the empty zone (1.5px dashed `--border`, radius 10px, padding 12px, `audio-lines`
+- [x] Audio: the empty zone (1.5px dashed `--border`, radius 10px, padding 12px, `audio-lines`
       17px) reads "MP3 or M4A up to 50 MB and 5 minutes" (DG-63), with "Choose file" and "From
       Media"; the attached card shows the file name and "Replace". Uploads go through
       `useMediaUpload` with its progress and failure. "From Media" is `AssetLibraryDialog`
@@ -2077,17 +2077,17 @@ draft holding the older materials could be offered back over what the dialog sav
       and "Transcript" with "Optional. Students see it after they submit." shown only while
       that switch is on. "Students can pause" appears under "Plays" when T-D4.15 merges; the
       panel is shared, so the dialog is not edited for it.
-- [ ] What "Audio" stores is the shape the server accepts: one material whose content is the
+- [x] What "Audio" stores is the shape the server accepts: one material whose content is the
       single audio node, and one recording bound to that asset (`group_validation.go:235`,
       243-246). The material's required title is the file's name without its extension. It is
       a teacher-side label: it shows in the outline line and in the full pane, and the student
       never sees it, because an audio-only material draws no heading (T-D4.5, T-D4.8).
-- [ ] The dialog edits a group with at most one material and one recording of one kind. A
+- [x] The dialog edits a group with at most one material and one recording of one kind. A
       group that holds more (an import, a copy from the bank, a material mixing text and
       audio) opens `BuilderGroupPane` instead, and nothing is dropped. Saving another kind
       over stored content asks first, naming what goes and how many gaps unbind. "None"
       removes the shared content and keeps the group and its members.
-- [ ] The dialog works on a copy of `editor.bundle` taken when it opens. Save calls
+- [x] The dialog works on a copy of `editor.bundle` taken when it opens. Save calls
       `editor.change(next)`, where `next` is the editor's current bundle with only `stimuli`
       and `recordings` replaced (so a member edited in the pane a second ago is in what is
       sent), then awaits `editor.saveNow()`. The revision, `expectedTestUpdatedAt` (through
@@ -2097,15 +2097,69 @@ draft holding the older materials could be offered back over what the dialog sav
       changed elsewhere"). A failed save keeps the dialog open with the editor's message.
       Cancel discards the dialog's copy and nothing else; with edits it asks first.
       Publishing still flushes first, through the pane's `flushRef`.
-- [ ] `shared-content-dialog.test.tsx` covers the three kinds, the refusals, the kept members,
+- [x] `shared-content-dialog.test.tsx` covers the three kinds, the refusals, the kept members,
       the group that opens the pane instead, that a transcript never reaches
       `question-groups/preview.ts`'s output, that Save sends exactly one request, and "an
       edit in the pane right after a dialog save is saved, with no conflict".
       `builder-group-recovery.spec.ts` gains: a dialog save, a reload before the server
       answers, and the recovery draft offered holds the dialog's content, not the older one.
       `builder/autosave-unmount.test.tsx` and `autosave-flush.test.tsx` stay green.
-- [ ] Deck check at the five widths, light and dark; keys vi first, en from the deck except
+- [x] Deck check at the five widths, light and dark; keys vi first, en from the deck except
       the one reworded sentence.
+
+**As built:** one pull request, two commits (the dialog, then this note). No operation was
+added and the dialog calls none: `SharedContentDialog` (`features/tests/components/`) hands its
+content to the pane, and `BuilderGroupPane`'s form saves it through the group's editor as
+`editor.change(withSharedContent(editor.bundle, content))`, `await editor.persist()`, `await
+editor.saveNow()`; the request is today's `updateQuestionGroup` with the pane's revision and
+`coordinate`. `useGroupEditor` is not changed: `saveNow` already rejects with the reason a save
+failed, which the dialog shows. The `persist()` between the two is the editor's own recovery
+writer, called at once instead of 300 ms later, so the device draft holds the dialog's content
+before the request leaves; `builder-group-recovery.spec.ts` fails without it (no draft is offered
+after the reload). The kinds are read by `readSharedContent` (`question-groups/sharedContent.ts`),
+which `sharedContentLine` now uses too, so the line and the dialog agree on what a passage and a
+recording are; anything else is null, and the pane keeps the group with the sentence "This group
+holds more shared content than the Shared content dialog shows, so it is edited here." The
+outline asks through a new `onOpenSharedContent(id, opener)`: the line passes itself, the menu
+item its trigger, once the menu has closed and returned focus to it; the builder keeps a request
+counter beside `titleFocus` and the pane answers it after `GroupRecoveryGate`, so a recovery draft
+is offered first. The dialog is `DialogShell` and its parts at 560px rather than `FormDialog`,
+whose typed fields hold none of this and whose empty form would take the first focus: the dialog
+opens with focus on the pressed kind and returns it to the opener. The kind switch is the
+Segmented (`fill`, 30px, 13px, 14px icons); the other kind keeps its fields while the dialog is
+open. Passage: "Title" (36px, required, at most 200) and `MaterialContent`, which gains `label`,
+`placeholder`, `minHeight`, `fontSize` (13.5px, a 175px body) and `assetKinds`: the passage offers
+Image only, so it never turns into a material mixing text and audio. The toolbar's "Insert gap" is
+the only one; `GapBindings` takes the editor's `removeGap` as T-D4.2b left it. Audio: the zone and
+the attached card as drawn (30px buttons with no icons, a 28px Replace, which returns to the zone),
+`useMediaUpload` with `UploadStatus`, and `AssetLibraryDialog` opened on Audio through the `kind`
+prop T-R4.65 already gave it, so `features/media/` is not changed. `AudioPolicyPanel` gains
+`transcriptHint`, which the dialog sets to "Optional. Students see it after they submit." while
+"Show transcript after submitting" is on. The listening settings show before a file is chosen, as
+drawn, and a library file's stored play limit starts them when it is the first file and they were
+not edited (DG-69). A recording is saved as one material titled with the file's name without its
+extension, whose content is the one audio block labelled "Audio", and one recording bound to it.
+Save is disabled with one sentence for the conflict, a missing file, and whatever `groupIssue`
+says of the group with the copy (the title, an unbound gap). Saving another kind over the stored
+one asks, naming the passage or the file and the number of linked gaps; Cancel, Escape and the
+close button ask before discarding an edit. Tests: `tests/units/builder/shared-content-dialog.test.tsx`
+(new, 10: focus on open, the passage saved in one request with its members kept and focus back on
+the line, an edit in the pane right after it saved at revision 2 with no conflict, a recording
+from Media with its stored shape and a transcript absent from `groupPreview`, an upload refusal,
+None over a passage with its linked gap named, the refusals, a failed save and a conflict, the two
+ways to cancel, and the group left to the pane); `group-row.test.tsx` moves its Shared content
+assertions to `onOpenSharedContent`; `builder-group-recovery.spec.ts` gains the reload during a
+dialog save; `builder-groups.live.spec.ts` gains a recording, then a passage over it, through the
+real API. Compared with the deck (rendered with React, Babel and lucide served from their npm
+tarballs) at 360, 768, 1024, 1280 and 1440, light and dark, measured with `getBoundingClientRect`:
+the dialog is 560px from 768 and 336px at 360, the switch 30px with 13px 500 labels and 14px
+icons, the title field 36px, the zone 1.5px dashed `--border`, radius 10, padding 12, 17px icon,
+its buttons 30px and 91px wide as the deck's, the card 50px with a 28px Replace, Cancel and Save
+36px; no horizontal scroll; the focus ring on the pressed kind is 2px `--focus` offset 2px. Known
+differences: the frame is the product's (`DialogShell`: a close button, 16px title, the footer's
+rule), the passage is the content editor with its toolbar and word count (DG-187), "Plays" is the
+product's radiogroup (DG-69), the transcript keeps its placeholder and two rows, the limit sentence
+is DG-63's and wraps at 360, and the title field is 16px below 1024 as every product field is.
 
 ### T-D4.15 — Authoring: one "Plays" control, and "Students can pause"
 **Reopens:** T-R4.65 (the question media block's "Plays", and "Students can pause is not built")
