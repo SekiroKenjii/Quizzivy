@@ -113,6 +113,7 @@ test("a teacher's settings open on the Profile, among the deck's sections", asyn
     "Thông báo",
     "Mặc định khi giao bài",
     "Giao diện",
+    "Trợ lý AI",
     "Tài liệu API",
   ]);
   await page.goto("/teacher/settings/preferences");

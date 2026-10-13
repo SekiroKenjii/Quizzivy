@@ -178,12 +178,12 @@ describe("canonical assignment papers in the Students roster", () => {
     expect(within(minh).getByRole("button", { name: "Nguyễn Đức Minh" })).toBeEnabled();
   });
 
-  it("keeps all five old paper filters and treats timed-out papers as handed in", async () => {
+  it("keeps all five old paper filters beside In progress and treats timed-out papers as handed in", async () => {
     const user = renderPage();
     await screen.findByRole("table");
     const filter = screen.getByRole("combobox", { name: "Lọc bài làm" });
     await user.click(filter);
-    expect(screen.getAllByRole("option")).toHaveLength(5);
+    expect(screen.getAllByRole("option")).toHaveLength(6);
     await user.click(screen.getByRole("option", { name: "Chưa nộp" }));
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(2));
     expect(screen.getByText("Hoàng Tiến Dũng")).toBeInTheDocument();

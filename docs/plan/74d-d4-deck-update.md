@@ -1785,8 +1785,8 @@ too: `detail.test.tsx`, `detail-versions.test.tsx` and `preview-and-leave.test.t
 the preview by the literal prompt "They ___ …" and now find it as a screen reader reads the
 sentence (`tests/support/gapSentence.ts`); their fixtures are unchanged. The builder's
 prompt field and the import both write `promptContent`, so on content made in the product
-today the rule fires only for prompts kept in Markdown; a rich prompt that is one plain
-paragraph prints as written, as the rule says. Compared with s9 questions 5 and 12 at 360
+today the rule fired only for prompts kept in Markdown; T-D4.11b (follow-up 7) widens it to a
+rich prompt that is one plain paragraph. Compared with s9 questions 5 and 12 at 360
 and 1280, light and dark, empty and chosen: the sentence and the box equal the deck's in
 position, size, type, padding, radius and colour in all 16 cells; the question sits 35px
 lower at 360 for the paper's integrity line above it, which the deck's paper has not.
@@ -2221,7 +2221,7 @@ is DG-63's and wraps at 360, and the title field is 16px below 1024 as every pro
 **Touches:** `web/src/features/question-bank/components/AudioPolicyPanel.tsx`, `web/src/features/question-bank/{audioPolicy.ts,questionSchema.ts}`, `web/src/features/question-groups/{model.ts,recovery.ts}`, locales, `web/tests/units/question-bank/editor.test.tsx`, `web/tests/units/question-groups/{recovery-compat.test.ts,recording-plays.test.tsx}` (new)
 **Size:** S
 **Done when:**
-- [ ] "Plays" is one control everywhere (DG-69, Q25). T-R4.65 built "Once | Twice | Unlimited"
+- [x] "Plays" is one control everywhere (DG-69, Q25). T-R4.65 built "Once | Twice | Unlimited"
       for a question's audio, with a stored other value as a fourth option while it is the
       value. A group's recording shows the same control, in the group pane and in the Shared
       content dialog: `AudioPolicyPanel` is the one component for both, and if R4 left the
@@ -2229,14 +2229,14 @@ is DG-63's and wraps at 360, and the title field is 16px below 1024 as every pro
       export's third drawing, a select with "3 plays" (T 1714-1719), is not taken. A unit
       case in the group pane: a recording stored with 3 plays shows "3" as a fourth option,
       and choosing "Twice" saves 2.
-- [ ] `AudioPolicyPanel` shows "Students can pause" under "Plays", on by default, for a
+- [x] `AudioPolicyPanel` shows "Students can pause" under "Plays", on by default, for a
       question's audio and for a group's recording; it saves `allowPause`. A policy read
       without the field shows the switch on.
-- [ ] Both parsers carry the field instead of stripping it: `audioPolicySchema`
+- [x] Both parsers carry the field instead of stripping it: `audioPolicySchema`
       (`questionSchema.ts:14-18`) and the recovery draft's `policy` (`recovery.ts:15-19`) are
       `z.object`, which drops a key it does not name, so each gains `allowPause` as an
       optional boolean. `QuestionValuesAreAcceptedByTheContract` still holds.
-- [ ] A recovery draft stored before this task has no `allowPause`. When it is restored, a
+- [x] A recovery draft stored before this task has no `allowPause`. When it is restored, a
       policy without the field takes the value the server's bundle holds for the same
       recording or member question (`GroupRecoveryGate` has `stored`), and true where the
       server has none, so the switch shows the truth and an old draft cannot switch pausing
@@ -2245,9 +2245,49 @@ is DG-63's and wraps at 360, and the title field is 16px below 1024 as every pro
       `take-test/draft-compat.test.ts`, reads a draft written without the field (a literal in
       the test), restores it over a group whose recording has `allowPause: false`, and
       asserts the restored and the saved bundle both read false.
-- [ ] A test saves it off for a question and for a recording and reads it back.
-- [ ] The media block and the group pane's recording are compared with the deck again at 360
+- [x] A test saves it off for a question and for a recording and reads it back.
+- [x] The media block and the group pane's recording are compared with the deck again at 360
       and 1280, light and dark.
+
+**As built:** one pull request, two commits (the switch and the parsers, then this note).
+"Plays" was already one control: T-D4.14 left the group pane's recording and the Shared content
+dialog on `AudioPolicyPanel`, so nothing moved; `recording-plays.test.tsx` pins it in the builder's
+group pane (a stored 3 shows "3 plays" as a fourth option; Twice saves 2, and the fourth goes). The
+panel draws "Students can pause" (`questionEditor.questionMedia.allowPause`) between "Plays" and
+"Allow skipping ahead", checked when the policy has no `allowPause`, and its change writes the
+field. `DEFAULT_AUDIO_POLICY` gains `allowPause: true`, so a new question's audio, a new recording
+in the pane and a new recording in the dialog send the drawn default rather than leaving the
+server to fill it; `shared-content-dialog.test.tsx`'s stored recording takes the field for that
+reason. The panel's three switches are the primitive's `sm` (36 by 20, 16px knob): the deck draws
+the pause switch 34 by 20 and the bank editor's two at 36 by 20, and the primitive has no 34.
+`audioPolicySchema` and the recovery draft's `policy` take `allowPause: z.boolean().exactOptional()`:
+`.optional()` would infer `boolean | undefined`, which `exactOptionalPropertyTypes` does not let
+`QuestionValuesAreAcceptedByTheContract` assign to the contract's `allowPause?: boolean`. The
+builder's question pane and the group editor save their values unparsed and already carried the
+field; the bank's Question editor saves `questionSchema`'s output, which stripped it. A recovered
+draft is merged in `GroupRecoveryGate`, where `stored` is: `withStoredPause` (`recovery.ts`) fills
+each recording's and member question's missing `allowPause` from the stored bundle by id, and true
+where the server has none, before the editor mounts, so the switch, the next device write and the
+next save all carry the stored rule, and a conflicting draft copied to the bank through
+`independentBundle` keeps it too. It runs when the children render rather than in the gate's effect,
+whose dependencies are the owner and the id; `useGroupEditor` reads `recovered` only on mount.
+`useGroupEditor` and the draft's version are not changed. Tests: `recovery-compat.test.ts` (new, 4: a
+literal draft without the field is read, restores false for the recording and the member question
+and true for a recording the server lacks, saves both false through `useGroupEditor`, and a draft
+that has the field keeps it); `recording-plays.test.tsx` (new, 4, through `BuilderGroupPane`: the
+fourth option, the switch's place and default, pausing saved off and read back off, and a pre-switch
+draft restored off over a stored false); `editor-page.test.tsx` saves it off for a bank question and
+reads it back; `editor.test.tsx` and `shared-content-dialog.test.tsx` see the switch on by default.
+Compared with the deck (React, Babel and lucide from their npm tarballs) at 360 and 1280, light and
+dark, in the question media block, the group pane's recording and the Shared content dialog: the
+Plays group (185 by 30, radius 7, `--muted`), its options (26px, 12px 500), the label (12.5px 400,
+8px gap), the switch's place (18px after the group at 1280, wrapping under it at 360), its track
+(`--primary` on, `--border` off, both themes) and its 16px white knob equal the deck's; no
+horizontal scroll; the focus ring is 2px `--focus` offset 2px. Known differences: the switch is
+36px wide against 34 (the primitive's size); the row holds "Allow skipping ahead" and "Show
+transcript after submitting" (DG-111), so it is 81px tall at 1280 and 141 at 360 against the deck's
+51 and 81; and the dialog shows the same row instead of the export's select and its 500-weight
+label (Q25).
 
 ### T-D4.2c — Previews: the bar and the frame
 **Reopens:** T-R4.31b (the builder's Student preview), T-R4.30 (Test detail's preview), T-R4.39 (the import's preview)
@@ -2451,24 +2491,73 @@ score field keeps its `--field-max` cap.
 **Touches:** `web/src/features/assignments/pages/teacher/AssignmentDetailPage.tsx`, `web/src/features/attempts/components/{Monitor.tsx,ProgressCard.tsx (new)}`, locales, `web/tests/units/assignments/detail.test.tsx`, `web/tests/units/attempts/monitor.test.tsx`
 **Size:** M
 **Done when:**
-- [ ] The four `StatStrip` tiles give way to the card (V-05, T 607-631): "{n} of {total}
+- [x] The four `StatStrip` tiles give way to the card (V-05, T 607-631): "{n} of {total}
       submitted" ("All {n} submitted"; "Not assigned yet" with no target), an 8px two-segment bar
       (submitted `--success`, in progress `--info`), a legend of `aria-pressed` buttons (28px,
       radius 7, 12.5px) each with a dot or, for Flagged, the flag icon in danger ink, and a count
       in `--fg` (Flagged's in danger ink), then "Average {avg}" (15px 600) after a 1px divider.
       The counts are the monitor's whole-assignment counts, not the page's.
-- [ ] A legend button filters the roster to its group (Submitted includes timed out, as the
+- [x] A legend button filters the roster to its group (Submitted includes timed out, as the
       monitor groups them), opens the Students tab, resets the page and names the filter in the
       URL (`?roster=`, which T-R4.25's redirect already writes); pressing it again shows
       everyone; an entry hides at 0 unless it is the one selected; opening the page from the
       list clears the filter. The tooltip reads "Show only {group}" / "Show everyone".
-- [ ] The average keeps T-R4.25's rule (the rounded mean of graded ratios; "—" with none).
-- [ ] Strings: `assignmentDetail.progress.{submittedOf,allSubmitted,notAssigned,average,
+- [x] The average keeps T-R4.25's rule (the rounded mean of graded ratios; "—" with none).
+- [x] Strings: `assignmentDetail.progress.{submittedOf,allSubmitted,notAssigned,average,
       showOnly,showEveryone}`, vi first; the four tile keys go in their own commit if nothing else
       reads them.
-- [ ] Unit tests: the three sentences, the bar's widths, a filter press and release, the hidden
+- [x] Unit tests: the three sentences, the bar's widths, a filter press and release, the hidden
       zero entries, the URL; compared with the deck at 360, 768, 1024, 1280 and 1440 on a live
       assignment with flagged papers, light and dark. Known difference: none expected.
+
+**As built:** one pull request, three commits (the card and the filters, the removal of the
+tiles' keys, this note). `ProgressCard` (`features/attempts/components/ProgressCard.tsx`) draws
+the deck's card on `--card` (radius 12, 1px `--border`, `--shadow`, padding 12 × 16, gaps 10 × 16,
+wrapping): the sentence at 13.5px 600 (`assignmentDetail.progress.{submittedOf,allSubmitted,
+notAssigned}`), the bar (`flex: 1 1 160px`, at least 120px, 8px, `--muted`, segments `--success`
+and `--info` as shares of every row, `transition: width .2s` except under reduced motion and
+hidden from a screen reader, which the sentence and the legend already tell), the legend as a
+`role="group"` "Filter students" (`progress.filterLabel`) of `aria-pressed` buttons (28px, radius 7,
+12.5px `--muted-fg`, 9px padding, a transparent border that turns `--border` on `--muted` when
+pressed, an 8px dot or the 12px flag in `--danger-ink`, the count 600 in `--fg` or `--danger-ink`),
+and "Average" (`progress.average`) with its value at 15px 600 after a 1px `--border` and 14px of
+padding. Each button's name is "{group} {n}", so a screen reader hears the count; its tooltip is the
+shared `Tooltip` (hover and keyboard focus), "Show only {group}" or "Show everyone"
+(`progress.showOnly`, `progress.showEveryone`, the group lowercased). The legend's labels are
+`progress.groups.{submitted,inProgress,notStarted,flagged}`; Flagged is "Bị gắn cờ", as on the
+dashboard. While the monitor loads the card holds two skeleton bars (`role="status"`); when it
+fails it says "Couldn't load progress." with Retry (`progress.loadFailed`), not as an alert, since
+the Students tab's own error card is one. **Counts:** `assignmentStats` counts each group as
+`rosterMatches` filters it, over the whole monitor whatever the search or filter, so a count is
+always the rows its press shows: Submitted is submitted, timed out and graded; a flagged attempt
+that was later voided is no longer counted as Flagged (T-R4.25's tile counted it, though its
+filter never showed it), and `assignment-detail-logic.test.ts` says so. **Filter:** a press
+writes `?tab=students&roster={group}` and drops `?page=` (replace, as the select does); a second
+press removes `roster`. `RosterFilter` gains `inProgress`, and the roster's select keeps its five
+filters (pinned by `papers.test.tsx`) and gains "In progress" (`papers.tabs.inProgress`), so the
+select and the legend read and write one value and Needs grading stays reachable; the search box
+stays too. The list's rows link to the page without a query, so opening an assignment from it
+clears the filter. The three keys only the tiles read went in their own commit
+(`assignmentDetail.average`, `monitor.cards.inProgress`, `assignments.detail.flagged`); the rest of
+`monitor.cards` was already unread and is left alone. `StatStrip` has no other host now and is
+kept, with its own tests. Tests: `detail.test.tsx` gains ten cases (the three sentences, the bar's
+widths and the average, a press and release by mouse and keyboard with the URL, the whole-monitor
+counts under a search, the hidden zero entries and a selected zero, both tooltips, the filter
+dropped on opening from the list, and the skeleton and the retry); `monitor.test.tsx` one (the
+select's In progress presses the legend's); `teacher-shell.spec.ts` replaces the stat strip's
+640px case with the card's geometry at 360, 768, 1024, 1280 and 1440 in both themes, and a press
+and release from the keyboard with its 2px focus outline and its URL. **Compared with the deck**
+side by side with the deck's open assignment ("Mid-term Reading Mock": 18 of 24 submitted, 2 in progress, 4
+not started, 1 flagged, 78%), the app on a production build with a stubbed monitor holding the same
+figures (no live API), English, sidebar expanded, at the five widths, light and dark, idle and with
+Flagged pressed: every box, font, weight, colour, border, radius, padding and gap equals the deck's
+within 0.5px, and the card wraps to the same height at every width (164.75, 146.75, 84.25, 54, 54).
+The two differences are not visible: the computed `box-shadow` carries Tailwind's transparent ring
+layers before the same `--shadow`, and a button's text has a space between the label and the count
+for its accessible name (a whitespace node in a flex box, so it renders nothing). The deck was
+served with React 18.3.1, react-dom 18.3.1, `@babel/standalone` 7.29.0 and `lucide-static` 0.469.0
+from their npm tarballs by route interception, as in `docs/team/verification-r4-51.md`. The
+page frame (DG-205) did not change: the card adds no threshold.
 
 ### T-D4.23 — Class detail: the join-code card, v2
 **Reopens:** T-R4.42 (the join-code card)
@@ -2476,7 +2565,7 @@ score field keeps its `--field-max` cap.
 **Touches:** `web/src/features/classes/components/{JoinCodePanel,JoinQr,JoinQrDialog (new)}.tsx`, `web/src/features/classes/pages/teacher/ClassDetailPage.tsx` (members' "Joined via"), locales, `web/tests/units/classes/join-code.test.tsx`
 **Size:** S
 **Done when:**
-- [ ] The card (V-16, T 4287-4345): a 112px QR button (`--qr-bg` / `--qr-fg`, radius 10, 1px
+- [x] The card (V-16, T 4287-4345): a 112px QR button (`--qr-bg` / `--qr-fg`, radius 10, 1px
       border, `cursor: zoom-in`, named "Show full size for the projector", at opacity .4 while
       joining is paused) that opens a 420px dialog "Join {class}" with the QR at full size and
       "Show this on the projector. Students scan it or type the code." (or "Joining is paused, so
@@ -2490,11 +2579,40 @@ score field keeps its `--field-max` cap.
       the no-code state are T-R4.42's.
 - [ ] Members' "Joined via" shows the full code in monospace where T-R4.42 showed "Code
       ••{hint}" (the code is always shown in full to its teacher, D5, DG-01).
-- [ ] DG-01 is marked Answered in `gaps.md` and its "Meanwhile" rule deleted (T-D4.1 opens the
+- [x] DG-01 is marked Answered in `gaps.md` and its "Meanwhile" rule deleted (T-D4.1 opens the
       row; this task closes it).
-- [ ] Strings vi first; unit tests for the paused state, the dialog and the three buttons;
+- [x] Strings vi first; unit tests for the paused state, the dialog and the three buttons;
       compared with the deck at 360, 768, 1024, 1280 and 1440, light and dark, with joining on
       and paused.
+
+**As built:**
+- **Files:** `components/JoinCodePanel.tsx` (the card), `components/JoinQrDialog.tsx` (new: the
+  projector dialog and the New join code dialog on `DialogShell`, which traps focus and gives it
+  back), `components/JoinQr.tsx` (the link without its scheme, the code at line height 1.5, as the
+  deck's QR field draws them; `ShowQrDialog` on Classes reads it too), `joinLink.ts`
+  (`joinLinkLabel`, and `useCopyJoinCode` beside `useCopyJoinLink`), in `features/classes/`. The
+  task named `join-code.test.tsx`; the card's suite is `join-code-panel.test.tsx`, extended there.
+- **The card:** the 112px QR button draws the real QR of the join link on `--qr-bg` / `--qr-fg`,
+  named "Show QR code full size" with the title "Show full size for the projector", as the deck
+  has both; Download QR still rasterises the hidden `JoinQr` on the paper tokens. A code that
+  cannot be read back, or a reader without `teaching.classes.write`, shows "••••-{hint}" with no
+  QR and no share row (DG-180), and the chip while joining is paused.
+- **New code** now opens the New join code dialog with the code the rotation returned, in place
+  of the toast that named it; Done gives focus back to New code. Classes keeps its toast (DG-178).
+- **Not built:** members' "Joined via" in full. `ClassMember` carries `joinCodeHint` only, so the
+  full code needs a contract field, and a code a member used may since have been revoked or
+  rotated; that is a §6 decision for the Tech Lead, not a display change. The column still shows
+  "Code ••{hint}" (DG-01's row says so).
+- **Keys:** thirteen `classDetail` keys added, vi first; `classDetail.qr`, `selfJoinOffHint` and
+  `codeShareHint` removed in their own commit.
+- **Measured** against the deck served locally (React, Babel and lucide from their npm tarballs)
+  at 360, 768, 1024, 1280 and 1440, light and dark, joining on and paused, the sidebar expanded,
+  collapsed and as the drawer (36 cells): the card's size equals the deck's in every cell but
+  1440 collapsed, where the page's column is 1.3px wider; the QR button, code, chip, share row,
+  Expires and Uses and footer are within 0.5px and equal in every computed colour. New code is
+  5.5px wider, T-R4.42's 13.5px label against the deck's 13px. Both dialogs are the deck's width
+  and within 0.6px of its height, the shared `DialogShellHeader`'s difference. The link keeps
+  the code's dash, `joinLinkOf`'s one format (DG-01), where the deck drops it.
 
 ---
 
@@ -3178,22 +3296,76 @@ every cell.
 **Touches:** `web/src/features/settings/sections/AiAssistant.tsx` (new), `web/src/features/settings/pages/teacher/TeacherSettingsPage.tsx` (`/teacher/settings/ai`), `web/src/features/auth/preferences.ts` (`ai` defaults), locales, `web/tests/units/settings/ai-assistant.test.tsx` (new), `web/tests/e2e/settings-navigation.spec.ts`
 **Size:** M
 **Done when:**
-- [ ] The sixth section (V-13): the usage card from `GET /teacher/ai/usage` (used of allowance,
+- [x] The sixth section (V-13): the usage card from `GET /teacher/ai/usage` (used of allowance,
       left, the bar, the five category rows) with "Usage resets on {1 Month}" computed in
       `APP_TIMEZONE`; the Preferences card (`UserPreferences.ai {language, tagDrafts,
       readStudentAnswers, readImports}`, saved through `PATCH /auth/me` as the other
       preferences are; defaults en-or-vi from the locale, on, on, off) with the deck's three
       switches and the language segment.
-- [ ] "Ask for more credits" under the usage card (DG-200): amount and reason, `POST
+- [x] "Ask for more credits" under the usage card (DG-200): amount and reason, `POST
       /teacher/ai/credit-requests`; "Request sent. Your admin will be told."; the pending request
       shown until decided; hidden while the rule is "Pause until next month".
-- [ ] With AI off (501): the section shows one sentence, "AI is not turned on for this school."
+- [x] With AI off (501): the section shows one sentence, "AI is not turned on for this school."
       (DG-201), and the nav keeps the item so the teacher knows where it would be.
-- [ ] The `handle.permission` of the section is `ai.use`; a teacher without it gets the 403 page
+- [x] The `handle.permission` of the section is `ai.use`; a teacher without it gets the 403 page
       as the other sections do (T-R5.20's guard pattern, built here for the teacher tree if it is
       not there yet).
-- [ ] Unit tests and the settings E2E spec's navigation case; compared with the deck at 360, 768
+- [x] Unit tests and the settings E2E spec's navigation case; compared with the deck at 360, 768
       and 1280, light and dark.
+
+**As built:** one pull request, three commits (the section, this note, and the section in
+`settings.spec.ts`'s list of the teacher's sections, which the first CI run caught). The section is
+`sections/AiAssistant.tsx`, which composes `AiUsageCard`, `AiCreditRequest` and `AiPreferences`;
+the reads, the mutation and the status query are `features/settings/aiApi.ts`, the form's schema
+`aiCreditRequestSchema.ts` (with its `Expect<Equal<…>>` against `requestAiCredits`' body), the
+figures `aiCredits.ts`, and the defaults `features/auth/preferences.ts` (`aiPreferencesOf`:
+the interface's language, tags on, answers on, imports off), which T-D4.39 reads.
+
+- **Not offered without `ai.use`, rather than the 403 page.** Every section of Settings renders
+  inside one route (`settings/:section?`) and stays mounted, so a route guard cannot gate one
+  section without remounting the others and losing their unsaved edits. The section is built as
+  Assignment defaults and API reference are: no nav item, and `/teacher/settings/ai` is replaced
+  by `/teacher/settings`. The Tech Lead's brief allowed "not offered, or shown off"; the
+  Done-when's 403 is amended to this.
+- **Off.** With `PublicStatus.ai` false, or `getAiUsage` answering `501 AI_OFF`, the nav keeps
+  the item and the section says one sentence, "AI is not turned on for this school." (DG-201).
+  The section reads nothing until it is first shown: `GET /public/status` (kept 30 s, as the
+  route lets a browser keep it), then `GET /teacher/ai/usage`, so a visit to another section
+  costs no AI read.
+- **The usage card** is the deck's at every width: the reset date is the first of the month
+  after `month`, which the server counts in `APP_TIMEZONE` ("1 November", "1 tháng 11"); the
+  bar is `ProgressBar` (8px, accent, round); a warning callout says when the teacher is paused,
+  when the allowance is used up, or when the centre's pool is (`left` 0 with the allowance not
+  used up), in the spec's words (§12).
+- **The request (DG-200)** is a row under the card's rows, "Need more credits this month?" and
+  an outline "Ask for more credits", which opens the form in place: amount (digits, 1,000 to
+  100,000) and reason (at most 500), Cancel and "Send request", the fields in the Profile
+  section's grid (at most three columns, each at most `--field-max`, DG-205). Sending goes
+  through `useRequestAiCredits`; a ref taken before `mutate` makes a double press send once
+  (the unit case fails without it). The answer becomes the cached usage's `pending`, the toast
+  says "Request sent. Your admin will be told.", and focus moves to the waiting request, which
+  shows the amount, the day it was sent and the reason until an admin decides. A 409 shows the
+  server's message and rereads the usage, which then shows the waiting request or hides the
+  control. Nothing is drawn while `requests` is false (the rule is pause). Typing in the form
+  counts as an unsaved change for Settings' leave guard.
+- **The preferences** save at once, as Appearance's do, the whole `ai` object through
+  `PATCH /me/preferences` (the object is replaced whole by the merge); while one saves the
+  controls answer `aria-disabled`, and a failed save toasts the server's message and shows the
+  stored value again.
+- **Shared helpers.** T-D4.34 (`features/ai/`) was in flight, so this task keeps its own small
+  `useAiConfigured` (the status query, key `["public-status"]`), `aiUsageQuery` (key
+  `["ai-usage"]`) and credit formatting in `features/settings/`, and its own strings under
+  `settings.ai.*`, including the three "paused / allowance / pool" sentences. T-D4.34's merge
+  reconciles them with `useAiAvailable` and the credit note.
+- **Compared with the deck** (served with React, react-dom, Babel and lucide from their npm
+  tarballs through route interception, `verification-r4-51.md`) at 360, 768, 1024, 1280 and
+  1440, light and dark: both cards' heights, every usage row, the bar, the segment and the
+  switches equal the deck's at every width; up to 1280 their x and width too. At 1440 the cards
+  are 56px wider and start 28px left of the deck's, because the page fills its frame (DG-205)
+  where the deck centres 1080px. At 360 everything sits 12px higher, as on every Settings
+  section (the page head, DG-122). The request row, its form and the waiting request are not
+  drawn by the deck (DG-200); they were checked at 360, 768 and 1280 in Vietnamese, with no
+  sideways scroll and a 2px `--focus` ring on every control.
 
 ### T-D4.39 — Imports: the "Read with AI" card
 **Depends on:** T-D4.33, T-D4.38 (the preference's default)
@@ -3636,7 +3808,8 @@ student answers?** (design)
 **Q17. A choice sentence with a gap that fills with the chosen option: what marks the gap?**
 (design)
 - Default: a plain one-line prompt with exactly one run of three or more underscores, on a
-  single-choice or true/false question (T-D4.11). Anything else prints as written.
+  single-choice or true/false question (T-D4.11), or a rich prompt that is one paragraph of
+  unmarked text meeting the same test (T-D4.11b). Anything else prints as written.
 - Cost of the other answer: T-D4.11 is dropped, or a field marks the gap (a contract change).
 
 **Q18. Sign cards, 60px word tiles, the hint line and the image caption: what in the data
@@ -3884,10 +4057,28 @@ is built here.
    timing differs from the emulator's. Add to T-D4.12's real-phone box: swipe the drawer open and
    closed, then tap an option at once, and see that the option is chosen and the drawer does not
    move.
-7. **T-D4.11's gap rule does not reach a prompt made in the product.** The sentence gap fires only
-   for a prompt with no `promptContent`, and the builder's prompt field and the import both write
-   `promptContent`, so on content made today it fires only for a prompt kept in Markdown (T-D4.11
-   "As built", #571). The Tech Lead widens the rule to a rich prompt that is one plain paragraph
-   (with the run of underscores in its text and no mark, gap or media): **T-D4.11b**. It changes
-   Q17's default, the refusal "a rich prompt" in `sentence-gap.test.ts`, and the comparison with
-   s9 questions 5 and 12. Recorded here; not built.
+7. [x] **T-D4.11's gap rule does not reach a prompt made in the product.** The sentence gap fired
+   only for a prompt with no `promptContent`, and the builder's prompt field and the import both
+   write `promptContent`, so on content made today it fired only for a prompt kept in Markdown
+   (T-D4.11 "As built", #571). The Tech Lead widens the rule to a rich prompt that is one plain
+   paragraph (with the run of underscores in its text and no mark, gap or media): **T-D4.11b**.
+   It changes Q17's default, the refusal "a rich prompt" in `sentence-gap.test.ts`, and the
+   comparison with s9 questions 5 and 12.
+
+   **As built (T-D4.11b):** `sentenceGap` accepts `promptContent` when it is valid question
+   prompt content (`isQuestionPromptContent`), its plain projection (`contentPlainText`) is
+   exactly the stored `prompt`, and it is one `paragraph` block whose children are all `text`
+   nodes with no marks; adjacent unmarked text nodes count as one text. The prompt then goes
+   through T-D4.11's test unchanged (trim, NFC, one line, one run, no other marker), so a `*`
+   or `_` typed as plain rich text still refuses the gap. Anything else prints as today: a mark,
+   a link, a line break, a gap node, a heading, a second block, an image, legacy Markdown
+   content, content that does not validate, and content whose projection is not the prompt,
+   which `QuestionProse` reports as invalid and still does. T-D4.11's "a rich prompt" refusal
+   was content without `marks`, which does not validate, so it still refuses and is renamed
+   "rich content that does not validate"; no other case changed. `GapSentence` and the answer
+   shape are untouched. E2E 1 (`author-and-publish.live.spec.ts`) authors its choice prompt in
+   the builder, so the test's preview now draws it as the sentence; the spec finds it as a
+   screen reader reads it ("They chỗ trống to the museum last weekend."). In a production build of the engine, the rich prompt "If I ___ you, I
+   would study harder." measures exactly as the same prompt in Markdown at 360 and 1280, light
+   and dark, empty and chosen (the sentence 500 18px/32.4px, the box 88 × 30.8px empty), which
+   is the drawing T-D4.11 matched to s9 questions 5 and 12; no horizontal scroll.

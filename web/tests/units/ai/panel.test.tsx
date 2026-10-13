@@ -3,7 +3,11 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { useState } from "react";
 import AiPanel, { type AiPanelRequest } from "@/features/ai/components/AiPanel";
-import type { AiFinding, AiGeneratedQuestion } from "@/features/ai/api";
+import {
+  AI_USAGE_KEY,
+  type AiFinding,
+  type AiGeneratedQuestion,
+} from "@/features/ai/api";
 import type { GenerateContext } from "@/features/ai/kinds/generate";
 import type { CheckContext } from "@/features/ai/kinds/check";
 import vi_ from "@/lib/i18n/locales/vi.json";
@@ -154,7 +158,8 @@ describe("the Generate panel", () => {
       }),
     );
     const context = generateContext();
-    const { dialog, user } = await openPanel({ kind: "generate", context });
+    const { dialog, user, client } = await openPanel({ kind: "generate", context });
+    await within(dialog).findByText(/Còn 18\.800 tín dụng/);
     await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
     expect(await within(dialog).findByText("What do cities rethink?")).toBeVisible();
     expect(body).toEqual({
@@ -169,6 +174,10 @@ describe("the Generate panel", () => {
     expect(
       within(dialog).getByText(/Đã dùng 1\.450 tín dụng · còn 17\.350/),
     ).toBeVisible();
+    expect(client.getQueryData(AI_USAGE_KEY)).toMatchObject({
+      used: 2650,
+      left: 17350,
+    });
     expect(within(dialog).getAllByText(ai.draftTag)).toHaveLength(2);
     expect(within(dialog).getByText("land")).toBeVisible();
 

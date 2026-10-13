@@ -102,12 +102,12 @@ function renderPage(path = `/teacher/question-bank/${ID}`) {
     ],
     { initialEntries: [path] },
   );
-  render(
+  const view = render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
-  return { user: userEvent.setup(), router };
+  return { user: userEvent.setup(), router, unmount: view.unmount };
 }
 
 async function loaded() {
@@ -187,6 +187,70 @@ describe("the Question editor's frame", () => {
 
     await waitFor(() => expect(patches).toHaveLength(1));
     expect(patches[0]).toMatchObject({ points: 3, level: "b1", skill: "listening" });
+  });
+
+  it("saves pausing off for a question's audio and reads it back off", async () => {
+    const lecture = {
+      id: "018f0000-0000-7000-8000-0000000000a7",
+      kind: "audio" as const,
+      originalFilename: "unit5-listening-2.mp3",
+      bytes: 2_400_000,
+      durationMs: 110_000,
+      mimeType: "audio/mpeg",
+      createdAt: "2026-01-01T00:00:00Z",
+      url: "https://example.test/unit5-listening-2.mp3",
+    };
+    let audio: Record<string, unknown> = {
+      maxPlays: 2,
+      allowSeek: false,
+      showTranscriptAfterSubmit: true,
+      allowPause: true,
+    };
+    server.use(
+      http.get(`${BASE}/teacher/questions/:id`, () =>
+        contractJson(
+          "/teacher/questions/{id}",
+          "get",
+          200,
+          question({ media: lecture, audio, transcript: null }),
+        ),
+      ),
+      http.patch(`${BASE}/teacher/questions/:id`, async ({ request }) => {
+        const body = (await request.json()) as Record<string, unknown>;
+        patches.push(body);
+        audio = body["audio"] as Record<string, unknown>;
+        return contractJson(
+          "/teacher/questions/{id}",
+          "patch",
+          200,
+          question({ ...body, media: lecture }),
+        );
+      }),
+    );
+    const first = renderPage();
+    await loaded();
+    const pause = screen.getByRole("switch", { name: "Cho học sinh tạm dừng" });
+    expect(pause).toBeChecked();
+    await first.user.click(pause);
+    expect(pause).not.toBeChecked();
+    await first.user.click(screen.getByRole("button", { name: "Lưu" }));
+
+    await waitFor(() => expect(patches).toHaveLength(1));
+    expect(patches[0]).toMatchObject({
+      audio: {
+        maxPlays: 2,
+        allowSeek: false,
+        showTranscriptAfterSubmit: true,
+        allowPause: false,
+      },
+    });
+    first.unmount();
+
+    renderPage();
+    await loaded();
+    expect(
+      screen.getByRole("switch", { name: "Cho học sinh tạm dừng" }),
+    ).not.toBeChecked();
   });
 
   it("says it cannot find a question that is gone", async () => {

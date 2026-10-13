@@ -19,12 +19,14 @@ interface AudioPolicyPanelProps {
 }
 
 /**
- * AudioPolicyPanel is the listening settings of a question's audio, as the
- * media block draws them under the player: "Plays" as a radiogroup of Once,
- * Twice and Unlimited, with a stored count outside the three shown as a
- * fourth option while it is the value (DG-111); "Allow skipping ahead" and
- * "Show transcript after submitting"; and the optional transcript, whose
- * hint is "Optional" unless the host gives `transcriptHint`.
+ * AudioPolicyPanel is the listening settings of a question's audio or a
+ * group's recording, as the media block draws them under the player: "Plays"
+ * as a radiogroup of Once, Twice and Unlimited, with a stored count outside
+ * the three shown as a fourth option while it is the value (DG-69, DG-111);
+ * "Students can pause", on when the policy has no `allowPause` (DG-183);
+ * "Allow skipping ahead" and "Show transcript after submitting"; and the
+ * optional transcript, whose hint is "Optional" unless the host gives
+ * `transcriptHint`.
  */
 export function AudioPolicyPanel({
   policy,
@@ -72,6 +74,15 @@ export function AudioPolicyPanel({
         </span>
         <label className="flex cursor-pointer items-center gap-2 text-[12.5px]">
           <Switch
+            size="sm"
+            checked={policy.allowPause ?? true}
+            onCheckedChange={(allowPause) => onPolicyChange({ ...policy, allowPause })}
+          />
+          {t("questionEditor.questionMedia.allowPause")}
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 text-[12.5px]">
+          <Switch
+            size="sm"
             checked={policy.allowSeek}
             onCheckedChange={(allowSeek) => onPolicyChange({ ...policy, allowSeek })}
           />
@@ -79,6 +90,7 @@ export function AudioPolicyPanel({
         </label>
         <label className="flex cursor-pointer items-center gap-2 text-[12.5px]">
           <Switch
+            size="sm"
             checked={policy.showTranscriptAfterSubmit}
             onCheckedChange={(showTranscriptAfterSubmit) =>
               onPolicyChange({ ...policy, showTranscriptAfterSubmit })

@@ -5,7 +5,19 @@ import { fold } from "@/lib/fold";
 /** DetailTab names the assignment detail's three URL-controlled panels. */
 export type DetailTab = "students" | "questions" | "settings";
 /** RosterFilter names the supported paper filters independently of the detail tab. */
-export type RosterFilter = "all" | "submitted" | "pending" | "flagged" | "notStarted";
+export type RosterFilter =
+  "all" | "submitted" | "inProgress" | "pending" | "flagged" | "notStarted";
+
+/** ProgressGroup names the roster groups the progress card counts and filters by, in its legend's order. */
+export type ProgressGroup = "submitted" | "inProgress" | "notStarted" | "flagged";
+
+/** PROGRESS_GROUPS lists the progress card's groups in the order its legend draws them. */
+export const PROGRESS_GROUPS: readonly ProgressGroup[] = [
+  "submitted",
+  "inProgress",
+  "notStarted",
+  "flagged",
+];
 
 /** detailTab reads a supported panel and defaults to Students. */
 export function detailTab(value: string | null): DetailTab {
@@ -15,6 +27,7 @@ export function detailTab(value: string | null): DetailTab {
 /** rosterFilter reads a supported paper filter and defaults to all students. */
 export function rosterFilter(value: string | null): RosterFilter {
   return value === "submitted" ||
+    value === "inProgress" ||
     value === "pending" ||
     value === "flagged" ||
     value === "notStarted"
@@ -27,15 +40,22 @@ export function pendingAnswers(row: MonitorRow): number {
   return isHandedIn(row.state) ? (row.score?.pendingManual ?? 0) : 0;
 }
 
-/** assignmentStats derives all figures from the complete monitor, averaging graded positive-denominator ratios. */
+/**
+ * assignmentStats derives all figures from the complete monitor: each progress
+ * group counts the rows its roster filter shows, and the average is the rounded
+ * mean of graded positive-denominator ratios.
+ */
 export function assignmentStats(rows: readonly MonitorRow[]) {
   const scored = rows.filter(
     (row) => row.state === "graded" && row.score != null && row.score.total > 0,
   );
+  const count = (group: ProgressGroup) =>
+    rows.filter((row) => rosterMatches(row, group, "")).length;
   return {
-    submitted: rows.filter((row) => isHandedIn(row.state)).length,
-    inProgress: rows.filter((row) => row.state === "in_progress").length,
-    flagged: rows.filter((row) => row.flagged === true).length,
+    submitted: count("submitted"),
+    inProgress: count("inProgress"),
+    notStarted: count("notStarted"),
+    flagged: count("flagged"),
     total: rows.length,
     pending: rows.reduce((sum, row) => sum + pendingAnswers(row), 0),
     average:
@@ -61,6 +81,8 @@ export function rosterMatches(
   switch (filter) {
     case "submitted":
       return isHandedIn(row.state);
+    case "inProgress":
+      return row.state === "in_progress";
     case "pending":
       return pendingAnswers(row) > 0;
     case "flagged":
