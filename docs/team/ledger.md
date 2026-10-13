@@ -7,42 +7,32 @@ start at [README.md](README.md) "Resuming".
 
 ## Checkpoint
 
-- **As of:** 2026-10-12, 11:30 UTC.
-- **Base:** `main` at `e06511fc` (#531, the release, and hotfix #532); `develop` takes it back
-  through the back-merge PR.
-- **Objective:** D4 (v0.11.0) after the follow-ups below (T-24).
-- **Shipped:** v0.10.0 is on Fly and Pages since 11:21 UTC, after INC-5 (below): the API was
-  down from about 10:45 to 11:20. The tag `v0.10.0` on `e06511fc` is the owner's to push (the
-  session's proxy refuses tag pushes), as for v0.8.0 and v0.9.0.
+- **As of:** 2026-10-12, 23:30 UTC.
+- **Base:** `develop` at `3c41b326`, cut as `release/0.10.1` for `main`. `main` is at `e06511fc` (v0.10.0 and hotfix #532).
+- **Objective:** ship v0.10.1. Then D4 (v0.11.0) on `work/deck-d4`.
+- **v0.10.1 carries:**
+  - F-68, the media retention: migrations 00111 to 00113, the contract's `previous`/`heldBytes`, and the sweep with its `MEDIA_RETENTION_SWEEP` switch (#548, #550, #553).
+  - The page frame, DG-205 (#547, #552).
+  - The import workspace, DG-207 (#557).
+  - Grading pane heights (#555): T-D4.21, moved forward at a teacher's escalation.
+  - The avatar photo (#556).
+  - F-69 to F-73, QA-51-9 to 13 and the query-key rename (#534 to #543).
 - **Decided by the owner today:**
-  - Deploy to Fly; the VPS path (#434) is later work.
-  - A rotated legacy join code keeps its use count (F-67, #527).
-  - No Neon rehearsal; the `api` record stays grey.
-  - The `/admin` alias stays (T-R4.49 A to R5).
+  - A replaced file is kept while a published test holds it, and deleted for good seven days after none does. The dialog warns before the action and offers a download. No bell, no restore (F-68).
+  - The design team's page-width design is approved (c1472f4c). There are no form columns, and the 1600px cap holds at 2560.
+  - Settings' Language and Time zone stay apply-on-save (DG-158).
+  - Grading moves into v0.10.1. The owner gave the go for v0.10.1.
+- **The tag** `v0.10.1` on the release merge is the owner's to push. The session's proxy refuses tag pushes.
+- **D4 in flight:**
+  - Merged into `work/deck-d4`: T-D4.1, .19, .13, .3, .4, .5, .6 and .30.
+  - Open: T-D4.7 (#559), T-D4.31 (credits, migrations from 00118), and the `develop` sync. The sync renumbers D4's 00107 to 00110 as 00114 to 00117.
 - **Waiting on the user:**
   - O-R4.20: Remove and Move on Students.
-  - O-R4.21: the refresh window (keepalive or a reuse interval).
-  - The media replace accounting (F-68, below).
-  - The infra checks the release could not run: Neon, phone smoke, the v0.9.0 checks, compute hours.
-  - Whether to delete the local-dev MinIO objects the E2E runs left.
-  - The production checks the session cannot make: `legacy_join_codes_rotated` in the API log
-    (the deploy token cannot read logs), and the smoke in `74-r4.md`.
-- **Follow-ups after the release** (one PR each, before D4 starts):
-  - F-72: a CI job that starts the production image (INC-5), first.
-  - F-68: `replaceMedia`'s quota accounting, the review's option (c): count a replaced file
-    while a version holds it, then a sweep. The owner's policy decides. Declare the 429 in the
-    contract with it.
-  - F-69: the class monitor lists a non-student member who has not sat; the export no longer does.
-  - F-70: other `uniqueItems` uuid arrays (`duplicateAssignment.classIds`, the overrides'
-    `studentIds`) may repeat under case variants.
-  - F-71: `APP_DATABASE_URL` is unset in CI, so one app-role test skips there (platform).
-  - QA-51-9: the Brand dev warning.
-  - QA-51-10's rest: a reset socket on the response write is still a 500.
-  - QA-51-11: the Imports pager in the card.
-  - QA-51-12: line-heights.
-  - QA-51-13: the formats line.
-  - The `admin-*` query-key rename (T-R4.48).
-  - O-R4.23: the student payload's flag.
+  - O-R4.21: the refresh window.
+  - The infra checks no release here can run: Neon, the phone smoke, compute hours.
+  - The local MinIO objects left by E2E runs.
+  - `legacy_join_codes_rotated` in the API log (the deploy token cannot read logs).
+  - A check on a real Android phone of T-D4.7's tap straight after a swipe.
 
 ## Roster and models
 
