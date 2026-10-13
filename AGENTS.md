@@ -42,10 +42,6 @@ this file describe the code as it is and name the release that changes them.
 - **R4** moved the teacher web routes from `/admin/*` to `/teacher/*` (T-R4.5);
   an old `/admin/*` bookmark redirects to the same path under `/teacher` until
   R5 builds the Admin console at `/admin`.
-- **Since the fourth import (D4, T-D4.1)** the deck of record is the design team's
-  v2 export of 2026-10-10, 10:44, which carries the fourth export of 2026-10-04. D4
-  (`docs/plan/74d-d4-deck-update.md`) rebuilds the take-test engine, the builder's
-  shared content and the three previews to it, and builds the AI assistant it draws.
 
 ## Sources of truth, in order
 
@@ -548,19 +544,26 @@ collapsing the sidebar can move a page into its next layout. A unit test of a
 page in the shell calls `contentWidth(px)` (`tests/support/contentWidth.ts`)
 first, because jsdom measures 0.
 
-The take-test engine runs in `FocusLayout` and branches at the same 768px.
-From 768, a question whose group has something to read splits into a passage
-pane and a question pane, and the question pane's footer is Previous, a strip
-of numbered squares and Next. Below 768 a switcher shows one pane at a time,
-and the footer's count button opens the squares in a bottom sheet. There is no
-navigator column and no width preference. The timer draws each digit in a cell
+The take-test engine runs in `FocusLayout` and lays itself out by its own
+width (`useEngineWidthAtLeast`), which in a teacher's preview is the frame's
+(`EnginePreview`). From 768, a question whose group has shared content splits
+into a stimulus pane, which holds the group's passage or its recording card, and
+a question pane. Below 768 the shared content is a drawer from the left edge
+over the question (`StimulusDrawer`), mounted and inert while closed. From 900
+on a question with no shared content, and from 1180 beside it, a sections rail
+stands before the panes and the footer is Previous, a key hint and Next;
+everywhere else the footer's grid button opens the squares in the question
+sheet, a bottom sheet below 768 and a card from it. There is no strip, no
+navigator column and no width preference. A cloze's run of gap-bound members is
+one stop (`stops.ts`): Previous, Next and the arrows move by stop, and each gap
+keeps its own square, flag and answer. The timer draws each digit in a cell
 one zero wide, because Be Vietnam Pro has no tabular figures. Unit tests of a
-phone board pin `viewport("phone")` (`tests/support/viewport.ts`); jsdom
-answers "wide" by default.
+phone board pin `viewport("phone")` or a numeric width
+(`tests/support/viewport.ts`); jsdom answers "wide" by default.
 
 A paper's questions are dealt inside their section: `DealManager.Present`
-keeps section order and shuffles within each, so the strip can leave a gap
-between parts and the sheet can head each one. A single-section paper deals
+keeps section order and shuffles within each, so the rail and the sheet can
+head each part. A single-section paper deals
 exactly as it did before sections reached the payload.
 
 ## Language
