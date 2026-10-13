@@ -107,7 +107,7 @@ body{margin:0;-webkit-font-smoothing:antialiased}
       <span style="white-space:nowrap"><span style="color:var(--muted-fg)">Title starts at </span><strong style="font-weight:600">x = {{ m.x }}px</strong></span>
       <span style="white-space:nowrap"><span style="color:var(--muted-fg)">Unused </span><strong style="font-weight:600">{{ m.unused }}px</strong></span>
       <span style="white-space:nowrap"><span style="color:var(--muted-fg)">Gutter </span><strong style="font-weight:600">{{ m.gut }}px</strong></span>
-      <sc-if value="{{ m.hasCol }}"><span style="white-space:nowrap"><span style="color:var(--muted-fg)">Form column </span><strong style="font-weight:600">{{ m.colW }}px, left-aligned</strong></span></sc-if><sc-if value="{{ is.ws }}"><span style="display:flex;align-items:center;gap:8px;flex-basis:100%"><span style="color:var(--muted-fg);white-space:nowrap">Import state</span><span role="group" aria-label="Import state" style="display:inline-flex;gap:2px;padding:3px;background:var(--muted);border-radius:9px;max-width:100%;overflow-x:auto"><sc-for list="{{ wsOpts }}" as="o" hint-placeholder-count="5"><button type="button" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="height:28px;padding:0 10px;border:0;border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer;white-space:nowrap;flex:none;background:{{ o.bg }};color:{{ o.fg }};box-shadow:{{ o.ring }}">{{ o.label }}</button></sc-for></span></span></sc-if><sc-if value="{{ m.snapped }}"><span style="white-space:nowrap"><span style="color:var(--muted-fg)">Form column </span><strong style="font-weight:600">fills the frame (gap under 160px)</strong></span></sc-if>
+      <sc-if value="{{ is.ws }}"><span style="display:flex;align-items:center;gap:8px;flex-basis:100%"><span style="color:var(--muted-fg);white-space:nowrap">Import state</span><span role="group" aria-label="Import state" style="display:inline-flex;gap:2px;padding:3px;background:var(--muted);border-radius:9px;max-width:100%;overflow-x:auto"><sc-for list="{{ wsOpts }}" as="o" hint-placeholder-count="5"><button type="button" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="height:28px;padding:0 10px;border:0;border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer;white-space:nowrap;flex:none;background:{{ o.bg }};color:{{ o.fg }};box-shadow:{{ o.ring }}">{{ o.label }}</button></sc-for></span></span></sc-if>
     </div>
   </div>
 
@@ -581,8 +581,7 @@ body{margin:0;-webkit-font-smoothing:antialiased}
     <div style="display:flex;flex-wrap:wrap;gap:16px;padding-top:12px;border-top:1px solid var(--border);font-size:12.5px;color:var(--muted-fg)">
       <span style="display:flex;align-items:center;gap:6px"><span style="width:18px;height:8px;border-radius:2px;background:var(--input);opacity:.7"></span>v2 deck</span>
       <span style="display:flex;align-items:center;gap:6px"><span style="width:18px;height:8px;border-radius:2px;background:var(--anno)"></span>Proposed frame</span>
-      <span style="display:flex;align-items:center;gap:6px"><span style="width:18px;height:8px;border-radius:2px;background:var(--anno);filter:brightness(.8)"></span>Form column inside it</span>
-      <span>Left edge positions at this width: v2 has {{ m.v2Edges }}, the proposal has 1.</span>
+            <span>Left edge positions at this width: v2 has {{ m.v2Edges }}, the proposal has 1.</span>
     </div>
   </div>
 </section>
@@ -1184,7 +1183,7 @@ class Component extends DCLogic {
         { name: "--page-full", value: "none", replaces: "width: \"full\", Import review only" },
       ],
       asks: [
-        { t: "Approve or amend the page-width rule", b: "One frame up to 1600px, one left edge, two form columns, gutters 14 / 28 / 40. Blocks v0.10.1. Please redraw the eight screens above at 1440 and 1920." },
+        { t: "Approve or amend the page-width rule", b: "One frame up to 1600px, one left edge, content that fills the frame with only text capped (fields 480px, prose 72ch), gutters 14 / 28 / 40, and Upload and Processing merged into one import workspace. Blocks v0.10.1. Please redraw the screens above at 1440 and 1920." },
         { t: "One pager design, Imports history included", b: "Confirm the workspace pager for the history (DG-203), and draw its phone form." },
         { t: "The missing states", b: "AI panel with the provider off, allowance used, and refused or timed out (DG-201); focus rings on every control; errors on each new screen." },
         { t: "From the next export on", b: "A changelog, an updated MANIFEST.sha256, and no prototype controls in production frames." },
