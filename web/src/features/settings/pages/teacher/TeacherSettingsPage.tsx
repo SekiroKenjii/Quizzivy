@@ -1,7 +1,15 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useParams } from "react-router";
-import { Bell, BookOpen, Lock, Palette, SlidersHorizontal, User } from "lucide-react";
+import {
+  Bell,
+  BookOpen,
+  Lock,
+  Palette,
+  SlidersHorizontal,
+  Sparkles,
+  User,
+} from "lucide-react";
 import {
   SettingsLayout,
   type SettingsSection,
@@ -9,6 +17,7 @@ import {
 import { useCan } from "@/features/auth/permissions";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { ApiDocsSection } from "@/features/auth/components/SettingsSections";
+import { AiAssistantSection } from "@/features/settings/sections/AiAssistant";
 import { AppearanceSection } from "@/features/settings/sections/Appearance";
 import { AssignmentDefaultsSection } from "@/features/settings/sections/AssignmentDefaults";
 import { NotificationsSection } from "@/features/settings/sections/Notifications";
@@ -22,8 +31,9 @@ const BASE = "/teacher/settings";
  * TeacherSettingsPage is the Teacher deck's Settings at
  * `/teacher/settings/:section`: Profile (also the bare address), Sign-in &
  * security, Notifications, Assignment defaults for those who may assign,
- * Appearance and, for holders of `system.api_reference` until R5, API
- * reference (DG-157). Every section stays mounted, so unsaved changes
+ * Appearance, AI assistant for holders of `ai.use` (which reads nothing
+ * until it is first shown) and, for holders of `system.api_reference` until
+ * R5, API reference (DG-157). Every section stays mounted, so unsaved changes
  * survive a visit to another one, and leaving Settings with unsaved changes
  * asks first. Any other section, the pre-R4 "preferences" included, is
  * replaced by the bare address.
@@ -33,6 +43,8 @@ export default function TeacherSettingsPage() {
   const { section } = useParams();
   const canReadDocs = useCan("system.api_reference");
   const canAssign = useCan("teaching.assignments.write");
+  const canUseAi = useCan("ai.use");
+  const aiShown = section === "ai";
   const sections = useMemo<SettingsSection[]>(
     () => [
       {
@@ -74,6 +86,17 @@ export default function TeacherSettingsPage() {
         to: `${BASE}/appearance`,
         content: <AppearanceSection />,
       },
+      ...(canUseAi
+        ? [
+            {
+              id: "ai",
+              label: t("settings.sections.ai"),
+              icon: Sparkles,
+              to: `${BASE}/ai`,
+              content: <AiAssistantSection shown={aiShown} />,
+            },
+          ]
+        : []),
       ...(canReadDocs
         ? [
             {
@@ -86,7 +109,7 @@ export default function TeacherSettingsPage() {
           ]
         : []),
     ],
-    [t, canReadDocs, canAssign],
+    [t, canReadDocs, canAssign, canUseAi, aiShown],
   );
 
   if (section !== undefined && !sections.some(({ id }) => id === section)) {

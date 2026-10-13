@@ -1,6 +1,28 @@
 import { expect, test } from "@playwright/test";
 import { adminUser, sessionAs, stubApi } from "./support/api";
 
+const aiUsage = {
+  month: "2026-10-01",
+  used: 12450,
+  allowance: 20000,
+  left: 7550,
+  paused: false,
+  requests: true,
+  pending: null,
+  categories: [
+    { category: "generation", credits: 6200 },
+    { category: "grading", credits: 2100 },
+    { category: "explanations", credits: 900 },
+    { category: "imports", credits: 2400 },
+    { category: "checks", credits: 850 },
+  ],
+};
+
+const aiStubs = {
+  "GET /public/status": { body: { maintenance: null, ai: true } },
+  "GET /teacher/ai/usage": { body: aiUsage },
+};
+
 const thisDevice = {
   familyId: "019535d9-3df7-79fb-b466-fa907fa18001",
   device: "Mac · Chrome",
@@ -15,6 +37,7 @@ test("teacher settings keep an unsaved profile between sections and fit at every
 }) => {
   await stubApi(page, {
     ...sessionAs(adminUser),
+    ...aiStubs,
     "GET /auth/sessions": { body: { items: [thisDevice] } },
     "GET /me/notification-preferences": {
       body: [
@@ -56,6 +79,14 @@ test("teacher settings keep an unsaved profile between sections and fit at every
   await nav.getByRole("link", { name: "Giao diện" }).click();
   await expect(page).toHaveURL(/settings\/appearance$/);
   await expect(page.getByRole("switch", { name: "Bảng thu gọn" })).toBeVisible();
+  await nav.getByRole("link", { name: "Trợ lý AI" }).click();
+  await expect(page).toHaveURL(/settings\/ai$/);
+  await expect(
+    page.getByRole("heading", { name: "Mức dùng AI tháng này" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("switch", { name: "Cho AI đọc bài làm của học viên" }),
+  ).toBeChecked();
   await nav.getByRole("link", { name: "Hồ sơ" }).click();
   await expect(page.getByRole("textbox", { name: "Họ và tên" })).toHaveValue(
     "Tên chưa lưu",
@@ -77,4 +108,28 @@ test("teacher settings keep an unsaved profile between sections and fit at every
     "aria-pressed",
     "true",
   );
+});
+
+test("the AI assistant section fits at every width with the request form open", async ({
+  page,
+}) => {
+  await stubApi(page, {
+    ...sessionAs(adminUser),
+    ...aiStubs,
+    "GET /auth/sessions": { body: { items: [thisDevice] } },
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/teacher/settings/ai");
+  await page.getByRole("button", { name: "Xin thêm tín dụng" }).click();
+  await expect(page.getByRole("textbox", { name: "Số tín dụng" })).toBeFocused();
+
+  for (const width of [1280, 1024, 768, 360]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect
+      .poll(() =>
+        page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      )
+      .toBe(true);
+  }
+  await expect(page.getByRole("textbox", { name: "Lý do" })).toBeVisible();
 });

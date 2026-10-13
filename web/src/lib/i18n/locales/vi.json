@@ -598,7 +598,8 @@
       "appearance": "Giao diện",
       "api": "Tài liệu API",
       "notifications": "Thông báo",
-      "defaults": "Mặc định khi giao bài"
+      "defaults": "Mặc định khi giao bài",
+      "ai": "Trợ lý AI"
     },
     "preferenceSaving": "Đang lưu tùy chọn…",
     "preferenceSaved": "Đã lưu tùy chọn.",
@@ -713,6 +714,65 @@
         "copyHint": "Không cho chép câu hỏi hay dán câu trả lời",
         "fullscreen": "Bắt buộc toàn màn hình",
         "fullscreenHint": "Nhắc học viên quay lại nếu rời đi"
+      }
+    },
+    "ai": {
+      "off": "AI chưa được bật cho trung tâm này.",
+      "loadFailed": "Không tải được trạng thái của trợ lý AI.",
+      "usage": {
+        "title": "Mức dùng AI tháng này",
+        "hint": "Trung tâm cấp cho mỗi giáo viên một hạn mức hằng tháng.",
+        "hintReset": "Trung tâm cấp cho mỗi giáo viên một hạn mức hằng tháng. Hạn mức được làm mới vào {{date}}.",
+        "of": "trên {{limit}} tín dụng",
+        "left": "Còn {{left}}",
+        "bar": "Đã dùng {{used}} trên {{limit}} tín dụng",
+        "byFeature": "Mức dùng theo tính năng",
+        "loadFailed": "Không tải được mức dùng AI.",
+        "paused": "AI đang tạm dừng với tài khoản của bạn.",
+        "allowanceUsed": "Bạn đã dùng hết hạn mức tháng này.",
+        "poolUsed": "Trung tâm đã dùng hết tín dụng AI của tháng này.",
+        "categories": {
+          "generation": "Tạo câu hỏi và bản biến thể",
+          "grading": "Gợi ý chấm điểm",
+          "explanations": "Giải thích và phương án sai",
+          "imports": "Đọc tệp nhập",
+          "checks": "Kiểm tra, danh sách từ và nhận xét"
+        }
+      },
+      "request": {
+        "prompt": "Cần thêm tín dụng trong tháng này?",
+        "open": "Xin thêm tín dụng",
+        "hint": "Quản trị viên sẽ được báo và quyết định. Mỗi tháng bạn chỉ có một yêu cầu chờ duyệt.",
+        "amount": "Số tín dụng",
+        "amountHint": "Từ {{min}} đến {{max}}",
+        "reason": "Lý do",
+        "reasonHint": "Cho quản trị viên biết bạn cần thêm để làm gì. Tối đa {{max}} ký tự.",
+        "send": "Gửi yêu cầu",
+        "sending": "Đang gửi…",
+        "sent": "Đã gửi yêu cầu. Quản trị viên sẽ được báo.",
+        "pending": "Đang chờ duyệt: thêm {{amount}} tín dụng",
+        "pendingMeta": "Gửi ngày {{date}}. Quản trị viên sẽ quyết định.",
+        "errors": {
+          "amount": "Nhập một số nguyên từ {{min}} đến {{max}}.",
+          "reasonRequired": "Hãy cho biết lý do.",
+          "reasonTooLong": "Lý do dài tối đa {{max}} ký tự."
+        }
+      },
+      "prefs": {
+        "title": "Tùy chọn",
+        "hint": "Áp dụng cho mọi tính năng AI trong không gian làm việc của bạn. Kết quả của AI luôn là bản nháp cho đến khi bạn duyệt.",
+        "language": "Giải thích và nhận xét bằng",
+        "languageHint": "Bạn vẫn có thể đổi ngôn ngữ trên từng gợi ý.",
+        "languages": {
+          "en": "English",
+          "vi": "Tiếng Việt"
+        },
+        "tagDrafts": "Gắn thẻ bản nháp AI",
+        "tagDraftsHint": "Thêm thẻ “Bản nháp AI” cho đến khi bạn sửa hoặc duyệt. Chỉ giáo viên thấy thẻ này.",
+        "readStudentAnswers": "Cho AI đọc bài làm của học viên",
+        "readStudentAnswersHint": "Cần cho gợi ý chấm điểm và nhận xét về lớp. Tên học viên không bao giờ được gửi đi.",
+        "readImports": "Đọc tệp nhập bằng AI",
+        "readImportsHint": "Xử lý PDF quét, ảnh chụp đề in và bố cục lạ. Khoảng 400 tín dụng mỗi trang."
       }
     }
   },
