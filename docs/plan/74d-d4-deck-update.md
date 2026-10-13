@@ -2697,7 +2697,7 @@ running). The answer card's Finish failure names the student (FinishState's item
 draw; a failure from a check is a line inside it, and Finish grading is the retry. The keyboard
 shortcuts ignore keys inside the card, in place of being off while a check was open. Departures,
 each for the data or a decided rule: "Flagged" and the check's flag line use the danger tones of
-`features/integrity/tones.ts` (spec §10.4, D8: one tone for "Flagged"), not the drawing's warning
+`features/integrity/tones.ts` (spec §10.4, D8: one tone for "Flagged"; DG-208), not the drawing's warning
 tones; a paper the teacher flagged with no focus loss reads `checkFlagged_zero` ("Flagged. Check
 the full paper before you finish."); "All graded" names the filter only when the queue, the scan or
 a paper finished in this visit holds its name, and otherwise reads the unfiltered sentence;
