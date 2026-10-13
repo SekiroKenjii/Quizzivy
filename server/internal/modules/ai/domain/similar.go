@@ -29,7 +29,14 @@ func SimilarQuestions(bank []BankQuestion, limit int) []SimilarPair {
 	if limit < 1 || len(bank) < 2 {
 		return nil
 	}
-	sets := wordSets(bank)
+	found := alikePairs(wordSets(bank))
+	slices.SortFunc(found, func(x, y SimilarPair) int {
+		return cmp.Or(cmp.Compare(y.Score, x.Score), cmp.Compare(x.A, y.A), cmp.Compare(x.B, y.B))
+	})
+	return closest(found, len(bank), limit)
+}
+
+func alikePairs(sets [][]string) []SimilarPair {
 	index := sharedIndex(sets)
 	var found []SimilarPair
 	seen := make([]int, len(sets))
@@ -47,10 +54,7 @@ func SimilarQuestions(bank []BankQuestion, limit int) []SimilarPair {
 			}
 		}
 	}
-	slices.SortFunc(found, func(x, y SimilarPair) int {
-		return cmp.Or(cmp.Compare(y.Score, x.Score), cmp.Compare(x.A, y.A), cmp.Compare(x.B, y.B))
-	})
-	return closest(found, len(bank), limit)
+	return found
 }
 
 func closest(found []SimilarPair, questions, limit int) []SimilarPair {

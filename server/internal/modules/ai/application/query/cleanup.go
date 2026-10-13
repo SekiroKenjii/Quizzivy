@@ -74,36 +74,20 @@ func (h CleanupHandler) Handle(ctx context.Context, q Cleanup) (Cleaned, error) 
 
 func (h CleanupHandler) plan(ctx context.Context, q Cleanup, bank []domain.BankQuestion) (cleanupPlan, error) {
 	var steps []cleanupStep
-	cut := false
+	more := false
 	if slices.Contains(q.Checks, prompts.CleanupDuplicates) {
-		if pairs := domain.SimilarQuestions(bank, prompts.MaxCandidatePairs); len(pairs) > 0 {
-			in := prompts.DuplicatesInput{Bank: bank, Pairs: pairs, Language: h.LanguageFor(ctx, q.Actor.ID, q.Language)}
-			prompt, err := prompts.Duplicates(in)
-			if err != nil {
-				return cleanupPlan{}, err
-			}
-			steps = append(steps, cleanupStep{prompt: prompt, read: func(raw json.RawMessage, found *prompts.CleanupFindings) error {
-				duplicates, err := prompts.DecodeDuplicates(raw, in)
-				found.Duplicates = append(found.Duplicates, duplicates...)
-				return err
-			}})
+		step, err := h.duplicatesStep(ctx, q, bank)
+		if err != nil {
+			return cleanupPlan{}, err
 		}
+		steps = append(steps, step...)
 	}
 	if slices.Contains(q.Checks, prompts.CleanupTags) {
-		chunks, more := prompts.TagChunks(bank)
-		cut = more
-		for _, asked := range chunks {
-			in := prompts.TaggingInput{Bank: bank, Asked: asked}
-			prompt, err := prompts.Tagging(in)
-			if err != nil {
-				return cleanupPlan{}, err
-			}
-			steps = append(steps, cleanupStep{prompt: prompt, read: func(raw json.RawMessage, found *prompts.CleanupFindings) error {
-				tags, err := prompts.DecodeTagging(raw, in)
-				found.Tags = append(found.Tags, tags...)
-				return err
-			}})
+		tagging, left, err := taggingSteps(bank)
+		if err != nil {
+			return cleanupPlan{}, err
 		}
+		steps, more = append(steps, tagging...), left
 	}
 	kept, trimmed, err := h.fitReservation(steps)
 	if err != nil {
@@ -113,7 +97,41 @@ func (h CleanupHandler) plan(ctx context.Context, q Cleanup, bank []domain.BankQ
 		h.Logger.ErrorContext(ctx, "ai clean-up: the smallest call can cost more than the reservation", "ceiling", domain.FeatureCleanup.Ceiling())
 		return cleanupPlan{}, fmt.Errorf("%w: no call of the clean-up fits its reservation at the configured prices", domain.ErrUnavailable)
 	}
-	return cleanupPlan{steps: kept, cut: cut || trimmed}, nil
+	return cleanupPlan{steps: kept, cut: more || trimmed}, nil
+}
+
+func (h CleanupHandler) duplicatesStep(ctx context.Context, q Cleanup, bank []domain.BankQuestion) ([]cleanupStep, error) {
+	pairs := domain.SimilarQuestions(bank, prompts.MaxCandidatePairs)
+	if len(pairs) == 0 {
+		return nil, nil
+	}
+	in := prompts.DuplicatesInput{Bank: bank, Pairs: pairs, Language: h.LanguageFor(ctx, q.Actor.ID, q.Language)}
+	prompt, err := prompts.Duplicates(in)
+	if err != nil {
+		return nil, err
+	}
+	return []cleanupStep{{prompt: prompt, read: func(raw json.RawMessage, found *prompts.CleanupFindings) error {
+		duplicates, err := prompts.DecodeDuplicates(raw, in)
+		found.Duplicates = append(found.Duplicates, duplicates...)
+		return err
+	}}}, nil
+}
+
+func taggingSteps(bank []domain.BankQuestion) (steps []cleanupStep, more bool, err error) {
+	chunks, more := prompts.TagChunks(bank)
+	for _, asked := range chunks {
+		in := prompts.TaggingInput{Bank: bank, Asked: asked}
+		prompt, err := prompts.Tagging(in)
+		if err != nil {
+			return nil, false, err
+		}
+		steps = append(steps, cleanupStep{prompt: prompt, read: func(raw json.RawMessage, found *prompts.CleanupFindings) error {
+			tags, err := prompts.DecodeTagging(raw, in)
+			found.Tags = append(found.Tags, tags...)
+			return err
+		}})
+	}
+	return steps, more, nil
 }
 
 func (h CleanupHandler) fitReservation(steps []cleanupStep) (kept []cleanupStep, trimmed bool, err error) {
