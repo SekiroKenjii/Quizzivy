@@ -3,6 +3,7 @@ import { act, fireEvent, screen } from "@testing-library/react";
 import { QuestionAudio } from "@/features/take-test/components/QuestionAudio";
 import { recordAudioPlay, type StudentQuestion } from "@/features/take-test/api";
 import { useTakeTestStore } from "@/features/take-test/store";
+import { forgetAllPlaces } from "@/features/media/playback";
 import { beginSession, clearSession, pending } from "@/features/integrity/buffer";
 import { renderWithPaper, session } from "./support";
 import "@/lib/i18n";
@@ -82,6 +83,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  forgetAllPlaces();
   clearSession("att-1");
   useTakeTestStore.getState().reset();
   vi.restoreAllMocks();
@@ -192,5 +194,41 @@ it("records nothing for a pause before the start, and still counts the play", as
 
   expect(recorded()).toEqual([["audio_play", "q1"]]);
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(counted).toHaveBeenCalledTimes(1);
+});
+
+it("records no second play for a resume", () => {
+  mount();
+
+  pressPlay();
+  fireEvent.play(audio());
+  audio().currentTime = 4;
+  fireEvent.timeUpdate(audio());
+  paused = true;
+  fireEvent.pause(audio());
+  fireEvent.click(screen.getByRole("button", { name: "Nghe tiếp" }));
+  paused = true;
+  fireEvent.ended(audio());
+
+  expect(recorded()).toEqual([
+    ["audio_play", "q1"],
+    ["audio_ended", "q1"],
+  ]);
+  expect(counted).toHaveBeenCalledTimes(1);
+});
+
+it("resumes a play left on another question where it stopped, recording nothing new", () => {
+  const view = mount();
+  pressPlay();
+  audio().currentTime = 6;
+  fireEvent.timeUpdate(audio());
+  view.unmount();
+
+  mount();
+  fireEvent.click(screen.getByRole("button", { name: "Nghe tiếp" }));
+  fireEvent.loadedMetadata(audio());
+
+  expect(audio().currentTime).toBe(6);
+  expect(recorded()).toEqual([["audio_play", "q1"]]);
   expect(counted).toHaveBeenCalledTimes(1);
 });

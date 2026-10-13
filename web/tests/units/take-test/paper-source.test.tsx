@@ -232,12 +232,14 @@ describe("a paper drawn from a source with no store", () => {
     expect(calls.onAudioPlay).toHaveBeenCalledTimes(2);
   });
 
-  it("reports a shared recording's play and its end", async () => {
+  it("reports a shared recording's play and its end, from its card in the stimulus pane", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     render(<Host />);
     await user.click(screen.getByRole("button", { name: /Câu 2/ }));
 
-    const recording = screen.getByRole("group", { name: "Bài nghe 1" });
+    const recording = within(
+      screen.getByRole("article", { name: "A guided walk" }),
+    ).getByRole("group", { name: "Tour guide" });
     fireEvent.click(within(recording).getByRole("button", { name: "Phát" }));
     expect(calls.noteRecordingPlay).toHaveBeenCalledWith(RECORDING);
     vi.setSystemTime(NOW + 4000);

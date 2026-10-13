@@ -215,7 +215,9 @@ test("the recording's play button and Return to fullscreen keep the 44px floor",
   page,
 }) => {
   await startGroupPaper(page);
+  await page.getByRole("button", { name: "Mở ngữ liệu", exact: true }).tap();
   const play = (await page
+    .getByRole("group", { name: "Hội thoại mẫu", exact: true })
     .getByRole("button", { name: "Phát", exact: true })
     .boundingBox())!;
   expect(play.height).toBeGreaterThanOrEqual(44);
@@ -229,4 +231,59 @@ test("the recording's play button and Return to fullscreen keep the 44px floor",
     .boundingBox())!;
   expect(back.height).toBeGreaterThanOrEqual(44);
   expect(back.width).toBeGreaterThanOrEqual(44);
+});
+
+test("a recording left mid-play resumes where it stopped, and spends no second play", async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  const plays = await startGroupPaper(page, { lone: true });
+  const footerOf = footer(page);
+  const handle = page.getByRole("button", { name: "Mở ngữ liệu", exact: true });
+  const card = page.getByRole("group", { name: "Hội thoại mẫu", exact: true });
+  const position = () =>
+    page.locator("audio").evaluate((element: HTMLAudioElement) => element.currentTime);
+
+  await footerOf.getByRole("button", { name: "Câu sau", exact: true }).tap();
+  await handle.tap();
+  await card.getByRole("button", { name: "Phát", exact: true }).tap();
+  await expect.poll(position).toBeGreaterThan(2);
+  await page.getByRole("button", { name: "Đóng", exact: true }).tap();
+  await footerOf.getByRole("button", { name: "Câu trước", exact: true }).tap();
+  await expect(page.locator("audio")).toHaveCount(0);
+  await expect.poll(() => plays.size).toBe(1);
+
+  await footerOf.getByRole("button", { name: "Câu sau", exact: true }).tap();
+  await handle.tap();
+  await expect(card.getByText("Đã tạm dừng", { exact: true })).toBeVisible();
+  await expect.poll(position).toBeGreaterThan(2);
+  const remembered = await position();
+  await card.getByRole("button", { name: "Nghe tiếp", exact: true }).tap();
+  await expect(card.getByText("Đang phát", { exact: true })).toBeVisible();
+  await expect.poll(position).toBeGreaterThan(remembered + 0.5);
+  expect(plays.size).toBe(1);
+});
+
+test("a play whose place cannot be put back counts as a new play", async ({ page }) => {
+  test.setTimeout(60_000);
+  const plays = await startGroupPaper(page, { lone: true, seekable: false });
+  const footerOf = footer(page);
+  const handle = page.getByRole("button", { name: "Mở ngữ liệu", exact: true });
+  const card = page.getByRole("group", { name: "Hội thoại mẫu", exact: true });
+  const position = () =>
+    page.locator("audio").evaluate((element: HTMLAudioElement) => element.currentTime);
+
+  await footerOf.getByRole("button", { name: "Câu sau", exact: true }).tap();
+  await handle.tap();
+  await card.getByRole("button", { name: "Phát", exact: true }).tap();
+  await expect.poll(position).toBeGreaterThan(2);
+  await page.getByRole("button", { name: "Đóng", exact: true }).tap();
+  await footerOf.getByRole("button", { name: "Câu trước", exact: true }).tap();
+  await expect.poll(() => plays.size).toBe(1);
+
+  await footerOf.getByRole("button", { name: "Câu sau", exact: true }).tap();
+  await handle.tap();
+  await card.getByRole("button").first().tap();
+  await expect(card.getByText("Đang phát", { exact: true })).toBeVisible();
+  await expect.poll(() => plays.size).toBe(2);
 });
