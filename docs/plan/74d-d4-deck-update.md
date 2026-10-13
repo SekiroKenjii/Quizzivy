@@ -2577,6 +2577,47 @@ by those measured cases, not by a recorded side-by-side with the deck. The page 
 did not change this task: the grading page fills the frame like every other, and the numeric
 score field keeps its `--field-max` cap.
 
+### T-D4.21b — Grading: nothing left to mark, and papers ready to finish
+**Reopens:** T-R4.28 (Finish recovery below the panes)
+**Depends on:** T-D4.21, T-D4.36
+**Deck:** `page-width-proposal/Grading Finish States.dc.html` (the design team's answer of
+2026-10-13; its notes 1 to 9, the "Which state shows" table, "Other cases" and "Every English
+line" are the specification)
+**Touches:** `web/src/features/attempts/pages/teacher/GradingPage.tsx`,
+`web/src/features/attempts/{gradingMessages.ts,useGradingQueue.ts,gradingRecovery.ts}`,
+`web/src/components/shared/ListState.tsx`, locales, `web/tests/units/attempts/`,
+`web/tests/e2e/teacher-grading.spec.ts`
+**Size:** M
+**No contract change:** every figure in a row's check comes from `getAttemptForReview`, which
+the recovery panel already reads; `finishGrading` is unchanged. Finish stays explicit and nothing
+finishes on its own.
+**Done when:**
+- [ ] The header reads "No answers left." on an empty queue; while answers wait it adds the
+      "{n} papers ready to finish" link, which unfolds the card and moves focus to it. The DG-136
+      chip stays last and keeps its focus rule.
+- [ ] The empty state's variant follows the table: running check, failed check (Try again), papers
+      to finish (variant b, "Review {n} papers" opens the oldest paper's check and focuses its
+      Finish), and "All graded" (variant a) only after a complete check, naming the filter with
+      "Show all assignments" / "Show all students" when the queue is narrowed. `EmptyState` gains
+      optional icon and tone props (the 44px tile, 16/600 title); existing callers do not change.
+- [ ] The card: "Ready to finish" with its count and sentence; Refresh (replacing Rescan) beside
+      "Checked {time}" from the query's last update, "Checking…" while it runs, a 44px icon button
+      at 360; folded to one line while answers wait; the 180px scroll box goes.
+- [ ] Rows grouped by assignment, oldest hand-in first for groups and rows, five per group then
+      "Show {n} more" / "Show fewer"; a single group has no header; two groups sharing a title add
+      the earliest hand-in date. A row shows "Handed in …", "Time ran out" and "Flagged" from the
+      list row, and one Review / Close button with `aria-expanded`; one check open at a time.
+- [ ] The check (today's candidate panel, moved into the row): score, "{a} of {t} answered", how
+      it was marked (you marked n / automatically / left blank), the flag and blank lines; Finish
+      disabled unless `pendingManual === 0`, with the "now waiting to be marked" line otherwise.
+- [ ] After Finish: the row leaves, a toast, the polite live region "… Next: {name}.", the next
+      row's check opens with focus on its Finish (its group unfolds if needed); after the last,
+      focus goes to the empty state's title.
+- [ ] Finish failures: inside the check above its buttons; the answer card's alert names the
+      student. Strings as the page lists them, `grading.rescan` retired, vi written first.
+- [ ] Unit cases for each table row, grouping and Show more, the check's three kinds, the focus
+      moves and the failures; E2E at 360, 768 and 1280, light and dark, compared with the page.
+
 ### T-D4.22 — Assignment detail: the progress card and the roster filters
 **Reopens:** T-R4.25 (the four stat tiles)
 **Depends on:** T-D4.1
