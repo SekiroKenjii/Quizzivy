@@ -39,6 +39,7 @@ describe("the teacher's Settings", () => {
       "Thông báo",
       "Mặc định khi giao bài",
       "Giao diện",
+      "Trợ lý AI",
     ]);
     expect(nav().getByRole("link", { name: "Hồ sơ" })).toHaveAttribute(
       "aria-current",

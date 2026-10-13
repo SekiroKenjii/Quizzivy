@@ -218,9 +218,10 @@ describe("the question editor, per question type", () => {
     );
     await user.click(screen.getByRole("button", { name: "Đính kèm" }));
 
-    // §11.1: 2 plays, no seek, transcript after submit.
+    // §11.1: 2 plays, pausing allowed, no seek, transcript after submit.
     const plays = await screen.findByRole("radiogroup", { name: "Số lần nghe" });
     expect(within(plays).getByRole("radio", { name: "Hai lần" })).toBeChecked();
+    expect(screen.getByRole("switch", { name: "Cho học sinh tạm dừng" })).toBeChecked();
     expect(screen.getByRole("switch", { name: "Cho tua tới" })).not.toBeChecked();
     expect(
       screen.getByRole("switch", { name: "Hiện lời thoại sau khi nộp" }),

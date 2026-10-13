@@ -44,7 +44,14 @@ import { FocusLossCell } from "./FocusLossCell";
 import { InterventionDialog, type Intervention } from "./InterventionDialog";
 
 type StudentRow = MonitorRow & { id: string };
-const FILTERS = ["all", "submitted", "pending", "flagged", "notStarted"] as const;
+const FILTERS = [
+  "all",
+  "submitted",
+  "inProgress",
+  "pending",
+  "flagged",
+  "notStarted",
+] as const;
 
 function RowStatus({
   row,

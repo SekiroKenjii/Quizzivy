@@ -461,7 +461,6 @@
     "selfJoinFailed": "Không đổi được cài đặt tham gia.",
     "selfJoinOff": "Đã tạm ngừng tham gia",
     "selfJoinOn": "Học viên lại tham gia được",
-    "selfJoinOffHint": "Đang tạm ngừng tham gia. Mã vẫn còn nhưng không ai dùng được cho đến khi bạn bật lại.",
     "selfJoinSwitch": "Cho học viên tham gia",
     "expiresAt": "Hết hạn",
     "uses": "Lượt dùng",
@@ -499,7 +498,6 @@
     "searchMembers": "Tìm học viên",
     "expiresToday": "· hết hạn hôm nay",
     "unlimited": "không giới hạn",
-    "codeShareHint": "Gửi mã hoặc liên kết trong buổi học. Tạo mã mới thì mã cũ ngừng hoạt động.",
     "stop": "Ngừng",
     "noMemberMatches": "Không có học viên nào khớp với “{{query}}”",
     "classSettings": "Lớp",
@@ -542,10 +540,22 @@
     "memberActions": "Thao tác với {{name}}",
     "viewResults": "Xem kết quả",
     "unreadableNote": "Không đọc lại được mã này. Hãy tạo mã mới để gửi cho học viên.",
+    "showQr": "Hiện mã QR cỡ lớn",
+    "showQrFull": "Hiện cỡ lớn để chiếu lên màn hình",
+    "qrDialogTitle": "Tham gia {{name}}",
+    "qrDialogHint": "Chiếu mã này lên màn hình. Học viên quét mã hoặc nhập mã.",
+    "qrDialogPaused": "Đang tạm ngừng tham gia nên mã này chưa dùng được cho đến khi bạn bật lại.",
+    "joiningPaused": "Tạm ngừng tham gia",
+    "downloadQr": "Tải mã QR",
+    "newCodeNote": "Tạo mã mới thì mã, liên kết và mã QR cũ đều ngừng hoạt động.",
+    "issuedTitle": "Mã tham gia mới",
+    "issuedHint": "Gửi mã, liên kết hoặc mã QR cho học viên.",
+    "joinLinkRow": "Liên kết tham gia",
+    "codeRow": "Mã",
+    "done": "Xong",
     "expiresOn": "{{date}}, {{time}}",
     "usesValue": "{{used}} / {{max}}",
     "expiredNote": "· đã hết hạn",
-    "qr": "Mã QR",
     "stopped": "Đã ngừng mã tham gia",
     "addStudentsTitle": "Thêm học viên vào {{name}}",
     "studentsToAdd": "Học viên để thêm",
@@ -690,7 +700,8 @@
       "appearance": "Giao diện",
       "api": "Tài liệu API",
       "notifications": "Thông báo",
-      "defaults": "Mặc định khi giao bài"
+      "defaults": "Mặc định khi giao bài",
+      "ai": "Trợ lý AI"
     },
     "preferenceSaving": "Đang lưu tùy chọn…",
     "preferenceSaved": "Đã lưu tùy chọn.",
@@ -805,6 +816,65 @@
         "copyHint": "Không cho chép câu hỏi hay dán câu trả lời",
         "fullscreen": "Bắt buộc toàn màn hình",
         "fullscreenHint": "Nhắc học viên quay lại nếu rời đi"
+      }
+    },
+    "ai": {
+      "off": "AI chưa được bật cho trung tâm này.",
+      "loadFailed": "Không tải được trạng thái của trợ lý AI.",
+      "usage": {
+        "title": "Mức dùng AI tháng này",
+        "hint": "Trung tâm cấp cho mỗi giáo viên một hạn mức hằng tháng.",
+        "hintReset": "Trung tâm cấp cho mỗi giáo viên một hạn mức hằng tháng. Hạn mức được làm mới vào {{date}}.",
+        "of": "trên {{limit}} tín dụng",
+        "left": "Còn {{left}}",
+        "bar": "Đã dùng {{used}} trên {{limit}} tín dụng",
+        "byFeature": "Mức dùng theo tính năng",
+        "loadFailed": "Không tải được mức dùng AI.",
+        "paused": "AI đang tạm dừng với tài khoản của bạn.",
+        "allowanceUsed": "Bạn đã dùng hết hạn mức tháng này.",
+        "poolUsed": "Trung tâm đã dùng hết tín dụng AI của tháng này.",
+        "categories": {
+          "generation": "Tạo câu hỏi và bản biến thể",
+          "grading": "Gợi ý chấm điểm",
+          "explanations": "Giải thích và phương án sai",
+          "imports": "Đọc tệp nhập",
+          "checks": "Kiểm tra, danh sách từ và nhận xét"
+        }
+      },
+      "request": {
+        "prompt": "Cần thêm tín dụng trong tháng này?",
+        "open": "Xin thêm tín dụng",
+        "hint": "Quản trị viên sẽ được báo và quyết định. Mỗi tháng bạn chỉ có một yêu cầu chờ duyệt.",
+        "amount": "Số tín dụng",
+        "amountHint": "Từ {{min}} đến {{max}}",
+        "reason": "Lý do",
+        "reasonHint": "Cho quản trị viên biết bạn cần thêm để làm gì. Tối đa {{max}} ký tự.",
+        "send": "Gửi yêu cầu",
+        "sending": "Đang gửi…",
+        "sent": "Đã gửi yêu cầu. Quản trị viên sẽ được báo.",
+        "pending": "Đang chờ duyệt: thêm {{amount}} tín dụng",
+        "pendingMeta": "Gửi ngày {{date}}. Quản trị viên sẽ quyết định.",
+        "errors": {
+          "amount": "Nhập một số nguyên từ {{min}} đến {{max}}.",
+          "reasonRequired": "Hãy cho biết lý do.",
+          "reasonTooLong": "Lý do dài tối đa {{max}} ký tự."
+        }
+      },
+      "prefs": {
+        "title": "Tùy chọn",
+        "hint": "Áp dụng cho mọi tính năng AI trong không gian làm việc của bạn. Kết quả của AI luôn là bản nháp cho đến khi bạn duyệt.",
+        "language": "Giải thích và nhận xét bằng",
+        "languageHint": "Bạn vẫn có thể đổi ngôn ngữ trên từng gợi ý.",
+        "languages": {
+          "en": "English",
+          "vi": "Tiếng Việt"
+        },
+        "tagDrafts": "Gắn thẻ bản nháp AI",
+        "tagDraftsHint": "Thêm thẻ “Bản nháp AI” cho đến khi bạn sửa hoặc duyệt. Chỉ giáo viên thấy thẻ này.",
+        "readStudentAnswers": "Cho AI đọc bài làm của học viên",
+        "readStudentAnswersHint": "Cần cho gợi ý chấm điểm và nhận xét về lớp. Tên học viên không bao giờ được gửi đi.",
+        "readImports": "Đọc tệp nhập bằng AI",
+        "readImportsHint": "Xử lý PDF quét, ảnh chụp đề in và bố cục lạ. Khoảng 400 tín dụng mỗi trang."
       }
     }
   },
@@ -1056,6 +1126,7 @@
       "unlimited": "Không giới hạn",
       "playsCount_one": "{{count}} lần",
       "playsCount_other": "{{count}} lần",
+      "allowPause": "Cho học sinh tạm dừng",
       "allowSeek": "Cho tua tới",
       "showTranscript": "Hiện lời thoại sau khi nộp",
       "transcript": "Lời thoại",
@@ -1770,7 +1841,6 @@
       "notSubmitted": "Chưa nộp: {{count}}",
       "pending": "Chờ chấm",
       "pendingHint": "{{count}} câu còn cần chấm",
-      "flagged": "Cần xem lại",
       "flaggedHint": "Rời trang quá {{count}} lần",
       "flaggedHintNone": "Không giới hạn rời trang",
       "test": "Đề thi",
@@ -2506,7 +2576,6 @@
     "score": "Điểm",
     "cards": {
       "submitted": "Đã nộp",
-      "inProgress": "Đang làm",
       "notStarted": "Chưa bắt đầu",
       "flagged": "Cần xem lại",
       "closesIn": "Đóng sau"
@@ -2840,6 +2909,7 @@
     "tabs": {
       "all": "Tất cả",
       "submitted": "Đã nộp",
+      "inProgress": "Đang làm",
       "pending": "Chờ chấm",
       "flagged": "Cần xem lại",
       "notStarted": "Chưa nộp"
@@ -3964,7 +4034,23 @@
     "title": "Bài giao",
     "unavailable": "Không thể mở bài giao này.",
     "submitted": "Đã nộp",
-    "average": "Điểm trung bình",
+    "progress": {
+      "submittedOf": "Đã nộp {{submitted}}/{{total}}",
+      "allSubmitted_one": "Đã nộp đủ {{count}}/{{count}}",
+      "allSubmitted_other": "Đã nộp đủ {{count}}/{{count}}",
+      "notAssigned": "Chưa giao cho học viên nào",
+      "average": "Trung bình",
+      "filterLabel": "Lọc học viên",
+      "showOnly": "Chỉ hiện học viên {{group}}",
+      "showEveryone": "Hiện tất cả học viên",
+      "loadFailed": "Chưa tải được tiến độ.",
+      "groups": {
+        "submitted": "Đã nộp",
+        "inProgress": "Đang làm",
+        "notStarted": "Chưa bắt đầu",
+        "flagged": "Bị gắn cờ"
+      }
+    },
     "tabsLabel": "Nội dung bài giao",
     "tabs": {
       "students": "Học viên",

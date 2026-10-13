@@ -226,6 +226,28 @@ describe("the monitor", () => {
     expect(screen.getByLabelText("chờ chấm 2")).toBeInTheDocument();
   });
 
+  it("filters by In progress from the select, and the progress legend shows the same filter pressed", async () => {
+    const user = userEvent.setup();
+    renderMonitor(true);
+    await screen.findByText("Phạm Gia Hân");
+    const legend = screen.getByRole("group", { name: "Lọc học viên" });
+    const inProgress = within(legend).getByRole("button", { name: "Đang làm 1" });
+    expect(inProgress).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(screen.getByRole("combobox", { name: "Lọc bài làm" }));
+    await user.click(await screen.findByRole("option", { name: "Đang làm" }));
+    await waitFor(() => expect(screen.queryByText("Nguyễn Đức Minh")).toBeNull());
+    expect(screen.getByText("Phạm Gia Hân")).toBeInTheDocument();
+    expect(screen.queryByText("Hoàng Tiến Dũng")).toBeNull();
+    expect(inProgress).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(screen.getByRole("combobox", { name: "Lọc bài làm" }));
+    await user.click(await screen.findByRole("option", { name: "Chờ chấm" }));
+    expect(await screen.findByText("Nguyễn Đức Minh")).toBeInTheDocument();
+    for (const button of within(legend).getAllByRole("button"))
+      expect(button).toHaveAttribute("aria-pressed", "false");
+  });
+
   it("blocks an intervention until a reason is entered, then sends it trimmed", async () => {
     const user = userEvent.setup();
     renderMonitor(true);

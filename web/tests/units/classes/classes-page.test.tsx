@@ -270,7 +270,9 @@ describe("the classes list", () => {
         name: "Mã QR để tham gia lớp bằng mã K7QM-2PXA",
       }),
     ).toBeInTheDocument();
-    expect(within(dialog).getByText(`${ORIGIN}/join/K7QM-2PXA`)).toBeVisible();
+    expect(
+      within(dialog).getByText(`${window.location.host}/join/K7QM-2PXA`),
+    ).toBeVisible();
     expect(within(dialog).getByText("Ảnh QR cho slide hoặc Zalo")).toBeVisible();
     await user.click(within(dialog).getAllByRole("button", { name: "Đóng" }).at(-1)!);
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());

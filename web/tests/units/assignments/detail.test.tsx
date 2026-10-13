@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { http } from "msw";
+import { http, HttpResponse } from "msw";
 import AssignmentDetailPage from "@/features/assignments/pages/teacher/AssignmentDetailPage";
 import type { components } from "@/lib/api/schema";
 import { server } from "@tests/support/server";
@@ -281,7 +281,7 @@ describe("the assignment detail", () => {
     const table = await screen.findByRole("table");
     expect(within(table).getByText("Phạm Gia Hân")).toBeInTheDocument();
     expect(within(table).getByText("Chưa bắt đầu")).toBeInTheDocument();
-    expect(screen.getByText("/ 1")).toBeInTheDocument();
+    expect(screen.getByText("Đã nộp 0/1")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Chỉnh sửa" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Đóng sớm" })).toBeNull();
     expect(screen.getByRole("button", { name: "Gia hạn" })).toBeEnabled();
@@ -326,7 +326,7 @@ describe("the assignment detail", () => {
     expect(within(table).getByRole("row", { name: /Phạm Gia Hân/ })).toHaveClass(
       "bg-danger-soft",
     );
-    expect(screen.getByText("/ 2")).toBeInTheDocument();
+    expect(screen.getByText("Đã nộp 1/2")).toBeInTheDocument();
     expect(screen.queryByRole("complementary")).toBeNull();
   });
 
@@ -415,5 +415,281 @@ describe("the assignment detail", () => {
         screen.getByRole("heading", { level: 1, name: published.testTitle }),
       ).toHaveFocus(),
     );
+  });
+});
+
+type Row = components["schemas"]["MonitorRow"];
+
+function student(n: number, state: Row["state"], over: Partial<Row> = {}): Row {
+  const id = `018f0000-0000-7000-8000-0000000001${String(n).padStart(2, "0")}`;
+  const started = state !== "not_started";
+  return {
+    studentId: id,
+    fullName: `Học viên ${String(n).padStart(2, "0")}`,
+    state,
+    flagged: false,
+    audioOverLimit: false,
+    ...(started
+      ? {
+          attemptId: `018f0000-0000-7000-8000-0000000002${String(n).padStart(2, "0")}`,
+          attemptNo: 1,
+          startedAt: "2026-09-04T01:00:00Z",
+        }
+      : {}),
+    ...over,
+  };
+}
+
+function serveRoster(rows: Row[]) {
+  serve(assignment());
+  server.use(
+    http.get(`${BASE}/teacher/assignments/${ID}/attempts`, () =>
+      contractJson("/teacher/assignments/{id}/attempts", "get", 200, {
+        serverTime: "2026-09-04T02:10:00Z",
+        questionCount: 24,
+        rows,
+      }),
+    ),
+  );
+}
+
+function renderAt(search: string) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const router = createMemoryRouter(
+    [{ path: "/teacher/assignments/:id", element: <AssignmentDetailPage /> }],
+    { initialEntries: [`/teacher/assignments/${ID}${search}`] },
+  );
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+  return { user: userEvent.setup(), router };
+}
+
+function legend() {
+  return screen.getByRole("group", { name: "Lọc học viên" });
+}
+
+function rosterNames() {
+  return within(screen.getByRole("table"))
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => row.textContent ?? "");
+}
+
+describe("the progress card", () => {
+  beforeEach(() => {
+    useAuthStore.getState().setSession("token", teacherUser);
+  });
+
+  it("says how many submitted, that all did, or that nobody is assigned", async () => {
+    serveRoster([
+      student(1, "submitted"),
+      student(2, "in_progress"),
+      student(3, "not_started"),
+    ]);
+    renderAt("");
+    expect(await screen.findByText("Đã nộp 1/3")).toBeInTheDocument();
+  });
+
+  it("says All submitted once every student has handed in, timed out included", async () => {
+    serveRoster([student(1, "graded"), student(2, "timed_out")]);
+    renderAt("");
+    expect(await screen.findByText("Đã nộp đủ 2/2")).toBeInTheDocument();
+  });
+
+  it("says Not assigned yet with nobody targeted, and draws an empty bar", async () => {
+    serveRoster([]);
+    renderAt("");
+    expect(await screen.findByText("Chưa giao cho học viên nào")).toBeInTheDocument();
+    const bar = document.querySelector<HTMLElement>('[data-slot="progress-bar"]')!;
+    for (const segment of bar.children)
+      expect((segment as HTMLElement).style.width).toBe("0%");
+    expect(within(legend()).queryAllByRole("button")).toHaveLength(0);
+  });
+
+  it("draws submitted then in progress as shares of everyone, and the graded average", async () => {
+    serveRoster([
+      student(1, "submitted"),
+      student(2, "graded", { score: { earned: 6, total: 8, pendingManual: 0 } }),
+      student(3, "in_progress"),
+      student(4, "not_started"),
+      student(5, "not_started"),
+      student(6, "not_started"),
+      student(7, "not_started"),
+      student(8, "not_started"),
+    ]);
+    renderAt("");
+    await screen.findByText("Đã nộp 2/8");
+    const bar = document.querySelector<HTMLElement>('[data-slot="progress-bar"]')!;
+    expect(bar).toHaveClass("h-2", "bg-muted");
+    const [submitted, progress] = [...bar.children] as HTMLElement[];
+    expect(submitted).toHaveAttribute("data-group", "submitted");
+    expect(submitted).toHaveClass("bg-success");
+    expect(submitted!.style.width).toBe("25%");
+    expect(progress).toHaveClass("bg-info");
+    expect(progress!.style.width).toBe("12.5%");
+    const average = screen.getByText("75%");
+    expect(average).toHaveClass("text-md", "font-semibold", "text-fg");
+    expect(average.parentElement).toHaveTextContent("Trung bình75%");
+  });
+
+  it("filters the roster by a legend press, opens Students, resets the page and names the filter, and a second press shows everyone", async () => {
+    serveRoster([
+      student(1, "submitted"),
+      student(2, "timed_out"),
+      student(3, "in_progress", { flagged: true, focusLossCount: 4 }),
+      student(4, "not_started"),
+    ]);
+    const { user, router } = renderAt("?tab=questions&page=2&size=10");
+    const inProgress = await within(
+      await screen.findByRole("group", { name: "Lọc học viên" }),
+    ).findByRole("button", { name: "Đang làm 1" });
+    expect(inProgress).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(inProgress);
+    await waitFor(() =>
+      expect(router.state.location.search).toBe(
+        "?tab=students&size=10&roster=inProgress",
+      ),
+    );
+    expect(screen.getByRole("tab", { name: "Học viên" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(
+      within(legend()).getByRole("button", { name: "Đang làm 1" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => expect(rosterNames()).toHaveLength(1));
+    expect(rosterNames()[0]).toContain("Học viên 03");
+    expect(screen.getByRole("combobox", { name: "Lọc bài làm" })).toHaveTextContent(
+      "Đang làm",
+    );
+
+    const submitted = within(legend()).getByRole("button", { name: "Đã nộp 2" });
+    submitted.focus();
+    await user.keyboard("{Enter}");
+    await waitFor(() =>
+      expect(router.state.location.search).toBe(
+        "?tab=students&size=10&roster=submitted",
+      ),
+    );
+    await waitFor(() => expect(rosterNames()).toHaveLength(2));
+    expect(rosterNames().join(" ")).toContain("Học viên 02");
+
+    await user.keyboard(" ");
+    await waitFor(() =>
+      expect(router.state.location.search).toBe("?tab=students&size=10"),
+    );
+    expect(within(legend()).getByRole("button", { name: "Đã nộp 2" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    await waitFor(() => expect(rosterNames()).toHaveLength(4));
+  });
+
+  it("counts the whole assignment, not the searched or filtered roster", async () => {
+    serveRoster([
+      student(1, "submitted"),
+      student(2, "submitted"),
+      student(3, "not_started"),
+    ]);
+    renderAt("?q=01&roster=notStarted");
+    expect(await screen.findByText("Đã nộp 2/3")).toBeInTheDocument();
+    expect(
+      within(legend()).getByRole("button", { name: "Đã nộp 2" }),
+    ).toBeInTheDocument();
+    expect(
+      within(legend()).getByRole("button", { name: "Chưa bắt đầu 1" }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("hides an entry at zero unless it is the one selected, and marks Flagged in danger ink", async () => {
+    serveRoster([student(1, "submitted"), student(2, "not_started")]);
+    renderAt("");
+    await screen.findByText("Đã nộp 1/2");
+    expect(
+      within(legend())
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["Đã nộp 1", "Chưa bắt đầu 1"]);
+    cleanup();
+
+    serveRoster([student(1, "submitted"), student(2, "not_started")]);
+    renderAt("?roster=flagged");
+    const flagged = await within(
+      await screen.findByRole("group", { name: "Lọc học viên" }),
+    ).findByRole("button", { name: "Bị gắn cờ 0" });
+    expect(flagged).toHaveAttribute("aria-pressed", "true");
+    expect(within(flagged).getByText("0")).toHaveClass("text-danger-ink");
+    expect(flagged.querySelector("svg")).toHaveClass("text-danger-ink");
+    expect(
+      within(legend())
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["Đã nộp 1", "Chưa bắt đầu 1", "Bị gắn cờ 0"]);
+  });
+
+  it("names what a press will do in its tooltip", async () => {
+    serveRoster([student(1, "submitted"), student(2, "in_progress")]);
+    const { user } = renderAt("?roster=submitted");
+    const submitted = await within(
+      await screen.findByRole("group", { name: "Lọc học viên" }),
+    ).findByRole("button", { name: "Đã nộp 1" });
+    await user.hover(submitted);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      "Hiện tất cả học viên",
+    );
+    cleanup();
+
+    serveRoster([student(1, "submitted"), student(2, "in_progress")]);
+    const again = renderAt("");
+    const inProgress = await within(
+      await screen.findByRole("group", { name: "Lọc học viên" }),
+    ).findByRole("button", { name: "Đang làm 1" });
+    await again.user.hover(inProgress);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      "Chỉ hiện học viên đang làm",
+    );
+  });
+
+  it("drops the filter when the page is opened again from the list", async () => {
+    serveRoster([student(1, "submitted"), student(2, "not_started")]);
+    const { router } = renderAt("?tab=students&roster=notStarted");
+    await waitFor(() => expect(rosterNames()).toHaveLength(1));
+    await act(() => router.navigate(`/teacher/assignments/${ID}`));
+    await waitFor(() => expect(rosterNames()).toHaveLength(2));
+    for (const button of within(legend()).getAllByRole("button"))
+      expect(button).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("holds a skeleton while the roster loads and offers a retry when it fails", async () => {
+    serve(assignment());
+    let fail = true;
+    server.use(
+      http.get(`${BASE}/teacher/assignments/${ID}/attempts`, () =>
+        fail
+          ? HttpResponse.json(
+              { error: { code: "INTERNAL", message: "boom", requestId: "r-1" } },
+              { status: 500 },
+            )
+          : contractJson("/teacher/assignments/{id}/attempts", "get", 200, {
+              serverTime: "2026-09-04T02:10:00Z",
+              questionCount: 24,
+              rows: [student(1, "submitted")],
+            }),
+      ),
+    );
+    const { user } = renderAt("?tab=settings");
+    expect(
+      await screen.findByRole("status", { name: "Đang tải…" }),
+    ).toBeInTheDocument();
+    const failed = await screen.findByText("Chưa tải được tiến độ.");
+    fail = false;
+    await user.click(
+      within(failed.parentElement!).getByRole("button", { name: "Thử lại" }),
+    );
+    expect(await screen.findByText("Đã nộp đủ 1/1")).toBeInTheDocument();
   });
 });
