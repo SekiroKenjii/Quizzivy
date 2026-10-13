@@ -3816,7 +3816,9 @@ is built here.
    which `QuestionProse` reports as invalid and still does. T-D4.11's "a rich prompt" refusal
    was content without `marks`, which does not validate, so it still refuses and is renamed
    "rich content that does not validate"; no other case changed. `GapSentence` and the answer
-   shape are untouched. In a production build of the engine, the rich prompt "If I ___ you, I
+   shape are untouched. E2E 1 (`author-and-publish.live.spec.ts`) authors its choice prompt in
+   the builder, so the test's preview now draws it as the sentence; the spec finds it as a
+   screen reader reads it ("They chỗ trống to the museum last weekend."). In a production build of the engine, the rich prompt "If I ___ you, I
    would study harder." measures exactly as the same prompt in Markdown at 360 and 1280, light
    and dark, empty and chosen (the sentence 500 18px/32.4px, the box 88 × 30.8px empty), which
    is the drawing T-D4.11 matched to s9 questions 5 and 12; no horizontal scroll.
