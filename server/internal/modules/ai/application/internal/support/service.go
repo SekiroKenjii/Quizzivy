@@ -14,25 +14,29 @@ import (
 	"quizzivy/internal/shared/cqrs"
 )
 
-// Service carries what the handlers share: the store, the tiers' prices, the calendar zone months are counted in, the clock, the way to tell a user, and the ports to the provider and to what the operations read. A nil Completer is an assistant that is off; a nil read port is one its operation cannot be asked of.
+// DefaultCleanupBudget is how long one bank clean-up may spend with the provider: the plan's 60 seconds less the time the answer needs to be settled and written.
+const DefaultCleanupBudget = 55 * time.Second
+
+// Service carries what the handlers share: the store, the tiers' prices, the calendar zone months are counted in, the clock, the way to tell a user, the time one bank clean-up may spend with the provider, and the ports to the provider and to what the operations read. A nil Completer is an assistant that is off; a nil read port is one its operation cannot be asked of.
 type Service struct {
-	Repo      domain.Repository
-	Prices    domain.Prices
-	Zone      *time.Location
-	Now       func() time.Time
-	Notifier  ports.Notifier
-	Logger    *slog.Logger
-	Completer ports.Completer
-	Tests     ports.Tests
-	Questions ports.Questions
-	Grading   ports.Grading
-	Analysis  ports.Analysis
-	People    ports.People
+	Repo          domain.Repository
+	Prices        domain.Prices
+	Zone          *time.Location
+	Now           func() time.Time
+	Notifier      ports.Notifier
+	Logger        *slog.Logger
+	CleanupBudget time.Duration
+	Completer     ports.Completer
+	Tests         ports.Tests
+	Questions     ports.Questions
+	Grading       ports.Grading
+	Analysis      ports.Analysis
+	People        ports.People
 }
 
-// NewService returns a Service whose clock is the system's and whose logger discards.
+// NewService returns a Service whose clock is the system's, whose logger discards and whose clean-up budget is DefaultCleanupBudget.
 func NewService(repo domain.Repository, prices domain.Prices, zone *time.Location) *Service {
-	return &Service{Repo: repo, Prices: prices, Zone: zone, Now: time.Now, Logger: slog.New(slog.DiscardHandler)}
+	return &Service{Repo: repo, Prices: prices, Zone: zone, Now: time.Now, Logger: slog.New(slog.DiscardHandler), CleanupBudget: DefaultCleanupBudget}
 }
 
 // Month is the month it is now, as the key of the month's rows.

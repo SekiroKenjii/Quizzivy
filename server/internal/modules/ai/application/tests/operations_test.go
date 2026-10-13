@@ -15,7 +15,6 @@ import (
 	"quizzivy/internal/modules/ai/application/ports"
 	"quizzivy/internal/modules/ai/application/query"
 	"quizzivy/internal/modules/ai/domain"
-	"quizzivy/internal/modules/ai/domain/prompts"
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/actor"
 )
@@ -69,8 +68,10 @@ func canned(req ports.Request) string {
 		return `{"score":0.9,"confidence":"high","reasons":["Matches."],"comment":"Close."}`
 	case "insights":
 		return `{"insights":[{"kind":"problem","title":"A common slip","body":"Six papers wrote the plural.","action":"practice","questions":[1]}]}`
-	case "duplicates,tags":
-		return `{"duplicates":[{"a":"q1","b":"q2","why":"Same grammar point."}],"tags":[{"question":"q3","tags":["Tenses"],"level":"b1"}]}`
+	case "tags":
+		return `{"tags":[{"question":"q3","tags":["Tenses"],"level":"b1"}]}`
+	case "duplicates":
+		return `{"duplicates":[{"a":"q1","b":"q2","why":"Same grammar point."}]}`
 	}
 	return `{}`
 }
@@ -180,7 +181,7 @@ func newOps(t *testing.T, configured bool) ops {
 		},
 		bank: domain.Bank{Questions: []domain.BankQuestion{
 			{ID: "b1", Type: "single_choice", Prompt: "Choose the form: She ___ since 2019.", Tags: []string{"grammar"}},
-			{ID: "b2", Type: "single_choice", Prompt: "Choose the form: He ___ since 2020.", Tags: []string{"grammar"}, UsedInTests: 2},
+			{ID: "b2", Type: "single_choice", Prompt: "Which preposition completes the sentence about the museum?", Tags: []string{"grammar"}, UsedInTests: 2},
 			{ID: "b3", Type: "short_answer", Prompt: "Name one park.", Level: ""},
 		}},
 		answer: domain.GradedAnswer{Type: "short_answer", Prompt: "What should cities plan first?", Points: 1, Accepted: []string{"public green space"}, Answer: "green space", Manual: true},
@@ -565,7 +566,7 @@ func mentions(text, token string) bool {
 func TestNoIdentifierOfAPersonOrARecordReachesAPromptButTheContentDoes(t *testing.T) {
 	content := map[string]string{
 		"generate": "Cities around the world", "check": "What did planners see parks as?", "variant": "What did planners see parks as?",
-		"explanation": "She ___ in Hanoi", "distractors": "has lived", "score": "green space", "insights": "parks", "cleanup": "Choose the form",
+		"explanation": "She ___ in Hanoi", "distractors": "has lived", "score": "green space", "insights": "parks", "cleanup": "Name one park",
 	}
 	for _, op := range operations() {
 		o := newOps(t, true)
@@ -643,66 +644,4 @@ func untaggedBank(n int) domain.Bank {
 		bank.Questions = append(bank.Questions, domain.BankQuestion{ID: fmt.Sprintf("untagged-%d", i), Type: "short_answer", Prompt: fmt.Sprintf("Question number %d.", i)})
 	}
 	return bank
-}
-
-func TestACleanupAsksTagsForAtMostSixtyUntaggedQuestionsAndSaysTheBankHadMore(t *testing.T) {
-	o := newOps(t, true)
-	o.reads.bank = untaggedBank(prompts.MaxTagsAsked + 40)
-	o.completer.object = func(ports.Request) string {
-		tags := make([]string, 0, prompts.MaxTagsAsked+10)
-		for i := range prompts.MaxTagsAsked + 10 {
-			tags = append(tags, fmt.Sprintf(`{"question":"q%d","tags":["nouns"],"level":"b1"}`, i+1))
-		}
-		return `{"duplicates":[],"tags":[` + strings.Join(tags, ",") + `]}`
-	}
-	got, err := o.app.Queries.Cleanup.Handle(context.Background(), query.Cleanup{Actor: teacher, Checks: []string{"tags"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !got.Truncated || got.Scanned != prompts.MaxTagsAsked+40 {
-		t.Errorf("scanned %d truncated %v, want every question read and the answer marked truncated", got.Scanned, got.Truncated)
-	}
-	if len(got.Findings.Tags) != prompts.MaxTagsAsked {
-		t.Errorf("%d tag suggestions kept, want the first %d: a suggestion for a question past the cap was not asked for", len(got.Findings.Tags), prompts.MaxTagsAsked)
-	}
-	sent := o.completer.requests[0]
-	if !strings.Contains(textOf(sent), fmt.Sprintf("for at most %d of the questions marked tags=none, the first ones listed", prompts.MaxTagsAsked)) {
-		t.Errorf("the prompt does not bound the tags it asks for:\n%s", textOf(sent))
-	}
-	if sent.MaxTokens != 3000 {
-		t.Errorf("the clean-up allows %d tokens, want 3000", sent.MaxTokens)
-	}
-}
-
-func TestACleanupWithinTheCapsIsNotTruncated(t *testing.T) {
-	o := newOps(t, true)
-	o.reads.bank = untaggedBank(prompts.MaxTagsAsked)
-	got, err := o.app.Queries.Cleanup.Handle(context.Background(), query.Cleanup{Actor: teacher, Checks: []string{"tags"}})
-	if err != nil || got.Truncated || got.Scanned != prompts.MaxTagsAsked {
-		t.Errorf("scanned %d truncated %v, %v, want a bank at the cap read whole", got.Scanned, got.Truncated, err)
-	}
-	o = newOps(t, true)
-	o.reads.bank = untaggedBank(prompts.MaxTagsAsked + 5)
-	got, err = o.app.Queries.Cleanup.Handle(context.Background(), query.Cleanup{Actor: teacher, Checks: []string{"duplicates"}})
-	if err != nil || got.Truncated {
-		t.Errorf("truncated %v, %v: a clean-up that asked for no tags has no tag cap to pass", got.Truncated, err)
-	}
-}
-
-func TestABankLongerThanTheCharacterBudgetIsCutAndSaidToBeTruncatedAndNotRefused(t *testing.T) {
-	o := newOps(t, true)
-	long := strings.Repeat("word ", 40)
-	for range 2000 {
-		o.reads.bank.Questions = append(o.reads.bank.Questions, domain.BankQuestion{Type: "short_answer", Prompt: long, Tags: []string{"nouns"}})
-	}
-	got, err := o.app.Queries.Cleanup.Handle(context.Background(), query.Cleanup{Actor: teacher, Checks: []string{"duplicates"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !got.Truncated || got.Scanned == 0 || got.Scanned >= 2000 {
-		t.Errorf("scanned %d truncated %v, want a prefix of the bank", got.Scanned, got.Truncated)
-	}
-	if n := len(textOf(o.completer.requests[0])); n > prompts.MaxCleanupChars+2000 {
-		t.Errorf("the prompt is %d characters, want about %d at most", n, prompts.MaxCleanupChars)
-	}
 }

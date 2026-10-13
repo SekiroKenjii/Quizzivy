@@ -145,7 +145,9 @@ func allPrompts() map[string]prompts.Prompt {
 	explanation, _ := prompts.Explanation(prompts.ExplanationInput{Question: domain.Question{Type: prompts.SingleChoice, Prompt: "p", Options: paper[0].Options}, Language: domain.English})
 	distractors, _ := prompts.Distractors(prompts.DistractorsInput{Question: domain.Question{Type: prompts.SingleChoice, Prompt: "p", Options: paper[0].Options}})
 	insights, _ := prompts.Insights(prompts.InsightsInput{Results: domain.Results{HandedIn: 1, Questions: []domain.ResultQuestion{{Number: 1, Type: "short_answer"}}}})
-	cleanup, _ := prompts.Cleanup(prompts.CleanupInput{Questions: []domain.BankQuestion{{ID: "b", Type: "short_answer", Prompt: "p"}}, Checks: []string{"tags"}})
+	bank := []domain.BankQuestion{{ID: "b", Type: "short_answer", Prompt: "p"}, {ID: "c", Type: "short_answer", Prompt: "p again"}}
+	tagging, _ := prompts.Tagging(prompts.TaggingInput{Bank: bank, Asked: []int{0}})
+	duplicates, _ := prompts.Duplicates(prompts.DuplicatesInput{Bank: bank, Pairs: []domain.SimilarPair{{A: 0, B: 1, Score: 0.5}}, Language: domain.English})
 	return map[string]prompts.Prompt{
 		"generate":    prompts.Generate(prompts.GenerateInput{Source: sourceText, Types: []string{prompts.SingleChoice}, Count: 3, Level: "b1"}),
 		"check":       check,
@@ -154,7 +156,8 @@ func allPrompts() map[string]prompts.Prompt {
 		"distractors": distractors,
 		"score":       prompts.Score(prompts.ScoreInput{Answer: domain.GradedAnswer{Type: "short_answer", Points: 1, Answer: "x"}}),
 		"insights":    insights,
-		"cleanup":     cleanup,
+		"tagging":     tagging,
+		"duplicates":  duplicates,
 	}
 }
 
@@ -199,8 +202,10 @@ func TestEverySchemaStaysInsideWhatTheProviderAcceptsAndEveryPromptGuardsItsMate
 			}
 		})
 	}
-	if got := allPrompts()["cleanup"].Tier; got != domain.TierFast {
-		t.Errorf("the clean-up runs on the %s tier, want fast", got)
+	for _, name := range []string{"tagging", "duplicates"} {
+		if got := allPrompts()[name].Tier; got != domain.TierFast {
+			t.Errorf("the clean-up's %s call runs on the %s tier, want fast", name, got)
+		}
 	}
 }
 
@@ -698,7 +703,7 @@ func TestTheDistractorsAndTheExplanationCarryTheDecksShapes(t *testing.T) {
 	}
 }
 
-func TestTheCleanupSchemaCarriesTheDecksDuplicatesAndTagsAndSendsNoId(t *testing.T) {
+func deckBank() []domain.BankQuestion {
 	bank := []domain.BankQuestion{
 		{ID: "0198f5f0-0000-7000-8000-0000000000b1", Type: prompts.SingleChoice, Prompt: deckDuplicates[0].A, Level: "b1", Tags: []string{"grammar"}},
 		{ID: "0198f5f0-0000-7000-8000-0000000000b2", Type: prompts.SingleChoice, Prompt: deckDuplicates[0].B, Level: "b1", Tags: []string{"grammar"}, UsedInTests: 4},
@@ -707,105 +712,181 @@ func TestTheCleanupSchemaCarriesTheDecksDuplicatesAndTagsAndSendsNoId(t *testing
 		bank = append(bank, domain.BankQuestion{ID: fmt.Sprintf("0198f5f0-0000-7000-8000-0000000000c%d", len(bank)), Type: prompts.ShortAnswer, Prompt: u.Prompt})
 	}
 	bank[4].Level = "c1"
-	in := prompts.CleanupInput{Questions: bank, Checks: []string{prompts.CleanupDuplicates, prompts.CleanupTags}, Language: domain.English}
-	dups := []map[string]any{{"a": "q1", "b": "q2", "why": deckDuplicates[0].Why}, {"a": "Q2", "b": "q1", "why": "The same pair again."}, {"a": "q1", "b": "q1", "why": "Itself."}, {"a": "q1", "b": "q9", "why": "Nobody."}}
-	tags := []map[string]any{}
-	for i, u := range deckUntagged {
-		tags = append(tags, map[string]any{"question": fmt.Sprintf("q%d", i+3), "tags": u.Tags, "level": strings.ToLower(u.Level)})
+	return bank
+}
+
+func TestTheDuplicatesCallJudgesOnlyTheCandidatePairsAndSendsNoId(t *testing.T) {
+	bank := deckBank()
+	in := prompts.DuplicatesInput{Bank: bank, Pairs: domain.SimilarQuestions(bank, prompts.MaxCandidatePairs), Language: domain.English}
+	if len(in.Pairs) != 1 || in.Pairs[0].A != 0 || in.Pairs[0].B != 1 {
+		t.Fatalf("the deck's pair is not a candidate: %+v", in.Pairs)
 	}
-	tags = append(tags, map[string]any{"question": "q1", "tags": []string{"already tagged"}, "level": "a1"})
-	answer := map[string]any{"duplicates": dups, "tags": tags}
-	prompt, err := prompts.Cleanup(in)
+	prompt, err := prompts.Duplicates(in)
 	if err != nil {
 		t.Fatal(err)
 	}
+	answer := map[string]any{"duplicates": []map[string]any{
+		{"a": "q1", "b": "q2", "why": deckDuplicates[0].Why},
+		{"a": "Q2", "b": "q1", "why": "The same pair again."},
+		{"a": "q1", "b": "q1", "why": "Itself."},
+		{"a": "q1", "b": "q9", "why": "Nobody."},
+		{"a": "q3", "b": "q4", "why": "Two questions the call never offered."},
+		{"a": "q1", "b": "q2 ", "why": " "},
+	}}
 	conforms(t, prompt.Schema, answer)
-	if strings.Contains(prompt.User, "0198f5f0") {
-		t.Error("the prompt sends a question's id; the answer names a question by its reference")
+	for _, want := range []string{"q1 [single_choice] level=b1 tags=grammar:", "q2 [single_choice]", "Candidate pairs", "q1 q2", "at most 20 of the candidate pairs", "in English"} {
+		if !strings.Contains(prompt.User, want) {
+			t.Errorf("the prompt lacks %q:\n%s", want, prompt.User)
+		}
 	}
-	got, err := prompts.DecodeCleanup(marshal(t, answer), in)
+	if strings.Contains(prompt.User, "0198f5f0") || strings.Contains(prompt.User, deckUntagged[0].Prompt) {
+		t.Error("the prompt sends an id, or a question that is in no candidate pair")
+	}
+	got, err := prompts.DecodeDuplicates(marshal(t, answer), in)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got.Duplicates) != 1 || got.Duplicates[0].A.ID != bank[0].ID || got.Duplicates[0].B.UsedInTests != 4 {
-		t.Errorf("duplicates %+v, want the one pair once, in bank order", got.Duplicates)
+	if len(got) != 1 || got[0].A.ID != bank[0].ID || got[0].B.ID != bank[1].ID || got[0].B.UsedInTests != 4 || got[0].Why != deckDuplicates[0].Why {
+		t.Errorf("duplicates %+v, want the one offered pair once, in bank order", got)
 	}
-	if len(got.Tags) != 3 || got.Tags[0].Level != "b1" || got.Tags[2].Level != "" || got.Tags[2].Question.Prompt != deckUntagged[2].Prompt {
-		t.Errorf("tags %+v, want three untagged questions, a level only where the question had none", got.Tags)
+	if _, err := prompts.Duplicates(prompts.DuplicatesInput{Bank: bank}); !errors.Is(err, domain.ErrNothingToRead) {
+		t.Errorf("no pair: %v", err)
 	}
-	only := prompts.CleanupInput{Questions: bank, Checks: []string{prompts.CleanupTags}}
-	got, err = prompts.DecodeCleanup(marshal(t, answer), only)
-	if err != nil || len(got.Duplicates) != 0 || len(got.Tags) != 3 {
-		t.Errorf("asked for tags only, the result is %+v, %v", got, err)
-	}
-	if _, err := prompts.Cleanup(prompts.CleanupInput{}); !errors.Is(err, domain.ErrNothingToRead) {
-		t.Errorf("an empty bank: %v", err)
+	for name, pair := range map[string]domain.SimilarPair{"a place outside the bank": {A: 0, B: 40}, "a pair of one question": {A: 1, B: 1}, "a pair the wrong way round": {A: 2, B: 1}} {
+		if _, err := prompts.Duplicates(prompts.DuplicatesInput{Bank: bank, Pairs: []domain.SimilarPair{pair}}); err == nil {
+			t.Errorf("%s was built", name)
+		}
 	}
 }
 
-func TestTheCleanupPromptBoundsWhatItAsksForAndTheDecoderKeepsOnlyWhatWasAsked(t *testing.T) {
+func TestADuplicatesAnswerKeepsAtMostTwentyPairs(t *testing.T) {
 	var bank []domain.BankQuestion
-	for i := range prompts.MaxTagsAsked + 2 {
-		bank = append(bank, domain.BankQuestion{ID: fmt.Sprintf("b%d", i), Type: prompts.ShortAnswer, Prompt: fmt.Sprintf("Prompt %d", i)})
+	var pairs []domain.SimilarPair
+	var rows []map[string]any
+	for i := range 2 * (prompts.MaxDuplicatesAsked + 5) {
+		bank = append(bank, domain.BankQuestion{ID: fmt.Sprintf("d%d", i), Type: prompts.ShortAnswer, Prompt: "Define the word"})
 	}
-	bank[1].Tags = []string{"grammar"}
-	in := prompts.CleanupInput{Questions: bank, Checks: []string{prompts.CleanupDuplicates, prompts.CleanupTags}, Language: domain.English}
-	if !in.Capped() {
-		t.Fatal("a bank with more untagged questions than the cap is not capped")
+	for i := 0; i < len(bank); i += 2 {
+		pairs = append(pairs, domain.SimilarPair{A: i, B: i + 1})
+		rows = append(rows, map[string]any{"a": fmt.Sprintf("q%d", i+1), "b": fmt.Sprintf("q%d", i+2), "why": "Alike."})
 	}
-	if (prompts.CleanupInput{Questions: bank, Checks: []string{prompts.CleanupDuplicates}}).Capped() {
-		t.Error("a clean-up that asks for no tags is capped")
+	got, err := prompts.DecodeDuplicates(marshal(t, map[string]any{"duplicates": rows}), prompts.DuplicatesInput{Bank: bank, Pairs: pairs})
+	if err != nil || len(got) != prompts.MaxDuplicatesAsked {
+		t.Errorf("%d pairs kept, %v, want the first %d", len(got), err, prompts.MaxDuplicatesAsked)
 	}
-	if (prompts.CleanupInput{Questions: bank[:prompts.MaxTagsAsked], Checks: []string{prompts.CleanupTags}}).Capped() {
-		t.Error("a bank at the cap, with one question tagged, is capped")
-	}
-	prompt, err := prompts.Cleanup(in)
+}
+
+func TestTheTaggingCallSendsTheQuestionsItIsAskedAboutTheBanksTagsAndNoId(t *testing.T) {
+	bank := deckBank()
+	bank = append(bank, domain.BankQuestion{ID: "0198f5f0-0000-7000-8000-0000000000d1", Type: prompts.ShortAnswer, Prompt: "Name a tagged thing.", Tags: []string{"grammar", "Nouns,x"}})
+	in := prompts.TaggingInput{Bank: bank, Asked: []int{2, 3, 4}}
+	prompt, err := prompts.Tagging(in)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"for at most 60 of the questions marked tags=none, the first ones listed", "at most 20 pairs"} {
+	tags := []map[string]any{}
+	for i, u := range deckUntagged {
+		tags = append(tags, map[string]any{"question": fmt.Sprintf("q%d", i+3), "tags": append(slices.Clone(u.Tags), "Grammar", "extra", "more", "dropped"), "level": strings.ToLower(u.Level)})
+	}
+	tags = append(tags, map[string]any{"question": "q1", "tags": []string{"already tagged"}, "level": "a1"}, map[string]any{"question": "q3", "tags": []string{"twice"}, "level": ""}, map[string]any{"question": "q4", "tags": []string{}, "level": ""})
+	answer := map[string]any{"tags": tags}
+	conforms(t, prompt.Schema, answer)
+	for _, want := range []string{"Tags already used in the bank (reuse one when it fits): grammar, nouns x", "q3 [short_answer] level=?:", "q5 [short_answer] level=c1:", "1-4 short lower-case tags"} {
 		if !strings.Contains(prompt.User, want) {
-			t.Errorf("the prompt lacks %q", want)
+			t.Errorf("the prompt lacks %q:\n%s", want, prompt.User)
 		}
 	}
-	if prompt.MaxTokens != 3000 {
-		t.Errorf("MaxTokens = %d, want 3000", prompt.MaxTokens)
+	if strings.Contains(prompt.User, "0198f5f0") || strings.Contains(prompt.User, deckDuplicates[0].A) || strings.Contains(prompt.User, "Name a tagged thing") {
+		t.Error("the prompt sends an id, or a question it was not asked about")
 	}
+	got, err := prompts.DecodeTagging(marshal(t, answer), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 3 || got[0].Question.ID != bank[2].ID || got[1].Question.Prompt != deckUntagged[1].Prompt || got[0].Level != "b1" || got[1].Level != "b1" || got[2].Level != "" {
+		t.Fatalf("tags %+v, want the three questions asked about, once each and in bank order, a level only where the question had none", got)
+	}
+	if !slices.Equal(got[0].Tags, []string{"directions", "prepositions of place", "grammar", "extra"}) {
+		t.Errorf("tags %v, want at most four, lower case, in order", got[0].Tags)
+	}
+	if _, err := prompts.Tagging(prompts.TaggingInput{Bank: bank}); !errors.Is(err, domain.ErrNothingToRead) {
+		t.Errorf("nothing asked: %v", err)
+	}
+	if _, err := prompts.Tagging(prompts.TaggingInput{Bank: bank, Asked: []int{9}}); err == nil {
+		t.Error("a place outside the bank was built")
+	}
+}
+
+func TestTagChunksAskTagsForAtMostTwoHundredQuestionsInRunsOfFifty(t *testing.T) {
+	bank := untaggedBank(prompts.MaxTagsAsked + 60).Questions
+	bank[1].Tags = []string{"grammar"}
+	chunks, more := prompts.TagChunks(bank)
+	if !more || len(chunks) != prompts.MaxTagChunks {
+		t.Fatalf("%d chunks, more %v, want %d chunks and a bank that held more", len(chunks), more, prompts.MaxTagChunks)
+	}
+	var asked []int
+	for _, chunk := range chunks {
+		if len(chunk) != prompts.TagChunkSize {
+			t.Errorf("a chunk of %d, want %d", len(chunk), prompts.TagChunkSize)
+		}
+		asked = append(asked, chunk...)
+	}
+	if asked[0] != 0 || asked[1] != 2 || asked[len(asked)-1] != prompts.MaxTagsAsked || slices.Contains(asked, 1) {
+		t.Errorf("asked %v..%v, want the first %d questions without tags and not the tagged one", asked[:3], asked[len(asked)-1], prompts.MaxTagsAsked)
+	}
+	if prompts.MaxTagsAsked > prompts.MaxTagSuggestions {
+		t.Errorf("the clean-up asks for %d tags and returns at most %d", prompts.MaxTagsAsked, prompts.MaxTagSuggestions)
+	}
+
+	chunks, more = prompts.TagChunks(untaggedBank(prompts.MaxTagsAsked).Questions)
+	if more || len(chunks) != prompts.MaxTagChunks {
+		t.Errorf("a bank at the cap: %d chunks, more %v", len(chunks), more)
+	}
+	chunks, more = prompts.TagChunks(untaggedBank(prompts.TagChunkSize + 7).Questions)
+	if more || len(chunks) != 2 || len(chunks[1]) != 7 {
+		t.Errorf("a short last chunk: %v, more %v", chunks, more)
+	}
+	if chunks, more = prompts.TagChunks(deckBank()[:2]); chunks != nil || more {
+		t.Errorf("a bank with every question tagged: %v, %v", chunks, more)
+	}
+}
+
+func TestATaggingAnswerKeepsOnlyWhatWasAskedAbout(t *testing.T) {
+	bank := untaggedBank(prompts.TagChunkSize + 10).Questions
+	chunks, _ := prompts.TagChunks(bank)
+	in := prompts.TaggingInput{Bank: bank, Asked: chunks[0]}
 	rows := []map[string]any{}
 	for i := range bank {
 		rows = append(rows, map[string]any{"question": fmt.Sprintf("q%d", i+1), "tags": []string{"nouns"}, "level": ""})
 	}
-	got, err := prompts.DecodeCleanup(marshal(t, map[string]any{"duplicates": []any{}, "tags": rows}), in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(got.Tags) != prompts.MaxTagsAsked {
-		t.Fatalf("%d tag suggestions, want the first %d untagged questions", len(got.Tags), prompts.MaxTagsAsked)
-	}
-	for _, tag := range got.Tags {
-		if tag.Question.ID == "b1" || tag.Question.ID == fmt.Sprintf("b%d", prompts.MaxTagsAsked+1) {
-			t.Errorf("a suggestion for %s, which was tagged or past the cap", tag.Question.ID)
-		}
+	got, err := prompts.DecodeTagging(marshal(t, map[string]any{"tags": rows}), in)
+	if err != nil || len(got) != prompts.TagChunkSize {
+		t.Fatalf("%d suggestions, %v, want the %d asked about and none for the other ten", len(got), err, prompts.TagChunkSize)
 	}
 }
 
-func TestFitCleanupKeepsTheLongestPrefixThatFitsTheBudget(t *testing.T) {
-	long := strings.Repeat("word ", 40)
-	var bank []domain.BankQuestion
-	for range 2000 {
-		bank = append(bank, domain.BankQuestion{Type: prompts.ShortAnswer, Prompt: long})
+func TestACleanupCallLongerThanTheCapIsRefused(t *testing.T) {
+	bank := untaggedBank(2000).Questions
+	asked := make([]int, len(bank))
+	for i := range asked {
+		asked[i] = i
 	}
-	fit, cut := prompts.FitCleanup(bank)
-	if !cut || len(fit) == 0 || len(fit) >= len(bank) {
-		t.Fatalf("kept %d of %d, cut %v", len(fit), len(bank), cut)
+	for i := range bank {
+		bank[i].Prompt = strings.Repeat("word ", 40)
 	}
-	if _, err := prompts.Cleanup(prompts.CleanupInput{Questions: fit}); err != nil {
-		t.Errorf("what fits was refused: %v", err)
+	if _, err := prompts.Tagging(prompts.TaggingInput{Bank: bank, Asked: asked}); !errors.Is(err, domain.ErrTooLarge) {
+		t.Errorf("the whole bank in one tagging call: %v, want ErrTooLarge", err)
 	}
-	if _, err := prompts.Cleanup(prompts.CleanupInput{Questions: bank}); !errors.Is(err, domain.ErrTooLarge) {
-		t.Errorf("the whole bank: %v, want ErrTooLarge", err)
+	largest := make([]domain.BankQuestion, 0, 2*prompts.MaxCandidatePairs)
+	pairs := make([]domain.SimilarPair, 0, prompts.MaxCandidatePairs)
+	for i := range prompts.MaxCandidatePairs {
+		for range 2 {
+			largest = append(largest, domain.BankQuestion{Type: "multiple_choice", Level: "pre_a1", Tags: []string{strings.Repeat("t", 80), strings.Repeat("u", 80), "c", "d", "e"}, Prompt: strings.Repeat("w", 400)})
+		}
+		pairs = append(pairs, domain.SimilarPair{A: 2 * i, B: 2*i + 1})
 	}
-	if all, cut := prompts.FitCleanup(bank[:10]); cut || len(all) != 10 {
-		t.Errorf("a small bank was cut: %d, %v", len(all), cut)
+	prompt, err := prompts.Duplicates(prompts.DuplicatesInput{Bank: largest, Pairs: pairs, Language: domain.Vietnamese})
+	if err != nil || len(prompt.User) > 90_000 {
+		t.Errorf("the largest duplicates call is %d characters, %v, want it inside the cap with room to spare", len(prompt.User), err)
 	}
 }
