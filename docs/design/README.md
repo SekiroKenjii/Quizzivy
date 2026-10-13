@@ -312,6 +312,13 @@ files in `deck/` byte for byte:
   merged import workspace (not yet built). The check script changed with this import: a page's
   references resolve from the page's own folder.
 
+- 2026-10-13 — The design team's answer to Q6 (#581, DG-184, DG-185): `page-width-proposal/Cloze
+  Decision.dc.html` is added, and `Page Width Proposal.dc.html` and `github.md` are updated to
+  link it. #581 did not regenerate the manifest; the manifest is regenerated here, and no page
+  changes. It draws a cloze as one question per gap shown as one screen (T-D4.10's default) and
+  the pieces T-D4.10 adds: the run's ties and current ring in the rail and the sheet, the flag
+  naming the open gap, the "{k} of {m} gaps" line, the hint, and the result's run line.
+
 ## The brand
 
 `brand/` is Thuong's kit, copied byte for byte from `~/Developer/designs/quizzivy-brand`. The
