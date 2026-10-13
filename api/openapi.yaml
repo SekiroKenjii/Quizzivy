@@ -4466,7 +4466,6 @@ components:
           uniqueItems: true
           items: { $ref: '#/components/schemas/AiVariantKind' }
         difficulty: { type: string, enum: [same, easier, harder] }
-        language: { $ref: '#/components/schemas/AiLanguage' }
 
     AiVariantPayload:
       type: object
@@ -4562,12 +4561,6 @@ components:
           items: { type: string, minLength: 1, maxLength: 300 }
         comment: { type: string, maxLength: 1000, description: A comment to the student, for the teacher to keep, change or drop. }
         usage: { $ref: '#/components/schemas/AiUsage' }
-
-    AiInsightsRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        language: { $ref: '#/components/schemas/AiLanguage' }
 
     AiInsight:
       type: object
@@ -9943,7 +9936,7 @@ paths:
         '403': { $ref: '#/components/responses/AiNotAllowed' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422':
-          description: The draft has no question to check.
+          description: The draft has no question to check, or holds more than one call reads.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -9981,7 +9974,7 @@ paths:
         '403': { $ref: '#/components/responses/AiNotAllowed' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422':
-          description: The draft has no question to vary.
+          description: The draft has no question to vary, or holds more than one call reads.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -10039,7 +10032,7 @@ paths:
         saved.
       responses:
         '200':
-          description: The suggestions; empty when the provider offered none that were new.
+          description: One to four suggestions, none of them an option the question already has.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AiDistractorsResult' }
@@ -10073,8 +10066,9 @@ paths:
         the student's other answers are never sent. The caller must hold
         `teaching.grading` as well as `ai.use`, the attempt must be one they
         reach as the grading reads do, and their `ai.readStudentAnswers`
-        preference must be on (`AI_READ_OFF`). The AI never writes a mark:
-        a teacher saves one with `gradeAttempt`.
+        preference must be on (`AI_READ_OFF`). The reasons and the comment are
+        written in the language of the caller's `ai.language` preference. The
+        AI never writes a mark: a teacher saves one with `gradeAttempt`.
       responses:
         '200':
           description: The suggestion.
@@ -10119,19 +10113,14 @@ paths:
         what to do about it. No name, id or attempt is sent, and nothing says
         who wrote what. The caller needs `teaching.grading` as well as `ai.use`,
         and their `ai.readStudentAnswers` preference must be on
-        (`AI_READ_OFF`).
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/AiInsightsRequest' }
+        (`AI_READ_OFF`). The text is written in the language of the caller's
+        `ai.language` preference.
       responses:
         '200':
           description: Up to four insights.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AiInsightsResult' }
-        '400': { $ref: '#/components/responses/BadRequest' }
         '402': { $ref: '#/components/responses/AiCreditsExhausted' }
         '403': { $ref: '#/components/responses/AiNotAllowed' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -10171,7 +10160,7 @@ paths:
         '402': { $ref: '#/components/responses/AiCreditsExhausted' }
         '403': { $ref: '#/components/responses/AiNotAllowed' }
         '422':
-          description: The caller owns no question to look at.
+          description: The caller owns no question to look at, or owns more than one call reads.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
