@@ -1,7 +1,9 @@
 import { useMemo, useRef, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Download, Link2, QrCode, RotateCw } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
+import { Copy, Download, Link2, Pause, RotateCw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/sonner";
@@ -16,18 +18,26 @@ import {
 } from "@/features/classes/api";
 import { saveError } from "@/features/classes/classFields";
 import { JoinQr } from "@/features/classes/components/JoinQr";
-import { ShowQrDialog } from "@/features/classes/components/ShowQrDialog";
+import { JoinQrDialog } from "@/features/classes/components/JoinQrDialog";
 import { invalidateClass } from "@/features/classes/invalidate";
-import { useCopyJoinLink } from "@/features/classes/joinLink";
+import {
+  joinLinkLabel,
+  joinLinkOf,
+  useCopyJoinCode,
+  useCopyJoinLink,
+} from "@/features/classes/joinLink";
 import { downloadJoinQr } from "@/features/classes/joinQrImage";
 import { dayMonthYear, formatTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { ApiError } from "@/lib/api/errors";
 import { useLocale } from "@/lib/i18n/useLocale";
+import { cn } from "@/lib/utils";
 
 const EXPIRY_DAYS = ["30", "7", "90"] as const;
 const DEFAULT_MAX_USES = "40";
 const MAX_USES = 1000;
 const DAY_MS = 86_400_000;
+const QR_BG = "var(--qr-bg)";
+const QR_FG = "var(--qr-fg)";
 
 type CodeOptions = { expires: string; maxUses: string };
 
@@ -44,18 +54,21 @@ const NEXT = {
   submit: "classDetail.rotateConfirm",
 } as const;
 
-const ACTION =
-  "bg-card hover:bg-muted rounded-seg inline-flex h-8 items-center justify-center gap-1.5 border px-2.5 text-xs font-medium whitespace-nowrap [&_svg]:size-3.5";
+const SHARE =
+  "bg-card hover:bg-muted inline-flex h-8 min-w-0 rounded-md flex-[1_1_auto] items-center justify-center gap-1.5 border px-2.5 text-meta font-medium whitespace-nowrap [&_svg]:size-3.5 [&_svg]:flex-none";
 
 /**
- * JoinCodePanel is the class's join code card, as the deck draws it with
- * DG-01's change: the "Students can join" switch, the code always in full
- * (read with `getJoinCode`, kept no longer than the screen), when it
- * expires and how many uses it has had, Copy link, Copy code, the QR and its
- * download, New code with its expiry and use limit (30, 7 or 90 days; 1 to
- * 1,000 uses, 40 by default), and Stop after a confirm. A class with no
- * code says so and offers Create code, without the paused text or the
- * sharing line, which speak of a code. An archived class cannot be joined,
+ * JoinCodePanel is the class's join code card, as the v2 deck draws it
+ * (DG-01): the "Students can join" switch; the QR as a button that opens it
+ * full size for the projector, faded while joining is paused; the code
+ * always in full (read with `getJoinCode`, kept no longer than the screen)
+ * with the join link under it and, while paused, a "Joining paused" chip;
+ * Copy code, Copy link and Download QR; when it expires and how many uses it
+ * has had; New code with its expiry and use limit (30, 7 or 90 days; 1 to
+ * 1,000 uses, 40 by default), which then shows the new code in the New join
+ * code dialog; and Stop after a confirm. A class with no code says so and
+ * offers Create code, without the line that speaks of an old code. An
+ * archived class cannot be joined,
  * so it offers neither New code nor Create code and says to restore it
  * first; Stop stays. A page that has not yet seen the class archived
  * elsewhere still offers New code; the server's 409 CLASS_ARCHIVED then
@@ -86,6 +99,7 @@ export function JoinCodePanel({
   const [rotating, setRotating] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [showingQr, setShowingQr] = useState(false);
+  const [issued, setIssued] = useState<string | null>(null);
 
   const refresh = () => invalidateClass(queryClient, klass.id);
   const selfJoin = useMutation({
@@ -103,9 +117,9 @@ export function JoinCodePanel({
         expiresInDays: Number(options.expires),
         maxUses: Number(options.maxUses),
       }),
-    onSuccess: async (issued) => {
+    onSuccess: async (made) => {
       setRotating(false);
-      toast(t("classes.codeRenewedWith", { code: issued.code }));
+      setIssued(made.code);
       await refresh();
     },
     onError: (cause) => {
@@ -172,12 +186,7 @@ export function JoinCodePanel({
         </label>
       </div>
 
-      <div className="flex flex-col gap-3 px-4.5 pb-4">
-        {klass.selfJoinEnabled || info === null ? null : (
-          <p className="text-muted-fg text-meta leading-normal">
-            {t("classDetail.selfJoinOffHint")}
-          </p>
-        )}
+      <div className="flex flex-col gap-3.5 px-4.5 pb-4">
         {info === null ? (
           <p className="text-muted-fg text-sm">{t("classDetail.noActiveCode")}</p>
         ) : (
@@ -185,6 +194,7 @@ export function JoinCodePanel({
             info={info}
             readable={readable}
             unreadable={canWrite && code.isSuccess && readable === null}
+            paused={!klass.selfJoinEnabled}
             now={now}
             onShowQr={() => setShowingQr(true)}
           />
@@ -207,7 +217,7 @@ export function JoinCodePanel({
         ) : null}
         {info === null || archived ? null : (
           <p className="text-muted-fg text-xs leading-normal">
-            {t("classDetail.codeShareHint")}
+            {t("classDetail.newCodeNote")}
           </p>
         )}
       </div>
@@ -250,11 +260,23 @@ export function JoinCodePanel({
           if (!revoke.isPending) revoke.mutate();
         }}
       />
-      <ShowQrDialog
-        target={
-          showingQr && readable !== null ? { name: klass.name, code: readable } : null
-        }
+      <JoinQrDialog
+        code={showingQr ? readable : null}
+        title={t("classDetail.qrDialogTitle", { name: klass.name })}
+        description={t(
+          klass.selfJoinEnabled
+            ? "classDetail.qrDialogHint"
+            : "classDetail.qrDialogPaused",
+        )}
         onClose={() => setShowingQr(false)}
+      />
+      <JoinQrDialog
+        code={issued}
+        share
+        title={t("classDetail.issuedTitle")}
+        description={t("classDetail.issuedHint")}
+        returnFocus={rotateButton}
+        onClose={() => setIssued(null)}
       />
     </section>
   );
@@ -315,32 +337,77 @@ function CodeSummary({
   info,
   readable,
   unreadable,
+  paused,
   now,
   onShowQr,
 }: Readonly<{
   info: NonNullable<Class["joinCode"]>;
   readable: string | null;
   unreadable: boolean;
+  paused: boolean;
   now: number;
   onShowQr: () => void;
 }>) {
   const { t } = useTranslation();
   const locale = useLocale();
   const copyLink = useCopyJoinLink();
+  const copyCode = useCopyJoinCode();
   const qrFrame = useRef<HTMLDivElement>(null);
   return (
     <>
-      <div className="rounded-[0.5625rem] border p-3 text-center">
-        <p className="font-mono text-xl tracking-[.06em] whitespace-nowrap">
-          {readable ?? t("classDetail.maskedCode", { hint: info.hint })}
-        </p>
-        {unreadable ? (
-          <p className="text-muted-fg mt-1.5 text-xs leading-[1.45]">
-            {t("classDetail.unreadableNote")}
+      <div className="flex flex-wrap items-center gap-3.5">
+        {readable === null ? null : (
+          <QrButton code={readable} paused={paused} onClick={onShowQr} />
+        )}
+        <div className="flex min-w-0 flex-[1_1_140px] flex-col items-start gap-1">
+          <p className="text-stat font-mono leading-[1.3] font-semibold tracking-[.08em] whitespace-nowrap">
+            {readable ?? t("classDetail.maskedCode", { hint: info.hint })}
           </p>
-        ) : null}
+          {readable === null ? null : (
+            <p className="text-muted-fg text-meta max-w-full truncate leading-normal">
+              {joinLinkLabel(readable)}
+            </p>
+          )}
+          {unreadable ? (
+            <p className="text-muted-fg text-xs leading-[1.45]">
+              {t("classDetail.unreadableNote")}
+            </p>
+          ) : null}
+          {paused ? (
+            <Badge
+              variant="warning"
+              className="mt-0.5 max-w-full border-0 in-data-[scale=deck]:px-2 [&>svg]:size-3"
+            >
+              <Pause aria-hidden="true" />
+              <span className="truncate">{t("classDetail.joiningPaused")}</span>
+            </Badge>
+          ) : null}
+        </div>
       </div>
-      <dl className="m-0 flex flex-col gap-2 text-[0.84375rem]">
+      {readable === null ? null : (
+        <div className="flex flex-wrap gap-1.5">
+          <button type="button" className={SHARE} onClick={() => copyCode(readable)}>
+            <Copy aria-hidden="true" />
+            <span className="truncate">{t("classDetail.copyCode")}</span>
+          </button>
+          <button type="button" className={SHARE} onClick={() => copyLink(readable)}>
+            <Link2 aria-hidden="true" />
+            <span className="truncate">{t("classDetail.copyLink")}</span>
+          </button>
+          <button
+            type="button"
+            className={SHARE}
+            onClick={() => downloadJoinQr(qrFrame.current, readable)}
+          >
+            <Download aria-hidden="true" />
+            <span className="truncate">{t("classDetail.downloadQr")}</span>
+          </button>
+          <div hidden>
+            <JoinQr ref={qrFrame} code={readable} />
+          </div>
+        </div>
+      )}
+      <dl className="text-ui m-0 flex flex-col gap-2 border-t pt-3 leading-normal">
         <div className="flex justify-between gap-3">
           <dt className="text-muted-fg">{t("classDetail.expiresAt")}</dt>
           <dd className="m-0 text-right">
@@ -361,38 +428,36 @@ function CodeSummary({
           </dd>
         </div>
       </dl>
-      {readable === null ? null : (
-        <div className="grid grid-cols-2 gap-2">
-          <button type="button" className={ACTION} onClick={() => copyLink(readable)}>
-            <Link2 aria-hidden="true" />
-            {t("classDetail.copyLink")}
-          </button>
-          <button
-            type="button"
-            className={ACTION}
-            onClick={() => copyCode(readable, t)}
-          >
-            <Copy aria-hidden="true" />
-            {t("classDetail.copyCode")}
-          </button>
-          <button type="button" className={ACTION} onClick={onShowQr}>
-            <QrCode aria-hidden="true" />
-            {t("classDetail.qr")}
-          </button>
-          <button
-            type="button"
-            className={ACTION}
-            onClick={() => downloadJoinQr(qrFrame.current, readable)}
-          >
-            <Download aria-hidden="true" />
-            {t("classes.download")}
-          </button>
-          <div hidden>
-            <JoinQr ref={qrFrame} code={readable} />
-          </div>
-        </div>
-      )}
     </>
+  );
+}
+
+function QrButton({
+  code,
+  paused,
+  onClick,
+}: Readonly<{ code: string; paused: boolean; onClick: () => void }>) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      aria-label={t("classDetail.showQr")}
+      title={t("classDetail.showQrFull")}
+      className={cn(
+        "bg-qr-bg text-qr-fg grid size-28 flex-none cursor-zoom-in place-items-center rounded-[10px] border p-0 transition-opacity motion-reduce:transition-none",
+        paused && "opacity-40",
+      )}
+      onClick={onClick}
+    >
+      <QRCodeSVG
+        value={joinLinkOf(code)}
+        size={88}
+        level="M"
+        bgColor={QR_BG}
+        fgColor={QR_FG}
+        aria-hidden="true"
+      />
+    </button>
   );
 }
 
@@ -414,13 +479,4 @@ function ExpiryNote({ expiresAt, now }: Readonly<{ expiresAt: string; now: numbe
 function maxUsesValid(value: string): boolean {
   const n = Number(value.trim());
   return value.trim() !== "" && Number.isInteger(n) && n >= 1 && n <= MAX_USES;
-}
-
-function copyCode(code: string, t: (key: string) => string) {
-  void Promise.resolve()
-    .then(() => navigator.clipboard.writeText(code))
-    .then(
-      () => toast(t("classDetail.codeCopied")),
-      () => toast.error(t("classDetail.copyFailed")),
-    );
 }
