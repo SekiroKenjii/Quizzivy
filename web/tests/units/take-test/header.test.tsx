@@ -180,7 +180,7 @@ describe("the header at 1280", () => {
     expect(controls[1]).toHaveClass("h-9.5", "min-h-0", "bg-primary");
 
     expect(banner().getByText(TITLE)).toHaveClass("truncate", "font-semibold");
-    expect(banner().getByText(SAVED)).toBeInTheDocument();
+    expect(banner().getByText(SAVED)).toHaveClass("truncate");
     expect(timer()).toHaveTextContent("38:12");
     expect(timer()).toHaveClass("mx-auto", "h-9", "rounded-full", "tabular-nums");
 
@@ -722,6 +722,7 @@ describe("the header on a phone", () => {
     await pass(FLUSH_DEBOUNCE_MS);
     expect(strip()).toHaveTextContent(FAILED);
     expect(strip()).not.toHaveClass("min-h-[35px]");
+    expect(within(strip()!).getByText(FAILED)).not.toHaveClass("truncate");
     expect(within(strip()!).getByText(FAILED).parentElement).toHaveClass(
       "text-danger-ink",
     );
