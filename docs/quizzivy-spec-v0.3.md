@@ -1,9 +1,9 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.111 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.112 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
-**Changes since v0.110**
+**Changes since v0.111**
 
 R5, T-R5.20 (R5-08): the Admin console's shell and route tree. Its screens are later R5 tasks; each route renders a placeholder until its task lands.
 
@@ -11,6 +11,13 @@ R5, T-R5.20 (R5-08): the Admin console's shell and route tree. Its screens are l
 - §5.4 `homePathFor` sends a built-in Admin (the holder of `scope.all`) to the console in `preferences.workspace` and to `/admin` the first time, any other holder of the `teacher` workspace to `/teacher`, a user with only the `admin` workspace to `/admin`, and anyone else to `/app`.
 - §7, §15 `UserPreferences.workspace` (`teacher` or `admin`), written by `PATCH /me/preferences` when the user switches console; any other value answers `400 VALIDATION_FAILED`. No new operation and no migration: the preferences are one JSON document.
 - §8 The consoles share one shell. The workspace switcher and the account menu gain the Admin console for a holder of both; the Admin menu has System settings, API reference, Teacher workspace, the theme and Sign out, and for a user without the `teacher` workspace also Change password (when the account has one) and Language. `/change-password` asks for the current password when the change is not forced.
+
+**Changes since v0.110**
+
+R5, T-R5.8 (QC follow-up on the roles API).
+
+- §15 `createRole` and `updateRole` store a name and a description in Unicode NFC, so the composed and decomposed forms of one name are one name, and refuse a name that holds a line break or a control, format, line- or paragraph-separator character. At most 200 roles exist, the built-in four included; `createRole` past that answers `422 ROLE_LIMIT_REACHED`. `AssignableRole.studentTarget` says a custom role with no permission is a student target. The role operations promise propagation to another machine "within about ten seconds".
+- §13 Advisory lock `(73819, 44)` serialises role creation against the limit (`docs/plan/20-data-model.md` §28).
 
 **Changes since v0.109**
 
