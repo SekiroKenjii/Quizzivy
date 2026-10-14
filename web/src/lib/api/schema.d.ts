@@ -540,8 +540,9 @@ export interface paths {
          *     The move is guarded exactly as `updateQuestionGroup` guards a save:
          *     `expectedUpdatedAt` is the test revision, and
          *     `expectedGroupRevisions` names the revision of every group the move
-         *     touches, the source and the destination, once each. A touched group
-         *     missing from the list is `STALE_WRITE`. The answer carries the new
+         *     touches, the source and the destination, once each, and no other. A
+         *     touched group missing from the list is `STALE_WRITE`; a group the move
+         *     does not touch, or one named twice, is a `400`. The answer carries the new
          *     test revision and every touched group at its new revision, so the
          *     builder goes on from them. Nothing is written when the move is
          *     refused. No published version is touched; the next publish freezes
@@ -8200,9 +8201,15 @@ export interface operations {
             };
             /**
              * @description The body fails its schema (`to.index` below zero, more than two
-             *     group revisions, an unknown field); or it asks for a move between
-             *     two standalone places, which `updateTest` writes; or
-             *     `to.groupId` is a group that `to.sectionId` does not own.
+             *     group revisions, an unknown field); or the move itself is not one
+             *     this operation makes. `details.rule` names the case:
+             *     `move_outline_only` — a move between two standalone places, which
+             *     `updateTest` writes; `move_group_section` — `to.groupId` is a
+             *     group that `to.sectionId` does not own; `move_revisions` —
+             *     `expectedGroupRevisions` names a group twice, or names a group the
+             *     move does not touch; `move_source_ambiguous` — the question is a
+             *     standalone unit of more than one section of the test, which the
+             *     request cannot tell apart.
              */
             400: {
                 headers: {
@@ -8213,7 +8220,7 @@ export interface operations {
                 };
             };
             403: components["responses"]["Forbidden"];
-            /** @description The test, the question, the section or a group is outside the caller's reach, or is not of this test. Another teacher's id answers exactly as a missing one does. */
+            /** @description The test, the question, the section or a group is outside the caller's reach, or is not of this test. Another teacher's id answers exactly as a missing one does. An entry of `expectedGroupRevisions` is a group like any other, so one the caller cannot reach answers 404 before any revision is compared. */
             404: {
                 headers: {
                     [name: string]: unknown;
