@@ -459,7 +459,9 @@ hash.
 Mail is sent from `email_outbox` by a dispatcher in the API and one in the
 worker, through Resend's HTTP API with `RESEND_API_KEY`. `EMAIL_FROM`,
 `APP_URL` and the key are set together, and production refuses to start
-without all three. `EMAIL_DAILY_LIMIT` (100, Resend's free tier) counts sends
+without all three. Start-up refuses a malformed `EMAIL_FROM` or
+`EMAIL_REPLY_TO` (one address, no line break) and an `APP_URL` that is not a
+bare origin (no path, `?`, `#` or whitespace). `EMAIL_DAILY_LIMIT` (100, Resend's free tier) counts sends
 per local day in `APP_TIMEZONE`; the excess moves to the next local midnight.
 `EMAIL_SEND_RATE` (2 a second) spaces the sends. Outside production, without
 the three, every message is written as a JSON file under `EMAIL_SINK_DIR`.
@@ -473,7 +475,9 @@ SELECT template, count(*) FILTER (WHERE sent_at IS NULL AND failed_at IS NULL) A
   FROM app.email_outbox GROUP BY template;
 ```
 
-A failed row keeps its `last_error_code` (`http_422:validation_error`,
+A row of a template the running binary does not know stays pending until a
+newer binary runs; if a deploy is rolled back, those rows wait for the next
+release. A failed row keeps its `last_error_code` (`http_422:validation_error`,
 `secret_unreadable`, ...) and nothing of the message. The logs carry the
 outbox id, template, outcome and recipient domain, never an address, a subject
 or a link.

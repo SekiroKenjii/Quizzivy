@@ -292,6 +292,8 @@ and any reversal of the defaults above.
 - **T-30 (2026-10-10).** When several lanes add rows at once, the Tech Lead reserves
   design-gap numbers per lane (DG-146 for T-R4.33, 147 to 149 for lane 2, 150 to 152 for
   lane 3). Spec versions are settled at merge: the second of two PRs to merge renumbers.
+  Superseded 2026-10-14 (D-022.4): a task PR no longer edits the spec's version line; it adds
+  bullets under "Changes pending" and the release PR numbers the spec.
 - **T-31 (2026-10-10).** Teacher wall-clock inputs stay in Asia/Ho_Chi_Minh until T-R4.43
   moves them all to the account's zone at once (spec v0.57). T-R4.27b's wizard follows this,
   and T-R4.43 carries the Done-when line.
