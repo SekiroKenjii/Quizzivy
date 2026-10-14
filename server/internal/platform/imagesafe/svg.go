@@ -15,8 +15,10 @@ import (
 
 // ErrSVGNotAllowed is why CheckSVG refuses an SVG that is well formed: a
 // DOCTYPE or entity, a processing instruction, a root other than svg, an element
-// outside the allowlist, an event attribute, or a reference that leaves the
-// document.
+// outside the allowlist, an event attribute, a reference that leaves the
+// document, or a shape a renderer could be made to expand without bound: more
+// than maxSVGElements elements, nesting deeper than maxSVGDepth, or a use that
+// references an element holding a use.
 var ErrSVGNotAllowed = errors.New("imagesafe: svg holds an element, attribute or reference that is not allowed")
 
 const (
@@ -27,11 +29,16 @@ const (
 
 	maxEscapeDigits = 6
 
+	maxSVGElements = 10000
+	maxSVGDepth    = 64
+
 	elementSVG   = "svg"
 	elementStyle = "style"
 	attrHref     = "href"
 	attrWidth    = "width"
 	attrHeight   = "height"
+	attrID       = "id"
+	elementUse   = "use"
 )
 
 var utf8BOM = []byte("\xef\xbb\xbf")
@@ -40,7 +47,7 @@ var svgElements = map[string]bool{
 	elementSVG: true, "g": true, "path": true, "rect": true, "circle": true, "ellipse": true,
 	"line": true, "polyline": true, "polygon": true, "defs": true, "linearGradient": true,
 	"radialGradient": true, "stop": true, "clipPath": true, "mask": true, "symbol": true,
-	"use": true, "title": true, "desc": true, "text": true, "tspan": true, elementStyle: true,
+	elementUse: true, "title": true, "desc": true, "text": true, "tspan": true, elementStyle: true,
 }
 
 var svgNumber = regexp.MustCompile(`^[+-]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$`)
@@ -60,6 +67,12 @@ var errSVGSize = fmt.Errorf("%w: the svg has no square viewBox, or width and hei
 // value, in a style element or in any attribute, that holds @import or a url()
 // whose argument does not begin with "#". Comments and escapes in the CSS are
 // looked through, so a split or escaped keyword is refused as well.
+//
+// A renderer expands every use, so a chain of them multiplies: a file of a
+// kilobyte whose uses reference groups of uses draws billions of instances. A
+// use may therefore not reference a use, or an element that holds one, which
+// also refuses a use that references its own ancestor. The document may hold at
+// most maxSVGElements elements nested at most maxSVGDepth deep.
 //
 // The size is the viewBox's width and height, or, without a viewBox, the root's
 // width and height attributes in pixels. It fails with ErrTooLarge,
@@ -95,10 +108,14 @@ type svgWalker struct {
 	rootAttrs  []xml.Attr
 	styleDepth int
 	css        strings.Builder
+	elements   int
+	openIDs    []string
+	holdsUse   map[string]bool
+	useTargets []string
 }
 
 func auditSVG(doc []byte) ([]xml.Attr, error) {
-	walker := svgWalker{decoder: xml.NewDecoder(bytes.NewReader(doc))}
+	walker := svgWalker{decoder: xml.NewDecoder(bytes.NewReader(doc)), holdsUse: map[string]bool{}}
 	walker.decoder.Strict = true
 	for first := true; ; first = false {
 		token, err := walker.decoder.Token()
@@ -114,6 +131,9 @@ func auditSVG(doc []byte) ([]xml.Attr, error) {
 	}
 	if !walker.rooted {
 		return nil, fmt.Errorf("%w: the svg has no root element", ErrUnreadable)
+	}
+	if err := walker.checkUses(); err != nil {
+		return nil, err
 	}
 	return walker.rootAttrs, nil
 }
@@ -151,11 +171,18 @@ func (w *svgWalker) start(el xml.StartElement) error {
 		}
 		w.rooted, w.rootAttrs = true, el.Attr
 	}
+	if w.elements++; w.elements > maxSVGElements {
+		return notAllowed("more elements than", strconv.Itoa(maxSVGElements))
+	}
+	if w.depth >= maxSVGDepth {
+		return notAllowed("nesting deeper than", strconv.Itoa(maxSVGDepth))
+	}
 	for _, attr := range el.Attr {
 		if err := checkAttribute(attr); err != nil {
 			return err
 		}
 	}
+	w.trackUse(el)
 	if el.Name.Local == elementStyle {
 		w.styleDepth++
 	}
@@ -163,8 +190,36 @@ func (w *svgWalker) start(el xml.StartElement) error {
 	return nil
 }
 
+func (w *svgWalker) trackUse(el xml.StartElement) {
+	id, _ := plainAttribute(el.Attr, attrID)
+	w.openIDs = append(w.openIDs, id)
+	if el.Name.Local != elementUse {
+		return
+	}
+	for _, open := range w.openIDs {
+		if open != "" {
+			w.holdsUse[open] = true
+		}
+	}
+	for _, attr := range el.Attr {
+		if strings.ToLower(attr.Name.Local) == attrHref {
+			w.useTargets = append(w.useTargets, strings.TrimPrefix(strings.Trim(attr.Value, spaceChars), "#"))
+		}
+	}
+}
+
+func (w *svgWalker) checkUses() error {
+	for _, target := range w.useTargets {
+		if w.holdsUse[target] {
+			return notAllowed("use of an element that holds a use", target)
+		}
+	}
+	return nil
+}
+
 func (w *svgWalker) end(el xml.EndElement) error {
 	w.depth--
+	w.openIDs = w.openIDs[:len(w.openIDs)-1]
 	if el.Name.Local != elementStyle {
 		return nil
 	}

@@ -490,3 +490,97 @@ func TestACheckedSVGIsReturnedByteForByte(t *testing.T) {
 		t.Errorf("answered %v and %d bytes, want the %d bytes it was given", err, len(out), len(doc))
 	}
 }
+
+func nestedUses(levels, fanOut int) string {
+	var b strings.Builder
+	b.WriteString(`<defs><circle id="l0" r="1"/>`)
+	for i := 1; i <= levels; i++ {
+		fmt.Fprintf(&b, `<g id="l%d">`, i)
+		for range fanOut {
+			fmt.Fprintf(&b, `<use href="#l%d"/>`, i-1)
+		}
+		b.WriteString(`</g>`)
+	}
+	b.WriteString(`</defs>`)
+	fmt.Fprintf(&b, `<use href="#l%d"/>`, levels)
+	return inSVG(b.String())
+}
+
+func TestAChainOfUsesThatWouldExpandWithoutBoundIsRefused(t *testing.T) {
+	cases := map[string]string{
+		"ten levels of ten, inside groups, a billion instances": nestedUses(10, 10),
+		"two levels of two":                              nestedUses(2, 2),
+		"a use of a use":                                 inSVG(`<defs><circle id="a" r="1"/><use id="b" href="#a"/></defs><use href="#b"/>`),
+		"a use of a group that holds a use":              inSVG(`<defs><circle id="a" r="1"/><g id="g"><use href="#a"/></g></defs><use href="#g"/>`),
+		"the xlink spelling":                             inSVG(`<defs><circle id="a" r="1"/><g id="g"><use xlink:href="#a"/></g></defs><use xlink:href="#g"/>`),
+		"a use declared before the group it names":       inSVG(`<use href="#g"/><defs><circle id="a" r="1"/><g id="g"><use href="#a"/></g></defs>`),
+		"a use of its own ancestor":                      inSVG(`<g id="g"><use href="#g"/></g>`),
+		"a use of the symbol it sits in":                 inSVG(`<symbol id="s" viewBox="0 0 10 10"><use href="#s"/></symbol><use href="#s"/>`),
+		"two uses that name each other":                  inSVG(`<g id="a"><use href="#b"/></g><g id="b"><use href="#a"/></g>`),
+		"a target with spaces around the fragment":       inSVG(`<g id="g"><use href="#a"/></g><use href=" #g "/>`),
+		"a use inside a clipPath that another use names": inSVG(`<defs><circle id="a" r="1"/><clipPath id="c"><use href="#a"/></clipPath></defs><use href="#c"/>`),
+	}
+	for name, doc := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, _, _, err := checkSVG(doc)
+
+			if !errors.Is(err, imagesafe.ErrSVGNotAllowed) {
+				t.Errorf("answered %v, want ErrSVGNotAllowed", err)
+			}
+		})
+	}
+}
+
+func TestTheBombFitsUnderTheSizeLimitSoOnlyTheShapeStopsIt(t *testing.T) {
+	doc := nestedUses(10, 10)
+
+	if len(doc) > 2<<10 {
+		t.Fatalf("the crafted file is %d bytes, want it small enough to prove the size limit does not see it", len(doc))
+	}
+}
+
+func TestUsesThatDoNotChainAreAccepted(t *testing.T) {
+	cases := map[string]string{
+		"one flat use":                               inSVG(`<defs><path id="a" d="M0 0h10v10z"/></defs><use href="#a"/>`),
+		"many uses of one shape":                     inSVG(`<defs><path id="a" d="M0 0h10v10z"/></defs>` + strings.Repeat(`<use href="#a"/>`, 500)),
+		"uses of different shapes":                   inSVG(`<defs><path id="a" d="M0 0h1z"/><symbol id="s"><circle r="1"/></symbol></defs><use href="#a"/><use href="#s"/>`),
+		"a use inside a group nobody names":          inSVG(`<defs><path id="a" d="M0 0h1z"/></defs><g id="top"><use href="#a"/></g>`),
+		"a use inside a clipPath only a style names": inSVG(`<defs><path id="a" d="M0 0h1z"/><clipPath id="c"><use href="#a"/></clipPath></defs><g clip-path="url(#c)"/>`),
+		"a gradient that refers to another gradient": inSVG(`<linearGradient id="a"/><linearGradient id="b" href="#a"/><linearGradient id="c" href="#b"/><rect fill="url(#c)"/>`),
+	}
+	for name, doc := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, _, _, err := checkSVG(doc)
+
+			if err != nil {
+				t.Errorf("answered %v, want success", err)
+			}
+		})
+	}
+}
+
+func TestAnSVGWithMoreThanTenThousandElementsIsRefused(t *testing.T) {
+	within := inSVG(strings.Repeat(`<path d="M0 0"/>`, 9999))
+	over := inSVG(strings.Repeat(`<path d="M0 0"/>`, 10000))
+
+	if _, _, _, err := checkSVG(within); err != nil {
+		t.Errorf("10000 elements answered %v, want success", err)
+	}
+	if _, _, _, err := checkSVG(over); !errors.Is(err, imagesafe.ErrSVGNotAllowed) {
+		t.Errorf("10001 elements answered %v, want ErrSVGNotAllowed", err)
+	}
+}
+
+func TestAnSVGNestedDeeperThanSixtyFourLevelsIsRefused(t *testing.T) {
+	nested := func(levels int) string {
+		return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">` +
+			strings.Repeat("<g>", levels-1) + strings.Repeat("</g>", levels-1) + `</svg>`
+	}
+
+	if _, _, _, err := checkSVG(nested(64)); err != nil {
+		t.Errorf("64 levels answered %v, want success", err)
+	}
+	if _, _, _, err := checkSVG(nested(65)); !errors.Is(err, imagesafe.ErrSVGNotAllowed) {
+		t.Errorf("65 levels answered %v, want ErrSVGNotAllowed", err)
+	}
+}
