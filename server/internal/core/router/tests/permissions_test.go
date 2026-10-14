@@ -82,8 +82,8 @@ func TestEveryDeclaredValueIsKnown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(requirements) != 139 {
-		t.Errorf("%d operations declare a permission, want 139", len(requirements))
+	if len(requirements) != 144 {
+		t.Errorf("%d operations declare a permission, want 144", len(requirements))
 	}
 	for pattern, requirement := range requirements {
 		for _, k := range requirement.Keys() {
@@ -375,6 +375,9 @@ func throughGate(h http.Handler, pattern, token string) int {
 func TestEachRoleMeetsExactlyTheOperationsItsPermissionsAllow(t *testing.T) {
 	h, requirements, _ := isolatedGate(t, rolePrincipals())
 	adminOnly := map[string]bool{"POST /admin/docs-session": true, "DELETE /admin/users/{id}": true}
+	for _, pattern := range []string{"GET /admin/roles", "POST /admin/roles", "GET /admin/roles/assignable", "PUT /admin/roles/permissions", "PATCH /admin/roles/{id}"} {
+		adminOnly[pattern] = true
+	}
 	for _, pattern := range []string{"GET /admin/ai/credits", "PATCH /admin/ai/rules", "POST /admin/ai/credits/additions", "PUT /admin/ai/teachers/{userId}/allowance", "POST /admin/ai/credit-requests/{id}/approve", "POST /admin/ai/credit-requests/{id}/decline"} {
 		adminOnly[pattern] = true
 	}
@@ -424,8 +427,8 @@ func TestTheAssistantMeetsOnlyItsSixRows(t *testing.T) {
 			t.Errorf("%s as the Assistant: %d, want %d", pattern, got, want)
 		}
 	}
-	if refused != 55 {
-		t.Errorf("the Assistant is refused %d operations, want 55: twenty-seven staff operations, the sixteen AI ones and the twelve /app ones", refused)
+	if refused != 60 {
+		t.Errorf("the Assistant is refused %d operations, want 60: thirty-two staff operations, the sixteen AI ones and the twelve /app ones", refused)
 	}
 }
 

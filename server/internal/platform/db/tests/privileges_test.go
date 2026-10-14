@@ -13,8 +13,6 @@ const appRole = "quizzivy_app"
 var readOnlyForApp = map[string]bool{
 	"maintenance_windows": true,
 	"permissions":         true,
-	"roles":               true,
-	"role_permissions":    true,
 }
 
 // TestAppRoleCanReadAndWriteEveryTable loops over information_schema rather than
@@ -149,5 +147,46 @@ func TestTheAppRoleCannotCreateTemporaryObjects(t *testing.T) {
 	}
 	if allowed {
 		t.Errorf("%s may create temporary objects in this database; migration 00079 revokes that only where the migration role owns the database", appRole)
+	}
+}
+
+// TestTheAppRoleWritesRolesAndGrantsAndNothingElseOfTheAccessModel pins
+// 00129_grant_role_writes: the role commands insert roles, change the columns
+// a role command changes, and add and remove grants. A role is never deleted
+// (DG-52), a built-in key never changes, and the permission catalogue is the
+// migration role's alone.
+func TestTheAppRoleWritesRolesAndGrantsAndNothingElseOfTheAccessModel(t *testing.T) {
+	conn := migrated(t)
+
+	for _, c := range []struct {
+		table string
+		priv  string
+		want  bool
+	}{
+		{"app.roles", "INSERT", true},
+		{"app.roles", "DELETE", false},
+		{"app.roles", "UPDATE", false},
+		{"app.role_permissions", "INSERT", true},
+		{"app.role_permissions", "DELETE", true},
+		{"app.role_permissions", "UPDATE", false},
+		{"app.permissions", "INSERT", false},
+		{"app.permissions", "UPDATE", false},
+		{"app.permissions", "DELETE", false},
+	} {
+		if got := hasTablePrivilege(t, conn, appRole, c.table, c.priv); got != c.want {
+			t.Errorf("%s %s on %s = %v, want %v", appRole, c.priv, c.table, got, c.want)
+		}
+	}
+	for column, want := range map[string]bool{
+		"name": true, "description": true, "icon": true, "color": true, "revision": true, "updated_at": true,
+		"id": false, "builtin_key": false, "copied_from": false, "created_by": false, "created_at": false,
+	} {
+		var got bool
+		if err := conn.QueryRow(`SELECT has_column_privilege($1, 'app.roles', $2, 'UPDATE')`, appRole, column).Scan(&got); err != nil {
+			t.Fatalf("has_column_privilege(%s): %v", column, err)
+		}
+		if got != want {
+			t.Errorf("%s UPDATE on app.roles(%s) = %v, want %v", appRole, column, got, want)
+		}
 	}
 }

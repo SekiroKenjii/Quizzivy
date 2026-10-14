@@ -1,6 +1,7 @@
 // Package domain is the access model: roles and the grants they store, the
 // PermissionManager that expands a role's grants into the permissions its
-// users hold, and the principal row a request is resolved from.
+// users hold, the Guard that holds a role command to the subset rule, and the
+// principal row a request is resolved from.
 package domain
 
 import (
@@ -31,11 +32,29 @@ type PrincipalRow struct {
 }
 
 // RoleRow is a role with what the Roles & permissions matrix shows of it: its
-// name and its stored grants.
+// name, how it is drawn and its stored grants.
 type RoleRow struct {
 	Role
-	Name   string
-	Grants access.Set
+	Name        string
+	Description string
+	Icon        string
+	Color       string
+	Grants      access.Set
+}
+
+// PermissionRow is one row of app.permissions: a catalogue key, the group the
+// matrix files it under and whether the matrix shows it.
+type PermissionRow struct {
+	Key      access.Key
+	Group    string
+	InMatrix bool
+}
+
+// Headcount is how many accounts hold a role and how many attempts those
+// accounts have in progress.
+type Headcount struct {
+	Users              int
+	InProgressAttempts int
 }
 
 // Repository is the read side of the access model.
@@ -50,6 +69,11 @@ type Repository interface {
 	// Roles returns every role with its grants: the built-in roles in the
 	// order Admin, Teacher, Assistant, Student, then custom roles oldest first.
 	Roles(ctx context.Context) ([]RoleRow, error)
+	// Permissions returns app.permissions' rows in matrix order.
+	Permissions(ctx context.Context) ([]PermissionRow, error)
+	// Headcounts returns the accounts and the attempts in progress of every
+	// role that has any, by role id.
+	Headcounts(ctx context.Context) (map[string]Headcount, error)
 }
 
 // PermissionManager expands a role's stored grants into the permissions its
