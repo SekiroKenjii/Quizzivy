@@ -115,7 +115,7 @@ describe("the workspace block of the Admin console", () => {
     );
     expect(block.querySelector("img")).toBeNull();
     const tile = block.querySelector("svg.lucide-shield")!.parentElement!;
-    expect(tile).toHaveClass("bg-primary", "text-primary-fg", "size-8", "rounded-lg");
+    expect(tile).toHaveClass("bg-primary", "text-primary-fg", "size-8", "rounded-md");
     expect(tile).toHaveAttribute("aria-hidden", "true");
   });
 

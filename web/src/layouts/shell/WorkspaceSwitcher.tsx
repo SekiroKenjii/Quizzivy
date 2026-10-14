@@ -54,7 +54,7 @@ function Tile({
         role={collapsed ? "img" : undefined}
         aria-label={collapsed ? t("app.name") : undefined}
         aria-hidden={collapsed ? undefined : true}
-        className="bg-primary text-primary-fg grid size-8 flex-none place-items-center rounded-lg"
+        className="bg-primary text-primary-fg grid size-8 flex-none place-items-center rounded-md"
       >
         <Shield className="size-4" aria-hidden="true" />
       </span>

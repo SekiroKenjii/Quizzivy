@@ -34,6 +34,20 @@ function normalised(pathname: string): string {
   return pathname.slice(0, end).toLowerCase();
 }
 
+const TEACHER_TWINS: ReadonlySet<string> = new Set([
+  ADMIN_PATHS.overview,
+  ADMIN_PATHS.classes,
+]);
+
+/**
+ * hasTeacherTwin reports whether an address of the console is also a page of
+ * the teacher's tree at the same path under `/teacher`, which a user without
+ * the console is sent to.
+ */
+export function hasTeacherTwin(pathname: string): boolean {
+  return TEACHER_TWINS.has(normalised(pathname));
+}
+
 /**
  * consolePath reports whether pathname is an address of the Admin console, as
  * the router matches it: in any letter case, with or without a trailing slash.

@@ -8,9 +8,10 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "@/components/ui/sonner";
 import { AuthLayout } from "@/features/auth/AuthLayout";
 import { changePassword } from "@/features/auth/api";
-import { destinationAfterSignIn, homePathFor } from "@/features/auth/home";
+import { destinationAfterSignIn } from "@/features/auth/home";
 import { readJoinContext } from "@/features/join/context";
 import { ApiError, failureMessage } from "@/lib/api/errors";
 import { passwordRules } from "@/lib/password";
@@ -18,13 +19,19 @@ import { cn } from "@/lib/utils";
 import { authStore, useAuthStore } from "@/stores/auth";
 import { runAccountMutation } from "@/features/auth/accountPreferences";
 
+function firstInvalid(forced: boolean, current: string, valid: boolean) {
+  if (!forced && current === "") return "current";
+  return valid ? "again" : "password";
+}
+
 /**
  * ChangePasswordPage is the forced password change (§5.4) an account with a
  * temporary password meets on its first sign-in. It asks for no current
  * password: the server does not need one while the change is forced. A user
  * who opens it by choice, as an Admin without a teacher workspace does from
- * the account menu, is asked for the current one and can go back. Once saved
- * it goes on to `?next=`, the user's home, or a join waiting to finish.
+ * the account menu, is asked for the current one, is told once it is saved
+ * and can go back to where they were. Once saved it goes on to `?next=`, the
+ * user's home, or a join waiting to finish.
  */
 export default function ChangePasswordPage() {
   const { t } = useTranslation();
@@ -40,7 +47,8 @@ export default function ChangePasswordPage() {
   const [forced] = useState(
     () => useAuthStore.getState().user?.mustChangePassword === true,
   );
-  const home = useAuthStore((s) => homePathFor(s.user));
+  const next = params.get("next");
+  const back = useAuthStore((s) => destinationAfterSignIn(next, s.user));
   const [current, setCurrent] = useState("");
   const [password, setPassword] = useState("");
   const [again, setAgain] = useState("");
@@ -56,16 +64,16 @@ export default function ChangePasswordPage() {
   const valid = rules.length && rules.numberOrSymbol;
   const mismatch = again !== password && (again !== "" || revealed);
   const ready = valid && again === password && (forced || current !== "");
+  const missingCurrent = !forced && revealed && current === "";
+  const saveLabel = forced ? "changePassword.save" : "changePassword.submit";
 
   async function onSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
     if (!ready) {
       setRevealed(true);
-      let target = passwordRef;
-      if (!forced && current === "") target = currentRef;
-      else if (valid) target = againRef;
-      target.current?.focus();
+      const refs = { current: currentRef, password: passwordRef, again: againRef };
+      refs[firstInvalid(forced, current, valid)].current?.focus();
       return;
     }
     setBusy(true);
@@ -77,11 +85,10 @@ export default function ChangePasswordPage() {
         changePassword(forced ? "" : current, password),
       );
       if (!user || !mounted.current || !authStore.isCurrent(lease)) return;
+      if (!forced) toast(t("settings.passwordChanged"));
       const joining = readJoinContext();
       await navigate(
-        joining
-          ? `/join/${joining.code}`
-          : destinationAfterSignIn(params.get("next"), user),
+        joining ? `/join/${joining.code}` : destinationAfterSignIn(next, user),
         { replace: true },
       );
     } catch (cause) {
@@ -97,9 +104,11 @@ export default function ChangePasswordPage() {
   }
 
   return (
-    <AuthLayout footer={forced ? undefined : <Link to={home}>{t("common.back")}</Link>}>
+    <AuthLayout footer={forced ? undefined : <Link to={back}>{t("common.back")}</Link>}>
       <div>
-        <h1 className="text-h1">{t("changePassword.title")}</h1>
+        <h1 className="text-h1">
+          {t(forced ? "changePassword.title" : "changePassword.titleVoluntary")}
+        </h1>
         <p className="text-muted-fg mt-1 text-base leading-[1.55]">
           {t(forced ? "changePassword.body" : "changePassword.bodyVoluntary")}
         </p>
@@ -120,9 +129,15 @@ export default function ChangePasswordPage() {
               size="xl"
               autoComplete="current-password"
               value={current}
-              aria-invalid={(revealed && current === "") || undefined}
+              aria-invalid={missingCurrent || undefined}
+              aria-describedby={missingCurrent ? "current-password-missing" : undefined}
               onChange={(e) => setCurrent(e.target.value)}
             />
+            {missingCurrent && (
+              <p id="current-password-missing" className="text-danger-ink text-meta">
+                {t("changePassword.errors.currentMissing")}
+              </p>
+            )}
           </div>
         )}
         <div className="flex flex-col gap-1.5">
@@ -188,7 +203,7 @@ export default function ChangePasswordPage() {
           {busy && (
             <LoaderCircle aria-hidden="true" className="size-[17px] animate-spin" />
           )}
-          {t(busy ? "changePassword.saving" : "changePassword.save")}
+          {t(busy ? "changePassword.saving" : saveLabel)}
         </Button>
       </form>
     </AuthLayout>

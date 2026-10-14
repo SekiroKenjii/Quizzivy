@@ -52,7 +52,7 @@ const TEACHER =
 const TEACHER_PAGES =
   /\/(layouts\/TeacherLayout\.|features\/[^/]+\/pages\/teacher\/|features\/(tests|question-bank|media|students)\/)/;
 const ADMIN =
-  /\/(layouts\/AdminLayout|features\/[^/]+\/pages\/admin\/|features\/(users|roles|audit|admin-overview|api-reference|exports)\/)/;
+  /\/(layouts\/(AdminLayout|adminNav\.|useAdminNavCounts\.)|features\/[^/]+\/pages\/admin\/|features\/(users|roles|audit|admin-overview|api-reference|exports)\/)/;
 const STUDENT_PAGES = [
   "layouts/StudentLayout",
   "features/assignments/pages/StudentHomePage",

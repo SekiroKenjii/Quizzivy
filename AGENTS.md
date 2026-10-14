@@ -560,7 +560,10 @@ operation its page opens with; the guard answers the 403 page to a user who
 lacks it, and `adminNavFor` leaves such a destination out of the sidebar.
 `tests/units/contract/admin-nav.test.ts` holds the table to the contract. An
 `/admin/...` path that is not one of the console's (`consolePath` in
-`app/adminPaths.ts`) is a teacher address from before R4 and redirects.
+`app/adminPaths.ts`) is a teacher address from before R4 and redirects. A
+console address for a user without the workspace answers the 403 page, except
+`/admin` and `/admin/classes` (`hasTeacherTwin`), which are teacher pages too
+and redirect.
 
 The take-test engine runs in `FocusLayout` and asks every width question through
 `useEngineWidthAtLeast` (`take-test/width.ts`): the window's width there, and the

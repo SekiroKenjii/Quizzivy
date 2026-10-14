@@ -20,7 +20,7 @@ function TeacherView() {
     <Button
       asChild
       variant="outline"
-      className="h-8.5 gap-1.5 rounded-lg px-3 max-[767px]:w-8.5 max-[767px]:px-0"
+      className="h-8.5 gap-1.5 rounded-md px-3 in-data-[scale=deck]:px-3 in-data-[scale=deck]:text-sm"
     >
       <Link
         to="/teacher"

@@ -30,12 +30,12 @@ const operator: User = {
   permissions: ["system.settings.write", "system.api_reference", "people.users.manage"],
 };
 
-function renderMenu(user: User, workspace: Console) {
+function renderMenu(user: User, workspace: Console, at = "/") {
   useAuthStore.setState({ user });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[at]}>
         <DeckScale>
           <AccountMenu workspace={workspace} />
         </DeckScale>
@@ -134,7 +134,7 @@ describe("the account menu in the Admin console", () => {
   });
 
   it("gives a user with no teacher workspace Change password and Language, after the pages they may open", async () => {
-    const user = renderMenu(operator, "admin");
+    const user = renderMenu(operator, "admin", "/admin/audit?page=2");
     await user.click(trigger(operator));
 
     expect(itemNames()).toEqual([
@@ -145,7 +145,10 @@ describe("the account menu in the Admin console", () => {
       "Chế độ tối",
       "Đăng xuất",
     ]);
-    expect(item("Đổi mật khẩu")).toHaveAttribute("href", "/change-password");
+    expect(item("Đổi mật khẩu")).toHaveAttribute(
+      "href",
+      "/change-password?next=%2Fadmin%2Faudit%3Fpage%3D2",
+    );
   });
 
   it("leaves out the pages a role may not open", async () => {

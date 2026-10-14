@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   createMemoryRouter,
@@ -15,7 +15,12 @@ import {
 import { router as appRouter } from "@/app/router";
 import { destinationAfterSignIn } from "@/features/auth/home";
 import { useAuthStore } from "@/stores/auth";
-import { adminUser, studentUser, teacherUser } from "@tests/support/fixtures";
+import {
+  adminUser,
+  assistantUser,
+  studentUser,
+  teacherUser,
+} from "@tests/support/fixtures";
 import "@/lib/i18n";
 
 function Here() {
@@ -221,14 +226,77 @@ describe("the old /admin addresses in the app's own route table", () => {
 
   it.each([
     ["/admin", "/teacher"],
-    ["/admin/users", "/teacher/users"],
-    ["/admin/settings/organization", "/teacher/settings/organization"],
-    ["/admin/exports/abc", "/teacher/exports/abc"],
-  ])("sends %s to %s for a teacher, who holds no console", async (from, to) => {
-    signIn(teacherUser);
-    const router = show(routes, [from]);
+    ["/admin/", "/teacher/"],
+    ["/admin/classes", "/teacher/classes"],
+    ["/Admin/Classes?tab=all", "/teacher/Classes?tab=all"],
+  ])(
+    "sends %s to %s for a teacher, who holds no console, because the page is theirs too",
+    async (from, to) => {
+      signIn(teacherUser);
+      const router = show(routes, [from]);
 
-    await waitFor(() => expect(address(router)).toBe(to));
+      await waitFor(() => expect(address(router)).toBe(to));
+      expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
+    },
+  );
+
+  it.each([
+    "/admin/users",
+    "/admin/roles",
+    "/admin/ai",
+    "/admin/audit",
+    "/admin/api",
+    "/admin/settings",
+    "/admin/settings/organization",
+    "/admin/exports/abc",
+    "/Admin/Users?tab=all#top",
+  ])("answers the 403 at %s, a console address, for a teacher", async (at) => {
+    signIn(teacherUser);
+    const router = show(routes, [at]);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Bạn không có quyền mở trang này",
+      }),
+    ).toBeInTheDocument();
+    expect(address(router)).toBe(at);
+  });
+
+  it("answers the 403 at a console address for an assistant and a student too", async () => {
+    signIn(assistantUser);
+    const first = show(routes, ["/admin/audit"]);
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Bạn không có quyền mở trang này",
+      }),
+    ).toBeInTheDocument();
+    expect(address(first)).toBe("/admin/audit");
+    cleanup();
+
+    signIn(studentUser);
+    const second = show(routes, ["/admin/users"]);
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Bạn không có quyền mở trang này",
+      }),
+    ).toBeInTheDocument();
+    expect(address(second)).toBe("/admin/users");
+  });
+
+  it("sends a student from /admin to the teacher's tree, where the 403 is", async () => {
+    signIn(studentUser);
+    const router = show(routes, ["/admin"]);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Bạn không có quyền mở trang này",
+      }),
+    ).toBeInTheDocument();
+    expect(address(router)).toBe("/teacher");
   });
 
   it("keeps a console address in the sign-in's next= for a visitor", async () => {

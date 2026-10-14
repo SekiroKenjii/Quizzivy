@@ -623,6 +623,7 @@
   },
   "changePassword": {
     "title": "Chọn mật khẩu của bạn",
+    "titleVoluntary": "Đổi mật khẩu",
     "body": "Bạn đã đăng nhập bằng mật khẩu tạm. Hãy chọn một mật khẩu chỉ mình bạn biết.",
     "bodyVoluntary": "Nhập mật khẩu hiện tại, rồi chọn một mật khẩu mới chỉ mình bạn biết.",
     "current": "Mật khẩu hiện tại",
@@ -644,7 +645,8 @@
       "tooShort": "Mật khẩu mới cần ít nhất 8 ký tự.",
       "numberOrSymbol": "Mật khẩu mới cần có số hoặc ký hiệu.",
       "mismatch": "Hai mật khẩu không giống nhau.",
-      "unchanged": "Mật khẩu mới phải khác mật khẩu hiện tại."
+      "unchanged": "Mật khẩu mới phải khác mật khẩu hiện tại.",
+      "currentMissing": "Nhập mật khẩu hiện tại."
     }
   },
   "login": {

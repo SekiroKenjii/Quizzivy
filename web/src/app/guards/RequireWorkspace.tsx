@@ -1,5 +1,5 @@
 import { Navigate, Outlet, useLocation } from "react-router";
-import { consolePath } from "@/app/adminPaths";
+import { consolePath, hasTeacherTwin } from "@/app/adminPaths";
 import { LegacyTeacherRedirect } from "@/app/LegacyTeacherRedirect";
 import { useWorkspace } from "@/features/auth/permissions";
 import { homePathFor } from "@/features/auth/home";
@@ -18,16 +18,22 @@ export function TeacherWorkspace() {
 /**
  * The Admin console's tree (§3), for anyone who may enter the admin
  * workspace, at an address of the console. Any other address beneath the old
- * prefix, and every one for a user without the workspace, is a teacher address
- * from before R4 and is sent to the same path under the teacher's.
+ * prefix is a teacher address from before R4 and is sent to the same path under
+ * the teacher's. A user without the workspace who opens an address of the
+ * console gets the 403, except at the two that are also pages of the teacher's
+ * tree (`hasTeacherTwin`), which a bookmark meant and which they are sent to.
  */
 export function AdminWorkspace() {
   const allowed = useWorkspace("admin");
   const { pathname } = useLocation();
-  if (!allowed || !consolePath(pathname)) {
+  const inConsole = consolePath(pathname);
+  if (allowed && inConsole) {
+    return <Outlet />;
+  }
+  if (!inConsole || hasTeacherTwin(pathname)) {
     return <LegacyTeacherRedirect />;
   }
-  return <Outlet />;
+  return <ForbiddenPage />;
 }
 
 /**

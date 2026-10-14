@@ -436,12 +436,16 @@ describe("the Admin console below 768", () => {
     expect(router.state.location.pathname).toBe("/admin/users");
   });
 
-  it("shows the teacher view as an icon alone, still named", async () => {
+  it("draws the teacher view as the deck does, an icon alone below 768 and still named", async () => {
     renderAdmin("/admin");
     await screen.findByRole("main");
 
     const view = screen.getByRole("link", { name: "Chế độ giáo viên" });
-    expect(view).toHaveClass("max-[767px]:w-8.5");
+    expect(view).toHaveClass(
+      "rounded-md",
+      "in-data-[scale=deck]:px-3",
+      "in-data-[scale=deck]:text-sm",
+    );
     expect(view.querySelector("span")).toHaveClass("hidden", "min-[768px]:inline");
   });
 });

@@ -7,7 +7,7 @@ import {
 } from "@/features/auth/accountPreferences";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import {
   ArrowUpRight,
   BookOpenText,
@@ -60,6 +60,7 @@ function entriesFor(
   user: User,
   workspace: StaffWorkspace | undefined,
   settingsTo: string,
+  from: string,
 ): AccountEntry[] {
   if (workspace !== "admin") {
     const settings: AccountEntry = {
@@ -114,7 +115,7 @@ function entriesFor(
       entries.push({
         kind: "link",
         id: "password",
-        to: CHANGE_PASSWORD_PATH,
+        to: `${CHANGE_PASSWORD_PATH}?next=${encodeURIComponent(from)}`,
         label: "adminShell.account.password",
         icon: KeyRound,
       });
@@ -224,7 +225,8 @@ function DeckAccountMenu({
 }>) {
   const { t, i18n } = useTranslation();
   const locale = asLocale(i18n.language);
-  const entries = entriesFor(user, workspace, settingsTo);
+  const { pathname, search } = useLocation();
+  const entries = entriesFor(user, workspace, settingsTo, pathname + search);
   const theme = useResolvedTheme();
   const preferenceStatus = useAccountPreferenceStatus();
   const { pending, signOut } = useSignOut();
