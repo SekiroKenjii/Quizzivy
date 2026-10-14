@@ -55,6 +55,11 @@ start_docker() {
   if docker info >/dev/null 2>&1; then
     return 0
   fi
+  local pidfile=/var/run/docker.pid
+  if [ -f "$pidfile" ] && ! kill -0 "$(cat "$pidfile" 2>/dev/null)" 2>/dev/null; then
+    echo "removing the stale $pidfile of a daemon that is not running"
+    rm -f "$pidfile"
+  fi
   setsid nohup dockerd >/tmp/dockerd.log 2>&1 &
   local i
   for i in $(seq 1 90); do
@@ -127,12 +132,18 @@ ensure_minio_image() {
   build_minio_image
 }
 
+compose_up() {
+  docker compose up -d --wait "$1" && return 0
+  echo "recreating $1: the first start failed, as it does on the runc state a container restart leaves behind"
+  docker compose up -d --force-recreate --wait "$1"
+}
+
 start_postgres() {
-  docker compose up -d --wait db
+  compose_up db
 }
 
 start_minio() {
-  docker compose up -d --wait minio && docker compose run --rm minio-init
+  compose_up minio && docker compose run --rm minio-init
 }
 
 migrate() {
