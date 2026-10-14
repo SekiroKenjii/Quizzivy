@@ -83,12 +83,11 @@ func closeWorkbook(book *excelize.File) error {
 }
 
 func inspectArchive(src io.ReaderAt, size int64) error {
-	var head [len(compoundFileSignature)]byte
-	n, err := src.ReadAt(head[:], 0)
-	if err != nil && !errors.Is(err, io.EOF) {
-		return fmt.Errorf("tabular: read file: %w", err)
+	compound, err := isCompoundFile(src)
+	if err != nil {
+		return err
 	}
-	if n == len(head) && head == compoundFileSignature {
+	if compound {
 		return classifyCompoundFile(src, size)
 	}
 	archive, err := zip.NewReader(src, size)
@@ -100,19 +99,35 @@ func inspectArchive(src io.ReaderAt, size int64) error {
 	}
 	var expanded uint64
 	for _, entry := range archive.File {
-		if entry.Flags&encryptedEntry != 0 {
-			return ErrEncrypted
-		}
-		if isMacroPart(entry.Name) {
-			return ErrMacros
-		}
-		if limit := partLimit(entry.Name); limit > 0 && entry.UncompressedSize64 > limit {
-			return fmt.Errorf("%w: %s expands to %d bytes, limit %d", ErrTooLarge, entry.Name, entry.UncompressedSize64, limit)
-		}
-		if entry.UncompressedSize64 > maxExpandedBytes-expanded {
-			return fmt.Errorf("%w: expands past %d bytes", ErrTooLarge, maxExpandedBytes)
+		if err := inspectEntry(entry, expanded); err != nil {
+			return err
 		}
 		expanded += entry.UncompressedSize64
+	}
+	return nil
+}
+
+func isCompoundFile(src io.ReaderAt) (bool, error) {
+	var head [len(compoundFileSignature)]byte
+	n, err := src.ReadAt(head[:], 0)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return false, fmt.Errorf("tabular: read file: %w", err)
+	}
+	return n == len(head) && head == compoundFileSignature, nil
+}
+
+func inspectEntry(entry *zip.File, expanded uint64) error {
+	if entry.Flags&encryptedEntry != 0 {
+		return ErrEncrypted
+	}
+	if isMacroPart(entry.Name) {
+		return ErrMacros
+	}
+	if limit := partLimit(entry.Name); limit > 0 && entry.UncompressedSize64 > limit {
+		return fmt.Errorf("%w: %s expands to %d bytes, limit %d", ErrTooLarge, entry.Name, entry.UncompressedSize64, limit)
+	}
+	if entry.UncompressedSize64 > maxExpandedBytes-expanded {
+		return fmt.Errorf("%w: expands past %d bytes", ErrTooLarge, maxExpandedBytes)
 	}
 	return nil
 }

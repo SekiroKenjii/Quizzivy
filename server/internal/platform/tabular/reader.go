@@ -140,7 +140,7 @@ func ReadTable(r io.ReaderAt, size int64, format Format, limits Limits) (*Table,
 func (t *Table) Rows() iter.Seq2[Row, error] {
 	return func(yield func(Row, error) bool) {
 		for {
-			cells, line, err := t.src.next()
+			row, err := t.nextRow()
 			if errors.Is(err, io.EOF) {
 				return
 			}
@@ -148,23 +148,7 @@ func (t *Table) Rows() iter.Seq2[Row, error] {
 				yield(Row{}, err)
 				return
 			}
-			cells = trimTrailingEmpty(cells)
-			if len(cells) == 0 {
-				continue
-			}
-			if t.rows == t.limits.Rows {
-				yield(Row{}, fmt.Errorf("%w: row %d is beyond the %d allowed", ErrTooManyRows, line, t.limits.Rows))
-				return
-			}
-			if err := t.limits.check(cells, line); err != nil {
-				yield(Row{}, err)
-				return
-			}
-			t.rows++
-			if missing := len(t.Header) - len(cells); missing > 0 {
-				cells = append(cells, make([]string, missing)...)
-			}
-			if !yield(Row{Line: line, Cells: cells}, nil) {
+			if !yield(row, nil) {
 				return
 			}
 		}
@@ -178,26 +162,50 @@ func (t *Table) Close() error {
 }
 
 func (t *Table) readHeader() error {
+	cells, line, err := t.nextNonBlank()
+	if errors.Is(err, io.EOF) {
+		return ErrEmpty
+	}
+	if err != nil {
+		return err
+	}
+	if err := t.limits.check(cells, line); err != nil {
+		return err
+	}
+	for i, cell := range cells {
+		cells[i] = strings.TrimSpace(cell)
+	}
+	t.Header = cells
+	return nil
+}
+
+func (t *Table) nextRow() (Row, error) {
+	cells, line, err := t.nextNonBlank()
+	if err != nil {
+		return Row{}, err
+	}
+	if t.rows == t.limits.Rows {
+		return Row{}, fmt.Errorf("%w: row %d is beyond the %d allowed", ErrTooManyRows, line, t.limits.Rows)
+	}
+	if err := t.limits.check(cells, line); err != nil {
+		return Row{}, err
+	}
+	t.rows++
+	if missing := len(t.Header) - len(cells); missing > 0 {
+		cells = append(cells, make([]string, missing)...)
+	}
+	return Row{Line: line, Cells: cells}, nil
+}
+
+func (t *Table) nextNonBlank() ([]string, int, error) {
 	for {
 		cells, line, err := t.src.next()
-		if errors.Is(err, io.EOF) {
-			return ErrEmpty
-		}
 		if err != nil {
-			return err
+			return nil, 0, err
 		}
-		cells = trimTrailingEmpty(cells)
-		if len(cells) == 0 {
-			continue
+		if cells = trimTrailingEmpty(cells); len(cells) > 0 {
+			return cells, line, nil
 		}
-		if err := t.limits.check(cells, line); err != nil {
-			return err
-		}
-		for i, cell := range cells {
-			cells[i] = strings.TrimSpace(cell)
-		}
-		t.Header = cells
-		return nil
 	}
 }
 
