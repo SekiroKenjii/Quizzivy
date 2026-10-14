@@ -1408,6 +1408,8 @@
     "moveGroupField": "Nhóm",
     "moveGroupOption": "{{group}} · {{section}}",
     "movedIntoGroupCopied": "Đã sao chép câu hỏi vào nhóm. Bản gốc vẫn ở ngân hàng câu hỏi.",
+    "movedOutRestored": "Đã trả câu hỏi gốc về đề thi.",
+    "movedOutEditedCopy": "Câu hỏi đã được sửa nên được lưu thành câu hỏi mới trong ngân hàng.",
     "moveGapBound": "Câu hỏi đang gắn với chỗ trống trong ngữ liệu. Hãy gỡ liên kết trong Nội dung dùng chung trước.",
     "moveGroupFull": "Nhóm đã đầy: tối đa 200 câu hỏi và 4 MB nội dung.",
     "moveAudioScope": "Câu hỏi dùng chính tệp ghi âm chung của nhóm.",
