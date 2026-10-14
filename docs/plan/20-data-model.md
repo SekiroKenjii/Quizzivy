@@ -1508,7 +1508,7 @@ the file it adds.
 | `00125_add_word_imports_read_with_ai.sql` | `word_imports.read_with_ai boolean NOT NULL DEFAULT false`; a constant default, so the v0.10.x binary keeps inserting | D4 (T-D4.33), §47 |
 | `00126_add_questions_copied_from.sql` | `questions.copied_from_id` and `questions_copied_from_id_fkey` (`REFERENCES questions (id) ON DELETE SET NULL`), added with the column, nullable with no default | E1 hotfix v0.11.7, D-50, §48 |
 | `00127_index_questions_copied_from.sql` | `questions_copied_from_idx (copied_from_id) WHERE copied_from_id IS NOT NULL`, `CONCURRENTLY` | E1 hotfix v0.11.7, D-50, §48 |
-| `00129_create_organization_settings.sql` | `organization_settings`, the singleton, its checks and `updated_at` trigger, the one row the migration writes, and `REVOKE INSERT, DELETE` from the app role | R5 (T-R5.5), D-51, §49 |
+| `00130_create_organization_settings.sql` | `organization_settings`, the singleton, its checks and `updated_at` trigger, the one row the migration writes, and `REVOKE INSERT, DELETE` from the app role | R5 (T-R5.5), D-51, §49 |
 
 Notes on migration mechanics (§13.7):
 
@@ -3490,7 +3490,7 @@ another test's autosave. `tests/group_move_flow_test.go` drives the round trip o
 
 ## 49. The organization's settings (T-R5.5, T-R5.7)
 
-`00129_create_organization_settings.sql` adds `app.organization_settings`, one row for the whole
+`00130_create_organization_settings.sql` adds `app.organization_settings`, one row for the whole
 installation, keyed `id boolean PRIMARY KEY DEFAULT true CHECK (id)` (D-51). The migration inserts
 the row, named `Quizzivy`, and revokes `INSERT` and `DELETE` from `quizzivy_app`; the API only
 `UPDATE`s it, under `SELECT … FOR UPDATE`, with the `set_updated_at` trigger.
