@@ -135,6 +135,11 @@ tags:
       every operation answers `501 AI_OFF`.
   - name: admin-docs
     description: Admin access to the API reference served beside the API.
+  - name: admin-audit
+    description: |
+      The Admin console's audit log: a read-only history of the sensitive
+      changes the server recorded, filterable by category, search and date, and
+      downloadable. Nothing here can change or remove an entry.
   - name: student
     description: The student console, with its classes, assigned tests, results and settings.
   - name: take-test
@@ -646,6 +651,8 @@ components:
         - AI_REQUEST_DECIDED
         - AI_REQUEST_EXPIRED
         - AI_ALLOWANCE_BELOW_USE
+        # exports
+        - EXPORT_TOO_LARGE
         # availability
         - MAINTENANCE
         - MAINTENANCE_SCHEDULED
@@ -2697,6 +2704,107 @@ components:
           items: { type: string, minLength: 1 }
           minItems: 1
         caseSensitive: { type: boolean }
+
+    AuditCategory:
+      type: string
+      description: |
+        The six families of the audit log's tabs. An entry about the
+        organization, an export, maintenance, retention or the AI credits is in
+        none of them.
+      enum: [accounts, classes, attempts, tests, media, imports]
+
+    AuditCategoryFacets:
+      type: object
+      description: |
+        How many entries each category holds for the CURRENT search and range,
+        ignoring the category filter itself, in the shape of `TestStatusFacets`.
+        `all` counts every such entry, including those in no category.
+      required: [all, accounts, classes, attempts, tests, media, imports]
+      additionalProperties: false
+      properties:
+        all: { type: integer, minimum: 0 }
+        accounts: { type: integer, minimum: 0 }
+        classes: { type: integer, minimum: 0 }
+        attempts: { type: integer, minimum: 0 }
+        tests: { type: integer, minimum: 0 }
+        media: { type: integer, minimum: 0 }
+        imports: { type: integer, minimum: 0 }
+
+    AuditActor:
+      type: object
+      required: [id, name]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string }
+        avatarUrl:
+          type: string
+          description: A signed address for the actor's photo. Absent when they have none.
+
+    AuditEntity:
+      type: object
+      description: What an entry is about.
+      required: [type, id, label]
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          description: The kind of thing, as the server stores it (`class`, `test`, `media_asset`, `word_import`, ...).
+        id:
+          type: [string, 'null']
+          format: uuid
+          description: '`null` for an entry about no single row.'
+        label:
+          type: [string, 'null']
+          description: |
+            The name of the user, class, test, assignment, attempt (its
+            student), media file, import or question group, read when the page
+            is read. `null` when the row is gone or has no name.
+
+    AuditChange:
+      type: object
+      required: [field, from, to]
+      additionalProperties: false
+      properties:
+        field: { type: string }
+        from:
+          description: The value before the change. Any JSON value, `null` included.
+        to:
+          description: The value after the change. Any JSON value, `null` included.
+
+    AuditEntry:
+      type: object
+      required: [id, occurredAt, actor, action, category, entity, ip, device, changes, details]
+      additionalProperties: false
+      properties:
+        id: { type: integer, format: int64, minimum: 1 }
+        occurredAt: { type: string, format: date-time }
+        actor:
+          description: Who did it; `null` is the system itself, or an account since removed.
+          oneOf: [{ $ref: '#/components/schemas/AuditActor' }, { type: 'null' }]
+        action:
+          type: string
+          description: |
+            A stable key such as `class.created`. The sentence that words it is
+            the client's, from `audit.action.<action>`; an action a client has
+            no sentence for is shown humanised.
+        category:
+          description: '`null` for an entry only the unfiltered list holds.'
+          oneOf: [{ $ref: '#/components/schemas/AuditCategory' }, { type: 'null' }]
+        entity: { $ref: '#/components/schemas/AuditEntity' }
+        ip:
+          type: [string, 'null']
+          description: The address the request came from. `null` for the system.
+        device:
+          type: [string, 'null']
+          description: A label such as `Mac · Chrome`, classified from the user agent; `null` when none was recorded or none is recognised.
+        changes:
+          type: array
+          items: { $ref: '#/components/schemas/AuditChange' }
+        details:
+          type: [object, 'null']
+          additionalProperties: true
+          description: Whatever the entry recorded beyond `changes`; `null` when nothing.
 
     ApiReferenceSummary:
       type: object
@@ -9578,6 +9686,155 @@ paths:
               schema: { type: string, format: binary }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/audit-log:
+    get:
+      operationId: listAuditLog
+      x-permission: system.audit.read
+      tags: [admin-audit]
+      summary: The audit log
+      description: |
+        One page of the audit log, newest first, and how many entries each
+        category holds. The log is append-only: nothing here changes it.
+
+        **Range.** `range` is `today` (from midnight), `7d` (the last seven
+        calendar days, today included), `30d` (the last thirty), `all`, or
+        `custom`, which takes `from` and `to` as dates, both inclusive. Every
+        day is the viewer's own: their stored time zone, else the centre's
+        default. `from` and `to` without `custom`, `custom` without both, and a
+        `to` before `from` answer `400 VALIDATION_FAILED` naming the field.
+
+        **Search.** `q` matches, without regard to case or accents, the actor's
+        name or email, the sentence that words the action in either language,
+        and the label of the user, class, test, assignment, attempt, media file,
+        import or question group an entry is about.
+
+        **Categories.** An entry's category follows from the kind of thing it
+        is about. Entries about the organization, exports, maintenance,
+        retention and the AI credits belong to no category: `category` is
+        `null` and only the unfiltered list holds them.
+
+        **Facets.** `facets` counts the entries that match the current `q` and
+        range and ignores `category`, so selecting one never zeroes the others;
+        `all` counts every such entry, those in no category included, so it can
+        exceed the sum of the six. `total` is the selected category's count, or
+        `all`.
+
+        **Entries.** `changes` lists the fields an entry changed, each with the
+        value it had and the value it has. `details` holds anything else the
+        entry recorded. A join code is shown as `••••-` and its last four
+        characters, and a password, token or secret is never shown. `label` is
+        `null` when the row the entry is about no longer exists.
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/AuditCategory' }
+        - $ref: '#/components/parameters/Query'
+        - name: range
+          in: query
+          required: false
+          schema: { type: string, enum: [today, 7d, 30d, all, custom], default: 7d }
+        - name: from
+          in: query
+          required: false
+          description: First day of a `custom` range, `YYYY-MM-DD`.
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: false
+          description: Last day of a `custom` range, `YYYY-MM-DD`, inclusive.
+          schema: { type: string, format: date }
+        - $ref: '#/components/parameters/Page'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageInfo'
+                  - type: object
+                    required: [items, facets]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/AuditEntry' } }
+                      facets: { $ref: '#/components/schemas/AuditCategoryFacets' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/audit-log/export:
+    get:
+      operationId: exportAuditLog
+      x-permission: system.audit.read
+      tags: [admin-audit]
+      summary: Download the audit log
+      description: |
+        The entries of a period, newest first, as one file. `period` is the
+        last seven or thirty calendar days or the calendar year so far, counted
+        in the viewer's own time zone; `range`, `from` and `to` are not
+        parameters here. `category` and `q` narrow it as they narrow the list.
+
+        The file is an attachment named `audit-log-YYYYMMDD` with `.csv` or
+        `.json`, and the response is `no-store`. A CSV is UTF-8 with a
+        byte-order mark and CRLF line ends, headers in the viewer's language
+        by `Accept-Language`, and every cell that a spreadsheet would run as a
+        formula is written with a leading `'`. A JSON file is an array of the
+        entries `listAuditLog` returns. Both are streamed.
+
+        More than 100,000 entries answer `422 EXPORT_TOO_LARGE`, and the caller
+        is asked for a shorter period. Each file is itself audited as
+        `audit.exported`, with the period, the format and the number of rows.
+        A caller is limited to 5 files a minute and 30 an hour.
+      parameters:
+        - name: period
+          in: query
+          required: false
+          schema: { type: string, enum: [7d, 30d, year], default: 7d }
+        - name: format
+          in: query
+          required: false
+          schema: { type: string, enum: [csv, json], default: csv }
+        - name: category
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/AuditCategory' }
+        - $ref: '#/components/parameters/Query'
+      responses:
+        '200':
+          description: The file.
+          headers:
+            Content-Disposition:
+              required: true
+              description: '`attachment; filename="audit-log-YYYYMMDD.csv"` or `.json`.'
+              schema: { type: string }
+            Cache-Control:
+              required: true
+              description: '`no-store`.'
+              schema: { type: string }
+          content:
+            text/csv:
+              schema: { type: string, format: binary }
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AuditEntry' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422':
+          description: '`EXPORT_TOO_LARGE` — the period holds more than 100,000 entries.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /admin/ai/credits:
     get:
