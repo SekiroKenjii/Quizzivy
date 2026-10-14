@@ -78,9 +78,7 @@ type definition struct {
 func decoder[P Params]() func([]byte) (Params, error) {
 	return func(raw []byte) (Params, error) {
 		var p P
-		dec := json.NewDecoder(bytes.NewReader(raw))
-		dec.DisallowUnknownFields()
-		if err := dec.Decode(&p); err != nil {
+		if err := json.Unmarshal(raw, &p); err != nil {
 			return nil, err
 		}
 		return p, nil
@@ -107,6 +105,14 @@ func Templates() []Template {
 	return []Template{AccountInvite, PasswordResetLink, SignInInvite, DataExportReady}
 }
 
+func templateNames() []string {
+	names := make([]string, 0, len(definitions))
+	for t := range definitions {
+		names = append(names, string(t))
+	}
+	return names
+}
+
 // NeedsSecret reports whether t's link carries the outbox secret, so that a
 // message of it cannot be enqueued without one and no other message with one.
 func NeedsSecret(t Template) bool { return definitions[t].secret }
@@ -114,7 +120,9 @@ func NeedsSecret(t Template) bool { return definitions[t].secret }
 // ErrUnknownTemplate is a template name the app does not send.
 var ErrUnknownTemplate = errors.New("email: unknown template")
 
-// DecodeParams reads the stored params of a t message into t's own type.
+// DecodeParams reads the stored params of a t message into t's own type. A
+// field t's type does not know is ignored, so a binary reads a row a newer
+// release wrote with a field added to its template.
 func DecodeParams(t Template, raw []byte) (Params, error) {
 	def, ok := definitions[t]
 	if !ok {

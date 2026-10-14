@@ -304,3 +304,38 @@ func TestNextDueIsNoLaterThanTheEarliestPendingRow(t *testing.T) {
 		t.Fatalf("next due: %v %v %v", due, pending, err)
 	}
 }
+
+func TestARowOfATemplateThisBinaryDoesNotSendStaysPendingWithItsSecret(t *testing.T) {
+	w := newWorld(t, day(13))
+	longAgo := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	var futureID string
+	if err := w.pool.QueryRow(context.Background(), `
+		INSERT INTO app.email_outbox (to_address, template, locale, params, secret_ciphertext, deliver_after)
+		VALUES ($1, 'future_template', 'vi', '{"fullName":"An"}', '\x00', $2)
+		RETURNING id::text`, addr(t, "future"), longAgo).Scan(&futureID); err != nil {
+		t.Fatal(err)
+	}
+	w.ids = append(w.ids, futureID)
+	newer := addr(t, "newer")
+	newerID := w.enqueue(t, email.Mail{To: newer, Params: email.SignInInviteParams{}})
+	if _, err := w.pool.Exec(context.Background(), `
+		UPDATE app.email_outbox SET params = '{"fullName":"An","addedLater":true}' WHERE id = $1::uuid`, newerID); err != nil {
+		t.Fatal(err)
+	}
+	batch, err := w.disp.Dispatch(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := read(t, w.pool, newerID); r.sentAt == nil || r.lastError != "" {
+		t.Errorf("a row with a field added later: %+v", r)
+	}
+	if r := read(t, w.pool, futureID); r.sentAt != nil || r.failedAt != nil || r.attempts != 0 || !r.hasSecret || r.lastError != "" || !r.deliverAfter.Equal(longAgo) {
+		t.Errorf("a row of a template this binary does not send: %+v", r)
+	}
+	if batch.Failed != 0 {
+		t.Errorf("batch: %+v", batch)
+	}
+	if due, pending, err := w.disp.NextDue(context.Background()); err != nil || (pending && !due.After(longAgo)) {
+		t.Errorf("the unknown row is counted as due: %v %v %v", due, pending, err)
+	}
+}
