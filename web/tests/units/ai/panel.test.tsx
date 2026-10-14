@@ -67,6 +67,26 @@ function generateContext(patch: Partial<GenerateContext> = {}): GenerateContext 
   };
 }
 
+const GROUP_ID = "018f0000-0000-7000-8000-0000000000f1";
+
+const groupPassage = {
+  id: "018f0000-0000-7000-8000-0000000000e1",
+  title: "Parks",
+  text: PASSAGE,
+  group: { id: GROUP_ID, title: "Reading club" },
+};
+
+function answerWith(items: AiGeneratedQuestion[]) {
+  server.use(
+    http.post(`${BASE}/teacher/ai/questions/generate`, () =>
+      contractJson("/teacher/ai/questions/generate", "post", 200, {
+        items,
+        usage: { credits: 900, left: 17900 },
+      }),
+    ),
+  );
+}
+
 function checkContext(patch: Partial<CheckContext> = {}): CheckContext {
   return {
     testId: TEST_ID,
@@ -190,6 +210,7 @@ describe("the Generate panel", () => {
     expect(context.save).toHaveBeenCalledWith(
       [{ question: generated[0], level: "b2" }],
       ai.draftTag,
+      { kind: "section", title: "Phần 1" },
     );
     expect(
       await screen.findByText(
@@ -198,6 +219,71 @@ describe("the Generate panel", () => {
     ).toBeVisible();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
+
+  it("adds what it made from a group's passage to that group, named on the button", async () => {
+    answerWith(generated);
+    const context = generateContext({ passages: [groupPassage] });
+    const { dialog, user } = await openPanel({ kind: "generate", context });
+    await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
+    await user.click(
+      await within(dialog).findByRole("button", {
+        name: "Thêm 2 câu vào nhóm Reading club",
+      }),
+    );
+
+    expect(context.save).toHaveBeenCalledWith(
+      [
+        { question: generated[0], level: "b2" },
+        { question: generated[1], level: "b2" },
+      ],
+      ai.draftTag,
+      { kind: "group", id: GROUP_ID, title: "Reading club" },
+    );
+    expect(
+      await screen.findByText(
+        "Đã thêm 2 câu hỏi vào nhóm Reading club. Hãy kiểm tra từng câu trước khi xuất bản.",
+      ),
+    ).toBeVisible();
+  });
+
+  it("keeps the section for pasted text, even where a group's passage is offered", async () => {
+    answerWith(generated.slice(0, 1));
+    const context = generateContext({ passages: [groupPassage] });
+    const { dialog, user } = await openPanel({ kind: "generate", context });
+    const source = within(dialog).getByLabelText(ai.generate.source);
+    await user.clear(source);
+    await user.type(source, `${PASSAGE} A topic.`);
+    await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
+    await user.click(
+      await within(dialog).findByRole("button", { name: "Thêm 1 câu vào Phần 1" }),
+    );
+
+    expect(context.save).toHaveBeenCalledWith(
+      [{ question: generated[0], level: "b2" }],
+      ai.draftTag,
+      { kind: "section", title: "Phần 1" },
+    );
+  });
+
+  it.each([
+    [{ kind: "bank" } as const, "Lưu 1 câu vào ngân hàng"],
+    [{ kind: "practice" } as const, ai.generate.saveAsPractice],
+  ])(
+    "saves to the %o destination it was given, whatever passage it read",
+    async (destination, label) => {
+      answerWith(generated.slice(0, 1));
+      const context = generateContext({ passages: [groupPassage], destination });
+      const { dialog, user } = await openPanel({ kind: "generate", context });
+      await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
+      await user.click(await within(dialog).findByRole("button", { name: label }));
+
+      expect(context.save).toHaveBeenCalledWith(
+        [{ question: generated[0], level: "b2" }],
+        ai.draftTag,
+        destination,
+      );
+    },
+  );
 
   it("sends pasted text as the source and leaves the tag off when the preference is", async () => {
     useAuthStore.setState((state) => ({

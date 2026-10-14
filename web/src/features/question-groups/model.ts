@@ -15,6 +15,42 @@ type GroupQuestionInput = components["schemas"]["QuestionInput"];
 export type GroupMaterial = GroupBundle["group"]["stimuli"][number];
 export type GroupRecording = GroupBundle["group"]["recordings"][number];
 export type GroupGapBinding = GroupMaterial["gaps"][number];
+export type GroupQuestion = GroupBundle["questions"][number];
+
+/** MAX_GROUP_MEMBERS is the most member questions a group holds (`QuestionGroup.members`). */
+export const MAX_GROUP_MEMBERS = 200;
+
+/**
+ * groupRoom is how many more members `group` takes before it holds
+ * MAX_GROUP_MEMBERS, and never less than zero.
+ */
+export function groupRoom(group: GroupBundle["group"]): number {
+  return Math.max(MAX_GROUP_MEMBERS - group.members.length, 0);
+}
+
+/**
+ * withMembers appends `questions` to the bundle as new members after its
+ * existing ones, each with shuffled options, as "Add question" does.
+ */
+export function withMembers(
+  bundle: GroupBundle,
+  questions: readonly GroupQuestion[],
+): GroupBundle {
+  return {
+    ...bundle,
+    questions: [...bundle.questions, ...questions],
+    group: {
+      ...bundle.group,
+      members: [
+        ...bundle.group.members,
+        ...questions.map((question) => ({
+          questionId: question.id,
+          optionOrder: "shuffle" as const,
+        })),
+      ],
+    },
+  };
+}
 
 export function emptyGroup(title: string): GroupBundle {
   return {
@@ -63,7 +99,7 @@ export function memberValues(input: GroupQuestionInput): QuestionValues {
  * newGroupQuestion is a group's starter question: single choice, two options,
  * and a prompt stored as rich text, so it opens in the rich editor (T-17 a).
  */
-export function newGroupQuestion(t: TFunction): GroupBundle["questions"][number] {
+export function newGroupQuestion(t: TFunction): GroupQuestion {
   const prompt = t("builder.starterPrompt");
   return {
     id: crypto.randomUUID(),
@@ -180,7 +216,7 @@ export function groupIssue(bundle: GroupBundle): string | null {
   if (!group.title.trim() || contentStringLength(group.title) > 200)
     return "groups.titleRequired";
   if (
-    group.members.length > 200 ||
+    group.members.length > MAX_GROUP_MEMBERS ||
     group.stimuli.length > 16 ||
     group.recordings.length > 16
   )
