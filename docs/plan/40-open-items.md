@@ -21,7 +21,11 @@ questions that come up during a release go into that release's plan file under
 ## BLOCKING
 
 
-### O-14 — DNS records for quizzivy.com · before first deploy
+### O-14 — DNS records for quizzivy.com · before first deploy — **RESOLVED**
+**Resolved:** production serves the SPA on `app.quizzivy.com` and the API on
+`api.quizzivy.com` (`docs/setup/dns.md`, `docs/setup/deploy.md`). The apex is kept for R11's
+Landing (D10). The text below is the question as it was asked.
+
 **Default:** `app.quizzivy.com` for the SPA, `api.quizzivy.com` for the API, as
 already written throughout the plan. See `docs/setup/dns.md`.
 
@@ -53,8 +57,12 @@ after students have bookmarks is unpleasant.
 
 ---
 
+### O-13 — GIS `initCodeClient` or our own authorization request · Phase 1 — **RESOLVED**
+**Resolved: B, own the authorization request** (see "Answered during planning" below,
+`00-overview.md` §5, and AGENTS.md "Verified platform facts"). The options as they were put:
 
----|---|
+| Option | What | Trade-off |
+|---|---|---|
 | **A** | GIS `initCodeClient`, no PKCE | Keeps §2. Drops §5.3's PKCE. The code passes through browser JS, so an XSS could steal it — though redeeming it still needs the client secret, which never leaves the backend. |
 | **B** | Own the authorization request | Keeps §5.3. Deviates from §2. ~40 lines: verifier, S256 challenge, `state`, popup, callback. |
 
@@ -404,7 +412,11 @@ Issue #353; round 5 question 5.
 
 ---
 
-### O-12 — Dark mode · post-v1
+### O-12 — Dark mode · post-v1 — **RESOLVED**
+**Resolved:** dark mode shipped in R1 (v0.7.0): the deck's tokens in both themes, the
+`quizzivy.theme` preference, and `web/public/boot.js` applying the theme before paint. The
+token discipline below is what made it cheap.
+
 **Default:** not in v1, per §12. Theming goes through CSS variables and Tailwind
 tokens from T-0.9, so it can be added later without touching components.
 
@@ -602,7 +614,8 @@ and the session ends: a forced sign-in, rare and self-healing. Options, in order
 
 ### O-R4.22 — The `/admin` alias · R5
 **Default:** kept in v0.10.0. Removing it (T-R3.3) needs seven days of production
-`legacy_admin_path` logs read first. R5 removes it when it gives `/admin` to the Admin console.
+`legacy_admin_path` logs read first. R5 removes it when it gives `/admin` to the Admin console,
+as T-R5.36 (`75-r5.md`), before T-R5.11's `/admin/classes`.
 
 ---
 

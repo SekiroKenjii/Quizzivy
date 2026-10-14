@@ -54,11 +54,11 @@ As built (D4, T-D4.30 to T-D4.33; spec v0.99): with `ANTHROPIC_API_KEY` unset ev
 | R1 | v0.7.0 | Foundations and front door | `71-r1.md` |
 | R2 | v0.8.0 | Access: permissions, ownership, `/teacher` rename, encrypted join codes (no screen changes) | `72-r2.md` |
 | R3 | v0.9.0 | Student console and the take-test engine | `73-r3.md` |
-| R3 | v0.9.1 | R2's contract steps (T-R3.1 to T-R3.3): the legacy role, the ownership constraints and the `/admin` alias. No earlier than 2026-10-10. By default carried inside v0.10.0 as T-R4.49 (2026-10-08; `73-r3.md`, "Migration numbers") | `73-r3.md` |
+| R3 | v0.9.1 | R2's contract steps (T-R3.1 to T-R3.3): the legacy role, the ownership constraints and the `/admin` alias. No earlier than 2026-10-10. T-R3.1 and T-R3.2 shipped inside v0.10.0 as T-R4.49 (00105, 00106); the alias (T-R3.3) moved to R5 as T-R5.36 (the owner, 2026-10-12) | `73-r3.md` |
 | R4 | v0.10.0 | Teacher workspace | `74-r4.md` |
 | D4 | v0.11.0 (decided 2026-10-10, `74d` Q29) | Deck update: the fourth export (2026-10-04) and v2 (2026-10-10). The take-test engine, the builder's shared content and the three previews, rebuilt to it; the AI assistant (D19 to D22); the four R4 screens v2 redraws | `74d-d4-deck-update.md` |
 | E1 | v0.11.6 (decided 2026-10-14, the owner, after a teacher escalation) | Escalation: a question dragged into and out of a shared-context group in the test builder, one new operation (`moveTestQuestion`) and no migration. It overrides D4's Q8 (`74d` Q8, DG-186) and follows the hotfixes v0.11.3 to v0.11.5 | `74e-e1-group-move.md` |
-| R5 | v0.12.0 | Admin console and email; the AI credits page on D4's operations | `75-r5.md` |
+| R5 | v0.12.0 | Admin console and email; the AI credits page on D4's operations; the `/admin` alias removed (T-R5.36) | `75-r5.md` |
 | R6 | v0.13.0 | Question types and scoring | `76-r6.md` |
 | R7 | v0.14.0 | Collaboration: sharing, messages, email notifications | `77-r7.md` |
 | R8 | v0.15.0 | Schedule: sessions, calendar, attendance, terms | `78-r8.md` |
