@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"quizzivy/internal/modules/questions/domain"
+	"quizzivy/internal/shared/opt"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -48,9 +49,9 @@ func (s *Postgres) GroupQuestions(ctx context.Context, groupID string) ([]domain
 	return members, nil
 }
 
-func ownershipValues(ownership *domain.GroupOwnership) (*string, *int, *string) {
+func ownershipValues(ownership *domain.GroupOwnership) (groupID *string, ordinal *int, optionOrder, copiedFromID *string) {
 	if ownership == nil {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
-	return &ownership.GroupID, &ownership.Ordinal, &ownership.OptionOrder
+	return &ownership.GroupID, &ownership.Ordinal, &ownership.OptionOrder, opt.String(ownership.CopiedFromID)
 }

@@ -8,6 +8,7 @@ import (
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/shared/audit"
 	"quizzivy/internal/shared/opt"
+	"slices"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -149,7 +150,7 @@ func (s *GroupsPostgres) mountGroup(ctx context.Context, tx pgx.Tx, in domain.Cr
 	return err
 }
 
-func (s *GroupsPostgres) seedSectionUnits(ctx context.Context, tx pgx.Tx, sectionID string) error {
+func (s *GroupsPostgres) seedSectionUnits(ctx context.Context, tx pgx.Tx, sectionID string, also ...string) error {
 	rows, err := tx.Query(ctx, `SELECT question_id::text FROM app.test_section_questions WHERE test_section_id=$1 ORDER BY question_id`, sectionID)
 	if err != nil {
 		return err
@@ -158,8 +159,19 @@ func (s *GroupsPostgres) seedSectionUnits(ctx context.Context, tx pgx.Tx, sectio
 	if err != nil {
 		return err
 	}
-	for _, id := range ids {
-		if err := s.questions.LockForDraftUse(ctx, tx, id); err != nil {
+	locking := slices.Clone(ids)
+	for _, id := range also {
+		if !slices.Contains(locking, id) {
+			locking = append(locking, id)
+		}
+	}
+	slices.Sort(locking)
+	for _, id := range locking {
+		err := s.questions.LockForDraftUse(ctx, tx, id)
+		if errors.Is(err, questions.ErrNotFound) && !slices.Contains(ids, id) {
+			continue
+		}
+		if err != nil {
 			return err
 		}
 	}

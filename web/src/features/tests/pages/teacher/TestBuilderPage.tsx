@@ -950,6 +950,9 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     setEditorEpoch((epoch) => epoch + 1);
     focusAfterMove.current = moved.questionId;
     if (moved.copied) notify.success(t("builder.movedIntoGroupCopied"));
+    else if (moved.restored) notify.success(t("builder.movedOutRestored"));
+    else if (moved.editedCopy)
+      notify.info(t("builder.movedOutEditedCopy"), { duration: 6000 });
   }
 
   useEffect(() => {

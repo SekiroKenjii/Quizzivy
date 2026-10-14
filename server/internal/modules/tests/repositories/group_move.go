@@ -25,22 +25,29 @@ const (
 type moveOutcome struct {
 	questionID string
 	copied     bool
+	restored   bool
+	editedCopy bool
+	removedID  string
 }
 
 type moveAudit struct {
-	QuestionID  string `json:"questionId"`
-	Copied      bool   `json:"copied"`
-	FromSection string `json:"fromSectionId"`
-	FromGroup   string `json:"fromGroupId,omitempty"`
-	ToSection   string `json:"toSectionId"`
-	ToGroup     string `json:"toGroupId,omitempty"`
-	Index       int    `json:"index"`
+	QuestionID      string `json:"questionId"`
+	Copied          bool   `json:"copied"`
+	Restored        bool   `json:"restored,omitempty"`
+	EditedCopy      bool   `json:"editedCopy,omitempty"`
+	RemovedMemberID string `json:"removedMemberId,omitempty"`
+	FromSection     string `json:"fromSectionId"`
+	FromGroup       string `json:"fromGroupId,omitempty"`
+	ToSection       string `json:"toSectionId"`
+	ToGroup         string `json:"toGroupId,omitempty"`
+	Index           int    `json:"index"`
 }
 
 // MoveQuestion moves one question of a test's draft across a group's boundary, between two groups, or within one,
 // under the test revision and the revision of every group it touches. A standalone question dragged into a group
-// is copied, leaving the bank question as it was; a member keeps its id when it leaves a group or changes groups.
-// A refused move writes nothing.
+// is copied, leaving the bank question as it was, and the copy remembers it; a member keeps its id when it changes
+// groups, and when it leaves a group unless it is an unedited copy of a bank question that is still there, in which
+// case the copy is removed and that bank question takes its place. A refused move writes nothing.
 func (s *GroupsPostgres) MoveQuestion(ctx context.Context, in domain.MoveQuestionInput) (domain.MoveQuestionResult, error) {
 	result, err := s.moveQuestion(ctx, in)
 	return result, groupWriteError(err)
@@ -130,7 +137,7 @@ func (s *GroupsPostgres) applyMove(ctx context.Context, tx pgx.Tx, in domain.Mov
 	case moveIntoGroup:
 		return s.copyIntoGroup(ctx, tx, in, plan, order)
 	case moveOutOfGroup:
-		return s.moveOutOfGroup(ctx, tx, plan, owner, order)
+		return s.moveOutOfGroup(ctx, tx, in, plan, owner, order)
 	default:
 		return reparentMember(ctx, tx, plan, order)
 	}
@@ -166,7 +173,7 @@ func (s *GroupsPostgres) copyIntoGroup(ctx context.Context, tx pgx.Tx, in domain
 	}
 	write := questions.WriteInput{ID: member.ID, Input: member.Input, MediaAssetKind: member.MediaAssetKind,
 		ActorID: in.ActorID, Now: in.Now, IP: in.IP, UserAgent: in.UserAgent}
-	owned := questions.GroupOwnership{GroupID: plan.targetGroup, Ordinal: len(members), OptionOrder: copiedMemberOptionOrder}
+	owned := questions.GroupOwnership{GroupID: plan.targetGroup, Ordinal: len(members), OptionOrder: copiedMemberOptionOrder, CopiedFromID: plan.questionID}
 	if _, err := s.questions.CreateGroupMember(ctx, tx, write, owned); err != nil {
 		return moveOutcome{}, err
 	}
@@ -176,7 +183,7 @@ func (s *GroupsPostgres) copyIntoGroup(ctx context.Context, tx pgx.Tx, in domain
 	return moveOutcome{questionID: member.ID, copied: true}, nil
 }
 
-func (s *GroupsPostgres) moveOutOfGroup(ctx context.Context, tx pgx.Tx, plan movePlan, owner string, order map[string][]string) (moveOutcome, error) {
+func (s *GroupsPostgres) moveOutOfGroup(ctx context.Context, tx pgx.Tx, in domain.MoveQuestionInput, plan movePlan, owner string, order map[string][]string) (moveOutcome, error) {
 	members := order[plan.sourceGroup]
 	if !slices.Contains(members, plan.questionID) {
 		return moveOutcome{}, domain.ErrNotFound
@@ -184,13 +191,32 @@ func (s *GroupsPostgres) moveOutOfGroup(ctx context.Context, tx pgx.Tx, plan mov
 	if err := requireUnbound(ctx, tx, plan.sourceGroup, plan.questionID); err != nil {
 		return moveOutcome{}, err
 	}
-	if err := s.ensureSectionUnits(ctx, tx, plan.targetSection); err != nil {
+	originID, err := copiedFromOf(ctx, tx, plan.questionID)
+	if err != nil {
+		return moveOutcome{}, err
+	}
+	var also []string
+	if originID != "" {
+		also = []string{originID}
+	}
+	if err := s.ensureSectionUnits(ctx, tx, plan.targetSection, also...); err != nil {
 		return moveOutcome{}, err
 	}
 	if err := deferMoveOrdinals(ctx, tx); err != nil {
 		return moveOutcome{}, err
 	}
-	tag, err := tx.Exec(ctx, `UPDATE app.questions SET context_group_id=NULL, context_ordinal=NULL, context_option_order=NULL, owner_id=$3
+	origin, err := s.judgeOrigin(ctx, tx, in, plan, owner, originID)
+	if err != nil {
+		return moveOutcome{}, err
+	}
+	if origin.restore {
+		return s.restoreOrigin(ctx, tx, plan, members, origin.id)
+	}
+	return s.leaveGroup(ctx, tx, plan, owner, members, origin.edited)
+}
+
+func (s *GroupsPostgres) leaveGroup(ctx context.Context, tx pgx.Tx, plan movePlan, owner string, members []string, editedCopy bool) (moveOutcome, error) {
+	tag, err := tx.Exec(ctx, `UPDATE app.questions SET context_group_id=NULL, context_ordinal=NULL, context_option_order=NULL, owner_id=$3, copied_from_id=NULL
 		WHERE id=$1 AND context_group_id=$2`, plan.questionID, plan.sourceGroup, owner)
 	if err != nil {
 		return moveOutcome{}, err
@@ -207,7 +233,7 @@ func (s *GroupsPostgres) moveOutOfGroup(ctx context.Context, tx pgx.Tx, plan mov
 	if err := insertStandaloneQuestion(ctx, tx, plan.targetSection, plan.questionID, plan.index); err != nil {
 		return moveOutcome{}, err
 	}
-	return moveOutcome{questionID: plan.questionID}, nil
+	return moveOutcome{questionID: plan.questionID, editedCopy: editedCopy}, nil
 }
 
 func reparentMember(ctx context.Context, tx pgx.Tx, plan movePlan, order map[string][]string) (moveOutcome, error) {
@@ -273,11 +299,13 @@ func (s *GroupsPostgres) finishMove(ctx context.Context, tx pgx.Tx, in domain.Mo
 	if err := tx.Commit(ctx); err != nil {
 		return domain.MoveQuestionResult{}, err
 	}
-	return domain.MoveQuestionResult{Test: test, QuestionID: outcome.questionID, Copied: outcome.copied, Groups: groups}, nil
+	return domain.MoveQuestionResult{Test: test, QuestionID: outcome.questionID, Copied: outcome.copied,
+		Restored: outcome.restored, EditedCopy: outcome.editedCopy, Groups: groups}, nil
 }
 
 func recordMove(ctx context.Context, tx pgx.Tx, in domain.MoveQuestionInput, plan movePlan, outcome moveOutcome) error {
-	diff, err := json.Marshal(moveAudit{QuestionID: outcome.questionID, Copied: outcome.copied,
+	diff, err := json.Marshal(moveAudit{QuestionID: outcome.questionID, Copied: outcome.copied, Restored: outcome.restored,
+		EditedCopy: outcome.editedCopy, RemovedMemberID: outcome.removedID,
 		FromSection: plan.sourceSection, FromGroup: plan.sourceGroup, ToSection: plan.targetSection, ToGroup: plan.targetGroup, Index: plan.index})
 	if err != nil {
 		return err
@@ -299,8 +327,7 @@ func recordMove(ctx context.Context, tx pgx.Tx, in domain.MoveQuestionInput, pla
 
 func detachedMember(source questions.Question) (domain.GroupQuestion, error) {
 	var failure error
-	member := domain.GroupQuestion{ID: source.ID, Input: groupQuestionInput(source), MediaAssetKind: source.MediaAssetKind}
-	copied, err := member.Copy(func() string {
+	copied, err := groupQuestionOf(source).Copy(func() string {
 		id, err := uuid.NewV7()
 		if err != nil {
 			failure = err

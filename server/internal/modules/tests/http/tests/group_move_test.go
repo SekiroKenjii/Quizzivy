@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -120,6 +121,51 @@ func TestMoveAnswersWhatTheBuilderGoesOnFrom(t *testing.T) {
 	if !answer.Copied || answer.QuestionId.String() != moveOther || !answer.Test.UpdatedAt.Equal(updated) ||
 		len(answer.Groups) != 1 || answer.Groups[0].Revision != 8 || len(units) != 1 || units[0].Kind != openapi.DraftSectionUnitKindGroup {
 		t.Fatalf("the answer lost what the client continues from: %s", recorder.Body.String())
+	}
+}
+
+func TestMoveSaysWhichThingHappenedToTheQuestion(t *testing.T) {
+	updated := time.Date(2026, 10, 14, 3, 5, 0, 0, time.UTC)
+	stored := domain.StoredGroup{
+		Bundle:   domain.GroupBundle{Group: domain.QuestionGroup{ID: moveGroup, Title: "Nhóm", Members: []domain.GroupMember{}, Stimuli: []domain.GroupStimulus{}, Recordings: []domain.GroupRecording{}}},
+		Revision: 8, CreatedAt: updated, UpdatedAt: updated,
+	}
+	for name, c := range map[string]struct {
+		result                         domain.MoveQuestionResult
+		copied, restored, editedCopied bool
+	}{
+		"a copy into a group":                   {domain.MoveQuestionResult{Copied: true}, true, false, false},
+		"an unedited copy back as its original": {domain.MoveQuestionResult{Restored: true}, false, true, false},
+		"an edited copy kept as a new question": {domain.MoveQuestionResult{EditedCopy: true}, false, false, true},
+		"any other move":                        {domain.MoveQuestionResult{}, false, false, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			result := c.result
+			result.Test = domain.Test{ID: moveTest, Title: "Đề", Status: domain.Draft, TotalPoints: "2", Skills: []string{}, CreatedAt: updated, UpdatedAt: updated,
+				Sections: []domain.Section{{ID: moveSection, Title: "Phần 1", QuestionIDs: []string{}, Units: []domain.SectionUnit{{Kind: "group", ID: moveGroup}}}}}
+			result.QuestionID, result.Groups = moveOther, []domain.StoredGroup{stored}
+			transport := movingWith(func(command.MoveQuestion) (domain.MoveQuestionResult, error) { return result, nil })
+			principal := access.Principal{UserID: uuid.NewString(), Permissions: access.NewSet(access.ContentTestsWrite)}
+
+			response, err := transport.MoveTestQuestion(contextAs(t, principal), openapi.MoveTestQuestionRequestObject{Id: uuid.MustParse(moveTest), Body: moveBody(t, `"`+moveGroup+`"`)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			recorder := httptest.NewRecorder()
+			if err := response.VisitMoveTestQuestionResponse(recorder); err != nil {
+				t.Fatal(err)
+			}
+
+			var answer map[string]json.RawMessage
+			if recorder.Code != http.StatusOK || json.Unmarshal(recorder.Body.Bytes(), &answer) != nil {
+				t.Fatalf("answered %d %s", recorder.Code, recorder.Body.String())
+			}
+			for field, want := range map[string]bool{"copied": c.copied, "restored": c.restored, "editedCopy": c.editedCopied} {
+				if got := string(answer[field]); got != fmt.Sprint(want) {
+					t.Errorf("%s is %s, want %v: the contract requires all three on every answer", field, got, want)
+				}
+			}
+		})
 	}
 }
 

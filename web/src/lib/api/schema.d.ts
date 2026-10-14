@@ -521,16 +521,27 @@ export interface paths {
          *     - **Into a group** (a standalone question, `to.groupId` set): the
          *       group gets a **copy** of the question, with fresh question, option
          *       and blank ids; the section's reference to the bank question is
-         *       removed and the bank question itself is not touched. The result's
-         *       `questionId` is the copy's id and `copied` is true.
-         *     - **Out of a group** (a member, `to.groupId` null): the member keeps
-         *       its id and becomes an ordinary question of the bank, a standalone
-         *       unit of `to.sectionId` at `to.index`. `copied` is false. A member
-         *       that a gap of the group's shared material is bound to cannot leave
-         *       (`422`, `details.rule` `group_gap_bound`).
+         *       removed and the bank question itself is not touched. The copy
+         *       remembers that bank question, which is what lets it go back as the
+         *       original when it is dragged out unedited. The result's `questionId`
+         *       is the copy's id and `copied` is true.
+         *     - **Out of a group** (a member, `to.groupId` null): a member that was
+         *       copied into the group from a bank question, has not been edited
+         *       since, and whose original is still in the bank, in the caller's
+         *       reach and not already in this test, goes back as that original: the
+         *       copy is removed, the original becomes a standalone unit of
+         *       `to.sectionId` at `to.index`, no bank question is added, and
+         *       `restored` is true with `questionId` the original's id. Any other
+         *       member keeps its id and becomes an ordinary question of the bank, a
+         *       standalone unit of `to.sectionId` at `to.index`; `editedCopy` is true
+         *       when it had been copied from a bank question that is still there and
+         *       was edited since. `copied` is false either way. A member that a gap
+         *       of the group's shared material is bound to cannot leave (`422`,
+         *       `details.rule` `group_gap_bound`).
          *     - **Between groups of this test, or within one group** (a member,
-         *       `to.groupId` set): the member keeps its id and moves in place.
-         *       `copied` is false.
+         *       `to.groupId` set): the member moves in place, keeping its id and
+         *       the link to the bank question it was copied from, if any. `copied`,
+         *       `restored` and `editedCopy` are false.
          *
          *     `to.index` is the position among the section's units when
          *     `to.groupId` is null, and among the group's members otherwise, counted
@@ -5390,10 +5401,14 @@ export interface components {
         MoveTestQuestionResult: {
             /** @description The saved draft, with its new `updatedAt` and the sections' units. */
             test: components["schemas"]["Test"];
-            /** @description The id the question has now. A new id after a copy into a group; the request's otherwise. */
+            /** @description The id the question has now. A new id after a copy into a group; the original bank question's id when `restored` is true; the request's otherwise. */
             questionId: components["schemas"]["Uuid"];
             /** @description True when the question was copied into a group and the bank question stays where it was. The builder says so after the drop. */
             copied: boolean;
+            /** @description True when a member that was an unedited copy of a bank question left its group and the original bank question took its place in the section, the copy being removed. `questionId` is then the original's id. */
+            restored: boolean;
+            /** @description True when a member that was a copy of a bank question which is still in the bank left its group edited, and so stayed a new bank question of its own. False for every other move out of a group, including a member that was never a copy or whose original is gone. The builder says so after the drop. */
+            editedCopy: boolean;
             /** @description Every touched group at its new revision, built as `getQuestionGroup` builds one. */
             groups: components["schemas"]["StoredQuestionGroup"][];
         };

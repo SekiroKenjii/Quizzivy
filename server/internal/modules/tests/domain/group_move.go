@@ -59,10 +59,16 @@ type MoveQuestionInput struct {
 
 // MoveQuestionResult is the saved draft and every touched group at its new
 // revision, source group first. QuestionID is the id the question has now: a
-// new one after a copy into a group, otherwise the moved question's own.
+// new one after a copy into a group, the original bank question's after
+// Restored, otherwise the moved question's own. Restored is a member that was
+// an unedited copy going back as its original, the copy removed. EditedCopy is
+// a member that was an edited copy of a bank question still in the bank
+// leaving as a bank question of its own.
 type MoveQuestionResult struct {
 	Test       Test
 	QuestionID string
 	Copied     bool
+	Restored   bool
+	EditedCopy bool
 	Groups     []StoredGroup
 }

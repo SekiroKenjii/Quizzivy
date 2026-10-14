@@ -193,7 +193,7 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	groupID, ordinal, optionOrder := ownershipValues(ownership)
+	groupID, ordinal, optionOrder, copiedFromID := ownershipValues(ownership)
 	if err := prepareQuestionContent(ctx, tx, &in, update, groupID); err != nil {
 		return domain.Question{}, err
 	}
@@ -245,18 +245,19 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 			        audio_max_plays, audio_allow_seek, audio_show_transcript_after,
 			        transcript, points, explanation, sample_answer, tags, created_by, prompt_content, explanation_content,
 			        id, context_group_id, context_ordinal, context_option_order, owner_id, level, skill, media_alt,
-			        audio_allow_pause)
+			        audio_allow_pause, copied_from_id)
 			VALUES ($1::app.question_type, $2, $3, $4::app.media_kind, $5, $6, $7,
 			        $8, $9::numeric, $10, $11, $12, $13, $14, $15,
 			        coalesce($16::uuid, uuidv7()), $17, $18, $19,
 			        coalesce((SELECT g.owner_id FROM app.question_groups g WHERE g.id = $17), $20::uuid, $13), $21, $22, $23,
-			        CASE WHEN $6::boolean IS NULL THEN NULL ELSE coalesce($24::boolean, true) END)
+			        CASE WHEN $6::boolean IS NULL THEN NULL ELSE coalesce($24::boolean, true) END, $25::uuid)
 			RETURNING id::text`,
 			string(in.Input.Type), in.Input.Prompt, in.Input.MediaAssetID, kind,
 			maxPlays, allowSeek, showTranscript, in.Input.Transcript,
 			in.Input.Points, in.Input.Explanation, in.Input.SampleAnswer,
 			in.Input.Tags, in.ActorID, nullableContent(in.Input.PromptContent), nullableContent(in.Input.ExplanationContent),
-			createID, groupID, ordinal, optionOrder, opt.String(in.OwnerID), in.Input.Level, in.Input.Skill, mediaAlt, allowPause).Scan(&id)
+			createID, groupID, ordinal, optionOrder, opt.String(in.OwnerID), in.Input.Level, in.Input.Skill, mediaAlt, allowPause,
+			copiedFromID).Scan(&id)
 	}
 	if err != nil {
 		return domain.Question{}, writeFailure(err)

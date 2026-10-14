@@ -171,13 +171,13 @@ func TestMoveClampsIndexAndCompactsOrdinals(t *testing.T) {
 	requireOrder(t, "members after a move-out", w.members(id), members[1], copied)
 
 	w.mustMove(copied, 0, nil, 1, id)
-	requireOrder(t, "units in the middle", w.units(0), "q:"+q0, "q:"+copied, "q:"+q2, "g:"+id, "q:"+members[0])
-	requireOrder(t, "standalone in the middle", w.standalone(0), q0, copied, q2, members[0])
+	requireOrder(t, "units in the middle, the unedited copy having gone back as its original", w.units(0), "q:"+q0, "q:"+q1, "q:"+q2, "g:"+id, "q:"+members[0])
+	requireOrder(t, "standalone in the middle", w.standalone(0), q0, q1, q2, members[0])
 
 	w.mustMove(members[1], 0, nil, -5, id)
-	requireOrder(t, "units at the front", w.units(0), "q:"+members[1], "q:"+q0, "q:"+copied, "q:"+q2, "g:"+id, "q:"+members[0])
+	requireOrder(t, "units at the front", w.units(0), "q:"+members[1], "q:"+q0, "q:"+q1, "q:"+q2, "g:"+id, "q:"+members[0])
 	requireOrder(t, "members of the emptied group", w.members(id))
-	requireOrder(t, "standalone at the front", w.standalone(0), members[1], q0, copied, q2, members[0])
+	requireOrder(t, "standalone at the front", w.standalone(0), members[1], q0, q1, q2, members[0])
 	if got := w.revision(id); got != group.Revision+4 {
 		t.Fatalf("an emptied group stays, at revision %d, want %d", got, group.Revision+4)
 	}

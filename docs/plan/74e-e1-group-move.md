@@ -855,7 +855,8 @@ noted.
 
 **Q1. Copy on the way in?** Decided: **copy**, the bank row untouched. The alternative, move the
 same id when nothing else references it, is invisible to the teacher and touches the invariant
-that a member is born in its group.
+that a member is born in its group. (What the decision left behind, a second bank question after
+every round trip, is answered in "After release (v0.11.7)" below; the decision itself stands.)
 
 **Q2. Version number?** Decided: **v0.11.6**. The owner first decided v0.11.4, because v0.11.3 was
 the Generate hotfix; v0.11.4 then went to a hotfix (the AI check reads group members) and v0.11.5 to
@@ -890,3 +891,52 @@ material's document on a drag.
   (`move_source_ambiguous`). The builder's picker does not let a test hold a bank question twice,
   so this is a guard for data written some other way. If it ever matters, the contract gains an
   optional source section.
+
+## After release (v0.11.7)
+
+Decided by the owner on 2026-10-14, the day v0.11.6 reached production, after a teacher saw duplicates
+piling up in the bank. It changes Q1's consequence and does not reverse Q1: a bank question dragged into a
+group is still copied, and the bank row is still never written by that move.
+
+**The defect.** A drag in copies, and a drag out keeps the member's id, so a round trip turned one bank
+question into two with the same content, and every further round trip added one. The copy was an
+independent question the moment it left, and nothing said it had once been the original.
+
+**What was decided.**
+
+1. **A copy remembers its origin.** `questions.copied_from_id`, nullable, references `questions (id)` with
+   `ON DELETE SET NULL` (migration 00126; its partial index is 00127; D-50 in
+   `20-data-model.md`). The copy into a group sets it to the bank question's id. Nothing else sets it.
+2. **An unedited copy dragged out restores the original.** When the member has an origin, the origin is a
+   live bank question in the caller's reach (and owned by the test's owner, and not in the test already),
+   and the member's content equals its content, the member is removed and the original is placed where
+   the member would have landed, in the same section at `to.index`. No bank row is added. The answer says
+   `restored: true` and `questionId` is the original's.
+3. **An edited copy stays a new bank question**, as before, with its origin cleared, because it is now an
+   independent question. The answer says `editedCopy: true` and the builder says it was saved as a new
+   question because it had been edited. That signal is the contract's second flag: a member that was
+   never a copy, or whose original is gone, is neither restored nor an edited copy, and the builder says
+   nothing for it.
+4. **A move between groups, or within one, keeps the origin.**
+5. **Locking.** Inserting the original into `test_section_questions` calls `questions.LockForDraftUse`
+   first. The origin is locked in one ascending sweep with the questions the destination section's
+   seeding locks, so no writer holds a later question while it waits on an earlier one; a concurrent
+   delete of the origin makes the move leave the member as a bank question and never restores a deleted
+   row (`20-data-model.md` §48, "After release").
+6. **Removing the copy** is the hard `DELETE` a group save uses for a member it drops, not a soft delete (a
+   member cannot be soft-deleted). A published version that froze the copy and any attempt on it keep
+   every frozen row; only the copy's informational `source_question_id` becomes NULL (D-07).
+
+**What changed in the code.** `GroupQuestion.SameContent` (`tests/domain/group_content.go`) is the one
+comparison; `GroupsPostgres.MoveQuestion` decides in `group_move_origin.go`; `moveTestQuestion` answers
+`restored` and `editedCopy` beside `copied`; the builder shows two toasts (`builder.movedOutRestored`,
+`builder.movedOutEditedCopy`). `permissions.golden`, the isolation entry and every `x-resource` are
+unchanged.
+
+**Tests it moved.** `TestMoveClampsIndexAndCompactsOrdinals` dragged a copy out and expected it under its
+own id at the drop position; the copy now goes back as the original, so the test expects the bank
+question there. It still pins the clamp and the compaction. No other test of v0.11.6 changed.
+
+**Deploy.** Two migrations run in the release command, before the new pods take traffic. A v0.11.6 pod
+still running writes copies with a NULL origin, which never restore; that is harmless. Rolling back leaves
+the column unused (`docs/setup/deploy.md`, "Rolling out v0.11.7").
