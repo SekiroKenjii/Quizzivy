@@ -19,7 +19,7 @@ on:
         type: string
         default: develop
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 concurrency:
   group: slow-tail-${{ github.ref }}
