@@ -46,6 +46,7 @@ var thePerActorLimits = map[string][]ratelimit.Rule{
 	"POST /teacher/media/{id}/replace":           {{Burst: 10, Window: time.Minute}, {Burst: 60, Window: time.Hour}},
 	"DELETE /auth/sessions/{familyId}":           {{Burst: 10, Window: time.Minute}, {Burst: 60, Window: time.Hour}},
 	"POST /auth/sessions/revoke-others":          {{Burst: 5, Window: time.Minute}, {Burst: 30, Window: time.Hour}},
+	"POST /auth/set-password/request":            {{Burst: 3, Window: time.Minute}, {Burst: 10, Window: time.Hour}},
 
 	"POST /teacher/ai/questions/generate":                                         aiSuggestion,
 	"POST /teacher/ai/tests/{id}/check":                                           aiSuggestion,
@@ -245,8 +246,8 @@ func TestThePrincipalAssertionActuallyFails(t *testing.T) {
 		t.Errorf("err = %v, want it to name the entry that is no operation of the contract", err)
 	}
 
-	err = httpx.AssertPrincipalRoutesGated(spec, "bearerAuth", keyed(theOpenNine...))
-	for _, open := range theOpenNine {
+	err = httpx.AssertPrincipalRoutesGated(spec, "bearerAuth", keyed(theOpenEleven...))
+	for _, open := range theOpenEleven {
 		if err == nil || !strings.Contains(err.Error(), open+": is an open operation") {
 			t.Errorf("err = %v, want it to name %q", err, open)
 		}

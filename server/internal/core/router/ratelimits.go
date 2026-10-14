@@ -14,6 +14,7 @@ func RateLimits() *ratelimit.Registry {
 	const maxKeyBodyBytes = 8 * 1024
 	joinCode := ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, 9, classesdomain.JoinCodes.Normalize)
 	email := ratelimit.JSONFieldKey("email", maxKeyBodyBytes, 254)
+	linkToken := ratelimit.JSONFieldKey("token", maxKeyBodyBytes, 128)
 	reg.Add("POST /join/preview", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(600)).
 		WithKey("perCode", joinCode, capacity, ratelimit.PerHour(200))
 	reg.Add("POST /auth/google", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(600)).
@@ -21,6 +22,10 @@ func RateLimits() *ratelimit.Registry {
 	reg.Add("POST /auth/login", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(600)).
 		WithKey("perAddressAndEmail", ratelimit.Compose(ratelimit.Address, email), capacity, ratelimit.PerMinute(10)).
 		WithKey("perEmail", email, capacity, ratelimit.PerHour(20))
+	reg.Add("POST /auth/set-password/check", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(1000)).
+		WithKey("perToken", linkToken, capacity, ratelimit.PerHour(20))
+	reg.Add("POST /auth/set-password", capacity, ratelimit.PerMinute(60), ratelimit.PerHour(600)).
+		WithKey("perToken", linkToken, capacity, ratelimit.PerHour(10))
 	reg.Add("POST /auth/refresh", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(1200))
 	reg.Add("POST /auth/logout", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(1200))
 	reg.Add("POST /app/classes/join", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(600)).
@@ -76,6 +81,7 @@ func PrincipalRateLimits() *ratelimit.Registry {
 	perActor("GET /admin/audit-log/export", ratelimit.PerMinute(5), ratelimit.PerHour(30))
 	perActor("DELETE /auth/sessions/{familyId}", ratelimit.PerMinute(10), ratelimit.PerHour(60))
 	perActor("POST /auth/sessions/revoke-others", ratelimit.PerMinute(5), ratelimit.PerHour(30))
+	perActor("POST /auth/set-password/request", ratelimit.PerMinute(3), ratelimit.PerHour(10))
 	perActor("GET /teacher/assignments/results.csv", ratelimit.PerMinute(10), ratelimit.PerHour(60))
 	perActor("PUT /me/avatar", ratelimit.PerHour(10))
 	perActor("POST /admin/settings/logo", ratelimit.PerHour(20))

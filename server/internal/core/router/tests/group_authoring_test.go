@@ -60,8 +60,9 @@ func TestGroupBodyBudgetIsBoundedBeforeJSONValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(limits) != 14 || limits["POST /admin/settings/logo"].Bytes != (1<<20)+(16<<10) || limits["PATCH /me/preferences"].Bytes != 8192 || limits["PUT /me/avatar"].Bytes != (2<<20)+(16<<10) || limits["POST /teacher/imports/{id}/sources"].Bytes != (25<<20)+(128<<10) || limits["POST /teacher/media"].Bytes != (50<<20)+(128<<10) || limits["POST /teacher/media/{id}/replace"].Bytes != (50<<20)+(128<<10) || limits["PUT /teacher/imports/{id}/review"].Bytes != 8<<20 || limits["POST /teacher/question-groups"].Bytes != 4<<20 || limits["PUT /teacher/question-groups/{id}"].Bytes != 4<<20 || limits["POST /teacher/tests/{id}/questions/move"].Bytes != 4<<10 ||
-		limits["POST /auth/login"].Bytes != 8<<10 || limits["POST /auth/google"].Bytes != 8<<10 || limits["POST /join/preview"].Bytes != 8<<10 || limits["POST /app/classes/join"].Bytes != 8<<10 {
+	if len(limits) != 16 || limits["POST /admin/settings/logo"].Bytes != (1<<20)+(16<<10) || limits["PATCH /me/preferences"].Bytes != 8192 || limits["PUT /me/avatar"].Bytes != (2<<20)+(16<<10) || limits["POST /teacher/imports/{id}/sources"].Bytes != (25<<20)+(128<<10) || limits["POST /teacher/media"].Bytes != (50<<20)+(128<<10) || limits["POST /teacher/media/{id}/replace"].Bytes != (50<<20)+(128<<10) || limits["PUT /teacher/imports/{id}/review"].Bytes != 8<<20 || limits["POST /teacher/question-groups"].Bytes != 4<<20 || limits["PUT /teacher/question-groups/{id}"].Bytes != 4<<20 || limits["POST /teacher/tests/{id}/questions/move"].Bytes != 4<<10 ||
+		limits["POST /auth/login"].Bytes != 8<<10 || limits["POST /auth/google"].Bytes != 8<<10 || limits["POST /join/preview"].Bytes != 8<<10 || limits["POST /app/classes/join"].Bytes != 8<<10 ||
+		limits["POST /auth/set-password"].Bytes != 8<<10 || limits["POST /auth/set-password/check"].Bytes != 8<<10 {
 		t.Fatalf("unexpected contract budgets: %v", limits)
 	}
 	for _, bytes := range []int{2 << 20, (4 << 20) + 1} {
