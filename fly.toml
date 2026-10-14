@@ -77,6 +77,17 @@ primary_region = "sin"
   IMPORT_WORKER_WAKE_ADDR = "fly-local-6pn:8091"
   IMPORT_WORKER_IDLE_POLL = "6h"
 
+  # Outgoing mail (T-R5.2). Resend sends from the verified quizzivy.com domain;
+  # RESEND_API_KEY and SECRETS_KEY are Fly secrets, and the three names form
+  # one group the app refuses to start without (config.Load). EMAIL_DAILY_LIMIT
+  # is Resend's free tier; the outbox moves the excess to the next local day.
+  # Both process groups read these: the worker sends the notices it enqueues.
+  EMAIL_FROM = "Quizzivy <no-reply@quizzivy.com>"
+  APP_URL = "https://app.quizzivy.com"
+  EMAIL_DAILY_LIMIT = "100"
+  EMAIL_SEND_RATE = "2"
+  APP_TIMEZONE = "Asia/Ho_Chi_Minh"
+
 [http_service]
   processes = ["app"]
   internal_port = 8080

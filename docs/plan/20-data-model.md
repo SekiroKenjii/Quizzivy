@@ -1378,6 +1378,7 @@ listed here matches the spec.
 | D-48 | Add `ai_usage_ledger`, append-only: `UPDATE` and `DELETE` are revoked from the app role in the file that creates it | One row per settled call with the actor, the feature, the tier, the four token counts the provider reported, the credits charged and the provider's request id, so a month's invoice reconciles with the pool. A ledger the application can rewrite proves nothing, which is why `audit_log` and `attempt_events` are the same (D-01, §11). `user_id` is `ON DELETE SET NULL`, run by the table's owner, so a row outlives its actor |
 | D-49 | Add `ai_credit_requests`, with a partial unique index `ai_credit_requests_one_pending_idx (user_id, month) WHERE status = 'pending'` | At most one request per teacher per month is waiting (DG-200), which the index makes a fact of the data and not a race between two clicks. `decided_by` is `ON DELETE SET NULL` and is NULL when the console decided, which the audit row says. It is the one foreign key left unindexed on purpose: the table gains a row per request, and removing an Admin scans a few hundred |
 | D-50 | `questions` gains a nullable `copied_from_id`, a self-reference `ON DELETE SET NULL`, and a partial index on the copies | A member copy of a bank question names the question it was made from, so that dragging an unedited copy out of its group (E1, `74e-e1-group-move.md`, "After release") puts the original back and no second bank question is left. The link is informational, like `test_version_questions.source_question_id` (D-07): it is cleared when the copy leaves its group and becomes an independent question, and `SET NULL` means a deleted origin never waits on a copy. Nullable with no default and no backfill, so the v0.11.6 binary's insert, which names no such column, keeps working; a copy it wrote reads NULL and is never restored. The REFERENCES is inline in the `ADD COLUMN`, so PostgreSQL skips the validation scan of a column it is adding. The index is partial because almost every question is not a copy, and `ON DELETE SET NULL` updates the copies by equality, which implies its predicate. See §48 |
+| D-51 | Add `email_outbox`, one row per message to send, with a partial index on the pending rows | A message is written in the transaction that decided to send it, so a rolled-back decision sends nothing, and the API and the worker both drain the table (T-R5.2). `template` is a checked slug and not an enum, as `notifications.kind` is (D-28), because the template list is Go's and R7 adds templates without a migration. `to_address` is a copy, since `to_user_id` is `ON DELETE SET NULL` and an unsent message must outlive its user's row. `secret_ciphertext` holds a set-password token sealed under `SECRETS_KEY` with the row id as associated data, and is cleared in the statement that marks the row sent or failed. `dedupe_key` is a plain unique column: a second message with the same key is not written. `attempts` is bounded at 10 to match the dispatcher. See §49 |
 
 ---
 
@@ -1507,6 +1508,7 @@ the file it adds.
 | `00125_add_word_imports_read_with_ai.sql` | `word_imports.read_with_ai boolean NOT NULL DEFAULT false`; a constant default, so the v0.10.x binary keeps inserting | D4 (T-D4.33), §47 |
 | `00126_add_questions_copied_from.sql` | `questions.copied_from_id` and `questions_copied_from_id_fkey` (`REFERENCES questions (id) ON DELETE SET NULL`), added with the column, nullable with no default | E1 hotfix v0.11.7, D-50, §48 |
 | `00127_index_questions_copied_from.sql` | `questions_copied_from_idx (copied_from_id) WHERE copied_from_id IS NOT NULL`, `CONCURRENTLY` | E1 hotfix v0.11.7, D-50, §48 |
+| `00128_create_email_outbox.sql` | `email_outbox`, its checks, `email_outbox_dedupe_key`, the pending index `email_outbox_pending_idx`, `email_outbox_sent_idx` and the `to_user_id` index | R5 (T-R5.2), D-51, §49 |
 | `00129_grant_role_writes.sql` | `INSERT` and `UPDATE (name, description, icon, color, revision, updated_at)` on `roles`, `INSERT` and `DELETE` on `role_permissions`, for the app role; `DELETE` on `roles` and any write on `permissions` stay revoked | R5 (T-R5.8), DG-52, §29 |
 
 Notes on migration mechanics (§13.7):
@@ -2136,6 +2138,7 @@ media owner, described under the table.
 | 40 | Maintenance windows (T-R1.12, T-R1.13, T-R4.12b) | `window-schedule`, `window-cancel` and `window-end` take it exclusively; the attempt start guard takes it shared, so no attempt starts between a window's scheduling and its extensions. `extendAssignment`, `updateAssignment`, `reopenAssignment`, `setStudentOverrides` and `deleteStudentOverride` take it shared too, before they lock the assignment row (`schedule.LockWindows`), so none of them runs between a window's scheduling and its extensions, and none can wait on a row that `window-schedule` holds while it waits on theirs |
 | 41 | Legacy join-code rotation (T-R4.22) | Each class's rotation across API machines |
 | 42 | Reserved: R7's notification scheduler | Confirmed by R7 |
+| 43 | Email dispatch (T-R5.2) | `pg_try_advisory_xact_lock(73819, 43)` in the API's and the worker's dispatcher: one batch is claimed and sent at a time across both processes, so the daily budget and the provider's request rate hold. A dispatcher that does not get it waits and tries again |
 
 **Namespace 73820: one media library's quota (T-R4.17a).**
 `pg_advisory_xact_lock(73820, hashtext(<owner id>::uuid::text))` serialises
@@ -3488,3 +3491,37 @@ refused; a published version keeps every frozen row but the link; the foreign ke
 `group_move_origin_race_test.go` drives the races, both orders, against a delete of the origin and
 another test's autosave. `tests/group_move_flow_test.go` drives the round trip over HTTP, and
 `builder-groups.live.spec.ts` in a browser against the real API.
+
+## 49. The email outbox (T-R5.2)
+
+`app.email_outbox` (00128, D-51) holds every message the app has to send. A module enqueues in its own
+transaction with `email.Outbox.Enqueue` and calls `Notify` after the commit; the API's and the worker's
+dispatchers send what is due.
+
+**What a row is.** `template` (a slug, the list is Go's), `locale` (`vi` or `en`; the recipient's
+`users.locale`, else `vi`, unless the caller names one), `to_address` (one bare address, 3 to 254
+characters, copied), `to_user_id` (`ON DELETE SET NULL`), `params` (a JSON object of at most 4096 bytes,
+each template's own type, decoded strictly), `secret_ciphertext` (the AES-256-GCM seal of the one secret a
+link carries, under the `email-outbox` key derived from `SECRETS_KEY`, with the row id as associated
+data, so a ciphertext copied to another row does not open), `dedupe_key` (unique), `deliver_after`,
+`attempts` (0 to 10), `last_error_code`, `provider_id`, and the two outcomes `sent_at` and `failed_at`,
+which a check keeps from both being set. No sentence is stored: the subject, text and HTML are rendered
+when the row is sent, from the template, the params, the organization's short name and the locale.
+
+**Indexes.** `email_outbox_pending_idx (deliver_after) WHERE sent_at IS NULL AND failed_at IS NULL` is
+the dispatcher's claim and the earliest-due read its timer waits on; it holds the queue only.
+`email_outbox_sent_idx (sent_at) WHERE sent_at IS NOT NULL` serves the day's budget count.
+`email_outbox_to_user_idx` serves the cascade from `users`.
+
+**The dispatcher.** One batch at a time across both processes, under `pg_try_advisory_xact_lock(73819,
+43)` (§28): it counts the sends since local midnight in `APP_TIMEZONE`; at or over `EMAIL_DAILY_LIMIT` it
+moves every due row to the next local midnight, otherwise it claims up to 10 due rows `FOR UPDATE SKIP
+LOCKED`, sends them `EMAIL_SEND_RATE` a second apart, and records each outcome in the same transaction. A
+sent row and a failed row lose `secret_ciphertext` in that statement. A transient failure backs off 1, 5
+and 15 minutes and then hourly; the tenth attempt, or any permanent failure, sets `failed_at`. A row whose
+secret cannot be opened, whose params no longer decode or which no longer renders fails closed with
+`secret_unreadable`, `params_unreadable` or `render_failed`. The timer is armed only for the earliest
+pending `deliver_after`, so an empty outbox never wakes the database.
+
+**What is not here.** No rows are pruned yet; T-R5.16's daily housekeeping removes rows sent or failed more
+than 30 days ago. The app role has full DML on the table (it is not append-only: it is a queue).

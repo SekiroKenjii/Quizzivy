@@ -26,7 +26,7 @@ import (
 	"quizzivy/internal/platform/imagesafe"
 )
 
-// Assembly is what Build produces: the transports the router serves, the token verifiers the auth middleware and the docs gate need, the access application that resolves who a request acts as, and the identity, classes, notifications and media applications and the import sweeper the background jobs drive.
+// Assembly is what Build produces: the transports the router serves, the token verifiers the auth middleware and the docs gate need, the access application that resolves who a request acts as, and the identity, classes, notifications and media applications, the mail outbox and dispatcher and the import sweeper the background jobs drive.
 type Assembly struct {
 	Modules       router.Modules
 	Principals    *accessapp.Application
@@ -38,6 +38,8 @@ type Assembly struct {
 	ImportSweeper *importsworker.Sweeper
 	Media         *mediaapp.Application
 	Maintenance   httpx.MaintenanceSource
+	// Mail is the outbox the modules enqueue into and the dispatcher that sends it.
+	Mail Mail
 	// AI is the provider behind the AI assistant's port, nil when no ANTHROPIC_API_KEY is set.
 	AI aiports.Completer
 	// AICredits is the credits model the AI operations reserve and settle through and the console sets allowances through. It is built with or without the provider.
@@ -118,7 +120,13 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 		return Assembly{}, err
 	}
 
+	mail, err := BuildMail(cfg, dbx, logger)
+	if err != nil {
+		return Assembly{}, err
+	}
+
 	return Assembly{
+		Mail: mail,
 		Modules: router.Modules{
 			Access:        accesshttp.NewAccess(principals),
 			AI:            aiTransport,
