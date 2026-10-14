@@ -7,28 +7,37 @@ start at [README.md](README.md) "Resuming".
 
 ## Checkpoint
 
-- **As of:** 2026-10-14, 06:55 UTC.
-- **Base:** `develop` at `d3ede6e4`, where `work/escalation-e1` was merged (#624), is cut as `release/0.11.6` for `main`. `main` is at `5231b258` (v0.11.5).
-- **Objective:** ship v0.11.6 (E1). Then R5 (v0.12.0).
-- **Shipped since the last checkpoint**, each as a hotfix off `main`, back-merged to develop:
-  - **v0.11.0 (D4)**, `d979082c`.
-  - **v0.11.1**, `707fdbfb`, and **v0.11.2**, `170285a2`: Generate's 503. The second fix sends each schema in the order written. A live smoke with the owner's test key (`aismoke`, `docs/setup/operations.md`) gates every AI change.
-  - **v0.11.3**, `5849da00`: Generate from a group's passage adds the questions to that group.
-  - **v0.11.4**, `2beb7dcf`: AI check reads, and fixes, a test's group members.
-  - **v0.11.5**, `5231b258`: the builder's group editor fits a phone, and at 1024px a member's settings move into their dialog.
-- **v0.11.6 carries E1** (`docs/plan/74e-e1-group-move.md`, T-E1.1 to T-E1.7, #610 to #623). It adds `moveTestQuestion`, with no migration. Release evidence is in 74e's release checklist.
-- **The tags** are the owner's to push, because the session's proxy refuses tag pushes:
-  - `v0.10.1` on `4098f784`;
-  - `v0.11.0` on `d979082c`;
-  - `v0.11.1` on `707fdbfb`;
-  - `v0.11.2` on `170285a2`;
-  - `v0.11.3` on `5849da00`;
-  - `v0.11.4` on `2beb7dcf`;
-  - `v0.11.5` on `5231b258`.
+- **As of:** 2026-10-14, 12:30 UTC.
+- **Base:** `develop` at `b64b4940`, the back-merge of v0.11.7 (#629). `main` is at `325ff84c`
+  (v0.11.7), live since 11:35 UTC. No pull request is open, and every earlier integration branch
+  is merged into `develop`.
+- **Objective:** R5 (v0.12.0), the Admin console and email (`docs/plan/75-r5.md`).
+  `work/redesign-r5` is cut from `develop` at `b64b4940`; every R5 feature PR targets it. The
+  next free migration number is **00128** (T-5 governs).
+- **Shipped since the last checkpoint:**
+  - **v0.11.6 (E1)**, `9821c7fd` (#625): `moveTestQuestion`, a question dragged into and out of
+    a shared-context group, with no migration.
+  - **v0.11.7**, `325ff84c` (#628): a group copy dragged straight back out restores its bank
+    original (`questions.copied_from_id`, 00126 and 00127).
+- **The `/admin` alias** (T-R3.3, kept in v0.10.0 by the owner on 2026-10-12) is now T-R5.36 in
+  `75-r5.md`, ordered before T-R5.11, whose `GET` and `POST /admin/classes` the alias would
+  rewrite. It still waits on seven days of production `legacy_admin_path` counts, read by the
+  user.
+- **The tags** are the owner's to push, because the session's proxy refuses tag pushes. The
+  remote has tags up to `v0.9.0`:
+  - `v0.10.0` on `4abfe63d`, `v0.10.1` on `4098f784`;
+  - `v0.11.0` on `d979082c`, `v0.11.1` on `707fdbfb`, `v0.11.2` on `170285a2`;
+  - `v0.11.3` on `5849da00`, `v0.11.4` on `2beb7dcf`, `v0.11.5` on `5231b258`;
+  - `v0.11.6` on `9821c7fd`, `v0.11.7` on `325ff84c`.
 - **Waiting on the user:**
-  - The owner's go before `main`.
+  - The seven days of `legacy_admin_path` counts and a Neon branch of production (T-R5.1,
+    T-R5.36).
+  - T-R0.8's external setup for R5: the Resend domain and `SECRETS_KEY` as a Fly secret (needed
+    before R5 reaches `main`, not to build it).
+  - O-R5.4 before T-R5.9b merges; O-R5.1, O-R5.3, O-R5.5 and O-R5.6 have defaults.
+  - The v0.11.7 round trip on a real test.
   - The settings column's threshold: 256px as built, or 384px (F-12's floor).
-  - The real-phone and iOS checks.
+  - The real-phone and iOS checks of D4.
   - Thuong's review of "Tự luận".
   - Dropping the scratch database `qa_d412`.
   - Rotating the admin password shared in chat on 2026-10-13.
@@ -110,7 +119,7 @@ Still waiting on an unmerged dependency:
 
 | Task | Waits for |
 |---|---|
-| T-R4.49 A, the `/admin` alias | seven days of production `legacy_admin_path` counts, read by the user |
+| T-R4.49 A, the `/admin` alias | moved to R5 as T-R5.36 (the owner, 2026-10-12); seven days of production `legacy_admin_path` counts, read by the user |
 | T-R4.48 delete the old tree | every rebuilt screen |
 
 ## Environment baseline
@@ -500,6 +509,9 @@ and any reversal of the defaults above.
 
 ## Next action
 
-- The back-merge PR (`main` into `develop`) → green → merge.
-- F-72 (platform), then F-68 to F-71 and the QA-51 minors, at most three agents at once.
-- Then D4 from `74d-d4-deck-update.md`, on `work/deck-d4` cut from `develop`.
+- R5 on `work/redesign-r5`, by `75-r5.md`'s order: the backend tasks first, at most four at a
+  time, with T-R5.2 (email) and T-R5.5 (organization) early because most of the rest waits on
+  them; T-R5.36 before T-R5.11; T-R5.20 (AdminLayout) alongside; the screens as their layout and
+  API land; the close-out last.
+- In parallel on `develop`: the open GitHub issues and the open findings below, each checked
+  against `develop` before work.
