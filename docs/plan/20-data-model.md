@@ -1378,7 +1378,7 @@ listed here matches the spec.
 | D-48 | Add `ai_usage_ledger`, append-only: `UPDATE` and `DELETE` are revoked from the app role in the file that creates it | One row per settled call with the actor, the feature, the tier, the four token counts the provider reported, the credits charged and the provider's request id, so a month's invoice reconciles with the pool. A ledger the application can rewrite proves nothing, which is why `audit_log` and `attempt_events` are the same (D-01, §11). `user_id` is `ON DELETE SET NULL`, run by the table's owner, so a row outlives its actor |
 | D-49 | Add `ai_credit_requests`, with a partial unique index `ai_credit_requests_one_pending_idx (user_id, month) WHERE status = 'pending'` | At most one request per teacher per month is waiting (DG-200), which the index makes a fact of the data and not a race between two clicks. `decided_by` is `ON DELETE SET NULL` and is NULL when the console decided, which the audit row says. It is the one foreign key left unindexed on purpose: the table gains a row per request, and removing an Admin scans a few hundred |
 | D-50 | `questions` gains a nullable `copied_from_id`, a self-reference `ON DELETE SET NULL`, and a partial index on the copies | A member copy of a bank question names the question it was made from, so that dragging an unedited copy out of its group (E1, `74e-e1-group-move.md`, "After release") puts the original back and no second bank question is left. The link is informational, like `test_version_questions.source_question_id` (D-07): it is cleared when the copy leaves its group and becomes an independent question, and `SET NULL` means a deleted origin never waits on a copy. Nullable with no default and no backfill, so the v0.11.6 binary's insert, which names no such column, keeps working; a copy it wrote reads NULL and is never restored. The REFERENCES is inline in the `ADD COLUMN`, so PostgreSQL skips the validation scan of a column it is adding. The index is partial because almost every question is not a copy, and `ON DELETE SET NULL` updates the copies by equality, which implies its predicate. See §48 |
-
+| D-51 | `users` gains four nullable columns, `last_active_at`, `last_sign_in_at`, `last_sign_in_method` (CHECK in `password`, `google`, `set_password_link`) and `password_changed_at`; a new `user_activity_days (user_id, day)` records the local days a user was active | DG-54: the Students list's "Last active" and "Not signed in", the Settings "Changed …" line and R5's daily chart need facts the schema did not keep (the Students list used the last attempt). All four are nullable with no default, so the v0.10.0 binary's insert, which names none, keeps working; NULL `last_sign_in_at` is "never signed in". The migration backfills `last_sign_in_at` and `last_active_at` with the newest of the user's refresh token `issued_at`, attempt `started_at` and audit entry as actor, with the `updated_at` trigger off, so an account used before R5 does not read "Not signed in"; the method and `password_changed_at` stay NULL because nothing records them. The day table is keyed by the pair, indexed on `day` for range reads, and cascades with the user; a day is the local date in `APP_TIMEZONE`. See §49 |
 ---
 
 ## 13. Migration inventory
@@ -1507,6 +1507,8 @@ the file it adds.
 | `00125_add_word_imports_read_with_ai.sql` | `word_imports.read_with_ai boolean NOT NULL DEFAULT false`; a constant default, so the v0.10.x binary keeps inserting | D4 (T-D4.33), §47 |
 | `00126_add_questions_copied_from.sql` | `questions.copied_from_id` and `questions_copied_from_id_fkey` (`REFERENCES questions (id) ON DELETE SET NULL`), added with the column, nullable with no default | E1 hotfix v0.11.7, D-50, §48 |
 | `00127_index_questions_copied_from.sql` | `questions_copied_from_idx (copied_from_id) WHERE copied_from_id IS NOT NULL`, `CONCURRENTLY` | E1 hotfix v0.11.7, D-50, §48 |
+| `00129_add_users_activity.sql` | `users.last_active_at`, `last_sign_in_at`, `last_sign_in_method` (`users_last_sign_in_method_check`), `password_changed_at`, all nullable; backfills the first two | R5 (T-R5.4), D-51, §49 |
+| `00130_create_user_activity_days.sql` | `user_activity_days (user_id REFERENCES users ON DELETE CASCADE, day date, PRIMARY KEY (user_id, day))` and `user_activity_days_day_idx (day)` | R5 (T-R5.4), D-51, §49 |
 
 Notes on migration mechanics (§13.7):
 
@@ -3485,3 +3487,27 @@ refused; a published version keeps every frozen row but the link; the foreign ke
 `group_move_origin_race_test.go` drives the races, both orders, against a delete of the origin and
 another test's autosave. `tests/group_move_flow_test.go` drives the round trip over HTTP, and
 `builder-groups.live.spec.ts` in a browser against the real API.
+
+## 49. Activity (T-R5.4, DG-54)
+
+**What is recorded, and when.** A password or Google sign-in stamps `last_sign_in_at`, `last_sign_in_method` and
+`last_active_at` in one statement after the session's refresh token is stored. It is not part of that
+transaction, which holds the user `FOR SHARE`: two sign-ins of one account would each have to upgrade the
+lock to write and would wait for each other. A failed stamp is logged and the sign-in goes on. `changePassword`
+sets `password_changed_at` in the statement that sets the hash. A temporary password set by someone else does
+not, so a student who has never chosen one reads no "Changed …" line.
+
+**What "active" means.** An authenticated request that day. `adapters.Principals.Resolve`, which the permission
+gate and the docs gate both call, tells the identity module's `StampActivity` of each user it resolved and did
+not find disabled. The collector lets a user through once every five minutes per instance, and again at the
+first request of a new local day, and writes what waits every 30 seconds or at 200 entries, only while any
+waits, in one transaction: `last_active_at` raised with `greatest`, in user id order so two instances take row
+locks in the same order, and the days with `ON CONFLICT DO NOTHING`. A user deleted in between drops out of both
+statements. A failed write is logged and its entries dropped, since activity is a statistic and a queue behind a
+database that is down only grows. `updated_at` moves with every `last_active_at` write, because the trigger has
+no column list; nothing reads it for a user.
+
+**Status.** `domain.StatusOf` applies DG-54's order: disabled, must change password, never signed in
+(`last_sign_in_at IS NULL`), active. The contract's `AccountStatus` is that value, and `listStudents` filters by
+it (`accountStatus`, any subset), because the order makes the Status facet's states disjoint and two flags
+cannot express every pair of them. `neverSignedIn` is the plain predicate beside `mustChangePassword`.
