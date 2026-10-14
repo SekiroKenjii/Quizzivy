@@ -541,27 +541,57 @@ their cleanup is not stopped by the last-Admin guard on a database without a see
 
 ### T-E1.3 — HTTP, errors, isolation
 **Depends on:** T-E1.2
-**Touches:** `server/internal/modules/tests/http/{groups.go,group_response.go}`,
-`server/tests/isolation_cases_test.go`
+**Touches:** `api/openapi.yaml` (the 400 and 404 descriptions), `server/gen/openapi/`,
+`web/src/lib/api/schema.d.ts`, `server/internal/modules/tests/http/{groups,group_move,group_response}.go`,
+`server/internal/modules/tests/http/tests/group_move_test.go` (new),
+`server/tests/{isolation_cases_test,group_move_flow_test}.go`
 **Size:** M
 **Done when:**
-- [ ] `MoveTestQuestion` reads the body, builds the command from the principal and
-      `ScopeFromContext`, and answers the result; it answers 501 only when the command is unwired.
-- [ ] `groupFailure` maps `group_gap_bound` and the existing destination rules to `422
-      VALIDATION_FAILED` with `details.rule`, and the three `400` cases to `400`; every message is
-      written vi first and en second through `httpx.Text`.
-- [ ] A foreign or missing test, question, section or group answers 404, and so does a group in
+- [x] `MoveTestQuestion` reads the body, builds the command from the principal and
+      `ScopeFromContext`, and answers the result; it answers 501 only when the command or its
+      repository is unwired.
+- [x] `groupFailure` maps `group_gap_bound` to `422 VALIDATION_FAILED` with `details.rule`, the
+      stimulus, gap and question, and the four `move_*` rules to `400`; the destination rules the
+      read-back finds (`group_limits`, `group_audio_scope`, `group_asset`) keep their `422`; every
+      message is written vi first and en second through `httpx.Text`.
+- [x] A foreign or missing test, question, section or group answers 404, and so does a group in
       `expectedGroupRevisions` the caller cannot reach or that is not of this test, before any
       revision is compared (see "Risks"); a reachable entry the move does not touch, or a repeated
       one, is a `400` (`move_revisions`), and the contract's description of the `400` says so.
-- [ ] The isolation table's `moveTestQuestion` entry is the design's: `freshGroupedTest`, the body
-      above, T-E1.1's `blind` marks removed, and any `link` checked against how `build` applies it
-      (see "Risks"), so that each of the five slots' substitution reaches the server;
-      `TestAnotherTeachersIdsAnswerAsMissingOnes` passes with the provider-call count unchanged.
-- [ ] A student payload never carries `isCorrect`, `sampleAnswer`, `acceptedAnswers` or
-      `transcript`; the move's answer is teacher-only and is read by the payload walk as such.
-- [ ] `make lint`, the router and contract tests, the module's tests, and `go test -tags e2e
-      ./tests/...` pass.
+- [x] The isolation table's `moveTestQuestion` entry is the design's: `freshGroupedTest`, the body
+      above, T-E1.1's `blind` marks removed; `TestAnotherTeachersIdsAnswerAsMissingOnes` passes
+      with the provider-call count unchanged.
+- [x] A student payload never carries `isCorrect`, `sampleAnswer`, `acceptedAnswers` or
+      `transcript`; the move's answer is teacher-only, a `/teacher/*` operation under
+      `content.tests.write`, and reaches no student surface.
+- [x] `make lint`'s three Go tools, `make gen-check`, the router and contract tests, the
+      module's tests, and `go test -tags e2e ./tests/...` pass.
+- [ ] **CI result** passes on the pull request.
+
+**As built:** The handler is `groups.go`'s `MoveTestQuestion`, with `group_move.go` for the request
+reading, the answer and the move's messages; `group_response.go` gains the `Visit` method and one
+case for the five rules. `ErrNotFound` is answered by `moveFailure` with a message that names no
+particular kind ("The test, question, section or group was not found."), because the move's
+missing thing is any of four; every other error goes through `groupFailure`. The contract's 400
+and 404 descriptions were widened (the Tech Lead's decision of 2026-10-14), regenerated and
+committed on their own. The isolation entry needs no `link`: the suite substitutes one slot at a
+time, the base body carries the caller's own group in both group slots, and every substitution
+reaches the server as the only foreign id in the request (the risk written under "Risks" is why
+none is used). `freshGroupedTest` publishes a test as `freshPublishedTest` does and mounts a group
+of one member, with the caller's own image as its material, in the section over HTTP.
+`TestATeacherMovesQuestionsAcrossAGroupsBoundary` (e2e) drives the operation through the real
+stack: a copy-in whose answer carries the new id, the group at revision 2 and the units; the same
+body replayed at the old test revision answering `409 STALE_WRITE`; a move-out; the `400`, `404` and
+`422` envelopes with their `details.rule`, and a refused move that leaves the group as it was.
+The handler's unit tests (`http/tests/group_move_test.go`) pin what the command receives (ids,
+index, the nullable group, the revisions, the actor, scope and grants), the answer, each refusal's
+status, code and rule in both languages, and the 501.
+
+After the independent review (2026-10-14): the 409 description also names `GROUP_CONFLICT` and the 422
+description `group_reference`, beside `STALE_WRITE` and `TEST_ARCHIVED`, since `groupWriteError` can
+emit both (a unique violation raced by another writer; a foreign key or check the write met), as
+`updateQuestionGroup` lists them; the handler's table pins both. The branch carries the T-E1.2
+review fixes (the copy-in's lock order, the move-out's owner) through a merge of that branch.
 
 ## B. The web
 

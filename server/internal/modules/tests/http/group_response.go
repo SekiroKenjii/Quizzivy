@@ -93,6 +93,10 @@ func groupFailure(ctx context.Context, err error) (*groupResponse, error) {
 		case "group_bank_only":
 			message = httpx.Text(ctx, "Nhóm thuộc đề theo trạng thái lưu trữ của đề.",
 				"A group that belongs to a test follows the test's archive state.")
+		case domain.RuleGroupGapBound, domain.RuleMoveOutlineOnly, domain.RuleMoveGroupSection, domain.RuleMoveRevisions, domain.RuleMoveSourceAmbiguous:
+			status = moveRuleStatus(invalid.Rule)
+			code = openapi.VALIDATIONFAILED
+			message = moveRuleMessage(ctx, invalid.Rule)
 		default:
 			status = http.StatusUnprocessableEntity
 			code = openapi.VALIDATIONFAILED
@@ -148,5 +152,9 @@ func (r *groupResponse) VisitDeleteQuestionGroupResponse(w http.ResponseWriter) 
 }
 
 func (r *groupResponse) VisitListQuestionGroupsResponse(w http.ResponseWriter) error {
+	return r.write(w)
+}
+
+func (r *groupResponse) VisitMoveTestQuestionResponse(w http.ResponseWriter) error {
 	return r.write(w)
 }
