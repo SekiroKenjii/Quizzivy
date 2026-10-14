@@ -16,6 +16,7 @@ import {
   FileText,
   GripVertical,
   Layers,
+  LogOut,
   PanelLeft,
   Pencil,
   Trash2,
@@ -56,11 +57,17 @@ const SHARED_ICONS = {
  * is where a question is dropped into the group, tinted while `dropInto`;
  * each member row is sortable by its grip and draws the drop line
  * `memberDrop` names, and a member that a material gap is bound to keeps its
- * grip disabled, with the reason. `targets` turns off the drop targets the
- * drag in progress cannot use. The member `busyQuestionId` names is being
- * moved and is drawn faded and busy. `open` and `onToggle` are the
- * disclosure, which the outline owns so that a drop can open the group.
- * `fileNames` maps an audio asset id to the file name the line prints. Rename and Shared content only ask the
+ * grip disabled, with the reason. With `onMemberMove`, each member row has
+ * its own "…" menu with the same moves (Move up, Move down, Move out of group,
+ * Move to group…), whose trigger takes the place of the points on hover and
+ * focus from 768px and at 44px on the selected member below it; a bound
+ * member's two moves out are disabled, with the reason under them, and Move
+ * to group… needs
+ * `canPickGroup`. `targets` turns off the drop targets the drag in progress
+ * cannot use. The member `busyQuestionId` names is being moved and is drawn
+ * faded and busy. `open` and `onToggle` are the disclosure, which the outline
+ * owns so that a drop can open the group. `fileNames` maps an audio asset id
+ * to the file name the line prints. Rename and Shared content only ask the
  * builder to act: the group's title is written by its editor, never here.
  * Rename and Shared content ask once the menu has closed, so the focus they
  * move is not taken back by the menu; Shared content leaves focus on the
@@ -78,6 +85,7 @@ export function OutlineGroupRow({
   memberDrop = null,
   busyQuestionId = null,
   targets = "all",
+  canPickGroup = false,
   open,
   selected,
   selectedQuestionId,
@@ -89,6 +97,7 @@ export function OutlineGroupRow({
   onSharedContent,
   onStep,
   onRemove,
+  onMemberMove,
 }: Readonly<{
   id: string;
   group: GroupBundle | undefined;
@@ -99,6 +108,7 @@ export function OutlineGroupRow({
   memberDrop?: MemberDrop | null;
   busyQuestionId?: string | null;
   targets?: GroupTargets;
+  canPickGroup?: boolean;
   open: boolean;
   selected: boolean;
   selectedQuestionId: string | null;
@@ -110,6 +120,7 @@ export function OutlineGroupRow({
   onSharedContent: (opener: HTMLElement | null) => void;
   onStep: (direction: -1 | 1) => void;
   onRemove: (opener: HTMLElement | null) => void;
+  onMemberMove?: MemberMover | undefined;
 }>) {
   const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, isDragging } = useSortable({
@@ -202,7 +213,9 @@ export function OutlineGroupRow({
           memberDrop={memberDrop}
           busyQuestionId={busyQuestionId}
           targeted={targets !== "unit"}
+          canPickGroup={canPickGroup}
           onSelect={onSelect}
+          onMemberMove={onMemberMove}
         />
       ) : null}
     </div>
@@ -325,7 +338,9 @@ function GroupMembers({
   memberDrop,
   busyQuestionId,
   targeted,
+  canPickGroup,
   onSelect,
+  onMemberMove,
 }: Readonly<{
   group: GroupBundle;
   numbering: Map<string, number>;
@@ -333,7 +348,9 @@ function GroupMembers({
   memberDrop: MemberDrop | null;
   busyQuestionId: string | null;
   targeted: boolean;
+  canPickGroup: boolean;
   onSelect: (questionId: string) => void;
+  onMemberMove: MemberMover | undefined;
 }>) {
   const { t } = useTranslation();
   const questions = new Map(
@@ -347,11 +364,14 @@ function GroupMembers({
       strategy={verticalListSortingStrategy}
     >
       <div className="ml-4.5 flex flex-col gap-px border-l pl-1.5">
-        {members.map((member) => (
+        {members.map((member, index) => (
           <MemberRow
             key={member.questionId}
             groupId={group.group.id}
             questionId={member.questionId}
+            index={index}
+            count={members.length}
+            canPickGroup={canPickGroup}
             input={questions.get(member.questionId)}
             number={numbering.get(member.questionId) ?? 0}
             bound={bound.has(member.questionId)}
@@ -364,6 +384,11 @@ function GroupMembers({
                 : undefined
             }
             onSelect={() => onSelect(member.questionId)}
+            onMove={
+              onMemberMove &&
+              ((action, opener) =>
+                onMemberMove(group.group.id, member.questionId, action, opener))
+            }
           />
         ))}
         {members.length === 0 ? (
@@ -379,6 +404,9 @@ function GroupMembers({
 function MemberRow({
   groupId,
   questionId,
+  index,
+  count,
+  canPickGroup,
   input,
   number,
   bound,
@@ -387,9 +415,13 @@ function MemberRow({
   busy,
   drop,
   onSelect,
+  onMove,
 }: Readonly<{
   groupId: string;
   questionId: string;
+  index: number;
+  count: number;
+  canPickGroup: boolean;
   input: MemberInput | undefined;
   number: number;
   bound: boolean;
@@ -398,6 +430,7 @@ function MemberRow({
   busy: boolean;
   drop: "before" | "after" | undefined;
   onSelect: () => void;
+  onMove: ((action: MemberMoveAction, opener: HTMLElement | null) => void) | undefined;
 }>) {
   const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, isDragging } = useSortable({
@@ -414,7 +447,7 @@ function MemberRow({
       data-outline-question={questionId}
       aria-busy={busy || undefined}
       className={cn(
-        "hover:bg-hover text-fg relative flex min-h-8 min-w-0 items-center gap-1 rounded-[7px] py-0.75 pr-1 pl-0.5 text-[13px]",
+        "group/member hover:bg-hover text-fg relative flex min-h-8 min-w-0 items-center gap-1 rounded-[7px] py-0.75 pr-1 pl-0.5 text-[13px]",
         current && "bg-secondary font-medium",
         (isDragging || busy) && "opacity-40",
       )}
@@ -456,12 +489,134 @@ function MemberRow({
           {input?.prompt || t("builder.untitledQuestion")}
         </span>
         {input ? (
-          <span className="text-muted-fg shrink-0 pr-1 text-xs whitespace-nowrap tabular-nums">
+          <span
+            className={cn(
+              "text-muted-fg shrink-0 pr-1 text-xs whitespace-nowrap tabular-nums",
+              onMove &&
+                "min-[768px]:group-hover/member:hidden min-[768px]:group-has-data-[state=open]/member:hidden min-[768px]:group-has-[:focus-visible]/member:hidden",
+              onMove && current && "max-[767px]:hidden",
+            )}
+          >
             {t("builder.points", { count: input.points })}
           </span>
         ) : null}
       </button>
+      {onMove ? (
+        <MemberActions
+          number={number}
+          bound={bound}
+          current={current}
+          canUp={index > 0}
+          canDown={index < count - 1}
+          canPickGroup={canPickGroup}
+          onMove={onMove}
+        />
+      ) : null}
     </div>
+  );
+}
+
+/** MemberMoveAction is one of a member's menu moves: within its group, out of it, or to another group. */
+export type MemberMoveAction = "up" | "down" | "out" | "group";
+
+/** MemberMover carries out a member's menu move; "group" names the menu's trigger, where focus returns. */
+export type MemberMover = (
+  groupId: string,
+  questionId: string,
+  action: MemberMoveAction,
+  opener: HTMLElement | null,
+) => void;
+
+function MemberActions({
+  number,
+  bound,
+  current,
+  canUp,
+  canDown,
+  canPickGroup,
+  onMove,
+}: Readonly<{
+  number: number;
+  bound: boolean;
+  current: boolean;
+  canUp: boolean;
+  canDown: boolean;
+  canPickGroup: boolean;
+  onMove: (action: MemberMoveAction, opener: HTMLElement | null) => void;
+}>) {
+  const { t } = useTranslation();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const picking = useRef(false);
+  const reason = useId();
+  return (
+    <span
+      className={cn(
+        "flex shrink-0 min-[768px]:pointer-events-none min-[768px]:-ml-1 min-[768px]:w-0 min-[768px]:overflow-hidden min-[768px]:opacity-0",
+        "min-[768px]:group-hover/member:pointer-events-auto min-[768px]:group-hover/member:ml-0 min-[768px]:group-hover/member:w-auto min-[768px]:group-hover/member:overflow-visible min-[768px]:group-hover/member:opacity-100",
+        "min-[768px]:group-has-[:focus-visible]/member:pointer-events-auto min-[768px]:group-has-[:focus-visible]/member:ml-0 min-[768px]:group-has-[:focus-visible]/member:w-auto min-[768px]:group-has-[:focus-visible]/member:overflow-visible min-[768px]:group-has-[:focus-visible]/member:opacity-100",
+        "min-[768px]:has-data-[state=open]:pointer-events-auto min-[768px]:has-data-[state=open]:ml-0 min-[768px]:has-data-[state=open]:w-auto min-[768px]:has-data-[state=open]:overflow-visible min-[768px]:has-data-[state=open]:opacity-100",
+        !current && "max-[767px]:hidden",
+      )}
+    >
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            ref={trigger}
+            variant="ghost"
+            size="icon-xs"
+            aria-label={t("builder.memberActions", { number })}
+            className="text-muted-fg shrink-0 rounded-[6px] max-[767px]:size-11 max-[767px]:in-data-[scale=deck]:size-11"
+          >
+            <Ellipsis aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className="w-56 data-[state=closed]:animate-none! data-[state=open]:animate-none!"
+          onCloseAutoFocus={() => {
+            if (!picking.current) return;
+            picking.current = false;
+            onMove("group", trigger.current);
+          }}
+        >
+          <DropdownMenuItem disabled={!canUp} onSelect={() => onMove("up", null)}>
+            <ChevronUp aria-hidden="true" />
+            {t("builder.memberMoveUp")}
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled={!canDown} onSelect={() => onMove("down", null)}>
+            <ChevronDown aria-hidden="true" />
+            {t("builder.memberMoveDown")}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            disabled={bound}
+            aria-describedby={bound ? reason : undefined}
+            onSelect={() => onMove("out", null)}
+          >
+            <LogOut aria-hidden="true" />
+            {t("builder.moveOutOfGroup")}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={bound || !canPickGroup}
+            aria-describedby={bound ? reason : undefined}
+            onSelect={() => {
+              picking.current = true;
+            }}
+          >
+            <Layers aria-hidden="true" />
+            {t("builder.moveToGroup")}
+          </DropdownMenuItem>
+          {bound ? (
+            <p
+              id={reason}
+              className="text-muted-fg px-2 pt-1 pb-1.5 text-xs leading-normal"
+            >
+              {t("builder.memberGapBound")}
+            </p>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </span>
   );
 }
 

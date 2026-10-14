@@ -81,7 +81,12 @@ import {
   type QuestionMove,
 } from "../outlineUnits";
 import type { GroupBundle } from "@/features/question-groups/api";
-import { OutlineGroupRow, type GroupTargets, type MemberDrop } from "./OutlineGroupRow";
+import {
+  OutlineGroupRow,
+  type GroupTargets,
+  type MemberDrop,
+  type MemberMoveAction,
+} from "./OutlineGroupRow";
 import { OutlineKeyboardSensor } from "./OutlineKeyboardSensor";
 import type { TFunction } from "i18next";
 
@@ -120,6 +125,7 @@ interface OutlineTreeProps {
   onRemoveGroup?: (id: string, opener: HTMLElement | null) => void;
   onRemoveSection?: (index: number) => void;
   onMove?: (move: QuestionMove) => void;
+  onPickGroup?: (questionId: string, opener: HTMLElement | null) => void;
   movingQuestionId?: string | null;
 }
 
@@ -131,8 +137,11 @@ interface OutlineTreeProps {
  * control focus returns to when it closes. Moving a whole unit between unit
  * places goes through `onChange`; dragging a question into a group, out of
  * one, between groups or within one asks `onMove`, which the server answers,
- * and opens the group and section it lands in. While `movingQuestionId` is
- * set that question's row is drawn busy and nothing can be dragged.
+ * and opens the group and section it lands in. A member's own menu asks
+ * `onMove` for its moves up, down and out of its group, and `onPickGroup`
+ * for a move to another group, naming the control focus returns to. While
+ * `movingQuestionId` is set that question's row is drawn busy and nothing can
+ * be dragged.
  */
 export function OutlineTree({
   sections,
@@ -154,6 +163,7 @@ export function OutlineTree({
   onRemoveGroup,
   onRemoveSection,
   onMove,
+  onPickGroup,
   movingQuestionId = null,
 }: Readonly<OutlineTreeProps>) {
   const { t } = useTranslation();
@@ -289,6 +299,30 @@ export function OutlineTree({
         return next;
       });
     onMove(move);
+  }
+
+  function moveMember(
+    groupId: string,
+    questionId: string,
+    action: MemberMoveAction,
+    opener: HTMLElement | null,
+  ) {
+    if (action === "group") {
+      onPickGroup?.(questionId, opener);
+      return;
+    }
+    const owner = findUnit(sections, `group:${groupId}`);
+    const at = findMember(groups, `question:${questionId}`);
+    if (!owner || !at) return;
+    const to =
+      action === "out"
+        ? { sectionIndex: owner.sectionIndex, groupId: null, index: owner.index + 1 }
+        : {
+            sectionIndex: owner.sectionIndex,
+            groupId,
+            index: at.index + (action === "up" ? -1 : 1),
+          };
+    requestMove({ questionId, to, groupIds: [groupId] });
   }
 
   function dropUnit(event: DragEndEvent, keyboard: boolean) {
@@ -516,6 +550,10 @@ export function OutlineTree({
                                 memberDrop={memberDrop(dropTarget)}
                                 busyQuestionId={movingQuestionId}
                                 targets={groupTargets}
+                                canPickGroup={
+                                  onPickGroup !== undefined && groups.size > 1
+                                }
+                                onMemberMove={onMove ? moveMember : undefined}
                                 open={!closedGroups.has(unit.id)}
                                 onToggle={() => toggleGroup(unit.id)}
                                 selected={selectedGroupId === unit.id}
