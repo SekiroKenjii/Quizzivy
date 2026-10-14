@@ -363,3 +363,71 @@ func TestMoveInContendsOnTheCopiedQuestionsAsset(t *testing.T) {
 		}
 	})
 }
+
+func TestMoveIntoGroupLocksQuestionsInIdOrderAgainstAnotherTestsAutosave(t *testing.T) {
+	complete := func(t *testing.T, r *raceWorld, sharing string, moved, saved <-chan error) {
+		t.Helper()
+		if err := <-moved; err != nil {
+			t.Fatalf("the move: %v", err)
+		}
+		if err := <-saved; err != nil {
+			t.Fatalf("the autosave of the test that shares the questions: %v", err)
+		}
+		stored := r.stored()
+		if len(stored.Bundle.Group.Members) != 4 || stored.Bundle.Group.Members[0].QuestionID == r.bank {
+			t.Fatalf("the group does not hold a copy: %v", memberIDs(stored))
+		}
+		if got := r.sectionOrder(`SELECT 'q:'||question_id::text FROM app.test_section_units WHERE test_section_id=$1 ORDER BY ordinal`, r.source); !slices.Equal(got, []string{"q:" + r.lead}) {
+			t.Fatalf("the unit-less section did not keep its other question: %v", got)
+		}
+		if got := r.sectionOrder(`SELECT question_id::text FROM app.test_section_questions q JOIN app.test_sections s ON s.id=q.test_section_id WHERE s.test_id=$1 ORDER BY q.ordinal`, sharing); !slices.Equal(got, []string{r.lead, r.bank}) {
+			t.Fatalf("the other test's outline is %v", got)
+		}
+	}
+
+	t.Run("an autosave of the other test holds the earlier question", func(t *testing.T) {
+		r := newRaceWorld(t, raceOptions{legacySection: true})
+		sharing, autosave := r.sharingTest()
+		store, locked, open := newPausedQuestionLock(t, r.lead)
+		in := r.copyIn(0)
+		saved := r.spawn(func() error {
+			_, err := r.tests(store).Update(r.ctx, domain.UpdateRequest{ID: sharing, ActorID: r.author, Now: time.Now(), Scope: r.scope, Input: autosave})
+			return err
+		})
+		pid := r.await(locked, saved)
+		moved := r.spawn(func() error {
+			_, err := r.groups(adapters.GroupQuestions{}, r.media()).MoveQuestion(r.ctx, in)
+			return err
+		})
+		if !r.blockedBy(pid) {
+			open()
+			t.Fatal("the move never waited on the other test's lock on the earlier question")
+		}
+		open()
+
+		complete(t, r, sharing, moved, saved)
+	})
+
+	t.Run("the move holds the later question first", func(t *testing.T) {
+		r := newRaceWorld(t, raceOptions{legacySection: true})
+		sharing, autosave := r.sharingTest()
+		store, locked, open := newPausedQuestionLock(t, r.bank)
+		in := r.copyIn(0)
+		moved := r.spawn(func() error {
+			_, err := r.groups(store, r.media()).MoveQuestion(r.ctx, in)
+			return err
+		})
+		pid := r.await(locked, moved)
+		saved := r.spawn(func() error {
+			_, err := r.tests(adapters.GroupQuestions{}).Update(r.ctx, domain.UpdateRequest{ID: sharing, ActorID: r.author, Now: time.Now(), Scope: r.scope, Input: autosave})
+			return err
+		})
+		if !r.blockedBy(pid) {
+			open()
+			t.Fatal("the other test's autosave never waited on the move")
+		}
+		open()
+
+		complete(t, r, sharing, moved, saved)
+	})
+}

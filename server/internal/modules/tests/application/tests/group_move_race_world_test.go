@@ -23,8 +23,9 @@ import (
 )
 
 type raceOptions struct {
-	leadImage bool
-	bankImage bool
+	leadImage     bool
+	bankImage     bool
+	legacySection bool
 }
 
 type raceWorld struct {
@@ -35,6 +36,7 @@ type raceWorld struct {
 	scope   access.Scope
 	testID  string
 	section string
+	source  string
 	lead    string
 	bank    string
 	asset   string
@@ -86,19 +88,29 @@ func newRaceWorld(t *testing.T, opts raceOptions) *raceWorld {
 		r.asset = r.insertImage()
 	}
 	r.lead, r.bank = r.bankQuestion("lead", opts.leadImage), r.bankQuestion("bank", opts.bankImage)
+	if opts.legacySection && r.lead > r.bank {
+		r.lead, r.bank = r.bank, r.lead
+	}
 	tests := r.tests(adapters.GroupQuestions{})
 	created, err := tests.Create(r.ctx, domain.CreateInput{Title: "Race fixture", ActorID: r.author, Now: time.Now()})
 	if err != nil {
 		t.Fatal(err)
 	}
 	r.testID = created.ID
+	sections := []domain.SectionInput{{Title: "Part 1", QuestionIDs: []string{r.lead, r.bank}}}
+	if opts.legacySection {
+		sections = append(sections, domain.SectionInput{Title: "Part 2", QuestionIDs: []string{}})
+	}
 	saved, err := tests.Update(r.ctx, domain.UpdateRequest{ID: r.testID, ActorID: r.author, Now: time.Now(), Scope: r.scope, Input: domain.UpdateInput{
-		ExpectedUpdatedAt: created.UpdatedAt, SetSections: true, Sections: []domain.SectionInput{{Title: "Part 1", QuestionIDs: []string{r.lead, r.bank}}},
+		ExpectedUpdatedAt: created.UpdatedAt, SetSections: true, Sections: sections,
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	r.section = saved.Sections[0].ID
+	r.section, r.source = saved.Sections[0].ID, saved.Sections[0].ID
+	if opts.legacySection {
+		r.section = saved.Sections[1].ID
+	}
 	bundle := domain.GroupBundle{Group: domain.QuestionGroup{ID: groupIdentity(t), Title: "Nhóm tranh chấp", Stimuli: []domain.GroupStimulus{}, Recordings: []domain.GroupRecording{}}}
 	for _, prompt := range []string{"m0", "m1", "m2"} {
 		id := groupIdentity(t)
@@ -122,7 +134,7 @@ func (r *raceWorld) insertAuthor() string {
 	}
 	var id string
 	if err := r.pool.QueryRow(r.ctx, `INSERT INTO app.users (email, full_name, role_id)
-		VALUES ($1,'Giáo viên',(SELECT id FROM app.roles WHERE builtin_key = 'admin')) RETURNING id::text`,
+		VALUES ($1,'Giáo viên',(SELECT id FROM app.roles WHERE builtin_key = 'teacher')) RETURNING id::text`,
 		"move-race-"+hex.EncodeToString(nonce)+"@example.com").Scan(&id); err != nil {
 		r.t.Fatal(err)
 	}
@@ -307,4 +319,15 @@ func newPausedGroupMedia(t *testing.T) (pausedGroupMedia, <-chan int, func()) {
 	open := func() { once.Do(func() { close(release) }) }
 	t.Cleanup(open)
 	return pausedGroupMedia{locked: locked, release: release}, locked, open
+}
+
+func (r *raceWorld) sharingTest() (string, domain.UpdateInput) {
+	r.t.Helper()
+	tests := r.tests(adapters.GroupQuestions{})
+	created, err := tests.Create(r.ctx, domain.CreateInput{Title: "Shares the questions", ActorID: r.author, Now: time.Now()})
+	if err != nil {
+		r.t.Fatal(err)
+	}
+	return created.ID, domain.UpdateInput{ExpectedUpdatedAt: created.UpdatedAt, SetSections: true,
+		Sections: []domain.SectionInput{{Title: "Part 1", QuestionIDs: []string{r.lead, r.bank}}}}
 }

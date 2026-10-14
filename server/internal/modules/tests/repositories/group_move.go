@@ -141,6 +141,9 @@ func (s *GroupsPostgres) copyIntoGroup(ctx context.Context, tx pgx.Tx, in domain
 	if len(members) >= domain.MaxGroupMembers {
 		return moveOutcome{}, &domain.GroupError{Rule: domain.RuleGroupLimits}
 	}
+	if err := s.ensureSectionUnits(ctx, tx, plan.sourceSection); err != nil {
+		return moveOutcome{}, err
+	}
 	if err := s.lockBankQuestion(ctx, tx, plan.questionID); err != nil {
 		return moveOutcome{}, err
 	}
@@ -153,9 +156,6 @@ func (s *GroupsPostgres) copyIntoGroup(ctx context.Context, tx pgx.Tx, in domain
 		return moveOutcome{}, err
 	}
 	if err := s.lockGroupAssets(ctx, tx, in.Scope, domain.GroupBundle{Questions: []domain.GroupQuestion{member}}); err != nil {
-		return moveOutcome{}, err
-	}
-	if err := s.ensureSectionUnits(ctx, tx, plan.sourceSection); err != nil {
 		return moveOutcome{}, err
 	}
 	if err := deferMoveOrdinals(ctx, tx); err != nil {
@@ -190,8 +190,8 @@ func (s *GroupsPostgres) moveOutOfGroup(ctx context.Context, tx pgx.Tx, plan mov
 	if err := deferMoveOrdinals(ctx, tx); err != nil {
 		return moveOutcome{}, err
 	}
-	tag, err := tx.Exec(ctx, `UPDATE app.questions SET context_group_id=NULL, context_ordinal=NULL, context_option_order=NULL
-		WHERE id=$1 AND context_group_id=$2`, plan.questionID, plan.sourceGroup)
+	tag, err := tx.Exec(ctx, `UPDATE app.questions SET context_group_id=NULL, context_ordinal=NULL, context_option_order=NULL, owner_id=$3
+		WHERE id=$1 AND context_group_id=$2`, plan.questionID, plan.sourceGroup, owner)
 	if err != nil {
 		return moveOutcome{}, err
 	}
@@ -203,13 +203,6 @@ func (s *GroupsPostgres) moveOutOfGroup(ctx context.Context, tx pgx.Tx, plan mov
 	}
 	if err := s.lockBankQuestion(ctx, tx, plan.questionID); err != nil {
 		return moveOutcome{}, err
-	}
-	foreign, err := s.questions.NotOwnedBy(ctx, tx, owner, []string{plan.questionID})
-	if err != nil {
-		return moveOutcome{}, err
-	}
-	if len(foreign) > 0 {
-		return moveOutcome{}, domain.ErrNotFound
 	}
 	if err := insertStandaloneQuestion(ctx, tx, plan.targetSection, plan.questionID, plan.index); err != nil {
 		return moveOutcome{}, err
