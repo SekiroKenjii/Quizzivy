@@ -812,22 +812,40 @@ the merged code meets.
 
 **v0.11.6, dragging a question into and out of a group** (decided 2026-10-14)
 
-- [ ] Every task is ticked on `work/escalation-e1`. `develop` is merged into it, and verification
+- [x] Every task is ticked on `work/escalation-e1`. `develop` is merged into it, and verification
       is re-run after that merge. Then `work/escalation-e1` → `develop` (`--no-ff`), and
       `release/0.11.6` is cut from `develop` at a named commit. The hotfixes v0.11.3 to v0.11.5
       have shipped before it, or their fixes are already on `develop`.
-- [ ] `web/package.json` is bumped to 0.11.6 in the release branch only.
+- [x] `web/package.json` is bumped to 0.11.6 in the release branch only.
 - [ ] Every CI step runs on the release pull request, in order, judged by exit code (70 §8.1):
       `make lint`, `make gen-check`; `make test-api` and goose up/down/up (no migration, so the
       round trip is unchanged); `pnpm lint`, `pnpm typecheck`, `pnpm format:check`;
       `pnpm test:unit`, `pnpm test:integration`, `pnpm build`; `pnpm e2e`; `pnpm e2e:live`,
       required because the builder and the API meet.
-- [ ] The five canaries pass, and their files are as they were at `v0.11.2`.
-- [ ] Security: `moveTestQuestion` is the only operation added; `permissions.golden` changed once
+- [x] The five canaries pass, and their files are as they were at `v0.11.2`.
+- [x] Security: `moveTestQuestion` is the only operation added; `permissions.golden` changed once
       (T-E1.1) and holds `content.tests.write` for it; R2's isolation suite passes with the
       operation's entry; no student payload changes.
-- [ ] Migrations: none. The deploy is a rolling one; an old pod answers the route 404.
-- [ ] The documents of T-E1.7 are merged with the code they describe.
+- [x] Migrations: none. The deploy is a rolling one; an old pod answers the route 404.
+- [x] The documents of T-E1.7 are merged with the code they describe.
+
+Evidence (the Tech Lead, 2026-10-14):
+
+- **Branches.** develop was merged into `work/escalation-e1` twice: v0.11.3 and v0.11.4 in #618,
+  v0.11.5 in #623. Typecheck, the builder, question-groups and question-bank units, and
+  `builder-phone-layout.spec.ts` were re-run on the second merge. `work/escalation-e1` reached
+  develop in #624 (`d3ede6e4`), and `release/0.11.6` is cut there. v0.11.3 to v0.11.5 shipped
+  first (`5849da00`, `2beb7dcf`, `5231b258`).
+- **Canaries.** `git diff 170285a2` (v0.11.2) is empty for the five canary files. T-E1.6 ran them
+  before and after.
+- **Security.** `permissions.golden` gained one line, in T-E1.1 (`8c5646b5`):
+  `POST /teacher/tests/{id}/questions/move content.tests.write`. The isolation suite holds
+  `moveTestQuestion` with a grouped test of the second teacher (`freshGroupedTest`, T-E1.3). No
+  `/app/*` payload changes.
+- **Migrations.** `git diff 5231b258 -- migrations` is empty.
+- **Documents.** T-E1.7 (#622) is on develop with the code. Rolling out v0.11.6 is in
+  `docs/setup/deploy.md`.
+- **CI.** The CI box is ticked from the release pull request's run.
 
 ## Open items
 

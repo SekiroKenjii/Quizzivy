@@ -376,6 +376,21 @@ What v0.9.0 then does with what v0.10.0 wrote:
 - `00084`'s Down leaves its constraint `NOT VALID` for the same reason. Never roll back past v0.8.0
   (the join-code key).
 
+## Rolling out v0.11.6 (E1)
+
+v0.11.6 adds one operation and changes no schema and no configuration
+(`docs/plan/74e-e1-group-move.md`). A teacher can drag a question into a shared-context group, out
+of one, between two, or within one; each drag has a menu equivalent.
+
+- **No migration.** The deploy is a rolling one. Until every pod runs v0.11.6, a pod still on
+  v0.11.5 answers `POST /teacher/tests/{id}/questions/move` with 404, and the builder reports the
+  move as failed; the teacher tries again.
+- **Rolling back to v0.11.5** needs nothing. A moved question is an ordinary row: a copy is a member
+  like any other, and a question moved out is a bank question, so v0.11.5 reads both unchanged.
+  Only the drag goes away.
+- **Afterwards**, check that a teacher can drag a bank question into a group and publish. The live
+  E2E `builder-groups.live.spec.ts` covers the same path on CI.
+
 ## Rolling out v0.11.2 (hotfix)
 
 v0.11.2 changes no schema and no contract. It is the second fix for "Generate questions" answering
