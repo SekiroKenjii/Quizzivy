@@ -5,6 +5,7 @@ import (
 	aihttp "quizzivy/internal/modules/ai/http"
 	assignmentshttp "quizzivy/internal/modules/assignments/http"
 	attemptshttp "quizzivy/internal/modules/attempts/http"
+	audithttp "quizzivy/internal/modules/audit/http"
 	availabilityhttp "quizzivy/internal/modules/availability/http"
 	classeshttp "quizzivy/internal/modules/classes/http"
 	dashboardhttp "quizzivy/internal/modules/dashboard/http"
@@ -21,6 +22,7 @@ import (
 type Modules struct {
 	Access        accesshttp.Access
 	AI            aihttp.AI
+	Audit         audithttp.Audit
 	Imports       importshttp.Imports
 	Dashboard     dashboardhttp.Dashboard
 	Classes       classeshttp.Classes

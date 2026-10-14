@@ -334,6 +334,19 @@ CREATE INDEX audit_log_actor_idx
   ON app.audit_log (actor_user_id, occurred_at DESC);
 ```
 
+`00133_index_audit_log_recency.sql` (R5, T-R5.12) adds the order the Admin audit log is read in:
+
+```sql
+CREATE INDEX CONCURRENTLY IF NOT EXISTS audit_log_recent_idx
+  ON app.audit_log (occurred_at DESC, id DESC);
+```
+
+Neither index above leads with the time, so without it every page sorts the whole range and the
+export's keyset batches `(occurred_at, id) < ($1, $2)` have no index to walk. `entity` is read from
+the heap; the facet statement at `range=7d` reads a week of rows through the index and `range=all`
+reads the table once (100,000 rows: 18 ms). Grants are unchanged: the app role still has `INSERT` and
+`SELECT` only.
+
 - `bigint IDENTITY` not uuid, for the same reason §13.3 gives for
   `attempt_events`: a high-volume append-only log read by a narrow key is better
   served by a narrow sequential key. `GENERATED ALWAYS AS IDENTITY` over `serial`

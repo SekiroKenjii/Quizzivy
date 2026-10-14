@@ -138,6 +138,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 		Modules: router.Modules{
 			Access:        accesshttp.NewAccess(principals),
 			AI:            aiTransport,
+			Audit:         audit(dbx, identityApp, logger),
 			Imports:       importsTransport,
 			Dashboard:     dashboard(dbx, notificationsApp, identityApp),
 			Classes:       classesTransport(classesApp),
