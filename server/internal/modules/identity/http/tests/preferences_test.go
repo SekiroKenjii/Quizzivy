@@ -17,21 +17,21 @@ import (
 
 func TestPreferencesTransportUsesSelfFalseAndReturnsMergedStorage(t *testing.T) {
 	var got command.UpdatePreferences
-	stored := domain.Preferences{Theme: profileHTTPString("dark"), CompactTables: profileHTTPBool(false)}
+	stored := domain.Preferences{Theme: profileHTTPString("dark"), CompactTables: profileHTTPBool(false), Workspace: profileHTTPString("teacher")}
 	app := &application.Application{Commands: application.Commands{UpdatePreferences: cqrs.HandlerFunc[command.UpdatePreferences, domain.Preferences](func(_ context.Context, in command.UpdatePreferences) (domain.Preferences, error) {
 		got = in
 		return stored, nil
 	})}}
 	h := identityhttp.NewIdentity(app, time.Hour, false, nil)
-	r, err := h.UpdatePreferences(contextAs(t, access.Principal{UserID: profileHTTPUser().ID}), openapi.UpdatePreferencesRequestObject{Body: &openapi.UpdatePreferencesJSONRequestBody{CompactTables: profileHTTPBool(false)}})
+	r, err := h.UpdatePreferences(contextAs(t, access.Principal{UserID: profileHTTPUser().ID}), openapi.UpdatePreferencesRequestObject{Body: &openapi.UpdatePreferencesJSONRequestBody{CompactTables: profileHTTPBool(false), Workspace: new(openapi.UserPreferencesWorkspaceAdmin)}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	body, ok := r.(openapi.UpdatePreferences200JSONResponse)
-	if !ok || body.Theme == nil || string(*body.Theme) != "dark" || body.CompactTables == nil || *body.CompactTables {
+	if !ok || body.Theme == nil || string(*body.Theme) != "dark" || body.CompactTables == nil || *body.CompactTables || body.Workspace == nil || *body.Workspace != openapi.UserPreferencesWorkspaceTeacher {
 		t.Fatalf("merged=%+v", r)
 	}
-	if got.UserID != profileHTTPUser().ID || got.Preferences.CompactTables == nil || *got.Preferences.CompactTables || got.Preferences.Theme != nil {
+	if got.UserID != profileHTTPUser().ID || got.Preferences.CompactTables == nil || *got.Preferences.CompactTables || got.Preferences.Theme != nil || got.Preferences.Workspace == nil || *got.Preferences.Workspace != "admin" {
 		t.Fatalf("patch=%+v", got)
 	}
 }

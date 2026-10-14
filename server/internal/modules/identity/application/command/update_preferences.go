@@ -34,6 +34,9 @@ func validPreferences(p domain.Preferences) bool {
 	if p.Theme != nil && *p.Theme != "light" && *p.Theme != "dark" && *p.Theme != "system" {
 		return false
 	}
+	if p.Workspace != nil && *p.Workspace != "teacher" && *p.Workspace != "admin" {
+		return false
+	}
 	if ai := p.AI; ai != nil && ai.Language != nil && *ai.Language != "vi" && *ai.Language != "en" {
 		return false
 	}
