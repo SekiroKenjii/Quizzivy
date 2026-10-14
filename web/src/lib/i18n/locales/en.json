@@ -780,7 +780,8 @@
     "createCodeBody": "The code works for 30 days and 40 joins.",
     "codeRenewedWith": "New join code: {{code}}",
     "newCodeFailed": "Could not make a new join code.",
-    "codesReplaced": "Your classes' join codes were replaced on {{date}}. Share the new ones with your students."
+    "codesReplaced": "Your classes' join codes were replaced on {{date}}. Share the new ones with your students.",
+    "joinCodesOff": "Your centre has turned off joining with a code."
   },
   "settings": {
     "profile": "Profile",

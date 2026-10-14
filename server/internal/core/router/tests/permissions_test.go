@@ -64,8 +64,8 @@ func TestEveryNonOpenOperationDeclaresAPermission(t *testing.T) {
 func TestOpenOperationsDeclareNone(t *testing.T) {
 	spec := freshSpec(t)
 	open := openPatterns(spec)
-	if len(open) != 7 {
-		t.Errorf("%d open operations, want the seven of theOpenSeven", len(open))
+	if len(open) != 9 {
+		t.Errorf("%d open operations, want the nine of theOpenNine", len(open))
 	}
 	eachOperation(spec, func(pattern string, op *openapi3.Operation) {
 		if _, isOpen := open[pattern]; !isOpen {
@@ -82,8 +82,8 @@ func TestEveryDeclaredValueIsKnown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(requirements) != 144 {
-		t.Errorf("%d operations declare a permission, want 144", len(requirements))
+	if len(requirements) != 148 {
+		t.Errorf("%d operations declare a permission, want 148", len(requirements))
 	}
 	for pattern, requirement := range requirements {
 		for _, k := range requirement.Keys() {
@@ -378,7 +378,7 @@ func TestEachRoleMeetsExactlyTheOperationsItsPermissionsAllow(t *testing.T) {
 	for _, pattern := range []string{"GET /admin/roles", "POST /admin/roles", "GET /admin/roles/assignable", "PUT /admin/roles/permissions", "PATCH /admin/roles/{id}"} {
 		adminOnly[pattern] = true
 	}
-	for _, pattern := range []string{"GET /admin/ai/credits", "PATCH /admin/ai/rules", "POST /admin/ai/credits/additions", "PUT /admin/ai/teachers/{userId}/allowance", "POST /admin/ai/credit-requests/{id}/approve", "POST /admin/ai/credit-requests/{id}/decline"} {
+	for _, pattern := range []string{"GET /admin/ai/credits", "PATCH /admin/ai/rules", "POST /admin/ai/credits/additions", "PUT /admin/ai/teachers/{userId}/allowance", "POST /admin/ai/credit-requests/{id}/approve", "POST /admin/ai/credit-requests/{id}/decline", "GET /admin/settings", "PUT /admin/settings", "POST /admin/settings/sign-in-impact", "POST /admin/settings/logo"} {
 		adminOnly[pattern] = true
 	}
 	for pattern, requirement := range requirements {
@@ -427,8 +427,8 @@ func TestTheAssistantMeetsOnlyItsSixRows(t *testing.T) {
 			t.Errorf("%s as the Assistant: %d, want %d", pattern, got, want)
 		}
 	}
-	if refused != 60 {
-		t.Errorf("the Assistant is refused %d operations, want 60: thirty-two staff operations, the sixteen AI ones and the twelve /app ones", refused)
+	if refused != 64 {
+		t.Errorf("the Assistant is refused %d operations, want 64: thirty-six staff operations, the sixteen AI ones and the twelve /app ones", refused)
 	}
 }
 

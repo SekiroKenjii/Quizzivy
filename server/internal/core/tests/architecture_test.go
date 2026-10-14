@@ -155,6 +155,33 @@ func TestTheAIModuleKeepsToItsLayers(t *testing.T) {
 	}
 }
 
+func TestTheOrganizationModuleKeepsToItsLayers(t *testing.T) {
+	cases := []struct {
+		from, to string
+		allowed  bool
+	}{
+		{"modules/organization/domain/settings.go", "shared/validation", true},
+		{"modules/organization/domain/settings.go", "platform/db", false},
+		{"modules/organization/domain/settings.go", "platform/storage", false},
+		{"modules/organization/application/command/upload_logo.go", "platform/storage", false},
+		{"modules/organization/application/command/upload_logo.go", "platform/imagesafe", false},
+		{"modules/organization/application/command/update_settings.go", "modules/organization/repositories", false},
+		{"modules/organization/repositories/postgres.go", "platform/db", true},
+		{"modules/organization/repositories/postgres.go", "shared/audit", true},
+		{"modules/organization/http/organization.go", "modules/organization/repositories", false},
+		{"modules/identity/application/command/login.go", "modules/organization/repositories", false},
+		{"modules/classes/application/ports/ports.go", "modules/organization/repositories", false},
+		{"core/adapters/logos.go", "platform/imagesafe", true},
+		{"core/adapters/logos.go", "platform/storage", true},
+		{"core/wiring/organization.go", "modules/organization/repositories", true},
+	}
+	for _, c := range cases {
+		if got := forbidden(c.from, c.to) == ""; got != c.allowed {
+			t.Errorf("%s importing %s: allowed = %v, want %v", c.from, c.to, got, c.allowed)
+		}
+	}
+}
+
 func TestOnlyThePlatformClientImportsTheProviderSDK(t *testing.T) {
 	var offences []string
 	for _, root := range []struct{ dir, prefix string }{{filepath.Join("..", ".."), ""}, {filepath.Join("..", "..", "..", "cmd"), "cmd/"}} {
