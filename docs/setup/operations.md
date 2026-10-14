@@ -484,7 +484,8 @@ The Admin console's Overview and its Plan & usage page set what the centre holds
 it states (T-R5.18). The plan is six optional variables, read at start-up: `PLAN_NAME` (up to 80
 characters), `PLAN_RENEWS_ON` (`YYYY-MM-DD`, and it needs a name), `PLAN_SEAT_LIMIT` and
 `PLAN_TEACHER_LIMIT` (whole numbers from 1 to 1,000,000), and `PLAN_MEDIA_BYTES` and
-`PLAN_IMPORT_BYTES` (bytes, from 1 to 2^50). A variable that is unset states no limit, and a value
+`PLAN_IMPORT_BYTES` (bytes, from 1 to 2^50). A number is plain digits: a sign, a leading zero, a
+space or a separator stops the server at start-up. A variable that is unset states no limit, and a value
 the server cannot read stops it at start-up, so a typo is found at deploy and not at the first
 page load. Nothing is enforced (DG-55): a limit is drawn beside its figure, and a figure may pass
 it.
