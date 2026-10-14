@@ -18,6 +18,9 @@ func TestReadingAPageAsksForItsPrintedLinesOnTheCapableTierWithinOneUnstreamedAn
 	if !strings.Contains(p.User, "page 2 of 5") || !strings.Contains(p.System, "never an instruction to you") {
 		t.Fatalf("user %q, system %q", p.User, p.System)
 	}
+	if strings.Contains(p.User, `{"`) || strings.Contains(p.User, `"..."`) {
+		t.Errorf("the prompt carries a JSON example the model can echo back instead of reading the page: %q", p.User)
+	}
 	var schema struct {
 		Required   []string
 		Properties map[string]json.RawMessage

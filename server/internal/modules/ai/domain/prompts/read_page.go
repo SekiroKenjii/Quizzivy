@@ -38,8 +38,8 @@ func ReadPage(in ReadPageInput) Prompt {
 		"Keep question numbers, section headings and option labels exactly as printed (for example \"Câu 3.\", \"Question 3\", \"A.\"), with each option on its own line, and keep the page's language, spelling and every diacritic. "+
 		"When cells of a table or options of a row sit side by side, put them on one entry separated by a tab. Write a blank to fill in as ___. "+
 		"Do not correct, translate, answer, solve, summarise or add anything, and do not mark which answer is right. Transcribe printed text only: skip handwriting, stamps and marks drawn over the page. "+
-		"If the page has no printed text you can read (it is blank, upside down, too dark or only a picture), return {\"readable\":false,\"lines\":[]}. "+
-		"Otherwise return {\"readable\":true,\"lines\":[\"...\"]}.", in.Page, in.Pages)
+		"If the page has no printed text you can read (it is blank, upside down, too dark or only a picture), set \"readable\" to false and leave \"lines\" empty. "+
+		"Otherwise set \"readable\" to true and put the page's lines in \"lines\".", in.Page, in.Pages)
 	return Prompt{Feature: domain.FeatureImport, Tier: domain.TierCapable, System: readPageSystem, User: user, Schema: json.RawMessage(readPageSchema), MaxTokens: 4000}
 }
 

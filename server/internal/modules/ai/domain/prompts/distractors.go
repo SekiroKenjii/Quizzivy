@@ -42,7 +42,7 @@ func Distractors(in DistractorsInput) (Prompt, error) {
 	}
 	user := fmt.Sprintf("Question: \"\"\"%s\"\"\"\nCorrect answer: %s\nExisting options: %s\n\n"+
 		"Suggest %d new wrong options. Each must be clearly wrong to someone who knows the rule, but tempting for a learner. Match the length and grammar of the correct answer and do not repeat existing options. "+
-		"Write why in %s, in under 12 words. Return {\"distractors\":[{\"text\":\"...\",\"why\":\"why a learner might pick it\"}]}.",
+		"Write why in %s, in under 12 words. Put each wrong option in \"text\" and why a learner might pick it in \"why\".",
 		clip(in.Question.Prompt, 1500), key, strings.Join(have, " | "), MaxDistractors, in.Language.Name())
 	return Prompt{Feature: domain.FeatureDistractors, Tier: domain.TierCapable, System: distractorsSystem, User: user, Schema: json.RawMessage(distractorsSchema), MaxTokens: 700}, nil
 }
@@ -79,7 +79,7 @@ func DecodeDistractors(raw json.RawMessage, in DistractorsInput) ([]Distractor, 
 		out = append(out, Distractor{Text: text, Why: why})
 	}
 	if len(out) == 0 {
-		return nil, ErrUnusable
+		return nil, fmt.Errorf("%w: none of the %d suggestions in the answer is usable", ErrUnusable, len(answer.Distractors))
 	}
 	return out, nil
 }

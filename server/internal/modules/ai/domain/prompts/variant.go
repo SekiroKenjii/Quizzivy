@@ -119,7 +119,7 @@ func DecodeVariant(raw json.RawMessage, in VariantInput) ([]Change, error) {
 		out = append(out, change)
 	}
 	if len(out) == 0 {
-		return nil, ErrUnusable
+		return nil, fmt.Errorf("%w: none of the %d changes in the answer can be applied", ErrUnusable, len(answer.Changes))
 	}
 	slices.SortStableFunc(out, func(a, b Change) int { return a.Number - b.Number })
 	if len(out) > MaxChanges {

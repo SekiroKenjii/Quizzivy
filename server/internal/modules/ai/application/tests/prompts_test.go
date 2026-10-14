@@ -201,6 +201,9 @@ func TestEverySchemaStaysInsideWhatTheProviderAcceptsAndEveryPromptGuardsItsMate
 			if p.User == "" || p.MaxTokens < 1 || !p.Feature.Known() || p.Tier == "" {
 				t.Errorf("prompt %+v is incomplete", p)
 			}
+			if strings.Contains(p.User, `{"`) || strings.Contains(p.User, `"..."`) {
+				t.Errorf("the prompt carries a JSON example the model can echo back instead of answering:\n%s", p.User)
+			}
 		})
 	}
 	for _, name := range []string{"tagging", "duplicates"} {
