@@ -32,7 +32,7 @@ export async function prepareAvatar(file: File): Promise<File> {
   if (typeof createImageBitmap !== "function") return file;
   let bitmap: ImageBitmap;
   try {
-    bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    bitmap = await createImageBitmap(file);
   } catch {
     return file;
   }
