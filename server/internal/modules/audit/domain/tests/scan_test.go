@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -69,6 +70,7 @@ func scanServer(t *testing.T) (actions, entities found) {
 	t.Helper()
 	actions, entities = found{}, found{}
 	root := serverRoot(t)
+	shared := treeConstants(filepath.Join(root, "internal"))
 	for _, dir := range []string{"internal", "cmd"} {
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, d fs.DirEntry, err error) error {
 			if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
@@ -77,7 +79,7 @@ func scanServer(t *testing.T) (actions, entities found) {
 			if inTestDirectory(path) {
 				return nil
 			}
-			return scanFile(path, actions, entities)
+			return scanFile(path, shared, actions, entities)
 		})
 		if err != nil {
 			t.Fatalf("scan %s: %v", dir, err)
@@ -86,7 +88,7 @@ func scanServer(t *testing.T) (actions, entities found) {
 	return actions, entities
 }
 
-func scanFile(path string, actions, entities found) error {
+func scanFile(path string, shared map[string][]string, actions, entities found) error {
 	file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
 	if err != nil {
 		return err
@@ -97,7 +99,7 @@ func scanFile(path string, actions, entities found) error {
 	ast.Inspect(file, func(n ast.Node) bool {
 		switch n := n.(type) {
 		case *ast.KeyValueExpr:
-			scanKeyValue(n, constants, where, actions, entities)
+			scanKeyValue(n, constants, shared, where, actions, entities)
 		case *ast.AssignStmt:
 			for i, lhs := range n.Lhs {
 				if id, ok := lhs.(*ast.Ident); ok && namesAction(id.Name) && i < len(n.Rhs) {
@@ -148,23 +150,38 @@ func addAction(e ast.Expr, where string, actions found) {
 	}
 }
 
-func scanKeyValue(kv *ast.KeyValueExpr, constants map[string]string, where string, actions, entities found) {
+func scanKeyValue(kv *ast.KeyValueExpr, constants map[string]string, shared map[string][]string, where string, actions, entities found) {
 	key, ok := kv.Key.(*ast.Ident)
 	if !ok {
 		return
 	}
 	switch key.Name {
 	case "Action", "action":
-		addAction(kv.Value, where, actions)
-	case "Entity":
-		if v, ok := str(kv.Value); ok {
-			entities.add(v, where)
-		} else if id, ok := kv.Value.(*ast.Ident); ok {
-			if v, ok := constants[id.Name]; ok {
-				entities.add(v, where)
+		for _, v := range resolve(kv.Value, constants, shared) {
+			if isAction(v) {
+				actions.add(v, where)
 			}
 		}
+	case "Entity":
+		for _, v := range resolve(kv.Value, constants, shared) {
+			entities.add(v, where)
+		}
 	}
+}
+
+func resolve(e ast.Expr, constants map[string]string, shared map[string][]string) []string {
+	if v, ok := str(e); ok {
+		return []string{v}
+	}
+	switch e := e.(type) {
+	case *ast.Ident:
+		if v, ok := constants[e.Name]; ok {
+			return []string{v}
+		}
+	case *ast.SelectorExpr:
+		return shared[e.Sel.Name]
+	}
+	return nil
 }
 
 func scanSQL(sql, where string, actions, entities found) {
@@ -210,6 +227,22 @@ func packageConstants(dir string) map[string]string {
 			}
 		}
 	}
+	return out
+}
+
+func treeConstants(root string) map[string][]string {
+	out := map[string][]string{}
+	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || !d.IsDir() || inTestDirectory(path+"/x.go") {
+			return nil
+		}
+		for name, value := range packageConstants(path) {
+			if !slices.Contains(out[name], value) {
+				out[name] = append(out[name], value)
+			}
+		}
+		return nil
+	})
 	return out
 }
 

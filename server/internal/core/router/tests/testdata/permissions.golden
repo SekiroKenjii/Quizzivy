@@ -17,6 +17,8 @@ GET /admin/api-reference system.api_reference
 GET /admin/api-reference/openapi.json system.api_reference
 GET /admin/audit-log system.audit.read
 GET /admin/audit-log/export system.audit.read
+GET /admin/roles people.roles.manage
+GET /admin/roles/assignable people.users.manage
 GET /admin/settings system.settings.write
 GET /app/assignments learning.take_tests
 GET /app/assignments/{id} learning.take_tests
@@ -67,6 +69,7 @@ GET /teacher/tests/{id}/preview workspace.teacher
 GET /teacher/tests/{id}/versions workspace.teacher
 GET /teacher/tests/{id}/versions/{version}/diff workspace.teacher
 PATCH /admin/ai/rules ai.credits.manage
+PATCH /admin/roles/{id} people.roles.manage
 PATCH /app/attempts/{id}/answers learning.take_tests
 PATCH /auth/me self
 PATCH /me/preferences self
@@ -82,6 +85,7 @@ POST /admin/ai/credit-requests/{id}/approve ai.credits.manage
 POST /admin/ai/credit-requests/{id}/decline ai.credits.manage
 POST /admin/ai/credits/additions ai.credits.manage
 POST /admin/docs-session system.api_reference
+POST /admin/roles people.roles.manage
 POST /admin/settings/logo system.settings.write
 POST /admin/settings/sign-in-impact system.settings.write
 POST /app/assignments/{id}/attempts learning.take_tests
@@ -139,6 +143,7 @@ POST /teacher/tests/{id}/questions/move content.tests.write
 POST /teacher/tests/{id}/versions/{version}/current content.tests.publish
 POST /teacher/tests/{id}/versions/{version}/draft content.tests.write
 PUT /admin/ai/teachers/{userId}/allowance ai.credits.manage
+PUT /admin/roles/permissions people.roles.manage
 PUT /admin/settings system.settings.write
 PUT /me/avatar self
 PUT /me/notification-preferences self

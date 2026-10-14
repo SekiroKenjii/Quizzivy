@@ -128,6 +128,12 @@ tags:
       `501 AI_OFF`.
   - name: admin-users
     description: The Admin console's people operations. In R2 only the deletion of a student account lives here.
+  - name: admin-roles
+    description: |
+      Roles and the permission matrix. A role is created and edited, never
+      deleted (DG-52). Every write is held to the subset rule: a caller acts
+      only on a role whose permissions, except `learning.take_tests`, are their
+      own, and grants only keys they hold. The built-in roles keep their key.
   - name: admin-ai
     description: |
       The AI credits console: the pool, the teachers' allowances, their
@@ -794,6 +800,14 @@ components:
         # students
         - EMAIL_TAKEN
         - STUDENT_SHARED
+        # roles
+        - ROLE_NAME_TAKEN
+        - ROLE_NOT_ASSIGNABLE
+        - ROLE_LOCKED
+        - STUDENT_NEEDS_TAKE_TESTS
+        - KEY_NOT_GRANTABLE
+        - CANNOT_ACT_ON_SELF
+        - TARGET_ROLE_NOT_ALLOWED
         # authoring
         - RESOURCE_REFERENCED
         - RESOURCE_NOT_ARCHIVED
@@ -1576,6 +1590,179 @@ components:
         and `listAssignments`, with their facets, tags and counts, hold the
         caller's own rows for every caller (for assignments, those the caller
         created and those that target a class the caller teaches).
+
+    RoleIcon:
+      type: string
+      enum: [shield, graduation-cap, hand-helping, user, key-round, crown, briefcase, book-open, users, clipboard-check, headset, star]
+      description: The Edit role dialog's twelve icons; the same set `app.roles.icon` checks.
+
+    RoleColor:
+      type: string
+      enum: [dark, lime, blue, green, amber, rose, gray]
+      description: The Edit role dialog's seven card colours; the same set `app.roles.color` checks.
+
+    BuiltinRoleKey:
+      type: string
+      enum: [admin, teacher, assistant, student]
+      description: The immutable key of a built-in role. A custom role has none.
+
+    RoleSummary:
+      type: object
+      required: [id, builtinKey, name, description, icon, color, custom, userCount, permissions, revision, editable, inProgressAttempts]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        builtinKey:
+          oneOf:
+            - { $ref: '#/components/schemas/BuiltinRoleKey' }
+            - { type: 'null' }
+        name: { type: string, minLength: 1, maxLength: 60 }
+        description: { type: string, maxLength: 300 }
+        icon: { $ref: '#/components/schemas/RoleIcon' }
+        color: { $ref: '#/components/schemas/RoleColor' }
+        custom:
+          type: boolean
+          description: True when the role is not built in.
+        userCount:
+          type: integer
+          minimum: 0
+          description: Accounts that hold the role, disabled ones included.
+        permissions:
+          type: array
+          uniqueItems: true
+          maxItems: 64
+          items: { $ref: '#/components/schemas/PermissionKey' }
+          description: |
+            What the role's users may do, in catalogue order, without the
+            hidden keys: the matrix column. The Admin's is every matrix key
+            except `learning.take_tests`, which it holds only when that cell
+            is turned on.
+        revision:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Moves with every change to the role. Sent back as `expectedRevision` so a stale save is refused.
+        editable:
+          type: boolean
+          description: |
+            False where the subset rule stops the caller from acting on the
+            role: it holds a permission the caller lacks, `learning.take_tests`
+            apart. The caller's own role is editable here, but its permissions
+            are never changed by its holder (`CANNOT_ACT_ON_SELF`).
+        inProgressAttempts:
+          type: integer
+          minimum: 0
+          description: Attempts in progress right now by users who hold the role.
+
+    PermissionCatalogueEntry:
+      type: object
+      required: [key, group, adminLocked]
+      additionalProperties: false
+      properties:
+        key: { $ref: '#/components/schemas/PermissionKey' }
+        group: { type: string, enum: [content, teaching, people, system] }
+        adminLocked:
+          type: boolean
+          description: "True where the Admin's cell cannot be changed, which is every key but `learning.take_tests`."
+
+    RoleList:
+      type: object
+      required: [roles, catalogue]
+      additionalProperties: false
+      properties:
+        roles:
+          type: array
+          maxItems: 200
+          description: Every role, in the order Admin, Teacher, Assistant, Student, then custom roles oldest first.
+          items: { $ref: '#/components/schemas/RoleSummary' }
+        catalogue:
+          type: array
+          maxItems: 64
+          description: The matrix rows in order. The hidden keys are left out.
+          items: { $ref: '#/components/schemas/PermissionCatalogueEntry' }
+
+    AssignableRole:
+      type: object
+      required: [id, builtinKey, name, icon, color, studentTarget]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        builtinKey:
+          oneOf:
+            - { $ref: '#/components/schemas/BuiltinRoleKey' }
+            - { type: 'null' }
+        name: { type: string, minLength: 1, maxLength: 60 }
+        icon: { $ref: '#/components/schemas/RoleIcon' }
+        color: { $ref: '#/components/schemas/RoleColor' }
+        studentTarget:
+          type: boolean
+          description: True for the built-in Student and any custom role that holds nothing but `learning.take_tests`.
+
+    RoleInput:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        description: { type: string, maxLength: 300 }
+        copyFromRoleId:
+          $ref: '#/components/schemas/Uuid'
+          description: The role whose permissions the new role starts with. Omitted, it starts with none.
+
+    RoleUpdate:
+      type: object
+      required: [expectedRevision]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        description: { type: string, maxLength: 300 }
+        icon: { $ref: '#/components/schemas/RoleIcon' }
+        color: { $ref: '#/components/schemas/RoleColor' }
+        expectedRevision: { type: integer, format: int64, minimum: 1 }
+
+    RolePermissionChange:
+      type: object
+      required: [roleId, key, granted]
+      additionalProperties: false
+      properties:
+        roleId: { $ref: '#/components/schemas/Uuid' }
+        key: { $ref: '#/components/schemas/PermissionKey' }
+        granted: { type: boolean }
+
+    RoleRevision:
+      type: object
+      required: [roleId, revision]
+      additionalProperties: false
+      properties:
+        roleId: { $ref: '#/components/schemas/Uuid' }
+        revision: { type: integer, format: int64, minimum: 1 }
+
+    RolePermissionsInput:
+      type: object
+      required: [changes, expectedRevisions]
+      additionalProperties: false
+      properties:
+        changes:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items: { $ref: '#/components/schemas/RolePermissionChange' }
+        expectedRevisions:
+          type: array
+          maxItems: 200
+          description: The revision of every role a change touches, as the matrix last read it.
+          items: { $ref: '#/components/schemas/RoleRevision' }
+
+    RolePermissionsResult:
+      type: object
+      required: [roles]
+      additionalProperties: false
+      properties:
+        roles:
+          type: array
+          maxItems: 200
+          description: The roles the save touched, as they stand after it.
+          items: { $ref: '#/components/schemas/RoleSummary' }
 
     AccountStatus:
       type: string
@@ -9980,6 +10167,172 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /admin/roles:
+    get:
+      operationId: listRoles
+      x-permission: people.roles.manage
+      tags: [admin-roles]
+      summary: The roles and the permission catalogue
+      description: |
+        Every role with its permissions, head count and revision, and the
+        catalogue of matrix rows, for the Roles & permissions page. The
+        Assistant is listed as the deck draws it; only the role pickers
+        (`listAssignableRoles`) leave it out.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleList' }
+    post:
+      operationId: createRole
+      x-permission: people.roles.manage
+      tags: [admin-roles]
+      summary: Create a custom role
+      description: |
+        The new role takes the icon `key-round` and the colour `gray`, and starts
+        with the permissions of `copyFromRoleId`, if given. The source must pass
+        the subset rule: its permissions, `learning.take_tests` apart, are the
+        caller's own. The Assistant cannot be a source. Writes one audit row,
+        `role.created`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoleInput' }
+      responses:
+        '201':
+          description: The new role.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleSummary' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — the source role holds a permission the caller lacks.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`ROLE_NAME_TAKEN` — another role has the name, in any letter case.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: '`ROLE_NOT_ASSIGNABLE` — the source is the Assistant.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/roles/assignable:
+    get:
+      operationId: listAssignableRoles
+      x-permission: people.users.manage
+      tags: [admin-roles]
+      summary: The roles the caller may give to a user
+      description: |
+        The roles whose permissions, `learning.take_tests` apart, are a subset of
+        the caller's, without the Assistant, which no picker offers. For the Add
+        user dialog and the user sheet.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 200
+                items: { $ref: '#/components/schemas/AssignableRole' }
+
+  /admin/roles/permissions:
+    put:
+      operationId: setRolePermissions
+      x-permission: people.roles.manage
+      tags: [admin-roles]
+      summary: Save the matrix
+      description: |
+        Grants and revokes permissions across roles in one transaction, and
+        refuses the whole save when any change breaks a rule:
+
+        - `KEY_NOT_GRANTABLE` — a hidden key.
+        - `ROLE_LOCKED` — an Admin cell other than `learning.take_tests`.
+        - `STUDENT_NEEDS_TAKE_TESTS` — `learning.take_tests` off the built-in Student.
+        - `CANNOT_ACT_ON_SELF` — a change to the caller's own role, except the
+          Admin role's `learning.take_tests` cell, which gives no power over anyone.
+        - `TARGET_ROLE_NOT_ALLOWED` (403) — a role, or a key granted or revoked,
+          that the subset rule keeps from the caller.
+        - `STALE_WRITE` (409) — a role is past its expected revision, or the
+          save names no revision for it.
+
+        A change that leaves a cell as it was is accepted and writes nothing.
+        Everyone's permissions are read again on their next request on the
+        machine that served the save, and within ten seconds on any other. Writes
+        one `role.permissions_changed` audit row per role changed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RolePermissionsInput' }
+      responses:
+        '200':
+          description: The roles the save touched.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RolePermissionsResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — the subset rule keeps the caller from a role or a key.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`STALE_WRITE` — a role changed since the matrix was read.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: '`KEY_NOT_GRANTABLE`, `ROLE_LOCKED`, `STUDENT_NEEDS_TAKE_TESTS` or `CANNOT_ACT_ON_SELF`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/roles/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    patch:
+      operationId: updateRole
+      x-permission: people.roles.manage
+      tags: [admin-roles]
+      summary: Edit a role's name, description, icon or colour
+      description: |
+        A supplied field is changed and the others are kept; a body with only
+        `expectedRevision` is refused. A built-in role may be renamed; its key never changes. The target must pass the subset rule.
+        A change moves the revision. Writes one audit row, `role.updated`, naming
+        what changed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoleUpdate' }
+      responses:
+        '200':
+          description: The role after the change.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleSummary' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — the role holds a permission the caller lacks.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`STALE_WRITE` — the role changed since `expectedRevision`. `ROLE_NAME_TAKEN` — another role has the name, in any letter case.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
   /admin/docs-session:
     post:
       operationId: openDocsSession

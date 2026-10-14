@@ -1,7 +1,15 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.109 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.110 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.109**
+
+R5, T-R5.8 (roles and permissions API, no screen yet).
+
+- §15 Five operations under `/admin/roles`: `listRoles` and `createRole`, `updateRole` (`PATCH /admin/roles/:id`), `setRolePermissions` (`PUT /admin/roles/permissions`), all `people.roles.manage`, and `listAssignableRoles` (`people.users.manage`). A role is never deleted (DG-52). Seven new error codes: `ROLE_NAME_TAKEN`, `ROLE_NOT_ASSIGNABLE`, `ROLE_LOCKED`, `STUDENT_NEEDS_TAKE_TESTS`, `KEY_NOT_GRANTABLE`, `CANNOT_ACT_ON_SELF` and `TARGET_ROLE_NOT_ALLOWED`.
+- §5 Every role write is held to the subset rule (`access.CanActOn`): a caller acts only on a role whose permissions, `learning.take_tests` apart, are their own, grants or revokes only keys they hold, and never changes their own role's permissions, except the Admin role's `learning.take_tests` cell. A matrix save is one transaction and refused whole. It and `updateRole` make every cached principal on the machine that served them be read again on its next request.
+- §13.5 The app role may now insert roles, update the columns a role command changes and add and remove grants (`00129_grant_role_writes.sql`). It still cannot delete a role or write `app.permissions`.
 
 **Changes since v0.108**
 
@@ -2954,7 +2962,7 @@ Use PG18's `OLD`/`NEW` in `RETURNING` to capture the diff in the same statement 
 - Join codes sealed with AES-256-GCM under a key the database never holds, and found by an HMAC-SHA256 of the normalized code under a key derived from it (§13.3). Lookup by hash, compared in constant time. A live code issued before v0.8.0 kept its SHA-256 hash until v0.10.0's start-up rotation replaced it (§6.1); a revoked or expired one keeps it.
 - Passwords: Argon2id (bcrypt cost ≥ 12 if unavailable).
 - `sample_answer`, `transcript`, `is_correct`, and `accepted_answers` must never reach a student response. Enforce with explicit column lists — **no `SELECT *` in student-facing paths.** Add a test that asserts these keys are absent from `GET /app/attempts/:id`.
-- Least-privilege DB roles: the app connects with DML on `app` only, not as owner. Migrations run as a separate role. The app role only reads `permissions`, `roles`, `role_permissions` and `student_like_roles`; R5 grants the role commands' writes. `users_last_admin` is the schema's first `SECURITY DEFINER` function: owned by the migrate role, with `search_path = pg_catalog, app, pg_temp` and EXECUTE revoked from PUBLIC (`docs/plan/20-data-model.md` §30).
+- Least-privilege DB roles: the app connects with DML on `app` only, not as owner. Migrations run as a separate role. The app role only reads `permissions` and `student_like_roles`; on `roles` and `role_permissions` it holds only what the role commands write (`00129_grant_role_writes.sql`: insert roles, update their name, description, icon, colour, revision and `updated_at`, add and remove grants), never `DELETE` on `roles`. `users_last_admin` is the schema's first `SECURITY DEFINER` function: owned by the migrate role, with `search_path = pg_catalog, app, pg_temp` and EXECUTE revoked from PUBLIC (`docs/plan/20-data-model.md` §30).
 
 ### 13.6 PG18 features — use and skip
 
@@ -3254,6 +3262,21 @@ POST   /teacher/ai/bank/cleanup         {checks ⊆ duplicates|tags, language?} 
 GET    /teacher/ai/usage                → {month, used, allowance, left, paused, requests, pending, categories}
 POST   /teacher/ai/credit-requests      {amount 1,000..100,000, reason} → 201 AiCreditRequest; 409 AI_REQUESTS_OFF |
                                           AI_REQUEST_PENDING; 5 an hour
+
+# admin: roles (people.roles.manage unless noted)
+GET    /admin/roles                     → {roles: [{id, builtinKey|null, name, description, icon, color, custom, userCount,
+                                          permissions (without the hidden keys), revision, editable, inProgressAttempts}],
+                                          catalogue: [{key, group, adminLocked}]}
+POST   /admin/roles                     {name 1..60, description ≤300, copyFromRoleId?} → 201 RoleSummary (icon key-round,
+                                          colour gray); 403 TARGET_ROLE_NOT_ALLOWED, 409 ROLE_NAME_TAKEN,
+                                          422 ROLE_NOT_ASSIGNABLE (the Assistant as the source)
+PATCH  /admin/roles/:id                 {name?, description?, icon?, color?, expectedRevision} → RoleSummary; 403
+                                          TARGET_ROLE_NOT_ALLOWED, 409 STALE_WRITE | ROLE_NAME_TAKEN
+PUT    /admin/roles/permissions         {changes: [{roleId, key, granted}] (1..200), expectedRevisions} → {roles}; one
+                                          transaction, refused whole: 403 TARGET_ROLE_NOT_ALLOWED, 409 STALE_WRITE,
+                                          422 ROLE_LOCKED | STUDENT_NEEDS_TAKE_TESTS | KEY_NOT_GRANTABLE | CANNOT_ACT_ON_SELF
+GET    /admin/roles/assignable          (people.users.manage) → [{id, builtinKey|null, name, icon, color, studentTarget}]:
+                                          roles within the caller's own permissions, without the Assistant
 
 # admin
 DELETE /admin/users/:id                 a disabled student only, else 409 RESOURCE_NOT_ARCHIVED;
