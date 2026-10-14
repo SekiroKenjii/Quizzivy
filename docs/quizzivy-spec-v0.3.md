@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.105 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.106 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.105**
+
+v0.11.3, a hotfix after a teacher's report (2026-10-14).
+
+- §12 The builder's Generate adds its questions where their source belongs: from a passage a shared-context group holds, to that group as new members; from pasted text, a topic or nothing, to the section, as before. The builder used to append every generated question to the section, so questions written from a group's passage landed outside the group that shows it.
 
 **Changes since v0.104**
 
