@@ -42,7 +42,9 @@ It does not run steps 8 to 10: those create databases and buckets that need clea
 - The hook starts Postgres and MinIO and leaves them running. A step it could not
   finish is in the log; fix that step by hand from the list below.
 - It recovers the two failures a container restart leaves behind. A `/var/run/docker.pid`
-  whose process is gone is removed before `dockerd` starts, or the daemon refuses to run.
+  whose process is not `dockerd` (gone, or a number the new boot gave to something else) is
+  removed before `dockerd` starts, or the daemon refuses to run. The daemon is started
+  without the hook's lock, so a second run is not blocked for as long as `dockerd` lives.
   A service whose first start fails ("container with given ID already exists", stale runc
   state) is started once more with `docker compose up -d --force-recreate`, which keeps
   the volumes (ledger F-13, INC-3).

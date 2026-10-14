@@ -56,11 +56,11 @@ start_docker() {
     return 0
   fi
   local pidfile=/var/run/docker.pid
-  if [ -f "$pidfile" ] && ! kill -0 "$(cat "$pidfile" 2>/dev/null)" 2>/dev/null; then
-    echo "removing the stale $pidfile of a daemon that is not running"
+  if [ -f "$pidfile" ] && [ "$(cat "/proc/$(cat "$pidfile" 2>/dev/null)/comm" 2>/dev/null)" != dockerd ]; then
+    echo "removing the stale $pidfile: its process is not dockerd"
     rm -f "$pidfile"
   fi
-  setsid nohup dockerd >/tmp/dockerd.log 2>&1 &
+  setsid nohup dockerd 9>&- >/tmp/dockerd.log 2>&1 &
   local i
   for i in $(seq 1 90); do
     docker info >/dev/null 2>&1 && return 0
