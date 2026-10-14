@@ -87,6 +87,44 @@ E2E (live API) is the longest job, a little over four minutes (4 min 3 s in
 that run), and Server tests the next (3 min 40 s, the converter image and its
 nine tests included); a faster run starts with those two.
 
+Measured again on 2026-10-14 from the job timings of 702 of the 1,000 latest
+runs (2026-10-03 to 2026-10-14; 653 of the 1,000 were pull request runs). A pull
+request that passed took a median 6 min 11 s (p90 8 min 20 s); a push that
+passed took a median 25 s, nearly every job having been proved already.
+
+| Job | Median | p90 | Share of job-minutes |
+|---|---|---|---|
+| E2E | 5 min 55 s | 7 min 43 s | 18% |
+| Web unit (both shards) | 5 min 21 s and 4 min 58 s | 7 min 28 s | 34% |
+| E2E (live API) | 4 min 39 s | 6 min 10 s | 19% |
+| Web checks | 4 min 3 s | 5 min 14 s | 13% |
+| Server tests | 4 min 31 s | 6 min 44 s | 7% |
+| Contract | 1 min 19 s | 1 min 38 s | 5% |
+| Everything else | under 2 min | | 5% |
+
+The web jobs are 83% of the 16,239 job-minutes. The hosted minutes of a public
+repository are free, so what these numbers cost is the time a person or an agent
+waits, not an invoice. Where the time goes inside a job: E2E spent a median
+296 s in Playwright, on one worker; Web unit spent about 300 s per shard in
+Vitest; E2E (live API) spent 177 s in the suite and about 100 s starting what the
+suite needs.
+
+## Tests in CI
+
+- **Playwright workers.** The stubbed projects (`chromium`, `mobile-chromium`)
+  run on three workers in CI: they stub the API per page and share no rows. The
+  live project shares one seeded database, so `pnpm e2e:live` pins one worker
+  in CI and locally. On a 4-core container the 271 stubbed tests took 649 s on
+  one worker and 343 s on three.
+- **A skipped test fails Plan.** `scripts/ci/tests/skipped-tests.test.mjs` fails
+  on a web test that is skipped, todo, fixme, expected to fail or focused, and on
+  a Go `t.Skip` whose message neither names the variable it waits for (`TEST_*`,
+  `S3_*`, `IMPORT_*`, `APP_DATABASE_URL`) nor is listed in `ENVIRONMENT_SKIPS`.
+  A new entry is a test that stops running somewhere, so it takes the owner's
+  word.
+- **Playwright retries twice.** A flaky test therefore passes: search the job log
+  for `flaky` and treat each as a finding (`docs/team/verification.md`).
+
 ## When a job needs a file outside its set
 
 Add the path to that set's `include` in `scripts/ci/plan.mjs`, in the same pull
