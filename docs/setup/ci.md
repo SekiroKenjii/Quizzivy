@@ -95,7 +95,7 @@ passed took a median 25 s, nearly every job having been proved already.
 | Job | Median | p90 | Share of job-minutes |
 |---|---|---|---|
 | E2E | 5 min 55 s | 7 min 43 s | 18% |
-| Web unit (both shards) | 5 min 21 s and 4 min 58 s | 7 min 28 s | 34% |
+| Web unit (two shards, before the third) | 5 min 21 s and 4 min 58 s | 7 min 28 s | 34% |
 | E2E (live API) | 4 min 39 s | 6 min 10 s | 19% |
 | Web checks | 4 min 3 s | 5 min 14 s | 13% |
 | Server tests | 4 min 31 s | 6 min 44 s | 7% |
@@ -116,6 +116,13 @@ suite needs.
   live project shares one seeded database, so `pnpm e2e:live` pins one worker
   in CI and locally. On a 4-core container the 271 stubbed tests took 649 s on
   one worker and 343 s on three.
+- **Web unit runs in three shards.** On the eight full runs of 2026-10-14 each of
+  the two shards took between 8 and 10 minutes, against a ten-day median of
+  5 min 21 s, which left it the longest job once E2E ran on three workers. Vitest
+  splits by a hash of the file path, so the shards are not equal: on the file
+  timings of one local run the three hold 501, 426 and 559 s of file time against
+  634 and 851 s for two. A fourth would leave Server tests and E2E (live API) as
+  the longest jobs, so three is where it stops.
 - **A skipped test fails Plan.** `scripts/ci/tests/skipped-tests.test.mjs` fails
   on a web test that is skipped, todo, fixme, expected to fail or focused, and on
   a Go `t.Skip` whose message neither names the variable it waits for (`TEST_*`,

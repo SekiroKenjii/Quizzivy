@@ -24,7 +24,7 @@ procedure changes.
 - Vitest in CI uses its defaults (5 s test timeout, all cores); locally
   `vite.config.ts` gives three workers and 15 s. A timing-sensitive test can pass
   locally and fail in CI. For pre-merge parity run unit tests as CI does:
-  `CI=1 pnpm --dir web test:unit` (add `--shard=1/2` and `2/2` to match).
+  `CI=1 pnpm --dir web test:unit` (add `--shard=1/3`, `2/3` and `3/3` to match).
 - A tester never edits production code, and never removes, skips or weakens a
   failing test. A failure becomes a QA finding (`QA-<task>-<n>`, format in the
   definition) for the owner. Throwaway mutations (section 7) run in a scratch
@@ -59,7 +59,7 @@ Run from the repository root; `web` commands as `pnpm --dir web ...`.
 | 8 | Web lint | `pnpm lint:ci` (no cache) | static | | PR, V, Rel | CI; tester |
 | 9 | Typecheck | `pnpm typecheck`, never `tsc --noEmit` (it checks zero files) | static | | PR, V, Rel | CI; tester |
 | 10 | Format | `pnpm format:ci` (no cache) | static | | PR, V, Rel | CI; tester |
-| 11 | Web unit | `pnpm test:unit` (CI shards 2) | unit | | PR, V, Rel | CI; tester |
+| 11 | Web unit | `pnpm test:unit` (CI shards 3) | unit | | PR, V, Rel | CI; tester |
 | 12 | Web integration | `pnpm test:integration` (includes `router-chunks.test.ts`, a real build) | integration | | PR, V, Rel | CI; tester |
 | 13 | Build | `pnpm build` | build | | PR, V, Rel | CI; tester |
 | 14 | E2E, API stubbed | `pnpm e2e` (`chromium` and `mobile-chromium` projects, production build on 4173) | end-to-end | Chromium at `/opt/pw-browsers` | PR, V, Rel | CI; tester |

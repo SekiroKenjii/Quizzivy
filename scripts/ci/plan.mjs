@@ -55,7 +55,7 @@ export const JOBS = [
   { id: 'server-test', set: 'server' },
   { id: 'production-image', set: 'image' },
   { id: 'web-check', set: 'web' },
-  { id: 'web-unit', set: 'web', shards: 2 },
+  { id: 'web-unit', set: 'web', shards: 3 },
   { id: 'e2e', set: 'web' },
   { id: 'e2e-live', set: 'code' },
 ];
