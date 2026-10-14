@@ -46,6 +46,7 @@ import { useLargerTestText } from "@/lib/testText";
 import { useThemePreference, type ThemePreference } from "@/lib/theme";
 import { notify } from "@/lib/toast";
 import { cn } from "@/lib/utils";
+import { usePasswordChanged } from "@/features/auth/passwordChanged";
 import { authStore, useAuthStore } from "@/stores/auth";
 
 const CARD = "bg-card shadow-card rounded-xl border";
@@ -304,6 +305,7 @@ function meterHint(password: string, t: TFunction): string {
 
 function PasswordRow() {
   const { t } = useTranslation();
+  const changed = usePasswordChanged();
   const mounted = useMounted();
   const [open, setOpen] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -355,6 +357,11 @@ function PasswordRow() {
           <span id={KEY_ROW} className={ROW_TITLE}>
             {t("settings.password")}
           </span>
+          {changed === null ? null : (
+            <span className={ROW_SUB}>
+              {t("student.settings.passwordChangedLine", { when: changed })}
+            </span>
+          )}
         </span>
         <Button
           id={KEY_TOGGLE}

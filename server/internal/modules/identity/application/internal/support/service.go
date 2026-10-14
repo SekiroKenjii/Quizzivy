@@ -105,7 +105,7 @@ func (s *Service) GoogleSession(ctx context.Context, user domain.User, in Google
 	if user.Disabled() {
 		return model.GoogleSignInResult{}, domain.ErrAccountDisabled
 	}
-	session, err := s.IssueSession(ctx, user, in.Origin())
+	session, err := s.IssueSession(ctx, user, in.Origin(), domain.SignInGoogle)
 	if errors.Is(err, domain.ErrAccountChanged) {
 		user, err = s.Users.FindUserByID(ctx, user.ID)
 		if err != nil {
@@ -114,7 +114,7 @@ func (s *Service) GoogleSession(ctx context.Context, user domain.User, in Google
 		if user.Disabled() {
 			return model.GoogleSignInResult{}, domain.ErrAccountDisabled
 		}
-		session, err = s.IssueSession(ctx, user, in.Origin())
+		session, err = s.IssueSession(ctx, user, in.Origin(), domain.SignInGoogle)
 	}
 	if err != nil {
 		return model.GoogleSignInResult{}, err
@@ -137,7 +137,7 @@ func NewService(users domain.Users, tokens *token.Issuer, refreshTTL time.Durati
 // SetClock replaces the time source. Tests only.
 func (s *Service) SetClock(now func() time.Time) { s.Now = now }
 
-func (s *Service) IssueSession(ctx context.Context, user domain.User, origin Origin) (model.Session, error) {
+func (s *Service) IssueSession(ctx context.Context, user domain.User, origin Origin, method domain.SignInMethod) (model.Session, error) {
 	principal, err := s.Principals.Resolve(ctx, user.ID)
 	if err != nil {
 		return model.Session{}, fmt.Errorf("resolve permissions: %w", err)
@@ -165,6 +165,12 @@ func (s *Service) IssueSession(ctx context.Context, user domain.User, origin Ori
 	rec.GeoLabel = opt.String(origin.GeoLabel)
 	if err := s.Users.CreateRefreshToken(ctx, rec, domain.SessionBasis{Epoch: user.SessionEpoch, PasswordHash: user.PasswordHash}); err != nil {
 		return model.Session{}, fmt.Errorf("store refresh token: %w", err)
+	}
+	if err := s.Users.StampSignIn(ctx, user.ID, method, now); err != nil {
+		s.logger().Warn("sign-in not stamped", "user", user.ID, "method", method, "err", err)
+	} else {
+		user.LastSignInAt, user.LastActiveAt = &now, &now
+		user.LastSignInMethod = opt.String(string(method))
 	}
 
 	return model.Session{

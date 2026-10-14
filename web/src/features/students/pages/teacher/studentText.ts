@@ -1,15 +1,37 @@
 import type { TFunction } from "i18next";
-import { scorePercent, type Student } from "@/features/students/api";
+import {
+  scorePercent,
+  type AccountStatus,
+  type Student,
+} from "@/features/students/api";
 import type { Locale } from "@/lib/i18n";
 import { formatRelative } from "@/lib/i18n/datetime";
 
 /** StudentAccount is how the list names an account's state. */
-export type StudentAccount = "active" | "reset" | "suspended";
+export type StudentAccount = "active" | "notSignedIn" | "reset" | "suspended";
 
-/** accountOf is a student's account state: suspended, on a temporary password, or active. */
+const ACCOUNT_OF: Record<AccountStatus, StudentAccount> = {
+  active: "active",
+  never_signed_in: "notSignedIn",
+  must_change_password: "reset",
+  disabled: "suspended",
+};
+
+const STATUS_OF: Record<StudentAccount, AccountStatus> = {
+  active: "active",
+  notSignedIn: "never_signed_in",
+  reset: "must_change_password",
+  suspended: "disabled",
+};
+
+/** accountOf is the list's name for a student's account state, which the server decides (DG-54): suspended, then on a temporary password, then not signed in yet, then active. */
 export function accountOf(student: Student): StudentAccount {
-  if (student.disabledAt !== null) return "suspended";
-  return student.mustChangePassword ? "reset" : "active";
+  return ACCOUNT_OF[student.accountStatus];
+}
+
+/** statusOf is the server's name for a state the Status facet offers. */
+export function statusOf(account: StudentAccount): AccountStatus {
+  return STATUS_OF[account];
 }
 
 /** averageOf is a student's average as the list prints it, "—" before anything is graded. */
@@ -19,13 +41,12 @@ export function averageOf(student: Student, t: TFunction): string {
 }
 
 /**
- * lastActiveOf is when a student last handed in, "taking a test" while they
- * are, and "—" before they ever have: the last test until R5 records sign-in
- * activity.
+ * lastActiveOf is when a student last made an authenticated request, "taking
+ * a test" while they are, and "—" before they ever have (DG-54).
  */
 export function lastActiveOf(student: Student, locale: Locale, t: TFunction): string {
   if (student.stats.activity.live) return t("students.takingNow");
-  const at = student.stats.activity.lastAttemptAt;
+  const at = student.lastActiveAt;
   return at ? formatRelative(at, locale) : "—";
 }
 

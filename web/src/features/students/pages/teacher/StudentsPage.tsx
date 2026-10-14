@@ -52,11 +52,11 @@ import { useLocale } from "@/lib/i18n/useLocale";
 import { useDebounced } from "@/lib/useDebounced";
 import { StudentCard } from "./StudentCells";
 import { studentColumns } from "./studentColumns";
+import { statusOf } from "./studentText";
 
 const QUERY_KEY = ["teacher-students"] as const;
 
-const ACCOUNTS = ["active", "reset", "suspended"] as const;
-type AccountFacet = (typeof ACCOUNTS)[number];
+const ACCOUNTS = ["active", "notSignedIn", "reset", "suspended"] as const;
 
 const SEARCH =
   "w-auto min-w-0 flex-[0_1_300px] [&_input]:bg-card [&_input]:border-border [&_input]:h-8.5 [&_input]:pl-8.5 [&_input]:text-sm [&_svg]:top-[9.5px] [&_svg]:size-3.75";
@@ -90,18 +90,20 @@ type Acting =
   | null;
 
 /**
- * accountQuery turns the Status facet into the list's query: Active and
- * Password reset each narrow by `mustChangePassword` when chosen alone, and
- * Suspended lists the suspended accounts, alone or beside the others.
+ * accountQuery turns the Status facet into the list's query: the states
+ * chosen, by the server's names, and the suspended accounts that Suspended
+ * adds: alone they are the whole list, beside the others they join it.
  */
 function accountQuery(
   chosen: readonly string[],
-): Pick<ListStudentsParams, "mustChangePassword" | "status"> {
-  const has = (value: AccountFacet) => chosen.includes(value);
-  const open = has("active") || has("reset");
-  const query: Pick<ListStudentsParams, "mustChangePassword" | "status"> = {};
-  if (has("suspended")) query.status = open ? "all" : "disabled";
-  if (has("active") !== has("reset")) query.mustChangePassword = has("reset");
+): Pick<ListStudentsParams, "accountStatus" | "status"> {
+  const states = ACCOUNTS.filter((value) => chosen.includes(value));
+  if (states.length === 0) return {};
+  const query: Pick<ListStudentsParams, "accountStatus" | "status"> = {
+    accountStatus: states.map(statusOf),
+  };
+  if (states.includes("suspended"))
+    query.status = states.length === 1 ? "disabled" : "all";
   return query;
 }
 

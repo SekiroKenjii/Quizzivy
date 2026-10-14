@@ -8,6 +8,8 @@ import (
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/audit"
 
+	"time"
+
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -23,6 +25,7 @@ const userProjection = `
 	SELECT u.id::text, u.email, u.full_name,
 	       u.password_hash, u.must_change_password, u.disabled_at, u.created_at, u.session_epoch,
 	       u.display_name, u.avatar_key, u.phone, u.locale, u.time_zone, u.preferences,
+	       u.last_active_at, u.last_sign_in_at, u.last_sign_in_method, u.password_changed_at,
 	       coalesce(array_agg(i.provider) FILTER (WHERE i.provider IS NOT NULL), '{}')
 	  FROM app.users u
 	  LEFT JOIN app.user_identities i ON i.user_id = u.id`
@@ -32,7 +35,8 @@ func scanUser(row pgx.Row) (domain.User, error) {
 	err := row.Scan(
 		&u.ID, &u.Email, &u.FullName, &u.PasswordHash,
 		&u.MustChangePassword, &u.DisabledAt, &u.CreatedAt, &u.SessionEpoch,
-		&u.DisplayName, &u.AvatarKey, &u.Phone, &u.Locale, &u.TimeZone, &u.Preferences, &u.LinkedProviders,
+		&u.DisplayName, &u.AvatarKey, &u.Phone, &u.Locale, &u.TimeZone, &u.Preferences,
+		&u.LastActiveAt, &u.LastSignInAt, &u.LastSignInMethod, &u.PasswordChangedAt, &u.LinkedProviders,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.User{}, domain.ErrUserNotFound
@@ -165,6 +169,22 @@ func (s *Users) CreateRefreshToken(ctx context.Context, in domain.RefreshTokenRe
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// StampSignIn records a sign-in: the time and the method, and the same moment as the user's last activity.
+// It is its own statement after the session's token is stored and not part of
+// that transaction, which holds the user FOR SHARE: two sign-ins of one user
+// would each have to upgrade that lock to write, and wait for each other.
+func (s *Users) StampSignIn(ctx context.Context, userID string, method domain.SignInMethod, at time.Time) error {
+	const q = `
+		UPDATE app.users
+		   SET last_sign_in_at = $2, last_sign_in_method = $3,
+		       last_active_at = greatest(last_active_at, $2)
+		 WHERE id = $1::uuid`
+	if _, err := s.Exec(ctx, q, userID, at, string(method)); err != nil {
+		return fmt.Errorf("stamp sign-in: %w", err)
+	}
+	return nil
 }
 
 // FindUserByProviderIdentity is §5.3 step 4's first branch: the Google `sub`
