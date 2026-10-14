@@ -587,6 +587,12 @@ The handler's unit tests (`http/tests/group_move_test.go`) pin what the command 
 index, the nullable group, the revisions, the actor, scope and grants), the answer, each refusal's
 status, code and rule in both languages, and the 501.
 
+After the independent review (2026-10-14): the 409 description also names `GROUP_CONFLICT` and the 422
+description `group_reference`, beside `STALE_WRITE` and `TEST_ARCHIVED`, since `groupWriteError` can
+emit both (a unique violation raced by another writer; a foreign key or check the write met), as
+`updateQuestionGroup` lists them; the handler's table pins both. The branch carries the T-E1.2
+review fixes (the copy-in's lock order, the move-out's owner) through a merge of that branch.
+
 ## B. The web
 
 ### T-E1.4 — Outline drag

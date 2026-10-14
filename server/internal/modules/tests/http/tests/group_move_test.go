@@ -140,6 +140,8 @@ func TestMoveRefusalsAnswerTheirStatusCodeAndRule(t *testing.T) {
 		"a shared recording":            {&domain.GroupError{Rule: "group_audio_scope", QuestionID: moveQuestion}, 422, openapi.VALIDATIONFAILED, "group_audio_scope"},
 		"an archived test":              {&domain.GroupError{Rule: "group_owner_archived"}, 409, openapi.TESTARCHIVED, "group_owner_archived"},
 		"a stale revision":              {domain.ErrStaleWrite, 409, openapi.STALEWRITE, ""},
+		"a racing uniqueness refusal":   {domain.ErrGroupConflict, 409, openapi.GROUPCONFLICT, ""},
+		"a refused reference":           {&domain.GroupError{Rule: "group_reference"}, 422, openapi.VALIDATIONFAILED, "group_reference"},
 		"a missing key":                 {domain.ErrForbidden, 403, openapi.FORBIDDEN, ""},
 		"an id the caller cannot reach": {domain.ErrNotFound, 404, openapi.NOTFOUND, ""},
 	} {
