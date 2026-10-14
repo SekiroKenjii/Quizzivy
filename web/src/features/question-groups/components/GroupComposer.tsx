@@ -43,7 +43,9 @@ import { cn } from "@/lib/utils";
  * GroupComposer edits a question group's bundle: its title, instructions,
  * shared materials and member questions, handing every change to `onChange`.
  * `titleFocus` is a request: each new value puts focus in the title field
- * with its text selected, and undefined asks for nothing.
+ * with its text selected, and undefined asks for nothing. A member's question
+ * settings sit in a column beside the editor from 1024px and in their dialog
+ * below it; `settingsInDialog` keeps them in the dialog at every width.
  */
 export function GroupComposer({
   bundle,
@@ -55,6 +57,7 @@ export function GroupComposer({
   onSelectedQuestionChange,
   embedded = false,
   titleFocus,
+  settingsInDialog = false,
 }: Readonly<{
   bundle: GroupBundle;
   assets: MediaAsset[];
@@ -65,6 +68,7 @@ export function GroupComposer({
   onSelectedQuestionChange?: (id: string | null) => void;
   embedded?: boolean;
   titleFocus?: number | undefined;
+  settingsInDialog?: boolean;
 }>) {
   const { t } = useTranslation();
   const titleField = useRef<HTMLInputElement>(null);
@@ -364,14 +368,10 @@ export function GroupComposer({
                 >
                   <ArrowDown aria-hidden="true" />
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="lg:hidden"
-                  onClick={() => setSettingsOpen(true)}
-                >
-                  {t("questionEditor.settings")}
-                </Button>
+                <SettingsButton
+                  always={settingsInDialog}
+                  onOpen={() => setSettingsOpen(true)}
+                />
                 <Button
                   variant="ghost"
                   size="sm"
@@ -402,6 +402,7 @@ export function GroupComposer({
                   hideBelow: "lg",
                   open: settingsOpen,
                   onOpenChange: setSettingsOpen,
+                  always: settingsInDialog,
                 }}
                 contextLabel={bundle.group.title}
                 onChange={(input) =>
@@ -479,6 +480,23 @@ export function GroupComposer({
         onConfirm={remove}
       />
     </div>
+  );
+}
+
+function SettingsButton({
+  always,
+  onOpen,
+}: Readonly<{ always: boolean; onOpen: () => void }>) {
+  const { t } = useTranslation();
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className={always ? undefined : "lg:hidden"}
+      onClick={onOpen}
+    >
+      {t("questionEditor.settings")}
+    </Button>
   );
 }
 
