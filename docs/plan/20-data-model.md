@@ -1507,6 +1507,7 @@ the file it adds.
 | `00125_add_word_imports_read_with_ai.sql` | `word_imports.read_with_ai boolean NOT NULL DEFAULT false`; a constant default, so the v0.10.x binary keeps inserting | D4 (T-D4.33), §47 |
 | `00126_add_questions_copied_from.sql` | `questions.copied_from_id` and `questions_copied_from_id_fkey` (`REFERENCES questions (id) ON DELETE SET NULL`), added with the column, nullable with no default | E1 hotfix v0.11.7, D-50, §48 |
 | `00127_index_questions_copied_from.sql` | `questions_copied_from_idx (copied_from_id) WHERE copied_from_id IS NOT NULL`, `CONCURRENTLY` | E1 hotfix v0.11.7, D-50, §48 |
+| `00129_grant_role_writes.sql` | `INSERT` and `UPDATE (name, description, icon, color, revision, updated_at)` on `roles`, `INSERT` and `DELETE` on `role_permissions`, for the app role; `DELETE` on `roles` and any write on `permissions` stay revoked | R5 (T-R5.8), DG-52, §29 |
 
 Notes on migration mechanics (§13.7):
 
@@ -2193,8 +2194,10 @@ writes them (D-21).
   UPDATE is covered although no role may update a grant: an update is a delete
   and an insert in one statement.
 - All three tables are read-only for `quizzivy_app`, narrowing `00009`'s
-  default privileges; R5 (T-R5.8) grants the role commands' writes, never
-  DELETE on `roles` and never any write on `permissions`.
+  default privileges; `00129_grant_role_writes.sql` (R5, T-R5.8) grants the role
+  commands' writes: `INSERT` and `UPDATE (name, description, icon, color,
+  revision, updated_at)` on `roles`, `INSERT` and `DELETE` on `role_permissions`.
+  Never `DELETE` on `roles` and never any write on `permissions`.
 
 `00055_create_student_like_roles_view.sql` adds `app.student_like_roles (id)`,
 the one definition of a strict student target (plan 70 §4.3, D-24): the built-in
