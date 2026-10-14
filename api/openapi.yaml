@@ -146,6 +146,12 @@ tags:
       The Admin console's audit log: a read-only history of the sensitive
       changes the server recorded, filterable by category, search and date, and
       downloadable. Nothing here can change or remove an entry.
+  - name: admin-overview
+    description: |
+      The Admin console's Overview, its sidebar badge and the Plan & usage
+      figures: read models over what the other parts of the system hold. Each
+      section a caller's keys do not open is `null`, so a custom role reads
+      only what it may.
   - name: admin-settings
     description: |
       The centre's own settings: who it is and how it is reached, its logos,
@@ -3267,6 +3273,242 @@ components:
       properties:
         tag: { type: string }
         count: { type: integer, minimum: 0 }
+
+    AdminOverview:
+      type: object
+      description: |
+        The Admin console's Overview. A section the caller's keys do not open
+        is `null`; `attention` is then shorter, never an error.
+      required: [organizationName, people, classes, dailyActive, attention, recentChanges, storage]
+      additionalProperties: false
+      properties:
+        organizationName:
+          type: string
+          description: The centre's name, from its organization settings.
+        people:
+          description: Needs `people.users.manage`.
+          oneOf: [{ $ref: '#/components/schemas/AdminOverviewPeople' }, { type: 'null' }]
+        classes:
+          description: Needs `scope.all`.
+          oneOf: [{ $ref: '#/components/schemas/AdminOverviewClasses' }, { type: 'null' }]
+        dailyActive:
+          description: Needs `people.users.manage`.
+          oneOf: [{ $ref: '#/components/schemas/AdminDailyActive' }, { type: 'null' }]
+        attention:
+          type: array
+          description: What needs doing, most urgent first. Empty when nothing does.
+          items: { $ref: '#/components/schemas/AdminAttention' }
+        recentChanges:
+          type: [array, 'null']
+          maxItems: 5
+          description: The five newest audit entries of any category, newest first. Needs `system.audit.read`.
+          items: { $ref: '#/components/schemas/AuditEntry' }
+        storage:
+          description: Needs `system.settings.write`.
+          oneOf: [{ $ref: '#/components/schemas/Usage' }, { type: 'null' }]
+
+    AdminOverviewPeople:
+      type: object
+      description: |
+        The accounts of the centre. A student is a student target of R2's
+        student-like roles and a teacher is every other account, an Admin and
+        a custom role included. `teachers` are the enabled ones and
+        `teachersDisabled` the disabled ones, so the two never overlap. `total`
+        and `students` count disabled accounts, as the Users tabs count them.
+      required: [total, activeThisWeek, teachers, teachersDisabled, students, studentsNewThisMonth]
+      additionalProperties: false
+      properties:
+        total: { type: integer, minimum: 0 }
+        activeThisWeek:
+          type: integer
+          minimum: 0
+          description: Accounts with an authenticated request on any of the last seven local days, today included.
+        teachers: { type: integer, minimum: 0 }
+        teachersDisabled:
+          type: integer
+          minimum: 0
+          description: Disabled accounts that are not a student target; none of them is in `teachers`.
+        students: { type: integer, minimum: 0 }
+        studentsNewThisMonth:
+          type: integer
+          minimum: 0
+          description: Students whose account was created since the first of this local month.
+
+    AdminOverviewClasses:
+      type: object
+      required: [active, archived]
+      additionalProperties: false
+      properties:
+        active: { type: integer, minimum: 0 }
+        archived: { type: integer, minimum: 0 }
+
+    AdminDailyActive:
+      type: object
+      description: |
+        Who made an authenticated request on each of the last fourteen local
+        days. Staff is every account that is not a student target, which the
+        chart labels Teachers.
+      required: [days, average]
+      additionalProperties: false
+      properties:
+        days:
+          type: array
+          minItems: 14
+          maxItems: 14
+          description: One entry per day, oldest first and today last, zero days included.
+          items: { $ref: '#/components/schemas/AdminDailyActiveDay' }
+        average:
+          type: integer
+          minimum: 0
+          description: The mean of students plus staff over the fourteen days, rounded half up.
+
+    AdminDailyActiveDay:
+      type: object
+      required: [date, students, staff]
+      additionalProperties: false
+      properties:
+        date: { type: string, format: date }
+        students: { type: integer, minimum: 0 }
+        staff: { type: integer, minimum: 0 }
+
+    AdminAttentionKind:
+      type: string
+      enum: [must_change_password, never_signed_in, disabled_teacher_classes, storage, ai_credit_requests]
+
+    AdminAttention:
+      type: object
+      description: |
+        One thing that needs doing. `count` is at least 1: a row with nothing
+        to do is not sent.
+      required: [kind, count, detail]
+      additionalProperties: false
+      properties:
+        kind: { $ref: '#/components/schemas/AdminAttentionKind' }
+        count:
+          type: integer
+          minimum: 1
+          description: |
+            `must_change_password`: enabled accounts on a temporary password.
+            `never_signed_in`: enabled accounts that have never signed in and
+            are not on a temporary password. `disabled_teacher_classes`: classes,
+            archived ones too, whose teacher is disabled. `storage`: how many of
+            the media and import meters with a configured limit are at 80 percent
+            or more. `ai_credit_requests`: the teachers waiting for more credits
+            this month.
+        detail:
+          description: What the row's line quotes. `null` for `must_change_password`.
+          oneOf: [{ $ref: '#/components/schemas/AdminAttentionDetail' }, { type: 'null' }]
+
+    AdminAttentionDetail:
+      type: object
+      description: |
+        The facts a row quotes, by kind; a field its kind does not use is
+        absent. `never_signed_in`: `oldestCreatedAt`.
+        `disabled_teacher_classes`: `className` and `teacherName` of the newest
+        such class. `storage`: `mediaPercent` and `importsPercent`, each absent
+        when that meter has no limit. `ai_credit_requests`: `teacherName`,
+        `used` and `allowance` of the request waiting longest.
+      additionalProperties: false
+      properties:
+        oldestCreatedAt: { type: string, format: date-time }
+        className: { type: string }
+        teacherName: { type: string }
+        mediaPercent: { type: integer, minimum: 0 }
+        importsPercent: { type: integer, minimum: 0 }
+        used: { type: integer, minimum: 0 }
+        allowance: { type: integer, minimum: 0 }
+
+    AdminSummary:
+      type: object
+      required: [mustChangePassword]
+      additionalProperties: false
+      properties:
+        mustChangePassword:
+          type: [integer, 'null']
+          minimum: 0
+          description: Enabled accounts on a temporary password; `null` without `people.users.manage`.
+
+    Usage:
+      type: object
+      description: |
+        What the centre uses against its plan. Nothing is enforced (DG-55): a
+        `limit` is `null` when its `PLAN_*` variable is unset, and a figure may
+        pass its limit.
+
+        `seats` counts the accounts that are not disabled against
+        `PLAN_SEAT_LIMIT`. `teachers` counts the enabled accounts that are not
+        a student target, Admins included, against `PLAN_TEACHER_LIMIT`; it is
+        the Overview's `people.teachers`. `media` is the bytes of the media
+        files still held in storage, against `PLAN_MEDIA_BYTES`, and `imports`
+        the bytes of the source documents of
+        the imports whose files are still kept and the number of those imports,
+        against `PLAN_IMPORT_BYTES`. `attemptsKept` has no limit until a
+        denominator is named.
+      required: [plan, seats, teachers, media, imports, attemptsKept, aiCredits]
+      additionalProperties: false
+      properties:
+        plan:
+          description: '`null` when `PLAN_NAME` is unset.'
+          oneOf: [{ $ref: '#/components/schemas/UsagePlan' }, { type: 'null' }]
+        seats: { $ref: '#/components/schemas/UsageCount' }
+        teachers: { $ref: '#/components/schemas/UsageCount' }
+        media: { $ref: '#/components/schemas/UsageBytes' }
+        imports: { $ref: '#/components/schemas/UsageImports' }
+        attemptsKept: { $ref: '#/components/schemas/UsageAttempts' }
+        aiCredits:
+          description: The month's credits. `null` without `ai.credits.manage`, and while the AI assistant is off.
+          oneOf: [{ $ref: '#/components/schemas/UsageCredits' }, { type: 'null' }]
+
+    UsagePlan:
+      type: object
+      required: [name, renewsOn]
+      additionalProperties: false
+      properties:
+        name: { type: string }
+        renewsOn:
+          type: [string, 'null']
+          format: date
+          description: '`PLAN_RENEWS_ON`, or `null` when unset.'
+
+    UsageCount:
+      type: object
+      required: [used, limit]
+      additionalProperties: false
+      properties:
+        used: { type: integer, minimum: 0 }
+        limit: { type: [integer, 'null'], minimum: 1 }
+
+    UsageBytes:
+      type: object
+      required: [bytes, limit]
+      additionalProperties: false
+      properties:
+        bytes: { type: integer, format: int64, minimum: 0 }
+        limit: { type: [integer, 'null'], format: int64, minimum: 1 }
+
+    UsageImports:
+      type: object
+      required: [bytes, count, limit]
+      additionalProperties: false
+      properties:
+        bytes: { type: integer, format: int64, minimum: 0 }
+        count: { type: integer, minimum: 0 }
+        limit: { type: [integer, 'null'], format: int64, minimum: 1 }
+
+    UsageAttempts:
+      type: object
+      required: [count]
+      additionalProperties: false
+      properties:
+        count: { type: integer, format: int64, minimum: 0 }
+
+    UsageCredits:
+      type: object
+      required: [used, pool]
+      additionalProperties: false
+      properties:
+        used: { type: integer, format: int64, minimum: 0 }
+        pool: { type: integer, format: int64, minimum: 0 }
 
     TestStatusFacets:
       type: object
@@ -10550,6 +10792,83 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/overview:
+    get:
+      operationId: getAdminOverview
+      x-permission: workspace.admin
+      tags: [admin-overview]
+      summary: The Admin console's Overview
+      description: |
+        Everything the Overview draws in one read: the centre's name, how many
+        people and classes it holds, who was active on each of the last
+        fourteen days, what needs attention, the five newest audit entries and
+        the storage meters.
+
+        Each section is `null` for a caller who lacks its key, never an error,
+        so a custom role sees only what it may: `people` and `dailyActive` need
+        `people.users.manage`, `classes` needs `scope.all`, `recentChanges`
+        `system.audit.read` and `storage` `system.settings.write`. An attention
+        row is held to the key of the page it leads to: `must_change_password`
+        and `never_signed_in` need `people.users.manage`,
+        `disabled_teacher_classes` `scope.all`, `storage` `system.settings.write`
+        and `ai_credit_requests` `ai.credits.manage`, which exists only while the
+        AI assistant is configured. A row whose count is zero is left out.
+
+        Days are the local dates of the centre's `APP_TIMEZONE`, the same days
+        the activity table records. `people.activeThisWeek` counts the
+        distinct accounts active on any of the last seven of them, today
+        included.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminOverview' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/summary:
+    get:
+      operationId: getAdminSummary
+      x-permission: workspace.admin
+      tags: [admin-overview]
+      summary: The Admin console's nav counts
+      description: |
+        The one count the Admin sidebar draws as a badge: the accounts that
+        must change their password (DG-54). It is the number the Overview's
+        `must_change_password` attention row carries, counted by the same rule.
+        `mustChangePassword` is `null` without `people.users.manage`, when the
+        count is not run.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/usage:
+    get:
+      operationId: getUsage
+      x-permission: system.settings.write
+      tags: [admin-overview]
+      summary: What the centre uses against its plan
+      description: |
+        The Plan & usage figures. The plan and its limits come from the
+        server's `PLAN_*` configuration, each optional, and nothing here is
+        enforced (DG-55): a limit is shown, never applied. `aiCredits` is the
+        month's credits used against the centre pool, and is `null` without
+        `ai.credits.manage` and while the AI assistant is off.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Usage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   /admin/docs-session:
     post:

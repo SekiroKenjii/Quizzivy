@@ -3039,6 +3039,8 @@ Use PG18's `OLD`/`NEW` in `RETURNING` to capture the diff in the same statement 
 - `EXPLAIN (ANALYZE, BUFFERS)` any query touching `attempts`, `attempt_answers`, or `attempt_events` before merging.
 - N+1 is the default failure mode of the grading and monitor screens — one query for an attempt's answers, one query for an assignment's monitor rows.
 
+**The Admin's readings (R5).** `getAdminOverview`, `getAdminSummary` and `getUsage` (`modules/dashboard`, all read-only, no migration) count the whole centre under no scope: the caller's keys decide which sections are read at all, and a section a key does not open is `null` and costs no query. A day is a local date in `APP_TIMEZONE`: the chart is today and the thirteen days before it with a zero for a day with no row in `user_activity_days`, its average the mean of students plus staff rounded half up, and "this week" the seven days ending today. A student is a student target of `app.student_like_roles` and a teacher is every other account, an Admin and a custom role included; the chart's "staff" is the same partition. `people.teachers` and `usage.teachers` count the enabled teachers, `people.teachersDisabled` the disabled ones, and a seat is an account that is not disabled; `people.total` and `people.students` still count disabled accounts, as the Users tabs do. The enabled accounts fall into the first of must change password, never signed in (DG-54). The plan is `PLAN_NAME`, `PLAN_RENEWS_ON`, `PLAN_SEAT_LIMIT`, `PLAN_TEACHER_LIMIT`, `PLAN_MEDIA_BYTES` and `PLAN_IMPORT_BYTES`, each optional, validated at start-up and never enforced (DG-55); a meter at 80% of its limit adds the Overview's storage row. The AI figures, the credit-request row and `aiCredits`, come through the AI module's own `AdminCredits` query for a holder of `ai.credits.manage` and are null while the assistant is off. `attention[].detail` carries the facts a row quotes, not a sentence, so the web words each row in the reader's language.
+
 ### 13.9 Maintenance windows
 
 `app.maintenance_windows (id, starts_at, ends_at, created_at, created_by, cancelled_at)` (migration `00053`, `docs/plan/20-data-model.md` §27).
@@ -3339,6 +3341,15 @@ DELETE /admin/users/:id                 a disabled student only, else 409 RESOUR
                                           403 FORBIDDEN when the subset rule refuses,
                                           409 RESOURCE_REFERENCED {referencedBy}
 POST   /admin/docs-session              opens the API reference for fifteen minutes (§5.5)
+
+# admin: readings (R5, T-R5.18); a section is null without its key
+GET    /admin/overview                  (workspace.admin) → {organizationName, people|null, classes|null, dailyActive|null,
+                                          attention, recentChanges|null, storage|null}: people and dailyActive need
+                                          people.users.manage, classes scope.all, recentChanges system.audit.read, storage
+                                          system.settings.write; attention rows with a count of zero are left out
+GET    /admin/summary                   (workspace.admin) → {mustChangePassword|null}: null without people.users.manage
+GET    /admin/usage                     (system.settings.write) → {plan|null, seats, teachers, media, imports, attemptsKept,
+                                          aiCredits|null}: each limit is null when its PLAN_* variable is unset
 
 # admin: AI credits (ai.credits.manage)
 GET    /admin/ai/credits                → {month, pool, daysToGo, onPace, withinPool, allowances, active, idle,
