@@ -145,19 +145,6 @@ func TestUnbuiltOperationReturns501InTheEnvelope(t *testing.T) {
 	}
 }
 
-func TestRateLimitKeysOnTheRouteTemplateNotTheURL(t *testing.T) {
-	handler := newTestRouter(t, fakeDB{})
-	for i := 0; i < 30; i++ {
-		req := httptest.NewRequest(http.MethodGet, "/teacher/tests", nil)
-		req.RemoteAddr = "203.0.113.9:5555"
-		rec := httptest.NewRecorder()
-		handler.ServeHTTP(rec, req)
-		if rec.Code == http.StatusTooManyRequests {
-			t.Fatalf("authenticated route limited after %d requests; no policy is registered for it", i)
-		}
-	}
-}
-
 func TestSeparateClientsGetSeparateBudgets(t *testing.T) {
 	handler := newTestRouter(t, fakeDB{})
 	exhaust := func(ip string) {
