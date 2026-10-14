@@ -33,7 +33,7 @@ func TestFacetsCountEachCategoryAndTheSameWhicheverCategoryIsSelected(t *testing
 	want := domain.Facets{All: 17, Accounts: 3, Classes: 2, Attempts: 3, Tests: 3, Media: 2, Imports: 1}
 
 	for _, category := range append([]domain.Category{""}, domain.Categories()...) {
-		q := inMarch(w)
+		q := inMarch()
 		q.Query, q.Category = w.nonce, category
 		got := w.list(q)
 
@@ -56,7 +56,7 @@ func TestAnAllOnlyEntryIsCountedInAllAndInNoFamily(t *testing.T) {
 	w.manyBy(actor, "attempt_events", 1, 12)
 	w.manyBy(actor, "audit_log", 1, 12)
 
-	q := inMarch(w)
+	q := inMarch()
 	q.Query = w.nonce
 	got := w.list(q)
 

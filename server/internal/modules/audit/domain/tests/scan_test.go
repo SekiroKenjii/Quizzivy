@@ -216,7 +216,7 @@ func packageConstants(dir string) map[string]string {
 func inTestDirectory(path string) bool {
 	parts := strings.Split(filepath.ToSlash(path), "/")
 	for i, part := range parts[:len(parts)-1] {
-		if part == "tests" && !(i > 0 && parts[i-1] == "modules") {
+		if part == "tests" && (i == 0 || parts[i-1] != "modules") {
 			return true
 		}
 	}

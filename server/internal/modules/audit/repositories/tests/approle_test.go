@@ -54,7 +54,7 @@ func TestTheListTheLabelsAndTheExportAnswerTheSameToTheAppRole(t *testing.T) {
 		kinds++
 	}
 	ctx := context.Background()
-	list := inMarch(w)
+	list := inMarch()
 	list.Query = actorName
 
 	viaOwner := w.list(list)

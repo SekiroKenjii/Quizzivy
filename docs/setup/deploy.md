@@ -525,6 +525,21 @@ DROP INDEX CONCURRENTLY IF EXISTS app.users_created_by_idx;            -- 00076
 DROP INDEX CONCURRENTLY IF EXISTS app.assignments_creator_idx;         -- 00077
 ```
 
+## Interrupted index build in v0.12.0 (R5)
+
+`00133` builds `audit_log_recent_idx` on `app.audit_log (occurred_at DESC, id DESC)`
+`CONCURRENTLY`, alone in its file, so writes to the log carry on while it builds.
+It is the only concurrent build R5 adds. If it is interrupted the index is left
+INVALID: find it with the query above, and drop it before redeploying, as
+`quizzivy_migrate`:
+
+```sql
+DROP INDEX CONCURRENTLY IF EXISTS app.audit_log_recent_idx;            -- 00133
+```
+
+The Admin audit log reads through that index. Until it is valid the list still
+answers, by sorting the range it was asked for.
+
 ## Backups and operational verification
 
 See [operations](operations.md) for the recovery rehearsal, retention commands,

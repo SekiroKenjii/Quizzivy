@@ -84,12 +84,17 @@ func ResolveWindow(kind Range, from, to string, loc *time.Location, now time.Tim
 	return Window{}, ErrUnknownRange
 }
 
+const (
+	fieldFrom = "from"
+	fieldTo   = "to"
+)
+
 func firstGiven(from, to string) string {
 	switch {
 	case from != "":
-		return "from"
+		return fieldFrom
 	case to != "":
-		return "to"
+		return fieldTo
 	}
 	return ""
 }
@@ -97,20 +102,20 @@ func firstGiven(from, to string) string {
 func customWindow(from, to string, loc *time.Location) (Window, error) {
 	switch {
 	case from == "":
-		return Window{}, &RangeError{Field: "from", Problem: RangeIncomplete}
+		return Window{}, &RangeError{Field: fieldFrom, Problem: RangeIncomplete}
 	case to == "":
-		return Window{}, &RangeError{Field: "to", Problem: RangeIncomplete}
+		return Window{}, &RangeError{Field: fieldTo, Problem: RangeIncomplete}
 	}
 	first, err := time.ParseInLocation(dateLayout, from, loc)
 	if err != nil {
-		return Window{}, &RangeError{Field: "from", Problem: RangeMalformed}
+		return Window{}, &RangeError{Field: fieldFrom, Problem: RangeMalformed}
 	}
 	last, err := time.ParseInLocation(dateLayout, to, loc)
 	if err != nil {
-		return Window{}, &RangeError{Field: "to", Problem: RangeMalformed}
+		return Window{}, &RangeError{Field: fieldTo, Problem: RangeMalformed}
 	}
 	if last.Before(first) {
-		return Window{}, &RangeError{Field: "to", Problem: RangeReversed}
+		return Window{}, &RangeError{Field: fieldTo, Problem: RangeReversed}
 	}
 	end := time.Date(last.Year(), last.Month(), last.Day()+1, 0, 0, 0, 0, loc)
 	return Window{From: &first, To: &end}, nil

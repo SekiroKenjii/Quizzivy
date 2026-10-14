@@ -13,7 +13,7 @@ import (
 
 func (w *world) search(text string) query.ListResult {
 	w.t.Helper()
-	q := inMarch(w)
+	q := inMarch()
 	q.Query = text
 	return w.list(q)
 }
@@ -145,7 +145,7 @@ func TestSearchAndCategoryNarrowTogether(t *testing.T) {
 	actor := w.user("teacher", "Người làm "+w.nonce, "")
 	w.manyBy(actor, "class", 2, 12)
 	w.manyBy(actor, "test", 1, 12)
-	q := inMarch(w)
+	q := inMarch()
 	q.Query, q.Category = w.nonce, domain.Tests
 	if got := w.list(q); len(got.Entries) != 1 || got.Page.Total != 1 || got.Facets.All != 3 {
 		t.Errorf("%d entries, total %d, facets %+v", len(got.Entries), got.Page.Total, got.Facets)

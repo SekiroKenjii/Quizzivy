@@ -29,7 +29,7 @@ func ids(entries []domain.Entry) []int64 {
 	return out
 }
 
-func inMarch(w *world) query.List {
+func inMarch() query.List {
 	return query.List{Range: domain.Custom, From: "2001-03-01", To: "2001-03-31", Limit: 100}
 }
 
@@ -40,7 +40,7 @@ func TestTheListIsNewestFirstAndAnIdBreaksATie(t *testing.T) {
 	first := w.write(entry{at: march(12, 9, 0)})
 	second := w.write(entry{at: march(12, 9, 0)})
 
-	got := w.list(inMarch(w))
+	got := w.list(inMarch())
 
 	if want := []int64{second, first, middle, oldest}; !slices.Equal(ids(got.Entries), want) {
 		t.Errorf("order %v, want %v: newest first, and of two at one instant the later id first", ids(got.Entries), want)
@@ -57,7 +57,7 @@ func TestAnEntryCarriesWhatWasStored(t *testing.T) {
 		diff: `{"name": {"old": null, "new": "Lớp 9A"}, "reason": "import"}`,
 	})
 
-	q := inMarch(w)
+	q := inMarch()
 	q.Query = w.nonce
 	got := w.list(q)
 
@@ -96,7 +96,7 @@ func TestADisplayNameIsTheActorsNameWhenThereIsOne(t *testing.T) {
 	actor := w.user("teacher", "Tên đầy đủ "+w.nonce, "Cô Lan")
 	w.write(entry{actor: actor, at: march(12, 9, 0)})
 
-	q := inMarch(w)
+	q := inMarch()
 	q.Query = w.nonce
 	got := w.list(q)
 
@@ -110,7 +110,7 @@ func TestTheSystemHasNoActor(t *testing.T) {
 	w.write(entry{action: "maintenance.scheduled", entity: "maintenance_window", at: march(12, 9, 0)})
 	w.write(entry{action: "student.anonymized", entity: "users", at: march(12, 10, 0)})
 
-	got := w.list(inMarch(w))
+	got := w.list(inMarch())
 
 	if len(got.Entries) != 2 {
 		t.Fatalf("%d entries", len(got.Entries))
@@ -128,7 +128,7 @@ func TestAnActorSinceRemovedIsTheSystemToo(t *testing.T) {
 	w.write(entry{actor: actor, at: march(12, 9, 0)})
 	w.exec(`DELETE FROM app.users WHERE id = $1::uuid`, actor)
 
-	got := w.list(inMarch(w))
+	got := w.list(inMarch())
 
 	if len(got.Entries) != 1 || got.Entries[0].Actor != nil {
 		t.Errorf("entries %+v, want one with no actor", got.Entries)
@@ -143,7 +143,7 @@ func TestPagingNamesThePageTheSizeAndTheTotal(t *testing.T) {
 	}
 	slices.Reverse(all)
 
-	q := inMarch(w)
+	q := inMarch()
 	q.Limit = 3
 	second := func(page int) query.ListResult {
 		q.Page = page
@@ -170,7 +170,7 @@ func TestTheDefaultPageIsTenAndTheLimitIsClamped(t *testing.T) {
 	for i := range 12 {
 		w.write(entry{at: march(1+i, 9, 0)})
 	}
-	q := inMarch(w)
+	q := inMarch()
 	q.Limit = 0
 	if got := w.list(q); len(got.Entries) != 10 || got.Page.Size != 10 || got.Page.Total != 12 {
 		t.Errorf("default: %d entries, %+v", len(got.Entries), got.Page)
@@ -192,7 +192,7 @@ func TestACategoryKeepsOnlyItsEntities(t *testing.T) {
 	w.write(entry{entity: "test", action: "test.created", at: march(12, 9, 0)})
 	w.write(entry{entity: "maintenance_window", action: "maintenance.ended", at: march(13, 9, 0)})
 
-	q := inMarch(w)
+	q := inMarch()
 	q.Category = domain.Classes
 	got := w.list(q)
 
