@@ -138,12 +138,17 @@ func TestAnotherTeachersTestAnswersAsAMissingOneWould(t *testing.T) {
 	if _, err := w.tests.Publish(ctx, domain.PublishRequest{TestID: w.testA, ActorID: w.b, Scope: w.scopeB}, now, func(domain.DraftContent) error { return nil }); !errors.Is(err, domain.ErrDraftNotFound) {
 		t.Errorf("publish: %v, want the draft not found", err)
 	}
-	if _, err := w.tests.Preview(ctx, w.scopeB, w.testA, 0); !errors.Is(err, domain.ErrNotPublished) {
-		t.Errorf("preview: %v, want not published, as an unknown id answers", err)
+	_, err = w.tests.Preview(ctx, w.scopeB, w.testA, 0)
+	expectNotFound(t, "preview", err)
+	_, err = w.tests.Preview(ctx, w.scopeB, uuid.NewString(), 0)
+	expectNotFound(t, "preview of an unknown id", err)
+	if _, err := w.tests.Preview(ctx, w.scopeA, w.testA, 99); !errors.Is(err, domain.ErrNotPublished) {
+		t.Errorf("the owner's preview of a version that does not exist: %v, want not published", err)
 	}
-	if versions, err := w.tests.ListVersions(ctx, w.scopeB, w.testA); err != nil || len(versions) != 0 {
-		t.Errorf("versions: %d, %v, want none, as an unknown id has", len(versions), err)
-	}
+	_, err = w.tests.ListVersions(ctx, w.scopeB, w.testA)
+	expectNotFound(t, "versions", err)
+	_, err = w.tests.ListVersions(ctx, w.scopeB, uuid.NewString())
+	expectNotFound(t, "versions of an unknown id", err)
 	if versions, err := w.tests.ListVersions(ctx, w.scopeA, w.testA); err != nil || len(versions) != 1 {
 		t.Errorf("the owner's versions: %d, %v, want 1", len(versions), err)
 	}
