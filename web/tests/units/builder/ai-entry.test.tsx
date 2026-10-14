@@ -823,7 +823,7 @@ describe("Check in a test with a shared-context group", () => {
       { name: /What do trees do\?/ },
       { timeout: 5000 },
     );
-    expect(row).not.toHaveClass("bg-secondary");
+    expect(row.closest("[data-outline-row]")).not.toHaveClass("bg-secondary");
 
     const dialog = await runCheck(user, signal);
     await press(
@@ -838,7 +838,9 @@ describe("Check in a test with a shared-context group", () => {
     )!;
     await waitFor(() =>
       expect(
-        within(outlineGroup).getByRole("button", { name: /What do trees do\?/ }),
+        within(outlineGroup)
+          .getByRole("button", { name: /What do trees do\?/ })
+          .closest("[data-outline-row]"),
       ).toHaveClass("bg-secondary"),
     );
     expect(screen.queryByDisplayValue("have gone")).toBeNull();

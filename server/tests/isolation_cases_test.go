@@ -188,6 +188,14 @@ func freshPublishedTest(_ *iso, own *party) *party {
 	return own.with("test", id(test)).with("section", section).with("test-version", version).with("question", question)
 }
 
+func freshGroupedTest(x *iso, own *party) *party {
+	published := freshPublishedTest(x, own)
+	group := own.c.must(http.StatusCreated, http.MethodPost, "/teacher/question-groups", map[string]any{
+		"bundle": groupBundle(published, uuid.NewString(), ""), "ownerSectionId": published.id("section"), "expectedTestUpdatedAt": x.testUpdatedAt(published),
+	})
+	return published.with("question-group", group["bundle"].(map[string]any)["group"].(map[string]any)["id"].(string))
+}
+
 func freshClass(x *iso, own *party) *party {
 	return own.with("class", own.c.class("Lớp dùng một lần "+nonce(x.t)))
 }
@@ -297,6 +305,16 @@ func isolationCases() map[string]isoCase {
 			return map[string]any{"expectedUpdatedAt": x.testUpdatedAt(own)}
 		}},
 		"previewTest": {},
+		"moveTestQuestion": {
+			fresh: freshGroupedTest,
+			body: func(x *iso, own *party, _ string) any {
+				return map[string]any{
+					"expectedUpdatedAt": x.testUpdatedAt(own), "questionId": own.id("question"),
+					"to":                     map[string]any{"sectionId": own.id("section"), "groupId": own.id("question-group"), "index": 0},
+					"expectedGroupRevisions": []any{map[string]any{"groupId": own.id("question-group"), "revision": 1}},
+				}
+			},
+		},
 
 		"listQuestions":     {query: map[string]string{"limit": "100"}},
 		"createQuestion":    {body: func(_ *iso, own *party, _ string) any { return choiceInput(own) }},

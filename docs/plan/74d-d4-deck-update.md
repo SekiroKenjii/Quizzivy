@@ -298,7 +298,9 @@ under "Open items".
 - **A cloze stays one question per gap** (Q6, DG-184). The engine shows a run of gap-bound
   members as one screen. Numbers, squares, flags, points, grading and the result do not move.
 - **The builder keeps two levels** (Q8, DG-186). The deck's group is the product's section;
-  shared content belongs to a shared-context group inside it.
+  shared content belongs to a shared-context group inside it. **Overridden 2026-10-14 by the
+  owner, after a teacher escalation:** drag in and out is built as v0.11.6, design in
+  `74e-e1-group-move.md`; the two levels stay.
 - **The Shared content dialog has no writer of its own** (T-D4.14). It saves through the
   group's one editor, so the revision, the recovery draft and the conflict message keep one
   owner.
@@ -4249,7 +4251,7 @@ as the named task shipped it; "left" says who still owes what. The items' text b
 | Q5 | Default built (T-D4.8, DG-193) |
 | Q6 | Answered (#581) and built (T-D4.10a, T-D4.10b, DG-184) |
 | Q7 | Default built (T-D4.10a, DG-185); no answer from the design team |
-| Q8 | Default built (T-D4.2a, T-D4.14, DG-186) |
+| Q8 | Default built (T-D4.2a, T-D4.14, DG-186); the drag overridden by E1 (v0.11.6, `74e-e1-group-move.md`) |
 | Q9, Q10 | Default built (T-D4.14, T-D4.2b; the card at its node, T-D4.8; DG-187) |
 | Q11 | Default built (T-D4.2c, T-D4.16, DG-188); a running timer would need a field on the test |
 | Q12 | Default built (T-D4.4, DG-191) |
@@ -4392,6 +4394,8 @@ D4, the release after R4 (D22). The spec records them in the task that ships the
 - Default: two levels stay. A Section keeps Rename, Instructions, Move, Remove. "Shared
   content" and its outline line belong to a shared-context group's row inside a section
   (T-D4.2a, T-D4.14). A bank question cannot be dragged into a shared group.
+  **Overridden 2026-10-14 by the owner, after a teacher escalation:** drag in and out is built as
+  v0.11.6, design in `74e-e1-group-move.md`.
 - Cost of the literal answer: a section-wide group and two new operations that turn a bank
   question into a group member and back, through the draft lock, the publish snapshot and the
   deal order: L, high risk, with permissions and isolation cases. A middle answer, "Shared
@@ -4629,7 +4633,7 @@ the D4 row is renumbered at that sync. The full "Meanwhile" texts are in `gaps.m
 | DG-183 | Teacher › Question media and Shared content; Student › the recording card | "Students can pause" as one boolean, `allowPause`; "you can pause once" is read as a note | Q4 | T-D4.13, T-D4.9, T-D4.15 |
 | DG-184 | Student › Take test and Result, a cloze | One item with n gaps on the Student page, one question per gap in the builder; the product keeps one question per gap (Q6 answered, #581) | Q6 | T-D4.10a, T-D4.10b |
 | DG-185 | Student › Take test, numbers and counts | "Question 23 of 31" against 35; a matching counts five or one; every question has one number | Q7 | T-D4.10a |
-| DG-186 | Teacher › Test builder, the group | The deck's group carries shared content; the product keeps a section and a shared-context group | Q8 | T-D4.2a, T-D4.14 |
+| DG-186 | Teacher › Test builder, the group | The deck's group carries shared content; the product keeps a section and a shared-context group. A question is dragged into and out of a group since E1 (v0.11.6, `74e-e1-group-move.md`) | Q8 | T-D4.2a, T-D4.14 |
 | DG-187 | Teacher › Test builder, the Shared content dialog | A textarea, one passage or one recording, loose gap rules, "MP3, M4A or WAV up to 25 MB", two switches missing; "on the left" reworded | Q9, Q10, Q25 | T-D4.2b, T-D4.14 |
 | DG-188 | Teacher › the three previews | An answerable take-test screen with a running 45:00 timer and "All answers saved"; the product shows no time and claims no save | Q11 | T-D4.2c, T-D4.16 |
 | DG-189 | Student › Take test, frames with no model | The sign card, the 60px word tiles, the image caption, the per-question hint, paragraph letters | Q18 | not built |

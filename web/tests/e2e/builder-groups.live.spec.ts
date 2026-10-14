@@ -242,3 +242,226 @@ test("the Shared content dialog saves a recording, then a passage over it, in th
   ).toBeVisible();
   await expect(page.getByText("Người nói hẹn gặp ở đâu?").first()).toBeVisible();
 });
+
+interface Json {
+  [key: string]: unknown;
+}
+
+function memberAt(group: Json, index: number) {
+  const bundle = group["bundle"] as {
+    group: { members: { questionId: string }[] };
+    questions: { id: string; input: Json }[];
+  };
+  const id = bundle.group.members[index]!.questionId;
+  return { id, input: bundle.questions.find((question) => question.id === id)!.input };
+}
+
+test("dragging a bank question into a group copies it under a new id, bumps the test and the group once, and publishes it inside the passage", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  await signInAsAdmin(page);
+  await page.goto("/teacher/tests");
+  const creating = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/teacher/tests",
+  );
+  await page.getByRole("button", { name: "Đề thi mới", exact: true }).click();
+  const creation = await creating;
+  const origin = new URL(creation.url()).origin;
+  const authorization = (await creation.request().allHeaders())["authorization"]!;
+  const read = async (path: string): Promise<Json> => {
+    const response = await page.request.get(`${origin}${path}`, {
+      headers: { authorization },
+    });
+    expect(response.status(), path).toBe(200);
+    return (await response.json()) as Json;
+  };
+  await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+\/edit$/);
+  const testId = new URL(page.url()).pathname.split("/").at(-2)!;
+  await page.getByRole("button", { name: "Thêm phần", exact: true }).click();
+  await saved(page);
+
+  const token = `E1M${Date.now()}`;
+  const bankPrompt = `Câu độc lập ${token}`;
+  const bankCreated = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/teacher/questions",
+  );
+  await page.getByRole("button", { name: /^Thêm câu hỏi/ }).click();
+  const sourceId = ((await (await bankCreated).json()) as Json)["id"] as string;
+  await page.getByRole("spinbutton", { name: "Điểm", exact: true }).fill("3");
+  await page
+    .getByRole("textbox", { name: "Nội dung câu hỏi", exact: true })
+    .fill(bankPrompt);
+  await saved(page);
+
+  await page
+    .getByRole("button", { name: "Thêm nhóm câu dùng chung", exact: true })
+    .click();
+  await page.getByLabel("Tên nhóm câu hỏi", { exact: true }).fill(`Nhóm ${token}`);
+  await page.getByRole("button", { name: "Thêm ngữ liệu", exact: true }).click();
+  await page.getByLabel("Tên ngữ liệu", { exact: true }).fill("Lịch sinh hoạt");
+  await page
+    .getByRole("textbox", { name: "Nội dung ngữ liệu", exact: true })
+    .fill("Câu lạc bộ mở cửa vào thứ Bảy.");
+  await page.getByRole("button", { name: "Thêm câu hỏi", exact: true }).click();
+  const resident = `Câu sẵn có ${token}`;
+  await page
+    .getByRole("textbox", { name: "Nội dung câu hỏi", exact: true })
+    .fill(resident);
+  await saved(page);
+  const groupId = (await page
+    .locator("[data-outline-group]")
+    .first()
+    .getAttribute("data-outline-group"))!;
+  await expect(page.locator(`[data-outline-question="${sourceId}"]`)).toBeVisible();
+
+  const bankBefore = await read(`/teacher/questions/${sourceId}`);
+  const groupBefore = await read(`/teacher/question-groups/${groupId}`);
+  const testBefore = await read(`/teacher/tests/${testId}`);
+  const revisionBefore = groupBefore["revision"] as number;
+  const stampBefore = testBefore["updatedAt"] as string;
+  const residentId = memberAt(groupBefore, 0).id;
+  expect(bankBefore["prompt"]).toBe(bankPrompt);
+  expect(bankBefore["points"]).toBe(3);
+
+  const moving = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === `/teacher/tests/${testId}/questions/move`,
+  );
+  const grip = page.getByRole("button", {
+    name: "Kéo để đổi vị trí câu 1",
+    exact: true,
+  });
+  await grip.focus();
+  await page.keyboard.press("Space");
+  await expect(grip).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("ArrowDown");
+  await expect(page.locator("[data-outline-drop-into]")).toHaveClass(/bg-brand-soft/);
+  await page.keyboard.press("Space");
+  const move = await moving;
+  expect(move.status()).toBe(200);
+
+  expect(move.request().postDataJSON()).toEqual({
+    expectedUpdatedAt: stampBefore,
+    questionId: sourceId,
+    to: {
+      sectionId: (testBefore["sections"] as { id: string }[])[0]!.id,
+      groupId,
+      index: 0,
+    },
+    expectedGroupRevisions: [{ groupId, revision: revisionBefore }],
+  });
+  const result = (await move.json()) as {
+    test: { updatedAt: string };
+    questionId: string;
+    copied: boolean;
+    groups: { revision: number; bundle: { group: { id: string } } }[];
+  };
+  const copyId = result.questionId;
+  expect(result.copied).toBe(true);
+  expect(copyId).not.toBe(sourceId);
+  expect(copyId).not.toBe(residentId);
+  expect(result.groups).toHaveLength(1);
+  expect(result.groups[0]!.bundle.group.id).toBe(groupId);
+  expect(result.groups[0]!.revision).toBe(revisionBefore + 1);
+  expect(Date.parse(result.test.updatedAt)).toBeGreaterThan(Date.parse(stampBefore));
+
+  await expect(
+    page.getByText("Đã sao chép câu hỏi vào nhóm. Bản gốc vẫn ở ngân hàng câu hỏi."),
+  ).toBeVisible();
+  const outlineGroup = page.locator(`[data-outline-group="${groupId}"]`);
+  await expect(page.locator(`[data-outline-question="${sourceId}"]`)).toHaveCount(0);
+  await expect(outlineGroup.locator("[data-outline-question]")).toHaveCount(2);
+  await expect(
+    outlineGroup.locator(`[data-outline-question="${copyId}"]`),
+  ).toBeVisible();
+  await saved(page);
+
+  const testAfter = await read(`/teacher/tests/${testId}`);
+  const groupAfter = await read(`/teacher/question-groups/${groupId}`);
+  expect(testAfter["updatedAt"]).toBe(result.test.updatedAt);
+  expect(groupAfter["revision"]).toBe(revisionBefore + 1);
+  expect(memberAt(groupAfter, 0).id).toBe(copyId);
+  expect(memberAt(groupAfter, 1).id).toBe(residentId);
+  const copy = memberAt(groupAfter, 0).input as {
+    prompt: string;
+    points: number;
+    options: { text: string; isCorrect: boolean }[];
+  };
+  const bank = bankBefore as unknown as typeof copy;
+  expect(copy.prompt).toBe(bankPrompt);
+  expect(copy.points).toBe(3);
+  expect(copy.options.map(({ text, isCorrect }) => ({ text, isCorrect }))).toEqual(
+    bank.options.map(({ text, isCorrect }) => ({ text, isCorrect })),
+  );
+  expect(
+    (testAfter["sections"] as { units: { kind: string; id: string }[] }[])[0]!.units,
+  ).toEqual([{ kind: "group", id: groupId }]);
+
+  const { usedIn: usedBefore, usedInTests: countBefore, ...rowBefore } = bankBefore;
+  const {
+    usedIn: usedAfter,
+    usedInTests: countAfter,
+    ...rowAfter
+  } = await read(`/teacher/questions/${sourceId}`);
+  expect(rowAfter).toEqual(rowBefore);
+  expect([countBefore, (usedBefore as unknown[]).length]).toEqual([1, 1]);
+  expect([countAfter, (usedAfter as unknown[]).length]).toEqual([0, 0]);
+  const listed = (await read(
+    `/teacher/questions?q=${encodeURIComponent(token)}&limit=50`,
+  )) as { items: { id: string }[] };
+  expect(listed.items.map((item) => item.id)).toEqual([sourceId]);
+
+  const edited = `${bankPrompt} đã sửa`;
+  const saving = page.waitForResponse(
+    (response) =>
+      response.request().method() === "PUT" &&
+      new URL(response.url()).pathname === `/teacher/question-groups/${groupId}`,
+  );
+  await page
+    .getByRole("textbox", { name: "Nội dung câu hỏi", exact: true })
+    .fill(edited);
+  expect((await saving).status()).toBe(200);
+  await saved(page);
+  expect((await read(`/teacher/question-groups/${groupId}`))["revision"]).toBe(
+    revisionBefore + 2,
+  );
+  expect(((await read(`/teacher/questions/${sourceId}`)) as Json)["prompt"]).toBe(
+    bankPrompt,
+  );
+
+  const published = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === `/teacher/tests/${testId}/publish`,
+  );
+  await page.getByRole("button", { name: "Phát hành", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "Phát hành đề thi?", exact: true })
+    .getByRole("button", { name: "Phát hành", exact: true })
+    .click();
+  expect((await published).status()).toBe(201);
+  await expect(page.getByText("Đã phát hành. Giờ bạn có thể giao bài.")).toBeVisible();
+
+  const preview = (await read(`/teacher/tests/${testId}/preview`)) as {
+    questions: { id: string; prompt: string }[];
+    groups: { questionIds: string[]; stimuli: { title: string }[] }[];
+  };
+  expect(preview.questions).toHaveLength(2);
+  expect(preview.groups).toHaveLength(1);
+  const inGroup = preview.groups[0]!.questionIds.map(
+    (id) => preview.questions.find((question) => question.id === id)!.prompt,
+  );
+  expect(inGroup).toEqual([edited, resident]);
+
+  await page.goto(`/teacher/tests/${testId}`);
+  const frame = page.getByRole("region", { name: "Màn hình của học viên" });
+  await expect(frame.getByText(edited, { exact: true })).toBeVisible();
+  await expect(frame.getByRole("heading", { name: "Lịch sinh hoạt" })).toBeVisible();
+  await expect(frame.getByText("Câu lạc bộ mở cửa vào thứ Bảy.")).toBeVisible();
+});

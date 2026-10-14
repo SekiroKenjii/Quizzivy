@@ -14,7 +14,13 @@ import type { RefObject } from "react";
 import type { TFunction } from "i18next";
 import { useBlocker, useNavigate, useParams } from "react-router";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Eye, FolderInput as FolderInputIcon, History } from "lucide-react";
+import {
+  ArrowLeft,
+  Eye,
+  FolderInput as FolderInputIcon,
+  History,
+  Layers,
+} from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { ListSkeleton, LoadError } from "@/components/shared/ListState";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -48,8 +54,10 @@ import {
 import type { MediaAsset } from "@/features/media/api";
 import {
   getTest,
+  moveTestQuestion,
   publishTest,
   saveMixedOutline,
+  type MoveTestQuestionResult,
   type PublishViolation,
   type Test,
 } from "@/features/tests/api";
@@ -99,14 +107,17 @@ import { BuilderWrites } from "../../BuilderWrites";
 import { BuilderAiActions, type BuilderAi } from "../../components/BuilderAiActions";
 import {
   editableOutline,
+  findMember,
   findUnit,
   groupOwners,
+  keepClientIds,
   moveUnit,
   reconcileSections,
   removeUnit,
   sectionQuestionIds,
   unitsOf,
   withUnits,
+  type QuestionMove,
 } from "../../outlineUnits";
 import { ApiError, failureMessage } from "@/lib/api/errors";
 import { notify } from "@/lib/toast";
@@ -206,7 +217,11 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   const [creating, setCreating] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [editorEpoch, setEditorEpoch] = useState(0);
-  const [groupEpoch, setGroupEpoch] = useState(0);
+  const [movingQuestion, setMovingQuestion] = useState<string | null>(null);
+  const [moveStale, setMoveStale] = useState(false);
+  const [groupMove, setGroupMove] = useState<string | null>(null);
+  const groupMoveOpener = useRef<HTMLElement | null>(null);
+  const focusAfterMove = useRef<string | null>(null);
 
   const selectionRequest = useRef(0);
   const [starterIds, setStarterIds] = useState<ReadonlySet<string>>(new Set());
@@ -476,7 +491,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     });
     if (selectedGroupId === groupId) {
       setActiveBundle(null);
-      setGroupEpoch((epoch) => epoch + 1);
+      setEditorEpoch((epoch) => epoch + 1);
     }
     await selectGroup(groupId, members[0]?.id);
   }
@@ -496,7 +511,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     });
     if (selectedGroupId === groupId) {
       setActiveBundle(null);
-      setGroupEpoch((epoch) => epoch + 1);
+      setEditorEpoch((epoch) => epoch + 1);
     }
   }
 
@@ -821,6 +836,134 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     });
   }
 
+  async function flushBeforeMove() {
+    try {
+      await flushQuestion.current?.();
+      await outline.flush();
+      return true;
+    } catch (cause) {
+      report(cause);
+      return false;
+    }
+  }
+
+  async function moveQuestion(move: QuestionMove) {
+    setPublishError(null);
+    setMovingQuestion(move.questionId);
+    focusAfterMove.current = move.questionId;
+    try {
+      if (!(await flushBeforeMove())) return;
+      await writes.run(async () => {
+        const section = latestOutline.current[move.to.sectionIndex];
+        const sectionId = section
+          ? (sectionIds.current.get(section.clientId ?? section.id ?? "") ?? section.id)
+          : null;
+        if (!sectionId) throw new Error("Destination section is not persisted");
+        const known = await stopGroupReads();
+        const expectedGroupRevisions = await Promise.all(
+          move.groupIds.map(async (groupId) => ({
+            groupId,
+            revision: (known.get(groupId) ?? (await getGroup(groupId))).revision,
+          })),
+        );
+        const moved = await moveTestQuestion(test.id, {
+          expectedUpdatedAt: version.current,
+          questionId: move.questionId,
+          to: { sectionId, groupId: move.to.groupId, index: move.to.index },
+          expectedGroupRevisions,
+        });
+        acknowledgeMove(moved, move.to.groupId, known);
+      });
+    } catch (cause) {
+      refuseMove(cause);
+    } finally {
+      setMovingQuestion(null);
+    }
+  }
+
+  function refuseMove(cause: unknown) {
+    if (cause instanceof ApiError && cause.code === "STALE_WRITE") {
+      setMoveStale(true);
+      return;
+    }
+    const missing = cause instanceof ApiError && cause.status === 404;
+    notify.error(
+      moveFailure(cause, t),
+      missing
+        ? {
+            action: {
+              label: t("builder.reload"),
+              onClick: () => window.location.reload(),
+            },
+          }
+        : undefined,
+    );
+  }
+
+  function moveToGroup(questionId: string, groupId: string) {
+    const owner = findUnit(latestOutline.current, `group:${groupId}`);
+    const destination = groups.get(groupId);
+    if (!owner || !destination) return;
+    const source = findMember(groups, `question:${questionId}`);
+    void moveQuestion({
+      questionId,
+      to: {
+        sectionIndex: owner.sectionIndex,
+        groupId,
+        index: destination.group.members.length,
+      },
+      groupIds: source ? [source.groupId, groupId] : [groupId],
+    });
+  }
+
+  function acknowledgeMove(
+    moved: MoveTestQuestionResult,
+    groupId: string | null,
+    known: Map<string, StoredGroup>,
+  ) {
+    const updatedAt = moved.test.updatedAt;
+    version.current = updatedAt;
+    const touched = new Set(moved.groups.map((group) => group.bundle.group.id));
+    for (const group of moved.groups)
+      queryClient.setQueryData(["teacher-group", group.bundle.group.id], group);
+    for (const [id, group] of known)
+      if (!touched.has(id))
+        queryClient.setQueryData<StoredGroup>(["teacher-group", id], {
+          ...group,
+          testUpdatedAt: updatedAt,
+        });
+    const next = keepClientIds(editableOutline(moved.test), latestOutline.current);
+    latestOutline.current = next;
+    savedOutline.current = next;
+    setSections(next);
+    queryClient.setQueryData(["teacher-test", test.id], moved.test);
+    if (groupId === null)
+      void queryClient.invalidateQueries({
+        queryKey: ["teacher-question", moved.questionId],
+      });
+    void queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
+    selectionRequest.current += 1;
+    setActiveBundle(null);
+    setSelectedGroupId(groupId);
+    setSelectedId(moved.questionId);
+    setQuestionStatus({ kind: "idle" });
+    setEditorEpoch((epoch) => epoch + 1);
+    focusAfterMove.current = moved.questionId;
+    if (moved.copied) notify.success(t("builder.movedIntoGroupCopied"));
+  }
+
+  useEffect(() => {
+    if (movingQuestion !== null) return;
+    const questionId = focusAfterMove.current;
+    if (questionId === null) return;
+    focusAfterMove.current = null;
+    document
+      .querySelector<HTMLElement>(
+        `[data-outline-question="${CSS.escape(questionId)}"] [data-outline-grip]`,
+      )
+      ?.focus();
+  }, [movingQuestion]);
+
   async function openPreview() {
     setPublishError(null);
     try {
@@ -848,8 +991,11 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     }
   }
 
+  const groupChoices =
+    groupMove === null ? [] : groupDestinations(sections, groups, groupMove, t);
+
   const saveStatus = mergeAutosave([outline.status, questionStatus]);
-  const stale = saveStatus.kind === "stale";
+  const stale = saveStatus.kind === "stale" || moveStale;
   // Typed but not yet on the server: leaving now would lose it (F-14).
   const unsaved =
     saveStatus.kind === "dirty" ||
@@ -908,7 +1054,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     if (selectedGroupId)
       return (
         <BuilderGroupPane
-          key={`${selectedGroupId}:${groupEpoch}`}
+          key={`${selectedGroupId}:${editorEpoch}`}
           id={selectedGroupId}
           selectedQuestionId={selectedId}
           onSelectedQuestionChange={setSelectedId}
@@ -950,6 +1096,13 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         actions={{
           onDuplicate: () => void duplicateSelected(questionId),
           onMove: () => setMoving(true),
+          onMoveIntoGroup:
+            groupIds.length === 0
+              ? undefined
+              : () => {
+                  groupMoveOpener.current = null;
+                  setGroupMove(questionId);
+                },
           onDelete: () => setDeleting(true),
         }}
       />
@@ -958,7 +1111,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
 
   return (
     <fieldset
-      disabled={creating || publishing}
+      disabled={creating || publishing || movingQuestion !== null}
       data-scale="deck"
       className="flex min-w-0 flex-col gap-3.5"
     >
@@ -1084,6 +1237,12 @@ function Builder({ test }: Readonly<{ test: Test }>) {
                     removeOpener.current = null;
                     setRemoving({ sectionIndex });
                   }}
+                  onMove={(move) => void moveQuestion(move)}
+                  onPickGroup={(questionId, opener) => {
+                    groupMoveOpener.current = opener;
+                    setGroupMove(questionId);
+                  }}
+                  movingQuestionId={movingQuestion}
                   questions={byId}
                   selectedId={selectedId}
                   creating={creating}
@@ -1260,6 +1419,31 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         onSubmit={({ section }) => {
           if (selectedId !== null) moveSelected(selectedId, Number(section));
           setMoving(false);
+        }}
+      />
+
+      <FormDialog
+        open={groupMove !== null}
+        onOpenChange={(open) => !open && setGroupMove(null)}
+        title={t("builder.moveGroupTitle", {
+          number: positionOf(sections, groupMove, groups) ?? "",
+        })}
+        icon={Layers}
+        returnFocus={groupMoveOpener}
+        initial={{ group: groupChoices[0]?.value ?? "" }}
+        fields={[
+          {
+            kind: "select",
+            name: "group",
+            label: t("builder.moveGroupField"),
+            options: groupChoices,
+          },
+        ]}
+        submitLabel={t("builder.editor.moveSubmit")}
+        onSubmit={({ group }) => {
+          const questionId = groupMove;
+          setGroupMove(null);
+          if (questionId !== null && group !== "") moveToGroup(questionId, group);
         }}
       />
 
@@ -1628,6 +1812,41 @@ function positionOf(
     .flatMap((section) => sectionQuestionIds(section, groups))
     .indexOf(questionId);
   return index < 0 ? null : index + 1;
+}
+
+function groupDestinations(
+  sections: OutlineSection[],
+  groups: Map<string, GroupBundle>,
+  questionId: string,
+  t: TFunction,
+): { value: string; label: string }[] {
+  const own = findMember(groups, `question:${questionId}`)?.groupId;
+  return sections.flatMap((section) =>
+    unitsOf(section).flatMap((unit) =>
+      unit.kind === "group" && unit.id !== own
+        ? [
+            {
+              value: unit.id,
+              label: t("builder.moveGroupOption", {
+                group: groups.get(unit.id)?.group.title || t("groups.newGroup"),
+                section: section.title,
+              }),
+            },
+          ]
+        : [],
+    ),
+  );
+}
+
+function moveFailure(cause: unknown, t: TFunction): string {
+  if (!(cause instanceof ApiError) || cause.status >= 500)
+    return t("builder.moveFailed");
+  if (cause.status === 404) return t("builder.moveReload");
+  const rule = cause.details?.["rule"];
+  if (rule === "group_gap_bound") return t("builder.moveGapBound");
+  if (rule === "group_limits") return t("builder.moveGroupFull");
+  if (rule === "group_audio_scope") return t("builder.moveAudioScope");
+  return cause.message || t("builder.moveFailed");
 }
 
 function problemFor(

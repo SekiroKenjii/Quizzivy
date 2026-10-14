@@ -57,6 +57,30 @@ func (b GroupBundle) Copy(nextID func() string) (GroupBundle, error) {
 	return copied, nil
 }
 
+// Copy returns the question as a detached member with fresh question, option, blank and gap identities; content, grading and immutable asset ids are unchanged.
+func (q GroupQuestion) Copy(nextID func() string) (GroupQuestion, error) {
+	if nextID == nil {
+		return GroupQuestion{}, &GroupError{Rule: groupCopyIdentity}
+	}
+	raw, err := json.Marshal(q)
+	if err != nil {
+		return GroupQuestion{}, &GroupError{Rule: groupContent, QuestionID: q.ID}
+	}
+	copied := make([]GroupQuestion, 1)
+	if err := json.Unmarshal(raw, &copied[0]); err != nil {
+		return GroupQuestion{}, &GroupError{Rule: groupContent, QuestionID: q.ID}
+	}
+	c := groupCopier{nextID: nextID, reserved: map[string]bool{}, questions: map[string]string{}, blanks: map[string]map[string]string{}}
+	c.reserveQuestion(q)
+	if err := c.copyQuestions(copied); err != nil {
+		return GroupQuestion{}, err
+	}
+	if c.failed {
+		return GroupQuestion{}, &GroupError{Rule: groupCopyIdentity}
+	}
+	return copied[0], nil
+}
+
 func (c *groupCopier) next() string {
 	if c.failed {
 		return ""

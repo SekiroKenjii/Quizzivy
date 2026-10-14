@@ -59,6 +59,33 @@ function hasJsonBody(path: string, method: string, status: number): boolean {
 }
 
 /**
+ * Throws unless `body` is a JSON request body the contract accepts for the
+ * operation at `path` and `method`, so a mock fails on a request the real
+ * server would refuse before it ever reaches a handler.
+ */
+export function assertContractRequest(path: string, method: string, body: unknown) {
+  const key = `${method} ${path} request`;
+  let validate = cache.get(key);
+  if (!validate) {
+    validate = ajv.compile({
+      $ref:
+        `openapi#/paths/${escapePointer(path)}/${method}/requestBody/content/` +
+        `${escapePointer("application/json")}/schema`,
+    });
+    cache.set(key, validate);
+  }
+  if (!validate(body)) {
+    const problems = (validate.errors ?? [])
+      .map((e) => `  ${e.instancePath || "(root)"} ${e.message}`)
+      .join("\n");
+    throw new Error(
+      `Request body for ${method.toUpperCase()} ${path} does not match ` +
+        `api/openapi.yaml:\n${problems}\n\nBody: ${JSON.stringify(body, null, 2)}`,
+    );
+  }
+}
+
+/**
  * MSW's `HttpResponse.json`, with the body checked against the contract first.
  *
  * `path` and `method` are the OpenAPI path template and method, not the request

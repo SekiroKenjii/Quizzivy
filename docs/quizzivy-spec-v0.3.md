@@ -1,7 +1,15 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.107 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.108 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.107**
+
+E1: v0.11.6, after a teacher's escalation the owner decided on 2026-10-14 that a question can be dragged into a shared-context group in the builder and out of one (`docs/plan/74e-e1-group-move.md`). It reverses D4's default, which kept a bank question out of a shared group (`docs/plan/74d-d4-deck-update.md` Q8, DG-186).
+
+- §7.3 A standalone question dragged into a section's group becomes a member copy and the bank question stays. A member dragged out keeps its id and becomes a bank question and a unit of its section. A member moves between a test's groups, or within its own, in place. A member that a material gap is bound to does not leave its group. The test revision and the revision of each touched group guard the move. The next publish freezes the new structure, and a version diff against the draft reads a copy into a group as one question removed and one added.
+- §8 The builder's outline: a grip on each member row, the group's header as a drop target, and a menu and a keyboard path for every move.
+- §15 `POST /teacher/tests/:id/questions/move`, the only operation added. No migration, no new permission, and no change to a published version, a deal or an attempt.
 
 **Changes since v0.106**
 
@@ -1851,6 +1859,25 @@ editable identities. Draft/snapshot/delivery readers preserve the complete graph
 The builder inserts bank groups as complete independent copies into an explicitly
 chosen section, and can save the current group graph as an independent bank copy.
 
+A question crosses a group's boundary without leaving its test's draft. A standalone
+question dragged into a section's group, or moved there from its menu, becomes a
+member copy: the group gets a new question with new option and blank ids and shuffled
+options, and the section's reference to the bank question is dropped. The bank
+question is not touched, because other drafts may still reference it; the builder says
+so after the drop. A member dragged out of its group keeps its id: it becomes an
+ordinary question of the bank, owned by the test's owner and so listed, editable and
+protected by the usual reference check, and a unit of the section at the drop
+position. A member also moves to another group of the same test, or to another place
+in its own, in place and under its own id. A member that a gap of its group's shared
+material is bound to does not leave its group until the teacher unbinds it in Shared
+content. A group left with no member stays as an empty draft and cannot publish. A
+bank group is neither a source nor a destination. One transaction does the move under
+the test's revision and the revision of every group it touches, so a stale tab meets
+`STALE_WRITE`; it is not optimistic, and the builder goes on from the revisions in the
+answer. No published version, deal or attempt is touched. The next publish freezes the
+new structure, and a version diff against the draft reads a copy into a group as one
+question removed and one added, not as a move.
+
 Draft totals and tag filters include owned members alongside standalone questions.
 Listening counts count each question once when it has its own audio or a shared
 group recording. Independent bank groups are not part of a test's totals. The
@@ -1956,7 +1983,7 @@ flat results/reviews keep their existing payload and require no group reader.
 |---|---|---|
 | `/teacher` | Dashboard | Figures, submissions over 7, 14 or 30 days, today's openings and closings, recent activity with the Flagged marker, live taking counts; the teacher home API below. Polls while the user is active. |
 | `/teacher/tests` | Tests list | Cards: title, status, skills, #questions, total points, updated. Filter by status. Create / duplicate / archive; permanent delete for unreferenced archived tests. A new test opens in the builder. |
-| `/teacher/tests/:id/edit` | Test builder | Left: outline with drag-to-reorder. Right: question editor incl. **question media** (§11.1). Autosave debounced 1.5s. **Publish** validates: `points > 0`; choice questions have ≥1 correct option; `fill_blank` has ≥1 accepted answer per blank; audio questions have a processed asset; no empty sections. Publishing takes an optional change note. |
+| `/teacher/tests/:id/edit` | Test builder | Left: outline with drag-to-reorder. A question also drags into a shared-context group, out of one and between two (§7.3): each member row has a grip, the group's header takes a drop while it is tinted, and every move has a menu entry and a keyboard path. Right: question editor incl. **question media** (§11.1). Autosave debounced 1.5s. **Publish** validates: `points > 0`; choice questions have ≥1 correct option; `fill_blank` has ≥1 accepted answer per blank; audio questions have a processed asset; no empty sections. Publishing takes an optional change note. |
 | `/teacher/tests/:id` | Test detail | Student-eye preview of any version, with its history, the unpublished changes and the diff between versions. Restore a snapshot into a draft, select the default for future assignments, or delete an unused non-default version. |
 | `/teacher/imports`, `/teacher/imports/new`, `/teacher/imports/:id`, `…/review`, `…/confirm` | Word import | History; one workspace per import for upload or paste and processing, its Sources pane beside its status pane (DG-207); the review workspace; preview and create (§16, `docs/plan/18-word-import-ux.md`). Shown only while `GET /teacher/imports/capabilities` reports intake enabled. The Sources pane says what leaves Quizzivy when an import is read with AI (§16). |
 | `/teacher/question-bank`, `/teacher/question-bank/new`, `/teacher/question-bank/:id` | Question bank and editor | Type, level, skill and tag filters + full-text search. CRUD. Media badge + inline preview. |
@@ -3073,6 +3100,23 @@ GET    /teacher/tests/:id/versions/:version/diff?against=previous|draft|<n>
                                         → {from, to, changes}; reads only, 400 for the version itself, 404 for a missing
                                           version or another teacher's test, 422 when a group cannot be read back
 POST   /teacher/tests/:id/duplicate
+POST   /teacher/tests/:id/questions/move  {expectedUpdatedAt, questionId, to: {sectionId, groupId|null, index},
+                                          expectedGroupRevisions: [{groupId, revision}]} (one or two, once each,
+                                          exactly the groups the move touches) → {test, questionId, copied, groups};
+                                          content.tests.write, at most 4 KiB. index counts once the question has
+                                          left its old place; past the end is the end. A standalone question to a
+                                          group is copied (copied true, a new questionId); a member out of a group,
+                                          to another group or within one keeps its id. A move between two standalone
+                                          places is updateTest's. 400 VALIDATION_FAILED with details.rule
+                                          move_outline_only | move_group_section | move_revisions |
+                                          move_source_ambiguous; 404 for a test, question, section or group the
+                                          caller cannot reach or that is not of this test, an expectedGroupRevisions
+                                          entry included, before any revision is compared; 409 STALE_WRITE (the test or
+                                          a touched group is behind, or a touched group is missing from the list) |
+                                          TEST_ARCHIVED | GROUP_CONFLICT; 413 over 4 KiB; 422 VALIDATION_FAILED with
+                                          details.rule group_gap_bound (and stimulusId, gapId, questionId) |
+                                          group_limits | group_audio_scope | group_asset | group_reference.
+                                          Nothing is written on a refusal
 GET    /teacher/questions?type=&tag=&tagMatch=any|all&level=&skill=&hasAudio=&q=&page=&limit=
 POST   /teacher/questions | PATCH /:id | DELETE /:id
                                         an audio policy carries allowPause (§11.1): optional in a request,

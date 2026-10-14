@@ -17,6 +17,7 @@ type GroupRepository interface {
 	SetArchived(context.Context, GroupMutation, bool) (StoredGroup, error)
 	Delete(context.Context, GroupMutation) error
 	RemoveFromSection(context.Context, GroupMutation) error
+	MoveQuestion(context.Context, MoveQuestionInput) (MoveQuestionResult, error)
 }
 
 // GroupListInput selects bank-owned groups; section copies are accessed through their enclosing test.
