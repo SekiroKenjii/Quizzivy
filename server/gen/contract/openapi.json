@@ -1274,6 +1274,7 @@
           "EMAIL_TAKEN",
           "STUDENT_SHARED",
           "ROLE_NAME_TAKEN",
+          "ROLE_LIMIT_REACHED",
           "ROLE_NOT_ASSIGNABLE",
           "ROLE_LOCKED",
           "STUDENT_NEEDS_TAKE_TESTS",
@@ -3075,7 +3076,7 @@
           },
           "studentTarget": {
             "type": "boolean",
-            "description": "True for the built-in Student and any custom role that holds nothing but `learning.take_tests`."
+            "description": "True for the built-in Student and any custom role whose permissions are a subset of `learning.take_tests`, so a custom role with no permission at all is a student target."
           }
         }
       },
@@ -18610,7 +18611,7 @@
           "admin-roles"
         ],
         "summary": "Create a custom role",
-        "description": "The new role takes the icon `key-round` and the colour `gray`, and starts\nwith the permissions of `copyFromRoleId`, if given. The source must pass\nthe subset rule: its permissions, `learning.take_tests` apart, are the\ncaller's own. The Assistant cannot be a source. Writes one audit row,\n`role.created`.\n",
+        "description": "The new role takes the icon `key-round` and the colour `gray`, and starts\nwith the permissions of `copyFromRoleId`, if given. The source must pass\nthe subset rule: its permissions, `learning.take_tests` apart, are the\ncaller's own. The Assistant cannot be a source. A name is stored in\nUnicode NFC, so the composed and decomposed forms of one name are the\nsame name, and it may hold no line break, control or invisible\ncharacter. At most 200 roles exist, the four built-in ones included;\npast that the answer is `ROLE_LIMIT_REACHED`. Writes one audit row,\n`role.created`.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -18659,7 +18660,7 @@
             }
           },
           "422": {
-            "description": "`ROLE_NOT_ASSIGNABLE` — the source is the Assistant.",
+            "description": "`ROLE_NOT_ASSIGNABLE` — the source is the Assistant. `ROLE_LIMIT_REACHED` — 200 roles exist already.",
             "content": {
               "application/json": {
                 "schema": {
@@ -18706,7 +18707,7 @@
           "admin-roles"
         ],
         "summary": "Save the matrix",
-        "description": "Grants and revokes permissions across roles in one transaction, and\nrefuses the whole save when any change breaks a rule:\n\n- `KEY_NOT_GRANTABLE` — a hidden key.\n- `ROLE_LOCKED` — an Admin cell other than `learning.take_tests`.\n- `STUDENT_NEEDS_TAKE_TESTS` — `learning.take_tests` off the built-in Student.\n- `CANNOT_ACT_ON_SELF` — a change to the caller's own role, except the\n  Admin role's `learning.take_tests` cell, which gives no power over anyone.\n- `TARGET_ROLE_NOT_ALLOWED` (403) — a role, or a key granted or revoked,\n  that the subset rule keeps from the caller.\n- `STALE_WRITE` (409) — a role is past its expected revision, or the\n  save names no revision for it.\n\nA change that leaves a cell as it was is accepted and writes nothing.\nEveryone's permissions are read again on their next request on the\nmachine that served the save, and within ten seconds on any other. Writes\none `role.permissions_changed` audit row per role changed.\n",
+        "description": "Grants and revokes permissions across roles in one transaction, and\nrefuses the whole save when any change breaks a rule:\n\n- `KEY_NOT_GRANTABLE` — a hidden key.\n- `ROLE_LOCKED` — an Admin cell other than `learning.take_tests`.\n- `STUDENT_NEEDS_TAKE_TESTS` — `learning.take_tests` off the built-in Student.\n- `CANNOT_ACT_ON_SELF` — a change to the caller's own role, except the\n  Admin role's `learning.take_tests` cell, which gives no power over anyone.\n- `TARGET_ROLE_NOT_ALLOWED` (403) — a role, or a key granted or revoked,\n  that the subset rule keeps from the caller.\n- `STALE_WRITE` (409) — a role is past its expected revision, or the\n  save names no revision for it.\n\nA change that leaves a cell as it was is accepted and writes nothing.\nEveryone's permissions are read again on their next request on the\nmachine that served the save, and within about ten seconds on any other. Writes\none `role.permissions_changed` audit row per role changed.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -18780,7 +18781,7 @@
           "admin-roles"
         ],
         "summary": "Edit a role's name, description, icon or colour",
-        "description": "A supplied field is changed and the others are kept; a body with only\n`expectedRevision` is refused. A built-in role may be renamed; its key never changes. The target must pass the subset rule.\nA change moves the revision. Writes one audit row, `role.updated`, naming\nwhat changed.\n",
+        "description": "A supplied field is changed and the others are kept; a body with only\n`expectedRevision` is refused. A built-in role may be renamed; its key never changes. The target must pass the subset rule.\nA name is stored in Unicode NFC and may hold no line break, control or\ninvisible character, as when a role is created.\nA change moves the revision. Writes one audit row, `role.updated`, naming\nwhat changed.\n",
         "requestBody": {
           "required": true,
           "content": {

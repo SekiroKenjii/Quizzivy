@@ -104,6 +104,7 @@ func TestEachRefusalAnswersWithItsStatusAndCode(t *testing.T) {
 		{domain.ErrRoleNotFound, []string{"create", "update", "save"}, http.StatusNotFound, "NOT_FOUND"},
 		{domain.ErrNameTaken, []string{"create", "update"}, http.StatusConflict, "ROLE_NAME_TAKEN"},
 		{domain.ErrStaleWrite, []string{"update", "save"}, http.StatusConflict, "STALE_WRITE"},
+		{domain.ErrRoleLimit, []string{"create"}, http.StatusUnprocessableEntity, "ROLE_LIMIT_REACHED"},
 		{domain.ErrNotAssignable, []string{"create"}, http.StatusUnprocessableEntity, "ROLE_NOT_ASSIGNABLE"},
 		{domain.ErrRoleLocked, []string{"save"}, http.StatusUnprocessableEntity, "ROLE_LOCKED"},
 		{domain.ErrStudentNeedsTakeTests, []string{"save"}, http.StatusUnprocessableEntity, "STUDENT_NEEDS_TAKE_TESTS"},
