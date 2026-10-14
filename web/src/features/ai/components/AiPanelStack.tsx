@@ -8,15 +8,18 @@ const AiPanel = lazy(() => import("./AiPanel"));
  * is showing, or null for none, and `requestFor` gives the request of a
  * panel. A panel stays mounted from the first time it opens, drawn closed
  * when another is showing or none is, so its session outlives the drawer and
- * ends with the page.
+ * ends with the page. A panel whose run finishes while it is closed asks for
+ * itself back through `onOpen`.
  */
 export function AiPanelStack<K extends string>({
   open,
   requestFor,
+  onOpen,
   onClose,
 }: Readonly<{
   open: K | null;
   requestFor: (kind: K) => AiPanelRequest;
+  onOpen: (kind: K) => void;
   onClose: () => void;
 }>) {
   const [kept, setKept] = useState<readonly K[]>([]);
@@ -26,7 +29,12 @@ export function AiPanelStack<K extends string>({
     <>
       {shown.map((kind) => (
         <Suspense key={kind} fallback={null}>
-          <AiPanel request={requestFor(kind)} open={open === kind} onClose={onClose} />
+          <AiPanel
+            request={requestFor(kind)}
+            open={open === kind}
+            onClose={onClose}
+            onReopen={() => onOpen(kind)}
+          />
         </Suspense>
       ))}
     </>

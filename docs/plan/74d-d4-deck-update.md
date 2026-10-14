@@ -3472,7 +3472,16 @@ the 256 MiB sandbox included; `BenchmarkRenderForty*` in `pdftext/tests` repeats
       edits: a kind may declare an item `stale` (a check's finding whose question has left the
       test is hidden and not counted), and Generate reads a section, bank or practice destination
       from the page when the questions are kept, since the builder's open section can change
-      between the run and the write. The bank clean-up's "Open" is a link and still leaves the
+      between the run and the write. A run that settles while its drawer is closed, answered or
+      failed, raises one toast naming the panel with an Open action (`AiPanelStack`'s `onOpen`,
+      which each host points at its own open state), so a teacher who closed the drawer
+      mid-run is not left waiting on a run that is already done; Stop and leaving the page raise
+      none, and opening the drawer by any route takes the toast away. Stop and leaving the page
+      abort the request, the server cancels the provider call and `Finish` releases the
+      reservation, so a single-call operation charges nothing and the bank clean-up settles only
+      the calls already billed (`Tally`). That a cancelled call bills nothing is `Billed`'s
+      assumption ("as far as anyone can tell"): Anthropic's documentation does not say what a
+      request abandoned midway costs. The bank clean-up's "Open" is a link and still leaves the
       page, ending its session; keeping it needs state above the router or a new tab, and a second
       tab races the refresh cookie's rotation, so it is not done here.
 - [x] Every write a primary makes goes through the existing mutation hooks and their autosave

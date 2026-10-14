@@ -94,7 +94,12 @@ export function BankAiActions() {
         className={ENTRY}
         onClick={() => setOpen("generate")}
       />
-      <AiPanelStack open={open} requestFor={requestFor} onClose={() => setOpen(null)} />
+      <AiPanelStack
+        open={open}
+        requestFor={requestFor}
+        onOpen={setOpen}
+        onClose={() => setOpen(null)}
+      />
     </>
   );
 }

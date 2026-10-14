@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http, HttpResponse } from "msw";
+import { Toaster, toast } from "@/components/ui/sonner";
 import TestBuilderPage from "@/features/tests/pages/teacher/TestBuilderPage";
 import type {
   GroupBundle,
@@ -116,6 +117,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  toast.dismiss();
   useAuthStore.setState({ accessToken: null, user: null });
 });
 
@@ -139,6 +141,7 @@ async function renderBuilder() {
   const { unmount } = render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
+      <Toaster />
     </QueryClientProvider>,
   );
   await screen.findByDisplayValue("have gone");
@@ -976,6 +979,32 @@ describe("an AI session in the builder", () => {
     expect(within(dialog).getByRole("button", { name: ai.stop })).toBeVisible();
     release();
     expect(await within(dialog).findByText("Option B could be argued.")).toBeVisible();
+    expect(checks).toBe(1);
+  });
+
+  it("tells the teacher when a check finished behind a closed drawer, and Open shows its findings", async () => {
+    aiOn();
+    let release: () => void = () => undefined;
+    checkAnswers(
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+    );
+    const { user } = await renderBuilder();
+    const dialog = await open(user, ai.entry.check);
+    await user.click(within(dialog).getByRole("button", { name: ai.check.run }));
+    await within(dialog).findByRole("status");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    release();
+
+    expect(await screen.findByText(ai.finished.done)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: ai.finished.open }));
+    expect(
+      await within(await screen.findByRole("dialog")).findByText(
+        "Option B could be argued.",
+      ),
+    ).toBeVisible();
     expect(checks).toBe(1);
   });
 

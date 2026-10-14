@@ -66,6 +66,7 @@ export function VariantAction({
           kind: "variant",
           context: { testId: test.id, title: test.title, save },
         })}
+        onOpen={() => setOpen(true)}
         onClose={() => setOpen(false)}
       />
     </>

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { Check, Sparkles, type LucideIcon } from "lucide-react";
+import { toast } from "sonner";
 import { Callout } from "@/components/shared/Callout";
 import { IconTile } from "@/components/shared/IconTile";
 import { Sheet } from "@/components/shared/Sheet";
@@ -57,6 +58,7 @@ type Stage<I> =
     };
 
 const FOOTER_BUTTON = "h-9";
+const FINISHED_TOAST_MS = 8000;
 
 function writeFailure(cause: unknown, fallback: string): string {
   return cause instanceof AiWriteError
@@ -74,16 +76,23 @@ function writeFailure(cause: unknown, fallback: string): string {
  * sample output is ever drawn: a failed run is a callout (DG-201). The
  * session is the panel's state, not the drawer's: while `open` is false it
  * draws nothing and keeps its fields, a run in flight and the suggestions a
- * run answered, so closing never discards them. Done, a primary's write and
- * Start over end them, and so does unmounting, which also aborts a run that
- * has not answered; a host keeps the panel as long as its page
- * (`AiPanelStack`).
+ * run answered, so closing never discards them. A run that settles while the
+ * drawer is closed says so in a toast, whose action calls `onReopen`. Done, a
+ * primary's write and Start over end the session, and so does unmounting,
+ * which also aborts a run that has not answered; a host keeps the panel as
+ * long as its page (`AiPanelStack`).
  */
 export default function AiPanel({
   request,
   open = true,
   onClose,
-}: Readonly<{ request: AiPanelRequest; open?: boolean; onClose: () => void }>) {
+  onReopen,
+}: Readonly<{
+  request: AiPanelRequest;
+  open?: boolean;
+  onClose: () => void;
+  onReopen?: () => void;
+}>) {
   switch (request.kind) {
     case "generate":
       return (
@@ -92,6 +101,7 @@ export default function AiPanel({
           context={request.context}
           open={open}
           onClose={onClose}
+          onReopen={onReopen}
         />
       );
     case "check":
@@ -101,6 +111,7 @@ export default function AiPanel({
           context={request.context}
           open={open}
           onClose={onClose}
+          onReopen={onReopen}
         />
       );
     case "variant":
@@ -110,6 +121,7 @@ export default function AiPanel({
           context={request.context}
           open={open}
           onClose={onClose}
+          onReopen={onReopen}
         />
       );
     case "cleanup":
@@ -119,6 +131,7 @@ export default function AiPanel({
           context={request.context}
           open={open}
           onClose={onClose}
+          onReopen={onReopen}
         />
       );
   }
@@ -129,11 +142,13 @@ function AiKindPanel<F, I, C>({
   context,
   open,
   onClose,
+  onReopen,
 }: Readonly<{
   kind: AiKind<F, I, C>;
   context: C;
   open: boolean;
   onClose: () => void;
+  onReopen: (() => void) | undefined;
 }>) {
   const { t } = useTranslation();
   const locale = useLocale();
@@ -148,8 +163,18 @@ function AiKindPanel<F, I, C>({
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const run = useRef<AbortController | null>(null);
+  const drawn = useRef(open);
+  const finished = useRef<string | number | null>(null);
 
   useEffect(() => () => run.current?.abort(), []);
+
+  useEffect(() => {
+    drawn.current = open;
+    if (open && finished.current !== null) {
+      toast.dismiss(finished.current);
+      finished.current = null;
+    }
+  }, [open]);
 
   const env: AiEnv<C> = { t, language, tagDrafts, context };
   const set = (patch: Partial<F>) => setValues((current) => ({ ...current, ...patch }));
@@ -159,6 +184,21 @@ function AiKindPanel<F, I, C>({
       ? stage.failure.block
       : null;
   const stop = failedBlock ?? block;
+
+  function announce(failed: boolean) {
+    if (drawn.current) return;
+    const options = {
+      description: t(failed ? "ai.finished.failed" : "ai.finished.done"),
+      duration: FINISHED_TOAST_MS,
+      ...(onReopen !== undefined && {
+        action: { label: t("ai.finished.open"), onClick: onReopen },
+      }),
+    };
+    const title = t(kind.titleKey);
+    finished.current = failed
+      ? notify.warning(title, options)
+      : notify.success(title, options);
+  }
 
   async function start() {
     if (problem !== null || stop !== null) return;
@@ -182,11 +222,13 @@ function AiKindPanel<F, I, C>({
         usage: result.usage,
         notice: result.notice,
       });
+      announce(false);
     } catch (cause) {
       if (controller.signal.aborted) return;
       const failure = aiFailureOf(cause, t("ai.failed"));
       refreshAfterAiFailure(queryClient, cause, failure);
       setStage({ name: "setup", failure });
+      announce(true);
     }
   }
 

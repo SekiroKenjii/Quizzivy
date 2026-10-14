@@ -160,6 +160,7 @@ export function AiInsightsPanel({
           open={practice.open}
           testTitle={testTitle}
           passages={passagesOf(groups ?? [])}
+          onOpen={() => setPractice({ ...practice, open: true })}
           onClose={() => setPractice({ ...practice, open: false })}
         />
       )}
@@ -329,12 +330,14 @@ function PracticePanel({
   open,
   testTitle,
   passages,
+  onOpen,
   onClose,
 }: Readonly<{
   types: readonly QuestionType[];
   open: boolean;
   testTitle: string;
   passages: readonly AiPassage[];
+  onOpen: () => void;
   onClose: () => void;
 }>) {
   const { t } = useTranslation();
@@ -376,6 +379,7 @@ function PracticePanel({
         kind: "generate",
         context: { passages, types, destination: { kind: "practice" }, save },
       })}
+      onOpen={onOpen}
       onClose={onClose}
     />
   );

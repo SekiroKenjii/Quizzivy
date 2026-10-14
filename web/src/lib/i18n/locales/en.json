@@ -82,6 +82,11 @@
     "applyFailed": "That couldn’t be saved. Try again.",
     "stop": "Stop",
     "startOver": "Start over",
+    "finished": {
+      "done": "Finished. Open it to see the results.",
+      "failed": "It didn’t finish. Open it to see why.",
+      "open": "Open"
+    },
     "done": "Done",
     "selectAll": "Select all",
     "clearSelection": "Clear selection",

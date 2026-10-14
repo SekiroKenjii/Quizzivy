@@ -82,6 +82,11 @@
     "applyFailed": "Chưa lưu được. Hãy thử lại.",
     "stop": "Dừng",
     "startOver": "Làm lại từ đầu",
+    "finished": {
+      "done": "Đã chạy xong. Mở lại để xem kết quả.",
+      "failed": "Chưa chạy xong. Mở lại để xem lý do.",
+      "open": "Mở"
+    },
     "done": "Xong",
     "selectAll": "Chọn tất cả",
     "clearSelection": "Bỏ chọn",

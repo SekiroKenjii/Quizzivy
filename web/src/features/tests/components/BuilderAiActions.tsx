@@ -131,6 +131,7 @@ export function BuilderAiActions({ ai }: Readonly<{ ai: BuilderAi }>) {
         key={ai.testId}
         open={open}
         requestFor={requestFor}
+        onOpen={setOpen}
         onClose={() => setOpen(null)}
       />
     </>
