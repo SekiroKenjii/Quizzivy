@@ -113,7 +113,7 @@ func centre() (*adminStore, *ports) {
 	oldest := time.Date(2026, time.January, 9, 3, 0, 0, 0, time.UTC)
 	repo := &adminStore{
 		accounts: domain.Accounts{
-			Total: 100, Students: 80, StudentsNew: 5, Teachers: 15, TeachersDisabled: 2,
+			Total: 100, Enabled: 95, Students: 83, StudentsNew: 5, Teachers: 15, TeachersDisabled: 2,
 			MustChangePassword: 3, NeverSignedIn: 4, OldestNeverSignedIn: &oldest,
 		},
 		mustChange:  3,
@@ -160,7 +160,7 @@ func TestTheOverviewOfAnAdminHoldingEveryKeyFillsEverySection(t *testing.T) {
 	if got.OrganizationName != "Trung tâm Ánh Dương" {
 		t.Errorf("organization = %q", got.OrganizationName)
 	}
-	wantPeople := domain.People{Total: 100, ActiveThisWeek: 42, Teachers: 15, TeachersDisabled: 2, Students: 80, StudentsNewThisMonth: 5}
+	wantPeople := domain.People{Total: 100, ActiveThisWeek: 42, Teachers: 15, TeachersDisabled: 2, Students: 83, StudentsNewThisMonth: 5}
 	if got.People == nil || *got.People != wantPeople {
 		t.Errorf("people = %+v, want %+v", got.People, wantPeople)
 	}
@@ -176,7 +176,7 @@ func TestTheOverviewOfAnAdminHoldingEveryKeyFillsEverySection(t *testing.T) {
 	if len(got.RecentChanges) != 2 || p.recentLimit != domain.RecentChanges {
 		t.Errorf("recent changes = %d entries asked for %d, want 2 entries asked for %d", len(got.RecentChanges), p.recentLimit, domain.RecentChanges)
 	}
-	if got.Storage == nil || got.Storage.Seats.Used != 100 || got.Storage.Teachers.Used != 15 || got.Storage.AttemptsKept != 12 {
+	if got.Storage == nil || got.Storage.Seats.Used != 95 || got.Storage.Teachers.Used != 15 || got.Storage.AttemptsKept != 12 {
 		t.Errorf("storage = %+v", got.Storage)
 	}
 	if got.Storage.AICredits == nil || *got.Storage.AICredits != (domain.Credits{Used: 300, Pool: 1500}) {
@@ -425,7 +425,7 @@ func TestUsageWithEveryPlanValueUnsetStatesNoPlanAndNoLimit(t *testing.T) {
 	if got.Plan != nil || got.Seats.Limit != nil || got.Teachers.Limit != nil || got.Media.Limit != nil || got.Imports.Limit != nil {
 		t.Errorf("usage = %+v, want no plan and no limit", got)
 	}
-	if got.Seats.Used != 100 || got.Teachers.Used != 15 || got.Media.Bytes != 900 || got.Imports.Bytes != 100 || got.Imports.Count != 3 || got.AttemptsKept != 12 {
+	if got.Seats.Used != 95 || got.Teachers.Used != 15 || got.Media.Bytes != 900 || got.Imports.Bytes != 100 || got.Imports.Count != 3 || got.AttemptsKept != 12 {
 		t.Errorf("figures = %+v, want what is held even with no plan", got)
 	}
 }

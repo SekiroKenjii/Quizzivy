@@ -12,21 +12,21 @@ var _ domain.AdminRepository = (*Postgres)(nil)
 
 const accountsSQL = `
 	SELECT count(*),
+	       count(*) FILTER (WHERE u.disabled_at IS NULL),
 	       count(*) FILTER (WHERE s.id IS NOT NULL),
 	       count(*) FILTER (WHERE s.id IS NOT NULL AND u.created_at >= $1),
-	       count(*) FILTER (WHERE s.id IS NULL AND r.builtin_key IS DISTINCT FROM 'admin'),
-	       count(*) FILTER (WHERE s.id IS NULL AND r.builtin_key IS DISTINCT FROM 'admin' AND u.disabled_at IS NOT NULL),
+	       count(*) FILTER (WHERE s.id IS NULL AND u.disabled_at IS NULL),
+	       count(*) FILTER (WHERE s.id IS NULL AND u.disabled_at IS NOT NULL),
 	       count(*) FILTER (WHERE u.disabled_at IS NULL AND u.must_change_password),
 	       count(*) FILTER (WHERE u.disabled_at IS NULL AND NOT u.must_change_password AND u.last_sign_in_at IS NULL),
 	       min(u.created_at) FILTER (WHERE u.disabled_at IS NULL AND NOT u.must_change_password AND u.last_sign_in_at IS NULL)
 	  FROM app.users u
-	  JOIN app.roles r ON r.id = u.role_id
 	  LEFT JOIN app.student_like_roles s ON s.id = u.role_id`
 
-// Accounts counts every user in one pass, classing each by app.student_like_roles and the built-in Admin role, and the enabled ones by DG-54's order.
+// Accounts counts every user in one pass, classing each by app.student_like_roles alone (an account that is not a student target is a teacher, an Admin included) and the enabled ones by DG-54's order.
 func (p *Postgres) Accounts(ctx context.Context, since time.Time) (domain.Accounts, error) {
 	var out domain.Accounts
-	err := p.QueryRow(ctx, accountsSQL, since).Scan(&out.Total, &out.Students, &out.StudentsNew, &out.Teachers,
+	err := p.QueryRow(ctx, accountsSQL, since).Scan(&out.Total, &out.Enabled, &out.Students, &out.StudentsNew, &out.Teachers,
 		&out.TeachersDisabled, &out.MustChangePassword, &out.NeverSignedIn, &out.OldestNeverSignedIn)
 	if err != nil {
 		return domain.Accounts{}, fmt.Errorf("dashboard: count accounts: %w", err)

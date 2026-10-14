@@ -27,7 +27,7 @@ import (
 type centre struct{ recordingHome }
 
 func (centre) Accounts(context.Context, time.Time) (domain.Accounts, error) {
-	return domain.Accounts{Total: 10, Students: 7, Teachers: 3, MustChangePassword: 2}, nil
+	return domain.Accounts{Total: 10, Enabled: 9, Students: 7, Teachers: 2, TeachersDisabled: 1, MustChangePassword: 2}, nil
 }
 func (centre) MustChangePassword(context.Context) (int, error)     { return 2, nil }
 func (centre) ActiveSince(context.Context, time.Time) (int, error) { return 5, nil }
@@ -153,8 +153,8 @@ func TestUsageWithNothingStatedIsNullsAndZeroesNeverMissingKeys(t *testing.T) {
 	if err := json.Unmarshal(body["seats"], &seats); err != nil {
 		t.Fatal(err)
 	}
-	if string(seats["used"]) != "10" || string(seats["limit"]) != "null" {
-		t.Errorf("seats = %s, want 10 used and a null limit", body["seats"])
+	if string(seats["used"]) != "9" || string(seats["limit"]) != "null" {
+		t.Errorf("seats = %s, want 9 used and a null limit", body["seats"])
 	}
 	if string(body["attemptsKept"]) != `{"count":9}` {
 		t.Errorf("attemptsKept = %s", body["attemptsKept"])

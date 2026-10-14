@@ -490,8 +490,9 @@ page load. Nothing is enforced (DG-55): a limit is drawn beside its figure, and 
 it.
 
 Production sets none of them until the centre's plan is decided; the names are listed in
-`fly.toml` and `.env.example`. Seats count every account, disabled ones included, against
-`PLAN_SEAT_LIMIT`; teachers count the accounts that are neither a student target nor an Admin.
+`fly.toml` and `.env.example`. Seats count the accounts that are not disabled against
+`PLAN_SEAT_LIMIT`; teachers count the enabled accounts that are not a student target, Admins
+included, against `PLAN_TEACHER_LIMIT`.
 Media is the bytes of the files not yet purged from storage, and imports the bytes of the source
 documents of the imports whose files have not been removed, against their limits. A meter at 80%
 of its limit adds a storage row to the Overview's attention list. Days on the Overview are local

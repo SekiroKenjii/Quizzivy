@@ -35,9 +35,10 @@ type AdminViewer struct {
 	All      bool
 }
 
-// Accounts is what one pass over the users counts. A student is a student target of app.student_like_roles, an admin holds the built-in Admin role and a teacher is everyone else; disabled accounts are counted in their role. Never signed in and must change password apply DG-54's order to the enabled accounts.
+// Accounts is what one pass over the users counts. A student is a student target of app.student_like_roles and a teacher is every other account, an Admin included: Teachers are the enabled ones and TeachersDisabled the disabled, so the two never overlap. Total and Students count disabled accounts, Enabled does not. Never signed in and must change password apply DG-54's order to the enabled accounts.
 type Accounts struct {
 	Total              int
+	Enabled            int
 	Students           int
 	StudentsNew        int
 	Teachers           int
@@ -236,7 +237,7 @@ type Usage struct {
 // NewUsage reads the figures against the plan.
 func NewUsage(plan Plan, accounts Accounts, held Held, credits *Credits) Usage {
 	out := Usage{
-		Seats:        Count{Used: accounts.Total, Limit: limitOf(plan.SeatLimit)},
+		Seats:        Count{Used: accounts.Enabled, Limit: limitOf(plan.SeatLimit)},
 		Teachers:     Count{Used: accounts.Teachers, Limit: limitOf(plan.TeacherLimit)},
 		Media:        Bytes{Bytes: held.MediaBytes, Limit: bytesOf(plan.MediaBytes)},
 		Imports:      ImportBytes{Bytes: held.ImportBytes, Count: held.ImportCount, Limit: bytesOf(plan.ImportBytes)},

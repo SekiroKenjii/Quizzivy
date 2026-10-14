@@ -143,6 +143,7 @@ func TestTheAdminOverviewCountsWhatTheCentreHolds(t *testing.T) {
 	account("student", "Học viên mật khẩu tạm", false, true)
 	staff := account("teacher", "Cô chưa vào", false, false)
 	gone := account("teacher", "Thầy đã khóa", true, false)
+	account("admin", "Quản trị phụ", false, false)
 
 	orphan := "Lớp mồ côi " + nonce(t)
 	exec(`INSERT INTO app.classes (name, teacher_id) VALUES ($1, $2)`, orphan, gone)
@@ -166,7 +167,7 @@ func TestTheAdminOverviewCountsWhatTheCentreHolds(t *testing.T) {
 		}
 	}
 	people := func(body map[string]any, key string) int { return figure(t, body, "people", key) }
-	moved("people.total", people(after, "total")-people(before, "total"), 4)
+	moved("people.total", people(after, "total")-people(before, "total"), 5)
 	moved("people.students", people(after, "students")-people(before, "students"), 2)
 	moved("people.teachers", people(after, "teachers")-people(before, "teachers"), 2)
 	moved("people.teachersDisabled", people(after, "teachersDisabled")-people(before, "teachersDisabled"), 1)
@@ -175,7 +176,7 @@ func TestTheAdminOverviewCountsWhatTheCentreHolds(t *testing.T) {
 
 	count := func(body map[string]any, kind string) int { n, _ := attentionRow(body, kind); return n }
 	moved("must_change_password", count(after, "must_change_password")-count(before, "must_change_password"), 1)
-	moved("never_signed_in", count(after, "never_signed_in")-count(before, "never_signed_in"), 2)
+	moved("never_signed_in", count(after, "never_signed_in")-count(before, "never_signed_in"), 3)
 	moved("disabled_teacher_classes", count(after, "disabled_teacher_classes")-count(before, "disabled_teacher_classes"), 1)
 	if n, detail := attentionRow(after, "disabled_teacher_classes"); n == 0 || detail["className"] != orphan || detail["teacherName"] != "Thầy đã khóa" {
 		t.Errorf("disabled teacher row = %d %v, want the newest class %q with its teacher", n, detail, orphan)

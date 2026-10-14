@@ -5848,17 +5848,17 @@ export interface components {
         };
         /**
          * @description The accounts of the centre. A student is a student target of R2's
-         *     student-like roles, an admin holds the built-in Admin role and a
-         *     teacher is everyone else, so a custom role counts as a teacher. Disabled
-         *     accounts are counted in `total`, `teachers` and `students`, as the Users
-         *     tabs count them.
+         *     student-like roles and a teacher is every other account, an Admin and
+         *     a custom role included. `teachers` are the enabled ones and
+         *     `teachersDisabled` the disabled ones, so the two never overlap. `total`
+         *     and `students` count disabled accounts, as the Users tabs count them.
          */
         AdminOverviewPeople: {
             total: number;
             /** @description Accounts with an authenticated request on any of the last seven local days, today included. */
             activeThisWeek: number;
             teachers: number;
-            /** @description Of `teachers`, how many are disabled. */
+            /** @description Disabled accounts that are not a student target; none of them is in `teachers`. */
             teachersDisabled: number;
             students: number;
             /** @description Students whose account was created since the first of this local month. */
@@ -5933,11 +5933,12 @@ export interface components {
          *     `limit` is `null` when its `PLAN_*` variable is unset, and a figure may
          *     pass its limit.
          *
-         *     `seats` counts every account, disabled ones included, against
-         *     `PLAN_SEAT_LIMIT`. `teachers` counts the accounts that are neither a
-         *     student target nor an Admin, against `PLAN_TEACHER_LIMIT`. `media` is
-         *     the bytes of the media files still held in storage, against
-         *     `PLAN_MEDIA_BYTES`, and `imports` the bytes of the source documents of
+         *     `seats` counts the accounts that are not disabled against
+         *     `PLAN_SEAT_LIMIT`. `teachers` counts the enabled accounts that are not
+         *     a student target, Admins included, against `PLAN_TEACHER_LIMIT`; it is
+         *     the Overview's `people.teachers`. `media` is the bytes of the media
+         *     files still held in storage, against `PLAN_MEDIA_BYTES`, and `imports`
+         *     the bytes of the source documents of
          *     the imports whose files are still kept and the number of those imports,
          *     against `PLAN_IMPORT_BYTES`. `attemptsKept` has no limit until a
          *     denominator is named.

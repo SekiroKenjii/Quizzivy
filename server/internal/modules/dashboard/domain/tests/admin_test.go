@@ -114,14 +114,14 @@ func TestPercentRoundsHalfUp(t *testing.T) {
 func limit(n int64) *int64 { return &n }
 
 func TestUsageWithNoPlanStatesNoLimit(t *testing.T) {
-	got := domain.NewUsage(domain.Plan{}, domain.Accounts{Total: 40, Teachers: 6}, domain.Held{MediaBytes: 10, ImportBytes: 20, ImportCount: 2, Attempts: 7}, nil)
+	got := domain.NewUsage(domain.Plan{}, domain.Accounts{Total: 40, Enabled: 37, Teachers: 6}, domain.Held{MediaBytes: 10, ImportBytes: 20, ImportCount: 2, Attempts: 7}, nil)
 	if got.Plan != nil {
 		t.Errorf("plan = %+v, want none when PLAN_NAME is unset", got.Plan)
 	}
 	if got.Seats.Limit != nil || got.Teachers.Limit != nil || got.Media.Limit != nil || got.Imports.Limit != nil {
 		t.Errorf("an unset limit must be absent, got %+v", got)
 	}
-	if got.Seats.Used != 40 || got.Teachers.Used != 6 || got.Media.Bytes != 10 || got.Imports.Bytes != 20 || got.Imports.Count != 2 || got.AttemptsKept != 7 {
+	if got.Seats.Used != 37 || got.Teachers.Used != 6 || got.Media.Bytes != 10 || got.Imports.Bytes != 20 || got.Imports.Count != 2 || got.AttemptsKept != 7 {
 		t.Errorf("figures = %+v", got)
 	}
 	if got.AICredits != nil {
@@ -136,7 +136,7 @@ func TestUsageStatesWhatThePlanStates(t *testing.T) {
 	renews := date(2027, time.January, 1)
 	plan := domain.Plan{Name: "Trung tâm", RenewsOn: renews, SeatLimit: 500, TeacherLimit: 20, MediaBytes: 1000, ImportBytes: 2000}
 	credits := &domain.Credits{Used: 120, Pool: 500}
-	got := domain.NewUsage(plan, domain.Accounts{Total: 12, Teachers: 3}, domain.Held{}, credits)
+	got := domain.NewUsage(plan, domain.Accounts{Total: 12, Enabled: 11, Teachers: 3}, domain.Held{}, credits)
 
 	if got.Plan == nil || got.Plan.Name != "Trung tâm" || got.Plan.RenewsOn == nil || !got.Plan.RenewsOn.Equal(renews) {
 		t.Errorf("plan = %+v", got.Plan)

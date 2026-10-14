@@ -69,7 +69,7 @@ func at(year int, month time.Month, d int) *time.Time {
 	return &v
 }
 
-func TestAccountsClassEveryUserByRoleAndCountTheEnabledByDG54(t *testing.T) {
+func TestAccountsClassEveryUserByStudentTargetAndCountTheEnabledByDG54(t *testing.T) {
 	tx := isolated(t, newPool(t))
 	store := repositories.NewPostgres(db.NewContext(tx))
 	ctx := context.Background()
@@ -90,6 +90,7 @@ func TestAccountsClassEveryUserByRoleAndCountTheEnabledByDG54(t *testing.T) {
 	person(t, tx, staffRole, "Cô Mai", who{mustChange: true})
 	person(t, tx, teacher, "Thầy Hùng", who{created: at(2002, time.March, 1)})
 	person(t, tx, admin, "Quản trị", who{signedIn: true})
+	person(t, tx, admin, "Quản trị phụ", who{signedIn: true})
 	person(t, tx, student, "Học viên cũ", who{created: at(2001, time.January, 1)})
 	person(t, tx, learnerRole, "Học viên vai trò", who{disabled: true, created: at(2001, time.June, 1)})
 	person(t, tx, student, "Học viên mới", who{signedIn: true})
@@ -101,6 +102,7 @@ func TestAccountsClassEveryUserByRoleAndCountTheEnabledByDG54(t *testing.T) {
 	}
 	delta := domain.Accounts{
 		Total:              after.Total - before.Total,
+		Enabled:            after.Enabled - before.Enabled,
 		Students:           after.Students - before.Students,
 		StudentsNew:        after.StudentsNew - before.StudentsNew,
 		Teachers:           after.Teachers - before.Teachers,
@@ -108,7 +110,7 @@ func TestAccountsClassEveryUserByRoleAndCountTheEnabledByDG54(t *testing.T) {
 		MustChangePassword: after.MustChangePassword - before.MustChangePassword,
 		NeverSignedIn:      after.NeverSignedIn - before.NeverSignedIn,
 	}
-	want := domain.Accounts{Total: 9, Students: 4, StudentsNew: 2, Teachers: 4, TeachersDisabled: 1, MustChangePassword: 2, NeverSignedIn: 2}
+	want := domain.Accounts{Total: 10, Enabled: 8, Students: 4, StudentsNew: 2, Teachers: 5, TeachersDisabled: 1, MustChangePassword: 2, NeverSignedIn: 2}
 	if delta != want {
 		t.Errorf("accounts delta = %+v, want %+v", delta, want)
 	}
@@ -126,7 +128,7 @@ func TestAccountsClassEveryUserByRoleAndCountTheEnabledByDG54(t *testing.T) {
 	}
 }
 
-func TestADisabledAccountIsNeitherOnATemporaryPasswordNorNeverSignedIn(t *testing.T) {
+func TestADisabledAccountIsNeitherATeacherNorASeatNorOnATemporaryPasswordNorNeverSignedIn(t *testing.T) {
 	tx := isolated(t, newPool(t))
 	store := repositories.NewPostgres(db.NewContext(tx))
 	ctx := context.Background()
@@ -144,8 +146,8 @@ func TestADisabledAccountIsNeitherOnATemporaryPasswordNorNeverSignedIn(t *testin
 	if after.MustChangePassword != before.MustChangePassword || after.NeverSignedIn != before.NeverSignedIn {
 		t.Errorf("a disabled account counted: before %+v after %+v", before, after)
 	}
-	if after.TeachersDisabled != before.TeachersDisabled+1 || after.Teachers != before.Teachers+1 {
-		t.Errorf("a disabled teacher is still a teacher: before %+v after %+v", before, after)
+	if after.TeachersDisabled != before.TeachersDisabled+1 || after.Teachers != before.Teachers || after.Total != before.Total+1 || after.Enabled != before.Enabled {
+		t.Errorf("a disabled teacher is counted once, as disabled, and holds no seat: before %+v after %+v", before, after)
 	}
 }
 
