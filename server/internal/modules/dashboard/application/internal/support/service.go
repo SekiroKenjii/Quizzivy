@@ -12,8 +12,13 @@ type Service struct {
 	Now           func() time.Time
 	Zones         ports.Zones
 	Notifications ports.UnreadNotifications
+	Branding      ports.Branding
+	Recent        ports.RecentChanges
+	Credits       ports.AICredits
+	Plan          domain.Plan
+	Location      *time.Location
 }
 
 func NewService(repo domain.Repository) *Service {
-	return &Service{Repo: repo, Now: time.Now}
+	return &Service{Repo: repo, Now: time.Now, Location: time.FixedZone(domain.DefaultZone, 7*60*60)}
 }

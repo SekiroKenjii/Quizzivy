@@ -91,8 +91,12 @@ func openCSV(src io.ReaderAt, size int64) (source, error) {
 	if !utf8.Valid(data) {
 		return nil, ErrNotUTF8
 	}
+	comma := delimiter(data)
+	if err := boundFields(data, byte(comma)); err != nil {
+		return nil, err
+	}
 	in := csv.NewReader(bytes.NewReader(data))
-	in.Comma = delimiter(data)
+	in.Comma = comma
 	in.FieldsPerRecord = -1
 	return &csvSource{in: in}, nil
 }
@@ -134,4 +138,67 @@ scan:
 		return ';'
 	}
 	return ','
+}
+
+const (
+	fieldStart = iota
+	inUnquoted
+	inQuoted
+	afterQuote
+)
+
+type fieldScanner struct {
+	comma      byte
+	state      int
+	fields     int
+	line       int
+	recordLine int
+}
+
+func boundFields(data []byte, comma byte) error {
+	scan := fieldScanner{comma: comma, fields: 1, line: 1, recordLine: 1}
+	for _, c := range data {
+		scan.step(c)
+		if scan.fields > maxGridColumns {
+			return fmt.Errorf("%w: row %d has more than %d fields", ErrTooManyColumns, scan.recordLine, maxGridColumns)
+		}
+	}
+	return nil
+}
+
+func (s *fieldScanner) step(c byte) {
+	if s.state == inQuoted {
+		s.inQuotes(c)
+		return
+	}
+	switch c {
+	case s.comma:
+		s.fields++
+		s.state = fieldStart
+	case '\n':
+		s.line++
+		s.recordLine = s.line
+		s.fields = 1
+		s.state = fieldStart
+	case '"':
+		s.state = s.afterOpeningQuote()
+	default:
+		s.state = inUnquoted
+	}
+}
+
+func (s *fieldScanner) afterOpeningQuote() int {
+	if s.state == inUnquoted {
+		return inUnquoted
+	}
+	return inQuoted
+}
+
+func (s *fieldScanner) inQuotes(c byte) {
+	switch c {
+	case '"':
+		s.state = afterQuote
+	case '\n':
+		s.line++
+	}
 }

@@ -3,14 +3,19 @@
 **Version:** 0.112 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
+**Changes pending (R5, v0.12.0)**
+
+- T-R5.20 §2, §3, §5.4 The Admin console's shell and route tree (its screens are later R5 tasks; each route renders a placeholder until its task lands). Four route trees: public, `/teacher/*`, `/admin/*` and `/app/*`. `AdminWorkspace` holds `/admin` for the `admin` workspace, `RequirePermission` reads the `permission` of the leaf route's handle and answers the 403 page when the user lacks it (a custom role holding only `system.audit.read` gets 403 at `/admin/users`), and `AdminLayout` is the shell. A `/admin/*` address that is not a console route still redirects to the same path under `/teacher`; a console address answers the 403 page to a user without the `admin` workspace, except `/admin` and `/admin/classes`, whose `/teacher` twins are real pages and keep redirecting.
+- T-R5.20 §5.4 `homePathFor` sends a built-in Admin (the holder of `scope.all`) to the console in `preferences.workspace` and to `/admin` the first time, any other holder of the `teacher` workspace to `/teacher`, a user with only the `admin` workspace to `/admin`, and anyone else to `/app`.
+- T-R5.20 §7, §15 `UserPreferences.workspace` (`teacher` or `admin`), written by `PATCH /me/preferences` when the user switches console; any other value answers `400 VALIDATION_FAILED`. No new operation and no migration: the preferences are one JSON document.
+- T-R5.20 §8 The consoles share one shell. The workspace switcher and the account menu gain the Admin console for a holder of both; the Admin menu has System settings, API reference, Teacher workspace, the theme and Sign out, and for a user without the `teacher` workspace also Change password (when the account has one) and Language. `/change-password` asks for the current password when the change is not forced, is titled "Change password" then, names the current-password field when it is empty, confirms the change with a toast, and goes back to the page the account menu was opened from (`?next=`).
+
 **Changes since v0.111**
 
-R5, T-R5.20 (R5-08): the Admin console's shell and route tree. Its screens are later R5 tasks; each route renders a placeholder until its task lands.
+R5, T-R5.8 (second QC follow-up on the roles API: QC-X-13, QC-X-14).
 
-- §2, §3, §5.4 Four route trees: public, `/teacher/*`, `/admin/*` and `/app/*`. `AdminWorkspace` holds `/admin` for the `admin` workspace, `RequirePermission` reads the `permission` of the leaf route's handle and answers the 403 page when the user lacks it (a custom role holding only `system.audit.read` gets 403 at `/admin/users`), and `AdminLayout` is the shell. A `/admin/*` address that is not a console route still redirects to the same path under `/teacher`; a console address answers the 403 page to a user without the `admin` workspace, except `/admin` and `/admin/classes`, whose `/teacher` twins are real pages and keep redirecting.
-- §5.4 `homePathFor` sends a built-in Admin (the holder of `scope.all`) to the console in `preferences.workspace` and to `/admin` the first time, any other holder of the `teacher` workspace to `/teacher`, a user with only the `admin` workspace to `/admin`, and anyone else to `/app`.
-- §7, §15 `UserPreferences.workspace` (`teacher` or `admin`), written by `PATCH /me/preferences` when the user switches console; any other value answers `400 VALIDATION_FAILED`. No new operation and no migration: the preferences are one JSON document.
-- §8 The consoles share one shell. The workspace switcher and the account menu gain the Admin console for a holder of both; the Admin menu has System settings, API reference, Teacher workspace, the theme and Sign out, and for a user without the `teacher` workspace also Change password (when the account has one) and Language. `/change-password` asks for the current password when the change is not forced, is titled "Change password" then, names the current-password field when it is empty, confirms the change with a toast, and goes back to the page the account menu was opened from (`?next=`).
+- §15 `createRole` and `updateRole` refuse a name that has no letter, digit, punctuation mark or symbol (a lone combining accent, a variation selector), and, in a name or a description, any character that is not graphic: a control, format, line- or paragraph-separator, private-use or unassigned code point, and the blank fillers the Hangul filler, its two jamo forms, the halfwidth filler and the Braille blank. A description may still hold line breaks, as the Edit role dialog's text area sends them. The refusal names the first offending code point in `details`.
+- §15 The 60 characters of a name and the 300 of a description count the text after NFC. The schema's own bound on the text as sent is four times that (240 and 1200), so a name typed decomposed is no longer refused before it is composed.
 
 **Changes since v0.110**
 
@@ -3012,6 +3017,8 @@ Use PG18's `OLD`/`NEW` in `RETURNING` to capture the diff in the same statement 
 - `EXPLAIN (ANALYZE, BUFFERS)` any query touching `attempts`, `attempt_answers`, or `attempt_events` before merging.
 - N+1 is the default failure mode of the grading and monitor screens — one query for an attempt's answers, one query for an assignment's monitor rows.
 
+**The Admin's readings (R5).** `getAdminOverview`, `getAdminSummary` and `getUsage` (`modules/dashboard`, all read-only, no migration) count the whole centre under no scope: the caller's keys decide which sections are read at all, and a section a key does not open is `null` and costs no query. A day is a local date in `APP_TIMEZONE`: the chart is today and the thirteen days before it with a zero for a day with no row in `user_activity_days`, its average the mean of students plus staff rounded half up, and "this week" the seven days ending today. A student is a student target of `app.student_like_roles` and a teacher is every other account, an Admin and a custom role included; the chart's "staff" is the same partition. `people.teachers` and `usage.teachers` count the enabled teachers, `people.teachersDisabled` the disabled ones, and a seat is an account that is not disabled; `people.total` and `people.students` still count disabled accounts, as the Users tabs do. The enabled accounts fall into the first of must change password, never signed in (DG-54). The plan is `PLAN_NAME`, `PLAN_RENEWS_ON`, `PLAN_SEAT_LIMIT`, `PLAN_TEACHER_LIMIT`, `PLAN_MEDIA_BYTES` and `PLAN_IMPORT_BYTES`, each optional, validated at start-up and never enforced (DG-55); a meter at 80% of its limit adds the Overview's storage row. The AI figures, the credit-request row and `aiCredits`, come through the AI module's own `AdminCredits` query for a holder of `ai.credits.manage` and are null while the assistant is off. `attention[].detail` carries the facts a row quotes, not a sentence, so the web words each row in the reader's language.
+
 ### 13.9 Maintenance windows
 
 `app.maintenance_windows (id, starts_at, ends_at, created_at, created_by, cancelled_at)` (migration `00053`, `docs/plan/20-data-model.md` §27).
@@ -3302,6 +3309,15 @@ DELETE /admin/users/:id                 a disabled student only, else 409 RESOUR
                                           403 FORBIDDEN when the subset rule refuses,
                                           409 RESOURCE_REFERENCED {referencedBy}
 POST   /admin/docs-session              opens the API reference for fifteen minutes (§5.5)
+
+# admin: readings (R5, T-R5.18); a section is null without its key
+GET    /admin/overview                  (workspace.admin) → {organizationName, people|null, classes|null, dailyActive|null,
+                                          attention, recentChanges|null, storage|null}: people and dailyActive need
+                                          people.users.manage, classes scope.all, recentChanges system.audit.read, storage
+                                          system.settings.write; attention rows with a count of zero are left out
+GET    /admin/summary                   (workspace.admin) → {mustChangePassword|null}: null without people.users.manage
+GET    /admin/usage                     (system.settings.write) → {plan|null, seats, teachers, media, imports, attemptsKept,
+                                          aiCredits|null}: each limit is null when its PLAN_* variable is unset
 
 # admin: AI credits (ai.credits.manage)
 GET    /admin/ai/credits                → {month, pool, daysToGo, onPace, withinPool, allowances, active, idle,

@@ -40,7 +40,7 @@ func loadWith(t *testing.T, env map[string]string) (config.Config, error) {
 		"DOCS_PUBLIC":            "",
 		"APP_ENV":                "",
 	}
-	for _, name := range slices.Concat(aiVariables, emailVariables) {
+	for _, name := range slices.Concat(aiVariables, emailVariables, planVariables) {
 		base[name] = ""
 	}
 	for k, v := range env {
