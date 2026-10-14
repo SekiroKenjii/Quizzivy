@@ -756,6 +756,15 @@ describe("sign-in: the password", () => {
     expect(card.getByText("Mật khẩu").parentElement).toHaveTextContent(/^Mật khẩu$/);
   });
 
+  it("says when the password was last changed, from the account, and nothing for an account that never has", async () => {
+    const changed = new Date(Date.now() - 3 * 3_600_000).toISOString();
+    open("/app/settings/sign-in", { passwordChangedAt: changed });
+    const card = within(await screen.findByRole("region", { name: "Đăng nhập" }));
+    expect(card.getByText("Mật khẩu").parentElement).toHaveTextContent(
+      /^Mật khẩu\s*Đã đổi 3 giờ trước$/,
+    );
+  });
+
   it("opens both fields with an empty meter, the rule and a button that waits", async () => {
     const user = userEvent.setup();
     open("/app/settings/sign-in");
