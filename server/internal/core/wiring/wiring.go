@@ -120,6 +120,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	return Assembly{
 		Modules: router.Modules{
 			AI:            aiTransport,
+			Audit:         audit(dbx, identityApp, logger),
 			Imports:       importsTransport,
 			Dashboard:     dashboard(dbx, notificationsApp, identityApp),
 			Classes:       classesTransport(classesApp),

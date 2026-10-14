@@ -15,6 +15,8 @@ DELETE /teacher/tests/{id}/versions/{version} content.tests.publish
 GET /admin/ai/credits ai.credits.manage
 GET /admin/api-reference system.api_reference
 GET /admin/api-reference/openapi.json system.api_reference
+GET /admin/audit-log system.audit.read
+GET /admin/audit-log/export system.audit.read
 GET /app/assignments learning.take_tests
 GET /app/assignments/{id} learning.take_tests
 GET /app/attempts/{id} learning.take_tests
