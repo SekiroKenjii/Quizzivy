@@ -630,7 +630,9 @@ export interface paths {
         };
         /**
          * Version history
-         * @description Backs §8's test-detail version history. Spec §15 has no endpoint for this.
+         * @description Backs §8's test-detail version history. Spec §15 has no endpoint for
+         *     this. A test that was never published lists no versions; a missing
+         *     test, or another teacher's, answers 404.
          */
         get: operations["listTestVersions"];
         put?: never;
@@ -745,7 +747,9 @@ export interface paths {
         /**
          * Student-eye preview of a published version
          * @description Renders from the **published version**, not the draft, so what the teacher
-         *     checks is what a student would actually receive (§8).
+         *     checks is what a student would actually receive (§8). A missing test, or
+         *     another teacher's, answers 404; a test without the version asked for, or
+         *     with no current version, answers 409.
          */
         get: operations["previewTest"];
         put?: never;
@@ -8379,6 +8383,7 @@ export interface operations {
                     };
                 };
             };
+            404: components["responses"]["NotFound"];
         };
     };
     deleteTestVersion: {
@@ -8569,6 +8574,7 @@ export interface operations {
                     };
                 };
             };
+            404: components["responses"]["NotFound"];
             /** @description `TEST_NOT_PUBLISHED`. */
             409: {
                 headers: {
