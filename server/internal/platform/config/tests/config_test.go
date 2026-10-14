@@ -3,6 +3,7 @@ package config_test
 import (
 	"bytes"
 	"encoding/base64"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -39,7 +40,7 @@ func loadWith(t *testing.T, env map[string]string) (config.Config, error) {
 		"DOCS_PUBLIC":            "",
 		"APP_ENV":                "",
 	}
-	for _, name := range aiVariables {
+	for _, name := range slices.Concat(aiVariables, emailVariables) {
 		base[name] = ""
 	}
 	for k, v := range env {
