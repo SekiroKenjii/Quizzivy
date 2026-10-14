@@ -1374,8 +1374,13 @@ export interface paths {
          *
          *     An id the caller does not reach answers 404 for the whole request, as
          *     a missing one does. More than 20000 rows answer 422. The response is
-         *     `private, no-store`, and a caller is limited to 10 files a minute and
-         *     60 an hour.
+         *     `private, no-store`.
+         *
+         *     Each caller has two token buckets: 10 files, and 60 files, that refill
+         *     evenly over a minute and over an hour. A file spends one token from
+         *     each, so a caller can fetch 10 files at once and then about one every
+         *     six seconds, up to 60 an hour. A request that finds either bucket empty
+         *     answers 429 `RATE_LIMITED`, with `Retry-After` in seconds.
          */
         get: operations["exportResultsCsv"];
         put?: never;
