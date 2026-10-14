@@ -33,12 +33,18 @@ var (
 	ErrTargetRoleNotAllowed = errors.New("access: role or key outside the caller's own permissions")
 	// ErrStaleWrite means a role moved on since the caller read it.
 	ErrStaleWrite = errors.New("access: role changed since it was read")
+	// ErrRoleLimit means the roles already number MaxRoles, so no custom role
+	// can be added.
+	ErrRoleLimit = errors.New("access: the role limit is reached")
 )
 
-// Limits on a role's text, matching app.roles' CHECKs.
+// Limits on a role's text, matching app.roles' CHECKs, and on how many roles
+// exist: the contract's lists hold at most MaxRoles, the four built-in roles
+// included.
 const (
 	MaxNameLength        = 60
 	MaxDescriptionLength = 300
+	MaxRoles             = 200
 )
 
 // A new custom role's look.
@@ -114,8 +120,8 @@ type RoleTx interface {
 	// LockShared reads one role and its grants and holds its grants still
 	// while the transaction lasts, or returns ErrRoleNotFound.
 	LockShared(ctx context.Context, id string) (RoleRow, error)
-	// Insert adds a custom role with the default look and returns its id, or
-	// ErrNameTaken.
+	// Insert adds a custom role with the default look and returns its id,
+	// ErrNameTaken, or ErrRoleLimit when MaxRoles roles exist.
 	Insert(ctx context.Context, role NewRole) (string, error)
 	// Update changes a role's text and look and moves its revision, or returns
 	// ErrNameTaken.

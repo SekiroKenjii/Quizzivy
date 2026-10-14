@@ -133,6 +133,7 @@ func TestACommandWithBadInputOpensNoTransaction(t *testing.T) {
 	by := adminCaller()
 	ctx := context.Background()
 	blank, long, text := "  ", strings.Repeat("a", 61), strings.Repeat("d", 301)
+	invisible, broken := "Tổ\u200bchấm", "Tổ\nchấm"
 	var changes []domain.GrantChange
 	for range command.MaxGrantChanges + 1 {
 		changes = append(changes, domain.GrantChange{RoleID: "role-custom", Key: access.TeachingGrading, Granted: true})
@@ -150,6 +151,23 @@ func TestACommandWithBadInputOpensNoTransaction(t *testing.T) {
 			_, err := app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: long, Description: text})
 			return err
 		}, []string{"name", "description"}},
+		{"a name with a zero-width space", func() error {
+			_, err := app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: invisible})
+			return err
+		}, []string{"name"}},
+		{"a name that is only a zero-width space", func() error {
+			_, err := app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: "\u200b"})
+			return err
+		}, []string{"name"}},
+		{"a name with a line break", func() error {
+			_, err := app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: broken})
+			return err
+		}, []string{"name"}},
+		{"an update to a name with a line separator", func() error {
+			name := "Tổ\u2028chấm"
+			_, err := app.Commands.UpdateRole.Handle(ctx, command.UpdateRole{By: by, ID: "role-custom", Expected: 3, Name: &name})
+			return err
+		}, []string{"name"}},
 		{"an update that changes nothing named", func() error {
 			_, err := app.Commands.UpdateRole.Handle(ctx, command.UpdateRole{By: by, ID: "role-custom", Expected: 3})
 			return err
@@ -208,6 +226,29 @@ func TestACreatedRoleIsTrimmedCopiedAndAudited(t *testing.T) {
 	}
 	if !strings.Contains(string(store.audits[0].Diff), `"copiedFrom":"role-teacher"`) {
 		t.Errorf("the audit diff %s does not name the source", store.audits[0].Diff)
+	}
+}
+
+func TestANameIsStoredComposedWhateverFormItArrivesIn(t *testing.T) {
+	decomposed, composed := "Gia\u0301o vie\u0302n", "Giáo viên"
+	if decomposed == composed {
+		t.Fatal("the fixture is not decomposed")
+	}
+	store := newMemoryStore(t, rowAdmin, rowCustom)
+	app := roleApp(t, store)
+	by := adminCaller()
+	ctx := context.Background()
+	if _, err := app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: " " + decomposed + " ", Description: "Mô ta\u0309"}); err != nil {
+		t.Fatal(err)
+	}
+	if len(store.created) != 1 || store.created[0].Name != composed || store.created[0].Description != "Mô tả" {
+		t.Errorf("inserted %+v, want the name %q and the description composed", store.created, composed)
+	}
+	if _, err := app.Commands.UpdateRole.Handle(ctx, command.UpdateRole{By: by, ID: "role-custom", Expected: 3, Name: &decomposed}); err != nil {
+		t.Fatal(err)
+	}
+	if got := store.edits[len(store.edits)-1]; got.Name == nil || *got.Name != composed {
+		t.Errorf("the edit wrote the name %v, want %q", got.Name, composed)
 	}
 }
 

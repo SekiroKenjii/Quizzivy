@@ -1,9 +1,9 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.111 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.112 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
-**Changes since v0.110**
+**Changes since v0.111**
 
 R5, T-R5.15 (data export, no screen yet).
 
@@ -11,6 +11,13 @@ R5, T-R5.15 (data export, no screen yet).
 - §13 `app.data_exports` (`00134_create_data_exports.sql`): one row for each request. A partial unique index allows one export queued or running in the whole centre, so two Admins asking at once cannot both build a ZIP of everyone's data. The ZIP stays in the private import bucket at `exports/{id}.zip` for 24 hours and is fetched once, by its requester, from the app page the email links to; nothing in the email or the table is a credential.
 - The worker builds the ZIP from one `REPEATABLE READ`, read-only snapshot, so every file describes the same moment: `users.csv` (no hashes or tokens), `roles.csv`, `classes.csv` (no join codes), `class_members.csv`, `tests.csv`, `test_versions.csv`, `assignments.csv`, `attempts.csv` (no session or beacon secrets), `answers.csv` when asked, and a `README.txt` in Vietnamese then English that describes every column. Every CSV streams through `platform/tabular` (byte-order mark, CRLF, a cell that begins `=`, `+`, `-` or `@` is prefixed with `'`), so memory stays bounded: 50,000 attempts and 50,000 answers grew the live heap by 8 MiB. A claim lasts 30 minutes, a build is cut off after 25, and an export interrupted three times is failed with `WORKER_INTERRUPTED`. A failure records a code, never a message, and sends nothing.
 - The audit log gains `data_export.requested` and `data_export.downloaded` (entity `data_export`, listed under All only), with their `vi` and `en` sentences.
+
+**Changes since v0.110**
+
+R5, T-R5.8 (QC follow-up on the roles API).
+
+- §15 `createRole` and `updateRole` store a name and a description in Unicode NFC, so the composed and decomposed forms of one name are one name, and refuse a name that holds a line break or a control, format, line- or paragraph-separator character. At most 200 roles exist, the built-in four included; `createRole` past that answers `422 ROLE_LIMIT_REACHED`. `AssignableRole.studentTarget` says a custom role with no permission is a student target. The role operations promise propagation to another machine "within about ten seconds".
+- §13 Advisory lock `(73819, 44)` serialises role creation against the limit (`docs/plan/20-data-model.md` §28).
 
 **Changes since v0.109**
 
