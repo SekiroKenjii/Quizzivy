@@ -1,9 +1,9 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.112 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.113 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
-**Changes since v0.111**
+**Changes since v0.112**
 
 R5, T-R5.5 to T-R5.7 (organization settings, logo and sign-in policy), and the QC pass over them.
 
@@ -12,6 +12,13 @@ R5, T-R5.5 to T-R5.7 (organization settings, logo and sign-in policy), and the Q
 - §13.5 `app.organization_settings`, one row (`00130_create_organization_settings.sql`): the app role may read and update it and cannot insert or delete it.
 - §5.6 A name holds no line break, control or invisible character; a website is a domain or an `https` address without credentials; a contact email is an address with a domain; a save that changes nothing writes nothing and keeps its revision.
 - §5.6, §12 The organization logo is stored and served as a PNG only (D-019). The server answers an SVG with `415 MEDIA_TYPE_UNSUPPORTED`; the settings page draws an SVG the Admin picks to a 1024 x 1024 canvas in the browser and uploads that PNG. The `svg` logo type, `branding/{sha256}.svg` and the sandbox header for SVG are gone.
+
+**Changes since v0.111**
+
+R5, T-R5.8 (second QC follow-up on the roles API: QC-X-13, QC-X-14).
+
+- §15 `createRole` and `updateRole` refuse a name that has no letter, digit, punctuation mark or symbol (a lone combining accent, a variation selector), and, in a name or a description, any character that is not graphic: a control, format, line- or paragraph-separator, private-use or unassigned code point, and the blank fillers the Hangul filler, its two jamo forms, the halfwidth filler and the Braille blank. A description may still hold line breaks, as the Edit role dialog's text area sends them. The refusal names the first offending code point in `details`.
+- §15 The 60 characters of a name and the 300 of a description count the text after NFC. The schema's own bound on the text as sent is four times that (240 and 1200), so a name typed decomposed is no longer refused before it is composed.
 
 **Changes since v0.110**
 

@@ -3,6 +3,8 @@ package command
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -83,19 +85,48 @@ func tidy(s string) string {
 }
 
 func hidden(r rune) bool {
-	return unicode.In(r, unicode.Cc, unicode.Cf, unicode.Zl, unicode.Zp)
+	return !unicode.IsGraphic(r) || blank(r)
+}
+
+func blank(r rune) bool {
+	switch r {
+	case '\u115f', '\u1160', '\u2800', '\u3164', '\uffa0':
+		return true
+	}
+	return false
+}
+
+func visible(r rune) bool {
+	return unicode.In(r, unicode.L, unicode.N, unicode.P, unicode.S)
+}
+
+func firstHidden(s string, allowed ...rune) (rune, bool) {
+	for _, r := range s {
+		if hidden(r) && !slices.Contains(allowed, r) {
+			return r, true
+		}
+	}
+	return 0, false
+}
+
+func hiddenMessage(r rune) string {
+	return fmt.Sprintf("must not contain line breaks, control or invisible characters (found U+%04X)", r)
 }
 
 func checkName(refused *validation.Error, name string) {
 	if n := utf8.RuneCountInString(name); n < 1 || n > domain.MaxNameLength {
 		refused.Add("name", "must be between 1 and 60 characters")
-	} else if strings.ContainsFunc(name, hidden) {
-		refused.Add("name", "must not contain line breaks, control or invisible characters")
+	} else if r, found := firstHidden(name); found {
+		refused.Add("name", hiddenMessage(r))
+	} else if !strings.ContainsFunc(name, visible) {
+		refused.Add("name", "must contain a letter, a digit, a punctuation mark or a symbol")
 	}
 }
 
 func checkDescription(refused *validation.Error, description string) {
 	if utf8.RuneCountInString(description) > domain.MaxDescriptionLength {
 		refused.Add("description", "must be at most 300 characters")
+	} else if r, found := firstHidden(description, '\n'); found {
+		refused.Add("description", hiddenMessage(r))
 	}
 }

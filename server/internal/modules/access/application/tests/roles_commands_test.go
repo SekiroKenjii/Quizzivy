@@ -163,6 +163,60 @@ func TestACommandWithBadInputOpensNoTransaction(t *testing.T) {
 			_, err := app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: broken})
 			return err
 		}, []string{"name"}},
+		{"a name that is only the Hangul filler", func() error {
+			_, err := app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: "\u3164"})
+			return err
+		}, []string{"name"}},
+		{"a name that is only the Braille blank", func() error {
+			_, err := app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: "\u2800"})
+			return err
+		}, []string{"name"}},
+		{"a name that is only a Hangul choseong filler", func() error {
+			_, err := app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: "\u115f"})
+			return err
+		}, []string{"name"}},
+		{"a name that is only a combining accent", func() error {
+			_, err := app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: "\u0301"})
+			return err
+		}, []string{"name"}},
+		{"a name that is only a variation selector", func() error {
+			_, err := app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: "\ufe0f"})
+			return err
+		}, []string{"name"}},
+		{"a name with a Hangul filler beside letters", func() error {
+			_, err := app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: "Tổ\u3164chấm"})
+			return err
+		}, []string{"name"}},
+		{"a name with a private-use character", func() error {
+			_, err := app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: "Tổ\ue000chấm"})
+			return err
+		}, []string{"name"}},
+		{"a name with a non-character", func() error {
+			_, err := app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: "Tổ\ufffechấm"})
+			return err
+		}, []string{"name"}},
+		{"an update to a name that is only a combining accent", func() error {
+			name := "\u0301"
+			_, err := app.Commands.UpdateRole.Handle(ctx, command.UpdateRole{By: by, ID: "role-custom", Expected: 3, Name: &name})
+			return err
+		}, []string{"name"}},
+		{"a name of 61 characters typed decomposed", func() error {
+			_, err := app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: strings.Repeat("e\u0323\u0302", 61)})
+			return err
+		}, []string{"name"}},
+		{"a description with a zero-width space", func() error {
+			_, err := app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: "Mới", Description: "Chấm\u200bbài"})
+			return err
+		}, []string{"description"}},
+		{"a description with a tab", func() error {
+			_, err := app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: "Mới", Description: "Chấm\tbài"})
+			return err
+		}, []string{"description"}},
+		{"an update to a description with a line separator", func() error {
+			text := "Chấm\u2028bài"
+			_, err := app.Commands.UpdateRole.Handle(ctx, command.UpdateRole{By: by, ID: "role-custom", Expected: 3, Description: &text})
+			return err
+		}, []string{"description"}},
 		{"an update to a name with a line separator", func() error {
 			name := "Tổ\u2028chấm"
 			_, err := app.Commands.UpdateRole.Handle(ctx, command.UpdateRole{By: by, ID: "role-custom", Expected: 3, Name: &name})
@@ -249,6 +303,54 @@ func TestANameIsStoredComposedWhateverFormItArrivesIn(t *testing.T) {
 	}
 	if got := store.edits[len(store.edits)-1]; got.Name == nil || *got.Name != composed {
 		t.Errorf("the edit wrote the name %v, want %q", got.Name, composed)
+	}
+}
+
+func TestANameIsMeasuredAfterItIsComposedAndNeedsAGlyph(t *testing.T) {
+	store := newMemoryStore(t, rowAdmin, rowCustom)
+	app := roleApp(t, store)
+	by := adminCaller()
+	ctx := context.Background()
+	names := []string{strings.Repeat("e\u0323\u0302", 60), "\u2764\ufe0f", "2026", "\u2014", "Tổ 1 & 2"}
+	for _, name := range names {
+		if _, err := app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: name}); err != nil {
+			t.Errorf("name %q: %v, want it accepted", name, err)
+		}
+	}
+	if len(store.created) != len(names) {
+		t.Fatalf("%d roles were inserted, want %d", len(store.created), len(names))
+	}
+	if want := strings.Repeat("ệ", 60); store.created[0].Name != want {
+		t.Errorf("a 60-character name typed decomposed was stored as %q, want %q", store.created[0].Name, want)
+	}
+}
+
+func TestADescriptionMayHoldLineBreaks(t *testing.T) {
+	store := newMemoryStore(t, rowAdmin, rowCustom)
+	app := roleApp(t, store)
+	by := adminCaller()
+	ctx := context.Background()
+	text := "Dòng một\nDòng hai"
+	if _, err := app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: "Mới", Description: text}); err != nil {
+		t.Fatal(err)
+	}
+	if len(store.created) != 1 || store.created[0].Description != text {
+		t.Errorf("inserted %+v, want the description %q kept", store.created, text)
+	}
+	if _, err := app.Commands.UpdateRole.Handle(ctx, command.UpdateRole{By: by, ID: "role-custom", Expected: 3, Description: &text}); err != nil {
+		t.Errorf("an update to a description with a line break: %v", err)
+	}
+}
+
+func TestARefusedNameSaysWhichCharacterIsInvisible(t *testing.T) {
+	app := roleApp(t, newMemoryStore(t, rowAdmin, rowCustom))
+	_, err := app.Commands.CreateRole.Handle(context.Background(), command.CreateRole{By: adminCaller(), Name: "Tổ\u200dchấm"})
+	var invalid *validation.Error
+	if !errors.As(err, &invalid) || len(invalid.Fields) != 1 {
+		t.Fatalf("error = %v, want a validation error on one field", err)
+	}
+	if got := invalid.Fields[0].Message; !strings.Contains(got, "U+200D") {
+		t.Errorf("the message %q does not name U+200D", got)
 	}
 }
 
