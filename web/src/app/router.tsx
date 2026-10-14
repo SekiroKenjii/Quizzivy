@@ -34,6 +34,10 @@ const authTree: RouteObject = {
       lazy: page(() => import("@/features/auth/pages/ForgotPasswordPage")),
     },
     {
+      path: "set-password",
+      lazy: page(() => import("@/features/auth/pages/SetPasswordPage")),
+    },
+    {
       path: "auth/google/callback",
       lazy: page(() => import("@/features/auth/pages/GoogleCallbackPage")),
     },

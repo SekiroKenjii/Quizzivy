@@ -380,6 +380,8 @@
       "user.google_linked": "Linked a Google account",
       "user.google_unlinked": "Unlinked a Google account",
       "user.password_changed": "Changed a password",
+      "user.password_link_requested": "Asked for a set-password link",
+      "user.password_set": "Set a password from a link",
       "user.preferences_updated": "Updated personal preferences",
       "user.profile_updated": "Updated a profile",
       "user.renamed": "Renamed an account"
@@ -612,6 +614,31 @@
       "numberOrSymbol": "The new password needs a number or a symbol.",
       "mismatch": "The two passwords are different.",
       "unchanged": "The new password must be different from the current one."
+    }
+  },
+  "setPassword": {
+    "checking": "Checking the link…",
+    "title": "Set a password for {{email}}",
+    "body": {
+      "invite": "Hi {{name}}. Choose a password only you know. Once it is saved, you are signed in.",
+      "reset": "Hi {{name}}. Choose a new password only you know. Once it is saved, you are signed in and your other devices are signed out."
+    },
+    "submit": "Set password and sign in",
+    "submitting": "Saving…",
+    "toSignIn": "Go to sign in",
+    "invalid": {
+      "title": "This link can no longer be used",
+      "body": "This link has expired or has already been used. Ask your centre for a new one."
+    },
+    "passwordsOff": {
+      "title": "Sign in with Google",
+      "body": "Your centre has turned off signing in with a password, so there is no password to set. Sign in with Google using your email address instead."
+    },
+    "unavailable": {
+      "title": "The link could not be checked"
+    },
+    "errors": {
+      "tooLong": "A password can be at most 512 characters."
     }
   },
   "login": {
@@ -887,7 +914,14 @@
     "googleLinked": "Linked to Google.",
     "googleNotLinked": "Not linked to Google.",
     "googleOnlyExplainer": "Google is currently the only way into this account. Set a password before unlinking.",
-    "googleOnlyTeacher": "You sign in with Google only, so Google cannot be unlinked yet.",
+    "googleNoPassword": "This account has no password yet, so Google cannot be unlinked. Set a password to have a second way to sign in.",
+    "googleOnlyPasswordsOff": "You sign in with Google only, so Google cannot be unlinked yet.",
+    "setPasswordLink": {
+      "send": "Email me a link to set a password",
+      "sendAgain": "Send the link again",
+      "sending": "Sending…",
+      "sent": "We sent a link to {{email}}. It works once and expires in 24 hours."
+    },
     "linkGoogle": "Link Google",
     "unlinkGoogle": "Unlink Google",
     "locale": {
