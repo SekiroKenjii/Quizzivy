@@ -19,10 +19,11 @@ type Blank struct {
 	Accepted []string
 }
 
-// PaperQuestion is one question of a test's draft with everything the assistant may read of it and nothing about a student. Number is its place in the draft, from 1. Passage is the plain text of the shared material of its group, empty for a question with none. OrderFixed says its options may not be reordered because a group's labels depend on them. Rich says the prompt, an option or the explanation holds more than plain paragraphs, so a rewrite of its text would lose what the text carries and is not proposed.
+// PaperQuestion is one question of a test's draft with everything the assistant may read of it and nothing about a student. Number is its place in the draft, from 1, counting a group's members one by one in the order the builder shows them. GroupID names the group the question is a member of, and is empty for a standalone question. Passage is the plain text of the shared material of its group, empty for a question with none. OrderFixed says its options may not be reordered because a group's labels depend on them. Rich says the prompt, an option or the explanation holds more than plain paragraphs, so a rewrite of its text would lose what the text carries and is not proposed.
 type PaperQuestion struct {
 	ID          string
 	Number      int
+	GroupID     string
 	Type        string
 	Prompt      string
 	Explanation string
