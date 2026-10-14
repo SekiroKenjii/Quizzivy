@@ -56,9 +56,7 @@ func TestAWorksheetOverTheSizeLimitIsRefusedBeforeItIsParsed(t *testing.T) {
 
 			allocated := allocatedDuring(func() { _, _, err = read(t, data, tabular.FormatXLSX, tabular.DefaultLimits()) })
 
-			if !errors.Is(err, tabular.ErrTooLarge) {
-				t.Fatalf("err = %v, want ErrTooLarge", err)
-			}
+			wantSizeError(t, err, tabular.ErrSheetTooLarge)
 			if allocated > 8<<20 {
 				t.Errorf("refusing it allocated %d bytes, want the parsing it would have cost left undone", allocated)
 			}
@@ -335,9 +333,9 @@ func TestAWorksheetCannotBeHiddenUnderAnotherPartName(t *testing.T) {
 		part   string
 		want   error
 	}{
-		"an unusual extension": {"data/rows.dat", "xl/data/rows.dat", tabular.ErrEmpty},
-		"a media name":         {"media/image1.png", "xl/media/image1.png", tabular.ErrEmpty},
-		"an xml part":          {"drawings/drawing1.xml", "xl/drawings/drawing1.xml", tabular.ErrTooLarge},
+		"an unusual extension": {"data/rows.dat", "xl/data/rows.dat", tabular.ErrLayout},
+		"a media name":         {"media/image1.png", "xl/media/image1.png", tabular.ErrLayout},
+		"an xml part":          {"drawings/drawing1.xml", "xl/drawings/drawing1.xml", tabular.ErrPartTooLarge},
 	} {
 		t.Run(name, func(t *testing.T) {
 			data := archiveRaw(t, hidden(tc.target), nestedWorksheet(t, tc.part, 6))
@@ -413,9 +411,8 @@ func TestNoTemporaryFileIsEverNeeded(t *testing.T) {
 	}
 
 	over := workbook(t, denseSheetRows(2001, 17<<20), nil)
-	if _, _, err := read(t, over, tabular.FormatXLSX, tabular.DefaultLimits()); !errors.Is(err, tabular.ErrTooLarge) {
-		t.Errorf("a 17 MiB sheet: err = %v, want ErrTooLarge", err)
-	}
+	_, _, err = read(t, over, tabular.FormatXLSX, tabular.DefaultLimits())
+	wantSizeError(t, err, tabular.ErrSheetTooLarge)
 	if left, _ := os.ReadDir(tmp); len(left) != 0 {
 		t.Errorf("%d temporary files left by a sheet that was refused", len(left))
 	}
@@ -433,4 +430,77 @@ func denseSheetRows(rows, bytes int) string {
 		sheet.WriteString(row(r, cells...))
 	}
 	return sheet.String()
+}
+
+func TestAQuoteInACommentCdataOrInstructionIsNotATagAttribute(t *testing.T) {
+	constructs := map[string]string{
+		"a comment with an apostrophe":                   `<!-- teacher's file -->`,
+		"a comment with a double quote":                  `<!-- a 5" ruler -->`,
+		"a comment with a closing angle":                 `<!-- a > b -->`,
+		"cdata with an apostrophe":                       `<![CDATA[Nguyen's class]]>`,
+		"cdata with a double quote":                      `<![CDATA[a " b]]>`,
+		"cdata with a closing angle":                     `<![CDATA[a > b]]>`,
+		"an instruction with an apostrophe":              `<?note it's here?>`,
+		"an instruction with a closing angle":            `<?note a > b?>`,
+		"a comment with single dashes and a quote":       `<!-- it's - fine - ok -->`,
+		"no space after the comment opener":              `<!--it's-->`,
+		"an arrow inside a comment":                      `<!-- x -> <b a=' -->`,
+		"a bracket inside cdata":                         `<![CDATA[ x]> <b a=']]>`,
+		"a closing angle then a quote in an instruction": `<?note x > <b a='?>`,
+		"a comment then another with a quote":            `<!-- a --><!-- it's -->`,
+		"a comment then cdata with a quote":              `<!-- a --><![CDATA[it's]]>`,
+		"several in a row":                               `<!-- a'b --><![CDATA[c'd]]><?x e'f?><!-- g'h --><![CDATA[']]><?y "?>`,
+	}
+	for name, construct := range constructs {
+		t.Run(name, func(t *testing.T) {
+			data := workbook(t, construct+rosterRows(1500), nil)
+
+			_, rows, err := read(t, data, tabular.FormatXLSX, tabular.DefaultLimits())
+
+			if err != nil || len(rows) != 1500 {
+				t.Errorf("rows = %d, err = %v, want the 1500 rows read", len(rows), err)
+			}
+		})
+	}
+}
+
+func TestATagAfterACommentCdataOrInstructionIsStillHeldToTheLimit(t *testing.T) {
+	long := `<c ` + strings.Repeat(`a="" `, 1<<20/5*8/5) + `/>`
+	for name, construct := range map[string]string{
+		"a comment":                      `<!-- it's -->`,
+		"cdata":                          `<![CDATA[it's]]>`,
+		"an instruction":                 `<?note it's?>`,
+		"a lone quote in a comment":      `<!-- " -->`,
+		"a lone quote in cdata":          `<![CDATA[']]>`,
+		"a lone quote in an instruction": `<?note "?>`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			data := workbook(t, row(1, text("A1", "name"))+`<row r="2">`+construct+long+`</row>`, nil)
+			var err error
+
+			allocated := allocatedDuring(func() { _, _, err = read(t, data, tabular.FormatXLSX, tabular.DefaultLimits()) })
+
+			if !errors.Is(err, tabular.ErrFormat) {
+				t.Fatalf("err = %v, want ErrFormat", err)
+			}
+			if allocated > 8<<20 {
+				t.Errorf("refusing it allocated %d bytes", allocated)
+			}
+		})
+	}
+}
+
+func TestAnUnterminatedCommentOrCdataIsAnError(t *testing.T) {
+	for name, construct := range map[string]string{
+		"a comment": `<!-- it's never closed ` + rosterRows(1500),
+		"cdata":     `<![CDATA[it's never closed ` + rosterRows(1500),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, _, err := read(t, workbook(t, construct, nil), tabular.FormatXLSX, tabular.DefaultLimits())
+
+			if !errors.Is(err, tabular.ErrFormat) {
+				t.Errorf("err = %v, want ErrFormat", err)
+			}
+		})
+	}
 }
