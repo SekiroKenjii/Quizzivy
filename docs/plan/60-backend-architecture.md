@@ -135,10 +135,20 @@ the "one package per feature" layout AGENTS.md described until then.
   `EscapeCell` prefixes an apostrophe to a cell a spreadsheet would run as a
   formula, and the `CSV` writer passes every cell through it after a
   byte-order mark, CRLF-ended. A transport that exports builds its file with it
-  and nothing else; R5 adds XLSX to the package. A time in such a file is
+  and nothing else; `core/tests/csv_writers_test.go` fails when any other
+  package builds a `csv.Writer`. A time in such a file is
   written in the caller's own zone, which attempts reads through its
   `ports.Zones`, the way dashboard does, wired from identity's
   `EffectiveZone` in `core/wiring`.
+- **A table that enters the product is read by `tabular.ReadTable`** (T-R5.13),
+  for CSV and for the first sheet of an XLSX workbook, under `Limits` (file
+  bytes, rows, columns, characters a cell). The workbook is inspected with
+  `archive/zip` before excelize opens it, because excelize reads every part it
+  is handed into memory and decodes several whole: it refuses more than 1,000
+  entries, more than 32 MiB expanded, an XML part other than a worksheet above
+  1 MiB (2 MiB for the shared strings), macros and a password. Formulas are
+  never evaluated. The caller closes the `Table`, which removes the temporary
+  files excelize writes for a sheet above 16 MiB.
 - **core is five packages.** `core/wiring` builds each module (one file per
   module, in dependency order) and returns the `Assembly`; `core/router`
   fronts the transports with the generated strict server, the middleware
