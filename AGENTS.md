@@ -415,7 +415,10 @@ those tests are about what the browser does, and the server's behaviour is
 covered by Go tests against a real Postgres. The live suite exists for claims
 that are about the two halves meeting: E2E 1a uploads a real mp3 so §11.1's
 sniff, size check and duration probe run rather than being mocked. Adding a case
-there needs a reason of that kind; the default is `pnpm e2e`.
+there needs a reason of that kind; the default is `pnpm e2e`. A live spec that
+waits on real time (E2E 5's one-minute deadline) is in the `slow` project
+instead, `pnpm e2e:slow`, which the Slow tail workflow runs nightly and on a pull
+request into `main` (`docs/setup/ci.md`).
 
 It needs `make up`, `make migrate`, `make seed`, and the API on :8080 with
 `http://localhost:4173` in `CORS_ALLOWED_ORIGINS`. Kill any leftover `vite

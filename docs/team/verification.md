@@ -65,6 +65,7 @@ Run from the repository root; `web` commands as `pnpm --dir web ...`.
 | 14 | E2E, API stubbed | `pnpm e2e` (`chromium` and `mobile-chromium` projects, production build on 4173) | end-to-end | Chromium at `/opt/pw-browsers` | PR, V, Rel | CI; tester |
 | 15 | Content editor prototype | `pnpm e2e:content` | end-to-end | Chromium | PR, V when the editor changed, Rel | CI; tester |
 | 16 | E2E, live API | `pnpm e2e:live` | live | section 7.3 | PR, V when take-test, imports, auth, join or media changed, Rel (mandatory in R4: join codes, imports and the start path changed) | CI; tester |
+| 16b | E2E, waits on real time | `pnpm e2e:slow` (E2E 5, a real one-minute deadline) | live | section 7.3, without MinIO or the import worker | V when the take-test timer, auto-submit or the attempt deadline rule changed; Rel (CI runs it nightly and on a pull request into `main`: `docs/setup/ci.md`, "The slow tail") | CI slow tail; tester |
 | 17 | Deck pinned | `node scripts/check-design-deck.mjs` | static | | PR (Deck job), Rel | CI |
 
 "Tests run" is judged by exit code **and** by the count: a Go package whose tests

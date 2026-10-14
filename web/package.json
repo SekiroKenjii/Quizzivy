@@ -20,6 +20,7 @@
     "test:watch": "vitest",
     "e2e": "playwright test --project=chromium --project=mobile-chromium",
     "e2e:live": "playwright test --project=live --workers=1",
+    "e2e:slow": "playwright test --project=slow --workers=1",
     "e2e:ui": "playwright test --ui",
     "test:unit": "vitest run tests/units",
     "test:integration": "vitest run tests/integration",

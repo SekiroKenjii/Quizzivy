@@ -124,6 +124,13 @@ suite needs.
   hold 501, 426 and 559 s of file time against 634 and 851 s for two. A fourth
   would leave Server tests (7 min 9 s) and E2E (live API) (6 min 21 s) as the
   longest jobs, so three is where it stops.
+- **E2E 5 waits for a real deadline, so it runs in the slow tail.** The fixture's
+  one-minute timer is the shortest expiry the product can express, and the spec
+  waits it out: 60 s of the 273 s the 16 live specs took in one local run, the
+  largest single item. It is the `slow` Playwright project, `pnpm e2e:slow`, and
+  not part of `pnpm e2e:live` (see "The slow tail"). Re-authoring a paper through
+  the builder, which the audio specs do, costs 5 to 8 s of UI per spec and about 2
+  s to assign it, 16 s in all, so no seeding helper is worth its upkeep.
 - **A skipped test fails Plan.** `scripts/ci/tests/skipped-tests.test.mjs` fails
   on a web test that is skipped, todo, fixme, expected to fail or focused, and on
   a Go `t.Skip` whose message neither names the variable it waits for (`TEST_*`,
@@ -132,6 +139,38 @@ suite needs.
   word.
 - **Playwright retries twice.** A flaky test therefore passes: search the job log
   for `flaky` and treat each as a finding (`docs/team/verification.md`).
+
+## The slow tail
+
+`.github/workflows/slow-tail.yml` runs the specs of the `slow` Playwright
+project, which holds one spec today: E2E 5, `timer-expiry.live.spec.ts`. It is a
+workflow of its own, not a job of CI, so it is not a `needs` of CI result, no
+branch rule requires it, and the planner's markers do not apply to it.
+
+It runs:
+
+- every night at 19:00 UTC (02:00 in Ho Chi Minh City), against `develop`;
+- on every pull request into `main`, which is the release gate: read its check,
+  **E2E (waits on real time)**, before merging a release, because nothing makes
+  it block the merge;
+- by hand from the Actions tab, with a branch, tag or commit to test.
+
+GitHub starts a schedule, and offers a manual run, only from the copy of the file
+on the default branch, which is `main`, so the nightly and the manual run begin
+with the first release that carries the file. The pull request trigger works from
+that release's own pull request. A failed scheduled run notifies whoever last
+changed the cron line.
+
+A spec belongs here only when its wait is real time that cannot be faked, a
+deadline or a time-to-live, and each half is proved elsewhere on every pull
+request: for E2E 5 the engine's timeout in `take-test/deadline.test.ts` and
+`integrity/auto-submit.test.tsx`, and the server's deadline in the attempts
+`timeout_test.go`. To move a spec, add its file to `SLOW` in
+`web/playwright.config.ts`, which keeps it out of `live` and puts it in `slow`.
+
+No Go test moved. On a local run the integration tier took 147 s in all, its
+slowest test took 24.6 s (the legacy `/admin/*` alias test, which goes with
+T-R5.36) and the next 13.1 s, so a Go tag would move about a tenth of the tier.
 
 ## When a job needs a file outside its set
 
