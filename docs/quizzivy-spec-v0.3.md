@@ -1,9 +1,9 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.110 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.111 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
-**Changes since v0.109**
+**Changes since v0.110**
 
 R5, T-R5.20 (R5-08): the Admin console's shell and route tree. Its screens are later R5 tasks; each route renders a placeholder until its task lands.
 
@@ -11,6 +11,14 @@ R5, T-R5.20 (R5-08): the Admin console's shell and route tree. Its screens are l
 - §5.4 `homePathFor` sends a built-in Admin (the holder of `scope.all`) to the console in `preferences.workspace` and to `/admin` the first time, any other holder of the `teacher` workspace to `/teacher`, a user with only the `admin` workspace to `/admin`, and anyone else to `/app`.
 - §7, §15 `UserPreferences.workspace` (`teacher` or `admin`), written by `PATCH /me/preferences` when the user switches console; any other value answers `400 VALIDATION_FAILED`. No new operation and no migration: the preferences are one JSON document.
 - §8 The consoles share one shell. The workspace switcher and the account menu gain the Admin console for a holder of both; the Admin menu has System settings, API reference, Teacher workspace, the theme and Sign out, and for a user without the `teacher` workspace also Change password (when the account has one) and Language. `/change-password` asks for the current password when the change is not forced.
+
+**Changes since v0.109**
+
+R5, T-R5.8 (roles and permissions API, no screen yet).
+
+- §15 Five operations under `/admin/roles`: `listRoles` and `createRole`, `updateRole` (`PATCH /admin/roles/:id`), `setRolePermissions` (`PUT /admin/roles/permissions`), all `people.roles.manage`, and `listAssignableRoles` (`people.users.manage`). A role is never deleted (DG-52). Seven new error codes: `ROLE_NAME_TAKEN`, `ROLE_NOT_ASSIGNABLE`, `ROLE_LOCKED`, `STUDENT_NEEDS_TAKE_TESTS`, `KEY_NOT_GRANTABLE`, `CANNOT_ACT_ON_SELF` and `TARGET_ROLE_NOT_ALLOWED`.
+- §5 Every role write is held to the subset rule (`access.CanActOn`): a caller acts only on a role whose permissions, `learning.take_tests` apart, are their own, grants or revokes only keys they hold, and never changes their own role's permissions, except the Admin role's `learning.take_tests` cell. A matrix save is one transaction and refused whole. It and `updateRole` make every cached principal on the machine that served them be read again on its next request.
+- §13.5 The app role may now insert roles, update the columns a role command changes and add and remove grants (`00129_grant_role_writes.sql`). It still cannot delete a role or write `app.permissions`.
 
 **Changes since v0.108**
 
@@ -1476,6 +1484,7 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
 
 - `/docs` and `/docs/openapi.json` are served by the API beside the contract and open only to a holder of `system.api_reference`, a hidden key only the Admin holds (70 §4.1). A browser navigating there sends no bearer token, so they check a separate cookie instead.
 - `POST /admin/docs-session` (`openDocsSession`, `x-permission: system.api_reference`, rate-limited per signed-in user, §6.5) sets `quizzivy_docs`: `Path=/docs; HttpOnly; Secure; SameSite=Strict; Max-Age=900`. Its value is a JWT for the `docs` audience that carries the caller's session epoch, signed with a key derived from the access-token key: a docs token is never accepted as an access token, and an access token never opens the docs.
+- `GET /admin/api-reference` (`getApiReferenceSummary`) and `GET /admin/api-reference/openapi.json` (`downloadOpenApi`), both `x-permission: system.api_reference`, rate-limited per signed-in user and reached with the bearer token, not the docs session, back the console's API reference page. The first reports the embedded contract's OpenAPI and document versions, its operation count and the count under each tag, read once per process; the second downloads the embedded spec as `quizzivy-openapi.json` with `Cache-Control: no-store`. The body is declared as a byte stream so the generated server writes the JSON as it is.
 - The gate resolves the cookie's user through the same principal cache as the API (§5). A missing, tampered or expired cookie, an unknown or disabled user, or a cookie older than the user's session epoch → `401`; a role without `system.api_reference` → `403`, both in the error envelope with no page or contract leaked. `POST /auth/logout` clears `quizzivy_docs` together with the refresh cookie, so signing out also ends an open docs session.
 - The SPA's admin settings open the reference: the new tab is opened synchronously in the click, `opener` is cleared, and only then is the session requested and the tab pointed at `/docs`.
 - `DOCS_PUBLIC=true` skips only the cookie check, for local development. The server refuses to start with it when `APP_ENV=production`; SRI, the page's CSP and the rate limit apply everywhere.
@@ -2957,13 +2966,15 @@ CREATE INDEX ON app.attempt_events (attempt_id, occurred_at);
 
 Use PG18's `OLD`/`NEW` in `RETURNING` to capture the diff in the same statement as the update, rather than a read-then-write.
 
+**Reading the log (R5).** `GET /admin/audit-log` and `GET /admin/audit-log/export` (`system.audit.read`, Admin only) read it through `modules/audit`; no other module reads `audit_log`. An entry's category comes from its `entity` (`domain/categories.go`: six tabs; organization, export, maintenance, retention and AI entries are listed under All only), and its sentence from its `action` (`domain/actions.go`, `vi` and `en`, matched by the same `q` that matches the actor's name or email and the name of the row the entry is about). The tab counts are one `GROUP BY entity` over the search and range, whichever tab is selected. The ranges are calendar days in the viewer's stored zone (`7d` is today and the six days before it). A diff shaped `{field: {old, new}}` is shown as `changes` and any other as `details`; a `code`, `joinCode` or `code_hash` value is shown as its last four characters and `password`, `token` and `secret` keys are dropped, whatever was stored. The export streams CSV or JSON in keyset batches over `audit_log_recent_idx`, refuses more than 100,000 entries with `422 EXPORT_TOO_LARGE`, reads the log as it stood when it began, and is itself audited as `audit.exported` before its first byte. A search runs with a 30-second statement timeout and `jit` off, because the planner's cost for its sub-selects otherwise starts JIT compilation that costs a second. A change to what the server writes (a new `action` or `entity`) fails `modules/audit/domain/tests/catalog_test.go` until `domain/actions.go` or `categories.go` and both locale files list it.
+
 ### 13.5 Security in the data layer
 
 - Refresh tokens stored as SHA-256 hashes: `token_hash`, `family_id`, `user_id`, `expires_at`, `revoked_at`, `replaced_by`, `user_agent`, `ip`, `geo_label` (the place of the request that issued the token, "City, CC", or NULL; R4).
 - Join codes sealed with AES-256-GCM under a key the database never holds, and found by an HMAC-SHA256 of the normalized code under a key derived from it (§13.3). Lookup by hash, compared in constant time. A live code issued before v0.8.0 kept its SHA-256 hash until v0.10.0's start-up rotation replaced it (§6.1); a revoked or expired one keeps it.
 - Passwords: Argon2id (bcrypt cost ≥ 12 if unavailable).
 - `sample_answer`, `transcript`, `is_correct`, and `accepted_answers` must never reach a student response. Enforce with explicit column lists — **no `SELECT *` in student-facing paths.** Add a test that asserts these keys are absent from `GET /app/attempts/:id`.
-- Least-privilege DB roles: the app connects with DML on `app` only, not as owner. Migrations run as a separate role. The app role only reads `permissions`, `roles`, `role_permissions` and `student_like_roles`; R5 grants the role commands' writes. `users_last_admin` is the schema's first `SECURITY DEFINER` function: owned by the migrate role, with `search_path = pg_catalog, app, pg_temp` and EXECUTE revoked from PUBLIC (`docs/plan/20-data-model.md` §30).
+- Least-privilege DB roles: the app connects with DML on `app` only, not as owner. Migrations run as a separate role. The app role only reads `permissions` and `student_like_roles`; on `roles` and `role_permissions` it holds only what the role commands write (`00129_grant_role_writes.sql`: insert roles, update their name, description, icon, colour, revision and `updated_at`, add and remove grants), never `DELETE` on `roles`. `users_last_admin` is the schema's first `SECURITY DEFINER` function: owned by the migrate role, with `search_path = pg_catalog, app, pg_temp` and EXECUTE revoked from PUBLIC (`docs/plan/20-data-model.md` §30).
 
 ### 13.6 PG18 features — use and skip
 
@@ -3263,6 +3274,21 @@ POST   /teacher/ai/bank/cleanup         {checks ⊆ duplicates|tags, language?} 
 GET    /teacher/ai/usage                → {month, used, allowance, left, paused, requests, pending, categories}
 POST   /teacher/ai/credit-requests      {amount 1,000..100,000, reason} → 201 AiCreditRequest; 409 AI_REQUESTS_OFF |
                                           AI_REQUEST_PENDING; 5 an hour
+
+# admin: roles (people.roles.manage unless noted)
+GET    /admin/roles                     → {roles: [{id, builtinKey|null, name, description, icon, color, custom, userCount,
+                                          permissions (without the hidden keys), revision, editable, inProgressAttempts}],
+                                          catalogue: [{key, group, adminLocked}]}
+POST   /admin/roles                     {name 1..60, description ≤300, copyFromRoleId?} → 201 RoleSummary (icon key-round,
+                                          colour gray); 403 TARGET_ROLE_NOT_ALLOWED, 409 ROLE_NAME_TAKEN,
+                                          422 ROLE_NOT_ASSIGNABLE (the Assistant as the source)
+PATCH  /admin/roles/:id                 {name?, description?, icon?, color?, expectedRevision} → RoleSummary; 403
+                                          TARGET_ROLE_NOT_ALLOWED, 409 STALE_WRITE | ROLE_NAME_TAKEN
+PUT    /admin/roles/permissions         {changes: [{roleId, key, granted}] (1..200), expectedRevisions} → {roles}; one
+                                          transaction, refused whole: 403 TARGET_ROLE_NOT_ALLOWED, 409 STALE_WRITE,
+                                          422 ROLE_LOCKED | STUDENT_NEEDS_TAKE_TESTS | KEY_NOT_GRANTABLE | CANNOT_ACT_ON_SELF
+GET    /admin/roles/assignable          (people.users.manage) → [{id, builtinKey|null, name, icon, color, studentTarget}]:
+                                          roles within the caller's own permissions, without the Assistant
 
 # admin
 DELETE /admin/users/:id                 a disabled student only, else 409 RESOURCE_NOT_ARCHIVED;

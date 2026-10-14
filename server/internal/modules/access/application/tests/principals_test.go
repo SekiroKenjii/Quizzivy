@@ -16,14 +16,16 @@ import (
 )
 
 type fakeRepo struct {
-	mu         sync.Mutex
-	users      map[string]domain.PrincipalRow
-	grants     map[string]access.Set
-	catalogue  []access.Key
-	roles      []domain.RoleRow
-	userReads  int
-	grantReads int
-	duringRead func()
+	mu          sync.Mutex
+	users       map[string]domain.PrincipalRow
+	grants      map[string]access.Set
+	catalogue   []access.Key
+	roles       []domain.RoleRow
+	permissions []domain.PermissionRow
+	heads       map[string]domain.Headcount
+	userReads   int
+	grantReads  int
+	duringRead  func()
 }
 
 func (f *fakeRepo) Principal(ctx context.Context, userID string) (domain.PrincipalRow, error) {
@@ -54,6 +56,14 @@ func (f *fakeRepo) Grants(_ context.Context, roleID string) (access.Set, error) 
 func (f *fakeRepo) Catalogue(context.Context) ([]access.Key, error) { return f.catalogue, nil }
 
 func (f *fakeRepo) Roles(context.Context) ([]domain.RoleRow, error) { return f.roles, nil }
+
+func (f *fakeRepo) Permissions(context.Context) ([]domain.PermissionRow, error) {
+	return f.permissions, nil
+}
+
+func (f *fakeRepo) Headcounts(context.Context) (map[string]domain.Headcount, error) {
+	return f.heads, nil
+}
 
 func (f *fakeRepo) reads() (int, int) {
 	f.mu.Lock()

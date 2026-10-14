@@ -16,10 +16,7 @@ const ITEMS = ADMIN_NAV.flatMap((group) => group.items);
 const NOT_IN_THE_CONTRACT_YET = new Map<string, string>([
   ["getAdminOverview", "T-R5.18"],
   ["listUsers", "T-R5.9a"],
-  ["listRoles", "T-R5.8"],
   ["listAllClasses", "T-R5.11"],
-  ["listAuditLog", "T-R5.12"],
-  ["getApiReferenceSummary", "T-R5.19"],
 ]);
 
 function comparable(permission: unknown): string {

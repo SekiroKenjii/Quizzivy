@@ -102,15 +102,23 @@ tags:
       Unauthenticated. Rate-limited per §6.5, and every response is leak-reviewed:
       no class, student or test is enumerable through them.
   - name: auth
+    description: Sign-in, Google sign-in with PKCE, the rotating refresh token, password change and the caller's own sessions.
   - name: teacher-tests
+    description: Tests, their drafts and sections, shared-context groups, publishing, versions and the preview.
   - name: teacher-questions
+    description: The question bank, with its tags, its search and the question groups it holds.
   - name: teacher-imports
     description: Private Word source intake and durable import review.
   - name: teacher-media
+    description: The media library, its images and audio, their names and where they are used.
   - name: teacher-assignments
+    description: Giving a published version to classes and students, its schedule and rules, overrides and results.
   - name: teacher-attempts
+    description: The attempts a teacher reviews, with the monitor, grading, scores, comments and integrity events.
   - name: teacher-students
+    description: The students a teacher reaches, with their accounts, passwords and classes.
   - name: teacher-classes
+    description: Classes, their members and their join codes.
   - name: teacher-ai
     description: |
       The AI assistant's suggestions and the teacher's own credits. Every
@@ -120,6 +128,12 @@ tags:
       `501 AI_OFF`.
   - name: admin-users
     description: The Admin console's people operations. In R2 only the deletion of a student account lives here.
+  - name: admin-roles
+    description: |
+      Roles and the permission matrix. A role is created and edited, never
+      deleted (DG-52). Every write is held to the subset rule: a caller acts
+      only on a role whose permissions, except `learning.take_tests`, are their
+      own, and grants only keys they hold. The built-in roles keep their key.
   - name: admin-ai
     description: |
       The AI credits console: the pool, the teachers' allowances, their
@@ -127,13 +141,20 @@ tags:
       every operation answers `501 AI_OFF`.
   - name: admin-docs
     description: Admin access to the API reference served beside the API.
+  - name: admin-audit
+    description: |
+      The Admin console's audit log: a read-only history of the sensitive
+      changes the server recorded, filterable by category, search and date, and
+      downloadable. Nothing here can change or remove an entry.
   - name: admin-settings
     description: |
       The centre's own settings: who it is and how it is reached, its logos,
       how people sign in, and how long it keeps answers, focus events and
       disabled accounts. One document for the whole installation.
   - name: student
+    description: The student console, with its classes, assigned tests, results and settings.
   - name: take-test
+    description: Taking a test, from starting or resuming an attempt to saving answers, submitting and the integrity beacon.
   - name: me
     description: |
       The caller's own notifications and notification switches, for any
@@ -779,6 +800,14 @@ components:
         # students
         - EMAIL_TAKEN
         - STUDENT_SHARED
+        # roles
+        - ROLE_NAME_TAKEN
+        - ROLE_NOT_ASSIGNABLE
+        - ROLE_LOCKED
+        - STUDENT_NEEDS_TAKE_TESTS
+        - KEY_NOT_GRANTABLE
+        - CANNOT_ACT_ON_SELF
+        - TARGET_ROLE_NOT_ALLOWED
         # authoring
         - RESOURCE_REFERENCED
         - RESOURCE_NOT_ARCHIVED
@@ -836,6 +865,8 @@ components:
         - AI_REQUEST_DECIDED
         - AI_REQUEST_EXPIRED
         - AI_ALLOWANCE_BELOW_USE
+        # exports
+        - EXPORT_TOO_LARGE
         # organization
         - SIGN_IN_POLICY_LOCKOUT
         - PASSWORD_SIGN_IN_DISABLED
@@ -1559,6 +1590,179 @@ components:
         and `listAssignments`, with their facets, tags and counts, hold the
         caller's own rows for every caller (for assignments, those the caller
         created and those that target a class the caller teaches).
+
+    RoleIcon:
+      type: string
+      enum: [shield, graduation-cap, hand-helping, user, key-round, crown, briefcase, book-open, users, clipboard-check, headset, star]
+      description: The Edit role dialog's twelve icons; the same set `app.roles.icon` checks.
+
+    RoleColor:
+      type: string
+      enum: [dark, lime, blue, green, amber, rose, gray]
+      description: The Edit role dialog's seven card colours; the same set `app.roles.color` checks.
+
+    BuiltinRoleKey:
+      type: string
+      enum: [admin, teacher, assistant, student]
+      description: The immutable key of a built-in role. A custom role has none.
+
+    RoleSummary:
+      type: object
+      required: [id, builtinKey, name, description, icon, color, custom, userCount, permissions, revision, editable, inProgressAttempts]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        builtinKey:
+          oneOf:
+            - { $ref: '#/components/schemas/BuiltinRoleKey' }
+            - { type: 'null' }
+        name: { type: string, minLength: 1, maxLength: 60 }
+        description: { type: string, maxLength: 300 }
+        icon: { $ref: '#/components/schemas/RoleIcon' }
+        color: { $ref: '#/components/schemas/RoleColor' }
+        custom:
+          type: boolean
+          description: True when the role is not built in.
+        userCount:
+          type: integer
+          minimum: 0
+          description: Accounts that hold the role, disabled ones included.
+        permissions:
+          type: array
+          uniqueItems: true
+          maxItems: 64
+          items: { $ref: '#/components/schemas/PermissionKey' }
+          description: |
+            What the role's users may do, in catalogue order, without the
+            hidden keys: the matrix column. The Admin's is every matrix key
+            except `learning.take_tests`, which it holds only when that cell
+            is turned on.
+        revision:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Moves with every change to the role. Sent back as `expectedRevision` so a stale save is refused.
+        editable:
+          type: boolean
+          description: |
+            False where the subset rule stops the caller from acting on the
+            role: it holds a permission the caller lacks, `learning.take_tests`
+            apart. The caller's own role is editable here, but its permissions
+            are never changed by its holder (`CANNOT_ACT_ON_SELF`).
+        inProgressAttempts:
+          type: integer
+          minimum: 0
+          description: Attempts in progress right now by users who hold the role.
+
+    PermissionCatalogueEntry:
+      type: object
+      required: [key, group, adminLocked]
+      additionalProperties: false
+      properties:
+        key: { $ref: '#/components/schemas/PermissionKey' }
+        group: { type: string, enum: [content, teaching, people, system] }
+        adminLocked:
+          type: boolean
+          description: "True where the Admin's cell cannot be changed, which is every key but `learning.take_tests`."
+
+    RoleList:
+      type: object
+      required: [roles, catalogue]
+      additionalProperties: false
+      properties:
+        roles:
+          type: array
+          maxItems: 200
+          description: Every role, in the order Admin, Teacher, Assistant, Student, then custom roles oldest first.
+          items: { $ref: '#/components/schemas/RoleSummary' }
+        catalogue:
+          type: array
+          maxItems: 64
+          description: The matrix rows in order. The hidden keys are left out.
+          items: { $ref: '#/components/schemas/PermissionCatalogueEntry' }
+
+    AssignableRole:
+      type: object
+      required: [id, builtinKey, name, icon, color, studentTarget]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        builtinKey:
+          oneOf:
+            - { $ref: '#/components/schemas/BuiltinRoleKey' }
+            - { type: 'null' }
+        name: { type: string, minLength: 1, maxLength: 60 }
+        icon: { $ref: '#/components/schemas/RoleIcon' }
+        color: { $ref: '#/components/schemas/RoleColor' }
+        studentTarget:
+          type: boolean
+          description: True for the built-in Student and any custom role that holds nothing but `learning.take_tests`.
+
+    RoleInput:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        description: { type: string, maxLength: 300 }
+        copyFromRoleId:
+          $ref: '#/components/schemas/Uuid'
+          description: The role whose permissions the new role starts with. Omitted, it starts with none.
+
+    RoleUpdate:
+      type: object
+      required: [expectedRevision]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        description: { type: string, maxLength: 300 }
+        icon: { $ref: '#/components/schemas/RoleIcon' }
+        color: { $ref: '#/components/schemas/RoleColor' }
+        expectedRevision: { type: integer, format: int64, minimum: 1 }
+
+    RolePermissionChange:
+      type: object
+      required: [roleId, key, granted]
+      additionalProperties: false
+      properties:
+        roleId: { $ref: '#/components/schemas/Uuid' }
+        key: { $ref: '#/components/schemas/PermissionKey' }
+        granted: { type: boolean }
+
+    RoleRevision:
+      type: object
+      required: [roleId, revision]
+      additionalProperties: false
+      properties:
+        roleId: { $ref: '#/components/schemas/Uuid' }
+        revision: { type: integer, format: int64, minimum: 1 }
+
+    RolePermissionsInput:
+      type: object
+      required: [changes, expectedRevisions]
+      additionalProperties: false
+      properties:
+        changes:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items: { $ref: '#/components/schemas/RolePermissionChange' }
+        expectedRevisions:
+          type: array
+          maxItems: 200
+          description: The revision of every role a change touches, as the matrix last read it.
+          items: { $ref: '#/components/schemas/RoleRevision' }
+
+    RolePermissionsResult:
+      type: object
+      required: [roles]
+      additionalProperties: false
+      properties:
+        roles:
+          type: array
+          maxItems: 200
+          description: The roles the save touched, as they stand after it.
+          items: { $ref: '#/components/schemas/RoleSummary' }
 
     AccountStatus:
       type: string
@@ -2924,6 +3128,131 @@ components:
           items: { type: string, minLength: 1 }
           minItems: 1
         caseSensitive: { type: boolean }
+
+    AuditCategory:
+      type: string
+      description: |
+        The six families of the audit log's tabs. An entry about the
+        organization, an export, maintenance, retention or the AI credits is in
+        none of them.
+      enum: [accounts, classes, attempts, tests, media, imports]
+
+    AuditCategoryFacets:
+      type: object
+      description: |
+        How many entries each category holds for the CURRENT search and range,
+        ignoring the category filter itself, in the shape of `TestStatusFacets`.
+        `all` counts every such entry, including those in no category.
+      required: [all, accounts, classes, attempts, tests, media, imports]
+      additionalProperties: false
+      properties:
+        all: { type: integer, minimum: 0 }
+        accounts: { type: integer, minimum: 0 }
+        classes: { type: integer, minimum: 0 }
+        attempts: { type: integer, minimum: 0 }
+        tests: { type: integer, minimum: 0 }
+        media: { type: integer, minimum: 0 }
+        imports: { type: integer, minimum: 0 }
+
+    AuditActor:
+      type: object
+      required: [id, name]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string }
+        avatarUrl:
+          type: string
+          description: A signed address for the actor's photo. Absent when they have none.
+
+    AuditEntity:
+      type: object
+      description: What an entry is about.
+      required: [type, id, label]
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          description: The kind of thing, as the server stores it (`class`, `test`, `media_asset`, `word_import`, ...).
+        id:
+          type: [string, 'null']
+          format: uuid
+          description: '`null` for an entry about no single row.'
+        label:
+          type: [string, 'null']
+          description: |
+            The name of the user, class, test, assignment, attempt (its
+            student), media file, import or question group, read when the page
+            is read. `null` when the row is gone or has no name.
+
+    AuditChange:
+      type: object
+      required: [field, from, to]
+      additionalProperties: false
+      properties:
+        field: { type: string }
+        from:
+          description: The value before the change. Any JSON value, `null` included.
+        to:
+          description: The value after the change. Any JSON value, `null` included.
+
+    AuditEntry:
+      type: object
+      required: [id, occurredAt, actor, action, category, entity, ip, device, changes, details]
+      additionalProperties: false
+      properties:
+        id: { type: integer, format: int64, minimum: 1 }
+        occurredAt: { type: string, format: date-time }
+        actor:
+          description: Who did it; `null` is the system itself, or an account since removed.
+          oneOf: [{ $ref: '#/components/schemas/AuditActor' }, { type: 'null' }]
+        action:
+          type: string
+          description: |
+            A stable key such as `class.created`. The sentence that words it is
+            the client's, from `audit.action.<action>`; an action a client has
+            no sentence for is shown humanised.
+        category:
+          description: '`null` for an entry only the unfiltered list holds.'
+          oneOf: [{ $ref: '#/components/schemas/AuditCategory' }, { type: 'null' }]
+        entity: { $ref: '#/components/schemas/AuditEntity' }
+        ip:
+          type: [string, 'null']
+          description: The address the request came from. `null` for the system.
+        device:
+          type: [string, 'null']
+          description: A label such as `Mac · Chrome`, classified from the user agent; `null` when none was recorded or none is recognised.
+        changes:
+          type: array
+          items: { $ref: '#/components/schemas/AuditChange' }
+        details:
+          type: [object, 'null']
+          additionalProperties: true
+          description: Whatever the entry recorded beyond `changes`; `null` when nothing.
+
+    ApiReferenceSummary:
+      type: object
+      description: |
+        What `getApiReferenceSummary` reports about the embedded contract.
+        `endpointCount` is the number of operations, and a group's `count` the
+        number of operations that carry its tag.
+      required: [openapi, version, endpointCount, groups]
+      additionalProperties: false
+      properties:
+        openapi: { type: string, description: The OpenAPI version the contract is written in. }
+        version: { type: string, description: The contract's own `info.version`. }
+        endpointCount: { type: integer, minimum: 0 }
+        groups:
+          type: array
+          items: { $ref: '#/components/schemas/ApiReferenceGroup' }
+
+    ApiReferenceGroup:
+      type: object
+      required: [tag, count]
+      additionalProperties: false
+      properties:
+        tag: { type: string }
+        count: { type: integer, minimum: 0 }
 
     TestStatusFacets:
       type: object
@@ -9844,6 +10173,172 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /admin/roles:
+    get:
+      operationId: listRoles
+      x-permission: people.roles.manage
+      tags: [admin-roles]
+      summary: The roles and the permission catalogue
+      description: |
+        Every role with its permissions, head count and revision, and the
+        catalogue of matrix rows, for the Roles & permissions page. The
+        Assistant is listed as the deck draws it; only the role pickers
+        (`listAssignableRoles`) leave it out.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleList' }
+    post:
+      operationId: createRole
+      x-permission: people.roles.manage
+      tags: [admin-roles]
+      summary: Create a custom role
+      description: |
+        The new role takes the icon `key-round` and the colour `gray`, and starts
+        with the permissions of `copyFromRoleId`, if given. The source must pass
+        the subset rule: its permissions, `learning.take_tests` apart, are the
+        caller's own. The Assistant cannot be a source. Writes one audit row,
+        `role.created`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoleInput' }
+      responses:
+        '201':
+          description: The new role.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleSummary' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — the source role holds a permission the caller lacks.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`ROLE_NAME_TAKEN` — another role has the name, in any letter case.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: '`ROLE_NOT_ASSIGNABLE` — the source is the Assistant.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/roles/assignable:
+    get:
+      operationId: listAssignableRoles
+      x-permission: people.users.manage
+      tags: [admin-roles]
+      summary: The roles the caller may give to a user
+      description: |
+        The roles whose permissions, `learning.take_tests` apart, are a subset of
+        the caller's, without the Assistant, which no picker offers. For the Add
+        user dialog and the user sheet.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 200
+                items: { $ref: '#/components/schemas/AssignableRole' }
+
+  /admin/roles/permissions:
+    put:
+      operationId: setRolePermissions
+      x-permission: people.roles.manage
+      tags: [admin-roles]
+      summary: Save the matrix
+      description: |
+        Grants and revokes permissions across roles in one transaction, and
+        refuses the whole save when any change breaks a rule:
+
+        - `KEY_NOT_GRANTABLE` — a hidden key.
+        - `ROLE_LOCKED` — an Admin cell other than `learning.take_tests`.
+        - `STUDENT_NEEDS_TAKE_TESTS` — `learning.take_tests` off the built-in Student.
+        - `CANNOT_ACT_ON_SELF` — a change to the caller's own role, except the
+          Admin role's `learning.take_tests` cell, which gives no power over anyone.
+        - `TARGET_ROLE_NOT_ALLOWED` (403) — a role, or a key granted or revoked,
+          that the subset rule keeps from the caller.
+        - `STALE_WRITE` (409) — a role is past its expected revision, or the
+          save names no revision for it.
+
+        A change that leaves a cell as it was is accepted and writes nothing.
+        Everyone's permissions are read again on their next request on the
+        machine that served the save, and within ten seconds on any other. Writes
+        one `role.permissions_changed` audit row per role changed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RolePermissionsInput' }
+      responses:
+        '200':
+          description: The roles the save touched.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RolePermissionsResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — the subset rule keeps the caller from a role or a key.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`STALE_WRITE` — a role changed since the matrix was read.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: '`KEY_NOT_GRANTABLE`, `ROLE_LOCKED`, `STUDENT_NEEDS_TAKE_TESTS` or `CANNOT_ACT_ON_SELF`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/roles/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    patch:
+      operationId: updateRole
+      x-permission: people.roles.manage
+      tags: [admin-roles]
+      summary: Edit a role's name, description, icon or colour
+      description: |
+        A supplied field is changed and the others are kept; a body with only
+        `expectedRevision` is refused. A built-in role may be renamed; its key never changes. The target must pass the subset rule.
+        A change moves the revision. Writes one audit row, `role.updated`, naming
+        what changed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoleUpdate' }
+      responses:
+        '200':
+          description: The role after the change.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleSummary' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — the role holds a permission the caller lacks.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`STALE_WRITE` — the role changed since `expectedRevision`. `ROLE_NAME_TAKEN` — another role has the name, in any letter case.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
   /admin/docs-session:
     post:
       operationId: openDocsSession
@@ -9866,6 +10361,208 @@ paths:
             Set-Cookie:
               schema: { type: string }
               description: '`quizzivy_docs=<token>; Path=/docs; Max-Age=900; HttpOnly; Secure; SameSite=Strict`'
+
+  /admin/api-reference:
+    get:
+      operationId: getApiReferenceSummary
+      x-permission: system.api_reference
+      tags: [admin-docs]
+      summary: What the API reference holds
+      description: |
+        The contract's OpenAPI and document versions, how many operations it
+        declares and, for each tag in the order the contract lists them, how
+        many operations carry it (an operation with two tags is counted under
+        both). It is read once from the spec the server embeds, so it always
+        describes the build that answers. The page draws its own names and
+        blurbs for the groups; this is the part only the server knows.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiReferenceSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/api-reference/openapi.json:
+    get:
+      operationId: downloadOpenApi
+      x-permission: system.api_reference
+      tags: [admin-docs]
+      summary: Download the contract
+      description: |
+        The spec this server embeds, as the JSON it was embedded as (DG-10), an
+        attachment named `quizzivy-openapi.json`. The body is that JSON
+        document, declared as a byte stream so the generated server writes it
+        as it is and does not encode it a second time. The response is
+        `no-store`. It needs the bearer token and `system.api_reference`,
+        unlike `/docs/openapi.json`, which answers to a docs session.
+      responses:
+        '200':
+          description: The file.
+          headers:
+            Content-Disposition:
+              required: true
+              description: '`attachment; filename="quizzivy-openapi.json"`.'
+              schema: { type: string }
+            Cache-Control:
+              required: true
+              description: '`no-store`.'
+              schema: { type: string }
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/audit-log:
+    get:
+      operationId: listAuditLog
+      x-permission: system.audit.read
+      tags: [admin-audit]
+      summary: The audit log
+      description: |
+        One page of the audit log, newest first, and how many entries each
+        category holds. The log is append-only: nothing here changes it.
+
+        **Range.** `range` is `today` (from midnight), `7d` (the last seven
+        calendar days, today included), `30d` (the last thirty), `all`, or
+        `custom`, which takes `from` and `to` as dates, both inclusive. Every
+        day is the viewer's own: their stored time zone, else the centre's
+        default. `from` and `to` without `custom`, `custom` without both, and a
+        `to` before `from` answer `400 VALIDATION_FAILED` naming the field.
+
+        **Search.** `q` matches, without regard to case or accents, the actor's
+        name or email, the sentence that words the action in either language,
+        and the label of the user, class, test, assignment, attempt, media file,
+        import or question group an entry is about.
+
+        **Categories.** An entry's category follows from the kind of thing it
+        is about. Entries about the organization, exports, maintenance,
+        retention and the AI credits belong to no category: `category` is
+        `null` and only the unfiltered list holds them.
+
+        **Facets.** `facets` counts the entries that match the current `q` and
+        range and ignores `category`, so selecting one never zeroes the others;
+        `all` counts every such entry, those in no category included, so it can
+        exceed the sum of the six. `total` is the selected category's count, or
+        `all`.
+
+        **Entries.** `changes` lists the fields an entry changed, each with the
+        value it had and the value it has. `details` holds anything else the
+        entry recorded. A join code is shown as `••••-` and its last four
+        characters, and a password, token or secret is never shown. `label` is
+        `null` when the row the entry is about no longer exists.
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/AuditCategory' }
+        - $ref: '#/components/parameters/Query'
+        - name: range
+          in: query
+          required: false
+          schema: { type: string, enum: [today, 7d, 30d, all, custom], default: 7d }
+        - name: from
+          in: query
+          required: false
+          description: First day of a `custom` range, `YYYY-MM-DD`.
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: false
+          description: Last day of a `custom` range, `YYYY-MM-DD`, inclusive.
+          schema: { type: string, format: date }
+        - $ref: '#/components/parameters/Page'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageInfo'
+                  - type: object
+                    required: [items, facets]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/AuditEntry' } }
+                      facets: { $ref: '#/components/schemas/AuditCategoryFacets' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/audit-log/export:
+    get:
+      operationId: exportAuditLog
+      x-permission: system.audit.read
+      tags: [admin-audit]
+      summary: Download the audit log
+      description: |
+        The entries of a period, newest first, as one file. `period` is the
+        last seven or thirty calendar days or the calendar year so far, counted
+        in the viewer's own time zone; `range`, `from` and `to` are not
+        parameters here. `category` and `q` narrow it as they narrow the list.
+
+        The file is an attachment named `audit-log-YYYYMMDD` with `.csv` or
+        `.json`, and the response is `no-store`. A CSV is UTF-8 with a
+        byte-order mark and CRLF line ends, headers in the viewer's language
+        by `Accept-Language`, and every cell that a spreadsheet would run as a
+        formula is written with a leading `'`. A JSON file is an array of the
+        entries `listAuditLog` returns. Both are streamed.
+
+        More than 100,000 entries answer `422 EXPORT_TOO_LARGE`, and the caller
+        is asked for a shorter period. Each file is itself audited as
+        `audit.exported`, with the period, the format and the number of rows.
+        A caller is limited to 5 files a minute and 30 an hour.
+      parameters:
+        - name: period
+          in: query
+          required: false
+          schema: { type: string, enum: [7d, 30d, year], default: 7d }
+        - name: format
+          in: query
+          required: false
+          schema: { type: string, enum: [csv, json], default: csv }
+        - name: category
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/AuditCategory' }
+        - $ref: '#/components/parameters/Query'
+      responses:
+        '200':
+          description: The file.
+          headers:
+            Content-Disposition:
+              required: true
+              description: '`attachment; filename="audit-log-YYYYMMDD.csv"` or `.json`.'
+              schema: { type: string }
+            Cache-Control:
+              required: true
+              description: '`no-store`.'
+              schema: { type: string }
+          content:
+            text/csv:
+              schema: { type: string, format: binary }
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AuditEntry' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422':
+          description: '`EXPORT_TOO_LARGE` — the period holds more than 100,000 entries.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /admin/ai/credits:
     get:

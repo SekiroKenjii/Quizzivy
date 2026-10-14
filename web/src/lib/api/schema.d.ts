@@ -2248,6 +2248,120 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The roles and the permission catalogue
+         * @description Every role with its permissions, head count and revision, and the
+         *     catalogue of matrix rows, for the Roles & permissions page. The
+         *     Assistant is listed as the deck draws it; only the role pickers
+         *     (`listAssignableRoles`) leave it out.
+         */
+        get: operations["listRoles"];
+        put?: never;
+        /**
+         * Create a custom role
+         * @description The new role takes the icon `key-round` and the colour `gray`, and starts
+         *     with the permissions of `copyFromRoleId`, if given. The source must pass
+         *     the subset rule: its permissions, `learning.take_tests` apart, are the
+         *     caller's own. The Assistant cannot be a source. Writes one audit row,
+         *     `role.created`.
+         */
+        post: operations["createRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/roles/assignable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The roles the caller may give to a user
+         * @description The roles whose permissions, `learning.take_tests` apart, are a subset of
+         *     the caller's, without the Assistant, which no picker offers. For the Add
+         *     user dialog and the user sheet.
+         */
+        get: operations["listAssignableRoles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/roles/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save the matrix
+         * @description Grants and revokes permissions across roles in one transaction, and
+         *     refuses the whole save when any change breaks a rule:
+         *
+         *     - `KEY_NOT_GRANTABLE` — a hidden key.
+         *     - `ROLE_LOCKED` — an Admin cell other than `learning.take_tests`.
+         *     - `STUDENT_NEEDS_TAKE_TESTS` — `learning.take_tests` off the built-in Student.
+         *     - `CANNOT_ACT_ON_SELF` — a change to the caller's own role, except the
+         *       Admin role's `learning.take_tests` cell, which gives no power over anyone.
+         *     - `TARGET_ROLE_NOT_ALLOWED` (403) — a role, or a key granted or revoked,
+         *       that the subset rule keeps from the caller.
+         *     - `STALE_WRITE` (409) — a role is past its expected revision, or the
+         *       save names no revision for it.
+         *
+         *     A change that leaves a cell as it was is accepted and writes nothing.
+         *     Everyone's permissions are read again on their next request on the
+         *     machine that served the save, and within ten seconds on any other. Writes
+         *     one `role.permissions_changed` audit row per role changed.
+         */
+        put: operations["setRolePermissions"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/roles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit a role's name, description, icon or colour
+         * @description A supplied field is changed and the others are kept; a body with only
+         *     `expectedRevision` is refused. A built-in role may be renamed; its key never changes. The target must pass the subset rule.
+         *     A change moves the revision. Writes one audit row, `role.updated`, naming
+         *     what changed.
+         */
+        patch: operations["updateRole"];
+        trace?: never;
+    };
     "/admin/docs-session": {
         parameters: {
             query?: never;
@@ -2269,6 +2383,141 @@ export interface paths {
          *     rate-limited as an operation that mints a credential.
          */
         post: operations["openDocsSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/api-reference": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the API reference holds
+         * @description The contract's OpenAPI and document versions, how many operations it
+         *     declares and, for each tag in the order the contract lists them, how
+         *     many operations carry it (an operation with two tags is counted under
+         *     both). It is read once from the spec the server embeds, so it always
+         *     describes the build that answers. The page draws its own names and
+         *     blurbs for the groups; this is the part only the server knows.
+         */
+        get: operations["getApiReferenceSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/api-reference/openapi.json": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the contract
+         * @description The spec this server embeds, as the JSON it was embedded as (DG-10), an
+         *     attachment named `quizzivy-openapi.json`. The body is that JSON
+         *     document, declared as a byte stream so the generated server writes it
+         *     as it is and does not encode it a second time. The response is
+         *     `no-store`. It needs the bearer token and `system.api_reference`,
+         *     unlike `/docs/openapi.json`, which answers to a docs session.
+         */
+        get: operations["downloadOpenApi"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/audit-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The audit log
+         * @description One page of the audit log, newest first, and how many entries each
+         *     category holds. The log is append-only: nothing here changes it.
+         *
+         *     **Range.** `range` is `today` (from midnight), `7d` (the last seven
+         *     calendar days, today included), `30d` (the last thirty), `all`, or
+         *     `custom`, which takes `from` and `to` as dates, both inclusive. Every
+         *     day is the viewer's own: their stored time zone, else the centre's
+         *     default. `from` and `to` without `custom`, `custom` without both, and a
+         *     `to` before `from` answer `400 VALIDATION_FAILED` naming the field.
+         *
+         *     **Search.** `q` matches, without regard to case or accents, the actor's
+         *     name or email, the sentence that words the action in either language,
+         *     and the label of the user, class, test, assignment, attempt, media file,
+         *     import or question group an entry is about.
+         *
+         *     **Categories.** An entry's category follows from the kind of thing it
+         *     is about. Entries about the organization, exports, maintenance,
+         *     retention and the AI credits belong to no category: `category` is
+         *     `null` and only the unfiltered list holds them.
+         *
+         *     **Facets.** `facets` counts the entries that match the current `q` and
+         *     range and ignores `category`, so selecting one never zeroes the others;
+         *     `all` counts every such entry, those in no category included, so it can
+         *     exceed the sum of the six. `total` is the selected category's count, or
+         *     `all`.
+         *
+         *     **Entries.** `changes` lists the fields an entry changed, each with the
+         *     value it had and the value it has. `details` holds anything else the
+         *     entry recorded. A join code is shown as `••••-` and its last four
+         *     characters, and a password, token or secret is never shown. `label` is
+         *     `null` when the row the entry is about no longer exists.
+         */
+        get: operations["listAuditLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/audit-log/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the audit log
+         * @description The entries of a period, newest first, as one file. `period` is the
+         *     last seven or thirty calendar days or the calendar year so far, counted
+         *     in the viewer's own time zone; `range`, `from` and `to` are not
+         *     parameters here. `category` and `q` narrow it as they narrow the list.
+         *
+         *     The file is an attachment named `audit-log-YYYYMMDD` with `.csv` or
+         *     `.json`, and the response is `no-store`. A CSV is UTF-8 with a
+         *     byte-order mark and CRLF line ends, headers in the viewer's language
+         *     by `Accept-Language`, and every cell that a spreadsheet would run as a
+         *     formula is written with a leading `'`. A JSON file is an array of the
+         *     entries `listAuditLog` returns. Both are streamed.
+         *
+         *     More than 100,000 entries answer `422 EXPORT_TOO_LARGE`, and the caller
+         *     is asked for a shorter period. Each file is itself audited as
+         *     `audit.exported`, with the period, the format and the number of rows.
+         *     A caller is limited to 5 files a minute and 30 an hour.
+         */
+        get: operations["exportAuditLog"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3830,7 +4079,7 @@ export interface components {
          *     be sent again.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "SVG_NOT_ALLOWED" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_NOT_ASSIGNABLE" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "SVG_NOT_ALLOWED" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -4320,6 +4569,109 @@ export interface components {
          * @enum {string}
          */
         PermissionKey: "content.tests.write" | "content.tests.publish" | "content.questions.write" | "content.media.write" | "content.share" | "ai.use" | "teaching.classes.write" | "teaching.assignments.write" | "teaching.grading" | "teaching.attempts.intervene" | "teaching.attendance" | "people.students.read" | "people.students.create" | "people.students.reset_password" | "people.users.manage" | "people.roles.manage" | "system.audit.read" | "system.settings.write" | "learning.take_tests" | "ai.credits.manage" | "scope.all" | "system.api_reference" | "system.data_export" | "system.leads";
+        /**
+         * @description The Edit role dialog's twelve icons; the same set `app.roles.icon` checks.
+         * @enum {string}
+         */
+        RoleIcon: "shield" | "graduation-cap" | "hand-helping" | "user" | "key-round" | "crown" | "briefcase" | "book-open" | "users" | "clipboard-check" | "headset" | "star";
+        /**
+         * @description The Edit role dialog's seven card colours; the same set `app.roles.color` checks.
+         * @enum {string}
+         */
+        RoleColor: "dark" | "lime" | "blue" | "green" | "amber" | "rose" | "gray";
+        /**
+         * @description The immutable key of a built-in role. A custom role has none.
+         * @enum {string}
+         */
+        BuiltinRoleKey: "admin" | "teacher" | "assistant" | "student";
+        RoleSummary: {
+            id: components["schemas"]["Uuid"];
+            builtinKey: components["schemas"]["BuiltinRoleKey"] | null;
+            name: string;
+            description: string;
+            icon: components["schemas"]["RoleIcon"];
+            color: components["schemas"]["RoleColor"];
+            /** @description True when the role is not built in. */
+            custom: boolean;
+            /** @description Accounts that hold the role, disabled ones included. */
+            userCount: number;
+            /**
+             * @description What the role's users may do, in catalogue order, without the
+             *     hidden keys: the matrix column. The Admin's is every matrix key
+             *     except `learning.take_tests`, which it holds only when that cell
+             *     is turned on.
+             */
+            permissions: components["schemas"]["PermissionKey"][];
+            /**
+             * Format: int64
+             * @description Moves with every change to the role. Sent back as `expectedRevision` so a stale save is refused.
+             */
+            revision: number;
+            /**
+             * @description False where the subset rule stops the caller from acting on the
+             *     role: it holds a permission the caller lacks, `learning.take_tests`
+             *     apart. The caller's own role is editable here, but its permissions
+             *     are never changed by its holder (`CANNOT_ACT_ON_SELF`).
+             */
+            editable: boolean;
+            /** @description Attempts in progress right now by users who hold the role. */
+            inProgressAttempts: number;
+        };
+        PermissionCatalogueEntry: {
+            key: components["schemas"]["PermissionKey"];
+            /** @enum {string} */
+            group: "content" | "teaching" | "people" | "system";
+            /** @description True where the Admin's cell cannot be changed, which is every key but `learning.take_tests`. */
+            adminLocked: boolean;
+        };
+        RoleList: {
+            /** @description Every role, in the order Admin, Teacher, Assistant, Student, then custom roles oldest first. */
+            roles: components["schemas"]["RoleSummary"][];
+            /** @description The matrix rows in order. The hidden keys are left out. */
+            catalogue: components["schemas"]["PermissionCatalogueEntry"][];
+        };
+        AssignableRole: {
+            id: components["schemas"]["Uuid"];
+            builtinKey: components["schemas"]["BuiltinRoleKey"] | null;
+            name: string;
+            icon: components["schemas"]["RoleIcon"];
+            color: components["schemas"]["RoleColor"];
+            /** @description True for the built-in Student and any custom role that holds nothing but `learning.take_tests`. */
+            studentTarget: boolean;
+        };
+        RoleInput: {
+            name: string;
+            description?: string;
+            /** @description The role whose permissions the new role starts with. Omitted, it starts with none. */
+            copyFromRoleId?: components["schemas"]["Uuid"];
+        };
+        RoleUpdate: {
+            name?: string;
+            description?: string;
+            icon?: components["schemas"]["RoleIcon"];
+            color?: components["schemas"]["RoleColor"];
+            /** Format: int64 */
+            expectedRevision: number;
+        };
+        RolePermissionChange: {
+            roleId: components["schemas"]["Uuid"];
+            key: components["schemas"]["PermissionKey"];
+            granted: boolean;
+        };
+        RoleRevision: {
+            roleId: components["schemas"]["Uuid"];
+            /** Format: int64 */
+            revision: number;
+        };
+        RolePermissionsInput: {
+            changes: components["schemas"]["RolePermissionChange"][];
+            /** @description The revision of every role a change touches, as the matrix last read it. */
+            expectedRevisions: components["schemas"]["RoleRevision"][];
+        };
+        RolePermissionsResult: {
+            /** @description The roles the save touched, as they stand after it. */
+            roles: components["schemas"]["RoleSummary"][];
+        };
         /**
          * @description The one state an account is listed under (DG-54), in this order of
          *     precedence: `disabled`, then `must_change_password` (a temporary
@@ -5300,6 +5652,99 @@ export interface components {
             ordinal: number;
             acceptedAnswers: string[];
             caseSensitive: boolean;
+        };
+        /**
+         * @description The six families of the audit log's tabs. An entry about the
+         *     organization, an export, maintenance, retention or the AI credits is in
+         *     none of them.
+         * @enum {string}
+         */
+        AuditCategory: "accounts" | "classes" | "attempts" | "tests" | "media" | "imports";
+        /**
+         * @description How many entries each category holds for the CURRENT search and range,
+         *     ignoring the category filter itself, in the shape of `TestStatusFacets`.
+         *     `all` counts every such entry, including those in no category.
+         */
+        AuditCategoryFacets: {
+            all: number;
+            accounts: number;
+            classes: number;
+            attempts: number;
+            tests: number;
+            media: number;
+            imports: number;
+        };
+        AuditActor: {
+            id: components["schemas"]["Uuid"];
+            name: string;
+            /** @description A signed address for the actor's photo. Absent when they have none. */
+            avatarUrl?: string;
+        };
+        /** @description What an entry is about. */
+        AuditEntity: {
+            /** @description The kind of thing, as the server stores it (`class`, `test`, `media_asset`, `word_import`, ...). */
+            type: string;
+            /**
+             * Format: uuid
+             * @description `null` for an entry about no single row.
+             */
+            id: string | null;
+            /**
+             * @description The name of the user, class, test, assignment, attempt (its
+             *     student), media file, import or question group, read when the page
+             *     is read. `null` when the row is gone or has no name.
+             */
+            label: string | null;
+        };
+        AuditChange: {
+            field: string;
+            /** @description The value before the change. Any JSON value, `null` included. */
+            from: unknown;
+            /** @description The value after the change. Any JSON value, `null` included. */
+            to: unknown;
+        };
+        AuditEntry: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            occurredAt: string;
+            /** @description Who did it; `null` is the system itself, or an account since removed. */
+            actor: components["schemas"]["AuditActor"] | null;
+            /**
+             * @description A stable key such as `class.created`. The sentence that words it is
+             *     the client's, from `audit.action.<action>`; an action a client has
+             *     no sentence for is shown humanised.
+             */
+            action: string;
+            /** @description `null` for an entry only the unfiltered list holds. */
+            category: components["schemas"]["AuditCategory"] | null;
+            entity: components["schemas"]["AuditEntity"];
+            /** @description The address the request came from. `null` for the system. */
+            ip: string | null;
+            /** @description A label such as `Mac · Chrome`, classified from the user agent; `null` when none was recorded or none is recognised. */
+            device: string | null;
+            changes: components["schemas"]["AuditChange"][];
+            /** @description Whatever the entry recorded beyond `changes`; `null` when nothing. */
+            details: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
+         * @description What `getApiReferenceSummary` reports about the embedded contract.
+         *     `endpointCount` is the number of operations, and a group's `count` the
+         *     number of operations that carry its tag.
+         */
+        ApiReferenceSummary: {
+            /** @description The OpenAPI version the contract is written in. */
+            openapi: string;
+            /** @description The contract's own `info.version`. */
+            version: string;
+            endpointCount: number;
+            groups: components["schemas"]["ApiReferenceGroup"][];
+        };
+        ApiReferenceGroup: {
+            tag: string;
+            count: number;
         };
         /**
          * @description How many tests each status holds for the CURRENT search, ignoring the
@@ -11516,6 +11961,198 @@ export interface operations {
             };
         };
     };
+    listRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleList"];
+                };
+            };
+        };
+    };
+    createRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleInput"];
+            };
+        };
+        responses: {
+            /** @description The new role. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleSummary"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `TARGET_ROLE_NOT_ALLOWED` — the source role holds a permission the caller lacks. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description `ROLE_NAME_TAKEN` — another role has the name, in any letter case. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `ROLE_NOT_ASSIGNABLE` — the source is the Assistant. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listAssignableRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignableRole"][];
+                };
+            };
+        };
+    };
+    setRolePermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RolePermissionsInput"];
+            };
+        };
+        responses: {
+            /** @description The roles the save touched. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RolePermissionsResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `TARGET_ROLE_NOT_ALLOWED` — the subset rule keeps the caller from a role or a key. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description `STALE_WRITE` — a role changed since the matrix was read. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `KEY_NOT_GRANTABLE`, `ROLE_LOCKED`, `STUDENT_NEEDS_TAKE_TESTS` or `CANNOT_ACT_ON_SELF`. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleUpdate"];
+            };
+        };
+        responses: {
+            /** @description The role after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleSummary"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `TARGET_ROLE_NOT_ALLOWED` — the role holds a permission the caller lacks. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description `STALE_WRITE` — the role changed since `expectedRevision`. `ROLE_NAME_TAKEN` — another role has the name, in any letter case. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     openDocsSession: {
         parameters: {
             query?: never;
@@ -11533,6 +12170,146 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    getApiReferenceSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiReferenceSummary"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    downloadOpenApi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file. */
+            200: {
+                headers: {
+                    /** @description `attachment; filename="quizzivy-openapi.json"`. */
+                    "Content-Disposition": string;
+                    /** @description `no-store`. */
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listAuditLog: {
+        parameters: {
+            query?: {
+                category?: components["schemas"]["AuditCategory"];
+                /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
+                q?: components["parameters"]["Query"];
+                range?: "today" | "7d" | "30d" | "all" | "custom";
+                /** @description First day of a `custom` range, `YYYY-MM-DD`. */
+                from?: string;
+                /** @description Last day of a `custom` range, `YYYY-MM-DD`, inclusive. */
+                to?: string;
+                /**
+                 * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
+                 *     lists: at this scale the teacher wants "trang 3 / 26" more than
+                 *     stability under concurrent inserts). A page past the end is an empty
+                 *     `items` with the same `total`.
+                 *
+                 *     Page size is `limit`, declared per operation with its own default -- a
+                 *     media grid wants a different page from a table of tests. The response
+                 *     echoes the size actually used as `pageSize`; compute page counts from
+                 *     that and `total`, never from an assumed size.
+                 */
+                page?: components["parameters"]["Page"];
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageInfo"] & {
+                        items: components["schemas"]["AuditEntry"][];
+                        facets: components["schemas"]["AuditCategoryFacets"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    exportAuditLog: {
+        parameters: {
+            query?: {
+                period?: "7d" | "30d" | "year";
+                format?: "csv" | "json";
+                category?: components["schemas"]["AuditCategory"];
+                /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
+                q?: components["parameters"]["Query"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file. */
+            200: {
+                headers: {
+                    /** @description `attachment; filename="audit-log-YYYYMMDD.csv"` or `.json`. */
+                    "Content-Disposition": string;
+                    /** @description `no-store`. */
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                    "application/json": components["schemas"]["AuditEntry"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description `EXPORT_TOO_LARGE` — the period holds more than 100,000 entries. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
             };
         };
     };

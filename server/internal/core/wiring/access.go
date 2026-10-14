@@ -9,7 +9,8 @@ import (
 )
 
 func accessModule(ctx context.Context, dbx db.Context) (*accessapp.Application, error) {
-	app := accessapp.New(accessrepo.NewPostgres(dbx))
+	repo := accessrepo.NewPostgres(dbx)
+	app := accessapp.New(repo).WithRoleStore(repo)
 	if err := app.CheckCatalogue(ctx); err != nil {
 		return nil, err
 	}
