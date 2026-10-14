@@ -517,6 +517,28 @@ tests cover `GroupQuestion.Copy`, and `TestMoveQuestionWithoutGroupAuthoringIsUn
 the repository. The integration tests ran on a database created for the purpose
 (`qa_e1_move`, migrated to version 125), never the dev one.
 
+After the independent review (2026-10-14), three changes. **The copy-in's lock order.** A section
+with no `test_section_units` is seeded by `seedSectionUnits`, which takes `LockForDraftUse` on every
+question of the section in id order. The first build locked the moved question Q and then seeded, so
+the move held Q and waited on an earlier question R, while another test that shares R and Q takes
+them in id order (autosave's `lockQuestions`, publish, duplicate): a `40P01` deadlock, which
+`groupWriteError` does not map, so a teacher would have met a 500. `copyIntoGroup` now seeds the
+source section first and locks Q after, so every writer takes questions in ascending order.
+`TestMoveIntoGroupLocksQuestionsInIdOrderAgainstAnotherTestsAutosave` holds one writer inside its lock
+while the other waits, in both orders (an autosave holds the earlier question; the move holds the
+later one), and requires both to finish; against the first build it deadlocked every time (six runs of
+six, `40P01` on the move in one order and on the autosave in the other), and with the fix it passes
+four runs in a row. **The owner of a member that leaves.** The `UPDATE` that turns the member into a
+bank question now names the owner, the test's, and the `NotOwnedBy` refusal is gone: a member whose
+`owner_id` predates ownership (backfilled from `created_by` by 00061 and 00062) no longer answers 404
+for a member the caller can see, and comes out owned by the test's owner
+(`TestMoveOutNamesTheTestsOwnerWhoseverRowTheMemberWas`). **The deal.**
+`TestMovedQuestionsDealInsideAndOutsideTheirGroups` publishes after a copy-in and a move-out, reads
+the version through the attempts store and deals it with `PresentVersion(DeliveryGroupV1, …)` for
+thirty seeds: the copied member is in its group's run in member order, the question that left deals as
+its own unit, and the shuffle moves the units. The race fixtures' author is a Teacher, not an Admin, so
+their cleanup is not stopped by the last-Admin guard on a database without a seeded Admin.
+
 ### T-E1.3 — HTTP, errors, isolation
 **Depends on:** T-E1.2
 **Touches:** `server/internal/modules/tests/http/{groups.go,group_response.go}`,
