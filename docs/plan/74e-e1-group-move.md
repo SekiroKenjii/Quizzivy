@@ -1,18 +1,18 @@
-# E1 — Dragging a question into and out of a shared-context group (v0.11.4)
+# E1 — Dragging a question into and out of a shared-context group (v0.11.6)
 
 An escalation release. After a teacher escalation, the owner decided on **2026-10-14** that a
 teacher can drag a question into a shared-context group in the test builder, drag a member out of
 one, move it between two groups of the same test, and reorder members inside a group. The decision
 **overrides `74d-d4-deck-update.md` Q8**, whose default was "a bank question cannot be dragged
-into a shared group" (DG-186). It ships as **v0.11.4**: v0.11.3 is a separate hotfix (the AI
-Generate hotfix) already in flight, so E1 does not touch `web/package.json` until its own release
-branch.
+into a shared group" (DG-186). It ships as **v0.11.6**: three hotfixes took the numbers before it,
+v0.11.3 (the AI Generate hotfix), v0.11.4 (the AI check reads group members) and v0.11.5 (a
+phone-layout fix), so E1 does not touch `web/package.json` until its own release branch.
 
 The principal engineer's design is the source of this file; its §0 to §11 are the sections and
 tasks below, and its §13 is "Decided" at the end. Branches are `feature/t-e1-<nn>-<slug>` off the
 integration branch `work/escalation-e1`, which was cut from `develop` at `6f502ab4` (main is at
 v0.11.2) and is merged back `--no-ff` when the release is complete. As T-D4.21 shipped in v0.10.1,
-E1 runs as its own small release from `develop`: `release/0.11.4` → `main` → back-merge. The
+E1 runs as its own small release from `develop`: `release/0.11.6` → `main` → back-merge. The
 task ids are `T-E1.<n>`; a design-gap number, if the web lane needs one, comes from the Tech Lead
 (`docs/team/README.md`, T-30).
 
@@ -29,16 +29,16 @@ a published version, a deal or an attempt.
 `moveTestQuestion` is the only operation added, `permissions.golden` changes in T-E1.1's pull
 request and nowhere else, and the operation has its isolation-suite entry, with a kind on every
 uuid it takes; the race tests of "Locks and races" pass on PostgreSQL 18, in both orders; a draft
-moved by v0.11.4 is read unchanged by `v0.11.3` (an old pod answers the new route 404, and every
+moved by v0.11.6 is read unchanged by `v0.11.5` (an old pod answers the new route 404, and every
 row the new binary writes is a row the old one already reads); the builder matches the deck at
 360, 768, 1024, 1280 and 1440, light and dark, with every difference left a row in
 `docs/design/gaps.md`; every CI step of `70-redesign-overview.md` §8 is green, `pnpm e2e:live`
-included; released as `v0.11.4`.
+included; released as `v0.11.6`.
 
 **Depends on:** v0.11.2 on `main` and `develop` at `6f502ab4`. E1 builds on D4's builder
 (T-D4.2a, T-D4.14: the group row, the Shared content dialog and `useGroupEditor`), on R2's
 isolation suite and `x-resource` kinds, and on the two-sided locks of `20-data-model.md` §19. It
-has no dependency on v0.11.3.
+has no dependency on the hotfixes v0.11.3 to v0.11.5.
 
 ## The problem and what binds it
 
@@ -415,9 +415,9 @@ and 1440, light and dark.
       suite accepts, with every slot `blind` for the stub. T-E1.3 replaces it.
 - [x] `go build ./...`, `go vet`, `staticcheck`, the router and contract tests, and
       `pnpm typecheck` pass.
-- [ ] **CI result** passes on the pull request.
+- [x] **CI result** passes on the pull request.
 
-**As built:** The contract is as above, with these differences from the design's sketch: the
+**As built** (#610): The contract is as above, with these differences from the design's sketch: the
 nested objects are named schemas (`MoveTestQuestionTarget`, `MoveTestQuestionGroupRevision`) so
 that the generated Go and TypeScript have no anonymous structs; `expectedGroupRevisions` has
 `minItems: 1`, because a move that touches no group is a move between two standalone places, which
@@ -466,9 +466,9 @@ fixtures live in that package)
       after.
 - [x] `make lint`'s three Go tools; the unit tests of every package touched; the module's
       integration tests.
-- [ ] **CI result** passes on the pull request.
+- [x] **CI result** passes on the pull request.
 
-**As built:** `GroupsPostgres.MoveQuestion` is `group_move.go` (the flow and the three writers),
+**As built** (#612): `GroupsPostgres.MoveQuestion` is `group_move.go` (the flow and the three writers),
 `group_move_plan.go` (what the request names, resolved inside the test) and `group_move_units.go`
 (the section and member ordinals). It takes the locks in the design's order: `checkVersion` on the
 test, then the archived check and the key; then the source, the destination and every revision the
@@ -566,9 +566,9 @@ their cleanup is not stopped by the last-Admin guard on a database without a see
       `content.tests.write`, and reaches no student surface.
 - [x] `make lint`'s three Go tools, `make gen-check`, the router and contract tests, the
       module's tests, and `go test -tags e2e ./tests/...` pass.
-- [ ] **CI result** passes on the pull request.
+- [x] **CI result** passes on the pull request.
 
-**As built:** The handler is `groups.go`'s `MoveTestQuestion`, with `group_move.go` for the request
+**As built** (#613): The handler is `groups.go`'s `MoveTestQuestion`, with `group_move.go` for the request
 reading, the answer and the move's messages; `group_response.go` gains the `Visit` method and one
 case for the five rules. `ErrNotFound` is answered by `moveFailure` with a message that names no
 particular kind ("The test, question, section or group was not found."), because the move's
@@ -603,19 +603,55 @@ review fixes (the copy-in's lock order, the move-out's owner) through a merge of
 `web/tests/units/builder/{group-move.test.tsx (new),mixed-outline.test.ts,group-row.test.tsx}`
 **Size:** L. High risk: `features/tests/` builder, autosave flushes.
 **Done when:**
-- [ ] A member row is a sortable with the deck's grip; a group header is a droppable tinted while
+- [x] A member row is a sortable with the deck's grip; a group header is a droppable tinted while
       over; the drop line shows on member rows.
-- [ ] `findMember` resolves a member; `dropUnit` calls `onMove` for every pair that is not
+- [x] `findMember` resolves a member; `dropUnit` calls `onMove` for every pair that is not
       standalone to standalone, and `onChange(moveUnit)` stays for that pair.
-- [ ] `TestBuilderPage.moveQuestion` flushes the question editor and `outline.flush()`, runs the
+- [x] `TestBuilderPage.moveQuestion` flushes the question editor and `outline.flush()`, runs the
       call in `writes.run`, replaces the outline and the groups from the response, selects the
       moved question, and sets `version.current`.
-- [ ] While the request runs the dragged row is at 40% opacity with `aria-busy` and the outline
+- [x] While the request runs the dragged row is at 40% opacity with `aria-busy` and the outline
       refuses another drag; the outline is unchanged on every error.
-- [ ] A gap-bound member's grip is `aria-disabled` and not a drag source.
-- [ ] The MSW handler is validated by ajv against the contract; unit cases as in "The web".
-- [ ] `pnpm typecheck`, `pnpm lint:changed`, `pnpm format:changed`, `pnpm test:changed`,
+- [x] A gap-bound member's grip is `aria-disabled` and not a drag source.
+- [x] The MSW handler is validated by ajv against the contract; unit cases as in "The web".
+- [x] `pnpm typecheck`, `pnpm lint:changed`, `pnpm format:changed`, `pnpm test:changed`,
       `pnpm test:integration`; `autosave-unmount.test.tsx` and `router-chunks.test.ts` pass.
+
+**As built** (#615): The grip is `OutlineGroupRow`'s: a member row is `useSortable({id: "question:" + id})`
+inside the group's own `SortableContext`, with the grip 20 by 24px at the standalone rows' 33px
+pitch. The group's header, with the shared-content line under it, is `useDroppable("group:" + id +
+":head")`. While a question is over it, it is tinted `--accent-soft`; a drop there lands at index 0
+and opens a closed group, as the deck's `finishDrop` does. The 2px `--primary` line shows before or
+after the member row under the pointer. The collision filter (`targetsFor`, `accepts`) keeps a whole
+group from being dropped into a group, and screen readers hear `builder.groupDropHint` over a
+header. A member a material gap is bound to has an `aria-disabled` grip with the reason as its
+tooltip and description, and is not a drag source.
+
+Every drop is decided by `dropRequest` and `findMember` in `outlineUnits.ts`, pure functions that
+read the outline and the groups and answer a `units` move or a `question` move or nothing; the design
+sketched this inside `dropUnit`, which now only calls them. Standalone to standalone is still
+`onChange(moveUnit)` and the outline's autosave; every other pair is `onMove`. The page's
+`moveQuestion` is not optimistic, as the design has it: it flushes the open question and the outline
+(`flushBeforeMove`), reads each touched group's revision from the group reads the page already holds
+or from the server, and calls `moveTestQuestion` inside `writes.run`. `acknowledgeMove` then sets
+`version.current` from the answer, writes the returned groups into `["teacher-group", id]` (and
+re-stamps the untouched ones with the new test revision), replaces the outline from the answer,
+selects the moved question in its new place and remounts the pane, so the next group save carries
+`expectedRevision` 2. Focus returns to the moved row's grip. While a move runs the row is at 40% with
+`aria-busy`, the sensors are off, and a screen-reader status announces "Đang chuyển…". The outline is
+unchanged on every refusal.
+
+`tests/support/groupMove.ts` is a stateful fake of the move for the unit tests, and
+`assertContractRequest` (new, in `contractResponse.ts`) checks the request it receives against the
+contract with ajv, as `contractJson` does the answer. The four strings are `builder.reorderMember`,
+`memberGapBound`, `groupDropHint` and `moving`; `memberGapBound` says "nội dung dùng chung", the name
+the builder gives the Shared content dialog, where the design wrote "ngữ liệu chung". Tests:
+`builder/group-move.test.tsx` (new), `mixed-outline.test.ts` and `group-row.test.tsx`; the author's run
+over `units/{builder,question-groups,ai,i18n,styles,tests}` was 70 files and 439 tests. The grips,
+the tint and the drop line were compared with `Quizzivy Teacher.dc.html` in Chromium at 360, 768,
+1024, 1280 and 1440, light and dark, with no horizontal overflow before or after a drop; the
+differences are DG-213 to DG-216 and the two rows T-E1.7 changed. **CI result** was green on the
+pull request.
 
 ### T-E1.5 — Menus, keyboard, strings, error states, the toast
 **Depends on:** T-E1.4 (same files)
@@ -624,16 +660,56 @@ needs a coordinate), `web/src/locales/{vi,en}.json`,
 `web/tests/units/builder/{group-move,outline-keyboard-activation,question-menu}.test.tsx`
 **Size:** M
 **Done when:**
-- [ ] The standalone row's menu gains "Move into group…", and a member row gets its menu: Move up,
+- [x] The standalone row's menu gains "Move into group…", and a member row gets its menu: Move up,
       Move down, Move out of group, Move to group…; below 768 the selected member row shows them at
       44px (DG-135).
-- [ ] Every drag has a keyboard path through `OutlineKeyboardSensor` (Space, arrows, Space), and a
+- [x] Every drag has a keyboard path through `OutlineKeyboardSensor` (Space, arrows, Space), and a
       menu equivalent (R4's rule).
-- [ ] Every string of "The web" is in `vi.json` and `en.json`, vi first; the toast shows after a
+- [x] Every string of "The web" is in `vi.json` and `en.json`, vi first; the toast shows after a
       copy-in and says the original stays; every error state of the table is drawn.
-- [ ] `aria-label` and the group header's drop hint are announced; focus lands on the moved
+- [x] `aria-label` and the group header's drop hint are announced; focus lands on the moved
       question's row after the pane remounts.
-- [ ] The locale files are Tech-Lead-serialised: the change goes in one commit the lead merges.
+- [x] The locale files are Tech-Lead-serialised: the change goes in one commit the lead merges.
+
+**As built** (#617): A member row has its own "…" menu (`MemberActions` in `OutlineGroupRow.tsx`) with
+Move up, Move down, Move out of group and Move to group…, the first member's Move up and the last's
+Move down disabled. It takes the place of the points on hover and focus from 768px, and below 768 it
+shows at 44px on the selected member. A gap-bound member keeps Move up and Move down, and its Move out
+of group and Move to group… are disabled with the reason printed under them and named by
+`aria-describedby`.
+
+Two things differ from the design's text. **Where "Move into group…" lives.** A standalone question's
+outline row has no "…" menu: it keeps the deck's ↑ ↓ ×. The question's only "…" menu is the editor's,
+in its header, so "Move into group…" joined Duplicate and Move to section… there
+(`BuilderQuestionEditor`), and shows only while the test has a group. **The picker.** The design
+sketched a submenu of groups by section and a dialog above eight; both entries open one dialog
+(`FormDialog` in `TestBuilderPage`) with a "Nhóm" select whose entries read "{group} · {section}",
+every group of the test but the member's own. "Move into group…" and "Move to group…" send the
+question to the end of the chosen group, and Move to group… is disabled while the test has no other
+group.
+
+Every drag has a keyboard path with no change to `OutlineKeyboardSensor`: the new droppables are
+reached by Space, the arrows and Space, and `outline-keyboard-activation.test.tsx` pins a member to the
+next member's place and out to the next section's header, each asking the page once. After a move
+the page puts focus on the moved question's grip. The errors are `moveFailure` and `refuseMove` in the
+page: `group_gap_bound`, `group_limits` and `group_audio_scope` each have a message; a 404 says the
+test changed and offers Reload; a `STALE_WRITE` turns on the builder's stale prompt; any other failure
+says "Chưa chuyển được. Thử lại.". The outline is unchanged on each. After a copy-in the toast is
+`builder.movedIntoGroupCopied`.
+
+The strings are one commit (`dfb9de50`), `builder.memberActions`, `memberMoveUp`, `memberMoveDown`,
+`moveIntoGroup`, `moveToGroup`, `moveOutOfGroup`, `moveGroupTitle`, `moveGroupField`,
+`moveGroupOption`, `movedIntoGroupCopied`, `moveGapBound`, `moveGroupFull`, `moveAudioScope`,
+`moveReload` and `moveFailed`. Their wording departs from "The web" in four places, and the locale
+files are what the product says: the Shared content dialog is "Nội dung dùng chung", not "Ngữ liệu
+chung"; the member menu says "Di chuyển lên" and "Di chuyển xuống", as the group's own menu beside it
+does, not "Lên" and "Xuống"; `moveGroupFull` names both halves of `group_limits`, 200 questions and
+4 MB; and the English `moveFailed` is "Could not move the question. Try again.". Tests:
+`group-move.test.tsx` (the member menu, the errors, the toast, the reload offers),
+`question-menu.test.tsx` (the editor menu's entry) and `outline-keyboard-activation.test.tsx`. The
+deck comparison of the whole builder was made here, at 360, 768, 1024, 1280 and 1440, light and dark;
+its differences are DG-213 to DG-216. No contract change, no migration and no new dependency. **CI
+result** was green on the pull request.
 
 ## C. Verification and documents
 
@@ -642,42 +718,84 @@ needs a coordinate), `web/src/locales/{vi,en}.json`,
 **Touches:** `web/tests/e2e/builder-groups.live.spec.ts`
 **Size:** M
 **Done when:**
-- [ ] One live case: drag a bank question into a group, publish, and the preview shows it inside
+- [x] One live case: drag a bank question into a group, publish, and the preview shows it inside
       the group's passage; the id remap and both revision bumps are asserted.
-- [ ] The builder matches the deck at 360, 768, 1024, 1280 and 1440, light and dark; each
+- [x] The builder matches the deck at 360, 768, 1024, 1280 and 1440, light and dark; each
       difference left is a row in `docs/design/gaps.md`.
-- [ ] The five canaries pass before and after; `make test-api` and `pnpm e2e` pass; `pnpm
+- [x] The five canaries pass before and after; `make test-api` and `pnpm e2e` pass; `pnpm
       e2e:live` passes with the new case.
+
+**As built** (#620): One new case in `web/tests/e2e/builder-groups.live.spec.ts`, against the real API;
+the file's two existing cases are untouched and nothing else changed. It signs in as the seeded Admin,
+creates a bank question worth 3 points and a shared-context group with a passage and one resident
+member, and drags the question into the group by the outline's keyboard path (grip, Space, ArrowDown,
+Space), because that path is deterministic; a real mouse drag in a scratch spec, since deleted, also
+worked three times in three. The header is checked tinted while the question is over it.
+
+It asserts the request body is exactly `{expectedUpdatedAt, questionId, to: {sectionId, groupId, index:
+0}, expectedGroupRevisions: [{groupId, revision}]}`. It asserts the id remap: 200, `copied` true and a
+`questionId` that is neither the source's nor the resident's. It asserts both bumps: `groups` holds
+only the touched group at its revision plus one, `test.updatedAt` moves forward, and a re-read over the
+API returns both. The group's members are `[copy, resident]`, the copy has the source's prompt, points
+and options, and the section's units are now just the group. The bank row is deep-equal to before,
+`updatedAt` included, and only the derived `usedIn` and `usedInTests` change, from 1 to 0; a bank
+search for the prompt returns only the source. The next group write uses the returned revision and
+answers 200, the revision becoming the baseline plus two. Publish answers 201, the preview's group
+lists `[edited copy, resident]`, and the student frame shows the copy beside the passage's heading and
+text.
+
+The author's runs: the case 3 of 3 on a private stack at `ffd6823c` and 9 of 9 over three runs on the
+earlier merge; the canaries before and after (web: `audio-player`, `client.refresh`, `router-chunks`;
+Go, with `-tags integration`: `publish_snapshot`, `TestTheSameClientSeqFromTwoSessionsBothPersist`,
+`TestLockForDraftUseSerialisesAgainstDelete`, `TestLockForVersionUseSerialisesAgainstDelete`);
+`tests/units/builder`, 31 files and 235 tests. **CI result** was green on the pull request, with E2E
+and E2E (live API) among its jobs; its Server tests job was skipped, because no file it reads had
+changed since it last passed. The seeded Admin's sign-in is limited to 20 an hour per email, so about
+20 local reruns on one stack end on a 429; CI runs each case once.
+
+Two notes. The deck comparison was made at T-E1.5, not here: 152 captures, at 360, 768, 1024, 1280 and
+1440, light and dark, and its differences are DG-213 to DG-216 in `docs/design/gaps.md`, with the
+changes to DG-186 and DG-211 (T-E1.7). The sync of `develop` (v0.11.3, v0.11.4) into the branch is #618.
 
 ### T-E1.7 — Documents
 **Depends on:** with T-E1.3 (server behaviour) and T-E1.5 (the screen); never batched after
 **Touches:** the files below
 **Size:** S
 **Done when:**
-- [ ] `docs/quizzivy-spec-v0.3.md`: bumped to v0.107 (the v0.11.3 hotfix takes v0.106) with a
-      "Changes since v0.106" entry. §7.3, after "Members belong to one group in one
-      section": a standalone question dragged into a section's group becomes a member copy and
-      the bank row stays; a member dragged out keeps its id and becomes a bank question; a member
-      moves between a test's groups in place; a gap-bound member does not leave; both the test
-      revision and each touched group's revision guard it; the next publish freezes the new
-      structure and the diff reads a copy-in as removed and added. §8 builder row: the outline's
-      member grips, the group header as a drop target and the menu equivalents. §15:
-      `POST /teacher/tests/:id/questions/move` with its answers.
-- [ ] `docs/plan/20-data-model.md`: a new §48 "Moving a question across the group boundary": no
+- [x] `docs/quizzivy-spec-v0.3.md`: bumped to v0.108 (the v0.11.3 hotfix took v0.106 and the
+      v0.11.4 hotfix v0.107) with a "Changes since v0.107" entry. §7.3, after the paragraph on
+      the builder's group inserts and copies ("Members belong to one group in one section" is
+      the contract's sentence, not the spec's): a standalone question dragged into a section's
+      group becomes a member copy and the bank row stays; a member dragged out keeps its id and
+      becomes a bank question; a member moves between a test's groups in place; a gap-bound
+      member does not leave; both the test revision and each touched group's revision guard it;
+      the next publish freezes the new structure and the diff reads a copy-in as removed and
+      added. §8 builder row: the outline's member grips, the group header as a drop target and
+      the menu equivalents. §15: `POST /teacher/tests/:id/questions/move` with its answers.
+- [x] `docs/plan/20-data-model.md`: a new §48 "Moving a question across the group boundary": no
       schema change; the DML, the lock order, the deferred constraints, and why a copy on the way
       in and the same id on the way out (the §12 register needs no row: no table changes).
-- [ ] `docs/design/gaps.md`: DG-186 gains "**Reversed 2026-10-14 (owner):** a bank question can be
-      dragged into a shared group and a member out, built in v0.11.4"; DG-211's "ours have none"
+- [x] `docs/design/gaps.md`: DG-186 gains "**Reversed 2026-10-14 (owner):** a bank question can be
+      dragged into a shared group and a member out, built in v0.11.6"; DG-211's "ours have none"
       for the member grip is marked built, and the request to the design team to remove the grip is
-      withdrawn.
-- [ ] `docs/plan/74d-d4-deck-update.md`: Q8 gets "**Overridden 2026-10-14 by the owner, after a
-      teacher escalation:** drag in and out is built as v0.11.4, design in `74e-e1-group-move.md`";
+      withdrawn. The differences T-E1.5's deck check found are four new rows, DG-213 to DG-216.
+- [x] `docs/plan/74d-d4-deck-update.md`: Q8 gets "**Overridden 2026-10-14 by the owner, after a
+      teacher escalation:** drag in and out is built as v0.11.6, design in `74e-e1-group-move.md`";
       the "Decisions taken in this file" bullet for Q8 and the DG-186 row point to it.
-- [ ] `docs/plan/70-redesign-overview.md` §2: a row for the escalation release, as v0.9.1 has one.
-- [ ] This file: every task's boxes ticked and its "As built" written in the task's own PR.
-- [ ] `AGENTS.md` needs no rule change for the inserts: the two-sided lock paragraphs already cover
+- [x] `docs/plan/70-redesign-overview.md` §2: a row for the escalation release, as v0.9.1 has one.
+- [x] This file: every task's boxes ticked and its "As built" written in the task's own PR.
+- [x] `AGENTS.md` needs no rule change for the inserts: the two-sided lock paragraphs already cover
       them. Its "Git workflow" paragraph gains the line for `work/escalation-e1` and
       `feature/t-e1-<nn>-<slug>` (the Tech Lead's, decided 2026-10-14).
+
+**As built** (this pull request): The spec is v0.108. The data model's section is §48, the next free
+one. The four new gap rows took DG-213 to DG-216, the next free ids on `develop` and on this branch;
+each was checked against `OutlineGroupRow.tsx` and `OutlineTree.tsx`. `AGENTS.md` gains one sentence
+in its branch-workflow paragraph, beside D4's. The plan's own corrections are the version (E1 is
+v0.11.6 throughout, since v0.11.3, v0.11.4 and v0.11.5 are hotfixes that took the numbers before it)
+and the spec numbers. T-E1.4 to T-E1.6 did not write their own "As built" in their pull requests, so
+this one writes them, from the merged pull requests and the code on the branch, and ticks the boxes
+the merged code meets.
 
 ## Order of work
 
@@ -687,18 +805,18 @@ needs a coordinate), `web/src/locales/{vi,en}.json`,
    {T-E1.4 → T-E1.5}. The web lane builds against MSW; the locale files are serialised.
 3. T-E1.7 lands with T-E1.3 (server behaviour) and T-E1.5 (the screen), never after.
 4. T-E1.6, after T-E1.3 and T-E1.5.
-5. The release: `work/escalation-e1` → `develop` (`--no-ff`), `release/0.11.4`, the checklist
+5. The release: `work/escalation-e1` → `develop` (`--no-ff`), `release/0.11.6`, the checklist
    below.
 
 ## Release checklist
 
-**v0.11.4, dragging a question into and out of a group** (decided 2026-10-14)
+**v0.11.6, dragging a question into and out of a group** (decided 2026-10-14)
 
 - [ ] Every task is ticked on `work/escalation-e1`. `develop` is merged into it, and verification
       is re-run after that merge. Then `work/escalation-e1` → `develop` (`--no-ff`), and
-      `release/0.11.4` is cut from `develop` at a named commit. v0.11.3 has shipped before it, or
-      its fix is already on `develop`.
-- [ ] `web/package.json` is bumped to 0.11.4 in the release branch only.
+      `release/0.11.6` is cut from `develop` at a named commit. The hotfixes v0.11.3 to v0.11.5
+      have shipped before it, or their fixes are already on `develop`.
+- [ ] `web/package.json` is bumped to 0.11.6 in the release branch only.
 - [ ] Every CI step runs on the release pull request, in order, judged by exit code (70 §8.1):
       `make lint`, `make gen-check`; `make test-api` and goose up/down/up (no migration, so the
       round trip is unchanged); `pnpm lint`, `pnpm typecheck`, `pnpm format:check`;
@@ -721,8 +839,10 @@ noted.
 same id when nothing else references it, is invisible to the teacher and touches the invariant
 that a member is born in its group.
 
-**Q2. Version number?** Decided: **v0.11.4**, because v0.11.3 is the Generate hotfix. The design's
-default was v0.11.3, as T-D4.21 shipped in a patch (v0.10.1), with R5 keeping v0.12.0.
+**Q2. Version number?** Decided: **v0.11.6**. The owner first decided v0.11.4, because v0.11.3 was
+the Generate hotfix; v0.11.4 then went to a hotfix (the AI check reads group members) and v0.11.5 to
+another (a phone-layout fix), so E1 takes v0.11.6 (the Tech Lead, 2026-10-14). The design's default
+was v0.11.3, as T-D4.21 shipped in a patch (v0.10.1), with R5 keeping v0.12.0.
 
 **Q3. Reorder members by grip inside a group?** Decided: **yes**, through the same operation.
 Otherwise members would drag only across the boundary and the group editor would keep member
@@ -745,8 +865,8 @@ material's document on a drag.
   `409 STALE_WRITE`, as the contract says (the Tech Lead, 2026-10-14).
 - **`AGENTS.md`'s "Git workflow"** names R and D4 branches only. The Tech Lead adds the line for
   `work/escalation-e1` in T-E1.7 (2026-10-14).
-- **The spec number.** E1's entry is v0.107; the v0.11.3 hotfix takes v0.106 (the Tech Lead,
-  2026-10-14).
+- **The spec number.** E1's entry is v0.108. The v0.11.3 hotfix took v0.106 and the v0.11.4 hotfix
+  v0.107, so the number the plan first named, v0.107, was not free (the Tech Lead, 2026-10-14).
 - **A standalone question held by two sections.** The request names no source section, so a
   question that two sections of one test hold cannot be told apart; the move answers `400`
   (`move_source_ambiguous`). The builder's picker does not let a test hold a bank question twice,
