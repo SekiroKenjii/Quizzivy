@@ -22,8 +22,9 @@ const finishBudget = 10 * time.Second
 type asker struct{ *support.Service }
 
 type answer struct {
-	Object json.RawMessage
-	Usage  domain.Usage
+	Object    json.RawMessage
+	Usage     domain.Usage
+	RequestID string
 }
 
 type session struct {
@@ -55,7 +56,7 @@ func (a asker) ask(ctx context.Context, who actor.Actor, p prompts.Prompt) (answ
 	if err != nil {
 		return answer{}, err
 	}
-	return answer{Object: response.Object, Usage: usage}, nil
+	return answer{Object: response.Object, Usage: usage, RequestID: response.RequestID}, nil
 }
 
 func (a asker) session(ctx context.Context, who actor.Actor, feature domain.Feature, tier ports.Tier, body func(*session) error) (usage domain.Usage, err error) {
@@ -151,6 +152,13 @@ func (a asker) failure(ctx context.Context, feature domain.Feature, requestID st
 	}
 	a.Logger.ErrorContext(ctx, "ai call failed unexpectedly", "feature", feature, "request_id", requestID, "error", err)
 	return fmt.Errorf("ai: %s: %w", feature, err)
+}
+
+func (a asker) unusable(ctx context.Context, feature domain.Feature, requestID string, err error) error {
+	if errors.Is(err, prompts.ErrUnusable) {
+		a.Logger.WarnContext(ctx, "ai answer unusable", "feature", feature, "request_id", requestID, "error", err)
+	}
+	return unusable(err)
 }
 
 func unusable(err error) error {

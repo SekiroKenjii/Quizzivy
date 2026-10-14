@@ -51,7 +51,7 @@ func (h InsightsHandler) Handle(ctx context.Context, q Insights) (Interpreted, e
 	}
 	items, err := prompts.DecodeInsights(got.Object, in)
 	if err != nil {
-		return Interpreted{}, unusable(err)
+		return Interpreted{}, asker(h).unusable(ctx, domain.FeatureInsights, got.RequestID, err)
 	}
 	return Interpreted{Basis: results.HandedIn, Items: items, Usage: got.Usage}, nil
 }

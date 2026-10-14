@@ -42,7 +42,7 @@ func (h DistractorsHandler) Handle(ctx context.Context, q Distractors) (Suggeste
 	}
 	items, err := prompts.DecodeDistractors(got.Object, in)
 	if err != nil {
-		return Suggested{}, unusable(err)
+		return Suggested{}, asker(h).unusable(ctx, domain.FeatureDistractors, got.RequestID, err)
 	}
 	return Suggested{Items: items, Usage: got.Usage}, nil
 }

@@ -67,7 +67,7 @@ func Explanation(in ExplanationInput) (Prompt, error) {
 	if len(in.Question.Options) > 1 {
 		b.WriteString(" and why the most tempting wrong option is wrong")
 	}
-	b.WriteString(". Use plain words a B1 learner understands. Return {\"explanation\":\"...\"}.")
+	b.WriteString(". Use plain words a B1 learner understands. Put the explanation in \"explanation\".")
 	return Prompt{Feature: domain.FeatureExplanation, Tier: domain.TierCapable, System: explanationSystem, User: b.String(), Schema: json.RawMessage(explanationSchema), MaxTokens: 600}, nil
 }
 

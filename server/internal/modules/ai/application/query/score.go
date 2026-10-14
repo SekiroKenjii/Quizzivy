@@ -57,7 +57,7 @@ func (h ScoreHandler) Handle(ctx context.Context, q Score) (Scored, error) {
 	}
 	suggestion, err := prompts.DecodeScore(got.Object, in)
 	if err != nil {
-		return Scored{}, unusable(err)
+		return Scored{}, asker(h).unusable(ctx, domain.FeatureScore, got.RequestID, err)
 	}
 	return Scored{Suggestion: suggestion, Usage: got.Usage}, nil
 }

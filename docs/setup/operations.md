@@ -585,7 +585,8 @@ where the provider answered, its `request_id`, which is what the provider's cons
 |---|---|---|
 | `ai assistant enabled` / `ai assistant disabled (no ANTHROPIC_API_KEY)` | INFO | Start-up. The first names both models. |
 | `anthropic_retry` | WARN | The provider answered 429 or 5xx, or a stream ended overloaded; the client waits and tries again, three times at most. |
-| `ai call failed` | WARN | After the retries, or on a refusal or an answer no decoder could use. The teacher saw `503 AI_UNAVAILABLE`; what the provider billed was settled and the rest released. |
+| `ai call failed` | WARN | After the retries, or on a refusal or an answer that is not one complete JSON object. The teacher saw `503 AI_UNAVAILABLE`; what the provider billed was settled and the rest released. |
+| `ai answer unusable` | WARN | The provider answered in the schema, but the operation's checks left nothing to return. `error` says why, with counts and never the answer's text. The teacher saw the same 503, and the call was billed. |
 | `ai call rejected` | ERROR | The provider refused the request itself, which is the key, the account or a model name. Read the provider console. The teacher saw the same 503. |
 | `ai call failed unexpectedly` | ERROR | An error that is none of the above. |
 | `ai clean-up` | INFO | One bank clean-up: how many calls it made and how many gave a usable answer, whether the 45-second budget ran out, and every `request_id` of the pass. The ledger gets one row for the pass and keeps only the ids that fit 200 characters, so this line is where all of them are. |

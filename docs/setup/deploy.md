@@ -376,6 +376,22 @@ What v0.9.0 then does with what v0.10.0 wrote:
 - `00084`'s Down leaves its constraint `NOT VALID` for the same reason. Never roll back past v0.8.0
   (the join-code key).
 
+## Rolling out v0.11.1 (hotfix)
+
+v0.11.1 changes no schema and no contract. It fixes the AI assistant, which answered every
+"Generate questions" in production with `503 AI_UNAVAILABLE` on the day v0.11.0 shipped.
+
+- **What happened.** Each prompt ended with a literal JSON example full of `"..."`. Every call was
+  billed for 46 output tokens, whatever the passage, which is the size of that example copied back,
+  and the decoder found nothing usable in the answer. The teacher saw the 503. Nothing was logged,
+  because only a failed call was, so the answer itself could not be read back.
+- **What changed.** The prompts describe the fields in words and name the count. Structured output
+  already holds the answer to the schema. An answer the checks reject now logs `ai answer unusable`
+  (`docs/setup/operations.md`).
+- **The start-up lesson from v0.11.0.** With `ANTHROPIC_API_KEY` set and the tier variables missing,
+  the API and the worker refuse to start. Set the key and all eight `AI_TIER_*` variables in one
+  `fly secrets set`, before the deploy, or set none of them.
+
 ## Rolling out v0.11.0 (D4)
 
 D4 adds twelve migrations and changes no existing column (`docs/plan/74d-d4-deck-update.md`, the

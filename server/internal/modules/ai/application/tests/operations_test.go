@@ -344,10 +344,11 @@ func TestACallThatFailsIsSettledOnlyForWhatTheProviderBilledAndTheCallerIsToldTo
 	}
 }
 
-func TestAnAnswerWithNothingUsableIsSettledAndReportedUnavailable(t *testing.T) {
+func TestAnAnswerWithNothingUsableIsSettledLoggedAndReportedUnavailable(t *testing.T) {
 	for name, object := range map[string]string{
 		"no question left":                 `{"questions":[]}`,
-		"a question that fails its checks": `{"questions":[{"type":"single_choice","prompt":"x","options":["a","b"],"answers":["c"],"explanation":""}]}`,
+		"a question that fails its checks": `{"questions":[{"type":"single_choice","prompt":"Secret prompt","options":["a","b"],"answers":["c"],"explanation":""}]}`,
+		"the old template echoed back":     `{"questions":[{"type":"single_choice","prompt":"...","options":["..."],"answers":["..."],"explanation":"..."}]}`,
 		"a field nobody asked for":         `{"questions":[],"note":"hello"}`,
 		"not the schema's shape":           `{"unexpected":1}`,
 	} {
@@ -360,6 +361,15 @@ func TestAnAnswerWithNothingUsableIsSettledAndReportedUnavailable(t *testing.T) 
 			}
 			if len(o.repo.settled) != 1 || len(o.repo.released) != 0 {
 				t.Errorf("settled %d, released %d; the provider was paid for the answer", len(o.repo.settled), len(o.repo.released))
+			}
+			logs := o.logs.String()
+			for _, want := range []string{"level=WARN", `msg="ai answer unusable"`, "feature=generate", "request_id=req_ops"} {
+				if !strings.Contains(logs, want) {
+					t.Errorf("the log lacks %s:\n%s", want, logs)
+				}
+			}
+			if strings.Contains(logs, "Secret prompt") || strings.Contains(logs, "hello") {
+				t.Errorf("the log carries the answer's text:\n%s", logs)
 			}
 		})
 	}

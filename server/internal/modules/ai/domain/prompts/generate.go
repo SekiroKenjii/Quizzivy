@@ -55,8 +55,8 @@ func Generate(in GenerateInput) Prompt {
 	}
 	user := fmt.Sprintf("Source:\n\"\"\"\n%s\n\"\"\"\n\nWrite %d questions at CEFR %s. Use only these types: %s.\n%s\n"+
 		"For single_choice, multiple_choice and true_false, answers must equal option texts exactly. For fill_blank and short_answer, options is an empty array.\n%s\n"+
-		"Return {\"questions\":[{\"type\":\"...\",\"prompt\":\"...\",\"options\":[\"...\"],\"answers\":[\"...\"],\"explanation\":\"...\"}]}.",
-		clip(in.Source, MaxSource), in.Count, strings.ToUpper(in.Level), strings.Join(in.Types, ", "), strings.Join(rules, "\n"), explain)
+		"Put all %d questions in \"questions\", each with its type, prompt, options, answers and explanation written from the source.",
+		clip(in.Source, MaxSource), in.Count, strings.ToUpper(in.Level), strings.Join(in.Types, ", "), strings.Join(rules, "\n"), explain, in.Count)
 	return Prompt{Feature: domain.FeatureGenerate, Tier: domain.TierCapable, System: generateSystem, User: user, Schema: json.RawMessage(generateSchema), MaxTokens: 6000}
 }
 
@@ -87,7 +87,7 @@ func DecodeGenerate(raw json.RawMessage, in GenerateInput) ([]Question, error) {
 		}
 	}
 	if len(out) == 0 {
-		return nil, ErrUnusable
+		return nil, fmt.Errorf("%w: none of the %d questions in the answer is usable", ErrUnusable, len(answer.Questions))
 	}
 	return out, nil
 }
