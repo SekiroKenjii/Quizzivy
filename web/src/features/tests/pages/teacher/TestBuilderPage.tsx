@@ -85,6 +85,7 @@ import {
   groupIssue,
   groupRoom,
   MAX_GROUP_MEMBERS,
+  memberValues,
   withMembers,
 } from "@/features/question-groups/model";
 import {
@@ -382,10 +383,14 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     outline.schedule({ title: next, sections: latestOutline.current });
   }
 
-  async function selectQuestion(questionId: string) {
-    const group = [...groups.values()].find((bundle) =>
+  function groupOf(questionId: string): GroupBundle | undefined {
+    return [...groups.values()].find((bundle) =>
       bundle.group.members.some((member) => member.questionId === questionId),
     );
+  }
+
+  async function selectQuestion(questionId: string) {
+    const group = groupOf(questionId);
     if (group) {
       await selectGroup(group.group.id, questionId);
       return;
@@ -468,7 +473,31 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     await selectGroup(groupId, members[0]?.id);
   }
 
+  async function fixMember(groupId: string, finding: AiFinding) {
+    await flushQuestion.current?.();
+    await outline.flush();
+    await writes.run(async () => {
+      await queryClient.cancelQueries({ queryKey: ["teacher-group", groupId] });
+      const stored =
+        queryClient.getQueryData<StoredGroup>(["teacher-group", groupId]) ??
+        (await getGroup(groupId));
+      const next = withMemberFix(stored.bundle, finding);
+      if (!next) throw new Error("The question is no longer in its group");
+      await saveGroup(next, stored.revision);
+      groupBridge.current?.advanceOwner(false, version.current);
+    });
+    if (selectedGroupId === groupId) {
+      setActiveBundle(null);
+      setGroupEpoch((epoch) => epoch + 1);
+    }
+  }
+
   async function fixQuestion(finding: AiFinding) {
+    const group = groupOf(finding.questionId);
+    if (group) {
+      await fixMember(group.group.id, finding);
+      return;
+    }
     await flushQuestion.current?.();
     const questionId = finding.questionId;
     await queryClient.cancelQueries({ queryKey: ["teacher-question", questionId] });
@@ -1561,6 +1590,19 @@ function describePosition(
     }
   }
   return null;
+}
+
+function withMemberFix(bundle: GroupBundle, finding: AiFinding): GroupBundle | null {
+  if (!bundle.questions.some((question) => question.id === finding.questionId))
+    return null;
+  return {
+    ...bundle,
+    questions: bundle.questions.map((question) =>
+      question.id === finding.questionId
+        ? { ...question, input: withFix(memberValues(question.input), finding) }
+        : question,
+    ),
+  };
 }
 
 function positionOf(

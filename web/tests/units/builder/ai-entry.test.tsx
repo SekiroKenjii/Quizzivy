@@ -392,6 +392,18 @@ function generateAnswers(items: unknown[]) {
   );
 }
 
+type User = ReturnType<typeof userEvent.setup>;
+
+async function press(
+  user: User,
+  signal: AbortSignal,
+  target: HTMLElement | Promise<HTMLElement>,
+) {
+  const element = await target;
+  signal.throwIfAborted();
+  await user.click(element);
+}
+
 describe("Generate in a test with a shared-context group", () => {
   let stored: StoredGroup;
   let puts: GroupUpdateInput[];
@@ -455,18 +467,6 @@ describe("Generate in a test with a shared-context group", () => {
       },
     ]);
   });
-
-  type User = ReturnType<typeof userEvent.setup>;
-
-  async function press(
-    user: User,
-    signal: AbortSignal,
-    target: HTMLElement | Promise<HTMLElement>,
-  ) {
-    const element = await target;
-    signal.throwIfAborted();
-    await user.click(element);
-  }
 
   async function runFromThePassage(user: User, signal: AbortSignal) {
     await press(user, signal, screen.findByRole("button", { name: ai.entry.generate }));
@@ -637,5 +637,234 @@ describe("Generate in a test with a shared-context group", () => {
     await waitFor(() =>
       expect(events).toContain(`patch test Unit 5 ${QUESTION_ID},${CREATED_ID}`),
     );
+  });
+});
+
+const SECOND_ID = "018f0000-0000-7000-8000-0000000000e4";
+const MEMBER_WRONG = "018f0000-0000-7000-8000-0000000000e6";
+
+function choiceMember(id: string, prompt: string, wrongId: string) {
+  return {
+    id,
+    input: {
+      type: "single_choice" as const,
+      level: null,
+      skill: null,
+      prompt,
+      points: 1,
+      options: [
+        { id: `${wrongId.slice(0, -1)}0`, text: "Cool the streets", isCorrect: true },
+        { id: wrongId, text: "Heat the streets", isCorrect: false },
+      ],
+      blanks: [],
+      tags: [],
+    },
+  };
+}
+
+function finding(questionId: string, number: number, optionId: string) {
+  return {
+    severity: "worth_a_look" as const,
+    questionId,
+    number,
+    type: "single_choice" as const,
+    title: "A question",
+    issue: "Option B could be argued.",
+    fix: {
+      kind: "option_text" as const,
+      description: "Use “Warm the streets”.",
+      label: "Use this option",
+      payload: { optionId, text: "Warm the streets" },
+    },
+  };
+}
+
+describe("Check in a test with a shared-context group", () => {
+  let stored: StoredGroup;
+  let puts: GroupUpdateInput[];
+  let patches: string[];
+
+  beforeEach(() => {
+    stored = readingClub([
+      choiceMember(
+        MEMBER_ID,
+        "What do parks do?",
+        "018f0000-0000-7000-8000-0000000000e5",
+      ),
+      choiceMember(SECOND_ID, "What do trees do?", MEMBER_WRONG),
+    ]);
+    puts = [];
+    patches = [];
+    server.use(
+      http.get(`${BASE}/teacher/tests/:id`, () =>
+        contractJson("/teacher/tests/{id}", "get", 200, {
+          ...test,
+          sections: [
+            {
+              ...test.sections[0]!,
+              units: [
+                { kind: "question", id: QUESTION_ID },
+                { kind: "group", id: GROUP_ID },
+              ],
+            },
+          ],
+        }),
+      ),
+      http.get(`${BASE}/teacher/question-groups/:id`, () =>
+        contractJson("/teacher/question-groups/{id}", "get", 200, stored),
+      ),
+      http.put(`${BASE}/teacher/question-groups/:id`, async ({ request }) => {
+        const body = (await request.json()) as GroupUpdateInput;
+        puts.push(body);
+        if (body.expectedRevision !== stored.revision)
+          return HttpResponse.json(
+            { error: { code: "STALE_WRITE", message: "Đã có thay đổi ở nơi khác." } },
+            { status: 409 },
+          );
+        stored = {
+          ...stored,
+          bundle: storedGroupBundle(body.bundle),
+          revision: stored.revision + 1,
+          testUpdatedAt: "2026-01-04T00:00:00Z",
+        };
+        return contractJson("/teacher/question-groups/{id}", "put", 200, stored);
+      }),
+      http.patch(`${BASE}/teacher/questions/:id`, ({ params }) => {
+        patches.push(String(params["id"]));
+        return contractJson("/teacher/questions/{id}", "patch", 200, {
+          ...question,
+          options: [
+            question.options[0]!,
+            { ...question.options[1]!, text: "has gone" },
+          ],
+        });
+      }),
+    );
+  });
+
+  function checkAnswers(findings: ReturnType<typeof finding>[]) {
+    server.use(
+      http.post(`${BASE}/teacher/ai/tests/:id/check`, () =>
+        contractJson("/teacher/ai/tests/{id}/check", "post", 200, {
+          findings,
+          usage: { credits: 400, left: 1000 },
+        }),
+      ),
+    );
+  }
+
+  async function runCheck(user: User, signal: AbortSignal) {
+    await press(user, signal, screen.findByRole("button", { name: ai.entry.check }));
+    const dialog = await screen.findByRole("dialog");
+    await press(
+      user,
+      signal,
+      within(dialog).getByRole("button", { name: ai.check.run }),
+    );
+    return dialog;
+  }
+
+  it("writes a member's fix through its group, changing only that member, and reloads the open group", async ({
+    signal,
+  }) => {
+    aiOn();
+    checkAnswers([finding(SECOND_ID, 3, MEMBER_WRONG)]);
+    const { user } = await renderBuilder();
+    await press(
+      user,
+      signal,
+      screen.findByRole("button", { name: /What do trees do\?/ }, { timeout: 5000 }),
+    );
+    const title = await screen.findByDisplayValue("Reading club");
+    const before = stored.bundle;
+
+    const dialog = await runCheck(user, signal);
+    expect(await within(dialog).findByText("Câu 3")).toBeVisible();
+    await press(
+      user,
+      signal,
+      within(dialog).getByRole("button", { name: "Use this option" }),
+    );
+
+    await waitFor(() => expect(puts).toHaveLength(1));
+    const sent = puts[0]!;
+    expect(sent.expectedRevision).toBe(1);
+    expect(sent.expectedTestUpdatedAt).toBe(test.updatedAt);
+    expect(sent.bundle.group).toEqual(before.group);
+    expect(sent.bundle.questions[0]).toEqual(before.questions[0]);
+    expect(
+      sent.bundle.questions[1]!.input.options?.map((option) => option.text),
+    ).toEqual(["Cool the streets", "Warm the streets"]);
+    expect(sent.bundle.questions[1]).toMatchObject({
+      id: SECOND_ID,
+      input: { prompt: "What do trees do?", type: "single_choice", points: 1 },
+    });
+    expect(patches).toEqual([]);
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    signal.throwIfAborted();
+    const reloaded = await screen.findByDisplayValue("Reading club");
+    expect(reloaded).not.toBe(title);
+    await user.type(reloaded, " B");
+    await waitFor(() => expect(puts).toHaveLength(2), { timeout: 4000 });
+    expect(puts[1]!.expectedRevision).toBe(2);
+    expect(puts[1]!.bundle.questions[1]!.input.options?.[1]?.text).toBe(
+      "Warm the streets",
+    );
+  });
+
+  it("opens a member inside its group", async ({ signal }) => {
+    aiOn();
+    checkAnswers([finding(SECOND_ID, 3, MEMBER_WRONG)]);
+    const { user } = await renderBuilder();
+    const row = await screen.findByRole(
+      "button",
+      { name: /What do trees do\?/ },
+      { timeout: 5000 },
+    );
+    expect(row).not.toHaveClass("bg-secondary");
+
+    const dialog = await runCheck(user, signal);
+    await press(
+      user,
+      signal,
+      within(dialog).findByRole("button", { name: ai.check.openQuestion }),
+    );
+
+    expect(await screen.findByDisplayValue("Reading club")).toBeVisible();
+    const outlineGroup = document.querySelector<HTMLElement>(
+      `[data-outline-group="${GROUP_ID}"]`,
+    )!;
+    await waitFor(() =>
+      expect(
+        within(outlineGroup).getByRole("button", { name: /What do trees do\?/ }),
+      ).toHaveClass("bg-secondary"),
+    );
+    expect(screen.queryByDisplayValue("have gone")).toBeNull();
+    expect(puts).toEqual([]);
+  });
+
+  it("still writes a standalone question's fix to that question", async ({
+    signal,
+  }) => {
+    aiOn();
+    checkAnswers([finding(QUESTION_ID, 1, WRONG_OPTION)]);
+    const { user } = await renderBuilder();
+    await screen.findByRole(
+      "button",
+      { name: /What do trees do\?/ },
+      { timeout: 5000 },
+    );
+
+    const dialog = await runCheck(user, signal);
+    await press(
+      user,
+      signal,
+      within(dialog).findByRole("button", { name: "Use this option" }),
+    );
+
+    await waitFor(() => expect(patches).toEqual([QUESTION_ID]));
+    expect(puts).toEqual([]);
   });
 });

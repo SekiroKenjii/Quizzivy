@@ -3439,11 +3439,23 @@ the 256 MiB sandbox included; `BenchmarkRenderForty*` in `pdftext/tests` repeats
       text, a topic or "Start empty" still goes to the section.
 - [x] Check: findings as drawn; "{fix}" is one click only for a fix whose write exists (option
       text, accepted answer, explanation) and calls `updateQuestion` with the payload; otherwise
-      "Open question" and "Dismiss" only (DG-202).
+      "Open question" and "Dismiss" only (DG-202). **Corrected in v0.11.4
+      (`hotfix/ai-check-group-members`):** the check reads the members of the test's
+      shared-context groups as well as its standalone questions. `AITests.Draft` walks each
+      section's units in the builder's order (a section with no units, from before groups,
+      reads its `questionIds` as question units), reads each group once, and emits its members
+      in the group's order with the group's passage and `PaperQuestion.GroupID`. The number of a
+      finding is the builder's `positionOf` count: one per question across the sections, a
+      question the caller cannot read keeping its number, and a group the caller cannot read
+      contributing none. It used to read the standalone questions only, so a test whose
+      questions were all members answered "There is nothing for the assistant to read yet."
 - [x] Variant: the before / after cards; "Save {n} changes as a draft" calls `duplicateTest` into
       "{title} · Variant" and applies the accepted changes to the copy's draft questions through
       `updateQuestion`; the toast reads "Variant saved as a draft. Open the variant." with a link
-      (DG-197).
+      (DG-197). **Limit, stated in v0.11.4:** a variant covers the standalone questions only. A
+      variant duplicates bank questions and writes each change to the duplicate, which a group's
+      members cannot be, so `VariantHandler` drops `GroupID != ""` questions before it builds the
+      prompt and a test whose questions are all members answers `ErrNothingToRead`, as before.
 - [x] Clean up: a duplicate card offers "Open" for each question and "Keep both"; no merge
       (DG-197); "Add tags to {n} questions" is the bulk tag write.
 - [x] Every write a primary makes goes through the existing mutation hooks and their autosave

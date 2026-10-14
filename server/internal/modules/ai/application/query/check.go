@@ -9,7 +9,7 @@ import (
 	"quizzivy/internal/shared/actor"
 )
 
-// Check looks for mistakes in the draft of TestID: wrong or doubtful keys, unclear wording, answers given away and spelling. Nothing is changed; a finding's fix is written by the caller through the existing question write. It answers domain.ErrNotFound for a test the caller does not reach.
+// Check looks for mistakes in the draft of TestID: wrong or doubtful keys, unclear wording, answers given away and spelling. It reads standalone questions and the members of the test's groups alike, in the order the builder numbers them. Nothing is changed; a finding's fix is written by the caller through the existing question write. It answers domain.ErrNotFound for a test the caller does not reach.
 type Check struct {
 	Actor    actor.Actor
 	TestID   string
