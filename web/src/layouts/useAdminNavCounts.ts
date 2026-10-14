@@ -8,7 +8,7 @@ import type { NavFigures } from "@/layouts/shell/nav";
 const POLL_MS = 60_000;
 
 /** ADMIN_CREDITS_KEY is the query key of the Admin's month of AI credits, read for the sidebar's badge. */
-export const ADMIN_CREDITS_KEY = ["admin-ai-credits"] as const;
+export const ADMIN_CREDITS_KEY = ["admin", "ai-credits"] as const;
 
 /**
  * useAdminNavCounts reads the figures of the Admin sidebar's badges: the AI

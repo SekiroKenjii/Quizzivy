@@ -12,9 +12,7 @@ import { ConsoleSkeleton } from "@/layouts/TeacherSkeleton";
 import { useAdminNavCounts } from "@/layouts/useAdminNavCounts";
 import { useAuthStore } from "@/stores/auth";
 
-registerSkeleton("admin", () => (
-  <ConsoleSkeleton slot="admin-skeleton" pageMax="1320px" />
-));
+registerSkeleton("admin", () => <ConsoleSkeleton workspace="admin" pageMax="1320px" />);
 
 function TeacherView() {
   const { t } = useTranslation();

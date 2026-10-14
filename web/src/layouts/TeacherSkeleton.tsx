@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import type { StaffWorkspace } from "@/layouts/shell/nav";
 import { readSidebarState } from "@/layouts/shell/sidebarState";
 import { cn } from "@/lib/utils";
 
@@ -21,16 +22,21 @@ const ROWS = ["first", "second", "third", "fourth", "fifth"] as const;
  * draws it. The sidebar column shows from 768px, at 60px with its tile and
  * icon blocks alone when the stored sidebar state is collapsed. The splash
  * renders it outside the shell, so it sets its own deck scale and paints its
- * own background. `slot` names it in the DOM, and `pageMax` is the page's
- * maximum width as a CSS length, the teacher's `--page-max` unless given.
+ * own background. `workspace` prefixes its `data-slot` with the console's
+ * name, and `pageMax` is the page's maximum width as a CSS length, the
+ * teacher's `--page-max` unless given.
  */
 export function ConsoleSkeleton({
-  slot,
+  workspace,
   pageMax = "var(--page-max)",
-}: Readonly<{ slot: string; pageMax?: string }>) {
+}: Readonly<{ workspace: StaffWorkspace; pageMax?: string }>) {
   const collapsed = readSidebarState() === "collapsed";
   return (
-    <div data-slot={slot} data-scale="deck" className="bg-bg flex h-full">
+    <div
+      data-slot={`${workspace}-skeleton`}
+      data-scale="deck"
+      className="bg-bg flex h-full"
+    >
       <div
         data-slot="skeleton-sidebar"
         className={cn(
@@ -95,5 +101,5 @@ export function ConsoleSkeleton({
 
 /** TeacherSkeleton is the skeleton of the teacher console. */
 export function TeacherSkeleton() {
-  return <ConsoleSkeleton slot="teacher-skeleton" />;
+  return <ConsoleSkeleton workspace="teacher" />;
 }

@@ -32,6 +32,7 @@ function renderAt(path: string) {
       element: <RequireSession />,
       children: [
         { path: "/change-password-guarded", element: <p>change password page</p> },
+        { path: "/admin", element: <p>admin console</p> },
         {
           path: "/teacher",
           element: <TeacherWorkspace />,
@@ -145,12 +146,24 @@ describe("role guards", () => {
     useAuthStore.setState({
       isBootstrapping: false,
       accessToken: "t",
-      user: adminUser,
+      user: teacherUser,
     });
     const router = renderAt("/app");
 
     expect(await screen.findByText("admin home")).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/teacher");
+  });
+
+  it("redirects the Admin off the student tree to the Admin console", async () => {
+    useAuthStore.setState({
+      isBootstrapping: false,
+      accessToken: "t",
+      user: adminUser,
+    });
+    const router = renderAt("/app");
+
+    expect(await screen.findByText("admin console")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/admin");
   });
 
   it("lets a student into the student tree", async () => {
@@ -164,15 +177,21 @@ describe("role guards", () => {
   });
 });
 
+const LANDING: Record<string, string> = {
+  "/app": "student home",
+  "/admin": "admin console",
+  "/teacher": "admin home",
+};
+
 const nobody: typeof studentUser = { ...studentUser, permissions: [], workspaces: [] };
 
 describe.each([
   {
     who: "the Admin",
     user: adminUser,
-    home: "/teacher",
+    home: "/admin",
     admin: "admin home",
-    app: "/teacher",
+    app: "/admin",
   },
   {
     who: "a Teacher",
@@ -192,7 +211,7 @@ describe.each([
   {
     who: "an Admin who takes tests",
     user: adminWhoTakesTests,
-    home: "/teacher",
+    home: "/admin",
     admin: "admin home",
     app: "/app",
   },
@@ -241,9 +260,7 @@ describe.each([
       return;
     }
     await waitFor(() => expect(router.state.location.pathname).toBe(app));
-    expect(
-      await screen.findByText(app === "/app" ? "student home" : "admin home"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(LANDING[app] ?? "")).toBeInTheDocument();
   });
 });
 
