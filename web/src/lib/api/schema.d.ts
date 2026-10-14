@@ -8229,7 +8229,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `STALE_WRITE` — the test was edited elsewhere since `expectedUpdatedAt`, or a touched group is past its expected revision or missing from `expectedGroupRevisions`; `TEST_ARCHIVED` — restore the test before moving a question. */
+            /** @description `STALE_WRITE` — the test was edited elsewhere since `expectedUpdatedAt`, or a touched group is past its expected revision or missing from `expectedGroupRevisions`; `TEST_ARCHIVED` — restore the test before moving a question; `GROUP_CONFLICT` — a uniqueness constraint refused the write because another writer got there first, and nothing is written. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -8255,7 +8255,9 @@ export interface operations {
              *     or any rule the destination group fails once the question is in
              *     it (`group_limits` at 200 members or the 4 MiB budget,
              *     `group_audio_scope` when the copied question uses the group's own
-             *     shared recording, `group_asset`).
+             *     shared recording, `group_asset`); or `group_reference` — a
+             *     database reference or check refused the write, as it does an
+             *     `updateQuestionGroup` that drops a member something still uses.
              */
             422: {
                 headers: {
