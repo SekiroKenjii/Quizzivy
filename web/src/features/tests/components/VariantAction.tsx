@@ -1,14 +1,13 @@
-import { lazy, Suspense, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { Sparkles } from "lucide-react";
 import type { AiVariantChange } from "@/features/ai/api";
 import { AiEntryButton } from "@/features/ai/components/AiEntryButton";
+import { AiPanelStack } from "@/features/ai/components/AiPanelStack";
 import { useAiAvailable, useAiBlock } from "@/features/ai/useAiAvailable";
 import type { Test } from "@/features/tests/api";
 import { saveVariant } from "@/features/tests/aiVariant";
-
-const AiPanel = lazy(() => import("@/features/ai/components/AiPanel"));
 
 const TITLE_MAX = 200;
 
@@ -17,6 +16,7 @@ const TITLE_MAX = 200;
  * not drawn without the assistant or `ai.use`, and is drawn disabled with the
  * reason while the teacher is paused or out of credits (Q34) or the test has
  * no published version. Kept changes become a new draft test (DG-197).
+ * Closing the panel keeps its session while the page is open.
  */
 export function VariantAction({
   test,
@@ -59,17 +59,15 @@ export function VariantAction({
         className={className}
         onClick={() => setOpen(true)}
       />
-      {open && (
-        <Suspense fallback={null}>
-          <AiPanel
-            request={{
-              kind: "variant",
-              context: { testId: test.id, title: test.title, save },
-            }}
-            onClose={() => setOpen(false)}
-          />
-        </Suspense>
-      )}
+      <AiPanelStack
+        key={test.id}
+        open={open ? "variant" : null}
+        requestFor={() => ({
+          kind: "variant",
+          context: { testId: test.id, title: test.title, save },
+        })}
+        onClose={() => setOpen(false)}
+      />
     </>
   );
 }

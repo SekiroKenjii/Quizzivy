@@ -114,6 +114,45 @@ describe("the bank's AI entry points", () => {
     await waitFor(() => expect(lists).toBeGreaterThan(1));
   });
 
+  it("keep what a clean-up found when the drawer is closed, and a dismissed pair stays dismissed", async () => {
+    aiOn();
+    let runs = 0;
+    const pair = (why: string, a: string, b: string) => ({
+      a: { questionId: a, prompt: `${why} one`, usedInTests: 1 },
+      b: { questionId: b, prompt: `${why} other`, usedInTests: 0 },
+      why,
+    });
+    server.use(
+      http.post(`${BANK_API}/teacher/ai/bank/cleanup`, () => {
+        runs += 1;
+        return contractJson("/teacher/ai/bank/cleanup", "post", 200, {
+          scanned: 3,
+          truncated: false,
+          duplicates: [pair("Same map question.", Q1, Q2), pair("Same quiz.", Q2, Q3)],
+          tags: [],
+          usage: { credits: 900, left: 1000 },
+        });
+      }),
+    );
+    const { user } = renderBank();
+    await user.click(await screen.findByRole("button", { name: ai.entry.cleanup }));
+    let dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: ai.cleanup.run }));
+    await within(dialog).findByText("Same map question.");
+    await user.click(
+      within(dialog).getAllByRole("button", { name: ai.cleanup.keepBoth })[0]!,
+    );
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    await user.click(screen.getByRole("button", { name: ai.entry.cleanup }));
+    dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Same quiz.")).toBeVisible();
+    expect(within(dialog).queryByText("Same map question.")).toBeNull();
+    expect(within(dialog).queryByRole("button", { name: ai.cleanup.run })).toBeNull();
+    expect(runs).toBe(1);
+  });
+
   it("save generated questions to the bank, tagged", async () => {
     aiOn();
     const created: { tags: string[]; type: string }[] = [];

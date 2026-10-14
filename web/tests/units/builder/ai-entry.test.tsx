@@ -870,3 +870,139 @@ describe("Check in a test with a shared-context group", () => {
     expect(puts).toEqual([]);
   });
 });
+
+describe("an AI session in the builder", () => {
+  let checks: number;
+  let generations: number;
+
+  beforeEach(() => {
+    checks = 0;
+    generations = 0;
+  });
+
+  function checkAnswers(gate: Promise<void> = Promise.resolve()) {
+    server.use(
+      http.post(`${BASE}/teacher/ai/tests/:id/check`, async () => {
+        checks += 1;
+        await gate;
+        return contractJson("/teacher/ai/tests/{id}/check", "post", 200, {
+          findings: [finding(QUESTION_ID, 1, WRONG_OPTION)],
+          usage: { credits: 400, left: 1000 },
+        });
+      }),
+    );
+  }
+
+  function generateOne() {
+    server.use(
+      http.post(`${BASE}/teacher/ai/questions/generate`, () => {
+        generations += 1;
+        return contractJson("/teacher/ai/questions/generate", "post", 200, {
+          items: [
+            {
+              type: "short_answer",
+              prompt: "What do cities rethink?",
+              answerKey: ["open land"],
+              explanation: "",
+            },
+          ],
+          usage: { credits: 500, left: 1000 },
+        });
+      }),
+      http.post(`${BASE}/teacher/questions`, () =>
+        contractJson("/teacher/questions", "post", 201, created),
+      ),
+    );
+  }
+
+  async function open(user: User, name: string) {
+    await user.click(await screen.findByRole("button", { name }));
+    return screen.findByRole("dialog");
+  }
+
+  it("keeps a check's findings when the teacher goes to a question and when the drawer is closed", async () => {
+    aiOn();
+    checkAnswers();
+    const { user } = await renderBuilder();
+    let dialog = await open(user, ai.entry.check);
+    await user.click(within(dialog).getByRole("button", { name: ai.check.run }));
+    await user.click(
+      await within(dialog).findByRole("button", { name: ai.check.openQuestion }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    dialog = await open(user, ai.entry.check);
+    expect(await within(dialog).findByText("Option B could be argued.")).toBeVisible();
+    expect(within(dialog).queryByRole("button", { name: ai.check.run })).toBeNull();
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    dialog = await open(user, ai.entry.check);
+    expect(within(dialog).getByText("Option B could be argued.")).toBeVisible();
+    expect(checks).toBe(1);
+  });
+
+  it("ends a check on Done, and Start over keeps the choices", async () => {
+    aiOn();
+    checkAnswers();
+    const { user } = await renderBuilder();
+    let dialog = await open(user, ai.entry.check);
+    await user.click(within(dialog).getByRole("button", { name: ai.check.run }));
+    await within(dialog).findByText("Option B could be argued.");
+    await user.click(within(dialog).getByRole("button", { name: ai.done }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    dialog = await open(user, ai.entry.check);
+    expect(within(dialog).getByRole("button", { name: ai.check.run })).toBeEnabled();
+    expect(within(dialog).queryByText("Option B could be argued.")).toBeNull();
+  });
+
+  it("lets a check that is running finish after the drawer is closed", async () => {
+    aiOn();
+    let release: () => void = () => undefined;
+    checkAnswers(
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+    );
+    const { user } = await renderBuilder();
+    let dialog = await open(user, ai.entry.check);
+    await user.click(within(dialog).getByRole("button", { name: ai.check.run }));
+    await within(dialog).findByRole("status");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    dialog = await open(user, ai.entry.check);
+    expect(within(dialog).getByRole("button", { name: ai.stop })).toBeVisible();
+    release();
+    expect(await within(dialog).findByText("Option B could be argued.")).toBeVisible();
+    expect(checks).toBe(1);
+  });
+
+  it("keeps Generate's suggestions when the drawer is closed and starts clean once they are added", async () => {
+    aiOn();
+    generateOne();
+    const { user } = await renderBuilder();
+    let dialog = await open(user, ai.entry.generate);
+    await user.type(
+      within(dialog).getByLabelText(ai.generate.source),
+      "Cities around the world are rethinking how they use open land.",
+    );
+    await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
+    await within(dialog).findByText("What do cities rethink?");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    dialog = await open(user, ai.entry.generate);
+    expect(within(dialog).getByText("What do cities rethink?")).toBeVisible();
+    await user.click(
+      within(dialog).getByRole("button", { name: "Thêm 1 câu vào Ngữ pháp" }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    dialog = await open(user, ai.entry.generate);
+    expect(within(dialog).queryByText("What do cities rethink?")).toBeNull();
+    expect(within(dialog).getByRole("button", { name: ai.generate.run })).toBeVisible();
+    expect(generations).toBe(1);
+  });
+});

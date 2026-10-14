@@ -1,18 +1,17 @@
-import { lazy, Suspense, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { Sparkles, WandSparkles } from "lucide-react";
 import type { AiTagSuggestion } from "@/features/ai/api";
 import type { AiPanelRequest } from "@/features/ai/components/AiPanel";
 import { AiEntryButton } from "@/features/ai/components/AiEntryButton";
+import { AiPanelStack } from "@/features/ai/components/AiPanelStack";
 import { AiWriteError } from "@/features/ai/kind";
 import type { GeneratedDraft } from "@/features/ai/kinds/generate";
 import { useAiAvailable, useAiBlock } from "@/features/ai/useAiAvailable";
 import { createQuestion, tagQuestions } from "@/features/question-bank/api";
 import { draftQuestion } from "@/features/question-bank/aiDrafts";
 import { questionSchema } from "@/features/question-bank/questionSchema";
-
-const AiPanel = lazy(() => import("@/features/ai/components/AiPanel"));
 
 const ENTRY = "shadow-card h-9";
 
@@ -36,7 +35,7 @@ function byTags(suggestions: readonly AiTagSuggestion[]) {
  * `ai.use`; both are drawn disabled with the reason while the teacher is
  * paused or out of credits (Q34). Kept tag suggestions go through the bulk
  * tag write, one call for each set of tags, and kept questions through the
- * bank's create.
+ * bank's create. Closing a panel keeps its session while the bank page is open.
  */
 export function BankAiActions() {
   const { t } = useTranslation();
@@ -95,11 +94,7 @@ export function BankAiActions() {
         className={ENTRY}
         onClick={() => setOpen("generate")}
       />
-      {open !== null && (
-        <Suspense fallback={null}>
-          <AiPanel request={requestFor(open)} onClose={() => setOpen(null)} />
-        </Suspense>
-      )}
+      <AiPanelStack open={open} requestFor={requestFor} onClose={() => setOpen(null)} />
     </>
   );
 }
