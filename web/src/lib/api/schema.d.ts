@@ -4052,6 +4052,12 @@ export interface components {
             theme?: "light" | "dark" | "system";
             compactTables?: boolean;
             largerTestText?: boolean;
+            /**
+             * @description The console the user last switched to. A built-in Admin, who holds
+             *     both, opens it after sign-in; omitted, the Admin console.
+             * @enum {string}
+             */
+            workspace?: "teacher" | "admin";
             assignmentDefaults?: {
                 durationMinutes?: number;
                 shuffleQuestions?: boolean;
