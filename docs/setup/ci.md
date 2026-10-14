@@ -280,6 +280,46 @@ never reports **CI result**.
 A repository admin can merge a pull request past a failing check. That is for
 the case where CI itself is broken, and the pull request should say so.
 
+## The wiki
+
+`.github/workflows/wiki.yml` publishes the documentation to the repository's
+GitHub Wiki. It is a workflow of its own, outside CI, and its result is not
+part of **CI result**. The planner counts `wiki.yml` and `scripts/wiki/` as
+not code, so a change to them runs no code job.
+
+| Event | Job | Does |
+|---|---|---|
+| Pull request that touches docs or `scripts/wiki/` | Check | Tests `scripts/wiki/`, then builds the pages without publishing |
+| Push to `develop` that touches the same files | Publish | Builds the pages into a clone of the wiki and pushes the difference as `github-actions[bot]` |
+| Manual run on `develop` | Publish | The same, for a resync after the wiki was edited by hand; GitHub offers it once the workflow is on `main` |
+
+`scripts/wiki/build.py` reads the checkout and writes one page per document:
+every `docs/**/*.md` outside `docs/design/deck/` (the deck is pinned by
+`MANIFEST.sha256`), `AGENTS.md`, `CONTRIBUTING.md` and each directory's
+`README.md`. The root `README.md` becomes Home. What it does to them:
+
+- A document over 200 KB is split at heading boundaries into parts of about
+  120 KB behind an index page that links every heading; the product spec is
+  split into one page per section instead.
+- A relative link to another document becomes a link to its wiki page, and to
+  a heading in a split document the part that holds it. A link to anything
+  else becomes a link to the file on `develop`. A code span that is exactly a
+  document's path or file name is linked too. Fenced code is left as written.
+- A document the table in the script does not name is still published, under a
+  name derived from its path, and the run logs a warning. Add it to the table
+  to name it and place it in the sidebar.
+- Every page ends with the file it came from and carries a marker comment. A
+  page with the marker that the build no longer writes is removed; a page
+  without it, such as one written by hand in the wiki, is never touched. A
+  generated page edited in the wiki is overwritten by the next run, so edit
+  the file in the repository.
+
+The build exits 1, and the run fails, when a link between wiki pages does not
+resolve or a split loses text. Nothing is committed to the wiki when the
+output matches what it holds. The `GITHUB_TOKEN` of the run writes to the
+wiki, which needs the wiki to exist: GitHub creates its repository when
+someone saves a first page in the browser.
+
 ## Deploy
 
 `.github/workflows/deploy.yml` runs when CI succeeds for a **push** to `main`,

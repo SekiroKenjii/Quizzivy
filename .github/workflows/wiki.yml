@@ -1,0 +1,72 @@
+name: Wiki
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'AGENTS.md'
+      - 'CONTRIBUTING.md'
+      - '**/README.md'
+      - 'scripts/wiki/**'
+      - '.github/workflows/wiki.yml'
+      - '!docs/design/deck/**'
+  push:
+    branches: [develop]
+    paths:
+      - 'docs/**'
+      - 'AGENTS.md'
+      - 'CONTRIBUTING.md'
+      - '**/README.md'
+      - 'scripts/wiki/**'
+      - '.github/workflows/wiki.yml'
+      - '!docs/design/deck/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: wiki-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  check:
+    name: Check
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+      - name: Test the build
+        run: python3 -m unittest discover -s scripts/wiki/tests
+      - name: Build the pages
+        run: python3 scripts/wiki/build.py . "$RUNNER_TEMP/wiki"
+  publish:
+    name: Publish
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki
+      - name: Test the build
+        run: python3 -m unittest discover -s scripts/wiki/tests
+      - name: Build the pages into the wiki
+        run: python3 scripts/wiki/build.py . wiki
+      - name: Push the difference
+        working-directory: wiki
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "The wiki is current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Sync docs from ${GITHUB_SHA::7}"
+          git push
