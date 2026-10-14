@@ -1,6 +1,11 @@
-import { useRef, useState } from "react";
+import { useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { useSortable } from "@dnd-kit/sortable";
+import { useDroppable } from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 
 import {
   AudioLines,
@@ -24,10 +29,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip } from "@/components/shared/Tooltip";
 import { cn } from "@/lib/utils";
 import type { GroupBundle } from "@/features/question-groups/api";
 import { QUESTION_TYPE_ICONS } from "@/features/question-bank/components/questionTypeIcons";
 import { sharedContentLine, type SharedContentLine } from "../sharedContentLine";
+import { gapBoundMembers } from "../outlineUnits";
 
 const SHARED_ICONS = {
   passage: FileText,
@@ -45,8 +52,15 @@ const SHARED_ICONS = {
  * hover, focus and while open, as a section's does; below it the trigger
  * shows at 44px only while the group or one of its members is selected, as
  * a question row's actions do (DG-135). It keeps the members together while
- * selecting, moving or removing it. `fileNames` maps an audio asset id to
- * the file name the line prints. Rename and Shared content only ask the
+ * selecting, moving or removing it. Its header, with the shared-content line,
+ * is where a question is dropped into the group, tinted while `dropInto`;
+ * each member row is sortable by its grip and draws the drop line
+ * `memberDrop` names, and a member that a material gap is bound to keeps its
+ * grip disabled, with the reason. `targets` turns off the drop targets the
+ * drag in progress cannot use. The member `busyQuestionId` names is being
+ * moved and is drawn faded and busy. `open` and `onToggle` are the
+ * disclosure, which the outline owns so that a drop can open the group.
+ * `fileNames` maps an audio asset id to the file name the line prints. Rename and Shared content only ask the
  * builder to act: the group's title is written by its editor, never here.
  * Rename and Shared content ask once the menu has closed, so the focus they
  * move is not taken back by the menu; Shared content leaves focus on the
@@ -60,10 +74,16 @@ export function OutlineGroupRow({
   numbering,
   fileNames,
   drop,
+  dropInto = false,
+  memberDrop = null,
+  busyQuestionId = null,
+  targets = "all",
+  open,
   selected,
   selectedQuestionId,
   canUp,
   canDown,
+  onToggle,
   onSelect,
   onRename,
   onSharedContent,
@@ -75,10 +95,16 @@ export function OutlineGroupRow({
   numbering: Map<string, number>;
   fileNames: ReadonlyMap<string, string>;
   drop?: "before" | "after" | undefined;
+  dropInto?: boolean;
+  memberDrop?: MemberDrop | null;
+  busyQuestionId?: string | null;
+  targets?: GroupTargets;
+  open: boolean;
   selected: boolean;
   selectedQuestionId: string | null;
   canUp: boolean;
   canDown: boolean;
+  onToggle: () => void;
   onSelect: (questionId?: string) => void;
   onRename: () => void;
   onSharedContent: (opener: HTMLElement | null) => void;
@@ -86,10 +112,16 @@ export function OutlineGroupRow({
   onRemove: (opener: HTMLElement | null) => void;
 }>) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(true);
   const { attributes, listeners, setNodeRef, isDragging } = useSortable({
     id: `group:${id}`,
+    data: { kind: "group" },
+    disabled: { draggable: false, droppable: targets === "inside" },
     transition: null,
+  });
+  const { setNodeRef: setHeadNodeRef } = useDroppable({
+    id: `group:${id}:head`,
+    data: { kind: "group-head", groupId: id },
+    disabled: targets === "unit",
   });
   const title = group?.group.title || t("groups.newGroup");
   const shared = group ? sharedContentLine(group, fileNames, t) : null;
@@ -110,11 +142,15 @@ export function OutlineGroupRow({
           )}
         />
       ) : null}
-      <div>
+      <div ref={setHeadNodeRef}>
         <div
+          data-outline-drop-into={dropInto ? "" : undefined}
           className={cn(
-            "group/unit hover:bg-hover has-data-[state=open]:bg-hover text-fg flex min-h-8 items-center gap-1 rounded-[7px] py-0.75 pr-1 pl-0.5 text-[13px]",
-            selected && !selectedQuestionId && "bg-secondary font-medium",
+            "group/unit text-fg flex min-h-8 items-center gap-1 rounded-[7px] py-0.75 pr-1 pl-0.5 text-[13px] transition-colors duration-120 ease-[cubic-bezier(.25,.1,.25,1)] motion-reduce:transition-none",
+            dropInto
+              ? "bg-brand-soft"
+              : "hover:bg-hover has-data-[state=open]:bg-hover",
+            !dropInto && selected && !selectedQuestionId && "bg-secondary font-medium",
           )}
         >
           <button
@@ -131,7 +167,7 @@ export function OutlineGroupRow({
             aria-label={title}
             aria-expanded={open}
             className="text-muted-fg grid size-5 shrink-0 place-items-center rounded-[5px]"
-            onClick={() => setOpen(!open)}
+            onClick={onToggle}
           >
             <Chevron className="size-3.5" aria-hidden="true" />
           </button>
@@ -163,6 +199,9 @@ export function OutlineGroupRow({
           group={group}
           numbering={numbering}
           selectedQuestionId={selected ? selectedQuestionId : null}
+          memberDrop={memberDrop}
+          busyQuestionId={busyQuestionId}
+          targeted={targets !== "unit"}
           onSelect={onSelect}
         />
       ) : null}
@@ -264,59 +303,189 @@ function GroupActions({
   );
 }
 
+/**
+ * GroupTargets says which of a group's drop targets the drag in progress can
+ * land on: the whole group as one unit, its header and members, or all of them
+ * while nothing is dragged.
+ */
+export type GroupTargets = "unit" | "inside" | "all";
+
+/** MemberDrop names the member row a dragged question would land before or after. */
+export interface MemberDrop {
+  questionId: string;
+  position: "before" | "after";
+}
+
+type MemberInput = GroupBundle["questions"][number]["input"];
+
 function GroupMembers({
   group,
   numbering,
   selectedQuestionId,
+  memberDrop,
+  busyQuestionId,
+  targeted,
   onSelect,
 }: Readonly<{
   group: GroupBundle;
   numbering: Map<string, number>;
   selectedQuestionId: string | null;
+  memberDrop: MemberDrop | null;
+  busyQuestionId: string | null;
+  targeted: boolean;
   onSelect: (questionId: string) => void;
 }>) {
   const { t } = useTranslation();
   const questions = new Map(
     group.questions.map((question) => [question.id, question.input]),
   );
+  const bound = gapBoundMembers(group);
   const members = group.group.members;
   return (
-    <div className="ml-4.5 flex flex-col gap-px border-l pl-1.5">
-      {members.map((member) => {
-        const input = questions.get(member.questionId);
-        const Icon = QUESTION_TYPE_ICONS[input?.type ?? "single_choice"];
-        const current = selectedQuestionId === member.questionId;
-        return (
-          <button
+    <SortableContext
+      items={members.map((member) => `question:${member.questionId}`)}
+      strategy={verticalListSortingStrategy}
+    >
+      <div className="ml-4.5 flex flex-col gap-px border-l pl-1.5">
+        {members.map((member) => (
+          <MemberRow
             key={member.questionId}
-            type="button"
-            className={cn(
-              "hover:bg-hover text-fg flex min-h-8 min-w-0 items-center gap-1.5 rounded-[7px] py-0.75 pr-1 pl-1.5 text-left text-[13px]",
-              current && "bg-secondary font-medium",
-            )}
-            onClick={() => onSelect(member.questionId)}
-          >
-            <span className="text-muted-fg w-4.5 shrink-0 text-xs tabular-nums">
-              {numbering.get(member.questionId)}
-            </span>
-            <Icon className="text-muted-fg size-3.5 shrink-0" aria-hidden="true" />
-            <span className="min-w-0 flex-1 truncate leading-4">
-              {input?.prompt || t("builder.untitledQuestion")}
-            </span>
-            {input ? (
-              <span className="text-muted-fg shrink-0 pr-1 text-xs whitespace-nowrap tabular-nums">
-                {t("builder.points", { count: input.points })}
-              </span>
-            ) : null}
-          </button>
-        );
-      })}
-      {members.length === 0 ? (
-        <p className="text-muted-fg px-1.5 py-1.5 text-xs leading-normal">
-          {t("builder.emptySharedGroup")}
-        </p>
+            groupId={group.group.id}
+            questionId={member.questionId}
+            input={questions.get(member.questionId)}
+            number={numbering.get(member.questionId) ?? 0}
+            bound={bound.has(member.questionId)}
+            targeted={targeted}
+            current={selectedQuestionId === member.questionId}
+            busy={busyQuestionId === member.questionId}
+            drop={
+              memberDrop?.questionId === member.questionId
+                ? memberDrop.position
+                : undefined
+            }
+            onSelect={() => onSelect(member.questionId)}
+          />
+        ))}
+        {members.length === 0 ? (
+          <p className="text-muted-fg px-1.5 py-1.5 text-xs leading-normal">
+            {t("builder.emptySharedGroup")}
+          </p>
+        ) : null}
+      </div>
+    </SortableContext>
+  );
+}
+
+function MemberRow({
+  groupId,
+  questionId,
+  input,
+  number,
+  bound,
+  targeted,
+  current,
+  busy,
+  drop,
+  onSelect,
+}: Readonly<{
+  groupId: string;
+  questionId: string;
+  input: MemberInput | undefined;
+  number: number;
+  bound: boolean;
+  targeted: boolean;
+  current: boolean;
+  busy: boolean;
+  drop: "before" | "after" | undefined;
+  onSelect: () => void;
+}>) {
+  const { t } = useTranslation();
+  const { attributes, listeners, setNodeRef, isDragging } = useSortable({
+    id: `question:${questionId}`,
+    data: { kind: "member", groupId },
+    disabled: { draggable: bound, droppable: !targeted },
+    transition: null,
+  });
+  const Icon = QUESTION_TYPE_ICONS[input?.type ?? "single_choice"];
+  return (
+    <div
+      ref={setNodeRef}
+      data-outline-row=""
+      data-outline-question={questionId}
+      aria-busy={busy || undefined}
+      className={cn(
+        "hover:bg-hover text-fg relative flex min-h-8 min-w-0 items-center gap-1 rounded-[7px] py-0.75 pr-1 pl-0.5 text-[13px]",
+        current && "bg-secondary font-medium",
+        (isDragging || busy) && "opacity-40",
+      )}
+    >
+      {drop ? (
+        <span
+          aria-hidden="true"
+          data-outline-drop={drop}
+          className={cn(
+            "bg-primary pointer-events-none absolute inset-x-0 h-0.5",
+            drop === "before" ? "top-0" : "bottom-0",
+          )}
+        />
       ) : null}
+      {bound ? (
+        <BoundGrip number={number} />
+      ) : (
+        <button
+          type="button"
+          data-outline-grip=""
+          aria-label={t("builder.reorderMember", { number })}
+          className="text-muted-fg flex h-6 w-5 shrink-0 cursor-grab touch-none items-center justify-center"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="size-3.5 opacity-40" aria-hidden="true" />
+        </button>
+      )}
+      <button
+        type="button"
+        className="flex min-w-0 flex-1 items-center gap-1 text-left"
+        onClick={onSelect}
+      >
+        <span className="text-muted-fg w-4.5 shrink-0 text-xs tabular-nums">
+          {number}
+        </span>
+        <Icon className="text-muted-fg size-3.5 shrink-0" aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate px-1 py-0.75 leading-4">
+          {input?.prompt || t("builder.untitledQuestion")}
+        </span>
+        {input ? (
+          <span className="text-muted-fg shrink-0 pr-1 text-xs whitespace-nowrap tabular-nums">
+            {t("builder.points", { count: input.points })}
+          </span>
+        ) : null}
+      </button>
     </div>
+  );
+}
+
+function BoundGrip({ number }: Readonly<{ number: number }>) {
+  const { t } = useTranslation();
+  const reason = useId();
+  return (
+    <>
+      <Tooltip label={t("builder.memberGapBound")}>
+        <button
+          type="button"
+          data-outline-grip=""
+          aria-label={t("builder.reorderMember", { number })}
+          aria-disabled="true"
+          aria-describedby={reason}
+          className="text-muted-fg flex h-6 w-5 shrink-0 cursor-not-allowed items-center justify-center"
+        >
+          <GripVertical className="size-3.5 opacity-20" aria-hidden="true" />
+        </button>
+      </Tooltip>
+      <span id={reason} className="sr-only">
+        {t("builder.memberGapBound")}
+      </span>
+    </>
   );
 }
 

@@ -45,8 +45,10 @@ import {
 import type { MediaAsset } from "@/features/media/api";
 import {
   getTest,
+  moveTestQuestion,
   publishTest,
   saveMixedOutline,
+  type MoveTestQuestionResult,
   type PublishViolation,
   type Test,
 } from "@/features/tests/api";
@@ -91,12 +93,14 @@ import {
   editableOutline,
   findUnit,
   groupOwners,
+  keepClientIds,
   moveUnit,
   reconcileSections,
   removeUnit,
   sectionQuestionIds,
   unitsOf,
   withUnits,
+  type QuestionMove,
 } from "../../outlineUnits";
 import { ApiError, failureMessage } from "@/lib/api/errors";
 import { notify } from "@/lib/toast";
@@ -190,6 +194,8 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   const [creating, setCreating] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [editorEpoch, setEditorEpoch] = useState(0);
+  const [movingQuestion, setMovingQuestion] = useState<string | null>(null);
+  const focusAfterMove = useRef<string | null>(null);
 
   const selectionRequest = useRef(0);
   const [starterIds, setStarterIds] = useState<ReadonlySet<string>>(new Set());
@@ -745,6 +751,88 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     });
   }
 
+  async function moveQuestion(move: QuestionMove) {
+    setPublishError(null);
+    setMovingQuestion(move.questionId);
+    try {
+      await flushQuestion.current?.();
+      await outline.flush();
+      await writes.run(async () => {
+        const section = latestOutline.current[move.to.sectionIndex];
+        const sectionId = section
+          ? (sectionIds.current.get(section.clientId ?? section.id ?? "") ?? section.id)
+          : null;
+        if (!sectionId) throw new Error("Destination section is not persisted");
+        const known = await stopGroupReads();
+        const expectedGroupRevisions = await Promise.all(
+          move.groupIds.map(async (groupId) => ({
+            groupId,
+            revision: (known.get(groupId) ?? (await getGroup(groupId))).revision,
+          })),
+        );
+        const moved = await moveTestQuestion(test.id, {
+          expectedUpdatedAt: version.current,
+          questionId: move.questionId,
+          to: { sectionId, groupId: move.to.groupId, index: move.to.index },
+          expectedGroupRevisions,
+        });
+        acknowledgeMove(moved, move.to.groupId, known);
+      });
+    } catch (cause) {
+      focusAfterMove.current = move.questionId;
+      report(cause);
+    } finally {
+      setMovingQuestion(null);
+    }
+  }
+
+  function acknowledgeMove(
+    moved: MoveTestQuestionResult,
+    groupId: string | null,
+    known: Map<string, StoredGroup>,
+  ) {
+    const updatedAt = moved.test.updatedAt;
+    version.current = updatedAt;
+    const touched = new Set(moved.groups.map((group) => group.bundle.group.id));
+    for (const group of moved.groups)
+      queryClient.setQueryData(["teacher-group", group.bundle.group.id], group);
+    for (const [id, group] of known)
+      if (!touched.has(id))
+        queryClient.setQueryData<StoredGroup>(["teacher-group", id], {
+          ...group,
+          testUpdatedAt: updatedAt,
+        });
+    const next = keepClientIds(editableOutline(moved.test), latestOutline.current);
+    latestOutline.current = next;
+    savedOutline.current = next;
+    setSections(next);
+    queryClient.setQueryData(["teacher-test", test.id], moved.test);
+    if (groupId === null)
+      void queryClient.invalidateQueries({
+        queryKey: ["teacher-question", moved.questionId],
+      });
+    void queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
+    selectionRequest.current += 1;
+    setActiveBundle(null);
+    setSelectedGroupId(groupId);
+    setSelectedId(moved.questionId);
+    setQuestionStatus({ kind: "idle" });
+    setEditorEpoch((epoch) => epoch + 1);
+    focusAfterMove.current = moved.questionId;
+  }
+
+  useEffect(() => {
+    if (movingQuestion !== null) return;
+    const questionId = focusAfterMove.current;
+    if (questionId === null) return;
+    focusAfterMove.current = null;
+    document
+      .querySelector<HTMLElement>(
+        `[data-outline-question="${CSS.escape(questionId)}"] [data-outline-grip]`,
+      )
+      ?.focus();
+  }, [movingQuestion]);
+
   async function openPreview() {
     setPublishError(null);
     try {
@@ -827,7 +915,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     if (selectedGroupId)
       return (
         <BuilderGroupPane
-          key={selectedGroupId}
+          key={`${selectedGroupId}:${editorEpoch}`}
           id={selectedGroupId}
           selectedQuestionId={selectedId}
           onSelectedQuestionChange={setSelectedId}
@@ -876,7 +964,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
 
   return (
     <fieldset
-      disabled={creating || publishing}
+      disabled={creating || publishing || movingQuestion !== null}
       data-scale="deck"
       className="flex min-w-0 flex-col gap-3.5"
     >
@@ -1002,6 +1090,8 @@ function Builder({ test }: Readonly<{ test: Test }>) {
                     removeOpener.current = null;
                     setRemoving({ sectionIndex });
                   }}
+                  onMove={(move) => void moveQuestion(move)}
+                  movingQuestionId={movingQuestion}
                   questions={byId}
                   selectedId={selectedId}
                   creating={creating}

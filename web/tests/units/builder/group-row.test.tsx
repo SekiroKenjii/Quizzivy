@@ -358,6 +358,43 @@ describe("the group's row in the outline", () => {
     expect(onRemoveGroup).toHaveBeenCalledWith(GROUP_ID, groupMenu());
   });
 
+  it("draws each member as a question row with the deck's grip before its number", () => {
+    renderTree(bundle([passage(TITLE)]));
+
+    const grip = screen.getByRole("button", { name: "Kéo câu 1" });
+    expect(grip).toHaveAttribute("aria-roledescription", "sortable");
+    expect(grip).toHaveClass("h-6", "w-5", "cursor-grab", "touch-none");
+    expect(grip.querySelector("svg")).toHaveClass(
+      "lucide-grip-vertical",
+      "size-3.5",
+      "opacity-40",
+    );
+    const row = grip.closest("[data-outline-row]")!;
+    expect(row).toHaveAttribute("data-outline-question", MEMBER_ID);
+    expect(row).toHaveClass("min-h-8", "gap-1", "rounded-[7px]", "pr-1", "pl-0.5");
+    const select = within(row as HTMLElement).getByRole("button", {
+      name: /What do parks do\?/,
+    });
+    expect(select.textContent).toBe("1What do parks do?1đ");
+    expect(row.firstElementChild).toBe(grip);
+  });
+
+  it("disables the grip of a member a material gap is bound to, and says why", () => {
+    const value = bundle([passage(TITLE, 1)]);
+    value.group.stimuli[0]!.gaps = [
+      { kind: "question", gapId: "g1", questionId: MEMBER_ID },
+    ];
+    renderTree(value);
+
+    const grip = screen.getByRole("button", { name: "Kéo câu 1" });
+    expect(grip).toHaveAttribute("aria-disabled", "true");
+    expect(grip).toHaveAccessibleDescription(
+      "Đang gắn với chỗ trống trong ngữ liệu chung",
+    );
+    expect(grip).toHaveClass("cursor-not-allowed");
+    expect(grip).not.toHaveClass("cursor-grab");
+  });
+
   it("opens and runs the menu from the keyboard, and returns focus to its trigger", async () => {
     const { user, onOpenSharedContent } = renderTree(bundle([passage(TITLE)]));
 
