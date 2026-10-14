@@ -4,6 +4,8 @@ import (
 	"context"
 
 	notificationscommand "quizzivy/internal/modules/notifications/application/command"
+	organizationmodel "quizzivy/internal/modules/organization/application/model"
+	organizationquery "quizzivy/internal/modules/organization/application/query"
 	"quizzivy/internal/shared/cqrs"
 )
 
@@ -22,3 +24,6 @@ type Zones interface {
 type Avatars interface {
 	AvatarURL(ctx context.Context, key string) (string, error)
 }
+
+// SignInPolicy is how the centre lets people sign in and join: the organization module's SignInPolicy query. Only whether joining with a code is on is read.
+type SignInPolicy = cqrs.QueryHandler[organizationquery.SignInPolicy, organizationmodel.SignInPolicy]

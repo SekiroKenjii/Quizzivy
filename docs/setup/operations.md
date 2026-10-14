@@ -254,6 +254,29 @@ Never delete an object by hand to free space: a file the library still lists, or
 holds, would answer 404 to the students who sit that test. The usage on the media page
 (`heldBytes`, `pendingBytes`) says what is counted and what waits.
 
+## Organization settings and the sign-in policy
+
+The centre's name, contact details, logos, sign-in methods, allowed Google domains and retention
+choices are one row, edited by an Admin with "Manage system settings" through `GET` and `PUT /admin/settings`. The
+API serves it from a copy each server keeps for at most 30 seconds. **A change of sign-in policy
+therefore reaches every other instance within 30 seconds**, and the server that saved it applies
+it at once. During those seconds another instance may still accept a method that was just turned
+off, or refuse one that was just turned on; nothing is lost either way, and a retry after half a
+minute settles it. An instance that nobody asks never queries the database.
+
+A save is refused (`422 SIGN_IN_POLICY_LOCKOUT`) when it would leave the Admin saving it, or every
+active built-in Admin, with no way to sign in. If an Admin is locked out by a change made outside
+the API (a Google domain removed from the company, for example), the row can be corrected with the
+migrate role and takes effect within 30 seconds:
+
+```sql
+UPDATE app.organization_settings SET password_sign_in = true, revision = revision + 1;
+```
+
+A logo is stored once under `branding/{sha256}.{png|svg}` in the media bucket and is never
+replaced, so an unreferenced one is harmless; delete it by hand if it matters. Without object
+storage the settings still save and the front door still reads them, and an upload answers `501`.
+
 ## Maintenance windows
 
 A maintenance window is a period during which the API answers every request to a

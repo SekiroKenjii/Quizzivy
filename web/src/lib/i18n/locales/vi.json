@@ -779,7 +779,8 @@
     "createCodeBody": "Mã dùng được 30 ngày, tối đa 40 lượt tham gia.",
     "codeRenewedWith": "Mã tham gia mới: {{code}}",
     "newCodeFailed": "Không tạo được mã tham gia mới.",
-    "codesReplaced": "Mã tham gia của các lớp đã được thay ngày {{date}}. Hãy gửi mã mới cho học viên."
+    "codesReplaced": "Mã tham gia của các lớp đã được thay ngày {{date}}. Hãy gửi mã mới cho học viên.",
+    "joinCodesOff": "Trung tâm đang tắt tham gia bằng mã."
   },
   "settings": {
     "profile": "Hồ sơ",

@@ -11,6 +11,8 @@ import (
 	"quizzivy/internal/modules/identity/application/ports"
 	"quizzivy/internal/modules/identity/application/token"
 	"quizzivy/internal/modules/identity/domain"
+	organizationmodel "quizzivy/internal/modules/organization/application/model"
+	organizationquery "quizzivy/internal/modules/organization/application/query"
 	"quizzivy/internal/shared/opt"
 	"time"
 
@@ -28,7 +30,31 @@ type Service struct {
 	Principals ports.Principals
 	Avatars    ports.ObjectStore
 	Photos     ports.PhotoProcessor
+	Policy     ports.SignInPolicy
 	Log        *slog.Logger
+}
+
+// OpenPolicy is the sign-in policy of a centre that has changed nothing: every way in is on and a temporary password must be changed. It is what a service with no policy port enforces.
+var OpenPolicy = organizationmodel.SignInPolicy{Google: true, Password: true, ForcePasswordChange: true, JoinCodes: true}
+
+// SignInPolicy returns the policy in force, OpenPolicy without a port.
+func (s *Service) SignInPolicy(ctx context.Context) (organizationmodel.SignInPolicy, error) {
+	if s.Policy == nil {
+		return OpenPolicy, nil
+	}
+	return s.Policy.Handle(ctx, organizationquery.SignInPolicy{})
+}
+
+// GoogleAllowed returns the policy in force when Google sign-in is on, and domain.ErrGoogleSignInDisabled when it is off.
+func (s *Service) GoogleAllowed(ctx context.Context) (organizationmodel.SignInPolicy, error) {
+	policy, err := s.SignInPolicy(ctx)
+	if err != nil {
+		return organizationmodel.SignInPolicy{}, err
+	}
+	if !policy.Google {
+		return organizationmodel.SignInPolicy{}, domain.ErrGoogleSignInDisabled
+	}
+	return policy, nil
 }
 
 // SetAvatars wires profile photos: the store that keeps them and the processor
@@ -48,7 +74,12 @@ func (s *Service) SetGoogle(p ports.GoogleProvider, enroller ports.SelfEnroller)
 	s.Enroller = enroller
 }
 
+// VerifiedIdentity exchanges the code, verifies the token and refuses an unverified address and one outside the allowed domains. It fails with domain.ErrGoogleSignInDisabled, before any call to Google, while Google sign-in is off.
 func (s *Service) VerifiedIdentity(ctx context.Context, code, verifier, redirectURI string) (model.GoogleIdentity, error) {
+	policy, err := s.GoogleAllowed(ctx)
+	if err != nil {
+		return model.GoogleIdentity{}, err
+	}
 	rawIDToken, err := s.Google.Exchange(ctx, code, verifier, redirectURI)
 	if err != nil {
 		return model.GoogleIdentity{}, err
@@ -59,6 +90,9 @@ func (s *Service) VerifiedIdentity(ctx context.Context, code, verifier, redirect
 	}
 	if !identity.EmailVerified {
 		return model.GoogleIdentity{}, domain.ErrGoogleEmailUnverified
+	}
+	if !policy.AllowsGoogleEmail(identity.Email) {
+		return model.GoogleIdentity{}, domain.ErrGoogleDomainNotAllowed
 	}
 	return identity, nil
 }
