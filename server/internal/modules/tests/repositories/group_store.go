@@ -27,6 +27,7 @@ type GroupQuestionStore interface {
 	CreateGroupMember(context.Context, pgx.Tx, questions.WriteInput, questions.GroupOwnership) (questions.Question, error)
 	UpdateGroupMember(context.Context, pgx.Tx, questions.WriteInput, questions.GroupOwnership) (questions.Question, error)
 	GroupMembers(context.Context, pgx.Tx, string) ([]questions.OwnedQuestion, error)
+	BankQuestion(context.Context, pgx.Tx, access.Scope, string) (questions.Question, error)
 }
 
 // GroupsPostgres owns complete draft context graphs; callers expose it only through group-aware authoring commands.
