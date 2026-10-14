@@ -132,15 +132,22 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	if err != nil {
 		return Assembly{}, err
 	}
+	auditApp, auditTransport := audit(dbx, identityApp, logger)
+	dashboardTransport, err := dashboard(cfg, dbx, dashboardModules{
+		notifications: notificationsApp, identity: identityApp, organization: organizationApp, audit: auditApp, ai: aiApp,
+	}, completer != nil)
+	if err != nil {
+		return Assembly{}, err
+	}
 
 	return Assembly{
 		Mail: mail,
 		Modules: router.Modules{
 			Access:        accesshttp.NewAccess(principals),
 			AI:            aiTransport,
-			Audit:         audit(dbx, identityApp, logger),
+			Audit:         auditTransport,
 			Imports:       importsTransport,
-			Dashboard:     dashboard(dbx, notificationsApp, identityApp),
+			Dashboard:     dashboardTransport,
 			Classes:       classesTransport(classesApp),
 			Identity:      identityTransport(cfg, identityApp, docs),
 			Questions:     questionsTransport(questionsApp, mediaApp),

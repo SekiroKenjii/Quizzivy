@@ -459,7 +459,9 @@ hash.
 Mail is sent from `email_outbox` by a dispatcher in the API and one in the
 worker, through Resend's HTTP API with `RESEND_API_KEY`. `EMAIL_FROM`,
 `APP_URL` and the key are set together, and production refuses to start
-without all three. `EMAIL_DAILY_LIMIT` (100, Resend's free tier) counts sends
+without all three. Start-up refuses a malformed `EMAIL_FROM` or
+`EMAIL_REPLY_TO` (one address, no line break) and an `APP_URL` that is not a
+bare origin (no path, `?`, `#` or whitespace). `EMAIL_DAILY_LIMIT` (100, Resend's free tier) counts sends
 per local day in `APP_TIMEZONE`; the excess moves to the next local midnight.
 `EMAIL_SEND_RATE` (2 a second) spaces the sends. Outside production, without
 the three, every message is written as a JSON file under `EMAIL_SINK_DIR`.
@@ -473,10 +475,32 @@ SELECT template, count(*) FILTER (WHERE sent_at IS NULL AND failed_at IS NULL) A
   FROM app.email_outbox GROUP BY template;
 ```
 
-A failed row keeps its `last_error_code` (`http_422:validation_error`,
+A row of a template the running binary does not know stays pending until a
+newer binary runs; if a deploy is rolled back, those rows wait for the next
+release. A failed row keeps its `last_error_code` (`http_422:validation_error`,
 `secret_unreadable`, ...) and nothing of the message. The logs carry the
 outbox id, template, outcome and recipient domain, never an address, a subject
 or a link.
+
+## The plan the Admin console shows
+
+The Admin console's Overview and its Plan & usage page set what the centre holds beside the plan
+it states (T-R5.18). The plan is six optional variables, read at start-up: `PLAN_NAME` (up to 80
+characters), `PLAN_RENEWS_ON` (`YYYY-MM-DD`, and it needs a name), `PLAN_SEAT_LIMIT` and
+`PLAN_TEACHER_LIMIT` (whole numbers from 1 to 1,000,000), and `PLAN_MEDIA_BYTES` and
+`PLAN_IMPORT_BYTES` (bytes, from 1 to 2^50). A variable that is unset states no limit, and a value
+the server cannot read stops it at start-up, so a typo is found at deploy and not at the first
+page load. Nothing is enforced (DG-55): a limit is drawn beside its figure, and a figure may pass
+it.
+
+Production sets none of them until the centre's plan is decided; the names are listed in
+`fly.toml` and `.env.example`. Seats count the accounts that are not disabled against
+`PLAN_SEAT_LIMIT`; teachers count the enabled accounts that are not a student target, Admins
+included, against `PLAN_TEACHER_LIMIT`.
+Media is the bytes of the files not yet purged from storage, and imports the bytes of the source
+documents of the imports whose files have not been removed, against their limits. A meter at 80%
+of its limit adds a storage row to the Overview's attention list. Days on the Overview are local
+dates in `APP_TIMEZONE`.
 
 ## Legacy join codes
 

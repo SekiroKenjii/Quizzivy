@@ -163,13 +163,17 @@ func TestRenderRefusesWhatItCannotRenderSafely(t *testing.T) {
 	}
 }
 
-func TestStoredParamsDecodeStrictly(t *testing.T) {
+func TestStoredParamsAreReadByTheirTypeAndIgnoreAFieldANewerReleaseAdded(t *testing.T) {
 	got, err := email.DecodeParams(email.DataExportReady, []byte(`{"fullName":"An","exportId":"x"}`))
 	if err != nil || got.Template() != email.DataExportReady {
 		t.Fatalf("decode: %v %v", got, err)
 	}
-	if _, err := email.DecodeParams(email.DataExportReady, []byte(`{"fullName":"An","extra":1}`)); err == nil {
-		t.Error("an unknown field was accepted")
+	got, err = email.DecodeParams(email.DataExportReady, []byte(`{"fullName":"An","exportId":"x","extra":1}`))
+	if err != nil || got.(email.DataExportReadyParams).ExportID != "x" {
+		t.Errorf("a field a newer release added: %v %v", got, err)
+	}
+	if _, err := email.DecodeParams(email.DataExportReady, []byte(`{"fullName":7}`)); err == nil {
+		t.Error("a field of the wrong type was accepted")
 	}
 	if _, err := email.DecodeParams("nope", []byte(`{}`)); err == nil {
 		t.Error("an unknown template was accepted")
