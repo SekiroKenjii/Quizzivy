@@ -95,6 +95,10 @@ type Score struct {
 	PendingManual int
 }
 
+// MaxClientSeq is the largest client_seq the column holds, which the contract
+// also states as the maximum of an event's clientSeq.
+const MaxClientSeq = 1<<31 - 1
+
 // SessionLiveWindow decides whether a resume supersedes a tab that was still
 // open (`session_takeover`) or merely re-enters one that had gone -- a reload,
 // a crash, a closed laptop -- which is `resume` alone.

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestRecordingAPlayCountsFromOne(t *testing.T) {
@@ -148,5 +149,94 @@ func TestTheReloadedPayloadCarriesThePlaysAlreadyRecorded(t *testing.T) {
 	}
 	if got := reloaded.AudioPlays[w.choice]; got != 3 {
 		t.Errorf("audioPlays[%s] = %d, want 3", w.choice, got)
+	}
+}
+
+func playCount(t *testing.T, pool *pgxpool.Pool, attemptID string) int {
+	t.Helper()
+	return count(t, pool, `
+		SELECT COALESCE(sum(plays), 0)::int FROM app.attempt_audio_plays
+		 WHERE attempt_id = $1::uuid`, attemptID)
+}
+
+func TestAPlayFromTheCurrentSessionCounts(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := started(t, pool)
+
+	got, err := svc.Commands.RecordPlay.Handle(context.Background(), command.RecordPlay{AttemptID: session.Attempt.ID, StudentID: w.student, QuestionID: w.choice, SessionID: session.SessionID})
+	if err != nil {
+		t.Fatalf("play: %v", err)
+	}
+	if got.Plays != 1 {
+		t.Errorf("plays %d, want 1", got.Plays)
+	}
+}
+
+func TestAPlayFromASupersededSessionIsRefusedAndCountsNothing(t *testing.T) {
+	pool := newPool(t)
+	svc, w, first := started(t, pool)
+	ctx := context.Background()
+
+	if _, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student}); err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	if _, err := svc.Commands.RecordPlay.Handle(ctx, command.RecordPlay{AttemptID: first.Attempt.ID, StudentID: w.student, QuestionID: w.choice, SessionID: first.SessionID}); !errors.Is(err, domain.ErrSessionSuperseded) {
+		t.Fatalf("got %v, want ErrSessionSuperseded", err)
+	}
+	if n := playCount(t, pool, first.Attempt.ID); n != 0 {
+		t.Errorf("%d plays counted for a superseded session, want 0", n)
+	}
+}
+
+func TestAPlayWithNoSessionStillCountsDuringTheExpandRelease(t *testing.T) {
+	pool := newPool(t)
+	svc, w, first := started(t, pool)
+	ctx := context.Background()
+
+	if _, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student}); err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	if _, err := svc.Commands.RecordPlay.Handle(ctx, command.RecordPlay{AttemptID: first.Attempt.ID, StudentID: w.student, QuestionID: w.choice}); err != nil {
+		t.Fatalf("play with no session: %v", err)
+	}
+	if n := playCount(t, pool, first.Attempt.ID); n != 1 {
+		t.Errorf("%d plays, want 1", n)
+	}
+}
+
+func TestAPlayAfterTheDeadlineIsRefusedAndCountsNothing(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := started(t, pool)
+	ctx := context.Background()
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.attempts
+		    SET started_at = now() - interval '2 hours', deadline_at = now() - interval '1 hour'
+		  WHERE id = $1::uuid`, session.Attempt.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Commands.RecordPlay.Handle(ctx, command.RecordPlay{AttemptID: session.Attempt.ID, StudentID: w.student, QuestionID: w.choice, SessionID: session.SessionID}); !errors.Is(err, domain.ErrDeadlinePassed) {
+		t.Fatalf("got %v, want ErrDeadlinePassed", err)
+	}
+	if n := playCount(t, pool, session.Attempt.ID); n != 0 {
+		t.Errorf("%d plays counted after the deadline, want 0", n)
+	}
+}
+
+func TestAPlayOnASubmittedAttemptIsRefusedAndCountsNothing(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := started(t, pool)
+	ctx := context.Background()
+
+	if _, err := pool.Exec(ctx,
+		`UPDATE app.attempts SET status='submitted', submitted_at=now() WHERE id=$1::uuid`,
+		session.Attempt.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Commands.RecordPlay.Handle(ctx, command.RecordPlay{AttemptID: session.Attempt.ID, StudentID: w.student, QuestionID: w.choice}); !errors.Is(err, domain.ErrAttemptClosed) {
+		t.Fatalf("got %v, want ErrAttemptClosed", err)
+	}
+	if n := playCount(t, pool, session.Attempt.ID); n != 0 {
+		t.Errorf("%d plays counted on a submitted attempt, want 0", n)
 	}
 }
