@@ -595,6 +595,9 @@ Design for longer Vietnamese strings; avoid fixed-width labels.
 - [ ] Keyboard-operable; visible focus
 - [ ] All strings via `t()`, keys in both `vi` and `en`
 - [ ] Tests added or updated at the right level (spec §14)
+- [ ] Each new test names the single production change that makes it fail and
+      the existing test it is not a copy of; a Playwright test names the claim
+      only a browser, or only a real server, can prove
 - [ ] DDL reviewed against spec §13, `docs/plan/20-data-model.md`, and the Neon
       skill; migration file named
 - [ ] New public (unauthenticated) endpoint: rate-limited **and** leak-reviewed
