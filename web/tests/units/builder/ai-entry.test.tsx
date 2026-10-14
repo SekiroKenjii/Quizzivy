@@ -3,13 +3,19 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { http } from "msw";
+import { http, HttpResponse } from "msw";
 import TestBuilderPage from "@/features/tests/pages/teacher/TestBuilderPage";
+import type {
+  GroupBundle,
+  GroupUpdateInput,
+  StoredGroup,
+} from "@/features/question-groups/api";
 import vi_ from "@/lib/i18n/locales/vi.json";
 import { useAuthStore } from "@/stores/auth";
 import { contractJson } from "@tests/support/contractResponse";
 import { assistantUser } from "@tests/support/fixtures";
 import { server } from "@tests/support/server";
+import { storedGroupBundle } from "@tests/support/storedGroupBundle";
 import { aiOn, BASE, month } from "../ai/support";
 import "@/lib/i18n";
 
@@ -304,5 +310,287 @@ describe("the builder's AI entry points", () => {
     expect(patched!.options.map((option) => option.text)).toEqual(["went", "has gone"]);
     await user.keyboard("{Escape}");
     expect(await screen.findByDisplayValue("has gone")).toBeVisible();
+  });
+});
+
+const GROUP_ID = "018f0000-0000-7000-8000-0000000000f1";
+const MEMBER_ID = "018f0000-0000-7000-8000-0000000000e2";
+const STIMULUS_ID = "018f0000-0000-7000-8000-0000000000e3";
+const PARKS =
+  "Parks cool the streets in summer, and cities are planting more trees every year.";
+const GROUP_BUTTON = "Thêm 2 câu vào nhóm Reading club";
+
+function member(id: string, prompt: string): GroupBundle["questions"][number] {
+  return {
+    id,
+    input: {
+      type: "single_choice",
+      level: null,
+      skill: null,
+      prompt,
+      points: 1,
+      options: [
+        { text: "Cool the streets", isCorrect: true },
+        { text: "Heat the streets", isCorrect: false },
+      ],
+      blanks: [],
+      tags: [],
+    },
+  };
+}
+
+function readingClub(questions: GroupBundle["questions"]): StoredGroup {
+  return {
+    bundle: {
+      group: {
+        id: GROUP_ID,
+        title: "Reading club",
+        members: questions.map((item) => ({
+          questionId: item.id,
+          optionOrder: "shuffle" as const,
+        })),
+        stimuli: [
+          {
+            id: STIMULUS_ID,
+            title: "Parks",
+            content: {
+              format: "semantic_v1",
+              blocks: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: PARKS, marks: [] }],
+                },
+              ],
+            },
+            gaps: [],
+          },
+        ],
+        recordings: [],
+      },
+      questions,
+    },
+    ownerSectionId: SECTION_ID,
+    revision: 1,
+    testUpdatedAt: test.updatedAt,
+    archivedAt: null,
+    createdAt: test.createdAt,
+    updatedAt: test.updatedAt,
+    assets: [],
+    unavailableAssetIds: [],
+  };
+}
+
+function generateAnswers(items: unknown[]) {
+  server.use(
+    http.post(`${BASE}/teacher/ai/questions/generate`, async ({ request }) => {
+      events.push(`generate ${JSON.stringify(await request.json())}`);
+      return contractJson("/teacher/ai/questions/generate", "post", 200, {
+        items,
+        usage: { credits: 500, left: 1000 },
+      });
+    }),
+  );
+}
+
+describe("Generate in a test with a shared-context group", () => {
+  let stored: StoredGroup;
+  let puts: GroupUpdateInput[];
+  let stale: boolean;
+
+  beforeEach(() => {
+    stored = readingClub([member(MEMBER_ID, "What do parks do?")]);
+    puts = [];
+    stale = false;
+    server.use(
+      http.get(`${BASE}/teacher/tests/:id`, () =>
+        contractJson("/teacher/tests/{id}", "get", 200, {
+          ...test,
+          sections: [
+            {
+              ...test.sections[0]!,
+              units: [
+                { kind: "question", id: QUESTION_ID },
+                { kind: "group", id: GROUP_ID },
+              ],
+            },
+          ],
+        }),
+      ),
+      http.get(`${BASE}/teacher/question-groups/:id`, () =>
+        contractJson("/teacher/question-groups/{id}", "get", 200, stored),
+      ),
+      http.put(`${BASE}/teacher/question-groups/:id`, async ({ request }) => {
+        const body = (await request.json()) as GroupUpdateInput;
+        puts.push(body);
+        if (stale || body.expectedRevision !== stored.revision)
+          return HttpResponse.json(
+            { error: { code: "STALE_WRITE", message: "Đã có thay đổi ở nơi khác." } },
+            { status: 409 },
+          );
+        stored = {
+          ...stored,
+          bundle: storedGroupBundle(body.bundle),
+          revision: stored.revision + 1,
+          testUpdatedAt: "2026-01-04T00:00:00Z",
+        };
+        return contractJson("/teacher/question-groups/{id}", "put", 200, stored);
+      }),
+      http.post(`${BASE}/teacher/questions`, () => {
+        events.push("create question");
+        return contractJson("/teacher/questions", "post", 201, created);
+      }),
+    );
+    generateAnswers([
+      {
+        type: "short_answer",
+        prompt: "What do parks do in summer?",
+        answerKey: ["cool the streets"],
+        explanation: "",
+      },
+      {
+        type: "true_false",
+        prompt: "Cities plant fewer trees.",
+        answerKey: ["false"],
+        explanation: "",
+      },
+    ]);
+  });
+
+  async function generateFromThePassage(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole("button", { name: ai.entry.generate }));
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      await within(dialog).findByRole("button", {
+        name: "Bài đọc 1 · Parks",
+        pressed: true,
+      }),
+    ).toBeVisible();
+    await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
+    await user.click(await within(dialog).findByRole("button", { name: GROUP_BUTTON }));
+    return dialog;
+  }
+
+  it("appends what it made from the group's passage to that group and opens the first", async () => {
+    aiOn();
+    const { user } = await renderBuilder();
+    await generateFromThePassage(user);
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(events).toEqual([
+      `generate ${JSON.stringify({
+        types: ["single_choice", "true_false"],
+        count: 5,
+        level: "b2",
+        explanations: true,
+        language: "vi",
+        testId: TEST_ID,
+        stimulusId: STIMULUS_ID,
+      })}`,
+    ]);
+    expect(puts).toHaveLength(1);
+    const sent = puts[0]!;
+    expect(sent.expectedRevision).toBe(1);
+    expect(sent.expectedTestUpdatedAt).toBe(test.updatedAt);
+    expect(sent.bundle.group.members.map((item) => item.questionId)).toEqual(
+      sent.bundle.questions.map((item) => item.id),
+    );
+    expect(sent.bundle.group.members[0]).toEqual({
+      questionId: MEMBER_ID,
+      optionOrder: "shuffle",
+    });
+    expect(sent.bundle.questions.slice(1).map((item) => item.input)).toMatchObject([
+      {
+        type: "short_answer",
+        prompt: "What do parks do in summer?",
+        level: "b2",
+        sampleAnswer: "cool the streets",
+        tags: [ai.draftTag],
+      },
+      { type: "true_false", prompt: "Cities plant fewer trees.", tags: [ai.draftTag] },
+    ]);
+    expect(sent.bundle.group.stimuli.map((item) => item.id)).toEqual([STIMULUS_ID]);
+    expect(await screen.findByDisplayValue("cool the streets")).toBeVisible();
+  });
+
+  it("reloads the group's open editor on the first new member", async () => {
+    aiOn();
+    const { user } = await renderBuilder();
+    await user.click(
+      await screen.findByRole(
+        "button",
+        { name: /What do parks do\?/ },
+        { timeout: 5000 },
+      ),
+    );
+    expect(await screen.findByDisplayValue("Reading club")).toBeVisible();
+    await generateFromThePassage(user);
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(puts).toHaveLength(1);
+    expect(await screen.findByDisplayValue("cool the streets")).toBeVisible();
+    expect(screen.getByDisplayValue("Reading club")).toBeVisible();
+  });
+
+  it("refuses before writing when the group has no room for them", async () => {
+    aiOn();
+    stored = readingClub(
+      Array.from({ length: 199 }, (_, index) =>
+        member(
+          `018f0000-0000-7000-8000-${String(index).padStart(12, "0")}`,
+          `Question ${index + 1}`,
+        ),
+      ),
+    );
+    const { user } = await renderBuilder();
+    const dialog = await generateFromThePassage(user);
+
+    expect(
+      await within(dialog).findByText(
+        "Một nhóm chứa tối đa 200 câu, và nhóm Reading club chỉ còn chỗ cho 1 câu. Hãy bỏ chọn bớt rồi thử lại.",
+      ),
+    ).toBeVisible();
+    expect(puts).toHaveLength(0);
+    expect(events).not.toContain("create question");
+  });
+
+  it("keeps the panel open with the server's answer when the group changed elsewhere", async () => {
+    aiOn();
+    stale = true;
+    const { user } = await renderBuilder();
+    const dialog = await generateFromThePassage(user);
+
+    expect(await within(dialog).findByText("Đã có thay đổi ở nơi khác.")).toBeVisible();
+    expect(puts).toHaveLength(1);
+    expect(events).not.toContain("create question");
+  });
+
+  it("still appends what it made from pasted text to the section", async () => {
+    aiOn();
+    generateAnswers([
+      {
+        type: "short_answer",
+        prompt: "What do cities rethink?",
+        answerKey: ["open land"],
+        explanation: "",
+      },
+    ]);
+    const { user } = await renderBuilder();
+    await user.click(await screen.findByRole("button", { name: ai.entry.generate }));
+    const dialog = await screen.findByRole("dialog");
+    const source = within(dialog).getByLabelText(ai.generate.source);
+    await user.clear(source);
+    await user.type(
+      source,
+      "Cities around the world are rethinking how they use open land.",
+    );
+    await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
+    await user.click(
+      await within(dialog).findByRole("button", { name: "Thêm 1 câu vào Ngữ pháp" }),
+    );
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(events).toContain("create question");
+    expect(puts).toHaveLength(0);
+    expect(await screen.findByDisplayValue("open land")).toBeVisible();
   });
 });
