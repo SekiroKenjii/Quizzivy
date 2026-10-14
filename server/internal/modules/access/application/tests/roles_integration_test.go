@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/text/unicode/norm"
 
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/access/application"
@@ -408,5 +410,61 @@ func TestTheRoleListCountsTheCatalogueAndTheHolders(t *testing.T) {
 	}
 	if !slices.Equal(catalogue, contract) {
 		t.Errorf("catalogue %v differs from the contract's PermissionKey enum minus the hidden keys %v", catalogue, contract)
+	}
+}
+
+func TestADecomposedNameCollidesWithTheComposedOneAndIsStoredComposed(t *testing.T) {
+	w := appWorld(t)
+	by, ctx := w.admin(), context.Background()
+	builtin := w.roleOf(by, w.builtin(access.BuiltinTeacher)).Name
+	decomposed := norm.NFD.String(builtin)
+	if decomposed == builtin {
+		t.Fatalf("the Teacher's name %q has no decomposed form", builtin)
+	}
+	if _, err := w.app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: decomposed}); !errors.Is(err, domain.ErrNameTaken) {
+		t.Errorf("the Teacher's name decomposed: %v, want ErrNameTaken", err)
+	}
+	fresh := "Việt Nam " + w.tag
+	created, err := w.app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: norm.NFD.String(fresh)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Name != fresh {
+		t.Errorf("stored %q, want the composed %q", created.Name, fresh)
+	}
+	other := w.role("Khác")
+	name := norm.NFD.String(fresh)
+	_, err = w.app.Commands.UpdateRole.Handle(ctx, command.UpdateRole{By: by, ID: other, Expected: w.revision(other), Name: &name})
+	if !errors.Is(err, domain.ErrNameTaken) {
+		t.Errorf("a rename to the decomposed name of another role: %v, want ErrNameTaken", err)
+	}
+}
+
+func TestNoRoleIsCreatedPastTheLimit(t *testing.T) {
+	w := appWorld(t)
+	by, ctx := w.admin(), context.Background()
+	w.exec(`
+		INSERT INTO app.roles (name, icon, color)
+		SELECT 'Fill ' || n || ' ' || $1::text, 'star', 'amber'
+		  FROM generate_series(1, $2::int - (SELECT count(*) FROM app.roles)::int - 1) AS n`, w.tag, domain.MaxRoles)
+	if got := w.one(`SELECT count(*)::text FROM app.roles`); got != strconv.Itoa(domain.MaxRoles-1) {
+		t.Fatalf("%s roles after the fill, want %d", got, domain.MaxRoles-1)
+	}
+	if _, err := w.app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: "Cuối " + w.tag}); err != nil {
+		t.Fatalf("the last role that fits: %v", err)
+	}
+	_, err := w.app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: "Thừa " + w.tag})
+	if !errors.Is(err, domain.ErrRoleLimit) {
+		t.Fatalf("one role too many: %v, want ErrRoleLimit", err)
+	}
+	if got := w.one(`SELECT count(*)::text FROM app.roles`); got != strconv.Itoa(domain.MaxRoles) {
+		t.Errorf("%s roles, want %d", got, domain.MaxRoles)
+	}
+	list, err := w.app.Queries.ListRoles.Handle(ctx, query.ListRoles{By: by})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list.Roles) != domain.MaxRoles {
+		t.Errorf("the list holds %d roles, the contract allows %d", len(list.Roles), domain.MaxRoles)
 	}
 }
