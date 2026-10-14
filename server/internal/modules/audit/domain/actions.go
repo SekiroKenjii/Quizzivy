@@ -104,6 +104,8 @@ var catalogue = []Action{
 	{"user.google_linked", "Đã liên kết tài khoản Google", "Linked a Google account"},
 	{"user.google_unlinked", "Đã huỷ liên kết tài khoản Google", "Unlinked a Google account"},
 	{"user.password_changed", "Đã đổi mật khẩu", "Changed a password"},
+	{"user.password_link_requested", "Đã yêu cầu liên kết đặt mật khẩu", "Asked for a set-password link"},
+	{"user.password_set", "Đã đặt mật khẩu bằng liên kết", "Set a password from a link"},
 	{"user.preferences_updated", "Đã cập nhật tuỳ chọn cá nhân", "Updated personal preferences"},
 	{"user.profile_updated", "Đã cập nhật hồ sơ", "Updated a profile"},
 	{"user.renamed", "Đã đổi tên tài khoản", "Renamed an account"},

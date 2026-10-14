@@ -61,7 +61,7 @@ func WithCompleter(completer aiports.Completer) Option {
 	return func(o *options) { o.completer, o.hasCompleter = completer, true }
 }
 
-// Build refuses when app.permissions lacks a key this binary was compiled with, or when the join-code keys derive a zero or shared key id, then assembles every module against the pool in dependency order: notifications depends on no module and is built first, so that its Notify command can be handed to any module as a port; attempts' student statistics feed classes and identity, classes' enrolment feeds identity's Google sign-in, media feeds questions, tests and attempts.
+// Build refuses when app.permissions lacks a key this binary was compiled with, or when the join-code keys derive a zero or shared key id, then assembles every module against the pool in dependency order: notifications depends on no module and is built first, so that its Notify command can be handed to any module as a port; the mail outbox is built before identity, which writes its set-password links to it; attempts' student statistics feed classes and identity, classes' enrolment feeds identity's Google sign-in, media feeds questions, tests and attempts.
 func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db.Pool, opts ...Option) (Assembly, error) {
 	var chosen options
 	for _, opt := range opts {
@@ -87,7 +87,11 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	previousKeyID, rotating := keys.PreviousID()
 	logger.Info("join code keys", "current_key_id", keys.CurrentID(), "previous_key_id", previousKeyID, "rotating", rotating)
 	classesApp := classes(dbx, stats, keys, notificationsApp.Commands.Notify, logger).WithSignInPolicy(organizationApp.Queries.SignInPolicy)
-	identityApp, tokens, err := identity(cfg, logger, dbx, stats, classesApp.Commands.EnrolNewMember)
+	mail, err := BuildMail(cfg, dbx, logger)
+	if err != nil {
+		return Assembly{}, err
+	}
+	identityApp, tokens, err := identity(cfg, logger, dbx, stats, classesApp.Commands.EnrolNewMember, mail.Outbox)
 	if err != nil {
 		return Assembly{}, err
 	}
@@ -124,11 +128,6 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	aiApp, aiTransport, err := aiAssistant(cfg, dbx, notificationsApp.Commands.Notify, logger, completer, aiModules{
 		access: principals, identity: identityApp, questions: questionsApp, tests: testsApp, attempts: attemptsApp,
 	})
-	if err != nil {
-		return Assembly{}, err
-	}
-
-	mail, err := BuildMail(cfg, dbx, logger)
 	if err != nil {
 		return Assembly{}, err
 	}

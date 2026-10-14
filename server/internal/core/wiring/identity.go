@@ -19,7 +19,7 @@ import (
 	"quizzivy/internal/shared/stats"
 )
 
-func identity(cfg config.Config, logger *slog.Logger, dbx db.Context, stats stats.Source, enroller identityports.SelfEnroller) (*identityapp.Application, *identitytoken.Issuer, error) {
+func identity(cfg config.Config, logger *slog.Logger, dbx db.Context, stats stats.Source, enroller identityports.SelfEnroller, outbox identityrepo.Outbox) (*identityapp.Application, *identitytoken.Issuer, error) {
 	boundPasswordHashing(cfg, logger)
 	tokens, err := identitytoken.NewIssuer(cfg.JWTSigningKey, cfg.AccessTokenTTL)
 	if err != nil {
@@ -32,6 +32,7 @@ func identity(cfg config.Config, logger *slog.Logger, dbx db.Context, stats stat
 		return nil, nil, err
 	}
 	app.SetActivity(identityrepo.NewActivity(dbx), zone, logger)
+	app.SetPasswordLinks(identityrepo.NewSetPasswordLinks(dbx, outbox))
 	attachGoogle(cfg, logger, app, enroller)
 	return app, tokens, nil
 }
