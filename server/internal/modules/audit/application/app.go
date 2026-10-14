@@ -24,6 +24,7 @@ type Commands struct {
 
 type Queries struct {
 	List        cqrs.QueryHandler[query.List, query.ListResult]
+	Recent      cqrs.QueryHandler[query.Recent, []domain.Entry]
 	ExportBatch cqrs.QueryHandler[query.ExportBatch, query.ExportBatchResult]
 }
 
@@ -35,6 +36,7 @@ func New(repo domain.Repository) *Application {
 		Commands: Commands{StartExport: command.StartExportHandler{Service: service}},
 		Queries: Queries{
 			List:        query.ListHandler{Service: service},
+			Recent:      query.RecentHandler{Service: service},
 			ExportBatch: query.ExportBatchHandler{Service: service},
 		},
 		service: service,
