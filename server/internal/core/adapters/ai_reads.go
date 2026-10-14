@@ -23,7 +23,11 @@ import (
 	"quizzivy/internal/shared/cqrs"
 )
 
-const groupKind = "group"
+const (
+	groupKind        = "group"
+	questionKind     = "question"
+	fixedOptionOrder = "fixed"
+)
 
 // AITests reads a test's draft for the ai module from the tests and questions modules' handlers. It hands the assistant plain text: the prompts, options, keys and explanations of the draft's questions and the shared material of its groups, and nothing about a student.
 type AITests struct {
@@ -58,7 +62,7 @@ func (r AITests) Passage(ctx context.Context, scope access.Scope, testID, stimul
 	return aidomain.Passage{}, aidomain.ErrNotFound
 }
 
-// Draft reads the questions of the draft of testID in paper order. A question the scope cannot read is left out but keeps its number, so a number is the question's place in the builder. It answers aidomain.ErrNotFound for a test the scope does not reach.
+// Draft reads the questions of the draft of testID in the order the builder shows them: each section's units in turn, a standalone question as one number and a group as one number per member, in the group's order. A question the scope cannot read is left out but keeps its number, so a number is the question's place in the builder; a group the scope cannot read is left out whole, because its members cannot be counted. It answers aidomain.ErrNotFound for a test the scope does not reach.
 func (r AITests) Draft(ctx context.Context, scope access.Scope, testID string) (aidomain.Paper, error) {
 	test, err := r.Test.Handle(ctx, testsquery.Get{ID: testID, Scope: scope})
 	if errors.Is(err, testsdomain.ErrNotFound) {
@@ -67,58 +71,96 @@ func (r AITests) Draft(ctx context.Context, scope access.Scope, testID string) (
 	if err != nil {
 		return aidomain.Paper{}, err
 	}
-	shared, err := r.sharedMaterial(ctx, scope, test)
-	if err != nil {
-		return aidomain.Paper{}, err
-	}
 	var paper aidomain.Paper
 	number := 0
 	for _, section := range test.Sections {
-		for _, id := range section.QuestionIDs {
-			number++
-			question, err := r.Question.Handle(ctx, questionsquery.Get{ID: id, Scope: scope})
-			if errors.Is(err, questionsdomain.ErrNotFound) {
-				continue
-			}
+		for _, unit := range outlineUnits(section) {
+			read, counted, err := r.readUnit(ctx, scope, unit, number+1)
 			if err != nil {
 				return aidomain.Paper{}, err
 			}
-			material := shared[strings.ToLower(id)]
-			read := paperQuestion(question, number)
-			read.Passage, read.OrderFixed = material.text, material.fixed
-			paper.Questions = append(paper.Questions, read)
+			paper.Questions = append(paper.Questions, read...)
+			number += counted
 		}
 	}
 	return paper, nil
 }
 
-type material struct {
-	text  string
-	fixed bool
+func outlineUnits(section testsdomain.Section) []testsdomain.SectionUnit {
+	if len(section.Units) > 0 {
+		return section.Units
+	}
+	units := make([]testsdomain.SectionUnit, len(section.QuestionIDs))
+	for i, id := range section.QuestionIDs {
+		units[i] = testsdomain.SectionUnit{Kind: questionKind, ID: id}
+	}
+	return units
 }
 
-func (r AITests) sharedMaterial(ctx context.Context, scope access.Scope, test testsdomain.Test) (map[string]material, error) {
-	out := map[string]material{}
-	for _, id := range groupIDs(test) {
-		group, err := r.Group.Handle(ctx, testsquery.Group{ID: id, Scope: scope})
-		if errors.Is(err, testsdomain.ErrNotFound) {
+func (r AITests) readUnit(ctx context.Context, scope access.Scope, unit testsdomain.SectionUnit, first int) ([]aidomain.PaperQuestion, int, error) {
+	if unit.Kind == groupKind {
+		return r.readGroup(ctx, scope, unit.ID, first)
+	}
+	question, err := r.Question.Handle(ctx, questionsquery.Get{ID: unit.ID, Scope: scope})
+	if errors.Is(err, questionsdomain.ErrNotFound) {
+		return nil, 1, nil
+	}
+	if err != nil {
+		return nil, 0, err
+	}
+	return []aidomain.PaperQuestion{paperQuestion(question, first)}, 1, nil
+}
+
+func (r AITests) readGroup(ctx context.Context, scope access.Scope, groupID string, first int) ([]aidomain.PaperQuestion, int, error) {
+	stored, err := r.Group.Handle(ctx, testsquery.Group{ID: groupID, Scope: scope})
+	if errors.Is(err, testsdomain.ErrNotFound) {
+		return nil, 0, nil
+	}
+	if err != nil {
+		return nil, 0, err
+	}
+	passage := groupPassage(stored)
+	byID := make(map[string]testsdomain.GroupQuestion, len(stored.Bundle.Questions))
+	for _, question := range stored.Bundle.Questions {
+		byID[strings.ToLower(question.ID)] = question
+	}
+	members := stored.Bundle.Group.Members
+	var read []aidomain.PaperQuestion
+	for i, member := range members {
+		question, ok := byID[strings.ToLower(member.QuestionID)]
+		if !ok {
 			continue
 		}
-		if err != nil {
-			return nil, err
-		}
-		var texts []string
-		for _, stimulus := range group.Bundle.Group.Stimuli {
-			if text := plainText(stimulus.Content); text != "" {
-				texts = append(texts, strings.TrimSpace(stimulus.Title+"\n"+text))
-			}
-		}
-		text := strings.Join(texts, "\n\n")
-		for _, member := range group.Bundle.Group.Members {
-			out[strings.ToLower(member.QuestionID)] = material{text: text, fixed: member.OptionOrder == "fixed"}
+		item := paperQuestion(questionOf(question), first+i)
+		item.GroupID, item.Passage, item.OrderFixed = groupID, passage, member.OptionOrder == fixedOptionOrder
+		read = append(read, item)
+	}
+	return read, len(members), nil
+}
+
+func groupPassage(stored testsdomain.StoredGroup) string {
+	var texts []string
+	for _, stimulus := range stored.Bundle.Group.Stimuli {
+		if text := plainText(stimulus.Content); text != "" {
+			texts = append(texts, strings.TrimSpace(stimulus.Title+"\n"+text))
 		}
 	}
-	return out, nil
+	return strings.Join(texts, "\n\n")
+}
+
+func questionOf(member testsdomain.GroupQuestion) questionsdomain.Question {
+	in := member.Input
+	question := questionsdomain.Question{
+		ID: member.ID, Type: in.Type, Prompt: in.Prompt, PromptContent: in.PromptContent,
+		Explanation: in.Explanation, ExplanationContent: in.ExplanationContent, SampleAnswer: in.SampleAnswer,
+	}
+	for i, o := range in.Options {
+		question.Options = append(question.Options, questionsdomain.Option{ID: deref(o.ID), Ordinal: i, Text: o.Text, IsCorrect: o.IsCorrect, Content: o.Content})
+	}
+	for _, b := range in.Blanks {
+		question.Blanks = append(question.Blanks, questionsdomain.Blank{ID: deref(b.ID), GapID: b.GapID, Ordinal: b.Ordinal, AcceptedAnswers: b.AcceptedAnswers, CaseSensitive: b.CaseSensitive})
+	}
+	return question
 }
 
 func groupIDs(test testsdomain.Test) []string {
