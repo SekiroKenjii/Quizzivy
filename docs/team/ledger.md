@@ -365,10 +365,10 @@ and any reversal of the defaults above.
 | QA-16a-1 | T-R4.16a: `Test.assignments`' three correlated counts lift `listTests` at `limit=100` past `jit_above_cost`, so the first five runs per connection take 82–131 ms instead of about 15 ms. | backend, in T-R4.16b (one `LATERAL` aggregate) | fixed on #423; the tester re-measures in VER-16b |
 | F-10 | `/opt/pw-browsers` holds Chromium 1194; Playwright 1.62.1 looks for headless shell 1234 and fails to launch. | senior_swe_platform | worked around (`environment.md`, differences table): `executablePath` in an untracked wrapper; a helper script is open |
 | F-11 | Agent worktrees under `.claude/worktrees/` showed as untracked in the main checkout. | Tech Lead | fixed: `.gitignore` |
-| F-13 | After a container restart the session-start hook can fail to start the database and MinIO ("container with given ID already exists", stale runc state); `docker compose up -d --force-recreate db minio` recovers with the volumes intact. | senior_swe_platform | open: the hook should detect it and recreate |
+| F-13 | After a container restart the session-start hook can fail to start the database and MinIO ("container with given ID already exists", stale runc state); `docker compose up -d --force-recreate db minio` recovers with the volumes intact. | senior_swe_platform | fixed in #634 (`c73a5d24`): the hook removes a stale `docker.pid` and recreates a service whose first start failed; the stale-pid and runc cases were not reproduced |
 | F-14 | The weekly usage limit stopped every agent on 2026-10-08 at about 04:15 UTC until 2026-10-09 11:00 UTC, with four agents running. | Tech Lead | closed: T-3 |
 | F-15 | The shared SegField and Segmented fill labels sit left where the deck centres them. | senior_swe_frontend | open: the next task touching forms, or T-R4.48 |
-| F-16 | `copy-field.test.tsx` "copies the value and says so for two seconds" failed once on CI (fake timers with `shouldAdvanceTime`). | senior_swe_frontend | open |
+| F-16 | `copy-field.test.tsx` "copies the value and says so for two seconds" failed once on CI (fake timers with `shouldAdvanceTime`). | senior_swe_frontend | fixed in #634 (`2a1019a6`): the test no longer follows the wall clock |
 | F-17 | T-R4.47 must also carry `mediaAlt` on the server side of the attempt review (`review_review.go`, `toAPIReviewQuestion`); its plan section names only web files. | T-R4.47 | open |
 | F-19 | The tester's API inherited the heavy lock from a locked start and held it for 45 minutes. | Tech Lead | fixed: T-13's `-o` |
 | F-20 | The reader's bundle imports `@/lib/i18n`, which bundles both locale dictionaries, so every string added anywhere grows the student's budget. Proposal: load the inactive locale lazily. | senior_swe_frontend, principal_swe | fixed (#460, #463) |
@@ -376,34 +376,34 @@ and any reversal of the defaults above.
 | F-22 | A new accessible name containing an existing field label shadows a bare `getByLabel` in `*.live.spec.ts`, which `pnpm e2e` does not run. | every brief | closed: grep the live specs when a label changes; prefer `getByRole` with `exact` |
 | F-23 | The join-code rotation and a redemption took the class and code rows in opposite orders and deadlocked; the retry could deadlock again. | senior_swe_backend | fixed (#438): the writers take the class row `FOR NO KEY UPDATE` |
 | F-24 | A NUL character in any free-text field answers 500 (PostgreSQL refuses 0x00 in `text`). | senior_swe_platform | fixed (#506): refused in `httpx.ValidateRequests`, and a media filename refused by its upload command |
-| F-25 | The content editor says "ô trống" where the question editor and the blanks list say "chỗ trống". | T-R4.65, or whoever next touches the content editor | open |
-| F-26 | The Vietnamese grading score's accessible name reads "2.5", not "2,5". | the next grading copy change | open |
+| F-25 | The content editor says "ô trống" where the question editor and the blanks list say "chỗ trống". | T-R4.65, or whoever next touches the content editor | fixed on `develop` (`6f9c9d8b`) |
+| F-26 | The Vietnamese grading score's accessible name reads "2.5", not "2,5". | the next grading copy change | fixed on `develop` (`0b6509a9`) |
 | F-27 | Docker Hub's anonymous pull limit refused `postgres:18` in CI. | senior_swe_platform | fixed on r4 (#437, `mirror.gcr.io`); `develop` and `main` still need the change |
-| F-28 | The grading card's prompt is 14/21 where the deck draws 15/24. | R5 deck pass | open |
+| F-28 | The grading card's prompt is 14/21 where the deck draws 15/24. | R5 deck pass | open: not touched; R5 deck pass (the prompt is 14/21 where the deck draws 15/24) |
 | F-29 | A PR's CI runs on the merge ref; the planner can skip a later push whose merged tree is the same. | Tech Lead | closed: T-27 |
 | F-30 | `fill-blank-editor.test.tsx` timed out on the lazy rich editor's cold import. | senior_swe_frontend | fixed (#439) |
 | F-31 | No check caught a Tailwind class that resolves to no token (`bg-accent-soft`). | senior_swe_platform | fixed (#441): `tailwind-classes.test.ts` |
-| F-32 | The import review's `changeType` writes "Đúng"/"Sai" for true/false options instead of the canonical "True"/"False". | the imports owner | open |
-| F-33 | Spec §7's answer type still lists `{type:'true_false'; value: boolean}`; the engine writes `choice` and the server grades both. | Tech Lead | open: a sentence that the boolean form is legacy input, in the next spec change of the Tech Lead's |
+| F-32 | The import review's `changeType` writes "Đúng"/"Sai" for true/false options instead of the canonical "True"/"False". | the imports owner | fixed in #634 (`b75c12f9`) |
+| F-33 | Spec §7's answer type still lists `{type:'true_false'; value: boolean}`; the engine writes `choice` and the server grades both. | Tech Lead | fixed in #634 (`b8a552e0`): spec 0.110 says the boolean form is legacy input |
 | F-34 | `assignment-sheet-presence.test.tsx`'s cold first test missed `findBy`'s one second under load. | senior_tester | fixed (#443) |
 | F-35 | `builder-group-recovery.spec.ts` failed when Back came within ~60 ms of the URL change. | the user | fixed (#449); an app-side guard for the six `useBlocker` callers is optional |
 | F-36 | The tests list: select-all, the "not shown" count, and a stubbed e2e for a failed Duplicate and a failed bulk delete (T-25). | senior_swe_frontend, lane 2 | fixed (#464) |
 | F-37 | Decomposed (NFD) text from the server still falls back in plain fields such as a test title. Proposal: `content.Normalize` and `norm.NFC` in the command handlers (never passwords, tokens, emails or join codes), and a one-off backfill that skips published snapshots. | senior_swe_backend | fixed (#483, 00103) |
 | QA-66a-1 | A failed builder autosave crashed the page (React #185). The cause was `MarqueeText` flipping as the "Not saved" label shrank the title. | senior_swe_frontend, lane 1 | fixed (#452) |
 | R12b-1 | `updateAssignment` and `reopenAssignment` change an assignment's window without recomputing in-progress deadlines or taking the windows lock. | senior_swe_backend | fixed (#451) |
-| F-38 | The tag search box's radius is 10px where the deck draws 8. | the next task touching `TagCombobox` | open |
-| F-39 | The long relative time ("Updated …") wraps in table cells; a short form for cells is a decision across screens. | Tech Lead | open |
-| F-40 | Builder and integration tests time out under parallel load (`editor-pane`, `grading-finish-recovery`, `assignment-note-recovery-focus`, `intervention-return-focus`); each passes alone. | senior_tester | open: raise a timeout in its own commit, never loosen an assertion |
-| F-41 | Teacher-only namespaces sit in the student's dictionary (about half of it). | R5 | open |
-| F-42 | The export limiter is a token bucket; the contract's wording could say so. | senior_swe_backend | open |
-| F-44 | Media copy: raw bytes in a size refusal, "This file cannot be used" for a server failure, and `media.empty` naming listening files in the image library. | senior_swe_frontend | open |
-| F-45 | A phone photo (4032 x 3024) is over the avatar's 2048 side; the client downscales on a canvas before uploading. | T-R4.43 | open |
-| F-46 | "Publish version {n}" counts from the versions listed, not from `last_published_version + 1`, so it is wrong after the newest version is deleted (measured in VER-30). | senior_swe_backend | in progress: `Test.nextVersion` |
+| F-38 | The tag search box's radius is 10px where the deck draws 8. | the next task touching `TagCombobox` | fixed on `develop` (`0f915878`); `TagCombobox` is no longer rendered by any screen |
+| F-39 | The long relative time ("Updated …") wraps in table cells; a short form for cells is a decision across screens. | Tech Lead | open: Tech Lead, a decision across screens |
+| F-40 | Builder and integration tests time out under parallel load (`editor-pane`, `grading-finish-recovery`, `assignment-note-recovery-focus`, `intervention-return-focus`); each passes alone. | senior_tester | open: not reproduced; the four tests passed in a full local run on 2026-10-14, so leave open until CI shows them clean for a while |
+| F-41 | Teacher-only namespaces sit in the student's dictionary (about half of it). | R5 | open: not touched; R5 |
+| F-42 | The export limiter is a token bucket; the contract's wording could say so. | senior_swe_backend | fixed in #634 (`173f9f62`): wording only |
+| F-44 | Media copy: raw bytes in a size refusal, "This file cannot be used" for a server failure, and `media.empty` naming listening files in the image library. | senior_swe_frontend | fixed on `develop` (`808d0cf5`) |
+| F-45 | A phone photo (4032 x 3024) is over the avatar's 2048 side; the client downscales on a canvas before uploading. | T-R4.43 | fixed in #634 (`15f4af46`, `42a025df`) |
+| F-46 | "Publish version {n}" counts from the versions listed, not from `last_published_version + 1`, so it is wrong after the newest version is deleted (measured in VER-30). | senior_swe_backend | fixed on `develop`: `Test.nextVersion`, covered by `next_version_test.go` |
 | F-47 | `Segmented` is 30px under `data-scale="deck"`, where the deck draws 32 (QA-27b-2). | senior_swe_frontend | open |
-| F-48 | `DateTimePicker` edits through a browser-local `Date` (a DST hour is unreachable in New York), a save drops seconds, and `NumberStepper` does not select on Enter. | senior_swe_frontend | open |
-| F-49 | Two tabs of one device refresh separately, so an epoch bump can trip reuse detection (R-06 residual, about 0.5% per revoke per extra visible tab). | senior_swe_frontend with the Principal | open: a cross-tab refresh lock in `client.ts`, a canary area |
+| F-48 | `DateTimePicker` edits through a browser-local `Date` (a DST hour is unreachable in New York), a save drops seconds, and `NumberStepper` does not select on Enter. | senior_swe_frontend | partly fixed in #634 (`fe15e26a`, `01d76fd5`): `NumberStepper` selects on Enter and the wizard keeps an unchanged moment to the second; open: the DST hour needs a model change (wall clock as fields) across `dateTimeValue.ts` and `DateTimePicker.tsx`, only for browsers in a zone with DST gaps (none in Vietnam) |
+| F-49 | Two tabs of one device refresh separately, so an epoch bump can trip reuse detection (R-06 residual, about 0.5% per revoke per extra visible tab). | senior_swe_frontend with the Principal | open: not touched; needs a design review with the Principal first, since a cross-tab refresh lock in `client.ts` is the refresh canary's area (R-06) |
 | F-50 | `FormDialog` puts initial focus on Close, not on the first field. | senior_swe_frontend | open |
-| F-51 | `listTestVersions` answers 200 with no items and `previewTest` 409 for a missing or another teacher's test; consistent with a missing id, but not a 404. | senior_swe_backend | open |
+| F-51 | `listTestVersions` answers 200 with no items and `previewTest` 409 for a missing or another teacher's test; consistent with a missing id, but not a 404. | senior_swe_backend | fixed in #634 (`d9cc2138`, `326b1187`): 404 for a missing or another teacher's test |
 | INC-1 | `909115d4` on #469 reverted 49 files: it was committed from a working tree older than the Tech Lead's merge of the integration branch. The gates passed, because the old tree is self-consistent. | Tech Lead | fixed (`31c37362`) before the merge; T-28 |
 | SR-472-1 to 4 | The Principal's security review of #472: a progressive JPEG of near-empty scans holds a decode slot for minutes (major); the PNG estimate misses Adam7 and `tRNS`; a decoder panic leaves no trace; a 2 MiB file cannot be uploaded. | senior_swe_backend | fix round on #472 |
 | INC-2 | The handover lost unpushed work: #485's round 2, the R4 merge into the bell branch, and T-R4.49 C. | Tech Lead | closed: restarted from the pushed heads (T-34) |
@@ -513,5 +513,6 @@ and any reversal of the defaults above.
   time, with T-R5.2 (email) and T-R5.5 (organization) early because most of the rest waits on
   them; T-R5.36 before T-R5.11; T-R5.20 (AdminLayout) alongside; the screens as their layout and
   API land; the close-out last.
-- In parallel on `develop`: the open GitHub issues and the open findings below, each checked
-  against `develop` before work.
+- In parallel on `develop`: the open GitHub issues, each checked against `develop` before work.
+  The findings table was swept on 2026-10-14 (#634); F-28, F-39, F-40, F-41, F-48's DST half and
+  F-49 stay open with the owners in their rows.
