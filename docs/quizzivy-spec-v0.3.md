@@ -1,7 +1,16 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.110 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.111 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.110**
+
+R5, T-R5.15 (data export, no screen yet).
+
+- §15 Three operations under `/admin/data-exports`, all `system.data_export` (Admin only): `requestDataExport` (`POST`, `{includeAnswers}` → `202 DataExport`; `409 EXPORT_IN_PROGRESS` while any export is queued or running), `getDataExport` (`GET /:id`, the requester's own export, another's is `404`) and `downloadDataExport` (`POST /:id/download` → `{url, expiresInSeconds: 60}`, a presigned attachment named `quizzivy-export-YYYYMMDD.zip`; `404` for another admin's export, `410 EXPORT_UNAVAILABLE` unless the export is ready, unexpired and not fetched yet). Two new error codes, `EXPORT_IN_PROGRESS` and `EXPORT_UNAVAILABLE`. Rate limits per actor: 1 request an hour, 60 reads a minute (600 an hour), 10 downloads an hour. Without import storage and the worker the three answer `501`, as media does without storage.
+- §13 `app.data_exports` (`00134_create_data_exports.sql`): one row for each request. A partial unique index allows one export queued or running in the whole centre, so two Admins asking at once cannot both build a ZIP of everyone's data. The ZIP stays in the private import bucket at `exports/{id}.zip` for 24 hours and is fetched once, by its requester, from the app page the email links to; nothing in the email or the table is a credential.
+- The worker builds the ZIP from one `REPEATABLE READ`, read-only snapshot, so every file describes the same moment: `users.csv` (no hashes or tokens), `roles.csv`, `classes.csv` (no join codes), `class_members.csv`, `tests.csv`, `test_versions.csv`, `assignments.csv`, `attempts.csv` (no session or beacon secrets), `answers.csv` when asked, and a `README.txt` in Vietnamese then English that describes every column. Every CSV streams through `platform/tabular` (byte-order mark, CRLF, a cell that begins `=`, `+`, `-` or `@` is prefixed with `'`), so memory stays bounded: 50,000 attempts and 50,000 answers grew the live heap by 8 MiB. A claim lasts 30 minutes, a build is cut off after 25, and an export interrupted three times is failed with `WORKER_INTERRUPTED`. A failure records a code, never a message, and sends nothing.
+- The audit log gains `data_export.requested` and `data_export.downloaded` (entity `data_export`, listed under All only), with their `vi` and `en` sentences.
 
 **Changes since v0.109**
 
@@ -3277,6 +3286,15 @@ PUT    /admin/roles/permissions         {changes: [{roleId, key, granted}] (1..2
                                           422 ROLE_LOCKED | STUDENT_NEEDS_TAKE_TESTS | KEY_NOT_GRANTABLE | CANNOT_ACT_ON_SELF
 GET    /admin/roles/assignable          (people.users.manage) → [{id, builtinKey|null, name, icon, color, studentTarget}]:
                                           roles within the caller's own permissions, without the Assistant
+
+# admin: data export (system.data_export, Admin only; 501 without import storage and the worker)
+POST   /admin/data-exports              {includeAnswers} → 202 DataExport {id, status queued|running|ready|failed|expired,
+                                          includeAnswers, bytes, createdAt, completedAt, expiresAt, downloadedAt}; 409
+                                          EXPORT_IN_PROGRESS while any export is queued or running; 1 an hour per actor
+GET    /admin/data-exports/:id          → DataExport; another admin's export is 404; a ready export past expiresAt reads expired
+POST   /admin/data-exports/:id/download → {url, expiresInSeconds: 60}: a presigned attachment, `quizzivy-export-YYYYMMDD.zip`,
+                                          once, by the requester; 404 for another admin's export, 410 EXPORT_UNAVAILABLE
+                                          unless it is ready, unexpired and not fetched yet; 10 an hour per actor
 
 # admin
 DELETE /admin/users/:id                 a disabled student only, else 409 RESOURCE_NOT_ARCHIVED;

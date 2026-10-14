@@ -121,6 +121,13 @@ sleeps until one of three things happens:
   pipeline version reaching its grace period.
 - `IMPORT_WORKER_IDLE_POLL` passes (1h by default), as a safety net.
 
+The worker also builds the Admin's data export (T-R5.15). It drains the import queue first and
+then the export queue, wakes through the same address, and needs nothing more than the import bucket and
+`IMPORT_WORK_DIR`, where it writes the ZIP before it uploads it and always removes it afterwards. An
+export is cut off after 25 minutes, and one still running 30 minutes after its claim, because its worker
+died, is claimed again at most twice more and then failed with `WORKER_INTERRUPTED`. Without this process
+the API answers the three `/admin/data-exports` operations with `501`.
+
 It never polls sooner than every two seconds. An idle worker therefore lets
 Neon's compute suspend (#143). SIGTERM/SIGINT cancels the current job,
 records a result that finished before the signal, and otherwise releases the run

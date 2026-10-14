@@ -17,6 +17,7 @@ GET /admin/api-reference system.api_reference
 GET /admin/api-reference/openapi.json system.api_reference
 GET /admin/audit-log system.audit.read
 GET /admin/audit-log/export system.audit.read
+GET /admin/data-exports/{id} system.data_export
 GET /admin/roles people.roles.manage
 GET /admin/roles/assignable people.users.manage
 GET /admin/settings system.settings.write
@@ -84,6 +85,8 @@ PATCH /teacher/tests/{id} content.tests.write
 POST /admin/ai/credit-requests/{id}/approve ai.credits.manage
 POST /admin/ai/credit-requests/{id}/decline ai.credits.manage
 POST /admin/ai/credits/additions ai.credits.manage
+POST /admin/data-exports system.data_export
+POST /admin/data-exports/{id}/download system.data_export
 POST /admin/docs-session system.api_reference
 POST /admin/roles people.roles.manage
 POST /admin/settings/logo system.settings.write
