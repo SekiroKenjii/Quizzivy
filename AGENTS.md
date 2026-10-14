@@ -259,12 +259,13 @@ unit, integration and end-to-end in that order.
   `DELETE /admin/students/{id}` to `DELETE /admin/users/{id}`) and logs
   `legacy_admin_path`. A new operation never joins that table.
 - **Everything the contract does not explicitly open requires a bearer token**,
-  derived from `api/openapi.yaml`'s `security`. Nine operations are open —
+  derived from `api/openapi.yaml`'s `security`. Eleven operations are open —
   login, Google sign-in, refresh, logout, `POST /join/preview`, the integrity
   beacon `POST /app/attempts/{id}/events`, `GET /public/status`,
-  `GET /public/organization` and `GET /public/organization/logo` — and the
-  list is pinned by `theOpenNine` in `core/router/tests/auth_middleware_test.go`,
-  so a tenth takes an argument.
+  `GET /public/organization`, `GET /public/organization/logo`,
+  `POST /auth/set-password/check` and `POST /auth/set-password` — and the
+  list is pinned by `theOpenEleven` in `core/router/tests/auth_middleware_test.go`,
+  so a twelfth takes an argument.
 
 ## `pnpm typecheck`, never `tsc --noEmit`
 

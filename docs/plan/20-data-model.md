@@ -1394,6 +1394,7 @@ listed here matches the spec.
 | D-51 | Add `email_outbox`, one row per message to send, with a partial index on the pending rows | A message is written in the transaction that decided to send it, so a rolled-back decision sends nothing, and the API and the worker both drain the table (T-R5.2). `template` is a checked slug and not an enum, as `notifications.kind` is (D-28), because the template list is Go's and R7 adds templates without a migration. `to_address` is a copy, since `to_user_id` is `ON DELETE SET NULL` and an unsent message must outlive its user's row. `secret_ciphertext` holds a set-password token sealed under `SECRETS_KEY` with the row id as associated data, and is cleared in the statement that marks the row sent or failed. `dedupe_key` is a plain unique column: a second message with the same key is not written. `attempts` is bounded at 10 to match the dispatcher. See §49 |
 | D-52 | `users` gains four nullable columns, `last_active_at`, `last_sign_in_at`, `last_sign_in_method` (CHECK in `password`, `google`, `set_password_link`) and `password_changed_at`; a new `user_activity_days (user_id, day)` records the local days a user was active | DG-54: the Students list's "Last active" and "Not signed in", the Settings "Changed …" line and R5's daily chart need facts the schema did not keep (the Students list used the last attempt). All four are nullable with no default, so the v0.10.0 binary's insert, which names none, keeps working; NULL `last_sign_in_at` is "never signed in". The migration backfills `last_sign_in_at` and `last_active_at` with the newest of the user's refresh token `issued_at`, attempt `started_at` and audit entry as actor, with the `updated_at` trigger off, so an account used before R5 does not read "Not signed in"; the method and `password_changed_at` stay NULL because nothing records them. The day table is keyed by the pair, indexed on `day` for range reads, and cascades with the user; a day is the local date in `APP_TIMEZONE`. See §50 |
 | D-53 | `organization_settings` is a singleton keyed by `id boolean PRIMARY KEY DEFAULT true CHECK (id)`, written by the migration, and the app role has neither `INSERT` nor `DELETE` on it | The centre has exactly one settings document, and the front door and sign-in cannot run without it, so it is reference data the migration owns (D-21) and not a seed. A boolean key that only `true` satisfies makes a second row impossible without a trigger, and revoking the two statements means the application can only change the row, never lose it or add a rival. Every optional text is nullable and every bound is a CHECK, so the database refuses what the application would have refused. `CHECK (google_sign_in OR password_sign_in)` is the last line of the rule that keeps a way in. See §51 |
+| D-54 | Add `set_password_tokens`, one row per set-password link, with a full index on `user_id` and the 24-hour bound as a `CHECK` | A link is the credential of an account that has none yet (T-R5.3, D15), so the database holds only the SHA-256 of a 256-bit token (`token_hash bytea`, 32 bytes, unique), never the token, which waits sealed in `email_outbox` until the message is sent (D-51). `expires_at <= created_at + interval '24 hours'` is the database's own last line against a longer-lived link; the application writes `created_at` itself, from the clock it computes `expires_at` with, truncated to the microsecond, so the bound holds exactly. `used_at` and `revoked_at` are separate because the claim is one `UPDATE … SET used_at … WHERE used_at IS NULL AND revoked_at IS NULL AND expires_at > $now`, which two submits of one link race for and one wins, while a newer link, a password set and a disable revoke by `revoked_at`; the lookup reads all three alike. `user_id` cascades, since a link without its account is meaningless; `created_by` is provenance (an Admin, the account itself, or NULL for a job) and `SET NULL`s, so a deleted account's issuer leaves rows nobody can use. **Deviation from the plan:** T-R5.3 asked for a *partial* index on `(user_id) WHERE used_at IS NULL AND revoked_at IS NULL`. The index is full instead, because `ON DELETE CASCADE` from `users` must find rows of every state and a partial index would leave a delete of a user scanning the table; the unused-link reads (revoke-and-replace) still use it, over a handful of rows per account. See §52 |
 ---
 
 ## 13. Migration inventory
@@ -1527,6 +1528,7 @@ the file it adds.
 | `00130_create_organization_settings.sql` | `organization_settings`, the singleton, its checks and `updated_at` trigger, the one row the migration writes, and `REVOKE INSERT, DELETE` from the app role | R5 (T-R5.5), D-53, §51 |
 | `00131_add_users_activity.sql` | `users.last_active_at`, `last_sign_in_at`, `last_sign_in_method` (`users_last_sign_in_method_check`), `password_changed_at`, all nullable; backfills the first two | R5 (T-R5.4), D-52, §50 |
 | `00132_create_user_activity_days.sql` | `user_activity_days (user_id REFERENCES users ON DELETE CASCADE, day date, PRIMARY KEY (user_id, day))` and `user_activity_days_day_idx (day)` | R5 (T-R5.4), D-52, §50 |
+| `00134_create_set_password_tokens.sql` | `set_password_tokens`, its checks (`token_hash` length, `purpose`, the 24-hour bound), `set_password_tokens_token_hash_key` and `set_password_tokens_user_idx` | R5 (T-R5.3), D-54, §52 |
 
 Notes on migration mechanics (§13.7):
 
@@ -3614,3 +3616,59 @@ serves the old policy for up to 30 seconds after a change, and an idle server ne
 logo-in-store check), `organization/repositories/tests` (the constraints, the lockout outcomes and
 counts, the concurrent saves, the audit row, the grants), `organization/http/tests` (the public
 document's exact keys, the logo headers and caches, the error mapping).
+
+## 52. Set-password links (T-R5.3, D15, DG-05)
+
+`00134_create_set_password_tokens.sql` adds `app.set_password_tokens` (D-54). A link is the way an account
+chooses a password without anyone typing one for it: an invite carries a new account's first password, a reset
+any later one. The token is 32 random bytes in unpadded base64url; the row keeps `sha256(token)` and nothing
+that could be presented. The raw token lives in two places only, the link in the email and the sealed secret
+of the outbox row that carries it, which is cleared when the row is sent or fails (§49).
+
+**States.** A link is *usable* while `used_at` and `revoked_at` are NULL, `now < expires_at` and its account is
+not disabled. Every other state is one `domain.ErrSetPasswordLinkInvalid`, and the HTTP layer answers it as one
+`410 SET_PASSWORD_LINK_INVALID` with one body, so nothing says which state a link is in. A link is revoked by:
+issuing another to the same account (`RevokeUnused`), using one (`Claim` revokes the account's other unused
+links), and nothing else; disabling an account makes its links unusable by the lookup (`AccountDisabled`) and
+the claim refuses it, without a write to the table.
+
+**Issuing.** `IssueSetPasswordLink` is a command other commands call with a `domain.LinkTx`, the writes of one
+transaction the caller owns: `Recipient`, `RevokeUnused`, `Insert`, `EndSessions`, `Enqueue`, `Audit` and
+`AfterCommit`. `repositories.SetPasswordLinks.InTx` begins that transaction for a caller that has none;
+`Writes(tx)` returns the same writes over a transaction the caller already holds (T-R5.9a creates the account
+in it), and the function that runs what was registered with `AfterCommit`, which the caller runs after its own
+commit and never after a rollback. That is where `Principals.Forget` and the dispatcher's wake-up wait, so
+neither fires for a transaction that rolled back. `Enqueue` maps the outbox's `ErrNoSecretsKey` to
+`domain.ErrSetPasswordUnavailable`, which the HTTP layer answers `501`, as media does without storage. Order
+inside the transaction is: read the recipient, revoke unused links, insert the link, (for a reset someone else
+asked for) end sessions, enqueue the message, audit.
+
+**Claiming.** `Claim` is one transaction: `UPDATE set_password_tokens SET used_at … WHERE token_hash = $1 AND
+used_at IS NULL AND revoked_at IS NULL AND expires_at > $now RETURNING user_id, purpose`; then the account's
+password hash, `must_change_password = false`, `password_changed_at` and `session_epoch + 1` (refused, and the
+whole claim rolled back, for a disabled account, so a refused claim leaves the link unused); then the account's
+other unused links revoked, its refresh tokens revoked, and `user.password_set` written as the account itself
+with `{"purpose": …}`. The lock order is the link, then the user, then its refresh tokens, the order issuing
+takes them in, so issuing and using links at once cannot deadlock. The caller forgets the principal, reloads the
+account and issues the session (`SignInSetPasswordLink`, stamped like any sign-in, §50). A token that is
+unknown, used, revoked, expired or for a disabled account is refused by `Find` and `Usable` before the password
+is hashed, so an invalid token costs the server no argon2 work.
+
+**Self-service.** `RequestSetPasswordLink` issues a `reset` to the signed-in account with `By` set to itself and
+`KeepSessions`, writes `user.password_link_requested` in the same transaction, and ends nothing: the account
+asked while signed in on purpose, and using the link ends the other sessions. A Google-only account keeps its
+`user_identities` row, since setting a password adds a way in and removes none.
+
+**Not here.** A reset does not clear the account's current password; T-R5.9b's "a link reset clears the
+password" belongs to that task. Nothing prunes used or expired rows yet; T-R5.16's housekeeping is the place.
+
+**Tests.** `identity/domain/tests/setpassword_test.go` (token shape, the purposes, the usable states),
+`identity/application/tests/set_password_test.go` (every path against fakes: the order of the writes, forgets
+after the commit, the policy, a disabled account, an unusable link costs no hash) and
+`set_password_db_test.go` (the real repository, the outbox and the app role: hash-only storage, a sealed token,
+a reissue revokes, eight concurrent submits set once, expiry at exactly 24 hours, a rolled-back issue leaves no
+link, mail or wake-up, issuing and using at once do not deadlock), `identity/http/tests/set_password_test.go`
+(byte-identical 410 bodies in both languages, the 200 with its cookie, the 400, 422 and 501 mappings),
+`platform/db/tests/set_password_tokens_test.go` (each constraint fires, the cascade and the `SET NULL`) and
+`core/router/tests/set_password_limits_test.go` (a class of 40 behind one address, the per-address and
+per-token limits, a weak password spends the token's budget, the per-user limit of the request).
