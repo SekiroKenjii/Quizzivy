@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { http, HttpResponse } from "msw";
+import { http } from "msw";
 import {
   ApiDocsSection,
   GoogleSection,
@@ -252,11 +252,11 @@ describe("asking for a set-password link from the Google card", () => {
     [
       "a 429",
       () =>
-        HttpResponse.json(
+        contractJson(
+          "/auth/set-password/request",
+          "post",
+          429,
           refusal("RATE_LIMITED", "Bạn thử quá nhiều lần. Hãy chờ một phút."),
-          {
-            status: 429,
-          },
         ),
       "Bạn thử quá nhiều lần. Hãy chờ một phút.",
     ],

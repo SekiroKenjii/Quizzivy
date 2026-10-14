@@ -6758,6 +6758,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
         '501':
           description: This server has no key to seal a link with (`SECRETS_KEY`), so it cannot send one.
           content:

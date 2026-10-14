@@ -8634,6 +8634,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            429: components["responses"]["TooManyRequests"];
             /** @description This server has no key to seal a link with (`SECRETS_KEY`), so it cannot send one. */
             501: {
                 headers: {
