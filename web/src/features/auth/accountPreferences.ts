@@ -11,6 +11,7 @@ import {
 } from "@/lib/theme";
 import { setAccountTestText, writeLargerTestText } from "@/lib/testText";
 import { previewCompactTables, setAccountCompactTables } from "@/lib/compactTables";
+import type { StaffWorkspace } from "@/layouts/shell/nav";
 import { authStore, useAuthStore, type ActorLease } from "@/stores/auth";
 import {
   markChosen,
@@ -220,6 +221,15 @@ export function savePreferences(body: PreferencesPatch) {
     acceptUser({ ...user, preferences }, lease);
     return preferences;
   });
+}
+
+/**
+ * rememberWorkspace stores the console the user is switching to, which
+ * `homePathFor` opens at their next sign-in. It is a convenience: it shows no
+ * toast and leaves the retry state alone, and a failure is dropped.
+ */
+export function rememberWorkspace(workspace: StaffWorkspace): void {
+  void savePreferences({ workspace }).catch(() => undefined);
 }
 
 /** refreshAccount orders authoritative rereads with writes and rejects mismatched identities. */

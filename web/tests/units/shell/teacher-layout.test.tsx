@@ -72,7 +72,7 @@ const REVIEW = crumbed("teacherShell.nav.tests", {
 });
 const SETTINGS = { path: "settings/:section?", handle: crumbed("nav.settings") };
 
-const sidebar = () => document.getElementById("teacher-sidebar");
+const sidebar = () => document.getElementById("console-sidebar");
 const nav = () => screen.getByRole("navigation", { name: NAV });
 const links = () => within(nav()).getAllByRole("link");
 const badges = () => document.querySelectorAll("[data-slot='nav-count']");
@@ -325,7 +325,7 @@ describe("collapsing the sidebar", () => {
     for (const link of links()) expect(link).not.toHaveAttribute("title");
     const collapse = toggle("Thu gọn thanh bên");
     expect(collapse).toHaveAttribute("aria-expanded", "true");
-    expect(collapse).toHaveAttribute("aria-controls", "teacher-sidebar");
+    expect(collapse).toHaveAttribute("aria-controls", "console-sidebar");
     await user.click(collapse);
 
     expect(sidebar()).toHaveAttribute("data-state", "collapsed");
@@ -749,7 +749,7 @@ describe("the teacher shell below 768", () => {
     expect(screen.queryByRole("navigation", { name: NAV })).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(toggle("Mở menu")).toHaveAttribute("aria-expanded", "false");
-    expect(toggle("Mở menu")).toHaveAttribute("aria-controls", "teacher-sidebar");
+    expect(toggle("Mở menu")).toHaveAttribute("aria-controls", "console-sidebar");
     expect(screen.queryByRole("button", { name: "Thu gọn thanh bên" })).toBeNull();
   });
 

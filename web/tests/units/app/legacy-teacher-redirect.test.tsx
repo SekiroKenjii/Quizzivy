@@ -25,7 +25,10 @@ function Here() {
 
 function withoutPages(routes: RouteObject[]): RouteObject[] {
   return routes.map((route) => {
-    if (route.index) return route.lazy ? { index: true, element: <Here /> } : route;
+    if (route.index)
+      return route.lazy
+        ? { index: true, handle: route.handle, element: <Here /> }
+        : route;
     const { lazy, children, ...rest } = route;
     return {
       ...rest,
@@ -175,6 +178,67 @@ describe("the old /admin addresses in the app's own route table", () => {
     ).toBeInTheDocument();
     expect(address(router)).toBe("/teacher/tests");
     expect(screen.queryByText("trang /teacher/tests")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    "/admin",
+    "/admin/users",
+    "/admin/roles",
+    "/admin/classes",
+    "/admin/ai",
+    "/admin/audit",
+    "/admin/api",
+    "/admin/settings",
+    "/admin/settings/organization",
+    "/admin/settings/sign-in?tab=1",
+    "/admin/exports/abc#top",
+    "/Admin/Users",
+  ])(
+    "keeps %s, an address of the Admin console, for a user who holds it",
+    async (at) => {
+      signIn(adminUser);
+      const router = show(routes, [at]);
+
+      expect(await screen.findByText(`trang ${at}`)).toBeInTheDocument();
+      expect(address(router)).toBe(at);
+    },
+  );
+
+  it.each([
+    ["/admin/tests", "/teacher/tests"],
+    ["/admin/classes/abc", "/teacher/classes/abc"],
+    ["/admin/settings/profile", "/teacher/settings/profile"],
+    ["/admin/settings/security", "/teacher/settings/security"],
+    ["/admin/users/abc", "/teacher/users/abc"],
+    ["/admin/exports", "/teacher/exports"],
+    ["/admin/ai/credits", "/teacher/ai/credits"],
+  ])("sends %s, not a console address, to %s for the Admin too", async (from, to) => {
+    signIn(adminUser);
+    const router = show(routes, [from]);
+
+    await waitFor(() => expect(address(router)).toBe(to));
+  });
+
+  it.each([
+    ["/admin", "/teacher"],
+    ["/admin/users", "/teacher/users"],
+    ["/admin/settings/organization", "/teacher/settings/organization"],
+    ["/admin/exports/abc", "/teacher/exports/abc"],
+  ])("sends %s to %s for a teacher, who holds no console", async (from, to) => {
+    signIn(teacherUser);
+    const router = show(routes, [from]);
+
+    await waitFor(() => expect(address(router)).toBe(to));
+  });
+
+  it("keeps a console address in the sign-in's next= for a visitor", async () => {
+    signIn(null);
+    const router = show(routes, ["/admin/users?tab=all"]);
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/login"));
+    expect(router.state.location.search).toBe(
+      `?next=${encodeURIComponent("/admin/users?tab=all")}`,
+    );
   });
 
   it("leaves an address that only looks like the old prefix to the 404", async () => {

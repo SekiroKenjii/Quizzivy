@@ -362,6 +362,37 @@
     },
     "documentTitle": "{{page}} · Quizzivy"
   },
+  "adminShell": {
+    "workspace": "Bảng quản trị",
+    "crumb": "Quản trị",
+    "crumbExport": "Xuất dữ liệu",
+    "teacherView": "Chế độ giáo viên",
+    "group": {
+      "people": "Mọi người",
+      "teaching": "Giảng dạy",
+      "system": "Hệ thống"
+    },
+    "nav": {
+      "overview": "Tổng quan",
+      "users": "Người dùng",
+      "roles": "Vai trò & quyền",
+      "classes": "Lớp học",
+      "ai": "Tín dụng AI",
+      "audit": "Nhật ký kiểm tra",
+      "api": "Tài liệu API",
+      "settings": "Cài đặt"
+    },
+    "count": {
+      "mustChangePassword_one": "{{count}} người cần đổi mật khẩu",
+      "mustChangePassword_other": "{{count}} người cần đổi mật khẩu",
+      "creditRequests_one": "{{count}} yêu cầu thêm tín dụng đang chờ",
+      "creditRequests_other": "{{count}} yêu cầu thêm tín dụng đang chờ"
+    },
+    "account": {
+      "settings": "Cài đặt hệ thống",
+      "password": "Đổi mật khẩu"
+    }
+  },
   "student": {
     "shell": {
       "home": "Trang chủ",
@@ -499,6 +530,7 @@
   "changePassword": {
     "title": "Chọn mật khẩu của bạn",
     "body": "Bạn đã đăng nhập bằng mật khẩu tạm. Hãy chọn một mật khẩu chỉ mình bạn biết.",
+    "bodyVoluntary": "Nhập mật khẩu hiện tại, rồi chọn một mật khẩu mới chỉ mình bạn biết.",
     "current": "Mật khẩu hiện tại",
     "new": "Mật khẩu mới",
     "again": "Nhập lại mật khẩu",
@@ -510,6 +542,7 @@
       "length": "Ít nhất 8 ký tự",
       "numberOrSymbol": "Có số hoặc ký hiệu",
       "different": "Khác mật khẩu tạm",
+      "differentCurrent": "Khác mật khẩu hiện tại",
       "met": "đã đạt",
       "unmet": "chưa đạt"
     },

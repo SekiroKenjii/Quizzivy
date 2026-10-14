@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { CircleAlert, LoaderCircle } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { PasswordRules } from "@/components/shared/PasswordRules";
 import { Alert } from "@/components/ui/alert";
@@ -10,19 +10,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthLayout } from "@/features/auth/AuthLayout";
 import { changePassword } from "@/features/auth/api";
-import { destinationAfterSignIn } from "@/features/auth/home";
+import { destinationAfterSignIn, homePathFor } from "@/features/auth/home";
 import { readJoinContext } from "@/features/join/context";
 import { ApiError, failureMessage } from "@/lib/api/errors";
 import { passwordRules } from "@/lib/password";
 import { cn } from "@/lib/utils";
-import { authStore } from "@/stores/auth";
+import { authStore, useAuthStore } from "@/stores/auth";
 import { runAccountMutation } from "@/features/auth/accountPreferences";
 
 /**
  * ChangePasswordPage is the forced password change (§5.4) an account with a
  * temporary password meets on its first sign-in. It asks for no current
- * password: the server does not need one while the change is forced. Once
- * saved it goes on to `?next=`, the user's home, or a join waiting to finish.
+ * password: the server does not need one while the change is forced. A user
+ * who opens it by choice, as an Admin without a teacher workspace does from
+ * the account menu, is asked for the current one and can go back. Once saved
+ * it goes on to `?next=`, the user's home, or a join waiting to finish.
  */
 export default function ChangePasswordPage() {
   const { t } = useTranslation();
@@ -35,26 +37,35 @@ export default function ChangePasswordPage() {
       mounted.current = false;
     };
   }, []);
+  const [forced] = useState(
+    () => useAuthStore.getState().user?.mustChangePassword === true,
+  );
+  const home = useAuthStore((s) => homePathFor(s.user));
+  const [current, setCurrent] = useState("");
   const [password, setPassword] = useState("");
   const [again, setAgain] = useState("");
   const [revealed, setRevealed] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const currentRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const againRef = useRef<HTMLInputElement>(null);
 
   const rules = passwordRules(password);
   const valid = rules.length && rules.numberOrSymbol;
   const mismatch = again !== password && (again !== "" || revealed);
-  const ready = valid && again === password;
+  const ready = valid && again === password && (forced || current !== "");
 
   async function onSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
     if (!ready) {
       setRevealed(true);
-      (valid ? againRef : passwordRef).current?.focus();
+      let target = passwordRef;
+      if (!forced && current === "") target = currentRef;
+      else if (valid) target = againRef;
+      target.current?.focus();
       return;
     }
     setBusy(true);
@@ -62,7 +73,9 @@ export default function ChangePasswordPage() {
     setRefusal(null);
     const lease = authStore.captureActor();
     try {
-      const user = await runAccountMutation(() => changePassword("", password));
+      const user = await runAccountMutation(() =>
+        changePassword(forced ? "" : current, password),
+      );
       if (!user || !mounted.current || !authStore.isCurrent(lease)) return;
       const joining = readJoinContext();
       await navigate(
@@ -84,11 +97,11 @@ export default function ChangePasswordPage() {
   }
 
   return (
-    <AuthLayout>
+    <AuthLayout footer={forced ? undefined : <Link to={home}>{t("common.back")}</Link>}>
       <div>
         <h1 className="text-h1">{t("changePassword.title")}</h1>
         <p className="text-muted-fg mt-1 text-base leading-[1.55]">
-          {t("changePassword.body")}
+          {t(forced ? "changePassword.body" : "changePassword.bodyVoluntary")}
         </p>
       </div>
 
@@ -97,6 +110,21 @@ export default function ChangePasswordPage() {
         className="flex flex-col gap-4.5"
         noValidate
       >
+        {!forced && (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="current-password">{t("changePassword.current")}</Label>
+            <Input
+              ref={currentRef}
+              id="current-password"
+              type="password"
+              size="xl"
+              autoComplete="current-password"
+              value={current}
+              aria-invalid={(revealed && current === "") || undefined}
+              onChange={(e) => setCurrent(e.target.value)}
+            />
+          </div>
+        )}
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="new-password">{t("changePassword.new")}</Label>
           <Input
@@ -119,6 +147,7 @@ export default function ChangePasswordPage() {
           password={password}
           revealed={revealed}
           refusal={refusal}
+          replaces={forced ? "temporary" : "current"}
           className="-mt-2.5"
         />
 

@@ -267,3 +267,89 @@ describe("the settings password form", () => {
     );
   });
 });
+
+describe("the change a user opens by choice", () => {
+  const adminChoosing = {
+    ...USER,
+    permissions: ["system.settings.write" as const],
+    workspaces: ["admin" as const],
+    mustChangePassword: false,
+  };
+  const currentField = () => screen.getByLabelText("Mật khẩu hiện tại");
+
+  function renderVoluntary() {
+    useAuthStore.getState().setSession("token", adminChoosing);
+    return createMemoryRouter(
+      [
+        { path: "/change-password", element: <ChangePasswordPage /> },
+        { path: "/admin", element: <p>bảng quản trị</p> },
+      ],
+      { initialEntries: ["/change-password"] },
+    );
+  }
+
+  it("asks for the current password first, says why, and offers the way back", async () => {
+    const router = renderVoluntary();
+    render(<RouterProvider router={router} />);
+
+    expect(currentField()).toHaveAttribute("autocomplete", "current-password");
+    expect(
+      screen.getByText(
+        "Nhập mật khẩu hiện tại, rồi chọn một mật khẩu mới chỉ mình bạn biết.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.queryByText("Bạn đã đăng nhập bằng mật khẩu tạm.", { exact: false }),
+    ).toBeNull();
+    expect(screen.getByText("Khác mật khẩu hiện tại")).toBeVisible();
+    expect(screen.queryByText("Khác mật khẩu tạm")).toBeNull();
+    expect(screen.getByRole("link", { name: "Quay lại" })).toHaveAttribute(
+      "href",
+      "/admin",
+    );
+  });
+
+  it("holds the save and puts the focus on the current password while it is empty", async () => {
+    changeAnswers(204);
+    const user = userEvent.setup();
+    render(<RouterProvider router={renderVoluntary()} />);
+    await user.type(newField(), "matkhau1");
+    await user.type(againField(), "matkhau1");
+    expect(save()).toHaveAttribute("aria-disabled", "true");
+
+    await user.click(save());
+
+    expect(currentField()).toHaveFocus();
+    expect(currentField()).toHaveAttribute("aria-invalid", "true");
+    expect(bodies).toEqual([]);
+  });
+
+  it("sends the current password with the new one and goes home once it is saved", async () => {
+    changeAnswers(204);
+    server.use(
+      http.get(`${BASE}/auth/me`, () =>
+        contractJson("/auth/me", "get", 200, adminChoosing),
+      ),
+    );
+    const user = userEvent.setup();
+    const router = renderVoluntary();
+    render(<RouterProvider router={router} />);
+    await user.type(currentField(), "matkhau-cu-7");
+    await user.type(newField(), "matkhau1");
+    await user.type(againField(), "matkhau1");
+    await user.click(save());
+
+    expect(await screen.findByText("bảng quản trị")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/admin");
+    expect(bodies).toEqual([
+      { currentPassword: "matkhau-cu-7", newPassword: "matkhau1" },
+    ]);
+  });
+
+  it("still asks nothing of a user whose change is forced, and offers no way back", () => {
+    renderPage();
+
+    expect(screen.queryByLabelText("Mật khẩu hiện tại")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Quay lại" })).toBeNull();
+  });
+});
