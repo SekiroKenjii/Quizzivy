@@ -3,6 +3,7 @@ package domain
 
 import (
 	"bytes"
+	"net/url"
 	"regexp"
 	"slices"
 	"strings"
@@ -122,30 +123,32 @@ const (
 	MaxAllowedDomains   = 50
 	DefaultFocusMonths  = 13
 	logoDigestBytes     = 32
+	maxLocalPart        = 64
 	maxDomainCharacters = 253
 )
 
 // The reasons a field is refused, which the transport words.
 const (
-	ReasonRequired  = "required"
-	ReasonTooLong   = "too_long"
-	ReasonWebsite   = "website"
-	ReasonEmail     = "email"
-	ReasonPhone     = "phone"
-	ReasonDomain    = "domain"
-	ReasonRepeated  = "repeated"
-	ReasonTooMany   = "too_many"
-	ReasonNoMethod  = "no_method"
-	ReasonMonths    = "months"
-	ReasonLogo      = "logo"
-	ReasonLogoGone  = "logo_missing"
-	ReasonLogoStore = "logo_store_off"
+	ReasonRequired   = "required"
+	ReasonCharacters = "characters"
+	ReasonTooLong    = "too_long"
+	ReasonWebsite    = "website"
+	ReasonEmail      = "email"
+	ReasonPhone      = "phone"
+	ReasonDomain     = "domain"
+	ReasonRepeated   = "repeated"
+	ReasonTooMany    = "too_many"
+	ReasonNoMethod   = "no_method"
+	ReasonMonths     = "months"
+	ReasonLogo       = "logo"
+	ReasonLogoGone   = "logo_missing"
+	ReasonLogoStore  = "logo_store_off"
 )
 
 var (
 	phonePattern  = regexp.MustCompile(`^[0-9+ ().-]{6,30}$`)
+	localPattern  = regexp.MustCompile("^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*$")
 	domainPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$`)
-	schemePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*:`)
 )
 
 // Normalised returns the document an Admin wrote as it would be stored: every
@@ -173,14 +176,19 @@ func normaliseProfile(p Profile, refused *validation.Error) Profile {
 		refused.Add("organization.name", ReasonRequired)
 	case utf8.RuneCountInString(out.Name) > MaxName:
 		refused.Add("organization.name", ReasonTooLong)
+	case !singleLine(out.Name):
+		refused.Add("organization.name", ReasonCharacters)
 	}
 	out.ShortName = bounded(p.ShortName, MaxShortName, "organization.shortName", refused)
+	if !singleLine(out.ShortName) {
+		refused.Add("organization.shortName", ReasonCharacters)
+	}
 	out.Website = bounded(p.Website, MaxWebsite, "organization.website", refused)
-	if out.Website != "" && !validWebsite(out.Website) {
+	if out.Website != "" && utf8.RuneCountInString(out.Website) <= MaxWebsite && !validWebsite(out.Website) {
 		refused.Add("organization.website", ReasonWebsite)
 	}
 	out.ContactEmail = bounded(p.ContactEmail, MaxContactEmail, "organization.contactEmail", refused)
-	if out.ContactEmail != "" && !validEmail(out.ContactEmail) {
+	if out.ContactEmail != "" && utf8.RuneCountInString(out.ContactEmail) <= MaxContactEmail && !validEmail(out.ContactEmail) {
 		refused.Add("organization.contactEmail", ReasonEmail)
 	}
 	out.FrontDeskPhone = strings.TrimSpace(p.FrontDeskPhone)
@@ -208,34 +216,31 @@ func checkLogo(l *Logo, field string, refused *validation.Error) {
 	}
 }
 
+func singleLine(text string) bool {
+	return strings.IndexFunc(text, func(r rune) bool { return unicode.IsControl(r) || unicode.In(r, unicode.Cf, unicode.Zl, unicode.Zp) }) < 0
+}
+
 func validWebsite(site string) bool {
 	if strings.IndexFunc(site, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) >= 0 {
 		return false
 	}
-	lower := strings.ToLower(site)
-	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
-		return len(lower) > len("https://") && !strings.HasSuffix(lower, "://")
+	candidate := site
+	if !strings.Contains(site, "://") {
+		candidate = "https://" + site
 	}
-	if strings.Contains(lower, "://") {
+	u, err := url.Parse(candidate)
+	if err != nil || u.Scheme != "https" || u.User != nil || u.Opaque != "" {
 		return false
 	}
-	scheme := schemePattern.FindString(site)
-	if scheme == "" {
-		return true
-	}
-	rest := site[len(scheme):]
-	return rest != "" && rest[0] >= '0' && rest[0] <= '9'
+	return domainPattern.MatchString(strings.ToLower(u.Hostname()))
 }
 
 func validEmail(email string) bool {
-	at := strings.LastIndexByte(email, '@')
-	if at <= 0 || at == len(email)-1 || strings.Count(email, "@") != 1 {
+	local, host, found := strings.Cut(email, "@")
+	if !found || len(local) > maxLocalPart || !localPattern.MatchString(local) {
 		return false
 	}
-	if strings.IndexFunc(email, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) >= 0 {
-		return false
-	}
-	return strings.Contains(email[at+1:], ".")
+	return domainPattern.MatchString(strings.ToLower(host))
 }
 
 func normaliseSignIn(s SignIn, refused *validation.Error) SignIn {

@@ -2114,7 +2114,8 @@ export interface paths {
         put?: never;
         /**
          * @description Teacher-created accounts get a temporary password and
-         *     `mustChangePassword: true`. Self-signup requires Google (§6.3).
+         *     `mustChangePassword` as the organization's "force password change"
+         *     setting says (on by default). Self-signup requires Google (§6.3).
          *
          *     Every `classIds` entry must be a class the caller teaches, or any class
          *     with `scope.all`. Anything else answers 404, exactly as a missing class
@@ -3966,8 +3967,9 @@ export interface components {
         OrganizationProfile: {
             name: string;
             shortName: string | null;
-            /** @description A host or an `http`/`https` address, without spaces, as `quizzivy.com` or `https://quizzivy.com/lien-he`. */
+            /** @description A domain or an `https` address, without spaces or credentials, as `quizzivy.com` or `https://quizzivy.com/lien-he`. `http` and other schemes are refused. */
             website: string | null;
+            /** @description An address of a local part and a domain with a dot, as `hello@quizzivy.com`. */
             contactEmail: string | null;
             /** @description Digits, spaces and `+ ( ) . -`, 6 to 30 characters. */
             frontDeskPhone: string | null;
@@ -12558,7 +12560,10 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The document as stored. */
+            /**
+             * @description The document as stored. A document equal to the stored one changes
+             *     nothing: the same revision comes back and no audit row is written.
+             */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -12569,8 +12574,9 @@ export interface operations {
             };
             /**
              * @description The body fails its schema, or `VALIDATION_FAILED` with a message per
-             *     field: a text that is empty or too long after trimming, a website
-             *     with spaces or another scheme than `http`/`https`, an email or a
+             *     field: a text that is empty or too long after trimming, a name that
+             *     holds a line break or an invisible character, a website that is not a
+             *     domain or an `https` address without credentials, an email or a
              *     phone number that is not one, a repeated domain, or a logo the server
              *     does not hold (as `organization.logo.light` or `organization.logo.dark`).
              */
@@ -12673,10 +12679,13 @@ export interface operations {
             };
             /**
              * @description `MEDIA_TYPE_UNSUPPORTED` (neither a PNG nor an SVG), `MEDIA_UNREADABLE`
-             *     (the header or the pixels cannot be read), `IMAGE_DIMENSIONS` (not
-             *     square within 2%, a side outside 256 to 2048 pixels, or more memory
-             *     to decode than the server allows) or `SVG_NOT_ALLOWED` (the SVG
-             *     holds something outside the allowlist). Nothing was stored.
+             *     (the header or the pixels cannot be read), `IMAGE_DIMENSIONS` (a PNG
+             *     not square within 2%, with a side outside 256 to 2048 pixels, or
+             *     needing more memory to decode than the server allows; an SVG not
+             *     square within 2% or giving no size) or `SVG_NOT_ALLOWED` (the SVG
+             *     holds something outside the allowlist, a `use` of a `use` or of an
+             *     element that holds one, more than 10,000 elements, or nesting deeper
+             *     than 64 levels). Nothing was stored.
              */
             415: {
                 headers: {

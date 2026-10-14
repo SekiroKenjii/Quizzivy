@@ -1,7 +1,16 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.110 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.111 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.110**
+
+R5, T-R5.5 to T-R5.7 (organization settings, logo and sign-in policy), and the QC pass over them.
+
+- §5.6 (new) The centre's one settings document: profile, two logos, sign-in policy and retention choices, saved under a revision and audited as `organization.updated`; the logo rules; what each sign-in switch does; the lockout judgement; the 30-second propagation.
+- §15 `GET`/`PUT /admin/settings`, `POST /admin/settings/sign-in-impact` and `POST /admin/settings/logo` (`system.settings.write`), and the two open reads `GET /public/organization` and `GET /public/organization/logo`. That makes nine open operations, not seven. New error codes `SIGN_IN_POLICY_LOCKOUT`, `PASSWORD_SIGN_IN_DISABLED`, `GOOGLE_SIGN_IN_DISABLED` and `GOOGLE_DOMAIN_NOT_ALLOWED`.
+- §13.5 `app.organization_settings`, one row (`00130_create_organization_settings.sql`): the app role may read and update it and cannot insert or delete it.
+- §5.6 A name holds no line break, control or invisible character; a website is a domain or an `https` address without credentials; a contact email is an address with a domain; a save that changes nothing writes nothing and keeps its revision; an SVG that is not square is told so, not told the PNG's pixel range; an SVG logo may not chain `use` elements and is bounded to 10,000 elements and 64 levels.
 
 **Changes since v0.109**
 
@@ -221,7 +230,7 @@ R4, a NUL character in a request (F-24):
   `q` or `tag` search answered `500` before. The refusal names the field by its dotted path
   (`options.1.text`, `tags.0`; for a member name, the object that holds it) or the parameter, in
   the message, as the validator's other refusals do, and in `details` as `{ field: message }`. It is decided in the one
-  place the contract is enforced: it covers the seven open operations too, after the rate limiter
+  place the contract is enforced: it covers the nine open operations too, after the rate limiter
   has counted the request. A backslash followed by the characters `u0000` (JSON `\\u0000`) is ordinary
   text and is not refused. The file name of a media upload or replacement is refused the same way
   when it holds U+0000 (`400 VALIDATION_FAILED` naming `filename`; an RFC 2231 `filename*` could
@@ -904,7 +913,7 @@ R2, "Access" (v0.8.0, `docs/plan/72-r2.md`):
   creator.
 - §5 Every operation that requires the bearer token declares `x-permission`,
   which `RequirePermission` enforces on every request from a 10-second
-  principal cache; the seven open operations declare none. Another teacher's
+  principal cache; the nine open operations declare none. Another teacher's
   id answers as a missing one does.
 - §5.2 The session epoch: disabling a student or resetting their password ends
   their live sessions at once, and a disabled user is refused on the next
@@ -1477,6 +1486,16 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
 - The gate resolves the cookie's user through the same principal cache as the API (§5). A missing, tampered or expired cookie, an unknown or disabled user, or a cookie older than the user's session epoch → `401`; a role without `system.api_reference` → `403`, both in the error envelope with no page or contract leaked. `POST /auth/logout` clears `quizzivy_docs` together with the refresh cookie, so signing out also ends an open docs session.
 - The SPA's admin settings open the reference: the new tab is opened synchronously in the click, `opener` is cleared, and only then is the session requested and the tab pointed at `/docs`.
 - `DOCS_PUBLIC=true` skips only the cookie check, for local development. The server refuses to start with it when `APP_ENV=production`; SRI, the page's CSP and the rate limit apply everywhere.
+
+### 5.6 Organization settings and the sign-in policy
+
+- One settings document for the installation (`app.organization_settings`, `docs/plan/20-data-model.md` §51): **profile** (`name` 1 to 120, `shortName`, `website`, `contactEmail`, `frontDeskPhone`, `frontDeskHours`, `address`; an optional text empty after trimming is `null`), **logos** (light and dark), **sign-in** (`google`, `password`, `forcePasswordChange`, `joinCodes`, `allowedGoogleDomains`) and **retention** (`keepAnswersMonths`, `keepFocusEventsMonths`, `anonymiseDisabledAfterMonths`). `GET /admin/settings` reads it and `PUT /admin/settings` replaces it, both `system.settings.write`, Admin only. A save names the `expectedRevision` it read and answers `409 STALE_WRITE` when someone saved since; it writes an `organization.updated` audit row in the same transaction, naming the changed fields and no values. A save that changes nothing writes nothing: the revision stays and no audit row is added.
+- **Field rules.** The name and short name hold no line break, other control character or invisible (format) character. A website is a domain (`quizzivy.com`) or an `https` address, with no spaces and no credentials; `http`, other schemes and a bare word are refused. A contact email is a local part and a domain with a dot, as an address and nothing wrapped around it.
+- **The front door.** `GET /public/organization` (open, `Cache-Control: public, max-age=300`, 120 a minute and 2,000 an hour per address) returns only what the sign-in page prints: name, short name, website, contact, hours, address, the logo URLs, which of Google and password sign-in are on, and whether joining by code is on. It carries no counts, plan, domain list, retention value or revision.
+- **Logos.** `POST /admin/settings/logo` (multipart `{file, variant}`, 1 MiB, 20 an hour per signed-in user) checks and stores a logo content-addressed at `branding/{sha256}.{png|svg}`; it applies only when a `PUT` references it. A PNG is square within 2%, 256 to 2048 px a side, decoded under the shared image gate and encoded afresh, which drops its metadata. An SVG is at most 256 KiB and is stored as it came after it passes an allowlist: no script, `foreignObject`, event attribute, DOCTYPE or entity, no reference outside the document, no `@import` or non-local `url()`; it is square within 2% by its `viewBox` or its pixel width and height, with no pixel range. A `use` may not reference a `use` or an element that holds one, and the document holds at most 10,000 elements nested at most 64 deep, because a renderer expands every `use`. `GET /public/organization/logo` serves the bytes as an attachment under `nosniff` and `default-src 'none'; style-src 'unsafe-inline'; sandbox`, immutable when `v` is the current hash. Replaced and abandoned logo objects stay in the bucket: there is no sweep, growth is bounded by the upload limit, and identical bytes are one object.
+- **The switches.** Password off answers `403 PASSWORD_SIGN_IN_DISABLED` to every password sign-in alike; Google off answers `403 GOOGLE_SIGN_IN_DISABLED` to sign-in and linking; a non-empty domain list refuses a Google email outside it with `403 GOOGLE_DOMAIN_NOT_ALLOWED`; unlinking the last way in answers `409 LAST_LOGIN_METHOD`. "Force password change" decides `mustChangePassword` for every temporary password issued afterwards, and leaves existing flags alone. Joining by code off makes `/join/preview`, `POST /app/classes/join` and Google-with-a-code answer exactly as an unknown code does.
+- **Lockout.** A save that would leave the Admin saving it, or every active built-in Admin, with no way in is refused with `422 SIGN_IN_POLICY_LOCKOUT`, judged inside the save's transaction. `POST /admin/settings/sign-in-impact` previews the judgement and writes nothing.
+- **Propagation.** Each server keeps the document for at most 30 seconds and replaces it at once when it saved, so another server serves the old policy for up to 30 seconds after a change.
 
 ---
 
@@ -2963,6 +2982,7 @@ Use PG18's `OLD`/`NEW` in `RETURNING` to capture the diff in the same statement 
 - Passwords: Argon2id (bcrypt cost ≥ 12 if unavailable).
 - `sample_answer`, `transcript`, `is_correct`, and `accepted_answers` must never reach a student response. Enforce with explicit column lists — **no `SELECT *` in student-facing paths.** Add a test that asserts these keys are absent from `GET /app/attempts/:id`.
 - Least-privilege DB roles: the app connects with DML on `app` only, not as owner. Migrations run as a separate role. The app role only reads `permissions` and `student_like_roles`; on `roles` and `role_permissions` it holds only what the role commands write (`00129_grant_role_writes.sql`: insert roles, update their name, description, icon, colour, revision and `updated_at`, add and remove grants), never `DELETE` on `roles`. `users_last_admin` is the schema's first `SECURITY DEFINER` function: owned by the migrate role, with `search_path = pg_catalog, app, pg_temp` and EXECUTE revoked from PUBLIC (`docs/plan/20-data-model.md` §30).
+- `app.organization_settings` is one row (`id boolean PRIMARY KEY DEFAULT true CHECK (id)`, migration `00130`): the app role may `SELECT` and `UPDATE` it and has no `INSERT` or `DELETE` (§5.6).
 
 ### 13.6 PG18 features — use and skip
 
@@ -3065,6 +3085,11 @@ GET    /public/status                   → {maintenance: {startsAt, endsAt, act
                                           120/min and 2,000/h per IP; ai is true when the AI
                                           assistant is configured, read from configuration and
                                           never from the provider
+GET    /public/organization             -> {name, shortName, website, contactEmail, frontDeskPhone, frontDeskHours, address,
+                                          logo {lightUrl, darkUrl}, signIn {google, password}, joinCodes}; same body for
+                                          everyone, Cache-Control public 300 s, 120/min and 2,000/h per IP
+GET    /public/organization/logo        ?variant=light|dark&v=<sha256> -> the logo bytes, nosniff, sandboxed attachment; 404
+                                          when there is none; 300/min per IP
 POST   /join/preview                    {joinCode} → {classId, className, teacherName}
 POST   /auth/login                      {email,password} → {accessToken,user: CurrentUser}
 POST   /auth/google                     {code,codeVerifier,redirectUri,joinCode?} → {accessToken,user: CurrentUser}
@@ -3283,6 +3308,15 @@ DELETE /admin/users/:id                 a disabled student only, else 409 RESOUR
                                           403 FORBIDDEN when the subset rule refuses,
                                           409 RESOURCE_REFERENCED {referencedBy}
 POST   /admin/docs-session              opens the API reference for fifteen minutes (§5.5)
+
+# admin: organization settings (system.settings.write)
+GET    /admin/settings                  -> OrganizationSettings {organization, signIn, retention, revision, updatedAt, updatedBy}
+PUT    /admin/settings                  {organization, signIn, retention, expectedRevision} -> OrganizationSettings; 400
+                                          VALIDATION_FAILED per field | 409 STALE_WRITE | 422 SIGN_IN_POLICY_LOCKOUT; a save
+                                          that changes nothing keeps the revision and writes no audit row
+POST   /admin/settings/sign-in-impact   {signIn} -> {affectedUsers, affectedAdmins, activeAdmins, actorLocked}; writes nothing
+POST   /admin/settings/logo             multipart {file, variant light|dark} -> {sha256, type, width, height}; 413 | 415
+                                          MEDIA_TYPE_UNSUPPORTED | MEDIA_UNREADABLE | IMAGE_DIMENSIONS | SVG_NOT_ALLOWED; 20 an hour
 
 # admin: AI credits (ai.credits.manage)
 GET    /admin/ai/credits                → {month, pool, daysToGo, onPace, withinPool, allowances, active, idle,

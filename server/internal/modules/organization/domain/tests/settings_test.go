@@ -193,3 +193,97 @@ func TestLockedOutSatisfiesErrLockout(t *testing.T) {
 		t.Fatal("LockedOut is not ErrLockout")
 	}
 }
+
+func TestAWebsiteIsAHostOrAnHTTPSAddressAndNothingElse(t *testing.T) {
+	refused := []string{
+		"javascript:1", "JavaScript:0%0aalert(1)", "vbscript:1", "javascript:alert(1)", "data:text/html,x",
+		"//x.y", "https:///x", "https://user:pass@evil.com", "https://user@evil.com", "x", "localhost",
+		"http://quizzivy.com", "HTTP://quizzivy.com", "ftp://quizzivy.com", "https://quizzivy.com:abc", "https:quizzivy.com",
+		"https://quiz zivy.com", "https://-bad.com", "https://a..b.com", "quizzivy.com\\evil",
+	}
+	for _, site := range refused {
+		s := valid()
+		s.Profile.Website = site
+		if got := refusedFields(t, s)["organization.website"]; got != domain.ReasonWebsite {
+			t.Errorf("%q: website = %q, want %q", site, got, domain.ReasonWebsite)
+		}
+	}
+	accepted := []string{
+		"quizzivy.com", "www.quizzivy.com", "quizzivy.com/lien-he", "https://quizzivy.com", "HTTPS://Quizzivy.com/a?b=c#d",
+		"https://quizzivy.com:8443/x", "quizzivy.com:8443", "trungtam.edu.vn", "192.168.1.1",
+	}
+	for _, site := range accepted {
+		s := valid()
+		s.Profile.Website = site
+		if _, err := s.Normalised(); err != nil {
+			t.Errorf("%q refused: %v", site, err)
+		}
+	}
+}
+
+func TestAContactEmailIsAnAddressWithADomain(t *testing.T) {
+	refused := []string{
+		"a@.c", "a@b.", "a@b..c", "<a@b.c>", "a@[1.2.3.4]", "javascript:a@b.c", "a@b", "@b.com", "a@@b.com",
+		".a@b.com", "a.@b.com", "a..b@b.com", "a b@b.com", "a@b c.com", "a@-b.com", strings.Repeat("a", 65) + "@b.com",
+		"a,b@b.com", "a(b)@b.com", "\"a\"@b.com", "tên@b.com",
+	}
+	for _, email := range refused {
+		s := valid()
+		s.Profile.ContactEmail = email
+		if got := refusedFields(t, s)["organization.contactEmail"]; got != domain.ReasonEmail {
+			t.Errorf("%q: contactEmail = %q, want %q", email, got, domain.ReasonEmail)
+		}
+	}
+	accepted := []string{"a@b.c", "hello@quizzivy.com", "first.last+tag@mail.school.edu.vn", "o'brien@quizzivy.com", strings.Repeat("a", 64) + "@b.com"}
+	for _, email := range accepted {
+		s := valid()
+		s.Profile.ContactEmail = email
+		if _, err := s.Normalised(); err != nil {
+			t.Errorf("%q refused: %v", email, err)
+		}
+	}
+}
+
+func TestANameHoldsNoLineBreakControlOrInvisibleCharacter(t *testing.T) {
+	cases := map[string]string{
+		"a zero width space":   "\u200b",
+		"only a zero width":    "\u200b\u200d",
+		"a line break":         "a\nb",
+		"a carriage return":    "a\rb",
+		"a tab":                "a\tb",
+		"a NUL":                "a\x00b",
+		"a zero width joiner":  "Quiz\u200dzivy",
+		"a BOM":                "\xef\xbb\xbfQuizzivy",
+		"a right-to-left mark": "Quizzivy\u200f ",
+		"a line separator":     "a\u2028b",
+	}
+	for name, text := range cases {
+		s := valid()
+		s.Profile.Name = text
+		_, err := s.Normalised()
+		if err == nil {
+			t.Errorf("name with %s was accepted", name)
+			continue
+		}
+		fields := refusedFields(t, s)
+		if fields["organization.name"] != domain.ReasonCharacters && fields["organization.name"] != domain.ReasonRequired {
+			t.Errorf("name with %s: reason = %q", name, fields["organization.name"])
+		}
+		s = valid()
+		s.Profile.ShortName = text
+		if got := refusedFields(t, s)["organization.shortName"]; got != domain.ReasonCharacters {
+			t.Errorf("short name with %s: reason = %q, want %q", name, got, domain.ReasonCharacters)
+		}
+	}
+}
+
+func TestAVietnameseNameWithMarksAndInnerSpacesIsAccepted(t *testing.T) {
+	for _, name := range []string{"Trung tâm Anh ngữ Việt Úc", "Quizzivy  Centre", "Trung tâm Anh ngữ (cơ sở 2)"} {
+		s := valid()
+		s.Profile.Name = name
+		s.Profile.ShortName = "Trung tâm"
+		if _, err := s.Normalised(); err != nil {
+			t.Errorf("%q refused: %v", name, err)
+		}
+	}
+}

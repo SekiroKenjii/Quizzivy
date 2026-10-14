@@ -36,7 +36,8 @@ func (p *Postgres) Read(ctx context.Context) (domain.Settings, error) {
 }
 
 // Save stores in.Settings over in.ExpectedRevision, judging its sign-in
-// policy inside the transaction that holds the row.
+// policy inside the transaction that holds the row. A document equal to the
+// stored one changes nothing, not even the revision, and writes no audit row.
 func (p *Postgres) Save(ctx context.Context, in domain.Save) (domain.Settings, error) {
 	var out domain.Settings
 	err := p.InTx(ctx, "organization: save settings", func(tx pgx.Tx) error {
@@ -46,6 +47,10 @@ func (p *Postgres) Save(ctx context.Context, in domain.Save) (domain.Settings, e
 		}
 		if stored.Revision != in.ExpectedRevision {
 			return domain.ErrStale
+		}
+		if len(stored.ChangedFields(in.Settings)) == 0 {
+			out = stored
+			return nil
 		}
 		impact, err := impactOf(ctx, tx, in.Settings.SignIn, in.ActorID, in.GoogleConfigured)
 		if err != nil {
