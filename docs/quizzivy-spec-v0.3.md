@@ -1,7 +1,16 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.109 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.110 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.109**
+
+R5, T-R5.20 (R5-08): the Admin console's shell and route tree. Its screens are later R5 tasks; each route renders a placeholder until its task lands.
+
+- §2, §3, §5.4 Four route trees: public, `/teacher/*`, `/admin/*` and `/app/*`. `AdminWorkspace` holds `/admin` for the `admin` workspace, `RequirePermission` reads the `permission` of the leaf route's handle and answers the 403 page when the user lacks it (a custom role holding only `system.audit.read` gets 403 at `/admin/users`), and `AdminLayout` is the shell. A `/admin/*` address that is not a console route, and every one for a user without the `admin` workspace, still redirects to the same path under `/teacher`.
+- §5.4 `homePathFor` sends a built-in Admin (the holder of `scope.all`) to the console in `preferences.workspace` and to `/admin` the first time, any other holder of the `teacher` workspace to `/teacher`, a user with only the `admin` workspace to `/admin`, and anyone else to `/app`.
+- §7, §15 `UserPreferences.workspace` (`teacher` or `admin`), written by `PATCH /me/preferences` when the user switches console; any other value answers `400 VALIDATION_FAILED`. No new operation and no migration: the preferences are one JSON document.
+- §8 The consoles share one shell. The workspace switcher and the account menu gain the Admin console for a holder of both; the Admin menu has System settings, API reference, Teacher workspace, the theme and Sign out, and for a user without the `teacher` workspace also Change password (when the account has one) and Language. `/change-password` asks for the current password when the change is not forced.
 
 **Changes since v0.108**
 
@@ -1262,7 +1271,7 @@ Quizzivy is a web app supporting a private English-teaching practice. Students t
 
 | Persona | Built-in role | Description |
 |---|---|---|
-| Owner | Admin | Runs the practice and teaches in it. Holds every permission ("Take tests" only when turned on) and reaches every teacher's data (`scope.all`). Works in the teacher console until R5 builds the Admin console. **Desktop/tablet only.** |
+| Owner | Admin | Runs the practice and teaches in it. Holds every permission ("Take tests" only when turned on) and reaches every teacher's data (`scope.all`). Works in the teacher console, and from R5 in the Admin console too. **Desktop/tablet only.** |
 | Teacher | Teacher | Builds tests, manages students and classes, grades, reads results, over the classes and content they own. **Desktop/tablet only.** Data-dense UI is fine. |
 | Student | Student | Joins a class with a code, takes assigned tests, sees own results. Often on a phone. Needs a calm, focused UI. |
 
@@ -1315,7 +1324,7 @@ Fixed unless Thuong approves a change. Do not swap libraries silently.
 | Testing | Vitest + Testing Library; Playwright e2e; MSW mocks | See §14 |
 | Lint/format | ESLint (typescript-eslint, react-hooks, jsx-a11y) + Prettier | CI fails on lint errors |
 
-**Single SPA, three route trees.** `/teacher/*`, `/app/*`, and a small public tree (`/login`, `/join/*`). Split at the route level so a student never downloads teacher code and an anonymous visitor downloads neither. A `/admin/*` address redirects to the same path under `/teacher` until R5 builds the Admin console at `/admin`.
+**Single SPA, four route trees.** `/teacher/*`, `/admin/*`, `/app/*`, and a small public tree (`/login`, `/join/*`). Split at the route level so a student never downloads teacher or Admin code and an anonymous visitor downloads none of them. A pre-R4 teacher address under `/admin/*` redirects to the same path under `/teacher`; the console's own addresses (`/admin`, `/admin/users`, `/admin/roles`, `/admin/classes`, `/admin/ai`, `/admin/audit`, `/admin/api`, `/admin/settings/:section?` and `/admin/exports/:id`) stay for a user with the `admin` workspace.
 
 ---
 
@@ -1424,9 +1433,11 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
 - `RequireSession` → `/login?next=<path>` when unauthenticated.
 - The web guards read the signed-in user's `workspaces` and `permissions` (`CurrentUser`, §7), never `role`, through `features/auth/permissions.ts` (`can` and `useCan`, `hasWorkspace` and `useWorkspace`). They decide what the SPA shows; the server enforces the permissions on every request (§5).
   - `TeacherWorkspace` holds `/teacher/*`, the teacher console since R4, for the `teacher` workspace. Anyone else gets a **403 page**, not a redirect (a redirect hides the misconfiguration).
-  - `StudentArea` holds `/app/*` for the `app` workspace. A user without it who has the `teacher` or `admin` workspace is redirected to `/teacher`; a user with neither gets the 403 page.
-  - `homePathFor` sends the `teacher` or `admin` workspace to `/teacher` and anyone else to `/app`. An Admin with "Take tests" turned on (R5) lands on `/teacher` and may also open `/app`.
-  - A v0.9.x address under `/admin/*` redirects to the same path under `/teacher`, in any letter case, keeping its query and hash; `/admin/assignments/:id/attempts` and `/teacher/assignments/:id/attempts` go to the assignment's Students tab. The redirect stays until R5 builds the Admin console at `/admin`.
+  - `AdminWorkspace` holds `/admin/*`, the Admin console since R5, for the `admin` workspace. A path under it that is not a console route, and every `/admin/*` path for a user without the workspace, is a teacher address from before R4 and goes to the redirect below.
+  - `RequirePermission` sits inside it and above `AdminLayout`. It reads `handle.permission` of the leaf route (a key, a pseudo-key or a list met by any one of its keys, as `x-permission` is) and renders the 403 page when the user lacks it; a console route that declares none is refused too.
+  - `StudentArea` holds `/app/*` for the `app` workspace. A user without it who has the `teacher` or `admin` workspace is redirected to their own console (`homePathFor`); a user with neither gets the 403 page.
+  - `homePathFor` sends a built-in Admin (`scope.all`) who holds both consoles to `preferences.workspace`, `/admin` when it is unset; any other holder of the `teacher` workspace to `/teacher`; a user with only the `admin` workspace to `/admin`; and anyone else to `/app`. The switcher and the account menu write `preferences.workspace` when the user crosses to the other console. An Admin with "Take tests" turned on lands in the console they last chose and may also open `/app`.
+  - A v0.9.x address under `/admin/*` that is not a console route redirects to the same path under `/teacher`, in any letter case, keeping its query and hash (`/admin/classes/:id` to `/teacher/classes/:id`, `/admin/settings/profile` to `/teacher/settings/profile`); `/admin/assignments/:id/attempts` and `/teacher/assignments/:id/attempts` go to the assignment's Students tab. The redirect stays, for the teacher's own bookmarks, until the release that removes the v0.7.0 alias.
   - `learnsOnly` (the student app is the user's only workspace) keeps v0.7.0's rules on `/join` and the Settings role label (§6.2).
 - `mustChangePassword: true` → all routes redirect to `/change-password`. Google-only users never hit this.
 - Logout: `POST /auth/logout` (revokes refresh token), clear store, `queryClient.clear()`, → `/login`. The server revokes the family under a budget of its own, ten seconds, that the end of the request does not cancel: a tab closed or a connection lost during sign-out still ends the session, whose cookie stays in a browser that never saw the answer. A refresh does the opposite and runs on the request's own context (`docs/plan/30-risks.md` R-06).
@@ -1578,6 +1589,7 @@ interface CurrentUser extends User {    // the signed-in user only; a payload ab
 
 interface UserPreferences {
   theme?: 'light' | 'dark' | 'system';
+  workspace?: 'teacher' | 'admin';      // the console the user last switched to; a built-in Admin opens it after sign-in
   compactTables?: boolean;
   largerTestText?: boolean;
   assignmentDefaults?: {
