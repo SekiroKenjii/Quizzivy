@@ -35,9 +35,14 @@ func principals() map[string]access.Principal {
 
 func gated(t *testing.T, principal access.Principal, pattern string) context.Context {
 	t.Helper()
+	return gatedBy(t, principal, pattern, access.WorkspaceTeacher)
+}
+
+func gatedBy(t *testing.T, principal access.Principal, pattern string, key access.Key) context.Context {
+	t.Helper()
 	var ctx context.Context
 	verify := func(string) (httpx.Principal, error) { return httpx.Principal{UserID: principal.UserID}, nil }
-	gate := httpx.RequirePermission(map[string]access.Requirement{pattern: access.AnyOf(access.WorkspaceTeacher)},
+	gate := httpx.RequirePermission(map[string]access.Requirement{pattern: access.AnyOf(key)},
 		resolved{principal.UserID: principal})
 	h := httpx.RequireAuth(nil, verify)(gate(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) { ctx = r.Context() })))
 	req := httptest.NewRequest(http.MethodGet, "/teacher/attempts", nil)
@@ -50,7 +55,10 @@ func gated(t *testing.T, principal access.Principal, pattern string) context.Con
 	return ctx
 }
 
-type recordingHome struct{ seen *access.Scope }
+type recordingHome struct {
+	domain.AdminRepository
+	seen *access.Scope
+}
 
 func (r recordingHome) Summary(_ context.Context, q domain.SummaryQuery) (domain.Summary, error) {
 	*r.seen = q.Scope

@@ -374,7 +374,7 @@ func throughGate(h http.Handler, pattern, token string) int {
 
 func TestEachRoleMeetsExactlyTheOperationsItsPermissionsAllow(t *testing.T) {
 	h, requirements, _ := isolatedGate(t, rolePrincipals())
-	adminOnly := map[string]bool{"POST /admin/docs-session": true, "DELETE /admin/users/{id}": true, "GET /admin/api-reference": true, "GET /admin/api-reference/openapi.json": true, "GET /admin/audit-log": true, "GET /admin/audit-log/export": true, "POST /admin/data-exports": true, "GET /admin/data-exports/{id}": true, "POST /admin/data-exports/{id}/download": true}
+	adminOnly := map[string]bool{"POST /admin/docs-session": true, "DELETE /admin/users/{id}": true, "GET /admin/api-reference": true, "GET /admin/api-reference/openapi.json": true, "GET /admin/audit-log": true, "GET /admin/audit-log/export": true, "POST /admin/data-exports": true, "GET /admin/data-exports/{id}": true, "POST /admin/data-exports/{id}/download": true, "GET /admin/overview": true, "GET /admin/summary": true, "GET /admin/usage": true}
 	for _, pattern := range []string{"GET /admin/roles", "POST /admin/roles", "GET /admin/roles/assignable", "PUT /admin/roles/permissions", "PATCH /admin/roles/{id}"} {
 		adminOnly[pattern] = true
 	}

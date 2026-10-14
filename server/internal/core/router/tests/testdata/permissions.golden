@@ -18,9 +18,12 @@ GET /admin/api-reference/openapi.json system.api_reference
 GET /admin/audit-log system.audit.read
 GET /admin/audit-log/export system.audit.read
 GET /admin/data-exports/{id} system.data_export
+GET /admin/overview workspace.admin
 GET /admin/roles people.roles.manage
 GET /admin/roles/assignable people.users.manage
 GET /admin/settings system.settings.write
+GET /admin/summary workspace.admin
+GET /admin/usage system.settings.write
 GET /app/assignments learning.take_tests
 GET /app/assignments/{id} learning.take_tests
 GET /app/attempts/{id} learning.take_tests

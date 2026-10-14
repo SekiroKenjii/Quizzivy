@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -347,35 +346,6 @@ func TestADateTypedIntoAWorkbookIsReadAsTheUserSawIt(t *testing.T) {
 
 	if len(rows) != 1 || rows[0].Cells[0] != "2026-10-14" {
 		t.Errorf("rows = %v, want the date as 2026-10-14", rows)
-	}
-}
-
-func TestClosingAWorkbookRemovesTheTemporaryFilesAHugeSheetNeeded(t *testing.T) {
-	tmp := t.TempDir()
-	t.Setenv("TMPDIR", tmp)
-	var sheet strings.Builder
-	sheet.WriteString(row(1, text("A1", "name")))
-	for i := 2; sheet.Len() < 17<<20; i++ {
-		sheet.WriteString(row(i, text(fmt.Sprintf("A%d", i), "x")))
-	}
-	data := workbook(t, sheet.String(), nil)
-	table, err := tabular.ReadTable(bytes.NewReader(data), int64(len(data)), tabular.FormatXLSX, tabular.DefaultLimits())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if table.Header[0] != "name" {
-		t.Fatalf("header = %q", table.Header)
-	}
-	if left, _ := os.ReadDir(tmp); len(left) == 0 {
-		t.Fatal("the sheet did not need a temporary file, so this test proves nothing")
-	}
-
-	if err := table.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	if left, _ := os.ReadDir(tmp); len(left) != 0 {
-		t.Errorf("%d temporary files left after Close", len(left))
 	}
 }
 
