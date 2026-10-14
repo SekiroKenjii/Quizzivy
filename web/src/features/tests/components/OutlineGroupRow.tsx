@@ -26,8 +26,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuItemText,
-  DropdownMenuMeta,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -63,7 +61,8 @@ const SHARED_ICONS = {
  * its own "…" menu with the same moves (Move up, Move down, Move out of group,
  * Move to group…), whose trigger takes the place of the points on hover and
  * focus from 768px and at 44px on the selected member below it; a bound
- * member's two moves out are disabled, and Move to group… needs
+ * member's two moves out are disabled, with the reason under them, and Move
+ * to group… needs
  * `canPickGroup`. `targets` turns off the drop targets the drag in progress
  * cannot use. The member `busyQuestionId` names is being moved and is drawn
  * faded and busy. `open` and `onToggle` are the disclosure, which the outline
@@ -548,6 +547,7 @@ function MemberActions({
   const { t } = useTranslation();
   const trigger = useRef<HTMLButtonElement>(null);
   const picking = useRef(false);
+  const reason = useId();
   return (
     <span
       className={cn(
@@ -588,25 +588,32 @@ function MemberActions({
             {t("builder.memberMoveDown")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem disabled={bound} onSelect={() => onMove("out", null)}>
+          <DropdownMenuItem
+            disabled={bound}
+            aria-describedby={bound ? reason : undefined}
+            onSelect={() => onMove("out", null)}
+          >
             <LogOut aria-hidden="true" />
-            <DropdownMenuItemText>{t("builder.moveOutOfGroup")}</DropdownMenuItemText>
-            {bound ? (
-              <DropdownMenuMeta>{t("builder.memberGapBoundMeta")}</DropdownMenuMeta>
-            ) : null}
+            {t("builder.moveOutOfGroup")}
           </DropdownMenuItem>
           <DropdownMenuItem
             disabled={bound || !canPickGroup}
+            aria-describedby={bound ? reason : undefined}
             onSelect={() => {
               picking.current = true;
             }}
           >
             <Layers aria-hidden="true" />
-            <DropdownMenuItemText>{t("builder.moveToGroup")}</DropdownMenuItemText>
-            {bound ? (
-              <DropdownMenuMeta>{t("builder.memberGapBoundMeta")}</DropdownMenuMeta>
-            ) : null}
+            {t("builder.moveToGroup")}
           </DropdownMenuItem>
+          {bound ? (
+            <p
+              id={reason}
+              className="text-muted-fg px-2 pt-1 pb-1.5 text-xs leading-normal"
+            >
+              {t("builder.memberGapBound")}
+            </p>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
     </span>

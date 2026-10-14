@@ -1399,7 +1399,6 @@
     "moveIntoGroup": "Move into group…",
     "moveToGroup": "Move to group…",
     "moveOutOfGroup": "Move out of group",
-    "memberGapBoundMeta": "Bound to a gap",
     "moveGroupTitle": "Move question {{number}} into a group",
     "moveGroupField": "Group",
     "moveGroupOption": "{{group}} · {{section}}",

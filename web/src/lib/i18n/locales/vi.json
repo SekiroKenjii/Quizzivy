@@ -1399,7 +1399,6 @@
     "moveIntoGroup": "Chuyển vào nhóm…",
     "moveToGroup": "Chuyển sang nhóm…",
     "moveOutOfGroup": "Chuyển ra khỏi nhóm",
-    "memberGapBoundMeta": "Đang gắn chỗ trống",
     "moveGroupTitle": "Chuyển câu {{number}} vào nhóm",
     "moveGroupField": "Nhóm",
     "moveGroupOption": "{{group}} · {{section}}",

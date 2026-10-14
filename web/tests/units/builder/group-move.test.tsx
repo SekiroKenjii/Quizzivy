@@ -546,10 +546,15 @@ describe("dragging a question across a group's boundary in the outline", () => {
 
       const menu = await open(user, 2);
       for (const name of ["Chuyển ra khỏi nhóm", "Chuyển sang nhóm…"]) {
-        const item = within(menu).getByRole("menuitem", { name: new RegExp(name) });
+        const item = within(menu).getByRole("menuitem", { name });
         expect(item).toHaveAttribute("aria-disabled", "true");
-        expect(item).toHaveTextContent("Đang gắn chỗ trống");
+        expect(item).toHaveAccessibleDescription(
+          "Đang gắn với chỗ trống trong nội dung dùng chung",
+        );
       }
+      expect(
+        within(menu).getByText("Đang gắn với chỗ trống trong nội dung dùng chung"),
+      ).toBeVisible();
       expect(
         within(menu).getByRole("menuitem", { name: "Di chuyển xuống" }),
       ).not.toHaveAttribute("aria-disabled");
