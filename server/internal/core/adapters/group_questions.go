@@ -5,6 +5,7 @@ import (
 	"quizzivy/internal/modules/questions/domain"
 	"quizzivy/internal/modules/questions/repositories"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/access"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -30,4 +31,8 @@ func (GroupQuestions) GroupMembers(ctx context.Context, tx pgx.Tx, groupID strin
 
 func (GroupQuestions) UpdateGroupMember(ctx context.Context, tx pgx.Tx, in domain.WriteInput, ownership domain.GroupOwnership) (domain.Question, error) {
 	return repositories.NewPostgres(db.NewContext(tx)).UpdateOwned(ctx, in, ownership)
+}
+
+func (GroupQuestions) BankQuestion(ctx context.Context, tx pgx.Tx, scope access.Scope, id string) (domain.Question, error) {
+	return repositories.NewPostgres(db.NewContext(tx)).Get(ctx, scope, id)
 }

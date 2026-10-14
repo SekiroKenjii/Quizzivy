@@ -25,6 +25,7 @@ type Commands struct {
 	CopyGroup              cqrs.CommandHandler[command.CopyGroup, domain.StoredGroup]
 	ArchiveGroup           cqrs.CommandHandler[command.ArchiveGroup, domain.StoredGroup]
 	DeleteGroup            cqrs.CommandHandler[command.DeleteGroup, cqrs.Nothing]
+	MoveQuestion           cqrs.CommandHandler[command.MoveQuestion, domain.MoveQuestionResult]
 	CreateDraftFromVersion cqrs.CommandHandler[command.CreateDraftFromVersion, domain.Test]
 	SetCurrentVersion      cqrs.CommandHandler[command.SetCurrentVersion, domain.Test]
 	DeleteVersion          cqrs.CommandHandler[command.DeleteVersion, cqrs.Nothing]
@@ -59,6 +60,7 @@ func New(repo domain.Repository) *Application {
 			CopyGroup:              command.CopyGroupHandler{Groups: groups},
 			ArchiveGroup:           command.ArchiveGroupHandler{Groups: groups},
 			DeleteGroup:            command.DeleteGroupHandler{Groups: groups},
+			MoveQuestion:           command.MoveQuestionHandler{Groups: groups},
 			CreateDraftFromVersion: command.CreateDraftFromVersionHandler{Service: service},
 			SetCurrentVersion:      command.SetCurrentVersionHandler{Service: service},
 			DeleteVersion:          command.DeleteVersionHandler{Service: service},

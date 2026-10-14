@@ -172,10 +172,14 @@ MoveTestQuestionResult
 ```
 
 Answers: `200` the result. `400` a body that fails its schema, a move between two standalone
-places (that is `updateTest`'s job), or a destination group not owned by `to.sectionId`. `403`
-the key is missing. `404` the test, question, section or group is outside the caller's reach or
-not of this test. `409 STALE_WRITE` the test revision or a touched group's revision is behind, or
-a touched group is missing from `expectedGroupRevisions`; `409 TEST_ARCHIVED`. `413` over 4 KiB.
+places (that is `updateTest`'s job), a destination group not owned by `to.sectionId`, or an
+`expectedGroupRevisions` list that repeats a group or names a reachable group the move does not
+touch (the Tech Lead's decision of 2026-10-14: the list is exactly the touched groups). `403` the
+key is missing. `404` the test, question, section or group is outside the caller's reach or not of
+this test, an entry of `expectedGroupRevisions` included: each is a resource slot, and one the
+caller cannot reach answers as a missing one does, before any revision is compared. `409
+STALE_WRITE` the test revision or a touched group's revision is behind, or a touched group is
+missing from `expectedGroupRevisions`; `409 TEST_ARCHIVED`. `413` over 4 KiB.
 `422 VALIDATION_FAILED` with `details.rule`: `group_gap_bound`, or any existing `GroupError` rule
 the destination graph fails after the insert (`group_limits` at 200 members or the 4 MiB budget,
 `group_audio_scope` when the copied question's audio is the group's shared recording,
@@ -378,8 +382,8 @@ and 1440, light and dark.
   unmirrored. Either way a request carries a foreign group in one slot and the caller's own in the
   other. So an `expectedGroupRevisions` entry is a resource slot like any other: a group the
   caller cannot reach, or that is not of this test, answers 404 as a missing one does, before any
-  revision is compared. T-E1.3 states the answer for a reachable entry the move does not touch,
-  and proves all of it by running the suite.
+  revision is compared, and a reachable entry the move does not touch is a 400 (decided by the
+  Tech Lead, 2026-10-14). T-E1.2 builds that order; T-E1.3 proves it by running the suite.
 
 ## A. Contract and server
 
@@ -429,34 +433,111 @@ caller's own id alike.
 
 ### T-E1.2 — Domain and repository: `MoveQuestion`
 **Depends on:** T-E1.1
-**Touches:** `server/internal/modules/tests/{domain,application/command,application/internal/support,repositories}/`,
-`server/internal/modules/tests/application/tests/group_move_race_test.go` (new),
-`server/internal/modules/tests/repositories/tests/group_move_test.go` (new),
-`server/internal/core/wiring/tests.go`
+**Touches:** `server/internal/modules/tests/{domain,application/command,application/model,repositories}/`,
+`server/internal/core/adapters/group_questions.go` (the port gains `BankQuestion`),
+`server/internal/modules/tests/domain/tests/group_member_copy_test.go` (new),
+`server/internal/modules/tests/application/tests/group_move_*_test.go` (new; the group tests'
+fixtures live in that package)
 **Size:** L. High risk: the test builder's draft tables, `LockForDraftUse`, the publish snapshot.
 **Done when:**
-- [ ] `tests/domain` has `MoveQuestionInput` and its result, `GroupRepository.MoveQuestion`, and
+- [x] `tests/domain` has `MoveQuestionInput` and its result, `GroupRepository.MoveQuestion`, and
       the `group_gap_bound` rule with its `stimulusId`, `gapId` and `questionId`; the repository
-      takes `access.Scope`, never `Own()`; `access.CanActOn` is called, not restated.
-- [ ] `repositories/group_move.go` follows "Locks and races", steps 1 to 9, for the three cases:
+      takes `access.Scope` and never calls `Own()`. (`access.CanActOn` is the subset rule of role
+      and user writes; a move touches neither, so it has no call to make.)
+- [x] `repositories/group_move*.go` follows "Locks and races", steps 1 to 9, for the three cases:
       copy-in, move-out, and between or within groups. `LockForDraftUse` is called before the
       insert into `test_section_questions` on move-out and before reading the bank row on
       copy-in; `lockGroupAssets` before the member insert on copy-in.
-- [ ] The copy's identities are fresh through the same remap `GroupBundle.Copy` does; its
-      `optionOrder` is `shuffle`; the bank row is never written.
-- [ ] A move-out inserts the unit and the `test_section_questions` row at `index`, compacts the
-      source section and group, and leaves the group in place when it empties.
-- [ ] `index` is clamped to the end; ordinals are contiguous after every case.
-- [ ] A gap-bound member is refused before any write.
-- [ ] The audit rows are written by a data-modifying CTE, and `question_groups.revision` and
+- [x] The copy's identities are fresh through the same remap `GroupBundle.Copy` does
+      (`GroupQuestion.Copy`); its `optionOrder` is `shuffle`; the bank row is never written.
+- [x] A move-out inserts the unit and the `test_section_questions` row at `index`, compacts the
+      source group, and leaves the group in place when it empties.
+- [x] `index` is clamped to the end; ordinals are contiguous after every case.
+- [x] A gap-bound member is refused before any write.
+- [x] The audit rows are written in the transaction, and `question_groups.revision` and
       `app.tests.updated_at` move once.
-- [ ] `command/move_question.go` and `wiring/tests.go` wire it; an unwired command leaves the
+- [x] `command/move_question.go` wires it through `application.New`; an unwired command leaves the
       handler at 501.
-- [ ] Every test named in "Locks and races" passes against PostgreSQL 18, in both orders and with
+- [x] Every test named in "Locks and races" passes against PostgreSQL 18, in both orders and with
       a bounded number of attempts.
-- [ ] The canaries `publish_snapshot_test.go`, `TestLockForDraftUseSerialisesAgainstDelete` and
-      `TestLockForVersionUseSerialisesAgainstDelete` pass before and after.
-- [ ] `make lint`; the unit tests of every package touched; the module's integration tests.
+- [x] The canaries `publish_snapshot_test.go`, `TestLockForDraftUseSerialisesAgainstDelete`,
+      `TestLockForVersionUseSerialisesAgainstDelete`, `TestTheSameClientSeqFromTwoSessionsBothPersist`,
+      `audio-player.test.tsx`, `client.refresh.test.ts` and `router-chunks.test.ts` pass before and
+      after.
+- [x] `make lint`'s three Go tools; the unit tests of every package touched; the module's
+      integration tests.
+- [ ] **CI result** passes on the pull request.
+
+**As built:** `GroupsPostgres.MoveQuestion` is `group_move.go` (the flow and the three writers),
+`group_move_plan.go` (what the request names, resolved inside the test) and `group_move_units.go`
+(the section and member ordinals). It takes the locks in the design's order: `checkVersion` on the
+test, then the archived check and the key; then the source, the destination and every revision the
+request lists are resolved inside this test, so a foreign or missing id answers `ErrNotFound`
+before any revision is compared; then the touched groups `FOR UPDATE` and their members, each in
+id order; then, on a copy-in, the bank row (`LockForDraftUse`), its content (the port gains
+`BankQuestion`) and its media (`lockGroupAssets`); the three ordinal constraints are deferred for
+the writes and made immediate before the read-back, so a violation surfaces inside the move.
+`readGraph` validates every touched group, which is where `group_limits` (200 members),
+`group_audio_scope` and `group_asset` refuse a destination; the member count is checked first so
+a full group answers `group_limits` before its `CHECK` on the ordinal can fire.
+
+What the design left open, as built. The request's refusals are `GroupError` rules, so
+`groupFailure` already carries them: `move_outline_only` (a standalone question to a standalone
+place), `move_group_section` (the destination group is not the section's), `move_revisions` (the
+list repeats a group or names one the move does not touch), and `move_source_ambiguous` (a
+standalone question held by two sections of the test, which the contract cannot tell apart). A
+touched group missing from the list is `ErrStaleWrite`, as the contract's `409` says. A section the
+move touches that has no `test_section_units` yet (a legacy outline) is seeded first, as mounting
+a group seeds it, so the unit and the standalone ordinals can be rewritten together;
+`insertStandaloneQuestion` and `removeStandaloneQuestion` then rewrite the units and recompute the
+`test_section_questions` ordinals from them. A move-out checks `NotOwnedBy` against the test's
+owner, as the outline's `lockQuestions` does. The audit diff of `test.question_moved` holds facts
+the transaction already knows under its locks (the ids, the sections, the index), so it needs no
+data-modifying CTE; the groups' `question_group.updated` rows carry none.
+
+Tests (`application/tests/group_move_*_test.go`, integration): `TestMoveInCopiesAndLeavesTheBankQuestion`,
+`TestMoveOutKeepsTheIdAndReturnsItToTheBank` (which also saves the outline afterwards),
+`TestMoveBetweenGroupsBumpsBothRevisions`, `TestMoveClampsIndexAndCompactsOrdinals`,
+`TestMoveOutOfAGapBoundMemberIsRefused`, `TestMoveSeedsALegacySectionItTouches`,
+`TestMoveByAnAdminKeepsTheTeachersOwnership`, `TestMoveRefusalsWriteNothing` (eighteen refusals,
+each checked against an unchanged draft), `TestMoveRefusesAnArchivedTest`,
+`TestMoveRefusesAFullGroupAndStillReordersIt`, `TestMoveRefusesAQuestionWhoseAudioIsTheGroupsSharedRecording`,
+`TestMoveLeavesPublishedVersionsUntouched` (all thirteen `test_version_*` tables, row by row),
+`TestPublishAfterMoveFreezesTheNewUnitsAndOrdinals`; and the races, which pause one writer inside
+its lock and watch `pg_blocking_pids` for the other: `TestMoveIntoGroupSerialisesAgainstBankDelete`
+(the move holds the bank row; a deletion commits first), `TestMoveOutSerialisesAgainstGroupSave`
+(and six free-running attempts with exactly one winner), `TestMoveSerialisesAgainstOutlineAutosave`
+and `TestMoveSerialisesAgainstPublish` (each holder first, both ways),
+`TestMoveInContendsOnTheCopiedQuestionsAsset` (the media delete waits, then is refused as
+referenced; an asset deleted beforehand fails the move). The deletion that commits first is a
+direct `UPDATE`: a real `SoftDelete` is refused while the draft references the question, so the
+only deletion a copy-in can meet is one that raced past the reference check. The domain's unit
+tests cover `GroupQuestion.Copy`, and `TestMoveQuestionWithoutGroupAuthoringIsUnavailable` the 501.
+`wiring/tests.go` needed no change: `application.New` builds the handler and `WithGroups` gives it
+the repository. The integration tests ran on a database created for the purpose
+(`qa_e1_move`, migrated to version 125), never the dev one.
+
+After the independent review (2026-10-14), three changes. **The copy-in's lock order.** A section
+with no `test_section_units` is seeded by `seedSectionUnits`, which takes `LockForDraftUse` on every
+question of the section in id order. The first build locked the moved question Q and then seeded, so
+the move held Q and waited on an earlier question R, while another test that shares R and Q takes
+them in id order (autosave's `lockQuestions`, publish, duplicate): a `40P01` deadlock, which
+`groupWriteError` does not map, so a teacher would have met a 500. `copyIntoGroup` now seeds the
+source section first and locks Q after, so every writer takes questions in ascending order.
+`TestMoveIntoGroupLocksQuestionsInIdOrderAgainstAnotherTestsAutosave` holds one writer inside its lock
+while the other waits, in both orders (an autosave holds the earlier question; the move holds the
+later one), and requires both to finish; against the first build it deadlocked every time (six runs of
+six, `40P01` on the move in one order and on the autosave in the other), and with the fix it passes
+four runs in a row. **The owner of a member that leaves.** The `UPDATE` that turns the member into a
+bank question now names the owner, the test's, and the `NotOwnedBy` refusal is gone: a member whose
+`owner_id` predates ownership (backfilled from `created_by` by 00061 and 00062) no longer answers 404
+for a member the caller can see, and comes out owned by the test's owner
+(`TestMoveOutNamesTheTestsOwnerWhoseverRowTheMemberWas`). **The deal.**
+`TestMovedQuestionsDealInsideAndOutsideTheirGroups` publishes after a copy-in and a move-out, reads
+the version through the attempts store and deals it with `PresentVersion(DeliveryGroupV1, …)` for
+thirty seeds: the copied member is in its group's run in member order, the question that left deals as
+its own unit, and the shuffle moves the units. The race fixtures' author is a Teacher, not an Admin, so
+their cleanup is not stopped by the last-Admin guard on a database without a seeded Admin.
 
 ### T-E1.3 — HTTP, errors, isolation
 **Depends on:** T-E1.2
@@ -471,8 +552,8 @@ caller's own id alike.
       written vi first and en second through `httpx.Text`.
 - [ ] A foreign or missing test, question, section or group answers 404, and so does a group in
       `expectedGroupRevisions` the caller cannot reach or that is not of this test, before any
-      revision is compared (see "Risks"); a reachable entry the move does not touch has a stated
-      answer, written into the contract's description.
+      revision is compared (see "Risks"); a reachable entry the move does not touch, or a repeated
+      one, is a `400` (`move_revisions`), and the contract's description of the `400` says so.
 - [ ] The isolation table's `moveTestQuestion` entry is the design's: `freshGroupedTest`, the body
       above, T-E1.1's `blind` marks removed, and any `link` checked against how `build` applies it
       (see "Risks"), so that each of the five slots' substitution reaches the server;
@@ -543,8 +624,8 @@ needs a coordinate), `web/src/locales/{vi,en}.json`,
 **Touches:** the files below
 **Size:** S
 **Done when:**
-- [ ] `docs/quizzivy-spec-v0.3.md`: bumped to v0.106 (the next free number if v0.11.3 has taken
-      it) with a "Changes since v0.105" entry. §7.3, after "Members belong to one group in one
+- [ ] `docs/quizzivy-spec-v0.3.md`: bumped to v0.107 (the v0.11.3 hotfix takes v0.106) with a
+      "Changes since v0.106" entry. §7.3, after "Members belong to one group in one
       section": a standalone question dragged into a section's group becomes a member copy and
       the bank row stays; a member dragged out keeps its id and becomes a bank question; a member
       moves between a test's groups in place; a gap-bound member does not leave; both the test
@@ -564,7 +645,9 @@ needs a coordinate), `web/src/locales/{vi,en}.json`,
       the "Decisions taken in this file" bullet for Q8 and the DG-186 row point to it.
 - [ ] `docs/plan/70-redesign-overview.md` §2: a row for the escalation release, as v0.9.1 has one.
 - [ ] This file: every task's boxes ticked and its "As built" written in the task's own PR.
-- [ ] `AGENTS.md` needs no rule change: the two-sided lock paragraphs already cover the inserts.
+- [ ] `AGENTS.md` needs no rule change for the inserts: the two-sided lock paragraphs already cover
+      them. Its "Git workflow" paragraph gains the line for `work/escalation-e1` and
+      `feature/t-e1-<nn>-<slug>` (the Tech Lead's, decided 2026-10-14).
 
 ## Order of work
 
@@ -620,12 +703,22 @@ material's document on a drag.
 
 **Q5. Between groups of the same test?** Decided: **yes**.
 
-**Raised while building, with the default built**
+**Raised while building, and answered**
 
 - **The index's meaning.** The design says "position among units, or among members; clamped to
-  the end". Built: the position after the question has left its old place, as the web's
-  `moveUnit` counts it (T-E1.1). A client that counts before the removal is off by one when it
-  moves a question later within the same list.
-- **AGENTS.md's "Git workflow"** names R and D4 branches only. Default: `work/escalation-e1` and
-  `feature/t-e1-<nn>-<slug>` are recorded here; adding a clause there is the Tech Lead's call
-  (the design records "no rule changes").
+  the end". Built, and agreed by the Tech Lead on 2026-10-14: the position after the question has
+  left its old place, as the web's `moveUnit` counts it (T-E1.1). A client that counts before the
+  removal is off by one when it moves a question later within the same list.
+- **`expectedGroupRevisions`.** Each entry is a resource slot; a group the caller cannot reach, or
+  that is not of this test, answers 404 before any revision is compared; a reachable group the
+  move does not touch, and a repeated one, are 400; a touched group missing from the list is
+  `409 STALE_WRITE`, as the contract says (the Tech Lead, 2026-10-14).
+- **`AGENTS.md`'s "Git workflow"** names R and D4 branches only. The Tech Lead adds the line for
+  `work/escalation-e1` in T-E1.7 (2026-10-14).
+- **The spec number.** E1's entry is v0.107; the v0.11.3 hotfix takes v0.106 (the Tech Lead,
+  2026-10-14).
+- **A standalone question held by two sections.** The request names no source section, so a
+  question that two sections of one test hold cannot be told apart; the move answers `400`
+  (`move_source_ambiguous`). The builder's picker does not let a test hold a bank question twice,
+  so this is a guard for data written some other way. If it ever matters, the contract gains an
+  optional source section.
