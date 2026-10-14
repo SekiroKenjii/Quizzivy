@@ -25,6 +25,7 @@ import { JoinCodeField } from "@/features/join/components/JoinCodeField";
 import { JoinedState } from "@/features/join/components/JoinedState";
 import { toneFor, useJoinLookup } from "@/features/join/useJoinLookup";
 import { failureMessage } from "@/lib/api/errors";
+import { useOrganization } from "@/lib/organization";
 import { useAuthStore } from "@/stores/auth";
 
 const ERROR_ID = "join-code-error";
@@ -34,11 +35,13 @@ const ERROR_ID = "join-code-error";
  * or a QR code with the code filled in. A valid code shows its class before
  * anything authenticates; joining sends a signed-out visitor to sign in with
  * the class remembered, and the sign-in comes back here to finish. The outcome
- * arrives in the location state and replaces the form.
+ * arrives in the location state and replaces the form. When the centre has
+ * turned joining with a code off, the page says so in place of the form.
  */
 export default function JoinPage() {
   const location = useLocation();
   const { code = "" } = useParams();
+  const { joinCodes } = useOrganization();
   const outcome = readJoinOutcome(location.state);
   if (outcome) {
     return (
@@ -47,7 +50,43 @@ export default function JoinPage() {
       </AuthLayout>
     );
   }
+  if (!joinCodes) {
+    return (
+      <AuthLayout panel={false}>
+        <JoinCodesOff />
+      </AuthLayout>
+    );
+  }
   return <JoinForm key={code} initial={code} />;
+}
+
+function JoinCodesOff() {
+  const { t } = useTranslation();
+  const user = useAuthStore((s) => s.user);
+  return (
+    <div className="flex flex-col gap-[18px]">
+      <div>
+        <h1 className="text-h1 text-balance">{t("join.off.title")}</h1>
+        <p className="text-muted-fg text-body mt-1.5 text-pretty">
+          {t("join.off.body")}
+        </p>
+      </div>
+      <Button
+        asChild
+        variant="outline"
+        size="xl"
+        className="bg-card hover:bg-muted w-full font-medium"
+      >
+        {user ? (
+          <Link to={homePathFor(user)}>{t("join.goHome")}</Link>
+        ) : (
+          <Link to="/login" onClick={clearJoinContext}>
+            {t("login.backToSignIn")}
+          </Link>
+        )}
+      </Button>
+    </div>
+  );
 }
 
 function JoinForm({ initial }: Readonly<{ initial: string }>) {

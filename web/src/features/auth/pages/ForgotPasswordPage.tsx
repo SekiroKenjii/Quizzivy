@@ -5,7 +5,7 @@ import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import { AuthLayout } from "@/features/auth/AuthLayout";
 import { GoogleMark } from "@/features/auth/components/GoogleMark";
-import { config } from "@/lib/config";
+import { useOrganization } from "@/lib/organization";
 
 /**
  * ForgotPasswordPage explains that a password is reset by a teacher or the
@@ -14,7 +14,7 @@ import { config } from "@/lib/config";
  */
 export default function ForgotPasswordPage() {
   const { t } = useTranslation();
-  const { phone, hours } = config.frontDesk;
+  const { phone, hours } = useOrganization().frontDesk;
   const frontDesk = [phone, hours].filter(Boolean).join(" · ");
 
   return (

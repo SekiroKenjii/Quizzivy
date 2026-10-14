@@ -22,6 +22,7 @@ import { destinationAfterSignIn } from "@/features/auth/home";
 import { loginSchema, type LoginValues } from "@/features/auth/loginSchema";
 import { readJoinContext } from "@/features/join/context";
 import { ApiError } from "@/lib/api/errors";
+import { useOrganization } from "@/lib/organization";
 import { authStore } from "@/stores/auth";
 import { useAppState } from "@/stores/appState";
 import { signInAccount } from "@/features/auth/accountPreferences";
@@ -48,6 +49,8 @@ export default function LoginPage() {
   }, []);
   const [indeterminate, setIndeterminate] = useState(false);
   const google = useGoogleSignIn();
+  const { signIn, joinCodes } = useOrganization();
+  const showGoogle = signIn.google && googleSignInAvailable();
   const [error, setError] = useState<string | null>(null);
   const [joining] = useState(readJoinContext);
 
@@ -124,15 +127,17 @@ export default function LoginPage() {
   return (
     <AuthLayout
       footer={
-        <p>
-          {t("login.haveCode")}{" "}
-          <Link
-            to="/join"
-            className="text-fg font-medium underline underline-offset-[3px]"
-          >
-            {t("login.joinClass")}
-          </Link>
-        </p>
+        joinCodes ? (
+          <p>
+            {t("login.haveCode")}{" "}
+            <Link
+              to="/join"
+              className="text-fg font-medium underline underline-offset-[3px]"
+            >
+              {t("login.joinClass")}
+            </Link>
+          </p>
+        ) : undefined
       }
     >
       <div>
@@ -144,7 +149,7 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {googleSignInAvailable() && (
+      {showGoogle && (
         <>
           <Button
             type="button"
@@ -166,12 +171,21 @@ export default function LoginPage() {
             )}
             {t("login.continueWithGoogle")}
           </Button>
-          <div className="text-muted-fg text-meta flex items-center gap-3">
-            <span aria-hidden="true" className="bg-border h-px flex-1" />
-            {t("login.orWithEmail")}
-            <span aria-hidden="true" className="bg-border h-px flex-1" />
-          </div>
+          {signIn.password && (
+            <div className="text-muted-fg text-meta flex items-center gap-3">
+              <span aria-hidden="true" className="bg-border h-px flex-1" />
+              {t("login.orWithEmail")}
+              <span aria-hidden="true" className="bg-border h-px flex-1" />
+            </div>
+          )}
         </>
+      )}
+
+      {!showGoogle && !signIn.password && (
+        <Alert variant="warning" className="text-ui flex gap-2.5">
+          <CircleAlert aria-hidden="true" className="mt-px size-4 shrink-0" />
+          <span>{t("login.noMethod")}</span>
+        </Alert>
       )}
 
       {shown && (
@@ -219,65 +233,67 @@ export default function LoginPage() {
         </Alert>
       )}
 
-      <form
-        onSubmit={(e) => {
-          if (submitting) {
-            e.preventDefault();
-            return;
-          }
-          void form.handleSubmit(onValid, onInvalid)(e);
-        }}
-        className="flex flex-col gap-5"
-        noValidate
-      >
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="email">{t("login.email")}</Label>
-          <Input
-            id="email"
-            type="email"
-            size="xl"
-            inputMode="email"
-            autoComplete="username"
-            autoCapitalize="none"
-            spellCheck={false}
-            placeholder={t("login.emailPlaceholder")}
-            {...form.register("email", clear)}
-          />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-baseline justify-between gap-3">
-            <Label htmlFor="password">{t("login.password")}</Label>
-            <Link
-              to="/forgot-password"
-              className="text-muted-fg hover:text-fg text-sm no-underline"
-            >
-              {t("login.forgot")}
-            </Link>
-          </div>
-          <PasswordInput
-            id="password"
-            size="xl"
-            autoComplete="current-password"
-            {...form.register("password", clear)}
-          />
-        </div>
-
-        <Button
-          type="submit"
-          size="xl"
-          className="group/login-busy w-full"
-          aria-busy={submitting || undefined}
+      {signIn.password && (
+        <form
+          onSubmit={(e) => {
+            if (submitting) {
+              e.preventDefault();
+              return;
+            }
+            void form.handleSubmit(onValid, onInvalid)(e);
+          }}
+          className="flex flex-col gap-5"
+          noValidate
         >
-          {submitting && (
-            <LoaderCircle
-              aria-hidden="true"
-              className="size-[17px] animate-spin group-focus-within/login-busy:[animation-play-state:paused] group-hover/login-busy:[animation-play-state:paused] motion-reduce:animate-none"
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="email">{t("login.email")}</Label>
+            <Input
+              id="email"
+              type="email"
+              size="xl"
+              inputMode="email"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder={t("login.emailPlaceholder")}
+              {...form.register("email", clear)}
             />
-          )}
-          {t(submitting ? "login.submitting" : "login.submit")}
-        </Button>
-      </form>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-baseline justify-between gap-3">
+              <Label htmlFor="password">{t("login.password")}</Label>
+              <Link
+                to="/forgot-password"
+                className="text-muted-fg hover:text-fg text-sm no-underline"
+              >
+                {t("login.forgot")}
+              </Link>
+            </div>
+            <PasswordInput
+              id="password"
+              size="xl"
+              autoComplete="current-password"
+              {...form.register("password", clear)}
+            />
+          </div>
+
+          <Button
+            type="submit"
+            size="xl"
+            className="group/login-busy w-full"
+            aria-busy={submitting || undefined}
+          >
+            {submitting && (
+              <LoaderCircle
+                aria-hidden="true"
+                className="size-[17px] animate-spin group-focus-within/login-busy:[animation-play-state:paused] group-hover/login-busy:[animation-play-state:paused] motion-reduce:animate-none"
+              />
+            )}
+            {t(submitting ? "login.submitting" : "login.submit")}
+          </Button>
+        </form>
+      )}
     </AuthLayout>
   );
 }

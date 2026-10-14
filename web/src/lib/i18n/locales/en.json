@@ -640,7 +640,8 @@
     "invalidCredentials": "That email and password do not match. Check for typos, or ask your teacher to reset your password.",
     "haveCode": "Have a class code?",
     "joinClass": "Join a class",
-    "googleFailedTitle": "Couldn't sign you in with Google"
+    "googleFailedTitle": "Couldn't sign you in with Google",
+    "noMethod": "No way to sign in is available right now. Ask the front desk or your centre's administrator."
   },
   "join": {
     "title": "Join a class",
@@ -660,6 +661,10 @@
     "joining": "Adding you to {{className}}…",
     "failed": "Could not join the class. Please try again.",
     "goToClasses": "Go to my classes",
+    "off": {
+      "title": "Joining with a code is off",
+      "body": "Your centre is not letting students join a class with a code right now. Ask your teacher to add you, or ask the front desk."
+    },
     "joined": {
       "title": "You're in {{className}}",
       "body": "{{teacherName}} will see you in the class list.",

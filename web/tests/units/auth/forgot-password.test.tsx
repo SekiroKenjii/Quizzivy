@@ -12,6 +12,7 @@ afterEach(() => {
 async function renderForgot() {
   const { default: ForgotPasswordPage } =
     await import("@/features/auth/pages/ForgotPasswordPage");
+  const { queryWrapper } = await import("@tests/support/queryWrapper");
   const router = createMemoryRouter(
     [
       { path: "/forgot-password", element: <ForgotPasswordPage /> },
@@ -19,7 +20,7 @@ async function renderForgot() {
     ],
     { initialEntries: ["/forgot-password"] },
   );
-  render(<RouterProvider router={router} />);
+  render(<RouterProvider router={router} />, { wrapper: queryWrapper() });
 }
 
 describe("/forgot-password", () => {
