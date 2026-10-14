@@ -13,6 +13,8 @@ DELETE /teacher/questions/{id} content.questions.write
 DELETE /teacher/tests/{id} content.tests.write
 DELETE /teacher/tests/{id}/versions/{version} content.tests.publish
 GET /admin/ai/credits ai.credits.manage
+GET /admin/api-reference system.api_reference
+GET /admin/api-reference/openapi.json system.api_reference
 GET /app/assignments learning.take_tests
 GET /app/assignments/{id} learning.take_tests
 GET /app/attempts/{id} learning.take_tests

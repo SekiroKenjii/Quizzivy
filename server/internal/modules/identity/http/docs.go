@@ -1,18 +1,66 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net/http"
+	"sync"
 
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/identity/application/token"
+	"quizzivy/internal/platform/apidocs"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
 	"quizzivy/internal/shared/access"
 )
 
-const docsCookieName = "quizzivy_docs"
+const (
+	docsCookieName   = "quizzivy_docs"
+	specDownloadName = "quizzivy-openapi.json"
+)
+
+var referenceSummary = sync.OnceValues(func() (apidocs.Summary, error) {
+	spec, err := openapi.GetSpec()
+	if err != nil {
+		return apidocs.Summary{}, err
+	}
+	return apidocs.Summarise(spec), nil
+})
+
+// GetApiReferenceSummary implements GET /admin/api-reference: the embedded
+// contract's versions, its operation count and the count under each tag, read
+// from the spec once for the life of the process.
+func (h Identity) GetApiReferenceSummary(_ context.Context, _ openapi.GetApiReferenceSummaryRequestObject) (openapi.GetApiReferenceSummaryResponseObject, error) {
+	summary, err := referenceSummary()
+	if err != nil {
+		return nil, err
+	}
+	groups := make([]openapi.ApiReferenceGroup, len(summary.Groups))
+	for i, g := range summary.Groups {
+		groups[i] = openapi.ApiReferenceGroup{Tag: g.Tag, Count: g.Count}
+	}
+	return openapi.GetApiReferenceSummary200JSONResponse{
+		Openapi: summary.OpenAPI, Version: summary.Version, EndpointCount: summary.EndpointCount, Groups: groups,
+	}, nil
+}
+
+// DownloadOpenApi implements GET /admin/api-reference/openapi.json: the embedded
+// contract as an attachment that is never cached.
+func (h Identity) DownloadOpenApi(_ context.Context, _ openapi.DownloadOpenApiRequestObject) (openapi.DownloadOpenApiResponseObject, error) {
+	document, err := openapi.GetSpecJSON()
+	if err != nil {
+		return nil, err
+	}
+	return openapi.DownloadOpenApi200ApplicationoctetStreamResponse{
+		Body:          bytes.NewReader(document),
+		ContentLength: int64(len(document)),
+		Headers: openapi.DownloadOpenApi200ResponseHeaders{
+			CacheControl:       "no-store",
+			ContentDisposition: `attachment; filename="` + specDownloadName + `"`,
+		},
+	}, nil
+}
 
 // OpenDocsSession sets the caller's fifteen-minute docs session cookie, which
 // RequireDocsSession accepts on /docs. The operation requires
