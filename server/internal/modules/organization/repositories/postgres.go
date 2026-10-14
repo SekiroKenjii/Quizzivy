@@ -188,7 +188,7 @@ func scan(row pgx.Row) (domain.Settings, error) {
 }
 
 func logoOf(digest []byte, kind *string) *domain.Logo {
-	if digest == nil || kind == nil {
+	if digest == nil || kind == nil || domain.LogoType(*kind) != domain.LogoPNG {
 		return nil
 	}
 	return &domain.Logo{SHA256: digest, Type: domain.LogoType(*kind)}

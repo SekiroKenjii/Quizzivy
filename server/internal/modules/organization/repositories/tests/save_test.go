@@ -85,10 +85,7 @@ func TestSaveNamesOnlyTheFieldsThatChanged(t *testing.T) {
 		{"address", func(d *domain.Settings) { d.Profile.Address = "34 Hai Bà Trưng" }, []string{"organization.address"}},
 		{"light logo removed", func(d *domain.Settings) { d.Profile.LightLogo = nil }, []string{"organization.logo.light"}},
 		{"dark logo bytes", func(d *domain.Settings) {
-			d.Profile.DarkLogo = &domain.Logo{SHA256: digest(90), Type: domain.LogoSVG}
-		}, []string{"organization.logo.dark"}},
-		{"dark logo type only", func(d *domain.Settings) {
-			d.Profile.DarkLogo = &domain.Logo{SHA256: digest(40), Type: domain.LogoPNG}
+			d.Profile.DarkLogo = &domain.Logo{SHA256: digest(90), Type: domain.LogoPNG}
 		}, []string{"organization.logo.dark"}},
 		{"google off", func(d *domain.Settings) { d.SignIn.Google = false }, []string{"signIn.google"}},
 		{"password off", func(d *domain.Settings) { d.SignIn.Password = false }, []string{"signIn.password"}},

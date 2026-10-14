@@ -17,22 +17,15 @@ import (
 // LogoType is the media type a logo is stored and served with.
 type LogoType string
 
-// The two types a logo may have.
-const (
-	LogoPNG LogoType = "image/png"
-	LogoSVG LogoType = "image/svg+xml"
-)
+// LogoPNG is the one type a logo has. The database also admits image/svg+xml,
+// a value the application never writes and reads as no logo (D-019).
+const LogoPNG LogoType = "image/png"
 
-// Valid reports whether t is one of the two types a logo may have.
-func (t LogoType) Valid() bool { return t == LogoPNG || t == LogoSVG }
+// LogoExtension is the file extension a logo's bytes are stored and downloaded under.
+const LogoExtension = "png"
 
-// Extension is the file extension the type's bytes are stored and downloaded under.
-func (t LogoType) Extension() string {
-	if t == LogoSVG {
-		return "svg"
-	}
-	return "png"
-}
+// Valid reports whether t is the type a logo may have.
+func (t LogoType) Valid() bool { return t == LogoPNG }
 
 // Variant names the background a logo is drawn for.
 type Variant string

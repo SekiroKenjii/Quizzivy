@@ -200,7 +200,7 @@ func (s *session) fullDocument() domain.Settings {
 			FrontDeskHours: "Thứ Hai đến Thứ Sáu, 8:00 - 17:00",
 			Address:        "12 Nguyễn Huệ, Quận 1, Thành phố Hồ Chí Minh",
 			LightLogo:      &domain.Logo{SHA256: digest(1), Type: domain.LogoPNG},
-			DarkLogo:       &domain.Logo{SHA256: digest(40), Type: domain.LogoSVG},
+			DarkLogo:       &domain.Logo{SHA256: digest(40), Type: domain.LogoPNG},
 		},
 		SignIn: domain.SignIn{
 			Google:               true,

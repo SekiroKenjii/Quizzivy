@@ -9,9 +9,7 @@
 // survives: the output carries no EXIF, ICC profile, text chunk or trailing
 // bytes.
 //
-// Logo takes a PNG that is already square and re-encodes it at its own size,
-// and CheckSVG admits an SVG only if it holds nothing but drawing: it never
-// rewrites the file, it either returns it as it came or refuses it.
+// Logo takes a PNG that is already square and re-encodes it at its own size.
 package imagesafe
 
 import (

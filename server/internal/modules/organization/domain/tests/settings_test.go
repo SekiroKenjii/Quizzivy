@@ -127,7 +127,7 @@ func TestTheAcceptedBoundsAreAccepted(t *testing.T) {
 	twelve, twentyFour := 12, 24
 	s.Retention = domain.Retention{KeepAnswersMonths: &twelve, KeepFocusEventsMonths: 6, AnonymiseDisabledAfterMonths: &twentyFour}
 	s.SignIn.Google, s.SignIn.Password = false, true
-	s.Profile.LightLogo = &domain.Logo{SHA256: make([]byte, 32), Type: domain.LogoSVG}
+	s.Profile.LightLogo = &domain.Logo{SHA256: make([]byte, 32), Type: domain.LogoPNG}
 	if _, err := s.Normalised(); err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +159,7 @@ func TestALogoIsEqualToItselfOnly(t *testing.T) {
 	if !a.Equal(&domain.Logo{SHA256: append([]byte{}, digest...), Type: domain.LogoPNG}) {
 		t.Error("the same bytes and type differ")
 	}
-	if a.Equal(&domain.Logo{SHA256: other, Type: domain.LogoPNG}) || a.Equal(&domain.Logo{SHA256: digest, Type: domain.LogoSVG}) || a.Equal(nil) {
+	if a.Equal(&domain.Logo{SHA256: other, Type: domain.LogoPNG}) || a.Equal(&domain.Logo{SHA256: digest, Type: "image/svg+xml"}) || a.Equal(nil) {
 		t.Error("a different logo is equal")
 	}
 	var none *domain.Logo
