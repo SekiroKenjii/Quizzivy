@@ -83,6 +83,7 @@ import {
 import {
   emptyGroup,
   groupIssue,
+  groupRoom,
   MAX_GROUP_MEMBERS,
   withMembers,
 } from "@/features/question-groups/model";
@@ -445,13 +446,13 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       const stored =
         queryClient.getQueryData<StoredGroup>(["teacher-group", groupId]) ??
         (await getGroup(groupId));
-      const room = MAX_GROUP_MEMBERS - stored.bundle.group.members.length;
+      const room = groupRoom(stored.bundle.group);
       if (members.length > room)
         throw new AiWriteError(
           t("ai.generate.groupFull", {
             group: stored.bundle.group.title || t("groups.newGroup"),
             max: MAX_GROUP_MEMBERS,
-            room: Math.max(room, 0),
+            room,
           }),
         );
       const next = withMembers(stored.bundle, members);

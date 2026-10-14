@@ -136,13 +136,13 @@ async function renderBuilder() {
     [{ path: "/teacher/tests/:id/edit", element: <TestBuilderPage /> }],
     { initialEntries: [`/teacher/tests/${TEST_ID}/edit`] },
   );
-  render(
+  const { unmount } = render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
   await screen.findByDisplayValue("have gone");
-  return { user: userEvent.setup() };
+  return { user: userEvent.setup(), client, unmount };
 }
 
 describe("the builder's AI entry points", () => {
@@ -456,8 +456,20 @@ describe("Generate in a test with a shared-context group", () => {
     ]);
   });
 
-  async function generateFromThePassage(user: ReturnType<typeof userEvent.setup>) {
-    await user.click(await screen.findByRole("button", { name: ai.entry.generate }));
+  type User = ReturnType<typeof userEvent.setup>;
+
+  async function press(
+    user: User,
+    signal: AbortSignal,
+    target: HTMLElement | Promise<HTMLElement>,
+  ) {
+    const element = await target;
+    signal.throwIfAborted();
+    await user.click(element);
+  }
+
+  async function runFromThePassage(user: User, signal: AbortSignal) {
+    await press(user, signal, screen.findByRole("button", { name: ai.entry.generate }));
     const dialog = await screen.findByRole("dialog");
     expect(
       await within(dialog).findByRole("button", {
@@ -465,15 +477,27 @@ describe("Generate in a test with a shared-context group", () => {
         pressed: true,
       }),
     ).toBeVisible();
-    await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
-    await user.click(await within(dialog).findByRole("button", { name: GROUP_BUTTON }));
+    await press(
+      user,
+      signal,
+      within(dialog).getByRole("button", { name: ai.generate.run }),
+    );
+    const add = await within(dialog).findByRole("button", { name: GROUP_BUTTON });
+    return { dialog, add };
+  }
+
+  async function generateFromThePassage(user: User, signal: AbortSignal) {
+    const { dialog, add } = await runFromThePassage(user, signal);
+    await press(user, signal, add);
     return dialog;
   }
 
-  it("appends what it made from the group's passage to that group and opens the first", async () => {
+  it("appends what it made from the group's passage to that group and opens the first", async ({
+    signal,
+  }) => {
     aiOn();
     const { user } = await renderBuilder();
-    await generateFromThePassage(user);
+    await generateFromThePassage(user, signal);
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(events).toEqual([
@@ -512,18 +536,16 @@ describe("Generate in a test with a shared-context group", () => {
     expect(await screen.findByDisplayValue("cool the streets")).toBeVisible();
   });
 
-  it("reloads the group's open editor on the first new member", async () => {
+  it("reloads the group's open editor on the first new member", async ({ signal }) => {
     aiOn();
     const { user } = await renderBuilder();
-    await user.click(
-      await screen.findByRole(
-        "button",
-        { name: /What do parks do\?/ },
-        { timeout: 5000 },
-      ),
+    await press(
+      user,
+      signal,
+      screen.findByRole("button", { name: /What do parks do\?/ }, { timeout: 5000 }),
     );
     expect(await screen.findByDisplayValue("Reading club")).toBeVisible();
-    await generateFromThePassage(user);
+    await generateFromThePassage(user, signal);
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(puts).toHaveLength(1);
@@ -531,8 +553,12 @@ describe("Generate in a test with a shared-context group", () => {
     expect(screen.getByDisplayValue("Reading club")).toBeVisible();
   });
 
-  it("refuses before writing when the group has no room for them", async () => {
+  it("refuses before writing when the cached group has no room for them", async ({
+    signal,
+  }) => {
     aiOn();
+    const { user, client } = await renderBuilder();
+    const { dialog, add } = await runFromThePassage(user, signal);
     stored = readingClub(
       Array.from({ length: 199 }, (_, index) =>
         member(
@@ -541,30 +567,39 @@ describe("Generate in a test with a shared-context group", () => {
         ),
       ),
     );
-    const { user } = await renderBuilder();
-    const dialog = await generateFromThePassage(user);
+    act(() => {
+      client.setQueryData(["teacher-group", GROUP_ID], stored);
+    });
+    await press(user, signal, add);
 
     expect(
       await within(dialog).findByText(
         "Một nhóm chứa tối đa 200 câu, và nhóm Reading club chỉ còn chỗ cho 1 câu. Hãy bỏ chọn bớt rồi thử lại.",
       ),
     ).toBeVisible();
+    await waitFor(() => expect(add).toBeEnabled());
     expect(puts).toHaveLength(0);
     expect(events).not.toContain("create question");
   });
 
-  it("keeps the panel open with the server's answer when the group changed elsewhere", async () => {
+  it("keeps the panel open with the server's answer when the group changed elsewhere", async ({
+    signal,
+  }) => {
     aiOn();
     stale = true;
     const { user } = await renderBuilder();
-    const dialog = await generateFromThePassage(user);
+    const { dialog, add } = await runFromThePassage(user, signal);
+    await press(user, signal, add);
 
     expect(await within(dialog).findByText("Đã có thay đổi ở nơi khác.")).toBeVisible();
-    expect(puts).toHaveLength(1);
+    await waitFor(() => expect(add).toBeEnabled());
+    expect(puts.map((body) => body.expectedRevision)).toEqual([1]);
     expect(events).not.toContain("create question");
   });
 
-  it("still appends what it made from pasted text to the section", async () => {
+  it("still appends what it made from pasted text to the section", async ({
+    signal,
+  }) => {
     aiOn();
     generateAnswers([
       {
@@ -574,8 +609,8 @@ describe("Generate in a test with a shared-context group", () => {
         explanation: "",
       },
     ]);
-    const { user } = await renderBuilder();
-    await user.click(await screen.findByRole("button", { name: ai.entry.generate }));
+    const { user, unmount } = await renderBuilder();
+    await press(user, signal, screen.findByRole("button", { name: ai.entry.generate }));
     const dialog = await screen.findByRole("dialog");
     const source = within(dialog).getByLabelText(ai.generate.source);
     await user.clear(source);
@@ -583,14 +618,24 @@ describe("Generate in a test with a shared-context group", () => {
       source,
       "Cities around the world are rethinking how they use open land.",
     );
-    await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
-    await user.click(
-      await within(dialog).findByRole("button", { name: "Thêm 1 câu vào Ngữ pháp" }),
+    await press(
+      user,
+      signal,
+      within(dialog).getByRole("button", { name: ai.generate.run }),
+    );
+    await press(
+      user,
+      signal,
+      within(dialog).findByRole("button", { name: "Thêm 1 câu vào Ngữ pháp" }),
     );
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(events).toContain("create question");
     expect(puts).toHaveLength(0);
     expect(await screen.findByDisplayValue("open land")).toBeVisible();
+    unmount();
+    await waitFor(() =>
+      expect(events).toContain(`patch test Unit 5 ${QUESTION_ID},${CREATED_ID}`),
+    );
   });
 });

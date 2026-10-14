@@ -21,6 +21,14 @@ export type GroupQuestion = GroupBundle["questions"][number];
 export const MAX_GROUP_MEMBERS = 200;
 
 /**
+ * groupRoom is how many more members `group` takes before it holds
+ * MAX_GROUP_MEMBERS, and never less than zero.
+ */
+export function groupRoom(group: GroupBundle["group"]): number {
+  return Math.max(MAX_GROUP_MEMBERS - group.members.length, 0);
+}
+
+/**
  * withMembers appends `questions` to the bundle as new members after its
  * existing ones, each with shuffled options, as "Add question" does.
  */
