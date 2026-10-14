@@ -1,9 +1,9 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.112 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.113 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
-**Changes since v0.111**
+**Changes since v0.112**
 
 R5, T-R5.15 (data export, no screen yet).
 
@@ -11,6 +11,13 @@ R5, T-R5.15 (data export, no screen yet).
 - §13 `app.data_exports` (`00134_create_data_exports.sql`): one row for each request. A partial unique index allows one export queued or running in the whole centre, so two Admins asking at once cannot both build a ZIP of everyone's data. The ZIP stays in the private import bucket at `exports/{id}.zip` for 24 hours and is fetched once, by its requester, from the app page the email links to; nothing in the email or the table is a credential.
 - The worker builds the ZIP from one `REPEATABLE READ`, read-only snapshot, so every file describes the same moment: `users.csv` (no hashes or tokens), `roles.csv`, `classes.csv` (no join codes), `class_members.csv`, `tests.csv`, `test_versions.csv`, `assignments.csv`, `attempts.csv` (no session or beacon secrets), `answers.csv` when asked, and a `README.txt` in Vietnamese then English that describes every column. Every CSV streams through `platform/tabular` (byte-order mark, CRLF, a cell that begins `=`, `+`, `-` or `@` is prefixed with `'`), so memory stays bounded: 50,000 attempts and 50,000 answers grew the live heap by 8 MiB. A claim lasts 30 minutes, a build is cut off after 25, and an export interrupted three times is failed with `WORKER_INTERRUPTED`. A failure records a code, never a message, and sends nothing.
 - The audit log gains `data_export.requested` and `data_export.downloaded` (entity `data_export`, listed under All only), with their `vi` and `en` sentences.
+
+**Changes since v0.111**
+
+R5, T-R5.8 (second QC follow-up on the roles API: QC-X-13, QC-X-14).
+
+- §15 `createRole` and `updateRole` refuse a name that has no letter, digit, punctuation mark or symbol (a lone combining accent, a variation selector), and, in a name or a description, any character that is not graphic: a control, format, line- or paragraph-separator, private-use or unassigned code point, and the blank fillers the Hangul filler, its two jamo forms, the halfwidth filler and the Braille blank. A description may still hold line breaks, as the Edit role dialog's text area sends them. The refusal names the first offending code point in `details`.
+- §15 The 60 characters of a name and the 300 of a description count the text after NFC. The schema's own bound on the text as sent is four times that (240 and 1200), so a name typed decomposed is no longer refused before it is composed.
 
 **Changes since v0.110**
 
