@@ -43,7 +43,8 @@ info:
       - a pseudo-key: `self` (any signed-in user), `workspace.teacher` (any
         `content.*`, `teaching.*` or `people.students.*` key) or
         `workspace.admin` (`people.users.manage`, `people.roles.manage`,
-        `system.audit.read`, `system.settings.write` or `scope.all`);
+        `system.audit.read`, `system.settings.write`, `ai.credits.manage` or
+        `scope.all`);
       - a list, met by any one of its keys. A list is used only where one
         operation serves two matrix rows, and the server narrows the check
         when the body decides which row applies.

@@ -80,11 +80,11 @@ func TestTheTeacherWorkspaceOpensForTheAssistantButNotForAStudent(t *testing.T) 
 	}
 }
 
-func TestTheAdminWorkspaceOpensForItsFiveKeysOnly(t *testing.T) {
+func TestTheAdminWorkspaceOpensForItsSixKeysOnly(t *testing.T) {
 	requirement := access.AnyOf(access.WorkspaceAdmin)
 	for _, k := range []access.Key{
 		access.PeopleUsersManage, access.PeopleRolesManage, access.SystemAuditRead,
-		access.SystemSettingsWrite, access.ScopeAll,
+		access.SystemSettingsWrite, access.AICreditsManage, access.ScopeAll,
 	} {
 		if !requirement.SatisfiedBy(access.NewSet(k)) {
 			t.Errorf("workspace.admin not met by %q", k)
@@ -133,6 +133,9 @@ func TestWorkspacesFollowTheRole(t *testing.T) {
 	}{
 		{"admin", adminEffective, []access.Workspace{access.TeacherWorkspace, access.AdminWorkspace}},
 		{"admin taking tests", adminTakingTests, []access.Workspace{access.TeacherWorkspace, access.AdminWorkspace, access.AppWorkspace}},
+		{"AI credits manager alone", access.NewSet(access.AICreditsManage), []access.Workspace{access.AdminWorkspace}},
+		{"AI credits manager beside Take tests", access.NewSet(access.AICreditsManage, access.LearningTakeTests), []access.Workspace{access.AdminWorkspace, access.AppWorkspace}},
+		{"AI use alone", access.NewSet(access.AIUse), []access.Workspace{}},
 		{"teacher", teacherGrants, []access.Workspace{access.TeacherWorkspace}},
 		{"assistant", assistantGrants, []access.Workspace{access.TeacherWorkspace}},
 		{"student", studentGrants, []access.Workspace{access.AppWorkspace}},
