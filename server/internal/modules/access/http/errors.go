@@ -40,6 +40,7 @@ func translations(ctx context.Context) []translation {
 	return []translation{
 		{domain.ErrRoleNotFound, http.StatusNotFound, openapi.NOTFOUND, httpx.Text(ctx, "Không tìm thấy vai trò này.", "No such role.")},
 		{domain.ErrNameTaken, http.StatusConflict, openapi.ROLENAMETAKEN, httpx.Text(ctx, "Vai trò này đã tồn tại.", "A role with this name already exists.")},
+		{domain.ErrRoleLimit, http.StatusUnprocessableEntity, openapi.ROLELIMITREACHED, httpx.Text(ctx, "Đã đạt số vai trò tối đa.", "The maximum number of roles is reached.")},
 		{domain.ErrStaleWrite, http.StatusConflict, openapi.STALEWRITE, httpx.Text(ctx, "Vai trò đã được thay đổi ở nơi khác. Hãy tải lại rồi thử lại.", "The role was changed elsewhere. Reload and try again.")},
 		{domain.ErrNotAssignable, http.StatusUnprocessableEntity, openapi.ROLENOTASSIGNABLE, httpx.Text(ctx, "Không thể chọn vai trò này.", "This role cannot be chosen.")},
 		{domain.ErrRoleLocked, http.StatusUnprocessableEntity, openapi.ROLELOCKED, httpx.Text(ctx, "Quản trị viên luôn có quyền này.", "Admins always have this permission.")},

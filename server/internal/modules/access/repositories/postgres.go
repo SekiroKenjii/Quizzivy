@@ -190,6 +190,9 @@ func (t roleTx) Row(ctx context.Context, id string) (domain.RoleRow, error) {
 }
 
 func (t roleTx) Insert(ctx context.Context, role domain.NewRole) (string, error) {
+	if err := t.checkRoom(ctx); err != nil {
+		return "", err
+	}
 	var id string
 	err := t.tx.QueryRow(ctx, `
 		INSERT INTO app.roles (name, description, icon, color, copied_from, created_by)
@@ -203,6 +206,20 @@ func (t roleTx) Insert(ctx context.Context, role domain.NewRole) (string, error)
 }
 
 const nameKey = "roles_name_lower_key"
+
+func (t roleTx) checkRoom(ctx context.Context) error {
+	if _, err := t.tx.Exec(ctx, `SELECT pg_advisory_xact_lock(73819, 44)`); err != nil {
+		return err
+	}
+	var count int
+	if err := t.tx.QueryRow(ctx, `SELECT count(*) FROM app.roles`).Scan(&count); err != nil {
+		return err
+	}
+	if count >= domain.MaxRoles {
+		return domain.ErrRoleLimit
+	}
+	return nil
+}
 
 func (t roleTx) Update(ctx context.Context, edit domain.RoleEdit) error {
 	_, err := t.tx.Exec(ctx, `
