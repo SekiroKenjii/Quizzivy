@@ -3,7 +3,6 @@ package command
 import (
 	"context"
 	"encoding/json"
-	"strings"
 
 	"quizzivy/internal/modules/access/application/internal/support"
 	"quizzivy/internal/modules/access/application/model"
@@ -117,5 +116,5 @@ func trimmed(s *string) *string {
 	if s == nil {
 		return nil
 	}
-	return new(strings.TrimSpace(*s))
+	return new(tidy(*s))
 }

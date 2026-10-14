@@ -1,7 +1,21 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.110 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.112 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.111**
+
+R5, T-R5.8 (second QC follow-up on the roles API: QC-X-13, QC-X-14).
+
+- §15 `createRole` and `updateRole` refuse a name that has no letter, digit, punctuation mark or symbol (a lone combining accent, a variation selector), and, in a name or a description, any character that is not graphic: a control, format, line- or paragraph-separator, private-use or unassigned code point, and the blank fillers the Hangul filler, its two jamo forms, the halfwidth filler and the Braille blank. A description may still hold line breaks, as the Edit role dialog's text area sends them. The refusal names the first offending code point in `details`.
+- §15 The 60 characters of a name and the 300 of a description count the text after NFC. The schema's own bound on the text as sent is four times that (240 and 1200), so a name typed decomposed is no longer refused before it is composed.
+
+**Changes since v0.110**
+
+R5, T-R5.8 (QC follow-up on the roles API).
+
+- §15 `createRole` and `updateRole` store a name and a description in Unicode NFC, so the composed and decomposed forms of one name are one name, and refuse a name that holds a line break or a control, format, line- or paragraph-separator character. At most 200 roles exist, the built-in four included; `createRole` past that answers `422 ROLE_LIMIT_REACHED`. `AssignableRole.studentTarget` says a custom role with no permission is a student target. The role operations promise propagation to another machine "within about ten seconds".
+- §13 Advisory lock `(73819, 44)` serialises role creation against the limit (`docs/plan/20-data-model.md` §28).
 
 **Changes since v0.109**
 

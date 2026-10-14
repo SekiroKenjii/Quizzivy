@@ -2269,7 +2269,17 @@ export interface paths {
          * @description The new role takes the icon `key-round` and the colour `gray`, and starts
          *     with the permissions of `copyFromRoleId`, if given. The source must pass
          *     the subset rule: its permissions, `learning.take_tests` apart, are the
-         *     caller's own. The Assistant cannot be a source. Writes one audit row,
+         *     caller's own. The Assistant cannot be a source. A name and a description
+         *     are stored in Unicode NFC, so the composed and decomposed forms of one
+         *     name are the same name. The limits of 60 and 300 characters count the
+         *     text after NFC; the schema bounds the text as sent at four times that,
+         *     so a name typed decomposed is not refused before it is composed. A name
+         *     holds a letter, a digit, a punctuation mark or a symbol. Neither field
+         *     holds a control or invisible character: a zero-width one, a blank
+         *     filler such as the Hangul filler or the Braille blank, a lone code
+         *     point nothing assigns; a description may hold line breaks, a name may
+         *     not. At most 200 roles exist, the four built-in ones included; past that
+         *     the answer is `ROLE_LIMIT_REACHED`. Writes one audit row,
          *     `role.created`.
          */
         post: operations["createRole"];
@@ -2326,7 +2336,7 @@ export interface paths {
          *
          *     A change that leaves a cell as it was is accepted and writes nothing.
          *     Everyone's permissions are read again on their next request on the
-         *     machine that served the save, and within ten seconds on any other. Writes
+         *     machine that served the save, and within about ten seconds on any other. Writes
          *     one `role.permissions_changed` audit row per role changed.
          */
         put: operations["setRolePermissions"];
@@ -2356,6 +2366,10 @@ export interface paths {
          * Edit a role's name, description, icon or colour
          * @description A supplied field is changed and the others are kept; a body with only
          *     `expectedRevision` is refused. A built-in role may be renamed; its key never changes. The target must pass the subset rule.
+         *     A name and a description are stored in Unicode NFC and follow the rules
+         *     of a role's creation: the limits count the text after NFC, a name holds
+         *     a letter, a digit, a punctuation mark or a symbol, and neither holds a
+         *     control or invisible character.
          *     A change moves the revision. Writes one audit row, `role.updated`, naming
          *     what changed.
          */
@@ -4165,7 +4179,7 @@ export interface components {
          *     be sent again.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_NOT_ASSIGNABLE" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "SVG_NOT_ALLOWED" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_LIMIT_REACHED" | "ROLE_NOT_ASSIGNABLE" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "SVG_NOT_ALLOWED" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -4722,17 +4736,21 @@ export interface components {
             name: string;
             icon: components["schemas"]["RoleIcon"];
             color: components["schemas"]["RoleColor"];
-            /** @description True for the built-in Student and any custom role that holds nothing but `learning.take_tests`. */
+            /** @description True for the built-in Student and any custom role whose permissions are a subset of `learning.take_tests`, so a custom role with no permission at all is a student target. */
             studentTarget: boolean;
         };
         RoleInput: {
+            /** @description At most 60 characters after Unicode NFC. */
             name: string;
+            /** @description At most 300 characters after Unicode NFC. */
             description?: string;
             /** @description The role whose permissions the new role starts with. Omitted, it starts with none. */
             copyFromRoleId?: components["schemas"]["Uuid"];
         };
         RoleUpdate: {
+            /** @description At most 60 characters after Unicode NFC. */
             name?: string;
+            /** @description At most 300 characters after Unicode NFC. */
             description?: string;
             icon?: components["schemas"]["RoleIcon"];
             color?: components["schemas"]["RoleColor"];
@@ -12266,7 +12284,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `ROLE_NOT_ASSIGNABLE` — the source is the Assistant. */
+            /** @description `ROLE_NOT_ASSIGNABLE` — the source is the Assistant. `ROLE_LIMIT_REACHED` — 200 roles exist already. */
             422: {
                 headers: {
                     [name: string]: unknown;
