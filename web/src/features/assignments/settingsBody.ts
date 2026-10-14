@@ -1,5 +1,5 @@
 import type { Assignment, AssignmentInput } from "./api";
-import { windowInput, windowInstant, type AssignmentDraft } from "./draft";
+import { windowMoment, type AssignmentDraft } from "./draft";
 import { toInput } from "./input";
 import type { statusAt } from "./status";
 
@@ -36,8 +36,8 @@ export function settingsBody(
       return {
         ...base,
         window: {
-          opensAt: moment(draft.opensAt, a.window.opensAt),
-          closesAt: moment(draft.closesAt, a.window.closesAt),
+          opensAt: windowMoment(draft.opensAt, a.window.opensAt),
+          closesAt: windowMoment(draft.closesAt, a.window.closesAt),
         },
         targets: {
           classIds: draft.classes.map((c) => c.id),
@@ -54,8 +54,4 @@ export function settingsBody(
         studentNote: draft.studentNote.trim() === "" ? null : draft.studentNote,
       };
   }
-}
-
-function moment(local: string, stored: string): string {
-  return local === windowInput(stored) ? stored : windowInstant(local).toISOString();
 }
