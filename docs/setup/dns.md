@@ -209,6 +209,8 @@ DATABASE_URL           postgres://quizzivy_app:...@<neon-host>/quizzivy?sslmode=
 MIGRATE_DATABASE_URL   postgres://quizzivy_migrate:...@<neon-host>/quizzivy?sslmode=require
 JWT_SIGNING_KEY        openssl rand -base64 48
 JOIN_CODE_KEY          openssl rand -base64 32, with an offline copy in the owner's password manager
+SECRETS_KEY            openssl rand -base64 32, with an offline copy (docs/setup/operations.md, "Secrets key")
+RESEND_API_KEY         from the Resend dashboard, a sending-only key for quizzivy.com
 GOOGLE_CLIENT_SECRET   from the OAuth client
 S3_ENDPOINT            https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com
 S3_BUCKET              quizzivy-media
@@ -241,6 +243,32 @@ one value two homes, and they drift.
 Two roles, two URLs, deliberately (§13.5). `MIGRATE_DATABASE_URL` is used only
 by the release command; the running API connects as `quizzivy_app`, which cannot
 run DDL. `sslmode=require` because Neon is over the public internet.
+
+## Email (Resend)
+
+Mail goes out as `Quizzivy <no-reply@quizzivy.com>` through Resend, from the
+`send` subdomain of `quizzivy.com`. Add the domain in Resend's dashboard
+(region: Singapore), then publish the records it shows, exactly as it shows
+them, in Cloudflare with the proxy off (grey cloud). Resend's dashboard is the
+source of the values; this is the shape:
+
+| Name | Type | Target | Why |
+|---|---|---|---|
+| `send` | MX | Resend's feedback MX (priority 10) | bounce and complaint handling |
+| `send` | TXT | `v=spf1 include:amazonses.com ~all` | SPF for the return path |
+| `resend._domainkey` | TXT | the `p=...` public key Resend shows | DKIM |
+| `_dmarc` | TXT | `v=DMARC1; p=none; rua=mailto:<an address the owner reads>` | DMARC, report-only |
+
+DMARC starts at `p=none` so a mistake in the first week does not bounce real
+mail; move it to `quarantine` once the aggregate reports show only Resend
+passing. In Resend, **open tracking and click tracking are off** for the
+domain: click tracking would pass a set-password token through Resend's
+redirector. The token is also kept out of every log by the app.
+
+Verify after setting the records: the domain shows "Verified" in Resend, then
+send one real message to a mailbox you control and read its headers: SPF,
+DKIM and DMARC must all say `pass`. That check is part of R5's exit criteria
+(`docs/plan/75-r5.md`).
 
 ## Deployment shape
 

@@ -1,0 +1,27 @@
+{{define "subject"}}{{.Org}}: Your Quizzivy account is ready{{end}}
+
+{{define "text"}}{{.Org}}
+
+{{if .Params.FullName}}Hello {{.Params.FullName}},{{else}}Hello,{{end}}
+
+{{.Org}} has created a Quizzivy account for you. Sign in with the Google account of this email address:
+
+{{.Link}}
+
+On the sign-in page, choose "Continue with Google". You do not need a password.
+
+If you were not expecting this email, you can ignore it.{{end}}
+
+{{define "html"}}<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{template "subject" .}}</title></head>
+<body style="margin:0;padding:24px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5">
+<p style="margin:0 0 24px;font-size:18px;font-weight:bold">{{.Org}}</p>
+<p>{{if .Params.FullName}}Hello {{.Params.FullName}},{{else}}Hello,{{end}}</p>
+<p>{{.Org}} has created a Quizzivy account for you. Sign in with the Google account of this email address:</p>
+<p><a href="{{.Link}}">Go to sign in</a></p>
+<p style="font-size:14px;word-break:break-all">{{.Link}}</p>
+<p>On the sign-in page, choose "Continue with Google". You do not need a password.</p>
+<p>If you were not expecting this email, you can ignore it.</p>
+</body>
+</html>{{end}}
