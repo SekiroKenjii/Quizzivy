@@ -1507,8 +1507,8 @@ the file it adds.
 | `00125_add_word_imports_read_with_ai.sql` | `word_imports.read_with_ai boolean NOT NULL DEFAULT false`; a constant default, so the v0.10.x binary keeps inserting | D4 (T-D4.33), §47 |
 | `00126_add_questions_copied_from.sql` | `questions.copied_from_id` and `questions_copied_from_id_fkey` (`REFERENCES questions (id) ON DELETE SET NULL`), added with the column, nullable with no default | E1 hotfix v0.11.7, D-50, §48 |
 | `00127_index_questions_copied_from.sql` | `questions_copied_from_idx (copied_from_id) WHERE copied_from_id IS NOT NULL`, `CONCURRENTLY` | E1 hotfix v0.11.7, D-50, §48 |
-| `00130_add_users_activity.sql` | `users.last_active_at`, `last_sign_in_at`, `last_sign_in_method` (`users_last_sign_in_method_check`), `password_changed_at`, all nullable; backfills the first two | R5 (T-R5.4), D-51, §49 |
-| `00131_create_user_activity_days.sql` | `user_activity_days (user_id REFERENCES users ON DELETE CASCADE, day date, PRIMARY KEY (user_id, day))` and `user_activity_days_day_idx (day)` | R5 (T-R5.4), D-51, §49 |
+| `00131_add_users_activity.sql` | `users.last_active_at`, `last_sign_in_at`, `last_sign_in_method` (`users_last_sign_in_method_check`), `password_changed_at`, all nullable; backfills the first two | R5 (T-R5.4), D-51, §49 |
+| `00132_create_user_activity_days.sql` | `user_activity_days (user_id REFERENCES users ON DELETE CASCADE, day date, PRIMARY KEY (user_id, day))` and `user_activity_days_day_idx (day)` | R5 (T-R5.4), D-51, §49 |
 
 Notes on migration mechanics (§13.7):
 
