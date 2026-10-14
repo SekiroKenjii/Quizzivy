@@ -159,6 +159,18 @@ export function createDraftFromTestVersion(test: Test, version: number) {
   });
 }
 
+export type MoveTestQuestionInput = components["schemas"]["MoveTestQuestionInput"];
+export type MoveTestQuestionResult = components["schemas"]["MoveTestQuestionResult"];
+
+/**
+ * moveTestQuestion moves a question of a test's draft into a shared-context
+ * group, out of one, between two of its groups or within one. A standalone
+ * question moved in is copied, and the result names the copy.
+ */
+export function moveTestQuestion(id: string, body: MoveTestQuestionInput) {
+  return api("post", "/teacher/tests/{id}/questions/move", { path: { id }, body });
+}
+
 export interface MixedOutlineSection {
   id: string | null;
   title: string;
