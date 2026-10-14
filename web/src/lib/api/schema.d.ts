@@ -174,6 +174,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/set-password/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read what a set-password link is for
+         * @description The set-password page calls this with the token it read from the link's
+         *     fragment, before it shows the form, so it can say whose password it is
+         *     about to set. Nothing is consumed: the same token can be checked again
+         *     until it is used, replaced or expired.
+         *
+         *     A link is a one-time secret an Admin or the account's owner had emailed
+         *     (D15). It works once, for 24 hours, and a newer link for the same
+         *     account replaces it.
+         *
+         *     **Leak review (§6.5).** An unknown, used, expired or revoked token, and
+         *     the token of a disabled account, all answer the same `410
+         *     SET_PASSWORD_LINK_INVALID`, with the same message, from the same single
+         *     indexed lookup, so the answer says nothing about which of them it was.
+         *     The lookup is an equality on the SHA-256 of a 256-bit token, which is
+         *     all the database keeps, so its timing reveals nothing usable. A valid
+         *     token is answered with the account's own email and name: the caller
+         *     already holds the secret that controls that account. The token is never
+         *     logged, is never in a query string and never reaches a `Referer`, since
+         *     the page sends it in this body only.
+         */
+        post: operations["checkSetPasswordLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/set-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a password from an emailed link, and sign in
+         * @description Sets the account's password, clears `mustChangePassword`, signs the
+         *     account in and answers as `login` does. The link has just proved
+         *     control of the mailbox, so no other proof is asked for.
+         *
+         *     One statement claims the token, so two submits at once set the password
+         *     once and the second is answered `410`. Setting a password also ends the
+         *     account's other sessions and links: it revokes every refresh family,
+         *     moves `session_epoch`, and revokes the account's other unused links, all
+         *     before the new session is issued. A Google-only account that sets a
+         *     password this way keeps its Google link.
+         *
+         *     **Leak review (§6.5).** The same single `410` as `checkSetPasswordLink`
+         *     for every invalid state. `422 PASSWORD_SIGN_IN_DISABLED` is decided
+         *     before the token is looked up, so it is the same for every caller and
+         *     says nothing about any token or account. A token that is not valid is
+         *     refused before any password is hashed, so the endpoint is no way to
+         *     spend the server's hashing capacity. The token is never logged, is never
+         *     in a query string and never reaches a `Referer`.
+         */
+        post: operations["setPasswordWithLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/refresh": {
         parameters: {
             query?: never;
@@ -283,6 +358,34 @@ export interface paths {
          *     signing the caller out too.
          */
         post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/set-password/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email the caller a link to set a password
+         * @description For an account that signs in with Google and has no password: emails
+         *     the account's own address a link, valid once for 24 hours, that opens
+         *     the set-password page. A newer link replaces an earlier unused one. The
+         *     caller stays signed in; using the link later ends the other sessions,
+         *     as setting a password does.
+         *
+         *     The answer is `204` once the message is queued; delivery is by the
+         *     outbox and may follow a moment later. Nothing in the answer says
+         *     whether the address received it.
+         */
+        post: operations["requestSetPasswordLink"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4079,7 +4182,7 @@ export interface components {
          *     be sent again.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_NOT_ASSIGNABLE" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "SVG_NOT_ALLOWED" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "SET_PASSWORD_LINK_INVALID" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_NOT_ASSIGNABLE" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "SVG_NOT_ALLOWED" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -5252,6 +5355,24 @@ export interface components {
             /** @description Seconds. */
             expiresIn: number;
             user: components["schemas"]["CurrentUser"];
+        };
+        /**
+         * @description What a valid set-password link is for: the account it controls, which
+         *     the page names so a person can tell the link is theirs, and when it
+         *     stops working. The email and the name are the account's own, given to
+         *     whoever already holds the secret that controls it.
+         */
+        SetPasswordLinkInfo: {
+            /** Format: email */
+            email: string;
+            fullName: string;
+            /**
+             * @description `invite` for a new account's first password, `reset` for a new one.
+             * @enum {string}
+             */
+            purpose: "invite" | "reset";
+            /** Format: date-time */
+            expiresAt: string;
         };
         /**
          * @description One sign-in of the caller that is still live: a refresh-token family
@@ -8146,6 +8267,127 @@ export interface operations {
             429: components["responses"]["TooManyRequests"];
         };
     };
+    checkSetPasswordLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The `token` the link carries after `#token=`. */
+                    token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The link can still be used. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetPasswordLinkInfo"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /**
+             * @description `SET_PASSWORD_LINK_INVALID` — the link is unknown, used, expired or
+             *     revoked, or its account is disabled. The client says the link has
+             *     expired or was already used and asks the user to request a new one.
+             */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The body is over 8 KiB, which the rate limiter's keys read in full. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["Maintenance"];
+        };
+    };
+    setPasswordWithLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The `token` the link carries after `#token=`. */
+                    token: string;
+                    /**
+                     * @description The same rule as `changePassword`: at least 8 characters,
+                     *     at least one of which is a digit, a punctuation mark or a
+                     *     symbol, in any script.
+                     */
+                    newPassword: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The password is set and the account is signed in. Sets the rotating refresh cookie. */
+            200: {
+                headers: {
+                    /** @description `quizzivy_refresh=…; HttpOnly; Secure; SameSite=Lax; Path=/auth` */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthSuccess"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `SET_PASSWORD_LINK_INVALID` — as for `checkSetPasswordLink`. Nothing was changed. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The body is over 8 KiB, which the rate limiter's keys read in full. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `PASSWORD_SIGN_IN_DISABLED` — the centre has turned password
+             *     sign-in off, so there is no password to set. The client sends the
+             *     person to sign in with Google.
+             */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["Maintenance"];
+        };
+    };
     refreshSession: {
         parameters: {
             query?: never;
@@ -8367,6 +8609,40 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    requestSetPasswordLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthorized"];
+            /**
+             * @description `PASSWORD_SIGN_IN_DISABLED` — the centre has turned password
+             *     sign-in off, so a password would be of no use.
+             */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description This server has no key to seal a link with (`SECRETS_KEY`), so it cannot send one. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     linkGoogle: {
