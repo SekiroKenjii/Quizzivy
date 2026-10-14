@@ -478,6 +478,25 @@ A failed row keeps its `last_error_code` (`http_422:validation_error`,
 outbox id, template, outcome and recipient domain, never an address, a subject
 or a link.
 
+## The plan the Admin console shows
+
+The Admin console's Overview and its Plan & usage page set what the centre holds beside the plan
+it states (T-R5.18). The plan is six optional variables, read at start-up: `PLAN_NAME` (up to 80
+characters), `PLAN_RENEWS_ON` (`YYYY-MM-DD`, and it needs a name), `PLAN_SEAT_LIMIT` and
+`PLAN_TEACHER_LIMIT` (whole numbers from 1 to 1,000,000), and `PLAN_MEDIA_BYTES` and
+`PLAN_IMPORT_BYTES` (bytes, from 1 to 2^50). A variable that is unset states no limit, and a value
+the server cannot read stops it at start-up, so a typo is found at deploy and not at the first
+page load. Nothing is enforced (DG-55): a limit is drawn beside its figure, and a figure may pass
+it.
+
+Production sets none of them until the centre's plan is decided; the names are listed in
+`fly.toml` and `.env.example`. Seats count every account, disabled ones included, against
+`PLAN_SEAT_LIMIT`; teachers count the accounts that are neither a student target nor an Admin.
+Media is the bytes of the files not yet purged from storage, and imports the bytes of the source
+documents of the imports whose files have not been removed, against their limits. A meter at 80%
+of its limit adds a storage row to the Overview's attention list. Days on the Overview are local
+dates in `APP_TIMEZONE`.
+
 ## Legacy join codes
 
 A code issued before v0.8.0 is held only as its SHA-256 (lookup scheme 1): it
