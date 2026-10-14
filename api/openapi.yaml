@@ -1484,13 +1484,12 @@ components:
         name: { type: string, minLength: 1, maxLength: 60 }
         description: { type: string, maxLength: 300 }
         copyFromRoleId:
-          allOf: [{ $ref: '#/components/schemas/Uuid' }]
+          $ref: '#/components/schemas/Uuid'
           description: The role whose permissions the new role starts with. Omitted, it starts with none.
 
     RoleUpdate:
       type: object
       required: [expectedRevision]
-      minProperties: 2
       additionalProperties: false
       properties:
         name: { type: string, minLength: 1, maxLength: 60 }
@@ -9795,8 +9794,8 @@ paths:
       tags: [admin-roles]
       summary: Edit a role's name, description, icon or colour
       description: |
-        A supplied field is changed and the others are kept. A built-in role may
-        be renamed; its key never changes. The target must pass the subset rule.
+        A supplied field is changed and the others are kept; a body with only
+        `expectedRevision` is refused. A built-in role may be renamed; its key never changes. The target must pass the subset rule.
         A change moves the revision. Writes one audit row, `role.updated`, naming
         what changed.
       requestBody:

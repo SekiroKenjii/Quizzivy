@@ -2291,8 +2291,8 @@ export interface paths {
         head?: never;
         /**
          * Edit a role's name, description, icon or colour
-         * @description A supplied field is changed and the others are kept. A built-in role may
-         *     be renamed; its key never changes. The target must pass the subset rule.
+         * @description A supplied field is changed and the others are kept; a body with only
+         *     `expectedRevision` is refused. A built-in role may be renamed; its key never changes. The target must pass the subset rule.
          *     A change moves the revision. Writes one audit row, `role.updated`, naming
          *     what changed.
          */
