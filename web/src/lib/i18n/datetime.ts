@@ -296,7 +296,10 @@ export function formatAgo(
     count: number,
     unit: Intl.RelativeTimeFormatUnit,
     numeric: "always" | "auto" = "always",
-  ) => new Intl.RelativeTimeFormat(locale, { numeric }).format(-count, unit);
+  ) =>
+    new Intl.RelativeTimeFormat(locale, { numeric })
+      .format(-count, unit)
+      .toLocaleLowerCase(locale);
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return ago(minutes, "minute");
   const hours = Math.floor(minutes / 60);
