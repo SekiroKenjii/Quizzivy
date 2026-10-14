@@ -40,6 +40,11 @@ func RunImportWorker(ctx context.Context, logger *slog.Logger) error {
 		return err
 	}
 	runner.Observe = jobs.ObserveImportRun(logger)
+	mail, err := wiring.BuildMail(cfg.Base, db.NewContext(pool.Pool), logger)
+	if err != nil {
+		return err
+	}
+	go mail.Run(ctx, logger)
 	wake := make(chan struct{}, 1)
 	if err := jobs.ServeWake(ctx, logger, cfg.WakeAddress, wake); err != nil {
 		return err
