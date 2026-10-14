@@ -345,6 +345,7 @@
       "media.replaced": "Đã thay tệp phương tiện",
       "media.updated": "Đã cập nhật tệp phương tiện",
       "media.uploaded": "Đã tải lên tệp phương tiện",
+      "organization.updated": "Đã cập nhật thông tin trung tâm",
       "question.created": "Đã tạo câu hỏi",
       "question.deleted": "Đã xoá câu hỏi",
       "question.updated": "Đã cập nhật câu hỏi",
@@ -869,7 +870,8 @@
     "createCodeBody": "Mã dùng được 30 ngày, tối đa 40 lượt tham gia.",
     "codeRenewedWith": "Mã tham gia mới: {{code}}",
     "newCodeFailed": "Không tạo được mã tham gia mới.",
-    "codesReplaced": "Mã tham gia của các lớp đã được thay ngày {{date}}. Hãy gửi mã mới cho học viên."
+    "codesReplaced": "Mã tham gia của các lớp đã được thay ngày {{date}}. Hãy gửi mã mới cho học viên.",
+    "joinCodesOff": "Trung tâm đang tắt tham gia bằng mã."
   },
   "settings": {
     "profile": "Hồ sơ",

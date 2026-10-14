@@ -3,10 +3,12 @@ package support
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	accessdomain "quizzivy/internal/modules/access/domain"
 	"quizzivy/internal/modules/identity/application/ports"
 	"quizzivy/internal/modules/identity/domain"
+	organizationquery "quizzivy/internal/modules/organization/application/query"
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/stats"
 	"time"
@@ -20,7 +22,22 @@ type Students struct {
 	Now        func() time.Time
 	// Password makes a temporary password and its hash.
 	Password func(ctx context.Context) (password, hash string, err error)
+	Policy   ports.SignInPolicy
 	Logger   *slog.Logger
+}
+
+// Issuing returns req marked with what the centre's sign-in policy says about the temporary password a write is about to issue: whether the student must change it at the first sign-in. Without a policy port the change is forced.
+func (s *Students) Issuing(ctx context.Context, req domain.WriteRequest) (domain.WriteRequest, error) {
+	if s.Policy == nil {
+		req.KeepTemporaryPassword = false
+		return req, nil
+	}
+	policy, err := s.Policy.Handle(ctx, organizationquery.SignInPolicy{})
+	if err != nil {
+		return domain.WriteRequest{}, fmt.Errorf("read the sign-in policy: %w", err)
+	}
+	req.KeepTemporaryPassword = !policy.ForcePasswordChange
+	return req, nil
 }
 
 func NewStudents(repo domain.Students, stats stats.Source) *Students {

@@ -27,7 +27,11 @@ func (s ResetStudentPasswordHandler) Handle(ctx context.Context, cmd ResetStuden
 	if err != nil {
 		return "", err
 	}
-	err = s.Repo.ResetPassword(ctx, cmd.Request, cmd.ID, hash, s.Now())
+	request, err := s.Issuing(ctx, cmd.Request)
+	if err != nil {
+		return "", err
+	}
+	err = s.Repo.ResetPassword(ctx, request, cmd.ID, hash, s.Now())
 	s.ForgetAfterReset(cmd.ID, err)
 	if err != nil {
 		return "", err

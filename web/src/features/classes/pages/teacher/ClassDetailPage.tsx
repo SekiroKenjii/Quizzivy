@@ -15,6 +15,7 @@ import { ClassAssignmentsCard } from "@/features/classes/components/ClassAssignm
 import { ClassMembersCard } from "@/features/classes/components/ClassMembersCard";
 import { ClassSettingsCard } from "@/features/classes/components/ClassSettingsCard";
 import { JoinCodePanel } from "@/features/classes/components/JoinCodePanel";
+import { JoinCodesOffCallout } from "@/features/classes/components/JoinCodesOffCallout";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { useContentWidthAtLeast } from "@/layouts/shell/contentWidth";
 import { ApiError } from "@/lib/api/errors";
@@ -113,6 +114,7 @@ export default function ClassDetailPage() {
           docked={two}
           className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))] items-start gap-4.5"
         >
+          <JoinCodesOffCallout />
           <JoinCodePanel klass={data} canWrite={canWrite} />
           <ClassSettingsCard klass={data} canWrite={canWrite} />
         </StickyAside>

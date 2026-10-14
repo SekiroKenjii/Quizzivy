@@ -10,7 +10,7 @@ import (
 	"quizzivy/internal/shared/opt"
 )
 
-// UnlinkGoogle detaches the Google identity (§15).
+// UnlinkGoogle detaches the Google identity (§15). It fails with domain.ErrLastLoginMethod when the account has no password, or when the centre has turned password sign-in off, since either leaves no way in.
 type UnlinkGoogle struct {
 	Actor actor.Actor
 }
@@ -27,7 +27,11 @@ func (s UnlinkGoogleHandler) Handle(ctx context.Context, cmd UnlinkGoogle) (cqrs
 	if user.Disabled() {
 		return cqrs.Nothing{}, domain.ErrAccountDisabled
 	}
-	if !user.HasPassword() {
+	policy, err := s.SignInPolicy(ctx)
+	if err != nil {
+		return cqrs.Nothing{}, err
+	}
+	if !user.HasPassword() || !policy.Password {
 		return cqrs.Nothing{}, domain.ErrLastLoginMethod
 	}
 

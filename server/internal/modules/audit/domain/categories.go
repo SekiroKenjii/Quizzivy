@@ -64,6 +64,7 @@ var allOnlyEntities = []string{
 	"attempt_events",
 	"audit_log",
 	"maintenance_window",
+	"organization",
 }
 
 // CategoryOf is the category an entry about entity belongs to. An entity in

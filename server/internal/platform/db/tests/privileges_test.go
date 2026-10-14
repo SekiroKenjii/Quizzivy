@@ -11,10 +11,20 @@ import (
 const appRole = "quizzivy_app"
 
 var readOnlyForApp = map[string]bool{
-	"maintenance_windows": true,
-	"permissions":         true,
-	"roles":               true,
-	"role_permissions":    true,
+	"maintenance_windows":   true,
+	"permissions":           true,
+	"roles":                 true,
+	"role_permissions":      true,
+	"organization_settings": true,
+}
+
+func TestTheOrganizationSettingsRowCanBeChangedButNeitherAddedNorRemovedByTheAppRole(t *testing.T) {
+	conn := migrated(t)
+	for priv, want := range map[string]bool{"SELECT": true, "UPDATE": true, "INSERT": false, "DELETE": false} {
+		if got := hasTablePrivilege(t, conn, appRole, "app.organization_settings", priv); got != want {
+			t.Errorf("%s %s on app.organization_settings = %v, want %v", appRole, priv, got, want)
+		}
+	}
 }
 
 // TestAppRoleCanReadAndWriteEveryTable loops over information_schema rather than

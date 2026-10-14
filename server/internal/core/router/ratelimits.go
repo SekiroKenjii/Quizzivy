@@ -27,6 +27,8 @@ func RateLimits() *ratelimit.Registry {
 		WithKey("perCode", joinCode, capacity, ratelimit.PerHour(200))
 	reg.Add("POST /app/attempts/{id}/events", capacity, ratelimit.PerMinute(120))
 	reg.Add("GET /public/status", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(2000))
+	reg.Add("GET /public/organization", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(2000))
+	reg.Add("GET /public/organization/logo", capacity, ratelimit.PerMinute(300))
 
 	return reg
 }
@@ -76,6 +78,7 @@ func PrincipalRateLimits() *ratelimit.Registry {
 	perActor("POST /auth/sessions/revoke-others", ratelimit.PerMinute(5), ratelimit.PerHour(30))
 	perActor("GET /teacher/assignments/results.csv", ratelimit.PerMinute(10), ratelimit.PerHour(60))
 	perActor("PUT /me/avatar", ratelimit.PerHour(10))
+	perActor("POST /admin/settings/logo", ratelimit.PerHour(20))
 	perActor("POST /teacher/media/{id}/replace", ratelimit.PerMinute(10), ratelimit.PerHour(60))
 	for _, pattern := range aiSuggestions {
 		perActor(pattern, ratelimit.PerMinute(10), ratelimit.PerHour(100))

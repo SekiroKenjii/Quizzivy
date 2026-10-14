@@ -69,6 +69,7 @@ var catalogue = []Action{
 	{"media.replaced", "Đã thay tệp phương tiện", "Replaced a media file"},
 	{"media.updated", "Đã cập nhật tệp phương tiện", "Updated a media file"},
 	{"media.uploaded", "Đã tải lên tệp phương tiện", "Uploaded a media file"},
+	{"organization.updated", "Đã cập nhật thông tin trung tâm", "Updated the centre's settings"},
 	{"question.created", "Đã tạo câu hỏi", "Created a question"},
 	{"question.deleted", "Đã xoá câu hỏi", "Deleted a question"},
 	{"question.updated", "Đã cập nhật câu hỏi", "Updated a question"},

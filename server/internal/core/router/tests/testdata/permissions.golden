@@ -17,6 +17,7 @@ GET /admin/api-reference system.api_reference
 GET /admin/api-reference/openapi.json system.api_reference
 GET /admin/audit-log system.audit.read
 GET /admin/audit-log/export system.audit.read
+GET /admin/settings system.settings.write
 GET /app/assignments learning.take_tests
 GET /app/assignments/{id} learning.take_tests
 GET /app/attempts/{id} learning.take_tests
@@ -81,6 +82,8 @@ POST /admin/ai/credit-requests/{id}/approve ai.credits.manage
 POST /admin/ai/credit-requests/{id}/decline ai.credits.manage
 POST /admin/ai/credits/additions ai.credits.manage
 POST /admin/docs-session system.api_reference
+POST /admin/settings/logo system.settings.write
+POST /admin/settings/sign-in-impact system.settings.write
 POST /app/assignments/{id}/attempts learning.take_tests
 POST /app/attempts/{id}/audio-play learning.take_tests
 POST /app/attempts/{id}/group-audio-play learning.take_tests
@@ -136,6 +139,7 @@ POST /teacher/tests/{id}/questions/move content.tests.write
 POST /teacher/tests/{id}/versions/{version}/current content.tests.publish
 POST /teacher/tests/{id}/versions/{version}/draft content.tests.write
 PUT /admin/ai/teachers/{userId}/allowance ai.credits.manage
+PUT /admin/settings system.settings.write
 PUT /me/avatar self
 PUT /me/notification-preferences self
 PUT /teacher/assignments/{id}/student-overrides teaching.attempts.intervene
