@@ -1,9 +1,9 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.110 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.111 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
-**Changes since v0.109**
+**Changes since v0.110**
 
 The next patch release (v0.11.8), a hotfix after a teacher's report (2026-10-14): closing an AI panel threw its results away, and getting them back meant running the assistant, and paying for it, again.
 
