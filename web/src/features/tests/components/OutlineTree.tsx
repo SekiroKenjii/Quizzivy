@@ -17,9 +17,14 @@ import {
   useDroppable,
   useSensor,
   useSensors,
+  type Active,
   type DragEndEvent,
   type DragMoveEvent,
+  type DroppableContainer,
   type KeyboardCoordinateGetter,
+  type Over,
+  type SensorDescriptor,
+  type SensorOptions,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -63,6 +68,8 @@ import { cn } from "@/lib/utils";
 import { QUESTION_TYPE_ICONS } from "@/features/question-bank/components/questionTypeIcons";
 import { moveSection, type OutlineSection } from "@/features/tests/outline";
 import {
+  dropRequest,
+  findMember,
   findUnit,
   moveUnit,
   removeUnit,
@@ -70,9 +77,16 @@ import {
   stepUnit,
   unitKey,
   unitsOf,
+  type OutlinePlace,
+  type QuestionMove,
 } from "../outlineUnits";
 import type { GroupBundle } from "@/features/question-groups/api";
-import { OutlineGroupRow } from "./OutlineGroupRow";
+import {
+  OutlineGroupRow,
+  type GroupTargets,
+  type MemberDrop,
+  type MemberMoveAction,
+} from "./OutlineGroupRow";
 import { OutlineKeyboardSensor } from "./OutlineKeyboardSensor";
 import type { TFunction } from "i18next";
 
@@ -89,6 +103,7 @@ export interface OutlineQuestion {
 type DropPosition = "before" | "after" | undefined;
 
 const NO_FILES: ReadonlyMap<string, string> = new Map();
+const NO_SENSORS: SensorDescriptor<SensorOptions>[] = [];
 
 interface OutlineTreeProps {
   sections: OutlineSection[];
@@ -109,6 +124,9 @@ interface OutlineTreeProps {
   onCreateGroup?: () => void;
   onRemoveGroup?: (id: string, opener: HTMLElement | null) => void;
   onRemoveSection?: (index: number) => void;
+  onMove?: (move: QuestionMove) => void;
+  onPickGroup?: (questionId: string, opener: HTMLElement | null) => void;
+  movingQuestionId?: string | null;
 }
 
 /**
@@ -116,7 +134,14 @@ interface OutlineTreeProps {
  * in reading order. `groupFiles` maps an audio asset id of a group's
  * materials to its file name, for the group's shared-content line.
  * `onOpenSharedContent` asks for a group's Shared content dialog, naming the
- * control focus returns to when it closes.
+ * control focus returns to when it closes. Moving a whole unit between unit
+ * places goes through `onChange`; dragging a question into a group, out of
+ * one, between groups or within one asks `onMove`, which the server answers,
+ * and opens the group and section it lands in. A member's own menu asks
+ * `onMove` for its moves up, down and out of its group, and `onPickGroup`
+ * for a move to another group, naming the control focus returns to. While
+ * `movingQuestionId` is set that question's row is drawn busy and nothing can
+ * be dragged.
  */
 export function OutlineTree({
   sections,
@@ -137,9 +162,13 @@ export function OutlineTree({
   onCreateGroup,
   onRemoveGroup,
   onRemoveSection,
+  onMove,
+  onPickGroup,
+  movingQuestionId = null,
 }: Readonly<OutlineTreeProps>) {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const [closedGroups, setClosedGroups] = useState<ReadonlySet<string>>(new Set());
   // A section without a server id yet is keyed by a client key that travels
   // with it, so collapsing it and then moving it keeps the state on the section.
   const [clientKeys, setClientKeys] = useState<string[]>([]);
@@ -219,28 +248,102 @@ export function OutlineTree({
     onChange(moveSection(sections, from, to));
   }
 
-  function dropUnit(event: DragEndEvent, keyboard: boolean) {
-    const from = findUnit(sections, String(event.active.id));
-    const sectionIndex = event.over?.data.current?.["sectionIndex"];
+  function placeOf(over: Over, after: boolean): OutlinePlace | null {
+    const data = over.data.current;
+    const sectionIndex = data?.["sectionIndex"];
+    if (typeof sectionIndex === "number")
+      return { kind: "unit", sectionIndex, index: 0 };
+    const groupId = data?.["groupId"];
+    if (data?.["kind"] === "group-head" && typeof groupId === "string")
+      return { kind: "member", groupId, index: 0 };
+    const key = String(over.id);
+    const unit = findUnit(sections, key);
+    if (unit)
+      return {
+        kind: "unit",
+        sectionIndex: unit.sectionIndex,
+        index: unit.index + (after ? 1 : 0),
+      };
+    const member = findMember(groups, key);
+    return member
+      ? {
+          kind: "member",
+          groupId: member.groupId,
+          index: member.index + (after ? 1 : 0),
+        }
+      : null;
+  }
+
+  function openSection(sectionIndex: number) {
+    const destination = sections[sectionIndex];
+    if (!destination) return;
+    setCollapsed((current) => {
+      const next = new Set(current);
+      next.delete(keyFor(destination, sectionIndex));
+      return next;
+    });
+  }
+
+  function toggleGroup(groupId: string) {
+    setClosedGroups((current) => toggle(current, groupId));
+  }
+
+  function requestMove(move: QuestionMove) {
+    if (!onMove) return;
+    openSection(move.to.sectionIndex);
+    const groupId = move.to.groupId;
+    if (groupId)
+      setClosedGroups((current) => {
+        const next = new Set(current);
+        next.delete(groupId);
+        return next;
+      });
+    onMove(move);
+  }
+
+  function moveMember(
+    groupId: string,
+    questionId: string,
+    action: MemberMoveAction,
+    opener: HTMLElement | null,
+  ) {
+    if (action === "group") {
+      onPickGroup?.(questionId, opener);
+      return;
+    }
+    const owner = findUnit(sections, `group:${groupId}`);
+    const at = findMember(groups, `question:${questionId}`);
+    if (!owner || !at) return;
     const to =
-      typeof sectionIndex === "number"
-        ? { sectionIndex, index: 0 }
-        : findUnit(sections, String(event.over?.id));
-    if (!from || !to) return;
-    if (!keyboard && typeof sectionIndex !== "number") {
-      to.index += isAfterDrop(event) ? 1 : 0;
-      if (from.sectionIndex === to.sectionIndex && from.index < to.index) to.index -= 1;
+      action === "out"
+        ? { sectionIndex: owner.sectionIndex, groupId: null, index: owner.index + 1 }
+        : {
+            sectionIndex: owner.sectionIndex,
+            groupId,
+            index: at.index + (action === "up" ? -1 : 1),
+          };
+    requestMove({ questionId, to, groupIds: [groupId] });
+  }
+
+  function dropUnit(event: DragEndEvent, keyboard: boolean) {
+    if (!event.over) return;
+    const place = placeOf(event.over, !keyboard && isAfterDrop(event));
+    if (!place) return;
+    const request = dropRequest(
+      sections,
+      groups,
+      String(event.active.id),
+      place,
+      !keyboard,
+    );
+    if (!request) return;
+    if (request.kind === "question") {
+      requestMove(request.move);
+      return;
     }
-    if (typeof sectionIndex === "number") {
-      const destination = sections[sectionIndex];
-      if (destination)
-        setCollapsed((current) => {
-          const next = new Set(current);
-          next.delete(keyFor(destination, sectionIndex));
-          return next;
-        });
-    }
-    onChange(moveUnit(sections, from, to));
+    const intoSection = event.over.data.current?.["sectionIndex"];
+    if (typeof intoSection === "number") openSection(intoSection);
+    onChange(moveUnit(sections, request.from, request.to));
   }
 
   function onDragEnd(event: DragEndEvent) {
@@ -294,6 +397,7 @@ export function OutlineTree({
   }
 
   const numbering = numberQuestions(sections, groups);
+  const groupTargets = targetsFor(dragging, onMove !== undefined);
 
   const settled = sections.every((section) =>
     unitsOf(section).every((unit) =>
@@ -316,6 +420,9 @@ export function OutlineTree({
               })
             : t("common.loading")}
         </p>
+        <span role="status" className="sr-only">
+          {movingQuestionId === null ? "" : t("builder.moving")}
+        </span>
       </div>
 
       <DndContext
@@ -323,19 +430,22 @@ export function OutlineTree({
           screenReaderInstructions: { draggable: t("builder.dragInstructions") },
           announcements: {
             onDragStart: () => t("builder.dragStarted"),
-            onDragOver: ({ over }) => (over ? t("builder.dragOver") : undefined),
+            onDragOver: ({ over }) => {
+              if (!over) return undefined;
+              return over.data.current?.["kind"] === "group-head"
+                ? t("builder.groupDropHint")
+                : t("builder.dragOver");
+            },
             onDragEnd: () => t("builder.dragDropped"),
             onDragCancel: () => t("builder.dragCancelled"),
           },
         }}
-        sensors={sensors}
+        sensors={movingQuestionId === null ? sensors : NO_SENSORS}
         collisionDetection={(args) =>
           closestCenter({
             ...args,
             droppableContainers: args.droppableContainers.filter((container) =>
-              args.active.data.current?.["kind"] === "section"
-                ? container.data.current?.["kind"] === "section"
-                : container.data.current?.["kind"] !== "section",
+              accepts(args.active, container, onMove !== undefined),
             ),
           })
         }
@@ -436,6 +546,16 @@ export function OutlineTree({
                                 numbering={numbering}
                                 fileNames={groupFiles}
                                 drop={dropPosition(dropTarget, unitKey(unit))}
+                                dropInto={dropTarget?.id === `group:${unit.id}:head`}
+                                memberDrop={memberDrop(dropTarget)}
+                                busyQuestionId={movingQuestionId}
+                                targets={groupTargets}
+                                canPickGroup={
+                                  onPickGroup !== undefined && groups.size > 1
+                                }
+                                onMemberMove={onMove ? moveMember : undefined}
+                                open={!closedGroups.has(unit.id)}
+                                onToggle={() => toggleGroup(unit.id)}
                                 selected={selectedGroupId === unit.id}
                                 selectedQuestionId={selectedId}
                                 canUp={
@@ -484,6 +604,7 @@ export function OutlineTree({
                                   ) !== null
                                 }
                                 selected={!selectedGroupId && unit.id === selectedId}
+                                busy={movingQuestionId === unit.id}
                                 onSelect={() => onSelect(unit.id)}
                                 onStep={(direction) => step(unitKey(unit), direction)}
                                 onDrop={() => drop(unitKey(unit))}
@@ -932,6 +1053,7 @@ function OutlineRow({
   canUp,
   canDown,
   selected,
+  busy,
   onSelect,
   onStep,
   onDrop,
@@ -943,6 +1065,7 @@ function OutlineRow({
   canUp: boolean;
   canDown: boolean;
   selected: boolean;
+  busy: boolean;
   onSelect: () => void;
   onStep: (direction: -1 | 1) => void;
   onDrop: () => void;
@@ -951,6 +1074,7 @@ function OutlineRow({
   const problemId = useId();
   const { attributes, listeners, setNodeRef, isDragging } = useSortable({
     id: `question:${questionId}`,
+    data: { kind: "question" },
     transition: null,
   });
 
@@ -964,10 +1088,12 @@ function OutlineRow({
     <div
       ref={setNodeRef}
       data-outline-row=""
+      data-outline-question={questionId}
+      aria-busy={busy || undefined}
       className={cn(
         "group/row hover:bg-hover text-fg relative flex min-h-8 items-center gap-1 rounded-[7px] py-0.75 pr-1 pl-0.5 text-[13px]",
         selected && "bg-secondary font-medium",
-        isDragging ? "opacity-40" : "",
+        (isDragging || busy) && "opacity-40",
       )}
     >
       {drop ? (
@@ -982,6 +1108,7 @@ function OutlineRow({
       ) : null}
       <button
         type="button"
+        data-outline-grip=""
         className="text-muted-foreground flex h-6 w-5 shrink-0 cursor-grab touch-none items-center justify-center"
         aria-label={t("builder.reorder", { number })}
         {...attributes}
@@ -1155,6 +1282,14 @@ function abbreviatedTarget(
   return title.length > 16 ? `${title.slice(0, 15)}…` : title;
 }
 
+function memberDrop(target: { id: string; after: boolean } | null): MemberDrop | null {
+  if (!target?.id.startsWith("question:")) return null;
+  return {
+    questionId: target.id.slice("question:".length),
+    position: target.after ? "after" : "before",
+  };
+}
+
 function dropPosition(
   target: { id: string; after: boolean } | null,
   id: string,
@@ -1188,6 +1323,25 @@ const outlineKeyboardCoordinates: KeyboardCoordinateGetter = (event, args) => {
       y: rect.top + (rect.height - collisionRect.height) / 2,
     };
 };
+
+function targetsFor(dragging: string | null, crossing: boolean): GroupTargets {
+  if (dragging === null || dragging.startsWith("section:")) return "all";
+  return crossing && dragging.startsWith("question:") ? "inside" : "unit";
+}
+
+function accepts(
+  active: Active,
+  container: DroppableContainer,
+  crossing: boolean,
+): boolean {
+  const dragged = active.data.current?.["kind"];
+  const target = container.data.current?.["kind"];
+  if (dragged === "section") return target === "section";
+  if (target === "section") return false;
+  if (dragged === "group" || !crossing)
+    return target !== "member" && target !== "group-head";
+  return target !== "group";
+}
 
 function isAfterDrop(event: DragEndEvent): boolean {
   const rect = event.active.rect.current.translated;

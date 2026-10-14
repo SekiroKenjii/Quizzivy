@@ -621,6 +621,114 @@ it("moves a whole shared-context group with immediate keys while retaining membe
   }
 });
 
+it.each([
+  {
+    keys: ["ArrowDown"],
+    to: { sectionIndex: 0, groupId: "member-group", index: 1 },
+    where: "to the next member's place",
+  },
+  {
+    keys: ["ArrowDown", "ArrowDown"],
+    to: { sectionIndex: 1, groupId: null, index: 0 },
+    where: "out to the next section's header",
+  },
+])(
+  "moves a member $where with immediate keys, asking the page once",
+  async ({ keys, to }) => {
+    const { emptyGroup, newGroupQuestion } =
+      await import("@/features/question-groups/model");
+    const i18n = (await import("@/lib/i18n")).default;
+    const bundle = emptyGroup("Members");
+    bundle.group.id = "member-group";
+    const first = { ...newGroupQuestion(i18n.t), id: "member-one" };
+    const second = { ...newGroupQuestion(i18n.t), id: "member-two" };
+    bundle.questions = [first, second];
+    bundle.group.members = [
+      { questionId: first.id, optionOrder: "shuffle" },
+      { questionId: second.id, optionOrder: "shuffle" },
+    ];
+    const from: OutlineSection = {
+      id: "from",
+      clientId: "from-client",
+      title: "From",
+      instructions: null,
+      questionIds: [],
+      units: [{ kind: "group", id: bundle.group.id }],
+    };
+    const into: OutlineSection = {
+      id: "into",
+      clientId: "into-client",
+      title: "Into",
+      instructions: null,
+      questionIds: [],
+    };
+    const moved = vi.fn();
+    const changed = vi.fn();
+    vi.useFakeTimers();
+    const fixture = render(
+      <OutlineTree
+        sections={[from, into]}
+        questions={new Map()}
+        groups={new Map([[bundle.group.id, bundle]])}
+        selectedId={null}
+        creating={false}
+        onSelect={vi.fn()}
+        onCreateQuestion={vi.fn()}
+        onPickFromBank={vi.fn()}
+        onAddSection={vi.fn()}
+        onChange={changed}
+        onMove={moved}
+      />,
+    );
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: Element,
+    ) {
+      const lines = [
+        ...document.querySelectorAll(
+          '[data-outline-row], [aria-label^="Kéo nhóm"], [aria-label^="Kéo để đổi vị trí phần"]',
+        ),
+      ].map((node) =>
+        node.hasAttribute("data-outline-row") ? node : node.parentElement!,
+      );
+      const own = lines.findIndex((line) => line === this || line.contains(this));
+      const held =
+        own === -1
+          ? lines.flatMap((line, index) => (this.contains(line) ? [index] : []))
+          : [own];
+      const top = held.length === 0 ? 0 : Math.min(...held) * 40;
+      const height = held.length === 0 ? 0 : Math.max(...held) * 40 + 32 - top;
+      return {
+        width: 300,
+        height,
+        top,
+        left: 0,
+        right: 300,
+        bottom: top + height,
+        x: 0,
+        y: top,
+        toJSON: () => ({}),
+      };
+    });
+    const grip = screen.getByRole("button", { name: "Kéo câu 1" });
+    grip.focus();
+    try {
+      expect(key(grip, "Space")).toBe(true);
+      for (const code of keys) expect(key(grip, code)).toBe(true);
+      expect(moved).not.toHaveBeenCalled();
+      expect(key(grip, "Space")).toBe(true);
+      expect(moved).toHaveBeenCalledExactlyOnceWith({
+        questionId: "member-one",
+        to,
+        groupIds: ["member-group"],
+      });
+      expect(changed).not.toHaveBeenCalled();
+    } finally {
+      key(grip, "Escape");
+      fixture.unmount();
+    }
+  },
+);
+
 it("removes already installed public listeners when the real start callback fails", () => {
   const failure = new Error("expected public start failure");
   const errors: unknown[] = [];

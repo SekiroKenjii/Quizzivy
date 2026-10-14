@@ -128,6 +128,7 @@ POST /teacher/students/{id}/reset-password people.students.reset_password
 POST /teacher/tests content.tests.write
 POST /teacher/tests/{id}/duplicate content.tests.write
 POST /teacher/tests/{id}/publish content.tests.publish
+POST /teacher/tests/{id}/questions/move content.tests.write
 POST /teacher/tests/{id}/versions/{version}/current content.tests.publish
 POST /teacher/tests/{id}/versions/{version}/draft content.tests.write
 PUT /admin/ai/teachers/{userId}/allowance ai.credits.manage

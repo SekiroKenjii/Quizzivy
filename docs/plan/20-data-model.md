@@ -3261,3 +3261,125 @@ replay of the create with a different value conflicts (`IMPORT_CONFLICT`) as a c
 The worker reads it through `Sources`, which sets `Source.ReadWithAi` on every source of the run.
 There is no index and no check: nothing filters on it. The Down drops the column and loses which
 imports asked for AI, and nothing else.
+
+## 48. Moving a question across the group boundary (E1)
+
+`POST /teacher/tests/{id}/questions/move` (`moveTestQuestion`, spec §7.3 and §15) puts a
+standalone question of a test's draft into a shared-context group, takes a member out of its group,
+and moves a member to another group of the same test or to another place in its own group.
+
+**No schema change.** There is no migration, no new constraint or index and no grant. Every table
+and column the move writes exists: `questions`, `test_section_units`, `test_section_questions`,
+`question_groups`, `tests` and `audit_log`. The writes hit the primary keys, the three ordinal
+constraints below and `questions_context_complete`, and the gap check hits
+`group_gap_bindings_question_idx`. So nothing is expanded or contracted, the up/down/up round trip is
+unchanged, and the §12 register needs no row: no table deviates. During a rolling deploy an old pod
+answers the route 404, and every row the new binary writes is a row the old one already reads, because
+a draft after a move is the same tables in the same shapes: standalone units and members of a group,
+and a member that left its group is a row with the all-null tuple the check always allowed.
+
+**The statements.** One transaction, `GroupsPostgres.MoveQuestion`, in three cases:
+
+- **Into a group.** `DELETE` the section's `test_section_units` and `test_section_questions` rows for
+  the bank question, renumber the section's units and recompute the standalone ordinals from them,
+  then insert a new `questions` row with `context_group_id`, `context_ordinal` and
+  `context_option_order = 'shuffle'` (through the questions module's `CreateGroupMember`, with new
+  question, option and blank ids), and renumber the group's members so the copy sits at `index`. The
+  bank row is read and never written.
+- **Out of a group.** One `UPDATE app.questions SET context_group_id = NULL, context_ordinal = NULL,
+  context_option_order = NULL, owner_id = <the test's owner> WHERE id = $1 AND context_group_id = $2`,
+  so the check sees the all-null tuple at once; renumber the source group's members; shift the
+  section's units at and after `index` up by one and insert the question's `test_section_units` and
+  `test_section_questions` rows, then recompute the standalone ordinals. The group stays when it
+  empties.
+- **Between groups, or within one.** One `UPDATE` of `context_group_id` and `context_ordinal` for a
+  member that changes group; then a `row_number()`-style renumber of each touched group's members
+  (`unnest` of the ids and their new ordinals), as `RemoveFromSection` renumbers a section.
+
+Then, for every case: `UPDATE app.question_groups SET revision = revision + 1` on each touched group,
+`UPDATE app.tests SET updated_at`, and the audit rows, `test.question_moved` (entity `test`, a diff of
+the question, both places, the index and whether it was copied) and one `question_group.updated` per
+touched group. The diff holds only facts the transaction already knows under its locks, so it needs no
+data-modifying CTE (AGENTS.md). No `test_version_*` row is read or written.
+
+**The lock order** is §19's, test, then group, then members, then media, with the question rows in
+ascending id order:
+
+1. `checkVersion`: `app.tests … FOR UPDATE`, the revision and the caller's scope; then the archived
+   check and the permission. This is the parent lock publish, the outline autosave, every group write
+   and "Remove group" take first, so the move serialises against all of them.
+2. The source, the destination and every group the request lists are resolved inside this test, so a
+   foreign or missing id is `ErrNotFound` before any revision is compared.
+3. The touched groups `FOR UPDATE`, in id order, each revision compared with the request's.
+4. The touched groups' members `FOR UPDATE`, in id order (`lockGroupMembers`).
+5. `ensureSectionUnits` on the section whose units the move rewrites (the source section of a
+   copy-in, the destination of a move-out). A section that has no `test_section_units` yet is seeded first, and
+   seeding takes `questions.LockForDraftUse` on every question of the section in id order. It comes
+   before the next lock so that a move never holds one question while it waits on an earlier one: the
+   first build locked the moved question and then seeded, and deadlocked (`40P01`) against another
+   test's autosave that shares both questions.
+6. `lockBankQuestion`, which is `questions.LockForDraftUse` on the bank row. On a copy-in it comes
+   before the row is read, and it is the lock `SoftDelete` contends on. On a move-out it comes after
+   the `UPDATE`, before the insert into `test_section_questions` that AGENTS.md requires it for: the
+   row lock is held already from step 4, and this re-asserts that the question is not deleted.
+7. Copy-in only: `lockGroupAssets` on the copied question's media, the row locks of
+   `media.LockForVersionUse` in id order and the caller's read check, as a group's create and update
+   take them. A media soft delete counts owned-member references under the asset row lock (§19), so the
+   member insert must hold it.
+8. `SET CONSTRAINTS` on the three ordinal constraints, `DEFERRED`; then the writes above.
+9. After the writes, the same constraints and `group_gap_bindings_member` are set `IMMEDIATE`, so a
+   violation surfaces inside the move; `readGraph` reads every touched group back and runs
+   `Bundle.Validate`, which is where the destination's 200 members, 4 MiB budget, audio scope and asset
+   rules refuse a move; then the test is read back and the transaction commits. Any failure rolls
+   everything back.
+
+The gap check comes before any write: a move-out or a move to another group reads
+`group_gap_bindings` for the question and refuses with `group_gap_bound`. A reorder within the same
+group does not ask, since a gap binds a member to its group, not to a place in it. The member count
+of a full destination is checked before the insert, so a full group answers `group_limits` before
+`questions_context_complete` (`context_ordinal BETWEEN 0 AND 199`) can fire.
+
+**The deferred constraints.** `questions_context_ordinal_key` (`context_group_id`, `context_ordinal`),
+`test_section_units_ordinal_key` and `test_section_questions_ordinal_key` (`test_section_id`,
+`ordinal`) are `DEFERRABLE INITIALLY IMMEDIATE`, and the move defers them because it renumbers a
+whole list inside one statement sequence, when two rows briefly share an ordinal. The existing
+writers defer the same three (`mixed_outline.go`, `group_update.go`). `group_gap_bindings_member`, the
+foreign key from a gap to its member's `(context_group_id, id)`, is `DEFERRABLE INITIALLY DEFERRED`.
+It would refuse the commit of a bound member's leaving anyway; the explicit check gives the teacher a
+message, and the move sets it immediate before the read-back so the refusal belongs to the move.
+
+**Why a copy on the way in, and the same id on the way out.**
+
+- **In: a copy.** A bank question is referenced, not owned, by a draft (D-14). Other drafts may
+  reference the same row (`DraftReferences`). Moving the same id into a group would turn their
+  reference into a member: their next autosave would fail `LockForDraftUse`, which filters
+  `context_group_id IS NULL`, with "a question in the test has been deleted", and a later "Remove
+  group" would hard-delete a row their `test_section_questions` foreign key still restricts
+  (`group_reference`). The bank list is defined by `context_group_id IS NULL`
+  (`questions_owner_bank_idx` is partial on it), so the same id would also vanish from the bank
+  without a delete, and the data could not tell a bank question from a test-only one. Published
+  versions and grading history do not care: `attempt_answers` references `test_version_questions`,
+  and `source_question_id` is `ON DELETE SET NULL` (D-07). The snapshot canary edits a bank question
+  after publish, and a copy leaves that row alone. It is also the rule a group already follows: the
+  builder inserts bank groups as complete independent copies, and "no editable source FK is retained"
+  (§19).
+- **Out: the same id.** Nothing but its group can reference a member, so there is no second reader to
+  protect, and a copy would only churn ids. The tuple goes to NULL in one statement. The row's
+  `owner_id` is the test's owner by the group's ownership, but a member written before ownership
+  existed carries an `owner_id` backfilled from `created_by` (00061, 00062), so the statement names
+  the test's owner explicitly: the question comes out owned by the test's owner whoever created it,
+  and then lists, opens, autosaves and soft-deletes like any bank question of that teacher.
+- **Between groups: in place.** The same row changes `context_group_id`; only the group's ordinals and
+  both revisions move.
+
+**Tests.** `tests/application/tests/group_move_*_test.go`, integration, on PostgreSQL 18: the three
+cases and the clamp of `index` (`TestMoveInCopiesAndLeavesTheBankQuestion`,
+`TestMoveOutKeepsTheIdAndReturnsItToTheBank`, `TestMoveBetweenGroupsBumpsBothRevisions`,
+`TestMoveClampsIndexAndCompactsOrdinals`), the refusals writing nothing (`TestMoveRefusalsWriteNothing`
+and the gap-bound case), the published versions untouched row by row across thirteen tables
+(`TestMoveLeavesPublishedVersionsUntouched`), a publish after a move
+(`TestPublishAfterMoveFreezesTheNewUnitsAndOrdinals`), the deal (`TestMovedQuestionsDealInsideAndOutsideTheirGroups`),
+and the races, which pause one writer inside its lock and watch `pg_blocking_pids` for the other:
+against a bank delete, a group save, the outline autosave, publish, a media delete, and another
+test's autosave that shares questions (`TestMoveIntoGroupLocksQuestionsInIdOrderAgainstAnotherTestsAutosave`).
+`server/tests/group_move_flow_test.go` drives the operation through the real stack.

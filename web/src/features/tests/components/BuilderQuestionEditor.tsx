@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { ChevronDown, Copy, FolderInput, Trash2 } from "lucide-react";
+import { ChevronDown, Copy, FolderInput, Layers, Trash2 } from "lucide-react";
 import { RowMenu } from "@/components/shared/RowMenu";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,17 +30,22 @@ import {
   typeLocked,
 } from "@/features/question-bank/questionType";
 
-/** BuilderQuestionActions are the "…" menu's three commands, carried out by the builder. */
+/**
+ * BuilderQuestionActions are the "…" menu's commands, carried out by the
+ * builder; Move into group… shows only with `onMoveIntoGroup`.
+ */
 export type BuilderQuestionActions = Readonly<{
   onDuplicate: () => void;
   onMove: () => void;
+  onMoveIntoGroup?: (() => void) | undefined;
   onDelete: () => void;
 }>;
 
 /**
  * BuilderQuestionEditor is the builder's editor pane for one standalone
  * question, in the deck's order: a header with "Question {n}", the type menu,
- * Points and the "…" menu (Duplicate, Move to section, Delete question); then
+ * Points and the "…" menu (Duplicate, Move to section, Move into group… when
+ * the test has a group, Delete question); then
  * the prompt, the answer area with its grading note, the question media, and
  * "More options" holding the explanation above the tags. The type menu keeps
  * the other types disabled while gaps bind answers, as the bank does. `ai`
@@ -101,6 +106,12 @@ export function BuilderQuestionEditor({
             <FolderInput aria-hidden="true" />
             {t("builder.editor.move")}
           </DropdownMenuItem>
+          {actions.onMoveIntoGroup ? (
+            <DropdownMenuItem onSelect={actions.onMoveIntoGroup}>
+              <Layers aria-hidden="true" />
+              {t("builder.moveIntoGroup")}
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onSelect={actions.onDelete}>
             <Trash2 aria-hidden="true" />

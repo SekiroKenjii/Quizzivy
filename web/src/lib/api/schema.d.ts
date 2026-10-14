@@ -496,6 +496,65 @@ export interface paths {
         patch: operations["updateTest"];
         trace?: never;
     };
+    "/teacher/tests/{id}/questions/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a question across a shared-context group's boundary, or within it
+         * @description Backs the builder's drag of a question into a shared-context group,
+         *     out of one, between two groups of the same test, and within one group.
+         *     It acts on this test's draft only: the question is a standalone unit
+         *     of a section of this test or a member of a group a section of this
+         *     test owns, and the destination is a section or a group that section
+         *     owns. A bank group is neither. Moving a standalone question to a
+         *     standalone place is the outline writer's job (`updateTest`), not this
+         *     operation's.
+         *
+         *     - **Into a group** (a standalone question, `to.groupId` set): the
+         *       group gets a **copy** of the question, with fresh question, option
+         *       and blank ids; the section's reference to the bank question is
+         *       removed and the bank question itself is not touched. The result's
+         *       `questionId` is the copy's id and `copied` is true.
+         *     - **Out of a group** (a member, `to.groupId` null): the member keeps
+         *       its id and becomes an ordinary question of the bank, a standalone
+         *       unit of `to.sectionId` at `to.index`. `copied` is false. A member
+         *       that a gap of the group's shared material is bound to cannot leave
+         *       (`422`, `details.rule` `group_gap_bound`).
+         *     - **Between groups of this test, or within one group** (a member,
+         *       `to.groupId` set): the member keeps its id and moves in place.
+         *       `copied` is false.
+         *
+         *     `to.index` is the position among the section's units when
+         *     `to.groupId` is null, and among the group's members otherwise, counted
+         *     once the question has left its old place. A position past the end is
+         *     clamped to the end.
+         *
+         *     The move is guarded exactly as `updateQuestionGroup` guards a save:
+         *     `expectedUpdatedAt` is the test revision, and
+         *     `expectedGroupRevisions` names the revision of every group the move
+         *     touches, the source and the destination, once each, and no other. A
+         *     touched group missing from the list is `STALE_WRITE`; a group the move
+         *     does not touch, or one named twice, is a `400`. The answer carries the new
+         *     test revision and every touched group at its new revision, so the
+         *     builder goes on from them. Nothing is written when the move is
+         *     refused. No published version is touched; the next publish freezes
+         *     the new structure.
+         */
+        post: operations["moveTestQuestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teacher/tests/{id}/publish": {
         parameters: {
             query?: never;
@@ -5298,6 +5357,46 @@ export interface components {
              */
             expectedTestUpdatedAt?: string | null;
         };
+        MoveTestQuestionInput: {
+            /** @description The test revision the move was drawn from, as `updateTest` takes it. */
+            expectedUpdatedAt: components["schemas"]["Timestamp"];
+            /** @description A standalone unit's question or a member of a group a section of this test owns. */
+            questionId: components["schemas"]["Uuid"];
+            to: components["schemas"]["MoveTestQuestionTarget"];
+            /**
+             * @description The revision of every group the move touches, once each: the
+             *     question's group when it is a member, the destination group when
+             *     `to.groupId` is set, and one entry when both are the same group.
+             *     A move always touches at least one group.
+             */
+            expectedGroupRevisions: components["schemas"]["MoveTestQuestionGroupRevision"][];
+        };
+        MoveTestQuestionTarget: {
+            /** @description A section of this test. */
+            sectionId: components["schemas"]["Uuid"];
+            /**
+             * Format: uuid
+             * @description Null places the question as a unit of the section; set places it as a member of that group, which the section must own.
+             */
+            groupId: string | null;
+            /** @description Position the question takes among the section's units when `groupId` is null, among the group's members otherwise, counted once it has left its old place, so the same value places it whether it moves up or down. Past the end is clamped to the end. */
+            index: number;
+        };
+        MoveTestQuestionGroupRevision: {
+            groupId: components["schemas"]["Uuid"];
+            /** Format: int64 */
+            revision: number;
+        };
+        MoveTestQuestionResult: {
+            /** @description The saved draft, with its new `updatedAt` and the sections' units. */
+            test: components["schemas"]["Test"];
+            /** @description The id the question has now. A new id after a copy into a group; the request's otherwise. */
+            questionId: components["schemas"]["Uuid"];
+            /** @description True when the question was copied into a group and the bank question stays where it was. The builder says so after the drop. */
+            copied: boolean;
+            /** @description Every touched group at its new revision, built as `getQuestionGroup` builds one. */
+            groups: components["schemas"]["StoredQuestionGroup"][];
+        };
         DraftSectionUnit: {
             /** @enum {string} */
             kind: "question" | "group";
@@ -8067,6 +8166,100 @@ export interface operations {
             404: components["responses"]["NotFound"];
             /** @description `STALE_WRITE` — edited elsewhere since `expectedUpdatedAt`; `GROUP_OUTLINE_REQUIRED` — a legacy question-only outline cannot replace a draft containing shared groups. Metadata-only updates remain supported. `TEST_ARCHIVED` — restore the test before a mixed-outline edit. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    moveTestQuestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveTestQuestionInput"];
+            };
+        };
+        responses: {
+            /** @description Moved. The saved draft and every touched group, at their new revisions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoveTestQuestionResult"];
+                };
+            };
+            /**
+             * @description The body fails its schema (`to.index` below zero, more than two
+             *     group revisions, an unknown field); or the move itself is not one
+             *     this operation makes. `details.rule` names the case:
+             *     `move_outline_only` — a move between two standalone places, which
+             *     `updateTest` writes; `move_group_section` — `to.groupId` is a
+             *     group that `to.sectionId` does not own; `move_revisions` —
+             *     `expectedGroupRevisions` names a group twice, or names a group the
+             *     move does not touch; `move_source_ambiguous` — the question is a
+             *     standalone unit of more than one section of the test, which the
+             *     request cannot tell apart.
+             */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            /** @description The test, the question, the section or a group is outside the caller's reach, or is not of this test. Another teacher's id answers exactly as a missing one does. An entry of `expectedGroupRevisions` is a group like any other, so one the caller cannot reach answers 404 before any revision is compared. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `STALE_WRITE` — the test was edited elsewhere since `expectedUpdatedAt`, or a touched group is past its expected revision or missing from `expectedGroupRevisions`; `TEST_ARCHIVED` — restore the test before moving a question; `GROUP_CONFLICT` — a uniqueness constraint refused the write because another writer got there first, and nothing is written. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The body is over 4 KiB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description Validation failed and nothing was written. `details.rule` names
+             *     the rule: `group_gap_bound` — the member a gap of the group's
+             *     shared material is bound to cannot leave its group, and
+             *     `details` also carries `stimulusId`, `gapId` and `questionId`;
+             *     or any rule the destination group fails once the question is in
+             *     it (`group_limits` at 200 members or the 4 MiB budget,
+             *     `group_audio_scope` when the copied question uses the group's own
+             *     shared recording, `group_asset`); or `group_reference` — a
+             *     database reference or check refused the write, as it does an
+             *     `updateQuestionGroup` that drops a member something still uses.
+             */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

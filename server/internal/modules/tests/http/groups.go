@@ -136,6 +136,22 @@ func (h Tests) ListQuestionGroups(ctx context.Context, request openapi.ListQuest
 	return groupListReply(groups)
 }
 
+// MoveTestQuestion moves a question across a shared-context group's boundary, between two groups of its test, or within one.
+func (h Tests) MoveTestQuestion(ctx context.Context, request openapi.MoveTestQuestionRequestObject) (openapi.MoveTestQuestionResponseObject, error) {
+	if h.app == nil || h.app.Commands.MoveQuestion == nil || request.Body == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	mutation, ok := groupMutation(ctx, "", 0, nil)
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+	result, err := h.app.Commands.MoveQuestion.Handle(ctx, command.MoveQuestion{Move: readQuestionMove(request, mutation)})
+	if err != nil {
+		return moveFailure(ctx, err)
+	}
+	return h.moveReply(ctx, result)
+}
+
 func groupMutation(ctx context.Context, id string, revision int64, updated *time.Time) (model.GroupMutation, bool) {
 	req, ok := testRequest(ctx, id)
 	principal, _ := httpx.PrincipalFromContext(ctx)

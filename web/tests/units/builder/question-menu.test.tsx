@@ -9,6 +9,7 @@ import TestBuilderPage from "@/features/tests/pages/teacher/TestBuilderPage";
 import type { components } from "@/lib/api/schema";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
+import { moveQuestionHandler, type GroupMoveDraft } from "@tests/support/groupMove";
 import "@/lib/i18n";
 
 const BASE = "http://localhost:8080";
@@ -18,6 +19,8 @@ const SECOND = "018f0000-0000-7000-8000-0000000000b2";
 const COPY = "018f0000-0000-7000-8000-0000000000b3";
 const PART_ONE = "018f0000-0000-7000-8000-0000000000c1";
 const PART_TWO = "018f0000-0000-7000-8000-0000000000c2";
+const GROUP = "018f0000-0000-7000-8000-0000000000d1";
+const MEMBER = "018f0000-0000-7000-8000-0000000000e1";
 
 type Section = { id: string | null; title: string; questionIds: string[] };
 let saved: Section[][] = [];
@@ -139,6 +142,70 @@ async function renderBuilder() {
   return user;
 }
 
+function groupedDraft(): GroupMoveDraft {
+  const stamp = "2026-01-02T00:00:00.000Z";
+  const member = (id: string, prompt: string) => ({
+    id,
+    input: {
+      type: "short_answer" as const,
+      level: null,
+      skill: null,
+      prompt,
+      points: 1,
+      options: [],
+      blanks: [],
+      tags: [],
+    },
+  });
+  return {
+    test: {
+      ...testBody([{ id: PART_ONE, title: "Phần 1", questionIds: [FIRST, SECOND] }]),
+      updatedAt: stamp,
+      sections: [
+        {
+          id: PART_ONE,
+          ordinal: 0,
+          title: "Phần 1",
+          instructions: null,
+          questionIds: [FIRST, SECOND],
+          units: [
+            { kind: "question", id: FIRST },
+            { kind: "question", id: SECOND },
+            { kind: "group", id: GROUP },
+          ],
+        },
+      ],
+    },
+    groups: new Map([
+      [
+        GROUP,
+        {
+          bundle: {
+            group: {
+              id: GROUP,
+              title: "Reading club",
+              members: [{ questionId: MEMBER, optionOrder: "shuffle" }],
+              stimuli: [],
+              recordings: [],
+            },
+            questions: [member(MEMBER, "Thành viên nhóm")],
+          },
+          ownerSectionId: PART_ONE,
+          revision: 1,
+          testUpdatedAt: stamp,
+          archivedAt: null,
+          createdAt: stamp,
+          updatedAt: stamp,
+          assets: [],
+          unavailableAssetIds: [],
+        },
+      ],
+    ]),
+    copy: () => member(COPY, PROMPTS[FIRST]!),
+    requests: [],
+  };
+}
+
 async function choose(user: ReturnType<typeof userEvent.setup>, name: string) {
   await user.click(screen.getByRole("button", { name: "Thao tác với câu hỏi" }));
   await user.click(await screen.findByRole("menuitem", { name }));
@@ -171,6 +238,59 @@ describe("the editor pane's question menu", () => {
     await user.click(within(dialog).getByRole("button", { name: "Chuyển" }));
 
     expect(await lastSave()).toEqual([[SECOND], [FIRST]]);
+  });
+
+  it("offers no move into a group while the test has none", async () => {
+    const user = await renderBuilder();
+
+    await user.click(screen.getByRole("button", { name: "Thao tác với câu hỏi" }));
+    const menu = await screen.findByRole("menu");
+    expect(
+      within(menu)
+        .getAllByRole("menuitem")
+        .map((item) => item.textContent),
+    ).toEqual(["Nhân bản", "Chuyển sang phần khác", "Xoá câu hỏi"]);
+  });
+
+  it("copies the question to the end of the group chosen, and says the original stays in the bank", async () => {
+    const draft = groupedDraft();
+    server.use(
+      http.get(`${BASE}/teacher/tests/:id`, () =>
+        contractJson("/teacher/tests/{id}", "get", 200, draft.test),
+      ),
+      http.get(`${BASE}/teacher/question-groups/:id`, ({ params }) =>
+        contractJson(
+          "/teacher/question-groups/{id}",
+          "get",
+          200,
+          draft.groups.get(String(params.id))!,
+        ),
+      ),
+      moveQuestionHandler(draft),
+    );
+    const user = await renderBuilder();
+
+    await choose(user, "Chuyển vào nhóm…");
+    const dialog = await screen.findByRole("dialog", { name: "Chuyển câu 1 vào nhóm" });
+    expect(within(dialog).getByRole("combobox", { name: "Nhóm" })).toHaveTextContent(
+      "Reading club · Phần 1",
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Chuyển" }));
+
+    await waitFor(() => expect(draft.requests).toHaveLength(1));
+    expect(draft.requests[0]).toEqual({
+      expectedUpdatedAt: "2026-01-02T00:00:00.000Z",
+      questionId: FIRST,
+      to: { sectionId: PART_ONE, groupId: GROUP, index: 1 },
+      expectedGroupRevisions: [{ groupId: GROUP, revision: 1 }],
+    });
+    expect(
+      await screen.findByText(
+        "Đã sao chép câu hỏi vào nhóm. Bản gốc vẫn ở ngân hàng câu hỏi.",
+      ),
+    ).toBeVisible();
+    expect(await screen.findByLabelText("Tên nhóm câu hỏi")).toBeVisible();
+    expect(saved).toEqual([]);
   });
 
   it("asks before deleting, then removes it from the test and opens the next", async () => {
