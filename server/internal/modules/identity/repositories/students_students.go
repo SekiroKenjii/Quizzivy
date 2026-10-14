@@ -64,8 +64,26 @@ func filterStudents(in domain.StudentQuery, args []any) ([]any, []string, string
 		args = append(args, *in.MustChange)
 		where = append(where, fmt.Sprintf(`u.must_change_password = $%d::boolean`, len(args)))
 	}
+	if in.NeverSignedIn != nil {
+		args = append(args, *in.NeverSignedIn)
+		where = append(where, fmt.Sprintf(`(u.last_sign_in_at IS NULL) = $%d::boolean`, len(args)))
+	}
+	if len(in.Statuses) > 0 {
+		chosen := make([]string, len(in.Statuses))
+		for i, status := range in.Statuses {
+			chosen[i] = string(status)
+		}
+		args = append(args, chosen)
+		where = append(where, fmt.Sprintf(`%s = ANY($%d::text[])`, accountStatusSQL, len(args)))
+	}
 	return args, where, classScope
 }
+
+const accountStatusSQL = `CASE
+		  WHEN u.disabled_at IS NOT NULL THEN 'disabled'
+		  WHEN u.must_change_password THEN 'must_change_password'
+		  WHEN u.last_sign_in_at IS NULL THEN 'never_signed_in'
+		  ELSE 'active' END`
 
 func statusCondition(status domain.StudentStatus) string {
 	switch status {
@@ -85,6 +103,7 @@ func selectStudents(classScope string) string {
 		       coalesce((SELECT array_agg(i.provider::text)
 		                   FROM app.user_identities i WHERE i.user_id = u.id), '{}'),
 		       u.must_change_password, u.created_at, u.disabled_at,
+		       u.last_active_at, u.last_sign_in_at,
 
 		       coalesce((SELECT jsonb_agg(jsonb_build_object(
 		                          'id', c.id, 'name', c.name,
@@ -102,6 +121,7 @@ func scanStudent(row pgx.Row) (domain.Student, error) {
 	if err := row.Scan(&student.ID, &student.Email, &student.FullName,
 		&student.HasPassword, &student.LinkedProviders,
 		&student.MustChangePassword, &student.CreatedAt, &student.DisabledAt,
+		&student.LastActiveAt, &student.LastSignInAt,
 		&classes); err != nil {
 		return domain.Student{}, fmt.Errorf("students: scan: %w", err)
 	}

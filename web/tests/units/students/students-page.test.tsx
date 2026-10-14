@@ -101,7 +101,7 @@ describe("the Students list", () => {
     await table();
     const last = asked.at(-1)!;
     expect(last.getAll("classId")).toEqual([CLASS_A.id, CLASS_B.id]);
-    expect(last.get("mustChangePassword")).toBe("true");
+    expect(last.getAll("accountStatus")).toEqual(["must_change_password"]);
     expect(last.get("status")).toBeNull();
   });
 
@@ -111,7 +111,19 @@ describe("the Students list", () => {
 
     await table();
     expect(asked.at(-1)!.get("status")).toBe("all");
-    expect(asked.at(-1)!.get("mustChangePassword")).toBe("false");
+    expect(asked.at(-1)!.getAll("accountStatus")).toEqual(["active", "disabled"]);
+  });
+
+  it("asks for the accounts that have not signed in yet when Not signed in is chosen", async () => {
+    const asked = serveStudents([AN]);
+    renderStudents(teacherUser, "/teacher/students?account=notSignedIn&account=reset");
+
+    await table();
+    expect(asked.at(-1)!.getAll("accountStatus")).toEqual([
+      "never_signed_in",
+      "must_change_password",
+    ]);
+    expect(asked.at(-1)!.get("status")).toBeNull();
   });
 
   it("offers Add student when there are no students yet", async () => {

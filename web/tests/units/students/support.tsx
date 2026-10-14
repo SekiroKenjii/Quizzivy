@@ -33,7 +33,7 @@ export function student(
   fullName: string,
   overrides: Partial<StudentRow> = {},
 ): StudentRow {
-  return {
+  const base = {
     id,
     email: `${id.slice(-4)}@example.com`,
     fullName,
@@ -42,6 +42,7 @@ export function student(
     mustChangePassword: false,
     createdAt: "2026-01-01T00:00:00Z",
     disabledAt: null,
+    lastActiveAt: null,
     classes: [],
     stats: {
       submittedCount: 0,
@@ -50,6 +51,16 @@ export function student(
     },
     ...overrides,
   };
+  return { accountStatus: statusOfFixture(base), ...base };
+}
+
+function statusOfFixture(row: {
+  disabledAt: string | null;
+  mustChangePassword: boolean;
+}): StudentRow["accountStatus"] {
+  if (row.disabledAt !== null) return "disabled";
+  if (row.mustChangePassword) return "must_change_password";
+  return "active";
 }
 
 /** inClass is a membership of `klass` for a StudentRow's `classes`. */

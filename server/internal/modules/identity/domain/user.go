@@ -26,6 +26,10 @@ type User struct {
 	CreatedAt          time.Time
 	SessionEpoch       int
 	LinkedProviders    []string
+	LastActiveAt       *time.Time
+	LastSignInAt       *time.Time
+	LastSignInMethod   *string
+	PasswordChangedAt  *time.Time
 }
 
 // JoinCodeRejected is a join code that did not pass. It carries the outcome so
