@@ -817,7 +817,7 @@ the merged code meets.
       `release/0.11.6` is cut from `develop` at a named commit. The hotfixes v0.11.3 to v0.11.5
       have shipped before it, or their fixes are already on `develop`.
 - [x] `web/package.json` is bumped to 0.11.6 in the release branch only.
-- [ ] Every CI step runs on the release pull request, in order, judged by exit code (70 §8.1):
+- [x] Every CI step runs on the release pull request, in order, judged by exit code (70 §8.1):
       `make lint`, `make gen-check`; `make test-api` and goose up/down/up (no migration, so the
       round trip is unchanged); `pnpm lint`, `pnpm typecheck`, `pnpm format:check`;
       `pnpm test:unit`, `pnpm test:integration`, `pnpm build`; `pnpm e2e`; `pnpm e2e:live`,
@@ -845,7 +845,12 @@ Evidence (the Tech Lead, 2026-10-14):
 - **Migrations.** `git diff 5231b258 -- migrations` is empty.
 - **Documents.** T-E1.7 (#622) is on develop with the code. Rolling out v0.11.6 is in
   `docs/setup/deploy.md`.
-- **CI.** The CI box is ticked from the release pull request's run.
+- **CI.** The release pull request (#625) ran every job, judged by exit code: Plan, Contract,
+  Server lint, Server tests (unit, integration, end-to-end, goose up/down/up), Web checks (lint,
+  typecheck, format, integration, build), Web unit (1) and (2), E2E, E2E (live API), Production
+  image and Deck. It was re-run in full (attempt 2), so that none was skipped by its file hash.
+  `main` took the merge at `9821c7fd`, and the deploy went green. Production reports 0.11.6, and
+  the move route answers 401 without a token, where v0.11.5 answered 404.
 
 ## Open items
 
