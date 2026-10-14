@@ -1,11 +1,16 @@
-// Package tabular writes the tables teachers download, so that a spreadsheet
-// opens them as the data they are and never runs a cell as a formula.
+// Package tabular is where a table crosses the product's boundary. It writes
+// the tables people download so that a spreadsheet opens them as the data they
+// are and never runs a cell as a formula, and it reads the CSV and XLSX files
+// they upload within limits that bound what a hostile file can cost.
 package tabular
 
 import (
+	"bytes"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
+	"unicode/utf8"
 )
 
 const byteOrderMark = "\xEF\xBB\xBF"
@@ -71,4 +76,62 @@ func (c *CSV) Flush() error {
 		return fmt.Errorf("tabular: flush: %w", err)
 	}
 	return nil
+}
+
+type csvSource struct {
+	in *csv.Reader
+}
+
+func openCSV(src io.ReaderAt, size int64) (source, error) {
+	data, err := io.ReadAll(io.NewSectionReader(src, 0, size))
+	if err != nil {
+		return nil, fmt.Errorf("tabular: read file: %w", err)
+	}
+	data = bytes.TrimPrefix(data, []byte(byteOrderMark))
+	if !utf8.Valid(data) {
+		return nil, ErrNotUTF8
+	}
+	in := csv.NewReader(bytes.NewReader(data))
+	in.Comma = delimiter(data)
+	in.FieldsPerRecord = -1
+	return &csvSource{in: in}, nil
+}
+
+func (s *csvSource) next() ([]string, int, error) {
+	record, err := s.in.Read()
+	if errors.Is(err, io.EOF) {
+		return nil, 0, io.EOF
+	}
+	if err != nil {
+		return nil, 0, fmt.Errorf("%w: %w", ErrFormat, err)
+	}
+	line, _ := s.in.FieldPos(0)
+	return record, line, nil
+}
+
+func (s *csvSource) close() error {
+	return nil
+}
+
+func delimiter(data []byte) rune {
+	var commas, semicolons int
+	quoted := false
+scan:
+	for _, b := range bytes.TrimLeft(data, "\r\n") {
+		switch {
+		case b == '"':
+			quoted = !quoted
+		case quoted:
+		case b == '\n':
+			break scan
+		case b == ',':
+			commas++
+		case b == ';':
+			semicolons++
+		}
+	}
+	if semicolons > commas {
+		return ';'
+	}
+	return ','
 }
