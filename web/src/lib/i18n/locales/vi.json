@@ -473,6 +473,7 @@
       "change": "Đổi",
       "updatePassword": "Cập nhật mật khẩu",
       "passwordUpdated": "Đã cập nhật mật khẩu. Các thiết bị khác đã được đăng xuất.",
+      "passwordChangedLine": "Đã đổi {{when}}",
       "passwordMin": "Ít nhất 8 ký tự.",
       "strength": {
         "okay": "Tạm được",
@@ -787,6 +788,7 @@
     "email": "Email",
     "password": "Mật khẩu",
     "passwordChanged": "Đã đổi mật khẩu. Các thiết bị khác đã được đăng xuất.",
+    "passwordChangedLine": "Đổi lần cuối {{when}}.",
     "google": "Tài khoản Google",
     "googleLinked": "Đã liên kết với Google.",
     "googleNotLinked": "Chưa liên kết với Google.",
@@ -2387,6 +2389,7 @@
     "accountHeader": "Tài khoản",
     "account": {
       "active": "Đang hoạt động",
+      "notSignedIn": "Chưa đăng nhập",
       "reset": "Mật khẩu tạm",
       "suspended": "Đã khoá"
     },

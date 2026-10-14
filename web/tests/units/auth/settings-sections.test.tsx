@@ -61,6 +61,22 @@ describe("the settings cards say what the deck writes", () => {
     expect(field).toHaveAccessibleDescription("Ít nhất 8 ký tự, có số hoặc ký hiệu.");
   });
 
+  it("says when the password was last changed, and nothing when it never was", () => {
+    signedIn({ hasPassword: true, google: false });
+    const { unmount } = render(<PasswordSection />);
+    expect(screen.queryByText(/Đổi lần cuối/)).toBeNull();
+    unmount();
+
+    useAuthStore.setState((state) => ({
+      user: state.user && {
+        ...state.user,
+        passwordChangedAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+      },
+    }));
+    render(<PasswordSection />);
+    expect(screen.getByText("Đổi lần cuối 3 giờ trước.")).toBeInTheDocument();
+  });
+
   it("says what unlinking would leave behind when both ways in exist (S-17)", () => {
     signedIn({ hasPassword: true, google: true });
     render(<GoogleSection />);

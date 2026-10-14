@@ -78,7 +78,7 @@ func (a *App) Close() {
 // Handler is the assembled HTTP surface, for the server and for tests that
 // drive the whole application in-process.
 func (a *App) Handler() (http.Handler, error) {
-	deps := router.Deps{Modules: a.assembly.Modules, DB: a.pool, Tokens: a.assembly.Tokens, Docs: a.assembly.Docs, DocsPublic: a.cfg.DocsPublic, Maintenance: a.assembly.Maintenance, Principals: adapters.Principals{Query: a.assembly.Principals.Queries.ResolvePrincipal}}
+	deps := router.Deps{Modules: a.assembly.Modules, DB: a.pool, Tokens: a.assembly.Tokens, Docs: a.assembly.Docs, DocsPublic: a.cfg.DocsPublic, Maintenance: a.assembly.Maintenance, Principals: adapters.Principals{Query: a.assembly.Principals.Queries.ResolvePrincipal, Activity: a.assembly.Identity.Commands.StampActivity}}
 	return router.New(deps, a.logger, a.cfg.AllowedOrigins, a.cfg.ClientIPHeader)
 }
 
@@ -91,6 +91,7 @@ func (a *App) Serve(ctx context.Context) error {
 	}
 
 	go jobs.PruneRefreshTokens(ctx, a.logger, a.assembly.Identity)
+	go a.assembly.Identity.RunActivity(ctx)
 	go jobs.PruneNotifications(ctx, a.logger, a.assembly.Notifications)
 	go jobs.RotateLegacyJoinCodes(ctx, a.logger, a.assembly.Classes)
 	go a.assembly.Mail.Run(ctx, a.logger)

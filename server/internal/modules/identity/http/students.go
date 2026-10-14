@@ -43,6 +43,10 @@ func (h Identity) ListStudents(ctx context.Context, request openapi.ListStudents
 		in.ClassIDs = append(in.ClassIDs, id.String())
 	}
 	in.MustChange = request.Params.MustChangePassword
+	in.NeverSignedIn = request.Params.NeverSignedIn
+	for _, status := range httpapi.Deref(request.Params.AccountStatus) {
+		in.Statuses = append(in.Statuses, domain.AccountStatus(status))
+	}
 	if request.Params.Status != nil {
 		in.Status = domain.StudentStatus(*request.Params.Status)
 	}
@@ -301,6 +305,8 @@ func toAPIStudent(student domain.Student) openapi.StudentRow {
 		MustChangePassword: student.MustChangePassword,
 		CreatedAt:          student.CreatedAt,
 		DisabledAt:         student.DisabledAt,
+		LastActiveAt:       student.LastActiveAt,
+		AccountStatus:      openapi.AccountStatus(student.Status()),
 		Classes:            classes,
 		Stats:              httpapi.StudentStats(student.Stats),
 	}

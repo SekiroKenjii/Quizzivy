@@ -4031,6 +4031,14 @@ export interface components {
          * @enum {string}
          */
         PermissionKey: "content.tests.write" | "content.tests.publish" | "content.questions.write" | "content.media.write" | "content.share" | "ai.use" | "teaching.classes.write" | "teaching.assignments.write" | "teaching.grading" | "teaching.attempts.intervene" | "teaching.attendance" | "people.students.read" | "people.students.create" | "people.students.reset_password" | "people.users.manage" | "people.roles.manage" | "system.audit.read" | "system.settings.write" | "learning.take_tests" | "ai.credits.manage" | "scope.all" | "system.api_reference" | "system.data_export" | "system.leads";
+        /**
+         * @description The one state an account is listed under (DG-54), in this order of
+         *     precedence: `disabled`, then `must_change_password` (a temporary
+         *     password is still in use), then `never_signed_in` (`last_sign_in_at` is
+         *     null), then `active`.
+         * @enum {string}
+         */
+        AccountStatus: "disabled" | "must_change_password" | "never_signed_in" | "active";
         User: {
             id: components["schemas"]["Uuid"];
             /** Format: email */
@@ -4118,6 +4126,14 @@ export interface components {
             /** @description Forces `/change-password`. Always false for Google-only users (§5.4). */
             mustChangePassword: boolean;
             createdAt: components["schemas"]["Timestamp"];
+            /**
+             * Format: date-time
+             * @description When the caller last changed their own password. Absent for an
+             *     account that never has, including one still on a temporary password
+             *     and one whose password is older than R5. Self only: it is on
+             *     `CurrentUser` and not on `User` or `StudentRow`.
+             */
+            passwordChangedAt?: string;
             permissions: components["schemas"]["PermissionKey"][];
             workspaces: components["schemas"]["Workspace"][];
         };
@@ -4549,6 +4565,15 @@ export interface components {
              *     them again.
              */
             disabledAt: string | null;
+            /**
+             * Format: date-time
+             * @description The student's latest authenticated request, which the server records
+             *     at most once every five minutes per instance (DG-54). Null before
+             *     the student has ever been active. Not the same as
+             *     `stats.activity.lastAttemptAt`, the last time they started a test.
+             */
+            lastActiveAt: string | null;
+            accountStatus: components["schemas"]["AccountStatus"];
             /** @description Memberships in classes the caller teaches, or every one with `scope.all`. The table truncates; the drawer lists them. */
             classes: components["schemas"]["StudentClass"][];
             stats: components["schemas"]["StudentStats"];
@@ -10808,6 +10833,21 @@ export interface operations {
                  *     Absent lists both.
                  */
                 mustChangePassword?: boolean;
+                /**
+                 * @description `true` lists only the accounts that have never signed in
+                 *     (`last_sign_in_at` is null); `false` lists only the others. Absent
+                 *     lists both. It narrows beside `mustChangePassword`, as a plain
+                 *     predicate: an account on a temporary password that never signed in
+                 *     is in both.
+                 */
+                neverSignedIn?: boolean;
+                /**
+                 * @description Only the accounts listed under one of these statuses
+                 *     (`accountStatus=active&accountStatus=never_signed_in`), in
+                 *     `AccountStatus`'s order of precedence. A `disabled` account is
+                 *     returned only when `status` is `disabled` or `all`.
+                 */
+                accountStatus?: components["schemas"]["AccountStatus"][];
                 /**
                  * @description Defaults to `active`. Without `disabled` there is no request that can
                  *     return a suspended account, so `updateStudent`'s `disabled: false`
