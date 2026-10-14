@@ -72,6 +72,8 @@ create_env() {
   local key
   key=$(openssl rand -base64 32) || return 1
   sed -i "s|^JOIN_CODE_KEY=.*|JOIN_CODE_KEY=$key|" .env
+  key=$(openssl rand -base64 32) || return 1
+  sed -i "s|^SECRETS_KEY=.*|SECRETS_KEY=$key|" .env
 }
 
 install_goose() {
