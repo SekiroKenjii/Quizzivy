@@ -283,15 +283,48 @@ func TestPermissionsAreTheUsersEffectiveOnesAndAnUnknownUserIsNotFound(t *testin
 	}
 }
 
-func group(stimulusID, text string, members ...testsdomain.GroupMember) testsdomain.StoredGroup {
-	return testsdomain.StoredGroup{Bundle: testsdomain.GroupBundle{Group: testsdomain.QuestionGroup{
-		ID: "g-1", Members: members,
-		Stimuli: []testsdomain.GroupStimulus{{ID: stimulusID, Title: "Parks", Content: paragraph(text)}},
-	}}}
+const parksText = "Parks give a town room to breathe."
+
+func memberOf(id string, input questionsdomain.Input) testsdomain.GroupQuestion {
+	input.Prompt = "Prompt of " + id
+	return testsdomain.GroupQuestion{ID: id, Input: input}
 }
 
+func storedGroup(id, stimulusID, text, order string, members ...testsdomain.GroupQuestion) testsdomain.StoredGroup {
+	group := testsdomain.QuestionGroup{ID: id, Stimuli: []testsdomain.GroupStimulus{{ID: stimulusID, Title: "Parks", Content: paragraph(text)}}}
+	for _, member := range members {
+		group.Members = append(group.Members, testsdomain.GroupMember{QuestionID: member.ID, OptionOrder: order})
+	}
+	return testsdomain.StoredGroup{Bundle: testsdomain.GroupBundle{Group: group, Questions: members}}
+}
+
+func choiceInput() questionsdomain.Input {
+	pointed := "o-b"
+	return questionsdomain.Input{
+		Type:    questionsdomain.SingleChoice,
+		Options: []questionsdomain.OptionInput{{ID: nil, Text: "A park", IsCorrect: true}, {ID: &pointed, Text: "A road"}},
+	}
+}
+
+func blankInput() questionsdomain.Input {
+	blank := "b-1"
+	return questionsdomain.Input{
+		Type:   questionsdomain.FillBlank,
+		Blanks: []questionsdomain.BlankInput{{ID: &blank, Ordinal: 1, AcceptedAnswers: []string{"green", "verdant"}}, {Ordinal: 0, AcceptedAnswers: []string{"open"}}},
+	}
+}
+
+type groupReads struct{ fetched []string }
+
 func draft(sections ...testsdomain.Section) adapters.AITests {
-	stored := map[string]testsdomain.StoredGroup{"g-1": group("s-1", "Parks give a town room to breathe.", testsdomain.GroupMember{QuestionID: "q-2", OptionOrder: "fixed"})}
+	return draftReading(&groupReads{}, sections...)
+}
+
+func draftReading(reads *groupReads, sections ...testsdomain.Section) adapters.AITests {
+	stored := map[string]testsdomain.StoredGroup{
+		"g-1": storedGroup("g-1", "s-1", parksText, "fixed", memberOf("q-2", choiceInput()), memberOf("q-3", blankInput())),
+		"g-2": storedGroup("g-2", "s-2", "Rivers carry water to the sea.", "shuffle", memberOf("q-6", choiceInput())),
+	}
 	return adapters.AITests{
 		Test: cqrs.HandlerFunc[testsquery.Get, testsdomain.Test](func(_ context.Context, q testsquery.Get) (testsdomain.Test, error) {
 			if q.ID != "t-1" {
@@ -300,6 +333,7 @@ func draft(sections ...testsdomain.Section) adapters.AITests {
 			return testsdomain.Test{ID: "t-1", Sections: sections}, nil
 		}),
 		Group: cqrs.HandlerFunc[testsquery.Group, testsdomain.StoredGroup](func(_ context.Context, q testsquery.Group) (testsdomain.StoredGroup, error) {
+			reads.fetched = append(reads.fetched, q.ID)
 			g, ok := stored[q.ID]
 			if !ok {
 				return testsdomain.StoredGroup{}, testsdomain.ErrNotFound
@@ -315,34 +349,147 @@ func draft(sections ...testsdomain.Section) adapters.AITests {
 	}
 }
 
-func TestADraftIsReadInPaperOrderKeepingTheNumberOfAQuestionTheScopeCannotReadAndCarryingItsGroupsMaterial(t *testing.T) {
+func unitsOf(kind string, ids ...string) []testsdomain.SectionUnit {
+	units := make([]testsdomain.SectionUnit, len(ids))
+	for i, id := range ids {
+		units[i] = testsdomain.SectionUnit{Kind: kind, ID: id}
+	}
+	return units
+}
+
+func numbersAndGroups(paper aidomain.Paper) string {
+	var read []string
+	for _, q := range paper.Questions {
+		read = append(read, fmt.Sprintf("%d:%s:%s", q.Number, q.ID, q.GroupID))
+	}
+	return strings.Join(read, " ")
+}
+
+func TestADraftIsReadInTheBuildersOrderAStandaloneQuestionAndAGroupsMembersNumberedOneToThree(t *testing.T) {
 	r := draft(testsdomain.Section{
-		QuestionIDs: []string{"q-1", "q-gone", "q-2"},
-		Units:       []testsdomain.SectionUnit{{Kind: "question", ID: "q-1"}, {Kind: "group", ID: "g-1"}},
+		QuestionIDs: []string{"q-1"},
+		Units:       append(unitsOf("question", "q-1"), unitsOf("group", "g-1")...),
 	})
 	paper, err := r.Draft(context.Background(), access.Scope{UserID: "t"}, "t-1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(paper.Questions) != 2 || paper.Questions[0].Number != 1 || paper.Questions[1].Number != 3 {
-		t.Fatalf("questions %+v, want numbers 1 and 3: the one the scope cannot read keeps its place", paper.Questions)
+	if got, want := numbersAndGroups(paper), "1:q-1: 2:q-2:g-1 3:q-3:g-1"; got != want {
+		t.Fatalf("paper %q, want %q", got, want)
 	}
-	if first := paper.Questions[0]; first.Passage != "" || first.OrderFixed {
-		t.Errorf("a standalone question reads %+v", first)
+	standalone, choice, blank := paper.Questions[0], paper.Questions[1], paper.Questions[2]
+	if standalone.Passage != "" || standalone.OrderFixed || standalone.GroupID != "" {
+		t.Errorf("a standalone question reads %+v", standalone)
 	}
-	if grouped := paper.Questions[1]; !strings.Contains(grouped.Passage, "Parks give a town room to breathe.") || !strings.Contains(grouped.Passage, "Parks") || !grouped.OrderFixed {
-		t.Errorf("a group's question reads %+v, want its passage and its fixed order", grouped)
+	for _, member := range []aidomain.PaperQuestion{choice, blank} {
+		if !strings.Contains(member.Passage, parksText) || !strings.Contains(member.Passage, "Parks") || !member.OrderFixed {
+			t.Errorf("member %s reads %+v, want its group's passage and its fixed order", member.ID, member)
+		}
+	}
+	if choice.Type != "single_choice" || choice.Prompt != "Prompt of q-2" {
+		t.Errorf("a member's content is its own: %+v", choice)
+	}
+	if len(choice.Options) != 2 || choice.Options[0].ID != "" || choice.Options[0].Text != "A park" || !choice.Options[0].Correct || choice.Options[1].ID != "o-b" || choice.Options[1].Correct {
+		t.Errorf("options %+v, want input order, an empty id for an option without one, and the key kept", choice.Options)
+	}
+	wantBlanks := []aidomain.Blank{{ID: "", Accepted: []string{"open"}}, {ID: "b-1", Accepted: []string{"green", "verdant"}}}
+	if fmt.Sprintf("%+v", blank.Blanks) != fmt.Sprintf("%+v", wantBlanks) {
+		t.Errorf("blanks %+v, want %+v: by ordinal, an empty id for a blank without one", blank.Blanks, wantBlanks)
+	}
+}
+
+func TestAMemberWhoseGroupLetsOptionsShuffleMayBeReordered(t *testing.T) {
+	r := draft(testsdomain.Section{Units: unitsOf("group", "g-2")})
+	paper, err := r.Draft(context.Background(), access.Scope{UserID: "t"}, "t-1")
+	if err != nil || len(paper.Questions) != 1 {
+		t.Fatalf("paper %+v, %v", paper, err)
+	}
+	if paper.Questions[0].OrderFixed {
+		t.Error("a member of a group that allows shuffling reads as fixed")
+	}
+}
+
+func TestADraftOfOnlyGroupMembersIsNotEmpty(t *testing.T) {
+	r := draft(testsdomain.Section{Units: unitsOf("group", "g-1")})
+	paper, err := r.Draft(context.Background(), access.Scope{UserID: "t"}, "t-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := numbersAndGroups(paper), "1:q-2:g-1 2:q-3:g-1"; got != want {
+		t.Errorf("paper %q, want %q", got, want)
+	}
+}
+
+func TestANumberIsAQuestionsPlaceInTheBuilderSoAnUnreadableQuestionKeepsItAndTheGroupAfterItFollowsOn(t *testing.T) {
+	r := draft(testsdomain.Section{Units: append(unitsOf("question", "q-1", "q-gone"), unitsOf("group", "g-1")...)})
+	paper, err := r.Draft(context.Background(), access.Scope{UserID: "t"}, "t-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := numbersAndGroups(paper), "1:q-1: 3:q-2:g-1 4:q-3:g-1"; got != want {
+		t.Errorf("paper %q, want %q", got, want)
 	}
 	if _, err := r.Draft(context.Background(), access.Scope{UserID: "t"}, "other"); !errors.Is(err, aidomain.ErrNotFound) {
 		t.Errorf("a test the scope does not reach: %v", err)
 	}
 }
 
+func TestANumberKeepsCountingAcrossSections(t *testing.T) {
+	r := draft(
+		testsdomain.Section{Units: append(unitsOf("question", "q-1"), unitsOf("group", "g-1")...)},
+		testsdomain.Section{Units: append(unitsOf("group", "g-2"), unitsOf("question", "q-5")...)},
+	)
+	paper, err := r.Draft(context.Background(), access.Scope{UserID: "t"}, "t-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := numbersAndGroups(paper), "1:q-1: 2:q-2:g-1 3:q-3:g-1 4:q-6:g-2 5:q-5:"; got != want {
+		t.Errorf("paper %q, want %q", got, want)
+	}
+}
+
+func TestASectionWithNoUnitsIsReadFromItsQuestionIDsAsStandaloneQuestions(t *testing.T) {
+	r := draft(testsdomain.Section{QuestionIDs: []string{"q-1", "q-gone", "q-4"}})
+	paper, err := r.Draft(context.Background(), access.Scope{UserID: "t"}, "t-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := numbersAndGroups(paper), "1:q-1: 3:q-4:"; got != want {
+		t.Errorf("paper %q, want %q", got, want)
+	}
+}
+
+func TestAGroupTheScopeCannotReadIsLeftOutWholeAndEachGroupIsFetchedOnce(t *testing.T) {
+	reads := &groupReads{}
+	r := draftReading(reads, testsdomain.Section{Units: append(unitsOf("group", "g-gone", "g-1"), unitsOf("question", "q-1")...)})
+	paper, err := r.Draft(context.Background(), access.Scope{UserID: "t"}, "t-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := numbersAndGroups(paper), "1:q-2:g-1 2:q-3:g-1 3:q-1:"; got != want {
+		t.Errorf("paper %q, want %q", got, want)
+	}
+	if got, want := strings.Join(reads.fetched, " "), "g-gone g-1"; got != want {
+		t.Errorf("groups fetched %q, want %q: one fetch for each", got, want)
+	}
+}
+
+func TestADraftThatCannotReadAGroupForAnyOtherReasonFails(t *testing.T) {
+	broken := errors.New("database down")
+	r := draft(testsdomain.Section{Units: unitsOf("group", "g-1")})
+	r.Group = cqrs.HandlerFunc[testsquery.Group, testsdomain.StoredGroup](func(context.Context, testsquery.Group) (testsdomain.StoredGroup, error) {
+		return testsdomain.StoredGroup{}, broken
+	})
+	if _, err := r.Draft(context.Background(), access.Scope{UserID: "t"}, "t-1"); !errors.Is(err, broken) {
+		t.Errorf("err = %v, want the read failure", err)
+	}
+}
+
 func TestAPassageIsFoundInTheDraftsGroupsOrNotFound(t *testing.T) {
-	r := draft(testsdomain.Section{Units: []testsdomain.SectionUnit{{Kind: "group", ID: "g-1"}}})
+	r := draft(testsdomain.Section{Units: unitsOf("group", "g-1")})
 
 	got, err := r.Passage(context.Background(), access.Scope{UserID: "t"}, "t-1", "S-1")
-	if err != nil || got.Title != "Parks" || got.Text != "Parks give a town room to breathe." {
+	if err != nil || got.Title != "Parks" || got.Text != parksText {
 		t.Errorf("passage %+v, %v", got, err)
 	}
 	for name, ids := range map[string][2]string{"a stimulus the test does not hold": {"t-1", "s-9"}, "a test the scope does not reach": {"other", "s-1"}} {
