@@ -13,15 +13,26 @@ const PATH = "/teacher/tests/{id}/questions/move";
 const REQUEST_ID = "018f0000-0000-7000-8000-00000000ffff";
 
 /**
+ * CopyOrigin is the bank question a member copy was made from, and whether the
+ * copy has been edited since; a test sets `edited` where the server would find
+ * the copy's content changed.
+ */
+export interface CopyOrigin {
+  questionId: string;
+  edited: boolean;
+}
+
+/**
  * GroupMoveDraft is the draft a fake `moveTestQuestion` acts on: the test,
  * its section-owned groups by id, how a bank question becomes a member copy,
- * and every request body it was sent.
+ * the origin each copy remembers, and every request body it was sent.
  */
 export interface GroupMoveDraft {
   test: Test;
   groups: Map<string, StoredGroup>;
   copy: (questionId: string) => StoredGroupQuestion;
   requests: MoveInput[];
+  origins?: Map<string, CopyOrigin>;
 }
 
 /**
@@ -29,8 +40,10 @@ export interface GroupMoveDraft {
  * `draft` as the contract describes it: it checks the request against the
  * contract, the test revision and every touched group's revision, refuses a
  * gap-bound member's leaving with `group_gap_bound`, copies a standalone
- * question into a group, moves a member by its id, bumps the test and every
- * touched group, and answers with the contract-checked result.
+ * question into a group and remembers where the copy came from, moves a
+ * member by its id, puts the original back when an unedited copy leaves its
+ * group, bumps the test and every touched group, and answers with the
+ * contract-checked result.
  */
 export function moveQuestionHandler(draft: GroupMoveDraft) {
   return http.post(`${BASE}/teacher/tests/:id/questions/move`, async ({ request }) => {
@@ -108,18 +121,10 @@ function gapBinding(group: StoredGroup, questionId: string) {
 function answer(draft: GroupMoveDraft, body: MoveInput): Response {
   const checked = check(draft, body);
   if (checked instanceof Response) return checked;
-  const { source, destination, touched } = checked;
-  const taken = take(draft, source, body.questionId);
-  const copied = source.kind === "unit";
-  const placed: Taken | undefined = copied
-    ? { question: draft.copy(body.questionId), optionOrder: "shuffle" }
-    : taken;
-  if (destination && placed)
-    insertMember(draft, destination.bundle.group.id, placed, body.to.index);
-  else insertUnit(draft, body.to.sectionId, body.questionId, body.to.index);
+  const landing = land(draft, body, checked);
   const updatedAt = new Date(Date.parse(draft.test.updatedAt) + 1000).toISOString();
   draft.test = { ...draft.test, updatedAt };
-  for (const groupId of touched) {
+  for (const groupId of checked.touched) {
     const group = draft.groups.get(groupId)!;
     draft.groups.set(groupId, {
       ...group,
@@ -129,10 +134,57 @@ function answer(draft: GroupMoveDraft, body: MoveInput): Response {
   }
   return contractJson(PATH, "post", 200, {
     test: draft.test,
-    questionId: placed && copied ? placed.question.id : body.questionId,
-    copied,
-    groups: touched.map((groupId) => draft.groups.get(groupId)!),
+    ...landing,
+    groups: checked.touched.map((groupId) => draft.groups.get(groupId)!),
   });
+}
+
+interface Landing {
+  questionId: string;
+  copied: boolean;
+  restored: boolean;
+  editedCopy: boolean;
+}
+
+function land(draft: GroupMoveDraft, body: MoveInput, checked: Checked): Landing {
+  const { source, destination } = checked;
+  const taken = take(draft, source, body.questionId);
+  if (source.kind === "unit") return copyIn(draft, body, destination!);
+  if (!destination) return leave(draft, body);
+  insertMember(draft, destination.bundle.group.id, taken!, body.to.index);
+  return {
+    questionId: body.questionId,
+    copied: false,
+    restored: false,
+    editedCopy: false,
+  };
+}
+
+function copyIn(draft: GroupMoveDraft, body: MoveInput, into: StoredGroup): Landing {
+  const copy = draft.copy(body.questionId);
+  draft.origins ??= new Map();
+  draft.origins.set(copy.id, { questionId: body.questionId, edited: false });
+  insertMember(
+    draft,
+    into.bundle.group.id,
+    { question: copy, optionOrder: "shuffle" },
+    body.to.index,
+  );
+  return { questionId: copy.id, copied: true, restored: false, editedCopy: false };
+}
+
+function leave(draft: GroupMoveDraft, body: MoveInput): Landing {
+  const origin = draft.origins?.get(body.questionId);
+  draft.origins?.delete(body.questionId);
+  const original = origin && !origin.edited ? origin.questionId : undefined;
+  const questionId = original ?? body.questionId;
+  insertUnit(draft, body.to.sectionId, questionId, body.to.index);
+  return {
+    questionId,
+    copied: false,
+    restored: original !== undefined,
+    editedCopy: origin?.edited === true,
+  };
 }
 
 type Source =

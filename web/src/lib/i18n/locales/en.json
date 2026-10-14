@@ -1408,6 +1408,8 @@
     "moveGroupField": "Group",
     "moveGroupOption": "{{group}} · {{section}}",
     "movedIntoGroupCopied": "The question was copied into the group. The original stays in the question bank.",
+    "movedOutRestored": "The original question is back in the test.",
+    "movedOutEditedCopy": "The question differs from the original, so it was saved as a new bank question.",
     "moveGapBound": "The question is bound to a gap in the material. Unbind it in Shared content first.",
     "moveGroupFull": "The group is full: it holds at most 200 questions and 4 MB of content.",
     "moveAudioScope": "The question uses the group's own shared recording.",

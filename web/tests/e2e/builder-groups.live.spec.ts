@@ -465,3 +465,231 @@ test("dragging a bank question into a group copies it under a new id, bumps the 
   await expect(frame.getByRole("heading", { name: "Lịch sinh hoạt" })).toBeVisible();
   await expect(frame.getByText("Câu lạc bộ mở cửa vào thứ Bảy.")).toBeVisible();
 });
+
+interface Setup {
+  testId: string;
+  groupId: string;
+  sourceId: string;
+  token: string;
+  bankPrompt: string;
+  read: (path: string) => Promise<Json>;
+  statusOf: (path: string) => Promise<number>;
+}
+
+async function startWithABankQuestionBesideAGroup(page: Page): Promise<Setup> {
+  await signInAsAdmin(page);
+  await page.goto("/teacher/tests");
+  const creating = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/teacher/tests",
+  );
+  await page.getByRole("button", { name: "Đề thi mới", exact: true }).click();
+  const creation = await creating;
+  const api = new URL(creation.url()).origin;
+  const headers = {
+    authorization: (await creation.request().allHeaders())["authorization"]!,
+  };
+  const read = async (path: string): Promise<Json> => {
+    const response = await page.request.get(`${api}${path}`, { headers });
+    expect(response.status(), path).toBe(200);
+    return (await response.json()) as Json;
+  };
+  const statusOf = async (path: string) =>
+    (await page.request.get(`${api}${path}`, { headers })).status();
+  await expect(page).toHaveURL(/\/teacher\/tests\/[0-9a-f-]+\/edit$/);
+  const testId = new URL(page.url()).pathname.split("/").at(-2)!;
+  await page.getByRole("button", { name: "Thêm phần", exact: true }).click();
+  await saved(page);
+
+  const token = `E1R${Date.now()}`;
+  const bankPrompt = `Câu độc lập ${token}`;
+  const bankCreated = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/teacher/questions",
+  );
+  await page.getByRole("button", { name: /^Thêm câu hỏi/ }).click();
+  const sourceId = ((await (await bankCreated).json()) as Json)["id"] as string;
+  await page
+    .getByRole("textbox", { name: "Nội dung câu hỏi", exact: true })
+    .fill(bankPrompt);
+  await saved(page);
+
+  await page
+    .getByRole("button", { name: "Thêm nhóm câu dùng chung", exact: true })
+    .click();
+  await page.getByLabel("Tên nhóm câu hỏi", { exact: true }).fill(`Nhóm ${token}`);
+  await page.getByRole("button", { name: "Thêm ngữ liệu", exact: true }).click();
+  await page.getByLabel("Tên ngữ liệu", { exact: true }).fill("Lịch sinh hoạt");
+  await page
+    .getByRole("textbox", { name: "Nội dung ngữ liệu", exact: true })
+    .fill("Câu lạc bộ mở cửa vào thứ Bảy.");
+  await page.getByRole("button", { name: "Thêm câu hỏi", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Nội dung câu hỏi", exact: true })
+    .fill(`Câu sẵn có ${token}`);
+  await saved(page);
+  const groupId = (await page
+    .locator("[data-outline-group]")
+    .first()
+    .getAttribute("data-outline-group"))!;
+  await page.getByRole("button", { name: "Thêm phần", exact: true }).click();
+  await saved(page);
+  expect((await read(`/teacher/tests/${testId}`))["sections"]).toHaveLength(2);
+  return { testId, groupId, sourceId, token, bankPrompt, read, statusOf };
+}
+
+interface MoveAnswer {
+  questionId: string;
+  copied: boolean;
+  restored: boolean;
+  editedCopy: boolean;
+}
+
+async function answerOf(page: Page, setup: Setup, gesture: () => Promise<void>) {
+  const moving = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname ===
+        `/teacher/tests/${setup.testId}/questions/move`,
+  );
+  await gesture();
+  const response = await moving;
+  expect(response.status()).toBe(200);
+  return {
+    body: response.request().postDataJSON() as Json,
+    answer: (await response.json()) as MoveAnswer,
+  };
+}
+
+function dragIntoTheGroup(page: Page, setup: Setup) {
+  return answerOf(page, setup, async () => {
+    const handle = page.getByRole("button", {
+      name: "Kéo để đổi vị trí câu 1",
+      exact: true,
+    });
+    await handle.focus();
+    await page.keyboard.press("Space");
+    await expect(handle).toHaveAttribute("aria-pressed", "true");
+    await page.keyboard.press("ArrowDown");
+    await expect(page.locator("[data-outline-drop-into]")).toHaveClass(/bg-brand-soft/);
+    await page.keyboard.press("Space");
+  });
+}
+
+function dragOutToTheNextSection(page: Page, setup: Setup) {
+  return answerOf(page, setup, async () => {
+    const handle = page.getByRole("button", { name: "Kéo câu 1", exact: true });
+    const zone = page.getByText("Kéo câu hỏi vào đây", { exact: true });
+    const from = (await handle.boundingBox())!;
+    const to = (await zone.boundingBox())!;
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(from.x + from.width / 2 + 12, from.y + from.height / 2 + 12, {
+      steps: 4,
+    });
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 24 });
+    await expect(zone).toHaveClass(/bg-brand-soft/);
+    await page.mouse.up();
+  });
+}
+
+async function bankHolding(setup: Setup): Promise<string[]> {
+  const listed = (await setup.read(
+    `/teacher/questions?q=${encodeURIComponent(setup.token)}&limit=50`,
+  )) as { items: { id: string; prompt: string }[] };
+  return listed.items
+    .filter((item) => item.prompt.startsWith("Câu độc lập"))
+    .map((item) => item.id);
+}
+
+test("dragging a bank question into a group and straight back out restores the original and leaves one bank question", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const setup = await startWithABankQuestionBesideAGroup(page);
+  const { sourceId, groupId } = setup;
+  expect(await bankHolding(setup)).toEqual([sourceId]);
+
+  const into = await dragIntoTheGroup(page, setup);
+  const copyId = into.answer.questionId;
+  expect(into.answer.copied).toBe(true);
+  expect(into.answer.restored).toBe(false);
+  expect(into.answer.editedCopy).toBe(false);
+  expect(copyId).not.toBe(sourceId);
+  expect(await bankHolding(setup)).toEqual([sourceId]);
+  await expect(
+    page.locator(
+      `[data-outline-group="${groupId}"] [data-outline-question="${copyId}"]`,
+    ),
+  ).toBeVisible();
+  await saved(page);
+
+  const out = await dragOutToTheNextSection(page, setup);
+  expect(out.body["questionId"]).toBe(copyId);
+  expect(out.answer.restored).toBe(true);
+  expect(out.answer.editedCopy).toBe(false);
+  expect(out.answer.copied).toBe(false);
+  expect(out.answer.questionId).toBe(sourceId);
+
+  await expect(page.getByText("Đã trả câu hỏi gốc về đề thi.")).toBeVisible();
+  await expect(page.locator(`[data-outline-question="${sourceId}"]`)).toBeVisible();
+  await expect(page.locator(`[data-outline-question="${copyId}"]`)).toHaveCount(0);
+  await saved(page);
+
+  const after = await setup.read(`/teacher/tests/${setup.testId}`);
+  const units = (
+    after["sections"] as { units: { kind: string; id: string }[] }[]
+  ).flatMap((section) => section.units);
+  expect(units.filter((unit) => unit.kind === "question")).toEqual([
+    { kind: "question", id: sourceId },
+  ]);
+  expect(await bankHolding(setup)).toEqual([sourceId]);
+  expect(await setup.statusOf(`/teacher/questions/${copyId}`)).toBe(404);
+});
+
+test("a copy that was edited in the group stays a new bank question when it is dragged out", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const setup = await startWithABankQuestionBesideAGroup(page);
+  const { sourceId, groupId, bankPrompt } = setup;
+
+  const into = await dragIntoTheGroup(page, setup);
+  const copyId = into.answer.questionId;
+  await saved(page);
+
+  const edited = `${bankPrompt} đã sửa`;
+  const saving = page.waitForResponse(
+    (response) =>
+      response.request().method() === "PUT" &&
+      new URL(response.url()).pathname === `/teacher/question-groups/${groupId}`,
+  );
+  await page
+    .getByRole("textbox", { name: "Nội dung câu hỏi", exact: true })
+    .fill(edited);
+  expect((await saving).status()).toBe(200);
+  await saved(page);
+
+  const out = await dragOutToTheNextSection(page, setup);
+  expect(out.body["questionId"]).toBe(copyId);
+  expect(out.answer.restored).toBe(false);
+  expect(out.answer.editedCopy).toBe(true);
+  expect(out.answer.copied).toBe(false);
+  expect(out.answer.questionId).toBe(copyId);
+
+  await expect(
+    page.getByText(
+      "Câu hỏi khác với bản gốc nên được lưu thành câu hỏi mới trong ngân hàng.",
+    ),
+  ).toBeVisible();
+  await saved(page);
+  const bank = await bankHolding(setup);
+  expect(bank).toHaveLength(2);
+  expect(bank).toEqual(expect.arrayContaining([sourceId, copyId]));
+  expect((await setup.read(`/teacher/questions/${copyId}`))["prompt"]).toBe(edited);
+  expect((await setup.read(`/teacher/questions/${sourceId}`))["prompt"]).toBe(
+    bankPrompt,
+  );
+});

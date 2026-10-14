@@ -39,7 +39,8 @@ func (h Tests) moveReply(ctx context.Context, result domain.MoveQuestionResult) 
 			return nil, err
 		}
 	}
-	return openapi.MoveTestQuestion200JSONResponse{Test: test, QuestionId: httpapi.ParseUUID(result.QuestionID), Copied: result.Copied, Groups: groups}, nil
+	return openapi.MoveTestQuestion200JSONResponse{Test: test, QuestionId: httpapi.ParseUUID(result.QuestionID), Copied: result.Copied,
+		Restored: result.Restored, EditedCopy: result.EditedCopy, Groups: groups}, nil
 }
 
 func moveFailure(ctx context.Context, err error) (*groupResponse, error) {

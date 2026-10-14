@@ -4,6 +4,7 @@ package e2e
 
 import (
 	"net/http"
+	"net/url"
 	"slices"
 	"testing"
 
@@ -148,5 +149,97 @@ func TestATeacherMovesQuestionsAcrossAGroupsBoundary(t *testing.T) {
 	}
 	if got := memberIDsOf(teacher.must(http.StatusOK, http.MethodGet, "/teacher/question-groups/"+boundID, nil)); !slices.Equal(got, bound) {
 		t.Fatalf("a refused move changed the group: %v", got)
+	}
+}
+
+func TestADraggedCopyNobodyEditedComesBackAsTheOriginal(t *testing.T) {
+	w := boot(t)
+	email, password := w.teacher()
+	teacher := w.browser()
+	teacher.login(email, password)
+
+	token := "Gốc" + nonce(t)
+	lead := id(teacher.must(http.StatusCreated, http.MethodPost, "/teacher/questions", choice("Câu dẫn "+nonce(t))))
+	bank := id(teacher.must(http.StatusCreated, http.MethodPost, "/teacher/questions", choice(token)))
+	test := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/tests", map[string]any{"title": "Đề khôi phục " + nonce(t)})
+	test = teacher.must(http.StatusOK, http.MethodPatch, "/teacher/tests/"+id(test), map[string]any{
+		"expectedUpdatedAt": test["updatedAt"], "sections": []map[string]any{{"title": "Phần 1", "questionIds": []string{lead, bank}}},
+	})
+	testID, section := id(test), test["sections"].([]any)[0].(map[string]any)["id"].(string)
+	read := func() map[string]any {
+		return teacher.must(http.StatusOK, http.MethodGet, "/teacher/tests/"+testID, nil)
+	}
+	free := []string{uuid.NewString()}
+	group := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/question-groups", map[string]any{
+		"bundle": groupOf("Nhóm khôi phục", free, []any{}), "ownerSectionId": section, "expectedTestUpdatedAt": read()["updatedAt"],
+	})
+	groupID := group["bundle"].(map[string]any)["group"].(map[string]any)["id"].(string)
+	move := func(question string, into *string, index, revision int) (int, map[string]any) {
+		var target any
+		if into != nil {
+			target = *into
+		}
+		return teacher.call(http.MethodPost, "/teacher/tests/"+testID+"/questions/move", map[string]any{
+			"expectedUpdatedAt": read()["updatedAt"], "questionId": question,
+			"to":                     map[string]any{"sectionId": section, "groupId": target, "index": index},
+			"expectedGroupRevisions": []map[string]any{{"groupId": groupID, "revision": revision}},
+		})
+	}
+	bankIDs := func() []string {
+		var out []string
+		for _, item := range teacher.must(http.StatusOK, http.MethodGet, "/teacher/questions?q="+url.QueryEscape(token), nil)["items"].([]any) {
+			out = append(out, item.(map[string]any)["id"].(string))
+		}
+		return out
+	}
+
+	status, copied := move(bank, &groupID, 0, 1)
+	copyID, _ := copied["questionId"].(string)
+	if status != http.StatusOK || copied["copied"] != true || copied["restored"] != false || copied["editedCopy"] != false || copyID == bank {
+		t.Fatalf("copying into the group answered %d %v", status, copied)
+	}
+	if got := bankIDs(); !slices.Equal(got, []string{bank}) {
+		t.Fatalf("the bank holds %v with the copy in the group, want only the original", got)
+	}
+
+	status, restored := move(copyID, nil, 1, 2)
+	if status != http.StatusOK || restored["restored"] != true || restored["questionId"] != bank || restored["copied"] != false || restored["editedCopy"] != false {
+		t.Fatalf("dragging the unedited copy straight back out answered %d %v", status, restored)
+	}
+	if got := teacher.unitsOf(restored["test"].(map[string]any)); !slices.Equal(got, []string{"question:" + lead, "question:" + bank, "group:" + groupID}) {
+		t.Fatalf("the original is not where the copy would have landed: %v", got)
+	}
+	if got := memberIDsOf(restored["groups"].([]any)[0].(map[string]any)); !slices.Equal(got, free) {
+		t.Fatalf("the group still holds the copy: %v", got)
+	}
+	if got := bankIDs(); !slices.Equal(got, []string{bank}) {
+		t.Fatalf("the bank holds %v after the round trip, want exactly the original", got)
+	}
+	if status, _ := teacher.call(http.MethodGet, "/teacher/questions/"+copyID, nil); status != http.StatusNotFound {
+		t.Fatalf("the removed copy answered %d, want 404", status)
+	}
+
+	status, copied = move(bank, &groupID, 0, 3)
+	if status != http.StatusOK || copied["copied"] != true {
+		t.Fatalf("copying again answered %d %v", status, copied)
+	}
+	second := copied["questionId"].(string)
+	stored := teacher.must(http.StatusOK, http.MethodGet, "/teacher/question-groups/"+groupID, nil)
+	bundle := stored["bundle"].(map[string]any)
+	for _, question := range bundle["questions"].([]any) {
+		if input := question.(map[string]any); input["id"] == second {
+			input["input"].(map[string]any)["prompt"] = token + " (đã sửa)"
+		}
+	}
+	saved := teacher.must(http.StatusOK, http.MethodPut, "/teacher/question-groups/"+groupID, map[string]any{
+		"bundle": bundle, "expectedRevision": stored["revision"], "expectedTestUpdatedAt": stored["testUpdatedAt"],
+	})
+
+	status, kept := move(second, nil, 0, int(saved["revision"].(float64)))
+	if status != http.StatusOK || kept["restored"] != false || kept["editedCopy"] != true || kept["copied"] != false || kept["questionId"] != second {
+		t.Fatalf("dragging an edited copy out answered %d %v", status, kept)
+	}
+	if got := bankIDs(); len(got) != 2 || !slices.Contains(got, bank) || !slices.Contains(got, second) {
+		t.Fatalf("the bank holds %v, want the original and the edited copy", got)
 	}
 }
