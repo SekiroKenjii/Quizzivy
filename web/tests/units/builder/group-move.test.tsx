@@ -769,8 +769,11 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+let pageClient: QueryClient;
+
 function renderBuilder() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  pageClient = client;
   const router = createMemoryRouter(
     [{ path: "/teacher/tests/:id/edit", element: <TestBuilderPage /> }],
     { initialEntries: [`/teacher/tests/${TEST_ID}/edit`] },
@@ -871,6 +874,90 @@ describe("moving a question in the builder", () => {
     ).toBeVisible();
   });
 
+  it("puts the original back when the copy nobody edited is dragged straight out again", async () => {
+    const user = renderBuilder();
+    await dragOntoGroup(user);
+    expect(
+      await screen.findByText(
+        "Đã sao chép câu hỏi vào nhóm. Bản gốc vẫn ở ngân hàng câu hỏi.",
+      ),
+    ).toBeVisible();
+    const invalidated = vi.spyOn(pageClient, "invalidateQueries");
+
+    await user.click(await screen.findByRole("button", { name: "Thao tác với câu 1" }));
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Chuyển ra khỏi nhóm" }),
+    );
+
+    await waitFor(() => expect(draft.requests).toHaveLength(2));
+    expect(draft.requests[1]).toEqual({
+      expectedUpdatedAt: MOVED_STAMP,
+      questionId: COPY_ID,
+      to: { sectionId: SECTION_ID, groupId: null, index: 1 },
+      expectedGroupRevisions: [{ groupId: GROUP_ID, revision: 2 }],
+    });
+    expect(await screen.findByText("Đã trả câu hỏi gốc về đề thi.")).toBeVisible();
+    const original = await screen.findByRole("button", {
+      name: "Kéo để đổi vị trí câu 2",
+    });
+    expect(original.closest("[data-outline-row]")).toHaveAttribute(
+      "data-outline-question",
+      QUESTION_ID,
+    );
+    expect(document.querySelector(`[data-outline-question="${COPY_ID}"]`)).toBeNull();
+    const group = document.querySelector<HTMLElement>(
+      `[data-outline-group="${GROUP_ID}"]`,
+    )!;
+    expect(within(group).getAllByRole("button", { name: /Group member/ })).toHaveLength(
+      1,
+    );
+    expect(
+      within(group).queryByRole("button", { name: /Standalone question/ }),
+    ).toBeNull();
+    await waitFor(() => expect(original).toHaveFocus());
+    expect(original.closest("[data-outline-row]")).toHaveClass("bg-secondary");
+    expect(invalidated).toHaveBeenCalledWith({ queryKey: ["teacher-questions"] });
+    expect(invalidated).toHaveBeenCalledWith({
+      queryKey: ["teacher-question", QUESTION_ID],
+    });
+    expect(
+      screen.queryByText(
+        "Câu hỏi đã được sửa nên được lưu thành câu hỏi mới trong ngân hàng.",
+      ),
+    ).toBeNull();
+    expect(await screen.findByLabelText("Điểm")).toBeVisible();
+  });
+
+  it("says an edited copy was saved as a new question, and keeps it under its own id", async () => {
+    draft.origins = new Map([[MEMBER_ID, { questionId: QUESTION_ID, edited: true }]]);
+    const user = renderBuilder();
+    const trigger = await screen.findByRole(
+      "button",
+      { name: "Thao tác với câu 2" },
+      { timeout: 5000 },
+    );
+
+    await user.click(trigger);
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Chuyển ra khỏi nhóm" }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Câu hỏi đã được sửa nên được lưu thành câu hỏi mới trong ngân hàng.",
+      ),
+    ).toBeVisible();
+    const out = await screen.findByRole("button", { name: "Kéo để đổi vị trí câu 2" });
+    expect(out.closest("[data-outline-row]")).toHaveAttribute(
+      "data-outline-question",
+      MEMBER_ID,
+    );
+    expect(
+      document.querySelector(`[data-outline-question="${QUESTION_ID}"]`),
+    ).not.toBeNull();
+    expect(screen.queryByText("Đã trả câu hỏi gốc về đề thi.")).toBeNull();
+  });
+
   it("moves a member out of its group from its menu, after the group, keeping its id", async () => {
     const user = renderBuilder();
     const trigger = await screen.findByRole(
@@ -903,11 +990,12 @@ describe("moving a question in the builder", () => {
     ).toBeVisible();
     await waitFor(() => expect(out).toHaveFocus());
     expect(await screen.findByLabelText("Điểm")).toBeVisible();
-    expect(
-      screen.queryByText(
-        "Đã sao chép câu hỏi vào nhóm. Bản gốc vẫn ở ngân hàng câu hỏi.",
-      ),
-    ).toBeNull();
+    for (const message of [
+      "Đã sao chép câu hỏi vào nhóm. Bản gốc vẫn ở ngân hàng câu hỏi.",
+      "Đã trả câu hỏi gốc về đề thi.",
+      "Câu hỏi đã được sửa nên được lưu thành câu hỏi mới trong ngân hàng.",
+    ])
+      expect(screen.queryByText(message)).toBeNull();
   });
 
   it("asks for a reload when the test or a group changed elsewhere, and keeps the outline", async () => {
