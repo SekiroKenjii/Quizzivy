@@ -43,7 +43,7 @@ func (h ExplanationHandler) Handle(ctx context.Context, q Explanation) (Explaine
 	}
 	text, err := prompts.DecodeExplanation(got.Object)
 	if err != nil {
-		return Explained{}, unusable(err)
+		return Explained{}, asker(h).unusable(ctx, domain.FeatureExplanation, got.RequestID, err)
 	}
 	return Explained{Text: text, Usage: got.Usage}, nil
 }

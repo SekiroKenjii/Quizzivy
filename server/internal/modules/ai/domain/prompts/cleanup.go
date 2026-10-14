@@ -130,8 +130,7 @@ func Tagging(in TaggingInput) (Prompt, error) {
 		b.WriteString(cleanupLine(i, in.Bank[i], false))
 	}
 	b.WriteString("\nFor every question above give 1-4 short lower-case tags and, if it shows level=?, its CEFR level (pre_a1, a1, a2, b1, b2, c1 or c2); level is \"\" if you cannot tell or the question shows one already. " +
-		"Mention no question that is not listed.\n" +
-		"Return {\"tags\":[{\"question\":\"q3\",\"tags\":[\"...\"],\"level\":\"b1\"}]}.")
+		"Mention no question that is not listed. In \"tags\", give each question its reference (such as q3) in \"question\", its tags and its level.")
 	return finished(Prompt{Feature: domain.FeatureCleanup, Tier: CleanupTier, System: tagsSystem, User: b.String(), Schema: json.RawMessage(tagsSchema), MaxTokens: cleanupMaxTokens})
 }
 
@@ -221,7 +220,7 @@ func duplicatesUser(in DuplicatesInput) (string, error) {
 	}
 	fmt.Fprintf(&b, "\nFind: duplicates = at most %d of the candidate pairs whose two questions test the same thing in nearly the same words, the clearest first, each pair once, with a reason.\n"+
 		"Write the reasons in %s. Report only pairs from the list above and never a pair that is fine; use [] if no candidate is a duplicate.\n"+
-		"Return {\"duplicates\":[{\"a\":\"q1\",\"b\":\"q2\",\"why\":\"...\"}]}.",
+		"Give each pair its two references (such as q1 and q2) in \"a\" and \"b\" and the reason in \"why\".",
 		MaxDuplicatesAsked, in.Language.Name())
 	return b.String(), nil
 }

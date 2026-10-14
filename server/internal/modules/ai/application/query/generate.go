@@ -50,7 +50,7 @@ func (h GenerateHandler) Handle(ctx context.Context, q Generate) (Generated, err
 	}
 	items, err := prompts.DecodeGenerate(got.Object, in)
 	if err != nil {
-		return Generated{}, unusable(err)
+		return Generated{}, asker(h).unusable(ctx, domain.FeatureGenerate, got.RequestID, err)
 	}
 	return Generated{Items: items, Usage: got.Usage}, nil
 }

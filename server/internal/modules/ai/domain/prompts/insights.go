@@ -83,8 +83,7 @@ func Insights(in InsightsInput) (Prompt, error) {
 	}
 	fmt.Fprintf(&b, "\nWrite title and body in %s: the title in under nine words, the body in 1-2 sentences with numbers. Return 3 or 4 insights.\n"+
 		"kind: key = a key or marking rule worth a second look, problem = a pattern of mistakes, strength = something that went well. "+
-		"action: review = look at the answers again, practice = the class needs practice, none. questions = the numbers of the questions the insight is about.\n"+
-		"Return {\"insights\":[{\"kind\":\"...\",\"title\":\"...\",\"body\":\"...\",\"action\":\"...\",\"questions\":[1]}]}.", in.Language.Name())
+		"action: review = look at the answers again, practice = the class needs practice, none. questions = the numbers of the questions the insight is about.", in.Language.Name())
 	return Prompt{Feature: domain.FeatureInsights, Tier: domain.TierCapable, System: insightsSystem, User: b.String(), Schema: json.RawMessage(insightsSchema), MaxTokens: 1200}, nil
 }
 
@@ -110,7 +109,7 @@ func DecodeInsights(raw json.RawMessage, in InsightsInput) ([]Insight, error) {
 		}
 	}
 	if len(out) == 0 {
-		return nil, ErrUnusable
+		return nil, fmt.Errorf("%w: none of the %d insights in the answer is usable", ErrUnusable, len(answer.Insights))
 	}
 	return out, nil
 }

@@ -44,7 +44,7 @@ func (h VariantHandler) Handle(ctx context.Context, q Variant) (Varied, error) {
 	}
 	changes, err := prompts.DecodeVariant(got.Object, in)
 	if err != nil {
-		return Varied{}, unusable(err)
+		return Varied{}, asker(h).unusable(ctx, domain.FeatureVariant, got.RequestID, err)
 	}
 	return Varied{Changes: changes, Usage: got.Usage}, nil
 }

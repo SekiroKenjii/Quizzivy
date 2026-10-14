@@ -62,7 +62,7 @@ func Score(in ScoreInput) Prompt {
 	user := fmt.Sprintf("Question (%s point): \"\"\"%s\"\"\"\n%s\nStudent answer: \"\"\"%s\"\"\"\nAllowed scores: %s.\n"+
 		"Mark as an English teacher would: the answer must fit the question and the accepted answers, spelling and word form count, capital letters do not.\n"+
 		"Write the reasons and the comment in %s. The comment is 1-2 friendly, specific sentences to the student.\n"+
-		"Return {\"score\":n,\"confidence\":\"high|medium|low\",\"reasons\":[\"1-3 short points\"],\"comment\":\"...\"}.",
+		"Put one of the allowed scores in \"score\", how sure you are (high, medium or low) in \"confidence\", 1-3 short points in \"reasons\" and the comment in \"comment\".",
 		strconv.FormatFloat(a.Points, 'f', -1, 64), clip(a.Prompt, 1500), key, clip(a.Answer, 4000), scoreList(AllowedScores(a.Points)), in.Language.Name())
 	return Prompt{Feature: domain.FeatureScore, Tier: domain.TierCapable, System: scoreSystem, User: user, Schema: json.RawMessage(scoreSchema), MaxTokens: 700}
 }

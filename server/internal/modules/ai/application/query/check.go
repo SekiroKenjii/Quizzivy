@@ -44,7 +44,7 @@ func (h CheckHandler) Handle(ctx context.Context, q Check) (Checked, error) {
 	}
 	findings, err := prompts.DecodeCheck(got.Object, in)
 	if err != nil {
-		return Checked{}, unusable(err)
+		return Checked{}, asker(h).unusable(ctx, domain.FeatureCheck, got.RequestID, err)
 	}
 	return Checked{Findings: findings, Usage: got.Usage}, nil
 }
