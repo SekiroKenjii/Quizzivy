@@ -199,7 +199,7 @@ export function GroupComposer({
         />
         <FieldDescription>{t("groups.independentHint")}</FieldDescription>
       </Field>
-      <div className="grid min-w-0 gap-5 @min-[720px]/composer:grid-cols-[12rem_minmax(0,1fr)]">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 @min-[720px]/composer:grid-cols-[12rem_minmax(0,1fr)]">
         <CompactGroupNavigation
           enabled={embedded}
           bundle={bundle}
@@ -650,19 +650,31 @@ function CompactGroupNavigation({
           <SelectTrigger id="group-content-picker">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-w-(--radix-select-trigger-width)">
             <SelectGroup>
               <SelectItem value="instructions">{t("groups.instructions")}</SelectItem>
               {bundle.group.stimuli.map((item) => (
-                <SelectItem key={item.id} value={item.id}>
-                  {item.title || t("groups.materials")}
+                <SelectItem
+                  key={item.id}
+                  value={item.id}
+                  className="*:[span]:last:min-w-0"
+                >
+                  <span className="truncate">
+                    {item.title || t("groups.materials")}
+                  </span>
                 </SelectItem>
               ))}
               {bundle.group.members.map((item, index) => (
-                <SelectItem key={item.questionId} value={item.questionId}>
-                  {index + 1}{" "}
-                  {questions.get(item.questionId)?.input.prompt ||
-                    t("builder.untitledQuestion")}
+                <SelectItem
+                  key={item.questionId}
+                  value={item.questionId}
+                  className="*:[span]:last:min-w-0"
+                >
+                  <span className="truncate">
+                    {index + 1}{" "}
+                    {questions.get(item.questionId)?.input.prompt ||
+                      t("builder.untitledQuestion")}
+                  </span>
                 </SelectItem>
               ))}
             </SelectGroup>
