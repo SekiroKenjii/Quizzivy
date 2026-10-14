@@ -718,7 +718,8 @@ branch (`develop`, `work/**`) a task PR never edits the version line. It adds it
 bullets under the one heading at the top of the changelog,
 `**Changes pending (R5, v0.12.0)**`, each bullet starting with its task id
 (`T-R5.15 §15 …`). The release PR sets the version line to the next free number
-and renames the heading `**Changes since v0.NNN**`. A hotfix off `main` numbers
+and renames the heading `**Changes since v0.NNN**`, where NNN is the version the
+release replaces. A hotfix off `main` numbers
 itself, because it is its own release, and its back-merge carries the number
 down. Migration numbers and the `D-nn` ids of `docs/plan/20-data-model.md` are
 permanent ids, not a version, and keep the rule in `docs/team/README.md`.
