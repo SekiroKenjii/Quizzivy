@@ -500,8 +500,9 @@ runs are in section 10. After they are green:
   say which key breaks the tie (`uuidv7` ids order by creation). Go map iteration
   and un-sorted `SELECT`s must not be asserted positionally.
 - **Shared rows.** The live suite and the dev seed share one database and
-  `fullyParallel` is on (CI uses one worker; locally Playwright defaults to
-  several): run `pnpm e2e:live --workers=1`, and never two live runs at once.
+  `fullyParallel` is on, so `pnpm e2e:live` pins one worker, in CI and locally,
+  and two live runs never overlap. The stubbed projects stub the API per page and
+  share no rows, so CI runs them on three workers.
   The Go integration tier commits to one `TEST_DATABASE_URL` across parallel
   packages; a test that commits owns its removal (registered before the first
   insert, errors checked), and a "recent" list read must not see another
