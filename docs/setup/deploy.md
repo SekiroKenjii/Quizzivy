@@ -111,8 +111,10 @@ Before anything is built, the API job unions `fly.toml`'s `[env]` with
 accepts. It reports missing names in seconds instead of after a build, a
 migration, a rollout and a health check.
 
-It exists because `config.Load` has two all-or-nothing groups — Google sign-in
-and object storage — and each exits 1 on a partial set. Both shipped partial,
+It exists because `config.Load` has all-or-nothing groups — Google sign-in,
+object storage and, from v0.12.0, email (`RESEND_API_KEY`, `EMAIL_FROM`,
+`APP_URL`, all required in production, with `SECRETS_KEY`) — and each exits 1
+on a partial set. Both shipped partial,
 one after the other, and the cause was legible only in the app's own stderr:
 Fly reports it as "the app appears to be crashing" and prints an empty log tail,
 because the machine is gone before it attaches.
