@@ -1,17 +1,15 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.113 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.112 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
-**Changes since v0.112**
+**Changes pending (R5, v0.12.0)**
 
-R5, T-R5.5 to T-R5.7 (organization settings, logo and sign-in policy), and the QC pass over them.
-
-- §5.6 (new) The centre's one settings document: profile, two logos, sign-in policy and retention choices, saved under a revision and audited as `organization.updated`; the logo rules; what each sign-in switch does; the lockout judgement; the 30-second propagation.
-- §15 `GET`/`PUT /admin/settings`, `POST /admin/settings/sign-in-impact` and `POST /admin/settings/logo` (`system.settings.write`), and the two open reads `GET /public/organization` and `GET /public/organization/logo`. That makes nine open operations, not seven. New error codes `SIGN_IN_POLICY_LOCKOUT`, `PASSWORD_SIGN_IN_DISABLED`, `GOOGLE_SIGN_IN_DISABLED` and `GOOGLE_DOMAIN_NOT_ALLOWED`.
-- §13.5 `app.organization_settings`, one row (`00130_create_organization_settings.sql`): the app role may read and update it and cannot insert or delete it.
-- §5.6 A name holds no line break, control or invisible character; a website is a domain or an `https` address without credentials; a contact email is an address with a domain; a save that changes nothing writes nothing and keeps its revision.
-- §5.6, §12 The organization logo is stored and served as a PNG only (D-019). The server answers an SVG with `415 MEDIA_TYPE_UNSUPPORTED`; the settings page draws an SVG the Admin picks to a 1024 x 1024 canvas in the browser and uploads that PNG. The `svg` logo type, `branding/{sha256}.svg` and the sandbox header for SVG are gone.
+- T-R5.5 to T-R5.7: §5.6 (new) The centre's one settings document: profile, two logos, sign-in policy and retention choices, saved under a revision and audited as `organization.updated`; the logo rules; what each sign-in switch does; the lockout judgement; the 30-second propagation.
+- T-R5.5 to T-R5.7: §15 `GET`/`PUT /admin/settings`, `POST /admin/settings/sign-in-impact` and `POST /admin/settings/logo` (`system.settings.write`), and the two open reads `GET /public/organization` and `GET /public/organization/logo`. That makes nine open operations, not seven. New error codes `SIGN_IN_POLICY_LOCKOUT`, `PASSWORD_SIGN_IN_DISABLED`, `GOOGLE_SIGN_IN_DISABLED` and `GOOGLE_DOMAIN_NOT_ALLOWED`.
+- T-R5.5 to T-R5.7: §13.5 `app.organization_settings`, one row (`00130_create_organization_settings.sql`): the app role may read and update it and cannot insert or delete it.
+- T-R5.5 to T-R5.7: §5.6 A name holds no line break, control or invisible character; a website is a domain or an `https` address without credentials; a contact email is an address with a domain; a save that changes nothing writes nothing and keeps its revision.
+- T-R5.5 to T-R5.7: §5.6, §12 The organization logo is stored and served as a PNG only (D-019). The server answers an SVG with `415 MEDIA_TYPE_UNSUPPORTED`; the settings page draws an SVG the Admin picks to a 1024 x 1024 canvas in the browser and uploads that PNG. The `svg` logo type, `branding/{sha256}.svg` and the sandbox header for SVG are gone.
 
 **Changes since v0.111**
 
@@ -1394,7 +1392,7 @@ The organisation's own details are build-time config: `VITE_ORG_NAME`, `VITE_ORG
 Signing in (§5.1–§5.3) says who a user is; the user's role (§1.1) says what they may do. The permission catalogue, the built-in grants, the Admin wildcard, the hidden keys and the pseudo-keys (`self`, `workspace.teacher`, `workspace.admin`) are in `docs/plan/70-redesign-overview.md` §4.1. `PermissionKey` in `api/openapi.yaml` equals the rows of `app.permissions`, and the server refuses to start when the database lacks a key it was built with.
 
 - **Enforcement.** Every operation that requires the bearer token declares `x-permission` in `api/openapi.yaml`: a key, a pseudo-key, or a list met by any one of its keys (70 §4.2). `httpx.RequirePermission` enforces it on every request, after `RequireAuth`; the path is not the gate. The server refuses to start when an operation declares nothing, declares a value outside the catalogue, or declares one that does not belong to its path tree (`/teacher/*`, `/admin/*`, `/app/*`, `/auth/*`, `/me/*`).
-- **Open operations** do not require the bearer token, declare no permission and pass untouched. There are seven: login, Google sign-in, refresh, logout, `POST /join/preview`, `GET /public/status` and the integrity beacon (`POST /app/attempts/:id/events`).
+- **Open operations** do not require the bearer token, declare no permission and pass untouched. There are nine: login, Google sign-in, refresh, logout, `POST /join/preview`, `GET /public/status`, `GET /public/organization`, `GET /public/organization/logo` and the integrity beacon (`POST /app/attempts/:id/events`).
 - **Refusals.** No valid token, an unknown or disabled user, or a token older than the user's session epoch (§5.2) → `401 UNAUTHORIZED` with `WWW-Authenticate`, which the single-flight refresh settles. An unmet permission → `403 FORBIDDEN`, with no detail.
 - **The principal.** Each gated request resolves the caller's role, permissions, `disabled_at` and session epoch through an in-process cache that keeps a user for 10 seconds. A write on the same machine forgets the entry at once, so the change applies on that machine's next request and on any other within 10 seconds. Polling does not query the database on every request.
 - **Scope is separate from permission.** Repositories filter by `access.Scope`: another teacher's id answers as a missing one does, and their rows never appear in a list or a count. A student is visible to every teacher who reaches them: a member of a class the teacher teaches, an account the teacher created, or an individual target of an assignment the teacher created. `scope.all`, which only the Admin holds, lifts the filter for a read or a write by id, and in the lists of classes, students and attempts. It does not lift it in the teacher workspace's six content lists (`listTests`, `listQuestions`, `listQuestionGroups`, `listMedia`, `listWordImports`, `listAssignments`, with their facets, tags and counts): those hold the caller's own rows for every caller, the Admin included, and for assignments that is those the caller created or that target a class the caller teaches (DG-53, T-R4.54). Both teacher home operations, `getDashboard` and `getTeacherSummary`, pass `.Own()`, so their figures cover only the caller's teaching, admins included; the repository retains its wide `scope.all` reading for the future Admin console. The Admin reaches another teacher's content by id and, from R5, in the Admin console.
@@ -3103,7 +3101,7 @@ GET    /public/status                   → {maintenance: {startsAt, endsAt, act
 GET    /public/organization             -> {name, shortName, website, contactEmail, frontDeskPhone, frontDeskHours, address,
                                           logo {lightUrl, darkUrl}, signIn {google, password}, joinCodes}; same body for
                                           everyone, Cache-Control public 300 s, 120/min and 2,000/h per IP
-GET    /public/organization/logo        ?variant=light|dark&v=<sha256> -> the logo bytes, nosniff, sandboxed attachment; 404
+GET    /public/organization/logo        ?variant=light|dark&v=<sha256> -> the logo bytes, nosniff, a PNG attachment; 404
                                           when there is none; 300/min per IP
 POST   /join/preview                    {joinCode} → {classId, className, teacherName}
 POST   /auth/login                      {email,password} → {accessToken,user: CurrentUser}
