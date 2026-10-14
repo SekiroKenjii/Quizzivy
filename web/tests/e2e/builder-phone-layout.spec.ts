@@ -120,12 +120,21 @@ const draft: components["schemas"]["Test"] = {
   updatedAt: STAMP,
 };
 
-async function openGroupMember(page: Page, width: number, height: number) {
+async function openGroupMember(
+  page: Page,
+  width: number,
+  height: number,
+  sidebar: "expanded" | "collapsed" = "expanded",
+) {
   await stubApi(page, {
     ...sessionAs(adminUser),
     [`GET /teacher/tests/${TEST_ID}`]: { body: draft },
     [`GET /teacher/question-groups/${GROUP_ID}`]: { body: group },
   });
+  if (sidebar === "collapsed")
+    await page.addInitScript(() =>
+      localStorage.setItem("quizzivy.sidebar", "collapsed"),
+    );
   await page.setViewportSize({ width, height });
   await page.goto(`/teacher/tests/${TEST_ID}/edit`);
   await page
@@ -201,3 +210,77 @@ for (const [width, height] of [
     expect(await horizontalOverflow(page)).toEqual(NONE);
   });
 }
+
+const EDITOR_MIN = 256;
+
+async function editorLayout(page: Page) {
+  const box = async (selector: string) =>
+    (await page.locator(selector).first().boundingBox())!;
+  const editor = await box("[data-columns] > [data-resize-middle]");
+  const copy = (await page
+    .getByRole("button", { name: "Lưu bản sao vào ngân hàng", exact: true })
+    .boundingBox())!;
+  const column = page.getByRole("complementary", {
+    name: "Cài đặt câu hỏi",
+    exact: true,
+  });
+  const settings = (await column.count()) ? await column.boundingBox() : null;
+  return { editor, copy, settings };
+}
+
+test("at 1024px with the sidebar expanded a member's settings move to their dialog, and the editor keeps its width", async ({
+  page,
+}) => {
+  await openGroupMember(page, 1024, 768);
+  const { editor, copy, settings } = await editorLayout(page);
+  expect(settings).toBeNull();
+  expect(editor.width).toBeGreaterThanOrEqual(EDITOR_MIN);
+  expect(copy.x + copy.width).toBeLessThanOrEqual(editor.x + editor.width);
+  expect(await horizontalOverflow(page)).toEqual(NONE);
+
+  await page.getByRole("button", { name: "Cài đặt câu hỏi", exact: true }).click();
+  await expect(
+    page
+      .getByRole("dialog", { name: "Cài đặt câu hỏi" })
+      .getByLabel("Điểm", { exact: true }),
+  ).toHaveValue("1");
+});
+
+for (const [width, height, sidebar] of [
+  [1024, 768, "collapsed"],
+  [1280, 900, "expanded"],
+  [1440, 900, "expanded"],
+] as const) {
+  test(`at ${width}px with the sidebar ${sidebar} a member's settings stay in their column beside the editor`, async ({
+    page,
+  }) => {
+    await openGroupMember(page, width, height, sidebar);
+    const { editor, copy, settings } = await editorLayout(page);
+    expect(settings).not.toBeNull();
+    expect(settings!.x).toBeGreaterThanOrEqual(editor.x + editor.width - 1);
+    expect(editor.width).toBeGreaterThanOrEqual(EDITOR_MIN);
+    expect(copy.x + copy.width).toBeLessThanOrEqual(settings!.x);
+    await expect(
+      page.getByRole("button", { name: "Cài đặt câu hỏi", exact: true }),
+    ).toBeHidden();
+    expect(await horizontalOverflow(page)).toEqual(NONE);
+  });
+}
+
+test("the settings follow the editor's width as the window narrows", async ({
+  page,
+}) => {
+  await openGroupMember(page, 1280, 900);
+  const column = page.getByRole("complementary", {
+    name: "Cài đặt câu hỏi",
+    exact: true,
+  });
+  await expect(column).toBeVisible();
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await expect(column).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Cài đặt câu hỏi", exact: true }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(column).toBeVisible();
+});
