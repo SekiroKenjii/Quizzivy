@@ -5,6 +5,9 @@
 
 **Changes pending (R5, v0.12.0)**
 
+- T-R5.18 §15 Three read-only Admin operations, no migration: `getAdminOverview` and `getAdminSummary` (`workspace.admin`) and `getUsage` (`system.settings.write`). A section the caller's keys do not open is `null` and costs no query: `people` and `dailyActive` need `people.users.manage`, `classes` `scope.all`, `recentChanges` `system.audit.read`, `storage` `system.settings.write` and the credit-request row `ai.credits.manage`.
+- T-R5.18 §13.8 The Admin's readings count the whole centre under no scope. A day is a local date in `APP_TIMEZONE`: the chart is today and the thirteen days before it, and `activeThisWeek` the seven days ending today, both counting an account that was active on the day even if it has been disabled since. A teacher is an enabled account that is not a student target of `app.student_like_roles`, an Admin and a custom role included; `teachersDisabled` is the same over disabled accounts and a seat is an account that is not disabled. The storage row appears when a meter with a limit reads 80% or more, rounded half up as `attention[].detail` quotes it. The plan is six optional `PLAN_*` variables, validated at start-up (the numbers are plain digits) and never enforced (DG-55).
+
 **Changes since v0.111**
 
 R5, T-R5.8 (second QC follow-up on the roles API: QC-X-13, QC-X-14).
