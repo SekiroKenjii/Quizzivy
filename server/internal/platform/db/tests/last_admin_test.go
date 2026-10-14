@@ -8,16 +8,56 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"net/url"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/pressly/goose/v3"
 
 	identitydomain "quizzivy/internal/modules/identity/domain"
 	identityrepo "quizzivy/internal/modules/identity/repositories"
 	"quizzivy/internal/platform/db"
 )
+
+func openAs(t *testing.T, dsn string) *sql.DB {
+	t.Helper()
+	conn, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	if err := conn.Ping(); err != nil {
+		t.Fatalf("ping: %v", err)
+	}
+	return conn
+}
+
+func appRoleDSN(t *testing.T, dsn string) string {
+	t.Helper()
+	u, err := url.Parse(dsn)
+	if err != nil {
+		t.Fatalf("parse DSN: %v", err)
+	}
+	password := os.Getenv("QUIZZIVY_APP_PASSWORD")
+	if password == "" {
+		password = "app"
+	}
+	u.User = url.UserPassword(appRole, password)
+	return u.String()
+}
+
+func refusedWith(t *testing.T, err error, constraint string) {
+	t.Helper()
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) {
+		t.Fatalf("want a refusal by %s, got %v", constraint, err)
+	}
+	if pgErr.Code != "23514" || pgErr.ConstraintName != constraint {
+		t.Fatalf("want 23514 from %s, got %s from %q: %s", constraint, pgErr.Code, pgErr.ConstraintName, pgErr.Message)
+	}
+}
 
 func migratedScratch(t *testing.T) (string, *sql.DB) {
 	t.Helper()
