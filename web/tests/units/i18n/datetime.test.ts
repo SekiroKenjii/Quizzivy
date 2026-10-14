@@ -9,6 +9,7 @@ import {
   dayMonth,
   dayMonthYear,
   dayOfMonth,
+  formatAgo,
   formatMoment,
   formatTime,
   sameAppDay,
@@ -109,5 +110,43 @@ describe("the time of a moment, with its day when the day is not today", () => {
 
   it("reads the day in the app's zone, not in UTC", () => {
     expect(clockTime("2026-10-12T17:30:00Z", now, "en")).toBe("00:30, 13 Oct");
+  });
+});
+
+describe("how long ago, for a line about an account", () => {
+  const now = Date.parse("2026-10-14T12:00:00Z");
+  const ago = (ms: number, locale: "vi" | "en" = "en") =>
+    formatAgo(
+      new Date(now - ms).toISOString(),
+      locale,
+      locale === "vi" ? "vừa xong" : "just now",
+      now,
+    );
+  const minute = 60_000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+
+  it("says just now under a minute, and for a moment the browser's clock has not reached", () => {
+    expect(ago(10_000)).toBe("just now");
+    expect(ago(59_000, "vi")).toBe("vừa xong");
+    expect(ago(-2 * minute)).toBe("just now");
+  });
+
+  it("counts minutes, hours and days, with yesterday for one", () => {
+    expect(ago(minute)).toBe("1 minute ago");
+    expect(ago(45 * minute, "vi")).toBe("45 phút trước");
+    expect(ago(3 * hour)).toBe("3 hours ago");
+    expect(ago(30 * hour)).toBe("yesterday");
+    expect(ago(30 * hour, "vi")).toBe("hôm qua");
+    expect(ago(3 * day)).toBe("3 days ago");
+  });
+
+  it("goes on in weeks, months and years instead of a bare date", () => {
+    expect(ago(7 * day)).toBe("1 week ago");
+    expect(ago(15 * day, "vi")).toBe("2 tuần trước");
+    expect(ago(40 * day)).toBe("1 month ago");
+    expect(ago(200 * day, "vi")).toBe("6 tháng trước");
+    expect(ago(364 * day)).toBe("11 months ago");
+    expect(ago(800 * day)).toBe("2 years ago");
   });
 });
