@@ -3460,6 +3460,21 @@ the 256 MiB sandbox included; `BenchmarkRenderForty*` in `pdftext/tests` repeats
       prompt and a test whose questions are all members answers `ErrNothingToRead`, as before.
 - [x] Clean up: a duplicate card offers "Open" for each question and "Keep both"; no merge
       (DG-197); "Add tags to {n} questions" is the bulk tag write.
+- [x] **Corrected in the next patch release (v0.11.8): a panel's session outlives its drawer.**
+      The panel had unmounted whenever the drawer closed, which dropped its fields, the
+      suggestions of a run and, through the unmount cleanup, aborted a run in flight. A teacher
+      who pressed "Open question" on a finding, or closed the drawer by mistake, got a blank
+      setup and paid for another run. `AiPanelStack` now keeps each panel mounted from its first
+      opening, drawn closed (`AiPanel`'s `open`), for as long as its host page is; the four hosts
+      (the builder, the bank, Test detail and the insights' practice panel) use it and own the
+      lazy import. Done, a successful primary and Start over end the session; the unmount cleanup
+      still aborts a run when the page goes. Two things followed from keeping results across
+      edits: a kind may declare an item `stale` (a check's finding whose question has left the
+      test is hidden and not counted), and Generate reads a section, bank or practice destination
+      from the page when the questions are kept, since the builder's open section can change
+      between the run and the write. The bank clean-up's "Open" is a link and still leaves the
+      page, ending its session; keeping it needs state above the router or a new tab, and a second
+      tab races the refresh cookie's rotation, so it is not done here.
 - [x] Every write a primary makes goes through the existing mutation hooks and their autosave
       flushes; the panel itself calls only `/teacher/ai/*`. A unit test spies on the API module
       and finds no write from `features/ai/`.

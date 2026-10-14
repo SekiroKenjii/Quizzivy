@@ -1,7 +1,14 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.109 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.110 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.109**
+
+The next patch release (v0.11.8), a hotfix after a teacher's report (2026-10-14): closing an AI panel threw its results away, and getting them back meant running the assistant, and paying for it, again.
+
+- §8 An AI panel keeps its session while the page that opened it stays open. Closing the drawer by Esc, the backdrop, Close, Cancel or "Open question" does not end it: the setup fields, a run still in flight and the suggestions a run answered are there when the entry point is pressed again, and a run that finishes while the drawer is closed is waiting in it. Done, a primary's successful write and Start over end it, and so does leaving the page or opening another test, which also aborts a run that has not answered. The bank's "Open" on a near-duplicate still leaves the page and so ends the clean-up.
+- §8 A check's finding whose question is no longer in the test is left out of the list and its count. Generate's "Add {n} to {section}" names, and writes to, the section the builder is on when the questions are kept, not the one it was on when they were made; a group the passage came from stays the destination.
 
 **Changes since v0.108**
 
@@ -2026,6 +2033,8 @@ Every entry point is drawn only while `GET /public/status` says `ai` and the cal
 | Import workspace, Sources pane | the "Read with AI" card, which mirrors the preference "Read imports with AI" | `createWordImport` with `readWithAi` |
 
 The builder's Generate adds the kept questions where its source belongs: from a passage that a shared-context group holds, to that group, as new members after its existing ones, through the group's own update under its revision ("Add {n} to {group}"); from pasted text, a topic or nothing, to the open question's section as new questions ("Add {n} to {section}"). Either way the first new question opens.
+
+A panel is a session that belongs to its page, not to the drawer: it ends with Done, a primary's write or Start over, and with the page, never with the drawer closing (the deck's prototype resets on every open, and ours does not, because each run spends the teacher's credits). In the builder, "Open question" on a finding closes the drawer and opens the question beside it; the same "AI check" button brings the findings back.
 
 A variant is a new draft test named "{title} · Variant", never a version of the open one. A copied draft names the same bank questions as the test it copies, so each changed question is duplicated and the change is written to the duplicate: the test and its questions are untouched. A variant covers the standalone questions; the members of a group are not varied and are copied as they are. The bank clean-up merges nothing: a near-duplicate offers "Open" for each question and "Keep both", and tag suggestions apply through the bulk tag write (DG-197).
 
