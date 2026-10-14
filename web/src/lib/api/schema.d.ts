@@ -2269,11 +2269,17 @@ export interface paths {
          * @description The new role takes the icon `key-round` and the colour `gray`, and starts
          *     with the permissions of `copyFromRoleId`, if given. The source must pass
          *     the subset rule: its permissions, `learning.take_tests` apart, are the
-         *     caller's own. The Assistant cannot be a source. A name is stored in
-         *     Unicode NFC, so the composed and decomposed forms of one name are the
-         *     same name, and it may hold no line break, control or invisible
-         *     character. At most 200 roles exist, the four built-in ones included;
-         *     past that the answer is `ROLE_LIMIT_REACHED`. Writes one audit row,
+         *     caller's own. The Assistant cannot be a source. A name and a description
+         *     are stored in Unicode NFC, so the composed and decomposed forms of one
+         *     name are the same name. The limits of 60 and 300 characters count the
+         *     text after NFC; the schema bounds the text as sent at four times that,
+         *     so a name typed decomposed is not refused before it is composed. A name
+         *     holds a letter, a digit, a punctuation mark or a symbol. Neither field
+         *     holds a control or invisible character: a zero-width one, a blank
+         *     filler such as the Hangul filler or the Braille blank, a lone code
+         *     point nothing assigns; a description may hold line breaks, a name may
+         *     not. At most 200 roles exist, the four built-in ones included; past that
+         *     the answer is `ROLE_LIMIT_REACHED`. Writes one audit row,
          *     `role.created`.
          */
         post: operations["createRole"];
@@ -2360,8 +2366,10 @@ export interface paths {
          * Edit a role's name, description, icon or colour
          * @description A supplied field is changed and the others are kept; a body with only
          *     `expectedRevision` is refused. A built-in role may be renamed; its key never changes. The target must pass the subset rule.
-         *     A name is stored in Unicode NFC and may hold no line break, control or
-         *     invisible character, as when a role is created.
+         *     A name and a description are stored in Unicode NFC and follow the rules
+         *     of a role's creation: the limits count the text after NFC, a name holds
+         *     a letter, a digit, a punctuation mark or a symbol, and neither holds a
+         *     control or invisible character.
          *     A change moves the revision. Writes one audit row, `role.updated`, naming
          *     what changed.
          */
@@ -4649,13 +4657,17 @@ export interface components {
             studentTarget: boolean;
         };
         RoleInput: {
+            /** @description At most 60 characters after Unicode NFC. */
             name: string;
+            /** @description At most 300 characters after Unicode NFC. */
             description?: string;
             /** @description The role whose permissions the new role starts with. Omitted, it starts with none. */
             copyFromRoleId?: components["schemas"]["Uuid"];
         };
         RoleUpdate: {
+            /** @description At most 60 characters after Unicode NFC. */
             name?: string;
+            /** @description At most 300 characters after Unicode NFC. */
             description?: string;
             icon?: components["schemas"]["RoleIcon"];
             color?: components["schemas"]["RoleColor"];

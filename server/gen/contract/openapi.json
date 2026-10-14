@@ -3090,11 +3090,13 @@
           "name": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 60
+            "maxLength": 240,
+            "description": "At most 60 characters after Unicode NFC."
           },
           "description": {
             "type": "string",
-            "maxLength": 300
+            "maxLength": 1200,
+            "description": "At most 300 characters after Unicode NFC."
           },
           "copyFromRoleId": {
             "$ref": "#/components/schemas/Uuid",
@@ -3112,11 +3114,13 @@
           "name": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 60
+            "maxLength": 240,
+            "description": "At most 60 characters after Unicode NFC."
           },
           "description": {
             "type": "string",
-            "maxLength": 300
+            "maxLength": 1200,
+            "description": "At most 300 characters after Unicode NFC."
           },
           "icon": {
             "$ref": "#/components/schemas/RoleIcon"
@@ -18611,7 +18615,7 @@
           "admin-roles"
         ],
         "summary": "Create a custom role",
-        "description": "The new role takes the icon `key-round` and the colour `gray`, and starts\nwith the permissions of `copyFromRoleId`, if given. The source must pass\nthe subset rule: its permissions, `learning.take_tests` apart, are the\ncaller's own. The Assistant cannot be a source. A name is stored in\nUnicode NFC, so the composed and decomposed forms of one name are the\nsame name, and it may hold no line break, control or invisible\ncharacter. At most 200 roles exist, the four built-in ones included;\npast that the answer is `ROLE_LIMIT_REACHED`. Writes one audit row,\n`role.created`.\n",
+        "description": "The new role takes the icon `key-round` and the colour `gray`, and starts\nwith the permissions of `copyFromRoleId`, if given. The source must pass\nthe subset rule: its permissions, `learning.take_tests` apart, are the\ncaller's own. The Assistant cannot be a source. A name and a description\nare stored in Unicode NFC, so the composed and decomposed forms of one\nname are the same name. The limits of 60 and 300 characters count the\ntext after NFC; the schema bounds the text as sent at four times that,\nso a name typed decomposed is not refused before it is composed. A name\nholds a letter, a digit, a punctuation mark or a symbol. Neither field\nholds a control or invisible character: a zero-width one, a blank\nfiller such as the Hangul filler or the Braille blank, a lone code\npoint nothing assigns; a description may hold line breaks, a name may\nnot. At most 200 roles exist, the four built-in ones included; past that\nthe answer is `ROLE_LIMIT_REACHED`. Writes one audit row,\n`role.created`.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -18781,7 +18785,7 @@
           "admin-roles"
         ],
         "summary": "Edit a role's name, description, icon or colour",
-        "description": "A supplied field is changed and the others are kept; a body with only\n`expectedRevision` is refused. A built-in role may be renamed; its key never changes. The target must pass the subset rule.\nA name is stored in Unicode NFC and may hold no line break, control or\ninvisible character, as when a role is created.\nA change moves the revision. Writes one audit row, `role.updated`, naming\nwhat changed.\n",
+        "description": "A supplied field is changed and the others are kept; a body with only\n`expectedRevision` is refused. A built-in role may be renamed; its key never changes. The target must pass the subset rule.\nA name and a description are stored in Unicode NFC and follow the rules\nof a role's creation: the limits count the text after NFC, a name holds\na letter, a digit, a punctuation mark or a symbol, and neither holds a\ncontrol or invisible character.\nA change moves the revision. Writes one audit row, `role.updated`, naming\nwhat changed.\n",
         "requestBody": {
           "required": true,
           "content": {
