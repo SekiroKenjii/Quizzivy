@@ -452,7 +452,8 @@ Gitflow. `main` is released only and tagged; `develop` is integration.
   release's integration branch `work/redesign-r<k>`, which is cut from `develop`
   and merged back `--no-ff` when the release is complete. D4 runs the same way
   under its own names: `T-D4.<n>` on `feature/t-d4-<nn>-<slug>`, off
-  `work/deck-d4`.
+  `work/deck-d4`. E1 (the escalation release of 2026-10-14) runs the same way:
+  `T-E1.<n>` on `feature/t-e1-<nn>-<slug>`, off `work/escalation-e1`.
 - A release is `release/<version>` → `main` → back-merge to `develop`. Merging to
   `main` deploys to production.
 - `hotfix/<slug>` off `main`, merged to both.
