@@ -922,7 +922,7 @@ describe("moving a question in the builder", () => {
     });
     expect(
       screen.queryByText(
-        "Câu hỏi đã được sửa nên được lưu thành câu hỏi mới trong ngân hàng.",
+        "Câu hỏi khác với bản gốc nên được lưu thành câu hỏi mới trong ngân hàng.",
       ),
     ).toBeNull();
     expect(await screen.findByLabelText("Điểm")).toBeVisible();
@@ -944,7 +944,7 @@ describe("moving a question in the builder", () => {
 
     expect(
       await screen.findByText(
-        "Câu hỏi đã được sửa nên được lưu thành câu hỏi mới trong ngân hàng.",
+        "Câu hỏi khác với bản gốc nên được lưu thành câu hỏi mới trong ngân hàng.",
       ),
     ).toBeVisible();
     const out = await screen.findByRole("button", { name: "Kéo để đổi vị trí câu 2" });
@@ -993,7 +993,7 @@ describe("moving a question in the builder", () => {
     for (const message of [
       "Đã sao chép câu hỏi vào nhóm. Bản gốc vẫn ở ngân hàng câu hỏi.",
       "Đã trả câu hỏi gốc về đề thi.",
-      "Câu hỏi đã được sửa nên được lưu thành câu hỏi mới trong ngân hàng.",
+      "Câu hỏi khác với bản gốc nên được lưu thành câu hỏi mới trong ngân hàng.",
     ])
       expect(screen.queryByText(message)).toBeNull();
   });

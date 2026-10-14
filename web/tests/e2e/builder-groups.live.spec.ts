@@ -681,7 +681,7 @@ test("a copy that was edited in the group stays a new bank question when it is d
 
   await expect(
     page.getByText(
-      "Câu hỏi đã được sửa nên được lưu thành câu hỏi mới trong ngân hàng.",
+      "Câu hỏi khác với bản gốc nên được lưu thành câu hỏi mới trong ngân hàng.",
     ),
   ).toBeVisible();
   await saved(page);
