@@ -234,6 +234,7 @@ function AiKindPanel<F, I, C>({
   const selectable = cards
     .filter((entry) => entry.card.selectable)
     .map(({ key }) => key);
+  const answered = cards.map(({ item }) => item);
   const selectedItems = cards
     .filter((entry) => done?.selected.has(entry.key))
     .map(({ item }) => item);
@@ -297,11 +298,11 @@ function AiKindPanel<F, I, C>({
             {t("ai.startOver")}
           </Button>
           {kind.primary !== null &&
-          done.items.length > 0 &&
-          (kind.primary.available?.(done.items.map(({ item }) => item)) ?? true) ? (
+          answered.length > 0 &&
+          (kind.primary.available?.(answered) ?? true) ? (
             <PrimaryButton
-              icon={kind.primary.icon(env)}
-              label={kind.primary.label(selectedItems, env)}
+              icon={kind.primary.icon(env, answered)}
+              label={kind.primary.label(selectedItems, env, answered)}
               disabled={busy || selectedItems.length === 0}
               onClick={() => void apply(selectedItems)}
             />

@@ -11,7 +11,7 @@ import (
 type Tests interface {
 	// Passage reads the shared material named stimulusID in the draft of testID.
 	Passage(ctx context.Context, scope access.Scope, testID, stimulusID string) (domain.Passage, error)
-	// Draft reads the draft's questions in paper order, skipping a question the scope does not reach.
+	// Draft reads the draft's questions in the order the builder shows them, standalone questions and the members of its groups alike, each member carrying its group's id and passage. It skips a question the scope does not reach but keeps its number.
 	Draft(ctx context.Context, scope access.Scope, testID string) (domain.Paper, error)
 }
 
