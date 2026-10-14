@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.105 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.106 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.105**
+
+v0.11.3, a hotfix after a teacher's report (2026-10-14).
+
+- §12 The builder's Generate adds its questions where their source belongs: from a passage a shared-context group holds, to that group as new members; from pasted text, a topic or nothing, to the section, as before. The builder used to append every generated question to the section, so questions written from a group's passage landed outside the group that shows it.
 
 **Changes since v0.104**
 
@@ -1971,6 +1977,8 @@ Every entry point is drawn only while `GET /public/status` says `ai` and the cal
 | Grading card | "Suggest a score" on a short answer while "Let AI read student answers" is on; with it off, one line that says so and links to Settings › AI assistant | `suggestAiScore` |
 | Assignment detail › Questions | "Explain results with AI", under the same switch (with it off, the same kind of line); "Make a practice set" opens Generate and saves a new draft test "{title} · Practice" | `explainAssignmentResults`, then `createQuestion`, `createTest` and `updateTest` |
 | Import workspace, Sources pane | the "Read with AI" card, which mirrors the preference "Read imports with AI" | `createWordImport` with `readWithAi` |
+
+The builder's Generate adds the kept questions where its source belongs: from a passage that a shared-context group holds, to that group, as new members after its existing ones, through the group's own update under its revision ("Add {n} to {group}"); from pasted text, a topic or nothing, to the open question's section as new questions ("Add {n} to {section}"). Either way the first new question opens.
 
 A variant is a new draft test named "{title} · Variant", never a version of the open one. A copied draft names the same bank questions as the test it copies, so each changed question is duplicated and the change is written to the duplicate: the test and its questions are untouched. The bank clean-up merges nothing: a near-duplicate offers "Open" for each question and "Keep both", and tag suggestions apply through the bulk tag write (DG-197).
 

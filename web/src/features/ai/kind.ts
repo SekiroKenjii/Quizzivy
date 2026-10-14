@@ -119,15 +119,15 @@ export type AiDone =
   string | { message: string; action: { label: string; href: string } };
 
 /**
- * AiPrimary is a panel's primary button after a run: its label and the write
- * it asks the host for, which answers the toast. `available` says whether the
- * answer holds anything it can save; without it, or when it says no, the
- * button is "Done".
+ * AiPrimary is a panel's primary button after a run: its icon and label,
+ * which may read every item the run answered, and the write it asks the host
+ * for, which answers the toast. `available` says whether the answer holds
+ * anything it can save; without it, or when it says no, the button is "Done".
  */
 export interface AiPrimary<I, C> {
-  icon: (env: AiEnv<C>) => LucideIcon;
+  icon: (env: AiEnv<C>, items: readonly I[]) => LucideIcon;
   available?: (items: readonly I[]) => boolean;
-  label: (selected: readonly I[], env: AiEnv<C>) => string;
+  label: (selected: readonly I[], env: AiEnv<C>, items: readonly I[]) => string;
   apply: (selected: readonly I[], env: AiEnv<C>) => Promise<AiDone>;
 }
 

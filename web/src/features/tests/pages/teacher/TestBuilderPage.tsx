@@ -29,6 +29,7 @@ import { useCrumbs } from "@/layouts/shell/crumbs";
 import { PageAsideSlot } from "@/layouts/slots";
 import { contentPlainText } from "@/components/shared/content/plainText";
 import type { AiFinding } from "@/features/ai/api";
+import { AiWriteError } from "@/features/ai/kind";
 import { withFix } from "@/features/question-bank/aiDrafts";
 import {
   createQuestion,
@@ -79,7 +80,13 @@ import {
   type GroupSummary,
   type StoredGroup,
 } from "@/features/question-groups/api";
-import { emptyGroup } from "@/features/question-groups/model";
+import {
+  emptyGroup,
+  groupIssue,
+  groupRoom,
+  MAX_GROUP_MEMBERS,
+  withMembers,
+} from "@/features/question-groups/model";
 import {
   BuilderGroupPane,
   type GroupPaneBridge,
@@ -190,6 +197,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   const [creating, setCreating] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [editorEpoch, setEditorEpoch] = useState(0);
+  const [groupEpoch, setGroupEpoch] = useState(0);
 
   const selectionRequest = useRef(0);
   const [starterIds, setStarterIds] = useState<ReadonlySet<string>>(new Set());
@@ -427,6 +435,37 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       appendQuestions(ids);
       void queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
     }
+  }
+
+  async function addGeneratedToGroup(groupId: string, values: QuestionValues[]) {
+    await flushQuestion.current?.();
+    await outline.flush();
+    const members = values.map((input) => ({ id: crypto.randomUUID(), input }));
+    await writes.run(async () => {
+      await queryClient.cancelQueries({ queryKey: ["teacher-group", groupId] });
+      const stored =
+        queryClient.getQueryData<StoredGroup>(["teacher-group", groupId]) ??
+        (await getGroup(groupId));
+      const room = groupRoom(stored.bundle.group);
+      if (members.length > room)
+        throw new AiWriteError(
+          t("ai.generate.groupFull", {
+            group: stored.bundle.group.title || t("groups.newGroup"),
+            max: MAX_GROUP_MEMBERS,
+            room,
+          }),
+        );
+      const next = withMembers(stored.bundle, members);
+      const issue = groupIssue(next);
+      if (issue) throw new AiWriteError(t(issue));
+      await saveGroup(next, stored.revision);
+      groupBridge.current?.advanceOwner(false, version.current);
+    });
+    if (selectedGroupId === groupId) {
+      setActiveBundle(null);
+      setGroupEpoch((epoch) => epoch + 1);
+    }
+    await selectGroup(groupId, members[0]?.id);
   }
 
   async function fixQuestion(finding: AiFinding) {
@@ -803,13 +842,17 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   const ai: BuilderAi = {
     testId: test.id,
     title: title.trim() || t("tests.untitled"),
-    passages: groupIds.flatMap(
-      (groupId) =>
-        groups.get(groupId)?.group.stimuli.flatMap((stimulus) => {
-          const text = contentPlainText(stimulus.content).trim();
-          return text === "" ? [] : [{ id: stimulus.id, title: stimulus.title, text }];
-        }) ?? [],
-    ),
+    passages: groupIds.flatMap((groupId) => {
+      const bundle = groups.get(groupId);
+      if (!bundle) return [];
+      const group = { id: groupId, title: bundle.group.title || t("groups.newGroup") };
+      return bundle.group.stimuli.flatMap((stimulus) => {
+        const text = contentPlainText(stimulus.content).trim();
+        return text === ""
+          ? []
+          : [{ id: stimulus.id, title: stimulus.title, text, group }];
+      });
+    }),
     section: sections[destinationIndex()]?.title ?? null,
     prepare: async () => {
       setPublishError(null);
@@ -817,6 +860,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       await outline.flush();
     },
     add: addGenerated,
+    addToGroup: addGeneratedToGroup,
     fix: fixQuestion,
     open: (questionId) => void selectQuestion(questionId),
     numberOf: (questionId) => positionOf(sections, questionId, groups),
@@ -827,7 +871,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     if (selectedGroupId)
       return (
         <BuilderGroupPane
-          key={selectedGroupId}
+          key={`${selectedGroupId}:${groupEpoch}`}
           id={selectedGroupId}
           selectedQuestionId={selectedId}
           onSelectedQuestionChange={setSelectedId}
