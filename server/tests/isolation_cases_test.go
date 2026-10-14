@@ -211,6 +211,7 @@ const (
 	outsideEvent    = "an event naming a question outside the attempt's paper is kept without it; the cross-reference scan proves the id is not stored"
 	outsideAnswer   = "an answer to a question outside the attempt's paper is dropped; the cross-reference scan proves no row names it"
 	ownOnly         = "marks only the caller's own notifications; any other id is skipped"
+	moveUnbuilt     = "the operation answers 501 until T-E1.3 builds it, so no id reaches the check yet"
 
 	reportedPerStudent = "answers 200 and reports each student it cannot reset as NOT_FOUND, another teacher's as a missing one's; the bulk reset flow test proves the rows stay untouched"
 	budgetSpent        = "the third call in a minute is refused 429 (two a minute per user), so the caller's own id cannot be tried here; the bulk reset flow test resets the caller's own students beside another teacher's in one batch"
@@ -297,6 +298,20 @@ func isolationCases() map[string]isoCase {
 			return map[string]any{"expectedUpdatedAt": x.testUpdatedAt(own)}
 		}},
 		"previewTest": {},
+		"moveTestQuestion": {
+			fresh: freshPublishedTest,
+			blind: map[string]string{
+				"path id": moveUnbuilt, "body /questionId": moveUnbuilt, "body /to/sectionId": moveUnbuilt,
+				"body /to/groupId": moveUnbuilt, "body /expectedGroupRevisions/-/groupId": moveUnbuilt,
+			},
+			body: func(x *iso, own *party, _ string) any {
+				return map[string]any{
+					"expectedUpdatedAt": x.testUpdatedAt(own), "questionId": own.id("question"),
+					"to":                     map[string]any{"sectionId": own.id("section"), "groupId": own.id("question-group"), "index": 0},
+					"expectedGroupRevisions": []any{map[string]any{"groupId": own.id("question-group"), "revision": 1}},
+				}
+			},
+		},
 
 		"listQuestions":     {query: map[string]string{"limit": "100"}},
 		"createQuestion":    {body: func(_ *iso, own *party, _ string) any { return choiceInput(own) }},
