@@ -407,6 +407,7 @@ func TestAnUploadTheCheckerRefusesIsMappedToItsStatus(t *testing.T) {
 		"unreadable":   {domain.ErrLogoUnreadable, openapi.UploadOrganizationLogo415JSONResponse{}},
 		"dimensions":   {domain.ErrLogoDimensions, openapi.UploadOrganizationLogo415JSONResponse{}},
 		"svg disallow": {domain.ErrSVGNotAllowed, openapi.UploadOrganizationLogo415JSONResponse{}},
+		"svg complex":  {domain.ErrSVGTooComplex, openapi.UploadOrganizationLogo415JSONResponse{}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			s := &store{objects: map[string][]byte{}}
@@ -509,5 +510,26 @@ func TestALogoWhoseBytesAreGoneFromTheStoreIs404NotA500(t *testing.T) {
 	}
 	if response.Code != http.StatusNotFound {
 		t.Errorf("status %d, want 404", response.Code)
+	}
+}
+
+func TestTheTwoWaysAnSVGIsNotAllowedAreToldApart(t *testing.T) {
+	message := func(reason error) string {
+		h := handler(t, &repo{settings: stored()}, &store{objects: map[string][]byte{}}, checker{err: reason})
+		out, err := h.UploadOrganizationLogo(contextAs(t, ""), openapi.UploadOrganizationLogoRequestObject{Body: upload(t, "dark", []byte("x"))})
+		if err != nil {
+			t.Fatal(err)
+		}
+		refusal, ok := out.(openapi.UploadOrganizationLogo415JSONResponse)
+		if !ok || refusal.Error.Code != openapi.SVGNOTALLOWED {
+			t.Fatalf("answered %T %+v, want 415 SVG_NOT_ALLOWED", out, refusal)
+		}
+		return refusal.Error.Message
+	}
+
+	forbidden, complex := message(domain.ErrSVGNotAllowed), message(domain.ErrSVGTooComplex)
+
+	if forbidden == complex || !strings.Contains(complex, "use") || strings.Contains(complex, "drawing elements only") {
+		t.Errorf("forbidden %q, complex %q: want two different messages, the second naming the reuse", forbidden, complex)
 	}
 }

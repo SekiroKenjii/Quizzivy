@@ -524,8 +524,8 @@ func TestAChainOfUsesThatWouldExpandWithoutBoundIsRefused(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			_, _, _, err := checkSVG(doc)
 
-			if !errors.Is(err, imagesafe.ErrSVGNotAllowed) {
-				t.Errorf("answered %v, want ErrSVGNotAllowed", err)
+			if !errors.Is(err, imagesafe.ErrSVGNotAllowed) || !errors.Is(err, imagesafe.ErrSVGTooComplex) {
+				t.Errorf("answered %v, want ErrSVGNotAllowed and ErrSVGTooComplex", err)
 			}
 		})
 	}
@@ -566,8 +566,8 @@ func TestAnSVGWithMoreThanTenThousandElementsIsRefused(t *testing.T) {
 	if _, _, _, err := checkSVG(within); err != nil {
 		t.Errorf("10000 elements answered %v, want success", err)
 	}
-	if _, _, _, err := checkSVG(over); !errors.Is(err, imagesafe.ErrSVGNotAllowed) {
-		t.Errorf("10001 elements answered %v, want ErrSVGNotAllowed", err)
+	if _, _, _, err := checkSVG(over); !errors.Is(err, imagesafe.ErrSVGNotAllowed) || !errors.Is(err, imagesafe.ErrSVGTooComplex) {
+		t.Errorf("10001 elements answered %v, want ErrSVGNotAllowed and ErrSVGTooComplex", err)
 	}
 }
 
@@ -580,7 +580,15 @@ func TestAnSVGNestedDeeperThanSixtyFourLevelsIsRefused(t *testing.T) {
 	if _, _, _, err := checkSVG(nested(64)); err != nil {
 		t.Errorf("64 levels answered %v, want success", err)
 	}
-	if _, _, _, err := checkSVG(nested(65)); !errors.Is(err, imagesafe.ErrSVGNotAllowed) {
-		t.Errorf("65 levels answered %v, want ErrSVGNotAllowed", err)
+	if _, _, _, err := checkSVG(nested(65)); !errors.Is(err, imagesafe.ErrSVGNotAllowed) || !errors.Is(err, imagesafe.ErrSVGTooComplex) {
+		t.Errorf("65 levels answered %v, want ErrSVGNotAllowed and ErrSVGTooComplex", err)
+	}
+}
+
+func TestAnSVGWithAForbiddenElementIsNotTooComplex(t *testing.T) {
+	_, _, _, err := checkSVG(inSVG(`<script>alert(1)</script>`))
+
+	if !errors.Is(err, imagesafe.ErrSVGNotAllowed) || errors.Is(err, imagesafe.ErrSVGTooComplex) {
+		t.Errorf("answered %v, want ErrSVGNotAllowed alone", err)
 	}
 }

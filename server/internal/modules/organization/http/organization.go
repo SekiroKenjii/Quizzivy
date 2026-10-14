@@ -142,6 +142,8 @@ func unsupported(ctx context.Context, err error) (openapi.UploadOrganizationLogo
 		return refuse(openapi.MEDIAUNREADABLE, httpx.Text(ctx, "Không đọc được logo này. Tệp có thể bị lỗi hoặc chưa tải lên hết.", "This logo cannot be read. It may be damaged or not fully uploaded."))
 	case errors.Is(err, domain.ErrLogoDimensions):
 		return refuse(openapi.IMAGEDIMENSIONS, httpx.Text(ctx, "Logo phải là hình vuông, mỗi cạnh từ 256 đến 2048 px.", "The logo must be square, each side 256 to 2048 pixels."))
+	case errors.Is(err, domain.ErrSVGTooComplex):
+		return refuse(openapi.SVGNOTALLOWED, httpx.Text(ctx, "SVG này quá phức tạp để hiển thị an toàn: có hình dùng lại hình đã dùng lại (use), quá 10.000 phần tử hoặc lồng quá 64 cấp. Hãy xuất lại logo ở dạng đơn giản hơn.", "This SVG is too complex to draw safely: a shape reuses a shape that is itself reused (use), or it has more than 10,000 elements or nests more than 64 levels. Export the logo again in a simpler form."))
 	case errors.Is(err, domain.ErrSVGNotAllowed):
 		return refuse(openapi.SVGNOTALLOWED, httpx.Text(ctx, "Tệp SVG chứa thành phần không được phép. Hãy xuất lại logo chỉ gồm hình vẽ.", "The SVG holds something that is not allowed. Export the logo again with drawing elements only."))
 	}

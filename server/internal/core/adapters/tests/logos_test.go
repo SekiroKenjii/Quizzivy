@@ -48,6 +48,7 @@ func TestEachWayToRefuseAnUploadHasItsOwnReason(t *testing.T) {
 		want error
 	}{
 		"a script in an svg":    {`<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>`, orgdomain.ErrSVGNotAllowed},
+		"an svg of nested uses": {`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><g id="g"><use href="#c"/></g><circle id="c" r="1"/><use href="#g"/><use id="u" href="#c"/><use href="#u"/></svg>`, orgdomain.ErrSVGTooComplex},
 		"a gif":                 {"GIF89a\x01\x00\x01\x00", orgdomain.ErrLogoUnsupported},
 		"plain text":            {"hello", orgdomain.ErrLogoUnsupported},
 		"a damaged png":         {"\x89PNG\r\n\x1a\nnot really", orgdomain.ErrLogoUnreadable},

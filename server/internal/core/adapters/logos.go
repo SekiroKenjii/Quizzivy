@@ -105,6 +105,8 @@ func logoReason(err error) error {
 		return orgdomain.ErrLogoUnreadable
 	case errors.Is(err, imagesafe.ErrDimensions):
 		return orgdomain.ErrLogoDimensions
+	case errors.Is(err, imagesafe.ErrSVGTooComplex):
+		return orgdomain.ErrSVGTooComplex
 	case errors.Is(err, imagesafe.ErrSVGNotAllowed):
 		return orgdomain.ErrSVGNotAllowed
 	default:

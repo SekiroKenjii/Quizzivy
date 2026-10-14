@@ -16,10 +16,17 @@ import (
 // ErrSVGNotAllowed is why CheckSVG refuses an SVG that is well formed: a
 // DOCTYPE or entity, a processing instruction, a root other than svg, an element
 // outside the allowlist, an event attribute, a reference that leaves the
-// document, or a shape a renderer could be made to expand without bound: more
-// than maxSVGElements elements, nesting deeper than maxSVGDepth, or a use that
-// references an element holding a use.
+// document, or a shape a renderer could be made to expand without bound, which
+// is also ErrSVGTooComplex.
 var ErrSVGNotAllowed = errors.New("imagesafe: svg holds an element, attribute or reference that is not allowed")
+
+// ErrSVGTooComplex is why CheckSVG refuses an SVG whose elements are all
+// allowed but whose shape a renderer could be made to expand without bound:
+// more than maxSVGElements elements, nesting deeper than maxSVGDepth, or a use
+// that references an element holding a use. It is returned together with
+// ErrSVGNotAllowed, so a caller that does not tell the two apart still sees a
+// refused SVG.
+var ErrSVGTooComplex = errors.New("imagesafe: svg is too complex to draw safely")
 
 const (
 	svgNamespace = "http://www.w3.org/2000/svg"
@@ -172,10 +179,10 @@ func (w *svgWalker) start(el xml.StartElement) error {
 		w.rooted, w.rootAttrs = true, el.Attr
 	}
 	if w.elements++; w.elements > maxSVGElements {
-		return notAllowed("more elements than", strconv.Itoa(maxSVGElements))
+		return tooComplex("more elements than", strconv.Itoa(maxSVGElements))
 	}
 	if w.depth >= maxSVGDepth {
-		return notAllowed("nesting deeper than", strconv.Itoa(maxSVGDepth))
+		return tooComplex("nesting deeper than", strconv.Itoa(maxSVGDepth))
 	}
 	for _, attr := range el.Attr {
 		if err := checkAttribute(attr); err != nil {
@@ -211,7 +218,7 @@ func (w *svgWalker) trackUse(el xml.StartElement) {
 func (w *svgWalker) checkUses() error {
 	for _, target := range w.useTargets {
 		if w.holdsUse[target] {
-			return notAllowed("use of an element that holds a use", target)
+			return tooComplex("use of an element that holds a use", target)
 		}
 	}
 	return nil
@@ -433,6 +440,10 @@ func parseNumber(s string) (float64, bool) {
 
 func sideOf(length float64) int {
 	return max(1, int(math.Round(length)))
+}
+
+func tooComplex(what, subject string) error {
+	return fmt.Errorf("%w: %s %.40q: %w", ErrSVGTooComplex, what, subject, ErrSVGNotAllowed)
 }
 
 func notAllowed(what, subject string) error {

@@ -42,6 +42,8 @@ var (
 	ErrLogoDimensions = errors.New("organization: the logo's dimensions are not allowed")
 	// ErrSVGNotAllowed is an SVG that holds something outside the allowlist.
 	ErrSVGNotAllowed = errors.New("organization: the svg holds something that is not allowed")
+	// ErrSVGTooComplex is an SVG of allowed elements that has too many of them, nests too deep or reuses a reused element, which a browser could not be asked to draw.
+	ErrSVGTooComplex = errors.New("organization: the svg is too complex to draw")
 )
 
 // LockedOut is the refusal of a save whose policy would lock the Admins out,
