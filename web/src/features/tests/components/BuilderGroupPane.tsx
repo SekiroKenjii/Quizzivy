@@ -49,6 +49,7 @@ interface PaneProps {
   titleFocus?: number | undefined;
   sharedContent?: number | undefined;
   sharedContentOpener?: RefObject<HTMLElement | null> | undefined;
+  settingsInDialog?: boolean | undefined;
 }
 
 /**
@@ -60,7 +61,9 @@ interface PaneProps {
  * `sharedContent` opens the Shared content dialog over the group's editor,
  * once a recovery draft has been offered, and the dialog returns focus to
  * `sharedContentOpener`; a group holding more than the dialog shows stays in
- * the pane, which says so.
+ * the pane, which says so. `settingsInDialog` keeps a member's question
+ * settings in their dialog at every width, for a pane too narrow to hold
+ * them beside the editor.
  */
 export function BuilderGroupPane(props: Readonly<PaneProps>) {
   const { t } = useTranslation();
@@ -107,6 +110,7 @@ function GroupForm({
   titleFocus,
   sharedContent,
   sharedContentOpener,
+  settingsInDialog = false,
 }: Readonly<PaneProps & { stored: StoredGroup; recovery: RecoveryState }>) {
   const { t } = useTranslation();
   const [assets, setAssets] = useState(stored.assets);
@@ -259,6 +263,7 @@ function GroupForm({
         <GroupComposer
           embedded
           titleFocus={titleFocus}
+          settingsInDialog={settingsInDialog}
           bundle={editor.bundle}
           assets={assets}
           selectedQuestionId={selectedQuestionId ?? undefined}

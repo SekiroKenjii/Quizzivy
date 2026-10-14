@@ -43,7 +43,9 @@ import { cn } from "@/lib/utils";
  * GroupComposer edits a question group's bundle: its title, instructions,
  * shared materials and member questions, handing every change to `onChange`.
  * `titleFocus` is a request: each new value puts focus in the title field
- * with its text selected, and undefined asks for nothing.
+ * with its text selected, and undefined asks for nothing. A member's question
+ * settings sit in a column beside the editor from 1024px and in their dialog
+ * below it; `settingsInDialog` keeps them in the dialog at every width.
  */
 export function GroupComposer({
   bundle,
@@ -55,6 +57,7 @@ export function GroupComposer({
   onSelectedQuestionChange,
   embedded = false,
   titleFocus,
+  settingsInDialog = false,
 }: Readonly<{
   bundle: GroupBundle;
   assets: MediaAsset[];
@@ -65,6 +68,7 @@ export function GroupComposer({
   onSelectedQuestionChange?: (id: string | null) => void;
   embedded?: boolean;
   titleFocus?: number | undefined;
+  settingsInDialog?: boolean;
 }>) {
   const { t } = useTranslation();
   const titleField = useRef<HTMLInputElement>(null);
@@ -199,7 +203,7 @@ export function GroupComposer({
         />
         <FieldDescription>{t("groups.independentHint")}</FieldDescription>
       </Field>
-      <div className="grid min-w-0 gap-5 @min-[720px]/composer:grid-cols-[12rem_minmax(0,1fr)]">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 @min-[720px]/composer:grid-cols-[12rem_minmax(0,1fr)]">
         <CompactGroupNavigation
           enabled={embedded}
           bundle={bundle}
@@ -364,14 +368,10 @@ export function GroupComposer({
                 >
                   <ArrowDown aria-hidden="true" />
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="lg:hidden"
-                  onClick={() => setSettingsOpen(true)}
-                >
-                  {t("questionEditor.settings")}
-                </Button>
+                <SettingsButton
+                  always={settingsInDialog}
+                  onOpen={() => setSettingsOpen(true)}
+                />
                 <Button
                   variant="ghost"
                   size="sm"
@@ -402,6 +402,7 @@ export function GroupComposer({
                   hideBelow: "lg",
                   open: settingsOpen,
                   onOpenChange: setSettingsOpen,
+                  always: settingsInDialog,
                 }}
                 contextLabel={bundle.group.title}
                 onChange={(input) =>
@@ -479,6 +480,23 @@ export function GroupComposer({
         onConfirm={remove}
       />
     </div>
+  );
+}
+
+function SettingsButton({
+  always,
+  onOpen,
+}: Readonly<{ always: boolean; onOpen: () => void }>) {
+  const { t } = useTranslation();
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className={always ? undefined : "lg:hidden"}
+      onClick={onOpen}
+    >
+      {t("questionEditor.settings")}
+    </Button>
   );
 }
 
@@ -650,19 +668,31 @@ function CompactGroupNavigation({
           <SelectTrigger id="group-content-picker">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-w-(--radix-select-trigger-width)">
             <SelectGroup>
               <SelectItem value="instructions">{t("groups.instructions")}</SelectItem>
               {bundle.group.stimuli.map((item) => (
-                <SelectItem key={item.id} value={item.id}>
-                  {item.title || t("groups.materials")}
+                <SelectItem
+                  key={item.id}
+                  value={item.id}
+                  className="*:[span]:last:min-w-0"
+                >
+                  <span className="truncate">
+                    {item.title || t("groups.materials")}
+                  </span>
                 </SelectItem>
               ))}
               {bundle.group.members.map((item, index) => (
-                <SelectItem key={item.questionId} value={item.questionId}>
-                  {index + 1}{" "}
-                  {questions.get(item.questionId)?.input.prompt ||
-                    t("builder.untitledQuestion")}
+                <SelectItem
+                  key={item.questionId}
+                  value={item.questionId}
+                  className="*:[span]:last:min-w-0"
+                >
+                  <span className="truncate">
+                    {index + 1}{" "}
+                    {questions.get(item.questionId)?.input.prompt ||
+                      t("builder.untitledQuestion")}
+                  </span>
                 </SelectItem>
               ))}
             </SelectGroup>
