@@ -146,6 +146,12 @@ tags:
       The Admin console's audit log: a read-only history of the sensitive
       changes the server recorded, filterable by category, search and date, and
       downloadable. Nothing here can change or remove an entry.
+  - name: admin-exports
+    description: |
+      The full data export. The worker builds one ZIP of CSV files, the
+      requester is told by email, and the file is fetched once from an app
+      page: the email links to that page and never to the file. Without
+      object storage and the worker every operation answers `501`.
   - name: admin-settings
     description: |
       The centre's own settings: who it is and how it is reached, its logos,
@@ -867,6 +873,8 @@ components:
         - AI_ALLOWANCE_BELOW_USE
         # exports
         - EXPORT_TOO_LARGE
+        - EXPORT_IN_PROGRESS
+        - EXPORT_UNAVAILABLE
         # organization
         - SIGN_IN_POLICY_LOCKOUT
         - PASSWORD_SIGN_IN_DISABLED
@@ -1143,6 +1151,45 @@ components:
       properties:
         url: { type: string, format: uri }
         expiresAt: { $ref: '#/components/schemas/Timestamp' }
+
+    DataExportRequest:
+      type: object
+      additionalProperties: false
+      required: [includeAnswers]
+      properties:
+        includeAnswers:
+          type: boolean
+          description: Whether the ZIP also holds `answers.csv`, every answer of every attempt.
+
+    DataExport:
+      type: object
+      description: |
+        One data export. `status` is `queued` until the worker claims it,
+        `running` while it builds the file, `ready` once the file is stored and
+        the requester has been told, `failed` when it could not be built (the
+        requester may ask again), and `expired` once the 24 hours of a `ready`
+        export have passed. `downloadedAt` is set when the file was fetched, and
+        a fetched export cannot be fetched again. `bytes`, `completedAt` and
+        `expiresAt` are `null` until the export is ready.
+      additionalProperties: false
+      required: [id, status, includeAnswers, bytes, createdAt, completedAt, expiresAt, downloadedAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        status: { type: string, enum: [queued, running, ready, failed, expired] }
+        includeAnswers: { type: boolean }
+        bytes: { type: [integer, 'null'], format: int64, minimum: 1 }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        completedAt: { type: [string, 'null'], format: date-time }
+        expiresAt: { type: [string, 'null'], format: date-time }
+        downloadedAt: { type: [string, 'null'], format: date-time }
+
+    DataExportDownload:
+      type: object
+      additionalProperties: false
+      required: [url, expiresInSeconds]
+      properties:
+        url: { type: string, format: uri }
+        expiresInSeconds: { type: integer, const: 60 }
 
     ImportCapabilities:
       type: object
@@ -10554,6 +10601,123 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '422':
           description: '`EXPORT_TOO_LARGE` — the period holds more than 100,000 entries.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/data-exports:
+    post:
+      operationId: requestDataExport
+      x-permission: system.data_export
+      tags: [admin-exports]
+      summary: Ask for a full export of the centre's data
+      description: |
+        Queues one export for the worker and answers at once. It builds a ZIP
+        of `users.csv` (no password hashes or tokens), `roles.csv`,
+        `classes.csv` (no join codes), `class_members.csv`, `tests.csv`,
+        `test_versions.csv`, `assignments.csv`, `attempts.csv`, with
+        `answers.csv` when `includeAnswers` is true, and a `README.txt` in
+        Vietnamese and English that describes each file. Every CSV is UTF-8
+        with a byte-order mark and CRLF line ends, and a cell that a
+        spreadsheet would run as a formula is written with a leading `'`.
+
+        Only one export runs at a time for the whole centre: while any is
+        queued or running, another request answers `409 EXPORT_IN_PROGRESS`.
+        When the file is ready the requester gets an email that links to the
+        app page `/admin/exports/{id}`, never to the file. The file can be
+        fetched once, by the requester, within 24 hours (`downloadDataExport`).
+        The request is audited as `data_export.requested`. A caller may ask for
+        one export an hour. Without object storage and the worker the answer is
+        `501`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DataExportRequest' }
+      responses:
+        '202':
+          description: Queued.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DataExport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: '`EXPORT_IN_PROGRESS` — an export is already queued or running.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501':
+          description: This server has no object storage or no worker, so it builds no export.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/data-exports/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getDataExport
+      x-permission: system.data_export
+      tags: [admin-exports]
+      summary: Where an export stands
+      description: |
+        The state of an export the caller requested; another user's export
+        answers `404` exactly as a missing one does. A `ready` export whose
+        24 hours have passed reads `expired`, whether or not the housekeeping
+        has removed its file yet.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DataExport' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501':
+          description: This server has no object storage or no worker, so it builds no export.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/data-exports/{id}/download:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: downloadDataExport
+      x-permission: system.data_export
+      tags: [admin-exports]
+      summary: Fetch an export, once
+      description: |
+        Hands the requester a presigned URL for the ZIP, valid for 60 seconds,
+        that forces an attachment named `quizzivy-export-YYYYMMDD.zip`. One
+        statement checks that the export is `ready`, unexpired and not yet
+        fetched, and marks it fetched, so a second request, and a request after
+        the 24 hours, answer `410 EXPORT_UNAVAILABLE`. Another user's export
+        answers `404`. The response is `no-store`, because the URL is a
+        credential. Each fetch is audited as `data_export.downloaded`, and a
+        caller may fetch ten an hour.
+      responses:
+        '200':
+          description: The URL.
+          headers:
+            Cache-Control:
+              required: true
+              description: '`no-store`.'
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DataExportDownload' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410':
+          description: '`EXPORT_UNAVAILABLE` — the export is not ready, has expired, failed, or was already fetched.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501':
+          description: This server has no object storage or no worker, so it builds no export.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
