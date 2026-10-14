@@ -105,6 +105,7 @@ type seed struct {
 	expiresIn      time.Duration
 	downloaded     bool
 	errorCode      string
+	age            time.Duration
 }
 
 func (w *world) export(requester string, s seed) string {
@@ -113,7 +114,7 @@ func (w *world) export(requester string, s seed) string {
 	err := w.pool.QueryRow(context.Background(), `
 		INSERT INTO app.data_exports
 		       (requested_by, include_answers, status, attempts, started_at, completed_at, expires_at,
-		        downloaded_at, storage_key, bytes, error_code)
+		        downloaded_at, storage_key, bytes, error_code, created_at)
 		VALUES ($1::uuid, $2, $3, $4,
 		        CASE WHEN $5::bigint > 0 THEN now() - $5 * interval '1 second' END,
 		        CASE WHEN $3 IN ('ready', 'failed') THEN now() END,
@@ -121,10 +122,10 @@ func (w *world) export(requester string, s seed) string {
 		        CASE WHEN $7 THEN now() END,
 		        CASE WHEN $3 = 'ready' THEN 'exports/seed-' || $8 || '.zip' END,
 		        CASE WHEN $3 = 'ready' THEN 1234 END,
-		        NULLIF($9, ''))
+		        NULLIF($9, ''), now() - $10 * interval '1 second')
 		RETURNING id::text`,
 		requester, s.includeAnswers, s.status, s.attempts, int64(s.ranFor/time.Second), int64(s.expiresIn/time.Second),
-		s.downloaded, nonce(w.t), s.errorCode).Scan(&id)
+		s.downloaded, nonce(w.t), s.errorCode, int64(s.age/time.Second)).Scan(&id)
 	if err != nil {
 		w.t.Fatalf("seed an export: %v", err)
 	}

@@ -54,7 +54,7 @@ CREATE TABLE app.data_exports (
 
 CREATE UNIQUE INDEX data_exports_active_idx ON app.data_exports ((true))
   WHERE status IN ('queued', 'running');
--- The cascade from app.users and the requester's own reads.
+-- The cascade from app.users, the requester's own reads and the one-an-hour check.
 CREATE INDEX data_exports_requested_by_idx ON app.data_exports (requested_by, created_at DESC);
 
 -- +goose Down

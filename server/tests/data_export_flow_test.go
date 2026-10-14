@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -131,8 +132,6 @@ func TestAnAdminExportsTheCentresDataAndFetchesItOnce(t *testing.T) {
 	admin := w.signedIn(adminEmail, adminPassword)
 	rivalEmail, rivalPassword := w.createStaff("admin")
 	rival := w.signedIn(rivalEmail, rivalPassword)
-	laterEmail, laterPassword := w.createStaff("admin")
-	later := w.signedIn(laterEmail, laterPassword)
 	sloppyEmail, sloppyPassword := w.createStaff("admin")
 	sloppy := w.signedIn(sloppyEmail, sloppyPassword)
 	teacherEmail, teacherPassword := w.createStaff("teacher")
@@ -180,8 +179,12 @@ func TestAnAdminExportsTheCentresDataAndFetchesItOnce(t *testing.T) {
 	if !woken {
 		t.Error("the worker was not woken")
 	}
-	if status, _ := admin.call(http.MethodPost, "/admin/data-exports", map[string]any{"includeAnswers": true}); status != http.StatusTooManyRequests {
-		t.Errorf("a second request in the hour by the same admin answered %d, want 429", status)
+	status, header, refused := admin.callWith(nil, http.MethodPost, "/admin/data-exports", map[string]any{"includeAnswers": true})
+	if status != http.StatusTooManyRequests || exportErrorCode(refused) != "RATE_LIMITED" {
+		t.Errorf("a second request in the hour by the same admin answered %d: %v", status, refused)
+	}
+	if retry, err := strconv.Atoi(header.Get("Retry-After")); err != nil || retry < 3500 || retry > 3600 {
+		t.Errorf("Retry-After = %q (%v), want the seconds left of the hour", header.Get("Retry-After"), err)
 	}
 	busy := rival.must(http.StatusConflict, http.MethodPost, "/admin/data-exports", map[string]any{"includeAnswers": false})
 	if exportErrorCode(busy) != "EXPORT_IN_PROGRESS" {
@@ -332,13 +335,13 @@ func TestAnAdminExportsTheCentresDataAndFetchesItOnce(t *testing.T) {
 		}
 	}
 
-	next := later.must(http.StatusAccepted, http.MethodPost, "/admin/data-exports", map[string]any{"includeAnswers": false})
+	next := rival.must(http.StatusAccepted, http.MethodPost, "/admin/data-exports", map[string]any{"includeAnswers": false})
 	w.runExportWorker()
-	lean := later.must(http.StatusOK, http.MethodGet, "/admin/data-exports/"+id(next), nil)
+	lean := rival.must(http.StatusOK, http.MethodGet, "/admin/data-exports/"+id(next), nil)
 	if lean["status"] != "ready" || lean["includeAnswers"] != false {
 		t.Fatalf("the second export reads %v", lean)
 	}
-	again := later.must(http.StatusOK, http.MethodPost, "/admin/data-exports/"+id(next)+"/download", nil)
+	again := rival.must(http.StatusOK, http.MethodPost, "/admin/data-exports/"+id(next)+"/download", nil)
 	resp, err = http.Get(again["url"].(string))
 	if err != nil {
 		t.Fatal(err)
@@ -384,6 +387,10 @@ func TestAWorkerThatCannotStoreTheFileFailsTheExportWithACodeAndTellsNobody(t *t
 	if err := w.pool.QueryRow(context.Background(), `SELECT count(*) FROM app.email_outbox WHERE dedupe_key = $1`, "data_export_ready:"+id(queued)).Scan(&mails); err != nil || mails != 0 {
 		t.Errorf("%d notices for a failed export (%v)", mails, err)
 	}
+	if status, body := admin.call(http.MethodPost, "/admin/data-exports", map[string]any{"includeAnswers": false}); status != http.StatusAccepted {
+		t.Errorf("a request right after a failed export answered %d: %v; a failed export does not spend the hour", status, body)
+	}
+	w.runExportWorker()
 }
 
 func TestWithoutStorageTheExportAnswersNotImplemented(t *testing.T) {

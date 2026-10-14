@@ -64,10 +64,15 @@ func scan(row pgx.Row) (domain.Export, error) {
 	return out, nil
 }
 
-// Request queues an export for in.ActorID and audits it.
+// Request queues an export for in.ActorID and audits it. The actor's own
+// exports are checked inside the transaction that inserts, and two requests at
+// once are still told apart by the active index.
 func (p *Postgres) Request(ctx context.Context, in domain.Request) (domain.Export, error) {
 	var out domain.Export
 	err := p.InTx(ctx, "exports: request", func(tx pgx.Tx) error {
+		if err := tooSoon(ctx, tx, in.ActorID); err != nil {
+			return err
+		}
 		var err error
 		out, err = scan(tx.QueryRow(ctx, `
 			INSERT INTO app.data_exports AS e (requested_by, include_answers)
@@ -85,6 +90,24 @@ func (p *Postgres) Request(ctx context.Context, in domain.Request) (domain.Expor
 		return domain.Export{}, err
 	}
 	return out, nil
+}
+
+func tooSoon(ctx context.Context, q db.Querier, actor string) error {
+	var wait int64
+	err := q.QueryRow(ctx, `
+		SELECT ceil(extract(epoch FROM e.created_at + $2 * interval '1 second' - now()))::bigint
+		  FROM app.data_exports e
+		 WHERE e.requested_by = $1::uuid AND e.status <> 'failed'
+		   AND e.created_at > now() - $2 * interval '1 second'
+		 ORDER BY e.created_at DESC
+		 LIMIT 1`, actor, int64(domain.RequestInterval/time.Second)).Scan(&wait)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("exports: look for a recent export: %w", err)
+	}
+	return &domain.TooSoonError{RetryAfter: time.Duration(max(wait, 1)) * time.Second}
 }
 
 // Get reads requester's export.

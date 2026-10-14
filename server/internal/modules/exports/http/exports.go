@@ -31,6 +31,15 @@ func (h Exports) RequestDataExport(ctx context.Context, request openapi.RequestD
 		return nil, httpx.ErrNotImplemented
 	}
 	queued, err := h.app.Commands.Request.Handle(ctx, command.Request{Actor: who, IncludeAnswers: request.Body.IncludeAnswers})
+	var soon *domain.TooSoonError
+	if errors.As(err, &soon) {
+		return openapi.RequestDataExport429JSONResponse{TooManyRequestsJSONResponse: openapi.TooManyRequestsJSONResponse{
+			Body: httpapi.Error(ctx, openapi.RATELIMITED,
+				httpx.Text(ctx, "Mỗi người chỉ được yêu cầu một bản xuất dữ liệu mỗi giờ; bản bị lỗi không tính. Hãy thử lại sau.",
+					"Only one export can be requested an hour; a failed one does not count. Try again later.")),
+			Headers: openapi.TooManyRequestsResponseHeaders{RetryAfter: int(soon.RetryAfter.Seconds())},
+		}}, nil
+	}
 	if errors.Is(err, domain.ErrInProgress) {
 		return openapi.RequestDataExport409JSONResponse(httpapi.Error(ctx, openapi.EXPORTINPROGRESS,
 			httpx.Text(ctx, "Đang có một bản xuất dữ liệu được xử lý. Hãy đợi nó xong rồi yêu cầu lại.",

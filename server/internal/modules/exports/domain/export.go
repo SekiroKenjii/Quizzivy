@@ -8,6 +8,7 @@ package domain
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -39,6 +40,9 @@ const (
 	KeepFor = 24 * time.Hour
 	// URLTTL is how long the address a fetch returns works.
 	URLTTL = 60 * time.Second
+	// RequestInterval is how long an Admin's export that has not failed keeps
+	// them from asking for another.
+	RequestInterval = time.Hour
 )
 
 // The codes a failed export carries. A code is never a message: nothing about
@@ -66,6 +70,17 @@ var (
 	// finish it, because its lease lapsed and another claim took it.
 	ErrLeaseLost = errors.New("exports: the export is no longer this worker's")
 )
+
+// TooSoonError means the actor has an export, created less than
+// RequestInterval ago, that has not failed. RetryAfter is how long until the
+// newest of them is RequestInterval old.
+type TooSoonError struct {
+	RetryAfter time.Duration
+}
+
+func (e *TooSoonError) Error() string {
+	return fmt.Sprintf("exports: an export was requested less than %s ago; retry in %s", RequestInterval, e.RetryAfter)
+}
 
 // Export is one request for the centre's data and what became of it.
 type Export struct {
@@ -115,8 +130,10 @@ func StorageKey(id string) string { return "exports/" + id + ".zip" }
 // Repository is the API's side of the exports.
 type Repository interface {
 	// Request queues an export in one transaction that audits it as
-	// data_export.requested. It fails with ErrInProgress while any export is
-	// queued or running.
+	// data_export.requested. It fails with a *TooSoonError while the actor has
+	// an export that has not failed from the last RequestInterval, and with
+	// ErrInProgress while any other export is queued or running. A refused
+	// request leaves nothing behind, so it does not count toward the interval.
 	Request(ctx context.Context, in Request) (Export, error)
 	// Get reads the export id of requester. A Ready export past its time reads
 	// Expired. Anyone else's export is ErrNotFound.

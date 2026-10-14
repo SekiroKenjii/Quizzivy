@@ -54,10 +54,8 @@ func TestOnlyOneExportIsQueuedOrRunning(t *testing.T) {
 	}
 	w.track(queued.ID)
 
-	for name, who := range map[string]string{"the same admin": first, "another admin": second} {
-		if _, err := w.repo.Request(ctx, domain.Request{ActorID: who}); !errors.Is(err, domain.ErrInProgress) {
-			t.Errorf("%s while one is queued: %v", name, err)
-		}
+	if _, err := w.repo.Request(ctx, domain.Request{ActorID: second}); !errors.Is(err, domain.ErrInProgress) {
+		t.Errorf("another admin while one is queued: %v", err)
 	}
 	claimed, err := w.repo.Claim(ctx)
 	if err != nil || claimed.ID != queued.ID {
@@ -83,7 +81,7 @@ func TestOnlyOneExportIsQueuedOrRunning(t *testing.T) {
 func TestARequestRefusedByTheIndexLeavesNoRowBehind(t *testing.T) {
 	w := newWorld(t)
 	admin := w.admin()
-	w.export(admin, seed{status: "queued"})
+	w.export(admin, seed{status: "queued", age: 2 * time.Hour})
 	if _, err := w.repo.Request(context.Background(), domain.Request{ActorID: admin}); !errors.Is(err, domain.ErrInProgress) {
 		t.Fatalf("error = %v", err)
 	}
@@ -91,6 +89,93 @@ func TestARequestRefusedByTheIndexLeavesNoRowBehind(t *testing.T) {
 	if err := w.pool.QueryRow(context.Background(), `SELECT count(*) FROM app.data_exports WHERE requested_by = $1::uuid`, admin).Scan(&n); err != nil || n != 1 {
 		t.Fatalf("exports of the admin = %d, %v", n, err)
 	}
+}
+
+func wait(t *testing.T, err error) time.Duration {
+	t.Helper()
+	var soon *domain.TooSoonError
+	if !errors.As(err, &soon) {
+		t.Fatalf("error = %v, want a *domain.TooSoonError", err)
+	}
+	return soon.RetryAfter
+}
+
+func TestAnExportThatHasNotFailedKeepsItsRequesterWaitingForAnHour(t *testing.T) {
+	w := newWorld(t)
+	admin := w.admin()
+	cases := map[string]seed{
+		"queued":     {status: "queued", age: 10 * time.Minute},
+		"running":    {status: "running", attempts: 1, ranFor: time.Minute, age: 10 * time.Minute},
+		"ready":      {status: "ready", expiresIn: 23 * time.Hour, age: 10 * time.Minute},
+		"downloaded": {status: "ready", expiresIn: 23 * time.Hour, age: 10 * time.Minute, downloaded: true},
+		"expired":    {status: "expired", age: 10 * time.Minute},
+	}
+	for name, s := range cases {
+		id := w.export(admin, s)
+		got := wait(t, func() error {
+			_, err := w.repo.Request(context.Background(), domain.Request{ActorID: admin})
+			return err
+		}())
+		if got < 49*time.Minute || got > 50*time.Minute+time.Second {
+			t.Errorf("%s: retry after %v, want about 50 minutes", name, got)
+		}
+		w.exec(`DELETE FROM app.data_exports WHERE id = $1::uuid`, id)
+	}
+	var n int
+	if err := w.pool.QueryRow(context.Background(), `SELECT count(*) FROM app.data_exports WHERE requested_by = $1::uuid`, admin).Scan(&n); err != nil || n != 0 {
+		t.Errorf("a refused request left %d rows (%v)", n, err)
+	}
+	var audited int
+	if err := w.pool.QueryRow(context.Background(), `SELECT count(*) FROM app.audit_log WHERE action = 'data_export.requested' AND actor_user_id = $1::uuid`, admin).Scan(&audited); err != nil || audited != 0 {
+		t.Errorf("a refused request was audited %d times (%v)", audited, err)
+	}
+}
+
+func TestTheWaitRunsFromTheNewestExport(t *testing.T) {
+	w := newWorld(t)
+	admin := w.admin()
+	w.export(admin, seed{status: "ready", expiresIn: 23 * time.Hour, age: 50 * time.Minute})
+	w.export(admin, seed{status: "ready", expiresIn: 23 * time.Hour, age: 20 * time.Minute})
+	got := wait(t, func() error {
+		_, err := w.repo.Request(context.Background(), domain.Request{ActorID: admin})
+		return err
+	}())
+	if got < 39*time.Minute || got > 40*time.Minute+time.Second {
+		t.Errorf("retry after %v, want about 40 minutes", got)
+	}
+}
+
+func TestAFailedExportDoesNotCountTowardTheHour(t *testing.T) {
+	w := newWorld(t)
+	admin := w.admin()
+	w.export(admin, seed{status: "failed", attempts: 3, errorCode: domain.CodeInterrupted, age: time.Minute})
+	got, err := w.repo.Request(context.Background(), domain.Request{ActorID: admin})
+	if err != nil {
+		t.Fatalf("a failed export held its requester back: %v", err)
+	}
+	w.track(got.ID)
+}
+
+func TestAnExportAnHourOldNoLongerCounts(t *testing.T) {
+	w := newWorld(t)
+	admin := w.admin()
+	w.export(admin, seed{status: "ready", expiresIn: 22 * time.Hour, age: time.Hour + time.Minute})
+	got, err := w.repo.Request(context.Background(), domain.Request{ActorID: admin})
+	if err != nil {
+		t.Fatalf("an export from over an hour ago held its requester back: %v", err)
+	}
+	w.track(got.ID)
+}
+
+func TestAnotherAdminsExportDoesNotKeepThisAdminWaiting(t *testing.T) {
+	w := newWorld(t)
+	owner, other := w.admin(), w.admin()
+	w.export(owner, seed{status: "ready", expiresIn: 23 * time.Hour, age: time.Minute})
+	got, err := w.repo.Request(context.Background(), domain.Request{ActorID: other})
+	if err != nil {
+		t.Fatalf("another admin's finished export held this admin back: %v", err)
+	}
+	w.track(got.ID)
 }
 
 func TestExportsRequestedAtOnceQueueExactlyOne(t *testing.T) {
@@ -116,7 +201,7 @@ func TestExportsRequestedAtOnceQueueExactlyOne(t *testing.T) {
 			switch {
 			case err == nil:
 				queued = append(queued, got.ID)
-			case errors.Is(err, domain.ErrInProgress):
+			case errors.Is(err, domain.ErrInProgress), errors.As(err, new(*domain.TooSoonError)):
 				refused++
 			default:
 				failures = append(failures, err)

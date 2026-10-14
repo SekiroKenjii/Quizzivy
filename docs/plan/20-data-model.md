@@ -3636,6 +3636,12 @@ marks the row.
 `queued` or `running`. A second request inserts into it, fails with `23505` and answers
 `EXPORT_IN_PROGRESS`; a finished or failed export leaves the index at once.
 
+**One an hour (D-021).** In the same transaction, before the insert, the request reads the newest row of
+`requested_by` with `status <> 'failed'` and `created_at > now() - 1 hour` on `data_exports_requested_by_idx`;
+if there is one it answers `RATE_LIMITED` with the seconds until that row is an hour old. A `failed` row never
+counts, and a refused request leaves no row, so neither a `409` nor a `429` spends the hour. Two requests of one
+actor at once both pass the read, and the active index lets only one insert.
+
 **The claim.** One transaction first fails the `running` row whose lease (30 minutes from `started_at`) has
 lapsed and whose `attempts` has reached 3 (`WORKER_INTERRUPTED`), then takes the oldest `queued` row or
 lapsed `running` row `FOR UPDATE SKIP LOCKED`, sets `started_at = now()` and adds one to `attempts`. Complete,

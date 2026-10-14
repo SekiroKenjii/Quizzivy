@@ -2563,9 +2563,12 @@ export interface paths {
          *     When the file is ready the requester gets an email that links to the
          *     app page `/admin/exports/{id}`, never to the file. The file can be
          *     fetched once, by the requester, within 24 hours (`downloadDataExport`).
-         *     The request is audited as `data_export.requested`. A caller may ask for
-         *     one export an hour. Without object storage and the worker the answer is
-         *     `501`.
+         *     The request is audited as `data_export.requested`. A caller who has an
+         *     export from the last hour that has not failed (queued, running, ready
+         *     or fetched) is refused with `429 RATE_LIMITED` and `Retry-After`, the
+         *     seconds until that export is an hour old. A failed export, a request
+         *     refused with `409` and a request refused with `429` do not count.
+         *     Without object storage and the worker the answer is `501`.
          */
         post: operations["requestDataExport"];
         delete?: never;
@@ -12483,6 +12486,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            429: components["responses"]["TooManyRequests"];
             /** @description This server has no object storage or no worker, so it builds no export. */
             501: {
                 headers: {

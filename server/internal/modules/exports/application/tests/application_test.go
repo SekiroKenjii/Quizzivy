@@ -107,6 +107,19 @@ func TestARequestWhileAnotherIsActiveDoesNotWakeTheWorker(t *testing.T) {
 	}
 }
 
+func TestARequestWithinTheHourDoesNotWakeTheWorkerAndKeepsItsWait(t *testing.T) {
+	app, r, _, w := build(t)
+	r.requestEr = &domain.TooSoonError{RetryAfter: 20 * time.Minute}
+	_, err := app.Commands.Request.Handle(context.Background(), command.Request{Actor: admin})
+	var soon *domain.TooSoonError
+	if !errors.As(err, &soon) || soon.RetryAfter != 20*time.Minute {
+		t.Fatalf("error = %v", err)
+	}
+	if w.calls != 0 {
+		t.Error("the worker was woken for a request that queued nothing")
+	}
+}
+
 func TestADownloadSignsTheFileForOneMinuteUnderADatedName(t *testing.T) {
 	app, r, s, _ := build(t)
 	got, err := app.Commands.Download.Handle(context.Background(), command.Download{Actor: admin, ID: "export-1"})

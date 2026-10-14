@@ -74,7 +74,7 @@ func PrincipalRateLimits() *ratelimit.Registry {
 	perActor("GET /admin/api-reference/openapi.json", ratelimit.PerMinute(10), ratelimit.PerHour(60))
 	perActor("GET /admin/audit-log", ratelimit.PerMinute(60), ratelimit.PerHour(600))
 	perActor("GET /admin/audit-log/export", ratelimit.PerMinute(5), ratelimit.PerHour(30))
-	perActor("POST /admin/data-exports", ratelimit.PerHour(1))
+	perActor("POST /admin/data-exports", ratelimit.PerMinute(10))
 	perActor("GET /admin/data-exports/{id}", ratelimit.PerMinute(60), ratelimit.PerHour(600))
 	perActor("POST /admin/data-exports/{id}/download", ratelimit.PerHour(10))
 	perActor("DELETE /auth/sessions/{familyId}", ratelimit.PerMinute(10), ratelimit.PerHour(60))
