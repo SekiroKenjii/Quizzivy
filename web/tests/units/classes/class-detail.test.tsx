@@ -186,6 +186,8 @@ beforeEach(() => {
             mustChangePassword: false,
             createdAt: "2026-06-01T00:00:00Z",
             disabledAt: null,
+            lastActiveAt: null,
+            accountStatus: "active",
             classes: [
               {
                 id: CLASS_ID,
@@ -205,6 +207,8 @@ beforeEach(() => {
             mustChangePassword: false,
             createdAt: "2026-06-01T00:00:00Z",
             disabledAt: null,
+            lastActiveAt: null,
+            accountStatus: "active",
             classes: [],
             stats: stats({}),
           },
@@ -433,6 +437,8 @@ describe("adding students", () => {
       mustChangePassword: false,
       createdAt: "2026-06-01T00:00:00Z",
       disabledAt: null,
+      lastActiveAt: null,
+      accountStatus: "active",
       classes: joined.has(id)
         ? [
             {
