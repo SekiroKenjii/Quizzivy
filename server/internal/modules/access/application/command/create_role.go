@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"unicode"
 	"unicode/utf8"
+
+	"golang.org/x/text/unicode/norm"
 
 	"quizzivy/internal/modules/access/application/internal/support"
 	"quizzivy/internal/modules/access/application/model"
@@ -29,7 +32,7 @@ type CreateRoleHandler struct {
 
 // Handle creates the role and returns it as the caller sees it.
 func (h CreateRoleHandler) Handle(ctx context.Context, cmd CreateRole) (model.Role, error) {
-	cmd.Name, cmd.Description = strings.TrimSpace(cmd.Name), strings.TrimSpace(cmd.Description)
+	cmd.Name, cmd.Description = tidy(cmd.Name), tidy(cmd.Description)
 	var refused validation.Error
 	checkName(&refused, cmd.Name)
 	checkDescription(&refused, cmd.Description)
@@ -75,9 +78,19 @@ func (h CreateRoleHandler) create(ctx context.Context, tx domain.RoleTx, cmd Cre
 	return id, tx.Audit(ctx, domain.AuditEntry{By: cmd.By, Action: domain.AuditRoleCreated, RoleID: id, Diff: diff, At: h.Now()})
 }
 
+func tidy(s string) string {
+	return strings.TrimSpace(norm.NFC.String(s))
+}
+
+func hidden(r rune) bool {
+	return unicode.In(r, unicode.Cc, unicode.Cf, unicode.Zl, unicode.Zp)
+}
+
 func checkName(refused *validation.Error, name string) {
 	if n := utf8.RuneCountInString(name); n < 1 || n > domain.MaxNameLength {
 		refused.Add("name", "must be between 1 and 60 characters")
+	} else if strings.ContainsFunc(name, hidden) {
+		refused.Add("name", "must not contain line breaks, control or invisible characters")
 	}
 }
 

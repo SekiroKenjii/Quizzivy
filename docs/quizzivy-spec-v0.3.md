@@ -1,9 +1,9 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.111 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.112 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
-**Changes since v0.110**
+**Changes since v0.111**
 
 R5, T-R5.5 to T-R5.7 (organization settings, logo and sign-in policy), and the QC pass over them.
 
@@ -12,6 +12,13 @@ R5, T-R5.5 to T-R5.7 (organization settings, logo and sign-in policy), and the Q
 - §13.5 `app.organization_settings`, one row (`00130_create_organization_settings.sql`): the app role may read and update it and cannot insert or delete it.
 - §5.6 A name holds no line break, control or invisible character; a website is a domain or an `https` address without credentials; a contact email is an address with a domain; a save that changes nothing writes nothing and keeps its revision.
 - §5.6, §12 The organization logo is stored and served as a PNG only (D-019). The server answers an SVG with `415 MEDIA_TYPE_UNSUPPORTED`; the settings page draws an SVG the Admin picks to a 1024 x 1024 canvas in the browser and uploads that PNG. The `svg` logo type, `branding/{sha256}.svg` and the sandbox header for SVG are gone.
+
+**Changes since v0.110**
+
+R5, T-R5.8 (QC follow-up on the roles API).
+
+- §15 `createRole` and `updateRole` store a name and a description in Unicode NFC, so the composed and decomposed forms of one name are one name, and refuse a name that holds a line break or a control, format, line- or paragraph-separator character. At most 200 roles exist, the built-in four included; `createRole` past that answers `422 ROLE_LIMIT_REACHED`. `AssignableRole.studentTarget` says a custom role with no permission is a student target. The role operations promise propagation to another machine "within about ten seconds".
+- §13 Advisory lock `(73819, 44)` serialises role creation against the limit (`docs/plan/20-data-model.md` §28).
 
 **Changes since v0.109**
 
