@@ -5937,9 +5937,10 @@ export interface components {
          *     `PLAN_SEAT_LIMIT`. `teachers` counts the accounts that are neither a
          *     student target nor an Admin, against `PLAN_TEACHER_LIMIT`. `media` is
          *     the bytes of the media files still held in storage, against
-         *     `PLAN_MEDIA_BYTES`, and `imports` the bytes and number of the import
-         *     documents ever stored, against `PLAN_IMPORT_BYTES`. `attemptsKept` has
-         *     no limit until a denominator is named.
+         *     `PLAN_MEDIA_BYTES`, and `imports` the bytes of the source documents of
+         *     the imports whose files are still kept and the number of those imports,
+         *     against `PLAN_IMPORT_BYTES`. `attemptsKept` has no limit until a
+         *     denominator is named.
          */
         Usage: {
             /** @description `null` when `PLAN_NAME` is unset. */
