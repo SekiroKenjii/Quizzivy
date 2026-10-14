@@ -73,6 +73,11 @@ type Row struct {
 	Cells []string
 }
 
+const (
+	maxGridRows    = 1 << 20
+	maxGridColumns = 1 << 14
+)
+
 type source interface {
 	next() (cells []string, line int, err error)
 	close() error
@@ -95,12 +100,21 @@ type Table struct {
 // below it; the caller closes the Table. Nothing in the file is run: a formula
 // cell yields the value the workbook cached for it, as text, and is never
 // evaluated. A CSV file must be UTF-8, with an optional byte-order mark, and is
-// split at commas or semicolons, whichever its first line holds more of. A
-// workbook is inspected before any of it is unpacked, and refused when it holds
-// more than 1,000 archive entries or expands past 32 MiB, when an XML part
-// other than a worksheet is larger than 1 MiB (2 MiB for the shared strings),
-// which is what a decoder expands many times over in memory, or when it carries
-// macros or a password. Every refusal wraps one of this package's errors.
+// split at commas or semicolons, whichever its first line holds more of; a
+// record of more than 16,384 fields is refused before it is parsed. A workbook
+// is inspected and checked before excelize decodes any of it. It is refused
+// when it holds more than 1,000 archive entries or expands past 32 MiB, when a
+// worksheet is larger than 8 MiB, when another XML part is larger than 1 MiB (2
+// MiB for the shared strings), or when it carries macros or a password. Every
+// part the reader uses (the worksheets, the workbook and its relationships, the
+// shared strings, the styles, the calculation chain and the theme) is then read
+// through to its end, so a part that is truncated, fails its checksum, differs
+// from its declared size or is not well-formed XML is an error and never a
+// shorter table. Such a part is also refused when it declares a document type,
+// nests elements more than 64 deep, has a start tag longer than 64 KiB, or, in
+// a worksheet, has a row number outside the sheet or more than 16,384 cells in
+// a row. A part saved as UTF-16 is not readable. Every refusal wraps one of
+// this package's errors.
 func ReadTable(r io.ReaderAt, size int64, format Format, limits Limits) (*Table, error) {
 	if limits.Bytes < 1 || limits.Rows < 1 || limits.Columns < 1 || limits.CellChars < 1 {
 		return nil, errors.New("tabular: every limit must be positive")
@@ -155,8 +169,8 @@ func (t *Table) Rows() iter.Seq2[Row, error] {
 	}
 }
 
-// Close releases what reading the file held: the workbook's temporary files,
-// for one. It is safe to call more than once.
+// Close releases what reading the file held. It is safe to call more than
+// once.
 func (t *Table) Close() error {
 	return t.src.close()
 }

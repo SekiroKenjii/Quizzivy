@@ -6,6 +6,7 @@ import (
 	"compress/flate"
 	"fmt"
 	"hash/crc32"
+	"io"
 	"runtime"
 	"strings"
 	"testing"
@@ -67,11 +68,21 @@ func archive(t *testing.T, entries ...entry) []byte {
 
 func workbook(t *testing.T, sheetData string, shared []string, extra ...entry) []byte {
 	t.Helper()
+	entries := append(workbookParts(shared), sheetEntry(sheetData))
+	return archive(t, append(entries, extra...)...)
+}
+
+func sheetEntry(sheetData string) entry {
+	return entry{"xl/worksheets/sheet1.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+		`<worksheet xmlns="` + spreadsheetNS + `"><sheetData>` + sheetData + `</sheetData></worksheet>`}
+}
+
+func workbookParts(shared []string) []entry {
 	var strs strings.Builder
 	for _, s := range shared {
 		strs.WriteString("<si><t>" + s + "</t></si>")
 	}
-	entries := []entry{
+	return []entry{
 		{"[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
 			`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
 			`<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
@@ -91,8 +102,6 @@ func workbook(t *testing.T, sheetData string, shared []string, extra ...entry) [
 			`<Relationship Id="rId1" Type="` + relationsNS + `/worksheet" Target="worksheets/sheet1.xml"/>` +
 			`<Relationship Id="rId2" Type="` + relationsNS + `/sharedStrings" Target="sharedStrings.xml"/>` +
 			`<Relationship Id="rId3" Type="` + relationsNS + `/styles" Target="styles.xml"/></Relationships>`},
-		{"xl/worksheets/sheet1.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-			`<worksheet xmlns="` + spreadsheetNS + `"><sheetData>` + sheetData + `</sheetData></worksheet>`},
 		{"xl/sharedStrings.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
 			`<sst xmlns="` + spreadsheetNS + `" count="` + fmt.Sprint(len(shared)) + `" uniqueCount="` + fmt.Sprint(len(shared)) + `">` + strs.String() + `</sst>`},
 		{"xl/styles.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
@@ -104,7 +113,77 @@ func workbook(t *testing.T, sheetData string, shared []string, extra ...entry) [
 			`<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` +
 			`<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs></styleSheet>`},
 	}
-	return archive(t, append(entries, extra...)...)
+}
+
+type rawPart struct {
+	name   string
+	method uint16
+	stored []byte
+	crc    uint32
+	size   uint64
+}
+
+func storedPart(name string, body []byte) rawPart {
+	return rawPart{name: name, method: zip.Store, stored: body, crc: crc32.ChecksumIEEE(body), size: uint64(len(body))}
+}
+
+func deflatedPart(t *testing.T, name string, write func(emit func(string))) rawPart {
+	t.Helper()
+	var packed bytes.Buffer
+	fw, err := flate.NewWriter(&packed, flate.BestCompression)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := crc32.NewIEEE()
+	var counted countingWriter
+	sink := io.MultiWriter(fw, sum, &counted)
+	write(func(chunk string) {
+		if _, err := io.WriteString(sink, chunk); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if err := fw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return rawPart{name: name, method: zip.Deflate, stored: packed.Bytes(), crc: sum.Sum32(), size: uint64(counted)}
+}
+
+type countingWriter uint64
+
+func (c *countingWriter) Write(p []byte) (int, error) {
+	*c += countingWriter(len(p))
+	return len(p), nil
+}
+
+func archiveRaw(t *testing.T, entries []entry, raws ...rawPart) []byte {
+	t.Helper()
+	var out bytes.Buffer
+	zw := zip.NewWriter(&out)
+	for _, e := range entries {
+		w, err := zw.Create(e.name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := w.Write([]byte(e.body)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, p := range raws {
+		w, err := zw.CreateRaw(&zip.FileHeader{
+			Name: p.name, Method: p.method, CRC32: p.crc,
+			CompressedSize64: uint64(len(p.stored)), UncompressedSize64: p.size,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := w.Write(p.stored); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return out.Bytes()
 }
 
 func text(ref, value string) string {
