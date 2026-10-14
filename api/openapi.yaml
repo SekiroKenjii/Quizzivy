@@ -102,15 +102,23 @@ tags:
       Unauthenticated. Rate-limited per §6.5, and every response is leak-reviewed:
       no class, student or test is enumerable through them.
   - name: auth
+    description: Sign-in, Google sign-in with PKCE, the rotating refresh token, password change and the caller's own sessions.
   - name: teacher-tests
+    description: Tests, their drafts and sections, shared-context groups, publishing, versions and the preview.
   - name: teacher-questions
+    description: The question bank, with its tags, its search and the question groups it holds.
   - name: teacher-imports
     description: Private Word source intake and durable import review.
   - name: teacher-media
+    description: The media library, its images and audio, their names and where they are used.
   - name: teacher-assignments
+    description: Giving a published version to classes and students, its schedule and rules, overrides and results.
   - name: teacher-attempts
+    description: The attempts a teacher reviews, with the monitor, grading, scores, comments and integrity events.
   - name: teacher-students
+    description: The students a teacher reaches, with their accounts, passwords and classes.
   - name: teacher-classes
+    description: Classes, their members and their join codes.
   - name: teacher-ai
     description: |
       The AI assistant's suggestions and the teacher's own credits. Every
@@ -128,7 +136,9 @@ tags:
   - name: admin-docs
     description: Admin access to the API reference served beside the API.
   - name: student
+    description: The student console, with its classes, assigned tests, results and settings.
   - name: take-test
+    description: Taking a test, from starting or resuming an attempt to saving answers, submitting and the integrity beacon.
   - name: me
     description: |
       The caller's own notifications and notification switches, for any
@@ -2687,6 +2697,30 @@ components:
           items: { type: string, minLength: 1 }
           minItems: 1
         caseSensitive: { type: boolean }
+
+    ApiReferenceSummary:
+      type: object
+      description: |
+        What `getApiReferenceSummary` reports about the embedded contract.
+        `endpointCount` is the number of operations, and a group's `count` the
+        number of operations that carry its tag.
+      required: [openapi, version, endpointCount, groups]
+      additionalProperties: false
+      properties:
+        openapi: { type: string, description: The OpenAPI version the contract is written in. }
+        version: { type: string, description: The contract's own `info.version`. }
+        endpointCount: { type: integer, minimum: 0 }
+        groups:
+          type: array
+          items: { $ref: '#/components/schemas/ApiReferenceGroup' }
+
+    ApiReferenceGroup:
+      type: object
+      required: [tag, count]
+      additionalProperties: false
+      properties:
+        tag: { type: string }
+        count: { type: integer, minimum: 0 }
 
     TestStatusFacets:
       type: object
@@ -9491,6 +9525,59 @@ paths:
             Set-Cookie:
               schema: { type: string }
               description: '`quizzivy_docs=<token>; Path=/docs; Max-Age=900; HttpOnly; Secure; SameSite=Strict`'
+
+  /admin/api-reference:
+    get:
+      operationId: getApiReferenceSummary
+      x-permission: system.api_reference
+      tags: [admin-docs]
+      summary: What the API reference holds
+      description: |
+        The contract's OpenAPI and document versions, how many operations it
+        declares and, for each tag in the order the contract lists them, how
+        many operations carry it (an operation with two tags is counted under
+        both). It is read once from the spec the server embeds, so it always
+        describes the build that answers. The page draws its own names and
+        blurbs for the groups; this is the part only the server knows.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiReferenceSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/api-reference/openapi.json:
+    get:
+      operationId: downloadOpenApi
+      x-permission: system.api_reference
+      tags: [admin-docs]
+      summary: Download the contract
+      description: |
+        The spec this server embeds, as the JSON it was embedded as (DG-10), an
+        attachment named `quizzivy-openapi.json`. The body is that JSON
+        document, declared as a byte stream so the generated server writes it
+        as it is and does not encode it a second time. The response is
+        `no-store`. It needs the bearer token and `system.api_reference`,
+        unlike `/docs/openapi.json`, which answers to a docs session.
+      responses:
+        '200':
+          description: The file.
+          headers:
+            Content-Disposition:
+              required: true
+              description: '`attachment; filename="quizzivy-openapi.json"`.'
+              schema: { type: string }
+            Cache-Control:
+              required: true
+              description: '`no-store`.'
+              schema: { type: string }
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   /admin/ai/credits:
     get:

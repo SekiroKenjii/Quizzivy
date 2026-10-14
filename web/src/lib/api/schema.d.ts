@@ -2212,6 +2212,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/api-reference": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the API reference holds
+         * @description The contract's OpenAPI and document versions, how many operations it
+         *     declares and, for each tag in the order the contract lists them, how
+         *     many operations carry it (an operation with two tags is counted under
+         *     both). It is read once from the spec the server embeds, so it always
+         *     describes the build that answers. The page draws its own names and
+         *     blurbs for the groups; this is the part only the server knows.
+         */
+        get: operations["getApiReferenceSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/api-reference/openapi.json": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the contract
+         * @description The spec this server embeds, as the JSON it was embedded as (DG-10), an
+         *     attachment named `quizzivy-openapi.json`. The body is that JSON
+         *     document, declared as a byte stream so the generated server writes it
+         *     as it is and does not encode it a second time. The response is
+         *     `no-store`. It needs the bearer token and `system.api_reference`,
+         *     unlike `/docs/openapi.json`, which answers to a docs session.
+         */
+        get: operations["downloadOpenApi"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/ai/credits": {
         parameters: {
             query?: never;
@@ -4980,6 +5030,23 @@ export interface components {
             ordinal: number;
             acceptedAnswers: string[];
             caseSensitive: boolean;
+        };
+        /**
+         * @description What `getApiReferenceSummary` reports about the embedded contract.
+         *     `endpointCount` is the number of operations, and a group's `count` the
+         *     number of operations that carry its tag.
+         */
+        ApiReferenceSummary: {
+            /** @description The OpenAPI version the contract is written in. */
+            openapi: string;
+            /** @description The contract's own `info.version`. */
+            version: string;
+            endpointCount: number;
+            groups: components["schemas"]["ApiReferenceGroup"][];
+        };
+        ApiReferenceGroup: {
+            tag: string;
+            count: number;
         };
         /**
          * @description How many tests each status holds for the CURRENT search, ignoring the
@@ -11109,6 +11176,54 @@ export interface operations {
                 };
                 content?: never;
             };
+        };
+    };
+    getApiReferenceSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiReferenceSummary"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    downloadOpenApi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file. */
+            200: {
+                headers: {
+                    /** @description `attachment; filename="quizzivy-openapi.json"`. */
+                    "Content-Disposition": string;
+                    /** @description `no-store`. */
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     getAiCredits: {
