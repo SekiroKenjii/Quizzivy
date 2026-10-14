@@ -32,7 +32,7 @@ func (s *GroupsPostgres) lockBankQuestion(ctx context.Context, tx pgx.Tx, id str
 	return err
 }
 
-func (s *GroupsPostgres) ensureSectionUnits(ctx context.Context, tx pgx.Tx, sectionID string) error {
+func (s *GroupsPostgres) ensureSectionUnits(ctx context.Context, tx pgx.Tx, sectionID string, also ...string) error {
 	var populated bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM app.test_section_units WHERE test_section_id=$1)`, sectionID).Scan(&populated); err != nil {
 		return err
@@ -40,7 +40,7 @@ func (s *GroupsPostgres) ensureSectionUnits(ctx context.Context, tx pgx.Tx, sect
 	if populated {
 		return nil
 	}
-	err := s.seedSectionUnits(ctx, tx, sectionID)
+	err := s.seedSectionUnits(ctx, tx, sectionID, also...)
 	if errors.Is(err, questions.ErrNotFound) {
 		return domain.ErrNotFound
 	}
@@ -116,6 +116,17 @@ func setMemberOrder(ctx context.Context, tx pgx.Tx, ids []string) error {
 	_, err := tx.Exec(ctx, `UPDATE app.questions q SET context_ordinal=o.ordinal FROM unnest($1::uuid[],$2::int[]) AS o(id,ordinal)
 		WHERE q.id=o.id AND q.context_ordinal IS DISTINCT FROM o.ordinal`, ids, ordinals)
 	return err
+}
+
+func removeMember(ctx context.Context, tx pgx.Tx, groupID, memberID string) error {
+	tag, err := tx.Exec(ctx, `DELETE FROM app.questions WHERE id=$1 AND context_group_id=$2`, memberID, groupID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return domain.ErrNotFound
+	}
+	return nil
 }
 
 func requireUnbound(ctx context.Context, tx pgx.Tx, groupID, questionID string) error {

@@ -136,7 +136,7 @@ func (s *GroupsPostgres) readGraph(ctx context.Context, tx pgx.Tx, stored *domai
 			return &domain.GroupError{Rule: groupMembershipRule, QuestionID: member.Question.ID}
 		}
 		stored.Bundle.Group.Members[i] = domain.GroupMember{QuestionID: member.Question.ID, OptionOrder: member.OptionOrder}
-		stored.Bundle.Questions[i] = domain.GroupQuestion{ID: member.Question.ID, Input: groupQuestionInput(member.Question), MediaAssetKind: member.Question.MediaAssetKind}
+		stored.Bundle.Questions[i] = groupQuestionOf(member.Question)
 	}
 	if err := readGroupMaterials(ctx, tx, &stored.Bundle.Group, draftGraphTables); err != nil {
 		return err
@@ -148,6 +148,10 @@ func (s *GroupsPostgres) readGraph(ctx context.Context, tx pgx.Tx, stored *domai
 		return err
 	}
 	return stored.Bundle.Validate()
+}
+
+func groupQuestionOf(q questions.Question) domain.GroupQuestion {
+	return domain.GroupQuestion{ID: q.ID, Input: groupQuestionInput(q), MediaAssetKind: q.MediaAssetKind}
 }
 
 func groupQuestionInput(q questions.Question) questions.Input {
