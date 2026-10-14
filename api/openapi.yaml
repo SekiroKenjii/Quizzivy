@@ -1355,6 +1355,15 @@ components:
         caller's own rows for every caller (for assignments, those the caller
         created and those that target a class the caller teaches).
 
+    AccountStatus:
+      type: string
+      enum: [disabled, must_change_password, never_signed_in, active]
+      description: |
+        The one state an account is listed under (DG-54), in this order of
+        precedence: `disabled`, then `must_change_password` (a temporary
+        password is still in use), then `never_signed_in` (`last_sign_in_at` is
+        null), then `active`.
+
     User:
       type: object
       required: [id, email, fullName, hasPassword, linkedProviders, mustChangePassword, createdAt]
@@ -1465,6 +1474,14 @@ components:
           type: boolean
           description: Forces `/change-password`. Always false for Google-only users (§5.4).
         createdAt: { $ref: '#/components/schemas/Timestamp' }
+        passwordChangedAt:
+          type: string
+          format: date-time
+          description: |
+            When the caller last changed their own password. Absent for an
+            account that never has, including one still on a temporary password
+            and one whose password is older than R5. Self only: it is on
+            `CurrentUser` and not on `User` or `StudentRow`.
         permissions:
           type: array
           uniqueItems: true
@@ -1992,7 +2009,7 @@ components:
         rejects the very body it documents (see issue #41).
       required:
         [id, email, fullName, hasPassword, linkedProviders, mustChangePassword,
-         createdAt, disabledAt, classes, stats]
+         createdAt, disabledAt, lastActiveAt, accountStatus, classes, stats]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
@@ -2014,6 +2031,15 @@ components:
             state that can be written but never read is a one-way door: the
             student would vanish from every listing with nothing able to name
             them again.
+        lastActiveAt:
+          type: [string, 'null']
+          format: date-time
+          description: |
+            The student's latest authenticated request, which the server records
+            at most once every five minutes per instance (DG-54). Null before
+            the student has ever been active. Not the same as
+            `stats.activity.lastAttemptAt`, the last time they started a test.
+        accountStatus: { $ref: '#/components/schemas/AccountStatus' }
         classes:
           type: array
           items: { $ref: '#/components/schemas/StudentClass' }
@@ -9180,6 +9206,27 @@ paths:
             whose password must be reset again. `false` lists only the others.
             Absent lists both.
           schema: { type: boolean }
+        - name: neverSignedIn
+          in: query
+          description: |
+            `true` lists only the accounts that have never signed in
+            (`last_sign_in_at` is null); `false` lists only the others. Absent
+            lists both. It narrows beside `mustChangePassword`, as a plain
+            predicate: an account on a temporary password that never signed in
+            is in both.
+          schema: { type: boolean }
+        - name: accountStatus
+          in: query
+          description: |
+            Only the accounts listed under one of these statuses
+            (`accountStatus=active&accountStatus=never_signed_in`), in
+            `AccountStatus`'s order of precedence. A `disabled` account is
+            returned only when `status` is `disabled` or `all`.
+          schema:
+            type: array
+            maxItems: 4
+            uniqueItems: true
+            items: { $ref: '#/components/schemas/AccountStatus' }
         - name: status
           in: query
           description: |
