@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { afterAll, afterEach, beforeAll } from "vitest";
 import { cleanup } from "@testing-library/react";
+import { toast } from "sonner";
 import { server } from "./server";
 import i18n from "@/lib/i18n";
 import en from "@/lib/i18n/locales/en.json";
@@ -37,6 +38,11 @@ afterEach(() => {
   server.resetHandlers();
 });
 
-afterAll(() => {
+/** Sonner unmounts a removed toast on a 200ms timer it never clears; a file that toasted waits it out, or the timer fires after jsdom is gone. */
+afterAll(async () => {
+  if (toast.getHistory().length > 0) {
+    toast.dismiss();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
   server.close();
 });
