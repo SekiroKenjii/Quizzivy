@@ -1,5 +1,13 @@
 import type { TFunction } from "i18next";
-import { BookOpenText, Eraser, FilePlus, Library, Plus, Sparkles } from "lucide-react";
+import {
+  BookOpenText,
+  Eraser,
+  FilePlus,
+  Layers,
+  Library,
+  Plus,
+  Sparkles,
+} from "lucide-react";
 import { trueFalseLabelKey } from "@/components/shared/content/trueFalse";
 import {
   generateAiQuestions,
@@ -8,12 +16,34 @@ import {
 } from "../api";
 import type { AiCard, AiKind } from "../kind";
 
-/** AiPassage is a shared-content passage of the open test that a generation can read. */
+/** AiPassageGroup is the shared-context group of the open test that holds a passage. */
+export interface AiPassageGroup {
+  id: string;
+  title: string;
+}
+
+/**
+ * AiPassage is a shared-content passage of the open test that a generation
+ * can read. `group` is the group that holds it, given only by a host that
+ * adds the kept questions to that group.
+ */
 export interface AiPassage {
   id: string;
   title: string;
   text: string;
+  group?: AiPassageGroup;
 }
+
+/**
+ * GenerateDestination is where the kept questions go: a section, the group
+ * that holds the passage they were generated from, the bank, or a new
+ * practice test.
+ */
+export type GenerateDestination =
+  | { kind: "section"; title: string }
+  | { kind: "group"; id: string; title: string }
+  | { kind: "bank" }
+  | { kind: "practice" };
 
 /** AiLevel is a level a generation writes for. */
 export type AiLevel = AiGenerateRequest["level"];
@@ -30,16 +60,20 @@ type QuestionType = AiGeneratedQuestion["type"];
  * GenerateContext is what a page gives the Generate panel: the test whose
  * passages it offers, the question types to start from when not the default,
  * where the kept questions go (a section, the bank, or a new practice test),
- * and `save`, the page's own write for them, which tags each with `tag` when
- * it is not null.
+ * and `save`, the page's own write for them into the run's destination, which
+ * tags each with `tag` when it is not null. A section gives way to the group
+ * that holds the passage the run read.
  */
 export interface GenerateContext {
   testId?: string;
   passages: readonly AiPassage[];
   types?: readonly QuestionType[];
-  destination:
-    { kind: "section"; title: string } | { kind: "bank" } | { kind: "practice" };
-  save: (drafts: readonly GeneratedDraft[], tag: string | null) => Promise<void>;
+  destination: Exclude<GenerateDestination, { kind: "group" }>;
+  save: (
+    drafts: readonly GeneratedDraft[],
+    tag: string | null,
+    destination: GenerateDestination,
+  ) => Promise<void>;
 }
 
 interface GenerateValues {
@@ -52,6 +86,7 @@ interface GenerateValues {
 
 interface GenerateItem extends GeneratedDraft {
   explanations: boolean;
+  destination: GenerateDestination;
 }
 
 const TYPES: readonly QuestionType[] = [
@@ -67,7 +102,12 @@ const LEVELS = ["b1", "b2", "c1"] as const;
 const SOURCE_MIN = 40;
 const SOURCE_MAX = 20000;
 
-const PRIMARY_ICONS = { section: Plus, bank: Library, practice: FilePlus } as const;
+const PRIMARY_ICONS = {
+  section: Plus,
+  group: Layers,
+  bank: Library,
+  practice: FilePlus,
+} as const;
 
 function isLevel(value: string): value is AiLevel {
   return (LEVELS as readonly string[]).includes(value);
@@ -78,12 +118,29 @@ function initialTypes(preset: readonly QuestionType[] | undefined) {
   return types.length > 0 ? types : DEFAULT_TYPES;
 }
 
+function chosenPassage(values: GenerateValues, context: GenerateContext) {
+  return context.passages.find((item) => item.text === values.source);
+}
+
+function destinationFor(
+  passage: AiPassage | undefined,
+  context: GenerateContext,
+): GenerateDestination {
+  return passage?.group && context.destination.kind === "section"
+    ? { kind: "group", id: passage.group.id, title: passage.group.title }
+    : context.destination;
+}
+
+function destinationOf(items: readonly GenerateItem[], context: GenerateContext) {
+  return items[0]?.destination ?? context.destination;
+}
+
 function request(
   values: GenerateValues,
   context: GenerateContext,
   language: AiGenerateRequest["language"],
 ): AiGenerateRequest {
-  const passage = context.passages.find((item) => item.text === values.source);
+  const passage = chosenPassage(values, context);
   const level = isLevel(values.level) ? values.level : "b2";
   const settings = {
     types: TYPES.filter((type) => values.types.includes(type)),
@@ -140,7 +197,8 @@ function card(item: GenerateItem, t: TFunction, tagDrafts: boolean): AiCard {
  * generateKind is "Generate questions" (V-14a): from a passage of the open
  * test, pasted text or a topic, in the five stored types (TFNG waits for R6,
  * DG-202). Its primary saves the kept questions through the page's write:
- * into the open question's section in the builder, or into the bank.
+ * in the builder into the group that holds the chosen passage, or else into
+ * the open question's section; into the bank; or into a new practice test.
  */
 export const generateKind: AiKind<GenerateValues, GenerateItem, GenerateContext> = {
   icon: Sparkles,
@@ -226,12 +284,14 @@ export const generateKind: AiKind<GenerateValues, GenerateItem, GenerateContext>
   },
   run: async (values, env, signal) => {
     const body = request(values, env.context, env.language);
+    const destination = destinationFor(chosenPassage(values, env.context), env.context);
     const result = await generateAiQuestions(body, signal);
     return {
       items: result.items.map((question) => ({
         question,
         level: body.level,
         explanations: body.explanations,
+        destination,
       })),
       usage: result.usage,
     };
@@ -240,33 +300,41 @@ export const generateKind: AiKind<GenerateValues, GenerateItem, GenerateContext>
   summary: (items, selected, t) =>
     t("ai.generate.summary", { n: selected, total: items.length }),
   primary: {
-    icon: ({ context }) => PRIMARY_ICONS[context.destination.kind],
-    label: (selected, { t, context }) => {
-      const { destination } = context;
-      if (destination.kind === "practice") return t("ai.generate.saveAsPractice");
-      if (destination.kind === "bank")
-        return t("ai.generate.saveToBank", { count: selected.length });
-      return t("ai.generate.addTo", {
-        count: selected.length,
-        section: destination.title,
-      });
+    icon: ({ context }, items) => PRIMARY_ICONS[destinationOf(items, context).kind],
+    label: (selected, { t, context }, items) => {
+      const destination = destinationOf(items, context);
+      const count = selected.length;
+      switch (destination.kind) {
+        case "practice":
+          return t("ai.generate.saveAsPractice");
+        case "bank":
+          return t("ai.generate.saveToBank", { count });
+        case "group":
+          return t("ai.generate.addToGroup", { count, group: destination.title });
+        case "section":
+          return t("ai.generate.addTo", { count, section: destination.title });
+      }
     },
     apply: async (selected, { t, context, tagDrafts }) => {
+      const destination = destinationOf(selected, context);
+      const count = selected.length;
       await context.save(
         selected.map(({ question, level }) => ({ question, level })),
         tagDrafts ? t("ai.draftTag") : null,
+        destination,
       );
-      const { destination } = context;
-      if (destination.kind === "practice")
-        return t("ai.generate.savedPractice", { count: selected.length });
-      if (destination.kind === "bank")
-        return t(tagDrafts ? "ai.generate.savedTagged" : "ai.generate.saved", {
-          count: selected.length,
-        });
-      return t("ai.generate.added", {
-        count: selected.length,
-        section: destination.title,
-      });
+      switch (destination.kind) {
+        case "practice":
+          return t("ai.generate.savedPractice", { count });
+        case "bank":
+          return t(tagDrafts ? "ai.generate.savedTagged" : "ai.generate.saved", {
+            count,
+          });
+        case "group":
+          return t("ai.generate.addedToGroup", { count, group: destination.title });
+        case "section":
+          return t("ai.generate.added", { count, section: destination.title });
+      }
     },
   },
 };

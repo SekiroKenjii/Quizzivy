@@ -31,6 +31,7 @@ import {
   materialAssets,
   memberValues,
   newGroupQuestion,
+  withMembers,
   type GroupMaterial,
   type GroupRecording,
 } from "../model";
@@ -135,17 +136,7 @@ export function GroupComposer({
   }
   function addQuestion() {
     const question = newGroupQuestion(t);
-    onChange({
-      ...bundle,
-      questions: [...bundle.questions, question],
-      group: {
-        ...bundle.group,
-        members: [
-          ...bundle.group.members,
-          { questionId: question.id, optionOrder: "shuffle" },
-        ],
-      },
-    });
+    onChange(withMembers(bundle, [question]));
     setStarters((current) => new Set([...current, question.id]));
     selectItem(question.id, true);
   }

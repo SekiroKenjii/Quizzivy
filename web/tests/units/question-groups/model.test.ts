@@ -3,8 +3,10 @@ import { contentPlainText } from "@/components/shared/content/plainText";
 import { isQuestionPromptContent } from "@/components/shared/content/questionContent";
 import {
   groupIssue,
+  groupRoom,
   emptyGroup,
   emptyMaterial,
+  MAX_GROUP_MEMBERS,
   memberValues,
   newGroupQuestion,
 } from "@/features/question-groups/model";
@@ -61,6 +63,23 @@ test("one answer cannot be linked from two materials and detached members cannot
   expect(groupIssue(bundle)).toBe("groups.duplicateTarget");
   bundle.group.members = [];
   expect(groupIssue(bundle)).toBe("groups.invalidQuestion");
+});
+
+test("a group's room is what it takes before the member limit, never below zero", () => {
+  const withCount = (count: number) => ({
+    ...emptyGroup("Reading").group,
+    members: Array.from({ length: count }, () => ({
+      questionId: crypto.randomUUID(),
+      optionOrder: "shuffle" as const,
+    })),
+  });
+  expect(MAX_GROUP_MEMBERS).toBe(200);
+  expect(groupRoom(withCount(0))).toBe(200);
+  expect(groupRoom(withCount(1))).toBe(199);
+  expect(groupRoom(withCount(198))).toBe(2);
+  expect(groupRoom(withCount(199))).toBe(1);
+  expect(groupRoom(withCount(200))).toBe(0);
+  expect(groupRoom(withCount(201))).toBe(0);
 });
 
 test("recovery preserves incomplete user input without accepting a malformed graph", () => {

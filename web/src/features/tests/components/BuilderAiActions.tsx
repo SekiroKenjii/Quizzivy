@@ -5,7 +5,11 @@ import type { AiFinding } from "@/features/ai/api";
 import type { AiPanelRequest } from "@/features/ai/components/AiPanel";
 import { AiEntryButton } from "@/features/ai/components/AiEntryButton";
 import { AiWriteError } from "@/features/ai/kind";
-import type { AiPassage, GeneratedDraft } from "@/features/ai/kinds/generate";
+import type {
+  AiPassage,
+  GeneratedDraft,
+  GenerateDestination,
+} from "@/features/ai/kinds/generate";
 import { useAiAvailable, useAiBlock } from "@/features/ai/useAiAvailable";
 import { draftQuestion } from "@/features/question-bank/aiDrafts";
 import {
@@ -21,10 +25,12 @@ type BuilderPanel = "generate" | "check";
 
 /**
  * BuilderAi is what the builder hands its AI panels: the open test, its
- * passages, the section new questions join (null when it has none), and the
- * builder's own writes and moves. `prepare` saves every pending edit before a
- * panel opens; `add` creates the kept questions and appends them to that
- * section; `fix` writes a check's fix into its question.
+ * passages, each with the group that holds it, the section new questions join
+ * (null when it has none), and the builder's own writes and moves. `prepare`
+ * saves every pending edit before a panel opens; `add` creates the kept
+ * questions and appends them to that section; `addToGroup` appends them to
+ * the group whose passage they were generated from, as new members after its
+ * existing ones; `fix` writes a check's fix into its question.
  */
 export interface BuilderAi {
   testId: string;
@@ -33,6 +39,7 @@ export interface BuilderAi {
   section: string | null;
   prepare: () => Promise<void>;
   add: (questions: QuestionValues[]) => Promise<void>;
+  addToGroup: (groupId: string, questions: QuestionValues[]) => Promise<void>;
   fix: (finding: AiFinding) => Promise<void>;
   open: (questionId: string) => void;
   numberOf: (questionId: string) => number | null;
@@ -62,14 +69,19 @@ export function BuilderAiActions({ ai }: Readonly<{ ai: BuilderAi }>) {
     }
   }
 
-  async function save(drafts: readonly GeneratedDraft[], tag: string | null) {
+  async function save(
+    drafts: readonly GeneratedDraft[],
+    tag: string | null,
+    destination: GenerateDestination,
+  ) {
     const values = drafts.map((draft) => draftQuestion(draft, tag));
     const invalid = values.findIndex(
       (value) => !questionSchema.safeParse(value).success,
     );
     if (invalid >= 0)
       throw new AiWriteError(t("ai.generate.invalid", { n: invalid + 1 }));
-    await ai.add(values);
+    if (destination.kind === "group") await ai.addToGroup(destination.id, values);
+    else await ai.add(values);
   }
 
   function requestFor(kind: BuilderPanel): AiPanelRequest {
