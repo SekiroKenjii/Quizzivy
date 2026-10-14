@@ -9,7 +9,7 @@ R5, T-R5.3 (set-password links, the page and the API).
 
 - §5.4 An account sets or resets its password from an emailed link: a 256-bit token in the URL fragment, of which the database keeps the SHA-256, valid 24 hours and once. An unknown, used, expired or revoked link, and the link of a disabled account, all answer one `410 SET_PASSWORD_LINK_INVALID`. Using a link sets the password, clears `mustChangePassword`, ends the account's other links and sessions and signs the account in. A Google-only account asks for its own link from Settings and keeps its session and its Google link. `/set-password` joins the public tree.
 - §6.5 `checkSetPasswordLink` and `setPasswordWithLink` are open and limited per address and per token; `requestSetPasswordLink` is limited per signed-in user. The set of operations that need no bearer token is now eleven, and the bodies keyed on a field are six.
-- §13.3 `app.set_password_tokens` (`00134_create_set_password_tokens.sql`, `docs/plan/20-data-model.md` D-54, §52).
+- §13.3 `app.set_password_tokens` (`00135_create_set_password_tokens.sql`, `docs/plan/20-data-model.md` D-54, §52).
 - §15 Three operations: `POST /auth/set-password/check`, `POST /auth/set-password` and `POST /auth/set-password/request`, and the error code `SET_PASSWORD_LINK_INVALID`. Two audit actions: `user.password_set` and `user.password_link_requested`.
 
 **Changes since v0.110**
@@ -2685,7 +2685,7 @@ CREATE TABLE app.user_identities (
 CREATE INDEX ON app.user_identities (user_id);
 ```
 
-**Set-password links** (§5.4), from R5 (`00134_create_set_password_tokens.sql`, `docs/plan/20-data-model.md` D-54, §52):
+**Set-password links** (§5.4), from R5 (`00135_create_set_password_tokens.sql`, `docs/plan/20-data-model.md` D-54, §52):
 
 ```sql
 CREATE TABLE app.set_password_tokens (

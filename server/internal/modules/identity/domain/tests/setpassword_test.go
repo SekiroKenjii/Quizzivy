@@ -36,7 +36,7 @@ func TestASetPasswordTokenIs32RandomBytesAndTheDatabaseKeepsOnlyItsSHA256(t *tes
 
 func TestALinkLivesTwentyFourHours(t *testing.T) {
 	if domain.SetPasswordLifetime != 24*time.Hour {
-		t.Fatalf("lifetime = %v, want 24h: migration 00134's check says the same", domain.SetPasswordLifetime)
+		t.Fatalf("lifetime = %v, want 24h: migration 00135's check says the same", domain.SetPasswordLifetime)
 	}
 }
 

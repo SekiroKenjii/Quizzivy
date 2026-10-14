@@ -1528,7 +1528,7 @@ the file it adds.
 | `00130_create_organization_settings.sql` | `organization_settings`, the singleton, its checks and `updated_at` trigger, the one row the migration writes, and `REVOKE INSERT, DELETE` from the app role | R5 (T-R5.5), D-53, §51 |
 | `00131_add_users_activity.sql` | `users.last_active_at`, `last_sign_in_at`, `last_sign_in_method` (`users_last_sign_in_method_check`), `password_changed_at`, all nullable; backfills the first two | R5 (T-R5.4), D-52, §50 |
 | `00132_create_user_activity_days.sql` | `user_activity_days (user_id REFERENCES users ON DELETE CASCADE, day date, PRIMARY KEY (user_id, day))` and `user_activity_days_day_idx (day)` | R5 (T-R5.4), D-52, §50 |
-| `00134_create_set_password_tokens.sql` | `set_password_tokens`, its checks (`token_hash` length, `purpose`, the 24-hour bound), `set_password_tokens_token_hash_key` and `set_password_tokens_user_idx` | R5 (T-R5.3), D-54, §52 |
+| `00135_create_set_password_tokens.sql` | `set_password_tokens`, its checks (`token_hash` length, `purpose`, the 24-hour bound), `set_password_tokens_token_hash_key` and `set_password_tokens_user_idx` | R5 (T-R5.3), D-54, §52 |
 
 Notes on migration mechanics (§13.7):
 
@@ -3620,7 +3620,7 @@ document's exact keys, the logo headers and caches, the error mapping).
 
 ## 52. Set-password links (T-R5.3, D15, DG-05)
 
-`00134_create_set_password_tokens.sql` adds `app.set_password_tokens` (D-54). A link is the way an account
+`00135_create_set_password_tokens.sql` adds `app.set_password_tokens` (D-54). A link is the way an account
 chooses a password without anyone typing one for it: an invite carries a new account's first password, a reset
 any later one. The token is 32 random bytes in unpadded base64url; the row keeps `sha256(token)` and nothing
 that could be presented. The raw token lives in two places only, the link in the email and the sealed secret
