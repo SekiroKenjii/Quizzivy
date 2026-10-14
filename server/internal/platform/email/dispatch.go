@@ -76,8 +76,12 @@ type outcome struct {
 // sent row and a failed one lose their secret in the statement that records
 // them. A transient failure is retried after 1, 5 and 15 minutes and then
 // hourly, until the MaxAttempts-th attempt fails the row. Once the day's
-// budget is spent, every due row moves to the next local midnight. When ctx
-// ends, no further row is sent and what was sent is still recorded.
+// budget is spent, every due row moves to the next local midnight. A row of a
+// template this binary does not send is never claimed, deferred or counted as
+// due: it stays pending, secret and attempts intact, for a newer release's
+// dispatcher, which the API and the worker may run while a deploy is rolling
+// out. When ctx ends, no further row is sent and what was sent is still
+// recorded.
 func (d *Dispatcher) Dispatch(ctx context.Context) (Batch, error) {
 	org, err := d.Org(ctx)
 	if err != nil {
@@ -106,7 +110,8 @@ func (d *Dispatcher) Dispatch(ctx context.Context) (Batch, error) {
 	if remaining := d.DailyLimit - sentToday; remaining <= 0 {
 		tag, err := tx.Exec(ctx, `
 			UPDATE app.email_outbox SET deliver_after = $2
-			 WHERE sent_at IS NULL AND failed_at IS NULL AND deliver_after <= $1`, now, nextDay)
+			 WHERE sent_at IS NULL AND failed_at IS NULL AND deliver_after <= $1 AND template = ANY($3::text[])`,
+			now, nextDay, templateNames())
 		if err != nil {
 			return Batch{}, err
 		}
@@ -129,10 +134,10 @@ func (d *Dispatcher) sendDue(ctx context.Context, tx pgx.Tx, now time.Time, limi
 	rows, err := db.QueryMany(ctx, tx, `
 		SELECT id::text, to_address, template, locale, params, secret_ciphertext, attempts
 		  FROM app.email_outbox
-		 WHERE sent_at IS NULL AND failed_at IS NULL AND deliver_after <= $1
+		 WHERE sent_at IS NULL AND failed_at IS NULL AND deliver_after <= $1 AND template = ANY($3::text[])
 		 ORDER BY deliver_after, id
 		 LIMIT $2
-		   FOR UPDATE SKIP LOCKED`, []any{now, limit}, func(r pgx.Rows) (pending, error) {
+		   FOR UPDATE SKIP LOCKED`, []any{now, limit, templateNames()}, func(r pgx.Rows) (pending, error) {
 		var p pending
 		err := r.Scan(&p.id, &p.to, &p.template, &p.locale, &p.params, &p.secret, &p.attempts)
 		return p, err
@@ -240,12 +245,13 @@ func Backoff(attempts int) time.Duration {
 	}
 }
 
-// NextDue answers when the earliest pending row falls due, and false when
-// nothing is pending.
+// NextDue answers when the earliest pending row of a template this binary
+// sends falls due, and false when nothing is pending.
 func (d *Dispatcher) NextDue(ctx context.Context) (time.Time, bool, error) {
 	var due *time.Time
 	if err := d.DB.QueryRow(ctx, `
-		SELECT min(deliver_after) FROM app.email_outbox WHERE sent_at IS NULL AND failed_at IS NULL`).Scan(&due); err != nil {
+		SELECT min(deliver_after) FROM app.email_outbox
+		 WHERE sent_at IS NULL AND failed_at IS NULL AND template = ANY($1::text[])`, templateNames()).Scan(&due); err != nil {
 		return time.Time{}, false, err
 	}
 	if due == nil {

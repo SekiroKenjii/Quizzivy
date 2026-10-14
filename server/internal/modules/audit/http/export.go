@@ -143,7 +143,7 @@ func (h Audit) writeJSON(ctx context.Context, w io.Writer, flush func(), plan do
 					return err
 				}
 			}
-			if err := encoder.Encode(toAPIEntry(entry)); err != nil {
+			if err := encoder.Encode(ToAPIEntry(entry)); err != nil {
 				return err
 			}
 			written++

@@ -95,6 +95,16 @@ func TestBadEmailValuesAreRefusedWithoutRepeatingTheKey(t *testing.T) {
 	for name, override := range map[string]map[string]string{
 		"an app url with a path":     {"APP_URL": "https://app.quizzivy.com/app"},
 		"an app url that is no url":  {"APP_URL": "app.quizzivy.com"},
+		"an app url ending in ?":     {"APP_URL": "https://app.quizzivy.com?"},
+		"an app url ending in #":     {"APP_URL": "https://app.quizzivy.com#"},
+		"an app url with a query":    {"APP_URL": "https://app.quizzivy.com?a=1"},
+		"an app url with a line":     {"APP_URL": "https://app.quizzivy.com\r\nBcc: x@y.com"},
+		"an app url with a space":    {"APP_URL": "https://app.quizzivy .com"},
+		"a sender that is no mail":   {"EMAIL_FROM": "garbage"},
+		"a sender with a line break": {"EMAIL_FROM": "Q <a@b.com>\r\nBcc: x@y.com"},
+		"two senders":                {"EMAIL_FROM": "a@b.com, c@d.com"},
+		"a reply-to of only @":       {"EMAIL_REPLY_TO": "@"},
+		"a reply-to with a line":     {"EMAIL_REPLY_TO": "a@b.com\r\nBcc: x@y.com"},
 		"a key with whitespace":      {"RESEND_API_KEY": "re_secret value"},
 		"a zero daily limit":         {"EMAIL_DAILY_LIMIT": "0"},
 		"a daily limit that is text": {"EMAIL_DAILY_LIMIT": "many"},
@@ -115,6 +125,16 @@ func TestBadEmailValuesAreRefusedWithoutRepeatingTheKey(t *testing.T) {
 				t.Errorf("%s: the error repeats a secret: %v", name, err)
 			}
 		}
+	}
+}
+
+func TestAnOriginIsKeptWithoutItsTrailingSlashAndWithALowerCaseHost(t *testing.T) {
+	cfg, err := loadWith(t, merge(fullEmail(), map[string]string{"APP_URL": "HTTPS://APP.Quizzivy.com:8443/"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Email.AppURL != "https://app.quizzivy.com:8443" {
+		t.Fatalf("origin: %q", cfg.Email.AppURL)
 	}
 }
 
