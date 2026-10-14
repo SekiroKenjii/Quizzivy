@@ -275,3 +275,32 @@ func TestMoveByAnAdminKeepsTheTeachersOwnership(t *testing.T) {
 		}
 	}
 }
+
+func TestMoveOutNamesTheTestsOwnerWhoseverRowTheMemberWas(t *testing.T) {
+	w := newMoveWorld(t)
+	lead := w.question("lead")
+	w.outline([]string{lead})
+	group := w.plainGroup(0, "m0", "m1")
+	member := memberIDs(group)[0]
+	elsewhere := scopedUser(t, w.tx, "teacher")
+	if _, err := w.tx.Exec(w.ctx, `UPDATE app.questions SET owner_id=$2 WHERE id=$1`, member, elsewhere); err != nil {
+		t.Fatal(err)
+	}
+
+	result := w.mustMove(member, 0, nil, 0, group.Bundle.Group.ID)
+
+	var owner string
+	if err := w.tx.QueryRow(w.ctx, `SELECT owner_id::text FROM app.questions WHERE id=$1`, member).Scan(&owner); err != nil || owner != w.author {
+		t.Fatalf("the question is owned by %q, want the test's owner %q: %v", owner, w.author, err)
+	}
+	if got, err := w.bank.Get(w.ctx, w.scope, member); err != nil || got.Prompt != "m0" {
+		t.Fatalf("the test's owner cannot read the question in the bank: %+v, %v", got, err)
+	}
+	saved := result.Test.Sections[0]
+	if _, err := w.tests.Update(w.ctx, domain.UpdateRequest{ID: w.testID, ActorID: w.author, Now: time.Now(), Scope: w.scope, Input: domain.UpdateInput{
+		ExpectedUpdatedAt: result.Test.UpdatedAt, SetSections: true, GroupOutline: true,
+		Sections: []domain.SectionInput{{ID: saved.ID, Title: saved.Title, QuestionIDs: saved.QuestionIDs, Units: saved.Units, SetUnits: true}},
+	}}); err != nil {
+		t.Fatalf("the next autosave refused the question: %v", err)
+	}
+}
