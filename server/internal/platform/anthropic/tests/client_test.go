@@ -2,6 +2,7 @@ package anthropic_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -100,6 +101,19 @@ func TestTheRequestCarriesTheKeyTheModelTheSchemaAndEveryBlockInOrder(t *testing
 	}
 	if source := content[1].(map[string]any)["source"].(map[string]any); source["media_type"] != "image/png" || source["data"] != "cG5nLWZpeHR1cmU=" {
 		t.Errorf("image source = %v", source)
+	}
+}
+
+func TestTheSchemaReachesTheProviderWithItsPropertiesInTheOrderWritten(t *testing.T) {
+	api := newAPI(t, ok(`{"type":"t","prompt":"p","answers":[]}`))
+	req := request()
+	req.Schema = json.RawMessage(`{"type":"object", "properties":{"type":{"type":"string"},"prompt":{"type":"string"},"answers":{"type":"array","items":{"type":"string"}}},"required":["type","prompt","answers"],"additionalProperties":false}`)
+	if _, err := complete(t, api.client(t, nil), req); err != nil {
+		t.Fatalf("Complete: %v", err)
+	}
+	want := `"output_config":{"format":{"type":"json_schema","schema":{"type":"object","properties":{"type":{"type":"string"},"prompt":{"type":"string"},"answers":{"type":"array","items":{"type":"string"}}},"required":["type","prompt","answers"],"additionalProperties":false}}}`
+	if raw := api.calls()[0].raw; !strings.Contains(raw, want) {
+		t.Errorf("the schema was not sent as written; the model writes the properties in the order it receives them:\n%s", raw)
 	}
 }
 

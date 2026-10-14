@@ -19,6 +19,7 @@ import (
 
 	sdk "github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
+	"github.com/anthropics/anthropic-sdk-go/packages/param"
 )
 
 const (
@@ -67,7 +68,7 @@ func PDFBlock(data []byte) Block {
 	return Block{Kind: BlockPDF, MediaType: "application/pdf", Data: data}
 }
 
-// Request is one completion: the model, a system prompt, the user's turn and the JSON Schema the answer must follow. Schema must stay inside the provider's structured-output subset of JSON Schema; the provider refuses anything else with a 4xx, which is ErrInvalidRequest.
+// Request is one completion: the model, a system prompt, the user's turn and the JSON Schema the answer must follow. Schema must stay inside the provider's structured-output subset of JSON Schema; the provider refuses anything else with a 4xx, which is ErrInvalidRequest. Its properties are sent in the order written, and the model writes them in that order.
 type Request struct {
 	Model     string
 	System    string
@@ -324,7 +325,7 @@ func buildParams(req Request) (sdk.MessageNewParams, error) {
 	if req.MaxTokens < 1 {
 		return sdk.MessageNewParams{}, errors.New("the request needs a MaxTokens of at least 1")
 	}
-	schema, err := decodeSchema(req.Schema)
+	schema, err := compactSchema(req.Schema)
 	if err != nil {
 		return sdk.MessageNewParams{}, err
 	}
@@ -336,7 +337,7 @@ func buildParams(req Request) (sdk.MessageNewParams, error) {
 		Model:        sdk.Model(req.Model),
 		MaxTokens:    int64(req.MaxTokens),
 		Messages:     []sdk.MessageParam{sdk.NewUserMessage(blocks...)},
-		OutputConfig: sdk.OutputConfigParam{Format: sdk.JSONOutputFormatParam{Schema: schema}},
+		OutputConfig: sdk.OutputConfigParam{Format: param.Override[sdk.JSONOutputFormatParam](json.RawMessage(`{"type":"json_schema","schema":` + string(schema) + `}`))},
 	}
 	if req.System != "" {
 		params.System = []sdk.TextBlockParam{{Text: req.System}}
@@ -344,14 +345,18 @@ func buildParams(req Request) (sdk.MessageNewParams, error) {
 	return params, nil
 }
 
-func decodeSchema(raw json.RawMessage) (map[string]any, error) {
+func compactSchema(raw json.RawMessage) (json.RawMessage, error) {
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.UseNumber()
 	var schema map[string]any
 	if err := decoder.Decode(&schema); err != nil || len(schema) == 0 || decoder.More() {
 		return nil, errors.New("the request needs a Schema that is one non-empty JSON object")
 	}
-	return schema, nil
+	var compact bytes.Buffer
+	if err := json.Compact(&compact, bytes.TrimSpace(raw)); err != nil {
+		return nil, errors.New("the request needs a Schema that is one non-empty JSON object")
+	}
+	return compact.Bytes(), nil
 }
 
 func contentBlocks(blocks []Block) ([]sdk.ContentBlockParamUnion, error) {

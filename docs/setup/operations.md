@@ -594,6 +594,19 @@ where the provider answered, its `request_id`, which is what the provider's cons
 | `ai clean-up: the smallest call can cost more than the reservation` | ERROR | At the configured prices not even one call of the clean-up fits its 200-credit ceiling, so none was made and nothing was reserved: the fast tier's prices are wrong. The teacher saw `503 AI_UNAVAILABLE`. |
 | `ai reservation not ended` | ERROR | `Finish` could not settle or release a call. The sweep returns the credits once the reservation is ten minutes old. |
 | `ai call cost more than its ceiling` | WARN | The provider metered more than the feature reserves. The teacher was charged the ceiling and the ledger keeps the real token counts. |
+
+**Live smoke against the provider.** Before a release or a hotfix that touches the AI, run one real
+call of each kind of feature with a key that is not production's:
+
+```
+QUIZZIVY_AI_TEST_KEY=… go test -tags aismoke ./internal/core/adapters/tests/ -run TestLive -v
+```
+
+It sends Generate, an explanation, wrong options, a score and a tagging (fast tier) with the models
+in `QUIZZIVY_AI_TEST_CAPABLE_MODEL` and `QUIZZIVY_AI_TEST_FAST_MODEL` (default `claude-sonnet-5-5`
+and `claude-haiku-5-5`), and fails unless every answer passes its decoder and Generate keeps all
+five questions. It costs a few cents. Without the key it fails rather than skips, and CI never
+builds the `aismoke` tag.
 | `released stale ai reservations` / `ai reservation sweep failed` | INFO / WARN | The hourly sweep and its failure, which the next hour retries. |
 | `import read with ai` / `ai import settled` | INFO | The worker's record of a scan it read: pages, pages it could not read, credits held and charged. |
 

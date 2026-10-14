@@ -376,12 +376,27 @@ What v0.9.0 then does with what v0.10.0 wrote:
 - `00084`'s Down leaves its constraint `NOT VALID` for the same reason. Never roll back past v0.8.0
   (the join-code key).
 
-## Rolling out v0.11.1 (hotfix)
+## Rolling out v0.11.2 (hotfix)
+
+v0.11.2 changes no schema and no contract. It is the second fix for "Generate questions" answering
+`503 AI_UNAVAILABLE`, after v0.11.1 did not cure it.
+
+- **What v0.11.1's log showed.** With the template gone, `ai answer unusable` still read "none of the
+  1 questions in the answer is usable": 46 to 59 output tokens, one question where five were asked,
+  and that one failing the checks.
+- **The cause.** The client decoded each schema into a Go map before sending it, and a map marshals
+  its keys in alphabetical order. Structured output writes an object's properties in schema order,
+  so the model had to write `answers` and `explanation` before `options`, `prompt` and `type`: the
+  answer before the question. The schema now reaches the provider as written
+  (`internal/platform/anthropic`), and a test pins the order on the wire. Every AI feature was
+  affected, the page reader included.
+
 
 v0.11.1 changes no schema and no contract. It fixes the AI assistant, which answered every
 "Generate questions" in production with `503 AI_UNAVAILABLE` on the day v0.11.0 shipped.
 
-- **What happened.** Each prompt ended with a literal JSON example full of `"..."`. Every call was
+- **What happened, as first read** (v0.11.2 found the main cause). Each prompt ended with a literal
+  JSON example full of `"..."`. Every call was
   billed for 46 output tokens, whatever the passage, which is the size of that example copied back,
   and the decoder found nothing usable in the answer. The teacher saw the 503. Nothing was logged,
   because only a failed call was, so the answer itself could not be read back.

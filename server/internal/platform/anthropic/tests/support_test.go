@@ -25,6 +25,7 @@ type exchange struct {
 type recorded struct {
 	header http.Header
 	body   map[string]any
+	raw    string
 }
 
 type fakeAPI struct {
@@ -47,7 +48,7 @@ func (a *fakeAPI) serve(w http.ResponseWriter, r *http.Request) {
 	var body map[string]any
 	_ = json.Unmarshal(raw, &body)
 	a.mu.Lock()
-	a.requests = append(a.requests, recorded{header: r.Header.Clone(), body: body})
+	a.requests = append(a.requests, recorded{header: r.Header.Clone(), body: body, raw: string(raw)})
 	next := a.script[min(len(a.requests), len(a.script))-1]
 	a.mu.Unlock()
 	if next.delay > 0 {
