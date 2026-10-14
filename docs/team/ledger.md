@@ -7,30 +7,37 @@ start at [README.md](README.md) "Resuming".
 
 ## Checkpoint
 
-- **As of:** 2026-10-13, 20:40 UTC.
-- **Base:** `develop` at `30c85029`, where `work/deck-d4` was merged (#599), is cut as `release/0.11.0` for `main`. `main` is at `4098f784` (v0.10.1).
-- **Objective:** ship v0.11.0 (D4). Then R5 (v0.12.0).
-- **v0.11.0 carries all of `docs/plan/74d-d4-deck-update.md`:**
-  - the student engine (the rail, the sheet, the drawer, the recording card, the cloze as one stop);
-  - `allowPause`;
-  - the builder's shared content and the three previews;
-  - the four R4 screens v2 redraws, and Grading's finish states;
-  - the AI assistant: migrations 00118 to 00125, and the chunked clean-up;
-  - T-D4.12's verification;
-  - the release review's fixes (#601, #602).
-- **Release evidence** is in 74d's release checklist. The three-reviewer review found no blocker left. The Neon rehearsal ran on a deleted branch of production.
-- **The tag** `v0.11.0` on the release merge is the owner's to push. The session's proxy refuses tag pushes. `v0.10.1` (on `4098f784`) is still the owner's to push too.
+- **As of:** 2026-10-14, 06:55 UTC.
+- **Base:** `develop` at `d3ede6e4`, where `work/escalation-e1` was merged (#624), is cut as `release/0.11.6` for `main`. `main` is at `5231b258` (v0.11.5).
+- **Objective:** ship v0.11.6 (E1). Then R5 (v0.12.0).
+- **Shipped since the last checkpoint**, each as a hotfix off `main`, back-merged to develop:
+  - **v0.11.0 (D4)**, `d979082c`.
+  - **v0.11.1**, `707fdbfb`, and **v0.11.2**, `170285a2`: Generate's 503. The second fix sends each schema in the order written. A live smoke with the owner's test key (`aismoke`, `docs/setup/operations.md`) gates every AI change.
+  - **v0.11.3**, `5849da00`: Generate from a group's passage adds the questions to that group.
+  - **v0.11.4**, `2beb7dcf`: AI check reads, and fixes, a test's group members.
+  - **v0.11.5**, `5231b258`: the builder's group editor fits a phone, and at 1024px a member's settings move into their dialog.
+- **v0.11.6 carries E1** (`docs/plan/74e-e1-group-move.md`, T-E1.1 to T-E1.7, #610 to #623). It adds `moveTestQuestion`, with no migration. Release evidence is in 74e's release checklist.
+- **The tags** are the owner's to push, because the session's proxy refuses tag pushes:
+  - `v0.10.1` on `4098f784`;
+  - `v0.11.0` on `d979082c`;
+  - `v0.11.1` on `707fdbfb`;
+  - `v0.11.2` on `170285a2`;
+  - `v0.11.3` on `5849da00`;
+  - `v0.11.4` on `2beb7dcf`;
+  - `v0.11.5` on `5231b258`.
 - **Waiting on the user:**
-  - Thuong's go before `main`.
-  - The AI secrets on Fly, or leave the AI off.
-  - The live AI smokes with the key.
-  - The real-phone and iOS checks, and the Android tap after a swipe.
+  - The owner's go before `main`.
+  - The settings column's threshold: 256px as built, or 384px (F-12's floor).
+  - The real-phone and iOS checks.
   - Thuong's review of "Tự luận".
-  - Dropping the scratch database `qa_d412` on the local Postgres (no superuser here).
+  - Dropping the scratch database `qa_d412`.
   - Rotating the admin password shared in chat on 2026-10-13.
+  - Deleting `QUIZZIVY_AI_TEST_KEY` from the environment once it is no longer needed.
   - O-R4.20 and O-R4.21.
   - The local MinIO objects left by E2E runs.
-- **Design team:** T-D4.8's "Finished" copy after a reload mid-play (74d follow-up 3).
+- **Design team:**
+  - DG-212, "Finished" after a reload mid-play.
+  - DG-213 to DG-216, E1's states that the deck does not draw.
 
 ## Roster and models
 
