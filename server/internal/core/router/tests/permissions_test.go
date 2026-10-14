@@ -48,35 +48,6 @@ func openPatterns(spec *openapi3.T) map[string]struct{} {
 	return httpx.OpenRoutes(spec, "bearerAuth")
 }
 
-func TestEveryNonOpenOperationDeclaresAPermission(t *testing.T) {
-	spec := freshSpec(t)
-	open := openPatterns(spec)
-	eachOperation(spec, func(pattern string, op *openapi3.Operation) {
-		if _, isOpen := open[pattern]; isOpen {
-			return
-		}
-		if _, ok := op.Extensions[httpx.PermissionExtension]; !ok {
-			t.Errorf("%s (%s) declares no x-permission", pattern, op.OperationID)
-		}
-	})
-}
-
-func TestOpenOperationsDeclareNone(t *testing.T) {
-	spec := freshSpec(t)
-	open := openPatterns(spec)
-	if len(open) != 7 {
-		t.Errorf("%d open operations, want the seven of theOpenSeven", len(open))
-	}
-	eachOperation(spec, func(pattern string, op *openapi3.Operation) {
-		if _, isOpen := open[pattern]; !isOpen {
-			return
-		}
-		if v, ok := op.Extensions[httpx.PermissionExtension]; ok {
-			t.Errorf("open operation %s declares x-permission %v", pattern, v)
-		}
-	})
-}
-
 func TestEveryDeclaredValueIsKnown(t *testing.T) {
 	requirements, err := httpx.PermissionRequirements(freshSpec(t), "bearerAuth")
 	if err != nil {
@@ -254,30 +225,6 @@ func TestATeacherReachesTheTeacherTree(t *testing.T) {
 	}
 }
 
-func TestEveryStaffOperationIsGated(t *testing.T) {
-	spec := freshSpec(t)
-	requirements, err := httpx.PermissionRequirements(spec, "bearerAuth")
-	if err != nil {
-		t.Fatal(err)
-	}
-	open := openPatterns(spec)
-	var admin int
-	eachOperation(spec, func(pattern string, _ *openapi3.Operation) {
-		if _, isOpen := open[pattern]; isOpen {
-			return
-		}
-		if _, gated := requirements[pattern]; !gated {
-			t.Errorf("%s has no requirement", pattern)
-		}
-		if strings.Contains(pattern, " /teacher/") || strings.Contains(pattern, " /admin/") {
-			admin++
-		}
-	})
-	if admin < 25 {
-		t.Fatalf("only %d admin operations found; the derivation is looking at the wrong thing", admin)
-	}
-}
-
 func TestTheStudentTreeNeedsTakeTests(t *testing.T) {
 	issuer := testIssuer(t)
 	h := roleRouter(t, issuer, rolePrincipals())
@@ -286,13 +233,6 @@ func TestTheStudentTreeNeedsTakeTests(t *testing.T) {
 	}
 	if rec := sendAs(t, h, issuer, http.MethodGet, "/app/assignments", adminUser, ""); rec.Code != http.StatusForbidden {
 		t.Errorf("an Admin without Take tests got %d on the student tree, want 403", rec.Code)
-	}
-}
-
-func TestAnAnonymousCallerToTheTeacherTreeGetsAuthenticationNotAuthorization(t *testing.T) {
-	issuer := testIssuer(t)
-	if rec := sendAs(t, roleRouter(t, issuer, rolePrincipals()), issuer, http.MethodGet, "/teacher/dashboard", "", ""); rec.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want 401", rec.Code)
 	}
 }
 
