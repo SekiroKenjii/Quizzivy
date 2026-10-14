@@ -308,7 +308,7 @@ test('a job is skipped only when every shard has a pass', async () => {
   const oneShard = await plan({
     entries: tracked,
     fresh: false,
-    lookup: async (name) => (name.startsWith('ci-pass-') && !name.includes('-2of2-') ? at(42, 100) : null),
+    lookup: async (name) => (name.startsWith('ci-pass-') && !name.includes('-3of3-') ? at(42, 100) : null),
   });
   assert.equal(oneShard.jobs['web-unit'].run, true);
   assert.equal(oneShard.jobs['web-unit'].proof, null);
@@ -335,7 +335,7 @@ test('a failure after a pass withdraws it, and a pass after a failure restores i
     fresh: false,
     lookup: async (name) => {
       if (name.startsWith('ci-pass-')) return at(42, 100);
-      return name.includes('-1of2-') ? at(43, 200) : null;
+      return name.includes('-1of3-') ? at(43, 200) : null;
     },
   });
   assert.equal(oneShardFailed.jobs['web-unit'].run, true);
@@ -377,8 +377,8 @@ test('jobs on one set share a hash and a checkout, and name their own markers', 
   assert.equal(result.jobs['server-lint'].sparse, result.jobs['server-test'].sparse);
   assert.notEqual(result.jobs['server-lint'].outcomes[0].success, result.jobs['server-test'].outcomes[0].success);
   assert.notEqual(result.jobs['server-test'].hash, result.jobs['web-check'].hash);
-  assert.deepEqual(result.jobs['web-unit'].shards, [1, 2]);
-  assert.equal(result.jobs['web-unit'].outcomes.length, 2);
+  assert.deepEqual(result.jobs['web-unit'].shards, [1, 2, 3]);
+  assert.equal(result.jobs['web-unit'].outcomes.length, 3);
   assert.match(result.jobs.deck.sparse, /^\/docs\/design\/$/m);
   assert.doesNotMatch(result.jobs.deck.sparse, /^\/\*$/m);
   const names = Object.values(result.jobs).flatMap((job) => job.outcomes.flatMap((o) => [o.success, o.failure]));
