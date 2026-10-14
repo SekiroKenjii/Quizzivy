@@ -33,6 +33,14 @@ func (a *Application) WithNotifier(notifier ports.Notifier) *Application {
 	return a
 }
 
+// WithSignInPolicy supplies how the centre lets students join. While it turns
+// joining with a code off, the preview and both enrolments answer every code
+// as an unknown one, whatever it is. Without one joining is on.
+func (a *Application) WithSignInPolicy(policy ports.SignInPolicy) *Application {
+	a.enrolment.Policy = policy
+	return a
+}
+
 // WithLogger supplies the logger a failed notification of a join is written
 // to. Without one it is not logged.
 func (a *Application) WithLogger(logger *slog.Logger) *Application {

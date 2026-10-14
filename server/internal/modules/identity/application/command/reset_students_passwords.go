@@ -47,7 +47,10 @@ func (s ResetStudentsPasswordsHandler) Handle(ctx context.Context, cmd ResetStud
 	if err != nil {
 		return domain.BulkReset{}, fmt.Errorf("make a batch id: %w", err)
 	}
-	req := cmd.Request
+	req, err := s.Issuing(ctx, cmd.Request)
+	if err != nil {
+		return domain.BulkReset{}, err
+	}
 	req.BatchID = batch.String()
 
 	outcomes := make([]resetOutcome, len(cmd.IDs))
@@ -76,6 +79,15 @@ feed:
 	close(next)
 	workers.Wait()
 
+	result, attempted := tally(cmd.IDs, outcomes)
+	if ctx.Err() != nil {
+		s.Logger.Warn("bulk password reset cut short",
+			slog.Int("named", len(cmd.IDs)), slog.Int("attempted", attempted), slog.Int("reset", len(result.Reset)))
+	}
+	return result, nil
+}
+
+func tally(ids []string, outcomes []resetOutcome) (domain.BulkReset, int) {
 	var result domain.BulkReset
 	attempted := 0
 	for i, outcome := range outcomes {
@@ -83,17 +95,13 @@ feed:
 		case !outcome.attempted:
 		case outcome.err != nil:
 			attempted++
-			result.Failed = append(result.Failed, domain.ResetFailure{StudentID: cmd.IDs[i], Reason: outcome.err})
+			result.Failed = append(result.Failed, domain.ResetFailure{StudentID: ids[i], Reason: outcome.err})
 		default:
 			attempted++
 			result.Reset = append(result.Reset, outcome.reset)
 		}
 	}
-	if ctx.Err() != nil {
-		s.Logger.Warn("bulk password reset cut short",
-			slog.Int("named", len(cmd.IDs)), slog.Int("attempted", attempted), slog.Int("reset", len(result.Reset)))
-	}
-	return result, nil
+	return result, attempted
 }
 
 func (s ResetStudentsPasswordsHandler) resetOne(ctx context.Context, req domain.WriteRequest, id string) (outcome resetOutcome) {

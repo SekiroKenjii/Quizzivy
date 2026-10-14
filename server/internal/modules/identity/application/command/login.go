@@ -22,7 +22,15 @@ type LoginHandler struct {
 	*support.Service
 }
 
+// Handle fails with domain.ErrPasswordSignInDisabled, before looking at the email or the password, while the centre has turned password sign-in off.
 func (s LoginHandler) Handle(ctx context.Context, cmd Login) (model.Session, error) {
+	policy, err := s.SignInPolicy(ctx)
+	if err != nil {
+		return model.Session{}, fmt.Errorf("read the sign-in policy: %w", err)
+	}
+	if !policy.Password {
+		return model.Session{}, domain.ErrPasswordSignInDisabled
+	}
 	user, err := s.Users.FindUserByEmail(ctx, cmd.Email)
 	switch {
 	case errors.Is(err, domain.ErrUserNotFound):

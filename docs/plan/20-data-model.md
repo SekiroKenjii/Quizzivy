@@ -1380,6 +1380,7 @@ listed here matches the spec.
 | D-50 | `questions` gains a nullable `copied_from_id`, a self-reference `ON DELETE SET NULL`, and a partial index on the copies | A member copy of a bank question names the question it was made from, so that dragging an unedited copy out of its group (E1, `74e-e1-group-move.md`, "After release") puts the original back and no second bank question is left. The link is informational, like `test_version_questions.source_question_id` (D-07): it is cleared when the copy leaves its group and becomes an independent question, and `SET NULL` means a deleted origin never waits on a copy. Nullable with no default and no backfill, so the v0.11.6 binary's insert, which names no such column, keeps working; a copy it wrote reads NULL and is never restored. The REFERENCES is inline in the `ADD COLUMN`, so PostgreSQL skips the validation scan of a column it is adding. The index is partial because almost every question is not a copy, and `ON DELETE SET NULL` updates the copies by equality, which implies its predicate. See §48 |
 | D-51 | Add `email_outbox`, one row per message to send, with a partial index on the pending rows | A message is written in the transaction that decided to send it, so a rolled-back decision sends nothing, and the API and the worker both drain the table (T-R5.2). `template` is a checked slug and not an enum, as `notifications.kind` is (D-28), because the template list is Go's and R7 adds templates without a migration. `to_address` is a copy, since `to_user_id` is `ON DELETE SET NULL` and an unsent message must outlive its user's row. `secret_ciphertext` holds a set-password token sealed under `SECRETS_KEY` with the row id as associated data, and is cleared in the statement that marks the row sent or failed. `dedupe_key` is a plain unique column: a second message with the same key is not written. `attempts` is bounded at 10 to match the dispatcher. See §49 |
 | D-52 | `users` gains four nullable columns, `last_active_at`, `last_sign_in_at`, `last_sign_in_method` (CHECK in `password`, `google`, `set_password_link`) and `password_changed_at`; a new `user_activity_days (user_id, day)` records the local days a user was active | DG-54: the Students list's "Last active" and "Not signed in", the Settings "Changed …" line and R5's daily chart need facts the schema did not keep (the Students list used the last attempt). All four are nullable with no default, so the v0.10.0 binary's insert, which names none, keeps working; NULL `last_sign_in_at` is "never signed in". The migration backfills `last_sign_in_at` and `last_active_at` with the newest of the user's refresh token `issued_at`, attempt `started_at` and audit entry as actor, with the `updated_at` trigger off, so an account used before R5 does not read "Not signed in"; the method and `password_changed_at` stay NULL because nothing records them. The day table is keyed by the pair, indexed on `day` for range reads, and cascades with the user; a day is the local date in `APP_TIMEZONE`. See §50 |
+| D-53 | `organization_settings` is a singleton keyed by `id boolean PRIMARY KEY DEFAULT true CHECK (id)`, written by the migration, and the app role has neither `INSERT` nor `DELETE` on it | The centre has exactly one settings document, and the front door and sign-in cannot run without it, so it is reference data the migration owns (D-21) and not a seed. A boolean key that only `true` satisfies makes a second row impossible without a trigger, and revoking the two statements means the application can only change the row, never lose it or add a rival. Every optional text is nullable and every bound is a CHECK, so the database refuses what the application would have refused. `CHECK (google_sign_in OR password_sign_in)` is the last line of the rule that keeps a way in. See §51 |
 ---
 
 ## 13. Migration inventory
@@ -1508,7 +1509,8 @@ the file it adds.
 | `00125_add_word_imports_read_with_ai.sql` | `word_imports.read_with_ai boolean NOT NULL DEFAULT false`; a constant default, so the v0.10.x binary keeps inserting | D4 (T-D4.33), §47 |
 | `00126_add_questions_copied_from.sql` | `questions.copied_from_id` and `questions_copied_from_id_fkey` (`REFERENCES questions (id) ON DELETE SET NULL`), added with the column, nullable with no default | E1 hotfix v0.11.7, D-50, §48 |
 | `00127_index_questions_copied_from.sql` | `questions_copied_from_idx (copied_from_id) WHERE copied_from_id IS NOT NULL`, `CONCURRENTLY` | E1 hotfix v0.11.7, D-50, §48 |
-| `00128_create_email_outbox.sql` | `email_outbox`, its checks, `email_outbox_dedupe_key`, the pending index `email_outbox_pending_idx`, `email_outbox_sent_idx` and the `to_user_id` index | R5 (T-R5.2), D-51, §49 |
+| `00128_create_email_outbox.sql` | `email_outbox`, its checks, `email_outbox_dedupe_key`, the pending index `email_outbox_pending_idx`, `email_outbox_sent_idx` and the `to_user_id` index | R5 (T-R5.2), D-53, §51 |
+| `00130_create_organization_settings.sql` | `organization_settings`, the singleton, its checks and `updated_at` trigger, the one row the migration writes, and `REVOKE INSERT, DELETE` from the app role | R5 (T-R5.5), D-53, §51 |
 | `00131_add_users_activity.sql` | `users.last_active_at`, `last_sign_in_at`, `last_sign_in_method` (`users_last_sign_in_method_check`), `password_changed_at`, all nullable; backfills the first two | R5 (T-R5.4), D-52, §50 |
 | `00132_create_user_activity_days.sql` | `user_activity_days (user_id REFERENCES users ON DELETE CASCADE, day date, PRIMARY KEY (user_id, day))` and `user_activity_days_day_idx (day)` | R5 (T-R5.4), D-52, §50 |
 
@@ -3548,3 +3550,51 @@ no column list; nothing reads it for a user.
 (`last_sign_in_at IS NULL`), active. The contract's `AccountStatus` is that value, and `listStudents` filters by
 it (`accountStatus`, any subset), because the order makes the Status facet's states disjoint and two flags
 cannot express every pair of them. `neverSignedIn` is the plain predicate beside `mustChangePassword`.
+
+## 51. The organization's settings (T-R5.5, T-R5.7)
+
+`00130_create_organization_settings.sql` adds `app.organization_settings`, one row for the whole
+installation, keyed `id boolean PRIMARY KEY DEFAULT true CHECK (id)` (D-53). The migration inserts
+the row, named `Quizzivy`, and revokes `INSERT` and `DELETE` from `quizzivy_app`; the API only
+`UPDATE`s it, under `SELECT … FOR UPDATE`, with the `set_updated_at` trigger.
+
+- **Profile.** `name` (1 to 120 after `btrim`), and nullable `short_name` (1 to 40), `website`
+  (≤ 200), `contact_email` (3 to 254), `front_desk_phone` (`^[0-9+ ().-]{6,30}$`),
+  `front_desk_hours` (≤ 120) and `address` (≤ 300). An optional text that is empty after trimming
+  is stored as `NULL`, never as `''`.
+- **Logos.** `logo_sha256`, `logo_type` and the `_dark_` pair. A hash is 32 bytes, a type is
+  `image/png` or `image/svg+xml`, and each pair is both NULL or both set. The bytes are not in
+  the database: they are objects at `branding/{sha256}.{png|svg}`, content-addressed, so a key's
+  bytes never change and a new logo is a new URL.
+- **Sign-in.** `google_sign_in`, `password_sign_in`, `force_password_change` and
+  `join_codes_enabled` are `boolean NOT NULL DEFAULT true`; `allowed_google_domains text[] NOT
+  NULL DEFAULT '{}'` holds at most 50 lower-case domains and no NULL element; an empty list allows
+  every domain. `CHECK (google_sign_in OR password_sign_in)`.
+- **Retention.** `keep_answers_months` (12 or 24, NULL for ever), `keep_focus_events_months` (6, 12,
+  13 or 24, default 13) and `anonymise_disabled_after_months` (12 or 24, NULL never). T-R5.17a
+  applies them; this table only holds the choice.
+- **Revision.** `revision integer NOT NULL DEFAULT 1`. A save names the revision it read; the
+  `UPDATE` runs only when it is still the stored one, and `revision` goes up by one. `updated_by`
+  is `REFERENCES app.users ON DELETE SET NULL`.
+
+**The lockout judgement** is a query over `app.users`, inside the save's transaction, and writes
+nothing. An active account (`disabled_at IS NULL`) has a way in under a proposed policy when
+password sign-in is on and `password_hash IS NOT NULL`, or when Google sign-in is on, the server
+has Google configured and the account has a `user_identities` row for `google` whose
+`email_at_link` is in an allowed domain (any domain when the list is empty). A policy is refused
+when the actor is among the accounts left with none, or when every active built-in Admin is.
+`email_at_link` is the address at the time of linking, not today's; an Admin whose Google address
+changed domain since is counted by the domain they linked with, which is the one sign-in checks.
+
+**Audit.** Every save writes `organization.updated` in the same transaction, with `fields`, the
+contract paths of what changed, and the new `revision`. No value is in the diff.
+
+**Cache.** Each server keeps the row in memory for at most 30 seconds, refreshed only when something
+asks and single-flight, and replaced at once on the server that saved. Another server therefore
+serves the old policy for up to 30 seconds after a change, and an idle server never queries.
+
+**Tests.** `organization/domain/tests/settings_test.go` (the validation table),
+`organization/application/tests` (revision conflict, the snapshot's reads and refresh, the
+logo-in-store check), `organization/repositories/tests` (the constraints, the lockout outcomes and
+counts, the concurrent saves, the audit row, the grants), `organization/http/tests` (the public
+document's exact keys, the logo headers and caches, the error mapping).

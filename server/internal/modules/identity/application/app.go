@@ -73,6 +73,15 @@ func (a *Application) SetPrincipals(p ports.Principals) {
 	a.service.Principals = p
 }
 
+// SetSignInPolicy attaches how the centre lets people sign in: password and
+// Google sign-in on or off, the Google domains allowed, and whether a
+// temporary password must be changed at the first sign-in. Without it every
+// way in is open and the change is forced.
+func (a *Application) SetSignInPolicy(p ports.SignInPolicy) {
+	a.service.Policy = p
+	a.students.Policy = p
+}
+
 // SetTemporaryPasswords replaces how a student's temporary password and its hash are made. Tests only.
 func (a *Application) SetTemporaryPasswords(source func(ctx context.Context) (password, hash string, err error)) {
 	a.students.Password = source

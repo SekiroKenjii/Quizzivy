@@ -61,6 +61,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/public/organization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The centre as the front door shows it
+         * @description The centre's name and contact lines, its logos and the ways in the
+         *     sign-in page offers, so the front door can print them before anyone
+         *     signs in. Served from a snapshot the server refreshes at most every
+         *     30 seconds.
+         *
+         *     **Leak review (§6.5).** The answer is identical for every caller and
+         *     never depends on a token. It carries only what the front door already
+         *     prints: the centre's own name and contact lines, two logo paths, and
+         *     three switches the sign-in and join pages act on. No plan, usage or
+         *     count, no person or id, no allowed-domain list, no retention value,
+         *     and nothing about when or by whom the settings were saved.
+         */
+        get: operations["getPublicOrganization"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/organization/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The centre's logo
+         * @description The bytes of the light or the dark logo, with the type they were stored
+         *     with. They are served as a download in a sandbox, so an SVG opened on
+         *     its own runs nothing and is never read as another type. A `v` equal to
+         *     the current logo's hash makes the answer immutable for a year; any
+         *     other `v`, or none, is cached for five minutes. No logo of that
+         *     variant: 404.
+         *
+         *     **Leak review (§6.5).** Public bytes the centre chose to show on its
+         *     front door, the same for every caller. Nothing names the bucket, the
+         *     object key or who uploaded them.
+         */
+        get: operations["getOrganizationLogo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -241,13 +300,17 @@ export interface paths {
         put?: never;
         /**
          * Link Google to the current account
-         * @description Same `email_verified` rule as sign-in (§5.1).
+         * @description Same `email_verified` rule as sign-in (§5.1), and the same sign-in
+         *     policy: with Google sign-in off, or an address outside the allowed
+         *     domains, nothing is linked (`403`).
          */
         post: operations["linkGoogle"];
         /**
          * Unlink Google
          * @description **Rejected if it would leave no login method** (§15). A Google-only
-         *     account cannot unlink; the client disables the control and explains why.
+         *     account cannot unlink, and neither can an account whose password
+         *     cannot be used because the centre has turned password sign-in off; the
+         *     client disables the control and explains why.
          */
         delete: operations["unlinkGoogle"];
         options?: never;
@@ -2352,6 +2415,99 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The centre's settings
+         * @description The whole settings document as stored, read from the database.
+         */
+        get: operations["getOrganizationSettings"];
+        /**
+         * Save the centre's settings
+         * @description Replaces the whole document when `expectedRevision` is the stored one,
+         *     and answers it as stored, its revision one higher. A logo is named by
+         *     the hash `uploadOrganizationLogo` answered; until a save names it, an
+         *     upload changes nothing. A policy that would leave the caller, or every
+         *     active built-in Admin, without a way to sign in is refused, judged
+         *     inside the save as `getSignInImpact` judges it. One audit row,
+         *     `organization.updated`, names the caller and the fields that changed.
+         *     Other servers apply the new document within 30 seconds.
+         */
+        put: operations["updateOrganizationSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/settings/sign-in-impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What a sign-in policy would do to the active accounts
+         * @description Counts, without storing anything, the active accounts the proposed
+         *     policy would leave with no way to sign in, the built-in Admins among
+         *     them, and whether the caller is one. The settings page asks before it
+         *     offers Save; the save judges again.
+         */
+        post: operations["getSignInImpact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/settings/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a logo
+         * @description Stores a logo and answers its hash, which a save of the settings then
+         *     names; the upload alone changes nothing ("Logo uploaded. Save settings
+         *     to apply."). The object is content-addressed, so the same file uploaded
+         *     twice is stored once.
+         *
+         *     A PNG is at most 1 MiB, square within 2% and 256 to 2048 pixels a side.
+         *     Its type is read from its first bytes, its header before any pixel is
+         *     decoded, and it is decoded and encoded afresh, which drops every
+         *     metadata chunk. An SVG is at most 256 KiB and is stored exactly as
+         *     sent, or refused: a DOCTYPE or an entity, a root other than `svg`, an
+         *     element outside the allowlist (`svg`, `g`, `path`, `rect`, `circle`,
+         *     `ellipse`, `line`, `polyline`, `polygon`, `defs`, `linearGradient`,
+         *     `radialGradient`, `stop`, `clipPath`, `mask`, `symbol`, `use`, `title`,
+         *     `desc`, `text`, `tspan`, `style`), an `on*` attribute, an `href` that
+         *     does not start with `#`, or a style with `@import` or a `url()` that
+         *     does not start with `#`. Its `viewBox` is square within 2%. A caller
+         *     may upload 20 logos an hour.
+         *
+         *     The request may carry 16 KiB more than the 1 MiB file for the multipart
+         *     framing.
+         */
+        post: operations["uploadOrganizationLogo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teacher/classes": {
         parameters: {
             query?: never;
@@ -3515,6 +3671,139 @@ export interface components {
              */
             ai: boolean;
         };
+        /**
+         * @description What `GET /public/organization` answers: the lines the front door prints
+         *     about the centre, its logos and the ways in it offers. A line the centre
+         *     has not filled is `null`, and the front door then prints its build value.
+         */
+        PublicOrganization: {
+            name: string;
+            shortName: string | null;
+            website: string | null;
+            contactEmail: string | null;
+            frontDeskPhone: string | null;
+            frontDeskHours: string | null;
+            address: string | null;
+            logo: {
+                /**
+                 * @description The light logo's path on the API's origin, carrying its content
+                 *     hash as `v`, so a new logo is a new URL and the bytes behind one
+                 *     never change; `null` when the centre has none.
+                 * @example /public/organization/logo?variant=light&v=5e88…
+                 */
+                lightUrl: string | null;
+                /** @description The dark logo's path, as `lightUrl`; `null` when the centre has none. */
+                darkUrl: string | null;
+            };
+            signIn: {
+                /** @description Whether Google sign-in is offered. */
+                google: boolean;
+                /** @description Whether email and password sign-in is offered. */
+                password: boolean;
+            };
+            /** @description Whether students can join a class with a code. */
+            joinCodes: boolean;
+        };
+        /** @description A stored logo, named by the SHA-256 of its bytes. */
+        OrganizationLogo: {
+            sha256: string;
+            /** @enum {string} */
+            type: "image/png" | "image/svg+xml";
+        };
+        /**
+         * @description Who the centre is and how it is reached. Every text is trimmed; an
+         *     optional one that is empty after trimming is stored as `null`.
+         */
+        OrganizationProfile: {
+            name: string;
+            shortName: string | null;
+            /** @description A host or an `http`/`https` address, without spaces, as `quizzivy.com` or `https://quizzivy.com/lien-he`. */
+            website: string | null;
+            contactEmail: string | null;
+            /** @description Digits, spaces and `+ ( ) . -`, 6 to 30 characters. */
+            frontDeskPhone: string | null;
+            frontDeskHours: string | null;
+            address: string | null;
+            logo: {
+                /** @description The logo on a light background, or `null` for none. */
+                light: components["schemas"]["OrganizationLogo"] | null;
+                /** @description The logo on a dark background, or `null` for none. */
+                dark: components["schemas"]["OrganizationLogo"] | null;
+            };
+        };
+        /** @description How people sign in. At least one of `google` and `password` is on. */
+        SignInPolicy: {
+            google: boolean;
+            password: boolean;
+            /** @description Whether a temporary password issued from now on must be changed at the first sign-in. Passwords issued before keep what they had. */
+            forcePasswordChange: boolean;
+            /** @description Whether students can join a class with a code. */
+            joinCodes: boolean;
+            /**
+             * @description The email domains a Google account must be in to sign in, link or
+             *     join; empty allows every domain. Stored lower-case.
+             */
+            allowedGoogleDomains: string[];
+        };
+        /**
+         * @description How long the centre keeps what it collects. The nightly sweep applies
+         *     it once enabled (T-R5.17a); `null` means for ever, or never.
+         */
+        RetentionPolicy: {
+            /** @description Months an answer is kept after its attempt ends, or `null` for ever. */
+            keepAnswersMonths: (12 | 24) | null;
+            /** @enum {integer} */
+            keepFocusEventsMonths: 6 | 12 | 13 | 24;
+            /** @description Months after which a disabled account is anonymised, or `null` for never. */
+            anonymiseDisabledAfterMonths: (12 | 24) | null;
+        };
+        /** @description The whole settings document, as stored. */
+        OrganizationSettings: {
+            organization: components["schemas"]["OrganizationProfile"];
+            signIn: components["schemas"]["SignInPolicy"];
+            retention: components["schemas"]["RetentionPolicy"];
+            /**
+             * Format: int64
+             * @description Grows by one with every save; a save names the revision it was read at.
+             */
+            revision: number;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description Who saved last, or `null` before the first save and once that account is gone. */
+            updatedBy: components["schemas"]["Uuid"] | null;
+        };
+        /** @description The whole document to store, and the revision it was read at. */
+        OrganizationSettingsInput: {
+            organization: components["schemas"]["OrganizationProfile"];
+            signIn: components["schemas"]["SignInPolicy"];
+            retention: components["schemas"]["RetentionPolicy"];
+            /** Format: int64 */
+            expectedRevision: number;
+        };
+        /**
+         * @description What a proposed policy would do to the active accounts. A method counts
+         *     for an account when the policy allows it: a password when the account
+         *     has one, Google when a linked Google account's email is in an allowed
+         *     domain (any domain when the list is empty).
+         */
+        SignInImpact: {
+            /** @description Active accounts left with no method that counts. */
+            affectedUsers: number;
+            /** @description Of those, the accounts of the built-in Admin role. */
+            affectedAdmins: number;
+            /** @description Whether the caller is among them. */
+            actorLocked: boolean;
+            /** @description Whether a save would be refused with `SIGN_IN_POLICY_LOCKOUT`; the caller is locked out, or no active built-in Admin keeps a method. */
+            lockout: boolean;
+        };
+        /** @description A logo stored and ready to be named in a save. */
+        OrganizationLogoUpload: {
+            sha256: string;
+            /** @enum {string} */
+            type: "image/png" | "image/svg+xml";
+            width: number;
+            height: number;
+        };
         MaintenanceWindow: {
             startsAt: components["schemas"]["Timestamp"];
             endsAt: components["schemas"]["Timestamp"];
@@ -3541,7 +3830,7 @@ export interface components {
          *     be sent again.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "SVG_NOT_ALLOWED" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -7193,6 +7482,64 @@ export interface operations {
             429: components["responses"]["TooManyRequests"];
         };
     };
+    getPublicOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    /** @description `public, max-age=300`. */
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicOrganization"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getOrganizationLogo: {
+        parameters: {
+            query: {
+                variant: "light" | "dark";
+                v?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The logo. */
+            200: {
+                headers: {
+                    /** @description `public, max-age=31536000, immutable` when `v` is the current hash, else `public, max-age=300`. */
+                    "Cache-Control": string;
+                    /** @description `attachment; filename="logo.png"` or `logo.svg`. */
+                    "Content-Disposition": string;
+                    /** @description `default-src 'none'; style-src 'unsafe-inline'; sandbox`. */
+                    "Content-Security-Policy": string;
+                    /** @description `nosniff`. */
+                    "X-Content-Type-Options": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
+                    "image/svg+xml": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
     login: {
         parameters: {
             query?: never;
@@ -7229,6 +7576,20 @@ export interface operations {
              *     the same thing.
              */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `PASSWORD_SIGN_IN_DISABLED` — the centre has turned password
+             *     sign-in off. It is decided before the email or the password is
+             *     looked at, so every password sign-in gets it alike and it says
+             *     nothing about any account.
+             */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7305,6 +7666,11 @@ export interface operations {
              *     `IDENTITY_ALREADY_LINKED` — the verified email matches an account
              *     that is already linked to a DIFFERENT Google `sub`. Linking a second
              *     one would make "unlink Google" ambiguous, so it is refused (D-08).
+             *
+             *     `GOOGLE_SIGN_IN_DISABLED` — the centre has turned Google sign-in
+             *     off. `GOOGLE_DOMAIN_NOT_ALLOWED` — the verified address is outside
+             *     the centre's allowed domains. Both are decided for a code that
+             *     joins a class as well.
              */
             403: {
                 headers: {
@@ -7605,6 +7971,19 @@ export interface operations {
                 };
             };
             /**
+             * @description `GOOGLE_SIGN_IN_DISABLED` — the centre has turned Google sign-in
+             *     off. `GOOGLE_DOMAIN_NOT_ALLOWED` — the verified address is outside
+             *     the centre's allowed domains.
+             */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
              * @description `IDENTITY_ALREADY_LINKED` covers three cases, all of which mean
              *     "this link cannot be made":
              *
@@ -7640,7 +8019,7 @@ export interface operations {
         responses: {
             204: components["responses"]["NoContent"];
             401: components["responses"]["Unauthorized"];
-            /** @description `LAST_LOGIN_METHOD` — the account has no password to fall back to. */
+            /** @description `LAST_LOGIN_METHOD` — the account has no password to fall back to, or the centre has turned password sign-in off. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -11365,6 +11744,180 @@ export interface operations {
                 };
             };
             501: components["responses"]["AiOff"];
+        };
+    };
+    getOrganizationSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    /** @description `private, no-store`. */
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationSettings"];
+                };
+            };
+        };
+    };
+    updateOrganizationSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrganizationSettingsInput"];
+            };
+        };
+        responses: {
+            /** @description The document as stored. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationSettings"];
+                };
+            };
+            /**
+             * @description The body fails its schema, or `VALIDATION_FAILED` with a message per
+             *     field: a text that is empty or too long after trimming, a website
+             *     with spaces or another scheme than `http`/`https`, an email or a
+             *     phone number that is not one, a repeated domain, or a logo the server
+             *     does not hold (as `organization.logo.light` or `organization.logo.dark`).
+             */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `STALE_WRITE` — saved elsewhere since `expectedRevision`; read again. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `SIGN_IN_POLICY_LOCKOUT` — the policy would leave the caller, or every
+             *     active built-in Admin, with no way to sign in. `details.affectedUsers`
+             *     and `details.affectedAdmins` count the active accounts it leaves
+             *     without one. Nothing was stored.
+             */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getSignInImpact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    signIn: components["schemas"]["SignInPolicy"];
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignInImpact"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    uploadOrganizationLogo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    /** @enum {string} */
+                    variant: "light" | "dark";
+                };
+            };
+        };
+        responses: {
+            /** @description Stored. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationLogoUpload"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `MEDIA_TOO_LARGE` — a PNG over 1 MiB or an SVG over 256 KiB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `MEDIA_TYPE_UNSUPPORTED` (neither a PNG nor an SVG), `MEDIA_UNREADABLE`
+             *     (the header or the pixels cannot be read), `IMAGE_DIMENSIONS` (not
+             *     square within 2%, a side outside 256 to 2048 pixels, or more memory
+             *     to decode than the server allows) or `SVG_NOT_ALLOWED` (the SVG
+             *     holds something outside the allowlist). Nothing was stored.
+             */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Object storage is not configured, so no logo can be kept. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     listClasses: {

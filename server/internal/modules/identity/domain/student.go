@@ -95,6 +95,10 @@ type WriteRequest struct {
 	IP        string
 	UserAgent string
 	BatchID   string
+	// KeepTemporaryPassword says the temporary password a create or a reset
+	// issues need not be changed at the first sign-in, as the centre's sign-in
+	// policy allows. The zero value forces the change.
+	KeepTemporaryPassword bool
 }
 
 // ManagesUsers reports whether the actor holds people.users.manage, which

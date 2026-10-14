@@ -37,8 +37,8 @@ func (s *Students) Create(ctx context.Context, req domain.WriteRequest, in domai
 	var id string
 	err = tx.QueryRow(ctx, `
 		INSERT INTO app.users (email, full_name, role_id, password_hash, must_change_password, created_by)
-		VALUES ($1, $2, (SELECT r.id FROM app.roles r WHERE r.builtin_key = 'student'), $3, true, $4::uuid)
-		RETURNING id::text`, in.Email, in.FullName, in.Hash, req.ActorID).Scan(&id)
+		VALUES ($1, $2, (SELECT r.id FROM app.roles r WHERE r.builtin_key = 'student'), $3, $5, $4::uuid)
+		RETURNING id::text`, in.Email, in.FullName, in.Hash, req.ActorID, !req.KeepTemporaryPassword).Scan(&id)
 	if db.IsUniqueViolation(err, "") {
 		return domain.Student{}, domain.ErrEmailTaken
 	}
@@ -187,9 +187,9 @@ func (s *Students) ResetPassword(ctx context.Context, req domain.WriteRequest, i
 	}
 	tag, err := tx.Exec(ctx, `
 		UPDATE app.users u
-		   SET password_hash = $2, must_change_password = true, session_epoch = session_epoch + 1
+		   SET password_hash = $2, must_change_password = $5::boolean, session_epoch = session_epoch + 1
 		 WHERE u.id = $1::uuid AND `+studentLike+` AND u.disabled_at IS NULL
-		   AND ($3::boolean OR u.id IN `+visibility.StudentIDs(4)+`)`, id, hash, req.All, opt.String(req.ActorID))
+		   AND ($3::boolean OR u.id IN `+visibility.StudentIDs(4)+`)`, id, hash, req.All, opt.String(req.ActorID), !req.KeepTemporaryPassword)
 	if err != nil {
 		return fmt.Errorf("students: reset password: %w", err)
 	}

@@ -29,6 +29,7 @@ import {
 import { ArchiveClassDialog } from "@/features/classes/components/ArchiveClassDialog";
 import { ClassCard } from "@/features/classes/components/ClassCard";
 import { EditClassDialog } from "@/features/classes/components/EditClassDialog";
+import { JoinCodesOffCallout } from "@/features/classes/components/JoinCodesOffCallout";
 import { NewClassDialog } from "@/features/classes/components/NewClassDialog";
 import { ShowQrDialog } from "@/features/classes/components/ShowQrDialog";
 import { invalidateClass } from "@/features/classes/invalidate";
@@ -220,6 +221,7 @@ export default function ClassesPage() {
         }
       />
 
+      <JoinCodesOffCallout />
       <ReplacedCodesCallout />
 
       {nothingYet ? null : (

@@ -68,6 +68,20 @@ export const handlers = [
   http.get(`${BASE}/public/status`, () =>
     contractJson("/public/status", "get", 200, { maintenance: null, ai: false }),
   ),
+  http.get(`${BASE}/public/organization`, () =>
+    contractJson("/public/organization", "get", 200, {
+      name: "Quizzivy",
+      shortName: null,
+      website: null,
+      contactEmail: null,
+      frontDeskPhone: null,
+      frontDeskHours: null,
+      address: null,
+      logo: { lightUrl: null, darkUrl: null },
+      signIn: { google: true, password: true },
+      joinCodes: true,
+    }),
+  ),
   http.get(`${BASE}/teacher/imports/capabilities`, () =>
     contractJson("/teacher/imports/capabilities", "get", 200, {
       intakeEnabled: true,

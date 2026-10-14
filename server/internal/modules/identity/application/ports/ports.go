@@ -6,6 +6,8 @@ import (
 	classescommand "quizzivy/internal/modules/classes/application/command"
 	classesdomain "quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/modules/identity/application/model"
+	organizationmodel "quizzivy/internal/modules/organization/application/model"
+	organizationquery "quizzivy/internal/modules/organization/application/query"
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/cqrs"
 	"time"
@@ -44,3 +46,6 @@ type PhotoProcessor interface {
 
 // SelfEnroller creates an account from a join code and enrols it (§6.3): the classes module's EnrolNewMember command.
 type SelfEnroller = cqrs.CommandHandler[classescommand.EnrolNewMember, classesdomain.EnrolResult]
+
+// SignInPolicy is how the centre lets people sign in: the organization module's SignInPolicy query, answered from a snapshot at most 30 seconds old.
+type SignInPolicy = cqrs.QueryHandler[organizationquery.SignInPolicy, organizationmodel.SignInPolicy]

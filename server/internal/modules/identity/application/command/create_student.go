@@ -34,10 +34,14 @@ func (s CreateStudentHandler) Handle(ctx context.Context, cmd CreateStudent) (Cr
 	}
 	cmd.Input.Hash = hash
 	cmd.Input.Now = s.Now()
-	student, err := s.Repo.Create(ctx, cmd.Request, cmd.Input)
+	request, err := s.Issuing(ctx, cmd.Request)
 	if err != nil {
 		return CreateStudentResult{Student: domain.Student{}, TemporaryPassword: ""}, err
 	}
-	student, err = s.WithStats(ctx, cmd.Request.Scope(), student)
+	student, err := s.Repo.Create(ctx, request, cmd.Input)
+	if err != nil {
+		return CreateStudentResult{Student: domain.Student{}, TemporaryPassword: ""}, err
+	}
+	student, err = s.WithStats(ctx, request.Scope(), student)
 	return CreateStudentResult{Student: student, TemporaryPassword: temporary}, err
 }

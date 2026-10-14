@@ -166,7 +166,7 @@ module:
 | package | holds |
 |---|---|
 | `core` (`core.go`) | `App`: config, signals, lifecycle, `Handler()`, `Serve()` |
-| `core/wiring` | `Build`: one file per module, repository → `Application` → transport, in dependency order, starting with `access.go`, which refuses a database whose `app.permissions` lacks a key this binary knows; returns the `Assembly` (transports, the access application as `Principals`, token issuer, identity application, the AI `Completer` and the AI credits application). `ai.go` builds the AI module over the provider, which is nil without `ANTHROPIC_API_KEY`; `import_worker.go` gives the import worker the same provider and credits (`scanReader`) when the key is set, and no reader when it is not; `email.go` builds `Mail`, the email outbox modules enqueue into and the dispatcher that sends it (Resend, or the sink directory outside production), which `Serve` and the import worker both run |
+| `core/wiring` | `Build`: one file per module, repository → `Application` → transport, in dependency order, starting with `access.go`, which refuses a database whose `app.permissions` lacks a key this binary knows; returns the `Assembly` (transports, the access application as `Principals`, token issuer, identity application, the AI `Completer` and the AI credits application). `ai.go` builds the AI module over the provider, which is nil without `ANTHROPIC_API_KEY`; `organization.go` builds the organization module over the media bucket, so a logo is stored when storage is configured and an upload answers `501` when it is not, and hands identity and classes its `SignInPolicy` query; `import_worker.go` gives the import worker the same provider and credits (`scanReader`) when the key is set, and no reader when it is not; `email.go` builds `Mail`, the email outbox modules enqueue into and the dispatcher that sends it (Resend, or the sink directory outside production), which `Serve` and the import worker both run |
 | `core/adapters` | platform clients behind module ports (`Google`, `AudioProbe`, and `AI`, the Anthropic client behind the ai module's `Completer`), one module's handlers behind another's port (`Media`, `MediaKinds`, and `ai_reads.go`: the tests, questions, attempts and identity reads the AI operations take), and `Principals`: the access module's `ResolvePrincipal` as `httpx.PrincipalResolver`. `adapters.NewAI` returns a nil `Completer` without the key, and every AI operation then answers `501 AI_OFF` and `GET /public/status` says `ai: false`, as media does without storage; `PDFPages` draws a scan's pages for the worker's AI reader |
 | `core/router` | `Deps`, whose `Principals` resolves who a request acts as for the permission and docs gates (`New` refuses a nil one), `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/livez`, `/healthz`, `/docs`, the `/admin` alias until v0.9.1 (T-R3.3)), `RateLimits` (per address or body field) and `PrincipalRateLimits` (per signed-in user) for contract operations, and `ServiceRateLimits` for the routes beside it |
 | `core/jobs` | background commands (`PruneRefreshTokens`, `PruneNotifications`, `RunEmail`, which sends the outbox in the API and in the worker, and `ReleaseStaleAiReservations`, which runs only when the provider is configured) |
@@ -259,11 +259,12 @@ unit, integration and end-to-end in that order.
   `DELETE /admin/students/{id}` to `DELETE /admin/users/{id}`) and logs
   `legacy_admin_path`. A new operation never joins that table.
 - **Everything the contract does not explicitly open requires a bearer token**,
-  derived from `api/openapi.yaml`'s `security`. Seven operations are open —
+  derived from `api/openapi.yaml`'s `security`. Nine operations are open —
   login, Google sign-in, refresh, logout, `POST /join/preview`, the integrity
-  beacon `POST /app/attempts/{id}/events` and `GET /public/status` — and the
-  list is pinned by `theOpenSeven` in `core/router/tests/auth_middleware_test.go`,
-  so an eighth takes an argument.
+  beacon `POST /app/attempts/{id}/events`, `GET /public/status`,
+  `GET /public/organization` and `GET /public/organization/logo` — and the
+  list is pinned by `theOpenNine` in `core/router/tests/auth_middleware_test.go`,
+  so a tenth takes an argument.
 
 ## `pnpm typecheck`, never `tsc --noEmit`
 

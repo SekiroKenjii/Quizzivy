@@ -53,6 +53,11 @@ func (h Identity) GoogleAuth(ctx context.Context, request openapi.GoogleAuthRequ
 			httpx.Text(ctx, "Tài khoản này chưa được đăng ký. Bạn cần mã lớp từ giáo viên để tham gia.",
 				"This account is not registered. You need a class code from your teacher to join."))), nil
 
+	case errors.Is(err, domain.ErrGoogleSignInDisabled):
+		return openapi.GoogleAuth403JSONResponse(googleDisabled(ctx)), nil
+	case errors.Is(err, domain.ErrGoogleDomainNotAllowed):
+		return openapi.GoogleAuth403JSONResponse(googleDomain(ctx)), nil
+
 	case errors.Is(err, domain.ErrAccountDisabled):
 		return openapi.GoogleAuth403JSONResponse(httpapi.Error(ctx, openapi.ACCOUNTDISABLED,
 			httpx.Text(ctx, "Tài khoản của bạn đã bị vô hiệu hoá. Vui lòng liên hệ giáo viên.",
@@ -125,6 +130,11 @@ func (h Identity) LinkGoogle(ctx context.Context, request openapi.LinkGoogleRequ
 			httpx.Text(ctx, "Liên kết Google không thành công. Vui lòng thử lại.",
 				"Linking Google did not work. Please try again."))), nil
 
+	case errors.Is(err, domain.ErrGoogleSignInDisabled):
+		return openapi.LinkGoogle403JSONResponse(googleDisabled(ctx)), nil
+	case errors.Is(err, domain.ErrGoogleDomainNotAllowed):
+		return openapi.LinkGoogle403JSONResponse(googleDomain(ctx)), nil
+
 	case errors.Is(err, domain.ErrAccountDisabled), errors.Is(err, domain.ErrUserNotFound):
 		return openapi.LinkGoogle401JSONResponse(sessionInvalid(ctx)), nil
 
@@ -153,8 +163,8 @@ func (h Identity) UnlinkGoogle(ctx context.Context, _ openapi.UnlinkGoogleReques
 		return openapi.UnlinkGoogle204Response{}, nil
 	case errors.Is(err, domain.ErrLastLoginMethod):
 		return openapi.UnlinkGoogle409JSONResponse(httpapi.Error(ctx, openapi.LASTLOGINMETHOD,
-			httpx.Text(ctx, "Bạn cần đặt mật khẩu trước khi bỏ liên kết Google, nếu không sẽ không còn cách nào đăng nhập.",
-				"You need to set a password before unlinking Google, or there will be no way left to sign in."))), nil
+			httpx.Text(ctx, "Bạn không thể bỏ liên kết Google vì sẽ không còn cách nào đăng nhập: cần có mật khẩu và trung tâm phải đang cho đăng nhập bằng mật khẩu.",
+				"You cannot unlink Google because no way to sign in would be left: you need a password and your centre must allow password sign-in."))), nil
 	case errors.Is(err, domain.ErrAccountDisabled), errors.Is(err, domain.ErrUserNotFound):
 		return openapi.UnlinkGoogle401JSONResponse{
 			UnauthorizedJSONResponse: openapi.UnauthorizedJSONResponse(sessionInvalid(ctx)),
@@ -162,4 +172,15 @@ func (h Identity) UnlinkGoogle(ctx context.Context, _ openapi.UnlinkGoogleReques
 	default:
 		return nil, err
 	}
+}
+
+func googleDisabled(ctx context.Context) openapi.ErrorResponse {
+	return httpapi.Error(ctx, openapi.GOOGLESIGNINDISABLED,
+		httpx.Text(ctx, "Trung tâm đã tắt đăng nhập bằng Google.", "Your centre has turned off Google sign-in."))
+}
+
+func googleDomain(ctx context.Context) openapi.ErrorResponse {
+	return httpapi.Error(ctx, openapi.GOOGLEDOMAINNOTALLOWED,
+		httpx.Text(ctx, "Trung tâm chỉ cho phép đăng nhập bằng tài khoản Google thuộc một số tên miền nhất định. Tài khoản này không nằm trong số đó.",
+			"Your centre only allows Google accounts from certain domains, and this account is not one of them."))
 }
