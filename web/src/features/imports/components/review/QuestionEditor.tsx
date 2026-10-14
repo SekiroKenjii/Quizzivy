@@ -26,10 +26,13 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { ContentView } from "@/components/shared/content/ContentView";
 import type { SemanticContent } from "@/components/shared/content/model";
 import { isOptionContent } from "@/components/shared/content/optionContent";
+import { contentPlainText } from "@/components/shared/content/plainText";
 import { isQuestionContent } from "@/components/shared/content/questionContent";
+import { trueFalseLabelKey } from "@/components/shared/content/trueFalse";
 import { cn } from "@/lib/utils";
 import type {
   ImportDraftBlank,
+  ImportDraftOption,
   ImportDraftQuestion,
   ImportFinding,
   ImportKeyValue,
@@ -56,7 +59,6 @@ import {
   setSample,
   validPoints,
   type QuestionType,
-  type TrueFalseText,
 } from "../../draft";
 import { FINDING_ACTION, FindingNotice } from "./FindingNotice";
 import { Provenance } from "./Provenance";
@@ -114,15 +116,10 @@ export function QuestionEditor({
   const typeTrigger = useRef<HTMLButtonElement>(null);
   const excluded = question.excluded !== undefined;
   const locked = readOnly || excluded;
-  const trueFalse: TrueFalseText = {
-    truth: t("imports.review.trueOption"),
-    falsity: t("imports.review.falseOption"),
-  };
 
   const requestType = (type: QuestionType) => {
-    if (dropsAnswerData(question, changeType(question, type, trueFalse)))
-      setPendingType(type);
-    else onEdit((current) => changeType(current, type, trueFalse));
+    if (dropsAnswerData(question, changeType(question, type))) setPendingType(type);
+    else onEdit((current) => changeType(current, type));
   };
 
   return (
@@ -237,7 +234,7 @@ export function QuestionEditor({
         onConfirm={() => {
           const type = pendingType;
           setPendingType(null);
-          if (type !== null) onEdit((current) => changeType(current, type, trueFalse));
+          if (type !== null) onEdit((current) => changeType(current, type));
         }}
       />
     </div>
@@ -629,7 +626,7 @@ function OptionsField({
                     }
                   />
                 ) : (
-                  <ContentView document={option.content} className="py-1 text-base" />
+                  <OptionView option={option} fixed={fixed} />
                 )}
               </div>
               {correct ? (
@@ -687,6 +684,18 @@ function OptionsField({
       )}
     </fieldset>
   );
+}
+
+function OptionView({
+  option,
+  fixed,
+}: Readonly<{ option: ImportDraftOption; fixed: boolean }>) {
+  const { t } = useTranslation();
+  const canonical = fixed
+    ? trueFalseLabelKey("true_false", contentPlainText(option.content), option.content)
+    : null;
+  if (canonical !== null) return <span className="py-1 text-base">{t(canonical)}</span>;
+  return <ContentView document={option.content} className="py-1 text-base" />;
 }
 
 function BlanksField({

@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.109 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.110 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.109**
+
+A clarification, no behaviour change (ledger F-33).
+
+- §7 The `true_false` answer form is legacy input. The engine writes `choice` for a true/false question, and the server grades both.
 
 **Changes since v0.108**
 
@@ -1696,6 +1702,8 @@ type Answer =
   | { type: 'fill_blank'; values: Record<string, string> }
   | { type: 'text'; value: string };
 ```
+
+The engine writes a true/false answer as `choice`, with the id of the option the student chose. `{ type: 'true_false'; value: boolean }` is the legacy form: the server still accepts and grades it (`true` is the first option), but no screen sends it.
 
 **Invariant:** an attempt references `testVersionId`. Editing a published test creates a new version; in-flight attempts keep rendering the version they started with. In the student flow, test content is fetched **only** via `GET /app/attempts/:id`.
 

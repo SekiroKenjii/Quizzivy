@@ -3873,8 +3873,6 @@
       "promptEditorLabel": "Question {{label}} content",
       "doneEditing": "Done",
       "doneOptionNamed": "Done editing option {{label}}",
-      "trueOption": "True",
-      "falseOption": "False",
       "acceptedLimit": "At most {{count}} answers of up to {{length}} characters each. Anything beyond that is not saved.",
       "blankLimit": "A question can have at most {{max}} blanks. Remove one before adding another.",
       "excludeReason": "Reason",

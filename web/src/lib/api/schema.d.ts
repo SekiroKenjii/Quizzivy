@@ -630,7 +630,9 @@ export interface paths {
         };
         /**
          * Version history
-         * @description Backs §8's test-detail version history. Spec §15 has no endpoint for this.
+         * @description Backs §8's test-detail version history. Spec §15 has no endpoint for
+         *     this. A test that was never published lists no versions; a missing
+         *     test, or another teacher's, answers 404.
          */
         get: operations["listTestVersions"];
         put?: never;
@@ -745,7 +747,9 @@ export interface paths {
         /**
          * Student-eye preview of a published version
          * @description Renders from the **published version**, not the draft, so what the teacher
-         *     checks is what a student would actually receive (§8).
+         *     checks is what a student would actually receive (§8). A missing test, or
+         *     another teacher's, answers 404; a test without the version asked for, or
+         *     with no current version, answers 409.
          */
         get: operations["previewTest"];
         put?: never;
@@ -1370,8 +1374,13 @@ export interface paths {
          *
          *     An id the caller does not reach answers 404 for the whole request, as
          *     a missing one does. More than 20000 rows answer 422. The response is
-         *     `private, no-store`, and a caller is limited to 10 files a minute and
-         *     60 an hour.
+         *     `private, no-store`.
+         *
+         *     Each caller has two token buckets: 10 files, and 60 files, that refill
+         *     evenly over a minute and over an hour. A file spends one token from
+         *     each, so a caller can fetch 10 files at once and then about one every
+         *     six seconds, up to 60 an hour. A request that finds either bucket empty
+         *     answers 429 `RATE_LIMITED`, with `Retry-After` in seconds.
          */
         get: operations["exportResultsCsv"];
         put?: never;
@@ -8379,6 +8388,7 @@ export interface operations {
                     };
                 };
             };
+            404: components["responses"]["NotFound"];
         };
     };
     deleteTestVersion: {
@@ -8569,6 +8579,7 @@ export interface operations {
                     };
                 };
             };
+            404: components["responses"]["NotFound"];
             /** @description `TEST_NOT_PUBLISHED`. */
             409: {
                 headers: {
