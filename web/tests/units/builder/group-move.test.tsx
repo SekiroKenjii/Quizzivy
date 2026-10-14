@@ -456,8 +456,8 @@ describe("dragging a question across a group's boundary in the outline", () => {
       const first = await open(user, 2);
       const items = within(first).getAllByRole("menuitem");
       expect(items.map((item) => item.textContent)).toEqual([
-        "Lên",
-        "Xuống",
+        "Di chuyển lên",
+        "Di chuyển xuống",
         "Chuyển ra khỏi nhóm",
         "Chuyển sang nhóm…",
       ]);
@@ -468,20 +468,19 @@ describe("dragging a question across a group's boundary in the outline", () => {
       await user.keyboard("{Escape}");
 
       const last = await open(user, 4);
-      expect(within(last).getByRole("menuitem", { name: "Xuống" })).toHaveAttribute(
-        "aria-disabled",
-        "true",
-      );
-      expect(within(last).getByRole("menuitem", { name: "Lên" })).not.toHaveAttribute(
-        "aria-disabled",
-      );
+      expect(
+        within(last).getByRole("menuitem", { name: "Di chuyển xuống" }),
+      ).toHaveAttribute("aria-disabled", "true");
+      expect(
+        within(last).getByRole("menuitem", { name: "Di chuyển lên" }),
+      ).not.toHaveAttribute("aria-disabled");
     });
 
     it("moves a member up and down within its group, and out after it", async () => {
       const { user, moved } = setup(layout(), [three()]);
 
       await user.click(
-        within(await open(user, 2)).getByRole("menuitem", { name: "Xuống" }),
+        within(await open(user, 2)).getByRole("menuitem", { name: "Di chuyển xuống" }),
       );
       expect(moved).toHaveBeenLastCalledWith({
         questionId: "m1",
@@ -490,7 +489,7 @@ describe("dragging a question across a group's boundary in the outline", () => {
       });
 
       await user.click(
-        within(await open(user, 3)).getByRole("menuitem", { name: "Lên" }),
+        within(await open(user, 3)).getByRole("menuitem", { name: "Di chuyển lên" }),
       );
       expect(moved).toHaveBeenLastCalledWith({
         questionId: "m2",
@@ -551,9 +550,9 @@ describe("dragging a question across a group's boundary in the outline", () => {
         expect(item).toHaveAttribute("aria-disabled", "true");
         expect(item).toHaveTextContent("Đang gắn chỗ trống");
       }
-      expect(within(menu).getByRole("menuitem", { name: "Xuống" })).not.toHaveAttribute(
-        "aria-disabled",
-      );
+      expect(
+        within(menu).getByRole("menuitem", { name: "Di chuyển xuống" }),
+      ).not.toHaveAttribute("aria-disabled");
     });
 
     it("shows its trigger in place of the points on hover and focus from 768px, and at 44px on the selected member below it", () => {
