@@ -710,3 +710,7 @@ When a decision changes, edit the spec section and bump its version at the top
 (§18), then correct the affected plan file. A plan that disagrees with what was
 built is worse than no plan. In Phase R, the spec, this file and the plan
 change in the release that changes the behaviour, never batched at the end.
+
+The wiki is generated from these documents on every push to `develop`
+(`docs/setup/ci.md`, "The wiki"). Edit the file in the repository, never a wiki
+page.

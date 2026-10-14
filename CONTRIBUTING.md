@@ -74,6 +74,13 @@ pull request, and `develop` and `work/**` need the **CI result** check to
 pass. A job whose files already passed is skipped; `docs/setup/ci.md` explains
 how, and how to force a full run.
 
+## Documentation and the wiki
+
+The files under `docs/`, `AGENTS.md`, this file and the directory READMEs are
+the source. The repository's wiki is generated from them on every push to
+`develop` (`docs/setup/ci.md`, "The wiki"). Edit the file, never the wiki
+page: the next run overwrites it.
+
 ## Things that will get a PR sent back
 
 - A generated file edited by hand (`server/gen/`, `web/src/lib/api/schema.d.ts`)

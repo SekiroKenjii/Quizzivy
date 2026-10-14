@@ -75,6 +75,8 @@ test('the longest rule decides, and the base decides where none matches', () => 
   assert.equal(inSet(SETS.server, '.github/workflows/deploy.yml'), true);
   assert.equal(inSet(SETS.code, 'docs/plan/73-r3.md'), false);
   assert.equal(inSet(SETS.code, 'AGENTS.md'), false);
+  assert.equal(inSet(SETS.code, '.github/workflows/wiki.yml'), false);
+  assert.equal(inSet(SETS.code, 'scripts/wiki/build.py'), false);
   assert.equal(inSet(SETS.code, 'server/README.md'), true);
   assert.equal(inSet(SETS.deck, 'docs/design/deck/support.js'), true);
   assert.equal(inSet(SETS.deck, 'docs/plan/73-r3.md'), false);
