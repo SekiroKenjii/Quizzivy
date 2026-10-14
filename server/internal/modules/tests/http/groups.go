@@ -136,6 +136,11 @@ func (h Tests) ListQuestionGroups(ctx context.Context, request openapi.ListQuest
 	return groupListReply(groups)
 }
 
+// MoveTestQuestion answers 501 until the move command is wired.
+func (Tests) MoveTestQuestion(context.Context, openapi.MoveTestQuestionRequestObject) (openapi.MoveTestQuestionResponseObject, error) {
+	return nil, httpx.ErrNotImplemented
+}
+
 func groupMutation(ctx context.Context, id string, revision int64, updated *time.Time) (model.GroupMutation, bool) {
 	req, ok := testRequest(ctx, id)
 	principal, _ := httpx.PrincipalFromContext(ctx)
