@@ -1,7 +1,13 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.112 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.113 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.112**
+
+R5, T-R5.8 (third QC follow-up on the roles API: QC-X-15).
+
+- §15 A role's description is stored with CR LF and a lone CR as LF, so a client that sends Windows line endings is not refused for them; a tab is still refused, and the contract says so. The name and description rules (NFC, hidden and blank characters, the glyph rule) moved to `server/internal/shared/validation` (`Tidy`, `FirstHidden`, `HasGlyph`, `HiddenMessage`) so another module's names can use them.
 
 **Changes since v0.111**
 
