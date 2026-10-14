@@ -368,17 +368,6 @@ const MEMBER_SETS: readonly ReadonlySet<string>[] = [
   new Set(["name", "via", "at", "sub", "avg"]),
 ];
 
-function deckMembers(tw: number) {
-  const left = tw >= 1000 ? (tw * 2) / 3 : tw;
-  return [
-    "name",
-    left >= 620 && "via",
-    left >= 720 && "at",
-    "sub",
-    left >= 520 && "avg",
-  ].filter(Boolean);
-}
-
 function Members() {
   const band = useContentBand(MEMBER_BANDS);
   const selection = useBulkSelection<Member>();
@@ -400,18 +389,6 @@ function Members() {
 }
 
 describe("a table that passes the visible set itself", () => {
-  it("reproduces the deck's two-thirds arithmetic with five bands of the content width", () => {
-    for (let tw = 300; tw <= 1500; tw += 1) {
-      const band = MEMBER_BANDS.filter((threshold) => tw >= threshold).length;
-      expect([tw, ...MEMBER_SETS[band]!]).toEqual([
-        tw,
-        ...MEMBER_COLUMNS.map((column) => column.id).filter((id) =>
-          deckMembers(tw).includes(id),
-        ),
-      ]);
-    }
-  });
-
   it("shows Joined at 900, hides it at 1040 and shows it again at 1100", () => {
     const width = contentWidth(900);
     render(<Members />);

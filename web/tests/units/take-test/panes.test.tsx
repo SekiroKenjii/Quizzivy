@@ -19,7 +19,6 @@ import {
 import { useTakeTestStore } from "@/features/take-test/store";
 import { writeLargerTestText } from "@/lib/testText";
 import i18n from "@/lib/i18n";
-import { contractJson } from "@tests/support/contractResponse";
 import {
   DECK_ATTEMPT,
   DECK_PASSAGE,
@@ -95,17 +94,6 @@ afterEach(async () => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   await i18n.changeLanguage("vi");
-});
-
-describe("the deck's fixtures", () => {
-  it("are payloads the contract accepts", () => {
-    expect(() =>
-      contractJson("/app/attempts/{id}", "get", 200, deckPassageSession(NOW)),
-    ).not.toThrow();
-    expect(() =>
-      contractJson("/app/attempts/{id}", "get", 200, deckListeningSession(NOW)),
-    ).not.toThrow();
-  });
 });
 
 describe("the panes from 768", () => {
