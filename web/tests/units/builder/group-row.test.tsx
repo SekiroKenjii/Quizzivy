@@ -389,7 +389,7 @@ describe("the group's row in the outline", () => {
     const grip = screen.getByRole("button", { name: "Kéo câu 1" });
     expect(grip).toHaveAttribute("aria-disabled", "true");
     expect(grip).toHaveAccessibleDescription(
-      "Đang gắn với chỗ trống trong ngữ liệu chung",
+      "Đang gắn với chỗ trống trong nội dung dùng chung",
     );
     expect(grip).toHaveClass("cursor-not-allowed");
     expect(grip).not.toHaveClass("cursor-grab");
