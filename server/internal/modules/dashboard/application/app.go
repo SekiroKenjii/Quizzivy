@@ -23,6 +23,10 @@ type Queries struct {
 	Nav     cqrs.QueryHandler[query.Nav, domain.Nav]
 	List    cqrs.QueryHandler[query.List, query.ListResult]
 	Summary cqrs.QueryHandler[query.Summary, domain.Summary]
+
+	AdminOverview cqrs.QueryHandler[query.AdminOverview, domain.AdminOverview]
+	AdminSummary  cqrs.QueryHandler[query.AdminSummary, domain.AdminSummary]
+	Usage         cqrs.QueryHandler[query.Usage, domain.Usage]
 }
 
 func New(repo domain.Repository) *Application {
@@ -33,6 +37,10 @@ func New(repo domain.Repository) *Application {
 			Nav:     query.NavHandler{Service: service},
 			List:    query.ListHandler{Service: service},
 			Summary: query.SummaryHandler{Service: service},
+
+			AdminOverview: query.AdminOverviewHandler{Service: service},
+			AdminSummary:  query.AdminSummaryHandler{Service: service},
+			Usage:         query.UsageHandler{Service: service},
 		},
 		service: service,
 	}
@@ -47,5 +55,20 @@ func (a *Application) WithZones(zones ports.Zones) *Application { a.service.Zone
 // WithNotifications sets the notifications summary port for the nav reading.
 func (a *Application) WithNotifications(port ports.UnreadNotifications) *Application {
 	a.service.Notifications = port
+	return a
+}
+
+// WithAdmin sets what the Admin readings are drawn from: the organization's name, the audit log's newest entries, the plan and the zone whose days they count. A nil location counts days in the centre's default zone, and a nil recent leaves the Overview's recent changes empty.
+func (a *Application) WithAdmin(branding ports.Branding, recent ports.RecentChanges, plan domain.Plan, loc *time.Location) *Application {
+	a.service.Branding, a.service.Recent, a.service.Plan = branding, recent, plan
+	if loc != nil {
+		a.service.Location = loc
+	}
+	return a
+}
+
+// WithCredits sets the AI credits query behind the Overview's credit-request row and the usage's AI figures. Without it both are absent.
+func (a *Application) WithCredits(credits ports.AICredits) *Application {
+	a.service.Credits = credits
 	return a
 }

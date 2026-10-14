@@ -11,9 +11,9 @@ import (
 	"quizzivy/internal/platform/db"
 )
 
-func audit(dbx db.Context, identity *identityapp.Application, logger *slog.Logger) audithttp.Audit {
+func audit(dbx db.Context, identity *identityapp.Application, logger *slog.Logger) (*auditapp.Application, audithttp.Audit) {
 	app := auditapp.New(auditrepo.NewPostgres(dbx)).
 		WithZones(adapters.ProfileZone{Query: identity.Queries.EffectiveZone}).
 		WithAvatars(adapters.TeacherPhotos{Query: identity.Queries.AvatarURL})
-	return audithttp.NewAudit(app).WithLogger(logger)
+	return app, audithttp.NewAudit(app).WithLogger(logger)
 }
