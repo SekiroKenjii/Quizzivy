@@ -803,6 +803,7 @@ components:
         - STUDENT_SHARED
         # roles
         - ROLE_NAME_TAKEN
+        - ROLE_LIMIT_REACHED
         - ROLE_NOT_ASSIGNABLE
         - ROLE_LOCKED
         - STUDENT_NEEDS_TAKE_TESTS
@@ -1697,7 +1698,7 @@ components:
         color: { $ref: '#/components/schemas/RoleColor' }
         studentTarget:
           type: boolean
-          description: True for the built-in Student and any custom role that holds nothing but `learning.take_tests`.
+          description: True for the built-in Student and any custom role whose permissions are a subset of `learning.take_tests`, so a custom role with no permission at all is a student target.
 
     RoleInput:
       type: object
@@ -10396,7 +10397,11 @@ paths:
         The new role takes the icon `key-round` and the colour `gray`, and starts
         with the permissions of `copyFromRoleId`, if given. The source must pass
         the subset rule: its permissions, `learning.take_tests` apart, are the
-        caller's own. The Assistant cannot be a source. Writes one audit row,
+        caller's own. The Assistant cannot be a source. A name is stored in
+        Unicode NFC, so the composed and decomposed forms of one name are the
+        same name, and it may hold no line break, control or invisible
+        character. At most 200 roles exist, the four built-in ones included;
+        past that the answer is `ROLE_LIMIT_REACHED`. Writes one audit row,
         `role.created`.
       requestBody:
         required: true
@@ -10422,7 +10427,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '422':
-          description: '`ROLE_NOT_ASSIGNABLE` — the source is the Assistant.'
+          description: '`ROLE_NOT_ASSIGNABLE` — the source is the Assistant. `ROLE_LIMIT_REACHED` — 200 roles exist already.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -10469,7 +10474,7 @@ paths:
 
         A change that leaves a cell as it was is accepted and writes nothing.
         Everyone's permissions are read again on their next request on the
-        machine that served the save, and within ten seconds on any other. Writes
+        machine that served the save, and within about ten seconds on any other. Writes
         one `role.permissions_changed` audit row per role changed.
       requestBody:
         required: true
@@ -10510,6 +10515,8 @@ paths:
       description: |
         A supplied field is changed and the others are kept; a body with only
         `expectedRevision` is refused. A built-in role may be renamed; its key never changes. The target must pass the subset rule.
+        A name is stored in Unicode NFC and may hold no line break, control or
+        invisible character, as when a role is created.
         A change moves the revision. Writes one audit row, `role.updated`, naming
         what changed.
       requestBody:
