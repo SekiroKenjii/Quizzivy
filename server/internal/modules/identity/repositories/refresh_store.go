@@ -256,9 +256,9 @@ func (s *Users) ChangePassword(ctx context.Context, in domain.ChangePasswordReco
 
 	const setPassword = `
 		UPDATE app.users
-		   SET password_hash = $2, must_change_password = false
+		   SET password_hash = $2, must_change_password = false, password_changed_at = $3
 		 WHERE id = $1`
-	tag, err := tx.Exec(ctx, setPassword, in.UserID, in.NewHash)
+	tag, err := tx.Exec(ctx, setPassword, in.UserID, in.NewHash, in.Now)
 	if err != nil {
 		return fmt.Errorf("set password: %w", err)
 	}

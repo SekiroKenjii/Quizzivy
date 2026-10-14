@@ -254,6 +254,29 @@ Never delete an object by hand to free space: a file the library still lists, or
 holds, would answer 404 to the students who sit that test. The usage on the media page
 (`heldBytes`, `pendingBytes`) says what is counted and what waits.
 
+## Organization settings and the sign-in policy
+
+The centre's name, contact details, logos, sign-in methods, allowed Google domains and retention
+choices are one row, edited by an Admin with "Manage system settings" through `GET` and `PUT /admin/settings`. The
+API serves it from a copy each server keeps for at most 30 seconds. **A change of sign-in policy
+therefore reaches every other instance within 30 seconds**, and the server that saved it applies
+it at once. During those seconds another instance may still accept a method that was just turned
+off, or refuse one that was just turned on; nothing is lost either way, and a retry after half a
+minute settles it. An instance that nobody asks never queries the database.
+
+A save is refused (`422 SIGN_IN_POLICY_LOCKOUT`) when it would leave the Admin saving it, or every
+active built-in Admin, with no way to sign in. If an Admin is locked out by a change made outside
+the API (a Google domain removed from the company, for example), the row can be corrected with the
+migrate role and takes effect within 30 seconds:
+
+```sql
+UPDATE app.organization_settings SET password_sign_in = true, revision = revision + 1;
+```
+
+A logo is stored once under `branding/{sha256}.{png|svg}` in the media bucket and is never
+replaced, so an unreferenced one is harmless; delete it by hand if it matters. Without object
+storage the settings still save and the front door still reads them, and an upload answers `501`.
+
 ## Maintenance windows
 
 A maintenance window is a period during which the API answers every request to a
@@ -393,6 +416,67 @@ Every code sealed under it becomes unreadable and unredeemable: its class's
 code reads back as `code: null, legacy: false`, and joining with it answers
 `JOIN_CODE_INVALID`. Generate a new key, deploy it, rotate every class's code,
 and tell the teachers to share the new codes.
+
+## Secrets key
+
+`SECRETS_KEY` seals the few values the database holds for a short while and
+must not hold in the clear: a set-password token waiting in the email outbox
+(`email_outbox.secret_ciphertext`, T-R5.2) and, from T-R5.14, the temporary
+passwords of an import's hand-out sheet. It is standard base64 of exactly 32
+random bytes. Each purpose gets its own key from it (HKDF-SHA256), and each
+value is sealed with AES-256-GCM, bound to the row it belongs to. The API and
+the worker both read it, and neither logs it. Production refuses to start
+without it.
+
+- **Generate** it with `openssl rand -base64 32`.
+- **Store** it as a Fly secret (`fly secrets set SECRETS_KEY=...`), with an
+  offline copy in the owner's password manager. Fly secrets reach every process
+  group, so the worker has it too. It is not `JOIN_CODE_KEY`: that key seals
+  join codes and rotates on its own schedule.
+- **Never** paste it into a log, a ticket, a chat or a workflow.
+
+### Rotating the key
+
+There is no previous-key slot, so rotation drains first:
+
+1. Wait until `SELECT count(*) FROM app.email_outbox WHERE sent_at IS NULL AND
+   failed_at IS NULL AND secret_ciphertext IS NOT NULL` is 0. Nothing pending
+   then depends on the old key.
+2. Let any pending import sheet expire (24 hours, T-R5.14), or download it.
+3. Set the new key and deploy.
+4. Re-issue any set-password link that was unsent at the swap.
+
+### If the key is lost
+
+Every sealed row fails closed: the dispatcher marks a message it cannot open
+failed with `secret_unreadable`, and sends nothing. Nothing else is damaged.
+Generate a new key, deploy it, and issue the unsent links again from the
+console. Links already sent keep working, since the database holds only their
+hash.
+
+## Outgoing email
+
+Mail is sent from `email_outbox` by a dispatcher in the API and one in the
+worker, through Resend's HTTP API with `RESEND_API_KEY`. `EMAIL_FROM`,
+`APP_URL` and the key are set together, and production refuses to start
+without all three. `EMAIL_DAILY_LIMIT` (100, Resend's free tier) counts sends
+per local day in `APP_TIMEZONE`; the excess moves to the next local midnight.
+`EMAIL_SEND_RATE` (2 a second) spaces the sends. Outside production, without
+the three, every message is written as a JSON file under `EMAIL_SINK_DIR`.
+
+To see the queue:
+
+```sql
+SELECT template, count(*) FILTER (WHERE sent_at IS NULL AND failed_at IS NULL) AS pending,
+       count(*) FILTER (WHERE failed_at IS NOT NULL) AS failed,
+       max(last_error_code) AS last_error
+  FROM app.email_outbox GROUP BY template;
+```
+
+A failed row keeps its `last_error_code` (`http_422:validation_error`,
+`secret_unreadable`, ...) and nothing of the message. The logs carry the
+outbox id, template, outcome and recipient domain, never an address, a subject
+or a link.
 
 ## Legacy join codes
 

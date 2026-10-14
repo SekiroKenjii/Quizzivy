@@ -19,6 +19,13 @@ type EnrolExistingHandler struct {
 }
 
 func (s EnrolExistingHandler) Handle(ctx context.Context, cmd EnrolExisting) (domain.EnrolResult, error) {
+	on, err := s.JoinCodesOn(ctx)
+	if err != nil {
+		return domain.EnrolResult{}, err
+	}
+	if !on {
+		return domain.EnrolResult{Outcome: domain.PreviewInvalid}, nil
+	}
 	code, ok := s.Lookup(cmd.Code)
 	if !ok {
 		return domain.EnrolResult{Outcome: domain.PreviewInvalid}, nil

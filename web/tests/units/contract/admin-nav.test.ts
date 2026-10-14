@@ -20,7 +20,6 @@ const NOT_IN_THE_CONTRACT_YET = new Map<string, string>([
   ["listAllClasses", "T-R5.11"],
   ["listAuditLog", "T-R5.12"],
   ["getApiReferenceSummary", "T-R5.19"],
-  ["getOrganizationSettings", "T-R5.5"],
 ]);
 
 function comparable(permission: unknown): string {

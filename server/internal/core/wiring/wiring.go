@@ -19,13 +19,14 @@ import (
 	importsworker "quizzivy/internal/modules/imports/application/worker"
 	mediaapp "quizzivy/internal/modules/media/application"
 	notificationsapp "quizzivy/internal/modules/notifications/application"
+	organizationapp "quizzivy/internal/modules/organization/application"
 	"quizzivy/internal/platform/config"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/platform/httpx"
 	"quizzivy/internal/platform/imagesafe"
 )
 
-// Assembly is what Build produces: the transports the router serves, the token verifiers the auth middleware and the docs gate need, the access application that resolves who a request acts as, and the identity, classes, notifications and media applications and the import sweeper the background jobs drive.
+// Assembly is what Build produces: the transports the router serves, the token verifiers the auth middleware and the docs gate need, the access application that resolves who a request acts as, and the identity, classes, notifications and media applications, the mail outbox and dispatcher and the import sweeper the background jobs drive.
 type Assembly struct {
 	Modules       router.Modules
 	Principals    *accessapp.Application
@@ -34,9 +35,12 @@ type Assembly struct {
 	Identity      *identityapp.Application
 	Classes       *classesapp.Application
 	Notifications *notificationsapp.Application
+	Organization  *organizationapp.Application
 	ImportSweeper *importsworker.Sweeper
 	Media         *mediaapp.Application
 	Maintenance   httpx.MaintenanceSource
+	// Mail is the outbox the modules enqueue into and the dispatcher that sends it.
+	Mail Mail
 	// AI is the provider behind the AI assistant's port, nil when no ANTHROPIC_API_KEY is set.
 	AI aiports.Completer
 	// AICredits is the credits model the AI operations reserve and settle through and the console sets allowances through. It is built with or without the provider.
@@ -68,6 +72,11 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 		return Assembly{}, err
 	}
 	notificationsApp := notifications(dbx)
+	images := imagesafe.New(imagesafe.NewGate(photoDecodeSlots))
+	organizationApp, err := organization(ctx, cfg, logger, dbx, images)
+	if err != nil {
+		return Assembly{}, err
+	}
 	stats := attemptsrepo.NewStudentStats(dbx)
 
 	keys, err := classesdomain.NewJoinCodeKeys(cfg.JoinCodeKey, cfg.JoinCodeKeyPrevious)
@@ -76,14 +85,15 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	}
 	previousKeyID, rotating := keys.PreviousID()
 	logger.Info("join code keys", "current_key_id", keys.CurrentID(), "previous_key_id", previousKeyID, "rotating", rotating)
-	classesApp := classes(dbx, stats, keys, notificationsApp.Commands.Notify, logger)
+	classesApp := classes(dbx, stats, keys, notificationsApp.Commands.Notify, logger).WithSignInPolicy(organizationApp.Queries.SignInPolicy)
 	identityApp, tokens, err := identity(cfg, logger, dbx, stats, classesApp.Commands.EnrolNewMember)
 	if err != nil {
 		return Assembly{}, err
 	}
 	identityApp.SetPrincipals(principals)
+	identityApp.SetSignInPolicy(organizationApp.Queries.SignInPolicy)
 	attachClassPorts(classesApp, identityApp, stats)
-	if err := attachAvatars(ctx, cfg, logger, identityApp, imagesafe.New(imagesafe.NewGate(photoDecodeSlots))); err != nil {
+	if err := attachAvatars(ctx, cfg, logger, identityApp, images); err != nil {
 		return Assembly{}, err
 	}
 	docs, err := identitytoken.NewDocsIssuer(cfg.JWTSigningKey)
@@ -117,7 +127,13 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 		return Assembly{}, err
 	}
 
+	mail, err := BuildMail(cfg, dbx, logger)
+	if err != nil {
+		return Assembly{}, err
+	}
+
 	return Assembly{
+		Mail: mail,
 		Modules: router.Modules{
 			AI:            aiTransport,
 			Imports:       importsTransport,
@@ -131,6 +147,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 			Attempts:      attemptsTransport(attemptsApp, mediaApp, identityApp, logger),
 			Availability:  availabilityTransport,
 			Notifications: notificationsTransport(notificationsApp, logger),
+			Organization:  organizationTransport(organizationApp),
 		},
 		Principals:    principals,
 		Maintenance:   adapters.MaintenanceGate{Current: availabilityApp.Queries.CurrentWindow},
@@ -143,5 +160,6 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 		Identity:      identityApp,
 		Classes:       classesApp,
 		Notifications: notificationsApp,
+		Organization:  organizationApp,
 	}, nil
 }

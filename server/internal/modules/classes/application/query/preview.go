@@ -17,6 +17,13 @@ type PreviewHandler struct {
 }
 
 func (s PreviewHandler) Handle(ctx context.Context, q Preview) (domain.PreviewResult, error) {
+	on, err := s.JoinCodesOn(ctx)
+	if err != nil {
+		return domain.PreviewResult{}, err
+	}
+	if !on {
+		return domain.PreviewResult{Outcome: domain.PreviewInvalid}, nil
+	}
 	code, ok := s.Lookup(q.Code)
 	if !ok {
 		return domain.PreviewResult{Outcome: domain.PreviewInvalid}, nil

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
 	"io"
 )
@@ -72,7 +73,28 @@ func verifyBody(body io.ReadSeeker, size int64, checksum []byte) (string, error)
 func (c *Client) Open(ctx context.Context, key string) (io.ReadCloser, int64, error) {
 	result, err := c.s3.GetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(c.bucket), Key: aws.String(key)})
 	if err != nil {
+		var missing *types.NoSuchKey
+		if errors.As(err, &missing) {
+			return nil, 0, fmt.Errorf("storage: read private object: %w: %w", ErrNotFound, err)
+		}
 		return nil, 0, fmt.Errorf("storage: read private object: %w", err)
 	}
 	return result.Body, aws.ToInt64(result.ContentLength), nil
+}
+
+// ErrNotFound is the error of reading a key that holds no object. It is wrapped, so test it with errors.Is.
+var ErrNotFound = errors.New("storage: no such object")
+
+// Exists reports whether key holds an object.
+func (c *Client) Exists(ctx context.Context, key string) (bool, error) {
+	_, err := c.s3.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(c.bucket), Key: aws.String(key)})
+	if err == nil {
+		return true, nil
+	}
+	var missing *types.NotFound
+	var noKey *types.NoSuchKey
+	if errors.As(err, &missing) || errors.As(err, &noKey) {
+		return false, nil
+	}
+	return false, fmt.Errorf("storage: probe %s: %w", key, err)
 }

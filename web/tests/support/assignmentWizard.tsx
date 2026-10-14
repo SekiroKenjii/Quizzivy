@@ -105,6 +105,8 @@ function student(id: string, fullName: string, classIds: string[]) {
     mustChangePassword: false,
     createdAt: NOW,
     disabledAt: null,
+    lastActiveAt: null,
+    accountStatus: "active",
     classes: classIds.map((classId) => ({
       id: classId,
       name: classId === CLASS_A ? "IELTS Foundation" : "TOEIC 600",

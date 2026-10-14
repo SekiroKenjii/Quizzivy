@@ -33,6 +33,11 @@ func (h Identity) Login(ctx context.Context, request openapi.LoginRequestObject)
 		if errors.Is(err, domain.ErrInvalidCredentials) {
 			return openapi.Login401JSONResponse(invalidCredentials(ctx)), nil
 		}
+		if errors.Is(err, domain.ErrPasswordSignInDisabled) {
+			return openapi.Login403JSONResponse(httpapi.Error(ctx, openapi.PASSWORDSIGNINDISABLED,
+				httpx.Text(ctx, "Trung tâm đã tắt đăng nhập bằng mật khẩu. Hãy đăng nhập bằng Google.",
+					"Your centre has turned off password sign-in. Sign in with Google."))), nil
+		}
 		return nil, err
 	}
 
@@ -141,6 +146,7 @@ func toCurrentUser(u domain.User, permissions access.Set) openapi.CurrentUser {
 		LinkedProviders:    providers,
 		MustChangePassword: u.MustChangePassword,
 		CreatedAt:          u.CreatedAt,
+		PasswordChangedAt:  u.PasswordChangedAt,
 		Permissions:        keys,
 		Workspaces:         workspaces,
 	}

@@ -504,6 +504,7 @@
       "change": "Change",
       "updatePassword": "Update password",
       "passwordUpdated": "Password updated. Other devices have been signed out.",
+      "passwordChangedLine": "Changed {{when}}",
       "passwordMin": "At least 8 characters.",
       "strength": {
         "okay": "Okay",
@@ -812,7 +813,8 @@
     "createCodeBody": "The code works for 30 days and 40 joins.",
     "codeRenewedWith": "New join code: {{code}}",
     "newCodeFailed": "Could not make a new join code.",
-    "codesReplaced": "Your classes' join codes were replaced on {{date}}. Share the new ones with your students."
+    "codesReplaced": "Your classes' join codes were replaced on {{date}}. Share the new ones with your students.",
+    "joinCodesOff": "Your centre has turned off joining with a code."
   },
   "settings": {
     "profile": "Profile",
@@ -820,6 +822,7 @@
     "email": "Email",
     "password": "Password",
     "passwordChanged": "Password changed. Other devices have been signed out.",
+    "passwordChangedLine": "Last changed {{when}}.",
     "google": "Google account",
     "googleLinked": "Linked to Google.",
     "googleNotLinked": "Not linked to Google.",
@@ -2420,6 +2423,7 @@
     "accountHeader": "Account",
     "account": {
       "active": "Active",
+      "notSignedIn": "Not signed in",
       "reset": "Password reset",
       "suspended": "Suspended"
     },

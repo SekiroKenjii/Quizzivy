@@ -67,7 +67,11 @@ describe("the one-time password in a student's record", () => {
  */
 describe("suspending and restoring a student", () => {
   it("finds suspended accounts through the Status facet, and offers an admin the way back", async () => {
-    const suspended = { ...HAN, disabledAt: "2026-08-01T00:00:00Z" };
+    const suspended = {
+      ...HAN,
+      disabledAt: "2026-08-01T00:00:00Z",
+      accountStatus: "disabled" as const,
+    };
     server.use(
       http.get(`${BASE}/teacher/students`, ({ request }) => {
         const status = new URL(request.url).searchParams.get("status");

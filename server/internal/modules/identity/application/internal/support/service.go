@@ -11,6 +11,8 @@ import (
 	"quizzivy/internal/modules/identity/application/ports"
 	"quizzivy/internal/modules/identity/application/token"
 	"quizzivy/internal/modules/identity/domain"
+	organizationmodel "quizzivy/internal/modules/organization/application/model"
+	organizationquery "quizzivy/internal/modules/organization/application/query"
 	"quizzivy/internal/shared/opt"
 	"time"
 
@@ -28,7 +30,31 @@ type Service struct {
 	Principals ports.Principals
 	Avatars    ports.ObjectStore
 	Photos     ports.PhotoProcessor
+	Policy     ports.SignInPolicy
 	Log        *slog.Logger
+}
+
+// OpenPolicy is the sign-in policy of a centre that has changed nothing: every way in is on and a temporary password must be changed. It is what a service with no policy port enforces.
+var OpenPolicy = organizationmodel.SignInPolicy{Google: true, Password: true, ForcePasswordChange: true, JoinCodes: true}
+
+// SignInPolicy returns the policy in force, OpenPolicy without a port.
+func (s *Service) SignInPolicy(ctx context.Context) (organizationmodel.SignInPolicy, error) {
+	if s.Policy == nil {
+		return OpenPolicy, nil
+	}
+	return s.Policy.Handle(ctx, organizationquery.SignInPolicy{})
+}
+
+// GoogleAllowed returns the policy in force when Google sign-in is on, and domain.ErrGoogleSignInDisabled when it is off.
+func (s *Service) GoogleAllowed(ctx context.Context) (organizationmodel.SignInPolicy, error) {
+	policy, err := s.SignInPolicy(ctx)
+	if err != nil {
+		return organizationmodel.SignInPolicy{}, err
+	}
+	if !policy.Google {
+		return organizationmodel.SignInPolicy{}, domain.ErrGoogleSignInDisabled
+	}
+	return policy, nil
 }
 
 // SetAvatars wires profile photos: the store that keeps them and the processor
@@ -48,7 +74,12 @@ func (s *Service) SetGoogle(p ports.GoogleProvider, enroller ports.SelfEnroller)
 	s.Enroller = enroller
 }
 
+// VerifiedIdentity exchanges the code, verifies the token and refuses an unverified address and one outside the allowed domains. It fails with domain.ErrGoogleSignInDisabled, before any call to Google, while Google sign-in is off.
 func (s *Service) VerifiedIdentity(ctx context.Context, code, verifier, redirectURI string) (model.GoogleIdentity, error) {
+	policy, err := s.GoogleAllowed(ctx)
+	if err != nil {
+		return model.GoogleIdentity{}, err
+	}
 	rawIDToken, err := s.Google.Exchange(ctx, code, verifier, redirectURI)
 	if err != nil {
 		return model.GoogleIdentity{}, err
@@ -59,6 +90,9 @@ func (s *Service) VerifiedIdentity(ctx context.Context, code, verifier, redirect
 	}
 	if !identity.EmailVerified {
 		return model.GoogleIdentity{}, domain.ErrGoogleEmailUnverified
+	}
+	if !policy.AllowsGoogleEmail(identity.Email) {
+		return model.GoogleIdentity{}, domain.ErrGoogleDomainNotAllowed
 	}
 	return identity, nil
 }
@@ -105,7 +139,7 @@ func (s *Service) GoogleSession(ctx context.Context, user domain.User, in Google
 	if user.Disabled() {
 		return model.GoogleSignInResult{}, domain.ErrAccountDisabled
 	}
-	session, err := s.IssueSession(ctx, user, in.Origin())
+	session, err := s.IssueSession(ctx, user, in.Origin(), domain.SignInGoogle)
 	if errors.Is(err, domain.ErrAccountChanged) {
 		user, err = s.Users.FindUserByID(ctx, user.ID)
 		if err != nil {
@@ -114,7 +148,7 @@ func (s *Service) GoogleSession(ctx context.Context, user domain.User, in Google
 		if user.Disabled() {
 			return model.GoogleSignInResult{}, domain.ErrAccountDisabled
 		}
-		session, err = s.IssueSession(ctx, user, in.Origin())
+		session, err = s.IssueSession(ctx, user, in.Origin(), domain.SignInGoogle)
 	}
 	if err != nil {
 		return model.GoogleSignInResult{}, err
@@ -137,7 +171,7 @@ func NewService(users domain.Users, tokens *token.Issuer, refreshTTL time.Durati
 // SetClock replaces the time source. Tests only.
 func (s *Service) SetClock(now func() time.Time) { s.Now = now }
 
-func (s *Service) IssueSession(ctx context.Context, user domain.User, origin Origin) (model.Session, error) {
+func (s *Service) IssueSession(ctx context.Context, user domain.User, origin Origin, method domain.SignInMethod) (model.Session, error) {
 	principal, err := s.Principals.Resolve(ctx, user.ID)
 	if err != nil {
 		return model.Session{}, fmt.Errorf("resolve permissions: %w", err)
@@ -165,6 +199,12 @@ func (s *Service) IssueSession(ctx context.Context, user domain.User, origin Ori
 	rec.GeoLabel = opt.String(origin.GeoLabel)
 	if err := s.Users.CreateRefreshToken(ctx, rec, domain.SessionBasis{Epoch: user.SessionEpoch, PasswordHash: user.PasswordHash}); err != nil {
 		return model.Session{}, fmt.Errorf("store refresh token: %w", err)
+	}
+	if err := s.Users.StampSignIn(ctx, user.ID, method, now); err != nil {
+		s.logger().Warn("sign-in not stamped", "user", user.ID, "method", method, "err", err)
+	} else {
+		user.LastSignInAt, user.LastActiveAt = &now, &now
+		user.LastSignInMethod = opt.String(string(method))
 	}
 
 	return model.Session{
