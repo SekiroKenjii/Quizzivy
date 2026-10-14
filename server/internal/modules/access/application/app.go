@@ -9,6 +9,7 @@ import (
 	"slices"
 	"time"
 
+	"quizzivy/internal/modules/access/application/command"
 	"quizzivy/internal/modules/access/application/internal/support"
 	"quizzivy/internal/modules/access/application/model"
 	"quizzivy/internal/modules/access/application/query"
@@ -23,9 +24,10 @@ var ErrCatalogueBehind = errors.New("access: app.permissions lacks a compiled ke
 
 // Application is every use case of the module.
 type Application struct {
-	Queries Queries
-	service *support.Service
-	repo    domain.Repository
+	Queries  Queries
+	Commands Commands
+	service  *support.Service
+	repo     domain.Repository
 }
 
 // Queries are the module's reads.
@@ -33,6 +35,16 @@ type Queries struct {
 	ResolvePrincipal cqrs.QueryHandler[query.ResolvePrincipal, access.Principal]
 	RolePermissions  cqrs.QueryHandler[query.RolePermissions, access.Set]
 	Matrix           cqrs.QueryHandler[query.Matrix, []model.RoleGrants]
+	ListRoles        cqrs.QueryHandler[query.ListRoles, model.RoleList]
+	AssignableRoles  cqrs.QueryHandler[query.AssignableRoles, []model.AssignableRole]
+}
+
+// Commands are the module's writes. They are nil until WithRoleStore gives the
+// application somewhere to write.
+type Commands struct {
+	CreateRole         cqrs.CommandHandler[command.CreateRole, model.Role]
+	UpdateRole         cqrs.CommandHandler[command.UpdateRole, model.Role]
+	SetRolePermissions cqrs.CommandHandler[command.SetRolePermissions, []model.Role]
 }
 
 // New builds the application over the repository, with one principal cache
@@ -45,10 +57,23 @@ func New(repo domain.Repository) *Application {
 			ResolvePrincipal: query.ResolvePrincipalHandler{Service: service},
 			RolePermissions:  query.RolePermissionsHandler{Service: service},
 			Matrix:           query.MatrixHandler{Repo: repo, Service: service},
+			ListRoles:        query.ListRolesHandler{Repo: repo, Service: service},
+			AssignableRoles:  query.AssignableRolesHandler{Repo: repo, Service: service},
 		},
 		service: service,
 		repo:    repo,
 	}
+}
+
+// WithRoleStore gives the application the store its role commands write
+// through, and returns it.
+func (a *Application) WithRoleStore(store domain.RoleStore) *Application {
+	a.Commands = Commands{
+		CreateRole:         command.CreateRoleHandler{Store: store, Service: a.service},
+		UpdateRole:         command.UpdateRoleHandler{Store: store, Service: a.service},
+		SetRolePermissions: command.SetRolePermissionsHandler{Store: store, Service: a.service},
+	}
+	return a
 }
 
 // CheckCatalogue refuses when app.permissions lacks a key this binary was

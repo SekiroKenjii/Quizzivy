@@ -9,6 +9,7 @@ import (
 	"quizzivy/internal/core/adapters"
 	"quizzivy/internal/core/router"
 	accessapp "quizzivy/internal/modules/access/application"
+	accesshttp "quizzivy/internal/modules/access/http"
 	aiapp "quizzivy/internal/modules/ai/application"
 	aiports "quizzivy/internal/modules/ai/application/ports"
 	attemptsrepo "quizzivy/internal/modules/attempts/repositories"
@@ -135,6 +136,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	return Assembly{
 		Mail: mail,
 		Modules: router.Modules{
+			Access:        accesshttp.NewAccess(principals),
 			AI:            aiTransport,
 			Imports:       importsTransport,
 			Dashboard:     dashboard(dbx, notificationsApp, identityApp),

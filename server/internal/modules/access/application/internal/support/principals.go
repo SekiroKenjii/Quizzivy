@@ -3,9 +3,11 @@ package support
 import (
 	"container/list"
 	"context"
+	"slices"
 	"sync"
 	"time"
 
+	"quizzivy/internal/modules/access/application/model"
 	"quizzivy/internal/modules/access/domain"
 	"quizzivy/internal/shared/access"
 )
@@ -37,6 +39,7 @@ type Service struct {
 	repo      domain.Repository
 	manager   domain.PermissionManager
 	catalogue []access.Key
+	guard     domain.Guard
 	max       int
 	now       func() time.Time
 
@@ -53,6 +56,7 @@ func NewService(repo domain.Repository, catalogue []access.Key) *Service {
 	return &Service{
 		repo:      repo,
 		catalogue: catalogue,
+		guard:     domain.NewGuard(catalogue),
 		max:       MaxPrincipals,
 		now:       time.Now,
 		entries:   map[string]*list.Element{},
@@ -63,6 +67,41 @@ func NewService(repo domain.Repository, catalogue []access.Key) *Service {
 
 // SetClock replaces the time source. Tests only.
 func (s *Service) SetClock(now func() time.Time) { s.now = now }
+
+// Now returns the service's time.
+func (s *Service) Now() time.Time { return s.now() }
+
+// Guard returns the rule that holds a role command to the subset rule.
+func (s *Service) Guard() domain.Guard { return s.guard }
+
+// Views reads the roles with the ids, in the matrix's order, as by sees them.
+func (s *Service) Views(ctx context.Context, by domain.Caller, ids []string) ([]model.Role, error) {
+	roles, err := s.repo.Roles(ctx)
+	if err != nil {
+		return nil, err
+	}
+	heads, err := s.repo.Headcounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []model.Role
+	for _, r := range roles {
+		if slices.Contains(ids, r.ID) {
+			out = append(out, s.RoleView(by, r, heads[r.ID]))
+		}
+	}
+	return out, nil
+}
+
+// RoleView returns the role as the page shows it to by, with the headcount the
+// role has.
+func (s *Service) RoleView(by domain.Caller, role domain.RoleRow, head domain.Headcount) model.Role {
+	return model.Role{
+		ID: role.ID, Builtin: role.Builtin, Name: role.Name, Description: role.Description,
+		Icon: role.Icon, Color: role.Color, UserCount: head.Users, Permissions: s.guard.Visible(role),
+		Revision: role.Revision, Editable: s.guard.CanActOn(by, role), InProgressAttempts: head.InProgressAttempts,
+	}
+}
 
 // SetLimit replaces the principal cache's bound. Tests only.
 func (s *Service) SetLimit(limit int) { s.max = limit }

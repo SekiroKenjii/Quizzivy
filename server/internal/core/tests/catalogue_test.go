@@ -183,17 +183,23 @@ func TestTheBuiltInGrantsAreTheMatrixCellByCell(t *testing.T) {
 	}
 }
 
-func TestTheAppRoleOnlyReadsTheCatalogue(t *testing.T) {
+func TestTheAppRoleReadsTheCatalogueAndWritesOnlyWhatTheRoleCommandsNeed(t *testing.T) {
 	pool := cataloguePool(t)
-	for _, relation := range []string{"app.permissions", "app.roles", "app.role_permissions", "app.student_like_roles"} {
-		for privilege, want := range map[string]bool{"SELECT": true, "INSERT": false, "UPDATE": false, "DELETE": false} {
+	want := map[string]map[string]bool{
+		"app.permissions":        {"SELECT": true, "INSERT": false, "UPDATE": false, "DELETE": false},
+		"app.roles":              {"SELECT": true, "INSERT": true, "UPDATE": false, "DELETE": false},
+		"app.role_permissions":   {"SELECT": true, "INSERT": true, "UPDATE": false, "DELETE": true},
+		"app.student_like_roles": {"SELECT": true, "INSERT": false, "UPDATE": false, "DELETE": false},
+	}
+	for relation, privileges := range want {
+		for privilege, wanted := range privileges {
 			var got bool
 			if err := pool.QueryRow(context.Background(),
 				`SELECT has_table_privilege('quizzivy_app', $1, $2)`, relation, privilege).Scan(&got); err != nil {
 				t.Fatal(err)
 			}
-			if got != want {
-				t.Errorf("quizzivy_app %s on %s = %v, want %v", privilege, relation, got, want)
+			if got != wanted {
+				t.Errorf("quizzivy_app %s on %s = %v, want %v", privilege, relation, got, wanted)
 			}
 		}
 	}
