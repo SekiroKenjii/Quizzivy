@@ -29,7 +29,9 @@ import { Input } from "@/components/ui/input";
 import { MarqueeText } from "@/components/shared/MarqueeText";
 import { SplitPane } from "@/components/shared/SplitPane";
 import { StickyAside } from "@/components/shared/StickyAside";
+import { useColumnWidth } from "@/hooks/useColumnWidth";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useWidthAtLeast } from "@/hooks/useWidthAtLeast";
 import { useContentWidthAtLeast } from "@/layouts/shell/contentWidth";
 import { useCrumbs } from "@/layouts/shell/crumbs";
 import { PageAsideSlot } from "@/layouts/slots";
@@ -121,6 +123,8 @@ import { ApiError, failureMessage } from "@/lib/api/errors";
 import { notify } from "@/lib/toast";
 import { FormDialog } from "@/components/shared/form/FormDialog";
 
+const MEMBER_EDITOR_MIN = 256;
+
 /**
  * §2 asks for dnd-kit to be split out: it is ~40 kB that only the one admin
  * who is reordering an outline ever needs, and every student pays for it
@@ -165,6 +169,10 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   useCrumbs([{ label: title.trim() || t("tests.untitled") }]);
   const wide = useMediaQuery("(min-width: 768px)");
   const room = useContentWidthAtLeast(594);
+  const { width: panelWidth } = useColumnWidth("panel");
+  const [measureColumns, settingsBeside] = useWidthAtLeast<HTMLDivElement>(
+    MEMBER_EDITOR_MIN + panelWidth,
+  );
   const split = wide && room;
   const [asideSlot, setAsideSlot] = useState<HTMLDivElement | null>(null);
   const [sections, setSections] = useState<OutlineSection[]>(() =>
@@ -1066,6 +1074,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
               : undefined
           }
           sharedContentOpener={sharedOpener}
+          settingsInDialog={!settingsBeside}
         />
       );
     if (selectedId === null)
@@ -1251,7 +1260,11 @@ function Builder({ test }: Readonly<{ test: Test }>) {
           </StickyAside>
         }
         second={
-          <div data-columns className="flex min-w-0 flex-1 items-start">
+          <div
+            ref={measureColumns}
+            data-columns
+            className="flex min-w-0 flex-1 items-start"
+          >
             <div
               data-resize-middle
               className={cn(
