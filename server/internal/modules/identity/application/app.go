@@ -21,10 +21,36 @@ type Application struct {
 	Queries  Queries
 	service  *support.Service
 	students *support.Students
+	activity *support.Activity
 }
 
 func (a *Application) SetClock(now func() time.Time) {
 	a.service.SetClock(now)
+	if a.activity != nil {
+		a.activity.Now = now
+	}
+}
+
+// SetActivity starts recording who was active, counting days in zone, and makes Commands.StampActivity available. Without it no request stamps anything. RunActivity writes what it collects.
+func (a *Application) SetActivity(store domain.Activity, zone *time.Location, logger *slog.Logger) {
+	a.activity = support.NewActivity(store, zone)
+	a.activity.Log = logger
+	a.activity.Now = a.service.Now
+	a.Commands.StampActivity = command.StampActivityHandler{Activity: a.activity}
+}
+
+// RunActivity writes the activity the application collects, every few seconds while any waits, until ctx ends. It returns at once without SetActivity.
+func (a *Application) RunActivity(ctx context.Context) {
+	if a.activity != nil {
+		a.activity.Run(ctx)
+	}
+}
+
+// FlushActivity writes what the application has collected now.
+func (a *Application) FlushActivity(ctx context.Context) {
+	if a.activity != nil {
+		a.activity.Flush(ctx)
+	}
 }
 
 func (a *Application) SetGoogle(p ports.GoogleProvider, enroller ports.SelfEnroller) {
@@ -78,6 +104,7 @@ type Commands struct {
 	Logout                 cqrs.CommandHandler[command.Logout, cqrs.Nothing]
 	PruneExpiredTokens     cqrs.CommandHandler[command.PruneExpiredTokens, int64]
 	Refresh                cqrs.CommandHandler[command.Refresh, model.RefreshResult]
+	StampActivity          cqrs.CommandHandler[command.StampActivity, cqrs.Nothing]
 	UpdateProfile          cqrs.CommandHandler[command.UpdateProfile, domain.User]
 	UpdatePreferences      cqrs.CommandHandler[command.UpdatePreferences, domain.Preferences]
 	ResetStudentPassword   cqrs.CommandHandler[command.ResetStudentPassword, string]

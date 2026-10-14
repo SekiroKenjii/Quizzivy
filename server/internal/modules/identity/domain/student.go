@@ -17,6 +17,8 @@ type Student struct {
 	MustChangePassword bool
 	CreatedAt          time.Time
 	DisabledAt         *time.Time
+	LastActiveAt       *time.Time
+	LastSignInAt       *time.Time
 	Classes            []Membership
 	Stats              stats.Student
 }
@@ -60,16 +62,22 @@ const (
 // every student under scope.all; a zero Scope matches nothing. ClassIDs, when
 // not empty, keeps the students who are in at least one of those classes; a
 // class the scope does not reach matches nothing. MustChange, when set, keeps
-// the accounts whose must_change_password equals it.
+// the accounts whose must_change_password equals it. NeverSignedIn, when set,
+// keeps the accounts that have never signed in (true) or have (false).
+// Statuses, when not empty, keeps the accounts whose AccountStatus is one of
+// them; a student is in one status only, so the filters narrow one another.
 type StudentQuery struct {
 	// StudentStatus defaults to StudentsActive when empty.
 	Status     StudentStatus
 	Query      string
 	ClassIDs   []string
 	MustChange *bool
-	Page       int
-	Limit      int
-	Scope      access.Scope
+	// NeverSignedIn is last_sign_in_at IS NULL, beside MustChange.
+	NeverSignedIn *bool
+	Statuses      []AccountStatus
+	Page          int
+	Limit         int
+	Scope         access.Scope
 }
 
 // WriteRequest is the actor behind a write, for the audit row, for reach and

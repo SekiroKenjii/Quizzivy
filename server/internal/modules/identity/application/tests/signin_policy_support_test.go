@@ -135,6 +135,11 @@ func (s *policyStore) CreateRefreshToken(context.Context, domain.RefreshTokenRec
 	return nil
 }
 
+func (s *policyStore) StampSignIn(context.Context, string, domain.SignInMethod, time.Time) error {
+	s.calls = append(s.calls, "StampSignIn")
+	return nil
+}
+
 func (s *policyStore) LinkIdentity(context.Context, string, string, string, string) error {
 	s.calls = append(s.calls, "LinkIdentity")
 	s.linked++

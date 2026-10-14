@@ -41,6 +41,8 @@ env.update({
     "DATABASE_URL": f"postgres://quizzivy_app:app@localhost:5432/{os.environ['SMOKE_DATABASE']}?sslmode=disable",
     "JWT_SIGNING_KEY": "smoke-signing-key-not-a-secret-0123456789abcdef",
     "JOIN_CODE_KEY": "c21va2Utam9pbi1jb2RlLWtleS1ub3Qtc2VjcmV0MDA=",
+    "SECRETS_KEY": "c21va2Utc2VjcmV0cy1rZXktbm90LWEtc2VjcmV0MDA=",
+    "RESEND_API_KEY": "re_smoke_not_a_secret",
     "GOOGLE_CLIENT_SECRET": "smoke-google-secret",
     "S3_ENDPOINT": "http://localhost:9000",
     "S3_BUCKET": "quizzivy-media",

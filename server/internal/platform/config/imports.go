@@ -23,7 +23,7 @@ func loadImports(cfg *Config) error {
 	cfg.ImportProcessing = processing
 	if processing {
 		wake, err := url.Parse(os.Getenv("IMPORT_WORKER_WAKE_URL"))
-		if err != nil || (wake.Scheme != "http" && wake.Scheme != "https") || wake.Host == "" || wake.Path != "/wake" {
+		if err != nil || (wake.Scheme != "http" && wake.Scheme != schemeHTTPS) || wake.Host == "" || wake.Path != "/wake" {
 			return fmt.Errorf("IMPORT_PROCESSING_ENABLED requires IMPORT_WORKER_WAKE_URL, the worker's http(s) .../wake endpoint")
 		}
 		cfg.ImportWorkerWakeURL = wake.String()

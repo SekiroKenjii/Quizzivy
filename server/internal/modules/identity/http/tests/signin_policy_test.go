@@ -70,6 +70,11 @@ func (s *signInStore) CreateRefreshToken(context.Context, domain.RefreshTokenRec
 	return nil
 }
 
+func (s *signInStore) StampSignIn(context.Context, string, domain.SignInMethod, time.Time) error {
+	s.touched = append(s.touched, "StampSignIn")
+	return nil
+}
+
 func (s *signInStore) LinkIdentity(context.Context, string, string, string, string) error {
 	s.touched = append(s.touched, "LinkIdentity")
 	return nil

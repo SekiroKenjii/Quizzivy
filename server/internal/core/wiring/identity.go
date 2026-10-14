@@ -27,6 +27,11 @@ func identity(cfg config.Config, logger *slog.Logger, dbx db.Context, stats stat
 	}
 	app := identityapp.New(identityrepo.NewUsers(dbx), tokens, cfg.RefreshTokenTTL, identityrepo.NewStudents(dbx), stats)
 	app.SetLogger(logger)
+	zone, err := config.AppLocation()
+	if err != nil {
+		return nil, nil, err
+	}
+	app.SetActivity(identityrepo.NewActivity(dbx), zone, logger)
 	attachGoogle(cfg, logger, app, enroller)
 	return app, tokens, nil
 }

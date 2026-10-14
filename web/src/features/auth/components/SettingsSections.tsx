@@ -22,6 +22,7 @@ import {
 import { api, BASE_URL } from "@/lib/api/client";
 import { ApiError, failureMessage } from "@/lib/api/errors";
 import { focusIsLost } from "@/lib/focusIsLost";
+import { usePasswordChanged } from "@/features/auth/passwordChanged";
 import { authStore, useAuthStore } from "@/stores/auth";
 
 const BODY = "flex flex-col gap-3.5 p-4.5";
@@ -39,6 +40,7 @@ const ACTION = "h-8.5 self-start aria-disabled:opacity-50";
 export function PasswordSection() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
+  const changed = usePasswordChanged();
   const mounted = useMounted();
 
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +74,14 @@ export function PasswordSection() {
   if (user && !user.hasPassword) return null;
 
   return (
-    <SettingsCard title={t("settings.password")}>
+    <SettingsCard
+      title={t("settings.password")}
+      description={
+        changed === null
+          ? undefined
+          : t("settings.passwordChangedLine", { when: changed })
+      }
+    >
       <form
         onSubmit={(event) => {
           if (form.formState.isSubmitting) {

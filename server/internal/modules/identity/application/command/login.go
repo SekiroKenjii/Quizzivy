@@ -57,7 +57,7 @@ func (s LoginHandler) Handle(ctx context.Context, cmd Login) (model.Session, err
 		return model.Session{}, domain.ErrInvalidCredentials
 	}
 
-	session, err := s.IssueSession(ctx, user, support.Origin{UserAgent: cmd.UserAgent, IP: cmd.IP, GeoLabel: cmd.GeoLabel})
+	session, err := s.IssueSession(ctx, user, support.Origin{UserAgent: cmd.UserAgent, IP: cmd.IP, GeoLabel: cmd.GeoLabel}, domain.SignInPassword)
 	if errors.Is(err, domain.ErrAccountChanged) {
 		return model.Session{}, domain.ErrInvalidCredentials
 	}

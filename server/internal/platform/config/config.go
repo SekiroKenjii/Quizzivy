@@ -50,6 +50,10 @@ type Config struct {
 	JoinCodeKey         []byte
 	JoinCodeKeyPrevious []byte
 
+	SecretsKey  []byte
+	AppLocation *time.Location
+	Email       Email
+
 	AI AI
 }
 
@@ -61,6 +65,11 @@ const (
 )
 
 const joinCodeKeyBytes = 32
+
+const (
+	productionEnv = "production"
+	schemeHTTPS   = "https"
+)
 
 // Load reads the environment and fails loudly on anything missing.
 func Load() (Config, error) {
@@ -106,6 +115,9 @@ func Load() (Config, error) {
 	if err := loadAI(&cfg); err != nil {
 		return cfg, err
 	}
+	if err := loadEmailGroup(&cfg); err != nil {
+		return cfg, err
+	}
 
 	origins, err := parseOrigins(os.Getenv("CORS_ALLOWED_ORIGINS"))
 	if err != nil {
@@ -124,7 +136,7 @@ func loadDocs(cfg *Config) error {
 	if err != nil {
 		return err
 	}
-	if public && cfg.Env == "production" {
+	if public && cfg.Env == productionEnv {
 		return fmt.Errorf("DOCS_PUBLIC must not be true in production: it opens the API reference to anyone")
 	}
 	cfg.DocsPublic = public

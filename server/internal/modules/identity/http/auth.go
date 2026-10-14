@@ -146,6 +146,7 @@ func toCurrentUser(u domain.User, permissions access.Set) openapi.CurrentUser {
 		LinkedProviders:    providers,
 		MustChangePassword: u.MustChangePassword,
 		CreatedAt:          u.CreatedAt,
+		PasswordChangedAt:  u.PasswordChangedAt,
 		Permissions:        keys,
 		Workspaces:         workspaces,
 	}

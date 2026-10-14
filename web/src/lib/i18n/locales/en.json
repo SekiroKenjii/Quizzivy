@@ -473,6 +473,7 @@
       "change": "Change",
       "updatePassword": "Update password",
       "passwordUpdated": "Password updated. Other devices have been signed out.",
+      "passwordChangedLine": "Changed {{when}}",
       "passwordMin": "At least 8 characters.",
       "strength": {
         "okay": "Okay",
@@ -788,6 +789,7 @@
     "email": "Email",
     "password": "Password",
     "passwordChanged": "Password changed. Other devices have been signed out.",
+    "passwordChangedLine": "Last changed {{when}}.",
     "google": "Google account",
     "googleLinked": "Linked to Google.",
     "googleNotLinked": "Not linked to Google.",
@@ -2388,6 +2390,7 @@
     "accountHeader": "Account",
     "account": {
       "active": "Active",
+      "notSignedIn": "Not signed in",
       "reset": "Password reset",
       "suspended": "Suspended"
     },

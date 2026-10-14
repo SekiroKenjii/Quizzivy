@@ -9,11 +9,14 @@ export type StudentPasswordReset = components["schemas"]["StudentPasswordReset"]
 export type StudentResetFailure = components["schemas"]["StudentResetFailure"];
 
 export type StudentStatus = "active" | "disabled" | "all";
+export type AccountStatus = components["schemas"]["AccountStatus"];
 
 export interface ListStudentsParams {
   q?: string;
   classId?: readonly string[];
   mustChangePassword?: boolean;
+  neverSignedIn?: boolean;
+  accountStatus?: readonly AccountStatus[];
   status?: StudentStatus;
   page?: number;
   limit?: number;
@@ -25,6 +28,10 @@ export function listStudents(params: ListStudentsParams = {}, signal?: AbortSign
   if (params.classId && params.classId.length > 0) query["classId"] = params.classId;
   if (params.mustChangePassword !== undefined) {
     query["mustChangePassword"] = params.mustChangePassword;
+  }
+  if (params.neverSignedIn !== undefined) query["neverSignedIn"] = params.neverSignedIn;
+  if (params.accountStatus && params.accountStatus.length > 0) {
+    query["accountStatus"] = params.accountStatus;
   }
   if (params.status) query["status"] = params.status;
   if (params.page && params.page > 1) query["page"] = params.page;
