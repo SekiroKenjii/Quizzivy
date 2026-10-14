@@ -92,9 +92,10 @@ contract: ## Lint api/openapi.yaml and assert its invariants
 
 gen: contract ## Regenerate Go + TS from api/openapi.yaml
 	cd server && go tool oapi-codegen --config ../api/oapi-codegen.yaml ../api/openapi.yaml
+	cd server && go run ./cmd/gencontract ../api/openapi.yaml gen/contract
 	npx --yes openapi-typescript@$(OPENAPI_TS_VERSION) api/openapi.yaml -o web/src/lib/api/schema.d.ts
 	cd server && go build ./... && go test ./gen/...
-	@echo "generated: server/gen/openapi/openapi.gen.go, web/src/lib/api/schema.d.ts"
+	@echo "generated: server/gen/openapi/openapi.gen.go, server/gen/contract/, web/src/lib/api/schema.d.ts"
 
 gen-check: gen ## Fail if generated output drifts from the contract (what CI runs)
 	@git diff --exit-code -- server/gen web/src/lib/api/schema.d.ts \
