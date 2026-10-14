@@ -1377,6 +1377,7 @@ listed here matches the spec.
 | D-47 | Add `ai_reservations (id, month, user_id, feature, credits, created_at)` with a composite foreign key to `ai_teacher_credits (month, user_id)` and a `feature` slug checked by pattern, not an enum | A call holds its ceiling until it settles or is released, and a row that outlives its call is returned by the sweep after ten minutes. The foreign key is `RESTRICT` on purpose: deleting a teacher's month while a call holds credits would strand them in the pool for ever. `feature` is a slug for the reason `notifications.kind` is (D-28): a feature added by a release adds no migration |
 | D-48 | Add `ai_usage_ledger`, append-only: `UPDATE` and `DELETE` are revoked from the app role in the file that creates it | One row per settled call with the actor, the feature, the tier, the four token counts the provider reported, the credits charged and the provider's request id, so a month's invoice reconciles with the pool. A ledger the application can rewrite proves nothing, which is why `audit_log` and `attempt_events` are the same (D-01, §11). `user_id` is `ON DELETE SET NULL`, run by the table's owner, so a row outlives its actor |
 | D-49 | Add `ai_credit_requests`, with a partial unique index `ai_credit_requests_one_pending_idx (user_id, month) WHERE status = 'pending'` | At most one request per teacher per month is waiting (DG-200), which the index makes a fact of the data and not a race between two clicks. `decided_by` is `ON DELETE SET NULL` and is NULL when the console decided, which the audit row says. It is the one foreign key left unindexed on purpose: the table gains a row per request, and removing an Admin scans a few hundred |
+| D-50 | `questions` gains a nullable `copied_from_id`, a self-reference `ON DELETE SET NULL`, and a partial index on the copies | A member copy of a bank question names the question it was made from, so that dragging an unedited copy out of its group (E1, `74e-e1-group-move.md`, "After release") puts the original back and no second bank question is left. The link is informational, like `test_version_questions.source_question_id` (D-07): it is cleared when the copy leaves its group and becomes an independent question, and `SET NULL` means a deleted origin never waits on a copy. Nullable with no default and no backfill, so the v0.11.6 binary's insert, which names no such column, keeps working; a copy it wrote reads NULL and is never restored. The REFERENCES is inline in the `ADD COLUMN`, so PostgreSQL skips the validation scan of a column it is adding. The index is partial because almost every question is not a copy, and `ON DELETE SET NULL` updates the copies by equality, which implies its predicate. See §48 |
 
 ---
 
@@ -1504,6 +1505,8 @@ the file it adds.
 | `00123_create_ai_credit_requests.sql` | `ai_credit_requests`, `ai_credit_requests_one_pending_idx` and two more indexes | D4 (T-D4.31), D-49, §46 |
 | `00124_add_ai_permissions.sql` | `ai.use` (Content, ordinal 6) and `ai.credits.manage` (System, ordinal 4) in `app.permissions`, both `in_matrix`; the System group's four hidden ordinals move up one, in two statements because `(group_key, ordinal)` is unique and not deferrable; `ai.use` granted to the built-in Teacher role | D4 (T-D4.32), DG-199, §46 |
 | `00125_add_word_imports_read_with_ai.sql` | `word_imports.read_with_ai boolean NOT NULL DEFAULT false`; a constant default, so the v0.10.x binary keeps inserting | D4 (T-D4.33), §47 |
+| `00126_add_questions_copied_from.sql` | `questions.copied_from_id` and `questions_copied_from_id_fkey` (`REFERENCES questions (id) ON DELETE SET NULL`), added with the column, nullable with no default | E1 hotfix v0.11.7, D-50, §48 |
+| `00127_index_questions_copied_from.sql` | `questions_copied_from_idx (copied_from_id) WHERE copied_from_id IS NOT NULL`, `CONCURRENTLY` | E1 hotfix v0.11.7, D-50, §48 |
 
 Notes on migration mechanics (§13.7):
 
@@ -3268,8 +3271,9 @@ imports asked for AI, and nothing else.
 standalone question of a test's draft into a shared-context group, takes a member out of its group,
 and moves a member to another group of the same test or to another place in its own group.
 
-**No schema change.** There is no migration, no new constraint or index and no grant. Every table
-and column the move writes exists: `questions`, `test_section_units`, `test_section_questions`,
+**No schema change in v0.11.6.** The release had no migration, no new constraint or index and no
+grant (v0.11.7 added one column and its index, D-50, under "After release" at the end of this section).
+Every table and column the move writes existed: `questions`, `test_section_units`, `test_section_questions`,
 `question_groups`, `tests` and `audit_log`. The writes hit the primary keys, the three ordinal
 constraints below and `questions_context_complete`, and the gap check hits
 `group_gap_bindings_question_idx`. So nothing is expanded or contracted, the up/down/up round trip is
@@ -3286,8 +3290,10 @@ and a member that left its group is a row with the all-null tuple the check alwa
   `context_option_order = 'shuffle'` (through the questions module's `CreateGroupMember`, with new
   question, option and blank ids), and renumber the group's members so the copy sits at `index`. The
   bank row is read and never written.
-- **Out of a group.** One `UPDATE app.questions SET context_group_id = NULL, context_ordinal = NULL,
-  context_option_order = NULL, owner_id = <the test's owner> WHERE id = $1 AND context_group_id = $2`,
+- **Out of a group.** (From v0.11.7 an unedited copy of a bank question that is still in the bank
+  takes the path under "After release" instead.) One `UPDATE app.questions SET context_group_id = NULL,
+  context_ordinal = NULL, context_option_order = NULL, copied_from_id = NULL, owner_id = <the test's owner>
+  WHERE id = $1 AND context_group_id = $2`,
   so the check sees the all-null tuple at once; renumber the source group's members; shift the
   section's units at and after `index` up by one and insert the question's `test_section_units` and
   `test_section_questions` rows, then recompute the standalone ordinals. The group stays when it
@@ -3363,7 +3369,8 @@ message, and the move sets it immediate before the read-back so the refusal belo
   after publish, and a copy leaves that row alone. It is also the rule a group already follows: the
   builder inserts bank groups as complete independent copies, and "no editable source FK is retained"
   (§19).
-- **Out: the same id.** Nothing but its group can reference a member, so there is no second reader to
+- **Out: the same id** (v0.11.7: unless it is an unedited copy of a bank question that is still there,
+  which goes back as that question). Nothing but its group can reference a member, so there is no second reader to
   protect, and a copy would only churn ids. The tuple goes to NULL in one statement. The row's
   `owner_id` is the test's owner by the group's ownership, but a member written before ownership
   existed carries an `owner_id` backfilled from `created_by` (00061, 00062), so the statement names
@@ -3372,7 +3379,7 @@ message, and the move sets it immediate before the read-back so the refusal belo
 - **Between groups: in place.** The same row changes `context_group_id`; only the group's ordinals and
   both revisions move.
 
-**Tests.** `tests/application/tests/group_move_*_test.go`, integration, on PostgreSQL 18: the three
+**Tests of v0.11.6.** `tests/application/tests/group_move_*_test.go`, integration, on PostgreSQL 18: the three
 cases and the clamp of `index` (`TestMoveInCopiesAndLeavesTheBankQuestion`,
 `TestMoveOutKeepsTheIdAndReturnsItToTheBank`, `TestMoveBetweenGroupsBumpsBothRevisions`,
 `TestMoveClampsIndexAndCompactsOrdinals`), the refusals writing nothing (`TestMoveRefusalsWriteNothing`
@@ -3383,3 +3390,98 @@ and the races, which pause one writer inside its lock and watch `pg_blocking_pid
 against a bank delete, a group save, the outline autosave, publish, a media delete, and another
 test's autosave that shares questions (`TestMoveIntoGroupLocksQuestionsInIdOrderAgainstAnotherTestsAutosave`).
 `server/tests/group_move_flow_test.go` drives the operation through the real stack.
+
+### After release: the copy remembers its origin (v0.11.7)
+
+The first release left a second bank question behind every round trip: a copy went into a group under
+a new id and came out under that id as a bank question of its own, next to the original. v0.11.7
+(decided 2026-10-14, `74e-e1-group-move.md` "After release") makes the copy remember where it came
+from. It changes this section's consequence, not its decision: a copy is still a copy and the bank row
+is still never written by a move into a group.
+
+**The column** is `questions.copied_from_id uuid`, nullable, `REFERENCES questions (id) ON DELETE SET
+NULL` (00126, D-50), with the partial index `questions_copied_from_idx` on the copies (00127). It
+follows `test_version_questions.source_question_id` (D-07): informational, never a reason to refuse
+anything. Nothing writes it but a copy into a group: `CreateGroupMember` takes it in the member's
+`GroupOwnership` and inserts it with the row; a group save (`UpdateGroupMember`) never touches it; a
+move between groups or within one leaves it; a member that leaves its group sets it NULL in the same
+`UPDATE` that clears its tuple, because it is then an independent question. A copy the v0.11.6 binary
+wrote has NULL and is never restored.
+
+**What decides a restore.** On a move out of a group, after the gap check, all of these must hold, or the
+member leaves as before:
+
+1. the member has `copied_from_id`;
+2. the origin is a live bank question: `questions.LockForDraftUse` finds it (not deleted, not a member),
+   and the caller's scope reaches it (`BankQuestion`, as the copy-in reads its source);
+3. the test's owner owns it (`NotOwnedBy`), the invariant the outline writer holds for every standalone
+   question, so the next autosave accepts it;
+4. no section of this test already holds it, so a restore never puts one question in a test twice (the
+   unique key of `test_section_units` would refuse it within a section);
+5. the member's content equals the origin's.
+
+The answer says which: `restored` when all hold; `editedCopy` when 1 to 4 hold and 5 does not (the
+builder tells the teacher the question was saved as a new one because it had been edited); neither when
+1 to 4 fail, as there is no edit to report for a question that was never a copy or whose original is
+gone. A concurrent delete of the origin is the second case of 2: `LockForDraftUse` waits for the
+deleting transaction and then finds the row deleted, so the move leaves the member as a bank question
+and does not restore a deleted row; if the move holds the origin's lock first, the delete finds the draft
+referencing the question again and answers 409.
+
+**Content** is `GroupQuestion.SameContent` in the tests domain, one function. It puts both questions
+through `GroupQuestion.Copy` with the same fixed identities and compares what comes out, so what `Copy`
+remaps (the question, option, blank and rich-prompt gap ids) cannot make an unedited copy differ from its
+source, and the comparison is by position, not by id. It compares the type, level, skill, prompt and its
+rich document, points, explanation and its document, sample answer, media asset and alt text, audio
+policy (plays, seeking, transcript reveal, pausing) and transcript, tags (as a set), the options with
+their rich content and correctness, in order, and the blanks with their ordinals, case sensitivity,
+gap bindings and accepted answers (as a set). It leaves out ids, ordinals, `context_option_order` (a
+group's choice, not the question's), the owner and the timestamps. Rich documents are compared as JSON
+values, so whitespace and a stored `null` are not edits. There is no AI-draft flag on a question in
+storage or in the contract, so there is nothing of that kind to decide. A test lists every field of the
+input types and fails on a new one, so that a field added later is compared or declared an identity on
+purpose, and a restore can never discard an edit to it. The diff's `questionParts` is a different
+comparison for a different job: it works on frozen shapes and leaves out tags, level and skill, because
+a student does not see them.
+
+**Removing the copy** is a hard `DELETE FROM app.questions WHERE id = $1 AND context_group_id = $2`,
+the statement a group save uses for a member it drops and "Remove group" for all of them. A member cannot
+be soft-deleted: `questions_context_complete` requires `deleted_at IS NULL` while the tuple is set. What
+can reference a member row, from the foreign keys on `questions (id)`: its options and blanks
+(`ON DELETE CASCADE`, children); `test_version_questions.source_question_id` (`ON DELETE SET NULL`, D-07),
+which is how a published version froze it; `test_section_questions` and `test_section_units`
+(`RESTRICT`), which a member is never in; and `group_gap_bindings`, which the gap check refuses before
+anything is written. Attempts and grading reference the version's frozen rows, so a published version
+and an attempt on it keep working: they keep every frozen row, its options, blanks and answers, and
+lose only the informational link of the copy's frozen question, which is NULL, as it already is when a
+group save drops a member. A version diff against the draft then reads the original as added and the
+frozen copy as removed, which is what it is.
+
+**The lock order for a move out** is the list above through step 4, then:
+
+1. the gap check and a read of the member's `copied_from_id`, under the member's lock from step 4;
+2. `ensureSectionUnits` on the destination. When it has to seed, it takes `LockForDraftUse` in **one
+   ascending sweep** over the section's questions and the origin together (an origin that is gone is
+   skipped there and judged in the next step). The origin is outside the section, so locking it
+   after the sweep would hold a later id while waiting on an earlier one, the order that deadlocked
+   the first copy-in (`TestRestoreLocksQuestionsInIdOrderAgainstAnotherTestsAutosave` reproduces it with
+   `40P01` against the unsorted order);
+3. `LockForDraftUse` on the origin (a repeat when the sweep took it), then the reads that judge it:
+   `BankQuestion`, `NotOwnedBy`, the origin's presence in the test, and the member's content;
+4. a restore: `DELETE` the member, renumber the group, `LockForDraftUse` on the origin again directly
+   before the inserts into `test_section_units` and `test_section_questions` (AGENTS.md), and insert it at
+   `index`. A member that leaves as it is: the `UPDATE`, the renumber, `LockForDraftUse` on the member,
+   the inserts.
+
+A copy-in is unchanged: the source section's seeding already locks the moved question in the same
+sweep. The audit entry `test.question_moved` carries `restored`, `editedCopy` and `removedMemberId`.
+
+**Tests.** `tests/application/tests/group_move_origin_test.go`: the origin is recorded and kept across
+groups; an unedited copy of each kind of question (choice with rich options, true or false, both blank
+forms, short answer with an image, a listening question with a policy and a transcript) comes back as
+its original, also after a group save that did not touch it; every kind of edit keeps the copy as a new
+bank question; a deleted, foreign or already-present original does not fail the move; a gap-bound copy is
+refused; a published version keeps every frozen row but the link; the foreign key and the index.
+`group_move_origin_race_test.go` drives the races, both orders, against a delete of the origin and
+another test's autosave. `tests/group_move_flow_test.go` drives the round trip over HTTP, and
+`builder-groups.live.spec.ts` in a browser against the real API.

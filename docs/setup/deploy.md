@@ -376,6 +376,33 @@ What v0.9.0 then does with what v0.10.0 wrote:
 - `00084`'s Down leaves its constraint `NOT VALID` for the same reason. Never roll back past v0.8.0
   (the join-code key).
 
+## Rolling out v0.11.7 (hotfix)
+
+v0.11.7 adds one nullable column and one index and changes no configuration
+(`docs/plan/74e-e1-group-move.md`, "After release"). A copy that a question's drag into a shared-context
+group makes now remembers the bank question it came from, so dragging it straight back out puts the
+original back instead of leaving a second bank question. `moveTestQuestion` answers two more booleans,
+`restored` and `editedCopy`; nothing else in the contract changes.
+
+- **Two migrations, both before traffic.** `release_command` runs `migrate up`, and the new version takes
+  traffic only after it. **00126** adds `app.questions.copied_from_id`, nullable with no default and
+  no backfill, referencing `app.questions (id)` with `ON DELETE SET NULL`. The foreign key is part of
+  the `ADD COLUMN`, and PostgreSQL does not scan the table to validate the column it is adding: on a
+  table of 1M rows and 320 MB that statement took 1.6 ms, against 6.7 s for a foreign key added in a
+  statement of its own. **00127** builds the partial index `questions_copied_from_idx` on it with
+  `CREATE INDEX CONCURRENTLY`, so writes carry on while it builds; the file is `NO TRANSACTION` and holds
+  nothing else. If a build is interrupted, the half-built index is left invalid: drop it
+  (`DROP INDEX CONCURRENTLY app.questions_copied_from_idx`) and run the migration again.
+- **v0.11.6 pods that are still running** write copies with a NULL `copied_from_id`: their insert names
+  no such column. That is harmless. Such a copy has no origin to restore, so dragged out it keeps its
+  id and becomes a bank question, as in v0.11.6; every copy written by v0.11.7 restores. The previous
+  release also reads a v0.11.7 row unchanged, since the new column is one it never selects.
+- **Rolling back to v0.11.6** needs nothing. The column and the index stay and nothing reads them;
+  a copy written by v0.11.7 is an ordinary member there. Down (`migrate down`) drops the index and then the
+  column, and loses only the memory of origins.
+- **Afterwards**, drag a bank question into a group and straight back out: the bank must hold the
+  question once. The live E2E `builder-groups.live.spec.ts` covers the same round trip on CI.
+
 ## Rolling out v0.11.6 (E1)
 
 v0.11.6 adds one operation and changes no schema and no configuration

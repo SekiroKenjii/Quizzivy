@@ -1,7 +1,14 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.108 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.109 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.108**
+
+v0.11.7, a hotfix after the owner's report (2026-10-14): dragging a question into a group and out again left a second bank question each time (`docs/plan/74e-e1-group-move.md`, "After release").
+
+- §7.3 A member copy remembers the bank question it was made from. Dragged out of its group with its content as it was copied, it goes back as that original: the copy is removed, the original takes its place in the section at the drop position, and no bank question is added. A copy that was edited since stays a new bank question, as before, and the builder says it was saved as a new question because it had been edited. A copy whose original is deleted, is another teacher's or is already in the test leaves as a bank question without a word. A move between groups or within one keeps the memory.
+- §15 `POST /teacher/tests/:id/questions/move` answers `restored` and `editedCopy` beside `copied`. No new operation or permission. One nullable column, `questions.copied_from_id`, and its index (`docs/plan/20-data-model.md` D-50, §48).
 
 **Changes since v0.107**
 
@@ -1864,11 +1871,17 @@ question dragged into a section's group, or moved there from its menu, becomes a
 member copy: the group gets a new question with new option and blank ids and shuffled
 options, and the section's reference to the bank question is dropped. The bank
 question is not touched, because other drafts may still reference it; the builder says
-so after the drop. A member dragged out of its group keeps its id: it becomes an
-ordinary question of the bank, owned by the test's owner and so listed, editable and
-protected by the usual reference check, and a unit of the section at the drop
-position. A member also moves to another group of the same test, or to another place
-in its own, in place and under its own id. A member that a gap of its group's shared
+so after the drop. A member dragged out of its group becomes a unit of the section at
+the drop position. Normally it keeps its id and becomes an ordinary question of the
+bank, owned by the test's owner and so listed, editable and protected by the usual
+reference check. A member that is an unedited copy of a bank question that is still in
+the bank goes back as that original instead: the copy remembers the question it was
+made from, it is removed, and the original takes the drop position, so a round trip
+leaves one bank question, not two. A copy edited since stays a new bank question, and
+the builder says so; one whose original is deleted, belongs to another teacher or is in
+the test already is not restored. A member also moves to another group of the same
+test, or to another place in its own, in place and under its own id, and keeps the
+memory of its original. A member that a gap of its group's shared
 material is bound to does not leave its group until the teacher unbinds it in Shared
 content. A group left with no member stays as an empty draft and cannot publish. A
 bank group is neither a source nor a destination. One transaction does the move under
@@ -3102,11 +3115,16 @@ GET    /teacher/tests/:id/versions/:version/diff?against=previous|draft|<n>
 POST   /teacher/tests/:id/duplicate
 POST   /teacher/tests/:id/questions/move  {expectedUpdatedAt, questionId, to: {sectionId, groupId|null, index},
                                           expectedGroupRevisions: [{groupId, revision}]} (one or two, once each,
-                                          exactly the groups the move touches) → {test, questionId, copied, groups};
+                                          exactly the groups the move touches) → {test, questionId, copied, restored, editedCopy,
+                                          groups};
                                           content.tests.write, at most 4 KiB. index counts once the question has
                                           left its old place; past the end is the end. A standalone question to a
-                                          group is copied (copied true, a new questionId); a member out of a group,
-                                          to another group or within one keeps its id. A move between two standalone
+                                          group is copied (copied true, a new questionId, which remembers the bank
+                                          question); a member out of a group goes back as the original when it is an
+                                          unedited copy of a bank question still in the bank (restored true,
+                                          questionId the original's), otherwise keeps its id (editedCopy true when it
+                                          was an edited copy of a question still there); a member to another group or
+                                          within one keeps its id. A move between two standalone
                                           places is updateTest's. 400 VALIDATION_FAILED with details.rule
                                           move_outline_only | move_group_section | move_revisions |
                                           move_source_ambiguous; 404 for a test, question, section or group the
