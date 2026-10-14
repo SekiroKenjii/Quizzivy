@@ -9,6 +9,7 @@ import (
 	"quizzivy/internal/modules/attempts/application/command"
 	"quizzivy/internal/modules/attempts/application/query"
 	"quizzivy/internal/modules/attempts/domain"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -19,6 +20,19 @@ import (
 func TestThePaperCarriesNoPartOfTheGradingKey(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, openAssignment())
+
+	for _, held := range []struct{ query, id, secret string }{
+		{`SELECT count(*) FROM app.test_version_questions WHERE id = $1::uuid AND explanation = $2`, w.choice, secretExplanation},
+		{`SELECT count(*) FROM app.test_version_questions WHERE id = $1::uuid AND sample_answer = $2`, w.essay, secretSampleAnswer},
+		{`SELECT count(*) FROM app.test_version_questions WHERE id = $1::uuid AND transcript = $2`, w.listening, secretTranscript},
+		{`SELECT count(*) FROM app.test_version_blank_answers ba
+		    JOIN app.test_version_blanks b ON b.id = ba.test_version_blank_id
+		   WHERE b.test_version_question_id = $1::uuid AND ba.answer = $2`, w.blank, secretBlankAnswer},
+	} {
+		if count(t, pool, held.query, held.id, held.secret) == 0 {
+			t.Fatalf("the fixture does not hold %q; this test proves nothing", held.secret)
+		}
+	}
 
 	session, err := newService(t, pool).Commands.StartOrResume.Handle(context.Background(), command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
 	if err != nil {
@@ -101,6 +115,9 @@ func TestBlanksArriveWithoutTheirAcceptedAnswers(t *testing.T) {
 			if b.ID == "" || b.Ordinal < 1 {
 				t.Errorf("blank %+v is not usable by the client", b)
 			}
+			if got, want := jsonKeys(t, b), []string{"CaseSensitive", "GapID", "ID", "Ordinal"}; !slices.Equal(got, want) {
+				t.Errorf("a blank reaches the student with fields %v, want %v", got, want)
+			}
 		}
 	}
 	if blanks != 2 {
@@ -110,7 +127,7 @@ func TestBlanksArriveWithoutTheirAcceptedAnswers(t *testing.T) {
 	if got := count(t, pool, `
 		SELECT count(*) FROM app.test_version_blank_answers ba
 		  JOIN app.test_version_blanks b ON b.id = ba.test_version_blank_id
-		 WHERE b.test_version_question_id = $1::uuid`, w.blank); got != 2 {
+		 WHERE b.test_version_question_id = $1::uuid AND ba.answer = $2`, w.blank, secretBlankAnswer); got != 2 {
 		t.Fatalf("the fixture holds %d accepted answers, want 2; this test proves nothing", got)
 	}
 }
@@ -129,6 +146,11 @@ func TestOptionsArriveWithoutTheirCorrectness(t *testing.T) {
 	var options int
 	for _, q := range session.Questions {
 		options += len(q.Options)
+		for _, o := range q.Options {
+			if got, want := jsonKeys(t, o), []string{"Content", "ID", "Text"}; !slices.Equal(got, want) {
+				t.Errorf("an option reaches the student with fields %v, want %v", got, want)
+			}
+		}
 	}
 	if options != 6 {
 		t.Fatalf("%d options reached the student, want 6", options)
@@ -215,6 +237,24 @@ func TestRefetchingDealsTheSamePaper(t *testing.T) {
 	}
 }
 
+func jsonKeys(t *testing.T, v any) []string {
+	t.Helper()
+	raw, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		t.Fatal(err)
+	}
+	keys := make([]string, 0, len(fields))
+	for key := range fields {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	return keys
+}
+
 func ids(qs []domain.Question) string {
 	var b strings.Builder
 	for _, q := range qs {
@@ -225,34 +265,4 @@ func ids(qs []domain.Question) string {
 		b.WriteString(" ")
 	}
 	return b.String()
-}
-
-// The transcript is §13.5's clearest case: it is the audio, written down. A
-// live check against seeded data once reported no leak because the question
-// carried no transcript at all, which proved nothing.
-func TestTheListeningQuestionsTranscriptNeverReachesTheStudent(t *testing.T) {
-	pool := newPool(t)
-	w := seedWorld(t, pool, openAssignment())
-
-	session, err := newService(t, pool).Commands.StartOrResume.Handle(context.Background(), command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
-	if err != nil {
-		t.Fatalf("start: %v", err)
-	}
-	encoded, err := json.Marshal(session)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(string(encoded), secretTranscript) {
-		t.Error("the transcript is in the student payload")
-	}
-
-	var stored string
-	if err := pool.QueryRow(context.Background(),
-		`SELECT transcript FROM app.test_version_questions WHERE id = $1::uuid`,
-		w.listening).Scan(&stored); err != nil {
-		t.Fatal(err)
-	}
-	if stored != secretTranscript {
-		t.Fatalf("the fixture holds %q, not the sentinel; this test proves nothing", stored)
-	}
 }
