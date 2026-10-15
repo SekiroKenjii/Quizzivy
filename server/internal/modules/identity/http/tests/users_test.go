@@ -88,7 +88,7 @@ func createdAccount() domain.AdminUser {
 func TestCreateUserPassesTheCallerTheRoleTheClassAndTheDeliveryOn(t *testing.T) {
 	admin := anAdmin()
 	classID := uuid.New()
-	body := newAccountBody(openapi.TemporaryPassword)
+	body := newAccountBody(openapi.UserCreateDeliveryTemporaryPassword)
 	body.ClassId = &classID
 	spy := &createUserSpy{}
 	h := identityhttp.NewIdentity(createUserApp(spy, command.CreateUserResult{User: createdAccount()}, nil), 0, false, nil)
@@ -112,7 +112,7 @@ func TestCreateUserPassesTheCallerTheRoleTheClassAndTheDeliveryOn(t *testing.T) 
 func TestCreateUserWithoutAClassSendsNone(t *testing.T) {
 	spy := &createUserSpy{}
 	h := identityhttp.NewIdentity(createUserApp(spy, command.CreateUserResult{User: createdAccount()}, nil), 0, false, nil)
-	if got := createdAs(t, anAdmin(), "", h, newAccountBody(openapi.EmailLink)); got.status != http.StatusCreated {
+	if got := createdAs(t, anAdmin(), "", h, newAccountBody(openapi.UserCreateDeliveryEmailLink)); got.status != http.StatusCreated {
 		t.Fatalf("answered %d: %s", got.status, got.body)
 	}
 	if spy.got.Input.ClassID != "" {
@@ -129,8 +129,8 @@ func TestACreatedAccountIsNeverCachedAndShowsItsPasswordOnce(t *testing.T) {
 		result   command.CreateUserResult
 		wantPass bool
 	}{
-		{"a temporary password", openapi.TemporaryPassword, command.CreateUserResult{User: account, TemporaryPassword: password}, true},
-		{"an email link", openapi.EmailLink, command.CreateUserResult{User: account}, false},
+		{"a temporary password", openapi.UserCreateDeliveryTemporaryPassword, command.CreateUserResult{User: account, TemporaryPassword: password}, true},
+		{"an email link", openapi.UserCreateDeliveryEmailLink, command.CreateUserResult{User: account}, false},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			h := identityhttp.NewIdentity(createUserApp(&createUserSpy{}, c.result, nil), 0, false, nil)
@@ -173,7 +173,7 @@ func TestACreatedAccountRowTellsHowItSignsIn(t *testing.T) {
 	account.HasGoogle = true
 	account.ClassCount, account.FirstClass = 2, strPtr("Lớp 10A")
 	h := identityhttp.NewIdentity(createUserApp(&createUserSpy{}, command.CreateUserResult{User: account}, nil), 0, false, nil)
-	got := createdAs(t, anAdmin(), "", h, newAccountBody(openapi.EmailLink))
+	got := createdAs(t, anAdmin(), "", h, newAccountBody(openapi.UserCreateDeliveryEmailLink))
 	var out struct {
 		User struct {
 			SignIn  struct{ Password, Google bool } `json:"signIn"`
@@ -250,7 +250,7 @@ func TestEveryCreateUserRefusalHasItsStatusCodeAndBothLanguages(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			h := identityhttp.NewIdentity(createUserApp(&createUserSpy{}, command.CreateUserResult{}, c.err), 0, false, nil)
 			for _, language := range []struct{ accept, want string }{{"", c.vi}, {"en", c.en}} {
-				got := createdAs(t, anAdmin(), language.accept, h, newAccountBody(openapi.TemporaryPassword))
+				got := createdAs(t, anAdmin(), language.accept, h, newAccountBody(openapi.UserCreateDeliveryTemporaryPassword))
 				if got.err != nil || got.status != c.status {
 					t.Fatalf("answered %d, %v: %s", got.status, got.err, got.body)
 				}
@@ -282,7 +282,7 @@ func TestEveryCreateUserRefusalHasItsStatusCodeAndBothLanguages(t *testing.T) {
 
 func TestACreatedAccountOnAServerThatCannotSendMailIsNotImplemented(t *testing.T) {
 	h := identityhttp.NewIdentity(createUserApp(&createUserSpy{}, command.CreateUserResult{}, domain.ErrSetPasswordUnavailable), 0, false, nil)
-	got := createdAs(t, anAdmin(), "", h, newAccountBody(openapi.EmailLink))
+	got := createdAs(t, anAdmin(), "", h, newAccountBody(openapi.UserCreateDeliveryEmailLink))
 	if got.err == nil || !errors.Is(got.err, httpx.ErrNotImplemented) {
 		t.Fatalf("answered %d, err = %v, want httpx.ErrNotImplemented for the 501 mapper", got.status, got.err)
 	}
@@ -291,7 +291,7 @@ func TestACreatedAccountOnAServerThatCannotSendMailIsNotImplemented(t *testing.T
 func TestAnUnexpectedFailureOfCreateUserIsNotTranslated(t *testing.T) {
 	boom := errors.New("the database is gone")
 	h := identityhttp.NewIdentity(createUserApp(&createUserSpy{}, command.CreateUserResult{}, boom), 0, false, nil)
-	got := createdAs(t, anAdmin(), "", h, newAccountBody(openapi.EmailLink))
+	got := createdAs(t, anAdmin(), "", h, newAccountBody(openapi.UserCreateDeliveryEmailLink))
 	if !errors.Is(got.err, boom) {
 		t.Fatalf("err = %v, want the failure passed on to the 500 mapper", got.err)
 	}
@@ -303,7 +303,7 @@ func TestCreateUserIsNotImplementedWithoutItsCommandOrBody(t *testing.T) {
 		"no command":     identityhttp.NewIdentity(&application.Application{}, 0, false, nil),
 	} {
 		t.Run(name, func(t *testing.T) {
-			got := createdAs(t, anAdmin(), "", h, newAccountBody(openapi.EmailLink))
+			got := createdAs(t, anAdmin(), "", h, newAccountBody(openapi.UserCreateDeliveryEmailLink))
 			if !errors.Is(got.err, httpx.ErrNotImplemented) {
 				t.Errorf("err = %v, want httpx.ErrNotImplemented", got.err)
 			}

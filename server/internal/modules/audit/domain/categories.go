@@ -37,6 +37,7 @@ var categoryOfEntity = map[string]Category{
 	"users":                Accounts,
 	"student":              Accounts,
 	"user_identity":        Accounts,
+	"user_import":          Accounts,
 	"refresh_token_family": Accounts,
 	"role":                 Accounts,
 

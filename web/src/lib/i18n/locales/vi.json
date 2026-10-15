@@ -388,7 +388,8 @@
       "user.password_set": "Đã đặt mật khẩu bằng liên kết",
       "user.preferences_updated": "Đã cập nhật tuỳ chọn cá nhân",
       "user.profile_updated": "Đã cập nhật hồ sơ",
-      "user.renamed": "Đã đổi tên tài khoản"
+      "user.renamed": "Đã đổi tên tài khoản",
+      "user_import.requested": "Đã yêu cầu nhập người dùng từ tệp"
     }
   },
   "error": {
