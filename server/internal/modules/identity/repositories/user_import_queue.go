@@ -183,7 +183,8 @@ func (s *settlement) row(ctx context.Context, row domain.ImportCreate) error {
 		s.skipped++
 		return nil
 	}
-	if err := s.enrol(ctx, row, id); err != nil {
+	placed, err := s.enrol(ctx, row, id)
+	if err != nil {
 		return err
 	}
 	if err := s.invite(ctx, id); err != nil {
@@ -194,9 +195,10 @@ func (s *settlement) row(ctx context.Context, row domain.ImportCreate) error {
 	}
 	tag, err := s.tx.Exec(ctx, `
 		UPDATE app.user_import_rows
-		   SET outcome = 'created', user_id = $3::uuid, secret_ciphertext = $4
+		   SET outcome = 'created', user_id = $3::uuid, secret_ciphertext = $4,
+		       class_id = CASE WHEN $5::bool THEN class_id END
 		 WHERE job_id = $1::uuid AND ordinal = $2 AND outcome = 'pending'`,
-		s.batch.JobID, row.Ordinal, id, row.Secret)
+		s.batch.JobID, row.Ordinal, id, row.Secret, placed)
 	if err != nil {
 		return fmt.Errorf("user imports: settle a created row: %w", err)
 	}
@@ -239,28 +241,28 @@ func (s *settlement) insert(ctx context.Context, row domain.ImportCreate) (strin
 	return id, true, nil
 }
 
-func (s *settlement) enrol(ctx context.Context, row domain.ImportCreate, userID string) error {
+func (s *settlement) enrol(ctx context.Context, row domain.ImportCreate, userID string) (bool, error) {
 	if row.ClassID == "" {
-		return nil
+		return false, nil
 	}
 	open, known := s.classes[row.ClassID]
 	if !known {
 		err := lockOpenClass(ctx, s.tx, row.ClassID)
 		if err != nil && !errors.Is(err, domain.ErrClassNotFound) {
-			return err
+			return false, err
 		}
 		open = err == nil
 		s.classes[row.ClassID] = open
 	}
 	if !open {
-		return nil
+		return false, nil
 	}
 	if _, err := s.tx.Exec(ctx, `
 		INSERT INTO app.class_members (class_id, user_id, joined_via, added_by)
 		VALUES ($1::uuid, $2::uuid, 'admin', $3::uuid)`, row.ClassID, userID, s.batch.By); err != nil {
-		return fmt.Errorf("user imports: enrol: %w", err)
+		return false, fmt.Errorf("user imports: enrol: %w", err)
 	}
-	return nil
+	return true, nil
 }
 
 func (s *settlement) invite(ctx context.Context, userID string) error {

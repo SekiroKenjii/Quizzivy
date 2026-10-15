@@ -5932,6 +5932,9 @@ export interface components {
          *     on, counting the header as line 1, which is the number a spreadsheet
          *     shows beside it. `code` says why: `REQUIRED` (empty), `TOO_LONG`,
          *     `INVALID` (not an address, or a name with control characters),
+         *     `FORMULA_LIKE` (an address that starts with a character a spreadsheet
+         *     reads as a formula, such as `+` or `=`, which the hand-out sheet could not
+         *     carry as the address that signs in),
          *     `DUPLICATE_IN_FILE` (an address an earlier row has), `UNKNOWN_ROLE` and
          *     `AMBIGUOUS_ROLE` (no role, or more than one, answers to the name),
          *     `ROLE_NOT_ALLOWED` (the role holds a permission the importer lacks),
@@ -5944,7 +5947,7 @@ export interface components {
             row: number;
             field: components["schemas"]["UserImportField"];
             /** @enum {string} */
-            code: "REQUIRED" | "TOO_LONG" | "INVALID" | "DUPLICATE_IN_FILE" | "UNKNOWN_ROLE" | "AMBIGUOUS_ROLE" | "ROLE_NOT_ALLOWED" | "ROLE_NOT_GIVABLE" | "UNKNOWN_CLASS" | "AMBIGUOUS_CLASS" | "CLASS_NOT_ALLOWED";
+            code: "REQUIRED" | "TOO_LONG" | "INVALID" | "FORMULA_LIKE" | "DUPLICATE_IN_FILE" | "UNKNOWN_ROLE" | "AMBIGUOUS_ROLE" | "ROLE_NOT_ALLOWED" | "ROLE_NOT_GIVABLE" | "UNKNOWN_CLASS" | "AMBIGUOUS_CLASS" | "CLASS_NOT_ALLOWED";
         };
         /**
          * @description What a file would come to. `rows` are the data rows it holds;

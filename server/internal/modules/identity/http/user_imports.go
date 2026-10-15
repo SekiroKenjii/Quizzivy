@@ -249,14 +249,31 @@ func (h Identity) DownloadUserImportSheet(ctx context.Context, request openapi.D
 	if err := writeSheet(&file, rows); err != nil {
 		return nil, err
 	}
-	return openapi.DownloadUserImportSheet200TextcsvResponse{
+	return sheetFile{openapi.DownloadUserImportSheet200TextcsvResponse{
 		Body:          &file,
 		ContentLength: int64(file.Len()),
 		Headers: openapi.DownloadUserImportSheet200ResponseHeaders{
 			CacheControl:       "no-store",
 			ContentDisposition: fmt.Sprintf(`attachment; filename="new-accounts-%s.csv"`, h.today(ctx, req.ActorID)),
 		},
-	}, nil
+	}}, nil
+}
+
+type sheetFile struct {
+	openapi.DownloadUserImportSheet200TextcsvResponse
+}
+
+func (s sheetFile) VisitDownloadUserImportSheetResponse(w http.ResponseWriter) error {
+	return s.DownloadUserImportSheet200TextcsvResponse.VisitDownloadUserImportSheetResponse(charsetWriter{w})
+}
+
+type charsetWriter struct{ http.ResponseWriter }
+
+func (c charsetWriter) WriteHeader(status int) {
+	if c.Header().Get("Content-Type") == "text/csv" {
+		c.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	}
+	c.ResponseWriter.WriteHeader(status)
 }
 
 func writeSheet(out *bytes.Buffer, rows []domain.SheetRow) error {

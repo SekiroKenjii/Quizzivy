@@ -5088,7 +5088,7 @@
       },
       "UserImportIssue": {
         "type": "object",
-        "description": "One cell the import refused. `row` is the line of the file the row sits\non, counting the header as line 1, which is the number a spreadsheet\nshows beside it. `code` says why: `REQUIRED` (empty), `TOO_LONG`,\n`INVALID` (not an address, or a name with control characters),\n`DUPLICATE_IN_FILE` (an address an earlier row has), `UNKNOWN_ROLE` and\n`AMBIGUOUS_ROLE` (no role, or more than one, answers to the name),\n`ROLE_NOT_ALLOWED` (the role holds a permission the importer lacks),\n`ROLE_NOT_GIVABLE` (the Assistant, which no one is given), `UNKNOWN_CLASS` and\n`AMBIGUOUS_CLASS` (no active class, or more than one, has the name), and\n`CLASS_NOT_ALLOWED` (a class for a role that is not a student target, or\nby an importer without `scope.all`). A refusal carries no text of the file.\n",
+        "description": "One cell the import refused. `row` is the line of the file the row sits\non, counting the header as line 1, which is the number a spreadsheet\nshows beside it. `code` says why: `REQUIRED` (empty), `TOO_LONG`,\n`INVALID` (not an address, or a name with control characters),\n`FORMULA_LIKE` (an address that starts with a character a spreadsheet\nreads as a formula, such as `+` or `=`, which the hand-out sheet could not\ncarry as the address that signs in),\n`DUPLICATE_IN_FILE` (an address an earlier row has), `UNKNOWN_ROLE` and\n`AMBIGUOUS_ROLE` (no role, or more than one, answers to the name),\n`ROLE_NOT_ALLOWED` (the role holds a permission the importer lacks),\n`ROLE_NOT_GIVABLE` (the Assistant, which no one is given), `UNKNOWN_CLASS` and\n`AMBIGUOUS_CLASS` (no active class, or more than one, has the name), and\n`CLASS_NOT_ALLOWED` (a class for a role that is not a student target, or\nby an importer without `scope.all`). A refusal carries no text of the file.\n",
         "additionalProperties": false,
         "required": [
           "row",
@@ -5109,6 +5109,7 @@
               "REQUIRED",
               "TOO_LONG",
               "INVALID",
+              "FORMULA_LIKE",
               "DUPLICATE_IN_FILE",
               "UNKNOWN_ROLE",
               "AMBIGUOUS_ROLE",

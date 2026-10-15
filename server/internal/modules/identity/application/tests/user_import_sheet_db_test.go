@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"quizzivy/internal/modules/identity/application/command"
 	"quizzivy/internal/modules/identity/domain"
 )
@@ -320,5 +322,81 @@ func TestTheSweepCommandNeedsALimit(t *testing.T) {
 	w := newWorkerWorld(t)
 	if _, err := w.app.Commands.EraseExpiredImportSheets.Handle(context.Background(), command.EraseExpiredImportSheets{}); err == nil {
 		t.Error("a sweep with no limit was accepted")
+	}
+}
+
+func TestAnAddressASheetCouldNotCarryIsRefusedAtPreviewAndAtCreationForEitherDelivery(t *testing.T) {
+	for name, delivery := range map[string]domain.ImportDelivery{"sheet": domain.ImportSheet, "email link": domain.ImportEmailLink} {
+		t.Run(name, func(t *testing.T) {
+			w := newWorkerWorld(t)
+			good, plus := w.email("tot"), "+"+w.email("cong")
+			file := csvOf("full_name,email", "Nguyễn Văn Tốt,"+good, "Trần Thị Cộng,"+plus)
+
+			preview, err := w.preview(w.req(), file, domain.DefaultStudent, delivery)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if preview.NewAccounts != 1 || preview.InvalidRows != 1 || len(preview.Issues) != 1 {
+				t.Fatalf("preview = new %d, invalid %d, issues %+v, want 1, 1 and the refused cell", preview.NewAccounts, preview.InvalidRows, preview.Issues)
+			}
+			wantIssue(t, preview.Issues, 3, domain.FieldEmail, domain.CodeFormulaLike)
+
+			created, err := w.submit(w.req(), uuid.NewString(), file, domain.DefaultStudent, delivery)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if created.Job.Total != 1 || created.Job.Invalid != 1 {
+				t.Errorf("job = %+v, want the one good row stored and the other counted invalid", created.Job)
+			}
+			rows := w.storedRows(t, created.Job.ID)
+			if len(rows) != 1 || rows[0].Email != good {
+				t.Errorf("stored rows = %+v, want only %s", rows, good)
+			}
+		})
+	}
+}
+
+func TestTheSheetNamesTheClassOnlyOfTheStudentsWhoWerePlacedInIt(t *testing.T) {
+	ctx := context.Background()
+	w := newWorkerWorld(t)
+	name := "Lớp đóng giữa chừng " + w.marker
+	class := w.classNamed(t, name, false)
+	file, _ := w.students(3*domain.ImportBatchSize, name)
+	job := w.submitRows(t, domain.ImportSheet, file)
+	run := w.runner()
+	run.Queue = &afterFirstSettle{UserImportQueue: w.queue, then: func() {
+		if _, err := w.admin.Exec(ctx, `UPDATE app.classes SET archived_at = now() WHERE id = $1::uuid`, class); err != nil {
+			t.Error(err)
+		}
+	}}
+
+	w.runOnce(t, run)
+
+	if done := w.job(t, job.ID); done.Status != domain.ImportDone || done.Created != 3*domain.ImportBatchSize {
+		t.Fatalf("job = %+v, want done with every account created", done)
+	}
+	if n := w.count(t, `SELECT count(*) FROM app.class_members WHERE class_id = $1::uuid`, class); n != domain.ImportBatchSize {
+		t.Errorf("%d student(s) placed, want only the first batch of %d", n, domain.ImportBatchSize)
+	}
+	sheet, err := w.app.Commands.DownloadUserImportSheet.Handle(ctx, command.DownloadUserImportSheet{Request: w.req(), ID: job.ID})
+	if err != nil || len(sheet) != 3*domain.ImportBatchSize {
+		t.Fatalf("the sheet = %d row(s), %v, want a line for every account", len(sheet), err)
+	}
+	named, blank := 0, 0
+	for i, row := range sheet {
+		switch {
+		case i < domain.ImportBatchSize && row.Class == name:
+			named++
+		case i >= domain.ImportBatchSize && row.Class == "":
+			blank++
+		default:
+			t.Errorf("line %d names the class %q", i, row.Class)
+		}
+	}
+	if named != domain.ImportBatchSize || blank != 2*domain.ImportBatchSize {
+		t.Errorf("%d line(s) name the class and %d leave it blank, want %d and %d", named, blank, domain.ImportBatchSize, 2*domain.ImportBatchSize)
+	}
+	if n := w.count(t, `SELECT count(*) FROM app.user_import_rows WHERE job_id = $1::uuid AND class_id IS NOT NULL`, job.ID); n != domain.ImportBatchSize {
+		t.Errorf("%d stored row(s) still name the class, want only the %d placed", n, domain.ImportBatchSize)
 	}
 }

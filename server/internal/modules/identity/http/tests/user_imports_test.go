@@ -346,8 +346,8 @@ func TestTheSheetIsACSVAttachmentOfTheAccountsAndPasswordsThatNothingCaches(t *t
 	if got.status != http.StatusOK {
 		t.Fatalf("answered %d: %s", got.status, got.body)
 	}
-	if got.header.Get("Cache-Control") != "no-store" || !strings.HasPrefix(got.header.Get("Content-Type"), "text/csv") {
-		t.Errorf("headers = %v, want text/csv and no-store", got.header)
+	if got.header.Get("Cache-Control") != "no-store" || got.header.Get("Content-Type") != "text/csv; charset=utf-8" {
+		t.Errorf("headers = %v, want text/csv in UTF-8 and no-store", got.header)
 	}
 	if disposition := got.header.Get("Content-Disposition"); !regexp.MustCompile(`^attachment; filename="new-accounts-\d{8}\.csv"$`).MatchString(disposition) {
 		t.Errorf("Content-Disposition = %q, want an attachment named new-accounts-YYYYMMDD.csv", disposition)
@@ -648,6 +648,18 @@ func TestABodyOverItsBudgetAnswers413WithTheWayOutInBothLanguages(t *testing.T) 
 			if got.status != http.StatusRequestEntityTooLarge || code != openapi.USERIMPORTFILETOOLARGE || !strings.Contains(message, want) {
 				t.Errorf("%s %s: %d %s %q, want 413 USER_IMPORT_FILE_TOO_LARGE naming %q", name, accept, got.status, code, message, want)
 			}
+		}
+	}
+}
+
+func TestEveryCodeTheJudgeGivesIsOneTheContractNames(t *testing.T) {
+	for _, code := range []domain.ImportCode{
+		domain.CodeRequired, domain.CodeTooLong, domain.CodeInvalid, domain.CodeFormulaLike, domain.CodeDuplicateInFile,
+		domain.CodeUnknownRole, domain.CodeAmbiguousRole, domain.CodeRoleNotAllowed, domain.CodeRoleNotGivable,
+		domain.CodeUnknownClass, domain.CodeAmbiguousClass, domain.CodeClassNotAllowed,
+	} {
+		if !openapi.UserImportIssueCode(code).Valid() {
+			t.Errorf("the judge's %s is not in the contract's UserImportIssue.code", code)
 		}
 	}
 }

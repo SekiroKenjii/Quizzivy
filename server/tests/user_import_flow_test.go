@@ -21,11 +21,15 @@ import (
 	identitydomain "quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/platform/config"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/platform/tabular"
 )
 
 func (w *world) userImportRunner() identityworker.UserImports {
+	return w.userImportRunnerLogging(slog.New(slog.DiscardHandler))
+}
+
+func (w *world) userImportRunnerLogging(logger *slog.Logger) identityworker.UserImports {
 	w.t.Helper()
-	logger := slog.New(slog.DiscardHandler)
 	mail, err := wiring.BuildMail(w.cfg, db.NewContext(w.pool), logger)
 	if err != nil {
 		w.t.Fatalf("assemble the mail: %v", err)
@@ -151,7 +155,9 @@ func TestASheetImportCreatesTheAccountsAndHandsTheirPasswordsOutOnce(t *testing.
 		t.Fatal("storing the job created accounts")
 	}
 
-	if status := w.runUserImports(w.userImportRunner(), jobID); status != "done" {
+	logs := &lockedBuffer{}
+	runner := w.userImportRunnerLogging(slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	if status := w.runUserImports(runner, jobID); status != "done" {
 		t.Fatalf("the job ended %s", status)
 	}
 
@@ -218,6 +224,11 @@ func TestASheetImportCreatesTheAccountsAndHandsTheirPasswordsOutOnce(t *testing.
 			t.Errorf("password %q of %s is empty or repeated", given, row[1])
 		}
 		seen[given] = true
+		for column, cell := range map[string]string{"email": row[1], "temporary_password": row[4]} {
+			if tabular.EscapeCell(cell) != cell {
+				t.Errorf("the %s cell %q of %s would be changed by the escape: the sheet must hand out what signs in", column, cell, row[1])
+			}
+		}
 		student := w.browser()
 		if got, _ := student.call(http.MethodPost, "/auth/login", map[string]any{"email": row[1], "password": given}); got != http.StatusOK {
 			t.Errorf("%s cannot sign in with the sheet's password: %d", row[1], got)
@@ -242,6 +253,21 @@ func TestASheetImportCreatesTheAccountsAndHandsTheirPasswordsOutOnce(t *testing.
 		for given := range seen {
 			if strings.Contains(string(shown), given) {
 				t.Errorf("a response other than the sheet carries the password %q", given)
+			}
+		}
+	}
+
+	if text := logs.String(); !strings.Contains(text, `"msg":"user import"`) {
+		t.Errorf("the worker logged nothing of its run: %q", text)
+	} else {
+		for given := range seen {
+			if strings.Contains(text, given) {
+				t.Errorf("the worker's log carries the password %q", given)
+			}
+		}
+		for _, row := range rows[1:] {
+			if strings.Contains(text, row[1]) {
+				t.Errorf("the worker's log carries the address %s", row[1])
 			}
 		}
 	}

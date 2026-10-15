@@ -60,6 +60,7 @@ const (
 	CodeRequired        ImportCode = "REQUIRED"
 	CodeTooLong         ImportCode = "TOO_LONG"
 	CodeInvalid         ImportCode = "INVALID"
+	CodeFormulaLike     ImportCode = "FORMULA_LIKE"
 	CodeDuplicateInFile ImportCode = "DUPLICATE_IN_FILE"
 	CodeUnknownRole     ImportCode = "UNKNOWN_ROLE"
 	CodeAmbiguousRole   ImportCode = "AMBIGUOUS_ROLE"

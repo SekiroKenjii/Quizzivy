@@ -3,10 +3,12 @@
 package application_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -14,6 +16,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	accessapp "quizzivy/internal/modules/access/application"
 	accessrepo "quizzivy/internal/modules/access/repositories"
@@ -816,5 +819,50 @@ func TestASheetJobThatCreatesNoAccountOffersNoSheet(t *testing.T) {
 	}
 	if _, err := w.app.Commands.DownloadUserImportSheet.Handle(context.Background(), command.DownloadUserImportSheet{Request: w.req(), ID: job.ID}); !errors.Is(err, domain.ErrSheetUnavailable) {
 		t.Errorf("download = %v, want ErrSheetUnavailable", err)
+	}
+}
+
+type failingSettle struct {
+	domain.UserImportQueue
+	err error
+}
+
+func (f failingSettle) Settle(context.Context, domain.ImportBatch, domain.LinkIssue) (domain.ImportProgress, error) {
+	return domain.ImportProgress{}, f.err
+}
+
+func TestAJobGivenBackForAnotherTryLogsTheClassOfItsFailureAndNeverItsText(t *testing.T) {
+	cases := map[string]struct {
+		err  error
+		want string
+	}{
+		"a database error": {fmt.Errorf("settle: %w", &pgconn.PgError{Code: "23505", Message: `duplicate key value violates unique constraint (email)=(secret@x.test)`}), `"failure":"database 23505"`},
+		"a timeout":        {fmt.Errorf("settle: %w", context.DeadlineExceeded), `"failure":"timeout"`},
+		"any other error":  {errors.New("the password hunter2 of secret@x.test"), `"failure":"error"`},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			w := newWorkerWorld(t)
+			file, _ := w.students(2, "")
+			job := w.submitRows(t, domain.ImportEmailLink, file)
+			var logs bytes.Buffer
+			run := w.runner()
+			run.Queue = failingSettle{UserImportQueue: w.queue, err: c.err}
+			run.Logger = slog.New(slog.NewJSONHandler(&logs, nil))
+
+			if worked, err := run.RunOne(context.Background()); worked || err == nil {
+				t.Fatalf("RunOne = %v, %v, want the failure back for another try", worked, err)
+			}
+
+			text := logs.String()
+			if !strings.Contains(text, `"outcome":"retried"`) || !strings.Contains(text, c.want) || !strings.Contains(text, job.ID) {
+				t.Errorf("log = %s, want the retry with %s", text, c.want)
+			}
+			for _, leak := range []string{"secret@x.test", "hunter2", "duplicate key"} {
+				if strings.Contains(text, leak) {
+					t.Errorf("the log carries %q: %s", leak, text)
+				}
+			}
+		})
 	}
 }

@@ -81,8 +81,12 @@ func (r UserImports) RunOne(ctx context.Context) (bool, error) {
 	done, runErr := r.execute(work, job)
 	cancel()
 	outcome, err := r.settle(ctx, job, runErr)
-	r.Logger.Info("user import", "jobId", job.ID, "attempt", job.Attempts, "outcome", outcome,
-		"created", done.Created, "skipped", done.Skipped, "durationMs", r.Now().Sub(started).Milliseconds())
+	fields := []any{"jobId", job.ID, "attempt", job.Attempts, "outcome", outcome,
+		"created", done.Created, "skipped", done.Skipped, "durationMs", r.Now().Sub(started).Milliseconds()}
+	if outcome == outcomeRetried {
+		fields = append(fields, "failure", failureClass(runErr))
+	}
+	r.Logger.Info("user import", fields...)
 	if err != nil {
 		return true, err
 	}
