@@ -196,7 +196,7 @@ export function PermissionMatrix({
                     <div
                       role="rowheader"
                       aria-colspan={roles.length + 1}
-                      className="text-muted-fg bg-sidebar border-t px-4 pt-2.5 pb-1.5 text-xs font-semibold"
+                      className="text-muted-fg bg-sidebar border-t px-4 pt-2.5 pb-1.5 text-xs leading-4.5 font-semibold"
                     >
                       {t(GROUPS[row.heading])}
                     </div>
