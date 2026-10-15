@@ -337,7 +337,7 @@ describe("the Students can join switch", () => {
       screen.getByText("Tạo mã mới thì mã, liên kết và mã QR cũ đều ngừng hoạt động."),
     ).toBeVisible();
     const opener = screen.getByRole("button", { name: "Hiện mã QR cỡ lớn" });
-    expect(opener).toHaveClass("opacity-40");
+    expect(opener).toHaveClass("[&>svg]:opacity-40");
     await user.click(opener);
     const dialog = await screen.findByRole("dialog", {
       name: "Tham gia IELTS 6.5 Evening",
@@ -430,5 +430,39 @@ describe("the join code card while the centre has turned joining by code off (D-
     expect(screen.getByRole("button", { name: "Ngừng" })).not.toHaveAttribute(
       "aria-disabled",
     );
+  });
+
+  it("pauses Copy code, Copy link, Download QR and the QR, with the same reason (D-028)", async () => {
+    serveJoinCodes(false);
+    const user = renderPanel();
+    await navigator.clipboard.writeText("untouched");
+    await screen.findByText("K7QM-2PXA", { selector: "p" });
+    const reason = await screen.findByText("Trung tâm đang tắt tham gia bằng mã.");
+    const controls = [
+      screen.getByRole("button", { name: "Chép mã" }),
+      screen.getByRole("button", { name: "Chép liên kết" }),
+      screen.getByRole("button", { name: "Tải mã QR" }),
+      screen.getByRole("button", { name: "Hiện mã QR cỡ lớn" }),
+    ];
+    for (const control of controls) {
+      expect(control).toHaveAttribute("aria-disabled", "true");
+      expect(control).toHaveAccessibleDescription(reason.textContent);
+      await user.click(control);
+    }
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(await navigator.clipboard.readText()).toBe("untouched");
+  });
+
+  it("keeps them live while the centre allows joining by code", async () => {
+    serveJoinCodes(true);
+    const user = renderPanel();
+    await screen.findByText("K7QM-2PXA", { selector: "p" });
+    const opener = screen.getByRole("button", { name: "Hiện mã QR cỡ lớn" });
+    expect(opener).not.toHaveAttribute("aria-disabled");
+    expect(screen.getByRole("button", { name: "Chép mã" })).not.toHaveAttribute(
+      "aria-disabled",
+    );
+    await user.click(opener);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 });

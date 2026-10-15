@@ -21,14 +21,27 @@ export function publicOrganizationQuery() {
 }
 
 /**
+ * joinCodesQuery reads the same route for a teacher's screens, which must not
+ * lag the centre's setting by minutes: it asks the browser to revalidate, and
+ * is stale after thirty seconds. Its key sits under PUBLIC_ORGANIZATION_KEY,
+ * so whatever invalidates the centre's answer invalidates it too.
+ */
+export function joinCodesQuery() {
+  return queryOptions({
+    queryKey: [...PUBLIC_ORGANIZATION_KEY, "join-codes"] as const,
+    queryFn: ({ signal }) =>
+      api("get", "/public/organization", { signal, cache: "no-cache" }),
+    staleTime: 30_000,
+    select: (organization) => !organization.joinCodes,
+  });
+}
+
+/**
  * useJoinCodesOff reports whether the centre has turned joining with a code
  * off. It is false until the answer arrives and when it fails, so a screen
  * never says the centre has switched a thing off that it has not.
  */
 export function useJoinCodesOff(): boolean {
-  const { data } = useQuery({
-    ...publicOrganizationQuery(),
-    select: (organization) => !organization.joinCodes,
-  });
+  const { data } = useQuery(joinCodesQuery());
   return data === true;
 }
