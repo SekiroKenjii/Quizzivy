@@ -146,47 +146,140 @@ empty database, verifier matched the checkpoint before and after migration
 [PR #98 verification](https://github.com/SekiroKenjii/Quizzivy/pull/98) for scope and counts.
 This does not change the pending production evidence below.
 
-## Retention and manual anonymization
+## Retention and anonymization
 
-Approved on 2026-09-22: integrity events are retained for thirteen calendar
-months after assignment closure and at least thirteen months from server `received_at`; the audit log is retained. Disabled accounts
-are never automatically erased. Retention uses UTC calendar arithmetic, deletes
-only when both dates are strictly before the cutoff, and appends an audit entry for each nonempty batch.
-Migration `00029_index_integrity_retention.sql` adds the supporting index without
-blocking normal writes. Application-role UPDATE/DELETE privileges on either log
-remain forbidden.
+Approved on 2026-09-22 (integrity events) and made the organization's choice in R5 (D16): the
+Admin's Data settings hold three retention choices, and a nightly sweep applies them. The audit
+log is never swept. Retention uses UTC calendar arithmetic and a strict `<` against its cutoff:
+`(now() at UTC − N months)`, so a row exactly at the cutoff stays until the next day.
 
-Build `server/cmd/maintenance` and provide `MAINTENANCE_DATABASE_URL` only to that
-manual process using an owner/maintenance credential. Never set it on the API.
-The shape is `maintenance <command> [flags]`, each command with its own flags:
+| Setting | Choices | Default | What the sweep does |
+|---|---|---|---|
+| `keep_answers_months` | 12, 24, or never | never | An attempt that has ended (submitted, timed out, graded or voided) and whose assignment closed before the cutoff has each answer's `payload` replaced by `{"removed": true}`; an attempt voided before it was submitted ended, for this purpose, at its deadline. Scores, comments and the grader stay. An attempt still in progress is never touched, however overdue (below). One `retention.answers_removed` entry per batch. |
+| `keep_focus_events_months` | 6, 12, 13, 24 | 13 | Deletes `attempt_events` whose `received_at` and whose assignment's closure are both before the cutoff. One `integrity.retained` entry per batch. |
+| `anonymise_disabled_after_months` | 12, 24, or never | never | Anonymises accounts disabled before the cutoff, of any role. One `user.anonymized` entry per account. |
 
-```sh
-maintenance retain-integrity -batch 1000
-maintenance retain-integrity -batch 1000 -apply
-maintenance anonymize-student -student STUDENT_UUID
-maintenance anonymize-student -student STUDENT_UUID -apply
+An account that owns classes or content (a class it teaches, or a test, question, group, media file or
+assignment it owns) is skipped and counted (`skippedOwners`): transfer the content, then it is picked up on a
+later run. Having created an account is not ownership: an Admin reaches it through the Users directory.
+An account with an attempt in progress is skipped for now (`skippedInProgress`). The last active Admin can never be anonymized. Before the name is
+overwritten, in-app notifications that carry the account's full or display name are deleted
+(`notices`), so no name outlives the anonymization there. Anonymization replaces the email with
+`anonymous-<id>@anonymous.invalid`, the name with a placeholder ("Học viên đã ẩn danh" for a
+student, "Người dùng đã ẩn danh" for anyone else), clears the display name, phone, avatar key and
+password, removes the Google link and the refresh tokens, and revokes unused set-password links. A
+revoked link holds a hash of a random token, its purpose, its dates and the account's id, which is no
+personal data, and is as unusable as a deleted one; the daily housekeeping removes the row 30 days later.
+Attempts, memberships and the audit trail stay, which is why this is **structured-identity
+anonymization**, not a guarantee that all personal information disappears: teacher notes, free
+text in answers kept under the settings, existing audit diffs, IPs and backups may retain
+identifying material. Review free text separately under an explicit request. Restrict access to
+backups and record how a restore will reapply later anonymizations before allowing the restored
+system to serve users. Existing access JWTs can stay valid until `ACCESS_TOKEN_TTL` expires.
+
+Every sweep audit entry has no actor and carries `databaseRole` in its diff.
+
+### The maintenance role
+
+`cmd/maintenance` connects as `quizzivy_maintenance`, never as the owner and never as the API's
+role. It is created by `scripts/provision-db.sh` (`LOGIN`, `CONNECTION LIMIT 2`, not a
+superuser, no `CREATE` anywhere) with the password in `QUIZZIVY_MAINTENANCE_PASSWORD`
+(`maintenance` locally). The script is idempotent: run it again against a database that has the
+other two roles and it adds this one. Migration `00139_grant_maintenance_role.sql` gives it
+exactly what the commands use, column by column, and fails when the role does not exist. It can
+read what the commands' predicates read, delete from `attempt_events`, `user_identities`,
+`refresh_tokens`, `notifications` and `ai_reservations`, write `payload` on `attempt_answers`,
+the identity columns on `users`, and insert into `audit_log`. It cannot `UPDATE` or `DELETE` the
+audit log, cannot touch `ai_usage_ledger`, and owns nothing.
+`server/internal/platform/db/tests/privileges_test.go` pins the whole list; a command that needs
+more adds the grant in its own migration.
+
+**Never set `MAINTENANCE_DATABASE_URL` on the API or on Fly.** The credential lives in two
+places: the GitHub environment `production-maintenance` (as the secret
+`MAINTENANCE_DATABASE_URL`, read by the retention workflow) and the operator's own machine.
+
+### The nightly workflow
+
+`.github/workflows/retention-sweep.yml` runs at `0 20 * * *` UTC (03:00 in Ho Chi Minh City)
+and on `workflow_dispatch` with an `apply` input. It runs in the environment
+`production-maintenance`, builds `cmd/maintenance`, runs `maintenance retention-sweep -budget 5m`
+(`timeout-minutes: 15`, one run at a time) and prints the report into the job summary. A
+schedule applies only when the repository variable `RETENTION_SWEEP_ENABLED` is `true`; otherwise
+it is a dry run, as is a manual run whose `apply` box is off. GitHub runs a schedule, and lists
+a manual workflow, only from the default branch, so the workflow starts to run when the release
+that carries it reaches `main`.
+
+The owner sets this up once, in this order:
+
+1. Run `scripts/provision-db.sh "$NEON_ADMIN_URL"` with `QUIZZIVY_MAINTENANCE_PASSWORD` set to a
+   new random password, before the deploy: the release command runs migration `00139`, which
+   fails, and so stops the release, while the role does not exist.
+2. Create the GitHub environment `production-maintenance`, restrict it to the default branch,
+   and add the secret `MAINTENANCE_DATABASE_URL` for `quizzivy_maintenance`.
+3. Run the workflow by hand with `apply` off and read the report (below).
+4. When the dry run counts what you expect, set the repository variable
+   `RETENTION_SWEEP_ENABLED` to `true`.
+
+To pause the sweep, unset the variable or set it to anything but `true`: the next night is a dry
+run. Disabling the workflow in the Actions tab also stops it.
+
+### Reading the report
+
+The report is JSON; with `-apply` off it counts what the sweep would do and writes nothing (it
+runs in a read-only transaction).
+
+```json
+{
+  "applied": false,
+  "databaseRole": "quizzivy_maintenance",
+  "retention": {"keepAnswersMonths": 24, "keepFocusEventsMonths": 13, "anonymiseDisabledAfterMonths": null},
+  "answers": {"enabled": true, "cutoff": "2024-10-14T20:00:07Z", "attempts": 12, "answers": 310, "batches": 1, "overdueInProgress": 0},
+  "focusEvents": {"cutoff": "2025-09-14T20:00:07Z", "events": 4200, "batches": 9},
+  "accounts": {"enabled": false, "anonymise": 0, "skippedOwners": 0, "skippedInProgress": 0, "notices": 0, "batches": 0},
+  "complete": true
+}
 ```
 
-The older order, flags before the command (`maintenance -apply -batch 1000
-retain-integrity`), is still accepted for these two commands. Every command takes
-`-timeout <duration>` (default `1m`); an unknown command or flag prints the usage
-line and changes nothing.
+- `databaseRole` must be `quizzivy_maintenance`. Anything else means the wrong credential is in
+  the secret: stop.
+- `retention` is the setting the sweep read; check it against the Admin's Data settings page
+  before the first apply. A step with `enabled: false` is switched off by its setting and does
+  nothing.
+- `complete: false` means the 5-minute budget ended a step or a step failed; the next night goes
+  on from where it stopped, because every batch commits on its own. A step that failed is listed
+  in `failed` with its error, the other steps still ran, and the job fails so the owner is told.
+  A backlog the first night does not clear is normal.
+- `overdueInProgress` counts attempts still in progress past their deadline on an assignment that
+  closed before the answers cutoff. The sweep never removes their answers: an overdue attempt is
+  closed, and scored from its stored answers, only when a teacher's monitor reads its assignment,
+  and an answer already removed would be scored blank for good. Until it is closed, such an
+  attempt keeps its answers and holds its student back from anonymization (`skippedInProgress`).
+  A figure above zero is for the owner to decide on; nothing closes them by itself
+  (`docs/plan/40-open-items.md`, O-R5.7).
+- On a dry run, `batches` is the number of batches an apply would take.
 
-Omitting `-apply` is a dry-run. Retention processes only one bounded batch per
-invocation; repeat after review until it reports zero rows. Set a monthly
-operator reminder after credentials and production authorization are arranged.
-A student must have no active attempt before anonymization. The transaction
-replaces email/name, removes password and Google identities, revokes refresh
-credentials and disables the account. IDs, attempts and memberships survive;
-existing access JWTs can remain valid until their configured `ACCESS_TOKEN_TTL` expires. Disable the account and allow that interval before a sensitive erasure operation; the operation is idempotent and records no original identity in its new audit
-entry. It rejects admin accounts.
+### By hand
 
-This is **structured-identity anonymization**, not a guarantee that all personal
-information disappears: answers, teacher notes, existing audit diffs, IPs and
-backups may retain identifying material. Review free text separately under an
-explicit request. The approved policy retains audit entries unchanged. Restrict
-access to backups and record how a restore will reapply later anonymizations
-before allowing the restored system to serve users.
+The same binary runs the sweep from the operator's machine, with `MAINTENANCE_DATABASE_URL` set
+to the role's connection string and nothing else changed:
+
+```sh
+maintenance retention-sweep -budget 5m
+maintenance retention-sweep -budget 5m -apply
+maintenance retention-sweep -batch 200 -apply
+maintenance retain-integrity -batch 1000 -apply
+maintenance anonymize-user -user USER_UUID
+maintenance anonymize-user -user USER_UUID -apply
+```
+
+`-batch` (default 500, 1 to 10000) is the rows in one batch. `retain-integrity` is the focus-events step alone, with the configured months and one batch per
+run; repeat until it reports zero rows. `anonymize-user` handles one account of any role on an
+explicit request (`anonymize-student -student UUID` is still accepted): it refuses an account
+that owns classes or content, an account with an attempt in progress and the last active Admin,
+and is idempotent. Every command takes `-timeout <duration>` (default `1m`; `retention-sweep`
+takes `-budget` instead, which is also its timeout), and writes are dry runs until `-apply`. An
+unknown command or flag prints the usage line and changes nothing. The older order, flags before
+the command, is still accepted for `retain-integrity` and `anonymize-student`.
 
 ## Media files that left a library
 
@@ -321,13 +414,13 @@ reopening of an assignment and the two override writes take it shared, so none
 of them runs between a window's scheduling and the extensions it makes
 (`docs/plan/20-data-model.md` §28).
 
-The override extension updates `app.assignment_student_overrides.closes_at`, so
-the database role behind `MAINTENANCE_DATABASE_URL` needs `SELECT` on the table
-and `UPDATE (closes_at)` on that column. R5's `grant_maintenance_role` migration
-grants both to `quizzivy_maintenance`; until it lands, run `cmd/maintenance` with
-the owner or maintenance credential this document already asks for. A role
-without the grant fails the apply with a permission error, and the transaction
-writes nothing.
+The window commands run as `quizzivy_maintenance` ("Retention and anonymization" above),
+which migration `00139_grant_maintenance_role.sql` gives `INSERT` and `UPDATE` on
+`maintenance_windows`, `UPDATE (deadline_at)` on `attempts`, `UPDATE (closes_at)` on
+`assignments` and `SELECT` with `UPDATE (closes_at)` on
+`app.assignment_student_overrides`. A credential without a grant fails the apply with a
+permission error, and the transaction writes nothing. Run them from the operator's machine
+with `MAINTENANCE_DATABASE_URL`; no workflow runs them.
 
 `window-cancel` cancels a window that has not ended; `window-end` ends an active
 window now. Both keep the extensions already granted: a deadline or an override
@@ -355,9 +448,12 @@ The API refuses to start without it, and never logs it.
 
 ### Rotating the key
 
-The rekey runs from the operator's machine, never from a scheduled workflow.
-The operator supplies `JOIN_CODE_KEY` and `JOIN_CODE_KEY_PREVIOUS` to
-`cmd/maintenance` from the offline copies, with `MAINTENANCE_DATABASE_URL`.
+The rekey runs from the operator's machine, never from a scheduled workflow, and as
+`quizzivy_maintenance`: the operator supplies `MAINTENANCE_DATABASE_URL` for that role and
+`JOIN_CODE_KEY` and `JOIN_CODE_KEY_PREVIOUS` from the offline copies to `cmd/maintenance`.
+The role can read `class_join_codes` and write only `code_hash`, `code_ciphertext` and
+`key_id`. The GitHub environment `production-maintenance` holds the role's connection string
+for the retention workflow and no join-code key.
 
 1. Stage both keys in **one** command, so they reach the machines in the
    same release:
@@ -766,8 +862,8 @@ reconcile a month with the provider's invoice, sum its `credits` and compare the
 ledger nor `audit_log` can be rewritten by the application role.
 
 The credits tables exist whether or not `ANTHROPIC_API_KEY` is set, so allowances can be arranged
-before the key is. Until R5's `grant_maintenance_role` (T-R5.17a) runs, use the owner or
-maintenance credential; that migration must grant the role what these commands write
+before the key is. These commands run as `quizzivy_maintenance`; migration
+`00139_grant_maintenance_role.sql` grants it what they write and never the ledger
 (`docs/plan/20-data-model.md` §46, "Privileges").
 
 ## What the assistant logs, and the live smoke

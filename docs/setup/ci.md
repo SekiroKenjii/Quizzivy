@@ -167,6 +167,22 @@ without it. The step **App-role profile test ran** runs it once with `-v` and
 fails unless it passed, so removing the variable cannot turn it back into a
 silent skip. `make test-api-integration` sets it from `APP_DSN`.
 
+`TEST_MAINTENANCE_DATABASE_URL`, the DSN of `quizzivy_maintenance`, is set on the
+same job for the tests in `internal/core/maintenance/tests` that run the commands
+as the role. Each makes a database of its own with the migrate role's `CREATEDB`
+(`scripts/provision-db.sh` gives it), migrates it and drops it, so no test shares
+rows with another. Where `CI` is set and the variable is not, those tests fail
+instead of skipping, for the reason the paragraph above gives. The role's limit
+of two connections is cluster-wide, so they do not run in parallel with one
+another.
+
+`.github/workflows/retention-sweep.yml` is the nightly sweep, not a CI job: the
+planner lists it with the files whose change runs no code job, and
+`scripts/ci/tests/retention-sweep.test.mjs`, which `Plan` runs, pins its
+schedule, its one-at-a-time group, the 15-minute limit, that the environment
+secret is read by the sweep step alone and that no expression is written into a
+script (`docs/setup/operations.md`, "Retention and anonymization").
+
 A test that needs the object store or the image skips when its variable is
 unset, and `go test` reports a package whose tests all skipped as `ok`. The
 image id is the one such value that comes from another step, and an expression

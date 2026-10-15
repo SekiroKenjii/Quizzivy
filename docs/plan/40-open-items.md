@@ -626,6 +626,19 @@ decides whether the student payload drops it.
 
 ---
 
+### O-R5.7 — Closing overdue attempts nobody monitors · R5 (T-R5.17a), any release
+**Default:** no closer job (D-035, 2026-10-15). The retention sweep never removes the answers of an
+attempt still in progress, however overdue, because closing it scores it from the stored answers
+and a payload already replaced by `{"removed": true}` would be scored blank for good. An overdue
+attempt is closed lazily, when a teacher's monitor reads its assignment (`DueAttempts`), so one on
+an assignment nobody monitors keeps its answers and blocks its student's anonymisation. The
+sweep's JSON report counts them as `overdueInProgress` (in progress, deadline and assignment close
+both before the answers cutoff); it is not in `getRetentionImpact`. A job that closes such
+attempts (scoring them first, as the monitor does) is the owner's decision once the figure is not
+zero on a real installation. Not a gate for v0.12.0.
+
+---
+
 ## Answered during planning
 
 For the record, so a later session does not reopen them:
