@@ -663,7 +663,7 @@
     "goToClasses": "Đến lớp của tôi",
     "off": {
       "title": "Tham gia bằng mã đang tắt",
-      "body": "Trung tâm đang không cho học viên tự tham gia lớp bằng mã. Hãy nhờ giáo viên thêm bạn vào lớp, hoặc hỏi quầy lễ tân."
+      "body": "Trung tâm hiện không cho phép học viên tự tham gia lớp bằng mã. Hãy nhờ giáo viên thêm bạn vào lớp, hoặc hỏi quầy lễ tân."
     },
     "joined": {
       "title": "Bạn đã vào lớp {{className}}",

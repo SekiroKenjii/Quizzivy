@@ -1,21 +1,28 @@
 import { ArrowLeft, KeyRound, Phone } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { Link, Navigate } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import { AuthLayout } from "@/features/auth/AuthLayout";
 import { GoogleMark } from "@/features/auth/components/GoogleMark";
+import { googleSignInAvailable } from "@/features/auth/google/useGoogleSignIn";
 import { useOrganization } from "@/lib/organization";
+import { cn } from "@/lib/utils";
 
 /**
  * ForgotPasswordPage explains that a password is reset by a teacher or the
  * centre, never by the account holder: there is no self-service reset. It
- * sends nothing.
+ * sends nothing, offers Continue with Google only where sign-in has it, and
+ * sends a visitor on to the sign-in page when the centre has turned password
+ * sign-in off.
  */
 export default function ForgotPasswordPage() {
   const { t } = useTranslation();
-  const { phone, hours } = useOrganization().frontDesk;
-  const frontDesk = [phone, hours].filter(Boolean).join(" · ");
+  const { frontDesk: desk, signIn } = useOrganization();
+  const frontDesk = [desk.phone, desk.hours].filter(Boolean).join(" · ");
+  const showGoogle = signIn.google && googleSignInAvailable();
+
+  if (!signIn.password) return <Navigate to="/login" replace />;
 
   return (
     <AuthLayout>
@@ -30,15 +37,17 @@ export default function ForgotPasswordPage() {
           </p>
         </div>
         <ul className="text-ui flex flex-col overflow-hidden rounded-xl border">
-          <li className="flex gap-3 px-3.5 py-3">
-            <GoogleMark className="mt-0.5 size-[17px] shrink-0" />
-            <span>
-              <b className="font-semibold">{t("forgot.googleTitle")}</b>{" "}
-              {t("forgot.googleBody")}
-            </span>
-          </li>
+          {showGoogle && (
+            <li className="flex gap-3 px-3.5 py-3">
+              <GoogleMark className="mt-0.5 size-[17px] shrink-0" />
+              <span>
+                <b className="font-semibold">{t("forgot.googleTitle")}</b>{" "}
+                {t("forgot.googleBody")}
+              </span>
+            </li>
+          )}
           {frontDesk && (
-            <li className="flex gap-3 border-t px-3.5 py-3">
+            <li className={cn("flex gap-3 px-3.5 py-3", showGoogle && "border-t")}>
               <Phone aria-hidden="true" className="mt-0.5 size-[17px] shrink-0" />
               <span>
                 <b className="font-semibold">{t("forgot.frontDesk")}</b> · {frontDesk}

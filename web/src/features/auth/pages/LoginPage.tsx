@@ -52,7 +52,8 @@ export default function LoginPage() {
   const { signIn, joinCodes } = useOrganization();
   const showGoogle = signIn.google && googleSignInAvailable();
   const [error, setError] = useState<string | null>(null);
-  const [joining] = useState(readJoinContext);
+  const [remembered] = useState(readJoinContext);
+  const joining = joinCodes ? remembered : null;
 
   const next = params.get("next") ?? undefined;
 
@@ -122,7 +123,7 @@ export default function LoginPage() {
       : cause.message;
   }
 
-  const shown = error ?? google.error;
+  const shown = error ?? (showGoogle ? google.error : null);
 
   return (
     <AuthLayout

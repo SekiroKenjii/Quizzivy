@@ -49,7 +49,11 @@ export function OrganizationIdentity({
             {image}
           </span>
         )}
-        {name && <p className="text-muted-fg text-md leading-relaxed">{name}</p>}
+        {name && (
+          <p className="text-muted-fg text-md min-w-0 leading-relaxed break-words">
+            {name}
+          </p>
+        )}
       </div>
     );
   }
@@ -65,7 +69,11 @@ export function OrganizationIdentity({
           {image}
         </span>
       )}
-      {name && <span className="min-w-0 truncate">{name}</span>}
+      {name && (
+        <span title={name} className="min-w-0 truncate">
+          {name}
+        </span>
+      )}
     </span>
   );
 }

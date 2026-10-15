@@ -63,6 +63,7 @@ export default function JoinPage() {
 function JoinCodesOff() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
+  useEffect(clearJoinContext, []);
   return (
     <div className="flex flex-col gap-[18px]">
       <div>
@@ -80,9 +81,7 @@ function JoinCodesOff() {
         {user ? (
           <Link to={homePathFor(user)}>{t("join.goHome")}</Link>
         ) : (
-          <Link to="/login" onClick={clearJoinContext}>
-            {t("login.backToSignIn")}
-          </Link>
+          <Link to="/login">{t("login.backToSignIn")}</Link>
         )}
       </Button>
     </div>

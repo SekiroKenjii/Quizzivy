@@ -39,13 +39,24 @@ export type Organization = {
 
 const PRODUCT_NAME = "Quizzivy";
 
-function line(value: string | null | undefined): string | null {
-  const trimmed = value?.trim();
+function record(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function line(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
   return trimmed ? trimmed : null;
 }
 
-function logoUrl(path: string | null | undefined): string | null {
-  if (!path) return null;
+function flag(value: unknown): boolean {
+  return typeof value === "boolean" ? value : true;
+}
+
+function logoUrl(path: unknown): string | null {
+  if (typeof path !== "string" || !path.startsWith("/")) return null;
   const origin = BASE_URL.endsWith("/") ? BASE_URL.slice(0, -1) : BASE_URL;
   return `${origin}${path}`;
 }
@@ -54,26 +65,28 @@ function logoUrl(path: string | null | undefined): string | null {
  * resolveOrganization merges the API's answer with the build values. Without
  * an answer, every line is its build value and every way in is on, so the
  * front door never says a thing is off that it has not been told is off.
- * The settings row is born named after the product, which the lockup above
- * the line already prints, so that name counts as unset.
+ * The answer is read member by member and never trusted to have the
+ * contract's shape: a member that is missing or of another type is as good
+ * as unanswered, so a proxy's page or a build ahead of the API cannot blank
+ * the pages that render this. The settings row is born named after the
+ * product, which the lockup above the line already prints, so that name
+ * counts as unset.
  */
-export function resolveOrganization(
-  data: PublicOrganization | undefined,
-): Organization {
-  const own = line(data?.name);
+export function resolveOrganization(data: unknown): Organization {
+  const answer = record(data);
+  const logo = record(answer.logo);
+  const signIn = record(answer.signIn);
+  const own = line(answer.name);
   const named = own !== null && own.toLowerCase() !== PRODUCT_NAME.toLowerCase();
   return {
     name: named ? own : config.orgName,
-    logo: { light: logoUrl(data?.logo.lightUrl), dark: logoUrl(data?.logo.darkUrl) },
+    logo: { light: logoUrl(logo.lightUrl), dark: logoUrl(logo.darkUrl) },
     frontDesk: {
-      phone: line(data?.frontDeskPhone) ?? config.frontDesk.phone,
-      hours: line(data?.frontDeskHours) ?? config.frontDesk.hours,
+      phone: line(answer.frontDeskPhone) ?? config.frontDesk.phone,
+      hours: line(answer.frontDeskHours) ?? config.frontDesk.hours,
     },
-    signIn: {
-      google: data?.signIn.google ?? true,
-      password: data?.signIn.password ?? true,
-    },
-    joinCodes: data?.joinCodes ?? true,
+    signIn: { google: flag(signIn.google), password: flag(signIn.password) },
+    joinCodes: flag(answer.joinCodes),
   };
 }
 

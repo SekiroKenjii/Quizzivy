@@ -8,6 +8,7 @@ import { SystemFrame } from "@/app/pages/SystemFrame";
 import { AuthLayout } from "@/features/auth/AuthLayout";
 import ForgotPasswordPage from "@/features/auth/pages/ForgotPasswordPage";
 import LoginPage from "@/features/auth/pages/LoginPage";
+import { readJoinContext, saveJoinContext } from "@/features/join/context";
 import JoinPage from "@/features/join/pages/JoinPage";
 import { writeThemePreference } from "@/lib/theme";
 import {
@@ -29,11 +30,19 @@ const build = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/config", () => ({ config: build }));
 
-const google = vi.hoisted(() => ({ available: true }));
-vi.mock("@/features/auth/google/useGoogleSignIn", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/features/auth/google/useGoogleSignIn")>()),
-  googleSignInAvailable: () => google.available,
-}));
+const google = vi.hoisted(() => ({ available: true, error: null as string | null }));
+vi.mock("@/features/auth/google/useGoogleSignIn", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("@/features/auth/google/useGoogleSignIn")>();
+  return {
+    ...original,
+    googleSignInAvailable: () => google.available,
+    useGoogleSignIn: () => ({
+      ...original.useGoogleSignIn(),
+      error: google.error,
+    }),
+  };
+});
 
 const BASE = "http://localhost:8080";
 const LIGHT = "/public/organization/logo?variant=light&v=5e88a1";
@@ -90,17 +99,27 @@ function newClient() {
 
 function renderPage(
   element: React.ReactElement,
-  { path = "/", client = newClient() }: { path?: string; client?: QueryClient } = {},
+  {
+    path = "/",
+    state,
+    login = element,
+    client = newClient(),
+  }: {
+    path?: string;
+    state?: unknown;
+    login?: React.ReactElement;
+    client?: QueryClient;
+  } = {},
 ) {
   const router = createMemoryRouter(
     [
       { path: "/join/:code?", element },
-      { path: "/login", element },
+      { path: "/login", element: login },
       { path: "/forgot-password", element },
       { path: "*", element },
       { path: "/app", element: <p>student home</p> },
     ],
-    { initialEntries: [path] },
+    { initialEntries: [{ pathname: path, state }] },
   );
   const view = render(
     <QueryClientProvider client={client}>
@@ -120,12 +139,15 @@ beforeEach(() => {
   build.orgName = null;
   build.frontDesk = { phone: null, hours: null };
   google.available = true;
+  google.error = null;
   answers();
 });
 
 afterEach(() => {
   writeThemePreference("light");
   useAuthStore.setState({ user: null });
+  sessionStorage.clear();
+  vi.unstubAllEnvs();
 });
 
 describe("resolveOrganization", () => {
@@ -180,11 +202,72 @@ describe("resolveOrganization", () => {
     });
   });
 
+  it.each([
+    ["an empty object", {}],
+    ["an array", []],
+    ["null", null],
+    ["a string", "<html>"],
+    ["a number", 5],
+    ["a name that is not a string", { name: 5 }],
+    ["a logo that is null", { logo: null }],
+    ["a logo that is not an object", { logo: "x" }],
+    ["a sign-in that is null", { signIn: null }],
+    ["switches that are not booleans", { signIn: { google: "no", password: 0 } }],
+    ["join codes that are not a boolean", { joinCodes: "no" }],
+    [
+      "front-desk lines that are not strings",
+      { frontDeskPhone: 5, frontDeskHours: [] },
+    ],
+    ["logo paths that are not strings", { logo: { lightUrl: 5, darkUrl: {} } }],
+  ])("falls back to the build values and every way in on for %s", (_, answer) => {
+    build.orgName = "Build Centre";
+    build.frontDesk = { phone: "028 0000 0000", hours: "T2–T6" };
+    expect(resolveOrganization(answer)).toEqual({
+      name: "Build Centre",
+      logo: { light: null, dark: null },
+      frontDesk: { phone: "028 0000 0000", hours: "T2–T6" },
+      signIn: { google: true, password: true },
+      joinCodes: true,
+    });
+  });
+
+  it("keeps the members of a partly wrong answer that are right", () => {
+    const resolved = resolveOrganization({
+      name: "Sao Mai English",
+      logo: null,
+      signIn: { google: false, password: "yes" },
+      joinCodes: false,
+    });
+    expect(resolved.name).toBe("Sao Mai English");
+    expect(resolved.signIn).toEqual({ google: false, password: true });
+    expect(resolved.joinCodes).toBe(false);
+  });
+
   it("puts a logo path on the API's origin", () => {
     const resolved = resolveOrganization(
       organization({ logo: { lightUrl: LIGHT, darkUrl: DARK } }),
     );
     expect(resolved.logo).toEqual({ light: `${BASE}${LIGHT}`, dark: `${BASE}${DARK}` });
+  });
+
+  it("does not follow a logo path that is not rooted on the API", () => {
+    const resolved = resolveOrganization(
+      organization({
+        logo: { lightUrl: "@evil.example/logo.png", darkUrl: "https://evil.example/x" },
+      }),
+    );
+    expect(resolved.logo).toEqual({ light: null, dark: null });
+  });
+
+  it("joins a logo path to an API origin that ends in a slash without doubling it", async () => {
+    vi.stubEnv("VITE_API_BASE_URL", "https://api.example.com/");
+    vi.resetModules();
+    const fresh = await import("@/lib/organization");
+    expect(
+      fresh.resolveOrganization(
+        organization({ logo: { lightUrl: LIGHT, darkUrl: null } }),
+      ).logo.light,
+    ).toBe(`https://api.example.com${LIGHT}`);
   });
 
   it("draws the logo made for the theme, and flips the other when that is all there is", () => {
@@ -357,6 +440,30 @@ describe("the system pages' caption", () => {
     expect(logoImages(container)).toHaveLength(1);
   });
 
+  it("puts a logo made for the other theme on a tile of the opposite ground", async () => {
+    answers({ name: "Sao Mai English", logo: { lightUrl: LIGHT, darkUrl: null } });
+    const light = renderSystem();
+    await screen.findByText("Sao Mai English");
+    expect(logoImages(light.container)[0]?.parentElement).not.toHaveClass("bg-fg");
+    light.unmount();
+
+    writeThemePreference("dark");
+    const dark = renderSystem();
+    await screen.findByText("Sao Mai English");
+    expect(logoImages(dark.container)[0]?.parentElement).toHaveClass("bg-fg");
+  });
+
+  it("cuts a long name short, with the whole of it on hover, inside a panel that holds its width", async () => {
+    const name =
+      "Trung tâm Ngoại ngữ và Tin học Quốc tế Sao Mai Thành phố Hồ Chí Minh Q.1";
+    answers({ name });
+    const { container } = renderSystem();
+    const text = await screen.findByText(name);
+    expect(text).toHaveAttribute("title", name);
+    expect(text).toHaveClass("truncate");
+    expect(container.querySelector("aside")).toHaveClass("min-w-0");
+  });
+
   it("falls back to the build name with the API down", async () => {
     build.orgName = "Quizzivy English Centre";
     down();
@@ -407,6 +514,39 @@ describe("the front desk on Forgot password", () => {
     renderPage(<ForgotPasswordPage />);
     await waitFor(() => expect(requests).toBe(1));
     expect(screen.queryByText("Quầy lễ tân")).toBeNull();
+  });
+
+  const googleRow = () => screen.queryByText("Bạn đăng ký bằng Google?");
+
+  it("points to Continue with Google only while sign-in offers it", async () => {
+    answers({ frontDeskPhone: phone, signIn: { google: false, password: true } });
+    const off = renderPage(<ForgotPasswordPage />);
+    await screen.findByText(phone, { exact: false });
+    expect(googleRow()).toBeNull();
+    off.unmount();
+
+    answers({ frontDeskPhone: phone });
+    google.available = false;
+    const unavailable = renderPage(<ForgotPasswordPage />);
+    await screen.findByText(phone, { exact: false });
+    expect(googleRow()).toBeNull();
+    unavailable.unmount();
+
+    google.available = true;
+    answers({ frontDeskPhone: phone });
+    renderPage(<ForgotPasswordPage />);
+    await screen.findByText(phone, { exact: false });
+    expect(googleRow()).toBeInTheDocument();
+  });
+
+  it("sends a visitor to sign in when password sign-in is off", async () => {
+    answers({ signIn: { google: true, password: false } });
+    renderPage(<ForgotPasswordPage />, {
+      path: "/forgot-password",
+      login: <p>sign-in page</p>,
+    });
+    expect(await screen.findByText("sign-in page")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Quên mật khẩu?" })).toBeNull();
   });
 });
 
@@ -486,6 +626,41 @@ describe("the sign-in page", () => {
     expect(password()).toBeInTheDocument();
   });
 
+  it("hides a Google failure once Google is off", async () => {
+    google.error = "Hiện chưa thể đăng nhập bằng Google.";
+    answers({ signIn: { google: true, password: true } });
+    const on = renderPage(<LoginPage />, { path: "/login" });
+    expect(await screen.findByText(google.error)).toBeVisible();
+    on.unmount();
+
+    answers({ signIn: { google: false, password: true } });
+    renderPage(<LoginPage />, { path: "/login" });
+    await waitFor(() => expect(google_()).toBeNull());
+    expect(screen.queryByText(google.error)).toBeNull();
+  });
+
+  it("names a remembered class only while joining with a code is on", async () => {
+    saveJoinContext({
+      code: "ABCD2345",
+      className: "Lớp IELTS 6.5",
+      teacherName: "Cô Lan",
+    });
+    answers({ joinCodes: true });
+    const on = renderPage(<LoginPage />, { path: "/login" });
+    await waitFor(() => expect(requests).toBe(1));
+    expect(
+      screen.getByText("Đăng nhập để tham gia Lớp IELTS 6.5."),
+    ).toBeInTheDocument();
+    on.unmount();
+
+    answers({ joinCodes: false });
+    renderPage(<LoginPage />, { path: "/login" });
+    await waitFor(() => expect(requests).toBe(2));
+    await waitFor(() =>
+      expect(screen.queryByText("Đăng nhập để tham gia Lớp IELTS 6.5.")).toBeNull(),
+    );
+  });
+
   it("links to joining a class only while joining with a code is on", async () => {
     answers({ joinCodes: false });
     const off = renderPage(<LoginPage />, { path: "/login" });
@@ -535,6 +710,48 @@ describe("the join page", () => {
       "href",
       "/login",
     );
+  });
+
+  it("forgets the class a visitor chose while joining was on", async () => {
+    saveJoinContext({
+      code: "ABCD2345",
+      className: "Lớp IELTS 6.5",
+      teacherName: "Cô Lan",
+    });
+    answers({ joinCodes: false });
+    const signedOut = renderPage(<JoinPage />, { path: "/join/ABCD2345" });
+    await screen.findByRole("heading", { name: "Tham gia bằng mã đang tắt" });
+    expect(readJoinContext()).toBeNull();
+    signedOut.unmount();
+
+    saveJoinContext({
+      code: "ABCD2345",
+      className: "Lớp IELTS 6.5",
+      teacherName: "Cô Lan",
+    });
+    useAuthStore.setState({ user: studentUser });
+    const client = newClient();
+    client.setQueryData(PUBLIC_ORGANIZATION_KEY, organization({ joinCodes: false }));
+    renderPage(<JoinPage />, { path: "/join/ABCD2345", client });
+    await screen.findByRole("link", { name: "Về trang chủ của tôi" });
+    expect(readJoinContext()).toBeNull();
+  });
+
+  it("shows the outcome of a join that was tried, whatever the centre's setting now", async () => {
+    answers({ joinCodes: false });
+    renderPage(<JoinPage />, {
+      path: "/join/ABCD2345",
+      state: {
+        joinOutcome: {
+          kind: "failed",
+          className: "Lớp IELTS 6.5",
+          message: "Mã đã hết hạn.",
+        },
+      },
+    });
+    await waitFor(() => expect(requests).toBe(1));
+    expect(screen.getByText("Mã đã hết hạn.")).toBeVisible();
+    expect(heading()).toBeNull();
   });
 
   it("sends a signed-in student back home from the off page", async () => {
