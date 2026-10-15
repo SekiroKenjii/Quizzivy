@@ -36,6 +36,9 @@
 - T-R5.9a §15 The audit action `user.created {role, roleId, delivery}`, in both languages.
 - T-R5.9a §15 `listUsers` (`GET /admin/users`, `people.users.manage`) is the Users table: every account whatever its role, newest first, ten, twenty or fifty to a page (`limit`, twenty by default). The Admins tab is the built-in Admin role, Students the strict student targets of §5, Teachers everyone else, and a disabled account stays in its role's tab; `facets` count all five tabs under the same `q`, `email` and `status`, whichever tab is shown. `q` matches the name and the email together ignoring case and accents, `email` is an exact match in any letter case, and `status` (`must_change_password`, `never_signed_in`) never reaches a disabled account. A row carries the role with its icon and colour, whether the account signs in with a password and with Google, its class count with the first class's name (a student's classes are the ones it has joined, anyone else's the ones it teaches, archived classes never), when it was last active, and its status.
 - T-R5.9a §15 `getUser` (`GET /admin/users/:id`, `people.users.manage`) answers any account whatever its role, with who created it, up to 20 of its classes, what it owns (`ownedContent`: every class it teaches, archived ones too, and the tests, questions, media and assignments not deleted), the tests it is taking, up to 8 recent events (the last sign-in and its method, its own audit entries, a student's submissions and class joins) and `can {changeRole, resetPassword, disable, signOut, transfer}`. `can` is the guards' answer for this caller and this account: the subset rule for the first four; additionally never on oneself and, for `changeRole` and `disable`, never on the last active Admin; `changeRole` also needs `people.roles.manage`; `disable` is false for an account already disabled; `transfer` needs `scope.all` and a disabled account.
+- T-R5.14 §15 Three operations import accounts from a CSV or XLSX file, all `people.users.manage`, the first two `multipart/form-data` (5 MiB): `previewUserImport` (`POST /admin/user-imports/preview`, `{file, defaultRole: student | teacher, delivery: email_link | sheet}`) answers the counts and writes nothing, `createUserImport` (`POST /admin/user-imports`, the same plus the caller's `requestId`) re-reads and re-judges the file and stores the job with its accepted rows in one transaction, `202 UserImportJob`, and `getUserImport` (`GET /admin/user-imports/:id`) reports the caller's own job; another user's is `404`. The same `requestId` of the same caller returns the first job and creates no second. The columns are `full_name`, `email`, `role` and `class`; a cell is refused with `REQUIRED`, `TOO_LONG`, `INVALID`, `DUPLICATE_IN_FILE`, `UNKNOWN_ROLE`, `AMBIGUOUS_ROLE`, `ROLE_NOT_ALLOWED` (beyond the importer's permissions), `ROLE_NOT_GIVABLE` (the Assistant), `UNKNOWN_CLASS`, `AMBIGUOUS_CLASS` or `CLASS_NOT_ALLOWED`, an address that already has an account is skipped and never changed, and the file's text is not stored. Eleven error codes: `USER_IMPORT_FILE_TOO_LARGE` (`413`), `USER_IMPORT_FILE_UNREADABLE`, `USER_IMPORT_FILE_EMPTY`, `USER_IMPORT_TOO_MANY_ROWS`, `USER_IMPORT_COLUMNS`, `USER_IMPORT_NOTHING_TO_CREATE`, `CSV_NOT_UTF8`, `XLSX_MACROS` and `XLSX_ENCRYPTED` (`422`), each worded in both languages with the way out, and none carries text of the file. Without the import worker or `SECRETS_KEY` the three answer `501`. Limits per signed-in user: 10 previews a minute and 5 imports an hour.
+- T-R5.14 §13.3 `app.user_import_jobs` (`00136_create_user_import_jobs.sql`) and `app.user_import_rows` (`00137_create_user_import_rows.sql`), `docs/plan/20-data-model.md` D-56, D-57, §54.
+- T-R5.14 §15 The audit action `user_import.requested {format, delivery, defaultRoleId, rows, existing, invalid}`, in both languages, under Accounts.
 
 **Changes since v0.111**
 
@@ -3409,6 +3412,18 @@ DELETE /admin/users/:id                 a disabled student only, else 409 RESOUR
                                           403 FORBIDDEN when the subset rule refuses,
                                           409 RESOURCE_REFERENCED {referencedBy}
 POST   /admin/docs-session              opens the API reference for fifteen minutes (§5.5)
+POST   /admin/user-imports/preview      (people.users.manage) multipart {file, defaultRole: student | teacher,
+                                          delivery: email_link | sheet} → {rows, newAccounts, existingEmails {count,
+                                          sample ≤ 5}, invalid [{row, field, code}] ≤ 50, invalidCount, classes
+                                          [{id, name}], emailBudget {remainingToday, limit} | null}; writes nothing;
+                                          10 a minute per actor; 403 TARGET_ROLE_NOT_ALLOWED, 413
+                                          USER_IMPORT_FILE_TOO_LARGE, 422 USER_IMPORT_* | CSV_NOT_UTF8 | XLSX_MACROS |
+                                          XLSX_ENCRYPTED | PASSWORD_SIGN_IN_DISABLED, 501
+POST   /admin/user-imports              (people.users.manage) the same plus requestId → 202 UserImportJob {id, status,
+                                          total, processed, created, skipped, invalid, delivery, sheet | null, errorCode?};
+                                          the same requestId returns the same job; 5 an hour per actor; 422
+                                          USER_IMPORT_NOTHING_TO_CREATE besides the preview's codes
+GET    /admin/user-imports/:id          (people.users.manage) → UserImportJob; another user's job is 404
 
 # admin: organization settings (system.settings.write)
 GET    /admin/settings                  -> OrganizationSettings {organization, signIn, retention, revision, updatedAt, updatedBy}
