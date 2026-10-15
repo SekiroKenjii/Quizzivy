@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useId, useRef } from "react";
+import { useEffect, useEffectEvent, useId, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -16,11 +16,12 @@ const PAUSED_OUTLINE =
  * the bottom of the page while `dirty`, and renders nothing otherwise. It
  * reads "You have unsaved changes." until `error` is set, which takes the
  * sentence's place as an alert, with `errorAction`, when given, as a button
- * beside Discard. Discard is a plain button. Save changes submits the form
- * the bar sits in, unless `onSave` is given, which makes it a plain button
- * too. While `saving` both stay focusable but answer `aria-disabled` and
- * ignore a press. While `blocked` names a reason, Save changes alone does the
- * same, and the reason reads in place of the sentence and describes the
+ * beside Discard; a caller whose changes the sentence can count or qualify
+ * gives its own as `message`. Discard is a plain button. Save changes submits
+ * the form the bar sits in, unless `onSave` is given, which makes it a plain
+ * button too. While `saving` both stay focusable but answer `aria-disabled`
+ * and ignore a press. While `blocked` names a reason, Save changes alone does
+ * the same, and the reason reads in place of the sentence and describes the
  * button.
  *
  * When Save changes or Discard ends the unsaved changes, the bar goes and
@@ -34,6 +35,7 @@ export function DirtyBar({
   blocked = null,
   error = null,
   errorAction,
+  message,
   onDiscard,
   onSave,
   returnFocus,
@@ -43,6 +45,7 @@ export function DirtyBar({
   blocked?: string | null | undefined;
   error?: string | null | undefined;
   errorAction?: Readonly<{ label: string; onAction: () => void }> | undefined;
+  message?: ReactNode;
   onDiscard: () => void;
   onSave?: (() => void) | undefined;
   returnFocus: () => HTMLElement | null;
@@ -87,7 +90,7 @@ export function DirtyBar({
             reason === null ? "text-muted-fg" : "text-danger-ink",
           )}
         >
-          {reason ?? t("controls.unsaved")}
+          {reason ?? message ?? t("controls.unsaved")}
         </p>
       )}
       <div className="ml-auto flex items-center gap-2.5">

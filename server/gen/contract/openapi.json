@@ -222,6 +222,26 @@
           }
         }
       },
+      "UserImportRefused": {
+        "description": "The file or the request cannot be imported, and the message says which.\n`USER_IMPORT_FILE_UNREADABLE` — not a table this reader opens: damaged,\nnot a workbook, a first sheet that is a chart, a workbook that keeps its\nparts elsewhere than Excel does, or one too large once unpacked.\n`USER_IMPORT_FILE_EMPTY` — no header row.\n`USER_IMPORT_TOO_MANY_ROWS` — more than 2,000 data rows.\n`USER_IMPORT_COLUMNS` — the header lacks `full_name` or `email`, or names\na column twice.\n`CSV_NOT_UTF8` — a CSV file in another encoding; save it as CSV UTF-8.\n`XLSX_MACROS` — a workbook with macros.\n`XLSX_ENCRYPTED` — a workbook with a password.\n`PASSWORD_SIGN_IN_DISABLED` — `sheet` while the centre has turned\npassword sign-in off.\n",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "UserImportUnavailable": {
+        "description": "This server cannot do it: `delivery: email_link` needs the key that seals\na link (`SECRETS_KEY`), and `delivery: sheet` needs the same key to keep\nthe passwords it hands out.\n",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
       "Maintenance": {
         "description": "`MAINTENANCE` — a maintenance window is under way. `details.startsAt` and\n`details.endsAt` name it, and `Retry-After` is the seconds until it ends.\nAny operation except `GET /livez`, `GET /healthz` and `GET /public/status`\nmay answer this, whatever its authentication.\n",
         "headers": {
@@ -1355,6 +1375,15 @@
           "EXPORT_IN_PROGRESS",
           "EXPORT_UNAVAILABLE",
           "EXPORT_OFF",
+          "USER_IMPORT_FILE_TOO_LARGE",
+          "USER_IMPORT_FILE_UNREADABLE",
+          "USER_IMPORT_FILE_EMPTY",
+          "USER_IMPORT_TOO_MANY_ROWS",
+          "USER_IMPORT_COLUMNS",
+          "USER_IMPORT_NOTHING_TO_CREATE",
+          "CSV_NOT_UTF8",
+          "XLSX_MACROS",
+          "XLSX_ENCRYPTED",
           "SIGN_IN_POLICY_LOCKOUT",
           "PASSWORD_SIGN_IN_DISABLED",
           "GOOGLE_SIGN_IN_DISABLED",
@@ -5028,6 +5057,268 @@
               "temporary_password"
             ],
             "description": "`email_link` creates the account without a password and emails it a\nlink to choose one (24 hours, once). `temporary_password` returns a\ntemporary password once, for the admin to hand over.\n"
+          }
+        }
+      },
+      "UserImportDefaultRole": {
+        "type": "string",
+        "enum": [
+          "student",
+          "teacher"
+        ],
+        "description": "The role of a row whose file names none."
+      },
+      "UserImportDelivery": {
+        "type": "string",
+        "enum": [
+          "email_link",
+          "sheet"
+        ],
+        "description": "`email_link` emails each new account a link to choose a password (24\nhours, once). `sheet` gives each a temporary password and collects them\nin a sheet the importer downloads once.\n"
+      },
+      "UserImportField": {
+        "type": "string",
+        "enum": [
+          "full_name",
+          "email",
+          "role",
+          "class"
+        ]
+      },
+      "UserImportIssue": {
+        "type": "object",
+        "description": "One cell the import refused. `row` is the line of the file the row sits\non, counting the header as line 1, which is the number a spreadsheet\nshows beside it. `code` says why: `REQUIRED` (empty), `TOO_LONG`,\n`INVALID` (not an address, or a name with control characters),\n`DUPLICATE_IN_FILE` (an address an earlier row has), `UNKNOWN_ROLE` and\n`AMBIGUOUS_ROLE` (no role, or more than one, answers to the name),\n`ROLE_NOT_ALLOWED` (the role holds a permission the importer lacks),\n`ROLE_NOT_GIVABLE` (the Assistant, which no one is given), `UNKNOWN_CLASS` and\n`AMBIGUOUS_CLASS` (no active class, or more than one, has the name), and\n`CLASS_NOT_ALLOWED` (a class for a role that is not a student target, or\nby an importer without `scope.all`). A refusal carries no text of the file.\n",
+        "additionalProperties": false,
+        "required": [
+          "row",
+          "field",
+          "code"
+        ],
+        "properties": {
+          "row": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "field": {
+            "$ref": "#/components/schemas/UserImportField"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "REQUIRED",
+              "TOO_LONG",
+              "INVALID",
+              "DUPLICATE_IN_FILE",
+              "UNKNOWN_ROLE",
+              "AMBIGUOUS_ROLE",
+              "ROLE_NOT_ALLOWED",
+              "ROLE_NOT_GIVABLE",
+              "UNKNOWN_CLASS",
+              "AMBIGUOUS_CLASS",
+              "CLASS_NOT_ALLOWED"
+            ]
+          }
+        }
+      },
+      "UserImportPreview": {
+        "type": "object",
+        "description": "What a file would come to. `rows` are the data rows it holds;\n`newAccounts` would be created and `existingEmails.count` already\nbelong to an account and would be skipped, never changed (`sample` names\nup to five of them). `invalid` lists up to 50 refused cells and\n`invalidCount` counts every refused row. `classes` are the classes the\naccepted rows would join. `emailBudget` is `null` unless `delivery` is\n`email_link`: `remainingToday` is what the centre can still send today,\ncounting what already waits, and `limit` its daily maximum; the rest of\nthe links go out on the following days.\n",
+        "additionalProperties": false,
+        "required": [
+          "rows",
+          "newAccounts",
+          "existingEmails",
+          "invalid",
+          "invalidCount",
+          "classes",
+          "emailBudget"
+        ],
+        "properties": {
+          "rows": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "newAccounts": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "existingEmails": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "count",
+              "sample"
+            ],
+            "properties": {
+              "count": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2000
+              },
+              "sample": {
+                "type": "array",
+                "maxItems": 5,
+                "items": {
+                  "type": "string",
+                  "format": "email"
+                }
+              }
+            }
+          },
+          "invalid": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/UserImportIssue"
+            }
+          },
+          "invalidCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "classes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "name"
+              ],
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "emailBudget": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "remainingToday",
+              "limit"
+            ],
+            "properties": {
+              "remainingToday": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        }
+      },
+      "UserImportJob": {
+        "type": "object",
+        "description": "One import. `status` is `queued` until the worker claims it, `running`\nwhile it creates the accounts, `done` once every stored row is settled,\nand `failed` when it gave up (`errorCode` says why, a short code that\nnever carries the file). `total` is the rows stored, those that passed\nevery rule; `processed` is those settled so far, `created` + `skipped`;\n`skipped` are the addresses that already belonged to an account.\n`invalid` counts the rows refused, which are not stored. `sheet` is `null`\nunless `delivery` is `sheet`: `available` is true from `done` until the\nsheet is downloaded or 24 hours have passed, whichever comes first.\n",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status",
+          "total",
+          "processed",
+          "created",
+          "skipped",
+          "invalid",
+          "delivery",
+          "sheet",
+          "errorCode",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed"
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2000
+          },
+          "processed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "created": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "skipped": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "invalid": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/UserImportDelivery"
+          },
+          "sheet": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "available",
+              "expiresAt",
+              "downloadedAt"
+            ],
+            "properties": {
+              "available": {
+                "type": "boolean"
+              },
+              "expiresAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "downloadedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              }
+            }
+          },
+          "errorCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 64
+          },
+          "createdAt": {
+            "$ref": "#/components/schemas/Timestamp"
           }
         }
       },
@@ -20078,6 +20369,214 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/admin/user-imports/preview": {
+      "post": {
+        "operationId": "previewUserImport",
+        "x-permission": "people.users.manage",
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "What a CSV or XLSX file of accounts would come to",
+        "description": "Reads the file under a one-slot gate and judges every row against what\nthe caller may do, writing nothing. The first sheet of a workbook, or a\nUTF-8 CSV file, holds the columns `full_name` and `email` and may hold\n`role` and `class`, named in any case and order; any other column is\nignored. The format is read from the bytes and never from the name.\nA file is at most 5 MiB, 2,000 data rows, 20 columns and 1,000\ncharacters a cell.\n\n`role` is a built-in key (`student`, `teacher`), a role's name (the\nbuilt-ins are \"Học viên\" and \"Giáo viên\") or empty, which takes\n`defaultRole`. `class` is the exact name of an active class, only for a\nstudent-target role and only for a caller holding `scope.all`. An\naddress that already belongs to an account is counted and skipped, never\nupdated. Every refused cell is reported once, so one pass shows\neverything to correct.\n\n`defaultRole` must be a role the caller may give, as `createUser`\nrequires of `roleId`. Limited to 10 a minute per signed-in user.\n",
+        "x-max-body-bytes": 5259264,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file",
+                  "defaultRole",
+                  "delivery"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "defaultRole": {
+                    "$ref": "#/components/schemas/UserImportDefaultRole"
+                  },
+                  "delivery": {
+                    "$ref": "#/components/schemas/UserImportDelivery"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The counts. Nothing was stored.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserImportPreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "description": "`TARGET_ROLE_NOT_ALLOWED` — `defaultRole` holds a permission the caller lacks.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`USER_IMPORT_FILE_TOO_LARGE` — over 5 MiB. The message tells the user\nto save the sheet as CSV UTF-8 and upload that.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/UserImportRefused"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "501": {
+            "$ref": "#/components/responses/UserImportUnavailable"
+          }
+        }
+      }
+    },
+    "/admin/user-imports": {
+      "post": {
+        "operationId": "createUserImport",
+        "x-permission": "people.users.manage",
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "Import the accounts of a file",
+        "description": "Reads and judges the file again, never trusting a preview, stores the\njob and every row that passed in one transaction, and wakes the worker,\nwhich creates the accounts a few at a time. The caller's `requestId`,\nheld for as long as the dialog is open, makes the request idempotent:\nthe same `requestId` returns the job it stored the first time, whatever\nthe file then holds, and creates no second one. Audits\n`user_import.requested`; the accounts are audited as `user.created`\nwith `via: import` when the worker creates them.\n\nThe file, `defaultRole` and `delivery` are those of `previewUserImport`.\nA file in which no row would create an account is refused with\n`USER_IMPORT_NOTHING_TO_CREATE`. Limited to 5 an hour per signed-in\nuser.\n",
+        "x-max-body-bytes": 5259264,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file",
+                  "defaultRole",
+                  "delivery",
+                  "requestId"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "defaultRole": {
+                    "$ref": "#/components/schemas/UserImportDefaultRole"
+                  },
+                  "delivery": {
+                    "$ref": "#/components/schemas/UserImportDelivery"
+                  },
+                  "requestId": {
+                    "$ref": "#/components/schemas/Uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Queued. Poll `getUserImport` for its progress.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserImportJob"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "description": "`TARGET_ROLE_NOT_ALLOWED` — `defaultRole` holds a permission the caller lacks.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`USER_IMPORT_FILE_TOO_LARGE` — over 5 MiB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Any code `previewUserImport` answers with, and\n`USER_IMPORT_NOTHING_TO_CREATE` — no row of the file would create an\naccount.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "501": {
+            "$ref": "#/components/responses/UserImportUnavailable"
+          }
+        }
+      }
+    },
+    "/admin/user-imports/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "operationId": "getUserImport",
+        "x-permission": "people.users.manage",
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "How an import is going",
+        "description": "The progress of one of the caller's own imports. Another user's import\nanswers as a missing one.\n",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserImportJob"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           }
         }
       }

@@ -39,3 +39,9 @@ type Session struct {
 	User         domain.User
 	Permissions  access.Set
 }
+
+// EmailAllowance is how many messages the centre can still send today, and the most it sends in a day.
+type EmailAllowance struct {
+	Remaining int
+	Limit     int
+}

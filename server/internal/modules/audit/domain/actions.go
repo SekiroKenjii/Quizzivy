@@ -112,6 +112,7 @@ var catalogue = []Action{
 	{"user.preferences_updated", "Đã cập nhật tuỳ chọn cá nhân", "Updated personal preferences"},
 	{"user.profile_updated", "Đã cập nhật hồ sơ", "Updated a profile"},
 	{"user.renamed", "Đã đổi tên tài khoản", "Renamed an account"},
+	{"user_import.requested", "Đã yêu cầu nhập người dùng từ tệp", "Requested an import of users from a file"},
 }
 
 // Actions lists every action the server writes, in key order, each with its

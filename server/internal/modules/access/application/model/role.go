@@ -47,3 +47,24 @@ type AssignableRole struct {
 	StudentTarget bool
 	Revision      int64
 }
+
+// RoleVerdict is what a caller may do about giving a role to a user.
+type RoleVerdict int
+
+const (
+	// RoleGivable means the caller may give the role.
+	RoleGivable RoleVerdict = iota
+	// RoleBeyondCaller means the role holds a permission the caller lacks.
+	RoleBeyondCaller
+	// RoleNeverGiven means the role is the Assistant's, which no one gives.
+	RoleNeverGiven
+)
+
+// RoleChoice is a role with the caller's verdict on giving it.
+type RoleChoice struct {
+	ID            string
+	Builtin       access.Builtin
+	Name          string
+	StudentTarget bool
+	Verdict       RoleVerdict
+}

@@ -38,6 +38,7 @@ type Queries struct {
 	ListRoles        cqrs.QueryHandler[query.ListRoles, model.RoleList]
 	AssignableRoles  cqrs.QueryHandler[query.AssignableRoles, []model.AssignableRole]
 	AssignableRole   cqrs.QueryHandler[query.AssignableRole, model.AssignableRole]
+	RoleChoices      cqrs.QueryHandler[query.RoleChoices, []model.RoleChoice]
 }
 
 // Commands are the module's writes. They are nil until WithRoleStore gives the
@@ -61,6 +62,7 @@ func New(repo domain.Repository) *Application {
 			ListRoles:        query.ListRolesHandler{Repo: repo, Service: service},
 			AssignableRoles:  query.AssignableRolesHandler{Repo: repo, Service: service},
 			AssignableRole:   query.AssignableRoleHandler{Repo: repo, Service: service},
+			RoleChoices:      query.RoleChoicesHandler{Repo: repo, Service: service},
 		},
 		service: service,
 		repo:    repo,
