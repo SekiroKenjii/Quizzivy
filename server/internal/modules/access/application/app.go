@@ -37,6 +37,7 @@ type Queries struct {
 	Matrix           cqrs.QueryHandler[query.Matrix, []model.RoleGrants]
 	ListRoles        cqrs.QueryHandler[query.ListRoles, model.RoleList]
 	AssignableRoles  cqrs.QueryHandler[query.AssignableRoles, []model.AssignableRole]
+	AssignableRole   cqrs.QueryHandler[query.AssignableRole, model.AssignableRole]
 }
 
 // Commands are the module's writes. They are nil until WithRoleStore gives the
@@ -59,6 +60,7 @@ func New(repo domain.Repository) *Application {
 			Matrix:           query.MatrixHandler{Repo: repo, Service: service},
 			ListRoles:        query.ListRolesHandler{Repo: repo, Service: service},
 			AssignableRoles:  query.AssignableRolesHandler{Repo: repo, Service: service},
+			AssignableRole:   query.AssignableRoleHandler{Repo: repo, Service: service},
 		},
 		service: service,
 		repo:    repo,

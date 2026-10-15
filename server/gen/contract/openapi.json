@@ -4626,6 +4626,411 @@
           }
         }
       },
+      "AdminUserRole": {
+        "type": "object",
+        "description": "The role an account holds, as the Users table draws it.",
+        "required": [
+          "id",
+          "name",
+          "builtinKey",
+          "icon",
+          "color"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "builtinKey": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BuiltinRoleKey"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "icon": {
+            "$ref": "#/components/schemas/RoleIcon"
+          },
+          "color": {
+            "$ref": "#/components/schemas/RoleColor"
+          }
+        }
+      },
+      "AdminUserRow": {
+        "type": "object",
+        "description": "One account as the Admin console's Users table lists it, whatever its\nrole. Flat, as `StudentRow` is, for the same reason (issue #41).\n",
+        "required": [
+          "id",
+          "fullName",
+          "email",
+          "avatarUrl",
+          "role",
+          "signIn",
+          "classes",
+          "lastActiveAt",
+          "status",
+          "createdAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "fullName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 254
+          },
+          "avatarUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri",
+            "maxLength": 2048,
+            "description": "A signed link to the account's photo, null when it has none or this server stores none."
+          },
+          "role": {
+            "$ref": "#/components/schemas/AdminUserRole"
+          },
+          "signIn": {
+            "type": "object",
+            "description": "The ways the account can sign in with, as it stands; the centre's policy may have turned one off.",
+            "required": [
+              "password",
+              "google"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "password": {
+                "type": "boolean",
+                "description": "True when the account has a password."
+              },
+              "google": {
+                "type": "boolean",
+                "description": "True when a Google identity is linked."
+              }
+            }
+          },
+          "classes": {
+            "type": "object",
+            "description": "The classes that are not archived: for a student target, those the\naccount is a member of; for any other account, those it teaches.\n",
+            "required": [
+              "count",
+              "firstName"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "firstName": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 120,
+                "description": "The name of the class the account joined first (a student target) or was given first (anyone else), null when `count` is 0."
+              }
+            }
+          },
+          "lastActiveAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "The account's latest authenticated request (DG-54), null before it has ever been active."
+          },
+          "status": {
+            "$ref": "#/components/schemas/AccountStatus"
+          },
+          "createdAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "AdminUserTab": {
+        "type": "string",
+        "enum": [
+          "all",
+          "teachers",
+          "students",
+          "admins",
+          "disabled"
+        ],
+        "description": "The Users table's tabs. `admins` are the built-in Admin role; `students`\nare the student targets (a role holding at most `learning.take_tests`,\nso an Admin who also takes tests is never one); `teachers` are everyone\nelse, the Assistant and every custom role with a permission included.\nThese three include disabled accounts, as the tabs' counts do;\n`disabled` is every disabled account, whatever its role.\n"
+      },
+      "AdminUserFacets": {
+        "type": "object",
+        "description": "The tabs' counts. They follow `q`, `email` and `status` but not `tab`,\nso each tab shows what it would list.\n",
+        "required": [
+          "all",
+          "teachers",
+          "students",
+          "admins",
+          "disabled"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "all": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "teachers": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "students": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "admins": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "disabled": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "AdminUserClass": {
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          }
+        }
+      },
+      "AdminUserActivity": {
+        "type": "object",
+        "description": "One line of the sheet's recent activity. `detail` is the sign-in method\n(`password`, `google` or `set_password_link`) for `sign_in`; the audit\naction key (`audit.action.*`) for `audit`; the test's title for\n`submission`; the class's name for `class_joined`. It is null when the\nsubject has since been removed.\n",
+        "required": [
+          "kind",
+          "at",
+          "detail"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "sign_in",
+              "audit",
+              "submission",
+              "class_joined"
+            ]
+          },
+          "at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          }
+        }
+      },
+      "AdminUserCan": {
+        "type": "object",
+        "description": "What the caller may do to this account, each answer the server's own\nguards give: the subset rule (`TARGET_ROLE_NOT_ALLOWED`), not oneself,\nand the last active Admin. A `false` here is what the operation would\nrefuse, so the sheet hides the action rather than offer a button that\nfails.\n",
+        "required": [
+          "changeRole",
+          "resetPassword",
+          "disable",
+          "signOut",
+          "transfer"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "changeRole": {
+            "type": "boolean",
+            "description": "Needs `people.roles.manage`; not oneself; not the last active Admin."
+          },
+          "resetPassword": {
+            "type": "boolean",
+            "description": "Not oneself."
+          },
+          "disable": {
+            "type": "boolean",
+            "description": "Not oneself, not the last active Admin, and not already disabled."
+          },
+          "signOut": {
+            "type": "boolean",
+            "description": "Signing oneself out everywhere is allowed."
+          },
+          "transfer": {
+            "type": "boolean",
+            "description": "Needs `scope.all`, and the account must be disabled."
+          }
+        }
+      },
+      "AdminUserDetail": {
+        "type": "object",
+        "description": "One account for the Users sheet.",
+        "required": [
+          "user",
+          "createdBy",
+          "classes",
+          "ownedContent",
+          "inProgressAttempts",
+          "activity",
+          "can"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/AdminUserRow"
+          },
+          "createdBy": {
+            "description": "Who created the account, null for one that signed itself up or whose creator is gone.",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "id",
+                  "fullName"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "fullName": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                }
+              }
+            ]
+          },
+          "classes": {
+            "type": "array",
+            "maxItems": 20,
+            "description": "The first 20 of `user.classes.count`, in the order `firstName` is drawn from.",
+            "items": {
+              "$ref": "#/components/schemas/AdminUserClass"
+            }
+          },
+          "ownedContent": {
+            "type": "object",
+            "description": "What `transferUserContent` would move: every class the account\nteaches (archived ones too) and every test, question, media asset\nand assignment it owns that has not been deleted.\n",
+            "required": [
+              "classes",
+              "tests",
+              "questions",
+              "media",
+              "assignments"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "classes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "tests": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "questions": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "media": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "assignments": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "inProgressAttempts": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Tests the account is taking right now."
+          },
+          "activity": {
+            "type": "array",
+            "maxItems": 8,
+            "description": "Newest first.",
+            "items": {
+              "$ref": "#/components/schemas/AdminUserActivity"
+            }
+          },
+          "can": {
+            "$ref": "#/components/schemas/AdminUserCan"
+          }
+        }
+      },
+      "UserCreate": {
+        "type": "object",
+        "required": [
+          "fullName",
+          "email",
+          "roleId",
+          "delivery"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 254
+          },
+          "roleId": {
+            "$ref": "#/components/schemas/Uuid",
+            "description": "A role from `listAssignableRoles`."
+          },
+          "classId": {
+            "$ref": "#/components/schemas/Uuid",
+            "description": "A class to add the account to. Allowed only for a student-target role and only to a caller holding `scope.all`."
+          },
+          "delivery": {
+            "type": "string",
+            "enum": [
+              "email_link",
+              "temporary_password"
+            ],
+            "description": "`email_link` creates the account without a password and emails it a\nlink to choose one (24 hours, once). `temporary_password` returns a\ntemporary password once, for the admin to hand over.\n"
+          }
+        }
+      },
       "StudentPasswordReset": {
         "type": "object",
         "description": "One student `resetStudentsPasswords` reset. The password is shown once.",
@@ -19410,12 +19815,236 @@
         }
       }
     },
+    "/admin/users": {
+      "get": {
+        "operationId": "listUsers",
+        "x-permission": "people.users.manage",
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "Every account, whatever its role",
+        "description": "The Users table: every account in the centre, newest first: highest id\nfirst, which is creation order for every account the app creates. Pages\nare offset based, so accounts added between two requests shift the later\npages. `q` matches the name and the email together, ignoring case and\naccents (D-11), and `email` is an exact, case-insensitive match for the\nAdd user form's \"already taken\" check. `status` narrows to the accounts\nin that state, which never includes a disabled one (`AccountStatus`\nlists `disabled` first).\n",
+        "parameters": [
+          {
+            "name": "tab",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/AdminUserTab"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "must_change_password",
+                "never_signed_in"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Query"
+          },
+          {
+            "name": "email",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "email",
+              "maxLength": 254
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                10,
+                20,
+                50
+              ],
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageInfo"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "facets"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AdminUserRow"
+                          }
+                        },
+                        "facets": {
+                          "$ref": "#/components/schemas/AdminUserFacets"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createUser",
+        "x-permission": "people.users.manage",
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "Add an account with a role",
+        "description": "Creates an account of any role the caller may give (`listAssignableRoles`):\nits permissions, `learning.take_tests` apart, must be the caller's own,\nand the Assistant is never offered. `created_by` is the caller. The role\nis held against edits from the check to the commit; if it changed in\nbetween, the check is made again, up to three times.\n\n`fullName` is composed to NFC, trimmed, and each run of white space is\none space. A name that is then empty, longer than 200 characters, holds\na control, format, bidirectional or filler character or a code point\nthat is unassigned, or holds no letter, digit, punctuation mark or\nsymbol, is refused with `VALIDATION_FAILED` naming `fullName`.\n\n`delivery: email_link` sets no password and enqueues a set-password\nlink (an invite) in the same transaction as the account, so the account\nand its message exist together or not at all. While the centre has\nturned password sign-in off, the message is a sign-in invite and\ncarries no link. `delivery: temporary_password` returns a temporary\npassword **once** and keeps only its hash; the account must change it\nat the first sign-in unless the centre's sign-in policy lets it keep\nit. It is refused with `PASSWORD_SIGN_IN_DISABLED` while password\nsign-in is off.\n\n`classId` is allowed only for a student-target role and only with\n`scope.all`, and must name a class that is not archived. Writes one\naudit row, `user.created`, with the role and the delivery.\n\nLimited to 30 a minute and 300 an hour per signed-in user.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created. A temporary password is returned **once**, and the answer is never cached.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "user"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/AdminUserRow"
+                    },
+                    "temporaryPassword": {
+                      "type": "string",
+                      "description": "Present only for `delivery: temporary_password`."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "description": "`TARGET_ROLE_NOT_ALLOWED` — the role holds a permission the caller lacks.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "`EMAIL_TAKEN` — already in use, compared case-insensitively.\n`STALE_WRITE` — the role changed three times while the account was being created; nothing was written, so the same request may be sent again.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`ROLE_NOT_ASSIGNABLE` — the role is the Assistant.\n`PASSWORD_SIGN_IN_DISABLED` — a temporary password was asked for while the centre has turned password sign-in off.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "501": {
+            "description": "This server has no key to seal a link with (`SECRETS_KEY`), so it cannot send one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/users/{id}": {
       "parameters": [
         {
           "$ref": "#/components/parameters/IdPath"
         }
       ],
+      "get": {
+        "operationId": "getUser",
+        "x-permission": "people.users.manage",
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "One account for the Users sheet",
+        "description": "The account with what the sheet draws beside it: who created it, its\nclasses, what it owns, the tests it is taking, its latest activity and\nwhat the caller may do to it (`can`). Any account is visible, whatever\nits role; the subset rule limits what may be done, not what is seen.\n",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
       "delete": {
         "operationId": "deleteUser",
         "x-permission": "people.users.manage",

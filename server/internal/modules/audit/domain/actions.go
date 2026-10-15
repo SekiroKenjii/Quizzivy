@@ -103,6 +103,7 @@ var catalogue = []Action{
 	{"test.version_deleted", "Đã xoá một phiên bản của bài kiểm tra", "Deleted a version of a test"},
 	{"user.avatar_removed", "Đã gỡ ảnh đại diện", "Removed a profile photo"},
 	{"user.avatar_set", "Đã đặt ảnh đại diện", "Set a profile photo"},
+	{"user.created", "Đã tạo tài khoản", "Created an account"},
 	{"user.google_linked", "Đã liên kết tài khoản Google", "Linked a Google account"},
 	{"user.google_unlinked", "Đã huỷ liên kết tài khoản Google", "Unlinked a Google account"},
 	{"user.password_changed", "Đã đổi mật khẩu", "Changed a password"},

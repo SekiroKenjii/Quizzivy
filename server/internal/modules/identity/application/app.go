@@ -92,6 +92,18 @@ func (a *Application) SetPasswordLinks(links domain.SetPasswordLinks) {
 	a.Commands.PruneSetPasswordLinks = command.PruneSetPasswordLinksHandler{Service: a.service}
 }
 
+// SetAdminUsers attaches the Admin console's account directory and the access
+// module's say on which roles a caller may give, which opens createUser,
+// listUsers and getUser.
+// Without it Commands.CreateUser, Queries.ListUsers and Queries.GetUser are
+// nil and their operations answer 501.
+func (a *Application) SetAdminUsers(repo domain.AdminUsers, roles ports.AssignableRole) {
+	admin := &support.Admin{Repo: repo, Roles: roles, Service: a.service, Students: a.students}
+	a.Commands.CreateUser = command.CreateUserHandler{Admin: admin}
+	a.Queries.ListUsers = query.ListUsersHandler{Admin: admin}
+	a.Queries.GetUser = query.GetUserHandler{Admin: admin}
+}
+
 // SetTemporaryPasswords replaces how a student's temporary password and its hash are made. Tests only.
 func (a *Application) SetTemporaryPasswords(source func(ctx context.Context) (password, hash string, err error)) {
 	a.students.Password = source
@@ -108,6 +120,7 @@ type Commands struct {
 	SetAvatar              cqrs.CommandHandler[command.SetAvatar, domain.User]
 	ChangePassword         cqrs.CommandHandler[command.ChangePassword, cqrs.Nothing]
 	CreateStudent          cqrs.CommandHandler[command.CreateStudent, command.CreateStudentResult]
+	CreateUser             cqrs.CommandHandler[command.CreateUser, command.CreateUserResult]
 	GoogleSignIn           cqrs.CommandHandler[command.GoogleSignIn, model.GoogleSignInResult]
 	IssueSetPasswordLink   cqrs.CommandHandler[command.IssueSetPasswordLink, domain.IssuedLink]
 	LinkGoogle             cqrs.CommandHandler[command.LinkGoogle, domain.User]
@@ -138,6 +151,8 @@ type Queries struct {
 	GetStudent           cqrs.QueryHandler[query.GetStudent, domain.Student]
 	ListSessions         cqrs.QueryHandler[query.ListSessions, []domain.Session]
 	ListStudents         cqrs.QueryHandler[query.ListStudents, query.ListStudentsResult]
+	ListUsers            cqrs.QueryHandler[query.ListUsers, query.ListUsersResult]
+	GetUser              cqrs.QueryHandler[query.GetUser, query.GetUserResult]
 	StudentAccount       cqrs.QueryHandler[query.StudentAccount, domain.Account]
 	StudentFacets        cqrs.QueryHandler[query.StudentFacets, domain.StudentFacets]
 }
