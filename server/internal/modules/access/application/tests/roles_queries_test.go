@@ -2,10 +2,12 @@ package application_test
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"testing"
 
 	"quizzivy/internal/modules/access/application"
+	"quizzivy/internal/modules/access/application/model"
 	"quizzivy/internal/modules/access/application/query"
 	"quizzivy/internal/modules/access/domain"
 	"quizzivy/internal/shared/access"
@@ -86,5 +88,39 @@ func TestTheAssignableRolesAreThoseWithinTheCallersReach(t *testing.T) {
 	want := []pick{{"Admin", false}, {"Teacher", false}, {"Custom", false}, {"Student", true}, {"Only tests", true}}
 	if !slices.Equal(got, want) {
 		t.Errorf("the Admin may assign %v, want %v", got, want)
+	}
+}
+
+func TestOneAssignableRoleIsAnswerForEachRefusal(t *testing.T) {
+	app := queryApp(t)
+	grader := domain.Caller{RoleID: "role-custom", Permissions: access.NewSet(access.TeachingGrading)}
+	cases := []struct {
+		name    string
+		by      domain.Caller
+		roleID  string
+		want    error
+		student bool
+	}{
+		{"the Admin gives the Teacher role", adminCaller(), "role-teacher", nil, false},
+		{"the Admin gives a student target", adminCaller(), "role-only-tests", nil, true},
+		{"the Admin gives the built-in Student", adminCaller(), "role-student", nil, true},
+		{"nobody gives the Assistant", adminCaller(), "role-assistant", domain.ErrNotAssignable, false},
+		{"an unknown role", adminCaller(), "role-missing", domain.ErrRoleNotFound, false},
+		{"a grader cannot give the Teacher role", grader, "role-teacher", domain.ErrTargetRoleNotAllowed, false},
+		{"a grader gives a student target", grader, "role-only-tests", nil, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			role, err := app.Queries.AssignableRole.Handle(context.Background(), query.AssignableRole{By: c.by, RoleID: c.roleID})
+			if !errors.Is(err, c.want) || (c.want == nil && err != nil) {
+				t.Fatalf("error = %v, want %v", err, c.want)
+			}
+			if c.want == nil && (role.ID != c.roleID || role.StudentTarget != c.student) {
+				t.Errorf("role = %+v, want %s with studentTarget %v", role, c.roleID, c.student)
+			}
+			if c.want != nil && role != (model.AssignableRole{}) {
+				t.Errorf("a refusal returned %+v", role)
+			}
+		})
 	}
 }
