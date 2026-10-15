@@ -18,6 +18,11 @@ import (
 
 var linkNow = time.Date(2026, 10, 14, 12, 0, 0, 123456789, time.UTC)
 
+type linkPrune struct {
+	before time.Time
+	limit  int
+}
+
 type linkStore struct {
 	order        []string
 	link         domain.SetPasswordLink
@@ -30,6 +35,9 @@ type linkStore struct {
 
 	finds     int
 	claims    []domain.ClaimLink
+	prunes    []linkPrune
+	pruned    int
+	pruneErr  error
 	inserted  []domain.NewLink
 	mails     []domain.LinkMail
 	audits    []audit.Entry
@@ -63,6 +71,11 @@ func (s *linkStore) Claim(_ context.Context, in domain.ClaimLink) (domain.Claime
 	s.log("claim")
 	s.claims = append(s.claims, in)
 	return s.claimed, s.claimErr
+}
+
+func (s *linkStore) Prune(_ context.Context, before time.Time, limit int) (int, error) {
+	s.prunes = append(s.prunes, linkPrune{before: before, limit: limit})
+	return s.pruned, s.pruneErr
 }
 
 func (s *linkStore) Recipient(context.Context, string) (domain.LinkRecipient, error) {

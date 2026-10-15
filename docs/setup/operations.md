@@ -488,11 +488,12 @@ Each API machine runs the housekeeping when it starts and then every 24 hours,
 on the tick of the refresh-token prune, so it adds no timer and no database
 wake of its own. It removes, in this order: `user_activity_days` rows older
 than 400 days; outbox rows sent or failed more than 30 days ago (a pending row
-never); the files of data exports past their 24 hours, which are then marked
-`expired` (this step needs `IMPORT_S3_BUCKET`); and the `branding/` logo
-objects that neither the light nor the dark logo names, once they are 24 hours
-old (this step needs media storage). Two machines running it at once only
-repeat each other's deletes.
+never); set-password links that were used, revoked or expired more than 30 days
+ago (a link that still works never); the files of data exports past their 24
+hours, which are then marked `expired` (this step needs `IMPORT_S3_BUCKET`); and
+the `branding/` logo objects that neither the light nor the dark logo names, once
+they are 24 hours old (this step needs media storage). Two machines running it
+at once only repeat each other's deletes.
 
 Every step handles 500 rows or objects at a time, at most 20 times and for at
 most a minute, so a run clears 10,000 rows or objects of a step at most and a
