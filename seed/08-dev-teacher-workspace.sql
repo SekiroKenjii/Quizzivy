@@ -56,8 +56,8 @@ LANGUAGE sql IMMUTABLE AS $$
 $$;
 
 -- ------------------------------------------------------------------ students
--- The ten named students are the deck's roster. Quốc Huy and Đức Minh hold a
--- temporary password, the deck's "Password reset" and "Not signed in".
+-- The ten named students are the deck's roster. Quốc Huy holds a temporary
+-- password, the deck's "Password reset", and Đức Minh has not signed in.
 INSERT INTO app.users (id, email, full_name, role_id, password_hash, must_change_password, created_by)
 SELECT pg_temp.sid(1, v.n), v.email, v.full_name,
        (SELECT id FROM app.roles WHERE builtin_key = 'student'),
@@ -69,7 +69,7 @@ SELECT pg_temp.sid(1, v.n), v.email, v.full_name,
     (3,  'thuha.pham@quizzivy.com',       'Phạm Thu Hà',      false),
     (4,  'giabao.nguyen@quizzivy.com',    'Nguyễn Gia Bảo',   false),
     (5,  'khanhlinh.vo@quizzivy.com',     'Võ Khánh Linh',    false),
-    (6,  'ducminh.hoang@quizzivy.com',    'Hoàng Đức Minh',   true),
+    (6,  'ducminh.hoang@quizzivy.com',    'Hoàng Đức Minh',   false),
     (7,  'quochuy.dang@quizzivy.com',     'Đặng Quốc Huy',    true),
     (8,  'phuongthao.do@quizzivy.com',    'Đỗ Phương Thảo',   false),
     (9,  'ngocmai.bui@quizzivy.com',      'Bùi Ngọc Mai',     false),
@@ -647,6 +647,36 @@ SELECT pg_temp.put_attempt(5, pg_temp.sid(1, n),  CASE WHEN n IN (5, 8) THEN 'pe
 SELECT pg_temp.put_attempt(5, pg_temp.sid(2, n),  CASE WHEN n <= 6 THEN 'pending' ELSE 'graded' END,
                            2, 1 + n % 2, 36 + n, interval '11 days' + n * interval '3 hours', 0, false)
   FROM generate_series(1, 14) AS n;
+
+-- ---------------------------------------------------------------- activity
+-- DG-54: a student who took a test or joined a class has signed in, and was last
+-- active when the newest of those happened. The migration's backfill reads the
+-- tables a running system fills, which a seed applied afterwards bypasses. Đức
+-- Minh, every seventeenth student of the fifty-nine without an attempt, and the
+-- one on a temporary password stay "not signed in".
+WITH seen AS (
+  SELECT s.id,
+         least(min(a.started_at), min(m.joined_at)) AS first_seen,
+         least(greatest(max(coalesce(a.submitted_at, a.started_at)), max(m.joined_at)), now()) AS last_seen,
+         count(a.id) AS attempts
+    FROM (SELECT pg_temp.sid(1, n) AS id, n, 1 AS kind FROM generate_series(1, 10) AS n
+          UNION ALL
+          SELECT pg_temp.sid(2, n), n, 2 FROM generate_series(1, 59) AS n) AS s
+    LEFT JOIN app.attempts a ON a.student_id = s.id
+    LEFT JOIN app.class_members m ON m.user_id = s.id
+   WHERE NOT (s.kind = 1 AND s.n = 6)
+   GROUP BY s.id, s.kind, s.n
+  HAVING count(a.id) > 0 OR NOT (s.kind = 2 AND s.n % 17 = 0)
+)
+UPDATE app.users u
+   SET last_sign_in_at = seen.first_seen,
+       last_sign_in_method = 'password',
+       last_active_at = seen.last_seen
+  FROM seen
+ WHERE u.id = seen.id
+   AND seen.first_seen IS NOT NULL
+   AND NOT u.must_change_password
+   AND u.last_sign_in_at IS NULL;
 
 -- ----------------------------------------------------------------- imports
 -- Four imports, one per state a teacher meets: pasted text in review, a file

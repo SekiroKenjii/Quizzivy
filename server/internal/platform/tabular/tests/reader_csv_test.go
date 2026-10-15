@@ -255,9 +255,7 @@ func TestAFileLargerThanTheByteLimitIsRefusedBeforeItIsRead(t *testing.T) {
 	for _, format := range []tabular.Format{tabular.FormatCSV, tabular.FormatXLSX} {
 		_, _, err := read(t, []byte("a,b\n1,2\n3,4,5,6,7\n"), format, limits)
 
-		if !errors.Is(err, tabular.ErrTooLarge) {
-			t.Errorf("%s: err = %v, want ErrTooLarge", format, err)
-		}
+		wantSizeError(t, err, tabular.ErrTooLarge)
 	}
 }
 
