@@ -107,7 +107,11 @@ func (w *importsWorld) preview(req domain.WriteRequest, file []byte, role domain
 }
 
 func (w *importsWorld) submit(req domain.WriteRequest, requestID string, file []byte, role domain.ImportDefaultRole, delivery domain.ImportDelivery) (command.CreateUserImportResult, error) {
-	return w.app.Commands.CreateUserImport.Handle(context.Background(), command.CreateUserImport{
+	return w.submitWithin(context.Background(), req, requestID, file, role, delivery)
+}
+
+func (w *importsWorld) submitWithin(ctx context.Context, req domain.WriteRequest, requestID string, file []byte, role domain.ImportDefaultRole, delivery domain.ImportDelivery) (command.CreateUserImportResult, error) {
+	return w.app.Commands.CreateUserImport.Handle(ctx, command.CreateUserImport{
 		Request: req, RequestID: requestID, Filename: "danh-sach.csv", File: file, DefaultRole: role, Delivery: delivery,
 	})
 }
@@ -368,7 +372,13 @@ func TestAnAuditEntryThatCannotBeWrittenTakesTheJobAndItsRowsBackWithIt(t *testi
 
 	spoiled := w.everything()
 	spoiled.IP = "not an address"
-	if _, err := w.submit(spoiled, requestID, file, domain.DefaultStudent, domain.ImportEmailLink); err == nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err := w.submitWithin(ctx, spoiled, requestID, file, domain.DefaultStudent, domain.ImportEmailLink)
+	if errors.Is(err, context.DeadlineExceeded) {
+		t.Fatal("the request did not end: its audit entry is written outside the transaction that holds the job")
+	}
+	if err == nil {
 		t.Fatal("an audit entry that cannot be written did not fail the request")
 	}
 	w.wantNothingStored(t, fresh)
