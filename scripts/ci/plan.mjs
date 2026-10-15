@@ -35,7 +35,11 @@ export const SETS = {
     include: ['Dockerfile', '.dockerignore', 'fly.toml', 'server/', 'migrations/', 'scripts/provision-db.sh'],
     exclude: [],
   },
-  server: { base: 'all', include: ['web/tests/e2e/fixtures/', 'api/testdata/pasted-text-counts.json'], exclude: [...NOT_CODE, 'web/'] },
+  server: {
+    base: 'all',
+    include: ['web/tests/e2e/fixtures/', 'api/testdata/pasted-text-counts.json', 'docs/setup/operations.md'],
+    exclude: [...NOT_CODE, 'web/'],
+  },
   web: {
     base: 'all',
     include: ['server/internal/modules/classes/domain/joincode.go', 'api/testdata/pasted-text-counts.json'],
