@@ -3,6 +3,7 @@ import { join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const SRC = resolve(import.meta.dirname, "../../../src");
+const PAUSED_OPACITY = /aria-disabled[^\s"'`]*?[:\]]opacity-/g;
 const FORM = "aria-disabled:opacity-";
 
 const BASELINE: Readonly<Record<string, number>> = {
@@ -38,12 +39,16 @@ function sources(dir: string): string[] {
   });
 }
 
+function pausedOpacity(source: string): number {
+  return source.match(PAUSED_OPACITY)?.length ?? 0;
+}
+
 function counts(root: string): Map<string, number> {
   const found = new Map<string, number>();
   for (const path of sources(root)) {
     const file = relative(root, path).replaceAll("\\", "/");
     if (file.startsWith("components/ui/")) continue;
-    const count = readFileSync(path, "utf8").split(FORM).length - 1;
+    const count = pausedOpacity(readFileSync(path, "utf8"));
     if (count > 0) found.set(file, count);
   }
   return found;
@@ -76,6 +81,27 @@ describe("a paused control fades its colours, never the element (D-029)", () => 
     const found = counts(SRC);
     const stale = Object.keys(BASELINE).filter((file) => !found.has(file));
     expect(stale).toEqual([]);
+  });
+
+  it.each([
+    ["aria-disabled:opacity-50", "the plain spelling"],
+    ["aria-disabled:hover:opacity-50", "behind another variant"],
+    ["[&[aria-disabled]]:opacity-50", "an arbitrary variant on the attribute"],
+    ["[&[aria-disabled=true]]:opacity-60", "the attribute with a value"],
+    ["data-[x]:aria-disabled:opacity-40", "after another variant"],
+  ])("sees %s (%s)", (token) => {
+    expect(pausedOpacity(`className="px-2 ${token} h-7"`)).toBe(1);
+  });
+
+  it.each([
+    "aria-disabled:bg-primary/50",
+    "aria-disabled:text-foreground/50",
+    "aria-disabled:[&>span]:bg-switch-thumb/50",
+    "disabled:opacity-50",
+    "opacity-50",
+    "transition-opacity",
+  ])("lets %s through", (token) => {
+    expect(pausedOpacity(`className="px-2 ${token} h-7"`)).toBe(0);
   });
 
   it("would be caught: a new use, a new file", () => {
