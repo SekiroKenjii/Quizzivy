@@ -21,6 +21,10 @@ const (
 	ImportMaxAttempts = 3
 	// SheetLifetime is how long a finished job's sheet can be taken.
 	SheetLifetime = 24 * time.Hour
+	// UserImportsKept is how long a job, with its rows, stays in the tables
+	// once it has finished, done or failed. The rows keep each person's name and
+	// address as the file spelled them, so they go with the job.
+	UserImportsKept = 30 * 24 * time.Hour
 )
 
 // The error codes a failed job carries.
