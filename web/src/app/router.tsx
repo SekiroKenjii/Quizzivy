@@ -411,7 +411,9 @@ const adminTree: RouteObject = {
                 permission: "system.api_reference",
                 width: 1080,
               },
-              lazy: pending,
+              lazy: page(
+                () => import("@/features/api-reference/pages/admin/ApiReferencePage"),
+              ),
             },
             {
               path: "settings/:section?",

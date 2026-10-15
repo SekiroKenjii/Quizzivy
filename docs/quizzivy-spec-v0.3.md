@@ -36,6 +36,8 @@
 - T-R5.3 §6.5 `checkSetPasswordLink` and `setPasswordWithLink` are open and limited per address and per token; `requestSetPasswordLink` is limited per signed-in user. The set of operations that need no bearer token is now eleven, and the bodies keyed on a field are six.
 - T-R5.3 §13.3 `app.set_password_tokens` (`00135_create_set_password_tokens.sql`, `docs/plan/20-data-model.md` D-55, §53).
 - T-R5.3 §15 Three operations: `POST /auth/set-password/check`, `POST /auth/set-password` and `POST /auth/set-password/request`, and the error code `SET_PASSWORD_LINK_INVALID`. Two audit actions: `user.password_set` and `user.password_link_requested`.
+- T-R5.27 §12 The Admin console's API reference is at `/admin/api` (`system.api_reference`): the contract's OpenAPI and `info.version` and its endpoint count from `getApiReferenceSummary`, a card for each tag of the contract with its name and blurb in both languages (a tag the client has no words for is drawn by its name, and `api-groups.test.ts` fails when the contract has one), the base URL with Copy, the contract as `openapi.json` (the document the API serves, not the deck's `openapi.yaml`) and a button that makes the docs session and opens `/docs` in a new tab, opened in the click and cut off from the page. A group's card opens the reference at `#tag/{tag}`. The note says what is true: the session reads the documentation and does not call the API for the person (DG-10).
+- T-R5.27 §12 R4's Settings no longer lists API reference. `/teacher/settings/api` goes to `/admin/api` for who holds `system.api_reference` and to Profile for anyone else.
 
 **Changes since v0.111**
 
