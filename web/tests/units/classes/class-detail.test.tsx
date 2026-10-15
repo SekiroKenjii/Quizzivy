@@ -309,6 +309,41 @@ describe("the class's head", () => {
     ).toBeTruthy();
   });
 
+  it.each([
+    [false, "Chưa có học viên. Hãy thêm học viên vào lớp."],
+    [true, "Lớp chưa có học viên. Hãy gửi mã tham gia hoặc tự thêm học viên."],
+  ])(
+    "tells an empty class what to do when the centre's joining by code is %s (D-028)",
+    async (joinCodes, line) => {
+      server.use(
+        http.get(`${BASE}/teacher/classes/${CLASS_ID}/members`, () =>
+          contractJson("/teacher/classes/{id}/members", "get", 200, {
+            items: [],
+            page: 1,
+            pageSize: 20,
+            total: 0,
+          }),
+        ),
+        http.get(`${BASE}/public/organization`, () =>
+          contractJson("/public/organization", "get", 200, {
+            name: "Quizzivy",
+            shortName: null,
+            website: null,
+            contactEmail: null,
+            frontDeskPhone: null,
+            frontDeskHours: null,
+            address: null,
+            logo: { lightUrl: null, darkUrl: null },
+            signIn: { google: true, password: true },
+            joinCodes,
+          }),
+        ),
+      );
+      renderDetail();
+      expect(await screen.findByText(line)).toBeVisible();
+    },
+  );
+
   it("says a class it cannot read is not found", async () => {
     server.use(
       http.get(`${BASE}/teacher/classes/${CLASS_ID}`, () =>
