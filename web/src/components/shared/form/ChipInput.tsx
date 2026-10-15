@@ -101,15 +101,18 @@ export function ChipBox({
 /**
  * ChipInput is a field of short free-text values, each drawn as a chip: the
  * accepted answers of a gap. Enter adds what is typed, and so do a comma
- * (unless `commaAdds` is false, for values that may hold one) and leaving the
- * field; Backspace in the empty input removes the last value. An entry is
- * trimmed and put in NFC, and one that is `same` as a value already there is
- * not added: by default the two are compared lower-cased, so accents count.
- * `label` names the input and `describedBy` is its `aria-describedby`, for a
- * message the host draws. `tone` and `size` pick the chip (`md` is the
+ * (unless `commaAdds` is false, for values that may hold one), a space when
+ * `spaceAdds` is set (for values that hold none) and leaving the field;
+ * Backspace in the empty input removes the last value. An entry is trimmed
+ * and put in NFC, then given to `resolve` when there is one, which returns
+ * the value to add; one that is `same` as a value already there is not
+ * added: by default the two are compared lower-cased, so accents count.
+ * `label` names the input, `id` is its id and `describedBy` its
+ * `aria-describedby`, for a message the host draws. `tone` and `size` pick the chip (`md` is the
  * builder's 24px, `sm` the 22px of a framed field).
  */
 export function ChipInput({
+  id,
   label,
   values,
   onChange,
@@ -119,10 +122,13 @@ export function ChipInput({
   size = "sm",
   frame = true,
   commaAdds = true,
+  spaceAdds = false,
   invalid = false,
   describedBy,
   same = sameIgnoringCase,
+  resolve,
 }: Readonly<{
+  id?: string | undefined;
   label: string;
   values: readonly string[];
   onChange: (next: string[]) => void;
@@ -132,12 +138,14 @@ export function ChipInput({
   size?: ChipSize | undefined;
   frame?: boolean | undefined;
   commaAdds?: boolean | undefined;
+  spaceAdds?: boolean | undefined;
   invalid?: boolean | undefined;
   describedBy?: string | undefined;
   same?: ChipSame | undefined;
+  resolve?: ((entry: string) => string) | undefined;
 }>) {
   const input = useRef<HTMLInputElement>(null);
-  const entry = useChipEntry({ values, onChange, same, commaAdds });
+  const entry = useChipEntry({ values, onChange, same, commaAdds, spaceAdds, resolve });
   return (
     <ChipBox
       values={values}
@@ -153,6 +161,7 @@ export function ChipInput({
     >
       <input
         ref={input}
+        id={id}
         size={1}
         autoComplete="off"
         aria-label={label}

@@ -1,4 +1,4 @@
-import { queryOptions, useQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery, type QueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import { api, BASE_URL } from "@/lib/api/client";
@@ -22,6 +22,22 @@ export function publicOrganizationQuery() {
     queryFn: ({ signal }) => api("get", "/public/organization", { signal }),
     staleTime: 300_000,
   });
+}
+
+/**
+ * refreshPublicOrganization makes every reader of `GET /public/organization`
+ * ask again after the centre's settings were saved. The route lets a browser
+ * keep its answer for five minutes, so the first request revalidates the
+ * browser's copy (`no-cache`) and stores the new answer in it; the queries
+ * under PUBLIC_ORGANIZATION_KEY are then invalidated and read that copy. It
+ * never rejects: a failed revalidation leaves the old answer to expire as it
+ * would have.
+ */
+export async function refreshPublicOrganization(client: QueryClient): Promise<void> {
+  await api("get", "/public/organization", { cache: "no-cache" }).catch(
+    () => undefined,
+  );
+  await client.invalidateQueries({ queryKey: PUBLIC_ORGANIZATION_KEY });
 }
 
 /**
@@ -59,6 +75,15 @@ function logoUrl(path: unknown): string | null {
   if (typeof path !== "string" || !path.startsWith("/")) return null;
   const origin = BASE_URL.endsWith("/") ? BASE_URL.slice(0, -1) : BASE_URL;
   return `${origin}${path}`;
+}
+
+/**
+ * storedLogoUrl is the address `GET /public/organization/logo` serves the
+ * logo of `variant` at, named by the hash a save stored, as the front door
+ * is given it.
+ */
+export function storedLogoUrl(variant: "light" | "dark", sha256: string): string {
+  return logoUrl(`/public/organization/logo?variant=${variant}&v=${sha256}`) ?? "";
 }
 
 /**
