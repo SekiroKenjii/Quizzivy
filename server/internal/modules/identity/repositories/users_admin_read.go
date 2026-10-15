@@ -22,7 +22,8 @@ const (
 )
 
 const (
-	isAdminRole   = `r.builtin_key = 'admin'`
+	anyRow        = `TRUE`
+	isAdminRole   = `COALESCE(r.builtin_key, '') = 'admin'`
 	isStudentRole = `r.id IN (SELECT s.id FROM app.student_like_roles s)`
 	isDisabled    = `u.disabled_at IS NOT NULL`
 )
@@ -38,13 +39,13 @@ func adminTabCondition(tab domain.AdminTab) string {
 	case domain.TabDisabled:
 		return isDisabled
 	default:
-		return `TRUE`
+		return anyRow
 	}
 }
 
 func adminFilters(in domain.AdminUserQuery, withTab bool) ([]any, []string) {
 	args := []any{}
-	where := []string{`TRUE`}
+	where := []string{anyRow}
 	if withTab {
 		where = append(where, adminTabCondition(in.Tab))
 	}
@@ -214,8 +215,10 @@ func (a *AdminUsers) events(ctx context.Context, id string) ([]domain.UserEvent,
 		     FROM app.audit_log l WHERE l.actor_user_id = $1::uuid
 		    ORDER BY l.occurred_at DESC LIMIT $2::int)
 		  UNION ALL
-		  (SELECT 'submission', t.submitted_at, v.title
-		     FROM app.attempts t JOIN app.test_versions v ON v.id = t.test_version_id
+		  (SELECT 'submission', t.submitted_at, x.title
+		     FROM app.attempts t
+		     JOIN app.test_versions v ON v.id = t.test_version_id
+		     JOIN app.tests x ON x.id = v.test_id
 		    WHERE t.student_id = $1::uuid AND t.submitted_at IS NOT NULL
 		    ORDER BY t.submitted_at DESC LIMIT $2::int)
 		  UNION ALL
