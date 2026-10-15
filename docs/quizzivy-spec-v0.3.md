@@ -3733,4 +3733,5 @@ All original open questions are closed. These sub-decisions were made while impl
 - Write the `vi` string first, then `en`. Never leave English-only user-facing text.
 - When touching `features/take-test/`, `features/integrity/`, or `features/media/`, run their unit tests before and after every change.
 - Never remove a failing test to make CI green; fix it or flag it.
-- Keep this document current: when a decision changes, edit the section and bump the version at the top.
+- Keep this document current: when a decision changes, edit the section and record it in the changelog at the top.
+- The version is numbered at release, not per PR. On an integration branch (`develop`, `work/**`) a task PR never edits the version line: it adds its bullets under the one heading `**Changes pending (R5, v0.12.0)**`, each starting with its task id (`T-R5.15 §15 …`). The release PR sets the version line to the next free number and renames that heading `**Changes since v0.NNN**`, where NNN is the version the release replaces. A hotfix off `main` numbers itself, and its back-merge carries the number down.

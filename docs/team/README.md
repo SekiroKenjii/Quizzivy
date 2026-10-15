@@ -130,6 +130,13 @@ Repository state:        working directory, branch, base revision
   migration is numbered before its PR runs CI, because goose refuses `NNNNN_`: the next
   number after the highest on the integration branch, renumbered by its owner if another
   PR merges first. `senior_swe_platform` keeps the register.
+- **The spec's version is numbered at release, not per PR.** A task PR on `develop` or a
+  `work/**` branch never edits the version line of `docs/quizzivy-spec-v0.3.md`. It adds its
+  bullets, each starting with its task id, under the one heading `**Changes pending (R5,
+  v0.12.0)**` at the top of the changelog; the release PR sets the number and renames the
+  heading `**Changes since v0.NNN**`, where NNN is the version the release replaces. Two PRs adding bullets at the same anchor conflict in text, which a rebase
+  resolves by keeping both. A hotfix off `main` numbers itself. Migration numbers and
+  `20-data-model.md` D-nn ids are permanent ids and keep the rule above.
 - **Isolation.** Parallel implementers work in separate git worktrees (`isolation:
   "worktree"`), and git operations on a shared checkout are serialized. Worktrees do not
   isolate the database server, MinIO, or the ports 5173, 5175, 4173 and 8080: each test run
