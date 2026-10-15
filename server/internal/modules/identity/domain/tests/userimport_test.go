@@ -145,8 +145,8 @@ func TestEveryRefusalOfARoleHasItsOwnCode(t *testing.T) {
 	for cell, want := range map[string]domain.ImportCode{
 		"admin":          domain.CodeRoleNotAllowed,
 		"Quản trị viên":  domain.CodeRoleNotAllowed,
-		"assistant":      domain.CodeRoleNotAssignable,
-		"Trợ giảng":      domain.CodeRoleNotAssignable,
+		"assistant":      domain.CodeRoleNotGivable,
+		"Trợ giảng":      domain.CodeRoleNotGivable,
 		"giám đốc":       domain.CodeUnknownRole,
 		"teacher; admin": domain.CodeUnknownRole,
 	} {
@@ -226,8 +226,8 @@ func TestANameIsComposedAndItsSpaceCollapsed(t *testing.T) {
 func TestAControlOrFormatCharacterInANameIsRefused(t *testing.T) {
 	for name, cell := range map[string]string{
 		"a bell":            "Mai\u0007",
-		"a bidi override":   "Mai‮evil",
-		"a zero-width mark": "Ma​i",
+		"a bidi override":   "Mai\u202eevil",
+		"a zero-width mark": "Ma\u200bi",
 		"a null":            "Mai\x00",
 	} {
 		plan := domain.PlanImport([]domain.ImportRow{row(2, cell, "a@x.test", "", "")}, rules(true), nil)

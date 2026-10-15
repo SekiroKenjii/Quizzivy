@@ -57,17 +57,17 @@ const (
 type ImportCode string
 
 const (
-	CodeRequired          ImportCode = "REQUIRED"
-	CodeTooLong           ImportCode = "TOO_LONG"
-	CodeInvalid           ImportCode = "INVALID"
-	CodeDuplicateInFile   ImportCode = "DUPLICATE_IN_FILE"
-	CodeUnknownRole       ImportCode = "UNKNOWN_ROLE"
-	CodeAmbiguousRole     ImportCode = "AMBIGUOUS_ROLE"
-	CodeRoleNotAllowed    ImportCode = "ROLE_NOT_ALLOWED"
-	CodeRoleNotAssignable ImportCode = "ROLE_NOT_ASSIGNABLE"
-	CodeUnknownClass      ImportCode = "UNKNOWN_CLASS"
-	CodeAmbiguousClass    ImportCode = "AMBIGUOUS_CLASS"
-	CodeClassNotAllowed   ImportCode = "CLASS_NOT_ALLOWED"
+	CodeRequired        ImportCode = "REQUIRED"
+	CodeTooLong         ImportCode = "TOO_LONG"
+	CodeInvalid         ImportCode = "INVALID"
+	CodeDuplicateInFile ImportCode = "DUPLICATE_IN_FILE"
+	CodeUnknownRole     ImportCode = "UNKNOWN_ROLE"
+	CodeAmbiguousRole   ImportCode = "AMBIGUOUS_ROLE"
+	CodeRoleNotAllowed  ImportCode = "ROLE_NOT_ALLOWED"
+	CodeRoleNotGivable  ImportCode = "ROLE_NOT_GIVABLE"
+	CodeUnknownClass    ImportCode = "UNKNOWN_CLASS"
+	CodeAmbiguousClass  ImportCode = "AMBIGUOUS_CLASS"
+	CodeClassNotAllowed ImportCode = "CLASS_NOT_ALLOWED"
 )
 
 // ImportColumns holds where each column of the file's header is, or -1.
@@ -150,7 +150,7 @@ type ImportJob struct {
 	CreatedBy         string
 	RequestID         string
 	Filename          string
-	Format            string
+	Format            ImportFormat
 	DefaultRoleID     string
 	Delivery          ImportDelivery
 	Status            ImportStatus

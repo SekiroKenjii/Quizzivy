@@ -262,7 +262,7 @@ func (j *judge) pick(ids []string) (ImportRole, ImportCode) {
 	case !ok:
 		return ImportRole{}, CodeUnknownRole
 	case role.Refusal == RoleNeverGiven:
-		return ImportRole{}, CodeRoleNotAssignable
+		return ImportRole{}, CodeRoleNotGivable
 	case role.Refusal == RoleBeyondImporter:
 		return ImportRole{}, CodeRoleNotAllowed
 	}
