@@ -73,12 +73,17 @@ GRANT SELECT (owner_id) ON app.media_assets TO quizzivy_maintenance;
 -- sweep and anonymize-user write and all they write; full_name is a name, not a
 -- credential, and is not pinned. The role can insert neither an identity nor a
 -- set-password link, so an anonymised row cannot be reopened by it either.
+-- The same rule the sweep and anonymize-user apply is the database's too: an
+-- account that owns a class or content is not anonymised by this role, so a
+-- leaked credential cannot cut off a teacher's sign-in (the owner columns above
+-- are readable to the role for exactly this check). An account that is already
+-- anonymised is not checked again.
 --
--- SECURITY INVOKER, because the check reads only the new row; search_path is
--- pinned and every type is schema-qualified, as 00059 does for its definer
--- function, and EXECUTE is revoked from PUBLIC. The role holds no right to set
--- session_replication_role, the one way a session skips a trigger. Every other
--- role pays the WHEN test and nothing else.
+-- SECURITY INVOKER, because the checks read only the rows this role may read;
+-- search_path is pinned and every type is schema-qualified, as 00059 does for
+-- its definer function, and EXECUTE is revoked from PUBLIC. The role holds no
+-- right to set session_replication_role, the one way a session skips a trigger.
+-- Every other role pays the WHEN test and nothing else.
 -- +goose StatementBegin
 CREATE FUNCTION app.users_maintenance_guard() RETURNS trigger
 LANGUAGE plpgsql
@@ -92,6 +97,16 @@ BEGIN
      AND NEW.phone IS NULL
      AND NEW.avatar_key IS NULL
      AND NEW.display_name IS NULL THEN
+    IF OLD.email IS DISTINCT FROM NEW.email
+       AND (EXISTS (SELECT 1 FROM app.classes c WHERE c.teacher_id = NEW.id)
+         OR EXISTS (SELECT 1 FROM app.tests t WHERE t.owner_id = NEW.id)
+         OR EXISTS (SELECT 1 FROM app.questions q WHERE q.owner_id = NEW.id)
+         OR EXISTS (SELECT 1 FROM app.question_groups g WHERE g.owner_id = NEW.id)
+         OR EXISTS (SELECT 1 FROM app.media_assets m WHERE m.owner_id = NEW.id)
+         OR EXISTS (SELECT 1 FROM app.assignments s WHERE s.created_by = NEW.id)) THEN
+      RAISE EXCEPTION 'quizzivy_maintenance may not anonymise an account that owns classes or content'
+        USING ERRCODE = 'insufficient_privilege';
+    END IF;
     RETURN NEW;
   END IF;
   RAISE EXCEPTION 'quizzivy_maintenance may only leave an account anonymised'
@@ -135,8 +150,8 @@ GRANT SELECT ON app.roles, app.role_permissions TO quizzivy_maintenance;
 
 -- +goose Down
 
-DROP TRIGGER users_maintenance_guard ON app.users;
-DROP FUNCTION app.users_maintenance_guard();
+DROP TRIGGER IF EXISTS users_maintenance_guard ON app.users;
+DROP FUNCTION IF EXISTS app.users_maintenance_guard();
 
 REVOKE ALL ON ALL TABLES IN SCHEMA app FROM quizzivy_maintenance;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA app FROM quizzivy_maintenance;

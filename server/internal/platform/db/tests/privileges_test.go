@@ -344,6 +344,12 @@ func TestTheMaintenanceRoleCannotRewriteARecordOrCreateAnything(t *testing.T) {
 		       AND pg_get_triggerdef(t.oid) LIKE 'CREATE TRIGGER users_maintenance_guard BEFORE UPDATE ON app.users FOR EACH ROW WHEN%'
 		       AND pg_get_triggerdef(t.oid) LIKE '%' || $1 || '%')`, true, "a BEFORE UPDATE guard on app.users that fires for the role alone"},
 		{`SELECT NOT has_function_privilege('public', 'app.users_maintenance_guard()', 'EXECUTE') AND NOT has_function_privilege($1, 'app.users_maintenance_guard()', 'EXECUTE')`, true, "no EXECUTE on the users guard, which fires without it"},
+		{`SELECT coalesce(NOT p.prosecdef AND p.proconfig = ARRAY['search_path=pg_catalog, pg_temp']
+		       AND p.proowner <> (SELECT oid FROM pg_roles WHERE rolname = $1), false)
+		    FROM pg_proc p WHERE p.oid = 'app.users_maintenance_guard()'::regprocedure`, true, "a SECURITY INVOKER users guard, not owned by the role, with search_path pinned to pg_catalog, pg_temp"},
+		{`SELECT NOT has_parameter_privilege($1, 'session_replication_role', 'SET')
+		     AND NOT EXISTS (SELECT 1 FROM pg_parameter_acl a
+		                      WHERE has_parameter_privilege($1, a.parname, 'SET') OR has_parameter_privilege($1, a.parname, 'ALTER SYSTEM'))`, true, "no right to set a parameter, session_replication_role above all, which would skip the users guard"},
 		{`SELECT rolcanlogin AND rolconnlimit = 2 AND NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)
 		    FROM pg_roles WHERE rolname = $1`, true, "a login role limited to two connections with no attribute"},
 	} {

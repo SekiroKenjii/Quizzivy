@@ -229,6 +229,15 @@ func TestTheMaintenanceRoleCannotSetACredentialOrReopenAnAccount(t *testing.T) {
 	refuse("everything but the account still enabled", active, `email = `+anonymous(active)+`, display_name = NULL, phone = NULL,
 		avatar_key = NULL, password_hash = NULL, must_change_password = false, disabled_at = NULL`)
 	refuse("a name alone", active, `full_name = 'Người lạ'`)
+	other := w.user("Người khác", "teacher")
+	withEmail := func(email string) string {
+		return `email = ` + email + `, password_hash = NULL, must_change_password = false, disabled_at = now(), phone = NULL, avatar_key = NULL, display_name = NULL`
+	}
+	refuse("another account's reserved address", active, withEmail(anonymous(other)))
+	refuse("the reserved address under another domain", active, withEmail(`'anonymous-' || id::text || '@anonymous.invalid.example'`))
+	refuse("the reserved address with text after the id", active, withEmail(`'anonymous-' || id::text || 'x@anonymous.invalid'`))
+	refuse("the id without the prefix", active, withEmail(`id::text || '@anonymous.invalid'`))
+	refuse("the reserved address in capitals", active, withEmail(`'ANONYMOUS-' || id::text || '@anonymous.invalid'`))
 	pinned := map[string]string{
 		"the reserved address": `email = ` + anonymous(active),
 		"the password hash":    `password_hash = NULL`,
@@ -268,5 +277,51 @@ func TestTheMaintenanceRoleCannotSetACredentialOrReopenAnAccount(t *testing.T) {
 	w.exec(`UPDATE app.users SET email = 'owner-may@example.test', password_hash = 'hash', disabled_at = NULL WHERE id = $1`, staff)
 	if n := w.count(`SELECT count(*) FROM app.users WHERE id = $1 AND email = 'owner-may@example.test'`, staff); n != 1 {
 		t.Error("the guard also stopped the owner role from updating an account")
+	}
+}
+
+func TestTheMaintenanceRoleCannotAnonymiseAnAccountThatOwnsClassesOrContent(t *testing.T) {
+	w := newRoleWorld(t)
+	owns := map[string]string{
+		"a class":          `INSERT INTO app.classes (name, teacher_id) VALUES ('Lớp', $1)`,
+		"a test":           `INSERT INTO app.tests (title, status, current_version, created_by, owner_id) VALUES ('Đề', 'draft', 0, $1, $1)`,
+		"a bank question":  `INSERT INTO app.questions (type, prompt, points, created_by, owner_id, sample_answer) VALUES ('short_answer', 'Câu hỏi', 1, $1, $1, 'Đáp án')`,
+		"a question group": `INSERT INTO app.question_groups (title, created_by, owner_id) VALUES ('Nhóm', $1, $1)`,
+		"a media asset": `INSERT INTO app.media_assets (kind, storage_key, mime_type, bytes, original_filename, checksum_sha256, uploaded_by, owner_id)
+			VALUES ('image', 'owner/' || $1::uuid::text || '.png', 'image/png', 10, 'a.png', sha256(convert_to($1::uuid::text, 'UTF8')), $1::uuid, $1::uuid)`,
+		"an assignment": `INSERT INTO app.assignments (test_id, test_version_id, opens_at, closes_at, duration_minutes, created_by, published_at)
+			SELECT test_id, id, now() - interval '2 hours', now() - interval '1 hour', 30, $1, now() - interval '2 hours' FROM app.test_versions LIMIT 1`,
+	}
+	const anonymise = `UPDATE app.users SET email = 'anonymous-' || id::text || '@anonymous.invalid', password_hash = NULL, must_change_password = false,
+		disabled_at = coalesce(disabled_at, now()), phone = NULL, avatar_key = NULL, display_name = NULL WHERE id = $1`
+	for kind, insert := range owns {
+		owner := w.user("Chủ "+kind, "teacher")
+		w.disable(owner, time.Now().Add(-24*time.Hour))
+		w.exec(insert, owner)
+		var before string
+		if err := w.q.QueryRow(w.ctx, `SELECT to_jsonb(u)::text FROM app.users u WHERE u.id = $1`, owner).Scan(&before); err != nil {
+			t.Fatal(err)
+		}
+		_, err := w.conn.Exec(w.ctx, anonymise, owner)
+		var pg *pgconn.PgError
+		if !errors.As(err, &pg) || pg.Code != "42501" || !strings.Contains(pg.Message, "owns classes or content") {
+			t.Errorf("anonymising the owner of %s: err = %v, want the guard's 42501", kind, err)
+		}
+		var after string
+		if err := w.q.QueryRow(w.ctx, `SELECT to_jsonb(u)::text FROM app.users u WHERE u.id = $1`, owner).Scan(&after); err != nil || after != before {
+			t.Errorf("the owner of %s changed: %v\n%s\n%s", kind, err, before, after)
+		}
+		if _, err := maintenance.AnonymizeUser(w.ctx, w.conn, owner, true); err == nil {
+			t.Errorf("anonymize-user accepted the owner of %s", kind)
+		}
+	}
+
+	later := w.user("Giáo viên được giao lớp sau", "teacher")
+	if _, err := maintenance.AnonymizeUser(w.ctx, w.conn, later, true); err != nil {
+		t.Fatalf("anonymising an account that owns nothing: %v", err)
+	}
+	w.exec(owns["a class"], later)
+	if _, err := w.conn.Exec(w.ctx, `UPDATE app.users SET full_name = 'Tên mới' WHERE id = $1`, later); err != nil {
+		t.Errorf("the guard checked ownership again on an account that is already anonymised: %v", err)
 	}
 }
