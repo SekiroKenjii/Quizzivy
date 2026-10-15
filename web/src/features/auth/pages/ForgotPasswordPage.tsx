@@ -36,25 +36,27 @@ export default function ForgotPasswordPage() {
             {t("forgot.body")}
           </p>
         </div>
-        <ul className="text-ui flex flex-col overflow-hidden rounded-xl border">
-          {showGoogle && (
-            <li className="flex gap-3 px-3.5 py-3">
-              <GoogleMark className="mt-0.5 size-[17px] shrink-0" />
-              <span>
-                <b className="font-semibold">{t("forgot.googleTitle")}</b>{" "}
-                {t("forgot.googleBody")}
-              </span>
-            </li>
-          )}
-          {frontDesk && (
-            <li className={cn("flex gap-3 px-3.5 py-3", showGoogle && "border-t")}>
-              <Phone aria-hidden="true" className="mt-0.5 size-[17px] shrink-0" />
-              <span>
-                <b className="font-semibold">{t("forgot.frontDesk")}</b> · {frontDesk}
-              </span>
-            </li>
-          )}
-        </ul>
+        {(showGoogle || frontDesk) && (
+          <ul className="text-ui flex flex-col overflow-hidden rounded-xl border">
+            {showGoogle && (
+              <li className="flex gap-3 px-3.5 py-3">
+                <GoogleMark className="mt-0.5 size-[17px] shrink-0" />
+                <span>
+                  <b className="font-semibold">{t("forgot.googleTitle")}</b>{" "}
+                  {t("forgot.googleBody")}
+                </span>
+              </li>
+            )}
+            {frontDesk && (
+              <li className={cn("flex gap-3 px-3.5 py-3", showGoogle && "border-t")}>
+                <Phone aria-hidden="true" className="mt-0.5 size-[17px] shrink-0" />
+                <span>
+                  <b className="font-semibold">{t("forgot.frontDesk")}</b> · {frontDesk}
+                </span>
+              </li>
+            )}
+          </ul>
+        )}
         <Button
           asChild
           variant="outline"

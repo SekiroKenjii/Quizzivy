@@ -539,6 +539,15 @@ describe("the front desk on Forgot password", () => {
     expect(googleRow()).toBeInTheDocument();
   });
 
+  it("draws no empty list when neither Google nor a front desk is to be shown", async () => {
+    answers({ signIn: { google: false, password: true } });
+    const { container } = renderPage(<ForgotPasswordPage />);
+    await waitFor(() => expect(googleRow()).toBeNull());
+    await waitFor(() => expect(requests).toBe(1));
+    expect(screen.queryByText("Quầy lễ tân")).toBeNull();
+    expect(container.querySelector("ul")).toBeNull();
+  });
+
   it("sends a visitor to sign in when password sign-in is off", async () => {
     answers({ signIn: { google: true, password: false } });
     renderPage(<ForgotPasswordPage />, {
