@@ -64,6 +64,44 @@ describe("the Students list", () => {
     expect(await rowOf("Trần Thị Bình")).toHaveTextContent("Mật khẩu tạm");
   });
 
+  it('says "Chưa bao giờ" for a student who was never active, and how long ago for one who was', async () => {
+    serveStudents([
+      student("018f0000-0000-7000-8000-0000000000f1", "Chưa Hoạt Động"),
+      student("018f0000-0000-7000-8000-0000000000f2", "Đã Hoạt Động", {
+        lastActiveAt: new Date(Date.now() - 20 * 86_400_000).toISOString(),
+      }),
+      student("018f0000-0000-7000-8000-0000000000f3", "Vừa Xong", {
+        lastActiveAt: new Date(Date.now() - 5_000).toISOString(),
+      }),
+    ]);
+    renderStudents(teacherUser);
+
+    expect(await rowOf("Chưa Hoạt Động")).toHaveTextContent("Chưa bao giờ");
+    expect(await rowOf("Đã Hoạt Động")).toHaveTextContent("2 tuần trước");
+    expect(await rowOf("Vừa Xong")).toHaveTextContent("vừa xong");
+  });
+
+  it("still draws a row whose account state this build does not know", async () => {
+    const odd = student("018f0000-0000-7000-8000-0000000000f4", "Trạng Thái Lạ", {
+      mustChangePassword: true,
+    });
+    serveStudents([odd]);
+    server.use(
+      http.get(`${BASE}/teacher/students`, () =>
+        HttpResponse.json({
+          items: [{ ...odd, accountStatus: "from_the_future" }],
+          page: 1,
+          pageSize: 20,
+          total: 1,
+          facets: { total: 1, activeLast7Days: 0 },
+        }),
+      ),
+    );
+    renderStudents(teacherUser);
+
+    expect(await rowOf("Trạng Thái Lạ")).toHaveTextContent("Mật khẩu tạm");
+  });
+
   it("keeps a student's classes on one line in their cell: two chips and +N naming the rest (QA-40-2)", async () => {
     const seven = Array.from({ length: 7 }, (_, index) => ({
       id: `018f0000-0000-7000-8000-0000000000b${index}`,
@@ -209,7 +247,7 @@ describe("the Students list", () => {
 
     const list = await screen.findByRole("list", { name: "Học viên" });
     expect(within(list).getByText("Nguyễn Văn An")).toBeVisible();
-    expect(within(list).getByText(/IELTS 6\.5 Tối · —/)).toBeVisible();
+    expect(within(list).getByText(/IELTS 6\.5 Tối · Chưa bao giờ/)).toBeVisible();
     expect(screen.queryByRole("checkbox")).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Thao tác với Nguyễn Văn An" }),
