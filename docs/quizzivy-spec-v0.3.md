@@ -2265,7 +2265,7 @@ is one screen ("A cloze" below).
   `ATTEMPT_CLOSED`) or as a body that can never be accepted
   (`VALIDATION_FAILED`), it is dropped: a superseded session must not overwrite
   a newer session's answers. On any other failure the draft is kept and the
-  attempt is not resumed. Explicit sign-out clears the local cache.
+  attempt is not resumed. Explicit sign-out clears the local cache, the sessions the tab holds included.
 - **Held session.** A tab names the session it holds each time it reads an
   attempt. An in-progress paper taken over elsewhere is answered as
   `superseded`: it stays read-only after a reload or refetch, reads no local
@@ -2273,6 +2273,12 @@ is one screen ("A cloze" below).
   again only when the student continues the attempt there. A tab that holds
   no session is given the current one. Such a read still replaces the
   attempt's beacon token, and two tabs of one browser can share a session.
+  "Tiếp tục làm bài" in a tab that holds a session for the attempt reads it
+  with that session and starts no resume, so the tab never takes over from
+  itself; a superseded answer is the paper's read-only state, whose own
+  Continue resumes and records the takeover. A tab that holds none resumes.
+  An attempt that has ended releases the tab's held session, and a paper
+  sealed as ended or superseded stops its deadline timer.
 - **Keys.** A–E choose an option, on a cloze for the open gap; a sixth has no
   key, because F flags the question. The arrows move between screens, as
   Previous and Next do, and stop at either end. Esc closes a dialog, the sheet
@@ -2299,7 +2305,7 @@ Every signal produces an append-only event `{ kind, occurredAt, clientSeq, quest
 | `audio_play` / `audio_ended` / `audio_blocked` / `audio_seek` | player (§11.4) | Gives the teacher listening behaviour. `audio_seek` is a jump the player put back on a recording that may not be skipped. The events only report: a question's play is counted by `POST /app/attempts/:id/audio-play`. |
 | `start` | server-side | The attempt began. Written once, under the first session, at `startedAt`; it only gives that session a first row, so a flush it makes later is known to the server. It is no evidence that the tab is open. |
 | `resume` | server-side | Re-entry into an `in_progress` attempt: reload, crash, device change. |
-| `session_takeover` | server-side | Attempt opened in another tab/device. |
+| `session_takeover` | server-side | Attempt opened in another tab/device. The teacher's timeline reads "Resumed in another tab or device". A tab that still holds the attempt's session never causes one: Continue in it reads the attempt with that session and resumes nothing (§9). |
 | `page_hide` | `pagehide` | Best-effort final flush via `navigator.sendBeacon`. |
 
 **Deliberately excluded:** devtools-detection heuristics (window-size deltas, `debugger` timing). They false-positive on zoom, split-screen, and extensions, and are bypassed in seconds. Do not implement them.
@@ -2351,6 +2357,10 @@ Within each priority, two events with different non-null `clientSeq` values
 compare by `clientSeq`; otherwise by `occurredAt` and then event id. This order
 is not a guarantee of wall-clock chronology across tabs or sessions.
 
+The timeline draws no row for `start`: the synthetic "Started" row already
+marks it, and an attempt whose only recorded event is `start` shows the empty
+state.
+
 ### 10.5 Honest limits — say this in the UI help text
 
 Browser monitoring detects *this tab* losing focus. It cannot see a second device, a phone beside the laptop, a person in the room, or a printed sheet. The signals are **evidence for a conversation**, not proof. Do not build auto-zero or auto-ban features that assume otherwise.
@@ -2380,7 +2390,7 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
   and `offline` on `window`, only for the save line (§9); `useVersionWatch`
   listens to `visibilitychange` on `document`, only to look for a newer build
   (§9). The monitor records and stops whether or not they run.
-- Events buffer in memory + `sessionStorage`, flush with the autosave batch, and immediately on `pagehide` via `sendBeacon`. Leaving the engine while the attempt goes on sends what is buffered through the same beacon and keeps the sequence in `sessionStorage`, so a return in the same session numbers on from it; the buffer is forgotten once the attempt has ended.
+- Events buffer in memory + `sessionStorage`, flush with the autosave batch, and immediately on `pagehide` via `sendBeacon`. Leaving the engine while the attempt goes on sends what is buffered through the same beacon and keeps the sequence in `sessionStorage`, so a return in the same session numbers on from it; the buffer is forgotten once the attempt has ended. A tab that begins a new session on an attempt whose stored buffer belongs to another session still holding events sends those events first, through the bearer `POST /app/attempts/:id/events` under their own session id, which the server accepts as one the attempt has recorded events under; a refusal or a failure drops them quietly, and the new session is not held back.
 - `clientSeq` uses an attempt-relative millisecond offset, calibrated by
   `getAttempt` from `startedAt` and `serverTime`, and is never below the tab's
   stored next sequence. It increases within a tab. The offset component caps
@@ -2467,8 +2477,9 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 The obvious client-side counter resets on reload, which makes the limit meaningless. So:
 
 - A play is spent when playback starts and no play is in progress: from 0:00, or after the recording ended. A resume after a pause spends none. With seeking allowed, moving inside a play in progress spends nothing. A remembered place (§11.3) is put back once the element has its metadata, and the no-seek guard is told the new position first, so a restore is never reported as a blocked seek. If playback then runs more than 0.5s short of the remembered point (the browser refused the seek, or the metadata never came), the start is counted as a play after all and the place forgotten: a place that cannot be put back is never free.
+- A play is counted once `play()` resolves, not when the button is pressed: the call itself still runs in the click's own tick (§11.3), and the count, the `audio_play` event and the request wait for it. A play the browser refuses (`NotAllowedError`) or that is paused before it starts (`AbortError`) spends nothing, here or on the server.
 - Each play calls `POST /app/attempts/:id/audio-play`; the server increments `attempt_audio_plays (attempt_id, question_id, plays)` and the count is returned in `GET /app/attempts/:id` as `audioPlays`. The `audio_play` event the player records beside it (§10.6) only reports the play and changes no count.
-- A play is written like an answer: it is counted only while the attempt is in progress, before its deadline, and from its current session. The request names the `sessionId` it was started under, and a play from a session another tab has replaced answers `409 SESSION_SUPERSEDED`, one on a closed attempt `409 ATTEMPT_CLOSED`, and one past the deadline `409 DEADLINE_PASSED`; none is counted, and the client neither counts nor retries on them. `sessionId` is optional for one release, and a play without it is checked for status and deadline only. Review playback after submit stays unlimited and uncounted.
+- A play is written like an answer: it is counted only while the attempt is in progress, before its deadline, and from its current session. The request names the `sessionId` it was started under, and a play from a session another tab has replaced answers `409 SESSION_SUPERSEDED`, one on a closed attempt `409 ATTEMPT_CLOSED`, and one past the deadline `409 DEADLINE_PASSED`; none is counted, and the client neither counts nor retries on them: it takes back the optimistic decrement and seals the paper the way a refused save does. `sessionId` is optional for one release, and a play without it is checked for status and deadline only. Review playback after submit stays unlimited and uncounted.
 - Client renders remaining plays from the server value, optimistically decrements on play, and reconciles on the next fetch.
 - Playback is **optimistic**: a failed event POST does not block the audio. A student who goes offline to farm replays will show a gap in the event log, which is exactly what the integrity timeline is for. Blocking playback on a network round-trip would punish bad wifi far more often than it would catch anyone.
 - On submit, the server rejects nothing based on play count. Over-limit plays are reported to the teacher, not enforced retroactively.
