@@ -422,7 +422,9 @@ const adminTree: RouteObject = {
                 permission: "system.settings.write",
                 width: 1080,
               },
-              lazy: pending,
+              lazy: page(
+                () => import("@/features/organization/pages/admin/SystemSettingsPage"),
+              ),
             },
             {
               path: "exports/:id",

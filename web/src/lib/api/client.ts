@@ -461,12 +461,14 @@ export async function downloadFile(
 
 /**
  * UploadOptions are an upload's progress and cancellation, which fetch cannot
- * report, and its method, which is POST unless `method` says PUT.
+ * report, its method, which is POST unless `method` says PUT, and the text
+ * fields sent beside the file, in the order given.
  */
 export interface UploadOptions {
   onProgress?: (fraction: number) => void;
   signal?: AbortSignal;
   method?: "POST" | "PUT";
+  fields?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -515,6 +517,8 @@ export async function uploadFile<T>(
       }
 
       const form = new FormData();
+      for (const [name, value] of Object.entries(options.fields ?? {}))
+        form.append(name, value);
       form.append("file", file);
       request.send(form);
     });

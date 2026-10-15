@@ -728,6 +728,84 @@
       "password": "Đổi mật khẩu"
     }
   },
+  "systemSettings": {
+    "title": "Cài đặt hệ thống",
+    "hint": "Áp dụng cho mọi người ở {{organization}}.",
+    "navigation": "Mục cài đặt hệ thống",
+    "loadFailed": "Không tải được cài đặt hệ thống.",
+    "reload": "Tải lại",
+    "sections": {
+      "organization": "Tổ chức",
+      "signIn": "Đăng nhập"
+    },
+    "organization": {
+      "title": "Tổ chức",
+      "hint": "Hiển thị ở trang đăng nhập, email và kết quả in.",
+      "name": "Tên tổ chức",
+      "shortName": "Tên viết tắt",
+      "shortNameHint": "Dùng trong email và thẻ trình duyệt",
+      "website": "Website",
+      "contactEmail": "Email liên hệ",
+      "frontDeskPhone": "Điện thoại quầy lễ tân",
+      "frontDeskHours": "Giờ làm việc của quầy lễ tân",
+      "address": "Địa chỉ"
+    },
+    "logo": {
+      "title": "Thay logo",
+      "change": "Thay logo",
+      "save": "Lưu logo",
+      "light": "Logo",
+      "dark": "Bản cho chế độ tối",
+      "limits": "SVG hoặc PNG vuông, tối thiểu 256 × 256",
+      "darkLimits": "Logo sáng trên nền trong suốt",
+      "hint": "SVG hoặc PNG, hình vuông",
+      "hintWithDark": "SVG hoặc PNG, hình vuông · có bản cho chế độ tối",
+      "alt": "Logo của trung tâm",
+      "uploaded": "Logo đã tải lên. Lưu cài đặt để áp dụng.",
+      "problem": {
+        "type": "Hãy chọn tệp SVG hoặc PNG.",
+        "tooLarge": "PNG tối đa 1 MiB.",
+        "unreadable": "Không vẽ được tệp này. Hãy chọn tệp SVG hoặc PNG khác.",
+        "notSquare": "Logo phải là hình vuông (lệch tối đa 2%)."
+      }
+    },
+    "signIn": {
+      "title": "Đăng nhập",
+      "hint": "Cách mọi người vào Quizzivy.",
+      "google": "Đăng nhập bằng Google",
+      "googleHint": "Liên kết với tài khoản có sẵn qua email đã xác minh",
+      "password": "Đăng nhập bằng email và mật khẩu",
+      "passwordHint": "Chỉ tắt khi mọi người đều dùng Google",
+      "force": "Bắt buộc đổi mật khẩu ở lần đăng nhập đầu",
+      "forceHint": "Áp dụng cho tài khoản tạo với mật khẩu tạm",
+      "joinCodes": "Học viên có thể vào lớp bằng mã",
+      "joinCodesHint": "Giáo viên chia sẻ mã hoặc liên kết",
+      "domains": "Tên miền Google được phép",
+      "domainsHint": "Chỉ các tên miền email này đăng nhập được bằng Google. Để trống để cho phép mọi tên miền.",
+      "domainsAdd": "Thêm tên miền…",
+      "domainsRemove": "Bỏ tên miền {{domain}}",
+      "impact_one": "{{count}} người sẽ không đăng nhập được nữa.",
+      "impact_other": "{{count}} người sẽ không đăng nhập được nữa.",
+      "impactAdmins_one": "Trong đó có {{count}} quản trị viên.",
+      "impactAdmins_other": "Trong đó có {{count}} quản trị viên.",
+      "noMethod": "Phải bật ít nhất một cách đăng nhập: Google, hoặc email và mật khẩu.",
+      "lockedYou": "Với chính sách này, chính bạn sẽ không đăng nhập được nữa. Hãy giữ lại một cách đăng nhập cho bạn.",
+      "lockedAdmins": "Với chính sách này, không quản trị viên nào còn cách đăng nhập. Hãy giữ lại ít nhất một cách cho họ."
+    },
+    "errors": {
+      "nameRequired": "Hãy nhập tên tổ chức.",
+      "nameTooLong": "Tên tổ chức tối đa 120 ký tự.",
+      "shortNameTooLong": "Tên viết tắt tối đa 40 ký tự.",
+      "websiteTooLong": "Website tối đa 200 ký tự.",
+      "contactEmailTooLong": "Email liên hệ tối đa 254 ký tự.",
+      "frontDeskPhoneTooLong": "Số điện thoại tối đa 30 ký tự.",
+      "frontDeskHoursTooLong": "Giờ làm việc tối đa 120 ký tự.",
+      "addressTooLong": "Địa chỉ tối đa 300 ký tự.",
+      "domainInvalid": "Tên miền không hợp lệ.",
+      "domainsTooMany": "Tối đa 50 tên miền.",
+      "noMethod": "Phải bật ít nhất một cách đăng nhập."
+    }
+  },
   "student": {
     "shell": {
       "home": "Trang chủ",
