@@ -33,6 +33,7 @@ type world struct {
 	t      *testing.T
 	server *httptest.Server
 	pool   *pgxpool.Pool
+	cfg    config.Config
 }
 
 func boot(t *testing.T, configure ...func(*config.Config)) *world {
@@ -77,7 +78,7 @@ func assemble(t *testing.T, logger *slog.Logger, options []wiring.Option, config
 	if err != nil {
 		t.Fatalf("pool: %v", err)
 	}
-	return &world{t: t, server: server, pool: pool}
+	return &world{t: t, server: server, pool: pool, cfg: cfg}
 }
 
 func e2eConfig(t *testing.T, configure ...func(*config.Config)) config.Config {

@@ -1399,6 +1399,7 @@ listed here matches the spec.
 | D-51 | Add `email_outbox`, one row per message to send, with a partial index on the pending rows | A message is written in the transaction that decided to send it, so a rolled-back decision sends nothing, and the API and the worker both drain the table (T-R5.2). `template` is a checked slug and not an enum, as `notifications.kind` is (D-28), because the template list is Go's and R7 adds templates without a migration. `to_address` is a copy, since `to_user_id` is `ON DELETE SET NULL` and an unsent message must outlive its user's row. `secret_ciphertext` holds a set-password token sealed under `SECRETS_KEY` with the row id as associated data, and is cleared in the statement that marks the row sent or failed. `dedupe_key` is a plain unique column: a second message with the same key is not written. `attempts` is bounded at 10 to match the dispatcher. See §49 |
 | D-52 | `users` gains four nullable columns, `last_active_at`, `last_sign_in_at`, `last_sign_in_method` (CHECK in `password`, `google`, `set_password_link`) and `password_changed_at`; a new `user_activity_days (user_id, day)` records the local days a user was active | DG-54: the Students list's "Last active" and "Not signed in", the Settings "Changed …" line and R5's daily chart need facts the schema did not keep (the Students list used the last attempt). All four are nullable with no default, so the v0.10.0 binary's insert, which names none, keeps working; NULL `last_sign_in_at` is "never signed in". The migration backfills `last_sign_in_at` and `last_active_at` with the newest of the user's refresh token `issued_at`, attempt `started_at` and audit entry as actor, with the `updated_at` trigger off, so an account used before R5 does not read "Not signed in"; the method and `password_changed_at` stay NULL because nothing records them. The day table is keyed by the pair, indexed on `day` for range reads, and cascades with the user; a day is the local date in `APP_TIMEZONE`. See §50 |
 | D-53 | `organization_settings` is a singleton keyed by `id boolean PRIMARY KEY DEFAULT true CHECK (id)`, written by the migration, and the app role has neither `INSERT` nor `DELETE` on it | The centre has exactly one settings document, and the front door and sign-in cannot run without it, so it is reference data the migration owns (D-21) and not a seed. A boolean key that only `true` satisfies makes a second row impossible without a trigger, and revoking the two statements means the application can only change the row, never lose it or add a rival. Every optional text is nullable and every bound is a CHECK, so the database refuses what the application would have refused. `CHECK (google_sign_in OR password_sign_in)` is the last line of the rule that keeps a way in. See §51 |
+| D-54 | Add `data_exports`, one row for each request, with a partial unique index `data_exports_active_idx ON ((true)) WHERE status IN ('queued','running')` | At most one export is queued or running in the whole centre (T-R5.15): a full export of personal data is heavy and two Admins asking at once must not both build a ZIP, so the index makes "one at a time" a fact of the data and `409 EXPORT_IN_PROGRESS` its report. It is also the worker's queue, which holds one row at most. `status` is a checked text, not an enum, as `notifications.kind` is (D-28). `attempts` counts claims so an export a dying worker keeps re-claiming is failed after the third. `error_code` is a short code and never a message, so nothing about the data reaches the table. `requested_by` is `ON DELETE CASCADE`: an export of a deleted account has no reader. `data_exports_ready_has_file` ties `ready` to its key, size and expiry. See §52 |
 ---
 
 ## 13. Migration inventory
@@ -1532,6 +1533,7 @@ the file it adds.
 | `00130_create_organization_settings.sql` | `organization_settings`, the singleton, its checks and `updated_at` trigger, the one row the migration writes, and `REVOKE INSERT, DELETE` from the app role | R5 (T-R5.5), D-53, §51 |
 | `00131_add_users_activity.sql` | `users.last_active_at`, `last_sign_in_at`, `last_sign_in_method` (`users_last_sign_in_method_check`), `password_changed_at`, all nullable; backfills the first two | R5 (T-R5.4), D-52, §50 |
 | `00132_create_user_activity_days.sql` | `user_activity_days (user_id REFERENCES users ON DELETE CASCADE, day date, PRIMARY KEY (user_id, day))` and `user_activity_days_day_idx (day)` | R5 (T-R5.4), D-52, §50 |
+| `00134_create_data_exports.sql` | `data_exports`, its checks (`data_exports_ready_has_file`, `data_exports_failed_has_code`), the active index `data_exports_active_idx` and `data_exports_requested_by_idx` | R5 (T-R5.15), D-54, §52 |
 
 Notes on migration mechanics (§13.7):
 
@@ -3589,8 +3591,10 @@ the row, named `Quizzivy`, and revokes `INSERT` and `DELETE` from `quizzivy_app`
   `front_desk_hours` (≤ 120) and `address` (≤ 300). An optional text that is empty after trimming
   is stored as `NULL`, never as `''`.
 - **Logos.** `logo_sha256`, `logo_type` and the `_dark_` pair. A hash is 32 bytes, a type is
-  `image/png` or `image/svg+xml`, and each pair is both NULL or both set. The bytes are not in
-  the database: they are objects at `branding/{sha256}.{png|svg}`, content-addressed, so a key's
+  `image/png` or `image/svg+xml`, and each pair is both NULL or both set. The application writes
+  only `image/png`; `image/svg+xml` is a reserved value no code writes (D-019), and a row that held
+  it would read as no logo. The bytes are not in
+  the database: they are objects at `branding/{sha256}.png`, content-addressed, so a key's
   bytes never change and a new logo is a new URL.
 - **Sign-in.** `google_sign_in`, `password_sign_in`, `force_password_change` and
   `join_codes_enabled` are `boolean NOT NULL DEFAULT true`; `allowed_google_domains text[] NOT
@@ -3624,3 +3628,52 @@ serves the old policy for up to 30 seconds after a change, and an idle server ne
 logo-in-store check), `organization/repositories/tests` (the constraints, the lockout outcomes and
 counts, the concurrent saves, the audit row, the grants), `organization/http/tests` (the public
 document's exact keys, the logo headers and caches, the error mapping).
+
+## 52. Data exports (T-R5.15)
+
+`app.data_exports` (00134, D-54) holds one row for each request for the centre's data. An Admin asks, the
+worker builds a ZIP of CSV files into the private import bucket at `exports/{id}.zip`, and the requester
+fetches it from an app page, up to three times.
+
+**What a row is.** `requested_by` (`ON DELETE CASCADE`), `include_answers`, `status` (`queued`, `running`,
+`ready`, `failed`, `expired`), `attempts` (0 to 3, the claims so far), `storage_key` (1 to 200 characters),
+`bytes` (above 0), `error_code` (1 to 64 characters), and the instants `created_at`, `started_at` (the
+current claim), `completed_at`, `expires_at` (24 hours after `ready`), `downloaded_at` and `downloads`. `ready` requires
+`storage_key`, `bytes` and `expires_at`; `failed` requires `error_code`. A read reports a `ready` row past
+`expires_at` as `expired`; nothing in this task stores that, T-R5.16's housekeeping removes the object and
+marks the row.
+
+**One at a time.** `data_exports_active_idx` is a unique index on the constant `true` over the rows
+`queued` or `running`. A second request inserts into it, fails with `23505` and answers
+`EXPORT_IN_PROGRESS`; a finished or failed export leaves the index at once.
+
+**One an hour (D-021).** In the same transaction, before the insert, the request reads the newest row of
+`requested_by` with `status <> 'failed'` and `created_at > now() - 1 hour` on `data_exports_requested_by_idx`;
+if there is one it answers `RATE_LIMITED` with the seconds until that row is an hour old. A `failed` row never
+counts, and a refused request leaves no row, so neither a `409` nor a `429` spends the hour. Two requests of one
+actor at once both pass the read, and the active index lets only one insert.
+
+**The claim.** One transaction first fails the `running` row whose lease (30 minutes from `started_at`) has
+lapsed and whose `attempts` has reached 3 (`WORKER_INTERRUPTED`), then takes the oldest `queued` row or
+lapsed `running` row `FOR UPDATE SKIP LOCKED`, sets `started_at = now()` and adds one to `attempts`. Complete,
+fail and release each name the attempt they hold and change the row only while it is `running` under that
+attempt, so a worker whose lease was taken changes nothing. Complete also enqueues `data_export_ready` into
+`email_outbox` (§49) in the same transaction.
+
+**The fetch (D-024).** `UPDATE … SET downloaded_at = coalesce(downloaded_at, now()), downloads = downloads + 1
+WHERE requested_by = $actor AND status = 'ready' AND expires_at > now() AND downloads < 3 RETURNING storage_key`
+is the whole check; it signs the address and audits `data_export.downloaded` before it commits, so a failure to
+sign counts nothing. `downloads smallint NOT NULL DEFAULT 0` is checked between 0 and 3, and `downloaded_at` keeps
+the first fetch. The server cannot tell whether a transfer finished (the browser reads the object from storage),
+so a failed transfer may be tried twice more without building another ZIP. Another admin's export finds no row
+for them and answers as a missing one.
+
+**Reading the tables.** The worker reads every file in one `REPEATABLE READ`, read-only transaction with a
+20-minute statement timeout. Each file's columns are listed in `exports/domain/files.go` and the snapshot
+fails a query whose columns differ, so a new column on a table never reaches a file unnoticed. A time is
+written as ISO 8601 in UTC and a boolean as `true` or `false`; NULL is an empty cell.
+
+**Tests.** `exports/domain/tests` (the catalogue, vi and en for every column, no secret column names, the
+README), `exports/application/worker/tests` (the flow with fakes), `exports/repositories/tests` (the index,
+the claim and its races, the lease, the three fetches, the audit rows, the notice, every query's columns),
+`server/tests/data_export_flow_test.go` (API, worker and MinIO), `data_export_heap_test.go` (50,000 attempts).

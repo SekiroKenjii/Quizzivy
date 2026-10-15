@@ -27,7 +27,7 @@ type Service struct {
 
 // LogoKey is where a logo's bytes are stored.
 func LogoKey(logo domain.Logo) string {
-	return "branding/" + hex.EncodeToString(logo.SHA256) + "." + logo.Type.Extension()
+	return "branding/" + hex.EncodeToString(logo.SHA256) + "." + domain.LogoExtension
 }
 
 // LogoBytes returns logo's bytes, from memory after the first read: a logo's

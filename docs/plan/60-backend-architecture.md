@@ -5,16 +5,19 @@ the "one package per feature" layout AGENTS.md described until then.
 
 ## Shape
 
-- **One process, one database, fourteen bounded contexts** under
+- **One process, one database, sixteen bounded contexts** under
   `server/internal/modules/`: identity, classes, questions, media, tests,
   assignments, attempts, dashboard, imports, availability, access, ai,
-  notifications, organization. Each is one
+  notifications, organization, audit, exports. Each is one
   aggregate (dashboard is read models only; availability reads the maintenance
   windows the operator writes; access reads roles and grants and resolves who a
   request acts as, with no transport of its own until R5's Roles page;
   organization holds the centre's one settings document, its two logos and the
   sign-in policy, which identity and classes read through its `SignInPolicy`
-  query from a snapshot each server refreshes at most every 30 seconds) and
+  query from a snapshot each server refreshes at most every 30 seconds;
+  audit reads the log, and no other module reads `audit_log`; exports queues
+  the Admin's data export, which the import worker's second runner builds, and
+  serves it once from a presigned address) and
   exposes its operations through its own `http/` package, which core embeds
   into the generated strict server.
 - **Four layers per module** — `domain/`, `application/`, `repositories/`,
@@ -150,15 +153,29 @@ the "one package per feature" layout AGENTS.md described until then.
   fields is refused before `encoding/csv` parses it. The workbook is inspected
   with `archive/zip` before excelize opens it, because excelize reads every part
   it is handed into memory and decodes several whole: it refuses more than 1,000
-  entries, more than 32 MiB expanded, a worksheet above 8 MiB, any other XML
-  part above 1 MiB (2 MiB for the shared strings), macros and a password. Every
-  part the reader uses is then read through to its end by a strict XML scan
-  (T-R5.13 follow-up, QC-A-1 to QC-A-3): a truncated part, a bad checksum, a
-  size that lies or malformed XML is `ErrFormat` and never a shorter table, and
-  nesting past 64 levels, a document type declaration, a start tag past 64 KiB,
-  a row number outside the sheet and more than 16,384 cells in a row are refused
-  before excelize sees the data. Formulas are never evaluated, and nothing is
-  written to disk: the caller closes the `Table` only to release the workbook.
+  entries (`ErrTooManyEntries`), more than 32 MiB expanded (`ErrExpandedTooLarge`),
+  a worksheet above 8 MiB (`ErrSheetTooLarge`; larger sheets are unsupported),
+  any other XML part above 1 MiB, 2 MiB for the shared strings
+  (`ErrPartTooLarge`), macros and a password, and a workbook that does not keep
+  `xl/workbook.xml` and its worksheets under `xl/worksheets/` (`ErrLayout`).
+  Every part the reader uses is then read through to its end by a strict XML scan
+  (T-R5.13 follow-ups, QC-A-1 to QC-A-3 and QC-A-9 to QC-A-11): a truncated part,
+  a bad checksum, a size that lies or malformed XML is `ErrFormat` and never a
+  shorter table, and nesting past 64 levels, a document type declaration, a start
+  tag past 64 KiB, a row number outside the sheet and more than 16,384 cells in a
+  row are refused before excelize sees the data, in every part excelize could
+  read as the sheet. excelize is handed only the parts that were scanned.
+  Formulas are never evaluated, and nothing is written to disk: the caller closes
+  the `Table` only to release the workbook.
+- **The data export has two halves** (T-R5.15). `modules/exports` serves
+  `/admin/data-exports` from the API and builds the ZIP in
+  `application/worker`, which the import worker drains after its own queue
+  (`core/jobs.ImportRunners`, so an import is never starved by an export). Its
+  application layer has no CSV writer: `core/adapters.ExportTable` is the
+  `ports.NewTable` over `platform/tabular`, which keeps the formula escaping in
+  the one package `csv_writers_test.go` allows. Without import storage and the
+  worker (`ImportProcessing`) the transport is built over a nil application and
+  answers `501 EXPORT_OFF`.
 - **core is five packages.** `core/wiring` builds each module (one file per
   module, in dependency order) and returns the `Assembly`; `core/router`
   fronts the transports with the generated strict server, the middleware

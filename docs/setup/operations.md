@@ -273,7 +273,7 @@ migrate role and takes effect within 30 seconds:
 UPDATE app.organization_settings SET password_sign_in = true, revision = revision + 1;
 ```
 
-A logo is stored once under `branding/{sha256}.{png|svg}` in the media bucket and is never
+A logo is stored once under `branding/{sha256}.png` in the media bucket and is never
 replaced, so an unreferenced one is harmless; delete it by hand if it matters. Without object
 storage the settings still save and the front door still reads them, and an upload answers `501`.
 

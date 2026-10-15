@@ -127,7 +127,9 @@ func reasonText(ctx context.Context, reason string) (string, bool) {
 	case domain.ReasonTooLong:
 		return httpx.Text(ctx, "Quá dài.", "Too long."), true
 	case domain.ReasonWebsite:
-		return httpx.Text(ctx, "Nhập tên miền hoặc địa chỉ http/https, không có khoảng trắng.", "Enter a domain or an http/https address with no spaces."), true
+		return httpx.Text(ctx, "Nhập tên miền hoặc địa chỉ https, không có khoảng trắng và không kèm tên đăng nhập.", "Enter a domain or an https address, with no spaces and no username."), true
+	case domain.ReasonCharacters:
+		return httpx.Text(ctx, "Không được chứa ký tự xuống dòng, ký tự điều khiển hoặc ký tự vô hình.", "Cannot hold a line break, a control character or an invisible character."), true
 	case domain.ReasonEmail:
 		return httpx.Text(ctx, "Địa chỉ email không hợp lệ.", "Not a valid email address."), true
 	case domain.ReasonPhone:

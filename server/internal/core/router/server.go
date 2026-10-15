@@ -12,6 +12,7 @@ import (
 	availabilityhttp "quizzivy/internal/modules/availability/http"
 	classeshttp "quizzivy/internal/modules/classes/http"
 	dashboardhttp "quizzivy/internal/modules/dashboard/http"
+	exportshttp "quizzivy/internal/modules/exports/http"
 	identitytoken "quizzivy/internal/modules/identity/application/token"
 	identityhttp "quizzivy/internal/modules/identity/http"
 	importshttp "quizzivy/internal/modules/imports/http"
@@ -40,6 +41,7 @@ type Server struct {
 	availabilityhttp.Availability
 	notificationshttp.Notifications
 	organizationhttp.Organization
+	exportshttp.Exports
 	Deps Deps
 	// Logger is nil in tests; read it through logOf.
 	Logger *slog.Logger

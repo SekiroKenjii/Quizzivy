@@ -276,6 +276,41 @@ export function formatRelative(
   return locale === "vi" ? result.toLocaleLowerCase("vi") : result;
 }
 
+/**
+ * formatAgo is how long ago a moment was, for a line that states a fact about
+ * an account ("Changed 2 weeks ago", "Last active 3 months ago"): `justNow`
+ * under a minute and for a moment the browser's clock has not reached yet,
+ * then minutes, hours, "yesterday", days, weeks, months and years. It never
+ * falls back to a bare date, which reads as the other month to an English reader.
+ */
+export function formatAgo(
+  utc: string | Date,
+  locale: AppLocale,
+  justNow: string,
+  now: number = Date.now(),
+) {
+  const seconds = (now - new Date(utc).getTime()) / 1000;
+  if (seconds < 60 || Number.isNaN(seconds)) return justNow;
+
+  const ago = (
+    count: number,
+    unit: Intl.RelativeTimeFormatUnit,
+    numeric: "always" | "auto" = "always",
+  ) =>
+    new Intl.RelativeTimeFormat(locale, { numeric })
+      .format(-count, unit)
+      .toLocaleLowerCase(locale);
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return ago(minutes, "minute");
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return ago(hours, "hour");
+  const days = Math.floor(hours / 24);
+  if (days < 7) return ago(days, "day", "auto");
+  if (days < 30) return ago(Math.floor(days / 7), "week");
+  if (days < 365) return ago(Math.max(1, Math.floor(days / 30.4375)), "month");
+  return ago(Math.max(1, Math.floor(days / 365.25)), "year");
+}
+
 /** The two halves of a `datetime-local` field, both pinned to APP_TIME_ZONE. */
 export function toDateTimeInput(utc: string | Date): string {
   return formatInTimeZone(utc, APP_TIME_ZONE, "yyyy-MM-dd'T'HH:mm");

@@ -100,12 +100,10 @@ export interface paths {
         };
         /**
          * The centre's logo
-         * @description The bytes of the light or the dark logo, with the type they were stored
-         *     with. They are served as a download in a sandbox, so an SVG opened on
-         *     its own runs nothing and is never read as another type. A `v` equal to
-         *     the current logo's hash makes the answer immutable for a year; any
-         *     other `v`, or none, is cached for five minutes. No logo of that
-         *     variant: 404.
+         * @description The PNG bytes of the light or the dark logo, served as a download and
+         *     never read as another type. A `v` equal to the current logo's hash makes
+         *     the answer immutable for a year; any other `v`, or none, is cached for
+         *     five minutes. No logo of that variant: 404.
          *
          *     **Leak review (§6.5).** Public bytes the centre chose to show on its
          *     front door, the same for every caller. Nothing names the bucket, the
@@ -2114,7 +2112,8 @@ export interface paths {
         put?: never;
         /**
          * @description Teacher-created accounts get a temporary password and
-         *     `mustChangePassword: true`. Self-signup requires Google (§6.3).
+         *     `mustChangePassword` as the organization's "force password change"
+         *     setting says (on by default). Self-signup requires Google (§6.3).
          *
          *     Every `classIds` entry must be a class the caller teaches, or any class
          *     with `scope.all`. Anything else answers 404, exactly as a missing class
@@ -2627,6 +2626,101 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/data-exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for a full export of the centre's data
+         * @description Queues one export for the worker and answers at once. It builds a ZIP
+         *     of `users.csv` (no password hashes or tokens), `roles.csv`,
+         *     `classes.csv` (no join codes), `class_members.csv`, `tests.csv`,
+         *     `test_versions.csv`, `assignments.csv`, `attempts.csv`, with
+         *     `answers.csv` when `includeAnswers` is true, and a `README.txt` in
+         *     Vietnamese and English that describes each file. Every CSV is UTF-8
+         *     with a byte-order mark and CRLF line ends, and a cell that a
+         *     spreadsheet would run as a formula is written with a leading `'`.
+         *
+         *     Only one export runs at a time for the whole centre: while any is
+         *     queued or running, another request answers `409 EXPORT_IN_PROGRESS`.
+         *     When the file is ready the requester gets an email that links to the
+         *     app page `/admin/exports/{id}`, never to the file. The file can be
+         *     fetched up to three times, by the requester, within 24 hours
+         *     (`downloadDataExport`).
+         *     The request is audited as `data_export.requested`. A caller who has an
+         *     export from the last hour that has not failed (queued, running, ready
+         *     or fetched) is refused with `429 RATE_LIMITED` and `Retry-After`, the
+         *     seconds until that export is an hour old. A failed export, a request
+         *     refused with `409` and a request refused with `429` do not count.
+         *     Without object storage and the worker the answer is `501 EXPORT_OFF`.
+         */
+        post: operations["requestDataExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/data-exports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Where an export stands
+         * @description The state of an export the caller requested; another user's export
+         *     answers `404` exactly as a missing one does. A `ready` export whose
+         *     24 hours have passed reads `expired`, whether or not the housekeeping
+         *     has removed its file yet.
+         */
+        get: operations["getDataExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/data-exports/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fetch an export, up to three times
+         * @description Hands the requester a presigned URL for the ZIP, valid for 60 seconds,
+         *     that forces an attachment named `quizzivy-export-YYYYMMDD.zip`. One
+         *     statement checks that the export is `ready`, unexpired and signed fewer
+         *     than three times, and counts the signing in `downloads`, so a failed
+         *     transfer can be tried again; the fourth request, and a request after the
+         *     24 hours, answer `410 EXPORT_UNAVAILABLE`. Another user's export answers
+         *     `404`. The response is `no-store`, because the URL is a credential. Each
+         *     signing is audited as `data_export.downloaded`, and a caller may fetch
+         *     ten an hour.
+         */
+        post: operations["downloadDataExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/ai/credits": {
         parameters: {
             query?: never;
@@ -2840,14 +2934,9 @@ export interface paths {
          *     A PNG is at most 1 MiB, square within 2% and 256 to 2048 pixels a side.
          *     Its type is read from its first bytes, its header before any pixel is
          *     decoded, and it is decoded and encoded afresh, which drops every
-         *     metadata chunk. An SVG is at most 256 KiB and is stored exactly as
-         *     sent, or refused: a DOCTYPE or an entity, a root other than `svg`, an
-         *     element outside the allowlist (`svg`, `g`, `path`, `rect`, `circle`,
-         *     `ellipse`, `line`, `polyline`, `polygon`, `defs`, `linearGradient`,
-         *     `radialGradient`, `stop`, `clipPath`, `mask`, `symbol`, `use`, `title`,
-         *     `desc`, `text`, `tspan`, `style`), an `on*` attribute, an `href` that
-         *     does not start with `#`, or a style with `@import` or a `url()` that
-         *     does not start with `#`. Its `viewBox` is square within 2%. A caller
+         *     metadata chunk. Any other type, an SVG included, answers
+         *     `MEDIA_TYPE_UNSUPPORTED`: the settings page draws an SVG to a PNG in the
+         *     browser before it uploads (D-019). A caller
          *     may upload 20 logos an hour.
          *
          *     The request may carry 16 KiB more than the 1 MiB file for the multipart
@@ -4060,7 +4149,7 @@ export interface components {
         OrganizationLogo: {
             sha256: string;
             /** @enum {string} */
-            type: "image/png" | "image/svg+xml";
+            type: "image/png";
         };
         /**
          * @description Who the centre is and how it is reached. Every text is trimmed; an
@@ -4069,8 +4158,9 @@ export interface components {
         OrganizationProfile: {
             name: string;
             shortName: string | null;
-            /** @description A host or an `http`/`https` address, without spaces, as `quizzivy.com` or `https://quizzivy.com/lien-he`. */
+            /** @description A domain or an `https` address, without spaces or credentials, as `quizzivy.com` or `https://quizzivy.com/lien-he`. `http` and other schemes are refused. */
             website: string | null;
+            /** @description An address of a local part and a domain with a dot, as `hello@quizzivy.com`. */
             contactEmail: string | null;
             /** @description Digits, spaces and `+ ( ) . -`, 6 to 30 characters. */
             frontDeskPhone: string | null;
@@ -4152,7 +4242,7 @@ export interface components {
         OrganizationLogoUpload: {
             sha256: string;
             /** @enum {string} */
-            type: "image/png" | "image/svg+xml";
+            type: "image/png";
             width: number;
             height: number;
         };
@@ -4182,7 +4272,7 @@ export interface components {
          *     be sent again.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_LIMIT_REACHED" | "ROLE_NOT_ASSIGNABLE" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "SVG_NOT_ALLOWED" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_LIMIT_REACHED" | "ROLE_NOT_ASSIGNABLE" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "EXPORT_IN_PROGRESS" | "EXPORT_UNAVAILABLE" | "EXPORT_OFF" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -4397,6 +4487,42 @@ export interface components {
             /** Format: uri */
             url: string;
             expiresAt: components["schemas"]["Timestamp"];
+        };
+        DataExportRequest: {
+            /** @description Whether the ZIP also holds `answers.csv`, every answer of every attempt. */
+            includeAnswers: boolean;
+        };
+        /**
+         * @description One data export. `status` is `queued` until the worker claims it,
+         *     `running` while it builds the file, `ready` once the file is stored and
+         *     the requester has been told, `failed` when it could not be built (the
+         *     requester may ask again), and `expired` once the 24 hours of a `ready`
+         *     export have passed. `downloadedAt` is the first time the file was
+         *     fetched, and `downloads` counts how many times a URL was handed out (0
+         *     to 3): the third fetch is the last. `bytes`, `completedAt` and
+         *     `expiresAt` are `null` until the export is ready.
+         */
+        DataExport: {
+            id: components["schemas"]["Uuid"];
+            /** @enum {string} */
+            status: "queued" | "running" | "ready" | "failed" | "expired";
+            includeAnswers: boolean;
+            /** Format: int64 */
+            bytes: number | null;
+            createdAt: components["schemas"]["Timestamp"];
+            /** Format: date-time */
+            completedAt: string | null;
+            /** Format: date-time */
+            expiresAt: string | null;
+            /** Format: date-time */
+            downloadedAt: string | null;
+            downloads: number;
+        };
+        DataExportDownload: {
+            /** Format: uri */
+            url: string;
+            /** @constant */
+            expiresInSeconds: 60;
         };
         ImportCapabilities: {
             retention: components["schemas"]["ImportRetention"];
@@ -4938,9 +5064,9 @@ export interface components {
             assignmentId: components["schemas"]["Uuid"];
             assignmentTitle: string;
             studentId: components["schemas"]["Uuid"];
-            /** @description Raw current full name */
+            /** @description Raw current full name, without private account fields. */
             studentName: string;
-            /** @description One-based section/question paper order */
+            /** @description One-based section/question paper order, independent of the student's shuffle. */
             questionNumber: number;
             type: components["schemas"]["QuestionType"];
             prompt: string;
@@ -6811,10 +6937,10 @@ export interface components {
         };
         ItemAnalysisItem: {
             questionId: components["schemas"]["Uuid"];
-            /** @description The question's place on the paper */
+            /** @description The question's place on the paper, counted across sections. */
             number: number;
             type: components["schemas"]["QuestionType"];
-            /** @description The prompt as plain text with its whitespace collapsed */
+            /** @description The prompt as plain text with its whitespace collapsed, cut at 140 characters. */
             promptExcerpt: string;
             /** @description Papers with an answer that says something to this question. */
             answered: number;
@@ -6896,7 +7022,7 @@ export interface components {
          *     engine needs to run authoritatively.
          */
         AttemptSession: {
-            /** @description Additional attempts available after this one */
+            /** @description Additional attempts available after this one, excluding voided attempts. */
             remainingAttempts?: number;
             attempt: components["schemas"]["Attempt"];
             /** @description The engine's header names the paper from 1024px up (S-08). */
@@ -7054,7 +7180,7 @@ export interface components {
             score?: components["schemas"]["AttemptScore"] | null;
             focusLossCount?: number | null;
             flagged?: boolean;
-            /** @description Reported */
+            /** @description Reported, never enforced (§11.4). */
             audioOverLimit?: boolean;
             /**
              * Format: date-time
@@ -7235,7 +7361,7 @@ export interface components {
         AiUsage: {
             /** @description Credits the call was charged. */
             credits: number;
-            /** @description The least of what remains of the teacher's allowance and of the centre's pool */
+            /** @description The least of what remains of the teacher's allowance and of the centre's pool, after the call. */
             left: number;
         };
         /**
@@ -7317,7 +7443,7 @@ export interface components {
             /** @description The question's 1-based place in the draft. */
             number: number;
             type: components["schemas"]["QuestionType"];
-            /** @description The question's prompt */
+            /** @description The question's prompt, shortened. */
             title: string;
             issue: string;
             fix: components["schemas"]["AiFix"];
@@ -7350,7 +7476,7 @@ export interface components {
         };
         AiVariantChange: {
             questionId: components["schemas"]["Uuid"];
-            /** @description The question's 1-based place in the draft */
+            /** @description The question's 1-based place in the draft, which the copy keeps. */
             number: number;
             kind: components["schemas"]["AiVariantKind"];
             title: string;
@@ -7393,7 +7519,7 @@ export interface components {
             /** @enum {string} */
             confidence: "high" | "medium" | "low";
             reasons: string[];
-            /** @description A comment to the student */
+            /** @description A comment to the student, for the teacher to keep, change or drop. */
             comment: string;
             usage: components["schemas"]["AiUsage"];
         };
@@ -7494,7 +7620,7 @@ export interface components {
         AiMonthUsage: {
             /**
              * Format: date
-             * @description The first day of the month
+             * @description The first day of the month, counted in the centre's time zone.
              */
             month: string;
             used: number;
@@ -7518,7 +7644,7 @@ export interface components {
             /** @description The share of the allowance at which the teacher is told. */
             warnPercent: number;
             /**
-             * @description Pause a teacher who runs out
+             * @description Pause a teacher who runs out, or let them ask for more.
              * @enum {string}
              */
             onTeacherLimit: "pause" | "request";
@@ -7694,7 +7820,7 @@ export interface components {
             closesAt?: components["schemas"]["Timestamp"];
             /** @description AI credits the teacher has used this month. */
             used?: number;
-            /** @description The teacher's AI allowance this month */
+            /** @description The teacher's AI allowance this month, in credits. */
             allowance?: number;
             /** @description AI credits a request asks for. */
             credits?: number;
@@ -8038,6 +8164,18 @@ export interface components {
             };
         };
         /**
+         * @description `EXPORT_OFF` — this server has no object storage or no worker, so it
+         *     builds no export. Nothing was queued.
+         */
+        ExportOff: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /**
          * @description `AI_PAUSED` — an Admin paused AI for this teacher; nothing was reserved.
          *     `AI_READ_OFF` — the teacher's `ai.readStudentAnswers` preference is off,
          *     and the operation would send a student's answer (`suggestAiScore`,
@@ -8238,17 +8376,14 @@ export interface operations {
                 headers: {
                     /** @description `public, max-age=31536000, immutable` when `v` is the current hash, else `public, max-age=300`. */
                     "Cache-Control": string;
-                    /** @description `attachment; filename="logo.png"` or `logo.svg`. */
+                    /** @description `attachment; filename="logo.png"`. */
                     "Content-Disposition": string;
-                    /** @description `default-src 'none'; style-src 'unsafe-inline'; sandbox`. */
-                    "Content-Security-Policy": string;
                     /** @description `nosniff`. */
                     "X-Content-Type-Options": string;
                     [name: string]: unknown;
                 };
                 content: {
                     "image/png": string;
-                    "image/svg+xml": string;
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -12644,6 +12779,107 @@ export interface operations {
             };
         };
     };
+    requestDataExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DataExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataExport"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description `EXPORT_IN_PROGRESS` — an export is already queued or running. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            501: components["responses"]["ExportOff"];
+        };
+    };
+    getDataExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataExport"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            501: components["responses"]["ExportOff"];
+        };
+    };
+    downloadDataExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The URL. */
+            200: {
+                headers: {
+                    /** @description `no-store`. */
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataExportDownload"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description `EXPORT_UNAVAILABLE` — the export is not ready, has expired, failed, or was already signed three times. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            501: components["responses"]["ExportOff"];
+        };
+    };
     getAiCredits: {
         parameters: {
             query?: never;
@@ -12895,7 +13131,10 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The document as stored. */
+            /**
+             * @description The document as stored. A document equal to the stored one changes
+             *     nothing: the same revision comes back and no audit row is written.
+             */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -12906,8 +13145,9 @@ export interface operations {
             };
             /**
              * @description The body fails its schema, or `VALIDATION_FAILED` with a message per
-             *     field: a text that is empty or too long after trimming, a website
-             *     with spaces or another scheme than `http`/`https`, an email or a
+             *     field: a text that is empty or too long after trimming, a name that
+             *     holds a line break or an invisible character, a website that is not a
+             *     domain or an `https` address without credentials, an email or a
              *     phone number that is not one, a repeated domain, or a logo the server
              *     does not hold (as `organization.logo.light` or `organization.logo.dark`).
              */
@@ -12999,7 +13239,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
-            /** @description `MEDIA_TOO_LARGE` — a PNG over 1 MiB or an SVG over 256 KiB. */
+            /** @description `MEDIA_TOO_LARGE` — a file over 1 MiB. */
             413: {
                 headers: {
                     [name: string]: unknown;
@@ -13009,11 +13249,10 @@ export interface operations {
                 };
             };
             /**
-             * @description `MEDIA_TYPE_UNSUPPORTED` (neither a PNG nor an SVG), `MEDIA_UNREADABLE`
-             *     (the header or the pixels cannot be read), `IMAGE_DIMENSIONS` (not
-             *     square within 2%, a side outside 256 to 2048 pixels, or more memory
-             *     to decode than the server allows) or `SVG_NOT_ALLOWED` (the SVG
-             *     holds something outside the allowlist). Nothing was stored.
+             * @description `MEDIA_TYPE_UNSUPPORTED` (not a PNG), `MEDIA_UNREADABLE` (the header or
+             *     the pixels cannot be read) or `IMAGE_DIMENSIONS` (not square within 2%,
+             *     a side outside 256 to 2048 pixels, or needing more memory to decode
+             *     than the server allows). Nothing was stored.
              */
             415: {
                 headers: {
