@@ -398,7 +398,11 @@ function CodeSummary({
           )}
           {unreadable ? (
             <p className="text-muted-fg text-xs leading-[1.45]">
-              {t("classDetail.unreadableNote")}
+              {t(
+                inactive
+                  ? "classDetail.unreadableNoteOff"
+                  : "classDetail.unreadableNote",
+              )}
             </p>
           ) : null}
           {paused ? (

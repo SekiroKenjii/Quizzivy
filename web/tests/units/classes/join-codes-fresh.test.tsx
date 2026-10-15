@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { http } from "msw";
@@ -32,7 +32,9 @@ function setup(agedBy: number) {
       return contractJson("/public/organization", "get", 200, organization(false));
     }),
   );
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
+  });
   client.setQueryData(joinCodesQuery().queryKey, organization(true), {
     updatedAt: Date.now() - agedBy,
   });
@@ -54,5 +56,33 @@ describe("useJoinCodesOff follows the centre's setting within the minute (QC-U-1
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(hook.result.current).toBe(false);
     expect(reads).toEqual([]);
+  });
+});
+
+describe("useJoinCodesOff follows the setting when the tab is focused again (QC-U-20)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function focusAgain() {
+    act(() => {
+      window.dispatchEvent(new Event("visibilitychange"));
+    });
+  }
+
+  it("asks again on focus once thirty seconds have passed, and not before", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const { reads, hook } = setup(20_000);
+    expect(hook.result.current).toBe(false);
+
+    focusAgain();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(reads).toEqual([]);
+    expect(hook.result.current).toBe(false);
+
+    vi.setSystemTime(Date.now() + 31_000);
+    focusAgain();
+    await waitFor(() => expect(hook.result.current).toBe(true));
+    expect(reads).toEqual(["no-cache"]);
   });
 });
