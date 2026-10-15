@@ -26,9 +26,13 @@ const userProjection = `
 	       u.password_hash, u.must_change_password, u.disabled_at, u.created_at, u.session_epoch,
 	       u.display_name, u.avatar_key, u.phone, u.locale, u.time_zone, u.preferences,
 	       u.last_active_at, u.last_sign_in_at, u.last_sign_in_method, u.password_changed_at,
+	       r.id::text, r.builtin_key, r.name,
 	       coalesce(array_agg(i.provider) FILTER (WHERE i.provider IS NOT NULL), '{}')
 	  FROM app.users u
+	  JOIN app.roles r ON r.id = u.role_id
 	  LEFT JOIN app.user_identities i ON i.user_id = u.id`
+
+const userGrouping = `GROUP BY u.id, r.id`
 
 func scanUser(row pgx.Row) (domain.User, error) {
 	var u domain.User
@@ -36,7 +40,8 @@ func scanUser(row pgx.Row) (domain.User, error) {
 		&u.ID, &u.Email, &u.FullName, &u.PasswordHash,
 		&u.MustChangePassword, &u.DisabledAt, &u.CreatedAt, &u.SessionEpoch,
 		&u.DisplayName, &u.AvatarKey, &u.Phone, &u.Locale, &u.TimeZone, &u.Preferences,
-		&u.LastActiveAt, &u.LastSignInAt, &u.LastSignInMethod, &u.PasswordChangedAt, &u.LinkedProviders,
+		&u.LastActiveAt, &u.LastSignInAt, &u.LastSignInMethod, &u.PasswordChangedAt,
+		&u.Role.ID, &u.Role.BuiltinKey, &u.Role.Name, &u.LinkedProviders,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.User{}, domain.ErrUserNotFound
@@ -53,7 +58,7 @@ func scanUser(row pgx.Row) (domain.User, error) {
 func (s *Users) FindUserByEmail(ctx context.Context, email string) (domain.User, error) {
 	q := userProjection + `
 		 WHERE lower(u.email) = lower($1)
-		 GROUP BY u.id`
+		 ` + userGrouping
 	return scanUser(s.QueryRow(ctx, q, email))
 }
 
@@ -63,7 +68,7 @@ func (s *Users) FindUserByEmail(ctx context.Context, email string) (domain.User,
 func (s *Users) FindUserByID(ctx context.Context, id string) (domain.User, error) {
 	q := userProjection + `
 		 WHERE u.id = $1
-		 GROUP BY u.id`
+		 ` + userGrouping
 	return scanUser(s.QueryRow(ctx, q, id))
 }
 
@@ -117,7 +122,7 @@ func (s *Users) UpdateProfile(ctx context.Context, in domain.ProfileRecord) (dom
 }
 
 func persistedUser(ctx context.Context, tx pgx.Tx, userID string, updated bool) (domain.User, error) {
-	user, err := scanUser(tx.QueryRow(ctx, userProjection+` WHERE u.id = $1::uuid GROUP BY u.id`, userID))
+	user, err := scanUser(tx.QueryRow(ctx, userProjection+` WHERE u.id = $1::uuid `+userGrouping, userID))
 	if err != nil {
 		return domain.User{}, err
 	}
@@ -194,7 +199,7 @@ func (s *Users) FindUserByProviderIdentity(ctx context.Context, provider, provid
 	q := userProjection + `
 		 WHERE u.id = (SELECT user_id FROM app.user_identities
 		                WHERE provider = $1 AND provider_user_id = $2)
-		 GROUP BY u.id`
+		 ` + userGrouping
 	return scanUser(s.QueryRow(ctx, q, provider, providerUserID))
 }
 

@@ -424,6 +424,14 @@
     "mainNavigation": "Điều hướng chính",
     "account": "Tài khoản của {{name}}"
   },
+  "role": {
+    "builtin": {
+      "admin": "Quản trị viên",
+      "teacher": "Giáo viên",
+      "assistant": "Trợ giảng",
+      "student": "Học viên"
+    }
+  },
   "teacherShell": {
     "workspace": "Không gian giáo viên",
     "switchWorkspace": "Chuyển không gian làm việc",
@@ -454,10 +462,6 @@
     },
     "breadcrumb": "Đường dẫn",
     "search": "Tìm kiếm…",
-    "role": {
-      "teacher": "Giáo viên",
-      "admin": "Quản trị viên"
-    },
     "documentTitle": "{{page}} · Quizzivy"
   },
   "adminShell": {
