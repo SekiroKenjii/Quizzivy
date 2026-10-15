@@ -2290,6 +2290,7 @@ Every signal produces an append-only event `{ kind, occurredAt, clientSeq, quest
 | `context_menu` | `contextmenu` | Recorded; blocking off by default (it breaks assistive tooling). |
 | `network_offline` / `network_online` | `navigator.onLine` + fetch failures | Distinguishes cheating from bad wifi. Matters for fairness. |
 | `audio_play` / `audio_ended` / `audio_blocked` / `audio_seek` | player (§11.4) | Gives the teacher listening behaviour. `audio_seek` is a jump the player put back on a recording that may not be skipped. The events only report: a question's play is counted by `POST /app/attempts/:id/audio-play`. |
+| `start` | server-side | The attempt began. Written once, under the first session, at `startedAt`; it only gives that session a first row, so a flush it makes later is known to the server. It is no evidence that the tab is open. |
 | `resume` | server-side | Re-entry into an `in_progress` attempt: reload, crash, device change. |
 | `session_takeover` | server-side | Attempt opened in another tab/device. |
 | `page_hide` | `pagehide` | Best-effort final flush via `navigator.sendBeacon`. |
@@ -2338,7 +2339,7 @@ What the teacher sees, by D8 (R4). One tone marks "Flagged" everywhere, the dang
 `/teacher/attempts/:id` → **Integrity** tab: ordered timeline with event kind, wall-clock time, offset from attempt start, duration for paired events, and the question on screen. Summary strip: total away-time, away episodes ≥ `minAwayMs`, paste count, resume count, audio replays. Neutral text — no red banners, no "CHEATING DETECTED". The teacher judges; the app reports. An audio play with no recorded end shows no duration and is not called ongoing.
 
 Sessions are ordered by their earliest `receivedAt`, with `sessionId` breaking
-ties. Within a session, `resume` comes first and `session_takeover` last.
+ties. Within a session, `start` and `resume` come first and `session_takeover` last.
 Within each priority, two events with different non-null `clientSeq` values
 compare by `clientSeq`; otherwise by `occurredAt` and then event id. This order
 is not a guarantee of wall-clock chronology across tabs or sessions.
@@ -2385,8 +2386,8 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
   retry and not stored. A `clientSeq` above 2,147,483,647 or below 0 answers
   `400` on every path that takes events, the beacon included, and writes nothing.
 - A flush names the session it was written under. The server accepts the
-  attempt's current session, or one the attempt has already recorded events
-  under (a superseded tab finishing its flush), and answers `403 FORBIDDEN`
+  attempt's current session, or one that began with a `start` or `resume` and
+  so has a row of its own (a superseded tab finishing its flush), and answers `403 FORBIDDEN`
   for any other id without writing. A flush never changes which session is
   current.
 - Failed background event flushes do not block answering or manual submission.

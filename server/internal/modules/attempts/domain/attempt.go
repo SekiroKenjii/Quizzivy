@@ -108,6 +108,7 @@ const SessionLiveWindow = 2 * time.Minute
 // the client and is never enumerated in Go -- see 00023 for why kind is not an
 // enum.
 const (
+	KindStart           = "start"
 	KindResume          = "resume"
 	KindSessionTakeover = "session_takeover"
 )

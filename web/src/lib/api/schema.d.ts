@@ -5984,7 +5984,7 @@ export interface components {
              *     retry and is not stored. A new session may use any number again
              *     (D-01). A client that sends a plain counter is accepted. The column
              *     is a 32-bit integer, so a larger number answers 400 on every path
-             *     that takes events (#368).
+             *     that takes events.
              */
             clientSeq: number;
             /** Format: uuid */
