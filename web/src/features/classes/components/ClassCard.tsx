@@ -38,10 +38,10 @@ export type ClassCardActions = Readonly<{
 }>;
 
 const ICON_BUTTON =
-  "hover:bg-hover data-[state=open]:bg-hover grid size-7.5 flex-none cursor-pointer place-items-center rounded-[0.4375rem]";
+  "hover:bg-hover data-[state=open]:bg-hover grid size-7.5 flex-none cursor-pointer place-items-center rounded-[0.4375rem] aria-disabled:text-foreground/50 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent";
 
 const FOOTER_BUTTON =
-  "bg-card hover:bg-muted rounded-seg h-7 flex-none border px-2.5 text-xs font-medium whitespace-nowrap aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-card";
+  "bg-card hover:bg-muted rounded-seg h-7 flex-none border px-2.5 text-xs font-medium whitespace-nowrap aria-disabled:text-foreground/50 aria-disabled:border-border/50 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-card";
 
 /**
  * ClassCard is one class of the Classes list, as the deck draws it: the
@@ -54,8 +54,10 @@ const FOOTER_BUTTON =
  * title, before the buttons would wrap. An archived class's footer offers
  * Restore. `canWrite` says whether the reader may change the class;
  * without it the card has no menu. While `joinOff` says the centre has turned
- * joining by code off, Create code and New code stay but are disabled with
- * that reason, and a code is marked inactive.
+ * joining by code off (D-023, D-028), Create code, New code, Copy join link
+ * and Show QR code, in the footer and the menu, stay but are disabled with
+ * that reason, and a code is marked inactive, naming why it also is Expired
+ * or Used up.
  */
 export function ClassCard({
   klass,
@@ -190,11 +192,15 @@ function CodeFooter({
 >) {
   const { t } = useTranslation();
   const code = klass.joinCode;
+  const heldBack = (named: string) =>
+    joinOff
+      ? t("classes.heldBackNamed", { named, why: t("classes.joinCodesOff") })
+      : named;
   const newCode = (named: string, label: string, from: ClassListItem) => (
     <button
       type="button"
       className={FOOTER_BUTTON}
-      aria-label={joinOff ? `${named}. ${t("classes.joinCodesOff")}` : named}
+      aria-label={heldBack(named)}
       aria-disabled={joinOff || undefined}
       onClick={(event) => {
         if (!joinOff) onNewCode(from, event.currentTarget);
@@ -218,13 +224,25 @@ function CodeFooter({
         ) : null}
       </>
     );
-  const state = joinOff ? "off" : codeState(code, now);
+  const reason = codeState(code, now);
+  const state = joinOff ? "off" : reason;
+  const both = joinOff && reason !== null;
+  let stateTitle = "";
+  if (both)
+    stateTitle = t("classes.codeStateBoth", {
+      state: t("classes.codeState.off"),
+      why: t(`classes.codeState.${reason}`),
+    });
+  else if (state !== null) stateTitle = t(`classes.codeState.${state}`);
   const readable = code.code;
   return (
     <>
       <span
         title={t("classes.joinCode")}
-        className="text-muted-fg min-w-0 truncate text-xs whitespace-nowrap"
+        className={cn(
+          "text-muted-fg min-w-0 truncate text-xs whitespace-nowrap",
+          joinOff && "sr-only",
+        )}
       >
         {t("classes.joinCode")}
       </span>
@@ -233,10 +251,13 @@ function CodeFooter({
       </span>
       {state === null ? null : (
         <span
-          title={t(`classes.codeState.${state}`)}
+          title={stateTitle}
           className="text-warning-ink flex-none text-xs whitespace-nowrap"
         >
           {t(`classes.codeState.${state}`)}
+          {both ? (
+            <span className="sr-only">{t(`classes.codeState.${reason}`)}</span>
+          ) : null}
         </span>
       )}
       <span className="ml-auto flex flex-none gap-0.5">
@@ -252,18 +273,24 @@ function CodeFooter({
             <button
               type="button"
               className={ICON_BUTTON}
-              aria-label={t("classes.copyLinkNamed", { name: klass.name })}
+              aria-label={heldBack(t("classes.copyLinkNamed", { name: klass.name }))}
+              aria-disabled={joinOff || undefined}
               title={t("classes.copyLink")}
-              onClick={() => onCopyLink(readable)}
+              onClick={() => {
+                if (!joinOff) onCopyLink(readable);
+              }}
             >
               <Copy aria-hidden="true" className="size-3.75" />
             </button>
             <button
               type="button"
               className={ICON_BUTTON}
-              aria-label={t("classes.showQrNamed", { name: klass.name })}
+              aria-label={heldBack(t("classes.showQrNamed", { name: klass.name }))}
+              aria-disabled={joinOff || undefined}
               title={t("classes.showQr")}
-              onClick={(event) => onShowQr(klass, readable, event.currentTarget)}
+              onClick={(event) => {
+                if (!joinOff) onShowQr(klass, readable, event.currentTarget);
+              }}
             >
               <QrCode aria-hidden="true" className="size-3.75" />
             </button>
@@ -272,6 +299,19 @@ function CodeFooter({
       </span>
     </>
   );
+}
+
+function heldBackItem(joinOff: boolean, why: string) {
+  return {
+    "aria-disabled": joinOff || undefined,
+    title: joinOff ? why : undefined,
+    className: "aria-disabled:opacity-50",
+  } as const;
+}
+
+function HeldBackReason() {
+  const { t } = useTranslation();
+  return <span className="sr-only">{t("classes.joinCodesOff")}</span>;
 }
 
 function codeState(
@@ -330,20 +370,32 @@ function CardMenu({
             </DropdownMenuItem>
             {code === null ? null : (
               <>
-                <DropdownMenuItem onSelect={() => onShowQr(klass, code)}>
+                <DropdownMenuItem
+                  {...heldBackItem(joinOff, t("classes.joinCodesOff"))}
+                  onSelect={(event) => {
+                    if (joinOff) event.preventDefault();
+                    else onShowQr(klass, code);
+                  }}
+                >
                   <QrCode aria-hidden="true" />
                   {t("classes.showQr")}
+                  {joinOff ? <HeldBackReason /> : null}
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onCopyLink(code)}>
+                <DropdownMenuItem
+                  {...heldBackItem(joinOff, t("classes.joinCodesOff"))}
+                  onSelect={(event) => {
+                    if (joinOff) event.preventDefault();
+                    else onCopyLink(code);
+                  }}
+                >
                   <Link2 aria-hidden="true" />
                   {t("classes.copyLink")}
+                  {joinOff ? <HeldBackReason /> : null}
                 </DropdownMenuItem>
               </>
             )}
             <DropdownMenuItem
-              aria-disabled={joinOff || undefined}
-              title={joinOff ? t("classes.joinCodesOff") : undefined}
-              className="aria-disabled:opacity-50"
+              {...heldBackItem(joinOff, t("classes.joinCodesOff"))}
               onSelect={(event) => {
                 if (joinOff) event.preventDefault();
                 else onNewCode(klass);
@@ -351,9 +403,7 @@ function CardMenu({
             >
               <RefreshCw aria-hidden="true" />
               {klass.joinCode ? t("classes.newCode") : t("classes.createCode")}
-              {joinOff ? (
-                <span className="sr-only">{t("classes.joinCodesOff")}</span>
-              ) : null}
+              {joinOff ? <HeldBackReason /> : null}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onSelect={() => onArchive(klass)}>
