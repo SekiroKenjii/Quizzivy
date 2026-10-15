@@ -23,6 +23,7 @@ import { AppStateLayer } from "@/app/boot/AppStateLayer";
 import { useAppState } from "@/stores/appState";
 import { queryClient } from "@/app/queryClient";
 import { transitionStatus } from "@/lib/api/authTransition";
+import { queryWrapper } from "@tests/support/queryWrapper";
 
 const drafts = vi.hoisted(() => ({ clear: vi.fn<() => Promise<void>>(), real: false }));
 vi.mock("@/lib/drafts/store", async (importOriginal) => {
@@ -382,7 +383,7 @@ it.each(["unmount", "new-window"] as const)(
     });
     const invalidate = vi.spyOn(queryClient, "invalidateQueries");
     const router = createMemoryRouter([{ path: "/", element: <p>page</p> }]);
-    const view = render(<AppStateLayer router={router} />);
+    const view = render(<AppStateLayer router={router} />, { wrapper: queryWrapper() });
     await userEvent.setup().click(screen.getByRole("button", { name: "Kiểm tra lại" }));
     await waitFor(() => expect(entered).toBe(true));
     if (change === "unmount") view.unmount();

@@ -25,7 +25,7 @@ const preferences = ajv.compile({
 });
 const publicBody = Object.fromEntries(
   Object.entries(studentUser).filter(
-    ([key]) => key !== "permissions" && key !== "workspaces",
+    ([key]) => key !== "permissions" && key !== "workspaces" && key !== "role",
   ),
 );
 
@@ -47,7 +47,14 @@ describe("profile and preference contract boundaries", () => {
         avatarUrl: "https://example.com/photo",
       }),
     ).toBe(true);
-    for (const field of ["phone", "locale", "timeZone", "preferences", "avatar_key"])
+    for (const field of [
+      "phone",
+      "locale",
+      "timeZone",
+      "preferences",
+      "role",
+      "avatar_key",
+    ])
       expect(
         publicUser({
           ...publicBody,

@@ -100,6 +100,7 @@ Today's cross-tree reads:
 | `web/tests/units/join/code.test.ts` | `server/internal/modules/classes/domain/joincode.go` |
 | `server/tests/isolation_world_test.go` | `web/tests/e2e/fixtures/unit5-listening.mp3` |
 | `server/internal/modules/audit/domain/tests/catalog_test.go` | `web/src/lib/i18n/locales/vi.json`, `en.json` |
+| `server/internal/modules/identity/repositories/tests/stored_email_test.go` | `docs/setup/operations.md` |
 | Server tests | `api/`, `migrations/`, `fly.toml`, `Dockerfile`, `docker/word-converter/`, `.github/workflows/deploy.yml` |
 | Production image | `Dockerfile`, `.dockerignore`, `fly.toml`, `server/`, `migrations/`, `scripts/provision-db.sh` (its set, `image`, holds these and nothing else) |
 | Web tests | `api/openapi.yaml`, `api/testdata/` |
@@ -263,6 +264,16 @@ no test runs. CI therefore pulls every Docker Hub image from Google's mirror,
 If the mirror ever fails too, the alternative is a Docker Hub login from a
 repository secret, which raises the limit for the account; it needs Thuong to
 create a read-only access token and add it as a secret, and is not built.
+
+## Third-party actions
+
+An action from outside `actions/` is pinned to a full commit SHA, with the tag
+it was resolved from in a trailing comment (`uses: owner/name@<sha> # v1.2.3`).
+A tag or branch moves, and the deploy workflow holds `FLY_API_TOKEN`, so a moved
+ref would run someone else's code with it. To update one, resolve the new tag
+to its commit (the peeled one, `git ls-remote <repo> 'refs/tags/<tag>^{}'`, when
+the tag is annotated), check that the action file exists there, and change the
+SHA and the comment together. The `actions/*` actions stay on a major tag.
 
 ## Branch rules
 

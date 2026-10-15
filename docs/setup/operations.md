@@ -482,13 +482,51 @@ release. A failed row keeps its `last_error_code` (`http_422:validation_error`,
 outbox id, template, outcome and recipient domain, never an address, a subject
 or a link.
 
+## Daily housekeeping
+
+Each API machine runs the housekeeping when it starts and then every 24 hours,
+on the tick of the refresh-token prune, so it adds no timer and no database
+wake of its own. It removes, in this order: `user_activity_days` rows older
+than 400 days; outbox rows sent or failed more than 30 days ago (a pending row
+never); set-password links that were used, revoked or expired more than 30 days
+ago (a link that still works never); the files of data exports past their 24
+hours, which are then marked `expired` (this step needs `IMPORT_S3_BUCKET`); and
+the `branding/` logo objects that neither the light nor the dark logo names, once
+they are 24 hours old (this step needs media storage). Two machines running it
+at once only repeat each other's deletes, and one can end a step early, as done,
+when the other has taken the rows it was about to; nothing is lost and the next
+run goes on.
+
+Every step handles 500 rows or objects at a time, at most 20 times and for at
+most a minute, so a run clears 10,000 rows or objects of a step at most and a
+large backlog goes over several days rather than in one long transaction. The
+logs say how each went and carry counts, never a key, id, address, endpoint or
+bucket:
+
+- `housekeeping step done` with `step` and `removed`: the last batch came back
+  short. It does not promise nothing is left; the next run goes on;
+- `housekeeping step left work for the next run`, when the backlog outlasted the
+  step's rounds or budget;
+- `housekeeping step failed` with `code=HOUSEKEEPING_STEP_FAILED`, the `step` and
+  a `failure` class: `timeout`, `canceled`, `database {SQLSTATE}`,
+  `storage http {status}`, `network` or `error`. The error's own text is
+  withheld because it names keys and the bucket; reproduce it from the class and
+  the step. The other steps still ran. A step that fails every day (a bucket
+  that denies deletes, say) is the one to alert on.
+
+A download link signed in the last minute before an export expires stops
+working once the sweep has deleted the file.
+
+There is no switch. A logo the settings still name is never deleted.
+
 ## The plan the Admin console shows
 
 The Admin console's Overview and its Plan & usage page set what the centre holds beside the plan
 it states (T-R5.18). The plan is six optional variables, read at start-up: `PLAN_NAME` (up to 80
 characters), `PLAN_RENEWS_ON` (`YYYY-MM-DD`, and it needs a name), `PLAN_SEAT_LIMIT` and
 `PLAN_TEACHER_LIMIT` (whole numbers from 1 to 1,000,000), and `PLAN_MEDIA_BYTES` and
-`PLAN_IMPORT_BYTES` (bytes, from 1 to 2^50). A variable that is unset states no limit, and a value
+`PLAN_IMPORT_BYTES` (bytes, from 1 to 2^50). A number is plain digits: a sign, a leading zero, a
+space or a separator stops the server at start-up. A variable that is unset states no limit, and a value
 the server cannot read stops it at start-up, so a typo is found at deploy and not at the first
 page load. Nothing is enforced (DG-55): a limit is drawn beside its figure, and a figure may pass
 it.
@@ -557,6 +595,54 @@ SELECT count(*) FROM app.class_join_codes
 The lookup branch that still finds a scheme-1 row (so a revoked or expired
 legacy code answers as revoked or expired, not as unknown) stays until R5 removes
 it.
+
+## Stored emails the API cannot print
+
+The contract's `email` format used to accept `"qc tp"@example.com`: the request
+passed, the generated type stored the unquoted `qc tp@example.com`, and the same
+type could not print that value back, so the write committed and answered 500
+and every list holding the row answered 500 afterwards. The `email` format now
+accepts an address only if the bare address it yields parses to itself
+(`validation.ParseEmail`), so the row can no longer be created. Nothing in the
+release rewrites a stored value.
+
+Release check: run this read-only query with any credential that can read
+`app.users`, before and after the deploy. It lists accounts whose local part (the
+text before the last `@`) holds an ASCII control character, a space, any of
+`"(),:;<>@[\]`, DEL, or that begins or ends with a dot or holds two in a row.
+Nothing non-ASCII is refused by Go's address parser, so it has no Unicode clause.
+It finds every row the old API could have written. It reads only the local part,
+so a row inserted by hand with a defect in its domain, or with an empty local part,
+is not listed; the API cannot create one. `stored_email_test.go` runs this text
+against `mail.ParseAddress`:
+
+```sql
+SELECT id, email
+  FROM app.users
+ WHERE regexp_replace(email, '@[^@]*$', '') ~ '[\x01-\x20"(),:;<>@\[\\\]\x7f]|^\.|\.$|\.\.'
+ ORDER BY created_at, id;
+```
+
+No rows is the expected answer. If it returns rows, nothing in the release repairs
+them; the repair is per row and the owner's.
+
+- **A student.** An Admin, or the teacher who owns the student, corrects the address
+  with `PATCH /teacher/students/{id}`. A teacher who only shares the student gets
+  `403 STUDENT_SHARED`.
+- **A staff account (a teacher or an Admin).** `PATCH /teacher/students/{id}` answers
+  404 for it, and the API has no operation that disables an account, so the repair is
+  one statement run by the owner with a credential that may write `app.users`:
+  `UPDATE app.users SET email = '<corrected address>' WHERE id = '<id from the query>';`
+  Write the id and the change in the release record.
+
+Until a row is repaired, these keep answering `500 INTERNAL`: `GET /teacher/students`
+for a page holding the row (also with a `q` that matches it) and `GET
+/teacher/students/{id}`, `POST /teacher/students/reset-passwords`, `GET
+/teacher/classes/{id}/members` for a class holding the student, `GET
+/teacher/attempts/{id}` for that student's attempt, and, for the account's own
+session, `GET /auth/me` and `PATCH /auth/me`. The account cannot sign in again: the
+quoted form is refused, and the stored form fails the sign-in request's own check
+with `400`. A session it already holds keeps refreshing.
 
 ## AI provider key and tiers
 

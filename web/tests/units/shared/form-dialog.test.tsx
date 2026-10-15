@@ -34,6 +34,8 @@ it("keeps invalid submit pressable, reveals required errors on press and focuses
   const button = screen.getByRole("button", { name: "Lưu" });
   expect(button).toHaveAttribute("aria-disabled", "true");
   expect(button).not.toBeDisabled();
+  expect(button.className).not.toMatch(/(^|\s)opacity-/);
+  expect(button).toHaveClass("aria-disabled:bg-primary/50");
   expect(screen.queryByText("Bắt buộc")).toBeNull();
   await userEvent.setup().click(button);
   expect(submit).not.toHaveBeenCalled();
@@ -60,6 +62,32 @@ it("submits valid typed values once through the public form event without closin
   expect(submit).toHaveBeenCalledExactlyOnceWith({ ...initial, title: "Bài mới" });
   expect(close).not.toHaveBeenCalled();
   expect(screen.getByRole("dialog")).toBeVisible();
+});
+it("shows on its field a rule the caller finds while handling a valid submit", async () => {
+  function Refusing() {
+    const [refused, setRefused] = useState(false);
+    return (
+      <FormDialog
+        {...base}
+        validate={(values) =>
+          refused && values.title === "Trùng" ? { title: "Tên này đã có." } : null
+        }
+        onSubmit={() => setRefused(true)}
+      />
+    );
+  }
+  const user = userEvent.setup();
+  render(<Refusing />);
+  await user.type(screen.getByRole("textbox", { name: "Tên" }), "Trùng");
+  expect(screen.queryByText("Tên này đã có.")).toBeNull();
+
+  await user.click(screen.getByRole("button", { name: "Lưu" }));
+
+  expect(await screen.findByText("Tên này đã có.")).toBeVisible();
+  expect(screen.getByRole("textbox", { name: "Tên" })).toHaveAttribute(
+    "aria-invalid",
+    "true",
+  );
 });
 it.each(["pending", "disabled"] as const)(
   "guards %s against button, Enter and direct submit",

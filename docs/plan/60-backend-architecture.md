@@ -5,16 +5,19 @@ the "one package per feature" layout AGENTS.md described until then.
 
 ## Shape
 
-- **One process, one database, fourteen bounded contexts** under
+- **One process, one database, sixteen bounded contexts** under
   `server/internal/modules/`: identity, classes, questions, media, tests,
   assignments, attempts, dashboard, imports, availability, access, ai,
-  notifications, organization. Each is one
+  notifications, organization, audit, exports. Each is one
   aggregate (dashboard is read models only; availability reads the maintenance
   windows the operator writes; access reads roles and grants and resolves who a
   request acts as, with no transport of its own until R5's Roles page;
   organization holds the centre's one settings document, its two logos and the
   sign-in policy, which identity and classes read through its `SignInPolicy`
-  query from a snapshot each server refreshes at most every 30 seconds) and
+  query from a snapshot each server refreshes at most every 30 seconds;
+  audit reads the log, and no other module reads `audit_log`; exports queues
+  the Admin's data export, which the import worker's second runner builds, and
+  serves it once from a presigned address) and
   exposes its operations through its own `http/` package, which core embeds
   into the generated strict server.
 - **Four layers per module** — `domain/`, `application/`, `repositories/`,
@@ -154,9 +157,14 @@ the "one package per feature" layout AGENTS.md described until then.
   a worksheet above 8 MiB (`ErrSheetTooLarge`; larger sheets are unsupported),
   any other XML part above 1 MiB, 2 MiB for the shared strings
   (`ErrPartTooLarge`), macros and a password, and a workbook that does not keep
-  `xl/workbook.xml` and its worksheets under `xl/worksheets/` (`ErrLayout`).
+  `xl/workbook.xml` and its worksheets under `xl/worksheets/` (`ErrLayout`, which
+  is also the answer when the first sheet is kept elsewhere), a first sheet that
+  is a chart or a dialog (`ErrNotWorksheet`), more than 256
+  sheets (`ErrTooManySheets`), and more than 1,000 workbook relationships, 16
+  package relationships or a relationship Id used twice (`ErrFormat`), because
+  excelize's sheet lookup multiplies them.
   Every part the reader uses is then read through to its end by a strict XML scan
-  (T-R5.13 follow-ups, QC-A-1 to QC-A-3 and QC-A-9 to QC-A-11): a truncated part,
+  (T-R5.13 follow-ups, QC-A-1 to QC-A-3, QC-A-9 to QC-A-11, QC-A-13 to QC-A-15): a truncated part,
   a bad checksum, a size that lies or malformed XML is `ErrFormat` and never a
   shorter table, and nesting past 64 levels, a document type declaration, a start
   tag past 64 KiB, a row number outside the sheet and more than 16,384 cells in a
@@ -164,6 +172,22 @@ the "one package per feature" layout AGENTS.md described until then.
   read as the sheet. excelize is handed only the parts that were scanned.
   Formulas are never evaluated, and nothing is written to disk: the caller closes
   the `Table` only to release the workbook.
+- **The data export has two halves** (T-R5.15). `modules/exports` serves
+  `/admin/data-exports` from the API and builds the ZIP in
+  `application/worker`, which the import worker drains after its own queue
+  (`core/jobs.ImportRunners`, so an import is never starved by an export). Its
+  application layer has no CSV writer: `core/adapters.ExportTable` is the
+  `ports.NewTable` over `platform/tabular`, which keeps the formula escaping in
+  the one package `csv_writers_test.go` allows. Without import storage and the
+  worker (`ImportProcessing`) the transport is built over a nil application and
+  answers `501 EXPORT_OFF`.
+- **Housekeeping rides an existing tick** (T-R5.16). `core/jobs.Housekeep` runs a list of
+  `HousekeepingStep`s in order, each a bounded batch repeated while it comes back full, under a budget of its
+  own, and logs counts only. `core/housekeeping.go` is where the list is assembled, because only `core` knows
+  every module; the modules own the single-batch commands (`PruneActivityDays`, `Outbox.Prune`,
+  `PruneSetPasswordLinks`, `Expire`, `SweepLogos`). `PruneRefreshTokens` takes the list as a hook and runs it after its own prune at start-up and on
+  its 24-hour tick, so housekeeping adds no timer and no database wake. A step whose dependency is nil (no
+  import bucket, no media bucket) is left out of the list.
 - **core is five packages.** `core/wiring` builds each module (one file per
   module, in dependency order) and returns the `Assembly`; `core/router`
   fronts the transports with the generated strict server, the middleware

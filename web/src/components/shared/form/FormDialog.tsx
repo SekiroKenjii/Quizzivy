@@ -23,6 +23,8 @@ import type { FormField, FormValues } from "./fields/types";
 export type {
   FormField,
   FormOption,
+  FormIconOption,
+  FormColorOption,
   FormInfoRow,
   FormValue,
   FormValues,
@@ -57,7 +59,8 @@ const FIRST_FIELD =
 
 /**
  * FormDialog edits typed values while open and unlocked, revealing visible
- * errors after submission. It opens with focus on its first field, or where
+ * errors once a submission has been tried, valid or not, so that a rule the
+ * caller finds only while handling a submit shows on its field. It opens with focus on its first field, or where
  * the dialog frame puts it when the form has none (F-50). While `pending` the control a submit starts from
  * keeps focus (T-35): the submit answers `aria-disabled` and ignores a press,
  * text fields turn read-only, a select answers `aria-disabled` and keeps
@@ -146,6 +149,9 @@ export function FormDialog<V extends FormValues>({
       !(active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement)
     )
       submitButton.current?.focus();
+    setState((previous) =>
+      previous.touched ? previous : { ...previous, touched: true },
+    );
     onSubmit(values);
   }
   const body = shown.length > 0 || children !== undefined || error !== null;
@@ -271,8 +277,9 @@ export function FormDialog<V extends FormValues>({
           aria-disabled={pending || !valid || undefined}
           className={cn(
             "text-ui h-9 px-4 leading-normal shadow-none in-data-[scale=deck]:h-9 in-data-[scale=deck]:px-4",
-            danger && "bg-danger text-primary-fg hover:bg-danger/90",
-            (pending || !valid) && "opacity-50",
+            danger
+              ? "bg-danger text-primary-fg hover:bg-danger/90 aria-disabled:bg-danger/50 aria-disabled:hover:bg-danger/50"
+              : "aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50",
           )}
         >
           {typeof submitLabel === "function" ? submitLabel(values) : submitLabel}

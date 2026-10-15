@@ -121,6 +121,29 @@ sleeps until one of three things happens:
   pipeline version reaching its grace period.
 - `IMPORT_WORKER_IDLE_POLL` passes (1h by default), as a safety net.
 
+The worker also builds the Admin's data export (T-R5.15). It drains the import queue first and
+then the export queue, wakes through the same address, and needs nothing more than the import bucket and
+`IMPORT_WORK_DIR`, where it writes the ZIP before it uploads it and removes it afterwards; one a killed worker
+left there is removed the next time the worker finds nothing to claim. An
+export is cut off after 25 minutes, and one still running 30 minutes after its claim, because its worker
+died, is claimed again at most twice more and then failed with `WORKER_INTERRUPTED`. Without this process
+the API answers the three `/admin/data-exports` operations with `501 EXPORT_OFF`.
+
+The worker also creates the accounts of the Admin's user imports (T-R5.14). It drains the Word imports, then
+the user imports, then the exports. It needs `SECRETS_KEY` (the same value as the API: it seals a sheet's
+temporary passwords and the links sent with an email job), reads `MAX_CONCURRENT_PASSWORD_HASHES` to bound the
+Argon2id hashing of a sheet's passwords, and sends the invitations of an email job through the same mail outbox
+as the API. A job takes 25 accounts to a transaction, is cut off after 25 minutes, and one still running 30
+minutes after its claim is claimed again at most twice more and then failed with `WORKER_INTERRUPTED`. Without
+this process the API answers the four `/admin/user-imports` operations with `501`; without `SECRETS_KEY` it
+answers the preview, the create and the sheet so. The worker reads the importer's rights from the database at the
+start of every batch, so a revoked or disabled Admin stops a job within one batch (25 accounts) and not after the
+API's 10-second cache. Size the process for a sheet job: with four concurrent Argon2id hashes of 64 MiB it
+peaked at 553 to 612 MiB resident for 150 to 2,000 rows, and 2,000 rows took about 12 minutes under load, inside
+the 25-minute run limit. A failed batch is logged with the class of its failure and never its text. The sealed
+passwords of a sheet nobody downloads are erased 24 hours after the job finished by the API's daily housekeeping
+(the `import_sheets` step), not by this process.
+
 It never polls sooner than every two seconds. An idle worker therefore lets
 Neon's compute suspend (#143). SIGTERM/SIGINT cancels the current job,
 records a result that finished before the signal, and otherwise releases the run

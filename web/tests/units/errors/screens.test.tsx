@@ -10,8 +10,9 @@ import NotFoundPage from "@/app/pages/NotFoundPage";
 import { BrandLockup, BrandMark } from "@/components/shared/Brand";
 import { ApiError } from "@/lib/api/errors";
 import { useAuthStore } from "@/stores/auth";
-import { adminUser, studentUser } from "@tests/support/fixtures";
+import { adminUser, studentUser, teacherUser } from "@tests/support/fixtures";
 import "@/lib/i18n";
+import { queryWrapper } from "@tests/support/queryWrapper";
 
 const REQUEST_ID = "019535d9-3df7-79fb-b466-fa907fa17f9e";
 
@@ -42,7 +43,7 @@ function renderFailure(error: unknown) {
     [{ path: "*", ErrorBoundary, element: <Throws error={error} /> }],
     { initialEntries: ["/app/tests"] },
   );
-  render(<RouterProvider router={router} />);
+  render(<RouterProvider router={router} />, { wrapper: queryWrapper() });
 }
 
 afterEach(() => {
@@ -74,7 +75,8 @@ describe("the 404", () => {
   it.each([
     [null, "/login"],
     [studentUser, "/app"],
-    [adminUser, "/teacher"],
+    [teacherUser, "/teacher"],
+    [adminUser, "/admin"],
   ])("sends home to the caller's console (%#)", (user, home) => {
     useAuthStore.setState({ user });
     renderAt(<NotFoundPage />);
@@ -106,7 +108,7 @@ describe("the 404", () => {
       ],
       { initialEntries: ["/app/tests/gone"] },
     );
-    render(<RouterProvider router={router} />);
+    render(<RouterProvider router={router} />, { wrapper: queryWrapper() });
     expect(
       await screen.findByRole("heading", { name: "Trang này không tồn tại" }),
     ).toBeInTheDocument();

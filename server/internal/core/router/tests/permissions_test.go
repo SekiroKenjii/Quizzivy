@@ -64,8 +64,8 @@ func TestEveryNonOpenOperationDeclaresAPermission(t *testing.T) {
 func TestOpenOperationsDeclareNone(t *testing.T) {
 	spec := freshSpec(t)
 	open := openPatterns(spec)
-	if len(open) != 9 {
-		t.Errorf("%d open operations, want the nine of theOpenNine", len(open))
+	if len(open) != 11 {
+		t.Errorf("%d open operations, want the eleven of theOpenEleven", len(open))
 	}
 	eachOperation(spec, func(pattern string, op *openapi3.Operation) {
 		if _, isOpen := open[pattern]; !isOpen {
@@ -82,8 +82,8 @@ func TestEveryDeclaredValueIsKnown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(requirements) != 155 {
-		t.Errorf("%d operations declare a permission, want 155", len(requirements))
+	if len(requirements) != 166 {
+		t.Errorf("%d operations declare a permission, want 166", len(requirements))
 	}
 	for pattern, requirement := range requirements {
 		for _, k := range requirement.Keys() {
@@ -374,7 +374,7 @@ func throughGate(h http.Handler, pattern, token string) int {
 
 func TestEachRoleMeetsExactlyTheOperationsItsPermissionsAllow(t *testing.T) {
 	h, requirements, _ := isolatedGate(t, rolePrincipals())
-	adminOnly := map[string]bool{"POST /admin/docs-session": true, "DELETE /admin/users/{id}": true, "GET /admin/api-reference": true, "GET /admin/api-reference/openapi.json": true, "GET /admin/audit-log": true, "GET /admin/audit-log/export": true, "GET /admin/overview": true, "GET /admin/summary": true, "GET /admin/usage": true}
+	adminOnly := map[string]bool{"POST /admin/docs-session": true, "GET /admin/users": true, "GET /admin/users/{id}": true, "POST /admin/users": true, "DELETE /admin/users/{id}": true, "GET /admin/api-reference": true, "GET /admin/api-reference/openapi.json": true, "GET /admin/audit-log": true, "GET /admin/audit-log/export": true, "POST /admin/data-exports": true, "POST /admin/user-imports/preview": true, "POST /admin/user-imports": true, "GET /admin/user-imports/{id}": true, "POST /admin/user-imports/{id}/sheet": true, "GET /admin/data-exports/{id}": true, "POST /admin/data-exports/{id}/download": true, "GET /admin/overview": true, "GET /admin/summary": true, "GET /admin/usage": true}
 	for _, pattern := range []string{"GET /admin/roles", "POST /admin/roles", "GET /admin/roles/assignable", "PUT /admin/roles/permissions", "PATCH /admin/roles/{id}"} {
 		adminOnly[pattern] = true
 	}
@@ -427,8 +427,8 @@ func TestTheAssistantMeetsOnlyItsSixRows(t *testing.T) {
 			t.Errorf("%s as the Assistant: %d, want %d", pattern, got, want)
 		}
 	}
-	if refused != 71 {
-		t.Errorf("the Assistant is refused %d operations, want 71: forty-three staff operations, the sixteen AI ones and the twelve /app ones", refused)
+	if refused != 81 {
+		t.Errorf("the Assistant is refused %d operations, want 81: fifty-three staff operations, the sixteen AI ones and the twelve /app ones", refused)
 	}
 }
 

@@ -33,6 +33,7 @@ import {
 } from "@/features/classes/api";
 import { saveError } from "@/features/classes/classFields";
 import { invalidateClassMembership } from "@/features/classes/invalidate";
+import { useJoinCodesOff } from "@/features/organization/api";
 import { scorePercent } from "@/features/students/api";
 import { useBulkSelection } from "@/hooks/useBulkSelection";
 import { useListFilters } from "@/hooks/useListFilters";
@@ -86,6 +87,7 @@ export function ClassMembersCard({
   canWrite,
 }: Readonly<{ klass: Class; canWrite: boolean }>) {
   const { t } = useTranslation();
+  const joinOff = useJoinCodesOff();
   const locale = useLocale();
   const queryClient = useQueryClient();
   const canSeeResults = useCan("people.students.read");
@@ -206,7 +208,7 @@ export function ClassMembersCard({
           menuTrack="32px"
           padX={18}
           framed={false}
-          empty={members.isError ? null : emptyLine(t, search)}
+          empty={members.isError ? null : emptyLine(t, search, joinOff)}
         />
       )}
 
@@ -222,7 +224,11 @@ export function ClassMembersCard({
           name: removing?.fullName ?? "",
           className: klass.name,
         })}
-        description={t("classDetail.removeConfirmBody")}
+        description={t(
+          joinOff
+            ? "classDetail.removeConfirmBodyOff"
+            : "classDetail.removeConfirmBody",
+        )}
         confirmLabel={t("classDetail.removeConfirm")}
         destructive
         pending={remove.isPending}
@@ -266,8 +272,9 @@ function MembersFooter({ members }: Readonly<{ members: UseQueryResult<MemberPag
   );
 }
 
-function emptyLine(t: Translate, search: string): string {
-  if (search === "") return t("classDetail.noMembers");
+function emptyLine(t: Translate, search: string, joinOff: boolean): string {
+  if (search === "")
+    return t(joinOff ? "classDetail.noMembersOff" : "classDetail.noMembers");
   return t("classDetail.noMemberMatches", { query: search });
 }
 

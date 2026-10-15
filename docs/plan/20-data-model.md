@@ -1399,6 +1399,11 @@ listed here matches the spec.
 | D-51 | Add `email_outbox`, one row per message to send, with a partial index on the pending rows | A message is written in the transaction that decided to send it, so a rolled-back decision sends nothing, and the API and the worker both drain the table (T-R5.2). `template` is a checked slug and not an enum, as `notifications.kind` is (D-28), because the template list is Go's and R7 adds templates without a migration. `to_address` is a copy, since `to_user_id` is `ON DELETE SET NULL` and an unsent message must outlive its user's row. `secret_ciphertext` holds a set-password token sealed under `SECRETS_KEY` with the row id as associated data, and is cleared in the statement that marks the row sent or failed. `dedupe_key` is a plain unique column: a second message with the same key is not written. `attempts` is bounded at 10 to match the dispatcher. See §49 |
 | D-52 | `users` gains four nullable columns, `last_active_at`, `last_sign_in_at`, `last_sign_in_method` (CHECK in `password`, `google`, `set_password_link`) and `password_changed_at`; a new `user_activity_days (user_id, day)` records the local days a user was active | DG-54: the Students list's "Last active" and "Not signed in", the Settings "Changed …" line and R5's daily chart need facts the schema did not keep (the Students list used the last attempt). All four are nullable with no default, so the v0.10.0 binary's insert, which names none, keeps working; NULL `last_sign_in_at` is "never signed in". The migration backfills `last_sign_in_at` and `last_active_at` with the newest of the user's refresh token `issued_at`, attempt `started_at` and audit entry as actor, with the `updated_at` trigger off, so an account used before R5 does not read "Not signed in"; the method and `password_changed_at` stay NULL because nothing records them. The day table is keyed by the pair, indexed on `day` for range reads, and cascades with the user; a day is the local date in `APP_TIMEZONE`. See §50 |
 | D-53 | `organization_settings` is a singleton keyed by `id boolean PRIMARY KEY DEFAULT true CHECK (id)`, written by the migration, and the app role has neither `INSERT` nor `DELETE` on it | The centre has exactly one settings document, and the front door and sign-in cannot run without it, so it is reference data the migration owns (D-21) and not a seed. A boolean key that only `true` satisfies makes a second row impossible without a trigger, and revoking the two statements means the application can only change the row, never lose it or add a rival. Every optional text is nullable and every bound is a CHECK, so the database refuses what the application would have refused. `CHECK (google_sign_in OR password_sign_in)` is the last line of the rule that keeps a way in. See §51 |
+| D-54 | Add `data_exports`, one row for each request, with a partial unique index `data_exports_active_idx ON ((true)) WHERE status IN ('queued','running')` | At most one export is queued or running in the whole centre (T-R5.15): a full export of personal data is heavy and two Admins asking at once must not both build a ZIP, so the index makes "one at a time" a fact of the data and `409 EXPORT_IN_PROGRESS` its report. It is also the worker's queue, which holds one row at most. `status` is a checked text, not an enum, as `notifications.kind` is (D-28). `attempts` counts claims so an export a dying worker keeps re-claiming is failed after the third. `error_code` is a short code and never a message, so nothing about the data reaches the table. `requested_by` is `ON DELETE CASCADE`: an export of a deleted account has no reader. `data_exports_ready_has_file` ties `ready` to its key, size and expiry. See §52 |
+| D-55 | Add `set_password_tokens`, one row per set-password link, with a full index on `user_id` and the 24-hour bound as a `CHECK` | A link is the credential of an account that has none yet (T-R5.3, D15), so the database holds only the SHA-256 of a 256-bit token (`token_hash bytea`, 32 bytes, unique), never the token, which waits sealed in `email_outbox` until the message is sent (D-51). `expires_at <= created_at + interval '24 hours'` is the database's own last line against a longer-lived link; the application writes `created_at` itself, from the clock it computes `expires_at` with, truncated to the microsecond, so the bound holds exactly. `used_at` and `revoked_at` are separate because the claim is one `UPDATE … SET used_at … WHERE used_at IS NULL AND revoked_at IS NULL AND expires_at > $now`, which two submits of one link race for and one wins, while a newer link, a password set and a disable revoke by `revoked_at`; the lookup reads all three alike. `user_id` cascades, since a link without its account is meaningless; `created_by` is provenance (an Admin, the account itself, or NULL for a job) and `SET NULL`s, so a deleted account's issuer leaves rows nobody can use. **Deviation from the plan:** T-R5.3 asked for a *partial* index on `(user_id) WHERE used_at IS NULL AND revoked_at IS NULL`. The index is full instead, because `ON DELETE CASCADE` from `users` must find rows of every state and a partial index would leave a delete of a user scanning the table; the unused-link reads (revoke-and-replace) still use it, over a handful of rows per account. See §53 |
+| D-56 | Add `user_import_jobs`, one row for each Admin's import of accounts from a file, with `UNIQUE (created_by, request_id)` and a partial index on the open jobs | The API reads and judges the file and the worker creates the accounts (T-R5.14), so a job is both the request and the worker's queue: `user_import_jobs_open_idx (created_at) WHERE status IN ('queued','running')` holds the rows the worker may take and nothing else. `(created_by, request_id)` is unique so a retried request returns the job it stored the first time, and the caller's `requestId` is held for as long as the dialog is open. `total_rows` is the rows stored (1 to 2,000): the rows that passed every rule, including those whose address already belonged to an account, which are stored settled as skipped; a refused row is only counted in `invalid_count`, so the file's text does not outlive the request. `created_count + skipped_count` may not pass `total_rows`, and a `done` job has settled every row (`user_import_jobs_done_settled`). `attempts` (0 to 3) counts claims, and `error_code` is a short code and never a message, so nothing about the file reaches the table (`failed` has one and no other status does). `default_role_id` is kept because the worker re-checks the importer's right to every role of the job when it runs; it is `RESTRICT` and roles are never deleted. `created_by` is `ON DELETE CASCADE`: the job of a deleted account has no reader. `sheet_expires_at` and `sheet_downloaded_at` exist only for `delivery = 'sheet'`. See §54 |
+| D-57 | Add `user_import_rows`, the rows of a job that passed, with `PRIMARY KEY (job_id, ordinal)` and a sealed password that only a created row may hold | `ordinal` counts the stored rows from 0 (not the file's lines) and is also a row's place in the hand-out sheet. `full_name` and `email` are kept as the file spelled them, trimmed and composed (NFC), and the account takes the same. `outcome` is `pending` until the worker settles the row as `created` (`user_id` is the account) or `skipped_exists`. `secret_ciphertext` holds the temporary password of a row created for a sheet, sealed under `SECRETS_KEY` with the job id and ordinal as associated data; `user_import_rows_secret_only_when_created` makes a password exist only beside the account it opens, and the transaction that hands the sheet out erases it. `user_id` and `class_id` are `ON DELETE SET NULL`, so a row outlives the account and the class it created or named, each with a partial index for the cascade. The housekeeping step `import_sheets` erases the ciphertexts of a sheet nobody downloaded within its 24 hours (D-038); a download and a failure erase them at once. The rows keep names and addresses, and their removal 30 days after the job is T-R5.16's. See §54 |
+| D-58 | Add `users_search_trgm_idx`, a gin `gin_trgm_ops` index on `app.immutable_unaccent(lower(full_name \|\| ' ' \|\| email))`, built `CONCURRENTLY` | The Users search of the Admin console (`listUsers`, `q`, T-R5.9a) is a `LIKE '%…%'` over that expression, which no b-tree serves, and it runs up to three times a request (the count, the facets, a sparse page). §13.6 held an index back until there was evidence; QC measured 99 ms with no filter, 400 ms for `q=nghe` and about 1 s for a search that finds nothing at 100,000 accounts (1.3 to 5 s at 500,000), and an index over this expression took them to 71 ms and 4 ms once the table is analysed (QC-N-5). Creating an index never wakes autovacuum, and without statistics for the expression the page of a search that finds nothing walks `users_pkey` backwards (346 ms at 100,000, 3.8 s at 500,000), so the file ends with `ANALYZE app.users` (QC-N-13). The expression is `repositories.UserSearchText`, shared by the query and the test; `users_search_index_test.go` EXPLAINs it and the count, page and facets statements the directory sends, so a change to the constant, to the index, or to the clause the directory builds fails it (QC-N-14). The index reads `full_name` and `email` only, so an update of any other column stays heap-only; it adds a gin pending-list entry for each insert and each rename. A query of one or two characters has no trigram and still scans. Changing the `unaccent` dictionary needs a `REINDEX`, as for every index on `app.immutable_unaccent` (00001). The file is `NO TRANSACTION` and drops any invalid leftover first, as 00133 does |
 ---
 
 ## 13. Migration inventory
@@ -1532,6 +1537,11 @@ the file it adds.
 | `00130_create_organization_settings.sql` | `organization_settings`, the singleton, its checks and `updated_at` trigger, the one row the migration writes, and `REVOKE INSERT, DELETE` from the app role | R5 (T-R5.5), D-53, §51 |
 | `00131_add_users_activity.sql` | `users.last_active_at`, `last_sign_in_at`, `last_sign_in_method` (`users_last_sign_in_method_check`), `password_changed_at`, all nullable; backfills the first two | R5 (T-R5.4), D-52, §50 |
 | `00132_create_user_activity_days.sql` | `user_activity_days (user_id REFERENCES users ON DELETE CASCADE, day date, PRIMARY KEY (user_id, day))` and `user_activity_days_day_idx (day)` | R5 (T-R5.4), D-52, §50 |
+| `00134_create_data_exports.sql` | `data_exports`, its checks (`data_exports_ready_has_file`, `data_exports_failed_has_code`), the active index `data_exports_active_idx` and `data_exports_requested_by_idx` | R5 (T-R5.15), D-54, §52 |
+| `00135_create_set_password_tokens.sql` | `set_password_tokens`, its checks (`token_hash` length, `purpose`, the 24-hour bound), `set_password_tokens_token_hash_key` and `set_password_tokens_user_idx` | R5 (T-R5.3), D-55, §53 |
+| `00136_create_user_import_jobs.sql` | `user_import_jobs`, its checks (counts, `attempts`, `user_import_jobs_done_settled`, `user_import_jobs_failed_has_code`, `user_import_jobs_completed_has_end`, `user_import_jobs_started_once_claimed`, `user_import_jobs_sheet_only_by_sheet`), `user_import_jobs_request_key` and the open-jobs index `user_import_jobs_open_idx` | R5 (T-R5.14), D-56, §54 |
+| `00137_create_user_import_rows.sql` | `user_import_rows`, its checks (`user_import_rows_outcome_check`, `user_import_rows_secret_only_when_created`) and the `user_id` and `class_id` partial indexes | R5 (T-R5.14), D-57, §54 |
+| `00138_index_users_search.sql` | `users_search_trgm_idx`, built `CONCURRENTLY` (no transaction) | R5 (T-R5.9a), D-58 |
 
 Notes on migration mechanics (§13.7):
 
@@ -3550,8 +3560,13 @@ the API and the worker run side by side while a deploy rolls out. A release ther
 renames a template while rows of it can be pending. The timer is armed only for the earliest pending
 `deliver_after` of a known template, so an empty outbox never wakes the database.
 
-**What is not here.** No rows are pruned yet; T-R5.16's daily housekeeping removes rows sent or failed more
-than 30 days ago. The app role has full DML on the table (it is not append-only: it is a queue).
+**Retention.** The daily housekeeping (T-R5.16, `core/jobs.Housekeep`) deletes, oldest first and 500 at a time,
+the rows whose `sent_at` or `failed_at` is more than 30 days old (`email.Retention`). A pending row is never
+touched, however old. The delete reads the table in order of the outcome's instant without an index: the table
+holds a day's budget of mail a day for 30 days, a few thousand rows at most, and a partial index on `failed_at`
+would cost every failure a write for a scan that runs once a day. A pruned row frees its `dedupe_key`: the only
+producer today keys on the export id, which never comes round again, but a producer whose key can repeat after 30
+days would send again. The app role has full DML on the table (it is not append-only: it is a queue).
 
 ## 50. Activity (T-R5.4, DG-54)
 
@@ -3571,6 +3586,11 @@ locks in the same order, and the days with `ON CONFLICT DO NOTHING`. A user dele
 statements. A failed write is logged and its entries dropped, since activity is a statistic and a queue behind a
 database that is down only grows. `updated_at` moves with every `last_active_at` write, because the trigger has
 no column list; nothing reads it for a user.
+
+**Retention.** The daily housekeeping (T-R5.16) deletes the days older than 400 days, `domain.ActivityDaysKept`,
+counted back from the start of the local day in `APP_TIMEZONE`, 500 rows a batch and oldest day first over
+`user_activity_days_day_idx`. R5's readers look back 14 days at most, so nothing the product shows is lost;
+`last_active_at` on the user is never pruned.
 
 **Status.** `domain.StatusOf` applies DG-54's order: disabled, must change password, never signed in
 (`last_sign_in_at IS NULL`), active. The contract's `AccountStatus` is that value, and `listStudents` filters by
@@ -3626,3 +3646,222 @@ serves the old policy for up to 30 seconds after a change, and an idle server ne
 logo-in-store check), `organization/repositories/tests` (the constraints, the lockout outcomes and
 counts, the concurrent saves, the audit row, the grants), `organization/http/tests` (the public
 document's exact keys, the logo headers and caches, the error mapping).
+
+## 52. Data exports (T-R5.15)
+
+`app.data_exports` (00134, D-54) holds one row for each request for the centre's data. An Admin asks, the
+worker builds a ZIP of CSV files into the private import bucket at `exports/{id}.zip`, and the requester
+fetches it from an app page, up to three times.
+
+**What a row is.** `requested_by` (`ON DELETE CASCADE`), `include_answers`, `status` (`queued`, `running`,
+`ready`, `failed`, `expired`), `attempts` (0 to 3, the claims so far), `storage_key` (1 to 200 characters),
+`bytes` (above 0), `error_code` (1 to 64 characters), and the instants `created_at`, `started_at` (the
+current claim), `completed_at`, `expires_at` (24 hours after `ready`), `downloaded_at` and `downloads`. `ready` requires
+`storage_key`, `bytes` and `expires_at`; `failed` requires `error_code`. A read reports a `ready` row past
+`expires_at` as `expired`. The daily housekeeping (T-R5.16) makes it true in the table: it deletes the object,
+then sets `status = 'expired'` and `storage_key = NULL` on the row, guarded by `status = 'ready' AND expires_at <=
+now()` so a second run changes nothing. The row stays, with `bytes`, `expires_at` and `downloads`, for the audit
+trail of who asked.
+
+**One at a time.** `data_exports_active_idx` is a unique index on the constant `true` over the rows
+`queued` or `running`. A second request inserts into it, fails with `23505` and answers
+`EXPORT_IN_PROGRESS`; a finished or failed export leaves the index at once.
+
+**One an hour (D-021).** In the same transaction, before the insert, the request reads the newest row of
+`requested_by` with `status <> 'failed'` and `created_at > now() - 1 hour` on `data_exports_requested_by_idx`;
+if there is one it answers `RATE_LIMITED` with the seconds until that row is an hour old. A `failed` row never
+counts, and a refused request leaves no row, so neither a `409` nor a `429` spends the hour. Two requests of one
+actor at once both pass the read, and the active index lets only one insert.
+
+**The claim.** One transaction first fails the `running` row whose lease (30 minutes from `started_at`) has
+lapsed and whose `attempts` has reached 3 (`WORKER_INTERRUPTED`), then takes the oldest `queued` row or
+lapsed `running` row `FOR UPDATE SKIP LOCKED`, sets `started_at = now()` and adds one to `attempts`. Complete,
+fail and release each name the attempt they hold and change the row only while it is `running` under that
+attempt, so a worker whose lease was taken changes nothing. Complete also enqueues `data_export_ready` into
+`email_outbox` (§49) in the same transaction.
+
+**The fetch (D-024).** `UPDATE … SET downloaded_at = coalesce(downloaded_at, now()), downloads = downloads + 1
+WHERE requested_by = $actor AND status = 'ready' AND expires_at > now() AND downloads < 3 RETURNING storage_key`
+is the whole check; it signs the address and audits `data_export.downloaded` before it commits, so a failure to
+sign counts nothing. `downloads smallint NOT NULL DEFAULT 0` is checked between 0 and 3, and `downloaded_at` keeps
+the first fetch. The server cannot tell whether a transfer finished (the browser reads the object from storage),
+so a failed transfer may be tried twice more without building another ZIP. Another admin's export finds no row
+for them and answers as a missing one.
+
+**Reading the tables.** The worker reads every file in one `REPEATABLE READ`, read-only transaction with a
+20-minute statement timeout. Each file's columns are listed in `exports/domain/files.go` and the snapshot
+fails a query whose columns differ, so a new column on a table never reaches a file unnoticed. A time is
+written as ISO 8601 in UTC and a boolean as `true` or `false`; NULL is an empty cell.
+
+**Tests.** `exports/domain/tests` (the catalogue, vi and en for every column, no secret column names, the
+README), `exports/application/worker/tests` (the flow with fakes), `exports/repositories/tests` (the index,
+the claim and its races, the lease, the three fetches, the audit rows, the notice, every query's columns),
+`server/tests/data_export_flow_test.go` (API, worker and MinIO), `data_export_heap_test.go` (50,000 attempts).
+
+## 53. Set-password links (T-R5.3, D15, DG-05)
+
+`00135_create_set_password_tokens.sql` adds `app.set_password_tokens` (D-55). A link is the way an account
+chooses a password without anyone typing one for it: an invite carries a new account's first password, a reset
+any later one. The token is 32 random bytes in unpadded base64url; the row keeps `sha256(token)` and nothing
+that could be presented. The raw token lives in two places only, the link in the email and the sealed secret
+of the outbox row that carries it, which is cleared when the row is sent or fails (§49).
+
+**States.** A link is *usable* while `used_at` and `revoked_at` are NULL, `now < expires_at` and its account is
+not disabled. Every other state is one `domain.ErrSetPasswordLinkInvalid`, and the HTTP layer answers it as one
+`410 SET_PASSWORD_LINK_INVALID` with one body, so nothing says which state a link is in. A link is revoked by
+issuing another to the same account (`RevokeUnused`), using one (`Claim` revokes the account's other unused
+links), or disabling the account: `Students.Update` runs the same `revokeUnusedLinks` in the transaction that
+sets `disabled_at`, beside the revoke of the refresh families, and the anonymisation command deletes the rows.
+Enabling the account again issues nothing, so a disable then an enable within 24 hours leaves the old link
+revoked and an Admin sends a new one through Reset. The lookup's `AccountDisabled` check and the claim's
+`disabled_at IS NULL` stay as the second line, for a link issued in the instant before a disable.
+
+**Issuing.** `IssueSetPasswordLink` is a command other commands call with a `domain.LinkTx`, the writes of one
+transaction the caller owns: `Recipient`, `RevokeUnused`, `Insert`, `EndSessions`, `Enqueue`, `Audit` and
+`AfterCommit`. `repositories.SetPasswordLinks.InTx` begins that transaction for a caller that has none;
+`Writes(tx)` returns the same writes over a transaction the caller already holds (T-R5.9a creates the account
+in it), and the function that runs what was registered with `AfterCommit`, which the caller runs after its own
+commit and never after a rollback. That is where `Principals.Forget` and the dispatcher's wake-up wait, so
+neither fires for a transaction that rolled back. `Enqueue` maps the outbox's `ErrNoSecretsKey` to
+`domain.ErrSetPasswordUnavailable`, which the HTTP layer answers `501`, as media does without storage. Order
+inside the transaction is: read the recipient, revoke unused links, insert the link, (for a reset someone else
+asked for) end sessions, enqueue the message, audit.
+
+**Claiming.** `Claim` is one transaction: `UPDATE set_password_tokens SET used_at … WHERE token_hash = $1 AND
+used_at IS NULL AND revoked_at IS NULL AND expires_at > $now RETURNING user_id, purpose`; then the account's
+password hash, `must_change_password = false`, `password_changed_at` and `session_epoch + 1` (refused, and the
+whole claim rolled back, for a disabled account, so a refused claim leaves the link unused); then the account's
+other unused links revoked, its refresh tokens revoked, and `user.password_set` written as the account itself
+with `{"purpose": …}`. The lock order is the link, then the user, then its refresh tokens, the order issuing
+takes them in, so issuing and using links at once cannot deadlock. The caller forgets the principal, reloads the
+account and issues the session (`SignInSetPasswordLink`, stamped like any sign-in, §50). A token that is
+unknown, used, revoked, expired or for a disabled account is refused by `Find` and `Usable` before the password
+is hashed, so an invalid token costs the server no argon2 work.
+
+**Self-service.** `RequestSetPasswordLink` issues a `reset` to the signed-in account with `By` set to itself and
+`KeepSessions`, writes `user.password_link_requested` in the same transaction, and ends nothing: the account
+asked while signed in on purpose, and using the link ends the other sessions. A Google-only account keeps its
+`user_identities` row, since setting a password adds a way in and removes none.
+
+**Not here.** A reset does not clear the account's current password; T-R5.9b's "a link reset clears the
+password" belongs to that task.
+
+**Retention.** The daily housekeeping (T-R5.16) deletes a link 30 days after it ended, by being used, revoked or
+expiring, whichever came first (`least(used_at, revoked_at, expires_at)`, `domain.SetPasswordLinksKept`), the
+earliest first and 500 at a time. A link that can still be used has not ended and is never touched, and a token
+whose row is gone is refused as any unknown one is. The batch locks its rows `FOR UPDATE SKIP LOCKED`: a link that
+was never revoked is also a target of `RevokeUnused`, and a delete that waited on rows in its own order could
+deadlock with it; a locked row is left for the next run. The scan has no index of its own, because the table holds the
+links of 30 days; the cascade from `users` keeps using `set_password_tokens_user_idx`. The anonymisation command
+deletes a user's links outright (see States), so this sweep is for the links of accounts that live on.
+
+**Tests.** `identity/domain/tests/setpassword_test.go` (token shape, the purposes, the usable states),
+`identity/application/tests/set_password_test.go` (every path against fakes: the order of the writes, forgets
+after the commit, the policy, a disabled account, an unusable link costs no hash) and
+`set_password_db_test.go` (the real repository, the outbox and the app role: hash-only storage, a sealed token,
+a reissue revokes, eight concurrent submits set once, expiry at exactly 24 hours, a rolled-back issue leaves no
+link, mail or wake-up, issuing and using at once do not deadlock), `identity/http/tests/set_password_test.go`
+(byte-identical 410 bodies in both languages, the 200 with its cookie, the 400, 422 and 501 mappings),
+`platform/db/tests/set_password_tokens_test.go` (each constraint fires, the cascade and the `SET NULL`) and
+`core/router/tests/set_password_limits_test.go` (a class of 40 behind one address, the per-address and
+per-token limits, a weak password spends the token's budget, the per-user limit of the request).
+`identity/application/tests/prune_set_password_links_test.go` and `prune_set_password_links_db_test.go` (the cutoff
+and the limit against a fake store; against Postgres, ten links in every state either side of 30 days, a live link
+untouched, the earliest first from rows inserted newest first, the edge to the microsecond, a row another transaction
+holds skipped without waiting, and a second run changing nothing).
+
+## 54. User imports (T-R5.14)
+
+`00136_create_user_import_jobs.sql` and `00137_create_user_import_rows.sql` add `app.user_import_jobs` (D-56) and
+`app.user_import_rows` (D-57). An Admin uploads a CSV or XLSX file of people; the API reads it, judges every row
+against what the Admin may give, and stores the job and the rows that passed in one transaction; the worker then
+creates the accounts a few at a time and, for a sheet job, hands the temporary passwords out once.
+
+**Judging a file.** The columns are `full_name` and `email` (required) and `role` and `class` (optional), found in
+the header whatever their case or order; any other column is ignored. A header that lacks a required column, or
+names one twice, is refused as a whole. Every other rule refuses one cell, so one pass shows everything to correct,
+and a row with a refused cell is counted once in `invalidCount` and never stored. The cells are composed (NFC) and the
+name's whitespace collapsed before they are judged.
+
+| Code | Field | Meaning |
+|---|---|---|
+| `REQUIRED`, `TOO_LONG`, `INVALID` | `full_name`, `email` | empty; over 200 characters (254 for an address); a control or invisible character, or an address that is not a bare `local@domain` |
+| `FORMULA_LIKE` | `email` | a valid address that starts with a character a spreadsheet reads as a formula (`=`, `+`, `-`, `@`, a tab or carriage return, or a full-width form, after any spaces); the sheet would write it `'+x@…`, which does not sign in (D-039) |
+| `DUPLICATE_IN_FILE` | `email` | the address, in any letter case, appeared in an earlier row, whether that row was refused or not |
+| `UNKNOWN_ROLE`, `AMBIGUOUS_ROLE` | `role` | no role has that name or key; two roles do (a custom role named like a built-in key) |
+| `ROLE_NOT_ALLOWED` | `role` | the role holds a permission the importer lacks (the subset rule of §5) |
+| `ROLE_NOT_GIVABLE` | `role` | the Assistant, which no one is given. The plan called this `ROLE_NOT_ASSIGNABLE`; the code generator prefixes a constant that two enums share, and the other is an `ErrorCode`, so the row code has its own name |
+| `UNKNOWN_CLASS`, `AMBIGUOUS_CLASS` | `class` | no active class has that name; two do |
+| `CLASS_NOT_ALLOWED` | `class` | the importer lacks `scope.all`, or the row's role is not a student target |
+
+A role is named by its built-in key (`student`), its name (`Học viên`; the accents count) or a custom role's name,
+compared without case or extra whitespace; empty takes the dialog's default, which is the built-in Student or
+Teacher role and one the importer must be able to give, or the whole request is refused `403
+TARGET_ROLE_NOT_ALLOWED`. An address that already belongs to an account, of any state, is not refused: its row is
+stored settled `skipped_exists`, counted as `existingEmails`, and the account is never changed. A file in which no
+row would create an account is refused `422 USER_IMPORT_NOTHING_TO_CREATE`.
+
+**Reading a file.** The format is chosen by the file's first four bytes (`PK\x03\x04` is a workbook), never by its
+name or the browser's type. The platform's reader (T-R5.13) takes it under its default limits, 5 MiB, 2,000 rows,
+20 columns and 1,000 characters a cell; each of its errors has its own code and a vi/en message that says what to
+do, and no message carries the reader's error text, since that can hold up to 64 KiB of the file. One file is held
+at a time (a one-slot semaphore), a waiting upload that is cancelled leaves it.
+
+**Creating the job.** `createUserImport` re-reads and re-judges the file; the preview is never trusted. A
+`requestId` the caller has used returns that job without reading the file. Otherwise the job and the accepted rows
+are inserted in one transaction with `ON CONFLICT (created_by, request_id) DO NOTHING`, so two requests at once
+store one job, and `user_import.requested` is audited with the counts and the format, never with the file's names or
+addresses. Both deliveries need `SECRETS_KEY` (a link by email and a sheet's passwords are sealed); without it, or
+without the import worker, the operations answer `501`. A `sheet` also needs password sign-in on
+(`422 PASSWORD_SIGN_IN_DISABLED`).
+
+**Reading a job.** `getUserImport` finds the job by `id` and `created_by`; another user's job is a missing one.
+`sheet` is null for an email job and otherwise says whether the sheet can still be downloaded: the job is `done`,
+created an account, has not been downloaded and has not passed `sheet_expires_at`.
+
+**Running a job.** The worker claims the oldest `queued` job, or a `running` one whose `started_at` is over 30
+minutes old (`ImportLease`), in one statement `FOR UPDATE SKIP LOCKED`, and adds one to `attempts`. A job that has
+been claimed three times and is claimable again is failed `WORKER_INTERRUPTED` instead, in the same transaction
+that erases its sealed passwords. A run is cut off after 25 minutes (`ImportRunLimit`) and the job goes back to
+`queued` with the attempt spent; a shutdown puts it back and takes the attempt away. Every write the worker makes to
+a job names the attempt it holds (`status = 'running' AND attempts = $n`), so a worker whose claim was taken over
+writes nothing. The rows still `pending` are the work left, so a resumed job needs no state beyond the table.
+
+A batch of 25 rows is one transaction. It locks the job row, locks each role of the batch `FOR SHARE` and compares
+its `revision` with the one the worker read the role at (a role edited in between sends the worker to read it again,
+three times at most), inserts the account with `ON CONFLICT ((lower(email))) DO NOTHING` (no row back is a
+`skipped_exists`), adds the class membership (`joined_via 'admin'`, `added_by` the importer; a class archived since
+the job was stored is left out, the account still counts as created and the row forgets the class), issues the invite for an email job,
+audits `user.created {role, roleId, delivery, via: import, jobId}` with the importer as the actor, settles the
+row and moves `created_count` and `skipped_count`. The batch that makes them reach `total_rows` sets `done`,
+`completed_at` and, for a sheet job that created an account, `sheet_expires_at` 24 hours on. The importer is read
+again before every batch: a disabled account or one that lost a right fails the job `IMPORTER_NOT_ALLOWED`, and a
+sheet that can no longer be sealed or a sign-in policy that turned passwords off fails it `DELIVERY_UNAVAILABLE`.
+The accounts made before a failure stay. A failed job's sealed passwords are erased in the transaction that fails
+it, so those accounts are reached by a password reset.
+
+**The hand-out sheet.** `POST /admin/user-imports/{id}/sheet` locks the requester's job row `FOR UPDATE`, answers
+`SHEET_UNAVAILABLE` (`410`) unless the job is `done`, delivered by `sheet`, created an account, has not been
+downloaded and is within `sheet_expires_at`, opens each `created` row's `secret_ciphertext` in `ordinal` order,
+sets every ciphertext NULL, sets `sheet_downloaded_at` (`WHERE sheet_downloaded_at IS NULL`, one row, as a second
+guard), writes `user_import.sheet_downloaded` (the row count, never a password) and commits, so two requests at once
+give the file to one and an unreadable ciphertext leaves the sheet whole. A job with no sealed row left is
+`SHEET_UNAVAILABLE` and nothing is written. The role and class names on a line are read at that moment; the class
+column is blank for a student the worker did not place in it.
+
+**Erasing what nobody took.** The housekeeping step `import_sheets` (the API's 24-hour tick, D-038) clears
+`secret_ciphertext` on the rows of the sheet jobs whose `sheet_expires_at` is at or before the sweep's time and that
+were not downloaded, at most a batch of rows at a time, locking each job `FOR UPDATE SKIP LOCKED` so a download in
+flight finishes first. It changes nothing else; no index serves it, since the jobs are few.
+
+**Open.** The rows keep full names and addresses for as long as the job exists. T-R5.16's housekeeping should delete
+the jobs, with their rows, after a retention period it names (30 days); the job row keeps only counts.
+
+**Tests.** `identity/domain/tests` (the rules table, the sniff, the header, the file name), `identity/application/tests/user_imports_db_test.go`
+(preview counts, the stored rows and their order, the audit diff, replay, another user's job, nothing to create, the
+subset rule, classes, deliveries, 2,000 rows, one file at a time), `identity/http/tests/user_imports_test.go` (the form,
+each reader error's code and both languages, no echo of the file), `core/adapters/tests/user_import_tables_test.go`,
+`platform/email/tests/budget_test.go`, `server/tests/user_import_api_flow_test.go` (the real router: 401, 403, 413,
+422, 501, the rate limit). The worker and the sheet: `identity/application/tests/user_import_worker_db_test.go`
+(batches, the lease and its loss, the third claim, each failure code, a role edited in between, an archived class,
+the sheet's single use) and `server/tests/user_import_flow_test.go` (the router and the worker runner together).

@@ -75,7 +75,7 @@ func (r *overviewRead) people(ctx context.Context) error {
 	if !r.viewer.Users {
 		return nil
 	}
-	active, err := r.service.Repo.ActiveSince(ctx, r.today.AddDate(0, 0, 1-domain.ActiveWeekDays))
+	active, err := r.service.Repo.ActiveBetween(ctx, r.today.AddDate(0, 0, 1-domain.ActiveWeekDays), r.today)
 	if err != nil {
 		return err
 	}

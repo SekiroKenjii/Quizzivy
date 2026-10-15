@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import {
@@ -38,10 +39,10 @@ export type ClassCardActions = Readonly<{
 }>;
 
 const ICON_BUTTON =
-  "hover:bg-hover data-[state=open]:bg-hover grid size-7.5 flex-none cursor-pointer place-items-center rounded-[0.4375rem]";
+  "hover:bg-hover data-[state=open]:bg-hover grid size-7.5 flex-none cursor-pointer place-items-center rounded-[0.4375rem] aria-disabled:text-foreground/50 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent";
 
 const FOOTER_BUTTON =
-  "bg-card hover:bg-muted rounded-seg h-7 flex-none border px-2.5 text-xs font-medium whitespace-nowrap";
+  "bg-card hover:bg-muted rounded-seg h-7 flex-none border px-2.5 text-xs font-medium whitespace-nowrap aria-disabled:text-foreground/50 aria-disabled:border-border/50 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-card";
 
 /**
  * ClassCard is one class of the Classes list, as the deck draws it: the
@@ -53,15 +54,25 @@ const FOOTER_BUTTON =
  * an Expired or Used up note shrinks and truncates, with its text as its
  * title, before the buttons would wrap. An archived class's footer offers
  * Restore. `canWrite` says whether the reader may change the class;
- * without it the card has no menu.
+ * without it the card has no menu. While `joinOff` says the centre has turned
+ * joining by code off (D-023, D-028), Create code, New code, Copy join link
+ * and Show QR code, in the footer and the menu, stay but are disabled with
+ * that reason, and a code is marked inactive, naming why it also is Expired
+ * or Used up.
  */
 export function ClassCard({
   klass,
   canWrite,
   now,
+  joinOff = false,
   ...actions
 }: Readonly<
-  { klass: ClassListItem; canWrite: boolean; now: number } & ClassCardActions
+  {
+    klass: ClassListItem;
+    canWrite: boolean;
+    now: number;
+    joinOff?: boolean;
+  } & ClassCardActions
 >) {
   const { t } = useTranslation();
   const locale = useLocale();
@@ -89,7 +100,7 @@ export function ClassCard({
               {where === "" ? t("classes.noSchedule") : where}
             </p>
           </div>
-          {canWrite ? <CardMenu klass={klass} {...actions} /> : null}
+          {canWrite ? <CardMenu klass={klass} joinOff={joinOff} {...actions} /> : null}
         </div>
         <dl className="m-0 grid grid-cols-3 gap-2">
           <Stat label={t("classes.stats.students")}>
@@ -113,7 +124,13 @@ export function ClassCard({
             onRestore={actions.onRestore}
           />
         ) : (
-          <CodeFooter klass={klass} canWrite={canWrite} now={now} {...actions} />
+          <CodeFooter
+            klass={klass}
+            canWrite={canWrite}
+            now={now}
+            joinOff={joinOff}
+            {...actions}
+          />
         )}
       </div>
     </article>
@@ -158,41 +175,105 @@ function ArchivedFooter({
   );
 }
 
+function IconAction({
+  named,
+  title,
+  joinOff,
+  onAct,
+  children,
+}: Readonly<{
+  named: string;
+  title: string;
+  joinOff: boolean;
+  onAct: (button: HTMLButtonElement) => void;
+  children: ReactNode;
+}>) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      className={ICON_BUTTON}
+      aria-label={named}
+      aria-disabled={joinOff || undefined}
+      title={joinOff ? t("classes.joinCodesOff") : title}
+      onClick={(event) => {
+        if (!joinOff) onAct(event.currentTarget);
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
 function CodeFooter({
   klass,
   canWrite,
   now,
+  joinOff,
   onCopyLink,
   onShowQr,
   onNewCode,
 }: Readonly<
-  { klass: ClassListItem; canWrite: boolean; now: number } & ClassCardActions
+  {
+    klass: ClassListItem;
+    canWrite: boolean;
+    now: number;
+    joinOff: boolean;
+  } & ClassCardActions
 >) {
   const { t } = useTranslation();
   const code = klass.joinCode;
+  const heldBack = (named: string) =>
+    joinOff
+      ? t("classes.heldBackNamed", { named, why: t("classes.joinCodesOff") })
+      : named;
+  const newCode = (named: string, label: string, from: ClassListItem) => (
+    <button
+      type="button"
+      className={FOOTER_BUTTON}
+      aria-label={heldBack(named)}
+      aria-disabled={joinOff || undefined}
+      onClick={(event) => {
+        if (!joinOff) onNewCode(from, event.currentTarget);
+      }}
+    >
+      {label}
+    </button>
+  );
   if (code === null || code === undefined)
     return (
       <>
         <span className="text-muted-fg text-xs">{t("classes.noCode")}</span>
         {canWrite ? (
-          <button
-            type="button"
-            className={cn(FOOTER_BUTTON, "ml-auto")}
-            aria-label={t("classes.createCodeNamed", { name: klass.name })}
-            onClick={(event) => onNewCode(klass, event.currentTarget)}
-          >
-            {t("classes.createCode")}
-          </button>
+          <span className="ml-auto flex flex-none">
+            {newCode(
+              t("classes.createCodeNamed", { name: klass.name }),
+              t("classes.createCode"),
+              klass,
+            )}
+          </span>
         ) : null}
       </>
     );
-  const state = codeState(code, now);
+  const reason = codeState(code, now);
+  const state = joinOff ? "off" : reason;
+  const both = joinOff && reason !== null;
+  let stateTitle = "";
+  if (both)
+    stateTitle = t("classes.codeStateBoth", {
+      state: t("classes.codeState.off"),
+      why: t(`classes.codeState.${reason}`),
+    });
+  else if (state !== null) stateTitle = t(`classes.codeState.${state}`);
   const readable = code.code;
   return (
     <>
       <span
         title={t("classes.joinCode")}
-        className="text-muted-fg min-w-0 truncate text-xs whitespace-nowrap"
+        className={cn(
+          "text-muted-fg min-w-0 truncate text-xs whitespace-nowrap",
+          joinOff && "sr-only",
+        )}
       >
         {t("classes.joinCode")}
       </span>
@@ -201,48 +282,59 @@ function CodeFooter({
       </span>
       {state === null ? null : (
         <span
-          title={t(`classes.codeState.${state}`)}
+          title={stateTitle}
           className="text-warning-ink flex-none text-xs whitespace-nowrap"
         >
           {t(`classes.codeState.${state}`)}
+          {both ? (
+            <span className="sr-only">{t(`classes.codeState.${reason}`)}</span>
+          ) : null}
         </span>
       )}
       <span className="ml-auto flex flex-none gap-0.5">
-        {readable === null && canWrite ? (
-          <button
-            type="button"
-            className={FOOTER_BUTTON}
-            aria-label={t("classes.newCodeNamed", { name: klass.name })}
-            onClick={(event) => onNewCode(klass, event.currentTarget)}
-          >
-            {t("classes.newCodeShort")}
-          </button>
-        ) : null}
+        {readable === null && canWrite
+          ? newCode(
+              t("classes.newCodeNamed", { name: klass.name }),
+              t("classes.newCodeShort"),
+              klass,
+            )
+          : null}
         {readable === null ? null : (
           <>
-            <button
-              type="button"
-              className={ICON_BUTTON}
-              aria-label={t("classes.copyLinkNamed", { name: klass.name })}
+            <IconAction
+              named={heldBack(t("classes.copyLinkNamed", { name: klass.name }))}
               title={t("classes.copyLink")}
-              onClick={() => onCopyLink(readable)}
+              joinOff={joinOff}
+              onAct={() => onCopyLink(readable)}
             >
               <Copy aria-hidden="true" className="size-3.75" />
-            </button>
-            <button
-              type="button"
-              className={ICON_BUTTON}
-              aria-label={t("classes.showQrNamed", { name: klass.name })}
+            </IconAction>
+            <IconAction
+              named={heldBack(t("classes.showQrNamed", { name: klass.name }))}
               title={t("classes.showQr")}
-              onClick={(event) => onShowQr(klass, readable, event.currentTarget)}
+              joinOff={joinOff}
+              onAct={(button) => onShowQr(klass, readable, button)}
             >
               <QrCode aria-hidden="true" className="size-3.75" />
-            </button>
+            </IconAction>
           </>
         )}
       </span>
     </>
   );
+}
+
+function heldBackItem(joinOff: boolean, why: string) {
+  return {
+    "aria-disabled": joinOff || undefined,
+    title: joinOff ? why : undefined,
+    className: "aria-disabled:opacity-50",
+  } as const;
+}
+
+function HeldBackReason() {
+  const { t } = useTranslation();
+  return <span className="sr-only">{t("classes.joinCodesOff")}</span>;
 }
 
 function codeState(
@@ -256,6 +348,7 @@ function codeState(
 
 function CardMenu({
   klass,
+  joinOff,
   onCopyLink,
   onShowQr,
   onEdit,
@@ -263,7 +356,7 @@ function CardMenu({
   onArchive,
   onRestore,
   onDelete,
-}: Readonly<{ klass: ClassListItem } & ClassCardActions>) {
+}: Readonly<{ klass: ClassListItem; joinOff: boolean } & ClassCardActions>) {
   const { t } = useTranslation();
   const archived = klass.archivedAt !== null;
   const code = klass.joinCode?.code ?? null;
@@ -300,19 +393,40 @@ function CardMenu({
             </DropdownMenuItem>
             {code === null ? null : (
               <>
-                <DropdownMenuItem onSelect={() => onShowQr(klass, code)}>
+                <DropdownMenuItem
+                  {...heldBackItem(joinOff, t("classes.joinCodesOff"))}
+                  onSelect={(event) => {
+                    if (joinOff) event.preventDefault();
+                    else onShowQr(klass, code);
+                  }}
+                >
                   <QrCode aria-hidden="true" />
                   {t("classes.showQr")}
+                  {joinOff ? <HeldBackReason /> : null}
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onCopyLink(code)}>
+                <DropdownMenuItem
+                  {...heldBackItem(joinOff, t("classes.joinCodesOff"))}
+                  onSelect={(event) => {
+                    if (joinOff) event.preventDefault();
+                    else onCopyLink(code);
+                  }}
+                >
                   <Link2 aria-hidden="true" />
                   {t("classes.copyLink")}
+                  {joinOff ? <HeldBackReason /> : null}
                 </DropdownMenuItem>
               </>
             )}
-            <DropdownMenuItem onSelect={() => onNewCode(klass)}>
+            <DropdownMenuItem
+              {...heldBackItem(joinOff, t("classes.joinCodesOff"))}
+              onSelect={(event) => {
+                if (joinOff) event.preventDefault();
+                else onNewCode(klass);
+              }}
+            >
               <RefreshCw aria-hidden="true" />
               {klass.joinCode ? t("classes.newCode") : t("classes.createCode")}
+              {joinOff ? <HeldBackReason /> : null}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onSelect={() => onArchive(klass)}>

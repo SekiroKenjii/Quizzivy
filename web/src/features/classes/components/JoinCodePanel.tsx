@@ -20,6 +20,7 @@ import { saveError } from "@/features/classes/classFields";
 import { JoinQr } from "@/features/classes/components/JoinQr";
 import { JoinQrDialog } from "@/features/classes/components/JoinQrDialog";
 import { invalidateClass } from "@/features/classes/invalidate";
+import { useJoinCodesOff } from "@/features/organization/api";
 import {
   joinLinkLabel,
   joinLinkOf,
@@ -54,8 +55,10 @@ const NEXT = {
   submit: "classDetail.rotateConfirm",
 } as const;
 
+const OFF_REASON = "join-codes-off-reason";
+
 const SHARE =
-  "bg-card hover:bg-muted inline-flex h-8 min-w-0 rounded-md flex-[1_1_auto] items-center justify-center gap-1.5 border px-2.5 text-meta font-medium whitespace-nowrap [&_svg]:size-3.5 [&_svg]:flex-none";
+  "bg-card hover:bg-muted inline-flex h-8 min-w-0 rounded-md flex-[1_1_auto] items-center justify-center gap-1.5 border px-2.5 text-meta font-medium whitespace-nowrap [&_svg]:size-3.5 [&_svg]:flex-none aria-disabled:text-foreground/50 aria-disabled:border-border/50 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-card";
 
 /**
  * JoinCodePanel is the class's join code card, as the v2 deck draws it
@@ -74,7 +77,11 @@ const SHARE =
  * elsewhere still offers New code; the server's 409 CLASS_ARCHIVED then
  * shows its own message in the dialog and the class is read again. A code that cannot be read shows its last four
  * characters until a new one is made. Without `canWrite` the card only
- * reads, the code masked.
+ * reads, the code masked. While the centre has turned joining by code off
+ * (D-023, D-028) the switch, New code or Create code, and everything that
+ * hands the code on (Copy code, Copy link, Download QR, the QR) stay but are
+ * disabled, with the centre's sentence as their reason, and a code is marked
+ * inactive; Stop stays, as does what the server accepts.
  */
 export function JoinCodePanel({
   klass,
@@ -84,6 +91,7 @@ export function JoinCodePanel({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const info = klass.joinCode ?? null;
+  const joinOff = useJoinCodesOff();
   const code = useQuery({
     queryKey: ["teacher-class", klass.id, "code"],
     queryFn: ({ signal }) => getJoinCode(klass.id, signal),
@@ -177,16 +185,22 @@ export function JoinCodePanel({
             size="sm"
             checked={klass.selfJoinEnabled}
             disabled={!canWrite}
-            aria-disabled={selfJoin.isPending || undefined}
-            className="aria-disabled:opacity-50"
+            aria-disabled={selfJoin.isPending || joinOff || undefined}
+            aria-describedby={joinOff ? OFF_REASON : undefined}
+            className="aria-disabled:data-[state=checked]:bg-primary/50 aria-disabled:data-[state=unchecked]:bg-border/50 aria-disabled:[&>span]:bg-switch-thumb/50"
             onCheckedChange={(next) => {
-              if (!selfJoin.isPending) selfJoin.mutate(next);
+              if (!selfJoin.isPending && !joinOff) selfJoin.mutate(next);
             }}
           />
         </label>
       </div>
 
       <div className="flex flex-col gap-3.5 px-4.5 pb-4">
+        {joinOff ? (
+          <p id={OFF_REASON} className="text-warning-ink text-xs leading-normal">
+            {t("classes.joinCodesOff")}
+          </p>
+        ) : null}
         {info === null ? (
           <p className="text-muted-fg text-sm">{t("classDetail.noActiveCode")}</p>
         ) : (
@@ -194,7 +208,8 @@ export function JoinCodePanel({
             info={info}
             readable={readable}
             unreadable={canWrite && code.isSuccess && readable === null}
-            paused={!klass.selfJoinEnabled}
+            paused={!klass.selfJoinEnabled || joinOff}
+            inactive={joinOff}
             now={now}
             onShowQr={() => setShowingQr(true)}
           />
@@ -203,9 +218,11 @@ export function JoinCodePanel({
           <CodeActions
             archived={archived}
             hasCode={info !== null}
+            joinOff={joinOff}
             rotateLabel={t(words.button)}
             rotateRef={rotateButton}
             onRotate={() => {
+              if (joinOff) return;
               rotate.reset();
               setRotating(true);
             }}
@@ -215,7 +232,7 @@ export function JoinCodePanel({
             }}
           />
         ) : null}
-        {info === null || archived ? null : (
+        {info === null || archived || joinOff ? null : (
           <p className="text-muted-fg text-xs leading-normal">
             {t("classDetail.newCodeNote")}
           </p>
@@ -285,6 +302,7 @@ export function JoinCodePanel({
 function CodeActions({
   archived,
   hasCode,
+  joinOff,
   rotateLabel,
   rotateRef,
   onRotate,
@@ -292,6 +310,7 @@ function CodeActions({
 }: Readonly<{
   archived: boolean;
   hasCode: boolean;
+  joinOff: boolean;
   rotateLabel: string;
   rotateRef: RefObject<HTMLButtonElement | null>;
   onRotate: () => void;
@@ -302,7 +321,7 @@ function CodeActions({
     <>
       {archived ? (
         <p className="text-muted-fg text-xs leading-normal">
-          {t("classDetail.archivedNoCode")}
+          {t(joinOff ? "classDetail.archivedNoCodeOff" : "classDetail.archivedNoCode")}
         </p>
       ) : null}
       {archived && !hasCode ? null : (
@@ -311,7 +330,9 @@ function CodeActions({
             <Button
               ref={rotateRef}
               variant="outline"
-              className="h-8.5 flex-1 in-data-[scale=deck]:h-8.5 in-data-[scale=deck]:text-sm"
+              aria-disabled={joinOff || undefined}
+              aria-describedby={joinOff ? OFF_REASON : undefined}
+              className="aria-disabled:text-foreground/50 aria-disabled:border-border/50 h-8.5 flex-1 in-data-[scale=deck]:h-8.5 in-data-[scale=deck]:text-sm aria-disabled:cursor-not-allowed"
               onClick={onRotate}
             >
               <RotateCw aria-hidden="true" className="size-3.5" />
@@ -338,6 +359,7 @@ function CodeSummary({
   readable,
   unreadable,
   paused,
+  inactive,
   now,
   onShowQr,
 }: Readonly<{
@@ -345,6 +367,7 @@ function CodeSummary({
   readable: string | null;
   unreadable: boolean;
   paused: boolean;
+  inactive: boolean;
   now: number;
   onShowQr: () => void;
 }>) {
@@ -357,7 +380,12 @@ function CodeSummary({
     <>
       <div className="flex flex-wrap items-center gap-3.5">
         {readable === null ? null : (
-          <QrButton code={readable} paused={paused} onClick={onShowQr} />
+          <QrButton
+            code={readable}
+            paused={paused}
+            inactive={inactive}
+            onClick={onShowQr}
+          />
         )}
         <div className="flex min-w-0 flex-[1_1_140px] flex-col items-start gap-1">
           <p className="text-stat font-mono leading-[1.3] font-semibold tracking-[.08em] whitespace-nowrap">
@@ -370,7 +398,11 @@ function CodeSummary({
           )}
           {unreadable ? (
             <p className="text-muted-fg text-xs leading-[1.45]">
-              {t("classDetail.unreadableNote")}
+              {t(
+                inactive
+                  ? "classDetail.unreadableNoteOff"
+                  : "classDetail.unreadableNote",
+              )}
             </p>
           ) : null}
           {paused ? (
@@ -379,25 +411,47 @@ function CodeSummary({
               className="mt-0.5 max-w-full border-0 in-data-[scale=deck]:px-2 [&>svg]:size-3"
             >
               <Pause aria-hidden="true" />
-              <span className="truncate">{t("classDetail.joiningPaused")}</span>
+              <span className="truncate">
+                {t(inactive ? "classDetail.codeInactive" : "classDetail.joiningPaused")}
+              </span>
             </Badge>
           ) : null}
         </div>
       </div>
       {readable === null ? null : (
         <div className="flex flex-wrap gap-1.5">
-          <button type="button" className={SHARE} onClick={() => copyCode(readable)}>
+          <button
+            type="button"
+            className={SHARE}
+            aria-disabled={inactive || undefined}
+            aria-describedby={inactive ? OFF_REASON : undefined}
+            onClick={() => {
+              if (!inactive) copyCode(readable);
+            }}
+          >
             <Copy aria-hidden="true" />
             <span className="truncate">{t("classDetail.copyCode")}</span>
           </button>
-          <button type="button" className={SHARE} onClick={() => copyLink(readable)}>
+          <button
+            type="button"
+            className={SHARE}
+            aria-disabled={inactive || undefined}
+            aria-describedby={inactive ? OFF_REASON : undefined}
+            onClick={() => {
+              if (!inactive) copyLink(readable);
+            }}
+          >
             <Link2 aria-hidden="true" />
             <span className="truncate">{t("classDetail.copyLink")}</span>
           </button>
           <button
             type="button"
             className={SHARE}
-            onClick={() => downloadJoinQr(qrFrame.current, readable)}
+            aria-disabled={inactive || undefined}
+            aria-describedby={inactive ? OFF_REASON : undefined}
+            onClick={() => {
+              if (!inactive) downloadJoinQr(qrFrame.current, readable);
+            }}
           >
             <Download aria-hidden="true" />
             <span className="truncate">{t("classDetail.downloadQr")}</span>
@@ -435,19 +489,29 @@ function CodeSummary({
 function QrButton({
   code,
   paused,
+  inactive,
   onClick,
-}: Readonly<{ code: string; paused: boolean; onClick: () => void }>) {
+}: Readonly<{
+  code: string;
+  paused: boolean;
+  inactive: boolean;
+  onClick: () => void;
+}>) {
   const { t } = useTranslation();
   return (
     <button
       type="button"
       aria-label={t("classDetail.showQr")}
       title={t("classDetail.showQrFull")}
+      aria-disabled={inactive || undefined}
+      aria-describedby={inactive ? OFF_REASON : undefined}
       className={cn(
-        "bg-qr-bg text-qr-fg grid size-28 flex-none cursor-zoom-in place-items-center rounded-[10px] border p-0 transition-opacity motion-reduce:transition-none",
-        paused && "opacity-40",
+        "bg-qr-bg text-qr-fg grid size-28 flex-none cursor-zoom-in place-items-center rounded-[10px] border p-0 transition-opacity aria-disabled:cursor-not-allowed motion-reduce:transition-none",
+        paused && "[&>svg]:opacity-40",
       )}
-      onClick={onClick}
+      onClick={() => {
+        if (!inactive) onClick();
+      }}
     >
       <QRCodeSVG
         value={joinLinkOf(code)}

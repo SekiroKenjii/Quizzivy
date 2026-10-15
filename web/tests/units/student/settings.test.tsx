@@ -1134,6 +1134,66 @@ describe("sign-in: Google", () => {
     expect(card.queryByRole("button", { name: "Đổi" })).toBeNull();
   });
 
+  it("offers a Google-only account an emailed link to set the password it lacks", async () => {
+    const user = userEvent.setup();
+    let calls = 0;
+    server.use(
+      http.post(`${BASE}/auth/set-password/request`, () => {
+        calls += 1;
+        return new Response(null, { status: 204 });
+      }),
+    );
+    open("/app/settings/sign-in", { hasPassword: false, linkedProviders: ["google"] });
+    const card = within(await screen.findByRole("region", { name: "Đăng nhập" }));
+
+    await user.click(
+      card.getByRole("button", { name: "Gửi liên kết đặt mật khẩu qua email" }),
+    );
+    expect(await card.findByRole("status")).toHaveTextContent(
+      `Đã gửi liên kết tới ${STUDENT.email}. Liên kết chỉ dùng được một lần và hết hạn sau 24 giờ.`,
+    );
+    expect(card.getByRole("button", { name: "Gửi lại liên kết" })).toHaveFocus();
+    expect(calls).toBe(1);
+  });
+
+  it("withdraws the set-password link once the centre answers that passwords are off, with nothing cached before", async () => {
+    server.use(
+      http.get(`${BASE}/public/organization`, () =>
+        contractJson("/public/organization", "get", 200, {
+          name: "Quizzivy",
+          shortName: null,
+          website: null,
+          contactEmail: null,
+          frontDeskPhone: null,
+          frontDeskHours: null,
+          address: null,
+          logo: { lightUrl: null, darkUrl: null },
+          signIn: { google: true, password: false },
+          joinCodes: true,
+        }),
+      ),
+    );
+    open("/app/settings/sign-in", { hasPassword: false, linkedProviders: ["google"] });
+    const card = within(await screen.findByRole("region", { name: "Đăng nhập" }));
+
+    expect(
+      await card.findByText(
+        "Bạn chỉ đăng nhập bằng Google, nên chưa thể bỏ liên kết Google.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      card.queryByRole("button", { name: "Gửi liên kết đặt mật khẩu qua email" }),
+    ).toBeNull();
+  });
+
+  it("offers no set-password link to an account that has a password", async () => {
+    open("/app/settings/sign-in", { linkedProviders: ["google"] });
+    const card = within(await screen.findByRole("region", { name: "Đăng nhập" }));
+    expect(
+      card.queryByRole("button", { name: "Gửi liên kết đặt mật khẩu qua email" }),
+    ).toBeNull();
+  });
+
   it("starts the link through the redirect flow, never a script from Google", async () => {
     const user = userEvent.setup();
     open("/app/settings/sign-in");

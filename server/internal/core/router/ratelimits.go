@@ -1,19 +1,25 @@
 package router
 
 import (
+	"strings"
+
 	classesdomain "quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/platform/ratelimit"
+	"quizzivy/internal/shared/validation"
 )
 
 // RateLimits declares the policy for every public operation and for the in-app
 // join, keyed by client address or by a field of the body. It is applied
-// before authentication.
+// before authentication. The login buckets key on the lower-cased bare address
+// the sign-in looks up, not on the string as written, so N <a@x.co>, "a"@x.co
+// and a@x.co share one budget.
 func RateLimits() *ratelimit.Registry {
 	reg := ratelimit.NewRegistry()
 	const capacity = 10_000
 	const maxKeyBodyBytes = 8 * 1024
 	joinCode := ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, 9, classesdomain.JoinCodes.Normalize)
-	email := ratelimit.JSONFieldKey("email", maxKeyBodyBytes, 254)
+	email := ratelimit.JSONFieldKeyFunc("email", maxKeyBodyBytes, 254, canonicalEmail)
+	linkToken := ratelimit.JSONFieldKey("token", maxKeyBodyBytes, 128)
 	reg.Add("POST /join/preview", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(600)).
 		WithKey("perCode", joinCode, capacity, ratelimit.PerHour(200))
 	reg.Add("POST /auth/google", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(600)).
@@ -21,6 +27,10 @@ func RateLimits() *ratelimit.Registry {
 	reg.Add("POST /auth/login", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(600)).
 		WithKey("perAddressAndEmail", ratelimit.Compose(ratelimit.Address, email), capacity, ratelimit.PerMinute(10)).
 		WithKey("perEmail", email, capacity, ratelimit.PerHour(20))
+	reg.Add("POST /auth/set-password/check", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(1000)).
+		WithKey("perToken", linkToken, capacity, ratelimit.PerHour(20))
+	reg.Add("POST /auth/set-password", capacity, ratelimit.PerMinute(60), ratelimit.PerHour(600)).
+		WithKey("perToken", linkToken, capacity, ratelimit.PerHour(10))
 	reg.Add("POST /auth/refresh", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(1200))
 	reg.Add("POST /auth/logout", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(1200))
 	reg.Add("POST /app/classes/join", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(600)).
@@ -31,6 +41,13 @@ func RateLimits() *ratelimit.Registry {
 	reg.Add("GET /public/organization/logo", capacity, ratelimit.PerMinute(300))
 
 	return reg
+}
+
+func canonicalEmail(value string) string {
+	if address, err := validation.ParseEmail(value); err == nil {
+		return strings.ToLower(address)
+	}
+	return strings.ToLower(strings.TrimSpace(value))
 }
 
 var aiSuggestions = []string{
@@ -66,6 +83,10 @@ func PrincipalRateLimits() *ratelimit.Registry {
 	perActor("POST /teacher/students/{id}/reset-password", ratelimit.PerMinute(5), ratelimit.PerHour(30))
 	perActor("POST /teacher/students/reset-passwords", ratelimit.PerMinute(2), ratelimit.PerHour(10))
 	perActor("POST /teacher/students", ratelimit.PerMinute(30), ratelimit.PerHour(300))
+	perActor("POST /admin/users", ratelimit.PerMinute(30), ratelimit.PerHour(300))
+	perActor("POST /admin/user-imports/preview", ratelimit.PerMinute(10))
+	perActor("POST /admin/user-imports", ratelimit.PerHour(5))
+	perActor("POST /admin/user-imports/{id}/sheet", ratelimit.PerMinute(5))
 	perActor("POST /teacher/classes/{id}/join-code", ratelimit.PerMinute(10), ratelimit.PerHour(60))
 	perActor("GET /teacher/classes/{id}/join-code", ratelimit.PerMinute(60), ratelimit.PerHour(600))
 	perActor("GET /teacher/classes", ratelimit.PerMinute(60), ratelimit.PerHour(600))
@@ -74,8 +95,12 @@ func PrincipalRateLimits() *ratelimit.Registry {
 	perActor("GET /admin/api-reference/openapi.json", ratelimit.PerMinute(10), ratelimit.PerHour(60))
 	perActor("GET /admin/audit-log", ratelimit.PerMinute(60), ratelimit.PerHour(600))
 	perActor("GET /admin/audit-log/export", ratelimit.PerMinute(5), ratelimit.PerHour(30))
+	perActor("POST /admin/data-exports", ratelimit.PerMinute(10))
+	perActor("GET /admin/data-exports/{id}", ratelimit.PerMinute(60), ratelimit.PerHour(600))
+	perActor("POST /admin/data-exports/{id}/download", ratelimit.PerHour(10))
 	perActor("DELETE /auth/sessions/{familyId}", ratelimit.PerMinute(10), ratelimit.PerHour(60))
 	perActor("POST /auth/sessions/revoke-others", ratelimit.PerMinute(5), ratelimit.PerHour(30))
+	perActor("POST /auth/set-password/request", ratelimit.PerMinute(3), ratelimit.PerHour(10))
 	perActor("GET /teacher/assignments/results.csv", ratelimit.PerMinute(10), ratelimit.PerHour(60))
 	perActor("PUT /me/avatar", ratelimit.PerHour(10))
 	perActor("POST /admin/settings/logo", ratelimit.PerHour(20))

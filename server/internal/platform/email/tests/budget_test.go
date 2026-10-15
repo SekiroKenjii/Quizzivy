@@ -1,0 +1,101 @@
+//go:build integration
+
+package email_test
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"quizzivy/internal/platform/db"
+	"quizzivy/internal/platform/email"
+)
+
+func longAgo(n int) time.Time {
+	return time.Date(2001, 3, n, 12, 0, 0, 0, time.FixedZone("ICT", 7*3600))
+}
+
+func waiting(t *testing.T, w *world, at time.Time, label string) string {
+	t.Helper()
+	return w.enqueue(t, email.Mail{To: addr(t, label), Params: email.SignInInviteParams{FullName: "An"}, DeliverAfter: at.Add(-time.Minute)})
+}
+
+func (w *world) budget(limit int) email.Budget {
+	return email.Budget{DB: db.NewContext(w.pool), Limit: limit, Location: time.FixedZone("ICT", 7*3600)}
+}
+
+func remaining(t *testing.T, b email.Budget, at time.Time) (int, int) {
+	t.Helper()
+	left, limit, err := b.Remaining(context.Background(), at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return left, limit
+}
+
+func TestTheBudgetCountsWhatWaitsAndWhatWasSentInTheLocalDay(t *testing.T) {
+	at := longAgo(20)
+	w := newWorld(t, at)
+	b := w.budget(5)
+	startLeft, limit := remaining(t, b, at)
+	if limit != 5 || startLeft != 5 {
+		t.Fatalf("an empty day has %d of %d left, want 5 of 5", startLeft, limit)
+	}
+
+	for range 2 {
+		waiting(t, w, at, "cho")
+	}
+	if left, _ := remaining(t, b, at); left != 3 {
+		t.Errorf("two messages waiting leave %d, want 3", left)
+	}
+
+	if _, err := w.disp.Dispatch(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if left, _ := remaining(t, b, at); left != 3 {
+		t.Errorf("two messages sent leave %d, want the same 3: a sent message was a waiting one", left)
+	}
+}
+
+func TestAMessageForAnotherDayOrOneThatFailedUsesNoneOfToday(t *testing.T) {
+	at := longAgo(21)
+	w := newWorld(t, at)
+	b := w.budget(5)
+
+	w.enqueue(t, email.Mail{To: addr(t, "mai"), Params: email.SignInInviteParams{FullName: "An"}, DeliverAfter: at.AddDate(0, 0, 1)})
+	id := waiting(t, w, at, "hong")
+	if _, err := w.pool.Exec(context.Background(), `UPDATE app.email_outbox SET failed_at = $2, last_error_code = 'rejected' WHERE id = $1::uuid`, id, at); err != nil {
+		t.Fatal(err)
+	}
+
+	if left, _ := remaining(t, b, at); left != 5 {
+		t.Errorf("a message for tomorrow and a failed one leave %d, want 5", left)
+	}
+	if left, _ := remaining(t, b, at.AddDate(0, 0, 1)); left != 4 {
+		t.Errorf("tomorrow's message leaves %d on its own day, want 4", left)
+	}
+}
+
+func TestTheBudgetNeverGoesBelowZeroAndTheDayRollsAtLocalMidnight(t *testing.T) {
+	at := longAgo(22)
+	w := newWorld(t, at)
+	for range 3 {
+		waiting(t, w, at, "du")
+	}
+	if left, _ := remaining(t, w.budget(2), at); left != 0 {
+		t.Errorf("three messages against a limit of two leave %d, want 0", left)
+	}
+
+	lateEvening := time.Date(2001, 3, 22, 23, 59, 0, 0, time.FixedZone("ICT", 7*3600))
+	justAfter := lateEvening.Add(2 * time.Minute)
+	if _, err := w.pool.Exec(context.Background(),
+		`UPDATE app.email_outbox SET sent_at = $2 WHERE id = ANY($1::uuid[])`, w.ids, lateEvening); err != nil {
+		t.Fatal(err)
+	}
+	if left, _ := remaining(t, w.budget(3), lateEvening); left != 0 {
+		t.Errorf("at 23:59 the day has %d left, want 0", left)
+	}
+	if left, _ := remaining(t, w.budget(3), justAfter); left != 3 {
+		t.Errorf("two minutes later the day has %d left, want a fresh 3", left)
+	}
+}

@@ -93,6 +93,7 @@ func AnonymizeStudent(ctx context.Context, conn db.Conn, studentID string, apply
 	for _, statement := range []string{
 		`DELETE FROM app.user_identities WHERE user_id = $1`,
 		`DELETE FROM app.refresh_tokens WHERE user_id = $1`,
+		`DELETE FROM app.set_password_tokens WHERE user_id = $1`,
 	} {
 		if _, err := tx.Exec(ctx, statement, studentID); err != nil {
 			return out, err

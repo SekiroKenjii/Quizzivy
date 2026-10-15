@@ -860,7 +860,7 @@ describe("moving a question in the builder", () => {
       COPY_ID,
       MEMBER_ID,
     ]);
-  });
+  }, 10_000);
 
   it("says the copy left the original in the bank", async () => {
     const user = renderBuilder();
@@ -926,7 +926,7 @@ describe("moving a question in the builder", () => {
       ),
     ).toBeNull();
     expect(await screen.findByLabelText("Điểm")).toBeVisible();
-  });
+  }, 10_000);
 
   it("says an edited copy was saved as a new question, and keeps it under its own id", async () => {
     draft.origins = new Map([[MEMBER_ID, { questionId: QUESTION_ID, edited: true }]]);

@@ -29,8 +29,9 @@ type AdminRepository interface {
 	Accounts(ctx context.Context, since time.Time) (Accounts, error)
 	// MustChangePassword counts the enabled accounts on a temporary password.
 	MustChangePassword(ctx context.Context) (int, error)
-	// ActiveSince counts the accounts with an activity row on or after day.
-	ActiveSince(ctx context.Context, day time.Time) (int, error)
+	// ActiveBetween counts the distinct accounts with an activity row on any
+	// day from..to.
+	ActiveBetween(ctx context.Context, from, to time.Time) (int, error)
 	// ActiveByDay counts, for each day from..to with an activity row, the
 	// student targets and the other accounts active on it.
 	ActiveByDay(ctx context.Context, from, to time.Time) ([]ActiveDay, error)

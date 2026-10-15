@@ -44,11 +44,19 @@ func RunImportWorker(ctx context.Context, logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	userImports, err := wiring.UserImportsWorker(ctx, cfg, db.NewContext(pool.Pool), mail.Outbox, logger)
+	if err != nil {
+		return err
+	}
+	exporter, err := wiring.ExportsWorker(ctx, cfg, db.NewContext(pool.Pool), mail.Outbox, logger)
+	if err != nil {
+		return err
+	}
 	go mail.Run(ctx, logger)
 	wake := make(chan struct{}, 1)
 	if err := jobs.ServeWake(ctx, logger, cfg.WakeAddress, wake); err != nil {
 		return err
 	}
 	logger.Info("import worker started", "pipeline", runner.Policy.PipelineVersion, "workerId", runner.Policy.WorkerID)
-	return jobs.RunImports(ctx, logger, runner, jobs.ImportSchedule{Wake: wake, Idle: cfg.IdlePoll, Retry: 2 * time.Second})
+	return jobs.RunImports(ctx, logger, jobs.ImportRunners{runner, userImports, exporter}, jobs.ImportSchedule{Wake: wake, Idle: cfg.IdlePoll, Retry: 2 * time.Second})
 }

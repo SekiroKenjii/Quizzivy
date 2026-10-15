@@ -17,6 +17,19 @@ type activityLog struct {
 	mu      sync.Mutex
 	batches [][]domain.ActivityEntry
 	err     error
+	pruned  []prune
+}
+
+type prune struct {
+	before time.Time
+	limit  int
+}
+
+func (l *activityLog) PruneDays(_ context.Context, before time.Time, limit int) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.pruned = append(l.pruned, prune{before, limit})
+	return limit, l.err
 }
 
 func (l *activityLog) RecordActivity(_ context.Context, entries []domain.ActivityEntry) error {
