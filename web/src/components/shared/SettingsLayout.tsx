@@ -26,16 +26,20 @@ export type SettingsSection = {
  * view. From 768px of the layout's own width the column sticks as the page
  * scrolls. Every section's content is rendered and stays mounted, hidden
  * unless it is the current one, so a form keeps what was typed while another
- * section is shown. An `active` that names no section shows the first.
+ * section is shown. An `active` that names no section shows the first. A
+ * `footer` follows the sections in the same column, for what every section
+ * shares, such as one unsaved-changes bar.
  */
 export function SettingsLayout({
   label,
   active,
   sections,
+  footer,
 }: Readonly<{
   label: string;
   active: string;
   sections: readonly SettingsSection[];
+  footer?: ReactNode;
 }>) {
   const nav = useRef<HTMLElement>(null);
   const current = sections.some((section) => section.id === active)
@@ -72,7 +76,7 @@ export function SettingsLayout({
           </Link>
         ))}
       </StickyAside>
-      <div className="min-w-0 flex-[1_1_480px]">
+      <div className="flex min-w-0 flex-[1_1_480px] flex-col gap-3.5">
         {sections.map(({ id, content }) => (
           <div
             key={id}
@@ -83,6 +87,7 @@ export function SettingsLayout({
             {content}
           </div>
         ))}
+        {footer}
       </div>
     </div>
   );

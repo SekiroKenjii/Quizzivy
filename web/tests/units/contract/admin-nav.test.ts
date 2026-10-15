@@ -14,7 +14,6 @@ const OPERATIONS = new Map(
 const ITEMS = ADMIN_NAV.flatMap((group) => group.items);
 
 const NOT_IN_THE_CONTRACT_YET = new Map<string, string>([
-  ["listUsers", "T-R5.9a"],
   ["listAllClasses", "T-R5.11"],
 ]);
 

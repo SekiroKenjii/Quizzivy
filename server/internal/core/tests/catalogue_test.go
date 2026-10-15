@@ -181,6 +181,23 @@ func TestTheBuiltInGrantsAreTheMatrixCellByCell(t *testing.T) {
 	if !slices.Equal(names, []string{"Quản trị viên", "Giáo viên", "Trợ giảng", "Học viên"}) {
 		t.Errorf("built-in role names = %v", names)
 	}
+	rows, err = pool.Query(ctx, `SELECT description FROM app.roles WHERE builtin_key IS NOT NULL ORDER BY array_position(ARRAY['admin', 'teacher', 'assistant', 'student'], builtin_key)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	descriptions, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantDescriptions := []string{
+		"Điều hành trung tâm. Quản lý người dùng và cài đặt.",
+		"Soạn đề, quản lý lớp, chấm bài.",
+		"Hỗ trợ giáo viên chấm bài và điểm danh.",
+		"Làm bài và xem kết quả của mình.",
+	}
+	if !slices.Equal(descriptions, wantDescriptions) {
+		t.Errorf("built-in role descriptions = %v, want the seed the web's role.builtinDescription.vi strings are compared with", descriptions)
+	}
 }
 
 func TestTheAppRoleReadsTheCatalogueAndWritesOnlyWhatTheRoleCommandsNeed(t *testing.T) {

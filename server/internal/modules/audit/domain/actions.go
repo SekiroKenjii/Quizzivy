@@ -104,6 +104,7 @@ var catalogue = []Action{
 	{"user.anonymized", "Đã ẩn danh tài khoản", "Anonymized an account"},
 	{"user.avatar_removed", "Đã gỡ ảnh đại diện", "Removed a profile photo"},
 	{"user.avatar_set", "Đã đặt ảnh đại diện", "Set a profile photo"},
+	{"user.created", "Đã tạo tài khoản", "Created an account"},
 	{"user.google_linked", "Đã liên kết tài khoản Google", "Linked a Google account"},
 	{"user.google_unlinked", "Đã huỷ liên kết tài khoản Google", "Unlinked a Google account"},
 	{"user.password_changed", "Đã đổi mật khẩu", "Changed a password"},
@@ -112,6 +113,7 @@ var catalogue = []Action{
 	{"user.preferences_updated", "Đã cập nhật tuỳ chọn cá nhân", "Updated personal preferences"},
 	{"user.profile_updated", "Đã cập nhật hồ sơ", "Updated a profile"},
 	{"user.renamed", "Đã đổi tên tài khoản", "Renamed an account"},
+	{"user_import.requested", "Đã yêu cầu nhập người dùng từ tệp", "Requested an import of users from a file"},
 }
 
 // Actions lists every action the server writes, in key order, each with its

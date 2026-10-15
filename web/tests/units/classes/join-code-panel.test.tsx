@@ -462,10 +462,27 @@ describe("the join code card while the centre has turned joining by code off (D-
     expect(screen.getByText("••••-2PXA")).toBeVisible();
   });
 
+  it("drops the new-code note, and the advice to restore an archived class to make a code, while joining is off (QC-U-30)", async () => {
+    serveJoinCodes(false);
+    renderPanel();
+    await screen.findByText("Trung tâm đang tắt tham gia bằng mã.");
+    expect(screen.queryByText(/Tạo mã mới thì mã/)).toBeNull();
+  });
+
+  it("says only that an archived class cannot be joined while joining is off (QC-U-30)", async () => {
+    serveJoinCodes(false);
+    renderPanel({ ...KLASS, archivedAt: "2026-09-01T00:00:00Z" });
+    expect(
+      await screen.findByText("Lớp đã lưu trữ nên không ai tham gia được."),
+    ).toBeVisible();
+    expect(screen.queryByText(/Khôi phục lớp ở trang Lớp học/)).toBeNull();
+  });
+
   it("keeps them live while the centre allows joining by code", async () => {
     serveJoinCodes(true);
     const user = renderPanel();
     await screen.findByText("K7QM-2PXA", { selector: "p" });
+    expect(screen.getByText(/Tạo mã mới thì mã/)).toBeVisible();
     const opener = screen.getByRole("button", { name: "Hiện mã QR cỡ lớn" });
     expect(opener).not.toHaveAttribute("aria-disabled");
     expect(screen.getByRole("button", { name: "Chép mã" })).not.toHaveAttribute(

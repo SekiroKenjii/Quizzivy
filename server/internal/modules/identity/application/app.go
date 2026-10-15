@@ -92,6 +92,33 @@ func (a *Application) SetPasswordLinks(links domain.SetPasswordLinks) {
 	a.Commands.PruneSetPasswordLinks = command.PruneSetPasswordLinksHandler{Service: a.service}
 }
 
+// SetAdminUsers attaches the Admin console's account directory and the access
+// module's say on which roles a caller may give, which opens createUser,
+// listUsers and getUser.
+// Without it Commands.CreateUser, Queries.ListUsers and Queries.GetUser are
+// nil and their operations answer 501.
+func (a *Application) SetAdminUsers(repo domain.AdminUsers, roles ports.AssignableRole) {
+	admin := &support.Admin{Repo: repo, Roles: roles, Service: a.service, Students: a.students}
+	a.Commands.CreateUser = command.CreateUserHandler{Admin: admin}
+	a.Queries.ListUsers = query.ListUsersHandler{Admin: admin}
+	a.Queries.GetUser = query.GetUserHandler{Admin: admin}
+}
+
+// SetUserImports attaches the store of user imports, the access module's say on
+// which roles a caller may give, the reader of CSV and XLSX files, and the
+// worker's wake signal, which opens previewUserImport, createUserImport and
+// getUserImport. budget and wake may be nil; sealed says whether the server can
+// seal a secret (SECRETS_KEY), without which neither a link by email nor a
+// hand-out sheet can be delivered. Without it Commands.PreviewUserImport,
+// Commands.CreateUserImport and Queries.GetUserImport are nil and their
+// operations answer 501.
+func (a *Application) SetUserImports(repo domain.UserImports, roles ports.RoleChoices, tables ports.TableReader, budget ports.EmailBudget, wake ports.Wake, sealed bool) {
+	imports := support.NewImports(repo, roles, tables, budget, wake, a.service, sealed)
+	a.Commands.PreviewUserImport = command.PreviewUserImportHandler{Imports: imports}
+	a.Commands.CreateUserImport = command.CreateUserImportHandler{Imports: imports}
+	a.Queries.GetUserImport = query.GetUserImportHandler{Imports: imports}
+}
+
 // SetTemporaryPasswords replaces how a student's temporary password and its hash are made. Tests only.
 func (a *Application) SetTemporaryPasswords(source func(ctx context.Context) (password, hash string, err error)) {
 	a.students.Password = source
@@ -108,9 +135,12 @@ type Commands struct {
 	SetAvatar              cqrs.CommandHandler[command.SetAvatar, domain.User]
 	ChangePassword         cqrs.CommandHandler[command.ChangePassword, cqrs.Nothing]
 	CreateStudent          cqrs.CommandHandler[command.CreateStudent, command.CreateStudentResult]
+	CreateUser             cqrs.CommandHandler[command.CreateUser, command.CreateUserResult]
+	CreateUserImport       cqrs.CommandHandler[command.CreateUserImport, command.CreateUserImportResult]
 	GoogleSignIn           cqrs.CommandHandler[command.GoogleSignIn, model.GoogleSignInResult]
 	IssueSetPasswordLink   cqrs.CommandHandler[command.IssueSetPasswordLink, domain.IssuedLink]
 	LinkGoogle             cqrs.CommandHandler[command.LinkGoogle, domain.User]
+	PreviewUserImport      cqrs.CommandHandler[command.PreviewUserImport, command.UserImportPreview]
 	Login                  cqrs.CommandHandler[command.Login, model.Session]
 	Logout                 cqrs.CommandHandler[command.Logout, cqrs.Nothing]
 	PruneActivityDays      cqrs.CommandHandler[command.PruneActivityDays, int]
@@ -138,6 +168,9 @@ type Queries struct {
 	GetStudent           cqrs.QueryHandler[query.GetStudent, domain.Student]
 	ListSessions         cqrs.QueryHandler[query.ListSessions, []domain.Session]
 	ListStudents         cqrs.QueryHandler[query.ListStudents, query.ListStudentsResult]
+	ListUsers            cqrs.QueryHandler[query.ListUsers, query.ListUsersResult]
+	GetUser              cqrs.QueryHandler[query.GetUser, query.GetUserResult]
+	GetUserImport        cqrs.QueryHandler[query.GetUserImport, query.GetUserImportResult]
 	StudentAccount       cqrs.QueryHandler[query.StudentAccount, domain.Account]
 	StudentFacets        cqrs.QueryHandler[query.StudentFacets, domain.StudentFacets]
 }

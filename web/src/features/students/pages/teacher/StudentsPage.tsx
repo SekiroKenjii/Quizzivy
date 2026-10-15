@@ -24,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
 import { useCan } from "@/features/auth/permissions";
 import { fetchClasses } from "@/features/classes/api";
+import { useJoinCodesOff } from "@/features/organization/api";
 import {
   deleteStudent,
   getStudent,
@@ -333,6 +334,7 @@ function RemoveStudentDialog({
   onRemoved: () => Promise<unknown>;
 }>) {
   const { t } = useTranslation();
+  const joinOff = useJoinCodesOff();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -362,7 +364,7 @@ function RemoveStudentDialog({
       }}
       icon={UserMinus}
       title={t("students.removeAllTitle", { name: student?.fullName ?? "" })}
-      description={t("students.removeAllBody", {
+      description={t(joinOff ? "students.removeAllBodyOff" : "students.removeAllBody", {
         name: student?.fullName ?? "",
         classes: student === null ? "" : classesLeftBy([student]).names,
       })}
