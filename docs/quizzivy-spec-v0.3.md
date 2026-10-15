@@ -1,7 +1,14 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.110 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.113 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.112**
+
+The attempts fix round's H-05 (D-026): a question's options and blanks keep their ids across saves. No migration, no new operation, no new permission, and no change to the contract's shape.
+
+- §7 An option or a blank keeps its id when its question is saved. In a write, one sent with an id the question holds is updated in place (ordinal, text, correctness and formatting, or a blank's accepted answers replaced under the same id); one sent without an id, or with an id the question does not hold, is created with a new one; one not sent is deleted. A held AI check finding therefore still names the same option or blank after the teacher saves the question, and the check's "Apply fix" no longer refuses for that reason alone.
+- §15 `POST` and `PATCH /teacher/questions`, and the group member writes, follow the same rule for `options[].id` and `blanks[].id`. A create ignores every id it is sent. An id sent twice in one write updates once and creates the second.
 
 **Changes since v0.109**
 
@@ -1703,6 +1710,8 @@ type Answer =
   | { type: 'text'; value: string };
 ```
 
+An option or a blank keeps its id across saves of its question: a write that sends an id the question holds updates that row, one that omits the id or sends an id the question does not hold creates a new one, and one that leaves a row out deletes it. An id read from a question therefore stays valid until its option or blank is removed.
+
 The engine writes a true/false answer as `choice`, with the id of the option the student chose. `{ type: 'true_false'; value: boolean }` is the legacy form: the server still accepts and grades it (`true` is the first option), but no screen sends it.
 
 **Invariant:** an attempt references `testVersionId`. Editing a published test creates a new version; in-flight attempts keep rendering the version they started with. In the student flow, test content is fetched **only** via `GET /app/attempts/:id`.
@@ -3148,6 +3157,9 @@ POST   /teacher/questions | PATCH /:id | DELETE /:id
                                         an audio policy carries allowPause (§11.1): optional in a request,
                                         where a create stores true and an update keeps the stored value;
                                         always sent in an answer. The group writes follow the same rule
+                                        options[].id and blanks[].id: sent with an id the question holds, the row is
+                                        updated in place; sent without one, or with a foreign id, it is created; not
+                                        sent, it is deleted. A create ignores the ids it is sent
 POST   /teacher/media?defaultMaxPlays=  multipart → MediaAsset (validates mime, size, duration, quota)
 GET    /teacher/media?kind=&unused=&q=&page=&limit=   rows, totalBytes, facets and usage (library, held and pending bytes) against the quota
 PATCH  /teacher/media/:id               {displayName?, defaultMaxPlays?} → the library row

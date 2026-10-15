@@ -686,6 +686,17 @@ CREATE TABLE app.question_options (
   `question_blanks`, `test_sections`, `test_section_questions`. **Not** applied to
   the `test_version_*` tables, which are written once and never reordered.
 
+  **Used by a question save since spec v0.113.** `updateQuestion` keeps an
+  option's and a blank's id: a row the write names by an id the question holds is
+  updated in place, with its new ordinal written under
+  `SET CONSTRAINTS app.question_options_ordinal_key DEFERRED` (blanks:
+  `app.question_blanks_ordinal_key`) one statement at a time, then checked with
+  `IMMEDIATE`; a row sent without an id, or with one the question does not hold,
+  is inserted; a row not sent is deleted. `question_blanks_gap_key` is not
+  deferrable, so a kept blank whose `gap_id` changes has it set to `NULL` first,
+  which lets two blanks swap gaps. An AI check's held finding names an option or
+  blank by id and so still matches after the teacher saves the question.
+
 ### `00013_create_question_blanks.sql`
 
 §13.3 says only "`question_blanks` and `question_blank_answers` mirror this".
