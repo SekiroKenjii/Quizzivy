@@ -4955,7 +4955,7 @@
       },
       "admin-users": {
         "name": "Users",
-        "blurb": "Deleting a student account."
+        "blurb": "Listing, creating and deleting user accounts, and importing many at once from a file."
       },
       "admin-roles": {
         "name": "Roles & permissions",

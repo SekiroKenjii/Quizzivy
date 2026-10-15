@@ -45,7 +45,7 @@ export const API_GROUPS: Readonly<Record<string, ApiGroup>> = {
   "teacher-students": { icon: Users, path: "/teacher/students/*" },
   "teacher-classes": { icon: GraduationCap, path: "/teacher/classes/*" },
   "teacher-ai": { icon: Sparkles, path: "/teacher/ai/*" },
-  "admin-users": { icon: UserCog, path: "/admin/users/{id}" },
+  "admin-users": { icon: UserCog, path: "/admin/users/*" },
   "admin-roles": { icon: ShieldCheck, path: "/admin/roles/*" },
   "admin-ai": { icon: WandSparkles, path: "/admin/ai/*" },
   "admin-docs": { icon: BookOpenText, path: "/admin/api-reference/*" },

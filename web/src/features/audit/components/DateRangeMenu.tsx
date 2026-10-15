@@ -1,3 +1,4 @@
+import type { Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { Calendar, CalendarRange, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,12 +20,15 @@ import { AUDIT_PRESETS } from "../filters";
  * DateRangeMenu is the "Date range" button and its menu: the four ranges the
  * log offers by name, the one in force ticked, and "Custom range…", which
  * asks the screen to open its dialog. A custom range reads as its two days.
+ * `ref` is the button.
  */
 export function DateRangeMenu({
+  ref,
   filters,
   onPreset,
   onCustom,
 }: Readonly<{
+  ref?: Ref<HTMLButtonElement>;
   filters: AuditFilters;
   onPreset: (range: AuditRange) => void;
   onCustom: () => void;
@@ -42,6 +46,7 @@ export function DateRangeMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
+          ref={ref}
           type="button"
           variant="outline"
           aria-label={`${t("audit.range.label")}: ${label}`}

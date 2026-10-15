@@ -155,7 +155,7 @@ function Hero({
             <button
               type="button"
               className="text-ui font-semibold whitespace-nowrap underline underline-offset-2"
-              onClick={() => docs.open()}
+              onClick={docs.retry}
             >
               {t("common.retry")}
             </button>

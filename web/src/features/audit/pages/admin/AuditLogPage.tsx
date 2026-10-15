@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
@@ -57,7 +57,8 @@ function TableSkeleton() {
  * AuditLogPage is the Admin console's audit log: the append-only record of
  * sensitive changes, ten entries a page, newest first, filtered by category,
  * search and date range (all kept in the address) and exported as a file.
- * A row opens to show what it changed.
+ * A row opens to show what it changed. A page past the last one the log has
+ * is replaced in the address by the last.
  */
 export default function AuditLogPage() {
   const { t } = useTranslation();
@@ -68,8 +69,17 @@ export default function AuditLogPage() {
   const settled = useDebounced(typed, 300);
   const search = typed === "" ? "" : settled;
   const asked = useMemo(() => ({ ...filters, q: search }), [filters, search]);
-  const [page] = usePage(JSON.stringify(asked));
+  const [page, setPage] = usePage(JSON.stringify(asked));
   const list = useQuery(auditLogQuery(asked, page));
+  const rangeButton = useRef<HTMLButtonElement>(null);
+  const total = list.data?.total;
+  const pageSize = list.data?.pageSize;
+  const stale = list.isPlaceholderData;
+  useEffect(() => {
+    if (total === undefined || pageSize === undefined || stale) return;
+    const last = Math.max(1, Math.ceil(total / pageSize));
+    if (page > last) setPage(last);
+  }, [total, pageSize, stale, page, setPage]);
   const [open, setOpen] = useState<ReadonlySet<number>>(NO_ROWS);
   const [choosing, setChoosing] = useState<{ from: string; to: string } | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -145,6 +155,7 @@ export default function AuditLogPage() {
       <AuditFilterBar
         filters={filters}
         facets={list.data?.facets}
+        rangeButton={rangeButton}
         onCategory={(category: AuditCategory | null) => setFilter("category", category)}
         onSearch={(value) => setFilter("q", value)}
         onPreset={(range) => setRange(range, null, null)}
@@ -191,6 +202,7 @@ export default function AuditLogPage() {
       <CustomRangeDialog
         open={choosing !== null}
         initial={choosing ?? NO_DAYS}
+        returnFocus={rangeButton}
         onOpenChange={(next) => {
           if (!next) setChoosing(null);
         }}

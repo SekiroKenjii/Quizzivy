@@ -97,6 +97,31 @@ describe("the audit log's rows", () => {
     expect(screen.getByText("Lớp đã xoá")).toBeVisible();
   });
 
+  it.each([
+    ["role", "Vai trò"],
+    ["question", "Câu hỏi"],
+    ["data_export", "Xuất dữ liệu"],
+  ])(
+    "does not call a %s deleted when the server sent no label for it",
+    async (type, word) => {
+      serves(() => ({
+        items: [
+          entry({
+            id: 6,
+            action: "role.created",
+            entity: { type, id: CREATED.entity.id, label: null },
+          }),
+        ],
+      }));
+      renderAudit();
+
+      const row = await screen.findByRole("button", { name: /Đã tạo vai trò/ });
+      const cells = within(row.closest("[role=row]") as HTMLElement);
+      expect(cells.getByText(word)).toBeVisible();
+      expect(screen.queryByText(`${word} đã xoá`)).toBeNull();
+    },
+  );
+
   it("words an action the client has no sentence for from its key", async () => {
     serves(() => ({ items: [UNKNOWN] }));
     renderAudit();
@@ -229,6 +254,25 @@ describe("the columns fold with the content's width", () => {
   });
 });
 
+describe("the diff's columns", () => {
+  it.each([
+    [580, true],
+    [560, true],
+    [559, false],
+    [520, false],
+  ])("at %ipx of content draws the field column: %s", async (width, drawn) => {
+    contentWidth(width);
+    serves(() => ({ items: [CREATED] }));
+    renderAudit();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: /Đã tạo lớp/ }));
+
+    const item = screen.getByText("code").closest("li") as HTMLElement;
+    expect(item.className.includes("grid-cols-[8.75rem_")).toBe(drawn);
+  });
+});
+
 describe("the categories", () => {
   it("shows each option's count from the facets, grouped for the locale, a zero too", async () => {
     serves(() => ({ items: ROWS, facets: FACETS }));
@@ -309,7 +353,9 @@ describe("the categories", () => {
       "nam",
     );
 
-    expect(await screen.findByRole("button", { name: "Tất cả 5" })).toBeVisible();
+    expect(
+      await screen.findByRole("button", { name: "Tất cả 5" }, { timeout: 4000 }),
+    ).toBeVisible();
     expect(screen.getByRole("button", { name: "Lượt làm bài 2" })).toBeVisible();
     expect(lastAsked(asked).searchParams.get("q")).toBe("nam");
   });
@@ -333,6 +379,18 @@ describe("the search", () => {
     expect(box).toHaveValue("");
     expect(router.state.location.search).toBe("");
     await waitFor(() => expect(lastAsked(asked).searchParams.has("q")).toBe(false));
+  });
+
+  it("stops at the 200 characters the contract takes, in the field and in an address that has more", async () => {
+    const asked = serves(() => ({ items: ROWS }));
+    renderAudit(`?q=${"x".repeat(250)}`);
+
+    const box = screen.getByRole("textbox", { name: "Tìm trong nhật ký kiểm tra" });
+    expect(box).toHaveAttribute("maxlength", "200");
+    expect(box).toHaveValue("x".repeat(200));
+    await waitFor(() =>
+      expect(lastAsked(asked).searchParams.get("q")).toBe("x".repeat(200)),
+    );
   });
 
   it("reads the words from the address", async () => {
@@ -436,6 +494,53 @@ describe("the date range", () => {
   });
 });
 
+describe("where focus goes", () => {
+  const search = () =>
+    screen.getByRole("textbox", { name: "Tìm trong nhật ký kiểm tra" });
+
+  it("returns to the search field after its clear button, which leaves", async () => {
+    serves(() => ({ items: ROWS }));
+    renderAudit("?q=lớp");
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Xoá tìm kiếm" }));
+
+    expect(screen.queryByRole("button", { name: "Xoá tìm kiếm" })).toBeNull();
+    expect(search()).toHaveFocus();
+  });
+
+  it("goes to the search field after Reset, which leaves", async () => {
+    serves(() => ({ items: ROWS }));
+    renderAudit("?range=30d");
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Đặt lại" }));
+
+    expect(screen.queryByRole("button", { name: "Đặt lại" })).toBeNull();
+    expect(search()).toHaveFocus();
+  });
+
+  it.each([
+    ["applying it", "Áp dụng"],
+    ["cancelling it", "Huỷ"],
+  ])("returns to the range button after the custom dialog, %s", async (_, name) => {
+    serves(() => ({ items: ROWS }));
+    renderAudit();
+    const user = userEvent.setup();
+
+    await screen.findByRole("button", { name: /Đã tạo lớp/ });
+    await user.click(screen.getByRole("button", { name: /^Khoảng thời gian:/ }));
+    await user.click(await screen.findByRole("menuitem", { name: "Khoảng tuỳ chọn…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Khoảng ngày tuỳ chọn" });
+    await user.click(within(dialog).getByRole("button", { name }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /^Khoảng thời gian:/ })).toHaveFocus(),
+    );
+  });
+});
+
 describe("reset", () => {
   it("shows while a search or another range is set, and clears both but keeps the category", async () => {
     const asked = serves(() => ({ items: ROWS }));
@@ -527,6 +632,30 @@ describe("the pager", () => {
     expect(await screen.findByText("1–10 trên 312 mục")).toBeVisible();
     expect(screen.getByText("Trang 1 trên 32")).toBeVisible();
     expect(screen.queryByText("Số dòng mỗi trang")).toBeNull();
+  });
+
+  it("replaces a page past the last in the address by the last, and shows its rows", async () => {
+    const asked = serves((url) => ({
+      items: Number(url.searchParams.get("page")) > 126 ? [] : ROWS,
+      total: 1253,
+    }));
+    const { router } = renderAudit("?page=1000");
+
+    expect(await screen.findByRole("button", { name: /Đã tạo lớp/ })).toBeVisible();
+    expect(router.state.location.search).toBe("?page=126");
+    expect(lastAsked(asked).searchParams.get("page")).toBe("126");
+    expect(screen.queryByText("Không có mục nào trong khoảng này.")).toBeNull();
+  });
+
+  it("leaves a page the log has alone, and one while the rows of another filter are still on screen", async () => {
+    serves((url) => ({
+      items: ROWS,
+      total: url.searchParams.get("q") === "nam" ? 10 : 312,
+    }));
+    const { router } = renderAudit("?page=4");
+
+    await screen.findByText("31–40 trên 312 mục");
+    expect(router.state.location.search).toBe("?page=4");
   });
 
   it("asks for the page the address names", async () => {

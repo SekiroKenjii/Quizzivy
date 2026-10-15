@@ -11,13 +11,15 @@ export type DocsProblem = "blocked" | "failed";
  * inside the click, with its opener cleared, then pointed at `/docs` (at the
  * `#tag/{tag}` of a group when it is given) once the docs session exists, and
  * closed if it cannot be made. A second call while one is out does nothing.
- * `open` is stable.
+ * `retry` opens again at the group the last `open` asked for. `open` and
+ * `retry` are stable.
  */
 export function useDocsLauncher() {
   const [problem, setProblem] = useState<DocsProblem | null>(null);
   const [pending, setPending] = useState(false);
   const mounted = useRef(true);
   const running = useRef(false);
+  const asked = useRef<string | undefined>(undefined);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -27,6 +29,7 @@ export function useDocsLauncher() {
 
   const open = useCallback((tag?: string) => {
     if (running.current) return;
+    asked.current = tag;
     const lease = authStore.captureActor();
     const tab = window.open("about:blank", "_blank");
     if (!tab) {
@@ -60,5 +63,7 @@ export function useDocsLauncher() {
       });
   }, []);
 
-  return { open, pending, problem };
+  const retry = useCallback(() => open(asked.current), [open]);
+
+  return { open, retry, pending, problem };
 }

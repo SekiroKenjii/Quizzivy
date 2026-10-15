@@ -4955,7 +4955,7 @@
       },
       "admin-users": {
         "name": "Người dùng",
-        "blurb": "Xoá tài khoản học viên."
+        "blurb": "Danh sách, tạo và xoá tài khoản người dùng, và nhập nhiều tài khoản cùng lúc từ tệp."
       },
       "admin-roles": {
         "name": "Vai trò & quyền",

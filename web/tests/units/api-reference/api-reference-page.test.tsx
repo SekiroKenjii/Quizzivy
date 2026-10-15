@@ -230,6 +230,33 @@ describe("opening the reference", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("tries again at the group a failed card asked for", async () => {
+    vi.spyOn(window, "open").mockReturnValue(fakeTab() as unknown as Window);
+    let answer = 500;
+    server.use(
+      http.post(
+        `${BASE_URL}/admin/docs-session`,
+        () => new Response(null, { status: answer }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: /Bài kiểm tra/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Không mở được tài liệu API.",
+    );
+
+    answer = 204;
+    const second = fakeTab();
+    vi.spyOn(window, "open").mockReturnValue(second as unknown as Window);
+    await user.click(screen.getByRole("button", { name: "Thử lại" }));
+
+    await waitFor(() =>
+      expect(second.location.href).toBe(`${BASE_URL}/docs#tag/teacher-tests`),
+    );
+  });
+
   it("asks for pop-ups instead of making a session when the browser blocks the tab", async () => {
     vi.spyOn(window, "open").mockReturnValue(null);
     let sessions = 0;

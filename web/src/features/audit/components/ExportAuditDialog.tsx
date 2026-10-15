@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Download } from "lucide-react";
@@ -17,17 +18,27 @@ type ExportValues = { period: AuditPeriod; format: AuditFormat; filtersOnly: boo
 const PERIODS: readonly AuditPeriod[] = ["7d", "30d", "year"];
 const FORMATS: readonly AuditFormat[] = ["csv", "json"];
 
-function periodFor(filters: AuditFilters): AuditPeriod {
-  if (filters.range === "today" || filters.range === "7d") return "7d";
-  return filters.range === "30d" ? "30d" : "year";
+const DAY_MS = 86_400_000;
+
+function periodFor({ range, from, to }: AuditFilters): AuditPeriod {
+  if (range === "today" || range === "7d") return "7d";
+  if (range === "30d") return "30d";
+  if (range === "custom" && from !== null && to !== null) {
+    const days = (Date.parse(to) - Date.parse(from)) / DAY_MS + 1;
+    if (days <= 7) return "7d";
+    if (days <= 30) return "30d";
+  }
+  return "year";
 }
 
 /**
  * ExportAuditDialog asks which period and which file to download. A period is
  * the export's own, so a range or a custom day is not sent: the control for
  * "current filters only" narrows by the category and the search, and shows
- * only while one of them is set, on. A period of more than 100,000 entries
- * asks for a shorter one.
+ * only while one of them is set, on. It opens on the shortest period that
+ * covers the range in force. A period of more than 100,000 entries asks for a
+ * shorter one. One export runs at a time, and the dialog stays open until it
+ * ends.
  */
 export function ExportAuditDialog({
   open,
@@ -40,6 +51,7 @@ export function ExportAuditDialog({
 }>) {
   const { t } = useTranslation();
   const narrowing = hasNarrowing(filters);
+  const running = useRef(false);
   const download = useMutation({
     mutationFn: (values: ExportValues) =>
       exportAuditLog({
@@ -51,6 +63,9 @@ export function ExportAuditDialog({
     onSuccess: () => {
       onOpenChange(false);
       notify.success(t("audit.exportDialog.done"));
+    },
+    onSettled: () => {
+      running.current = false;
     },
   });
   const fields: readonly FormField<ExportValues>[] = [
@@ -89,6 +104,7 @@ export function ExportAuditDialog({
     <FormDialog<ExportValues>
       open={open}
       onOpenChange={(next) => {
+        if (!next && running.current) return;
         download.reset();
         onOpenChange(next);
       }}
@@ -100,7 +116,11 @@ export function ExportAuditDialog({
       submitLabel={t("audit.exportDialog.submit")}
       pending={download.isPending}
       error={download.isError ? message : null}
-      onSubmit={(values) => download.mutate(values)}
+      onSubmit={(values) => {
+        if (running.current) return;
+        running.current = true;
+        download.mutate(values);
+      }}
     />
   );
 }

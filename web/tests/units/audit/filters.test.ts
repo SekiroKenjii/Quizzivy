@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { dotOf, humanise, sentenceOf } from "@/features/audit/actions";
+import { dotOf, humanise, isGone, sentenceOf } from "@/features/audit/actions";
 import {
+  AUDIT_SEARCH_MAX,
   DEFAULT_RANGE,
   hasNarrowing,
   isDay,
@@ -32,6 +33,14 @@ describe("reading the filters from an address", () => {
       from: null,
       to: null,
     });
+  });
+
+  it("cuts a search to the 200 characters the contract takes, by character and not by code unit", () => {
+    expect(AUDIT_SEARCH_MAX).toBe(200);
+    expect(read(`q=${"a".repeat(201)}`).q).toBe("a".repeat(200));
+    const emoji = "😀".repeat(201);
+    expect(read(`q=${encodeURIComponent(emoji)}`).q).toBe("😀".repeat(200));
+    expect(read(`q=${"b".repeat(200)}`).q).toBe("b".repeat(200));
   });
 
   it.each(["today", "7d", "30d", "all"])("accepts the %s range", (range) => {
@@ -126,6 +135,32 @@ describe("the days a custom range opens on", () => {
       from: "2025-12-28",
       to: "2026-01-03",
     });
+  });
+});
+
+describe("when a missing label means the row is gone", () => {
+  const id = "019535d9-3df7-79fb-b466-fa907fa17f10";
+
+  it.each(["class", "test", "user", "media_asset", "word_import", "question_group"])(
+    "says so of a %s the server could have named",
+    (type) => {
+      expect(isGone({ type, id })).toBe(true);
+    },
+  );
+
+  it.each([
+    "role",
+    "question",
+    "data_export",
+    "user_import",
+    "ai_settings",
+    "anything",
+  ])("says nothing of a %s, which the server never names", (type) => {
+    expect(isGone({ type, id })).toBe(false);
+  });
+
+  it("says nothing of an entry about no single row", () => {
+    expect(isGone({ type: "class", id: null })).toBe(false);
   });
 });
 

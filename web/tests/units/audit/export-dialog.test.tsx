@@ -80,6 +80,23 @@ describe("exporting the log", () => {
     );
   });
 
+  it.each([
+    ["2026-10-14", "2026-10-15", "7 ngày qua"],
+    ["2026-10-09", "2026-10-15", "7 ngày qua"],
+    ["2026-10-08", "2026-10-15", "30 ngày qua"],
+    ["2026-09-16", "2026-10-15", "30 ngày qua"],
+    ["2026-09-15", "2026-10-15", "Năm nay"],
+  ])(
+    "opens a custom range from %s to %s on the shortest period that covers it: %s",
+    async (from, to, period) => {
+      const { dialog } = await openExport(`?range=custom&from=${from}&to=${to}`);
+      expect(within(dialog).getByRole("button", { name: period })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+    },
+  );
+
   it("opens on this year for every range that reaches further back", async () => {
     const { dialog } = await openExport("?range=all");
     expect(within(dialog).getByRole("button", { name: "Năm nay" })).toHaveAttribute(
@@ -114,6 +131,62 @@ describe("exporting the log", () => {
     expect(screen.queryByRole("dialog", { name: "Xuất nhật ký kiểm tra" })).toBeNull();
   });
 
+  it("downloads once however fast the button is pressed", async () => {
+    const asked = exportAnswers(file);
+    const { user, dialog } = await openExport();
+
+    await user.dblClick(within(dialog).getByRole("button", { name: "Xuất tệp" }));
+
+    await waitFor(() => expect(saveDownloadedFile).toHaveBeenCalledOnce());
+    expect(asked).toHaveLength(1);
+  });
+
+  it("stays open on Escape while the file is on its way, and closes when it has arrived", async () => {
+    let release: () => void = () => undefined;
+    const asked: URL[] = [];
+    server.use(
+      http.get(`${BASE_URL}/admin/audit-log/export`, ({ request }) => {
+        asked.push(new URL(request.url));
+        return new Promise<Response>((resolve) => {
+          release = () => resolve(file());
+        });
+      }),
+    );
+    const { user, dialog } = await openExport();
+
+    await user.click(within(dialog).getByRole("button", { name: "Xuất tệp" }));
+    await waitFor(() => expect(asked).toHaveLength(1));
+    await user.keyboard("{Escape}");
+
+    expect(screen.getByRole("dialog", { name: "Xuất nhật ký kiểm tra" })).toBeVisible();
+    release();
+    await waitFor(() => expect(saveDownloadedFile).toHaveBeenCalledOnce());
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Xuất nhật ký kiểm tra" }),
+      ).toBeNull(),
+    );
+  });
+
+  it("can be pressed again after a refusal", async () => {
+    let answers = 0;
+    exportAnswers(() => {
+      answers += 1;
+      return answers === 1
+        ? contractJson("/admin/audit-log/export", "get", 500, {
+            error: { code: "INTERNAL", message: "Lỗi máy chủ.", requestId: REQUEST_ID },
+          })
+        : file();
+    });
+    const { user, dialog } = await openExport();
+
+    await user.click(within(dialog).getByRole("button", { name: "Xuất tệp" }));
+    expect(await within(dialog).findByRole("alert")).toBeVisible();
+    await user.click(within(dialog).getByRole("button", { name: "Xuất tệp" }));
+
+    await waitFor(() => expect(saveDownloadedFile).toHaveBeenCalledOnce());
+  });
+
   it("narrows by the category and search in force, which the switch starts on for", async () => {
     const asked = exportAnswers(file);
     const { user, dialog } = await openExport("?category=tests&q=nam");
@@ -145,7 +218,7 @@ describe("exporting the log", () => {
 
     await waitFor(() => expect(asked).toHaveLength(1));
     const sent = asked[0]!.searchParams;
-    expect(Object.fromEntries(sent)).toEqual({ period: "year", format: "csv" });
+    expect(Object.fromEntries(sent)).toEqual({ period: "7d", format: "csv" });
     expect(sent.has("range")).toBe(false);
     expect(sent.has("from")).toBe(false);
   });

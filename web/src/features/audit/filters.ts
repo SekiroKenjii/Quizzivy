@@ -14,6 +14,9 @@ export const AUDIT_CATEGORIES = [
 /** AUDIT_PRESETS are the ranges the menu offers by name; `custom` takes a dialog. */
 export const AUDIT_PRESETS = ["today", "7d", "30d", "all"] as const;
 
+/** AUDIT_SEARCH_MAX is the longest search `listAuditLog` takes, in characters. */
+export const AUDIT_SEARCH_MAX = 200;
+
 /** DEFAULT_RANGE is the range the list opens with, and the absence of `?range=`. */
 export const DEFAULT_RANGE: AuditRange = "7d";
 
@@ -42,13 +45,15 @@ function isPreset(value: string | null): value is (typeof AUDIT_PRESETS)[number]
 
 /**
  * readAuditFilters reads the filters an address holds. A value the screen
- * does not offer is dropped, and a custom range needs both of its days, the
+ * does not offer is dropped, a search is cut to `AUDIT_SEARCH_MAX`, and a custom range needs both of its days, the
  * second not before the first, or it is the default range.
  */
 export function readAuditFilters(params: URLSearchParams): AuditFilters {
   const requested = params.get("category");
   const category = isCategory(requested) ? requested : null;
-  const q = params.get("q") ?? "";
+  const q = Array.from(params.get("q") ?? "")
+    .slice(0, AUDIT_SEARCH_MAX)
+    .join("");
   const range = params.get("range");
   const from = params.get("from");
   const to = params.get("to");

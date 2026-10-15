@@ -6,7 +6,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { auditMoment, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { cn } from "@/lib/utils";
-import { dotOf, humanise, sentenceOf } from "../actions";
+import { dotOf, humanise, isGone, sentenceOf } from "../actions";
 import type { AuditEntry } from "../api";
 import { AuditDiff } from "./AuditDiff";
 
@@ -67,11 +67,13 @@ export function AuditTable({
       return i18n.exists(key) ? t(key) : humanise(entry.entity.type);
     };
     const entity = ({ entry }: Row) => {
-      const { label, id } = entry.entity;
+      const { label } = entry.entity;
       if (label !== null) {
         return t("audit.entity.named", { type: type(entry), label });
       }
-      return id === null ? type(entry) : t("audit.entity.gone", { type: type(entry) });
+      return isGone(entry.entity)
+        ? t("audit.entity.gone", { type: type(entry) })
+        : type(entry);
     };
     return [
       {
