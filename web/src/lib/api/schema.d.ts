@@ -2344,7 +2344,9 @@ export interface paths {
          * Add an account with a role
          * @description Creates an account of any role the caller may give (`listAssignableRoles`):
          *     its permissions, `learning.take_tests` apart, must be the caller's own,
-         *     and the Assistant is never offered. `created_by` is the caller.
+         *     and the Assistant is never offered. `created_by` is the caller. The role
+         *     is held against edits from the check to the commit; if it changed in
+         *     between, the check is made again, up to three times.
          *
          *     `delivery: email_link` sets no password and enqueues a set-password
          *     link (an invite) in the same transaction as the account, so the account
@@ -12750,7 +12752,10 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
-            /** @description `EMAIL_TAKEN` — already in use, compared case-insensitively. */
+            /**
+             * @description `EMAIL_TAKEN` — already in use, compared case-insensitively.
+             *     `STALE_WRITE` — the role changed three times while the account was being created; nothing was written, so the same request may be sent again.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;

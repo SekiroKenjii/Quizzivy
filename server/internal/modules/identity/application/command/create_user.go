@@ -29,12 +29,15 @@ type CreateUserHandler struct {
 }
 
 // Handle fails with the access module's ErrRoleNotFound, ErrNotAssignable and
-// ErrTargetRoleNotAllowed for a role the caller may not give, with
+// ErrTargetRoleNotAllowed for a role the caller may not give, whether the role
+// was that way when the call began or became so while it ran, with
 // domain.ErrClassNotAllowed for a class given to a role that is not a student
 // target or by a caller without scope.all, with domain.ErrClassNotFound,
 // domain.ErrEmailTaken, domain.ErrPasswordSignInDisabled for a temporary
 // password while password sign-in is off, and domain.ErrSetPasswordUnavailable
-// for an email link on a server that cannot send one. A refusal writes nothing.
+// for an email link on a server that cannot send one, and with
+// domain.ErrRoleChanged when the role changed three times while the account
+// was being created. A refusal writes nothing.
 func (h CreateUserHandler) Handle(ctx context.Context, cmd CreateUser) (CreateUserResult, error) {
 	in, req := cmd.Input, cmd.Request
 	var c content.Composer
@@ -45,14 +48,9 @@ func (h CreateUserHandler) Handle(ctx context.Context, cmd CreateUser) (CreateUs
 	if !in.Delivery.Valid() {
 		return CreateUserResult{}, errors.New("create user: unknown delivery")
 	}
-	role, err := h.Roles.Handle(ctx, accessquery.AssignableRole{By: support.Caller(req), RoleID: in.RoleID})
-	if err != nil {
+	if err := h.give(ctx, req, &in); err != nil {
 		return CreateUserResult{}, err
 	}
-	if in.ClassID != "" && (!role.StudentTarget || !req.All) {
-		return CreateUserResult{}, domain.ErrClassNotAllowed
-	}
-	in.RoleName = role.Name
 	in.Now = h.Service.Now()
 
 	policy, err := h.Service.SignInPolicy(ctx)
@@ -81,9 +79,37 @@ func (h CreateUserHandler) Handle(ctx context.Context, cmd CreateUser) (CreateUs
 			return err
 		}
 	}
-	user, err := h.Repo.Create(ctx, req, in, issue)
+	user, err := h.create(ctx, req, in, issue)
 	if err != nil {
 		return CreateUserResult{}, err
 	}
 	return CreateUserResult{User: user, TemporaryPassword: temporary}, nil
+}
+
+const maxRoleReads = 3
+
+func (h CreateUserHandler) create(ctx context.Context, req domain.WriteRequest, in domain.NewUser, issue domain.LinkIssue) (domain.AdminUser, error) {
+	user, err := h.Repo.Create(ctx, req, in, issue)
+	for range maxRoleReads - 1 {
+		if !errors.Is(err, domain.ErrRoleChanged) {
+			break
+		}
+		if err = h.give(ctx, req, &in); err != nil {
+			return domain.AdminUser{}, err
+		}
+		user, err = h.Repo.Create(ctx, req, in, issue)
+	}
+	return user, err
+}
+
+func (h CreateUserHandler) give(ctx context.Context, req domain.WriteRequest, in *domain.NewUser) error {
+	role, err := h.Roles.Handle(ctx, accessquery.AssignableRole{By: support.Caller(req), RoleID: in.RoleID})
+	if err != nil {
+		return err
+	}
+	if in.ClassID != "" && (!role.StudentTarget || !req.All) {
+		return domain.ErrClassNotAllowed
+	}
+	in.RoleName, in.RoleRevision = role.Name, role.Revision
+	return nil
 }

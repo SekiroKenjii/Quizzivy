@@ -39,7 +39,7 @@ func (h AssignableRoleHandler) Handle(ctx context.Context, q AssignableRole) (mo
 		}
 		return model.AssignableRole{
 			ID: r.ID, Builtin: r.Builtin, Name: r.Name, Icon: r.Icon, Color: r.Color,
-			StudentTarget: access.IsStudentLike(r.Builtin, r.Grants),
+			StudentTarget: access.IsStudentLike(r.Builtin, r.Grants), Revision: r.Revision,
 		}, nil
 	}
 	return model.AssignableRole{}, domain.ErrRoleNotFound
