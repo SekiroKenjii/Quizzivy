@@ -114,6 +114,7 @@ var catalogue = []Action{
 	{"user.profile_updated", "Đã cập nhật hồ sơ", "Updated a profile"},
 	{"user.renamed", "Đã đổi tên tài khoản", "Renamed an account"},
 	{"user_import.requested", "Đã yêu cầu nhập người dùng từ tệp", "Requested an import of users from a file"},
+	{"user_import.sheet_downloaded", "Đã tải bảng mật khẩu tạm của lần nhập người dùng", "Downloaded the temporary-password sheet of a user import"},
 }
 
 // Actions lists every action the server writes, in key order, each with its

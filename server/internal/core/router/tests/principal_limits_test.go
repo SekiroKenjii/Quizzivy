@@ -36,6 +36,7 @@ var thePerActorLimits = map[string][]ratelimit.Rule{
 	"POST /admin/users":                          {{Burst: 30, Window: time.Minute}, {Burst: 300, Window: time.Hour}},
 	"POST /admin/user-imports/preview":           {{Burst: 10, Window: time.Minute}},
 	"POST /admin/user-imports":                   {{Burst: 5, Window: time.Hour}},
+	"POST /admin/user-imports/{id}/sheet":        {{Burst: 5, Window: time.Minute}},
 	"POST /teacher/classes/{id}/join-code":       {{Burst: 10, Window: time.Minute}, {Burst: 60, Window: time.Hour}},
 	"GET /teacher/classes/{id}/join-code":        {{Burst: 60, Window: time.Minute}, {Burst: 600, Window: time.Hour}},
 	"GET /teacher/classes":                       {{Burst: 60, Window: time.Minute}, {Burst: 600, Window: time.Hour}},

@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -33,6 +34,7 @@ type importSpy struct {
 	preview command.PreviewUserImport
 	create  command.CreateUserImport
 	get     query.GetUserImport
+	sheet   command.DownloadUserImportSheet
 	calls   int
 }
 
@@ -40,6 +42,7 @@ type importOutcome struct {
 	preview command.UserImportPreview
 	create  command.CreateUserImportResult
 	get     query.GetUserImportResult
+	sheet   []domain.SheetRow
 	err     error
 }
 
@@ -53,6 +56,10 @@ func importApp(spy *importSpy, out importOutcome) *application.Application {
 			CreateUserImport: cqrs.HandlerFunc[command.CreateUserImport, command.CreateUserImportResult](func(_ context.Context, cmd command.CreateUserImport) (command.CreateUserImportResult, error) {
 				spy.create, spy.calls = cmd, spy.calls+1
 				return out.create, out.err
+			}),
+			DownloadUserImportSheet: cqrs.HandlerFunc[command.DownloadUserImportSheet, []domain.SheetRow](func(_ context.Context, cmd command.DownloadUserImportSheet) ([]domain.SheetRow, error) {
+				spy.sheet, spy.calls = cmd, spy.calls+1
+				return out.sheet, out.err
 			}),
 		},
 		Queries: application.Queries{
@@ -316,6 +323,83 @@ func TestAJobDeliveredBySheetReportsTheSheetAndAnEmailJobReportsNone(t *testing.
 	}
 }
 
+func downloadingTheSheet(t *testing.T, caller access.Principal, h identityhttp.Identity, id uuid.UUID, accept string) served {
+	t.Helper()
+	return importCall(t, caller, accept, func(ctx context.Context, w http.ResponseWriter) error {
+		response, err := h.DownloadUserImportSheet(ctx, openapi.DownloadUserImportSheetRequestObject{Id: id})
+		return render(w, openapi.DownloadUserImportSheetResponseObject.VisitDownloadUserImportSheetResponse, response, err)
+	})
+}
+
+func TestTheSheetIsACSVAttachmentOfTheAccountsAndPasswordsThatNothingCaches(t *testing.T) {
+	spy := &importSpy{}
+	rows := []domain.SheetRow{
+		{FullName: "Nguyễn Văn An", Email: "an@example.test", Role: "Học viên", Class: "Lớp 10A1", Password: "cam-trai-nui-42"},
+		{FullName: `=HYPERLINK("http://x")`, Email: "x@example.test", Role: "Giáo viên", Password: "bien-xanh-mua-07"},
+	}
+	h := identityhttp.NewIdentity(importApp(spy, importOutcome{sheet: rows}), 0, false, nil)
+	id := uuid.New()
+	admin := anAdmin()
+
+	got := downloadingTheSheet(t, admin, h, id, "")
+
+	if got.status != http.StatusOK {
+		t.Fatalf("answered %d: %s", got.status, got.body)
+	}
+	if got.header.Get("Cache-Control") != "no-store" || got.header.Get("Content-Type") != "text/csv; charset=utf-8" {
+		t.Errorf("headers = %v, want text/csv in UTF-8 and no-store", got.header)
+	}
+	if disposition := got.header.Get("Content-Disposition"); !regexp.MustCompile(`^attachment; filename="new-accounts-\d{8}\.csv"$`).MatchString(disposition) {
+		t.Errorf("Content-Disposition = %q, want an attachment named new-accounts-YYYYMMDD.csv", disposition)
+	}
+	want := "\xEF\xBB\xBF" + "full_name,email,role,class,temporary_password\r\n" +
+		"Nguyễn Văn An,an@example.test,Học viên,Lớp 10A1,cam-trai-nui-42\r\n" +
+		"\"'=HYPERLINK(\"\"http://x\"\")\",x@example.test,Giáo viên,,bien-xanh-mua-07\r\n"
+	if string(got.body) != want {
+		t.Errorf("body = %q, want %q", got.body, want)
+	}
+	if spy.sheet.ID != id.String() || spy.sheet.Request.ActorID != admin.UserID || spy.calls != 1 {
+		t.Errorf("the command got %+v after %d call(s), want the caller and the job id once", spy.sheet, spy.calls)
+	}
+}
+
+func TestASheetThatCannotBeHandedOutAnswers404Or410InTheCallersLanguage(t *testing.T) {
+	for _, c := range []struct {
+		err    error
+		status int
+		code   openapi.ErrorCode
+		vi, en string
+	}{
+		{domain.ErrUserImportNotFound, http.StatusNotFound, openapi.NOTFOUND, "Không tìm thấy lần nhập người dùng này.", "This user import was not found."},
+		{domain.ErrSheetUnavailable, http.StatusGone, openapi.SHEETUNAVAILABLE,
+			"Không còn bảng mật khẩu để tải: lần nhập này chưa xong, gửi qua email, không tạo tài khoản nào, đã được tải một lần hoặc đã quá 24 giờ.",
+			"There is no sheet to download: this import is not finished, was sent by email, created no account, was already downloaded, or finished more than 24 hours ago."},
+	} {
+		h := identityhttp.NewIdentity(importApp(&importSpy{}, importOutcome{err: c.err}), 0, false, nil)
+		for accept, want := range map[string]string{"vi": c.vi, "en": c.en} {
+			got := downloadingTheSheet(t, anAdmin(), h, uuid.New(), accept)
+			code, message := got.errorCode(t)
+			if got.status != c.status || code != c.code || message != want {
+				t.Errorf("%v in %s: %d %s %q, want %d %s %q", c.err, accept, got.status, code, message, c.status, c.code, want)
+			}
+			if got.header.Get("Content-Disposition") != "" {
+				t.Errorf("%v: a refusal carries a file name", c.err)
+			}
+		}
+	}
+}
+
+func TestASheetOnAServerThatCannotOpenItAnswers501(t *testing.T) {
+	failing := identityhttp.NewIdentity(importApp(&importSpy{}, importOutcome{err: domain.ErrImportSheetsOff}), 0, false, nil)
+	if got := downloadingTheSheet(t, anAdmin(), failing, uuid.New(), ""); !errors.Is(got.err, httpx.ErrNotImplemented) {
+		t.Errorf("a server that cannot open a sheet: %v (status %d), want httpx.ErrNotImplemented", got.err, got.status)
+	}
+	none := identityhttp.NewIdentity(&application.Application{}, 0, false, nil)
+	if got := downloadingTheSheet(t, anAdmin(), none, uuid.New(), ""); !errors.Is(got.err, httpx.ErrNotImplemented) {
+		t.Errorf("without an import application: %v (status %d), want httpx.ErrNotImplemented", got.err, got.status)
+	}
+}
+
 func TestAnUnknownOrForeignImportAnswers404InTheCallersLanguage(t *testing.T) {
 	h := identityhttp.NewIdentity(importApp(&importSpy{}, importOutcome{err: domain.ErrUserImportNotFound}), 0, false, nil)
 	for accept, want := range map[string]string{"vi": "Không tìm thấy lần nhập người dùng này.", "en": "This user import was not found."} {
@@ -564,6 +648,18 @@ func TestABodyOverItsBudgetAnswers413WithTheWayOutInBothLanguages(t *testing.T) 
 			if got.status != http.StatusRequestEntityTooLarge || code != openapi.USERIMPORTFILETOOLARGE || !strings.Contains(message, want) {
 				t.Errorf("%s %s: %d %s %q, want 413 USER_IMPORT_FILE_TOO_LARGE naming %q", name, accept, got.status, code, message, want)
 			}
+		}
+	}
+}
+
+func TestEveryCodeTheJudgeGivesIsOneTheContractNames(t *testing.T) {
+	for _, code := range []domain.ImportCode{
+		domain.CodeRequired, domain.CodeTooLong, domain.CodeInvalid, domain.CodeFormulaLike, domain.CodeDuplicateInFile,
+		domain.CodeUnknownRole, domain.CodeAmbiguousRole, domain.CodeRoleNotAllowed, domain.CodeRoleNotGivable,
+		domain.CodeUnknownClass, domain.CodeAmbiguousClass, domain.CodeClassNotAllowed,
+	} {
+		if !openapi.UserImportIssueCode(code).Valid() {
+			t.Errorf("the judge's %s is not in the contract's UserImportIssue.code", code)
 		}
 	}
 }

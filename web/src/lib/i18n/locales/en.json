@@ -390,7 +390,8 @@
       "user.preferences_updated": "Updated personal preferences",
       "user.profile_updated": "Updated a profile",
       "user.renamed": "Renamed an account",
-      "user_import.requested": "Requested an import of users from a file"
+      "user_import.requested": "Requested an import of users from a file",
+      "user_import.sheet_downloaded": "Downloaded the temporary-password sheet of a user import"
     }
   },
   "error": {
