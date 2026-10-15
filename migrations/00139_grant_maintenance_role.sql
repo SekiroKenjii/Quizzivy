@@ -12,7 +12,8 @@
 -- where a command deletes, and the role may never UPDATE or DELETE audit_log,
 -- which stays append-only for it as for quizzivy_app. Later releases that add
 -- or widen a command grant what it needs in their own migration and pin it in
--- privileges_test.go.
+-- privileges_test.go. Beyond grants it adds one trigger on app.users, below,
+-- that keeps this role from setting a credential.
 
 -- +goose StatementBegin
 DO $$
@@ -63,6 +64,48 @@ GRANT SELECT (owner_id) ON app.questions TO quizzivy_maintenance;
 GRANT SELECT (owner_id) ON app.question_groups TO quizzivy_maintenance;
 GRANT SELECT (owner_id) ON app.media_assets TO quizzivy_maintenance;
 
+-- UPDATE on the login columns is what anonymising needs, and it is also what a
+-- leaked credential for this role would use to take an account over: a new
+-- email, a known password hash, the account enabled again. So a trigger that
+-- fires for this role alone refuses, with 42501, any update that does not leave
+-- the row anonymised: the reserved address maintenance.anonymousEmail writes, no
+-- password hash, no phone, photo or display name, and disabled. That is what the
+-- sweep and anonymize-user write and all they write; full_name is a name, not a
+-- credential, and is not pinned. The role can insert neither an identity nor a
+-- set-password link, so an anonymised row cannot be reopened by it either.
+--
+-- SECURITY INVOKER, because the check reads only the new row; search_path is
+-- pinned and every type is schema-qualified, as 00059 does for its definer
+-- function, and EXECUTE is revoked from PUBLIC. The role holds no right to set
+-- session_replication_role, the one way a session skips a trigger. Every other
+-- role pays the WHEN test and nothing else.
+-- +goose StatementBegin
+CREATE FUNCTION app.users_maintenance_guard() RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog, pg_temp
+AS $fn$
+BEGIN
+  IF NEW.email = 'anonymous-' || NEW.id::pg_catalog.text || '@anonymous.invalid'
+     AND NEW.password_hash IS NULL
+     AND NEW.must_change_password = false
+     AND NEW.disabled_at IS NOT NULL
+     AND NEW.phone IS NULL
+     AND NEW.avatar_key IS NULL
+     AND NEW.display_name IS NULL THEN
+    RETURN NEW;
+  END IF;
+  RAISE EXCEPTION 'quizzivy_maintenance may only leave an account anonymised'
+    USING ERRCODE = 'insufficient_privilege';
+END;
+$fn$;
+-- +goose StatementEnd
+
+REVOKE ALL ON FUNCTION app.users_maintenance_guard() FROM PUBLIC;
+
+CREATE TRIGGER users_maintenance_guard BEFORE UPDATE ON app.users
+  FOR EACH ROW WHEN (current_user = 'quizzivy_maintenance')
+  EXECUTE FUNCTION app.users_maintenance_guard();
+
 -- window-schedule, window-list, window-cancel and window-end (R1), with R4's
 -- override close times.
 GRANT SELECT, INSERT (starts_at, ends_at), UPDATE (ends_at, cancelled_at)
@@ -91,6 +134,9 @@ GRANT SELECT (user_id, event, in_app) ON app.notification_preferences TO quizziv
 GRANT SELECT ON app.roles, app.role_permissions TO quizzivy_maintenance;
 
 -- +goose Down
+
+DROP TRIGGER users_maintenance_guard ON app.users;
+DROP FUNCTION app.users_maintenance_guard();
 
 REVOKE ALL ON ALL TABLES IN SCHEMA app FROM quizzivy_maintenance;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA app FROM quizzivy_maintenance;

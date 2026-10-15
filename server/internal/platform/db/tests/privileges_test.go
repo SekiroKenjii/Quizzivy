@@ -339,6 +339,11 @@ func TestTheMaintenanceRoleCannotRewriteARecordOrCreateAnything(t *testing.T) {
 		{`SELECT count(*) = 0 FROM pg_shdepend d JOIN pg_roles r ON r.oid = d.refobjid
 		   WHERE r.rolname = $1 AND d.deptype = 'o'`, true, "owning no object"},
 		{`SELECT count(*) = 0 FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member WHERE r.rolname = $1`, true, "membership of no role"},
+		{`SELECT EXISTS (SELECT 1 FROM pg_trigger t
+		     WHERE t.tgrelid = 'app.users'::regclass AND t.tgname = 'users_maintenance_guard' AND t.tgenabled = 'O'
+		       AND pg_get_triggerdef(t.oid) LIKE 'CREATE TRIGGER users_maintenance_guard BEFORE UPDATE ON app.users FOR EACH ROW WHEN%'
+		       AND pg_get_triggerdef(t.oid) LIKE '%' || $1 || '%')`, true, "a BEFORE UPDATE guard on app.users that fires for the role alone"},
+		{`SELECT NOT has_function_privilege('public', 'app.users_maintenance_guard()', 'EXECUTE') AND NOT has_function_privilege($1, 'app.users_maintenance_guard()', 'EXECUTE')`, true, "no EXECUTE on the users guard, which fires without it"},
 		{`SELECT rolcanlogin AND rolconnlimit = 2 AND NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)
 		    FROM pg_roles WHERE rolname = $1`, true, "a login role limited to two connections with no attribute"},
 	} {

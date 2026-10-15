@@ -3,9 +3,13 @@
 package maintenance_test
 
 import (
+	"errors"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"quizzivy/internal/core/maintenance"
 	classesapp "quizzivy/internal/modules/classes/application"
 	classescmd "quizzivy/internal/modules/classes/application/command"
@@ -186,5 +190,83 @@ func TestRetainIntegrityRunsAsTheMaintenanceRole(t *testing.T) {
 	}
 	if n := w.count(`SELECT count(*) FROM app.audit_log WHERE action = 'integrity.retained' AND diff->>'databaseRole' = $1`, maintenanceRole); n != 1 {
 		t.Errorf("%d retention entries written by the role", n)
+	}
+}
+
+func TestTheMaintenanceRoleCannotSetACredentialOrReopenAnAccount(t *testing.T) {
+	w := newRoleWorld(t)
+	staff := w.user("Quản trị đã khoá", "admin")
+	w.disable(staff, time.Now().Add(-24*time.Hour))
+	active := w.user("Giáo viên đang dùng", "teacher")
+	const known = `'$argon2id$v=19$m=65536,t=3,p=4$known'`
+	anonymous := func(id string) string { return `'anonymous-' || '` + id + `' || '@anonymous.invalid'` }
+	row := func(id string) string {
+		var s string
+		if err := w.q.QueryRow(w.ctx, `SELECT to_jsonb(u)::text FROM app.users u WHERE u.id = $1`, id).Scan(&s); err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	refuse := func(name, id, set string) {
+		t.Helper()
+		before := row(id)
+		_, err := w.conn.Exec(w.ctx, `UPDATE app.users SET `+set+` WHERE id = $1`, id)
+		var pg *pgconn.PgError
+		if !errors.As(err, &pg) || pg.Code != "42501" || !strings.Contains(pg.Message, "anonymised") {
+			t.Errorf("%s: err = %v, want the guard's 42501", name, err)
+		}
+		if after := row(id); after != before {
+			t.Errorf("%s changed the account:\n%s\n%s", name, before, after)
+		}
+	}
+
+	refuse("a new email", staff, `email = 'taken-over@example.test'`)
+	refuse("a known password hash", staff, `password_hash = `+known)
+	refuse("enabling the account again", staff, `disabled_at = NULL`)
+	refuse("a known password hash on an active account", active, `password_hash = `+known)
+	refuse("the three together", staff, `email = 'taken-over@example.test', password_hash = `+known+`, disabled_at = NULL`)
+	refuse("the reserved address with the hash left", staff, `email = `+anonymous(staff))
+	refuse("everything but the account still enabled", active, `email = `+anonymous(active)+`, display_name = NULL, phone = NULL,
+		avatar_key = NULL, password_hash = NULL, must_change_password = false, disabled_at = NULL`)
+	refuse("a name alone", active, `full_name = 'Người lạ'`)
+	pinned := map[string]string{
+		"the reserved address": `email = ` + anonymous(active),
+		"the password hash":    `password_hash = NULL`,
+		"must_change_password": `must_change_password = false`,
+		"the disabled mark":    `disabled_at = now()`,
+		"the phone":            `phone = NULL`,
+		"the photo reference":  `avatar_key = NULL`,
+		"the display name":     `display_name = NULL`,
+	}
+	for left := range pinned {
+		var set []string
+		for name, clause := range pinned {
+			if name != left {
+				set = append(set, clause)
+			}
+		}
+		slices.Sort(set)
+		refuse("anonymising everything but "+left, active, strings.Join(set, ", "))
+	}
+
+	if _, err := maintenance.AnonymizeUser(w.ctx, w.conn, staff, true); err != nil {
+		t.Fatalf("anonymising a disabled account: %v", err)
+	}
+	if _, err := maintenance.AnonymizeUser(w.ctx, w.conn, active, true); err != nil {
+		t.Fatalf("anonymising an active account on request: %v", err)
+	}
+	for _, id := range []string{staff, active} {
+		if n := w.count(`SELECT count(*) FROM app.users WHERE id = $1 AND email = 'anonymous-' || id::text || '@anonymous.invalid'
+			AND password_hash IS NULL AND disabled_at IS NOT NULL AND phone IS NULL AND avatar_key IS NULL AND display_name IS NULL`, id); n != 1 {
+			t.Errorf("account %s is not anonymised", id)
+		}
+		refuse("a new email after anonymising", id, `email = 'taken-over@example.test'`)
+		refuse("a known password hash after anonymising", id, `password_hash = `+known)
+		refuse("enabling the account again after anonymising", id, `disabled_at = NULL`)
+	}
+
+	w.exec(`UPDATE app.users SET email = 'owner-may@example.test', password_hash = 'hash', disabled_at = NULL WHERE id = $1`, staff)
+	if n := w.count(`SELECT count(*) FROM app.users WHERE id = $1 AND email = 'owner-may@example.test'`, staff); n != 1 {
+		t.Error("the guard also stopped the owner role from updating an account")
 	}
 }
