@@ -17,7 +17,7 @@ import { DataTable } from "@/components/shared/data/DataTable";
 import { FacetFilter } from "@/components/shared/data/FacetFilter";
 import { Pager } from "@/components/shared/data/Pager";
 import { LoadError } from "@/components/shared/ListState";
-import { SearchInput } from "@/components/shared/SearchInput";
+import { SearchInput, TOOLBAR_SEARCH } from "@/components/shared/SearchInput";
 import { Button } from "@/components/ui/button";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -58,9 +58,6 @@ import { statusOf } from "./studentText";
 const QUERY_KEY = ["teacher-students"] as const;
 
 const ACCOUNTS = ["active", "notSignedIn", "reset", "suspended"] as const;
-
-const SEARCH =
-  "w-auto min-w-0 flex-[0_1_300px] [&_input]:bg-card [&_input]:border-border [&_input]:h-8.5 [&_input]:pl-8.5 [&_input]:text-sm [&_svg]:top-[9.5px] [&_svg]:size-3.75";
 
 type Origin = RefObject<HTMLElement | null> | undefined;
 
@@ -511,7 +508,7 @@ export default function StudentsPage() {
 
       <div className="flex flex-wrap items-center gap-2">
         <SearchInput
-          className={SEARCH}
+          className={TOOLBAR_SEARCH}
           value={query}
           onChange={(value) => setFilter("q", value)}
           placeholder={t("students.searchPlaceholder")}
