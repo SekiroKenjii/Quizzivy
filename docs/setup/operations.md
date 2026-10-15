@@ -593,6 +593,35 @@ The lookup branch that still finds a scheme-1 row (so a revoked or expired
 legacy code answers as revoked or expired, not as unknown) stays until R5 removes
 it.
 
+## Stored emails the API cannot print
+
+The contract's `email` format used to accept `"qc tp"@example.com`: the request
+passed, the generated type stored the unquoted `qc tp@example.com`, and the same
+type could not print that value back, so the write committed and answered 500
+and every list holding the row answered 500 afterwards. The `email` format now
+accepts an address only if the bare address it yields parses to itself
+(`validation.ParseEmail`), so the row can no longer be created. Nothing in the
+release rewrites a stored value.
+
+Release check: run this read-only query with any credential that can read
+`app.users`, before and after the deploy. It lists accounts whose local part (the
+text before the last `@`) holds an ASCII control character, a space, any of
+`"(),:;<>@[\]`, DEL, or that begins or ends with a dot or holds two in a row.
+Nothing non-ASCII is refused by Go's address parser, so it has no Unicode clause.
+`stored_email_test.go` runs this text against `mail.ParseAddress`:
+
+```sql
+SELECT id, email
+  FROM app.users
+ WHERE regexp_replace(email, '@[^@]*$', '') ~ '[\x01-\x20"(),:;<>@\[\\\]\x7f]|^\.|\.$|\.\.'
+ ORDER BY created_at, id;
+```
+
+No rows is the expected answer. If it returns rows, the repair is per row and the
+owner's: correct the address, or disable the account. After the release such an
+account cannot sign in: the quoted form is refused, and the stored form fails the
+sign-in request's own check.
+
 ## AI provider key and tiers
 
 The AI assistant (D19, `docs/plan/74d-d4-deck-update.md` section G) calls
