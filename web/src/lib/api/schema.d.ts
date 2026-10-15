@@ -6766,7 +6766,10 @@ export interface components {
                 isCorrect: boolean;
             }[];
             blanks?: {
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Omit to create.
+                 */
                 id?: string | null;
                 gapId?: string | null;
                 ordinal: number;
@@ -6819,7 +6822,10 @@ export interface components {
                 isCorrect: boolean;
             }[];
             blanks?: {
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Omit to create.
+                 */
                 id?: string | null;
                 gapId?: string | null;
                 ordinal: number;
