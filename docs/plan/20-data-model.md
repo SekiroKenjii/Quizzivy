@@ -3743,7 +3743,9 @@ password" belongs to that task.
 **Retention.** The daily housekeeping (T-R5.16) deletes a link 30 days after it ended, by being used, revoked or
 expiring, whichever came first (`least(used_at, revoked_at, expires_at)`, `domain.SetPasswordLinksKept`), the
 earliest first and 500 at a time. A link that can still be used has not ended and is never touched, and a token
-whose row is gone is refused as any unknown one is. The scan has no index of its own, because the table holds the
+whose row is gone is refused as any unknown one is. The batch locks its rows `FOR UPDATE SKIP LOCKED`: a link that
+was never revoked is also a target of `RevokeUnused`, and a delete that waited on rows in its own order could
+deadlock with it; a locked row is left for the next run. The scan has no index of its own, because the table holds the
 links of 30 days; the cascade from `users` keeps using `set_password_tokens_user_idx`. The anonymisation command
 deletes a user's links outright (see States), so this sweep is for the links of accounts that live on.
 
@@ -3759,4 +3761,5 @@ link, mail or wake-up, issuing and using at once do not deadlock), `identity/htt
 per-token limits, a weak password spends the token's budget, the per-user limit of the request).
 `identity/application/tests/prune_set_password_links_test.go` and `prune_set_password_links_db_test.go` (the cutoff
 and the limit against a fake store; against Postgres, ten links in every state either side of 30 days, a live link
-untouched, the earliest first, and a second run changing nothing).
+untouched, the earliest first from rows inserted newest first, the edge to the microsecond, a row another transaction
+holds skipped without waiting, and a second run changing nothing).

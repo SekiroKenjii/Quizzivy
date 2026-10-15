@@ -143,10 +143,10 @@ func TestLinksArePrunedTheEarliestFirstAndAtMostLimitAtATime(t *testing.T) {
 	student := w.account(t, "hs", true)
 	now := time.Now().Truncate(time.Microsecond)
 
-	var ids []string
-	for i := range 5 {
-		created := now.Add(-3650*day - time.Duration(5-i)*day)
-		ids = append(ids, w.seed(t, student, seededLink{created: created, expires: created.Add(domain.SetPasswordLifetime)}))
+	ids := make([]string, 5)
+	for i := len(ids) - 1; i >= 0; i-- {
+		created := now.Add(-3650*day - time.Duration(len(ids)-i)*day)
+		ids[i] = w.seed(t, student, seededLink{created: created, expires: created.Add(domain.SetPasswordLifetime)})
 	}
 
 	if n := w.prune(t, 2); n != 2 {
@@ -163,6 +163,92 @@ func TestLinksArePrunedTheEarliestFirstAndAtMostLimitAtATime(t *testing.T) {
 	}
 	if got := w.linkIDs(t, student); len(got) != 0 {
 		t.Errorf("links left: %v", got)
+	}
+}
+
+func TestAtTheEdgeOnlyALinkThatEndedEarlierIsPruned(t *testing.T) {
+	w := newDBLinks(t)
+	student := w.account(t, "hs", true)
+	edge := time.Now().Add(-domain.SetPasswordLinksKept).Truncate(time.Microsecond)
+	lifetime := domain.SetPasswordLifetime
+
+	type seeded struct {
+		name string
+		id   string
+		gone bool
+	}
+	var rows []seeded
+	for _, offset := range []time.Duration{-time.Microsecond, 0, time.Microsecond} {
+		end := edge.Add(offset)
+		used, revoked := end.Add(-time.Hour), end.Add(-time.Hour)
+		for name, link := range map[string]seededLink{
+			"used":    {created: used, expires: used.Add(lifetime), used: at(end)},
+			"revoked": {created: revoked, expires: revoked.Add(lifetime), revoked: at(end)},
+			"expired": {created: end.Add(-lifetime), expires: end},
+		} {
+			rows = append(rows, seeded{name: name + " at " + offset.String(), id: w.seed(t, student, link), gone: offset < 0})
+		}
+	}
+
+	if _, err := w.links.Prune(context.Background(), edge, 10000); err != nil {
+		t.Fatal(err)
+	}
+
+	kept := w.linkIDs(t, student)
+	for _, r := range rows {
+		if stays := slices.Contains(kept, r.id); stays == r.gone {
+			t.Errorf("a link %s: kept = %v, want %v", r.name, stays, !r.gone)
+		}
+	}
+}
+
+func TestAPruneSkipsALinkAnotherTransactionHoldsAndTakesItNextTime(t *testing.T) {
+	w := newDBLinks(t)
+	student := w.account(t, "hs", true)
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Microsecond)
+	held, free := "", ""
+	for i, target := range []*string{&held, &free} {
+		created := now.Add(-3650*day - time.Duration(2-i)*day)
+		*target = w.seed(t, student, seededLink{created: created, expires: created.Add(domain.SetPasswordLifetime)})
+	}
+
+	tx, err := w.admin.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = tx.Rollback(ctx) })
+	if _, err := tx.Exec(ctx, `SELECT 1 FROM app.set_password_tokens WHERE id = $1::uuid FOR UPDATE`, held); err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := w.app.Commands.PruneSetPasswordLinks.Handle(ctx, command.PruneSetPasswordLinks{Limit: 10000})
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(10 * time.Second):
+		if err := tx.Rollback(ctx); err != nil {
+			t.Error(err)
+		}
+		<-done
+		t.Fatal("the prune waited for a link another transaction holds")
+	}
+	if got, want := w.linkIDs(t, student), []string{held}; !slices.Equal(got, want) {
+		t.Fatalf("links after the prune = %v, want only the held one %v", got, want)
+	}
+
+	if err := tx.Rollback(ctx); err != nil {
+		t.Fatal(err)
+	}
+	w.prune(t, 10000)
+	if got := w.linkIDs(t, student); len(got) != 0 {
+		t.Errorf("the next run left %v", got)
 	}
 }
 
