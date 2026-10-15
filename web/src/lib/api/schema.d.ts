@@ -2353,7 +2353,9 @@ export interface paths {
          * Add an account with a role
          * @description Creates an account of any role the caller may give (`listAssignableRoles`):
          *     its permissions, `learning.take_tests` apart, must be the caller's own,
-         *     and the Assistant is never offered. `created_by` is the caller.
+         *     and the Assistant is never offered. `created_by` is the caller. The role
+         *     is held against edits from the check to the commit; if it changed in
+         *     between, the check is made again, up to three times.
          *
          *     `delivery: email_link` sets no password and enqueues a set-password
          *     link (an invite) in the same transaction as the account, so the account
@@ -5131,9 +5133,23 @@ export interface components {
          */
         Workspace: "teacher" | "admin" | "app";
         /**
+         * @description The role the caller holds, on the caller's own document and nowhere
+         *     else, so no payload about another person names a role. `name` is the
+         *     stored name. A client shows a built-in role (`builtinKey` set) by its
+         *     localised name while the stored name is still the seeded one, and the
+         *     stored name otherwise, as the Roles screen does. Always sent by the
+         *     server, and optional in the schema as `preferences` is. It is not the
+         *     legacy `role` string of v0.9.x, which `User` still does not carry.
+         */
+        CurrentUserRole: {
+            id: components["schemas"]["Uuid"];
+            builtinKey: components["schemas"]["BuiltinRoleKey"] | null;
+            name: string;
+        };
+        /**
          * @description The signed-in user, as only the user sees it: `User`'s properties plus
-         *     the permissions the user's role holds, in catalogue order, and the
-         *     workspaces they open. Written flat, because a closed schema cannot be
+         *     the user's own role, the permissions it holds, in catalogue order, and
+         *     the workspaces they open. Written flat, because a closed schema cannot be
          *     extended with `allOf` (issue #41). `User` stays where a response
          *     describes someone else, so a student's permissions never reach a
          *     teacher's payload.
@@ -5171,6 +5187,7 @@ export interface components {
              *     `CurrentUser` and not on `User` or `StudentRow`.
              */
             passwordChangedAt?: string;
+            role?: components["schemas"]["CurrentUserRole"];
             permissions: components["schemas"]["PermissionKey"][];
             workspaces: components["schemas"]["Workspace"][];
         };
@@ -12880,7 +12897,10 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
-            /** @description `EMAIL_TAKEN` — already in use, compared case-insensitively. */
+            /**
+             * @description `EMAIL_TAKEN` — already in use, compared case-insensitively.
+             *     `STALE_WRITE` — the role changed three times while the account was being created; nothing was written, so the same request may be sent again.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;

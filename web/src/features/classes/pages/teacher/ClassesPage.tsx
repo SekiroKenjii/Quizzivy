@@ -190,7 +190,7 @@ export default function ClassesPage() {
     if (nothingYet && canWrite)
       return (
         <EmptyState
-          hint={t("classes.emptyHint")}
+          hint={t(joinOff ? "classes.emptyHintOff" : "classes.emptyHint")}
           action={
             <Button size="sm" onClick={() => setCreating(true)}>
               <Plus aria-hidden="true" />

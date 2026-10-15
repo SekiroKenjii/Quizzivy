@@ -93,6 +93,9 @@ func (a *AdminUsers) Create(ctx context.Context, req domain.WriteRequest, in dom
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	if err := lockRoleAt(ctx, tx, in.RoleID, in.RoleRevision); err != nil {
+		return domain.AdminUser{}, err
+	}
 	if in.ClassID != "" {
 		if err := lockOpenClass(ctx, tx, in.ClassID); err != nil {
 			return domain.AdminUser{}, err
@@ -138,6 +141,21 @@ func (a *AdminUsers) invite(ctx context.Context, tx pgx.Tx, userID string, issue
 	}
 	writes, afterCommit := a.links.Writes(tx)
 	return afterCommit, issue(ctx, writes, userID)
+}
+
+func lockRoleAt(ctx context.Context, tx pgx.Tx, roleID string, revision int64) error {
+	var found int64
+	err := tx.QueryRow(ctx, `SELECT revision FROM app.roles WHERE id = $1::uuid FOR SHARE`, roleID).Scan(&found)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ErrRoleChanged
+	}
+	if err != nil {
+		return fmt.Errorf("users: lock role: %w", err)
+	}
+	if found != revision {
+		return domain.ErrRoleChanged
+	}
+	return nil
 }
 
 func lockOpenClass(ctx context.Context, tx pgx.Tx, classID string) error {

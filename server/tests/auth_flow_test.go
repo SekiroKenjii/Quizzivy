@@ -14,15 +14,18 @@ func TestATeacherSignsInRefreshesAndSignsOut(t *testing.T) {
 	browser := w.browser()
 
 	first := browser.login(email, password)
-	if first["user"].(map[string]any)["email"] != email {
+	user := first["user"].(map[string]any)
+	if user["email"] != email {
 		t.Fatalf("login answered for someone else: %v", first["user"])
 	}
+	requireAdminRoleRecord(t, "login", user)
 
 	me := browser.must(http.StatusOK, http.MethodGet, "/auth/me", nil)
 	workspaces, _ := me["workspaces"].([]any)
-	if _, hasRole := me["role"]; hasRole || me["email"] != email || !slices.Contains(workspaces, any("teacher")) {
+	if me["email"] != email || !slices.Contains(workspaces, any("teacher")) {
 		t.Fatalf("/auth/me = %v", me)
 	}
+	requireAdminRoleRecord(t, "/auth/me", me)
 
 	refreshed := browser.must(http.StatusOK, http.MethodPost, "/auth/refresh", nil)
 	if token, _ := refreshed["accessToken"].(string); token == "" {
@@ -32,5 +35,14 @@ func TestATeacherSignsInRefreshesAndSignsOut(t *testing.T) {
 	browser.must(http.StatusNoContent, http.MethodPost, "/auth/logout", nil)
 	if status, _ := browser.call(http.MethodPost, "/auth/refresh", nil); status != http.StatusUnauthorized {
 		t.Fatalf("refresh after logout answered %d, want 401", status)
+	}
+}
+
+func requireAdminRoleRecord(t *testing.T, where string, user map[string]any) {
+	t.Helper()
+	role, ok := user["role"].(map[string]any)
+	id, _ := role["id"].(string)
+	if !ok || id == "" || role["builtinKey"] != "admin" || role["name"] != "Quản trị viên" || len(role) != 3 {
+		t.Fatalf("%s: role = %v, want the built-in Admin's record and nothing but id, builtinKey and name", where, user["role"])
 	}
 }

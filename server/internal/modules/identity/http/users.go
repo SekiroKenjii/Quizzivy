@@ -125,9 +125,15 @@ func createUserFailure(ctx context.Context, err error) (openapi.CreateUserRespon
 		return openapi.CreateUser400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(httpapi.FieldError(ctx, "classId",
 			httpx.Text(ctx, "Chỉ thêm được vào lớp khi vai trò là học viên và bạn có quyền trên mọi lớp.",
 				"A class can be set only for a student role, and only by someone who reaches every class.")))}, nil
-	case errors.Is(err, accessdomain.ErrRoleNotFound), errors.Is(err, domain.ErrClassNotFound):
+	case errors.Is(err, accessdomain.ErrRoleNotFound):
 		return openapi.CreateUser404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
-			httpapi.NotFound(ctx, httpx.Text(ctx, "Không tìm thấy vai trò hoặc lớp học.", "The role or the class was not found.")))}, nil
+			httpapi.NotFound(ctx, httpx.Text(ctx, "Không tìm thấy vai trò này.", "No such role.")))}, nil
+	case errors.Is(err, domain.ErrClassNotFound):
+		return openapi.CreateUser404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
+			httpapi.NotFound(ctx, httpx.Text(ctx, "Không tìm thấy lớp học này.", "No such class.")))}, nil
+	case errors.Is(err, domain.ErrRoleChanged):
+		return openapi.CreateUser409JSONResponse(httpapi.Error(ctx, openapi.STALEWRITE,
+			httpx.Text(ctx, "Vai trò vừa được thay đổi. Hãy thử lại.", "The role was just changed. Try again."))), nil
 	case errors.Is(err, accessdomain.ErrTargetRoleNotAllowed):
 		return openapi.CreateUser403JSONResponse(httpapi.Error(ctx, openapi.TARGETROLENOTALLOWED,
 			httpx.Text(ctx, "Bạn chỉ giao được những quyền bạn có.", "You can only give what you can do yourself."))), nil

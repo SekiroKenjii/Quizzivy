@@ -157,6 +157,10 @@ func (s *store) SignedDownloadURL(context.Context, string, string, time.Duration
 	return "", errors.New("the worker never signs")
 }
 
+func (s *store) Delete(context.Context, string) error {
+	return errors.New("the worker never deletes")
+}
+
 var _ ports.Store = (*store)(nil)
 
 type plain struct {
