@@ -156,7 +156,7 @@ log is never swept. Retention uses UTC calendar arithmetic and a strict `<` agai
 | Setting | Choices | Default | What the sweep does |
 |---|---|---|---|
 | `keep_answers_months` | 12, 24, or never | never | An attempt that has ended (submitted, timed out, graded or voided) and whose assignment has closed for that student before the cutoff has each answer's `payload` replaced by `{"removed": true}`. For a student, the assignment closes at the later of its own close and the extension a teacher gave them, so an extended student's answers stay until that date is past the cutoff too. An attempt voided before it was submitted ended, for this purpose, at its deadline. Scores, comments and the grader stay. An attempt still in progress is never touched, however overdue (below). One `retention.answers_removed` entry per batch. |
-| `keep_focus_events_months` | 6, 12, 13, 24 | 13 | Deletes `attempt_events` whose `received_at` and whose assignment's closure are both before the cutoff, as the command it replaces did: an extension given to one student does not hold their events back. One `integrity.retained` entry per batch. |
+| `keep_focus_events_months` | 6, 12, 13, 24 | 13 | Deletes `attempt_events` whose `received_at` is before the cutoff and whose assignment has closed for that attempt's student before it, with the same close as the answers rule: a later close a teacher gave that student holds their events back until it passes the cutoff too. The command it replaces read the assignment's own close alone, which predates the per-student close. One `integrity.retained` entry per batch. |
 | `anonymise_disabled_after_months` | 12, 24, or never | never | Anonymises accounts disabled before the cutoff, of any role. One `user.anonymized` entry per account. |
 
 An account that owns classes or content (a class it teaches, or a test, question, group, media file or
@@ -192,7 +192,7 @@ only this role (step 1 below). Migration `00139_grant_maintenance_role.sql` give
 exactly what the commands use, column by column, and fails when the role does not exist. It can
 read what the commands' predicates read, delete from `attempt_events`, `user_identities`,
 `refresh_tokens`, `notifications` and `ai_reservations`, write `payload` on `attempt_answers`,
-the identity columns on `users`, and insert into `audit_log`. It cannot `UPDATE` or `DELETE` the
+the identity columns on `users` (only to anonymise them, below), and insert into `audit_log`. It cannot `UPDATE` or `DELETE` the
 audit log, cannot touch `ai_usage_ledger`, and owns nothing.
 `server/internal/platform/db/tests/privileges_test.go` pins the whole list; a command that needs
 more adds the grant in its own migration.
@@ -203,17 +203,27 @@ places: the GitHub environment `production-maintenance` (as the secret
 
 **What a leaked `MAINTENANCE_DATABASE_URL` costs.** The role is the operator role for every
 `cmd/maintenance` command, not only the sweep, so its reach is the sum of them. Whoever holds the
-credential can read every answer payload and every account's name and email; write an account's
-identity columns and password hash and clear `disabled_at`, which is a full account takeover,
-Admin accounts included; move exam windows (`closes_at`, `deadline_at`) and the AI allowance and
-credit counters; and re-key join codes. It cannot read a password hash or a token hash, change a
-`role_id`, update or delete the audit log or the AI ledger, or create or own a table, schema or function. It can
-change its own password and create large objects, because PostgreSQL gives every role both. Treat
-the credential like the owner's: it lives only in the environment secret and on the operator's
-machine, behind the branch restriction and reviewers of step 2. To revoke it, run
-`ALTER ROLE quizzivy_maintenance NOLOGIN` as the owner; to replace it, run step 1 again with a new
-password and replace the secret. A second role that holds only the sweep's grants, for the workflow,
-would shrink this; it is open item O-R5.9 (`docs/plan/40-open-items.md`).
+credential can read every answer payload and every account's name and email; move exam windows
+(`closes_at`, `deadline_at`); change the AI allowance and credit counters; rewrite join-code
+ciphertexts; delete focus events and sessions (refresh tokens); and anonymise any account that
+owns no content and is not the last active Admin, which cannot be undone for that account's
+sign-in. It cannot sign in as anyone and cannot read a password or a token. A trigger on `app.users`
+(migration `00139`) refuses, with `42501`, every update the role makes that does not leave the
+account anonymised (the reserved address, no password hash, no phone, photo or display name, and
+disabled), so the role can set neither an email nor a password hash nor enable an account again,
+alone or together; and it holds no `INSERT` on `user_identities` or `set_password_tokens`, so it
+cannot reopen an anonymised row either. It also cannot change a `role_id`, update or delete the
+audit log or the AI ledger, or create or own a table, schema or function. It can change its own
+password and create large objects, because PostgreSQL gives every role both.
+
+The credential lives only in the environment secret and on the operator's machine. The repository's
+deploy credential reaches the application's own database URL, so it is a larger secret than this
+one and is the owner's too; a second, retention-only role for the workflow would shrink what is
+left here, and is open item O-R5.9 (`docs/plan/40-open-items.md`), to be done if the workflow ever
+runs another command or a second consumer holds the connection string. To revoke the credential,
+run `ALTER ROLE quizzivy_maintenance NOLOGIN` as the owner. To rotate it, run
+`ALTER ROLE quizzivy_maintenance PASSWORD '<new random password>'` as the owner (step 1 below does
+the same), then replace the secret `MAINTENANCE_DATABASE_URL` with the new connection string.
 
 ### The nightly workflow
 
@@ -242,7 +252,9 @@ The owner sets this up once, in this order:
    existing `quizzivy_migrate` or `quizzivy_app` (an exported `QUIZZIVY_MIGRATE_PASSWORD` or
    `QUIZZIVY_APP_PASSWORD` is ignored, with a note), never grants `CREATEDB`, refuses a
    development default such as `maintenance`, and refuses to create a role whose password
-   variable is not set. It repeats the grants of the original setup (`CONNECT` on the database,
+   variable is not set. Use the provider's own host. A tunnel to a production database on `localhost`
+   (`fly proxy`, an SSH forward) looks local to the script, which says so on stderr; run it with
+   `QUIZZIVY_MANAGED=1` and it applies the rules above. It repeats the grants of the original setup (`CONNECT` on the database,
    `public` denied to everyone but the migrate and app roles), which change nothing on a database
    already provisioned. Its last lines name the roles whose password it set: read them, and only
    `quizzivy_maintenance` should be listed. `scripts/ci/tests/provision-db.test.mjs` pins all of
@@ -250,14 +262,18 @@ The owner sets this up once, in this order:
    secret; rotate the other two roles' passwords in the provider's console. On a new managed
    database, set all three variables to new random values.
 2. Create the GitHub environment `production-maintenance`. Restrict its deployment branches to
-   the default branch **before** adding the secret: a manual run can be started on any branch, and
-   only that restriction keeps a pushed branch from running its own code with the credential.
-   Add required reviewers, so a manual run waits for a second person. Then add the secret
-   `MAINTENANCE_DATABASE_URL` for `quizzivy_maintenance`: the direct connection string, not the
-   pooled one, with `sslmode=require` kept, because the credential crosses the internet from a
-   GitHub runner. The workflow runs only GitHub's own `actions/checkout` and `actions/setup-go`, on major tags, as
-   `docs/setup/ci.md` ("Third-party actions") allows; any other action added to it must be pinned to a
-   commit SHA, because this workflow holds a database credential.
+   the default branch **before** adding the secret, and check the restriction in Settings,
+   Environments before the secret goes in: a manual run can be started on any branch, and only
+   that restriction keeps a pushed branch from running its own code with the credential. Do not
+   add required reviewers. A reviewer rule holds the scheduled run as well as the manual one, so
+   the nightly sweep would wait for a person every night; the branch restriction is the control,
+   and it can be verified. Then add the secret `MAINTENANCE_DATABASE_URL` for
+   `quizzivy_maintenance`: the direct connection string, not the pooled one, with
+   `sslmode=require` kept, because the credential crosses the internet from a GitHub runner. The
+   workflow runs only GitHub's own `actions/checkout` and `actions/setup-go`, each pinned to a
+   commit SHA with its tag in a trailing comment (stricter than `docs/setup/ci.md` asks of the
+   other workflows), because this job holds a database credential. Any action added to it is
+   pinned the same way, and `scripts/ci/tests/retention-sweep.test.mjs` fails otherwise.
 3. Run the workflow by hand with `apply` off and read the report (below).
 4. When the dry run counts what you expect, set the repository variable
    `RETENTION_SWEEP_ENABLED` to `true`.

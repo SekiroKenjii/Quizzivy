@@ -1542,7 +1542,7 @@ the file it adds.
 | `00136_create_user_import_jobs.sql` | `user_import_jobs`, its checks (counts, `attempts`, `user_import_jobs_done_settled`, `user_import_jobs_failed_has_code`, `user_import_jobs_completed_has_end`, `user_import_jobs_started_once_claimed`, `user_import_jobs_sheet_only_by_sheet`), `user_import_jobs_request_key` and the open-jobs index `user_import_jobs_open_idx` | R5 (T-R5.14), D-56, §55 |
 | `00137_create_user_import_rows.sql` | `user_import_rows`, its checks (`user_import_rows_outcome_check`, `user_import_rows_secret_only_when_created`) and the `user_id` and `class_id` partial indexes | R5 (T-R5.14), D-57, §55 |
 | `00138_index_users_search.sql` | `users_search_trgm_idx`, built `CONCURRENTLY` (no transaction) | R5 (T-R5.9a), D-58 |
-| `00139_grant_maintenance_role.sql` | the grants of `quizzivy_maintenance`, column by column; fails when the role is missing | R5 (T-R5.17a), §55 |
+| `00139_grant_maintenance_role.sql` | the grants of `quizzivy_maintenance`, column by column; fails when the role is missing; `app.users_maintenance_guard()` and its trigger `users_maintenance_guard` on `app.users` | R5 (T-R5.17a), §55 |
 
 Notes on migration mechanics (§13.7):
 
@@ -3887,7 +3887,21 @@ the command's pool is capped at two and the tests that connect as the role do no
 **Which answers are due (D-035).** `shared/retention.EndedBefore` over `AttemptJoins` reads an attempt's own
 student's close, `greatest(least(closed_at, closes_at), assignment_student_overrides.closes_at)`
 (`schedule.CloseOf("o")`), so an assignment reopened for one student does not lose that student's answers while it
-is open to them. The events step keeps `coalesce(closed_at, closes_at)` on the assignment, as the 00029 command did.
+is open to them. The events step reads the same close (`retention.ClosedBefore`, D-041): the 00029 command read
+`coalesce(closed_at, closes_at)` on the assignment alone, which predates R4's per-student closes (00101), so it was a
+rule nobody had revisited and not a decision, and two steps that disagree about when an assignment closed would be
+harder to explain than one.
+
+**The guard on `app.users` (D-042).** The role's `UPDATE` on the identity columns is what anonymising needs and is also
+what a leaked credential would use to take an account over. `app.users_maintenance_guard()` is a `SECURITY INVOKER`
+trigger function with a pinned `search_path`, no `EXECUTE` for `PUBLIC`, fired `BEFORE UPDATE FOR EACH ROW WHEN
+(current_user = 'quizzivy_maintenance')`; it raises `42501` unless the new row is anonymised:
+`email = 'anonymous-' || id || '@anonymous.invalid'`, `password_hash IS NULL`, `must_change_password = false`,
+`disabled_at IS NOT NULL`, and `phone`, `avatar_key` and `display_name` NULL. That is exactly what the anonymise
+statement writes and all it writes (`full_name` is a name, not a credential, and is not pinned). The role holds no
+`INSERT` on `user_identities` or `set_password_tokens`, so it cannot reopen an anonymised row. Every other role pays one
+`current_user` test. It does not look at the old row, so the role can still anonymise any account that is not the last
+active Admin and owns nothing, which `operations.md` states among the costs of a leak.
 Anonymisation clears `users.avatar_key` and does not delete the photo object, which T-R5.16's housekeeping removes
 for anonymised accounts (`email = 'anonymous-' || id || '@anonymous.invalid'`).
 
@@ -3896,7 +3910,7 @@ for anonymised accounts (`email = 'anonymous-' || id || '@anonymous.invalid'`).
 | `organization_settings` | `SELECT` | the three retention columns | the sweep, `retain-integrity` |
 | `attempts` | `SELECT`, `UPDATE` | `id, assignment_id, student_id, status, submitted_at, deadline_at`; `deadline_at` | the sweep and `anonymize-user` read; `window-schedule` extends |
 | `assignments` | `SELECT`, `UPDATE` | `id, created_by, published_at, closed_at, closes_at`; `closes_at` | the same |
-| `assignment_student_overrides` | `SELECT`, `UPDATE` | `assignment_id, student_id, closes_at`; `closes_at` | the answers step reads a student's own close; `window-schedule` (T-R4.12b) extends |
+| `assignment_student_overrides` | `SELECT`, `UPDATE` | `assignment_id, student_id, closes_at`; `closes_at` | the answers and events steps read a student's own close; `window-schedule` (T-R4.12b) extends |
 | `attempt_answers` | `SELECT`, `UPDATE` | `attempt_id, question_id, payload`; `payload` | the answers step |
 | `attempt_events` | `SELECT`, `DELETE` | `id, attempt_id, received_at` | the events step |
 | `users` | `SELECT`, `UPDATE` | `id, email, full_name, display_name, role_id, disabled_at`; `email, full_name, display_name, phone, avatar_key, password_hash, must_change_password, disabled_at` | the accounts step |
@@ -3929,7 +3943,8 @@ read once per step, and every comparison is a strict `<`. A row exactly at the c
 
 **Answers.** An attempt is eligible when it has ended, `status IN ('submitted', 'timed_out', 'graded',
 'voided')`, `coalesce(submitted_at, deadline_at)` is before the cutoff (a voided attempt that was never submitted
-ends at its deadline) and `least(closed_at, closes_at)` of its assignment, `schedule.CloseOf("")`, is too. The rule
+ends at its deadline) and the close of its assignment for its student, `schedule.CloseOf("o")` (`greatest(least(closed_at,
+closes_at), override.closes_at)`), is too. The rule
 is `shared/retention.EndedBefore`, which the sweep, its dry run and the settings page's impact count (T-R5.17b)
 all build their SQL from, and the statuses are listed so that a status added later has to be considered. An
 attempt in progress is never eligible, however overdue, because the lazy close that ends it scores it from the
@@ -3939,8 +3954,10 @@ is `-batch` attempts picked by id after the last one (a keyset, not an offset), 
 `FOR UPDATE OF x SKIP LOCKED`, and one `retention.answers_removed {cutoff, attempts, answers, databaseRole}`
 entry for the batch when it removed any. An answer row another transaction holds is skipped and taken by the next run.
 
-**Events.** `RetainEvents` with `keep_focus_events_months`; at the default 13 it deletes exactly what 00029's
-command deleted. A batch is `-batch` events in `(received_at, id)` order, and one `integrity.retained` entry
+**Events.** `RetainEvents` with `keep_focus_events_months`: an event is eligible when `received_at` is before the cutoff
+and the assignment has closed for the attempt's student before it (`retention.ClosedBefore`, the same close as the
+answers, D-041). At the default 13 it deletes what 00029's command deleted except the events of a student whose
+extension is still open. A batch is `-batch` events in `(received_at, id)` order, and one `integrity.retained` entry
 for the batch.
 
 **Accounts.** A user disabled before the cutoff, not already anonymous (`email = 'anonymous-' || id ||

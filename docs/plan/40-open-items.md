@@ -640,16 +640,21 @@ zero on a real installation. Not a gate for v0.12.0.
 ---
 
 ### O-R5.9 — A retention-only database role for the nightly workflow · R5 (T-R5.17a), any release
-**Default:** one operator role, `quizzivy_maintenance`, as T-R5.17a specified (2026-10-15). The
-GitHub environment secret `MAINTENANCE_DATABASE_URL` is that role, which every `cmd/maintenance`
-command uses: with it, someone can set an account's password hash and re-enable it, move exam
-windows and change AI credit counters (QC-RS-4). The environment's default-branch restriction and
-required reviewers, and the cost written in `docs/setup/operations.md`, stand in for a narrower
-credential. The better shape is a second role holding only what `retention-sweep` reads and writes
-(`UPDATE (payload)` on answers, `DELETE` on events, the accounts step's columns, `INSERT` on the audit
-log), created by `provision-db.sh` and given by its own migration, with the workflow using it; the
-operator's machine keeps the wider role. The alternative is a trigger that refuses a password hash
-or a re-enable written by this role. Not a gate for v0.12.0.
+**Default:** one operator role, `quizzivy_maintenance`, as T-R5.17a specified, made unable to take an
+account over (D-042, 2026-10-15). The GitHub environment secret `MAINTENANCE_DATABASE_URL` is that role,
+which every `cmd/maintenance` command uses. QC took a disabled Admin over with it (QC-RS-4), so 00139 carries
+a `BEFORE UPDATE` trigger on `app.users` that refuses, for this role alone, any update that does not leave the
+row anonymised; with it the role can set no email, no password hash and re-enable no account. What a leak still
+costs (answers and emails read, exam windows and AI credits moved, join codes and sessions rewritten, accounts
+anonymised) is written in `docs/setup/operations.md`, with the environment's default-branch restriction as a
+precondition to verify, no required reviewers (they would hold the scheduled run), and the rotation step.
+**Follow-up, not a gate:** a second role holding only what `retention-sweep` reads and writes (`UPDATE (payload)`
+on answers, `DELETE` on events, the accounts step's columns, `INSERT` on the audit log), created by
+`provision-db.sh` and given by its own migration, with the workflow using it and the operator's machine keeping
+the wider role. Do it if the workflow ever runs another command, a second consumer holds the connection string,
+or the nightly gains a write the trigger cannot pin. The repository's deploy credential already reaches the
+application's own database URL, so the second role would shrink the Actions-supply-chain and log-leak paths
+only.
 
 ---
 
