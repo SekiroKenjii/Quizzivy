@@ -760,6 +760,7 @@
     "uses": "Uses",
     "noActiveCode": "No active code. Students can only be added by you.",
     "archivedNoCode": "This class is archived, so nobody can join it. Restore it from Classes to make a code.",
+    "archivedNoCodeOff": "This class is archived, so nobody can join it.",
     "copyLink": "Copy link",
     "rotate": "New code",
     "issue": "Create code",
@@ -787,6 +788,7 @@
     "revokeConfirmBody": "Nobody can join with it any more. You can create a new one later.",
     "revokeConfirm": "Stop code",
     "removeConfirmBody": "Their submitted work and scores are kept. They can rejoin with a code.",
+    "removeConfirmBodyOff": "Their submitted work and scores are kept.",
     "removeConfirm": "Remove",
     "studentCount_one": "{{count}} student",
     "studentCount_other": "{{count}} students",
@@ -2602,6 +2604,7 @@
     "removeAll": "Remove",
     "removeAllTitle": "Remove {{name}} from their classes?",
     "removeAllBody": "{{name}} will leave: {{classes}}. Their account and results stay. They can rejoin with a class code.",
+    "removeAllBodyOff": "{{name}} will leave: {{classes}}. Their account and results stay.",
     "removedAll": "{{name}} removed from their classes",
     "move": {
       "titleOne": "Move {{name}}",

@@ -232,7 +232,7 @@ export function JoinCodePanel({
             }}
           />
         ) : null}
-        {info === null || archived ? null : (
+        {info === null || archived || joinOff ? null : (
           <p className="text-muted-fg text-xs leading-normal">
             {t("classDetail.newCodeNote")}
           </p>
@@ -321,7 +321,7 @@ function CodeActions({
     <>
       {archived ? (
         <p className="text-muted-fg text-xs leading-normal">
-          {t("classDetail.archivedNoCode")}
+          {t(joinOff ? "classDetail.archivedNoCodeOff" : "classDetail.archivedNoCode")}
         </p>
       ) : null}
       {archived && !hasCode ? null : (

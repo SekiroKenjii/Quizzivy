@@ -760,6 +760,7 @@
     "uses": "Lượt dùng",
     "noActiveCode": "Chưa có mã đang dùng. Chỉ bạn thêm được học viên vào lớp.",
     "archivedNoCode": "Lớp đã lưu trữ nên không ai tham gia được. Khôi phục lớp ở trang Lớp học để tạo mã.",
+    "archivedNoCodeOff": "Lớp đã lưu trữ nên không ai tham gia được.",
     "copyLink": "Chép liên kết",
     "rotate": "Mã mới",
     "issue": "Tạo mã",
@@ -787,6 +788,7 @@
     "revokeConfirmBody": "Không ai tham gia bằng mã này được nữa. Bạn có thể tạo mã mới sau.",
     "revokeConfirm": "Ngừng mã",
     "removeConfirmBody": "Bài đã nộp và điểm của học viên vẫn được giữ. Học viên có thể vào lại bằng mã.",
+    "removeConfirmBodyOff": "Bài đã nộp và điểm của học viên vẫn được giữ.",
     "removeConfirm": "Xoá",
     "studentCount_one": "{{count}} học viên",
     "studentCount_other": "{{count}} học viên",
@@ -2602,6 +2604,7 @@
     "removeAll": "Xoá khỏi lớp",
     "removeAllTitle": "Xoá {{name}} khỏi các lớp của học viên?",
     "removeAllBody": "{{name}} sẽ rời: {{classes}}. Tài khoản và kết quả vẫn được giữ. Học viên có thể vào lại lớp bằng mã lớp.",
+    "removeAllBodyOff": "{{name}} sẽ rời: {{classes}}. Tài khoản và kết quả vẫn được giữ.",
     "removedAll": "Đã xoá {{name}} khỏi các lớp",
     "move": {
       "titleOne": "Chuyển {{name}}",

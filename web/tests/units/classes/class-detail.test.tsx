@@ -419,6 +419,48 @@ describe("the members", () => {
     ).toBeVisible();
   });
 
+  it.each([
+    [true, "Học viên có thể vào lại bằng mã."],
+    [false, null],
+  ])(
+    "mentions rejoining with a code in the remove confirm only while joining by code is %s (QC-U-30)",
+    async (joinCodes, rejoin) => {
+      server.use(
+        http.get(`${BASE}/public/organization`, () =>
+          contractJson("/public/organization", "get", 200, {
+            name: "Quizzivy",
+            shortName: null,
+            website: null,
+            contactEmail: null,
+            frontDeskPhone: null,
+            frontDeskHours: null,
+            address: null,
+            logo: { lightUrl: null, darkUrl: null },
+            signIn: { google: true, password: true },
+            joinCodes,
+          }),
+        ),
+      );
+      const { user } = renderDetail();
+      const han = await memberRow("Phạm Gia Hân");
+      await user.click(
+        within(han).getByRole("button", { name: "Thao tác với Phạm Gia Hân" }),
+      );
+      await user.click(screen.getByRole("menuitem", { name: "Xoá khỏi lớp" }));
+      const dialog = await screen.findByRole("dialog", {
+        name: `Xoá Phạm Gia Hân khỏi ${klass.name}?`,
+      });
+      if (rejoin === null) {
+        await waitFor(() => expect(dialog).not.toHaveTextContent("vào lại"));
+        expect(dialog).toHaveTextContent(
+          "Bài đã nộp và điểm của học viên vẫn được giữ.",
+        );
+      } else {
+        await waitFor(() => expect(dialog).toHaveTextContent(rejoin));
+      }
+    },
+  );
+
   it("removes a member after a confirm naming them and the class, then gives focus to the members' search", async () => {
     const { user } = renderDetail();
     const han = await memberRow("Phạm Gia Hân");

@@ -224,7 +224,11 @@ export function ClassMembersCard({
           name: removing?.fullName ?? "",
           className: klass.name,
         })}
-        description={t("classDetail.removeConfirmBody")}
+        description={t(
+          joinOff
+            ? "classDetail.removeConfirmBodyOff"
+            : "classDetail.removeConfirmBody",
+        )}
         confirmLabel={t("classDetail.removeConfirm")}
         destructive
         pending={remove.isPending}
