@@ -15,8 +15,11 @@ const RemovedAnswer = `{"removed": true}`
 
 // AttemptJoins is what follows FROM app.attempts at for the two rules below:
 // the attempt's assignment, aliased a, and the override of the attempt's own
-// student, aliased o (schedule.OverrideJoin), read NULL when there is none.
-var AttemptJoins = `JOIN app.assignments a ON a.id = at.assignment_id ` + schedule.OverrideJoin("at.student_id")
+// student, aliased o, read NULL when there is none. The override is keyed on the
+// attempt's columns, not on a.id, so that its primary key answers it however many
+// overrides one student holds.
+var AttemptJoins = `JOIN app.assignments a ON a.id = at.assignment_id
+	LEFT JOIN app.assignment_student_overrides o ON o.assignment_id = at.assignment_id AND o.student_id = at.student_id`
 
 // EndedBefore is the rule as a boolean SQL expression over AttemptJoins, with
 // cutoff a SQL expression for the instant: the attempt has ended (submitted,
