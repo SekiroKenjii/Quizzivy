@@ -1,9 +1,15 @@
 import { createBrowserRouter, redirect, type RouteObject } from "react-router";
+import { ADMIN_PATHS } from "@/app/adminPaths";
 import { ErrorBoundary } from "@/app/ErrorBoundary";
 import NotFoundPage from "@/app/pages/NotFoundPage";
 import ForbiddenPage from "@/app/pages/ForbiddenPage";
 import { RequireSession } from "@/app/guards/RequireSession";
-import { StudentArea, TeacherWorkspace } from "@/app/guards/RequireWorkspace";
+import { RequirePermission } from "@/app/guards/RequirePermission";
+import {
+  AdminWorkspace,
+  StudentArea,
+  TeacherWorkspace,
+} from "@/app/guards/RequireWorkspace";
 import { HomeRedirect } from "@/app/guards/HomeRedirect";
 import {
   AssignmentPapersRedirect,
@@ -11,7 +17,8 @@ import {
 } from "@/app/LegacyTeacherRedirect";
 
 /**
- * §3's three route trees: public, /teacher for the teacher, /app for students.
+ * §3's four route trees: public, /teacher for the teacher, /admin for the
+ * Admin console and /app for students.
  *
  * Guards are pathless routes so the tree structure states who may see what,
  * rather than each page re-checking.
@@ -321,6 +328,120 @@ const teacherTree: RouteObject = {
   ],
 };
 
+const ADMIN_CRUMB = { key: "adminShell.crumb" } as const;
+
+const pending = page(() => import("@/features/admin-overview/pages/admin/PendingPage"));
+
+/**
+ * The Admin console (T-R5.20): behind the admin workspace, then the
+ * permission each route's handle names, in `AdminLayout`. Every route
+ * declares `crumb`, `width` (the page frame's maximum, 1320px, or 1080px for
+ * API reference and Settings) and `permission`, the `x-permission` of the
+ * operation its page opens with. The screens are R5's later tasks; each takes
+ * its route over from `pending`.
+ */
+const adminTree: RouteObject = {
+  path: "admin",
+  element: <AdminWorkspace />,
+  children: [
+    {
+      element: <RequirePermission />,
+      children: [
+        {
+          lazy: page(() => import("@/layouts/AdminLayout")),
+          children: [
+            {
+              index: true,
+              handle: {
+                crumb: [ADMIN_CRUMB, { key: "adminShell.nav.overview" }],
+                permission: "workspace.admin",
+                width: 1320,
+              },
+              lazy: pending,
+            },
+            {
+              path: "users",
+              handle: {
+                crumb: [ADMIN_CRUMB, { key: "adminShell.nav.users" }],
+                permission: "people.users.manage",
+                width: 1320,
+              },
+              lazy: pending,
+            },
+            {
+              path: "roles",
+              handle: {
+                crumb: [ADMIN_CRUMB, { key: "adminShell.nav.roles" }],
+                permission: "people.roles.manage",
+                width: 1320,
+              },
+              lazy: pending,
+            },
+            {
+              path: "classes",
+              handle: {
+                crumb: [ADMIN_CRUMB, { key: "adminShell.nav.classes" }],
+                permission: "scope.all",
+                width: 1320,
+              },
+              lazy: pending,
+            },
+            {
+              path: "ai",
+              handle: {
+                crumb: [ADMIN_CRUMB, { key: "adminShell.nav.ai" }],
+                permission: "ai.credits.manage",
+                width: 1320,
+              },
+              lazy: pending,
+            },
+            {
+              path: "audit",
+              handle: {
+                crumb: [ADMIN_CRUMB, { key: "adminShell.nav.audit" }],
+                permission: "system.audit.read",
+                width: 1320,
+              },
+              lazy: pending,
+            },
+            {
+              path: "api",
+              handle: {
+                crumb: [ADMIN_CRUMB, { key: "adminShell.nav.api" }],
+                permission: "system.api_reference",
+                width: 1080,
+              },
+              lazy: pending,
+            },
+            {
+              path: "settings/:section?",
+              handle: {
+                crumb: [ADMIN_CRUMB, { key: "adminShell.nav.settings" }],
+                permission: "system.settings.write",
+                width: 1080,
+              },
+              lazy: pending,
+            },
+            {
+              path: "exports/:id",
+              handle: {
+                crumb: [
+                  ADMIN_CRUMB,
+                  { key: "adminShell.nav.settings", to: ADMIN_PATHS.settings },
+                  { key: "adminShell.crumbExport" },
+                ],
+                permission: "system.data_export",
+                width: 1080,
+              },
+              lazy: pending,
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
 /**
  * One student layout: a detail screen declares `handle.detail`, which below
  * 768px swaps the logo for a back arrow and that title and hides the tab bar.
@@ -390,6 +511,7 @@ const protectedTree: RouteObject = {
       lazy: page(() => import("@/features/auth/pages/ChangePasswordPage")),
     },
     teacherTree,
+    adminTree,
     studentTree,
     takeTestTree,
   ],

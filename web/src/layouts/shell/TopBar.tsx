@@ -16,12 +16,12 @@ const KEY_CAP =
   "bg-muted text-muted-fg in-data-[scale=deck]:text-2xs h-auto min-w-0 border-b leading-3.5";
 
 /**
- * TopBar is the teacher shell's 56px bar: the sidebar toggle, the breadcrumb
- * trail, the search button that opens the command palette, the switch
- * between the light and dark themes, then `bell`. `drawer` says the sidebar
- * is the drawer below 768px, where the toggle opens it; from 768px the toggle
- * collapses and expands the sidebar, and `expanded` is the state it reports
- * either way.
+ * TopBar is a console's 56px bar: the sidebar toggle, the breadcrumb trail,
+ * the search button that opens the command palette when `onSearch` is given,
+ * the switch between the light and dark themes, then `end`. `drawer` says the
+ * sidebar is the drawer below 768px, where the toggle opens it; from 768px
+ * the toggle collapses and expands the sidebar, and `expanded` is the state
+ * it reports either way.
  */
 export function TopBar({
   drawer,
@@ -30,15 +30,15 @@ export function TopBar({
   toggleRef,
   trail,
   onSearch,
-  bell,
+  end,
 }: Readonly<{
   drawer: boolean;
   expanded: boolean;
   onToggle: () => void;
   toggleRef: Ref<HTMLButtonElement>;
   trail: readonly PageCrumb[];
-  onSearch: () => void;
-  bell?: ReactNode;
+  onSearch?: () => void;
+  end?: ReactNode;
 }>) {
   const { t } = useTranslation();
   const theme = useResolvedTheme();
@@ -66,23 +66,25 @@ export function TopBar({
       <span aria-hidden="true" className="bg-border mx-1 h-4.5 w-px flex-none" />
       <Breadcrumbs trail={trail} />
       <div className="ml-auto flex flex-none items-center gap-1.5">
-        <button
-          type="button"
-          onClick={onSearch}
-          aria-label={t("teacherShell.search")}
-          className="bg-card text-muted-fg hover:bg-muted flex h-8.5 w-8.5 flex-none items-center gap-2 rounded-md border pr-2 pl-2.5 text-sm min-[768px]:w-50 min-[1100px]:w-65"
-        >
-          <Search className="size-[0.9375rem] flex-none" aria-hidden="true" />
-          <span className="hidden min-w-0 flex-1 truncate text-left leading-4 min-[768px]:block">
-            {t("teacherShell.search")}
-          </span>
-          <span className="hidden flex-none gap-0.5 min-[768px]:flex">
-            <Kbd className={KEY_CAP}>
-              <CommandKey />
-            </Kbd>
-            <Kbd className={KEY_CAP}>{t("palette.keyK")}</Kbd>
-          </span>
-        </button>
+        {onSearch && (
+          <button
+            type="button"
+            onClick={onSearch}
+            aria-label={t("teacherShell.search")}
+            className="bg-card text-muted-fg hover:bg-muted flex h-8.5 w-8.5 flex-none items-center gap-2 rounded-md border pr-2 pl-2.5 text-sm min-[768px]:w-50 min-[1100px]:w-65"
+          >
+            <Search className="size-[0.9375rem] flex-none" aria-hidden="true" />
+            <span className="hidden min-w-0 flex-1 truncate text-left leading-4 min-[768px]:block">
+              {t("teacherShell.search")}
+            </span>
+            <span className="hidden flex-none gap-0.5 min-[768px]:flex">
+              <Kbd className={KEY_CAP}>
+                <CommandKey />
+              </Kbd>
+              <Kbd className={KEY_CAP}>{t("palette.keyK")}</Kbd>
+            </span>
+          </button>
+        )}
         <button
           type="button"
           disabled={preferenceStatus.phase === "saving"}
@@ -94,7 +96,7 @@ export function TopBar({
         >
           <ThemeIcon className="size-[1.0625rem]" aria-hidden="true" />
         </button>
-        {bell}
+        {end}
       </div>
     </header>
   );

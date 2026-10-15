@@ -11,8 +11,9 @@ const BARS = [0, 1, 2, 3];
  * password field. `revealed` turns the unmet rules into errors once the user
  * has tried to save. The third rule, a different password from the one it
  * replaces, only the server can check: it stays a stated rule until `refusal`
- * carries the server's reason; `replacing={false}`, for a password set from
- * a link, leaves it out. `id` names the checklist for the field's
+ * carries the server's reason; `replaces` says whether it is the temporary
+ * password or the user's current one, and `"none"`, for a password set from
+ * a link, leaves the rule out. `id` names the checklist for the field's
  * `aria-describedby`.
  */
 export function PasswordRules({
@@ -20,14 +21,14 @@ export function PasswordRules({
   password,
   revealed,
   refusal,
-  replacing = true,
+  replaces = "temporary",
   className,
 }: Readonly<{
   id: string;
   password: string;
   revealed: boolean;
   refusal: string | null;
-  replacing?: boolean;
+  replaces?: "temporary" | "current" | "none";
   className?: string;
 }>) {
   const { t } = useTranslation();
@@ -55,8 +56,15 @@ export function PasswordRules({
           label={t("changePassword.rules.numberOrSymbol")}
         />
         {refusal && <Rule state="failed" label={refusal} />}
-        {!refusal && replacing && (
-          <Rule state="stated" label={t("changePassword.rules.different")} />
+        {!refusal && replaces !== "none" && (
+          <Rule
+            state="stated"
+            label={t(
+              replaces === "current"
+                ? "changePassword.rules.differentCurrent"
+                : "changePassword.rules.different",
+            )}
+          />
         )}
       </ul>
     </div>

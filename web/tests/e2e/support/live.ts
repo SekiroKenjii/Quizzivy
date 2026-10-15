@@ -24,7 +24,16 @@ export async function signIn(page: Page, who: typeof ADMIN, landing: RegExp) {
 }
 
 export const signInAsStudent = (page: Page) => signIn(page, STUDENT, /\/app$/);
-export const signInAsAdmin = (page: Page) => signIn(page, ADMIN, /\/teacher$/);
+/**
+ * signInAsAdmin signs in as the seeded Admin, who opens the Admin console the
+ * first time and the teacher's console after switching, and ends in the
+ * teacher's console, where the specs author and assign.
+ */
+export async function signInAsAdmin(page: Page) {
+  await signIn(page, ADMIN, /\/(admin|teacher)$/);
+  await page.goto("/teacher");
+  await expect(page).toHaveURL(/\/teacher$/);
+}
 
 /**
  * Opens an assignment by id and starts or resumes it, returning the attempt id.

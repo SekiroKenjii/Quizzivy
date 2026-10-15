@@ -507,7 +507,8 @@
   animation: qz-shimmer 1.4s linear infinite;
 }
 
-[data-slot="teacher-skeleton"]:is(:hover, :focus-within) [data-slot="skeleton"] {
+[data-slot="teacher-skeleton"]:is(:hover, :focus-within) [data-slot="skeleton"],
+[data-slot="admin-skeleton"]:is(:hover, :focus-within) [data-slot="skeleton"] {
   animation-play-state: paused;
 }
 

@@ -336,7 +336,7 @@ function SetPasswordForm({
           password={password}
           revealed={revealed}
           refusal={tooLong ? t(TOO_LONG) : null}
-          replacing={false}
+          replaces="none"
           className="-mt-2.5"
         />
 

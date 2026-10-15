@@ -3426,6 +3426,14 @@
           "largerTestText": {
             "type": "boolean"
           },
+          "workspace": {
+            "type": "string",
+            "enum": [
+              "teacher",
+              "admin"
+            ],
+            "description": "The console the user last switched to. A built-in Admin, who holds\nboth, opens it after sign-in; omitted, the Admin console.\n"
+          },
           "assignmentDefaults": {
             "type": "object",
             "additionalProperties": false,
