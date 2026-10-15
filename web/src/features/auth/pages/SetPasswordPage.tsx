@@ -401,7 +401,10 @@ function SetPasswordForm({
         <Button
           type="submit"
           size="xl"
-          className={cn("group/set-busy h-12", !ready && "opacity-50")}
+          className={cn(
+            "group/set-busy h-12",
+            !ready && "aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50",
+          )}
           aria-disabled={!ready || undefined}
           aria-busy={busy || undefined}
         >

@@ -196,7 +196,10 @@ export default function ChangePasswordPage() {
         <Button
           type="submit"
           size="xl"
-          className={cn("h-12", !ready && "opacity-50")}
+          className={cn(
+            "h-12",
+            !ready && "aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50",
+          )}
           aria-disabled={!ready || undefined}
           aria-busy={busy || undefined}
         >
