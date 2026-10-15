@@ -3742,7 +3742,16 @@ asked while signed in on purpose, and using the link ends the other sessions. A 
 `user_identities` row, since setting a password adds a way in and removes none.
 
 **Not here.** A reset does not clear the account's current password; T-R5.9b's "a link reset clears the
-password" belongs to that task. Nothing prunes used or expired rows yet; T-R5.16's housekeeping is the place.
+password" belongs to that task.
+
+**Retention.** The daily housekeeping (T-R5.16) deletes a link 30 days after it ended, by being used, revoked or
+expiring, whichever came first (`least(used_at, revoked_at, expires_at)`, `domain.SetPasswordLinksKept`), the
+earliest first and 500 at a time. A link that can still be used has not ended and is never touched, and a token
+whose row is gone is refused as any unknown one is. The batch locks its rows `FOR UPDATE SKIP LOCKED`: a link that
+was never revoked is also a target of `RevokeUnused`, and a delete that waited on rows in its own order could
+deadlock with it; a locked row is left for the next run. The scan has no index of its own, because the table holds the
+links of 30 days; the cascade from `users` keeps using `set_password_tokens_user_idx`. The anonymisation command
+deletes a user's links outright (see States), so this sweep is for the links of accounts that live on.
 
 **Tests.** `identity/domain/tests/setpassword_test.go` (token shape, the purposes, the usable states),
 `identity/application/tests/set_password_test.go` (every path against fakes: the order of the writes, forgets
@@ -3754,6 +3763,10 @@ link, mail or wake-up, issuing and using at once do not deadlock), `identity/htt
 `platform/db/tests/set_password_tokens_test.go` (each constraint fires, the cascade and the `SET NULL`) and
 `core/router/tests/set_password_limits_test.go` (a class of 40 behind one address, the per-address and
 per-token limits, a weak password spends the token's budget, the per-user limit of the request).
+`identity/application/tests/prune_set_password_links_test.go` and `prune_set_password_links_db_test.go` (the cutoff
+and the limit against a fake store; against Postgres, ten links in every state either side of 30 days, a live link
+untouched, the earliest first from rows inserted newest first, the edge to the microsecond, a row another transaction
+holds skipped without waiting, and a second run changing nothing).
 
 ## 54. User imports (T-R5.14)
 

@@ -336,6 +336,7 @@ function ReplacedCodesCallout() {
   const locale = useLocale();
   const list = useNotificationList("teacher");
   const mark = useMarkNotificationsRead("teacher");
+  const joinOff = useJoinCodesOff();
   const [dismissed, setDismissed] = useState<string | null>(null);
   const notice = list.items.find(
     (item) =>
@@ -352,7 +353,9 @@ function ReplacedCodesCallout() {
         mark.mutate([notice.id]);
       }}
     >
-      {t("classes.codesReplaced", { date: formatDate(notice.createdAt, locale) })}
+      {t(joinOff ? "classes.codesReplacedOff" : "classes.codesReplaced", {
+        date: formatDate(notice.createdAt, locale),
+      })}
     </Callout>
   );
 }

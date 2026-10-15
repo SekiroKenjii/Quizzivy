@@ -501,6 +501,8 @@ live in `src/index.css`, which it does not scan.
 Every control has a visible `:focus-visible` ring, although the deck draws none.
 Its colour is `--focus`, which `tokens.test.ts` holds at 3:1 or more on `--bg`,
 `--card`, `--sidebar` and `--muted` in both themes.
+A control paused with `aria-disabled` stays focusable and fades its colours, never
+the element's opacity, which halves its focus outline.
 Continuous motion (the marquee on overflowing titles, the live dot) pauses on
 hover and focus and is static under `prefers-reduced-motion`.
 
