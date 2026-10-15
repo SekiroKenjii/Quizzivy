@@ -132,3 +132,66 @@ func TestARepeatInABodyTheValidatorRewroteIsPassedOnAsItWasRead(t *testing.T) {
 		t.Errorf("with reason: answer = %s %q, want VALIDATION_FAILED %q", body.Error.Code, body.Error.Message, want)
 	}
 }
+
+func TestAnEmailTheMarshallerCannotPrintIsRefusedAtTheContract(t *testing.T) {
+	const studentID = "019535d9-3df7-79fb-b466-fa907fa17f9e"
+	for name, operation := range map[string]struct {
+		method, path, pattern string
+		body                  func(email string) map[string]any
+	}{
+		"login": {http.MethodPost, "/auth/login", "POST /auth/login", func(email string) map[string]any {
+			return map[string]any{"email": email, "password": "mat-khau-dai-du"}
+		}},
+		"createStudent": {http.MethodPost, "/teacher/students", "POST /teacher/students", func(email string) map[string]any {
+			return map[string]any{"email": email, "fullName": "Học viên"}
+		}},
+		"updateStudent": {http.MethodPatch, "/teacher/students/" + studentID, "PATCH /teacher/students/{id}", func(email string) map[string]any {
+			return map[string]any{"email": email}
+		}},
+	} {
+		var reached bool
+		handler := validatorUnderTest(t)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			reached = true
+			w.WriteHeader(http.StatusNoContent)
+		}))
+		send := func(email string) *httptest.ResponseRecorder {
+			reached = false
+			raw, err := json.Marshal(operation.body(email))
+			if err != nil {
+				t.Fatal(err)
+			}
+			req := httptest.NewRequest(operation.method, operation.path, strings.NewReader(string(raw)))
+			req.Header.Set("Content-Type", "application/json")
+			req.Pattern = operation.pattern
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			return rec
+		}
+
+		for _, email := range []string{`"qc tp"@example.com`, `"a..b"@example.com`, `"a\"b"@example.com`, `Name <"a b"@example.com>`} {
+			rec := send(email)
+			if reached {
+				t.Errorf("%s with %s: the address reached the handler", name, email)
+				continue
+			}
+			var body struct {
+				Error struct {
+					Code    string `json:"code"`
+					Message string `json:"message"`
+				} `json:"error"`
+			}
+			if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+				t.Errorf("%s with %s: response is not the error envelope: %v", name, email, err)
+				continue
+			}
+			if want := `Trường "email" không hợp lệ.`; rec.Code != http.StatusBadRequest || body.Error.Code != "VALIDATION_FAILED" || body.Error.Message != want {
+				t.Errorf("%s with %s: answer = %d %s %q, want 400 VALIDATION_FAILED %q", name, email, rec.Code, body.Error.Code, body.Error.Message, want)
+			}
+		}
+		for _, email := range []string{"hoc.sinh@example.com", `"hoc.sinh"@example.com`, "Học viên <hoc.sinh@example.com>"} {
+			if rec := send(email); !reached {
+				t.Errorf("%s with %s: refused with %d %s", name, email, rec.Code, rec.Body.String())
+			}
+		}
+	}
+}
