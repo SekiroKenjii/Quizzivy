@@ -7,6 +7,7 @@ import {
 import { saveStrandedDraft } from "@/features/take-test/strandedDraft";
 import { formatInTimeZone } from "date-fns-tz";
 import { api, downloadFile } from "@/lib/api/client";
+import { ApiError } from "@/lib/api/errors";
 import { getDisplayTimeZone } from "@/lib/i18n/datetime";
 import type { components } from "@/lib/api/schema";
 
@@ -89,23 +90,29 @@ export function getMyAssignment(id: string, signal?: AbortSignal) {
  * only when that read answers `superseded`, because another tab or device has
  * taken the attempt, does it resume, which takes the attempt back and records
  * the takeover. A tab that holds none resumes at once. A resume names the
- * attempt and never starts one: a 409 `ATTEMPT_CLOSED` means it has ended. It
- * rejects without either when the stranded answers could not be sent. The tab
- * then holds the session the resume returned.
+ * attempt and never starts one: a 409 `ATTEMPT_CLOSED` means it has ended, and
+ * the tab forgets its session. It rejects without either when the stranded
+ * answers could not be sent. The tab then holds the session the resume
+ * returned, and keeps the one it held when the resume fails.
  */
 export async function continueAttempt(assignmentId: string, attemptId: string) {
   await saveStrandedDraft(attemptId);
   if (heldSession(attemptId) !== null) {
     const read = await getAttempt(attemptId);
     if (read.superseded !== true) return read;
-    releaseSession(attemptId);
   }
-  const session = await api("post", "/app/assignments/{id}/attempts", {
-    path: { id: assignmentId },
-    body: { resume: attemptId },
-  });
-  holdSession(session.attempt.id, session.sessionId);
-  return session;
+  try {
+    const session = await api("post", "/app/assignments/{id}/attempts", {
+      path: { id: assignmentId },
+      body: { resume: attemptId },
+    });
+    holdSession(session.attempt.id, session.sessionId);
+    return session;
+  } catch (error) {
+    if (error instanceof ApiError && error.code === "ATTEMPT_CLOSED")
+      releaseSession(attemptId);
+    throw error;
+  }
 }
 
 /**

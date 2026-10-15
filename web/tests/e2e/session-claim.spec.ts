@@ -186,3 +186,30 @@ test("Continue in a tab that holds no session resumes, and its reload keeps the 
   expect(server.resumed).toBe(1);
   expect(server.named.at(-1)).toBe(S2);
 });
+
+test("Continue in a tab another device took over resumes once, and the tab saves under the new session", async ({
+  page,
+}) => {
+  const server = backend();
+  server.taken = true;
+  await serve(page, server);
+  await page.addInitScript(
+    ([key, sessionId]) => {
+      if (sessionStorage.getItem(key) === null) sessionStorage.setItem(key, sessionId);
+    },
+    [HELD, S1] as const,
+  );
+
+  await page.goto("/app");
+  await page.getByRole("button", { name: "Tiếp tục làm bài" }).click();
+  await expect(page).toHaveURL(/\/app\/attempts\/paper$/);
+  await expect(choiceA(page)).toBeEnabled();
+  expect(server.resumed).toBe(1);
+  await expect(page.getByText(BAR)).toHaveCount(0);
+  expect(server.named[0]).toBe(S1);
+
+  await page.locator("label").filter({ hasText: "Đáp án A" }).click();
+  await expect.poll(() => server.saves.length).toBe(1);
+  expect(server.saves[0]).toMatchObject({ sessionId: S2 });
+  expect(await page.evaluate((key) => sessionStorage.getItem(key), HELD)).toBe(S2);
+});

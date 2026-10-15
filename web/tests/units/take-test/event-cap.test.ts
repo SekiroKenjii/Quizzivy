@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { useTakeTestStore } from "@/features/take-test/store";
-import { saveAnswers } from "@/features/take-test/api";
+import { saveAnswers, submitAttempt } from "@/features/take-test/api";
 import {
   beginSession,
   clearSession,
@@ -18,6 +18,7 @@ vi.mock("@/features/take-test/api", () => ({
 }));
 
 const saved = vi.mocked(saveAnswers);
+const submitted = vi.mocked(submitAttempt);
 const serverNow = new Date("2026-09-01T08:00:00.000Z");
 const deadline = new Date("2026-09-01T08:30:00.000Z");
 const store = () => useTakeTestStore.getState();
@@ -31,6 +32,9 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(serverNow);
   saved.mockReset().mockResolvedValue(reply);
+  submitted
+    .mockReset()
+    .mockResolvedValue({ submittedAt: serverNow.toISOString() } as never);
   sessionStorage.clear();
   clearSession("att-1");
   store().reset();
@@ -77,4 +81,32 @@ it("keeps the events of a request that failed, so the next one carries them", as
   await store().flush();
 
   expect(pending()).toHaveLength(600);
+});
+
+it.each(["manual", "auto_submit"] as const)(
+  "sends every waiting event before a %s submit, in slices of 500",
+  async (reason) => {
+    for (let at = 0; at < 1_200; at += 1) record("att-1", "window_blur");
+    store().setAnswer("q1", { type: "choice", optionIds: ["a"] });
+
+    await store().submit(reason);
+
+    expect(saved.mock.calls.map((call) => call[1].events?.length)).toEqual([
+      500, 500, 200,
+    ]);
+    expect(pending()).toEqual([]);
+    expect(submitted).toHaveBeenCalledOnce();
+    expect(store().submitState).toBe("done");
+  },
+);
+
+it("stops sending at a slice the server refuses and does not submit an auto_submit", async () => {
+  saved.mockResolvedValueOnce(reply).mockRejectedValue(new Error("offline"));
+  for (let at = 0; at < 1_200; at += 1) record("att-1", "window_blur");
+
+  await store().submit("auto_submit");
+
+  expect(saved).toHaveBeenCalledTimes(2);
+  expect(submitted).not.toHaveBeenCalled();
+  expect(store().submitState).toBe("idle");
 });

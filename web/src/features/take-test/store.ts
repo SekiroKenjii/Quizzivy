@@ -6,6 +6,7 @@ import {
   pending as pendingEvents,
   restore as restoreEvents,
 } from "@/features/integrity/buffer";
+import { abandonSession } from "@/features/integrity/sendHeld";
 import { ApiError } from "@/lib/api/errors";
 import { releaseSession } from "./heldSession";
 import { remainingMs } from "./timeLeft";
@@ -318,8 +319,11 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
     set({ submitState: "inFlight", submitReason: reason });
     try {
       let saved = await get().flush();
-      if (generation !== epoch) return;
-      if (saved && get().dirty.size > 0) saved = await get().flush();
+      let left = Infinity;
+      while (saved && generation === epoch && waiting() > 0 && waiting() < left) {
+        left = waiting();
+        saved = await get().flush();
+      }
       if (generation !== epoch) return;
       if (
         get().lock === "superseded" ||
@@ -381,6 +385,10 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
   },
 }));
 
+function waiting(): number {
+  return useTakeTestStore.getState().dirty.size + pendingEvents().length;
+}
+
 function serverNow(state: Pick<TakeTestState, "offsetMs">): string {
   return new Date(Date.now() + state.offsetMs).toISOString();
 }
@@ -419,15 +427,7 @@ export function cancelDeadline() {
 }
 
 useTakeTestStore.subscribe((state, previous) => {
-  if (state.lock !== null && state.lock !== previous.lock)
-    useGroupPlaybackStore.getState().lockNow(state.lock);
-  if (
-    state.lock !== previous.lock &&
-    (state.lock === "closed" || state.lock === "superseded")
-  )
-    cancelDeadline();
-  if (state.lock === "closed" && previous.lock !== "closed" && state.attemptId !== null)
-    releaseSession(state.attemptId);
+  if (state.lock !== previous.lock) onLock(state);
   if (
     state.attemptId !== null &&
     state.studentId !== null &&
@@ -453,6 +453,16 @@ useTakeTestStore.subscribe((state, previous) => {
     armDeadline();
   }
 });
+
+function onLock(state: TakeTestState): void {
+  if (state.lock === null) return;
+  useGroupPlaybackStore.getState().lockNow(state.lock);
+  if (state.lock === "closed" || state.lock === "superseded") cancelDeadline();
+  if (state.attemptId === null) return;
+  if (state.lock === "closed") releaseSession(state.attemptId);
+  if (state.lock === "superseded" && state.sessionId !== null)
+    void abandonSession(state.attemptId, state.sessionId);
+}
 
 const FLAGS_PREFIX = "quizzivy.flags.";
 

@@ -1,15 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { flushEvents, type IntegrityPolicy } from "@/features/take-test/api";
+import type { IntegrityPolicy } from "@/features/take-test/api";
 import { useAppState, type Overlay } from "@/stores/appState";
-import {
-  beginSession,
-  drain,
-  inBatches,
-  pending,
-  record,
-  type Buffered,
-} from "./buffer";
-import { sendBeaconFlush } from "./beacon";
+import { beginSession, pending, record } from "./buffer";
+import { flushByBeacon } from "./beacon";
+import { sendHeld } from "./sendHeld";
 import { isFullscreen } from "./fullscreen";
 
 /** What the screen renders from the monitor. Everything else it records. */
@@ -60,18 +54,22 @@ export function useIntegrityMonitor({
   useEffect(() => {
     if (attemptId === null || sessionId === null) return;
     const stranded = beginSession(attemptId, sessionId);
-    if (stranded !== null) void sendStranded(attemptId, stranded);
+    if (stranded !== null)
+      void sendHeld(attemptId, stranded.sessionId, stranded.events);
 
     // One episode at a time.
     let awaySince: number | null = null;
+    let unloading = false;
 
-    const note = (kind: string, meta?: Record<string, unknown>) =>
+    const note = (kind: string, meta?: Record<string, unknown>) => {
+      if (unloading) return;
       record(attemptId, kind, {
         ...(latest.current.questionId === null
           ? {}
           : { questionId: latest.current.questionId }),
         ...(meta === undefined ? {} : { meta }),
       });
+    };
 
     const leave = (kind: string) => {
       if (pausing(useAppState.getState().overlay)) return;
@@ -121,16 +119,12 @@ export function useIntegrityMonitor({
       if (latest.current.policy?.blockCopyPaste === true) event.preventDefault();
     };
 
-    const onPageHide = () => {
+    const onPageHide = (event: PageTransitionEvent) => {
       note("page_hide");
+      if (!event.persisted) unloading = true;
       const { sessionId: session, beaconToken: token } = latest.current;
-      if (session === null || token === "") return;
-      sendBeaconFlush({
-        attemptId,
-        sessionId: session,
-        beaconToken: token,
-        events: drain(attemptId),
-      });
+      if (session !== null && token !== "")
+        flushByBeacon({ attemptId, sessionId: session, beaconToken: token });
     };
 
     const unsubscribe = useAppState.subscribe((state) => {
@@ -166,15 +160,6 @@ export function useIntegrityMonitor({
   }, [attemptId, sessionId]);
 
   return { ...episodes, fullscreen };
-}
-
-async function sendStranded(attemptId: string, stranded: Buffered): Promise<void> {
-  try {
-    for (const events of inBatches(stranded.events))
-      await flushEvents(attemptId, { sessionId: stranded.sessionId, events });
-  } catch {
-    return;
-  }
 }
 
 /** What the audio player reports, which no listener here can observe. */

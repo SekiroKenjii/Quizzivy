@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { http } from "msw";
+import { http, HttpResponse } from "msw";
 import { contractJson } from "@tests/support/contractResponse";
 import { server } from "@tests/support/server";
 import type { AttemptSession } from "@/features/take-test/api";
@@ -177,6 +177,44 @@ describe("the session a tab names when it reads its attempt", () => {
     expect(session.sessionId).toBe(B);
     expect(session.superseded).not.toBe(true);
     expect(heldSession(ATTEMPT)).toBe(B);
+  });
+
+  it("keeps the session it held when the resume fails, so a later open still names it", async () => {
+    const { continueAttempt, heldSession, holdSession } = await load();
+    holdSession(ATTEMPT, A);
+    answerReads(paper({ sessionId: C, beaconToken: "", superseded: true }));
+    server.use(
+      http.post(
+        `${BASE}/app/assignments/${ASSIGNMENT}/attempts`,
+        () => new HttpResponse(null, { status: 500 }),
+      ),
+    );
+
+    await expect(continueAttempt(ASSIGNMENT, ATTEMPT)).rejects.toBeDefined();
+
+    expect(heldSession(ATTEMPT)).toBe(A);
+    expect(sessionStorage.getItem(KEY)).toBe(A);
+  });
+
+  it("forgets the session it held when the resume answers that the attempt has ended", async () => {
+    const { continueAttempt, heldSession, holdSession } = await load();
+    holdSession(ATTEMPT, A);
+    answerReads(paper({ sessionId: C, beaconToken: "", superseded: true }));
+    server.use(
+      http.post(`${BASE}/app/assignments/${ASSIGNMENT}/attempts`, () =>
+        HttpResponse.json(
+          { error: { code: "ATTEMPT_CLOSED", message: "ended" } },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    await expect(continueAttempt(ASSIGNMENT, ATTEMPT)).rejects.toMatchObject({
+      code: "ATTEMPT_CLOSED",
+    });
+
+    expect(heldSession(ATTEMPT)).toBeNull();
+    expect(sessionStorage.getItem(KEY)).toBeNull();
   });
 
   it("leaves a plain read of a superseded held session superseded, resuming nothing and keeping the session", async () => {
