@@ -4449,7 +4449,9 @@ export interface components {
          *     optional one that is empty after trimming is stored as `null`.
          */
         OrganizationProfile: {
+            /** @description At most 120 characters after Unicode NFC. */
             name: string;
+            /** @description At most 40 characters after Unicode NFC. */
             shortName: string | null;
             /** @description A domain or an `https` address, without spaces or credentials, as `quizzivy.com` or `https://quizzivy.com/lien-he`. `http` and other schemes are refused. */
             website: string | null;
