@@ -1,19 +1,24 @@
 package router
 
 import (
+	"strings"
+
 	classesdomain "quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/platform/ratelimit"
+	"quizzivy/internal/shared/validation"
 )
 
 // RateLimits declares the policy for every public operation and for the in-app
 // join, keyed by client address or by a field of the body. It is applied
-// before authentication.
+// before authentication. The login buckets key on the lower-cased bare address
+// the sign-in looks up, not on the string as written, so N <a@x.co>, "a"@x.co
+// and a@x.co share one budget.
 func RateLimits() *ratelimit.Registry {
 	reg := ratelimit.NewRegistry()
 	const capacity = 10_000
 	const maxKeyBodyBytes = 8 * 1024
 	joinCode := ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, 9, classesdomain.JoinCodes.Normalize)
-	email := ratelimit.JSONFieldKey("email", maxKeyBodyBytes, 254)
+	email := ratelimit.JSONFieldKeyFunc("email", maxKeyBodyBytes, 254, canonicalEmail)
 	reg.Add("POST /join/preview", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(600)).
 		WithKey("perCode", joinCode, capacity, ratelimit.PerHour(200))
 	reg.Add("POST /auth/google", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(600)).
@@ -29,6 +34,13 @@ func RateLimits() *ratelimit.Registry {
 	reg.Add("GET /public/status", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(2000))
 
 	return reg
+}
+
+func canonicalEmail(value string) string {
+	if address, err := validation.ParseEmail(value); err == nil {
+		return strings.ToLower(address)
+	}
+	return strings.ToLower(strings.TrimSpace(value))
 }
 
 var aiSuggestions = []string{
