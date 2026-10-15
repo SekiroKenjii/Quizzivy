@@ -119,6 +119,27 @@ export function withFix(values: QuestionValues, finding: AiFinding): QuestionVal
   }
 }
 
+/**
+ * fixFits reports whether a check's fix still names something the question
+ * holds. A fix names an option or a blank by id, and the server gives a
+ * question's options new ids each time it is saved, so a finding kept across
+ * a save no longer fits; the explanation fix names nothing and always does.
+ */
+export function fixFits(values: QuestionValues, finding: AiFinding): boolean {
+  const { kind, payload } = finding.fix;
+  const optionId = payload?.optionId;
+  const blankId = payload?.blankId;
+  switch (kind) {
+    case "option_text":
+      return optionId !== undefined && values.options.some((o) => o.id === optionId);
+    case "accepted_answer":
+      return blankId !== undefined && values.blanks.some((b) => b.id === blankId);
+    case "explanation":
+    case "none":
+      return true;
+  }
+}
+
 function reordered(
   options: QuestionValues["options"],
   order: readonly string[],

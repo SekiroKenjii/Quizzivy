@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { Check, Sparkles, type LucideIcon } from "lucide-react";
-import { toast } from "sonner";
 import { Callout } from "@/components/shared/Callout";
 import { IconTile } from "@/components/shared/IconTile";
 import { Sheet } from "@/components/shared/Sheet";
@@ -32,6 +31,7 @@ import {
   useAiLeft,
   useAiTagsDrafts,
 } from "../useAiAvailable";
+import { useFinishedToast } from "../useFinishedToast";
 import { AiCreditNote } from "./AiCreditNote";
 import { AiItemCard } from "./AiItemCard";
 import { AiPanelField } from "./AiPanelField";
@@ -58,7 +58,6 @@ type Stage<I> =
     };
 
 const FOOTER_BUTTON = "h-9";
-const FINISHED_TOAST_MS = 8000;
 
 function writeFailure(cause: unknown, fallback: string): string {
   return cause instanceof AiWriteError
@@ -77,7 +76,8 @@ function writeFailure(cause: unknown, fallback: string): string {
  * session is the panel's state, not the drawer's: while `open` is false it
  * draws nothing and keeps its fields, a run in flight and the suggestions a
  * run answered, so closing never discards them. A run that settles while the
- * drawer is closed says so in a toast, whose action calls `onReopen`. Done, a
+ * drawer is closed says so in a toast, whose action calls `onReopen`; while
+ * another drawer is `aside` showing, it says so when that one closes. Done, a
  * primary's write and Start over end the session, and so does unmounting,
  * which also aborts a run that has not answered; a host keeps the panel as
  * long as its page (`AiPanelStack`).
@@ -85,11 +85,13 @@ function writeFailure(cause: unknown, fallback: string): string {
 export default function AiPanel({
   request,
   open = true,
+  aside = false,
   onClose,
   onReopen,
 }: Readonly<{
   request: AiPanelRequest;
   open?: boolean;
+  aside?: boolean;
   onClose: () => void;
   onReopen?: () => void;
 }>) {
@@ -100,6 +102,7 @@ export default function AiPanel({
           kind={generateKind}
           context={request.context}
           open={open}
+          aside={aside}
           onClose={onClose}
           onReopen={onReopen}
         />
@@ -110,6 +113,7 @@ export default function AiPanel({
           kind={checkKind}
           context={request.context}
           open={open}
+          aside={aside}
           onClose={onClose}
           onReopen={onReopen}
         />
@@ -120,6 +124,7 @@ export default function AiPanel({
           kind={variantKind}
           context={request.context}
           open={open}
+          aside={aside}
           onClose={onClose}
           onReopen={onReopen}
         />
@@ -130,6 +135,7 @@ export default function AiPanel({
           kind={cleanupKind}
           context={request.context}
           open={open}
+          aside={aside}
           onClose={onClose}
           onReopen={onReopen}
         />
@@ -141,12 +147,14 @@ function AiKindPanel<F, I, C>({
   kind,
   context,
   open,
+  aside,
   onClose,
   onReopen,
 }: Readonly<{
   kind: AiKind<F, I, C>;
   context: C;
   open: boolean;
+  aside: boolean;
   onClose: () => void;
   onReopen: (() => void) | undefined;
 }>) {
@@ -163,18 +171,14 @@ function AiKindPanel<F, I, C>({
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const run = useRef<AbortController | null>(null);
-  const drawn = useRef(open);
-  const finished = useRef<string | number | null>(null);
+  const announce = useFinishedToast({
+    open,
+    aside,
+    title: t(kind.titleKey),
+    onReopen,
+  });
 
   useEffect(() => () => run.current?.abort(), []);
-
-  useEffect(() => {
-    drawn.current = open;
-    if (open && finished.current !== null) {
-      toast.dismiss(finished.current);
-      finished.current = null;
-    }
-  }, [open]);
 
   const env: AiEnv<C> = { t, language, tagDrafts, context };
   const set = (patch: Partial<F>) => setValues((current) => ({ ...current, ...patch }));
@@ -184,21 +188,6 @@ function AiKindPanel<F, I, C>({
       ? stage.failure.block
       : null;
   const stop = failedBlock ?? block;
-
-  function announce(failed: boolean) {
-    if (drawn.current) return;
-    const options = {
-      description: t(failed ? "ai.finished.failed" : "ai.finished.done"),
-      duration: FINISHED_TOAST_MS,
-      ...(onReopen !== undefined && {
-        action: { label: t("ai.finished.open"), onClick: onReopen },
-      }),
-    };
-    const title = t(kind.titleKey);
-    finished.current = failed
-      ? notify.warning(title, options)
-      : notify.success(title, options);
-  }
 
   async function start() {
     if (problem !== null || stop !== null) return;
@@ -222,13 +211,13 @@ function AiKindPanel<F, I, C>({
         usage: result.usage,
         notice: result.notice,
       });
-      announce(false);
+      announce("done");
     } catch (cause) {
       if (controller.signal.aborted) return;
       const failure = aiFailureOf(cause, t("ai.failed"));
       refreshAfterAiFailure(queryClient, cause, failure);
       setStage({ name: "setup", failure });
-      announce(true);
+      announce("failed");
     }
   }
 

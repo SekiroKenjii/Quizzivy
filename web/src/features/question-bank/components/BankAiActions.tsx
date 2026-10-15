@@ -34,7 +34,9 @@ function byTags(suggestions: readonly AiTagSuggestion[]) {
  * (V-08) and the panel each opens. Neither is drawn without the assistant or
  * `ai.use`; both are drawn disabled with the reason while the teacher is
  * paused or out of credits (Q34). Kept tag suggestions go through the bulk
- * tag write, one call for each set of tags, and kept questions through the
+ * tag write, one call for each set of tags, and the panel reports the
+ * questions it changed, which is fewer than were kept when some already had
+ * the tags or were deleted since the scan; kept questions go through the
  * bank's create. Closing a panel keeps its session while the bank page is open.
  */
 export function BankAiActions() {
@@ -47,12 +49,14 @@ export function BankAiActions() {
   if (!available) return null;
 
   async function tag(suggestions: readonly AiTagSuggestion[]) {
+    let changed = 0;
     try {
       for (const group of byTags(suggestions))
-        await tagQuestions(group.ids, group.tags);
+        changed += (await tagQuestions(group.ids, group.tags)).updated;
     } finally {
       await client.invalidateQueries({ queryKey: ["teacher-questions"] });
     }
+    return changed;
   }
 
   async function save(drafts: readonly GeneratedDraft[], label: string | null) {

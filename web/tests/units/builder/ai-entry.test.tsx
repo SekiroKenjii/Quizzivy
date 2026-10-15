@@ -872,6 +872,42 @@ describe("Check in a test with a shared-context group", () => {
     await waitFor(() => expect(patches).toEqual([QUESTION_ID]));
     expect(puts).toEqual([]);
   });
+
+  it.for([
+    ["a standalone question", QUESTION_ID, 1],
+    ["a member of a group", SECOND_ID, 3],
+  ] as const)(
+    "does not report a fix for %s whose option was given a new id, and writes nothing",
+    async ([, questionId, number], { signal }) => {
+      aiOn();
+      checkAnswers([
+        finding(questionId, number, "018f0000-0000-7000-8000-0000000000ff"),
+      ]);
+      const { user } = await renderBuilder();
+      await screen.findByRole(
+        "button",
+        { name: /What do trees do\?/ },
+        { timeout: 5000 },
+      );
+
+      const dialog = await runCheck(user, signal);
+      await press(
+        user,
+        signal,
+        within(dialog).findByRole("button", { name: "Use this option" }),
+      );
+
+      expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+        ai.check.fixGone,
+      );
+      expect(
+        within(dialog).getByRole("button", { name: "Use this option" }),
+      ).toBeVisible();
+      expect(screen.queryByText(`Đã cập nhật câu ${number}`)).toBeNull();
+      expect(patches).toEqual([]);
+      expect(puts).toEqual([]);
+    },
+  );
 });
 
 describe("an AI session in the builder", () => {

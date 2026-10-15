@@ -165,6 +165,7 @@
       "needCheck": "Pick at least one thing to look for",
       "applyFix": "Apply fix",
       "fixed": "Q{{n}} updated",
+      "fixGone": "This fix no longer matches the question, which has been saved since the check. Open the question to fix it by hand, or run the check again.",
       "openQuestion": "Open question",
       "dismiss": "Dismiss",
       "severity": {
@@ -264,6 +265,7 @@
       "addTags_other": "Add tags to {{count}} questions",
       "tagged_one": "Tags added to {{count}} question",
       "tagged_other": "Tags added to {{count}} questions",
+      "nothingTagged": "Nothing to tag: those questions already carry these tags or were deleted.",
       "testCount_one": "{{count}} test",
       "testCount_other": "{{count}} tests"
     },

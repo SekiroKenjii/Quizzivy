@@ -3476,8 +3476,17 @@ the 256 MiB sandbox included; `BenchmarkRenderForty*` in `pdftext/tests` repeats
       failed, raises one toast naming the panel with an Open action (`AiPanelStack`'s `onOpen`,
       which each host points at its own open state), so a teacher who closed the drawer
       mid-run is not left waiting on a run that is already done; Stop and leaving the page raise
-      none, and opening the drawer by any route takes the toast away. Stop and leaving the page
-      abort the request, the server cancels the provider call and `Finish` releases the
+      none, opening the drawer by any route or leaving the page takes the toast away, and while
+      another drawer is showing (a modal keeps a toast from being clicked) it waits for that one to
+      close. Its action takes focus out of the toaster first (`leaveToast`), because Sonner
+      returns focus to where it was before the toasts took it and would do so after the drawer
+      has opened; the Sheet falls back to the page's `<main>` when nothing had focus as it opened.
+      A check's fix names an option or a blank by id and the server re-ids options on every save,
+      so a held finding stops fitting after any save of its question; `fixFits` makes "Apply fix"
+      fail with a sentence and write nothing (matching by text is not possible: the finding does
+      not carry the option's old text; stable option ids would end the problem). The bank
+      clean-up's tag write reports the questions it changed (`updated`), not the ones kept.
+      Stop and leaving the page abort the request, the server cancels the provider call and `Finish` releases the
       reservation, so a single-call operation charges nothing and the bank clean-up settles only
       the calls already billed (`Tally`). That a cancelled call bills nothing is `Billed`'s
       assumption ("as far as anyone can tell"): Anthropic's documentation does not say what a

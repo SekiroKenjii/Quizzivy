@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { act, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { http } from "msw";
+import { Toaster, toast } from "@/components/ui/sonner";
 import vi_ from "@/lib/i18n/locales/vi.json";
 import { useAuthStore } from "@/stores/auth";
 import { contractJson } from "@tests/support/contractResponse";
@@ -31,6 +32,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  toast.dismiss();
   useAuthStore.setState({ accessToken: null, user: null });
 });
 
@@ -113,6 +115,46 @@ describe("the bank's AI entry points", () => {
     ]);
     await waitFor(() => expect(lists).toBeGreaterThan(1));
   });
+
+  it.each([
+    [[1, 0], "Đã thêm thẻ cho 1 câu"],
+    [[0, 0], ai.cleanup.nothingTagged],
+  ])(
+    "reports the questions the tag write changed, not the ones kept (%j)",
+    async (updated, sentence) => {
+      aiOn();
+      let call = 0;
+      server.use(
+        http.post(`${BANK_API}/teacher/ai/bank/cleanup`, () =>
+          contractJson("/teacher/ai/bank/cleanup", "post", 200, {
+            scanned: 2,
+            truncated: false,
+            duplicates: [],
+            tags: [
+              { questionId: Q1, prompt: "One?", tags: ["maps"] },
+              { questionId: Q2, prompt: "Two?", tags: ["grammar"] },
+            ],
+            usage: { credits: 900, left: 1000 },
+          }),
+        ),
+        http.post(`${BANK_API}/teacher/questions/tags`, () => {
+          const reply = { updated: updated[call] ?? 0 };
+          call += 1;
+          return contractJson("/teacher/questions/tags", "post", 200, reply);
+        }),
+      );
+      render(<Toaster />);
+      const { user } = renderBank();
+      await user.click(await screen.findByRole("button", { name: ai.entry.cleanup }));
+      const dialog = await screen.findByRole("dialog");
+      await user.click(within(dialog).getByRole("button", { name: ai.cleanup.run }));
+      await user.click(
+        await within(dialog).findByRole("button", { name: "Thêm thẻ cho 2 câu" }),
+      );
+      expect(await screen.findByText(sentence)).toBeVisible();
+      expect(call).toBe(2);
+    },
+  );
 
   it("keep what a clean-up found when the drawer is closed, and a dismissed pair stays dismissed", async () => {
     aiOn();

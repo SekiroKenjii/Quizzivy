@@ -191,7 +191,7 @@ describe("features/ai", () => {
     expect(saveVariant).toHaveBeenCalledTimes(1);
     variant.unmount();
 
-    const tag = vi.fn(() => Promise.resolve());
+    const tag = vi.fn(() => Promise.resolve(1));
     const cleanup = renderWithApp(
       <AiPanel
         request={{ kind: "cleanup", context: { href: (id) => `/q/${id}`, tag } }}

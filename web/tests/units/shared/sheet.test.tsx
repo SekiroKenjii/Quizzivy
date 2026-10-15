@@ -206,6 +206,37 @@ describe("the sheet's focus", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByRole("main")).toHaveFocus();
   });
+
+  it("goes to the page's main when nothing had focus as it opened", async () => {
+    const user = userEvent.setup();
+    function Remote() {
+      const [shown, setShown] = useState(false);
+      return (
+        <>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.currentTarget.blur();
+              setShown(true);
+            }}
+          >
+            Xem bài làm
+          </button>
+          <main tabIndex={-1} aria-label="Bài đã giao" />
+          <Sheet open={shown} onOpenChange={setShown} title="Lê Hoàng Nam">
+            <p>Dòng thời gian</p>
+          </Sheet>
+        </>
+      );
+    }
+    render(<Remote />);
+    await user.click(screen.getByRole("button", { name: "Xem bài làm" }));
+    expect(panel()).toContainElement(document.activeElement as HTMLElement);
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("main")).toHaveFocus();
+  });
 });
 
 describe("the sheet's frame", () => {

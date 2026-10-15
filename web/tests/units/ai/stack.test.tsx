@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  configure,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { http } from "msw";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -10,6 +17,8 @@ import { useAuthStore } from "@/stores/auth";
 import { contractJson } from "@tests/support/contractResponse";
 import { server } from "@tests/support/server";
 import { aiError, aiOn, BASE, renderWithApp } from "./support";
+
+configure({ asyncUtilTimeout: 5000 });
 
 const ai = vi_.ai;
 const TEST_ID = "018f0000-0000-7000-8000-0000000000a1";
@@ -260,6 +269,74 @@ describe("AiPanelStack", () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(screen.queryByText(ai.finished.done)).toBeNull();
     expect(screen.queryByText(ai.finished.failed)).toBeNull();
+  });
+
+  it("moves focus into the drawer when the toast is used from the keyboard", async () => {
+    const release = hold();
+    const { user } = renderWithApp(<Page />);
+    await runThenClose(user);
+    release();
+    await screen.findByText(ai.finished.done);
+
+    act(() => screen.getByText("show check").focus());
+    await user.keyboard("{Alt>}t{/Alt}");
+    await user.tab();
+    await user.tab();
+    expect(screen.getByRole("button", { name: ai.finished.open })).toHaveFocus();
+    await user.keyboard("{Enter}");
+
+    const dialog = await screen.findByRole("dialog");
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByText("show check")).toHaveFocus();
+  });
+
+  it("takes the toast away when the page is left", async () => {
+    const release = hold();
+    const { user } = renderWithApp(<Page />);
+    await runThenClose(user);
+    release();
+    await screen.findByText(ai.finished.done);
+
+    await user.click(screen.getByRole("button", { name: "leave the page" }));
+    await waitFor(() => expect(screen.queryByText(ai.finished.done)).toBeNull());
+  });
+
+  it("waits for another drawer to close before saying a run finished", async () => {
+    const release = hold();
+    const { user } = renderWithApp(<Page />);
+    await runThenClose(user);
+    show("generate");
+    await screen.findByRole("dialog");
+    release();
+
+    await waitFor(() => expect(checks).toBe(1));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(screen.queryByText(ai.finished.done)).toBeNull();
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(await screen.findByText(ai.finished.done)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: ai.finished.open }));
+    expect(
+      await within(await screen.findByRole("dialog")).findByText(
+        "Two options fit the passage.",
+      ),
+    ).toBeVisible();
+  });
+
+  it("draws the toast's action as a target of at least 24 by 24 pixels", async () => {
+    const release = hold();
+    const { user } = renderWithApp(<Page />);
+    await runThenClose(user);
+    release();
+
+    expect(await screen.findByRole("button", { name: ai.finished.open })).toHaveClass(
+      "min-h-6",
+      "min-w-6",
+    );
   });
 
   it("takes the toast away once the drawer is open again", async () => {

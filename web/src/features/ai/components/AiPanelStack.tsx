@@ -32,6 +32,7 @@ export function AiPanelStack<K extends string>({
           <AiPanel
             request={requestFor(kind)}
             open={open === kind}
+            aside={open !== null && open !== kind}
             onClose={onClose}
             onReopen={() => onOpen(kind)}
           />

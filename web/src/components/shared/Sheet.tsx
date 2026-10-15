@@ -60,8 +60,8 @@ const MOTION =
  * part that scrolls, and `footer` stays under it. Esc, the backdrop and the
  * close button ask to close through `onOpenChange`. It is controlled, so it
  * remembers what opened it: on close, focus goes back to that control, or to
- * the `<main>` it was in when the control has gone, unless the page has
- * already put focus somewhere else. It sits at `--z-sheet`, under dialogs and
+ * the `<main>` it was in (the page's, when nothing had focus) when the control
+ * has gone, unless the page has already put focus somewhere else. It sits at `--z-sheet`, under dialogs and
  * menus, and tells content inside it that it is on a deck surface when it was
  * opened from one.
  */
@@ -112,7 +112,8 @@ export function Sheet({
             const active = document.activeElement;
             opener.current =
               active instanceof HTMLElement && active !== document.body ? active : null;
-            page.current = opener.current?.closest("main") ?? null;
+            page.current =
+              opener.current?.closest("main") ?? document.querySelector("main");
           }}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
