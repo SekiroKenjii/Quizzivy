@@ -3633,14 +3633,12 @@
           },
           "studentName": {
             "type": "string",
-            "description": "Raw current full name",
-            "without private account fields.": null
+            "description": "Raw current full name, without private account fields."
           },
           "questionNumber": {
             "type": "integer",
             "minimum": 1,
-            "description": "One-based section/question paper order",
-            "independent of the student's shuffle.": null
+            "description": "One-based section/question paper order, independent of the student's shuffle."
           },
           "type": {
             "$ref": "#/components/schemas/QuestionType"
@@ -8700,8 +8698,7 @@
           "number": {
             "type": "integer",
             "minimum": 1,
-            "description": "The question's place on the paper",
-            "counted across sections.": null
+            "description": "The question's place on the paper, counted across sections."
           },
           "type": {
             "$ref": "#/components/schemas/QuestionType"
@@ -8709,8 +8706,7 @@
           "promptExcerpt": {
             "type": "string",
             "maxLength": 140,
-            "description": "The prompt as plain text with its whitespace collapsed",
-            "cut at 140 characters.": null
+            "description": "The prompt as plain text with its whitespace collapsed, cut at 140 characters."
           },
           "answered": {
             "type": "integer",
@@ -8967,8 +8963,7 @@
           "remainingAttempts": {
             "type": "integer",
             "minimum": 0,
-            "description": "Additional attempts available after this one",
-            "excluding voided attempts.": null
+            "description": "Additional attempts available after this one, excluding voided attempts."
           },
           "attempt": {
             "$ref": "#/components/schemas/Attempt"
@@ -9317,8 +9312,7 @@
           },
           "audioOverLimit": {
             "type": "boolean",
-            "description": "Reported",
-            "never enforced (§11.4).": null
+            "description": "Reported, never enforced (§11.4)."
           },
           "extendedTo": {
             "type": [
@@ -9863,8 +9857,7 @@
           "left": {
             "type": "integer",
             "minimum": 0,
-            "description": "The least of what remains of the teacher's allowance and of the centre's pool",
-            "after the call.": null
+            "description": "The least of what remains of the teacher's allowance and of the centre's pool, after the call."
           }
         }
       },
@@ -10114,8 +10107,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 300,
-            "description": "The question's prompt",
-            "shortened.": null
+            "description": "The question's prompt, shortened."
           },
           "issue": {
             "type": "string",
@@ -10230,8 +10222,7 @@
           "number": {
             "type": "integer",
             "minimum": 1,
-            "description": "The question's 1-based place in the draft",
-            "which the copy keeps.": null
+            "description": "The question's 1-based place in the draft, which the copy keeps."
           },
           "kind": {
             "$ref": "#/components/schemas/AiVariantKind"
@@ -10388,9 +10379,7 @@
           "comment": {
             "type": "string",
             "maxLength": 1000,
-            "description": "A comment to the student",
-            "for the teacher to keep": null,
-            "change or drop.": null
+            "description": "A comment to the student, for the teacher to keep, change or drop."
           },
           "usage": {
             "$ref": "#/components/schemas/AiUsage"
@@ -10723,8 +10712,7 @@
           "month": {
             "type": "string",
             "format": "date",
-            "description": "The first day of the month",
-            "counted in the centre's time zone.": null
+            "description": "The first day of the month, counted in the centre's time zone."
           },
           "used": {
             "type": "integer",
@@ -10818,8 +10806,7 @@
               "pause",
               "request"
             ],
-            "description": "Pause a teacher who runs out",
-            "or let them ask for more.": null
+            "description": "Pause a teacher who runs out, or let them ask for more."
           }
         }
       },
@@ -11234,8 +11221,7 @@
           "allowance": {
             "type": "integer",
             "minimum": 0,
-            "description": "The teacher's AI allowance this month",
-            "in credits.": null
+            "description": "The teacher's AI allowance this month, in credits."
           },
           "credits": {
             "type": "integer",

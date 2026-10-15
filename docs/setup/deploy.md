@@ -543,12 +543,22 @@ answers, by sorting the range it was asked for, which on a large log is slow.
 
 A database that ran the first form of `00133` (`CREATE INDEX CONCURRENTLY IF NOT
 EXISTS`, merged in #641) and was interrupted has the file recorded over an INVALID
-index, and the query above names it. Repair it by hand, as `quizzivy_migrate`:
+index, and the query above names it. Repair it by hand, as `quizzivy_migrate`, in
+a session that is not inside a transaction, running the two statements one after
+the other. Neither can run inside a transaction block, so `psql -c` with both in
+one string, or a script that wraps them in `BEGIN`, fails with "cannot run inside
+a transaction block" and repairs nothing; give each its own `-c`, or paste them
+into an interactive `psql`:
 
 ```sql
 DROP INDEX CONCURRENTLY IF EXISTS app.audit_log_recent_idx;
+```
+
+```sql
 CREATE INDEX CONCURRENTLY audit_log_recent_idx ON app.audit_log (occurred_at DESC, id DESC);
 ```
+
+Then run the query above again: it returns no row.
 
 ## Backups and operational verification
 
