@@ -164,6 +164,56 @@ func TestAFirstSheetThatIsAChartOrADialogIsNotAWorksheet(t *testing.T) {
 	}
 }
 
+func TestAFirstSheetLabelledAsAChartOrADialogIsRefusedWhateverPartItNames(t *testing.T) {
+	for name, kind := range map[string]string{"a chart sheet": "chartsheet", "a dialog sheet": "dialogsheet"} {
+		t.Run(name, func(t *testing.T) {
+			_, _, err := read(t, firstSheetOfKind(t, kind, "worksheets/sheet1.xml"), tabular.FormatXLSX, tabular.DefaultLimits())
+
+			if !errors.Is(err, tabular.ErrNotWorksheet) || !errors.Is(err, tabular.ErrFormat) {
+				t.Errorf("err = %v, want ErrNotWorksheet: the relationship's Type decides, not the part it points at", err)
+			}
+		})
+	}
+}
+
+func TestTheWorkbookAndItsRelationshipsAreFoundUnderBackslashEntryNames(t *testing.T) {
+	backslashed := func(entries []entry) []entry {
+		out := make([]entry, len(entries))
+		copy(out, entries)
+		for i, e := range out {
+			if e.name == "xl/workbook.xml" || e.name == "xl/_rels/workbook.xml.rels" {
+				out[i].name = strings.ReplaceAll(e.name, "/", `\`)
+			}
+		}
+		return out
+	}
+	chartFirst := replaceBody(workbookParts(nil), "xl/workbook.xml",
+		`<sheet name="Users" sheetId="1" r:id="rId1"/>`,
+		`<sheet name="Chart" sheetId="2" r:id="rId9"/><sheet name="Users" sheetId="1" r:id="rId1"/>`)
+	chartFirst = replaceBody(chartFirst, "xl/_rels/workbook.xml.rels", `</Relationships>`,
+		`<Relationship Id="rId9" Type="`+relationsNS+`/chartsheet" Target="chartsheets/sheet1.xml"/></Relationships>`)
+	chart := entry{"xl/chartsheets/sheet1.xml", `<chartsheet xmlns="` + spreadsheetNS + `"/>`}
+
+	t.Run("a chart sheet first", func(t *testing.T) {
+		data := archive(t, append(append(backslashed(chartFirst), sheetEntry(rosterRows(2))), chart)...)
+
+		_, _, err := read(t, data, tabular.FormatXLSX, tabular.DefaultLimits())
+
+		if !errors.Is(err, tabular.ErrNotWorksheet) {
+			t.Errorf("err = %v, want ErrNotWorksheet, not the missing header the unchecked file gives", err)
+		}
+	})
+	t.Run("a worksheet first", func(t *testing.T) {
+		data := archive(t, append(backslashed(workbookParts(nil)), sheetEntry(rosterRows(2)))...)
+
+		_, rows, err := read(t, data, tabular.FormatXLSX, tabular.DefaultLimits())
+
+		if err != nil || len(rows) != 2 {
+			t.Errorf("rows = %d, err = %v, want the 2 rows read", len(rows), err)
+		}
+	})
+}
+
 func TestAFirstSheetKeptWhereThisReaderDoesNotLookIsALayoutErrorNotAMissingHeader(t *testing.T) {
 	for name, data := range map[string][]byte{
 		"a part outside the scanned set":  firstSheetOfKind(t, "worksheet", "externalLinks/e1.xml", entry{"xl/externalLinks/e1.xml", `<externalLink xmlns="` + spreadsheetNS + `"/>`}),
