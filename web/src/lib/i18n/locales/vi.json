@@ -432,6 +432,72 @@
       "student": "Học viên"
     }
   },
+  "roles": {
+    "title": "Vai trò & quyền",
+    "lead": "Mỗi vai trò làm được gì. Quản trị viên luôn làm được mọi việc.",
+    "loadFailed": "Không tải được danh sách vai trò.",
+    "carousel": "Các vai trò",
+    "carouselKind": "băng chuyền",
+    "previous": "Các vai trò trước",
+    "next": "Các vai trò tiếp theo",
+    "slide": "Đến vị trí {{n}}",
+    "custom": "Tùy chỉnh",
+    "peopleLabel_one": "người",
+    "peopleLabel_other": "người",
+    "permissionsLabel_one": "quyền",
+    "permissionsLabel_other": "quyền",
+    "editPermissions": "Sửa quyền",
+    "editPermissionsOf": "Sửa quyền của {{name}}",
+    "matrix": "Bảng quyền theo vai trò",
+    "permission": "Quyền",
+    "cell": "{{permission}} — {{role}}",
+    "group": {
+      "content": "Nội dung",
+      "teaching": "Giảng dạy",
+      "people": "Mọi người",
+      "system": "Hệ thống"
+    },
+    "lock": {
+      "admin": "Quản trị viên luôn có quyền này",
+      "student": "Học viên luôn có quyền này để làm bài",
+      "self": "Bạn không đổi được quyền của chính vai trò mình đang giữ.",
+      "subset": "Bạn chỉ đổi được những quyền bạn có."
+    },
+    "changed_one": "{{count}} quyền đã thay đổi. Mọi người nhận quyền mới ở lần tải trang tiếp theo.",
+    "changed_other": "{{count}} quyền đã thay đổi. Mọi người nhận quyền mới ở lần tải trang tiếp theo.",
+    "takingNow_one": "{{count}} người đang làm bài ngay lúc này.",
+    "takingNow_other": "{{count}} người đang làm bài ngay lúc này.",
+    "saved": "Đã lưu quyền",
+    "saveFailed": "Không lưu được quyền. Hãy thử lại.",
+    "stale": "Có người vừa thay đổi các vai trò này. Bảng đã được tải lại; hãy kiểm tra các ô đã đánh dấu rồi lưu lại.",
+    "perm": {
+      "contentTestsWrite": "Tạo và sửa bài kiểm tra",
+      "contentTestsPublish": "Xuất bản bài kiểm tra",
+      "contentQuestionsWrite": "Quản lý ngân hàng câu hỏi",
+      "contentMediaWrite": "Tải lên và xóa tệp phương tiện",
+      "contentShare": "Chia sẻ nội dung của mình với giáo viên khác",
+      "aiUse": "Dùng tính năng AI",
+      "teachingClassesWrite": "Tạo lớp học",
+      "teachingAssignmentsWrite": "Giao bài kiểm tra cho lớp",
+      "teachingGrading": "Chấm điểm câu trả lời",
+      "teachingAttemptsIntervene": "Đặt lại, hủy hoặc gia hạn bài làm",
+      "teachingAttendance": "Điểm danh",
+      "peopleStudentsRead": "Xem học viên trong lớp của mình",
+      "peopleStudentsCreate": "Tạo tài khoản học viên",
+      "peopleStudentsResetPassword": "Đặt lại mật khẩu học viên",
+      "peopleUsersManage": "Thêm và vô hiệu hóa người dùng",
+      "peopleRolesManage": "Thay đổi vai trò",
+      "systemAuditRead": "Xem nhật ký kiểm tra",
+      "systemSettingsWrite": "Thay đổi cài đặt hệ thống",
+      "learningTakeTests": "Làm bài kiểm tra và xem kết quả của mình",
+      "aiCreditsManage": "Quản lý tín dụng AI"
+    },
+    "hint": {
+      "contentTestsPublish": "Giúp bài kiểm tra có thể được giao",
+      "contentShare": "Bài kiểm tra, câu hỏi, danh sách từ và khóa học. Nếu không, chủ sở hữu chỉ thấy nội dung của chính mình.",
+      "audited": "Được ghi vào nhật ký kiểm tra"
+    }
+  },
   "teacherShell": {
     "workspace": "Không gian giáo viên",
     "switchWorkspace": "Chuyển không gian làm việc",

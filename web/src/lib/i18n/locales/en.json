@@ -432,6 +432,72 @@
       "student": "Student"
     }
   },
+  "roles": {
+    "title": "Roles & permissions",
+    "lead": "What each role can do. Administrators can always do everything.",
+    "loadFailed": "Could not load the roles.",
+    "carousel": "Roles",
+    "carouselKind": "carousel",
+    "previous": "Previous roles",
+    "next": "Next roles",
+    "slide": "Go to slide {{n}}",
+    "custom": "Custom",
+    "peopleLabel_one": "person",
+    "peopleLabel_other": "people",
+    "permissionsLabel_one": "permission",
+    "permissionsLabel_other": "permissions",
+    "editPermissions": "Edit permissions",
+    "editPermissionsOf": "Edit permissions of {{name}}",
+    "matrix": "Permissions by role",
+    "permission": "Permission",
+    "cell": "{{permission}} — {{role}}",
+    "group": {
+      "content": "Content",
+      "teaching": "Teaching",
+      "people": "People",
+      "system": "System"
+    },
+    "lock": {
+      "admin": "Admins always have this",
+      "student": "Students always need this to take tests",
+      "self": "You can't change the permissions of the role you hold.",
+      "subset": "You can only change what you can do yourself."
+    },
+    "changed_one": "{{count}} permission changed. People get the new permissions on their next page load.",
+    "changed_other": "{{count}} permissions changed. People get the new permissions on their next page load.",
+    "takingNow_one": "{{count}} person is taking a test right now.",
+    "takingNow_other": "{{count}} people are taking a test right now.",
+    "saved": "Permissions saved",
+    "saveFailed": "Could not save the permissions. Try again.",
+    "stale": "Someone just changed these roles. The table has been reloaded; check the marked cells and save again.",
+    "perm": {
+      "contentTestsWrite": "Create and edit tests",
+      "contentTestsPublish": "Publish tests",
+      "contentQuestionsWrite": "Manage question bank",
+      "contentMediaWrite": "Upload and delete media",
+      "contentShare": "Share own content with other teachers",
+      "aiUse": "Use AI features",
+      "teachingClassesWrite": "Create classes",
+      "teachingAssignmentsWrite": "Assign tests to classes",
+      "teachingGrading": "Grade answers",
+      "teachingAttemptsIntervene": "Reset, void or extend attempts",
+      "teachingAttendance": "Take attendance",
+      "peopleStudentsRead": "See students in own classes",
+      "peopleStudentsCreate": "Create student accounts",
+      "peopleStudentsResetPassword": "Reset student passwords",
+      "peopleUsersManage": "Add and disable users",
+      "peopleRolesManage": "Change roles",
+      "systemAuditRead": "View audit log",
+      "systemSettingsWrite": "Change system settings",
+      "learningTakeTests": "Take tests and view own results",
+      "aiCreditsManage": "Manage AI credits"
+    },
+    "hint": {
+      "contentTestsPublish": "Makes a test assignable",
+      "contentShare": "Tests, questions, word lists and courses. Owners always see only their own content otherwise.",
+      "audited": "Recorded in the audit log"
+    }
+  },
   "teacherShell": {
     "workspace": "Teacher workspace",
     "switchWorkspace": "Switch workspace",
