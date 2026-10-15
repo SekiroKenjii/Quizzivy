@@ -15,6 +15,7 @@ import StudentHomePage from "@/features/assignments/pages/StudentHomePage";
 import i18n from "@/lib/i18n";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
+import { clearHeldSessions } from "@/features/take-test/heldSession";
 import { useAuthStore } from "@/stores/auth";
 import { viewport } from "@tests/support/viewport";
 import { Toaster, toast } from "@/components/ui/sonner";
@@ -210,6 +211,7 @@ function titles(pattern: RegExp) {
 }
 
 beforeEach(() => {
+  clearHeldSessions();
   asked = 0;
   viewport("phone");
   vi.useFakeTimers({ shouldAdvanceTime: true });

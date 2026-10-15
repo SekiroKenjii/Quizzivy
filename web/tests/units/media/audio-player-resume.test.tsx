@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import { forgetAllPlaces, keepPlace, recallPlace } from "@/features/media/playback";
 import "@/lib/i18n";
@@ -44,7 +44,11 @@ afterEach(() => {
 });
 
 const audio = () => document.querySelector("audio") as HTMLAudioElement;
-const press = (name: string) => fireEvent.click(screen.getByRole("button", { name }));
+async function press(name: string) {
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name }));
+  });
+}
 
 function playTo(seconds: number) {
   audio().currentTime = seconds;
@@ -75,66 +79,66 @@ function player(props: Partial<Parameters<typeof AudioPlayer>[0]> = {}) {
   );
 }
 
-it("counts one play for a pause and a resume", () => {
+it("counts one play for a pause and a resume", async () => {
   const onPlay = vi.fn();
   const onResume = vi.fn();
   render(player({ onPlay, onResume }));
 
-  press("Phát");
+  await press("Phát");
   fireEvent.play(audio());
   playTo(5);
   stop();
-  press("Nghe tiếp");
+  await press("Nghe tiếp");
 
   expect(play).toHaveBeenCalledTimes(2);
   expect(onPlay).toHaveBeenCalledTimes(1);
   expect(onResume).toHaveBeenCalledTimes(1);
 });
 
-it("counts a second start after the end as a second play", () => {
+it("counts a second start after the end as a second play", async () => {
   const onPlay = vi.fn();
   render(player({ onPlay, plays: { played: 1, limit: 2 } }));
 
-  press("Phát lại");
+  await press("Phát lại");
   playTo(30);
   end();
-  press("Phát lại");
+  await press("Phát lại");
 
   expect(onPlay).toHaveBeenCalledTimes(2);
 });
 
-it("counts a start from 0:00 again, as the deck does, after a pause before any sound", () => {
+it("counts a start from 0:00 again, as the deck does, after a pause before any sound", async () => {
   const onPlay = vi.fn();
   const onResume = vi.fn();
   render(player({ onPlay, onResume }));
 
-  press("Phát");
+  await press("Phát");
   stop();
-  press("Phát");
+  await press("Phát");
 
   expect(onPlay).toHaveBeenCalledTimes(2);
   expect(onResume).not.toHaveBeenCalled();
 });
 
-it("spends nothing on a move inside a play in progress when seeking is allowed", () => {
+it("spends nothing on a move inside a play in progress when seeking is allowed", async () => {
   const onPlay = vi.fn();
   const onResume = vi.fn();
   render(player({ allowSeek: true, onPlay, onResume }));
 
-  press("Phát");
+  await press("Phát");
   playTo(10);
   stop();
   fireEvent.change(screen.getByRole("slider"), { target: { value: "60" } });
-  press("Nghe tiếp");
+  await press("Nghe tiếp");
 
   expect(audio().currentTime).toBe(60);
   expect(onPlay).toHaveBeenCalledTimes(1);
   expect(onResume).toHaveBeenCalledTimes(1);
 });
 
-it("keeps the place of a play in progress when it goes away, and forgets it at the end", () => {
+it("keeps the place of a play in progress when it goes away, and forgets it at the end", async () => {
   const { unmount } = render(player({ place: "recording:r1" }));
-  press("Phát");
+  await press("Phát");
   playTo(12);
   unmount();
 
@@ -146,14 +150,14 @@ it("keeps the place of a play in progress when it goes away, and forgets it at t
   expect(recallPlace("recording:r1")).toBeNull();
 });
 
-it("keeps no place for a play that has not started to sound", () => {
+it("keeps no place for a play that has not started to sound", async () => {
   const { unmount } = render(player({ place: "recording:r1" }));
-  press("Phát");
+  await press("Phát");
   unmount();
   expect(recallPlace("recording:r1")).toBeNull();
 });
 
-it("resumes a remembered play with play() in the click's own tick, and spends no play", () => {
+it("resumes a remembered play with play() in the click's own tick, and spends no play", async () => {
   keepPlace("recording:r1", 37);
   const onPlay = vi.fn();
   const onResume = vi.fn();
@@ -161,7 +165,7 @@ it("resumes a remembered play with play() in the click's own tick, and spends no
 
   expect(screen.getByText("0:37 / 2:34")).toBeInTheDocument();
   expect(screen.getByText("Đã tạm dừng")).toBeInTheDocument();
-  press("Nghe tiếp");
+  await press("Nghe tiếp");
   expect(play).toHaveBeenCalledTimes(1);
   expect(play.mock.invocationCallOrder[0]).toBeLessThan(
     onResume.mock.invocationCallOrder[0]!,
@@ -184,12 +188,12 @@ it("puts the place back at mount when the element already has its metadata", () 
   expect(audio().currentTime).toBe(21);
 });
 
-it("counts a start from an empty memory", () => {
+it("counts a start from an empty memory", async () => {
   const onPlay = vi.fn();
   const onResume = vi.fn();
   render(player({ place: "recording:r1", onPlay, onResume }));
 
-  press("Phát");
+  await press("Phát");
 
   expect(onPlay).toHaveBeenCalledTimes(1);
   expect(onResume).not.toHaveBeenCalled();
@@ -220,13 +224,13 @@ it("still refuses and reports a jump the student makes after a restore", () => {
   expect(onSeekBlocked).toHaveBeenCalledTimes(1);
 });
 
-it("counts a resume as a play, and forgets the place, when playback runs short of it", () => {
+it("counts a resume as a play, and forgets the place, when playback runs short of it", async () => {
   keepPlace("recording:r1", 37);
   const onPlay = vi.fn();
   const onResume = vi.fn();
   render(player({ place: "recording:r1", onPlay, onResume }));
 
-  press("Nghe tiếp");
+  await press("Nghe tiếp");
   expect(onPlay).not.toHaveBeenCalled();
   playTo(0.3);
 

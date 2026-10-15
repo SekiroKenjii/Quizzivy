@@ -16,6 +16,7 @@ import i18n from "@/lib/i18n";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import { viewport } from "@tests/support/viewport";
+import { clearHeldSessions } from "@/features/take-test/heldSession";
 import { useAuthStore } from "@/stores/auth";
 import {
   ASSIGNMENT,
@@ -139,6 +140,7 @@ const request = vi.fn<() => Promise<void>>();
 let supported = true;
 
 beforeEach(() => {
+  clearHeldSessions();
   asked = 0;
   supported = true;
   viewport("desktop");

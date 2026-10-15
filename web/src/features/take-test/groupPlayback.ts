@@ -195,6 +195,8 @@ export const useGroupPlaybackStore = create<PlaybackState>((set, get) => ({
     set({ deadlineAt, pending });
   },
   lockNow: (reason) => {
+    const held = get().lock;
+    if (reason === "deadline" && (held === "closed" || held === "superseded")) return;
     cancelRetry();
     if (reason === "closed" || reason === "deadline") {
       for (const play of get().pending) forgetGroupPlay(play.playId);

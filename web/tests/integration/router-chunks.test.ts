@@ -65,6 +65,7 @@ const ENGINE = /\/features\/(take-test|integrity)\//;
 const CLEARED_AT_SIGN_OUT = [
   "features/take-test/draft.ts",
   "features/take-test/groupPlaybackDraft.ts",
+  "features/take-test/heldSession.ts",
 ];
 
 const DRAG = /\/@dnd-kit\//;
@@ -141,7 +142,7 @@ describe("route-level code splitting (§2)", () => {
     }
   });
 
-  it("loads nothing of the engine with the entry, save the two draft stores that signing out clears", () => {
+  it("loads nothing of the engine with the entry, save the three small stores that signing out clears", () => {
     const loaded = eager()
       .flatMap((chunk) => matches(chunk.moduleIds, ENGINE))
       .map((id) => id.slice(id.lastIndexOf("/src/") + 5))

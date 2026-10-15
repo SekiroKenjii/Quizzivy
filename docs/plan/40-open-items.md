@@ -347,8 +347,19 @@ Issue #337; round 5 questions 1 and 1b.
 
 ---
 
-### O-27 — When a session counts as still open · round 5
-**Default:** nothing is built until the owner answers. The candidate is that a
+### O-27 — When a session counts as still open · round 5 — **RESOLVED**
+**Resolved (D-003, 2026-10-14):** a tab that holds the live attempt's session
+never takes over from itself. "Tiếp tục làm bài" in such a tab reads the attempt
+with its held session and resumes nothing; only a tab holding none calls the
+resume. The server's two-minute rule is unchanged, and no farewell rule,
+`engine_leave` kind, shorter window or heartbeat is built. The timeline label
+for `session_takeover` is "Vào lại bài ở thẻ hoặc thiết bị khác" / "Resumed in
+another tab or device". When that read answers `superseded`, Continue
+resumes, which takes the attempt back and records the takeover.
+
+The rest of this entry is the question as it stood.
+
+**Default (superseded):** nothing is built until the owner answers. The candidate is that a
 session which said it was leaving, and has not returned, is no longer live.
 
 What happens today: any ordinary event received within two minutes makes the
@@ -380,8 +391,16 @@ Issue #341; round 5 question 2.
 
 ---
 
-### O-28 — A play that never started is counted · round 5
-**Default:** keep counting; no compensation is built. This awaits the owner.
+### O-28 — A play that never started is counted · round 5 — **RESOLVED**
+**Resolved (D-002, 2026-10-14):** a play is counted once `play()` resolves. One the
+browser refuses (`NotAllowedError`) or that is paused before it starts
+(`AbortError`) spends nothing on the client and sends no request, so no
+compensation, receipts table or migration is needed. The call to `play()` stays
+in the click's own tick (§11.3).
+
+The rest of this entry is the question as it stood.
+
+**Default (superseded):** keep counting; no compensation is built. This awaits the owner.
 
 What happens: a play refused by the browser or paused before it starts can
 already have spent a server play. The player stays enabled at the limit; the

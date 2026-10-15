@@ -37,3 +37,18 @@ func TestAnEventSequenceBeyondTheColumnIsRefusedOnEveryJSONPath(t *testing.T) {
 		})
 	}
 }
+
+func TestAnEventWithNoKindIsRefusedOnEveryJSONPath(t *testing.T) {
+	issuer := testIssuer(t)
+	handler := roleRouter(t, issuer, rolePrincipals())
+	event := `{"kind":"","occurredAt":"2026-10-04T08:00:00Z","clientSeq":1}`
+
+	for name, tc := range map[string]struct{ method, path, body string }{
+		"an autosave":    {http.MethodPatch, saveAnswersPath, saveAnswersWithEvent(event)},
+		"a bearer flush": {http.MethodPost, textBeaconPath, `{"sessionId":"019535d9-3df7-79fb-b466-fa907fa17f9f","events":[` + event + `]}`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			wantValidationFailure(t, sendAs(t, handler, issuer, tc.method, tc.path, studentUser, tc.body), `Trường "events.0.kind" không hợp lệ.`)
+		})
+	}
+}

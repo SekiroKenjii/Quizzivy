@@ -7,6 +7,9 @@ export interface Buffered {
   events: IntegrityEventInput[];
 }
 
+/** MAX_EVENTS_PER_REQUEST is the contract's `maxItems` for the events of one request. */
+export const MAX_EVENTS_PER_REQUEST = 500;
+
 const KEY_PREFIX = "quizzivy.integrity.";
 const SEQUENCE_BOUND = 2_000_000_000;
 
@@ -59,14 +62,19 @@ function write(attemptId: string, next: Buffered): void {
   }
 }
 
-/** Starts or resumes a session's buffer. */
-export function beginSession(attemptId: string, sessionId: string): void {
+/**
+ * Starts or resumes a session's buffer. When the stored buffer belongs to
+ * another session and still holds events, they are returned, still under
+ * their own session id, for the caller to send before they are replaced.
+ */
+export function beginSession(attemptId: string, sessionId: string): Buffered | null {
   const stored = read(attemptId);
   if (stored !== null && stored.sessionId === sessionId) {
     state = stored;
-    return;
+    return null;
   }
   write(attemptId, { sessionId, nextSeq: 0, events: [] });
+  return stored !== null && stored.events.length > 0 ? stored : null;
 }
 
 /**
@@ -100,7 +108,8 @@ export function pending(): IntegrityEventInput[] {
 }
 
 /**
- * Takes the buffer for a flush.
+ * Takes the oldest events for a flush, at most MAX_EVENTS_PER_REQUEST of
+ * them, and leaves the rest buffered for the next request.
  *
  * The sequence is NOT rewound -- these numbers are spent whether or not the
  * request arrives, and reusing one would make a genuinely new event look like
@@ -108,9 +117,17 @@ export function pending(): IntegrityEventInput[] {
  */
 export function drain(attemptId: string): IntegrityEventInput[] {
   if (state === null) return [];
-  const taken = state.events;
-  write(attemptId, { ...state, events: [] });
+  const taken = state.events.slice(0, MAX_EVENTS_PER_REQUEST);
+  write(attemptId, { ...state, events: state.events.slice(MAX_EVENTS_PER_REQUEST) });
   return taken;
+}
+
+/** inBatches splits events, in order, into lists of at most MAX_EVENTS_PER_REQUEST. */
+export function inBatches(events: IntegrityEventInput[]): IntegrityEventInput[][] {
+  const batches: IntegrityEventInput[][] = [];
+  for (let at = 0; at < events.length; at += MAX_EVENTS_PER_REQUEST)
+    batches.push(events.slice(at, at + MAX_EVENTS_PER_REQUEST));
+  return batches;
 }
 
 /**
