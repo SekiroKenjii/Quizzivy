@@ -25,6 +25,8 @@
 - T-R5.20 §5.4 `homePathFor` sends a built-in Admin (the holder of `scope.all`) to the console in `preferences.workspace` and to `/admin` the first time, any other holder of the `teacher` workspace to `/teacher`, a user with only the `admin` workspace to `/admin`, and anyone else to `/app`.
 - T-R5.20 §7, §15 `UserPreferences.workspace` (`teacher` or `admin`), written by `PATCH /me/preferences` when the user switches console; any other value answers `400 VALIDATION_FAILED`. No new operation and no migration: the preferences are one JSON document.
 - T-R5.20 §8 The consoles share one shell. The workspace switcher and the account menu gain the Admin console for a holder of both; the Admin menu has System settings, API reference, Teacher workspace, the theme and Sign out, and for a user without the `teacher` workspace also Change password (when the account has one) and Language. `/change-password` asks for the current password when the change is not forced, is titled "Change password" then, names the current-password field when it is empty, confirms the change with a toast, and goes back to the page the account menu was opened from (`?next=`).
+- T-R5.20 (D-022.3) §7, §15 `CurrentUser.role` returns, as a different thing from the v0.9.x `role` string that stays refused: an optional `CurrentUserRole` (`id`, `builtinKey`, `name`) read with the user from `app.roles`, on the caller's own document only (every operation that answers `CurrentUser`: sign-in, refresh, `GET`/`PATCH /auth/me`, linking Google and the avatar writes); `User`, and so any payload about someone else, carries no role. No migration, no new operation and no new permission; the access module and the principal cache are untouched.
+- T-R5.20 (D-022.3) §8 The sidebar footer's second line is the user's role name, as the deck draws it under the name. A built-in role reads from `role.builtin.<key>` (`vi` and `en`) while its stored name is still the seeded Vietnamese one, and as stored once an Admin renamed it; a custom role reads as stored. English therefore reads "Admin" for the built-in administrator, the Roles screen's word, not the deck's "Administrator". A response without a role draws the name alone. `lib/roleName.ts` is the one place that rule lives; the Roles screen (T-R5.24) reuses it.
 - T-R5.29 §12 The front door reads `GET /public/organization` through `useOrganization()`: a five-minute stale time, never blocking a render and never throwing, each line the centre's own value, else its `VITE_ORG_*` build value, else hidden, and every way in on when there is no answer. The answer is read member by member, so a wrong shape counts as no answer. The brand panel and the system pages' caption print the centre's name and logo, light or dark by theme (a logo made for the other theme sits on a tile of the opposite ground, and one that will not load is left out), and the name the settings row is born with, `Quizzivy`, counts as unset.
 - T-R5.29 §12 Sign-in hides the password form when password sign-in is off and the Google button when Google is off or not configured, says no way in is available when none is left, and links "Have a class code?" and names a remembered class only while joining with a code is on. Forgot password shows the front desk's phone and hours, shows Continue with Google only where sign-in offers it, and sends a visitor to sign-in when password sign-in is off. The join page says joining with a code is off in place of the form and forgets the remembered class (DG-40, DG-41).
 
@@ -1469,7 +1471,7 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
 ### 5.4 Guards and edge cases
 
 - `RequireSession` → `/login?next=<path>` when unauthenticated.
-- The web guards read the signed-in user's `workspaces` and `permissions` (`CurrentUser`, §7), never `role`, through `features/auth/permissions.ts` (`can` and `useCan`, `hasWorkspace` and `useWorkspace`). They decide what the SPA shows; the server enforces the permissions on every request (§5).
+- The web guards read the signed-in user's `workspaces` and `permissions` (`CurrentUser`, §7), never the `role` record (it names the user's role on screen and decides nothing), through `features/auth/permissions.ts` (`can` and `useCan`, `hasWorkspace` and `useWorkspace`). They decide what the SPA shows; the server enforces the permissions on every request (§5).
   - `TeacherWorkspace` holds `/teacher/*`, the teacher console since R4, for the `teacher` workspace. Anyone else gets a **403 page**, not a redirect (a redirect hides the misconfiguration).
   - `AdminWorkspace` holds `/admin/*`, the Admin console since R5, for the `admin` workspace. A path under it that is not a console route is a teacher address from before R4 and goes to the redirect below. A console route for a user without the workspace answers the 403 page, except `/admin` and `/admin/classes`, which are also pages of the teacher's tree and redirect to `/teacher` and `/teacher/classes`.
   - `RequirePermission` sits inside it and above `AdminLayout`. It reads `handle.permission` of the leaf route (a key, a pseudo-key or a list met by any one of its keys, as `x-permission` is) and renders the 403 page when the user lacks it; a console route that declares none is refused too.
@@ -1629,12 +1631,19 @@ type PermissionKey = 'content.tests.write' | /* … */ 'system.leads';  // the 2
 type Workspace = 'teacher' | 'admin' | 'app';
 
 interface CurrentUser extends User {    // the signed-in user only; a payload about anyone else carries User
+  role?: CurrentUserRole;               // the role the user holds, for display; never read to decide what the user may do
   permissions: PermissionKey[];         // the role's effective keys, in catalogue order
   workspaces: Workspace[];              // derived from permissions; the web guards read these (§5.4)
   phone?: string;
   locale?: 'vi' | 'en';
   timeZone?: string;
   preferences?: UserPreferences;
+}
+
+interface CurrentUserRole {             // on the caller's own document only; the server always sends it
+  id: UUID;
+  builtinKey: 'admin' | 'teacher' | 'assistant' | 'student' | null;   // null for a custom role
+  name: string;                         // the stored name, 1 to 60 characters
 }
 
 interface UserPreferences {

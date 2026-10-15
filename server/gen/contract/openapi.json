@@ -3489,9 +3489,39 @@
         ],
         "description": "A console the signed-in user may enter: `teacher` for any `content.*`,\n`teaching.*` or `people.students.*` permission; `admin` for\n`people.users.manage`, `people.roles.manage`, `system.audit.read`,\n`system.settings.write` or `scope.all`; `app` for\n`learning.take_tests`.\n"
       },
+      "CurrentUserRole": {
+        "type": "object",
+        "description": "The role the caller holds, on the caller's own document and nowhere\nelse, so no payload about another person names a role. `name` is the\nstored name. A client shows a built-in role (`builtinKey` set) by its\nlocalised name while the stored name is still the seeded one, and the\nstored name otherwise, as the Roles screen does. Always sent by the\nserver, and optional in the schema as `preferences` is. It is not the\nlegacy `role` string of v0.9.x, which `User` still does not carry.\n",
+        "required": [
+          "id",
+          "builtinKey",
+          "name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "builtinKey": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BuiltinRoleKey"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          }
+        }
+      },
       "CurrentUser": {
         "type": "object",
-        "description": "The signed-in user, as only the user sees it: `User`'s properties plus\nthe permissions the user's role holds, in catalogue order, and the\nworkspaces they open. Written flat, because a closed schema cannot be\nextended with `allOf` (issue #41). `User` stays where a response\ndescribes someone else, so a student's permissions never reach a\nteacher's payload.\n",
+        "description": "The signed-in user, as only the user sees it: `User`'s properties plus\nthe user's own role, the permissions it holds, in catalogue order, and\nthe workspaces they open. Written flat, because a closed schema cannot be\nextended with `allOf` (issue #41). `User` stays where a response\ndescribes someone else, so a student's permissions never reach a\nteacher's payload.\n",
         "required": [
           "id",
           "email",
@@ -3573,6 +3603,9 @@
             "type": "string",
             "format": "date-time",
             "description": "When the caller last changed their own password. Absent for an\naccount that never has, including one still on a temporary password\nand one whose password is older than R5. Self only: it is on\n`CurrentUser` and not on `User` or `StudentRow`.\n"
+          },
+          "role": {
+            "$ref": "#/components/schemas/CurrentUserRole"
           },
           "permissions": {
             "type": "array",

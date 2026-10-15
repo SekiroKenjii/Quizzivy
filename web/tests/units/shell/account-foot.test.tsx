@@ -6,13 +6,13 @@ import { MemoryRouter } from "react-router";
 import { http, HttpResponse } from "msw";
 import { DeckScale } from "@/components/ui/deck-scale";
 import { AccountMenu } from "@/features/auth/AccountMenu";
+import i18n from "@/lib/i18n";
 import { writeThemePreference } from "@/lib/theme";
 import { useAuthStore } from "@/stores/auth";
 import { adminUser, teacherUser } from "@tests/support/fixtures";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import { STUDENT } from "../student/support";
-import "@/lib/i18n";
 
 const STUDENT_TRIGGER_CLOSED = `<button type="button" id="radix-_r_0_" aria-haspopup="menu" aria-expanded="false" data-state="closed" data-slot="dropdown-menu-trigger" aria-label="Tài khoản của Nguyễn Văn An" class="hover:bg-hover data-[state=open]:bg-hover inline-flex h-10 items-center rounded-[0.625rem] p-1"><span data-slot="avatar" aria-hidden="true" class="inline-grid flex-none place-content-center rounded-full font-semibold size-8 text-xs bg-brand-soft text-brand-ink">AN</span></button>`;
 
@@ -51,10 +51,11 @@ beforeEach(() => {
   localStorage.removeItem("quizzivy.theme");
 });
 
-afterEach(() => {
+afterEach(async () => {
   useAuthStore.getState().clearSession();
   writeThemePreference("light");
   localStorage.clear();
+  await i18n.changeLanguage("vi");
 });
 
 describe("the student's account menu, which the teacher's form must not move", () => {
@@ -112,6 +113,45 @@ describe("the account row at the foot of the teacher sidebar", () => {
     const row = account("Thuong");
     expect(within(row).getByText("Quản trị viên")).toBeInTheDocument();
     expect(within(row).queryByText("Giáo viên")).toBeNull();
+  });
+
+  it("names a custom role as the Admin stored it, not the workspace it opens", () => {
+    foot("expanded", {
+      ...adminUser,
+      role: { id: adminUser.role!.id, builtinKey: null, name: "Điều phối phòng đề" },
+    });
+    const row = account("Thuong");
+    expect(within(row).getByText("Điều phối phòng đề")).toHaveClass(
+      "text-muted-fg",
+      "text-xs",
+    );
+    expect(within(row).queryByText("Quản trị viên")).toBeNull();
+  });
+
+  it("names a built-in role an Admin renamed as stored", () => {
+    foot("expanded", {
+      ...teacherUser,
+      role: { ...teacherUser.role!, name: "Giáo viên chủ nhiệm" },
+    });
+    const row = account();
+    expect(within(row).getByText("Giáo viên chủ nhiệm")).toBeInTheDocument();
+    expect(within(row).queryByText("Giáo viên")).toBeNull();
+  });
+
+  it("reads a built-in role in English while its stored name is the seeded one", async () => {
+    foot("expanded", { ...adminUser, locale: "en" });
+    const row = await screen.findByRole("button", { name: "Thuong's account" });
+    expect(within(row).getByText("Admin")).toBeInTheDocument();
+  });
+
+  it("names the user alone when the response carries no role", () => {
+    const withoutRole = structuredClone(teacherUser);
+    delete withoutRole.role;
+    foot("expanded", withoutRole);
+    const row = account();
+    expect(within(row).getByText("Trần Thị Bình")).toBeInTheDocument();
+    expect(row).not.toHaveTextContent("Giáo viên");
+    expect(row).not.toHaveTextContent("Quản trị viên");
   });
 
   it("shows the avatar alone when the sidebar is collapsed, and keeps its name", () => {

@@ -133,6 +133,7 @@ func toCurrentUser(u domain.User, permissions access.Set) openapi.CurrentUser {
 		workspaces = append(workspaces, openapi.Workspace(w))
 	}
 	prefs := toAPIPreferences(u.Preferences)
+	role := toCurrentUserRole(u.Role)
 	return openapi.CurrentUser{
 		Id:                 httpapi.ParseUUID(u.ID),
 		Email:              openapi_types.Email(u.Email),
@@ -142,6 +143,7 @@ func toCurrentUser(u domain.User, permissions access.Set) openapi.CurrentUser {
 		Locale:             (*openapi.CurrentUserLocale)(u.Locale),
 		TimeZone:           u.TimeZone,
 		Preferences:        &prefs,
+		Role:               &role,
 		HasPassword:        u.HasPassword(),
 		LinkedProviders:    providers,
 		MustChangePassword: u.MustChangePassword,
@@ -150,4 +152,12 @@ func toCurrentUser(u domain.User, permissions access.Set) openapi.CurrentUser {
 		Permissions:        keys,
 		Workspaces:         workspaces,
 	}
+}
+
+func toCurrentUserRole(r domain.Role) openapi.CurrentUserRole {
+	out := openapi.CurrentUserRole{Id: httpapi.ParseUUID(r.ID), Name: r.Name}
+	if r.BuiltinKey != nil {
+		out.BuiltinKey = new(openapi.BuiltinRoleKey(*r.BuiltinKey))
+	}
+	return out
 }

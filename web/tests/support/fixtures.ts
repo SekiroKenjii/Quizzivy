@@ -6,10 +6,35 @@ import type { components } from "@/lib/api/schema";
  * shape at runtime. Vietnamese names throughout, since that is the product.
  */
 
+export const studentRole: components["schemas"]["CurrentUserRole"] = {
+  id: "019535d8-0000-7000-8000-000000000004",
+  builtinKey: "student",
+  name: "Học viên",
+};
+
+export const assistantRole: components["schemas"]["CurrentUserRole"] = {
+  id: "019535d8-0000-7000-8000-000000000003",
+  builtinKey: "assistant",
+  name: "Trợ giảng",
+};
+
+export const teacherRole: components["schemas"]["CurrentUserRole"] = {
+  id: "019535d8-0000-7000-8000-000000000002",
+  builtinKey: "teacher",
+  name: "Giáo viên",
+};
+
+export const adminRole: components["schemas"]["CurrentUserRole"] = {
+  id: "019535d8-0000-7000-8000-000000000001",
+  builtinKey: "admin",
+  name: "Quản trị viên",
+};
+
 export const studentUser: components["schemas"]["CurrentUser"] = {
   id: "019535d9-3df7-79fb-b466-fa907fa17f9e",
   email: "hocvien@example.com",
   fullName: "Nguyễn Văn An",
+  role: studentRole,
   hasPassword: true,
   linkedProviders: [],
   mustChangePassword: false,
@@ -23,6 +48,7 @@ export const adminUser: components["schemas"]["CurrentUser"] = {
   id: "019535d9-3df7-79fb-b466-fa907fa17f9f",
   email: "thuong@example.com",
   fullName: "Thuong",
+  role: adminRole,
   permissions: [
     "content.tests.write",
     "content.tests.publish",
@@ -56,6 +82,7 @@ export const teacherUser: components["schemas"]["CurrentUser"] = {
   id: "019535d9-3df7-79fb-b466-fa907fa17fa0",
   email: "giaovien@example.com",
   fullName: "Trần Thị Bình",
+  role: teacherRole,
   permissions: [
     "content.tests.write",
     "content.tests.publish",
@@ -80,6 +107,7 @@ export const assistantUser: components["schemas"]["CurrentUser"] = {
   id: "019535d9-3df7-79fb-b466-fa907fa17fa1",
   email: "trogiang@example.com",
   fullName: "Lê Văn Cường",
+  role: assistantRole,
   permissions: [
     "content.tests.write",
     "content.questions.write",
