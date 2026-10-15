@@ -49,7 +49,7 @@ const headUser: User = {
 const renderPage = renderRolesPage;
 
 function cell(permission: string, role: string) {
-  return screen.getByRole("checkbox", { name: `${permission} — ${role}` });
+  return screen.getByLabelText(`${permission} — ${role}`);
 }
 
 function savedWith(updated: typeof ROLES) {
