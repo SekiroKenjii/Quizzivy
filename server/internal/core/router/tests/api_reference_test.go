@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"testing"
 
+	"quizzivy/gen/contract"
 	"quizzivy/gen/openapi"
 )
 
@@ -54,7 +55,7 @@ func TestTheApiReferenceSummaryIsAnAdminsAndNoTeachers(t *testing.T) {
 	}
 }
 
-func TestTheContractDownloadIsTheEmbeddedSpecAsAnAttachment(t *testing.T) {
+func TestTheContractDownloadIsTheAuthoredContractAsAnAttachment(t *testing.T) {
 	issuer := testIssuer(t)
 	h := roleRouter(t, issuer, rolePrincipals())
 
@@ -66,12 +67,8 @@ func TestTheContractDownloadIsTheEmbeddedSpecAsAnAttachment(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("the Admin got %d: %s", rec.Code, rec.Body)
 	}
-	want, err := openapi.GetSpecJSON()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(rec.Body.Bytes(), want) {
-		t.Errorf("the body is %d bytes and not the embedded spec's %d", rec.Body.Len(), len(want))
+	if want := contract.JSON(); !bytes.Equal(rec.Body.Bytes(), want) {
+		t.Errorf("the body is %d bytes and not the authored contract's %d", rec.Body.Len(), len(want))
 	}
 	if got := rec.Header().Get("Content-Disposition"); got != `attachment; filename="quizzivy-openapi.json"` {
 		t.Errorf("Content-Disposition %q", got)

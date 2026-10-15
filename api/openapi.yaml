@@ -48,7 +48,7 @@ info:
         operation serves two matrix rows, and the server narrows the check
         when the body decides which row applies.
 
-      An operation that does not require the bearer token (the seven open
+      An operation that does not require the bearer token (the nine open
       operations) declares none. The server refuses to start when an
       operation breaks this, and a hidden key (`scope.all`,
       `system.api_reference`, `system.data_export`, `system.leads`) may appear
@@ -609,7 +609,7 @@ components:
       additionalProperties: false
       properties:
         sha256: { type: string, pattern: '^[0-9a-f]{64}$' }
-        type: { type: string, enum: [image/png, image/svg+xml] }
+        type: { type: string, enum: [image/png] }
 
     OrganizationProfile:
       type: object
@@ -624,8 +624,11 @@ components:
         website:
           type: [string, 'null']
           maxLength: 200
-          description: A host or an `http`/`https` address, without spaces, as `quizzivy.com` or `https://quizzivy.com/lien-he`.
-        contactEmail: { type: [string, 'null'], maxLength: 254 }
+          description: A domain or an `https` address, without spaces or credentials, as `quizzivy.com` or `https://quizzivy.com/lien-he`. `http` and other schemes are refused.
+        contactEmail:
+          type: [string, 'null']
+          maxLength: 254
+          description: An address of a local part and a domain with a dot, as `hello@quizzivy.com`.
         frontDeskPhone:
           type: [string, 'null']
           maxLength: 30
@@ -750,7 +753,7 @@ components:
       additionalProperties: false
       properties:
         sha256: { type: string, pattern: '^[0-9a-f]{64}$' }
-        type: { type: string, enum: [image/png, image/svg+xml] }
+        type: { type: string, enum: [image/png] }
         width: { type: integer, minimum: 1 }
         height: { type: integer, minimum: 1 }
 
@@ -835,7 +838,6 @@ components:
         - MEDIA_KIND_MISMATCH
         - MEDIA_QUOTA_EXCEEDED
         - IMAGE_DIMENSIONS
-        - SVG_NOT_ALLOWED
         # Word imports
         - IMPORT_CONFLICT
         - IMPORT_QUOTA_EXCEEDED
@@ -6362,12 +6364,10 @@ paths:
       security: []
       summary: The centre's logo
       description: |
-        The bytes of the light or the dark logo, with the type they were stored
-        with. They are served as a download in a sandbox, so an SVG opened on
-        its own runs nothing and is never read as another type. A `v` equal to
-        the current logo's hash makes the answer immutable for a year; any
-        other `v`, or none, is cached for five minutes. No logo of that
-        variant: 404.
+        The PNG bytes of the light or the dark logo, served as a download and
+        never read as another type. A `v` equal to the current logo's hash makes
+        the answer immutable for a year; any other `v`, or none, is cached for
+        five minutes. No logo of that variant: 404.
 
         **Leak review (§6.5).** Public bytes the centre chose to show on its
         front door, the same for every caller. Nothing names the bucket, the
@@ -6391,11 +6391,7 @@ paths:
               schema: { type: string }
             Content-Disposition:
               required: true
-              description: '`attachment; filename="logo.png"` or `logo.svg`.'
-              schema: { type: string }
-            Content-Security-Policy:
-              required: true
-              description: '`default-src ''none''; style-src ''unsafe-inline''; sandbox`.'
+              description: '`attachment; filename="logo.png"`.'
               schema: { type: string }
             X-Content-Type-Options:
               required: true
@@ -6403,8 +6399,6 @@ paths:
               schema: { type: string }
           content:
             image/png:
-              schema: { type: string, format: binary }
-            image/svg+xml:
               schema: { type: string, format: binary }
         '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -10164,7 +10158,8 @@ paths:
       tags: [teacher-students]
       description: |
         Teacher-created accounts get a temporary password and
-        `mustChangePassword: true`. Self-signup requires Google (§6.3).
+        `mustChangePassword` as the organization's "force password change"
+        setting says (on by default). Self-signup requires Google (§6.3).
 
         Every `classIds` entry must be a class the caller teaches, or any class
         with `scope.all`. Anything else answers 404, exactly as a missing class
@@ -10719,10 +10714,13 @@ paths:
       tags: [admin-docs]
       summary: Download the contract
       description: |
-        The spec this server embeds, as the JSON it was embedded as (DG-10), an
-        attachment named `quizzivy-openapi.json`. The body is that JSON
-        document, declared as a byte stream so the generated server writes it
-        as it is and does not encode it a second time. The response is
+        This file, `api/openapi.yaml`, converted to JSON with its keys, values
+        and order unchanged (DG-10), an attachment named `quizzivy-openapi.json`.
+        It is not the spec the server routes by, whose operation ids the code
+        generator has rewritten and whose descriptions beside a `$ref` it has
+        dropped. The body is that JSON document, declared as a byte stream so
+        the generated server writes it as it is and does not encode it a second
+        time. The response is
         `no-store`. It needs the bearer token and `system.api_reference`,
         unlike `/docs/openapi.json`, which answers to a docs session.
       responses:
@@ -11103,15 +11101,18 @@ paths:
             schema: { $ref: '#/components/schemas/OrganizationSettingsInput' }
       responses:
         '200':
-          description: The document as stored.
+          description: |
+            The document as stored. A document equal to the stored one changes
+            nothing: the same revision comes back and no audit row is written.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/OrganizationSettings' }
         '400':
           description: |
             The body fails its schema, or `VALIDATION_FAILED` with a message per
-            field: a text that is empty or too long after trimming, a website
-            with spaces or another scheme than `http`/`https`, an email or a
+            field: a text that is empty or too long after trimming, a name that
+            holds a line break or an invisible character, a website that is not a
+            domain or an `https` address without credentials, an email or a
             phone number that is not one, a repeated domain, or a logo the server
             does not hold (as `organization.logo.light` or `organization.logo.dark`).
           content:
@@ -11176,14 +11177,9 @@ paths:
         A PNG is at most 1 MiB, square within 2% and 256 to 2048 pixels a side.
         Its type is read from its first bytes, its header before any pixel is
         decoded, and it is decoded and encoded afresh, which drops every
-        metadata chunk. An SVG is at most 256 KiB and is stored exactly as
-        sent, or refused: a DOCTYPE or an entity, a root other than `svg`, an
-        element outside the allowlist (`svg`, `g`, `path`, `rect`, `circle`,
-        `ellipse`, `line`, `polyline`, `polygon`, `defs`, `linearGradient`,
-        `radialGradient`, `stop`, `clipPath`, `mask`, `symbol`, `use`, `title`,
-        `desc`, `text`, `tspan`, `style`), an `on*` attribute, an `href` that
-        does not start with `#`, or a style with `@import` or a `url()` that
-        does not start with `#`. Its `viewBox` is square within 2%. A caller
+        metadata chunk. Any other type, an SVG included, answers
+        `MEDIA_TYPE_UNSUPPORTED`: the settings page draws an SVG to a PNG in the
+        browser before it uploads (D-019). A caller
         may upload 20 logos an hour.
 
         The request may carry 16 KiB more than the 1 MiB file for the multipart
@@ -11207,17 +11203,16 @@ paths:
               schema: { $ref: '#/components/schemas/OrganizationLogoUpload' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '413':
-          description: '`MEDIA_TOO_LARGE` — a PNG over 1 MiB or an SVG over 256 KiB.'
+          description: '`MEDIA_TOO_LARGE` — a file over 1 MiB.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '415':
           description: |
-            `MEDIA_TYPE_UNSUPPORTED` (neither a PNG nor an SVG), `MEDIA_UNREADABLE`
-            (the header or the pixels cannot be read), `IMAGE_DIMENSIONS` (not
-            square within 2%, a side outside 256 to 2048 pixels, or more memory
-            to decode than the server allows) or `SVG_NOT_ALLOWED` (the SVG
-            holds something outside the allowlist). Nothing was stored.
+            `MEDIA_TYPE_UNSUPPORTED` (not a PNG), `MEDIA_UNREADABLE` (the header or
+            the pixels cannot be read) or `IMAGE_DIMENSIONS` (not square within 2%,
+            a side outside 256 to 2048 pixels, or needing more memory to decode
+            than the server allows). Nothing was stored.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }

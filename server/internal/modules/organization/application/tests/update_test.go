@@ -85,10 +85,10 @@ func TestANewLogoMustBeInTheStoreBeforeASaveNamesIt(t *testing.T) {
 	store := newStore()
 	app.WithLogos(store, fixedChecker{})
 
-	body := []byte("<svg/>")
+	body := []byte("\x89PNG pretend")
 	digest := sha256.Sum256(body)
 	next := stored()
-	next.Profile.LightLogo = &domain.Logo{SHA256: digest[:], Type: domain.LogoSVG}
+	next.Profile.LightLogo = &domain.Logo{SHA256: digest[:], Type: domain.LogoPNG}
 
 	_, err := app.Commands.UpdateSettings.Handle(context.Background(), command.UpdateSettings{Actor: admin, Settings: next, ExpectedRevision: 1})
 	var invalid *validation.Error
@@ -96,7 +96,7 @@ func TestANewLogoMustBeInTheStoreBeforeASaveNamesIt(t *testing.T) {
 		t.Fatalf("err = %v, want the missing logo named", err)
 	}
 
-	if err := store.Put(context.Background(), "branding/"+hexOf(digest[:])+".svg", domain.LogoSVG, body, digest[:]); err != nil {
+	if err := store.Put(context.Background(), "branding/"+hexOf(digest[:])+".png", domain.LogoPNG, body, digest[:]); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := app.Commands.UpdateSettings.Handle(context.Background(), command.UpdateSettings{Actor: admin, Settings: next, ExpectedRevision: 1}); err != nil {
@@ -105,8 +105,8 @@ func TestANewLogoMustBeInTheStoreBeforeASaveNamesIt(t *testing.T) {
 }
 
 func TestALogoAlreadyInUseNeedsNoProbe(t *testing.T) {
-	digest := sha256.Sum256([]byte("<svg/>"))
-	logo := &domain.Logo{SHA256: digest[:], Type: domain.LogoSVG}
+	digest := sha256.Sum256([]byte("\x89PNG pretend"))
+	logo := &domain.Logo{SHA256: digest[:], Type: domain.LogoPNG}
 	current := stored()
 	current.Profile.LightLogo = logo
 	repo := &fakeRepo{settings: current}
@@ -157,9 +157,9 @@ func TestAnUploadIsStoredUnderItsHashAndChangesNoSetting(t *testing.T) {
 func TestARefusedUploadStoresNothing(t *testing.T) {
 	app, _ := build(t, &fakeRepo{settings: stored()})
 	store := newStore()
-	app.WithLogos(store, fixedChecker{err: domain.ErrSVGNotAllowed})
+	app.WithLogos(store, fixedChecker{err: domain.ErrLogoUnsupported})
 	_, err := app.Commands.UploadLogo.Handle(context.Background(), command.UploadLogo{Body: bytes.NewReader([]byte("x"))})
-	if !errors.Is(err, domain.ErrSVGNotAllowed) || store.puts != 0 {
+	if !errors.Is(err, domain.ErrLogoUnsupported) || store.puts != 0 {
 		t.Fatalf("err = %v, puts = %d", err, store.puts)
 	}
 }
@@ -173,19 +173,19 @@ func TestAnUploadWithoutStorageSaysSo(t *testing.T) {
 }
 
 func TestTheLogoQueryReadsTheStoreOncePerLogo(t *testing.T) {
-	digest := sha256.Sum256([]byte("<svg/>"))
+	digest := sha256.Sum256([]byte("\x89PNG pretend"))
 	current := stored()
-	current.Profile.LightLogo = &domain.Logo{SHA256: digest[:], Type: domain.LogoSVG}
+	current.Profile.LightLogo = &domain.Logo{SHA256: digest[:], Type: domain.LogoPNG}
 	repo := &fakeRepo{settings: current}
 	app, _ := build(t, repo)
 	store := newStore()
 	app.WithLogos(store, fixedChecker{})
-	if err := store.Put(context.Background(), "branding/"+hexOf(digest[:])+".svg", domain.LogoSVG, []byte("<svg/>"), digest[:]); err != nil {
+	if err := store.Put(context.Background(), "branding/"+hexOf(digest[:])+".png", domain.LogoPNG, []byte("\x89PNG pretend"), digest[:]); err != nil {
 		t.Fatal(err)
 	}
 	for range 3 {
 		got, err := app.Queries.Logo.Handle(context.Background(), query.Logo{Variant: domain.Light})
-		if err != nil || string(got.Bytes) != "<svg/>" || !got.Current(digest[:]) {
+		if err != nil || string(got.Bytes) != "\x89PNG pretend" || !got.Current(digest[:]) {
 			t.Fatalf("logo = %+v, %v", got, err)
 		}
 	}
