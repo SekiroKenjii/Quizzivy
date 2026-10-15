@@ -1381,6 +1381,7 @@
           "USER_IMPORT_TOO_MANY_ROWS",
           "USER_IMPORT_COLUMNS",
           "USER_IMPORT_NOTHING_TO_CREATE",
+          "SHEET_UNAVAILABLE",
           "CSV_NOT_UTF8",
           "XLSX_MACROS",
           "XLSX_ENCRYPTED",
@@ -5315,7 +5316,8 @@
               "string",
               "null"
             ],
-            "maxLength": 64
+            "maxLength": 64,
+            "description": "Why a `failed` job gave up, and `null` otherwise: `IMPORTER_NOT_ALLOWED`\n(the importer's account is disabled, or lost the permission or a role\nthe file names), `DELIVERY_UNAVAILABLE` (password sign-in was turned\noff, or the server can no longer seal, before a sheet job finished)\nor `WORKER_INTERRUPTED` (the worker claimed the job three times and\nnone finished it). The accounts created before the job failed stay.\n"
           },
           "createdAt": {
             "$ref": "#/components/schemas/Timestamp"
@@ -20577,6 +20579,70 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/admin/user-imports/{id}/sheet": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "post": {
+        "operationId": "downloadUserImportSheet",
+        "x-permission": "people.users.manage",
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "Take the sheet of temporary passwords an import made",
+        "description": "For a job delivered by `sheet`, hands its importer one CSV file, once:\na row for every account the job created, with `full_name`, `email`,\n`role`, `class` and `temporary_password`. One transaction opens the\npasswords, erases them from the job and records the download, so the\nfile is the only copy and a second request cannot have it. A job that is\nnot done, was delivered by email, created no account, has been\ndownloaded, or finished more than 24 hours ago answers\n`410 SHEET_UNAVAILABLE`; another user's job is `404`. The response is\n`no-store`, a UTF-8 file with a byte-order mark and CRLF line ends in\nwhich a cell that a spreadsheet would run as a formula starts with `'`.\nAudited as `user_import.sheet_downloaded`. Limited to 5 a minute per\nsigned-in user.\n",
+        "responses": {
+          "200": {
+            "description": "The sheet.",
+            "headers": {
+              "Content-Disposition": {
+                "required": true,
+                "description": "`attachment; filename=\"new-accounts-YYYYMMDD.csv\"`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "required": true,
+                "description": "`no-store`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "410": {
+            "description": "`SHEET_UNAVAILABLE` — the job has no sheet to give: it is not done, was delivered by email, created no account, was downloaded already, or finished more than 24 hours ago.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "501": {
+            "$ref": "#/components/responses/UserImportUnavailable"
           }
         }
       }

@@ -146,4 +146,12 @@ type UserImports interface {
 	// stored comes back instead, with replayed true, having written nothing.
 	// Rows that name an existing address are stored settled as skipped.
 	Create(ctx context.Context, req WriteRequest, in NewImportJob) (job ImportJob, replayed bool, err error)
+	// TakeSheet hands the importer the passwords of the accounts job id
+	// created, once. In one transaction it locks the job, opens each sealed
+	// password with open, erases them all, records the download at now and
+	// audits user_import.sheet_downloaded. It fails with ErrUserImportNotFound
+	// for a job that does not exist or is another user's, with
+	// ErrSheetUnavailable for one with no sheet to give at now, and with open's
+	// error, having changed nothing.
+	TakeSheet(ctx context.Context, req WriteRequest, id string, now time.Time, open SecretOpener) ([]SheetRow, error)
 }

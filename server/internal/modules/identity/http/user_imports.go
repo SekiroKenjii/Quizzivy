@@ -1,8 +1,10 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -18,6 +20,7 @@ import (
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/platform/tabular"
 )
 
 const (
@@ -219,6 +222,70 @@ func (h Identity) GetUserImport(ctx context.Context, request openapi.GetUserImpo
 		return nil, err
 	}
 	return openapi.GetUserImport200JSONResponse(toAPIUserImportJob(result.Job, result.Sheet)), nil
+}
+
+// DownloadUserImportSheet implements POST /admin/user-imports/{id}/sheet.
+func (h Identity) DownloadUserImportSheet(ctx context.Context, request openapi.DownloadUserImportSheetRequestObject) (openapi.DownloadUserImportSheetResponseObject, error) {
+	if h.app == nil || h.app.Commands.DownloadUserImportSheet == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	req, ok := studentRequest(ctx)
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+	rows, err := h.app.Commands.DownloadUserImportSheet.Handle(ctx, command.DownloadUserImportSheet{Request: req, ID: request.Id.String()})
+	switch {
+	case errors.Is(err, domain.ErrUserImportNotFound):
+		return openapi.DownloadUserImportSheet404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
+			httpapi.NotFound(ctx, httpx.Text(ctx, "Không tìm thấy lần nhập người dùng này.", "This user import was not found.")))}, nil
+	case errors.Is(err, domain.ErrSheetUnavailable):
+		return openapi.DownloadUserImportSheet410JSONResponse(httpapi.Error(ctx, openapi.SHEETUNAVAILABLE, httpx.Text(ctx,
+			"Không còn bảng mật khẩu để tải: lần nhập này chưa xong, gửi qua email, không tạo tài khoản nào, đã được tải một lần hoặc đã quá 24 giờ.",
+			"There is no sheet to download: this import is not finished, was sent by email, created no account, was already downloaded, or finished more than 24 hours ago."))), nil
+	case err != nil:
+		return nil, unrefused(err)
+	}
+	var file bytes.Buffer
+	if err := writeSheet(&file, rows); err != nil {
+		return nil, err
+	}
+	return openapi.DownloadUserImportSheet200TextcsvResponse{
+		Body:          &file,
+		ContentLength: int64(file.Len()),
+		Headers: openapi.DownloadUserImportSheet200ResponseHeaders{
+			CacheControl:       "no-store",
+			ContentDisposition: fmt.Sprintf(`attachment; filename="new-accounts-%s.csv"`, h.today(ctx, req.ActorID)),
+		},
+	}, nil
+}
+
+func writeSheet(out *bytes.Buffer, rows []domain.SheetRow) error {
+	file, err := tabular.NewCSV(out)
+	if err != nil {
+		return err
+	}
+	if err := file.Row("full_name", "email", "role", "class", "temporary_password"); err != nil {
+		return err
+	}
+	for _, r := range rows {
+		if err := file.Row(r.FullName, r.Email, r.Role, r.Class, r.Password); err != nil {
+			return err
+		}
+	}
+	return file.Flush()
+}
+
+func (h Identity) today(ctx context.Context, userID string) string {
+	location := time.FixedZone("ICT", 7*60*60)
+	if h.app.Queries.EffectiveZone == nil {
+		return time.Now().In(location).Format("20060102")
+	}
+	if zone, err := h.app.Queries.EffectiveZone.Handle(ctx, query.EffectiveZone{UserID: userID}); err == nil && zone != "" && zone != "Local" {
+		if loaded, err := time.LoadLocation(zone); err == nil {
+			location = loaded
+		}
+	}
+	return time.Now().In(location).Format("20060102")
 }
 
 func toAPIUserImportPreview(p command.UserImportPreview) openapi.UserImportPreview {

@@ -23,16 +23,16 @@ type Imports struct {
 	Budget  ports.EmailBudget
 	Wake    ports.Wake
 	Service *Service
-	Sealed  bool
+	Sealer  ports.Sealer
 
 	slot chan struct{}
 }
 
 // NewImports returns the helper over its ports. Budget and wake may be nil, and
-// sealed says whether the server can seal a secret, which a link in an email
-// and a hand-out sheet's passwords both need.
-func NewImports(repo domain.UserImports, roles ports.RoleChoices, tables ports.TableReader, budget ports.EmailBudget, wake ports.Wake, service *Service, sealed bool) *Imports {
-	return &Imports{Repo: repo, Roles: roles, Tables: tables, Budget: budget, Wake: wake, Service: service, Sealed: sealed, slot: make(chan struct{}, 1)}
+// so may sealer, which a server without SECRETS_KEY cannot have: neither a link
+// in an email nor a hand-out sheet's passwords can be delivered without it.
+func NewImports(repo domain.UserImports, roles ports.RoleChoices, tables ports.TableReader, budget ports.EmailBudget, wake ports.Wake, service *Service, sealer ports.Sealer) *Imports {
+	return &Imports{Repo: repo, Roles: roles, Tables: tables, Budget: budget, Wake: wake, Service: service, Sealer: sealer, slot: make(chan struct{}, 1)}
 }
 
 // Upload is a file offered for import with what the dialog chose.
@@ -88,11 +88,11 @@ func (i *Imports) Judge(ctx context.Context, req domain.WriteRequest, up Upload)
 func (i *Imports) checkDelivery(ctx context.Context, delivery domain.ImportDelivery) error {
 	switch delivery {
 	case domain.ImportEmailLink:
-		if i.Service.Links == nil || !i.Sealed {
+		if i.Service.Links == nil || i.Sealer == nil {
 			return domain.ErrSetPasswordUnavailable
 		}
 	case domain.ImportSheet:
-		if !i.Sealed {
+		if i.Sealer == nil {
 			return domain.ErrImportSheetsOff
 		}
 		policy, err := i.Service.SignInPolicy(ctx)

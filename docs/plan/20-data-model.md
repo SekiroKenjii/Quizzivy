@@ -3760,8 +3760,7 @@ per-token limits, a weak password spends the token's budget, the per-user limit 
 `00136_create_user_import_jobs.sql` and `00137_create_user_import_rows.sql` add `app.user_import_jobs` (D-56) and
 `app.user_import_rows` (D-57). An Admin uploads a CSV or XLSX file of people; the API reads it, judges every row
 against what the Admin may give, and stores the job and the rows that passed in one transaction; the worker then
-creates the accounts a few at a time. This section is the API half; the worker and the hand-out sheet are the
-second half of the task.
+creates the accounts a few at a time and, for a sheet job, hands the temporary passwords out once.
 
 **Judging a file.** The columns are `full_name` and `email` (required) and `role` and `class` (optional), found in
 the header whatever their case or order; any other column is ignored. A header that lacks a required column, or
@@ -3797,19 +3796,51 @@ at a time (a one-slot semaphore), a waiting upload that is cancelled leaves it.
 are inserted in one transaction with `ON CONFLICT (created_by, request_id) DO NOTHING`, so two requests at once
 store one job, and `user_import.requested` is audited with the counts and the format, never with the file's names or
 addresses. Both deliveries need `SECRETS_KEY` (a link by email and a sheet's passwords are sealed); without it, or
-without the import worker, the three operations answer `501`. A `sheet` also needs password sign-in on
+without the import worker, the operations answer `501`. A `sheet` also needs password sign-in on
 (`422 PASSWORD_SIGN_IN_DISABLED`).
 
 **Reading a job.** `getUserImport` finds the job by `id` and `created_by`; another user's job is a missing one.
 `sheet` is null for an email job and otherwise says whether the sheet can still be downloaded: the job is `done`,
 created an account, has not been downloaded and has not passed `sheet_expires_at`.
 
-**Open.** The rows keep full names and addresses for as long as the job exists. T-R5.16's housekeeping should delete
-the rows of jobs older than a retention period it names; the job row keeps only counts.
+**Running a job.** The worker claims the oldest `queued` job, or a `running` one whose `started_at` is over 30
+minutes old (`ImportLease`), in one statement `FOR UPDATE SKIP LOCKED`, and adds one to `attempts`. A job that has
+been claimed three times and is claimable again is failed `WORKER_INTERRUPTED` instead, in the same transaction
+that erases its sealed passwords. A run is cut off after 25 minutes (`ImportRunLimit`) and the job goes back to
+`queued` with the attempt spent; a shutdown puts it back and takes the attempt away. Every write the worker makes to
+a job names the attempt it holds (`status = 'running' AND attempts = $n`), so a worker whose claim was taken over
+writes nothing. The rows still `pending` are the work left, so a resumed job needs no state beyond the table.
+
+A batch of 25 rows is one transaction. It locks the job row, locks each role of the batch `FOR SHARE` and compares
+its `revision` with the one the worker read the role at (a role edited in between sends the worker to read it again,
+three times at most), inserts the account with `ON CONFLICT ((lower(email))) DO NOTHING` (no row back is a
+`skipped_exists`), adds the class membership (`joined_via 'admin'`, `added_by` the importer; a class archived since
+the job was stored is left out and the account still counts as created), issues the invite for an email job,
+audits `user.created {role, roleId, delivery, via: import, jobId}` with the importer as the actor, settles the
+row and moves `created_count` and `skipped_count`. The batch that makes them reach `total_rows` sets `done`,
+`completed_at` and, for a sheet job that created an account, `sheet_expires_at` 24 hours on. The importer is read
+again before every batch: a disabled account or one that lost a right fails the job `IMPORTER_NOT_ALLOWED`, and a
+sheet that can no longer be sealed or a sign-in policy that turned passwords off fails it `DELIVERY_UNAVAILABLE`.
+The accounts made before a failure stay. A failed job's sealed passwords are erased in the transaction that fails
+it, so those accounts are reached by a password reset.
+
+**The hand-out sheet.** `POST /admin/user-imports/{id}/sheet` locks the requester's job row `FOR UPDATE`, answers
+`SHEET_UNAVAILABLE` (`410`) unless the job is `done`, delivered by `sheet`, created an account, has not been
+downloaded and is within `sheet_expires_at`, opens each `created` row's `secret_ciphertext` in `ordinal` order,
+sets every ciphertext NULL, sets `sheet_downloaded_at`, writes `user_import.sheet_downloaded` (the row count, never a
+password) and commits, so two requests at once give the file to one and an unreadable ciphertext leaves the sheet
+whole. The role and class names on a line are read at that moment.
+
+**Open.** The rows keep full names and addresses for as long as the job exists, and the sealed passwords of a sheet
+nobody downloaded stay until housekeeping sweeps them: the sheet is refused after 24 hours but the ciphertext is not
+erased by this task. T-R5.16's housekeeping should erase the ciphertexts 24 hours after completion and delete the
+jobs, with their rows, after a retention period it names; the job row keeps only counts.
 
 **Tests.** `identity/domain/tests` (the rules table, the sniff, the header, the file name), `identity/application/tests/user_imports_db_test.go`
 (preview counts, the stored rows and their order, the audit diff, replay, another user's job, nothing to create, the
 subset rule, classes, deliveries, 2,000 rows, one file at a time), `identity/http/tests/user_imports_test.go` (the form,
 each reader error's code and both languages, no echo of the file), `core/adapters/tests/user_import_tables_test.go`,
 `platform/email/tests/budget_test.go`, `server/tests/user_import_api_flow_test.go` (the real router: 401, 403, 413,
-422, 501, the rate limit).
+422, 501, the rate limit). The worker and the sheet: `identity/application/tests/user_import_worker_db_test.go`
+(batches, the lease and its loss, the third claim, each failure code, a role edited in between, an archived class,
+the sheet's single use) and `server/tests/user_import_flow_test.go` (the router and the worker runner together).

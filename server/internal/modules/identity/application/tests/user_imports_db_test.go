@@ -29,6 +29,7 @@ import (
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/modules/identity/repositories"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/platform/secrets"
 	"quizzivy/internal/platform/tabular"
 )
 
@@ -67,8 +68,21 @@ func (w *importsWorld) attachTables(t *testing.T, tables ports.TableReader, shee
 func (w *importsWorld) attachOn(t *testing.T, conn db.Conn, tables ports.TableReader, sheets bool) {
 	t.Helper()
 	dbx := db.NewContext(conn)
+	var sealer ports.Sealer
+	if sheets {
+		sealer = sheetSealer(t)
+	}
 	w.app.SetUserImports(repositories.NewUserImports(dbx), accessapp.New(accessrepo.NewPostgres(dbx)).Queries.RoleChoices,
-		tables, fixedBudget{left: model.EmailAllowance{Remaining: 7, Limit: 100}}, w.wake, sheets)
+		tables, fixedBudget{left: model.EmailAllowance{Remaining: 7, Limit: 100}}, w.wake, sealer)
+}
+
+func sheetSealer(t *testing.T) *secrets.Sealer {
+	t.Helper()
+	sealer, err := secrets.New([]byte("0123456789abcdef0123456789abcdef"), secrets.PurposeUserImportSheet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return sealer
 }
 
 type commitRefusingPool struct{ *pgxpool.Pool }

@@ -158,6 +158,7 @@ type ImportJob struct {
 	Created           int
 	Skipped           int
 	Invalid           int
+	Attempts          int
 	ErrorCode         string
 	SheetExpiresAt    *time.Time
 	SheetDownloadedAt *time.Time

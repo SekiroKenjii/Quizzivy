@@ -926,6 +926,7 @@ components:
         - USER_IMPORT_TOO_MANY_ROWS
         - USER_IMPORT_COLUMNS
         - USER_IMPORT_NOTHING_TO_CREATE
+        - SHEET_UNAVAILABLE
         - CSV_NOT_UTF8
         - XLSX_MACROS
         - XLSX_ENCRYPTED
@@ -2906,7 +2907,16 @@ components:
             available: { type: boolean }
             expiresAt: { type: [string, 'null'], format: date-time }
             downloadedAt: { type: [string, 'null'], format: date-time }
-        errorCode: { type: [string, 'null'], maxLength: 64 }
+        errorCode:
+          type: [string, 'null']
+          maxLength: 64
+          description: |
+            Why a `failed` job gave up, and `null` otherwise: `IMPORTER_NOT_ALLOWED`
+            (the importer's account is disabled, or lost the permission or a role
+            the file names), `DELIVERY_UNAVAILABLE` (password sign-in was turned
+            off, or the server can no longer seal, before a sheet job finished)
+            or `WORKER_INTERRUPTED` (the worker claimed the job three times and
+            none finished it). The accounts created before the job failed stay.
         createdAt: { $ref: '#/components/schemas/Timestamp' }
 
     StudentPasswordReset:
@@ -11338,6 +11348,50 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/UserImportJob' }
         '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/user-imports/{id}/sheet:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: downloadUserImportSheet
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: Take the sheet of temporary passwords an import made
+      description: |
+        For a job delivered by `sheet`, hands its importer one CSV file, once:
+        a row for every account the job created, with `full_name`, `email`,
+        `role`, `class` and `temporary_password`. One transaction opens the
+        passwords, erases them from the job and records the download, so the
+        file is the only copy and a second request cannot have it. A job that is
+        not done, was delivered by email, created no account, has been
+        downloaded, or finished more than 24 hours ago answers
+        `410 SHEET_UNAVAILABLE`; another user's job is `404`. The response is
+        `no-store`, a UTF-8 file with a byte-order mark and CRLF line ends in
+        which a cell that a spreadsheet would run as a formula starts with `'`.
+        Audited as `user_import.sheet_downloaded`. Limited to 5 a minute per
+        signed-in user.
+      responses:
+        '200':
+          description: The sheet.
+          headers:
+            Content-Disposition:
+              required: true
+              description: '`attachment; filename="new-accounts-YYYYMMDD.csv"`.'
+              schema: { type: string }
+            Cache-Control:
+              required: true
+              description: '`no-store`.'
+              schema: { type: string }
+          content:
+            text/csv:
+              schema: { type: string, format: binary }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410':
+          description: '`SHEET_UNAVAILABLE` — the job has no sheet to give: it is not done, was delivered by email, created no account, was downloaded already, or finished more than 24 hours ago.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '501': { $ref: '#/components/responses/UserImportUnavailable' }
 
   /admin/roles:
     get:
