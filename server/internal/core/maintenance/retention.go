@@ -53,7 +53,7 @@ type EventsStep struct {
 	Batches int       `json:"batches"`
 }
 
-// AccountsStep is the accounts step of a sweep. Anonymise is the number of long-disabled accounts the sweep would anonymise, or with Apply true did; SkippedOwners are those it leaves because they own classes or content, SkippedInProgress those it left for now because an attempt is in progress, and Notices the in-app notifications deleted because they carried a name.
+// AccountsStep is the accounts step of a sweep. The three counts split the long-disabled accounts, so an owner who also has an attempt in progress is counted once, as an owner, and a dry run counts what an apply would do. Anonymise is the number of long-disabled accounts the sweep would anonymise, or with Apply true did; SkippedOwners are those it leaves because they own classes or content, SkippedInProgress those it leaves for now because an attempt is in progress, and Notices the in-app notifications deleted because they carried a name. Failed is the accounts a run could not anonymise even alone, after the batch holding them failed: the step ends with an error and the next run tries them again.
 type AccountsStep struct {
 	Enabled           bool       `json:"enabled"`
 	Cutoff            *time.Time `json:"cutoff,omitempty"`
@@ -62,6 +62,7 @@ type AccountsStep struct {
 	SkippedInProgress int64      `json:"skippedInProgress"`
 	Notices           int64      `json:"notices"`
 	Batches           int        `json:"batches"`
+	Failed            int64      `json:"failedAccounts"`
 }
 
 // StepFailure names a step of the sweep that failed and the error it ended with.
@@ -161,7 +162,7 @@ var eligibleAttempts = retention.EndedBefore("$1")
 
 const removedAnswer = `'` + retention.RemovedAnswer + `'::jsonb`
 
-var overdueInProgress = `SELECT count(*) FROM app.attempts at JOIN app.assignments a ON a.id = at.assignment_id
+var overdueInProgress = `SELECT count(*) FROM app.attempts at ` + retention.AttemptJoins + `
 	WHERE ` + retention.OverdueInProgressBefore("$1")
 
 func (s *sweeper) answers(ctx context.Context, months *int, step *AnswersStep) error {
@@ -182,8 +183,7 @@ func (s *sweeper) answers(ctx context.Context, months *int, step *AnswersStep) e
 		return s.readOnly(ctx, func(tx pgx.Tx) error {
 			return tx.QueryRow(ctx, `SELECT count(DISTINCT x.attempt_id), count(*)
 				 FROM app.attempt_answers x
-				 JOIN app.attempts at ON at.id = x.attempt_id
-				 JOIN app.assignments a ON a.id = at.assignment_id
+				 JOIN app.attempts at ON at.id = x.attempt_id `+retention.AttemptJoins+`
 				WHERE `+eligibleAttempts+` AND x.payload <> `+removedAnswer, cutoff).Scan(&step.Attempts, &step.Answers)
 		})
 	}
@@ -212,8 +212,7 @@ func (s *sweeper) answers(ctx context.Context, months *int, step *AnswersStep) e
 var removeAnswers = `
 	WITH picked AS (
 	  SELECT at.id
-	    FROM app.attempts at
-	    JOIN app.assignments a ON a.id = at.assignment_id
+	    FROM app.attempts at ` + retention.AttemptJoins + `
 	   WHERE at.id > $3::uuid AND ` + eligibleAttempts + `
 	     AND EXISTS (SELECT 1 FROM app.attempt_answers x WHERE x.attempt_id = at.id AND x.payload <> ` + removedAnswer + `)
 	   ORDER BY at.id
@@ -281,7 +280,7 @@ const dueAccounts = `
 
 const pickAccounts = `
 	SELECT u.id::text FROM app.users u
-	 WHERE u.disabled_at < $1 AND ` + notAnonymous + `
+	 WHERE u.id > $3::uuid AND u.disabled_at < $1 AND ` + notAnonymous + `
 	   AND NOT ` + ownsContent + ` AND NOT ` + hasAttemptInProgress + `
 	 ORDER BY u.id LIMIT $2
 	   FOR UPDATE OF u SKIP LOCKED`
@@ -297,65 +296,109 @@ func (s *sweeper) accounts(ctx context.Context, months *int, step *AccountsStep)
 	step.Enabled, step.Cutoff = true, &cutoff
 	count := func(ctx context.Context, q db.Querier, counted *AccountsStep) error {
 		return q.QueryRow(ctx, `WITH due AS MATERIALIZED (`+dueAccounts+`)
-			SELECT count(*) FILTER (WHERE NOT owner), count(*) FILTER (WHERE owner),
+			SELECT count(*) FILTER (WHERE NOT owner AND NOT busy), count(*) FILTER (WHERE owner),
 			       count(*) FILTER (WHERE NOT owner AND busy)
 			  FROM due`, cutoff).Scan(&counted.Anonymise, &counted.SkippedOwners, &counted.SkippedInProgress)
 	}
 	if !s.opts.Apply {
 		return s.readOnly(ctx, func(tx pgx.Tx) error { return count(ctx, tx, step) })
 	}
+	after := nilUUID
+	var failures []error
 	for {
-		var anonymised int64
-		var notices int64
+		var done accountsBatch
 		more, err := s.timed(ctx, func(ctx context.Context) (bool, error) {
-			var picked int
 			var err error
-			picked, anonymised, notices, err = s.anonymiseBatch(ctx, cutoff)
-			return picked == s.opts.Batch, err
+			done, err = s.anonymiseBatch(ctx, cutoff, after)
+			return done.picked == s.opts.Batch, err
 		})
 		if err != nil {
 			return err
 		}
 		step.Batches++
-		step.Anonymise += anonymised
-		step.Notices += notices
+		step.Anonymise += done.users
+		step.Notices += done.notices
+		step.Failed += int64(len(done.failed))
+		failures = append(failures, done.failed...)
 		if !more {
 			break
 		}
+		after = done.last
 	}
 	var left AccountsStep
 	if err := count(ctx, s.conn, &left); err != nil {
 		return err
 	}
 	step.SkippedOwners, step.SkippedInProgress = left.SkippedOwners, left.SkippedInProgress
+	if len(failures) > 0 {
+		return fmt.Errorf("%d accounts could not be anonymised, the first with: %w", len(failures), failures[0])
+	}
 	return nil
 }
 
-func (s *sweeper) anonymiseBatch(ctx context.Context, cutoff time.Time) (picked int, users, notices int64, err error) {
+type accountsBatch struct {
+	picked  int
+	last    string
+	users   int64
+	notices int64
+	failed  []error
+}
+
+func tryAnonymise(ctx context.Context, tx pgx.Tx, ids []string, cutoff time.Time) (anonymised, error) {
+	attempt, err := tx.Begin(ctx)
+	if err != nil {
+		return anonymised{}, err
+	}
+	done, err := anonymise(ctx, attempt, ids, "retention", &cutoff)
+	if err != nil {
+		_ = attempt.Rollback(ctx)
+		return anonymised{}, err
+	}
+	return done, attempt.Commit(ctx)
+}
+
+func (s *sweeper) anonymiseBatch(ctx context.Context, cutoff time.Time, after string) (accountsBatch, error) {
+	var batch accountsBatch
 	tx, err := s.conn.Begin(ctx)
 	if err != nil {
-		return 0, 0, 0, err
+		return batch, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	rows, err := tx.Query(ctx, pickAccounts, cutoff, s.opts.Batch)
+	rows, err := tx.Query(ctx, pickAccounts, cutoff, s.opts.Batch, after)
 	if err != nil {
-		return 0, 0, 0, err
+		return batch, err
 	}
 	ids, err := pgx.CollectRows(rows, pgx.RowTo[string])
 	if err != nil {
-		return 0, 0, 0, err
+		return batch, err
 	}
 	if len(ids) == 0 {
-		return 0, 0, 0, nil
+		return batch, nil
 	}
-	done, err := anonymise(ctx, tx, ids, "retention", &cutoff)
-	if err != nil {
-		return 0, 0, 0, err
+	batch.picked, batch.last = len(ids), ids[len(ids)-1]
+	done, err := tryAnonymise(ctx, tx, ids, cutoff)
+	switch {
+	case err == nil:
+		batch.users, batch.notices = done.users, done.notices
+	case ctx.Err() != nil:
+		return batch, err
+	case len(ids) == 1:
+		batch.failed = append(batch.failed, err)
+	default:
+		for _, id := range ids {
+			one, err := tryAnonymise(ctx, tx, []string{id}, cutoff)
+			if err != nil {
+				if ctx.Err() != nil {
+					return batch, err
+				}
+				batch.failed = append(batch.failed, err)
+				continue
+			}
+			batch.users += one.users
+			batch.notices += one.notices
+		}
 	}
-	if err := tx.Commit(ctx); err != nil {
-		return 0, 0, 0, err
-	}
-	return len(ids), done.users, done.notices, nil
+	return batch, tx.Commit(ctx)
 }
 
 func (s *sweeper) readOnly(ctx context.Context, read func(pgx.Tx) error) error {

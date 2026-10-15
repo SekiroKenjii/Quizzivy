@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -171,6 +172,12 @@ func (w *sweepWorld) attempt(assignment, student, status string, at time.Time) s
 		RETURNING id::text`, assignment, student, status, at)
 }
 
+func (w *sweepWorld) override(assignment, student string, closes time.Time) {
+	w.t.Helper()
+	w.exec(`INSERT INTO app.assignment_student_overrides(assignment_id, student_id, closes_at, reason)
+		VALUES ($1, $2, $3, 'gia hạn cho học viên')`, assignment, student, closes)
+}
+
 func (w *sweepWorld) answers(attempt string) {
 	w.t.Helper()
 	for _, q := range w.questions[:2] {
@@ -271,6 +278,13 @@ func TestTheAnswersStepRemovesAnswersOncePastTheCutoffOnBothClocks(t *testing.T)
 			w.answers(attempt)
 			cases = append(cases, answerCase{name, attempt, wantGone})
 		}
+		addOverridden := func(name, assignment, status string, at, closes time.Time, wantGone bool) {
+			student := w.user("Học viên", "student")
+			attempt := w.attempt(assignment, student, status, at)
+			w.override(assignment, student, closes)
+			w.answers(attempt)
+			cases = append(cases, answerCase{name, attempt, wantGone})
+		}
 		addUnsubmitted := func(name, assignment string, deadline time.Time, wantGone bool) {
 			attempt := w.attempt(assignment, w.user("Học viên", "student"), "voided", deadline.Add(-time.Hour))
 			w.exec(`UPDATE app.attempts SET submitted_at = NULL WHERE id = $1`, attempt)
@@ -296,7 +310,16 @@ func TestTheAnswersStepRemovesAnswersOncePastTheCutoffOnBothClocks(t *testing.T)
 		add("old attempt, assignment closed by hand before the cutoff", w.assignment(before.Add(-48*time.Hour), cutoff.AddDate(0, 6, 0), &closedBefore), "submitted", before.Add(-time.Hour), true)
 		closedAfter := after
 		add("old attempt, assignment closed by hand after the scheduled close, which was before the cutoff", w.assignment(before.Add(-48*time.Hour), before.Add(-time.Hour), &closedAfter), "submitted", before.Add(-time.Hour), true)
+		addOverridden("old attempt, closed assignment, the student's override keeps it open well past the cutoff", old, "submitted", before, cutoff.AddDate(0, 6, 0), false)
+		addOverridden("old attempt, closed assignment, the student's override closing just after the cutoff", old, "submitted", before, after, false)
+		addOverridden("old attempt, closed assignment, the student's override closing just before the cutoff", old, "submitted", before, cutoff.Add(-w.margin/2), true)
+		addOverridden("old attempt, closed assignment, the student's override earlier than the assignment's close", old, "submitted", before, before.Add(-24*time.Hour), true)
+		addOverridden("in progress, deadline long past, the student's override keeps the assignment open", old, "in_progress", before.Add(-time.Hour), cutoff.AddDate(0, 6, 0), false)
+		other := w.user("Học viên khác", "student")
+		w.override(old, other, cutoff.AddDate(0, 6, 0))
+		add("old attempt, another student's override on the same assignment", old, "submitted", before, true)
 		if w.exact {
+			addOverridden("old attempt, closed assignment, the student's override closing exactly at the cutoff", old, "submitted", before, cutoff, false)
 			add("submitted exactly at the cutoff", old, "submitted", cutoff, false)
 			add("old attempt, assignment closing exactly at the cutoff", w.closedAt(cutoff), "submitted", before.Add(-time.Hour), false)
 		}
@@ -352,6 +375,38 @@ func TestTheAnswersStepRemovesAnswersOncePastTheCutoffOnBothClocks(t *testing.T)
 	})
 }
 
+func TestTheAnswersStepLeavesWhatItAlreadyRemovedAloneAndAFinishedRunDoesNothing(t *testing.T) {
+	eachWorld(t, func(t *testing.T, w *sweepWorld) {
+		w.retention(months(12), 13, nil)
+		before := w.cutoff(12).Add(-w.margin)
+		old := w.closedAt(before)
+		half := w.attempt(old, w.user("Học viên", "student"), "submitted", before)
+		w.answers(half)
+		w.exec(`UPDATE app.attempt_answers SET payload = $2::text::jsonb WHERE attempt_id = $1 AND question_id = $3`,
+			half, removedPayload, w.questions[0])
+		for range 3 {
+			w.answers(w.attempt(old, w.user("Học viên", "student"), "submitted", before))
+		}
+
+		first := w.sweep(maintenance.SweepOptions{Apply: true, Batch: 2})
+		if first.Answers.Attempts != 4 || first.Answers.Answers != 7 {
+			t.Errorf("first run removed %d answers of %d attempts, want 7 of 4: an answer already removed is not removed again", first.Answers.Answers, first.Answers.Attempts)
+		}
+		entries := w.audits("retention.answers_removed")
+		if entries != 2 {
+			t.Errorf("%d audit entries for two batches that removed answers, want 2", entries)
+		}
+
+		again := w.sweep(maintenance.SweepOptions{Apply: true, Batch: 2})
+		if again.Answers.Attempts != 0 || again.Answers.Answers != 0 || again.Answers.Batches != 1 {
+			t.Errorf("a second run did work: %+v, want no attempts, no answers and one empty batch", again.Answers)
+		}
+		if got := w.audits("retention.answers_removed"); got != entries {
+			t.Errorf("a second run wrote %d audit entries", got-entries)
+		}
+	})
+}
+
 func TestEveryAttemptStatusIsDecidedByTheAnswersRule(t *testing.T) {
 	w := newSweepWorld(t)
 	rows, err := w.q.Query(w.ctx, `SELECT unnest(enum_range(NULL::app.attempt_status))::text ORDER BY 1`)
@@ -401,15 +456,25 @@ func TestADryRunCountsWhatARunWouldDoAndWritesNothing(t *testing.T) {
 		attempt := w.attempt(old, w.user("Học viên", "student"), "submitted", cutoff.Add(-24*time.Hour))
 		w.answers(attempt)
 		w.event(attempt, w.cutoff(6).Add(-time.Hour))
+		extended := w.user("Học viên được gia hạn", "student")
+		w.override(old, extended, cutoff.AddDate(0, 6, 0))
+		w.answers(w.attempt(old, extended, "submitted", cutoff.Add(-24*time.Hour)))
 		gone := w.user("Học viên đã khoá", "student")
 		w.disable(gone, cutoff.Add(-time.Hour))
+		sitting := w.user("Học viên đang làm bài", "student")
+		w.disable(sitting, cutoff.Add(-time.Hour))
+		w.attempt(old, sitting, "in_progress", cutoff.Add(-24*time.Hour))
+		owner := w.user("Giáo viên có lớp", "teacher")
+		w.disable(owner, cutoff.Add(-time.Hour))
+		w.id(`INSERT INTO app.classes(name, teacher_id) VALUES ('Lớp còn dạy', $1) RETURNING id::text`, owner)
 		audits := w.count(`SELECT count(*) FROM app.audit_log`)
 
 		dry := w.sweep(maintenance.SweepOptions{})
 		if dry.Applied {
 			t.Error("a dry run reports itself applied")
 		}
-		if dry.Answers.Attempts != 1 || dry.Answers.Answers != 2 || dry.FocusEvents.Events != 1 || dry.Accounts.Anonymise != 1 {
+		if dry.Answers.Attempts != 1 || dry.Answers.Answers != 2 || dry.FocusEvents.Events != 1 ||
+			dry.Accounts.Anonymise != 1 || dry.Accounts.SkippedOwners != 1 || dry.Accounts.SkippedInProgress != 1 {
 			t.Errorf("dry run counted %+v %+v %+v", dry.Answers, dry.FocusEvents, dry.Accounts)
 		}
 		if w.removed(attempt) || w.count(`SELECT count(*) FROM app.attempt_events WHERE attempt_id = $1`, attempt) != 1 ||
@@ -422,7 +487,8 @@ func TestADryRunCountsWhatARunWouldDoAndWritesNothing(t *testing.T) {
 
 		run := w.sweep(maintenance.SweepOptions{Apply: true})
 		if run.Answers.Attempts != dry.Answers.Attempts || run.Answers.Answers != dry.Answers.Answers ||
-			run.FocusEvents.Events != dry.FocusEvents.Events || run.Accounts.Anonymise != dry.Accounts.Anonymise {
+			run.FocusEvents.Events != dry.FocusEvents.Events || run.Accounts.Anonymise != dry.Accounts.Anonymise ||
+			run.Accounts.SkippedOwners != dry.Accounts.SkippedOwners || run.Accounts.SkippedInProgress != dry.Accounts.SkippedInProgress {
 			t.Errorf("the run did %+v %+v %+v, the dry run counted %+v %+v %+v",
 				run.Answers, run.FocusEvents, run.Accounts, dry.Answers, dry.FocusEvents, dry.Accounts)
 		}
@@ -637,6 +703,49 @@ func TestTheAccountsStepAnonymisesEveryRoleOnceDisabledPastTheCutoff(t *testing.
 		again := w.sweep(maintenance.SweepOptions{Apply: true})
 		if again.Accounts.Anonymise != 0 || again.Accounts.SkippedOwners != 1 || again.Accounts.SkippedInProgress != 1 || w.audits("user.anonymized") != 2 {
 			t.Errorf("a second run: %+v, %d entries", again.Accounts, w.audits("user.anonymized"))
+		}
+	})
+}
+
+func TestOneAccountThatCannotBeAnonymisedDoesNotStopTheOthersAndIsReported(t *testing.T) {
+	eachWorld(t, func(t *testing.T, w *sweepWorld) {
+		w.retention(nil, 13, months(12))
+		at := w.cutoff(12).Add(-time.Hour)
+		var users []string
+		for range 5 {
+			user := w.user("Học viên", "student")
+			w.disable(user, at)
+			users = append(users, user)
+		}
+		poisoned := users[2]
+		w.exec(`CREATE FUNCTION app.refuse_user() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'refused'; END $$`)
+		w.exec(fmt.Sprintf(`CREATE TRIGGER refuse_user BEFORE UPDATE ON app.users FOR EACH ROW
+			WHEN (NEW.id = '%s') EXECUTE FUNCTION app.refuse_user()`, poisoned))
+
+		report, err := maintenance.RetentionSweep(w.ctx, w.conn, maintenance.SweepOptions{Apply: true, Batch: 2, Budget: time.Minute})
+		if err == nil || !strings.Contains(err.Error(), "1 accounts could not be anonymised") || !strings.Contains(err.Error(), "refused") {
+			t.Fatalf("the sweep returned %v, want an error naming the one account it could not anonymise", err)
+		}
+		if report.Accounts.Anonymise != 4 || report.Accounts.Failed != 1 || report.Complete || len(report.Failed) != 1 || report.Failed[0].Step != "accounts" {
+			t.Errorf("report = %+v", report)
+		}
+		for _, user := range users {
+			want := 1
+			if user == poisoned {
+				want = 0
+			}
+			if got := w.count(`SELECT count(*) FROM app.users WHERE id = $1 AND email LIKE 'anonymous-%'`, user); got != want {
+				t.Errorf("user %s anonymised = %d, want %d", user, got, want)
+			}
+		}
+		if got := w.audits("user.anonymized"); got != 4 {
+			t.Errorf("%d user.anonymized entries, want 4", got)
+		}
+
+		w.exec(`DROP TRIGGER refuse_user ON app.users`)
+		next := w.sweep(maintenance.SweepOptions{Apply: true, Batch: 2})
+		if next.Accounts.Anonymise != 1 || next.Accounts.Failed != 0 || !next.Complete {
+			t.Errorf("the next run = %+v, want the one left", next.Accounts)
 		}
 	})
 }
