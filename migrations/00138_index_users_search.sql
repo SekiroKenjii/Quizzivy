@@ -7,9 +7,10 @@
 -- without this index the count, the facets and a sparse page each read the whole
 -- table, 99 ms at 100,000 accounts with no filter, 400 ms for a search that finds
 -- something and about 1 s for one that finds nothing (QC-N-5). A gin index with
--- gin_trgm_ops took the first to 71 ms and the last to 4 ms. The expression must
--- be the query's, character for character in effect: repositories.UserSearchText
--- holds it, and a test fails when the planner stops choosing the index for it.
+-- gin_trgm_ops, on an analysed table, took the first to 71 ms and the last to
+-- 4 ms. The expression must be the query's, character for character in effect:
+-- repositories.UserSearchText holds it, and a test fails when the planner stops
+-- choosing the index for the statements the directory sends.
 --
 -- Two characters or fewer give no trigram to look up, so a search that short
 -- still reads the table, as it does today; a centre with few accounts reads a
@@ -27,11 +28,23 @@
 -- the name taken, does nothing, and records the file as applied over an index
 -- that is never used (00133 does the same).
 --
+-- The file ends with ANALYZE, because creating an index never wakes autovacuum:
+-- it analyses a table only after 50 rows and 10% of them have changed, so on a
+-- directory that changes slowly the planner would have no statistics for this
+-- expression for weeks. Without them it guesses the match rate, and the page
+-- query (ORDER BY id DESC LIMIT) walks users_pkey backwards evaluating the
+-- expression on every row instead of using the index: 346 ms at 100,000
+-- accounts and 3.8 s at 500,000 for a search that finds nothing (QC-N-13).
+-- ANALYZE takes a lock that blocks no writer and, at 500,000 accounts, about a
+-- second.
+--
 -- Grants are untouched: an index needs none.
 DROP INDEX CONCURRENTLY IF EXISTS app.users_search_trgm_idx;
 
 CREATE INDEX CONCURRENTLY users_search_trgm_idx
   ON app.users USING gin (app.immutable_unaccent(lower(full_name || ' ' || email)) gin_trgm_ops);
+
+ANALYZE app.users;
 
 -- +goose Down
 
