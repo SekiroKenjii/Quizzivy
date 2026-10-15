@@ -179,7 +179,8 @@ type UserCan struct {
 // Can applies the guards of an operation on the account to the caller: the
 // subset rule against target, the permissions the operation needs beyond
 // people.users.manage, not acting on oneself where that is refused, and the
-// last active Admin. target is the account's effective permissions.
+// last active Admin, which matters only to a caller who holds every permission
+// without being an Admin. target is the account's effective permissions.
 func (d AdminUserDetail) Can(by WriteRequest, target access.Set) UserCan {
 	self := d.User.ID == by.ActorID
 	subset := access.CanActOn(by.Grants, target)

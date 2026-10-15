@@ -2340,12 +2340,14 @@ export interface paths {
         };
         /**
          * Every account, whatever its role
-         * @description The Users table: every account in the centre, newest first. `q` matches
-         *     the name and the email together, ignoring case and accents (D-11), and
-         *     `email` is an exact, case-insensitive match for the Add user form's
-         *     "already taken" check. `status` narrows to the accounts in that
-         *     state, which never includes a disabled one (`AccountStatus` lists
-         *     `disabled` first).
+         * @description The Users table: every account in the centre, newest first: highest id
+         *     first, which is creation order for every account the app creates. Pages
+         *     are offset based, so accounts added between two requests shift the later
+         *     pages. `q` matches the name and the email together, ignoring case and
+         *     accents (D-11), and `email` is an exact, case-insensitive match for the
+         *     Add user form's "already taken" check. `status` narrows to the accounts
+         *     in that state, which never includes a disabled one (`AccountStatus`
+         *     lists `disabled` first).
          */
         get: operations["listUsers"];
         put?: never;
