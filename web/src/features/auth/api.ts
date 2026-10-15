@@ -86,11 +86,6 @@ export function requestSetPasswordLink() {
   return api("post", "/auth/set-password/request");
 }
 
-/** openDocsSession sets the fifteen-minute cookie that opens the API reference on the API origin; admins only. */
-export function openDocsSession() {
-  return api("post", "/admin/docs-session");
-}
-
 /** ProfilePatch preserves omission and explicit nullable clearing for all five account fields. */
 export type ProfilePatch =
   operations["updateCurrentUser"]["requestBody"]["content"]["application/json"];
