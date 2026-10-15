@@ -18,68 +18,66 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function sent(handler: (form: FormData) => void) {
+type Part = { form: FormData; name: string; value: unknown };
+
+function recordForm() {
+  const parts: Part[] = [];
+  const append = FormData.prototype.append as (
+    this: FormData,
+    ...args: unknown[]
+  ) => void;
+  vi.spyOn(FormData.prototype, "append").mockImplementation(function (
+    this: FormData,
+    ...args: unknown[]
+  ) {
+    parts.push({ form: this, name: String(args[0]), value: args[1] });
+    append.apply(this, args);
+  } as never);
   server.use(
-    http.post(`${BASE}/admin/settings/logo`, async ({ request }) => {
-      handler(await request.formData());
-      return contractJson("/admin/settings/logo", "post", 200, {
+    http.post(`${BASE}/admin/settings/logo`, () =>
+      contractJson("/admin/settings/logo", "post", 200, {
         sha256: "a".repeat(64),
         type: "image/png",
         width: 512,
         height: 512,
-      });
-    }),
+      }),
+    ),
   );
+  return parts;
 }
 
 describe("an upload's fields", () => {
   it("travel with the file as parts of the same form", async () => {
-    let seen: Record<string, string> = {};
-    sent((form) => {
-      seen = { variant: String(form.get("variant")), kind: String(form.get("kind")) };
+    const parts = recordForm();
+    const file = new File(["x"], "mark.png", { type: "image/png" });
+
+    await uploadFile("/admin/settings/logo", file, {
+      fields: { variant: "dark", kind: "mark" },
     });
 
-    await uploadFile(
-      "/admin/settings/logo",
-      new File(["x"], "mark.png", { type: "image/png" }),
-      {
-        fields: { variant: "dark", kind: "mark" },
-      },
-    );
-
-    expect(seen).toEqual({ variant: "dark", kind: "mark" });
+    expect(parts.map(({ name, value }) => [name, value])).toEqual([
+      ["variant", "dark"],
+      ["kind", "mark"],
+      ["file", file],
+    ]);
+    expect(new Set(parts.map(({ form }) => form)).size).toBe(1);
   });
 
   it("come before the file, so a server that reads the stream meets them first", async () => {
-    const order: string[] = [];
-    const append = FormData.prototype.append as (
-      this: FormData,
-      ...args: unknown[]
-    ) => void;
-    vi.spyOn(FormData.prototype, "append").mockImplementation(function (
-      this: FormData,
-      ...args: unknown[]
-    ) {
-      order.push(String(args[0]));
-      append.apply(this, args);
-    } as never);
-    sent(() => undefined);
+    const parts = recordForm();
 
     await uploadFile("/admin/settings/logo", new File(["x"], "mark.png"), {
       fields: { variant: "light" },
     });
 
-    expect(order).toEqual(["variant", "file"]);
+    expect(parts.map(({ name }) => name)).toEqual(["variant", "file"]);
   });
 
   it("are no part of the form when none are given", async () => {
-    let names: string[] = [];
-    sent((form) => {
-      names = [...form.keys()];
-    });
+    const parts = recordForm();
 
     await uploadFile("/admin/settings/logo", new File(["x"], "mark.png"));
 
-    expect(names).toEqual(["file"]);
+    expect(parts.map(({ name }) => name)).toEqual(["file"]);
   });
 });

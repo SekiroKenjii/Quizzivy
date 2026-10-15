@@ -127,8 +127,10 @@ export function servesImpact(
 /**
  * servesLogoUpload answers `POST /admin/settings/logo` with a hash per variant
  * and records each upload's variant, file name, type and size, as the form
- * was built in the browser (the mocked network drops a file's name). `refuse`
- * answers instead, for the uploads it returns a response for. The caller
+ * was built in the browser. The form is never parsed on the way in: the mocked
+ * network drops a file's name, and Node's multipart parser refuses a jsdom
+ * File. `refuse` answers instead, for the uploads it returns a response for.
+ * Uploads are answered one at a time, in the order they were built. The caller
  * restores mocks when the test ends.
  */
 export function servesLogoUpload(refuse?: (variant: string) => Response | undefined) {
@@ -149,12 +151,11 @@ export function servesLogoUpload(refuse?: (variant: string) => Response | undefi
     append.apply(this, args);
   } as never);
   server.use(
-    http.post(`${BASE}/admin/settings/logo`, async ({ request }) => {
-      const answered = String((await request.formData()).get("variant"));
-      const refused = refuse?.(answered);
+    http.post(`${BASE}/admin/settings/logo`, () => {
+      const refused = refuse?.(variant);
       if (refused) return refused;
       return contractJson("/admin/settings/logo", "post", 200, {
-        sha256: answered === "dark" ? DARK_HASH : HASH,
+        sha256: variant === "dark" ? DARK_HASH : HASH,
         type: "image/png",
         width: 512,
         height: 512,
