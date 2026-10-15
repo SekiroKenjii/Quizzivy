@@ -482,6 +482,32 @@ release. A failed row keeps its `last_error_code` (`http_422:validation_error`,
 outbox id, template, outcome and recipient domain, never an address, a subject
 or a link.
 
+## Daily housekeeping
+
+Each API machine runs the housekeeping when it starts and then every 24 hours,
+on the tick of the refresh-token prune, so it adds no timer and no database
+wake of its own. It removes, in this order: `user_activity_days` rows older
+than 400 days; outbox rows sent or failed more than 30 days ago (a pending row
+never); the files of data exports past their 24 hours, which are then marked
+`expired` (this step needs `IMPORT_S3_BUCKET`); and the `branding/` logo
+objects that neither the light nor the dark logo names, once they are 24 hours
+old (this step needs media storage). Two machines running it at once only
+repeat each other's deletes.
+
+Every step handles 500 rows or objects at a time, at most 20 times and for at
+most a minute, so a large backlog is cleared over several days rather than in
+one long transaction. The logs say how each went and carry counts, never a
+key, address or title:
+
+- `housekeeping step done` with `step` and `removed`;
+- `housekeeping step left work for the next run`, when the backlog outlasted the
+  step's budget (it is finished by the next run);
+- `housekeeping step failed` with `code=HOUSEKEEPING_STEP_FAILED`, the `step` and
+  the error. The other steps still ran. A step that fails every day (a bucket
+  that denies deletes, say) is the one to alert on.
+
+There is no switch. A logo the settings still name is never deleted.
+
 ## The plan the Admin console shows
 
 The Admin console's Overview and its Plan & usage page set what the centre holds beside the plan
