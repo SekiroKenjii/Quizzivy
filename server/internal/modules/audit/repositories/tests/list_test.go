@@ -108,7 +108,7 @@ func TestADisplayNameIsTheActorsNameWhenThereIsOne(t *testing.T) {
 func TestTheSystemHasNoActor(t *testing.T) {
 	w := newWorld(t)
 	w.write(entry{action: "maintenance.scheduled", entity: "maintenance_window", at: march(12, 9, 0)})
-	w.write(entry{action: "student.anonymized", entity: "users", at: march(12, 10, 0)})
+	w.write(entry{action: "user.anonymized", entity: "users", at: march(12, 10, 0)})
 
 	got := w.list(inMarch())
 

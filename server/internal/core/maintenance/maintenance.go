@@ -1,14 +1,13 @@
-// Package maintenance implements the operator's privileged commands, run outside the API process: integrity retention, student anonymization and maintenance windows.
+// Package maintenance implements the operator's privileged commands, run outside the API process under the quizzivy_maintenance role: the retention sweep, integrity retention, account anonymization, maintenance windows, join-code re-keying and the AI credits console.
 package maintenance
 
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/retention"
 )
 
 // RetentionReport describes one bounded batch using the database's UTC calendar cutoff.
@@ -18,105 +17,79 @@ type RetentionReport struct {
 	Applied bool      `json:"applied"`
 }
 
-const retentionCandidates = `SELECT e.id FROM app.attempt_events e
- JOIN app.attempts at ON at.id=e.attempt_id
- JOIN app.assignments a ON a.id=at.assignment_id
- WHERE e.received_at < $1 AND coalesce(a.closed_at,a.closes_at) < $1
+const maxBatch = 10000
+
+func checkBatch(batch int) error {
+	if batch < 1 || batch > maxBatch {
+		return errors.New("batch must be between 1 and 10000")
+	}
+	return nil
+}
+
+func cutoffBefore(ctx context.Context, conn db.Querier, months int) (time.Time, error) {
+	var cutoff time.Time
+	err := conn.QueryRow(ctx,
+		`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' - make_interval(months => $1)) AT TIME ZONE 'UTC'`, months).Scan(&cutoff)
+	return cutoff, err
+}
+
+var eventsDue = `FROM app.attempt_events e
+ JOIN app.attempts at ON at.id = e.attempt_id ` + retention.AttemptJoins + `
+ WHERE e.received_at < $1 AND ` + retention.ClosedBefore("$1")
+
+var retentionCandidates = `SELECT e.id, e.received_at ` + eventsDue + `
+ AND (e.received_at, e.id) > ($3::timestamptz, $4::bigint)
  ORDER BY e.received_at,e.id LIMIT $2`
 
-// RetainEvents counts or deletes a bounded batch after both receipt and assignment close are thirteen months old.
-// Apply requires the owner role; no application-role privileges are changed.
-func RetainEvents(ctx context.Context, conn db.Querier, apply bool, batch int) (RetentionReport, error) {
+type eventsCursor struct {
+	receivedAt time.Time
+	id         int64
+}
+
+var fromTheStart = eventsCursor{}
+
+// RetainEvents counts or deletes one bounded batch of integrity events once both their receipt and the close of their assignment for the student, an override included, are months old, on the UTC calendar.
+// Apply writes as the caller's role; no application-role privileges are changed.
+func RetainEvents(ctx context.Context, conn db.Querier, months int, apply bool, batch int) (RetentionReport, error) {
 	var out RetentionReport
-	if batch < 1 || batch > 10000 {
-		return out, errors.New("batch must be between 1 and 10000")
+	if err := checkBatch(batch); err != nil {
+		return out, err
 	}
-	err := conn.QueryRow(ctx, `SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' - interval '13 months') AT TIME ZONE 'UTC'`).Scan(&out.Cutoff)
+	cutoff, err := cutoffBefore(ctx, conn, months)
 	if err != nil {
 		return out, err
 	}
+	out.Cutoff = cutoff
 	if !apply {
-		err = conn.QueryRow(ctx, `SELECT count(id) FROM (`+retentionCandidates+`) AS candidates`, out.Cutoff, batch).Scan(&out.Rows)
+		err = conn.QueryRow(ctx, `SELECT count(id) FROM (`+retentionCandidates+`) AS candidates`,
+			cutoff, batch, fromTheStart.receivedAt, fromTheStart.id).Scan(&out.Rows)
 		return out, err
 	}
-	err = conn.QueryRow(ctx, `
-		WITH candidates AS (`+retentionCandidates+` FOR UPDATE OF e SKIP LOCKED
+	out.Rows, _, err = deleteEvents(ctx, conn, cutoff, batch, fromTheStart)
+	out.Applied = err == nil
+	return out, err
+}
+
+func deleteEvents(ctx context.Context, conn db.Querier, cutoff time.Time, batch int, after eventsCursor) (int64, eventsCursor, error) {
+	var rows int64
+	var lastReceivedAt *time.Time
+	var lastID *int64
+	err := conn.QueryRow(ctx, `
+		WITH candidates AS (`+retentionCandidates+`
 		), removed AS (
 		  DELETE FROM app.attempt_events e USING candidates c WHERE e.id = c.id RETURNING e.id
 		), logged AS (
 		  INSERT INTO app.audit_log (action, entity, diff)
 		  SELECT 'integrity.retained', 'attempt_events',
 		    jsonb_build_object('cutoff', $1::timestamptz, 'deletedRows', count(id), 'databaseRole', current_user)
-		  FROM removed HAVING count(id) > 0 RETURNING id
+		  FROM removed HAVING count(id) > 0
 		)
-		SELECT count(id) FROM removed`, out.Cutoff, batch).Scan(&out.Rows)
-	out.Applied = err == nil
-	return out, err
-}
-
-// AnonymizationReport identifies the student without exposing their previous identity.
-type AnonymizationReport struct {
-	StudentID string `json:"studentId"`
-	Applied   bool   `json:"applied"`
-}
-
-// AnonymizeStudent removes structured identity and login credentials on an explicit request.
-// Attempts, memberships and the append-only audit trail remain available for historical review.
-func AnonymizeStudent(ctx context.Context, conn db.Conn, studentID string, apply bool) (AnonymizationReport, error) {
-	out := AnonymizationReport{StudentID: studentID}
-	if _, err := uuid.Parse(studentID); err != nil {
-		return out, errors.New("student ID must be a UUID")
+		SELECT count(id),
+		       (SELECT received_at FROM candidates ORDER BY received_at DESC, id DESC LIMIT 1),
+		       (SELECT id FROM candidates ORDER BY received_at DESC, id DESC LIMIT 1)
+		  FROM removed`, cutoff, batch, after.receivedAt, after.id).Scan(&rows, &lastReceivedAt, &lastID)
+	if err != nil || lastReceivedAt == nil || lastID == nil {
+		return rows, after, err
 	}
-	tx, err := conn.Begin(ctx)
-	if err != nil {
-		return out, err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	var studentLike bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM app.student_like_roles r WHERE r.id = u.role_id)
-		 FROM app.users u WHERE u.id = $1 FOR UPDATE OF u`, studentID).Scan(&studentLike); err != nil {
-		return out, fmt.Errorf("find student: %w", err)
-	}
-	if !studentLike {
-		return out, errors.New("only student accounts may be anonymized")
-	}
-	var active bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.attempts WHERE student_id = $1 AND status = 'in_progress')`, studentID).Scan(&active); err != nil {
-		return out, err
-	}
-	if active {
-		return out, errors.New("finish or void the student's active attempts before anonymizing")
-	}
-	if !apply {
-		return out, nil
-	}
-	for _, statement := range []string{
-		`DELETE FROM app.user_identities WHERE user_id = $1`,
-		`DELETE FROM app.refresh_tokens WHERE user_id = $1`,
-		`DELETE FROM app.set_password_tokens WHERE user_id = $1`,
-	} {
-		if _, err := tx.Exec(ctx, statement, studentID); err != nil {
-			return out, err
-		}
-	}
-	_, err = tx.Exec(ctx, `
-		WITH changed AS (
-		  UPDATE app.users SET email = 'anonymous-' || id::text || '@anonymous.invalid',
-		    full_name = 'Học viên đã ẩn danh', password_hash = NULL,
-		    must_change_password = false, disabled_at = coalesce(disabled_at, now())
-		  WHERE id = $1 AND email <> 'anonymous-' || id::text || '@anonymous.invalid'
-		  RETURNING id
-		)
-		INSERT INTO app.audit_log (action, entity, entity_id, diff)
-		SELECT 'student.anonymized', 'users', id,
-		  jsonb_build_object('structuredIdentityRemoved', true, 'databaseRole', current_user)
-		FROM changed`, studentID)
-	if err != nil {
-		return out, err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return out, err
-	}
-	out.Applied = true
-	return out, nil
+	return rows, eventsCursor{receivedAt: *lastReceivedAt, id: *lastID}, nil
 }

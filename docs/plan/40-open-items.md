@@ -626,6 +626,41 @@ decides whether the student payload drops it.
 
 ---
 
+### O-R5.8 — Closing overdue attempts nobody monitors · R5 (T-R5.17a), any release
+**Default:** no closer job (D-035, 2026-10-15). The retention sweep never removes the answers of an
+attempt still in progress, however overdue, because closing it scores it from the stored answers
+and a payload already replaced by `{"removed": true}` would be scored blank for good. An overdue
+attempt is closed lazily, when a teacher's monitor reads its assignment (`DueAttempts`), so one on
+an assignment nobody monitors keeps its answers and blocks its student's anonymisation. The
+sweep's JSON report counts them as `overdueInProgress` (in progress, deadline and assignment close
+both before the answers cutoff); it is not in `getRetentionImpact`. A job that closes such
+attempts (scoring them first, as the monitor does) is the owner's decision once the figure is not
+zero on a real installation. Not a gate for v0.12.0.
+
+---
+
+### O-R5.9 — A retention-only database role for the nightly workflow · R5 (T-R5.17a), any release
+**Default:** one operator role, `quizzivy_maintenance`, as T-R5.17a specified, made unable to take an
+account over (D-042, 2026-10-15). The GitHub environment secret `MAINTENANCE_DATABASE_URL` is that role,
+which every `cmd/maintenance` command uses. QC took a disabled Admin over with it (QC-RS-4), so 00139 carries
+a `BEFORE UPDATE` trigger on `app.users` that refuses, for this role alone, any update that does not leave the
+row anonymised, and for an account that owns a class or content (QC-RS-17, D-048); with it the role can set no
+email, no password hash, re-enable no account and cut off no teacher's sign-in. The database refuses to anonymise
+the last active Admin and any account that owns a class or content; the sweep and `anonymize-user` skip them
+first, so the refusal fires only on a race or a hostile credential; it does not check attempts in progress. What a
+leak still costs (answers and emails read, exam windows and AI credits moved, join codes and sessions rewritten,
+accounts that own nothing anonymised) is written in `docs/setup/operations.md`, with the environment's default-branch restriction as a
+precondition to verify, no required reviewers (they would hold the scheduled run), and the rotation step.
+**Follow-up, not a gate:** a second role holding only what `retention-sweep` reads and writes (`UPDATE (payload)`
+on answers, `DELETE` on events, the accounts step's columns, `INSERT` on the audit log), created by
+`provision-db.sh` and given by its own migration, with the workflow using it and the operator's machine keeping
+the wider role. Do it if the workflow ever runs another command, a second consumer holds the connection string,
+or the nightly gains a write the trigger cannot pin. The repository's deploy credential already reaches the
+application's own database URL, so the second role would shrink the Actions-supply-chain and log-leak paths
+only.
+
+---
+
 ## Answered during planning
 
 For the record, so a later session does not reopen them:
