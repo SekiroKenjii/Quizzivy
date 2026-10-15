@@ -123,6 +123,30 @@ func (o *Outbox) validate(m Mail) (Template, *mail.Address, error) {
 	return t, address, nil
 }
 
+// Retention is how long a row stays in the outbox once it is sent or failed.
+const Retention = 30 * 24 * time.Hour
+
+// Prune deletes at most limit rows that were sent or failed more than
+// Retention before now, and reports how many went. A row still waiting is
+// never touched. The table holds a day's budget of rows a day, so the scan for
+// failed rows, which has no index, reads a few thousand at most.
+func (o *Outbox) Prune(ctx context.Context, q db.Querier, now time.Time, limit int) (int, error) {
+	if limit <= 0 {
+		return 0, errors.New("email: prune needs a positive limit")
+	}
+	tag, err := q.Exec(ctx, `
+		DELETE FROM app.email_outbox o
+		 USING (SELECT id FROM app.email_outbox
+		         WHERE sent_at < $1 OR failed_at < $1
+		         ORDER BY coalesce(sent_at, failed_at)
+		         LIMIT $2) old
+		 WHERE o.id = old.id`, now.Add(-Retention), limit)
+	if err != nil {
+		return 0, fmt.Errorf("email: prune the outbox: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
+}
+
 // Notify wakes this process's dispatcher. Signals coalesce, and it never
 // blocks.
 func (o *Outbox) Notify() {
