@@ -1,4 +1,5 @@
 import {
+  Fragment,
   memo,
   useId,
   useMemo,
@@ -63,6 +64,18 @@ type Select<T extends Item> = Readonly<{
   name: (row: T) => string;
 }>;
 
+/**
+ * DataTableExpansion lets a row open a panel under itself. `isOpen` says which
+ * rows are open, `detail` draws the panel of an open row, and `label` names
+ * the button that toggles it, which is the opener of the row, so the table's
+ * `onOpen` is what toggles. The panel is a row of its own with one cell.
+ */
+export type DataTableExpansion<T> = Readonly<{
+  isOpen: (row: T) => boolean;
+  detail: (row: T) => ReactNode;
+  label: (row: T) => string;
+}>;
+
 /** DataTableProps supplies columns, rows and optional selection, opening, per-row tones and menus while preserving plain default rows. */
 export type DataTableProps<T extends Item> = Opening<T> &
   Selecting<T> & {
@@ -81,6 +94,7 @@ export type DataTableProps<T extends Item> = Opening<T> &
     readonly card?: ((row: T) => ReactNode) | undefined;
     readonly cardLayout?: "stacked" | "joined" | undefined;
     readonly framed?: boolean | undefined;
+    readonly expansion?: DataTableExpansion<T> | undefined;
     readonly empty?: ReactNode;
     readonly footer?: ReactNode;
   };
@@ -121,12 +135,16 @@ function Opener<T>({
   rowHref,
   onOpen,
   className,
+  expansion,
+  panelId,
   children,
 }: Readonly<{
   row: T;
   rowHref: ((row: T) => string) | undefined;
   onOpen: ((row: T) => void) | undefined;
   className: string;
+  expansion?: DataTableExpansion<T> | undefined;
+  panelId?: string | undefined;
   children: ReactNode;
 }>) {
   if (rowHref !== undefined) {
@@ -137,11 +155,15 @@ function Opener<T>({
     );
   }
   if (onOpen !== undefined) {
+    const open = expansion?.isOpen(row);
     return (
       <button
         type="button"
         data-slot={OPENER}
         className={cn("cursor-pointer", className)}
+        aria-label={expansion?.label(row)}
+        aria-expanded={open}
+        aria-controls={open ? panelId : undefined}
         onClick={() => onOpen(row)}
       >
         {children}
@@ -204,7 +226,11 @@ function HeaderRow<T extends Item>({
           role="columnheader"
           className={cn("min-w-0", column.align === "end" && "text-right")}
         >
-          {column.header}
+          {column.hideHeader ? (
+            <span className="sr-only">{column.header}</span>
+          ) : (
+            column.header
+          )}
         </div>
       ))}
       {hasMenu ? (
@@ -231,6 +257,7 @@ function BodyRow<T extends Item>({
   box,
   tone,
   canOpen,
+  expansion,
 }: Readonly<{
   row: T;
   visible: readonly DataColumn<T>[];
@@ -246,6 +273,7 @@ function BodyRow<T extends Item>({
   box: RowBox;
   tone: "danger" | "selected" | undefined;
   canOpen: boolean;
+  expansion: DataTableExpansion<T> | undefined;
 }>) {
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const opens = canOpen && (rowHref !== undefined || onOpen !== undefined);
@@ -297,6 +325,8 @@ function BodyRow<T extends Item>({
               row={row}
               rowHref={rowHref}
               onOpen={onOpen}
+              expansion={expansion}
+              panelId={panelIdOf(labelId)}
               className="block w-full min-w-0 rounded-sm text-left"
             >
               <Cell column={column} row={row} shown={shown} />
@@ -321,6 +351,8 @@ function BodyRow<T extends Item>({
     </div>
   );
 }
+
+const panelIdOf = (labelId: string) => `${labelId}-panel`;
 
 function CardList<T extends Item>({
   label,
@@ -402,8 +434,10 @@ function CardList<T extends Item>({
  * otherwise. Below 768px a table that has `card` renders a
  * list of cards instead, without checkboxes, menus or asides. Content wider
  * than the table scrolls sideways inside it. Rows are dense when `dense`
- * says so, and otherwise when the account chose "Compact tables" (DG-37).
- * Loading and failure stay with the screen.
+ * says so, and otherwise when the account chose "Compact tables" (DG-37). A
+ * table with an `expansion` opens a panel under a row: the row's opener, which
+ * `onOpen` toggles, answers `aria-expanded`. Loading and failure stay with
+ * the screen.
  */
 export function DataTable<T extends Item>(props: DataTableProps<T>) {
   const {
@@ -424,6 +458,7 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
     card,
     cardLayout = "stacked",
     framed = true,
+    expansion,
     empty,
     footer,
   } = props;
@@ -487,23 +522,36 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
         {rows.length === 0 ? null : (
           <div role="rowgroup">
             {rows.map((row) => (
-              <BodyRow
-                key={row.id}
-                row={row}
-                visible={visible}
-                shown={shown}
-                labelId={`${baseId}-${row.id}`}
-                rowHref={rowHref}
-                onOpen={onOpen}
-                select={select}
-                menu={menu}
-                menuLabel={menuLabel?.(row)}
-                template={template}
-                padX={padX}
-                box={box}
-                tone={rowTone?.(row)}
-                canOpen={canOpen?.(row) ?? true}
-              />
+              <Fragment key={row.id}>
+                <BodyRow
+                  row={row}
+                  visible={visible}
+                  shown={shown}
+                  labelId={`${baseId}-${row.id}`}
+                  rowHref={rowHref}
+                  onOpen={onOpen}
+                  select={select}
+                  menu={menu}
+                  menuLabel={menuLabel?.(row)}
+                  template={template}
+                  padX={padX}
+                  box={box}
+                  tone={rowTone?.(row)}
+                  canOpen={canOpen?.(row) ?? true}
+                  expansion={expansion}
+                />
+                {expansion?.isOpen(row) === true ? (
+                  <div
+                    role="row"
+                    id={panelIdOf(`${baseId}-${row.id}`)}
+                    className="bg-muted"
+                  >
+                    <div role="cell" className="min-w-0">
+                      {expansion.detail(row)}
+                    </div>
+                  </div>
+                ) : null}
+              </Fragment>
             ))}
           </div>
         )}

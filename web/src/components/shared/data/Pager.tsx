@@ -66,7 +66,7 @@ function Arrow({
   );
 }
 
-/** Pager renders the responsive range, size choice and page links with hash preservation only when requested. */
+/** Pager renders the responsive range, the size choice (only when `sizes` offers more than one) and page links with hash preservation only when requested. */
 export function Pager({
   page,
   pageSize,
@@ -108,7 +108,7 @@ export function Pager({
             })}
       </span>
       <div className="flex flex-wrap items-center gap-4">
-        {wide ? (
+        {wide && sizes.length > 1 ? (
           <div className="flex items-center gap-2 whitespace-nowrap">
             <span id={labelId} className="text-fg font-medium">
               {t("pager.rowsPerPage")}

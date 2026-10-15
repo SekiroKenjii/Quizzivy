@@ -144,6 +144,52 @@ function DropdownMenuCheckboxItem({
   );
 }
 
+function DropdownMenuRadioGroup(
+  props: React.ComponentProps<typeof Primitive.RadioGroup>,
+) {
+  return <Primitive.RadioGroup data-slot="dropdown-menu-radio-group" {...props} />;
+}
+
+/**
+ * DropdownMenuRadioItem is one choice of a DropdownMenuRadioGroup: the menu
+ * closes on it, and the chosen row carries the same tick the checkbox item
+ * draws, in the deck's 16px box.
+ */
+function DropdownMenuRadioItem({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<typeof Primitive.RadioItem>) {
+  return (
+    <Primitive.RadioItem
+      data-slot="dropdown-menu-radio-item"
+      className={cn(
+        "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-7 text-sm outline-none select-none",
+        "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "in-data-[scale=deck]:gap-2.25 in-data-[scale=deck]:py-1.75 in-data-[scale=deck]:pl-2 in-data-[scale=deck]:leading-4 in-data-[scale=deck]:data-[disabled]:opacity-45",
+        className,
+      )}
+      {...props}
+    >
+      <span
+        className={cn(
+          "absolute left-2 flex size-3.5 items-center justify-center",
+          "in-data-[scale=deck]:border-ring in-data-[scale=deck]:bg-card in-data-[scale=deck]:text-primary-fg in-data-[scale=deck]:static in-data-[scale=deck]:size-4 in-data-[scale=deck]:flex-none in-data-[scale=deck]:rounded-[0.25rem] in-data-[scale=deck]:border",
+          "in-data-[scale=deck]:in-data-[state=checked]:border-primary in-data-[scale=deck]:in-data-[state=checked]:bg-primary",
+        )}
+      >
+        <Primitive.ItemIndicator>
+          <Check
+            className="size-3.5 in-data-[scale=deck]:size-[0.6875rem]"
+            aria-hidden="true"
+          />
+        </Primitive.ItemIndicator>
+      </span>
+      {children}
+    </Primitive.RadioItem>
+  );
+}
+
 /**
  * DropdownMenuItemText is an item's label when it may be longer than the
  * menu is wide: it takes the room the row has left and ends in an ellipsis
@@ -204,6 +250,8 @@ export {
   DropdownMenuLabel,
   DropdownMenuItem,
   DropdownMenuCheckboxItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuItemText,
   DropdownMenuMeta,
   DropdownMenuSeparator,

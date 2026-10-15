@@ -402,7 +402,7 @@ const adminTree: RouteObject = {
                 permission: "system.audit.read",
                 width: 1320,
               },
-              lazy: pending,
+              lazy: page(() => import("@/features/audit/pages/admin/AuditLogPage")),
             },
             {
               path: "api",

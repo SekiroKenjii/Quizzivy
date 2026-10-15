@@ -388,6 +388,113 @@
       "user.preferences_updated": "Updated personal preferences",
       "user.profile_updated": "Updated a profile",
       "user.renamed": "Renamed an account"
+    },
+    "title": "Audit log",
+    "lead": "A record of sensitive changes. Entries cannot be edited or deleted.",
+    "export": "Export CSV",
+    "noun_one": "entry",
+    "noun_other": "entries",
+    "loadFailed": "The audit log could not be loaded.",
+    "empty": "No entries in this range.",
+    "noMatches": "No entries match these filters.",
+    "system": "System",
+    "categories": {
+      "label": "Kind of change",
+      "all": "All",
+      "accounts": "Accounts",
+      "classes": "Classes",
+      "attempts": "Attempts",
+      "tests": "Tests",
+      "media": "Media",
+      "imports": "Imports"
+    },
+    "search": {
+      "placeholder": "Search person, action or entity",
+      "label": "Search audit log",
+      "clear": "Clear search"
+    },
+    "range": {
+      "label": "Date range",
+      "today": "Today",
+      "7d": "Last 7 days",
+      "30d": "Last 30 days",
+      "all": "All time",
+      "custom": "Custom range…",
+      "span": "{{from}} – {{to}}",
+      "reset": "Reset"
+    },
+    "custom": {
+      "title": "Custom date range",
+      "from": "From",
+      "to": "To",
+      "apply": "Apply",
+      "order": "Must be on or after the start date"
+    },
+    "columns": {
+      "when": "When",
+      "who": "Who",
+      "action": "Action",
+      "entity": "Entity",
+      "ip": "IP address",
+      "details": "Details"
+    },
+    "row": "{{action}}, {{who}}, {{when}}",
+    "entity": {
+      "named": "{{type}} · {{label}}",
+      "gone": "{{type}} (deleted)",
+      "types": {
+        "user": "User",
+        "users": "Users",
+        "student": "Student",
+        "user_identity": "Sign-in link",
+        "refresh_token_family": "Session",
+        "role": "Role",
+        "class": "Class",
+        "class_member": "Class member",
+        "class_join_code": "Join code",
+        "attempt": "Attempt",
+        "assignment": "Assignment",
+        "test": "Test",
+        "test_version": "Test version",
+        "question": "Question",
+        "question_group": "Question group",
+        "media_asset": "Media file",
+        "word_import": "Word import",
+        "ai_credit_periods": "AI credit period",
+        "ai_credit_requests": "AI credit request",
+        "ai_settings": "AI settings",
+        "ai_teacher_credits": "Teacher AI allowance",
+        "attempt_events": "Attempt events",
+        "audit_log": "Audit log",
+        "data_export": "Data export",
+        "maintenance_window": "Maintenance window",
+        "organization": "Organization"
+      }
+    },
+    "diff": {
+      "none": "No field changes were recorded for this entry.",
+      "empty": "—"
+    },
+    "exportDialog": {
+      "title": "Export the audit log",
+      "description": "The file holds the entries of the period you choose, newest first.",
+      "period": "Period",
+      "periods": {
+        "7d": "Last 7 days",
+        "30d": "Last 30 days",
+        "year": "This year"
+      },
+      "format": "Format",
+      "formats": {
+        "csv": "CSV",
+        "json": "JSON"
+      },
+      "filtersOnly": "Current filters only",
+      "filtersOnlyHint": "Only the kind of change and the search you have set. The period comes from the choice above.",
+      "submit": "Export file",
+      "done": "The audit log was downloaded.",
+      "tooLarge": "That period holds more than 100,000 entries. Choose a shorter period.",
+      "failed": "The audit log could not be exported. Please try again."
     }
   },
   "error": {

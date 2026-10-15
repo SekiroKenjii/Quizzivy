@@ -388,6 +388,113 @@
       "user.preferences_updated": "Đã cập nhật tuỳ chọn cá nhân",
       "user.profile_updated": "Đã cập nhật hồ sơ",
       "user.renamed": "Đã đổi tên tài khoản"
+    },
+    "title": "Nhật ký kiểm tra",
+    "lead": "Bản ghi các thay đổi quan trọng. Không thể sửa hay xoá.",
+    "export": "Xuất CSV",
+    "noun_one": "mục",
+    "noun_other": "mục",
+    "loadFailed": "Không tải được nhật ký kiểm tra.",
+    "empty": "Không có mục nào trong khoảng này.",
+    "noMatches": "Không có mục nào khớp bộ lọc này.",
+    "system": "Hệ thống",
+    "categories": {
+      "label": "Nhóm thay đổi",
+      "all": "Tất cả",
+      "accounts": "Tài khoản",
+      "classes": "Lớp học",
+      "attempts": "Lượt làm bài",
+      "tests": "Bài kiểm tra",
+      "media": "Phương tiện",
+      "imports": "Nhập Word"
+    },
+    "search": {
+      "placeholder": "Tìm người, thao tác hoặc đối tượng",
+      "label": "Tìm trong nhật ký kiểm tra",
+      "clear": "Xoá tìm kiếm"
+    },
+    "range": {
+      "label": "Khoảng thời gian",
+      "today": "Hôm nay",
+      "7d": "7 ngày qua",
+      "30d": "30 ngày qua",
+      "all": "Mọi lúc",
+      "custom": "Khoảng tuỳ chọn…",
+      "span": "{{from}} – {{to}}",
+      "reset": "Đặt lại"
+    },
+    "custom": {
+      "title": "Khoảng ngày tuỳ chọn",
+      "from": "Từ ngày",
+      "to": "Đến ngày",
+      "apply": "Áp dụng",
+      "order": "Phải trùng hoặc sau ngày bắt đầu."
+    },
+    "columns": {
+      "when": "Thời gian",
+      "who": "Người thực hiện",
+      "action": "Thao tác",
+      "entity": "Đối tượng",
+      "ip": "Địa chỉ IP",
+      "details": "Chi tiết"
+    },
+    "row": "{{action}}, {{who}}, {{when}}",
+    "entity": {
+      "named": "{{type}} · {{label}}",
+      "gone": "{{type}} đã xoá",
+      "types": {
+        "user": "Người dùng",
+        "users": "Người dùng",
+        "student": "Học viên",
+        "user_identity": "Liên kết đăng nhập",
+        "refresh_token_family": "Phiên đăng nhập",
+        "role": "Vai trò",
+        "class": "Lớp",
+        "class_member": "Thành viên lớp",
+        "class_join_code": "Mã tham gia lớp",
+        "attempt": "Lượt làm bài",
+        "assignment": "Bài giao",
+        "test": "Bài kiểm tra",
+        "test_version": "Phiên bản bài kiểm tra",
+        "question": "Câu hỏi",
+        "question_group": "Nhóm câu hỏi",
+        "media_asset": "Tệp phương tiện",
+        "word_import": "Lần nhập Word",
+        "ai_credit_periods": "Kỳ tín dụng AI",
+        "ai_credit_requests": "Yêu cầu tín dụng AI",
+        "ai_settings": "Cài đặt AI",
+        "ai_teacher_credits": "Hạn mức AI của giáo viên",
+        "attempt_events": "Sự kiện làm bài",
+        "audit_log": "Nhật ký kiểm tra",
+        "data_export": "Xuất dữ liệu",
+        "maintenance_window": "Lịch bảo trì",
+        "organization": "Trung tâm"
+      }
+    },
+    "diff": {
+      "none": "Mục này không ghi lại thay đổi nào ở từng trường.",
+      "empty": "—"
+    },
+    "exportDialog": {
+      "title": "Xuất nhật ký kiểm tra",
+      "description": "Tệp gồm các mục trong khoảng đã chọn, mục mới nhất ở đầu.",
+      "period": "Khoảng thời gian",
+      "periods": {
+        "7d": "7 ngày qua",
+        "30d": "30 ngày qua",
+        "year": "Năm nay"
+      },
+      "format": "Định dạng",
+      "formats": {
+        "csv": "CSV",
+        "json": "JSON"
+      },
+      "filtersOnly": "Chỉ bộ lọc hiện tại",
+      "filtersOnlyHint": "Chỉ gồm nhóm thay đổi và từ khoá đang chọn. Khoảng thời gian lấy theo mục ở trên.",
+      "submit": "Xuất tệp",
+      "done": "Đã tải xuống nhật ký kiểm tra.",
+      "tooLarge": "Khoảng này có hơn 100.000 mục. Hãy chọn khoảng ngắn hơn.",
+      "failed": "Không xuất được nhật ký kiểm tra. Vui lòng thử lại."
     }
   },
   "error": {
