@@ -163,17 +163,17 @@ func (s Settings) Normalised() (Settings, error) {
 
 func normaliseProfile(p Profile, refused *validation.Error) Profile {
 	out := p
-	out.Name = strings.TrimSpace(p.Name)
+	out.Name = validation.Tidy(p.Name)
 	switch {
 	case out.Name == "":
 		refused.Add("organization.name", ReasonRequired)
 	case utf8.RuneCountInString(out.Name) > MaxName:
 		refused.Add("organization.name", ReasonTooLong)
-	case !singleLine(out.Name):
+	case !readable(out.Name):
 		refused.Add("organization.name", ReasonCharacters)
 	}
-	out.ShortName = bounded(p.ShortName, MaxShortName, "organization.shortName", refused)
-	if !singleLine(out.ShortName) {
+	out.ShortName = bounded(validation.Tidy(p.ShortName), MaxShortName, "organization.shortName", refused)
+	if !readable(out.ShortName) {
 		refused.Add("organization.shortName", ReasonCharacters)
 	}
 	out.Website = bounded(p.Website, MaxWebsite, "organization.website", refused)
@@ -209,8 +209,11 @@ func checkLogo(l *Logo, field string, refused *validation.Error) {
 	}
 }
 
-func singleLine(text string) bool {
-	return strings.IndexFunc(text, func(r rune) bool { return unicode.IsControl(r) || unicode.In(r, unicode.Cf, unicode.Zl, unicode.Zp) }) < 0
+func readable(text string) bool {
+	if _, hidden := validation.FirstHidden(text); hidden {
+		return false
+	}
+	return text == "" || validation.HasGlyph(text)
 }
 
 func validWebsite(site string) bool {
