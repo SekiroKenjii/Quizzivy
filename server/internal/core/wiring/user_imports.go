@@ -13,10 +13,6 @@ import (
 	"quizzivy/internal/platform/email"
 )
 
-// attachUserImports opens previewUserImport, createUserImport and
-// getUserImport, which need the import worker to create the accounts: without
-// it they answer 501. Both deliveries also need SECRETS_KEY, to seal the link
-// an email carries and the passwords a hand-out sheet holds.
 func attachUserImports(ctx context.Context, cfg config.Config, logger *slog.Logger, dbx db.Context, app *identityapp.Application, roles identityports.RoleChoices) {
 	if !cfg.ImportProcessing {
 		logger.Info("user imports disabled (no import worker configured)")

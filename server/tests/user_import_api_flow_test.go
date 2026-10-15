@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -145,6 +146,23 @@ func TestAnImportIsPreviewedThenStoredOnceAndOnlyItsOwnerReadsIt(t *testing.T) {
 	if action != "user_import.requested" || entity != "user_import" || strings.Contains(string(diff), domain) || strings.Contains(string(diff), "Nguyễn") {
 		t.Errorf("audit = %s on %s with %s", action, entity, diff)
 	}
+
+	listed := admin.send(http.MethodGet, "/admin/audit-log?range=all&q="+url.QueryEscape(email), nil)
+	if listed.status != http.StatusOK {
+		t.Fatalf("audit log: %s", answer(listed))
+	}
+	var seen int
+	for _, item := range listed.json["items"].([]any) {
+		if entry := item.(map[string]any); entry["action"] == "user_import.requested" {
+			seen++
+			if entry["category"] != "imports" {
+				t.Errorf("the import is filed under %v, want imports", entry["category"])
+			}
+		}
+	}
+	if facets := listed.json["facets"].(map[string]any); seen != 1 || facets["imports"] != 1.0 {
+		t.Errorf("the import is listed %d times and counted %v under imports", seen, facets["imports"])
+	}
 }
 
 func TestOnlyAStaffMemberWhoManagesUsersMeetsTheImportOperations(t *testing.T) {
@@ -279,6 +297,30 @@ func TestPreviewsAreLimitedToTenAMinutePerAdmin(t *testing.T) {
 		t.Errorf("the eleventh preview answered %d: %s", limited.status, limited.body)
 	}
 	if got := other.send(http.MethodPost, "/admin/user-imports/preview", form()); got.status != http.StatusOK {
+		t.Errorf("another Admin behind the same address was limited too: %d", got.status)
+	}
+}
+
+func TestCreatesAreLimitedToFiveAnHourPerAdmin(t *testing.T) {
+	w := bootForUserImports(t)
+	email, password := w.teacher()
+	admin := w.signedIn(email, password)
+	otherEmail, otherPassword := w.teacher()
+	other := w.signedIn(otherEmail, otherPassword)
+	form := func() *payload {
+		file := []byte("full_name,email\nNguyễn Văn An,an@" + nonce(t) + ".example.test\n")
+		return ptr(importForm(t, file, importFields("email_link", "requestId", uuid.NewString())))
+	}
+
+	for i := range 5 {
+		if got := admin.send(http.MethodPost, "/admin/user-imports", form()); got.status != http.StatusAccepted {
+			t.Fatalf("create %d answered %d: %s", i+1, got.status, got.body)
+		}
+	}
+	if limited := admin.send(http.MethodPost, "/admin/user-imports", form()); limited.status != http.StatusTooManyRequests {
+		t.Errorf("the sixth create answered %d: %s", limited.status, limited.body)
+	}
+	if got := other.send(http.MethodPost, "/admin/user-imports", form()); got.status != http.StatusAccepted {
 		t.Errorf("another Admin behind the same address was limited too: %d", got.status)
 	}
 }

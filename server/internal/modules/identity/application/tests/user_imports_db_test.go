@@ -8,11 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/xuri/excelize/v2"
 
 	"quizzivy/internal/core/adapters"
@@ -58,9 +61,30 @@ func (w *importsWorld) attach(t *testing.T, sheets bool) {
 
 func (w *importsWorld) attachTables(t *testing.T, tables ports.TableReader, sheets bool) {
 	t.Helper()
-	dbx := db.NewContext(linkAppPool(t))
+	w.attachOn(t, linkAppPool(t), tables, sheets)
+}
+
+func (w *importsWorld) attachOn(t *testing.T, conn db.Conn, tables ports.TableReader, sheets bool) {
+	t.Helper()
+	dbx := db.NewContext(conn)
 	w.app.SetUserImports(repositories.NewUserImports(dbx), accessapp.New(accessrepo.NewPostgres(dbx)).Queries.RoleChoices,
 		tables, fixedBudget{left: model.EmailAllowance{Remaining: 7, Limit: 100}}, w.wake, sheets)
+}
+
+type commitRefusingPool struct{ *pgxpool.Pool }
+
+func (p commitRefusingPool) Begin(ctx context.Context) (pgx.Tx, error) {
+	tx, err := p.Pool.Begin(ctx)
+	return refusedCommit{tx}, err
+}
+
+type refusedCommit struct{ pgx.Tx }
+
+func (r refusedCommit) Commit(ctx context.Context) error {
+	if err := r.Rollback(ctx); err != nil {
+		return err
+	}
+	return errors.New("commit refused")
 }
 
 type gatedTables struct {
@@ -333,6 +357,115 @@ func TestARepeatedRequestReturnsTheFirstJobAndWritesNothingMore(t *testing.T) {
 	}
 	if n := w.wake.n.Load(); n != 1 {
 		t.Errorf("worker woken %d time(s), want once", n)
+	}
+}
+
+func TestAnAuditEntryThatCannotBeWrittenTakesTheJobAndItsRowsBackWithIt(t *testing.T) {
+	w := newImportsWorld(t)
+	fresh := w.email("hs-moi")
+	file := csvOf("full_name,email", "Nguyễn Văn An,"+fresh)
+	requestID := uuid.NewString()
+
+	spoiled := w.everything()
+	spoiled.IP = "not an address"
+	if _, err := w.submit(spoiled, requestID, file, domain.DefaultStudent, domain.ImportEmailLink); err == nil {
+		t.Fatal("an audit entry that cannot be written did not fail the request")
+	}
+	w.wantNothingStored(t, fresh)
+
+	got, err := w.submit(w.everything(), requestID, file, domain.DefaultStudent, domain.ImportEmailLink)
+	if err != nil || got.Replayed || got.Job.Total != 1 {
+		t.Fatalf("the same request once the audit entry can be written = %+v, %v, want a new job", got, err)
+	}
+}
+
+func TestACommitThatFailsLeavesNoJobNoRowsAndNoAuditEntry(t *testing.T) {
+	w := newImportsWorld(t)
+	w.attachOn(t, commitRefusingPool{linkAppPool(t)}, adapters.UserImportTables{}, true)
+	fresh := w.email("hs-moi")
+
+	_, err := w.submit(w.everything(), uuid.NewString(), csvOf("full_name,email", "Nguyễn Văn An,"+fresh), domain.DefaultStudent, domain.ImportEmailLink)
+	if err == nil || !strings.Contains(err.Error(), "commit refused") {
+		t.Fatalf("a commit that failed answered %v, want its error", err)
+	}
+	w.wantNothingStored(t, fresh)
+}
+
+func (w *importsWorld) wantNothingStored(t *testing.T, email string) {
+	t.Helper()
+	if n := w.jobsOf(t, w.actor); n != 0 {
+		t.Errorf("%d job(s) stored beside a failed request, want none", n)
+	}
+	if n := w.count(t, `SELECT count(*) FROM app.user_import_rows WHERE email = $1`, email); n != 0 {
+		t.Errorf("%d row(s) stored beside a failed request, want none", n)
+	}
+	if n := w.count(t, `SELECT count(*) FROM app.audit_log WHERE actor_user_id = $1::uuid AND entity = 'user_import'`, w.actor); n != 0 {
+		t.Errorf("%d audit entr(ies) left by a request that stored nothing, want none", n)
+	}
+	if n := w.wake.n.Load(); n != 0 {
+		t.Errorf("worker woken %d time(s) for a job that was not stored", n)
+	}
+}
+
+func TestConcurrentCreatesWithOneRequestIDStoreOneJobAndAnswerAllWithIt(t *testing.T) {
+	w := newImportsWorld(t)
+	repo := repositories.NewUserImports(db.NewContext(linkAppPool(t)))
+	requestID := uuid.NewString()
+	in := domain.NewImportJob{
+		RequestID: requestID, Filename: "ds.csv", Format: domain.ImportCSV, DefaultRoleID: w.role(t, "student"),
+		Delivery: domain.ImportEmailLink, Now: time.Now().UTC(),
+		Rows: []domain.ImportAccepted{{Ordinal: 0, FullName: "Nguyễn Văn An", Email: w.email("a"), RoleID: w.role(t, "student")}},
+	}
+
+	const callers = 12
+	type answer struct {
+		job      domain.ImportJob
+		replayed bool
+		err      error
+	}
+	answers := make(chan answer, callers)
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for range callers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			job, replayed, err := repo.Create(context.Background(), w.everything(), in)
+			answers <- answer{job, replayed, err}
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(answers)
+
+	var first string
+	var created int
+	for a := range answers {
+		if a.err != nil {
+			t.Fatalf("a concurrent create failed: %v", a.err)
+		}
+		if first == "" {
+			first = a.job.ID
+		}
+		if a.job.ID != first {
+			t.Errorf("answered with job %s and %s for one request", first, a.job.ID)
+		}
+		if !a.replayed {
+			created++
+		}
+	}
+	if created != 1 {
+		t.Errorf("%d callers created the job, want exactly one", created)
+	}
+	if n := w.jobsOf(t, w.actor); n != 1 {
+		t.Errorf("%d jobs stored, want 1", n)
+	}
+	if n := w.count(t, `SELECT count(*) FROM app.audit_log WHERE entity_id = $1::uuid`, first); n != 1 {
+		t.Errorf("%d audit rows for the job, want 1", n)
+	}
+	if n := w.count(t, `SELECT count(*) FROM app.user_import_rows WHERE job_id = $1::uuid`, first); n != 1 {
+		t.Errorf("%d rows stored, want 1", n)
 	}
 }
 

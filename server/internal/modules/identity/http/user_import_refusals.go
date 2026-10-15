@@ -15,14 +15,10 @@ import (
 
 func tooLargeRefusal(ctx context.Context) importRefusal {
 	return importRefusal{http.StatusRequestEntityTooLarge, openapi.USERIMPORTFILETOOLARGE, httpx.Text(ctx,
-		"Tệp lớn hơn 5 MB. Hãy lưu bảng tính thành CSV UTF-8 rồi tải tệp đó lên.",
-		"The file is larger than 5 MB. Save the sheet as CSV UTF-8 and upload that.")}
+		"Tệp lớn hơn 5 MB. Hãy chia danh sách thành nhiều tệp nhỏ hơn, hoặc lưu thành CSV UTF-8 cho nhẹ hơn, rồi tải lên.",
+		"The file is larger than 5 MB. Split the list into smaller files, or save it as CSV UTF-8, which is lighter, and upload that.")}
 }
 
-// refuseImport words why an import was refused: the platform's file errors,
-// the header, the rules of the request, and what the server cannot do. It
-// answers false for any other error, which is a fault. No message carries
-// text of the file, since an error of the reader can hold up to 64 KiB of it.
 func refuseImport(ctx context.Context, err error) (importRefusal, bool) {
 	var header *domain.ImportHeaderError
 	switch {
@@ -98,8 +94,6 @@ func refuseSize(ctx context.Context, err error) (importRefusal, bool) {
 	return importRefusal{}, false
 }
 
-// refuseShape words a file whose rows or layout the reader could not take.
-// ErrLayout and ErrNotWorksheet wrap ErrFormat, so they are asked first.
 func refuseShape(ctx context.Context, err error) (importRefusal, bool) {
 	switch {
 	case errors.Is(err, tabular.ErrEmpty):
