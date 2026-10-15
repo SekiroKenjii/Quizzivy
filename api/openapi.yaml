@@ -10719,10 +10719,13 @@ paths:
       tags: [admin-docs]
       summary: Download the contract
       description: |
-        The spec this server embeds, as the JSON it was embedded as (DG-10), an
-        attachment named `quizzivy-openapi.json`. The body is that JSON
-        document, declared as a byte stream so the generated server writes it
-        as it is and does not encode it a second time. The response is
+        This file, `api/openapi.yaml`, converted to JSON with its keys, values
+        and order unchanged (DG-10), an attachment named `quizzivy-openapi.json`.
+        It is not the spec the server routes by, whose operation ids the code
+        generator has rewritten and whose descriptions beside a `$ref` it has
+        dropped. The body is that JSON document, declared as a byte stream so
+        the generated server writes it as it is and does not encode it a second
+        time. The response is
         `no-store`. It needs the bearer token and `system.api_reference`,
         unlike `/docs/openapi.json`, which answers to a docs session.
       responses:
