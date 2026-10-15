@@ -24,6 +24,8 @@ import (
 	"quizzivy/internal/modules/organization/domain"
 	organizationhttp "quizzivy/internal/modules/organization/http"
 	"quizzivy/internal/platform/httpx"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 type repo struct {
@@ -528,5 +530,50 @@ func TestALogoWhoseBytesAreGoneFromTheStoreIs404NotA500(t *testing.T) {
 	}
 	if response.Code != http.StatusNotFound {
 		t.Errorf("status %d, want 404", response.Code)
+	}
+}
+
+func TestTheContractLetsANameThroughThatIsShortOnceComposed(t *testing.T) {
+	spec, err := openapi.GetSpec()
+	if err != nil {
+		t.Fatal(err)
+	}
+	validate, err := httpx.ValidateRequests(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	composed := strings.Repeat("\u1ebf", domain.MaxName-1)
+	for _, tc := range []struct {
+		name  string
+		field string
+		value string
+		want  int
+	}{
+		{"a name typed decomposed", "name", norm.NFD.String(composed), http.StatusNoContent},
+		{"a name past four times its limit", "name", strings.Repeat("a", 4*domain.MaxName+1), http.StatusBadRequest},
+		{"a short name typed decomposed", "shortName", norm.NFD.String(strings.Repeat("\u1ebf", domain.MaxShortName-1)), http.StatusNoContent},
+		{"a short name past four times its limit", "shortName", strings.Repeat("a", 4*domain.MaxShortName+1), http.StatusBadRequest},
+	} {
+		in := input(1)
+		raw, err := json.Marshal(in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var body map[string]any
+		if err := json.Unmarshal(raw, &body); err != nil {
+			t.Fatal(err)
+		}
+		body["organization"].(map[string]any)[tc.field] = tc.value
+		raw, err = json.Marshal(body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req := httptest.NewRequest(http.MethodPut, "/admin/settings", bytes.NewReader(raw))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		validate(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })).ServeHTTP(rec, req)
+		if rec.Code != tc.want {
+			t.Errorf("%s: status %d, want %d: %s", tc.name, rec.Code, tc.want, rec.Body.String())
+		}
 	}
 }

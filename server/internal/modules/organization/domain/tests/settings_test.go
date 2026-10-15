@@ -256,6 +256,13 @@ func TestANameHoldsNoLineBreakControlOrInvisibleCharacter(t *testing.T) {
 		"a BOM":                "\xef\xbb\xbfQuizzivy",
 		"a right-to-left mark": "Quizzivy\u200f ",
 		"a line separator":     "a\u2028b",
+		"a Hangul filler":      "\u3164",
+		"a Braille blank":      "\u2800",
+		"a Hangul choseong":    "\u115f\u1160",
+		"a halfwidth filler":   "\uffa0",
+		"a filler inside text": "Quiz\u3164zivy",
+		"a lone accent":        "\u0301",
+		"a variation selector": "\ufe0f",
 	}
 	for name, text := range cases {
 		s := valid()
@@ -285,5 +292,35 @@ func TestAVietnameseNameWithMarksAndInnerSpacesIsAccepted(t *testing.T) {
 		if _, err := s.Normalised(); err != nil {
 			t.Errorf("%q refused: %v", name, err)
 		}
+	}
+}
+
+func TestANameStaysAsOneValueWhicheverFormTheClientSends(t *testing.T) {
+	composed, decomposed := "Trung t\u00e2m Quizzivy", "Trung ta\u0302m Quizzivy"
+	stored := valid()
+	stored.Profile.Name, stored.Profile.ShortName = composed, "T\u00e2m"
+	next := valid()
+	next.Profile.Name, next.Profile.ShortName = decomposed, "Ta\u0302m"
+	got, err := next.Normalised()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Profile.Name != composed || got.Profile.ShortName != "T\u00e2m" {
+		t.Fatalf("name = %q, short name = %q, want the composed forms", got.Profile.Name, got.Profile.ShortName)
+	}
+	if changed := stored.ChangedFields(got); len(changed) != 0 {
+		t.Fatalf("changed = %v, want none for the same name in another form", changed)
+	}
+}
+
+func TestANameIsCountedAfterItIsComposed(t *testing.T) {
+	s := valid()
+	s.Profile.Name = strings.Repeat("a\u0302", domain.MaxName)
+	got, err := s.Normalised()
+	if err != nil {
+		t.Fatalf("%d composed characters refused: %v", domain.MaxName, err)
+	}
+	if want := strings.Repeat("\u00e2", domain.MaxName); got.Profile.Name != want {
+		t.Fatalf("name = %q, want %q", got.Profile.Name, want)
 	}
 }
