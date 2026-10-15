@@ -121,7 +121,11 @@ func (w *importsWorld) preview(req domain.WriteRequest, file []byte, role domain
 }
 
 func (w *importsWorld) submit(req domain.WriteRequest, requestID string, file []byte, role domain.ImportDefaultRole, delivery domain.ImportDelivery) (command.CreateUserImportResult, error) {
-	return w.app.Commands.CreateUserImport.Handle(context.Background(), command.CreateUserImport{
+	return w.submitWithin(context.Background(), req, requestID, file, role, delivery)
+}
+
+func (w *importsWorld) submitWithin(ctx context.Context, req domain.WriteRequest, requestID string, file []byte, role domain.ImportDefaultRole, delivery domain.ImportDelivery) (command.CreateUserImportResult, error) {
+	return w.app.Commands.CreateUserImport.Handle(ctx, command.CreateUserImport{
 		Request: req, RequestID: requestID, Filename: "danh-sach.csv", File: file, DefaultRole: role, Delivery: delivery,
 	})
 }
@@ -374,6 +378,34 @@ func TestARepeatedRequestReturnsTheFirstJobAndWritesNothingMore(t *testing.T) {
 	}
 }
 
+type forgetfulRequests struct{ domain.UserImports }
+
+func (forgetfulRequests) FindByRequest(context.Context, string, string) (domain.ImportJob, bool, error) {
+	return domain.ImportJob{}, false, nil
+}
+
+func TestARequestThatLosesTheRaceToItsTwinDoesNotWakeTheWorkerAgain(t *testing.T) {
+	w := newImportsWorld(t)
+	dbx := db.NewContext(linkAppPool(t))
+	w.app.SetUserImports(forgetfulRequests{repositories.NewUserImports(dbx)}, accessapp.New(accessrepo.NewPostgres(dbx)).Queries.RoleChoices,
+		adapters.UserImportTables{}, fixedBudget{left: model.EmailAllowance{Remaining: 7, Limit: 100}}, w.wake, sheetSealer(t))
+	file := csvOf("full_name,email", "Nguyễn Văn An,"+w.email("hs-moi"))
+	requestID := uuid.NewString()
+
+	first, err := w.submit(w.everything(), requestID, file, domain.DefaultStudent, domain.ImportEmailLink)
+	if err != nil || first.Replayed {
+		t.Fatalf("first = %+v, %v, want a new job", first, err)
+	}
+	twin, err := w.submit(w.everything(), requestID, file, domain.DefaultStudent, domain.ImportEmailLink)
+
+	if err != nil || !twin.Replayed || twin.Job.ID != first.Job.ID {
+		t.Fatalf("twin = %+v, %v, want the first job, replayed", twin, err)
+	}
+	if n := w.wake.n.Load(); n != 1 {
+		t.Errorf("worker woken %d time(s), want once: a request that stored nothing has nothing to wake it for", n)
+	}
+}
+
 func TestAnAuditEntryThatCannotBeWrittenTakesTheJobAndItsRowsBackWithIt(t *testing.T) {
 	w := newImportsWorld(t)
 	fresh := w.email("hs-moi")
@@ -382,7 +414,13 @@ func TestAnAuditEntryThatCannotBeWrittenTakesTheJobAndItsRowsBackWithIt(t *testi
 
 	spoiled := w.everything()
 	spoiled.IP = "not an address"
-	if _, err := w.submit(spoiled, requestID, file, domain.DefaultStudent, domain.ImportEmailLink); err == nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err := w.submitWithin(ctx, spoiled, requestID, file, domain.DefaultStudent, domain.ImportEmailLink)
+	if errors.Is(err, context.DeadlineExceeded) {
+		t.Fatal("the request did not end: its audit entry is written outside the transaction that holds the job")
+	}
+	if err == nil {
 		t.Fatal("an audit entry that cannot be written did not fail the request")
 	}
 	w.wantNothingStored(t, fresh)
