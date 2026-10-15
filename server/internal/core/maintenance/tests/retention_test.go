@@ -553,25 +553,28 @@ func TestTheEventsStepUsesTheConfiguredMonthsOnReceiptAndClose(t *testing.T) {
 		student := w.user("Học viên", "student")
 		closedAssignment := w.closedAt(before)
 		closed := w.attempt(closedAssignment, student, "submitted", before)
-		open := w.attempt(w.assignment(before.Add(-48*time.Hour), cutoff.AddDate(0, 3, 0), nil), w.user("Học viên khác", "student"), "submitted", before)
+		openAssignment := w.assignment(before.Add(-48*time.Hour), cutoff.AddDate(0, 3, 0), nil)
+		open := w.attempt(openAssignment, w.user("Học viên khác", "student"), "submitted", before)
 		closedLate := w.attempt(w.closedAt(after), w.user("Học viên nữa", "student"), "submitted", before)
 
-		overridden := func(closes *time.Time) string {
+		overriddenOn := func(assignment string, closes *time.Time) string {
 			student := w.user("Học viên có ngoại lệ", "student")
-			attempt := w.attempt(closedAssignment, student, "submitted", before)
+			attempt := w.attempt(assignment, student, "submitted", before)
 			if closes == nil {
-				w.durationOnly(closedAssignment, student)
+				w.durationOnly(assignment, student)
 			} else {
-				w.override(closedAssignment, student, *closes)
+				w.override(assignment, student, *closes)
 			}
 			return attempt
 		}
+		overridden := func(closes *time.Time) string { return overriddenOn(closedAssignment, closes) }
 		longExtension, justAfter, justBefore, earlier := cutoff.AddDate(0, 6, 0), after, cutoff.Add(-w.margin/2), before.Add(-24*time.Hour)
 		heldOpenLong := overridden(&longExtension)
 		heldOpenBriefly := overridden(&justAfter)
 		extensionPassed := overridden(&justBefore)
 		extensionEarlier := overridden(&earlier)
 		durationOnly := overridden(nil)
+		stillOpenDespiteEarlierOverride := overriddenOn(openAssignment, &earlier)
 
 		w.event(closed, before)
 		remain, swept := 3, 4
@@ -584,11 +587,15 @@ func TestTheEventsStepUsesTheConfiguredMonthsOnReceiptAndClose(t *testing.T) {
 		w.event(closedLate, before)
 		w.event(heldOpenLong, before)
 		w.event(heldOpenBriefly, before)
-		remain += 2
+		w.event(stillOpenDespiteEarlierOverride, before)
+		remain += 3
 		w.event(extensionPassed, before)
 		w.event(extensionEarlier, before)
 		w.event(durationOnly, before)
 
+		if dry := w.sweep(maintenance.SweepOptions{}); dry.FocusEvents.Events != int64(swept) {
+			t.Errorf("the dry run counts %d events, want the %d the apply removes", dry.FocusEvents.Events, swept)
+		}
 		report := w.sweep(maintenance.SweepOptions{Apply: true})
 		if report.FocusEvents.Events != int64(swept) || !w.sameInstant(report.FocusEvents.Cutoff, cutoff) {
 			t.Errorf("events step = %+v, want %d events at cutoff %s", report.FocusEvents, swept, cutoff)
@@ -596,7 +603,7 @@ func TestTheEventsStepUsesTheConfiguredMonthsOnReceiptAndClose(t *testing.T) {
 		if got := w.count(`SELECT count(*) FROM app.attempt_events`); got != remain {
 			t.Errorf("%d events remain, want %d", got, remain)
 		}
-		for name, attempt := range map[string]string{"override keeping the assignment open for months": heldOpenLong, "override closing just after the cutoff": heldOpenBriefly} {
+		for name, attempt := range map[string]string{"override keeping the assignment open for months": heldOpenLong, "override closing just after the cutoff": heldOpenBriefly, "override earlier than the cutoff on an assignment that is still open": stillOpenDespiteEarlierOverride} {
 			if w.count(`SELECT count(*) FROM app.attempt_events WHERE attempt_id = $1`, attempt) != 1 {
 				t.Errorf("the event of an attempt with an %s was removed", name)
 			}
@@ -606,13 +613,43 @@ func TestTheEventsStepUsesTheConfiguredMonthsOnReceiptAndClose(t *testing.T) {
 				t.Errorf("the event of an attempt with an %s was kept", name)
 			}
 		}
-		if got := w.count(`SELECT count(*) FROM app.attempts`); got != 8 {
-			t.Errorf("%d attempts remain, want 8", got)
+		if got := w.count(`SELECT count(*) FROM app.attempts`); got != 9 {
+			t.Errorf("%d attempts remain, want 9", got)
 		}
 		if w.audits("integrity.retained") != 1 {
 			t.Errorf("%d integrity.retained entries", w.audits("integrity.retained"))
 		}
 		w.noActorOnAnyAudit()
+	})
+}
+
+func TestTheEventsStepPagesByReceiptTimeAndIdWithoutSkippingTiedEvents(t *testing.T) {
+	eachWorld(t, func(t *testing.T, w *sweepWorld) {
+		w.retention(nil, 6, nil)
+		cutoff := w.cutoff(6)
+		before := cutoff.Add(-w.margin)
+		due := w.attempt(w.closedAt(before), w.user("Học viên", "student"), "submitted", before)
+		held := w.attempt(w.assignment(before.Add(-48*time.Hour), cutoff.AddDate(0, 3, 0), nil), w.user("Học viên khác", "student"), "submitted", before)
+		for range 7 {
+			w.event(due, before)
+		}
+		for range 4 {
+			w.event(held, before)
+		}
+		w.event(held, before.Add(-time.Hour))
+		w.event(held, before.Add(-2*time.Hour))
+
+		report := w.sweep(maintenance.SweepOptions{Apply: true, Batch: 3})
+		if report.FocusEvents.Events != 7 || report.FocusEvents.Batches != 3 {
+			t.Errorf("events step = %+v, want 7 events in 3 batches", report.FocusEvents)
+		}
+		if w.count(`SELECT count(*) FROM app.attempt_events WHERE attempt_id = $1`, due) != 0 ||
+			w.count(`SELECT count(*) FROM app.attempt_events WHERE attempt_id = $1`, held) != 6 {
+			t.Error("a batch boundary inside events received at the same instant skipped one, or removed an event that is held")
+		}
+		if again := w.sweep(maintenance.SweepOptions{Apply: true, Batch: 3}); again.FocusEvents.Events != 0 || again.FocusEvents.Batches != 1 {
+			t.Errorf("a second run = %+v, want one empty batch", again.FocusEvents)
+		}
 	})
 }
 

@@ -37,8 +37,16 @@ var eventsDue = `FROM app.attempt_events e
  JOIN app.attempts at ON at.id = e.attempt_id ` + retention.AttemptJoins + `
  WHERE e.received_at < $1 AND ` + retention.ClosedBefore("$1")
 
-var retentionCandidates = `SELECT e.id ` + eventsDue + `
+var retentionCandidates = `SELECT e.id, e.received_at ` + eventsDue + `
+ AND (e.received_at, e.id) > ($3::timestamptz, $4::bigint)
  ORDER BY e.received_at,e.id LIMIT $2`
+
+type eventsCursor struct {
+	receivedAt time.Time
+	id         int64
+}
+
+var fromTheStart = eventsCursor{}
 
 // RetainEvents counts or deletes one bounded batch of integrity events once both their receipt and the close of their assignment for the student, an override included, are months old, on the UTC calendar.
 // Apply writes as the caller's role; no application-role privileges are changed.
@@ -53,16 +61,19 @@ func RetainEvents(ctx context.Context, conn db.Querier, months int, apply bool, 
 	}
 	out.Cutoff = cutoff
 	if !apply {
-		err = conn.QueryRow(ctx, `SELECT count(id) FROM (`+retentionCandidates+`) AS candidates`, cutoff, batch).Scan(&out.Rows)
+		err = conn.QueryRow(ctx, `SELECT count(id) FROM (`+retentionCandidates+`) AS candidates`,
+			cutoff, batch, fromTheStart.receivedAt, fromTheStart.id).Scan(&out.Rows)
 		return out, err
 	}
-	out.Rows, err = deleteEvents(ctx, conn, cutoff, batch)
+	out.Rows, _, err = deleteEvents(ctx, conn, cutoff, batch, fromTheStart)
 	out.Applied = err == nil
 	return out, err
 }
 
-func deleteEvents(ctx context.Context, conn db.Querier, cutoff time.Time, batch int) (int64, error) {
+func deleteEvents(ctx context.Context, conn db.Querier, cutoff time.Time, batch int, after eventsCursor) (int64, eventsCursor, error) {
 	var rows int64
+	var lastReceivedAt *time.Time
+	var lastID *int64
 	err := conn.QueryRow(ctx, `
 		WITH candidates AS (`+retentionCandidates+`
 		), removed AS (
@@ -73,6 +84,12 @@ func deleteEvents(ctx context.Context, conn db.Querier, cutoff time.Time, batch 
 		    jsonb_build_object('cutoff', $1::timestamptz, 'deletedRows', count(id), 'databaseRole', current_user)
 		  FROM removed HAVING count(id) > 0
 		)
-		SELECT count(id) FROM removed`, cutoff, batch).Scan(&rows)
-	return rows, err
+		SELECT count(id),
+		       (SELECT received_at FROM candidates ORDER BY received_at DESC, id DESC LIMIT 1),
+		       (SELECT id FROM candidates ORDER BY received_at DESC, id DESC LIMIT 1)
+		  FROM removed`, cutoff, batch, after.receivedAt, after.id).Scan(&rows, &lastReceivedAt, &lastID)
+	if err != nil || lastReceivedAt == nil || lastID == nil {
+		return rows, after, err
+	}
+	return rows, eventsCursor{receivedAt: *lastReceivedAt, id: *lastID}, nil
 }

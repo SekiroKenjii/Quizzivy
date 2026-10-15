@@ -251,11 +251,12 @@ func (s *sweeper) events(ctx context.Context, months int, step *EventsStep) erro
 			return tx.QueryRow(ctx, `SELECT count(e.id) `+eventsDue, cutoff).Scan(&step.Events)
 		})
 	}
+	after := fromTheStart
 	for {
 		var removed int64
 		more, err := s.timed(ctx, func(ctx context.Context) (bool, error) {
 			var err error
-			removed, err = deleteEvents(ctx, s.conn, cutoff, s.opts.Batch)
+			removed, after, err = deleteEvents(ctx, s.conn, cutoff, s.opts.Batch, after)
 			return removed == int64(s.opts.Batch), err
 		})
 		if err != nil {
