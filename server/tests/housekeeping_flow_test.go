@@ -110,6 +110,10 @@ func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testi
 	exec(`INSERT INTO app.user_activity_days (user_id, day) VALUES ($1::uuid, current_date - 450), ($1::uuid, current_date - 350), ($1::uuid, current_date)`, owner)
 	sentOld, failedOld := outbox("sent-old", "sent", 40*24*time.Hour), outbox("failed-old", "failed", 40*24*time.Hour)
 	sentRecent, failedRecent, pending := outbox("sent-recent", "sent", 5*24*time.Hour), outbox("failed-recent", "failed", 24*time.Hour), outbox("pending", "", 90*24*time.Hour)
+	exec(`INSERT INTO app.set_password_tokens (user_id, token_hash, purpose, created_at, expires_at, used_at)
+		VALUES ($1::uuid, sha256(convert_to('housekeeping-ended-' || $2, 'UTF8')), 'reset', now() - interval '41 days', now() - interval '40 days', NULL),
+		       ($1::uuid, sha256(convert_to('housekeeping-used-' || $2, 'UTF8')), 'reset', now() - interval '6 days', now() - interval '5 days', now() - interval '130 hours'),
+		       ($1::uuid, sha256(convert_to('housekeeping-live-' || $2, 'UTF8')), 'reset', now(), now() + interval '24 hours', NULL)`, owner, tag)
 	lapsedID, lapsedKey := export(9*24*time.Hour, -2*24*time.Hour)
 	liveID, liveKey := export(time.Hour, 6*24*time.Hour)
 
@@ -118,6 +122,7 @@ func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testi
 			`DELETE FROM app.email_outbox WHERE to_address LIKE $1`,
 			`DELETE FROM app.data_exports WHERE requested_by = $1::uuid`,
 			`DELETE FROM app.user_activity_days WHERE user_id = $1::uuid`,
+			`DELETE FROM app.set_password_tokens WHERE user_id = $1::uuid`,
 		} {
 			arg := owner
 			if strings.Contains(sql, "email_outbox") {
@@ -154,7 +159,7 @@ func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testi
 		<-stopped
 	})
 
-	steps := []string{"activity_days", "email_outbox", "data_exports", "branding_objects"}
+	steps := []string{"activity_days", "email_outbox", "set_password_links", "data_exports", "branding_objects"}
 	deadline := time.Now().Add(30 * time.Second)
 	for {
 		seen := true
@@ -186,6 +191,12 @@ func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testi
 	}
 	if got := count(`SELECT count(*) FROM app.user_activity_days WHERE user_id = $1::uuid AND day < current_date - 400`, owner); got != 0 {
 		t.Errorf("%d activity days older than 400 days are left", got)
+	}
+	if got := count(`SELECT count(*) FROM app.set_password_tokens WHERE user_id = $1::uuid`, owner); got != 2 {
+		t.Errorf("%d set-password links are left, want the one used 5 days ago and the live one", got)
+	}
+	if got := count(`SELECT count(*) FROM app.set_password_tokens WHERE user_id = $1::uuid AND expires_at < now() - interval '30 days'`, owner); got != 0 {
+		t.Errorf("%d links that ended over 30 days ago are left", got)
 	}
 	for name, c := range map[string]struct {
 		id   string
@@ -284,7 +295,7 @@ func TestAStepThatCannotReachStorageLogsItsClassAndNoKeyEndpointOrBucket(t *test
 	if !strings.Contains(text, `"failure":"network"`) {
 		t.Errorf("the log does not name the class of the failure: %s", text)
 	}
-	for _, step := range []string{"activity_days", "email_outbox"} {
+	for _, step := range []string{"activity_days", "email_outbox", "set_password_links"} {
 		if !strings.Contains(text, `"msg":"housekeeping step done","step":"`+step+`"`) {
 			t.Errorf("the step %s did not finish beside the failing ones: %s", step, text)
 		}

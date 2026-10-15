@@ -249,3 +249,25 @@ func (s *SetPasswordLinks) Claim(ctx context.Context, in domain.ClaimLink) (doma
 	}
 	return claimed, nil
 }
+
+// Prune deletes at most limit links that were used, revoked or expired before
+// the given moment, whichever of the three came first. The table holds the
+// links of the last 30 days and nothing indexes the three columns, so the scan
+// reads that many rows at most; the cascade from app.users needs only
+// set_password_tokens_user_idx. It skips a link another transaction has
+// locked, so it never waits on a claim, an issue or a disable and cannot form
+// a cycle with them; a skipped link is left for the next run.
+func (s *SetPasswordLinks) Prune(ctx context.Context, before time.Time, limit int) (int, error) {
+	tag, err := s.Exec(ctx, `
+		DELETE FROM app.set_password_tokens t
+		 USING (SELECT id FROM app.set_password_tokens
+		         WHERE least(used_at, revoked_at, expires_at) < $1
+		         ORDER BY least(used_at, revoked_at, expires_at), id
+		         LIMIT $2
+		         FOR UPDATE SKIP LOCKED) old
+		 WHERE t.id = old.id`, before, limit)
+	if err != nil {
+		return 0, fmt.Errorf("prune set-password links: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
+}
