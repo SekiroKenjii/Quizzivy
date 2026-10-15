@@ -21,21 +21,23 @@ func TestPruneRemovesOnlyRowsWhoseOutcomeIsOlderThanTheRetention(t *testing.T) {
 		}
 	}
 	sentOld := w.enqueue(t, invite(addr(t, "sent-old")))
-	age(sentOld, "sent_at", 31*24*time.Hour)
+	age(sentOld, "sent_at", 30*24*time.Hour+time.Hour)
 	failedOld := w.enqueue(t, invite(addr(t, "failed-old")))
-	age(failedOld, "failed_at", 45*24*time.Hour)
+	age(failedOld, "failed_at", 30*24*time.Hour+time.Hour)
+	failedAncient := w.enqueue(t, invite(addr(t, "failed-ancient")))
+	age(failedAncient, "failed_at", 45*24*time.Hour)
 	sentRecent := w.enqueue(t, invite(addr(t, "sent-recent")))
-	age(sentRecent, "sent_at", 29*24*time.Hour)
+	age(sentRecent, "sent_at", 30*24*time.Hour-time.Hour)
 	failedRecent := w.enqueue(t, invite(addr(t, "failed-recent")))
-	age(failedRecent, "failed_at", 2*24*time.Hour)
+	age(failedRecent, "failed_at", 30*24*time.Hour-time.Hour)
 	pending := w.enqueue(t, invite(addr(t, "pending")))
 	if _, err := w.pool.Exec(ctx, `UPDATE app.email_outbox SET created_at = $2 WHERE id = $1::uuid`, pending, now.Add(-90*24*time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 
 	removed, err := w.outbox.Prune(ctx, db.NewContext(w.pool), now, 1000)
-	if err != nil || removed < 2 {
-		t.Fatalf("pruned %d rows (%v), want at least the two old ones", removed, err)
+	if err != nil || removed < 3 {
+		t.Fatalf("pruned %d rows (%v), want at least the three old ones", removed, err)
 	}
 	exists := func(id string) bool {
 		t.Helper()
@@ -49,11 +51,12 @@ func TestPruneRemovesOnlyRowsWhoseOutcomeIsOlderThanTheRetention(t *testing.T) {
 		id   string
 		kept bool
 	}{
-		"sent 31 days ago":    {sentOld, false},
-		"failed 45 days ago":  {failedOld, false},
-		"sent 29 days ago":    {sentRecent, true},
-		"failed 2 days ago":   {failedRecent, true},
-		"pending for 90 days": {pending, true},
+		"sent 30 days and an hour ago":    {sentOld, false},
+		"failed 30 days and an hour ago":  {failedOld, false},
+		"failed 45 days ago":              {failedAncient, false},
+		"sent 30 days less an hour ago":   {sentRecent, true},
+		"failed 30 days less an hour ago": {failedRecent, true},
+		"pending for 90 days":             {pending, true},
 	} {
 		if exists(c.id) != c.kept {
 			t.Errorf("the row %s: kept = %v, want %v", name, !c.kept, c.kept)
