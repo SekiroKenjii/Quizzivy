@@ -28,6 +28,7 @@ import (
 	"quizzivy/internal/platform/email"
 	"quizzivy/internal/platform/secrets"
 	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/validation"
 )
 
 type usersWorld struct {
@@ -417,6 +418,51 @@ func TestAFullNameIsStoredComposed(t *testing.T) {
 	}
 	if result.User.FullName != "Nguyễn Văn A" {
 		t.Errorf("name = %q, want %q", result.User.FullName, "Nguyễn Văn A")
+	}
+}
+
+func TestAFullNameIsTrimmedAndItsSpaceFolded(t *testing.T) {
+	w := newUsersWorld(t, true)
+	in := domain.NewUser{Email: w.email("hv"), FullName: "  Nguyễn \t Văn   An ", RoleID: w.role(t, "student"), Delivery: domain.DeliveryEmailLink}
+	result, err := w.create(w.everything(), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.User.FullName != "Nguyễn Văn An" {
+		t.Errorf("name = %q, want %q", result.User.FullName, "Nguyễn Văn An")
+	}
+}
+
+func TestANameWithNothingToReadIsRefusedOnItsFieldBeforeAnythingIsWritten(t *testing.T) {
+	w := newUsersWorld(t, true)
+	hidden := func(r rune) string { return "An" + string(r) + "Bình" }
+	for name, fullName := range map[string]string{
+		"spaces only":           "     ",
+		"a no-break space":      string(rune(0xa0)),
+		"a zero-width space":    string(rune(0x200b)),
+		"a right-to-left mark":  hidden(0x202e),
+		"a bidi isolate":        hidden(0x2066),
+		"a soft hyphen":         hidden(0xad),
+		"a byte order mark":     hidden(0xfeff),
+		"a control character":   hidden(0x07),
+		"a Hangul filler":       string(rune(0x3164)),
+		"a lone combining mark": string(rune(0x301)),
+		"a name over the limit": strings.Repeat("a", domain.MaxFullNameLength+1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			email := w.email("hv")
+			_, err := w.create(w.everything(), domain.NewUser{Email: email, FullName: fullName, RoleID: w.role(t, "student"), Delivery: domain.DeliveryEmailLink})
+			var refused *validation.Error
+			if !errors.As(err, &refused) || len(refused.Fields) != 1 || refused.Fields[0].Field != "fullName" {
+				t.Fatalf("err = %v, want a refusal on fullName", err)
+			}
+			if n := w.count(t, `SELECT count(*) FROM app.users WHERE lower(email) = lower($1)`, email); n != 0 {
+				t.Errorf("%d account(s) written beside a refusal", n)
+			}
+			if n := w.count(t, `SELECT count(*) FROM app.email_outbox WHERE lower(to_address) = lower($1)`, email); n != 0 {
+				t.Errorf("%d message(s) queued beside a refusal", n)
+			}
+		})
 	}
 }
 
