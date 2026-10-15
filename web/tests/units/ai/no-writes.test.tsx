@@ -151,7 +151,7 @@ describe("features/ai", () => {
           context: {
             testId: TEST_ID,
             title: "Unit 5",
-            numberOf: () => null,
+            numberOf: () => 1,
             fix,
             open: () => undefined,
           },
@@ -191,7 +191,7 @@ describe("features/ai", () => {
     expect(saveVariant).toHaveBeenCalledTimes(1);
     variant.unmount();
 
-    const tag = vi.fn(() => Promise.resolve());
+    const tag = vi.fn(() => Promise.resolve(1));
     const cleanup = renderWithApp(
       <AiPanel
         request={{ kind: "cleanup", context: { href: (id) => `/q/${id}`, tag } }}
@@ -237,6 +237,9 @@ describe("features/ai", () => {
   });
 
   it("is loaded lazily by every page that opens it", () => {
+    const stack = readFileSync(resolve(FEATURE, "components/AiPanelStack.tsx"), "utf8");
+    expect(stack).toMatch(/lazy\(\(\) => import\("\.\/AiPanel"\)\)/);
+    expect(stack).not.toMatch(/^import AiPanel/m);
     const hosts = [
       "features/tests/components/BuilderAiActions.tsx",
       "features/tests/components/VariantAction.tsx",
@@ -245,9 +248,11 @@ describe("features/ai", () => {
     ].map((path) => readFileSync(resolve(FEATURE, "..", "..", path), "utf8"));
     for (const source of hosts) {
       expect(source).toMatch(
-        /lazy\(\(\) => import\("@\/features\/ai\/components\/AiPanel"\)\)/,
+        /import \{ AiPanelStack \} from "@\/features\/ai\/components\/AiPanelStack"/,
       );
-      expect(source).not.toMatch(/^import AiPanel/m);
+      expect(source).not.toMatch(
+        /^import (?!type )[^;]*from "@\/features\/ai\/components\/AiPanel"/m,
+      );
       expect(source).not.toMatch(
         /^import \{[^}]*\b(generateKind|checkKind|variantKind|cleanupKind)\b/m,
       );
