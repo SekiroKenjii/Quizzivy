@@ -2506,6 +2506,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/user-imports/{id}/sheet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take the sheet of temporary passwords an import made
+         * @description For a job delivered by `sheet`, hands its importer one CSV file, once:
+         *     a row for every account the job created, with `full_name`, `email`,
+         *     `role`, `class` and `temporary_password`. One transaction opens the
+         *     passwords, erases them from the job and records the download, so the
+         *     file is the only copy and a second request cannot have it. A job that is
+         *     not done, was delivered by email, created no account, has been
+         *     downloaded, or finished more than 24 hours ago answers
+         *     `410 SHEET_UNAVAILABLE`; another user's job is `404`. The response is
+         *     `no-store`, a UTF-8 file with a byte-order mark and CRLF line ends in
+         *     which a cell that a spreadsheet would run as a formula starts with `'`.
+         *     Audited as `user_import.sheet_downloaded`. Limited to 5 a minute per
+         *     signed-in user.
+         */
+        post: operations["downloadUserImportSheet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/roles": {
         parameters: {
             query?: never;
@@ -4531,7 +4564,7 @@ export interface components {
          *     be sent again.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "SET_PASSWORD_LINK_INVALID" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_LIMIT_REACHED" | "ROLE_NOT_ASSIGNABLE" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "EXPORT_IN_PROGRESS" | "EXPORT_UNAVAILABLE" | "EXPORT_OFF" | "USER_IMPORT_FILE_TOO_LARGE" | "USER_IMPORT_FILE_UNREADABLE" | "USER_IMPORT_FILE_EMPTY" | "USER_IMPORT_TOO_MANY_ROWS" | "USER_IMPORT_COLUMNS" | "USER_IMPORT_NOTHING_TO_CREATE" | "CSV_NOT_UTF8" | "XLSX_MACROS" | "XLSX_ENCRYPTED" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "SET_PASSWORD_LINK_INVALID" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_LIMIT_REACHED" | "ROLE_NOT_ASSIGNABLE" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "EXPORT_IN_PROGRESS" | "EXPORT_UNAVAILABLE" | "EXPORT_OFF" | "USER_IMPORT_FILE_TOO_LARGE" | "USER_IMPORT_FILE_UNREADABLE" | "USER_IMPORT_FILE_EMPTY" | "USER_IMPORT_TOO_MANY_ROWS" | "USER_IMPORT_COLUMNS" | "USER_IMPORT_NOTHING_TO_CREATE" | "SHEET_UNAVAILABLE" | "CSV_NOT_UTF8" | "XLSX_MACROS" | "XLSX_ENCRYPTED" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -5899,6 +5932,9 @@ export interface components {
          *     on, counting the header as line 1, which is the number a spreadsheet
          *     shows beside it. `code` says why: `REQUIRED` (empty), `TOO_LONG`,
          *     `INVALID` (not an address, or a name with control characters),
+         *     `FORMULA_LIKE` (an address that starts with a character a spreadsheet
+         *     reads as a formula, such as `+` or `=`, which the hand-out sheet could not
+         *     carry as the address that signs in),
          *     `DUPLICATE_IN_FILE` (an address an earlier row has), `UNKNOWN_ROLE` and
          *     `AMBIGUOUS_ROLE` (no role, or more than one, answers to the name),
          *     `ROLE_NOT_ALLOWED` (the role holds a permission the importer lacks),
@@ -5911,7 +5947,7 @@ export interface components {
             row: number;
             field: components["schemas"]["UserImportField"];
             /** @enum {string} */
-            code: "REQUIRED" | "TOO_LONG" | "INVALID" | "DUPLICATE_IN_FILE" | "UNKNOWN_ROLE" | "AMBIGUOUS_ROLE" | "ROLE_NOT_ALLOWED" | "ROLE_NOT_GIVABLE" | "UNKNOWN_CLASS" | "AMBIGUOUS_CLASS" | "CLASS_NOT_ALLOWED";
+            code: "REQUIRED" | "TOO_LONG" | "INVALID" | "FORMULA_LIKE" | "DUPLICATE_IN_FILE" | "UNKNOWN_ROLE" | "AMBIGUOUS_ROLE" | "ROLE_NOT_ALLOWED" | "ROLE_NOT_GIVABLE" | "UNKNOWN_CLASS" | "AMBIGUOUS_CLASS" | "CLASS_NOT_ALLOWED";
         };
         /**
          * @description What a file would come to. `rows` are the data rows it holds;
@@ -5970,6 +6006,14 @@ export interface components {
                 /** Format: date-time */
                 downloadedAt: string | null;
             } | null;
+            /**
+             * @description Why a `failed` job gave up, and `null` otherwise: `IMPORTER_NOT_ALLOWED`
+             *     (the importer's account is disabled, or lost the permission or a role
+             *     the file names), `DELIVERY_UNAVAILABLE` (password sign-in was turned
+             *     off, or the server can no longer seal, before a sheet job finished)
+             *     or `WORKER_INTERRUPTED` (the worker claimed the job three times and
+             *     none finished it). The accounts created before the job failed stay.
+             */
             errorCode: string | null;
             createdAt: components["schemas"]["Timestamp"];
         };
@@ -13372,6 +13416,44 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+        };
+    };
+    downloadUserImportSheet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sheet. */
+            200: {
+                headers: {
+                    /** @description `attachment; filename="new-accounts-YYYYMMDD.csv"`. */
+                    "Content-Disposition": string;
+                    /** @description `no-store`. */
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description `SHEET_UNAVAILABLE` — the job has no sheet to give: it is not done, was delivered by email, created no account, was downloaded already, or finished more than 24 hours ago. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            501: components["responses"]["UserImportUnavailable"];
         };
     };
     listRoles: {

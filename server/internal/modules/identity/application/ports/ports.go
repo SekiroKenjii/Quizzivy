@@ -74,3 +74,10 @@ type EmailBudget interface {
 type Wake interface {
 	Wake()
 }
+
+// Sealer seals the temporary passwords a hand-out sheet holds until it is
+// downloaded, and opens them again; each is bound to data naming its row.
+type Sealer interface {
+	Seal(plaintext, aad []byte) ([]byte, error)
+	Open(sealed, aad []byte) ([]byte, error)
+}

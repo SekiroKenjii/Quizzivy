@@ -231,6 +231,8 @@ func (j *judge) address(cell string) (string, ImportCode) {
 		return email, CodeTooLong
 	case !validEmail(email):
 		return email, CodeInvalid
+	case validation.FormulaLike(email):
+		return email, CodeFormulaLike
 	}
 	key := strings.ToLower(email)
 	if _, again := j.seen[key]; again {

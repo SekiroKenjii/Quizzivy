@@ -100,9 +100,8 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	}
 	identityApp.SetPrincipals(principals)
 	identityApp.SetSignInPolicy(organizationApp.Queries.SignInPolicy)
-	attachUserImports(ctx, cfg, logger, dbx, identityApp, principals.Queries.RoleChoices)
 	attachClassPorts(classesApp, identityApp, stats)
-	if err := attachAvatars(ctx, cfg, logger, identityApp, images); err != nil {
+	if err := attachIdentityPorts(ctx, cfg, logger, dbx, identityApp, principals.Queries.RoleChoices, images); err != nil {
 		return Assembly{}, err
 	}
 	docs, err := identitytoken.NewDocsIssuer(cfg.JWTSigningKey)

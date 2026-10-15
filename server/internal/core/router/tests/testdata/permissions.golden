@@ -99,6 +99,7 @@ POST /admin/settings/logo system.settings.write
 POST /admin/settings/sign-in-impact system.settings.write
 POST /admin/user-imports people.users.manage
 POST /admin/user-imports/preview people.users.manage
+POST /admin/user-imports/{id}/sheet people.users.manage
 POST /admin/users people.users.manage
 POST /app/assignments/{id}/attempts learning.take_tests
 POST /app/attempts/{id}/audio-play learning.take_tests

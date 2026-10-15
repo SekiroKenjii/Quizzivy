@@ -114,6 +114,23 @@ func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testi
 		VALUES ($1::uuid, sha256(convert_to('housekeeping-ended-' || $2, 'UTF8')), 'reset', now() - interval '41 days', now() - interval '40 days', NULL),
 		       ($1::uuid, sha256(convert_to('housekeeping-used-' || $2, 'UTF8')), 'reset', now() - interval '6 days', now() - interval '5 days', now() - interval '130 hours'),
 		       ($1::uuid, sha256(convert_to('housekeeping-live-' || $2, 'UTF8')), 'reset', now(), now() + interval '24 hours', NULL)`, owner, tag)
+	sheet := func(expiresIn time.Duration) string {
+		var jobID string
+		exec(`WITH job AS (
+			INSERT INTO app.user_import_jobs (created_by, request_id, filename, format, default_role_id, delivery, status, total_rows, created_count, attempts,
+			                                  started_at, completed_at, sheet_expires_at)
+			VALUES ($1::uuid, $2::uuid, 'housekeeping.csv', 'csv', (SELECT id FROM app.roles WHERE builtin_key = 'student'), 'sheet', 'done', 1, 1, 1,
+			        now() - interval '30 hours', now() - interval '25 hours', now() + make_interval(hours => $3))
+			RETURNING id)
+			INSERT INTO app.user_import_rows (job_id, ordinal, full_name, email, role_id, outcome, secret_ciphertext)
+			SELECT id, 0, 'Học viên', 'housekeeping-sheet-' || $2 || '@example.com', (SELECT id FROM app.roles WHERE builtin_key = 'student'), 'created', '\x0102'::bytea FROM job`,
+			owner, uuid.NewString(), int(expiresIn.Hours()))
+		if err := pool.QueryRow(ctx, `SELECT id::text FROM app.user_import_jobs WHERE created_by = $1::uuid ORDER BY created_at DESC, id DESC LIMIT 1`, owner).Scan(&jobID); err != nil {
+			t.Fatal(err)
+		}
+		return jobID
+	}
+	lapsedSheet, liveSheet := sheet(-time.Hour), sheet(time.Hour)
 	lapsedID, lapsedKey := export(9*24*time.Hour, -2*24*time.Hour)
 	liveID, liveKey := export(time.Hour, 6*24*time.Hour)
 
@@ -123,6 +140,7 @@ func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testi
 			`DELETE FROM app.data_exports WHERE requested_by = $1::uuid`,
 			`DELETE FROM app.user_activity_days WHERE user_id = $1::uuid`,
 			`DELETE FROM app.set_password_tokens WHERE user_id = $1::uuid`,
+			`DELETE FROM app.user_import_jobs WHERE created_by = $1::uuid`,
 		} {
 			arg := owner
 			if strings.Contains(sql, "email_outbox") {
@@ -159,7 +177,7 @@ func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testi
 		<-stopped
 	})
 
-	steps := []string{"activity_days", "email_outbox", "set_password_links", "data_exports", "branding_objects"}
+	steps := []string{"activity_days", "email_outbox", "set_password_links", "import_sheets", "data_exports", "branding_objects"}
 	deadline := time.Now().Add(30 * time.Second)
 	for {
 		seen := true
@@ -197,6 +215,18 @@ func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testi
 	}
 	if got := count(`SELECT count(*) FROM app.set_password_tokens WHERE user_id = $1::uuid AND expires_at < now() - interval '30 days'`, owner); got != 0 {
 		t.Errorf("%d links that ended over 30 days ago are left", got)
+	}
+	sealedLeft := func(jobID string) int {
+		return count(`SELECT count(*) FROM app.user_import_rows WHERE job_id = $1::uuid AND secret_ciphertext IS NOT NULL`, jobID)
+	}
+	if got := sealedLeft(lapsedSheet); got != 0 {
+		t.Errorf("%d sealed password(s) of a sheet nobody took in its 24 hours are left", got)
+	}
+	if got := count(`SELECT count(*) FROM app.user_import_rows WHERE job_id = $1::uuid AND outcome = 'created'`, lapsedSheet); got != 1 {
+		t.Errorf("the lapsed sheet's row was removed with its password: %d row(s) left, want 1", got)
+	}
+	if got := sealedLeft(liveSheet); got != 1 {
+		t.Errorf("%d sealed password(s) of a sheet inside its 24 hours are left, want 1", got)
 	}
 	for name, c := range map[string]struct {
 		id   string
@@ -295,7 +325,7 @@ func TestAStepThatCannotReachStorageLogsItsClassAndNoKeyEndpointOrBucket(t *test
 	if !strings.Contains(text, `"failure":"network"`) {
 		t.Errorf("the log does not name the class of the failure: %s", text)
 	}
-	for _, step := range []string{"activity_days", "email_outbox", "set_password_links"} {
+	for _, step := range []string{"activity_days", "email_outbox", "set_password_links", "import_sheets"} {
 		if !strings.Contains(text, `"msg":"housekeeping step done","step":"`+step+`"`) {
 			t.Errorf("the step %s did not finish beside the failing ones: %s", step, text)
 		}
