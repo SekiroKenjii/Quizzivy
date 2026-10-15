@@ -1,14 +1,12 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.113 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.110 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
-**Changes since v0.112**
+**Changes pending (develop)**
 
-The attempts fix round's H-05 (D-026): a question's options and blanks keep their ids across saves. No migration, no new operation, no new permission, and no change to the contract's shape.
-
-- §7 An option or a blank keeps its id when its question is saved. In a write, one sent with an id the question holds is updated in place (ordinal, text, correctness and formatting, or a blank's accepted answers replaced under the same id); one sent without an id, or with an id the question does not hold, is created with a new one; one not sent is deleted. A held AI check finding therefore still names the same option or blank after the teacher saves the question, and the check's "Apply fix" no longer refuses for that reason alone.
-- §15 `POST` and `PATCH /teacher/questions`, and the group member writes, follow the same rule for `options[].id` and `blanks[].id`. A create ignores every id it is sent. An id sent twice in one write updates once and creates the second.
+- H-05 §7 An option or a blank keeps its id when its question is saved. In a write, one sent with an id the question holds is updated in place (ordinal, text, correctness and formatting, or a blank's accepted answers replaced under the same id); one sent without an id, or with an id the question does not hold, is created with a new one; one not sent is deleted. A held AI check finding therefore still names the same option or blank after the teacher saves the question, and the check's "Apply fix" no longer refuses for that reason alone.
+- H-05 §15 `POST` and `PATCH /teacher/questions`, and the group member writes, follow the same rule for `options[].id` and `blanks[].id`. A create ignores every id it is sent. An id sent twice in one write updates once and creates the second. No migration, no new operation, no new permission, and no change to the contract's shape.
 
 **Changes since v0.109**
 

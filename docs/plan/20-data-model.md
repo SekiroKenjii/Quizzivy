@@ -686,7 +686,7 @@ CREATE TABLE app.question_options (
   `question_blanks`, `test_sections`, `test_section_questions`. **Not** applied to
   the `test_version_*` tables, which are written once and never reordered.
 
-  **Used by a question save since spec v0.113.** `updateQuestion` keeps an
+  **Used by a question save from the H-05 change on.** `updateQuestion` keeps an
   option's and a blank's id: a row the write names by an id the question holds is
   updated in place, with its new ordinal written under
   `SET CONSTRAINTS app.question_options_ordinal_key DEFERRED` (blanks:
