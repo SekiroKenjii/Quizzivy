@@ -100,12 +100,10 @@ export interface paths {
         };
         /**
          * The centre's logo
-         * @description The bytes of the light or the dark logo, with the type they were stored
-         *     with. They are served as a download in a sandbox, so an SVG opened on
-         *     its own runs nothing and is never read as another type. A `v` equal to
-         *     the current logo's hash makes the answer immutable for a year; any
-         *     other `v`, or none, is cached for five minutes. No logo of that
-         *     variant: 404.
+         * @description The PNG bytes of the light or the dark logo, served as a download and
+         *     never read as another type. A `v` equal to the current logo's hash makes
+         *     the answer immutable for a year; any other `v`, or none, is cached for
+         *     five minutes. No logo of that variant: 404.
          *
          *     **Leak review (§6.5).** Public bytes the centre chose to show on its
          *     front door, the same for every caller. Nothing names the bucket, the
@@ -2114,7 +2112,8 @@ export interface paths {
         put?: never;
         /**
          * @description Teacher-created accounts get a temporary password and
-         *     `mustChangePassword: true`. Self-signup requires Google (§6.3).
+         *     `mustChangePassword` as the organization's "force password change"
+         *     setting says (on by default). Self-signup requires Google (§6.3).
          *
          *     Every `classIds` entry must be a class the caller teaches, or any class
          *     with `scope.all`. Anything else answers 404, exactly as a missing class
@@ -2269,11 +2268,17 @@ export interface paths {
          * @description The new role takes the icon `key-round` and the colour `gray`, and starts
          *     with the permissions of `copyFromRoleId`, if given. The source must pass
          *     the subset rule: its permissions, `learning.take_tests` apart, are the
-         *     caller's own. The Assistant cannot be a source. A name is stored in
-         *     Unicode NFC, so the composed and decomposed forms of one name are the
-         *     same name, and it may hold no line break, control or invisible
-         *     character. At most 200 roles exist, the four built-in ones included;
-         *     past that the answer is `ROLE_LIMIT_REACHED`. Writes one audit row,
+         *     caller's own. The Assistant cannot be a source. A name and a description
+         *     are stored in Unicode NFC, so the composed and decomposed forms of one
+         *     name are the same name. The limits of 60 and 300 characters count the
+         *     text after NFC; the schema bounds the text as sent at four times that,
+         *     so a name typed decomposed is not refused before it is composed. A name
+         *     holds a letter, a digit, a punctuation mark or a symbol. Neither field
+         *     holds a control or invisible character: a zero-width one, a blank
+         *     filler such as the Hangul filler or the Braille blank, a lone code
+         *     point nothing assigns; a description may hold line breaks, a name may
+         *     not. At most 200 roles exist, the four built-in ones included; past that
+         *     the answer is `ROLE_LIMIT_REACHED`. Writes one audit row,
          *     `role.created`.
          */
         post: operations["createRole"];
@@ -2360,12 +2365,100 @@ export interface paths {
          * Edit a role's name, description, icon or colour
          * @description A supplied field is changed and the others are kept; a body with only
          *     `expectedRevision` is refused. A built-in role may be renamed; its key never changes. The target must pass the subset rule.
-         *     A name is stored in Unicode NFC and may hold no line break, control or
-         *     invisible character, as when a role is created.
+         *     A name and a description are stored in Unicode NFC and follow the rules
+         *     of a role's creation: the limits count the text after NFC, a name holds
+         *     a letter, a digit, a punctuation mark or a symbol, and neither holds a
+         *     control or invisible character.
          *     A change moves the revision. Writes one audit row, `role.updated`, naming
          *     what changed.
          */
         patch: operations["updateRole"];
+        trace?: never;
+    };
+    "/admin/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Admin console's Overview
+         * @description Everything the Overview draws in one read: the centre's name, how many
+         *     people and classes it holds, who was active on each of the last
+         *     fourteen days, what needs attention, the five newest audit entries and
+         *     the storage meters.
+         *
+         *     Each section is `null` for a caller who lacks its key, never an error,
+         *     so a custom role sees only what it may: `people` and `dailyActive` need
+         *     `people.users.manage`, `classes` needs `scope.all`, `recentChanges`
+         *     `system.audit.read` and `storage` `system.settings.write`. An attention
+         *     row is held to the key of the page it leads to: `must_change_password`
+         *     and `never_signed_in` need `people.users.manage`,
+         *     `disabled_teacher_classes` `scope.all`, `storage` `system.settings.write`
+         *     and `ai_credit_requests` `ai.credits.manage`, which exists only while the
+         *     AI assistant is configured. A row whose count is zero is left out.
+         *
+         *     Days are the local dates of the centre's `APP_TIMEZONE`, the same days
+         *     the activity table records. `people.activeThisWeek` counts the
+         *     distinct accounts active on any of the last seven of them, today
+         *     included.
+         */
+        get: operations["getAdminOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Admin console's nav counts
+         * @description The one count the Admin sidebar draws as a badge: the accounts that
+         *     must change their password (DG-54). It is the number the Overview's
+         *     `must_change_password` attention row carries, counted by the same rule.
+         *     `mustChangePassword` is `null` without `people.users.manage`, when the
+         *     count is not run.
+         */
+        get: operations["getAdminSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the centre uses against its plan
+         * @description The Plan & usage figures. The plan and its limits come from the
+         *     server's `PLAN_*` configuration, each optional, and nothing here is
+         *     enforced (DG-55): a limit is shown, never applied. `aiCredits` is the
+         *     month's credits used against the centre pool, and is `null` without
+         *     `ai.credits.manage` and while the AI assistant is off.
+         */
+        get: operations["getUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/admin/docs-session": {
@@ -2429,10 +2522,13 @@ export interface paths {
         };
         /**
          * Download the contract
-         * @description The spec this server embeds, as the JSON it was embedded as (DG-10), an
-         *     attachment named `quizzivy-openapi.json`. The body is that JSON
-         *     document, declared as a byte stream so the generated server writes it
-         *     as it is and does not encode it a second time. The response is
+         * @description This file, `api/openapi.yaml`, converted to JSON with its keys, values
+         *     and order unchanged (DG-10), an attachment named `quizzivy-openapi.json`.
+         *     It is not the spec the server routes by, whose operation ids the code
+         *     generator has rewritten and whose descriptions beside a `$ref` it has
+         *     dropped. The body is that JSON document, declared as a byte stream so
+         *     the generated server writes it as it is and does not encode it a second
+         *     time. The response is
          *     `no-store`. It needs the bearer token and `system.api_reference`,
          *     unlike `/docs/openapi.json`, which answers to a docs session.
          */
@@ -2743,14 +2839,9 @@ export interface paths {
          *     A PNG is at most 1 MiB, square within 2% and 256 to 2048 pixels a side.
          *     Its type is read from its first bytes, its header before any pixel is
          *     decoded, and it is decoded and encoded afresh, which drops every
-         *     metadata chunk. An SVG is at most 256 KiB and is stored exactly as
-         *     sent, or refused: a DOCTYPE or an entity, a root other than `svg`, an
-         *     element outside the allowlist (`svg`, `g`, `path`, `rect`, `circle`,
-         *     `ellipse`, `line`, `polyline`, `polygon`, `defs`, `linearGradient`,
-         *     `radialGradient`, `stop`, `clipPath`, `mask`, `symbol`, `use`, `title`,
-         *     `desc`, `text`, `tspan`, `style`), an `on*` attribute, an `href` that
-         *     does not start with `#`, or a style with `@import` or a `url()` that
-         *     does not start with `#`. Its `viewBox` is square within 2%. A caller
+         *     metadata chunk. Any other type, an SVG included, answers
+         *     `MEDIA_TYPE_UNSUPPORTED`: the settings page draws an SVG to a PNG in the
+         *     browser before it uploads (D-019). A caller
          *     may upload 20 logos an hour.
          *
          *     The request may carry 16 KiB more than the 1 MiB file for the multipart
@@ -3963,7 +4054,7 @@ export interface components {
         OrganizationLogo: {
             sha256: string;
             /** @enum {string} */
-            type: "image/png" | "image/svg+xml";
+            type: "image/png";
         };
         /**
          * @description Who the centre is and how it is reached. Every text is trimmed; an
@@ -3972,8 +4063,9 @@ export interface components {
         OrganizationProfile: {
             name: string;
             shortName: string | null;
-            /** @description A host or an `http`/`https` address, without spaces, as `quizzivy.com` or `https://quizzivy.com/lien-he`. */
+            /** @description A domain or an `https` address, without spaces or credentials, as `quizzivy.com` or `https://quizzivy.com/lien-he`. `http` and other schemes are refused. */
             website: string | null;
+            /** @description An address of a local part and a domain with a dot, as `hello@quizzivy.com`. */
             contactEmail: string | null;
             /** @description Digits, spaces and `+ ( ) . -`, 6 to 30 characters. */
             frontDeskPhone: string | null;
@@ -4055,7 +4147,7 @@ export interface components {
         OrganizationLogoUpload: {
             sha256: string;
             /** @enum {string} */
-            type: "image/png" | "image/svg+xml";
+            type: "image/png";
             width: number;
             height: number;
         };
@@ -4085,7 +4177,7 @@ export interface components {
          *     be sent again.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_LIMIT_REACHED" | "ROLE_NOT_ASSIGNABLE" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "SVG_NOT_ALLOWED" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_LIMIT_REACHED" | "ROLE_NOT_ASSIGNABLE" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -4646,13 +4738,17 @@ export interface components {
             studentTarget: boolean;
         };
         RoleInput: {
+            /** @description At most 60 characters after Unicode NFC. */
             name: string;
+            /** @description At most 300 characters after Unicode NFC. */
             description?: string;
             /** @description The role whose permissions the new role starts with. Omitted, it starts with none. */
             copyFromRoleId?: components["schemas"]["Uuid"];
         };
         RoleUpdate: {
+            /** @description At most 60 characters after Unicode NFC. */
             name?: string;
+            /** @description At most 300 characters after Unicode NFC. */
             description?: string;
             icon?: components["schemas"]["RoleIcon"];
             color?: components["schemas"]["RoleColor"];
@@ -5745,6 +5841,169 @@ export interface components {
         ApiReferenceGroup: {
             tag: string;
             count: number;
+        };
+        /**
+         * @description The Admin console's Overview. A section the caller's keys do not open
+         *     is `null`; `attention` is then shorter, never an error.
+         */
+        AdminOverview: {
+            /** @description The centre's name, from its organization settings. */
+            organizationName: string;
+            /** @description Needs `people.users.manage`. */
+            people: components["schemas"]["AdminOverviewPeople"] | null;
+            /** @description Needs `scope.all`. */
+            classes: components["schemas"]["AdminOverviewClasses"] | null;
+            /** @description Needs `people.users.manage`. */
+            dailyActive: components["schemas"]["AdminDailyActive"] | null;
+            /** @description What needs doing, most urgent first. Empty when nothing does. */
+            attention: components["schemas"]["AdminAttention"][];
+            /** @description The five newest audit entries of any category, newest first. Needs `system.audit.read`. */
+            recentChanges: components["schemas"]["AuditEntry"][] | null;
+            /** @description Needs `system.settings.write`. */
+            storage: components["schemas"]["Usage"] | null;
+        };
+        /**
+         * @description The accounts of the centre. A student is a student target of R2's
+         *     student-like roles and a teacher is every other account, an Admin and
+         *     a custom role included. `teachers` are the enabled ones and
+         *     `teachersDisabled` the disabled ones, so the two never overlap. `total`
+         *     and `students` count disabled accounts, as the Users tabs count them.
+         */
+        AdminOverviewPeople: {
+            total: number;
+            /** @description Accounts with an authenticated request on any of the last seven local days, today included. */
+            activeThisWeek: number;
+            teachers: number;
+            /** @description Disabled accounts that are not a student target; none of them is in `teachers`. */
+            teachersDisabled: number;
+            students: number;
+            /** @description Students whose account was created since the first of this local month. */
+            studentsNewThisMonth: number;
+        };
+        AdminOverviewClasses: {
+            active: number;
+            archived: number;
+        };
+        /**
+         * @description Who made an authenticated request on each of the last fourteen local
+         *     days. Staff is every account that is not a student target, which the
+         *     chart labels Teachers.
+         */
+        AdminDailyActive: {
+            /** @description One entry per day, oldest first and today last, zero days included. */
+            days: components["schemas"]["AdminDailyActiveDay"][];
+            /** @description The mean of students plus staff over the fourteen days, rounded half up. */
+            average: number;
+        };
+        AdminDailyActiveDay: {
+            /** Format: date */
+            date: string;
+            students: number;
+            staff: number;
+        };
+        /** @enum {string} */
+        AdminAttentionKind: "must_change_password" | "never_signed_in" | "disabled_teacher_classes" | "storage" | "ai_credit_requests";
+        /**
+         * @description One thing that needs doing. `count` is at least 1: a row with nothing
+         *     to do is not sent.
+         */
+        AdminAttention: {
+            kind: components["schemas"]["AdminAttentionKind"];
+            /**
+             * @description `must_change_password`: enabled accounts on a temporary password.
+             *     `never_signed_in`: enabled accounts that have never signed in and
+             *     are not on a temporary password. `disabled_teacher_classes`: classes,
+             *     archived ones too, whose teacher is disabled. `storage`: how many of
+             *     the media and import meters with a configured limit are at 80 percent
+             *     or more. `ai_credit_requests`: the teachers waiting for more credits
+             *     this month.
+             */
+            count: number;
+            /** @description What the row's line quotes. `null` for `must_change_password`. */
+            detail: components["schemas"]["AdminAttentionDetail"] | null;
+        };
+        /**
+         * @description The facts a row quotes, by kind; a field its kind does not use is
+         *     absent. `never_signed_in`: `oldestCreatedAt`.
+         *     `disabled_teacher_classes`: `className` and `teacherName` of the newest
+         *     such class. `storage`: `mediaPercent` and `importsPercent`, each absent
+         *     when that meter has no limit. `ai_credit_requests`: `teacherName`,
+         *     `used` and `allowance` of the request waiting longest.
+         */
+        AdminAttentionDetail: {
+            /** Format: date-time */
+            oldestCreatedAt?: string;
+            className?: string;
+            teacherName?: string;
+            mediaPercent?: number;
+            importsPercent?: number;
+            used?: number;
+            allowance?: number;
+        };
+        AdminSummary: {
+            /** @description Enabled accounts on a temporary password; `null` without `people.users.manage`. */
+            mustChangePassword: number | null;
+        };
+        /**
+         * @description What the centre uses against its plan. Nothing is enforced (DG-55): a
+         *     `limit` is `null` when its `PLAN_*` variable is unset, and a figure may
+         *     pass its limit.
+         *
+         *     `seats` counts the accounts that are not disabled against
+         *     `PLAN_SEAT_LIMIT`. `teachers` counts the enabled accounts that are not
+         *     a student target, Admins included, against `PLAN_TEACHER_LIMIT`; it is
+         *     the Overview's `people.teachers`. `media` is the bytes of the media
+         *     files still held in storage, against `PLAN_MEDIA_BYTES`, and `imports`
+         *     the bytes of the source documents of
+         *     the imports whose files are still kept and the number of those imports,
+         *     against `PLAN_IMPORT_BYTES`. `attemptsKept` has no limit until a
+         *     denominator is named.
+         */
+        Usage: {
+            /** @description `null` when `PLAN_NAME` is unset. */
+            plan: components["schemas"]["UsagePlan"] | null;
+            seats: components["schemas"]["UsageCount"];
+            teachers: components["schemas"]["UsageCount"];
+            media: components["schemas"]["UsageBytes"];
+            imports: components["schemas"]["UsageImports"];
+            attemptsKept: components["schemas"]["UsageAttempts"];
+            /** @description The month's credits. `null` without `ai.credits.manage`, and while the AI assistant is off. */
+            aiCredits: components["schemas"]["UsageCredits"] | null;
+        };
+        UsagePlan: {
+            name: string;
+            /**
+             * Format: date
+             * @description `PLAN_RENEWS_ON`, or `null` when unset.
+             */
+            renewsOn: string | null;
+        };
+        UsageCount: {
+            used: number;
+            limit: number | null;
+        };
+        UsageBytes: {
+            /** Format: int64 */
+            bytes: number;
+            /** Format: int64 */
+            limit: number | null;
+        };
+        UsageImports: {
+            /** Format: int64 */
+            bytes: number;
+            count: number;
+            /** Format: int64 */
+            limit: number | null;
+        };
+        UsageAttempts: {
+            /** Format: int64 */
+            count: number;
+        };
+        UsageCredits: {
+            /** Format: int64 */
+            used: number;
+            /** Format: int64 */
+            pool: number;
         };
         /**
          * @description How many tests each status holds for the CURRENT search, ignoring the
@@ -7973,17 +8232,14 @@ export interface operations {
                 headers: {
                     /** @description `public, max-age=31536000, immutable` when `v` is the current hash, else `public, max-age=300`. */
                     "Cache-Control": string;
-                    /** @description `attachment; filename="logo.png"` or `logo.svg`. */
+                    /** @description `attachment; filename="logo.png"`. */
                     "Content-Disposition": string;
-                    /** @description `default-src 'none'; style-src 'unsafe-inline'; sandbox`. */
-                    "Content-Security-Policy": string;
                     /** @description `nosniff`. */
                     "X-Content-Type-Options": string;
                     [name: string]: unknown;
                 };
                 content: {
                     "image/png": string;
-                    "image/svg+xml": string;
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -12153,6 +12409,72 @@ export interface operations {
             };
         };
     };
+    getAdminOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOverview"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getAdminSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSummary"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Usage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
     openDocsSession: {
         parameters: {
             query?: never;
@@ -12564,7 +12886,10 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The document as stored. */
+            /**
+             * @description The document as stored. A document equal to the stored one changes
+             *     nothing: the same revision comes back and no audit row is written.
+             */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -12575,8 +12900,9 @@ export interface operations {
             };
             /**
              * @description The body fails its schema, or `VALIDATION_FAILED` with a message per
-             *     field: a text that is empty or too long after trimming, a website
-             *     with spaces or another scheme than `http`/`https`, an email or a
+             *     field: a text that is empty or too long after trimming, a name that
+             *     holds a line break or an invisible character, a website that is not a
+             *     domain or an `https` address without credentials, an email or a
              *     phone number that is not one, a repeated domain, or a logo the server
              *     does not hold (as `organization.logo.light` or `organization.logo.dark`).
              */
@@ -12668,7 +12994,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
-            /** @description `MEDIA_TOO_LARGE` — a PNG over 1 MiB or an SVG over 256 KiB. */
+            /** @description `MEDIA_TOO_LARGE` — a file over 1 MiB. */
             413: {
                 headers: {
                     [name: string]: unknown;
@@ -12678,11 +13004,10 @@ export interface operations {
                 };
             };
             /**
-             * @description `MEDIA_TYPE_UNSUPPORTED` (neither a PNG nor an SVG), `MEDIA_UNREADABLE`
-             *     (the header or the pixels cannot be read), `IMAGE_DIMENSIONS` (not
-             *     square within 2%, a side outside 256 to 2048 pixels, or more memory
-             *     to decode than the server allows) or `SVG_NOT_ALLOWED` (the SVG
-             *     holds something outside the allowlist). Nothing was stored.
+             * @description `MEDIA_TYPE_UNSUPPORTED` (not a PNG), `MEDIA_UNREADABLE` (the header or
+             *     the pixels cannot be read) or `IMAGE_DIMENSIONS` (not square within 2%,
+             *     a side outside 256 to 2048 pixels, or needing more memory to decode
+             *     than the server allows). Nothing was stored.
              */
             415: {
                 headers: {

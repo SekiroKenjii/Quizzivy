@@ -24,7 +24,6 @@ import (
 const (
 	publicCacheControl    = "public, max-age=300"
 	immutableCacheControl = "public, max-age=31536000, immutable"
-	logoSandbox           = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
 )
 
 // Organization serves the centre's settings and its public face.
@@ -137,13 +136,11 @@ func unsupported(ctx context.Context, err error) (openapi.UploadOrganizationLogo
 	}
 	switch {
 	case errors.Is(err, domain.ErrLogoUnsupported):
-		return refuse(openapi.MEDIATYPEUNSUPPORTED, httpx.Text(ctx, "Logo phải là ảnh PNG hoặc SVG.", "The logo must be a PNG or an SVG."))
+		return refuse(openapi.MEDIATYPEUNSUPPORTED, httpx.Text(ctx, "Logo phải là ảnh PNG. Hãy xuất ảnh SVG sang PNG trước khi tải lên.", "The logo must be a PNG. Export an SVG to a PNG before uploading it."))
 	case errors.Is(err, domain.ErrLogoUnreadable):
 		return refuse(openapi.MEDIAUNREADABLE, httpx.Text(ctx, "Không đọc được logo này. Tệp có thể bị lỗi hoặc chưa tải lên hết.", "This logo cannot be read. It may be damaged or not fully uploaded."))
 	case errors.Is(err, domain.ErrLogoDimensions):
 		return refuse(openapi.IMAGEDIMENSIONS, httpx.Text(ctx, "Logo phải là hình vuông, mỗi cạnh từ 256 đến 2048 px.", "The logo must be square, each side 256 to 2048 pixels."))
-	case errors.Is(err, domain.ErrSVGNotAllowed):
-		return refuse(openapi.SVGNOTALLOWED, httpx.Text(ctx, "Tệp SVG chứa thành phần không được phép. Hãy xuất lại logo chỉ gồm hình vẽ.", "The SVG holds something that is not allowed. Export the logo again with drawing elements only."))
 	}
 	return openapi.UploadOrganizationLogo415JSONResponse{}, false
 }
@@ -192,7 +189,7 @@ func noLogo(ctx context.Context) openapi.UploadOrganizationLogo400JSONResponse {
 
 func logoTooLarge(ctx context.Context) openapi.UploadOrganizationLogo413JSONResponse {
 	return openapi.UploadOrganizationLogo413JSONResponse(httpapi.Error(ctx, openapi.MEDIATOOLARGE,
-		httpx.Text(ctx, "Logo vượt quá giới hạn: PNG tối đa 1 MB, SVG tối đa 256 KB.", "The logo is over the limit: 1 MB for a PNG, 256 KB for an SVG.")))
+		httpx.Text(ctx, "Logo vượt quá giới hạn: tối đa 1 MB.", "The logo is over the limit: 1 MB.")))
 }
 
 // GetPublicOrganization implements GET /public/organization.
@@ -245,11 +242,8 @@ func (h Organization) GetOrganizationLogo(ctx context.Context, request openapi.G
 		cache = immutableCacheControl
 	}
 	headers := openapi.GetOrganizationLogo200ResponseHeaders{
-		CacheControl: cache, ContentDisposition: `attachment; filename="logo.` + logo.Logo.Type.Extension() + `"`,
-		ContentSecurityPolicy: logoSandbox, XContentTypeOptions: "nosniff",
-	}
-	if logo.Logo.Type == domain.LogoSVG {
-		return openapi.GetOrganizationLogo200ImagesvgXmlResponse{Body: bytes.NewReader(logo.Bytes), Headers: headers, ContentLength: int64(len(logo.Bytes))}, nil
+		CacheControl: cache, ContentDisposition: `attachment; filename="logo.` + domain.LogoExtension + `"`,
+		XContentTypeOptions: "nosniff",
 	}
 	return openapi.GetOrganizationLogo200ImagepngResponse{Body: bytes.NewReader(logo.Bytes), Headers: headers, ContentLength: int64(len(logo.Bytes))}, nil
 }

@@ -2,10 +2,12 @@ package config
 
 import (
 	"fmt"
+	"net/mail"
 	"net/url"
 	"os"
 	"strings"
 	"time"
+	"unicode"
 
 	"quizzivy/internal/platform/secrets"
 )
@@ -64,25 +66,25 @@ func loadResend(cfg *Config) error {
 			set++
 		}
 	}
-	switch {
-	case set != 0 && set != 3:
-		return fmt.Errorf("email needs RESEND_API_KEY, EMAIL_FROM and APP_URL together, or none of them")
-	case set == 0 && production:
-		return fmt.Errorf("RESEND_API_KEY, EMAIL_FROM and APP_URL are required in production: without them the sink would take every message")
-	case e.SinkDir != "" && production:
-		return fmt.Errorf("EMAIL_SINK_DIR must not be set in production: it writes every message, links included, to disk instead of sending it")
+	if err := checkEmailGroup(set, production, e.SinkDir); err != nil {
+		return err
 	}
 	if e.SinkDir == "" {
 		e.SinkDir = defaultEmailSinkDir
 	}
-	if e.ReplyTo != "" && !strings.Contains(e.ReplyTo, "@") {
-		return fmt.Errorf("EMAIL_REPLY_TO must be an email address")
+	if e.ReplyTo != "" {
+		if err := checkMailbox("EMAIL_REPLY_TO", e.ReplyTo); err != nil {
+			return err
+		}
 	}
 	if set == 0 {
 		return nil
 	}
 	if strings.ContainsAny(key, " \t\r\n") {
 		return fmt.Errorf("RESEND_API_KEY must be a single token with no whitespace; re-copy it from the provider console")
+	}
+	if err := checkMailbox("EMAIL_FROM", from); err != nil {
+		return err
 	}
 	origin, err := parseAppOrigin(appURL, production)
 	if err != nil {
@@ -92,17 +94,42 @@ func loadResend(cfg *Config) error {
 	return nil
 }
 
+func checkEmailGroup(set int, production bool, sinkDir string) error {
+	switch {
+	case set != 0 && set != 3:
+		return fmt.Errorf("email needs RESEND_API_KEY, EMAIL_FROM and APP_URL together, or none of them")
+	case set == 0 && production:
+		return fmt.Errorf("RESEND_API_KEY, EMAIL_FROM and APP_URL are required in production: without them the sink would take every message")
+	case sinkDir != "" && production:
+		return fmt.Errorf("EMAIL_SINK_DIR must not be set in production: it writes every message, links included, to disk instead of sending it")
+	}
+	return nil
+}
+
+func checkMailbox(name, raw string) error {
+	if strings.ContainsFunc(raw, unicode.IsControl) {
+		return fmt.Errorf("%s must not contain a line break or other control character", name)
+	}
+	if _, err := mail.ParseAddress(raw); err != nil {
+		return fmt.Errorf("%s must be one email address, such as Quizzivy <no-reply@quizzivy.com>", name)
+	}
+	return nil
+}
+
 func parseAppOrigin(raw string, production bool) (string, error) {
+	if strings.ContainsFunc(raw, func(r rune) bool { return unicode.IsControl(r) || unicode.IsSpace(r) }) {
+		return "", fmt.Errorf("APP_URL must not contain whitespace or a control character")
+	}
 	u, err := url.Parse(raw)
 	switch {
 	case err != nil || (u.Scheme != schemeHTTPS && u.Scheme != "http") || u.Host == "" || u.User != nil:
 		return "", fmt.Errorf("APP_URL must be an origin such as https://app.quizzivy.com")
-	case (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "":
+	case (u.Path != "" && u.Path != "/") || strings.ContainsAny(raw, "?#"):
 		return "", fmt.Errorf("APP_URL must be an origin such as https://app.quizzivy.com, with no path, query or fragment")
 	case production && u.Scheme != schemeHTTPS:
 		return "", fmt.Errorf("APP_URL must be https in production: a set-password link travels in it")
 	}
-	return strings.TrimRight(raw, "/"), nil
+	return u.Scheme + "://" + strings.ToLower(u.Host), nil
 }
 
 func loadEmailLimits(cfg *Config) error {

@@ -317,3 +317,78 @@ func TestStoppingEarlyAndClosingTwiceAreSafe(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestARecordWithMoreFieldsThanASheetHoldsIsRefusedBeforeItIsParsed(t *testing.T) {
+	for name, delimiter := range map[string]string{"commas": ",", "semicolons": ";"} {
+		t.Run(name, func(t *testing.T) {
+			data := "name" + delimiter + "email\n" + "x" + strings.Repeat(delimiter, 5<<20-100) + "\n"
+			var err error
+
+			allocated := allocatedDuring(func() { _, _, err = read(t, []byte(data), tabular.FormatCSV, tabular.DefaultLimits()) })
+
+			if !errors.Is(err, tabular.ErrTooManyColumns) {
+				t.Fatalf("err = %v, want ErrTooManyColumns", err)
+			}
+			if !strings.Contains(err.Error(), "row 2") {
+				t.Errorf("err = %v, want it to name row 2", err)
+			}
+			if allocated > 32<<20 {
+				t.Errorf("refusing the row allocated %d bytes, want the 5 million fields left unbuilt", allocated)
+			}
+		})
+	}
+}
+
+func TestARecordAsWideAsASheetIsRead(t *testing.T) {
+	data := "name,email\nx," + strings.Repeat(",", 16382) + "\n"
+
+	_, rows, err := read(t, []byte(data), tabular.FormatCSV, tabular.DefaultLimits())
+
+	if err != nil || len(rows) != 1 || rows[0].Cells[0] != "x" {
+		t.Errorf("a record of 16384 fields: rows = %d, err = %v, want it read", len(rows), err)
+	}
+	wider := "name,email\nx," + strings.Repeat(",", 16383) + "\n"
+	if _, _, err := read(t, []byte(wider), tabular.FormatCSV, tabular.DefaultLimits()); !errors.Is(err, tabular.ErrTooManyColumns) {
+		t.Errorf("a record of 16385 fields: err = %v, want ErrTooManyColumns", err)
+	}
+}
+
+func TestOnlyDelimitersOutsideQuotesCountAsFields(t *testing.T) {
+	limits := tabular.Limits{Bytes: 5 << 20, Rows: 10, Columns: 20000, CellChars: 1 << 20}
+	quoted := "\"" + strings.Repeat(",", 50000) + "\""
+	escaped := strings.Repeat(`"a""b,c",`, 9999) + `"a""b,c"`
+	spanning := "a," + strings.Repeat(",", 10000) + "\"x\ny\"" + strings.Repeat(",", 10000)
+	afterQuotedNewline := "\"x\ny\"\n" + strings.Repeat(",", 16384)
+
+	_, rows, err := read(t, []byte("h\n"+quoted+"\n"), tabular.FormatCSV, limits)
+	if err != nil || len(rows) != 1 || len(rows[0].Cells[0]) != 50000 {
+		t.Errorf("50000 commas inside one quoted field: rows = %d, err = %v, want one field", len(rows), err)
+	}
+	_, rows, err = read(t, []byte("h\n"+escaped+"\n"), tabular.FormatCSV, limits)
+	if err != nil || len(rows) != 1 || len(rows[0].Cells) != 10000 || rows[0].Cells[9999] != `a"b,c` {
+		t.Errorf("10000 quoted fields with escaped quotes: rows = %d, err = %v, want 10000 cells", len(rows), err)
+	}
+	_, _, err = read(t, []byte("h\n"+spanning+"\n"), tabular.FormatCSV, limits)
+	if !errors.Is(err, tabular.ErrTooManyColumns) || !strings.Contains(err.Error(), "row 2") {
+		t.Errorf("20002 fields around a quoted newline: err = %v, want ErrTooManyColumns naming row 2", err)
+	}
+	_, _, err = read(t, []byte("h\n"+afterQuotedNewline+"\n"), tabular.FormatCSV, limits)
+	if !errors.Is(err, tabular.ErrTooManyColumns) || !strings.Contains(err.Error(), "row 4") {
+		t.Errorf("a wide record after a quoted newline: err = %v, want ErrTooManyColumns naming row 4", err)
+	}
+}
+
+func TestTheFieldCountIsPerRecordNotPerFile(t *testing.T) {
+	var data strings.Builder
+	data.WriteString("name,email\n")
+	for range 500 {
+		data.WriteString("x," + strings.Repeat(",", 9000) + "\n")
+	}
+	limits := tabular.Limits{Bytes: 5 << 20, Rows: 600, Columns: 20, CellChars: 1000}
+
+	_, rows, err := read(t, []byte(data.String()), tabular.FormatCSV, limits)
+
+	if err != nil || len(rows) != 500 {
+		t.Errorf("rows = %d, err = %v, want 500 rows of 9001 fields read", len(rows), err)
+	}
+}

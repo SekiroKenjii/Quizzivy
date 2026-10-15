@@ -32,16 +32,14 @@ var (
 	ErrNoLogo = errors.New("organization: no logo of that variant")
 	// ErrStorageOff is an upload, or a read of a logo's bytes, on a server with no object storage.
 	ErrStorageOff = errors.New("organization: object storage is not configured")
-	// ErrLogoTooLarge is a PNG over MaxPNGBytes or an SVG over MaxSVGBytes.
+	// ErrLogoTooLarge is a file over MaxPNGBytes.
 	ErrLogoTooLarge = errors.New("organization: the logo is over its size limit")
-	// ErrLogoUnsupported is an upload that is neither a PNG nor an SVG.
-	ErrLogoUnsupported = errors.New("organization: the logo is not a png or an svg")
+	// ErrLogoUnsupported is an upload that is not a PNG, an SVG included.
+	ErrLogoUnsupported = errors.New("organization: the logo is not a png")
 	// ErrLogoUnreadable is a PNG whose header or pixels cannot be read.
 	ErrLogoUnreadable = errors.New("organization: the logo cannot be read")
 	// ErrLogoDimensions is a logo that is not square within 2%, has a side outside MinLogoSide to MaxLogoSide, or needs more memory to decode than the server allows.
 	ErrLogoDimensions = errors.New("organization: the logo's dimensions are not allowed")
-	// ErrSVGNotAllowed is an SVG that holds something outside the allowlist.
-	ErrSVGNotAllowed = errors.New("organization: the svg holds something that is not allowed")
 )
 
 // LockedOut is the refusal of a save whose policy would lock the Admins out,
@@ -59,7 +57,6 @@ func (e *LockedOut) Is(target error) bool { return target == ErrLockout }
 // The limits an uploaded logo keeps.
 const (
 	MaxPNGBytes = 1 << 20
-	MaxSVGBytes = 256 << 10
 	MinLogoSide = 256
 	MaxLogoSide = 2048
 )

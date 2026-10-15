@@ -32,13 +32,29 @@ func TestASquarePNGIsStoredAsANewPNG(t *testing.T) {
 	}
 }
 
-func TestAnSVGOfDrawingElementsIsStoredAsItCame(t *testing.T) {
-	file, err := logoChecker().Check(context.Background(), strings.NewReader(drawing))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if file.Type != orgdomain.LogoSVG || string(file.Bytes) != drawing {
-		t.Errorf("file %s %q", file.Type, file.Bytes)
+func TestAnSVGIsNotAPNGAndIsRefusedWhateverItHolds(t *testing.T) {
+	for name, body := range map[string]string{
+		"a clean drawing":       drawing,
+		"a script":              `<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>`,
+		"a chain of uses":       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><g id="g"><use href="#c"/></g><circle id="c" r="1"/><use href="#g"/></svg>`,
+		"a byte order mark":     "\xef\xbb\xbf" + drawing,
+		"leading whitespace":    "\n  " + drawing,
+		"an xml declaration":    `<?xml version="1.0"?>` + drawing,
+		"a png header then svg": "\x89PNG\r\n\x1a\n" + drawing,
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := logoChecker().Check(context.Background(), strings.NewReader(body))
+
+			if name == "a png header then svg" {
+				if !errors.Is(err, orgdomain.ErrLogoUnreadable) {
+					t.Errorf("error %v, want ErrLogoUnreadable", err)
+				}
+				return
+			}
+			if !errors.Is(err, orgdomain.ErrLogoUnsupported) {
+				t.Errorf("error %v, want ErrLogoUnsupported", err)
+			}
+		})
 	}
 }
 
@@ -47,12 +63,11 @@ func TestEachWayToRefuseAnUploadHasItsOwnReason(t *testing.T) {
 		body string
 		want error
 	}{
-		"a script in an svg":    {`<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>`, orgdomain.ErrSVGNotAllowed},
-		"a gif":                 {"GIF89a\x01\x00\x01\x00", orgdomain.ErrLogoUnsupported},
-		"plain text":            {"hello", orgdomain.ErrLogoUnsupported},
-		"a damaged png":         {"\x89PNG\r\n\x1a\nnot really", orgdomain.ErrLogoUnreadable},
-		"a png over a mebibyte": {"\x89PNG\r\n\x1a\n" + strings.Repeat("x", orgdomain.MaxPNGBytes), orgdomain.ErrLogoTooLarge},
-		"an svg over 256 KiB":   {`<svg xmlns="http://www.w3.org/2000/svg">` + strings.Repeat(" ", orgdomain.MaxSVGBytes) + `</svg>`, orgdomain.ErrLogoTooLarge},
+		"a gif":                  {"GIF89a\x01\x00\x01\x00", orgdomain.ErrLogoUnsupported},
+		"plain text":             {"hello", orgdomain.ErrLogoUnsupported},
+		"a damaged png":          {"\x89PNG\r\n\x1a\nnot really", orgdomain.ErrLogoUnreadable},
+		"a png over a mebibyte":  {"\x89PNG\r\n\x1a\n" + strings.Repeat("x", orgdomain.MaxPNGBytes), orgdomain.ErrLogoTooLarge},
+		"an svg over a mebibyte": {`<svg xmlns="http://www.w3.org/2000/svg">` + strings.Repeat(" ", orgdomain.MaxPNGBytes) + `</svg>`, orgdomain.ErrLogoTooLarge},
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := logoChecker().Check(context.Background(), strings.NewReader(c.body))

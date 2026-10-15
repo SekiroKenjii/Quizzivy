@@ -1,7 +1,26 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.111 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.112 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes pending (R5, v0.12.0)**
+
+- T-R5.5 to T-R5.7: §5.6 (new) The centre's one settings document: profile, two logos, sign-in policy and retention choices, saved under a revision and audited as `organization.updated`; the logo rules; what each sign-in switch does; the lockout judgement; the 30-second propagation.
+- T-R5.5 to T-R5.7: §15 `GET`/`PUT /admin/settings`, `POST /admin/settings/sign-in-impact` and `POST /admin/settings/logo` (`system.settings.write`), and the two open reads `GET /public/organization` and `GET /public/organization/logo`. That makes nine open operations, not seven. New error codes `SIGN_IN_POLICY_LOCKOUT`, `PASSWORD_SIGN_IN_DISABLED`, `GOOGLE_SIGN_IN_DISABLED` and `GOOGLE_DOMAIN_NOT_ALLOWED`.
+- T-R5.5 to T-R5.7: §13.5 `app.organization_settings`, one row (`00130_create_organization_settings.sql`): the app role may read and update it and cannot insert or delete it.
+- T-R5.5 to T-R5.7: §5.6 A name holds no line break, control or invisible character; a website is a domain or an `https` address without credentials; a contact email is an address with a domain; a save that changes nothing writes nothing and keeps its revision.
+- T-R5.5 to T-R5.7: §5.6, §12 The organization logo is stored and served as a PNG only (D-019). The server answers an SVG with `415 MEDIA_TYPE_UNSUPPORTED`; the settings page draws an SVG the Admin picks to a 1024 x 1024 canvas in the browser and uploads that PNG. The `svg` logo type, `branding/{sha256}.svg` and the sandbox header for SVG are gone.
+- T-R5.12 §13.4 `GET /admin/audit-log` and `GET /admin/audit-log/export` (`system.audit.read`) read `audit_log` through `modules/audit`, newest first over `audit_log_recent_idx`, with the tab counts, the ranges in the viewer's stored zone and a CSV or JSON export of at most 100,000 entries that is itself audited before its first byte.
+- T-R5.12 §13.4 A key whose name, compared without case or punctuation, contains `password`, `passcode`, `token`, `secret`, `authorization`, `credential`, `cookie`, `ciphertext`, `apikey`, `privatekey`, `accesskey` or `signingkey`, or is exactly `otp` or `pin`, is dropped from an audit entry's details and from exports, at any depth.
+- T-R5.12 §13.4 Migration `00133` builds `audit_log_recent_idx` after dropping any invalid index of that name, so a rerun after an interrupted build repairs it.
+- T-R5.19 §15 `downloadOpenApi` serves `api/openapi.yaml` converted to JSON unchanged; `getApiReferenceSummary` reports the embedded contract's versions, operation count and count under each tag.
+
+**Changes since v0.111**
+
+R5, T-R5.8 (second QC follow-up on the roles API: QC-X-13, QC-X-14).
+
+- §15 `createRole` and `updateRole` refuse a name that has no letter, digit, punctuation mark or symbol (a lone combining accent, a variation selector), and, in a name or a description, any character that is not graphic: a control, format, line- or paragraph-separator, private-use or unassigned code point, and the blank fillers the Hangul filler, its two jamo forms, the halfwidth filler and the Braille blank. A description may still hold line breaks, as the Edit role dialog's text area sends them. The refusal names the first offending code point in `details`.
+- §15 The 60 characters of a name and the 300 of a description count the text after NFC. The schema's own bound on the text as sent is four times that (240 and 1200), so a name typed decomposed is no longer refused before it is composed.
 
 **Changes since v0.110**
 
@@ -228,7 +247,7 @@ R4, a NUL character in a request (F-24):
   `q` or `tag` search answered `500` before. The refusal names the field by its dotted path
   (`options.1.text`, `tags.0`; for a member name, the object that holds it) or the parameter, in
   the message, as the validator's other refusals do, and in `details` as `{ field: message }`. It is decided in the one
-  place the contract is enforced: it covers the seven open operations too, after the rate limiter
+  place the contract is enforced: it covers the nine open operations too, after the rate limiter
   has counted the request. A backslash followed by the characters `u0000` (JSON `\\u0000`) is ordinary
   text and is not refused. The file name of a media upload or replacement is refused the same way
   when it holds U+0000 (`400 VALIDATION_FAILED` naming `filename`; an RFC 2231 `filename*` could
@@ -911,7 +930,7 @@ R2, "Access" (v0.8.0, `docs/plan/72-r2.md`):
   creator.
 - §5 Every operation that requires the bearer token declares `x-permission`,
   which `RequirePermission` enforces on every request from a 10-second
-  principal cache; the seven open operations declare none. Another teacher's
+  principal cache; the nine open operations declare none. Another teacher's
   id answers as a missing one does.
 - §5.2 The session epoch: disabling a student or resetting their password ends
   their live sessions at once, and a disabled user is refused on the next
@@ -1377,7 +1396,7 @@ The organisation's own details are build-time config: `VITE_ORG_NAME`, `VITE_ORG
 Signing in (§5.1–§5.3) says who a user is; the user's role (§1.1) says what they may do. The permission catalogue, the built-in grants, the Admin wildcard, the hidden keys and the pseudo-keys (`self`, `workspace.teacher`, `workspace.admin`) are in `docs/plan/70-redesign-overview.md` §4.1. `PermissionKey` in `api/openapi.yaml` equals the rows of `app.permissions`, and the server refuses to start when the database lacks a key it was built with.
 
 - **Enforcement.** Every operation that requires the bearer token declares `x-permission` in `api/openapi.yaml`: a key, a pseudo-key, or a list met by any one of its keys (70 §4.2). `httpx.RequirePermission` enforces it on every request, after `RequireAuth`; the path is not the gate. The server refuses to start when an operation declares nothing, declares a value outside the catalogue, or declares one that does not belong to its path tree (`/teacher/*`, `/admin/*`, `/app/*`, `/auth/*`, `/me/*`).
-- **Open operations** do not require the bearer token, declare no permission and pass untouched. There are seven: login, Google sign-in, refresh, logout, `POST /join/preview`, `GET /public/status` and the integrity beacon (`POST /app/attempts/:id/events`).
+- **Open operations** do not require the bearer token, declare no permission and pass untouched. There are nine: login, Google sign-in, refresh, logout, `POST /join/preview`, `GET /public/status`, `GET /public/organization`, `GET /public/organization/logo` and the integrity beacon (`POST /app/attempts/:id/events`).
 - **Refusals.** No valid token, an unknown or disabled user, or a token older than the user's session epoch (§5.2) → `401 UNAUTHORIZED` with `WWW-Authenticate`, which the single-flight refresh settles. An unmet permission → `403 FORBIDDEN`, with no detail.
 - **The principal.** Each gated request resolves the caller's role, permissions, `disabled_at` and session epoch through an in-process cache that keeps a user for 10 seconds. A write on the same machine forgets the entry at once, so the change applies on that machine's next request and on any other within 10 seconds. Polling does not query the database on every request.
 - **Scope is separate from permission.** Repositories filter by `access.Scope`: another teacher's id answers as a missing one does, and their rows never appear in a list or a count. A student is visible to every teacher who reaches them: a member of a class the teacher teaches, an account the teacher created, or an individual target of an assignment the teacher created. `scope.all`, which only the Admin holds, lifts the filter for a read or a write by id, and in the lists of classes, students and attempts. It does not lift it in the teacher workspace's six content lists (`listTests`, `listQuestions`, `listQuestionGroups`, `listMedia`, `listWordImports`, `listAssignments`, with their facets, tags and counts): those hold the caller's own rows for every caller, the Admin included, and for assignments that is those the caller created or that target a class the caller teaches (DG-53, T-R4.54). Both teacher home operations, `getDashboard` and `getTeacherSummary`, pass `.Own()`, so their figures cover only the caller's teaching, admins included; the repository retains its wide `scope.all` reading for the future Admin console. The Admin reaches another teacher's content by id and, from R5, in the Admin console.
@@ -1480,10 +1499,20 @@ A user may have both. Linking rule: a Google sign-in whose ID token carries `ema
 
 - `/docs` and `/docs/openapi.json` are served by the API beside the contract and open only to a holder of `system.api_reference`, a hidden key only the Admin holds (70 §4.1). A browser navigating there sends no bearer token, so they check a separate cookie instead.
 - `POST /admin/docs-session` (`openDocsSession`, `x-permission: system.api_reference`, rate-limited per signed-in user, §6.5) sets `quizzivy_docs`: `Path=/docs; HttpOnly; Secure; SameSite=Strict; Max-Age=900`. Its value is a JWT for the `docs` audience that carries the caller's session epoch, signed with a key derived from the access-token key: a docs token is never accepted as an access token, and an access token never opens the docs.
-- `GET /admin/api-reference` (`getApiReferenceSummary`) and `GET /admin/api-reference/openapi.json` (`downloadOpenApi`), both `x-permission: system.api_reference`, rate-limited per signed-in user and reached with the bearer token, not the docs session, back the console's API reference page. The first reports the embedded contract's OpenAPI and document versions, its operation count and the count under each tag, read once per process; the second downloads the embedded spec as `quizzivy-openapi.json` with `Cache-Control: no-store`. The body is declared as a byte stream so the generated server writes the JSON as it is.
+- `GET /admin/api-reference` (`getApiReferenceSummary`) and `GET /admin/api-reference/openapi.json` (`downloadOpenApi`), both `x-permission: system.api_reference`, rate-limited per signed-in user and reached with the bearer token, not the docs session, back the console's API reference page. The first reports the embedded contract's OpenAPI and document versions, its operation count and the count under each tag, read once per process; the second downloads `api/openapi.yaml` converted to JSON unchanged (`server/gen/contract/openapi.json`, written by `make gen`: the operation ids and descriptions as authored, not the PascalCased embedded spec the docs page renders) as `quizzivy-openapi.json` with `Cache-Control: no-store`. The body is declared as a byte stream so the generated server writes the JSON as it is.
 - The gate resolves the cookie's user through the same principal cache as the API (§5). A missing, tampered or expired cookie, an unknown or disabled user, or a cookie older than the user's session epoch → `401`; a role without `system.api_reference` → `403`, both in the error envelope with no page or contract leaked. `POST /auth/logout` clears `quizzivy_docs` together with the refresh cookie, so signing out also ends an open docs session.
 - The SPA's admin settings open the reference: the new tab is opened synchronously in the click, `opener` is cleared, and only then is the session requested and the tab pointed at `/docs`.
 - `DOCS_PUBLIC=true` skips only the cookie check, for local development. The server refuses to start with it when `APP_ENV=production`; SRI, the page's CSP and the rate limit apply everywhere.
+
+### 5.6 Organization settings and the sign-in policy
+
+- One settings document for the installation (`app.organization_settings`, `docs/plan/20-data-model.md` §51): **profile** (`name` 1 to 120, `shortName`, `website`, `contactEmail`, `frontDeskPhone`, `frontDeskHours`, `address`; an optional text empty after trimming is `null`), **logos** (light and dark), **sign-in** (`google`, `password`, `forcePasswordChange`, `joinCodes`, `allowedGoogleDomains`) and **retention** (`keepAnswersMonths`, `keepFocusEventsMonths`, `anonymiseDisabledAfterMonths`). `GET /admin/settings` reads it and `PUT /admin/settings` replaces it, both `system.settings.write`, Admin only. A save names the `expectedRevision` it read and answers `409 STALE_WRITE` when someone saved since; it writes an `organization.updated` audit row in the same transaction, naming the changed fields and no values. A save that changes nothing writes nothing: the revision stays and no audit row is added.
+- **Field rules.** The name and short name hold no line break, other control character or invisible (format) character. A website is a domain (`quizzivy.com`) or an `https` address, with no spaces and no credentials; `http`, other schemes and a bare word are refused. A contact email is a local part and a domain with a dot, as an address and nothing wrapped around it.
+- **The front door.** `GET /public/organization` (open, `Cache-Control: public, max-age=300`, 120 a minute and 2,000 an hour per address) returns only what the sign-in page prints: name, short name, website, contact, hours, address, the logo URLs, which of Google and password sign-in are on, and whether joining by code is on. It carries no counts, plan, domain list, retention value or revision.
+- **Logos.** `POST /admin/settings/logo` (multipart `{file, variant}`, 1 MiB, 20 an hour per signed-in user) checks and stores a logo content-addressed at `branding/{sha256}.png`; it applies only when a `PUT` references it. The server accepts a PNG and nothing else: it is square within 2%, 256 to 2048 px a side, decoded under the shared image gate and encoded afresh, which drops its metadata. An SVG answers `415 MEDIA_TYPE_UNSUPPORTED`, because proving an SVG cheap to draw means resolving its references as three browsers do; the settings page instead draws the Admin's SVG to a 1024 x 1024 canvas in their browser and uploads the PNG (D-019). `GET /public/organization/logo` serves the bytes as an attachment under `nosniff`, immutable when `v` is the current hash. Replaced and abandoned logo objects stay in the bucket: there is no sweep, growth is bounded by the upload limit, and identical bytes are one object. The database still admits the type `image/svg+xml`, a value the application never writes and reads as no logo.
+- **The switches.** Password off answers `403 PASSWORD_SIGN_IN_DISABLED` to every password sign-in alike; Google off answers `403 GOOGLE_SIGN_IN_DISABLED` to sign-in and linking; a non-empty domain list refuses a Google email outside it with `403 GOOGLE_DOMAIN_NOT_ALLOWED`; unlinking the last way in answers `409 LAST_LOGIN_METHOD`. "Force password change" decides `mustChangePassword` for every temporary password issued afterwards, and leaves existing flags alone. Joining by code off makes `/join/preview`, `POST /app/classes/join` and Google-with-a-code answer exactly as an unknown code does.
+- **Lockout.** A save that would leave the Admin saving it, or every active built-in Admin, with no way in is refused with `422 SIGN_IN_POLICY_LOCKOUT`, judged inside the save's transaction. `POST /admin/settings/sign-in-impact` previews the judgement and writes nothing.
+- **Propagation.** Each server keeps the document for at most 30 seconds and replaces it at once when it saved, so another server serves the old policy for up to 30 seconds after a change.
 
 ---
 
@@ -2516,7 +2545,7 @@ do not grant a new allowance.
 
 Deliberate. Do not "improve" them with trendy defaults.
 
-**As built in R1 (v0.7.0).** The deck (`docs/design/deck/`) is the source.
+**As built in R1 (v0.7.0).** The deck (`docs/design/deck/`) is the source. The organization logo is stored and served as a PNG (§5.6).
 
 - **Tokens.** `web/src/index.css` carries the deck's light and dark sets. `tokens.test.ts` measures them rather than pinning values:
   - every themed token has a dark value;
@@ -2961,7 +2990,7 @@ CREATE INDEX ON app.attempt_events (attempt_id, occurred_at);
 
 Use PG18's `OLD`/`NEW` in `RETURNING` to capture the diff in the same statement as the update, rather than a read-then-write.
 
-**Reading the log (R5).** `GET /admin/audit-log` and `GET /admin/audit-log/export` (`system.audit.read`, Admin only) read it through `modules/audit`; no other module reads `audit_log`. An entry's category comes from its `entity` (`domain/categories.go`: six tabs; organization, export, maintenance, retention and AI entries are listed under All only), and its sentence from its `action` (`domain/actions.go`, `vi` and `en`, matched by the same `q` that matches the actor's name or email and the name of the row the entry is about). The tab counts are one `GROUP BY entity` over the search and range, whichever tab is selected. The ranges are calendar days in the viewer's stored zone (`7d` is today and the six days before it). A diff shaped `{field: {old, new}}` is shown as `changes` and any other as `details`; a `code`, `joinCode` or `code_hash` value is shown as its last four characters and `password`, `token` and `secret` keys are dropped, whatever was stored. The export streams CSV or JSON in keyset batches over `audit_log_recent_idx`, refuses more than 100,000 entries with `422 EXPORT_TOO_LARGE`, reads the log as it stood when it began, and is itself audited as `audit.exported` before its first byte. A search runs with a 30-second statement timeout and `jit` off, because the planner's cost for its sub-selects otherwise starts JIT compilation that costs a second. A change to what the server writes (a new `action` or `entity`) fails `modules/audit/domain/tests/catalog_test.go` until `domain/actions.go` or `categories.go` and both locale files list it.
+**Reading the log (R5).** `GET /admin/audit-log` and `GET /admin/audit-log/export` (`system.audit.read`, Admin only) read it through `modules/audit`; no other module reads `audit_log`. An entry's category comes from its `entity` (`domain/categories.go`: six tabs; organization, export, maintenance, retention and AI entries are listed under All only), and its sentence from its `action` (`domain/actions.go`, `vi` and `en`, matched by the same `q` that matches the actor's name or email and the name of the row the entry is about). The tab counts are one `GROUP BY entity` over the search and range, whichever tab is selected. The ranges are calendar days in the viewer's stored zone (`7d` is today and the six days before it). A diff shaped `{field: {old, new}}` is shown as `changes` and any other as `details`; a `code`, `joinCode` or `code_hash` value is shown as its last four characters and a key whose name contains `password`, `passcode`, `token`, `secret`, `authorization`, `credential`, `cookie`, `ciphertext` or the name of a key (`apiKey`, `privateKey`, `accessKey`, `signingKey`), or is exactly `otp` or `pin`, is dropped, whatever was stored. The export streams CSV or JSON in keyset batches over `audit_log_recent_idx`, refuses more than 100,000 entries with `422 EXPORT_TOO_LARGE`, reads the log as it stood when it began, and is itself audited as `audit.exported` before its first byte. A search runs with a 30-second statement timeout and `jit` off, because the planner's cost for its sub-selects otherwise starts JIT compilation that costs a second. A change to what the server writes (a new `action` or `entity`) fails `modules/audit/domain/tests/catalog_test.go` until `domain/actions.go` or `categories.go` and both locale files list it.
 
 ### 13.5 Security in the data layer
 
@@ -2970,6 +2999,7 @@ Use PG18's `OLD`/`NEW` in `RETURNING` to capture the diff in the same statement 
 - Passwords: Argon2id (bcrypt cost ≥ 12 if unavailable).
 - `sample_answer`, `transcript`, `is_correct`, and `accepted_answers` must never reach a student response. Enforce with explicit column lists — **no `SELECT *` in student-facing paths.** Add a test that asserts these keys are absent from `GET /app/attempts/:id`.
 - Least-privilege DB roles: the app connects with DML on `app` only, not as owner. Migrations run as a separate role. The app role only reads `permissions` and `student_like_roles`; on `roles` and `role_permissions` it holds only what the role commands write (`00129_grant_role_writes.sql`: insert roles, update their name, description, icon, colour, revision and `updated_at`, add and remove grants), never `DELETE` on `roles`. `users_last_admin` is the schema's first `SECURITY DEFINER` function: owned by the migrate role, with `search_path = pg_catalog, app, pg_temp` and EXECUTE revoked from PUBLIC (`docs/plan/20-data-model.md` §30).
+- `app.organization_settings` is one row (`id boolean PRIMARY KEY DEFAULT true CHECK (id)`, migration `00130`): the app role may `SELECT` and `UPDATE` it and has no `INSERT` or `DELETE` (§5.6).
 
 ### 13.6 PG18 features — use and skip
 
@@ -2999,6 +3029,8 @@ Use PG18's `OLD`/`NEW` in `RETURNING` to capture the diff in the same statement 
 - Keyset pagination everywhere (`WHERE (created_at, id) < ($1,$2) ORDER BY created_at DESC, id DESC LIMIT $3`), not `OFFSET`. `uuidv7()` PKs make this natural.
 - `EXPLAIN (ANALYZE, BUFFERS)` any query touching `attempts`, `attempt_answers`, or `attempt_events` before merging.
 - N+1 is the default failure mode of the grading and monitor screens — one query for an attempt's answers, one query for an assignment's monitor rows.
+
+**The Admin's readings (R5).** `getAdminOverview`, `getAdminSummary` and `getUsage` (`modules/dashboard`, all read-only, no migration) count the whole centre under no scope: the caller's keys decide which sections are read at all, and a section a key does not open is `null` and costs no query. A day is a local date in `APP_TIMEZONE`: the chart is today and the thirteen days before it with a zero for a day with no row in `user_activity_days`, its average the mean of students plus staff rounded half up, and "this week" the seven days ending today. A student is a student target of `app.student_like_roles` and a teacher is every other account, an Admin and a custom role included; the chart's "staff" is the same partition. `people.teachers` and `usage.teachers` count the enabled teachers, `people.teachersDisabled` the disabled ones, and a seat is an account that is not disabled; `people.total` and `people.students` still count disabled accounts, as the Users tabs do. The enabled accounts fall into the first of must change password, never signed in (DG-54). The plan is `PLAN_NAME`, `PLAN_RENEWS_ON`, `PLAN_SEAT_LIMIT`, `PLAN_TEACHER_LIMIT`, `PLAN_MEDIA_BYTES` and `PLAN_IMPORT_BYTES`, each optional, validated at start-up and never enforced (DG-55); a meter at 80% of its limit adds the Overview's storage row. The AI figures, the credit-request row and `aiCredits`, come through the AI module's own `AdminCredits` query for a holder of `ai.credits.manage` and are null while the assistant is off. `attention[].detail` carries the facts a row quotes, not a sentence, so the web words each row in the reader's language.
 
 ### 13.9 Maintenance windows
 
@@ -3072,6 +3104,11 @@ GET    /public/status                   → {maintenance: {startsAt, endsAt, act
                                           120/min and 2,000/h per IP; ai is true when the AI
                                           assistant is configured, read from configuration and
                                           never from the provider
+GET    /public/organization             -> {name, shortName, website, contactEmail, frontDeskPhone, frontDeskHours, address,
+                                          logo {lightUrl, darkUrl}, signIn {google, password}, joinCodes}; same body for
+                                          everyone, Cache-Control public 300 s, 120/min and 2,000/h per IP
+GET    /public/organization/logo        ?variant=light|dark&v=<sha256> -> the logo bytes, nosniff, a PNG attachment; 404
+                                          when there is none; 300/min per IP
 POST   /join/preview                    {joinCode} → {classId, className, teacherName}
 POST   /auth/login                      {email,password} → {accessToken,user: CurrentUser}
 POST   /auth/google                     {code,codeVerifier,redirectUri,joinCode?} → {accessToken,user: CurrentUser}
@@ -3290,6 +3327,24 @@ DELETE /admin/users/:id                 a disabled student only, else 409 RESOUR
                                           403 FORBIDDEN when the subset rule refuses,
                                           409 RESOURCE_REFERENCED {referencedBy}
 POST   /admin/docs-session              opens the API reference for fifteen minutes (§5.5)
+
+# admin: organization settings (system.settings.write)
+GET    /admin/settings                  -> OrganizationSettings {organization, signIn, retention, revision, updatedAt, updatedBy}
+PUT    /admin/settings                  {organization, signIn, retention, expectedRevision} -> OrganizationSettings; 400
+                                          VALIDATION_FAILED per field | 409 STALE_WRITE | 422 SIGN_IN_POLICY_LOCKOUT; a save
+                                          that changes nothing keeps the revision and writes no audit row
+POST   /admin/settings/sign-in-impact   {signIn} -> {affectedUsers, affectedAdmins, activeAdmins, actorLocked}; writes nothing
+POST   /admin/settings/logo             multipart {file, variant light|dark} -> {sha256, type, width, height}; 413 | 415
+                                          MEDIA_TYPE_UNSUPPORTED (not a PNG) | MEDIA_UNREADABLE | IMAGE_DIMENSIONS; 20 an hour
+
+# admin: readings (R5, T-R5.18); a section is null without its key
+GET    /admin/overview                  (workspace.admin) → {organizationName, people|null, classes|null, dailyActive|null,
+                                          attention, recentChanges|null, storage|null}: people and dailyActive need
+                                          people.users.manage, classes scope.all, recentChanges system.audit.read, storage
+                                          system.settings.write; attention rows with a count of zero are left out
+GET    /admin/summary                   (workspace.admin) → {mustChangePassword|null}: null without people.users.manage
+GET    /admin/usage                     (system.settings.write) → {plan|null, seats, teachers, media, imports, attemptsKept,
+                                          aiCredits|null}: each limit is null when its PLAN_* variable is unset
 
 # admin: AI credits (ai.credits.manage)
 GET    /admin/ai/credits                → {month, pool, daysToGo, onPace, withinPool, allowances, active, idle,
@@ -3705,4 +3760,5 @@ All original open questions are closed. These sub-decisions were made while impl
 - Write the `vi` string first, then `en`. Never leave English-only user-facing text.
 - When touching `features/take-test/`, `features/integrity/`, or `features/media/`, run their unit tests before and after every change.
 - Never remove a failing test to make CI green; fix it or flag it.
-- Keep this document current: when a decision changes, edit the section and bump the version at the top.
+- Keep this document current: when a decision changes, edit the section and record it in the changelog at the top.
+- The version is numbered at release, not per PR. On an integration branch (`develop`, `work/**`) a task PR never edits the version line: it adds its bullets under the one heading `**Changes pending (R5, v0.12.0)**`, each starting with its task id (`T-R5.15 §15 …`). The release PR sets the version line to the next free number and renames that heading `**Changes since v0.NNN**`, where NNN is the version the release replaces. A hotfix off `main` numbers itself, and its back-merge carries the number down.

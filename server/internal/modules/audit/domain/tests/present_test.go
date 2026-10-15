@@ -135,6 +135,47 @@ func TestPasswordsTokensAndSecretsAreNeverShown(t *testing.T) {
 	}
 }
 
+func TestAnyKeyNamedLikeACredentialIsNeverShown(t *testing.T) {
+	keys := []string{
+		"tokenHash", "resetToken", "sessionToken", "refreshTokenHash", "Authorization", "otp", "OTP",
+		"passcode", "pin", "secretKey", "private_key", "ciphertext", "clientSecretHash", "x-api-key",
+		"apiKey", "access.key", "Signing Key", "passwd", "pwd", "passphrase", "credentials",
+		"cookieValue", "set-cookie", "totp", "newPasswordConfirmation", "mfa_secret_seed",
+	}
+	for _, key := range keys {
+		stored := `{"` + key + `": "LEAK-VALUE", "kept": "visible"}`
+		got := domain.Present([]byte(stored))
+		encoded, _ := json.Marshal(got)
+		if strings.Contains(string(encoded), "LEAK-VALUE") {
+			t.Errorf("%q leaked into %s", key, encoded)
+		}
+		if got.Details["kept"] != "visible" {
+			t.Errorf("a key beside %q was lost: %+v", key, got.Details)
+		}
+		nested := domain.Present([]byte(`{"outer": {"` + key + `": "LEAK-VALUE", "list": [{"` + key + `": "LEAK-VALUE"}]}}`))
+		if encoded, _ := json.Marshal(nested); strings.Contains(string(encoded), "LEAK-VALUE") {
+			t.Errorf("%q leaked at depth into %s", key, encoded)
+		}
+		paired := domain.Present([]byte(`{"` + key + `": {"old": "LEAK-VALUE", "new": "LEAK-VALUE"}}`))
+		if len(paired.Changes) != 0 || len(paired.Details) != 0 {
+			t.Errorf("%q shows %+v as a change", key, paired)
+		}
+	}
+}
+
+func TestAKeyThatOnlyLooksLikeACredentialIsStillShown(t *testing.T) {
+	keys := []string{
+		"keyword", "shipping", "mapping", "footprint", "hotkey", "primaryKey", "authorName", "pinned",
+		"spinner", "options", "opinion", "monkey", "revoked", "familyId", "focusLossCount", "keyVersion",
+	}
+	for _, key := range keys {
+		got := domain.Present([]byte(`{"` + key + `": "visible"}`))
+		if got.Details[key] != "visible" {
+			t.Errorf("%q was left out: %+v", key, got.Details)
+		}
+	}
+}
+
 func TestADroppedKeyTakesItsWholeChangeWithIt(t *testing.T) {
 	got := domain.Present([]byte(`{"password": {"old": "a", "new": "b"}}`))
 	if len(got.Changes) != 0 || len(got.Details) != 0 {

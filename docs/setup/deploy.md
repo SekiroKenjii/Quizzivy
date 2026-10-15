@@ -528,17 +528,27 @@ DROP INDEX CONCURRENTLY IF EXISTS app.assignments_creator_idx;         -- 00077
 ## Interrupted index build in v0.12.0 (R5)
 
 `00133` builds `audit_log_recent_idx` on `app.audit_log (occurred_at DESC, id DESC)`
-`CONCURRENTLY`, alone in its file, so writes to the log carry on while it builds.
-It is the only concurrent build R5 adds. If it is interrupted the index is left
-INVALID: find it with the query above, and drop it before redeploying, as
-`quizzivy_migrate`:
+`CONCURRENTLY`, so writes to the log carry on while it builds. It is the only
+concurrent build R5 adds, and it drops any index of that name before it builds, so
+an interrupted build needs nothing from you: redeploy, and the rerun removes the
+INVALID leftover and builds the index again. Check afterwards, as
+`quizzivy_migrate`; the query returns no row when every index is valid:
 
 ```sql
-DROP INDEX CONCURRENTLY IF EXISTS app.audit_log_recent_idx;            -- 00133
+SELECT indexrelid::regclass FROM pg_index WHERE NOT indisvalid;
 ```
 
 The Admin audit log reads through that index. Until it is valid the list still
-answers, by sorting the range it was asked for.
+answers, by sorting the range it was asked for, which on a large log is slow.
+
+A database that ran the first form of `00133` (`CREATE INDEX CONCURRENTLY IF NOT
+EXISTS`, merged in #641) and was interrupted has the file recorded over an INVALID
+index, and the query above names it. Repair it by hand, as `quizzivy_migrate`:
+
+```sql
+DROP INDEX CONCURRENTLY IF EXISTS app.audit_log_recent_idx;
+CREATE INDEX CONCURRENTLY audit_log_recent_idx ON app.audit_log (occurred_at DESC, id DESC);
+```
 
 ## Backups and operational verification
 

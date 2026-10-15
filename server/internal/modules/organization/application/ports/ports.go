@@ -19,7 +19,7 @@ type LogoStore interface {
 }
 
 // LogoChecker reads an upload and returns it as it may be stored, or refuses
-// it with one of the domain's ErrLogo* or ErrSVGNotAllowed reasons.
+// it with one of the domain's ErrLogo* reasons.
 type LogoChecker interface {
 	Check(ctx context.Context, body io.Reader) (domain.LogoFile, error)
 }
