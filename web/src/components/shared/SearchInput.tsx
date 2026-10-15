@@ -2,6 +2,13 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
+/**
+ * TOOLBAR_SEARCH are the classes for a list toolbar's search field as the deck
+ * draws it: up to 300px wide, 34px high, on the card surface.
+ */
+export const TOOLBAR_SEARCH =
+  "w-auto min-w-0 flex-[0_1_300px] [&_input]:bg-card [&_input]:border-border [&_input]:h-8.5 [&_input]:pl-8.5 [&_input]:text-sm [&_svg]:top-[9.5px] [&_svg]:size-3.75";
+
 /** SearchInput is a list-toolbar search field with icon clearance at either density. */
 export function SearchInput({
   value,

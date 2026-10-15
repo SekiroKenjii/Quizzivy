@@ -12,6 +12,7 @@ const ALLOWED_FILES = new Set([
 const ALLOWED_LITERALS = new Set([
   "/admin/ai/credits",
   "/admin/docs-session",
+  "/admin/users",
   "/admin/users/{id}",
   "/admin/settings/sign-in",
   "/admin/settings/logo",
