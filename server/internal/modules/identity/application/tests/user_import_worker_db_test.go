@@ -453,7 +453,6 @@ func TestAJobWhoseImporterIsGoneIsFailedAndCreatesNothing(t *testing.T) {
 			file, _ := w.students(3, "")
 			job := w.submitRows(t, domain.ImportEmailLink, file)
 			change(t, w)
-			w.principals.Forget(w.importer)
 
 			w.runOnce(t, w.runner())
 
@@ -463,6 +462,47 @@ func TestAJobWhoseImporterIsGoneIsFailedAndCreatesNothing(t *testing.T) {
 			}
 			if got := w.outcomes(t, job.ID); got["pending"] != 3 {
 				t.Errorf("outcomes = %v, want the three rows left pending", got)
+			}
+		})
+	}
+}
+
+type afterFirstSettle struct {
+	domain.UserImportQueue
+	then func()
+}
+
+func (a *afterFirstSettle) Settle(ctx context.Context, batch domain.ImportBatch, issue domain.LinkIssue) (domain.ImportProgress, error) {
+	progress, err := a.UserImportQueue.Settle(ctx, batch, issue)
+	if err == nil && a.then != nil {
+		a.then()
+		a.then = nil
+	}
+	return progress, err
+}
+
+func TestAnImporterWhoseRightsChangeBetweenBatchesIsRefusedAtTheNextOneWhateverThisProcessRemembers(t *testing.T) {
+	cases := map[string]string{
+		"disabled":           `UPDATE app.users SET disabled_at = now() WHERE id = $1::uuid`,
+		"demoted to teacher": `UPDATE app.users SET role_id = (SELECT id FROM app.roles WHERE builtin_key = 'teacher') WHERE id = $1::uuid`,
+	}
+	for name, change := range cases {
+		t.Run(name, func(t *testing.T) {
+			w := newWorkerWorld(t)
+			file, _ := w.students(3*domain.ImportBatchSize, "")
+			job := w.submitRows(t, domain.ImportEmailLink, file)
+			run := w.runner()
+			run.Queue = &afterFirstSettle{UserImportQueue: w.queue, then: func() {
+				if _, err := w.admin.Exec(context.Background(), change, w.importer); err != nil {
+					t.Error(err)
+				}
+			}}
+
+			w.runOnce(t, run)
+
+			w.wantFailed(t, job.ID, domain.ImportFailedNotAllowed)
+			if got := w.madeByTheImporter(t); got != domain.ImportBatchSize {
+				t.Errorf("%d account(s) created, want only the first batch of %d", got, domain.ImportBatchSize)
 			}
 		})
 	}
@@ -478,7 +518,6 @@ func TestAJobFailsWhenTheImporterNoLongerHasTheScopeToPlaceAccountsInClasses(t *
 	if _, err := w.admin.Exec(context.Background(), `UPDATE app.users SET role_id = $2::uuid WHERE id = $1::uuid`, w.importer, role); err != nil {
 		t.Fatal(err)
 	}
-	w.principals.Forget(w.importer)
 
 	w.runOnce(t, w.runner())
 
@@ -743,7 +782,6 @@ func TestAJobThatFailsForItsImporterErasesThePasswordsItAlreadySealed(t *testing
 	if _, err := w.admin.Exec(context.Background(), `UPDATE app.users SET disabled_at = now() WHERE id = $1::uuid`, w.importer); err != nil {
 		t.Fatal(err)
 	}
-	w.principals.Forget(w.importer)
 	w.lapse(t, job.ID)
 
 	w.runOnce(t, w.runner())

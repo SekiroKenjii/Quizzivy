@@ -33,7 +33,9 @@ type refusal struct{ code string }
 
 func (r refusal) Error() string { return "user import: refused: " + r.code }
 
-// UserImports executes the user imports one job at a time. A supervisor
+// UserImports executes the user imports one job at a time. It reads the
+// importer's rights afresh at the start of every batch: the principal cache is
+// per process, so a write the API made never reaches this one. A supervisor
 // decides when it runs: RunOne claims at most one job and returns, and NextDue
 // says when the next one falls due. A nil Logger logs nothing, a nil Now is the
 // clock, a nil Passwords makes the app's temporary passwords, a nil Sealer
@@ -167,6 +169,7 @@ func (r UserImports) execute(ctx context.Context, job domain.ImportJob) (domain.
 }
 
 func (r UserImports) importer(ctx context.Context, job domain.ImportJob) (domain.WriteRequest, error) {
+	r.Principals.Forget(job.CreatedBy)
 	principal, err := r.Principals.Resolve(ctx, job.CreatedBy)
 	switch {
 	case errors.Is(err, accessdomain.ErrUnknownUser):
