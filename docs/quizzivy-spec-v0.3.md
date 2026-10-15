@@ -2275,8 +2275,9 @@ is one screen ("A cloze" below).
   attempt's beacon token, and two tabs of one browser can share a session.
   "Tiếp tục làm bài" in a tab that holds a session for the attempt reads it
   with that session and starts no resume, so the tab never takes over from
-  itself; a superseded answer is the paper's read-only state, whose own
-  Continue resumes and records the takeover. A tab that holds none resumes.
+  itself. When that read answers `superseded`, another tab or device has
+  taken the attempt, and Continue then resumes, which takes it back and
+  records the takeover. A tab that holds none resumes.
   An attempt that has ended releases the tab's held session, and a paper
   sealed as ended or superseded stops its deadline timer.
 - **Keys.** A–E choose an option, on a cloze for the open gap; a sixth has no

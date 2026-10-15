@@ -354,8 +354,8 @@ with its held session and resumes nothing; only a tab holding none calls the
 resume. The server's two-minute rule is unchanged, and no farewell rule,
 `engine_leave` kind, shorter window or heartbeat is built. The timeline label
 for `session_takeover` is "Vào lại bài ở thẻ hoặc thiết bị khác" / "Resumed in
-another tab or device". A superseded answer to that read is the paper's
-read-only state, whose own Continue resumes and records the takeover.
+another tab or device". When that read answers `superseded`, Continue
+resumes, which takes the attempt back and records the takeover.
 
 The rest of this entry is the question as it stood.
 

@@ -82,15 +82,19 @@ export function getMyAssignment(id: string, signal?: AbortSignal) {
  * continueAttempt first sends the answers a closed tab left in this browser,
  * through `saveStrandedDraft`. A tab that holds a session for the attempt then
  * reads it with that session, which resumes nothing and records no takeover;
- * a read that answers `superseded` is the paper's own read-only state. A tab
- * that holds none resumes the named attempt and never starts one: a 409
- * `ATTEMPT_CLOSED` means it has ended. It rejects without either when the
- * stranded answers could not be sent. The tab then holds the session the
- * resume returned.
+ * only when that read answers `superseded`, because another tab or device has
+ * taken the attempt, does it resume, which takes the attempt back and records
+ * the takeover. A tab that holds none resumes at once. A resume names the
+ * attempt and never starts one: a 409 `ATTEMPT_CLOSED` means it has ended. It
+ * rejects without either when the stranded answers could not be sent. The tab
+ * then holds the session the resume returned.
  */
 export async function continueAttempt(assignmentId: string, attemptId: string) {
   await saveStrandedDraft(attemptId);
-  if (heldSession(attemptId) !== null) return getAttempt(attemptId);
+  if (heldSession(attemptId) !== null) {
+    const read = await getAttempt(attemptId);
+    if (read.superseded !== true) return read;
+  }
   const session = await api("post", "/app/assignments/{id}/attempts", {
     path: { id: assignmentId },
     body: { resume: attemptId },
