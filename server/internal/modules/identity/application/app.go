@@ -107,16 +107,19 @@ func (a *Application) SetAdminUsers(repo domain.AdminUsers, roles ports.Assignab
 // SetUserImports attaches the store of user imports, the access module's say on
 // which roles a caller may give, the reader of CSV and XLSX files, and the
 // worker's wake signal, which opens previewUserImport, createUserImport and
-// getUserImport, and downloadUserImportSheet. budget and wake may be nil;
+// getUserImport, and downloadUserImportSheet, and makes
+// Commands.EraseExpiredImportSheets available. budget and wake may be nil;
 // sealer is nil on a server without SECRETS_KEY, which can deliver neither a
 // link by email nor a hand-out sheet. Without it Commands.PreviewUserImport,
-// Commands.CreateUserImport, Commands.DownloadUserImportSheet and
-// Queries.GetUserImport are nil and their operations answer 501.
+// Commands.CreateUserImport, Commands.DownloadUserImportSheet,
+// Commands.EraseExpiredImportSheets and Queries.GetUserImport are nil and their
+// operations answer 501.
 func (a *Application) SetUserImports(repo domain.UserImports, roles ports.RoleChoices, tables ports.TableReader, budget ports.EmailBudget, wake ports.Wake, sealer ports.Sealer) {
 	imports := support.NewImports(repo, roles, tables, budget, wake, a.service, sealer)
 	a.Commands.PreviewUserImport = command.PreviewUserImportHandler{Imports: imports}
 	a.Commands.CreateUserImport = command.CreateUserImportHandler{Imports: imports}
 	a.Commands.DownloadUserImportSheet = command.DownloadUserImportSheetHandler{Imports: imports}
+	a.Commands.EraseExpiredImportSheets = command.EraseExpiredImportSheetsHandler{Imports: imports}
 	a.Queries.GetUserImport = query.GetUserImportHandler{Imports: imports}
 }
 
@@ -131,35 +134,36 @@ func (a *Application) SetLogger(logger *slog.Logger) {
 }
 
 type Commands struct {
-	DeleteStudent           cqrs.CommandHandler[command.DeleteStudent, cqrs.Nothing]
-	RemoveAvatar            cqrs.CommandHandler[command.RemoveAvatar, domain.User]
-	SetAvatar               cqrs.CommandHandler[command.SetAvatar, domain.User]
-	ChangePassword          cqrs.CommandHandler[command.ChangePassword, cqrs.Nothing]
-	CreateStudent           cqrs.CommandHandler[command.CreateStudent, command.CreateStudentResult]
-	CreateUser              cqrs.CommandHandler[command.CreateUser, command.CreateUserResult]
-	CreateUserImport        cqrs.CommandHandler[command.CreateUserImport, command.CreateUserImportResult]
-	DownloadUserImportSheet cqrs.CommandHandler[command.DownloadUserImportSheet, []domain.SheetRow]
-	GoogleSignIn            cqrs.CommandHandler[command.GoogleSignIn, model.GoogleSignInResult]
-	IssueSetPasswordLink    cqrs.CommandHandler[command.IssueSetPasswordLink, domain.IssuedLink]
-	LinkGoogle              cqrs.CommandHandler[command.LinkGoogle, domain.User]
-	PreviewUserImport       cqrs.CommandHandler[command.PreviewUserImport, command.UserImportPreview]
-	Login                   cqrs.CommandHandler[command.Login, model.Session]
-	Logout                  cqrs.CommandHandler[command.Logout, cqrs.Nothing]
-	PruneActivityDays       cqrs.CommandHandler[command.PruneActivityDays, int]
-	PruneExpiredTokens      cqrs.CommandHandler[command.PruneExpiredTokens, int64]
-	PruneSetPasswordLinks   cqrs.CommandHandler[command.PruneSetPasswordLinks, int]
-	Refresh                 cqrs.CommandHandler[command.Refresh, model.RefreshResult]
-	RequestSetPasswordLink  cqrs.CommandHandler[command.RequestSetPasswordLink, cqrs.Nothing]
-	SetPasswordWithLink     cqrs.CommandHandler[command.SetPasswordWithLink, model.Session]
-	StampActivity           cqrs.CommandHandler[command.StampActivity, cqrs.Nothing]
-	UpdateProfile           cqrs.CommandHandler[command.UpdateProfile, domain.User]
-	UpdatePreferences       cqrs.CommandHandler[command.UpdatePreferences, domain.Preferences]
-	ResetStudentPassword    cqrs.CommandHandler[command.ResetStudentPassword, string]
-	ResetStudentsPasswords  cqrs.CommandHandler[command.ResetStudentsPasswords, domain.BulkReset]
-	RevokeOtherSessions     cqrs.CommandHandler[command.RevokeOtherSessions, int]
-	RevokeSession           cqrs.CommandHandler[command.RevokeSession, cqrs.Nothing]
-	UnlinkGoogle            cqrs.CommandHandler[command.UnlinkGoogle, cqrs.Nothing]
-	UpdateStudent           cqrs.CommandHandler[command.UpdateStudent, domain.Student]
+	DeleteStudent            cqrs.CommandHandler[command.DeleteStudent, cqrs.Nothing]
+	RemoveAvatar             cqrs.CommandHandler[command.RemoveAvatar, domain.User]
+	SetAvatar                cqrs.CommandHandler[command.SetAvatar, domain.User]
+	ChangePassword           cqrs.CommandHandler[command.ChangePassword, cqrs.Nothing]
+	CreateStudent            cqrs.CommandHandler[command.CreateStudent, command.CreateStudentResult]
+	CreateUser               cqrs.CommandHandler[command.CreateUser, command.CreateUserResult]
+	CreateUserImport         cqrs.CommandHandler[command.CreateUserImport, command.CreateUserImportResult]
+	DownloadUserImportSheet  cqrs.CommandHandler[command.DownloadUserImportSheet, []domain.SheetRow]
+	EraseExpiredImportSheets cqrs.CommandHandler[command.EraseExpiredImportSheets, int]
+	GoogleSignIn             cqrs.CommandHandler[command.GoogleSignIn, model.GoogleSignInResult]
+	IssueSetPasswordLink     cqrs.CommandHandler[command.IssueSetPasswordLink, domain.IssuedLink]
+	LinkGoogle               cqrs.CommandHandler[command.LinkGoogle, domain.User]
+	PreviewUserImport        cqrs.CommandHandler[command.PreviewUserImport, command.UserImportPreview]
+	Login                    cqrs.CommandHandler[command.Login, model.Session]
+	Logout                   cqrs.CommandHandler[command.Logout, cqrs.Nothing]
+	PruneActivityDays        cqrs.CommandHandler[command.PruneActivityDays, int]
+	PruneExpiredTokens       cqrs.CommandHandler[command.PruneExpiredTokens, int64]
+	PruneSetPasswordLinks    cqrs.CommandHandler[command.PruneSetPasswordLinks, int]
+	Refresh                  cqrs.CommandHandler[command.Refresh, model.RefreshResult]
+	RequestSetPasswordLink   cqrs.CommandHandler[command.RequestSetPasswordLink, cqrs.Nothing]
+	SetPasswordWithLink      cqrs.CommandHandler[command.SetPasswordWithLink, model.Session]
+	StampActivity            cqrs.CommandHandler[command.StampActivity, cqrs.Nothing]
+	UpdateProfile            cqrs.CommandHandler[command.UpdateProfile, domain.User]
+	UpdatePreferences        cqrs.CommandHandler[command.UpdatePreferences, domain.Preferences]
+	ResetStudentPassword     cqrs.CommandHandler[command.ResetStudentPassword, string]
+	ResetStudentsPasswords   cqrs.CommandHandler[command.ResetStudentsPasswords, domain.BulkReset]
+	RevokeOtherSessions      cqrs.CommandHandler[command.RevokeOtherSessions, int]
+	RevokeSession            cqrs.CommandHandler[command.RevokeSession, cqrs.Nothing]
+	UnlinkGoogle             cqrs.CommandHandler[command.UnlinkGoogle, cqrs.Nothing]
+	UpdateStudent            cqrs.CommandHandler[command.UpdateStudent, domain.Student]
 }
 
 type Queries struct {

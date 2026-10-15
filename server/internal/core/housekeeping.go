@@ -29,6 +29,11 @@ func (a *App) housekeepingSteps() []jobs.HousekeepingStep {
 			return prune.Handle(ctx, identitycommand.PruneSetPasswordLinks{Limit: limit})
 		}})
 	}
+	if erase := a.assembly.Identity.Commands.EraseExpiredImportSheets; erase != nil {
+		steps = append(steps, jobs.HousekeepingStep{Name: "import_sheets", Batch: func(ctx context.Context, limit int) (int, error) {
+			return erase.Handle(ctx, identitycommand.EraseExpiredImportSheets{Limit: limit})
+		}})
+	}
 	if exports := a.assembly.Exports; exports != nil {
 		steps = append(steps, jobs.HousekeepingStep{Name: "data_exports", Batch: func(ctx context.Context, limit int) (int, error) {
 			expired, err := exports.Commands.Expire.Handle(ctx, exportscommand.Expire{Limit: limit})

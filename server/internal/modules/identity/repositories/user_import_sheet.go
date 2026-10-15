@@ -39,14 +39,22 @@ func (u *UserImports) TakeSheet(ctx context.Context, req domain.WriteRequest, id
 	if err != nil {
 		return nil, err
 	}
+	if len(sheet) == 0 {
+		return nil, domain.ErrSheetUnavailable
+	}
 	if _, err := tx.Exec(ctx, `
 		UPDATE app.user_import_rows SET secret_ciphertext = NULL
 		 WHERE job_id = $1::uuid AND secret_ciphertext IS NOT NULL`, id); err != nil {
 		return nil, fmt.Errorf("user imports: erase the sealed passwords: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `
-		UPDATE app.user_import_jobs SET sheet_downloaded_at = $2 WHERE id = $1::uuid`, id, now); err != nil {
+	taken, err := tx.Exec(ctx, `
+		UPDATE app.user_import_jobs SET sheet_downloaded_at = $2
+		 WHERE id = $1::uuid AND sheet_downloaded_at IS NULL`, id, now)
+	if err != nil {
 		return nil, fmt.Errorf("user imports: record the download: %w", err)
+	}
+	if taken.RowsAffected() != 1 {
+		return nil, domain.ErrSheetUnavailable
 	}
 	diff, err := json.Marshal(struct {
 		Rows int `json:"rows"`
@@ -103,4 +111,28 @@ func readSheet(ctx context.Context, tx pgx.Tx, jobID string, open domain.SecretO
 		return nil, fmt.Errorf("user imports: read the sheet: %w", err)
 	}
 	return sheet, nil
+}
+
+// EraseExpiredSheets implements domain.UserImports.
+func (u *UserImports) EraseExpiredSheets(ctx context.Context, now time.Time, limit int) (int, error) {
+	tag, err := u.Exec(ctx, `
+		WITH due AS (
+		  SELECT j.id FROM app.user_import_jobs j
+		   WHERE j.delivery = 'sheet' AND j.sheet_downloaded_at IS NULL AND j.sheet_expires_at <= $1
+		     AND EXISTS (SELECT 1 FROM app.user_import_rows r WHERE r.job_id = j.id AND r.secret_ciphertext IS NOT NULL)
+		   ORDER BY j.sheet_expires_at, j.id
+		   LIMIT $2
+		     FOR UPDATE OF j SKIP LOCKED),
+		sealed AS (
+		  SELECT r.job_id, r.ordinal FROM app.user_import_rows r
+		    JOIN due d ON d.id = r.job_id
+		   WHERE r.secret_ciphertext IS NOT NULL
+		   LIMIT $2)
+		UPDATE app.user_import_rows r SET secret_ciphertext = NULL
+		  FROM sealed s
+		 WHERE r.job_id = s.job_id AND r.ordinal = s.ordinal`, now, limit)
+	if err != nil {
+		return 0, fmt.Errorf("user imports: erase expired sheets: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
 }
