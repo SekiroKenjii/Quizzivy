@@ -40,6 +40,25 @@ export function hasWorkspace(
 }
 
 /**
+ * Requirement is what a user must hold to reach a destination: a workspace,
+ * one permission, or any one of several. It is the `x-permission` of the
+ * operation the destination opens.
+ */
+export type Requirement =
+  "workspace.teacher" | "workspace.admin" | PermissionKey | readonly PermissionKey[];
+
+/** holds reports whether the user meets requirement; no user meets any. */
+export function holds(
+  user: Pick<User, "permissions" | "workspaces"> | null | undefined,
+  requirement: Requirement,
+): boolean {
+  if (requirement === "workspace.teacher") return hasWorkspace(user, "teacher");
+  if (requirement === "workspace.admin") return hasWorkspace(user, "admin");
+  if (typeof requirement === "string") return can(user, requirement);
+  return requirement.some((key) => can(user, key));
+}
+
+/**
  * learnsOnly reports whether the student app is the user's only workspace.
  */
 export function learnsOnly(user: Pick<User, "workspaces"> | null | undefined): boolean {

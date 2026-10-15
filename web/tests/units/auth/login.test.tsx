@@ -8,6 +8,7 @@ import LoginPage from "@/features/auth/pages/LoginPage";
 import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import { saveJoinContext } from "@/features/join/context";
+import { teacherUser } from "@tests/support/fixtures";
 import { useAuthStore } from "@/stores/auth";
 import "@/lib/i18n";
 
@@ -16,6 +17,7 @@ const BASE = "http://localhost:8080";
 function renderLogin(initialEntry = "/login") {
   const routes: RouteObject[] = [
     { path: "/login", element: <LoginPage /> },
+    { path: "/admin", element: <p>admin console</p> },
     { path: "/teacher", element: <p>admin home</p> },
     { path: "/app", element: <p>student home</p> },
     { path: "/join/:code", element: <p>join page</p> },
@@ -131,7 +133,7 @@ describe("/login", () => {
     release();
   });
 
-  it("sends a teacher to the admin tree and a student to their own", async () => {
+  it("sends the Admin to the Admin console", async () => {
     // "/" would bounce off the index route straight back to /login.
     const user = userEvent.setup();
     const router = renderLogin();
@@ -141,6 +143,26 @@ describe("/login", () => {
     await user.click(screen.getByRole("button", { name: "Đăng nhập" }));
 
     // The default handler answers with adminUser.
+    await waitFor(() => expect(router.state.location.pathname).toBe("/admin"));
+  });
+
+  it("sends a teacher to the teacher's console", async () => {
+    server.use(
+      http.post(`${BASE}/auth/login`, () =>
+        contractJson("/auth/login", "post", 200, {
+          accessToken: "test-access-token",
+          expiresIn: 900,
+          user: teacherUser,
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    const router = renderLogin();
+
+    await user.type(screen.getByLabelText("Email"), "thuong@example.com");
+    await user.type(screen.getByLabelText("Mật khẩu"), "quizzivy-dev");
+    await user.click(screen.getByRole("button", { name: "Đăng nhập" }));
+
     await waitFor(() => expect(router.state.location.pathname).toBe("/teacher"));
   });
 
@@ -152,7 +174,7 @@ describe("/login", () => {
     await user.type(screen.getByLabelText("Mật khẩu"), "quizzivy-dev");
     await user.click(screen.getByRole("button", { name: "Đăng nhập" }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/teacher"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/admin"));
     expect(router.state.location.pathname).not.toContain("evil.test");
   });
 

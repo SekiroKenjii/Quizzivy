@@ -25,11 +25,11 @@ func TestPreferencesSQLMergesTopLevelFalseReplacesNestedAndReturnsStored(t *test
 	if _, err := w.users.UpdatePreferences(ctx, prefWrite(w, `{"theme":"dark","compactTables":true,"assignmentDefaults":{"durationMinutes":45,"showScore":true}}`)); err != nil {
 		t.Fatal(err)
 	}
-	got, err := w.users.UpdatePreferences(ctx, prefWrite(w, `{"compactTables":false,"largerTestText":false,"assignmentDefaults":{"showScore":false}}`))
+	got, err := w.users.UpdatePreferences(ctx, prefWrite(w, `{"compactTables":false,"largerTestText":false,"workspace":"admin","assignmentDefaults":{"showScore":false}}`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Theme == nil || *got.Theme != "dark" || got.CompactTables == nil || *got.CompactTables || got.LargerTestText == nil || *got.LargerTestText || got.AssignmentDefaults == nil || got.AssignmentDefaults.DurationMinutes != nil || got.AssignmentDefaults.ShowScore == nil || *got.AssignmentDefaults.ShowScore {
+	if got.Theme == nil || *got.Theme != "dark" || got.CompactTables == nil || *got.CompactTables || got.LargerTestText == nil || *got.LargerTestText || got.AssignmentDefaults == nil || got.AssignmentDefaults.DurationMinutes != nil || got.AssignmentDefaults.ShowScore == nil || *got.AssignmentDefaults.ShowScore || got.Workspace == nil || *got.Workspace != "admin" {
 		t.Fatalf("merged=%+v defaults=%+v", got, got.AssignmentDefaults)
 	}
 	var stored string
@@ -54,7 +54,7 @@ func TestPreferencesSQLMergesTopLevelFalseReplacesNestedAndReturnsStored(t *test
 		t.Fatal("no-op preferences emitted an audit")
 	}
 	audits := auditFields(t, w)
-	if string(audits["user.preferences_updated"]) != `{"fields": ["assignmentDefaults", "compactTables", "largerTestText"]}` {
+	if string(audits["user.preferences_updated"]) != `{"fields": ["assignmentDefaults", "compactTables", "largerTestText", "workspace"]}` {
 		t.Fatalf("audit=%s", audits["user.preferences_updated"])
 	}
 }

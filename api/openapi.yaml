@@ -1869,6 +1869,12 @@ components:
         theme: { type: string, enum: [light, dark, system] }
         compactTables: { type: boolean }
         largerTestText: { type: boolean }
+        workspace:
+          type: string
+          enum: [teacher, admin]
+          description: |
+            The console the user last switched to. A built-in Admin, who holds
+            both, opens it after sign-in; omitted, the Admin console.
         assignmentDefaults:
           type: object
           additionalProperties: false

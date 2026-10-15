@@ -16,6 +16,10 @@ import {
 import "@/lib/i18n";
 
 const adminOnly: typeof adminUser = { ...adminUser, workspaces: ["admin"] };
+const adminChoosingTeacher: typeof adminUser = {
+  ...adminUser,
+  preferences: { workspace: "teacher" },
+};
 const nobody: typeof studentUser = { ...studentUser, permissions: [], workspaces: [] };
 
 function openStudentApp(user: typeof studentUser) {
@@ -28,6 +32,7 @@ function openStudentApp(user: typeof studentUser) {
         children: [{ index: true, element: <p>trang học viên</p> }],
       },
       { path: "/teacher", element: <p>bàn làm việc của giáo viên</p> },
+      { path: "/admin", element: <p>bảng quản trị</p> },
       { path: "*", element: <p>không có trang này</p> },
     ],
     { initialEntries: ["/before", "/app"], initialIndex: 1 },
@@ -49,9 +54,14 @@ describe("where a signed-in user lands", () => {
   it.each([
     ["a teacher", "/teacher", teacherUser],
     ["an assistant", "/teacher", assistantUser],
-    ["the admin", "/teacher", adminUser],
-    ["a user with the admin workspace alone", "/teacher", adminOnly],
-    ["an admin who takes tests", "/teacher", adminWhoTakesTests],
+    ["the admin", "/admin", adminUser],
+    [
+      "the admin who last switched to the teacher console",
+      "/teacher",
+      adminChoosingTeacher,
+    ],
+    ["a user with the admin workspace alone", "/admin", adminOnly],
+    ["an admin who takes tests", "/admin", adminWhoTakesTests],
     ["a student", "/app", studentUser],
     ["a user with no workspace", "/app", nobody],
     ["nobody", "/app", null],
@@ -62,15 +72,16 @@ describe("where a signed-in user lands", () => {
 
 describe("the student tree's guard", () => {
   it.each([
-    ["a teacher", teacherUser],
-    ["a user with the admin workspace alone", adminOnly],
+    ["a teacher", teacherUser, "/teacher", "bàn làm việc của giáo viên"],
+    ["a user with the admin workspace alone", adminOnly, "/admin", "bảng quản trị"],
+    ["the admin", adminUser, "/admin", "bảng quản trị"],
   ])(
-    "moves %s to /teacher, in place of the address they opened",
-    async (_who, user) => {
+    "moves %s to their own console, in place of the address they opened",
+    async (_who, user, home, page) => {
       const router = openStudentApp(user);
 
-      expect(await screen.findByText("bàn làm việc của giáo viên")).toBeInTheDocument();
-      expect(router.state.location.pathname).toBe("/teacher");
+      expect(await screen.findByText(page)).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe(home);
       expect(router.state.historyAction).toBe("REPLACE");
       await router.navigate(-1);
       await waitFor(() => expect(router.state.location.pathname).toBe("/before"));
@@ -113,13 +124,47 @@ describe("the splash hand-off for the teacher's tree", () => {
     for (const path of [
       "/teachers",
       "/teacher-old",
-      "/admin",
       "/admin/tests",
       "/app",
       "/login",
       "/",
     ]) {
       expect(skeletonFor(path), path).toBeNull();
+    }
+  });
+});
+
+describe("the splash hand-off for the Admin console", () => {
+  it("draws the Admin frame at the console's own addresses, and not at an old teacher address", () => {
+    expect(skeletonFor("/admin")).toBeNull();
+
+    registerSkeleton("admin", () => <p>khung quản trị</p>);
+
+    for (const path of [
+      "/admin",
+      "/admin/",
+      "/admin/users",
+      "/Admin/Users",
+      "/admin/settings",
+      "/admin/settings/sign-in",
+      "/admin/exports/abc",
+    ]) {
+      const { unmount } = render(<>{skeletonFor(path)}</>);
+      expect(screen.getByText("khung quản trị"), path).toBeInTheDocument();
+      unmount();
+    }
+    for (const path of [
+      "/admin/tests",
+      "/admin/classes/abc",
+      "/admin/settings/profile",
+      "/admin/users/abc",
+      "/administrator",
+      "/teacher",
+    ]) {
+      expect(screen.queryByText("khung quản trị"), path).not.toBeInTheDocument();
+      const { unmount } = render(<>{skeletonFor(path)}</>);
+      expect(screen.queryByText("khung quản trị"), path).not.toBeInTheDocument();
+      unmount();
     }
   });
 });

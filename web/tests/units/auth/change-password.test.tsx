@@ -1,9 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http } from "msw";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import ChangePasswordPage from "@/features/auth/pages/ChangePasswordPage";
+import { toast } from "@/components/ui/sonner";
 import { PasswordSection } from "@/features/auth/components/SettingsSections";
 import { saveJoinContext } from "@/features/join/context";
 import { server } from "@tests/support/server";
@@ -11,6 +12,11 @@ import { contractJson } from "@tests/support/contractResponse";
 import { useAuthStore } from "@/stores/auth";
 import "@/lib/i18n";
 import { queryWrapper } from "@tests/support/queryWrapper";
+
+vi.mock("@/components/ui/sonner", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/ui/sonner")>()),
+  toast: vi.fn(),
+}));
 
 const BASE = "http://localhost:8080";
 const REQUEST_ID = "019535d9-3df7-79fb-b466-fa907fa17f9e";
@@ -66,6 +72,7 @@ const rule = (name: string) =>
 
 beforeEach(() => {
   bodies = [];
+  vi.mocked(toast).mockReset();
   sessionStorage.clear();
   useAuthStore.getState().setSession("token", USER);
 });
@@ -266,5 +273,138 @@ describe("the settings password form", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Mật khẩu mới phải khác mật khẩu hiện tại.",
     );
+  });
+});
+
+describe("the change a user opens by choice", () => {
+  const adminChoosing = {
+    ...USER,
+    permissions: ["system.settings.write" as const],
+    workspaces: ["admin" as const],
+    mustChangePassword: false,
+  };
+  const currentField = () => screen.getByLabelText("Mật khẩu hiện tại");
+  const submit = () => screen.getByRole("button", { name: "Đổi mật khẩu" });
+
+  function renderVoluntary(entry = "/change-password") {
+    useAuthStore.getState().setSession("token", adminChoosing);
+    return createMemoryRouter(
+      [
+        { path: "/change-password", element: <ChangePasswordPage /> },
+        { path: "/admin", element: <p>bảng quản trị</p> },
+        { path: "/admin/audit", element: <p>nhật ký kiểm tra</p> },
+      ],
+      { initialEntries: [entry] },
+    );
+  }
+
+  it("asks for the current password first, says why, and offers the way back", async () => {
+    const router = renderVoluntary();
+    render(<RouterProvider router={router} />, { wrapper: queryWrapper() });
+
+    expect(currentField()).toHaveAttribute("autocomplete", "current-password");
+    expect(
+      screen.getByText(
+        "Nhập mật khẩu hiện tại, rồi chọn một mật khẩu mới chỉ mình bạn biết.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.queryByText("Bạn đã đăng nhập bằng mật khẩu tạm.", { exact: false }),
+    ).toBeNull();
+    expect(screen.getByText("Khác mật khẩu hiện tại")).toBeVisible();
+    expect(screen.queryByText("Khác mật khẩu tạm")).toBeNull();
+    expect(screen.getByRole("link", { name: "Quay lại" })).toHaveAttribute(
+      "href",
+      "/admin",
+    );
+  });
+
+  it("is titled and labelled as a change a user chose, not as the forced one", () => {
+    render(<RouterProvider router={renderVoluntary()} />, { wrapper: queryWrapper() });
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Đổi mật khẩu" }),
+    ).toBeVisible();
+    expect(submit()).toBeVisible();
+    expect(screen.queryByText("Chọn mật khẩu của bạn")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Lưu và tiếp tục" })).toBeNull();
+  });
+
+  it("goes back to the page the user came from", async () => {
+    changeAnswers(204);
+    server.use(
+      http.get(`${BASE}/auth/me`, () =>
+        contractJson("/auth/me", "get", 200, adminChoosing),
+      ),
+    );
+    const user = userEvent.setup();
+    const router = renderVoluntary("/change-password?next=%2Fadmin%2Faudit");
+    render(<RouterProvider router={router} />, { wrapper: queryWrapper() });
+
+    expect(screen.getByRole("link", { name: "Quay lại" })).toHaveAttribute(
+      "href",
+      "/admin/audit",
+    );
+
+    await user.type(currentField(), "matkhau-cu-7");
+    await user.type(newField(), "matkhau1");
+    await user.type(againField(), "matkhau1");
+    await user.click(submit());
+
+    expect(await screen.findByText("nhật ký kiểm tra")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/admin/audit");
+  });
+
+  it("holds the save and says why, with the focus on the current password, while it is empty", async () => {
+    changeAnswers(204);
+    const user = userEvent.setup();
+    render(<RouterProvider router={renderVoluntary()} />, { wrapper: queryWrapper() });
+    await user.type(newField(), "matkhau1");
+    await user.type(againField(), "matkhau1");
+    expect(submit()).toHaveAttribute("aria-disabled", "true");
+    expect(screen.queryByText("Nhập mật khẩu hiện tại.")).toBeNull();
+
+    await user.click(submit());
+
+    expect(currentField()).toHaveFocus();
+    expect(currentField()).toHaveAttribute("aria-invalid", "true");
+    expect(currentField()).toHaveAccessibleDescription("Nhập mật khẩu hiện tại.");
+    expect(bodies).toEqual([]);
+  });
+
+  it("sends the current password with the new one and goes home once it is saved", async () => {
+    changeAnswers(204);
+    server.use(
+      http.get(`${BASE}/auth/me`, () =>
+        contractJson("/auth/me", "get", 200, adminChoosing),
+      ),
+    );
+    const user = userEvent.setup();
+    const router = renderVoluntary();
+    render(<RouterProvider router={router} />, { wrapper: queryWrapper() });
+    await user.type(currentField(), "matkhau-cu-7");
+    await user.type(newField(), "matkhau1");
+    await user.type(againField(), "matkhau1");
+    await user.click(submit());
+
+    expect(await screen.findByText("bảng quản trị")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/admin");
+    expect(bodies).toEqual([
+      { currentPassword: "matkhau-cu-7", newPassword: "matkhau1" },
+    ]);
+    expect(toast).toHaveBeenCalledExactlyOnceWith(
+      "Đã đổi mật khẩu. Các thiết bị khác đã được đăng xuất.",
+    );
+  });
+
+  it("still asks nothing of a user whose change is forced, and offers no way back", () => {
+    renderPage();
+
+    expect(screen.queryByLabelText("Mật khẩu hiện tại")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Quay lại" })).toBeNull();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Chọn mật khẩu của bạn" }),
+    ).toBeVisible();
+    expect(save()).toBeVisible();
   });
 });

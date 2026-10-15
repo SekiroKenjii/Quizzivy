@@ -17,6 +17,8 @@ async function signIn(page: Page) {
   await page.getByLabel("Email").fill(ADMIN.email);
   await page.getByLabel("Mật khẩu", { exact: true }).fill(ADMIN.password);
   await page.getByRole("button", { name: "Đăng nhập" }).click();
+  await expect(page).toHaveURL(/\/(admin|teacher)$/);
+  await page.goto("/teacher");
   await expect(page).toHaveURL(/\/teacher$/);
 }
 

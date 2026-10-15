@@ -72,7 +72,7 @@ const REVIEW = crumbed("teacherShell.nav.tests", {
 });
 const SETTINGS = { path: "settings/:section?", handle: crumbed("nav.settings") };
 
-const sidebar = () => document.getElementById("teacher-sidebar");
+const sidebar = () => document.getElementById("console-sidebar");
 const nav = () => screen.getByRole("navigation", { name: NAV });
 const links = () => within(nav()).getAllByRole("link");
 const badges = () => document.querySelectorAll("[data-slot='nav-count']");
@@ -199,14 +199,27 @@ describe("the teacher shell from 768", () => {
     );
   });
 
-  it("keeps the workspace block a label, for an admin too, and puts the account at the foot", async () => {
+  it("keeps the workspace block a label for a user with no other console, and puts the account at the foot", async () => {
     serveSummary(QUIET);
-    renderShell("/teacher", [home()], adminUser);
+    renderShell("/teacher", [home()]);
     await screen.findByRole("main");
 
     const block = sidebar()!.querySelector<HTMLElement>("[data-slot='workspace']")!;
     expect(block.tagName).toBe("DIV");
     expect(within(sidebar()!).getAllByRole("button")).toEqual([
+      screen.getByRole("button", { name: "Tài khoản của Trần Thị Bình" }),
+    ]);
+  });
+
+  it("makes the workspace block the switcher for an Admin, who holds both consoles", async () => {
+    serveSummary(QUIET);
+    renderShell("/teacher", [home()], adminUser);
+    await screen.findByRole("main");
+
+    const block = sidebar()!.querySelector<HTMLElement>("[data-slot='workspace']")!;
+    expect(block.tagName).toBe("BUTTON");
+    expect(within(sidebar()!).getAllByRole("button")).toEqual([
+      block,
       screen.getByRole("button", { name: "Tài khoản của Thuong" }),
     ]);
     expect(within(sidebar()!).getByText("Quản trị viên")).toBeInTheDocument();
@@ -325,7 +338,7 @@ describe("collapsing the sidebar", () => {
     for (const link of links()) expect(link).not.toHaveAttribute("title");
     const collapse = toggle("Thu gọn thanh bên");
     expect(collapse).toHaveAttribute("aria-expanded", "true");
-    expect(collapse).toHaveAttribute("aria-controls", "teacher-sidebar");
+    expect(collapse).toHaveAttribute("aria-controls", "console-sidebar");
     await user.click(collapse);
 
     expect(sidebar()).toHaveAttribute("data-state", "collapsed");
@@ -749,7 +762,7 @@ describe("the teacher shell below 768", () => {
     expect(screen.queryByRole("navigation", { name: NAV })).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(toggle("Mở menu")).toHaveAttribute("aria-expanded", "false");
-    expect(toggle("Mở menu")).toHaveAttribute("aria-controls", "teacher-sidebar");
+    expect(toggle("Mở menu")).toHaveAttribute("aria-controls", "console-sidebar");
     expect(screen.queryByRole("button", { name: "Thu gọn thanh bên" })).toBeNull();
   });
 

@@ -458,6 +458,37 @@
     },
     "documentTitle": "{{page}} · Quizzivy"
   },
+  "adminShell": {
+    "workspace": "Admin console",
+    "crumb": "Admin",
+    "crumbExport": "Data export",
+    "teacherView": "Teacher view",
+    "group": {
+      "people": "People",
+      "teaching": "Teaching",
+      "system": "System"
+    },
+    "nav": {
+      "overview": "Overview",
+      "users": "Users",
+      "roles": "Roles & permissions",
+      "classes": "Classes",
+      "ai": "AI credits",
+      "audit": "Audit log",
+      "api": "API reference",
+      "settings": "Settings"
+    },
+    "count": {
+      "mustChangePassword_one": "{{count}} person must change their password",
+      "mustChangePassword_other": "{{count}} people must change their password",
+      "creditRequests_one": "{{count}} credit request waiting",
+      "creditRequests_other": "{{count}} credit requests waiting"
+    },
+    "account": {
+      "settings": "System settings",
+      "password": "Change password"
+    }
+  },
   "student": {
     "shell": {
       "home": "Home",
@@ -595,7 +626,9 @@
   },
   "changePassword": {
     "title": "Choose your password",
+    "titleVoluntary": "Change password",
     "body": "You signed in with a temporary password. Pick one only you know.",
+    "bodyVoluntary": "Enter your current password, then pick a new one only you know.",
     "current": "Current password",
     "new": "New password",
     "again": "Type it again",
@@ -607,6 +640,7 @@
       "length": "At least 8 characters",
       "numberOrSymbol": "A number or symbol",
       "different": "Different from the temporary password",
+      "differentCurrent": "Different from the current password",
       "met": "met",
       "unmet": "not met"
     },
@@ -614,7 +648,8 @@
       "tooShort": "The new password needs at least 8 characters.",
       "numberOrSymbol": "The new password needs a number or a symbol.",
       "mismatch": "The two passwords are different.",
-      "unchanged": "The new password must be different from the current one."
+      "unchanged": "The new password must be different from the current one.",
+      "currentMissing": "Enter your current password."
     }
   },
   "login": {
