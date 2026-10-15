@@ -5,6 +5,7 @@
 
 **Changes pending (develop)**
 
+- H-04b §9 A tab that learns its session was taken over (a 409 on a save or a play, or a read that answers `superseded`) sends the events it holds once, under that session, and records nothing until it holds a session again. "Tiếp tục làm bài" keeps the tab's held session until the resume succeeds. §10.6 The pagehide beacon carries at most about 60 kB and leaves what it could not take buffered; submitting sends every waiting event; a reload is not an away episode.
 - H-05 §7 An option or a blank keeps its id when its question is saved. In a write, one sent with an id the question holds is updated in place (ordinal, text, correctness and formatting, or a blank's accepted answers replaced under the same id); one sent without an id, or with an id the question does not hold, is created with a new one; one not sent is deleted. A held AI check finding therefore still names the same option or blank after the teacher saves the question, and the check's "Apply fix" no longer refuses for that reason alone.
 - H-05 §15 `POST` and `PATCH /teacher/questions`, and the group member writes, follow the same rule for `options[].id` and `blanks[].id`. A create ignores every id it is sent. An id sent twice in one write updates once and creates the second. No migration, no new operation, no new permission, and no change to the contract's shape.
 
@@ -2287,7 +2288,12 @@ is one screen ("A cloze" below).
   with that session and starts no resume, so the tab never takes over from
   itself. When that read answers `superseded`, another tab or device has
   taken the attempt, and Continue then resumes, which takes it back and
-  records the takeover. A tab that holds none resumes.
+  records the takeover, and the tab keeps its session if that resume fails.
+  A tab that holds none resumes. A tab that learns it was superseded, by a
+  `409 SESSION_SUPERSEDED` on a save or a play or by a read that answers
+  `superseded`, sends the events it holds once, under its own session,
+  through the bearer events request, drops them whatever the answer, and
+  records nothing until it holds a session again.
   An attempt that has ended releases the tab's held session, and a paper
   sealed as ended or superseded stops its deadline timer.
 - **Keys.** A–E choose an option, on a cloze for the open gap; a sixth has no
@@ -2401,7 +2407,7 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
   and `offline` on `window`, only for the save line (§9); `useVersionWatch`
   listens to `visibilitychange` on `document`, only to look for a newer build
   (§9). The monitor records and stops whether or not they run.
-- Events buffer in memory + `sessionStorage`, flush with the autosave batch, and immediately on `pagehide` via `sendBeacon`. Leaving the engine while the attempt goes on sends what is buffered through the same beacon and keeps the sequence in `sessionStorage`, so a return in the same session numbers on from it; the buffer is forgotten once the attempt has ended. A tab that begins a new session on an attempt whose stored buffer belongs to another session still holding events sends those events first, through the bearer `POST /app/attempts/:id/events` under their own session id, which the server accepts as one the attempt has recorded events under, in slices of at most 500, one after another; a refusal or a failure drops the rest quietly, and the new session is not held back. No request carries more than the contract's 500 events: an autosave or the pagehide beacon takes the oldest 500 and leaves the rest buffered, and an autosave that leaves events schedules the next one.
+- Events buffer in memory + `sessionStorage`, flush with the autosave batch, and immediately on `pagehide` via `sendBeacon`. Leaving the engine while the attempt goes on sends what is buffered through the same beacon and keeps the sequence in `sessionStorage`, so a return in the same session numbers on from it; the buffer is forgotten once the attempt has ended. A tab that begins a new session on an attempt whose stored buffer belongs to another session still holding events sends those events first, through the bearer `POST /app/attempts/:id/events` under their own session id, which the server accepts as one the attempt has recorded events under, in slices of at most 500, one after another; a refusal or a failure drops the rest quietly, and the new session is not held back. No request carries more than the contract's 500 events: an autosave or the pagehide beacon takes the oldest 500 and leaves the rest buffered, and an autosave that leaves events schedules the next one. The pagehide beacon takes the oldest events that fit about 60 kB, because `sendBeacon` refuses a body above 64 KiB, and removes them from the buffer only when the browser took them. Submitting, manually or by `auto_submit`, flushes again while events wait, so none is dropped when the attempt ends. A page that is unloading, not one that may return from the back/forward cache, records nothing after `page_hide`, so a reload leaves no open away episode.
 - `clientSeq` uses an attempt-relative millisecond offset, calibrated by
   `getAttempt` from `startedAt` and `serverTime`, and is never below the tab's
   stored next sequence. It increases within a tab. The offset component caps
