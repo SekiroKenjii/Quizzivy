@@ -5,6 +5,10 @@
 
 **Changes pending (R5, v0.12.0)**
 
+- T-R5.15 §15 Three operations under `/admin/data-exports`, all `system.data_export` (Admin only): `requestDataExport` (`POST`, `{includeAnswers}` → `202 DataExport`; `409 EXPORT_IN_PROGRESS` while any export is queued or running; `429 RATE_LIMITED` with `Retry-After` while the caller has an export from the last hour that has not failed), `getDataExport` (`GET /:id`, the requester's own export, another's is `404`) and `downloadDataExport` (`POST /:id/download` → `{url, expiresInSeconds: 60}`, a presigned attachment named `quizzivy-export-YYYYMMDD.zip`; `404` for another admin's export, `410 EXPORT_UNAVAILABLE` unless the export is ready, unexpired and signed fewer than three times). A download is a signing and not a transfer, because the browser reads the object from storage and the server never learns whether it finished, so a ready export can be signed up to three times in its 24 hours (D-024): each signing is a fresh 60-second URL with its own `data_export.downloaded` audit row, `DataExport.downloadedAt` keeps the first and `DataExport.downloads` (0 to 3) counts them. Three new error codes, `EXPORT_IN_PROGRESS`, `EXPORT_UNAVAILABLE` and `EXPORT_OFF`. The hour belongs to the export and not to the transport (D-021): a failed export, a request refused with `409` and a request refused with `429` do not count, and the check runs in the transaction that inserts. Rate limits per actor in front of that: 10 requests a minute, 60 reads a minute (600 an hour), 10 downloads an hour. Without import storage and the worker the three answer `501 EXPORT_OFF`, as the AI operations answer `AI_OFF`.
+- T-R5.15 §13 `app.data_exports` (`00134_create_data_exports.sql`): one row for each request. A partial unique index allows one export queued or running in the whole centre, so two Admins asking at once cannot both build a ZIP of everyone's data. The ZIP stays in the private import bucket at `exports/{id}.zip` for 24 hours and is fetched once, by its requester, from the app page the email links to; nothing in the email or the table is a credential.
+- T-R5.15 §15 The worker builds the ZIP from one `REPEATABLE READ`, read-only snapshot, so every file describes the same moment: `users.csv` (no hashes or tokens), `roles.csv`, `classes.csv` (no join codes), `class_members.csv`, `tests.csv`, `test_versions.csv`, `assignments.csv`, `attempts.csv` (no session or beacon secrets), `answers.csv` when asked, and a `README.txt` in Vietnamese then English that describes every column. Every CSV streams through `platform/tabular` (byte-order mark, CRLF, a cell that begins `=`, `+`, `-` or `@` is prefixed with `'`), so memory stays bounded: 50,000 attempts and 50,000 answers grew the live heap by 8 MiB. A claim lasts 30 minutes, a build is cut off after 25, and an export interrupted three times is failed with `WORKER_INTERRUPTED`. A failure records a code, never a message, and sends nothing. An archive a killed worker left in the work directory is removed the next time the worker finds nothing to claim.
+- T-R5.15 §15 The audit log gains `data_export.requested` and `data_export.downloaded` (entity `data_export`, listed under All only), with their `vi` and `en` sentences.
 - T-R5.5 to T-R5.7: §5.6 (new) The centre's one settings document: profile, two logos, sign-in policy and retention choices, saved under a revision and audited as `organization.updated`; the logo rules; what each sign-in switch does; the lockout judgement; the 30-second propagation.
 - T-R5.5 to T-R5.7: §15 `GET`/`PUT /admin/settings`, `POST /admin/settings/sign-in-impact` and `POST /admin/settings/logo` (`system.settings.write`), and the two open reads `GET /public/organization` and `GET /public/organization/logo`. That makes nine open operations, not seven. New error codes `SIGN_IN_POLICY_LOCKOUT`, `PASSWORD_SIGN_IN_DISABLED`, `GOOGLE_SIGN_IN_DISABLED` and `GOOGLE_DOMAIN_NOT_ALLOWED`.
 - T-R5.5 to T-R5.7: §13.5 `app.organization_settings`, one row (`00130_create_organization_settings.sql`): the app role may read and update it and cannot insert or delete it.
@@ -16,7 +20,7 @@
 - T-R5.19 §15 `downloadOpenApi` serves `api/openapi.yaml` converted to JSON unchanged; `getApiReferenceSummary` reports the embedded contract's versions, operation count and count under each tag.
 - T-R5.3 §5.4 An account sets or resets its password from an emailed link: a 256-bit token in the URL fragment, of which the database keeps the SHA-256, valid 24 hours and once. An unknown, used, expired or revoked link, and the link of a disabled account, all answer one `410 SET_PASSWORD_LINK_INVALID`. Using a link sets the password, clears `mustChangePassword`, ends the account's other links and sessions and signs the account in. Disabling an account revokes its unused links with its sessions, and enabling it again restores none; an Admin sends a new link through Reset. A Google-only account asks for its own link from Settings and keeps its session and its Google link. `/set-password` joins the public tree.
 - T-R5.3 §6.5 `checkSetPasswordLink` and `setPasswordWithLink` are open and limited per address and per token; `requestSetPasswordLink` is limited per signed-in user. The set of operations that need no bearer token is now eleven, and the bodies keyed on a field are six.
-- T-R5.3 §13.3 `app.set_password_tokens` (`00135_create_set_password_tokens.sql`, `docs/plan/20-data-model.md` D-54, §52).
+- T-R5.3 §13.3 `app.set_password_tokens` (`00135_create_set_password_tokens.sql`, `docs/plan/20-data-model.md` D-55, §53).
 - T-R5.3 §15 Three operations: `POST /auth/set-password/check`, `POST /auth/set-password` and `POST /auth/set-password/request`, and the error code `SET_PASSWORD_LINK_INVALID`. Two audit actions: `user.password_set` and `user.password_link_requested`.
 
 **Changes since v0.111**
@@ -2709,7 +2713,7 @@ CREATE TABLE app.user_identities (
 CREATE INDEX ON app.user_identities (user_id);
 ```
 
-**Set-password links** (§5.4), from R5 (`00135_create_set_password_tokens.sql`, `docs/plan/20-data-model.md` D-54, §52):
+**Set-password links** (§5.4), from R5 (`00135_create_set_password_tokens.sql`, `docs/plan/20-data-model.md` D-55, §53):
 
 ```sql
 CREATE TABLE app.set_password_tokens (
@@ -3360,6 +3364,18 @@ PUT    /admin/roles/permissions         {changes: [{roleId, key, granted}] (1..2
                                           422 ROLE_LOCKED | STUDENT_NEEDS_TAKE_TESTS | KEY_NOT_GRANTABLE | CANNOT_ACT_ON_SELF
 GET    /admin/roles/assignable          (people.users.manage) → [{id, builtinKey|null, name, icon, color, studentTarget}]:
                                           roles within the caller's own permissions, without the Assistant
+
+# admin: data export (system.data_export, Admin only; 501 EXPORT_OFF without import storage and the worker)
+POST   /admin/data-exports              {includeAnswers} → 202 DataExport {id, status queued|running|ready|failed|expired,
+                                          includeAnswers, bytes, createdAt, completedAt, expiresAt, downloadedAt, downloads 0..3}; 409
+                                          EXPORT_IN_PROGRESS while any export is queued or running; 429
+                                          RATE_LIMITED + Retry-After while the caller has an export from the last hour that
+                                          has not failed (a failed export and a refused request do not count); 10 a minute per actor
+GET    /admin/data-exports/:id          → DataExport; another admin's export is 404; a ready export past expiresAt reads expired
+POST   /admin/data-exports/:id/download → {url, expiresInSeconds: 60}: a presigned attachment, `quizzivy-export-YYYYMMDD.zip`,
+                                          up to three times, by the requester (each signing audited, DataExport.downloads
+                                          counts them); 404 for another admin's export, 410 EXPORT_UNAVAILABLE unless it is
+                                          ready, unexpired and signed fewer than three times; 10 an hour per actor
 
 # admin
 DELETE /admin/users/:id                 a disabled student only, else 409 RESOURCE_NOT_ARCHIVED;
