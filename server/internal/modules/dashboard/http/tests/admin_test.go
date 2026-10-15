@@ -29,8 +29,8 @@ type centre struct{ recordingHome }
 func (centre) Accounts(context.Context, time.Time) (domain.Accounts, error) {
 	return domain.Accounts{Total: 10, Enabled: 9, Students: 7, Teachers: 2, TeachersDisabled: 1, MustChangePassword: 2}, nil
 }
-func (centre) MustChangePassword(context.Context) (int, error)     { return 2, nil }
-func (centre) ActiveSince(context.Context, time.Time) (int, error) { return 5, nil }
+func (centre) MustChangePassword(context.Context) (int, error)                  { return 2, nil }
+func (centre) ActiveBetween(context.Context, time.Time, time.Time) (int, error) { return 5, nil }
 func (centre) ActiveByDay(context.Context, time.Time, time.Time) ([]domain.ActiveDay, error) {
 	return nil, nil
 }
