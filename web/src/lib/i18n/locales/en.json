@@ -631,6 +631,7 @@
       "description": "Description",
       "descriptionPlaceholder": "Leads the IELTS team",
       "taken": "A role with this name already exists",
+      "sourceGone": "That role can no longer be copied from. Choose again.",
       "created": "Role created: {{name}}. Its column is in the table below.",
       "failed": "Couldn't create the role. Try again."
     },

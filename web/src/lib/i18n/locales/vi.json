@@ -631,6 +631,7 @@
       "description": "Mô tả",
       "descriptionPlaceholder": "Phụ trách nhóm IELTS",
       "taken": "Vai trò này đã tồn tại",
+      "sourceGone": "Vai trò này không còn để sao chép nữa. Hãy chọn lại.",
       "created": "Đã tạo vai trò {{name}}. Cột của vai trò nằm trong bảng bên dưới.",
       "failed": "Không tạo được vai trò. Hãy thử lại."
     },
