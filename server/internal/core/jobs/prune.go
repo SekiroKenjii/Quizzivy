@@ -18,12 +18,13 @@ const (
 )
 
 // PruneRefreshTokens deletes refresh-token families whose every token has
-// expired.
+// expired, once at start-up and then daily, and runs each of daily after every
+// prune: the housekeeping rides this tick, so it adds no wake of its own.
 //
 // One machine runs this, so there is nothing to coordinate; a second would
 // simply remove nothing, since the DELETE is idempotent. It runs once at
 // startup so a long-lived deployment is not the only thing that ever prunes.
-func PruneRefreshTokens(ctx context.Context, logger *slog.Logger, svc *identityapp.Application) {
+func PruneRefreshTokens(ctx context.Context, logger *slog.Logger, svc *identityapp.Application, daily ...func(context.Context)) {
 	prune := func() {
 		runCtx, cancel := context.WithTimeout(ctx, pruneTimeout)
 		defer cancel()
@@ -37,8 +38,14 @@ func PruneRefreshTokens(ctx context.Context, logger *slog.Logger, svc *identitya
 			logger.Info("pruned expired refresh tokens", "rows", n)
 		}
 	}
+	tick := func() {
+		prune()
+		for _, run := range daily {
+			run(ctx)
+		}
+	}
 
-	prune()
+	tick()
 	ticker := time.NewTicker(pruneEvery)
 	defer ticker.Stop()
 	for {
@@ -46,7 +53,7 @@ func PruneRefreshTokens(ctx context.Context, logger *slog.Logger, svc *identitya
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			prune()
+			tick()
 		}
 	}
 }
