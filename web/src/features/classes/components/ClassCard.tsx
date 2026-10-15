@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import {
@@ -174,6 +175,36 @@ function ArchivedFooter({
   );
 }
 
+function IconAction({
+  named,
+  title,
+  joinOff,
+  onAct,
+  children,
+}: Readonly<{
+  named: string;
+  title: string;
+  joinOff: boolean;
+  onAct: (button: HTMLButtonElement) => void;
+  children: ReactNode;
+}>) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      className={ICON_BUTTON}
+      aria-label={named}
+      aria-disabled={joinOff || undefined}
+      title={joinOff ? t("classes.joinCodesOff") : title}
+      onClick={(event) => {
+        if (!joinOff) onAct(event.currentTarget);
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
 function CodeFooter({
   klass,
   canWrite,
@@ -270,30 +301,22 @@ function CodeFooter({
           : null}
         {readable === null ? null : (
           <>
-            <button
-              type="button"
-              className={ICON_BUTTON}
-              aria-label={heldBack(t("classes.copyLinkNamed", { name: klass.name }))}
-              aria-disabled={joinOff || undefined}
+            <IconAction
+              named={heldBack(t("classes.copyLinkNamed", { name: klass.name }))}
               title={t("classes.copyLink")}
-              onClick={() => {
-                if (!joinOff) onCopyLink(readable);
-              }}
+              joinOff={joinOff}
+              onAct={() => onCopyLink(readable)}
             >
               <Copy aria-hidden="true" className="size-3.75" />
-            </button>
-            <button
-              type="button"
-              className={ICON_BUTTON}
-              aria-label={heldBack(t("classes.showQrNamed", { name: klass.name }))}
-              aria-disabled={joinOff || undefined}
+            </IconAction>
+            <IconAction
+              named={heldBack(t("classes.showQrNamed", { name: klass.name }))}
               title={t("classes.showQr")}
-              onClick={(event) => {
-                if (!joinOff) onShowQr(klass, readable, event.currentTarget);
-              }}
+              joinOff={joinOff}
+              onAct={(button) => onShowQr(klass, readable, button)}
             >
               <QrCode aria-hidden="true" className="size-3.75" />
-            </button>
+            </IconAction>
           </>
         )}
       </span>
