@@ -102,6 +102,7 @@ POST /app/classes/join learning.take_tests
 POST /auth/change-password self
 POST /auth/google/link self
 POST /auth/sessions/revoke-others self
+POST /auth/set-password/request self
 POST /me/notifications/read self
 POST /teacher/ai/assignments/{id}/insights ai.use
 POST /teacher/ai/attempts/{attemptId}/answers/{questionId}/score-suggestion ai.use

@@ -12,8 +12,9 @@ const BARS = [0, 1, 2, 3];
  * has tried to save. The third rule, a different password from the one it
  * replaces, only the server can check: it stays a stated rule until `refusal`
  * carries the server's reason; `replaces` says whether it is the temporary
- * password or the user's current one. `id` names the checklist for the
- * field's `aria-describedby`.
+ * password or the user's current one, and `"none"`, for a password set from
+ * a link, leaves the rule out. `id` names the checklist for the field's
+ * `aria-describedby`.
  */
 export function PasswordRules({
   id,
@@ -27,7 +28,7 @@ export function PasswordRules({
   password: string;
   revealed: boolean;
   refusal: string | null;
-  replaces?: "temporary" | "current";
+  replaces?: "temporary" | "current" | "none";
   className?: string;
 }>) {
   const { t } = useTranslation();
@@ -54,9 +55,8 @@ export function PasswordRules({
           state={ruleState(rules.numberOrSymbol, revealed)}
           label={t("changePassword.rules.numberOrSymbol")}
         />
-        {refusal ? (
-          <Rule state="failed" label={refusal} />
-        ) : (
+        {refusal && <Rule state="failed" label={refusal} />}
+        {!refusal && replaces !== "none" && (
           <Rule
             state="stated"
             label={t(

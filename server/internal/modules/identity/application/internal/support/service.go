@@ -31,6 +31,7 @@ type Service struct {
 	Avatars    ports.ObjectStore
 	Photos     ports.PhotoProcessor
 	Policy     ports.SignInPolicy
+	Links      domain.SetPasswordLinks
 	Log        *slog.Logger
 }
 

@@ -54,6 +54,38 @@ export function changePassword(currentPassword: string, newPassword: string) {
   });
 }
 
+/** SetPasswordLinkInfo is what a valid set-password link is for: the account it controls and when it stops working. */
+export type SetPasswordLinkInfo = components["schemas"]["SetPasswordLinkInfo"];
+
+/**
+ * checkSetPasswordLink asks whether a set-password link can still be used.
+ * The token goes in the body only, never in a URL, and nothing is consumed.
+ */
+export function checkSetPasswordLink(token: string) {
+  return api("post", "/auth/set-password/check", { body: { token } });
+}
+
+/**
+ * setPasswordWithLink sets the account's password from a link and answers as
+ * `login` does: the client treats it as a sign-in, and the server sets the
+ * refresh cookie.
+ */
+export function setPasswordWithLink(
+  token: string,
+  newPassword: string,
+  transition?: AccountTransition,
+) {
+  return api("post", "/auth/set-password", {
+    body: { token, newPassword },
+    ...(transition ? { transition } : {}),
+  });
+}
+
+/** requestSetPasswordLink emails the signed-in caller a link to set a password. */
+export function requestSetPasswordLink() {
+  return api("post", "/auth/set-password/request");
+}
+
 /** openDocsSession sets the fifteen-minute cookie that opens the API reference on the API origin; admins only. */
 export function openDocsSession() {
   return api("post", "/admin/docs-session");
