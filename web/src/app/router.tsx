@@ -393,7 +393,9 @@ const adminTree: RouteObject = {
                 permission: "ai.credits.manage",
                 width: 1320,
               },
-              lazy: pending,
+              lazy: page(
+                () => import("@/features/ai-credits/pages/admin/AiCreditsPage"),
+              ),
             },
             {
               path: "audit",
