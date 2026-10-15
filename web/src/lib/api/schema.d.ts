@@ -2626,6 +2626,101 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/data-exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for a full export of the centre's data
+         * @description Queues one export for the worker and answers at once. It builds a ZIP
+         *     of `users.csv` (no password hashes or tokens), `roles.csv`,
+         *     `classes.csv` (no join codes), `class_members.csv`, `tests.csv`,
+         *     `test_versions.csv`, `assignments.csv`, `attempts.csv`, with
+         *     `answers.csv` when `includeAnswers` is true, and a `README.txt` in
+         *     Vietnamese and English that describes each file. Every CSV is UTF-8
+         *     with a byte-order mark and CRLF line ends, and a cell that a
+         *     spreadsheet would run as a formula is written with a leading `'`.
+         *
+         *     Only one export runs at a time for the whole centre: while any is
+         *     queued or running, another request answers `409 EXPORT_IN_PROGRESS`.
+         *     When the file is ready the requester gets an email that links to the
+         *     app page `/admin/exports/{id}`, never to the file. The file can be
+         *     fetched up to three times, by the requester, within 24 hours
+         *     (`downloadDataExport`).
+         *     The request is audited as `data_export.requested`. A caller who has an
+         *     export from the last hour that has not failed (queued, running, ready
+         *     or fetched) is refused with `429 RATE_LIMITED` and `Retry-After`, the
+         *     seconds until that export is an hour old. A failed export, a request
+         *     refused with `409` and a request refused with `429` do not count.
+         *     Without object storage and the worker the answer is `501 EXPORT_OFF`.
+         */
+        post: operations["requestDataExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/data-exports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Where an export stands
+         * @description The state of an export the caller requested; another user's export
+         *     answers `404` exactly as a missing one does. A `ready` export whose
+         *     24 hours have passed reads `expired`, whether or not the housekeeping
+         *     has removed its file yet.
+         */
+        get: operations["getDataExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/data-exports/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fetch an export, up to three times
+         * @description Hands the requester a presigned URL for the ZIP, valid for 60 seconds,
+         *     that forces an attachment named `quizzivy-export-YYYYMMDD.zip`. One
+         *     statement checks that the export is `ready`, unexpired and signed fewer
+         *     than three times, and counts the signing in `downloads`, so a failed
+         *     transfer can be tried again; the fourth request, and a request after the
+         *     24 hours, answer `410 EXPORT_UNAVAILABLE`. Another user's export answers
+         *     `404`. The response is `no-store`, because the URL is a credential. Each
+         *     signing is audited as `data_export.downloaded`, and a caller may fetch
+         *     ten an hour.
+         */
+        post: operations["downloadDataExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/ai/credits": {
         parameters: {
             query?: never;
@@ -4177,7 +4272,7 @@ export interface components {
          *     be sent again.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_LIMIT_REACHED" | "ROLE_NOT_ASSIGNABLE" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_LIMIT_REACHED" | "ROLE_NOT_ASSIGNABLE" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "EXPORT_IN_PROGRESS" | "EXPORT_UNAVAILABLE" | "EXPORT_OFF" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -4392,6 +4487,42 @@ export interface components {
             /** Format: uri */
             url: string;
             expiresAt: components["schemas"]["Timestamp"];
+        };
+        DataExportRequest: {
+            /** @description Whether the ZIP also holds `answers.csv`, every answer of every attempt. */
+            includeAnswers: boolean;
+        };
+        /**
+         * @description One data export. `status` is `queued` until the worker claims it,
+         *     `running` while it builds the file, `ready` once the file is stored and
+         *     the requester has been told, `failed` when it could not be built (the
+         *     requester may ask again), and `expired` once the 24 hours of a `ready`
+         *     export have passed. `downloadedAt` is the first time the file was
+         *     fetched, and `downloads` counts how many times a URL was handed out (0
+         *     to 3): the third fetch is the last. `bytes`, `completedAt` and
+         *     `expiresAt` are `null` until the export is ready.
+         */
+        DataExport: {
+            id: components["schemas"]["Uuid"];
+            /** @enum {string} */
+            status: "queued" | "running" | "ready" | "failed" | "expired";
+            includeAnswers: boolean;
+            /** Format: int64 */
+            bytes: number | null;
+            createdAt: components["schemas"]["Timestamp"];
+            /** Format: date-time */
+            completedAt: string | null;
+            /** Format: date-time */
+            expiresAt: string | null;
+            /** Format: date-time */
+            downloadedAt: string | null;
+            downloads: number;
+        };
+        DataExportDownload: {
+            /** Format: uri */
+            url: string;
+            /** @constant */
+            expiresInSeconds: 60;
         };
         ImportCapabilities: {
             retention: components["schemas"]["ImportRetention"];
@@ -8024,6 +8155,18 @@ export interface components {
          *     key). Nothing was reserved or metered. `GET /public/status` says `ai: false`.
          */
         AiOff: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /**
+         * @description `EXPORT_OFF` — this server has no object storage or no worker, so it
+         *     builds no export. Nothing was queued.
+         */
+        ExportOff: {
             headers: {
                 [name: string]: unknown;
             };
@@ -12633,6 +12776,107 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+        };
+    };
+    requestDataExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DataExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataExport"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description `EXPORT_IN_PROGRESS` — an export is already queued or running. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            501: components["responses"]["ExportOff"];
+        };
+    };
+    getDataExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataExport"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            501: components["responses"]["ExportOff"];
+        };
+    };
+    downloadDataExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The URL. */
+            200: {
+                headers: {
+                    /** @description `no-store`. */
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataExportDownload"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description `EXPORT_UNAVAILABLE` — the export is not ready, has expired, failed, or was already signed three times. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            501: components["responses"]["ExportOff"];
         };
     };
     getAiCredits: {

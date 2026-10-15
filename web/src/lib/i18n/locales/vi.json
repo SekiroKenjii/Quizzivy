@@ -327,6 +327,8 @@
       "class.member_enrolled": "Học viên đã vào lớp bằng mã tham gia",
       "class.member_removed": "Đã xoá học viên khỏi lớp",
       "class.restored": "Đã khôi phục lớp",
+      "data_export.downloaded": "Đã tải bản xuất dữ liệu",
+      "data_export.requested": "Đã yêu cầu bản xuất dữ liệu",
       "import.cancelled": "Đã huỷ lần nhập Word",
       "import.closed_idle": "Đã tự đóng lần nhập Word không hoạt động",
       "import.committed": "Đã lưu câu hỏi từ lần nhập Word",

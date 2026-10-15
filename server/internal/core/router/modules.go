@@ -9,6 +9,7 @@ import (
 	availabilityhttp "quizzivy/internal/modules/availability/http"
 	classeshttp "quizzivy/internal/modules/classes/http"
 	dashboardhttp "quizzivy/internal/modules/dashboard/http"
+	exportshttp "quizzivy/internal/modules/exports/http"
 	identityhttp "quizzivy/internal/modules/identity/http"
 	importshttp "quizzivy/internal/modules/imports/http"
 	mediahttp "quizzivy/internal/modules/media/http"
@@ -35,4 +36,5 @@ type Modules struct {
 	Availability  availabilityhttp.Availability
 	Notifications notificationshttp.Notifications
 	Organization  organizationhttp.Organization
+	Exports       exportshttp.Exports
 }

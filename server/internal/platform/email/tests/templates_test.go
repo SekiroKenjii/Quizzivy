@@ -1,6 +1,7 @@
 package email_test
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -103,8 +104,44 @@ func TestATemplateIsWrittenInItsLocale(t *testing.T) {
 		t.Errorf("the sign-in invitation must send the user to Google:\n%s", signIn.Text)
 	}
 	ready, _ := r.Render(letterFor(t, email.DataExportReady, "en", ""))
-	if !strings.Contains(ready.Text, "once") || strings.Contains(ready.Text, "amazonaws") {
-		t.Errorf("the export notice must link to the app page and say the download works once:\n%s", ready.Text)
+	if !strings.Contains(ready.Text, "up to three times within 24 hours") || strings.Contains(ready.Text, "amazonaws") {
+		t.Errorf("the export notice must say the file can be downloaded up to three times within 24 hours:\n%s", ready.Text)
+	}
+	readyVI, _ := r.Render(letterFor(t, email.DataExportReady, "vi", ""))
+	if !strings.Contains(readyVI.Text, "tối đa ba lần trong vòng 24 giờ") {
+		t.Errorf("the Vietnamese export notice must say the same:\n%s", readyVI.Text)
+	}
+}
+
+var addresses = regexp.MustCompile(`https?://[^\s"'<>)]+`)
+
+func TestTheExportNoticeLinksOnlyToTheAppPage(t *testing.T) {
+	r, err := email.NewRenderer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := appURL + "/admin/exports/0192a7c0-0000-7000-8000-000000000001"
+	for _, locale := range email.Locales {
+		got, err := r.Render(letterFor(t, email.DataExportReady, locale, "Nguyễn Văn An"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for part, body := range map[string]string{"text": got.Text, "html": got.HTML} {
+			found := addresses.FindAllString(strings.ReplaceAll(body, "&amp;", "&"), -1)
+			if len(found) == 0 {
+				t.Errorf("%s/%s: the notice has no link", locale, part)
+			}
+			for _, address := range found {
+				if address != want {
+					t.Errorf("%s/%s: the notice links to %s, want only %s", locale, part, address, want)
+				}
+			}
+		}
+		for _, secret := range []string{"token", "signature", "X-Amz", "amazonaws", "?", "#"} {
+			if strings.Contains(got.Text, secret) {
+				t.Errorf("%s: the text part carries %q, which has no place in a notice that names no secret", locale, secret)
+			}
+		}
 	}
 }
 

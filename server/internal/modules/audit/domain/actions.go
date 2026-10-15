@@ -50,6 +50,8 @@ var catalogue = []Action{
 	{"class.member_enrolled", "Học viên đã vào lớp bằng mã tham gia", "A student joined a class with a code"},
 	{"class.member_removed", "Đã xoá học viên khỏi lớp", "Removed a student from a class"},
 	{"class.restored", "Đã khôi phục lớp", "Restored a class"},
+	{"data_export.downloaded", "Đã tải bản xuất dữ liệu", "Downloaded a data export"},
+	{"data_export.requested", "Đã yêu cầu bản xuất dữ liệu", "Requested a data export"},
 	{"import.cancelled", "Đã huỷ lần nhập Word", "Cancelled a Word import"},
 	{"import.closed_idle", "Đã tự đóng lần nhập Word không hoạt động", "Closed an idle Word import"},
 	{"import.committed", "Đã lưu câu hỏi từ lần nhập Word", "Saved the questions of a Word import"},
