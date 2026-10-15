@@ -26,6 +26,11 @@ func (p SetPasswordPurpose) Valid() bool { return p == LinkInvite || p == LinkRe
 // SetPasswordLifetime is how long a link works from the moment it is issued.
 const SetPasswordLifetime = 24 * time.Hour
 
+// SetPasswordLinksKept is how long a link stays in the table once it has ended,
+// by being used, revoked or expiring, whichever came first. The link works for
+// none of that time and a token that names it is refused as an unknown one is.
+const SetPasswordLinksKept = 30 * 24 * time.Hour
+
 const setPasswordTokenBytes = 32
 
 // NewSetPasswordToken returns a link's secret, 32 random bytes in unpadded
@@ -171,4 +176,8 @@ type SetPasswordLinks interface {
 	// ErrSetPasswordLinkInvalid, having changed nothing, when the link cannot
 	// be used. Of two claims of one link, one wins.
 	Claim(ctx context.Context, in ClaimLink) (ClaimedLink, error)
+	// Prune deletes at most limit links that ended before the given moment,
+	// the earliest first, and returns how many went. A link that can still be
+	// used has not ended.
+	Prune(ctx context.Context, before time.Time, limit int) (int, error)
 }

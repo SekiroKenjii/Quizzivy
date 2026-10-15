@@ -41,7 +41,7 @@ func bootWithStorage(t *testing.T) *world {
 	return bootAssistedWithStorage(t, nil)
 }
 
-func bootAssistedWithStorage(t *testing.T, completer aiports.Completer) *world {
+func bootAssistedWithStorage(t *testing.T, completer aiports.Completer, more ...func(*config.Config)) *world {
 	t.Helper()
 	work := t.TempDir()
 	if err := os.Chmod(work, 0o700); err != nil {
@@ -51,7 +51,7 @@ func bootAssistedWithStorage(t *testing.T, completer aiports.Completer) *world {
 	if completer != nil {
 		options = append(options, wiring.WithCompleter(completer))
 	}
-	return assemble(t, slog.New(slog.DiscardHandler), options, withPrices, func(c *config.Config) {
+	configure := append([]func(*config.Config){withPrices, func(c *config.Config) {
 		c.S3Endpoint = storageEnv("S3_ENDPOINT", "http://localhost:9000")
 		c.S3Region = storageEnv("S3_REGION", "us-east-1")
 		c.S3Bucket = storageEnv("S3_BUCKET", "quizzivy-media")
@@ -64,7 +64,8 @@ func bootAssistedWithStorage(t *testing.T, completer aiports.Completer) *world {
 		c.ImportActorCount, c.ImportGlobalCount, c.ImportSourcesPerItem = 100, 1000, 32
 		c.ImportActorMiB, c.ImportGlobalMiB = 256, 1024
 		c.ImportProcessing = true
-	})
+	}}, more...)
+	return assemble(t, slog.New(slog.DiscardHandler), options, configure...)
 }
 
 type sent struct {

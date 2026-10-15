@@ -1,19 +1,24 @@
 package router
 
 import (
+	"strings"
+
 	classesdomain "quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/platform/ratelimit"
+	"quizzivy/internal/shared/validation"
 )
 
 // RateLimits declares the policy for every public operation and for the in-app
 // join, keyed by client address or by a field of the body. It is applied
-// before authentication.
+// before authentication. The login buckets key on the lower-cased bare address
+// the sign-in looks up, not on the string as written, so N <a@x.co>, "a"@x.co
+// and a@x.co share one budget.
 func RateLimits() *ratelimit.Registry {
 	reg := ratelimit.NewRegistry()
 	const capacity = 10_000
 	const maxKeyBodyBytes = 8 * 1024
 	joinCode := ratelimit.JSONFieldKeyFunc("joinCode", maxKeyBodyBytes, 9, classesdomain.JoinCodes.Normalize)
-	email := ratelimit.JSONFieldKey("email", maxKeyBodyBytes, 254)
+	email := ratelimit.JSONFieldKeyFunc("email", maxKeyBodyBytes, 254, canonicalEmail)
 	linkToken := ratelimit.JSONFieldKey("token", maxKeyBodyBytes, 128)
 	reg.Add("POST /join/preview", capacity, ratelimit.PerMinute(120), ratelimit.PerHour(600)).
 		WithKey("perCode", joinCode, capacity, ratelimit.PerHour(200))
@@ -36,6 +41,13 @@ func RateLimits() *ratelimit.Registry {
 	reg.Add("GET /public/organization/logo", capacity, ratelimit.PerMinute(300))
 
 	return reg
+}
+
+func canonicalEmail(value string) string {
+	if address, err := validation.ParseEmail(value); err == nil {
+		return strings.ToLower(address)
+	}
+	return strings.ToLower(strings.TrimSpace(value))
 }
 
 var aiSuggestions = []string{
@@ -72,6 +84,8 @@ func PrincipalRateLimits() *ratelimit.Registry {
 	perActor("POST /teacher/students/reset-passwords", ratelimit.PerMinute(2), ratelimit.PerHour(10))
 	perActor("POST /teacher/students", ratelimit.PerMinute(30), ratelimit.PerHour(300))
 	perActor("POST /admin/users", ratelimit.PerMinute(30), ratelimit.PerHour(300))
+	perActor("POST /admin/user-imports/preview", ratelimit.PerMinute(10))
+	perActor("POST /admin/user-imports", ratelimit.PerHour(5))
 	perActor("POST /teacher/classes/{id}/join-code", ratelimit.PerMinute(10), ratelimit.PerHour(60))
 	perActor("GET /teacher/classes/{id}/join-code", ratelimit.PerMinute(60), ratelimit.PerHour(600))
 	perActor("GET /teacher/classes", ratelimit.PerMinute(60), ratelimit.PerHour(600))

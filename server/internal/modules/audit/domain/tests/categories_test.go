@@ -49,7 +49,7 @@ func TestTheEntitiesTheBriefNamesAreInTheirFamilies(t *testing.T) {
 		"class": domain.Classes, "class_member": domain.Classes, "class_join_code": domain.Classes,
 		"attempt": domain.Attempts, "assignment": domain.Attempts,
 		"test": domain.Tests, "test_version": domain.Tests, "question": domain.Tests, "question_group": domain.Tests,
-		"media_asset": domain.Media, "word_import": domain.Imports,
+		"media_asset": domain.Media, "word_import": domain.Imports, "user_import": domain.Imports,
 	}
 	for entity, want := range cases {
 		if got, ok := domain.CategoryOf(entity); !ok || got != want {
