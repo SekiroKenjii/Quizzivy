@@ -11,7 +11,7 @@ import (
 	"quizzivy/internal/modules/identity/domain"
 )
 
-var importPruneNow = time.Date(2026, 10, 15, 4, 0, 0, 123456789, time.UTC)
+var importPruneNow = time.Date(2026, 11, 15, 4, 0, 0, 123456789, time.UTC)
 
 type importRetention struct {
 	pruned int

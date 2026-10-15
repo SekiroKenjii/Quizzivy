@@ -8,6 +8,8 @@ import (
 
 // Prune implements domain.UserImportRetention. It skips a job that is locked,
 // so it never waits on a download in flight and cannot form a cycle with one.
+// It does not lock the rows it cascades to, so it can wait for a row a class or
+// user delete holds and be chosen as a deadlock victim.
 func (u *UserImports) Prune(ctx context.Context, before time.Time, limit int) (int, error) {
 	tag, err := u.Exec(ctx, `
 		DELETE FROM app.user_import_jobs j

@@ -503,7 +503,9 @@ run goes on.
 Every step handles 500 rows or objects at a time, at most 20 times and for at
 most a minute, so a run clears 10,000 rows or objects of a step at most and a
 large backlog goes over several days rather than in one long transaction. The
-logs say how each went and carry counts, never a key, id, address, endpoint or
+exception is the import step, which counts jobs: a full batch of 500 jobs with
+2,000 rows each is one statement that measured about three seconds and 54 MB of
+write-ahead log. The logs say how each went and carry counts, never a key, id, address, endpoint or
 bucket:
 
 - `housekeeping step done` with `step` and `removed`: the last batch came back
@@ -520,7 +522,13 @@ bucket:
 A download link signed in the last minute before an export expires stops
 working once the sweep has deleted the file.
 
-There is no switch. A logo the settings still name is never deleted.
+There is no switch. A logo the settings still name is never deleted. An import
+that never finishes is never removed either: on a server whose import worker
+has been switched off with jobs still waiting, the names and addresses of their
+rows stay until the worker is switched on and the jobs finish, or until someone
+deletes those jobs by hand. The import step can wait for rows that a class or a
+user deleted at the same moment holds, and be chosen as a deadlock victim; the
+step then logs `database 40P01` and the next run goes on (D-044).
 
 ## The plan the Admin console shows
 

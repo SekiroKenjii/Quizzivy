@@ -181,6 +181,23 @@ func TestAtTheEdgeOnlyAnImportThatFinishedEarlierIsPruned(t *testing.T) {
 	}
 }
 
+func TestAPruneThatCannotRunReturnsTheDatabasesError(t *testing.T) {
+	w := newWorkerWorld(t)
+	id := w.seedJob(t, importSeed{"done", at(time.Now().Add(-3650 * day)), 1})
+	gone, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if n, err := w.queue.Prune(gone, time.Now(), 10000); err == nil || n != 0 {
+		t.Errorf("Prune on a cancelled context = %d, %v, want 0 and the database's error", n, err)
+	}
+	if _, err := w.app.Commands.PruneUserImports.Handle(gone, command.PruneUserImports{Limit: 10000}); err == nil {
+		t.Error("the command reported success when the statement could not run")
+	}
+	if jobs, _ := w.stored(t, id); jobs != 1 {
+		t.Error("a statement that could not run removed the job")
+	}
+}
+
 func TestAPruneSkipsAnImportAnotherTransactionHoldsAndTakesItNextTime(t *testing.T) {
 	ctx := context.Background()
 	w := newWorkerWorld(t)

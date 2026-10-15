@@ -171,6 +171,9 @@ type UserImportRetention interface {
 	// given moment, the earliest first, and returns how many went. Their rows go
 	// with them; the accounts they made, the classes and the audit trail are not
 	// touched. A job that has not finished is never deleted, however old, and a
-	// job another transaction holds is skipped and left for the next call.
+	// job another transaction holds is skipped and left for the next call. It
+	// can still wait for a row that a class or user delete holds and be chosen
+	// as a deadlock victim (SQLSTATE 40P01), which the caller reports and the
+	// next call recovers from.
 	Prune(ctx context.Context, before time.Time, limit int) (int, error)
 }
