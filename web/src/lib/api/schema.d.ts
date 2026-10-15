@@ -100,12 +100,10 @@ export interface paths {
         };
         /**
          * The centre's logo
-         * @description The bytes of the light or the dark logo, with the type they were stored
-         *     with. They are served as a download in a sandbox, so an SVG opened on
-         *     its own runs nothing and is never read as another type. A `v` equal to
-         *     the current logo's hash makes the answer immutable for a year; any
-         *     other `v`, or none, is cached for five minutes. No logo of that
-         *     variant: 404.
+         * @description The PNG bytes of the light or the dark logo, served as a download and
+         *     never read as another type. A `v` equal to the current logo's hash makes
+         *     the answer immutable for a year; any other `v`, or none, is cached for
+         *     five minutes. No logo of that variant: 404.
          *
          *     **Leak review (§6.5).** Public bytes the centre chose to show on its
          *     front door, the same for every caller. Nothing names the bucket, the
@@ -2114,7 +2112,8 @@ export interface paths {
         put?: never;
         /**
          * @description Teacher-created accounts get a temporary password and
-         *     `mustChangePassword: true`. Self-signup requires Google (§6.3).
+         *     `mustChangePassword` as the organization's "force password change"
+         *     setting says (on by default). Self-signup requires Google (§6.3).
          *
          *     Every `classIds` entry must be a class the caller teaches, or any class
          *     with `scope.all`. Anything else answers 404, exactly as a missing class
@@ -2524,10 +2523,13 @@ export interface paths {
         };
         /**
          * Download the contract
-         * @description The spec this server embeds, as the JSON it was embedded as (DG-10), an
-         *     attachment named `quizzivy-openapi.json`. The body is that JSON
-         *     document, declared as a byte stream so the generated server writes it
-         *     as it is and does not encode it a second time. The response is
+         * @description This file, `api/openapi.yaml`, converted to JSON with its keys, values
+         *     and order unchanged (DG-10), an attachment named `quizzivy-openapi.json`.
+         *     It is not the spec the server routes by, whose operation ids the code
+         *     generator has rewritten and whose descriptions beside a `$ref` it has
+         *     dropped. The body is that JSON document, declared as a byte stream so
+         *     the generated server writes it as it is and does not encode it a second
+         *     time. The response is
          *     `no-store`. It needs the bearer token and `system.api_reference`,
          *     unlike `/docs/openapi.json`, which answers to a docs session.
          */
@@ -2838,14 +2840,9 @@ export interface paths {
          *     A PNG is at most 1 MiB, square within 2% and 256 to 2048 pixels a side.
          *     Its type is read from its first bytes, its header before any pixel is
          *     decoded, and it is decoded and encoded afresh, which drops every
-         *     metadata chunk. An SVG is at most 256 KiB and is stored exactly as
-         *     sent, or refused: a DOCTYPE or an entity, a root other than `svg`, an
-         *     element outside the allowlist (`svg`, `g`, `path`, `rect`, `circle`,
-         *     `ellipse`, `line`, `polyline`, `polygon`, `defs`, `linearGradient`,
-         *     `radialGradient`, `stop`, `clipPath`, `mask`, `symbol`, `use`, `title`,
-         *     `desc`, `text`, `tspan`, `style`), an `on*` attribute, an `href` that
-         *     does not start with `#`, or a style with `@import` or a `url()` that
-         *     does not start with `#`. Its `viewBox` is square within 2%. A caller
+         *     metadata chunk. Any other type, an SVG included, answers
+         *     `MEDIA_TYPE_UNSUPPORTED`: the settings page draws an SVG to a PNG in the
+         *     browser before it uploads (D-019). A caller
          *     may upload 20 logos an hour.
          *
          *     The request may carry 16 KiB more than the 1 MiB file for the multipart
@@ -4058,7 +4055,7 @@ export interface components {
         OrganizationLogo: {
             sha256: string;
             /** @enum {string} */
-            type: "image/png" | "image/svg+xml";
+            type: "image/png";
         };
         /**
          * @description Who the centre is and how it is reached. Every text is trimmed; an
@@ -4067,8 +4064,9 @@ export interface components {
         OrganizationProfile: {
             name: string;
             shortName: string | null;
-            /** @description A host or an `http`/`https` address, without spaces, as `quizzivy.com` or `https://quizzivy.com/lien-he`. */
+            /** @description A domain or an `https` address, without spaces or credentials, as `quizzivy.com` or `https://quizzivy.com/lien-he`. `http` and other schemes are refused. */
             website: string | null;
+            /** @description An address of a local part and a domain with a dot, as `hello@quizzivy.com`. */
             contactEmail: string | null;
             /** @description Digits, spaces and `+ ( ) . -`, 6 to 30 characters. */
             frontDeskPhone: string | null;
@@ -4150,7 +4148,7 @@ export interface components {
         OrganizationLogoUpload: {
             sha256: string;
             /** @enum {string} */
-            type: "image/png" | "image/svg+xml";
+            type: "image/png";
             width: number;
             height: number;
         };
@@ -4180,7 +4178,7 @@ export interface components {
          *     be sent again.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_LIMIT_REACHED" | "ROLE_NOT_ASSIGNABLE" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "SVG_NOT_ALLOWED" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_LIMIT_REACHED" | "ROLE_NOT_ASSIGNABLE" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -8235,17 +8233,14 @@ export interface operations {
                 headers: {
                     /** @description `public, max-age=31536000, immutable` when `v` is the current hash, else `public, max-age=300`. */
                     "Cache-Control": string;
-                    /** @description `attachment; filename="logo.png"` or `logo.svg`. */
+                    /** @description `attachment; filename="logo.png"`. */
                     "Content-Disposition": string;
-                    /** @description `default-src 'none'; style-src 'unsafe-inline'; sandbox`. */
-                    "Content-Security-Policy": string;
                     /** @description `nosniff`. */
                     "X-Content-Type-Options": string;
                     [name: string]: unknown;
                 };
                 content: {
                     "image/png": string;
-                    "image/svg+xml": string;
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -12892,7 +12887,10 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The document as stored. */
+            /**
+             * @description The document as stored. A document equal to the stored one changes
+             *     nothing: the same revision comes back and no audit row is written.
+             */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -12903,8 +12901,9 @@ export interface operations {
             };
             /**
              * @description The body fails its schema, or `VALIDATION_FAILED` with a message per
-             *     field: a text that is empty or too long after trimming, a website
-             *     with spaces or another scheme than `http`/`https`, an email or a
+             *     field: a text that is empty or too long after trimming, a name that
+             *     holds a line break or an invisible character, a website that is not a
+             *     domain or an `https` address without credentials, an email or a
              *     phone number that is not one, a repeated domain, or a logo the server
              *     does not hold (as `organization.logo.light` or `organization.logo.dark`).
              */
@@ -12996,7 +12995,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
-            /** @description `MEDIA_TOO_LARGE` — a PNG over 1 MiB or an SVG over 256 KiB. */
+            /** @description `MEDIA_TOO_LARGE` — a file over 1 MiB. */
             413: {
                 headers: {
                     [name: string]: unknown;
@@ -13006,11 +13005,10 @@ export interface operations {
                 };
             };
             /**
-             * @description `MEDIA_TYPE_UNSUPPORTED` (neither a PNG nor an SVG), `MEDIA_UNREADABLE`
-             *     (the header or the pixels cannot be read), `IMAGE_DIMENSIONS` (not
-             *     square within 2%, a side outside 256 to 2048 pixels, or more memory
-             *     to decode than the server allows) or `SVG_NOT_ALLOWED` (the SVG
-             *     holds something outside the allowlist). Nothing was stored.
+             * @description `MEDIA_TYPE_UNSUPPORTED` (not a PNG), `MEDIA_UNREADABLE` (the header or
+             *     the pixels cannot be read) or `IMAGE_DIMENSIONS` (not square within 2%,
+             *     a side outside 256 to 2048 pixels, or needing more memory to decode
+             *     than the server allows). Nothing was stored.
              */
             415: {
                 headers: {
