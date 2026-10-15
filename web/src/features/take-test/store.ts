@@ -282,7 +282,7 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
             ...(deadlineAt === null ? {} : { deadlineAt }),
           };
         });
-        if (get().dirty.size > 0) scheduleFlush();
+        if (get().dirty.size > 0 || pendingEvents().length > 0) scheduleFlush();
         return true;
       } catch (error) {
         if (generation !== epoch) return false;

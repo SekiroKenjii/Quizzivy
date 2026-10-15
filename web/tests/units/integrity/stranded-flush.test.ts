@@ -73,3 +73,28 @@ it("lets a refused send go, because the events are best effort", () => {
 
   expect(() => monitor("ses-2")).not.toThrow();
 });
+
+it("sends a long stranded buffer in slices of at most 500, one after another", async () => {
+  beginSession("att-1", "ses-1");
+  for (let at = 0; at < 1100; at += 1) record("att-1", "window_blur");
+
+  monitor("ses-2");
+  await vi.waitFor(() => expect(sent).toHaveBeenCalledTimes(3));
+
+  expect(sent.mock.calls.map(([, body]) => body.events.length)).toEqual([
+    500, 500, 100,
+  ]);
+  expect(sent.mock.calls.every(([, body]) => body.sessionId === "ses-1")).toBe(true);
+});
+
+it("drops the rest of a stranded buffer when a slice is refused", async () => {
+  sent.mockRejectedValue(new Error("403"));
+  beginSession("att-1", "ses-1");
+  for (let at = 0; at < 1100; at += 1) record("att-1", "window_blur");
+
+  monitor("ses-2");
+  await vi.waitFor(() => expect(sent).toHaveBeenCalledTimes(1));
+  await Promise.resolve();
+
+  expect(sent).toHaveBeenCalledTimes(1);
+});

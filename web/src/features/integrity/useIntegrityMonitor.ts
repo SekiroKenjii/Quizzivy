@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { flushEvents, type IntegrityPolicy } from "@/features/take-test/api";
 import { useAppState, type Overlay } from "@/stores/appState";
-import { beginSession, drain, pending, record } from "./buffer";
+import {
+  beginSession,
+  drain,
+  inBatches,
+  pending,
+  record,
+  type Buffered,
+} from "./buffer";
 import { sendBeaconFlush } from "./beacon";
 import { isFullscreen } from "./fullscreen";
 
@@ -53,11 +60,7 @@ export function useIntegrityMonitor({
   useEffect(() => {
     if (attemptId === null || sessionId === null) return;
     const stranded = beginSession(attemptId, sessionId);
-    if (stranded !== null)
-      void flushEvents(attemptId, {
-        sessionId: stranded.sessionId,
-        events: stranded.events,
-      }).catch(() => undefined);
+    if (stranded !== null) void sendStranded(attemptId, stranded);
 
     // One episode at a time.
     let awaySince: number | null = null;
@@ -163,6 +166,15 @@ export function useIntegrityMonitor({
   }, [attemptId, sessionId]);
 
   return { ...episodes, fullscreen };
+}
+
+async function sendStranded(attemptId: string, stranded: Buffered): Promise<void> {
+  try {
+    for (const events of inBatches(stranded.events))
+      await flushEvents(attemptId, { sessionId: stranded.sessionId, events });
+  } catch {
+    return;
+  }
 }
 
 /** What the audio player reports, which no listener here can observe. */

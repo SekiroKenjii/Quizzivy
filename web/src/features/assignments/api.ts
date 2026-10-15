@@ -1,5 +1,9 @@
 import { getAttempt } from "@/features/take-test/api";
-import { heldSession, holdSession } from "@/features/take-test/heldSession";
+import {
+  heldSession,
+  holdSession,
+  releaseSession,
+} from "@/features/take-test/heldSession";
 import { saveStrandedDraft } from "@/features/take-test/strandedDraft";
 import { formatInTimeZone } from "date-fns-tz";
 import { api, downloadFile } from "@/lib/api/client";
@@ -94,6 +98,7 @@ export async function continueAttempt(assignmentId: string, attemptId: string) {
   if (heldSession(attemptId) !== null) {
     const read = await getAttempt(attemptId);
     if (read.superseded !== true) return read;
+    releaseSession(attemptId);
   }
   const session = await api("post", "/app/assignments/{id}/attempts", {
     path: { id: assignmentId },

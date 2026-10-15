@@ -179,6 +179,19 @@ describe("the session a tab names when it reads its attempt", () => {
     expect(heldSession(ATTEMPT)).toBe(B);
   });
 
+  it("leaves a plain read of a superseded held session superseded, resuming nothing and keeping the session", async () => {
+    const { getAttempt, heldSession, holdSession } = await load();
+    holdSession(ATTEMPT, A);
+    answerResumes(paper({ sessionId: B }));
+    answerReads(paper({ sessionId: C, beaconToken: "", superseded: true }));
+
+    const read = await getAttempt(ATTEMPT);
+
+    expect(read.superseded).toBe(true);
+    expect(resumed).toBe(0);
+    expect(heldSession(ATTEMPT)).toBe(A);
+  });
+
   it("names the session it held before a reload", async () => {
     sessionStorage.setItem(KEY, A);
     const { getAttempt } = await load();
