@@ -11,18 +11,19 @@ import (
 )
 
 var theCredentialMinters = map[string]bool{
-	"Login":                  true,
-	"GoogleAuth":             true,
-	"RefreshSession":         true,
-	"ResetStudentPassword":   true,
-	"ResetStudentsPasswords": true,
-	"SetPasswordWithLink":    true,
-	"CreateStudent":          true,
-	"CreateUser":             true,
-	"RotateJoinCode":         true,
-	"GetJoinCode":            true,
-	"ListClasses":            true,
-	"OpenDocsSession":        true,
+	"Login":                   true,
+	"GoogleAuth":              true,
+	"RefreshSession":          true,
+	"ResetStudentPassword":    true,
+	"ResetStudentsPasswords":  true,
+	"SetPasswordWithLink":     true,
+	"CreateStudent":           true,
+	"CreateUser":              true,
+	"DownloadUserImportSheet": true,
+	"RotateJoinCode":          true,
+	"GetJoinCode":             true,
+	"ListClasses":             true,
+	"OpenDocsSession":         true,
 }
 
 const joinCodeShape = "{code, expiresAt}"

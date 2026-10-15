@@ -16,9 +16,12 @@ import (
 
 const entityUserImport = "user_import"
 
-// UserImports stores user-import jobs and their rows.
+// UserImports stores user-import jobs and their rows. Its links store issues
+// the invite of an account an email-link job creates, on the transaction that
+// creates it; without one, Settle cannot be given an invite to issue.
 type UserImports struct {
 	db.Repository
+	links *SetPasswordLinks
 }
 
 // NewUserImports returns the store over dbx.
@@ -26,18 +29,26 @@ func NewUserImports(dbx db.Context) *UserImports {
 	return &UserImports{Repository: db.NewRepository(dbx)}
 }
 
-const importJobSelect = `
-	SELECT j.id::text, j.created_by::text, j.request_id::text, j.filename, j.format, j.default_role_id::text,
-	       j.delivery, j.status, j.total_rows, j.created_count, j.skipped_count, j.invalid_count,
-	       coalesce(j.error_code, ''), j.sheet_expires_at, j.sheet_downloaded_at,
-	       j.created_at, j.started_at, j.completed_at
+// WithLinks returns the store with links as the store its worker issues invites to.
+func (u *UserImports) WithLinks(links *SetPasswordLinks) *UserImports {
+	u.links = links
+	return u
+}
+
+const importJobColumns = `
+	j.id::text, j.created_by::text, j.request_id::text, j.filename, j.format, j.default_role_id::text,
+	j.delivery, j.status, j.total_rows, j.created_count, j.skipped_count, j.invalid_count, j.attempts,
+	coalesce(j.error_code, ''), j.sheet_expires_at, j.sheet_downloaded_at,
+	j.created_at, j.started_at, j.completed_at`
+
+const importJobSelect = `SELECT ` + importJobColumns + `
 	  FROM app.user_import_jobs j`
 
 func scanImportJob(row pgx.Row) (domain.ImportJob, error) {
 	var j domain.ImportJob
 	var format, delivery, status string
 	err := row.Scan(&j.ID, &j.CreatedBy, &j.RequestID, &j.Filename, &format, &j.DefaultRoleID,
-		&delivery, &status, &j.Total, &j.Created, &j.Skipped, &j.Invalid,
+		&delivery, &status, &j.Total, &j.Created, &j.Skipped, &j.Invalid, &j.Attempts,
 		&j.ErrorCode, &j.SheetExpiresAt, &j.SheetDownloadedAt,
 		&j.CreatedAt, &j.StartedAt, &j.CompletedAt)
 	if err != nil {

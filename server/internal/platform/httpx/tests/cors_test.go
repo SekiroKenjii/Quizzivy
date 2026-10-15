@@ -3,6 +3,7 @@ package httpx_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"quizzivy/internal/platform/httpx"
@@ -27,6 +28,12 @@ func TestAllowedOriginGetsCredentialedHeaders(t *testing.T) {
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Credentials"); got != "true" {
 		t.Errorf("Allow-Credentials = %q, want true", got)
+	}
+	exposed := rec.Header().Get("Access-Control-Expose-Headers")
+	for _, name := range []string{"X-Request-Id", "Retry-After", "Content-Disposition"} {
+		if !strings.Contains(exposed, name) {
+			t.Errorf("Expose-Headers = %q, want it to name %s: a page reads a download's file name from Content-Disposition", exposed, name)
+		}
 	}
 	// Without Vary, a shared cache can hand one origin's allow header to another.
 	if rec.Header().Get("Vary") == "" {

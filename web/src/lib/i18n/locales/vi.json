@@ -389,7 +389,8 @@
       "user.preferences_updated": "Đã cập nhật tuỳ chọn cá nhân",
       "user.profile_updated": "Đã cập nhật hồ sơ",
       "user.renamed": "Đã đổi tên tài khoản",
-      "user_import.requested": "Đã yêu cầu nhập người dùng từ tệp"
+      "user_import.requested": "Đã yêu cầu nhập người dùng từ tệp",
+      "user_import.sheet_downloaded": "Đã tải bảng mật khẩu tạm của lần nhập người dùng"
     },
     "title": "Nhật ký kiểm tra",
     "lead": "Bản ghi các thay đổi quan trọng. Không thể sửa hay xoá.",
