@@ -7,10 +7,12 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"fmt"
 	"net/url"
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -30,7 +32,10 @@ var shared struct {
 func TestMain(m *testing.M) {
 	code := m.Run()
 	if shared.name != "" {
-		dropDatabase(os.Getenv("TEST_DATABASE_URL"), shared.name)
+		if err := dropDatabase(os.Getenv("TEST_DATABASE_URL"), shared.name); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			code = 1
+		}
 	}
 	os.Exit(code)
 }
@@ -45,13 +50,32 @@ func databaseURL(t *testing.T, dsn, name string) string {
 	return u.String()
 }
 
-func dropDatabase(ownerDSN, name string) {
+func dropDatabase(ownerDSN, name string) error {
+	var err error
+	for range 3 {
+		if err = dropOnce(ownerDSN, name); err == nil {
+			return nil
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	return fmt.Errorf("dropping the scratch database %s: %w", name, err)
+}
+
+func dropOnce(ownerDSN, name string) error {
 	admin, err := sql.Open("pgx", ownerDSN)
 	if err != nil {
-		return
+		return err
 	}
 	defer func() { _ = admin.Close() }()
-	_, _ = admin.Exec(`DROP DATABASE IF EXISTS ` + name + ` WITH (FORCE)`)
+	_, err = admin.Exec(`DROP DATABASE IF EXISTS ` + name + ` WITH (FORCE)`)
+	return err
+}
+
+func dropAfterFailure(t *testing.T, dsn, name string) {
+	t.Helper()
+	if err := dropDatabase(dsn, name); err != nil {
+		t.Log(err)
+	}
 }
 
 func createScratch(t *testing.T) (name, ownerURL string) {
@@ -73,21 +97,21 @@ func createScratch(t *testing.T) (name, ownerURL string) {
 	ownerURL = databaseURL(t, dsn, name)
 	conn, err := sql.Open("pgx", ownerURL)
 	if err != nil {
-		dropDatabase(dsn, name)
+		dropAfterFailure(t, dsn, name)
 		t.Fatal(err)
 	}
 	defer func() { _ = conn.Close() }()
 	if _, err := conn.Exec(`REVOKE ALL ON SCHEMA public FROM PUBLIC; GRANT USAGE ON SCHEMA public TO quizzivy_migrate`); err != nil {
-		dropDatabase(dsn, name)
+		dropAfterFailure(t, dsn, name)
 		t.Fatal(err)
 	}
 	if err := goose.SetDialect("postgres"); err != nil {
-		dropDatabase(dsn, name)
+		dropAfterFailure(t, dsn, name)
 		t.Fatal(err)
 	}
 	goose.SetLogger(goose.NopLogger())
 	if err := goose.Up(conn, db.MigrationsDir(t)); err != nil {
-		dropDatabase(dsn, name)
+		dropAfterFailure(t, dsn, name)
 		t.Fatalf("migrating %s: %v", name, err)
 	}
 	return name, ownerURL
@@ -120,7 +144,11 @@ func newIsolated(t *testing.T) isolated {
 		t.Skipf("%s is not set; skipping the tests that run as the maintenance role", maintenanceDSN)
 	}
 	name, ownerURL := createScratch(t)
-	t.Cleanup(func() { dropDatabase(db.TestDSN(t), name) })
+	t.Cleanup(func() {
+		if err := dropDatabase(db.TestDSN(t), name); err != nil {
+			t.Error(err)
+		}
+	})
 	ctx := context.Background()
 	owner, err := pgxpool.New(ctx, ownerURL)
 	if err != nil {
