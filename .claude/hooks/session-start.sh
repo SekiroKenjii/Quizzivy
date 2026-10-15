@@ -133,6 +133,10 @@ start_postgres() {
   docker compose up -d --wait db
 }
 
+provision_roles() {
+  docker compose exec -T -e PGUSER=postgres db /provision/provision-db.sh
+}
+
 start_minio() {
   docker compose up -d --wait minio && docker compose run --rm minio-init
 }
@@ -152,7 +156,7 @@ step ".env" create_env
 step "web dependencies" install_web_dependencies
 if step "docker daemon" start_docker; then
   step "MinIO image $MINIO_IMAGE" ensure_minio_image
-  step "postgres" start_postgres && step "migrations" migrate
+  step "postgres" start_postgres && step "database roles" provision_roles && step "migrations" migrate
   docker image inspect "$MINIO_IMAGE" >/dev/null 2>&1 && step "MinIO" start_minio
 fi
 echo "$(date -u +%FT%TZ) session start hook ends"

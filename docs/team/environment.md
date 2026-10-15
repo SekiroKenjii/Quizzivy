@@ -15,8 +15,9 @@ GitHub but not every registry (see "What did not work").
 
 `.claude/hooks/session-start.sh`, registered in `.claude/settings.json`, does the work of
 the steps below when a Claude Code cloud container starts: the daemon, `.env`, goose, the web
-dependencies, the MinIO image (built if missing), Postgres, MinIO and `make migrate`
-(not `make seed`). It runs
+dependencies, the MinIO image (built if missing), Postgres, the database roles
+(`scripts/provision-db.sh` again, which is idempotent and adds `quizzivy_maintenance` to a
+volume made before it existed), MinIO and `make migrate` (not `make seed`). It runs
 only where `CLAUDE_CODE_REMOTE=true` and exits 0 silently elsewhere, so a laptop is
 never touched. It reports itself asynchronous, so the session starts while it works.
 It does not run steps 8 to 10: those create databases and buckets that need cleanup.
@@ -104,10 +105,13 @@ Run from `/home/user/Quizzivy`. Each step is safe to repeat. The hook does steps
    ```
 
    `db` is `postgres:18` on 5432. On its first start `docker/initdb/` creates the
-   roles `quizzivy_migrate` and `quizzivy_app` and the database `quizzivy` by
-   calling `scripts/provision-db.sh`. The roles live in the `db-data` volume, so
-   they survive a container restart. If the volume is gone, step 4 creates them
-   again.
+   roles `quizzivy_migrate`, `quizzivy_app` and `quizzivy_maintenance` and the database
+   `quizzivy` by calling `scripts/provision-db.sh`. The roles live in the `db-data` volume,
+   so they survive a container restart. If the volume is gone, step 4 creates them again.
+   A volume made before R5's T-R5.17a has no `quizzivy_maintenance`, and migration 00139
+   fails for want of it; run
+   `docker compose exec -T -e PGUSER=postgres db /provision/provision-db.sh` once (the
+   session hook does).
 
 5. **Install the tools the repository expects on `PATH`.**
    - goose v3.27.3, the version of `.github/actions/db-tools`, in
@@ -144,6 +148,7 @@ Run from `/home/user/Quizzivy`. Each step is safe to repeat. The hook does steps
    export TEST_DATABASE_URL='postgres://quizzivy_migrate:migrate@localhost:5432/quizzivy?sslmode=disable'
    export TEST_DESTRUCTIVE=1 S3_ACCESS_KEY_ID=quizzivy S3_SECRET_ACCESS_KEY=quizzivy-dev-secret
    export APP_DATABASE_URL='postgres://quizzivy_app:app@localhost:5432/quizzivy?sslmode=disable'
+   export TEST_MAINTENANCE_DATABASE_URL='postgres://quizzivy_maintenance:maintenance@localhost:5432/quizzivy?sslmode=disable'
    T=$(mktemp -d); J=$T/journal.json
 
    createdb --owner=quizzivy_migrate quizzivy_grading_queue
@@ -155,6 +160,12 @@ Run from `/home/user/Quizzivy`. Each step is safe to repeat. The hook does steps
    `prepare` creates a database `qvtext_<token>` and a bucket `qv-text-<token>`
    and writes their names, with the two connection strings, to `$GITHUB_OUTPUT`
    as `database`, `bucket`, `app_url` and `migrate_url`.
+
+   `TEST_MAINTENANCE_DATABASE_URL` names the `quizzivy_maintenance` role. The tests that run
+   `cmd/maintenance`'s commands as that role create a scratch database `qvmaint_<hex>` for each
+   run with the migrate role's `CREATEDB`, migrate it, connect as the role to it and drop it, so
+   `quizzivy` is never written. Without the variable they skip locally and fail when `CI` is
+   set. Never point it at a production URL: it is not `MAINTENANCE_DATABASE_URL` for that reason.
 
 9. **Run the tiers** from `server/`. The integration step's variables belong to
    that command only, as in CI, where they are the step's `env`:

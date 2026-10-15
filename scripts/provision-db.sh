@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Creates the two database roles and the quizzivy database.
+# Creates the three database roles and the quizzivy database.
 #
 # Roles live here rather than in a migration because CREATE ROLE needs superuser
 # and quizzivy_migrate deliberately is not one (spec §13.5).
@@ -39,9 +39,10 @@ run_psql() {
 
 MIGRATE_PASSWORD="${QUIZZIVY_MIGRATE_PASSWORD:-migrate}"
 APP_PASSWORD="${QUIZZIVY_APP_PASSWORD:-app}"
+MAINTENANCE_PASSWORD="${QUIZZIVY_MAINTENANCE_PASSWORD:-maintenance}"
 DB_NAME="${QUIZZIVY_DB_NAME:-quizzivy}"
 
-run_psql postgres -v migrate_pw="$MIGRATE_PASSWORD" -v app_pw="$APP_PASSWORD" <<'SQL'
+run_psql postgres -v migrate_pw="$MIGRATE_PASSWORD" -v app_pw="$APP_PASSWORD" -v maintenance_pw="$MAINTENANCE_PASSWORD" <<'SQL'
 DO $$
 BEGIN
   -- Owns the schema and runs goose. Needs CREATE on the database so it can
@@ -53,6 +54,14 @@ BEGIN
   -- What the API connects as. Owns nothing, cannot run DDL.
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'quizzivy_app') THEN
     CREATE ROLE quizzivy_app LOGIN;
+  END IF;
+
+  -- What cmd/maintenance connects as, from the operator's machine and from the
+  -- nightly retention workflow (T-R5.17a, D16). Owns nothing, creates nothing,
+  -- and holds only the grants the migration that names it gives it. Its
+  -- credential is never set on the API.
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'quizzivy_maintenance') THEN
+    CREATE ROLE quizzivy_maintenance LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE CONNECTION LIMIT 2;
   END IF;
 END
 $$;
@@ -67,6 +76,8 @@ $$;
 -- for the bootstrap password hash.
 ALTER ROLE quizzivy_migrate PASSWORD :'migrate_pw';
 ALTER ROLE quizzivy_app     PASSWORD :'app_pw';
+ALTER ROLE quizzivy_maintenance PASSWORD :'maintenance_pw';
+ALTER ROLE quizzivy_maintenance LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE CONNECTION LIMIT 2;
 
 -- CREATEDB is for the test suite, not for production.
 --
@@ -103,7 +114,7 @@ if ! run_psql postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '${DB_NAM
   run_psql postgres -c "CREATE DATABASE ${DB_NAME} OWNER quizzivy_migrate"
 fi
 
-run_psql postgres -c "GRANT CONNECT ON DATABASE ${DB_NAME} TO quizzivy_app"
+run_psql postgres -c "GRANT CONNECT ON DATABASE ${DB_NAME} TO quizzivy_app, quizzivy_maintenance"
 
 
 # Deny the app role anything in public; everything it needs is in schema app,

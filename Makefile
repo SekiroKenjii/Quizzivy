@@ -22,6 +22,7 @@ GOLANGCI_VERSION ?= v2.14.0
 
 MIGRATE_DSN ?= postgres://quizzivy_migrate:$(or $(QUIZZIVY_MIGRATE_PASSWORD),migrate)@localhost:5432/quizzivy?sslmode=disable
 APP_DSN     ?= postgres://quizzivy_app:$(or $(QUIZZIVY_APP_PASSWORD),app)@localhost:5432/quizzivy?sslmode=disable
+MAINTENANCE_DSN ?= postgres://quizzivy_maintenance:$(or $(QUIZZIVY_MAINTENANCE_PASSWORD),maintenance)@localhost:5432/quizzivy?sslmode=disable
 
 .PHONY: help doctor up down reset db-shell migrate migrate-down migrate-redo \
         seed gen contract verify-google verify-r2 verify-r2-imports dev dev-web dev-api test test-web test-api \
@@ -125,7 +126,7 @@ test-api-unit: ## Go unit tests: domain rules, transports with fakes, platform h
 	cd server && go test ./...
 
 test-api-integration: migrate ## Go integration tests: repositories and use cases against Postgres
-	cd server && TEST_DATABASE_URL="$(MIGRATE_DSN)" APP_DATABASE_URL="$(APP_DSN)" go test -tags integration ./internal/... -count=1
+	cd server && TEST_DATABASE_URL="$(MIGRATE_DSN)" APP_DATABASE_URL="$(APP_DSN)" TEST_MAINTENANCE_DATABASE_URL="$(MAINTENANCE_DSN)" go test -tags integration ./internal/... -count=1
 
 test-api-e2e: migrate ## Go end-to-end tests: the whole application in-process, over HTTP, against Postgres
 	cd server && TEST_DATABASE_URL="$(MIGRATE_DSN)" go test -tags e2e ./tests/... -count=1
