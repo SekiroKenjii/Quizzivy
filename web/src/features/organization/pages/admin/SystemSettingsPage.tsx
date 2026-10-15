@@ -63,8 +63,10 @@ function SettingsLoadError({ onRetry }: Readonly<{ onRetry: () => void }>) {
  * bare address) and Sign-in. They share one form and one unsaved-changes
  * bar, and leaving with unsaved changes asks first. While the document is
  * read the sections hold a skeleton, and when it cannot be they hold the
- * failure and Retry. Any other section, the unshipped ones included, is
- * replaced by the bare address.
+ * failure and Retry. A section the console names that has not shipped (Data
+ * & privacy, Plan & usage) is replaced by the bare address; an address with
+ * any other section is not the console's (`consolePath`) and is sent where an
+ * old teacher address goes.
  */
 export default function SystemSettingsPage() {
   const { t } = useTranslation();

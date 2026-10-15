@@ -102,12 +102,17 @@ async function drawn(svg: string): Promise<Blob> {
     const context = canvas.getContext("2d");
     if (context === null) throw new LogoRefused("unreadable");
     context.drawImage(image, 0, 0, LOGO_CANVAS, LOGO_CANVAS);
-    return await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob(
-        (png) => (png === null ? reject(new LogoRefused("unreadable")) : resolve(png)),
-        "image/png",
-      ),
-    );
+    return await new Promise<Blob>((resolve, reject) => {
+      try {
+        canvas.toBlob(
+          (png) =>
+            png === null ? reject(new LogoRefused("unreadable")) : resolve(png),
+          "image/png",
+        );
+      } catch {
+        reject(new LogoRefused("unreadable"));
+      }
+    });
   } finally {
     URL.revokeObjectURL(url);
   }

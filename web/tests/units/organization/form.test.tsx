@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { onlineManager } from "@tanstack/react-query";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
@@ -27,6 +28,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  onlineManager.setOnline(true);
   useAuthStore.getState().clearSession();
 });
 
@@ -302,14 +304,17 @@ describe("Save changes", () => {
     expect(discard()).toBeVisible();
   });
 
-  it("opens the section that holds a field the server refused", async () => {
+  it.each([
+    ["the list", "signIn.allowedGoogleDomains"],
+    ["one of its items", "signIn.allowedGoogleDomains.0"],
+  ])("opens the section that holds a field the server refused, %s", async (_, path) => {
     servesSettings(SAVED, () =>
       contractJson(
         "/admin/settings",
         "put",
         400,
         failure("VALIDATION_FAILED", "Cài đặt không hợp lệ.", {
-          "signIn.allowedGoogleDomains": "Tên miền không hợp lệ.",
+          [path]: "Tên miền không hợp lệ.",
         }),
       ),
     );
@@ -342,6 +347,22 @@ describe("Save changes", () => {
       "Đã xảy ra lỗi. Vui lòng thử lại.",
     );
     expect(screen.queryByRole("button", { name: "Tải lại" })).toBeNull();
+    expect(save()).not.toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("tries a save while the browser reports no connection, and says when it fails", async () => {
+    const stored = servesSettings(SAVED, () => HttpResponse.error());
+    renderSettings();
+    const user = userEvent.setup();
+    await rename(user, "Trung tâm Quizzivy");
+    onlineManager.setOnline(false);
+
+    await user.click(save());
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Đã xảy ra lỗi. Vui lòng thử lại.",
+    );
+    expect(stored.puts).toHaveLength(1);
     expect(save()).not.toHaveAttribute("aria-disabled", "true");
   });
 

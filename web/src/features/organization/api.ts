@@ -82,11 +82,14 @@ export function signInImpactQuery(policy: SignInPolicy) {
 /**
  * useSaveOrganizationSettings replaces the settings document. On success it
  * keeps the stored document as the query's answer and makes the front door
- * read the centre again, past the browser's five minutes.
+ * read the centre again, past the browser's five minutes. A save is tried
+ * whether or not the browser reports a connection, so one that cannot be made
+ * fails with a message and does not wait in silence.
  */
 export function useSaveOrganizationSettings() {
   const client = useQueryClient();
   return useMutation({
+    networkMode: "always",
     mutationFn: (input: OrganizationSettingsInput) =>
       api("put", "/admin/settings", { body: input }),
     onSuccess: (saved) => {

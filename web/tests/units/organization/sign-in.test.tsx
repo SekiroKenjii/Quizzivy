@@ -139,6 +139,34 @@ describe("the Google domains", () => {
     expect(stored.puts).toHaveLength(0);
   });
 
+  it("refuses a domain over 253 characters on its field, and takes one of exactly 253", async () => {
+    const stored = servesSettings();
+    servesImpact();
+    await openSignIn();
+    const user = userEvent.setup();
+    const labels = (last: number) =>
+      [..."abc"]
+        .map((letter) => letter.repeat(63))
+        .concat("d".repeat(last))
+        .join(".");
+
+    await user.click(domains());
+    await user.paste(`${labels(62)},`);
+    await user.click(save());
+
+    expect(await screen.findByText("Tên miền không hợp lệ.")).toBeVisible();
+    expect(domains()).toHaveAttribute("aria-invalid", "true");
+    expect(stored.puts).toHaveLength(0);
+
+    await user.click(screen.getByRole("button", { name: `Bỏ tên miền ${labels(62)}` }));
+    await user.click(domains());
+    await user.paste(`${labels(61)},`);
+    await user.click(save());
+
+    await waitFor(() => expect(stored.puts).toHaveLength(1));
+    expect(stored.puts[0]?.signIn.allowedGoogleDomains).toContain(labels(61));
+  });
+
   it("sends the domains as they are kept", async () => {
     const stored = servesSettings();
     servesImpact();

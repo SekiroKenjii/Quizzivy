@@ -147,6 +147,13 @@ describe("prepareLogo", () => {
     expect(await refusal(svgFile())).toBe("unreadable");
   });
 
+  it("refuses an SVG whose drawing taints the canvas, as one holding a foreignObject does", async () => {
+    stub = stubDrawing({ tainted: true });
+
+    expect(await refusal(svgFile())).toBe("unreadable");
+    expect(stub.revoked).toEqual(stub.created);
+  });
+
   it("refuses when the canvas exports nothing", async () => {
     stub = stubDrawing({ noBlob: true });
 

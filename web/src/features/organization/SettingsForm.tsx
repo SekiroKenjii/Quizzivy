@@ -146,9 +146,13 @@ export function SettingsForm({
   function refused(cause: ApiError) {
     const shown: string[] = [];
     for (const [path, message] of Object.entries(cause.details ?? {})) {
-      if (typeof message !== "string" || !SERVER_FIELD.test(path)) continue;
-      form.setError(path as FieldPath<SettingsFormValues>, { type: "server", message });
-      shown.push(path);
+      const field = path.replace(/^(signIn\.allowedGoogleDomains)\.\d+$/, "$1");
+      if (typeof message !== "string" || !SERVER_FIELD.test(field)) continue;
+      form.setError(field as FieldPath<SettingsFormValues>, {
+        type: "server",
+        message,
+      });
+      shown.push(field);
     }
     setError(cause.message);
     if (shown[0] !== undefined) showAt(shown[0]);

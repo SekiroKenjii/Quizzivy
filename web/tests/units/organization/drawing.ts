@@ -4,6 +4,7 @@ type Options = Readonly<{
   imageFails?: boolean;
   noContext?: boolean;
   noBlob?: boolean;
+  tainted?: boolean;
 }>;
 
 /** Drawing is what a stubbed browser recorded of the logos drawn through it. */
@@ -19,7 +20,8 @@ export type Drawing = {
 /**
  * stubDrawing gives jsdom the parts of a browser that draw an SVG to a PNG:
  * object URLs, an Image that loads (or fails) the moment it has a source, and
- * a canvas whose context records its drawing and whose toBlob answers a PNG.
+ * a canvas whose context records its drawing and whose toBlob answers a PNG,
+ * or throws as a tainted canvas does.
  * It records the SVG sources it was handed.
  */
 export function stubDrawing(options: Options = {}): Drawing {
@@ -81,6 +83,8 @@ export function stubDrawing(options: Options = {}): Drawing {
   const toBlob = vi
     .spyOn(HTMLCanvasElement.prototype, "toBlob")
     .mockImplementation((callback: BlobCallback, type?: string) => {
+      if (options.tainted)
+        throw new DOMException("The canvas has been tainted.", "SecurityError");
       callback(
         options.noBlob ? null : new Blob(["png-bytes"], { type: type ?? "image/png" }),
       );
