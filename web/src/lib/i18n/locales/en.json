@@ -671,7 +671,10 @@
     "clearFilters": "Clear filters",
     "loadFailed": "Could not load users.",
     "noun_one": "user",
-    "noun_other": "users"
+    "noun_other": "users",
+    "result_one": "{{count}} user found.",
+    "result_other": "{{count}} users found.",
+    "resultNone": "No users found."
   },
   "systemSettings": {
     "title": "System settings",

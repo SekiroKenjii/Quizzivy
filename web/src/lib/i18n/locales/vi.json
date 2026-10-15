@@ -671,7 +671,10 @@
     "clearFilters": "Bỏ lọc",
     "loadFailed": "Không tải được danh sách người dùng.",
     "noun_one": "người dùng",
-    "noun_other": "người dùng"
+    "noun_other": "người dùng",
+    "result_one": "Tìm thấy {{count}} người dùng.",
+    "result_other": "Tìm thấy {{count}} người dùng.",
+    "resultNone": "Không tìm thấy người dùng nào."
   },
   "systemSettings": {
     "title": "Cài đặt hệ thống",
