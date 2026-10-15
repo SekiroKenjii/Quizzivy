@@ -643,7 +643,8 @@
     "invalidCredentials": "Email và mật khẩu không khớp. Hãy kiểm tra lỗi gõ, hoặc nhờ giáo viên đặt lại mật khẩu.",
     "haveCode": "Bạn có mã lớp?",
     "joinClass": "Tham gia lớp",
-    "googleFailedTitle": "Không đăng nhập được bằng Google"
+    "googleFailedTitle": "Không đăng nhập được bằng Google",
+    "noMethod": "Hiện chưa có cách đăng nhập nào dùng được. Hãy hỏi quầy lễ tân hoặc quản trị viên của trung tâm."
   },
   "join": {
     "title": "Tham gia lớp học",
@@ -663,6 +664,10 @@
     "joining": "Đang thêm bạn vào {{className}}…",
     "failed": "Không thể tham gia lớp. Vui lòng thử lại.",
     "goToClasses": "Đến lớp của tôi",
+    "off": {
+      "title": "Tham gia bằng mã đang tắt",
+      "body": "Trung tâm hiện không cho phép học viên tự tham gia lớp bằng mã. Hãy nhờ giáo viên thêm bạn vào lớp, hoặc hỏi quầy lễ tân."
+    },
     "joined": {
       "title": "Bạn đã vào lớp {{className}}",
       "body": "{{teacherName}} sẽ thấy bạn trong danh sách lớp.",
@@ -790,7 +795,8 @@
     "addCount_one": "Thêm {{count}}",
     "addCount_other": "Thêm {{count}}",
     "expiresIn_one": "· còn {{count}} ngày",
-    "expiresIn_other": "· còn {{count}} ngày"
+    "expiresIn_other": "· còn {{count}} ngày",
+    "codeInactive": "Không hoạt động"
   },
   "classes": {
     "loadFailed": "Không tải được danh sách lớp.",
@@ -848,7 +854,8 @@
     "maskedCode": "••••-{{hint}}",
     "codeState": {
       "expired": "Hết hạn",
-      "usedUp": "Hết lượt"
+      "usedUp": "Hết lượt",
+      "off": "Không hoạt động"
     },
     "noCode": "Chưa có mã tham gia",
     "createCode": "Tạo mã",
@@ -877,7 +884,10 @@
     "codeRenewedWith": "Mã tham gia mới: {{code}}",
     "newCodeFailed": "Không tạo được mã tham gia mới.",
     "codesReplaced": "Mã tham gia của các lớp đã được thay ngày {{date}}. Hãy gửi mã mới cho học viên.",
-    "joinCodesOff": "Trung tâm đang tắt tham gia bằng mã."
+    "joinCodesOff": "Trung tâm đang tắt tham gia bằng mã.",
+    "joinCodesOffOpen": "Mở cài đặt đăng nhập",
+    "joinCodesOffAsk": "Hãy hỏi quản trị viên.",
+    "pageLeadOff": "Giáo viên thêm học viên vào lớp."
   },
   "settings": {
     "profile": "Hồ sơ",

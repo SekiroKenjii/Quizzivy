@@ -10,6 +10,7 @@ import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import { useAuthStore } from "@/stores/auth";
 import "@/lib/i18n";
+import { queryWrapper } from "@tests/support/queryWrapper";
 
 const BASE = "http://localhost:8080";
 const REQUEST_ID = "019535d9-3df7-79fb-b466-fa907fa17f9e";
@@ -51,7 +52,7 @@ function renderPage(entry = "/change-password") {
     ],
     { initialEntries: [entry] },
   );
-  render(<RouterProvider router={router} />);
+  render(<RouterProvider router={router} />, { wrapper: queryWrapper() });
   return router;
 }
 

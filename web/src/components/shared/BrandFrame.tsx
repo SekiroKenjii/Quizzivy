@@ -34,7 +34,7 @@ export function BrandFrame({
       {showPanel && (
         <aside
           className={cn(
-            "bg-sidebar hidden max-w-[620px] shrink-0 grow-0 basis-[44%] flex-col justify-between border-r px-12 py-10",
+            "bg-sidebar hidden max-w-[620px] min-w-0 shrink-0 grow-0 basis-[44%] flex-col justify-between border-r px-12 py-10",
             at.panel,
           )}
         >

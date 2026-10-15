@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -56,31 +57,33 @@ func loadPlan(cfg *Config) error {
 	return err
 }
 
+var planNumber = regexp.MustCompile(`^[1-9][0-9]*$`)
+
 func planLimit(name string, ceiling int) (int, error) {
-	raw := strings.TrimSpace(os.Getenv(name))
+	raw := os.Getenv(name)
 	if raw == "" {
 		return 0, nil
 	}
-	n, err := strconv.Atoi(raw)
-	if err != nil {
-		return 0, fmt.Errorf("%s must be an integer, got %q", name, raw)
+	if !planNumber.MatchString(raw) {
+		return 0, fmt.Errorf("%s must be a whole number written in digits, such as 400, got %q", name, raw)
 	}
-	if n < 1 || n > ceiling {
+	n, err := strconv.Atoi(raw)
+	if err != nil || n > ceiling {
 		return 0, fmt.Errorf("%s must be between 1 and %d, or unset for no limit", name, ceiling)
 	}
 	return n, nil
 }
 
 func planBytes(name string) (int64, error) {
-	raw := strings.TrimSpace(os.Getenv(name))
+	raw := os.Getenv(name)
 	if raw == "" {
 		return 0, nil
 	}
-	n, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("%s must be a number of bytes, got %q", name, raw)
+	if !planNumber.MatchString(raw) {
+		return 0, fmt.Errorf("%s must be a whole number of bytes written in digits, such as 5368709120, got %q", name, raw)
 	}
-	if n < 1 || n > maxPlanBytes {
+	n, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || n > maxPlanBytes {
 		return 0, fmt.Errorf("%s must be between 1 and %d bytes, or unset for no limit", name, maxPlanBytes)
 	}
 	return n, nil

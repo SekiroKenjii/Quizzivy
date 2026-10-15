@@ -99,6 +99,8 @@ export default function ClassDetailPage() {
         }
       />
 
+      <JoinCodesOffCallout />
+
       <div
         className={cn(
           "grid items-start gap-4.5",
@@ -114,7 +116,6 @@ export default function ClassDetailPage() {
           docked={two}
           className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))] items-start gap-4.5"
         >
-          <JoinCodesOffCallout />
           <JoinCodePanel klass={data} canWrite={canWrite} />
           <ClassSettingsCard klass={data} canWrite={canWrite} />
         </StickyAside>
