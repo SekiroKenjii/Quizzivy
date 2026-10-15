@@ -25,6 +25,8 @@ func cleanName(refused *validation.Error, raw string) string {
 
 func checkAddress(refused *validation.Error, address string) {
 	if hidden, found := domain.HiddenInEmail(address); found {
-		refused.Add("email", fmt.Sprintf("Email không được chứa khoảng trắng, ký tự điều khiển hoặc ký tự vô hình (U+%04X).", hidden))
+		refused.AddIn("email",
+			fmt.Sprintf("Email không được chứa khoảng trắng, ký tự điều khiển hoặc ký tự vô hình (U+%04X).", hidden),
+			fmt.Sprintf("The email cannot contain a space, a control character or an invisible character (U+%04X).", hidden))
 	}
 }

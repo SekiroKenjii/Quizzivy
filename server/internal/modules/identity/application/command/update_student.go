@@ -26,7 +26,13 @@ func (s UpdateStudentHandler) Handle(ctx context.Context, cmd UpdateStudent) (do
 		cmd.Input.FullName = &name
 	}
 	if cmd.Input.Email != nil {
-		checkAddress(&refused, *cmd.Input.Email)
+		current, err := s.Repo.Get(ctx, cmd.Request.Scope(), cmd.Input.ID)
+		if err != nil {
+			return domain.Student{}, err
+		}
+		if *cmd.Input.Email != current.Email {
+			checkAddress(&refused, *cmd.Input.Email)
+		}
 	}
 	if invalid := refused.OrNil(); invalid != nil {
 		return domain.Student{}, invalid
