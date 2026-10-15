@@ -248,6 +248,7 @@ function isAuthEntryPoint(path: string): boolean {
   return (
     path === "/auth/refresh" ||
     path === "/auth/login" ||
+    path === "/auth/set-password" ||
     path === "/auth/google" ||
     path === "/auth/logout"
   );
@@ -256,7 +257,7 @@ function isAuthEntryPoint(path: string): boolean {
 function cookieKind(method: string, path: string): CookieKind | null {
   if (method !== "post") return null;
   if (path === "/auth/refresh") return "refresh";
-  if (path === "/auth/login") return "login";
+  if (path === "/auth/login" || path === "/auth/set-password") return "login";
   if (path === "/auth/google") return "google";
   if (path === "/auth/logout") return "logout";
   return null;

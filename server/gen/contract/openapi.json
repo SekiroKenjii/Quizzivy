@@ -1280,6 +1280,7 @@
           "PASSWORD_UNCHANGED",
           "IDENTITY_ALREADY_LINKED",
           "LAST_LOGIN_METHOD",
+          "SET_PASSWORD_LINK_INVALID",
           "REFRESH_TOKEN_INVALID",
           "REFRESH_TOKEN_REUSED",
           "SESSION_IS_CURRENT",
@@ -4677,6 +4678,38 @@
           },
           "user": {
             "$ref": "#/components/schemas/CurrentUser"
+          }
+        }
+      },
+      "SetPasswordLinkInfo": {
+        "type": "object",
+        "description": "What a valid set-password link is for: the account it controls, which\nthe page names so a person can tell the link is theirs, and when it\nstops working. The email and the name are the account's own, given to\nwhoever already holds the secret that controls it.\n",
+        "required": [
+          "email",
+          "fullName",
+          "purpose",
+          "expiresAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "invite",
+              "reset"
+            ],
+            "description": "`invite` for a new account's first password, `reset` for a new one."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -12629,6 +12662,202 @@
         }
       }
     },
+    "/auth/set-password/check": {
+      "post": {
+        "operationId": "checkSetPasswordLink",
+        "tags": [
+          "public",
+          "auth"
+        ],
+        "security": [],
+        "summary": "Read what a set-password link is for",
+        "description": "The set-password page calls this with the token it read from the link's\nfragment, before it shows the form, so it can say whose password it is\nabout to set. Nothing is consumed: the same token can be checked again\nuntil it is used, replaced or expired.\n\nA link is a one-time secret an Admin or the account's owner had emailed\n(D15). It works once, for 24 hours, and a newer link for the same\naccount replaces it.\n\n**Leak review (§6.5).** An unknown, used, expired or revoked token, and\nthe token of a disabled account, all answer the same `410\nSET_PASSWORD_LINK_INVALID`, with the same message, from the same single\nindexed lookup, so the answer says nothing about which of them it was.\nThe lookup is an equality on the SHA-256 of a 256-bit token, which is\nall the database keeps, so its timing reveals nothing usable. A valid\ntoken is answered with the account's own email and name: the caller\nalready holds the secret that controls that account. The token is never\nlogged, is never in a query string and never reaches a `Referer`, since\nthe page sends it in this body only.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "The `token` the link carries after `#token=`."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The link can still be used.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetPasswordLinkInfo"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "410": {
+            "description": "`SET_PASSWORD_LINK_INVALID` — the link is unknown, used, expired or\nrevoked, or its account is disabled. The client says the link has\nexpired or was already used and asks the user to request a new one.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is over 8 KiB, which the rate limiter's keys read in full.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "503": {
+            "$ref": "#/components/responses/Maintenance"
+          }
+        },
+        "x-max-body-bytes": 8192,
+        "x-rate-limit": {
+          "perIp": {
+            "perMinute": 120,
+            "perHour": 1000
+          },
+          "perToken": {
+            "perHour": 20
+          }
+        }
+      }
+    },
+    "/auth/set-password": {
+      "post": {
+        "operationId": "setPasswordWithLink",
+        "tags": [
+          "public",
+          "auth"
+        ],
+        "security": [],
+        "summary": "Set a password from an emailed link, and sign in",
+        "description": "Sets the account's password, clears `mustChangePassword`, signs the\naccount in and answers as `login` does. The link has just proved\ncontrol of the mailbox, so no other proof is asked for.\n\nOne statement claims the token, so two submits at once set the password\nonce and the second is answered `410`. Setting a password also ends the\naccount's other sessions and links: it revokes every refresh family,\nmoves `session_epoch`, and revokes the account's other unused links, all\nbefore the new session is issued. A Google-only account that sets a\npassword this way keeps its Google link.\n\n**Leak review (§6.5).** The same single `410` as `checkSetPasswordLink`\nfor every invalid state. `422 PASSWORD_SIGN_IN_DISABLED` is decided\nbefore the token is looked up, so it is the same for every caller and\nsays nothing about any token or account. A token that is not valid is\nrefused before any password is hashed, so the endpoint is no way to\nspend the server's hashing capacity. The token is never logged, is never\nin a query string and never reaches a `Referer`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token",
+                  "newPassword"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "The `token` the link carries after `#token=`."
+                  },
+                  "newPassword": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 512,
+                    "pattern": "[\\p{N}\\p{P}\\p{S}]",
+                    "description": "The same rule as `changePassword`: at least 8 characters,\nat least one of which is a digit, a punctuation mark or a\nsymbol, in any script.\n"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The password is set and the account is signed in. Sets the rotating refresh cookie.",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "`quizzivy_refresh=…; HttpOnly; Secure; SameSite=Lax; Path=/auth`"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "410": {
+            "description": "`SET_PASSWORD_LINK_INVALID` — as for `checkSetPasswordLink`. Nothing was changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is over 8 KiB, which the rate limiter's keys read in full.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`PASSWORD_SIGN_IN_DISABLED` — the centre has turned password\nsign-in off, so there is no password to set. The client sends the\nperson to sign in with Google.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "503": {
+            "$ref": "#/components/responses/Maintenance"
+          }
+        },
+        "x-max-body-bytes": 8192,
+        "x-rate-limit": {
+          "perIp": {
+            "perMinute": 60,
+            "perHour": 600
+          },
+          "perToken": {
+            "perHour": 10
+          }
+        }
+      }
+    },
     "/auth/refresh": {
       "post": {
         "operationId": "refreshSession",
@@ -12912,6 +13141,48 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/auth/set-password/request": {
+      "post": {
+        "operationId": "requestSetPasswordLink",
+        "x-permission": "self",
+        "tags": [
+          "auth"
+        ],
+        "summary": "Email the caller a link to set a password",
+        "description": "For an account that signs in with Google and has no password: emails\nthe account's own address a link, valid once for 24 hours, that opens\nthe set-password page. A newer link replaces an earlier unused one. The\ncaller stays signed in; using the link later ends the other sessions,\nas setting a password does.\n\nThe answer is `204` once the message is queued; delivery is by the\noutbox and may follow a moment later. Nothing in the answer says\nwhether the address received it.\n",
+        "responses": {
+          "204": {
+            "$ref": "#/components/responses/NoContent"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "422": {
+            "description": "`PASSWORD_SIGN_IN_DISABLED` — the centre has turned password\nsign-in off, so a password would be of no use.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "501": {
+            "description": "This server has no key to seal a link with (`SECRETS_KEY`), so it cannot send one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }

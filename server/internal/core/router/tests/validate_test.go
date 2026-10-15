@@ -395,19 +395,34 @@ func TestThePasswordRuleSentenceMatchesTheContract(t *testing.T) {
 		}
 	}
 	slices.Sort(takers)
-	if !slices.Equal(takers, []string{"POST /auth/change-password"}) {
-		t.Fatalf("operations taking newPassword = %v, want only POST /auth/change-password", takers)
+	if !slices.Equal(takers, []string{"POST /auth/change-password", "POST /auth/set-password"}) {
+		t.Fatalf("operations taking newPassword = %v, want only POST /auth/change-password and POST /auth/set-password", takers)
 	}
 
-	body := spec.Paths.Find("/auth/change-password").Post.RequestBody.Value
-	rule := body.Content.Get("application/json").Schema.Value.Properties["newPassword"].Value
-	var maxLength uint64
-	if rule.MaxLength != nil {
-		maxLength = *rule.MaxLength
+	for _, path := range []string{"/auth/change-password", "/auth/set-password"} {
+		body := spec.Paths.Find(path).Post.RequestBody.Value
+		rule := body.Content.Get("application/json").Schema.Value.Properties["newPassword"].Value
+		var maxLength uint64
+		if rule.MaxLength != nil {
+			maxLength = *rule.MaxLength
+		}
+		if rule.MinLength != 8 || maxLength != 512 || rule.Pattern != `[\p{N}\p{P}\p{S}]` {
+			t.Errorf("%s newPassword rule = %d to %d characters matching %q, want 8 to 512 matching %q, which is what the sentence states",
+				path, rule.MinLength, maxLength, rule.Pattern, `[\p{N}\p{P}\p{S}]`)
+		}
 	}
-	if rule.MinLength != 8 || maxLength != 512 || rule.Pattern != `[\p{N}\p{P}\p{S}]` {
-		t.Errorf("newPassword rule = %d to %d characters matching %q, want 8 to 512 matching %q, which is what the sentence states",
-			rule.MinLength, maxLength, rule.Pattern, `[\p{N}\p{P}\p{S}]`)
+}
+
+func TestASetPasswordLinkRefusesAWeakPasswordWithTheRuleSentence(t *testing.T) {
+	handler := roleRouter(t, testIssuer(t), rolePrincipals())
+	for _, c := range []struct{ language, want string }{
+		{"", "Mật khẩu mới cần từ 8 đến 512 ký tự và có số hoặc ký hiệu."},
+		{"en", "The new password needs 8 to 512 characters and a number or symbol."},
+	} {
+		for _, password := range []string{`"short1"`, `"longenoughbutnodigit"`, `5`} {
+			rec := sendIn(t, handler, http.MethodPost, "/auth/set-password", "", c.language, `{"token":"x","newPassword":`+password+`}`)
+			wantValidationFailure(t, rec, c.want)
+		}
 	}
 }
 
@@ -444,7 +459,9 @@ func wantValidationFailure(t *testing.T, rec *httptest.ResponseRecorder, want st
 	}
 }
 
-var unnamed = map[string]string{}
+var unnamed = map[string]string{
+	"SetPasswordWithLink": "newPassword answers with the password rule's sentence, as changePassword does, and is the first property by name",
+}
 
 func wrongTypedFirstProperty(t *testing.T, op *openapi3.Operation) (property, body string, ok bool) {
 	t.Helper()

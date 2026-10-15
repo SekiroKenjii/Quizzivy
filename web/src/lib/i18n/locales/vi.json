@@ -383,6 +383,8 @@
       "user.google_linked": "Đã liên kết tài khoản Google",
       "user.google_unlinked": "Đã huỷ liên kết tài khoản Google",
       "user.password_changed": "Đã đổi mật khẩu",
+      "user.password_link_requested": "Đã yêu cầu liên kết đặt mật khẩu",
+      "user.password_set": "Đã đặt mật khẩu bằng liên kết",
       "user.preferences_updated": "Đã cập nhật tuỳ chọn cá nhân",
       "user.profile_updated": "Đã cập nhật hồ sơ",
       "user.renamed": "Đã đổi tên tài khoản"
@@ -650,6 +652,31 @@
       "mismatch": "Hai mật khẩu không giống nhau.",
       "unchanged": "Mật khẩu mới phải khác mật khẩu hiện tại.",
       "currentMissing": "Nhập mật khẩu hiện tại."
+    }
+  },
+  "setPassword": {
+    "checking": "Đang kiểm tra liên kết…",
+    "title": "Đặt mật khẩu cho {{email}}",
+    "body": {
+      "invite": "Chào {{name}}. Hãy chọn một mật khẩu chỉ mình bạn biết. Lưu xong là bạn được đăng nhập ngay.",
+      "reset": "Chào {{name}}. Hãy chọn mật khẩu mới chỉ mình bạn biết. Lưu xong là bạn được đăng nhập, và các thiết bị khác sẽ bị đăng xuất."
+    },
+    "submit": "Đặt mật khẩu và đăng nhập",
+    "submitting": "Đang lưu…",
+    "toSignIn": "Đến trang đăng nhập",
+    "invalid": {
+      "title": "Liên kết không còn dùng được",
+      "body": "Liên kết này đã hết hạn hoặc đã được dùng. Hãy nhờ trung tâm gửi liên kết mới."
+    },
+    "passwordsOff": {
+      "title": "Hãy đăng nhập bằng Google",
+      "body": "Trung tâm đã tắt đăng nhập bằng mật khẩu, nên bạn không cần đặt mật khẩu. Hãy đăng nhập bằng Google với địa chỉ email của bạn."
+    },
+    "unavailable": {
+      "title": "Chưa kiểm tra được liên kết"
+    },
+    "errors": {
+      "tooLong": "Mật khẩu chỉ được dài tối đa 512 ký tự."
     }
   },
   "login": {
@@ -941,7 +968,14 @@
     "googleLinked": "Đã liên kết với Google.",
     "googleNotLinked": "Chưa liên kết với Google.",
     "googleOnlyExplainer": "Google đang là cách duy nhất để đăng nhập vào tài khoản này. Hãy đặt mật khẩu trước khi bỏ liên kết.",
-    "googleOnlyTeacher": "Bạn chỉ đăng nhập bằng Google, nên chưa thể bỏ liên kết Google.",
+    "googleNoPassword": "Tài khoản này chưa có mật khẩu, nên chưa thể bỏ liên kết Google. Hãy đặt mật khẩu để có thêm một cách đăng nhập.",
+    "googleOnlyPasswordsOff": "Bạn chỉ đăng nhập bằng Google, nên chưa thể bỏ liên kết Google.",
+    "setPasswordLink": {
+      "send": "Gửi liên kết đặt mật khẩu qua email",
+      "sendAgain": "Gửi lại liên kết",
+      "sending": "Đang gửi…",
+      "sent": "Đã gửi liên kết tới {{email}}. Liên kết chỉ dùng được một lần và hết hạn sau 24 giờ."
+    },
     "linkGoogle": "Liên kết Google",
     "unlinkGoogle": "Bỏ liên kết Google",
     "locale": {
