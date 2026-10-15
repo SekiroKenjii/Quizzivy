@@ -300,7 +300,7 @@ describe("the change a user opens by choice", () => {
 
   it("asks for the current password first, says why, and offers the way back", async () => {
     const router = renderVoluntary();
-    render(<RouterProvider router={router} />);
+    render(<RouterProvider router={router} />, { wrapper: queryWrapper() });
 
     expect(currentField()).toHaveAttribute("autocomplete", "current-password");
     expect(
@@ -320,7 +320,7 @@ describe("the change a user opens by choice", () => {
   });
 
   it("is titled and labelled as a change a user chose, not as the forced one", () => {
-    render(<RouterProvider router={renderVoluntary()} />);
+    render(<RouterProvider router={renderVoluntary()} />, { wrapper: queryWrapper() });
 
     expect(
       screen.getByRole("heading", { level: 1, name: "Đổi mật khẩu" }),
@@ -339,7 +339,7 @@ describe("the change a user opens by choice", () => {
     );
     const user = userEvent.setup();
     const router = renderVoluntary("/change-password?next=%2Fadmin%2Faudit");
-    render(<RouterProvider router={router} />);
+    render(<RouterProvider router={router} />, { wrapper: queryWrapper() });
 
     expect(screen.getByRole("link", { name: "Quay lại" })).toHaveAttribute(
       "href",
@@ -358,7 +358,7 @@ describe("the change a user opens by choice", () => {
   it("holds the save and says why, with the focus on the current password, while it is empty", async () => {
     changeAnswers(204);
     const user = userEvent.setup();
-    render(<RouterProvider router={renderVoluntary()} />);
+    render(<RouterProvider router={renderVoluntary()} />, { wrapper: queryWrapper() });
     await user.type(newField(), "matkhau1");
     await user.type(againField(), "matkhau1");
     expect(submit()).toHaveAttribute("aria-disabled", "true");
@@ -381,7 +381,7 @@ describe("the change a user opens by choice", () => {
     );
     const user = userEvent.setup();
     const router = renderVoluntary();
-    render(<RouterProvider router={router} />);
+    render(<RouterProvider router={router} />, { wrapper: queryWrapper() });
     await user.type(currentField(), "matkhau-cu-7");
     await user.type(newField(), "matkhau1");
     await user.type(againField(), "matkhau1");
