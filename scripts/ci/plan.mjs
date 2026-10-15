@@ -34,7 +34,12 @@ export const SETS = {
   },
   server: {
     base: 'all',
-    include: ['web/tests/e2e/fixtures/', 'web/src/lib/i18n/locales/', 'api/testdata/pasted-text-counts.json'],
+    include: [
+      'web/tests/e2e/fixtures/',
+      'web/src/lib/i18n/locales/',
+      'api/testdata/pasted-text-counts.json',
+      'docs/setup/operations.md',
+    ],
     exclude: [...NOT_CODE, 'web/'],
   },
   web: {
