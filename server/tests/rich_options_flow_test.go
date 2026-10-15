@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"reflect"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 func richWord() map[string]any {
@@ -140,8 +142,15 @@ func TestLegacyEditsCannotSilentlyEraseOptionFormatting(t *testing.T) {
 	question := teacher.must(http.StatusCreated, http.MethodPost, "/teacher/questions", payload)
 	option["id"] = firstOption(t, question)["id"]
 	delete(option, "content")
+	kept := option["id"]
 	question = teacher.must(http.StatusOK, http.MethodPatch, "/teacher/questions/"+id(question), payload)
 	assertRichWord(t, question)
+	question = teacher.must(http.StatusOK, http.MethodPatch, "/teacher/questions/"+id(question), payload)
+	assertRichWord(t, question)
+	if firstOption(t, question)["id"] != kept {
+		t.Fatal("saving the question changed the option's id")
+	}
+	option["id"] = uuid.NewString()
 	teacher.must(http.StatusBadRequest, http.MethodPatch, "/teacher/questions/"+id(question), payload)
 	option["id"] = firstOption(t, question)["id"]
 	option["text"], payload["prompt"] = "lost marks", "Should roll back"
