@@ -1,6 +1,25 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
-import { PUBLIC_ORGANIZATION_KEY, resolveOrganization } from "@/lib/organization";
+import {
+  PUBLIC_ORGANIZATION_KEY,
+  publicOrganizationQuery,
+  resolveOrganization,
+} from "@/lib/organization";
+
+/**
+ * useKnownPasswordSignInOff reports whether the centre has turned password
+ * sign-in off, from an answer the app already holds. It never fetches, so it
+ * is false while nothing has asked, and a screen that relies on it still
+ * shows the server's refusal when the switch is off.
+ */
+export function useKnownPasswordSignInOff(): boolean {
+  const { data } = useQuery({
+    ...publicOrganizationQuery(),
+    enabled: false,
+    select: (organization) => !organization.signIn.password,
+  });
+  return data === true;
+}
 
 /**
  * joinCodesQuery reads `GET /public/organization` for a teacher's screens,

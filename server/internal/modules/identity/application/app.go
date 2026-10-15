@@ -31,12 +31,13 @@ func (a *Application) SetClock(now func() time.Time) {
 	}
 }
 
-// SetActivity starts recording who was active, counting days in zone, and makes Commands.StampActivity available. Without it no request stamps anything. RunActivity writes what it collects.
+// SetActivity starts recording who was active, counting days in zone, and makes Commands.StampActivity and Commands.PruneActivityDays available. Without it no request stamps anything and nothing is pruned. RunActivity writes what it collects.
 func (a *Application) SetActivity(store domain.Activity, zone *time.Location, logger *slog.Logger) {
 	a.activity = support.NewActivity(store, zone)
 	a.activity.Log = logger
 	a.activity.Now = a.service.Now
 	a.Commands.StampActivity = command.StampActivityHandler{Activity: a.activity}
+	a.Commands.PruneActivityDays = command.PruneActivityDaysHandler{Activity: a.activity}
 }
 
 // RunActivity writes the activity the application collects, every few seconds while any waits, until ctx ends. It returns at once without SetActivity.
@@ -82,6 +83,13 @@ func (a *Application) SetSignInPolicy(p ports.SignInPolicy) {
 	a.students.Policy = p
 }
 
+// SetPasswordLinks attaches the store of set-password links, which opens
+// issuing them, checking one and using one. Without it no link can be issued,
+// and every link a caller presents is invalid.
+func (a *Application) SetPasswordLinks(links domain.SetPasswordLinks) {
+	a.service.Links = links
+}
+
 // SetTemporaryPasswords replaces how a student's temporary password and its hash are made. Tests only.
 func (a *Application) SetTemporaryPasswords(source func(ctx context.Context) (password, hash string, err error)) {
 	a.students.Password = source
@@ -99,11 +107,15 @@ type Commands struct {
 	ChangePassword         cqrs.CommandHandler[command.ChangePassword, cqrs.Nothing]
 	CreateStudent          cqrs.CommandHandler[command.CreateStudent, command.CreateStudentResult]
 	GoogleSignIn           cqrs.CommandHandler[command.GoogleSignIn, model.GoogleSignInResult]
+	IssueSetPasswordLink   cqrs.CommandHandler[command.IssueSetPasswordLink, domain.IssuedLink]
 	LinkGoogle             cqrs.CommandHandler[command.LinkGoogle, domain.User]
 	Login                  cqrs.CommandHandler[command.Login, model.Session]
 	Logout                 cqrs.CommandHandler[command.Logout, cqrs.Nothing]
+	PruneActivityDays      cqrs.CommandHandler[command.PruneActivityDays, int]
 	PruneExpiredTokens     cqrs.CommandHandler[command.PruneExpiredTokens, int64]
 	Refresh                cqrs.CommandHandler[command.Refresh, model.RefreshResult]
+	RequestSetPasswordLink cqrs.CommandHandler[command.RequestSetPasswordLink, cqrs.Nothing]
+	SetPasswordWithLink    cqrs.CommandHandler[command.SetPasswordWithLink, model.Session]
 	StampActivity          cqrs.CommandHandler[command.StampActivity, cqrs.Nothing]
 	UpdateProfile          cqrs.CommandHandler[command.UpdateProfile, domain.User]
 	UpdatePreferences      cqrs.CommandHandler[command.UpdatePreferences, domain.Preferences]
@@ -116,14 +128,15 @@ type Commands struct {
 }
 
 type Queries struct {
-	AvatarURL      cqrs.QueryHandler[query.AvatarURL, string]
-	CurrentUser    cqrs.QueryHandler[query.CurrentUser, domain.User]
-	EffectiveZone  cqrs.QueryHandler[query.EffectiveZone, string]
-	GetStudent     cqrs.QueryHandler[query.GetStudent, domain.Student]
-	ListSessions   cqrs.QueryHandler[query.ListSessions, []domain.Session]
-	ListStudents   cqrs.QueryHandler[query.ListStudents, query.ListStudentsResult]
-	StudentAccount cqrs.QueryHandler[query.StudentAccount, domain.Account]
-	StudentFacets  cqrs.QueryHandler[query.StudentFacets, domain.StudentFacets]
+	AvatarURL            cqrs.QueryHandler[query.AvatarURL, string]
+	CheckSetPasswordLink cqrs.QueryHandler[query.CheckSetPasswordLink, domain.SetPasswordLink]
+	CurrentUser          cqrs.QueryHandler[query.CurrentUser, domain.User]
+	EffectiveZone        cqrs.QueryHandler[query.EffectiveZone, string]
+	GetStudent           cqrs.QueryHandler[query.GetStudent, domain.Student]
+	ListSessions         cqrs.QueryHandler[query.ListSessions, []domain.Session]
+	ListStudents         cqrs.QueryHandler[query.ListStudents, query.ListStudentsResult]
+	StudentAccount       cqrs.QueryHandler[query.StudentAccount, domain.Account]
+	StudentFacets        cqrs.QueryHandler[query.StudentFacets, domain.StudentFacets]
 }
 
 func New(users domain.Users, tokens *token.Issuer, refreshTTL time.Duration, repo domain.Students, stats stats.Source) *Application {
@@ -137,11 +150,14 @@ func New(users domain.Users, tokens *token.Issuer, refreshTTL time.Duration, rep
 			ChangePassword:         command.ChangePasswordHandler{Service: service},
 			CreateStudent:          command.CreateStudentHandler{Students: students},
 			GoogleSignIn:           command.GoogleSignInHandler{Service: service},
+			IssueSetPasswordLink:   command.IssueSetPasswordLinkHandler{Service: service},
 			LinkGoogle:             command.LinkGoogleHandler{Service: service},
 			Login:                  command.LoginHandler{Service: service},
 			Logout:                 command.LogoutHandler{Service: service},
 			PruneExpiredTokens:     command.PruneExpiredTokensHandler{Service: service},
 			Refresh:                command.RefreshHandler{Service: service},
+			RequestSetPasswordLink: command.RequestSetPasswordLinkHandler{Service: service},
+			SetPasswordWithLink:    command.SetPasswordWithLinkHandler{Service: service},
 			UpdateProfile:          command.UpdateProfileHandler{Service: service},
 			UpdatePreferences:      command.UpdatePreferencesHandler{Service: service},
 			ResetStudentPassword:   command.ResetStudentPasswordHandler{Students: students},
@@ -152,14 +168,15 @@ func New(users domain.Users, tokens *token.Issuer, refreshTTL time.Duration, rep
 			UpdateStudent:          command.UpdateStudentHandler{Students: students},
 		},
 		Queries: Queries{
-			AvatarURL:      query.AvatarURLHandler{Service: service},
-			CurrentUser:    query.CurrentUserHandler{Service: service},
-			EffectiveZone:  query.EffectiveZoneHandler{Service: service},
-			GetStudent:     query.GetStudentHandler{Students: students},
-			ListSessions:   query.ListSessionsHandler{Service: service},
-			ListStudents:   query.ListStudentsHandler{Students: students},
-			StudentAccount: query.StudentAccountHandler{Students: students},
-			StudentFacets:  query.StudentFacetsHandler{Students: students},
+			AvatarURL:            query.AvatarURLHandler{Service: service},
+			CheckSetPasswordLink: query.CheckSetPasswordLinkHandler{Service: service},
+			CurrentUser:          query.CurrentUserHandler{Service: service},
+			EffectiveZone:        query.EffectiveZoneHandler{Service: service},
+			GetStudent:           query.GetStudentHandler{Students: students},
+			ListSessions:         query.ListSessionsHandler{Service: service},
+			ListStudents:         query.ListStudentsHandler{Students: students},
+			StudentAccount:       query.StudentAccountHandler{Students: students},
+			StudentFacets:        query.StudentFacetsHandler{Students: students},
 		},
 		service:  service,
 		students: students,

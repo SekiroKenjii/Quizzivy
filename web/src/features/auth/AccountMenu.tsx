@@ -32,11 +32,12 @@ import {
   DropdownMenuMeta,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { holds, useWorkspace } from "@/features/auth/permissions";
+import { holds } from "@/features/auth/permissions";
 import { useLogout } from "@/features/auth/useSession";
 import type { StaffWorkspace } from "@/layouts/shell/nav";
 import type { components } from "@/lib/api/schema";
 import { asLocale } from "@/lib/i18n/useLocale";
+import { roleName } from "@/lib/roleName";
 import { useResolvedTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { authStore, useAuthStore } from "@/stores/auth";
@@ -193,16 +194,17 @@ function useSignOut() {
   return { pending, signOut };
 }
 
-function FootIdentity({ name }: Readonly<{ name: string }>) {
+function FootIdentity({ name, role }: Readonly<{ name: string; role: User["role"] }>) {
   const { t } = useTranslation();
-  const admin = useWorkspace("admin");
   return (
     <>
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm leading-tight font-medium">{name}</span>
-        <span className="text-muted-fg truncate text-xs leading-tight">
-          {admin ? t("teacherShell.role.admin") : t("teacherShell.role.teacher")}
-        </span>
+        {role && (
+          <span className="text-muted-fg truncate text-xs leading-tight">
+            {roleName(role, t)}
+          </span>
+        )}
       </span>
       <ChevronsUpDown
         className="text-muted-fg size-[0.9375rem] flex-none"
@@ -252,7 +254,7 @@ function DeckAccountMenu({
           {...form.avatar}
         />
         {sidebar === "expanded" && (
-          <FootIdentity name={user.displayName ?? user.fullName} />
+          <FootIdentity name={user.displayName ?? user.fullName} role={user.role} />
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent

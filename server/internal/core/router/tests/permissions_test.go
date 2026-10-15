@@ -64,8 +64,8 @@ func TestEveryNonOpenOperationDeclaresAPermission(t *testing.T) {
 func TestOpenOperationsDeclareNone(t *testing.T) {
 	spec := freshSpec(t)
 	open := openPatterns(spec)
-	if len(open) != 9 {
-		t.Errorf("%d open operations, want the nine of theOpenNine", len(open))
+	if len(open) != 11 {
+		t.Errorf("%d open operations, want the eleven of theOpenEleven", len(open))
 	}
 	eachOperation(spec, func(pattern string, op *openapi3.Operation) {
 		if _, isOpen := open[pattern]; !isOpen {
@@ -82,8 +82,8 @@ func TestEveryDeclaredValueIsKnown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(requirements) != 158 {
-		t.Errorf("%d operations declare a permission, want 158", len(requirements))
+	if len(requirements) != 159 {
+		t.Errorf("%d operations declare a permission, want 159", len(requirements))
 	}
 	for pattern, requirement := range requirements {
 		for _, k := range requirement.Keys() {

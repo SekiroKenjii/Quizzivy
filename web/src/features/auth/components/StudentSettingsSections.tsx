@@ -32,6 +32,7 @@ import {
   type ChangePasswordValues,
 } from "@/features/auth/changePasswordSchema";
 import { GoogleMark } from "@/features/auth/components/GoogleMark";
+import { SetPasswordLinkButton } from "@/features/auth/components/SetPasswordLinkButton";
 import {
   googleSignInAvailable,
   useGoogleSignIn,
@@ -47,6 +48,8 @@ import { useThemePreference, type ThemePreference } from "@/lib/theme";
 import { notify } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { usePasswordChanged } from "@/features/auth/passwordChanged";
+import { useSetPasswordLinkRequest } from "@/features/auth/setPasswordLink";
+import { useKnownPasswordSignInOff } from "@/features/organization/api";
 import { authStore, useAuthStore } from "@/stores/auth";
 
 const CARD = "bg-card shadow-card rounded-xl border";
@@ -264,8 +267,9 @@ export function StudentProfileSection() {
  * design deck draws it: a password row that opens the change form, and the
  * Google row. An account with no password has no password row, and its Unlink
  * stays in the tab order, switched off, beside the reason: Google is then its
- * only way in. The strength meter only advises; the form's rules and the
- * server decide.
+ * only way in. Such an account can ask for an emailed link to set a password
+ * (T-R5.3), unless the centre is known to have password sign-in off. The
+ * strength meter only advises; the form's rules and the server decide.
  */
 export function StudentSignInSection() {
   const { t } = useTranslation();
@@ -462,14 +466,18 @@ function GoogleRow() {
     (s) => s.user?.linkedProviders.includes("google") ?? false,
   );
   const hasPassword = useAuthStore((s) => s.user?.hasPassword ?? false);
+  const email = useAuthStore((s) => s.user?.email ?? "");
   const mounted = useMounted();
   const google = useGoogleSignIn();
+  const passwordsOff = useKnownPasswordSignInOff();
+  const link = useSetPasswordLinkRequest();
   const [failure, setFailure] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const available = googleSignInAvailable();
   const problem = failure ?? google.error;
   const locked = pending || !hasPassword;
   const sentence = !linked || !hasPassword;
+  const offerLink = linked && !hasPassword && !passwordsOff;
 
   async function unlink() {
     setFailure(null);
@@ -498,7 +506,7 @@ function GoogleRow() {
             {t("student.settings.google")}
           </span>
           <span id={`${GOOGLE}-status`} className={cn(ROW_SUB, "break-words")}>
-            {googleStatus({ linked, hasPassword, available }, t)}
+            {googleStatus({ linked, hasPassword, available, passwordsOff }, t)}
           </span>
         </span>
         {linked && (
@@ -538,18 +546,43 @@ function GoogleRow() {
           {problem}
         </p>
       )}
+      {offerLink && (
+        <div className="flex flex-col items-start gap-2.5 px-4 pb-3.5">
+          {link.request.state === "sent" && (
+            <p role="status" className={NOTE}>
+              {t("settings.setPasswordLink.sent", { email })}
+            </p>
+          )}
+          {link.request.state === "failed" && (
+            <p role="alert" className={cn(NOTE, "text-danger-ink")}>
+              {link.request.message}
+            </p>
+          )}
+          <SetPasswordLinkButton
+            state={link.request.state}
+            className={cn(ROW_BUTTON, "aria-disabled:opacity-50")}
+            onSend={() => void link.send()}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
 function googleStatus(
-  account: Readonly<{ linked: boolean; hasPassword: boolean; available: boolean }>,
+  account: Readonly<{
+    linked: boolean;
+    hasPassword: boolean;
+    available: boolean;
+    passwordsOff: boolean;
+  }>,
   t: TFunction,
 ): string {
-  if (account.linked)
-    return account.hasPassword
-      ? t("student.settings.googleLinked")
+  if (account.linked && !account.hasPassword)
+    return account.passwordsOff
+      ? t("settings.googleOnlyPasswordsOff")
       : t("settings.googleOnlyExplainer");
+  if (account.linked) return t("student.settings.googleLinked");
   return account.available
     ? t("student.settings.googleNotLinked")
     : t("login.googleUnavailable");

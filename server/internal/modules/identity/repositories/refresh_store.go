@@ -53,7 +53,7 @@ func (s *Users) Rotate(ctx context.Context, tokenHash []byte, next domain.Refres
 
 	user, err := scanUser(tx.QueryRow(ctx, userProjection+`
 		 WHERE u.id = $1
-		 GROUP BY u.id`, claimed.userID))
+		 `+userGrouping, claimed.userID))
 	if err != nil {
 		return domain.RotateResult{}, fmt.Errorf("load token owner: %w", err)
 	}

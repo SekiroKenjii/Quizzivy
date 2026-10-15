@@ -154,6 +154,45 @@ func (p *Postgres) Fetch(ctx context.Context, in domain.Fetch, sign domain.Signe
 	return url, nil
 }
 
+// Lapsed lists Ready exports past expires_at, oldest first.
+func (p *Postgres) Lapsed(ctx context.Context, limit int) ([]domain.Lapse, error) {
+	rows, err := p.Query(ctx, `
+		SELECT e.id::text, e.storage_key
+		  FROM app.data_exports e
+		 WHERE e.status = 'ready' AND e.expires_at <= now()
+		 ORDER BY e.expires_at
+		 LIMIT $1`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("exports: list the lapsed exports: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.Lapse
+	for rows.Next() {
+		var lapse domain.Lapse
+		if err := rows.Scan(&lapse.ID, &lapse.StorageKey); err != nil {
+			return nil, fmt.Errorf("exports: read a lapsed export: %w", err)
+		}
+		out = append(out, lapse)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("exports: list the lapsed exports: %w", err)
+	}
+	return out, nil
+}
+
+// Expire marks the export expired and clears its key, only while it is Ready
+// and lapsed.
+func (p *Postgres) Expire(ctx context.Context, id string) (bool, error) {
+	tag, err := p.Exec(ctx, `
+		UPDATE app.data_exports
+		   SET status = 'expired', storage_key = NULL
+		 WHERE id = $1::uuid AND status = 'ready' AND expires_at <= now()`, id)
+	if err != nil {
+		return false, fmt.Errorf("exports: mark the export expired: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
 func (p *Postgres) whyNot(ctx context.Context, q db.Querier, in domain.Fetch) error {
 	exists, err := db.Exists(ctx, q, `SELECT 1 FROM app.data_exports WHERE id = $1::uuid AND requested_by = $2::uuid`, in.ID, in.ActorID)
 	if err != nil {
