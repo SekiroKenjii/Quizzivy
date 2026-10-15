@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"sort"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -15,15 +16,15 @@ const (
 	shortestHinted = 8
 )
 
-var keySeparators = strings.NewReplacer("_", "", "-", "")
-
 var hintedKeys = map[string]bool{"code": true, "joincode": true, "codehash": true}
 
-var droppedKeys = map[string]bool{
-	"password": true, "temporarypassword": true, "currentpassword": true, "newpassword": true,
-	"oldpassword": true, "passwordhash": true, "token": true, "accesstoken": true,
-	"refreshtoken": true, "secret": true, "clientsecret": true, "apikey": true,
+var droppedFragments = []string{
+	"password", "passwd", "passcode", "passphrase", "token", "secret", "authorization",
+	"credential", "cookie", "ciphertext", "apikey", "privatekey", "accesskey",
+	"signingkey", "encryptionkey", "masterkey", "hmackey",
 }
+
+var droppedNames = map[string]bool{"otp": true, "totp": true, "pin": true, "pwd": true}
 
 // Change is one field an entry changed, with the value it had and the value it
 // has. Either may be nil, which is JSON null.
@@ -47,9 +48,12 @@ type Presentation struct {
 // every other key is a detail, and a diff that is not an object is the one
 // detail "value". A key named code, joinCode or code_hash, at any depth, is
 // shown as "••••-" and its last four characters, or as "••••" when its value
-// is short or is not text; a key named password, temporaryPassword, token or
-// secret, or one of their near variants, is left out, whatever was stored.
-// Key names are compared without case, underscores and hyphens.
+// is short or is not text; a key whose name contains password, passcode, token,
+// secret, authorization, credential, cookie, ciphertext or the name of a key
+// (apiKey, privateKey, accessKey, signingKey), or is exactly otp or pin, is left
+// out, whatever was stored: resetToken, tokenHash and secretKey go with token and
+// secret. Key names are compared without case, spaces, underscores, hyphens and
+// any other punctuation.
 func Present(diff []byte) Presentation {
 	out := Presentation{Changes: []Change{}}
 	diff = bytes.TrimSpace(diff)
@@ -128,9 +132,27 @@ func hinted(v any) any {
 	return hintPrefix + string(runes[len(runes)-hintLength:])
 }
 
-func isDropped(key string) bool { return droppedKeys[normalise(key)] }
+func isDropped(key string) bool {
+	name := normalise(key)
+	if droppedNames[name] {
+		return true
+	}
+	for _, fragment := range droppedFragments {
+		if strings.Contains(name, fragment) {
+			return true
+		}
+	}
+	return false
+}
 
-func normalise(key string) string { return keySeparators.Replace(strings.ToLower(key)) }
+func normalise(key string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return unicode.ToLower(r)
+		}
+		return -1
+	}, key)
+}
 
 func sortedKeys(m map[string]any) []string {
 	keys := make([]string, 0, len(m))
