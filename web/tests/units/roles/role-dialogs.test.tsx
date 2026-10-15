@@ -341,7 +341,7 @@ describe("Edit role", () => {
       "Giáo viên",
     );
     expect(within(dialog).getByRole("textbox", { name: /Mô tả/ })).toHaveValue(
-      "Soạn bài, quản lý lớp, chấm điểm.",
+      "Soạn đề, quản lý lớp, chấm bài.",
     );
     const colours = within(dialog).getByRole("radiogroup", { name: "Màu thẻ" });
     expect(within(colours).getAllByRole("radio")).toHaveLength(7);
@@ -442,7 +442,7 @@ describe("Edit role", () => {
     expect(sent).toHaveLength(0);
   });
 
-  it("does not store a built-in role's English name when only its look changes", async () => {
+  it("does not store a built-in role's English name or description when only its look changes", async () => {
     await i18n.changeLanguage("en");
     serveRoles();
     const sent = serveUpdate((body) => ({
@@ -455,6 +455,9 @@ describe("Edit role", () => {
     const dialog = await screen.findByRole("dialog", { name: "Edit role" });
     expect(within(dialog).getByRole("textbox", { name: /Name/ })).toHaveValue(
       "Teacher",
+    );
+    expect(within(dialog).getByRole("textbox", { name: /Description/ })).toHaveValue(
+      "Builds tests, runs classes, grades.",
     );
     await user.click(within(dialog).getByRole("radio", { name: "Blue" }));
     await user.click(within(dialog).getByRole("button", { name: "Save role" }));

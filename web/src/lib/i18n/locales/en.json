@@ -430,6 +430,12 @@
       "teacher": "Teacher",
       "assistant": "Assistant",
       "student": "Student"
+    },
+    "builtinDescription": {
+      "admin": "Runs the centre. Manages people and settings.",
+      "teacher": "Builds tests, runs classes, grades.",
+      "assistant": "Helps teachers grade and take attendance.",
+      "student": "Takes tests and sees their own results."
     }
   },
   "roles": {
@@ -465,8 +471,8 @@
     },
     "changed_one": "{{count}} permission changed. People get the new permissions on their next page load.",
     "changed_other": "{{count}} permissions changed. People get the new permissions on their next page load.",
-    "takingNow_one": "{{count}} person is taking a test right now.",
-    "takingNow_other": "{{count}} people are taking a test right now.",
+    "takingNow_one": "{{count}} test attempt is in progress right now.",
+    "takingNow_other": "{{count}} test attempts are in progress right now.",
     "saved": "Permissions saved",
     "saveFailed": "Could not save the permissions. Try again.",
     "stale": "Someone just changed these roles. The table has been reloaded; check the marked cells and save again.",

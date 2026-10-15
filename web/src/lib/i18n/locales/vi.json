@@ -430,6 +430,12 @@
       "teacher": "Giáo viên",
       "assistant": "Trợ giảng",
       "student": "Học viên"
+    },
+    "builtinDescription": {
+      "admin": "Điều hành trung tâm. Quản lý người dùng và cài đặt.",
+      "teacher": "Soạn đề, quản lý lớp, chấm bài.",
+      "assistant": "Hỗ trợ giáo viên chấm bài và điểm danh.",
+      "student": "Làm bài và xem kết quả của mình."
     }
   },
   "roles": {
@@ -465,8 +471,8 @@
     },
     "changed_one": "{{count}} quyền đã thay đổi. Mọi người nhận quyền mới ở lần tải trang tiếp theo.",
     "changed_other": "{{count}} quyền đã thay đổi. Mọi người nhận quyền mới ở lần tải trang tiếp theo.",
-    "takingNow_one": "{{count}} người đang làm bài ngay lúc này.",
-    "takingNow_other": "{{count}} người đang làm bài ngay lúc này.",
+    "takingNow_one": "{{count}} lượt làm bài đang diễn ra ngay lúc này.",
+    "takingNow_other": "{{count}} lượt làm bài đang diễn ra ngay lúc này.",
     "saved": "Đã lưu quyền",
     "saveFailed": "Không lưu được quyền. Hãy thử lại.",
     "stale": "Có người vừa thay đổi các vai trò này. Bảng đã được tải lại; hãy kiểm tra các ô đã đánh dấu rồi lưu lại.",

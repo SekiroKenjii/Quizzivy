@@ -118,8 +118,9 @@ export function revisionsOf(
 }
 
 /**
- * takingNow counts the people who are mid-test and hold a role that loses
- * Take tests in `changes`.
+ * takingNow counts the attempts in progress right now by people who hold a
+ * role that loses Take tests in `changes`. It counts attempts, as the
+ * contract's `inProgressAttempts` does, so one person on two assignments is two.
  */
 export function takingNow(
   changes: readonly RolePermissionChange[],

@@ -99,6 +99,26 @@ describe("the page", () => {
     ).toBeNull();
   });
 
+  it("reads a built-in role's seeded description in English, and a custom one as stored", async () => {
+    await i18n.changeLanguage("en");
+    serveRoles();
+    renderPage();
+    const teacherCard = await screen.findByRole("article", { name: "Teacher" });
+    expect(
+      within(teacherCard).getByText("Builds tests, runs classes, grades."),
+    ).toBeVisible();
+    expect(
+      within(screen.getByRole("article", { name: "Admin" })).getByText(
+        "Runs the centre. Manages people and settings.",
+      ),
+    ).toBeVisible();
+    expect(
+      within(screen.getByRole("article", { name: HEAD_NAME })).getByText(
+        "Dẫn dắt nhóm IELTS",
+      ),
+    ).toBeVisible();
+  });
+
   it("draws the matrix: a column for each role including the Assistant, and the groups", async () => {
     serveRoles();
     renderPage();
@@ -294,14 +314,16 @@ describe("the unsaved changes", () => {
     expect(screen.queryByText(CHANGED(2))).toBeNull();
   });
 
-  it("warns how many people are mid-test when a role loses Take tests", async () => {
+  it("warns how many attempts are in progress when a role loses Take tests", async () => {
     serveRoles();
     const { user } = renderPage();
     await screen.findByRole("grid");
     await user.click(cell(TAKE_TESTS, HEAD_NAME));
-    expect(await screen.findByText("2 người đang làm bài ngay lúc này.")).toBeVisible();
+    expect(
+      await screen.findByText("2 lượt làm bài đang diễn ra ngay lúc này."),
+    ).toBeVisible();
     await user.click(cell(TAKE_TESTS, HEAD_NAME));
-    expect(screen.queryByText(/đang làm bài ngay lúc này/)).toBeNull();
+    expect(screen.queryByText(/đang diễn ra ngay lúc này/)).toBeNull();
   });
 
   it("says the same in English, in the singular too", async () => {
@@ -321,7 +343,7 @@ describe("the unsaved changes", () => {
         "1 permission changed. People get the new permissions on their next page load.",
       ),
     ).toBeVisible();
-    expect(screen.getByText("1 person is taking a test right now.")).toBeVisible();
+    expect(screen.getByText("1 test attempt is in progress right now.")).toBeVisible();
   });
 });
 
@@ -432,6 +454,76 @@ describe("saving", () => {
       expectedRevisions: [{ roleId: TEACHER_ID, revision: 4 }],
     });
     expect(refused).toHaveLength(1);
+  });
+
+  it("reads the caller's own permissions again after a refusal for what they may not change, so the cell is locked", async () => {
+    const seen = serveRoles();
+    let me = 0;
+    server.use(
+      http.put(`${BASE}/admin/roles/permissions`, () =>
+        contractJson("/admin/roles/permissions", "put", 403, {
+          error: {
+            code: "TARGET_ROLE_NOT_ALLOWED",
+            message: "Bạn không đổi được quyền này.",
+            requestId: "019535d9-3df7-79fb-b466-fa907fa17f9e",
+          },
+        }),
+      ),
+      http.get(`${BASE}/auth/me`, () => {
+        me += 1;
+        return contractJson("/auth/me", "get", 200, {
+          ...headUser,
+          permissions: headUser.permissions.filter(
+            (key) => key !== "content.tests.write",
+          ),
+        });
+      }),
+    );
+    const { user } = renderPage(headUser);
+    await screen.findByRole("grid");
+    expect(cell(WRITE, "Học viên")).not.toHaveAttribute("aria-disabled");
+    await user.click(cell(WRITE, "Học viên"));
+    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+
+    await waitFor(() => expect(me).toBe(1));
+    await waitFor(() => expect(seen.reads).toBe(2));
+    await waitFor(() =>
+      expect(cell(WRITE, "Học viên")).toHaveAttribute(
+        "title",
+        "Bạn chỉ đổi được những quyền bạn có.",
+      ),
+    );
+  });
+
+  it("leaves the caller's permissions alone after a stale save", async () => {
+    serveRoles();
+    let me = 0;
+    server.use(
+      http.put(`${BASE}/admin/roles/permissions`, () =>
+        contractJson("/admin/roles/permissions", "put", 409, {
+          error: {
+            code: "STALE_WRITE",
+            message: "Vai trò đã thay đổi.",
+            requestId: "019535d9-3df7-79fb-b466-fa907fa17f9e",
+          },
+        }),
+      ),
+      http.get(`${BASE}/auth/me`, () => {
+        me += 1;
+        return contractJson("/auth/me", "get", 200, headUser);
+      }),
+    );
+    const { user } = renderPage(headUser);
+    await screen.findByRole("grid");
+    await user.click(cell(WRITE, "Học viên"));
+    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+
+    expect(
+      await screen.findByText(
+        "Có người vừa thay đổi các vai trò này. Bảng đã được tải lại; hãy kiểm tra các ô đã đánh dấu rồi lưu lại.",
+      ),
+    ).toBeVisible();
+    expect(me).toBe(0);
   });
 
   it("holds the bar still while the save is out", async () => {

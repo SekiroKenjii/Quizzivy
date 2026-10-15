@@ -24,13 +24,12 @@ import {
 import { EditRoleButton } from "@/features/roles/components/EditRoleButton";
 import { PermissionMatrix } from "@/features/roles/components/PermissionMatrix";
 import { EditRoleDialog, NewRoleDialog } from "@/features/roles/components/RoleDialog";
+import { reloadAfterRefusal } from "@/features/roles/refusal";
 import { RoleCarousel } from "@/features/roles/components/RoleCarousel";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { ApiError, failureMessage } from "@/lib/api/errors";
 import { notify } from "@/lib/toast";
 import { useAuthStore } from "@/stores/auth";
-
-const REFRESHING = new Set(["STALE_WRITE", "TARGET_ROLE_NOT_ALLOWED"]);
 
 /**
  * RolesBoard is the loaded Roles & permissions page: the carousel of roles,
@@ -93,8 +92,7 @@ export function RolesBoard({
       setFailure(
         stale ? t("roles.stale") : failureMessage(cause, t("roles.saveFailed")),
       );
-      if (cause instanceof ApiError && REFRESHING.has(cause.code))
-        void queryClient.invalidateQueries({ queryKey: ROLES_KEY });
+      reloadAfterRefusal(cause, queryClient);
     },
   });
 

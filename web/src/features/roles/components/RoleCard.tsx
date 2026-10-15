@@ -4,7 +4,7 @@ import { ArrowDown } from "lucide-react";
 import type { RoleSummary } from "@/features/roles/api";
 import { iconOf, LOOKS } from "@/features/roles/roleLook";
 import { IconTile } from "@/components/shared/IconTile";
-import { roleName } from "@/lib/roleName";
+import { roleDescription, roleName } from "@/lib/roleName";
 import { cn } from "@/lib/utils";
 
 function Figure({ value, label }: Readonly<{ value: number; label: string }>) {
@@ -40,6 +40,7 @@ export function RoleCard({
   const { t } = useTranslation();
   const look = LOOKS[role.color];
   const name = roleName(role, t);
+  const description = roleDescription(role, t);
   return (
     <article
       aria-label={name}
@@ -67,9 +68,9 @@ export function RoleCard({
         <h2 className="min-w-0 text-[22px] leading-[1.2] font-semibold tracking-[-0.02em] break-words">
           {name}
         </h2>
-        {role.description !== "" && (
+        {description !== "" && (
           <p className="text-[0.84375rem] leading-normal text-pretty opacity-80">
-            {role.description}
+            {description}
           </p>
         )}
       </div>

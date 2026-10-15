@@ -24,11 +24,11 @@ import {
   type NewRoleValues,
 } from "@/features/roles/roleFields";
 import { ApiError } from "@/lib/api/errors";
-import { roleName } from "@/lib/roleName";
+import { reloadAfterRefusal } from "@/features/roles/refusal";
+import { roleDescription, roleName } from "@/lib/roleName";
 import { notify } from "@/lib/toast";
 
 const EMPTY: NewRoleValues = { name: "", from: NO_SOURCE, description: "" };
-const REFRESHING = new Set(["STALE_WRITE", "TARGET_ROLE_NOT_ALLOWED"]);
 
 function isCode(cause: unknown, ...codes: string[]): boolean {
   return cause instanceof ApiError && codes.includes(cause.code);
@@ -78,10 +78,7 @@ export function NewRoleDialog({
       notify.success(t("roles.newRole.created", { name: created.name }));
       onCreated(created);
     },
-    onError: (cause) => {
-      if (isCode(cause, "TARGET_ROLE_NOT_ALLOWED"))
-        void queryClient.invalidateQueries({ queryKey: ROLES_KEY });
-    },
+    onError: (cause) => reloadAfterRefusal(cause, queryClient),
   });
 
   let error: string | null = null;
@@ -152,7 +149,7 @@ export function EditRoleDialog({
     () => ({
       icon: role?.icon ?? "key-round",
       name: role === null ? "" : roleName(role, t),
-      description: role?.description ?? "",
+      description: role === null ? "" : roleDescription(role, t),
       color: role?.color ?? "gray",
     }),
     [role, t],
@@ -179,10 +176,7 @@ export function EditRoleDialog({
       );
       notify.success(t("roles.editRole.saved"));
     },
-    onError: (cause) => {
-      if (cause instanceof ApiError && REFRESHING.has(cause.code))
-        void queryClient.invalidateQueries({ queryKey: ROLES_KEY });
-    },
+    onError: (cause) => reloadAfterRefusal(cause, queryClient),
   });
 
   let error: string | null = null;
