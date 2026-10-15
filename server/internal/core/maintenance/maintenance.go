@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/retention"
 )
 
 // RetentionReport describes one bounded batch using the database's UTC calendar cutoff.
@@ -32,13 +33,14 @@ func cutoffBefore(ctx context.Context, conn db.Querier, months int) (time.Time, 
 	return cutoff, err
 }
 
-const retentionCandidates = `SELECT e.id FROM app.attempt_events e
- JOIN app.attempts at ON at.id=e.attempt_id
- JOIN app.assignments a ON a.id=at.assignment_id
- WHERE e.received_at < $1 AND coalesce(a.closed_at,a.closes_at) < $1
+var eventsDue = `FROM app.attempt_events e
+ JOIN app.attempts at ON at.id = e.attempt_id ` + retention.AttemptJoins + `
+ WHERE e.received_at < $1 AND ` + retention.ClosedBefore("$1")
+
+var retentionCandidates = `SELECT e.id ` + eventsDue + `
  ORDER BY e.received_at,e.id LIMIT $2`
 
-// RetainEvents counts or deletes one bounded batch of integrity events once both their receipt and their assignment's close are months old, on the UTC calendar.
+// RetainEvents counts or deletes one bounded batch of integrity events once both their receipt and the close of their assignment for the student, an override included, are months old, on the UTC calendar.
 // Apply writes as the caller's role; no application-role privileges are changed.
 func RetainEvents(ctx context.Context, conn db.Querier, months int, apply bool, batch int) (RetentionReport, error) {
 	var out RetentionReport

@@ -178,6 +178,12 @@ func (w *sweepWorld) override(assignment, student string, closes time.Time) {
 		VALUES ($1, $2, $3, 'gia hạn cho học viên')`, assignment, student, closes)
 }
 
+func (w *sweepWorld) durationOnly(assignment, student string) {
+	w.t.Helper()
+	w.exec(`INSERT INTO app.assignment_student_overrides(assignment_id, student_id, duration_minutes, reason)
+		VALUES ($1, $2, 90, 'thêm thời gian làm bài')`, assignment, student)
+}
+
 func (w *sweepWorld) answers(attempt string) {
 	w.t.Helper()
 	for _, q := range w.questions[:2] {
@@ -545,12 +551,30 @@ func TestTheEventsStepUsesTheConfiguredMonthsOnReceiptAndClose(t *testing.T) {
 		cutoff := w.cutoff(6)
 		before, after := cutoff.Add(-w.margin), cutoff.Add(w.margin)
 		student := w.user("Học viên", "student")
-		closed := w.attempt(w.closedAt(before), student, "submitted", before)
+		closedAssignment := w.closedAt(before)
+		closed := w.attempt(closedAssignment, student, "submitted", before)
 		open := w.attempt(w.assignment(before.Add(-48*time.Hour), cutoff.AddDate(0, 3, 0), nil), w.user("Học viên khác", "student"), "submitted", before)
 		closedLate := w.attempt(w.closedAt(after), w.user("Học viên nữa", "student"), "submitted", before)
 
+		overridden := func(closes *time.Time) string {
+			student := w.user("Học viên có ngoại lệ", "student")
+			attempt := w.attempt(closedAssignment, student, "submitted", before)
+			if closes == nil {
+				w.durationOnly(closedAssignment, student)
+			} else {
+				w.override(closedAssignment, student, *closes)
+			}
+			return attempt
+		}
+		longExtension, justAfter, justBefore, earlier := cutoff.AddDate(0, 6, 0), after, cutoff.Add(-w.margin/2), before.Add(-24*time.Hour)
+		heldOpenLong := overridden(&longExtension)
+		heldOpenBriefly := overridden(&justAfter)
+		extensionPassed := overridden(&justBefore)
+		extensionEarlier := overridden(&earlier)
+		durationOnly := overridden(nil)
+
 		w.event(closed, before)
-		remain := 3
+		remain, swept := 3, 4
 		if w.exact {
 			w.event(closed, cutoff)
 			remain++
@@ -558,16 +582,32 @@ func TestTheEventsStepUsesTheConfiguredMonthsOnReceiptAndClose(t *testing.T) {
 		w.event(closed, after)
 		w.event(open, before)
 		w.event(closedLate, before)
+		w.event(heldOpenLong, before)
+		w.event(heldOpenBriefly, before)
+		remain += 2
+		w.event(extensionPassed, before)
+		w.event(extensionEarlier, before)
+		w.event(durationOnly, before)
 
 		report := w.sweep(maintenance.SweepOptions{Apply: true})
-		if report.FocusEvents.Events != 1 || !w.sameInstant(report.FocusEvents.Cutoff, cutoff) {
-			t.Errorf("events step = %+v, want one event at cutoff %s", report.FocusEvents, cutoff)
+		if report.FocusEvents.Events != int64(swept) || !w.sameInstant(report.FocusEvents.Cutoff, cutoff) {
+			t.Errorf("events step = %+v, want %d events at cutoff %s", report.FocusEvents, swept, cutoff)
 		}
 		if got := w.count(`SELECT count(*) FROM app.attempt_events`); got != remain {
 			t.Errorf("%d events remain, want %d", got, remain)
 		}
-		if got := w.count(`SELECT count(*) FROM app.attempts`); got != 3 {
-			t.Errorf("%d attempts remain, want 3", got)
+		for name, attempt := range map[string]string{"override keeping the assignment open for months": heldOpenLong, "override closing just after the cutoff": heldOpenBriefly} {
+			if w.count(`SELECT count(*) FROM app.attempt_events WHERE attempt_id = $1`, attempt) != 1 {
+				t.Errorf("the event of an attempt with an %s was removed", name)
+			}
+		}
+		for name, attempt := range map[string]string{"override that closed before the cutoff": extensionPassed, "override earlier than the assignment's close": extensionEarlier, "override that sets only a duration": durationOnly} {
+			if w.count(`SELECT count(*) FROM app.attempt_events WHERE attempt_id = $1`, attempt) != 0 {
+				t.Errorf("the event of an attempt with an %s was kept", name)
+			}
+		}
+		if got := w.count(`SELECT count(*) FROM app.attempts`); got != 8 {
+			t.Errorf("%d attempts remain, want 8", got)
 		}
 		if w.audits("integrity.retained") != 1 {
 			t.Errorf("%d integrity.retained entries", w.audits("integrity.retained"))

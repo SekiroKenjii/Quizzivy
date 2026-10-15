@@ -248,11 +248,7 @@ func (s *sweeper) events(ctx context.Context, months int, step *EventsStep) erro
 	step.Cutoff = cutoff
 	if !s.opts.Apply {
 		return s.readOnly(ctx, func(tx pgx.Tx) error {
-			return tx.QueryRow(ctx, `SELECT count(e.id)
-				 FROM app.attempt_events e
-				 JOIN app.attempts at ON at.id = e.attempt_id
-				 JOIN app.assignments a ON a.id = at.assignment_id
-				WHERE e.received_at < $1 AND coalesce(a.closed_at, a.closes_at) < $1`, cutoff).Scan(&step.Events)
+			return tx.QueryRow(ctx, `SELECT count(e.id) `+eventsDue, cutoff).Scan(&step.Events)
 		})
 	}
 	for {
