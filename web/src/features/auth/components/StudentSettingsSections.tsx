@@ -560,7 +560,10 @@ function GoogleRow() {
           )}
           <SetPasswordLinkButton
             state={link.request.state}
-            className={cn(ROW_BUTTON, "aria-disabled:opacity-50")}
+            className={cn(
+              ROW_BUTTON,
+              "aria-disabled:border-border/50 aria-disabled:text-foreground/50",
+            )}
             onSend={() => void link.send()}
           />
         </div>
