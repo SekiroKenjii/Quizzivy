@@ -3,6 +3,8 @@ package domain
 import (
 	"context"
 	"errors"
+	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/paging"
 	"time"
 )
 
@@ -71,8 +73,127 @@ type NewUser struct {
 // it, so the account and the message commit together or not at all.
 type LinkIssue func(ctx context.Context, tx LinkTx, userID string) error
 
+// AdminTab is a tab of the Users table. The role tabs include disabled accounts.
+type AdminTab string
+
+const (
+	// TabAll lists every account.
+	TabAll AdminTab = "all"
+	// TabTeachers lists every account that is neither an Admin nor a student target.
+	TabTeachers AdminTab = "teachers"
+	// TabStudents lists the student targets: a role holding at most learning.take_tests.
+	TabStudents AdminTab = "students"
+	// TabAdmins lists the built-in Admin role.
+	TabAdmins AdminTab = "admins"
+	// TabDisabled lists every disabled account.
+	TabDisabled AdminTab = "disabled"
+)
+
+// AdminUserQuery is one page of the Users table. Status is empty for any, or
+// AccountMustChangePassword or AccountNeverSignedIn; a disabled account is
+// never in either, since AccountStatus puts it first.
+type AdminUserQuery struct {
+	Tab    AdminTab
+	Status AccountStatus
+	Query  string
+	Email  string
+	Page   int
+	Limit  int
+}
+
+// AdminUserFacets are the tabs' counts under the query's other filters.
+type AdminUserFacets struct {
+	All, Teachers, Students, Admins, Disabled int
+}
+
+// AdminUserRef names an account.
+type AdminUserRef struct {
+	ID       string
+	FullName string
+}
+
+// AdminClassRef names a class.
+type AdminClassRef struct {
+	ID   string
+	Name string
+}
+
+// OwnedContent counts what an account owns and a transfer would move.
+type OwnedContent struct {
+	Classes, Tests, Questions, Media, Assignments int
+}
+
+// UserEventKind is what a line of an account's recent activity records.
+type UserEventKind string
+
+const (
+	// EventSignIn is the account's latest sign-in; Detail is its method.
+	EventSignIn UserEventKind = "sign_in"
+	// EventAudit is a write the account made; Detail is the audit action.
+	EventAudit UserEventKind = "audit"
+	// EventSubmission is a test the account handed in; Detail is its title.
+	EventSubmission UserEventKind = "submission"
+	// EventClassJoined is a class the account joined; Detail is its name.
+	EventClassJoined UserEventKind = "class_joined"
+)
+
+// UserEvent is one line of an account's recent activity.
+type UserEvent struct {
+	Kind   UserEventKind
+	At     time.Time
+	Detail *string
+}
+
+// MaxUserEvents and MaxUserClasses bound the sheet's two lists.
+const (
+	MaxUserEvents  = 8
+	MaxUserClasses = 20
+)
+
+// AdminUserDetail is one account with what the Users sheet draws beside it.
+// LastActiveAdmin is true when the account is an active Admin and no other
+// active Admin exists.
+type AdminUserDetail struct {
+	User               AdminUser
+	CreatedBy          *AdminUserRef
+	Classes            []AdminClassRef
+	Owned              OwnedContent
+	InProgressAttempts int
+	Events             []UserEvent
+	LastActiveAdmin    bool
+}
+
+// UserCan is what a caller may do to an account, as the guards answer.
+type UserCan struct {
+	ChangeRole, ResetPassword, Disable, SignOut, Transfer bool
+}
+
+// Can applies the guards of an operation on the account to the caller: the
+// subset rule against target, the permissions the operation needs beyond
+// people.users.manage, not acting on oneself where that is refused, and the
+// last active Admin. target is the account's effective permissions.
+func (d AdminUserDetail) Can(by WriteRequest, target access.Set) UserCan {
+	self := d.User.ID == by.ActorID
+	subset := access.CanActOn(by.Grants, target)
+	disabled := d.User.Status == AccountDisabled
+	return UserCan{
+		ChangeRole:    subset && !self && !d.LastActiveAdmin && by.Grants.Has(access.PeopleRolesManage),
+		ResetPassword: subset && !self,
+		Disable:       subset && !self && !d.LastActiveAdmin && !disabled,
+		SignOut:       subset,
+		Transfer:      by.All && disabled,
+	}
+}
+
 // AdminUsers is the account directory of the Admin console.
 type AdminUsers interface {
+	// List returns one page of the accounts the query matches, newest first.
+	List(ctx context.Context, in AdminUserQuery) ([]AdminUser, paging.Page, error)
+	// Facets counts the tabs under the query's filters, Tab apart.
+	Facets(ctx context.Context, in AdminUserQuery) (AdminUserFacets, error)
+	// Detail reads one account, whatever its role, or fails with ErrUserNotFound.
+	Detail(ctx context.Context, id string) (AdminUserDetail, error)
+
 	// Create adds the account, enrols it in ClassID when set, runs issue on the
 	// same transaction when it is not nil, and writes the user.created audit
 	// row. It fails with ErrEmailTaken, ErrClassNotFound when ClassID names no

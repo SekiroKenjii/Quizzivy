@@ -24,6 +24,8 @@ GET /admin/roles/assignable people.users.manage
 GET /admin/settings system.settings.write
 GET /admin/summary workspace.admin
 GET /admin/usage system.settings.write
+GET /admin/users people.users.manage
+GET /admin/users/{id} people.users.manage
 GET /app/assignments learning.take_tests
 GET /app/assignments/{id} learning.take_tests
 GET /app/attempts/{id} learning.take_tests

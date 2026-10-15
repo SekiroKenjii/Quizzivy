@@ -90,11 +90,15 @@ func (a *Application) SetPasswordLinks(links domain.SetPasswordLinks) {
 }
 
 // SetAdminUsers attaches the Admin console's account directory and the access
-// module's say on which roles a caller may give, which opens createUser.
-// Without it Commands.CreateUser is nil and the operation answers 501.
+// module's say on which roles a caller may give, which opens createUser,
+// listUsers and getUser.
+// Without it Commands.CreateUser, Queries.ListUsers and Queries.GetUser are
+// nil and their operations answer 501.
 func (a *Application) SetAdminUsers(repo domain.AdminUsers, roles ports.AssignableRole) {
 	admin := &support.Admin{Repo: repo, Roles: roles, Service: a.service, Students: a.students}
 	a.Commands.CreateUser = command.CreateUserHandler{Admin: admin}
+	a.Queries.ListUsers = query.ListUsersHandler{Admin: admin}
+	a.Queries.GetUser = query.GetUserHandler{Admin: admin}
 }
 
 // SetTemporaryPasswords replaces how a student's temporary password and its hash are made. Tests only.
@@ -142,6 +146,8 @@ type Queries struct {
 	GetStudent           cqrs.QueryHandler[query.GetStudent, domain.Student]
 	ListSessions         cqrs.QueryHandler[query.ListSessions, []domain.Session]
 	ListStudents         cqrs.QueryHandler[query.ListStudents, query.ListStudentsResult]
+	ListUsers            cqrs.QueryHandler[query.ListUsers, query.ListUsersResult]
+	GetUser              cqrs.QueryHandler[query.GetUser, query.GetUserResult]
 	StudentAccount       cqrs.QueryHandler[query.StudentAccount, domain.Account]
 	StudentFacets        cqrs.QueryHandler[query.StudentFacets, domain.StudentFacets]
 }

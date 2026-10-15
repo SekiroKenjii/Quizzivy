@@ -6,6 +6,7 @@ import (
 	"quizzivy/gen/openapi"
 	accessdomain "quizzivy/internal/modules/access/domain"
 	"quizzivy/internal/modules/identity/application/command"
+	"quizzivy/internal/modules/identity/application/query"
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
@@ -13,6 +14,75 @@ import (
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// ListUsers implements GET /admin/users.
+func (h Identity) ListUsers(ctx context.Context, request openapi.ListUsersRequestObject) (openapi.ListUsersResponseObject, error) {
+	if h.app == nil || h.app.Queries.ListUsers == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	in := domain.AdminUserQuery{Tab: domain.TabAll}
+	params := request.Params
+	if params.Tab != nil {
+		in.Tab = domain.AdminTab(*params.Tab)
+	}
+	if params.Status != nil {
+		in.Status = domain.AccountStatus(*params.Status)
+	}
+	if params.Q != nil {
+		in.Query = string(*params.Q)
+	}
+	if params.Email != nil {
+		in.Email = string(*params.Email)
+	}
+	if params.Page != nil {
+		in.Page = int(*params.Page)
+	}
+	if params.Limit != nil {
+		in.Limit = int(*params.Limit)
+	}
+
+	result, err := h.app.Queries.ListUsers.Handle(ctx, query.ListUsers{Query: in})
+	if err != nil {
+		return nil, err
+	}
+	out := openapi.ListUsers200JSONResponse{
+		Items: make([]openapi.AdminUserRow, len(result.Items)),
+		Facets: openapi.AdminUserFacets{
+			All:      result.Facets.All,
+			Teachers: result.Facets.Teachers,
+			Students: result.Facets.Students,
+			Admins:   result.Facets.Admins,
+			Disabled: result.Facets.Disabled,
+		},
+		Page:     result.Page.Number,
+		PageSize: result.Page.Size,
+		Total:    result.Page.Total,
+	}
+	for i, user := range result.Items {
+		out.Items[i] = toAPIAdminUser(user)
+	}
+	return out, nil
+}
+
+// GetUser implements GET /admin/users/{id}.
+func (h Identity) GetUser(ctx context.Context, request openapi.GetUserRequestObject) (openapi.GetUserResponseObject, error) {
+	if h.app == nil || h.app.Queries.GetUser == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	req, ok := studentRequest(ctx)
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+	result, err := h.app.Queries.GetUser.Handle(ctx, query.GetUser{Request: req, ID: request.Id.String()})
+	if errors.Is(err, domain.ErrUserNotFound) {
+		return openapi.GetUser404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
+			httpapi.NotFound(ctx, httpx.Text(ctx, "Không tìm thấy người dùng.", "The user was not found.")))}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return openapi.GetUser200JSONResponse(toAPIAdminUserDetail(result)), nil
+}
 
 // CreateUser implements POST /admin/users.
 func (h Identity) CreateUser(ctx context.Context, request openapi.CreateUserRequestObject) (openapi.CreateUserResponseObject, error) {
@@ -102,4 +172,36 @@ func toAPIAdminUser(u domain.AdminUser) openapi.AdminUserRow {
 	row.SignIn.Password, row.SignIn.Google = u.HasPassword, u.HasGoogle
 	row.Classes.Count, row.Classes.FirstName = u.ClassCount, u.FirstClass
 	return row
+}
+
+func toAPIAdminUserDetail(result query.GetUserResult) openapi.AdminUserDetail {
+	d := result.Detail
+	out := openapi.AdminUserDetail{
+		User:               toAPIAdminUser(d.User),
+		Classes:            make([]openapi.AdminUserClass, len(d.Classes)),
+		InProgressAttempts: d.InProgressAttempts,
+		Activity:           make([]openapi.AdminUserActivity, len(d.Events)),
+		Can: openapi.AdminUserCan{
+			ChangeRole:    result.Can.ChangeRole,
+			ResetPassword: result.Can.ResetPassword,
+			Disable:       result.Can.Disable,
+			SignOut:       result.Can.SignOut,
+			Transfer:      result.Can.Transfer,
+		},
+	}
+	out.OwnedContent.Classes, out.OwnedContent.Tests, out.OwnedContent.Questions = d.Owned.Classes, d.Owned.Tests, d.Owned.Questions
+	out.OwnedContent.Media, out.OwnedContent.Assignments = d.Owned.Media, d.Owned.Assignments
+	if d.CreatedBy != nil {
+		out.CreatedBy = &struct {
+			FullName string       `json:"fullName"`
+			Id       openapi.Uuid `json:"id"`
+		}{FullName: d.CreatedBy.FullName, Id: httpapi.ParseUUID(d.CreatedBy.ID)}
+	}
+	for i, c := range d.Classes {
+		out.Classes[i] = openapi.AdminUserClass{Id: httpapi.ParseUUID(c.ID), Name: c.Name}
+	}
+	for i, e := range d.Events {
+		out.Activity[i] = openapi.AdminUserActivity{Kind: openapi.AdminUserActivityKind(e.Kind), At: e.At, Detail: e.Detail}
+	}
+	return out
 }

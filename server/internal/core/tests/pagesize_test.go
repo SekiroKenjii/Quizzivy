@@ -30,6 +30,7 @@ func TestEveryPageSizeMatchesItsContract(t *testing.T) {
 		"ListMedia":          mediarepo.DefaultLimit,
 		"ListAssignments":    assignmentsrepo.DefaultLimit,
 		"ListStudents":       identityrepo.DefaultLimit,
+		"ListUsers":          identityrepo.AdminUsersDefaultLimit,
 	}
 
 	seen := map[string]bool{}
