@@ -4050,6 +4050,7 @@ components:
       properties:
         kind:
           type: string
+          minLength: 1
           maxLength: 40
           description: |
             Not an enum: an append-only telemetry log reliably gains kinds, and a
