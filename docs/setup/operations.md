@@ -493,7 +493,9 @@ ago (a link that still works never); the files of data exports past their 24
 hours, which are then marked `expired` (this step needs `IMPORT_S3_BUCKET`); and
 the `branding/` logo objects that neither the light nor the dark logo names, once
 they are 24 hours old (this step needs media storage). Two machines running it
-at once only repeat each other's deletes.
+at once only repeat each other's deletes, and one can end a step early, as done,
+when the other has taken the rows it was about to; nothing is lost and the next
+run goes on.
 
 Every step handles 500 rows or objects at a time, at most 20 times and for at
 most a minute, so a run clears 10,000 rows or objects of a step at most and a

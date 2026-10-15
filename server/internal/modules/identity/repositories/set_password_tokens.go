@@ -256,8 +256,7 @@ func (s *SetPasswordLinks) Claim(ctx context.Context, in domain.ClaimLink) (doma
 // reads that many rows at most; the cascade from app.users needs only
 // set_password_tokens_user_idx. It skips a link another transaction has
 // locked, so it never waits on a claim, an issue or a disable and cannot form
-// a cycle with them; a batch that skipped one comes back short and the next
-// run takes it.
+// a cycle with them; a skipped link is left for the next run.
 func (s *SetPasswordLinks) Prune(ctx context.Context, before time.Time, limit int) (int, error) {
 	tag, err := s.Exec(ctx, `
 		DELETE FROM app.set_password_tokens t
