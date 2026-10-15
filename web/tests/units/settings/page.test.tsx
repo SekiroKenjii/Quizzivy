@@ -47,15 +47,19 @@ describe("the teacher's Settings", () => {
     );
   });
 
-  it("adds API reference only for who may open it", () => {
+  it("sends who may read the API reference to the Admin console, and lists it no more", async () => {
     signIn(adminUser);
-    renderSettings("/teacher/settings/api");
+    const { router } = renderSettings("/teacher/settings/api");
 
-    expect(nav().getByRole("link", { name: "Tài liệu API" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
-    expect(screen.getByRole("button", { name: "Mở tài liệu API" })).toBeVisible();
+    await waitFor(() => expect(router.state.location.pathname).toBe("/admin/api"));
+    expect(router.state.historyAction).toBe("REPLACE");
+  });
+
+  it("does not list API reference among the teacher's sections", () => {
+    signIn(adminUser);
+    renderSettings();
+
+    expect(nav().queryByRole("link", { name: "Tài liệu API" })).toBeNull();
   });
 
   it("lists Assignment defaults only for who may assign", async () => {
