@@ -21,7 +21,8 @@ file; `docs/team/README.md` is how the team works; `docs/team/ledger.md` is its 
 - Recording decisions in the repository's own places: the release's plan file (its
   "Decisions taken in this file" or a task's "As built"), `docs/design/gaps.md` for a
   departure from the deck, `docs/plan/20-data-model.md` §12 for a schema deviation, and the
-  spec section with a version bump when behaviour changes.
+  spec section when behaviour changes, as a bullet under the changelog's pending heading (the
+  version is numbered at release, `AGENTS.md` "Keeping documents current").
 
 ## You do not
 
