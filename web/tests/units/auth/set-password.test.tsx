@@ -7,6 +7,7 @@ import { http, HttpResponse } from "msw";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import SetPasswordPage from "@/features/auth/pages/SetPasswordPage";
 import type { SetPasswordLinkInfo } from "@/features/auth/api";
+import { passwordSignInQuery } from "@/features/organization/api";
 import { BASE_URL } from "@/lib/api/client";
 import { setLocale } from "@/lib/i18n";
 import { useAuthStore } from "@/stores/auth";
@@ -89,7 +90,10 @@ const signedIn =
       user,
     });
 
-function land(hash = `#token=${CARRIED}`) {
+function land(
+  hash = `#token=${CARRIED}`,
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   window.history.replaceState(ROUTER_STATE, "", `/set-password${hash}`);
   const router = createMemoryRouter(
     [
@@ -103,9 +107,7 @@ function land(hash = `#token=${CARRIED}`) {
   );
   render(
     <StrictMode>
-      <QueryClientProvider
-        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-      >
+      <QueryClientProvider client={client}>
         <RouterProvider router={router} />
       </QueryClientProvider>
     </StrictMode>,
@@ -379,6 +381,70 @@ describe("the centre's password sign-in switch", () => {
       await screen.findByRole("heading", { level: 1, name: TITLE }),
     ).toBeInTheDocument();
     expect(newField()).toBeInTheDocument();
+  });
+
+  it("shows the form once three seconds pass with no answer from the centre", async () => {
+    checkAnswers(validLink);
+    organizationAnswers(() => new Promise<Response>(() => undefined));
+    land();
+
+    await waitFor(() => expect(checks()).toHaveLength(1));
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    expect(screen.queryByLabelText("Mật khẩu mới")).toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent("Đang kiểm tra liên kết…");
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: TITLE }, { timeout: 4000 }),
+    ).toBeInTheDocument();
+  }, 10_000);
+
+  it("keeps a form that is already shown when a stale answer is corrected to off", async () => {
+    checkAnswers(validLink);
+    const releases: (() => void)[] = [];
+    organizationAnswers(
+      () =>
+        new Promise<Response>((resolve) => {
+          releases.push(() =>
+            resolve(contractJson("/public/organization", "get", 200, OFF)),
+          );
+        }),
+    );
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(
+      passwordSignInQuery().queryKey,
+      { ...OFF, signIn: { google: true, password: true } },
+      { updatedAt: Date.now() - 60_000 },
+    );
+    land(`#token=${CARRIED}`, client);
+
+    await fillIn();
+    await waitFor(() => expect(releases.length).toBeGreaterThan(0));
+    releases.forEach((release) => release());
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(newField()).toHaveValue("mật-khẩu-mới-9");
+    expect(
+      screen.queryByRole("heading", { level: 1, name: "Hãy đăng nhập bằng Google" }),
+    ).toBeNull();
+  });
+
+  it("asks the browser to revalidate the centre's answer, not to reuse a cached one", async () => {
+    checkAnswers(validLink);
+    const reads: RequestCache[] = [];
+    organizationAnswers(() => contractJson("/public/organization", "get", 200, OFF));
+    server.events.on("request:start", ({ request }) => {
+      if (request.url.endsWith("/public/organization")) reads.push(request.cache);
+    });
+    try {
+      land();
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Hãy đăng nhập bằng Google",
+      });
+      expect(reads).toContain("no-cache");
+    } finally {
+      server.events.removeAllListeners();
+    }
   });
 
   it("still calls a dead link dead when passwords are off", async () => {

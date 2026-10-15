@@ -9,7 +9,8 @@ import {
   PasswordSection,
 } from "@/features/auth/components/SettingsSections";
 import { openDocsSession } from "@/features/auth/api";
-import { PUBLIC_ORGANIZATION_KEY, type PublicOrganization } from "@/lib/organization";
+import { passwordSignInQuery } from "@/features/organization/api";
+import type { PublicOrganization } from "@/lib/organization";
 import { BASE_URL } from "@/lib/api/client";
 import { toast } from "@/components/ui/sonner";
 import { useAuthStore } from "@/stores/auth";
@@ -50,7 +51,7 @@ const ORGANIZATION: PublicOrganization = {
 
 function renderGoogle(organization?: PublicOrganization) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  if (organization) client.setQueryData(PUBLIC_ORGANIZATION_KEY, organization);
+  if (organization) client.setQueryData(passwordSignInQuery().queryKey, organization);
   return render(
     <QueryClientProvider client={client}>
       <GoogleSection />
