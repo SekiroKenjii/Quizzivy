@@ -160,37 +160,42 @@ func TestActivityIsCountedPerLocalDayAcrossAMonthBoundary(t *testing.T) {
 	teacher, admin := builtin(t, tx, "teacher"), builtin(t, tx, "admin")
 	s1 := person(t, tx, studentRole, "Học viên 1", who{})
 	s2 := person(t, tx, customRole(t, tx, "learning.take_tests"), "Học viên 2", who{})
+	s3 := person(t, tx, studentRole, "Học viên 3", who{})
 	t1 := person(t, tx, teacher, "Cô Lan", who{})
 	a1 := person(t, tx, admin, "Quản trị", who{})
+	gone := person(t, tx, teacher, "Thầy đã khóa", who{disabled: true})
 
-	beforeJan, err := store.ActiveSince(ctx, day(2001, time.January, 31))
-	if err != nil {
-		t.Fatal(err)
+	week := func(from, to time.Time) int {
+		t.Helper()
+		n, err := store.ActiveBetween(ctx, from, to)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return n
 	}
-	beforeFeb, err := store.ActiveSince(ctx, day(2001, time.February, 1))
-	if err != nil {
-		t.Fatal(err)
-	}
+	jan31, feb1, feb3, feb5 := day(2001, time.January, 31), day(2001, time.February, 1), day(2001, time.February, 3), day(2001, time.February, 5)
+	beforeAll, beforeJan, beforeFeb, beforeLate := week(jan31, feb3), week(jan31, jan31), week(feb1, feb3), week(feb5, feb5)
 
 	for _, row := range []struct {
 		user string
 		on   time.Time
 	}{
-		{s1, day(2001, time.January, 31)}, {t1, day(2001, time.January, 31)},
-		{s1, day(2001, time.February, 1)}, {s2, day(2001, time.February, 1)}, {a1, day(2001, time.February, 1)},
+		{s1, jan31}, {t1, jan31},
+		{s1, feb1}, {s2, feb1}, {a1, feb1}, {gone, feb1},
+		{s3, feb5},
 	} {
 		if _, err := tx.Exec(ctx, `INSERT INTO app.user_activity_days (user_id, day) VALUES ($1, $2)`, row.user, row.on); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	got, err := store.ActiveByDay(ctx, day(2001, time.January, 28), day(2001, time.February, 3))
+	got, err := store.ActiveByDay(ctx, day(2001, time.January, 28), feb3)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := []domain.ActiveDay{
-		{Date: day(2001, time.January, 31), Students: 1, Staff: 1},
-		{Date: day(2001, time.February, 1), Students: 2, Staff: 1},
+		{Date: jan31, Students: 1, Staff: 1},
+		{Date: feb1, Students: 2, Staff: 2},
 	}
 	if len(got) != len(want) {
 		t.Fatalf("days = %+v, want %+v", got, want)
@@ -201,19 +206,19 @@ func TestActivityIsCountedPerLocalDayAcrossAMonthBoundary(t *testing.T) {
 		}
 	}
 
-	afterJan, err := store.ActiveSince(ctx, day(2001, time.January, 31))
-	if err != nil {
-		t.Fatal(err)
-	}
-	afterFeb, err := store.ActiveSince(ctx, day(2001, time.February, 1))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if afterJan-beforeJan != 4 {
-		t.Errorf("active since the 31st: +%d, want +4 distinct accounts", afterJan-beforeJan)
-	}
-	if afterFeb-beforeFeb != 3 {
-		t.Errorf("active since the 1st: +%d, want +3 distinct accounts", afterFeb-beforeFeb)
+	for _, c := range []struct {
+		name     string
+		got, was int
+		want     int
+	}{
+		{"the 31st to the 3rd, the account disabled since included and the 5th left out", week(jan31, feb3), beforeAll, 5},
+		{"the 31st alone", week(jan31, jan31), beforeJan, 2},
+		{"the 1st to the 3rd", week(feb1, feb3), beforeFeb, 4},
+		{"the 5th alone", week(feb5, feb5), beforeLate, 1},
+	} {
+		if c.got-c.was != c.want {
+			t.Errorf("active %s: +%d, want +%d distinct accounts", c.name, c.got-c.was, c.want)
+		}
 	}
 }
 

@@ -643,7 +643,8 @@
     "invalidCredentials": "Email và mật khẩu không khớp. Hãy kiểm tra lỗi gõ, hoặc nhờ giáo viên đặt lại mật khẩu.",
     "haveCode": "Bạn có mã lớp?",
     "joinClass": "Tham gia lớp",
-    "googleFailedTitle": "Không đăng nhập được bằng Google"
+    "googleFailedTitle": "Không đăng nhập được bằng Google",
+    "noMethod": "Hiện chưa có cách đăng nhập nào dùng được. Hãy hỏi quầy lễ tân hoặc quản trị viên của trung tâm."
   },
   "join": {
     "title": "Tham gia lớp học",
@@ -663,6 +664,10 @@
     "joining": "Đang thêm bạn vào {{className}}…",
     "failed": "Không thể tham gia lớp. Vui lòng thử lại.",
     "goToClasses": "Đến lớp của tôi",
+    "off": {
+      "title": "Tham gia bằng mã đang tắt",
+      "body": "Trung tâm hiện không cho phép học viên tự tham gia lớp bằng mã. Hãy nhờ giáo viên thêm bạn vào lớp, hoặc hỏi quầy lễ tân."
+    },
     "joined": {
       "title": "Bạn đã vào lớp {{className}}",
       "body": "{{teacherName}} sẽ thấy bạn trong danh sách lớp.",
