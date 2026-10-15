@@ -14,6 +14,9 @@ const ALLOWED_LITERALS = new Set([
   "/admin/docs-session",
   "/admin/users/{id}",
   "/admin/settings/sign-in",
+  "/admin/roles",
+  "/admin/roles/permissions",
+  "/admin/roles/{id}",
 ]);
 const LITERAL = /(["'`])(\/admin(?=[/"'`?#$]|$)[^"'`]*)/gi;
 
@@ -91,6 +94,9 @@ describe("the teacher's routes live at /teacher", () => {
     ['api("post", "/admin/docs-session")', "the docs session"],
     ['api("delete", "/admin/users/{id}", { path: { id } })', "removing a user"],
     ['api("get", "/admin/ai/credits", { signal })', "the credits read"],
+    ['api("get", "/admin/roles", { signal })', "the roles read"],
+    ['api("put", "/admin/roles/permissions", { body })', "the matrix save"],
+    ['api("patch", "/admin/roles/{id}", { path: { id }, body })', "an edit of a role"],
     ['<Link to="/admin/settings/sign-in">', "the Admin console's sign-in settings"],
     ['<Link to="/teacher/tests">', "the new address"],
     ['<Link to="/administrator">', "a longer word"],

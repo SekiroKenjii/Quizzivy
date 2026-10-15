@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef } from "react";
+import { useEffect, useEffectEvent, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,8 @@ const PAUSED_DISCARD = "aria-disabled:text-foreground/50";
  * DirtyBar is the Teacher deck's unsaved-changes bar: it sticks 12px above
  * the bottom of the page while `dirty`, and renders nothing otherwise. It
  * reads "You have unsaved changes." until `error` is set, which takes the
- * sentence's place as an alert. Discard is a plain button. Save changes
+ * sentence's place as an alert; a caller whose changes the sentence can count
+ * or qualify gives its own as `message`. Discard is a plain button. Save changes
  * submits the form the bar sits in, unless `onSave` is given, which makes it
  * a plain button too. While `saving` both stay focusable but answer
  * `aria-disabled` and ignore a press.
@@ -27,6 +28,7 @@ export function DirtyBar({
   dirty,
   saving = false,
   error = null,
+  message,
   onDiscard,
   onSave,
   returnFocus,
@@ -34,6 +36,7 @@ export function DirtyBar({
   dirty: boolean;
   saving?: boolean | undefined;
   error?: string | null | undefined;
+  message?: ReactNode;
   onDiscard: () => void;
   onSave?: (() => void) | undefined;
   returnFocus: () => HTMLElement | null;
@@ -62,7 +65,9 @@ export function DirtyBar({
       className="bg-card shadow-float sticky bottom-3 flex flex-wrap items-center gap-2.5 rounded-xl border py-2.5 pr-3 pl-4"
     >
       {error === null || error === "" ? (
-        <p className="text-muted-fg min-w-40 flex-1 text-sm">{t("controls.unsaved")}</p>
+        <p className="text-muted-fg min-w-40 flex-1 text-sm">
+          {message ?? t("controls.unsaved")}
+        </p>
       ) : (
         <p role="alert" className="text-danger-ink min-w-40 flex-1 text-sm">
           {error}
