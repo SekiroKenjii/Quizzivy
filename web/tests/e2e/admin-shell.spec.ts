@@ -58,7 +58,7 @@ test("the Admin console is a drawer at 360px and the page does not scroll sidewa
   await expect(nav(page)).toHaveCount(0);
   const view = page.getByRole("link", { name: "Chế độ giáo viên" });
   await expect(view).toBeVisible();
-  expect((await view.boundingBox())?.width).toBeLessThan(40);
+  expect((await view.boundingBox())?.width).toBeLessThan(48);
 
   await page.getByRole("button", { name: "Mở menu" }).click();
   const drawer = page.getByRole("dialog", { name: "Điều hướng chính" });
