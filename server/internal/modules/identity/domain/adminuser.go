@@ -12,6 +12,11 @@ import (
 // the role is not a student target, or the caller lacks scope.all.
 var ErrClassNotAllowed = errors.New("users: a class is allowed only for a student-target role and with scope.all")
 
+// ErrRoleChanged means the role a new account was to be given changed after the
+// caller's right to give it was checked. Nothing was written; the check can be
+// made again.
+var ErrRoleChanged = errors.New("users: the role changed while the account was being created")
+
 // Delivery is how a new account first gets a way in.
 type Delivery string
 
@@ -57,16 +62,19 @@ type AdminUser struct {
 // NewUser is an account to create. Hash is the temporary password's hash for
 // DeliveryTemporaryPassword and empty for DeliveryEmailLink; the caller computes
 // it, because Argon2id blocks on a semaphore that must not be held across a
-// transaction. RoleName is recorded in the audit row beside RoleID.
+// transaction. RoleName is recorded in the audit row beside RoleID, and
+// RoleRevision is the revision of the role the caller's right to give it was
+// checked against.
 type NewUser struct {
-	Email    string
-	FullName string
-	RoleID   string
-	RoleName string
-	ClassID  string
-	Delivery Delivery
-	Hash     string
-	Now      time.Time
+	Email        string
+	FullName     string
+	RoleID       string
+	RoleName     string
+	RoleRevision int64
+	ClassID      string
+	Delivery     Delivery
+	Hash         string
+	Now          time.Time
 }
 
 // LinkIssue issues the new account its invite on the transaction that creates
@@ -171,7 +179,8 @@ type UserCan struct {
 // Can applies the guards of an operation on the account to the caller: the
 // subset rule against target, the permissions the operation needs beyond
 // people.users.manage, not acting on oneself where that is refused, and the
-// last active Admin. target is the account's effective permissions.
+// last active Admin, which matters only to a caller who holds every permission
+// without being an Admin. target is the account's effective permissions.
 func (d AdminUserDetail) Can(by WriteRequest, target access.Set) UserCan {
 	self := d.User.ID == by.ActorID
 	subset := access.CanActOn(by.Grants, target)
@@ -196,8 +205,10 @@ type AdminUsers interface {
 
 	// Create adds the account, enrols it in ClassID when set, runs issue on the
 	// same transaction when it is not nil, and writes the user.created audit
-	// row. It fails with ErrEmailTaken, ErrClassNotFound when ClassID names no
-	// class that is not archived, and whatever issue fails with, having written
+	// row. It holds the role FOR SHARE, so no change to its grants lands before
+	// the commit. It fails with ErrRoleChanged when the role is no longer at
+	// RoleRevision, ErrEmailTaken, ErrClassNotFound when ClassID names no class
+	// that is not archived, and whatever issue fails with, having written
 	// nothing.
 	Create(ctx context.Context, req WriteRequest, in NewUser, issue LinkIssue) (AdminUser, error)
 }

@@ -19,6 +19,7 @@ import (
 	accessrepo "quizzivy/internal/modules/access/repositories"
 	"quizzivy/internal/modules/identity/application"
 	"quizzivy/internal/modules/identity/application/command"
+	identityports "quizzivy/internal/modules/identity/application/ports"
 	"quizzivy/internal/modules/identity/application/token"
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/modules/identity/repositories"
@@ -35,6 +36,9 @@ type usersWorld struct {
 	marker string
 	policy organizationmodel.SignInPolicy
 	actor  string
+	links  *repositories.SetPasswordLinks
+	dbx    db.Context
+	roles  identityports.AssignableRole
 }
 
 func newUsersWorld(t *testing.T, withOutbox bool) *usersWorld {
@@ -59,10 +63,11 @@ func newUsersWorld(t *testing.T, withOutbox bool) *usersWorld {
 		outbox = email.NewOutbox(sealer)
 	}
 	links := repositories.NewSetPasswordLinks(dbx, outbox)
+	w.dbx, w.links, w.roles = dbx, links, accessapp.New(accessrepo.NewPostgres(dbx)).Queries.AssignableRole
 	w.app = application.New(repositories.NewUsers(dbx), issuer, 30*24*time.Hour, nil, nil)
 	w.app.SetPasswordLinks(links)
 	w.app.SetSignInPolicy(switchablePolicy(func() organizationmodel.SignInPolicy { return w.policy }))
-	w.app.SetAdminUsers(repositories.NewAdminUsers(dbx, links), accessapp.New(accessrepo.NewPostgres(dbx)).Queries.AssignableRole)
+	w.app.SetAdminUsers(repositories.NewAdminUsers(dbx, links), w.roles)
 	t.Cleanup(func() {
 		ctx := context.Background()
 		owned := `SELECT id FROM app.users WHERE email LIKE '%@' || $1`

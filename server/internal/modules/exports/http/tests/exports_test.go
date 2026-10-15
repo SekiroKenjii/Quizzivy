@@ -77,6 +77,8 @@ func (store) SignedDownloadURL(context.Context, string, string, time.Duration) (
 	return "https://objects.example/x", nil
 }
 
+func (store) Delete(context.Context, string) error { return nil }
+
 type wake struct{}
 
 func (wake) Wake() {}

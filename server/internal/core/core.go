@@ -90,7 +90,7 @@ func (a *App) Serve(ctx context.Context) error {
 		return err
 	}
 
-	go jobs.PruneRefreshTokens(ctx, a.logger, a.assembly.Identity)
+	go jobs.PruneRefreshTokens(ctx, a.logger, a.assembly.Identity, a.housekeep)
 	go a.assembly.Identity.RunActivity(ctx)
 	go jobs.PruneNotifications(ctx, a.logger, a.assembly.Notifications)
 	go jobs.RotateLegacyJoinCodes(ctx, a.logger, a.assembly.Classes)

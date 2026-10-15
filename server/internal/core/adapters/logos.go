@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 
+	orgports "quizzivy/internal/modules/organization/application/ports"
 	orgdomain "quizzivy/internal/modules/organization/domain"
 	"quizzivy/internal/platform/imagesafe"
 	"quizzivy/internal/platform/storage"
@@ -38,6 +39,24 @@ func (s LogoStore) Get(ctx context.Context, key string) ([]byte, error) {
 // Exists reports whether key holds an object.
 func (s LogoStore) Exists(ctx context.Context, key string) (bool, error) {
 	return s.Objects.Exists(ctx, key)
+}
+
+// List returns at most limit stored objects under prefix.
+func (s LogoStore) List(ctx context.Context, prefix string, limit int) ([]orgports.StoredLogo, error) {
+	objects, err := s.Objects.List(ctx, prefix, limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]orgports.StoredLogo, len(objects))
+	for i, o := range objects {
+		out[i] = orgports.StoredLogo{Key: o.Key, WrittenAt: o.LastModified}
+	}
+	return out, nil
+}
+
+// Delete removes the object under key.
+func (s LogoStore) Delete(ctx context.Context, key string) error {
+	return s.Objects.Delete(ctx, key)
 }
 
 // LogoImages is the part of imagesafe.Processor that LogoChecker uses.

@@ -220,12 +220,17 @@ func TestEveryCreateUserRefusalHasItsStatusCodeAndBothLanguages(t *testing.T) {
 		{
 			name: "a role that does not exist", err: accessdomain.ErrRoleNotFound,
 			status: http.StatusNotFound, code: openapi.NOTFOUND,
-			vi: "Không tìm thấy vai trò hoặc lớp học.", en: "The role or the class was not found.",
+			vi: "Không tìm thấy vai trò này.", en: "No such role.",
 		},
 		{
 			name: "a class that does not exist or is archived", err: domain.ErrClassNotFound,
 			status: http.StatusNotFound, code: openapi.NOTFOUND,
-			vi: "Không tìm thấy vai trò hoặc lớp học.", en: "The role or the class was not found.",
+			vi: "Không tìm thấy lớp học này.", en: "No such class.",
+		},
+		{
+			name: "a role changed after the check", err: domain.ErrRoleChanged,
+			status: http.StatusConflict, code: openapi.STALEWRITE,
+			vi: "Vai trò vừa được thay đổi. Hãy thử lại.", en: "The role was just changed. Try again.",
 		},
 		{
 			name: "a role the caller cannot give", err: accessdomain.ErrTargetRoleNotAllowed,

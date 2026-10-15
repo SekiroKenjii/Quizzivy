@@ -3558,8 +3558,13 @@ the API and the worker run side by side while a deploy rolls out. A release ther
 renames a template while rows of it can be pending. The timer is armed only for the earliest pending
 `deliver_after` of a known template, so an empty outbox never wakes the database.
 
-**What is not here.** No rows are pruned yet; T-R5.16's daily housekeeping removes rows sent or failed more
-than 30 days ago. The app role has full DML on the table (it is not append-only: it is a queue).
+**Retention.** The daily housekeeping (T-R5.16, `core/jobs.Housekeep`) deletes, oldest first and 500 at a time,
+the rows whose `sent_at` or `failed_at` is more than 30 days old (`email.Retention`). A pending row is never
+touched, however old. The delete reads the table in order of the outcome's instant without an index: the table
+holds a day's budget of mail a day for 30 days, a few thousand rows at most, and a partial index on `failed_at`
+would cost every failure a write for a scan that runs once a day. A pruned row frees its `dedupe_key`: the only
+producer today keys on the export id, which never comes round again, but a producer whose key can repeat after 30
+days would send again. The app role has full DML on the table (it is not append-only: it is a queue).
 
 ## 50. Activity (T-R5.4, DG-54)
 
@@ -3579,6 +3584,11 @@ locks in the same order, and the days with `ON CONFLICT DO NOTHING`. A user dele
 statements. A failed write is logged and its entries dropped, since activity is a statistic and a queue behind a
 database that is down only grows. `updated_at` moves with every `last_active_at` write, because the trigger has
 no column list; nothing reads it for a user.
+
+**Retention.** The daily housekeeping (T-R5.16) deletes the days older than 400 days, `domain.ActivityDaysKept`,
+counted back from the start of the local day in `APP_TIMEZONE`, 500 rows a batch and oldest day first over
+`user_activity_days_day_idx`. R5's readers look back 14 days at most, so nothing the product shows is lost;
+`last_active_at` on the user is never pruned.
 
 **Status.** `domain.StatusOf` applies DG-54's order: disabled, must change password, never signed in
 (`last_sign_in_at IS NULL`), active. The contract's `AccountStatus` is that value, and `listStudents` filters by
@@ -3646,8 +3656,10 @@ fetches it from an app page, up to three times.
 `bytes` (above 0), `error_code` (1 to 64 characters), and the instants `created_at`, `started_at` (the
 current claim), `completed_at`, `expires_at` (24 hours after `ready`), `downloaded_at` and `downloads`. `ready` requires
 `storage_key`, `bytes` and `expires_at`; `failed` requires `error_code`. A read reports a `ready` row past
-`expires_at` as `expired`; nothing in this task stores that, T-R5.16's housekeeping removes the object and
-marks the row.
+`expires_at` as `expired`. The daily housekeeping (T-R5.16) makes it true in the table: it deletes the object,
+then sets `status = 'expired'` and `storage_key = NULL` on the row, guarded by `status = 'ready' AND expires_at <=
+now()` so a second run changes nothing. The row stays, with `bytes`, `expires_at` and `downloads`, for the audit
+trail of who asked.
 
 **One at a time.** `data_exports_active_idx` is a unique index on the constant `true` over the rows
 `queued` or `running`. A second request inserts into it, fails with `23505` and answers
