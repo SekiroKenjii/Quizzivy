@@ -60,3 +60,15 @@ func (a *Activity) RecordActivity(ctx context.Context, entries []domain.Activity
 	}
 	return nil
 }
+
+// PruneDays deletes at most limit days earlier than before, found on the day index.
+func (a *Activity) PruneDays(ctx context.Context, before time.Time, limit int) (int, error) {
+	tag, err := a.Exec(ctx, `
+		DELETE FROM app.user_activity_days d
+		 USING (SELECT user_id, day FROM app.user_activity_days WHERE day < $1::date ORDER BY day LIMIT $2) old
+		 WHERE d.user_id = old.user_id AND d.day = old.day`, before, limit)
+	if err != nil {
+		return 0, fmt.Errorf("prune activity days: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
+}
