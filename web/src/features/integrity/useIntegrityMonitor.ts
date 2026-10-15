@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { IntegrityPolicy } from "@/features/take-test/api";
+import { flushEvents, type IntegrityPolicy } from "@/features/take-test/api";
 import { useAppState, type Overlay } from "@/stores/appState";
 import { beginSession, drain, pending, record } from "./buffer";
 import { sendBeaconFlush } from "./beacon";
@@ -52,7 +52,12 @@ export function useIntegrityMonitor({
 
   useEffect(() => {
     if (attemptId === null || sessionId === null) return;
-    beginSession(attemptId, sessionId);
+    const stranded = beginSession(attemptId, sessionId);
+    if (stranded !== null)
+      void flushEvents(attemptId, {
+        sessionId: stranded.sessionId,
+        events: stranded.events,
+      }).catch(() => undefined);
 
     // One episode at a time.
     let awaySince: number | null = null;

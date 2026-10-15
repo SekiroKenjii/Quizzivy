@@ -60,13 +60,18 @@ function finish() {
 }
 
 describe("the recording card", () => {
-  it("calls play() in the same synchronous tick as the click", () => {
+  it("calls play() in the same synchronous tick as the click", async () => {
     const onPlay = vi.fn();
     render(
       <AudioPlayer layout="card" src="/a.mp3" label="Asking the way" onPlay={onPlay} />,
     );
     fireEvent.click(button());
     expect(play).toHaveBeenCalledTimes(1);
+    expect(onPlay).not.toHaveBeenCalled();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(onPlay).toHaveBeenCalledTimes(1);
     expect(play.mock.invocationCallOrder[0]).toBeLessThan(
       onPlay.mock.invocationCallOrder[0]!,
     );

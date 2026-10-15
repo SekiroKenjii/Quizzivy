@@ -8,6 +8,12 @@ const AWAY_CLOSERS = new Set(["tab_visible", "window_focus", "fullscreen_enter"]
 const AUDIO = new Set(["audio_play", "audio_ended", "audio_blocked", "audio_seek"]);
 const NETWORK = new Set(["network_offline", "network_online"]);
 const CLOSERS = new Set([...AWAY_CLOSERS, "network_online", "audio_ended"]);
+const SERVER_START = "start";
+
+/** Whether the attempt recorded anything beyond the server's own start, which the table's "Started" row stands for. */
+export function hasRecordedEvents(events: readonly IntegrityEvent[]): boolean {
+  return events.some((event) => event.kind !== SERVER_START);
+}
 
 /** Which chip an event belongs under; `null` for kinds no chip narrows to. */
 export function family(kind: string): Exclude<TimelineFilter, "all"> | null {
@@ -33,7 +39,8 @@ export interface TimelineRow {
  * twice. Both are dropped. An opener with no duration is kept only when nothing
  * later closed its family -- the "đang tiếp diễn" row (G-05b). An audio play
  * with no recorded end is kept and is not ongoing, because most plays never
- * record one.
+ * record one. The server's own start is dropped too: the table draws a
+ * "Started" row from `startedAt`.
  */
 export function timelineRows(
   events: IntegrityEvent[],
@@ -42,7 +49,7 @@ export function timelineRows(
   const plays = new Map<string, number>();
   const rows: TimelineRow[] = [];
   events.forEach((event, index) => {
-    if (CLOSERS.has(event.kind)) return;
+    if (CLOSERS.has(event.kind) || event.kind === SERVER_START) return;
     let playNo: number | null = null;
     if (event.kind === "audio_play") {
       const key = audioSubject(event);

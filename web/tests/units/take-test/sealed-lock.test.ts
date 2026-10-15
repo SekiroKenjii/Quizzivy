@@ -8,6 +8,7 @@ import {
   submitAttempt,
   type AttemptSession,
 } from "@/features/take-test/api";
+import { heldSession, holdSession } from "@/features/take-test/heldSession";
 import { previewGroup } from "@tests/support/groupPreview";
 import { session, text } from "./support";
 
@@ -103,4 +104,64 @@ it("keeps a paper another device took over as it is when a play that was in flig
   await vi.advanceTimersByTimeAsync(untilDeadline + 10 * 60_000);
   expect(submitted).not.toHaveBeenCalled();
   expect(store().lock).toBe("superseded");
+});
+
+it("keeps the shared recordings' superseded lock, and the plays still pending, when a deadline refusal reaches them late", () => {
+  store().hydrate({
+    ...paper(),
+    groups: [previewGroup],
+    groupAudioPlays: { [recordingId]: 0 },
+  });
+  counted.mockImplementation(() => new Promise(() => undefined));
+  useGroupPlaybackStore.getState().notePlay(recordingId);
+  expect(useGroupPlaybackStore.getState().pending).toHaveLength(1);
+
+  useGroupPlaybackStore.getState().lockNow("superseded");
+  useGroupPlaybackStore.getState().lockNow("deadline");
+
+  expect(useGroupPlaybackStore.getState().lock).toBe("superseded");
+  expect(useGroupPlaybackStore.getState().pending).toHaveLength(1);
+});
+
+it("keeps the shared recordings' closed lock when a deadline refusal reaches them late", () => {
+  store().hydrate({
+    ...paper(),
+    groups: [previewGroup],
+    groupAudioPlays: { [recordingId]: 0 },
+  });
+
+  useGroupPlaybackStore.getState().lockNow("closed");
+  useGroupPlaybackStore.getState().lockNow("deadline");
+
+  expect(useGroupPlaybackStore.getState().lock).toBe("closed");
+});
+
+it("hands nothing in at the device's deadline once a refused save has closed the paper", async () => {
+  store().hydrate(paper());
+  saved.mockRejectedValue(
+    new ApiError({ status: 409, code: "ATTEMPT_CLOSED", message: "closed" }),
+  );
+  store().setAnswer("q1", text("typed"));
+  await vi.advanceTimersByTimeAsync(FLUSH_DEBOUNCE_MS);
+  expect(store().lock).toBe("closed");
+
+  await vi.advanceTimersByTimeAsync(untilDeadline + 10 * 60_000);
+
+  expect(submitted).not.toHaveBeenCalled();
+});
+
+it("forgets the session the tab held once the paper is closed", async () => {
+  holdSession("att-1", "018f0000-0000-7000-8000-00000000a001");
+  store().hydrate(paper());
+  expect(heldSession("att-1")).not.toBeNull();
+
+  saved.mockRejectedValue(
+    new ApiError({ status: 409, code: "ATTEMPT_CLOSED", message: "closed" }),
+  );
+  store().setAnswer("q1", text("typed"));
+  await vi.advanceTimersByTimeAsync(FLUSH_DEBOUNCE_MS);
+
+  expect(store().lock).toBe("closed");
+  expect(heldSession("att-1")).toBeNull();
+  expect(sessionStorage.getItem("quizzivy.session.att-1")).toBeNull();
 });

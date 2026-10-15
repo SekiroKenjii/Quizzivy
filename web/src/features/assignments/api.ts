@@ -1,4 +1,5 @@
-import { holdSession } from "@/features/take-test/heldSession";
+import { getAttempt } from "@/features/take-test/api";
+import { heldSession, holdSession } from "@/features/take-test/heldSession";
 import { saveStrandedDraft } from "@/features/take-test/strandedDraft";
 import { formatInTimeZone } from "date-fns-tz";
 import { api, downloadFile } from "@/lib/api/client";
@@ -79,13 +80,17 @@ export function getMyAssignment(id: string, signal?: AbortSignal) {
 
 /**
  * continueAttempt first sends the answers a closed tab left in this browser,
- * through `saveStrandedDraft`, then resumes the named attempt and never starts
- * one: a 409 `ATTEMPT_CLOSED` means it has ended. It rejects without resuming
- * when those answers could not be sent. The tab then holds the session the
+ * through `saveStrandedDraft`. A tab that holds a session for the attempt then
+ * reads it with that session, which resumes nothing and records no takeover;
+ * a read that answers `superseded` is the paper's own read-only state. A tab
+ * that holds none resumes the named attempt and never starts one: a 409
+ * `ATTEMPT_CLOSED` means it has ended. It rejects without either when the
+ * stranded answers could not be sent. The tab then holds the session the
  * resume returned.
  */
 export async function continueAttempt(assignmentId: string, attemptId: string) {
   await saveStrandedDraft(attemptId);
+  if (heldSession(attemptId) !== null) return getAttempt(attemptId);
   const session = await api("post", "/app/assignments/{id}/attempts", {
     path: { id: assignmentId },
     body: { resume: attemptId },

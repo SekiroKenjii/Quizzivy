@@ -2898,7 +2898,7 @@
       "cut": "Cut content",
       "context_menu": "Opened the context menu",
       "resume": "Resumed the test",
-      "session_takeover": "Resumed from another device",
+      "session_takeover": "Resumed in another tab or device",
       "page_hide": "Closed the page",
       "tab_visible": "Returned to the tab",
       "window_focus": "Returned to the window",

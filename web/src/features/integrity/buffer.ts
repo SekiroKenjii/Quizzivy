@@ -59,14 +59,19 @@ function write(attemptId: string, next: Buffered): void {
   }
 }
 
-/** Starts or resumes a session's buffer. */
-export function beginSession(attemptId: string, sessionId: string): void {
+/**
+ * Starts or resumes a session's buffer. When the stored buffer belongs to
+ * another session and still holds events, they are returned, still under
+ * their own session id, for the caller to send before they are replaced.
+ */
+export function beginSession(attemptId: string, sessionId: string): Buffered | null {
   const stored = read(attemptId);
   if (stored !== null && stored.sessionId === sessionId) {
     state = stored;
-    return;
+    return null;
   }
   write(attemptId, { sessionId, nextSeq: 0, events: [] });
+  return stored !== null && stored.events.length > 0 ? stored : null;
 }
 
 /**

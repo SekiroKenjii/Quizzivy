@@ -161,3 +161,27 @@ function clearSession2() {
   clearSession(ATTEMPT);
   if (saved !== null) sessionStorage.setItem("quizzivy.integrity." + ATTEMPT, saved);
 }
+
+describe("starting a session over another session's buffer", () => {
+  it("hands back the events another session left, still under that session", () => {
+    expect(beginSession(ATTEMPT, "ses-1")).toBeNull();
+    record(ATTEMPT, "tab_hidden");
+    record(ATTEMPT, "window_blur");
+
+    const stranded = beginSession(ATTEMPT, "ses-2");
+
+    expect(stranded?.sessionId).toBe("ses-1");
+    expect(stranded?.events.map((e) => e.kind)).toEqual(["tab_hidden", "window_blur"]);
+    expect(pending()).toEqual([]);
+  });
+
+  it("hands back nothing for the session it already holds, or for one that left no events", () => {
+    beginSession(ATTEMPT, "ses-1");
+    record(ATTEMPT, "paste");
+    expect(beginSession(ATTEMPT, "ses-1")).toBeNull();
+    expect(pending()).toHaveLength(1);
+
+    drain(ATTEMPT);
+    expect(beginSession(ATTEMPT, "ses-2")).toBeNull();
+  });
+});

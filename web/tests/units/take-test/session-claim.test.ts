@@ -14,6 +14,7 @@ const KEY = `quizzivy.session.${ATTEMPT}`;
 const NOW = new Date("2026-09-22T05:00:00.000Z");
 
 let named: (string | null)[] = [];
+let resumed = 0;
 
 function paper(over: Partial<AttemptSession> = {}): AttemptSession {
   return { ...deckSession(NOW), sessionId: A, ...over };
@@ -30,9 +31,10 @@ function answerReads(body: AttemptSession) {
 
 function answerResumes(body: AttemptSession) {
   server.use(
-    http.post(`${BASE}/app/assignments/${ASSIGNMENT}/attempts`, () =>
-      contractJson("/app/assignments/{id}/attempts", "post", 200, body),
-    ),
+    http.post(`${BASE}/app/assignments/${ASSIGNMENT}/attempts`, () => {
+      resumed += 1;
+      return contractJson("/app/assignments/{id}/attempts", "post", 200, body);
+    }),
   );
 }
 
@@ -56,6 +58,7 @@ beforeEach(() => {
   sessionStorage.clear();
   localStorage.clear();
   named = [];
+  resumed = 0;
 });
 
 describe("the session a tab names when it reads its attempt", () => {
@@ -130,19 +133,46 @@ describe("the session a tab names when it reads its attempt", () => {
     expect(sessionStorage.getItem(KEY)).toBe(B);
   });
 
-  it("holds the session Continue returns, so the engine's read names it", async () => {
-    const { continueAttempt, getAttempt, heldSession, holdSession } = await load();
-    holdSession(ATTEMPT, A);
+  it("holds the session Continue returns when the tab held none, so the engine's read names it", async () => {
+    const { continueAttempt, getAttempt, heldSession } = await load();
     answerResumes(paper({ sessionId: B }));
     answerReads(paper({ sessionId: B }));
 
     const session = await continueAttempt(ASSIGNMENT, ATTEMPT);
     expect(session.sessionId).toBe(B);
+    expect(resumed).toBe(1);
     expect(heldSession(ATTEMPT)).toBe(B);
 
     await getAttempt(ATTEMPT);
 
     expect(named).toEqual([B]);
+  });
+
+  it("reads the attempt with the session it holds when Continue is pressed, and resumes nothing", async () => {
+    const { continueAttempt, heldSession, holdSession } = await load();
+    holdSession(ATTEMPT, A);
+    answerResumes(paper({ sessionId: B }));
+    answerReads(paper({ sessionId: A }));
+
+    const session = await continueAttempt(ASSIGNMENT, ATTEMPT);
+
+    expect(session.sessionId).toBe(A);
+    expect(named).toEqual([A]);
+    expect(resumed).toBe(0);
+    expect(heldSession(ATTEMPT)).toBe(A);
+  });
+
+  it("hands a held session another device took over to the paper's read-only state, and resumes nothing", async () => {
+    const { continueAttempt, heldSession, holdSession } = await load();
+    holdSession(ATTEMPT, A);
+    answerResumes(paper({ sessionId: B }));
+    answerReads(paper({ sessionId: B, beaconToken: "", superseded: true }));
+
+    const session = await continueAttempt(ASSIGNMENT, ATTEMPT);
+
+    expect(session.superseded).toBe(true);
+    expect(resumed).toBe(0);
+    expect(heldSession(ATTEMPT)).toBe(A);
   });
 
   it("names the session it held before a reload", async () => {
