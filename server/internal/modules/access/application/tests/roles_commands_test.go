@@ -342,6 +342,34 @@ func TestADescriptionMayHoldLineBreaks(t *testing.T) {
 	}
 }
 
+func TestADescriptionStoresEveryLineEndingAsLF(t *testing.T) {
+	store := newMemoryStore(t, rowAdmin, rowCustom)
+	app := roleApp(t, store)
+	by := adminCaller()
+	ctx := context.Background()
+	for _, sent := range []string{"Dòng một\r\nDòng hai", "Dòng một\rDòng hai", "Dòng một\nDòng hai"} {
+		if _, err := app.Commands.CreateRole.Handle(ctx, command.CreateRole{By: by, Name: "Mới", Description: sent}); err != nil {
+			t.Errorf("description %q: %v, want it accepted", sent, err)
+		}
+		if _, err := app.Commands.UpdateRole.Handle(ctx, command.UpdateRole{By: by, ID: "role-custom", Expected: 3, Description: &sent}); err != nil {
+			t.Errorf("an update to the description %q: %v, want it accepted", sent, err)
+		}
+	}
+	for i, c := range store.created {
+		if c.Description != "Dòng một\nDòng hai" {
+			t.Errorf("role %d was stored with the description %q, want the line ending as LF", i, c.Description)
+		}
+	}
+	for i, e := range store.edits {
+		if e.Description == nil || *e.Description != "Dòng một\nDòng hai" {
+			t.Errorf("edit %d wrote the description %v, want the line ending as LF", i, e.Description)
+		}
+	}
+	if len(store.created) != 3 || len(store.edits) != 3 {
+		t.Errorf("%d roles and %d edits were written, want 3 and 3", len(store.created), len(store.edits))
+	}
+}
+
 func TestARefusedNameSaysWhichCharacterIsInvisible(t *testing.T) {
 	app := roleApp(t, newMemoryStore(t, rowAdmin, rowCustom))
 	_, err := app.Commands.CreateRole.Handle(context.Background(), command.CreateRole{By: adminCaller(), Name: "Tổ\u200dchấm"})

@@ -11859,11 +11859,12 @@ paths:
         text after NFC; the schema bounds the text as sent at four times that,
         so a name typed decomposed is not refused before it is composed. A name
         holds a letter, a digit, a punctuation mark or a symbol. Neither field
-        holds a control or invisible character: a zero-width one, a blank
-        filler such as the Hangul filler or the Braille blank, a lone code
-        point nothing assigns; a description may hold line breaks, a name may
-        not. At most 200 roles exist, the four built-in ones included; past that
-        the answer is `ROLE_LIMIT_REACHED`. Writes one audit row,
+        holds a control or invisible character, a tab included: a zero-width
+        one, a blank filler such as the Hangul filler or the Braille blank, a
+        lone code point nothing assigns. A description may hold line breaks,
+        which are stored as LF whether they arrive as CR LF, CR or LF; a name
+        may not. At most 200 roles exist, the four built-in ones included; past
+        that the answer is `ROLE_LIMIT_REACHED`. Writes one audit row,
         `role.created`.
       requestBody:
         required: true
