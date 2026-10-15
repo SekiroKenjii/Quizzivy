@@ -144,9 +144,14 @@ describe("how long ago, for a line about an account", () => {
   it("goes on in weeks, months and years instead of a bare date", () => {
     expect(ago(7 * day)).toBe("1 week ago");
     expect(ago(15 * day, "vi")).toBe("2 tuần trước");
+    expect(ago(29 * day)).toBe("4 weeks ago");
+    expect(ago(30 * day)).toBe("1 month ago");
+    expect(ago(30 * day, "vi")).toBe("1 tháng trước");
     expect(ago(40 * day)).toBe("1 month ago");
     expect(ago(200 * day, "vi")).toBe("6 tháng trước");
     expect(ago(364 * day)).toBe("11 months ago");
+    expect(ago(365 * day)).toBe("1 year ago");
+    expect(ago(365 * day, "vi")).toBe("1 năm trước");
     expect(ago(800 * day)).toBe("2 years ago");
   });
 });

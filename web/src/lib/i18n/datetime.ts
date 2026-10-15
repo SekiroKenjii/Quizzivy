@@ -307,8 +307,8 @@ export function formatAgo(
   const days = Math.floor(hours / 24);
   if (days < 7) return ago(days, "day", "auto");
   if (days < 30) return ago(Math.floor(days / 7), "week");
-  if (days < 365) return ago(Math.floor(days / 30.4375), "month");
-  return ago(Math.floor(days / 365.25), "year");
+  if (days < 365) return ago(Math.max(1, Math.floor(days / 30.4375)), "month");
+  return ago(Math.max(1, Math.floor(days / 365.25)), "year");
 }
 
 /** The two halves of a `datetime-local` field, both pinned to APP_TIME_ZONE. */
