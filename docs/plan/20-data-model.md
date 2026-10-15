@@ -3854,10 +3854,22 @@ column is blank for a student the worker did not place in it.
 were not downloaded, at most a batch of rows at a time, locking each job `FOR UPDATE SKIP LOCKED` so a download in
 flight finishes first. It changes nothing else; no index serves it, since the jobs are few.
 
-**Open.** The rows keep full names and addresses for as long as the job exists. T-R5.16's housekeeping should delete
-the jobs, with their rows, after a retention period it names (30 days); the job row keeps only counts.
+**Retention.** The rows keep full names and addresses for as long as the job exists, so the daily housekeeping
+(T-R5.16, the step `import_jobs`) deletes a job 30 days after `completed_at` (`domain.UserImportsKept`), the earliest
+first and 500 at a time, and the `ON DELETE CASCADE` of `user_import_rows.job_id` takes its rows. A job that is
+`queued` or `running` has no `completed_at` and is never touched. The accounts, the classes and the audit trail
+stay. The job is locked `FOR UPDATE SKIP LOCKED`, the lock `TakeSheet` and `EraseExpiredSheets` take first, so a
+download in flight is passed over and left for the next run. No index serves it, since the table holds the jobs of
+30 days. The step is attached whether or not the import worker is configured, so a server that turned imports off
+still removes what it stored. An account anonymised before its job's 30 days are up keeps its old name and address
+in the job's row until then.
 
-**Tests.** `identity/domain/tests` (the rules table, the sniff, the header, the file name), `identity/application/tests/user_imports_db_test.go`
+**Tests.** `identity/application/tests/prune_user_imports_test.go` and `prune_user_imports_db_test.go` (the cutoff and
+the limit against a fake store; against Postgres, jobs in every state either side of 30 days with their rows, an
+open job 60 days old kept, the account an import made untouched, the earliest first from jobs inserted newest first,
+the edge to the microsecond, a job another transaction holds skipped without waiting) and
+`server/tests/housekeeping_flow_test.go` (the start-up run, also with the import worker off). `identity/domain/tests`
+(the rules table, the sniff, the header, the file name), `identity/application/tests/user_imports_db_test.go`
 (preview counts, the stored rows and their order, the audit diff, replay, another user's job, nothing to create, the
 subset rule, classes, deliveries, 2,000 rows, one file at a time), `identity/http/tests/user_imports_test.go` (the form,
 each reader error's code and both languages, no echo of the file), `core/adapters/tests/user_import_tables_test.go`,

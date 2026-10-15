@@ -92,6 +92,14 @@ func (a *Application) SetPasswordLinks(links domain.SetPasswordLinks) {
 	a.Commands.PruneSetPasswordLinks = command.PruneSetPasswordLinksHandler{Service: a.service}
 }
 
+// SetUserImportRetention attaches the store that removes finished user imports
+// and makes Commands.PruneUserImports available. It does not depend on
+// SetUserImports: a server whose import worker is off still holds the jobs it
+// stored, and without this nothing removes them.
+func (a *Application) SetUserImportRetention(imports domain.UserImportRetention) {
+	a.Commands.PruneUserImports = command.PruneUserImportsHandler{Service: a.service, Imports: imports}
+}
+
 // SetAdminUsers attaches the Admin console's account directory and the access
 // module's say on which roles a caller may give, which opens createUser,
 // listUsers and getUser.
@@ -152,6 +160,7 @@ type Commands struct {
 	PruneActivityDays        cqrs.CommandHandler[command.PruneActivityDays, int]
 	PruneExpiredTokens       cqrs.CommandHandler[command.PruneExpiredTokens, int64]
 	PruneSetPasswordLinks    cqrs.CommandHandler[command.PruneSetPasswordLinks, int]
+	PruneUserImports         cqrs.CommandHandler[command.PruneUserImports, int]
 	Refresh                  cqrs.CommandHandler[command.Refresh, model.RefreshResult]
 	RequestSetPasswordLink   cqrs.CommandHandler[command.RequestSetPasswordLink, cqrs.Nothing]
 	SetPasswordWithLink      cqrs.CommandHandler[command.SetPasswordWithLink, model.Session]

@@ -489,8 +489,11 @@ on the tick of the refresh-token prune, so it adds no timer and no database
 wake of its own. It removes, in this order: `user_activity_days` rows older
 than 400 days; outbox rows sent or failed more than 30 days ago (a pending row
 never); set-password links that were used, revoked or expired more than 30 days
-ago (a link that still works never); the files of data exports past their 24
-hours, which are then marked `expired` (this step needs `IMPORT_S3_BUCKET`); and
+ago (a link that still works never); the sealed passwords of a hand-out sheet
+nobody downloaded in its 24 hours (where the import worker is configured); user
+imports, with their rows, 30 days after they finished (one still waiting or
+running never; this step runs without the import worker); the files of data
+exports past their 24 hours, which are then marked `expired` (this step needs `IMPORT_S3_BUCKET`); and
 the `branding/` logo objects that neither the light nor the dark logo names, once
 they are 24 hours old (this step needs media storage). Two machines running it
 at once only repeat each other's deletes, and one can end a step early, as done,

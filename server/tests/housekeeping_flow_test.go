@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"quizzivy/internal/core"
 	"quizzivy/internal/platform/config"
@@ -35,6 +36,29 @@ func housekeepingConfig(work string) func(*config.Config) {
 		c.ImportProcessing = true
 		c.MediaRetentionSweep = false
 	}
+}
+
+func seedFinishedImport(t *testing.T, pool *pgxpool.Pool, owner, status string, ago time.Duration) string {
+	t.Helper()
+	id := uuid.NewString()
+	var code *string
+	created, outcome := 1, "created"
+	if status == "failed" {
+		failure := "WORKER_INTERRUPTED"
+		code, created, outcome = &failure, 0, "pending"
+	}
+	if _, err := pool.Exec(context.Background(), `WITH job AS (
+		INSERT INTO app.user_import_jobs (id, created_by, request_id, filename, format, default_role_id, delivery, status, total_rows, created_count, attempts,
+		                                  error_code, started_at, completed_at)
+		VALUES ($1::uuid, $2::uuid, $3::uuid, 'housekeeping.csv', 'csv', (SELECT id FROM app.roles WHERE builtin_key = 'student'), 'email_link', $4, 1, $5, 1,
+		        $6, now() - make_interval(hours => $7) - interval '1 hour', now() - make_interval(hours => $7))
+		RETURNING id)
+		INSERT INTO app.user_import_rows (job_id, ordinal, full_name, email, role_id, outcome)
+		SELECT id, 0, 'Học viên', 'housekeeping-import-' || id || '@example.com', (SELECT id FROM app.roles WHERE builtin_key = 'student'), $8 FROM job`,
+		id, owner, uuid.NewString(), status, created, code, int(ago.Hours()), outcome); err != nil {
+		t.Fatal(err)
+	}
+	return id
 }
 
 func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testing.T) {
@@ -131,6 +155,7 @@ func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testi
 		return jobID
 	}
 	lapsedSheet, liveSheet := sheet(-time.Hour), sheet(time.Hour)
+	oldDone, oldFailed, recentDone := seedFinishedImport(t, pool, owner, "done", 31*24*time.Hour), seedFinishedImport(t, pool, owner, "failed", 31*24*time.Hour), seedFinishedImport(t, pool, owner, "done", 29*24*time.Hour)
 	lapsedID, lapsedKey := export(9*24*time.Hour, -2*24*time.Hour)
 	liveID, liveKey := export(time.Hour, 6*24*time.Hour)
 
@@ -177,7 +202,7 @@ func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testi
 		<-stopped
 	})
 
-	steps := []string{"activity_days", "email_outbox", "set_password_links", "import_sheets", "data_exports", "branding_objects"}
+	steps := []string{"activity_days", "email_outbox", "set_password_links", "import_sheets", "import_jobs", "data_exports", "branding_objects"}
 	deadline := time.Now().Add(30 * time.Second)
 	for {
 		seen := true
@@ -232,6 +257,21 @@ func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testi
 		id   string
 		kept bool
 	}{
+		"import done 31 days ago":    {oldDone, false},
+		"import failed 31 days ago":  {oldFailed, false},
+		"import done 29 days ago":    {recentDone, true},
+		"sheet import done 25 hours": {lapsedSheet, true},
+	} {
+		jobs := count(`SELECT count(*) FROM app.user_import_jobs WHERE id = $1::uuid`, c.id)
+		rows := count(`SELECT count(*) FROM app.user_import_rows WHERE job_id = $1::uuid`, c.id)
+		if kept := jobs == 1; kept != c.kept || rows != jobs {
+			t.Errorf("the %s: %d job(s) and %d row(s) left, want %s", name, jobs, rows, map[bool]string{true: "both kept", false: "both gone"}[c.kept])
+		}
+	}
+	for name, c := range map[string]struct {
+		id   string
+		kept bool
+	}{
 		"sent 40 days ago":    {sentOld, false},
 		"failed 40 days ago":  {failedOld, false},
 		"sent 5 days ago":     {sentRecent, true},
@@ -260,7 +300,7 @@ func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testi
 	}
 
 	leaked := logs.String()
-	for _, secret := range []string{lapsedID, liveID, lapsedKey, freshLogo, tag, owner} {
+	for _, secret := range []string{lapsedID, liveID, lapsedKey, freshLogo, tag, owner, oldDone, oldFailed} {
 		if strings.Contains(leaked, secret) {
 			t.Errorf("the housekeeping logs carry %q", secret)
 		}
@@ -325,7 +365,7 @@ func TestAStepThatCannotReachStorageLogsItsClassAndNoKeyEndpointOrBucket(t *test
 	if !strings.Contains(text, `"failure":"network"`) {
 		t.Errorf("the log does not name the class of the failure: %s", text)
 	}
-	for _, step := range []string{"activity_days", "email_outbox", "set_password_links", "import_sheets"} {
+	for _, step := range []string{"activity_days", "email_outbox", "set_password_links", "import_sheets", "import_jobs"} {
 		if !strings.Contains(text, `"msg":"housekeeping step done","step":"`+step+`"`) {
 			t.Errorf("the step %s did not finish beside the failing ones: %s", step, text)
 		}
@@ -338,5 +378,69 @@ func TestAStepThatCannotReachStorageLogsItsClassAndNoKeyEndpointOrBucket(t *test
 	var state string
 	if err := w.pool.QueryRow(ctx, `SELECT status FROM app.data_exports WHERE id = $1::uuid`, id).Scan(&state); err != nil || state != "ready" {
 		t.Errorf("the export is %q (%v), want it still ready for the next run", state, err)
+	}
+}
+
+func TestOldImportsAreRemovedOnAServerWhoseImportWorkerIsOff(t *testing.T) {
+	ctx := context.Background()
+	configure := func(c *config.Config) {
+		c.ImportBucket = ""
+		c.ImportProcessing = false
+		c.MediaRetentionSweep = false
+	}
+	w := boot(t, configure)
+	email, _ := w.createStaff("admin")
+	var owner string
+	if err := w.pool.QueryRow(ctx, `SELECT id::text FROM app.users WHERE email = $1`, email).Scan(&owner); err != nil {
+		t.Fatal(err)
+	}
+	old, recent := seedFinishedImport(t, w.pool, owner, "done", 31*24*time.Hour), seedFinishedImport(t, w.pool, owner, "done", 29*24*time.Hour)
+	t.Cleanup(func() {
+		if _, err := w.pool.Exec(ctx, `DELETE FROM app.user_import_jobs WHERE created_by = $1::uuid`, owner); err != nil {
+			t.Errorf("cleanup: %v", err)
+		}
+	})
+
+	served := e2eConfig(t, configure)
+	if served.ImportProcessing {
+		t.Fatal("the application under test has its import worker on")
+	}
+	logs := &lockedBuffer{}
+	app, err := core.New(ctx, served, slog.New(slog.NewJSONHandler(logs, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(app.Close)
+	serving, stop := context.WithCancel(ctx)
+	stopped := make(chan error, 1)
+	go func() { stopped <- app.Serve(serving) }()
+	t.Cleanup(func() {
+		stop()
+		<-stopped
+	})
+
+	deadline := time.Now().Add(30 * time.Second)
+	for !strings.Contains(logs.String(), `"step":"import_jobs"`) {
+		if time.Now().After(deadline) {
+			t.Fatalf("the first housekeeping run did not report the import step: %s", logs.String())
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	count := func(id string) int {
+		t.Helper()
+		var n int
+		if err := w.pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM app.user_import_jobs WHERE id = $1::uuid) + (SELECT count(*) FROM app.user_import_rows WHERE job_id = $1::uuid)`, id).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	if got := count(old); got != 0 {
+		t.Errorf("an import finished 31 days ago left %d job and row(s)", got)
+	}
+	if got := count(recent); got != 2 {
+		t.Errorf("an import finished 29 days ago left %d job and row(s), want both", got)
+	}
+	if strings.Contains(logs.String(), `"step":"import_sheets"`) {
+		t.Errorf("the sheet step ran with no import worker: %s", logs.String())
 	}
 }
