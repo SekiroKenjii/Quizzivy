@@ -1,6 +1,6 @@
 // Package application is the data export's use cases: asking for an export,
-// reading its state and fetching its file up to three times, and the worker
-// that builds the file.
+// reading its state and fetching its file up to three times, removing the
+// files that have expired, and the worker that builds the file.
 package application
 
 import (
@@ -24,6 +24,7 @@ type Application struct {
 type Commands struct {
 	Request  cqrs.CommandHandler[command.Request, domain.Export]
 	Download cqrs.CommandHandler[command.Download, command.Downloaded]
+	Expire   cqrs.CommandHandler[command.Expire, command.Expired]
 }
 
 // Queries are the module's reads.
@@ -42,6 +43,7 @@ func New(repo domain.Repository, store ports.Store, wake ports.Wake, zone *time.
 		Commands: Commands{
 			Request:  command.RequestHandler{Service: service},
 			Download: command.DownloadHandler{Service: service},
+			Expire:   command.ExpireHandler{Service: service},
 		},
 		Queries: Queries{Get: query.GetHandler{Service: service}},
 	}

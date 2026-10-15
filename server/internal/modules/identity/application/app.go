@@ -31,12 +31,13 @@ func (a *Application) SetClock(now func() time.Time) {
 	}
 }
 
-// SetActivity starts recording who was active, counting days in zone, and makes Commands.StampActivity available. Without it no request stamps anything. RunActivity writes what it collects.
+// SetActivity starts recording who was active, counting days in zone, and makes Commands.StampActivity and Commands.PruneActivityDays available. Without it no request stamps anything and nothing is pruned. RunActivity writes what it collects.
 func (a *Application) SetActivity(store domain.Activity, zone *time.Location, logger *slog.Logger) {
 	a.activity = support.NewActivity(store, zone)
 	a.activity.Log = logger
 	a.activity.Now = a.service.Now
 	a.Commands.StampActivity = command.StampActivityHandler{Activity: a.activity}
+	a.Commands.PruneActivityDays = command.PruneActivityDaysHandler{Activity: a.activity}
 }
 
 // RunActivity writes the activity the application collects, every few seconds while any waits, until ctx ends. It returns at once without SetActivity.
@@ -119,6 +120,7 @@ type Commands struct {
 	LinkGoogle             cqrs.CommandHandler[command.LinkGoogle, domain.User]
 	Login                  cqrs.CommandHandler[command.Login, model.Session]
 	Logout                 cqrs.CommandHandler[command.Logout, cqrs.Nothing]
+	PruneActivityDays      cqrs.CommandHandler[command.PruneActivityDays, int]
 	PruneExpiredTokens     cqrs.CommandHandler[command.PruneExpiredTokens, int64]
 	Refresh                cqrs.CommandHandler[command.Refresh, model.RefreshResult]
 	RequestSetPasswordLink cqrs.CommandHandler[command.RequestSetPasswordLink, cqrs.Nothing]

@@ -23,17 +23,18 @@ func exportsStore(ctx context.Context, cfg config.Config) (*storage.Client, erro
 	})
 }
 
-func exports(ctx context.Context, cfg config.Config, logger *slog.Logger, dbx db.Context) (exportshttp.Exports, error) {
+func exports(ctx context.Context, cfg config.Config, logger *slog.Logger, dbx db.Context) (exportshttp.Exports, *exportsapp.Application, error) {
 	if !cfg.ImportProcessing {
 		logger.Info("data export disabled (no import storage and worker configured)")
-		return exportshttp.NewExports(nil), nil
+		return exportshttp.NewExports(nil), nil, nil
 	}
 	store, err := exportsStore(ctx, cfg)
 	if err != nil {
-		return exportshttp.Exports{}, err
+		return exportshttp.Exports{}, nil, err
 	}
 	wake := adapters.NewWorkerWake(context.WithoutCancel(ctx), cfg.ImportWorkerWakeURL, logger)
-	return exportshttp.NewExports(exportsapp.New(exportsrepo.NewPostgres(dbx), store, wake, cfg.AppLocation)), nil
+	app := exportsapp.New(exportsrepo.NewPostgres(dbx), store, wake, cfg.AppLocation)
+	return exportshttp.NewExports(app), app, nil
 }
 
 // ExportsWorker assembles the runner of the data exports over the worker's

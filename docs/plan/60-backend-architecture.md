@@ -158,12 +158,13 @@ the "one package per feature" layout AGENTS.md described until then.
   any other XML part above 1 MiB, 2 MiB for the shared strings
   (`ErrPartTooLarge`), macros and a password, and a workbook that does not keep
   `xl/workbook.xml` and its worksheets under `xl/worksheets/` (`ErrLayout`, which
-  is also the answer when the first sheet is not such a worksheet), more than 256
+  is also the answer when the first sheet is kept elsewhere), a first sheet that
+  is a chart or a dialog (`ErrNotWorksheet`), more than 256
   sheets (`ErrTooManySheets`), and more than 1,000 workbook relationships, 16
   package relationships or a relationship Id used twice (`ErrFormat`), because
   excelize's sheet lookup multiplies them.
   Every part the reader uses is then read through to its end by a strict XML scan
-  (T-R5.13 follow-ups, QC-A-1 to QC-A-3, QC-A-9 to QC-A-11, QC-A-13 and QC-A-14): a truncated part,
+  (T-R5.13 follow-ups, QC-A-1 to QC-A-3, QC-A-9 to QC-A-11, QC-A-13 to QC-A-15): a truncated part,
   a bad checksum, a size that lies or malformed XML is `ErrFormat` and never a
   shorter table, and nesting past 64 levels, a document type declaration, a start
   tag past 64 KiB, a row number outside the sheet and more than 16,384 cells in a
@@ -180,6 +181,13 @@ the "one package per feature" layout AGENTS.md described until then.
   the one package `csv_writers_test.go` allows. Without import storage and the
   worker (`ImportProcessing`) the transport is built over a nil application and
   answers `501 EXPORT_OFF`.
+- **Housekeeping rides an existing tick** (T-R5.16). `core/jobs.Housekeep` runs a list of
+  `HousekeepingStep`s in order, each a bounded batch repeated while it comes back full, under a budget of its
+  own, and logs counts only. `core/housekeeping.go` is where the list is assembled, because only `core` knows
+  every module; the modules own the single-batch commands (`PruneActivityDays`, `Outbox.Prune`, `Expire`,
+  `SweepLogos`). `PruneRefreshTokens` takes the list as a hook and runs it after its own prune at start-up and on
+  its 24-hour tick, so housekeeping adds no timer and no database wake. A step whose dependency is nil (no
+  import bucket, no media bucket) is left out of the list.
 - **core is five packages.** `core/wiring` builds each module (one file per
   module, in dependency order) and returns the `Assembly`; `core/router`
   fronts the transports with the generated strict server, the middleware

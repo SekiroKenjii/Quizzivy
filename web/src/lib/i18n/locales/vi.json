@@ -425,6 +425,14 @@
     "mainNavigation": "Điều hướng chính",
     "account": "Tài khoản của {{name}}"
   },
+  "role": {
+    "builtin": {
+      "admin": "Quản trị viên",
+      "teacher": "Giáo viên",
+      "assistant": "Trợ giảng",
+      "student": "Học viên"
+    }
+  },
   "teacherShell": {
     "workspace": "Không gian giáo viên",
     "switchWorkspace": "Chuyển không gian làm việc",
@@ -455,10 +463,6 @@
     },
     "breadcrumb": "Đường dẫn",
     "search": "Tìm kiếm…",
-    "role": {
-      "teacher": "Giáo viên",
-      "admin": "Quản trị viên"
-    },
     "documentTitle": "{{page}} · Quizzivy"
   },
   "adminShell": {
@@ -767,6 +771,7 @@
     "revokeFailed": "Không thể ngừng tham gia. Vui lòng thử lại.",
     "loadFailed": "Không tải được lớp học.",
     "noMembers": "Lớp chưa có học viên. Hãy gửi mã tham gia hoặc tự thêm học viên.",
+    "noMembersOff": "Chưa có học viên. Hãy thêm học viên vào lớp.",
     "name": "Họ tên",
     "joinedVia": "Tham gia qua",
     "joinedAt": "Ngày vào",
@@ -866,6 +871,7 @@
     "empty": "Chưa có lớp học nào.",
     "new": "Lớp mới",
     "newHint": "Bạn sẽ có mã tham gia để gửi cho học viên.",
+    "newHintOff": "Bạn thêm học viên vào lớp sau khi tạo.",
     "name": "Tên lớp",
     "namePlaceholder": "Ví dụ: IELTS Foundation — Lớp tối T3/T5",
     "create": "Tạo lớp",
@@ -896,12 +902,14 @@
     "noActive": "Không có lớp nào đang hoạt động.",
     "noArchived": "Không có lớp nào đã lưu trữ.",
     "emptyHint": "Tạo lớp để có mã tham gia gửi cho học viên.",
+    "emptyHintOff": "Tạo lớp rồi thêm học viên vào lớp.",
     "schedule": "Lịch học",
     "schedulePlaceholder": "T2 · T4, 09:00",
     "room": "Phòng",
     "roomPlaceholder": "Phòng 3",
     "createdWithCode": "Đã tạo lớp · mã tham gia {{code}}",
     "createdNoCode": "Đã tạo lớp, nhưng chưa tạo được mã tham gia. Hãy tạo mã từ thẻ của lớp.",
+    "createdJoinOff": "Đã tạo lớp. Trung tâm đang tắt tham gia bằng mã nên lớp chưa có mã.",
     "edit": "Sửa lớp",
     "updated": "Đã cập nhật lớp",
     "updateFailed": "Không lưu được thay đổi của lớp.",
@@ -920,6 +928,8 @@
       "usedUp": "Hết lượt",
       "off": "Không hoạt động"
     },
+    "heldBackNamed": "{{named}}. {{why}}",
+    "codeStateBoth": "{{state}} · {{why}}",
     "noCode": "Chưa có mã tham gia",
     "createCode": "Tạo mã",
     "createCodeNamed": "Tạo mã tham gia cho {{name}}",
