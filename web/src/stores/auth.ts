@@ -28,6 +28,7 @@ interface AuthState {
   setSession: (accessToken: string, user: User) => void;
   setAccessToken: (accessToken: string) => void;
   setUser: (user: User) => void;
+  requirePasswordChange: () => void;
   clearSession: () => void;
   signOut: () => void;
   expireSession: () => void;
@@ -54,6 +55,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   setAccessToken: (accessToken) => set({ accessToken }),
   setUser: (user) =>
     set((state) => (state.user && state.user.id !== user.id ? state : { user })),
+  requirePasswordChange: () =>
+    set((state) =>
+      state.user && !state.user.mustChangePassword
+        ? { user: { ...state.user, mustChangePassword: true } }
+        : state,
+    ),
   clearSession: () =>
     set((state) => ({
       actorGeneration: state.actorGeneration + 1,

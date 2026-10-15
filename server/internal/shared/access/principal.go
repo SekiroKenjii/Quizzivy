@@ -12,15 +12,16 @@ const (
 )
 
 // Principal is who a request acts as, resolved from the user's role: its
-// effective permissions, the session epoch a token must carry, and whether the
-// account is disabled.
+// effective permissions, the session epoch a token must carry, whether the
+// account is disabled and whether it must still change a temporary password.
 type Principal struct {
-	UserID      string
-	RoleID      string
-	BuiltinKey  Builtin
-	Permissions Set
-	Epoch       int
-	Disabled    bool
+	UserID             string
+	RoleID             string
+	BuiltinKey         Builtin
+	Permissions        Set
+	Epoch              int
+	Disabled           bool
+	MustChangePassword bool
 }
 
 // Scope returns the rows the principal reaches: every teacher's when it holds

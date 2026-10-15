@@ -127,7 +127,7 @@ func TestWhatAStudentTypesDecomposedIsSavedComposedAndGradedAsBefore(t *testing.
 		"email": "dia-" + nonce(t) + "@example.com", "fullName": "Học viên", "classIds": []string{classID},
 	})
 	student := w.browser()
-	student.login(created["user"].(map[string]any)["email"].(string), created["temporaryPassword"].(string))
+	student.loginSettled(created["user"].(map[string]any)["email"].(string), created["temporaryPassword"].(string))
 	assignment := teacher.assign(id(version), classID)
 
 	session := student.must(http.StatusOK, http.MethodPost, "/app/assignments/"+id(assignment)+"/attempts", nil)

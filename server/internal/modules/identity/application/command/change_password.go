@@ -12,7 +12,9 @@ import (
 )
 
 // ChangePassword verifies the current password, replaces it, clears
-// must_change_password, and revokes every other refresh family (§5.4).
+// must_change_password, and revokes every other refresh family (§5.4). Once
+// that has committed the caller's cached principal is forgotten on this machine,
+// so the gate stops asking for the change at once.
 type ChangePassword struct {
 	UserID           string
 	CurrentPassword  string
@@ -60,7 +62,7 @@ func (s ChangePasswordHandler) Handle(ctx context.Context, cmd ChangePassword) (
 		keepHash = sum[:]
 	}
 
-	return cqrs.Nothing{}, s.Users.ChangePassword(ctx, domain.ChangePasswordRecord{
+	err = s.Users.ChangePassword(ctx, domain.ChangePasswordRecord{
 		UserID:        user.ID,
 		NewHash:       newHash,
 		KeepTokenHash: keepHash,
@@ -68,6 +70,11 @@ func (s ChangePasswordHandler) Handle(ctx context.Context, cmd ChangePassword) (
 		IP:            opt.String(cmd.IP),
 		UserAgent:     opt.String(cmd.UserAgent),
 	})
+	if err != nil {
+		return cqrs.Nothing{}, err
+	}
+	s.Principals.Forget(user.ID)
+	return cqrs.Nothing{}, nil
 }
 
 func checkReplacement(ctx context.Context, user domain.User, cmd ChangePassword) error {

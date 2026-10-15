@@ -172,6 +172,18 @@ func (c *client) login(email, password string) map[string]any {
 	return body
 }
 
+// loginSettled signs in as login does and, for an account that must still
+// change its temporary password, chooses another, as a person does before
+// anything else, so the session can act.
+func (c *client) loginSettled(email, password string) map[string]any {
+	c.w.t.Helper()
+	body := c.login(email, password)
+	if user, _ := body["user"].(map[string]any); user["mustChangePassword"] == true {
+		c.must(http.StatusNoContent, http.MethodPost, "/auth/change-password", map[string]any{"newPassword": "mat-khau-da-chon-" + nonce(c.w.t)})
+	}
+	return body
+}
+
 func (c *client) signIn(email, password string) (token string, epoch int) {
 	c.w.t.Helper()
 	c.login(email, password)

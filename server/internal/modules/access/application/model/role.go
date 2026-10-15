@@ -38,6 +38,8 @@ type RoleList struct {
 
 // AssignableRole is a role a caller may give to a user. Revision is the role's
 // revision when it was read; it moves with every change to the role's grants.
+// OpensTeacher is true when the role's effective permissions open the teacher
+// workspace, which an account that owns classes or content must keep.
 type AssignableRole struct {
 	ID            string
 	Builtin       access.Builtin
@@ -45,6 +47,7 @@ type AssignableRole struct {
 	Icon          string
 	Color         string
 	StudentTarget bool
+	OpensTeacher  bool
 	Revision      int64
 }
 

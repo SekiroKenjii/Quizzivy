@@ -103,6 +103,23 @@ describe("RequireSession", () => {
     expect(router.state.location.pathname).toBe("/change-password");
   });
 
+  it("sends a session the server has just refused for a temporary password to the change", async () => {
+    useAuthStore.setState({
+      isBootstrapping: false,
+      accessToken: "t",
+      user: { ...studentUser, mustChangePassword: false },
+    });
+    const router = renderAt("/app");
+    expect(router.state.location.pathname).toBe("/app");
+
+    act(() => {
+      useAuthStore.getState().requirePasswordChange();
+    });
+
+    expect(await screen.findByText("change password page")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/change-password");
+  });
+
   it("does not trap a Google-only account on the password change", () => {
     useAuthStore.setState({
       isBootstrapping: false,
