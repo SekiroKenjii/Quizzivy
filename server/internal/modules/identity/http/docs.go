@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sync"
 
+	"quizzivy/gen/contract"
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/identity/application/token"
 	"quizzivy/internal/platform/apidocs"
@@ -45,13 +46,13 @@ func (h Identity) GetApiReferenceSummary(_ context.Context, _ openapi.GetApiRefe
 	}, nil
 }
 
-// DownloadOpenApi implements GET /admin/api-reference/openapi.json: the embedded
-// contract as an attachment that is never cached.
+// DownloadOpenApi implements GET /admin/api-reference/openapi.json: the contract
+// as it is written in api/openapi.yaml, converted to JSON, as an attachment that
+// is never cached. It is not the spec the server routes by, whose operation ids
+// the code generator has rewritten and whose descriptions beside a $ref it has
+// dropped.
 func (h Identity) DownloadOpenApi(_ context.Context, _ openapi.DownloadOpenApiRequestObject) (openapi.DownloadOpenApiResponseObject, error) {
-	document, err := openapi.GetSpecJSON()
-	if err != nil {
-		return nil, err
-	}
+	document := contract.JSON()
 	return openapi.DownloadOpenApi200ApplicationoctetStreamResponse{
 		Body:          bytes.NewReader(document),
 		ContentLength: int64(len(document)),

@@ -74,7 +74,7 @@ conflict to know: the skill teaches the pre-18
 - Never remove or skip a failing test to make CI green. Fix it or flag it.
 - No new dependency without a stated reason in the PR description.
 - Never commit secrets. `.env.example` stays current; `.env` stays ignored.
-- **Never hand-edit generated code.** `server/gen/openapi/` and
+- **Never hand-edit generated code.** `server/gen/openapi/`, `server/gen/contract/` and
   `web/src/lib/api/schema.d.ts` come from `api/openapi.yaml`. Change the
   contract and run `make gen`. CI fails on drift.
 - **`attempt_events` and `audit_log` are append-only.** The app role has no

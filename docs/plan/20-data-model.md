@@ -337,9 +337,14 @@ CREATE INDEX audit_log_actor_idx
 `00133_index_audit_log_recency.sql` (R5, T-R5.12) adds the order the Admin audit log is read in:
 
 ```sql
-CREATE INDEX CONCURRENTLY IF NOT EXISTS audit_log_recent_idx
+DROP INDEX CONCURRENTLY IF EXISTS app.audit_log_recent_idx;
+CREATE INDEX CONCURRENTLY audit_log_recent_idx
   ON app.audit_log (occurred_at DESC, id DESC);
 ```
+
+The drop is there for a rerun: a build that is interrupted leaves the index INVALID and the file
+unrecorded, and `CREATE INDEX CONCURRENTLY IF NOT EXISTS` would find the name taken, build nothing
+and let goose record the file.
 
 Neither index above leads with the time, so without it every page sorts the whole range and the
 export's keyset batches `(occurred_at, id) < ($1, $2)` have no index to walk. `entity` is read from
