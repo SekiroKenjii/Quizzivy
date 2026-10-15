@@ -23,6 +23,8 @@ import type { FormField, FormValues } from "./fields/types";
 export type {
   FormField,
   FormOption,
+  FormIconOption,
+  FormColorOption,
   FormInfoRow,
   FormValue,
   FormValues,

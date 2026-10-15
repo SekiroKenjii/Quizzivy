@@ -496,6 +496,58 @@
       "contentTestsPublish": "Makes a test assignable",
       "contentShare": "Tests, questions, word lists and courses. Owners always see only their own content otherwise.",
       "audited": "Recorded in the audit log"
+    },
+    "newRole": {
+      "title": "New role",
+      "hint": "Starts with the permissions of the role you copy. Change them in the table after.",
+      "submit": "Create role",
+      "name": "Role name",
+      "namePlaceholder": "Head teacher",
+      "copyFrom": "Copy permissions from",
+      "copyNone": "Don't copy",
+      "description": "Description",
+      "descriptionPlaceholder": "Leads the IELTS team",
+      "taken": "A role with this name already exists",
+      "created": "Role created: {{name}}. Its column is in the table below.",
+      "failed": "Couldn't create the role. Try again."
+    },
+    "editRole": {
+      "title": "Edit role",
+      "pencil": "Edit role {{name}}",
+      "hint": "Changes show everywhere this role appears.",
+      "adminHint": "Admins always keep every permission.",
+      "icon": "Icon",
+      "name": "Name",
+      "description": "Description",
+      "color": "Card colour",
+      "submit": "Save role",
+      "taken": "Another role already uses this name",
+      "saved": "Role saved",
+      "failed": "Couldn't save the role. Try again.",
+      "stale": "This role was just changed elsewhere. It has been reloaded; review it and save again."
+    },
+    "icons": {
+      "shield": "Shield",
+      "graduation-cap": "Graduation cap",
+      "hand-helping": "Helping hand",
+      "user": "Person",
+      "key-round": "Key",
+      "crown": "Crown",
+      "briefcase": "Briefcase",
+      "book-open": "Open book",
+      "users": "People",
+      "clipboard-check": "Checklist",
+      "headset": "Headset",
+      "star": "Star"
+    },
+    "colors": {
+      "dark": "Dark",
+      "lime": "Lime",
+      "blue": "Blue",
+      "green": "Green",
+      "amber": "Amber",
+      "rose": "Rose",
+      "gray": "Gray"
     }
   },
   "teacherShell": {

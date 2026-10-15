@@ -9,7 +9,7 @@ export type RoleIcon = components["schemas"]["RoleIcon"];
 export type RoleColor = components["schemas"]["RoleColor"];
 export type RolePermissionChange = components["schemas"]["RolePermissionChange"];
 
-export const ROLES_KEY = ["admin-roles"] as const;
+export const ROLES_KEY = ["admin", "roles"] as const;
 
 /**
  * rolesQuery reads `GET /admin/roles`: every role with its permissions, head

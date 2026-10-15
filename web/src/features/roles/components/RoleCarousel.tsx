@@ -26,7 +26,7 @@ type Arrow = "previous" | "next";
  * when the page's content is at least 1000px wide, two from 640 and else one
  * at 86%, so the next card shows. Round arrows fade at the ends and leave the
  * tab order, and one dot stands for each place the track can rest, the
- * current one 22px wide. `reveal` scrolls the card of that role id into view.
+ * current one 22px wide. `reveal` scrolls the card of that role id into view, once for each id.
  * `action` draws the control at the end of each card's first row.
  */
 export function RoleCarousel({
@@ -47,6 +47,7 @@ export function RoleCarousel({
   const previous = useRef<HTMLButtonElement>(null);
   const next = useRef<HTMLButtonElement>(null);
   const lastArrow = useRef<Arrow | null>(null);
+  const revealed = useRef<string | null>(null);
   const [rested, setRested] = useState(0);
   const pages = Math.max(1, roles.length - per + 1);
   const at = Math.min(rested, pages - 1);
@@ -63,9 +64,11 @@ export function RoleCarousel({
   );
 
   useEffect(() => {
-    if (reveal === null) return;
+    if (reveal === null || revealed.current === reveal) return;
     const index = roles.findIndex((role) => role.id === reveal);
-    if (index >= 0) goTo(Math.min(index, pages - 1));
+    if (index < 0) return;
+    revealed.current = reveal;
+    goTo(Math.min(index, pages - 1));
   }, [reveal, roles, pages, goTo]);
 
   useEffect(() => {

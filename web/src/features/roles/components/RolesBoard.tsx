@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useRef, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,7 +21,9 @@ import {
   type Caller,
   type Draft,
 } from "@/features/roles/cells";
+import { EditRoleButton } from "@/features/roles/components/EditRoleButton";
 import { PermissionMatrix } from "@/features/roles/components/PermissionMatrix";
+import { EditRoleDialog, NewRoleDialog } from "@/features/roles/components/RoleDialog";
 import { RoleCarousel } from "@/features/roles/components/RoleCarousel";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { ApiError, failureMessage } from "@/lib/api/errors";
@@ -40,12 +42,14 @@ const REFRESHING = new Set(["STALE_WRITE", "TARGET_ROLE_NOT_ALLOWED"]);
  */
 export function RolesBoard({
   list,
-  reveal = null,
-  action,
+  creating,
+  onCreatingChange,
+  newButton,
 }: Readonly<{
   list: RoleList;
-  reveal?: string | null;
-  action?: ((role: RoleSummary) => ReactNode) | undefined;
+  creating: boolean;
+  onCreatingChange: (creating: boolean) => void;
+  newButton: RefObject<HTMLElement | null>;
 }>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -56,6 +60,9 @@ export function RolesBoard({
   const matrix = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<Draft>(NO_DRAFT);
   const [failure, setFailure] = useState<string | null>(null);
+  const [editing, setEditing] = useState<RoleSummary | null>(null);
+  const [revealed, setRevealed] = useState<string | null>(null);
+  const pencil = useRef<HTMLElement | null>(null);
 
   const caller = useMemo<Caller>(
     () => ({ roleId, holds: new Set(permissions ?? []) }),
@@ -131,8 +138,16 @@ export function RolesBoard({
     <>
       <RoleCarousel
         roles={list.roles}
-        reveal={reveal}
-        action={action}
+        reveal={revealed}
+        action={(role) => (
+          <EditRoleButton
+            role={role}
+            onEdit={(target, trigger) => {
+              pencil.current = trigger;
+              setEditing(target);
+            }}
+          />
+        )}
         onEditPermissions={editPermissions}
       />
       <PermissionMatrix
@@ -175,6 +190,24 @@ export function RolesBoard({
           onSave={() => save.mutate()}
         />
       </div>
+      <NewRoleDialog
+        open={creating}
+        roles={list.roles}
+        onOpenChange={onCreatingChange}
+        onCreated={(role) => setRevealed(role.id)}
+        returnFocus={newButton}
+      />
+      <EditRoleDialog
+        role={editing}
+        revision={
+          list.roles.find((role) => role.id === editing?.id)?.revision ??
+          editing?.revision ??
+          0
+        }
+        roles={list.roles}
+        onClose={() => setEditing(null)}
+        returnFocus={pencil}
+      />
     </>
   );
 }

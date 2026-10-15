@@ -1,16 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createMemoryRouter, RouterProvider } from "react-router";
+import { screen, waitFor, within } from "@testing-library/react";
 import { delay, http, HttpResponse } from "msw";
-import RolesPage from "@/features/roles/pages/admin/RolesPage";
-import { Toaster } from "@/components/ui/sonner";
 import i18n from "@/lib/i18n";
 import type { components } from "@/lib/api/schema";
-import { useAuthStore } from "@/stores/auth";
 import { contractJson } from "@tests/support/contractResponse";
 import { adminUser } from "@tests/support/fixtures";
+import { renderRolesPage } from "@tests/support/rolesPage";
 import { server } from "@tests/support/server";
 import {
   ADMIN_ID,
@@ -51,23 +46,7 @@ const headUser: User = {
   workspaces: ["admin"],
 };
 
-function renderPage(user: User = adminUser, at = "/admin/roles") {
-  useAuthStore.getState().setSession("token", user);
-  const router = createMemoryRouter(
-    [{ path: "/admin/roles", element: <RolesPage /> }],
-    {
-      initialEntries: [at],
-    },
-  );
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
-    <QueryClientProvider client={client}>
-      <Toaster />
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
-  );
-  return { router, client, user: userEvent.setup() };
-}
+const renderPage = renderRolesPage;
 
 function cell(permission: string, role: string) {
   return screen.getByRole("checkbox", { name: `${permission} — ${role}` });
