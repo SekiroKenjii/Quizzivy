@@ -40,3 +40,27 @@ func TestAQuotedEmailThePrinterCannotWriteBackIsRefusedByCreateUser(t *testing.T
 		}
 	}
 }
+
+func TestAnAccountCreatedWithAQuotedAtomIsStoredBareAndTheUsersListPrintsIt(t *testing.T) {
+	w := boot(t)
+	email, password := w.teacher()
+	admin := w.browser()
+	admin.login(email, password)
+	suffix := nonce(t)
+	var roleID string
+	if err := w.pool.QueryRow(context.Background(), `SELECT id::text FROM app.roles WHERE builtin_key = 'student'`).Scan(&roleID); err != nil {
+		t.Fatal(err)
+	}
+
+	created := admin.must(http.StatusCreated, http.MethodPost, "/admin/users", map[string]any{
+		"email": `"hoc-sinh-` + suffix + `"@example.com`, "fullName": "Người dùng", "roleId": roleID, "delivery": "temporary_password",
+	})
+	if got, want := created["user"].(map[string]any)["email"], "hoc-sinh-"+suffix+"@example.com"; got != want {
+		t.Fatalf("the quoted atom was stored as %v, want %q", got, want)
+	}
+	listed := admin.must(http.StatusOK, http.MethodGet, "/admin/users?email=hoc-sinh-"+suffix+"%40example.com", nil)
+	if items := listed["items"].([]any); len(items) != 1 {
+		t.Fatalf("the Users list holds %d account(s) for the address, want 1: %v", len(items), listed)
+	}
+	admin.must(http.StatusOK, http.MethodGet, "/admin/users", nil)
+}

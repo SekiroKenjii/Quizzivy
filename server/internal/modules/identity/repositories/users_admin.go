@@ -26,6 +26,18 @@ func NewAdminUsers(dbx db.Context, links *SetPasswordLinks) *AdminUsers {
 	return &AdminUsers{Repository: db.NewRepository(dbx), links: links}
 }
 
+const userClasses = `
+		SELECT c.id, c.name, m.joined_at AS at
+		  FROM app.class_members m
+		  JOIN app.classes c ON c.id = m.class_id
+		 WHERE m.user_id = u.id AND c.archived_at IS NULL
+		   AND EXISTS (SELECT 1 FROM app.student_like_roles s WHERE s.id = u.role_id)
+		UNION ALL
+		SELECT c.id, c.name, c.created_at
+		  FROM app.classes c
+		 WHERE c.teacher_id = u.id AND c.archived_at IS NULL
+		   AND NOT EXISTS (SELECT 1 FROM app.student_like_roles s WHERE s.id = u.role_id)`
+
 const adminUserSelect = `
 	SELECT u.id::text, u.full_name, u.email, u.avatar_key,
 	       r.id::text, r.name, coalesce(r.builtin_key, ''), r.icon, r.color,
@@ -39,16 +51,7 @@ const adminUserSelect = `
 	  JOIN app.roles r ON r.id = u.role_id
 	 CROSS JOIN LATERAL (
 	       SELECT count(*)::int AS total, (array_agg(c.name ORDER BY c.at, c.id))[1] AS first_name
-	         FROM (SELECT c.id, c.name, m.joined_at AS at
-	                 FROM app.class_members m
-	                 JOIN app.classes c ON c.id = m.class_id
-	                WHERE m.user_id = u.id AND c.archived_at IS NULL
-	                  AND EXISTS (SELECT 1 FROM app.student_like_roles s WHERE s.id = u.role_id)
-	               UNION ALL
-	               SELECT c.id, c.name, c.created_at
-	                 FROM app.classes c
-	                WHERE c.teacher_id = u.id AND c.archived_at IS NULL
-	                  AND NOT EXISTS (SELECT 1 FROM app.student_like_roles s WHERE s.id = u.role_id)) c) k`
+	         FROM (` + userClasses + `) c) k`
 
 func scanAdminUser(row pgx.Row) (domain.AdminUser, error) {
 	var u domain.AdminUser

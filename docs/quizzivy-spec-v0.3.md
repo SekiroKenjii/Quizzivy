@@ -42,6 +42,8 @@
 - T-R5.9a §15 `createUser` and a user import read a name the same way (QC-N-3, QC-I-3): composed to NFC, trimmed, each run of white space one space; a name that is then empty, over 200 characters, holds a control, format, bidirectional or filler character or an unassigned code point, or holds no letter, digit, punctuation mark or symbol, is `400 VALIDATION_FAILED` on `fullName` (a file's row is `INVALID` or `REQUIRED`). The role is held against edits from the check to the commit and checked again, up to three times, when it changed in between (`409 STALE_WRITE`) (QC-N-2).
 - T-R5.9a §5.4 `createUser` joins the operations that hand out a credential: 30 a minute and 300 an hour per signed-in user, after the permission check.
 - T-R5.9a §15 The audit action `user.created {role, roleId, delivery}`, in both languages.
+- T-R5.9a §15 `listUsers` (`GET /admin/users`, `people.users.manage`) is the Users table: every account whatever its role, newest first, ten, twenty or fifty to a page (`limit`, twenty by default). The Admins tab is the built-in Admin role, Students the strict student targets of §5, Teachers everyone else, and a disabled account stays in its role's tab; `facets` count all five tabs under the same `q`, `email` and `status`, whichever tab is shown. `q` matches the name and the email together ignoring case and accents, `email` is an exact match in any letter case, and `status` (`must_change_password`, `never_signed_in`) never reaches a disabled account. A row carries the role with its icon and colour, whether the account signs in with a password and with Google, its class count with the first class's name (a student's classes are the ones it has joined, anyone else's the ones it teaches, archived classes never), when it was last active, and its status.
+- T-R5.9a §15 `getUser` (`GET /admin/users/:id`, `people.users.manage`) answers any account whatever its role, with who created it, up to 20 of its classes, what it owns (`ownedContent`: every class it teaches, archived ones too, and the tests, questions, media and assignments not deleted), the tests it is taking, up to 8 recent events (the last sign-in and its method, its own audit entries, a student's submissions and class joins) and `can {changeRole, resetPassword, disable, signOut, transfer}`. `can` is the guards' answer for this caller and this account: the subset rule for the first four; additionally never on oneself and, for `changeRole` and `disable`, never on the last active Admin; `changeRole` also needs `people.roles.manage`; `disable` is false for an account already disabled; `transfer` needs `scope.all` and a disabled account.
 
 **Changes since v0.111**
 
@@ -3409,6 +3411,11 @@ POST   /admin/data-exports/:id/download → {url, expiresInSeconds: 60}: a presi
                                           ready, unexpired and signed fewer than three times; 10 an hour per actor
 
 # admin
+GET    /admin/users                     (people.users.manage) ?tab=all|teachers|students|admins|disabled
+                                          &status=must_change_password|never_signed_in &q &email (exact)
+                                          &page &limit (10, 20 or 50) → {items: AdminUserRow[], page, facets}
+GET    /admin/users/:id                 (people.users.manage) → {user, createdBy|null, classes (≤ 20), ownedContent,
+                                          inProgressAttempts, activity (≤ 8), can}; 404
 POST   /admin/users                     (people.users.manage) {fullName, email, roleId, classId?, delivery: email_link |
                                           temporary_password} → 201 {user: AdminUserRow, temporaryPassword?} with
                                           Cache-Control: no-store; 403 TARGET_ROLE_NOT_ALLOWED, 404, 409 EMAIL_TAKEN,

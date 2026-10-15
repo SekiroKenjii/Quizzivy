@@ -4764,6 +4764,235 @@
           }
         }
       },
+      "AdminUserTab": {
+        "type": "string",
+        "enum": [
+          "all",
+          "teachers",
+          "students",
+          "admins",
+          "disabled"
+        ],
+        "description": "The Users table's tabs. `admins` are the built-in Admin role; `students`\nare the student targets (a role holding at most `learning.take_tests`,\nso an Admin who also takes tests is never one); `teachers` are everyone\nelse, the Assistant and every custom role with a permission included.\nThese three include disabled accounts, as the tabs' counts do;\n`disabled` is every disabled account, whatever its role.\n"
+      },
+      "AdminUserFacets": {
+        "type": "object",
+        "description": "The tabs' counts. They follow `q`, `email` and `status` but not `tab`,\nso each tab shows what it would list.\n",
+        "required": [
+          "all",
+          "teachers",
+          "students",
+          "admins",
+          "disabled"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "all": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "teachers": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "students": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "admins": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "disabled": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "AdminUserClass": {
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          }
+        }
+      },
+      "AdminUserActivity": {
+        "type": "object",
+        "description": "One line of the sheet's recent activity. `detail` is the sign-in method\n(`password`, `google` or `set_password_link`) for `sign_in`; the audit\naction key (`audit.action.*`) for `audit`; the test's title for\n`submission`; the class's name for `class_joined`. It is null when the\nsubject has since been removed.\n",
+        "required": [
+          "kind",
+          "at",
+          "detail"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "sign_in",
+              "audit",
+              "submission",
+              "class_joined"
+            ]
+          },
+          "at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          }
+        }
+      },
+      "AdminUserCan": {
+        "type": "object",
+        "description": "What the caller may do to this account, each answer the server's own\nguards give: the subset rule (`TARGET_ROLE_NOT_ALLOWED`), not oneself,\nand the last active Admin. A `false` here is what the operation would\nrefuse, so the sheet hides the action rather than offer a button that\nfails.\n",
+        "required": [
+          "changeRole",
+          "resetPassword",
+          "disable",
+          "signOut",
+          "transfer"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "changeRole": {
+            "type": "boolean",
+            "description": "Needs `people.roles.manage`; not oneself; not the last active Admin."
+          },
+          "resetPassword": {
+            "type": "boolean",
+            "description": "Not oneself."
+          },
+          "disable": {
+            "type": "boolean",
+            "description": "Not oneself, not the last active Admin, and not already disabled."
+          },
+          "signOut": {
+            "type": "boolean",
+            "description": "Signing oneself out everywhere is allowed."
+          },
+          "transfer": {
+            "type": "boolean",
+            "description": "Needs `scope.all`, and the account must be disabled."
+          }
+        }
+      },
+      "AdminUserDetail": {
+        "type": "object",
+        "description": "One account for the Users sheet.",
+        "required": [
+          "user",
+          "createdBy",
+          "classes",
+          "ownedContent",
+          "inProgressAttempts",
+          "activity",
+          "can"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/AdminUserRow"
+          },
+          "createdBy": {
+            "description": "Who created the account, null for one that signed itself up or whose creator is gone.",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "id",
+                  "fullName"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "$ref": "#/components/schemas/Uuid"
+                  },
+                  "fullName": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                }
+              }
+            ]
+          },
+          "classes": {
+            "type": "array",
+            "maxItems": 20,
+            "description": "The first 20 of `user.classes.count`, in the order `firstName` is drawn from.",
+            "items": {
+              "$ref": "#/components/schemas/AdminUserClass"
+            }
+          },
+          "ownedContent": {
+            "type": "object",
+            "description": "What `transferUserContent` would move: every class the account\nteaches (archived ones too) and every test, question, media asset\nand assignment it owns that has not been deleted.\n",
+            "required": [
+              "classes",
+              "tests",
+              "questions",
+              "media",
+              "assignments"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "classes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "tests": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "questions": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "media": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "assignments": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "inProgressAttempts": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Tests the account is taking right now."
+          },
+          "activity": {
+            "type": "array",
+            "maxItems": 8,
+            "description": "Newest first.",
+            "items": {
+              "$ref": "#/components/schemas/AdminUserActivity"
+            }
+          },
+          "can": {
+            "$ref": "#/components/schemas/AdminUserCan"
+          }
+        }
+      },
       "UserCreate": {
         "type": "object",
         "required": [
@@ -19587,6 +19816,101 @@
       }
     },
     "/admin/users": {
+      "get": {
+        "operationId": "listUsers",
+        "x-permission": "people.users.manage",
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "Every account, whatever its role",
+        "description": "The Users table: every account in the centre, newest first: highest id\nfirst, which is creation order for every account the app creates. Pages\nare offset based, so accounts added between two requests shift the later\npages. `q` matches the name and the email together, ignoring case and\naccents (D-11), and `email` is an exact, case-insensitive match for the\nAdd user form's \"already taken\" check. `status` narrows to the accounts\nin that state, which never includes a disabled one (`AccountStatus`\nlists `disabled` first).\n",
+        "parameters": [
+          {
+            "name": "tab",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/AdminUserTab"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "must_change_password",
+                "never_signed_in"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Query"
+          },
+          {
+            "name": "email",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "email",
+              "maxLength": 254
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                10,
+                20,
+                50
+              ],
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageInfo"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "facets"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AdminUserRow"
+                          }
+                        },
+                        "facets": {
+                          "$ref": "#/components/schemas/AdminUserFacets"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      },
       "post": {
         "operationId": "createUser",
         "x-permission": "people.users.manage",
@@ -19697,6 +20021,30 @@
           "$ref": "#/components/parameters/IdPath"
         }
       ],
+      "get": {
+        "operationId": "getUser",
+        "x-permission": "people.users.manage",
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "One account for the Users sheet",
+        "description": "The account with what the sheet draws beside it: who created it, its\nclasses, what it owns, the tests it is taking, its latest activity and\nwhat the caller may do to it (`can`). Any account is visible, whatever\nits role; the subset rule limits what may be done, not what is seen.\n",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
       "delete": {
         "operationId": "deleteUser",
         "x-permission": "people.users.manage",
