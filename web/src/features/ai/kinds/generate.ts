@@ -62,7 +62,8 @@ type QuestionType = AiGeneratedQuestion["type"];
  * where the kept questions go (a section, the bank, or a new practice test),
  * and `save`, the page's own write for them into the run's destination, which
  * tags each with `tag` when it is not null. A section gives way to the group
- * that holds the passage the run read.
+ * that holds the passage the run read; any other destination is read from the
+ * page when the questions are kept, not when they were made.
  */
 export interface GenerateContext {
   testId?: string;
@@ -131,8 +132,12 @@ function destinationFor(
     : context.destination;
 }
 
-function destinationOf(items: readonly GenerateItem[], context: GenerateContext) {
-  return items[0]?.destination ?? context.destination;
+function destinationOf(
+  items: readonly GenerateItem[],
+  context: GenerateContext,
+): GenerateDestination {
+  const kept = items[0]?.destination;
+  return kept?.kind === "group" ? kept : context.destination;
 }
 
 function request(

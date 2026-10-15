@@ -135,7 +135,7 @@ describe("the Clean up panel", () => {
   function context(patch: Partial<CleanupContext> = {}): CleanupContext {
     return {
       href: (id) => `/teacher/question-bank/${id}`,
-      tag: vi.fn(() => Promise.resolve()),
+      tag: vi.fn(() => Promise.resolve(1)),
       ...patch,
     };
   }

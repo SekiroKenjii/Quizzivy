@@ -4,7 +4,12 @@ import type {
   AiGeneratedQuestion,
   AiVariantChange,
 } from "@/features/ai/api";
-import { draftQuestion, withFix, withVariant } from "@/features/question-bank/aiDrafts";
+import {
+  draftQuestion,
+  fixFits,
+  withFix,
+  withVariant,
+} from "@/features/question-bank/aiDrafts";
 import {
   questionSchema,
   type QuestionValues,
@@ -186,6 +191,50 @@ describe("a check's fix", () => {
       "park",
       "parks",
     ]);
+  });
+
+  it("fits only a fix whose option or blank the question still holds", () => {
+    const finding = (fix: AiFinding["fix"]): AiFinding => ({
+      severity: "minor",
+      questionId: "018f0000-0000-7000-8000-0000000000b1",
+      number: 1,
+      type: values.type,
+      title: "Pick one.",
+      issue: "An issue.",
+      fix,
+    });
+    const option = (optionId: string) =>
+      finding({
+        kind: "option_text",
+        description: "Reword.",
+        payload: { optionId, text: "x" },
+      });
+    expect(fixFits(values, option(OPTION))).toBe(true);
+    expect(fixFits(values, option("018f0000-0000-7000-8000-0000000000ff"))).toBe(false);
+    const accepted = (blankId: string) =>
+      finding({
+        kind: "accepted_answer",
+        description: "Add.",
+        payload: { blankId, text: "x" },
+      });
+    expect(fixFits(values, accepted(BLANK))).toBe(false);
+    expect(
+      fixFits(
+        {
+          ...values,
+          blanks: [
+            { id: BLANK, ordinal: 1, acceptedAnswers: [], caseSensitive: false },
+          ],
+        },
+        accepted(BLANK),
+      ),
+    ).toBe(true);
+    expect(
+      fixFits(
+        values,
+        finding({ kind: "explanation", description: "E.", payload: { text: "x" } }),
+      ),
+    ).toBe(true);
   });
 
   it("replaces the explanation with plain text, and leaves advice alone", () => {

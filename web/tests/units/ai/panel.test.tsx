@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AiPanel, { type AiPanelRequest } from "@/features/ai/components/AiPanel";
 import {
   AI_USAGE_KEY,
@@ -244,6 +244,44 @@ describe("the Generate panel", () => {
         "Đã thêm 2 câu hỏi vào nhóm Reading club. Hãy kiểm tra từng câu trước khi xuất bản.",
       ),
     ).toBeVisible();
+  });
+
+  it("saves into the section the page is on when the questions are kept, and says so", async () => {
+    answerWith(generated.slice(0, 1));
+    const save = vi.fn(() => Promise.resolve());
+    const page: { moveTo: ((title: string) => void) | null } = { moveTo: null };
+    function Moving() {
+      const [title, setTitle] = useState("Phần 1");
+      useEffect(() => {
+        page.moveTo = setTitle;
+      }, []);
+      return (
+        <AiPanel
+          request={{
+            kind: "generate",
+            context: generateContext({
+              save,
+              destination: { kind: "section", title },
+            }),
+          }}
+          onClose={() => undefined}
+        />
+      );
+    }
+    const { user } = renderWithApp(<Moving />);
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
+    await within(dialog).findByRole("button", { name: "Thêm 1 câu vào Phần 1" });
+
+    act(() => page.moveTo?.("Phần 2"));
+    await user.click(
+      within(dialog).getByRole("button", { name: "Thêm 1 câu vào Phần 2" }),
+    );
+    expect(save).toHaveBeenCalledWith(
+      [{ question: generated[0], level: "b2" }],
+      ai.draftTag,
+      { kind: "section", title: "Phần 2" },
+    );
   });
 
   it("keeps the section for pasted text, even where a group's passage is offered", async () => {
@@ -497,6 +535,22 @@ describe("the Check panel", () => {
     );
     expect(context.open).toHaveBeenCalledWith("018f0000-0000-7000-8000-0000000000b2");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("leaves out a finding whose question has left the test, and counts the rest", async () => {
+    answer([
+      finding(),
+      finding({ questionId: "018f0000-0000-7000-8000-0000000000b2", issue: "Second." }),
+    ]);
+    const context = checkContext({
+      numberOf: (questionId) => (questionId === QUESTION_ID ? null : 3),
+    });
+    const { dialog, user } = await openPanel({ kind: "check", context });
+    await user.click(within(dialog).getByRole("button", { name: ai.check.run }));
+
+    expect(await within(dialog).findByText("Second.")).toBeVisible();
+    expect(within(dialog).queryByText("Two options fit the passage.")).toBeNull();
+    expect(within(dialog).getByText("1 điều nên xem lại")).toBeVisible();
   });
 
   it("keeps a card and says so when the fix cannot be written", async () => {

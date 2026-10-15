@@ -1,4 +1,4 @@
-import { lazy, Suspense, useId, useState } from "react";
+import { useId, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
@@ -9,6 +9,7 @@ import { IconTile } from "@/components/shared/IconTile";
 import { Button } from "@/components/ui/button";
 import type { AiInsight, AiInsightsResult } from "@/features/ai/api";
 import { AiEntryButton } from "@/features/ai/components/AiEntryButton";
+import { AiPanelStack } from "@/features/ai/components/AiPanelStack";
 import { AiWriteError } from "@/features/ai/kind";
 import type { AiPassage, GeneratedDraft } from "@/features/ai/kinds/generate";
 import {
@@ -23,8 +24,6 @@ import { savePractice } from "@/features/tests/aiPractice";
 import type { AssignmentInsights, InsightsFailure } from "../assignmentInsights";
 import type { components } from "@/lib/api/schema";
 import { useAuthStore } from "@/stores/auth";
-
-const AiPanel = lazy(() => import("@/features/ai/components/AiPanel"));
 
 const TITLE_MAX = 200;
 
@@ -133,7 +132,10 @@ export function AiInsightsPanel({
   const { t } = useTranslation();
   const available = useAiAvailable();
   const reads = useReadsStudentAnswers();
-  const [practice, setPractice] = useState<readonly QuestionType[] | null>(null);
+  const [practice, setPractice] = useState<{
+    types: readonly QuestionType[];
+    open: boolean;
+  } | null>(null);
   if (!available || !reads) return null;
   return (
     <>
@@ -148,15 +150,18 @@ export function AiInsightsPanel({
           result={insights.result}
           gradingHref={`/teacher/grading?${new URLSearchParams({ assignment: assignmentId }).toString()}`}
           onHide={insights.hide}
-          onPractice={setPractice}
+          onPractice={(types) => setPractice({ types, open: true })}
         />
       )}
       {practice !== null && (
         <PracticePanel
-          types={practice}
+          key={`${assignmentId}:${practice.types.join()}`}
+          types={practice.types}
+          open={practice.open}
           testTitle={testTitle}
           passages={passagesOf(groups ?? [])}
-          onClose={() => setPractice(null)}
+          onOpen={() => setPractice({ ...practice, open: true })}
+          onClose={() => setPractice({ ...practice, open: false })}
         />
       )}
     </>
@@ -322,13 +327,17 @@ function InsightCard({
 
 function PracticePanel({
   types,
+  open,
   testTitle,
   passages,
+  onOpen,
   onClose,
 }: Readonly<{
   types: readonly QuestionType[];
+  open: boolean;
   testTitle: string;
   passages: readonly AiPassage[];
+  onOpen: () => void;
   onClose: () => void;
 }>) {
   const { t } = useTranslation();
@@ -364,14 +373,14 @@ function PracticePanel({
   }
 
   return (
-    <Suspense fallback={null}>
-      <AiPanel
-        request={{
-          kind: "generate",
-          context: { passages, types, destination: { kind: "practice" }, save },
-        }}
-        onClose={onClose}
-      />
-    </Suspense>
+    <AiPanelStack
+      open={open ? "generate" : null}
+      requestFor={() => ({
+        kind: "generate",
+        context: { passages, types, destination: { kind: "practice" }, save },
+      })}
+      onOpen={onOpen}
+      onClose={onClose}
+    />
   );
 }
