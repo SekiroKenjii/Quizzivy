@@ -52,9 +52,9 @@ func linkAppPool(t *testing.T) *pgxpool.Pool {
 }
 
 type dbLinks struct {
-	admin   *pgxpool.Pool
-	sealer  *secrets.Sealer
-	outbox  *email.Outbox
+	admin    *pgxpool.Pool
+	sealer   *secrets.Sealer
+	outbox   *email.Outbox
 	links    *repositories.SetPasswordLinks
 	students *repositories.Students
 	app      *application.Application

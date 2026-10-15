@@ -138,14 +138,8 @@ func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domai
 		return domain.Student{}, domain.ErrStudentNotFound
 	}
 	if in.Disabled != nil && *in.Disabled {
-		if _, err := tx.Exec(ctx, `
-			UPDATE app.refresh_tokens
-			   SET revoked_at = $2
-			 WHERE user_id = $1::uuid AND revoked_at IS NULL`, in.ID, in.Now); err != nil {
-			return domain.Student{}, fmt.Errorf("students: revoke sessions: %w", err)
-		}
-		if _, err := tx.Exec(ctx, revokeUnusedLinks, in.ID, in.Now); err != nil {
-			return domain.Student{}, fmt.Errorf("students: revoke set-password links: %w", err)
+		if err := revokeAccess(ctx, tx, in.ID, in.Now); err != nil {
+			return domain.Student{}, err
 		}
 	}
 
@@ -165,6 +159,19 @@ func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domai
 	}
 
 	return s.get(ctx, req.Scope(), in.ID, true)
+}
+
+func revokeAccess(ctx context.Context, tx pgx.Tx, userID string, at time.Time) error {
+	if _, err := tx.Exec(ctx, `
+		UPDATE app.refresh_tokens
+		   SET revoked_at = $2
+		 WHERE user_id = $1::uuid AND revoked_at IS NULL`, userID, at); err != nil {
+		return fmt.Errorf("students: revoke sessions: %w", err)
+	}
+	if _, err := tx.Exec(ctx, revokeUnusedLinks, userID, at); err != nil {
+		return fmt.Errorf("students: revoke set-password links: %w", err)
+	}
+	return nil
 }
 
 // ResetPassword sets a temporary password on a student the actor reaches,
