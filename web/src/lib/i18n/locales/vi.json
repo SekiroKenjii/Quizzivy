@@ -36,6 +36,7 @@
     "saveChanges": "Lưu thay đổi",
     "showPassword": "Hiện mật khẩu",
     "hidePassword": "Ẩn mật khẩu",
+    "agoJustNow": "vừa xong",
     "justDuplicated": "Vừa nhân bản",
     "duplicateNamed": "Nhân bản {{name}}",
     "updated": "Cập nhật",
@@ -2459,6 +2460,7 @@
     "password": "Mật khẩu",
     "average": "Điểm TB",
     "percent": "{{value}}%",
+    "neverActive": "Chưa bao giờ",
     "takingNow": "đang làm bài",
     "flagged": "Đánh dấu",
     "joinedVia": {

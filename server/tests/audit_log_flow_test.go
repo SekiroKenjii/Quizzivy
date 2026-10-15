@@ -13,13 +13,17 @@ import (
 
 func (w *world) auditRow(actorEmail, action, entity string) {
 	w.t.Helper()
+	w.auditRowWithDiff(actorEmail, action, entity, `{"name": {"old": "9A", "new": "9B"}, "code": "SECRET1234"}`)
+}
+
+func (w *world) auditRowWithDiff(actorEmail, action, entity, diff string) int64 {
+	w.t.Helper()
 	var id int64
 	err := w.pool.QueryRow(context.Background(), `
 		INSERT INTO app.audit_log (actor_user_id, action, entity, entity_id, ip, user_agent, diff)
-		SELECT u.id, $2, $3, gen_random_uuid(), '203.0.113.5'::inet, 'Mozilla/5.0 (X11; Linux x86_64) Firefox/120.0',
-		       '{"name": {"old": "9A", "new": "9B"}, "code": "SECRET1234"}'::jsonb
+		SELECT u.id, $2, $3, gen_random_uuid(), '203.0.113.5'::inet, 'Mozilla/5.0 (X11; Linux x86_64) Firefox/120.0', $4::jsonb
 		  FROM app.users u WHERE lower(u.email) = lower($1)
-		RETURNING id`, actorEmail, action, entity).Scan(&id)
+		RETURNING id`, actorEmail, action, entity, diff).Scan(&id)
 	if err != nil {
 		w.t.Fatalf("audit row: %v", err)
 	}
@@ -28,6 +32,7 @@ func (w *world) auditRow(actorEmail, action, entity string) {
 			w.t.Errorf("removing audit row %d: %v", id, err)
 		}
 	})
+	return id
 }
 
 func TestOnlyAnAdminReadsTheAuditLogAndItsExportIsOnTheRecord(t *testing.T) {

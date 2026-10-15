@@ -5036,9 +5036,9 @@ export interface components {
             assignmentId: components["schemas"]["Uuid"];
             assignmentTitle: string;
             studentId: components["schemas"]["Uuid"];
-            /** @description Raw current full name */
+            /** @description Raw current full name, without private account fields. */
             studentName: string;
-            /** @description One-based section/question paper order */
+            /** @description One-based section/question paper order, independent of the student's shuffle. */
             questionNumber: number;
             type: components["schemas"]["QuestionType"];
             prompt: string;
@@ -6926,10 +6926,10 @@ export interface components {
         };
         ItemAnalysisItem: {
             questionId: components["schemas"]["Uuid"];
-            /** @description The question's place on the paper */
+            /** @description The question's place on the paper, counted across sections. */
             number: number;
             type: components["schemas"]["QuestionType"];
-            /** @description The prompt as plain text with its whitespace collapsed */
+            /** @description The prompt as plain text with its whitespace collapsed, cut at 140 characters. */
             promptExcerpt: string;
             /** @description Papers with an answer that says something to this question. */
             answered: number;
@@ -7011,7 +7011,7 @@ export interface components {
          *     engine needs to run authoritatively.
          */
         AttemptSession: {
-            /** @description Additional attempts available after this one */
+            /** @description Additional attempts available after this one, excluding voided attempts. */
             remainingAttempts?: number;
             attempt: components["schemas"]["Attempt"];
             /** @description The engine's header names the paper from 1024px up (S-08). */
@@ -7169,7 +7169,7 @@ export interface components {
             score?: components["schemas"]["AttemptScore"] | null;
             focusLossCount?: number | null;
             flagged?: boolean;
-            /** @description Reported */
+            /** @description Reported, never enforced (§11.4). */
             audioOverLimit?: boolean;
             /**
              * Format: date-time
@@ -7350,7 +7350,7 @@ export interface components {
         AiUsage: {
             /** @description Credits the call was charged. */
             credits: number;
-            /** @description The least of what remains of the teacher's allowance and of the centre's pool */
+            /** @description The least of what remains of the teacher's allowance and of the centre's pool, after the call. */
             left: number;
         };
         /**
@@ -7432,7 +7432,7 @@ export interface components {
             /** @description The question's 1-based place in the draft. */
             number: number;
             type: components["schemas"]["QuestionType"];
-            /** @description The question's prompt */
+            /** @description The question's prompt, shortened. */
             title: string;
             issue: string;
             fix: components["schemas"]["AiFix"];
@@ -7465,7 +7465,7 @@ export interface components {
         };
         AiVariantChange: {
             questionId: components["schemas"]["Uuid"];
-            /** @description The question's 1-based place in the draft */
+            /** @description The question's 1-based place in the draft, which the copy keeps. */
             number: number;
             kind: components["schemas"]["AiVariantKind"];
             title: string;
@@ -7508,7 +7508,7 @@ export interface components {
             /** @enum {string} */
             confidence: "high" | "medium" | "low";
             reasons: string[];
-            /** @description A comment to the student */
+            /** @description A comment to the student, for the teacher to keep, change or drop. */
             comment: string;
             usage: components["schemas"]["AiUsage"];
         };
@@ -7609,7 +7609,7 @@ export interface components {
         AiMonthUsage: {
             /**
              * Format: date
-             * @description The first day of the month
+             * @description The first day of the month, counted in the centre's time zone.
              */
             month: string;
             used: number;
@@ -7633,7 +7633,7 @@ export interface components {
             /** @description The share of the allowance at which the teacher is told. */
             warnPercent: number;
             /**
-             * @description Pause a teacher who runs out
+             * @description Pause a teacher who runs out, or let them ask for more.
              * @enum {string}
              */
             onTeacherLimit: "pause" | "request";
@@ -7809,7 +7809,7 @@ export interface components {
             closesAt?: components["schemas"]["Timestamp"];
             /** @description AI credits the teacher has used this month. */
             used?: number;
-            /** @description The teacher's AI allowance this month */
+            /** @description The teacher's AI allowance this month, in credits. */
             allowance?: number;
             /** @description AI credits a request asks for. */
             credits?: number;

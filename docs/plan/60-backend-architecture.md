@@ -150,15 +150,20 @@ the "one package per feature" layout AGENTS.md described until then.
   fields is refused before `encoding/csv` parses it. The workbook is inspected
   with `archive/zip` before excelize opens it, because excelize reads every part
   it is handed into memory and decodes several whole: it refuses more than 1,000
-  entries, more than 32 MiB expanded, a worksheet above 8 MiB, any other XML
-  part above 1 MiB (2 MiB for the shared strings), macros and a password. Every
-  part the reader uses is then read through to its end by a strict XML scan
-  (T-R5.13 follow-up, QC-A-1 to QC-A-3): a truncated part, a bad checksum, a
-  size that lies or malformed XML is `ErrFormat` and never a shorter table, and
-  nesting past 64 levels, a document type declaration, a start tag past 64 KiB,
-  a row number outside the sheet and more than 16,384 cells in a row are refused
-  before excelize sees the data. Formulas are never evaluated, and nothing is
-  written to disk: the caller closes the `Table` only to release the workbook.
+  entries (`ErrTooManyEntries`), more than 32 MiB expanded (`ErrExpandedTooLarge`),
+  a worksheet above 8 MiB (`ErrSheetTooLarge`; larger sheets are unsupported),
+  any other XML part above 1 MiB, 2 MiB for the shared strings
+  (`ErrPartTooLarge`), macros and a password, and a workbook that does not keep
+  `xl/workbook.xml` and its worksheets under `xl/worksheets/` (`ErrLayout`).
+  Every part the reader uses is then read through to its end by a strict XML scan
+  (T-R5.13 follow-ups, QC-A-1 to QC-A-3 and QC-A-9 to QC-A-11): a truncated part,
+  a bad checksum, a size that lies or malformed XML is `ErrFormat` and never a
+  shorter table, and nesting past 64 levels, a document type declaration, a start
+  tag past 64 KiB, a row number outside the sheet and more than 16,384 cells in a
+  row are refused before excelize sees the data, in every part excelize could
+  read as the sheet. excelize is handed only the parts that were scanned.
+  Formulas are never evaluated, and nothing is written to disk: the caller closes
+  the `Table` only to release the workbook.
 - **core is five packages.** `core/wiring` builds each module (one file per
   module, in dependency order) and returns the `Assembly`; `core/router`
   fronts the transports with the generated strict server, the middleware

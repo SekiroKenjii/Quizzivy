@@ -1992,8 +1992,8 @@ components:
         assignmentId: { $ref: '#/components/schemas/Uuid' }
         assignmentTitle: { type: string }
         studentId: { $ref: '#/components/schemas/Uuid' }
-        studentName: { type: string, description: Raw current full name, without private account fields. }
-        questionNumber: { type: integer, minimum: 1, description: One-based section/question paper order, independent of the student's shuffle. }
+        studentName: { type: string, description: "Raw current full name, without private account fields." }
+        questionNumber: { type: integer, minimum: 1, description: "One-based section/question paper order, independent of the student's shuffle." }
         type: { $ref: '#/components/schemas/QuestionType' }
         prompt: { type: string, minLength: 1 }
         promptContent:
@@ -4662,9 +4662,9 @@ components:
       additionalProperties: false
       properties:
         questionId: { $ref: '#/components/schemas/Uuid' }
-        number: { type: integer, minimum: 1, description: The question's place on the paper, counted across sections. }
+        number: { type: integer, minimum: 1, description: "The question's place on the paper, counted across sections." }
         type: { $ref: '#/components/schemas/QuestionType' }
-        promptExcerpt: { type: string, maxLength: 140, description: The prompt as plain text with its whitespace collapsed, cut at 140 characters. }
+        promptExcerpt: { type: string, maxLength: 140, description: "The prompt as plain text with its whitespace collapsed, cut at 140 characters." }
         answered:
           type: integer
           minimum: 0
@@ -4779,7 +4779,7 @@ components:
       required: [attempt, testTitle, sections, questions, sessionId, beaconToken, serverTime, audioPlays, answers, integrity]
       additionalProperties: false
       properties:
-        remainingAttempts: { type: integer, minimum: 0, description: Additional attempts available after this one, excluding voided attempts. }
+        remainingAttempts: { type: integer, minimum: 0, description: "Additional attempts available after this one, excluding voided attempts." }
         attempt: { $ref: '#/components/schemas/Attempt' }
         testTitle:
           type: string
@@ -4956,7 +4956,7 @@ components:
         score: { oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }] }
         focusLossCount: { type: [integer, 'null'] }
         flagged: { type: boolean }
-        audioOverLimit: { type: boolean, description: Reported, never enforced (§11.4). }
+        audioOverLimit: { type: boolean, description: "Reported, never enforced (§11.4)." }
         extendedTo:
           type: [string, 'null']
           format: date-time
@@ -5215,7 +5215,7 @@ components:
       additionalProperties: false
       properties:
         credits: { type: integer, minimum: 0, description: Credits the call was charged. }
-        left: { type: integer, minimum: 0, description: The least of what remains of the teacher's allowance and of the centre's pool, after the call. }
+        left: { type: integer, minimum: 0, description: "The least of what remains of the teacher's allowance and of the centre's pool, after the call." }
 
     AiGenerateRequest:
       type: object
@@ -5332,7 +5332,7 @@ components:
         questionId: { $ref: '#/components/schemas/Uuid' }
         number: { type: integer, minimum: 1, description: The question's 1-based place in the draft. }
         type: { $ref: '#/components/schemas/QuestionType' }
-        title: { type: string, minLength: 1, maxLength: 300, description: The question's prompt, shortened. }
+        title: { type: string, minLength: 1, maxLength: 300, description: "The question's prompt, shortened." }
         issue: { type: string, minLength: 1, maxLength: 1000 }
         fix: { $ref: '#/components/schemas/AiFix' }
 
@@ -5389,7 +5389,7 @@ components:
       additionalProperties: false
       properties:
         questionId: { $ref: '#/components/schemas/Uuid' }
-        number: { type: integer, minimum: 1, description: The question's 1-based place in the draft, which the copy keeps. }
+        number: { type: integer, minimum: 1, description: "The question's 1-based place in the draft, which the copy keeps." }
         kind: { $ref: '#/components/schemas/AiVariantKind' }
         title: { type: string, minLength: 1, maxLength: 300 }
         before: { type: string, maxLength: 2000 }
@@ -5457,7 +5457,7 @@ components:
           type: array
           maxItems: 4
           items: { type: string, minLength: 1, maxLength: 300 }
-        comment: { type: string, maxLength: 1000, description: A comment to the student, for the teacher to keep, change or drop. }
+        comment: { type: string, maxLength: 1000, description: "A comment to the student, for the teacher to keep, change or drop." }
         usage: { $ref: '#/components/schemas/AiUsage' }
 
     AiInsight:
@@ -5611,7 +5611,7 @@ components:
       required: [month, used, allowance, left, paused, requests, pending, categories]
       additionalProperties: false
       properties:
-        month: { type: string, format: date, description: The first day of the month, counted in the centre's time zone. }
+        month: { type: string, format: date, description: "The first day of the month, counted in the centre's time zone." }
         used: { type: integer, minimum: 0 }
         allowance: { type: integer, minimum: 0 }
         left: { type: integer, minimum: 0 }
@@ -5642,7 +5642,7 @@ components:
         poolCredits: { type: integer, minimum: 0, description: The plan for a month that has not begun. }
         defaultAllowance: { type: integer, minimum: 1000, maximum: 10000000, description: What a teacher without a custom allowance may use in a month. }
         warnPercent: { type: integer, minimum: 50, maximum: 99, description: The share of the allowance at which the teacher is told. }
-        onTeacherLimit: { type: string, enum: [pause, request], description: Pause a teacher who runs out, or let them ask for more. }
+        onTeacherLimit: { type: string, enum: [pause, request], description: "Pause a teacher who runs out, or let them ask for more." }
 
     AiRulesInput:
       type: object
@@ -5872,7 +5872,7 @@ components:
           description: At most five names; `count` holds how many classes there are.
         closesAt: { $ref: '#/components/schemas/Timestamp' }
         used: { type: integer, minimum: 0, description: AI credits the teacher has used this month. }
-        allowance: { type: integer, minimum: 0, description: The teacher's AI allowance this month, in credits. }
+        allowance: { type: integer, minimum: 0, description: "The teacher's AI allowance this month, in credits." }
         credits: { type: integer, minimum: 0, description: AI credits a request asks for. }
         teacherName: { type: string, minLength: 1, maxLength: 200, description: The teacher who asked for credits. }
         decision: { type: string, enum: [approved, declined], description: How an Admin decided a request for credits. }
