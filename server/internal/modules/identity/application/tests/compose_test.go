@@ -97,6 +97,45 @@ func TestAStudentNameComposingLeavesOverItsLimitIsRefusedBeforeAnyWrite(t *testi
 	}
 }
 
+func TestAStudentWhoseNameOrAddressCannotBeReadIsRefusedOnItsFieldBeforeAnyWrite(t *testing.T) {
+	hidden := "a" + string(rune(0x200b)) + "@example.com"
+	for label, c := range map[string]struct{ name, email, field string }{
+		"five spaces":          {"     ", "a@example.com", "fullName"},
+		"a zero-width space":   {"An" + string(rune(0x200b)) + "Bình", "a@example.com", "fullName"},
+		"a right-to-left mark": {"An" + string(rune(0x202e)) + "Bình", "a@example.com", "fullName"},
+		"a control character":  {"An" + string(rune(0x07)) + "Bình", "a@example.com", "fullName"},
+		"a hidden address":     {"An", hidden, "email"},
+		"a braille blank":      {"An", "a" + string(rune(0x2800)) + "@example.com", "email"},
+		"a no-break space":     {"An", "a" + string(rune(0xa0)) + "b@example.com", "email"},
+	} {
+		t.Run(label, func(t *testing.T) {
+			app, shelf := composingStudents()
+			_, createErr := app.Commands.CreateStudent.Handle(context.Background(), command.CreateStudent{Request: writer(), Input: domain.NewStudent{Email: c.email, FullName: c.name}})
+			patch := domain.StudentPatch{ID: "pupil", FullName: &c.name, Email: &c.email}
+			_, updateErr := app.Commands.UpdateStudent.Handle(context.Background(), command.UpdateStudent{Request: writer(), Input: patch})
+			for op, err := range map[string]error{"create": createErr, "update": updateErr} {
+				var invalid *validation.Error
+				if !errors.As(err, &invalid) || len(invalid.Fields) != 1 || invalid.Fields[0].Field != c.field {
+					t.Errorf("%s: err=%v, want a refusal on %s", op, err, c.field)
+				}
+			}
+			if len(shelf.writes) != 0 {
+				t.Fatalf("a refused student reached the repository: %v", shelf.writes)
+			}
+		})
+	}
+}
+
+func TestAStudentNameIsStoredTrimmedWithItsSpaceFolded(t *testing.T) {
+	app, shelf := composingStudents()
+	if _, err := app.Commands.CreateStudent.Handle(context.Background(), command.CreateStudent{Request: writer(), Input: domain.NewStudent{Email: "a@example.com", FullName: "  Nguyễn \t Văn   An "}}); err != nil {
+		t.Fatal(err)
+	}
+	if shelf.created.FullName != "Nguyễn Văn An" {
+		t.Fatalf("name = %q", shelf.created.FullName)
+	}
+}
+
 func TestAProfileStoresItsNamesComposed(t *testing.T) {
 	repo := &profileUsers{user: domain.User{ID: "actor"}}
 	app := application.New(repo, nil, time.Hour, nil, nil)

@@ -99,3 +99,47 @@ func TestTheBudgetNeverGoesBelowZeroAndTheDayRollsAtLocalMidnight(t *testing.T) 
 		t.Errorf("two minutes later the day has %d left, want a fresh 3", left)
 	}
 }
+
+func TestADayOfTwentyThreeOrTwentyFiveHoursStartsAndEndsAtLocalMidnight(t *testing.T) {
+	berlin, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := map[string]struct {
+		day, next time.Time
+		lastOfDay time.Time
+		firstNext time.Time
+	}{
+		"clocks go forward, a day of 23 hours": {
+			day:       time.Date(2001, 3, 25, 12, 0, 0, 0, berlin),
+			next:      time.Date(2001, 3, 26, 12, 0, 0, 0, berlin),
+			lastOfDay: time.Date(2001, 3, 25, 23, 30, 0, 0, berlin),
+			firstNext: time.Date(2001, 3, 26, 0, 30, 0, 0, berlin),
+		},
+		"clocks go back, a day of 25 hours": {
+			day:       time.Date(2001, 10, 28, 12, 0, 0, 0, berlin),
+			next:      time.Date(2001, 10, 29, 12, 0, 0, 0, berlin),
+			lastOfDay: time.Date(2001, 10, 28, 23, 30, 0, 0, berlin),
+			firstNext: time.Date(2001, 10, 29, 0, 30, 0, 0, berlin),
+		},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			w := newWorld(t, c.day)
+			b := email.Budget{DB: db.NewContext(w.pool), Limit: 5, Location: berlin}
+			last, first := waiting(t, w, c.day, "cuoi"), waiting(t, w, c.day, "dau")
+			for id, at := range map[string]time.Time{last: c.lastOfDay, first: c.firstNext} {
+				if _, err := w.pool.Exec(context.Background(), `UPDATE app.email_outbox SET sent_at = $2 WHERE id = $1::uuid`, id, at); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			if left, _ := remaining(t, b, c.day); left != 4 {
+				t.Errorf("the day itself has %d left, want 4: only the message sent at %s belongs to it", left, c.lastOfDay.Format("15:04"))
+			}
+			if left, _ := remaining(t, b, c.next); left != 4 {
+				t.Errorf("the next day has %d left, want 4: only the message sent at %s belongs to it", left, c.firstNext.Format("15:04"))
+			}
+		})
+	}
+}
