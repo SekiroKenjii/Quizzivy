@@ -538,6 +538,8 @@ func TestEachKindOfActivityShowsWhenItIsTheNewest(t *testing.T) {
 
 func TestTheLastActiveAdminIsKnownToTheDirectory(t *testing.T) {
 	w := newReadWorld(t)
+	w.exec(t, `SET LOCAL lock_timeout = '30s'`)
+	w.exec(t, `LOCK TABLE app.users IN SHARE ROW EXCLUSIVE MODE`)
 	first := w.user(t, "admin-1", "admin")
 	w.exec(t, `UPDATE app.users SET disabled_at = now()
 		WHERE role_id = (SELECT id FROM app.roles WHERE builtin_key = 'admin') AND id <> $1::uuid AND disabled_at IS NULL`, first)
