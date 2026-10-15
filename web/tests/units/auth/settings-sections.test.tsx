@@ -9,10 +9,7 @@ import {
   PasswordSection,
 } from "@/features/auth/components/SettingsSections";
 import { openDocsSession } from "@/features/auth/api";
-import {
-  PUBLIC_ORGANIZATION_KEY,
-  type PublicOrganization,
-} from "@/lib/organization";
+import { PUBLIC_ORGANIZATION_KEY, type PublicOrganization } from "@/lib/organization";
 import { BASE_URL } from "@/lib/api/client";
 import { toast } from "@/components/ui/sonner";
 import { useAuthStore } from "@/stores/auth";

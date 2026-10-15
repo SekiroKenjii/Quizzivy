@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
@@ -98,9 +99,12 @@ export default function SetPasswordPage() {
   const heading = useRef<HTMLHeadingElement>(null);
   const shownKind = useRef(phase.kind);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     token.current ??= takeLinkToken();
-    const current = token.current;
+  }, []);
+
+  useEffect(() => {
+    const current = token.current ?? "";
     if (!usable(current)) return;
     check.current ??= checkSetPasswordLink(current);
     let live = true;

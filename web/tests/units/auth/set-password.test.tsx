@@ -142,12 +142,13 @@ afterEach(async () => {
 describe("the set-password link", () => {
   it("takes the token out of the address bar before its first request, and keeps the router's history state", async () => {
     checkAnswers(validLink);
-    const hashesAtFetch: string[] = [];
+    const fetches: { path: string; hash: string }[] = [];
     const realFetch = globalThis.fetch;
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
       .mockImplementation((...args: Parameters<typeof fetch>) => {
-        hashesAtFetch.push(window.location.hash);
+        const target = new Request(...args).url;
+        fetches.push({ path: new URL(target).pathname, hash: window.location.hash });
         return realFetch(...args);
       });
     try {
@@ -157,7 +158,11 @@ describe("the set-password link", () => {
       expect(window.history.state).toEqual(ROUTER_STATE);
 
       await screen.findByRole("heading", { level: 1, name: TITLE });
-      expect(hashesAtFetch).toEqual([""]);
+      expect(fetches.length).toBeGreaterThan(0);
+      expect(fetches.filter((f) => f.hash !== "")).toEqual([]);
+      expect(
+        fetches.filter((f) => f.path.endsWith("/auth/set-password/check")),
+      ).toHaveLength(1);
       expect(checks()).toHaveLength(1);
       expect(checks()[0]!.hashAtSend).toBe("");
       expect(checks()[0]!.body).toEqual({ token: CARRIED });
