@@ -265,6 +265,16 @@ If the mirror ever fails too, the alternative is a Docker Hub login from a
 repository secret, which raises the limit for the account; it needs Thuong to
 create a read-only access token and add it as a secret, and is not built.
 
+## Third-party actions
+
+An action from outside `actions/` is pinned to a full commit SHA, with the tag
+it was resolved from in a trailing comment (`uses: owner/name@<sha> # v1.2.3`).
+A tag or branch moves, and the deploy workflow holds `FLY_API_TOKEN`, so a moved
+ref would run someone else's code with it. To update one, resolve the new tag
+to its commit (the peeled one, `git ls-remote <repo> 'refs/tags/<tag>^{}'`, when
+the tag is annotated), check that the action file exists there, and change the
+SHA and the comment together. The `actions/*` actions stay on a major tag.
+
 ## Branch rules
 
 Three rulesets, under Settings › Rules:

@@ -21,6 +21,12 @@ const (
 	AdminUsersMaxLimit     = 50
 )
 
+// UserSearchText is the expression the Users search compares a query with: an
+// account's name and address, lower-cased and without accents. Migration 00138
+// builds users_search_trgm_idx over this expression, so a change to it needs a
+// new index.
+const UserSearchText = `app.immutable_unaccent(lower(u.full_name || ' ' || u.email))`
+
 const (
 	anyRow        = `TRUE`
 	isAdminRole   = `COALESCE(r.builtin_key, '') = 'admin'`
@@ -55,7 +61,7 @@ func adminFilters(in domain.AdminUserQuery, withTab bool) ([]any, []string) {
 	}
 	if in.Query != "" {
 		args = append(args, db.EscapeLike(in.Query))
-		where = append(where, fmt.Sprintf(`app.immutable_unaccent(lower(u.full_name || ' ' || u.email))
+		where = append(where, fmt.Sprintf(UserSearchText+`
 			LIKE '%%' || app.immutable_unaccent(lower($%d)) || '%%' ESCAPE '\'`, len(args)))
 	}
 	if in.Email != "" {

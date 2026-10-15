@@ -528,18 +528,25 @@ DROP INDEX CONCURRENTLY IF EXISTS app.assignments_creator_idx;         -- 00077
 ## Interrupted index build in v0.12.0 (R5)
 
 `00133` builds `audit_log_recent_idx` on `app.audit_log (occurred_at DESC, id DESC)`
-`CONCURRENTLY`, so writes to the log carry on while it builds. It is the only
-concurrent build R5 adds, and it drops any index of that name before it builds, so
-an interrupted build needs nothing from you: redeploy, and the rerun removes the
-INVALID leftover and builds the index again. Check afterwards, as
+`CONCURRENTLY`, so writes to the log carry on while it builds. `00138` does the same
+for `users_search_trgm_idx`, a gin trigram index on the Users search expression of
+`app.users`: about 4 seconds at 100,000 accounts and 12 to 17 seconds at 500,000
+(more with a `maintenance_work_mem` below 64 MB, 107 seconds at 64 kB), and it ends
+with `ANALYZE app.users`, which takes about a second. Both drop any index of their
+name before they build, so an interrupted build needs nothing from you: redeploy,
+and the rerun removes the INVALID leftover and builds the index again. A rerun over
+a valid index drops it and builds it again, which leaves the search unindexed for
+the length of the build. Check afterwards, as
 `quizzivy_migrate`; the query returns no row when every index is valid:
 
 ```sql
 SELECT indexrelid::regclass FROM pg_index WHERE NOT indisvalid;
 ```
 
-The Admin audit log reads through that index. Until it is valid the list still
-answers, by sorting the range it was asked for, which on a large log is slow.
+The Admin audit log reads through its index. Until it is valid the list still
+answers, by sorting the range it was asked for, which on a large log is slow. The
+Users search reads through `users_search_trgm_idx` in the same way: until it is
+valid the directory answers every search by reading the whole table.
 
 A database that ran the first form of `00133` (`CREATE INDEX CONCURRENTLY IF NOT
 EXISTS`, merged in #641) and was interrupted has the file recorded over an INVALID

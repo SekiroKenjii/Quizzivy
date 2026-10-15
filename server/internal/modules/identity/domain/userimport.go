@@ -60,6 +60,7 @@ const (
 	CodeRequired        ImportCode = "REQUIRED"
 	CodeTooLong         ImportCode = "TOO_LONG"
 	CodeInvalid         ImportCode = "INVALID"
+	CodeFormulaLike     ImportCode = "FORMULA_LIKE"
 	CodeDuplicateInFile ImportCode = "DUPLICATE_IN_FILE"
 	CodeUnknownRole     ImportCode = "UNKNOWN_ROLE"
 	CodeAmbiguousRole   ImportCode = "AMBIGUOUS_ROLE"
@@ -158,6 +159,7 @@ type ImportJob struct {
 	Created           int
 	Skipped           int
 	Invalid           int
+	Attempts          int
 	ErrorCode         string
 	SheetExpiresAt    *time.Time
 	SheetDownloadedAt *time.Time

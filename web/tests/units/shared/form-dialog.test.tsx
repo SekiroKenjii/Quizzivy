@@ -63,6 +63,32 @@ it("submits valid typed values once through the public form event without closin
   expect(close).not.toHaveBeenCalled();
   expect(screen.getByRole("dialog")).toBeVisible();
 });
+it("shows on its field a rule the caller finds while handling a valid submit", async () => {
+  function Refusing() {
+    const [refused, setRefused] = useState(false);
+    return (
+      <FormDialog
+        {...base}
+        validate={(values) =>
+          refused && values.title === "Trùng" ? { title: "Tên này đã có." } : null
+        }
+        onSubmit={() => setRefused(true)}
+      />
+    );
+  }
+  const user = userEvent.setup();
+  render(<Refusing />);
+  await user.type(screen.getByRole("textbox", { name: "Tên" }), "Trùng");
+  expect(screen.queryByText("Tên này đã có.")).toBeNull();
+
+  await user.click(screen.getByRole("button", { name: "Lưu" }));
+
+  expect(await screen.findByText("Tên này đã có.")).toBeVisible();
+  expect(screen.getByRole("textbox", { name: "Tên" })).toHaveAttribute(
+    "aria-invalid",
+    "true",
+  );
+});
 it.each(["pending", "disabled"] as const)(
   "guards %s against button, Enter and direct submit",
   async (flag) => {

@@ -389,7 +389,8 @@
       "user.preferences_updated": "Updated personal preferences",
       "user.profile_updated": "Updated a profile",
       "user.renamed": "Renamed an account",
-      "user_import.requested": "Requested an import of users from a file"
+      "user_import.requested": "Requested an import of users from a file",
+      "user_import.sheet_downloaded": "Downloaded the temporary-password sheet of a user import"
     }
   },
   "error": {
@@ -432,6 +433,130 @@
       "teacher": "Teacher",
       "assistant": "Assistant",
       "student": "Student"
+    },
+    "builtinDescription": {
+      "admin": "Runs the centre. Manages people and settings.",
+      "teacher": "Builds tests, runs classes, grades.",
+      "assistant": "Helps teachers grade and take attendance.",
+      "student": "Takes tests and sees their own results."
+    }
+  },
+  "roles": {
+    "title": "Roles & permissions",
+    "lead": "What each role can do. Administrators can always do everything.",
+    "loadFailed": "Could not load the roles.",
+    "carousel": "Roles",
+    "carouselKind": "carousel",
+    "previous": "Previous roles",
+    "next": "Next roles",
+    "slide": "Go to slide {{n}}",
+    "custom": "Custom",
+    "peopleLabel_one": "person",
+    "peopleLabel_other": "people",
+    "permissionsLabel_one": "permission",
+    "permissionsLabel_other": "permissions",
+    "editPermissions": "Edit permissions",
+    "editPermissionsOf": "Edit permissions of {{name}}",
+    "matrix": "Permissions by role",
+    "permission": "Permission",
+    "cell": "{{permission}} — {{role}}",
+    "group": {
+      "content": "Content",
+      "teaching": "Teaching",
+      "people": "People",
+      "system": "System"
+    },
+    "lock": {
+      "admin": "Admins always have this",
+      "student": "Students always need this to take tests",
+      "self": "You can't change the permissions of the role you hold.",
+      "subset": "You can only change what you can do yourself."
+    },
+    "changed_one": "{{count}} permission changed. People get the new permissions on their next page load.",
+    "changed_other": "{{count}} permissions changed. People get the new permissions on their next page load.",
+    "takingNow_one": "{{count}} test attempt is in progress right now.",
+    "takingNow_other": "{{count}} test attempts are in progress right now.",
+    "saved": "Permissions saved",
+    "saveFailed": "Could not save the permissions. Try again.",
+    "stale": "Someone just changed these roles. The table has been reloaded; check the marked cells and save again.",
+    "perm": {
+      "contentTestsWrite": "Create and edit tests",
+      "contentTestsPublish": "Publish tests",
+      "contentQuestionsWrite": "Manage question bank",
+      "contentMediaWrite": "Upload and delete media",
+      "contentShare": "Share own content with other teachers",
+      "aiUse": "Use AI features",
+      "teachingClassesWrite": "Create classes",
+      "teachingAssignmentsWrite": "Assign tests to classes",
+      "teachingGrading": "Grade answers",
+      "teachingAttemptsIntervene": "Reset, void or extend attempts",
+      "teachingAttendance": "Take attendance",
+      "peopleStudentsRead": "See students in own classes",
+      "peopleStudentsCreate": "Create student accounts",
+      "peopleStudentsResetPassword": "Reset student passwords",
+      "peopleUsersManage": "Add and disable users",
+      "peopleRolesManage": "Change roles",
+      "systemAuditRead": "View audit log",
+      "systemSettingsWrite": "Change system settings",
+      "learningTakeTests": "Take tests and view own results",
+      "aiCreditsManage": "Manage AI credits"
+    },
+    "hint": {
+      "contentTestsPublish": "Makes a test assignable",
+      "contentShare": "Tests, questions, word lists and courses. Owners always see only their own content otherwise.",
+      "audited": "Recorded in the audit log"
+    },
+    "newRole": {
+      "title": "New role",
+      "hint": "Starts with the permissions of the role you copy. Change them in the table after.",
+      "submit": "Create role",
+      "name": "Role name",
+      "namePlaceholder": "Head teacher",
+      "copyFrom": "Copy permissions from",
+      "copyNone": "Don't copy",
+      "description": "Description",
+      "descriptionPlaceholder": "Leads the IELTS team",
+      "taken": "A role with this name already exists",
+      "created": "Role created: {{name}}. Its column is in the table below.",
+      "failed": "Couldn't create the role. Try again."
+    },
+    "editRole": {
+      "title": "Edit role",
+      "pencil": "Edit role {{name}}",
+      "hint": "Changes show everywhere this role appears.",
+      "adminHint": "Admins always keep every permission.",
+      "icon": "Icon",
+      "name": "Name",
+      "description": "Description",
+      "color": "Card colour",
+      "submit": "Save role",
+      "taken": "Another role already uses this name",
+      "saved": "Role saved",
+      "failed": "Couldn't save the role. Try again.",
+      "stale": "This role was just changed elsewhere. It has been reloaded; review it and save again."
+    },
+    "icons": {
+      "shield": "Shield",
+      "graduation-cap": "Graduation cap",
+      "hand-helping": "Helping hand",
+      "user": "Person",
+      "key-round": "Key",
+      "crown": "Crown",
+      "briefcase": "Briefcase",
+      "book-open": "Open book",
+      "users": "People",
+      "clipboard-check": "Checklist",
+      "headset": "Headset",
+      "star": "Star"
+    },
+    "colors": {
+      "dark": "Dark",
+      "lime": "Lime",
+      "blue": "Blue",
+      "green": "Green",
+      "amber": "Amber",
+      "rose": "Rose",
+      "gray": "Gray"
     }
   },
   "teacherShell": {
@@ -495,6 +620,84 @@
     "account": {
       "settings": "System settings",
       "password": "Change password"
+    }
+  },
+  "systemSettings": {
+    "title": "System settings",
+    "hint": "Applies to everyone in {{organization}}.",
+    "navigation": "System settings sections",
+    "loadFailed": "System settings could not be loaded.",
+    "reload": "Reload",
+    "sections": {
+      "organization": "Organization",
+      "signIn": "Sign-in"
+    },
+    "organization": {
+      "title": "Organization",
+      "hint": "Shown on sign-in, emails and printed results.",
+      "name": "Organization name",
+      "shortName": "Short name",
+      "shortNameHint": "Used in emails and the browser tab",
+      "website": "Website",
+      "contactEmail": "Contact email",
+      "frontDeskPhone": "Front-desk phone",
+      "frontDeskHours": "Front-desk hours",
+      "address": "Address"
+    },
+    "logo": {
+      "title": "Replace logo",
+      "change": "Replace logo",
+      "save": "Save logo",
+      "light": "Logo",
+      "dark": "Version for dark mode",
+      "limits": "Square SVG or PNG, at least 256 × 256",
+      "darkLimits": "Light logo on transparent",
+      "hint": "SVG or PNG, square",
+      "hintWithDark": "SVG or PNG, square · has a dark version",
+      "alt": "The centre's logo",
+      "uploaded": "Logo uploaded. Save settings to apply.",
+      "problem": {
+        "type": "Choose an SVG or PNG file.",
+        "tooLarge": "A PNG can be at most 1 MiB.",
+        "unreadable": "This file could not be drawn. Choose another SVG or PNG.",
+        "notSquare": "The logo must be square (within 2%)."
+      }
+    },
+    "signIn": {
+      "title": "Sign-in",
+      "hint": "How people get into Quizzivy.",
+      "google": "Sign in with Google",
+      "googleHint": "Links to an existing account by verified email",
+      "password": "Sign in with email and password",
+      "passwordHint": "Turn off only if everyone uses Google",
+      "force": "Force password change on first sign-in",
+      "forceHint": "Applies to accounts created with a temporary password",
+      "joinCodes": "Students can join classes with a code",
+      "joinCodesHint": "Teachers share a code or link",
+      "domains": "Allowed Google domains",
+      "domainsHint": "Only these email domains can sign in with Google. Leave empty to allow any.",
+      "domainsAdd": "Add domain…",
+      "domainsRemove": "Remove domain {{domain}}",
+      "impact_one": "{{count}} person will no longer be able to sign in.",
+      "impact_other": "{{count}} people will no longer be able to sign in.",
+      "impactAdmins_one": "{{count}} of them is an Admin.",
+      "impactAdmins_other": "{{count}} of them are Admins.",
+      "noMethod": "Keep at least one way to sign in on: Google, or email and password.",
+      "lockedYou": "With this policy you could not sign in any more. Keep a way in for yourself.",
+      "lockedAdmins": "With this policy no Admin would have a way in. Keep at least one for them."
+    },
+    "errors": {
+      "nameRequired": "Enter the organization's name.",
+      "nameTooLong": "The name can be at most 120 characters.",
+      "shortNameTooLong": "The short name can be at most 40 characters.",
+      "websiteTooLong": "The website can be at most 200 characters.",
+      "contactEmailTooLong": "The contact email can be at most 254 characters.",
+      "frontDeskPhoneTooLong": "The phone number can be at most 30 characters.",
+      "frontDeskHoursTooLong": "The hours can be at most 120 characters.",
+      "addressTooLong": "The address can be at most 300 characters.",
+      "domainInvalid": "Not a valid domain.",
+      "domainsTooMany": "At most 50 domains.",
+      "noMethod": "Keep at least one way to sign in on."
     }
   },
   "student": {

@@ -389,7 +389,8 @@
       "user.preferences_updated": "Đã cập nhật tuỳ chọn cá nhân",
       "user.profile_updated": "Đã cập nhật hồ sơ",
       "user.renamed": "Đã đổi tên tài khoản",
-      "user_import.requested": "Đã yêu cầu nhập người dùng từ tệp"
+      "user_import.requested": "Đã yêu cầu nhập người dùng từ tệp",
+      "user_import.sheet_downloaded": "Đã tải bảng mật khẩu tạm của lần nhập người dùng"
     }
   },
   "error": {
@@ -432,6 +433,130 @@
       "teacher": "Giáo viên",
       "assistant": "Trợ giảng",
       "student": "Học viên"
+    },
+    "builtinDescription": {
+      "admin": "Điều hành trung tâm. Quản lý người dùng và cài đặt.",
+      "teacher": "Soạn đề, quản lý lớp, chấm bài.",
+      "assistant": "Hỗ trợ giáo viên chấm bài và điểm danh.",
+      "student": "Làm bài và xem kết quả của mình."
+    }
+  },
+  "roles": {
+    "title": "Vai trò & quyền",
+    "lead": "Mỗi vai trò làm được gì. Quản trị viên luôn làm được mọi việc.",
+    "loadFailed": "Không tải được danh sách vai trò.",
+    "carousel": "Các vai trò",
+    "carouselKind": "băng chuyền",
+    "previous": "Các vai trò trước",
+    "next": "Các vai trò tiếp theo",
+    "slide": "Đến vị trí {{n}}",
+    "custom": "Tùy chỉnh",
+    "peopleLabel_one": "người",
+    "peopleLabel_other": "người",
+    "permissionsLabel_one": "quyền",
+    "permissionsLabel_other": "quyền",
+    "editPermissions": "Sửa quyền",
+    "editPermissionsOf": "Sửa quyền của {{name}}",
+    "matrix": "Bảng quyền theo vai trò",
+    "permission": "Quyền",
+    "cell": "{{permission}} — {{role}}",
+    "group": {
+      "content": "Nội dung",
+      "teaching": "Giảng dạy",
+      "people": "Mọi người",
+      "system": "Hệ thống"
+    },
+    "lock": {
+      "admin": "Quản trị viên luôn có quyền này",
+      "student": "Học viên luôn có quyền này để làm bài",
+      "self": "Bạn không đổi được quyền của chính vai trò mình đang giữ.",
+      "subset": "Bạn chỉ đổi được những quyền bạn có."
+    },
+    "changed_one": "{{count}} quyền đã thay đổi. Mọi người nhận quyền mới ở lần tải trang tiếp theo.",
+    "changed_other": "{{count}} quyền đã thay đổi. Mọi người nhận quyền mới ở lần tải trang tiếp theo.",
+    "takingNow_one": "{{count}} lượt làm bài đang diễn ra ngay lúc này.",
+    "takingNow_other": "{{count}} lượt làm bài đang diễn ra ngay lúc này.",
+    "saved": "Đã lưu quyền",
+    "saveFailed": "Không lưu được quyền. Hãy thử lại.",
+    "stale": "Có người vừa thay đổi các vai trò này. Bảng đã được tải lại; hãy kiểm tra các ô đã đánh dấu rồi lưu lại.",
+    "perm": {
+      "contentTestsWrite": "Tạo và sửa bài kiểm tra",
+      "contentTestsPublish": "Xuất bản bài kiểm tra",
+      "contentQuestionsWrite": "Quản lý ngân hàng câu hỏi",
+      "contentMediaWrite": "Tải lên và xóa tệp phương tiện",
+      "contentShare": "Chia sẻ nội dung của mình với giáo viên khác",
+      "aiUse": "Dùng tính năng AI",
+      "teachingClassesWrite": "Tạo lớp học",
+      "teachingAssignmentsWrite": "Giao bài kiểm tra cho lớp",
+      "teachingGrading": "Chấm điểm câu trả lời",
+      "teachingAttemptsIntervene": "Đặt lại, hủy hoặc gia hạn bài làm",
+      "teachingAttendance": "Điểm danh",
+      "peopleStudentsRead": "Xem học viên trong lớp của mình",
+      "peopleStudentsCreate": "Tạo tài khoản học viên",
+      "peopleStudentsResetPassword": "Đặt lại mật khẩu học viên",
+      "peopleUsersManage": "Thêm và vô hiệu hóa người dùng",
+      "peopleRolesManage": "Thay đổi vai trò",
+      "systemAuditRead": "Xem nhật ký kiểm tra",
+      "systemSettingsWrite": "Thay đổi cài đặt hệ thống",
+      "learningTakeTests": "Làm bài kiểm tra và xem kết quả của mình",
+      "aiCreditsManage": "Quản lý tín dụng AI"
+    },
+    "hint": {
+      "contentTestsPublish": "Giúp bài kiểm tra có thể được giao",
+      "contentShare": "Bài kiểm tra, câu hỏi, danh sách từ và khóa học. Nếu không, chủ sở hữu chỉ thấy nội dung của chính mình.",
+      "audited": "Được ghi vào nhật ký kiểm tra"
+    },
+    "newRole": {
+      "title": "Vai trò mới",
+      "hint": "Bắt đầu với quyền của vai trò bạn sao chép. Sau đó đổi trong bảng bên dưới.",
+      "submit": "Tạo vai trò",
+      "name": "Tên vai trò",
+      "namePlaceholder": "Tổ trưởng bộ môn",
+      "copyFrom": "Sao chép quyền từ",
+      "copyNone": "Không sao chép",
+      "description": "Mô tả",
+      "descriptionPlaceholder": "Phụ trách nhóm IELTS",
+      "taken": "Vai trò này đã tồn tại",
+      "created": "Đã tạo vai trò {{name}}. Cột của vai trò nằm trong bảng bên dưới.",
+      "failed": "Không tạo được vai trò. Hãy thử lại."
+    },
+    "editRole": {
+      "title": "Sửa vai trò",
+      "pencil": "Sửa vai trò {{name}}",
+      "hint": "Thay đổi hiện ở mọi nơi vai trò này xuất hiện.",
+      "adminHint": "Quản trị viên luôn giữ mọi quyền.",
+      "icon": "Biểu tượng",
+      "name": "Tên",
+      "description": "Mô tả",
+      "color": "Màu thẻ",
+      "submit": "Lưu vai trò",
+      "taken": "Một vai trò khác đã dùng tên này",
+      "saved": "Đã lưu vai trò",
+      "failed": "Không lưu được vai trò. Hãy thử lại.",
+      "stale": "Vai trò này vừa được thay đổi ở nơi khác. Đã tải lại; hãy xem rồi lưu lại."
+    },
+    "icons": {
+      "shield": "Khiên",
+      "graduation-cap": "Mũ cử nhân",
+      "hand-helping": "Bàn tay hỗ trợ",
+      "user": "Người dùng",
+      "key-round": "Chìa khóa",
+      "crown": "Vương miện",
+      "briefcase": "Cặp công tác",
+      "book-open": "Sách mở",
+      "users": "Nhóm người",
+      "clipboard-check": "Bảng kiểm",
+      "headset": "Tai nghe hỗ trợ",
+      "star": "Ngôi sao"
+    },
+    "colors": {
+      "dark": "Đậm",
+      "lime": "Chanh",
+      "blue": "Xanh dương",
+      "green": "Xanh lá",
+      "amber": "Hổ phách",
+      "rose": "Hồng",
+      "gray": "Xám"
     }
   },
   "teacherShell": {
@@ -495,6 +620,84 @@
     "account": {
       "settings": "Cài đặt hệ thống",
       "password": "Đổi mật khẩu"
+    }
+  },
+  "systemSettings": {
+    "title": "Cài đặt hệ thống",
+    "hint": "Áp dụng cho mọi người ở {{organization}}.",
+    "navigation": "Mục cài đặt hệ thống",
+    "loadFailed": "Không tải được cài đặt hệ thống.",
+    "reload": "Tải lại",
+    "sections": {
+      "organization": "Tổ chức",
+      "signIn": "Đăng nhập"
+    },
+    "organization": {
+      "title": "Tổ chức",
+      "hint": "Hiển thị ở trang đăng nhập, email và kết quả in.",
+      "name": "Tên tổ chức",
+      "shortName": "Tên viết tắt",
+      "shortNameHint": "Dùng trong email và thẻ trình duyệt",
+      "website": "Website",
+      "contactEmail": "Email liên hệ",
+      "frontDeskPhone": "Điện thoại quầy lễ tân",
+      "frontDeskHours": "Giờ làm việc của quầy lễ tân",
+      "address": "Địa chỉ"
+    },
+    "logo": {
+      "title": "Thay logo",
+      "change": "Thay logo",
+      "save": "Lưu logo",
+      "light": "Logo",
+      "dark": "Bản cho chế độ tối",
+      "limits": "SVG hoặc PNG vuông, tối thiểu 256 × 256",
+      "darkLimits": "Logo sáng trên nền trong suốt",
+      "hint": "SVG hoặc PNG, hình vuông",
+      "hintWithDark": "SVG hoặc PNG, hình vuông · có bản cho chế độ tối",
+      "alt": "Logo của trung tâm",
+      "uploaded": "Logo đã tải lên. Lưu cài đặt để áp dụng.",
+      "problem": {
+        "type": "Hãy chọn tệp SVG hoặc PNG.",
+        "tooLarge": "PNG tối đa 1 MiB.",
+        "unreadable": "Không vẽ được tệp này. Hãy chọn tệp SVG hoặc PNG khác.",
+        "notSquare": "Logo phải là hình vuông (lệch tối đa 2%)."
+      }
+    },
+    "signIn": {
+      "title": "Đăng nhập",
+      "hint": "Cách mọi người vào Quizzivy.",
+      "google": "Đăng nhập bằng Google",
+      "googleHint": "Liên kết với tài khoản có sẵn qua email đã xác minh",
+      "password": "Đăng nhập bằng email và mật khẩu",
+      "passwordHint": "Chỉ tắt khi mọi người đều dùng Google",
+      "force": "Bắt buộc đổi mật khẩu ở lần đăng nhập đầu",
+      "forceHint": "Áp dụng cho tài khoản tạo với mật khẩu tạm",
+      "joinCodes": "Học viên có thể vào lớp bằng mã",
+      "joinCodesHint": "Giáo viên chia sẻ mã hoặc liên kết",
+      "domains": "Tên miền Google được phép",
+      "domainsHint": "Chỉ các tên miền email này đăng nhập được bằng Google. Để trống để cho phép mọi tên miền.",
+      "domainsAdd": "Thêm tên miền…",
+      "domainsRemove": "Bỏ tên miền {{domain}}",
+      "impact_one": "{{count}} người sẽ không đăng nhập được nữa.",
+      "impact_other": "{{count}} người sẽ không đăng nhập được nữa.",
+      "impactAdmins_one": "Trong đó có {{count}} quản trị viên.",
+      "impactAdmins_other": "Trong đó có {{count}} quản trị viên.",
+      "noMethod": "Phải bật ít nhất một cách đăng nhập: Google, hoặc email và mật khẩu.",
+      "lockedYou": "Với chính sách này, chính bạn sẽ không đăng nhập được nữa. Hãy giữ lại một cách đăng nhập cho bạn.",
+      "lockedAdmins": "Với chính sách này, không quản trị viên nào còn cách đăng nhập. Hãy giữ lại ít nhất một cách cho họ."
+    },
+    "errors": {
+      "nameRequired": "Hãy nhập tên tổ chức.",
+      "nameTooLong": "Tên tổ chức tối đa 120 ký tự.",
+      "shortNameTooLong": "Tên viết tắt tối đa 40 ký tự.",
+      "websiteTooLong": "Website tối đa 200 ký tự.",
+      "contactEmailTooLong": "Email liên hệ tối đa 254 ký tự.",
+      "frontDeskPhoneTooLong": "Số điện thoại tối đa 30 ký tự.",
+      "frontDeskHoursTooLong": "Giờ làm việc tối đa 120 ký tự.",
+      "addressTooLong": "Địa chỉ tối đa 300 ký tự.",
+      "domainInvalid": "Tên miền không hợp lệ.",
+      "domainsTooMany": "Tối đa 50 tên miền.",
+      "noMethod": "Phải bật ít nhất một cách đăng nhập."
     }
   },
   "student": {

@@ -224,8 +224,11 @@ func (j *judge) row(in ImportRow) (ImportAccepted, []ImportIssue) {
 
 func (j *judge) address(cell string) (string, ImportCode) {
 	email, code := readAddress(cell)
-	if code != "" {
+	switch {
+	case code != "":
 		return email, code
+	case validation.FormulaLike(email):
+		return email, CodeFormulaLike
 	}
 	key := strings.ToLower(email)
 	if _, again := j.seen[key]; again {

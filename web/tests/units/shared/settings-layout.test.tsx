@@ -106,6 +106,45 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("the footer", () => {
+  function withFooter(active: string) {
+    const router = createMemoryRouter([
+      {
+        path: "*",
+        element: (
+          <SettingsLayout
+            label="Cài đặt"
+            active={active}
+            sections={SECTIONS}
+            footer={<p data-slot="shared-footer">Thanh dùng chung</p>}
+          />
+        ),
+      },
+    ]);
+    return render(<RouterProvider router={router} />);
+  }
+
+  it("follows every section in their column, once, whichever section is current", () => {
+    withFooter("security");
+    const footer = screen.getByText("Thanh dùng chung");
+    expect(screen.getAllByText("Thanh dùng chung")).toHaveLength(1);
+    expect(footer).toBeVisible();
+    const column = footer.parentElement!;
+    expect(
+      [...column.children].map(
+        (child) => (child as HTMLElement).dataset.section ?? "footer",
+      ),
+    ).toEqual(["profile", "security", "notifications", "footer"]);
+    expect(nav().parentElement).toBe(column.parentElement);
+  });
+
+  it("draws nothing after the sections without one", () => {
+    at("/teacher/settings");
+    const column = panel("profile").parentElement!;
+    expect(column.children).toHaveLength(3);
+  });
+});
+
 describe("the settings navigation", () => {
   it("is a navigation with one link per section, each to its own address", () => {
     at("/teacher/settings");

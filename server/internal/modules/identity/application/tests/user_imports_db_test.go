@@ -29,6 +29,7 @@ import (
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/modules/identity/repositories"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/platform/secrets"
 	"quizzivy/internal/platform/tabular"
 )
 
@@ -67,8 +68,21 @@ func (w *importsWorld) attachTables(t *testing.T, tables ports.TableReader, shee
 func (w *importsWorld) attachOn(t *testing.T, conn db.Conn, tables ports.TableReader, sheets bool) {
 	t.Helper()
 	dbx := db.NewContext(conn)
+	var sealer ports.Sealer
+	if sheets {
+		sealer = sheetSealer(t)
+	}
 	w.app.SetUserImports(repositories.NewUserImports(dbx), accessapp.New(accessrepo.NewPostgres(dbx)).Queries.RoleChoices,
-		tables, fixedBudget{left: model.EmailAllowance{Remaining: 7, Limit: 100}}, w.wake, sheets)
+		tables, fixedBudget{left: model.EmailAllowance{Remaining: 7, Limit: 100}}, w.wake, sealer)
+}
+
+func sheetSealer(t *testing.T) *secrets.Sealer {
+	t.Helper()
+	sealer, err := secrets.New([]byte("0123456789abcdef0123456789abcdef"), secrets.PurposeUserImportSheet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return sealer
 }
 
 type commitRefusingPool struct{ *pgxpool.Pool }
@@ -361,6 +375,34 @@ func TestARepeatedRequestReturnsTheFirstJobAndWritesNothingMore(t *testing.T) {
 	}
 	if n := w.wake.n.Load(); n != 1 {
 		t.Errorf("worker woken %d time(s), want once", n)
+	}
+}
+
+type forgetfulRequests struct{ domain.UserImports }
+
+func (forgetfulRequests) FindByRequest(context.Context, string, string) (domain.ImportJob, bool, error) {
+	return domain.ImportJob{}, false, nil
+}
+
+func TestARequestThatLosesTheRaceToItsTwinDoesNotWakeTheWorkerAgain(t *testing.T) {
+	w := newImportsWorld(t)
+	dbx := db.NewContext(linkAppPool(t))
+	w.app.SetUserImports(forgetfulRequests{repositories.NewUserImports(dbx)}, accessapp.New(accessrepo.NewPostgres(dbx)).Queries.RoleChoices,
+		adapters.UserImportTables{}, fixedBudget{left: model.EmailAllowance{Remaining: 7, Limit: 100}}, w.wake, sheetSealer(t))
+	file := csvOf("full_name,email", "Nguyễn Văn An,"+w.email("hs-moi"))
+	requestID := uuid.NewString()
+
+	first, err := w.submit(w.everything(), requestID, file, domain.DefaultStudent, domain.ImportEmailLink)
+	if err != nil || first.Replayed {
+		t.Fatalf("first = %+v, %v, want a new job", first, err)
+	}
+	twin, err := w.submit(w.everything(), requestID, file, domain.DefaultStudent, domain.ImportEmailLink)
+
+	if err != nil || !twin.Replayed || twin.Job.ID != first.Job.ID {
+		t.Fatalf("twin = %+v, %v, want the first job, replayed", twin, err)
+	}
+	if n := w.wake.n.Load(); n != 1 {
+		t.Errorf("worker woken %d time(s), want once: a request that stored nothing has nothing to wake it for", n)
 	}
 }
 

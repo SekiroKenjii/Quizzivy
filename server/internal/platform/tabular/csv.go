@@ -11,31 +11,19 @@ import (
 	"fmt"
 	"io"
 	"unicode/utf8"
+
+	"quizzivy/internal/shared/validation"
 )
 
 const byteOrderMark = "\xEF\xBB\xBF"
 
-var formulaTriggers = map[rune]bool{
-	'=': true, '+': true, '-': true, '@': true, '\t': true, '\r': true,
-	'＝': true, '＋': true, '－': true, '＠': true,
-}
-
-var leadingSpaces = map[rune]bool{' ': true, 0x00A0: true, 0x3000: true}
-
 // EscapeCell returns value ready to be a cell: a value a spreadsheet would run
-// as a formula gets a leading apostrophe, which the spreadsheet shows as text
-// and does not run. That is a value whose first character, after any leading
-// spaces, is "=", "+", "-", "@", a tab or a carriage return, or the full-width
-// form of the first four. Any other value is returned as it is.
+// as a formula (validation.FormulaLike) gets a leading apostrophe, which the
+// spreadsheet shows as text and does not run. Any other value is returned as it
+// is.
 func EscapeCell(value string) string {
-	for _, r := range value {
-		if leadingSpaces[r] {
-			continue
-		}
-		if formulaTriggers[r] {
-			return "'" + value
-		}
-		break
+	if validation.FormulaLike(value) {
+		return "'" + value
 	}
 	return value
 }

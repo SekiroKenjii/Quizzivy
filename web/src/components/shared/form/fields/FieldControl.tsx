@@ -9,6 +9,8 @@ import { SelectField } from "./SelectField";
 import { SegField } from "./SegField";
 import { ChipsField } from "./ChipsField";
 import { ListField } from "./ListField";
+import { IconsField } from "./IconsField";
+import { ColorsField } from "./ColorsField";
 import { ToggleField } from "./ToggleField";
 import { FileField } from "./FileField";
 import { InfoField } from "./InfoField";
@@ -125,6 +127,10 @@ export function FieldControl<V extends FormValues>({
           value={text}
         />
       );
+    case "icons":
+      return <IconsField {...props} options={field.options} value={text} />;
+    case "colors":
+      return <ColorsField {...props} options={field.options} value={text} />;
     case "toggle":
       return (
         <ToggleField

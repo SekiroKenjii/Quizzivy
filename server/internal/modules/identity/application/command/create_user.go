@@ -29,8 +29,8 @@ type CreateUserHandler struct {
 }
 
 // Handle fails with a *validation.Error naming fullName for a name that
-// domain.CleanFullName refuses and email for an address that domain.CleanEmail
-// refuses, with the access module's ErrRoleNotFound,
+// domain.CleanFullName refuses and email for an address that holds a character
+// domain.HiddenInEmail finds, with the access module's ErrRoleNotFound,
 // ErrNotAssignable and ErrTargetRoleNotAllowed for a role the caller may not
 // give, whether the role was that way when the call began or became so while
 // it ran, with domain.ErrClassNotAllowed for a class given to a role that is

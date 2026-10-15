@@ -375,7 +375,7 @@ const adminTree: RouteObject = {
                 permission: "people.roles.manage",
                 width: 1320,
               },
-              lazy: pending,
+              lazy: page(() => import("@/features/roles/pages/admin/RolesPage")),
             },
             {
               path: "classes",
@@ -420,7 +420,9 @@ const adminTree: RouteObject = {
                 permission: "system.settings.write",
                 width: 1080,
               },
-              lazy: pending,
+              lazy: page(
+                () => import("@/features/organization/pages/admin/SystemSettingsPage"),
+              ),
             },
             {
               path: "exports/:id",
