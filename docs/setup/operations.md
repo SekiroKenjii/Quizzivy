@@ -205,14 +205,17 @@ places: the GitHub environment `production-maintenance` (as the secret
 `cmd/maintenance` command, not only the sweep, so its reach is the sum of them. Whoever holds the
 credential can read every answer payload and every account's name and email; move exam windows
 (`closes_at`, `deadline_at`); change the AI allowance and credit counters; rewrite join-code
-ciphertexts; delete focus events and sessions (refresh tokens); and anonymise any account that
-owns no content and is not the last active Admin, which cannot be undone for that account's
-sign-in. It cannot sign in as anyone and cannot read a password or a token. A trigger on `app.users`
-(migration `00139`) refuses, with `42501`, every update the role makes that does not leave the
-account anonymised (the reserved address, no password hash, no phone, photo or display name, and
-disabled), so the role can set neither an email nor a password hash nor enable an account again,
-alone or together; and it holds no `INSERT` on `user_identities` or `set_password_tokens`, so it
-cannot reopen an anonymised row either. It also cannot change a `role_id`, update or delete the
+ciphertexts; delete focus events and sessions (refresh tokens); and anonymise an account that
+owns no class or content and is not the last active Admin, which cannot be undone for that
+account's sign-in. It cannot sign in as anyone and cannot read a password or a token. A trigger on
+`app.users` (migration `00139`) refuses, with `42501`, every update the role makes that does not
+leave the account anonymised (the reserved address, no password hash, no phone, photo or display
+name, and disabled), so the role can set neither an email nor a password hash nor enable an
+account again, alone or together; and it holds no `INSERT` on `user_identities` or
+`set_password_tokens`, so it cannot reopen an anonymised row either. The database refuses to
+anonymise the last active Admin and any account that owns a class or content; the sweep and
+`anonymize-user` skip them first, so the refusal fires only on a race or a hostile credential. It
+does not check attempts in progress: the role can anonymise a student who is sitting a test. It also cannot change a `role_id`, update or delete the
 audit log or the AI ledger, or create or own a table, schema or function. It can change its own
 password and create large objects, because PostgreSQL gives every role both.
 
@@ -252,8 +255,13 @@ The owner sets this up once, in this order:
    existing `quizzivy_migrate` or `quizzivy_app` (an exported `QUIZZIVY_MIGRATE_PASSWORD` or
    `QUIZZIVY_APP_PASSWORD` is ignored, with a note), never grants `CREATEDB`, refuses a
    development default such as `maintenance`, and refuses to create a role whose password
-   variable is not set. Use the provider's own host. A tunnel to a production database on `localhost`
-   (`fly proxy`, an SSH forward) looks local to the script, which says so on stderr; run it with
+   variable is not set. The admin need not be a superuser: the script names no attribute that only a
+   superuser may change, and alters `quizzivy_maintenance` only where it differs from `LOGIN`, no
+   `CREATEDB`, no `CREATEROLE` and `CONNECTION LIMIT 2` (a managed provider's admin has `CREATEROLE`
+   and `CREATEDB` and is not a superuser; the script once failed there after creating the roles,
+   QC-RS-16). Use the provider's own host. A tunnel to a production database on `localhost`
+   (`fly proxy`, an SSH forward) looks local to the script, which says so on stderr before it runs a
+   statement and then goes on with the local rules, so it cannot be stopped in time; run it with
    `QUIZZIVY_MANAGED=1` and it applies the rules above. It repeats the grants of the original setup (`CONNECT` on the database,
    `public` denied to everyone but the migrate and app roles), which change nothing on a database
    already provisioned. Its last lines name the roles whose password it set: read them, and only
@@ -272,8 +280,10 @@ The owner sets this up once, in this order:
    `sslmode=require` kept, because the credential crosses the internet from a GitHub runner. The
    workflow runs only GitHub's own `actions/checkout` and `actions/setup-go`, each pinned to a
    commit SHA with its tag in a trailing comment (stricter than `docs/setup/ci.md` asks of the
-   other workflows), because this job holds a database credential. Any action added to it is
-   pinned the same way, and `scripts/ci/tests/retention-sweep.test.mjs` fails otherwise.
+   other workflows), because this job holds a database credential. The checkout leaves no
+   repository token in `.git/config` (`persist-credentials: false`) and `setup-go` restores no cache
+   (`cache: false`). Any action added to it is pinned the same way, and
+   `scripts/ci/tests/retention-sweep.test.mjs` fails otherwise.
 3. Run the workflow by hand with `apply` off and read the report (below).
 4. When the dry run counts what you expect, set the repository variable
    `RETENTION_SWEEP_ENABLED` to `true`.
