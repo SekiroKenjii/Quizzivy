@@ -65,13 +65,17 @@ export function useIntegrityMonitor({
     // One episode at a time.
     let awaySince: number | null = null;
 
-    const note = (kind: string, meta?: Record<string, unknown>) =>
+    let unloading = false;
+
+    const note = (kind: string, meta?: Record<string, unknown>) => {
+      if (unloading) return;
       record(attemptId, kind, {
         ...(latest.current.questionId === null
           ? {}
           : { questionId: latest.current.questionId }),
         ...(meta === undefined ? {} : { meta }),
       });
+    };
 
     const leave = (kind: string) => {
       if (pausing(useAppState.getState().overlay)) return;
@@ -121,8 +125,9 @@ export function useIntegrityMonitor({
       if (latest.current.policy?.blockCopyPaste === true) event.preventDefault();
     };
 
-    const onPageHide = () => {
+    const onPageHide = (event: PageTransitionEvent) => {
       note("page_hide");
+      if (!event.persisted) unloading = true;
       const { sessionId: session, beaconToken: token } = latest.current;
       if (session === null || token === "") return;
       sendBeaconFlush({
