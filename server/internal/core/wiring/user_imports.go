@@ -1,0 +1,24 @@
+package wiring
+
+import (
+	"context"
+	"log/slog"
+
+	"quizzivy/internal/core/adapters"
+	identityapp "quizzivy/internal/modules/identity/application"
+	identityports "quizzivy/internal/modules/identity/application/ports"
+	identityrepo "quizzivy/internal/modules/identity/repositories"
+	"quizzivy/internal/platform/config"
+	"quizzivy/internal/platform/db"
+	"quizzivy/internal/platform/email"
+)
+
+func attachUserImports(ctx context.Context, cfg config.Config, logger *slog.Logger, dbx db.Context, app *identityapp.Application, roles identityports.RoleChoices) {
+	if !cfg.ImportProcessing {
+		logger.Info("user imports disabled (no import worker configured)")
+		return
+	}
+	wake := adapters.NewWorkerWake(context.WithoutCancel(ctx), cfg.ImportWorkerWakeURL, logger)
+	budget := adapters.UserImportBudget{Budget: email.Budget{DB: dbx, Limit: cfg.Email.DailyLimit, Location: cfg.AppLocation}}
+	app.SetUserImports(identityrepo.NewUserImports(dbx), roles, adapters.UserImportTables{}, budget, wake, cfg.SecretsKey != nil)
+}

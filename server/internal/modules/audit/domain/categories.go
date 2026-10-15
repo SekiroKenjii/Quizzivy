@@ -55,6 +55,7 @@ var categoryOfEntity = map[string]Category{
 	"media_asset": Media,
 
 	"word_import": Imports,
+	"user_import": Imports,
 }
 
 var allOnlyEntities = []string{

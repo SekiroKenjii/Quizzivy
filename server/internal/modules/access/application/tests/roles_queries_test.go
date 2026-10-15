@@ -2,10 +2,12 @@ package application_test
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"testing"
 
 	"quizzivy/internal/modules/access/application"
+	"quizzivy/internal/modules/access/application/model"
 	"quizzivy/internal/modules/access/application/query"
 	"quizzivy/internal/modules/access/domain"
 	"quizzivy/internal/shared/access"
@@ -86,5 +88,98 @@ func TestTheAssignableRolesAreThoseWithinTheCallersReach(t *testing.T) {
 	want := []pick{{"Admin", false}, {"Teacher", false}, {"Custom", false}, {"Student", true}, {"Only tests", true}}
 	if !slices.Equal(got, want) {
 		t.Errorf("the Admin may assign %v, want %v", got, want)
+	}
+}
+
+func TestOneAssignableRoleIsAnswerForEachRefusal(t *testing.T) {
+	app := queryApp(t)
+	grader := domain.Caller{RoleID: "role-custom", Permissions: access.NewSet(access.TeachingGrading)}
+	cases := []struct {
+		name    string
+		by      domain.Caller
+		roleID  string
+		want    error
+		student bool
+	}{
+		{"the Admin gives the Teacher role", adminCaller(), "role-teacher", nil, false},
+		{"the Admin gives a student target", adminCaller(), "role-only-tests", nil, true},
+		{"the Admin gives the built-in Student", adminCaller(), "role-student", nil, true},
+		{"nobody gives the Assistant", adminCaller(), "role-assistant", domain.ErrNotAssignable, false},
+		{"an unknown role", adminCaller(), "role-missing", domain.ErrRoleNotFound, false},
+		{"a grader cannot give the Teacher role", grader, "role-teacher", domain.ErrTargetRoleNotAllowed, false},
+		{"a grader gives a student target", grader, "role-only-tests", nil, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			role, err := app.Queries.AssignableRole.Handle(context.Background(), query.AssignableRole{By: c.by, RoleID: c.roleID})
+			if !errors.Is(err, c.want) || (c.want == nil && err != nil) {
+				t.Fatalf("error = %v, want %v", err, c.want)
+			}
+			if c.want == nil && (role.ID != c.roleID || role.StudentTarget != c.student) {
+				t.Errorf("role = %+v, want %s with studentTarget %v", role, c.roleID, c.student)
+			}
+			if c.want != nil && role != (model.AssignableRole{}) {
+				t.Errorf("a refusal returned %+v", role)
+			}
+		})
+	}
+}
+
+func TestEveryRoleIsListedWithTheCallersVerdictOnGivingIt(t *testing.T) {
+	app := queryApp(t)
+	grader := domain.Caller{RoleID: "role-custom", Permissions: access.NewSet(access.TeachingGrading)}
+	type verdict struct {
+		verdict model.RoleVerdict
+		student bool
+	}
+	for name, tc := range map[string]struct {
+		by   domain.Caller
+		want map[string]verdict
+	}{
+		"the Admin": {adminCaller(), map[string]verdict{
+			"Admin": {model.RoleGivable, false}, "Teacher": {model.RoleGivable, false}, "Assistant": {model.RoleNeverGiven, false},
+			"Custom": {model.RoleGivable, false}, "Student": {model.RoleGivable, true}, "Only tests": {model.RoleGivable, true},
+		}},
+		"a grader": {grader, map[string]verdict{
+			"Admin": {model.RoleBeyondCaller, false}, "Teacher": {model.RoleBeyondCaller, false}, "Assistant": {model.RoleNeverGiven, false},
+			"Custom": {model.RoleGivable, false}, "Student": {model.RoleGivable, true}, "Only tests": {model.RoleGivable, true},
+		}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			choices, err := app.Queries.RoleChoices.Handle(context.Background(), query.RoleChoices{By: tc.by})
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := map[string]verdict{}
+			for _, c := range choices {
+				got[c.Name] = verdict{c.Verdict, c.StudentTarget}
+			}
+			if len(choices) != len(tc.want) {
+				t.Errorf("%d roles listed, want %d", len(choices), len(tc.want))
+			}
+			for role, want := range tc.want {
+				if got[role] != want {
+					t.Errorf("%s: %+v, want %+v", role, got[role], want)
+				}
+			}
+		})
+	}
+}
+
+func TestTheVerdictOfRoleChoicesIsTheOneAssignableRoleReaches(t *testing.T) {
+	app := queryApp(t)
+	grader := domain.Caller{RoleID: "role-custom", Permissions: access.NewSet(access.TeachingGrading)}
+	for _, by := range []domain.Caller{adminCaller(), grader} {
+		choices, err := app.Queries.RoleChoices.Handle(context.Background(), query.RoleChoices{By: by})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, c := range choices {
+			_, err := app.Queries.AssignableRole.Handle(context.Background(), query.AssignableRole{By: by, RoleID: c.ID})
+			want := map[model.RoleVerdict]error{model.RoleGivable: nil, model.RoleBeyondCaller: domain.ErrTargetRoleNotAllowed, model.RoleNeverGiven: domain.ErrNotAssignable}[c.Verdict]
+			if !errors.Is(err, want) || (want == nil && err != nil) {
+				t.Errorf("%s: AssignableRole says %v, RoleChoices %v", c.Name, err, c.Verdict)
+			}
+		}
 	}
 }

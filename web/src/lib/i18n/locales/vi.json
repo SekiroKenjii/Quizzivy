@@ -380,6 +380,7 @@
       "test.version_deleted": "Đã xoá một phiên bản của bài kiểm tra",
       "user.avatar_removed": "Đã gỡ ảnh đại diện",
       "user.avatar_set": "Đã đặt ảnh đại diện",
+      "user.created": "Đã tạo tài khoản",
       "user.google_linked": "Đã liên kết tài khoản Google",
       "user.google_unlinked": "Đã huỷ liên kết tài khoản Google",
       "user.password_changed": "Đã đổi mật khẩu",
@@ -387,7 +388,8 @@
       "user.password_set": "Đã đặt mật khẩu bằng liên kết",
       "user.preferences_updated": "Đã cập nhật tuỳ chọn cá nhân",
       "user.profile_updated": "Đã cập nhật hồ sơ",
-      "user.renamed": "Đã đổi tên tài khoản"
+      "user.renamed": "Đã đổi tên tài khoản",
+      "user_import.requested": "Đã yêu cầu nhập người dùng từ tệp"
     }
   },
   "error": {
@@ -884,6 +886,7 @@
     "uses": "Lượt dùng",
     "noActiveCode": "Chưa có mã đang dùng. Chỉ bạn thêm được học viên vào lớp.",
     "archivedNoCode": "Lớp đã lưu trữ nên không ai tham gia được. Khôi phục lớp ở trang Lớp học để tạo mã.",
+    "archivedNoCodeOff": "Lớp đã lưu trữ nên không ai tham gia được.",
     "copyLink": "Chép liên kết",
     "rotate": "Mã mới",
     "issue": "Tạo mã",
@@ -911,6 +914,7 @@
     "revokeConfirmBody": "Không ai tham gia bằng mã này được nữa. Bạn có thể tạo mã mới sau.",
     "revokeConfirm": "Ngừng mã",
     "removeConfirmBody": "Bài đã nộp và điểm của học viên vẫn được giữ. Học viên có thể vào lại bằng mã.",
+    "removeConfirmBodyOff": "Bài đã nộp và điểm của học viên vẫn được giữ.",
     "removeConfirm": "Xoá",
     "studentCount_one": "{{count}} học viên",
     "studentCount_other": "{{count}} học viên",
@@ -2726,6 +2730,7 @@
     "removeAll": "Xoá khỏi lớp",
     "removeAllTitle": "Xoá {{name}} khỏi các lớp của học viên?",
     "removeAllBody": "{{name}} sẽ rời: {{classes}}. Tài khoản và kết quả vẫn được giữ. Học viên có thể vào lại lớp bằng mã lớp.",
+    "removeAllBodyOff": "{{name}} sẽ rời: {{classes}}. Tài khoản và kết quả vẫn được giữ.",
     "removedAll": "Đã xoá {{name}} khỏi các lớp",
     "move": {
       "titleOne": "Chuyển {{name}}",
