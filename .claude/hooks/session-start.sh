@@ -51,14 +51,25 @@ step() {
   fi
 }
 
+drop_stale_pidfile() {
+  local pidfile="$1" comm="$2"
+  [ -f "$pidfile" ] || return 0
+  [ "$(cat "/proc/$(cat "$pidfile" 2>/dev/null)/comm" 2>/dev/null)" = "$comm" ] && return 0
+  echo "removing the stale $pidfile: its process is not $comm"
+  rm -f "$pidfile"
+}
+
 start_docker() {
   if docker info >/dev/null 2>&1; then
     return 0
   fi
-  local pidfile=/var/run/docker.pid
-  if [ -f "$pidfile" ] && [ "$(cat "/proc/$(cat "$pidfile" 2>/dev/null)/comm" 2>/dev/null)" != dockerd ]; then
-    echo "removing the stale $pidfile: its process is not dockerd"
-    rm -f "$pidfile"
+  drop_stale_pidfile /var/run/docker.pid dockerd
+  drop_stale_pidfile /var/run/docker/containerd/containerd.pid containerd
+  if [ ! -f /var/run/docker.pid ] && [ ! -f /var/run/docker/containerd/containerd.pid ]; then
+    echo "removing the sockets the previous boot left behind"
+    rm -f /var/run/docker.sock \
+      /var/run/docker/containerd/containerd-debug.sock \
+      /var/run/docker/containerd/containerd.sock.ttrpc
   fi
   setsid nohup dockerd 9>&- >/tmp/dockerd.log 2>&1 &
   local i
