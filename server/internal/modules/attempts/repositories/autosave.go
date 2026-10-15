@@ -49,9 +49,6 @@ func writable(ctx context.Context, tx pgx.Tx, in domain.SaveInput, now time.Time
 	return lockWritable(ctx, tx, in.AttemptID, in.StudentID, in.SessionID, false, now)
 }
 
-// lockWritable locks the student's attempt and answers its test version and
-// deadline while the attempt can be written: in progress, before its
-// deadline and, unless anySession, held by sessionID.
 func lockWritable(ctx context.Context, tx pgx.Tx, attemptID, studentID, sessionID string, anySession bool, now time.Time) (string, time.Time, error) {
 	var (
 		session    string
