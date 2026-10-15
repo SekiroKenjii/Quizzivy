@@ -76,7 +76,6 @@ func TestSaveNamesOnlyTheFieldsThatChanged(t *testing.T) {
 		change func(d *domain.Settings)
 		fields []string
 	}{
-		{"nothing", func(*domain.Settings) {}, []string{}},
 		{"name", func(d *domain.Settings) { d.Profile.Name = "Tên khác" }, []string{"organization.name"}},
 		{"short name cleared", func(d *domain.Settings) { d.Profile.ShortName = "" }, []string{"organization.shortName"}},
 		{"website", func(d *domain.Settings) { d.Profile.Website = "https://khac.example" }, []string{"organization.website"}},
@@ -86,10 +85,7 @@ func TestSaveNamesOnlyTheFieldsThatChanged(t *testing.T) {
 		{"address", func(d *domain.Settings) { d.Profile.Address = "34 Hai Bà Trưng" }, []string{"organization.address"}},
 		{"light logo removed", func(d *domain.Settings) { d.Profile.LightLogo = nil }, []string{"organization.logo.light"}},
 		{"dark logo bytes", func(d *domain.Settings) {
-			d.Profile.DarkLogo = &domain.Logo{SHA256: digest(90), Type: domain.LogoSVG}
-		}, []string{"organization.logo.dark"}},
-		{"dark logo type only", func(d *domain.Settings) {
-			d.Profile.DarkLogo = &domain.Logo{SHA256: digest(40), Type: domain.LogoPNG}
+			d.Profile.DarkLogo = &domain.Logo{SHA256: digest(90), Type: domain.LogoPNG}
 		}, []string{"organization.logo.dark"}},
 		{"google off", func(d *domain.Settings) { d.SignIn.Google = false }, []string{"signIn.google"}},
 		{"password off", func(d *domain.Settings) { d.SignIn.Password = false }, []string{"signIn.password"}},
@@ -141,6 +137,55 @@ func TestSaveNamesOnlyTheFieldsThatChanged(t *testing.T) {
 				t.Errorf("diff revision = %d, stored revision = %d, want %d", got.Revision, second.Revision, first.Revision+1)
 			}
 		})
+	}
+}
+
+func TestSaveOfADocumentEqualToTheStoredOneChangesNothing(t *testing.T) {
+	s := lockedSession(t)
+	actor := s.coverAdmin()
+	ctx := context.Background()
+	first, err := s.repo.Save(ctx, s.save(s.fullDocument(), s.stored().Revision, actor))
+	if err != nil {
+		t.Fatalf("first save: %v", err)
+	}
+	rowAfterFirst := s.raw()
+	again := first
+	again.SignIn.AllowedGoogleDomains = slices.Clone(first.SignIn.AllowedGoogleDomains)
+
+	got, err := s.repo.Save(ctx, s.save(again, first.Revision, s.coverAdmin()))
+	if err != nil {
+		t.Fatalf("save of the same document: %v", err)
+	}
+
+	if !sameSettings(got, first) {
+		t.Errorf("returned %+v, want the stored document %+v", got, first)
+	}
+	if row := s.raw(); !row.same(rowAfterFirst) {
+		t.Errorf("the row changed: %+v, want %+v", row, rowAfterFirst)
+	}
+	if audits := s.audits(); len(audits) != 1 {
+		t.Errorf("audit rows = %d, want only the first save's", len(audits))
+	}
+	if _, err := s.repo.Save(ctx, s.save(again, first.Revision-1, actor)); !errors.Is(err, domain.ErrStale) {
+		t.Errorf("the same document over a stale revision = %v, want ErrStale", err)
+	}
+}
+
+func TestSaveOfNoDomainsEqualsStoredNoDomains(t *testing.T) {
+	s := lockedSession(t)
+	actor := s.coverAdmin()
+	ctx := context.Background()
+	bare := bareDocument()
+	first, err := s.repo.Save(ctx, s.save(bare, s.stored().Revision, actor))
+	if err != nil {
+		t.Fatalf("first save: %v", err)
+	}
+	bare.SignIn.AllowedGoogleDomains = nil
+
+	got, err := s.repo.Save(ctx, s.save(bare, first.Revision, actor))
+
+	if err != nil || got.Revision != first.Revision {
+		t.Errorf("save with nil domains = revision %d, %v, want the stored revision %d", got.Revision, err, first.Revision)
 	}
 }
 

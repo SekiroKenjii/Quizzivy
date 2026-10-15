@@ -39,6 +39,23 @@ func TestReadMapsAbsentColumnsToEmptyValues(t *testing.T) {
 	}
 }
 
+func TestAReservedSVGLogoTypeReadsAsNoLogo(t *testing.T) {
+	s := lockedSession(t)
+	s.exec(`
+		UPDATE app.organization_settings
+		   SET logo_sha256 = decode(repeat('01', 32), 'hex'), logo_type = 'image/svg+xml',
+		       logo_dark_sha256 = decode(repeat('02', 32), 'hex'), logo_dark_type = 'image/png'`)
+
+	got := s.stored()
+
+	if got.Profile.LightLogo != nil {
+		t.Errorf("light logo = %+v, want none for the reserved type", got.Profile.LightLogo)
+	}
+	if got.Profile.DarkLogo == nil || got.Profile.DarkLogo.Type != domain.LogoPNG {
+		t.Errorf("dark logo = %+v, want the PNG", got.Profile.DarkLogo)
+	}
+}
+
 func TestReadMapsEveryColumnToItsField(t *testing.T) {
 	s := lockedSession(t)
 	author := s.addAccount(account{role: "admin", password: true})
@@ -47,7 +64,7 @@ func TestReadMapsEveryColumnToItsField(t *testing.T) {
 		   SET name = 'Trung tâm A', short_name = 'TTA', website = 'https://tta.example', contact_email = 'a@tta.example',
 		       front_desk_phone = '028 3822 1111', front_desk_hours = 'Cả tuần', address = '1 Lê Lợi',
 		       logo_sha256 = decode(repeat('01', 32), 'hex'), logo_type = 'image/png',
-		       logo_dark_sha256 = decode(repeat('02', 32), 'hex'), logo_dark_type = 'image/svg+xml',
+		       logo_dark_sha256 = decode(repeat('02', 32), 'hex'), logo_dark_type = 'image/png',
 		       google_sign_in = false, password_sign_in = true, force_password_change = false, join_codes_enabled = false,
 		       allowed_google_domains = ARRAY['b.example', 'a.example'],
 		       keep_answers_months = 12, keep_focus_events_months = 24, anonymise_disabled_after_months = 24,
@@ -60,7 +77,7 @@ func TestReadMapsEveryColumnToItsField(t *testing.T) {
 			Name: "Trung tâm A", ShortName: "TTA", Website: "https://tta.example", ContactEmail: "a@tta.example",
 			FrontDeskPhone: "028 3822 1111", FrontDeskHours: "Cả tuần", Address: "1 Lê Lợi",
 			LightLogo: &domain.Logo{SHA256: bytesOf(0x01, 32), Type: domain.LogoPNG},
-			DarkLogo:  &domain.Logo{SHA256: bytesOf(0x02, 32), Type: domain.LogoSVG},
+			DarkLogo:  &domain.Logo{SHA256: bytesOf(0x02, 32), Type: domain.LogoPNG},
 		},
 		SignIn: domain.SignIn{
 			Google: false, Password: true, ForcePasswordChange: false, JoinCodes: false,

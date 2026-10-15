@@ -402,11 +402,10 @@ func TestAnUploadTheCheckerRefusesIsMappedToItsStatus(t *testing.T) {
 		err  error
 		want any
 	}{
-		"too large":    {domain.ErrLogoTooLarge, openapi.UploadOrganizationLogo413JSONResponse{}},
-		"unsupported":  {domain.ErrLogoUnsupported, openapi.UploadOrganizationLogo415JSONResponse{}},
-		"unreadable":   {domain.ErrLogoUnreadable, openapi.UploadOrganizationLogo415JSONResponse{}},
-		"dimensions":   {domain.ErrLogoDimensions, openapi.UploadOrganizationLogo415JSONResponse{}},
-		"svg disallow": {domain.ErrSVGNotAllowed, openapi.UploadOrganizationLogo415JSONResponse{}},
+		"too large":   {domain.ErrLogoTooLarge, openapi.UploadOrganizationLogo413JSONResponse{}},
+		"unsupported": {domain.ErrLogoUnsupported, openapi.UploadOrganizationLogo415JSONResponse{}},
+		"unreadable":  {domain.ErrLogoUnreadable, openapi.UploadOrganizationLogo415JSONResponse{}},
+		"dimensions":  {domain.ErrLogoDimensions, openapi.UploadOrganizationLogo415JSONResponse{}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			s := &store{objects: map[string][]byte{}}
@@ -422,6 +421,22 @@ func TestAnUploadTheCheckerRefusesIsMappedToItsStatus(t *testing.T) {
 				t.Errorf("a refused upload stored %v", s.objects)
 			}
 		})
+	}
+}
+
+func TestAnSVGUploadIsRefusedAs415MediaTypeUnsupported(t *testing.T) {
+	h := handler(t, &repo{settings: stored()}, &store{objects: map[string][]byte{}}, checker{err: domain.ErrLogoUnsupported})
+
+	out, err := h.UploadOrganizationLogo(contextAs(t, ""), openapi.UploadOrganizationLogoRequestObject{
+		Body: upload(t, "light", []byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"/>`)),
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	refusal, ok := out.(openapi.UploadOrganizationLogo415JSONResponse)
+	if !ok || refusal.Error.Code != openapi.MEDIATYPEUNSUPPORTED {
+		t.Errorf("answered %T %+v, want 415 MEDIA_TYPE_UNSUPPORTED", out, refusal)
 	}
 }
 
@@ -454,24 +469,23 @@ func logoFor(t *testing.T, variant string, v *string, s domain.Settings, objects
 	return response
 }
 
-func TestALogoIsServedAsAnAttachmentUnderASandbox(t *testing.T) {
+func TestALogoIsServedAsAPNGAttachment(t *testing.T) {
 	digest := bytes.Repeat([]byte{0x11}, 32)
 	hexed := hex.EncodeToString(digest)
-	svg := []byte("<svg xmlns=\"http://www.w3.org/2000/svg\"/>")
+	body := []byte("\x89PNG pretend")
 	s := stored()
-	s.Profile.DarkLogo = &domain.Logo{SHA256: digest, Type: domain.LogoSVG}
-	objects := map[string][]byte{"branding/" + hexed + ".svg": svg}
+	s.Profile.DarkLogo = &domain.Logo{SHA256: digest, Type: domain.LogoPNG}
+	objects := map[string][]byte{"branding/" + hexed + ".png": body}
 
 	versioned := logoFor(t, "dark", &hexed, s, objects)
-	if versioned.Code != http.StatusOK || !bytes.Equal(versioned.Body.Bytes(), svg) {
+	if versioned.Code != http.StatusOK || !bytes.Equal(versioned.Body.Bytes(), body) {
 		t.Fatalf("status %d body %q", versioned.Code, versioned.Body.String())
 	}
 	for header, want := range map[string]string{
-		"Content-Type":            "image/svg+xml",
-		"X-Content-Type-Options":  "nosniff",
-		"Content-Disposition":     `attachment; filename="logo.svg"`,
-		"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
-		"Cache-Control":           "public, max-age=31536000, immutable",
+		"Content-Type":           "image/png",
+		"X-Content-Type-Options": "nosniff",
+		"Content-Disposition":    `attachment; filename="logo.png"`,
+		"Cache-Control":          "public, max-age=31536000, immutable",
 	} {
 		if got := versioned.Header().Get(header); got != want {
 			t.Errorf("%s = %q, want %q", header, got, want)
