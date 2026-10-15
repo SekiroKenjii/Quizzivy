@@ -634,6 +634,52 @@ describe("the classes list while the centre has turned joining by code off (D-02
     }
   });
 
+  it("gives the reason as the title of the card's icon buttons (QC-U-23)", async () => {
+    serveJoinCodes(false);
+    renderPage();
+    await screen.findByText("Giáo viên thêm học viên vào lớp.");
+    const evening = await card("IELTS 6.5 Evening");
+    const reason = "Trung tâm đang tắt tham gia bằng mã.";
+    await waitFor(() =>
+      expect(
+        within(evening).getByRole("button", {
+          name: /Sao chép liên kết tham gia của IELTS 6.5 Evening/,
+        }),
+      ).toHaveAttribute("title", reason),
+    );
+    expect(
+      within(evening).getByRole("button", {
+        name: /Hiện mã QR của IELTS 6.5 Evening/,
+      }),
+    ).toHaveAttribute("title", reason);
+  });
+
+  it("drops 'send the new code' from the replaced-codes notice while joining is off (QC-U-21)", async () => {
+    serveJoinCodes(false);
+    server.use(
+      http.get(`${BASE}/me/notifications`, () =>
+        contractJson("/me/notifications", "get", 200, {
+          items: [
+            {
+              id: "018f0000-0000-7000-8000-0000000000e1",
+              kind: "join_codes.rotated",
+              params: { count: 2, classNames: ["IELTS 6.5 Evening"] },
+              target: { route: "classes" },
+              createdAt: "2026-10-05T03:00:00Z",
+              readAt: null,
+            },
+          ],
+          nextBefore: null,
+        }),
+      ),
+    );
+    renderPage();
+    expect(
+      await screen.findByText("Mã tham gia của các lớp đã được thay ngày 05/10/2026."),
+    ).toBeVisible();
+    expect(screen.queryByText(/Hãy gửi mã mới/)).toBeNull();
+  });
+
   it("names both words for a code that has also run out", async () => {
     serveJoinCodes(false);
     serveList([

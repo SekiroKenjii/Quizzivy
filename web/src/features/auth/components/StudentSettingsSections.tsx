@@ -49,7 +49,7 @@ import { notify } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { usePasswordChanged } from "@/features/auth/passwordChanged";
 import { useSetPasswordLinkRequest } from "@/features/auth/setPasswordLink";
-import { useKnownPasswordSignInOff } from "@/features/organization/api";
+import { usePasswordSignInOff } from "@/features/organization/api";
 import { authStore, useAuthStore } from "@/stores/auth";
 
 const CARD = "bg-card shadow-card rounded-xl border";
@@ -469,7 +469,7 @@ function GoogleRow() {
   const email = useAuthStore((s) => s.user?.email ?? "");
   const mounted = useMounted();
   const google = useGoogleSignIn();
-  const passwordsOff = useKnownPasswordSignInOff();
+  const passwordsOff = usePasswordSignInOff();
   const link = useSetPasswordLinkRequest();
   const [failure, setFailure] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -560,7 +560,10 @@ function GoogleRow() {
           )}
           <SetPasswordLinkButton
             state={link.request.state}
-            className={cn(ROW_BUTTON, "aria-disabled:opacity-50")}
+            className={cn(
+              ROW_BUTTON,
+              "aria-disabled:border-border/50 aria-disabled:text-foreground/50",
+            )}
             onSend={() => void link.send()}
           />
         </div>

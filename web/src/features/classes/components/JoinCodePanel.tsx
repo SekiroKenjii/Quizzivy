@@ -187,7 +187,7 @@ export function JoinCodePanel({
             disabled={!canWrite}
             aria-disabled={selfJoin.isPending || joinOff || undefined}
             aria-describedby={joinOff ? OFF_REASON : undefined}
-            className="aria-disabled:data-[state=checked]:bg-primary/50 aria-disabled:data-[state=unchecked]:bg-border/50 aria-disabled:[&>span]:opacity-50"
+            className="aria-disabled:data-[state=checked]:bg-primary/50 aria-disabled:data-[state=unchecked]:bg-border/50 aria-disabled:[&>span]:bg-switch-thumb/50"
             onCheckedChange={(next) => {
               if (!selfJoin.isPending && !joinOff) selfJoin.mutate(next);
             }}
@@ -398,7 +398,11 @@ function CodeSummary({
           )}
           {unreadable ? (
             <p className="text-muted-fg text-xs leading-[1.45]">
-              {t("classDetail.unreadableNote")}
+              {t(
+                inactive
+                  ? "classDetail.unreadableNoteOff"
+                  : "classDetail.unreadableNote",
+              )}
             </p>
           ) : null}
           {paused ? (

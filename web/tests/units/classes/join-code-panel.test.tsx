@@ -453,6 +453,15 @@ describe("the join code card while the centre has turned joining by code off (D-
     expect(await navigator.clipboard.readText()).toBe("untouched");
   });
 
+  it("does not tell the teacher to make a new code for a code that cannot be read (QC-U-21)", async () => {
+    serveJoinCodes(false);
+    readable = { ...CODE, code: null, legacy: true };
+    renderPanel();
+    expect(await screen.findByText("Không đọc lại được mã này.")).toBeVisible();
+    expect(screen.queryByText(/Hãy tạo mã mới/)).toBeNull();
+    expect(screen.getByText("••••-2PXA")).toBeVisible();
+  });
+
   it("keeps them live while the centre allows joining by code", async () => {
     serveJoinCodes(true);
     const user = renderPanel();

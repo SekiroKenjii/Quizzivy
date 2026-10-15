@@ -626,7 +626,7 @@ decides whether the student payload drops it.
 
 ---
 
-### O-R5.7 — Closing overdue attempts nobody monitors · R5 (T-R5.17a), any release
+### O-R5.8 — Closing overdue attempts nobody monitors · R5 (T-R5.17a), any release
 **Default:** no closer job (D-035, 2026-10-15). The retention sweep never removes the answers of an
 attempt still in progress, however overdue, because closing it scores it from the stored answers
 and a payload already replaced by `{"removed": true}` would be scored blank for good. An overdue

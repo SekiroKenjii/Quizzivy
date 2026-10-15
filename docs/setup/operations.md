@@ -255,7 +255,7 @@ runs in a read-only transaction).
   and an answer already removed would be scored blank for good. Until it is closed, such an
   attempt keeps its answers and holds its student back from anonymization (`skippedInProgress`).
   A figure above zero is for the owner to decide on; nothing closes them by itself
-  (`docs/plan/40-open-items.md`, O-R5.7).
+  (`docs/plan/40-open-items.md`, O-R5.8).
 - On a dry run, `batches` is the number of batches an apply would take.
 
 ### By hand

@@ -30,10 +30,10 @@ const DECK_BAR =
 const DECK_COUNT = "mr-auto text-sm font-medium whitespace-nowrap";
 
 const DECK_BUTTON =
-  "border-muted-fg/35 hover:bg-primary-fg/10 rounded-seg text-meta inline-flex h-7.5 items-center gap-1.5 border bg-transparent px-2.5 leading-4 font-medium whitespace-nowrap disabled:pointer-events-none disabled:opacity-45 aria-disabled:cursor-default aria-disabled:opacity-45 aria-disabled:hover:bg-transparent";
+  "border-muted-fg/35 hover:bg-primary-fg/10 rounded-seg text-meta inline-flex h-7.5 items-center gap-1.5 border bg-transparent px-2.5 leading-4 font-medium whitespace-nowrap disabled:pointer-events-none disabled:opacity-45 aria-disabled:text-primary-fg/45 aria-disabled:border-muted-fg/20 aria-disabled:cursor-default aria-disabled:hover:bg-transparent";
 
 const DECK_CLEAR =
-  "hover:bg-primary-fg/10 rounded-seg grid size-7.5 flex-none place-items-center border-0 bg-transparent aria-disabled:cursor-default aria-disabled:opacity-45 aria-disabled:hover:bg-transparent";
+  "hover:bg-primary-fg/10 rounded-seg grid size-7.5 flex-none place-items-center border-0 bg-transparent aria-disabled:text-primary-fg/45 aria-disabled:cursor-default aria-disabled:hover:bg-transparent";
 
 /**
  * BulkBarButton is a button of the bulk bar, for a control a page puts in the
