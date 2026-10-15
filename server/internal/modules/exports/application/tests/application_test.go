@@ -21,6 +21,25 @@ type repo struct {
 	requestEr error
 	fetchEr   error
 	created   time.Time
+	lapsed    []domain.Lapse
+	lapsedLim int
+	lapsedEr  error
+	expired   []string
+	expireEr  map[string]error
+	gone      map[string]bool
+}
+
+func (r *repo) Lapsed(_ context.Context, limit int) ([]domain.Lapse, error) {
+	r.lapsedLim = limit
+	return r.lapsed, r.lapsedEr
+}
+
+func (r *repo) Expire(_ context.Context, id string) (bool, error) {
+	if err := r.expireEr[id]; err != nil {
+		return false, err
+	}
+	r.expired = append(r.expired, id)
+	return !r.gone[id], nil
 }
 
 func (r *repo) Request(_ context.Context, in domain.Request) (domain.Export, error) {
@@ -48,6 +67,16 @@ type store struct {
 	key, name string
 	ttl       time.Duration
 	signErr   error
+	deleted   []string
+	deleteEr  map[string]error
+}
+
+func (s *store) Delete(_ context.Context, key string) error {
+	if err := s.deleteEr[key]; err != nil {
+		return err
+	}
+	s.deleted = append(s.deleted, key)
+	return nil
 }
 
 func (s *store) Put(context.Context, string, string, io.Reader, int64) error { return nil }

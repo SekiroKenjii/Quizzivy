@@ -1,4 +1,4 @@
-// Package application is the organization use cases: reading and saving the centre's settings, uploading its logos, judging a sign-in policy, and answering the sign-in policy and branding other modules act on from a snapshot every server refreshes at most every 30 seconds.
+// Package application is the organization use cases: reading and saving the centre's settings, uploading its logos and sweeping the ones nothing names, judging a sign-in policy, and answering the sign-in policy and branding other modules act on from a snapshot every server refreshes at most every 30 seconds.
 package application
 
 import (
@@ -25,6 +25,7 @@ type Application struct {
 type Commands struct {
 	UpdateSettings cqrs.CommandHandler[command.UpdateSettings, domain.Settings]
 	UploadLogo     cqrs.CommandHandler[command.UploadLogo, command.UploadedLogo]
+	SweepLogos     cqrs.CommandHandler[command.SweepLogos, command.SweptLogos]
 }
 
 // Queries are the module's reads.
@@ -48,6 +49,7 @@ func New(repo domain.Repository, logger *slog.Logger, googleConfigured bool) *Ap
 		Commands: Commands{
 			UpdateSettings: command.UpdateSettingsHandler{Service: service},
 			UploadLogo:     command.UploadLogoHandler{Service: service},
+			SweepLogos:     command.SweepLogosHandler{Service: service},
 		},
 		Queries: Queries{
 			Settings:     query.SettingsHandler{Service: service},
