@@ -108,6 +108,10 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	if chosen.hasCompleter {
 		completer = chosen.completer
 	}
+	exportsTransport, err := exports(ctx, cfg, logger, dbx)
+	if err != nil {
+		return Assembly{}, err
+	}
 	mediaApp, mediaRepo, err := media(ctx, cfg, logger, dbx)
 	if err != nil {
 		return Assembly{}, err
@@ -158,6 +162,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 			Availability:  availabilityTransport,
 			Notifications: notificationsTransport(notificationsApp, logger),
 			Organization:  organizationTransport(organizationApp),
+			Exports:       exportsTransport,
 		},
 		Principals:    principals,
 		Maintenance:   adapters.MaintenanceGate{Current: availabilityApp.Queries.CurrentWindow},

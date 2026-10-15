@@ -2,13 +2,17 @@ package apidocs_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/getkin/kin-openapi/openapi3"
 
 	"quizzivy/gen/contract"
 	"quizzivy/internal/platform/apidocs"
@@ -149,5 +153,69 @@ func TestTheCommittedContractIsWhatTheSourceConvertsTo(t *testing.T) {
 	}
 	if !strings.HasPrefix(string(want), "{\n  \"openapi\": ") {
 		t.Errorf("the converted contract starts %q, want the openapi key first as written", want[:30])
+	}
+}
+
+var valueKeywords = map[string]bool{"default": true, "example": true, "examples": true, "const": true}
+
+func nullKeys(t *testing.T, document []byte) []string {
+	t.Helper()
+	var root any
+	if err := json.Unmarshal(document, &root); err != nil {
+		t.Fatal(err)
+	}
+	var found []string
+	var walk func(path string, node any)
+	walk = func(path string, node any) {
+		switch v := node.(type) {
+		case map[string]any:
+			for key, child := range v {
+				if valueKeywords[key] {
+					continue
+				}
+				at := path + "." + key
+				if child == nil {
+					found = append(found, at)
+					continue
+				}
+				walk(at, child)
+			}
+		case []any:
+			for i, child := range v {
+				walk(fmt.Sprintf("%s[%d]", path, i), child)
+			}
+		}
+	}
+	walk("$", root)
+	slices.Sort(found)
+	return found
+}
+
+func TestANullValuedKeyIsFoundExceptWhereTheKeywordHoldsAValue(t *testing.T) {
+	document := converted(t, "properties:\n  left: { type: string, description: Pause a teacher, or let them ask for more. }\n"+
+		"  kept: { type: string, default: null, example: { a: null }, const: null, enum: [x, null] }\n"+
+		"  quoted: { type: string, description: \"Pause a teacher, or let them ask for more.\" }\n")
+	got := nullKeys(t, []byte(document))
+	if want := []string{"$.properties.left.or let them ask for more."}; !slices.Equal(got, want) {
+		t.Errorf("found null-valued keys %q, want %q", got, want)
+	}
+}
+
+func TestTheDownloadedContractHasNoNullValuedKey(t *testing.T) {
+	if got := nullKeys(t, contract.JSON()); len(got) > 0 {
+		t.Errorf("api/openapi.yaml has %d keys with no value, which a description cut at a comma in a flow mapping leaves behind; quote the description: %q", len(got), got)
+	}
+}
+
+func TestTheDownloadedContractIsAValidOpenAPIDocument(t *testing.T) {
+	document, err := openapi3.NewLoader().LoadFromData(contract.JSON())
+	if err != nil {
+		t.Fatalf("the downloaded contract does not load: %v", err)
+	}
+	if err := document.Validate(context.Background()); err != nil {
+		t.Errorf("the downloaded contract is not a valid OpenAPI document: %v", err)
+	}
+	if document.Paths.Len() < 100 {
+		t.Errorf("the downloaded contract has %d paths", document.Paths.Len())
 	}
 }

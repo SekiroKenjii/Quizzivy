@@ -144,19 +144,27 @@ func TestAWorkbookIsHeldToTheRowColumnAndCellLimits(t *testing.T) {
 }
 
 func TestAnArchiveThatExpandsPastTheLimitIsRefusedBeforeExcelizeAllocates(t *testing.T) {
-	bomb := archiveOfBombs(t, []string{"xl/worksheets/sheet1.xml"}, 96<<20)
-	if len(bomb) > 1<<20 {
-		t.Fatalf("the test bomb is %d bytes, want it small enough to be under any upload limit", len(bomb))
-	}
-	var err error
+	for name, tc := range map[string]struct {
+		part string
+		want error
+	}{
+		"a worksheet":                     {"xl/worksheets/sheet1.xml", tabular.ErrSheetTooLarge},
+		"a part with no limit of its own": {"xl/media/big.bin", tabular.ErrExpandedTooLarge},
+	} {
+		t.Run(name, func(t *testing.T) {
+			bomb := archiveOfBombs(t, []string{tc.part}, 96<<20)
+			if len(bomb) > 1<<20 {
+				t.Fatalf("the test bomb is %d bytes, want it small enough to be under any upload limit", len(bomb))
+			}
+			var err error
 
-	allocated := allocatedDuring(func() { _, _, err = read(t, bomb, tabular.FormatXLSX, tabular.DefaultLimits()) })
+			allocated := allocatedDuring(func() { _, _, err = read(t, bomb, tabular.FormatXLSX, tabular.DefaultLimits()) })
 
-	if !errors.Is(err, tabular.ErrTooLarge) {
-		t.Fatalf("err = %v, want ErrTooLarge", err)
-	}
-	if allocated > 8<<20 {
-		t.Errorf("refusing the bomb allocated %d bytes, want the 96 MiB it expands to left alone", allocated)
+			wantSizeError(t, err, tc.want)
+			if allocated > 8<<20 {
+				t.Errorf("refusing the bomb allocated %d bytes, want the 96 MiB it expands to left alone", allocated)
+			}
+		})
 	}
 }
 
@@ -165,26 +173,27 @@ func TestSeveralEntriesThatTogetherExpandPastTheLimitAreRefused(t *testing.T) {
 
 	_, _, err := read(t, bomb, tabular.FormatXLSX, tabular.DefaultLimits())
 
-	if !errors.Is(err, tabular.ErrTooLarge) {
-		t.Errorf("err = %v, want ErrTooLarge (4 x 9 MiB is over 32 MiB although each entry is under it)", err)
-	}
+	wantSizeError(t, err, tabular.ErrExpandedTooLarge)
 }
 
 func TestAHeaderThatDeclaresAHugeEntryIsRefusedWithoutBelievingItOrAllocatingIt(t *testing.T) {
 	for name, declared := range map[string]uint64{"1 GiB": 1 << 30, "the largest size": math.MaxUint64} {
-		t.Run(name, func(t *testing.T) {
-			data := archiveDeclaring(t, "xl/worksheets/sheet1.xml", declared, 0)
-			var err error
+		for part, want := range map[string]error{
+			"xl/worksheets/sheet1.xml": tabular.ErrSheetTooLarge,
+			"xl/media/big.bin":         tabular.ErrExpandedTooLarge,
+		} {
+			t.Run(name+" in "+part, func(t *testing.T) {
+				data := archiveDeclaring(t, part, declared, 0)
+				var err error
 
-			allocated := allocatedDuring(func() { _, _, err = read(t, data, tabular.FormatXLSX, tabular.DefaultLimits()) })
+				allocated := allocatedDuring(func() { _, _, err = read(t, data, tabular.FormatXLSX, tabular.DefaultLimits()) })
 
-			if !errors.Is(err, tabular.ErrTooLarge) {
-				t.Fatalf("err = %v, want ErrTooLarge", err)
-			}
-			if allocated > 8<<20 {
-				t.Errorf("allocated %d bytes for an entry that declares %d", allocated, declared)
-			}
-		})
+				wantSizeError(t, err, want)
+				if allocated > 8<<20 {
+					t.Errorf("allocated %d bytes for an entry that declares %d", allocated, declared)
+				}
+			})
+		}
 	}
 }
 
@@ -196,9 +205,7 @@ func TestAnArchiveWithMoreThanAThousandEntriesIsRefused(t *testing.T) {
 
 	_, _, err := read(t, archive(t, entries...), tabular.FormatXLSX, tabular.DefaultLimits())
 
-	if !errors.Is(err, tabular.ErrTooLarge) {
-		t.Errorf("err = %v, want ErrTooLarge", err)
-	}
+	wantSizeError(t, err, tabular.ErrTooManyEntries)
 }
 
 func TestAnXMLPartAWorkbookDecodesWholeIsHeldToItsOwnLimit(t *testing.T) {
@@ -217,9 +224,7 @@ func TestAnXMLPartAWorkbookDecodesWholeIsHeldToItsOwnLimit(t *testing.T) {
 
 			allocated := allocatedDuring(func() { _, _, err = read(t, data, tabular.FormatXLSX, tabular.DefaultLimits()) })
 
-			if !errors.Is(err, tabular.ErrTooLarge) {
-				t.Fatalf("err = %v, want ErrTooLarge", err)
-			}
+			wantSizeError(t, err, tabular.ErrPartTooLarge)
 			if allocated > 8<<20 {
 				t.Errorf("refusing it allocated %d bytes, want the decoding it would have caused left undone", allocated)
 			}

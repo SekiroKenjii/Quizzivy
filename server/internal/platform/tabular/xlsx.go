@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf16"
@@ -27,15 +28,17 @@ const (
 	maxXMLDepth           = 64
 	maxTagBytes           = 64 << 10
 	encryptedEntry        = 0x1
+	workbookPart          = "xl/workbook.xml"
+	rootRelationshipsPart = "_rels/.rels"
 )
 
 var (
 	compoundFileSignature = [8]byte{0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1}
 	encryptedPackageName  = utf16LE("EncryptedPackage")
 	namedReadParts        = map[string]bool{
-		"xl/workbook.xml":            true,
+		workbookPart:                 true,
 		"xl/_rels/workbook.xml.rels": true,
-		"_rels/.rels":                true,
+		rootRelationshipsPart:        true,
 		"xl/styles.xml":              true,
 		"xl/sharedstrings.xml":       true,
 		"xl/calcchain.xml":           true,
@@ -52,6 +55,9 @@ func openXLSX(src io.ReaderAt, size int64) (source, error) {
 	archive, err := inspectArchive(src, size)
 	if err != nil {
 		return nil, err
+	}
+	if !slices.ContainsFunc(archive.File, func(entry *zip.File) bool { return isSheetPart(partName(entry.Name)) }) {
+		return nil, ErrLayout
 	}
 	if err := verifyParts(archive.File); err != nil {
 		return nil, err
@@ -123,7 +129,7 @@ func inspectArchive(src io.ReaderAt, size int64) (*zip.Reader, error) {
 		return nil, fmt.Errorf("%w: %w", ErrFormat, err)
 	}
 	if len(archive.File) > maxEntries {
-		return nil, fmt.Errorf("%w: %d archive entries, limit %d", ErrTooLarge, len(archive.File), maxEntries)
+		return nil, fmt.Errorf("%w: %d archive entries, limit %d", ErrTooManyEntries, len(archive.File), maxEntries)
 	}
 	var expanded uint64
 	for _, entry := range archive.File {
@@ -151,11 +157,11 @@ func inspectEntry(entry *zip.File, expanded uint64) error {
 	if isMacroPart(entry.Name) {
 		return ErrMacros
 	}
-	if limit := partLimit(entry.Name); limit > 0 && entry.UncompressedSize64 > limit {
-		return fmt.Errorf("%w: %s expands to %d bytes, limit %d", ErrTooLarge, entry.Name, entry.UncompressedSize64, limit)
+	if limit, tooLarge := partLimit(entry.Name); limit > 0 && entry.UncompressedSize64 > limit {
+		return fmt.Errorf("%w: %s expands to %d bytes, limit %d", tooLarge, entry.Name, entry.UncompressedSize64, limit)
 	}
 	if entry.UncompressedSize64 > maxExpandedBytes-expanded {
-		return fmt.Errorf("%w: expands past %d bytes", ErrTooLarge, maxExpandedBytes)
+		return fmt.Errorf("%w: expands past %d bytes", ErrExpandedTooLarge, maxExpandedBytes)
 	}
 	return nil
 }
@@ -177,26 +183,26 @@ func verifyParts(files []*zip.File) error {
 		if !isReadPart(name) {
 			continue
 		}
-		if err := verifyPart(entry, isSheetPart(name)); err != nil {
+		if err := verifyPart(entry, name); err != nil {
 			return fmt.Errorf("%s: %w", entry.Name, err)
 		}
 	}
 	return nil
 }
 
-func verifyPart(entry *zip.File, sheet bool) error {
+func verifyPart(entry *zip.File, name string) error {
 	body, err := entry.Open()
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrFormat, err)
 	}
-	err = scanXML(body, sheet)
+	err = scanXML(body, name == rootRelationshipsPart)
 	return errors.Join(err, body.Close())
 }
 
-func scanXML(r io.Reader, sheet bool) error {
+func scanXML(r io.Reader, rootRelationships bool) error {
 	dec := xml.NewDecoder(&tagLimiter{r: r})
 	dec.CharsetReader = charset.NewReaderLabel
-	guard := xmlGuard{sheet: sheet}
+	guard := xmlGuard{rootRelationships: rootRelationships}
 	for {
 		tok, err := dec.Token()
 		if errors.Is(err, io.EOF) {
@@ -213,11 +219,25 @@ func scanXML(r io.Reader, sheet bool) error {
 
 var errTagTooLong = errors.New("an element's start tag is longer than the limit")
 
+type tagState uint8
+
+const (
+	inText tagState = iota
+	afterOpen
+	inTag
+	afterBang
+	inComment
+	inCDATA
+	inInstruction
+)
+
 type tagLimiter struct {
 	r      io.Reader
-	inTag  bool
+	state  tagState
 	quote  byte
 	length int
+	prefix []byte
+	tail   [2]byte
 }
 
 func (t *tagLimiter) Read(p []byte) (int, error) {
@@ -231,11 +251,62 @@ func (t *tagLimiter) Read(p []byte) (int, error) {
 }
 
 func (t *tagLimiter) advance(c byte) bool {
-	switch {
-	case !t.inTag:
+	switch t.state {
+	case inText:
 		if c == '<' {
-			t.inTag, t.quote, t.length = true, 0, 0
+			t.state = afterOpen
 		}
+	case afterOpen:
+		return t.open(c)
+	case inTag:
+		return t.inTag(c)
+	case afterBang:
+		return t.bang(c)
+	case inComment:
+		t.leaveWhen(c, '-', 2)
+	case inCDATA:
+		t.leaveWhen(c, ']', 2)
+	case inInstruction:
+		t.leaveWhen(c, '?', 1)
+	}
+	return false
+}
+
+func (t *tagLimiter) open(c byte) bool {
+	switch c {
+	case '?':
+		t.state = inInstruction
+	case '!':
+		t.state, t.prefix = afterBang, t.prefix[:0]
+	default:
+		t.state, t.quote, t.length = inTag, 0, 1
+		return t.inTag(c)
+	}
+	return false
+}
+
+func (t *tagLimiter) bang(c byte) bool {
+	t.prefix = append(t.prefix, c)
+	switch prefix := string(t.prefix); {
+	case prefix == "--":
+		t.state = inComment
+	case prefix == "[CDATA[":
+		t.state = inCDATA
+	case strings.HasPrefix("--", prefix) || strings.HasPrefix("[CDATA[", prefix):
+	default:
+		t.state, t.quote, t.length = inTag, 0, 2
+		for _, b := range t.prefix {
+			if t.inTag(b) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (t *tagLimiter) inTag(c byte) bool {
+	t.length++
+	switch {
 	case t.quote != 0:
 		if c == t.quote {
 			t.quote = 0
@@ -243,18 +314,24 @@ func (t *tagLimiter) advance(c byte) bool {
 	case c == '"' || c == '\'':
 		t.quote = c
 	case c == '>':
-		t.inTag = false
-	}
-	if t.inTag {
-		t.length++
+		t.state = inText
 	}
 	return t.length > maxTagBytes
 }
 
+func (t *tagLimiter) leaveWhen(c, repeated byte, run int) {
+	closes := c == '>' && t.tail[1] == repeated && (run == 1 || t.tail[0] == repeated)
+	t.tail[0], t.tail[1] = t.tail[1], c
+	if closes {
+		t.state = inText
+	}
+}
+
 type xmlGuard struct {
-	sheet bool
-	depth int
-	cells int
+	rootRelationships bool
+	depth             int
+	rows              bool
+	cells             int
 }
 
 func (g *xmlGuard) observe(tok xml.Token) error {
@@ -273,16 +350,17 @@ func (g *xmlGuard) start(el xml.StartElement) error {
 	if g.depth++; g.depth > maxXMLDepth {
 		return fmt.Errorf("%w: elements are nested more than %d deep", ErrFormat, maxXMLDepth)
 	}
-	if !g.sheet {
-		return nil
-	}
 	switch el.Name.Local {
 	case "row":
-		g.cells = 0
+		g.rows, g.cells = true, 0
 		return checkRowNumber(el)
 	case "c":
-		if g.cells++; g.cells > maxGridColumns {
+		if g.cells++; g.rows && g.cells > maxGridColumns {
 			return fmt.Errorf("%w: a row has more than %d cells", ErrTooManyColumns, maxGridColumns)
+		}
+	case "Relationship":
+		if g.rootRelationships {
+			return checkDocumentTarget(el)
 		}
 	}
 	return nil
@@ -295,6 +373,21 @@ func checkRowNumber(el xml.StartElement) error {
 		}
 		if n, err := strconv.Atoi(attr.Value); err != nil || n < 1 || n > maxGridRows {
 			return fmt.Errorf("%w: row number %q is outside the sheet", ErrFormat, attr.Value)
+		}
+	}
+	return nil
+}
+
+func checkDocumentTarget(el xml.StartElement) error {
+	isDocument := slices.ContainsFunc(el.Attr, func(attr xml.Attr) bool {
+		return attr.Name.Local == "Type" && strings.HasSuffix(strings.ToLower(attr.Value), "officedocument")
+	})
+	if !isDocument {
+		return nil
+	}
+	for _, attr := range el.Attr {
+		if attr.Name.Local == "Target" && strings.TrimPrefix(attr.Value, "/") != workbookPart {
+			return fmt.Errorf("%w: the workbook is at %q", ErrLayout, attr.Value)
 		}
 	}
 	return nil
@@ -313,17 +406,17 @@ func isReadPart(name string) bool {
 	return namedReadParts[name] || isSheetPart(name) || (strings.HasPrefix(name, "xl/theme/") && strings.HasSuffix(name, ".xml"))
 }
 
-func partLimit(name string) uint64 {
+func partLimit(name string) (uint64, error) {
 	name = partName(name)
 	switch {
 	case name == "xl/sharedstrings.xml":
-		return maxSharedStringsBytes
+		return maxSharedStringsBytes, ErrPartTooLarge
 	case isSheetPart(name):
-		return maxWorksheetBytes
+		return maxWorksheetBytes, ErrSheetTooLarge
 	case strings.HasSuffix(name, ".xml") || strings.HasSuffix(name, ".rels"):
-		return maxXMLPartBytes
+		return maxXMLPartBytes, ErrPartTooLarge
 	}
-	return 0
+	return 0, nil
 }
 
 func partName(name string) string {
