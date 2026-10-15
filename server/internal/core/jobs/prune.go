@@ -12,10 +12,10 @@ import (
 	notificationscommand "quizzivy/internal/modules/notifications/application/command"
 )
 
-const (
-	pruneEvery   = 24 * time.Hour
-	pruneTimeout = time.Minute
-)
+// PruneInterval is how often the daily jobs run after their start-up run.
+const PruneInterval = 24 * time.Hour
+
+const pruneTimeout = time.Minute
 
 // PruneRefreshTokens deletes refresh-token families whose every token has
 // expired, once at start-up and then daily, and runs each of daily after every
@@ -25,6 +25,12 @@ const (
 // simply remove nothing, since the DELETE is idempotent. It runs once at
 // startup so a long-lived deployment is not the only thing that ever prunes.
 func PruneRefreshTokens(ctx context.Context, logger *slog.Logger, svc *identityapp.Application, daily ...func(context.Context)) {
+	PruneRefreshTokensEvery(ctx, logger, svc, PruneInterval, daily...)
+}
+
+// PruneRefreshTokensEvery is PruneRefreshTokens on a tick of every, which
+// PruneInterval is for the process and a test shortens.
+func PruneRefreshTokensEvery(ctx context.Context, logger *slog.Logger, svc *identityapp.Application, every time.Duration, daily ...func(context.Context)) {
 	prune := func() {
 		runCtx, cancel := context.WithTimeout(ctx, pruneTimeout)
 		defer cancel()
@@ -46,7 +52,7 @@ func PruneRefreshTokens(ctx context.Context, logger *slog.Logger, svc *identitya
 	}
 
 	tick()
-	ticker := time.NewTicker(pruneEvery)
+	ticker := time.NewTicker(every)
 	defer ticker.Stop()
 	for {
 		select {
@@ -78,7 +84,7 @@ func PruneNotifications(ctx context.Context, logger *slog.Logger, app *notificat
 	}
 
 	prune()
-	ticker := time.NewTicker(pruneEvery)
+	ticker := time.NewTicker(PruneInterval)
 	defer ticker.Stop()
 	for {
 		select {

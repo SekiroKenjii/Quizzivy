@@ -4,13 +4,18 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"net"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"quizzivy/internal/core/jobs"
+
 	identityapp "quizzivy/internal/modules/identity/application"
 	identitycommand "quizzivy/internal/modules/identity/application/command"
 	"quizzivy/internal/shared/cqrs"
@@ -113,7 +118,7 @@ func TestAFailedStepIsLoggedAndTheNextOneStillRuns(t *testing.T) {
 	if strings.Join(l.calls, ",") != "broken,broken,fine" {
 		t.Errorf("calls = %v, want the failed step to stop at its error and the next to run", l.calls)
 	}
-	for _, want := range []string{`"code":"HOUSEKEEPING_STEP_FAILED"`, `"step":"broken","removed":540`, `"err":"the bucket is away"`, `"step":"fine","removed":1`} {
+	for _, want := range []string{`"code":"HOUSEKEEPING_STEP_FAILED"`, `"step":"broken","removed":540`, `"failure":"error"`, `"step":"fine","removed":1`} {
 		if !strings.Contains(l.text(), want) {
 			t.Errorf("the log is %s, want it to hold %s", l.text(), want)
 		}
@@ -178,6 +183,89 @@ func TestTheHousekeepingRunsRightAfterEachRefreshTokenPruneEvenWhenThePruneFaile
 			defer mu.Unlock()
 			if strings.Join(order, ",") != "prune,housekeeping" {
 				t.Errorf("order = %v, want the prune and then the housekeeping, once", order)
+			}
+		})
+	}
+}
+
+func TestTheDailyJobsTickOnceADay(t *testing.T) {
+	if jobs.PruneInterval != 24*time.Hour {
+		t.Errorf("PruneInterval = %v, want 24h", jobs.PruneInterval)
+	}
+}
+
+func TestTheHousekeepingRunsAgainOnEachTick(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	app := &identityapp.Application{Commands: identityapp.Commands{
+		PruneExpiredTokens: cqrs.HandlerFunc[identitycommand.PruneExpiredTokens, int64](func(context.Context, identitycommand.PruneExpiredTokens) (int64, error) {
+			return 0, nil
+		}),
+	}}
+	ran := make(chan struct{}, 8)
+	done := make(chan struct{})
+	go func() {
+		jobs.PruneRefreshTokensEvery(ctx, slog.New(slog.DiscardHandler), app, 10*time.Millisecond, func(context.Context) { ran <- struct{}{} })
+		close(done)
+	}()
+	for i := range 3 {
+		select {
+		case <-ran:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("the housekeeping ran %d times, want the start-up run and a run on each tick", i)
+		}
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the job kept running after the process was told to stop")
+	}
+}
+
+type statusError int
+
+func (e statusError) Error() string {
+	return fmt.Sprintf("delete https://objects.example/quizzivy-imports/exports/0198f000.zip: status %d", int(e))
+}
+func (e statusError) HTTPStatusCode() int { return int(e) }
+
+type unansweredError struct{ cause error }
+
+func (e unansweredError) Error() string {
+	return "operation error S3: ListObjectsV2, " + e.cause.Error()
+}
+func (e unansweredError) Unwrap() error       { return e.cause }
+func (e unansweredError) HTTPStatusCode() int { return 0 }
+
+func TestAFailureIsLoggedAsAClassAndNeverAsTheErrorsText(t *testing.T) {
+	cases := map[string]struct {
+		err  error
+		want string
+	}{
+		"a plain error":                      {errors.New("exports/0198f000.zip is locked"), `"failure":"error"`},
+		"a deadline":                         {fmt.Errorf("list branding/ab12: %w", context.DeadlineExceeded), `"failure":"timeout"`},
+		"a cancellation":                     {fmt.Errorf("delete: %w", context.Canceled), `"failure":"canceled"`},
+		"a database error":                   {fmt.Errorf("prune: %w", &pgconn.PgError{Code: "42501", Message: "permission denied for table user_activity_days"}), `"failure":"database 42501"`},
+		"a storage status":                   {fmt.Errorf("sweep logos: %w", statusError(403)), `"failure":"storage http 403"`},
+		"a storage error without a response": {fmt.Errorf("list: %w", unansweredError{&net.OpError{Op: "dial", Net: "tcp", Err: errors.New("connect: connection refused")}}), `"failure":"network"`},
+		"a refused dial": {&url.Error{Op: "Delete", URL: "http://localhost:19999/quizzivy-imports/exports/0198f000.zip", Err: &net.OpError{
+			Op: "dial", Net: "tcp", Err: errors.New("connect: connection refused")}}, `"failure":"network"`},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			var l housekeepingLog
+			jobs.Housekeep(context.Background(), l.logger(), []jobs.HousekeepingStep{
+				l.step("broken", func(int) (int, error) { return 0, c.err }),
+			})
+			text := l.text()
+			if !strings.Contains(text, c.want) {
+				t.Errorf("the log is %s, want it to hold %s", text, c.want)
+			}
+			for _, leak := range []string{"0198f000", "quizzivy-imports", "localhost", "branding", "user_activity_days", "permission denied", "objects.example"} {
+				if strings.Contains(text, leak) {
+					t.Errorf("the log is %s, and it carries %q from the error", text, leak)
+				}
 			}
 		})
 	}

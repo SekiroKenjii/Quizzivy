@@ -19,10 +19,8 @@ import (
 	"quizzivy/internal/platform/storage"
 )
 
-func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testing.T) {
-	ctx := context.Background()
-	work := t.TempDir()
-	configure := func(c *config.Config) {
+func housekeepingConfig(work string) func(*config.Config) {
+	return func(c *config.Config) {
 		c.S3Endpoint = storageEnv("S3_ENDPOINT", "http://localhost:9000")
 		c.S3Region = storageEnv("S3_REGION", "us-east-1")
 		c.S3Bucket = storageEnv("S3_BUCKET", "quizzivy-media")
@@ -37,6 +35,11 @@ func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testi
 		c.ImportProcessing = true
 		c.MediaRetentionSweep = false
 	}
+}
+
+func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testing.T) {
+	ctx := context.Background()
+	configure := housekeepingConfig(t.TempDir())
 	w := boot(t, configure)
 	cfg, pool := w.cfg, w.pool
 
@@ -220,5 +223,79 @@ func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testi
 		if strings.Contains(leaked, secret) {
 			t.Errorf("the housekeeping logs carry %q", secret)
 		}
+	}
+}
+
+func TestAStepThatCannotReachStorageLogsItsClassAndNoKeyEndpointOrBucket(t *testing.T) {
+	ctx := context.Background()
+	configure := housekeepingConfig(t.TempDir())
+	w := boot(t, configure)
+	email, _ := w.createStaff("admin")
+	var owner string
+	if err := w.pool.QueryRow(ctx, `SELECT id::text FROM app.users WHERE email = $1`, email).Scan(&owner); err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.NewString()
+	key := "exports/" + id + ".zip"
+	if _, err := w.pool.Exec(ctx, `INSERT INTO app.data_exports (id, requested_by, include_answers, status, attempts, storage_key, bytes, created_at, started_at, completed_at, expires_at)
+		VALUES ($1::uuid, $2::uuid, false, 'ready', 1, $3, 10, now() - interval '9 days', now() - interval '9 days', now() - interval '9 days', now() - interval '2 days')`, id, owner, key); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if _, err := w.pool.Exec(ctx, `DELETE FROM app.data_exports WHERE requested_by = $1::uuid`, owner); err != nil {
+			t.Errorf("cleanup: %v", err)
+		}
+	})
+
+	served := e2eConfig(t, configure)
+	const away = "http://127.0.0.1:1"
+	served.S3Endpoint = away
+	logs := &lockedBuffer{}
+	app, err := core.New(ctx, served, slog.New(slog.NewJSONHandler(logs, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(app.Close)
+	serving, stop := context.WithCancel(ctx)
+	stopped := make(chan error, 1)
+	go func() { stopped <- app.Serve(serving) }()
+	t.Cleanup(func() {
+		stop()
+		<-stopped
+	})
+
+	deadline := time.Now().Add(30 * time.Second)
+	for !strings.Contains(logs.String(), `"step":"branding_objects"`) || !strings.Contains(logs.String(), `"step":"data_exports"`) {
+		if time.Now().After(deadline) {
+			t.Fatalf("the first housekeeping run did not report both storage steps: %s", logs.String())
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	var lines []string
+	for _, line := range strings.Split(logs.String(), "\n") {
+		if strings.Contains(line, `"msg":"housekeeping`) {
+			lines = append(lines, line)
+		}
+	}
+	text := strings.Join(lines, "\n")
+	if got := strings.Count(text, `"code":"HOUSEKEEPING_STEP_FAILED"`); got != 2 {
+		t.Errorf("%d steps failed, want the two that need storage: %s", got, text)
+	}
+	if !strings.Contains(text, `"failure":"network"`) {
+		t.Errorf("the log does not name the class of the failure: %s", text)
+	}
+	for _, step := range []string{"activity_days", "email_outbox"} {
+		if !strings.Contains(text, `"msg":"housekeeping step done","step":"`+step+`"`) {
+			t.Errorf("the step %s did not finish beside the failing ones: %s", step, text)
+		}
+	}
+	for _, leak := range []string{id, key, "exports/", "branding/", "127.0.0.1", away, served.S3Bucket, served.ImportBucket, owner, email} {
+		if strings.Contains(text, leak) {
+			t.Errorf("the log carries %q: %s", leak, text)
+		}
+	}
+	var state string
+	if err := w.pool.QueryRow(ctx, `SELECT status FROM app.data_exports WHERE id = $1::uuid`, id).Scan(&state); err != nil || state != "ready" {
+		t.Errorf("the export is %q (%v), want it still ready for the next run", state, err)
 	}
 }
