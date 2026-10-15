@@ -148,6 +148,9 @@ func TestAnEmailTheMarshallerCannotPrintIsRefusedAtTheContract(t *testing.T) {
 		"updateStudent": {http.MethodPatch, "/teacher/students/" + studentID, "PATCH /teacher/students/{id}", func(email string) map[string]any {
 			return map[string]any{"email": email}
 		}},
+		"createUser": {http.MethodPost, "/admin/users", "POST /admin/users", func(email string) map[string]any {
+			return map[string]any{"email": email, "fullName": "Người dùng", "roleId": studentID, "delivery": "email_link"}
+		}},
 	} {
 		var reached bool
 		handler := validatorUnderTest(t)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
