@@ -11,6 +11,7 @@ import { server } from "@tests/support/server";
 import { contractJson } from "@tests/support/contractResponse";
 import { useAuthStore } from "@/stores/auth";
 import "@/lib/i18n";
+import { queryWrapper } from "@tests/support/queryWrapper";
 
 vi.mock("@/components/ui/sonner", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/components/ui/sonner")>()),
@@ -57,7 +58,7 @@ function renderPage(entry = "/change-password") {
     ],
     { initialEntries: [entry] },
   );
-  render(<RouterProvider router={router} />);
+  render(<RouterProvider router={router} />, { wrapper: queryWrapper() });
   return router;
 }
 

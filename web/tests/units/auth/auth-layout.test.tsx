@@ -10,10 +10,12 @@ afterEach(() => {
 
 async function renderLayout(props: { panel?: boolean } = {}) {
   const { AuthLayout } = await import("@/features/auth/AuthLayout");
+  const { queryWrapper } = await import("@tests/support/queryWrapper");
   return render(
     <AuthLayout {...props}>
       <h1>Đăng nhập</h1>
     </AuthLayout>,
+    { wrapper: queryWrapper() },
   );
 }
 

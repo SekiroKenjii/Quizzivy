@@ -157,15 +157,19 @@ func TestUsageStatesWhatThePlanStates(t *testing.T) {
 	}
 }
 
-func TestStorageNeedsAttentionFromEightyPercentOfALimit(t *testing.T) {
+func TestStorageNeedsAttentionFromTheMeterReadingEightyPercentOfALimit(t *testing.T) {
 	usage := func(media, imports int64) domain.Usage {
 		return domain.Usage{
 			Media:   domain.Bytes{Bytes: media, Limit: limit(1000)},
 			Imports: domain.ImportBytes{Bytes: imports, Limit: limit(1000)},
 		}
 	}
-	if row := domain.StorageAttention(usage(799, 0)); row != nil {
-		t.Errorf("79.9%% used = %+v, want no row", row)
+	if row := domain.StorageAttention(usage(794, 0)); row != nil {
+		t.Errorf("79.4%% used reads 79 on the meter = %+v, want no row", row)
+	}
+	shown := domain.StorageAttention(usage(795, 0))
+	if shown == nil || shown.Detail == nil || shown.Detail.MediaPercent == nil || *shown.Detail.MediaPercent != 80 {
+		t.Errorf("79.5%% used reads 80 on the meter, so the row must come with it, got %+v", shown)
 	}
 	row := domain.StorageAttention(usage(800, 0))
 	if row == nil || row.Kind != domain.AttentionStorage || row.Count != 1 {

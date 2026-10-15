@@ -27,8 +27,12 @@ const (
 	maxWorksheetBytes     = 8 << 20
 	maxXMLDepth           = 64
 	maxTagBytes           = 64 << 10
+	maxSheets             = 256
+	maxRelationships      = 1000
+	maxRootRelationships  = 16
 	encryptedEntry        = 0x1
 	workbookPart          = "xl/workbook.xml"
+	workbookRelsPart      = "xl/_rels/workbook.xml.rels"
 	rootRelationshipsPart = "_rels/.rels"
 )
 
@@ -36,12 +40,12 @@ var (
 	compoundFileSignature = [8]byte{0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1}
 	encryptedPackageName  = utf16LE("EncryptedPackage")
 	namedReadParts        = map[string]bool{
-		workbookPart:                 true,
-		"xl/_rels/workbook.xml.rels": true,
-		rootRelationshipsPart:        true,
-		"xl/styles.xml":              true,
-		"xl/sharedstrings.xml":       true,
-		"xl/calcchain.xml":           true,
+		workbookPart:           true,
+		workbookRelsPart:       true,
+		rootRelationshipsPart:  true,
+		"xl/styles.xml":        true,
+		"xl/sharedstrings.xml": true,
+		"xl/calcchain.xml":     true,
 	}
 )
 
@@ -60,6 +64,9 @@ func openXLSX(src io.ReaderAt, size int64) (source, error) {
 		return nil, ErrLayout
 	}
 	if err := verifyParts(archive.File); err != nil {
+		return nil, err
+	}
+	if err := checkFirstSheet(archive.File); err != nil {
 		return nil, err
 	}
 	book, err := excelize.OpenReader(io.NewSectionReader(src, 0, size), excelize.Options{
@@ -195,14 +202,14 @@ func verifyPart(entry *zip.File, name string) error {
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrFormat, err)
 	}
-	err = scanXML(body, name == rootRelationshipsPart)
+	err = scanXML(body, kindOf(name))
 	return errors.Join(err, body.Close())
 }
 
-func scanXML(r io.Reader, rootRelationships bool) error {
+func scanXML(r io.Reader, kind partKind) error {
 	dec := xml.NewDecoder(&tagLimiter{r: r})
 	dec.CharsetReader = charset.NewReaderLabel
-	guard := xmlGuard{rootRelationships: rootRelationships}
+	guard := xmlGuard{kind: kind}
 	for {
 		tok, err := dec.Token()
 		if errors.Is(err, io.EOF) {
@@ -327,11 +334,35 @@ func (t *tagLimiter) leaveWhen(c, repeated byte, run int) {
 	}
 }
 
+type partKind uint8
+
+const (
+	otherPart partKind = iota
+	workbookKind
+	workbookRelsKind
+	rootRelsKind
+)
+
+func kindOf(name string) partKind {
+	switch name {
+	case workbookPart:
+		return workbookKind
+	case workbookRelsPart:
+		return workbookRelsKind
+	case rootRelationshipsPart:
+		return rootRelsKind
+	}
+	return otherPart
+}
+
 type xmlGuard struct {
-	rootRelationships bool
-	depth             int
-	rows              bool
-	cells             int
+	kind          partKind
+	depth         int
+	rows          bool
+	cells         int
+	sheets        int
+	relationships int
+	ids           map[string]struct{}
 }
 
 func (g *xmlGuard) observe(tok xml.Token) error {
@@ -358,10 +389,42 @@ func (g *xmlGuard) start(el xml.StartElement) error {
 		if g.cells++; g.rows && g.cells > maxGridColumns {
 			return fmt.Errorf("%w: a row has more than %d cells", ErrTooManyColumns, maxGridColumns)
 		}
-	case "Relationship":
-		if g.rootRelationships {
-			return checkDocumentTarget(el)
+	case "sheet":
+		if g.sheets++; g.kind == workbookKind && g.sheets > maxSheets {
+			return fmt.Errorf("%w: limit %d", ErrTooManySheets, maxSheets)
 		}
+	case "Relationship":
+		return g.relationship(el)
+	}
+	return nil
+}
+
+func (g *xmlGuard) relationship(el xml.StartElement) error {
+	limit := maxRelationships
+	switch g.kind {
+	case rootRelsKind:
+		limit = maxRootRelationships
+	case workbookRelsKind:
+	default:
+		return nil
+	}
+	if g.relationships++; g.relationships > limit {
+		return fmt.Errorf("%w: more than %d relationships", ErrFormat, limit)
+	}
+	for _, attr := range el.Attr {
+		if attr.Name.Local != "Id" {
+			continue
+		}
+		if _, repeated := g.ids[attr.Value]; repeated {
+			return fmt.Errorf("%w: a relationship id is used twice", ErrFormat)
+		}
+		if g.ids == nil {
+			g.ids = map[string]struct{}{}
+		}
+		g.ids[attr.Value] = struct{}{}
+	}
+	if g.kind == rootRelsKind {
+		return checkDocumentTarget(el)
 	}
 	return nil
 }

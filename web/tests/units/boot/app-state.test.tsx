@@ -22,6 +22,7 @@ import {
   deckSession,
 } from "@tests/units/take-test/deckSession";
 import "@/lib/i18n";
+import { queryWrapper } from "@tests/support/queryWrapper";
 
 const BASE = "http://localhost:8080";
 const WINDOW = { startsAt: "2026-10-01T15:00:00Z", endsAt: "2026-10-01T16:30:00Z" };
@@ -42,6 +43,7 @@ function renderAt(path = "/app/attempts/a1"): {
       <button type="button">on the page</button>
       <AppStateLayer router={router} />
     </>,
+    { wrapper: queryWrapper() },
   );
   return { router, page: container };
 }
@@ -261,6 +263,7 @@ describe.each(["desktop", "phone"] as const)("over the engine on a %s", (width) 
         <RouterProvider router={router} />
         <AppStateLayer router={router} />
       </>,
+      { wrapper: queryWrapper() },
     );
     return { page: container, deadline: opened.getTime() + left };
   }

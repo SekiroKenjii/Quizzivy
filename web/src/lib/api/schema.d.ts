@@ -6008,7 +6008,7 @@ export interface components {
          */
         AdminOverviewPeople: {
             total: number;
-            /** @description Accounts with an authenticated request on any of the last seven local days, today included. */
+            /** @description Accounts with an authenticated request on any of the last seven local days, today included, whether they have been disabled since or not. */
             activeThisWeek: number;
             teachers: number;
             /** @description Disabled accounts that are not a student target; none of them is in `teachers`. */
@@ -6024,7 +6024,8 @@ export interface components {
         /**
          * @description Who made an authenticated request on each of the last fourteen local
          *     days. Staff is every account that is not a student target, which the
-         *     chart labels Teachers.
+         *     chart labels Teachers. A day counts the accounts that were active on it,
+         *     whether they have been disabled since or not.
          */
         AdminDailyActive: {
             /** @description One entry per day, oldest first and today last, zero days included. */
@@ -6051,8 +6052,8 @@ export interface components {
              *     `never_signed_in`: enabled accounts that have never signed in and
              *     are not on a temporary password. `disabled_teacher_classes`: classes,
              *     archived ones too, whose teacher is disabled. `storage`: how many of
-             *     the media and import meters with a configured limit are at 80 percent
-             *     or more. `ai_credit_requests`: the teachers waiting for more credits
+             *     the media and import meters with a configured limit read 80 percent
+             *     or more, as `detail` quotes them (rounded half up). `ai_credit_requests`: the teachers waiting for more credits
              *     this month.
              */
             count: number;

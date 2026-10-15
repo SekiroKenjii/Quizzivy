@@ -521,3 +521,94 @@ describe("the classes list", () => {
     ).toBeInTheDocument();
   });
 });
+
+function serveJoinCodes(joinCodes: boolean) {
+  server.use(
+    http.get(`${BASE}/public/organization`, () =>
+      contractJson("/public/organization", "get", 200, {
+        name: "Quizzivy",
+        shortName: null,
+        website: null,
+        contactEmail: null,
+        frontDeskPhone: null,
+        frontDeskHours: null,
+        address: null,
+        logo: { lightUrl: null, darkUrl: null },
+        signIn: { google: true, password: true },
+        joinCodes,
+      }),
+    ),
+  );
+}
+
+describe("the classes list while the centre has turned joining by code off (D-023)", () => {
+  it("disables New code and Create code with the centre's sentence, marks the code inactive and stops promoting it", async () => {
+    serveJoinCodes(false);
+    serveList([
+      EVENING,
+      LEGACY,
+      {
+        ...EVENING,
+        id: "018f0000-0000-7000-8000-0000000000c4",
+        name: "No code yet",
+        joinCode: null,
+      },
+    ]);
+    const { user } = renderPage();
+    const reason = "Trung tâm đang tắt tham gia bằng mã.";
+    expect(
+      await screen.findByText("Giáo viên thêm học viên vào lớp."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Học viên tham gia bằng mã hoặc đường liên kết."),
+    ).toBeNull();
+
+    const evening = await card("IELTS 6.5 Evening");
+    expect(await within(evening).findByText("Không hoạt động")).toBeInTheDocument();
+    expect(within(evening).getByText("K7QM-2PXA")).toBeInTheDocument();
+
+    const legacy = await card("Kids Starters B");
+    const renew = within(legacy).getByRole("button", {
+      name: /Tạo mã tham gia mới cho Kids Starters B/,
+    });
+    expect(renew).toHaveAttribute("aria-disabled", "true");
+    expect(renew).toHaveAccessibleName(expect.stringContaining(reason));
+    await user.click(renew);
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    const bare = await card("No code yet");
+    const create = within(bare).getByRole("button", {
+      name: /Tạo mã tham gia cho No code yet/,
+    });
+    expect(create).toHaveAttribute("aria-disabled", "true");
+    await user.click(create);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(rotations).toEqual([]);
+
+    await user.click(
+      within(bare).getByRole("button", { name: /Thao tác với lớp No code yet/ }),
+    );
+    const item = await screen.findByRole("menuitem", {
+      name: new RegExp(`Tạo mã.*${reason}`),
+    });
+    expect(item).toHaveAttribute("aria-disabled", "true");
+    await user.click(item);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(rotations).toEqual([]);
+  });
+
+  it("keeps every control while the centre allows joining by code", async () => {
+    serveJoinCodes(true);
+    const { user } = renderPage();
+    expect(
+      await screen.findByText("Học viên tham gia bằng mã hoặc đường liên kết."),
+    ).toBeInTheDocument();
+    const legacy = await card("Kids Starters B");
+    const renew = within(legacy).getByRole("button", {
+      name: /Tạo mã tham gia mới cho Kids Starters B/,
+    });
+    expect(renew).not.toHaveAttribute("aria-disabled");
+    await user.click(renew);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
+});
