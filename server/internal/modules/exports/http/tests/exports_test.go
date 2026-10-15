@@ -3,7 +3,6 @@ package http_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -21,20 +20,42 @@ import (
 	"quizzivy/internal/shared/access"
 )
 
-func TestWithoutAnApplicationEveryOperationAnswersNotImplemented(t *testing.T) {
+func TestWithoutAnApplicationEveryOperationAnswersExportOff(t *testing.T) {
 	h := exportshttp.NewExports(nil)
 	ctx := context.Background()
 	id := httpapi.ParseUUID("0198f000-0000-7000-8000-000000000001")
-	if _, err := h.RequestDataExport(ctx, openapi.RequestDataExportRequestObject{Body: &openapi.DataExportRequest{}}); !errors.Is(err, httpx.ErrNotImplemented) {
-		t.Errorf("requestDataExport: %v", err)
+	cases := map[string]func() (visitor, error){
+		"requestDataExport": func() (visitor, error) {
+			out, err := h.RequestDataExport(ctx, openapi.RequestDataExportRequestObject{Body: &openapi.DataExportRequest{}})
+			return func(w http.ResponseWriter) error { return out.VisitRequestDataExportResponse(w) }, err
+		},
+		"getDataExport": func() (visitor, error) {
+			out, err := h.GetDataExport(ctx, openapi.GetDataExportRequestObject{Id: id})
+			return func(w http.ResponseWriter) error { return out.VisitGetDataExportResponse(w) }, err
+		},
+		"downloadDataExport": func() (visitor, error) {
+			out, err := h.DownloadDataExport(ctx, openapi.DownloadDataExportRequestObject{Id: id})
+			return func(w http.ResponseWriter) error { return out.VisitDownloadDataExportResponse(w) }, err
+		},
 	}
-	if _, err := h.GetDataExport(ctx, openapi.GetDataExportRequestObject{Id: id}); !errors.Is(err, httpx.ErrNotImplemented) {
-		t.Errorf("getDataExport: %v", err)
-	}
-	if _, err := h.DownloadDataExport(ctx, openapi.DownloadDataExportRequestObject{Id: id}); !errors.Is(err, httpx.ErrNotImplemented) {
-		t.Errorf("downloadDataExport: %v", err)
+	for name, call := range cases {
+		visit, err := call()
+		if err != nil {
+			t.Errorf("%s: %v", name, err)
+			continue
+		}
+		response := httptest.NewRecorder()
+		if err := visit(response); err != nil {
+			t.Errorf("%s: %v", name, err)
+			continue
+		}
+		if code, _ := envelope(t, response); response.Code != http.StatusNotImplemented || code != "EXPORT_OFF" {
+			t.Errorf("%s answered %d %s, want 501 EXPORT_OFF", name, response.Code, code)
+		}
 	}
 }
+
+type visitor func(http.ResponseWriter) error
 
 type repo struct {
 	domain.Repository

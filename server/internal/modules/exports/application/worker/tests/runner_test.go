@@ -31,6 +31,9 @@ type queue struct {
 	settleErr   error
 	due         time.Time
 	dueOK       bool
+	running     []string
+	runningErr  error
+	askedAbout  []string
 }
 
 type failure struct {
@@ -50,6 +53,22 @@ func (q *queue) Claim(context.Context) (domain.Export, error) {
 	}
 	out := *q.claim
 	q.claim = nil
+	return out, nil
+}
+
+func (q *queue) Running(_ context.Context, ids []string) ([]string, error) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.askedAbout = append(q.askedAbout, ids...)
+	if q.runningErr != nil {
+		return nil, q.runningErr
+	}
+	var out []string
+	for _, id := range ids {
+		if slices.Contains(q.running, id) {
+			out = append(out, id)
+		}
+	}
 	return out, nil
 }
 
@@ -425,5 +444,88 @@ func TestNextDueIsTheQueuesAnswer(t *testing.T) {
 	due, ok, err := f.r.NextDue(context.Background())
 	if err != nil || !ok || !due.Equal(f.q.due) {
 		t.Fatalf("NextDue = %v, %v, %v", due, ok, err)
+	}
+}
+
+const (
+	orphanID  = "0198f000-0000-7000-8000-0000000000a1"
+	activeID  = "0198f000-0000-7000-8000-0000000000a2"
+	dirLookID = "0198f000-0000-7000-8000-0000000000a3"
+)
+
+func (f *fixture) plant(t *testing.T, names ...string) {
+	t.Helper()
+	for _, name := range names {
+		if err := os.WriteFile(f.dir+"/"+name, []byte("half a zip"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestAnArchiveNoRunningExportOwnsIsSweptWhenNothingWaits(t *testing.T) {
+	f := newFixture(t, false)
+	f.q.claim = nil
+	f.q.running = []string{activeID}
+	f.plant(t, "export-"+orphanID+".zip", "export-"+activeID+".zip", "export-notes.zip", "export-"+orphanID+".zip.part", "word-import.docx")
+	if err := os.Mkdir(f.dir+"/export-"+dirLookID+".zip", 0o700); err != nil {
+		t.Fatal(err)
+	}
+	worked, err := f.r.RunOne(context.Background())
+	if err != nil || worked {
+		t.Fatalf("RunOne = %v, %v", worked, err)
+	}
+	want := []string{"export-" + orphanID + ".zip.part", "export-" + activeID + ".zip", "export-" + dirLookID + ".zip", "export-notes.zip", "word-import.docx"}
+	if got := f.leftovers(t); !slices.Equal(got, want) {
+		t.Errorf("work directory holds %v, want %v", got, want)
+	}
+	if slices.Contains(f.q.askedAbout, "notes") || len(f.q.askedAbout) != 2 {
+		t.Errorf("the queue was asked about %v; only the two archives named for an export", f.q.askedAbout)
+	}
+}
+
+func TestAnIdleSweepOfAnEmptyDirectoryAsksTheQueueNothing(t *testing.T) {
+	f := newFixture(t, false)
+	f.q.claim = nil
+	f.plant(t, "word-import.docx")
+	if worked, err := f.r.RunOne(context.Background()); err != nil || worked {
+		t.Fatalf("RunOne = %v, %v", worked, err)
+	}
+	if len(f.q.askedAbout) != 0 {
+		t.Errorf("the queue was asked about %v with no archive to account for", f.q.askedAbout)
+	}
+}
+
+func TestASweepThatCannotAskTheQueueRemovesNothingAndIsNotAnError(t *testing.T) {
+	f := newFixture(t, false)
+	f.q.claim = nil
+	f.q.runningErr = errors.New("database down")
+	f.plant(t, "export-"+orphanID+".zip")
+	worked, err := f.r.RunOne(context.Background())
+	if err != nil || worked {
+		t.Fatalf("RunOne = %v, %v", worked, err)
+	}
+	if got := f.leftovers(t); len(got) != 1 {
+		t.Errorf("work directory holds %v; a sweep that could not tell must keep the file", got)
+	}
+}
+
+func TestABuildKeepsNoArchiveAndNoSweepRunsBeforeItsClaim(t *testing.T) {
+	f := newFixture(t, false)
+	f.plant(t, "export-"+orphanID+".zip")
+	if worked, err := f.r.RunOne(context.Background()); err != nil || !worked {
+		t.Fatalf("RunOne = %v, %v", worked, err)
+	}
+	if len(f.q.askedAbout) != 0 {
+		t.Errorf("a sweep ran while an export was waiting: %v", f.q.askedAbout)
+	}
+	if got := f.leftovers(t); len(got) != 1 || got[0] != "export-"+orphanID+".zip" {
+		t.Errorf("work directory holds %v", got)
+	}
+	f.q.claim = nil
+	if worked, err := f.r.RunOne(context.Background()); err != nil || worked {
+		t.Fatalf("RunOne = %v, %v", worked, err)
+	}
+	if got := f.leftovers(t); len(got) != 0 {
+		t.Errorf("the next idle pass left %v", got)
 	}
 }

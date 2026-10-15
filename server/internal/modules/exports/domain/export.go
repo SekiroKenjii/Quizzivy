@@ -2,7 +2,8 @@
 // it passes through, the files its ZIP holds with the columns of each, and the
 // ports the worker builds it through. An Admin asks for an export, the worker
 // writes one ZIP of CSV files to the private bucket, and the requester fetches
-// it once from an app page; nothing here knows a database or an object store.
+// it from an app page, up to MaxDownloads times; nothing here knows a database or
+// an object store.
 package domain
 
 import (
@@ -38,6 +39,9 @@ const (
 	MaxAttempts = 3
 	// KeepFor is how long a Ready export can be fetched.
 	KeepFor = 24 * time.Hour
+	// MaxDownloads is how many times a Ready export can be signed within
+	// KeepFor, so one failed transfer does not cost a new export.
+	MaxDownloads = 3
 	// URLTTL is how long the address a fetch returns works.
 	URLTTL = 60 * time.Second
 	// RequestInterval is how long an Admin's export that has not failed keeps
@@ -62,7 +66,7 @@ var (
 	// export answers exactly as a missing one does.
 	ErrNotFound = errors.New("exports: no such export")
 	// ErrUnavailable means the export exists but cannot be fetched: it is not
-	// ready, has expired, failed, or was fetched already.
+	// ready, has expired, failed, or was signed MaxDownloads times already.
 	ErrUnavailable = errors.New("exports: the export cannot be fetched")
 	// ErrNoWork means no export is waiting for the worker.
 	ErrNoWork = errors.New("exports: no export is waiting")
@@ -94,6 +98,7 @@ type Export struct {
 	CompletedAt    *time.Time
 	ExpiresAt      *time.Time
 	DownloadedAt   *time.Time
+	Downloads      int
 }
 
 // Request is an Admin's ask for an export.
@@ -104,7 +109,7 @@ type Request struct {
 	IncludeAnswers bool
 }
 
-// Fetch is the requester's one fetch of an export.
+// Fetch is one of the requester's fetches of an export.
 type Fetch struct {
 	ID        string
 	ActorID   string
@@ -138,11 +143,11 @@ type Repository interface {
 	// Get reads the export id of requester. A Ready export past its time reads
 	// Expired. Anyone else's export is ErrNotFound.
 	Get(ctx context.Context, id, requester string) (Export, error)
-	// Fetch marks the export fetched and returns the signed address of its
-	// file, in one transaction that audits it as data_export.downloaded. It
+	// Fetch counts a download of the export and returns the signed address of
+	// its file, in one transaction that audits it as data_export.downloaded. It
 	// fails with ErrNotFound for anyone else's export and ErrUnavailable
-	// unless the export is Ready, unexpired and not fetched yet. When sign
-	// fails nothing is marked.
+	// unless the export is Ready, unexpired and signed fewer than MaxDownloads
+	// times. When sign fails nothing is counted.
 	Fetch(ctx context.Context, in Fetch, sign Signer) (string, error)
 }
 
@@ -156,6 +161,9 @@ type Queue interface {
 	// NextDue says when the next export will be due: now for a Queued one, the
 	// end of the lease for a Running one. False means none is waiting.
 	NextDue(ctx context.Context) (time.Time, bool, error)
+	// Running says which of the exports ids are Running now, whoever holds
+	// them.
+	Running(ctx context.Context, ids []string) ([]string, error)
 	// Complete marks the claimed export Ready for KeepFor, and in the same
 	// transaction asks the requester's mailbox to tell them. It returns
 	// ErrLeaseLost when the claim is no longer the worker's.

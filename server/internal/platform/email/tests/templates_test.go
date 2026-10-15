@@ -104,8 +104,12 @@ func TestATemplateIsWrittenInItsLocale(t *testing.T) {
 		t.Errorf("the sign-in invitation must send the user to Google:\n%s", signIn.Text)
 	}
 	ready, _ := r.Render(letterFor(t, email.DataExportReady, "en", ""))
-	if !strings.Contains(ready.Text, "once") || strings.Contains(ready.Text, "amazonaws") {
-		t.Errorf("the export notice must link to the app page and say the download works once:\n%s", ready.Text)
+	if !strings.Contains(ready.Text, "up to three times within 24 hours") || strings.Contains(ready.Text, "amazonaws") {
+		t.Errorf("the export notice must say the file can be downloaded up to three times within 24 hours:\n%s", ready.Text)
+	}
+	readyVI, _ := r.Render(letterFor(t, email.DataExportReady, "vi", ""))
+	if !strings.Contains(readyVI.Text, "tối đa ba lần trong vòng 24 giờ") {
+		t.Errorf("the Vietnamese export notice must say the same:\n%s", readyVI.Text)
 	}
 }
 

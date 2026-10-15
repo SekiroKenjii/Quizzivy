@@ -19,8 +19,10 @@
 --
 -- storage_key is the object's key in the import bucket (exports/{id}.zip),
 -- cleared when the housekeeping deletes the object and marks the row expired.
--- downloaded_at is set by the statement that hands out the URL, so a second
--- request finds it set and is refused.
+-- Each statement that hands out a URL adds one to downloads, up to three, and
+-- downloaded_at keeps the first time: the browser fetches the object straight
+-- from storage, so a signing is all the server learns, and one failed transfer
+-- must not cost the Admin a new ZIP of everyone's data.
 CREATE TABLE app.data_exports (
   id              uuid PRIMARY KEY DEFAULT uuidv7(),
   requested_by    uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
@@ -35,11 +37,14 @@ CREATE TABLE app.data_exports (
   completed_at    timestamptz,
   expires_at      timestamptz,
   downloaded_at   timestamptz,
+  downloads       smallint NOT NULL DEFAULT 0,
 
   CONSTRAINT data_exports_status_check
     CHECK (status IN ('queued', 'running', 'ready', 'failed', 'expired')),
   CONSTRAINT data_exports_attempts_check
     CHECK (attempts BETWEEN 0 AND 3),
+  CONSTRAINT data_exports_downloads_check
+    CHECK (downloads BETWEEN 0 AND 3),
   CONSTRAINT data_exports_bytes_check
     CHECK (bytes > 0),
   CONSTRAINT data_exports_storage_key_check

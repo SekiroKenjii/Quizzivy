@@ -1,6 +1,6 @@
 // Package application is the data export's use cases: asking for an export,
-// reading its state and fetching its file once, and the worker that builds
-// the file.
+// reading its state and fetching its file up to three times, and the worker
+// that builds the file.
 package application
 
 import (

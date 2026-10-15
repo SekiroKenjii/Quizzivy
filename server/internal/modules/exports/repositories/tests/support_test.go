@@ -103,7 +103,7 @@ type seed struct {
 	ranFor         time.Duration
 	includeAnswers bool
 	expiresIn      time.Duration
-	downloaded     bool
+	downloads      int
 	errorCode      string
 	age            time.Duration
 }
@@ -114,18 +114,18 @@ func (w *world) export(requester string, s seed) string {
 	err := w.pool.QueryRow(context.Background(), `
 		INSERT INTO app.data_exports
 		       (requested_by, include_answers, status, attempts, started_at, completed_at, expires_at,
-		        downloaded_at, storage_key, bytes, error_code, created_at)
+		        downloaded_at, downloads, storage_key, bytes, error_code, created_at)
 		VALUES ($1::uuid, $2, $3, $4,
 		        CASE WHEN $5::bigint > 0 THEN now() - $5 * interval '1 second' END,
 		        CASE WHEN $3 IN ('ready', 'failed') THEN now() END,
 		        CASE WHEN $3 = 'ready' THEN now() + $6 * interval '1 second' END,
-		        CASE WHEN $7 THEN now() END,
+		        CASE WHEN $7::int > 0 THEN now() END, $7::int,
 		        CASE WHEN $3 = 'ready' THEN 'exports/seed-' || $8 || '.zip' END,
 		        CASE WHEN $3 = 'ready' THEN 1234 END,
 		        NULLIF($9, ''), now() - $10 * interval '1 second')
 		RETURNING id::text`,
 		requester, s.includeAnswers, s.status, s.attempts, int64(s.ranFor/time.Second), int64(s.expiresIn/time.Second),
-		s.downloaded, nonce(w.t), s.errorCode, int64(s.age/time.Second)).Scan(&id)
+		s.downloads, nonce(w.t), s.errorCode, int64(s.age/time.Second)).Scan(&id)
 	if err != nil {
 		w.t.Fatalf("seed an export: %v", err)
 	}
@@ -140,6 +140,7 @@ type row struct {
 	completedAt  *time.Time
 	expiresAt    *time.Time
 	downloadedAt *time.Time
+	downloads    int
 	storageKey   *string
 	bytes        *int64
 	errorCode    *string
@@ -149,9 +150,9 @@ func (w *world) row(id string) row {
 	w.t.Helper()
 	var r row
 	err := w.pool.QueryRow(context.Background(), `
-		SELECT status, attempts, started_at, completed_at, expires_at, downloaded_at, storage_key, bytes, error_code
+		SELECT status, attempts, started_at, completed_at, expires_at, downloaded_at, downloads, storage_key, bytes, error_code
 		  FROM app.data_exports WHERE id = $1::uuid`, id).
-		Scan(&r.status, &r.attempts, &r.startedAt, &r.completedAt, &r.expiresAt, &r.downloadedAt, &r.storageKey, &r.bytes, &r.errorCode)
+		Scan(&r.status, &r.attempts, &r.startedAt, &r.completedAt, &r.expiresAt, &r.downloadedAt, &r.downloads, &r.storageKey, &r.bytes, &r.errorCode)
 	if err != nil {
 		w.t.Fatalf("read the export: %v", err)
 	}

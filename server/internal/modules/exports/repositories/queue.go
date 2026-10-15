@@ -14,6 +14,27 @@ import (
 
 const leaseSeconds = int64(domain.Lease / time.Second)
 
+// Running says which of ids are running now.
+func (p *Postgres) Running(ctx context.Context, ids []string) ([]string, error) {
+	rows, err := p.Query(ctx, `SELECT id::text FROM app.data_exports WHERE status = 'running' AND id = ANY($1::uuid[])`, ids)
+	if err != nil {
+		return nil, fmt.Errorf("exports: look for the running: %w", err)
+	}
+	defer rows.Close()
+	var running []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("exports: read a running export: %w", err)
+		}
+		running = append(running, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("exports: read the running: %w", err)
+	}
+	return running, nil
+}
+
 // Claim takes the oldest waiting export for the worker.
 func (p *Postgres) Claim(ctx context.Context) (domain.Export, error) {
 	var (

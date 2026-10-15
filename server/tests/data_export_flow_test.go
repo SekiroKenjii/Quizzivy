@@ -169,7 +169,7 @@ func TestAnAdminExportsTheCentresDataAndFetchesItOnce(t *testing.T) {
 
 	queued := admin.must(http.StatusAccepted, http.MethodPost, "/admin/data-exports", map[string]any{"includeAnswers": true})
 	exportID := id(queued)
-	if queued["status"] != "queued" || queued["includeAnswers"] != true || queued["bytes"] != nil || queued["downloadedAt"] != nil {
+	if queued["status"] != "queued" || queued["includeAnswers"] != true || queued["bytes"] != nil || queued["downloadedAt"] != nil || queued["downloads"] != float64(0) {
 		t.Errorf("the queued export reads %v", queued)
 	}
 	woken := false
@@ -214,7 +214,7 @@ func TestAnAdminExportsTheCentresDataAndFetchesItOnce(t *testing.T) {
 	w.runExportWorker()
 
 	ready := admin.must(http.StatusOK, http.MethodGet, "/admin/data-exports/"+exportID, nil)
-	if ready["status"] != "ready" || ready["bytes"].(float64) <= 0 || ready["completedAt"] == nil || ready["downloadedAt"] != nil {
+	if ready["status"] != "ready" || ready["bytes"].(float64) <= 0 || ready["completedAt"] == nil || ready["downloadedAt"] != nil || ready["downloads"] != float64(0) {
 		t.Fatalf("the finished export reads %v", ready)
 	}
 	expires, err := time.Parse(time.RFC3339, ready["expiresAt"].(string))
@@ -319,19 +319,31 @@ func TestAnAdminExportsTheCentresDataAndFetchesItOnce(t *testing.T) {
 		t.Errorf("a removed answer reads %v", gone)
 	}
 
+	first := admin.must(http.StatusOK, http.MethodGet, "/admin/data-exports/"+exportID, nil)
+	if first["downloadedAt"] == nil || first["downloads"] != float64(1) {
+		t.Errorf("the export does not say it was fetched once: %v", first)
+	}
+	for n := 2; n <= 3; n++ {
+		again := admin.must(http.StatusOK, http.MethodPost, "/admin/data-exports/"+exportID+"/download", nil)
+		if resp, err := http.Get(again["url"].(string)); err != nil || resp.StatusCode != http.StatusOK {
+			t.Errorf("the address of signing %d did not serve the file: %v", n, err)
+		} else {
+			_ = resp.Body.Close()
+		}
+	}
 	if status, body := admin.call(http.MethodPost, "/admin/data-exports/"+exportID+"/download", nil); status != http.StatusGone || exportErrorCode(body) != "EXPORT_UNAVAILABLE" {
-		t.Errorf("the second download answered %d: %v", status, body)
+		t.Errorf("the fourth download answered %d: %v", status, body)
 	}
 	after := admin.must(http.StatusOK, http.MethodGet, "/admin/data-exports/"+exportID, nil)
-	if after["downloadedAt"] == nil {
-		t.Errorf("the export does not say it was fetched: %v", after)
+	if after["downloadedAt"] != first["downloadedAt"] || after["downloads"] != float64(3) {
+		t.Errorf("the export reads %v after three downloads; the first fetch was %v", after, first["downloadedAt"])
 	}
-	for _, action := range []string{"data_export.requested", "data_export.downloaded"} {
+	for action, want := range map[string]int{"data_export.requested": 1, "data_export.downloaded": 3} {
 		var n int
 		if err := w.pool.QueryRow(context.Background(),
 			`SELECT count(*) FROM app.audit_log WHERE action = $1 AND entity_id = $2::uuid AND actor_user_id = (SELECT id FROM app.users WHERE email = $3)`,
-			action, exportID, adminEmail).Scan(&n); err != nil || n != 1 {
-			t.Errorf("%s was audited %d times (%v), want once", action, n, err)
+			action, exportID, adminEmail).Scan(&n); err != nil || n != want {
+			t.Errorf("%s was audited %d times (%v), want %d", action, n, err, want)
 		}
 	}
 
@@ -393,11 +405,22 @@ func TestAWorkerThatCannotStoreTheFileFailsTheExportWithACodeAndTellsNobody(t *t
 	w.runExportWorker()
 }
 
-func TestWithoutStorageTheExportAnswersNotImplemented(t *testing.T) {
+func TestWithoutStorageTheExportAnswersExportOff(t *testing.T) {
 	w := boot(t)
 	email, password := w.teacher()
 	admin := w.signedIn(email, password)
-	if status, body := admin.call(http.MethodPost, "/admin/data-exports", map[string]any{"includeAnswers": false}); status != http.StatusNotImplemented {
-		t.Errorf("a request without a worker answered %d: %v", status, body)
+	missing := "0198f000-0000-7000-8000-00000000dead"
+	for name, call := range map[string]func() (int, map[string]any){
+		"request": func() (int, map[string]any) {
+			return admin.call(http.MethodPost, "/admin/data-exports", map[string]any{"includeAnswers": false})
+		},
+		"read": func() (int, map[string]any) { return admin.call(http.MethodGet, "/admin/data-exports/"+missing, nil) },
+		"download": func() (int, map[string]any) {
+			return admin.call(http.MethodPost, "/admin/data-exports/"+missing+"/download", nil)
+		},
+	} {
+		if status, body := call(); status != http.StatusNotImplemented || exportErrorCode(body) != "EXPORT_OFF" {
+			t.Errorf("%s without a worker answered %d: %v", name, status, body)
+		}
 	}
 }

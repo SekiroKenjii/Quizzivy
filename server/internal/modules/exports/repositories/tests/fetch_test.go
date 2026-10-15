@@ -25,35 +25,47 @@ func fetch(id, actor string) domain.Fetch {
 	return domain.Fetch{ID: id, ActorID: actor, IP: "198.51.100.4", UserAgent: "Mozilla/5.0"}
 }
 
-func TestAReadyExportIsFetchedOnceAndTheFetchIsAudited(t *testing.T) {
+func TestAReadyExportIsSignedThreeTimesAndEachSigningIsAudited(t *testing.T) {
 	w := newWorld(t)
 	owner := w.admin()
 	id := w.export(owner, seed{status: "ready", expiresIn: time.Hour})
 	var urls []string
+	var first *time.Time
 
-	got, err := w.repo.Fetch(context.Background(), fetch(id, owner), signer(&urls))
-	if err != nil {
-		t.Fatal(err)
-	}
-	stored := w.row(id)
-	if len(urls) != 1 || got != urls[0] || stored.storageKey == nil || !strings.HasPrefix(got, "https://objects.example/"+*stored.storageKey+"?created=") {
-		t.Errorf("url = %q for key %v", got, stored.storageKey)
-	}
-	if stored.downloadedAt == nil {
-		t.Error("the export is not marked fetched")
-	}
-	if n := w.auditCount("data_export.downloaded", id); n != 1 {
-		t.Errorf("%d audit rows for the fetch, want 1", n)
+	for n := 1; n <= domain.MaxDownloads; n++ {
+		got, err := w.repo.Fetch(context.Background(), fetch(id, owner), signer(&urls))
+		if err != nil {
+			t.Fatalf("signing %d: %v", n, err)
+		}
+		stored := w.row(id)
+		if len(urls) != n || got != urls[n-1] || stored.storageKey == nil || !strings.HasPrefix(got, "https://objects.example/"+*stored.storageKey+"?created=") {
+			t.Errorf("signing %d: url = %q for key %v", n, got, stored.storageKey)
+		}
+		if stored.downloads != n || stored.downloadedAt == nil {
+			t.Errorf("signing %d: downloads = %d, downloadedAt = %v", n, stored.downloads, stored.downloadedAt)
+		}
+		if first == nil {
+			first = stored.downloadedAt
+		} else if !stored.downloadedAt.Equal(*first) {
+			t.Errorf("signing %d moved downloaded_at from %v to %v; it keeps the first fetch", n, first, stored.downloadedAt)
+		}
+		if audited := w.auditCount("data_export.downloaded", id); audited != n {
+			t.Errorf("signing %d: %d audit rows", n, audited)
+		}
 	}
 
 	if _, err := w.repo.Fetch(context.Background(), fetch(id, owner), signer(&urls)); !errors.Is(err, domain.ErrUnavailable) {
-		t.Errorf("the second fetch: %v", err)
+		t.Errorf("the fourth fetch: %v", err)
 	}
-	if len(urls) != 1 {
-		t.Error("an address was signed for the second fetch")
+	if len(urls) != domain.MaxDownloads {
+		t.Errorf("%d addresses were signed, want %d", len(urls), domain.MaxDownloads)
 	}
-	if n := w.auditCount("data_export.downloaded", id); n != 1 {
+	if n := w.auditCount("data_export.downloaded", id); n != domain.MaxDownloads {
 		t.Errorf("the refused fetch was audited: %d rows", n)
+	}
+	read, err := w.repo.Get(context.Background(), id, owner)
+	if err != nil || read.Downloads != domain.MaxDownloads || read.DownloadedAt == nil {
+		t.Errorf("Get = %+v, %v", read, err)
 	}
 }
 
@@ -68,8 +80,8 @@ func TestAnotherAdminsFetchIsNotFoundAndMarksNothing(t *testing.T) {
 	if _, err := w.repo.Fetch(context.Background(), fetch("0198f000-0000-7000-8000-00000000dead", owner), signer(&urls)); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("a missing id: %v", err)
 	}
-	if len(urls) != 0 || w.row(id).downloadedAt != nil {
-		t.Error("another admin's fetch spent the owner's one fetch")
+	if stored := w.row(id); len(urls) != 0 || stored.downloadedAt != nil || stored.downloads != 0 {
+		t.Error("another admin's fetch spent one of the owner's fetches")
 	}
 	if _, err := w.repo.Fetch(context.Background(), fetch(id, owner), signer(&urls)); err != nil {
 		t.Errorf("the owner can no longer fetch: %v", err)
@@ -83,7 +95,7 @@ func TestAnExportThatIsNotReadyUnexpiredAndNewCannotBeFetched(t *testing.T) {
 		"running": {status: "running", attempts: 1, ranFor: time.Second},
 		"failed":  {status: "failed", attempts: 1, errorCode: domain.CodeFailed},
 		"expired": {status: "ready", expiresIn: -time.Second},
-		"fetched": {status: "ready", expiresIn: time.Hour, downloaded: true},
+		"spent":   {status: "ready", expiresIn: time.Hour, downloads: domain.MaxDownloads},
 	}
 	for name, s := range cases {
 		id := w.export(owner, s)
@@ -94,7 +106,7 @@ func TestAnExportThatIsNotReadyUnexpiredAndNewCannotBeFetched(t *testing.T) {
 		if len(urls) != 0 {
 			t.Errorf("%s: an address was signed", name)
 		}
-		if name != "fetched" && w.row(id).downloadedAt != nil {
+		if name != "spent" && w.row(id).downloadedAt != nil {
 			t.Errorf("%s: the refused fetch marked the export", name)
 		}
 		w.exec(`DELETE FROM app.data_exports WHERE id = $1::uuid`, id)
@@ -115,8 +127,8 @@ func TestAFetchWhoseAddressCannotBeSignedSpendsNothing(t *testing.T) {
 	if !errors.Is(err, unreachable) {
 		t.Fatalf("error = %v", err)
 	}
-	if w.row(id).downloadedAt != nil {
-		t.Error("the export is marked fetched although the requester received no address")
+	if stored := w.row(id); stored.downloadedAt != nil || stored.downloads != 0 {
+		t.Error("the export is counted although the requester received no address")
 	}
 	if n := w.auditCount("data_export.downloaded", id); n != 0 {
 		t.Errorf("%d audit rows for a fetch that gave nothing", n)
@@ -127,7 +139,23 @@ func TestAFetchWhoseAddressCannotBeSignedSpendsNothing(t *testing.T) {
 	}
 }
 
-func TestFetchesAtOnceHandOutOneAddress(t *testing.T) {
+func TestTheLastDownloadIsTheCapEvenWhenAskedFor(t *testing.T) {
+	w := newWorld(t)
+	owner := w.admin()
+	id := w.export(owner, seed{status: "ready", expiresIn: time.Hour, downloads: domain.MaxDownloads - 1})
+	var urls []string
+	if _, err := w.repo.Fetch(context.Background(), fetch(id, owner), signer(&urls)); err != nil {
+		t.Fatalf("the last allowed fetch: %v", err)
+	}
+	if _, err := w.repo.Fetch(context.Background(), fetch(id, owner), signer(&urls)); !errors.Is(err, domain.ErrUnavailable) {
+		t.Errorf("the one after it: %v", err)
+	}
+	if stored := w.row(id); stored.downloads != domain.MaxDownloads {
+		t.Errorf("downloads = %d", stored.downloads)
+	}
+}
+
+func TestFetchesAtOnceHandOutNoMoreAddressesThanTheCap(t *testing.T) {
 	w := newWorld(t)
 	owner := w.admin()
 	id := w.export(owner, seed{status: "ready", expiresIn: time.Hour})
@@ -164,10 +192,10 @@ func TestFetchesAtOnceHandOutOneAddress(t *testing.T) {
 	if len(other) != 0 {
 		t.Fatalf("unexpected errors: %v", other)
 	}
-	if granted != 1 || refused != attempts-1 {
+	if granted != domain.MaxDownloads || refused != attempts-domain.MaxDownloads {
 		t.Fatalf("%d fetches granted and %d refused of %d at once", granted, refused, attempts)
 	}
-	if n := w.auditCount("data_export.downloaded", id); n != 1 {
-		t.Errorf("%d audit rows, want 1", n)
+	if n := w.auditCount("data_export.downloaded", id); n != domain.MaxDownloads {
+		t.Errorf("%d audit rows, want %d", n, domain.MaxDownloads)
 	}
 }

@@ -1,5 +1,5 @@
 // Package http serves the data export under /admin/data-exports: asking for
-// one, reading where it stands, and fetching its file once.
+// one, reading where it stands, and fetching its file up to three times.
 package http
 
 import (
@@ -20,14 +20,17 @@ type Exports struct {
 	app *application.Application
 }
 
-// NewExports serves the exports through app. A nil app answers 501: the
-// server has no object storage or no worker to build a file.
+// NewExports serves the exports through app. A nil app answers 501
+// EXPORT_OFF: the server has no object storage or no worker to build a file.
 func NewExports(app *application.Application) Exports { return Exports{app: app} }
 
 // RequestDataExport implements POST /admin/data-exports.
 func (h Exports) RequestDataExport(ctx context.Context, request openapi.RequestDataExportRequestObject) (openapi.RequestDataExportResponseObject, error) {
+	if h.app == nil {
+		return openapi.RequestDataExport501JSONResponse{ExportOffJSONResponse: off(ctx)}, nil
+	}
 	who, ok := httpapi.ActorFromContext(ctx)
-	if h.app == nil || !ok || request.Body == nil {
+	if !ok || request.Body == nil {
 		return nil, httpx.ErrNotImplemented
 	}
 	queued, err := h.app.Commands.Request.Handle(ctx, command.Request{Actor: who, IncludeAnswers: request.Body.IncludeAnswers})
@@ -53,8 +56,11 @@ func (h Exports) RequestDataExport(ctx context.Context, request openapi.RequestD
 
 // GetDataExport implements GET /admin/data-exports/{id}.
 func (h Exports) GetDataExport(ctx context.Context, request openapi.GetDataExportRequestObject) (openapi.GetDataExportResponseObject, error) {
+	if h.app == nil {
+		return openapi.GetDataExport501JSONResponse{ExportOffJSONResponse: off(ctx)}, nil
+	}
 	who, ok := httpapi.ActorFromContext(ctx)
-	if h.app == nil || !ok {
+	if !ok {
 		return nil, httpx.ErrNotImplemented
 	}
 	found, err := h.app.Queries.Get.Handle(ctx, query.Get{Actor: who, ID: request.Id.String()})
@@ -69,8 +75,11 @@ func (h Exports) GetDataExport(ctx context.Context, request openapi.GetDataExpor
 
 // DownloadDataExport implements POST /admin/data-exports/{id}/download.
 func (h Exports) DownloadDataExport(ctx context.Context, request openapi.DownloadDataExportRequestObject) (openapi.DownloadDataExportResponseObject, error) {
+	if h.app == nil {
+		return openapi.DownloadDataExport501JSONResponse{ExportOffJSONResponse: off(ctx)}, nil
+	}
 	who, ok := httpapi.ActorFromContext(ctx)
-	if h.app == nil || !ok {
+	if !ok {
 		return nil, httpx.ErrNotImplemented
 	}
 	got, err := h.app.Commands.Download.Handle(ctx, command.Download{Actor: who, ID: request.Id.String()})
@@ -84,11 +93,17 @@ func (h Exports) DownloadDataExport(ctx context.Context, request openapi.Downloa
 		return openapi.DownloadDataExport404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
 	case errors.Is(err, domain.ErrUnavailable):
 		return openapi.DownloadDataExport410JSONResponse(httpapi.Error(ctx, openapi.EXPORTUNAVAILABLE,
-			httpx.Text(ctx, "Bản xuất này không còn tải được: đã tải một lần, đã hết hạn hoặc chưa sẵn sàng.",
-				"This export can no longer be downloaded: it was fetched already, has expired or is not ready."))), nil
+			httpx.Text(ctx, "Bản xuất này không còn tải được: đã tải đủ số lần cho phép, đã hết hạn hoặc chưa sẵn sàng.",
+				"This export can no longer be downloaded: it was downloaded the allowed number of times, has expired or is not ready."))), nil
 	default:
 		return nil, err
 	}
+}
+
+func off(ctx context.Context) openapi.ExportOffJSONResponse {
+	return openapi.ExportOffJSONResponse(httpapi.Error(ctx, openapi.EXPORTOFF,
+		httpx.Text(ctx, "Máy chủ này chưa bật tính năng xuất dữ liệu: thiếu kho lưu trữ hoặc tiến trình xử lý nền.",
+			"Data export is not enabled on this server: it has no object storage or background worker.")))
 }
 
 func notFound(ctx context.Context) openapi.NotFoundJSONResponse {
@@ -100,5 +115,6 @@ func body(e domain.Export) openapi.DataExport {
 	return openapi.DataExport{
 		Id: httpapi.ParseUUID(e.ID), Status: openapi.DataExportStatus(e.Status), IncludeAnswers: e.IncludeAnswers, Bytes: e.Bytes,
 		CreatedAt: e.CreatedAt, CompletedAt: e.CompletedAt, ExpiresAt: e.ExpiresAt, DownloadedAt: e.DownloadedAt,
+		Downloads: e.Downloads,
 	}
 }

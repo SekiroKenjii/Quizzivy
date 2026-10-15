@@ -107,7 +107,7 @@ func TestAnExportThatHasNotFailedKeepsItsRequesterWaitingForAnHour(t *testing.T)
 		"queued":     {status: "queued", age: 10 * time.Minute},
 		"running":    {status: "running", attempts: 1, ranFor: time.Minute, age: 10 * time.Minute},
 		"ready":      {status: "ready", expiresIn: 23 * time.Hour, age: 10 * time.Minute},
-		"downloaded": {status: "ready", expiresIn: 23 * time.Hour, age: 10 * time.Minute, downloaded: true},
+		"downloaded": {status: "ready", expiresIn: 23 * time.Hour, age: 10 * time.Minute, downloads: 1},
 		"expired":    {status: "expired", age: 10 * time.Minute},
 	}
 	for name, s := range cases {

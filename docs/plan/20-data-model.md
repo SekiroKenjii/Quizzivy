@@ -3626,12 +3626,12 @@ document's exact keys, the logo headers and caches, the error mapping).
 
 `app.data_exports` (00134, D-54) holds one row for each request for the centre's data. An Admin asks, the
 worker builds a ZIP of CSV files into the private import bucket at `exports/{id}.zip`, and the requester
-fetches it once from an app page.
+fetches it from an app page, up to three times.
 
 **What a row is.** `requested_by` (`ON DELETE CASCADE`), `include_answers`, `status` (`queued`, `running`,
 `ready`, `failed`, `expired`), `attempts` (0 to 3, the claims so far), `storage_key` (1 to 200 characters),
 `bytes` (above 0), `error_code` (1 to 64 characters), and the instants `created_at`, `started_at` (the
-current claim), `completed_at`, `expires_at` (24 hours after `ready`) and `downloaded_at`. `ready` requires
+current claim), `completed_at`, `expires_at` (24 hours after `ready`), `downloaded_at` and `downloads`. `ready` requires
 `storage_key`, `bytes` and `expires_at`; `failed` requires `error_code`. A read reports a `ready` row past
 `expires_at` as `expired`; nothing in this task stores that, T-R5.16's housekeeping removes the object and
 marks the row.
@@ -3653,10 +3653,13 @@ fail and release each name the attempt they hold and change the row only while i
 attempt, so a worker whose lease was taken changes nothing. Complete also enqueues `data_export_ready` into
 `email_outbox` (§49) in the same transaction.
 
-**The single fetch.** `UPDATE … SET downloaded_at = now() WHERE requested_by = $actor AND status = 'ready' AND
-expires_at > now() AND downloaded_at IS NULL RETURNING storage_key` is the whole check; it signs the address
-and audits `data_export.downloaded` before it commits, so a failure to sign marks nothing. Another admin's
-export finds no row for them and answers as a missing one.
+**The fetch (D-024).** `UPDATE … SET downloaded_at = coalesce(downloaded_at, now()), downloads = downloads + 1
+WHERE requested_by = $actor AND status = 'ready' AND expires_at > now() AND downloads < 3 RETURNING storage_key`
+is the whole check; it signs the address and audits `data_export.downloaded` before it commits, so a failure to
+sign counts nothing. `downloads smallint NOT NULL DEFAULT 0` is checked between 0 and 3, and `downloaded_at` keeps
+the first fetch. The server cannot tell whether a transfer finished (the browser reads the object from storage),
+so a failed transfer may be tried twice more without building another ZIP. Another admin's export finds no row
+for them and answers as a missing one.
 
 **Reading the tables.** The worker reads every file in one `REPEATABLE READ`, read-only transaction with a
 20-minute statement timeout. Each file's columns are listed in `exports/domain/files.go` and the snapshot
@@ -3665,5 +3668,5 @@ written as ISO 8601 in UTC and a boolean as `true` or `false`; NULL is an empty 
 
 **Tests.** `exports/domain/tests` (the catalogue, vi and en for every column, no secret column names, the
 README), `exports/application/worker/tests` (the flow with fakes), `exports/repositories/tests` (the index,
-the claim and its races, the lease, the single fetch, the audit rows, the notice, every query's columns),
+the claim and its races, the lease, the three fetches, the audit rows, the notice, every query's columns),
 `server/tests/data_export_flow_test.go` (API, worker and MinIO), `data_export_heap_test.go` (50,000 attempts).

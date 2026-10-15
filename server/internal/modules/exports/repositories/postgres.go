@@ -47,7 +47,7 @@ const (
 
 	columns = `e.id::text, e.requested_by::text, e.include_answers,
 	           CASE WHEN e.status = 'ready' AND e.expires_at <= now() THEN 'expired' ELSE e.status END,
-	           e.attempts, e.bytes, e.created_at, e.completed_at, e.expires_at, e.downloaded_at`
+	           e.attempts, e.bytes, e.created_at, e.completed_at, e.expires_at, e.downloaded_at, e.downloads`
 )
 
 func scan(row pgx.Row) (domain.Export, error) {
@@ -56,7 +56,7 @@ func scan(row pgx.Row) (domain.Export, error) {
 		status string
 	)
 	err := row.Scan(&out.ID, &out.RequestedBy, &out.IncludeAnswers, &status, &out.Attempts, &out.Bytes,
-		&out.CreatedAt, &out.CompletedAt, &out.ExpiresAt, &out.DownloadedAt)
+		&out.CreatedAt, &out.CompletedAt, &out.ExpiresAt, &out.DownloadedAt, &out.Downloads)
 	if err != nil {
 		return domain.Export{}, err
 	}
@@ -123,7 +123,7 @@ func (p *Postgres) Get(ctx context.Context, id, requester string) (domain.Export
 	return out, nil
 }
 
-// Fetch marks the export fetched, signs its file and audits the fetch.
+// Fetch counts a download of the export, signs its file and audits the fetch.
 func (p *Postgres) Fetch(ctx context.Context, in domain.Fetch, sign domain.Signer) (string, error) {
 	var url string
 	err := p.InTx(ctx, "exports: fetch", func(tx pgx.Tx) error {
@@ -133,10 +133,10 @@ func (p *Postgres) Fetch(ctx context.Context, in domain.Fetch, sign domain.Signe
 		)
 		err := tx.QueryRow(ctx, `
 			UPDATE app.data_exports
-			   SET downloaded_at = now()
+			   SET downloaded_at = coalesce(downloaded_at, now()), downloads = downloads + 1
 			 WHERE id = $1::uuid AND requested_by = $2::uuid
-			   AND status = 'ready' AND expires_at > now() AND downloaded_at IS NULL
-			RETURNING storage_key, created_at`, in.ID, in.ActorID).Scan(&key, &created)
+			   AND status = 'ready' AND expires_at > now() AND downloads < $3
+			RETURNING storage_key, created_at`, in.ID, in.ActorID, domain.MaxDownloads).Scan(&key, &created)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return p.whyNot(ctx, tx, in)
 		}

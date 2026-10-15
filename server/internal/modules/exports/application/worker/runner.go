@@ -46,6 +46,7 @@ func (r Runner) RunOne(ctx context.Context) (bool, error) {
 	r = r.withDefaults()
 	claimed, err := r.Queue.Claim(ctx)
 	if errors.Is(err, domain.ErrNoWork) {
+		r.sweep(ctx)
 		return false, nil
 	}
 	if err != nil {

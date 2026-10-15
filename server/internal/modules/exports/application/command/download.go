@@ -9,11 +9,12 @@ import (
 	"quizzivy/internal/shared/actor"
 )
 
-// Download hands Actor the address of the file of the export ID, once. It
-// fails with domain.ErrNotFound unless Actor requested the export, and with
-// domain.ErrUnavailable unless it is ready, unexpired and not fetched yet. The
-// address works for domain.URLTTL and names the file
-// quizzivy-export-YYYYMMDD.zip, dated by the day the export was requested.
+// Download hands Actor a fresh address of the file of the export ID. It fails
+// with domain.ErrNotFound unless Actor requested the export, and with
+// domain.ErrUnavailable unless it is ready, unexpired and signed fewer than
+// domain.MaxDownloads times. The address works for domain.URLTTL and names the
+// file quizzivy-export-YYYYMMDD.zip, dated by the day the export was
+// requested.
 type Download struct {
 	Actor actor.Actor
 	ID    string

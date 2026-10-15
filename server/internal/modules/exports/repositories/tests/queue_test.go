@@ -312,3 +312,23 @@ func TestReleaseGivesTheExportBackWithoutSpendingTheAttempt(t *testing.T) {
 		t.Errorf("claim after release = %+v, %v", again, err)
 	}
 }
+
+func TestRunningSaysWhichOfTheAskedExportsAreRunningNow(t *testing.T) {
+	w := newWorld(t)
+	owner := w.admin()
+	running := w.export(owner, seed{status: "running", attempts: 1, ranFor: time.Second, age: 3 * time.Hour})
+	failed := w.export(owner, seed{status: "failed", attempts: 3, errorCode: domain.CodeInterrupted, age: 2 * time.Hour})
+	ready := w.export(owner, seed{status: "ready", expiresIn: time.Hour, age: 90 * time.Minute})
+	const missing = "0198f000-0000-7000-8000-00000000dead"
+
+	got, err := w.repo.Running(context.Background(), []string{running, failed, ready, missing})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0] != running {
+		t.Errorf("Running = %v, want only %s", got, running)
+	}
+	if none, err := w.repo.Running(context.Background(), nil); err != nil || len(none) != 0 {
+		t.Errorf("Running(nil) = %v, %v", none, err)
+	}
+}
