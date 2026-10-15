@@ -26,8 +26,9 @@ export function EditRoleButton({
       aria-disabled={role.editable ? undefined : true}
       title={role.editable ? t("roles.editRole.title") : t("roles.lock.subset")}
       className={cn(
-        "grid size-8.5 place-items-center rounded-[0.5625rem] border text-inherit transition-opacity hover:opacity-85",
-        "aria-disabled:cursor-not-allowed aria-disabled:border-current/30 aria-disabled:text-current/50 aria-disabled:hover:opacity-100",
+        "grid size-8.5 place-items-center rounded-[0.5625rem] border text-inherit transition-opacity",
+        "aria-disabled:cursor-not-allowed aria-disabled:border-current/30 aria-disabled:text-current/50",
+        role.editable && "hover:opacity-85",
         LOOKS[role.color].button,
       )}
       onClick={(event) => {
