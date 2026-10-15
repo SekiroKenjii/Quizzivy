@@ -37,8 +37,9 @@ function Toaster() {
             "bg-card text-fg shadow-float flex w-auto max-w-[calc(100vw-2rem)] items-center gap-2.5 rounded-[10px] border px-3.5 py-3 font-sans text-ui",
           icon: "flex size-4 shrink-0 items-center justify-center",
           title: "min-w-0 flex-1 font-normal",
+          description: "text-muted-fg text-meta",
           actionButton:
-            "ml-auto shrink-0 text-sm font-medium underline-offset-4 hover:underline",
+            "hover:bg-hover -my-1 -mr-1.5 ml-auto inline-flex min-h-6 min-w-6 shrink-0 items-center justify-center rounded-md px-2 text-sm font-medium",
           closeButton:
             "text-muted-fg hover:bg-hover order-last ml-1 grid size-6 shrink-0 place-items-center rounded-md",
         },

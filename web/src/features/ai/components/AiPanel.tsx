@@ -31,6 +31,7 @@ import {
   useAiLeft,
   useAiTagsDrafts,
 } from "../useAiAvailable";
+import { useFinishedToast } from "../useFinishedToast";
 import { AiCreditNote } from "./AiCreditNote";
 import { AiItemCard } from "./AiItemCard";
 import { AiPanelField } from "./AiPanelField";
@@ -71,28 +72,73 @@ function writeFailure(cause: unknown, fallback: string): string {
  * keeps focus inside and returns it to what opened it (DG-36). The panel and
  * its kinds call only `/teacher/ai/*`; every write a primary or a card makes
  * is the host page's own, handed in through the request's context. No
- * sample output is ever drawn: a failed run is a callout (DG-201).
+ * sample output is ever drawn: a failed run is a callout (DG-201). The
+ * session is the panel's state, not the drawer's: while `open` is false it
+ * draws nothing and keeps its fields, a run in flight and the suggestions a
+ * run answered, so closing never discards them. A run that settles while the
+ * drawer is closed says so in a toast, whose action calls `onReopen`; while
+ * another drawer is `aside` showing, it says so when that one closes. Done, a
+ * primary's write and Start over end the session, and so does unmounting,
+ * which also aborts a run that has not answered; a host keeps the panel as
+ * long as its page (`AiPanelStack`).
  */
 export default function AiPanel({
   request,
+  open = true,
+  aside = false,
   onClose,
-}: Readonly<{ request: AiPanelRequest; onClose: () => void }>) {
+  onReopen,
+}: Readonly<{
+  request: AiPanelRequest;
+  open?: boolean;
+  aside?: boolean;
+  onClose: () => void;
+  onReopen?: () => void;
+}>) {
   switch (request.kind) {
     case "generate":
       return (
-        <AiKindPanel kind={generateKind} context={request.context} onClose={onClose} />
+        <AiKindPanel
+          kind={generateKind}
+          context={request.context}
+          open={open}
+          aside={aside}
+          onClose={onClose}
+          onReopen={onReopen}
+        />
       );
     case "check":
       return (
-        <AiKindPanel kind={checkKind} context={request.context} onClose={onClose} />
+        <AiKindPanel
+          kind={checkKind}
+          context={request.context}
+          open={open}
+          aside={aside}
+          onClose={onClose}
+          onReopen={onReopen}
+        />
       );
     case "variant":
       return (
-        <AiKindPanel kind={variantKind} context={request.context} onClose={onClose} />
+        <AiKindPanel
+          kind={variantKind}
+          context={request.context}
+          open={open}
+          aside={aside}
+          onClose={onClose}
+          onReopen={onReopen}
+        />
       );
     case "cleanup":
       return (
-        <AiKindPanel kind={cleanupKind} context={request.context} onClose={onClose} />
+        <AiKindPanel
+          kind={cleanupKind}
+          context={request.context}
+          open={open}
+          aside={aside}
+          onClose={onClose}
+          onReopen={onReopen}
+        />
       );
   }
 }
@@ -100,8 +146,18 @@ export default function AiPanel({
 function AiKindPanel<F, I, C>({
   kind,
   context,
+  open,
+  aside,
   onClose,
-}: Readonly<{ kind: AiKind<F, I, C>; context: C; onClose: () => void }>) {
+  onReopen,
+}: Readonly<{
+  kind: AiKind<F, I, C>;
+  context: C;
+  open: boolean;
+  aside: boolean;
+  onClose: () => void;
+  onReopen: (() => void) | undefined;
+}>) {
   const { t } = useTranslation();
   const locale = useLocale();
   const queryClient = useQueryClient();
@@ -115,6 +171,12 @@ function AiKindPanel<F, I, C>({
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const run = useRef<AbortController | null>(null);
+  const announce = useFinishedToast({
+    open,
+    aside,
+    title: t(kind.titleKey),
+    onReopen,
+  });
 
   useEffect(() => () => run.current?.abort(), []);
 
@@ -149,11 +211,13 @@ function AiKindPanel<F, I, C>({
         usage: result.usage,
         notice: result.notice,
       });
+      announce("done");
     } catch (cause) {
       if (controller.signal.aborted) return;
       const failure = aiFailureOf(cause, t("ai.failed"));
       refreshAfterAiFailure(queryClient, cause, failure);
       setStage({ name: "setup", failure });
+      announce("failed");
     }
   }
 
@@ -203,6 +267,12 @@ function AiKindPanel<F, I, C>({
     }
   }
 
+  function conclude() {
+    setActionError(null);
+    setStage({ name: "setup", failure: null });
+    onClose();
+  }
+
   async function apply(selected: readonly I[]) {
     if (kind.primary === null) return;
     setActionError(null);
@@ -217,7 +287,8 @@ function AiKindPanel<F, I, C>({
             onClick: () => void navigate(done.action.href),
           },
         });
-      onClose();
+      setBusy(false);
+      conclude();
     } catch (cause) {
       setActionError(writeFailure(cause, t("ai.applyFailed")));
       setBusy(false);
@@ -225,12 +296,13 @@ function AiKindPanel<F, I, C>({
   }
 
   const done = stage.name === "done" ? stage : null;
-  const cards =
-    done?.items.map(({ key, item }) => ({
-      key,
-      item,
-      card: kind.card(item, { ...env, close: onClose }),
-    })) ?? [];
+  const live =
+    done?.items.filter(({ item }) => !(kind.stale?.(item, context) ?? false)) ?? [];
+  const cards = live.map(({ key, item }) => ({
+    key,
+    item,
+    card: kind.card(item, { ...env, close: onClose }),
+  }));
   const selectable = cards
     .filter((entry) => entry.card.selectable)
     .map(({ key }) => key);
@@ -307,7 +379,7 @@ function AiKindPanel<F, I, C>({
               onClick={() => void apply(selectedItems)}
             />
           ) : (
-            <PrimaryButton icon={Check} label={t("ai.done")} onClick={onClose} />
+            <PrimaryButton icon={Check} label={t("ai.done")} onClick={conclude} />
           )}
         </>
       )}
@@ -316,9 +388,9 @@ function AiKindPanel<F, I, C>({
 
   return (
     <Sheet
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
       }}
       width={560}
       title={t(kind.titleKey)}
@@ -379,11 +451,7 @@ function AiKindPanel<F, I, C>({
           )}
           <div className="flex min-h-7.5 flex-wrap items-center justify-between gap-2.5">
             <p className="text-muted-fg text-sm">
-              {kind.summary(
-                done.items.map(({ item }) => item),
-                selectedItems.length,
-                t,
-              )}
+              {kind.summary(answered, selectedItems.length, t)}
             </p>
             {selectable.length > 0 && (
               <button
