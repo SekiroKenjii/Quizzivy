@@ -2528,6 +2528,87 @@ components:
           description: Memberships in classes the caller teaches, or every one with `scope.all`. The table truncates; the drawer lists them.
         stats: { $ref: '#/components/schemas/StudentStats' }
 
+    AdminUserRole:
+      type: object
+      description: The role an account holds, as the Users table draws it.
+      required: [id, name, builtinKey, icon, color]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string, minLength: 1, maxLength: 60 }
+        builtinKey:
+          oneOf:
+            - { $ref: '#/components/schemas/BuiltinRoleKey' }
+            - { type: 'null' }
+        icon: { $ref: '#/components/schemas/RoleIcon' }
+        color: { $ref: '#/components/schemas/RoleColor' }
+
+    AdminUserRow:
+      type: object
+      description: |
+        One account as the Admin console's Users table lists it, whatever its
+        role. Flat, as `StudentRow` is, for the same reason (issue #41).
+      required: [id, fullName, email, avatarUrl, role, signIn, classes, lastActiveAt, status, createdAt]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        fullName: { type: string, minLength: 1, maxLength: 200 }
+        email: { type: string, format: email, maxLength: 254 }
+        avatarUrl:
+          type: [string, 'null']
+          format: uri
+          maxLength: 2048
+          description: A signed link to the account's photo, null when it has none or this server stores none.
+        role: { $ref: '#/components/schemas/AdminUserRole' }
+        signIn:
+          type: object
+          description: The ways the account can sign in with, as it stands; the centre's policy may have turned one off.
+          required: [password, google]
+          additionalProperties: false
+          properties:
+            password: { type: boolean, description: True when the account has a password. }
+            google: { type: boolean, description: True when a Google identity is linked. }
+        classes:
+          type: object
+          description: |
+            The classes that are not archived: for a student target, those the
+            account is a member of; for any other account, those it teaches.
+          required: [count, firstName]
+          additionalProperties: false
+          properties:
+            count: { type: integer, minimum: 0 }
+            firstName:
+              type: [string, 'null']
+              maxLength: 120
+              description: The name of the class the account joined first (a student target) or was given first (anyone else), null when `count` is 0.
+        lastActiveAt:
+          type: [string, 'null']
+          format: date-time
+          description: The account's latest authenticated request (DG-54), null before it has ever been active.
+        status: { $ref: '#/components/schemas/AccountStatus' }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+
+    UserCreate:
+      type: object
+      required: [fullName, email, roleId, delivery]
+      additionalProperties: false
+      properties:
+        fullName: { type: string, minLength: 1, maxLength: 200 }
+        email: { type: string, format: email, maxLength: 254 }
+        roleId:
+          $ref: '#/components/schemas/Uuid'
+          description: A role from `listAssignableRoles`.
+        classId:
+          $ref: '#/components/schemas/Uuid'
+          description: A class to add the account to. Allowed only for a student-target role and only to a caller holding `scope.all`.
+        delivery:
+          type: string
+          enum: [email_link, temporary_password]
+          description: |
+            `email_link` creates the account without a password and emails it a
+            link to choose one (24 hours, once). `temporary_password` returns a
+            temporary password once, for the admin to hand over.
+
     StudentPasswordReset:
       type: object
       description: One student `resetStudentsPasswords` reset. The password is shown once.
@@ -10643,6 +10724,80 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/users:
+    post:
+      operationId: createUser
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: Add an account with a role
+      description: |
+        Creates an account of any role the caller may give (`listAssignableRoles`):
+        its permissions, `learning.take_tests` apart, must be the caller's own,
+        and the Assistant is never offered. `created_by` is the caller.
+
+        `delivery: email_link` sets no password and enqueues a set-password
+        link (an invite) in the same transaction as the account, so the account
+        and its message exist together or not at all. While the centre has
+        turned password sign-in off, the message is a sign-in invite and
+        carries no link. `delivery: temporary_password` returns a temporary
+        password **once** and keeps only its hash; the account must change it
+        at the first sign-in unless the centre's sign-in policy lets it keep
+        it. It is refused with `PASSWORD_SIGN_IN_DISABLED` while password
+        sign-in is off.
+
+        `classId` is allowed only for a student-target role and only with
+        `scope.all`, and must name a class that is not archived. Writes one
+        audit row, `user.created`, with the role and the delivery.
+
+        Limited to 30 a minute and 300 an hour per signed-in user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserCreate' }
+      responses:
+        '201':
+          description: Created. A temporary password is returned **once**, and the answer is never cached.
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user]
+                additionalProperties: false
+                properties:
+                  user: { $ref: '#/components/schemas/AdminUserRow' }
+                  temporaryPassword:
+                    type: string
+                    description: "Present only for `delivery: temporary_password`."
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — the role holds a permission the caller lacks.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`EMAIL_TAKEN` — already in use, compared case-insensitively.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: |
+            `ROLE_NOT_ASSIGNABLE` — the role is the Assistant.
+            `PASSWORD_SIGN_IN_DISABLED` — a temporary password was asked for while the centre has turned password sign-in off.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '501':
+          description: This server has no key to seal a link with (`SECRETS_KEY`), so it cannot send one.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /admin/users/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]

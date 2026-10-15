@@ -82,8 +82,8 @@ func TestEveryDeclaredValueIsKnown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(requirements) != 159 {
-		t.Errorf("%d operations declare a permission, want 159", len(requirements))
+	if len(requirements) != 160 {
+		t.Errorf("%d operations declare a permission, want 160", len(requirements))
 	}
 	for pattern, requirement := range requirements {
 		for _, k := range requirement.Keys() {
@@ -374,7 +374,7 @@ func throughGate(h http.Handler, pattern, token string) int {
 
 func TestEachRoleMeetsExactlyTheOperationsItsPermissionsAllow(t *testing.T) {
 	h, requirements, _ := isolatedGate(t, rolePrincipals())
-	adminOnly := map[string]bool{"POST /admin/docs-session": true, "DELETE /admin/users/{id}": true, "GET /admin/api-reference": true, "GET /admin/api-reference/openapi.json": true, "GET /admin/audit-log": true, "GET /admin/audit-log/export": true, "POST /admin/data-exports": true, "GET /admin/data-exports/{id}": true, "POST /admin/data-exports/{id}/download": true, "GET /admin/overview": true, "GET /admin/summary": true, "GET /admin/usage": true}
+	adminOnly := map[string]bool{"POST /admin/docs-session": true, "POST /admin/users": true, "DELETE /admin/users/{id}": true, "GET /admin/api-reference": true, "GET /admin/api-reference/openapi.json": true, "GET /admin/audit-log": true, "GET /admin/audit-log/export": true, "POST /admin/data-exports": true, "GET /admin/data-exports/{id}": true, "POST /admin/data-exports/{id}/download": true, "GET /admin/overview": true, "GET /admin/summary": true, "GET /admin/usage": true}
 	for _, pattern := range []string{"GET /admin/roles", "POST /admin/roles", "GET /admin/roles/assignable", "PUT /admin/roles/permissions", "PATCH /admin/roles/{id}"} {
 		adminOnly[pattern] = true
 	}
@@ -427,8 +427,8 @@ func TestTheAssistantMeetsOnlyItsSixRows(t *testing.T) {
 			t.Errorf("%s as the Assistant: %d, want %d", pattern, got, want)
 		}
 	}
-	if refused != 74 {
-		t.Errorf("the Assistant is refused %d operations, want 74: forty-six staff operations, the sixteen AI ones and the twelve /app ones", refused)
+	if refused != 75 {
+		t.Errorf("the Assistant is refused %d operations, want 75: forty-seven staff operations, the sixteen AI ones and the twelve /app ones", refused)
 	}
 }
 

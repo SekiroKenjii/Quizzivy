@@ -380,6 +380,7 @@
       "test.version_deleted": "Đã xoá một phiên bản của bài kiểm tra",
       "user.avatar_removed": "Đã gỡ ảnh đại diện",
       "user.avatar_set": "Đã đặt ảnh đại diện",
+      "user.created": "Đã tạo tài khoản",
       "user.google_linked": "Đã liên kết tài khoản Google",
       "user.google_unlinked": "Đã huỷ liên kết tài khoản Google",
       "user.password_changed": "Đã đổi mật khẩu",

@@ -91,7 +91,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	if err != nil {
 		return Assembly{}, err
 	}
-	identityApp, tokens, err := identity(cfg, logger, dbx, stats, classesApp.Commands.EnrolNewMember, mail.Outbox)
+	identityApp, tokens, err := identity(cfg, logger, dbx, stats, classesApp.Commands.EnrolNewMember, mail.Outbox, principals.Queries.AssignableRole)
 	if err != nil {
 		return Assembly{}, err
 	}
