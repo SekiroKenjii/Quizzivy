@@ -25,9 +25,12 @@ type Service struct {
 	bytes map[string][]byte
 }
 
+// LogoPrefix is the start of every key a logo is stored under.
+const LogoPrefix = "branding/"
+
 // LogoKey is where a logo's bytes are stored.
 func LogoKey(logo domain.Logo) string {
-	return "branding/" + hex.EncodeToString(logo.SHA256) + "." + domain.LogoExtension
+	return LogoPrefix + hex.EncodeToString(logo.SHA256) + "." + domain.LogoExtension
 }
 
 // LogoBytes returns logo's bytes, from memory after the first read: a logo's

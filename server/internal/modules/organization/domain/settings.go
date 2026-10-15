@@ -24,6 +24,10 @@ const LogoPNG LogoType = "image/png"
 // LogoExtension is the file extension a logo's bytes are stored and downloaded under.
 const LogoExtension = "png"
 
+// LogoGrace is how long a stored logo that no setting names is kept: an upload
+// is stored before the save that names it.
+const LogoGrace = 24 * time.Hour
+
 // Valid reports whether t is the type a logo may have.
 func (t LogoType) Valid() bool { return t == LogoPNG }
 
