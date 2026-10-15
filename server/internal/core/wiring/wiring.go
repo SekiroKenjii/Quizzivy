@@ -15,6 +15,7 @@ import (
 	attemptsrepo "quizzivy/internal/modules/attempts/repositories"
 	classesapp "quizzivy/internal/modules/classes/application"
 	classesdomain "quizzivy/internal/modules/classes/domain"
+	exportsapp "quizzivy/internal/modules/exports/application"
 	identityapp "quizzivy/internal/modules/identity/application"
 	identitytoken "quizzivy/internal/modules/identity/application/token"
 	importsworker "quizzivy/internal/modules/imports/application/worker"
@@ -27,7 +28,7 @@ import (
 	"quizzivy/internal/platform/imagesafe"
 )
 
-// Assembly is what Build produces: the transports the router serves, the token verifiers the auth middleware and the docs gate need, the access application that resolves who a request acts as, and the identity, classes, notifications and media applications, the mail outbox and dispatcher and the import sweeper the background jobs drive.
+// Assembly is what Build produces: the transports the router serves, the token verifiers the auth middleware and the docs gate need, the access application that resolves who a request acts as, and the identity, classes, notifications, organization, exports and media applications, the mail outbox and dispatcher and the import sweeper the background jobs drive.
 type Assembly struct {
 	Modules       router.Modules
 	Principals    *accessapp.Application
@@ -38,8 +39,10 @@ type Assembly struct {
 	Notifications *notificationsapp.Application
 	Organization  *organizationapp.Application
 	ImportSweeper *importsworker.Sweeper
-	Media         *mediaapp.Application
-	Maintenance   httpx.MaintenanceSource
+	// Exports is the data export, nil without import storage and the worker.
+	Exports     *exportsapp.Application
+	Media       *mediaapp.Application
+	Maintenance httpx.MaintenanceSource
 	// Mail is the outbox the modules enqueue into and the dispatcher that sends it.
 	Mail Mail
 	// AI is the provider behind the AI assistant's port, nil when no ANTHROPIC_API_KEY is set.
@@ -108,7 +111,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	if chosen.hasCompleter {
 		completer = chosen.completer
 	}
-	exportsTransport, err := exports(ctx, cfg, logger, dbx)
+	exportsTransport, exportsApp, err := exports(ctx, cfg, logger, dbx)
 	if err != nil {
 		return Assembly{}, err
 	}
@@ -169,6 +172,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 		AI:            completer,
 		AICredits:     aiApp,
 		ImportSweeper: sweeper,
+		Exports:       exportsApp,
 		Media:         mediaApp,
 		Tokens:        tokens,
 		Docs:          docs,
