@@ -189,7 +189,7 @@ test("a recording that cannot be paused plays on through a press of its inert bu
   expect(recorded.countedPlays()).toBe(1);
 });
 
-test("a blocked play is recorded", async ({ page }) => {
+test("a blocked play is recorded and spends no play", async ({ page }) => {
   await page.addInitScript(() => {
     HTMLMediaElement.prototype.play = () =>
       Promise.reject(new DOMException("blocked", "NotAllowedError"));
@@ -199,13 +199,13 @@ test("a blocked play is recorded", async ({ page }) => {
   await page.getByRole("button", { name: "Phát", exact: true }).click();
   await page.locator("label").filter({ hasText: "Đáp án A" }).click();
 
-  await expect.poll(recorded.audioEvents).toEqual([
-    ["audio_play", "q1"],
-    ["audio_blocked", "q1"],
-  ]);
+  await expect.poll(recorded.audioEvents).toEqual([["audio_blocked", "q1"]]);
+  expect(recorded.countedPlays()).toBe(0);
 });
 
-test("a pause before the audio has started shows no error", async ({ page }) => {
+test("a pause before the audio has started shows no error and spends no play", async ({
+  page,
+}) => {
   const recorded = await open(page, { silentForMs: 3_000 });
   const play = page.getByRole("button", { name: "Phát", exact: true });
   const recordingArrivedOrPlayerGone = () =>
@@ -222,7 +222,8 @@ test("a pause before the audio has started shows no error", async ({ page }) => 
   await expect(play).toBeVisible();
 
   await page.locator("label").filter({ hasText: "Đáp án A" }).click();
-  await expect.poll(recorded.audioEvents).toEqual([["audio_play", "q1"]]);
+  await expect.poll(recorded.audioEvents).toEqual([]);
+  expect(recorded.countedPlays()).toBe(0);
 });
 
 test("a blocked play says so and keeps the player", async ({ page }) => {
