@@ -1,0 +1,250 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  FormProvider,
+  useForm,
+  useWatch,
+  type FieldErrors,
+  type FieldPath,
+} from "react-hook-form";
+import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
+import { DirtyBar } from "@/components/shared/DirtyBar";
+import { SettingsLayout } from "@/components/shared/SettingsLayout";
+import { toast } from "@/components/ui/sonner";
+import {
+  reloadOrganizationSettings,
+  useSaveOrganizationSettings,
+  type OrganizationSettings,
+} from "@/features/organization/api";
+import { controlId } from "@/features/organization/controls";
+import { OrganizationSection } from "@/features/organization/sections/Organization";
+import { SignInSection } from "@/features/organization/sections/SignIn";
+import {
+  formValues,
+  settingsFormSchema,
+  settingsInput,
+  type SettingsFormOutput,
+  type SettingsFormValues,
+} from "@/features/organization/settingsFormSchema";
+import {
+  useSignInVerdict,
+  type SignInRefusal,
+} from "@/features/organization/signInVerdict";
+import {
+  SYSTEM_SECTIONS,
+  sectionOfField,
+} from "@/features/organization/systemSections";
+import { useUnsavedSection } from "@/features/settings/unsavedSection";
+import { ApiError, failureMessage } from "@/lib/api/errors";
+
+const SERVER_FIELD =
+  /^(organization\.(name|shortName|website|contactEmail|frontDeskPhone|frontDeskHours|address|logo\.(light|dark))|signIn\.allowedGoogleDomains|retention\.[A-Za-z]+)$/;
+
+function firstPath(errors: object, prefix = ""): string | null {
+  for (const [key, value] of Object.entries(errors)) {
+    if (value === null || typeof value !== "object") continue;
+    const path = prefix === "" ? key : `${prefix}.${key}`;
+    if ("type" in value) return path;
+    const inner = firstPath(value, path);
+    if (inner !== null) return inner;
+  }
+  return null;
+}
+
+function controlOf(path: string): HTMLElement | null {
+  const parts = path.split(".");
+  while (parts.length > 0) {
+    const found = document.getElementById(controlId(parts.join(".")));
+    if (found !== null) return found;
+    parts.pop();
+  }
+  return null;
+}
+
+/**
+ * SettingsForm is System settings once the document has been read: one form
+ * for every section, one DirtyBar for all of them, and the sections kept
+ * mounted so that an edit survives a visit to another. Save changes sends the
+ * whole document under the revision the form was last reset from, never the
+ * newest the page has heard of, so a save made elsewhere is a
+ * `STALE_WRITE` and not overwritten; the bar then offers to reload. A
+ * sign-in policy that would lock people out pauses Save changes and says
+ * why. A rule the server refuses is shown on its field, and the section that
+ * holds the first such field is opened. Once saved, the front door reads the
+ * centre again.
+ */
+export function SettingsForm({
+  saved,
+  active,
+}: Readonly<{ saved: OrganizationSettings; active: string }>) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const client = useQueryClient();
+  const save = useSaveOrganizationSettings();
+  const [error, setError] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
+  const [refusal, setRefusal] = useState<SignInRefusal | null>(null);
+  const revision = useRef(saved.revision);
+  const lastEdited = useRef("organization.name");
+  const pendingFocus = useRef<string | null>(null);
+
+  const form = useForm<SettingsFormValues, unknown, SettingsFormOutput>({
+    resolver: zodResolver(settingsFormSchema),
+    defaultValues: formValues(saved),
+    mode: "onTouched",
+  });
+  const { reset, subscribe, formState, control } = form;
+  const dirty = formState.isDirty;
+  const saving = save.isPending;
+  useUnsavedSection("system-settings", dirty);
+
+  const policy = useWatch({ control, name: "signIn" });
+  const verdict = useSignInVerdict(saved.signIn, policy, refusal);
+
+  const adopt = useCallback(
+    (stored: OrganizationSettings) => {
+      revision.current = stored.revision;
+      reset(formValues(stored));
+    },
+    [reset],
+  );
+
+  useEffect(() => {
+    if (!dirty) adopt(saved);
+  }, [dirty, saved, adopt]);
+
+  useEffect(
+    () =>
+      subscribe({
+        formState: { values: true },
+        callback: ({ name }) => {
+          if (name !== undefined) lastEdited.current = name;
+        },
+      }),
+    [subscribe],
+  );
+
+  useEffect(() => {
+    const path = pendingFocus.current;
+    if (path === null) return;
+    pendingFocus.current = null;
+    controlOf(path)?.focus();
+  }, [active]);
+
+  function showAt(path: string) {
+    const section = sectionOfField(path);
+    if (section !== undefined && section.id !== active) {
+      pendingFocus.current = path;
+      void navigate(section.to);
+    } else controlOf(path)?.focus();
+  }
+
+  function refused(cause: ApiError) {
+    const shown: string[] = [];
+    for (const [path, message] of Object.entries(cause.details ?? {})) {
+      if (typeof message !== "string" || !SERVER_FIELD.test(path)) continue;
+      form.setError(path as FieldPath<SettingsFormValues>, { type: "server", message });
+      shown.push(path);
+    }
+    setError(cause.message);
+    if (shown[0] !== undefined) showAt(shown[0]);
+  }
+
+  function failed(cause: unknown, tried: SettingsFormOutput) {
+    if (!(cause instanceof ApiError)) {
+      setError(failureMessage(cause, t("api.failed")));
+    } else if (cause.code === "STALE_WRITE") {
+      setStale(true);
+      setError(cause.message);
+    } else if (cause.code === "SIGN_IN_POLICY_LOCKOUT") {
+      setRefusal({ policy: tried.signIn, message: cause.message });
+    } else if (cause.code === "VALIDATION_FAILED") {
+      refused(cause);
+    } else setError(cause.message);
+  }
+
+  async function onValid(values: SettingsFormOutput) {
+    setError(null);
+    setStale(false);
+    setRefusal(null);
+    try {
+      const stored = await save.mutateAsync(settingsInput(values, revision.current));
+      adopt(stored);
+      toast(t("settings.saved"));
+    } catch (cause) {
+      failed(cause, values);
+    }
+  }
+
+  function onInvalid(errors: FieldErrors<SettingsFormValues>) {
+    const path = firstPath(errors);
+    if (path !== null) showAt(path);
+  }
+
+  async function reload() {
+    setError(null);
+    setStale(false);
+    try {
+      adopt(await reloadOrganizationSettings(client));
+      controlOf(lastEdited.current)?.focus();
+    } catch (cause) {
+      setError(failureMessage(cause, t("api.failed")));
+    }
+  }
+
+  const sections = SYSTEM_SECTIONS.map(({ id, label, icon, to }) => ({
+    id,
+    label: t(label),
+    icon,
+    to,
+    content:
+      id === "sign-in" ? (
+        <SignInSection verdict={verdict} saving={saving} />
+      ) : (
+        <OrganizationSection />
+      ),
+  }));
+
+  return (
+    <FormProvider {...form}>
+      <form
+        noValidate
+        className="contents"
+        onSubmit={(event) => {
+          if (event.target !== event.currentTarget) return;
+          event.preventDefault();
+          if (saving || verdict.reason !== null || !dirty) return;
+          void form.handleSubmit(onValid, onInvalid)();
+        }}
+      >
+        <SettingsLayout
+          label={t("systemSettings.navigation")}
+          active={active}
+          sections={sections}
+          footer={
+            <DirtyBar
+              dirty={dirty}
+              saving={saving}
+              blocked={verdict.reason}
+              error={error}
+              errorAction={
+                stale
+                  ? { label: t("systemSettings.reload"), onAction: () => void reload() }
+                  : undefined
+              }
+              onDiscard={() => {
+                setError(null);
+                setStale(false);
+                setRefusal(null);
+                adopt(saved);
+              }}
+              returnFocus={() => controlOf(lastEdited.current)}
+            />
+          }
+        />
+      </form>
+    </FormProvider>
+  );
+}
