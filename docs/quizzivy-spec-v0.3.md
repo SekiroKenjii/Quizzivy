@@ -34,6 +34,8 @@
 - T-R5.9a §15 `createUser` (`POST /admin/users`, `people.users.manage`) adds an account of any role the caller may give: `{fullName, email, roleId, classId?, delivery}` answers `201 {user, temporaryPassword?}` with `Cache-Control: no-store`. The role must be one the caller may give (the Assistant `422 ROLE_NOT_ASSIGNABLE`, a role beyond the caller's own permissions `403 TARGET_ROLE_NOT_ALLOWED`, an unknown one `404`); `classId` only for a student-target role and only with `scope.all`, and never an archived class (`400`/`404`); an email in use in any letter case `409 EMAIL_TAKEN`. `email_link` creates the account with no password and queues the invite in the same transaction, so an invite that cannot be queued takes the account back with it; `temporary_password` shows the password once, marks it for change unless the centre allows keeping it, and answers `422 PASSWORD_SIGN_IN_DISABLED` while password sign-in is off. `created_by` is the actor.
 - T-R5.9a §5.4 `createUser` joins the operations that hand out a credential: 30 a minute and 300 an hour per signed-in user, after the permission check.
 - T-R5.9a §15 The audit action `user.created {role, roleId, delivery}`, in both languages.
+- T-R5.9a §15 `listUsers` (`GET /admin/users`, `people.users.manage`) is the Users table: every account whatever its role, newest first, ten, twenty or fifty to a page (`limit`, twenty by default). The Admins tab is the built-in Admin role, Students the strict student targets of §5, Teachers everyone else, and a disabled account stays in its role's tab; `facets` count all five tabs under the same `q`, `email` and `status`, whichever tab is shown. `q` matches the name and the email together ignoring case and accents, `email` is an exact match in any letter case, and `status` (`must_change_password`, `never_signed_in`) never reaches a disabled account. A row carries the role with its icon and colour, whether the account signs in with a password and with Google, its class count with the first class's name (a student's classes are the ones it has joined, anyone else's the ones it teaches, archived classes never), when it was last active, and its status.
+- T-R5.9a §15 `getUser` (`GET /admin/users/:id`, `people.users.manage`) answers any account whatever its role, with who created it, up to 20 of its classes, what it owns (`ownedContent`: every class it teaches, archived ones too, and the tests, questions, media and assignments not deleted), the tests it is taking, up to 8 recent events (the last sign-in and its method, its own audit entries, a student's submissions and class joins) and `can {changeRole, resetPassword, disable, signOut, transfer}`. `can` is the guards' answer for this caller and this account: the subset rule for the first four; additionally never on oneself and, for `changeRole` and `disable`, never on the last active Admin; `changeRole` also needs `people.roles.manage`; `disable` is false for an account already disabled; `transfer` needs `scope.all` and a disabled account.
 
 **Changes since v0.111**
 
@@ -3394,6 +3396,11 @@ POST   /admin/data-exports/:id/download → {url, expiresInSeconds: 60}: a presi
                                           ready, unexpired and signed fewer than three times; 10 an hour per actor
 
 # admin
+GET    /admin/users                     (people.users.manage) ?tab=all|teachers|students|admins|disabled
+                                          &status=must_change_password|never_signed_in &q &email (exact)
+                                          &page &limit (10, 20 or 50) → {items: AdminUserRow[], page, facets}
+GET    /admin/users/:id                 (people.users.manage) → {user, createdBy|null, classes (≤ 20), ownedContent,
+                                          inProgressAttempts, activity (≤ 8), can}; 404
 POST   /admin/users                     (people.users.manage) {fullName, email, roleId, classId?, delivery: email_link |
                                           temporary_password} → 201 {user: AdminUserRow, temporaryPassword?} with
                                           Cache-Control: no-store; 403 TARGET_ROLE_NOT_ALLOWED, 404, 409 EMAIL_TAKEN,
