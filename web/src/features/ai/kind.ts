@@ -141,8 +141,10 @@ export interface AiPrimary<I, C> {
 /**
  * AiKind is one AI panel: its header, its setup fields and their checks, its
  * run, how each item it answers is drawn and what its primary button saves.
- * `C` is what the host page gives the panel, including every write: a kind
- * calls only `/teacher/ai/*` itself.
+ * `stale` says an item answered earlier no longer holds for the page as it is
+ * now, and the panel leaves it out of the list and every count. `C` is what
+ * the host page gives the panel, including every write: a kind calls only
+ * `/teacher/ai/*` itself.
  */
 export interface AiKind<F, I, C> {
   icon: LucideIcon;
@@ -161,6 +163,7 @@ export interface AiKind<F, I, C> {
   problem: (values: F, context: C) => string | null;
   run: (values: F, env: AiEnv<C>, signal: AbortSignal) => Promise<AiRunResult<I>>;
   card: (item: I, env: AiCardEnv<C>) => AiCard;
+  stale?: (item: I, context: C) => boolean;
   summary: (items: readonly I[], selected: number, t: TFunction) => string;
   primary: AiPrimary<I, C> | null;
 }

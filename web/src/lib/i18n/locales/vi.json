@@ -85,6 +85,11 @@
     "applyFailed": "Chưa lưu được. Hãy thử lại.",
     "stop": "Dừng",
     "startOver": "Làm lại từ đầu",
+    "finished": {
+      "done": "Đã chạy xong. Mở lại để xem kết quả.",
+      "failed": "Chưa chạy xong. Mở lại để xem lý do.",
+      "open": "Mở"
+    },
     "done": "Xong",
     "selectAll": "Chọn tất cả",
     "clearSelection": "Bỏ chọn",
@@ -175,6 +180,7 @@
       "needCheck": "Hãy chọn ít nhất một mục cần tìm",
       "applyFix": "Áp dụng cách sửa",
       "fixed": "Đã cập nhật câu {{n}}",
+      "fixGone": "Gợi ý này không còn khớp với câu hỏi vì câu hỏi đã được lưu lại sau lần kiểm tra. Hãy mở câu hỏi để sửa tay, hoặc chạy kiểm tra lại.",
       "openQuestion": "Mở câu hỏi",
       "dismiss": "Bỏ qua",
       "severity": {
@@ -274,6 +280,7 @@
       "addTags_other": "Thêm thẻ cho {{count}} câu",
       "tagged_one": "Đã thêm thẻ cho {{count}} câu",
       "tagged_other": "Đã thêm thẻ cho {{count}} câu",
+      "nothingTagged": "Không có câu nào cần thêm thẻ: các câu đã có thẻ này hoặc đã bị xoá.",
       "testCount_one": "{{count}} đề",
       "testCount_other": "{{count}} đề"
     },

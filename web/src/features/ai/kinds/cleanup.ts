@@ -10,11 +10,11 @@ import type { AiCard, AiKind } from "../kind";
 /**
  * CleanupContext is what the question bank gives the "Clean up" panel:
  * where a question opens, and `tag`, the page's own bulk tag write for the
- * kept suggestions.
+ * kept suggestions, which answers how many questions it changed.
  */
 export interface CleanupContext {
   href: (questionId: string) => string;
-  tag: (suggestions: readonly AiTagSuggestion[]) => Promise<void>;
+  tag: (suggestions: readonly AiTagSuggestion[]) => Promise<number>;
 }
 
 interface CleanupValues {
@@ -135,9 +135,10 @@ export const cleanupKind: AiKind<CleanupValues, CleanupItem, CleanupContext> = {
     label: (selected, { t }) =>
       t("ai.cleanup.addTags", { count: suggestions(selected).length }),
     apply: async (selected, { t, context }) => {
-      const kept = suggestions(selected);
-      await context.tag(kept);
-      return t("ai.cleanup.tagged", { count: kept.length });
+      const changed = await context.tag(suggestions(selected));
+      return changed === 0
+        ? t("ai.cleanup.nothingTagged")
+        : t("ai.cleanup.tagged", { count: changed });
     },
   },
 };

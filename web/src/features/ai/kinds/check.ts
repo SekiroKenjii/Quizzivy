@@ -31,7 +31,8 @@ const SEVERITY: Readonly<Record<AiFinding["severity"], AiTone>> = {
  * checkKind is "Check this test with AI" (V-14b). A fix is one click only
  * when its write exists (an option's text, an accepted answer, the
  * explanation); any other finding offers "Open question" and "Dismiss"
- * (DG-202). It saves nothing as a whole, so its primary is "Done".
+ * (DG-202). It saves nothing as a whole, so its primary is "Done". A finding
+ * goes stale when its question has left the test.
  */
 export const checkKind: AiKind<CheckValues, AiFinding, CheckContext> = {
   icon: ScanSearch,
@@ -106,6 +107,7 @@ export const checkKind: AiKind<CheckValues, AiFinding, CheckContext> = {
       actions,
     };
   },
+  stale: (finding, context) => context.numberOf(finding.questionId) === null,
   summary: (items, _selected, t) =>
     items.length === 0 ? "" : t("ai.check.summary", { count: items.length }),
   primary: null,
