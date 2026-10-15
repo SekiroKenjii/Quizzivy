@@ -3013,6 +3013,11 @@ export interface paths {
          *
          *     Fire-and-forget: this is best-effort by design and a failure here must
          *     never block answering or submitting (§10.6).
+         *
+         *     `sessionId` must be the attempt's current session or one the attempt
+         *     has already recorded events under: a tab that another device took over
+         *     may still flush what it holds, and a session id that was never part of
+         *     the attempt answers 403 and writes nothing (D-004).
          */
         post: operations["flushEvents"];
         delete?: never;
@@ -3037,11 +3042,17 @@ export interface paths {
          * @description The obvious client-side counter resets on reload, which makes `maxPlays`
          *     meaningless — so the count lives here (§11.4).
          *
-         *     **Never rejects a play.** Playback is optimistic: a failed POST does not
+         *     **Never gates playback.** Playback is optimistic: a failed POST does not
          *     block audio, and a student who goes offline to farm replays leaves a gap
          *     in the event log, which is what the integrity timeline is for. Blocking
          *     on a round trip would punish bad wifi far more often than it would catch
-         *     anyone.
+         *     anyone. A play is only *counted* while the attempt can still be written:
+         *     like the shared recording's, it answers `409` once the attempt is
+         *     submitted or voided (`ATTEMPT_CLOSED`), past its deadline
+         *     (`DEADLINE_PASSED`), or, when `sessionId` is sent, when that session is
+         *     no longer the attempt's (`SESSION_SUPERSEDED`), and then counts nowhere
+         *     (D-005). `sessionId` is optional for one release so that a web build
+         *     older than this server keeps counting; it becomes required after.
          */
         post: operations["recordAudioPlay"];
         delete?: never;
@@ -5971,7 +5982,9 @@ export interface components {
              *     **within a tab**. Uniqueness is `(attempt, session, clientSeq)`: an
              *     event that repeats a number its session has used is taken for a
              *     retry and is not stored. A new session may use any number again
-             *     (D-01). A client that sends a plain counter is accepted.
+             *     (D-01). A client that sends a plain counter is accepted. The column
+             *     is a 32-bit integer, so a larger number answers 400 on every path
+             *     that takes events.
              */
             clientSeq: number;
             /** Format: uuid */
@@ -12415,6 +12428,7 @@ export interface operations {
             content: {
                 "application/json": {
                     questionId: components["schemas"]["Uuid"];
+                    sessionId?: components["schemas"]["Uuid"];
                 };
             };
         };
@@ -12433,6 +12447,18 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
+            /**
+             * @description `SESSION_SUPERSEDED`, `ATTEMPT_CLOSED` or `DEADLINE_PASSED`: the
+             *     play was not counted. The client neither counts it nor retries.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     recordGroupAudioPlay: {

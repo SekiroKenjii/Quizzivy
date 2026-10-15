@@ -12,19 +12,27 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// Flush appends a batch of client events. The milestones say that the
-// integrity policy flagged the paper because of them.
+// Flush appends a batch of client events under the session the caller names.
+// That session must be the attempt's current one or one the attempt has
+// already recorded events under, so a tab that was taken over can still hand
+// in what it holds, and a session id that was never part of the attempt
+// writes nothing. It never changes which session is current. The milestones
+// say that the integrity policy flagged the paper because of them.
 func (s *Postgres) Flush(ctx context.Context, in domain.FlushInput, now time.Time) (domain.Milestones, error) {
 	var (
 		studentID  string
 		beaconHash []byte
 		deadlineAt time.Time
 		versionID  string
+		known      bool
 	)
 	err := s.QueryRow(ctx, `
-		SELECT student_id, beacon_token_hash, deadline_at, test_version_id
-		  FROM app.attempts WHERE id = $1::uuid`, in.AttemptID).
-		Scan(&studentID, &beaconHash, &deadlineAt, &versionID)
+		SELECT a.student_id, a.beacon_token_hash, a.deadline_at, a.test_version_id,
+		       a.session_id = $2::uuid
+		       OR EXISTS (SELECT 1 FROM app.attempt_events e
+		                   WHERE e.attempt_id = a.id AND e.session_id = $2::uuid)
+		  FROM app.attempts a WHERE a.id = $1::uuid`, in.AttemptID, in.SessionID).
+		Scan(&studentID, &beaconHash, &deadlineAt, &versionID, &known)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Milestones{}, domain.ErrForbidden
 	}
@@ -34,6 +42,9 @@ func (s *Postgres) Flush(ctx context.Context, in domain.FlushInput, now time.Tim
 
 	if err := authorizeFlush(in, studentID, beaconHash, deadlineAt, now); err != nil {
 		return domain.Milestones{}, err
+	}
+	if !known {
+		return domain.Milestones{}, domain.ErrForbidden
 	}
 	flagged, err := insertEvents(ctx, s.Conn(), in.AttemptID, in.SessionID, in.Events, versionID)
 	if err != nil {
