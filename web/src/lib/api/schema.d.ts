@@ -5075,7 +5075,8 @@ export interface components {
          *     `ai.use` gates every `/teacher/ai/*` operation and the import's "Read
          *     with AI"; `ai.credits.manage` gates every `/admin/ai/*` operation. The
          *     Admin holds both, the built-in Teacher holds `ai.use`, and a custom role
-         *     may hold either alone. `ai.credits.manage` opens no workspace by itself.
+         *     may hold either alone. `ai.credits.manage` opens the Admin console by
+         *     itself (`workspace.admin`); `ai.use` opens no workspace.
          *
          *     The last four keys in the enum are hidden: no matrix row shows them,
          *     no role is granted them, and only the Admin holds them. The Admin
