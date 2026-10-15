@@ -18,6 +18,7 @@ var theCredentialMinters = map[string]bool{
 	"ResetStudentsPasswords": true,
 	"SetPasswordWithLink":    true,
 	"CreateStudent":          true,
+	"CreateUser":             true,
 	"RotateJoinCode":         true,
 	"GetJoinCode":            true,
 	"ListClasses":            true,
@@ -109,7 +110,7 @@ func TestNoOperationMintsACredentialOffTheList(t *testing.T) {
 		t.Errorf("these operations return a temporary password, an access token or a join code but are not credential minters with a rate limit: %v", unlisted)
 	}
 	sort.Strings(detected)
-	want := []string{"CreateStudent", "GetJoinCode", "GoogleAuth", "ListClasses", "Login", "RefreshSession", "ResetStudentPassword", "ResetStudentsPasswords", "RotateJoinCode", "SetPasswordWithLink"}
+	want := []string{"CreateStudent", "CreateUser", "GetJoinCode", "GoogleAuth", "ListClasses", "Login", "RefreshSession", "ResetStudentPassword", "ResetStudentsPasswords", "RotateJoinCode", "SetPasswordWithLink"}
 	if strings.Join(detected, ",") != strings.Join(want, ",") {
 		t.Errorf("detected minters %v, want %v: the detector is looking at the wrong thing", detected, want)
 	}

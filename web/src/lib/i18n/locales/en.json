@@ -380,6 +380,7 @@
       "test.version_deleted": "Deleted a version of a test",
       "user.avatar_removed": "Removed a profile photo",
       "user.avatar_set": "Set a profile photo",
+      "user.created": "Created an account",
       "user.google_linked": "Linked a Google account",
       "user.google_unlinked": "Unlinked a Google account",
       "user.password_changed": "Changed a password",

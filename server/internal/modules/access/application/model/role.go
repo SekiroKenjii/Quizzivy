@@ -36,7 +36,8 @@ type RoleList struct {
 	Catalogue []CatalogueEntry
 }
 
-// AssignableRole is a role a caller may give to a user.
+// AssignableRole is a role a caller may give to a user. Revision is the role's
+// revision when it was read; it moves with every change to the role's grants.
 type AssignableRole struct {
 	ID            string
 	Builtin       access.Builtin
@@ -44,4 +45,5 @@ type AssignableRole struct {
 	Icon          string
 	Color         string
 	StudentTarget bool
+	Revision      int64
 }

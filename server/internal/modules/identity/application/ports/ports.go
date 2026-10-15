@@ -3,6 +3,8 @@ package ports
 import (
 	"context"
 	"io"
+	accessmodel "quizzivy/internal/modules/access/application/model"
+	accessquery "quizzivy/internal/modules/access/application/query"
 	classescommand "quizzivy/internal/modules/classes/application/command"
 	classesdomain "quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/modules/identity/application/model"
@@ -49,3 +51,6 @@ type SelfEnroller = cqrs.CommandHandler[classescommand.EnrolNewMember, classesdo
 
 // SignInPolicy is how the centre lets people sign in: the organization module's SignInPolicy query, answered from a snapshot at most 30 seconds old.
 type SignInPolicy = cqrs.QueryHandler[organizationquery.SignInPolicy, organizationmodel.SignInPolicy]
+
+// AssignableRole is the access module's AssignableRole query: whether the caller may give a role to a user, and what the role is.
+type AssignableRole = cqrs.QueryHandler[accessquery.AssignableRole, accessmodel.AssignableRole]

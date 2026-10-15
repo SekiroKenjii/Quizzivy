@@ -2331,6 +2331,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add an account with a role
+         * @description Creates an account of any role the caller may give (`listAssignableRoles`):
+         *     its permissions, `learning.take_tests` apart, must be the caller's own,
+         *     and the Assistant is never offered. `created_by` is the caller. The role
+         *     is held against edits from the check to the commit; if it changed in
+         *     between, the check is made again, up to three times.
+         *
+         *     `fullName` is composed to NFC, trimmed, and each run of white space is
+         *     one space. A name that is then empty, longer than 200 characters, holds
+         *     a control, format, bidirectional or filler character or a code point
+         *     that is unassigned, or holds no letter, digit, punctuation mark or
+         *     symbol, is refused with `VALIDATION_FAILED` naming `fullName`.
+         *
+         *     `delivery: email_link` sets no password and enqueues a set-password
+         *     link (an invite) in the same transaction as the account, so the account
+         *     and its message exist together or not at all. While the centre has
+         *     turned password sign-in off, the message is a sign-in invite and
+         *     carries no link. `delivery: temporary_password` returns a temporary
+         *     password **once** and keeps only its hash; the account must change it
+         *     at the first sign-in unless the centre's sign-in policy lets it keep
+         *     it. It is refused with `PASSWORD_SIGN_IN_DISABLED` while password
+         *     sign-in is off.
+         *
+         *     `classId` is allowed only for a student-target role and only with
+         *     `scope.all`, and must name a class that is not archived. Writes one
+         *     audit row, `user.created`, with the role and the delivery.
+         *
+         *     Limited to 30 a minute and 300 an hour per signed-in user.
+         */
+        post: operations["createUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/users/{id}": {
         parameters: {
             query?: never;
@@ -5575,6 +5621,69 @@ export interface components {
             /** @description Memberships in classes the caller teaches, or every one with `scope.all`. The table truncates; the drawer lists them. */
             classes: components["schemas"]["StudentClass"][];
             stats: components["schemas"]["StudentStats"];
+        };
+        /** @description The role an account holds, as the Users table draws it. */
+        AdminUserRole: {
+            id: components["schemas"]["Uuid"];
+            name: string;
+            builtinKey: components["schemas"]["BuiltinRoleKey"] | null;
+            icon: components["schemas"]["RoleIcon"];
+            color: components["schemas"]["RoleColor"];
+        };
+        /**
+         * @description One account as the Admin console's Users table lists it, whatever its
+         *     role. Flat, as `StudentRow` is, for the same reason (issue #41).
+         */
+        AdminUserRow: {
+            id: components["schemas"]["Uuid"];
+            fullName: string;
+            /** Format: email */
+            email: string;
+            /**
+             * Format: uri
+             * @description A signed link to the account's photo, null when it has none or this server stores none.
+             */
+            avatarUrl: string | null;
+            role: components["schemas"]["AdminUserRole"];
+            /** @description The ways the account can sign in with, as it stands; the centre's policy may have turned one off. */
+            signIn: {
+                /** @description True when the account has a password. */
+                password: boolean;
+                /** @description True when a Google identity is linked. */
+                google: boolean;
+            };
+            /**
+             * @description The classes that are not archived: for a student target, those the
+             *     account is a member of; for any other account, those it teaches.
+             */
+            classes: {
+                count: number;
+                /** @description The name of the class the account joined first (a student target) or was given first (anyone else), null when `count` is 0. */
+                firstName: string | null;
+            };
+            /**
+             * Format: date-time
+             * @description The account's latest authenticated request (DG-54), null before it has ever been active.
+             */
+            lastActiveAt: string | null;
+            status: components["schemas"]["AccountStatus"];
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        UserCreate: {
+            fullName: string;
+            /** Format: email */
+            email: string;
+            /** @description A role from `listAssignableRoles`. */
+            roleId: components["schemas"]["Uuid"];
+            /** @description A class to add the account to. Allowed only for a student-target role and only to a caller holding `scope.all`. */
+            classId?: components["schemas"]["Uuid"];
+            /**
+             * @description `email_link` creates the account without a password and emails it a
+             *     link to choose one (24 hours, once). `temporary_password` returns a
+             *     temporary password once, for the admin to hand over.
+             * @enum {string}
+             */
+            delivery: "email_link" | "temporary_password";
         };
         /** @description One student `resetStudentsPasswords` reset. The password is shown once. */
         StudentPasswordReset: {
@@ -12609,6 +12718,80 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+        };
+    };
+    createUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserCreate"];
+            };
+        };
+        responses: {
+            /** @description Created. A temporary password is returned **once**, and the answer is never cached. */
+            201: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        user: components["schemas"]["AdminUserRow"];
+                        /** @description Present only for `delivery: temporary_password`. */
+                        temporaryPassword?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `TARGET_ROLE_NOT_ALLOWED` — the role holds a permission the caller lacks. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /**
+             * @description `EMAIL_TAKEN` — already in use, compared case-insensitively.
+             *     `STALE_WRITE` — the role changed three times while the account was being created; nothing was written, so the same request may be sent again.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `ROLE_NOT_ASSIGNABLE` — the role is the Assistant.
+             *     `PASSWORD_SIGN_IN_DISABLED` — a temporary password was asked for while the centre has turned password sign-in off.
+             */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            /** @description This server has no key to seal a link with (`SECRETS_KEY`), so it cannot send one. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     deleteUser: {

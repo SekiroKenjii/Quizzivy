@@ -92,6 +92,14 @@ func (a *Application) SetPasswordLinks(links domain.SetPasswordLinks) {
 	a.Commands.PruneSetPasswordLinks = command.PruneSetPasswordLinksHandler{Service: a.service}
 }
 
+// SetAdminUsers attaches the Admin console's account directory and the access
+// module's say on which roles a caller may give, which opens createUser.
+// Without it Commands.CreateUser is nil and the operation answers 501.
+func (a *Application) SetAdminUsers(repo domain.AdminUsers, roles ports.AssignableRole) {
+	admin := &support.Admin{Repo: repo, Roles: roles, Service: a.service, Students: a.students}
+	a.Commands.CreateUser = command.CreateUserHandler{Admin: admin}
+}
+
 // SetTemporaryPasswords replaces how a student's temporary password and its hash are made. Tests only.
 func (a *Application) SetTemporaryPasswords(source func(ctx context.Context) (password, hash string, err error)) {
 	a.students.Password = source
@@ -108,6 +116,7 @@ type Commands struct {
 	SetAvatar              cqrs.CommandHandler[command.SetAvatar, domain.User]
 	ChangePassword         cqrs.CommandHandler[command.ChangePassword, cqrs.Nothing]
 	CreateStudent          cqrs.CommandHandler[command.CreateStudent, command.CreateStudentResult]
+	CreateUser             cqrs.CommandHandler[command.CreateUser, command.CreateUserResult]
 	GoogleSignIn           cqrs.CommandHandler[command.GoogleSignIn, model.GoogleSignInResult]
 	IssueSetPasswordLink   cqrs.CommandHandler[command.IssueSetPasswordLink, domain.IssuedLink]
 	LinkGoogle             cqrs.CommandHandler[command.LinkGoogle, domain.User]
