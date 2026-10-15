@@ -180,3 +180,35 @@ test('a unix socket or an unset host is local without a word', () => {
   assert.doesNotMatch(run.stderr, /treated as a local database/);
   assert.match(run.log, /COMMAND ALTER ROLE quizzivy_migrate CREATEDB/);
 });
+
+test('the warning about a localhost tunnel is printed before the first statement runs', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'provision-order-'));
+  try {
+    const bin = join(dir, 'psql');
+    writeFileSync(bin, stubPsql);
+    chmodSync(bin, 0o755);
+    const log = join(dir, 'log');
+    writeFileSync(log, '');
+    const result = spawnSync('bash', ['-c', 'bash "$0" "$1" 2>>"$STUB_LOG"', script, 'postgres://admin:secret@localhost:15432/neondb'], {
+      encoding: 'utf8',
+      env: { PATH: `${dir}:${process.env.PATH}`, STUB_LOG: log, STUB_ROLES: existing },
+    });
+    assert.equal(result.status, 0);
+    const lines = readFileSync(log, 'utf8').split('\n');
+    const warning = lines.findIndex((line) => line.includes('treated as a local database'));
+    const firstStatement = lines.findIndex((line) => /^(ROLES QUERIED|SQL|COMMAND|SET PASSWORD)/.test(line));
+    assert.ok(warning >= 0 && firstStatement >= 0, lines.join('\n'));
+    assert.ok(warning < firstStatement, lines.join('\n'));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('only QUIZZIVY_MANAGED=1 makes a localhost database managed', () => {
+  const tunnel = 'postgres://admin:secret@localhost:15432/neondb?sslmode=require';
+  for (const value of ['true', 'yes', '0', '']) {
+    const run = provision({ args: [tunnel], roles: existing, env: { QUIZZIVY_MANAGED: value } });
+    assert.equal(run.status, 0, `${value}: ${run.stderr}`);
+    assert.match(run.log, /COMMAND ALTER ROLE quizzivy_migrate CREATEDB/, `QUIZZIVY_MANAGED=${value} must not make it managed`);
+  }
+});

@@ -149,6 +149,7 @@ Run from `/home/user/Quizzivy`. Each step is safe to repeat. The hook does steps
    export TEST_DESTRUCTIVE=1 S3_ACCESS_KEY_ID=quizzivy S3_SECRET_ACCESS_KEY=quizzivy-dev-secret
    export APP_DATABASE_URL='postgres://quizzivy_app:app@localhost:5432/quizzivy?sslmode=disable'
    export TEST_MAINTENANCE_DATABASE_URL='postgres://quizzivy_maintenance:maintenance@localhost:5432/quizzivy?sslmode=disable'
+   export TEST_SUPERUSER_DATABASE_URL='postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable'
    T=$(mktemp -d); J=$T/journal.json
 
    createdb --owner=quizzivy_migrate quizzivy_grading_queue
@@ -166,6 +167,12 @@ Run from `/home/user/Quizzivy`. Each step is safe to repeat. The hook does steps
    run with the migrate role's `CREATEDB`, migrate it, connect as the role to it and drop it, so
    `quizzivy` is never written. Without the variable they skip locally and fail when `CI` is
    set. Never point it at a production URL: it is not `MAINTENANCE_DATABASE_URL` for that reason.
+
+   `TEST_SUPERUSER_DATABASE_URL` names the cluster's superuser. The one test that uses it makes a role
+   with `CREATEROLE` and `CREATEDB` that is not a superuser, as a managed provider's admin is, and runs
+   `scripts/provision-db.sh` as it against a new database `qv_prov_<hex>`; it checks that the script
+   finishes and leaves the three roles as they were, then drops the role and the database. Without the
+   variable it skips locally and fails when `CI` is set. Never point it at a production URL.
 
 9. **Run the tiers** from `server/`. The integration step's variables belong to
    that command only, as in CI, where they are the step's `env`:

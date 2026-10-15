@@ -140,12 +140,34 @@ BEGIN
   -- and holds only the grants the migration that names it gives it. Its
   -- credential is never set on the API.
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'quizzivy_maintenance') THEN
-    CREATE ROLE quizzivy_maintenance LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE CONNECTION LIMIT 2;
+    CREATE ROLE quizzivy_maintenance LOGIN CONNECTION LIMIT 2;
   END IF;
 END
 $$;
 
-ALTER ROLE quizzivy_maintenance LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE CONNECTION LIMIT 2;
+-- A role that exists is changed only where it differs. CREATE ROLE already says
+-- NOSUPERUSER NOCREATEDB NOCREATEROLE, and a managed provider's admin is not a
+-- superuser: it may not name the SUPERUSER attribute at all, and may name
+-- CREATEDB only if it holds it. So a role that is already right is not altered,
+-- and one that drifted is altered by the attributes that drifted.
+DO $$
+DECLARE
+  drift text;
+BEGIN
+  SELECT concat_ws(' ',
+           CASE WHEN rolsuper THEN 'NOSUPERUSER' END,
+           CASE WHEN rolcreatedb THEN 'NOCREATEDB' END,
+           CASE WHEN rolcreaterole THEN 'NOCREATEROLE' END,
+           CASE WHEN NOT rolcanlogin THEN 'LOGIN' END,
+           CASE WHEN rolconnlimit <> 2 THEN 'CONNECTION LIMIT 2' END)
+    INTO drift
+    FROM pg_roles
+   WHERE rolname = 'quizzivy_maintenance';
+  IF drift <> '' THEN
+    EXECUTE 'ALTER ROLE quizzivy_maintenance ' || drift;
+  END IF;
+END
+$$;
 SQL
 
 # Passed as a psql variable, not interpolated. :'pw' quotes and escapes as a SQL

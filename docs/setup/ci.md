@@ -176,6 +176,14 @@ instead of skipping, for the reason the paragraph above gives. The role's limit
 of two connections is cluster-wide, so they do not run in parallel with one
 another.
 
+`TEST_SUPERUSER_DATABASE_URL`, the DSN of the service container's superuser, is set on the
+same job for `TestTheProvisioningScriptRunsAsAManagedAdminThatIsNotASuperuser` in
+`internal/platform/db/tests`. It makes a role with `CREATEROLE` and `CREATEDB` that is not a
+superuser, as a managed provider's admin is, runs `scripts/provision-db.sh` as it against a
+database of its own and drops both, because the script's node tests use a stub `psql` and cannot
+see a statement a non-superuser may not run. Where `CI` is set and the variable is not, it fails
+instead of skipping.
+
 `.github/workflows/retention-sweep.yml` is the nightly sweep, not a CI job: the
 planner lists it with the files whose change runs no code job, and
 `scripts/ci/tests/retention-sweep.test.mjs`, which `Plan` runs, pins its
