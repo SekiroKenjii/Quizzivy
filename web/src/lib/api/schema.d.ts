@@ -2414,6 +2414,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/user-imports/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What a CSV or XLSX file of accounts would come to
+         * @description Reads the file under a one-slot gate and judges every row against what
+         *     the caller may do, writing nothing. The first sheet of a workbook, or a
+         *     UTF-8 CSV file, holds the columns `full_name` and `email` and may hold
+         *     `role` and `class`, named in any case and order; any other column is
+         *     ignored. The format is read from the bytes and never from the name.
+         *     A file is at most 5 MiB, 2,000 data rows, 20 columns and 1,000
+         *     characters a cell.
+         *
+         *     `role` is a built-in key (`student`, `teacher`), a role's name (the
+         *     built-ins are "Học viên" and "Giáo viên") or empty, which takes
+         *     `defaultRole`. `class` is the exact name of an active class, only for a
+         *     student-target role and only for a caller holding `scope.all`. An
+         *     address that already belongs to an account is counted and skipped, never
+         *     updated. Every refused cell is reported once, so one pass shows
+         *     everything to correct.
+         *
+         *     `defaultRole` must be a role the caller may give, as `createUser`
+         *     requires of `roleId`. Limited to 10 a minute per signed-in user.
+         */
+        post: operations["previewUserImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/user-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import the accounts of a file
+         * @description Reads and judges the file again, never trusting a preview, stores the
+         *     job and every row that passed in one transaction, and wakes the worker,
+         *     which creates the accounts a few at a time. The caller's `requestId`,
+         *     held for as long as the dialog is open, makes the request idempotent:
+         *     the same `requestId` returns the job it stored the first time, whatever
+         *     the file then holds, and creates no second one. Audits
+         *     `user_import.requested`; the accounts are audited as `user.created`
+         *     with `via: import` when the worker creates them.
+         *
+         *     The file, `defaultRole` and `delivery` are those of `previewUserImport`.
+         *     A file in which no row would create an account is refused with
+         *     `USER_IMPORT_NOTHING_TO_CREATE`. Limited to 5 an hour per signed-in
+         *     user.
+         */
+        post: operations["createUserImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/user-imports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * How an import is going
+         * @description The progress of one of the caller's own imports. Another user's import
+         *     answers as a missing one.
+         */
+        get: operations["getUserImport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/roles": {
         parameters: {
             query?: never;
@@ -4439,7 +4531,7 @@ export interface components {
          *     be sent again.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "SET_PASSWORD_LINK_INVALID" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_LIMIT_REACHED" | "ROLE_NOT_ASSIGNABLE" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "EXPORT_IN_PROGRESS" | "EXPORT_UNAVAILABLE" | "EXPORT_OFF" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "SET_PASSWORD_LINK_INVALID" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_LIMIT_REACHED" | "ROLE_NOT_ASSIGNABLE" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "EXPORT_IN_PROGRESS" | "EXPORT_UNAVAILABLE" | "EXPORT_OFF" | "USER_IMPORT_FILE_TOO_LARGE" | "USER_IMPORT_FILE_UNREADABLE" | "USER_IMPORT_FILE_EMPTY" | "USER_IMPORT_TOO_MANY_ROWS" | "USER_IMPORT_COLUMNS" | "USER_IMPORT_NOTHING_TO_CREATE" | "CSV_NOT_UTF8" | "XLSX_MACROS" | "XLSX_ENCRYPTED" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -5787,6 +5879,99 @@ export interface components {
              * @enum {string}
              */
             delivery: "email_link" | "temporary_password";
+        };
+        /**
+         * @description The role of a row whose file names none.
+         * @enum {string}
+         */
+        UserImportDefaultRole: "student" | "teacher";
+        /**
+         * @description `email_link` emails each new account a link to choose a password (24
+         *     hours, once). `sheet` gives each a temporary password and collects them
+         *     in a sheet the importer downloads once.
+         * @enum {string}
+         */
+        UserImportDelivery: "email_link" | "sheet";
+        /** @enum {string} */
+        UserImportField: "full_name" | "email" | "role" | "class";
+        /**
+         * @description One cell the import refused. `row` is the line of the file the row sits
+         *     on, counting the header as line 1, which is the number a spreadsheet
+         *     shows beside it. `code` says why: `REQUIRED` (empty), `TOO_LONG`,
+         *     `INVALID` (not an address, or a name with control characters),
+         *     `DUPLICATE_IN_FILE` (an address an earlier row has), `UNKNOWN_ROLE` and
+         *     `AMBIGUOUS_ROLE` (no role, or more than one, answers to the name),
+         *     `ROLE_NOT_ALLOWED` (the role holds a permission the importer lacks),
+         *     `ROLE_NOT_GIVABLE` (the Assistant, which no one is given), `UNKNOWN_CLASS` and
+         *     `AMBIGUOUS_CLASS` (no active class, or more than one, has the name), and
+         *     `CLASS_NOT_ALLOWED` (a class for a role that is not a student target, or
+         *     by an importer without `scope.all`). A refusal carries no text of the file.
+         */
+        UserImportIssue: {
+            row: number;
+            field: components["schemas"]["UserImportField"];
+            /** @enum {string} */
+            code: "REQUIRED" | "TOO_LONG" | "INVALID" | "DUPLICATE_IN_FILE" | "UNKNOWN_ROLE" | "AMBIGUOUS_ROLE" | "ROLE_NOT_ALLOWED" | "ROLE_NOT_GIVABLE" | "UNKNOWN_CLASS" | "AMBIGUOUS_CLASS" | "CLASS_NOT_ALLOWED";
+        };
+        /**
+         * @description What a file would come to. `rows` are the data rows it holds;
+         *     `newAccounts` would be created and `existingEmails.count` already
+         *     belong to an account and would be skipped, never changed (`sample` names
+         *     up to five of them). `invalid` lists up to 50 refused cells and
+         *     `invalidCount` counts every refused row. `classes` are the classes the
+         *     accepted rows would join. `emailBudget` is `null` unless `delivery` is
+         *     `email_link`: `remainingToday` is what the centre can still send today,
+         *     counting what already waits, and `limit` its daily maximum; the rest of
+         *     the links go out on the following days.
+         */
+        UserImportPreview: {
+            rows: number;
+            newAccounts: number;
+            existingEmails: {
+                count: number;
+                sample: string[];
+            };
+            invalid: components["schemas"]["UserImportIssue"][];
+            invalidCount: number;
+            classes: {
+                id: components["schemas"]["Uuid"];
+                name: string;
+            }[];
+            emailBudget: {
+                remainingToday: number;
+                limit: number;
+            } | null;
+        };
+        /**
+         * @description One import. `status` is `queued` until the worker claims it, `running`
+         *     while it creates the accounts, `done` once every stored row is settled,
+         *     and `failed` when it gave up (`errorCode` says why, a short code that
+         *     never carries the file). `total` is the rows stored, those that passed
+         *     every rule; `processed` is those settled so far, `created` + `skipped`;
+         *     `skipped` are the addresses that already belonged to an account.
+         *     `invalid` counts the rows refused, which are not stored. `sheet` is `null`
+         *     unless `delivery` is `sheet`: `available` is true from `done` until the
+         *     sheet is downloaded or 24 hours have passed, whichever comes first.
+         */
+        UserImportJob: {
+            id: components["schemas"]["Uuid"];
+            /** @enum {string} */
+            status: "queued" | "running" | "done" | "failed";
+            total: number;
+            processed: number;
+            created: number;
+            skipped: number;
+            invalid: number;
+            delivery: components["schemas"]["UserImportDelivery"];
+            sheet: {
+                available: boolean;
+                /** Format: date-time */
+                expiresAt: string | null;
+                /** Format: date-time */
+                downloadedAt: string | null;
+            } | null;
+            errorCode: string | null;
+            createdAt: components["schemas"]["Timestamp"];
         };
         /** @description One student `resetStudentsPasswords` reset. The password is shown once. */
         StudentPasswordReset: {
@@ -8476,6 +8661,42 @@ export interface components {
             headers: {
                 /** @description Seconds until the caller may retry. */
                 "Retry-After": number;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /**
+         * @description The file or the request cannot be imported, and the message says which.
+         *     `USER_IMPORT_FILE_UNREADABLE` — not a table this reader opens: damaged,
+         *     not a workbook, a first sheet that is a chart, a workbook that keeps its
+         *     parts elsewhere than Excel does, or one too large once unpacked.
+         *     `USER_IMPORT_FILE_EMPTY` — no header row.
+         *     `USER_IMPORT_TOO_MANY_ROWS` — more than 2,000 data rows.
+         *     `USER_IMPORT_COLUMNS` — the header lacks `full_name` or `email`, or names
+         *     a column twice.
+         *     `CSV_NOT_UTF8` — a CSV file in another encoding; save it as CSV UTF-8.
+         *     `XLSX_MACROS` — a workbook with macros.
+         *     `XLSX_ENCRYPTED` — a workbook with a password.
+         *     `PASSWORD_SIGN_IN_DISABLED` — `sheet` while the centre has turned
+         *     password sign-in off.
+         */
+        UserImportRefused: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /**
+         * @description This server cannot do it: `delivery: email_link` needs the key that seals
+         *     a link (`SECRETS_KEY`), and `delivery: sheet` needs the same key to keep
+         *     the passwords it hands out.
+         */
+        UserImportUnavailable: {
+            headers: {
                 [name: string]: unknown;
             };
             content: {
@@ -13010,6 +13231,147 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+        };
+    };
+    previewUserImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    defaultRole: components["schemas"]["UserImportDefaultRole"];
+                    delivery: components["schemas"]["UserImportDelivery"];
+                };
+            };
+        };
+        responses: {
+            /** @description The counts. Nothing was stored. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserImportPreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `TARGET_ROLE_NOT_ALLOWED` — `defaultRole` holds a permission the caller lacks. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `USER_IMPORT_FILE_TOO_LARGE` — over 5 MiB. The message tells the user
+             *     to save the sheet as CSV UTF-8 and upload that.
+             */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: components["responses"]["UserImportRefused"];
+            429: components["responses"]["TooManyRequests"];
+            501: components["responses"]["UserImportUnavailable"];
+        };
+    };
+    createUserImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    defaultRole: components["schemas"]["UserImportDefaultRole"];
+                    delivery: components["schemas"]["UserImportDelivery"];
+                    requestId: components["schemas"]["Uuid"];
+                };
+            };
+        };
+        responses: {
+            /** @description Queued. Poll `getUserImport` for its progress. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserImportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `TARGET_ROLE_NOT_ALLOWED` — `defaultRole` holds a permission the caller lacks. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `USER_IMPORT_FILE_TOO_LARGE` — over 5 MiB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description Any code `previewUserImport` answers with, and
+             *     `USER_IMPORT_NOTHING_TO_CREATE` — no row of the file would create an
+             *     account.
+             */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            501: components["responses"]["UserImportUnavailable"];
+        };
+    };
+    getUserImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserImportJob"];
+                };
+            };
+            404: components["responses"]["NotFound"];
         };
     };
     listRoles: {

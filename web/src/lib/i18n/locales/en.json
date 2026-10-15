@@ -388,7 +388,8 @@
       "user.password_set": "Set a password from a link",
       "user.preferences_updated": "Updated personal preferences",
       "user.profile_updated": "Updated a profile",
-      "user.renamed": "Renamed an account"
+      "user.renamed": "Renamed an account",
+      "user_import.requested": "Requested an import of users from a file"
     }
   },
   "error": {

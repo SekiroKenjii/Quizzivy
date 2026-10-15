@@ -8,6 +8,7 @@ import (
 	classescommand "quizzivy/internal/modules/classes/application/command"
 	classesdomain "quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/modules/identity/application/model"
+	"quizzivy/internal/modules/identity/domain"
 	organizationmodel "quizzivy/internal/modules/organization/application/model"
 	organizationquery "quizzivy/internal/modules/organization/application/query"
 	"quizzivy/internal/shared/access"
@@ -54,3 +55,22 @@ type SignInPolicy = cqrs.QueryHandler[organizationquery.SignInPolicy, organizati
 
 // AssignableRole is the access module's AssignableRole query: whether the caller may give a role to a user, and what the role is.
 type AssignableRole = cqrs.QueryHandler[accessquery.AssignableRole, accessmodel.AssignableRole]
+
+// RoleChoices is the access module's RoleChoices query: every role with whether the caller may give it.
+type RoleChoices = cqrs.QueryHandler[accessquery.RoleChoices, []accessmodel.RoleChoice]
+
+// TableReader reads the first sheet of a workbook, or a CSV file, into memory.
+// It fails with the platform's tabular errors, which the transport words.
+type TableReader interface {
+	Read(file []byte, format domain.ImportFormat) (domain.ImportSource, error)
+}
+
+// EmailBudget answers how many more messages the centre can send today.
+type EmailBudget interface {
+	Remaining(ctx context.Context, now time.Time) (model.EmailAllowance, error)
+}
+
+// Wake tells the import worker that a user import is waiting. It never blocks.
+type Wake interface {
+	Wake()
+}
