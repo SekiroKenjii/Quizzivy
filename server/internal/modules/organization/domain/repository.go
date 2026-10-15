@@ -28,7 +28,8 @@ type Repository interface {
 	// *LockedOut when the policy's Impact, judged inside the transaction for
 	// in.ActorID, is a Lockout, and otherwise writes the document with the
 	// revision one higher and an organization.updated audit row naming the
-	// fields that changed. It returns the document as stored.
+	// fields that changed. A document equal to the stored one writes nothing
+	// and returns the stored document. It returns the document as stored.
 	Save(ctx context.Context, in Save) (Settings, error)
 	// Impact judges policy against the active accounts for actorID. Google
 	// counts only when googleConfigured.

@@ -57,13 +57,14 @@ var pngSignature = []byte("\x89PNG\r\n\x1a\n")
 
 // LogoChecker checks an upload for the organization module's LogoChecker
 // port: a PNG of at most 1 MiB, square within 2% and 256 to 2048 pixels a
-// side, decoded under the server's shared gate and encoded afresh; or an SVG
-// of at most 256 KiB that holds only drawing, stored as it came.
+// side, decoded under the server's shared gate and encoded afresh. Anything
+// else, an SVG included, is orgdomain.ErrLogoUnsupported: the browser draws an
+// SVG to a PNG before it uploads (D-019).
 type LogoChecker struct {
 	Images LogoImages
 }
 
-// Check answers the domain's ErrLogo* and ErrSVGNotAllowed reasons for each
+// Check answers the domain's ErrLogo* reasons for each
 // way imagesafe refuses an upload and any other error as it is.
 func (c LogoChecker) Check(ctx context.Context, body io.Reader) (orgdomain.LogoFile, error) {
 	data, err := io.ReadAll(io.LimitReader(body, orgdomain.MaxPNGBytes+1))
@@ -73,26 +74,14 @@ func (c LogoChecker) Check(ctx context.Context, body io.Reader) (orgdomain.LogoF
 	if len(data) > orgdomain.MaxPNGBytes {
 		return orgdomain.LogoFile{}, orgdomain.ErrLogoTooLarge
 	}
-	if bytes.HasPrefix(data, pngSignature) {
-		png, w, h, err := c.Images.Logo(ctx, bytes.NewReader(data), logoLimits)
-		if err != nil {
-			return orgdomain.LogoFile{}, logoReason(err)
-		}
-		return orgdomain.LogoFile{Bytes: png, Type: orgdomain.LogoPNG, Width: w, Height: h}, nil
-	}
-	if !looksLikeSVG(data) {
+	if !bytes.HasPrefix(data, pngSignature) {
 		return orgdomain.LogoFile{}, orgdomain.ErrLogoUnsupported
 	}
-	svg, w, h, err := imagesafe.CheckSVG(bytes.NewReader(data), orgdomain.MaxSVGBytes)
+	png, w, h, err := c.Images.Logo(ctx, bytes.NewReader(data), logoLimits)
 	if err != nil {
 		return orgdomain.LogoFile{}, logoReason(err)
 	}
-	return orgdomain.LogoFile{Bytes: svg, Type: orgdomain.LogoSVG, Width: w, Height: h}, nil
-}
-
-func looksLikeSVG(data []byte) bool {
-	trimmed := bytes.TrimLeft(bytes.TrimPrefix(data, []byte("\xef\xbb\xbf")), " \t\r\n")
-	return bytes.HasPrefix(trimmed, []byte("<"))
+	return orgdomain.LogoFile{Bytes: png, Type: orgdomain.LogoPNG, Width: w, Height: h}, nil
 }
 
 func logoReason(err error) error {
@@ -105,8 +94,6 @@ func logoReason(err error) error {
 		return orgdomain.ErrLogoUnreadable
 	case errors.Is(err, imagesafe.ErrDimensions):
 		return orgdomain.ErrLogoDimensions
-	case errors.Is(err, imagesafe.ErrSVGNotAllowed):
-		return orgdomain.ErrSVGNotAllowed
 	default:
 		return err
 	}
