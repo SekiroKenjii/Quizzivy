@@ -60,10 +60,22 @@ connection_host() {
   fi
 }
 
-case "$(connection_host)" in
-  ""|localhost|127.0.0.1|::1|"[::1]"|/*) LOCAL=yes ;;
+# A tunnel to a production database (fly proxy, an SSH forward) arrives on
+# localhost and looks local; QUIZZIVY_MANAGED=1 says it is not.
+CONNECTION_HOST=$(connection_host)
+case "$CONNECTION_HOST" in
+  ""|/*) LOCAL=yes ;;
+  localhost|127.0.0.1|::1|"[::1]")
+    LOCAL=yes
+    if [ "${QUIZZIVY_MANAGED:-}" != 1 ]; then
+      echo "provision-db: $CONNECTION_HOST is treated as a local database; if it is a tunnel to a production database, stop and run this with QUIZZIVY_MANAGED=1" >&2
+    fi
+    ;;
   *) LOCAL=no ;;
 esac
+if [ "${QUIZZIVY_MANAGED:-}" = 1 ]; then
+  LOCAL=no
+fi
 
 EXISTING_ROLES=$(run_psql postgres -tAc "SELECT rolname FROM pg_roles WHERE rolname IN ('quizzivy_migrate', 'quizzivy_app', 'quizzivy_maintenance')")
 

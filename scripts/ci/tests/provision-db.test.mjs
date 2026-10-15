@@ -143,3 +143,40 @@ test('a localhost DSN is a local run', () => {
   assert.match(run.log, /COMMAND ALTER ROLE quizzivy_migrate CREATEDB/);
   assert.doesNotMatch(run.log, /SET PASSWORD/);
 });
+
+test('a tunnel to a production database is managed when the owner says so, and the script says what it assumed when they do not', () => {
+  const tunnel = 'postgres://admin:secret@localhost:15432/neondb?sslmode=require';
+  const assumed = provision({
+    args: [tunnel],
+    roles: existing,
+    env: { QUIZZIVY_MAINTENANCE_PASSWORD: 'a-new-random-password' },
+  });
+  assert.equal(assumed.status, 0, assumed.stderr);
+  assert.match(assumed.stderr, /localhost is treated as a local database; if it is a tunnel to a production database, stop and run this with QUIZZIVY_MANAGED=1/);
+
+  const managedRun = provision({
+    args: [tunnel],
+    roles: existing,
+    env: {
+      QUIZZIVY_MANAGED: '1',
+      QUIZZIVY_MAINTENANCE_PASSWORD: 'a-new-random-password',
+      QUIZZIVY_MIGRATE_PASSWORD: 'migrate',
+      QUIZZIVY_APP_PASSWORD: 'app',
+    },
+  });
+  assert.equal(managedRun.status, 0, managedRun.stderr);
+  assert.deepEqual(managedRun.log.match(/SET PASSWORD \w+/g), ['SET PASSWORD quizzivy_maintenance']);
+  assert.doesNotMatch(managedRun.log, /COMMAND ALTER ROLE quizzivy_migrate CREATEDB/);
+  assert.doesNotMatch(managedRun.stderr, /treated as a local database/);
+
+  const refused = provision({ args: [tunnel], roles: existing, env: { QUIZZIVY_MANAGED: '1' } });
+  assert.notEqual(refused.status, 0);
+  assert.doesNotMatch(refused.log, /SET PASSWORD|SQL|COMMAND/);
+});
+
+test('a unix socket or an unset host is local without a word', () => {
+  const run = provision({ env: { PGHOST: '/var/run/postgresql' } });
+  assert.equal(run.status, 0, run.stderr);
+  assert.doesNotMatch(run.stderr, /treated as a local database/);
+  assert.match(run.log, /COMMAND ALTER ROLE quizzivy_migrate CREATEDB/);
+});

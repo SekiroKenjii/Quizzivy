@@ -45,11 +45,12 @@ test('the credential is the production-maintenance environment secret, set on th
   assert.match(workflow, /permissions:\n\s+contents: read\n/);
 });
 
-test('the workflow runs only GitHub\'s own actions, since a third-party one must be pinned to a commit and this holds a credential', () => {
-  const uses = [...workflow.matchAll(/^\s*-?\s*uses:\s*(\S+)/gm)].map((match) => match[1]);
+test('the workflow runs only GitHub\'s own actions, each pinned to a commit with its tag in a comment, since this job holds a credential', () => {
+  const uses = [...workflow.matchAll(/^\s*-?\s*uses:\s*(\S+)(?:\s+#\s*(\S+))?/gm)].map((match) => [match[1], match[2]]);
   assert.ok(uses.length >= 2);
-  for (const action of uses) {
-    assert.match(action, /^actions\/[a-z-]+@v\d+$/);
+  for (const [action, tag] of uses) {
+    assert.match(action, /^actions\/[a-z-]+@[0-9a-f]{40}$/);
+    assert.match(tag ?? '', /^v\d+(\.\d+){0,2}$/);
   }
 });
 
