@@ -56,10 +56,29 @@ func TestABadPlanValueIsRefusedByName(t *testing.T) {
 		{map[string]string{"PLAN_MEDIA_BYTES": "5 GB"}, "PLAN_MEDIA_BYTES"},
 		{map[string]string{"PLAN_MEDIA_BYTES": "0"}, "PLAN_MEDIA_BYTES"},
 		{map[string]string{"PLAN_IMPORT_BYTES": "99999999999999999999"}, "PLAN_IMPORT_BYTES"},
+		{map[string]string{"PLAN_SEAT_LIMIT": "1000001"}, "PLAN_SEAT_LIMIT"},
+		{map[string]string{"PLAN_MEDIA_BYTES": "1125899906842625"}, "PLAN_MEDIA_BYTES"},
 	}
 	for _, c := range cases {
 		if _, err := loadWith(t, c.env); err == nil || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("%v: error %v, want one naming %q", c.env, err, c.want)
+		}
+	}
+}
+
+func TestANumberIsOnlyPlainDigitsWithNoSignZerosOrSpaces(t *testing.T) {
+	for _, name := range []string{"PLAN_SEAT_LIMIT", "PLAN_TEACHER_LIMIT", "PLAN_MEDIA_BYTES", "PLAN_IMPORT_BYTES"} {
+		for _, raw := range []string{"+5", "00007", "007", " 400", "400 ", " 400 ", "4 00", " ", "4_000", "1e3", "0x10", "-1", "١٢٣"} {
+			if _, err := loadWith(t, map[string]string{name: raw}); err == nil || !strings.Contains(err.Error(), name) {
+				t.Errorf("%s=%q: error %v, want one naming the variable", name, raw, err)
+			}
+		}
+		cfg, err := loadWith(t, map[string]string{name: ""})
+		if err != nil {
+			t.Errorf("%s empty: %v, want it read as unset", name, err)
+		}
+		if p := cfg.Plan; p.SeatLimit != 0 || p.TeacherLimit != 0 || p.MediaBytes != 0 || p.ImportBytes != 0 {
+			t.Errorf("%s empty: %+v, want no limit", name, p)
 		}
 	}
 }

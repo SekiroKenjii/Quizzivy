@@ -6235,7 +6235,7 @@
           "activeThisWeek": {
             "type": "integer",
             "minimum": 0,
-            "description": "Accounts with an authenticated request on any of the last seven local days, today included."
+            "description": "Accounts with an authenticated request on any of the last seven local days, today included, whether they have been disabled since or not."
           },
           "teachers": {
             "type": "integer",
@@ -6277,7 +6277,7 @@
       },
       "AdminDailyActive": {
         "type": "object",
-        "description": "Who made an authenticated request on each of the last fourteen local\ndays. Staff is every account that is not a student target, which the\nchart labels Teachers.\n",
+        "description": "Who made an authenticated request on each of the last fourteen local\ndays. Staff is every account that is not a student target, which the\nchart labels Teachers. A day counts the accounts that were active on it,\nwhether they have been disabled since or not.\n",
         "required": [
           "days",
           "average"
@@ -6349,7 +6349,7 @@
           "count": {
             "type": "integer",
             "minimum": 1,
-            "description": "`must_change_password`: enabled accounts on a temporary password.\n`never_signed_in`: enabled accounts that have never signed in and\nare not on a temporary password. `disabled_teacher_classes`: classes,\narchived ones too, whose teacher is disabled. `storage`: how many of\nthe media and import meters with a configured limit are at 80 percent\nor more. `ai_credit_requests`: the teachers waiting for more credits\nthis month.\n"
+            "description": "`must_change_password`: enabled accounts on a temporary password.\n`never_signed_in`: enabled accounts that have never signed in and\nare not on a temporary password. `disabled_teacher_classes`: classes,\narchived ones too, whose teacher is disabled. `storage`: how many of\nthe media and import meters with a configured limit read 80 percent\nor more, as `detail` quotes them (rounded half up). `ai_credit_requests`: the teachers waiting for more credits\nthis month.\n"
           },
           "detail": {
             "description": "What the row's line quotes. `null` for `must_change_password`.",

@@ -34,6 +34,7 @@ import { NewClassDialog } from "@/features/classes/components/NewClassDialog";
 import { ShowQrDialog } from "@/features/classes/components/ShowQrDialog";
 import { invalidateClass } from "@/features/classes/invalidate";
 import { useCopyJoinLink } from "@/features/classes/joinLink";
+import { useJoinCodesOff } from "@/features/organization/api";
 import { useMarkNotificationsRead } from "@/features/notifications/useMarkNotificationsRead";
 import { useNotificationList } from "@/features/notifications/useNotificationList";
 import { useListFilters } from "@/hooks/useListFilters";
@@ -76,6 +77,7 @@ export default function ClassesPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const canWrite = useCan("teaching.classes.write");
+  const joinOff = useJoinCodesOff();
   const { params, setFilter } = useListFilters();
   const tab: Tab = params.get("status") === "archived" ? "archived" : "active";
   const [size] = usePageSize(PAGE_SIZES);
@@ -159,6 +161,7 @@ export default function ClassesPage() {
                 klass={klass}
                 canWrite={canWrite}
                 now={now}
+                joinOff={joinOff}
                 onCopyLink={copyLink}
                 onShowQr={showQr}
                 onEdit={fromMenu(setEditing)}
@@ -210,7 +213,7 @@ export default function ClassesPage() {
     <DeckScale className="flex w-full min-w-0 flex-col gap-4">
       <PageHead
         title={t("teacherShell.nav.classes")}
-        description={t("classes.pageLead")}
+        description={t(joinOff ? "classes.pageLeadOff" : "classes.pageLead")}
         actions={
           canWrite ? (
             <Button ref={newButton} onClick={() => setCreating(true)}>

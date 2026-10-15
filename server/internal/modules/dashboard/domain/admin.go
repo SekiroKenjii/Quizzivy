@@ -273,7 +273,7 @@ func Percent(used, limit int64) int {
 	return int((200*used + limit) / (2 * limit))
 }
 
-// StorageAttention is the storage row: how many of the media and import meters with a limit hold StorageWarnPercent or more of it, and nil when none does.
+// StorageAttention is the storage row: how many of the media and import meters with a limit read StorageWarnPercent or more once rounded to the percent the meter shows, and nil when none does.
 func StorageAttention(u Usage) *Attention {
 	detail := AttentionDetail{}
 	count := 0
@@ -297,4 +297,4 @@ func StorageAttention(u Usage) *Attention {
 	return &Attention{Kind: AttentionStorage, Count: count, Detail: &detail}
 }
 
-func nearly(used, limit int64) bool { return used*100 >= limit*StorageWarnPercent }
+func nearly(used, limit int64) bool { return Percent(used, limit) >= StorageWarnPercent }

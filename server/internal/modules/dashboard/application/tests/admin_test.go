@@ -21,17 +21,17 @@ import (
 
 type adminStore struct {
 	store
-	accounts    domain.Accounts
-	mustChange  int
-	activeSince int
-	days        []domain.ActiveDay
-	classes     domain.ClassCounts
-	orphaned    domain.DisabledTeacherClasses
-	held        domain.Held
+	accounts   domain.Accounts
+	mustChange int
+	activeWeek int
+	days       []domain.ActiveDay
+	classes    domain.ClassCounts
+	orphaned   domain.DisabledTeacherClasses
+	held       domain.Held
 
 	asked      []string
 	accountsAt time.Time
-	sinceDay   time.Time
+	week       [2]time.Time
 	from, to   time.Time
 }
 
@@ -46,10 +46,10 @@ func (s *adminStore) MustChangePassword(context.Context) (int, error) {
 	return s.mustChange, nil
 }
 
-func (s *adminStore) ActiveSince(_ context.Context, day time.Time) (int, error) {
-	s.asked = append(s.asked, "ActiveSince")
-	s.sinceDay = day
-	return s.activeSince, nil
+func (s *adminStore) ActiveBetween(_ context.Context, from, to time.Time) (int, error) {
+	s.asked = append(s.asked, "ActiveBetween")
+	s.week = [2]time.Time{from, to}
+	return s.activeWeek, nil
 }
 
 func (s *adminStore) ActiveByDay(_ context.Context, from, to time.Time) ([]domain.ActiveDay, error) {
@@ -116,8 +116,8 @@ func centre() (*adminStore, *ports) {
 			Total: 100, Enabled: 95, Students: 83, StudentsNew: 5, Teachers: 15, TeachersDisabled: 2,
 			MustChangePassword: 3, NeverSignedIn: 4, OldestNeverSignedIn: &oldest,
 		},
-		mustChange:  3,
-		activeSince: 42,
+		mustChange: 3,
+		activeWeek: 42,
 		days: []domain.ActiveDay{
 			{Date: time.Date(2026, time.February, 28, 0, 0, 0, 0, time.UTC), Students: 20, Staff: 4},
 			{Date: time.Date(2026, time.March, 1, 0, 0, 0, 0, time.UTC), Students: 30, Staff: 6},
@@ -216,8 +216,8 @@ func TestTheFourteenDayWindowAndTheWeekCrossAMonthBoundary(t *testing.T) {
 	if !repo.from.Equal(day(time.February, 19)) || !repo.to.Equal(day(time.March, 4)) {
 		t.Errorf("the chart read %v..%v, want 19 February..4 March: today and the 13 days before it", repo.from, repo.to)
 	}
-	if !repo.sinceDay.Equal(day(time.February, 26)) {
-		t.Errorf("this week began %v, want 26 February: today and the 6 days before it", repo.sinceDay)
+	if !repo.week[0].Equal(day(time.February, 26)) || !repo.week[1].Equal(day(time.March, 4)) {
+		t.Errorf("this week read %v..%v, want 26 February..4 March: today and the 6 days before it", repo.week[0], repo.week[1])
 	}
 	if want := time.Date(2026, time.March, 1, 0, 0, 0, 0, time.FixedZone(domain.DefaultZone, 7*60*60)); !repo.accountsAt.Equal(want) {
 		t.Errorf("new students counted from %v, want the first of the month at the centre's midnight, %v", repo.accountsAt, want)
@@ -316,7 +316,7 @@ func TestAnAttentionRowWithNothingToCountIsLeftOut(t *testing.T) {
 	repo, p := centre()
 	repo.accounts.MustChangePassword, repo.accounts.NeverSignedIn, repo.accounts.OldestNeverSignedIn = 0, 0, nil
 	repo.orphaned = domain.DisabledTeacherClasses{}
-	repo.held = domain.Held{MediaBytes: 799, ImportBytes: 1}
+	repo.held = domain.Held{MediaBytes: 794, ImportBytes: 1}
 	p.credits.Requests = nil
 	got, err := admin(repo, p, wholePlan).Queries.AdminOverview.Handle(context.Background(), query.AdminOverview{Viewer: everyKey})
 	if err != nil {
