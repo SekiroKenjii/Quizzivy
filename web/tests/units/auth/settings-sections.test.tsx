@@ -286,6 +286,27 @@ describe("asking for a set-password link from the Google card", () => {
     ).toHaveAccessibleDescription(fact);
   });
 
+  it("withdraws the link and the sentence once the centre answers that passwords are off, with nothing cached before", async () => {
+    server.use(
+      http.get(`${BASE_URL}/public/organization`, () =>
+        contractJson("/public/organization", "get", 200, {
+          ...ORGANIZATION,
+          signIn: { google: true, password: false },
+        }),
+      ),
+    );
+    signedIn({ hasPassword: false, google: true });
+    renderGoogle();
+
+    expect(
+      await screen.findByText(
+        "Bạn chỉ đăng nhập bằng Google, nên chưa thể bỏ liên kết Google.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/mật khẩu/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: SEND })).toBeNull();
+  });
+
   it("offers the link when the centre's answer says passwords are on", () => {
     signedIn({ hasPassword: false, google: true });
     renderGoogle(ORGANIZATION);

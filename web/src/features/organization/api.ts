@@ -6,19 +6,30 @@ import {
   resolveOrganization,
 } from "@/lib/organization";
 
+/** PasswordSignIn is the centre's password sign-in switch as far as the app knows it. */
+export type PasswordSignIn = "pending" | "on" | "off";
+
 /**
- * useKnownPasswordSignInOff reports whether the centre has turned password
- * sign-in off, from an answer the app already holds. It never fetches, so it
- * is false while nothing has asked, and a screen that relies on it still
- * shows the server's refusal when the switch is off.
+ * usePasswordSignIn reads whether the centre accepts passwords. It is
+ * "pending" until the first answer arrives and "on" when none does, so a
+ * screen that relies on it never says the centre has switched passwords off
+ * when it has not been told so; the server's refusal stays the backstop.
  */
-export function useKnownPasswordSignInOff(): boolean {
-  const { data } = useQuery({
+export function usePasswordSignIn(): PasswordSignIn {
+  const { data, isPending } = useQuery({
     ...publicOrganizationQuery(),
-    enabled: false,
-    select: (organization) => !organization.signIn.password,
+    select: (answer) => resolveOrganization(answer).signIn.password,
   });
-  return data === true;
+  if (isPending) return "pending";
+  return data === false ? "off" : "on";
+}
+
+/**
+ * usePasswordSignInOff reports whether the centre has turned password sign-in
+ * off. It is false until the answer arrives and when it fails.
+ */
+export function usePasswordSignInOff(): boolean {
+  return usePasswordSignIn() === "off";
 }
 
 /**

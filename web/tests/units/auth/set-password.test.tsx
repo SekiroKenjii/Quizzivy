@@ -231,23 +231,25 @@ describe("the set-password link", () => {
     ["an empty token", "#token="],
     ["a fragment without a token", "#hello"],
     ["a token longer than the contract allows", `#token=${"a".repeat(129)}`],
-  ])("calls %s an invalid link and sends nothing", async (_, hash) => {
-    land(hash);
-    expect(
-      await screen.findByRole("heading", {
+  ])(
+    "calls %s an invalid link, focuses the heading and sends nothing",
+    async (_, hash) => {
+      land(hash);
+      const heading = await screen.findByRole("heading", {
         level: 1,
         name: "Liên kết không còn dùng được",
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(INVALID)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Đến trang đăng nhập" })).toHaveAttribute(
-      "href",
-      "/login",
-    );
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(seen).toEqual([]);
-    expect(window.location.hash).toBe("");
-  });
+      });
+      await waitFor(() => expect(heading).toHaveFocus());
+      expect(screen.getByText(INVALID)).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Đến trang đăng nhập" })).toHaveAttribute(
+        "href",
+        "/login",
+      );
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(seen).toEqual([]);
+      expect(window.location.hash).toBe("");
+    },
+  );
 
   it("says a used, expired or revoked link is no longer usable, and focuses the news", async () => {
     checkAnswers(() =>
@@ -305,6 +307,97 @@ describe("the set-password link", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Không kết nối được với máy chủ. Vui lòng thử lại.",
     );
+  });
+});
+
+describe("the centre's password sign-in switch", () => {
+  const OFF = {
+    name: "Quizzivy",
+    shortName: null,
+    website: null,
+    contactEmail: null,
+    frontDeskPhone: null,
+    frontDeskHours: null,
+    address: null,
+    logo: { lightUrl: null, darkUrl: null },
+    signIn: { google: true, password: false },
+    joinCodes: true,
+  };
+
+  function organizationAnswers(answer: () => Response | Promise<Response>) {
+    server.use(http.get(`${BASE_URL}/public/organization`, answer));
+  }
+
+  it("says passwords are off before it shows a form, and focuses the heading", async () => {
+    checkAnswers(validLink);
+    organizationAnswers(() => contractJson("/public/organization", "get", 200, OFF));
+    land();
+
+    const heading = await screen.findByRole("heading", {
+      level: 1,
+      name: "Hãy đăng nhập bằng Google",
+    });
+    await waitFor(() => expect(heading).toHaveFocus());
+    expect(screen.queryByLabelText("Mật khẩu mới")).toBeNull();
+    expect(screen.queryByRole("heading", { level: 1, name: TITLE })).toBeNull();
+    expect(sets()).toEqual([]);
+  });
+
+  it("keeps the skeleton until the centre has answered, then shows the form", async () => {
+    checkAnswers(validLink);
+    let release: () => void = () => undefined;
+    organizationAnswers(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = () =>
+            resolve(
+              contractJson("/public/organization", "get", 200, {
+                ...OFF,
+                signIn: { google: true, password: true },
+              }),
+            );
+        }),
+    );
+    land();
+
+    await waitFor(() => expect(checks()).toHaveLength(1));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.getByRole("status")).toHaveTextContent("Đang kiểm tra liên kết…");
+    expect(screen.queryByLabelText("Mật khẩu mới")).toBeNull();
+
+    release();
+    expect(
+      await screen.findByRole("heading", { level: 1, name: TITLE }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the form when the centre's answer fails, and leaves the refusal to the server", async () => {
+    checkAnswers(validLink);
+    organizationAnswers(() => HttpResponse.error());
+    land();
+    expect(
+      await screen.findByRole("heading", { level: 1, name: TITLE }),
+    ).toBeInTheDocument();
+    expect(newField()).toBeInTheDocument();
+  });
+
+  it("still calls a dead link dead when passwords are off", async () => {
+    checkAnswers(() =>
+      contractJson(
+        "/auth/set-password/check",
+        "post",
+        410,
+        refusal("SET_PASSWORD_LINK_INVALID", "Liên kết không còn hiệu lực."),
+      ),
+    );
+    organizationAnswers(() => contractJson("/public/organization", "get", 200, OFF));
+    land();
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Liên kết không còn dùng được",
+      }),
+    ).toBeInTheDocument();
   });
 });
 

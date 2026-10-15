@@ -1156,6 +1156,36 @@ describe("sign-in: Google", () => {
     expect(calls).toBe(1);
   });
 
+  it("withdraws the set-password link once the centre answers that passwords are off, with nothing cached before", async () => {
+    server.use(
+      http.get(`${BASE}/public/organization`, () =>
+        contractJson("/public/organization", "get", 200, {
+          name: "Quizzivy",
+          shortName: null,
+          website: null,
+          contactEmail: null,
+          frontDeskPhone: null,
+          frontDeskHours: null,
+          address: null,
+          logo: { lightUrl: null, darkUrl: null },
+          signIn: { google: true, password: false },
+          joinCodes: true,
+        }),
+      ),
+    );
+    open("/app/settings/sign-in", { hasPassword: false, linkedProviders: ["google"] });
+    const card = within(await screen.findByRole("region", { name: "Đăng nhập" }));
+
+    expect(
+      await card.findByText(
+        "Bạn chỉ đăng nhập bằng Google, nên chưa thể bỏ liên kết Google.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      card.queryByRole("button", { name: "Gửi liên kết đặt mật khẩu qua email" }),
+    ).toBeNull();
+  });
+
   it("offers no set-password link to an account that has a password", async () => {
     open("/app/settings/sign-in", { linkedProviders: ["google"] });
     const card = within(await screen.findByRole("region", { name: "Đăng nhập" }));
