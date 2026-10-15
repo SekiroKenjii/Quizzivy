@@ -238,6 +238,40 @@ func TestAControlOrFormatCharacterInANameIsRefused(t *testing.T) {
 	}
 }
 
+func TestANameNoReaderCanSeeIsRefusedAsTheFormRefusesIt(t *testing.T) {
+	for name, cell := range map[string]string{
+		"a Hangul filler":          string(rune(0x3164)),
+		"a Braille blank":          "Mai" + string(rune(0x2800)),
+		"a soft hyphen":            "Ma" + string(rune(0xad)) + "i",
+		"a byte order mark":        string(rune(0xfeff)) + "Mai",
+		"a lone combining accent":  string(rune(0x301)),
+		"an unassigned code point": "Mai" + string(rune(0x378)),
+	} {
+		plan := domain.PlanImport([]domain.ImportRow{row(2, cell, "a@x.test", "", "")}, rules(true), nil)
+
+		if got := issuesOf(plan)[2]; !slices.Equal(got, []string{"full_name:INVALID"}) {
+			t.Errorf("%s: issues = %v, want full_name:INVALID", name, got)
+		}
+	}
+	for name, cell := range map[string]string{"a no-break space": string(rune(0xa0)), "an ideographic space": string(rune(0x3000))} {
+		plan := domain.PlanImport([]domain.ImportRow{row(2, cell, "a@x.test", "", "")}, rules(true), nil)
+
+		if got := issuesOf(plan)[2]; !slices.Equal(got, []string{"full_name:REQUIRED"}) {
+			t.Errorf("%s: issues = %v, want full_name:REQUIRED", name, got)
+		}
+	}
+}
+
+func TestAQuotedAddressThePrinterCannotWriteBackIsNotAnEmail(t *testing.T) {
+	for _, cell := range []string{`"qc tp"@x.test`, `"a..b"@x.test`, `"a\"b"@x.test`, `"a b"@x.test`} {
+		plan := domain.PlanImport([]domain.ImportRow{row(2, "A", cell, "", "")}, rules(true), nil)
+
+		if got := issuesOf(plan)[2]; !slices.Equal(got, []string{"email:INVALID"}) {
+			t.Errorf("%q: issues = %v, want email:INVALID", cell, got)
+		}
+	}
+}
+
 func TestOnlyABareAddressIsAnEmail(t *testing.T) {
 	for cell, ok := range map[string]bool{
 		"mai@x.test":              true,

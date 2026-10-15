@@ -1,12 +1,11 @@
 package domain
 
 import (
-	"net/mail"
 	"strings"
-	"unicode"
 	"unicode/utf8"
 
 	"quizzivy/internal/shared/content"
+	"quizzivy/internal/shared/validation"
 )
 
 // ImportRoleRefusal is why the importer may not give a role.
@@ -288,26 +287,23 @@ func (j *judge) class(cell string, role ImportRole) (string, ImportCode) {
 }
 
 func cleanName(cell string) (string, ImportCode) {
-	name := content.NFC(strings.Join(strings.Fields(cell), " "))
-	switch {
-	case name == "":
+	name, fault, _ := CleanFullName(cell)
+	switch fault {
+	case FullNameOK:
+		return name, ""
+	case FullNameEmpty:
 		return name, CodeRequired
-	case utf8.RuneCountInString(name) > MaxFullNameLength:
+	case FullNameTooLong:
 		return name, CodeTooLong
-	case strings.ContainsFunc(name, func(r rune) bool { return unicode.IsControl(r) || unicode.Is(unicode.Cf, r) }):
-		return name, CodeInvalid
 	}
-	return name, ""
+	return name, CodeInvalid
 }
 
 func cleanEmail(cell string) string { return strings.TrimSpace(content.NFC(cell)) }
 
 func validEmail(email string) bool {
-	if email == "" {
-		return false
-	}
-	address, err := mail.ParseAddress(email)
-	return err == nil && address.Address == email
+	address, err := validation.ParseEmail(email)
+	return err == nil && address == email
 }
 
 func foldText(s string) string {
