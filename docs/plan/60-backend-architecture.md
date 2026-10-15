@@ -185,7 +185,7 @@ the "one package per feature" layout AGENTS.md described until then.
   `HousekeepingStep`s in order, each a bounded batch repeated while it comes back full, under a budget of its
   own, and logs counts only. `core/housekeeping.go` is where the list is assembled, because only `core` knows
   every module; the modules own the single-batch commands (`PruneActivityDays`, `Outbox.Prune`,
-  `PruneSetPasswordLinks`, `Expire`, `SweepLogos`). `PruneRefreshTokens` takes the list as a hook and runs it after its own prune at start-up and on
+  `PruneSetPasswordLinks`, `EraseExpiredImportSheets`, `PruneUserImports`, `Expire`, `SweepLogos`). `PruneRefreshTokens` takes the list as a hook and runs it after its own prune at start-up and on
   its 24-hour tick, so housekeeping adds no timer and no database wake. A step whose dependency is nil (no
   import bucket, no media bucket) is left out of the list.
 - **core is five packages.** `core/wiring` builds each module (one file per
