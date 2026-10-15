@@ -5,6 +5,7 @@ import { HttpResponse } from "msw";
 import { ORGANIZATION_SETTINGS_KEY } from "@/features/organization/api";
 import { contractJson } from "@tests/support/contractResponse";
 import { contentWidth } from "@tests/support/contentWidth";
+import { adminUser } from "@tests/support/fixtures";
 import { useAuthStore } from "@/stores/auth";
 import {
   SAVED,
@@ -163,6 +164,49 @@ describe("Save changes", () => {
     await user.click(save());
     await waitFor(() => expect(stored.puts).toHaveLength(2));
     expect(stored.puts[1]?.expectedRevision).toBe(8);
+  });
+
+  it("keeps what was typed while the save was in flight as an unsaved change", async () => {
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const stored = servesSettings(SAVED, async ({ expectedRevision, ...rest }) => {
+      await held;
+      return contractJson("/admin/settings", "put", 200, {
+        ...rest,
+        revision: expectedRevision + 1,
+        updatedAt: "2026-10-15T09:00:00Z",
+        updatedBy: adminUser.id,
+      });
+    });
+    renderSettings();
+    const user = userEvent.setup();
+    await rename(user, "Trung tâm Quizzivy");
+    await user.click(save());
+    await waitFor(() => expect(stored.puts).toHaveLength(1));
+
+    await user.type(field("Địa chỉ"), " (tầng 3)");
+    release();
+
+    await waitFor(() =>
+      expect(screen.getAllByText("Đã lưu cài đặt").length).toBeGreaterThan(0),
+    );
+    expect(field("Tên tổ chức")).toHaveValue("Trung tâm Quizzivy");
+    expect(field("Địa chỉ")).toHaveValue("12 Nguyễn Huệ, Quận 1, TP.HCM (tầng 3)");
+    expect(screen.getByText(SENTENCE)).toBeVisible();
+
+    await user.click(save());
+
+    await waitFor(() => expect(stored.puts).toHaveLength(2));
+    expect(stored.puts[1]).toMatchObject({
+      organization: {
+        name: "Trung tâm Quizzivy",
+        address: "12 Nguyễn Huệ, Quận 1, TP.HCM (tầng 3)",
+      },
+      expectedRevision: 8,
+    });
+    await waitFor(() => expect(screen.queryByText(SENTENCE)).toBeNull());
   });
 
   it("does not send a document whose name is empty, and says so on the field", async () => {

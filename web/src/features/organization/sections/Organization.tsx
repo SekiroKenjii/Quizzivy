@@ -82,7 +82,7 @@ function LogoRow() {
     drawn.logo === null
       ? null
       : (drawn.logo.preview ?? storedLogoUrl(drawn.variant, drawn.logo.sha256));
-  const flipped = onDark && drawn.variant === "light";
+  const flipped = onDark && drawn.logo !== null && drawn.variant === "light";
 
   return (
     <div className="flex flex-wrap items-center gap-3.5">

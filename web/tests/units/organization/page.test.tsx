@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http } from "msw";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { router as appRouter } from "@/app/router";
+import { writeThemePreference } from "@/lib/theme";
 import { useAuthStore } from "@/stores/auth";
 import { contractJson } from "@tests/support/contractResponse";
 import { contentWidth } from "@tests/support/contentWidth";
@@ -29,6 +30,8 @@ beforeEach(() => {
 
 afterEach(() => {
   useAuthStore.getState().clearSession();
+  writeThemePreference("light");
+  localStorage.clear();
 });
 
 const nav = () =>
@@ -136,6 +139,29 @@ describe("System settings", () => {
       "src",
       `${BASE}/public/organization/logo?variant=light&v=${"ab".repeat(32)}`,
     );
+  });
+
+  it("keeps the logo tile on the card in the dark theme, and lifts it only under a light logo", async () => {
+    writeThemePreference("dark");
+    servesSettings();
+    const { unmount } = renderPage();
+    expect(await name()).toBeVisible();
+    const tile = () =>
+      screen.getByRole("button", { name: "Thay logo" }).previousElementSibling;
+    expect(tile()).toHaveClass("bg-card");
+    expect(tile()).not.toHaveClass("bg-fg");
+    unmount();
+
+    servesSettings({
+      ...SAVED,
+      organization: {
+        ...SAVED.organization,
+        logo: { light: { sha256: "ab".repeat(32), type: "image/png" }, dark: null },
+      },
+    });
+    renderPage();
+    await screen.findByRole("img", { name: "Logo của trung tâm" });
+    expect(tile()).toHaveClass("bg-fg");
   });
 
   it("opens each section at its own address and keeps the other mounted", async () => {

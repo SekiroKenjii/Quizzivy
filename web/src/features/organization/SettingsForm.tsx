@@ -19,6 +19,7 @@ import {
   type OrganizationSettings,
 } from "@/features/organization/api";
 import { controlId } from "@/features/organization/controls";
+import { editsSince } from "@/features/organization/editsSince";
 import { OrganizationSection } from "@/features/organization/sections/Organization";
 import { SignInSection } from "@/features/organization/sections/SignIn";
 import {
@@ -73,7 +74,8 @@ function controlOf(path: string): HTMLElement | null {
  * sign-in policy that would lock people out pauses Save changes and says
  * why. A rule the server refuses is shown on its field, and the section that
  * holds the first such field is opened. Once saved, the front door reads the
- * centre again.
+ * centre again, and whatever was typed while the save was in flight stays in
+ * the form as an unsaved change.
  */
 export function SettingsForm({
   saved,
@@ -169,9 +171,16 @@ export function SettingsForm({
     setError(null);
     setStale(false);
     setRefusal(null);
+    const sent: unknown = JSON.parse(JSON.stringify(form.getValues()));
     try {
       const stored = await save.mutateAsync(settingsInput(values, revision.current));
+      const typedSince = editsSince(sent, form.getValues());
       adopt(stored);
+      for (const { path, value } of typedSince) {
+        form.setValue(path as FieldPath<SettingsFormValues>, value as never, {
+          shouldDirty: true,
+        });
+      }
       toast(t("settings.saved"));
     } catch (cause) {
       failed(cause, values);
