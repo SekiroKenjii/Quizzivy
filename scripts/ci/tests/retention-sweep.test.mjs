@@ -54,6 +54,12 @@ test('the workflow runs only GitHub\'s own actions, each pinned to a commit with
   }
 });
 
+test('the job keeps no repository token on disk and restores no cache while it holds the credential', () => {
+  assert.match(workflow, /actions\/checkout@[0-9a-f]{40} # v\d+\n\s+with:\n\s+persist-credentials: false\n/);
+  assert.match(workflow, /actions\/setup-go@[0-9a-f]{40} # v\d+\n\s+with:\n(\s+[a-z-]+: .*\n)*?\s+cache: false\n/);
+  assert.doesNotMatch(workflow, /cache-dependency-path/);
+});
+
 test('no run script interpolates an expression, so an input cannot inject a command', () => {
   const scripts = runScripts();
   assert.ok(scripts.length >= 2);

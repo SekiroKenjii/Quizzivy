@@ -21,10 +21,12 @@ jobs:
     environment: production-maintenance
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: server/go.mod
-          cache-dependency-path: server/go.sum
+          cache: false
       - name: Build the maintenance command
         working-directory: server
         run: go build -o "$RUNNER_TEMP/maintenance" ./cmd/maintenance
