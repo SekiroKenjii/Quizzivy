@@ -31,9 +31,28 @@ var (
 	ErrEncrypted = errors.New("tabular: the workbook is password-protected")
 	// ErrMacros means the workbook carries macros.
 	ErrMacros = errors.New("tabular: the workbook contains macros")
-	// ErrTooLarge means the file, or the workbook inside its archive, is
-	// bigger than the limit.
+	// ErrTooLarge means the file is bigger than Limits.Bytes.
 	ErrTooLarge = errors.New("tabular: the file is larger than the limit")
+	// ErrTooManyEntries means the workbook's archive holds more than 1,000
+	// parts.
+	ErrTooManyEntries = fmt.Errorf("tabular: the workbook holds more than %d parts", maxEntries)
+	// ErrExpandedTooLarge means the workbook's parts add up to more than
+	// 32 MiB once unpacked.
+	ErrExpandedTooLarge = fmt.Errorf("tabular: the workbook is larger than %d MiB once unpacked", maxExpandedBytes>>20)
+	// ErrSheetTooLarge means a worksheet is larger than 8 MiB once unpacked.
+	// Sheets above that size are not supported: a roster is under 1 MiB, and a
+	// sheet formatted far below its data is a reason to copy the rows into a
+	// new workbook.
+	ErrSheetTooLarge = fmt.Errorf("tabular: a worksheet is larger than %d MiB once unpacked", maxWorksheetBytes>>20)
+	// ErrPartTooLarge means a part of the workbook other than a worksheet, its
+	// styles, shared strings or calculation chain, is larger than 1 MiB once
+	// unpacked (2 MiB for the shared strings).
+	ErrPartTooLarge = errors.New("tabular: a part of the workbook other than a worksheet is larger than the limit")
+	// ErrLayout means the workbook keeps its parts where this reader does not
+	// look: the workbook at xl/workbook.xml and the worksheets under
+	// xl/worksheets/, which is where Excel, LibreOffice and the common libraries
+	// put them. It wraps ErrFormat.
+	ErrLayout = fmt.Errorf("%w: the workbook does not use the standard layout (%s and xl/worksheets/)", ErrFormat, workbookPart)
 	// ErrTooManyRows means the table holds more data rows than the limit.
 	ErrTooManyRows = errors.New("tabular: the table has more rows than the limit")
 	// ErrTooManyColumns means a row uses more columns than the limit.
@@ -102,19 +121,22 @@ type Table struct {
 // evaluated. A CSV file must be UTF-8, with an optional byte-order mark, and is
 // split at commas or semicolons, whichever its first line holds more of; a
 // record of more than 16,384 fields is refused before it is parsed. A workbook
-// is inspected and checked before excelize decodes any of it. It is refused
-// when it holds more than 1,000 archive entries or expands past 32 MiB, when a
-// worksheet is larger than 8 MiB, when another XML part is larger than 1 MiB (2
-// MiB for the shared strings), or when it carries macros or a password. Every
-// part the reader uses (the worksheets, the workbook and its relationships, the
-// shared strings, the styles, the calculation chain and the theme) is then read
-// through to its end, so a part that is truncated, fails its checksum, differs
-// from its declared size or is not well-formed XML is an error and never a
-// shorter table. Such a part is also refused when it declares a document type,
-// nests elements more than 64 deep, has a start tag longer than 64 KiB, or, in
-// a worksheet, has a row number outside the sheet or more than 16,384 cells in
-// a row. A part saved as UTF-16 is not readable. Every refusal wraps one of
-// this package's errors.
+// is inspected and checked before excelize decodes any of it. It must keep the
+// workbook at xl/workbook.xml and its worksheets under xl/worksheets/, as Excel
+// and LibreOffice do, or it is ErrLayout. It is refused when it holds more than
+// 1,000 archive entries (ErrTooManyEntries) or expands past 32 MiB
+// (ErrExpandedTooLarge), when a worksheet is larger than 8 MiB
+// (ErrSheetTooLarge) or another XML part is larger than 1 MiB, 2 MiB for the
+// shared strings (ErrPartTooLarge), or when it carries macros or a password.
+// Every part the reader uses (the worksheets, the workbook and its
+// relationships, the shared strings, the styles, the calculation chain and the
+// theme) is then read through to its end, so a part that is truncated, fails
+// its checksum, differs from its declared size or is not well-formed XML is an
+// error and never a shorter table. Such a part is also refused when it declares
+// a document type, nests elements more than 64 deep, has a start tag longer
+// than 64 KiB, has a row number outside the sheet, or has a row of more than
+// 16,384 cells. A part saved as UTF-16 is not readable. Every refusal wraps one
+// of this package's errors.
 func ReadTable(r io.ReaderAt, size int64, format Format, limits Limits) (*Table, error) {
 	if limits.Bytes < 1 || limits.Rows < 1 || limits.Columns < 1 || limits.CellChars < 1 {
 		return nil, errors.New("tabular: every limit must be positive")

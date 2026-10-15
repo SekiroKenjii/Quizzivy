@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/flate"
+	"errors"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -24,6 +25,23 @@ const (
 type entry struct {
 	name string
 	body string
+}
+
+var sizeSentinels = []error{
+	tabular.ErrTooLarge,
+	tabular.ErrTooManyEntries,
+	tabular.ErrExpandedTooLarge,
+	tabular.ErrSheetTooLarge,
+	tabular.ErrPartTooLarge,
+}
+
+func wantSizeError(t *testing.T, err, want error) {
+	t.Helper()
+	for _, sentinel := range sizeSentinels {
+		if got := errors.Is(err, sentinel); got != (sentinel == want) {
+			t.Errorf("errors.Is(err, %q) = %v for %v, want only %q", sentinel, got, err, want)
+		}
+	}
 }
 
 func read(t *testing.T, data []byte, format tabular.Format, limits tabular.Limits) ([]string, []tabular.Row, error) {
