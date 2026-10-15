@@ -8,7 +8,11 @@ const ALLOWED_FILES = new Set([
   "app/LegacyTeacherRedirect.tsx",
   "lib/api/schema.d.ts",
 ]);
-const ALLOWED_LITERALS = new Set(["/admin/docs-session", "/admin/users/{id}"]);
+const ALLOWED_LITERALS = new Set([
+  "/admin/docs-session",
+  "/admin/users/{id}",
+  "/admin/settings/sign-in",
+]);
 const LITERAL = /(["'`])(\/admin(?=[/"'`?#$]|$)[^"'`]*)/gi;
 
 function sources(dir: string): string[] {
@@ -73,6 +77,8 @@ describe("the teacher's routes live at /teacher", () => {
       "one beside an API path",
     ],
     ["const to = `/admin", "a template left open on its line"],
+    ['<Link to="/admin/settings/sign-in/extra">', "longer than the settings route"],
+    ['<Link to="/admin/settings">', "the settings route without its section"],
   ])("would be caught: %s (%s)", (line) => {
     expect(offenders("features/x/Planted.tsx", line)).toEqual([
       `features/x/Planted.tsx:1: ${line}`,
@@ -82,6 +88,7 @@ describe("the teacher's routes live at /teacher", () => {
   it.each([
     ['api("post", "/admin/docs-session")', "the docs session"],
     ['api("delete", "/admin/users/{id}", { path: { id } })', "removing a user"],
+    ['<Link to="/admin/settings/sign-in">', "the Admin console's sign-in settings"],
     ['<Link to="/teacher/tests">', "the new address"],
     ['<Link to="/administrator">', "a longer word"],
     ['<Link to="/admin-console">', "a longer segment"],

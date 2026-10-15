@@ -280,6 +280,35 @@ describe("the class's head", () => {
     expect(screen.getByRole("button", { name: "Thêm học viên" })).toBeVisible();
   });
 
+  it("puts the joining-off callout on a row of its own above the cards, not among them", async () => {
+    server.use(
+      http.get(`${BASE}/public/organization`, () =>
+        contractJson("/public/organization", "get", 200, {
+          name: "Quizzivy",
+          shortName: null,
+          website: null,
+          contactEmail: null,
+          frontDeskPhone: null,
+          frontDeskHours: null,
+          address: null,
+          logo: { lightUrl: null, darkUrl: null },
+          signIn: { google: true, password: true },
+          joinCodes: false,
+        }),
+      ),
+    );
+    renderDetail();
+    const callout = (await screen.findAllByText(/Trung tâm đang tắt tham gia bằng mã/))
+      .map((node) => node.closest<HTMLElement>("[class*=bg-warning-soft]"))
+      .find(Boolean);
+    const panel = screen.getByRole("region", { name: "Mã tham gia" });
+    expect(callout).toBeTruthy();
+    expect(callout?.parentElement).not.toBe(panel.parentElement);
+    expect(
+      callout!.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("says a class it cannot read is not found", async () => {
     server.use(
       http.get(`${BASE}/teacher/classes/${CLASS_ID}`, () =>

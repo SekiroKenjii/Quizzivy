@@ -790,7 +790,8 @@
     "addCount_one": "Add {{count}}",
     "addCount_other": "Add {{count}}",
     "expiresIn_one": "· in {{count}} day",
-    "expiresIn_other": "· in {{count}} days"
+    "expiresIn_other": "· in {{count}} days",
+    "codeInactive": "Inactive"
   },
   "classes": {
     "loadFailed": "Could not load classes.",
@@ -848,7 +849,8 @@
     "maskedCode": "••••-{{hint}}",
     "codeState": {
       "expired": "Expired",
-      "usedUp": "Used up"
+      "usedUp": "Used up",
+      "off": "Inactive"
     },
     "noCode": "No join code",
     "createCode": "Create code",
@@ -877,7 +879,10 @@
     "codeRenewedWith": "New join code: {{code}}",
     "newCodeFailed": "Could not make a new join code.",
     "codesReplaced": "Your classes' join codes were replaced on {{date}}. Share the new ones with your students.",
-    "joinCodesOff": "Your centre has turned off joining with a code."
+    "joinCodesOff": "Your centre has turned off joining with a code.",
+    "joinCodesOffOpen": "Open sign-in settings",
+    "joinCodesOffAsk": "Ask your admin.",
+    "pageLeadOff": "Teachers add students to their classes."
   },
   "settings": {
     "profile": "Profile",

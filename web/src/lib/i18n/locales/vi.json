@@ -790,7 +790,8 @@
     "addCount_one": "Thêm {{count}}",
     "addCount_other": "Thêm {{count}}",
     "expiresIn_one": "· còn {{count}} ngày",
-    "expiresIn_other": "· còn {{count}} ngày"
+    "expiresIn_other": "· còn {{count}} ngày",
+    "codeInactive": "Không hoạt động"
   },
   "classes": {
     "loadFailed": "Không tải được danh sách lớp.",
@@ -848,7 +849,8 @@
     "maskedCode": "••••-{{hint}}",
     "codeState": {
       "expired": "Hết hạn",
-      "usedUp": "Hết lượt"
+      "usedUp": "Hết lượt",
+      "off": "Không hoạt động"
     },
     "noCode": "Chưa có mã tham gia",
     "createCode": "Tạo mã",
@@ -877,7 +879,10 @@
     "codeRenewedWith": "Mã tham gia mới: {{code}}",
     "newCodeFailed": "Không tạo được mã tham gia mới.",
     "codesReplaced": "Mã tham gia của các lớp đã được thay ngày {{date}}. Hãy gửi mã mới cho học viên.",
-    "joinCodesOff": "Trung tâm đang tắt tham gia bằng mã."
+    "joinCodesOff": "Trung tâm đang tắt tham gia bằng mã.",
+    "joinCodesOffOpen": "Mở cài đặt đăng nhập",
+    "joinCodesOffAsk": "Hãy hỏi quản trị viên.",
+    "pageLeadOff": "Giáo viên thêm học viên vào lớp."
   },
   "settings": {
     "profile": "Hồ sơ",
