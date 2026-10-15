@@ -10759,6 +10759,12 @@ paths:
         is held against edits from the check to the commit; if it changed in
         between, the check is made again, up to three times.
 
+        `fullName` is composed to NFC, trimmed, and each run of white space is
+        one space. A name that is then empty, longer than 200 characters, holds
+        a control, format, bidirectional or filler character or a code point
+        that is unassigned, or holds no letter, digit, punctuation mark or
+        symbol, is refused with `VALIDATION_FAILED` naming `fullName`.
+
         `delivery: email_link` sets no password and enqueues a set-password
         link (an invite) in the same transaction as the account, so the account
         and its message exist together or not at all. While the centre has

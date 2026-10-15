@@ -3,10 +3,11 @@ package command
 import (
 	"context"
 	"errors"
+	"fmt"
 	accessquery "quizzivy/internal/modules/access/application/query"
 	"quizzivy/internal/modules/identity/application/internal/support"
 	"quizzivy/internal/modules/identity/domain"
-	"quizzivy/internal/shared/content"
+	"quizzivy/internal/shared/validation"
 )
 
 // CreateUser adds an account of any role the caller may give. Input carries
@@ -28,23 +29,25 @@ type CreateUserHandler struct {
 	*support.Admin
 }
 
-// Handle fails with the access module's ErrRoleNotFound, ErrNotAssignable and
-// ErrTargetRoleNotAllowed for a role the caller may not give, whether the role
-// was that way when the call began or became so while it ran, with
-// domain.ErrClassNotAllowed for a class given to a role that is not a student
-// target or by a caller without scope.all, with domain.ErrClassNotFound,
-// domain.ErrEmailTaken, domain.ErrPasswordSignInDisabled for a temporary
-// password while password sign-in is off, and domain.ErrSetPasswordUnavailable
-// for an email link on a server that cannot send one, and with
-// domain.ErrRoleChanged when the role changed three times while the account
-// was being created. A refusal writes nothing.
+// Handle fails with a *validation.Error naming fullName for a name that
+// domain.CleanFullName refuses, with the access module's ErrRoleNotFound,
+// ErrNotAssignable and ErrTargetRoleNotAllowed for a role the caller may not
+// give, whether the role was that way when the call began or became so while
+// it ran, with domain.ErrClassNotAllowed for a class given to a role that is
+// not a student target or by a caller without scope.all, with
+// domain.ErrClassNotFound, domain.ErrEmailTaken,
+// domain.ErrPasswordSignInDisabled for a temporary password while password
+// sign-in is off, and domain.ErrSetPasswordUnavailable for an email link on a
+// server that cannot send one, and with domain.ErrRoleChanged when the role
+// changed three times while the account was being created. A refusal writes
+// nothing.
 func (h CreateUserHandler) Handle(ctx context.Context, cmd CreateUser) (CreateUserResult, error) {
 	in, req := cmd.Input, cmd.Request
-	var c content.Composer
-	in.FullName = c.Text("fullName", in.FullName, domain.MaxFullNameLength)
-	if err := c.Err(); err != nil {
-		return CreateUserResult{}, err
+	name, fault, hidden := domain.CleanFullName(in.FullName)
+	if fault != domain.FullNameOK {
+		return CreateUserResult{}, fullNameRefusal(fault, hidden)
 	}
+	in.FullName = name
 	if !in.Delivery.Valid() {
 		return CreateUserResult{}, errors.New("create user: unknown delivery")
 	}
@@ -112,4 +115,19 @@ func (h CreateUserHandler) give(ctx context.Context, req domain.WriteRequest, in
 	}
 	in.RoleName, in.RoleRevision = role.Name, role.Revision
 	return nil
+}
+
+func fullNameRefusal(fault domain.FullNameFault, hidden rune) *validation.Error {
+	var refused validation.Error
+	switch fault {
+	case domain.FullNameEmpty:
+		refused.Add("fullName", "Họ và tên không được để trống.")
+	case domain.FullNameTooLong:
+		refused.Add("fullName", fmt.Sprintf("Nội dung không được dài quá %d ký tự.", domain.MaxFullNameLength))
+	case domain.FullNameHidden:
+		refused.Add("fullName", fmt.Sprintf("Họ và tên không được chứa ký tự điều khiển hoặc ký tự vô hình (U+%04X).", hidden))
+	default:
+		refused.Add("fullName", "Họ và tên phải có ít nhất một chữ cái, chữ số, dấu câu hoặc ký hiệu.")
+	}
+	return &refused
 }
