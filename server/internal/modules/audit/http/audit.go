@@ -55,7 +55,7 @@ func (h Audit) ListAuditLog(ctx context.Context, request openapi.ListAuditLogReq
 	}
 	items := make([]openapi.AuditEntry, len(result.Entries))
 	for i, entry := range result.Entries {
-		items[i] = toAPIEntry(entry)
+		items[i] = ToAPIEntry(entry)
 	}
 	return openapi.ListAuditLog200JSONResponse{
 		Items: items, Facets: toAPIFacets(result.Facets),
@@ -126,7 +126,8 @@ func toAPIFacets(f domain.Facets) openapi.AuditCategoryFacets {
 	}
 }
 
-func toAPIEntry(e domain.Entry) openapi.AuditEntry {
+// ToAPIEntry is the contract's AuditEntry for e: its actor, category, entity, device and changes as the audit log's list shows them.
+func ToAPIEntry(e domain.Entry) openapi.AuditEntry {
 	out := openapi.AuditEntry{
 		Id: e.ID, OccurredAt: e.OccurredAt, Action: e.Action, Ip: e.IP,
 		Entity:  openapi.AuditEntity{Type: e.EntityType, Label: e.Label},

@@ -74,7 +74,7 @@ conflict to know: the skill teaches the pre-18
 - Never remove or skip a failing test to make CI green. Fix it or flag it.
 - No new dependency without a stated reason in the PR description.
 - Never commit secrets. `.env.example` stays current; `.env` stays ignored.
-- **Never hand-edit generated code.** `server/gen/openapi/` and
+- **Never hand-edit generated code.** `server/gen/openapi/`, `server/gen/contract/` and
   `web/src/lib/api/schema.d.ts` come from `api/openapi.yaml`. Change the
   contract and run `make gen`. CI fails on drift.
 - **`attempt_events` and `audit_log` are append-only.** The app role has no
@@ -707,7 +707,19 @@ a stated default, in which case build the default and move on.
 
 ## Keeping documents current
 
-When a decision changes, edit the spec section and bump its version at the top
-(§18), then correct the affected plan file. A plan that disagrees with what was
-built is worse than no plan. In Phase R, the spec, this file and the plan
-change in the release that changes the behaviour, never batched at the end.
+When a decision changes, edit the spec section and record the change in the
+spec's changelog (§18), then correct the affected plan file. A plan that
+disagrees with what was built is worse than no plan. In Phase R, the spec, this
+file and the plan change in the release that changes the behaviour, never
+batched at the end.
+
+**The spec's version is numbered at release, not per PR.** On an integration
+branch (`develop`, `work/**`) a task PR never edits the version line. It adds its
+bullets under the one heading at the top of the changelog,
+`**Changes pending (R5, v0.12.0)**`, each bullet starting with its task id
+(`T-R5.15 §15 …`). The release PR sets the version line to the next free number
+and renames the heading `**Changes since v0.NNN**`, where NNN is the version the
+release replaces. A hotfix off `main` numbers
+itself, because it is its own release, and its back-merge carries the number
+down. Migration numbers and the `D-nn` ids of `docs/plan/20-data-model.md` are
+permanent ids, not a version, and keep the rule in `docs/team/README.md`.

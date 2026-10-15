@@ -337,9 +337,14 @@ CREATE INDEX audit_log_actor_idx
 `00133_index_audit_log_recency.sql` (R5, T-R5.12) adds the order the Admin audit log is read in:
 
 ```sql
-CREATE INDEX CONCURRENTLY IF NOT EXISTS audit_log_recent_idx
+DROP INDEX CONCURRENTLY IF EXISTS app.audit_log_recent_idx;
+CREATE INDEX CONCURRENTLY audit_log_recent_idx
   ON app.audit_log (occurred_at DESC, id DESC);
 ```
+
+The drop is there for a rerun: a build that is interrupted leaves the index INVALID and the file
+unrecorded, and `CREATE INDEX CONCURRENTLY IF NOT EXISTS` would find the name taken, build nothing
+and let goose record the file.
 
 Neither index above leads with the time, so without it every page sorts the whole range and the
 export's keyset batches `(occurred_at, id) < ($1, $2)` have no index to walk. `entity` is read from
@@ -3537,9 +3542,13 @@ moves every due row to the next local midnight, otherwise it claims up to 10 due
 LOCKED`, sends them `EMAIL_SEND_RATE` a second apart, and records each outcome in the same transaction. A
 sent row and a failed row lose `secret_ciphertext` in that statement. A transient failure backs off 1, 5
 and 15 minutes and then hourly; the tenth attempt, or any permanent failure, sets `failed_at`. A row whose
-secret cannot be opened, whose params no longer decode or which no longer renders fails closed with
-`secret_unreadable`, `params_unreadable` or `render_failed`. The timer is armed only for the earliest
-pending `deliver_after`, so an empty outbox never wakes the database.
+secret cannot be opened, whose params no longer decode (a wrong type; a field the binary does not know is
+ignored) or which no longer renders fails closed with `secret_unreadable`, `params_unreadable` or
+`render_failed`. A row of a template the binary does not send is not its row: the claim, the day's
+deferral and the timer all skip it, so it stays pending, secret and attempts intact, for the newer binary
+the API and the worker run side by side while a deploy rolls out. A release therefore never removes or
+renames a template while rows of it can be pending. The timer is armed only for the earliest pending
+`deliver_after` of a known template, so an empty outbox never wakes the database.
 
 **What is not here.** No rows are pruned yet; T-R5.16's daily housekeeping removes rows sent or failed more
 than 30 days ago. The app role has full DML on the table (it is not append-only: it is a queue).

@@ -146,13 +146,19 @@ the "one package per feature" layout AGENTS.md described until then.
   `EffectiveZone` in `core/wiring`.
 - **A table that enters the product is read by `tabular.ReadTable`** (T-R5.13),
   for CSV and for the first sheet of an XLSX workbook, under `Limits` (file
-  bytes, rows, columns, characters a cell). The workbook is inspected with
-  `archive/zip` before excelize opens it, because excelize reads every part it
-  is handed into memory and decodes several whole: it refuses more than 1,000
-  entries, more than 32 MiB expanded, an XML part other than a worksheet above
-  1 MiB (2 MiB for the shared strings), macros and a password. Formulas are
-  never evaluated. The caller closes the `Table`, which removes the temporary
-  files excelize writes for a sheet above 16 MiB.
+  bytes, rows, columns, characters a cell). A CSV record of more than 16,384
+  fields is refused before `encoding/csv` parses it. The workbook is inspected
+  with `archive/zip` before excelize opens it, because excelize reads every part
+  it is handed into memory and decodes several whole: it refuses more than 1,000
+  entries, more than 32 MiB expanded, a worksheet above 8 MiB, any other XML
+  part above 1 MiB (2 MiB for the shared strings), macros and a password. Every
+  part the reader uses is then read through to its end by a strict XML scan
+  (T-R5.13 follow-up, QC-A-1 to QC-A-3): a truncated part, a bad checksum, a
+  size that lies or malformed XML is `ErrFormat` and never a shorter table, and
+  nesting past 64 levels, a document type declaration, a start tag past 64 KiB,
+  a row number outside the sheet and more than 16,384 cells in a row are refused
+  before excelize sees the data. Formulas are never evaluated, and nothing is
+  written to disk: the caller closes the `Table` only to release the workbook.
 - **core is five packages.** `core/wiring` builds each module (one file per
   module, in dependency order) and returns the `Assembly`; `core/router`
   fronts the transports with the generated strict server, the middleware

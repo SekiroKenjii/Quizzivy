@@ -69,19 +69,23 @@ func TestTheLargestWorkbookTheLimitsAdmitStaysWithinMemory(t *testing.T) {
 	styles := `<styleSheet xmlns="` + spreadsheetNS + `"><cellXfs>` + strings.Repeat("<xf/>", 1<<20/5-60) + `</cellXfs></styleSheet>`
 	calcChain := `<calcChain xmlns="` + spreadsheetNS + `">` + strings.Repeat(`<c r="A1" i="1"/>`, 1<<20/17-20) + `</calcChain>`
 	shared := `<sst xmlns="` + spreadsheetNS + `">` + strings.Repeat("<si><t>x</t></si>", 2<<20/17-20) + `</sst>`
-	data := workbook(t, row(1, sharedString("A1", 0))+row(2, sharedString("A2", 1)), nil,
+	sheet := denseSheetRows(2001, worksheetSize-64<<10)
+	data := workbook(t, sheet, nil,
 		entry{name: "xl/styles.xml", body: styles},
 		entry{name: "xl/calcChain.xml", body: calcChain},
 		entry{name: "xl/sharedStrings.xml", body: shared})
-	var err error
+	var (
+		err  error
+		rows []tabular.Row
+	)
 
-	allocated := allocatedDuring(func() { _, _, err = read(t, data, tabular.FormatXLSX, tabular.DefaultLimits()) })
+	allocated := allocatedDuring(func() { _, rows, err = read(t, data, tabular.FormatXLSX, tabular.DefaultLimits()) })
 
-	if err != nil {
-		t.Fatalf("a workbook at the part limits was refused: %v", err)
+	if err != nil || len(rows) != 2000 {
+		t.Fatalf("a workbook at the part limits: %d rows, err = %v, want 2000 rows read", len(rows), err)
 	}
-	t.Logf("a %d byte workbook whose styles, calc chain and shared strings are at their limits allocated %.1f MiB to read", len(data), float64(allocated)/(1<<20))
-	if allocated > 512<<20 {
-		t.Errorf("reading it allocated %d bytes, want under 512 MiB", allocated)
+	t.Logf("a %d byte workbook whose sheet, styles, calc chain and shared strings are at their limits allocated %.1f MiB to read", len(data), float64(allocated)/(1<<20))
+	if allocated > 768<<20 {
+		t.Errorf("reading it allocated %d bytes, want under 768 MiB", allocated)
 	}
 }

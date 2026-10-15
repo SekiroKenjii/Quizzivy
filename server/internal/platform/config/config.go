@@ -53,6 +53,7 @@ type Config struct {
 	SecretsKey  []byte
 	AppLocation *time.Location
 	Email       Email
+	Plan        Plan
 
 	AI AI
 }
@@ -116,6 +117,9 @@ func Load() (Config, error) {
 		return cfg, err
 	}
 	if err := loadEmailGroup(&cfg); err != nil {
+		return cfg, err
+	}
+	if err := loadPlan(&cfg); err != nil {
 		return cfg, err
 	}
 

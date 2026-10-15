@@ -16,6 +16,7 @@ import (
 )
 
 type store struct {
+	domain.AdminRepository
 	t        *testing.T
 	home     domain.HomeQuery
 	scope    access.Scope
