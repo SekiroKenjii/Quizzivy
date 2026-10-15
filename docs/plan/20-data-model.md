@@ -1240,6 +1240,14 @@ the portion of the timeline the teacher most wants: what happened *after* the
 student came back. Adding `session_id` to the key scopes the sequence to the
 session that generated it, which is what `clientSeq` always meant.
 
+The server writes three kinds itself, each with a NULL `client_seq`: `start`
+(once, under an attempt's first session, at `started_at`), `resume` and
+`session_takeover`. `start` gives a first session a row, so a flush that names
+it after another device took over is known to `Flush` (D-025). The liveness
+query excludes all three; its predicate is stricter than the partial index's,
+which excludes the last two, so the index still serves it and no migration
+changes.
+
 Inserts additionally use `ON CONFLICT (attempt_id, session_id, client_seq) DO
 NOTHING`, so a retried `sendBeacon` (which cannot report success, and so is
 retried on the next flush) cannot fail a whole batch on one duplicate row.

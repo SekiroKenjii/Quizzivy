@@ -98,6 +98,15 @@ type Event struct {
 	Meta       []byte
 }
 
+// PlayInput identifies one play of a question's own audio. An empty SessionID
+// asks only that the attempt can still be written.
+type PlayInput struct {
+	AttemptID  string
+	StudentID  string
+	QuestionID string
+	SessionID  string
+}
+
 // Plays is what the client renders "còn N lượt nghe" from.
 type Plays struct {
 	Plays    int

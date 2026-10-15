@@ -35,7 +35,7 @@ type IntegrityEvent struct {
 	Kind       string
 	OccurredAt time.Time
 	ReceivedAt time.Time
-	// ClientSeq is nil for a server-written event (`resume`, `session_takeover`).
+	// ClientSeq is nil for a server-written event (`start`, `resume`, `session_takeover`).
 	ClientSeq  *int
 	SessionID  string
 	QuestionID *string
@@ -204,7 +204,7 @@ func timelineBefore(a, b IntegrityEvent, began map[string]time.Time) bool {
 
 func timelinePlace(e IntegrityEvent) int {
 	switch e.Kind {
-	case "resume":
+	case "start", "resume":
 		return 0
 	case "session_takeover":
 		return 2

@@ -164,8 +164,10 @@ func (s *Postgres) Create(ctx context.Context, in domain.CreateInput) (domain.At
 		if rules, deadline, err = s.committedRules(ctx, tx, in); err != nil {
 			return err
 		}
-		out, err = insertAttempt(ctx, tx, in, rules.TestVersionID, deadline)
-		return err
+		if out, err = insertAttempt(ctx, tx, in, rules.TestVersionID, deadline); err != nil {
+			return err
+		}
+		return appendEvent(ctx, tx, out.ID, in.SessionID, domain.KindStart, in.StartedAt)
 	})
 	if err != nil {
 		return domain.AttemptRecord{}, domain.Rules{}, err
@@ -282,7 +284,7 @@ func sessionWasLive(ctx context.Context, q db.Querier, attemptID, sessionID stri
 		SELECT EXISTS (
 		  SELECT 1 FROM app.attempt_events
 		   WHERE attempt_id = $1::uuid AND session_id = $2::uuid
-		     AND kind NOT IN ('resume', 'session_takeover')
+		     AND kind NOT IN ('start', 'resume', 'session_takeover')
 		     AND received_at > $3
 		)`, attemptID, sessionID, now.Add(-domain.SessionLiveWindow)).Scan(&live)
 	if err != nil {

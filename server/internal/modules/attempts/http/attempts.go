@@ -378,15 +378,28 @@ func (h Attempts) RecordAudioPlay(ctx context.Context, request openapi.RecordAud
 		return nil, httpx.ErrNotImplemented
 	}
 
-	plays, err := h.app.Commands.RecordPlay.Handle(ctx, command.RecordPlay{AttemptID: request.Id.String(), StudentID: principal.UserID, QuestionID: request.Body.QuestionId.String()})
-	if errors.Is(err, domain.ErrForbidden) {
+	cmd := command.RecordPlay{AttemptID: request.Id.String(), StudentID: principal.UserID, QuestionID: request.Body.QuestionId.String()}
+	if request.Body.SessionId != nil {
+		cmd.SessionID = request.Body.SessionId.String()
+	}
+	plays, err := h.app.Commands.RecordPlay.Handle(ctx, cmd)
+	switch {
+	case errors.Is(err, domain.ErrForbidden):
 		return openapi.RecordAudioPlay403JSONResponse{
 			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
 				httpapi.Error(ctx, openapi.FORBIDDEN, httpx.Text(ctx,
 					"Bạn không có quyền nghe câu hỏi này.", "You do not have permission to listen to this question."))),
 		}, nil
-	}
-	if err != nil {
+	case errors.Is(err, domain.ErrSessionSuperseded):
+		return openapi.RecordAudioPlay409JSONResponse(httpapi.Error(ctx, openapi.SESSIONSUPERSEDED,
+			httpx.Text(ctx, "Bài làm này đã được mở ở nơi khác.", "This attempt was opened somewhere else."))), nil
+	case errors.Is(err, domain.ErrDeadlinePassed):
+		return openapi.RecordAudioPlay409JSONResponse(httpapi.Error(ctx, openapi.DEADLINEPASSED,
+			httpx.Text(ctx, "Đã hết giờ làm bài.", "Time is up."))), nil
+	case errors.Is(err, domain.ErrAttemptClosed):
+		return openapi.RecordAudioPlay409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTCLOSED,
+			httpx.Text(ctx, "Bài làm này đã kết thúc.", "This attempt has ended."))), nil
+	case err != nil:
 		return nil, err
 	}
 	return openapi.RecordAudioPlay200JSONResponse{
@@ -428,6 +441,11 @@ func (h Attempts) FlushEvents(ctx context.Context, request openapi.FlushEventsRe
 
 			return forbiddenFlush(ctx), nil
 		}
+		if !clientSeqsInRange(body.Events) {
+			return openapi.FlushEvents400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+				httpapi.Error(ctx, openapi.VALIDATIONFAILED, httpx.Text(ctx,
+					"Số thứ tự của sự kiện nằm ngoài phạm vi cho phép.", "An event's clientSeq is out of range.")))}, nil
+		}
 		in.BeaconToken = body.BeaconToken
 		in.SessionID = body.SessionID.String()
 		events, err := toDomainEvents(&body.Events)
@@ -448,6 +466,15 @@ func (h Attempts) FlushEvents(ctx context.Context, request openapi.FlushEventsRe
 		return nil, err
 	}
 	return openapi.FlushEvents202Response{}, nil
+}
+
+func clientSeqsInRange(events []openapi.IntegrityEventInput) bool {
+	for _, e := range events {
+		if e.ClientSeq < 0 || e.ClientSeq > domain.MaxClientSeq {
+			return false
+		}
+	}
+	return true
 }
 
 func forbiddenFlush(ctx context.Context) openapi.FlushEvents403JSONResponse {

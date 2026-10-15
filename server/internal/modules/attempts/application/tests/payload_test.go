@@ -202,8 +202,8 @@ func TestFetchingThePayloadDoesNotSupersedeTheSession(t *testing.T) {
 	if fetched.SessionID != started.SessionID {
 		t.Errorf("session changed on a read: %s then %s", started.SessionID, fetched.SessionID)
 	}
-	if got := eventKinds(t, pool, started.Attempt.ID); len(got) != 0 {
-		t.Errorf("a read wrote %v to the timeline", got)
+	if got := eventKinds(t, pool, started.Attempt.ID); len(got) != 1 || got[0] != domain.KindStart {
+		t.Errorf("a read wrote to the timeline: %v, want only the start", got)
 	}
 }
 

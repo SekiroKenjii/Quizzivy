@@ -412,6 +412,20 @@ Issue #353; round 5 question 5.
 
 ---
 
+### O-30 — May a superseded tab or an ended attempt play question audio? · round 5 — **RESOLVED**
+**Resolved (D-005, 2026-10-14):** no new grant. A question's play goes through the
+same write lock as an answer and a shared recording's play: a session that is not
+current answers `409 SESSION_SUPERSEDED`, an attempt not in progress
+`409 ATTEMPT_CLOSED`, and a play past the deadline `409 DEADLINE_PASSED`. None is
+counted and the client does not retry. Review playback after submit stays
+unlimited and uncounted. Issue #370, step 2.
+
+The request's `sessionId` is optional for one release, so an older client keeps
+counting; a play without it is checked for status and deadline only. A later
+release can make it required.
+
+---
+
 ### O-12 — Dark mode · post-v1 — **RESOLVED**
 **Resolved:** dark mode shipped in R1 (v0.7.0): the deck's tokens in both themes, the
 `quizzivy.theme` preference, and `web/public/boot.js` applying the theme before paint. The

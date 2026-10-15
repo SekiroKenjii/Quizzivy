@@ -2290,6 +2290,7 @@ Every signal produces an append-only event `{ kind, occurredAt, clientSeq, quest
 | `context_menu` | `contextmenu` | Recorded; blocking off by default (it breaks assistive tooling). |
 | `network_offline` / `network_online` | `navigator.onLine` + fetch failures | Distinguishes cheating from bad wifi. Matters for fairness. |
 | `audio_play` / `audio_ended` / `audio_blocked` / `audio_seek` | player (§11.4) | Gives the teacher listening behaviour. `audio_seek` is a jump the player put back on a recording that may not be skipped. The events only report: a question's play is counted by `POST /app/attempts/:id/audio-play`. |
+| `start` | server-side | The attempt began. Written once, under the first session, at `startedAt`; it only gives that session a first row, so a flush it makes later is known to the server. It is no evidence that the tab is open. |
 | `resume` | server-side | Re-entry into an `in_progress` attempt: reload, crash, device change. |
 | `session_takeover` | server-side | Attempt opened in another tab/device. |
 | `page_hide` | `pagehide` | Best-effort final flush via `navigator.sendBeacon`. |
@@ -2338,7 +2339,7 @@ What the teacher sees, by D8 (R4). One tone marks "Flagged" everywhere, the dang
 `/teacher/attempts/:id` → **Integrity** tab: ordered timeline with event kind, wall-clock time, offset from attempt start, duration for paired events, and the question on screen. Summary strip: total away-time, away episodes ≥ `minAwayMs`, paste count, resume count, audio replays. Neutral text — no red banners, no "CHEATING DETECTED". The teacher judges; the app reports. An audio play with no recorded end shows no duration and is not called ongoing.
 
 Sessions are ordered by their earliest `receivedAt`, with `sessionId` breaking
-ties. Within a session, `resume` comes first and `session_takeover` last.
+ties. Within a session, `start` and `resume` come first and `session_takeover` last.
 Within each priority, two events with different non-null `clientSeq` values
 compare by `clientSeq`; otherwise by `occurredAt` and then event id. This order
 is not a guarantee of wall-clock chronology across tabs or sessions.
@@ -2382,7 +2383,13 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
   Cross-tab chronology and uniqueness are not guaranteed. Older builds still
   send counters from zero, which the server accepts. The append-only dedup
   key remains `(attempt, session, clientSeq)`; a repeated key is treated as a
-  retry and not stored.
+  retry and not stored. A `clientSeq` above 2,147,483,647 or below 0 answers
+  `400` on every path that takes events, the beacon included, and writes nothing.
+- A flush names the session it was written under. The server accepts the
+  attempt's current session, or one that began with a `start` or `resume` and
+  so has a row of its own (a superseded tab finishing its flush), and answers `403 FORBIDDEN`
+  for any other id without writing. A flush never changes which session is
+  current.
 - Failed background event flushes do not block answering or manual submission.
   The immediate `auto_submit` policy retries its final answer/event batch before
   confirming submission so the violation is retained with the answers.
@@ -2454,6 +2461,7 @@ The obvious client-side counter resets on reload, which makes the limit meaningl
 
 - A play is spent when playback starts and no play is in progress: from 0:00, or after the recording ended. A resume after a pause spends none. With seeking allowed, moving inside a play in progress spends nothing. A remembered place (§11.3) is put back once the element has its metadata, and the no-seek guard is told the new position first, so a restore is never reported as a blocked seek. If playback then runs more than 0.5s short of the remembered point (the browser refused the seek, or the metadata never came), the start is counted as a play after all and the place forgotten: a place that cannot be put back is never free.
 - Each play calls `POST /app/attempts/:id/audio-play`; the server increments `attempt_audio_plays (attempt_id, question_id, plays)` and the count is returned in `GET /app/attempts/:id` as `audioPlays`. The `audio_play` event the player records beside it (§10.6) only reports the play and changes no count.
+- A play is written like an answer: it is counted only while the attempt is in progress, before its deadline, and from its current session. The request names the `sessionId` it was started under, and a play from a session another tab has replaced answers `409 SESSION_SUPERSEDED`, one on a closed attempt `409 ATTEMPT_CLOSED`, and one past the deadline `409 DEADLINE_PASSED`; none is counted, and the client neither counts nor retries on them. `sessionId` is optional for one release, and a play without it is checked for status and deadline only. Review playback after submit stays unlimited and uncounted.
 - Client renders remaining plays from the server value, optimistically decrements on play, and reconciles on the next fetch.
 - Playback is **optimistic**: a failed event POST does not block the audio. A student who goes offline to farm replays will show a gap in the event log, which is exactly what the integrity timeline is for. Blocking playback on a network round-trip would punish bad wifi far more often than it would catch anyone.
 - On submit, the server rejects nothing based on play count. Over-limit plays are reported to the teacher, not enforced retroactively.
@@ -3298,7 +3306,7 @@ GET    /app/attempts/:id                → Attempt + questions + serverTime + a
                                        and an empty beacon token, without a write
 PATCH  /app/attempts/:id/answers        {sessionId,answers:[...],events:[...]} → {savedAt, serverTime, deadlineAt}
 POST   /app/attempts/:id/events         standalone flush (sendBeacon path)
-POST   /app/attempts/:id/audio-play     {questionId} → {plays, maxPlays}
+POST   /app/attempts/:id/audio-play     {questionId,sessionId?} → {plays, maxPlays}; 409 SESSION_SUPERSEDED | ATTEMPT_CLOSED | DEADLINE_PASSED
 POST   /app/attempts/:id/submit         idempotent; 409 if already closed; 409 DEADLINE_NOT_REACHED
                                           {deadlineAt} for timer_expired more than 5 s early
 GET    /app/attempts/:id/result         → Attempt + review policy + sections + questions,
