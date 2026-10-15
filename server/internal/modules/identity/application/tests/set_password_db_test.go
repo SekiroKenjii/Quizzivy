@@ -25,6 +25,7 @@ import (
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/platform/email"
 	"quizzivy/internal/platform/secrets"
+	"quizzivy/internal/shared/access"
 )
 
 const (
@@ -54,10 +55,11 @@ type dbLinks struct {
 	admin   *pgxpool.Pool
 	sealer  *secrets.Sealer
 	outbox  *email.Outbox
-	links   *repositories.SetPasswordLinks
-	app     *application.Application
-	forgets *committedForgets
-	marker  string
+	links    *repositories.SetPasswordLinks
+	students *repositories.Students
+	app      *application.Application
+	forgets  *committedForgets
+	marker   string
 }
 
 func newDBLinks(t *testing.T) *dbLinks {
@@ -78,6 +80,7 @@ func newDBLinks(t *testing.T) *dbLinks {
 	w := &dbLinks{admin: admin, sealer: sealer, outbox: email.NewOutbox(sealer), marker: "link" + nonce(t) + ".example.test"}
 	dbx := db.NewContext(appdb)
 	w.links = repositories.NewSetPasswordLinks(dbx, w.outbox)
+	w.students = repositories.NewStudents(dbx)
 	w.app = application.New(repositories.NewUsers(dbx), issuer, 30*24*time.Hour, nil, nil)
 	w.app.SetPasswordLinks(w.links)
 	w.forgets = &committedForgets{pool: admin, calls: map[string][]accountState{}}
@@ -215,6 +218,14 @@ func (w *dbLinks) state(t *testing.T, id string) accountState {
 func (w *dbLinks) use(token, password string) error {
 	_, err := w.app.Commands.SetPasswordWithLink.Handle(context.Background(), command.SetPasswordWithLink{Token: token, NewPassword: password, UserAgent: "link-db-test", IP: "203.0.113.7"})
 	return err
+}
+
+func (w *dbLinks) setDisabled(t *testing.T, actor, student string, disabled bool) {
+	t.Helper()
+	req := domain.WriteRequest{ActorID: actor, All: true, Grants: access.NewSet(access.All()...)}
+	if _, err := w.students.Update(context.Background(), req, domain.StudentPatch{ID: student, Disabled: &disabled, Now: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func (w *dbLinks) usable(token string) bool {
@@ -492,6 +503,62 @@ func TestADisabledAccountsLinkIsInvalidAndStaysUnused(t *testing.T) {
 	}
 	if after := w.state(t, student); after != before {
 		t.Errorf("a refused claim changed the account: %+v became %+v", before, after)
+	}
+}
+
+func TestDisablingAnAccountRevokesItsLinksAndEnablingItRestoresNone(t *testing.T) {
+	w := newDBLinks(t)
+	admin, student := w.account(t, "qt", true), w.account(t, "hs", true)
+	if _, err := w.issue(t, student, domain.LinkReset, admin, false); err != nil {
+		t.Fatal(err)
+	}
+	token := w.lastMail(t, student).token
+
+	w.setDisabled(t, admin, student, true)
+
+	if w.usable(token) {
+		t.Error("the check read a link of a disabled account as usable")
+	}
+	rows := w.rows(t, student)
+	if len(rows) != 1 || rows[0].RevokedAt == nil || rows[0].UsedAt != nil {
+		t.Fatalf("rows after the disable = %+v, want one link revoked and unused", rows)
+	}
+
+	w.setDisabled(t, admin, student, false)
+
+	if w.usable(token) {
+		t.Error("enabling the account made its old link usable again")
+	}
+	if err := w.use(token, linkNewPassword); !errors.Is(err, domain.ErrSetPasswordLinkInvalid) {
+		t.Errorf("using the old link after enabling: %v, want ErrSetPasswordLinkInvalid", err)
+	}
+	if _, err := w.issue(t, student, domain.LinkReset, admin, false); err != nil {
+		t.Fatal(err)
+	}
+	if fresh := w.lastMail(t, student).token; !w.usable(fresh) {
+		t.Error("a link issued after enabling the account was refused")
+	}
+}
+
+func TestDisablingAnAccountLeavesAUsedLinkAsItWas(t *testing.T) {
+	w := newDBLinks(t)
+	admin, student := w.account(t, "qt", true), w.account(t, "hs", false)
+	if _, err := w.issue(t, student, domain.LinkInvite, admin, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.use(w.lastMail(t, student).token, linkNewPassword); err != nil {
+		t.Fatal(err)
+	}
+	before := w.rows(t, student)
+	if len(before) != 1 || before[0].UsedAt == nil {
+		t.Fatalf("rows after using the link = %+v, want one used link", before)
+	}
+
+	w.setDisabled(t, admin, student, true)
+
+	after := w.rows(t, student)
+	if len(after) != 1 || after[0].UsedAt == nil || !after[0].UsedAt.Equal(*before[0].UsedAt) || after[0].RevokedAt != nil {
+		t.Errorf("a link already used became %+v from %+v on a disable", after, before)
 	}
 }
 

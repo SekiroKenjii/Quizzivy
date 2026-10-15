@@ -100,6 +100,9 @@ func TestAnonymizationIsExplicitAtomicAndIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := tx.Exec(ctx, `INSERT INTO app.set_password_tokens(user_id,token_hash,purpose,created_at,expires_at) VALUES($1::uuid,sha256($1::text::bytea),'reset',now(),now() + interval '1 hour')`, student); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := maintenance.AnonymizeStudent(ctx, tx, student, false); err != nil {
 		t.Fatal(err)
 	}
@@ -119,6 +122,7 @@ func TestAnonymizationIsExplicitAtomicAndIdempotent(t *testing.T) {
 	err = tx.QueryRow(ctx, `SELECT password_hash IS NULL AND NOT must_change_password AND disabled_at IS NOT NULL
 	  AND email = 'anonymous-' || id::text || '@anonymous.invalid'
 	  AND NOT EXISTS(SELECT 1 FROM app.user_identities WHERE user_id=$1)
+	  AND NOT EXISTS(SELECT 1 FROM app.set_password_tokens WHERE user_id=$1)
 	  AND EXISTS(SELECT 1 FROM app.attempts WHERE id=$2)
 	  AND (SELECT count(id) FROM app.audit_log WHERE entity_id=$1 AND action='student.anonymized')=1
 	  FROM app.users WHERE id=$1`, student, attempt).Scan(&safe)

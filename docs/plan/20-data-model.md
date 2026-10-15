@@ -3639,10 +3639,13 @@ of the outbox row that carries it, which is cleared when the row is sent or fail
 
 **States.** A link is *usable* while `used_at` and `revoked_at` are NULL, `now < expires_at` and its account is
 not disabled. Every other state is one `domain.ErrSetPasswordLinkInvalid`, and the HTTP layer answers it as one
-`410 SET_PASSWORD_LINK_INVALID` with one body, so nothing says which state a link is in. A link is revoked by:
+`410 SET_PASSWORD_LINK_INVALID` with one body, so nothing says which state a link is in. A link is revoked by
 issuing another to the same account (`RevokeUnused`), using one (`Claim` revokes the account's other unused
-links), and nothing else; disabling an account makes its links unusable by the lookup (`AccountDisabled`) and
-the claim refuses it, without a write to the table.
+links), or disabling the account: `Students.Update` runs the same `revokeUnusedLinks` in the transaction that
+sets `disabled_at`, beside the revoke of the refresh families, and the anonymisation command deletes the rows.
+Enabling the account again issues nothing, so a disable then an enable within 24 hours leaves the old link
+revoked and an Admin sends a new one through Reset. The lookup's `AccountDisabled` check and the claim's
+`disabled_at IS NULL` stay as the second line, for a link issued in the instant before a disable.
 
 **Issuing.** `IssueSetPasswordLink` is a command other commands call with a `domain.LinkTx`, the writes of one
 transaction the caller owns: `Recipient`, `RevokeUnused`, `Insert`, `EndSessions`, `Enqueue`, `Audit` and
