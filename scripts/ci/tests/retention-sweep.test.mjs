@@ -45,6 +45,14 @@ test('the credential is the production-maintenance environment secret, set on th
   assert.match(workflow, /permissions:\n\s+contents: read\n/);
 });
 
+test('the workflow runs only GitHub\'s own actions, since a third-party one must be pinned to a commit and this holds a credential', () => {
+  const uses = [...workflow.matchAll(/^\s*-?\s*uses:\s*(\S+)/gm)].map((match) => match[1]);
+  assert.ok(uses.length >= 2);
+  for (const action of uses) {
+    assert.match(action, /^actions\/[a-z-]+@v\d+$/);
+  }
+});
+
 test('no run script interpolates an expression, so an input cannot inject a command', () => {
   const scripts = runScripts();
   assert.ok(scripts.length >= 2);

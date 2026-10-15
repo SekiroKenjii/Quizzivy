@@ -3847,12 +3847,19 @@ everyone else, and the first role-world run of the accounts step failed on exact
 anywhere. Down revokes every grant the role holds in the schema, the sequences and `USAGE` on both schemas. The `CONNECTION LIMIT` is cluster-wide, so
 the command's pool is capped at two and the tests that connect as the role do not run at the same time.
 
+**Which answers are due (D-035).** `shared/retention.EndedBefore` over `AttemptJoins` reads an attempt's own
+student's close, `greatest(least(closed_at, closes_at), assignment_student_overrides.closes_at)`
+(`schedule.CloseOf("o")`), so an assignment reopened for one student does not lose that student's answers while it
+is open to them. The events step keeps `coalesce(closed_at, closes_at)` on the assignment, as the 00029 command did.
+Anonymisation clears `users.avatar_key` and does not delete the photo object, which T-R5.16's housekeeping removes
+for anonymised accounts (`email = 'anonymous-' || id || '@anonymous.invalid'`).
+
 | Table | Privilege | Columns | Used by |
 |---|---|---|---|
 | `organization_settings` | `SELECT` | the three retention columns | the sweep, `retain-integrity` |
 | `attempts` | `SELECT`, `UPDATE` | `id, assignment_id, student_id, status, submitted_at, deadline_at`; `deadline_at` | the sweep and `anonymize-user` read; `window-schedule` extends |
 | `assignments` | `SELECT`, `UPDATE` | `id, created_by, published_at, closed_at, closes_at`; `closes_at` | the same |
-| `assignment_student_overrides` | `SELECT`, `UPDATE` | `assignment_id, student_id, closes_at`; `closes_at` | `window-schedule` (T-R4.12b) |
+| `assignment_student_overrides` | `SELECT`, `UPDATE` | `assignment_id, student_id, closes_at`; `closes_at` | the answers step reads a student's own close; `window-schedule` (T-R4.12b) extends |
 | `attempt_answers` | `SELECT`, `UPDATE` | `attempt_id, question_id, payload`; `payload` | the answers step |
 | `attempt_events` | `SELECT`, `DELETE` | `id, attempt_id, received_at` | the events step |
 | `users` | `SELECT`, `UPDATE` | `id, email, full_name, display_name, role_id, disabled_at`; `email, full_name, display_name, phone, avatar_key, password_hash, must_change_password, disabled_at` | the accounts step |

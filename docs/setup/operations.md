@@ -155,19 +155,22 @@ log is never swept. Retention uses UTC calendar arithmetic and a strict `<` agai
 
 | Setting | Choices | Default | What the sweep does |
 |---|---|---|---|
-| `keep_answers_months` | 12, 24, or never | never | An attempt that has ended (submitted, timed out, graded or voided) and whose assignment closed before the cutoff has each answer's `payload` replaced by `{"removed": true}`; an attempt voided before it was submitted ended, for this purpose, at its deadline. Scores, comments and the grader stay. An attempt still in progress is never touched, however overdue (below). One `retention.answers_removed` entry per batch. |
-| `keep_focus_events_months` | 6, 12, 13, 24 | 13 | Deletes `attempt_events` whose `received_at` and whose assignment's closure are both before the cutoff. One `integrity.retained` entry per batch. |
+| `keep_answers_months` | 12, 24, or never | never | An attempt that has ended (submitted, timed out, graded or voided) and whose assignment has closed for that student before the cutoff has each answer's `payload` replaced by `{"removed": true}`. For a student, the assignment closes at the later of its own close and the extension a teacher gave them, so an extended student's answers stay until that date is past the cutoff too. An attempt voided before it was submitted ended, for this purpose, at its deadline. Scores, comments and the grader stay. An attempt still in progress is never touched, however overdue (below). One `retention.answers_removed` entry per batch. |
+| `keep_focus_events_months` | 6, 12, 13, 24 | 13 | Deletes `attempt_events` whose `received_at` and whose assignment's closure are both before the cutoff, as the command it replaces did: an extension given to one student does not hold their events back. One `integrity.retained` entry per batch. |
 | `anonymise_disabled_after_months` | 12, 24, or never | never | Anonymises accounts disabled before the cutoff, of any role. One `user.anonymized` entry per account. |
 
 An account that owns classes or content (a class it teaches, or a test, question, group, media file or
 assignment it owns) is skipped and counted (`skippedOwners`): transfer the content, then it is picked up on a
 later run. Having created an account is not ownership: an Admin reaches it through the Users directory.
-An account with an attempt in progress is skipped for now (`skippedInProgress`). The last active Admin can never be anonymized. Before the name is
+An account with an attempt in progress is skipped for now (`skippedInProgress`). The last active Admin can never be anonymized. The three counts split the accounts that are due: `anonymise`, `skippedOwners` and `skippedInProgress` add up to them, an owner who also has an attempt in progress is counted once, as an owner, and a dry run's `anonymise` is what the apply anonymises. If a batch fails, its accounts are tried one by one, the others are anonymised, `failedAccounts` counts the ones that could not be, and the step ends with an error, so the job fails every night until someone looks at that account. Before the name is
 overwritten, in-app notifications that carry the account's full or display name are deleted
 (`notices`), so no name outlives the anonymization there. Anonymization replaces the email with
 `anonymous-<id>@anonymous.invalid`, the name with a placeholder ("Học viên đã ẩn danh" for a
 student, "Người dùng đã ẩn danh" for anyone else), clears the display name, phone, avatar key and
-password, removes the Google link and the refresh tokens, and revokes unused set-password links. A
+password, removes the Google link and the refresh tokens, and revokes unused set-password links. It
+clears the avatar *key* only: the photo object under `avatars/<id>/` is not deleted by this step. The
+daily housekeeping of T-R5.16 removes the objects of anonymised accounts, and its step joins after this
+one, so until then the object stays in storage with nothing pointing at it. A
 revoked link holds a hash of a random token, its purpose, its dates and the account's id, which is no
 personal data, and is as unusable as a deleted one; the daily housekeeping removes the row 30 days later.
 Attempts, memberships and the audit trail stay, which is why this is **structured-identity
@@ -197,6 +200,20 @@ more adds the grant in its own migration.
 **Never set `MAINTENANCE_DATABASE_URL` on the API or on Fly.** The credential lives in two
 places: the GitHub environment `production-maintenance` (as the secret
 `MAINTENANCE_DATABASE_URL`, read by the retention workflow) and the operator's own machine.
+
+**What a leaked `MAINTENANCE_DATABASE_URL` costs.** The role is the operator role for every
+`cmd/maintenance` command, not only the sweep, so its reach is the sum of them. Whoever holds the
+credential can read every answer payload and every account's name and email; write an account's
+identity columns and password hash and clear `disabled_at`, which is a full account takeover,
+Admin accounts included; move exam windows (`closes_at`, `deadline_at`) and the AI allowance and
+credit counters; and re-key join codes. It cannot read a password hash or a token hash, change a
+`role_id`, update or delete the audit log or the AI ledger, or create or own a table, schema or function. It can
+change its own password and create large objects, because PostgreSQL gives every role both. Treat
+the credential like the owner's: it lives only in the environment secret and on the operator's
+machine, behind the branch restriction and reviewers of step 2. To revoke it, run
+`ALTER ROLE quizzivy_maintenance NOLOGIN` as the owner; to replace it, run step 1 again with a new
+password and replace the secret. A second role that holds only the sweep's grants, for the workflow,
+would shrink this; it is open item O-R5.9 (`docs/plan/40-open-items.md`).
 
 ### The nightly workflow
 
@@ -238,7 +255,9 @@ The owner sets this up once, in this order:
    Add required reviewers, so a manual run waits for a second person. Then add the secret
    `MAINTENANCE_DATABASE_URL` for `quizzivy_maintenance`: the direct connection string, not the
    pooled one, with `sslmode=require` kept, because the credential crosses the internet from a
-   GitHub runner. The workflow's actions are pinned by tag, as in `ci.yml`, not by commit.
+   GitHub runner. The workflow runs only GitHub's own `actions/checkout` and `actions/setup-go`, on major tags, as
+   `docs/setup/ci.md` ("Third-party actions") allows; any other action added to it must be pinned to a
+   commit SHA, because this workflow holds a database credential.
 3. Run the workflow by hand with `apply` off and read the report (below).
 4. When the dry run counts what you expect, set the repository variable
    `RETENTION_SWEEP_ENABLED` to `true`.
@@ -258,7 +277,7 @@ runs in a read-only transaction).
   "retention": {"keepAnswersMonths": 24, "keepFocusEventsMonths": 13, "anonymiseDisabledAfterMonths": null},
   "answers": {"enabled": true, "cutoff": "2024-10-14T20:00:07Z", "attempts": 12, "answers": 310, "batches": 1, "overdueInProgress": 0},
   "focusEvents": {"cutoff": "2025-09-14T20:00:07Z", "events": 4200, "batches": 9},
-  "accounts": {"enabled": false, "anonymise": 0, "skippedOwners": 0, "skippedInProgress": 0, "notices": 0, "batches": 0},
+  "accounts": {"enabled": false, "anonymise": 0, "skippedOwners": 0, "skippedInProgress": 0, "notices": 0, "batches": 0, "failedAccounts": 0},
   "complete": true
 }
 ```
@@ -270,7 +289,11 @@ runs in a read-only transaction).
   nothing.
 - `complete: false` means the 5-minute budget ended a step or a step failed; the next night goes
   on from where it stopped, because every batch commits on its own. A step that failed is listed
-  in `failed` with its error, the other steps still ran, and the job fails so the owner is told.
+  in `failed` with its error, the other steps still ran, and the job fails (exit 1, with the report in the
+  job summary). GitHub emails only the person who last changed the workflow's cron line, and only if their
+  notification settings allow it, and it disables a scheduled workflow in a repository with no activity for 60
+  days, which looks the same as a sweep with nothing to do. Open the workflow's job summary every week, or add
+  a failure notification to the repository, and check that the schedule still shows as enabled.
   A backlog the first night does not clear is normal.
 - `overdueInProgress` counts attempts still in progress past their deadline on an assignment that
   closed before the answers cutoff. The sweep never removes their answers: an overdue attempt is

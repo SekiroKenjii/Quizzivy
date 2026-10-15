@@ -639,6 +639,20 @@ zero on a real installation. Not a gate for v0.12.0.
 
 ---
 
+### O-R5.9 — A retention-only database role for the nightly workflow · R5 (T-R5.17a), any release
+**Default:** one operator role, `quizzivy_maintenance`, as T-R5.17a specified (2026-10-15). The
+GitHub environment secret `MAINTENANCE_DATABASE_URL` is that role, which every `cmd/maintenance`
+command uses: with it, someone can set an account's password hash and re-enable it, move exam
+windows and change AI credit counters (QC-RS-4). The environment's default-branch restriction and
+required reviewers, and the cost written in `docs/setup/operations.md`, stand in for a narrower
+credential. The better shape is a second role holding only what `retention-sweep` reads and writes
+(`UPDATE (payload)` on answers, `DELETE` on events, the accounts step's columns, `INSERT` on the audit
+log), created by `provision-db.sh` and given by its own migration, with the workflow using it; the
+operator's machine keeps the wider role. The alternative is a trigger that refuses a password hash
+or a re-enable written by this role. Not a gate for v0.12.0.
+
+---
+
 ## Answered during planning
 
 For the record, so a later session does not reopen them:
