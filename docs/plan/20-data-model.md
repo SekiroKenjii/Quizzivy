@@ -3591,8 +3591,10 @@ the row, named `Quizzivy`, and revokes `INSERT` and `DELETE` from `quizzivy_app`
   `front_desk_hours` (≤ 120) and `address` (≤ 300). An optional text that is empty after trimming
   is stored as `NULL`, never as `''`.
 - **Logos.** `logo_sha256`, `logo_type` and the `_dark_` pair. A hash is 32 bytes, a type is
-  `image/png` or `image/svg+xml`, and each pair is both NULL or both set. The bytes are not in
-  the database: they are objects at `branding/{sha256}.{png|svg}`, content-addressed, so a key's
+  `image/png` or `image/svg+xml`, and each pair is both NULL or both set. The application writes
+  only `image/png`; `image/svg+xml` is a reserved value no code writes (D-019), and a row that held
+  it would read as no logo. The bytes are not in
+  the database: they are objects at `branding/{sha256}.png`, content-addressed, so a key's
   bytes never change and a new logo is a new URL.
 - **Sign-in.** `google_sign_in`, `password_sign_in`, `force_password_change` and
   `join_codes_enabled` are `boolean NOT NULL DEFAULT true`; `allowed_google_domains text[] NOT
