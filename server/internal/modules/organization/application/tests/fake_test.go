@@ -26,11 +26,15 @@ type fakeRepo struct {
 	readErr  error
 	impact   domain.Impact
 	block    chan struct{}
+	onRead   func(reads int, settings *domain.Settings)
 }
 
 func (f *fakeRepo) Read(context.Context) (domain.Settings, error) {
 	f.mu.Lock()
 	f.reads++
+	if f.onRead != nil {
+		f.onRead(f.reads, &f.settings)
+	}
 	err, settings, block := f.readErr, f.settings, f.block
 	f.mu.Unlock()
 	if block != nil {
@@ -117,6 +121,7 @@ type memoryStore struct {
 	deleteErr map[string]error
 	deleted   []string
 	listed    int
+	onList    func()
 }
 
 func newStore() *memoryStore {
@@ -134,6 +139,9 @@ func (m *memoryStore) List(_ context.Context, prefix string, limit int) ([]ports
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.listed = limit
+	if m.onList != nil {
+		m.onList()
+	}
 	if m.listErr != nil {
 		return nil, m.listErr
 	}

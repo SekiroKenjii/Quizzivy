@@ -124,6 +124,8 @@ func (o *Outbox) validate(m Mail) (Template, *mail.Address, error) {
 }
 
 // Retention is how long a row stays in the outbox once it is sent or failed.
+// A pruned row frees its dedupe key, so a producer whose key can come round
+// again later than this would send the message again.
 const Retention = 30 * 24 * time.Hour
 
 // Prune deletes at most limit rows that were sent or failed more than

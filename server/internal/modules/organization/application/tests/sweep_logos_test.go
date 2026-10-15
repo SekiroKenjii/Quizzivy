@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"maps"
 	"slices"
 	"testing"
 	"time"
@@ -38,24 +39,26 @@ func TestTheSweepRemovesOnlyOldLogosNoSettingNames(t *testing.T) {
 	_, darkKey := logoNamed("dark")
 	_, staleKey := logoNamed("replaced")
 	_, freshKey := logoNamed("just uploaded")
-	_, edgeKey := logoNamed("one second over a day")
-	_, almostKey := logoNamed("one second under a day")
+	_, edgeKey := logoNamed("a minute over a day")
+	_, almostKey := logoNamed("a minute under a day")
+	_, exactKey := logoNamed("exactly a day")
 	store.put(lightKey, now.Add(-400*24*time.Hour))
 	store.put(darkKey, now.Add(-400*24*time.Hour))
 	store.put(staleKey, now.Add(-72*time.Hour))
 	store.put(freshKey, now.Add(-time.Hour))
-	store.put(edgeKey, now.Add(-domain.LogoGrace-time.Second))
-	store.put(almostKey, now.Add(-domain.LogoGrace+time.Second))
+	store.put(edgeKey, now.Add(-24*time.Hour-time.Minute))
+	store.put(almostKey, now.Add(-24*time.Hour+time.Minute))
+	store.put(exactKey, now.Add(-24*time.Hour))
 	store.put("media/"+hexOf([]byte("elsewhere"))+".png", now.Add(-400*24*time.Hour))
 
 	swept, err := sweep(100)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if swept.Removed != 2 || swept.Seen != 6 {
-		t.Errorf("swept = %+v, want 2 removed of the 6 logos seen", swept)
+	if swept.Removed != 2 || swept.Seen != 7 {
+		t.Errorf("swept = %+v, want 2 removed of the 7 logos seen", swept)
 	}
-	wantLeft := []string{almostKey, darkKey, freshKey, lightKey, "media/" + hexOf([]byte("elsewhere")) + ".png"}
+	wantLeft := []string{almostKey, darkKey, exactKey, freshKey, lightKey, "media/" + hexOf([]byte("elsewhere")) + ".png"}
 	var left []string
 	for key := range store.objects {
 		left = append(left, key)
@@ -63,7 +66,7 @@ func TestTheSweepRemovesOnlyOldLogosNoSettingNames(t *testing.T) {
 	slices.Sort(left)
 	slices.Sort(wantLeft)
 	if !slices.Equal(left, wantLeft) {
-		t.Errorf("left %v, want %v: both logos in use, anything younger than a day, and what is not a logo", left, wantLeft)
+		t.Errorf("left %v, want %v: both logos in use, anything not yet more than a day old, and what is not a logo", left, wantLeft)
 	}
 
 	again, err := sweep(100)
@@ -128,5 +131,36 @@ func TestOneLogoThatCannotBeDeletedDoesNotStopTheRest(t *testing.T) {
 	swept, err := sweep(10)
 	if !errors.Is(err, boom) || swept.Removed != 1 || !slices.Equal(store.deleted, []string{other}) {
 		t.Errorf("swept = %+v (%v), deleted %v, want the other logo gone and the bucket's error", swept, err, store.deleted)
+	}
+}
+
+func TestTheSweepListsFirstAndReadsTheSettingsAgainBeforeEachRemoval(t *testing.T) {
+	repo, store, sweep, now := sweeping(t)
+	keyed := map[string]domain.Logo{}
+	for _, seed := range []string{"first stale", "second stale"} {
+		logo, key := logoNamed(seed)
+		keyed[key] = logo
+		store.put(key, now.Add(-72*time.Hour))
+	}
+	keys := slices.Sorted(maps.Keys(keyed))
+	var events []string
+	store.onList = func() { events = append(events, "list") }
+	repo.onRead = func(reads int, settings *domain.Settings) {
+		events = append(events, "read")
+		if reads == 2 {
+			named := keyed[keys[1]]
+			settings.Profile.LightLogo = &named
+		}
+	}
+
+	swept, err := sweep(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"list", "read", "read"}; !slices.Equal(events, want) {
+		t.Errorf("calls = %v, want %v: the list, then a read of the settings before each removal", events, want)
+	}
+	if swept.Removed != 1 || !slices.Equal(store.deleted, []string{keys[0]}) {
+		t.Errorf("swept = %+v, deleted %v, want only the first: a save named the second after the first was removed", swept, store.deleted)
 	}
 }
