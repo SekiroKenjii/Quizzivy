@@ -495,16 +495,24 @@ old (this step needs media storage). Two machines running it at once only
 repeat each other's deletes.
 
 Every step handles 500 rows or objects at a time, at most 20 times and for at
-most a minute, so a large backlog is cleared over several days rather than in
-one long transaction. The logs say how each went and carry counts, never a
-key, address or title:
+most a minute, so a run clears 10,000 rows or objects of a step at most and a
+large backlog goes over several days rather than in one long transaction. The
+logs say how each went and carry counts, never a key, id, address, endpoint or
+bucket:
 
-- `housekeeping step done` with `step` and `removed`;
+- `housekeeping step done` with `step` and `removed`: the last batch came back
+  short. It does not promise nothing is left; the next run goes on;
 - `housekeeping step left work for the next run`, when the backlog outlasted the
-  step's budget (it is finished by the next run);
+  step's rounds or budget;
 - `housekeeping step failed` with `code=HOUSEKEEPING_STEP_FAILED`, the `step` and
-  the error. The other steps still ran. A step that fails every day (a bucket
+  a `failure` class: `timeout`, `canceled`, `database {SQLSTATE}`,
+  `storage http {status}`, `network` or `error`. The error's own text is
+  withheld because it names keys and the bucket; reproduce it from the class and
+  the step. The other steps still ran. A step that fails every day (a bucket
   that denies deletes, say) is the one to alert on.
+
+A download link signed in the last minute before an export expires stops
+working once the sweep has deleted the file.
 
 There is no switch. A logo the settings still name is never deleted.
 

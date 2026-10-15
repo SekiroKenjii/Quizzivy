@@ -3556,8 +3556,9 @@ renames a template while rows of it can be pending. The timer is armed only for 
 the rows whose `sent_at` or `failed_at` is more than 30 days old (`email.Retention`). A pending row is never
 touched, however old. The delete reads the table in order of the outcome's instant without an index: the table
 holds a day's budget of mail a day for 30 days, a few thousand rows at most, and a partial index on `failed_at`
-would cost every failure a write for a scan that runs once a day. The app role has full DML on the table (it is
-not append-only: it is a queue).
+would cost every failure a write for a scan that runs once a day. A pruned row frees its `dedupe_key`: the only
+producer today keys on the export id, which never comes round again, but a producer whose key can repeat after 30
+days would send again. The app role has full DML on the table (it is not append-only: it is a queue).
 
 ## 50. Activity (T-R5.4, DG-54)
 
