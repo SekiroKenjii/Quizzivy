@@ -5,6 +5,7 @@ import { GraduationCap } from "lucide-react";
 import { FormDialog } from "@/components/shared/form/FormDialog";
 import { toast } from "@/components/ui/sonner";
 import { createClass, rotateJoinCode } from "@/features/classes/api";
+import { useJoinCodesOff } from "@/features/organization/api";
 import {
   blankAsNull,
   classFields,
@@ -20,7 +21,8 @@ const FIRST_CODE = { expiresInDays: 30, maxUses: 40 } as const;
  * It creates the class open to joining, then issues its first code for 30
  * days and 40 uses (O-06) and toasts "Class created · join code {code}". A
  * class whose code could not be issued is still created, and the toast says
- * to make one from its card.
+ * to make one from its card. While the centre has joining by code off it
+ * issues no code and the toast says why (D-028).
  */
 export function NewClassDialog({
   open,
@@ -34,6 +36,7 @@ export function NewClassDialog({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const fields = useMemo(() => classFields(t), [t]);
+  const joinOff = useJoinCodesOff();
 
   const create = useMutation({
     mutationFn: async (values: ClassFieldValues) => {
@@ -43,6 +46,7 @@ export function NewClassDialog({
         room: blankAsNull(values.room),
         selfJoinEnabled: true,
       });
+      if (joinOff) return undefined;
       try {
         const issued = await rotateJoinCode(created.id, FIRST_CODE);
         return issued.code;
@@ -52,7 +56,8 @@ export function NewClassDialog({
     },
     onSuccess: async (code) => {
       onOpenChange(false);
-      if (code === null) toast(t("classes.createdNoCode"));
+      if (code === undefined) toast(t("classes.createdJoinOff"));
+      else if (code === null) toast(t("classes.createdNoCode"));
       else toast(t("classes.createdWithCode", { code }));
       await queryClient.invalidateQueries({ queryKey: ["teacher-classes"] });
     },
@@ -70,7 +75,7 @@ export function NewClassDialog({
         onOpenChange(next);
       }}
       title={t("classes.new")}
-      description={t("classes.newHint")}
+      description={t(joinOff ? "classes.newHintOff" : "classes.newHint")}
       icon={GraduationCap}
       initial={EMPTY}
       fields={fields}

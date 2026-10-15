@@ -458,6 +458,37 @@
     },
     "documentTitle": "{{page}} · Quizzivy"
   },
+  "adminShell": {
+    "workspace": "Bảng quản trị",
+    "crumb": "Quản trị",
+    "crumbExport": "Xuất dữ liệu",
+    "teacherView": "Chế độ giáo viên",
+    "group": {
+      "people": "Mọi người",
+      "teaching": "Giảng dạy",
+      "system": "Hệ thống"
+    },
+    "nav": {
+      "overview": "Tổng quan",
+      "users": "Người dùng",
+      "roles": "Vai trò & quyền",
+      "classes": "Lớp học",
+      "ai": "Tín dụng AI",
+      "audit": "Nhật ký kiểm tra",
+      "api": "Tài liệu API",
+      "settings": "Cài đặt"
+    },
+    "count": {
+      "mustChangePassword_one": "{{count}} người cần đổi mật khẩu",
+      "mustChangePassword_other": "{{count}} người cần đổi mật khẩu",
+      "creditRequests_one": "{{count}} yêu cầu thêm tín dụng đang chờ",
+      "creditRequests_other": "{{count}} yêu cầu thêm tín dụng đang chờ"
+    },
+    "account": {
+      "settings": "Cài đặt hệ thống",
+      "password": "Đổi mật khẩu"
+    }
+  },
   "student": {
     "shell": {
       "home": "Trang chủ",
@@ -595,7 +626,9 @@
   },
   "changePassword": {
     "title": "Chọn mật khẩu của bạn",
+    "titleVoluntary": "Đổi mật khẩu",
     "body": "Bạn đã đăng nhập bằng mật khẩu tạm. Hãy chọn một mật khẩu chỉ mình bạn biết.",
+    "bodyVoluntary": "Nhập mật khẩu hiện tại, rồi chọn một mật khẩu mới chỉ mình bạn biết.",
     "current": "Mật khẩu hiện tại",
     "new": "Mật khẩu mới",
     "again": "Nhập lại mật khẩu",
@@ -607,6 +640,7 @@
       "length": "Ít nhất 8 ký tự",
       "numberOrSymbol": "Có số hoặc ký hiệu",
       "different": "Khác mật khẩu tạm",
+      "differentCurrent": "Khác mật khẩu hiện tại",
       "met": "đã đạt",
       "unmet": "chưa đạt"
     },
@@ -614,7 +648,8 @@
       "tooShort": "Mật khẩu mới cần ít nhất 8 ký tự.",
       "numberOrSymbol": "Mật khẩu mới cần có số hoặc ký hiệu.",
       "mismatch": "Hai mật khẩu không giống nhau.",
-      "unchanged": "Mật khẩu mới phải khác mật khẩu hiện tại."
+      "unchanged": "Mật khẩu mới phải khác mật khẩu hiện tại.",
+      "currentMissing": "Nhập mật khẩu hiện tại."
     }
   },
   "login": {
@@ -704,6 +739,7 @@
     "revokeFailed": "Không thể ngừng tham gia. Vui lòng thử lại.",
     "loadFailed": "Không tải được lớp học.",
     "noMembers": "Lớp chưa có học viên. Hãy gửi mã tham gia hoặc tự thêm học viên.",
+    "noMembersOff": "Chưa có học viên. Hãy thêm học viên vào lớp.",
     "name": "Họ tên",
     "joinedVia": "Tham gia qua",
     "joinedAt": "Ngày vào",
@@ -803,6 +839,7 @@
     "empty": "Chưa có lớp học nào.",
     "new": "Lớp mới",
     "newHint": "Bạn sẽ có mã tham gia để gửi cho học viên.",
+    "newHintOff": "Bạn thêm học viên vào lớp sau khi tạo.",
     "name": "Tên lớp",
     "namePlaceholder": "Ví dụ: IELTS Foundation — Lớp tối T3/T5",
     "create": "Tạo lớp",
@@ -833,12 +870,14 @@
     "noActive": "Không có lớp nào đang hoạt động.",
     "noArchived": "Không có lớp nào đã lưu trữ.",
     "emptyHint": "Tạo lớp để có mã tham gia gửi cho học viên.",
+    "emptyHintOff": "Tạo lớp rồi thêm học viên vào lớp.",
     "schedule": "Lịch học",
     "schedulePlaceholder": "T2 · T4, 09:00",
     "room": "Phòng",
     "roomPlaceholder": "Phòng 3",
     "createdWithCode": "Đã tạo lớp · mã tham gia {{code}}",
     "createdNoCode": "Đã tạo lớp, nhưng chưa tạo được mã tham gia. Hãy tạo mã từ thẻ của lớp.",
+    "createdJoinOff": "Đã tạo lớp. Trung tâm đang tắt tham gia bằng mã nên lớp chưa có mã.",
     "edit": "Sửa lớp",
     "updated": "Đã cập nhật lớp",
     "updateFailed": "Không lưu được thay đổi của lớp.",
@@ -857,6 +896,8 @@
       "usedUp": "Hết lượt",
       "off": "Không hoạt động"
     },
+    "heldBackNamed": "{{named}}. {{why}}",
+    "codeStateBoth": "{{state}} · {{why}}",
     "noCode": "Chưa có mã tham gia",
     "createCode": "Tạo mã",
     "createCodeNamed": "Tạo mã tham gia cho {{name}}",

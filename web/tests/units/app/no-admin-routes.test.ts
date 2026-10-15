@@ -4,11 +4,13 @@ import { describe, expect, it } from "vitest";
 
 const SRC = resolve(import.meta.dirname, "../../../src");
 const ALLOWED_FILES = new Set([
+  "app/adminPaths.ts",
   "app/legacyTeacherPath.ts",
   "app/LegacyTeacherRedirect.tsx",
   "lib/api/schema.d.ts",
 ]);
 const ALLOWED_LITERALS = new Set([
+  "/admin/ai/credits",
   "/admin/docs-session",
   "/admin/users/{id}",
   "/admin/settings/sign-in",
@@ -88,6 +90,7 @@ describe("the teacher's routes live at /teacher", () => {
   it.each([
     ['api("post", "/admin/docs-session")', "the docs session"],
     ['api("delete", "/admin/users/{id}", { path: { id } })', "removing a user"],
+    ['api("get", "/admin/ai/credits", { signal })', "the credits read"],
     ['<Link to="/admin/settings/sign-in">', "the Admin console's sign-in settings"],
     ['<Link to="/teacher/tests">', "the new address"],
     ['<Link to="/administrator">', "a longer word"],

@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import type { StaffWorkspace } from "@/layouts/shell/nav";
 import { readSidebarState } from "@/layouts/shell/sidebarState";
 import { cn } from "@/lib/utils";
 
@@ -16,17 +17,26 @@ const CARDS = ["first", "second", "third", "fourth"] as const;
 const ROWS = ["first", "second", "third", "fourth", "fifth"] as const;
 
 /**
- * TeacherSkeleton is the frame the splash fades onto while the teacher
- * console loads: the sidebar, the top bar and a page of grey blocks, as the
- * Splash deck draws it. The sidebar column shows from 768px, at 60px with
- * its tile and icon blocks alone when the stored sidebar state is collapsed.
- * The splash renders it outside the shell, so it sets its own deck scale and
- * paints its own background.
+ * ConsoleSkeleton is the frame the splash fades onto while a console loads:
+ * the sidebar, the top bar and a page of grey blocks, as the Splash deck
+ * draws it. The sidebar column shows from 768px, at 60px with its tile and
+ * icon blocks alone when the stored sidebar state is collapsed. The splash
+ * renders it outside the shell, so it sets its own deck scale and paints its
+ * own background. `workspace` prefixes its `data-slot` with the console's
+ * name, and `pageMax` is the page's maximum width as a CSS length, the
+ * teacher's `--page-max` unless given.
  */
-export function TeacherSkeleton() {
+export function ConsoleSkeleton({
+  workspace,
+  pageMax = "var(--page-max)",
+}: Readonly<{ workspace: StaffWorkspace; pageMax?: string }>) {
   const collapsed = readSidebarState() === "collapsed";
   return (
-    <div data-slot="teacher-skeleton" data-scale="deck" className="bg-bg flex h-full">
+    <div
+      data-slot={`${workspace}-skeleton`}
+      data-scale="deck"
+      className="bg-bg flex h-full"
+    >
       <div
         data-slot="skeleton-sidebar"
         className={cn(
@@ -53,7 +63,10 @@ export function TeacherSkeleton() {
           <Skeleton className="size-8" />
           <Skeleton className="size-8 rounded-full" />
         </div>
-        <div className="mx-auto flex w-full max-w-[calc(var(--page-max)+2*var(--page-gutter))] flex-1 flex-col gap-4.5 px-(--page-gutter) pt-(--page-pad-top) pb-7">
+        <div
+          style={{ maxWidth: `calc(${pageMax} + 2 * var(--page-gutter))` }}
+          className="mx-auto flex w-full flex-1 flex-col gap-4.5 px-(--page-gutter) pt-(--page-pad-top) pb-7"
+        >
           <Skeleton className="h-6.5 w-50 rounded-sm" />
           <Skeleton className="h-3 w-70 max-w-full rounded-sm" />
           <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">
@@ -84,4 +97,9 @@ export function TeacherSkeleton() {
       </div>
     </div>
   );
+}
+
+/** TeacherSkeleton is the skeleton of the teacher console. */
+export function TeacherSkeleton() {
+  return <ConsoleSkeleton workspace="teacher" />;
 }

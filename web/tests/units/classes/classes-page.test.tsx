@@ -597,6 +597,87 @@ describe("the classes list while the centre has turned joining by code off (D-02
     expect(rotations).toEqual([]);
   });
 
+  it("pauses everything that hands the code on, on the card and in its menu (D-028)", async () => {
+    serveJoinCodes(false);
+    const { user } = renderPage();
+    await screen.findByText("Giáo viên thêm học viên vào lớp.");
+    const evening = await card("IELTS 6.5 Evening");
+    const reason = "Trung tâm đang tắt tham gia bằng mã.";
+    const copy = within(evening).getByRole("button", {
+      name: /Sao chép liên kết tham gia của IELTS 6.5 Evening/,
+    });
+    const qr = within(evening).getByRole("button", {
+      name: /Hiện mã QR của IELTS 6.5 Evening/,
+    });
+    for (const control of [copy, qr]) {
+      expect(control).toHaveAttribute("aria-disabled", "true");
+      expect(control).toHaveAccessibleName(expect.stringContaining(reason));
+    }
+    await navigator.clipboard.writeText("untouched");
+    await user.click(copy);
+    await user.click(qr);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(await navigator.clipboard.readText()).toBe("untouched");
+
+    await user.click(
+      within(evening).getByRole("button", {
+        name: /Thao tác với lớp IELTS 6.5 Evening/,
+      }),
+    );
+    for (const name of ["Hiện mã QR", "Sao chép liên kết tham gia"]) {
+      const item = await screen.findByRole("menuitem", {
+        name: new RegExp(`${name}.*${reason}`),
+      });
+      expect(item).toHaveAttribute("aria-disabled", "true");
+      await user.click(item);
+      expect(screen.queryByRole("dialog")).toBeNull();
+    }
+  });
+
+  it("names both words for a code that has also run out", async () => {
+    serveJoinCodes(false);
+    serveList([
+      {
+        ...EVENING,
+        joinCode: { ...EVENING.joinCode!, expiresAt: "2020-01-01T00:00:00Z" },
+      },
+    ]);
+    renderPage();
+    const evening = await card("IELTS 6.5 Evening");
+    const note = await within(evening).findByText("Không hoạt động");
+    expect(note).toHaveAttribute("title", "Không hoạt động · Hết hạn");
+    expect(within(note).getByText("Hết hạn")).toHaveClass("sr-only");
+    expect(within(evening).getByText("Mã tham gia")).toHaveClass("sr-only");
+  });
+
+  it("creates a class without a code, and says why, while joining is off (D-028)", async () => {
+    serveJoinCodes(false);
+    const { user } = renderPage();
+    await screen.findByText("Giáo viên thêm học viên vào lớp.");
+    await user.click(await screen.findByRole("button", { name: "Lớp mới" }));
+    const dialog = await screen.findByRole("dialog", { name: "Lớp mới" });
+    expect(dialog).toHaveAccessibleDescription(
+      "Bạn thêm học viên vào lớp sau khi tạo.",
+    );
+    await user.type(within(dialog).getByLabelText("Tên lớp"), "IELTS 7.0 Morning");
+    await user.click(within(dialog).getByRole("button", { name: "Tạo lớp" }));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(
+      await screen.findByText(
+        "Đã tạo lớp. Trung tâm đang tắt tham gia bằng mã nên lớp chưa có mã.",
+      ),
+    ).toBeInTheDocument();
+    expect(rotations).toEqual([]);
+  });
+
+  it("does not invite an empty list to a code while joining is off", async () => {
+    serveJoinCodes(false);
+    serveList([], []);
+    renderPage();
+    expect(await screen.findByText("Tạo lớp rồi thêm học viên vào lớp.")).toBeVisible();
+    expect(screen.queryByText(/mã tham gia gửi cho học viên/)).toBeNull();
+  });
+
   it("keeps every control while the centre allows joining by code", async () => {
     serveJoinCodes(true);
     const { user } = renderPage();

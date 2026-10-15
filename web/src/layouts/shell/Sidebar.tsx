@@ -2,28 +2,31 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { Dialog } from "radix-ui";
 import { AccountMenu } from "@/features/auth/AccountMenu";
-import type { NavCounts } from "@/layouts/shell/useNavCounts";
-import {
-  WorkspaceSwitcher,
-  type WorkspaceDestination,
-} from "@/layouts/shell/WorkspaceSwitcher";
-import type { NavCount, TeacherNavGroup, TeacherNavItem } from "@/layouts/teacherNav";
+import type {
+  NavCount,
+  NavDestination,
+  NavFigures,
+  NavGroup,
+  NavTone,
+  StaffWorkspace,
+} from "@/layouts/shell/nav";
+import { WorkspaceSwitcher } from "@/layouts/shell/WorkspaceSwitcher";
 import { cn } from "@/lib/utils";
 
-/** SIDEBAR_ID is the id of the teacher sidebar, which its toggle controls. */
-export const SIDEBAR_ID = "teacher-sidebar";
+/** SIDEBAR_ID is the id of a console's sidebar, which its toggle controls. */
+export const SIDEBAR_ID = "console-sidebar";
 
-const DESTINATIONS: readonly WorkspaceDestination[] = [];
-
-const COUNT_SENTENCE = {
-  liveAssignments: "teacherShell.count.live",
-  toGrade: "teacherShell.count.toGrade",
-} as const;
+const TONE: Record<NavTone, string> = {
+  muted: "bg-muted text-muted-fg",
+  urgent: "bg-brand text-brand-fg",
+  warning: "bg-warning-soft text-warning-ink",
+};
 
 interface SidebarContent {
-  groups: readonly TeacherNavGroup[];
+  workspace: StaffWorkspace;
+  groups: readonly NavGroup[];
   activeId: string | null;
-  counts: NavCounts | null;
+  counts: NavFigures | null;
 }
 
 function CountBadge({
@@ -33,7 +36,7 @@ function CountBadge({
 }: Readonly<{ count: NavCount; value: number; collapsed: boolean }>) {
   const { t } = useTranslation();
   const sentence = (
-    <span className="sr-only">{t(COUNT_SENTENCE[count.figure], { count: value })}</span>
+    <span className="sr-only">{t(count.sentence, { count: value })}</span>
   );
   if (collapsed) return sentence;
   return (
@@ -41,7 +44,7 @@ function CountBadge({
       data-slot="nav-count"
       className={cn(
         "text-caption grid h-5 min-w-5 flex-none place-items-center rounded-full px-1.5 leading-none font-semibold tabular-nums",
-        count.tone === "urgent" ? "bg-brand text-brand-fg" : "bg-muted text-muted-fg",
+        TONE[count.tone],
       )}
     >
       <span aria-hidden="true">{value}</span>
@@ -56,10 +59,10 @@ function NavItem({
   collapsed,
   counts,
 }: Readonly<{
-  item: TeacherNavItem;
+  item: NavDestination;
   active: boolean;
   collapsed: boolean;
-  counts: NavCounts | null;
+  counts: NavFigures | null;
 }>) {
   const { t } = useTranslation();
   const label = t(item.label);
@@ -79,7 +82,7 @@ function NavItem({
       <span className={collapsed ? "sr-only" : "min-w-0 flex-1 truncate leading-4.25"}>
         {label}
       </span>
-      {item.count && value !== null && value > 0 && (
+      {item.count && value != null && value > 0 && (
         <CountBadge count={item.count} value={value} collapsed={collapsed} />
       )}
     </Link>
@@ -87,6 +90,7 @@ function NavItem({
 }
 
 function SidebarBody({
+  workspace,
   groups,
   activeId,
   counts,
@@ -96,7 +100,7 @@ function SidebarBody({
   return (
     <>
       <div className="flex-none px-2 pt-2.5 pb-1.5">
-        <WorkspaceSwitcher collapsed={collapsed} destinations={DESTINATIONS} />
+        <WorkspaceSwitcher collapsed={collapsed} workspace={workspace} />
       </div>
       <nav
         aria-label={t("nav.mainNavigation")}
@@ -129,8 +133,8 @@ function SidebarBody({
       </nav>
       <div className="flex-none border-t p-2">
         <AccountMenu
+          workspace={workspace}
           sidebar={collapsed ? "collapsed" : "expanded"}
-          settingsTo="/teacher/settings"
         />
       </div>
     </>
@@ -138,12 +142,12 @@ function SidebarBody({
 }
 
 /**
- * Sidebar is the teacher console's sidebar from 768px, in the page's flow:
- * the workspace block, the destinations in their groups, and the account
- * button at its foot. Expanded it is 248px wide. Collapsed it is 60px: an
- * icon for each destination, whose label is its `title` and stays its
- * accessible name, no badge, and a separator in place of each group's label.
- * The destination with `activeId` is the current page.
+ * Sidebar is a console's sidebar from 768px, in the page's flow: the
+ * workspace block, the destinations in their groups, and the account button
+ * at its foot, all of the `workspace` it belongs to. Expanded it is 248px wide.
+ * Collapsed it is 60px: an icon for each destination, whose label is its
+ * `title` and stays its accessible name, no badge, and a separator in place
+ * of each group's label. The destination with `activeId` is the current page.
  */
 export function Sidebar({
   collapsed,
@@ -164,7 +168,7 @@ export function Sidebar({
 }
 
 /**
- * SidebarDrawer is the teacher console's sidebar below 768px: a 272px
+ * SidebarDrawer is a console's sidebar below 768px: a 272px
  * drawer over an overlay, with labels and badges, that traps focus and
  * closes on Escape and on a press outside it. The caller owns `open`, and
  * decides in `onCloseAutoFocus` where focus goes when it closes.
