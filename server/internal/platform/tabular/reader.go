@@ -53,6 +53,9 @@ var (
 	// xl/worksheets/, which is where Excel, LibreOffice and the common libraries
 	// put them. It wraps ErrFormat.
 	ErrLayout = fmt.Errorf("%w: the workbook does not use the standard layout (%s and xl/worksheets/)", ErrFormat, workbookPart)
+	// ErrTooManySheets means the workbook lists more than 256 sheets. A table
+	// is read from the first one, so the way out is to save it on its own.
+	ErrTooManySheets = fmt.Errorf("tabular: the workbook has more than %d sheets", maxSheets)
 	// ErrTooManyRows means the table holds more data rows than the limit.
 	ErrTooManyRows = errors.New("tabular: the table has more rows than the limit")
 	// ErrTooManyColumns means a row uses more columns than the limit.
