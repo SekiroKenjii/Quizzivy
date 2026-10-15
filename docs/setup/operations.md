@@ -184,8 +184,8 @@ Every sweep audit entry has no actor and carries `databaseRole` in its diff.
 `cmd/maintenance` connects as `quizzivy_maintenance`, never as the owner and never as the API's
 role. It is created by `scripts/provision-db.sh` (`LOGIN`, `CONNECTION LIMIT 2`, not a
 superuser, no `CREATE` anywhere) with the password in `QUIZZIVY_MAINTENANCE_PASSWORD`
-(`maintenance` locally). The script is idempotent: run it again against a database that has the
-other two roles and it adds this one. Migration `00139_grant_maintenance_role.sql` gives it
+(`maintenance` locally). The script is idempotent, and on a database that is not local it touches
+only this role (step 1 below). Migration `00139_grant_maintenance_role.sql` gives it
 exactly what the commands use, column by column, and fails when the role does not exist. It can
 read what the commands' predicates read, delete from `attempt_events`, `user_identities`,
 `refresh_tokens`, `notifications` and `ai_reservations`, write `payload` on `attempt_answers`,
@@ -211,11 +211,34 @@ that carries it reaches `main`.
 
 The owner sets this up once, in this order:
 
-1. Run `scripts/provision-db.sh "$NEON_ADMIN_URL"` with `QUIZZIVY_MAINTENANCE_PASSWORD` set to a
-   new random password, before the deploy: the release command runs migration `00139`, which
-   fails, and so stops the release, while the role does not exist.
-2. Create the GitHub environment `production-maintenance`, restrict it to the default branch,
-   and add the secret `MAINTENANCE_DATABASE_URL` for `quizzivy_maintenance`.
+1. Create the role, before the deploy: the release command runs migration `00139`, which fails,
+   and so stops the release, while the role does not exist. Choose a new random password and run
+   this from a shell that has not sourced `.env` (its development passwords would otherwise be in
+   the environment):
+
+   ```sh
+   QUIZZIVY_MAINTENANCE_PASSWORD='<new random password>' scripts/provision-db.sh "$NEON_ADMIN_URL"
+   ```
+
+   Against a database that is not local, the script creates `quizzivy_maintenance` and sets its
+   password, and nothing else about the other two roles changes. It never sets the password of an
+   existing `quizzivy_migrate` or `quizzivy_app` (an exported `QUIZZIVY_MIGRATE_PASSWORD` or
+   `QUIZZIVY_APP_PASSWORD` is ignored, with a note), never grants `CREATEDB`, refuses a
+   development default such as `maintenance`, and refuses to create a role whose password
+   variable is not set. It repeats the grants of the original setup (`CONNECT` on the database,
+   `public` denied to everyone but the migrate and app roles), which change nothing on a database
+   already provisioned. Its last lines name the roles whose password it set: read them, and only
+   `quizzivy_maintenance` should be listed. `scripts/ci/tests/provision-db.test.mjs` pins all of
+   this. To rotate the maintenance password later, run it again with the new value and replace the
+   secret; rotate the other two roles' passwords in the provider's console. On a new managed
+   database, set all three variables to new random values.
+2. Create the GitHub environment `production-maintenance`. Restrict its deployment branches to
+   the default branch **before** adding the secret: a manual run can be started on any branch, and
+   only that restriction keeps a pushed branch from running its own code with the credential.
+   Add required reviewers, so a manual run waits for a second person. Then add the secret
+   `MAINTENANCE_DATABASE_URL` for `quizzivy_maintenance`: the direct connection string, not the
+   pooled one, with `sslmode=require` kept, because the credential crosses the internet from a
+   GitHub runner. The workflow's actions are pinned by tag, as in `ci.yml`, not by commit.
 3. Run the workflow by hand with `apply` off and read the report (below).
 4. When the dry run counts what you expect, set the repository variable
    `RETENTION_SWEEP_ENABLED` to `true`.

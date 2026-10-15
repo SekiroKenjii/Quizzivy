@@ -3770,7 +3770,9 @@ holds skipped without waiting, and a second run changing nothing).
 
 `00139_grant_maintenance_role.sql` gives `quizzivy_maintenance` what `cmd/maintenance` uses and nothing else.
 `scripts/provision-db.sh` creates the role (`LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE CONNECTION LIMIT 2`,
-password from `QUIZZIVY_MAINTENANCE_PASSWORD`) and grants it `CONNECT`, as it does the other two; the migration
+password from `QUIZZIVY_MAINTENANCE_PASSWORD`) and grants it `CONNECT`, as it does the other two. On a database
+that is not local it sets that password and no other, and grants no `CREATEDB`; a local run keeps the development
+defaults. The migration
 fails when the role is missing, so there is no conditional grant. The role owns nothing, creates nothing, has
 no privilege on a sequence (an identity column's insert needs none) and none on `ai_usage_ledger`, and holds
 `INSERT` alone on `audit_log` and no `UPDATE` or `TRUNCATE` on `attempt_events`. It holds `USAGE` on schema `app`

@@ -16,8 +16,8 @@ GitHub but not every registry (see "What did not work").
 `.claude/hooks/session-start.sh`, registered in `.claude/settings.json`, does the work of
 the steps below when a Claude Code cloud container starts: the daemon, `.env`, goose, the web
 dependencies, the MinIO image (built if missing), Postgres, the database roles
-(`scripts/provision-db.sh` again, which is idempotent and adds `quizzivy_maintenance` to a
-volume made before it existed), MinIO and `make migrate` (not `make seed`). It runs
+(`scripts/provision-db.sh` again, which is idempotent, adds `quizzivy_maintenance` to a
+volume made before it existed and leaves the other roles' passwords as they are), MinIO and `make migrate` (not `make seed`). It runs
 only where `CLAUDE_CODE_REMOTE=true` and exits 0 silently elsewhere, so a laptop is
 never touched. It reports itself asynchronous, so the session starts while it works.
 It does not run steps 8 to 10: those create databases and buckets that need cleanup.
