@@ -3,6 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { useAuthStore } from "@/stores/auth";
 import { server } from "@tests/support/server";
+import { contractJson } from "@tests/support/contractResponse";
 import { adminUser, teacherUser } from "@tests/support/fixtures";
 import {
   BASE,
@@ -206,6 +207,46 @@ describe("removing a student from their classes", () => {
     ).toBeInTheDocument();
     expect(calls).toEqual([`remove ${CLASS_A.id} ${AN.id}`]);
   });
+
+  it.each([
+    [true, "Học viên có thể vào lại lớp bằng mã lớp."],
+    [false, null],
+  ])(
+    "mentions the class code only while joining by code is %s (QC-U-30)",
+    async (joinCodes, rejoin) => {
+      server.use(
+        http.get(`${BASE}/public/organization`, () =>
+          contractJson("/public/organization", "get", 200, {
+            name: "Quizzivy",
+            shortName: null,
+            website: null,
+            contactEmail: null,
+            frontDeskPhone: null,
+            frontDeskHours: null,
+            address: null,
+            logo: { lightUrl: null, darkUrl: null },
+            signIn: { google: true, password: true },
+            joinCodes,
+          }),
+        ),
+      );
+      serveStudents([AN]);
+      serveMembers();
+      const { user } = renderStudents(teacherUser);
+
+      const menu = await menuOf(user, "Nguyễn Văn An");
+      await user.click(within(menu).getByRole("menuitem", { name: "Xoá khỏi lớp" }));
+      const dialog = await screen.findByRole("dialog", {
+        name: "Xoá Nguyễn Văn An khỏi các lớp của học viên?",
+      });
+      if (rejoin === null) {
+        await waitFor(() => expect(dialog).not.toHaveTextContent("vào lại"));
+        expect(dialog).toHaveTextContent("Tài khoản và kết quả vẫn được giữ.");
+      } else {
+        await waitFor(() => expect(dialog).toHaveTextContent(rejoin));
+      }
+    },
+  );
 
   it("offers no removal for a student in no class", async () => {
     serveStudents([student("018f0000-0000-7000-8000-0000000000e9", "Đỗ Minh")]);
