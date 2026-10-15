@@ -608,7 +608,10 @@ Release check: run this read-only query with any credential that can read
 text before the last `@`) holds an ASCII control character, a space, any of
 `"(),:;<>@[\]`, DEL, or that begins or ends with a dot or holds two in a row.
 Nothing non-ASCII is refused by Go's address parser, so it has no Unicode clause.
-`stored_email_test.go` runs this text against `mail.ParseAddress`:
+It finds every row the old API could have written. It reads only the local part,
+so a row inserted by hand with a defect in its domain, or with an empty local part,
+is not listed; the API cannot create one. `stored_email_test.go` runs this text
+against `mail.ParseAddress`:
 
 ```sql
 SELECT id, email
@@ -617,10 +620,26 @@ SELECT id, email
  ORDER BY created_at, id;
 ```
 
-No rows is the expected answer. If it returns rows, the repair is per row and the
-owner's: correct the address, or disable the account. After the release such an
-account cannot sign in: the quoted form is refused, and the stored form fails the
-sign-in request's own check.
+No rows is the expected answer. If it returns rows, nothing in the release repairs
+them; the repair is per row and the owner's.
+
+- **A student.** An Admin, or the teacher who owns the student, corrects the address
+  with `PATCH /teacher/students/{id}`. A teacher who only shares the student gets
+  `403 STUDENT_SHARED`.
+- **A staff account (a teacher or an Admin).** `PATCH /teacher/students/{id}` answers
+  404 for it, and the API has no operation that disables an account, so the repair is
+  one statement run by the owner with a credential that may write `app.users`:
+  `UPDATE app.users SET email = '<corrected address>' WHERE id = '<id from the query>';`
+  Write the id and the change in the release record.
+
+Until a row is repaired, these keep answering `500 INTERNAL`: `GET /teacher/students`
+for a page holding the row (also with a `q` that matches it) and `GET
+/teacher/students/{id}`, `POST /teacher/students/reset-passwords`, `GET
+/teacher/classes/{id}/members` for a class holding the student, `GET
+/teacher/attempts/{id}` for that student's attempt, and, for the account's own
+session, `GET /auth/me` and `PATCH /auth/me`. The account cannot sign in again: the
+quoted form is refused, and the stored form fails the sign-in request's own check
+with `400`. A session it already holds keeps refreshing.
 
 ## AI provider key and tiers
 

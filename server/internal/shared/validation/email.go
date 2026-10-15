@@ -14,8 +14,8 @@ var ErrEmail = errors.New("not an email address the API can store and print back
 // accepts once but not again: a quoted local part such as "a b"@example.com
 // parses to the bare a b@example.com, which no later parse accepts, so a row
 // holding it could not be written into a response. The contract's email
-// format validator and any importer that reads addresses from cells call it,
-// so both admit the same set.
+// format validator calls it, and an importer that reads addresses from cells
+// should too, so both admit the same set.
 func ParseEmail(value string) (string, error) {
 	parsed, err := mail.ParseAddress(value)
 	if err != nil {
