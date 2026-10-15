@@ -23,6 +23,7 @@ const ALLOWED_LITERALS = new Set([
   "/admin/roles/*",
   "/admin/settings/*",
   "/admin/users/*",
+  "/admin/users",
   "/admin/users/{id}",
   "/admin/settings/sign-in",
   "/admin/settings/logo",

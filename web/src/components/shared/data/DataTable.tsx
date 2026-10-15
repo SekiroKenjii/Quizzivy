@@ -93,6 +93,7 @@ export type DataTableProps<T extends Item> = Opening<T> &
     readonly padX?: number | undefined;
     readonly card?: ((row: T) => ReactNode) | undefined;
     readonly cardLayout?: "stacked" | "joined" | undefined;
+    readonly cards?: boolean | undefined;
     readonly framed?: boolean | undefined;
     readonly expansion?: DataTableExpansion<T> | undefined;
     readonly empty?: ReactNode;
@@ -432,7 +433,9 @@ function CardList<T extends Item>({
  * marked `data-slot="data-table-select-page"`, where a screen can find it to
  * give focus back. `menuLabel` names a row's menu button, "Actions"
  * otherwise. Below 768px a table that has `card` renders a
- * list of cards instead, without checkboxes, menus or asides. Content wider
+ * list of cards instead, without checkboxes, menus or asides; `cards`, when
+ * a screen gives it, decides that in place of the window's width, for a table
+ * that turns into cards by the width of the content. Content wider
  * than the table scrolls sideways inside it. Rows are dense when `dense`
  * says so, and otherwise when the account chose "Compact tables" (DG-37). A
  * table with an `expansion` opens a panel under a row: the row's opener, which
@@ -457,6 +460,7 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
     padX = PAD_X,
     card,
     cardLayout = "stacked",
+    cards,
     framed = true,
     expansion,
     empty,
@@ -481,7 +485,7 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
   );
   const shown = given ?? derived;
 
-  if (card !== undefined && !wide) {
+  if (card !== undefined && (cards ?? !wide)) {
     return (
       <CardList
         label={label}

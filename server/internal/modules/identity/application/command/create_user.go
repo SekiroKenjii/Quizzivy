@@ -3,7 +3,6 @@ package command
 import (
 	"context"
 	"errors"
-	"fmt"
 	accessquery "quizzivy/internal/modules/access/application/query"
 	"quizzivy/internal/modules/identity/application/internal/support"
 	"quizzivy/internal/modules/identity/domain"
@@ -30,7 +29,8 @@ type CreateUserHandler struct {
 }
 
 // Handle fails with a *validation.Error naming fullName for a name that
-// domain.CleanFullName refuses, with the access module's ErrRoleNotFound,
+// domain.CleanFullName refuses and email for an address that holds a character
+// domain.HiddenInEmail finds, with the access module's ErrRoleNotFound,
 // ErrNotAssignable and ErrTargetRoleNotAllowed for a role the caller may not
 // give, whether the role was that way when the call began or became so while
 // it ran, with domain.ErrClassNotAllowed for a class given to a role that is
@@ -43,11 +43,12 @@ type CreateUserHandler struct {
 // nothing.
 func (h CreateUserHandler) Handle(ctx context.Context, cmd CreateUser) (CreateUserResult, error) {
 	in, req := cmd.Input, cmd.Request
-	name, fault, hidden := domain.CleanFullName(in.FullName)
-	if fault != domain.FullNameOK {
-		return CreateUserResult{}, fullNameRefusal(fault, hidden)
+	var refused validation.Error
+	in.FullName = cleanName(&refused, in.FullName)
+	checkAddress(&refused, in.Email)
+	if invalid := refused.OrNil(); invalid != nil {
+		return CreateUserResult{}, invalid
 	}
-	in.FullName = name
 	if !in.Delivery.Valid() {
 		return CreateUserResult{}, errors.New("create user: unknown delivery")
 	}
@@ -115,19 +116,4 @@ func (h CreateUserHandler) give(ctx context.Context, req domain.WriteRequest, in
 	}
 	in.RoleName, in.RoleRevision = role.Name, role.Revision
 	return nil
-}
-
-func fullNameRefusal(fault domain.FullNameFault, hidden rune) *validation.Error {
-	var refused validation.Error
-	switch fault {
-	case domain.FullNameEmpty:
-		refused.Add("fullName", "Họ và tên không được để trống.")
-	case domain.FullNameTooLong:
-		refused.Add("fullName", fmt.Sprintf("Nội dung không được dài quá %d ký tự.", domain.MaxFullNameLength))
-	case domain.FullNameHidden:
-		refused.Add("fullName", fmt.Sprintf("Họ và tên không được chứa ký tự điều khiển hoặc ký tự vô hình (U+%04X).", hidden))
-	default:
-		refused.Add("fullName", "Họ và tên phải có ít nhất một chữ cái, chữ số, dấu câu hoặc ký hiệu.")
-	}
-	return &refused
 }

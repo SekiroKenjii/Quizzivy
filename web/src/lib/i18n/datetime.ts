@@ -311,6 +311,53 @@ export function formatAgo(
   return ago(Math.max(1, Math.floor(days / 365.25)), "year");
 }
 
+const shortFormats = new Map<AppLocale, Intl.RelativeTimeFormat>();
+
+function shortFormat(locale: AppLocale): Intl.RelativeTimeFormat {
+  let format = shortFormats.get(locale);
+  if (format === undefined) {
+    format = new Intl.RelativeTimeFormat(locale, {
+      numeric: "always",
+      style: "narrow",
+    });
+    shortFormats.set(locale, format);
+  }
+  return format;
+}
+
+const SHORT_WEEKS_MAX = 4;
+
+/**
+ * formatRelativeShort is how long ago a moment was for a table cell, whose
+ * column header already says what the moment is: the bare value with no verb
+ * beyond the language's own "ago". `justNow` stands under a minute and for a
+ * moment the browser's clock has not reached yet; then come minutes, hours,
+ * days to six, weeks to four, and after that the date with its year, which
+ * reads one way in both languages. The cell should hold the exact time in a
+ * `title`. Sentences keep `formatRelative` and `formatAgo`.
+ */
+export function formatRelativeShort(
+  utc: string | Date,
+  locale: AppLocale,
+  justNow: string,
+  now: number = Date.now(),
+  zone = getDisplayTimeZone(),
+) {
+  const seconds = (now - new Date(utc).getTime()) / 1000;
+  if (seconds < 60 || Number.isNaN(seconds)) return justNow;
+
+  const format = shortFormat(locale);
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return format.format(-minutes, "minute");
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return format.format(-hours, "hour");
+  const days = Math.floor(hours / 24);
+  if (days < 7) return format.format(-days, "day");
+  const weeks = Math.floor(days / 7);
+  if (weeks <= SHORT_WEEKS_MAX) return format.format(-weeks, "week");
+  return dayMonthYear(utc, locale, zone);
+}
+
 /** The two halves of a `datetime-local` field, both pinned to APP_TIME_ZONE. */
 export function toDateTimeInput(utc: string | Date): string {
   return formatInTimeZone(utc, APP_TIME_ZONE, "yyyy-MM-dd'T'HH:mm");

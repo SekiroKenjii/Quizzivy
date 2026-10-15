@@ -36,6 +36,7 @@
     "saveChanges": "Lưu thay đổi",
     "showPassword": "Hiện mật khẩu",
     "hidePassword": "Ẩn mật khẩu",
+    "agoNow": "vừa xong",
     "agoJustNow": "vừa xong",
     "justDuplicated": "Vừa nhân bản",
     "duplicateNamed": "Nhân bản {{name}}",
@@ -728,6 +729,56 @@
       "settings": "Cài đặt hệ thống",
       "password": "Đổi mật khẩu"
     }
+  },
+  "users": {
+    "title": "Người dùng",
+    "lead": "Mọi người có thể đăng nhập vào Quizzivy.",
+    "tabs": {
+      "label": "Nhóm người dùng",
+      "all": "Tất cả",
+      "teachers": "Giáo viên",
+      "students": "Học viên",
+      "admins": "Quản trị viên",
+      "disabled": "Đã vô hiệu hoá"
+    },
+    "search": {
+      "placeholder": "Tìm theo tên hoặc email",
+      "short": "Nhập ít nhất {{min}} ký tự để tìm kiếm."
+    },
+    "filter": {
+      "label": "Bộ lọc đang áp dụng",
+      "remove": "Bỏ lọc {{label}}"
+    },
+    "table": "Người dùng",
+    "column": {
+      "user": "Người dùng",
+      "role": "Vai trò",
+      "signIn": "Đăng nhập",
+      "classes": "Lớp",
+      "lastActive": "Hoạt động cuối",
+      "status": "Trạng thái"
+    },
+    "signIn": {
+      "password": "Mật khẩu",
+      "google": "Google",
+      "none": "Chưa có"
+    },
+    "noClass": "Chưa vào lớp",
+    "moreCount": "+{{n}}",
+    "moreClasses": "và {{count}} lớp khác",
+    "neverActive": "Chưa bao giờ",
+    "status": {
+      "active": "Đang hoạt động",
+      "mustChangePassword": "Phải đổi mật khẩu",
+      "mustChangePasswordShort": "Đổi mật khẩu",
+      "neverSignedIn": "Chưa đăng nhập",
+      "disabled": "Đã vô hiệu hoá"
+    },
+    "empty": "Không có người dùng phù hợp.",
+    "clearFilters": "Bỏ lọc",
+    "loadFailed": "Không tải được danh sách người dùng.",
+    "noun_one": "người dùng",
+    "noun_other": "người dùng"
   },
   "systemSettings": {
     "title": "Cài đặt hệ thống",

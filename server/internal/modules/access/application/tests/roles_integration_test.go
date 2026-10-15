@@ -39,6 +39,16 @@ type realWorld struct {
 
 func appWorld(t *testing.T) *realWorld {
 	t.Helper()
+	return openWorld(t, pgx.TxOptions{})
+}
+
+func snapshotWorld(t *testing.T) *realWorld {
+	t.Helper()
+	return openWorld(t, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+}
+
+func openWorld(t *testing.T, opts pgx.TxOptions) *realWorld {
+	t.Helper()
 	dsn := os.Getenv("APP_DATABASE_URL")
 	if dsn == "" {
 		t.Skip("APP_DATABASE_URL is not set")
@@ -49,7 +59,7 @@ func appWorld(t *testing.T) *realWorld {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	tx, err := pool.Begin(ctx)
+	tx, err := pool.BeginTx(ctx, opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,7 +451,7 @@ func TestADecomposedNameCollidesWithTheComposedOneAndIsStoredComposed(t *testing
 }
 
 func TestNoRoleIsCreatedPastTheLimit(t *testing.T) {
-	w := appWorld(t)
+	w := snapshotWorld(t)
 	by, ctx := w.admin(), context.Background()
 	w.exec(`
 		INSERT INTO app.roles (name, icon, color)

@@ -4,7 +4,7 @@ import (
 	"context"
 	"quizzivy/internal/modules/identity/application/internal/support"
 	"quizzivy/internal/modules/identity/domain"
-	"quizzivy/internal/shared/content"
+	"quizzivy/internal/shared/validation"
 )
 
 type UpdateStudent struct {
@@ -20,10 +20,16 @@ func (s UpdateStudentHandler) Handle(ctx context.Context, cmd UpdateStudent) (do
 	if err := s.MayActOn(ctx, cmd.Request, cmd.Input.ID, cmd.Input.Disabled != nil); err != nil {
 		return domain.Student{}, err
 	}
-	var c content.Composer
-	cmd.Input.FullName = c.Optional("fullName", cmd.Input.FullName, domain.MaxFullNameLength)
-	if err := c.Err(); err != nil {
-		return domain.Student{}, err
+	var refused validation.Error
+	if cmd.Input.FullName != nil {
+		name := cleanName(&refused, *cmd.Input.FullName)
+		cmd.Input.FullName = &name
+	}
+	if cmd.Input.Email != nil {
+		checkAddress(&refused, *cmd.Input.Email)
+	}
+	if invalid := refused.OrNil(); invalid != nil {
+		return domain.Student{}, invalid
 	}
 	cmd.Input.Now = s.Now()
 	student, err := s.Repo.Update(ctx, cmd.Request, cmd.Input)

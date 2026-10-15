@@ -116,5 +116,5 @@ func trimmed(s *string) *string {
 	if s == nil {
 		return nil
 	}
-	return new(tidy(*s))
+	return new(validation.Tidy(*s))
 }
