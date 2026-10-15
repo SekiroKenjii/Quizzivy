@@ -94,12 +94,23 @@ func (a *Application) SetPasswordLinks(links domain.SetPasswordLinks) {
 
 // SetAdminUsers attaches the Admin console's account directory and the access
 // module's say on which roles a caller may give, which opens createUser,
-// listUsers and getUser.
-// Without it Commands.CreateUser, Queries.ListUsers and Queries.GetUser are
-// nil and their operations answer 501.
+// listUsers, getUser, changeUserRole, disableUser, disableUsers, enableUser,
+// signOutUser, resetUserPassword and resetUsersPasswords.
+// Without it Commands.CreateUser, Commands.ChangeUserRole,
+// Commands.DisableUser, Commands.DisableUsers, Commands.EnableUser,
+// Commands.SignOutUser, Commands.ResetUserPassword,
+// Commands.ResetUsersPasswords, Queries.ListUsers and Queries.GetUser are nil
+// and their operations answer 501.
 func (a *Application) SetAdminUsers(repo domain.AdminUsers, roles ports.AssignableRole) {
 	admin := &support.Admin{Repo: repo, Roles: roles, Service: a.service, Students: a.students}
 	a.Commands.CreateUser = command.CreateUserHandler{Admin: admin}
+	a.Commands.ChangeUserRole = command.ChangeUserRoleHandler{Admin: admin}
+	a.Commands.DisableUser = command.DisableUserHandler{Admin: admin}
+	a.Commands.DisableUsers = command.DisableUsersHandler{Admin: admin}
+	a.Commands.EnableUser = command.EnableUserHandler{Admin: admin}
+	a.Commands.SignOutUser = command.SignOutUserHandler{Admin: admin}
+	a.Commands.ResetUserPassword = command.ResetUserPasswordHandler{Admin: admin}
+	a.Commands.ResetUsersPasswords = command.ResetUsersPasswordsHandler{Admin: admin}
 	a.Queries.ListUsers = query.ListUsersHandler{Admin: admin}
 	a.Queries.GetUser = query.GetUserHandler{Admin: admin}
 }
@@ -134,7 +145,14 @@ func (a *Application) SetLogger(logger *slog.Logger) {
 }
 
 type Commands struct {
+	ChangeUserRole           cqrs.CommandHandler[command.ChangeUserRole, domain.AdminUser]
 	DeleteStudent            cqrs.CommandHandler[command.DeleteStudent, cqrs.Nothing]
+	DisableUser              cqrs.CommandHandler[command.DisableUser, domain.AdminUser]
+	DisableUsers             cqrs.CommandHandler[command.DisableUsers, domain.BulkDisable]
+	EnableUser               cqrs.CommandHandler[command.EnableUser, domain.AdminUser]
+	ResetUserPassword        cqrs.CommandHandler[command.ResetUserPassword, command.ResetUserPasswordResult]
+	ResetUsersPasswords      cqrs.CommandHandler[command.ResetUsersPasswords, domain.BulkUserReset]
+	SignOutUser              cqrs.CommandHandler[command.SignOutUser, cqrs.Nothing]
 	RemoveAvatar             cqrs.CommandHandler[command.RemoveAvatar, domain.User]
 	SetAvatar                cqrs.CommandHandler[command.SetAvatar, domain.User]
 	ChangePassword           cqrs.CommandHandler[command.ChangePassword, cqrs.Nothing]

@@ -6,13 +6,27 @@ import (
 )
 
 // Requirement is the permission an operation declares in x-permission: one
-// key, one pseudo-key, or a list meaning any of them.
+// key, one pseudo-key, or a list meaning any of them. An operation that also
+// declares x-allows-temporary-password stays open to an account that has yet
+// to change its temporary password.
 type Requirement struct {
-	anyOf []Key
+	anyOf     []Key
+	temporary bool
 }
 
 // AnyOf returns the requirement that any one of keys meets.
 func AnyOf(keys ...Key) Requirement { return Requirement{anyOf: slices.Clone(keys)} }
+
+// AllowingTemporaryPassword returns r marked as open to an account that must
+// still change its temporary password.
+func (r Requirement) AllowingTemporaryPassword() Requirement {
+	r.temporary = true
+	return r
+}
+
+// AllowsTemporaryPassword reports whether an account that must still change
+// its temporary password may use the operation.
+func (r Requirement) AllowsTemporaryPassword() bool { return r.temporary }
 
 // Keys returns the requirement's keys in the order they were declared.
 func (r Requirement) Keys() []Key { return slices.Clone(r.anyOf) }

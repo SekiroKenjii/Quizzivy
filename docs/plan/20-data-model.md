@@ -3560,6 +3560,14 @@ the API and the worker run side by side while a deploy rolls out. A release ther
 renames a template while rows of it can be pending. The timer is armed only for the earliest pending
 `deliver_after` of a known template, so an empty outbox never wakes the database.
 
+**Cancelling.** Disabling an account (T-R5.9b) calls `email.CancelPending(ctx, tx, userID, at)` on the disabling
+transaction: every pending row whose `to_user_id` is that account is set to `failed_at = at`,
+`last_error_code = 'cancelled'` and `secret_ciphertext = NULL`, so a queued invite or reset link can no longer be
+sent and carries no sealed token. The statement claims its rows `FOR UPDATE SKIP LOCKED`: a row a dispatcher
+holds in its batch is sent, which is the same as the message having gone a moment before the disable. Enabling the
+account again requeues nothing; an Admin who wants the person back sends a new link through Reset. `cancelled`
+joins the codes a failed row can carry and is not retried.
+
 **Retention.** The daily housekeeping (T-R5.16, `core/jobs.Housekeep`) deletes, oldest first and 500 at a time,
 the rows whose `sent_at` or `failed_at` is more than 30 days old (`email.Retention`). A pending row is never
 touched, however old. The delete reads the table in order of the outcome's instant without an index: the table

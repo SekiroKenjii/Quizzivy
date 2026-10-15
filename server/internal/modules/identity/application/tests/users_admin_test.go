@@ -44,7 +44,11 @@ type usersWorld struct {
 
 func newUsersWorld(t *testing.T, withOutbox bool) *usersWorld {
 	t.Helper()
-	admin, appdb := newPool(t), linkAppPool(t)
+	return newUsersWorldOn(t, newPool(t), linkAppPool(t), withOutbox, true)
+}
+
+func newUsersWorldOn(t *testing.T, admin, appdb *pgxpool.Pool, withOutbox, cleanUp bool) *usersWorld {
+	t.Helper()
 	key, err := secrets.ParseKey(base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef")))
 	if err != nil {
 		t.Fatal(err)
@@ -69,21 +73,23 @@ func newUsersWorld(t *testing.T, withOutbox bool) *usersWorld {
 	w.app.SetPasswordLinks(links)
 	w.app.SetSignInPolicy(switchablePolicy(func() organizationmodel.SignInPolicy { return w.policy }))
 	w.app.SetAdminUsers(repositories.NewAdminUsers(dbx, links), w.roles)
-	t.Cleanup(func() {
-		ctx := context.Background()
-		owned := `SELECT id FROM app.users WHERE email LIKE '%@' || $1`
-		for _, stmt := range []string{
-			`DELETE FROM app.email_outbox WHERE to_address LIKE '%@' || $1`,
-			`DELETE FROM app.class_members WHERE user_id IN (` + owned + `)`,
-			`DELETE FROM app.classes WHERE teacher_id IN (` + owned + `)`,
-			`DELETE FROM app.audit_log WHERE entity_id IN (` + owned + `) OR actor_user_id IN (` + owned + `)`,
-			`DELETE FROM app.users WHERE email LIKE '%@' || $1`,
-		} {
-			if _, err := admin.Exec(ctx, stmt, w.marker); err != nil {
-				t.Errorf("cleanup %q: %v", stmt, err)
+	if cleanUp {
+		t.Cleanup(func() {
+			ctx := context.Background()
+			owned := `SELECT id FROM app.users WHERE email LIKE '%@' || $1`
+			for _, stmt := range []string{
+				`DELETE FROM app.email_outbox WHERE to_address LIKE '%@' || $1`,
+				`DELETE FROM app.class_members WHERE user_id IN (` + owned + `)`,
+				`DELETE FROM app.classes WHERE teacher_id IN (` + owned + `)`,
+				`DELETE FROM app.audit_log WHERE entity_id IN (` + owned + `) OR actor_user_id IN (` + owned + `)`,
+				`DELETE FROM app.users WHERE email LIKE '%@' || $1`,
+			} {
+				if _, err := admin.Exec(ctx, stmt, w.marker); err != nil {
+					t.Errorf("cleanup %q: %v", stmt, err)
+				}
 			}
-		}
-	})
+		})
+	}
 	w.actor = w.insertUser(t, "actor", "teacher")
 	return w
 }

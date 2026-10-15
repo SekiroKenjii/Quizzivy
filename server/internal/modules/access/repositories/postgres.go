@@ -26,16 +26,16 @@ var (
 	_ domain.RoleStore  = (*Postgres)(nil)
 )
 
-// Principal reads a user's role, disabled state and session epoch in one
-// statement.
+// Principal reads a user's role, disabled state, session epoch and whether the
+// password must be changed, in one statement.
 func (s *Postgres) Principal(ctx context.Context, userID string) (domain.PrincipalRow, error) {
 	var row domain.PrincipalRow
 	var builtin *string
 	err := s.QueryRow(ctx, `
-		SELECT u.role_id::text, r.builtin_key, r.revision, u.disabled_at IS NOT NULL, u.session_epoch
+		SELECT u.role_id::text, r.builtin_key, r.revision, u.disabled_at IS NOT NULL, u.session_epoch, u.must_change_password
 		  FROM app.users u
 		  JOIN app.roles r ON r.id = u.role_id
-		 WHERE u.id = $1`, userID).Scan(&row.Role.ID, &builtin, &row.Role.Revision, &row.Disabled, &row.Epoch)
+		 WHERE u.id = $1`, userID).Scan(&row.Role.ID, &builtin, &row.Role.Revision, &row.Disabled, &row.Epoch, &row.MustChangePassword)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.PrincipalRow{}, domain.ErrUnknownUser
 	}

@@ -191,6 +191,7 @@ func toAPIAdminUserDetail(result query.GetUserResult) openapi.AdminUserDetail {
 			ChangeRole:    result.Can.ChangeRole,
 			ResetPassword: result.Can.ResetPassword,
 			Disable:       result.Can.Disable,
+			Enable:        result.Can.Enable,
 			SignOut:       result.Can.SignOut,
 			Transfer:      result.Can.Transfer,
 		},

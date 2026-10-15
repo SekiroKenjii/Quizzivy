@@ -3,6 +3,7 @@ package application_test
 import (
 	"context"
 	"errors"
+	"maps"
 	"slices"
 	"testing"
 
@@ -88,6 +89,29 @@ func TestTheAssignableRolesAreThoseWithinTheCallersReach(t *testing.T) {
 	want := []pick{{"Admin", false}, {"Teacher", false}, {"Custom", false}, {"Student", true}, {"Only tests", true}}
 	if !slices.Equal(got, want) {
 		t.Errorf("the Admin may assign %v, want %v", got, want)
+	}
+}
+
+func TestAnAssignableRoleSaysWhetherItOpensTheTeacherWorkspaceInBothQueries(t *testing.T) {
+	app := queryApp(t)
+	roles, err := app.Queries.AssignableRoles.Handle(context.Background(), query.AssignableRoles{By: adminCaller()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, r := range roles {
+		got[r.Name] = r.OpensTeacher
+		one, err := app.Queries.AssignableRole.Handle(context.Background(), query.AssignableRole{By: adminCaller(), RoleID: r.ID})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if one.OpensTeacher != r.OpensTeacher {
+			t.Errorf("%s: AssignableRole says %v, AssignableRoles %v", r.Name, one.OpensTeacher, r.OpensTeacher)
+		}
+	}
+	want := map[string]bool{"Admin": true, "Teacher": true, "Custom": true, "Student": false, "Only tests": false}
+	if !maps.Equal(got, want) {
+		t.Errorf("opens the teacher workspace = %v, want %v", got, want)
 	}
 }
 

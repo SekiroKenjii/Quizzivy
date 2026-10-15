@@ -226,7 +226,7 @@ func TestTheClassListIsLimitedPerUserAndRefusedCallersSpendNothing(t *testing.T)
 	student := r.a.must(http.StatusCreated, http.MethodPost, "/teacher/students", map[string]any{
 		"email": "han-muc-" + nonce(t) + "@example.com", "fullName": "Học viên", "classIds": []string{},
 	})
-	learner := r.w.signedIn(student["user"].(map[string]any)["email"].(string), student["temporaryPassword"].(string))
+	learner := r.w.settledIn(student["user"].(map[string]any)["email"].(string), student["temporaryPassword"].(string))
 
 	for range 3 {
 		if status, _, _ := r.listClasses(r.w.browser(), "limit=1"); status != http.StatusUnauthorized {
@@ -377,7 +377,7 @@ func TestAStudentSeesWhenAndWhereAClassMeetsAndNothingElse(t *testing.T) {
 	made := r.a.must(http.StatusCreated, http.MethodPost, "/teacher/students", map[string]any{
 		"email": "lop-cua-em-" + nonce(t) + "@example.com", "fullName": "Học viên", "classIds": []string{id(plain), id(meeting)},
 	})
-	learner := r.w.signedIn(made["user"].(map[string]any)["email"].(string), made["temporaryPassword"].(string))
+	learner := r.w.settledIn(made["user"].(map[string]any)["email"].(string), made["temporaryPassword"].(string))
 	status, body := learner.call(http.MethodGet, "/app/classes", nil)
 	if status != http.StatusOK {
 		t.Fatalf("the student's classes: %d %v", status, body)
@@ -414,7 +414,7 @@ func TestAStudentSeesWhenAndWhereAClassMeetsAndNothingElse(t *testing.T) {
 	newcomer := r.a.must(http.StatusCreated, http.MethodPost, "/teacher/students", map[string]any{
 		"email": "moi-vao-" + nonce(t) + "@example.com", "fullName": "Học viên mới", "classIds": []string{},
 	})
-	joiner := r.w.signedIn(newcomer["user"].(map[string]any)["email"].(string), newcomer["temporaryPassword"].(string))
+	joiner := r.w.settledIn(newcomer["user"].(map[string]any)["email"].(string), newcomer["temporaryPassword"].(string))
 	status, joined := joiner.call(http.MethodPost, "/app/classes/join", map[string]any{"joinCode": code})
 	if status != http.StatusOK {
 		t.Fatalf("joining by code: %d %v", status, joined)
@@ -431,7 +431,7 @@ func TestAStudentSeesWhenAndWhereAClassMeetsAndNothingElse(t *testing.T) {
 	otherStudent := r.b.must(http.StatusCreated, http.MethodPost, "/teacher/students", map[string]any{
 		"email": "lop-khac-" + nonce(t) + "@example.com", "fullName": "Học viên lớp khác", "classIds": []string{id(elsewhere)},
 	})
-	stranger := r.w.signedIn(otherStudent["user"].(map[string]any)["email"].(string), otherStudent["temporaryPassword"].(string))
+	stranger := r.w.settledIn(otherStudent["user"].(map[string]any)["email"].(string), otherStudent["temporaryPassword"].(string))
 	_, theirs := stranger.call(http.MethodGet, "/app/classes", nil)
 	for _, row := range items(theirs) {
 		if row["teacherAvatarUrl"] != nil {
