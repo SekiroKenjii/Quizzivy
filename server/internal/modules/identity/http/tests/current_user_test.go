@@ -99,8 +99,61 @@ func TestTheSignedInUserSeesTheirPermissionsAndWorkspaces(t *testing.T) {
 			if err := json.Unmarshal(wire, &fields); err != nil {
 				t.Fatal(err)
 			}
-			if _, ok := fields["role"]; ok {
-				t.Errorf("the response carries a role: %s", wire)
+			var role map[string]json.RawMessage
+			if err := json.Unmarshal(fields["role"], &role); err != nil {
+				t.Errorf("role is not the role record, but %s", fields["role"])
+			}
+		})
+	}
+}
+
+func TestTheSignedInUserSeesTheirOwnRoleAndNoOtherField(t *testing.T) {
+	id := "01935000-0000-7000-8000-0000000000a1"
+	roleID := "01935000-0000-7000-8000-0000000000b2"
+	cases := []struct {
+		name    string
+		role    domain.Role
+		builtin string
+		stored  string
+	}{
+		{"a built-in role", domain.Role{ID: roleID, BuiltinKey: new("teacher"), Name: "Giáo viên"}, `"teacher"`, "Giáo viên"},
+		{"a renamed built-in role", domain.Role{ID: roleID, BuiltinKey: new("admin"), Name: "Giám đốc"}, `"admin"`, "Giám đốc"},
+		{"a custom role", domain.Role{ID: roleID, Name: "Trợ lý phòng đề"}, `null`, "Trợ lý phòng đề"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			user := domain.User{ID: id, Email: "an@example.com", FullName: "Nguyễn Văn An", CreatedAt: time.Now(), Role: c.role}
+			h := identityhttp.NewIdentity(currentUserApp(user), time.Hour, true, nil)
+			resp, err := h.GetCurrentUser(contextAs(t, access.Principal{UserID: id, Permissions: access.NewSet(access.ContentTestsWrite)}), openapi.GetCurrentUserRequestObject{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			body, ok := resp.(openapi.GetCurrentUser200JSONResponse)
+			if !ok {
+				t.Fatalf("GetCurrentUser answered %T", resp)
+			}
+			wire, err := json.Marshal(body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var doc struct {
+				Role map[string]json.RawMessage `json:"role"`
+			}
+			if err := json.Unmarshal(wire, &doc); err != nil {
+				t.Fatal(err)
+			}
+			if got := string(doc.Role["builtinKey"]); got != c.builtin {
+				t.Errorf("builtinKey = %s, want %s", got, c.builtin)
+			}
+			if got := string(doc.Role["id"]); got != `"`+roleID+`"` {
+				t.Errorf("id = %s, want %q", got, roleID)
+			}
+			var name string
+			if err := json.Unmarshal(doc.Role["name"], &name); err != nil || name != c.stored {
+				t.Errorf("name = %s, want %q", doc.Role["name"], c.stored)
+			}
+			if len(doc.Role) != 3 {
+				t.Errorf("the role record carries %d fields, want id, builtinKey and name: %s", len(doc.Role), wire)
 			}
 		})
 	}

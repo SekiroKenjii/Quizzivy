@@ -5077,9 +5077,23 @@ export interface components {
          */
         Workspace: "teacher" | "admin" | "app";
         /**
+         * @description The role the caller holds, on the caller's own document and nowhere
+         *     else, so no payload about another person names a role. `name` is the
+         *     stored name. A client shows a built-in role (`builtinKey` set) by its
+         *     localised name while the stored name is still the seeded one, and the
+         *     stored name otherwise, as the Roles screen does. Always sent by the
+         *     server, and optional in the schema as `preferences` is. It is not the
+         *     legacy `role` string of v0.9.x, which `User` still does not carry.
+         */
+        CurrentUserRole: {
+            id: components["schemas"]["Uuid"];
+            builtinKey: components["schemas"]["BuiltinRoleKey"] | null;
+            name: string;
+        };
+        /**
          * @description The signed-in user, as only the user sees it: `User`'s properties plus
-         *     the permissions the user's role holds, in catalogue order, and the
-         *     workspaces they open. Written flat, because a closed schema cannot be
+         *     the user's own role, the permissions it holds, in catalogue order, and
+         *     the workspaces they open. Written flat, because a closed schema cannot be
          *     extended with `allOf` (issue #41). `User` stays where a response
          *     describes someone else, so a student's permissions never reach a
          *     teacher's payload.
@@ -5117,6 +5131,7 @@ export interface components {
              *     `CurrentUser` and not on `User` or `StudentRow`.
              */
             passwordChangedAt?: string;
+            role?: components["schemas"]["CurrentUserRole"];
             permissions: components["schemas"]["PermissionKey"][];
             workspaces: components["schemas"]["Workspace"][];
         };

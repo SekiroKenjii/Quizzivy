@@ -149,6 +149,19 @@ type Repository interface {
 	// unless the export is Ready, unexpired and signed fewer than MaxDownloads
 	// times. When sign fails nothing is counted.
 	Fetch(ctx context.Context, in Fetch, sign Signer) (string, error)
+	// Lapsed returns at most limit Ready exports whose time has passed, oldest
+	// first.
+	Lapsed(ctx context.Context, limit int) ([]Lapse, error)
+	// Expire marks the Ready export id Expired and forgets its file's key, once
+	// its time has passed. It reports false when the export is no longer Ready
+	// and lapsed, which another machine's sweep may have seen to first.
+	Expire(ctx context.Context, id string) (bool, error)
+}
+
+// Lapse is an export whose time has passed and whose file may still be stored.
+type Lapse struct {
+	ID         string
+	StorageKey string
 }
 
 // Queue is the worker's side of the exports.

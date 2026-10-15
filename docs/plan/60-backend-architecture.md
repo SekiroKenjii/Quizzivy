@@ -181,6 +181,13 @@ the "one package per feature" layout AGENTS.md described until then.
   the one package `csv_writers_test.go` allows. Without import storage and the
   worker (`ImportProcessing`) the transport is built over a nil application and
   answers `501 EXPORT_OFF`.
+- **Housekeeping rides an existing tick** (T-R5.16). `core/jobs.Housekeep` runs a list of
+  `HousekeepingStep`s in order, each a bounded batch repeated while it comes back full, under a budget of its
+  own, and logs counts only. `core/housekeeping.go` is where the list is assembled, because only `core` knows
+  every module; the modules own the single-batch commands (`PruneActivityDays`, `Outbox.Prune`, `Expire`,
+  `SweepLogos`). `PruneRefreshTokens` takes the list as a hook and runs it after its own prune at start-up and on
+  its 24-hour tick, so housekeeping adds no timer and no database wake. A step whose dependency is nil (no
+  import bucket, no media bucket) is left out of the list.
 - **core is five packages.** `core/wiring` builds each module (one file per
   module, in dependency order) and returns the `Assembly`; `core/router`
   fronts the transports with the generated strict server, the middleware

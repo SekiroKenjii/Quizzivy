@@ -20,6 +20,7 @@ import (
 
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/modules/organization/application"
+	"quizzivy/internal/modules/organization/application/ports"
 	"quizzivy/internal/modules/organization/domain"
 	organizationhttp "quizzivy/internal/modules/organization/http"
 	"quizzivy/internal/platform/httpx"
@@ -85,6 +86,10 @@ func (s *store) Exists(_ context.Context, key string) (bool, error) {
 	_, ok := s.objects[key]
 	return ok, nil
 }
+
+func (s *store) List(context.Context, string, int) ([]ports.StoredLogo, error) { return nil, nil }
+
+func (s *store) Delete(context.Context, string) error { return nil }
 
 type checker struct {
 	file domain.LogoFile

@@ -424,6 +424,14 @@
     "mainNavigation": "Main navigation",
     "account": "{{name}}'s account"
   },
+  "role": {
+    "builtin": {
+      "admin": "Admin",
+      "teacher": "Teacher",
+      "assistant": "Assistant",
+      "student": "Student"
+    }
+  },
   "teacherShell": {
     "workspace": "Teacher workspace",
     "switchWorkspace": "Switch workspace",
@@ -454,10 +462,6 @@
     },
     "breadcrumb": "Breadcrumb",
     "search": "Search…",
-    "role": {
-      "teacher": "Teacher",
-      "admin": "Admin"
-    },
     "documentTitle": "{{page}} · Quizzivy"
   },
   "adminShell": {
