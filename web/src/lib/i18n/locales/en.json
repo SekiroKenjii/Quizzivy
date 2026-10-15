@@ -36,6 +36,7 @@
     "saveChanges": "Save changes",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
+    "agoJustNow": "just now",
     "justDuplicated": "Just duplicated",
     "duplicateNamed": "Duplicate {{name}}",
     "updated": "Updated",
@@ -2430,6 +2431,7 @@
     "password": "Password",
     "average": "Average",
     "percent": "{{value}}%",
+    "neverActive": "Never",
     "takingNow": "taking a test",
     "flagged": "Flagged",
     "joinedVia": {

@@ -4,7 +4,9 @@ package e2e
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"quizzivy/internal/platform/config"
@@ -250,5 +252,39 @@ func TestTheCreditRequestRowAndTheUsageQuoteTheAIModuleOnlyToWhoManagesCredits(t
 	admin.must(http.StatusOK, http.MethodPost, "/admin/ai/credit-requests/"+id(request)+"/approve", nil)
 	if got := waiting(admin); got != before {
 		t.Errorf("credit-request rows after the approval = %d, want %d", got, before)
+	}
+}
+
+func TestACredentialShapedKeyIsAbsentFromTheOverviewsRecentChanges(t *testing.T) {
+	w := boot(t, planned)
+	auditOnly := w.signedIn(w.staffHolding("system.audit.read"))
+	teacherEmail, _ := w.createStaff("teacher")
+	id := w.auditRowWithDiff(teacherEmail, "class.created", "class", `{
+		"resetToken": "S3CRET-1", "secretKey": "S3CRET-2", "Authorization": "Bearer S3CRET-3", "sessionToken": "S3CRET-4",
+		"nested": {"tokenHash": "S3CRET-5", "kept": "visible-nested"}, "list": [{"Set-Cookie": "S3CRET-6", "kept": "visible-listed"}],
+		"note": "visible-note"}`)
+
+	overview := auditOnly.must(http.StatusOK, http.MethodGet, "/admin/overview", nil)
+	entries, _ := overview["recentChanges"].([]any)
+	var shown string
+	for _, e := range entries {
+		if entry := e.(map[string]any); entry["id"] == float64(id) {
+			raw, err := json.Marshal(entry)
+			if err != nil {
+				t.Fatal(err)
+			}
+			shown = string(raw)
+		}
+	}
+	if shown == "" {
+		t.Fatalf("entry %d is not among the %d recent changes: %v", id, len(entries), entries)
+	}
+	if strings.Contains(shown, "S3CRET") {
+		t.Errorf("a credential-shaped key reached the overview of a caller holding only the audit key: %s", shown)
+	}
+	for _, kept := range []string{"visible-note", "visible-nested", "visible-listed"} {
+		if !strings.Contains(shown, kept) {
+			t.Errorf("%q is missing from the entry, which hid more than the credential-shaped keys: %s", kept, shown)
+		}
 	}
 }
