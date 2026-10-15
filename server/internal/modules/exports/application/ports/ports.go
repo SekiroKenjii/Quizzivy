@@ -14,6 +14,8 @@ type Store interface {
 	Put(ctx context.Context, key, contentType string, body io.Reader, size int64) error
 	// SignedDownloadURL authorises key as an attachment named filename for ttl.
 	SignedDownloadURL(ctx context.Context, key, filename string, ttl time.Duration) (string, error)
+	// Delete removes the object under key. A key with no object is not an error.
+	Delete(ctx context.Context, key string) error
 }
 
 // Wake tells the worker that an export is waiting. It never blocks.
