@@ -20,6 +20,7 @@ import { saveError } from "@/features/classes/classFields";
 import { JoinQr } from "@/features/classes/components/JoinQr";
 import { JoinQrDialog } from "@/features/classes/components/JoinQrDialog";
 import { invalidateClass } from "@/features/classes/invalidate";
+import { useJoinCodesOff } from "@/features/organization/api";
 import {
   joinLinkLabel,
   joinLinkOf,
@@ -54,6 +55,8 @@ const NEXT = {
   submit: "classDetail.rotateConfirm",
 } as const;
 
+const OFF_REASON = "join-codes-off-reason";
+
 const SHARE =
   "bg-card hover:bg-muted inline-flex h-8 min-w-0 rounded-md flex-[1_1_auto] items-center justify-center gap-1.5 border px-2.5 text-meta font-medium whitespace-nowrap [&_svg]:size-3.5 [&_svg]:flex-none";
 
@@ -74,7 +77,10 @@ const SHARE =
  * elsewhere still offers New code; the server's 409 CLASS_ARCHIVED then
  * shows its own message in the dialog and the class is read again. A code that cannot be read shows its last four
  * characters until a new one is made. Without `canWrite` the card only
- * reads, the code masked.
+ * reads, the code masked. While the centre has turned joining by code off
+ * (D-023) the switch and New code or Create code stay but are disabled, with
+ * the centre's sentence as their reason, and a code is marked inactive;
+ * Stop stays, as does what the server accepts.
  */
 export function JoinCodePanel({
   klass,
@@ -84,6 +90,7 @@ export function JoinCodePanel({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const info = klass.joinCode ?? null;
+  const joinOff = useJoinCodesOff();
   const code = useQuery({
     queryKey: ["teacher-class", klass.id, "code"],
     queryFn: ({ signal }) => getJoinCode(klass.id, signal),
@@ -177,16 +184,22 @@ export function JoinCodePanel({
             size="sm"
             checked={klass.selfJoinEnabled}
             disabled={!canWrite}
-            aria-disabled={selfJoin.isPending || undefined}
+            aria-disabled={selfJoin.isPending || joinOff || undefined}
+            aria-describedby={joinOff ? OFF_REASON : undefined}
             className="aria-disabled:opacity-50"
             onCheckedChange={(next) => {
-              if (!selfJoin.isPending) selfJoin.mutate(next);
+              if (!selfJoin.isPending && !joinOff) selfJoin.mutate(next);
             }}
           />
         </label>
       </div>
 
       <div className="flex flex-col gap-3.5 px-4.5 pb-4">
+        {joinOff ? (
+          <p id={OFF_REASON} className="text-warning-ink text-xs leading-normal">
+            {t("classes.joinCodesOff")}
+          </p>
+        ) : null}
         {info === null ? (
           <p className="text-muted-fg text-sm">{t("classDetail.noActiveCode")}</p>
         ) : (
@@ -194,7 +207,8 @@ export function JoinCodePanel({
             info={info}
             readable={readable}
             unreadable={canWrite && code.isSuccess && readable === null}
-            paused={!klass.selfJoinEnabled}
+            paused={!klass.selfJoinEnabled || joinOff}
+            inactive={joinOff}
             now={now}
             onShowQr={() => setShowingQr(true)}
           />
@@ -203,9 +217,11 @@ export function JoinCodePanel({
           <CodeActions
             archived={archived}
             hasCode={info !== null}
+            joinOff={joinOff}
             rotateLabel={t(words.button)}
             rotateRef={rotateButton}
             onRotate={() => {
+              if (joinOff) return;
               rotate.reset();
               setRotating(true);
             }}
@@ -285,6 +301,7 @@ export function JoinCodePanel({
 function CodeActions({
   archived,
   hasCode,
+  joinOff,
   rotateLabel,
   rotateRef,
   onRotate,
@@ -292,6 +309,7 @@ function CodeActions({
 }: Readonly<{
   archived: boolean;
   hasCode: boolean;
+  joinOff: boolean;
   rotateLabel: string;
   rotateRef: RefObject<HTMLButtonElement | null>;
   onRotate: () => void;
@@ -311,7 +329,9 @@ function CodeActions({
             <Button
               ref={rotateRef}
               variant="outline"
-              className="h-8.5 flex-1 in-data-[scale=deck]:h-8.5 in-data-[scale=deck]:text-sm"
+              aria-disabled={joinOff || undefined}
+              aria-describedby={joinOff ? OFF_REASON : undefined}
+              className="h-8.5 flex-1 in-data-[scale=deck]:h-8.5 in-data-[scale=deck]:text-sm aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
               onClick={onRotate}
             >
               <RotateCw aria-hidden="true" className="size-3.5" />
@@ -338,6 +358,7 @@ function CodeSummary({
   readable,
   unreadable,
   paused,
+  inactive,
   now,
   onShowQr,
 }: Readonly<{
@@ -345,6 +366,7 @@ function CodeSummary({
   readable: string | null;
   unreadable: boolean;
   paused: boolean;
+  inactive: boolean;
   now: number;
   onShowQr: () => void;
 }>) {
@@ -379,7 +401,9 @@ function CodeSummary({
               className="mt-0.5 max-w-full border-0 in-data-[scale=deck]:px-2 [&>svg]:size-3"
             >
               <Pause aria-hidden="true" />
-              <span className="truncate">{t("classDetail.joiningPaused")}</span>
+              <span className="truncate">
+                {t(inactive ? "classDetail.codeInactive" : "classDetail.joiningPaused")}
+              </span>
             </Badge>
           ) : null}
         </div>

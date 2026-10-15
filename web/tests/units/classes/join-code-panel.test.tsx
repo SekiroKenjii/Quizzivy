@@ -389,3 +389,46 @@ describe("a code that cannot be read", () => {
     expect(reads).toBe(0);
   });
 });
+
+function serveJoinCodes(joinCodes: boolean) {
+  server.use(
+    http.get(`${BASE}/public/organization`, () =>
+      contractJson("/public/organization", "get", 200, {
+        name: "Quizzivy",
+        shortName: null,
+        website: null,
+        contactEmail: null,
+        frontDeskPhone: null,
+        frontDeskHours: null,
+        address: null,
+        logo: { lightUrl: null, darkUrl: null },
+        signIn: { google: true, password: true },
+        joinCodes,
+      }),
+    ),
+  );
+}
+
+describe("the join code card while the centre has turned joining by code off (D-023)", () => {
+  it("disables the switch and New code with the centre's sentence as their reason, and marks the code inactive", async () => {
+    serveJoinCodes(false);
+    const user = renderPanel();
+    await screen.findByText("K7QM-2PXA", { selector: "p" });
+    const reason = await screen.findByText("Trung tâm đang tắt tham gia bằng mã.");
+    const toggle = screen.getByRole("switch");
+    const renew = screen.getByRole("button", { name: "Mã mới" });
+    for (const control of [toggle, renew]) {
+      expect(control).toHaveAttribute("aria-disabled", "true");
+      expect(control).toHaveAccessibleDescription(reason.textContent);
+    }
+    expect(screen.getByText("Không hoạt động")).toBeInTheDocument();
+    expect(screen.queryByText("Tạm ngừng tham gia")).toBeNull();
+    await user.click(toggle);
+    await user.click(renew);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(patches).toEqual([]);
+    expect(screen.getByRole("button", { name: "Ngừng" })).not.toHaveAttribute(
+      "aria-disabled",
+    );
+  });
+});
