@@ -277,6 +277,7 @@ describe("on a deck surface", () => {
     for (const button of [action, clear]) {
       expect(button).not.toBeDisabled();
       expect(button).toHaveAttribute("aria-disabled", "true");
+      expect(button.className).not.toMatch(/(^|\s)(aria-disabled:)?opacity-/);
       button.focus();
     }
     fireEvent.click(clear);

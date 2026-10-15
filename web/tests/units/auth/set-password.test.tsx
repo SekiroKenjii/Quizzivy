@@ -7,6 +7,7 @@ import { http, HttpResponse } from "msw";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import SetPasswordPage from "@/features/auth/pages/SetPasswordPage";
 import type { SetPasswordLinkInfo } from "@/features/auth/api";
+import { passwordSignInQuery } from "@/features/organization/api";
 import { BASE_URL } from "@/lib/api/client";
 import { setLocale } from "@/lib/i18n";
 import { useAuthStore } from "@/stores/auth";
@@ -89,7 +90,10 @@ const signedIn =
       user,
     });
 
-function land(hash = `#token=${CARRIED}`) {
+function land(
+  hash = `#token=${CARRIED}`,
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   window.history.replaceState(ROUTER_STATE, "", `/set-password${hash}`);
   const router = createMemoryRouter(
     [
@@ -103,9 +107,7 @@ function land(hash = `#token=${CARRIED}`) {
   );
   render(
     <StrictMode>
-      <QueryClientProvider
-        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-      >
+      <QueryClientProvider client={client}>
         <RouterProvider router={router} />
       </QueryClientProvider>
     </StrictMode>,
@@ -231,23 +233,25 @@ describe("the set-password link", () => {
     ["an empty token", "#token="],
     ["a fragment without a token", "#hello"],
     ["a token longer than the contract allows", `#token=${"a".repeat(129)}`],
-  ])("calls %s an invalid link and sends nothing", async (_, hash) => {
-    land(hash);
-    expect(
-      await screen.findByRole("heading", {
+  ])(
+    "calls %s an invalid link, focuses the heading and sends nothing",
+    async (_, hash) => {
+      land(hash);
+      const heading = await screen.findByRole("heading", {
         level: 1,
         name: "Liên kết không còn dùng được",
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(INVALID)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Đến trang đăng nhập" })).toHaveAttribute(
-      "href",
-      "/login",
-    );
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(seen).toEqual([]);
-    expect(window.location.hash).toBe("");
-  });
+      });
+      await waitFor(() => expect(heading).toHaveFocus());
+      expect(screen.getByText(INVALID)).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Đến trang đăng nhập" })).toHaveAttribute(
+        "href",
+        "/login",
+      );
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(seen).toEqual([]);
+      expect(window.location.hash).toBe("");
+    },
+  );
 
   it("says a used, expired or revoked link is no longer usable, and focuses the news", async () => {
     checkAnswers(() =>
@@ -305,6 +309,161 @@ describe("the set-password link", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Không kết nối được với máy chủ. Vui lòng thử lại.",
     );
+  });
+});
+
+describe("the centre's password sign-in switch", () => {
+  const OFF = {
+    name: "Quizzivy",
+    shortName: null,
+    website: null,
+    contactEmail: null,
+    frontDeskPhone: null,
+    frontDeskHours: null,
+    address: null,
+    logo: { lightUrl: null, darkUrl: null },
+    signIn: { google: true, password: false },
+    joinCodes: true,
+  };
+
+  function organizationAnswers(answer: () => Response | Promise<Response>) {
+    server.use(http.get(`${BASE_URL}/public/organization`, answer));
+  }
+
+  it("says passwords are off before it shows a form, and focuses the heading", async () => {
+    checkAnswers(validLink);
+    organizationAnswers(() => contractJson("/public/organization", "get", 200, OFF));
+    land();
+
+    const heading = await screen.findByRole("heading", {
+      level: 1,
+      name: "Hãy đăng nhập bằng Google",
+    });
+    await waitFor(() => expect(heading).toHaveFocus());
+    expect(screen.queryByLabelText("Mật khẩu mới")).toBeNull();
+    expect(screen.queryByRole("heading", { level: 1, name: TITLE })).toBeNull();
+    expect(sets()).toEqual([]);
+  });
+
+  it("keeps the skeleton until the centre has answered, then shows the form", async () => {
+    checkAnswers(validLink);
+    let release: () => void = () => undefined;
+    organizationAnswers(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = () =>
+            resolve(
+              contractJson("/public/organization", "get", 200, {
+                ...OFF,
+                signIn: { google: true, password: true },
+              }),
+            );
+        }),
+    );
+    land();
+
+    await waitFor(() => expect(checks()).toHaveLength(1));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.getByRole("status")).toHaveTextContent("Đang kiểm tra liên kết…");
+    expect(screen.queryByLabelText("Mật khẩu mới")).toBeNull();
+
+    release();
+    expect(
+      await screen.findByRole("heading", { level: 1, name: TITLE }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the form when the centre's answer fails, and leaves the refusal to the server", async () => {
+    checkAnswers(validLink);
+    organizationAnswers(() => HttpResponse.error());
+    land();
+    expect(
+      await screen.findByRole("heading", { level: 1, name: TITLE }),
+    ).toBeInTheDocument();
+    expect(newField()).toBeInTheDocument();
+  });
+
+  it("shows the form once three seconds pass with no answer from the centre", async () => {
+    checkAnswers(validLink);
+    organizationAnswers(() => new Promise<Response>(() => undefined));
+    land();
+
+    await waitFor(() => expect(checks()).toHaveLength(1));
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    expect(screen.queryByLabelText("Mật khẩu mới")).toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent("Đang kiểm tra liên kết…");
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: TITLE }, { timeout: 4000 }),
+    ).toBeInTheDocument();
+  }, 10_000);
+
+  it("keeps a form that is already shown when a stale answer is corrected to off", async () => {
+    checkAnswers(validLink);
+    const releases: (() => void)[] = [];
+    organizationAnswers(
+      () =>
+        new Promise<Response>((resolve) => {
+          releases.push(() =>
+            resolve(contractJson("/public/organization", "get", 200, OFF)),
+          );
+        }),
+    );
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(
+      passwordSignInQuery().queryKey,
+      { ...OFF, signIn: { google: true, password: true } },
+      { updatedAt: Date.now() - 60_000 },
+    );
+    land(`#token=${CARRIED}`, client);
+
+    await fillIn();
+    await waitFor(() => expect(releases.length).toBeGreaterThan(0));
+    releases.forEach((release) => release());
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(newField()).toHaveValue("mật-khẩu-mới-9");
+    expect(
+      screen.queryByRole("heading", { level: 1, name: "Hãy đăng nhập bằng Google" }),
+    ).toBeNull();
+  });
+
+  it("asks the browser to revalidate the centre's answer, not to reuse a cached one", async () => {
+    checkAnswers(validLink);
+    const reads: RequestCache[] = [];
+    organizationAnswers(() => contractJson("/public/organization", "get", 200, OFF));
+    server.events.on("request:start", ({ request }) => {
+      if (request.url.endsWith("/public/organization")) reads.push(request.cache);
+    });
+    try {
+      land();
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Hãy đăng nhập bằng Google",
+      });
+      expect(reads).toContain("no-cache");
+    } finally {
+      server.events.removeAllListeners();
+    }
+  });
+
+  it("still calls a dead link dead when passwords are off", async () => {
+    checkAnswers(() =>
+      contractJson(
+        "/auth/set-password/check",
+        "post",
+        410,
+        refusal("SET_PASSWORD_LINK_INVALID", "Liên kết không còn hiệu lực."),
+      ),
+    );
+    organizationAnswers(() => contractJson("/public/organization", "get", 200, OFF));
+    land();
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Liên kết không còn dùng được",
+      }),
+    ).toBeInTheDocument();
   });
 });
 

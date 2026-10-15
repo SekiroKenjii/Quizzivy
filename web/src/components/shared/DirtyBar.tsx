@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { focusIsLost } from "@/lib/focusIsLost";
 import { cn } from "@/lib/utils";
 
-const BUTTON = "h-8.5 flex-none aria-disabled:opacity-50";
+const BUTTON = "h-8.5 flex-none";
+const PAUSED_SAVE = "aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50";
+const PAUSED_DISCARD = "aria-disabled:text-foreground/50";
 
 /**
  * DirtyBar is the Teacher deck's unsaved-changes bar: it sticks 12px above
@@ -78,6 +80,7 @@ export function DirtyBar({
           aria-disabled={saving || undefined}
           className={cn(
             BUTTON,
+            PAUSED_DISCARD,
             "hover:bg-muted dark:hover:bg-muted px-3 in-data-[scale=deck]:px-3 in-data-[scale=deck]:text-sm",
           )}
           onClick={() => {
@@ -91,7 +94,7 @@ export function DirtyBar({
         <Button
           type={onSave === undefined ? "submit" : "button"}
           aria-disabled={saving || undefined}
-          className={BUTTON}
+          className={cn(BUTTON, PAUSED_SAVE)}
           onClick={(event) => {
             if (saving) {
               event.preventDefault();

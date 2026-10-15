@@ -84,10 +84,12 @@ func (a *Application) SetSignInPolicy(p ports.SignInPolicy) {
 }
 
 // SetPasswordLinks attaches the store of set-password links, which opens
-// issuing them, checking one and using one. Without it no link can be issued,
-// and every link a caller presents is invalid.
+// issuing them, checking one and using one, and makes Commands.PruneSetPasswordLinks
+// available. Without it no link can be issued, every link a caller presents is
+// invalid and nothing is pruned.
 func (a *Application) SetPasswordLinks(links domain.SetPasswordLinks) {
 	a.service.Links = links
+	a.Commands.PruneSetPasswordLinks = command.PruneSetPasswordLinksHandler{Service: a.service}
 }
 
 // SetTemporaryPasswords replaces how a student's temporary password and its hash are made. Tests only.
@@ -113,6 +115,7 @@ type Commands struct {
 	Logout                 cqrs.CommandHandler[command.Logout, cqrs.Nothing]
 	PruneActivityDays      cqrs.CommandHandler[command.PruneActivityDays, int]
 	PruneExpiredTokens     cqrs.CommandHandler[command.PruneExpiredTokens, int64]
+	PruneSetPasswordLinks  cqrs.CommandHandler[command.PruneSetPasswordLinks, int]
 	Refresh                cqrs.CommandHandler[command.Refresh, model.RefreshResult]
 	RequestSetPasswordLink cqrs.CommandHandler[command.RequestSetPasswordLink, cqrs.Nothing]
 	SetPasswordWithLink    cqrs.CommandHandler[command.SetPasswordWithLink, model.Session]

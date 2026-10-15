@@ -33,6 +33,7 @@ import {
   MAX_LINK_TOKEN_LENGTH,
   setPasswordSchema,
 } from "@/features/auth/setPasswordSchema";
+import { usePasswordSignIn, type PasswordSignIn } from "@/features/organization/api";
 import { TransitionPendingError, transitionStatus } from "@/lib/api/authTransition";
 import { ApiError } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
@@ -49,6 +50,7 @@ type Phase =
 const NEW_FIELD = "set-password-new";
 const AGAIN_FIELD = "set-password-again";
 const TOO_LONG = "setPassword.errors.tooLong";
+const PASSWORD_SIGN_IN_WAIT_MS = 3000;
 
 function linkTokenIn(hash: string): string {
   return new URLSearchParams(hash.replace(/^#/, "")).get("token") ?? "";
@@ -82,14 +84,39 @@ function afterCheckFailed(cause: unknown): Phase {
   return { kind: "unavailable", cause };
 }
 
+function shownPhase(phase: Phase, passwordSignIn: PasswordSignIn): Phase {
+  if (phase.kind !== "ready") return phase;
+  if (passwordSignIn === "pending") return { kind: "checking" };
+  return passwordSignIn === "off" ? { kind: "passwordsOff" } : phase;
+}
+
+function useSettledPasswordSignIn(): PasswordSignIn {
+  const answer = usePasswordSignIn();
+  const [settled, setSettled] = useState<"on" | "off" | null>(null);
+  if (settled === null && answer !== "pending") setSettled(answer);
+  useEffect(() => {
+    if (settled !== null) return;
+    const timer = window.setTimeout(
+      () => setSettled((first) => first ?? "on"),
+      PASSWORD_SIGN_IN_WAIT_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [settled]);
+  return settled ?? answer;
+}
+
 /**
  * SetPasswordPage is where an emailed set-password link lands (D15, DG-05).
  * It takes the token from the URL's fragment and removes the fragment from the
  * address bar before its first request, holds the token in memory only, and
- * checks it once. A valid link asks for a new password twice; saving it signs
- * the account in as `login` does and goes to the account's home. A link that
- * is unknown, used, expired or revoked, a centre with password sign-in off,
- * and a failed check each get their own state.
+ * checks it once. A valid link asks for a new password twice, unless the
+ * centre's public answer says password sign-in is off. The page waits for that
+ * answer for three seconds, never changes its mind once it has decided, and
+ * shows the form when the answer is late, fails or is stale, because the
+ * server refuses the submit anyway; saving signs the account in as `login`
+ * does and goes to the account's home. A link that is unknown, used, expired
+ * or revoked, a centre with password sign-in off, and a failed check each get
+ * their own state, and the heading takes focus in each, the first included.
  */
 export default function SetPasswordPage() {
   const token = useRef<string | null>(null);
@@ -97,7 +124,9 @@ export default function SetPasswordPage() {
   const [phase, setPhase] = useState<Phase>(firstPhase);
   const [attempt, setAttempt] = useState(0);
   const heading = useRef<HTMLHeadingElement>(null);
-  const shownKind = useRef(phase.kind);
+  const passwordSignIn = useSettledPasswordSignIn();
+  const shown = shownPhase(phase, passwordSignIn);
+  const shownKind = useRef<Phase["kind"] | null>(null);
 
   useLayoutEffect(() => {
     token.current ??= takeLinkToken();
@@ -124,10 +153,10 @@ export default function SetPasswordPage() {
   }, [attempt]);
 
   useEffect(() => {
-    if (shownKind.current === phase.kind) return;
-    shownKind.current = phase.kind;
+    if (shownKind.current === shown.kind) return;
+    shownKind.current = shown.kind;
     heading.current?.focus();
-  }, [phase.kind]);
+  }, [shown.kind]);
 
   const readToken = useCallback(() => token.current ?? "", []);
   const retry = useCallback(() => {
@@ -139,20 +168,20 @@ export default function SetPasswordPage() {
 
   return (
     <AuthLayout>
-      {phase.kind === "checking" && <CheckingLink />}
-      {phase.kind === "ready" && (
+      {shown.kind === "checking" && <CheckingLink />}
+      {shown.kind === "ready" && (
         <SetPasswordForm
-          link={phase.link}
+          link={shown.link}
           headingRef={heading}
           readToken={readToken}
           onLinkInvalid={onLinkInvalid}
           onPasswordsOff={onPasswordsOff}
         />
       )}
-      {phase.kind === "invalid" && <InvalidLink headingRef={heading} />}
-      {phase.kind === "passwordsOff" && <PasswordsOff headingRef={heading} />}
-      {phase.kind === "unavailable" && (
-        <CheckFailed headingRef={heading} cause={phase.cause} onRetry={retry} />
+      {shown.kind === "invalid" && <InvalidLink headingRef={heading} />}
+      {shown.kind === "passwordsOff" && <PasswordsOff headingRef={heading} />}
+      {shown.kind === "unavailable" && (
+        <CheckFailed headingRef={heading} cause={shown.cause} onRetry={retry} />
       )}
     </AuthLayout>
   );
