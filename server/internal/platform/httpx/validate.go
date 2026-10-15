@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/mail"
 	"slices"
 	"strings"
 
@@ -17,9 +16,11 @@ import (
 	"github.com/getkin/kin-openapi/routers/gorillamux"
 	"github.com/google/uuid"
 	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
+
+	"quizzivy/internal/shared/validation"
 )
 
-// ValidateRequests checks every request against api/openapi.yaml after authentication middleware; streaming bodies retain parameter checks without duplicate security/body buffering. It also refuses a body map key that is not a uuid where the contract's `propertyNames` says `Uuid`, which the schema validator does not check. It also refuses a JSON body in which an object repeats a member name, which the schema validator reads as its last occurrence and the handler's decoder merges; a body the validator re-encoded to fill a default is passed on as the validator read it, without the repeat. It also refuses the character U+0000, which PostgreSQL stores in no `text` or `jsonb` value and the schema validator does not check: in a JSON string or object member name of an `application/json` body, or of the JSON a `text/plain` body carries where the contract declares one, in a query parameter's name or value, and in a decoded path. A refusal names the field or parameter whose value broke its rule or, when no value did, the required top-level property the body lacks; an unknown property and a body that is not an object get the generic sentence. The sentences are Vietnamese or, when Accept-Language prefers it, English.
+// ValidateRequests checks every request against api/openapi.yaml after authentication middleware; streaming bodies retain parameter checks without duplicate security/body buffering. It also refuses a body map key that is not a uuid where the contract's `propertyNames` says `Uuid`, which the schema validator does not check. It also refuses a JSON body in which an object repeats a member name, which the schema validator reads as its last occurrence and the handler's decoder merges; a body the validator re-encoded to fill a default is passed on as the validator read it, without the repeat. It also refuses the character U+0000, which PostgreSQL stores in no `text` or `jsonb` value and the schema validator does not check: in a JSON string or object member name of an `application/json` body, or of the JSON a `text/plain` body carries where the contract declares one, in a query parameter's name or value, and in a decoded path. It reads the `email` format through validation.ParseEmail, so an address that parses to a bare address which does not parse again, such as a quoted local part with a space, is refused rather than stored and then unprintable. A refusal names the field or parameter whose value broke its rule or, when no value did, the required top-level property the body lacks; an unknown property and a body that is not an object get the generic sentence. The sentences are Vietnamese or, when Accept-Language prefers it, English.
 func ValidateRequests(spec *openapi3.T) (func(http.Handler) http.Handler, error) {
 	stripped := *spec
 	stripped.Servers = nil
@@ -48,7 +49,7 @@ func ValidateRequests(spec *openapi3.T) (func(http.Handler) http.Handler, error)
 				},
 				SchemaValidationOptions: []openapi3.SchemaValidationOption{
 					openapi3.WithStringFormatValidator("email", openapi3.NewCallbackValidator(func(value string) error {
-						_, err := mail.ParseAddress(value)
+						_, err := validation.ParseEmail(value)
 						return err
 					})),
 				},

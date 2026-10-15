@@ -99,6 +99,7 @@ Today's cross-tree reads:
 |---|---|
 | `web/tests/units/join/code.test.ts` | `server/internal/modules/classes/domain/joincode.go` |
 | `server/tests/isolation_world_test.go` | `web/tests/e2e/fixtures/unit5-listening.mp3` |
+| `server/internal/modules/identity/repositories/tests/stored_email_test.go` | `docs/setup/operations.md` |
 | Server tests | `api/`, `migrations/`, `fly.toml`, `Dockerfile`, `docker/word-converter/`, `.github/workflows/deploy.yml` |
 | Production image | `Dockerfile`, `.dockerignore`, `fly.toml`, `server/`, `migrations/`, `scripts/provision-db.sh` (its set, `image`, holds these and nothing else) |
 | Web tests | `api/openapi.yaml`, `api/testdata/` |
