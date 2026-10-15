@@ -25,7 +25,7 @@ import { focusIsLost } from "@/lib/focusIsLost";
 import { usePasswordChanged } from "@/features/auth/passwordChanged";
 import { useSetPasswordLinkRequest } from "@/features/auth/setPasswordLink";
 import { SetPasswordLinkButton } from "@/features/auth/components/SetPasswordLinkButton";
-import { useKnownPasswordSignInOff } from "@/features/organization/api";
+import { usePasswordSignInOff } from "@/features/organization/api";
 import { authStore, useAuthStore } from "@/stores/auth";
 
 const BODY = "flex flex-col gap-3.5 p-4.5";
@@ -171,7 +171,7 @@ export function GoogleSection() {
   const user = useAuthStore((s) => s.user);
   const mounted = useMounted();
   const google = useGoogleSignIn();
-  const passwordsOff = useKnownPasswordSignInOff();
+  const passwordsOff = usePasswordSignInOff();
   const link = useSetPasswordLinkRequest();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);

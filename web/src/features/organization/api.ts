@@ -9,10 +9,12 @@ import { api, uploadFile } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 import {
   PUBLIC_ORGANIZATION_KEY,
-  publicOrganizationQuery,
   refreshPublicOrganization,
   resolveOrganization,
 } from "@/lib/organization";
+
+/** PasswordSignIn is the centre's password sign-in switch as far as the app knows it. */
+export type PasswordSignIn = "pending" | "on" | "off";
 
 /** OrganizationSettings is the centre's settings document as `GET /admin/settings` stores it. */
 export type OrganizationSettings = components["schemas"]["OrganizationSettings"];
@@ -107,18 +109,43 @@ export function uploadOrganizationLogo(file: File, variant: LogoVariant) {
 }
 
 /**
- * useKnownPasswordSignInOff reports whether the centre has turned password
- * sign-in off, from an answer the app already holds. It never fetches, so it
- * is false while nothing has asked, and a screen that relies on it still
- * shows the server's refusal when the switch is off.
+ * passwordSignInQuery reads `GET /public/organization` for the screens that
+ * offer a person a password: it asks the browser to revalidate, is stale after
+ * thirty seconds and does not retry, so a switch an Admin just changed reaches
+ * a person holding a set-password link in a moment, and a failing answer is
+ * "on" at once. Its key sits under PUBLIC_ORGANIZATION_KEY, so whatever
+ * invalidates the centre's answer invalidates it too.
  */
-export function useKnownPasswordSignInOff(): boolean {
-  const { data } = useQuery({
-    ...publicOrganizationQuery(),
-    enabled: false,
-    select: (organization) => !organization.signIn.password,
+export function passwordSignInQuery() {
+  return queryOptions({
+    queryKey: [...PUBLIC_ORGANIZATION_KEY, "password-sign-in"] as const,
+    queryFn: ({ signal }) =>
+      api("get", "/public/organization", { signal, cache: "no-cache" }),
+    staleTime: 30_000,
+    retry: false,
+    select: (answer): "on" | "off" =>
+      resolveOrganization(answer).signIn.password ? "on" : "off",
   });
-  return data === true;
+}
+
+/**
+ * usePasswordSignIn reads whether the centre accepts passwords. It is
+ * "pending" until the first answer arrives and "on" when none does, so a
+ * screen that relies on it never says the centre has switched passwords off
+ * when it has not been told so; the server's refusal stays the backstop.
+ */
+export function usePasswordSignIn(): PasswordSignIn {
+  const { data, isPending } = useQuery(passwordSignInQuery());
+  if (isPending) return "pending";
+  return data ?? "on";
+}
+
+/**
+ * usePasswordSignInOff reports whether the centre has turned password sign-in
+ * off. It is false until the answer arrives and when it fails.
+ */
+export function usePasswordSignInOff(): boolean {
+  return usePasswordSignIn() === "off";
 }
 
 /**
