@@ -23,6 +23,9 @@ import { api, BASE_URL } from "@/lib/api/client";
 import { ApiError, failureMessage } from "@/lib/api/errors";
 import { focusIsLost } from "@/lib/focusIsLost";
 import { usePasswordChanged } from "@/features/auth/passwordChanged";
+import { useSetPasswordLinkRequest } from "@/features/auth/setPasswordLink";
+import { SetPasswordLinkButton } from "@/features/auth/components/SetPasswordLinkButton";
+import { usePasswordSignInOff } from "@/features/organization/api";
 import { authStore, useAuthStore } from "@/stores/auth";
 
 const BODY = "flex flex-col gap-3.5 p-4.5";
@@ -157,7 +160,9 @@ export function PasswordSection() {
  * GoogleSection is the Google account card the deck does not draw (DG-157):
  * whether Google is linked, what unlinking would leave, and the control that
  * links or unlinks it. A Google-only account keeps Unlink in the tab order,
- * switched off and described by the fact that it signs in with Google only.
+ * switched off and described by the fact that it has no password yet, and can
+ * ask for an emailed link to set one (T-R5.3); while the centre is known to
+ * have password sign-in off, it is told only that it signs in with Google.
  * Unlinking replaces Unlink with Link Google, so focus moves to the line that
  * now reads "Not linked".
  */
@@ -166,6 +171,8 @@ export function GoogleSection() {
   const user = useAuthStore((s) => s.user);
   const mounted = useMounted();
   const google = useGoogleSignIn();
+  const passwordsOff = usePasswordSignInOff();
+  const link = useSetPasswordLinkRequest();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -174,6 +181,7 @@ export function GoogleSection() {
 
   const linked = user?.linkedProviders.includes("google") ?? false;
   const wouldLockOut = linked && !(user?.hasPassword ?? false);
+  const offerLink = wouldLockOut && !passwordsOff;
 
   useEffect(() => {
     if (linked || !unlinking.current) return;
@@ -217,11 +225,12 @@ export function GoogleSection() {
             id="settings-google-explainer"
             className="text-muted-fg text-meta leading-normal"
           >
-            {t(
-              wouldLockOut
-                ? "settings.googleOnlyTeacher"
-                : "settings.googleBothExplainer",
-            )}
+            {t(googleExplainer(wouldLockOut, passwordsOff))}
+          </p>
+        ) : null}
+        {offerLink && link.request.state === "sent" ? (
+          <p role="status" className="text-ui leading-normal">
+            {t("settings.setPasswordLink.sent", { email: user.email })}
           </p>
         ) : null}
         {(error ?? google.error) ? (
@@ -229,19 +238,33 @@ export function GoogleSection() {
             {error ?? google.error}
           </p>
         ) : null}
+        {offerLink && link.request.state === "failed" ? (
+          <p role="alert" className="text-danger-ink text-sm">
+            {link.request.message}
+          </p>
+        ) : null}
         {linked ? (
-          <Button
-            variant="outline"
-            aria-disabled={pending || wouldLockOut || undefined}
-            aria-describedby="settings-google-explainer"
-            className={ACTION}
-            onClick={() => {
-              if (pending || wouldLockOut) return;
-              void unlink();
-            }}
-          >
-            {t("settings.unlinkGoogle")}
-          </Button>
+          <div className="flex flex-wrap gap-2.5">
+            <Button
+              variant="outline"
+              aria-disabled={pending || wouldLockOut || undefined}
+              aria-describedby="settings-google-explainer"
+              className={ACTION}
+              onClick={() => {
+                if (pending || wouldLockOut) return;
+                void unlink();
+              }}
+            >
+              {t("settings.unlinkGoogle")}
+            </Button>
+            {offerLink ? (
+              <SetPasswordLinkButton
+                state={link.request.state}
+                className={ACTION}
+                onSend={() => void link.send()}
+              />
+            ) : null}
+          </div>
         ) : (
           <LinkGoogleControl
             pending={google.pending}
@@ -253,6 +276,11 @@ export function GoogleSection() {
       </div>
     </SettingsCard>
   );
+}
+
+function googleExplainer(wouldLockOut: boolean, passwordsOff: boolean) {
+  if (!wouldLockOut) return "settings.googleBothExplainer";
+  return passwordsOff ? "settings.googleOnlyPasswordsOff" : "settings.googleNoPassword";
 }
 
 function LinkGoogleControl({

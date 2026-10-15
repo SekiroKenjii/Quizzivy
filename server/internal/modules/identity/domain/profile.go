@@ -49,6 +49,7 @@ type Preferences struct {
 	CompactTables      *bool               `json:"compactTables,omitempty"`
 	LargerTestText     *bool               `json:"largerTestText,omitempty"`
 	Theme              *string             `json:"theme,omitempty"`
+	Workspace          *string             `json:"workspace,omitempty"`
 }
 
 // AIPreferences are the account's choices about the AI assistant. An omitted field uses the client's default, and the server's where it reads one: reading student answers is on unless it is false.

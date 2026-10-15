@@ -230,7 +230,11 @@ export function AddMemberDialog({
         </Button>
         <Button
           type="button"
-          className={cn(FOOTER_BUTTON, add.isPending && "opacity-50")}
+          className={cn(
+            FOOTER_BUTTON,
+            add.isPending &&
+              "aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50",
+          )}
           aria-disabled={add.isPending || undefined}
           onClick={() => {
             if (add.isPending) return;

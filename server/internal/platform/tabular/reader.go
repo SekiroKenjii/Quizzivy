@@ -53,6 +53,13 @@ var (
 	// xl/worksheets/, which is where Excel, LibreOffice and the common libraries
 	// put them. It wraps ErrFormat.
 	ErrLayout = fmt.Errorf("%w: the workbook does not use the standard layout (%s and xl/worksheets/)", ErrFormat, workbookPart)
+	// ErrNotWorksheet means the first sheet of the workbook is a chart or a
+	// dialog, which holds no table. The way out is to put the table on the
+	// first sheet. It wraps ErrFormat.
+	ErrNotWorksheet = fmt.Errorf("%w: the first sheet of the workbook is not a worksheet", ErrFormat)
+	// ErrTooManySheets means the workbook lists more than 256 sheets. A table
+	// is read from the first one, so the way out is to save it on its own.
+	ErrTooManySheets = fmt.Errorf("tabular: the workbook has more than %d sheets", maxSheets)
 	// ErrTooManyRows means the table holds more data rows than the limit.
 	ErrTooManyRows = errors.New("tabular: the table has more rows than the limit")
 	// ErrTooManyColumns means a row uses more columns than the limit.
@@ -123,7 +130,8 @@ type Table struct {
 // record of more than 16,384 fields is refused before it is parsed. A workbook
 // is inspected and checked before excelize decodes any of it. It must keep the
 // workbook at xl/workbook.xml and its worksheets under xl/worksheets/, as Excel
-// and LibreOffice do, or it is ErrLayout. It is refused when it holds more than
+// and LibreOffice do, or it is ErrLayout; its first sheet must be a worksheet,
+// or it is ErrNotWorksheet. It is refused when it holds more than
 // 1,000 archive entries (ErrTooManyEntries) or expands past 32 MiB
 // (ErrExpandedTooLarge), when a worksheet is larger than 8 MiB
 // (ErrSheetTooLarge) or another XML part is larger than 1 MiB, 2 MiB for the

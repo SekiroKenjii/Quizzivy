@@ -22,10 +22,10 @@ import (
 // it. That makes "forgot to protect the new endpoint" impossible by
 // construction, and makes the small set of exceptions worth pinning.
 
-// theOpenNine is every operation reachable without an access token. It is short
+// theOpenEleven is every operation reachable without an access token. It is short
 // on purpose. If this list grows, someone opened an endpoint, and that should
 // take an argument rather than a diff nobody reads.
-var theOpenNine = []string{
+var theOpenEleven = []string{
 	"GET /public/organization",       // the front door prints the centre before sign-in; the same answer for everyone, only what the front door already shows
 	"GET /public/organization/logo",  // the front door draws the centre's logo; public bytes the centre chose to show, served as a PNG download
 	"GET /public/status",             // the splash asks before it has a session; same answer for everyone
@@ -34,10 +34,12 @@ var theOpenNine = []string{
 	"POST /auth/login",               // ditto
 	"POST /auth/logout",              // authenticated by the refresh COOKIE instead
 	"POST /auth/refresh",             // ditto -- the access token is expected to be dead
+	"POST /auth/set-password",        // the emailed link is the credential; it signs the account in, like login, behind the same limits plus one per token
+	"POST /auth/set-password/check",  // the page asks whose link this is before it shows the form; one identical 410 for every invalid state
 	"POST /join/preview",             // §6.5's public join surface
 }
 
-func TestOnlyNineOperationsAreReachableWithoutAnAccessToken(t *testing.T) {
+func TestOnlyElevenOperationsAreReachableWithoutAnAccessToken(t *testing.T) {
 	spec, err := openapi.GetSpec()
 	if err != nil {
 		t.Fatalf("GetSwagger: %v", err)
@@ -50,8 +52,8 @@ func TestOnlyNineOperationsAreReachableWithoutAnAccessToken(t *testing.T) {
 	}
 	sort.Strings(got)
 
-	if strings.Join(got, "\n") != strings.Join(theOpenNine, "\n") {
-		t.Errorf("open routes changed.\n got: %v\nwant: %v", got, theOpenNine)
+	if strings.Join(got, "\n") != strings.Join(theOpenEleven, "\n") {
+		t.Errorf("open routes changed.\n got: %v\nwant: %v", got, theOpenEleven)
 	}
 
 	total := 0

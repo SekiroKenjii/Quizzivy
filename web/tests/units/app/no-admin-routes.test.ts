@@ -4,12 +4,25 @@ import { describe, expect, it } from "vitest";
 
 const SRC = resolve(import.meta.dirname, "../../../src");
 const ALLOWED_FILES = new Set([
+  "app/adminPaths.ts",
   "app/legacyTeacherPath.ts",
   "app/LegacyTeacherRedirect.tsx",
   "lib/api/schema.d.ts",
 ]);
-const ALLOWED_LITERALS = new Set(["/admin/docs-session", "/admin/users/{id}"]);
+const ALLOWED_LITERALS = new Set([
+  "/admin/ai/credits",
+  "/admin/docs-session",
+  "/admin/users",
+  "/admin/users/{id}",
+  "/admin/settings/sign-in",
+  "/admin/settings/logo",
+  "/admin/settings/sign-in-impact",
+  "/admin/roles",
+  "/admin/roles/permissions",
+  "/admin/roles/{id}",
+]);
 const LITERAL = /(["'`])(\/admin(?=[/"'`?#$]|$)[^"'`]*)/gi;
+const SETTINGS_API_CALL = /\bapi\("(?:get|put)", "\/admin\/settings"/g;
 
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -22,7 +35,7 @@ function sources(dir: string): string[] {
 function offenders(file: string, source: string): string[] {
   if (ALLOWED_FILES.has(file)) return [];
   return source.split("\n").flatMap((line, index) => {
-    const routes = [...line.matchAll(LITERAL)].filter(
+    const routes = [...line.replaceAll(SETTINGS_API_CALL, "").matchAll(LITERAL)].filter(
       (match) => !ALLOWED_LITERALS.has(match[2]!),
     );
     return routes.length > 0 ? [`${file}:${index + 1}: ${line.trim()}`] : [];
@@ -73,6 +86,10 @@ describe("the teacher's routes live at /teacher", () => {
       "one beside an API path",
     ],
     ["const to = `/admin", "a template left open on its line"],
+    ['<Link to="/admin/settings/sign-in/extra">', "longer than the settings route"],
+    ['<Link to="/admin/settings">', "the settings route without its section"],
+    ['navigate("/admin/settings")', "the settings route, navigated to"],
+    ['api("delete", "/admin/settings")', "a verb the settings API does not take"],
   ])("would be caught: %s (%s)", (line) => {
     expect(offenders("features/x/Planted.tsx", line)).toEqual([
       `features/x/Planted.tsx:1: ${line}`,
@@ -82,6 +99,13 @@ describe("the teacher's routes live at /teacher", () => {
   it.each([
     ['api("post", "/admin/docs-session")', "the docs session"],
     ['api("delete", "/admin/users/{id}", { path: { id } })', "removing a user"],
+    ['api("get", "/admin/ai/credits", { signal })', "the credits read"],
+    ['api("get", "/admin/roles", { signal })', "the roles read"],
+    ['api("put", "/admin/roles/permissions", { body })', "the matrix save"],
+    ['api("patch", "/admin/roles/{id}", { path: { id }, body })', "an edit of a role"],
+    ['<Link to="/admin/settings/sign-in">', "the Admin console's sign-in settings"],
+    ['api("get", "/admin/settings", { signal })', "reading the settings document"],
+    ['api("put", "/admin/settings", { body: input })', "saving the settings document"],
     ['<Link to="/teacher/tests">', "the new address"],
     ['<Link to="/administrator">', "a longer word"],
     ['<Link to="/admin-console">', "a longer segment"],

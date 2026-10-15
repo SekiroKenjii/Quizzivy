@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
+import { consolePath } from "@/app/adminPaths";
 
 /** Shell is the console a route belongs to. */
-export type Shell = "teacher" | "student";
+export type Shell = "teacher" | "admin" | "student";
 
 const skeletons = new Map<Shell, () => ReactNode>();
 
@@ -23,6 +24,7 @@ export function skeletonFor(pathname: string): ReactNode {
 }
 
 function shellFor(pathname: string): Shell | null {
+  if (consolePath(pathname)) return "admin";
   if (pathname === "/teacher" || pathname.startsWith("/teacher/")) return "teacher";
   if (pathname.startsWith("/app/attempts/") && !pathname.endsWith("/result"))
     return null;

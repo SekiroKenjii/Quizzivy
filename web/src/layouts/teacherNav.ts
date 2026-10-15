@@ -7,46 +7,25 @@ import {
   Library,
   SquarePen,
   Users,
-  type LucideIcon,
 } from "lucide-react";
-import { can, hasWorkspace, type PermissionKey } from "@/features/auth/permissions";
+import { holds, type Requirement } from "@/features/auth/permissions";
+import type { NavDestination, NavGroup } from "@/layouts/shell/nav";
 import type { components } from "@/lib/api/schema";
 
 type NavUser = Pick<components["schemas"]["CurrentUser"], "permissions" | "workspaces">;
 
 /**
- * NavRequirement is what a user must hold to see a destination: the teacher
- * workspace, one permission, or any one of several. It is the `x-permission`
- * of the list operation the destination opens.
+ * TeacherNavItem is one destination of the teacher sidebar. `operation` is
+ * the `operationId` of the list the destination opens and `requires` that
+ * operation's permission.
  */
-export type NavRequirement =
-  "workspace.teacher" | PermissionKey | readonly PermissionKey[];
-
-/** NavCount names a figure of the sidebar's counts and how its badge is drawn. */
-export interface NavCount {
-  figure: "liveAssignments" | "toGrade";
-  tone: "muted" | "urgent";
-}
-
-/**
- * TeacherNavItem is one destination of the teacher sidebar. `label` is a
- * locale key, `operation` the `operationId` of the list the destination
- * opens and `requires` that operation's permission.
- */
-export interface TeacherNavItem {
-  id: string;
-  to: string;
-  label: string;
-  icon: LucideIcon;
+export interface TeacherNavItem extends NavDestination {
   operation: string;
-  requires: NavRequirement;
-  count?: NavCount;
+  requires: Requirement;
 }
 
 /** TeacherNavGroup is a run of destinations under one label; the first has none. */
-export interface TeacherNavGroup {
-  id: string;
-  label?: string;
+export interface TeacherNavGroup extends NavGroup {
   items: readonly TeacherNavItem[];
 }
 
@@ -79,7 +58,11 @@ export const TEACHER_NAV: readonly TeacherNavGroup[] = [
         icon: ClipboardList,
         operation: "listAssignments",
         requires: "workspace.teacher",
-        count: { figure: "liveAssignments", tone: "muted" },
+        count: {
+          figure: "liveAssignments",
+          tone: "muted",
+          sentence: "teacherShell.count.live",
+        },
       },
       {
         id: "grading",
@@ -88,7 +71,11 @@ export const TEACHER_NAV: readonly TeacherNavGroup[] = [
         icon: SquarePen,
         operation: "listAttempts",
         requires: ["teaching.grading", "teaching.attempts.intervene"],
-        count: { figure: "toGrade", tone: "urgent" },
+        count: {
+          figure: "toGrade",
+          tone: "urgent",
+          sentence: "teacherShell.count.toGrade",
+        },
       },
       {
         id: "classes",
@@ -144,12 +131,6 @@ const ALIASES = [
   { prefix: "/teacher/imports", id: "tests" },
   { prefix: "/teacher/attempts", id: "assignments" },
 ] as const;
-
-function holds(user: NavUser | null | undefined, requires: NavRequirement): boolean {
-  if (requires === "workspace.teacher") return hasWorkspace(user, "teacher");
-  if (typeof requires === "string") return can(user, requires);
-  return requires.some((key) => can(user, key));
-}
 
 function normalised(pathname: string): string {
   let end = pathname.length;

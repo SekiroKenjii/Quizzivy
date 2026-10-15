@@ -11,7 +11,7 @@ import "@/lib/i18n";
 const NAV = "Điều hướng chính";
 const QUIET = { ...summaryBody, liveAssignments: 0, answersToGrade: 0 };
 
-const sidebar = () => document.getElementById("teacher-sidebar")!;
+const sidebar = () => document.getElementById("console-sidebar")!;
 const nav = () => screen.getByRole("navigation", { name: NAV });
 const separators = (scope: HTMLElement) => within(scope).queryAllByRole("separator");
 

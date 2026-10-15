@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 
 import { BrandFrame } from "@/components/shared/BrandFrame";
-import { config } from "@/lib/config";
+import { OrganizationIdentity } from "@/components/shared/OrganizationIdentity";
 
 /**
  * SystemFrame is the frame of the system pages (not found, no access, error,
  * maintenance): the brand panel from 1024px with the page's drawing and the
- * organisation's name, beside the page's column.
+ * organisation's logo and name, beside the page's column.
  */
 export function SystemFrame({
   art,
@@ -20,7 +20,7 @@ export function SystemFrame({
           {art}
         </div>
       }
-      caption={config.orgName}
+      caption={<OrganizationIdentity variant="caption" />}
     >
       {children}
     </BrandFrame>

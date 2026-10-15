@@ -248,6 +248,7 @@ function isAuthEntryPoint(path: string): boolean {
   return (
     path === "/auth/refresh" ||
     path === "/auth/login" ||
+    path === "/auth/set-password" ||
     path === "/auth/google" ||
     path === "/auth/logout"
   );
@@ -256,7 +257,7 @@ function isAuthEntryPoint(path: string): boolean {
 function cookieKind(method: string, path: string): CookieKind | null {
   if (method !== "post") return null;
   if (path === "/auth/refresh") return "refresh";
-  if (path === "/auth/login") return "login";
+  if (path === "/auth/login" || path === "/auth/set-password") return "login";
   if (path === "/auth/google") return "google";
   if (path === "/auth/logout") return "logout";
   return null;
@@ -460,12 +461,14 @@ export async function downloadFile(
 
 /**
  * UploadOptions are an upload's progress and cancellation, which fetch cannot
- * report, and its method, which is POST unless `method` says PUT.
+ * report, its method, which is POST unless `method` says PUT, and the text
+ * fields sent beside the file, in the order given.
  */
 export interface UploadOptions {
   onProgress?: (fraction: number) => void;
   signal?: AbortSignal;
   method?: "POST" | "PUT";
+  fields?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -514,6 +517,8 @@ export async function uploadFile<T>(
       }
 
       const form = new FormData();
+      for (const [name, value] of Object.entries(options.fields ?? {}))
+        form.append(name, value);
       form.append("file", file);
       request.send(form);
     });

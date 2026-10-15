@@ -150,6 +150,7 @@ type Overrides = Partial<
     | "menuTrack"
     | "card"
     | "cardLayout"
+    | "cards"
     | "framed"
     | "empty"
     | "footer"
@@ -1286,6 +1287,34 @@ describe("below 768", () => {
     expect(screen.queryByRole("table")).toBeNull();
     expect(screen.getByRole("list", { name: "Bài giao" })).toBeInTheDocument();
     act(() => width.resize(768));
+    expect(screen.getByRole("table", { name: "Bài giao" })).toBeInTheDocument();
+  });
+
+  it("draws the cards on a wide window when the caller says so", () => {
+    viewport("desktop");
+    renderAssignments({ card, cards: true });
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.getByRole("list", { name: "Bài giao" })).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+  });
+
+  it("draws the table on a phone when the caller says so", () => {
+    viewport("phone");
+    renderAssignments({ card, cards: false });
+    expect(screen.getByRole("table", { name: "Bài giao" })).toBeInTheDocument();
+    expect(screen.queryByRole("list")).toBeNull();
+  });
+
+  it("follows the window when the caller does not say", () => {
+    viewport("phone");
+    renderAssignments({ card, cards: undefined });
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.getByRole("list", { name: "Bài giao" })).toBeInTheDocument();
+  });
+
+  it("stays a table without a card, whatever the caller says", () => {
+    viewport("phone");
+    renderAssignments({ cards: true });
     expect(screen.getByRole("table", { name: "Bài giao" })).toBeInTheDocument();
   });
 

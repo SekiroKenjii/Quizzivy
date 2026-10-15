@@ -36,6 +36,7 @@
     "saveChanges": "Save changes",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
+    "agoNow": "now",
     "agoJustNow": "just now",
     "justDuplicated": "Just duplicated",
     "duplicateNamed": "Duplicate {{name}}",
@@ -327,6 +328,8 @@
       "class.member_enrolled": "A student joined a class with a code",
       "class.member_removed": "Removed a student from a class",
       "class.restored": "Restored a class",
+      "data_export.downloaded": "Downloaded a data export",
+      "data_export.requested": "Requested a data export",
       "import.cancelled": "Cancelled a Word import",
       "import.closed_idle": "Closed an idle Word import",
       "import.committed": "Saved the questions of a Word import",
@@ -378,12 +381,17 @@
       "test.version_deleted": "Deleted a version of a test",
       "user.avatar_removed": "Removed a profile photo",
       "user.avatar_set": "Set a profile photo",
+      "user.created": "Created an account",
       "user.google_linked": "Linked a Google account",
       "user.google_unlinked": "Unlinked a Google account",
       "user.password_changed": "Changed a password",
+      "user.password_link_requested": "Asked for a set-password link",
+      "user.password_set": "Set a password from a link",
       "user.preferences_updated": "Updated personal preferences",
       "user.profile_updated": "Updated a profile",
-      "user.renamed": "Renamed an account"
+      "user.renamed": "Renamed an account",
+      "user_import.requested": "Requested an import of users from a file",
+      "user_import.sheet_downloaded": "Downloaded the temporary-password sheet of a user import"
     }
   },
   "error": {
@@ -420,6 +428,138 @@
     "mainNavigation": "Main navigation",
     "account": "{{name}}'s account"
   },
+  "role": {
+    "builtin": {
+      "admin": "Admin",
+      "teacher": "Teacher",
+      "assistant": "Assistant",
+      "student": "Student"
+    },
+    "builtinDescription": {
+      "admin": "Runs the centre. Manages people and settings.",
+      "teacher": "Builds tests, runs classes, grades.",
+      "assistant": "Helps teachers grade and take attendance.",
+      "student": "Takes tests and sees their own results."
+    }
+  },
+  "roles": {
+    "title": "Roles & permissions",
+    "lead": "What each role can do. Administrators can always do everything.",
+    "loadFailed": "Could not load the roles.",
+    "carousel": "Roles",
+    "carouselKind": "carousel",
+    "previous": "Previous roles",
+    "next": "Next roles",
+    "slide": "Go to slide {{n}}",
+    "custom": "Custom",
+    "peopleLabel_one": "person",
+    "peopleLabel_other": "people",
+    "permissionsLabel_one": "permission",
+    "permissionsLabel_other": "permissions",
+    "editPermissions": "Edit permissions",
+    "editPermissionsOf": "Edit permissions of {{name}}",
+    "matrix": "Permissions by role",
+    "permission": "Permission",
+    "cell": "{{permission}} — {{role}}",
+    "group": {
+      "content": "Content",
+      "teaching": "Teaching",
+      "people": "People",
+      "system": "System"
+    },
+    "lock": {
+      "admin": "Admins always have this",
+      "student": "Students always need this to take tests",
+      "self": "You can't change the permissions of the role you hold.",
+      "subset": "You can only change what you can do yourself."
+    },
+    "changed_one": "{{count}} permission changed. People get the new permissions on their next page load.",
+    "changed_other": "{{count}} permissions changed. People get the new permissions on their next page load.",
+    "takingNow_one": "{{count}} test attempt is in progress right now.",
+    "takingNow_other": "{{count}} test attempts are in progress right now.",
+    "saved": "Permissions saved",
+    "saveFailed": "Could not save the permissions. Try again.",
+    "stale": "Someone just changed these roles. The table has been reloaded; check the marked cells and save again.",
+    "perm": {
+      "contentTestsWrite": "Create and edit tests",
+      "contentTestsPublish": "Publish tests",
+      "contentQuestionsWrite": "Manage question bank",
+      "contentMediaWrite": "Upload and delete media",
+      "contentShare": "Share own content with other teachers",
+      "aiUse": "Use AI features",
+      "teachingClassesWrite": "Create classes",
+      "teachingAssignmentsWrite": "Assign tests to classes",
+      "teachingGrading": "Grade answers",
+      "teachingAttemptsIntervene": "Reset, void or extend attempts",
+      "teachingAttendance": "Take attendance",
+      "peopleStudentsRead": "See students in own classes",
+      "peopleStudentsCreate": "Create student accounts",
+      "peopleStudentsResetPassword": "Reset student passwords",
+      "peopleUsersManage": "Add and disable users",
+      "peopleRolesManage": "Change roles",
+      "systemAuditRead": "View audit log",
+      "systemSettingsWrite": "Change system settings",
+      "learningTakeTests": "Take tests and view own results",
+      "aiCreditsManage": "Manage AI credits"
+    },
+    "hint": {
+      "contentTestsPublish": "Makes a test assignable",
+      "contentShare": "Tests, questions, word lists and courses. Owners always see only their own content otherwise.",
+      "audited": "Recorded in the audit log"
+    },
+    "newRole": {
+      "title": "New role",
+      "hint": "Starts with the permissions of the role you copy. Change them in the table after.",
+      "submit": "Create role",
+      "name": "Role name",
+      "namePlaceholder": "Head teacher",
+      "copyFrom": "Copy permissions from",
+      "copyNone": "Don't copy",
+      "description": "Description",
+      "descriptionPlaceholder": "Leads the IELTS team",
+      "taken": "A role with this name already exists",
+      "created": "Role created: {{name}}. Its column is in the table below.",
+      "failed": "Couldn't create the role. Try again."
+    },
+    "editRole": {
+      "title": "Edit role",
+      "pencil": "Edit role {{name}}",
+      "hint": "Changes show everywhere this role appears.",
+      "adminHint": "Admins always keep every permission.",
+      "icon": "Icon",
+      "name": "Name",
+      "description": "Description",
+      "color": "Card colour",
+      "submit": "Save role",
+      "taken": "Another role already uses this name",
+      "saved": "Role saved",
+      "failed": "Couldn't save the role. Try again.",
+      "stale": "This role was just changed elsewhere. It has been reloaded; review it and save again."
+    },
+    "icons": {
+      "shield": "Shield",
+      "graduation-cap": "Graduation cap",
+      "hand-helping": "Helping hand",
+      "user": "Person",
+      "key-round": "Key",
+      "crown": "Crown",
+      "briefcase": "Briefcase",
+      "book-open": "Open book",
+      "users": "People",
+      "clipboard-check": "Checklist",
+      "headset": "Headset",
+      "star": "Star"
+    },
+    "colors": {
+      "dark": "Dark",
+      "lime": "Lime",
+      "blue": "Blue",
+      "green": "Green",
+      "amber": "Amber",
+      "rose": "Rose",
+      "gray": "Gray"
+    }
+  },
   "teacherShell": {
     "workspace": "Teacher workspace",
     "switchWorkspace": "Switch workspace",
@@ -450,11 +590,166 @@
     },
     "breadcrumb": "Breadcrumb",
     "search": "Search…",
-    "role": {
-      "teacher": "Teacher",
-      "admin": "Admin"
-    },
     "documentTitle": "{{page}} · Quizzivy"
+  },
+  "adminShell": {
+    "workspace": "Admin console",
+    "crumb": "Admin",
+    "crumbExport": "Data export",
+    "teacherView": "Teacher view",
+    "group": {
+      "people": "People",
+      "teaching": "Teaching",
+      "system": "System"
+    },
+    "nav": {
+      "overview": "Overview",
+      "users": "Users",
+      "roles": "Roles & permissions",
+      "classes": "Classes",
+      "ai": "AI credits",
+      "audit": "Audit log",
+      "api": "API reference",
+      "settings": "Settings"
+    },
+    "count": {
+      "mustChangePassword_one": "{{count}} person must change their password",
+      "mustChangePassword_other": "{{count}} people must change their password",
+      "creditRequests_one": "{{count}} credit request waiting",
+      "creditRequests_other": "{{count}} credit requests waiting"
+    },
+    "account": {
+      "settings": "System settings",
+      "password": "Change password"
+    }
+  },
+  "users": {
+    "title": "Users",
+    "lead": "Everyone who can sign in to Quizzivy.",
+    "tabs": {
+      "label": "User groups",
+      "all": "All",
+      "teachers": "Teachers",
+      "students": "Students",
+      "admins": "Admins",
+      "disabled": "Disabled"
+    },
+    "search": {
+      "placeholder": "Search name or email",
+      "short": "Type at least {{min}} characters to search."
+    },
+    "filter": {
+      "label": "Active filters",
+      "remove": "Remove filter {{label}}"
+    },
+    "table": "Users",
+    "column": {
+      "user": "User",
+      "role": "Role",
+      "signIn": "Sign-in",
+      "classes": "Classes",
+      "lastActive": "Last active",
+      "status": "Status"
+    },
+    "signIn": {
+      "password": "Password",
+      "google": "Google",
+      "none": "None yet"
+    },
+    "noClass": "No class yet",
+    "moreCount": "+{{n}}",
+    "moreClasses": "and {{count}} more",
+    "neverActive": "Never",
+    "status": {
+      "active": "Active",
+      "mustChangePassword": "Must change password",
+      "mustChangePasswordShort": "Change password",
+      "neverSignedIn": "Never signed in",
+      "disabled": "Disabled"
+    },
+    "empty": "No users match.",
+    "clearFilters": "Clear filters",
+    "loadFailed": "Could not load users.",
+    "noun_one": "user",
+    "noun_other": "users"
+  },
+  "systemSettings": {
+    "title": "System settings",
+    "hint": "Applies to everyone in {{organization}}.",
+    "navigation": "System settings sections",
+    "loadFailed": "System settings could not be loaded.",
+    "reload": "Reload",
+    "sections": {
+      "organization": "Organization",
+      "signIn": "Sign-in"
+    },
+    "organization": {
+      "title": "Organization",
+      "hint": "Shown on sign-in, emails and printed results.",
+      "name": "Organization name",
+      "shortName": "Short name",
+      "shortNameHint": "Used in emails and the browser tab",
+      "website": "Website",
+      "contactEmail": "Contact email",
+      "frontDeskPhone": "Front-desk phone",
+      "frontDeskHours": "Front-desk hours",
+      "address": "Address"
+    },
+    "logo": {
+      "title": "Replace logo",
+      "change": "Replace logo",
+      "save": "Save logo",
+      "light": "Logo",
+      "dark": "Version for dark mode",
+      "limits": "Square SVG or PNG, at least 256 × 256",
+      "darkLimits": "Light logo on transparent",
+      "hint": "SVG or PNG, square",
+      "hintWithDark": "SVG or PNG, square · has a dark version",
+      "alt": "The centre's logo",
+      "uploaded": "Logo uploaded. Save settings to apply.",
+      "problem": {
+        "type": "Choose an SVG or PNG file.",
+        "tooLarge": "A PNG can be at most 1 MiB.",
+        "unreadable": "This file could not be drawn. Choose another SVG or PNG.",
+        "notSquare": "The logo must be square (within 2%)."
+      }
+    },
+    "signIn": {
+      "title": "Sign-in",
+      "hint": "How people get into Quizzivy.",
+      "google": "Sign in with Google",
+      "googleHint": "Links to an existing account by verified email",
+      "password": "Sign in with email and password",
+      "passwordHint": "Turn off only if everyone uses Google",
+      "force": "Force password change on first sign-in",
+      "forceHint": "Applies to accounts created with a temporary password",
+      "joinCodes": "Students can join classes with a code",
+      "joinCodesHint": "Teachers share a code or link",
+      "domains": "Allowed Google domains",
+      "domainsHint": "Only these email domains can sign in with Google. Leave empty to allow any.",
+      "domainsAdd": "Add domain…",
+      "domainsRemove": "Remove domain {{domain}}",
+      "impact_one": "{{count}} person will no longer be able to sign in.",
+      "impact_other": "{{count}} people will no longer be able to sign in.",
+      "impactAdmins_one": "{{count}} of them is an Admin.",
+      "impactAdmins_other": "{{count}} of them are Admins.",
+      "noMethod": "Keep at least one way to sign in on: Google, or email and password.",
+      "lockedYou": "With this policy you could not sign in any more. Keep a way in for yourself.",
+      "lockedAdmins": "With this policy no Admin would have a way in. Keep at least one for them."
+    },
+    "errors": {
+      "nameRequired": "Enter the organization's name.",
+      "nameTooLong": "The name can be at most 120 characters.",
+      "shortNameTooLong": "The short name can be at most 40 characters.",
+      "websiteTooLong": "The website can be at most 200 characters.",
+      "contactEmailTooLong": "The contact email can be at most 254 characters.",
+      "frontDeskPhoneTooLong": "The phone number can be at most 30 characters.",
+      "frontDeskHoursTooLong": "The hours can be at most 120 characters.",
+      "addressTooLong": "The address can be at most 300 characters.",
+      "domainInvalid": "Not a valid domain.",
+      "domainsTooMany": "At most 50 domains.",
+      "noMethod": "Keep at least one way to sign in on."
+    }
   },
   "student": {
     "shell": {
@@ -593,7 +888,9 @@
   },
   "changePassword": {
     "title": "Choose your password",
+    "titleVoluntary": "Change password",
     "body": "You signed in with a temporary password. Pick one only you know.",
+    "bodyVoluntary": "Enter your current password, then pick a new one only you know.",
     "current": "Current password",
     "new": "New password",
     "again": "Type it again",
@@ -605,6 +902,7 @@
       "length": "At least 8 characters",
       "numberOrSymbol": "A number or symbol",
       "different": "Different from the temporary password",
+      "differentCurrent": "Different from the current password",
       "met": "met",
       "unmet": "not met"
     },
@@ -612,7 +910,33 @@
       "tooShort": "The new password needs at least 8 characters.",
       "numberOrSymbol": "The new password needs a number or a symbol.",
       "mismatch": "The two passwords are different.",
-      "unchanged": "The new password must be different from the current one."
+      "unchanged": "The new password must be different from the current one.",
+      "currentMissing": "Enter your current password."
+    }
+  },
+  "setPassword": {
+    "checking": "Checking the link…",
+    "title": "Set a password for {{email}}",
+    "body": {
+      "invite": "Hi {{name}}. Choose a password only you know. Once it is saved, you are signed in.",
+      "reset": "Hi {{name}}. Choose a new password only you know. Once it is saved, you are signed in and your other devices are signed out."
+    },
+    "submit": "Set password and sign in",
+    "submitting": "Saving…",
+    "toSignIn": "Go to sign in",
+    "invalid": {
+      "title": "This link can no longer be used",
+      "body": "This link has expired or has already been used. Ask your centre for a new one."
+    },
+    "passwordsOff": {
+      "title": "Sign in with Google",
+      "body": "Your centre has turned off signing in with a password, so there is no password to set. Sign in with Google using your email address instead."
+    },
+    "unavailable": {
+      "title": "The link could not be checked"
+    },
+    "errors": {
+      "tooLong": "A password can be at most 512 characters."
     }
   },
   "login": {
@@ -641,7 +965,8 @@
     "invalidCredentials": "That email and password do not match. Check for typos, or ask your teacher to reset your password.",
     "haveCode": "Have a class code?",
     "joinClass": "Join a class",
-    "googleFailedTitle": "Couldn't sign you in with Google"
+    "googleFailedTitle": "Couldn't sign you in with Google",
+    "noMethod": "No way to sign in is available right now. Ask the front desk or your centre's administrator."
   },
   "join": {
     "title": "Join a class",
@@ -661,6 +986,10 @@
     "joining": "Adding you to {{className}}…",
     "failed": "Could not join the class. Please try again.",
     "goToClasses": "Go to my classes",
+    "off": {
+      "title": "Joining with a code is off",
+      "body": "Your centre is not letting students join a class with a code right now. Ask your teacher to add you, or ask the front desk."
+    },
     "joined": {
       "title": "You're in {{className}}",
       "body": "{{teacherName}} will see you in the class list.",
@@ -687,6 +1016,7 @@
     "uses": "Uses",
     "noActiveCode": "No active code. Students can only be added by you.",
     "archivedNoCode": "This class is archived, so nobody can join it. Restore it from Classes to make a code.",
+    "archivedNoCodeOff": "This class is archived, so nobody can join it.",
     "copyLink": "Copy link",
     "rotate": "New code",
     "issue": "Create code",
@@ -697,6 +1027,7 @@
     "revokeFailed": "Could not stop joining. Please try again.",
     "loadFailed": "Could not load the class.",
     "noMembers": "No students yet. Share the join code or add them yourself.",
+    "noMembersOff": "No students yet. Add them to the class yourself.",
     "name": "Name",
     "joinedVia": "Joined via",
     "joinedAt": "Joined",
@@ -713,6 +1044,7 @@
     "revokeConfirmBody": "Nobody can join with it any more. You can create a new one later.",
     "revokeConfirm": "Stop code",
     "removeConfirmBody": "Their submitted work and scores are kept. They can rejoin with a code.",
+    "removeConfirmBodyOff": "Their submitted work and scores are kept.",
     "removeConfirm": "Remove",
     "studentCount_one": "{{count}} student",
     "studentCount_other": "{{count}} students",
@@ -761,6 +1093,7 @@
     "memberActions": "Actions for {{name}}",
     "viewResults": "View results",
     "unreadableNote": "This code cannot be read back. Make a new one to share with students.",
+    "unreadableNoteOff": "This code cannot be read back.",
     "showQr": "Show QR code full size",
     "showQrFull": "Show full size for the projector",
     "qrDialogTitle": "Join {{name}}",
@@ -788,13 +1121,15 @@
     "addCount_one": "Add {{count}}",
     "addCount_other": "Add {{count}}",
     "expiresIn_one": "· in {{count}} day",
-    "expiresIn_other": "· in {{count}} days"
+    "expiresIn_other": "· in {{count}} days",
+    "codeInactive": "Inactive"
   },
   "classes": {
     "loadFailed": "Could not load classes.",
     "empty": "No classes yet.",
     "new": "New class",
     "newHint": "You get a join code to share with students.",
+    "newHintOff": "You add students to the class after creating it.",
     "name": "Class name",
     "namePlaceholder": "For example: IELTS Foundation — Tue/Thu evenings",
     "create": "Create class",
@@ -825,12 +1160,14 @@
     "noActive": "No active classes.",
     "noArchived": "No archived classes.",
     "emptyHint": "Create a class to get a join code for your students.",
+    "emptyHintOff": "Create a class, then add your students to it.",
     "schedule": "Schedule",
     "schedulePlaceholder": "Mon · Wed, 09:00",
     "room": "Room",
     "roomPlaceholder": "Room 3",
     "createdWithCode": "Class created · join code {{code}}",
     "createdNoCode": "Class created, but its join code could not be made. Create one from the class's card.",
+    "createdJoinOff": "Class created. Your centre has turned off joining with a code, so it has no code yet.",
     "edit": "Edit class",
     "updated": "Class updated",
     "updateFailed": "Could not save the class.",
@@ -846,8 +1183,11 @@
     "maskedCode": "••••-{{hint}}",
     "codeState": {
       "expired": "Expired",
-      "usedUp": "Used up"
+      "usedUp": "Used up",
+      "off": "Inactive"
     },
+    "heldBackNamed": "{{named}}. {{why}}",
+    "codeStateBoth": "{{state}} · {{why}}",
     "noCode": "No join code",
     "createCode": "Create code",
     "createCodeNamed": "Create a join code for {{name}}",
@@ -875,7 +1215,11 @@
     "codeRenewedWith": "New join code: {{code}}",
     "newCodeFailed": "Could not make a new join code.",
     "codesReplaced": "Your classes' join codes were replaced on {{date}}. Share the new ones with your students.",
-    "joinCodesOff": "Your centre has turned off joining with a code."
+    "codesReplacedOff": "Your classes' join codes were replaced on {{date}}.",
+    "joinCodesOff": "Your centre has turned off joining with a code.",
+    "joinCodesOffOpen": "Open sign-in settings",
+    "joinCodesOffAsk": "Ask your admin.",
+    "pageLeadOff": "Teachers add students to their classes."
   },
   "settings": {
     "profile": "Profile",
@@ -888,7 +1232,14 @@
     "googleLinked": "Linked to Google.",
     "googleNotLinked": "Not linked to Google.",
     "googleOnlyExplainer": "Google is currently the only way into this account. Set a password before unlinking.",
-    "googleOnlyTeacher": "You sign in with Google only, so Google cannot be unlinked yet.",
+    "googleNoPassword": "This account has no password yet, so Google cannot be unlinked. Set a password to have a second way to sign in.",
+    "googleOnlyPasswordsOff": "You sign in with Google only, so Google cannot be unlinked yet.",
+    "setPasswordLink": {
+      "send": "Email me a link to set a password",
+      "sendAgain": "Send the link again",
+      "sending": "Sending…",
+      "sent": "We sent a link to {{email}}. It works once and expires in 24 hours."
+    },
     "linkGoogle": "Link Google",
     "unlinkGoogle": "Unlink Google",
     "locale": {
@@ -2509,6 +2860,7 @@
     "removeAll": "Remove",
     "removeAllTitle": "Remove {{name}} from their classes?",
     "removeAllBody": "{{name}} will leave: {{classes}}. Their account and results stay. They can rejoin with a class code.",
+    "removeAllBodyOff": "{{name}} will leave: {{classes}}. Their account and results stay.",
     "removedAll": "{{name}} removed from their classes",
     "move": {
       "titleOne": "Move {{name}}",

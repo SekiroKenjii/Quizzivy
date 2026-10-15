@@ -20,8 +20,9 @@ this file describe the code as it is and name the release that changes them.
   `data-scale="deck"`, which a rebuilt surface sets on its root. The student
   app and the take-test engine are such surfaces since R3 (v0.9.0) and follow
   the theme. Since R4 (v0.10.0) every teacher screen is one too: it renders in
-  `TeacherLayout` and follows the theme, and `AdminLayout` and
-  `useForcedLightTheme` are gone (T-R4.48). R5 makes the deck geometry the
+  `TeacherLayout` and follows the theme; the v0.7.0 `AdminLayout` and
+  `useForcedLightTheme` are gone (T-R4.48), and R5's `AdminLayout` (T-R5.20) is
+  the Admin console's shell. R5 makes the deck geometry the
   default and removes `data-scale`
   (T-R5.30). `web/public/boot.js` applies the theme and language before paint,
   since the CSP allows no inline script. Do not restyle a screen ad hoc ahead
@@ -40,8 +41,10 @@ this file describe the code as it is and name the release that changes them.
   fill triggers dropped (00106, T-R3.2). Only the alias (T-R3.3) is in the code
   until its step merges.
 - **R4** moved the teacher web routes from `/admin/*` to `/teacher/*` (T-R4.5);
-  an old `/admin/*` bookmark redirects to the same path under `/teacher` until
-  R5 builds the Admin console at `/admin`.
+  an old `/admin/*` bookmark that is not a route of the Admin console redirects
+  to the same path under `/teacher`. **R5** builds the console at `/admin`:
+  T-R5.20 is its shell and route tree, each later task takes a route over from
+  the placeholder.
 
 ## Sources of truth, in order
 
@@ -166,10 +169,10 @@ module:
 | package | holds |
 |---|---|
 | `core` (`core.go`) | `App`: config, signals, lifecycle, `Handler()`, `Serve()` |
-| `core/wiring` | `Build`: one file per module, repository → `Application` → transport, in dependency order, starting with `access.go`, which refuses a database whose `app.permissions` lacks a key this binary knows; returns the `Assembly` (transports, the access application as `Principals`, token issuer, identity application, the AI `Completer` and the AI credits application). `ai.go` builds the AI module over the provider, which is nil without `ANTHROPIC_API_KEY`; `organization.go` builds the organization module over the media bucket, so a logo is stored when storage is configured and an upload answers `501` when it is not, and hands identity and classes its `SignInPolicy` query; `import_worker.go` gives the import worker the same provider and credits (`scanReader`) when the key is set, and no reader when it is not; `email.go` builds `Mail`, the email outbox modules enqueue into and the dispatcher that sends it (Resend, or the sink directory outside production), which `Serve` and the import worker both run |
+| `core/wiring` | `Build`: one file per module, repository → `Application` → transport, in dependency order, starting with `access.go`, which refuses a database whose `app.permissions` lacks a key this binary knows; returns the `Assembly` (transports, the access application as `Principals`, token issuer, identity application, the AI `Completer` and the AI credits application). `ai.go` builds the AI module over the provider, which is nil without `ANTHROPIC_API_KEY`; `organization.go` builds the organization module over the media bucket, so a logo is stored when storage is configured and an upload answers `501` when it is not, and hands identity and classes its `SignInPolicy` query; `import_worker.go` gives the import worker the same provider and credits (`scanReader`) when the key is set, and no reader when it is not; `exports.go` builds the data export over the import bucket (a nil application, so `501`, without the import worker's configuration) and `ExportsWorker`, the runner the import worker drains after its own queue; `email.go` builds `Mail`, the email outbox modules enqueue into and the dispatcher that sends it (Resend, or the sink directory outside production), which `Serve` and the import worker both run |
 | `core/adapters` | platform clients behind module ports (`Google`, `AudioProbe`, and `AI`, the Anthropic client behind the ai module's `Completer`), one module's handlers behind another's port (`Media`, `MediaKinds`, and `ai_reads.go`: the tests, questions, attempts and identity reads the AI operations take), and `Principals`: the access module's `ResolvePrincipal` as `httpx.PrincipalResolver`. `adapters.NewAI` returns a nil `Completer` without the key, and every AI operation then answers `501 AI_OFF` and `GET /public/status` says `ai: false`, as media does without storage; `PDFPages` draws a scan's pages for the worker's AI reader |
 | `core/router` | `Deps`, whose `Principals` resolves who a request acts as for the permission and docs gates (`New` refuses a nil one), `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/livez`, `/healthz`, `/docs`, the `/admin` alias until v0.9.1 (T-R3.3)), `RateLimits` (per address or body field) and `PrincipalRateLimits` (per signed-in user) for contract operations, and `ServiceRateLimits` for the routes beside it |
-| `core/jobs` | background commands (`PruneRefreshTokens`, `PruneNotifications`, `RunEmail`, which sends the outbox in the API and in the worker, and `ReleaseStaleAiReservations`, which runs only when the provider is configured) |
+| `core/jobs` | background commands (`PruneRefreshTokens`, whose 24-hour tick also runs `Housekeep`, the daily housekeeping whose steps `core/housekeeping.go` assembles, `PruneNotifications`, `RunEmail`, which sends the outbox in the API and in the worker, and `ReleaseStaleAiReservations`, which runs only when the provider is configured) |
 | `platform/httpserver` | the HTTP server, its timeouts and graceful shutdown |
 
 A new module is wired in `wiring/<module>.go`. An optional dependency stays a
@@ -187,8 +190,9 @@ by `core/tests/architecture_test.go`.
 api/openapi.yaml   the contract — edit this first, then `make gen`
 web/               quizzivy-web
   src/             spec §3 layout -- source only, no tests; a feature's teacher
-                   pages are in features/<name>/pages/teacher/, the shell in
-                   layouts/TeacherLayout.tsx and layouts/shell/; features/notifications
+                   pages are in features/<name>/pages/teacher/ and an Admin's in
+                   features/<name>/pages/admin/, the shells in layouts/TeacherLayout.tsx,
+                   layouts/AdminLayout.tsx and layouts/shell/; features/notifications
                    is the bell and its preferences in both consoles
   tests/           units/ integration/ e2e/ support/ -- see web/tests/README.md
 server/            Go module `quizzivy`: a modular monolith
@@ -259,12 +263,13 @@ unit, integration and end-to-end in that order.
   `DELETE /admin/students/{id}` to `DELETE /admin/users/{id}`) and logs
   `legacy_admin_path`. A new operation never joins that table.
 - **Everything the contract does not explicitly open requires a bearer token**,
-  derived from `api/openapi.yaml`'s `security`. Nine operations are open —
+  derived from `api/openapi.yaml`'s `security`. Eleven operations are open —
   login, Google sign-in, refresh, logout, `POST /join/preview`, the integrity
   beacon `POST /app/attempts/{id}/events`, `GET /public/status`,
-  `GET /public/organization` and `GET /public/organization/logo` — and the
-  list is pinned by `theOpenNine` in `core/router/tests/auth_middleware_test.go`,
-  so a tenth takes an argument.
+  `GET /public/organization`, `GET /public/organization/logo`,
+  `POST /auth/set-password/check` and `POST /auth/set-password` — and the
+  list is pinned by `theOpenEleven` in `core/router/tests/auth_middleware_test.go`,
+  so a twelfth takes an argument.
 
 ## `pnpm typecheck`, never `tsc --noEmit`
 
@@ -496,6 +501,8 @@ live in `src/index.css`, which it does not scan.
 Every control has a visible `:focus-visible` ring, although the deck draws none.
 Its colour is `--focus`, which `tokens.test.ts` holds at 3:1 or more on `--bg`,
 `--card`, `--sidebar` and `--muted` in both themes.
+A control paused with `aria-disabled` stays focusable and fades its colours, never
+the element's opacity, which halves its focus outline.
 Continuous motion (the marquee on overflowing titles, the live dot) pauses on
 hover and focus and is static under `prefers-reduced-motion`.
 
@@ -545,6 +552,21 @@ of `<main>`'s content (`useContentWidthAtLeast`, `useContentBand`), so
 collapsing the sidebar can move a page into its next layout. A unit test of a
 page in the shell calls `contentWidth(px)` (`tests/support/contentWidth.ts`)
 first, because jsdom measures 0.
+
+The Admin console lives in `AdminLayout` on the same shell: `ConsoleShell`
+(`layouts/shell/`) is the frame both layouts render, each with its own
+destinations (`teacherNav.ts`, `adminNav.ts`) and top-bar end. Its routes are
+under `/admin`, behind `AdminWorkspace` and then `RequirePermission`
+(`app/guards/`), and each declares `handle.crumb`, `width` (1320px, 1080px for
+API reference and Settings) and `permission`, the `x-permission` of the
+operation its page opens with; the guard answers the 403 page to a user who
+lacks it, and `adminNavFor` leaves such a destination out of the sidebar.
+`tests/units/contract/admin-nav.test.ts` holds the table to the contract. An
+`/admin/...` path that is not one of the console's (`consolePath` in
+`app/adminPaths.ts`) is a teacher address from before R4 and redirects. A
+console address for a user without the workspace answers the 403 page, except
+`/admin` and `/admin/classes` (`hasTeacherTwin`), which are teacher pages too
+and redirect.
 
 The take-test engine runs in `FocusLayout` and asks every width question through
 `useEngineWidthAtLeast` (`take-test/width.ts`): the window's width there, and the
@@ -674,8 +696,9 @@ fix the cause, never the test:
   resumed attempt's timeline vanishing.
 - `web/tests/units/api/client.refresh.test.ts` — five concurrent 401s must issue
   exactly one refresh.
-- `web/tests/integration/router-chunks.test.ts` — the admin tree must stay out of
-  the entry chunk. It runs a real build; reading the router and trusting `lazy`
+- `web/tests/integration/router-chunks.test.ts` — the teacher tree and the Admin
+  console must stay out of the entry chunk, and the console out of every student
+  and teacher page's chunk. It runs a real build; reading the router and trusting `lazy`
   would not catch the regression that actually happens.
 
 `docs/plan/30-risks.md` explains what each one is guarding.

@@ -7,11 +7,14 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"quizzivy/internal/modules/organization/application"
+	"quizzivy/internal/modules/organization/application/ports"
 	"quizzivy/internal/modules/organization/domain"
 )
 
@@ -23,11 +26,15 @@ type fakeRepo struct {
 	readErr  error
 	impact   domain.Impact
 	block    chan struct{}
+	onRead   func(reads int, settings *domain.Settings)
 }
 
 func (f *fakeRepo) Read(context.Context) (domain.Settings, error) {
 	f.mu.Lock()
 	f.reads++
+	if f.onRead != nil {
+		f.onRead(f.reads, &f.settings)
+	}
 	err, settings, block := f.readErr, f.settings, f.block
 	f.mu.Unlock()
 	if block != nil {
@@ -105,13 +112,60 @@ func build(t *testing.T, repo *fakeRepo) (*application.Application, *clock) {
 }
 
 type memoryStore struct {
-	mu      sync.Mutex
-	objects map[string][]byte
-	puts    int
-	gets    int
+	mu        sync.Mutex
+	objects   map[string][]byte
+	written   map[string]time.Time
+	puts      int
+	gets      int
+	listErr   error
+	deleteErr map[string]error
+	deleted   []string
+	listed    int
+	onList    func()
 }
 
-func newStore() *memoryStore { return &memoryStore{objects: map[string][]byte{}} }
+func newStore() *memoryStore {
+	return &memoryStore{objects: map[string][]byte{}, written: map[string]time.Time{}, deleteErr: map[string]error{}}
+}
+
+func (m *memoryStore) put(key string, at time.Time) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.objects[key] = []byte(key)
+	m.written[key] = at
+}
+
+func (m *memoryStore) List(_ context.Context, prefix string, limit int) ([]ports.StoredLogo, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.listed = limit
+	if m.onList != nil {
+		m.onList()
+	}
+	if m.listErr != nil {
+		return nil, m.listErr
+	}
+	var out []ports.StoredLogo
+	for key := range m.objects {
+		if strings.HasPrefix(key, prefix) {
+			out = append(out, ports.StoredLogo{Key: key, WrittenAt: m.written[key]})
+		}
+	}
+	slices.SortFunc(out, func(a, b ports.StoredLogo) int { return strings.Compare(a.Key, b.Key) })
+	return out[:min(limit, len(out))], nil
+}
+
+func (m *memoryStore) Delete(_ context.Context, key string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if err := m.deleteErr[key]; err != nil {
+		return err
+	}
+	delete(m.objects, key)
+	delete(m.written, key)
+	m.deleted = append(m.deleted, key)
+	return nil
+}
 
 func (m *memoryStore) Put(_ context.Context, key string, _ domain.LogoType, body, digest []byte) error {
 	sum := sha256.Sum256(body)
@@ -122,6 +176,7 @@ func (m *memoryStore) Put(_ context.Context, key string, _ domain.LogoType, body
 	defer m.mu.Unlock()
 	m.puts++
 	m.objects[key] = body
+	m.written[key] = time.Now()
 	return nil
 }
 

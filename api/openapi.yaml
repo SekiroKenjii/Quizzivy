@@ -43,7 +43,8 @@ info:
       - a pseudo-key: `self` (any signed-in user), `workspace.teacher` (any
         `content.*`, `teaching.*` or `people.students.*` key) or
         `workspace.admin` (`people.users.manage`, `people.roles.manage`,
-        `system.audit.read`, `system.settings.write` or `scope.all`);
+        `system.audit.read`, `system.settings.write`, `ai.credits.manage` or
+        `scope.all`);
       - a list, met by any one of its keys. A list is used only where one
         operation serves two matrix rows, and the server narrows the check
         when the body decides which row applies.
@@ -146,6 +147,12 @@ tags:
       The Admin console's audit log: a read-only history of the sensitive
       changes the server recorded, filterable by category, search and date, and
       downloadable. Nothing here can change or remove an entry.
+  - name: admin-exports
+    description: |
+      The full data export. The worker builds one ZIP of CSV files, the
+      requester is told by email, and the file is fetched from an app page up
+      to three times: the email links to that page and never to the file. Without
+      object storage and the worker every operation answers `501 EXPORT_OFF`.
   - name: admin-overview
     description: |
       The Admin console's Overview, its sidebar badge and the Plan & usage
@@ -261,6 +268,32 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
+    UserImportRefused:
+      description: |
+        The file or the request cannot be imported, and the message says which.
+        `USER_IMPORT_FILE_UNREADABLE` — not a table this reader opens: damaged,
+        not a workbook, a first sheet that is a chart, a workbook that keeps its
+        parts elsewhere than Excel does, or one too large once unpacked.
+        `USER_IMPORT_FILE_EMPTY` — no header row.
+        `USER_IMPORT_TOO_MANY_ROWS` — more than 2,000 data rows.
+        `USER_IMPORT_COLUMNS` — the header lacks `full_name` or `email`, or names
+        a column twice.
+        `CSV_NOT_UTF8` — a CSV file in another encoding; save it as CSV UTF-8.
+        `XLSX_MACROS` — a workbook with macros.
+        `XLSX_ENCRYPTED` — a workbook with a password.
+        `PASSWORD_SIGN_IN_DISABLED` — `sheet` while the centre has turned
+        password sign-in off.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    UserImportUnavailable:
+      description: |
+        This server cannot do it: `delivery: email_link` needs the key that seals
+        a link (`SECRETS_KEY`), and `delivery: sheet` needs the same key to keep
+        the passwords it hands out.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
     Maintenance:
       description: |
         `MAINTENANCE` — a maintenance window is under way. `details.startsAt` and
@@ -281,6 +314,13 @@ components:
       description: |
         `AI_OFF` — the AI assistant is not configured on this server (no provider
         key). Nothing was reserved or metered. `GET /public/status` says `ai: false`.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    ExportOff:
+      description: |
+        `EXPORT_OFF` — this server has no object storage or no worker, so it
+        builds no export. Nothing was queued.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -796,6 +836,7 @@ components:
         - PASSWORD_UNCHANGED
         - IDENTITY_ALREADY_LINKED
         - LAST_LOGIN_METHOD
+        - SET_PASSWORD_LINK_INVALID
         - REFRESH_TOKEN_INVALID
         - REFRESH_TOKEN_REUSED
         - SESSION_IS_CURRENT
@@ -876,6 +917,20 @@ components:
         - AI_ALLOWANCE_BELOW_USE
         # exports
         - EXPORT_TOO_LARGE
+        - EXPORT_IN_PROGRESS
+        - EXPORT_UNAVAILABLE
+        - EXPORT_OFF
+        # user imports
+        - USER_IMPORT_FILE_TOO_LARGE
+        - USER_IMPORT_FILE_UNREADABLE
+        - USER_IMPORT_FILE_EMPTY
+        - USER_IMPORT_TOO_MANY_ROWS
+        - USER_IMPORT_COLUMNS
+        - USER_IMPORT_NOTHING_TO_CREATE
+        - SHEET_UNAVAILABLE
+        - CSV_NOT_UTF8
+        - XLSX_MACROS
+        - XLSX_ENCRYPTED
         # organization
         - SIGN_IN_POLICY_LOCKOUT
         - PASSWORD_SIGN_IN_DISABLED
@@ -1152,6 +1207,47 @@ components:
       properties:
         url: { type: string, format: uri }
         expiresAt: { $ref: '#/components/schemas/Timestamp' }
+
+    DataExportRequest:
+      type: object
+      additionalProperties: false
+      required: [includeAnswers]
+      properties:
+        includeAnswers:
+          type: boolean
+          description: Whether the ZIP also holds `answers.csv`, every answer of every attempt.
+
+    DataExport:
+      type: object
+      description: |
+        One data export. `status` is `queued` until the worker claims it,
+        `running` while it builds the file, `ready` once the file is stored and
+        the requester has been told, `failed` when it could not be built (the
+        requester may ask again), and `expired` once the 24 hours of a `ready`
+        export have passed. `downloadedAt` is the first time the file was
+        fetched, and `downloads` counts how many times a URL was handed out (0
+        to 3): the third fetch is the last. `bytes`, `completedAt` and
+        `expiresAt` are `null` until the export is ready.
+      additionalProperties: false
+      required: [id, status, includeAnswers, bytes, createdAt, completedAt, expiresAt, downloadedAt, downloads]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        status: { type: string, enum: [queued, running, ready, failed, expired] }
+        includeAnswers: { type: boolean }
+        bytes: { type: [integer, 'null'], format: int64, minimum: 1 }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        completedAt: { type: [string, 'null'], format: date-time }
+        expiresAt: { type: [string, 'null'], format: date-time }
+        downloadedAt: { type: [string, 'null'], format: date-time }
+        downloads: { type: integer, minimum: 0, maximum: 3 }
+
+    DataExportDownload:
+      type: object
+      additionalProperties: false
+      required: [url, expiresInSeconds]
+      properties:
+        url: { type: string, format: uri }
+        expiresInSeconds: { type: integer, const: 60 }
 
     ImportCapabilities:
       type: object
@@ -1586,7 +1682,8 @@ components:
         `ai.use` gates every `/teacher/ai/*` operation and the import's "Read
         with AI"; `ai.credits.manage` gates every `/admin/ai/*` operation. The
         Admin holds both, the built-in Teacher holds `ai.use`, and a custom role
-        may hold either alone. `ai.credits.manage` opens no workspace by itself.
+        may hold either alone. `ai.credits.manage` opens the Admin console by
+        itself (`workspace.admin`); `ai.use` opens no workspace.
 
         The last four keys in the enum are hidden: no matrix row shows them,
         no role is granted them, and only the Admin holds them. The Admin
@@ -1812,6 +1909,12 @@ components:
         theme: { type: string, enum: [light, dark, system] }
         compactTables: { type: boolean }
         largerTestText: { type: boolean }
+        workspace:
+          type: string
+          enum: [teacher, admin]
+          description: |
+            The console the user last switched to. A built-in Admin, who holds
+            both, opens it after sign-in; omitted, the Admin console.
         assignmentDefaults:
           type: object
           additionalProperties: false
@@ -1852,12 +1955,32 @@ components:
         `system.settings.write` or `scope.all`; `app` for
         `learning.take_tests`.
 
+    CurrentUserRole:
+      type: object
+      description: |
+        The role the caller holds, on the caller's own document and nowhere
+        else, so no payload about another person names a role. `name` is the
+        stored name. A client shows a built-in role (`builtinKey` set) by its
+        localised name while the stored name is still the seeded one, and the
+        stored name otherwise, as the Roles screen does. Always sent by the
+        server, and optional in the schema as `preferences` is. It is not the
+        legacy `role` string of v0.9.x, which `User` still does not carry.
+      required: [id, builtinKey, name]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        builtinKey:
+          oneOf:
+            - { $ref: '#/components/schemas/BuiltinRoleKey' }
+            - { type: 'null' }
+        name: { type: string, minLength: 1, maxLength: 60 }
+
     CurrentUser:
       type: object
       description: |
         The signed-in user, as only the user sees it: `User`'s properties plus
-        the permissions the user's role holds, in catalogue order, and the
-        workspaces they open. Written flat, because a closed schema cannot be
+        the user's own role, the permissions it holds, in catalogue order, and
+        the workspaces they open. Written flat, because a closed schema cannot be
         extended with `allOf` (issue #41). `User` stays where a response
         describes someone else, so a student's permissions never reach a
         teacher's payload.
@@ -1900,6 +2023,7 @@ components:
             account that never has, including one still on a temporary password
             and one whose password is older than R5. Self only: it is on
             `CurrentUser` and not on `User` or `StudentRow`.
+        role: { $ref: '#/components/schemas/CurrentUserRole' }
         permissions:
           type: array
           uniqueItems: true
@@ -2464,6 +2588,343 @@ components:
           description: Memberships in classes the caller teaches, or every one with `scope.all`. The table truncates; the drawer lists them.
         stats: { $ref: '#/components/schemas/StudentStats' }
 
+    AdminUserRole:
+      type: object
+      description: The role an account holds, as the Users table draws it.
+      required: [id, name, builtinKey, icon, color]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string, minLength: 1, maxLength: 60 }
+        builtinKey:
+          oneOf:
+            - { $ref: '#/components/schemas/BuiltinRoleKey' }
+            - { type: 'null' }
+        icon: { $ref: '#/components/schemas/RoleIcon' }
+        color: { $ref: '#/components/schemas/RoleColor' }
+
+    AdminUserRow:
+      type: object
+      description: |
+        One account as the Admin console's Users table lists it, whatever its
+        role. Flat, as `StudentRow` is, for the same reason (issue #41).
+      required: [id, fullName, email, avatarUrl, role, signIn, classes, lastActiveAt, status, createdAt]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        fullName: { type: string, minLength: 1, maxLength: 200 }
+        email: { type: string, format: email, maxLength: 254 }
+        avatarUrl:
+          type: [string, 'null']
+          format: uri
+          maxLength: 2048
+          description: A signed link to the account's photo, null when it has none or this server stores none.
+        role: { $ref: '#/components/schemas/AdminUserRole' }
+        signIn:
+          type: object
+          description: The ways the account can sign in with, as it stands; the centre's policy may have turned one off.
+          required: [password, google]
+          additionalProperties: false
+          properties:
+            password: { type: boolean, description: True when the account has a password. }
+            google: { type: boolean, description: True when a Google identity is linked. }
+        classes:
+          type: object
+          description: |
+            The classes that are not archived: for a student target, those the
+            account is a member of; for any other account, those it teaches.
+          required: [count, firstName]
+          additionalProperties: false
+          properties:
+            count: { type: integer, minimum: 0 }
+            firstName:
+              type: [string, 'null']
+              maxLength: 120
+              description: The name of the class the account joined first (a student target) or was given first (anyone else), null when `count` is 0.
+        lastActiveAt:
+          type: [string, 'null']
+          format: date-time
+          description: The account's latest authenticated request (DG-54), null before it has ever been active.
+        status: { $ref: '#/components/schemas/AccountStatus' }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+
+    AdminUserTab:
+      type: string
+      enum: [all, teachers, students, admins, disabled]
+      description: |
+        The Users table's tabs. `admins` are the built-in Admin role; `students`
+        are the student targets (a role holding at most `learning.take_tests`,
+        so an Admin who also takes tests is never one); `teachers` are everyone
+        else, the Assistant and every custom role with a permission included.
+        These three include disabled accounts, as the tabs' counts do;
+        `disabled` is every disabled account, whatever its role.
+
+    AdminUserFacets:
+      type: object
+      description: |
+        The tabs' counts. They follow `q`, `email` and `status` but not `tab`,
+        so each tab shows what it would list.
+      required: [all, teachers, students, admins, disabled]
+      additionalProperties: false
+      properties:
+        all: { type: integer, minimum: 0 }
+        teachers: { type: integer, minimum: 0 }
+        students: { type: integer, minimum: 0 }
+        admins: { type: integer, minimum: 0 }
+        disabled: { type: integer, minimum: 0 }
+
+    AdminUserClass:
+      type: object
+      required: [id, name]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string, maxLength: 120 }
+
+    AdminUserActivity:
+      type: object
+      description: |
+        One line of the sheet's recent activity. `detail` is the sign-in method
+        (`password`, `google` or `set_password_link`) for `sign_in`; the audit
+        action key (`audit.action.*`) for `audit`; the test's title for
+        `submission`; the class's name for `class_joined`. It is null when the
+        subject has since been removed.
+      required: [kind, at, detail]
+      additionalProperties: false
+      properties:
+        kind: { type: string, enum: [sign_in, audit, submission, class_joined] }
+        at: { $ref: '#/components/schemas/Timestamp' }
+        detail: { type: [string, 'null'], maxLength: 200 }
+
+    AdminUserCan:
+      type: object
+      description: |
+        What the caller may do to this account, each answer the server's own
+        guards give: the subset rule (`TARGET_ROLE_NOT_ALLOWED`), not oneself,
+        and the last active Admin. A `false` here is what the operation would
+        refuse, so the sheet hides the action rather than offer a button that
+        fails.
+      required: [changeRole, resetPassword, disable, signOut, transfer]
+      additionalProperties: false
+      properties:
+        changeRole: { type: boolean, description: "Needs `people.roles.manage`; not oneself; not the last active Admin." }
+        resetPassword: { type: boolean, description: Not oneself. }
+        disable: { type: boolean, description: "Not oneself, not the last active Admin, and not already disabled." }
+        signOut: { type: boolean, description: Signing oneself out everywhere is allowed. }
+        transfer: { type: boolean, description: "Needs `scope.all`, and the account must be disabled." }
+
+    AdminUserDetail:
+      type: object
+      description: One account for the Users sheet.
+      required: [user, createdBy, classes, ownedContent, inProgressAttempts, activity, can]
+      additionalProperties: false
+      properties:
+        user: { $ref: '#/components/schemas/AdminUserRow' }
+        createdBy:
+          description: Who created the account, null for one that signed itself up or whose creator is gone.
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [id, fullName]
+              additionalProperties: false
+              properties:
+                id: { $ref: '#/components/schemas/Uuid' }
+                fullName: { type: string, maxLength: 200 }
+        classes:
+          type: array
+          maxItems: 20
+          description: The first 20 of `user.classes.count`, in the order `firstName` is drawn from.
+          items: { $ref: '#/components/schemas/AdminUserClass' }
+        ownedContent:
+          type: object
+          description: |
+            What `transferUserContent` would move: every class the account
+            teaches (archived ones too) and every test, question, media asset
+            and assignment it owns that has not been deleted.
+          required: [classes, tests, questions, media, assignments]
+          additionalProperties: false
+          properties:
+            classes: { type: integer, minimum: 0 }
+            tests: { type: integer, minimum: 0 }
+            questions: { type: integer, minimum: 0 }
+            media: { type: integer, minimum: 0 }
+            assignments: { type: integer, minimum: 0 }
+        inProgressAttempts: { type: integer, minimum: 0, description: Tests the account is taking right now. }
+        activity:
+          type: array
+          maxItems: 8
+          description: Newest first.
+          items: { $ref: '#/components/schemas/AdminUserActivity' }
+        can: { $ref: '#/components/schemas/AdminUserCan' }
+
+    UserCreate:
+      type: object
+      required: [fullName, email, roleId, delivery]
+      additionalProperties: false
+      properties:
+        fullName: { type: string, minLength: 1, maxLength: 200 }
+        email: { type: string, format: email, maxLength: 254 }
+        roleId:
+          $ref: '#/components/schemas/Uuid'
+          description: A role from `listAssignableRoles`.
+        classId:
+          $ref: '#/components/schemas/Uuid'
+          description: A class to add the account to. Allowed only for a student-target role and only to a caller holding `scope.all`.
+        delivery:
+          type: string
+          enum: [email_link, temporary_password]
+          description: |
+            `email_link` creates the account without a password and emails it a
+            link to choose one (24 hours, once). `temporary_password` returns a
+            temporary password once, for the admin to hand over.
+
+    UserImportDefaultRole:
+      type: string
+      enum: [student, teacher]
+      description: The role of a row whose file names none.
+
+    UserImportDelivery:
+      type: string
+      enum: [email_link, sheet]
+      description: |
+        `email_link` emails each new account a link to choose a password (24
+        hours, once). `sheet` gives each a temporary password and collects them
+        in a sheet the importer downloads once.
+
+    UserImportField:
+      type: string
+      enum: [full_name, email, role, class]
+
+    UserImportIssue:
+      type: object
+      description: |
+        One cell the import refused. `row` is the line of the file the row sits
+        on, counting the header as line 1, which is the number a spreadsheet
+        shows beside it. `code` says why: `REQUIRED` (empty), `TOO_LONG`,
+        `INVALID` (not an address, or a name with control characters),
+        `FORMULA_LIKE` (an address that starts with a character a spreadsheet
+        reads as a formula, such as `+` or `=`, which the hand-out sheet could not
+        carry as the address that signs in),
+        `DUPLICATE_IN_FILE` (an address an earlier row has), `UNKNOWN_ROLE` and
+        `AMBIGUOUS_ROLE` (no role, or more than one, answers to the name),
+        `ROLE_NOT_ALLOWED` (the role holds a permission the importer lacks),
+        `ROLE_NOT_GIVABLE` (the Assistant, which no one is given), `UNKNOWN_CLASS` and
+        `AMBIGUOUS_CLASS` (no active class, or more than one, has the name), and
+        `CLASS_NOT_ALLOWED` (a class for a role that is not a student target, or
+        by an importer without `scope.all`). A refusal carries no text of the file.
+      additionalProperties: false
+      required: [row, field, code]
+      properties:
+        row: { type: integer, minimum: 1 }
+        field: { $ref: '#/components/schemas/UserImportField' }
+        code:
+          type: string
+          enum:
+            - REQUIRED
+            - TOO_LONG
+            - INVALID
+            - FORMULA_LIKE
+            - DUPLICATE_IN_FILE
+            - UNKNOWN_ROLE
+            - AMBIGUOUS_ROLE
+            - ROLE_NOT_ALLOWED
+            - ROLE_NOT_GIVABLE
+            - UNKNOWN_CLASS
+            - AMBIGUOUS_CLASS
+            - CLASS_NOT_ALLOWED
+
+    UserImportPreview:
+      type: object
+      description: |
+        What a file would come to. `rows` are the data rows it holds;
+        `newAccounts` would be created and `existingEmails.count` already
+        belong to an account and would be skipped, never changed (`sample` names
+        up to five of them). `invalid` lists up to 50 refused cells and
+        `invalidCount` counts every refused row. `classes` are the classes the
+        accepted rows would join. `emailBudget` is `null` unless `delivery` is
+        `email_link`: `remainingToday` is what the centre can still send today,
+        counting what already waits, and `limit` its daily maximum; the rest of
+        the links go out on the following days.
+      additionalProperties: false
+      required: [rows, newAccounts, existingEmails, invalid, invalidCount, classes, emailBudget]
+      properties:
+        rows: { type: integer, minimum: 0, maximum: 2000 }
+        newAccounts: { type: integer, minimum: 0, maximum: 2000 }
+        existingEmails:
+          type: object
+          additionalProperties: false
+          required: [count, sample]
+          properties:
+            count: { type: integer, minimum: 0, maximum: 2000 }
+            sample:
+              type: array
+              maxItems: 5
+              items: { type: string, format: email }
+        invalid:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/UserImportIssue' }
+        invalidCount: { type: integer, minimum: 0, maximum: 2000 }
+        classes:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, name]
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              name: { type: string }
+        emailBudget:
+          type: [object, 'null']
+          additionalProperties: false
+          required: [remainingToday, limit]
+          properties:
+            remainingToday: { type: integer, minimum: 0 }
+            limit: { type: integer, minimum: 1 }
+
+    UserImportJob:
+      type: object
+      description: |
+        One import. `status` is `queued` until the worker claims it, `running`
+        while it creates the accounts, `done` once every stored row is settled,
+        and `failed` when it gave up (`errorCode` says why, a short code that
+        never carries the file). `total` is the rows stored, those that passed
+        every rule; `processed` is those settled so far, `created` + `skipped`;
+        `skipped` are the addresses that already belonged to an account.
+        `invalid` counts the rows refused, which are not stored. `sheet` is `null`
+        unless `delivery` is `sheet`: `available` is true from `done` until the
+        sheet is downloaded or 24 hours have passed, whichever comes first.
+      additionalProperties: false
+      required: [id, status, total, processed, created, skipped, invalid, delivery, sheet, errorCode, createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        status: { type: string, enum: [queued, running, done, failed] }
+        total: { type: integer, minimum: 1, maximum: 2000 }
+        processed: { type: integer, minimum: 0, maximum: 2000 }
+        created: { type: integer, minimum: 0, maximum: 2000 }
+        skipped: { type: integer, minimum: 0, maximum: 2000 }
+        invalid: { type: integer, minimum: 0, maximum: 2000 }
+        delivery: { $ref: '#/components/schemas/UserImportDelivery' }
+        sheet:
+          type: [object, 'null']
+          additionalProperties: false
+          required: [available, expiresAt, downloadedAt]
+          properties:
+            available: { type: boolean }
+            expiresAt: { type: [string, 'null'], format: date-time }
+            downloadedAt: { type: [string, 'null'], format: date-time }
+        errorCode:
+          type: [string, 'null']
+          maxLength: 64
+          description: |
+            Why a `failed` job gave up, and `null` otherwise: `IMPORTER_NOT_ALLOWED`
+            (the importer's account is disabled, or lost the permission or a role
+            the file names), `DELIVERY_UNAVAILABLE` (password sign-in was turned
+            off, or the server can no longer seal, before a sheet job finished)
+            or `WORKER_INTERRUPTED` (the worker claimed the job three times and
+            none finished it). The accounts created before the job failed stay.
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+
     StudentPasswordReset:
       type: object
       description: One student `resetStudentsPasswords` reset. The password is shown once.
@@ -2512,6 +2973,24 @@ components:
           description: Held in memory only (§5.2). The refresh token is set as a cookie, not returned here.
         expiresIn: { type: integer, description: Seconds. }
         user: { $ref: '#/components/schemas/CurrentUser' }
+
+    SetPasswordLinkInfo:
+      type: object
+      description: |
+        What a valid set-password link is for: the account it controls, which
+        the page names so a person can tell the link is theirs, and when it
+        stops working. The email and the name are the account's own, given to
+        whoever already holds the secret that controls it.
+      required: [email, fullName, purpose, expiresAt]
+      additionalProperties: false
+      properties:
+        email: { type: string, format: email }
+        fullName: { type: string }
+        purpose:
+          type: string
+          enum: [invite, reset]
+          description: '`invite` for a new account''s first password, `reset` for a new one.'
+        expiresAt: { type: string, format: date-time }
 
     Session:
       type: object
@@ -3305,7 +3784,7 @@ components:
         activeThisWeek:
           type: integer
           minimum: 0
-          description: Accounts with an authenticated request on any of the last seven local days, today included.
+          description: Accounts with an authenticated request on any of the last seven local days, today included, whether they have been disabled since or not.
         teachers: { type: integer, minimum: 0 }
         teachersDisabled:
           type: integer
@@ -3330,7 +3809,8 @@ components:
       description: |
         Who made an authenticated request on each of the last fourteen local
         days. Staff is every account that is not a student target, which the
-        chart labels Teachers.
+        chart labels Teachers. A day counts the accounts that were active on it,
+        whether they have been disabled since or not.
       required: [days, average]
       additionalProperties: false
       properties:
@@ -3375,8 +3855,8 @@ components:
             `never_signed_in`: enabled accounts that have never signed in and
             are not on a temporary password. `disabled_teacher_classes`: classes,
             archived ones too, whose teacher is disabled. `storage`: how many of
-            the media and import meters with a configured limit are at 80 percent
-            or more. `ai_credit_requests`: the teachers waiting for more credits
+            the media and import meters with a configured limit read 80 percent
+            or more, as `detail` quotes them (rounded half up). `ai_credit_requests`: the teachers waiting for more credits
             this month.
         detail:
           description: What the row's line quotes. `null` for `must_change_password`.
@@ -6562,6 +7042,157 @@ paths:
         perIp: { perMinute: 120, perHour: 600 }
         perCode: { perHour: 200 }
 
+  /auth/set-password/check:
+    post:
+      operationId: checkSetPasswordLink
+      tags: [public, auth]
+      security: []
+      summary: Read what a set-password link is for
+      description: |
+        The set-password page calls this with the token it read from the link's
+        fragment, before it shows the form, so it can say whose password it is
+        about to set. Nothing is consumed: the same token can be checked again
+        until it is used, replaced or expired.
+
+        A link is a one-time secret an Admin or the account's owner had emailed
+        (D15). It works once, for 24 hours, and a newer link for the same
+        account replaces it.
+
+        **Leak review (§6.5).** An unknown, used, expired or revoked token, and
+        the token of a disabled account, all answer the same `410
+        SET_PASSWORD_LINK_INVALID`, with the same message, from the same single
+        indexed lookup, so the answer says nothing about which of them it was.
+        The lookup is an equality on the SHA-256 of a 256-bit token, which is
+        all the database keeps, so its timing reveals nothing usable. A valid
+        token is answered with the account's own email and name: the caller
+        already holds the secret that controls that account. The token is never
+        logged, is never in a query string and never reaches a `Referer`, since
+        the page sends it in this body only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              additionalProperties: false
+              properties:
+                token:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+                  description: The `token` the link carries after `#token=`.
+      responses:
+        '200':
+          description: The link can still be used.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SetPasswordLinkInfo' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '410':
+          description: |
+            `SET_PASSWORD_LINK_INVALID` — the link is unknown, used, expired or
+            revoked, or its account is disabled. The client says the link has
+            expired or was already used and asks the user to request a new one.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413':
+          description: The body is over 8 KiB, which the rate limiter's keys read in full.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/Maintenance' }
+      x-max-body-bytes: 8192
+      x-rate-limit:
+        perIp: { perMinute: 120, perHour: 1000 }
+        perToken: { perHour: 20 }
+
+  /auth/set-password:
+    post:
+      operationId: setPasswordWithLink
+      tags: [public, auth]
+      security: []
+      summary: Set a password from an emailed link, and sign in
+      description: |
+        Sets the account's password, clears `mustChangePassword`, signs the
+        account in and answers as `login` does. The link has just proved
+        control of the mailbox, so no other proof is asked for.
+
+        One statement claims the token, so two submits at once set the password
+        once and the second is answered `410`. Setting a password also ends the
+        account's other sessions and links: it revokes every refresh family,
+        moves `session_epoch`, and revokes the account's other unused links, all
+        before the new session is issued. A Google-only account that sets a
+        password this way keeps its Google link.
+
+        **Leak review (§6.5).** The same single `410` as `checkSetPasswordLink`
+        for every invalid state. `422 PASSWORD_SIGN_IN_DISABLED` is decided
+        before the token is looked up, so it is the same for every caller and
+        says nothing about any token or account. A token that is not valid is
+        refused before any password is hashed, so the endpoint is no way to
+        spend the server's hashing capacity. The token is never logged, is never
+        in a query string and never reaches a `Referer`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, newPassword]
+              additionalProperties: false
+              properties:
+                token:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+                  description: The `token` the link carries after `#token=`.
+                newPassword:
+                  type: string
+                  minLength: 8
+                  maxLength: 512
+                  pattern: '[\p{N}\p{P}\p{S}]'
+                  description: |
+                    The same rule as `changePassword`: at least 8 characters,
+                    at least one of which is a digit, a punctuation mark or a
+                    symbol, in any script.
+      responses:
+        '200':
+          description: The password is set and the account is signed in. Sets the rotating refresh cookie.
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+              description: '`quizzivy_refresh=…; HttpOnly; Secure; SameSite=Lax; Path=/auth`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthSuccess' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '410':
+          description: '`SET_PASSWORD_LINK_INVALID` — as for `checkSetPasswordLink`. Nothing was changed.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413':
+          description: The body is over 8 KiB, which the rate limiter's keys read in full.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: |
+            `PASSWORD_SIGN_IN_DISABLED` — the centre has turned password
+            sign-in off, so there is no password to set. The client sends the
+            person to sign in with Google.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/Maintenance' }
+      x-max-body-bytes: 8192
+      x-rate-limit:
+        perIp: { perMinute: 60, perHour: 600 }
+        perToken: { perHour: 10 }
+
   /auth/refresh:
     post:
       operationId: refreshSession
@@ -6798,6 +7429,39 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/set-password/request:
+    post:
+      operationId: requestSetPasswordLink
+      x-permission: self
+      tags: [auth]
+      summary: Email the caller a link to set a password
+      description: |
+        For an account that signs in with Google and has no password: emails
+        the account's own address a link, valid once for 24 hours, that opens
+        the set-password page. A newer link replaces an earlier unused one. The
+        caller stays signed in; using the link later ends the other sessions,
+        as setting a password does.
+
+        The answer is `204` once the message is queued; delivery is by the
+        outbox and may follow a moment later. Nothing in the answer says
+        whether the address received it.
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422':
+          description: |
+            `PASSWORD_SIGN_IN_DISABLED` — the centre has turned password
+            sign-in off, so a password would be of no use.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '501':
+          description: This server has no key to seal a link with (`SECRETS_KEY`), so it cannot send one.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /auth/google/link:
     post:
@@ -10377,8 +11041,155 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /admin/users:
+    get:
+      operationId: listUsers
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: Every account, whatever its role
+      description: |
+        The Users table: every account in the centre, newest first: highest id
+        first, which is creation order for every account the app creates. Pages
+        are offset based, so accounts added between two requests shift the later
+        pages. `q` matches the name and the email together, ignoring case and
+        accents (D-11), and `email` is an exact, case-insensitive match for the
+        Add user form's "already taken" check. `status` narrows to the accounts
+        in that state, which never includes a disabled one (`AccountStatus`
+        lists `disabled` first).
+      parameters:
+        - name: tab
+          in: query
+          schema: { $ref: '#/components/schemas/AdminUserTab' }
+        - name: status
+          in: query
+          schema: { type: string, enum: [must_change_password, never_signed_in] }
+        - $ref: '#/components/parameters/Query'
+        - name: email
+          in: query
+          schema: { type: string, format: email, maxLength: 254 }
+        - $ref: '#/components/parameters/Page'
+        # Inline: the default is per resource, and
+        # TestEveryPageSizeMatchesItsContract reads it from here.
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, enum: [10, 20, 50], default: 20 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageInfo'
+                  - type: object
+                    required: [items, facets]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/AdminUserRow' } }
+                      facets: { $ref: '#/components/schemas/AdminUserFacets' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+    post:
+      operationId: createUser
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: Add an account with a role
+      description: |
+        Creates an account of any role the caller may give (`listAssignableRoles`):
+        its permissions, `learning.take_tests` apart, must be the caller's own,
+        and the Assistant is never offered. `created_by` is the caller. The role
+        is held against edits from the check to the commit; if it changed in
+        between, the check is made again, up to three times.
+
+        `fullName` is composed to NFC, trimmed, and each run of white space is
+        one space. A name that is then empty, longer than 200 characters, holds
+        a control, format, bidirectional or filler character or a code point
+        that is unassigned, or holds no letter, digit, punctuation mark or
+        symbol, is refused with `VALIDATION_FAILED` naming `fullName`.
+
+        `delivery: email_link` sets no password and enqueues a set-password
+        link (an invite) in the same transaction as the account, so the account
+        and its message exist together or not at all. While the centre has
+        turned password sign-in off, the message is a sign-in invite and
+        carries no link. `delivery: temporary_password` returns a temporary
+        password **once** and keeps only its hash; the account must change it
+        at the first sign-in unless the centre's sign-in policy lets it keep
+        it. It is refused with `PASSWORD_SIGN_IN_DISABLED` while password
+        sign-in is off.
+
+        `classId` is allowed only for a student-target role and only with
+        `scope.all`, and must name a class that is not archived. Writes one
+        audit row, `user.created`, with the role and the delivery.
+
+        Limited to 30 a minute and 300 an hour per signed-in user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserCreate' }
+      responses:
+        '201':
+          description: Created. A temporary password is returned **once**, and the answer is never cached.
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user]
+                additionalProperties: false
+                properties:
+                  user: { $ref: '#/components/schemas/AdminUserRow' }
+                  temporaryPassword:
+                    type: string
+                    description: "Present only for `delivery: temporary_password`."
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — the role holds a permission the caller lacks.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: |
+            `EMAIL_TAKEN` — already in use, compared case-insensitively.
+            `STALE_WRITE` — the role changed three times while the account was being created; nothing was written, so the same request may be sent again.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: |
+            `ROLE_NOT_ASSIGNABLE` — the role is the Assistant.
+            `PASSWORD_SIGN_IN_DISABLED` — a temporary password was asked for while the centre has turned password sign-in off.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '501':
+          description: This server has no key to seal a link with (`SECRETS_KEY`), so it cannot send one.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
   /admin/users/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getUser
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: One account for the Users sheet
+      description: |
+        The account with what the sheet draws beside it: who created it, its
+        classes, what it owns, the tests it is taking, its latest activity and
+        what the caller may do to it (`can`). Any account is visible, whatever
+        its role; the subset rule limits what may be done, not what is seen.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminUserDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
     delete:
       operationId: deleteUser
       x-permission: people.users.manage
@@ -10405,6 +11216,189 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /admin/user-imports/preview:
+    post:
+      operationId: previewUserImport
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: What a CSV or XLSX file of accounts would come to
+      description: |
+        Reads the file under a one-slot gate and judges every row against what
+        the caller may do, writing nothing. The first sheet of a workbook, or a
+        UTF-8 CSV file, holds the columns `full_name` and `email` and may hold
+        `role` and `class`, named in any case and order; any other column is
+        ignored. The format is read from the bytes and never from the name.
+        A file is at most 5 MiB, 2,000 data rows, 20 columns and 1,000
+        characters a cell.
+
+        `role` is a built-in key (`student`, `teacher`), a role's name (the
+        built-ins are "Học viên" and "Giáo viên") or empty, which takes
+        `defaultRole`. `class` is the exact name of an active class, only for a
+        student-target role and only for a caller holding `scope.all`. An
+        address that already belongs to an account is counted and skipped, never
+        updated. Every refused cell is reported once, so one pass shows
+        everything to correct.
+
+        `defaultRole` must be a role the caller may give, as `createUser`
+        requires of `roleId`. Limited to 10 a minute per signed-in user.
+      x-max-body-bytes: 5259264
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, defaultRole, delivery]
+              properties:
+                file: { type: string, format: binary }
+                defaultRole: { $ref: '#/components/schemas/UserImportDefaultRole' }
+                delivery: { $ref: '#/components/schemas/UserImportDelivery' }
+      responses:
+        '200':
+          description: The counts. Nothing was stored.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserImportPreview' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — `defaultRole` holds a permission the caller lacks.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413':
+          description: |
+            `USER_IMPORT_FILE_TOO_LARGE` — over 5 MiB. The message tells the user
+            to save the sheet as CSV UTF-8 and upload that.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422': { $ref: '#/components/responses/UserImportRefused' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '501': { $ref: '#/components/responses/UserImportUnavailable' }
+
+  /admin/user-imports:
+    post:
+      operationId: createUserImport
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: Import the accounts of a file
+      description: |
+        Reads and judges the file again, never trusting a preview, stores the
+        job and every row that passed in one transaction, and wakes the worker,
+        which creates the accounts a few at a time. The caller's `requestId`,
+        held for as long as the dialog is open, makes the request idempotent:
+        the same `requestId` returns the job it stored the first time, whatever
+        the file then holds, and creates no second one. Audits
+        `user_import.requested`; the accounts are audited as `user.created`
+        with `via: import` when the worker creates them.
+
+        The file, `defaultRole` and `delivery` are those of `previewUserImport`.
+        A file in which no row would create an account is refused with
+        `USER_IMPORT_NOTHING_TO_CREATE`. Limited to 5 an hour per signed-in
+        user.
+      x-max-body-bytes: 5259264
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, defaultRole, delivery, requestId]
+              properties:
+                file: { type: string, format: binary }
+                defaultRole: { $ref: '#/components/schemas/UserImportDefaultRole' }
+                delivery: { $ref: '#/components/schemas/UserImportDelivery' }
+                requestId: { $ref: '#/components/schemas/Uuid' }
+      responses:
+        '202':
+          description: Queued. Poll `getUserImport` for its progress.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserImportJob' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — `defaultRole` holds a permission the caller lacks.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413':
+          description: '`USER_IMPORT_FILE_TOO_LARGE` — over 5 MiB.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: |
+            Any code `previewUserImport` answers with, and
+            `USER_IMPORT_NOTHING_TO_CREATE` — no row of the file would create an
+            account.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '501': { $ref: '#/components/responses/UserImportUnavailable' }
+
+  /admin/user-imports/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getUserImport
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: How an import is going
+      description: |
+        The progress of one of the caller's own imports. Another user's import
+        answers as a missing one.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserImportJob' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/user-imports/{id}/sheet:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: downloadUserImportSheet
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: Take the sheet of temporary passwords an import made
+      description: |
+        For a job delivered by `sheet`, hands its importer one CSV file, once:
+        a row for every account the job created, with `full_name`, `email`,
+        `role`, `class` and `temporary_password`. One transaction opens the
+        passwords, erases them from the job and records the download, so the
+        file is the only copy and a second request cannot have it. A job that is
+        not done, was delivered by email, created no account, has been
+        downloaded, or finished more than 24 hours ago answers
+        `410 SHEET_UNAVAILABLE`; another user's job is `404`. The response is
+        `no-store`, a UTF-8 file with a byte-order mark and CRLF line ends in
+        which a cell that a spreadsheet would run as a formula starts with `'`.
+        Audited as `user_import.sheet_downloaded`. Limited to 5 a minute per
+        signed-in user.
+      responses:
+        '200':
+          description: The sheet.
+          headers:
+            Content-Disposition:
+              required: true
+              description: '`attachment; filename="new-accounts-YYYYMMDD.csv"`.'
+              schema: { type: string }
+            Cache-Control:
+              required: true
+              description: '`no-store`.'
+              schema: { type: string }
+          content:
+            text/csv:
+              schema: { type: string, format: binary }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410':
+          description: '`SHEET_UNAVAILABLE` — the job has no sheet to give: it is not done, was delivered by email, created no account, was downloaded already, or finished more than 24 hours ago.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '501': { $ref: '#/components/responses/UserImportUnavailable' }
+
   /admin/roles:
     get:
       operationId: listRoles
@@ -10890,6 +11884,117 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/data-exports:
+    post:
+      operationId: requestDataExport
+      x-permission: system.data_export
+      tags: [admin-exports]
+      summary: Ask for a full export of the centre's data
+      description: |
+        Queues one export for the worker and answers at once. It builds a ZIP
+        of `users.csv` (no password hashes or tokens), `roles.csv`,
+        `classes.csv` (no join codes), `class_members.csv`, `tests.csv`,
+        `test_versions.csv`, `assignments.csv`, `attempts.csv`, with
+        `answers.csv` when `includeAnswers` is true, and a `README.txt` in
+        Vietnamese and English that describes each file. Every CSV is UTF-8
+        with a byte-order mark and CRLF line ends, and a cell that a
+        spreadsheet would run as a formula is written with a leading `'`.
+
+        Only one export runs at a time for the whole centre: while any is
+        queued or running, another request answers `409 EXPORT_IN_PROGRESS`.
+        When the file is ready the requester gets an email that links to the
+        app page `/admin/exports/{id}`, never to the file. The file can be
+        fetched up to three times, by the requester, within 24 hours
+        (`downloadDataExport`).
+        The request is audited as `data_export.requested`. A caller who has an
+        export from the last hour that has not failed (queued, running, ready
+        or fetched) is refused with `429 RATE_LIMITED` and `Retry-After`, the
+        seconds until that export is an hour old. A failed export, a request
+        refused with `409` and a request refused with `429` do not count.
+        Without object storage and the worker the answer is `501 EXPORT_OFF`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DataExportRequest' }
+      responses:
+        '202':
+          description: Queued.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DataExport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: '`EXPORT_IN_PROGRESS` — an export is already queued or running.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '501': { $ref: '#/components/responses/ExportOff' }
+
+  /admin/data-exports/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getDataExport
+      x-permission: system.data_export
+      tags: [admin-exports]
+      summary: Where an export stands
+      description: |
+        The state of an export the caller requested; another user's export
+        answers `404` exactly as a missing one does. A `ready` export whose
+        24 hours have passed reads `expired`, whether or not the housekeeping
+        has removed its file yet.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DataExport' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { $ref: '#/components/responses/ExportOff' }
+
+  /admin/data-exports/{id}/download:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: downloadDataExport
+      x-permission: system.data_export
+      tags: [admin-exports]
+      summary: Fetch an export, up to three times
+      description: |
+        Hands the requester a presigned URL for the ZIP, valid for 60 seconds,
+        that forces an attachment named `quizzivy-export-YYYYMMDD.zip`. One
+        statement checks that the export is `ready`, unexpired and signed fewer
+        than three times, and counts the signing in `downloads`, so a failed
+        transfer can be tried again; the fourth request, and a request after the
+        24 hours, answer `410 EXPORT_UNAVAILABLE`. Another user's export answers
+        `404`. The response is `no-store`, because the URL is a credential. Each
+        signing is audited as `data_export.downloaded`, and a caller may fetch
+        ten an hour.
+      responses:
+        '200':
+          description: The URL.
+          headers:
+            Cache-Control:
+              required: true
+              description: '`no-store`.'
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DataExportDownload' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410':
+          description: '`EXPORT_UNAVAILABLE` — the export is not ready, has expired, failed, or was already signed three times.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501': { $ref: '#/components/responses/ExportOff' }
 
   /admin/ai/credits:
     get:

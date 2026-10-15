@@ -72,6 +72,9 @@ func loadWorkerShared(base *Config) error {
 	if err := loadAI(base); err != nil {
 		return err
 	}
+	if err := loadHashing(base); err != nil {
+		return err
+	}
 	return loadEmailGroup(base)
 }
 

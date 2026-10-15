@@ -30,6 +30,16 @@ type User struct {
 	LastSignInAt       *time.Time
 	LastSignInMethod   *string
 	PasswordChangedAt  *time.Time
+	Role               Role
+}
+
+// Role is the role a user holds: its id, the built-in key when it has one, and
+// the stored name. It is read with the user and only ever shown to the user
+// who holds it.
+type Role struct {
+	ID         string
+	BuiltinKey *string
+	Name       string
 }
 
 // JoinCodeRejected is a join code that did not pass. It carries the outcome so

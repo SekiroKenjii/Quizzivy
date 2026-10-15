@@ -56,8 +56,8 @@ const (
 // Workspaces returns the consoles s opens, in the order teacher, admin, app:
 // the teacher workspace for any content, teaching or people.students key; the
 // Admin console for people.users.manage, people.roles.manage,
-// system.audit.read, system.settings.write or scope.all; the student app for
-// learning.take_tests.
+// system.audit.read, system.settings.write, ai.credits.manage or scope.all; the
+// student app for learning.take_tests.
 func Workspaces(s Set) []Workspace {
 	out := []Workspace{}
 	if opensTeacher(s) {
@@ -74,7 +74,7 @@ func Workspaces(s Set) []Workspace {
 
 var teacherPrefixes = []string{"content.", "teaching.", "people.students."}
 
-var adminKeys = []Key{PeopleUsersManage, PeopleRolesManage, SystemAuditRead, SystemSettingsWrite, ScopeAll}
+var adminKeys = []Key{PeopleUsersManage, PeopleRolesManage, SystemAuditRead, SystemSettingsWrite, AICreditsManage, ScopeAll}
 
 func opensTeacher(s Set) bool {
 	for k := range s.keys {

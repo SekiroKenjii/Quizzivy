@@ -50,6 +50,8 @@ var catalogue = []Action{
 	{"class.member_enrolled", "Học viên đã vào lớp bằng mã tham gia", "A student joined a class with a code"},
 	{"class.member_removed", "Đã xoá học viên khỏi lớp", "Removed a student from a class"},
 	{"class.restored", "Đã khôi phục lớp", "Restored a class"},
+	{"data_export.downloaded", "Đã tải bản xuất dữ liệu", "Downloaded a data export"},
+	{"data_export.requested", "Đã yêu cầu bản xuất dữ liệu", "Requested a data export"},
 	{"import.cancelled", "Đã huỷ lần nhập Word", "Cancelled a Word import"},
 	{"import.closed_idle", "Đã tự đóng lần nhập Word không hoạt động", "Closed an idle Word import"},
 	{"import.committed", "Đã lưu câu hỏi từ lần nhập Word", "Saved the questions of a Word import"},
@@ -101,12 +103,17 @@ var catalogue = []Action{
 	{"test.version_deleted", "Đã xoá một phiên bản của bài kiểm tra", "Deleted a version of a test"},
 	{"user.avatar_removed", "Đã gỡ ảnh đại diện", "Removed a profile photo"},
 	{"user.avatar_set", "Đã đặt ảnh đại diện", "Set a profile photo"},
+	{"user.created", "Đã tạo tài khoản", "Created an account"},
 	{"user.google_linked", "Đã liên kết tài khoản Google", "Linked a Google account"},
 	{"user.google_unlinked", "Đã huỷ liên kết tài khoản Google", "Unlinked a Google account"},
 	{"user.password_changed", "Đã đổi mật khẩu", "Changed a password"},
+	{"user.password_link_requested", "Đã yêu cầu liên kết đặt mật khẩu", "Asked for a set-password link"},
+	{"user.password_set", "Đã đặt mật khẩu bằng liên kết", "Set a password from a link"},
 	{"user.preferences_updated", "Đã cập nhật tuỳ chọn cá nhân", "Updated personal preferences"},
 	{"user.profile_updated", "Đã cập nhật hồ sơ", "Updated a profile"},
 	{"user.renamed", "Đã đổi tên tài khoản", "Renamed an account"},
+	{"user_import.requested", "Đã yêu cầu nhập người dùng từ tệp", "Requested an import of users from a file"},
+	{"user_import.sheet_downloaded", "Đã tải bảng mật khẩu tạm của lần nhập người dùng", "Downloaded the temporary-password sheet of a user import"},
 }
 
 // Actions lists every action the server writes, in key order, each with its
