@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { delay } from "msw";
 import { contractJson } from "@tests/support/contractResponse";
 import { contentWidth } from "@tests/support/contentWidth";
 import { useAuthStore } from "@/stores/auth";
@@ -209,11 +208,9 @@ describe("how many people a sign-in policy would lock out", () => {
     servesSettings();
     const asked = servesImpact({ ...NO_IMPACT, affectedUsers: 2, affectedAdmins: 0 });
     await openSignIn();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
-    await user.type(domains(), "a.com,");
-    await user.type(domains(), "b.com,");
-    await user.type(domains(), "c.com,");
+    await user.type(domains(), "a.com,b.com,c.com,");
 
     expect(
       await screen.findByText("2 người sẽ không đăng nhập được nữa."),
@@ -377,8 +374,12 @@ describe("a sign-in policy that would lock people out", () => {
 
 describe("while a save is out", () => {
   it("keeps the switches and Save changes focusable but ignores a press on them", async () => {
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     const stored = servesSettings(SAVED, async ({ expectedRevision, ...body }) => {
-      await delay(300);
+      await held;
       return contractJson("/admin/settings", "put", 200, {
         ...body,
         revision: expectedRevision + 1,
@@ -401,6 +402,7 @@ describe("while a save is out", () => {
     expect(joinCodes).not.toBeDisabled();
     await user.click(joinCodes);
     await user.click(screen.getByRole("button", { name: "Đang lưu…" }));
+    release();
 
     await waitFor(() => expect(screen.queryByText(SENTENCE)).toBeNull());
     expect(joinCodes).not.toBeChecked();

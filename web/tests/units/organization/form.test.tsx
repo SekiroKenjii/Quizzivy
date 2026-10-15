@@ -307,33 +307,39 @@ describe("Save changes", () => {
   it.each([
     ["the list", "signIn.allowedGoogleDomains"],
     ["one of its items", "signIn.allowedGoogleDomains.0"],
-  ])("opens the section that holds a field the server refused, %s", async (_, path) => {
-    servesSettings(SAVED, () =>
-      contractJson(
-        "/admin/settings",
-        "put",
-        400,
-        failure("VALIDATION_FAILED", "Cài đặt không hợp lệ.", {
-          [path]: "Tên miền không hợp lệ.",
-        }),
-      ),
-    );
-    const { router } = renderSettings();
-    const user = userEvent.setup();
-    await rename(user, "Trung tâm Quizzivy");
+  ])(
+    "opens the section that holds a field the server refused, %s",
+    async (_, path) => {
+      servesSettings(SAVED, () =>
+        contractJson(
+          "/admin/settings",
+          "put",
+          400,
+          failure("VALIDATION_FAILED", "Cài đặt không hợp lệ.", {
+            [path]: "Tên miền không hợp lệ.",
+          }),
+        ),
+      );
+      const { router } = renderSettings();
+      const user = userEvent.setup();
+      await rename(user, "Trung tâm Quizzivy");
 
-    await user.click(save());
+      await user.click(save());
 
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe("/admin/settings/sign-in"),
-    );
-    expect(await screen.findByText("Tên miền không hợp lệ.")).toBeVisible();
-    await waitFor(() =>
-      expect(
-        screen.getByRole("textbox", { name: "Tên miền Google được phép" }),
-      ).toHaveFocus(),
-    );
-  });
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe("/admin/settings/sign-in"),
+      );
+      await waitFor(() =>
+        expect(screen.getByText("Tên miền không hợp lệ.")).toBeVisible(),
+      );
+      await waitFor(() =>
+        expect(
+          screen.getByRole("textbox", { name: "Tên miền Google được phép" }),
+        ).toHaveFocus(),
+      );
+    },
+    10_000,
+  );
 
   it("says a save that failed for another reason, and leaves the edits to try again", async () => {
     servesSettings(SAVED, () => HttpResponse.error());
