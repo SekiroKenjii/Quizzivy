@@ -142,7 +142,6 @@ func ScheduleWindow(ctx context.Context, conn db.Conn, startsAt, endsAt time.Tim
 		  SELECT 'maintenance.scheduled', 'maintenance_window', id,
 		         jsonb_build_object('startsAt', starts_at, 'endsAt', ends_at, 'databaseRole', current_user)
 		    FROM scheduled
-		  RETURNING id
 		)
 		SELECT (SELECT id::text FROM scheduled),
 		       (SELECT count(id) FROM attempts),
@@ -258,7 +257,6 @@ func changeWindow(ctx context.Context, conn db.Conn, windowID string, apply bool
 		         jsonb_build_object('startsAt', starts_at, 'endsAt', ends_at,
 		           'cancelledAt', cancelled_at, 'databaseRole', current_user)
 		    FROM changed
-		  RETURNING id
 		)
 		SELECT `+windowColumns+` FROM changed`, windowID, change.action)
 	if err != nil {

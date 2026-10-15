@@ -1,6 +1,7 @@
 package maintenance
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"flag"
@@ -16,15 +17,17 @@ import (
 
 // Usage is the line printed when a command or a flag is not understood.
 const Usage = "usage: maintenance <command> [flags]\n" +
-	"commands: retain-integrity, anonymize-student, window-schedule, window-list, window-cancel, window-end, rekey-join-codes,\n" +
-	"  ai-credits <status|set-allowance|add-credits|approve|decline|pause|resume|set-rules>, ai-reservations-sweep\n" +
-	"every command takes -timeout <duration> (default 1m); writes are dry runs until -apply"
+	"commands: retention-sweep, retain-integrity, anonymize-user (alias anonymize-student), window-schedule, window-list, window-cancel, window-end,\n" +
+	"  rekey-join-codes, ai-credits <status|set-allowance|add-credits|approve|decline|pause|resume|set-rules>, ai-reservations-sweep\n" +
+	"every command takes -timeout <duration> (default 1m), retention-sweep -budget <duration> (default 1m) instead; writes are dry runs until -apply"
 
 // Command is one parsed invocation: what to run and how long it may take.
+// ReportOnError asks the caller to print the report Run returned even when it also returned an error, for a command whose batches commit one by one and so leave a partial result worth reading.
 type Command struct {
-	Name    string
-	Timeout time.Duration
-	Run     func(ctx context.Context, conn db.Conn) (any, error)
+	Name          string
+	Timeout       time.Duration
+	ReportOnError bool
+	Run           func(ctx context.Context, conn db.Conn) (any, error)
 }
 
 // Execute runs the command with its timeout applied to ctx.
@@ -35,7 +38,9 @@ func (c Command) Execute(ctx context.Context, conn db.Conn) (any, error) {
 }
 
 const (
+	retentionSweep   = "retention-sweep"
 	retainIntegrity  = "retain-integrity"
+	anonymizeUser    = "anonymize-user"
 	anonymizeStudent = "anonymize-student"
 )
 
@@ -49,19 +54,12 @@ var commands = map[string]spec{
 		batch := fs.Int("batch", 1000, "maximum integrity events in one batch (1..10000)")
 		return func() (runner, error) {
 			return func(ctx context.Context, conn db.Conn) (any, error) {
-				return RetainEvents(ctx, conn, *apply, *batch)
+				return retainConfigured(ctx, conn, *apply, *batch)
 			}, nil
 		}
 	},
-	anonymizeStudent: func(fs *flag.FlagSet) func() (runner, error) {
-		apply := fs.Bool("apply", false, "anonymize; omitted means dry run")
-		student := fs.String("student", "", "student UUID")
-		return func() (runner, error) {
-			return func(ctx context.Context, conn db.Conn) (any, error) {
-				return AnonymizeStudent(ctx, conn, *student, *apply)
-			}, nil
-		}
-	},
+	anonymizeUser:    anonymizeSpec,
+	anonymizeStudent: anonymizeSpec,
 	"window-schedule": func(fs *flag.FlagSet) func() (runner, error) {
 		apply := fs.Bool("apply", false, "schedule; omitted means dry run")
 		start := fs.String("start", "", "start of the window, RFC 3339")
@@ -130,6 +128,63 @@ var commands = map[string]spec{
 
 var legacyCommands = map[string]bool{retainIntegrity: true, anonymizeStudent: true}
 
+func retainConfigured(ctx context.Context, conn db.Conn, apply bool, batch int) (RetentionReport, error) {
+	if err := checkBatch(batch); err != nil {
+		return RetentionReport{}, err
+	}
+	retention, err := ReadRetention(ctx, conn)
+	if err != nil {
+		return RetentionReport{}, err
+	}
+	return RetainEvents(ctx, conn, retention.KeepFocusEventsMonths, apply, batch)
+}
+
+func anonymizeSpec(fs *flag.FlagSet) func() (runner, error) {
+	apply := fs.Bool("apply", false, "anonymize; omitted means dry run")
+	user := fs.String("user", "", "user UUID")
+	student := fs.String("student", "", "user UUID, the older name of -user")
+	return func() (runner, error) {
+		id, err := accountFlag(*user, *student)
+		if err != nil {
+			return nil, err
+		}
+		return func(ctx context.Context, conn db.Conn) (any, error) {
+			return AnonymizeUser(ctx, conn, id, *apply)
+		}, nil
+	}
+}
+
+func accountFlag(user, student string) (string, error) {
+	if user != "" && student != "" && user != student {
+		return "", errors.New("-user and -student name different accounts; use -user")
+	}
+	return cmp.Or(user, student), nil
+}
+
+func parseRetentionSweep(args []string) (Command, error) {
+	fs := newFlagSet(retentionSweep)
+	apply := fs.Bool("apply", false, "write; omitted means dry run")
+	batch := fs.Int("batch", 500, "rows in one batch: integrity events, attempts or accounts (1..10000)")
+	budget := fs.Duration("budget", time.Minute, "how long the sweep may run; it is also the command's timeout")
+	if err := fs.Parse(args); err != nil {
+		return Command{}, fmt.Errorf("%s: %w\n%s", retentionSweep, err, Usage)
+	}
+	if fs.NArg() > 0 {
+		return Command{}, fmt.Errorf("%s: unexpected argument %q\n%s", retentionSweep, fs.Arg(0), Usage)
+	}
+	if *budget <= 0 {
+		return Command{}, fmt.Errorf("%s: -budget must be positive\n%s", retentionSweep, Usage)
+	}
+	opts := SweepOptions{Apply: *apply, Batch: *batch, Budget: *budget}
+	return Command{Name: retentionSweep, Timeout: *budget, ReportOnError: true, Run: func(ctx context.Context, conn db.Conn) (any, error) {
+		report, err := RetentionSweep(ctx, conn, opts)
+		if err != nil && report.DatabaseRole == "" {
+			return nil, err
+		}
+		return report, err
+	}}, nil
+}
+
 // Parse reads `maintenance <command> [flags]`. Each command owns its flags,
 // so a flag written after the command is parsed. The older order,
 // `maintenance [-apply] [-batch N] [-student UUID] <command>`, is still
@@ -144,6 +199,9 @@ func Parse(args []string) (Command, error) {
 	name := args[0]
 	if name == aiCredits {
 		return parseAICredits(args[1:])
+	}
+	if name == retentionSweep {
+		return parseRetentionSweep(args[1:])
 	}
 	build, ok := commands[name]
 	if !ok {
@@ -181,11 +239,11 @@ func parseLegacy(args []string) (Command, error) {
 		return Command{}, fmt.Errorf("%s: unexpected argument %q\n%s", name, fs.Arg(0), Usage)
 	}
 	var run runner = func(ctx context.Context, conn db.Conn) (any, error) {
-		return RetainEvents(ctx, conn, *apply, *batch)
+		return retainConfigured(ctx, conn, *apply, *batch)
 	}
 	if name == anonymizeStudent {
 		run = func(ctx context.Context, conn db.Conn) (any, error) {
-			return AnonymizeStudent(ctx, conn, *student, *apply)
+			return AnonymizeUser(ctx, conn, *student, *apply)
 		}
 	}
 	return command(name, *timeout, func() (runner, error) { return run, nil })
