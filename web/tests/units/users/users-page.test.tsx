@@ -216,7 +216,7 @@ describe("the search", () => {
 
     await person.type(screen.getByRole("searchbox"), "  ngu ");
     await waitFor(() => expect(asked.at(-1)?.get("q")).toBe("ngu"), { timeout: 4000 });
-    expect(router.state.location.search).toBe("?q=++ngu+");
+    expect(router.state.location.search).toBe("?q=ngu");
     expect(screen.queryByText("Nhập ít nhất 3 ký tự để tìm kiếm.")).toBeNull();
     expect(await rowOf("Nguyễn Văn An")).toBeVisible();
   });
