@@ -612,3 +612,20 @@ func TestABulkResetNamesNoMoreAccountsThanItsDeliveryAllows(t *testing.T) {
 		})
 	}
 }
+
+func TestABulkRowWhoseRoleKeptChangingIsAStaleWriteAndNotAFault(t *testing.T) {
+	r := newWriteRig("one", "moving")
+	r.shelf.changed["moving"] = 3
+
+	result, err := r.app.Commands.DisableUsers.Handle(context.Background(), command.DisableUsers{Request: theAdmin, IDs: []string{"moving", "one"}})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(result.Disabled, []string{"one"}) || len(result.Failed) != 1 || result.Failed[0].UserID != "moving" || !errors.Is(result.Failed[0].Reason, domain.ErrRoleChanged) {
+		t.Errorf("result %+v, want one disabled and moving refused with ErrRoleChanged", result)
+	}
+	if strings.Contains(r.logs.String(), "moving") {
+		t.Errorf("a role that kept changing was logged as a fault: %q", r.logs.String())
+	}
+}
