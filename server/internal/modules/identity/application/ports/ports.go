@@ -9,6 +9,7 @@ import (
 	classesdomain "quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/modules/identity/application/model"
 	"quizzivy/internal/modules/identity/domain"
+	notificationscommand "quizzivy/internal/modules/notifications/application/command"
 	organizationmodel "quizzivy/internal/modules/organization/application/model"
 	organizationquery "quizzivy/internal/modules/organization/application/query"
 	"quizzivy/internal/shared/access"
@@ -88,3 +89,17 @@ type Sealer interface {
 	Seal(plaintext, aad []byte) ([]byte, error)
 	Open(sealed, aad []byte) ([]byte, error)
 }
+
+// ContentMover hands a disabled account's content to another account in one
+// transaction: it locks both accounts, moves the classes, tests, questions,
+// question groups, media and assignments, and writes the audit row. It fails
+// with the domain's TransferLedger errors, and with ErrWriteContended when the
+// database ended the transaction to break a deadlock or a serialization
+// conflict; nothing moved then.
+type ContentMover interface {
+	Move(ctx context.Context, req domain.WriteRequest, in domain.ContentTransfer) (domain.TransferredContent, error)
+}
+
+// Notifier is the notifications module's Notify, which tells the recipient of
+// a transfer what they were given.
+type Notifier = cqrs.CommandHandler[notificationscommand.Notify, cqrs.Nothing]

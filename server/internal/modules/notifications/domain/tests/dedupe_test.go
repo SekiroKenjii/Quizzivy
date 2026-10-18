@@ -41,6 +41,7 @@ func TestEveryKeyHasTheShapeItsProducerDocuments(t *testing.T) {
 		domain.ExtendedKey(someAssignment):                         "extended:" + someAssignment,
 		domain.OpenedKey(someAssignment):                           "opened:" + someAssignment,
 		domain.ReadyKey(someAttempt):                               "ready:" + someAttempt,
+		domain.TransferredKey(someStudent):                         "transferred:" + someStudent,
 		domain.ClosingKey(someAssignment, closes):                  "closing:" + someAssignment + ":1791793800",
 		domain.DueSoonKey(someAssignment, closes, domain.LeadDay):  "due_soon:" + someAssignment + ":1791793800:24h",
 		domain.DueSoonKey(someAssignment, closes, domain.LeadHour): "due_soon:" + someAssignment + ":1791793800:1h",
