@@ -128,6 +128,25 @@ func TestAPrincipalCarriesItsRoleEpochAndDisabledState(t *testing.T) {
 	}
 }
 
+func TestAPrincipalCarriesWhetherTheAccountMustStillChangeItsTemporaryPassword(t *testing.T) {
+	repo := newRepo()
+	repo.setUser("temporary", domain.PrincipalRow{Role: teacherRole, MustChangePassword: true})
+	app := application.New(repo)
+
+	if p := resolve(t, app, "temporary"); !p.MustChangePassword {
+		t.Errorf("a teacher on a temporary password resolved as %+v", p)
+	}
+	if p := resolve(t, app, "teacher"); p.MustChangePassword {
+		t.Errorf("a teacher with a password of their own resolved as %+v", p)
+	}
+
+	repo.setUser("temporary", domain.PrincipalRow{Role: teacherRole})
+	app.Forget("temporary")
+	if p := resolve(t, app, "temporary"); p.MustChangePassword {
+		t.Errorf("after the change and a Forget the principal is %+v, want the flag cleared", p)
+	}
+}
+
 func TestAMissCostsOneUserReadAndOneGrantsReadPerRoleRevision(t *testing.T) {
 	repo := newRepo()
 	app := application.New(repo)

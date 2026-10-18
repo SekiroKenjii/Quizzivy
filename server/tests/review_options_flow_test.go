@@ -43,7 +43,7 @@ func (w *world) enrolledStudent(teacher *client, classID string) *client {
 		"email": "student-" + nonce(w.t) + "@example.com", "fullName": "Học viên " + nonce(w.t), "classIds": []string{classID},
 	})
 	student := w.browser()
-	student.login(created["user"].(map[string]any)["email"].(string), created["temporaryPassword"].(string))
+	student.loginSettled(created["user"].(map[string]any)["email"].(string), created["temporaryPassword"].(string))
 	return student
 }
 

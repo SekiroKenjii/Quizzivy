@@ -1,4 +1,6 @@
 import {
+  PAGE_MAX,
+  SEARCH_MAX,
   SEARCH_MIN,
   USER_PAGE_SIZES,
   USER_STATES,
@@ -28,12 +30,19 @@ function lengthOf(text: string): number {
 }
 
 /**
- * searchOf is the text the list sends as `q`: what was typed without the
- * space around it, or nothing while it is shorter than SEARCH_MIN characters.
+ * searchOf is the text the list sends as `q`: what was typed in NFC without
+ * the space around it, cut to SEARCH_MAX characters, or nothing while it is
+ * shorter than SEARCH_MIN characters.
  */
 export function searchOf(typed: string): string {
-  const text = typed.trim();
-  return lengthOf(text) >= SEARCH_MIN ? text : "";
+  const letters = [...typed.normalize("NFC").trim()];
+  if (letters.length < SEARCH_MIN) return "";
+  return letters.slice(0, SEARCH_MAX).join("").trim();
+}
+
+/** pageOf is the page the list asks for: the URL's page, no higher than the contract takes. */
+export function pageOf(page: number): number {
+  return Math.min(page, PAGE_MAX);
 }
 
 /** isTooShort reports whether something was typed that is not yet long enough to search. */

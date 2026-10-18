@@ -141,6 +141,8 @@ let onSessionLost: () => void = () => {
 
 let onMaintenance: (window: { startsAt: string; endsAt: string }) => void = () => {};
 
+let onPasswordChangeRequired: () => void = () => {};
+
 /**
  * setSessionLostHandler registers what runs when the session is refused. A
  * refusal counts only against the session its request was sent under: when the
@@ -173,6 +175,16 @@ export function setMaintenanceHandler(
   onMaintenance = handler;
 }
 
+/**
+ * setPasswordChangeHandler registers what runs when any response is a 403
+ * `PASSWORD_CHANGE_REQUIRED`, before the error is thrown: the account still
+ * holds a temporary password, which the server accepts for nothing but reading
+ * the account and changing it.
+ */
+export function setPasswordChangeHandler(handler: () => void) {
+  onPasswordChangeRequired = handler;
+}
+
 /** Test seam. Never call this from application code. */
 export function __resetRefreshStateForTests() {
   inFlightRefresh = null;
@@ -193,6 +205,9 @@ function unavailable(): ApiError {
 function noticed(error: ApiError, lease: ActorLease): ApiError {
   const window = maintenanceWindow(error);
   if (window && authStore.isCurrent(lease)) onMaintenance(window);
+  if (error.code === "PASSWORD_CHANGE_REQUIRED" && authStore.isCurrent(lease)) {
+    onPasswordChangeRequired();
+  }
   return error;
 }
 
@@ -416,11 +431,13 @@ function attachmentName(disposition: string | null): string | null {
 
 /**
  * DownloadOptions are the method of a download, which is GET unless `method`
- * says POST, and the values of the path's `{name}` parameters.
+ * says POST, the values of the path's `{name}` parameters, and a `signal` to
+ * abort it with.
  */
 export interface DownloadOptions {
   method?: "GET" | "POST";
   path?: Record<string, unknown>;
+  signal?: AbortSignal | undefined;
 }
 
 /**
@@ -430,7 +447,8 @@ export interface DownloadOptions {
  * the token that request was sent with, and it throws a refusal's error
  * envelope as an ApiError. The file's name is the response's
  * `Content-Disposition` name, `filename*` (RFC 6266) before `filename`, or
- * null when it names none.
+ * null when it names none. An aborted `options.signal` rejects it with an
+ * `AbortError`.
  */
 export async function downloadFile(
   path: keyof paths,
@@ -448,6 +466,7 @@ export async function downloadFile(
         "Accept-Language": language(),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
+      ...(options.signal ? { signal: options.signal } : {}),
     });
 
   let sentWith = authStore.getAccessToken();

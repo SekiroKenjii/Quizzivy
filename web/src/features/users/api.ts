@@ -3,7 +3,7 @@ import { api, downloadFile, uploadFile } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 import { formatInTimeZone } from "date-fns-tz";
 import { getDisplayTimeZone } from "@/lib/i18n/datetime";
-import { saveFile } from "@/lib/saveFile";
+import { saveDownloadedFile } from "@/lib/saveFile";
 
 export type AdminUser = components["schemas"]["AdminUserRow"];
 export type AdminUserRole = components["schemas"]["AdminUserRole"];
@@ -41,6 +41,12 @@ export type UserPageSize = (typeof USER_PAGE_SIZES)[number];
  * trigram to look up and reads the whole table (QC-N-15).
  */
 export const SEARCH_MIN = 3;
+
+/** SEARCH_MAX is the longest search the contract takes; the list sends no more of it. */
+export const SEARCH_MAX = 200;
+
+/** PAGE_MAX is the highest page number the contract takes. */
+export const PAGE_MAX = 1_000_000;
 
 /** UsersParams is what one page of the list asks for; `q` is empty when no search applies. */
 export interface UsersParams {
@@ -144,5 +150,5 @@ export async function downloadUserImportSheet(id: string) {
     method: "POST",
     path: { id },
   });
-  saveFile(file.blob, file.filename ?? sheetFileName(new Date()));
+  saveDownloadedFile(file, sheetFileName(new Date()));
 }

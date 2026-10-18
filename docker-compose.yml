@@ -11,6 +11,7 @@ services:
       # Consumed by docker/initdb/01-roles-and-db.sh
       QUIZZIVY_MIGRATE_PASSWORD: ${QUIZZIVY_MIGRATE_PASSWORD:-migrate}
       QUIZZIVY_APP_PASSWORD: ${QUIZZIVY_APP_PASSWORD:-app}
+      QUIZZIVY_MAINTENANCE_PASSWORD: ${QUIZZIVY_MAINTENANCE_PASSWORD:-maintenance}
     ports:
       - "5432:5432"
     volumes:

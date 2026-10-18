@@ -40,6 +40,13 @@ type ObjectStore interface {
 	SignedURL(ctx context.Context, key string, ttl time.Duration) (string, error)
 }
 
+// AvatarObjects is the slice of the object store the avatar sweep uses: the
+// keys under a prefix, at most limit of them in key order, and a delete.
+type AvatarObjects interface {
+	List(ctx context.Context, prefix string, limit int) ([]string, error)
+	Delete(ctx context.Context, key string) error
+}
+
 // PhotoProcessor turns an upload into the square PNG that is stored. It reads
 // at most its size limit from body and fails with the domain's ErrAvatar*
 // reasons, having stored nothing.

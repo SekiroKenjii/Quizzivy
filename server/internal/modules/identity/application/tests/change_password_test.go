@@ -7,8 +7,11 @@ import (
 	"errors"
 	"quizzivy/internal/modules/identity/application/command"
 	"quizzivy/internal/modules/identity/application/query"
+	"quizzivy/internal/shared/access"
 	"strings"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"quizzivy/internal/modules/identity/domain"
 )
@@ -307,5 +310,46 @@ func TestAnOrdinaryChangeStillNeedsTheCurrentPassword(t *testing.T) {
 	_, err := svc.Commands.ChangePassword.Handle(context.Background(), command.ChangePassword{UserID: id, CurrentPassword: "", NewPassword: newPassword})
 	if !errors.Is(err, domain.ErrInvalidCredentials) {
 		t.Fatalf("want ErrInvalidCredentials, got %v", err)
+	}
+}
+
+type mustChangeAtForget struct {
+	pool *pgxpool.Pool
+	seen []bool
+}
+
+func (m *mustChangeAtForget) Resolve(_ context.Context, id string) (access.Principal, error) {
+	return access.Principal{UserID: id}, nil
+}
+
+func (m *mustChangeAtForget) Forget(id string) {
+	var must bool
+	if err := m.pool.QueryRow(context.Background(), `SELECT must_change_password FROM app.users WHERE id = $1::uuid`, id).Scan(&must); err != nil {
+		must = true
+	}
+	m.seen = append(m.seen, must)
+}
+
+func TestAPasswordChangeForgetsTheCallerOnlyAfterItCommittedAndARefusedOneDoesNot(t *testing.T) {
+	pool := newPool(t)
+	svc := newService(t, pool)
+	id, _ := makeUser(t, pool)
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `UPDATE app.users SET must_change_password = true WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+	spy := &mustChangeAtForget{pool: pool}
+	svc.SetPrincipals(spy)
+
+	_, err := svc.Commands.ChangePassword.Handle(ctx, command.ChangePassword{UserID: id, CurrentPassword: testPassword, NewPassword: "ngắn"})
+	if err == nil || len(spy.seen) != 0 {
+		t.Fatalf("a password that is too short: %v, forgotten %v, want a refusal that forgets nothing", err, spy.seen)
+	}
+
+	if _, err := svc.Commands.ChangePassword.Handle(ctx, command.ChangePassword{UserID: id, CurrentPassword: testPassword, NewPassword: newPassword}); err != nil {
+		t.Fatal(err)
+	}
+	if len(spy.seen) != 1 || spy.seen[0] {
+		t.Errorf("forgotten with must-change %v, want once and after the flag was cleared", spy.seen)
 	}
 }

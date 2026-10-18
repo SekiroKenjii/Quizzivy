@@ -46,7 +46,7 @@ const SIZE_TRIGGER =
 const ARROW =
   "bg-card text-fg hover:bg-muted rounded-seg grid size-11 flex-none place-items-center border min-[768px]:size-8";
 
-const ARROW_OFF = "pointer-events-none opacity-45";
+const ARROW_OFF = "pointer-events-none text-fg/45 border-border/50";
 
 function Arrow({
   to,
@@ -66,7 +66,7 @@ function Arrow({
   );
 }
 
-/** Pager renders the responsive range, size choice and page links with hash preservation only when requested. */
+/** Pager renders the responsive range, the size choice (only when `sizes` offers more than one) and page links with hash preservation only when requested. */
 export function Pager({
   page,
   pageSize,
@@ -108,7 +108,7 @@ export function Pager({
             })}
       </span>
       <div className="flex flex-wrap items-center gap-4">
-        {wide ? (
+        {wide && sizes.length > 1 ? (
           <div className="flex items-center gap-2 whitespace-nowrap">
             <span id={labelId} className="text-fg font-medium">
               {t("pager.rowsPerPage")}

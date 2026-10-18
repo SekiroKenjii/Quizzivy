@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"quizzivy/internal/core"
+	"quizzivy/internal/core/maintenance"
 	"quizzivy/internal/platform/config"
 	"quizzivy/internal/platform/storage"
 )
@@ -59,6 +60,55 @@ func seedFinishedImport(t *testing.T, pool *pgxpool.Pool, owner, status string, 
 		t.Fatal(err)
 	}
 	return id
+}
+
+func seedAnonymisedAccount(t *testing.T, pool *pgxpool.Pool, media *storage.Client) (id string, keys []string) {
+	t.Helper()
+	ctx := context.Background()
+	if err := pool.QueryRow(ctx, `INSERT INTO app.users (email, full_name, role_id)
+		VALUES ('housekeeping-anonymised-' || gen_random_uuid() || '@example.com', 'Học viên sắp ẩn danh', (SELECT id FROM app.roles WHERE builtin_key = 'student'))
+		RETURNING id::text`).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		for _, sql := range []string{`DELETE FROM app.audit_log WHERE entity_id = $1::uuid`, `DELETE FROM app.users WHERE id = $1::uuid`} {
+			if _, err := pool.Exec(ctx, sql, id); err != nil {
+				t.Errorf("cleanup: %v", err)
+			}
+		}
+	})
+	keys = []string{"avatars/" + id + "/" + uuid.NewString() + ".png", "avatars/" + id + "/" + uuid.NewString() + ".png"}
+	if _, err := pool.Exec(ctx, `UPDATE app.users SET avatar_key = $2 WHERE id = $1::uuid`, id, keys[1]); err != nil {
+		t.Fatal(err)
+	}
+	if media != nil {
+		t.Cleanup(func() {
+			for _, key := range keys {
+				if err := media.Delete(ctx, key); err != nil {
+					t.Errorf("cleanup %s: %v", key, err)
+				}
+			}
+		})
+		for _, key := range keys {
+			body := []byte("photo " + key)
+			if err := media.Put(ctx, key, "image/png", bytes.NewReader(body), int64(len(body))); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if report, err := maintenance.AnonymizeUser(ctx, pool, id, true); err != nil || !report.Applied {
+		t.Fatalf("anonymise the account: %+v, %v", report, err)
+	}
+	return id, keys
+}
+
+func avatarSwept(t *testing.T, pool *pgxpool.Pool, id string) bool {
+	t.Helper()
+	var swept bool
+	if err := pool.QueryRow(context.Background(), `SELECT EXISTS (SELECT 1 FROM app.avatar_sweeps WHERE user_id = $1::uuid)`, id).Scan(&swept); err != nil {
+		t.Fatal(err)
+	}
+	return swept
 }
 
 func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testing.T) {
@@ -127,6 +177,11 @@ func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testi
 		return id, key
 	}
 
+	anonymised, anonymisedPhotos := seedAnonymisedAccount(t, pool, media)
+	livePhoto := "avatars/" + owner + "/" + uuid.NewString() + ".png"
+	put(media, livePhoto)
+	exec(`UPDATE app.users SET avatar_key = $2 WHERE id = $1::uuid`, owner, livePhoto)
+
 	sum := sha256.Sum256([]byte("fresh orphan " + tag))
 	freshLogo := "branding/" + hex.EncodeToString(sum[:]) + ".png"
 	put(media, freshLogo)
@@ -175,7 +230,7 @@ func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testi
 				t.Errorf("cleanup: %v", err)
 			}
 		}
-		for client, keys := range map[*storage.Client][]string{imports: {lapsedKey, liveKey}, media: {freshLogo}} {
+		for client, keys := range map[*storage.Client][]string{imports: {lapsedKey, liveKey}, media: {freshLogo, livePhoto}} {
 			for _, key := range keys {
 				if err := client.Delete(ctx, key); err != nil {
 					t.Errorf("cleanup %s: %v", key, err)
@@ -202,7 +257,7 @@ func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testi
 		<-stopped
 	})
 
-	steps := []string{"activity_days", "email_outbox", "set_password_links", "import_sheets", "import_jobs", "data_exports", "branding_objects"}
+	steps := []string{"activity_days", "email_outbox", "set_password_links", "import_sheets", "import_jobs", "data_exports", "avatar_objects", "branding_objects"}
 	deadline := time.Now().Add(30 * time.Second)
 	for {
 		seen := true
@@ -298,9 +353,20 @@ func TestTheDailyHousekeepingClearsWhatOutlivedItsKeepingAndNothingElse(t *testi
 	if !present(media, freshLogo) {
 		t.Error("a logo object written a moment ago was removed inside its 24 hour grace")
 	}
+	for _, key := range anonymisedPhotos {
+		if present(media, key) {
+			t.Errorf("a photo object of an anonymised account is left: %s", key)
+		}
+	}
+	if !avatarSwept(t, pool, anonymised) {
+		t.Error("the anonymised account is not marked as swept")
+	}
+	if !present(media, livePhoto) || avatarSwept(t, pool, owner) {
+		t.Errorf("the photo of an account in use was touched: kept %v, marked %v", present(media, livePhoto), avatarSwept(t, pool, owner))
+	}
 
 	leaked := logs.String()
-	for _, secret := range []string{lapsedID, liveID, lapsedKey, freshLogo, tag, owner, oldDone, oldFailed} {
+	for _, secret := range []string{lapsedID, liveID, lapsedKey, freshLogo, tag, owner, oldDone, oldFailed, anonymised, "avatars/"} {
 		if strings.Contains(leaked, secret) {
 			t.Errorf("the housekeeping logs carry %q", secret)
 		}
@@ -328,6 +394,8 @@ func TestAStepThatCannotReachStorageLogsItsClassAndNoKeyEndpointOrBucket(t *test
 		}
 	})
 
+	anonymised, _ := seedAnonymisedAccount(t, w.pool, nil)
+
 	served := e2eConfig(t, configure)
 	const away = "http://127.0.0.1:1"
 	served.S3Endpoint = away
@@ -346,9 +414,9 @@ func TestAStepThatCannotReachStorageLogsItsClassAndNoKeyEndpointOrBucket(t *test
 	})
 
 	deadline := time.Now().Add(30 * time.Second)
-	for !strings.Contains(logs.String(), `"step":"branding_objects"`) || !strings.Contains(logs.String(), `"step":"data_exports"`) {
+	for !strings.Contains(logs.String(), `"step":"branding_objects"`) || !strings.Contains(logs.String(), `"step":"data_exports"`) || !strings.Contains(logs.String(), `"step":"avatar_objects"`) {
 		if time.Now().After(deadline) {
-			t.Fatalf("the first housekeeping run did not report both storage steps: %s", logs.String())
+			t.Fatalf("the first housekeeping run did not report the three storage steps: %s", logs.String())
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
@@ -359,8 +427,8 @@ func TestAStepThatCannotReachStorageLogsItsClassAndNoKeyEndpointOrBucket(t *test
 		}
 	}
 	text := strings.Join(lines, "\n")
-	if got := strings.Count(text, `"code":"HOUSEKEEPING_STEP_FAILED"`); got != 2 {
-		t.Errorf("%d steps failed, want the two that need storage: %s", got, text)
+	if got := strings.Count(text, `"code":"HOUSEKEEPING_STEP_FAILED"`); got != 3 {
+		t.Errorf("%d steps failed, want the three that need storage: %s", got, text)
 	}
 	if !strings.Contains(text, `"failure":"network"`) {
 		t.Errorf("the log does not name the class of the failure: %s", text)
@@ -370,7 +438,7 @@ func TestAStepThatCannotReachStorageLogsItsClassAndNoKeyEndpointOrBucket(t *test
 			t.Errorf("the step %s did not finish beside the failing ones: %s", step, text)
 		}
 	}
-	for _, leak := range []string{id, key, "exports/", "branding/", "127.0.0.1", away, served.S3Bucket, served.ImportBucket, owner, email} {
+	for _, leak := range []string{id, key, "exports/", "branding/", "avatars/", anonymised, "127.0.0.1", away, served.S3Bucket, served.ImportBucket, owner, email} {
 		if strings.Contains(text, leak) {
 			t.Errorf("the log carries %q: %s", leak, text)
 		}
@@ -378,6 +446,9 @@ func TestAStepThatCannotReachStorageLogsItsClassAndNoKeyEndpointOrBucket(t *test
 	var state string
 	if err := w.pool.QueryRow(ctx, `SELECT status FROM app.data_exports WHERE id = $1::uuid`, id).Scan(&state); err != nil || state != "ready" {
 		t.Errorf("the export is %q (%v), want it still ready for the next run", state, err)
+	}
+	if avatarSwept(t, w.pool, anonymised) {
+		t.Error("an account whose photos could not be listed is marked as swept")
 	}
 }
 
@@ -442,5 +513,49 @@ func TestOldImportsAreRemovedOnAServerWhoseImportWorkerIsOff(t *testing.T) {
 	}
 	if strings.Contains(logs.String(), `"step":"import_sheets"`) {
 		t.Errorf("the sheet step ran with no import worker: %s", logs.String())
+	}
+}
+
+func TestWithoutAMediaBucketNoAnonymisedAccountIsMarked(t *testing.T) {
+	ctx := context.Background()
+	configure := func(c *config.Config) {
+		c.S3Endpoint, c.S3Bucket = "", ""
+		c.ImportBucket = ""
+		c.ImportProcessing = false
+		c.MediaRetentionSweep = false
+	}
+	w := boot(t, configure)
+	anonymised, _ := seedAnonymisedAccount(t, w.pool, nil)
+
+	served := e2eConfig(t, configure)
+	if served.MediaEnabled() {
+		t.Fatal("the application under test has a media bucket")
+	}
+	logs := &lockedBuffer{}
+	app, err := core.New(ctx, served, slog.New(slog.NewJSONHandler(logs, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(app.Close)
+	serving, stop := context.WithCancel(ctx)
+	stopped := make(chan error, 1)
+	go func() { stopped <- app.Serve(serving) }()
+	t.Cleanup(func() {
+		stop()
+		<-stopped
+	})
+
+	deadline := time.Now().Add(30 * time.Second)
+	for !strings.Contains(logs.String(), `"step":"import_jobs"`) {
+		if time.Now().After(deadline) {
+			t.Fatalf("the first housekeeping run did not report the import step: %s", logs.String())
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if strings.Contains(logs.String(), `"step":"avatar_objects"`) {
+		t.Errorf("the avatar step ran with no media bucket: %s", logs.String())
+	}
+	if avatarSwept(t, w.pool, anonymised) {
+		t.Error("an anonymised account was marked on a server that cannot reach its photos")
 	}
 }

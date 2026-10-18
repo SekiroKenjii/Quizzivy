@@ -112,7 +112,7 @@ func TestEveryNoticeTheProductMakesIsWalkedForAGradingKeyOnBothBells(t *testing.
 		"email": "di-bo-" + nonce(t) + "@example.com", "fullName": "Nguyễn Văn An", "classIds": []string{},
 	})
 	student := w.browser()
-	student.login(created["user"].(map[string]any)["email"].(string), created["temporaryPassword"].(string))
+	student.loginSettled(created["user"].(map[string]any)["email"].(string), created["temporaryPassword"].(string))
 	student.must(http.StatusOK, http.MethodPost, "/app/classes/join", map[string]any{"joinCode": code})
 	student.sit(id(open))
 	teacher.must(http.StatusOK, http.MethodPost, "/teacher/assignments/"+id(open)+"/extend", map[string]any{"minutes": 30, "notify": true})

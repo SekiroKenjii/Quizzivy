@@ -85,6 +85,19 @@ func TestADisabledUserResolvesAsDisabled(t *testing.T) {
 	}
 }
 
+func TestAnAccountOnATemporaryPasswordResolvesAsMustChange(t *testing.T) {
+	w := newWorld(t)
+	app := application.New(w.repo)
+	if resolve(t, app, w.userID).MustChangePassword {
+		t.Fatal("an account with its own password resolved as one that must change it")
+	}
+	w.exec(t, `UPDATE app.users SET password_hash = '$argon2id$not-a-real-hash', must_change_password = true WHERE id = $1`, w.userID)
+	app.Forget(w.userID)
+	if !resolve(t, app, w.userID).MustChangePassword {
+		t.Error("an account on a temporary password resolved as one that need not change it")
+	}
+}
+
 func TestTheSessionEpochIsRead(t *testing.T) {
 	w := newWorld(t)
 	w.exec(t, `UPDATE app.users SET session_epoch = 5 WHERE id = $1`, w.userID)

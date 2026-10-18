@@ -170,7 +170,7 @@ describe("the four arrows", () => {
     );
     for (const which of ["first", "previous", "next", "last"] as const) {
       expect(arrow(which)).not.toHaveAttribute("aria-disabled");
-      expect(classes(arrow(which))).not.toContain("opacity-45");
+      expect(classes(arrow(which))).not.toContain("text-fg/45");
       expect(classes(arrow(which))).not.toContain("pointer-events-none");
       expect(arrow(which).querySelector("svg")).toHaveAttribute("aria-hidden", "true");
     }
@@ -211,7 +211,7 @@ describe("the four arrows", () => {
       expect(arrow(which)).toHaveAttribute("aria-disabled", "true");
       expect(arrow(which)).toHaveAttribute("href", "/teacher/assignments?tab=live");
       expect(classes(arrow(which))).toEqual(
-        expect.arrayContaining(["pointer-events-none", "opacity-45"]),
+        expect.arrayContaining(["pointer-events-none", "text-fg/45"]),
       );
       await user.click(arrow(which));
       expect(router.state.location.search).toBe("?tab=live");
@@ -233,7 +233,7 @@ describe("the four arrows", () => {
         "/teacher/assignments?tab=live&page=32",
       );
       expect(classes(arrow(which))).toEqual(
-        expect.arrayContaining(["pointer-events-none", "opacity-45"]),
+        expect.arrayContaining(["pointer-events-none", "text-fg/45"]),
       );
       await user.click(arrow(which));
       expect(router.state.location.search).toBe("?tab=live&page=32");
@@ -316,6 +316,14 @@ describe("rows per page", () => {
     ).toEqual(["24", "48"]);
     await user.click(within(list).getByRole("option", { name: "48" }));
     expect(router.state.location.search).toBe("?size=48");
+  });
+
+  it("draws no size control when a screen offers one size, and still pages by it", () => {
+    renderPager("", 100, { sizes: [10] });
+    expect(within(nav()).queryByRole("combobox")).toBeNull();
+    expect(within(nav()).queryByText("Số dòng mỗi trang")).toBeNull();
+    expect(within(nav()).getByText("1–10 trên 100 bài giao")).toBeInTheDocument();
+    expect(within(nav()).getByText("Trang 1 trên 10")).toBeInTheDocument();
   });
 
   it("is the deck's 32px control: the primitive's deck classes restated, not doubled", () => {

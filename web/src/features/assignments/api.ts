@@ -3,7 +3,7 @@ import { saveStrandedDraft } from "@/features/take-test/strandedDraft";
 import { formatInTimeZone } from "date-fns-tz";
 import { api, downloadFile } from "@/lib/api/client";
 import { getDisplayTimeZone } from "@/lib/i18n/datetime";
-import { saveFile } from "@/lib/saveFile";
+import { saveDownloadedFile } from "@/lib/saveFile";
 import type { components } from "@/lib/api/schema";
 
 export type Assignment = components["schemas"]["Assignment"];
@@ -149,13 +149,12 @@ export async function exportResults(
   const file = await downloadFile("/teacher/assignments/results.csv", {
     ids: assignments.map((assignment) => assignment.id),
   });
-  saveFile(
-    file.blob,
-    file.filename ??
-      resultsFileName(
-        assignments.map((assignment) => assignment.testTitle),
-        new Date(),
-      ),
+  saveDownloadedFile(
+    file,
+    resultsFileName(
+      assignments.map((assignment) => assignment.testTitle),
+      new Date(),
+    ),
   );
 }
 

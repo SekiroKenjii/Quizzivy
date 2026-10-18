@@ -360,12 +360,12 @@
       "question_group.restored": "Restored a question group",
       "question_group.updated": "Updated a question group",
       "refresh_token.reuse_detected": "Detected a reused sign-in session",
+      "retention.answers_removed": "Removed answers past their retention",
       "role.created": "Created a role",
       "role.permissions_changed": "Changed a role's permissions",
       "role.updated": "Updated a role",
       "session.revoked": "Revoked a sign-in session",
       "session.revoked_others": "Revoked the other sign-in sessions",
-      "student.anonymized": "Anonymized a student",
       "student.created": "Created a student account",
       "student.deleted": "Deleted a student account",
       "student.password_reset": "Reset a student's password",
@@ -379,19 +379,135 @@
       "test.question_moved": "Moved a question between sections",
       "test.updated": "Updated a test",
       "test.version_deleted": "Deleted a version of a test",
+      "user.anonymized": "Anonymized an account",
       "user.avatar_removed": "Removed a profile photo",
       "user.avatar_set": "Set a profile photo",
       "user.created": "Created an account",
+      "user.disabled": "Disabled an account",
+      "user.enabled": "Enabled an account again",
       "user.google_linked": "Linked a Google account",
       "user.google_unlinked": "Unlinked a Google account",
       "user.password_changed": "Changed a password",
       "user.password_link_requested": "Asked for a set-password link",
+      "user.password_reset": "Reset an account's password",
       "user.password_set": "Set a password from a link",
       "user.preferences_updated": "Updated personal preferences",
       "user.profile_updated": "Updated a profile",
       "user.renamed": "Renamed an account",
+      "user.role_changed": "Changed an account's role",
+      "user.signed_out_everywhere": "Signed an account out everywhere",
       "user_import.requested": "Requested an import of users from a file",
       "user_import.sheet_downloaded": "Downloaded the temporary-password sheet of a user import"
+    },
+    "title": "Audit log",
+    "lead": "A record of sensitive changes. Entries cannot be edited or deleted.",
+    "export": "Export CSV",
+    "noun_one": "entry",
+    "noun_other": "entries",
+    "loadFailed": "The audit log could not be loaded.",
+    "empty": "No entries in this range.",
+    "noMatches": "No entries match these filters.",
+    "system": "System",
+    "categories": {
+      "label": "Kind of change",
+      "all": "All",
+      "accounts": "Accounts",
+      "classes": "Classes",
+      "attempts": "Attempts",
+      "tests": "Tests",
+      "media": "Media",
+      "imports": "Imports"
+    },
+    "search": {
+      "placeholder": "Search person, action or entity",
+      "label": "Search audit log",
+      "clear": "Clear search"
+    },
+    "range": {
+      "label": "Date range",
+      "today": "Today",
+      "7d": "Last 7 days",
+      "30d": "Last 30 days",
+      "all": "All time",
+      "custom": "Custom range…",
+      "span": "{{from}} – {{to}}",
+      "reset": "Reset"
+    },
+    "custom": {
+      "title": "Custom date range",
+      "from": "From",
+      "to": "To",
+      "apply": "Apply",
+      "order": "Must be on or after the start date"
+    },
+    "columns": {
+      "when": "When",
+      "who": "Who",
+      "action": "Action",
+      "entity": "Entity",
+      "ip": "IP address",
+      "details": "Details"
+    },
+    "row": "{{action}}, {{who}}, {{when}}",
+    "entity": {
+      "named": "{{type}} · {{label}}",
+      "gone": "{{type}} (deleted)",
+      "types": {
+        "user": "User",
+        "users": "Users",
+        "student": "Student",
+        "user_identity": "Sign-in link",
+        "refresh_token_family": "Session",
+        "role": "Role",
+        "class": "Class",
+        "class_member": "Class member",
+        "class_join_code": "Join code",
+        "attempt": "Attempt",
+        "assignment": "Assignment",
+        "test": "Test",
+        "test_version": "Test version",
+        "question": "Question",
+        "question_group": "Question group",
+        "media_asset": "Media file",
+        "word_import": "Word import",
+        "ai_credit_periods": "AI credit period",
+        "ai_credit_requests": "AI credit request",
+        "ai_settings": "AI settings",
+        "ai_teacher_credits": "Teacher AI allowance",
+        "attempt_events": "Attempt events",
+        "audit_log": "Audit log",
+        "data_export": "Data export",
+        "maintenance_window": "Maintenance window",
+        "organization": "Organization",
+        "user_import": "User import"
+      }
+    },
+    "diff": {
+      "none": "No field changes were recorded for this entry.",
+      "empty": "—"
+    },
+    "exportDialog": {
+      "title": "Export the audit log",
+      "description": "The file holds the entries of the period you choose, newest first.",
+      "period": "Period",
+      "periods": {
+        "7d": "Last 7 days",
+        "30d": "Last 30 days",
+        "year": "This year"
+      },
+      "beforePeriod": "The range on screen starts before this period, so the file leaves out its older entries.",
+      "format": "Format",
+      "formats": {
+        "csv": "CSV",
+        "json": "JSON"
+      },
+      "filtersOnly": "Current filters only",
+      "filtersOnlyHint": "Only the kind of change and the search you have set. The period comes from the choice above.",
+      "submit": "Export file",
+      "running": "Exporting…",
+      "done": "The audit log was downloaded.",
+      "tooLarge": "That period holds more than 100,000 entries. Choose a shorter period.",
+      "failed": "The audit log could not be exported. Please try again."
     }
   },
   "error": {
@@ -518,6 +634,7 @@
       "description": "Description",
       "descriptionPlaceholder": "Leads the IELTS team",
       "taken": "A role with this name already exists",
+      "sourceGone": "That role can no longer be copied from. Choose again.",
       "created": "Role created: {{name}}. Its column is in the table below.",
       "failed": "Couldn't create the role. Try again."
     },
@@ -775,7 +892,10 @@
         "unavailable": "This server is not set up to import users. Tell whoever runs it.",
         "unknown": "The file could not be read. Try again."
       }
-    }
+    },
+    "result_one": "{{count}} user found.",
+    "result_other": "{{count}} users found.",
+    "resultNone": "No users found."
   },
   "systemSettings": {
     "title": "System settings",
@@ -1357,13 +1477,6 @@
     "signInGoogle": "Google",
     "classCount": "Classes",
     "googleBothExplainer": "You can sign in with Google or with your password. Unlinking leaves only the password.",
-    "apiDocs": {
-      "title": "API reference",
-      "body": "Browse the Quizzivy API reference. It opens in a new tab and stays open for 15 minutes; after that, open it again from here.",
-      "open": "Open API reference",
-      "blocked": "Your browser blocked the new tab. Allow pop-ups for Quizzivy and try again.",
-      "failed": "The API reference could not be opened. Please try again."
-    },
     "profileSaved": "Your name has been saved.",
     "errors": {
       "nameRequired": "Enter your name.",
@@ -1376,7 +1489,6 @@
       "profile": "Profile",
       "security": "Sign-in & security",
       "appearance": "Appearance",
-      "api": "API reference",
       "notifications": "Notifications",
       "defaults": "Assignment defaults",
       "ai": "AI assistant"
@@ -4943,5 +5055,116 @@
     "enter": "Enter",
     "up": "Up arrow",
     "down": "Down arrow"
+  },
+  "apiReference": {
+    "title": "API reference",
+    "lead": "Every Quizzivy endpoint, generated from the same contract the app uses. Only admins can open it.",
+    "loadFailed": "The API reference details could not be loaded.",
+    "hero": "Quizzivy API",
+    "version_one": "OpenAPI {{openapi}} · v{{version}} · {{count}} endpoint",
+    "version_other": "OpenAPI {{openapi}} · v{{version}} · {{count}} endpoints",
+    "download": "openapi.json",
+    "downloadFailed": "openapi.json could not be downloaded. Please try again.",
+    "open": "Open reference",
+    "opening": "Opening…",
+    "baseUrl": "Base URL",
+    "copyFailed": "Could not copy. Select the base URL and copy it by hand.",
+    "security": "Opens in a new tab with a short docs session tied to your account. The session can only read the documentation and does not call the API for you.",
+    "blocked": "Your browser blocked the new tab. Allow pop-ups for Quizzivy and try again.",
+    "failed": "The API reference could not be opened. Please try again.",
+    "inside": "What's in it",
+    "insideHint": "Open a group to jump to it in the reference",
+    "endpoints_one": "{{n}} endpoint",
+    "endpoints_other": "{{n}} endpoints",
+    "groups": {
+      "public": {
+        "name": "Public",
+        "blurb": "No sign-in needed: the system status, the centre's details and the join-code preview."
+      },
+      "auth": {
+        "name": "Sign-in & account",
+        "blurb": "Sign-in, Google, the refresh session, password changes and your own sessions."
+      },
+      "teacher-tests": {
+        "name": "Tests",
+        "blurb": "Drafts, shared-context groups, publishing, versions and the preview."
+      },
+      "teacher-questions": {
+        "name": "Question bank",
+        "blurb": "Questions, tags, search and the question groups."
+      },
+      "teacher-imports": {
+        "name": "Word import",
+        "blurb": "Upload, processing, review and commit."
+      },
+      "teacher-media": {
+        "name": "Media",
+        "blurb": "Images and audio: uploads, names and where they are used."
+      },
+      "teacher-assignments": {
+        "name": "Assignments",
+        "blurb": "Giving a version to classes and students, its schedule, exceptions and results."
+      },
+      "teacher-attempts": {
+        "name": "Attempts & grading",
+        "blurb": "The monitor, grading, comments and integrity events."
+      },
+      "teacher-students": {
+        "name": "Students",
+        "blurb": "The accounts, passwords and classes of the students a teacher reaches."
+      },
+      "teacher-classes": {
+        "name": "Classes",
+        "blurb": "Classes, members and join codes."
+      },
+      "teacher-ai": {
+        "name": "AI assistant",
+        "blurb": "The assistant's suggestions and a teacher's credits. It never writes a grade or a question."
+      },
+      "admin-users": {
+        "name": "Users",
+        "blurb": "Listing, creating and deleting user accounts, and importing many at once from a file."
+      },
+      "admin-roles": {
+        "name": "Roles & permissions",
+        "blurb": "Creating and editing roles, and the permission matrix under the subset rule."
+      },
+      "admin-ai": {
+        "name": "AI credits",
+        "blurb": "The pool, teachers' allowances, requests for more credits and the rules."
+      },
+      "admin-docs": {
+        "name": "API reference",
+        "blurb": "The docs session, the summary and the contract file."
+      },
+      "admin-audit": {
+        "name": "Audit log",
+        "blurb": "A read-only history of sensitive changes, downloadable as a file."
+      },
+      "admin-exports": {
+        "name": "Data export",
+        "blurb": "Asking for and downloading a full export of the centre's data."
+      },
+      "admin-overview": {
+        "name": "Overview",
+        "blurb": "The overview figures, the sidebar badge and the plan's usage."
+      },
+      "admin-settings": {
+        "name": "System settings",
+        "blurb": "The centre's details, the sign-in policy and retention."
+      },
+      "student": {
+        "name": "Student app",
+        "blurb": "A student's classes and assignments."
+      },
+      "take-test": {
+        "name": "Taking tests",
+        "blurb": "Starting, saving answers, submitting and an attempt's media."
+      },
+      "me": {
+        "name": "My account",
+        "blurb": "Notifications, the avatar, the summary and notification preferences."
+      }
+    }
   }
 }

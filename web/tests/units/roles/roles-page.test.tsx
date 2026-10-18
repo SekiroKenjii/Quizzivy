@@ -5,6 +5,7 @@ import i18n from "@/lib/i18n";
 import type { components } from "@/lib/api/schema";
 import { contractJson } from "@tests/support/contractResponse";
 import { adminUser } from "@tests/support/fixtures";
+import { contentWidth } from "@tests/support/contentWidth";
 import { renderRolesPage } from "@tests/support/rolesPage";
 import { server } from "@tests/support/server";
 import {
@@ -99,6 +100,23 @@ describe("the page", () => {
     ).toBeNull();
   });
 
+  it("lets a description with a long unbroken run wrap inside its card", async () => {
+    serveRoles(listOf([admin, { ...head, description: `Mô tả ${"x".repeat(275)}` }]));
+    renderPage();
+    const card = await screen.findByRole("article", { name: HEAD_NAME });
+    expect(within(card).getByText(/^Mô tả x+$/)).toHaveClass("break-words");
+  });
+
+  it("draws the Admin card's focus ring in the card's own foreground, which the card's colour would hide", async () => {
+    serveRoles();
+    renderPage();
+    const card = await screen.findByRole("article", { name: ADMIN_NAME });
+    expect(card).toHaveClass("[--focus:var(--primary-fg)]");
+    expect(screen.getByRole("article", { name: TEACHER_NAME })).not.toHaveClass(
+      "[--focus:var(--primary-fg)]",
+    );
+  });
+
   it("reads a built-in role's seeded description in English, and a custom one as stored", async () => {
     await i18n.changeLanguage("en");
     serveRoles();
@@ -136,6 +154,23 @@ describe("the page", () => {
     expect(cell(WRITE, TEACHER_NAME)).toBeChecked();
     expect(cell(AUDIT, TEACHER_NAME)).not.toBeChecked();
     expect(cell(TAKE_TESTS, ADMIN_NAME)).not.toBeChecked();
+  });
+
+  it("keeps the label column in view where the matrix scrolls sideways, narrower in a narrow console", async () => {
+    const { resize } = contentWidth(1100);
+    serveRoles();
+    renderPage();
+    const grid = await screen.findByRole("grid", { name: "Bảng quyền theo vai trò" });
+    const labels = [
+      within(grid).getByRole("columnheader", { name: "Quyền" }),
+      within(grid).getByText("Tạo tài khoản học viên").closest("[role=rowheader]"),
+    ];
+    for (const label of labels) expect(label).toHaveClass("sticky", "left-0");
+    expect(within(grid).getByText("Nội dung")).toHaveClass("sticky");
+    const head = within(grid).getAllByRole("row")[0]!;
+    expect(head.style.gridTemplateColumns).toMatch(/^minmax\(15rem,/);
+    resize(500);
+    expect(head.style.gridTemplateColumns).toMatch(/^minmax\(10rem,/);
   });
 
   it("reads a built-in role in English until an Admin renames it", async () => {

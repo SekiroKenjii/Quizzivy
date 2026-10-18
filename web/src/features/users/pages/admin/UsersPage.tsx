@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Upload } from "lucide-react";
@@ -13,6 +13,7 @@ import { UsersTable } from "@/features/users/components/UsersTable";
 import { CARDS_BELOW } from "@/features/users/components/userColumns";
 import { UsersSkeleton } from "@/features/users/components/UsersSkeleton";
 import {
+  SEARCH_MAX,
   SEARCH_MIN,
   USER_PAGE_SIZES,
   USER_TABS,
@@ -22,17 +23,19 @@ import {
 import {
   isTooShort,
   limitOf,
+  pageOf,
   searchOf,
   stateOf,
   tabOf,
 } from "@/features/users/userFilters";
+import { useDebouncedInput } from "@/hooks/useDebouncedInput";
 import { useListFilters } from "@/hooks/useListFilters";
 import { usePage, usePageSize } from "@/hooks/usePage";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { useContentWidthAtLeast } from "@/layouts/shell/contentWidth";
 import { useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
-import { useDebounced } from "@/lib/useDebounced";
+import { pageRange } from "@/lib/pagination";
 
 const FILTER_PARAMS = ["tab", "q", "status", "page"] as const;
 
@@ -47,17 +50,23 @@ function tabOptions(
   }));
 }
 
+function announcement(t: TFunction, total: number | undefined): string {
+  if (total === undefined) return "";
+  return total === 0 ? t("users.resultNone") : t("users.result", { count: total });
+}
+
 /**
  * UsersPage is the Admin console's Users screen (T-R5.22a): everyone who can
  * sign in, in a table the Admin narrows by tab (All, Teachers, Students,
  * Admins, Disabled, each with its count), by a search of the name and the
  * email, and by a state the Overview links to, shown as one removable chip.
  * The tab (`tab`), the search (`q`), the state (`status`), the page and its
- * size live in the URL. A search under three characters is not sent, and the
- * page says so (QC-N-15). The table's columns join as the content widens, and
- * below 560px each account is a card. "Import CSV" opens the Import users
- * dialog (T-R5.23), which stays mounted so a job it started is followed while
- * it is closed.
+ * size live in the URL; the search reaches it, and the request, once the
+ * Admin has paused for 300 ms. A search under three characters is not sent, and
+ * the page says so (QC-N-15). A page past the end goes to the last one. The
+ * table's columns join as the content widens, and below 560px each account is
+ * a card. "Import CSV" opens the Import users dialog (T-R5.23), which stays
+ * mounted so a job it started is followed while it is closed.
  */
 export default function UsersPage() {
   useDisplayTimeZone();
@@ -66,12 +75,15 @@ export default function UsersPage() {
   const { params, setParams, setFilter } = useListFilters();
   const tab = tabOf(params.get("tab"));
   const state = stateOf(params.get("status"));
-  const typed = params.get("q") ?? "";
-  const settled = useDebounced(typed, 300);
-  const q = searchOf(settled);
+  const applied = params.get("q") ?? "";
+  const applyQuery = useCallback((value: string) => setFilter("q", value), [setFilter]);
+  const [typed, setTyped] = useDebouncedInput(applied, applyQuery, searchOf);
+  const q = searchOf(applied);
   const [size] = usePageSize(USER_PAGE_SIZES);
-  const [page] = usePage(JSON.stringify({ tab, state, q, size }));
+  const [asked, setPage] = usePage(JSON.stringify({ tab, state, q, size }));
+  const page = pageOf(asked);
   const cards = !useContentWidthAtLeast(CARDS_BELOW);
+  const searchRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const importButton = useRef<HTMLButtonElement>(null);
 
@@ -80,8 +92,17 @@ export default function UsersPage() {
     placeholderData: keepPreviousData,
   });
   const data = users.data;
+  const pastEnd = data !== undefined && data.items.length === 0 && data.total > 0;
+  const lastPage =
+    pastEnd && !users.isPlaceholderData
+      ? pageRange(page, data.pageSize, data.total).page
+      : null;
+  const toLastPage = pastEnd && (users.isPlaceholderData || lastPage !== page);
+  useEffect(() => {
+    if (lastPage !== null && lastPage !== page) setPage(lastPage);
+  }, [lastPage, page, setPage]);
 
-  const clearFilters = () =>
+  const clearFilters = () => {
     setParams(
       (previous) => {
         const next = new URLSearchParams(previous);
@@ -90,6 +111,12 @@ export default function UsersPage() {
       },
       { replace: true },
     );
+    searchRef.current?.focus();
+  };
+  const removeState = () => {
+    setFilter("status", null);
+    searchRef.current?.focus();
+  };
   const filtered = tab !== "all" || state !== null || q !== "";
   const empty = filtered ? (
     <span className="flex flex-col items-center gap-3">
@@ -123,6 +150,9 @@ export default function UsersPage() {
         onOpenChange={setImporting}
         returnFocus={importButton}
       />
+      <p role="status" className="sr-only">
+        {announcement(t, data?.total)}
+      </p>
 
       <div className="flex flex-wrap items-center justify-between gap-2.5">
         <div className="max-w-full min-w-0">
@@ -137,8 +167,10 @@ export default function UsersPage() {
         <SearchInput
           className={TOOLBAR_SEARCH}
           value={typed}
-          onChange={(value) => setFilter("q", value)}
+          onChange={setTyped}
           placeholder={t("users.search.placeholder")}
+          inputRef={searchRef}
+          maxLength={SEARCH_MAX}
         />
       </div>
 
@@ -148,17 +180,15 @@ export default function UsersPage() {
         </p>
       ) : null}
 
-      {state === null ? null : (
-        <StateChip state={state} onRemove={() => setFilter("status", null)} />
-      )}
+      {state === null ? null : <StateChip state={state} onRemove={removeState} />}
 
       {users.isError ? (
         <LoadError error={users.error} onRetry={() => void users.refetch()}>
           {t("users.loadFailed")}
         </LoadError>
       ) : null}
-      {data === undefined ? (
-        users.isPending && <UsersSkeleton />
+      {data === undefined || toLastPage ? (
+        (users.isPending || toLastPage) && <UsersSkeleton />
       ) : (
         <UsersTable
           users={data.items}

@@ -17,8 +17,16 @@ const TONES: Record<ChipTone, { chip: string; remove: string }> = {
 };
 
 const SIZES: Record<ChipSize, { chip: string; label: string; remove: string }> = {
-  sm: { chip: "h-5.5 pl-2 text-xs", label: "leading-4", remove: "size-4" },
-  md: { chip: "h-6 pl-2.25 text-meta", label: "leading-4.5", remove: "size-4.5" },
+  sm: {
+    chip: "h-5.5 pl-2 text-xs",
+    label: "leading-4",
+    remove: "size-4 after:-inset-1",
+  },
+  md: {
+    chip: "h-6 pl-2.25 text-meta",
+    label: "leading-4.5",
+    remove: "size-4.5 after:-inset-1.5",
+  },
 };
 
 const FRAME =
@@ -38,7 +46,7 @@ export const CHIP_INPUT =
  * the field's input. With `frame` it is the deck's bordered field, whose
  * border and focus ring follow the input inside it; without it the row that
  * holds it draws the box. `invalid` turns the frame's border to the danger
- * tone.
+ * tone. A remove button keeps the deck's glyph and has a 24px target around it.
  */
 export function ChipBox({
   values,
@@ -83,7 +91,7 @@ export function ChipBox({
             type="button"
             aria-label={removeLabel(value)}
             className={cn(
-              "grid flex-none place-items-center rounded-full",
+              "relative grid flex-none place-items-center rounded-full after:absolute after:content-['']",
               TONES[tone].remove,
               SIZES[size].remove,
             )}

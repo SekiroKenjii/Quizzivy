@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { GoogleMark } from "@/features/auth/components/GoogleMark";
 import { Label } from "@/components/ui/label";
-import { changePassword, openDocsSession } from "@/features/auth/api";
+import { changePassword } from "@/features/auth/api";
 import {
   changePasswordSchema,
   type ChangePasswordValues,
@@ -19,7 +19,7 @@ import {
   googleSignInAvailable,
   useGoogleSignIn,
 } from "@/features/auth/google/useGoogleSignIn";
-import { api, BASE_URL } from "@/lib/api/client";
+import { api } from "@/lib/api/client";
 import { ApiError, failureMessage } from "@/lib/api/errors";
 import { focusIsLost } from "@/lib/focusIsLost";
 import { usePasswordChanged } from "@/features/auth/passwordChanged";
@@ -303,71 +303,6 @@ function LinkGoogleControl({
       <GoogleMark />
       {t("settings.linkGoogle")}
     </Button>
-  );
-}
-
-/**
- * ApiDocsSection opens the API reference in a new tab: the tab is opened with its
- * opener cleared, then pointed at /docs once the docs session exists, and closed
- * if it cannot be opened.
- */
-export function ApiDocsSection() {
-  const { t } = useTranslation();
-  const [problem, setProblem] = useState<"blocked" | "failed" | null>(null);
-  const [pending, setPending] = useState(false);
-  const mounted = useMounted();
-  const open = () => {
-    const lease = authStore.captureActor();
-    const tab = window.open("about:blank", "_blank");
-    if (!tab) {
-      setProblem("blocked");
-      return;
-    }
-    tab.opener = null;
-    setProblem(null);
-    setPending(true);
-    openDocsSession()
-      .then(
-        () => {
-          if (!mounted.current || !authStore.isCurrent(lease)) {
-            tab.close();
-            return;
-          }
-          tab.location.href = `${BASE_URL}/docs`;
-        },
-        () => {
-          tab.close();
-          if (mounted.current && authStore.isCurrent(lease)) setProblem("failed");
-        },
-      )
-      .finally(() => {
-        if (mounted.current && authStore.isCurrent(lease)) setPending(false);
-      });
-  };
-  return (
-    <SettingsCard title={t("settings.apiDocs.title")}>
-      <div className={BODY}>
-        <p className="text-muted-fg text-ui leading-relaxed">
-          {t("settings.apiDocs.body")}
-        </p>
-        <Button
-          type="button"
-          variant="outline"
-          className={ACTION}
-          aria-disabled={pending || undefined}
-          onClick={() => {
-            if (!pending) open();
-          }}
-        >
-          {t("settings.apiDocs.open")}
-        </Button>
-        {problem ? (
-          <p role="alert" className="text-sm">
-            {t(`settings.apiDocs.${problem}`)}
-          </p>
-        ) : null}
-      </div>
-    </SettingsCard>
   );
 }
 

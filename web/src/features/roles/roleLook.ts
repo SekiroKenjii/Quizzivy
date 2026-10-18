@@ -17,7 +17,7 @@ export interface CardLook {
  */
 export const LOOKS: Readonly<Record<RoleColor, CardLook>> = {
   dark: {
-    card: "bg-primary text-primary-fg border-transparent",
+    card: "bg-primary text-primary-fg border-transparent [--focus:var(--primary-fg)]",
     tile: "bg-primary-fg/20 text-primary-fg",
     button: "border-primary-fg/35 bg-primary-fg/10",
     swatch: "bg-primary text-primary-fg",
