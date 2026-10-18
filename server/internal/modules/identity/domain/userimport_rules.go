@@ -84,8 +84,8 @@ func ImportEmails(rows []ImportRow) []string {
 	seen := make(map[string]struct{}, len(rows))
 	out := make([]string, 0, len(rows))
 	for _, row := range rows {
-		email := cleanEmail(row.Email)
-		if !validEmail(email) {
+		email, code := readAddress(row.Email)
+		if code != "" {
 			continue
 		}
 		key := strings.ToLower(email)
@@ -223,14 +223,10 @@ func (j *judge) row(in ImportRow) (ImportAccepted, []ImportIssue) {
 }
 
 func (j *judge) address(cell string) (string, ImportCode) {
-	email := cleanEmail(cell)
+	email, code := readAddress(cell)
 	switch {
-	case email == "":
-		return email, CodeRequired
-	case utf8.RuneCountInString(email) > MaxEmailLength:
-		return email, CodeTooLong
-	case !validEmail(email):
-		return email, CodeInvalid
+	case code != "":
+		return email, code
 	case validation.FormulaLike(email):
 		return email, CodeFormulaLike
 	}
@@ -301,11 +297,25 @@ func cleanName(cell string) (string, ImportCode) {
 	return name, CodeInvalid
 }
 
-func cleanEmail(cell string) string { return strings.TrimSpace(content.NFC(cell)) }
-
-func validEmail(email string) bool {
-	address, err := validation.ParseEmail(email)
-	return err == nil && address == email
+func readAddress(cell string) (string, ImportCode) {
+	cell = strings.TrimSpace(content.NFC(cell))
+	if cell == "" {
+		return cell, CodeRequired
+	}
+	parsed, err := validation.ParseEmail(cell)
+	if err != nil {
+		if utf8.RuneCountInString(cell) > MaxEmailLength {
+			return cell, CodeTooLong
+		}
+		return cell, CodeInvalid
+	}
+	if _, found := HiddenInEmail(parsed); found {
+		return parsed, CodeInvalid
+	}
+	if utf8.RuneCountInString(parsed) > MaxEmailLength {
+		return parsed, CodeTooLong
+	}
+	return parsed, ""
 }
 
 func foldText(s string) string {

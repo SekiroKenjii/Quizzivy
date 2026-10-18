@@ -55,7 +55,7 @@ func TestTheNoticesTheProductMakesReachTheRightPeopleAndNoOneElse(t *testing.T) 
 		"email": "thong-bao-" + nonce(t) + "@example.com", "fullName": "Nguyễn Văn An", "classIds": []string{},
 	})
 	student := w.browser()
-	student.login(created["user"].(map[string]any)["email"].(string), created["temporaryPassword"].(string))
+	student.loginSettled(created["user"].(map[string]any)["email"].(string), created["temporaryPassword"].(string))
 	student.must(http.StatusOK, http.MethodPost, "/app/classes/join", map[string]any{"joinCode": code})
 
 	_, versionID := teacher.publishedVersion("Kiểm tra thông báo " + nonce(t))

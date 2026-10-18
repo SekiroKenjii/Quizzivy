@@ -6,13 +6,27 @@ import (
 )
 
 // Requirement is the permission an operation declares in x-permission: one
-// key, one pseudo-key, or a list meaning any of them.
+// key, one pseudo-key, or a list meaning any of them. An operation that also
+// declares x-allows-temporary-password stays open to an account that has yet
+// to change its temporary password.
 type Requirement struct {
-	anyOf []Key
+	anyOf     []Key
+	temporary bool
 }
 
 // AnyOf returns the requirement that any one of keys meets.
 func AnyOf(keys ...Key) Requirement { return Requirement{anyOf: slices.Clone(keys)} }
+
+// AllowingTemporaryPassword returns r marked as open to an account that must
+// still change its temporary password.
+func (r Requirement) AllowingTemporaryPassword() Requirement {
+	r.temporary = true
+	return r
+}
+
+// AllowsTemporaryPassword reports whether an account that must still change
+// its temporary password may use the operation.
+func (r Requirement) AllowsTemporaryPassword() bool { return r.temporary }
 
 // Keys returns the requirement's keys in the order they were declared.
 func (r Requirement) Keys() []Key { return slices.Clone(r.anyOf) }
@@ -56,8 +70,8 @@ const (
 // Workspaces returns the consoles s opens, in the order teacher, admin, app:
 // the teacher workspace for any content, teaching or people.students key; the
 // Admin console for people.users.manage, people.roles.manage,
-// system.audit.read, system.settings.write or scope.all; the student app for
-// learning.take_tests.
+// system.audit.read, system.settings.write, ai.credits.manage or scope.all; the
+// student app for learning.take_tests.
 func Workspaces(s Set) []Workspace {
 	out := []Workspace{}
 	if opensTeacher(s) {
@@ -74,7 +88,7 @@ func Workspaces(s Set) []Workspace {
 
 var teacherPrefixes = []string{"content.", "teaching.", "people.students."}
 
-var adminKeys = []Key{PeopleUsersManage, PeopleRolesManage, SystemAuditRead, SystemSettingsWrite, ScopeAll}
+var adminKeys = []Key{PeopleUsersManage, PeopleRolesManage, SystemAuditRead, SystemSettingsWrite, AICreditsManage, ScopeAll}
 
 func opensTeacher(s Set) bool {
 	for k := range s.keys {

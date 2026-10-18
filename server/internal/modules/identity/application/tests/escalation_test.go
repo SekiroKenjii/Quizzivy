@@ -128,9 +128,6 @@ func (l *ladder) refused(t *testing.T, label, target string) {
 			t.Errorf("%s: %s assigning them individually answered %v, want the missing-student answer", label, who, err)
 		}
 	}
-	if _, err := maintenance.AnonymizeStudent(ctx, l.tx, target, true); err == nil || err.Error() != "only student accounts may be anonymized" {
-		t.Errorf("%s: anonymizing them answered %v", label, err)
-	}
 	if after := l.snapshot(t, target); after != before {
 		t.Errorf("%s: refused writes changed them from %s to %s", label, before, after)
 	}
@@ -160,7 +157,7 @@ func (l *ladder) accepted(t *testing.T, label, target string) {
 	if temporary, err := l.app.Commands.ResetStudentPassword.Handle(ctx, command.ResetStudentPassword{Request: a, ID: target}); err != nil || temporary == "" {
 		t.Errorf("%s: A's reset: %q (%v)", label, temporary, err)
 	}
-	if _, err := maintenance.AnonymizeStudent(ctx, l.tx, target, false); err != nil {
+	if _, err := maintenance.AnonymizeUser(ctx, l.tx, target, false); err != nil {
 		t.Errorf("%s: anonymizing them (dry run): %v", label, err)
 	}
 	if _, err := l.classes.Commands.AddMember.Handle(ctx, classescmd.AddMember{ClassID: l.spare, UserID: target, Actor: actor.Actor{ID: l.a, Scope: a.Scope()}}); err != nil {

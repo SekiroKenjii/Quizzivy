@@ -36,6 +36,7 @@
     "saveChanges": "Save changes",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
+    "agoNow": "now",
     "agoJustNow": "just now",
     "justDuplicated": "Just duplicated",
     "duplicateNamed": "Duplicate {{name}}",
@@ -359,12 +360,12 @@
       "question_group.restored": "Restored a question group",
       "question_group.updated": "Updated a question group",
       "refresh_token.reuse_detected": "Detected a reused sign-in session",
+      "retention.answers_removed": "Removed answers past their retention",
       "role.created": "Created a role",
       "role.permissions_changed": "Changed a role's permissions",
       "role.updated": "Updated a role",
       "session.revoked": "Revoked a sign-in session",
       "session.revoked_others": "Revoked the other sign-in sessions",
-      "student.anonymized": "Anonymized a student",
       "student.created": "Created a student account",
       "student.deleted": "Deleted a student account",
       "student.password_reset": "Reset a student's password",
@@ -378,17 +379,23 @@
       "test.question_moved": "Moved a question between sections",
       "test.updated": "Updated a test",
       "test.version_deleted": "Deleted a version of a test",
+      "user.anonymized": "Anonymized an account",
       "user.avatar_removed": "Removed a profile photo",
       "user.avatar_set": "Set a profile photo",
       "user.created": "Created an account",
+      "user.disabled": "Disabled an account",
+      "user.enabled": "Enabled an account again",
       "user.google_linked": "Linked a Google account",
       "user.google_unlinked": "Unlinked a Google account",
       "user.password_changed": "Changed a password",
       "user.password_link_requested": "Asked for a set-password link",
+      "user.password_reset": "Reset an account's password",
       "user.password_set": "Set a password from a link",
       "user.preferences_updated": "Updated personal preferences",
       "user.profile_updated": "Updated a profile",
       "user.renamed": "Renamed an account",
+      "user.role_changed": "Changed an account's role",
+      "user.signed_out_everywhere": "Signed an account out everywhere",
       "user_import.requested": "Requested an import of users from a file",
       "user_import.sheet_downloaded": "Downloaded the temporary-password sheet of a user import"
     }
@@ -721,6 +728,59 @@
       "saved": "Rules saved",
       "failed": "Couldn’t save the rules. Try again."
     }
+  },
+  "users": {
+    "title": "Users",
+    "lead": "Everyone who can sign in to Quizzivy.",
+    "tabs": {
+      "label": "User groups",
+      "all": "All",
+      "teachers": "Teachers",
+      "students": "Students",
+      "admins": "Admins",
+      "disabled": "Disabled"
+    },
+    "search": {
+      "placeholder": "Search name or email",
+      "short": "Type at least {{min}} characters to search."
+    },
+    "filter": {
+      "label": "Active filters",
+      "remove": "Remove filter {{label}}"
+    },
+    "table": "Users",
+    "column": {
+      "user": "User",
+      "role": "Role",
+      "signIn": "Sign-in",
+      "classes": "Classes",
+      "lastActive": "Last active",
+      "status": "Status"
+    },
+    "signIn": {
+      "password": "Password",
+      "google": "Google",
+      "none": "None yet"
+    },
+    "noClass": "No class yet",
+    "moreCount": "+{{n}}",
+    "moreClasses": "and {{count}} more",
+    "neverActive": "Never",
+    "status": {
+      "active": "Active",
+      "mustChangePassword": "Must change password",
+      "mustChangePasswordShort": "Change password",
+      "neverSignedIn": "Never signed in",
+      "disabled": "Disabled"
+    },
+    "empty": "No users match.",
+    "clearFilters": "Clear filters",
+    "loadFailed": "Could not load users.",
+    "noun_one": "user",
+    "noun_other": "users",
+    "result_one": "{{count}} user found.",
+    "result_other": "{{count}} users found.",
+    "resultNone": "No users found."
   },
   "systemSettings": {
     "title": "System settings",

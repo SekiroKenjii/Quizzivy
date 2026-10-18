@@ -76,7 +76,7 @@ func TestWhatTheCallerMayDoToAnAccountIsWhatTheGuardsAnswer(t *testing.T) {
 		},
 		"an Admin on a disabled teacher": {
 			by: all(domain.WriteRequest{ActorID: "admin", Grants: everything}), target: teaching, detail: detailOf("other", domain.AccountDisabled, false),
-			want: domain.UserCan{ChangeRole: true, ResetPassword: true, SignOut: true, Transfer: true},
+			want: domain.UserCan{ChangeRole: true, Enable: true, SignOut: true, Transfer: true},
 		},
 		"an Admin on an Admin who is not the last": {
 			by: all(domain.WriteRequest{ActorID: "admin", Grants: everything}), target: everything, detail: detailOf("other", domain.AccountActive, false),
@@ -112,7 +112,7 @@ func TestWhatTheCallerMayDoToAnAccountIsWhatTheGuardsAnswer(t *testing.T) {
 		},
 		"a caller without scope.all on a disabled student": {
 			by: domain.WriteRequest{ActorID: "manager", Grants: manager}, target: access.NewSet(access.LearningTakeTests), detail: detailOf("pupil", domain.AccountDisabled, false),
-			want: domain.UserCan{ResetPassword: true, SignOut: true},
+			want: domain.UserCan{Enable: true, SignOut: true},
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

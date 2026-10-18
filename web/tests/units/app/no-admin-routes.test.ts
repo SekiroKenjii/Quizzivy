@@ -17,6 +17,7 @@ const ALLOWED_LITERALS = new Set([
   "/admin/ai/credit-requests/{id}/approve",
   "/admin/ai/credit-requests/{id}/decline",
   "/admin/docs-session",
+  "/admin/users",
   "/admin/users/{id}",
   "/admin/settings/sign-in",
   "/admin/settings/logo",

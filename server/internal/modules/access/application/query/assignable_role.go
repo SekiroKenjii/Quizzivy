@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+	"slices"
 
 	"quizzivy/internal/modules/access/application/internal/support"
 	"quizzivy/internal/modules/access/application/model"
@@ -40,7 +41,12 @@ func (h AssignableRoleHandler) Handle(ctx context.Context, q AssignableRole) (mo
 		return model.AssignableRole{
 			ID: r.ID, Builtin: r.Builtin, Name: r.Name, Icon: r.Icon, Color: r.Color,
 			StudentTarget: access.IsStudentLike(r.Builtin, r.Grants), Revision: r.Revision,
+			OpensTeacher: opensTeacher(h.Guard().Effective(r)),
 		}, nil
 	}
 	return model.AssignableRole{}, domain.ErrRoleNotFound
+}
+
+func opensTeacher(permissions access.Set) bool {
+	return slices.Contains(access.Workspaces(permissions), access.TeacherWorkspace)
 }

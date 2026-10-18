@@ -92,14 +92,33 @@ func (a *Application) SetPasswordLinks(links domain.SetPasswordLinks) {
 	a.Commands.PruneSetPasswordLinks = command.PruneSetPasswordLinksHandler{Service: a.service}
 }
 
+// SetUserImportRetention attaches the store that removes finished user imports
+// and makes Commands.PruneUserImports available. It does not depend on
+// SetUserImports: a server whose import worker is off still holds the jobs it
+// stored, and without this nothing removes them.
+func (a *Application) SetUserImportRetention(imports domain.UserImportRetention) {
+	a.Commands.PruneUserImports = command.PruneUserImportsHandler{Service: a.service, Imports: imports}
+}
+
 // SetAdminUsers attaches the Admin console's account directory and the access
 // module's say on which roles a caller may give, which opens createUser,
-// listUsers and getUser.
-// Without it Commands.CreateUser, Queries.ListUsers and Queries.GetUser are
-// nil and their operations answer 501.
+// listUsers, getUser, changeUserRole, disableUser, disableUsers, enableUser,
+// signOutUser, resetUserPassword and resetUsersPasswords.
+// Without it Commands.CreateUser, Commands.ChangeUserRole,
+// Commands.DisableUser, Commands.DisableUsers, Commands.EnableUser,
+// Commands.SignOutUser, Commands.ResetUserPassword,
+// Commands.ResetUsersPasswords, Queries.ListUsers and Queries.GetUser are nil
+// and their operations answer 501.
 func (a *Application) SetAdminUsers(repo domain.AdminUsers, roles ports.AssignableRole) {
 	admin := &support.Admin{Repo: repo, Roles: roles, Service: a.service, Students: a.students}
 	a.Commands.CreateUser = command.CreateUserHandler{Admin: admin}
+	a.Commands.ChangeUserRole = command.ChangeUserRoleHandler{Admin: admin}
+	a.Commands.DisableUser = command.DisableUserHandler{Admin: admin}
+	a.Commands.DisableUsers = command.DisableUsersHandler{Admin: admin}
+	a.Commands.EnableUser = command.EnableUserHandler{Admin: admin}
+	a.Commands.SignOutUser = command.SignOutUserHandler{Admin: admin}
+	a.Commands.ResetUserPassword = command.ResetUserPasswordHandler{Admin: admin}
+	a.Commands.ResetUsersPasswords = command.ResetUsersPasswordsHandler{Admin: admin}
 	a.Queries.ListUsers = query.ListUsersHandler{Admin: admin}
 	a.Queries.GetUser = query.GetUserHandler{Admin: admin}
 }
@@ -134,7 +153,14 @@ func (a *Application) SetLogger(logger *slog.Logger) {
 }
 
 type Commands struct {
+	ChangeUserRole           cqrs.CommandHandler[command.ChangeUserRole, domain.AdminUser]
 	DeleteStudent            cqrs.CommandHandler[command.DeleteStudent, cqrs.Nothing]
+	DisableUser              cqrs.CommandHandler[command.DisableUser, domain.AdminUser]
+	DisableUsers             cqrs.CommandHandler[command.DisableUsers, domain.BulkDisable]
+	EnableUser               cqrs.CommandHandler[command.EnableUser, domain.AdminUser]
+	ResetUserPassword        cqrs.CommandHandler[command.ResetUserPassword, command.ResetUserPasswordResult]
+	ResetUsersPasswords      cqrs.CommandHandler[command.ResetUsersPasswords, domain.BulkUserReset]
+	SignOutUser              cqrs.CommandHandler[command.SignOutUser, cqrs.Nothing]
 	RemoveAvatar             cqrs.CommandHandler[command.RemoveAvatar, domain.User]
 	SetAvatar                cqrs.CommandHandler[command.SetAvatar, domain.User]
 	ChangePassword           cqrs.CommandHandler[command.ChangePassword, cqrs.Nothing]
@@ -152,6 +178,7 @@ type Commands struct {
 	PruneActivityDays        cqrs.CommandHandler[command.PruneActivityDays, int]
 	PruneExpiredTokens       cqrs.CommandHandler[command.PruneExpiredTokens, int64]
 	PruneSetPasswordLinks    cqrs.CommandHandler[command.PruneSetPasswordLinks, int]
+	PruneUserImports         cqrs.CommandHandler[command.PruneUserImports, int]
 	Refresh                  cqrs.CommandHandler[command.Refresh, model.RefreshResult]
 	RequestSetPasswordLink   cqrs.CommandHandler[command.RequestSetPasswordLink, cqrs.Nothing]
 	SetPasswordWithLink      cqrs.CommandHandler[command.SetPasswordWithLink, model.Session]

@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"quizzivy/internal/platform/config"
@@ -19,7 +18,8 @@ import (
 type aiWorld struct {
 	t     *testing.T
 	ctx   context.Context
-	tx    pgx.Tx
+	tx    db.Conn
+	conn  db.Conn
 	month string
 }
 
@@ -36,18 +36,23 @@ func newAIWorld(t *testing.T) *aiWorld {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = tx.Rollback(ctx) })
+	return &aiWorld{t: t, ctx: ctx, tx: tx, conn: tx, month: aiMonth(t)}
+}
+
+func aiMonth(t *testing.T) string {
+	t.Helper()
 	zone, err := config.AppLocation()
 	if err != nil {
 		t.Fatal(err)
 	}
 	local := time.Now().In(zone)
-	return &aiWorld{t: t, ctx: ctx, tx: tx, month: time.Date(local.Year(), local.Month(), 1, 0, 0, 0, 0, time.UTC).Format(time.DateOnly)}
+	return time.Date(local.Year(), local.Month(), 1, 0, 0, 0, 0, time.UTC).Format(time.DateOnly)
 }
 
 func (w *aiWorld) run(args ...string) map[string]any {
 	w.t.Helper()
 	command := parse(w.t, args...)
-	result, err := command.Run(w.ctx, w.tx)
+	result, err := command.Run(w.ctx, w.conn)
 	if err != nil {
 		w.t.Fatalf("%v: %v", args, err)
 	}
@@ -64,7 +69,7 @@ func (w *aiWorld) run(args ...string) map[string]any {
 
 func (w *aiWorld) fails(args ...string) error {
 	w.t.Helper()
-	_, err := parse(w.t, args...).Run(w.ctx, w.tx)
+	_, err := parse(w.t, args...).Run(w.ctx, w.conn)
 	if err == nil {
 		w.t.Fatalf("%v succeeded", args)
 	}

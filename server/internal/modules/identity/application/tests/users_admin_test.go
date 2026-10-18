@@ -44,7 +44,11 @@ type usersWorld struct {
 
 func newUsersWorld(t *testing.T, withOutbox bool) *usersWorld {
 	t.Helper()
-	admin, appdb := newPool(t), linkAppPool(t)
+	return newUsersWorldOn(t, newPool(t), linkAppPool(t), withOutbox, true)
+}
+
+func newUsersWorldOn(t *testing.T, admin, appdb *pgxpool.Pool, withOutbox, cleanUp bool) *usersWorld {
+	t.Helper()
 	key, err := secrets.ParseKey(base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef")))
 	if err != nil {
 		t.Fatal(err)
@@ -69,21 +73,23 @@ func newUsersWorld(t *testing.T, withOutbox bool) *usersWorld {
 	w.app.SetPasswordLinks(links)
 	w.app.SetSignInPolicy(switchablePolicy(func() organizationmodel.SignInPolicy { return w.policy }))
 	w.app.SetAdminUsers(repositories.NewAdminUsers(dbx, links), w.roles)
-	t.Cleanup(func() {
-		ctx := context.Background()
-		owned := `SELECT id FROM app.users WHERE email LIKE '%@' || $1`
-		for _, stmt := range []string{
-			`DELETE FROM app.email_outbox WHERE to_address LIKE '%@' || $1`,
-			`DELETE FROM app.class_members WHERE user_id IN (` + owned + `)`,
-			`DELETE FROM app.classes WHERE teacher_id IN (` + owned + `)`,
-			`DELETE FROM app.audit_log WHERE entity_id IN (` + owned + `) OR actor_user_id IN (` + owned + `)`,
-			`DELETE FROM app.users WHERE email LIKE '%@' || $1`,
-		} {
-			if _, err := admin.Exec(ctx, stmt, w.marker); err != nil {
-				t.Errorf("cleanup %q: %v", stmt, err)
+	if cleanUp {
+		t.Cleanup(func() {
+			ctx := context.Background()
+			owned := `SELECT id FROM app.users WHERE email LIKE '%@' || $1`
+			for _, stmt := range []string{
+				`DELETE FROM app.email_outbox WHERE to_address LIKE '%@' || $1`,
+				`DELETE FROM app.class_members WHERE user_id IN (` + owned + `)`,
+				`DELETE FROM app.classes WHERE teacher_id IN (` + owned + `)`,
+				`DELETE FROM app.audit_log WHERE entity_id IN (` + owned + `) OR actor_user_id IN (` + owned + `)`,
+				`DELETE FROM app.users WHERE email LIKE '%@' || $1`,
+			} {
+				if _, err := admin.Exec(ctx, stmt, w.marker); err != nil {
+					t.Errorf("cleanup %q: %v", stmt, err)
+				}
 			}
-		}
-	})
+		})
+	}
 	w.actor = w.insertUser(t, "actor", "teacher")
 	return w
 }
@@ -463,6 +469,53 @@ func TestANameWithNothingToReadIsRefusedOnItsFieldBeforeAnythingIsWritten(t *tes
 				t.Errorf("%d message(s) queued beside a refusal", n)
 			}
 		})
+	}
+}
+
+func TestAnAddressWithACharacterNoReaderCanSeeIsRefusedOnItsFieldBeforeAnythingIsWritten(t *testing.T) {
+	w := newUsersWorld(t, true)
+	for name, r := range map[string]rune{
+		"a zero-width space":      0x200b,
+		"a zero-width joiner":     0x200d,
+		"a right-to-left mark":    0x202e,
+		"a bidi isolate":          0x2066,
+		"a soft hyphen":           0xad,
+		"a byte order mark":       0xfeff,
+		"a control character":     0x07,
+		"a braille blank":         0x2800,
+		"a Hangul filler":         0x3164,
+		"a halfwidth filler":      0xffa0,
+		"a private-use code":      0xe000,
+		"a no-break space":        0xa0,
+		"an ideographic space":    0x3000,
+		"a line separator":        0x2028,
+		"a narrow no-break space": 0x202f,
+	} {
+		t.Run(name, func(t *testing.T) {
+			local, host, _ := strings.Cut(w.email("hv"), "@")
+			email := local + string(r) + "@" + host
+			_, err := w.create(w.everything(), domain.NewUser{Email: email, FullName: "Nguyễn Văn An", RoleID: w.role(t, "student"), Delivery: domain.DeliveryEmailLink})
+			var refused *validation.Error
+			if !errors.As(err, &refused) || len(refused.Fields) != 1 || refused.Fields[0].Field != "email" {
+				t.Fatalf("err = %v, want a refusal on email", err)
+			}
+			if n := w.count(t, `SELECT count(*) FROM app.users WHERE lower(email) = lower($1)`, email); n != 0 {
+				t.Errorf("%d account(s) written beside a refusal", n)
+			}
+			if n := w.count(t, `SELECT count(*) FROM app.email_outbox WHERE lower(to_address) = lower($1)`, email); n != 0 {
+				t.Errorf("%d message(s) queued beside a refusal", n)
+			}
+		})
+	}
+}
+
+func TestAnAddressAndANameBothRefusedAreBothNamedInOneAnswer(t *testing.T) {
+	w := newUsersWorld(t, true)
+	local, host, _ := strings.Cut(w.email("hv"), "@")
+	_, err := w.create(w.everything(), domain.NewUser{Email: local + string(rune(0x200b)) + "@" + host, FullName: "   ", RoleID: w.role(t, "student"), Delivery: domain.DeliveryEmailLink})
+	var refused *validation.Error
+	if !errors.As(err, &refused) || len(refused.Fields) != 2 || refused.Fields[0].Field != "fullName" || refused.Fields[1].Field != "email" {
+		t.Fatalf("err = %v, want fullName and email in one refusal", err)
 	}
 }
 

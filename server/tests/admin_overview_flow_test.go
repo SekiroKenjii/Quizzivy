@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -80,6 +81,7 @@ func TestTheAdminReadingsAreOpenedByTheKeysACallerHolds(t *testing.T) {
 		{"a custom role holding only the audit key", "system.audit.read", []string{"recentChanges"}, http.StatusForbidden},
 		{"a manager of people", "people.users.manage", []string{"people", "dailyActive"}, http.StatusForbidden},
 		{"the owner of the settings", "system.settings.write", []string{"storage"}, http.StatusOK},
+		{"a custom role holding only the AI credits key", "ai.credits.manage", nil, http.StatusForbidden},
 	}
 	for _, c := range cases {
 		who := w.signedIn(w.staffHolding(c.key))
@@ -103,6 +105,22 @@ func TestTheAdminReadingsAreOpenedByTheKeysACallerHolds(t *testing.T) {
 		if status, _ := who.call(http.MethodGet, "/admin/usage", nil); status != c.usage {
 			t.Errorf("%s on /admin/usage: %d, want %d", c.name, status, c.usage)
 		}
+	}
+}
+
+func TestAnAccountHoldingOnlyTheCreditsKeySignsInToTheAdminConsole(t *testing.T) {
+	w := boot(t, planned)
+	who := w.signedIn(w.staffHolding("ai.credits.manage"))
+	me := who.must(http.StatusOK, http.MethodGet, "/auth/me", nil)
+	var workspaces []string
+	for _, workspace := range me["workspaces"].([]any) {
+		workspaces = append(workspaces, workspace.(string))
+	}
+	if !slices.Equal(workspaces, []string{"admin"}) {
+		t.Errorf("workspaces %v, want [admin]", workspaces)
+	}
+	for _, path := range []string{"/admin/overview", "/admin/summary"} {
+		who.must(http.StatusOK, http.MethodGet, path, nil)
 	}
 }
 

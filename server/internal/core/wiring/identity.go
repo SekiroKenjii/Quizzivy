@@ -34,6 +34,7 @@ func identity(cfg config.Config, logger *slog.Logger, dbx db.Context, stats stat
 	app.SetActivity(identityrepo.NewActivity(dbx), zone, logger)
 	links := identityrepo.NewSetPasswordLinks(dbx, outbox)
 	app.SetPasswordLinks(links)
+	app.SetUserImportRetention(identityrepo.NewUserImports(dbx))
 	app.SetAdminUsers(identityrepo.NewAdminUsers(dbx, links), roles)
 	attachGoogle(cfg, logger, app, enroller)
 	return app, tokens, nil

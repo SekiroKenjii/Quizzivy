@@ -366,7 +366,7 @@ const adminTree: RouteObject = {
                 permission: "people.users.manage",
                 width: 1320,
               },
-              lazy: pending,
+              lazy: page(() => import("@/features/users/pages/admin/UsersPage")),
             },
             {
               path: "roles",

@@ -272,23 +272,76 @@ func TestAQuotedAddressThePrinterCannotWriteBackIsNotAnEmail(t *testing.T) {
 	}
 }
 
-func TestOnlyABareAddressIsAnEmail(t *testing.T) {
-	for cell, ok := range map[string]bool{
-		"mai@x.test":              true,
-		"  mai@x.test  ":          true,
-		"Mai.Nguyen+lop10@X.Test": true,
-		"Mai <mai@x.test>":        false,
-		"mai":                     false,
-		"mai@":                    false,
-		"@x.test":                 false,
-		"mai@x.test, an@x.test":   false,
-		"\"mai\"@x.test":          false,
-		"mai@x.test\nan@x.test":   false,
+func TestAnAddressIsStoredBareWhateverFormTheCellWritesItIn(t *testing.T) {
+	for cell, want := range map[string]string{
+		"mai@x.test":                  "mai@x.test",
+		"  mai@x.test  ":              "mai@x.test",
+		"Mai.Nguyen+lop10@X.Test":     "Mai.Nguyen+lop10@X.Test",
+		"Mai <mai@x.test>":            "mai@x.test",
+		"Nguyễn Văn Mai <mai@x.test>": "mai@x.test",
+		"<mai@x.test>":                "mai@x.test",
+		"\"mai\"@x.test":              "mai@x.test",
+		"mai@x.test (ghi chú)":        "mai@x.test",
 	} {
 		plan := domain.PlanImport([]domain.ImportRow{row(2, "A", cell, "", "")}, rules(true), nil)
 
-		if got := len(plan.Accepted) == 1; got != ok {
-			t.Errorf("%q: accepted = %v, want %v (issues %v)", cell, got, ok, plan.Issues)
+		if len(plan.Accepted) != 1 || plan.Accepted[0].Email != want {
+			t.Errorf("%q: accepted %+v, issues %v; want the address %q", cell, plan.Accepted, plan.Issues, want)
+		}
+	}
+}
+
+func TestACellThatIsNotOneAddressIsNotAnEmail(t *testing.T) {
+	for _, cell := range []string{
+		"mai", "mai@", "@x.test", "mai@x.test, an@x.test", "mai@x.test\nan@x.test", "Mai <mai@x.test", "mai@x.test>",
+		"Mai <mai@x.test> <an@x.test>", "mai x@x.test",
+	} {
+		plan := domain.PlanImport([]domain.ImportRow{row(2, "A", cell, "", "")}, rules(true), nil)
+
+		if got := issuesOf(plan)[2]; !slices.Equal(got, []string{"email:INVALID"}) {
+			t.Errorf("%q: issues = %v, want email:INVALID", cell, got)
+		}
+	}
+}
+
+func TestAnAddressWithACharacterNoReaderCanSeeIsInvalidWhereverItSits(t *testing.T) {
+	for _, r := range []rune{
+		0x00, 0x07, 0xa0, 0xad, 0x115f, 0x1160, 0x2003, 0x200b, 0x200c, 0x200d, 0x2028, 0x202e, 0x2066,
+		0x2800, 0x3000, 0x3164, 0xe000, 0xfeff, 0xffa0, 0xfffe,
+		0x034f, 0x180b, 0xfe00, 0xfe0f, 0xe0100, 0xe01ef,
+	} {
+		for _, cell := range []string{
+			"ma" + string(r) + "i@x.test",
+			"mai@x" + string(r) + ".test",
+			"Mai <ma" + string(r) + "i@x.test>",
+		} {
+			plan := domain.PlanImport([]domain.ImportRow{row(2, "A", cell, "", "")}, rules(true), nil)
+
+			if got := issuesOf(plan)[2]; !slices.Equal(got, []string{"email:INVALID"}) {
+				t.Errorf("%q: issues = %v, want email:INVALID", cell, got)
+			}
+		}
+	}
+}
+
+func TestAnAddressAtTheEndOfACellLosesOnlyTheSpaceAroundIt(t *testing.T) {
+	for _, r := range []rune{0xa0, 0x2003, 0x3000} {
+		cell := string(r) + "mai@x.test" + string(r)
+		plan := domain.PlanImport([]domain.ImportRow{row(2, "A", cell, "", "")}, rules(true), nil)
+
+		if len(plan.Accepted) != 1 || plan.Accepted[0].Email != "mai@x.test" {
+			t.Errorf("%q: accepted %+v, issues %v", cell, plan.Accepted, plan.Issues)
+		}
+	}
+}
+
+func TestADisplayNameDoesNotHideAnAddressThatIsTooLong(t *testing.T) {
+	long := strings.Repeat("a", domain.MaxEmailLength) + "@x.test"
+	for _, cell := range []string{long, "Mai <" + long + ">"} {
+		plan := domain.PlanImport([]domain.ImportRow{row(2, "A", cell, "", "")}, rules(true), nil)
+
+		if got := issuesOf(plan)[2]; !slices.Equal(got, []string{"email:TOO_LONG"}) {
+			t.Errorf("an address of %d characters: issues = %v, want email:TOO_LONG", domain.MaxEmailLength+7, got)
 		}
 	}
 }

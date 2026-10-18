@@ -33,6 +33,7 @@ func (h AssignableRolesHandler) Handle(ctx context.Context, q AssignableRoles) (
 		out = append(out, model.AssignableRole{
 			ID: r.ID, Builtin: r.Builtin, Name: r.Name, Icon: r.Icon, Color: r.Color,
 			StudentTarget: access.IsStudentLike(r.Builtin, r.Grants),
+			OpensTeacher:  opensTeacher(h.Guard().Effective(r)),
 		})
 	}
 	return out, nil

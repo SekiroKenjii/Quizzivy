@@ -132,12 +132,13 @@ func (s *Service) Resolve(ctx context.Context, userID string) (access.Principal,
 		return access.Principal{}, err
 	}
 	principal := access.Principal{
-		UserID:      userID,
-		RoleID:      row.Role.ID,
-		BuiltinKey:  row.Role.Builtin,
-		Permissions: s.manager.Effective(row.Role, grants, s.catalogue),
-		Epoch:       row.Epoch,
-		Disabled:    row.Disabled,
+		UserID:             userID,
+		RoleID:             row.Role.ID,
+		BuiltinKey:         row.Role.Builtin,
+		Permissions:        s.manager.Effective(row.Role, grants, s.catalogue),
+		Epoch:              row.Epoch,
+		Disabled:           row.Disabled,
+		MustChangePassword: row.MustChangePassword,
 	}
 	s.remember(userID, principal, now.Add(PrincipalTTL), generation)
 	return principal, nil

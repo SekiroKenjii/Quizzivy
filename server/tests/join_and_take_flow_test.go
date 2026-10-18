@@ -31,7 +31,7 @@ func TestAStudentJoinsByCodeSitsTheTestAndTheTeacherSeesIt(t *testing.T) {
 	studentEmail := created["user"].(map[string]any)["email"].(string)
 
 	student := w.browser()
-	student.login(studentEmail, created["temporaryPassword"].(string))
+	student.loginSettled(studentEmail, created["temporaryPassword"].(string))
 	joined := student.must(http.StatusOK, http.MethodPost, "/app/classes/join", map[string]any{"joinCode": code})
 	if joined["id"] != classID {
 		t.Fatalf("joining answered %v", joined)
@@ -129,7 +129,7 @@ func TestAClosedAssignmentIsReopenedForOneStudentAlone(t *testing.T) {
 		})
 		user := created["user"].(map[string]any)
 		student := w.browser()
-		student.login(user["email"].(string), created["temporaryPassword"].(string))
+		student.loginSettled(user["email"].(string), created["temporaryPassword"].(string))
 		return student, user["id"].(string)
 	}
 	reopened, reopenedID := enrol("An mở lại")

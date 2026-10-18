@@ -209,7 +209,7 @@ func TestGetUserAnswersTheSheetAsOneFlatObject(t *testing.T) {
 	if !slices.Equal(kinds, []string{"sign_in", "class_joined", "audit"}) || *out.Activity[0].Detail != "google" || out.Activity[2].Detail != nil {
 		t.Errorf("activity = %+v, want the events in the order given, the audit one without a detail", out.Activity)
 	}
-	if want := map[string]bool{"changeRole": true, "resetPassword": false, "disable": false, "signOut": true, "transfer": false}; !equalFlags(out.Can, want) {
+	if want := map[string]bool{"changeRole": true, "resetPassword": false, "disable": false, "enable": false, "signOut": true, "transfer": false}; !equalFlags(out.Can, want) {
 		t.Errorf("can = %v, want %v", out.Can, want)
 	}
 }

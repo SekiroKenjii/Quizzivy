@@ -36,6 +36,7 @@
     "saveChanges": "Lưu thay đổi",
     "showPassword": "Hiện mật khẩu",
     "hidePassword": "Ẩn mật khẩu",
+    "agoNow": "vừa xong",
     "agoJustNow": "vừa xong",
     "justDuplicated": "Vừa nhân bản",
     "duplicateNamed": "Nhân bản {{name}}",
@@ -359,12 +360,12 @@
       "question_group.restored": "Đã khôi phục nhóm câu hỏi",
       "question_group.updated": "Đã cập nhật nhóm câu hỏi",
       "refresh_token.reuse_detected": "Phát hiện một phiên đăng nhập bị dùng lại",
+      "retention.answers_removed": "Đã xoá câu trả lời quá hạn lưu",
       "role.created": "Đã tạo vai trò",
       "role.permissions_changed": "Đã thay đổi quyền của vai trò",
       "role.updated": "Đã cập nhật vai trò",
       "session.revoked": "Đã thu hồi một phiên đăng nhập",
       "session.revoked_others": "Đã thu hồi các phiên đăng nhập khác",
-      "student.anonymized": "Đã ẩn danh học viên",
       "student.created": "Đã tạo tài khoản học viên",
       "student.deleted": "Đã xoá tài khoản học viên",
       "student.password_reset": "Đã đặt lại mật khẩu của học viên",
@@ -378,17 +379,23 @@
       "test.question_moved": "Đã chuyển câu hỏi giữa các phần",
       "test.updated": "Đã cập nhật bài kiểm tra",
       "test.version_deleted": "Đã xoá một phiên bản của bài kiểm tra",
+      "user.anonymized": "Đã ẩn danh tài khoản",
       "user.avatar_removed": "Đã gỡ ảnh đại diện",
       "user.avatar_set": "Đã đặt ảnh đại diện",
       "user.created": "Đã tạo tài khoản",
+      "user.disabled": "Đã vô hiệu hoá tài khoản",
+      "user.enabled": "Đã kích hoạt lại tài khoản",
       "user.google_linked": "Đã liên kết tài khoản Google",
       "user.google_unlinked": "Đã huỷ liên kết tài khoản Google",
       "user.password_changed": "Đã đổi mật khẩu",
       "user.password_link_requested": "Đã yêu cầu liên kết đặt mật khẩu",
+      "user.password_reset": "Đã đặt lại mật khẩu của tài khoản",
       "user.password_set": "Đã đặt mật khẩu bằng liên kết",
       "user.preferences_updated": "Đã cập nhật tuỳ chọn cá nhân",
       "user.profile_updated": "Đã cập nhật hồ sơ",
       "user.renamed": "Đã đổi tên tài khoản",
+      "user.role_changed": "Đã đổi vai trò của tài khoản",
+      "user.signed_out_everywhere": "Đã đăng xuất tài khoản khỏi mọi thiết bị",
       "user_import.requested": "Đã yêu cầu nhập người dùng từ tệp",
       "user_import.sheet_downloaded": "Đã tải bảng mật khẩu tạm của lần nhập người dùng"
     }
@@ -721,6 +728,59 @@
       "saved": "Đã lưu quy tắc",
       "failed": "Không lưu được quy tắc. Hãy thử lại."
     }
+  },
+  "users": {
+    "title": "Người dùng",
+    "lead": "Mọi người có thể đăng nhập vào Quizzivy.",
+    "tabs": {
+      "label": "Nhóm người dùng",
+      "all": "Tất cả",
+      "teachers": "Giáo viên",
+      "students": "Học viên",
+      "admins": "Quản trị viên",
+      "disabled": "Đã vô hiệu hoá"
+    },
+    "search": {
+      "placeholder": "Tìm theo tên hoặc email",
+      "short": "Nhập ít nhất {{min}} ký tự để tìm kiếm."
+    },
+    "filter": {
+      "label": "Bộ lọc đang áp dụng",
+      "remove": "Bỏ lọc {{label}}"
+    },
+    "table": "Người dùng",
+    "column": {
+      "user": "Người dùng",
+      "role": "Vai trò",
+      "signIn": "Đăng nhập",
+      "classes": "Lớp",
+      "lastActive": "Hoạt động cuối",
+      "status": "Trạng thái"
+    },
+    "signIn": {
+      "password": "Mật khẩu",
+      "google": "Google",
+      "none": "Chưa có"
+    },
+    "noClass": "Chưa vào lớp",
+    "moreCount": "+{{n}}",
+    "moreClasses": "và {{count}} lớp khác",
+    "neverActive": "Chưa bao giờ",
+    "status": {
+      "active": "Đang hoạt động",
+      "mustChangePassword": "Phải đổi mật khẩu",
+      "mustChangePasswordShort": "Đổi mật khẩu",
+      "neverSignedIn": "Chưa đăng nhập",
+      "disabled": "Đã vô hiệu hoá"
+    },
+    "empty": "Không có người dùng phù hợp.",
+    "clearFilters": "Bỏ lọc",
+    "loadFailed": "Không tải được danh sách người dùng.",
+    "noun_one": "người dùng",
+    "noun_other": "người dùng",
+    "result_one": "Tìm thấy {{count}} người dùng.",
+    "result_other": "Tìm thấy {{count}} người dùng.",
+    "resultNone": "Không tìm thấy người dùng nào."
   },
   "systemSettings": {
     "title": "Cài đặt hệ thống",
