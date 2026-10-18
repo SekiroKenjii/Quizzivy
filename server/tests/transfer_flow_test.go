@@ -51,6 +51,25 @@ func (w *world) liveOwnedBy(userID string) map[string]float64 {
 	}
 }
 
+func (w *world) studentCreatedBy(teacher string) string {
+	w.t.Helper()
+	var id string
+	if err := w.pool.QueryRow(context.Background(), `
+		INSERT INTO app.users (email, full_name, role_id, created_by)
+		VALUES ('mo-coi-' || gen_random_uuid() || '@example.test', 'Học sinh chưa vào lớp', (SELECT id FROM app.roles WHERE builtin_key = 'student'), $1::uuid)
+		RETURNING id::text`, teacher).Scan(&id); err != nil {
+		w.t.Fatal(err)
+	}
+	w.t.Cleanup(func() {
+		for _, sql := range []string{`DELETE FROM app.class_members WHERE user_id = $1::uuid`, `DELETE FROM app.users WHERE id = $1::uuid`} {
+			if _, err := w.pool.Exec(context.Background(), sql, id); err != nil {
+				w.t.Errorf("cleanup %q: %v", sql, err)
+			}
+		}
+	})
+	return id
+}
+
 func lists(t *testing.T, c *client, path, id string) bool {
 	t.Helper()
 	body := c.must(http.StatusOK, http.MethodGet, path, nil)
@@ -99,6 +118,7 @@ func TestADisabledTeachersContentMovesToAnotherTeacherWhoListsAndEditsItWhileStu
 		SELECT count(*)::float8 FROM app.word_imports WHERE created_by = $1::uuid AND status NOT IN ('committed', 'cancelled')`, a.userID).Scan(&unfinished); err != nil {
 		t.Fatal(err)
 	}
+	orphan := w.studentCreatedBy(a.userID)
 	result := admin.must(http.StatusOK, http.MethodPost, path, map[string]any{"toUserId": heirID, "notify": true})
 
 	moved, _ := result["moved"].(map[string]any)
@@ -109,6 +129,12 @@ func TestADisabledTeachersContentMovesToAnotherTeacherWhoListsAndEditsItWhileStu
 	}
 	if left, _ := result["leftBehind"].(map[string]any); left["imports"] != unfinished || unfinished < 1 {
 		t.Errorf("leftBehind = %v, want the %v unfinished imports", left, unfinished)
+	}
+	if left, _ := result["leftBehind"].(map[string]any); left["students"] != float64(1) {
+		t.Errorf("leftBehind = %v, want the one student the account created in no class", left)
+	}
+	if status, _ := heir.call(http.MethodGet, "/teacher/students/"+orphan, nil); status != http.StatusNotFound {
+		t.Errorf("the recipient reading the student left behind: %d, want 404", status)
 	}
 	if after := w.ownedBy(a.userID); after != (ownedRows{}) {
 		t.Errorf("the disabled account still owns %+v", after)
@@ -165,6 +191,13 @@ func TestADisabledTeachersContentMovesToAnotherTeacherWhoListsAndEditsItWhileStu
 
 	if !lists(t, heir, "/me/notifications", "content.transferred") {
 		t.Error("the recipient's bell holds no content.transferred notification")
+	}
+	if _, err := w.pool.Exec(context.Background(), `INSERT INTO app.class_members (class_id, user_id, joined_via) VALUES ($1::uuid, $2::uuid, 'admin')`, a.ids["class"], orphan); err != nil {
+		t.Fatal(err)
+	}
+	again := admin.must(http.StatusOK, http.MethodPost, path, map[string]any{"toUserId": heirID})
+	if left, _ := again["leftBehind"].(map[string]any); left["students"] != float64(0) {
+		t.Errorf("leftBehind = %v once the student is in a moved class, want no student", left)
 	}
 	if status, body := admin.call(http.MethodPost, path, map[string]any{"toUserId": w.userID(adminEmail)}); status != http.StatusOK {
 		t.Errorf("moving to an Admin, who holds the teacher workspace: %d %v, want 200", status, body)

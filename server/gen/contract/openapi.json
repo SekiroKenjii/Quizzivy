@@ -5276,7 +5276,8 @@
           "leftBehind": {
             "type": "object",
             "required": [
-              "imports"
+              "imports",
+              "students"
             ],
             "additionalProperties": false,
             "properties": {
@@ -5284,6 +5285,11 @@
                 "type": "integer",
                 "minimum": 0,
                 "description": "The account's Word imports that are not finished, which stay with it."
+              },
+              "students": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Student accounts the account created that the recipient still\ndoes not reach after the move: in none of the moved classes and\non none of the moved assignments. Who created an account does\nnot change, so only an Admin reaches them until one adds them to\na class.\n"
               }
             }
           }

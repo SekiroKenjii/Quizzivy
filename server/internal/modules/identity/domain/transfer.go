@@ -42,9 +42,11 @@ func (m MovedContent) Total() int {
 }
 
 // LeftBehind counts what a transfer leaves with the source: its Word imports
-// that are not finished.
+// that are not finished, and the student-like accounts it created that the
+// recipient does not reach after the move.
 type LeftBehind struct {
-	Imports int
+	Imports  int
+	Students int
 }
 
 // TransferredContent is what a transfer moved and what it left behind.
@@ -62,8 +64,8 @@ type TransferLedger interface {
 	// missing source, ErrRoleChanged when the source no longer holds
 	// FromRoleID, ErrUserNotDisabled and ErrInvalidRecipient.
 	LockTransfer(ctx context.Context, in ContentTransfer) error
-	// RecordTransfer counts what stays with the source and writes the
-	// user.content_transferred audit row with the owner change as both names,
-	// the recipient and the counts.
+	// RecordTransfer counts, after the moves, what stays with the source and
+	// writes the user.content_transferred audit row with the owner change as
+	// both names, the recipient and the counts.
 	RecordTransfer(ctx context.Context, req WriteRequest, in ContentTransfer, moved MovedContent) (LeftBehind, error)
 }

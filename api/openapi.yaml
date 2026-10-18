@@ -2891,10 +2891,19 @@ components:
             assignments: { type: integer, minimum: 0 }
         leftBehind:
           type: object
-          required: [imports]
+          required: [imports, students]
           additionalProperties: false
           properties:
             imports: { type: integer, minimum: 0, description: "The account's Word imports that are not finished, which stay with it." }
+            students:
+              type: integer
+              minimum: 0
+              description: |
+                Student accounts the account created that the recipient still
+                does not reach after the move: in none of the moved classes and
+                on none of the moved assignments. Who created an account does
+                not change, so only an Admin reaches them until one adds them to
+                a class.
 
     UserImportDefaultRole:
       type: string

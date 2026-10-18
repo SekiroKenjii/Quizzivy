@@ -43,7 +43,7 @@ func TestATransferPassesTheCallerBothAccountsAndTheNotifyChoiceAndAnswersTheCoun
 	from, to, yes := uuid.New(), uuid.New(), true
 	s := &transferStub{result: domain.TransferredContent{
 		Moved:      domain.MovedContent{Classes: 1, Tests: 2, Questions: 3, QuestionGroups: 4, Media: 5, Assignments: 6},
-		LeftBehind: domain.LeftBehind{Imports: 7},
+		LeftBehind: domain.LeftBehind{Imports: 7, Students: 8},
 	}}
 
 	got := s.call(t, "", from, to, &yes)
@@ -60,7 +60,7 @@ func TestATransferPassesTheCallerBothAccountsAndTheNotifyChoiceAndAnswersTheCoun
 	}
 	want := map[string]map[string]float64{
 		"moved":      {"classes": 1, "tests": 2, "questions": 3, "questionGroups": 4, "media": 5, "assignments": 6},
-		"leftBehind": {"imports": 7},
+		"leftBehind": {"imports": 7, "students": 8},
 	}
 	for part, counts := range want {
 		for key, n := range counts {

@@ -9,6 +9,7 @@ import (
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/audit"
 	"quizzivy/internal/shared/opt"
+	"quizzivy/internal/shared/visibility"
 	"slices"
 
 	"github.com/jackc/pgx/v5"
@@ -96,6 +97,7 @@ type transferDiff struct {
 	Media          int       `json:"media"`
 	Assignments    int       `json:"assignments"`
 	ImportsLeft    int       `json:"importsLeft"`
+	StudentsLeft   int       `json:"studentsLeft"`
 }
 
 type ownerDiff struct {
@@ -111,6 +113,12 @@ func (l *TransferLedger) RecordTransfer(ctx context.Context, req domain.WriteReq
 		 WHERE w.created_by = $1::uuid AND w.status NOT IN ('committed', 'cancelled')`, in.FromID).Scan(&left.Imports); err != nil {
 		return domain.LeftBehind{}, fmt.Errorf("users: count imports left behind: %w", err)
 	}
+	if err := l.QueryRow(ctx, `
+		SELECT count(*)::int FROM app.users u
+		 WHERE u.created_by = $1::uuid AND u.role_id IN (SELECT r.id FROM app.student_like_roles r)
+		   AND u.id NOT IN `+visibility.StudentIDs(2), in.FromID, in.ToID).Scan(&left.Students); err != nil {
+		return domain.LeftBehind{}, fmt.Errorf("users: count students left behind: %w", err)
+	}
 	var owner ownerDiff
 	if err := l.QueryRow(ctx, `
 		SELECT (SELECT u.full_name FROM app.users u WHERE u.id = $1::uuid), (SELECT u.full_name FROM app.users u WHERE u.id = $2::uuid)`,
@@ -120,6 +128,7 @@ func (l *TransferLedger) RecordTransfer(ctx context.Context, req domain.WriteReq
 	diff, err := json.Marshal(transferDiff{
 		Owner: owner, To: in.ToID, Classes: moved.Classes, Tests: moved.Tests, Questions: moved.Questions,
 		QuestionGroups: moved.QuestionGroups, Media: moved.Media, Assignments: moved.Assignments, ImportsLeft: left.Imports,
+		StudentsLeft: left.Students,
 	})
 	if err != nil {
 		return domain.LeftBehind{}, fmt.Errorf("users: encode transfer audit: %w", err)

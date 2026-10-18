@@ -366,5 +366,6 @@ func toAPITransferred(r domain.TransferredContent) openapi.UserContentTransferRe
 	out.Moved.Media = r.Moved.Media
 	out.Moved.Assignments = r.Moved.Assignments
 	out.LeftBehind.Imports = r.LeftBehind.Imports
+	out.LeftBehind.Students = r.LeftBehind.Students
 	return out
 }

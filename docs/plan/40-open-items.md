@@ -661,24 +661,26 @@ only.
 
 ---
 
-### O-R5.10 — Students the source of a transfer created · R5 (T-R5.10), any release
-**Default:** they stay where they are (#718 QC-TC-2, 2026-10-18). `users.created_by` on a student is
-provenance as well as reach: `visibility.StudentIDs` lets a teacher reach the students they created.
-The transfer moves classes and assignments, so the recipient reaches every student in a moved class or
-on a moved assignment, but a student the source created who is in neither is reached by an Admin only,
-who can add them to a class. Moving `created_by` of such students would rewrite who made the account,
-which the transfer never does for any other row. The owner decides whether those students should move
-too; T-R5.9c's dialog can count them meanwhile.
+### O-R5.10 — Students the source of a transfer created · decided 2026-10-18 (D-051)
+**Decided:** they stay, reported as `leftBehind.students` (#718 QC-TC-2). `users.created_by` on a
+student is provenance as well as reach (`visibility.StudentIDs`), and the transfer never rewrites who
+made a row. The transfer moves classes and assignments, so the recipient reaches every student in a
+moved class or on a moved assignment; the result counts, inside the transaction, the student-like
+accounts the source created that the recipient still does not reach, the audit row records them as
+`studentsLeft`, and the Admin who ran the transfer adds them to a class. Moving `created_by` would
+lock student rows after the two accounts, which can cycle with a users write that locks every active
+Admin and the target in id order now that an Admin can be the recipient; it is its own task if the
+owner asks for it.
 
 ---
 
-### O-R5.11 — A recipient that cannot edit what it receives · R5 (T-R5.10, T-R5.9c), any release
-**Default:** the recipient needs `workspace.teacher` only, as the task specifies (#718 QC-TC-3,
-2026-10-18). A role that opens the teacher workspace without `teaching.classes.write` or
-`content.tests.write` (the built-in Assistant, a custom role) can receive classes and tests that only an
-Admin can then edit. T-R5.9c's dialog says so when it lists recipients. Requiring every write key a moved
-kind needs would refuse a recipient for content the source does not own, so a stricter rule would check
-the kinds that are not empty; it is the owner's decision.
+### O-R5.11 — A recipient that cannot edit what it receives · decided 2026-10-18 (D-052)
+**Decided:** the recipient needs `workspace.teacher` only, as the task specifies (#718 QC-TC-3). A
+role that opens the teacher workspace without `teaching.classes.write` or `content.tests.write` (the
+built-in Assistant, a custom role) can receive classes and tests that only an Admin can then edit.
+Parking content with a reader until a new teacher arrives is legitimate and recoverable, and a map of
+kinds to keys would be a second copy of the catalogue. T-R5.22b's dialog warns before the Admin
+confirms, naming the kinds the recipient cannot edit.
 ---
 
 ## Answered during planning

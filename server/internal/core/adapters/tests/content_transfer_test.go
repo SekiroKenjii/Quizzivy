@@ -57,7 +57,9 @@ func newTransferWorld(t *testing.T) *transferWorld {
 			`DELETE FROM app.question_groups WHERE created_by = ANY($1::uuid[])`,
 			`DELETE FROM app.questions WHERE created_by = ANY($1::uuid[])`,
 			`DELETE FROM app.tests WHERE created_by = ANY($1::uuid[])`,
+			`DELETE FROM app.class_members WHERE user_id = ANY($1::uuid[])`,
 			`DELETE FROM app.classes WHERE teacher_id = ANY($1::uuid[])`,
+			`DELETE FROM app.users WHERE created_by = ANY($1::uuid[])`,
 			`DELETE FROM app.users WHERE id = ANY($1::uuid[])`,
 		} {
 			if _, err := pool.Exec(context.Background(), sql, w.users); err != nil {
@@ -416,5 +418,46 @@ func TestTheLedgerLocksBothAccountsInIdOrderAndNotInTheOrderTheTableHoldsThem(t 
 	}
 	if probed != nil {
 		t.Errorf("the higher id was locked while the lower one was still awaited (%v): the ledger locks in table order, not id order", probed)
+	}
+}
+
+func (w *transferWorld) student(t *testing.T, createdBy string) string {
+	t.Helper()
+	var id string
+	if err := w.q.QueryRow(context.Background(), `
+		INSERT INTO app.users (email, full_name, role_id, created_by)
+		VALUES ($1, 'Học sinh chuyển', (SELECT id FROM app.roles WHERE builtin_key = 'student'), $2::uuid)
+		RETURNING id::text`, uuid.NewString()+"@example.test", createdBy).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func TestATransferCountsTheStudentsTheSourceCreatedThatTheRecipientStillDoesNotReach(t *testing.T) {
+	w := newTransferWorld(t)
+	w.rolledBack(t)
+	from, fromRole := w.user(t, "teacher", true)
+	to, _ := w.user(t, "teacher", false)
+	w.content(t, from)
+	alone, classed, own := w.student(t, from), w.student(t, from), w.student(t, to)
+	for _, id := range []string{classed, own} {
+		if _, err := w.q.Exec(context.Background(), `
+			INSERT INTO app.class_members (class_id, user_id, joined_via) SELECT c.id, $2::uuid, 'admin' FROM app.classes c WHERE c.teacher_id = $1::uuid AND c.archived_at IS NULL`, from, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, err := w.move(from, fromRole, to, nil)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.LeftBehind.Students != 1 {
+		t.Errorf("students left behind = %d, want 1: only %s is in no moved class", got.LeftBehind.Students, alone)
+	}
+	var left int
+	if err := w.q.QueryRow(context.Background(), `
+		SELECT (diff->>'studentsLeft')::int FROM app.audit_log WHERE action = 'user.content_transferred' AND entity_id = $1::uuid`, from).Scan(&left); err != nil || left != 1 {
+		t.Errorf("the audit row's studentsLeft = %d (%v), want 1", left, err)
 	}
 }
