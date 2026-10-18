@@ -42,22 +42,6 @@ func (w *writesWorld) roleOf(t *testing.T, q db.Querier, id string) string {
 	return role
 }
 
-func (w *writesWorld) onlyAdmins(t *testing.T, keep ...string) pgx.Tx {
-	t.Helper()
-	ctx := context.Background()
-	tx, err := w.admin.Begin(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
-	if _, err := tx.Exec(ctx, `
-		UPDATE app.users SET disabled_at = now()
-		 WHERE role_id = (SELECT r.id FROM app.roles r WHERE r.builtin_key = 'admin') AND disabled_at IS NULL AND NOT id = ANY($1::uuid[])`, keep); err != nil {
-		t.Fatal(err)
-	}
-	return tx
-}
-
 func demotion(id, role string, to roleAt) domain.RoleChange {
 	return domain.RoleChange{
 		AccountWrite: domain.AccountWrite{UserID: id, RoleID: role, Now: time.Now()},
@@ -66,13 +50,11 @@ func demotion(id, role string, to roleAt) domain.RoleChange {
 }
 
 func TestWithTwoAdminsLeftOneMayGoAndTheLastMayNot(t *testing.T) {
-	w := newWritesWorld(t)
+	w, _, first, second := newAdminsWorld(t)
 	ctx := context.Background()
-	first, second := w.account(t, "two-a", "admin"), w.account(t, "two-b", "admin")
-	teacher := w.account(t, "two-t", "teacher")
+	teacher := w.insertUser(t, "two-t", "teacher")
 	admin, teaching := w.builtinRole(t, "admin"), w.builtinRole(t, "teacher")
-	tx := w.onlyAdmins(t, first, second)
-	repo := repositories.NewAdminUsers(db.NewContext(tx), w.links)
+	repo := repositories.NewAdminUsers(w.dbx, w.links)
 
 	if err := repo.Disable(ctx, w.everything(), domain.AccountWrite{UserID: teacher, RoleID: teaching.id, Now: time.Now()}); err != nil {
 		t.Fatalf("disabling a teacher beside two Admins: %v", err)
@@ -87,19 +69,17 @@ func TestWithTwoAdminsLeftOneMayGoAndTheLastMayNot(t *testing.T) {
 		t.Errorf("demoting the last Admin: %v, want ErrLastAdmin", err)
 	}
 	var active int
-	if err := tx.QueryRow(ctx, `
+	if err := w.admin.QueryRow(ctx, `
 		SELECT count(*)::int FROM app.users WHERE role_id = $1::uuid AND disabled_at IS NULL`, admin.id).Scan(&active); err != nil || active != 1 {
 		t.Errorf("%d active Admins (%v), want the one left", active, err)
 	}
 }
 
 func TestTwoOfTwoAdminsDemotingEachOtherLeaveOne(t *testing.T) {
-	w := newWritesWorld(t)
+	w, _, first, second := newAdminsWorld(t)
 	ctx := context.Background()
-	first, second := w.account(t, "dm-a", "admin"), w.account(t, "dm-b", "admin")
 	admin, teaching := w.builtinRole(t, "admin"), w.builtinRole(t, "teacher")
-	tx := w.onlyAdmins(t, first, second)
-	repo := repositories.NewAdminUsers(db.NewContext(tx), w.links)
+	repo := repositories.NewAdminUsers(w.dbx, w.links)
 
 	if err := repo.ChangeRole(ctx, w.everything(), demotion(second, admin.id, teaching)); err != nil {
 		t.Fatalf("demoting one of two Admins: %v", err)
@@ -110,15 +90,15 @@ func TestTwoOfTwoAdminsDemotingEachOtherLeaveOne(t *testing.T) {
 }
 
 func TestThreeAdminsActingOnEachOtherInARingNeverDeadlock(t *testing.T) {
-	w := newWritesWorld(t)
+	w, _, _, _ := newAdminsWorld(t)
 	ctx := context.Background()
 	admin, teaching := w.builtinRole(t, "admin"), w.builtinRole(t, "teacher")
 	repo := repositories.NewAdminUsers(w.dbx, w.links)
 	for round := range 30 {
 		ring := []string{
-			w.account(t, fmt.Sprintf("ring%d-a", round), "admin"),
-			w.account(t, fmt.Sprintf("ring%d-b", round), "admin"),
-			w.account(t, fmt.Sprintf("ring%d-c", round), "admin"),
+			w.insertUser(t, fmt.Sprintf("ring%d-a", round), "admin"),
+			w.insertUser(t, fmt.Sprintf("ring%d-b", round), "admin"),
+			w.insertUser(t, fmt.Sprintf("ring%d-c", round), "admin"),
 		}
 		start := make(chan struct{})
 		errs := make([]error, len(ring))
@@ -149,10 +129,10 @@ func TestThreeAdminsActingOnEachOtherInARingNeverDeadlock(t *testing.T) {
 }
 
 func TestARoleChangeTheDatabaseEndsInADeadlockIsErrWriteContended(t *testing.T) {
-	w := newWritesWorld(t)
+	w, _, _, _ := newAdminsWorld(t)
 	ctx := context.Background()
-	target := w.account(t, "cr-t", "teacher")
-	last := w.account(t, "cr-l", "admin")
+	target := w.insertUser(t, "cr-t", "teacher")
+	last := w.insertUser(t, "cr-l", "admin")
 	var first string
 	if err := w.admin.QueryRow(ctx, `
 		SELECT u.id::text FROM app.users u
@@ -164,15 +144,19 @@ func TestARoleChangeTheDatabaseEndsInADeadlockIsErrWriteContended(t *testing.T) 
 		t.Fatal("the test needs an account that sorts before the last Admin")
 	}
 	role := w.roleOf(t, w.admin, target)
+	student := w.builtinRole(t, "student")
 	holder, pid := w.lockedIn(t, `SELECT 1 FROM app.users WHERE id = $1::uuid FOR NO KEY UPDATE`, last)
 
 	repo := repositories.NewAdminUsers(w.dbx, w.links)
 	written := make(chan error, 1)
 	go func() {
-		written <- repo.ChangeRole(ctx, w.everything(), demotion(target, role, w.builtinRole(t, "student")))
+		written <- repo.ChangeRole(ctx, w.everything(), demotion(target, role, student))
 	}()
 	w.waitBlockedBy(t, pid)
+	w.sleepHalfTheDeadlockDetector(t)
 	if _, err := holder.Exec(ctx, `SELECT 1 FROM app.users WHERE id = $1::uuid FOR NO KEY UPDATE`, first); err != nil {
+		_ = holder.Rollback(ctx)
+		<-written
 		t.Fatalf("the holder: %v, want the repository to lose the deadlock it detects first", err)
 	}
 
@@ -197,7 +181,7 @@ func TestADatabaseErrorThatIsNotContentionIsNotRetriedAsOne(t *testing.T) {
 	target := w.account(t, "lt-t", "teacher")
 	role := w.roleOf(t, w.admin, target)
 	w.lockedIn(t, `SELECT 1 FROM app.users WHERE id = $1::uuid FOR NO KEY UPDATE`, target)
-	tx, err := w.admin.Begin(ctx)
+	tx, err := w.dbx.Begin(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,14 +211,14 @@ func TestADatabaseErrorThatIsNotContentionIsNotRetriedAsOne(t *testing.T) {
 }
 
 func TestTheAdminsAreLockedInIdOrderAndNotInTheOrderTheTableHoldsThem(t *testing.T) {
-	w := newWritesWorld(t)
+	w, _, _, _ := newAdminsWorld(t)
 	ctx := context.Background()
-	lower, higher := w.account(t, "io-a", "admin"), w.account(t, "io-b", "admin")
-	target := w.account(t, "io-t", "teacher")
+	lower, higher := w.insertUser(t, "io-a", "admin"), w.insertUser(t, "io-b", "admin")
+	target := w.insertUser(t, "io-t", "teacher")
 	if lower >= higher || higher >= target {
 		t.Fatalf("ids %s, %s, %s are not in creation order", lower, higher, target)
 	}
-	w.exec(t, `UPDATE app.users SET email = 'moved-' || email WHERE id = $1::uuid`, lower)
+	w.placeAfter(t, lower, higher)
 	holder, pid := w.lockedIn(t, `SELECT 1 FROM app.users WHERE id = $1::uuid FOR NO KEY UPDATE`, lower)
 
 	disabled := make(chan error, 1)
@@ -260,5 +244,29 @@ func TestTheAdminsAreLockedInIdOrderAndNotInTheOrderTheTableHoldsThem(t *testing
 	}
 	if probed != nil {
 		t.Errorf("an Admin above the one the disable waits on was already locked (%v): the statement locks in table order, not id order", probed)
+	}
+}
+
+func TestAWriteInARepeatableReadTransactionThatLosesItsSnapshotIsErrWriteContended(t *testing.T) {
+	w := newWritesWorld(t)
+	ctx := context.Background()
+	target := w.insertUser(t, "sf-t", "teacher")
+	role := w.roleOf(t, w.admin, target)
+	tx, err := w.admin.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
+	if _, err := tx.Exec(ctx, `SELECT 1 FROM app.roles LIMIT 1`); err != nil {
+		t.Fatal(err)
+	}
+	w.exec(t, `UPDATE app.users SET full_name = full_name || ' x' WHERE id = $1::uuid`, target)
+	repo := repositories.NewAdminUsers(db.NewContext(tx), w.links)
+
+	err = repo.Disable(ctx, w.everything(), domain.AccountWrite{UserID: target, RoleID: role, Now: time.Now()})
+
+	var pg *pgconn.PgError
+	if !errors.Is(err, domain.ErrWriteContended) || !errors.As(err, &pg) || pg.Code != pgerrcode.SerializationFailure {
+		t.Fatalf("err = %v, want ErrWriteContended wrapping the database's 40001", err)
 	}
 }

@@ -165,6 +165,31 @@ func (w *writesWorld) sleepPastTheDeadlockDetector(t *testing.T) {
 	time.Sleep(time.Duration(detector*float64(time.Second)) + 250*time.Millisecond)
 }
 
+func (w *writesWorld) sleepHalfTheDeadlockDetector(t *testing.T) {
+	t.Helper()
+	var detector float64
+	if err := w.admin.QueryRow(context.Background(), `SELECT extract(epoch FROM current_setting('deadlock_timeout')::interval)`).Scan(&detector); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(time.Duration(detector * float64(time.Second) / 2))
+}
+
+func (w *writesWorld) placeAfter(t *testing.T, moved, fixed string) {
+	t.Helper()
+	for range 50 {
+		var after bool
+		if err := w.admin.QueryRow(context.Background(), `
+			SELECT (SELECT ctid FROM app.users WHERE id = $1::uuid) > (SELECT ctid FROM app.users WHERE id = $2::uuid)`, moved, fixed).Scan(&after); err != nil {
+			t.Fatal(err)
+		}
+		if after {
+			return
+		}
+		w.exec(t, `UPDATE app.users SET email = 'm' || email WHERE id = $1::uuid`, moved)
+	}
+	t.Fatalf("account %s never moved past %s in the table", moved, fixed)
+}
+
 func TestADisableLocksItsTargetInIdOrderAmongTheAdmins(t *testing.T) {
 	w := newWritesWorld(t)
 	ctx := context.Background()
@@ -200,10 +225,10 @@ func TestADisableLocksItsTargetInIdOrderAmongTheAdmins(t *testing.T) {
 }
 
 func TestADeadlockTheRepositoryLosesIsErrWriteContendedWithTheDatabaseErrorKept(t *testing.T) {
-	w := newWritesWorld(t)
+	w, _, _, _ := newAdminsWorld(t)
 	ctx := context.Background()
-	target := w.account(t, "rt", "teacher")
-	last := w.account(t, "rl", "admin")
+	target := w.insertUser(t, "rt", "teacher")
+	last := w.insertUser(t, "rl", "admin")
 	var first, role string
 	if err := w.admin.QueryRow(ctx, `
 		SELECT u.id::text FROM app.users u
@@ -225,7 +250,10 @@ func TestADeadlockTheRepositoryLosesIsErrWriteContendedWithTheDatabaseErrorKept(
 		written <- repo.Disable(ctx, w.everything(), domain.AccountWrite{UserID: target, RoleID: role, Now: time.Now()})
 	}()
 	w.waitBlockedBy(t, pid)
+	w.sleepHalfTheDeadlockDetector(t)
 	if _, err := holder.Exec(ctx, `SELECT 1 FROM app.users WHERE id = $1::uuid FOR NO KEY UPDATE`, first); err != nil {
+		_ = holder.Rollback(ctx)
+		<-written
 		t.Fatalf("the holder: %v, want the repository to lose the deadlock it detects first", err)
 	}
 
