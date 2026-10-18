@@ -309,6 +309,15 @@ describe("the students search and the URL", () => {
     expect(box).toHaveValue("nguyen");
   });
 
+  it("asks for a search from a link without its outer spaces, and shows it as written", async () => {
+    const asked = serveStudents([AN, BINH]);
+    renderStudents(teacherUser, "/teacher/students?q=%20An%20");
+    await table();
+
+    expect(asked.at(-1)?.get("q")).toBe("An");
+    expect(screen.getByRole("searchbox")).toHaveValue(" An ");
+  });
+
   it("puts the text of an outside change of the URL in the box", async () => {
     serveStudents([AN, BINH]);
     const { router } = renderStudents(teacherUser);
