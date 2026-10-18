@@ -205,17 +205,17 @@ places: the GitHub environment `production-maintenance` (as the secret
 `cmd/maintenance` command, not only the sweep, so its reach is the sum of them. Whoever holds the
 credential can read every answer payload and every account's name and email; move exam windows
 (`closes_at`, `deadline_at`); change the AI allowance and credit counters; rewrite join-code
-ciphertexts; delete focus events and sessions (refresh tokens); and anonymise an account that
-owns no class or content and is not the last active Admin, which cannot be undone for that
-account's sign-in. It cannot sign in as anyone and cannot read a password or a token. A trigger on
+ciphertexts; delete focus events and sessions (refresh tokens); and anonymise any account that
+is not the last active Admin, a teacher who owns classes or content included, which cannot be
+undone for that account's sign-in. It cannot sign in as anyone and cannot read a password or a token. A trigger on
 `app.users` (migration `00139`) refuses, with `42501`, every update the role makes that does not
 leave the account anonymised (the reserved address, no password hash, no phone, photo or display
 name, and disabled), so the role can set neither an email nor a password hash nor enable an
 account again, alone or together; and it holds no `INSERT` on `user_identities` or
 `set_password_tokens`, so it cannot reopen an anonymised row either. The database refuses to
-anonymise the last active Admin and any account that owns a class or content; the sweep and
-`anonymize-user` skip them first, so the refusal fires only on a race or a hostile credential. It
-does not check attempts in progress: the role can anonymise a student who is sitting a test. It also cannot change a `role_id`, update or delete the
+anonymise only the last active Admin; skipping an owner of classes or content, or an account with
+an attempt in progress, is the sweep's and `anonymize-user`'s rule, which direct SQL with the
+credential does not follow. It also cannot change a `role_id`, update or delete the
 audit log or the AI ledger, or create or own a table, schema or function. It can change its own
 password and create large objects, because PostgreSQL gives every role both.
 

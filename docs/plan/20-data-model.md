@@ -3922,18 +3922,11 @@ trigger function with a pinned `search_path`, no `EXECUTE` for `PUBLIC`, fired `
 `disabled_at IS NOT NULL`, and `phone`, `avatar_key` and `display_name` NULL. That is exactly what the anonymise
 statement writes and all it writes (`full_name` is a name, not a credential, and is not pinned). The role holds no
 `INSERT` on `user_identities` or `set_password_tokens`, so it cannot reopen an anonymised row. Every other role pays one
-`current_user` test. When the update anonymises an account (the old email is not already the reserved address), the
-function also refuses, with the same code, an account that owns a class or content: `classes.teacher_id`,
-`tests`, `questions`, `question_groups` and `media_assets` `.owner_id` and `assignments.created_by`, the six
-columns `ownsContent` reads, which is the rule the sweep and `anonymize-user` apply and the reason the role holds
-`SELECT` on those columns (QC-RS-17). It does not refuse an account with an attempt in progress, which only the
-commands skip, so the role can still anonymise a student who is sitting a test, or any other account that is not
-the last active Admin and owns nothing; `operations.md` states that among the costs of a leak. An update to an
-account that is already anonymised is not checked again. The database therefore refuses to anonymise the last active
-Admin and any account that owns a class or content; the sweep and `anonymize-user` skip them first, so the refusal
-fires only on a race or a hostile credential, and the sweep does not catch it (D-048). The owner rule is written
-twice, as `ownsContent` in `core/maintenance/anonymize.go` and in this function, so **a new owner column is added to
-both**, and `role_test.go` has one case for each of the six.
+`current_user` test. Which accounts may be anonymised is not the trigger's rule: the sweep and `anonymize-user`
+skip an account that owns classes or content (`ownsContent`, which reads the six owner columns the role holds
+`SELECT` on) or has an attempt in progress, and `users_last_admin` refuses the last active Admin. The credential can
+therefore anonymise any other account by direct SQL, a teacher's included, and `operations.md` states that among the
+costs of a leak (QC-RS-17; the owner chose on 2026-10-16 not to enforce the owner rule in the trigger).
 Anonymisation clears `users.avatar_key` and does not delete the photo object, which T-R5.16's housekeeping removes
 for anonymised accounts (`email = 'anonymous-' || id || '@anonymous.invalid'`).
 

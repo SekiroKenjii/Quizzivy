@@ -73,11 +73,9 @@ GRANT SELECT (owner_id) ON app.media_assets TO quizzivy_maintenance;
 -- sweep and anonymize-user write and all they write; full_name is a name, not a
 -- credential, and is not pinned. The role can insert neither an identity nor a
 -- set-password link, so an anonymised row cannot be reopened by it either.
--- The same rule the sweep and anonymize-user apply is the database's too: an
--- account that owns a class or content is not anonymised by this role, so a
--- leaked credential cannot cut off a teacher's sign-in (the owner columns above
--- are readable to the role for exactly this check). An account that is already
--- anonymised is not checked again.
+-- Which accounts may be anonymised is the commands' rule, not the trigger's: the
+-- sweep and anonymize-user skip an account that owns classes or content, and
+-- users_last_admin keeps the last active Admin.
 --
 -- SECURITY INVOKER, because the checks read only the rows this role may read;
 -- search_path is pinned and every type is schema-qualified, as 00059 does for
@@ -97,16 +95,6 @@ BEGIN
      AND NEW.phone IS NULL
      AND NEW.avatar_key IS NULL
      AND NEW.display_name IS NULL THEN
-    IF OLD.email IS DISTINCT FROM NEW.email
-       AND (EXISTS (SELECT 1 FROM app.classes c WHERE c.teacher_id = NEW.id)
-         OR EXISTS (SELECT 1 FROM app.tests t WHERE t.owner_id = NEW.id)
-         OR EXISTS (SELECT 1 FROM app.questions q WHERE q.owner_id = NEW.id)
-         OR EXISTS (SELECT 1 FROM app.question_groups g WHERE g.owner_id = NEW.id)
-         OR EXISTS (SELECT 1 FROM app.media_assets m WHERE m.owner_id = NEW.id)
-         OR EXISTS (SELECT 1 FROM app.assignments s WHERE s.created_by = NEW.id)) THEN
-      RAISE EXCEPTION 'quizzivy_maintenance may not anonymise an account that owns classes or content'
-        USING ERRCODE = 'insufficient_privilege';
-    END IF;
     RETURN NEW;
   END IF;
   RAISE EXCEPTION 'quizzivy_maintenance may only leave an account anonymised'
