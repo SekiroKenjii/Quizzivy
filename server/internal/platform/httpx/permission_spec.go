@@ -15,6 +15,11 @@ import (
 // operation's permission in.
 const PermissionExtension = "x-permission"
 
+// TemporaryPasswordExtension is the operation field api/openapi.yaml marks an
+// operation open to an account that must still change its temporary password
+// in. Only an operation that declares the pseudo-key self may carry it.
+const TemporaryPasswordExtension = "x-allows-temporary-password"
+
 const adminTree = "/admin/"
 
 // PermissionRequirements reads every operation's x-permission into a map keyed
@@ -29,6 +34,8 @@ const adminTree = "/admin/"
 // people.roles.manage, system keys, ai.credits.manage, scope.all and
 // workspace.admin; /app/ takes learning.take_tests;
 // /auth/ and /me/ take self; /public/ and /join/ hold open operations only.
+// An operation may also declare x-allows-temporary-password: true, which only
+// one declaring self may, and which its requirement carries.
 func PermissionRequirements(spec *openapi3.T, scheme string) (map[string]access.Requirement, error) {
 	out := map[string]access.Requirement{}
 	var problems []string
@@ -39,11 +46,11 @@ func PermissionRequirements(spec *openapi3.T, scheme string) (map[string]access.
 			}
 			pattern := method + " " + path
 			keys, err := declaredPermission(op, path, !requiresScheme(op.Security, spec.Security, scheme))
-			switch {
-			case err != nil:
+			if err == nil && keys != nil {
+				out[pattern], err = requirementOf(op, keys)
+			}
+			if err != nil {
 				problems = append(problems, pattern+": "+err.Error())
-			case keys != nil:
-				out[pattern] = access.AnyOf(keys...)
 			}
 		}
 	}
@@ -53,6 +60,24 @@ func PermissionRequirements(spec *openapi3.T, scheme string) (map[string]access.
 			PermissionExtension, strings.Join(problems, "\n  "))
 	}
 	return out, nil
+}
+
+func requirementOf(op *openapi3.Operation, keys []access.Key) (access.Requirement, error) {
+	requirement := access.AnyOf(keys...)
+	raw, declared := op.Extensions[TemporaryPasswordExtension]
+	if !declared {
+		return requirement, nil
+	}
+	allowed, ok := raw.(bool)
+	switch {
+	case !ok:
+		return requirement, fmt.Errorf("%s declares %v, which is not true or false", TemporaryPasswordExtension, raw)
+	case allowed && (len(keys) != 1 || keys[0] != access.Self):
+		return requirement, fmt.Errorf("%s is allowed only with the pseudo-key %q", TemporaryPasswordExtension, access.Self)
+	case allowed:
+		return requirement.AllowingTemporaryPassword(), nil
+	}
+	return requirement, nil
 }
 
 func declaredPermission(op *openapi3.Operation, path string, open bool) ([]access.Key, error) {

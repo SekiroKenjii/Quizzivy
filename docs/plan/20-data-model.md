@@ -1539,9 +1539,10 @@ the file it adds.
 | `00132_create_user_activity_days.sql` | `user_activity_days (user_id REFERENCES users ON DELETE CASCADE, day date, PRIMARY KEY (user_id, day))` and `user_activity_days_day_idx (day)` | R5 (T-R5.4), D-52, §50 |
 | `00134_create_data_exports.sql` | `data_exports`, its checks (`data_exports_ready_has_file`, `data_exports_failed_has_code`), the active index `data_exports_active_idx` and `data_exports_requested_by_idx` | R5 (T-R5.15), D-54, §52 |
 | `00135_create_set_password_tokens.sql` | `set_password_tokens`, its checks (`token_hash` length, `purpose`, the 24-hour bound), `set_password_tokens_token_hash_key` and `set_password_tokens_user_idx` | R5 (T-R5.3), D-55, §53 |
-| `00136_create_user_import_jobs.sql` | `user_import_jobs`, its checks (counts, `attempts`, `user_import_jobs_done_settled`, `user_import_jobs_failed_has_code`, `user_import_jobs_completed_has_end`, `user_import_jobs_started_once_claimed`, `user_import_jobs_sheet_only_by_sheet`), `user_import_jobs_request_key` and the open-jobs index `user_import_jobs_open_idx` | R5 (T-R5.14), D-56, §54 |
-| `00137_create_user_import_rows.sql` | `user_import_rows`, its checks (`user_import_rows_outcome_check`, `user_import_rows_secret_only_when_created`) and the `user_id` and `class_id` partial indexes | R5 (T-R5.14), D-57, §54 |
+| `00136_create_user_import_jobs.sql` | `user_import_jobs`, its checks (counts, `attempts`, `user_import_jobs_done_settled`, `user_import_jobs_failed_has_code`, `user_import_jobs_completed_has_end`, `user_import_jobs_started_once_claimed`, `user_import_jobs_sheet_only_by_sheet`), `user_import_jobs_request_key` and the open-jobs index `user_import_jobs_open_idx` | R5 (T-R5.14), D-56, §55 |
+| `00137_create_user_import_rows.sql` | `user_import_rows`, its checks (`user_import_rows_outcome_check`, `user_import_rows_secret_only_when_created`) and the `user_id` and `class_id` partial indexes | R5 (T-R5.14), D-57, §55 |
 | `00138_index_users_search.sql` | `users_search_trgm_idx`, built `CONCURRENTLY` (no transaction) | R5 (T-R5.9a), D-58 |
+| `00139_grant_maintenance_role.sql` | the grants of `quizzivy_maintenance`, column by column; fails when the role is missing; `app.users_maintenance_guard()` and its trigger `users_maintenance_guard` on `app.users` | R5 (T-R5.17a), §55 |
 
 Notes on migration mechanics (§13.7):
 
@@ -1602,8 +1603,9 @@ Notes on migration mechanics (§13.7):
 ## 15. Approved retention maintenance (2026-09-22)
 
 `00029_index_integrity_retention.sql` adds `(received_at, id)` concurrently to
-support bounded owner-role deletion strictly before the UTC thirteen-month
-cutoff, with assignment closure also older than that cutoff. Down drops the index concurrently. No application privileges change.
+support bounded deletion strictly before the UTC thirteen-month
+cutoff, with assignment closure also older than that cutoff; since R5 the months are the organization's setting
+and the role is `quizzivy_maintenance` (§55). Down drops the index concurrently. No application privileges change.
 `audit_log` remains append-only and retained. Manual anonymization keeps user
 IDs and historical relationships while removing structured identity and login
 credentials. See `../setup/operations.md` for execution and privacy limits.
@@ -2757,8 +2759,9 @@ CREATE TABLE app.assignment_student_overrides (
 accommodation they gave. The previous release neither reads nor writes the table, so
 the table needs no expand step, and a rolled-back binary leaves its rows alone. The
 app role holds the usual `SELECT, INSERT, UPDATE, DELETE` through the default
-privileges. R5's `grant_maintenance_role` grants `quizzivy_maintenance` `SELECT,
-UPDATE (closes_at)` on it for the maintenance extension (T-R4.12b).
+privileges. `00139_grant_maintenance_role.sql` grants `quizzivy_maintenance` `SELECT` of
+`assignment_id, student_id, closes_at` and `UPDATE (closes_at)` on it for the maintenance extension
+(T-R4.12b, §55).
 
 **The merge.** `setStudentOverrides` computes the merged row in its `wanted`
 CTE, from the existing override, and inserts that row: PostgreSQL checks the
@@ -3281,9 +3284,8 @@ transaction it rolls back, with no notifier, so nothing is written and nobody is
 **Privileges.** The app role has full DML on the five tables that hold balances and requests
 (the default privileges of `00009`) and only `INSERT` and `SELECT` on `ai_usage_ledger`;
 `privileges_test.go` lists the ledger beside `audit_log` and `attempt_events`. `cmd/maintenance`
-runs as the owner or maintenance credential `MAINTENANCE_DATABASE_URL` names. When R5's
-`grant_maintenance_role` moves it to `quizzivy_maintenance`, `ai-credits` and
-`ai-reservations-sweep` need `SELECT`, `INSERT` and `UPDATE` on `ai_credit_periods` and
+runs as `quizzivy_maintenance`, which `00139_grant_maintenance_role.sql` (§55) gave what `ai-credits` and
+`ai-reservations-sweep` need: `SELECT`, `INSERT` and `UPDATE` on `ai_credit_periods` and
 `ai_teacher_credits`, `SELECT` and `UPDATE` on `ai_settings` and `ai_credit_requests`, `SELECT` and
 `DELETE` on `ai_reservations`, `INSERT` and `UPDATE` on `notifications` (the upsert that tells a
 teacher), `INSERT` on `audit_log`, and `SELECT` on the users, roles and grants they read; they
@@ -3560,6 +3562,14 @@ the API and the worker run side by side while a deploy rolls out. A release ther
 renames a template while rows of it can be pending. The timer is armed only for the earliest pending
 `deliver_after` of a known template, so an empty outbox never wakes the database.
 
+**Cancelling.** Disabling an account (T-R5.9b) calls `email.CancelPending(ctx, tx, userID, at)` on the disabling
+transaction: every pending row whose `to_user_id` is that account is set to `failed_at = at`,
+`last_error_code = 'cancelled'` and `secret_ciphertext = NULL`, so a queued invite or reset link can no longer be
+sent and carries no sealed token. The statement claims its rows `FOR UPDATE SKIP LOCKED`: a row a dispatcher
+holds in its batch is sent, which is the same as the message having gone a moment before the disable. Enabling the
+account again requeues nothing; an Admin who wants the person back sends a new link through Reset. `cancelled`
+joins the codes a failed row can carry and is not retried.
+
 **Retention.** The daily housekeeping (T-R5.16, `core/jobs.Housekeep`) deletes, oldest first and 500 at a time,
 the rows whose `sent_at` or `failed_at` is more than 30 days old (`email.Retention`). A pending row is never
 touched, however old. The delete reads the table in order of the outcome's instant without an index: the table
@@ -3711,7 +3721,7 @@ not disabled. Every other state is one `domain.ErrSetPasswordLinkInvalid`, and t
 `410 SET_PASSWORD_LINK_INVALID` with one body, so nothing says which state a link is in. A link is revoked by
 issuing another to the same account (`RevokeUnused`), using one (`Claim` revokes the account's other unused
 links), or disabling the account: `Students.Update` runs the same `revokeUnusedLinks` in the transaction that
-sets `disabled_at`, beside the revoke of the refresh families, and the anonymisation command deletes the rows.
+sets `disabled_at`, beside the revoke of the refresh families, and the anonymisation command revokes them (§55).
 Enabling the account again issues nothing, so a disable then an enable within 24 hours leaves the old link
 revoked and an Admin sends a new one through Reset. The lookup's `AccountDisabled` check and the claim's
 `disabled_at IS NULL` stay as the second line, for a link issued in the instant before a disable.
@@ -3753,7 +3763,7 @@ whose row is gone is refused as any unknown one is. The batch locks its rows `FO
 was never revoked is also a target of `RevokeUnused`, and a delete that waited on rows in its own order could
 deadlock with it; a locked row is left for the next run. The scan has no index of its own, because the table holds the
 links of 30 days; the cascade from `users` keeps using `set_password_tokens_user_idx`. The anonymisation command
-deletes a user's links outright (see States), so this sweep is for the links of accounts that live on.
+revokes a user's unused links (§55) and leaves the rows to this sweep, which removes them 30 days on like any other.
 
 **Tests.** `identity/domain/tests/setpassword_test.go` (token shape, the purposes, the usable states),
 `identity/application/tests/set_password_test.go` (every path against fakes: the order of the writes, forgets
@@ -3884,3 +3894,129 @@ each reader error's code and both languages, no echo of the file), `core/adapter
 422, 501, the rate limit). The worker and the sheet: `identity/application/tests/user_import_worker_db_test.go`
 (batches, the lease and its loss, the third claim, each failure code, a role edited in between, an archived class,
 the sheet's single use) and `server/tests/user_import_flow_test.go` (the router and the worker runner together).
+
+## 55. The maintenance role and the retention sweep (T-R5.17a, D16)
+
+`00139_grant_maintenance_role.sql` gives `quizzivy_maintenance` what `cmd/maintenance` uses and nothing else.
+`scripts/provision-db.sh` creates the role (`LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE CONNECTION LIMIT 2`,
+password from `QUIZZIVY_MAINTENANCE_PASSWORD`) and grants it `CONNECT`, as it does the other two. On a database
+that is not local it sets that password and no other, and grants no `CREATEDB`; a local run keeps the development
+defaults. The migration
+fails when the role is missing, so there is no conditional grant. The role owns nothing, creates nothing, has
+no privilege on a sequence (an identity column's insert needs none) and none on `ai_usage_ledger`, and holds
+`INSERT` alone on `audit_log` and no `UPDATE` or `TRUNCATE` on `attempt_events`. It holds `USAGE` on schema `app`
+and on schema `public`, the second because `app.immutable_unaccent` calls `public.unaccent` and the trigram
+indexes on a user's name and email call it on every write: `scripts/provision-db.sh` denies `public` to
+everyone else, and the first role-world run of the accounts step failed on exactly that. It has no `CREATE`
+anywhere. Down revokes every grant the role holds in the schema, the sequences and `USAGE` on both schemas. The `CONNECTION LIMIT` is cluster-wide, so
+the command's pool is capped at two and the tests that connect as the role do not run at the same time.
+
+**Which answers are due (D-035).** `shared/retention.EndedBefore` over `AttemptJoins` reads an attempt's own
+student's close, `greatest(least(closed_at, closes_at), assignment_student_overrides.closes_at)`
+(`schedule.CloseOf("o")`), so an assignment reopened for one student does not lose that student's answers while it
+is open to them. The events step reads the same close (`retention.ClosedBefore`, D-041): the 00029 command read
+`coalesce(closed_at, closes_at)` on the assignment alone, which predates R4's per-student closes (00101), so it was a
+rule nobody had revisited and not a decision, and two steps that disagree about when an assignment closed would be
+harder to explain than one. The step pages by `(received_at, id)` on `attempt_events_retention_idx`, each batch
+starting after the last event the one before took, so events an extension keeps alive are read once and not again by
+every later batch (QC-RS-19: 150,000 held events cost the unpaged step 5 minutes 41 seconds for 446,900 events, and 7
+seconds paged).
+
+**The guard on `app.users` (D-042).** The role's `UPDATE` on the identity columns is what anonymising needs and is also
+what a leaked credential would use to take an account over. `app.users_maintenance_guard()` is a `SECURITY INVOKER`
+trigger function with a pinned `search_path`, no `EXECUTE` for `PUBLIC`, fired `BEFORE UPDATE FOR EACH ROW WHEN
+(current_user = 'quizzivy_maintenance')`; it raises `42501` unless the new row is anonymised:
+`email = 'anonymous-' || id || '@anonymous.invalid'`, `password_hash IS NULL`, `must_change_password = false`,
+`disabled_at IS NOT NULL`, and `phone`, `avatar_key` and `display_name` NULL. That is exactly what the anonymise
+statement writes and all it writes (`full_name` is a name, not a credential, and is not pinned). The role holds no
+`INSERT` on `user_identities` or `set_password_tokens`, so it cannot reopen an anonymised row. Every other role pays one
+`current_user` test. Which accounts may be anonymised is not the trigger's rule: the sweep and `anonymize-user`
+skip an account that owns classes or content (`ownsContent`, which reads the six owner columns the role holds
+`SELECT` on) or has an attempt in progress, and `users_last_admin` refuses the last active Admin. The credential can
+therefore anonymise any other account by direct SQL, a teacher's included, and `operations.md` states that among the
+costs of a leak (QC-RS-17; the owner chose on 2026-10-16 not to enforce the owner rule in the trigger).
+Anonymisation clears `users.avatar_key` and does not delete the photo object, which T-R5.16's housekeeping removes
+for anonymised accounts (`email = 'anonymous-' || id || '@anonymous.invalid'`).
+
+| Table | Privilege | Columns | Used by |
+|---|---|---|---|
+| `organization_settings` | `SELECT` | the three retention columns | the sweep, `retain-integrity` |
+| `attempts` | `SELECT`, `UPDATE` | `id, assignment_id, student_id, status, submitted_at, deadline_at`; `deadline_at` | the sweep and `anonymize-user` read; `window-schedule` extends |
+| `assignments` | `SELECT`, `UPDATE` | `id, created_by, published_at, closed_at, closes_at`; `closes_at` | the same |
+| `assignment_student_overrides` | `SELECT`, `UPDATE` | `assignment_id, student_id, closes_at`; `closes_at` | the answers and events steps read a student's own close; `window-schedule` (T-R4.12b) extends |
+| `attempt_answers` | `SELECT`, `UPDATE` | `attempt_id, question_id, payload`; `payload` | the answers step |
+| `attempt_events` | `SELECT`, `DELETE` | `id, attempt_id, received_at` | the events step |
+| `users` | `SELECT`, `UPDATE` | `id, email, full_name, display_name, role_id, disabled_at`; `email, full_name, display_name, phone, avatar_key, password_hash, must_change_password, disabled_at` | the accounts step |
+| `student_like_roles`, `roles`, `role_permissions` | `SELECT` | all | the placeholder name; the AI status read |
+| `user_identities`, `refresh_tokens` | `SELECT (user_id)`, `DELETE` | | the accounts step |
+| `set_password_tokens` | `SELECT`, `UPDATE` | `user_id, used_at, revoked_at`; `revoked_at` | the accounts step revokes unused links |
+| `notifications` | `SELECT`, `INSERT`, `UPDATE`, `DELETE` | `id, user_id, kind, params, target, dedupe_key`; `user_id, kind, params, target, dedupe_key`; `kind, params, target, read_at` | the accounts step deletes; the AI commands upsert |
+| `notification_preferences` | `SELECT` | `user_id, event, in_app` | the AI commands' notices |
+| `classes`, `tests`, `questions`, `question_groups`, `media_assets` | `SELECT (teacher_id)` or `(owner_id)` | | the owner check |
+| `audit_log` | `INSERT` | all | every command |
+| `maintenance_windows` | `SELECT`, `INSERT`, `UPDATE` | all; `starts_at, ends_at`; `ends_at, cancelled_at` | the window commands |
+| `class_join_codes` | `SELECT`, `UPDATE` | `id, class_id, revoked_at, code_ciphertext, key_id, lookup_scheme`; `code_hash, code_ciphertext, key_id` | `rekey-join-codes` |
+| `ai_credit_periods`, `ai_teacher_credits` | `SELECT`, `INSERT`, `UPDATE` | all | `ai-credits` |
+| `ai_settings`, `ai_credit_requests` | `SELECT`, `UPDATE` | all | `ai-credits` |
+| `ai_reservations` | `SELECT`, `DELETE` | all | `ai-reservations-sweep` |
+
+`platform/db/tests/privileges_test.go` reads the role's effective column privileges from the catalogue and
+compares them with this list, in both directions: a grant nothing uses fails as surely as a missing one.
+
+**What column privileges cost the SQL.** `FOR UPDATE` and `FOR SHARE` need `UPDATE` on the table, so a row is
+locked only where the role holds it; `RETURNING col` needs `SELECT` on `col`, so a data-modifying CTE that feeds
+`audit_log` returns nothing the role cannot read (`RETURNING 1`, or no `RETURNING`, needs none); and
+`ON CONFLICT … DO UPDATE` needs `SELECT` on its inference columns and on every `EXCLUDED` column it reads. A
+missing grant on `notifications` is not an error to the AI commands: `cqrs.Announce` swallows a notice's
+failure, so the teacher was simply not told, and the role test asserts that the notification exists.
+
+**Settings to cutoffs.** `keep_answers_months`, `keep_focus_events_months` and
+`anonymise_disabled_after_months` (§51) become `(now() at time zone 'UTC' - N months) at time zone 'UTC'`,
+read once per step, and every comparison is a strict `<`. A row exactly at the cutoff stays.
+
+**Answers.** An attempt is eligible when it has ended, `status IN ('submitted', 'timed_out', 'graded',
+'voided')`, `coalesce(submitted_at, deadline_at)` is before the cutoff (a voided attempt that was never submitted
+ends at its deadline) and the close of its assignment for its student, `schedule.CloseOf("o")` (`greatest(least(closed_at,
+closes_at), override.closes_at)`), is too. The rule
+is `shared/retention.EndedBefore`, which the sweep, its dry run and the settings page's impact count (T-R5.17b)
+all build their SQL from, and the statuses are listed so that a status added later has to be considered. An
+attempt in progress is never eligible, however overdue, because the lazy close that ends it scores it from the
+stored answers; the report counts those as `overdueInProgress` (`OverdueInProgressBefore`). Each eligible
+answer whose `payload` is not already `{"removed": true}` gets that payload; the scores, comments and grader stay. A batch
+is `-batch` attempts picked by id after the last one (a keyset, not an offset), their answers locked
+`FOR UPDATE OF x SKIP LOCKED`, and one `retention.answers_removed {cutoff, attempts, answers, databaseRole}`
+entry for the batch when it removed any. An answer row another transaction holds is skipped and taken by the next run.
+
+**Events.** `RetainEvents` with `keep_focus_events_months`: an event is eligible when `received_at` is before the cutoff
+and the assignment has closed for the attempt's student before it (`retention.ClosedBefore`, the same close as the
+answers, D-041). At the default 13 it deletes what 00029's command deleted except the events of a student whose
+extension is still open. A batch is `-batch` events in `(received_at, id)` order, and one `integrity.retained` entry
+for the batch.
+
+**Accounts.** A user disabled before the cutoff, not already anonymous (`email = 'anonymous-' || id ||
+'@anonymous.invalid'`), is anonymised unless they own a class, a test, a question, a group, a media asset or an
+assignment, or have an attempt in progress. Owners and the in-progress are counted in the report, not touched.
+`users.created_by` is not read: an Admin reaches an account they created through the Users directory.
+The statement is one data-modifying CTE per batch: it deletes the notifications whose `params` hold the user's
+full or display name as a value (the names are a `MATERIALIZED` set the notifications are joined to; written as
+`= ANY(array)` inside a correlated `EXISTS`, the planner re-aggregated the 500 users' names for every
+notification and a batch took 256 seconds over 50,000 notifications, where the join takes 0.4), the Google link and the refresh tokens, revokes the unused set-password links
+(`revoked_at = now()` where `user_id` matches and `used_at` and `revoked_at` are NULL, the statement a disable
+runs, so §53's states stay true and the role needs no `DELETE` there), rewrites the user, and writes
+`user.anonymized` for each. The student placeholder name is for a user whose role is in `student_like_roles`,
+"Người dùng đã ẩn danh" for any other. `anonymize-user` runs the same statement for one id on request, without
+the cutoff, and refuses an owner or an attempt in progress; the `users_last_admin` trigger refuses the last
+active Admin, because anonymising disables the account.
+
+**Audit.** Every sweep entry has `actor_user_id` NULL and `databaseRole` in its diff, so the log shows which
+credential did it. `attempt_answers` is an All-only entity in the audit console (`audit/domain/categories.go`), so only the All tab
+lists it.
+
+**Tests.** `core/maintenance/tests/retention_test.go` runs each step at, just before and just after its cutoff
+in two worlds, one transaction on a shared scratch database as the owner and one scratch database per test with
+the role's own pool, so a missing grant fails a test and not production. The defaults touch no answer and no
+account; owners and in-progress attempts are skipped; a notification naming an anonymised user is gone; a second
+run changes nothing; a dry run writes nothing and runs read-only; and every audit entry has a NULL actor.
+`role_test.go` runs the window commands, `rekey-join-codes`, the AI commands and `retain-integrity` as the role.
+A scratch database is created by the migrate role (`CREATEDB`, `scripts/provision-db.sh`), migrated, and dropped
+with the test; `TEST_MAINTENANCE_DATABASE_URL` names the role, and in CI its absence fails the test.

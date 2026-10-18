@@ -20,6 +20,13 @@ type composingShelf struct {
 	guardedShelf
 	created domain.NewStudent
 	patched domain.StudentPatch
+	stored  map[string]string
+}
+
+func (c *composingShelf) Get(ctx context.Context, scope access.Scope, id string) (domain.Student, error) {
+	student, err := c.guardedShelf.Get(ctx, scope, id)
+	student.Email = c.stored[id]
+	return student, err
 }
 
 func (c *composingShelf) Create(_ context.Context, _ domain.WriteRequest, in domain.NewStudent) (domain.Student, error) {
@@ -164,5 +171,76 @@ func TestAProfileNameComposingLeavesOverItsLimitIsRefusedByTheNamedError(t *test
 				t.Fatal("a refused profile reached the repository")
 			}
 		})
+	}
+}
+
+func TestAStudentWhoseStoredAddressHoldsAnInvisibleCharacterCanBeSavedWithItUnchangedButNotWithAnother(t *testing.T) {
+	stored := "a" + string(rune(0x2800)) + "@example.com"
+	name := "An"
+	for label, c := range map[string]struct {
+		sent    string
+		refused bool
+	}{
+		"the stored address as it is":       {sent: stored},
+		"another address with the same gap": {sent: "b" + string(rune(0x2800)) + "@example.com", refused: true},
+		"a clean address":                   {sent: "a@example.com"},
+		"a variation selector added":        {sent: "a@example.com" + string(rune(0xfe0f)), refused: true},
+		"only the case changed":             {sent: "A" + string(rune(0x2800)) + "@example.com", refused: true},
+	} {
+		t.Run(label, func(t *testing.T) {
+			app, shelf := composingStudents()
+			shelf.stored = map[string]string{"pupil": stored}
+			patch := domain.StudentPatch{ID: "pupil", FullName: &name, Email: &c.sent}
+			_, err := app.Commands.UpdateStudent.Handle(context.Background(), command.UpdateStudent{Request: writer(), Input: patch})
+			var invalid *validation.Error
+			if c.refused {
+				if !errors.As(err, &invalid) || invalid.Fields[0].Field != "email" || len(shelf.writes) != 0 {
+					t.Fatalf("err=%v writes=%v, want a refusal on email before any write", err, shelf.writes)
+				}
+				return
+			}
+			if err != nil || len(shelf.writes) != 1 {
+				t.Fatalf("err=%v writes=%v, want the update made", err, shelf.writes)
+			}
+		})
+	}
+}
+
+func TestACreatedStudentWithARefusedNameIsRefusedInBothLanguages(t *testing.T) {
+	for label, name := range map[string]string{
+		"empty":    "   ",
+		"too long": strings.Repeat("a", domain.MaxFullNameLength+1),
+		"hidden":   "An" + string(rune(0x200b)),
+		"no glyph": "́",
+	} {
+		t.Run(label, func(t *testing.T) {
+			app, _ := composingStudents()
+			_, err := app.Commands.CreateStudent.Handle(context.Background(), command.CreateStudent{Request: writer(), Input: domain.NewStudent{
+				Email: "a@example.com", FullName: name,
+			}})
+			var invalid *validation.Error
+			if !errors.As(err, &invalid) || len(invalid.Fields) != 1 {
+				t.Fatalf("err=%v", err)
+			}
+			field := invalid.Fields[0]
+			if field.Field != "fullName" || field.Message == "" || field.English == "" || field.English == field.Message {
+				t.Fatalf("field=%+v, want a Vietnamese and an English sentence", field)
+			}
+		})
+	}
+}
+
+func TestACreatedStudentWithAnInvisibleAddressIsRefusedInTheCallersLanguage(t *testing.T) {
+	app, _ := composingStudents()
+	_, err := app.Commands.CreateStudent.Handle(context.Background(), command.CreateStudent{Request: writer(), Input: domain.NewStudent{
+		Email: "a" + string(rune(0x200b)) + "@example.com", FullName: "An",
+	}})
+	var invalid *validation.Error
+	if !errors.As(err, &invalid) || len(invalid.Fields) != 1 {
+		t.Fatalf("err=%v", err)
+	}
+	field := invalid.Fields[0]
+	if !strings.Contains(field.Message, "U+200B") || !strings.Contains(field.English, "U+200B") || field.English == field.Message {
+		t.Fatalf("field=%+v, want a Vietnamese and an English sentence naming U+200B", field)
 	}
 }

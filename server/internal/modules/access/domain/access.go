@@ -24,11 +24,13 @@ type Role struct {
 }
 
 // PrincipalRow is what one read returns about a user: the role, whether the
-// account is disabled, and the session epoch its tokens must carry.
+// account is disabled, the session epoch its tokens must carry and whether it
+// must still change a temporary password.
 type PrincipalRow struct {
-	Role     Role
-	Disabled bool
-	Epoch    int
+	Role               Role
+	Disabled           bool
+	Epoch              int
+	MustChangePassword bool
 }
 
 // RoleRow is a role with what the Roles & permissions matrix shows of it: its

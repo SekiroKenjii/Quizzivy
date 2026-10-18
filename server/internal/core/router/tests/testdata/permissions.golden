@@ -101,6 +101,12 @@ POST /admin/user-imports people.users.manage
 POST /admin/user-imports/preview people.users.manage
 POST /admin/user-imports/{id}/sheet people.users.manage
 POST /admin/users people.users.manage
+POST /admin/users/disable people.users.manage
+POST /admin/users/reset-passwords people.users.manage
+POST /admin/users/{id}/disable people.users.manage
+POST /admin/users/{id}/enable people.users.manage
+POST /admin/users/{id}/reset-password people.users.manage
+POST /admin/users/{id}/sign-out people.users.manage
 POST /app/assignments/{id}/attempts learning.take_tests
 POST /app/attempts/{id}/audio-play learning.take_tests
 POST /app/attempts/{id}/group-audio-play learning.take_tests
@@ -159,6 +165,7 @@ POST /teacher/tests/{id}/versions/{version}/draft content.tests.write
 PUT /admin/ai/teachers/{userId}/allowance ai.credits.manage
 PUT /admin/roles/permissions people.roles.manage
 PUT /admin/settings system.settings.write
+PUT /admin/users/{id}/role people.roles.manage
 PUT /me/avatar self
 PUT /me/notification-preferences self
 PUT /teacher/assignments/{id}/student-overrides teaching.attempts.intervene

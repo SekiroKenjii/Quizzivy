@@ -211,6 +211,13 @@ jobs:
       # The one integration test that proves profile writes through the role
       # the API connects as skips without it.
       APP_DATABASE_URL: postgres://quizzivy_app:app@localhost:5432/quizzivy?sslmode=disable
+      # The tests that run cmd/maintenance's commands as quizzivy_maintenance
+      # fail without it when CI is set; they never skip.
+      TEST_MAINTENANCE_DATABASE_URL: postgres://quizzivy_maintenance:maintenance@localhost:5432/quizzivy?sslmode=disable
+      # The one test that runs scripts/provision-db.sh as a managed-style admin
+      # (CREATEROLE, CREATEDB, not a superuser) needs a superuser to make that
+      # admin; it fails without it when CI is set.
+      TEST_SUPERUSER_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
       # Enables the migration round trip, which drops and recreates schema app.
       # Safe here -- the service container is thrown away after the job. Locally
       # it is off by default so `go test ./...` cannot wipe a seeded database.

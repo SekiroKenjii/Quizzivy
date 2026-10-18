@@ -123,7 +123,6 @@ export function Segmented({
               "in-data-[scale=deck]:rounded-seg in-data-[scale=deck]:h-7.5 in-data-[scale=deck]:whitespace-nowrap",
               scroll && "shrink-0 leading-4 whitespace-nowrap outline-offset-1!",
               SIZES[size],
-              (option.disabled || unavailable) && "cursor-not-allowed opacity-45",
               fill && "flex-1 justify-center leading-normal",
               fill &&
                 size !== "lg" &&
@@ -132,6 +131,8 @@ export function Segmented({
               on
                 ? "bg-background text-foreground shadow-card in-data-[scale=deck]:bg-card in-data-[scale=deck]:text-fg in-data-[scale=deck]:ring-border in-data-[scale=deck]:ring-1"
                 : "text-muted-foreground in-data-[scale=deck]:text-muted-fg",
+              (option.disabled || unavailable) &&
+                "text-muted-foreground/45 in-data-[scale=deck]:text-muted-fg/45 cursor-not-allowed",
             )}
           >
             {Icon !== undefined && (

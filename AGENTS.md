@@ -237,6 +237,12 @@ unit, integration and end-to-end in that order.
   guards that are not permissions (the subset rule, strict student targets,
   the last admin, sign-in lockout) are in `docs/plan/70-redesign-overview.md`
   §4.
+- **A temporary password opens two operations.** While `Principal.MustChangePassword`
+  is set, `RequirePermission` answers `403 PASSWORD_CHANGE_REQUIRED` to every operation
+  that needs a bearer token except one declaring `x-allows-temporary-password: true`,
+  which only an operation open to `self` may (`getCurrentUser` and `changePassword`).
+  A new operation never declares it. A test that acts as a student made with a
+  temporary password changes it first (`loginSettled` in `server/tests`).
 - **A permission says what a caller may do; `access.Scope` says whose rows.**
   Repositories take an `access.Scope`, which only `scope.all` widens. Another
   teacher's id answers exactly as a missing one does: 404, or for a reference

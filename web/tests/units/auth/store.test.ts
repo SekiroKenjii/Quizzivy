@@ -29,6 +29,21 @@ describe("the auth store", () => {
     }
   });
 
+  it("marks the signed-in user for a password change, once, and nobody when none is signed in", () => {
+    useAuthStore.getState().requirePasswordChange();
+    expect(useAuthStore.getState().user).toBeNull();
+
+    useAuthStore
+      .getState()
+      .setSession("t", { ...studentUser, mustChangePassword: false });
+    useAuthStore.getState().requirePasswordChange();
+    const marked = useAuthStore.getState().user;
+    expect(marked?.mustChangePassword).toBe(true);
+
+    useAuthStore.getState().requirePasswordChange();
+    expect(useAuthStore.getState().user).toBe(marked);
+  });
+
   it("finishes bootstrapping once a session is set", () => {
     useAuthStore.setState({ isBootstrapping: true });
 
