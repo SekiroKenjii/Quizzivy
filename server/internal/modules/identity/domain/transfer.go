@@ -63,6 +63,7 @@ type TransferLedger interface {
 	// FromRoleID, ErrUserNotDisabled and ErrInvalidRecipient.
 	LockTransfer(ctx context.Context, in ContentTransfer) error
 	// RecordTransfer counts what stays with the source and writes the
-	// user.content_transferred audit row with the recipient and the counts.
+	// user.content_transferred audit row with the owner change as both names,
+	// the recipient and the counts.
 	RecordTransfer(ctx context.Context, req WriteRequest, in ContentTransfer, moved MovedContent) (LeftBehind, error)
 }

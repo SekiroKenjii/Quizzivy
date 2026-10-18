@@ -166,4 +166,7 @@ func TestADisabledTeachersContentMovesToAnotherTeacherWhoListsAndEditsItWhileStu
 	if !lists(t, heir, "/me/notifications", "content.transferred") {
 		t.Error("the recipient's bell holds no content.transferred notification")
 	}
+	if status, body := admin.call(http.MethodPost, path, map[string]any{"toUserId": w.userID(adminEmail)}); status != http.StatusOK {
+		t.Errorf("moving to an Admin, who holds the teacher workspace: %d %v, want 200", status, body)
+	}
 }

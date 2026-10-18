@@ -661,6 +661,26 @@ only.
 
 ---
 
+### O-R5.10 — Students the source of a transfer created · R5 (T-R5.10), any release
+**Default:** they stay where they are (#718 QC-TC-2, 2026-10-18). `users.created_by` on a student is
+provenance as well as reach: `visibility.StudentIDs` lets a teacher reach the students they created.
+The transfer moves classes and assignments, so the recipient reaches every student in a moved class or
+on a moved assignment, but a student the source created who is in neither is reached by an Admin only,
+who can add them to a class. Moving `created_by` of such students would rewrite who made the account,
+which the transfer never does for any other row. The owner decides whether those students should move
+too; T-R5.9c's dialog can count them meanwhile.
+
+---
+
+### O-R5.11 — A recipient that cannot edit what it receives · R5 (T-R5.10, T-R5.9c), any release
+**Default:** the recipient needs `workspace.teacher` only, as the task specifies (#718 QC-TC-3,
+2026-10-18). A role that opens the teacher workspace without `teaching.classes.write` or
+`content.tests.write` (the built-in Assistant, a custom role) can receive classes and tests that only an
+Admin can then edit. T-R5.9c's dialog says so when it lists recipients. Requiring every write key a moved
+kind needs would refuse a recipient for content the source does not own, so a stricter rule would check
+the kinds that are not empty; it is the owner's decision.
+---
+
 ## Answered during planning
 
 For the record, so a later session does not reopen them:

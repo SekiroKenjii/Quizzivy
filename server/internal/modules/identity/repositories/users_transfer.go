@@ -62,17 +62,23 @@ func (l *TransferLedger) LockTransfer(ctx context.Context, in domain.ContentTran
 }
 
 func (l *TransferLedger) lockTeacherRole(ctx context.Context, roleID string) error {
+	var admin bool
 	var keys []string
 	err := l.QueryRow(ctx, `
-		SELECT coalesce(array_agg(rp.permission_key) FILTER (WHERE rp.permission_key IS NOT NULL), '{}')
-		  FROM (SELECT r.id FROM app.roles r WHERE r.id = $1::uuid FOR SHARE) r
-		  LEFT JOIN app.role_permissions rp ON rp.role_id = r.id`, roleID).Scan(&keys)
+		SELECT coalesce(r.builtin_key, '') = 'admin',
+		       coalesce(array_agg(rp.permission_key) FILTER (WHERE rp.permission_key IS NOT NULL), '{}')
+		  FROM (SELECT r.id, r.builtin_key FROM app.roles r WHERE r.id = $1::uuid FOR SHARE) r
+		  LEFT JOIN app.role_permissions rp ON rp.role_id = r.id
+		 GROUP BY r.builtin_key`, roleID).Scan(&admin, &keys)
 	if err != nil {
 		return fmt.Errorf("users: lock recipient role: %w", err)
 	}
-	granted := make([]access.Key, len(keys))
-	for i, key := range keys {
-		granted[i] = access.Key(key)
+	granted := access.All()
+	if !admin {
+		granted = make([]access.Key, len(keys))
+		for i, key := range keys {
+			granted[i] = access.Key(key)
+		}
 	}
 	if !slices.Contains(access.Workspaces(access.NewSet(granted...)), access.TeacherWorkspace) {
 		return domain.ErrInvalidRecipient
@@ -81,18 +87,20 @@ func (l *TransferLedger) lockTeacherRole(ctx context.Context, roleID string) err
 }
 
 type transferDiff struct {
-	To     string        `json:"to"`
-	Counts transferCount `json:"counts"`
+	Owner          ownerDiff `json:"owner"`
+	To             string    `json:"to"`
+	Classes        int       `json:"classes"`
+	Tests          int       `json:"tests"`
+	Questions      int       `json:"questions"`
+	QuestionGroups int       `json:"questionGroups"`
+	Media          int       `json:"media"`
+	Assignments    int       `json:"assignments"`
+	ImportsLeft    int       `json:"importsLeft"`
 }
 
-type transferCount struct {
-	Classes        int `json:"classes"`
-	Tests          int `json:"tests"`
-	Questions      int `json:"questions"`
-	QuestionGroups int `json:"questionGroups"`
-	Media          int `json:"media"`
-	Assignments    int `json:"assignments"`
-	ImportsLeft    int `json:"importsLeft"`
+type ownerDiff struct {
+	Old string `json:"old"`
+	New string `json:"new"`
 }
 
 // RecordTransfer implements domain.TransferLedger.
@@ -103,10 +111,16 @@ func (l *TransferLedger) RecordTransfer(ctx context.Context, req domain.WriteReq
 		 WHERE w.created_by = $1::uuid AND w.status NOT IN ('committed', 'cancelled')`, in.FromID).Scan(&left.Imports); err != nil {
 		return domain.LeftBehind{}, fmt.Errorf("users: count imports left behind: %w", err)
 	}
-	diff, err := json.Marshal(transferDiff{To: in.ToID, Counts: transferCount{
-		Classes: moved.Classes, Tests: moved.Tests, Questions: moved.Questions, QuestionGroups: moved.QuestionGroups,
-		Media: moved.Media, Assignments: moved.Assignments, ImportsLeft: left.Imports,
-	}})
+	var owner ownerDiff
+	if err := l.QueryRow(ctx, `
+		SELECT (SELECT u.full_name FROM app.users u WHERE u.id = $1::uuid), (SELECT u.full_name FROM app.users u WHERE u.id = $2::uuid)`,
+		in.FromID, in.ToID).Scan(&owner.Old, &owner.New); err != nil {
+		return domain.LeftBehind{}, fmt.Errorf("users: read transfer names: %w", err)
+	}
+	diff, err := json.Marshal(transferDiff{
+		Owner: owner, To: in.ToID, Classes: moved.Classes, Tests: moved.Tests, Questions: moved.Questions,
+		QuestionGroups: moved.QuestionGroups, Media: moved.Media, Assignments: moved.Assignments, ImportsLeft: left.Imports,
+	})
 	if err != nil {
 		return domain.LeftBehind{}, fmt.Errorf("users: encode transfer audit: %w", err)
 	}
