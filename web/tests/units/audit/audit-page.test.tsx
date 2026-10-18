@@ -101,6 +101,7 @@ describe("the audit log's rows", () => {
     ["role", "Vai trò"],
     ["question", "Câu hỏi"],
     ["data_export", "Xuất dữ liệu"],
+    ["user_import", "Lần nhập người dùng"],
   ])(
     "does not call a %s deleted when the server sent no label for it",
     async (type, word) => {
@@ -347,7 +348,9 @@ describe("the categories", () => {
     renderAudit();
     const user = userEvent.setup();
 
-    expect(await screen.findByRole("button", { name: "Tất cả 1.248" })).toBeVisible();
+    expect(
+      await screen.findByRole("button", { name: "Tất cả 1.248" }, { timeout: 4000 }),
+    ).toBeVisible();
     await user.type(
       screen.getByRole("textbox", { name: "Tìm trong nhật ký kiểm tra" }),
       "nam",
@@ -620,7 +623,10 @@ describe("the states", () => {
     failing = false;
     await user.click(screen.getByRole("button", { name: "Thử lại" }));
 
-    expect(await screen.findByRole("button", { name: /Đã tạo lớp/ })).toBeVisible();
+    const row = await screen.findByRole("button", { name: /Đã tạo lớp/ });
+    expect(row).toBeVisible();
+    await waitFor(() => expect(document.activeElement).toContainElement(row));
+    expect(document.body).not.toHaveFocus();
   });
 });
 

@@ -436,11 +436,13 @@ function attachmentName(disposition: string | null): string | null {
  * the token that request was sent with, and it throws a refusal's error
  * envelope as an ApiError. The file's name is the response's
  * `Content-Disposition` name, `filename*` (RFC 6266) before `filename`, or
- * null when it names none.
+ * null when it names none. An aborted `signal` rejects it with an
+ * `AbortError`.
  */
 export async function downloadFile(
   path: keyof paths,
   query?: Record<string, unknown>,
+  signal?: AbortSignal,
 ): Promise<DownloadedFile> {
   const url = buildUrl(path, undefined, query);
   const lease = authStore.captureActor();
@@ -453,6 +455,7 @@ export async function downloadFile(
         "Accept-Language": language(),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
+      ...(signal ? { signal } : {}),
     });
 
   let sentWith = authStore.getAccessToken();
