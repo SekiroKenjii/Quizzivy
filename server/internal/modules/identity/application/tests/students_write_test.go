@@ -9,6 +9,7 @@ import (
 	"quizzivy/internal/modules/identity/application/query"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/validation"
 	"strings"
 	"testing"
 	"time"
@@ -63,6 +64,33 @@ func TestCreatingAStudentEnrolsThemAndForcesAChange(t *testing.T) {
 	// The pairing §6.4 lets a teacher read: this is not a code join.
 	if created.Classes[0].JoinedVia != "admin" {
 		t.Errorf("joinedVia = %q, want admin", created.Classes[0].JoinedVia)
+	}
+}
+
+func TestAStudentMadeBeforeTheRuleWithAnInvisibleAddressCanStillBeRenamed(t *testing.T) {
+	pool := newPool(t)
+	store := application.New(nil, nil, 0, repositories.NewStudents(db.NewContext(pool)), attemptsrepo.NewStudentStats(db.NewContext(pool)))
+	w := seedWorld(t, pool, "10.00")
+	ctx := context.Background()
+	stored := "hidden-" + nonce(t) + string(rune(0x2800)) + "@example.com"
+	if _, err := pool.Exec(ctx, `UPDATE app.users SET email = $2 WHERE id = $1::uuid`, w.student, stored); err != nil {
+		t.Fatal(err)
+	}
+	req := domain.WriteRequest{ActorID: w.admin, All: true, Grants: access.NewSet(access.All()...)}
+	name := "Tên mới"
+
+	updated, err := store.Commands.UpdateStudent.Handle(ctx, command.UpdateStudent{Request: req, Input: domain.StudentPatch{ID: w.student, FullName: &name, Email: &stored}})
+	if err != nil {
+		t.Fatalf("a rename that sends the stored address back: %v", err)
+	}
+	if updated.FullName != name || updated.Email != stored {
+		t.Errorf("student = %q %q, want the new name and the address as it was", updated.FullName, updated.Email)
+	}
+
+	other := "other-" + nonce(t) + string(rune(0x2800)) + "@example.com"
+	var invalid *validation.Error
+	if _, err := store.Commands.UpdateStudent.Handle(ctx, command.UpdateStudent{Request: req, Input: domain.StudentPatch{ID: w.student, Email: &other}}); !errors.As(err, &invalid) {
+		t.Fatalf("a different address with a gap: err=%v, want a refusal", err)
 	}
 }
 
