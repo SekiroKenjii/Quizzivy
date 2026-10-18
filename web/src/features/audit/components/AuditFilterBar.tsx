@@ -15,25 +15,31 @@ const ALL = "all";
  * the search and the range and not the category, then the search, the date
  * range and, while either is set, Reset. The two groups wrap onto lines of
  * their own when they do not fit. `facets` is undefined until the first read.
+ * `query` is the text in the search field, which `onSearch` receives as it is
+ * typed and `onClear` empties at once.
  * Clearing the search or pressing Reset puts focus in the search field, which
  * the control just pressed was about to leave; `rangeButton` is the ref of
  * the range button, which the screen's custom-range dialog returns focus to.
  */
 export function AuditFilterBar({
   filters,
+  query,
   facets,
   rangeButton,
   onCategory,
   onSearch,
+  onClear,
   onPreset,
   onCustom,
   onReset,
 }: Readonly<{
   filters: AuditFilters;
+  query: string;
   facets: AuditFacets | undefined;
   rangeButton: RefObject<HTMLButtonElement | null>;
   onCategory: (category: AuditCategory | null) => void;
   onSearch: (value: string) => void;
+  onClear: () => void;
   onPreset: (range: AuditRange) => void;
   onCustom: () => void;
   onReset: () => void;
@@ -66,18 +72,18 @@ export function AuditFilterBar({
             type="text"
             size={1}
             maxLength={AUDIT_SEARCH_MAX}
-            value={filters.q}
+            value={query}
             placeholder={t("audit.search.placeholder")}
             aria-label={t("audit.search.label")}
             onChange={(event) => onSearch(event.target.value)}
             className="text-meta min-w-0 flex-1 border-0 bg-transparent outline-none"
           />
-          {filters.q === "" ? null : (
+          {query === "" ? null : (
             <button
               type="button"
               aria-label={t("audit.search.clear")}
               onClick={() => {
-                onSearch("");
+                onClear();
                 search.current?.focus();
               }}
               className="text-muted-fg hover:bg-hover hover:text-fg grid size-6 flex-none place-items-center rounded-md"

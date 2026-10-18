@@ -373,7 +373,9 @@ describe("the search", () => {
     const box = screen.getByRole("textbox", { name: "Tìm trong nhật ký kiểm tra" });
     expect(screen.queryByRole("button", { name: "Xoá tìm kiếm" })).toBeNull();
     await user.type(box, "Hoàng");
-    expect(router.state.location.search).toBe("?q=Ho%C3%A0ng");
+    expect(box).toHaveValue("Hoàng");
+    expect(router.state.location.search).toBe("");
+    await waitFor(() => expect(router.state.location.search).toBe("?q=Ho%C3%A0ng"));
     await waitFor(() => expect(lastAsked(asked).searchParams.get("q")).toBe("Hoàng"));
     expect(asked.every((url) => url.searchParams.get("q") !== "H")).toBe(true);
 

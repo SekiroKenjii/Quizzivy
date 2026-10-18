@@ -126,6 +126,7 @@ beforeEach(() => {
 });
 
 let lastClient: QueryClient;
+let lastRouter: ReturnType<typeof createMemoryRouter>;
 
 function renderPage(path = "/teacher/media", applyAccept = true) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -137,6 +138,7 @@ function renderPage(path = "/teacher/media", applyAccept = true) {
     ],
     { initialEntries: [path] },
   );
+  lastRouter = router;
   render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
@@ -203,9 +205,13 @@ describe("the Media page", () => {
       "1",
     );
 
-    await user.type(screen.getByRole("searchbox", { name: "Tìm tệp" }), "san bay");
+    const box = screen.getByRole("searchbox", { name: "Tìm tệp" });
+    await user.type(box, "san bay");
+    expect(box).toHaveValue("san bay");
+    expect(lastRouter.state.location.search).toBe("");
 
     await waitFor(() => expect(lists.at(-1)?.get("q")).toBe("san bay"));
+    expect(lastRouter.state.location.search).toBe("?q=san+bay");
     await waitFor(() =>
       expect(within(tabs).getByRole("button", { name: /Tất cả/ })).toHaveTextContent(
         "1",

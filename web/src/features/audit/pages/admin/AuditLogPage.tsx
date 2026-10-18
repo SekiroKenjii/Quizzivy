@@ -7,11 +7,11 @@ import { Callout } from "@/components/shared/Callout";
 import { QueryStates } from "@/components/shared/ListState";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { trimmed, useDebouncedInput } from "@/hooks/useDebouncedInput";
 import { useListFilters } from "@/hooks/useListFilters";
 import { usePage } from "@/hooks/usePage";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { useDisplayTimeZone } from "@/lib/i18n/datetime";
-import { useDebounced } from "@/lib/useDebounced";
 import {
   AUDIT_PAGE_SIZE,
   auditLogQuery,
@@ -56,7 +56,8 @@ function TableSkeleton() {
 /**
  * AuditLogPage is the Admin console's audit log: the append-only record of
  * sensitive changes, ten entries a page, newest first, filtered by category,
- * search and date range (all kept in the address) and exported as a file.
+ * search and date range (all kept in the address, the search once typing
+ * pauses for 300 ms) and exported as a file.
  * A row opens to show what it changed. A page past the last one the log has
  * is replaced in the address by the last. When a read that failed succeeds
  * and focus was lost with the Retry button, focus moves to the list.
@@ -66,9 +67,12 @@ export default function AuditLogPage() {
   const zone = useDisplayTimeZone();
   const { params, setParams, setFilter } = useListFilters();
   const filters = useMemo(() => readAuditFilters(params), [params]);
-  const typed = filters.q.trim();
-  const settled = useDebounced(typed, 300);
-  const search = typed === "" ? "" : settled;
+  const [query, setQuery] = useDebouncedInput(
+    filters.q,
+    (value) => setFilter("q", value),
+    trimmed,
+  );
+  const search = filters.q.trim();
   const asked = useMemo(() => ({ ...filters, q: search }), [filters, search]);
   const [page, setPage] = usePage(JSON.stringify(asked));
   const list = useQuery(auditLogQuery(asked, page));
@@ -172,7 +176,12 @@ export default function AuditLogPage() {
         facets={list.data?.facets}
         rangeButton={rangeButton}
         onCategory={(category: AuditCategory | null) => setFilter("category", category)}
-        onSearch={(value) => setFilter("q", value)}
+        query={query}
+        onSearch={setQuery}
+        onClear={() => {
+          setQuery("");
+          setFilter("q", null);
+        }}
         onPreset={(range) => setRange(range, null, null)}
         onCustom={() =>
           setChoosing(
