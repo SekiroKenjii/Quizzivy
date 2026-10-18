@@ -36,6 +36,7 @@
     "saveChanges": "Save changes",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
+    "agoNow": "now",
     "agoJustNow": "just now",
     "justDuplicated": "Just duplicated",
     "duplicateNamed": "Duplicate {{name}}",
@@ -626,6 +627,56 @@
       "settings": "System settings",
       "password": "Change password"
     }
+  },
+  "users": {
+    "title": "Users",
+    "lead": "Everyone who can sign in to Quizzivy.",
+    "tabs": {
+      "label": "User groups",
+      "all": "All",
+      "teachers": "Teachers",
+      "students": "Students",
+      "admins": "Admins",
+      "disabled": "Disabled"
+    },
+    "search": {
+      "placeholder": "Search name or email",
+      "short": "Type at least {{min}} characters to search."
+    },
+    "filter": {
+      "label": "Active filters",
+      "remove": "Remove filter {{label}}"
+    },
+    "table": "Users",
+    "column": {
+      "user": "User",
+      "role": "Role",
+      "signIn": "Sign-in",
+      "classes": "Classes",
+      "lastActive": "Last active",
+      "status": "Status"
+    },
+    "signIn": {
+      "password": "Password",
+      "google": "Google",
+      "none": "None yet"
+    },
+    "noClass": "No class yet",
+    "moreCount": "+{{n}}",
+    "moreClasses": "and {{count}} more",
+    "neverActive": "Never",
+    "status": {
+      "active": "Active",
+      "mustChangePassword": "Must change password",
+      "mustChangePasswordShort": "Change password",
+      "neverSignedIn": "Never signed in",
+      "disabled": "Disabled"
+    },
+    "empty": "No users match.",
+    "clearFilters": "Clear filters",
+    "loadFailed": "Could not load users.",
+    "noun_one": "user",
+    "noun_other": "users"
   },
   "systemSettings": {
     "title": "System settings",

@@ -178,7 +178,8 @@ requests). Neither is a pseudo-key: a role may hold every teaching key and no AI
 - **Pseudo-keys**, evaluated by the middleware, not stored: `self` (any active signed-in user);
   `workspace.teacher` (holds any `content.*`, `teaching.*` or `people.students.*` key);
   `workspace.admin` (holds `people.users.manage`, `people.roles.manage`, `system.audit.read`,
-  `system.settings.write` or `scope.all`).
+  `system.settings.write`, `ai.credits.manage` or `scope.all`; a key whose only screen is in the
+  Admin console must open it, or a role holding only that key signs in and goes nowhere, D-022.2).
 - **Capabilities the matrix does not draw** (DG-50) map as follows until the deck draws rows:
   imports, from a file or from pasted text → `content.tests.write`; question sets →
   `content.questions.write`; word lists → `content.questions.write`; courses and lessons →

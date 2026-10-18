@@ -3,9 +3,12 @@ package validation
 import "fmt"
 
 // Field is one refused field and the message the client shows beside it.
+// English is the same message for a client that prefers English; empty, Message
+// is shown to every client.
 type Field struct {
 	Field   string
 	Message string
+	English string
 }
 
 // Error carries every refused field at once, so a form is corrected in one round.
@@ -17,6 +20,11 @@ func (e *Error) Error() string {
 
 func (e *Error) Add(field, message string) {
 	e.Fields = append(e.Fields, Field{Field: field, Message: message})
+}
+
+// AddIn refuses field with message in Vietnamese and english in English.
+func (e *Error) AddIn(field, message, english string) {
+	e.Fields = append(e.Fields, Field{Field: field, Message: message, English: english})
 }
 
 // OrNil is e when it holds anything, else nil, so a validator can build one and return it in one line.

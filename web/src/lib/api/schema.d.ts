@@ -4690,7 +4690,9 @@ export interface components {
          *     optional one that is empty after trimming is stored as `null`.
          */
         OrganizationProfile: {
+            /** @description At most 120 characters after Unicode NFC. */
             name: string;
+            /** @description At most 40 characters after Unicode NFC. */
             shortName: string | null;
             /** @description A domain or an `https` address, without spaces or credentials, as `quizzivy.com` or `https://quizzivy.com/lien-he`. `http` and other schemes are refused. */
             website: string | null;
@@ -5316,7 +5318,8 @@ export interface components {
          *     `ai.use` gates every `/teacher/ai/*` operation and the import's "Read
          *     with AI"; `ai.credits.manage` gates every `/admin/ai/*` operation. The
          *     Admin holds both, the built-in Teacher holds `ai.use`, and a custom role
-         *     may hold either alone. `ai.credits.manage` opens no workspace by itself.
+         *     may hold either alone. `ai.credits.manage` opens the Admin console by
+         *     itself (`workspace.admin`); `ai.use` opens no workspace.
          *
          *     The last four keys in the enum are hidden: no matrix row shows them,
          *     no role is granted them, and only the Admin holds them. The Admin
