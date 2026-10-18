@@ -659,8 +659,8 @@ components:
       required: [name, shortName, website, contactEmail, frontDeskPhone, frontDeskHours, address, logo]
       additionalProperties: false
       properties:
-        name: { type: string, minLength: 1, maxLength: 120 }
-        shortName: { type: [string, 'null'], maxLength: 40 }
+        name: { type: string, minLength: 1, maxLength: 480, description: At most 120 characters after Unicode NFC. }
+        shortName: { type: [string, 'null'], maxLength: 160, description: At most 40 characters after Unicode NFC. }
         website:
           type: [string, 'null']
           maxLength: 200

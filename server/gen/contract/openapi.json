@@ -961,14 +961,16 @@
           "name": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 120
+            "maxLength": 480,
+            "description": "At most 120 characters after Unicode NFC."
           },
           "shortName": {
             "type": [
               "string",
               "null"
             ],
-            "maxLength": 40
+            "maxLength": 160,
+            "description": "At most 40 characters after Unicode NFC."
           },
           "website": {
             "type": [

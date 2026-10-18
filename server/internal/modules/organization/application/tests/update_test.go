@@ -44,6 +44,19 @@ func TestASaveIsNormalisedAndTheSnapshotServesItAtOnce(t *testing.T) {
 	}
 }
 
+func TestADecomposedNameIsHandedToTheStoreComposed(t *testing.T) {
+	repo := &fakeRepo{settings: stored()}
+	app, _ := build(t, repo)
+	next := stored()
+	next.Profile.Name = "Trung ta\u0302m m\u1edbi"
+	if _, err := app.Commands.UpdateSettings.Handle(context.Background(), command.UpdateSettings{Actor: admin, Settings: next, ExpectedRevision: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := repo.saves[0].Settings.Profile.Name, "Trung t\u00e2m m\u1edbi"; got != want {
+		t.Fatalf("the store was handed %q, want %q", got, want)
+	}
+}
+
 func TestAnInvalidDocumentNeverReachesTheStore(t *testing.T) {
 	repo := &fakeRepo{settings: stored()}
 	app, _ := build(t, repo)
