@@ -10,9 +10,9 @@ import (
 // see or that is a space, and false when there is none. Such a character does
 // not make an address malformed to the contract, but it lets a look-alike of an
 // existing address pass the check for one that is taken. A combining mark that
-// draws nothing of its own (a variation selector, the combining grapheme joiner)
-// is hidden; an accent is not, because a Vietnamese address may be typed
-// decomposed. The address is judged as given: it is neither composed nor
+// draws nothing of its own (a variation selector, the combining grapheme joiner,
+// a Khmer inherent vowel) is hidden; an accent is not, because a Vietnamese
+// address may be typed decomposed. The address is judged as given: it is neither composed nor
 // trimmed, because the mailbox it names is the bytes it was typed with. One
 // rule serves a form and a file of accounts.
 func HiddenInEmail(address string) (hidden rune, found bool) {
@@ -26,7 +26,7 @@ func HiddenInEmail(address string) (hidden rune, found bool) {
 
 func glyphless(r rune) bool {
 	switch {
-	case r == 0x034F:
+	case r == 0x034F || r == 0x17B4 || r == 0x17B5:
 		return true
 	case r >= 0x180B && r <= 0x180F:
 		return true

@@ -185,6 +185,7 @@ func TestAStudentWhoseStoredAddressHoldsAnInvisibleCharacterCanBeSavedWithItUnch
 		"another address with the same gap": {sent: "b" + string(rune(0x2800)) + "@example.com", refused: true},
 		"a clean address":                   {sent: "a@example.com"},
 		"a variation selector added":        {sent: "a@example.com" + string(rune(0xfe0f)), refused: true},
+		"only the case changed":             {sent: "A" + string(rune(0x2800)) + "@example.com", refused: true},
 	} {
 		t.Run(label, func(t *testing.T) {
 			app, shelf := composingStudents()
@@ -200,6 +201,30 @@ func TestAStudentWhoseStoredAddressHoldsAnInvisibleCharacterCanBeSavedWithItUnch
 			}
 			if err != nil || len(shelf.writes) != 1 {
 				t.Fatalf("err=%v writes=%v, want the update made", err, shelf.writes)
+			}
+		})
+	}
+}
+
+func TestACreatedStudentWithARefusedNameIsRefusedInBothLanguages(t *testing.T) {
+	for label, name := range map[string]string{
+		"empty":    "   ",
+		"too long": strings.Repeat("a", domain.MaxFullNameLength+1),
+		"hidden":   "An" + string(rune(0x200b)),
+		"no glyph": "́",
+	} {
+		t.Run(label, func(t *testing.T) {
+			app, _ := composingStudents()
+			_, err := app.Commands.CreateStudent.Handle(context.Background(), command.CreateStudent{Request: writer(), Input: domain.NewStudent{
+				Email: "a@example.com", FullName: name,
+			}})
+			var invalid *validation.Error
+			if !errors.As(err, &invalid) || len(invalid.Fields) != 1 {
+				t.Fatalf("err=%v", err)
+			}
+			field := invalid.Fields[0]
+			if field.Field != "fullName" || field.Message == "" || field.English == "" || field.English == field.Message {
+				t.Fatalf("field=%+v, want a Vietnamese and an English sentence", field)
 			}
 		})
 	}
