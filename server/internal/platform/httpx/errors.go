@@ -20,6 +20,7 @@ const (
 	CodeRequestIncomplete ErrorCode = "REQUEST_INCOMPLETE"
 	CodeUnauthorized      ErrorCode = "UNAUTHORIZED"
 	CodeForbidden         ErrorCode = "FORBIDDEN"
+	CodePasswordChange    ErrorCode = "PASSWORD_CHANGE_REQUIRED"
 	CodeNotFound          ErrorCode = "NOT_FOUND"
 	CodeMethodNotAllowed  ErrorCode = "METHOD_NOT_ALLOWED"
 	CodeRateLimited       ErrorCode = "RATE_LIMITED"

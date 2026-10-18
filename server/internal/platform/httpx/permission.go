@@ -25,7 +25,10 @@ type PrincipalResolver interface {
 // principal RequireAuth put in the context: without one, or when the user is
 // unknown, disabled or the token's epoch is older than the user's, it answers
 // 401 so the single-flight refresh settles the session; when the user's
-// permissions do not meet the requirement it answers 403 FORBIDDEN. A resolve
+// permissions do not meet the requirement it answers 403 FORBIDDEN. An account
+// that must still change its temporary password gets 403
+// PASSWORD_CHANGE_REQUIRED from every operation whose requirement does not
+// allow a temporary password, before its permissions are weighed. A resolve
 // that fails because the client cancelled the request answers
 // StatusClientClosedRequest, and any other failure 500. On success the
 // resolved principal joins the context.
@@ -57,6 +60,9 @@ func RequirePermission(requirements map[string]access.Requirement, resolver Prin
 			case resolved.Disabled, caller.Epoch < resolved.Epoch:
 				writeUnauthenticated(w, r)
 				return
+			case resolved.MustChangePassword && !requirement.AllowsTemporaryPassword():
+				writePasswordChangeRequired(w, r)
+				return
 			case !requirement.SatisfiedBy(resolved.Permissions):
 				writeForbidden(w, r)
 				return
@@ -65,6 +71,11 @@ func RequirePermission(requirements map[string]access.Requirement, resolver Prin
 			next.ServeHTTP(w, withPrincipal(r, caller))
 		})
 	}
+}
+
+func writePasswordChangeRequired(w http.ResponseWriter, r *http.Request) {
+	WriteError(w, r, http.StatusForbidden, CodePasswordChange,
+		TextFor(r, "Bạn cần đổi mật khẩu tạm thời trước khi tiếp tục.", "Change your temporary password before you continue."))
 }
 
 func writeForbidden(w http.ResponseWriter, r *http.Request) {

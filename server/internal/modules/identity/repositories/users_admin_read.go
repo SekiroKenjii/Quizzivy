@@ -27,6 +27,13 @@ const (
 // new index.
 const UserSearchText = `app.immutable_unaccent(lower(u.full_name || ' ' || u.email))`
 
+const ownedCountsSQL = `
+		       (SELECT count(*)::int FROM app.classes c WHERE c.teacher_id = u.id),
+		       (SELECT count(*)::int FROM app.tests t WHERE t.owner_id = u.id AND t.deleted_at IS NULL),
+		       (SELECT count(*)::int FROM app.questions q WHERE q.owner_id = u.id AND q.deleted_at IS NULL),
+		       (SELECT count(*)::int FROM app.media_assets m WHERE m.owner_id = u.id AND m.deleted_at IS NULL),
+		       (SELECT count(*)::int FROM app.assignments g WHERE g.created_by = u.id)`
+
 const (
 	anyRow        = `TRUE`
 	isAdminRole   = `COALESCE(r.builtin_key, '') = 'admin'`
@@ -163,11 +170,7 @@ func (a *AdminUsers) facts(ctx context.Context, id string, detail *domain.AdminU
 		                           FROM app.users o
 		                           JOIN app.roles ro ON ro.id = o.role_id
 		                          WHERE ro.builtin_key = 'admin' AND o.disabled_at IS NULL AND o.id <> u.id),
-		       (SELECT count(*)::int FROM app.classes c WHERE c.teacher_id = u.id),
-		       (SELECT count(*)::int FROM app.tests t WHERE t.owner_id = u.id AND t.deleted_at IS NULL),
-		       (SELECT count(*)::int FROM app.questions q WHERE q.owner_id = u.id AND q.deleted_at IS NULL),
-		       (SELECT count(*)::int FROM app.media_assets m WHERE m.owner_id = u.id AND m.deleted_at IS NULL),
-		       (SELECT count(*)::int FROM app.assignments g WHERE g.created_by = u.id),
+		       `+ownedCountsSQL+`,
 		       (SELECT count(*)::int FROM app.attempts t WHERE t.student_id = u.id AND t.status = 'in_progress')
 		  FROM app.users u
 		  JOIN app.roles r ON r.id = u.role_id

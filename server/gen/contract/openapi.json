@@ -120,7 +120,7 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "~15 minute access token, held in memory only — never `localStorage`,\nnever `sessionStorage` (§5.2). On 401 the client calls `/auth/refresh`\nonce and retries; a second 401 logs out.\n"
+        "description": "~15 minute access token, held in memory only — never `localStorage`,\nnever `sessionStorage` (§5.2). On 401 the client calls `/auth/refresh`\nonce and retries; a second 401 logs out.\n\nWhile the account's `mustChangePassword` is set, every operation that\nneeds this token answers `403 PASSWORD_CHANGE_REQUIRED`, except\n`getCurrentUser` and `changePassword`; `logout` and `refreshSession`\nneed no token. The client sends the person to the change-password page.\n"
       },
       "refreshCookie": {
         "type": "apiKey",
@@ -183,7 +183,7 @@
         }
       },
       "Forbidden": {
-        "description": "Authenticated but not permitted: the caller's role lacks the operation's\n`x-permission`, as a `student` reaching a `/teacher/*` route does. It\ngets this, and the client renders a 403 page rather than redirecting —\na redirect hides the misconfiguration (§5.4).\n",
+        "description": "Authenticated but not permitted: the caller's role lacks the operation's\n`x-permission`, as a `student` reaching a `/teacher/*` route does. It\ngets this, and the client renders a 403 page rather than redirecting —\na redirect hides the misconfiguration (§5.4).\n\n`PASSWORD_CHANGE_REQUIRED` is a 403 of its own kind: the permission is\nheld, but the account is on a temporary password and must change it\nfirst (see `bearerAuth`).\n",
         "content": {
           "application/json": {
             "schema": {
@@ -1321,6 +1321,8 @@
           "KEY_NOT_GRANTABLE",
           "CANNOT_ACT_ON_SELF",
           "TARGET_ROLE_NOT_ALLOWED",
+          "LAST_ADMIN",
+          "USER_OWNS_CONTENT",
           "RESOURCE_REFERENCED",
           "RESOURCE_NOT_ARCHIVED",
           "VERSION_IS_CURRENT",
@@ -1399,6 +1401,7 @@
           "METHOD_NOT_ALLOWED",
           "UNAUTHORIZED",
           "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
           "RATE_LIMITED",
           "INTERNAL"
         ]
@@ -4896,6 +4899,7 @@
           "changeRole",
           "resetPassword",
           "disable",
+          "enable",
           "signOut",
           "transfer"
         ],
@@ -4907,11 +4911,15 @@
           },
           "resetPassword": {
             "type": "boolean",
-            "description": "Not oneself."
+            "description": "Not oneself, and the account is not disabled."
           },
           "disable": {
             "type": "boolean",
             "description": "Not oneself, not the last active Admin, and not already disabled."
+          },
+          "enable": {
+            "type": "boolean",
+            "description": "The account is disabled."
           },
           "signOut": {
             "type": "boolean",
@@ -5060,6 +5068,61 @@
               "temporary_password"
             ],
             "description": "`email_link` creates the account without a password and emails it a\nlink to choose one (24 hours, once). `temporary_password` returns a\ntemporary password once, for the admin to hand over.\n"
+          }
+        }
+      },
+      "UserResetDelivery": {
+        "type": "string",
+        "enum": [
+          "email_link",
+          "temporary_password"
+        ],
+        "description": "`email_link` clears the password and emails a link to choose a new one\n(24 hours, once). `temporary_password` sets a temporary password and\nreturns it once, for the admin to hand over.\n"
+      },
+      "UserPasswordReset": {
+        "type": "object",
+        "description": "One account `resetUsersPasswords` reset. A temporary password is shown once.",
+        "required": [
+          "userId",
+          "fullName",
+          "email"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "userId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "fullName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 254
+          },
+          "temporaryPassword": {
+            "type": "string",
+            "description": "Present only for `delivery: temporary_password`."
+          }
+        }
+      },
+      "UserActionFailure": {
+        "type": "object",
+        "description": "One account a bulk action did not reach, and why.",
+        "required": [
+          "userId",
+          "code"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "userId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "code": {
+            "$ref": "#/components/schemas/ErrorCode",
+            "description": "One of `NOT_FOUND`, `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`, `LAST_ADMIN`, `ACCOUNT_DISABLED` or `INTERNAL`."
           }
         }
       },
@@ -13667,6 +13730,7 @@
       "get": {
         "operationId": "getCurrentUser",
         "x-permission": "self",
+        "x-allows-temporary-password": true,
         "tags": [
           "auth"
         ],
@@ -13827,6 +13891,7 @@
       "post": {
         "operationId": "changePassword",
         "x-permission": "self",
+        "x-allows-temporary-password": true,
         "tags": [
           "auth"
         ],
@@ -20367,6 +20432,537 @@
           },
           "409": {
             "description": "`RESOURCE_NOT_ARCHIVED` — the account is not disabled.\n`RESOURCE_REFERENCED` — something still references it, and\n`details.referencedBy` (`ReferencedBy`) always names what:\n`assignments` (an individual assignment target, or an assignment it\ncreated), `attempts`, `audit` (audit history it acted in),\n`owned_content` (tests, questions, question groups, media, classes,\njoin codes, published versions or Word imports it owns or created),\nor `other`.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/role": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "put": {
+        "operationId": "changeUserRole",
+        "x-permission": "people.roles.manage",
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "Give an account another role",
+        "description": "Both roles, the account's own and the one it is given, must pass the\nsubset rule (`TARGET_ROLE_NOT_ALLOWED`); the Assistant is never offered\n(`ROLE_NOT_ASSIGNABLE`), as in `createUser`. The caller cannot change\ntheir own role (`CANNOT_ACT_ON_SELF`), and the last active Admin cannot\nbe moved off the Admin role (`LAST_ADMIN`). The guards apply in that\norder, so an account the caller may not touch is not told it is the last\nAdmin.\n\nAn account that owns classes or content (`ownedContent` of `getUser`)\ncannot be given a role that does not open the teacher workspace: it\nanswers `USER_OWNS_CONTENT` with the counts in `details`, and the\ncontent is moved first (`transferUserContent`). Sending the role the\naccount already has writes nothing and answers the account as it is.\n\nThe new role is held against edits from the check to the commit; if it\nor the account's own role changed in between, the check is made again,\nup to three times, and then `STALE_WRITE` asks the caller to send the\nrequest again. A change ends the account's sessions: every refresh\nfamily is revoked and the session epoch moves, so its next request is\nauthorised by the new role on this machine and within 10 seconds on any\nother. Writes one audit row, `user.role_changed`, with the old and the\nnew role.\n\nLimited to 30 a minute per signed-in user.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "roleId"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "roleId": {
+                    "$ref": "#/components/schemas/Uuid",
+                    "description": "A role from `listAssignableRoles`."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The account with its new role.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserRow"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "description": "`TARGET_ROLE_NOT_ALLOWED` — the account's role, or the new one, holds a permission the caller lacks.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "`LAST_ADMIN` — the account is the only active Admin.\n`USER_OWNS_CONTENT` — the account owns classes or content and the new role opens no teacher workspace; `details` holds `classes`, `tests`, `questions`, `media` and `assignments`, each a count.\n`STALE_WRITE` — a role changed three times while the change was being made; nothing was written, so the same request may be sent again.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`CANNOT_ACT_ON_SELF` — the account is the caller's own.\n`ROLE_NOT_ASSIGNABLE` — the new role is the Assistant.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/disable": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "post": {
+        "operationId": "disableUser",
+        "x-permission": "people.users.manage",
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "Disable an account",
+        "description": "Blocks sign-in without deleting anything the account has done. The\nsubset rule, then not oneself (`CANNOT_ACT_ON_SELF`), then the last\nactive Admin (`LAST_ADMIN`) apply in that order. In the same\ntransaction every refresh family is revoked, the session epoch moves,\nevery set-password link not yet used is revoked and every message still\nwaiting in the outbox for the account is cancelled, so nothing sent\nbefore the disable lets the person in afterwards; enabling the account\nagain restores none of them. Disabling an account that is disabled\nalready writes nothing and answers the account as it is. Writes one\naudit row, `user.disabled`.\n\nLimited to 30 a minute per signed-in user.\n",
+        "responses": {
+          "200": {
+            "description": "The account, disabled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserRow"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`TARGET_ROLE_NOT_ALLOWED` — the account's role holds a permission the caller lacks.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "`LAST_ADMIN` — the account is the only active Admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`CANNOT_ACT_ON_SELF` — the account is the caller's own.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        }
+      }
+    },
+    "/admin/users/disable": {
+      "post": {
+        "operationId": "disableUsers",
+        "x-permission": "people.users.manage",
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "Disable up to 100 accounts at once",
+        "description": "Does for each account what `disableUser` does, one transaction each, so\na batch cannot do what one disable cannot. An account that fails does\nnot stop the others: `failed` names it with `NOT_FOUND`,\n`TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`, `LAST_ADMIN` or\n`INTERNAL` (a fault with that account alone, logged on the server). The\nanswer is 200 whenever the request was accepted, even when every\naccount failed. An account disabled already counts in `disabled`.\n`disabled` and `failed` keep the order of `userIds`. The audit rows of\none call carry one batch id.\n\nLimited to 30 a minute per signed-in user, a call counting once however\nmany accounts it names.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userIds"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "userIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "uniqueItems": true,
+                    "items": {
+                      "$ref": "#/components/schemas/Uuid"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The batch ran.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "disabled",
+                    "failed"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "disabled": {
+                      "type": "array",
+                      "maxItems": 100,
+                      "description": "The ids of the accounts that are disabled now.",
+                      "items": {
+                        "$ref": "#/components/schemas/Uuid"
+                      }
+                    },
+                    "failed": {
+                      "type": "array",
+                      "maxItems": 100,
+                      "items": {
+                        "$ref": "#/components/schemas/UserActionFailure"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/enable": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "post": {
+        "operationId": "enableUser",
+        "x-permission": "people.users.manage",
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "Enable a disabled account",
+        "description": "Lets the account sign in again. The subset rule applies\n(`TARGET_ROLE_NOT_ALLOWED`). The sessions and links a disable ended stay\nended: the person signs in again, and an Admin sends a new link with\n`resetUserPassword`. Enabling an account that is enabled already writes\nnothing and answers the account as it is. Writes one audit row,\n`user.enabled`.\n",
+        "responses": {
+          "200": {
+            "description": "The account, enabled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserRow"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`TARGET_ROLE_NOT_ALLOWED` — the account's role holds a permission the caller lacks.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/sign-out": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "post": {
+        "operationId": "signOutUser",
+        "x-permission": "people.users.manage",
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "Sign an account out everywhere",
+        "description": "Revokes every refresh family the account has and moves its session\nepoch, so its access tokens stop working at once, on this machine and,\nwithin 10 seconds, on any other. The subset rule applies\n(`TARGET_ROLE_NOT_ALLOWED`). Signing oneself out is allowed, and ends\nthe caller's own session too. Writes one audit row,\n`user.signed_out_everywhere`.\n",
+        "responses": {
+          "204": {
+            "description": "Signed out."
+          },
+          "403": {
+            "description": "`TARGET_ROLE_NOT_ALLOWED` — the account's role holds a permission the caller lacks.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/reset-password": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "post": {
+        "operationId": "resetUserPassword",
+        "x-permission": "people.users.manage",
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "Reset an account's password",
+        "description": "`delivery: temporary_password` sets a temporary password, returned\n**once** and kept nowhere but as a hash; the account must change it at\nthe first sign-in unless the centre's sign-in policy lets it keep it.\n`delivery: email_link` clears the password, so the old one stops working\nat once, and emails a link to choose a new one (24 hours, once).\n\nEither way the account's sessions end: every refresh family is revoked,\nthe session epoch moves and the unused links it held are revoked. The\nsubset rule, then not oneself (`CANNOT_ACT_ON_SELF`; the caller changes\ntheir own password with `changePassword`) apply in that order. A\ndisabled account is refused (`ACCOUNT_DISABLED`). While the centre has\nturned password sign-in off the answer is `PASSWORD_SIGN_IN_DISABLED`.\nThe answer is never cached. Writes one audit row,\n`user.password_reset`, with the delivery.\n\nLimited to 5 a minute and 30 an hour per signed-in user.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "delivery"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "delivery": {
+                    "$ref": "#/components/schemas/UserResetDelivery"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reset. A temporary password is returned **once**, and the answer is never cached.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "temporaryPassword": {
+                      "type": "string",
+                      "description": "Present only for `delivery: temporary_password`."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "description": "`TARGET_ROLE_NOT_ALLOWED` — the account's role holds a permission the caller lacks.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "`ACCOUNT_DISABLED` — the account is disabled; enable it first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`CANNOT_ACT_ON_SELF` — the account is the caller's own.\n`PASSWORD_SIGN_IN_DISABLED` — the centre has turned password sign-in off.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "501": {
+            "description": "This server has no key to seal a link with (`SECRETS_KEY`), so it cannot send one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/users/reset-passwords": {
+      "post": {
+        "operationId": "resetUsersPasswords",
+        "x-permission": "people.users.manage",
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "Reset the passwords of up to 100 accounts at once",
+        "description": "Does for each account what `resetUserPassword` does, one transaction\neach, with the same guards in the same order, so a batch cannot do what\none reset cannot. `userIds` holds at most 40 ids for\n`delivery: temporary_password`, because each password is hashed, two at\na time, and at most 100 for `email_link`.\n\nAn account that fails does not stop the others: `failed` names it with\n`NOT_FOUND`, `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`,\n`ACCOUNT_DISABLED` or `INTERNAL` (a fault with that account alone,\nlogged on the server). The answer is 200 whenever the request was\naccepted, even when every account failed. `items` and `failed` keep the\norder of `userIds`. `PASSWORD_SIGN_IN_DISABLED` refuses the whole\nrequest while the centre has turned password sign-in off.\n\nEach `temporaryPassword` is returned **once** and stored nowhere. A\nreset that committed before the connection dropped has lost its\npassword for good; `listUsers` with `status=must_change_password` lists\nthose accounts for another reset. The answer is never cached. The audit\nrows of one call carry one batch id.\n\nLimited to 2 a minute and 10 an hour per signed-in user, a call counting\nonce however many accounts it names.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userIds",
+                  "delivery"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "userIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "uniqueItems": true,
+                    "items": {
+                      "$ref": "#/components/schemas/Uuid"
+                    }
+                  },
+                  "delivery": {
+                    "$ref": "#/components/schemas/UserResetDelivery"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The batch ran. Passwords are returned **once**.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "failed"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "maxItems": 100,
+                      "items": {
+                        "$ref": "#/components/schemas/UserPasswordReset"
+                      }
+                    },
+                    "failed": {
+                      "type": "array",
+                      "maxItems": 100,
+                      "items": {
+                        "$ref": "#/components/schemas/UserActionFailure"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Fails the schema, or `VALIDATION_FAILED` naming `userIds`: more than 40 ids for `temporary_password`.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`PASSWORD_SIGN_IN_DISABLED` — the centre has turned password sign-in off.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "501": {
+            "description": "This server has no key to seal a link with (`SECRETS_KEY`), so it cannot send one.",
             "content": {
               "application/json": {
                 "schema": {

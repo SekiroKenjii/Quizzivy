@@ -149,6 +149,24 @@ func (o *Outbox) Prune(ctx context.Context, q db.Querier, now time.Time, limit i
 	return int(tag.RowsAffected()), nil
 }
 
+// CancelPending ends, on q, every message still waiting for the user as a
+// failed one with the code "cancelled" and its sealed secret erased, and
+// reports how many it ended. A message a dispatcher holds locked while it sends
+// is not waited for and not recalled: it goes out, as it would have had the
+// caller been a moment later.
+func CancelPending(ctx context.Context, q db.Querier, userID string, at time.Time) (int, error) {
+	tag, err := q.Exec(ctx, `
+		UPDATE app.email_outbox o
+		   SET failed_at = $2, last_error_code = 'cancelled', secret_ciphertext = NULL
+		 WHERE o.id IN (SELECT w.id FROM app.email_outbox w
+		                 WHERE w.to_user_id = $1::uuid AND w.sent_at IS NULL AND w.failed_at IS NULL
+		                   FOR UPDATE SKIP LOCKED)`, userID, at)
+	if err != nil {
+		return 0, fmt.Errorf("email: cancel the messages waiting for a user: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
+}
+
 // Notify wakes this process's dispatcher. Signals coalesce, and it never
 // blocks.
 func (o *Outbox) Notify() {
