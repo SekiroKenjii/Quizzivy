@@ -16,7 +16,14 @@ import { clockTime } from "@/lib/i18n/datetime";
 
 type SheetOutcome = "saved" | "gone" | "lost" | "failed";
 
-function SheetPart({ job, locale }: Readonly<{ job: UserImportJob; locale: Locale }>) {
+type SheetProps = Readonly<{
+  job: UserImportJob;
+  locale: Locale;
+  saved: boolean;
+  onSaved: () => void;
+}>;
+
+function SheetPart({ job, locale, saved, onSaved }: SheetProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const query = userImportQuery(job.id);
@@ -32,6 +39,9 @@ function SheetPart({ job, locale }: Readonly<{ job: UserImportJob; locale: Local
           .catch(() => undefined);
         return now?.sheet?.downloadedAt == null ? "failed" : "lost";
       }
+    },
+    onSuccess: (outcome) => {
+      if (outcome === "saved" || saved) onSaved();
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: query.queryKey }),
   });
@@ -88,12 +98,17 @@ function SheetPart({ job, locale }: Readonly<{ job: UserImportJob; locale: Local
         type="button"
         className="aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50 self-start"
         aria-disabled={download.isPending || undefined}
+        aria-busy={download.isPending || undefined}
         onClick={() => {
           if (!download.isPending) download.mutate();
         }}
       >
         <Download aria-hidden="true" />
-        {t("users.import.sheet.download")}
+        {t(
+          download.isPending
+            ? "users.import.sheet.downloading"
+            : "users.import.sheet.download",
+        )}
       </Button>
     </div>
   );
@@ -107,14 +122,21 @@ function SheetPart({ job, locale }: Readonly<{ job: UserImportJob; locale: Local
  * It reads as downloaded only once the whole file has arrived and been handed
  * to the browser; a download that fails after the server erased the sheet
  * says so and that the accounts need a password reset, as does a sheet taken
- * elsewhere. A failed job says why it stopped and that the accounts made
+ * elsewhere. `sheetSaved` carries a download made here across a reopening. A failed job says why it stopped and that the accounts made
  * before it stay; under a sheet, those accounts have no password, because the
  * sheet is erased when the job fails, and it says to reset them.
  */
 export function ImportProgress({
   job,
   locale,
-}: Readonly<{ job: UserImportJob; locale: Locale }>) {
+  sheetSaved,
+  onSheetSaved,
+}: Readonly<{
+  job: UserImportJob;
+  locale: Locale;
+  sheetSaved: boolean;
+  onSheetSaved: () => void;
+}>) {
   const { t } = useTranslation();
   const summary = t("users.import.summary", {
     created: t("users.import.created", { count: job.created }),
@@ -177,7 +199,12 @@ export function ImportProgress({
       {job.delivery === "email_link" ? (
         job.created > 0 && <p className="text-sm">{t("users.import.emailSent")}</p>
       ) : (
-        <SheetPart job={job} locale={locale} />
+        <SheetPart
+          job={job}
+          locale={locale}
+          saved={sheetSaved}
+          onSaved={onSheetSaved}
+        />
       )}
     </div>
   );

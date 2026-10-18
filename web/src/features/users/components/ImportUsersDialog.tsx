@@ -191,7 +191,12 @@ export function ImportUsersDialog({
   else if (job !== undefined)
     content = (
       <>
-        <ImportProgress job={job} locale={locale} />
+        <ImportProgress
+          job={job}
+          locale={locale}
+          sheetSaved={run.sheetSaved}
+          onSheetSaved={run.saveSheet}
+        />
         {readFailed}
       </>
     );

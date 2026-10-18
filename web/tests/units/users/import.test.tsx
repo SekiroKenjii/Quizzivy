@@ -718,7 +718,7 @@ describe("the Import users dialog at its edges", () => {
     expect(dialog.queryByRole("button", { name: "Thử lại" })).toBeNull();
   });
 
-  it("stops following a job whose reads fail, and says so with Retry", async () => {
+  it("slows to a read every thirty seconds when reads fail, says so with Retry, and recovers", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     servePreview(() => ok(preview()));
     let reads = 0;
@@ -740,13 +740,73 @@ describe("the Import users dialog at its edges", () => {
     expect(await dialog.findByRole("alert")).toHaveTextContent(
       "Không đọc được tiến độ. Việc nhập có thể vẫn đang chạy trên máy chủ; hãy thử lại.",
     );
+    expect(dialog.getByRole("button", { name: "Thử lại" })).toBeVisible();
     const failedReads = reads;
     await act(() => vi.advanceTimersByTimeAsync(6_000));
     expect(reads).toBe(failedReads);
 
     failing = false;
-    await person.click(dialog.getByRole("button", { name: "Thử lại" }));
+    await act(() => vi.advanceTimersByTimeAsync(24_000));
     await waitFor(() => expect(dialog.queryByRole("alert")).toBeNull());
+  });
+
+  it("reads the preview of a file chosen after a reset, never the previous file's", async () => {
+    const forms = recordForms();
+    servePreview((call) =>
+      ok(
+        call === 0
+          ? preview({ newAccounts: 1, emailBudget: null })
+          : preview({ newAccounts: 3, emailBudget: null }),
+      ),
+    );
+    const { user: person } = renderUsers();
+    let dialog = await openImport(person);
+    await person.upload(fileInput(), csv("a.csv"));
+    await dialog.findByText("1 tài khoản mới");
+    await person.click(dialog.getByRole("button", { name: "Huỷ" }));
+
+    dialog = await openImport(person);
+    await person.upload(fileInput(), csv("b.csv"));
+
+    expect(await dialog.findByText("3 tài khoản mới")).toBeVisible();
+    expect(dialog.getByRole("button", { name: "Nhập 3 người" })).toBeVisible();
+    expect(forms.map((form) => form.file)).toEqual(["a.csv", "b.csv"]);
+  });
+
+  it("says the sheet is downloading while it is, and does not ask for a reset after it was saved", async () => {
+    stubObjectUrls();
+    servePreview(() => ok(preview({ emailBudget: null })));
+    let taken = false;
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    serveJob(() =>
+      sheetJob(taken ? { available: false, downloadedAt: "2026-10-15T08:07:00Z" } : {}),
+    );
+    server.use(
+      http.post(`${BASE}/admin/user-imports/:id/sheet`, async () => {
+        await held;
+        taken = true;
+        return new HttpResponse("full_name,email,password\r\n", {
+          headers: { "Content-Type": "text/csv" },
+        });
+      }),
+    );
+    const { user: person } = renderUsers();
+    let dialog = await startImport(person, { sheet: true });
+
+    await person.click(
+      await dialog.findByRole("button", { name: "Tải bảng mật khẩu" }),
+    );
+    const busy = await dialog.findByRole("button", { name: "Đang tải…" });
+    expect(busy).toHaveAttribute("aria-busy", "true");
+    release();
+    expect(await dialog.findByText(/^Đã tải lúc /)).toBeVisible();
+
+    await person.click(dialog.getByRole("button", { name: "Xong" }));
+    dialog = await openImport(person);
+    expect(dialog.queryByText(/hãy đặt lại mật khẩu/)).toBeNull();
   });
 
   it("tells a sheet import to stay on the page, and asks before the tab closes", async () => {

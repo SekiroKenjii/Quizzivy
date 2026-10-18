@@ -725,6 +725,7 @@
       "sheet": {
         "warning": "The password sheet can be downloaded once and is deleted at {{time}}. Save the file somewhere safe before you close.",
         "download": "Download password sheet",
+        "downloading": "Downloading…",
         "downloaded": "Downloaded at {{time}}",
         "expired": "The password sheet is more than 24 hours old and can no longer be downloaded. Reset these accounts' passwords from the Users list.",
         "none": "No account was created, so there is no password sheet.",

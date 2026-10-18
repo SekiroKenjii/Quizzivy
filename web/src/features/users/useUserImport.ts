@@ -25,7 +25,7 @@ export const IMPORT_POLL_MS = 2_000;
 
 const PREVIEW_KEPT_MS = 5 * 60_000;
 
-type Source = Readonly<{ file: File; pick: number }>;
+const RETRY_READ_MS = 30_000;
 
 function newRequestId() {
   return crypto.randomUUID();
@@ -35,12 +35,14 @@ function newRequestId() {
  * useUserImport holds one run of the Import users dialog: the file and the
  * choices, the preview they come to, and, once the Admin starts it, the job.
  * The preview is read again when the file, the role or the hand-out changes,
- * and the latest read wins. The `requestId` is made with the dialog and held
+ * and the latest read wins; it is cached under the `requestId`, so a file
+ * chosen after a reset never meets another file's preview. The `requestId` is made with the dialog and held
  * while the file stays the same, so a retry of a start whose answer was lost
  * returns the job it made; choosing another file takes a new one, because the
  * same id would return the first file's job whatever the new file holds. A
  * running job is read every two seconds while the
- * Admin is there, whether or not the dialog is open, until a read fails; when
+ * Admin is there, whether or not the dialog is open, and every thirty seconds
+ * after a read fails, until one succeeds; when
  * it settles, the Users list is read again and, if the dialog is closed, a
  * toast says how it ended. While a sheet job runs, or its sheet waits to be
  * taken, closing or reloading the tab asks first, because the sheet is offered
@@ -50,27 +52,27 @@ function newRequestId() {
 export function useUserImport(open: boolean) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const [source, setSource] = useState<Source | null>(null);
+  const [source, setSource] = useState<File | null>(null);
   const [defaultRole, setDefaultRole] = useState<UserImportDefaultRole>("student");
   const [delivery, setDelivery] = useState<UserImportDelivery>("email_link");
   const [requestId, setRequestId] = useState(newRequestId);
   const [jobId, setJobId] = useState<string | null>(null);
+  const [sheetSaved, setSheetSaved] = useState(false);
 
-  const tooLarge = source !== null && isTooLarge(source.file);
+  const tooLarge = source !== null && isTooLarge(source);
   const asked = jobId === null && !tooLarge ? source : null;
   const preview = useQuery({
     queryKey: [
       ...USER_IMPORTS_KEY,
       "preview",
-      asked?.pick ?? null,
+      asked === null ? null : requestId,
       defaultRole,
       delivery,
     ] as const,
     queryFn:
       asked === null
         ? skipToken
-        : ({ signal }) =>
-            previewUserImport(asked.file, { defaultRole, delivery }, signal),
+        : ({ signal }) => previewUserImport(asked, { defaultRole, delivery }, signal),
     retry: false,
     staleTime: Infinity,
     gcTime: PREVIEW_KEPT_MS,
@@ -96,9 +98,9 @@ export function useUserImport(open: boolean) {
     ...userImportQuery(jobId ?? ""),
     enabled: jobId !== null,
     refetchInterval: (query) =>
-      query.state.status !== "error" && isJobRunning(query.state.data)
-        ? interval
-        : false,
+      isJobRunning(query.state.data) &&
+      interval !== false &&
+      (query.state.status === "error" ? RETRY_READ_MS : interval),
     refetchIntervalInBackground: false,
   });
   useRefetchOnResume(job.refetch, jobId !== null && isJobRunning(job.data));
@@ -134,11 +136,12 @@ export function useUserImport(open: boolean) {
     setDelivery("email_link");
     setRequestId(newRequestId());
     setJobId(null);
+    setSheetSaved(false);
     start.reset();
   }
 
   return {
-    file: source?.file ?? null,
+    file: source,
     tooLarge,
     defaultRole,
     delivery,
@@ -149,9 +152,7 @@ export function useUserImport(open: boolean) {
     choose(file: File | null) {
       start.reset();
       setRequestId(newRequestId());
-      setSource((previous) =>
-        file === null ? null : { file, pick: (previous?.pick ?? 0) + 1 },
-      );
+      setSource(file);
     },
     setDefaultRole(role: UserImportDefaultRole) {
       start.reset();
@@ -164,8 +165,10 @@ export function useUserImport(open: boolean) {
     begin() {
       if (source === null || tooLarge || starting.current) return;
       starting.current = true;
-      start.mutate({ file: source.file });
+      start.mutate({ file: source });
     },
+    sheetSaved,
+    saveSheet: () => setSheetSaved(true),
     again: reset,
     dismiss() {
       const keepsSheet = settled !== null && settled.sheet?.available === true;
