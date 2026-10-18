@@ -452,16 +452,17 @@ func TestATemporaryPasswordIsKeptOnlyWhereTheCentreAllowsIt(t *testing.T) {
 }
 
 func TestABulkDisableReportsEachRefusalAndDisablesTheRest(t *testing.T) {
-	r := newWriteRig("one", "two", "last", "broken", "boom", "outside")
+	r := newWriteRig("one", "two", "last", "broken", "boom", "outside", "held")
 	r.principal.sets["outside"] = adminKeys
 	r.shelf.refuse["last"] = domain.ErrLastAdmin
+	r.shelf.held["held"] = 3
 	r.shelf.refuse["broken"] = errors.New("pq: connection reset by peer, password=hunter2")
 	r.shelf.panics["boom"] = true
 	by := domain.WriteRequest{ActorID: "manager", Grants: access.NewSet(access.PeopleUsersManage, access.TeachingGrading)}
 	r.principal.sets["manager"] = by.Grants
 
 	result, err := r.app.Commands.DisableUsers.Handle(context.Background(), command.DisableUsers{
-		Request: by, IDs: []string{"one", "ghost", "manager", "last", "broken", "outside", "boom", "two"},
+		Request: by, IDs: []string{"one", "ghost", "manager", "last", "broken", "outside", "boom", "held", "two"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -477,6 +478,7 @@ func TestABulkDisableReportsEachRefusalAndDisablesTheRest(t *testing.T) {
 		{UserID: "broken", Reason: domain.ErrActionFailed},
 		{UserID: "outside", Reason: accessdomain.ErrTargetRoleNotAllowed},
 		{UserID: "boom", Reason: domain.ErrActionFailed},
+		{UserID: "held", Reason: domain.ErrWriteContended},
 	}
 	if len(result.Failed) != len(want) {
 		t.Fatalf("failed %+v, want %+v in the order named", result.Failed, want)
@@ -496,6 +498,9 @@ func TestABulkDisableReportsEachRefusalAndDisablesTheRest(t *testing.T) {
 	}
 	if !strings.Contains(r.logs.String(), "broken") || !strings.Contains(r.logs.String(), "boom") {
 		t.Errorf("the faults were not logged: %q", r.logs.String())
+	}
+	if strings.Contains(r.logs.String(), "held") {
+		t.Errorf("a write that only lost a race was logged as a fault: %q", r.logs.String())
 	}
 	batches := map[string]bool{}
 	for _, req := range r.shelf.reqs {

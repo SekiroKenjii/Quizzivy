@@ -283,19 +283,21 @@ func TestWritesAnswer501WhereTheUsersDirectoryIsNotAttached(t *testing.T) {
 }
 
 func TestABulkDisableAnswersWhoWasDisabledAndWhyTheOthersWereNot(t *testing.T) {
-	one, two, bad, gone, boom := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	one, two, bad, gone, boom, held, moving := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
 	s := &accountStubs{disabled: domain.BulkDisable{
 		Disabled: []string{one.String(), two.String()},
 		Failed: []domain.UserFailure{
 			{UserID: bad.String(), Reason: domain.ErrLastAdmin},
 			{UserID: gone.String(), Reason: domain.ErrUserNotFound},
 			{UserID: boom.String(), Reason: domain.ErrActionFailed},
+			{UserID: held.String(), Reason: domain.ErrWriteContended},
+			{UserID: moving.String(), Reason: domain.ErrRoleChanged},
 		},
 	}}
 	h := s.handler()
 
 	got := readAs(t, anAdmin(), "", func(ctx context.Context, w http.ResponseWriter) error {
-		response, err := h.DisableUsers(ctx, openapi.DisableUsersRequestObject{Body: &openapi.DisableUsersJSONRequestBody{UserIds: []uuid.UUID{one, two, bad, gone, boom}}})
+		response, err := h.DisableUsers(ctx, openapi.DisableUsersRequestObject{Body: &openapi.DisableUsersJSONRequestBody{UserIds: []uuid.UUID{one, two, bad, gone, boom, held, moving}}})
 		return render(w, openapi.DisableUsersResponseObject.VisitDisableUsersResponse, response, err)
 	})
 
@@ -312,8 +314,8 @@ func TestABulkDisableAnswersWhoWasDisabledAndWhyTheOthersWereNot(t *testing.T) {
 	if !slices.Equal(out.Disabled, []string{one.String(), two.String()}) {
 		t.Errorf("disabled = %v", out.Disabled)
 	}
-	wantCodes := []string{"LAST_ADMIN", "NOT_FOUND", "INTERNAL"}
-	if len(out.Failed) != 3 {
+	wantCodes := []string{"LAST_ADMIN", "NOT_FOUND", "INTERNAL", "STALE_WRITE", "STALE_WRITE"}
+	if len(out.Failed) != len(wantCodes) {
 		t.Fatalf("failed = %+v", out.Failed)
 	}
 	for i, code := range wantCodes {
@@ -321,7 +323,7 @@ func TestABulkDisableAnswersWhoWasDisabledAndWhyTheOthersWereNot(t *testing.T) {
 			t.Errorf("failure %d = %+v, want %s", i, out.Failed[i], code)
 		}
 	}
-	if !slices.Equal(s.bulk.IDs, []string{one.String(), two.String(), bad.String(), gone.String(), boom.String()}) {
+	if !slices.Equal(s.bulk.IDs, []string{one.String(), two.String(), bad.String(), gone.String(), boom.String(), held.String(), moving.String()}) {
 		t.Errorf("the command was given %v, want the ids in the order named", s.bulk.IDs)
 	}
 }
