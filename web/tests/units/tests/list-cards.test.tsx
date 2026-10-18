@@ -366,6 +366,13 @@ describe("the tests list's tabs and search", () => {
     expect(box).toHaveValue("Unit 5 ");
   });
 
+  it("asks for a search from a link without its outer spaces", async () => {
+    renderList("/teacher/tests?q=%20Unit%20");
+    await screen.findByRole("link", { name: "Unit 5" });
+
+    expect(lists.at(-1)?.get("q")).toBe("Unit");
+  });
+
   it("reads an old Archived bookmark as All", async () => {
     renderList("/teacher/tests?status=archived");
     await screen.findByRole("link", { name: "Old mock" });

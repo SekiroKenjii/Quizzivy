@@ -29,7 +29,7 @@ import { EmptyState, LoadError, QueryStates } from "@/components/shared/ListStat
 import { Pager } from "@/components/shared/data/Pager";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { useBulkSelection } from "@/hooks/useBulkSelection";
-import { useDebouncedInput } from "@/hooks/useDebouncedInput";
+import { trimmed, useDebouncedInput } from "@/hooks/useDebouncedInput";
 import { useListFilters } from "@/hooks/useListFilters";
 import { usePage, usePageSize } from "@/hooks/usePage";
 import { PageHead } from "@/layouts/shell/PageHead";
@@ -48,7 +48,6 @@ import {
 import { TestCard } from "@/features/tests/pages/teacher/TestCard";
 
 const PAGE_SIZES = [24, 48] as const;
-const trimmed = (typed: string) => typed.trim();
 const TABS = ["all", "published", "draft"] as const;
 type Tab = (typeof TABS)[number];
 const TAB_LABELS = {

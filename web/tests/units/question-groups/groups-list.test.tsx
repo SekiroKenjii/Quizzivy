@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
@@ -139,5 +139,21 @@ describe("the archive confirmation", () => {
     expect(
       await screen.findByText(/^Archive these 2 groups from the active list\./),
     ).toBeInTheDocument();
+  });
+});
+
+describe("the groups list's search", () => {
+  it("keeps what is typed in the box and out of the URL until the typing pauses", async () => {
+    serve({ active: 2, archived: 0 });
+    const { user, router } = renderList();
+    const box = await screen.findByRole("searchbox");
+    const before = router.state.location.search;
+
+    await user.type(box, "pass");
+    expect(box).toHaveValue("pass");
+    expect(router.state.location.search).toBe(before);
+
+    await waitFor(() => expect(router.state.location.search).toContain("q=pass"));
+    expect(box).toHaveValue("pass");
   });
 });

@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { useDebouncedInput } from "@/hooks/useDebouncedInput";
-
-const trimmed = (typed: string) => typed.trim();
+import { trimmed, useDebouncedInput } from "@/hooks/useDebouncedInput";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -55,5 +53,34 @@ describe("useDebouncedInput", () => {
 
     expect(view.result.current[0]).toBe("");
     expect(apply).not.toHaveBeenCalled();
+  });
+
+  it("lets an outside change that lands as the text settles win over the text", () => {
+    const { apply, view } = render("");
+
+    act(() => view.result.current[1]("ngu"));
+    act(() => vi.advanceTimersByTime(299));
+    act(() => {
+      view.rerender({ value: "tran" });
+      vi.advanceTimersByTime(1);
+    });
+    act(() => vi.advanceTimersByTime(300));
+
+    expect(apply).not.toHaveBeenCalled();
+    expect(view.result.current[0]).toBe("tran");
+  });
+
+  it("applies text typed again after an outside change, even the same text", () => {
+    const { apply, view } = render("");
+
+    act(() => view.result.current[1]("ngu"));
+    act(() => {
+      view.rerender({ value: "tran" });
+      vi.advanceTimersByTime(300);
+    });
+    act(() => view.result.current[1]("ngu"));
+    act(() => vi.advanceTimersByTime(300));
+
+    expect(apply).toHaveBeenCalledExactlyOnceWith("ngu");
   });
 });
