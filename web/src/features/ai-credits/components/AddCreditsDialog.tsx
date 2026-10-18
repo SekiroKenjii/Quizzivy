@@ -19,7 +19,8 @@ const INITIAL: Values = { amount: String(ADDITIONS[0]) };
  * amounts, added to the centre pool at once. It is how an Admin approves use
  * beyond the plan, so the dialog says the extra is paid for outside Quizzivy
  * and does not carry over to next month (DG-196). The server records the
- * caller as the approver.
+ * caller as the approver. An addition still in flight when the dialog closes
+ * holds off the next one until it answers, and its toast still says so.
  */
 export function AddCreditsDialog({
   open,
@@ -54,10 +55,7 @@ export function AddCreditsDialog({
     <FormDialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) {
-          add.reset();
-          latch.release();
-        }
+        if (!next && !add.isPending) add.reset();
         onOpenChange(next);
       }}
       title={t("aiCredits.add.title")}

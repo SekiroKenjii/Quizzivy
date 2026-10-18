@@ -197,7 +197,7 @@ describe("the allowance dialog", () => {
     expect(sent).toEqual([{ userId: giau.userId, body: { paused: true } }]);
   });
 
-  it("sends Default when another Admin set a custom figure after the dialog opened", async () => {
+  it("never undoes what another Admin set after it opened when nothing was changed here", async () => {
     const seen = serveCredits();
     const sent = serveAllowance(seen);
     const { user } = renderCreditsPage();
@@ -205,12 +205,31 @@ describe("the allowance dialog", () => {
     seen.view = {
       ...seen.view,
       teachers: seen.view.teachers.map((row) =>
-        row.userId === giau.userId ? { ...row, custom: true, allowance: 77000 } : row,
+        row.userId === giau.userId
+          ? { ...row, custom: true, allowance: 77000, paused: true }
+          : row,
       ),
     };
     await user.click(within(dialog).getByRole("button", { name: "Lưu" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(sent).toEqual([]);
+    expect(screen.queryByText("Đã lưu hạn mức của Giàu Bùi")).toBeNull();
+  });
+
+  it("saves again after a save that changed nothing", async () => {
+    const seen = serveCredits();
+    const sent = serveAllowance(seen);
+    const { user } = renderCreditsPage();
+    let dialog = await openAllowance(user, giau.name);
+    await user.click(within(dialog).getByRole("button", { name: "Lưu" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    dialog = await openAllowance(user, giau.name);
+    await user.click(
+      within(dialog).getByRole("switch", { name: "Tạm dừng AI cho giáo viên này" }),
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Lưu" }));
     await screen.findByText("Đã lưu hạn mức của Giàu Bùi");
-    expect(sent).toEqual([{ userId: giau.userId, body: { custom: false } }]);
+    expect(sent).toEqual([{ userId: giau.userId, body: { paused: true } }]);
   });
 
   it.each([
@@ -459,6 +478,81 @@ describe("the add credits dialog", () => {
     );
     expect(screen.getByRole("dialog")).toBeVisible();
     expect(screen.getByText("trên 200.000 tín dụng đã dùng")).toBeVisible();
+  });
+
+  it("sends the retry after a refusal", async () => {
+    serveCredits();
+    let calls = 0;
+    server.use(
+      http.post(`${BASE}/admin/ai/credits/additions`, () => {
+        calls += 1;
+        if (calls === 1)
+          return HttpResponse.json(
+            {
+              error: {
+                code: "INTERNAL",
+                message: "Máy chủ gặp sự cố.",
+                requestId: "019535d9-3df7-79fb-b466-fa907fa17f9e",
+              },
+            },
+            { status: 500 },
+          );
+        return contractJson(ADDITIONS, "post", 201, {
+          plan: 200000,
+          added: 50000,
+          used: 124840,
+          reserved: 0,
+          total: 250000,
+          left: 125160,
+        });
+      }),
+    );
+    const { user } = renderCreditsPage();
+    const dialog = await openAdd(user);
+    const submit = within(dialog).getByRole("button", { name: "Thêm tín dụng" });
+    await user.click(submit);
+    await within(dialog).findByRole("alert");
+    await waitFor(() => expect(submit).not.toHaveAttribute("aria-disabled"));
+    await user.click(submit);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(calls).toBe(2);
+  });
+
+  it("holds a second addition until one closed in flight has answered, and still says it was added", async () => {
+    serveCredits();
+    let calls = 0;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.post(`${BASE}/admin/ai/credits/additions`, async () => {
+        calls += 1;
+        await held;
+        return contractJson(ADDITIONS, "post", 201, {
+          plan: 200000,
+          added: 50000,
+          used: 124840,
+          reserved: 0,
+          total: 250000,
+          left: 125160,
+        });
+      }),
+    );
+    const { user } = renderCreditsPage();
+    let dialog = await openAdd(user);
+    await user.click(within(dialog).getByRole("button", { name: "Thêm tín dụng" }));
+    await waitFor(() => expect(calls).toBe(1));
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    dialog = await openAdd(user);
+    await user.click(within(dialog).getByRole("button", { name: "Thêm tín dụng" }));
+    expect(calls).toBe(1);
+    release();
+    expect(
+      await screen.findByText("Đã thêm 50.000 tín dụng vào quỹ chung"),
+    ).toBeVisible();
+    expect(calls).toBe(1);
   });
 
   it("sends one request for a double press", async () => {

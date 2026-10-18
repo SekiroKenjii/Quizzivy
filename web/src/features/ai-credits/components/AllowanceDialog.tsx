@@ -1,13 +1,8 @@
 import { useMemo, type RefObject } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Sparkles } from "lucide-react";
 import { FormDialog, type FormField } from "@/components/shared/form/FormDialog";
-import {
-  adminCreditsQuery,
-  type AiAllowanceInput,
-  type AiTeacherMonth,
-} from "@/features/ai-credits/api";
+import type { AiTeacherMonth } from "@/features/ai-credits/api";
 import {
   MAX_ALLOWANCE,
   MIN_ALLOWANCE,
@@ -25,9 +20,10 @@ import { notify } from "@/lib/toast";
  * AllowanceDialog is the deck's "AI allowance" for one teacher, open while
  * `teacher` is set: the default allowance or a custom figure of at least
  * 1,000, and a switch that pauses their AI. It sends only what the Admin
- * changed; a save that changes nothing against the row it opened on reads
- * the month again and sends what differs from the teacher's row there, so a
- * change another Admin made meanwhile is not kept by mistake. A figure
+ * changed against the row it opened on, so a dialog saved without a change
+ * sends nothing and never undoes what another Admin set meanwhile. A save
+ * still in flight when the dialog closes holds off the next one until it
+ * answers. A figure
  * below what the teacher has used is the server's refusal, shown in the
  * dialog.
  */
@@ -46,7 +42,6 @@ export function AllowanceDialog({
   const locale = useLocale();
   const save = useSaveAllowance();
   const latch = useLatch();
-  const client = useQueryClient();
   const bounds = {
     min: credits(MIN_ALLOWANCE, locale),
     max: credits(MAX_ALLOWANCE, locale),
@@ -109,36 +104,24 @@ export function AllowanceDialog({
     return null;
   }
 
-  function send(target: AiTeacherMonth, body: AiAllowanceInput | null) {
+  function submit(values: AllowanceValues) {
+    if (teacher === null || !latch.take()) return;
+    const body = allowanceBody(teacher, values);
     if (body === null) {
       latch.release();
       onClose();
       return;
     }
     save.mutate(
-      { userId: target.userId, body },
+      { userId: teacher.userId, body },
       {
         onSuccess: () => {
           onClose();
-          notify.success(t("aiCredits.allowance.saved", { name: target.name }));
+          notify.success(t("aiCredits.allowance.saved", { name: teacher.name }));
         },
         onSettled: latch.release,
       },
     );
-  }
-
-  function submit(values: AllowanceValues) {
-    if (teacher === null || !latch.take()) return;
-    const body = allowanceBody(teacher, values);
-    if (body !== null) {
-      send(teacher, body);
-      return;
-    }
-    client
-      .query({ ...adminCreditsQuery(), staleTime: 0 })
-      .then((view) => view.teachers.find((row) => row.userId === teacher.userId))
-      .catch(() => undefined)
-      .then((fresh) => send(teacher, fresh ? allowanceBody(fresh, values) : null));
   }
 
   return (
@@ -146,8 +129,7 @@ export function AllowanceDialog({
       open={teacher !== null}
       onOpenChange={(next) => {
         if (next) return;
-        save.reset();
-        latch.release();
+        if (!save.isPending) save.reset();
         onClose();
       }}
       title={t("aiCredits.allowance.title", { name: teacher?.name ?? "" })}

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, screen, waitFor, within } from "@testing-library/react";
+import { onlineManager } from "@tanstack/react-query";
 import { toast } from "@/components/ui/sonner";
 import { delay, http, HttpResponse } from "msw";
 import i18n from "@/lib/i18n";
@@ -419,6 +420,27 @@ describe("the requests", () => {
     await waitFor(() => expect(decline).not.toHaveAttribute("aria-disabled"));
     expect(screen.getByRole("list", { name: REQUESTS })).toBeVisible();
   });
+
+  it("fails a decision made offline at once instead of sending it later", async () => {
+    serveCredits();
+    let posts = 0;
+    server.use(
+      http.post(`${BASE}/admin/ai/credit-requests/:id/decline`, () => {
+        posts += 1;
+        return HttpResponse.error();
+      }),
+    );
+    const { user } = renderCreditsPage();
+    const decline = await screen.findByRole("button", { name: "Từ chối" });
+    onlineManager.setOnline(false);
+    try {
+      await user.click(decline);
+      await waitFor(() => expect(posts).toBe(1));
+      await waitFor(() => expect(decline).not.toHaveAttribute("aria-disabled"));
+    } finally {
+      onlineManager.setOnline(true);
+    }
+  });
 });
 
 describe("the teachers", () => {
@@ -439,6 +461,14 @@ describe("the teachers", () => {
     ]);
     const bao = rows[2]!;
     expect(within(bao).getByText("bao.dinh@quizzivy.com")).toBeVisible();
+    expect(within(bao).getByText("Đinh Quốc Bảo")).toHaveAttribute(
+      "title",
+      "Đinh Quốc Bảo",
+    );
+    expect(within(bao).getByText("bao.dinh@quizzivy.com")).toHaveAttribute(
+      "title",
+      "bao.dinh@quizzivy.com",
+    );
     expect(within(bao).getByText("30.100")).toBeVisible();
     expect(within(bao).getByText("trên 80.000 · tùy chỉnh")).toBeVisible();
     expect(
