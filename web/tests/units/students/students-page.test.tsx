@@ -73,12 +73,20 @@ describe("the Students list", () => {
       student("018f0000-0000-7000-8000-0000000000f3", "Vừa Xong", {
         lastActiveAt: new Date(Date.now() - 5_000).toISOString(),
       }),
+      student("018f0000-0000-7000-8000-0000000000f5", "Lâu Rồi", {
+        lastActiveAt: new Date(Date.now() - 40 * 86_400_000).toISOString(),
+      }),
     ]);
     renderStudents(teacherUser);
 
     expect(await rowOf("Chưa Hoạt Động")).toHaveTextContent("Chưa bao giờ");
     expect(await rowOf("Đã Hoạt Động")).toHaveTextContent("2 tuần trước");
     expect(await rowOf("Vừa Xong")).toHaveTextContent("vừa xong");
+    expect(await rowOf("Lâu Rồi")).not.toHaveTextContent("tháng");
+    const when = within(await rowOf("Đã Hoạt Động")).getByText("2 tuần trước");
+    expect(when.tagName).toBe("TIME");
+    expect(when).toHaveAttribute("title");
+    expect(await rowOf("Lâu Rồi")).toHaveTextContent(/\d{2}\/\d{2}\/\d{4}/);
   });
 
   it("still draws a row whose account state this build does not know", async () => {
