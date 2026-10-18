@@ -75,7 +75,7 @@ export async function exportAuditLog(request: AuditExport, signal?: AbortSignal)
       ...(request.category === null ? {} : { category: request.category }),
       ...(request.q === "" ? {} : { q: request.q }),
     },
-    signal,
+    { signal },
   );
   saveDownloadedFile(file, `audit-log.${request.format}`);
 }

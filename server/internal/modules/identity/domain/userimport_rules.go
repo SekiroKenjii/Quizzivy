@@ -124,9 +124,9 @@ func (p *ImportPlan) tally(row ImportAccepted, j *judge) {
 		if p.ExistingCount++; len(p.ExistingSample) < MaxExistingSample {
 			p.ExistingSample = append(p.ExistingSample, row.Email)
 		}
-	} else {
-		p.NewAccounts++
+		return
 	}
+	p.NewAccounts++
 	if row.ClassID != "" && !p.hasClass(row.ClassID) {
 		p.Classes = append(p.Classes, j.classByID[row.ClassID])
 	}
