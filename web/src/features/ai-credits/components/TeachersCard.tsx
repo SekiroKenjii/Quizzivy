@@ -37,8 +37,16 @@ function TeacherRow({
       <div className="flex min-w-0 flex-[1_1_10rem] items-center gap-2.5">
         <Avatar name={teacher.name} />
         <div className="min-w-0">
-          <p className="text-ui truncate leading-normal font-medium">{teacher.name}</p>
-          <p className="text-muted-fg truncate text-xs leading-normal">
+          <p
+            className="text-ui truncate leading-normal font-medium"
+            title={teacher.name}
+          >
+            {teacher.name}
+          </p>
+          <p
+            className="text-muted-fg truncate text-xs leading-normal"
+            title={teacher.email}
+          >
             {teacher.email}
           </p>
         </div>

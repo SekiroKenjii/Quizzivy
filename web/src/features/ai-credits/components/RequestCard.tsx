@@ -1,9 +1,10 @@
+import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, Hand } from "lucide-react";
 import { IconTile } from "@/components/shared/IconTile";
 import { Button } from "@/components/ui/button";
 import type { AiPendingRequest } from "@/features/ai-credits/api";
-import { useDecideRequest } from "@/features/ai-credits/mutations";
+import { useDecideRequest, useLatch } from "@/features/ai-credits/mutations";
 import { credits } from "@/features/ai/credits";
 import { formatAgo } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
@@ -23,16 +24,18 @@ export function RequestCard({
   const { t } = useTranslation();
   const locale = useLocale();
   const decide = useDecideRequest(request, onDecided);
+  const latch = useLatch();
+  const titleId = useId();
   const busy = decide.isPending;
   const amount = credits(request.amount, locale);
   function press(decision: "approve" | "decline") {
-    if (!busy) decide.mutate(decision);
+    if (latch.take()) decide.mutate(decision, { onSettled: latch.release });
   }
   return (
     <li className="bg-card shadow-card flex flex-wrap items-center gap-3 rounded-xl border py-3 pr-3.5 pl-4">
       <IconTile icon={Hand} size={32} tone="warning" />
       <div className="min-w-0 flex-[1_1_17.5rem]">
-        <p className="text-ui leading-normal font-medium">
+        <p id={titleId} className="text-ui leading-normal font-medium">
           {t("aiCredits.request.title", {
             name: request.teacherName,
             amount,
@@ -53,7 +56,8 @@ export function RequestCard({
           variant="ghost"
           size="sm"
           aria-disabled={busy || undefined}
-          className="hover:bg-muted aria-disabled:text-foreground/50 h-8 px-3 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent"
+          aria-describedby={titleId}
+          className="hover:bg-muted aria-disabled:text-foreground/50 h-8 px-3 in-data-[scale=deck]:h-8 in-data-[scale=deck]:rounded-md aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent"
           onClick={() => press("decline")}
         >
           {t("aiCredits.request.decline")}
@@ -62,7 +66,8 @@ export function RequestCard({
           type="button"
           size="sm"
           aria-disabled={busy || undefined}
-          className="aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50 h-8 px-3 aria-disabled:cursor-not-allowed"
+          aria-describedby={titleId}
+          className="aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50 h-8 px-3 in-data-[scale=deck]:h-8 in-data-[scale=deck]:rounded-md aria-disabled:cursor-not-allowed"
           onClick={() => press("approve")}
         >
           <Check aria-hidden="true" />

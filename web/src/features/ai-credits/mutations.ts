@@ -1,3 +1,4 @@
+import { useMemo, useRef } from "react";
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -29,13 +30,38 @@ function reread(client: QueryClient) {
 }
 
 /**
+ * useLatch is a one-at-a-time gate for a write that a render cannot lag:
+ * `take` answers false until `release`, so a second click in the same frame
+ * as the first, which still reads `isPending` as false, sends nothing.
+ */
+export function useLatch() {
+  const held = useRef(false);
+  return useMemo(
+    () => ({
+      take: () => {
+        if (held.current) return false;
+        held.current = true;
+        return true;
+      },
+      release: () => {
+        held.current = false;
+      },
+    }),
+    [],
+  );
+}
+
+/**
  * useAddCredits adds credits to this month's pool. The answer is the pool, and
  * it replaces the cached one at once; the month is read again for what depends
- * on it, the projection among them.
+ * on it, the projection among them. Every write here is sent at once, online
+ * or not, so an offline click fails where it was made instead of landing
+ * unseen on reconnect.
  */
 export function useAddCredits() {
   const client = useQueryClient();
   return useMutation({
+    networkMode: "always",
     mutationFn: addAiCredits,
     onSuccess: (pool) => {
       patch(client, (view) => ({ ...view, pool }));
@@ -52,6 +78,7 @@ export function useAddCredits() {
 export function useSaveAllowance() {
   const client = useQueryClient();
   return useMutation({
+    networkMode: "always",
     mutationFn: ({ userId, body }: { userId: string; body: AiAllowanceInput }) =>
       setAiAllowance(userId, body),
     onSuccess: (teacher: AiTeacherMonth) => {
@@ -74,6 +101,7 @@ export function useSaveAllowance() {
 export function useSaveRules() {
   const client = useQueryClient();
   return useMutation({
+    networkMode: "always",
     mutationFn: (body: AiRulesInput) => updateAiRules(body),
     onSuccess: ({ rules }) => {
       patch(client, (view) => ({ ...view, rules }));
@@ -94,6 +122,7 @@ export function useDecideRequest(request: AiPendingRequest, onDecided: () => voi
   const locale = useLocale();
   const client = useQueryClient();
   return useMutation({
+    networkMode: "always",
     mutationFn: (decision: "approve" | "decline") =>
       decision === "approve"
         ? approveAiCreditRequest(request.id)

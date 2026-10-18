@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { toast } from "@/components/ui/sonner";
 import { delay, http, HttpResponse } from "msw";
 import i18n from "@/lib/i18n";
@@ -323,6 +323,48 @@ describe("the requests", () => {
     release();
     await screen.findByText("Hạn mức tháng này của Phan Minh Đức giờ là 70.000");
     expect(posts).toBe(1);
+  });
+
+  it("approves once for two presses in the same frame, with no second toast", async () => {
+    serveCredits();
+    let posts = 0;
+    server.use(
+      http.post(`${BASE}/admin/ai/credit-requests/:id/approve`, () => {
+        posts += 1;
+        return contractJson("/admin/ai/credit-requests/{id}/approve", "post", 200, {
+          request: {
+            id: ducRequest.id,
+            userId: ducRequest.userId,
+            month: ducRequest.month,
+            amount: ducRequest.amount,
+            reason: ducRequest.reason,
+            status: "approved",
+            createdAt: ducRequest.createdAt,
+            decidedAt: new Date().toISOString(),
+          },
+          allowance: 70000,
+        });
+      }),
+    );
+    renderCreditsPage();
+    const approve = await screen.findByRole("button", { name: "Duyệt 20.000" });
+    act(() => {
+      approve.click();
+      approve.click();
+    });
+    await screen.findByText("Hạn mức tháng này của Phan Minh Đức giờ là 70.000");
+    expect(posts).toBe(1);
+  });
+
+  it("describes Approve and Decline by the request they act on", async () => {
+    serveCredits();
+    renderCreditsPage();
+    const approve = await screen.findByRole("button", { name: "Duyệt 20.000" });
+    const description = new RegExp("^Phan Minh Đức");
+    expect(approve).toHaveAccessibleDescription(description);
+    expect(screen.getByRole("button", { name: "Từ chối" })).toHaveAccessibleDescription(
+      description,
+    );
   });
 
   it("shows the server's sentence when the request was decided elsewhere, and the card leaves on the reread", async () => {

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
+import { onlineManager } from "@tanstack/react-query";
 import { delay, http, HttpResponse } from "msw";
 import { toast } from "@/components/ui/sonner";
 import i18n from "@/lib/i18n";
@@ -29,6 +30,13 @@ afterEach(async () => {
   await i18n.changeLanguage("vi");
   vi.restoreAllMocks();
 });
+
+function twice(element: HTMLElement) {
+  act(() => {
+    element.click();
+    element.click();
+  });
+}
 
 function serveAllowance(seen: { view: Credits }) {
   const sent: { userId: string; body: unknown }[] = [];
@@ -174,6 +182,35 @@ describe("the allowance dialog", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(sent).toEqual([]);
     expect(screen.queryByText("Đã lưu hạn mức của Giàu Bùi")).toBeNull();
+  });
+
+  it("sends one save for two presses in the same frame", async () => {
+    const seen = serveCredits();
+    const sent = serveAllowance(seen);
+    const { user } = renderCreditsPage();
+    const dialog = await openAllowance(user, giau.name);
+    await user.click(
+      within(dialog).getByRole("switch", { name: "Tạm dừng AI cho giáo viên này" }),
+    );
+    twice(within(dialog).getByRole("button", { name: "Lưu" }));
+    await screen.findByText("Đã lưu hạn mức của Giàu Bùi");
+    expect(sent).toEqual([{ userId: giau.userId, body: { paused: true } }]);
+  });
+
+  it("sends Default when another Admin set a custom figure after the dialog opened", async () => {
+    const seen = serveCredits();
+    const sent = serveAllowance(seen);
+    const { user } = renderCreditsPage();
+    const dialog = await openAllowance(user, giau.name);
+    seen.view = {
+      ...seen.view,
+      teachers: seen.view.teachers.map((row) =>
+        row.userId === giau.userId ? { ...row, custom: true, allowance: 77000 } : row,
+      ),
+    };
+    await user.click(within(dialog).getByRole("button", { name: "Lưu" }));
+    await screen.findByText("Đã lưu hạn mức của Giàu Bùi");
+    expect(sent).toEqual([{ userId: giau.userId, body: { custom: false } }]);
   });
 
   it.each([
@@ -450,6 +487,50 @@ describe("the add credits dialog", () => {
     expect(calls).toBe(1);
   });
 
+  it("sends one request for two presses in the same frame", async () => {
+    serveCredits();
+    let calls = 0;
+    server.use(
+      http.post(`${BASE}/admin/ai/credits/additions`, () => {
+        calls += 1;
+        return contractJson(ADDITIONS, "post", 201, {
+          plan: 200000,
+          added: 50000,
+          used: 124840,
+          reserved: 0,
+          total: 250000,
+          left: 125160,
+        });
+      }),
+    );
+    const { user } = renderCreditsPage();
+    const dialog = await openAdd(user);
+    twice(within(dialog).getByRole("button", { name: "Thêm tín dụng" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(calls).toBe(1);
+  });
+
+  it("says it could not add while offline instead of waiting to send it later", async () => {
+    serveCredits();
+    let calls = 0;
+    server.use(
+      http.post(`${BASE}/admin/ai/credits/additions`, () => {
+        calls += 1;
+        return HttpResponse.error();
+      }),
+    );
+    const { user } = renderCreditsPage();
+    const dialog = await openAdd(user);
+    onlineManager.setOnline(false);
+    try {
+      await user.click(within(dialog).getByRole("button", { name: "Thêm tín dụng" }));
+      expect(await within(dialog).findByRole("alert")).toBeVisible();
+      expect(calls).toBe(1);
+    } finally {
+      onlineManager.setOnline(true);
+    }
+  });
+
   it("says in English what the deck's invoice sentence became (DG-196)", async () => {
     await i18n.changeLanguage("en");
     serveCredits();
@@ -602,6 +683,16 @@ describe("the rules card", () => {
     release();
     await screen.findByText("Đã lưu quy tắc");
     await waitFor(() => expect(twenty).not.toHaveAttribute("aria-disabled"));
+  });
+
+  it("sends one change for two presses in the same frame", async () => {
+    const seen = serveCredits();
+    const sent = serveRules(seen);
+    renderCreditsPage();
+    const allowance = await rule("Hạn mức hằng tháng của mỗi giáo viên");
+    twice(within(allowance).getByRole("button", { name: "100.000" }));
+    expect(await screen.findByText("Đã lưu quy tắc")).toBeVisible();
+    expect(sent).toEqual([{ defaultAllowance: 100000 }]);
   });
 
   it("puts the rule in force back and says why when the server refuses", async () => {

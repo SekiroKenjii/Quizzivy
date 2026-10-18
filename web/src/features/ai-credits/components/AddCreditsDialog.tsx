@@ -2,7 +2,7 @@ import { useMemo, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 import { FormDialog, type FormField } from "@/components/shared/form/FormDialog";
-import { useAddCredits } from "@/features/ai-credits/mutations";
+import { useAddCredits, useLatch } from "@/features/ai-credits/mutations";
 import { credits } from "@/features/ai/credits";
 import { failureMessage } from "@/lib/api/errors";
 import { useLocale } from "@/lib/i18n/useLocale";
@@ -33,6 +33,7 @@ export function AddCreditsDialog({
   const { t } = useTranslation();
   const locale = useLocale();
   const add = useAddCredits();
+  const latch = useLatch();
 
   const fields = useMemo<readonly FormField<Values>[]>(
     () => [
@@ -53,7 +54,10 @@ export function AddCreditsDialog({
     <FormDialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) add.reset();
+        if (!next) {
+          add.reset();
+          latch.release();
+        }
         onOpenChange(next);
       }}
       title={t("aiCredits.add.title")}
@@ -66,7 +70,7 @@ export function AddCreditsDialog({
       error={add.isError ? failureMessage(add.error, t("aiCredits.add.failed")) : null}
       returnFocus={returnFocus}
       onSubmit={(values) => {
-        if (add.isPending) return;
+        if (!latch.take()) return;
         const amount = Number(values.amount);
         add.mutate(amount, {
           onSuccess: () => {
@@ -75,6 +79,7 @@ export function AddCreditsDialog({
               t("aiCredits.add.added", { amount: credits(amount, locale) }),
             );
           },
+          onSettled: latch.release,
         });
       }}
     />

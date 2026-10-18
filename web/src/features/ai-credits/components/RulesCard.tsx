@@ -5,7 +5,7 @@ import { SettingsCard } from "@/components/shared/SettingsCard";
 import { Segmented } from "@/components/ui/segmented";
 import type { AiRules, AiRulesInput } from "@/features/ai-credits/api";
 import { withOption } from "@/features/ai-credits/figures";
-import { useSaveRules } from "@/features/ai-credits/mutations";
+import { useLatch, useSaveRules } from "@/features/ai-credits/mutations";
 import { credits } from "@/features/ai/credits";
 import { failureMessage } from "@/lib/api/errors";
 import { useLocale } from "@/lib/i18n/useLocale";
@@ -44,10 +44,12 @@ export function RulesCard({ rules }: Readonly<{ rules: AiRules }>) {
   const { t } = useTranslation();
   const locale = useLocale();
   const save = useSaveRules();
+  const latch = useLatch();
 
   function choose(change: AiRulesInput) {
-    if (save.isPending) return;
+    if (!latch.take()) return;
     save.mutate(change, {
+      onSettled: latch.release,
       onSuccess: () => notify.success(t("aiCredits.rules.saved")),
       onError: (cause) =>
         notify.error(failureMessage(cause, t("aiCredits.rules.failed"))),
