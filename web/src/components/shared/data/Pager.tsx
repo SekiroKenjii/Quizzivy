@@ -46,7 +46,7 @@ const SIZE_TRIGGER =
 const ARROW =
   "bg-card text-fg hover:bg-muted rounded-seg grid size-11 flex-none place-items-center border min-[768px]:size-8";
 
-const ARROW_OFF = "pointer-events-none opacity-45";
+const ARROW_OFF = "pointer-events-none text-fg/45 border-border/50";
 
 function Arrow({
   to,
