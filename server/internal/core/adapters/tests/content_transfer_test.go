@@ -194,7 +194,10 @@ func TestATransferIsRefusedForEachWrongPartyAndMovesNothing(t *testing.T) {
 	to, _ := w.user(t, "teacher", false)
 	gone, _ := w.user(t, "teacher", true)
 	pupil, _ := w.user(t, "student", false)
-	_, adminRole := w.user(t, "admin", false)
+	var adminRole string
+	if err := w.pool.QueryRow(context.Background(), `SELECT id::text FROM app.roles WHERE builtin_key = 'admin'`).Scan(&adminRole); err != nil {
+		t.Fatal(err)
+	}
 	w.content(t, from)
 
 	for label, c := range map[string]struct {
