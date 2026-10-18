@@ -5122,7 +5122,7 @@
           },
           "code": {
             "$ref": "#/components/schemas/ErrorCode",
-            "description": "One of `NOT_FOUND`, `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`, `LAST_ADMIN`, `ACCOUNT_DISABLED` or `INTERNAL`."
+            "description": "One of `NOT_FOUND`, `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`, `LAST_ADMIN`, `ACCOUNT_DISABLED`, `STALE_WRITE` or `INTERNAL`."
           }
         }
       },
@@ -20456,7 +20456,7 @@
           "admin-users"
         ],
         "summary": "Give an account another role",
-        "description": "Both roles, the account's own and the one it is given, must pass the\nsubset rule (`TARGET_ROLE_NOT_ALLOWED`); the Assistant is never offered\n(`ROLE_NOT_ASSIGNABLE`), as in `createUser`. The caller cannot change\ntheir own role (`CANNOT_ACT_ON_SELF`), and the last active Admin cannot\nbe moved off the Admin role (`LAST_ADMIN`). The guards apply in that\norder, so an account the caller may not touch is not told it is the last\nAdmin.\n\nAn account that owns classes or content (`ownedContent` of `getUser`)\ncannot be given a role that does not open the teacher workspace: it\nanswers `USER_OWNS_CONTENT` with the counts in `details`, and the\ncontent is moved first (`transferUserContent`). Sending the role the\naccount already has writes nothing and answers the account as it is.\n\nThe new role is held against edits from the check to the commit; if it\nor the account's own role changed in between, the check is made again,\nup to three times, and then `STALE_WRITE` asks the caller to send the\nrequest again. A change ends the account's sessions: every refresh\nfamily is revoked and the session epoch moves, so its next request is\nauthorised by the new role on this machine and within 10 seconds on any\nother. Writes one audit row, `user.role_changed`, with the old and the\nnew role.\n\nLimited to 30 a minute per signed-in user.\n",
+        "description": "Both roles, the account's own and the one it is given, must pass the\nsubset rule (`TARGET_ROLE_NOT_ALLOWED`); the Assistant is never offered\n(`ROLE_NOT_ASSIGNABLE`), as in `createUser`. The caller cannot change\ntheir own role (`CANNOT_ACT_ON_SELF`), and the last active Admin cannot\nbe moved off the Admin role (`LAST_ADMIN`). The guards apply in that\norder, so an account the caller may not touch is not told it is the last\nAdmin.\n\nAn account that owns classes or content (`ownedContent` of `getUser`)\ncannot be given a role that does not open the teacher workspace: it\nanswers `USER_OWNS_CONTENT` with the counts in `details`, and the\ncontent is moved first (`transferUserContent`). Sending the role the\naccount already has writes nothing and answers the account as it is.\n\nThe new role is held against edits from the check to the commit; if it\nor the account's own role changed in between, the check is made again,\nup to three times, and then `STALE_WRITE` asks the caller to send the\nrequest again; so does a write the database ended three times over a\nlock another write held. A change ends the account's sessions: every refresh\nfamily is revoked and the session epoch moves, so its next request is\nauthorised by the new role on this machine and within 10 seconds on any\nother. Writes one audit row, `user.role_changed`, with the old and the\nnew role.\n\nLimited to 30 a minute per signed-in user.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -20505,7 +20505,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "`LAST_ADMIN` — the account is the only active Admin.\n`USER_OWNS_CONTENT` — the account owns classes or content and the new role opens no teacher workspace; `details` holds `classes`, `tests`, `questions`, `media` and `assignments`, each a count.\n`STALE_WRITE` — a role changed three times while the change was being made; nothing was written, so the same request may be sent again.\n",
+            "description": "`LAST_ADMIN` — the account is the only active Admin.\n`USER_OWNS_CONTENT` — the account owns classes or content and the new role opens no teacher workspace; `details` holds `classes`, `tests`, `questions`, `media` and `assignments`, each a count.\n`STALE_WRITE` — a role changed, or another write to the account held what this one needed, three times while the change was being made; nothing was written, so the same request may be sent again.\n",
             "content": {
               "application/json": {
                 "schema": {
@@ -20602,7 +20602,7 @@
           "admin-users"
         ],
         "summary": "Disable up to 100 accounts at once",
-        "description": "Does for each account what `disableUser` does, one transaction each, so\na batch cannot do what one disable cannot. An account that fails does\nnot stop the others: `failed` names it with `NOT_FOUND`,\n`TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`, `LAST_ADMIN` or\n`INTERNAL` (a fault with that account alone, logged on the server). The\nanswer is 200 whenever the request was accepted, even when every\naccount failed. An account disabled already counts in `disabled`.\n`disabled` and `failed` keep the order of `userIds`. The audit rows of\none call carry one batch id.\n\nLimited to 30 a minute per signed-in user, a call counting once however\nmany accounts it names.\n",
+        "description": "Does for each account what `disableUser` does, one transaction each, so\na batch cannot do what one disable cannot. An account that fails does\nnot stop the others: `failed` names it with `NOT_FOUND`,\n`TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`, `LAST_ADMIN`,\n`STALE_WRITE` (the account's role, or another write to it, kept\nchanging while it was being written; nothing was written to it) or\n`INTERNAL` (a fault with that account alone, logged on the server). The\nanswer is 200 whenever the request was accepted, even when every\naccount failed. An account disabled already counts in `disabled`.\n`disabled` and `failed` keep the order of `userIds`. The audit rows of\none call carry one batch id.\n\nLimited to 30 a minute per signed-in user, a call counting once however\nmany accounts it names.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -20843,7 +20843,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "`ACCOUNT_DISABLED` — the account is disabled; enable it first.",
+            "description": "`ACCOUNT_DISABLED` — the account is disabled; enable it first. `STALE_WRITE` — the account's role, or another write to the account, changed while it was being written. Nothing was written; try again.",
             "content": {
               "application/json": {
                 "schema": {
@@ -20886,7 +20886,7 @@
           "admin-users"
         ],
         "summary": "Reset the passwords of up to 100 accounts at once",
-        "description": "Does for each account what `resetUserPassword` does, one transaction\neach, with the same guards in the same order, so a batch cannot do what\none reset cannot. `userIds` holds at most 40 ids for\n`delivery: temporary_password`, because each password is hashed, two at\na time, and at most 100 for `email_link`.\n\nAn account that fails does not stop the others: `failed` names it with\n`NOT_FOUND`, `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`,\n`ACCOUNT_DISABLED` or `INTERNAL` (a fault with that account alone,\nlogged on the server). The answer is 200 whenever the request was\naccepted, even when every account failed. `items` and `failed` keep the\norder of `userIds`. `PASSWORD_SIGN_IN_DISABLED` refuses the whole\nrequest while the centre has turned password sign-in off.\n\nEach `temporaryPassword` is returned **once** and stored nowhere. A\nreset that committed before the connection dropped has lost its\npassword for good; `listUsers` with `status=must_change_password` lists\nthose accounts for another reset. The answer is never cached. The audit\nrows of one call carry one batch id.\n\nLimited to 2 a minute and 10 an hour per signed-in user, a call counting\nonce however many accounts it names.\n",
+        "description": "Does for each account what `resetUserPassword` does, one transaction\neach, with the same guards in the same order, so a batch cannot do what\none reset cannot. `userIds` holds at most 40 ids for\n`delivery: temporary_password`, because each password is hashed, two at\na time, and at most 100 for `email_link`.\n\nAn account that fails does not stop the others: `failed` names it with\n`NOT_FOUND`, `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`,\n`ACCOUNT_DISABLED`, `STALE_WRITE` (the account's role, or another write\nto it, kept changing while it was being written; nothing was written to\nit) or `INTERNAL` (a fault with that account alone,\nlogged on the server). The answer is 200 whenever the request was\naccepted, even when every account failed. `items` and `failed` keep the\norder of `userIds`. `PASSWORD_SIGN_IN_DISABLED` refuses the whole\nrequest while the centre has turned password sign-in off.\n\nEach `temporaryPassword` is returned **once** and stored nowhere. A\nreset that committed before the connection dropped has lost its\npassword for good; `listUsers` with `status=must_change_password` lists\nthose accounts for another reset. The answer is never cached. The audit\nrows of one call carry one batch id.\n\nLimited to 2 a minute and 10 an hour per signed-in user, a call counting\nonce however many accounts it names.\n",
         "requestBody": {
           "required": true,
           "content": {
