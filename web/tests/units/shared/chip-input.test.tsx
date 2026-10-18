@@ -405,6 +405,18 @@ describe("the chip input's drawing", () => {
     expect(input()).toHaveClass("h-6.5", "min-w-35");
   });
 
+  it.each([
+    ["sm", "size-4", "after:-inset-1"],
+    ["md", "size-4.5", "after:-inset-1.5"],
+  ] as const)(
+    "gives the %s remove button a hit area of at least 24px around its mark",
+    (size, drawn, reach) => {
+      render(<Answers size={size} />);
+      const remove = screen.getByRole("button", { name: "Bỏ đáp án travel" });
+      expect(remove).toHaveClass("relative", "after:absolute", drawn, reach);
+    },
+  );
+
   it("draws no box of its own without a frame, and leaves the input its focus ring", () => {
     render(<Answers frame={false} size="md" tone="success" />);
     expect(box()).toHaveClass("flex", "flex-wrap", "gap-1.25", "min-h-7", "flex-1");

@@ -39,6 +39,12 @@ export type UserPageSize = (typeof USER_PAGE_SIZES)[number];
  */
 export const SEARCH_MIN = 3;
 
+/** SEARCH_MAX is the longest search the contract takes; the list sends no more of it. */
+export const SEARCH_MAX = 200;
+
+/** PAGE_MAX is the highest page number the contract takes. */
+export const PAGE_MAX = 1_000_000;
+
 /** UsersParams is what one page of the list asks for; `q` is empty when no search applies. */
 export interface UsersParams {
   readonly tab: AdminUserTab;

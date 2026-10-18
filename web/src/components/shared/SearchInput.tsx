@@ -1,3 +1,4 @@
+import type { Ref } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -9,19 +10,27 @@ import { cn } from "@/lib/utils";
 export const TOOLBAR_SEARCH =
   "w-auto min-w-0 flex-[0_1_300px] [&_input]:bg-card [&_input]:border-border [&_input]:h-8.5 [&_input]:pl-8.5 [&_input]:text-sm [&_svg]:top-[9.5px] [&_svg]:size-3.75";
 
-/** SearchInput is a list-toolbar search field with icon clearance at either density. */
+/**
+ * SearchInput is a list-toolbar search field with icon clearance at either
+ * density. `inputRef` reaches the field, for a page that returns focus to it,
+ * and `maxLength` is the most the field takes.
+ */
 export function SearchInput({
   value,
   onChange,
   placeholder,
   className,
   dense = false,
+  inputRef,
+  maxLength,
 }: Readonly<{
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
   className?: string;
   dense?: boolean;
+  inputRef?: Ref<HTMLInputElement>;
+  maxLength?: number;
 }>) {
   return (
     <div className={cn("relative w-72", className)}>
@@ -39,6 +48,8 @@ export function SearchInput({
           dense &&
             "h-8 pl-8 text-xs in-data-[scale=deck]:h-8 in-data-[scale=deck]:pl-8 lg:text-xs",
         )}
+        ref={inputRef}
+        maxLength={maxLength}
         value={value}
         placeholder={placeholder}
         aria-label={placeholder}

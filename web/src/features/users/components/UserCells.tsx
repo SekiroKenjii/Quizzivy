@@ -35,7 +35,7 @@ export function RoleBadge({ role }: Readonly<{ role: AdminUserRole }>) {
   return (
     <Badge
       title={name}
-      className="max-w-full font-medium in-data-[scale=deck]:gap-1.25 in-data-[scale=deck]:px-2"
+      className="text-fg max-w-full font-medium in-data-[scale=deck]:gap-1.25 in-data-[scale=deck]:px-2"
     >
       <RoleGlyph icon={iconOf(role.icon)} />
       <span className="min-w-0 truncate">{name}</span>
