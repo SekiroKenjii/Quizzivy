@@ -8,7 +8,7 @@ import {
   TextCursorInput,
 } from "lucide-react";
 import type { AdminQuestion } from "@/features/question-bank/api";
-import { formatRelative } from "@/lib/i18n/datetime";
+import { formatDateTime, formatRelativeShort } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { promptLine } from "./bankFilters";
 
@@ -114,10 +114,15 @@ export function UsedCell({ question }: Readonly<{ question: AdminQuestion }>) {
 
 /** UpdatedCell is the Updated column, relative to now. */
 export function UpdatedCell({ question }: Readonly<{ question: AdminQuestion }>) {
+  const { t } = useTranslation();
   const locale = useLocale();
   return (
-    <span className="text-muted-fg block text-sm leading-normal">
-      {formatRelative(question.updatedAt, locale)}
-    </span>
+    <time
+      dateTime={question.updatedAt}
+      title={formatDateTime(question.updatedAt, locale)}
+      className="text-muted-fg block text-sm leading-normal whitespace-nowrap"
+    >
+      {formatRelativeShort(question.updatedAt, locale, t("common.agoNow"))}
+    </time>
   );
 }

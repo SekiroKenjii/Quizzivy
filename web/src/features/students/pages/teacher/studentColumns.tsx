@@ -58,7 +58,7 @@ export function studentColumns(t: TFunction, locale: Locale): DataColumn<Student
       track: "110px",
       showFrom: 920,
       cell: (student) => (
-        <span className="text-muted-fg text-[13px]">
+        <span className="text-muted-fg text-[13px] whitespace-nowrap">
           {lastActiveOf(student, locale, t)}
         </span>
       ),
