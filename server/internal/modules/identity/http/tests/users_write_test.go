@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
 	"testing"
@@ -138,7 +139,8 @@ func TestEveryAccountWriteAnswersEachRefusalWithItsStatusAndCode(t *testing.T) {
 		{accessdomain.ErrTargetRoleNotAllowed, http.StatusForbidden, "TARGET_ROLE_NOT_ALLOWED", nil},
 		{domain.ErrCannotActOnSelf, http.StatusUnprocessableEntity, "CANNOT_ACT_ON_SELF", map[string]bool{"enableUser": true, "signOutUser": true}},
 		{domain.ErrLastAdmin, http.StatusConflict, "LAST_ADMIN", map[string]bool{"enableUser": true, "signOutUser": true, "resetUserPassword": true}},
-		{domain.ErrRoleChanged, http.StatusConflict, "STALE_WRITE", map[string]bool{"enableUser": true, "signOutUser": true}},
+		{domain.ErrRoleChanged, http.StatusConflict, "STALE_WRITE", nil},
+		{fmt.Errorf("%w: deadlock detected", domain.ErrWriteContended), http.StatusConflict, "STALE_WRITE", nil},
 		{domain.ErrAccountDisabled, http.StatusConflict, "ACCOUNT_DISABLED", map[string]bool{"changeUserRole": true, "disableUser": true, "enableUser": true, "signOutUser": true}},
 		{domain.ErrPasswordSignInDisabled, http.StatusUnprocessableEntity, "PASSWORD_SIGN_IN_DISABLED", map[string]bool{"changeUserRole": true, "disableUser": true, "enableUser": true, "signOutUser": true}},
 	} {

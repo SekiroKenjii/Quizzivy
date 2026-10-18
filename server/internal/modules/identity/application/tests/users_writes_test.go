@@ -32,11 +32,12 @@ type accountShelf struct {
 	resets  []domain.AccountPasswordReset
 	refuse  map[string]error
 	changed map[string]int
+	held    map[string]int
 	panics  map[string]bool
 }
 
 func newShelf(ids ...string) *accountShelf {
-	s := &accountShelf{users: map[string]domain.AdminUser{}, refuse: map[string]error{}, changed: map[string]int{}, panics: map[string]bool{}}
+	s := &accountShelf{users: map[string]domain.AdminUser{}, refuse: map[string]error{}, changed: map[string]int{}, held: map[string]int{}, panics: map[string]bool{}}
 	for _, id := range ids {
 		s.users[id] = domain.AdminUser{ID: id, FullName: "Tên " + id, Email: id + "@example.test", Status: domain.AccountActive}
 	}
@@ -62,6 +63,10 @@ func (s *accountShelf) write(what string, req domain.WriteRequest, in domain.Acc
 	if s.changed[in.UserID] > 0 {
 		s.changed[in.UserID]--
 		return domain.ErrRoleChanged
+	}
+	if s.held[in.UserID] > 0 {
+		s.held[in.UserID]--
+		return fmt.Errorf("%w: deadlock detected", domain.ErrWriteContended)
 	}
 	if err := s.refuse[in.UserID]; err != nil {
 		return err
@@ -281,6 +286,34 @@ func TestATargetWhoseRoleChangedIsReadAgainAndAThirdChangeIsRefused(t *testing.T
 			}
 			if got := r.shelf.written(); len(got) != 0 {
 				t.Errorf("wrote %v", got)
+			}
+		})
+	}
+}
+
+func TestAWriteTheDatabaseEndedOverAContendedLockIsMadeAgainAndAThirdIsRefused(t *testing.T) {
+	for _, a := range accountActions {
+		t.Run(a.name, func(t *testing.T) {
+			r := newWriteRig("pupil")
+			r.shelf.held["pupil"] = 2
+
+			if err := a.run(r, theAdmin, "pupil"); err != nil {
+				t.Fatalf("after two contended writes: %v, want the third to go through", err)
+			}
+			if got := r.shelf.written(); len(got) != 1 {
+				t.Errorf("wrote %v, want one write", got)
+			}
+
+			r = newWriteRig("pupil")
+			r.shelf.held["pupil"] = 3
+			if err := a.run(r, theAdmin, "pupil"); !errors.Is(err, domain.ErrWriteContended) {
+				t.Errorf("after three contended writes: %v, want ErrWriteContended", err)
+			}
+			if got := r.shelf.written(); len(got) != 0 {
+				t.Errorf("wrote %v", got)
+			}
+			if got := r.principal.forgotten(); len(got) != 0 {
+				t.Errorf("forgot %v after writes that wrote nothing", got)
 			}
 		})
 	}
@@ -556,6 +589,9 @@ func TestABulkResetNamesNoMoreAccountsThanItsDeliveryAllows(t *testing.T) {
 			if c.refused {
 				if !errors.As(err, &invalid) || len(invalid.Fields) != 1 || invalid.Fields[0].Field != "userIds" {
 					t.Fatalf("answered %v, want a validation error naming userIds", err)
+				}
+				if field := invalid.Fields[0]; field.English == "" || field.English == field.Message {
+					t.Errorf("field = %+v, want a Vietnamese and an English sentence", field)
 				}
 				if r.passwords.calls.Load() != 0 || len(r.shelf.written()) != 0 {
 					t.Errorf("a refused batch made %d passwords and wrote %d", r.passwords.calls.Load(), len(r.shelf.written()))
