@@ -153,7 +153,7 @@ export function RoleCarousel({
         </button>
       </div>
       {pages > 1 && (
-        <div className="-my-2.25 flex justify-center">
+        <div className="-my-2.25 flex flex-wrap justify-center">
           {Array.from({ length: pages }, (_, page) => (
             <button
               key={page}

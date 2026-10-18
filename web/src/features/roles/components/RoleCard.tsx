@@ -69,7 +69,7 @@ export function RoleCard({
           {name}
         </h2>
         {description !== "" && (
-          <p className="text-[0.84375rem] leading-normal text-pretty opacity-80">
+          <p className="text-[0.84375rem] leading-normal text-pretty break-words opacity-80">
             {description}
           </p>
         )}

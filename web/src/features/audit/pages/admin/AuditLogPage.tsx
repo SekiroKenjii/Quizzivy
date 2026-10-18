@@ -58,7 +58,8 @@ function TableSkeleton() {
  * sensitive changes, ten entries a page, newest first, filtered by category,
  * search and date range (all kept in the address) and exported as a file.
  * A row opens to show what it changed. A page past the last one the log has
- * is replaced in the address by the last.
+ * is replaced in the address by the last. When a read that failed succeeds
+ * and focus was lost with the Retry button, focus moves to the list.
  */
 export default function AuditLogPage() {
   const { t } = useTranslation();
@@ -72,6 +73,20 @@ export default function AuditLogPage() {
   const [page, setPage] = usePage(JSON.stringify(asked));
   const list = useQuery(auditLogQuery(asked, page));
   const rangeButton = useRef<HTMLButtonElement>(null);
+  const region = useRef<HTMLDivElement>(null);
+  const failed = list.isError;
+  const shown = list.data !== undefined && !failed;
+  const recovering = useRef(false);
+  useEffect(() => {
+    if (failed) {
+      recovering.current = true;
+      return;
+    }
+    if (!shown || !recovering.current) return;
+    recovering.current = false;
+    if (document.activeElement === null || document.activeElement === document.body)
+      region.current?.focus();
+  }, [failed, shown]);
   const total = list.data?.total;
   const pageSize = list.data?.pageSize;
   const stale = list.isPlaceholderData;
@@ -168,37 +183,43 @@ export default function AuditLogPage() {
         }
         onReset={reset}
       />
-      {list.data === undefined ? (
-        <QueryStates
-          query={list}
-          skeleton={<TableSkeleton />}
-          failed={t("audit.loadFailed")}
-        >
-          {results}
-        </QueryStates>
-      ) : (
-        <>
-          {list.isError ? (
-            <Callout
-              tone="danger"
-              size="md"
-              announce
-              actions={
-                <button
-                  type="button"
-                  className="text-ui font-semibold whitespace-nowrap underline underline-offset-2"
-                  onClick={() => void list.refetch()}
-                >
-                  {t("common.retry")}
-                </button>
-              }
-            >
-              {t("audit.loadFailed")}
-            </Callout>
-          ) : null}
-          {results(list.data)}
-        </>
-      )}
+      <div
+        ref={region}
+        tabIndex={-1}
+        className="flex min-w-0 flex-col gap-4 outline-none"
+      >
+        {list.data === undefined ? (
+          <QueryStates
+            query={list}
+            skeleton={<TableSkeleton />}
+            failed={t("audit.loadFailed")}
+          >
+            {results}
+          </QueryStates>
+        ) : (
+          <>
+            {list.isError ? (
+              <Callout
+                tone="danger"
+                size="md"
+                announce
+                actions={
+                  <button
+                    type="button"
+                    className="text-ui font-semibold whitespace-nowrap underline underline-offset-2"
+                    onClick={() => void list.refetch()}
+                  >
+                    {t("common.retry")}
+                  </button>
+                }
+              >
+                {t("audit.loadFailed")}
+              </Callout>
+            ) : null}
+            {results(list.data)}
+          </>
+        )}
+      </div>
       <CustomRangeDialog
         open={choosing !== null}
         initial={choosing ?? NO_DAYS}

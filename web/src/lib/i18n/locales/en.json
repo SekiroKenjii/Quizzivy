@@ -479,7 +479,8 @@
         "audit_log": "Audit log",
         "data_export": "Data export",
         "maintenance_window": "Maintenance window",
-        "organization": "Organization"
+        "organization": "Organization",
+        "user_import": "User import"
       }
     },
     "diff": {
@@ -495,6 +496,7 @@
         "30d": "Last 30 days",
         "year": "This year"
       },
+      "beforePeriod": "The range on screen starts before this period, so the file leaves out its older entries.",
       "format": "Format",
       "formats": {
         "csv": "CSV",
@@ -503,6 +505,7 @@
       "filtersOnly": "Current filters only",
       "filtersOnlyHint": "Only the kind of change and the search you have set. The period comes from the choice above.",
       "submit": "Export file",
+      "running": "Exporting…",
       "done": "The audit log was downloaded.",
       "tooLarge": "That period holds more than 100,000 entries. Choose a shorter period.",
       "failed": "The audit log could not be exported. Please try again."
@@ -632,6 +635,7 @@
       "description": "Description",
       "descriptionPlaceholder": "Leads the IELTS team",
       "taken": "A role with this name already exists",
+      "sourceGone": "That role can no longer be copied from. Choose again.",
       "created": "Role created: {{name}}. Its column is in the table below.",
       "failed": "Couldn't create the role. Try again."
     },

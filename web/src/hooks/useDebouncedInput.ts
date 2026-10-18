@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useDebounced } from "@/lib/useDebounced";
 
 /**
@@ -8,7 +8,8 @@ import { useDebounced } from "@/lib/useDebounced";
  * makes of the text once it has stopped changing for `delay` ms, only when
  * that differs from what was applied last. A change of `applied` that this
  * hook did not make, such as a cleared filter or a visit through Back, puts
- * the new value in the field. `normalize` must be stable.
+ * the new value in the field, and it stays there however often `apply` or
+ * `normalize` changes identity.
  */
 export function useDebouncedInput(
   applied: string,
@@ -26,13 +27,17 @@ export function useDebouncedInput(
     setTyped(applied);
   }, [applied]);
 
-  useEffect(() => {
-    if (settled !== typed) return;
-    const next = normalize(settled);
+  const commit = useEffectEvent((value: string) => {
+    const next = normalize(value);
     if (next === written.current) return;
     written.current = next;
     apply(next);
-  }, [settled, typed, normalize, apply]);
+  });
+
+  useEffect(() => {
+    if (settled !== typed) return;
+    commit(settled);
+  }, [settled, typed]);
 
   return [typed, setTyped];
 }
