@@ -13722,7 +13722,7 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
-            /** @description `LAST_ADMIN` — the account is the only active Admin. */
+            /** @description `LAST_ADMIN` — the account is the only active Admin. `STALE_WRITE` — the account's role, or another write to the account, changed while it was being written; try again. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -13805,6 +13805,15 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            /** @description `STALE_WRITE` — the account's role, or another write to the account, changed while it was being written. Nothing was written; try again. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     signOutUser: {
@@ -13835,6 +13844,15 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            /** @description `STALE_WRITE` — the account's role, or another write to the account, changed while it was being written. Nothing was written; try again. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     resetUserPassword: {

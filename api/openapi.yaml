@@ -11416,7 +11416,7 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: '`LAST_ADMIN` — the account is the only active Admin.'
+          description: '`LAST_ADMIN` — the account is the only active Admin. `STALE_WRITE` — the account''s role, or another write to the account, changed while it was being written; try again.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -11509,6 +11509,11 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`STALE_WRITE` — the account''s role, or another write to the account, changed while it was being written. Nothing was written; try again.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /admin/users/{id}/sign-out:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -11532,6 +11537,11 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`STALE_WRITE` — the account''s role, or another write to the account, changed while it was being written. Nothing was written; try again.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /admin/users/{id}/reset-password:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]

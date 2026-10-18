@@ -12,7 +12,9 @@ import (
 	"quizzivy/internal/shared/opt"
 	"time"
 
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type lockedAccount struct {
@@ -25,11 +27,10 @@ type lockedAccount struct {
 func lockAccount(ctx context.Context, tx pgx.Tx, in domain.AccountWrite) (lockedAccount, error) {
 	var acct lockedAccount
 	err := tx.QueryRow(ctx, `
-		SELECT u.role_id::text, r.name, COALESCE(r.builtin_key, '') = 'admin', u.disabled_at IS NOT NULL
+		SELECT u.role_id::text, u.disabled_at IS NOT NULL
 		  FROM app.users u
-		  JOIN app.roles r ON r.id = u.role_id
 		 WHERE u.id = $1::uuid
-		   FOR NO KEY UPDATE OF u`, in.UserID).Scan(&acct.roleID, &acct.roleName, &acct.admin, &acct.disabled)
+		   FOR NO KEY UPDATE`, in.UserID).Scan(&acct.roleID, &acct.disabled)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return lockedAccount{}, domain.ErrUserNotFound
 	}
@@ -39,7 +40,21 @@ func lockAccount(ctx context.Context, tx pgx.Tx, in domain.AccountWrite) (locked
 	if acct.roleID != in.RoleID {
 		return lockedAccount{}, domain.ErrRoleChanged
 	}
+	err = tx.QueryRow(ctx, `
+		SELECT r.name, COALESCE(r.builtin_key, '') = 'admin'
+		  FROM app.roles r
+		 WHERE r.id = $1::uuid`, acct.roleID).Scan(&acct.roleName, &acct.admin)
+	if err != nil {
+		return lockedAccount{}, fmt.Errorf("users: read account role: %w", err)
+	}
 	return acct, nil
+}
+
+func contended(err *error) {
+	var pg *pgconn.PgError
+	if errors.As(*err, &pg) && (pg.Code == pgerrcode.DeadlockDetected || pg.Code == pgerrcode.SerializationFailure) {
+		*err = fmt.Errorf("%w: %w", domain.ErrWriteContended, *err)
+	}
 }
 
 func lockActiveAdmins(ctx context.Context, tx pgx.Tx) ([]string, error) {
@@ -111,26 +126,31 @@ func (a *AdminUsers) Get(ctx context.Context, id string) (domain.AdminUser, erro
 	return scanAdminUser(a.QueryRow(ctx, adminUserSelect+` WHERE u.id = $1::uuid`, id))
 }
 
-// ChangeRole gives an account another role. It locks the new role, every
-// active Admin in id order and the account, in that order, because two role
-// changes or disables that each leave a third Admin must not deadlock, and two
-// that each take one of the last two Admins away must not both pass.
-func (a *AdminUsers) ChangeRole(ctx context.Context, req domain.WriteRequest, in domain.RoleChange) error {
+// ChangeRole gives an account another role. It locks every active Admin in id
+// order, the account and then the new role, the order every account write
+// keeps, because two role changes or disables that each leave a third Admin
+// must not deadlock, and two that each take one of the last two Admins away
+// must not both pass. The role comes last because the users_last_admin trigger
+// locks the Admin role when an Admin is taken away, after the user rows. A
+// write the database ends as a deadlock or a serialization failure fails with
+// ErrWriteContended; so does every other account write here.
+func (a *AdminUsers) ChangeRole(ctx context.Context, req domain.WriteRequest, in domain.RoleChange) (err error) {
+	defer contended(&err)
 	tx, err := a.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("users: begin role change: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if err := lockRoleAt(ctx, tx, in.ToRoleID, in.ToRoleRevision); err != nil {
-		return err
-	}
 	admins, err := lockActiveAdmins(ctx, tx)
 	if err != nil {
 		return err
 	}
 	acct, err := lockAccount(ctx, tx, in.AccountWrite)
 	if err != nil {
+		return err
+	}
+	if err := lockRoleAt(ctx, tx, in.ToRoleID, in.ToRoleRevision); err != nil {
 		return err
 	}
 	if acct.roleID == in.ToRoleID {
@@ -164,7 +184,8 @@ func (a *AdminUsers) ChangeRole(ctx context.Context, req domain.WriteRequest, in
 // Disable blocks an account's sign-in and ends every way back in that was
 // issued before: its sessions, its unused set-password links and the messages
 // still waiting for it.
-func (a *AdminUsers) Disable(ctx context.Context, req domain.WriteRequest, in domain.AccountWrite) error {
+func (a *AdminUsers) Disable(ctx context.Context, req domain.WriteRequest, in domain.AccountWrite) (err error) {
+	defer contended(&err)
 	tx, err := a.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("users: begin disable: %w", err)
@@ -205,7 +226,8 @@ func (a *AdminUsers) Disable(ctx context.Context, req domain.WriteRequest, in do
 
 // Enable lets a disabled account sign in again. What a disable ended stays
 // ended.
-func (a *AdminUsers) Enable(ctx context.Context, req domain.WriteRequest, in domain.AccountWrite) error {
+func (a *AdminUsers) Enable(ctx context.Context, req domain.WriteRequest, in domain.AccountWrite) (err error) {
+	defer contended(&err)
 	tx, err := a.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("users: begin enable: %w", err)
@@ -229,7 +251,8 @@ func (a *AdminUsers) Enable(ctx context.Context, req domain.WriteRequest, in dom
 }
 
 // SignOut ends every session the account has.
-func (a *AdminUsers) SignOut(ctx context.Context, req domain.WriteRequest, in domain.AccountWrite) error {
+func (a *AdminUsers) SignOut(ctx context.Context, req domain.WriteRequest, in domain.AccountWrite) (err error) {
+	defer contended(&err)
 	tx, err := a.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("users: begin sign-out: %w", err)
@@ -264,7 +287,8 @@ func replacePassword(ctx context.Context, tx pgx.Tx, in domain.AccountPasswordRe
 // ResetPassword sets a temporary password, or clears the password and issues
 // a link to choose another, and ends everything the old password opened: the
 // account's sessions and the set-password links it held.
-func (a *AdminUsers) ResetPassword(ctx context.Context, req domain.WriteRequest, in domain.AccountPasswordReset) error {
+func (a *AdminUsers) ResetPassword(ctx context.Context, req domain.WriteRequest, in domain.AccountPasswordReset) (err error) {
+	defer contended(&err)
 	if in.Delivery == domain.DeliveryEmailLink && (in.Issue == nil || a.links == nil) {
 		return domain.ErrSetPasswordUnavailable
 	}

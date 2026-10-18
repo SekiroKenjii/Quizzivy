@@ -36,6 +36,9 @@ func actOnAccount(ctx context.Context, a *support.Admin, req domain.WriteRequest
 			return err
 		}
 		err = write(target)
+		if errors.Is(err, domain.ErrWriteContended) {
+			continue
+		}
 		if !errors.Is(err, domain.ErrRoleChanged) {
 			a.Students.ForgetAfterReset(id, err)
 			return err

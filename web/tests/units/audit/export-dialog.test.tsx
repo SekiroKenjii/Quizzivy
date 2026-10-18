@@ -20,8 +20,16 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  vi.useRealTimers();
   await act(() => i18n.changeLanguage("vi"));
 });
+
+function today(day: string) {
+  vi.useFakeTimers({ toFake: ["Date"], now: new Date(`${day}T05:00:00Z`) });
+}
+
+const BEFORE =
+  "Khoảng ngày đang xem bắt đầu trước khoảng này, nên tệp sẽ không có các mục cũ hơn.";
 
 function exportAnswers(answer: (url: URL) => Response) {
   const asked: URL[] = [];
@@ -86,23 +94,47 @@ describe("exporting the log", () => {
     ["2026-10-08", "2026-10-15", "30 ngày qua"],
     ["2026-09-16", "2026-10-15", "30 ngày qua"],
     ["2026-09-15", "2026-10-15", "Năm nay"],
+    ["2026-10-01", "2026-10-05", "30 ngày qua"],
+    ["2026-09-01", "2026-09-05", "Năm nay"],
   ])(
-    "opens a custom range from %s to %s on the shortest period that covers it: %s",
+    "opens a custom range from %s to %s, on 15 October, on the shortest period that reaches its first day: %s",
     async (from, to, period) => {
+      today("2026-10-15");
       const { dialog } = await openExport(`?range=custom&from=${from}&to=${to}`);
       expect(within(dialog).getByRole("button", { name: period })).toHaveAttribute(
         "aria-pressed",
         "true",
       );
+      expect(within(dialog).queryByText(BEFORE)).toBeNull();
     },
   );
 
-  it("opens on this year for every range that reaches further back", async () => {
+  it("opens on this year, and says the file leaves the older entries out, for a range that starts before it", async () => {
+    today("2026-10-15");
+    const { dialog } = await openExport("?range=custom&from=2025-12-01&to=2025-12-05");
+    expect(within(dialog).getByRole("button", { name: "Năm nay" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(within(dialog).getByText(BEFORE)).toBeVisible();
+  });
+
+  it("opens on this year for all time, and says the file leaves the older entries out", async () => {
     const { dialog } = await openExport("?range=all");
     expect(within(dialog).getByRole("button", { name: "Năm nay" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
+    expect(within(dialog).getByText(BEFORE)).toBeVisible();
+  });
+
+  it("says so when the period chosen does not reach back to the range's first day", async () => {
+    const { user, dialog } = await openExport("?range=30d");
+    expect(within(dialog).queryByText(BEFORE)).toBeNull();
+
+    await user.click(within(dialog).getByRole("button", { name: "7 ngày qua" }));
+
+    expect(within(dialog).getByText(BEFORE)).toBeVisible();
   });
 
   it("has no switch for the current filters while no category and no search is set", async () => {
@@ -141,31 +173,78 @@ describe("exporting the log", () => {
     expect(asked).toHaveLength(1);
   });
 
-  it("stays open on Escape while the file is on its way, and closes when it has arrived", async () => {
-    let release: () => void = () => undefined;
-    const asked: URL[] = [];
+  it.each([
+    ["Escape", "{Escape}"],
+    ["Huỷ", null],
+  ])(
+    "says it is exporting while the file is on its way, and %s cancels it",
+    async (_, key) => {
+      let release: () => void = () => undefined;
+      let aborted = false;
+      const asked: URL[] = [];
+      server.use(
+        http.get(`${BASE_URL}/admin/audit-log/export`, ({ request }) => {
+          asked.push(new URL(request.url));
+          request.signal.addEventListener("abort", () => {
+            aborted = true;
+          });
+          return new Promise<Response>((resolve) => {
+            release = () => resolve(file());
+          });
+        }),
+      );
+      const { user, dialog } = await openExport();
+      const toasts = screen.queryAllByText("Đã tải xuống nhật ký kiểm tra.").length;
+
+      await user.click(within(dialog).getByRole("button", { name: "Xuất tệp" }));
+      await waitFor(() => expect(asked).toHaveLength(1));
+      expect(
+        within(dialog).getByRole("button", { name: "Đang xuất…" }),
+      ).toHaveAttribute("aria-disabled", "true");
+      const cancel = within(dialog).getByRole("button", { name: "Huỷ" });
+      expect(cancel).toBeEnabled();
+      if (key === null) await user.click(cancel);
+      else await user.keyboard(key);
+
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("dialog", { name: "Xuất nhật ký kiểm tra" }),
+        ).toBeNull(),
+      );
+      await waitFor(() => expect(aborted).toBe(true));
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(saveDownloadedFile).not.toHaveBeenCalled();
+      expect(screen.queryAllByText("Đã tải xuống nhật ký kiểm tra.")).toHaveLength(
+        toasts,
+      );
+    },
+  );
+
+  it("exports again after a cancelled one", async () => {
+    let first = true;
     server.use(
-      http.get(`${BASE_URL}/admin/audit-log/export`, ({ request }) => {
-        asked.push(new URL(request.url));
-        return new Promise<Response>((resolve) => {
-          release = () => resolve(file());
-        });
+      http.get(`${BASE_URL}/admin/audit-log/export`, () => {
+        if (!first) return file();
+        first = false;
+        return new Promise<Response>(() => undefined);
       }),
     );
     const { user, dialog } = await openExport();
-
     await user.click(within(dialog).getByRole("button", { name: "Xuất tệp" }));
-    await waitFor(() => expect(asked).toHaveLength(1));
-    await user.keyboard("{Escape}");
-
-    expect(screen.getByRole("dialog", { name: "Xuất nhật ký kiểm tra" })).toBeVisible();
-    release();
-    await waitFor(() => expect(saveDownloadedFile).toHaveBeenCalledOnce());
+    await within(dialog).findByRole("button", { name: "Đang xuất…" });
+    await user.click(within(dialog).getByRole("button", { name: "Huỷ" }));
     await waitFor(() =>
       expect(
         screen.queryByRole("dialog", { name: "Xuất nhật ký kiểm tra" }),
       ).toBeNull(),
     );
+
+    await user.click(screen.getByRole("button", { name: "Xuất CSV" }));
+    const again = await screen.findByRole("dialog", { name: "Xuất nhật ký kiểm tra" });
+    await user.click(within(again).getByRole("button", { name: "Xuất tệp" }));
+
+    await waitFor(() => expect(saveDownloadedFile).toHaveBeenCalledOnce());
   });
 
   it("can be pressed again after a refusal", async () => {
@@ -206,6 +285,7 @@ describe("exporting the log", () => {
   });
 
   it("sends neither when the switch is turned off, and never sends the range or a custom day", async () => {
+    today("2026-09-24");
     const asked = exportAnswers(file);
     const { user, dialog } = await openExport(
       "?category=tests&q=nam&range=custom&from=2026-09-18&to=2026-09-24",

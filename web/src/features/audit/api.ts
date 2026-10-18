@@ -63,14 +63,19 @@ export type AuditExport = Readonly<{
 /**
  * exportAuditLog downloads the entries of a period as one file, under the
  * name the server gives it, and hands it to the browser to save. A period
- * over 100,000 entries is refused with `EXPORT_TOO_LARGE`.
+ * over 100,000 entries is refused with `EXPORT_TOO_LARGE`. An aborted `signal`
+ * rejects it with an `AbortError` and saves nothing.
  */
-export async function exportAuditLog(request: AuditExport) {
-  const file = await downloadFile("/admin/audit-log/export", {
-    period: request.period,
-    format: request.format,
-    ...(request.category === null ? {} : { category: request.category }),
-    ...(request.q === "" ? {} : { q: request.q }),
-  });
+export async function exportAuditLog(request: AuditExport, signal?: AbortSignal) {
+  const file = await downloadFile(
+    "/admin/audit-log/export",
+    {
+      period: request.period,
+      format: request.format,
+      ...(request.category === null ? {} : { category: request.category }),
+      ...(request.q === "" ? {} : { q: request.q }),
+    },
+    signal,
+  );
   saveDownloadedFile(file, `audit-log.${request.format}`);
 }

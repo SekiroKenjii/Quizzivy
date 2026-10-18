@@ -50,9 +50,17 @@ func accountDisabled(ctx context.Context) openapi.ErrorResponse {
 			"This account is disabled. Enable it first."))
 }
 
-func staleRole(ctx context.Context) openapi.ErrorResponse {
+func staleWrite(ctx context.Context, err error) openapi.ErrorResponse {
+	if errors.Is(err, domain.ErrWriteContended) {
+		return httpapi.Error(ctx, openapi.STALEWRITE,
+			httpx.Text(ctx, "Tài khoản này đang được thay đổi cùng lúc. Hãy thử lại.", "This account was being changed at the same moment. Try again."))
+	}
 	return httpapi.Error(ctx, openapi.STALEWRITE,
 		httpx.Text(ctx, "Vai trò vừa được thay đổi. Hãy thử lại.", "The role was just changed. Try again."))
+}
+
+func isStale(err error) bool {
+	return errors.Is(err, domain.ErrRoleChanged) || errors.Is(err, domain.ErrWriteContended)
 }
 
 func failureCode(reason error) openapi.ErrorCode {
@@ -119,8 +127,8 @@ func (h Identity) ChangeUserRole(ctx context.Context, request openapi.ChangeUser
 				"media":       owns.Owned.Media,
 				"assignments": owns.Owned.Assignments,
 			})), nil
-	case errors.Is(err, domain.ErrRoleChanged):
-		return openapi.ChangeUserRole409JSONResponse(staleRole(ctx)), nil
+	case isStale(err):
+		return openapi.ChangeUserRole409JSONResponse(staleWrite(ctx, err)), nil
 	default:
 		return nil, err
 	}
@@ -147,8 +155,8 @@ func (h Identity) DisableUser(ctx context.Context, request openapi.DisableUserRe
 		return openapi.DisableUser422JSONResponse(cannotActOnSelf(ctx)), nil
 	case errors.Is(err, domain.ErrLastAdmin):
 		return openapi.DisableUser409JSONResponse(lastAdmin(ctx)), nil
-	case errors.Is(err, domain.ErrRoleChanged):
-		return openapi.DisableUser409JSONResponse(staleRole(ctx)), nil
+	case isStale(err):
+		return openapi.DisableUser409JSONResponse(staleWrite(ctx, err)), nil
 	default:
 		return nil, err
 	}
@@ -195,6 +203,8 @@ func (h Identity) EnableUser(ctx context.Context, request openapi.EnableUserRequ
 		return openapi.EnableUser404JSONResponse{NotFoundJSONResponse: userNotFound(ctx)}, nil
 	case errors.Is(err, accessdomain.ErrTargetRoleNotAllowed):
 		return openapi.EnableUser403JSONResponse(targetNotAllowed(ctx)), nil
+	case isStale(err):
+		return openapi.EnableUser409JSONResponse(staleWrite(ctx, err)), nil
 	default:
 		return nil, err
 	}
@@ -217,6 +227,8 @@ func (h Identity) SignOutUser(ctx context.Context, request openapi.SignOutUserRe
 		return openapi.SignOutUser404JSONResponse{NotFoundJSONResponse: userNotFound(ctx)}, nil
 	case errors.Is(err, accessdomain.ErrTargetRoleNotAllowed):
 		return openapi.SignOutUser403JSONResponse(targetNotAllowed(ctx)), nil
+	case isStale(err):
+		return openapi.SignOutUser409JSONResponse(staleWrite(ctx, err)), nil
 	default:
 		return nil, err
 	}
@@ -254,8 +266,8 @@ func (h Identity) ResetUserPassword(ctx context.Context, request openapi.ResetUs
 		return openapi.ResetUserPassword422JSONResponse(cannotActOnSelf(ctx)), nil
 	case errors.Is(err, domain.ErrAccountDisabled):
 		return openapi.ResetUserPassword409JSONResponse(accountDisabled(ctx)), nil
-	case errors.Is(err, domain.ErrRoleChanged):
-		return openapi.ResetUserPassword409JSONResponse(staleRole(ctx)), nil
+	case isStale(err):
+		return openapi.ResetUserPassword409JSONResponse(staleWrite(ctx, err)), nil
 	default:
 		return nil, err
 	}
