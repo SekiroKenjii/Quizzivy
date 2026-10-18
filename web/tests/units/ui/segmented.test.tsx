@@ -5,6 +5,7 @@ import { ClipboardPaste, FileUp } from "lucide-react";
 import { useState } from "react";
 import { DeckScale } from "@/components/ui/deck-scale";
 import { Segmented, type SegmentedOption } from "@/components/ui/segmented";
+import i18n from "@/lib/i18n";
 
 const INSIDE = "in-data-[scale=deck]:";
 
@@ -186,6 +187,19 @@ describe("an option's count", () => {
       ...screen.getByRole("group", { name: "Trạng thái" }).querySelectorAll("button"),
     ].map((button) => button.textContent);
     expect(names).toEqual(["Đang mở 7", "Đã lên lịch 0", "Đã đóng 120", "Bản nháp"]);
+  });
+
+  it("groups its thousands for the viewer's language", async () => {
+    const big: SegmentedOption[] = [{ value: "all", label: "Tất cả", count: 1248 }];
+    const { rerender } = render(
+      <Segmented label="Nhóm" value="all" options={big} onChange={() => {}} />,
+    );
+    expect(screen.getByRole("button", { name: "Tất cả 1.248" })).toBeVisible();
+
+    await act(() => i18n.changeLanguage("en"));
+    rerender(<Segmented label="Group" value="all" options={big} onChange={() => {}} />);
+    expect(screen.getByRole("button", { name: "Tất cả 1,248" })).toBeVisible();
+    await act(() => i18n.changeLanguage("vi"));
   });
 
   it("is absent from an option that has none", () => {
