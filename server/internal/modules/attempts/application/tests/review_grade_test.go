@@ -157,3 +157,42 @@ func TestTheReviewCarriesTheKeyThePaperAndTheAnswers(t *testing.T) {
 		t.Errorf("score %+v, want 5 earned with one pending", rv.Score)
 	}
 }
+
+func TestAnAnswerRemovedUnderTheRetentionPolicyCannotBeMarkedAndWaitsForNoMark(t *testing.T) {
+	pool := newPool(t)
+	p := seedPaper(t, pool, "submitted")
+	store := repositories.NewReviews(db.NewContext(pool))
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `UPDATE app.attempt_answers SET payload = '{"removed": true}'::jsonb
+		WHERE attempt_id = $1::uuid`, p.attempt); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := store.Grade(ctx, everyone, p.attempt, p.admin, []domain.GradeItem{
+		{QuestionID: p.choice, Points: 2},
+		{QuestionID: p.essay, Points: 4},
+	})
+	var removed *domain.AnswerRemovedError
+	if !errors.As(err, &removed) || len(removed.QuestionIDs) != 2 {
+		t.Fatalf("got %v, want both items refused as removed", err)
+	}
+	var marked int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM app.attempt_answers
+		WHERE attempt_id = $1::uuid AND manual_score IS NOT NULL`, p.attempt).Scan(&marked); err != nil {
+		t.Fatal(err)
+	}
+	if marked != 0 {
+		t.Errorf("%d marks were stored on removed answers", marked)
+	}
+
+	rv, err := store.Get(ctx, everyone, p.attempt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rv.Score.Earned != 5 || rv.Score.PendingManual != 0 {
+		t.Errorf("score %+v, want the 5 it earned standing and nothing pending", rv.Score)
+	}
+	if !domain.AnswerRemoved(rv.Answers[p.essay].Payload) || rv.Answers[p.choice].AutoScore == nil {
+		t.Errorf("answers %+v, want the marker in place and the machine's score kept", rv.Answers)
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"quizzivy/internal/modules/attempts/domain"
+	"quizzivy/internal/shared/answered"
 	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/visibility"
 	"strconv"
@@ -124,7 +125,7 @@ func gradingQueueSQL() string {
  JOIN app.test_versions v ON v.id=at.test_version_id
  JOIN app.attempt_answers ans ON ans.attempt_id=at.id
  JOIN numbered_questions nq ON nq.id=ans.question_id AND nq.test_version_id=at.test_version_id
- WHERE at.status IN ('submitted','timed_out') AND ans.requires_manual AND ans.manual_score IS NULL
+ WHERE at.status IN ('submitted','timed_out') AND ` + answered.AwaitsGrade("ans") + `
   AND ($1::boolean OR at.assignment_id IN ` + visibility.AssignmentIDs(2) + `)
   AND ` + visibility.Papers(1, 2, "at.assignment_id", "at.student_id") + `
   AND ($3::uuid IS NULL OR at.assignment_id=$3)

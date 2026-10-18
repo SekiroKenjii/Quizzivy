@@ -1,6 +1,9 @@
 import { queryOptions } from "@tanstack/react-query";
-import { api } from "@/lib/api/client";
+import { api, downloadFile, uploadFile } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
+import { formatInTimeZone } from "date-fns-tz";
+import { getDisplayTimeZone } from "@/lib/i18n/datetime";
+import { saveDownloadedFile } from "@/lib/saveFile";
 
 export type AdminUser = components["schemas"]["AdminUserRow"];
 export type AdminUserRole = components["schemas"]["AdminUserRole"];
@@ -74,4 +77,78 @@ export function usersQuery(params: UsersParams) {
         signal,
       }),
   });
+}
+
+export type UserImportPreview = components["schemas"]["UserImportPreview"];
+export type UserImportJob = components["schemas"]["UserImportJob"];
+export type UserImportIssue = components["schemas"]["UserImportIssue"];
+export type UserImportDelivery = components["schemas"]["UserImportDelivery"];
+export type UserImportDefaultRole = components["schemas"]["UserImportDefaultRole"];
+
+/** USER_IMPORTS_KEY is the query key of the import jobs, apart from USERS_KEY so a refresh of the list leaves a job alone. */
+export const USER_IMPORTS_KEY = ["admin", "user-imports"] as const;
+
+/** UserImportChoice is what a preview or an import is asked of: the roles and the hand-out the Admin chose. */
+export interface UserImportChoice {
+  readonly defaultRole: UserImportDefaultRole;
+  readonly delivery: UserImportDelivery;
+}
+
+/**
+ * previewUserImport reads `POST /admin/user-imports/preview`: what `file`
+ * would come to under the Admin's choices. Nothing is stored.
+ */
+export function previewUserImport(
+  file: File,
+  choice: UserImportChoice,
+  signal?: AbortSignal,
+) {
+  return uploadFile<UserImportPreview>("/admin/user-imports/preview", file, {
+    fields: { defaultRole: choice.defaultRole, delivery: choice.delivery },
+    ...(signal === undefined ? {} : { signal }),
+  });
+}
+
+/**
+ * createUserImport sends `POST /admin/user-imports`. The same `requestId`
+ * returns the job the first call stored, so a retry cannot import twice.
+ */
+export function createUserImport(
+  file: File,
+  choice: UserImportChoice,
+  requestId: string,
+) {
+  return uploadFile<UserImportJob>("/admin/user-imports", file, {
+    fields: { defaultRole: choice.defaultRole, delivery: choice.delivery, requestId },
+  });
+}
+
+/** userImportQuery reads `GET /admin/user-imports/{id}`, the progress of one job. */
+export function userImportQuery(id: string) {
+  return queryOptions({
+    queryKey: [...USER_IMPORTS_KEY, id] as const,
+    queryFn: ({ signal }) =>
+      api("get", "/admin/user-imports/{id}", { path: { id }, signal }),
+  });
+}
+
+/**
+ * sheetFileName is the name a hand-out sheet is saved under when the server
+ * names none: `new-accounts-YYYYMMDD.csv`, as the server writes it.
+ */
+export function sheetFileName(now: Date, zone = getDisplayTimeZone()) {
+  return `new-accounts-${formatInTimeZone(now, zone, "yyyyMMdd")}.csv`;
+}
+
+/**
+ * downloadUserImportSheet takes a job's hand-out sheet, which the server gives
+ * once, and saves it. A `410 SHEET_UNAVAILABLE` says it was already taken or
+ * is more than 24 hours old.
+ */
+export async function downloadUserImportSheet(id: string) {
+  const file = await downloadFile("/admin/user-imports/{id}/sheet", undefined, {
+    method: "POST",
+    path: { id },
+  });
+  saveDownloadedFile(file, sheetFileName(new Date()));
 }

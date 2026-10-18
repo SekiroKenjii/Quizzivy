@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"quizzivy/internal/shared/answered"
 	"time"
 
 	"quizzivy/internal/platform/db"
@@ -50,7 +51,7 @@ func (s *StudentStats) StudentStats(ctx context.Context, scope access.Scope, ids
 		               coalesce(a.score_total, v.total_points) AS score_total,
 		               (SELECT count(*) FROM app.attempt_answers ans
 		                 WHERE ans.attempt_id = a.id
-		                   AND ans.requires_manual AND ans.manual_score IS NULL) AS pending_manual
+		                   AND `+answered.AwaitsGrade("ans")+`) AS pending_manual
 		          FROM app.attempts a
 		          JOIN app.test_versions v ON v.id = a.test_version_id
 		         WHERE a.student_id = u.id

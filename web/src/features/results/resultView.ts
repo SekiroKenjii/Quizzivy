@@ -334,10 +334,12 @@ export function shownUnder(
 /**
  * Given is what a review item writes after "You answered". A fill-in lists
  * its blanks in order, with null for a blank left empty. `none` is a question
- * with nothing to show.
+ * with nothing to show; `removed` is an answer the centre's retention policy
+ * removed, which the item names in place of the answer.
  */
 export type Given =
   | { readonly kind: "none" }
+  | { readonly kind: "removed" }
   | { readonly kind: "options"; readonly options: readonly Option[] }
   | { readonly kind: "text"; readonly text: string }
   | { readonly kind: "boolean"; readonly value: boolean }
@@ -352,9 +354,10 @@ function blanksOf(question: ResultQuestion) {
  * answered is the engine's rule (`take-test/answered`), so a saved answer
  * that was cleared reads "no answer". A fill-in with some blanks filled is
  * not answered by that rule, and still lists what was typed: those blanks may
- * have earned points.
+ * have earned points. An answer the retention policy removed reads `removed`.
  */
 export function given(question: ResultQuestion): Given {
+  if (question.answerRemoved === true) return { kind: "removed" };
   const answer = question.answer;
   if (answer == null) return { kind: "none" };
   if (answer.type === "fill_blank") {

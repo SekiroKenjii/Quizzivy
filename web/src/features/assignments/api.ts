@@ -3,6 +3,7 @@ import { saveStrandedDraft } from "@/features/take-test/strandedDraft";
 import { formatInTimeZone } from "date-fns-tz";
 import { api, downloadFile } from "@/lib/api/client";
 import { getDisplayTimeZone } from "@/lib/i18n/datetime";
+import { saveDownloadedFile } from "@/lib/saveFile";
 import type { components } from "@/lib/api/schema";
 
 export type Assignment = components["schemas"]["Assignment"];
@@ -137,14 +138,10 @@ export function resultsFileName(
   return `${base || "results"}-${formatInTimeZone(now, zone, "yyyyMMdd")}.csv`;
 }
 
-const REVOKE_AFTER_MS = 40_000;
-
 /**
  * exportResults downloads the results of up to 50 assignments as one CSV
- * file, under the name the server gives it or else `resultsFileName`, and
- * hands it to the browser to save through an object URL. The URL is revoked
- * 40 seconds later, not at once, because Firefox and some Safari versions
- * start the download after the click returns.
+ * file and saves it under the name the server gives it or else
+ * `resultsFileName`.
  */
 export async function exportResults(
   assignments: readonly Pick<Assignment, "id" | "testTitle">[],
@@ -152,19 +149,13 @@ export async function exportResults(
   const file = await downloadFile("/teacher/assignments/results.csv", {
     ids: assignments.map((assignment) => assignment.id),
   });
-  const href = URL.createObjectURL(file.blob);
-  const link = document.createElement("a");
-  link.href = href;
-  link.download =
-    file.filename ??
+  saveDownloadedFile(
+    file,
     resultsFileName(
       assignments.map((assignment) => assignment.testTitle),
       new Date(),
-    );
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(href), REVOKE_AFTER_MS);
+    ),
+  );
 }
 
 export function deleteAssignment(id: string) {

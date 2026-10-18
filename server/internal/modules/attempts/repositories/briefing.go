@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/attempts/domain"
+	"quizzivy/internal/shared/answered"
 	"quizzivy/internal/shared/schedule"
 	"quizzivy/internal/shared/visibility"
 	"time"
@@ -15,7 +16,7 @@ import (
 var briefingQuery = `
 	SELECT at.assignment_id::text, at.student_id::text, s.full_name, t.title, at.focus_loss_count,
 	       EXISTS (SELECT 1 FROM app.attempt_answers ans
-	                WHERE ans.attempt_id = at.id AND ans.requires_manual AND ans.manual_score IS NULL),
+	                WHERE ans.attempt_id = at.id AND ` + answered.AwaitsGrade("ans") + `),
 	       a.review_show_score
 	         AND (a.review_release = 'on_submit' OR $2::timestamptz >= ` + schedule.CloseOf("o") + `),
 	       coalesce((SELECT array_agg(r.id::text ORDER BY r.id)

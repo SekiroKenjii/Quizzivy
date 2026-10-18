@@ -7,6 +7,7 @@ import (
 	"quizzivy/internal/modules/assignments/domain"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/answered"
 	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/paging"
 	"quizzivy/internal/shared/schedule"
@@ -54,10 +55,10 @@ func selectAssignment(all, viewer int) string {
 		          JOIN app.attempts at ON at.id = aa.attempt_id
 		         WHERE at.assignment_id = a.id
 		           AND at.status IN ('submitted','timed_out')
-		           AND aa.requires_manual AND aa.manual_score IS NULL),
+		           AND ` + answered.AwaitsGrade("aa") + `),
              (SELECT count(*) FROM app.attempt_answers aa JOIN app.attempts at ON at.id = aa.attempt_id
                WHERE at.assignment_id = a.id AND at.status IN ('submitted','timed_out')
-                 AND aa.requires_manual AND aa.manual_score IS NULL),
+                 AND ` + answered.AwaitsGrade("aa") + `),
 		       -- Both sides of submitted/total range over the SAME set: students
 		       -- who are expected to do the work. A disabled account is not, so
 		       -- leaving it in the denominator pinned every assignment at

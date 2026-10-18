@@ -25,5 +25,10 @@ export function optionKey(index: number): string {
   return String.fromCharCode(65 + index);
 }
 
-/** Right, wrong, or nothing decided yet -- one word for a dot and a badge. */
-export type Verdict = "correct" | "wrong" | "partial" | "pending" | "unanswered";
+/**
+ * Verdict is right, wrong, or nothing decided yet -- one word for a dot and a
+ * badge. `removed` is an answer the retention policy removed before it was
+ * scored.
+ */
+export type Verdict =
+  "correct" | "wrong" | "partial" | "pending" | "unanswered" | "removed";

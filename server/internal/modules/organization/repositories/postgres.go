@@ -1,4 +1,4 @@
-// Package repositories reads and writes the centre's one row of app.organization_settings, and judges a sign-in policy against the active accounts.
+// Package repositories reads and writes the centre's one row of app.organization_settings, judges a sign-in policy against the active accounts, and counts what a retention policy would remove.
 package repositories
 
 import (
@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -13,6 +14,7 @@ import (
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/audit"
 	"quizzivy/internal/shared/opt"
+	"quizzivy/internal/shared/retention"
 )
 
 // Postgres stores the settings in the database.
@@ -157,6 +159,44 @@ func impactOf(ctx context.Context, q db.Querier, policy domain.SignIn, actorID s
 		return domain.Impact{}, fmt.Errorf("organization: judge the sign-in policy: %w", err)
 	}
 	return out, nil
+}
+
+// RetentionImpact counts what the retention sweep would do today under
+// policy, with the queries its dry run runs, in one read-only transaction.
+func (p *Postgres) RetentionImpact(ctx context.Context, policy domain.Retention) (domain.RetentionImpact, error) {
+	var out domain.RetentionImpact
+	err := p.InTx(ctx, "organization: count the retention policy's impact", func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `SET TRANSACTION READ ONLY`); err != nil {
+			return err
+		}
+		if m := policy.KeepAnswersMonths; m != nil {
+			out.Answers = &domain.AnswersImpact{}
+			if err := countBefore(ctx, tx, *m, retention.CountAnswers, &out.Answers.Attempts, &out.Answers.Answers); err != nil {
+				return err
+			}
+		}
+		if err := countBefore(ctx, tx, policy.KeepFocusEventsMonths, retention.CountEvents, &out.FocusEvents); err != nil {
+			return err
+		}
+		if m := policy.AnonymiseDisabledAfterMonths; m != nil {
+			var inProgress int64
+			out.Accounts = &domain.AccountsImpact{}
+			return countBefore(ctx, tx, *m, retention.CountAccounts, &out.Accounts.Anonymise, &out.Accounts.SkippedOwners, &inProgress)
+		}
+		return nil
+	})
+	if err != nil {
+		return domain.RetentionImpact{}, fmt.Errorf("organization: count the retention policy's impact: %w", err)
+	}
+	return out, nil
+}
+
+func countBefore(ctx context.Context, tx pgx.Tx, months int, count string, into ...any) error {
+	var cutoff time.Time
+	if err := tx.QueryRow(ctx, `SELECT `+retention.Cutoff("$1"), months).Scan(&cutoff); err != nil {
+		return err
+	}
+	return tx.QueryRow(ctx, count, cutoff).Scan(into...)
 }
 
 func scan(row pgx.Row) (domain.Settings, error) {

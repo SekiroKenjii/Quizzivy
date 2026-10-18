@@ -32,6 +32,8 @@ type repo struct {
 	mu       sync.Mutex
 	settings domain.Settings
 	impact   domain.Impact
+	asked    []domain.Retention
+	removal  domain.RetentionImpact
 }
 
 func (r *repo) Read(context.Context) (domain.Settings, error) {
@@ -58,6 +60,13 @@ func (r *repo) Save(_ context.Context, in domain.Save) (domain.Settings, error) 
 
 func (r *repo) Impact(context.Context, domain.SignIn, string, bool) (domain.Impact, error) {
 	return r.impact, nil
+}
+
+func (r *repo) RetentionImpact(_ context.Context, policy domain.Retention) (domain.RetentionImpact, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.asked = append(r.asked, policy)
+	return r.removal, nil
 }
 
 type store struct {
@@ -336,6 +345,39 @@ func TestTheImpactAnswersWhetherThePolicyIsALockout(t *testing.T) {
 	}
 	if got.AffectedUsers != 3 || !got.ActorLocked || !got.Lockout {
 		t.Errorf("impact %+v", got)
+	}
+}
+
+func TestTheRetentionImpactCountsTheProposedPolicy(t *testing.T) {
+	r := &repo{settings: stored(), removal: domain.RetentionImpact{
+		Answers: &domain.AnswersImpact{Attempts: 2, Answers: 7}, FocusEvents: 11,
+	}}
+	keep := openapi.RetentionPolicyKeepAnswersMonths(12)
+	out, err := handler(t, r, nil, checker{}).GetRetentionImpact(contextAs(t, ""), openapi.GetRetentionImpactRequestObject{
+		Body: &openapi.GetRetentionImpactJSONRequestBody{Retention: openapi.RetentionPolicy{
+			KeepAnswersMonths: &keep, KeepFocusEventsMonths: 6,
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := out.(openapi.GetRetentionImpact200JSONResponse)
+	if !ok {
+		t.Fatalf("answered %T", out)
+	}
+	if got.Answers == nil || got.Answers.Attempts != 2 || got.Answers.Answers != 7 || got.FocusEvents != 11 || got.Accounts != nil {
+		t.Errorf("impact %+v", got)
+	}
+	body, err := json.Marshal(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), `"accounts":null`) {
+		t.Errorf("a policy that never anonymises answered %s, want accounts null", body)
+	}
+	if len(r.asked) != 1 || r.asked[0].KeepAnswersMonths == nil || *r.asked[0].KeepAnswersMonths != 12 ||
+		r.asked[0].KeepFocusEventsMonths != 6 || r.asked[0].AnonymiseDisabledAfterMonths != nil {
+		t.Errorf("asked %+v", r.asked)
 	}
 }
 

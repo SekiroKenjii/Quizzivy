@@ -33,7 +33,7 @@ var itemAnalysisSQL = `
 	), marks AS (
 	  SELECT n.id AS question_id,
 	         coalesce(` + answered.SaysSomething("ans") + `, false) AS said,
-	         coalesce(ans.requires_manual AND ans.manual_score IS NULL, false) AS pending,
+	         coalesce(` + answered.AwaitsGrade("ans") + `, false) AS pending,
 	         ans.final_score >= n.points AS full
 	    FROM numbered n
 	   CROSS JOIN papers p
@@ -145,7 +145,7 @@ var resultsSQL = `
 	  LEFT JOIN standing s ON s.assignment_id = r.assignment_id AND s.student_id = r.user_id
 	  LEFT JOIN LATERAL (
 	    SELECT count(*) AS pending FROM app.attempt_answers aa
-	     WHERE aa.attempt_id = s.id AND aa.requires_manual AND aa.manual_score IS NULL
+	     WHERE aa.attempt_id = s.id AND ` + answered.AwaitsGrade("aa") + `
 	  ) p ON true
 	 WHERE s.id IS NOT NULL OR u.role_id IN (SELECT k.id FROM app.student_like_roles k)
 	 ORDER BY wd.ord, u.full_name, u.id

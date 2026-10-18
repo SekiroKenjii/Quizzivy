@@ -129,6 +129,7 @@ func sharedScratch(t *testing.T) string {
 }
 
 type isolated struct {
+	name  string
 	ctx   context.Context
 	owner *pgxpool.Pool
 	role  *pgxpool.Pool
@@ -165,5 +166,5 @@ func newIsolated(t *testing.T) isolated {
 		t.Fatal(err)
 	}
 	t.Cleanup(role.Close)
-	return isolated{ctx: ctx, owner: owner, role: role}
+	return isolated{name: name, ctx: ctx, owner: owner, role: role}
 }
