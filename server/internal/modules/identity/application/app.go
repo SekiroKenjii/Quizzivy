@@ -100,6 +100,14 @@ func (a *Application) SetUserImportRetention(imports domain.UserImportRetention)
 	a.Commands.PruneUserImports = command.PruneUserImportsHandler{Service: a.service, Imports: imports}
 }
 
+// SetAvatarSweeps attaches the store of swept accounts and the photos' object
+// store, and makes Commands.SweepAvatarObjects available. Without an object
+// store nothing is swept and no account is marked, so a store configured later
+// still finds every anonymised account.
+func (a *Application) SetAvatarSweeps(sweeps domain.AvatarSweeps, objects ports.AvatarObjects) {
+	a.Commands.SweepAvatarObjects = command.SweepAvatarObjectsHandler{Service: a.service, Sweeps: sweeps, Objects: objects}
+}
+
 // SetAdminUsers attaches the Admin console's account directory and the access
 // module's say on which roles a caller may give, which opens createUser,
 // listUsers, getUser, changeUserRole, disableUser, disableUsers, enableUser,
@@ -161,6 +169,7 @@ type Commands struct {
 	ResetUserPassword        cqrs.CommandHandler[command.ResetUserPassword, command.ResetUserPasswordResult]
 	ResetUsersPasswords      cqrs.CommandHandler[command.ResetUsersPasswords, domain.BulkUserReset]
 	SignOutUser              cqrs.CommandHandler[command.SignOutUser, cqrs.Nothing]
+	SweepAvatarObjects       cqrs.CommandHandler[command.SweepAvatarObjects, int]
 	RemoveAvatar             cqrs.CommandHandler[command.RemoveAvatar, domain.User]
 	SetAvatar                cqrs.CommandHandler[command.SetAvatar, domain.User]
 	ChangePassword           cqrs.CommandHandler[command.ChangePassword, cqrs.Nothing]

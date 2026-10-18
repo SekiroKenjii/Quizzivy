@@ -45,6 +45,11 @@ func (a *App) housekeepingSteps() []jobs.HousekeepingStep {
 			return expired.Marked, err
 		}})
 	}
+	if sweep := a.assembly.Identity.Commands.SweepAvatarObjects; sweep != nil {
+		steps = append(steps, jobs.HousekeepingStep{Name: "avatar_objects", Batch: func(ctx context.Context, limit int) (int, error) {
+			return sweep.Handle(ctx, identitycommand.SweepAvatarObjects{Limit: limit})
+		}})
+	}
 	if sweep := a.assembly.Organization.Commands.SweepLogos; sweep != nil {
 		steps = append(steps, jobs.HousekeepingStep{Name: "branding_objects", Batch: func(ctx context.Context, limit int) (int, error) {
 			swept, err := sweep.Handle(ctx, organizationcommand.SweepLogos{Limit: limit})

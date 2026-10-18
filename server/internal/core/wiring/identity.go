@@ -46,10 +46,10 @@ func attachIdentityPorts(ctx context.Context, cfg config.Config, logger *slog.Lo
 	if err := attachUserImports(ctx, cfg, logger, dbx, app, roles); err != nil {
 		return err
 	}
-	return attachAvatars(ctx, cfg, logger, app, images)
+	return attachAvatars(ctx, cfg, logger, dbx, app, images)
 }
 
-func attachAvatars(ctx context.Context, cfg config.Config, logger *slog.Logger, app *identityapp.Application, images *imagesafe.Processor) error {
+func attachAvatars(ctx context.Context, cfg config.Config, logger *slog.Logger, dbx db.Context, app *identityapp.Application, images *imagesafe.Processor) error {
 	if !cfg.MediaEnabled() {
 		logger.Info("profile photos disabled (no bucket configured)")
 		return nil
@@ -66,6 +66,7 @@ func attachAvatars(ctx context.Context, cfg config.Config, logger *slog.Logger, 
 		return err
 	}
 	app.SetAvatars(objects, adapters.Photos{Processor: images, Log: logger}, logger)
+	app.SetAvatarSweeps(identityrepo.NewAvatarSweeps(dbx), adapters.AvatarObjects{Objects: objects})
 	logger.Info("profile photos enabled", "bucket", cfg.S3Bucket, "decode_slots", photoDecodeSlots)
 	return nil
 }
