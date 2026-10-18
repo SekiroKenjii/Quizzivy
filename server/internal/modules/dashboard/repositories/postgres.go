@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/answered"
 	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/visibility"
 	"strings"
@@ -27,12 +28,12 @@ func NewPostgres(dbx db.Context) *Postgres { return &Postgres{Repository: db.New
 
 var _ domain.Repository = (*Postgres)(nil)
 
-const recentColumns = `
+var recentColumns = `
 		SELECT at.id::text, at.student_id::text, u.full_name,
 		       at.assignment_id::text, t.title, at.status::text, at.submitted_at,
 		       (SELECT count(*) FROM app.attempt_answers ans
 		         WHERE ans.attempt_id = at.id
-		           AND ans.requires_manual AND ans.manual_score IS NULL),
+		           AND ` + answered.AwaitsGrade("ans") + `),
 		       at.flagged
 		  FROM app.attempts at
 		  JOIN app.users u ON u.id = at.student_id
@@ -86,7 +87,7 @@ func (p *Postgres) Summary(ctx context.Context, q domain.SummaryQuery) (domain.S
 		  (SELECT count(*)
 		     FROM app.attempt_answers ans
 		     JOIN app.attempts at ON at.id = ans.attempt_id
-		    WHERE ans.requires_manual AND ans.manual_score IS NULL
+		    WHERE `+answered.AwaitsGrade("ans")+`
 		      AND at.status IN ('submitted', 'timed_out')`+r.papers+`),
 		  (SELECT count(DISTINCT at.student_id) FROM app.attempts at
              JOIN app.users u ON u.id = at.student_id AND u.disabled_at IS NULL
@@ -97,11 +98,11 @@ func (p *Postgres) Summary(ctx context.Context, q domain.SummaryQuery) (domain.S
              AND a.closes_at <= now() + interval '24 hours'`+r.assignments+`),
           (SELECT count(DISTINCT at.student_id) FROM app.attempts at
              JOIN app.attempt_answers ans ON ans.attempt_id = at.id
-             WHERE at.status IN ('submitted','timed_out') AND ans.requires_manual AND ans.manual_score IS NULL`+r.papers+`),
+             WHERE at.status IN ('submitted','timed_out') AND `+answered.AwaitsGrade("ans")+``+r.papers+`),
           (SELECT min(at.submitted_at) FROM app.attempts at
              WHERE at.status IN ('submitted','timed_out') AND EXISTS (
                SELECT 1 FROM app.attempt_answers ans WHERE ans.attempt_id = at.id
-                 AND ans.requires_manual AND ans.manual_score IS NULL)`+r.papers+`),
+                 AND `+answered.AwaitsGrade("ans")+`)`+r.papers+`),
           `+r.students+`, destination.assignment_id::text,destination.id::text
           FROM (VALUES (1)) anchor(value)
           LEFT JOIN LATERAL (
@@ -165,7 +166,7 @@ func (p *Postgres) List(ctx context.Context, q domain.ListQuery) ([]domain.Recen
 		args = append(args, *q.PendingGrading)
 		where = append(where, fmt.Sprintf(`(at.status IN ('submitted', 'timed_out') AND EXISTS (
 		     SELECT 1 FROM app.attempt_answers ans
-		      WHERE ans.attempt_id = at.id AND ans.requires_manual AND ans.manual_score IS NULL)) = $%d`, len(args)))
+		      WHERE ans.attempt_id = at.id AND `+answered.AwaitsGrade("ans")+`)) = $%d`, len(args)))
 	}
 	filter := strings.Join(where, "\n		   AND ")
 

@@ -5,7 +5,7 @@ import {
   type Student,
 } from "@/features/students/api";
 import type { Locale } from "@/lib/i18n";
-import { formatAgo } from "@/lib/i18n/datetime";
+import { formatRelativeShort } from "@/lib/i18n/datetime";
 
 /** StudentAccount is how the list names an account's state. */
 export type StudentAccount = "active" | "notSignedIn" | "reset" | "suspended";
@@ -56,7 +56,9 @@ export function averageOf(student: Student, t: TFunction): string {
 export function lastActiveOf(student: Student, locale: Locale, t: TFunction): string {
   if (student.stats.activity.live) return t("students.takingNow");
   const at = student.lastActiveAt;
-  return at ? formatAgo(at, locale, t("common.agoJustNow")) : t("students.neverActive");
+  return at
+    ? formatRelativeShort(at, locale, t("common.agoNow"))
+    : t("students.neverActive");
 }
 
 /** classLineOf is a student's classes on one line, "No class yet" for none. */

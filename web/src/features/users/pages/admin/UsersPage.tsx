@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
+import { Upload } from "lucide-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { LoadError } from "@/components/shared/ListState";
 import { SearchInput, TOOLBAR_SEARCH } from "@/components/shared/SearchInput";
 import { Button } from "@/components/ui/button";
 import { Segmented, type SegmentedOption } from "@/components/ui/segmented";
+import { ImportUsersDialog } from "@/features/users/components/ImportUsersDialog";
 import { StateChip } from "@/features/users/components/StateChip";
 import { UsersTable } from "@/features/users/components/UsersTable";
 import { CARDS_BELOW } from "@/features/users/components/userColumns";
@@ -63,7 +65,8 @@ function announcement(t: TFunction, total: number | undefined): string {
  * Admin has paused for 300 ms. A search under three characters is not sent, and
  * the page says so (QC-N-15). A page past the end goes to the last one. The
  * table's columns join as the content widens, and below 560px each account is
- * a card.
+ * a card. "Import CSV" opens the Import users dialog (T-R5.23), which stays
+ * mounted so a job it started is followed while it is closed.
  */
 export default function UsersPage() {
   useDisplayTimeZone();
@@ -81,6 +84,8 @@ export default function UsersPage() {
   const page = pageOf(asked);
   const cards = !useContentWidthAtLeast(CARDS_BELOW);
   const searchRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const importButton = useRef<HTMLButtonElement>(null);
 
   const users = useQuery({
     ...usersQuery({ tab, status: state, q, page, limit: limitOf(size) }),
@@ -126,7 +131,25 @@ export default function UsersPage() {
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <PageHead title={t("users.title")} description={t("users.lead")} />
+      <PageHead
+        title={t("users.title")}
+        description={t("users.lead")}
+        actions={
+          <Button
+            ref={importButton}
+            variant="outline"
+            onClick={() => setImporting(true)}
+          >
+            <Upload aria-hidden="true" />
+            {t("users.import.open")}
+          </Button>
+        }
+      />
+      <ImportUsersDialog
+        open={importing}
+        onOpenChange={setImporting}
+        returnFocus={importButton}
+      />
       <p role="status" className="sr-only">
         {announcement(t, data?.total)}
       </p>

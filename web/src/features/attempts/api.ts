@@ -1,4 +1,5 @@
 import { api } from "@/lib/api/client";
+import { ApiError } from "@/lib/api/errors";
 import type { components, paths } from "@/lib/api/schema";
 
 export type MonitorRow = components["schemas"]["MonitorRow"];
@@ -123,6 +124,15 @@ export function gradeAttempt(id: string, items: GradeItem[], signal?: AbortSigna
     body: { items },
     ...(signal ? { signal } : {}),
   });
+}
+
+/**
+ * answerRemovedRefusal says a grade save was refused with `409 ANSWER_REMOVED`:
+ * it named an answer the centre's retention policy removed, and nothing was
+ * saved.
+ */
+export function answerRemovedRefusal(cause: unknown): boolean {
+  return cause instanceof ApiError && cause.code === "ANSWER_REMOVED";
 }
 
 export function finishGrading(id: string, signal?: AbortSignal) {

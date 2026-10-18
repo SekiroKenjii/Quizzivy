@@ -503,6 +503,19 @@ func TestThePlanNamesEachClassItPlacesStudentsInOnce(t *testing.T) {
 	}
 }
 
+func TestTheClassOfAnExistingAccountsRowIsNotNamed(t *testing.T) {
+	rows := []domain.ImportRow{
+		row(2, "A", "a@x.test", "", "Lớp 10A"),
+		row(3, "B", "b@x.test", "", "Lớp 10B"),
+	}
+
+	plan := domain.PlanImport(rows, rules(true, class10A, class10B), map[string]struct{}{"a@x.test": {}})
+
+	if !slices.Equal(plan.Classes, []domain.ImportClass{class10B}) {
+		t.Errorf("classes = %v, want only the class a new account joins", plan.Classes)
+	}
+}
+
 func TestOrdinalsFollowTheAcceptedRowsAndLinesTheFile(t *testing.T) {
 	rows := []domain.ImportRow{row(2, "A", "a@x.test", "", ""), row(3, "", "b@x.test", "", ""), row(4, "C", "c@x.test", "", "")}
 

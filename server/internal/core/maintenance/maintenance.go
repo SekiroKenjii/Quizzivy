@@ -28,16 +28,11 @@ func checkBatch(batch int) error {
 
 func cutoffBefore(ctx context.Context, conn db.Querier, months int) (time.Time, error) {
 	var cutoff time.Time
-	err := conn.QueryRow(ctx,
-		`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' - make_interval(months => $1)) AT TIME ZONE 'UTC'`, months).Scan(&cutoff)
+	err := conn.QueryRow(ctx, `SELECT `+retention.Cutoff("$1"), months).Scan(&cutoff)
 	return cutoff, err
 }
 
-var eventsDue = `FROM app.attempt_events e
- JOIN app.attempts at ON at.id = e.attempt_id ` + retention.AttemptJoins + `
- WHERE e.received_at < $1 AND ` + retention.ClosedBefore("$1")
-
-var retentionCandidates = `SELECT e.id, e.received_at ` + eventsDue + `
+var retentionCandidates = `SELECT e.id, e.received_at ` + retention.EventsDue + `
  AND (e.received_at, e.id) > ($3::timestamptz, $4::bigint)
  ORDER BY e.received_at,e.id LIMIT $2`
 

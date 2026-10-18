@@ -378,7 +378,7 @@ func TestEachRoleMeetsExactlyTheOperationsItsPermissionsAllow(t *testing.T) {
 	for _, pattern := range []string{"GET /admin/roles", "POST /admin/roles", "GET /admin/roles/assignable", "PUT /admin/roles/permissions", "PATCH /admin/roles/{id}"} {
 		adminOnly[pattern] = true
 	}
-	for _, pattern := range []string{"GET /admin/ai/credits", "PATCH /admin/ai/rules", "POST /admin/ai/credits/additions", "PUT /admin/ai/teachers/{userId}/allowance", "POST /admin/ai/credit-requests/{id}/approve", "POST /admin/ai/credit-requests/{id}/decline", "GET /admin/settings", "PUT /admin/settings", "POST /admin/settings/sign-in-impact", "POST /admin/settings/logo"} {
+	for _, pattern := range []string{"GET /admin/ai/credits", "PATCH /admin/ai/rules", "POST /admin/ai/credits/additions", "PUT /admin/ai/teachers/{userId}/allowance", "POST /admin/ai/credit-requests/{id}/approve", "POST /admin/ai/credit-requests/{id}/decline", "GET /admin/settings", "PUT /admin/settings", "POST /admin/settings/sign-in-impact", "POST /admin/settings/retention-impact", "POST /admin/settings/logo"} {
 		adminOnly[pattern] = true
 	}
 	for pattern, requirement := range requirements {

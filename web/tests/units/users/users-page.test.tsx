@@ -77,11 +77,12 @@ describe("the Users page", () => {
     ).toEqual(ROWS.map((_, index) => index));
   });
 
-  it("offers no action the page cannot take yet", async () => {
+  it("offers Import CSV and no action the page cannot take yet", async () => {
     serveUsers(ROWS);
     renderUsers();
     await table();
-    expect(screen.queryByRole("button", { name: /Thêm người dùng|Nhập/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Nhập CSV" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Thêm người dùng/ })).toBeNull();
     expect(screen.queryByRole("checkbox")).toBeNull();
   });
 

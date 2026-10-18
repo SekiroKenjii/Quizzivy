@@ -21,6 +21,8 @@ export function InfoField({ rows }: Readonly<{ rows: readonly FormInfoRow[] }>) 
           {action && (
             <button
               type="button"
+              aria-expanded={action.expanded}
+              aria-controls={action.controls}
               className="bg-card hover:bg-muted rounded-seg h-7 border px-2.5 text-xs font-medium whitespace-nowrap"
               onClick={action.onAction}
             >

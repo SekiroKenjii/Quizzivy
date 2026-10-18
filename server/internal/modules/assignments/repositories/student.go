@@ -86,7 +86,7 @@ var studentCardFrom = `
 	              coalesce(at.score_total, av.total_points)::float8 AS total,
 	              (SELECT count(*) FROM app.attempt_answers ans
 	                WHERE ans.attempt_id = at.id
-	                  AND ans.requires_manual AND ans.manual_score IS NULL) AS pending
+	                  AND ` + answered.AwaitsGrade("ans") + `) AS pending
 	         FROM app.attempts at
 	         JOIN app.test_versions av ON av.id = at.test_version_id
 	        WHERE at.assignment_id = a.id AND at.student_id = $1::uuid

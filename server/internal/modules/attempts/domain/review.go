@@ -128,6 +128,14 @@ type GradeItemError struct {
 
 type GradeValidationError struct{ Items []GradeItemError }
 
+// AnswerRemovedError names the items of a grade whose answers were removed
+// under the retention policy: they cannot be marked, and nothing was saved.
+type AnswerRemovedError struct{ QuestionIDs []string }
+
+func (e *AnswerRemovedError) Error() string {
+	return "review: answers removed under the retention policy: " + strings.Join(e.QuestionIDs, ", ")
+}
+
 // ByQuestion is G-04's read: one question with its place on the paper, the
 // paper's other manual questions to walk to, and every handed-in answer.
 type ByQuestion struct {
@@ -165,4 +173,15 @@ func (e *GradeValidationError) Error() string {
 		parts[i] = it.QuestionID + ": " + it.Reason
 	}
 	return "review: " + strings.Join(parts, "; ")
+}
+
+// AnswerRemoved reports whether a stored payload is the marker the retention
+// sweep leaves in place of an answer (retention.RemovedAnswer): the response is
+// gone and cannot be shown or graded, and its scores stand.
+func AnswerRemoved(payload []byte) bool {
+	var marker struct {
+		Removed bool `json:"removed"`
+		Type    any  `json:"type"`
+	}
+	return json.Unmarshal(payload, &marker) == nil && marker.Removed && marker.Type == nil
 }

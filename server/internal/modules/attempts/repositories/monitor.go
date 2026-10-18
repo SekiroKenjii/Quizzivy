@@ -102,7 +102,7 @@ func (s *Postgres) attachAttempts(ctx context.Context, assignmentID string, rows
 		       at.score_earned, at.score_total, at.focus_loss_count, at.flagged,
 		       (SELECT count(*) FROM app.attempt_answers aa WHERE aa.attempt_id = at.id AND `+answered.SaysSomething("aa")+`),
 		       (SELECT count(*) FROM app.attempt_answers aa
-		         WHERE aa.attempt_id = at.id AND aa.requires_manual AND aa.manual_score IS NULL),
+		         WHERE aa.attempt_id = at.id AND `+answered.AwaitsGrade("aa")+`),
 		       EXISTS (
 		         SELECT 1 FROM app.attempt_audio_plays p
 		           JOIN app.test_version_questions q ON q.id = p.question_id

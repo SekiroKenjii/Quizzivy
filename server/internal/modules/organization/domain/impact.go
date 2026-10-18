@@ -68,3 +68,26 @@ type LogoFile struct {
 	Width  int
 	Height int
 }
+
+// RetentionImpact is what the retention sweep would do today under a
+// retention policy, counted with the sweep's own rules. Answers is nil when
+// the policy keeps answers for ever, Accounts when it never anonymises.
+type RetentionImpact struct {
+	Answers     *AnswersImpact
+	FocusEvents int64
+	Accounts    *AccountsImpact
+}
+
+// AnswersImpact is the ended attempts that hold an answer to remove, and
+// those answers.
+type AnswersImpact struct {
+	Attempts int64
+	Answers  int64
+}
+
+// AccountsImpact is the disabled accounts that would be anonymised, and those
+// left because they own classes or content.
+type AccountsImpact struct {
+	Anonymise     int64
+	SkippedOwners int64
+}
