@@ -36,7 +36,10 @@ func TestFlagsAfterTheCommandAreParsed(t *testing.T) {
 		refuse string
 	}{
 		{[]string{"retain-integrity", "-apply", "-batch", "0"}, "batch must be between"},
-		{[]string{"anonymize-student", "-apply", "-student", "not-a-uuid"}, "student ID must be a UUID"},
+		{[]string{"anonymize-student", "-apply", "-student", "not-a-uuid"}, "user ID must be a UUID"},
+		{[]string{"anonymize-user", "-apply", "-user", "not-a-uuid"}, "user ID must be a UUID"},
+		{[]string{"retention-sweep", "-apply", "-batch", "0"}, "batch must be between"},
+		{[]string{"retention-sweep", "-batch", "10001"}, "batch must be between"},
 		{[]string{"window-schedule", "-start", "2026-10-01T16:00:00Z", "-end", "2026-10-01T15:00:00Z", "-apply"}, "must end after it starts"},
 		{[]string{"window-schedule", "-start", "2026-10-01T15:00:00Z", "-end", "2026-10-02T15:00:00Z"}, "at most 12 hours"},
 		{[]string{"window-cancel", "-window", "not-a-uuid", "-apply"}, "-window must be a window UUID"},
@@ -51,7 +54,7 @@ func TestFlagsAfterTheCommandAreParsed(t *testing.T) {
 }
 
 func TestEveryCommandTakesATimeout(t *testing.T) {
-	for _, name := range []string{"retain-integrity", "anonymize-student", "window-list", "window-cancel", "window-end"} {
+	for _, name := range []string{"retain-integrity", "anonymize-student", "anonymize-user", "window-list", "window-cancel", "window-end"} {
 		if got := parse(t, name, "-timeout", "7s").Timeout; got != 7*time.Second {
 			t.Errorf("%s -timeout 7s = %v", name, got)
 		}
@@ -94,7 +97,7 @@ func TestTheOldFlagsFirstOrderStillParses(t *testing.T) {
 		t.Errorf("-batch before the command was not parsed: %q", got)
 	}
 	anonymize := parse(t, "-student", "not-a-uuid", "anonymize-student")
-	if got := runError(t, anonymize); !strings.Contains(got, "student ID must be a UUID") {
+	if got := runError(t, anonymize); !strings.Contains(got, "user ID must be a UUID") {
 		t.Errorf("-student before the command was not parsed: %q", got)
 	}
 	if got := parse(t, "-timeout", "5s", "retain-integrity").Timeout; got != 5*time.Second {
@@ -156,5 +159,48 @@ func TestRekeyJoinCodesNeedsBothKeysAndRepeatsNeither(t *testing.T) {
 	}
 	if got := runError(t, parse(t, "rekey-join-codes", "-batch", "0", "-apply")); !strings.Contains(got, "batch must be between") {
 		t.Errorf("-batch 0: %q", got)
+	}
+}
+
+func TestRetentionSweepTakesABudgetThatIsItsTimeout(t *testing.T) {
+	command := parse(t, "retention-sweep")
+	if command.Timeout != time.Minute || !command.ReportOnError {
+		t.Errorf("defaults: timeout %v, report on error %v", command.Timeout, command.ReportOnError)
+	}
+	if got := parse(t, "retention-sweep", "-apply", "-budget", "5m", "-batch", "250").Timeout; got != 5*time.Minute {
+		t.Errorf("-budget 5m made the timeout %v", got)
+	}
+	for _, args := range [][]string{
+		{"retention-sweep", "-budget", "0s"},
+		{"retention-sweep", "-budget", "-1m"},
+		{"retention-sweep", "-timeout", "5m"},
+		{"retention-sweep", "extra"},
+		{"retention-sweep", "-bogus"},
+	} {
+		_, err := maintenance.Parse(args)
+		if err == nil || !strings.Contains(err.Error(), "usage: maintenance <command> [flags]") {
+			t.Errorf("Parse(%q) = %v, want the usage line", args, err)
+		}
+	}
+}
+
+func TestAnonymizeUserTakesTheOlderFlagAndRefusesTwoAccounts(t *testing.T) {
+	id := "6f9619ff-8b86-4011-b42d-00c04fc964ff"
+	for _, args := range [][]string{
+		{"anonymize-user", "-user", id},
+		{"anonymize-user", "-student", id},
+		{"anonymize-student", "-user", id},
+		{"anonymize-user", "-user", id, "-student", id},
+	} {
+		if _, err := maintenance.Parse(args); err != nil {
+			t.Errorf("Parse(%q): %v", args, err)
+		}
+	}
+	other := "0a8a1c6e-2f0b-4d2e-9c1e-7f6d3b5a4c21"
+	if _, err := maintenance.Parse([]string{"anonymize-user", "-user", id, "-student", other}); err == nil || !strings.Contains(err.Error(), "different accounts") {
+		t.Errorf("two different accounts: %v", err)
+	}
+	if got := runError(t, parse(t, "anonymize-user")); !strings.Contains(got, "user ID must be a UUID") {
+		t.Errorf("no account named: %q", got)
 	}
 }
