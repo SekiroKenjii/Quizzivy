@@ -478,7 +478,8 @@
         "audit_log": "Nhật ký kiểm tra",
         "data_export": "Xuất dữ liệu",
         "maintenance_window": "Lịch bảo trì",
-        "organization": "Trung tâm"
+        "organization": "Trung tâm",
+        "user_import": "Lần nhập người dùng"
       }
     },
     "diff": {
@@ -494,6 +495,7 @@
         "30d": "30 ngày qua",
         "year": "Năm nay"
       },
+      "beforePeriod": "Khoảng ngày đang xem bắt đầu trước khoảng này, nên tệp sẽ không có các mục cũ hơn.",
       "format": "Định dạng",
       "formats": {
         "csv": "CSV",
@@ -502,6 +504,7 @@
       "filtersOnly": "Chỉ bộ lọc hiện tại",
       "filtersOnlyHint": "Chỉ gồm nhóm thay đổi và từ khoá đang chọn. Khoảng thời gian lấy theo mục ở trên.",
       "submit": "Xuất tệp",
+      "running": "Đang xuất…",
       "done": "Đã tải xuống nhật ký kiểm tra.",
       "tooLarge": "Khoảng này có hơn 100.000 mục. Hãy chọn khoảng ngắn hơn.",
       "failed": "Không xuất được nhật ký kiểm tra. Vui lòng thử lại."
@@ -631,6 +634,7 @@
       "description": "Mô tả",
       "descriptionPlaceholder": "Phụ trách nhóm IELTS",
       "taken": "Vai trò này đã tồn tại",
+      "sourceGone": "Vai trò này không còn để sao chép nữa. Hãy chọn lại.",
       "created": "Đã tạo vai trò {{name}}. Cột của vai trò nằm trong bảng bên dưới.",
       "failed": "Không tạo được vai trò. Hãy thử lại."
     },
