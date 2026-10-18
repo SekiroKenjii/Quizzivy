@@ -94,9 +94,13 @@ export function isTooLarge(file: Pick<File, "size">): boolean {
   return file.size > IMPORT_MAX_BYTES;
 }
 
-/** isRetryable says the same file may be accepted if sent again: nothing answered, or the server was busy. */
+/**
+ * isRetryable says the same file may be accepted if sent again: nothing
+ * answered, or the server was busy. A server not set up for imports (501)
+ * stays so until someone configures it.
+ */
 export function isRetryable(cause: unknown): boolean {
-  return cause instanceof ApiError ? cause.isRetryable : true;
+  return cause instanceof ApiError ? cause.isRetryable && cause.status !== 501 : true;
 }
 
 /** isJobRunning says a job is still to be settled by the worker. */

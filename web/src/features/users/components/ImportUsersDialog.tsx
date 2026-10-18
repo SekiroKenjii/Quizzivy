@@ -180,17 +180,22 @@ export function ImportUsersDialog({
       </Button>
     );
 
+  const readFailed = run.job.isError && !run.job.isFetching && (
+    <ImportPreviewError
+      message={t("users.import.progressFailed")}
+      onRetry={() => void run.job.refetch()}
+    />
+  );
   let content;
   if (choosing) content = <ChooseBody run={run} />;
-  else if (job !== undefined) content = <ImportProgress job={job} locale={locale} />;
-  else if (run.job.isError)
+  else if (job !== undefined)
     content = (
-      <ImportPreviewError
-        message={t("users.import.progressFailed")}
-        onRetry={() => void run.job.refetch()}
-      />
+      <>
+        <ImportProgress job={job} locale={locale} />
+        {readFailed}
+      </>
     );
-  else content = <ImportPreviewSkeleton />;
+  else content = readFailed || <ImportPreviewSkeleton />;
 
   return (
     <DialogShell

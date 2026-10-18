@@ -1,4 +1,5 @@
-import { useEffect, useEffectEvent, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useBeforeUnload } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   skipToken,
@@ -22,6 +23,8 @@ import { useIdlePolling, useRefetchOnResume } from "@/hooks/useIdlePolling";
 /** IMPORT_POLL_MS is how often a running job is read while the Admin is there. */
 export const IMPORT_POLL_MS = 2_000;
 
+const PREVIEW_KEPT_MS = 5 * 60_000;
+
 type Source = Readonly<{ file: File; pick: number }>;
 
 function newRequestId() {
@@ -37,10 +40,12 @@ function newRequestId() {
  * returns the job it made; choosing another file takes a new one, because the
  * same id would return the first file's job whatever the new file holds. A
  * running job is read every two seconds while the
- * Admin is there, whether or not the dialog is open; when it settles, the
- * Users list is read again and, if the dialog is closed, a toast says how it
- * ended. `dismiss` is called when the dialog closes: it forgets the draft, and
- * a settled job whose sheet can no longer be taken.
+ * Admin is there, whether or not the dialog is open, until a read fails; when
+ * it settles, the Users list is read again and, if the dialog is closed, a
+ * toast says how it ended. While a sheet job runs, or its sheet waits to be
+ * taken, closing or reloading the tab asks first, because the sheet is offered
+ * only here. `dismiss` is called when the dialog closes: it forgets the draft,
+ * and a settled job whose sheet can no longer be taken.
  */
 export function useUserImport(open: boolean) {
   const { t } = useTranslation();
@@ -68,11 +73,12 @@ export function useUserImport(open: boolean) {
             previewUserImport(asked.file, { defaultRole, delivery }, signal),
     retry: false,
     staleTime: Infinity,
-    gcTime: 0,
+    gcTime: PREVIEW_KEPT_MS,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
 
+  const starting = useRef(false);
   const start = useMutation({
     mutationFn: (input: { file: File }) =>
       createUserImport(input.file, { defaultRole, delivery }, requestId),
@@ -80,18 +86,31 @@ export function useUserImport(open: boolean) {
       queryClient.setQueryData(userImportQuery(job.id).queryKey, job);
       setJobId(job.id);
     },
+    onSettled: () => {
+      starting.current = false;
+    },
   });
 
   const interval = useIdlePolling(IMPORT_POLL_MS, jobId !== null);
   const job = useQuery({
     ...userImportQuery(jobId ?? ""),
     enabled: jobId !== null,
-    refetchInterval: (query) => (isJobRunning(query.state.data) ? interval : false),
+    refetchInterval: (query) =>
+      query.state.status !== "error" && isJobRunning(query.state.data)
+        ? interval
+        : false,
     refetchIntervalInBackground: false,
   });
   useRefetchOnResume(job.refetch, jobId !== null && isJobRunning(job.data));
 
   const settled = job.data !== undefined && !isJobRunning(job.data) ? job.data : null;
+  const holdsSheet =
+    job.data?.delivery === "sheet" &&
+    (isJobRunning(job.data) ||
+      (job.data.sheet?.available === true && job.data.sheet.downloadedAt === null));
+  useBeforeUnload((event) => {
+    if (holdsSheet) event.preventDefault();
+  });
   const settledId = settled?.id ?? null;
   const announce = useEffectEvent(() => {
     void queryClient.invalidateQueries({ queryKey: USERS_KEY });
@@ -134,10 +153,18 @@ export function useUserImport(open: boolean) {
         file === null ? null : { file, pick: (previous?.pick ?? 0) + 1 },
       );
     },
-    setDefaultRole,
-    setDelivery,
+    setDefaultRole(role: UserImportDefaultRole) {
+      start.reset();
+      setDefaultRole(role);
+    },
+    setDelivery(next: UserImportDelivery) {
+      start.reset();
+      setDelivery(next);
+    },
     begin() {
-      if (source !== null && !tooLarge) start.mutate({ file: source.file });
+      if (source === null || tooLarge || starting.current) return;
+      starting.current = true;
+      start.mutate({ file: source.file });
     },
     again: reset,
     dismiss() {

@@ -710,6 +710,7 @@
       "progress": "User import progress",
       "running": "Creating accounts… {{done}}/{{total}}",
       "leave": "You can close this dialog; the import carries on and the list updates itself.",
+      "leaveSheet": "You can close this dialog; the import carries on. Stay on this page: once the import finishes, the password sheet can be downloaded only here.",
       "summary": "{{created}} · {{skipped}}",
       "created_one": "{{count}} account created",
       "created_other": "{{count}} accounts created",
@@ -720,7 +721,7 @@
       "emailSent": "Each person gets an email with a link to set a password, usable once within 24 hours.",
       "again": "Import another file",
       "done": "Done",
-      "progressFailed": "Could not read the progress. The import carries on at the server.",
+      "progressFailed": "Could not read the progress. The import may still be running at the server; try again.",
       "sheet": {
         "warning": "The password sheet can be downloaded once and is deleted at {{time}}. Save the file somewhere safe before you close.",
         "download": "Download password sheet",
@@ -728,12 +729,17 @@
         "expired": "The password sheet is more than 24 hours old and can no longer be downloaded. Reset these accounts' passwords from the Users list.",
         "none": "No account was created, so there is no password sheet.",
         "gone": "The password sheet is no longer available: it was downloaded already or is more than 24 hours old. If the file was not saved, reset these accounts' passwords from the Users list.",
-        "failed": "Could not download the password sheet."
+        "failed": "Could not download the password sheet.",
+        "taken": "The password sheet was downloaded at {{time}}. If you do not have that file, reset these accounts' passwords from the Users list.",
+        "lost": "The file did not arrive, but the server has already deleted the password sheet. Reset these accounts' passwords from the Users list.",
+        "retry": "Could not download the password sheet. Try again now; if it still fails, reset these accounts' passwords from the Users list."
       },
       "failed": {
         "title": "The import stopped part way",
         "kept_one": "The {{count}} account created before it stopped stays.",
         "kept_other": "The {{count}} accounts created before it stopped stay.",
+        "keptNoPassword_one": "The {{count}} account created before it stopped stays, but has no password. Reset it from the Users list.",
+        "keptNoPassword_other": "The {{count}} accounts created before it stopped stay, but have no password. Reset them from the Users list.",
         "importerNotAllowed": "Your account no longer has the permissions to create these accounts.",
         "deliveryUnavailable": "Temporary passwords could not be handed out: your centre turned password sign-in off, or the server can no longer keep passwords safe.",
         "workerInterrupted": "The import was interrupted several times, so it stopped.",
@@ -765,7 +771,7 @@
         "roleNotAllowed": "The default role holds a permission you do not have. Choose another role.",
         "rateLimited_one": "Too many attempts. Try again in {{count}} second.",
         "rateLimited_other": "Too many attempts. Try again in {{count}} seconds.",
-        "unavailable": "This server is not set up to import users (it needs SECRETS_KEY). Tell whoever runs it.",
+        "unavailable": "This server is not set up to import users. Tell whoever runs it.",
         "unknown": "The file could not be read. Try again."
       }
     }

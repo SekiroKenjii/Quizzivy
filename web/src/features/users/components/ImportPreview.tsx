@@ -60,9 +60,10 @@ function IssueTable({
  * ImportPreview draws what a file would come to: the accounts it would create,
  * the addresses that already have one and will be skipped (with up to five of
  * them), the classes it adds people to, and the rows refused, whose cells open
- * under a disclosure with their row, column and reason. Under email delivery,
- * a file with more new accounts than today's sending budget says the rest go
- * out on the following days.
+ * under a disclosure with their row, column and reason. A file that would
+ * create no account says so, since Import then stays paused. Under email
+ * delivery, a file with more new accounts than today's sending budget says the
+ * rest go out on the following days.
  */
 export function ImportPreview({
   preview,
@@ -126,6 +127,11 @@ export function ImportPreview({
       <InfoField rows={rows} />
       {showIssues && preview.invalid.length > 0 && (
         <IssueTable id={issuesId} issues={preview.invalid} />
+      )}
+      {preview.newAccounts === 0 && (
+        <Callout tone="neutral" size="sm">
+          {t("users.import.refusal.nothingToCreate")}
+        </Callout>
       )}
       {budget !== null && preview.newAccounts > budget.remainingToday && (
         <Callout tone="warning" size="sm">

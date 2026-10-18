@@ -5,6 +5,7 @@ import { http, HttpResponse } from "msw";
 import i18n from "@/lib/i18n";
 import en from "@/lib/i18n/locales/en.json";
 import vi_ from "@/lib/i18n/locales/vi.json";
+import { toast } from "@/components/ui/sonner";
 import { ISSUE_CODES, issueReason } from "@/features/users/importText";
 import type { components } from "@/lib/api/schema";
 import { useAuthStore } from "@/stores/auth";
@@ -12,6 +13,11 @@ import { contractJson } from "@tests/support/contractResponse";
 import { loadSpec } from "@tests/support/openapi";
 import { server } from "@tests/support/server";
 import { BASE, renderUsers, serveUsers, user } from "./support";
+
+vi.mock("@/components/ui/sonner", async (original) => ({
+  ...(await original<typeof import("@/components/ui/sonner")>()),
+  toast: vi.fn(),
+}));
 
 type Preview = components["schemas"]["UserImportPreview"];
 type Job = components["schemas"]["UserImportJob"];
@@ -204,7 +210,7 @@ describe("the Import users dialog", () => {
   it("warns when the links outrun what the centre can still send today", async () => {
     servePreview(() =>
       ok(
-        preview({ newAccounts: 412, emailBudget: { remainingToday: 180, limit: 300 } }),
+        preview({ newAccounts: 181, emailBudget: { remainingToday: 180, limit: 300 } }),
       ),
     );
     const { user: person } = renderUsers();
@@ -220,13 +226,17 @@ describe("the Import users dialog", () => {
   });
 
   it("does not warn when today's budget covers every link", async () => {
-    servePreview(() => ok(preview()));
+    servePreview(() =>
+      ok(
+        preview({ newAccounts: 180, emailBudget: { remainingToday: 180, limit: 300 } }),
+      ),
+    );
     const { user: person } = renderUsers();
     const dialog = await openImport(person);
 
     await person.upload(fileInput(), csv());
 
-    await dialog.findByText("26 tài khoản mới");
+    await dialog.findByText("180 tài khoản mới");
     expect(dialog.queryByText(/Hôm nay còn gửi được/)).toBeNull();
   });
 
@@ -238,6 +248,7 @@ describe("the Import users dialog", () => {
     await person.upload(fileInput(), csv());
 
     expect(await dialog.findByText("0 tài khoản mới")).toBeVisible();
+    expect(dialog.getByText(/^Không có dòng nào tạo được tài khoản mới/)).toBeVisible();
     expect(dialog.getByRole("button", { name: "Nhập" })).toHaveAttribute(
       "aria-disabled",
       "true",
@@ -255,6 +266,19 @@ describe("the Import users dialog", () => {
       "Tệp lớn hơn 5 MB. Hãy chia danh sách thành nhiều tệp nhỏ hơn, hoặc lưu thành CSV UTF-8 cho nhẹ hơn, rồi tải lên.",
     );
     expect(forms).toEqual([]);
+  });
+
+  it("sends a file of exactly 5 MiB", async () => {
+    const forms = recordForms();
+    servePreview(() => ok(preview()));
+    const { user: person } = renderUsers();
+    const dialog = await openImport(person);
+
+    await person.upload(fileInput(), csv("vua.csv", 5 * 1024 * 1024));
+
+    expect(await dialog.findByText("26 tài khoản mới")).toBeVisible();
+    expect(forms).toHaveLength(1);
+    expect(dialog.queryByRole("alert")).toBeNull();
   });
 
   it.each([
@@ -369,7 +393,10 @@ describe("the Import users dialog", () => {
       dialog.getByRole("progressbar", { name: "Tiến độ nhập người dùng" }),
     ).toHaveAttribute("aria-valuenow", "36");
     const before = lists.length;
-    await act(() => vi.advanceTimersByTimeAsync(2_000));
+    const firstReads = reads;
+    await act(() => vi.advanceTimersByTimeAsync(1_700));
+    expect(reads).toBe(firstReads);
+    await act(() => vi.advanceTimersByTimeAsync(300));
     expect(await dialog.findByText("Đang tạo tài khoản… 20/28")).toBeVisible();
     await act(() => vi.advanceTimersByTimeAsync(2_000));
 
@@ -382,17 +409,28 @@ describe("the Import users dialog", () => {
     expect(reads).toBe(settledReads);
   });
 
-  it("keeps following a job after the dialog closes, and shows it again on reopening", async () => {
+  it("keeps following a job after the dialog closes, shows it again on reopening, and says how it ended", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     servePreview(() => ok(preview()));
+    let reads = 0;
     server.use(
       http.post(`${BASE}/admin/user-imports`, () =>
         contractJson("/admin/user-imports", "post", 202, job()),
       ),
-      http.get(`${BASE}/admin/user-imports/:id`, () =>
-        contractJson("/admin/user-imports/{id}", "get", 200, job()),
-      ),
+      http.get(`${BASE}/admin/user-imports/:id`, () => {
+        reads += 1;
+        return contractJson(
+          "/admin/user-imports/{id}",
+          "get",
+          200,
+          reads < 3
+            ? job()
+            : job({ status: "done", processed: 28, created: 26, skipped: 2 }),
+        );
+      }),
     );
-    const { user: person } = renderUsers();
+    renderUsers();
+    const person = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     let dialog = await openImport(person);
     await person.upload(fileInput(), csv());
     await person.click(await dialog.findByRole("button", { name: "Nhập 26 người" }));
@@ -401,8 +439,16 @@ describe("the Import users dialog", () => {
     await person.click(dialog.getAllByRole("button", { name: "Đóng" }).at(-1)!);
     expect(screen.queryByRole("dialog")).toBeNull();
     dialog = await openImport(person);
-
     expect(dialog.getByText("Đang tạo tài khoản… 10/28")).toBeVisible();
+    await person.click(dialog.getAllByRole("button", { name: "Đóng" }).at(-1)!);
+
+    const closedAt = reads;
+    await act(() => vi.advanceTimersByTimeAsync(2_000));
+    expect(reads).toBe(closedAt + 1);
+    await act(() => vi.advanceTimersByTimeAsync(2_000));
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith("26 tài khoản đã tạo · 2 bỏ qua"),
+    );
   });
 
   it("hands the password sheet out once, saying so before the download", async () => {
@@ -528,6 +574,298 @@ describe("the Import users dialog", () => {
   });
 });
 
+function sheetJob(sheet: Partial<NonNullable<Job["sheet"]>> = {}): Job {
+  return job({
+    status: "done",
+    processed: 28,
+    created: 26,
+    skipped: 2,
+    delivery: "sheet",
+    sheet: {
+      available: true,
+      expiresAt: "2026-10-16T08:05:00Z",
+      downloadedAt: null,
+      ...sheet,
+    },
+  });
+}
+
+function serveJob(read: () => Job | Response) {
+  server.use(
+    http.post(`${BASE}/admin/user-imports`, () => {
+      const first = read();
+      return first instanceof Response
+        ? first
+        : contractJson("/admin/user-imports", "post", 202, first);
+    }),
+    http.get(`${BASE}/admin/user-imports/:id`, () => {
+      const now = read();
+      return now instanceof Response
+        ? now
+        : contractJson("/admin/user-imports/{id}", "get", 200, now);
+    }),
+  );
+}
+
+async function startImport(
+  person: ReturnType<typeof userEvent.setup>,
+  { sheet = false } = {},
+) {
+  const dialog = await openImport(person);
+  await person.upload(fileInput(), csv());
+  if (sheet) await person.click(await dialog.findByRole("switch"));
+  await person.click(await dialog.findByRole("button", { name: "Nhập 26 người" }));
+  return dialog;
+}
+
+function stubObjectUrls() {
+  const created = vi.fn(() => "blob:sheet");
+  vi.stubGlobal(
+    "URL",
+    Object.assign(URL, { createObjectURL: created, revokeObjectURL: vi.fn() }),
+  );
+  return created;
+}
+
+describe("the Import users dialog at its edges", () => {
+  it("takes a new requestId when another file is chosen", async () => {
+    const forms = recordForms();
+    servePreview(() => ok(preview()));
+    server.use(http.post(`${BASE}/admin/user-imports`, () => refusal(503, "INTERNAL")));
+    const { user: person } = renderUsers();
+    const dialog = await openImport(person);
+    await person.upload(fileInput(), csv("mot.csv"));
+    await person.click(await dialog.findByRole("button", { name: "Nhập 26 người" }));
+    await dialog.findByRole("button", { name: "Thử lại" });
+
+    await person.upload(fileInput(), csv("hai.csv"));
+    await person.click(await dialog.findByRole("button", { name: "Nhập 26 người" }));
+    await dialog.findByRole("button", { name: "Thử lại" });
+
+    const creates = forms.filter((form) => "requestId" in form);
+    expect(creates.map((form) => form.file)).toEqual(["mot.csv", "hai.csv"]);
+    expect(creates[1]!.requestId).not.toBe(creates[0]!.requestId);
+  });
+
+  it("keeps Import paused while the preview is read, and sends one start for two quick clicks", async () => {
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    servePreview(() => ok(preview()));
+    server.use(
+      http.post(`${BASE}/admin/user-imports/preview`, async () => {
+        await held;
+        return ok(preview());
+      }),
+    );
+    let starts = 0;
+    serveJob(() => job());
+    server.use(
+      http.post(`${BASE}/admin/user-imports`, async () => {
+        starts += 1;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        return contractJson("/admin/user-imports", "post", 202, job());
+      }),
+    );
+    const { user: person } = renderUsers();
+    const dialog = await openImport(person);
+    await person.upload(fileInput(), csv());
+
+    await dialog.findByText("Đang đọc tệp…");
+    expect(dialog.getByRole("button", { name: "Nhập" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    release();
+    await person.dblClick(await dialog.findByRole("button", { name: "Nhập 26 người" }));
+
+    expect(await dialog.findByText("Đang tạo tài khoản… 10/28")).toBeVisible();
+    expect(starts).toBe(1);
+  });
+
+  it("forgets a refused start when the role or the hand-out changes", async () => {
+    servePreview(() => ok(preview()));
+    server.use(
+      http.post(`${BASE}/admin/user-imports`, () =>
+        refusal(422, "USER_IMPORT_NOTHING_TO_CREATE"),
+      ),
+    );
+    const { user: person } = renderUsers();
+    const dialog = await openImport(person);
+    await person.upload(fileInput(), csv());
+    await person.click(await dialog.findByRole("button", { name: "Nhập 26 người" }));
+    await dialog.findByRole("alert");
+
+    await person.click(dialog.getByRole("button", { name: "Giáo viên" }));
+
+    expect(await dialog.findByText("26 tài khoản mới")).toBeVisible();
+    expect(dialog.queryByRole("alert")).toBeNull();
+  });
+
+  it("does not offer Retry on a server that is not set up for imports, nor name its settings", async () => {
+    servePreview(() => refusal(501, "USER_IMPORT_OFF"));
+    const { user: person } = renderUsers();
+    const dialog = await openImport(person);
+
+    await person.upload(fileInput(), csv());
+
+    const alert = await dialog.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Máy chủ chưa được cấu hình để nhập người dùng. Hãy báo người vận hành.",
+    );
+    expect(alert).not.toHaveTextContent("SECRETS_KEY");
+    expect(dialog.queryByRole("button", { name: "Thử lại" })).toBeNull();
+  });
+
+  it("stops following a job whose reads fail, and says so with Retry", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    servePreview(() => ok(preview()));
+    let reads = 0;
+    let failing = false;
+    serveJob(() => {
+      if (failing) {
+        reads += 1;
+        return refusal(403, "FORBIDDEN");
+      }
+      return job();
+    });
+    renderUsers();
+    const person = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const dialog = await startImport(person);
+    await dialog.findByText("Đang tạo tài khoản… 10/28");
+
+    failing = true;
+    await act(() => vi.advanceTimersByTimeAsync(2_000));
+    expect(await dialog.findByRole("alert")).toHaveTextContent(
+      "Không đọc được tiến độ. Việc nhập có thể vẫn đang chạy trên máy chủ; hãy thử lại.",
+    );
+    const failedReads = reads;
+    await act(() => vi.advanceTimersByTimeAsync(6_000));
+    expect(reads).toBe(failedReads);
+
+    failing = false;
+    await person.click(dialog.getByRole("button", { name: "Thử lại" }));
+    await waitFor(() => expect(dialog.queryByRole("alert")).toBeNull());
+  });
+
+  it("tells a sheet import to stay on the page, and asks before the tab closes", async () => {
+    servePreview(() => ok(preview({ emailBudget: null })));
+    serveJob(() => job({ delivery: "sheet" }));
+    const { user: person } = renderUsers();
+    const dialog = await startImport(person, { sheet: true });
+
+    expect(
+      await dialog.findByText(
+        "Bạn có thể đóng hộp thoại; việc nhập vẫn tiếp tục. Hãy ở lại trang này: khi việc nhập xong, bảng mật khẩu chỉ tải được ở đây.",
+      ),
+    ).toBeVisible();
+    const leaving = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(leaving);
+    expect(leaving.defaultPrevented).toBe(true);
+  });
+
+  it("puts the once-only warning before the download button, and keeps the sheet when the dialog closes", async () => {
+    servePreview(() => ok(preview({ emailBudget: null })));
+    serveJob(() => sheetJob());
+    const { user: person } = renderUsers();
+    let dialog = await startImport(person, { sheet: true });
+
+    const warning = await dialog.findByText(/Bảng mật khẩu chỉ tải được một lần/);
+    const button = dialog.getByRole("button", { name: "Tải bảng mật khẩu" });
+    expect(
+      warning.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    await person.click(dialog.getByRole("button", { name: "Xong" }));
+    dialog = await openImport(person);
+
+    expect(dialog.getByRole("button", { name: "Tải bảng mật khẩu" })).toBeVisible();
+  });
+
+  it("never reads as downloaded when the file did not arrive, and says to reset the passwords", async () => {
+    const created = stubObjectUrls();
+    servePreview(() => ok(preview({ emailBudget: null })));
+    let taken = false;
+    serveJob(() =>
+      sheetJob(taken ? { available: false, downloadedAt: "2026-10-15T08:07:00Z" } : {}),
+    );
+    server.use(
+      http.post(`${BASE}/admin/user-imports/:id/sheet`, () => {
+        taken = true;
+        return HttpResponse.error();
+      }),
+    );
+    const { user: person } = renderUsers();
+    const dialog = await startImport(person, { sheet: true });
+
+    await person.click(
+      await dialog.findByRole("button", { name: "Tải bảng mật khẩu" }),
+    );
+
+    expect(await dialog.findByRole("alert")).toHaveTextContent(
+      "Tệp không tải về được, nhưng máy chủ đã xoá bảng mật khẩu. Hãy đặt lại mật khẩu cho những tài khoản này từ danh sách Người dùng.",
+    );
+    expect(dialog.queryByText(/^Đã tải lúc/)).toBeNull();
+    expect(created).not.toHaveBeenCalled();
+  });
+
+  it("offers the download again when it failed before the server erased the sheet", async () => {
+    stubObjectUrls();
+    servePreview(() => ok(preview({ emailBudget: null })));
+    serveJob(() => sheetJob());
+    server.use(
+      http.post(`${BASE}/admin/user-imports/:id/sheet`, () => refusal(503, "INTERNAL")),
+    );
+    const { user: person } = renderUsers();
+    const dialog = await startImport(person, { sheet: true });
+
+    await person.click(
+      await dialog.findByRole("button", { name: "Tải bảng mật khẩu" }),
+    );
+
+    expect(await dialog.findByRole("alert")).toHaveTextContent(
+      /^Không tải được bảng mật khẩu. Hãy thử lại ngay/,
+    );
+    expect(dialog.getByRole("button", { name: "Tải bảng mật khẩu" })).toBeVisible();
+  });
+
+  it("says a sheet taken earlier may need a password reset", async () => {
+    servePreview(() => ok(preview({ emailBudget: null })));
+    serveJob(() =>
+      sheetJob({ available: false, downloadedAt: "2026-10-15T08:07:00Z" }),
+    );
+    const { user: person } = renderUsers();
+    const dialog = await startImport(person, { sheet: true });
+
+    expect(
+      await dialog.findByText(/^Bảng mật khẩu đã được tải lúc .*hãy đặt lại mật khẩu/),
+    ).toBeVisible();
+  });
+
+  it("says the accounts a failed sheet import made have no password", async () => {
+    servePreview(() => ok(preview({ emailBudget: null })));
+    serveJob(() =>
+      job({
+        status: "failed",
+        processed: 12,
+        created: 11,
+        delivery: "sheet",
+        sheet: null,
+        errorCode: "WORKER_INTERRUPTED",
+      }),
+    );
+    const { user: person } = renderUsers();
+    const dialog = await startImport(person, { sheet: true });
+
+    expect(
+      await dialog.findByText(
+        "11 tài khoản đã tạo trước đó vẫn được giữ nhưng chưa có mật khẩu. Hãy đặt lại mật khẩu từ danh sách Người dùng.",
+      ),
+    ).toBeVisible();
+  });
+});
+
 describe("the row codes", () => {
   it("are the contract's, each with a reason in Vietnamese and in English", () => {
     const spec = loadSpec() as {
@@ -546,5 +884,22 @@ describe("the row codes", () => {
     }
     expect(reasons(vi_).formulaLike).toMatch(/công thức/);
     expect(reasons(en).formulaLike).toMatch(/formula/);
+  });
+
+  it.each([
+    ["REQUIRED", "required"],
+    ["TOO_LONG", "tooLong"],
+    ["INVALID", "invalid"],
+    ["FORMULA_LIKE", "formulaLike"],
+    ["DUPLICATE_IN_FILE", "duplicateInFile"],
+    ["UNKNOWN_ROLE", "unknownRole"],
+    ["AMBIGUOUS_ROLE", "ambiguousRole"],
+    ["ROLE_NOT_ALLOWED", "roleNotAllowed"],
+    ["ROLE_NOT_GIVABLE", "roleNotGivable"],
+    ["UNKNOWN_CLASS", "unknownClass"],
+    ["AMBIGUOUS_CLASS", "ambiguousClass"],
+    ["CLASS_NOT_ALLOWED", "classNotAllowed"],
+  ] as const)("say %s with its own reason", (code, key) => {
+    expect(issueReason(code, i18n.t)).toBe(vi_.users.import.reason[key]);
   });
 });

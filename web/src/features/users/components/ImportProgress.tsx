@@ -10,34 +10,55 @@ import {
   type UserImportJob,
 } from "@/features/users/api";
 import { failureReason, isJobRunning } from "@/features/users/importText";
-import { ApiError, failureMessage } from "@/lib/api/errors";
+import { ApiError } from "@/lib/api/errors";
 import type { Locale } from "@/lib/i18n";
 import { clockTime } from "@/lib/i18n/datetime";
+
+type SheetOutcome = "saved" | "gone" | "lost" | "failed";
 
 function SheetPart({ job, locale }: Readonly<{ job: UserImportJob; locale: Locale }>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const query = userImportQuery(job.id);
   const download = useMutation({
-    mutationFn: () => downloadUserImportSheet(job.id),
-    onSettled: () =>
-      queryClient.invalidateQueries({ queryKey: userImportQuery(job.id).queryKey }),
+    mutationFn: async (): Promise<SheetOutcome> => {
+      try {
+        await downloadUserImportSheet(job.id);
+        return "saved";
+      } catch (cause) {
+        if (cause instanceof ApiError && cause.status === 410) return "gone";
+        const now = await queryClient
+          .query({ ...query, staleTime: 0 })
+          .catch(() => undefined);
+        return now?.sheet?.downloadedAt == null ? "failed" : "lost";
+      }
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: query.queryKey }),
   });
   const sheet = job.sheet;
   if (sheet === null) return null;
-  const gone = download.error instanceof ApiError && download.error.status === 410;
-  if (sheet.downloadedAt !== null)
+  const outcome = download.data;
+  if (outcome === "saved")
     return (
-      <p className="text-success-ink flex items-center gap-2 text-sm">
+      <p role="status" className="text-success-ink flex items-center gap-2 text-sm">
         <CircleCheck aria-hidden="true" className="size-4 flex-none" />
         {t("users.import.sheet.downloaded", {
-          time: clockTime(sheet.downloadedAt, new Date(), locale),
+          time: clockTime(sheet.downloadedAt ?? new Date(), new Date(), locale),
         })}
       </p>
     );
-  if (gone)
+  if (outcome === "gone" || outcome === "lost")
     return (
       <Callout tone="danger" size="md" announce>
-        {t("users.import.sheet.gone")}
+        {t(outcome === "gone" ? "users.import.sheet.gone" : "users.import.sheet.lost")}
+      </Callout>
+    );
+  if (sheet.downloadedAt !== null)
+    return (
+      <Callout tone="neutral" size="md">
+        {t("users.import.sheet.taken", {
+          time: clockTime(sheet.downloadedAt, new Date(), locale),
+        })}
       </Callout>
     );
   if (!sheet.available)
@@ -58,9 +79,9 @@ function SheetPart({ job, locale }: Readonly<{ job: UserImportJob; locale: Local
               : clockTime(sheet.expiresAt, new Date(), locale),
         })}
       </Callout>
-      {download.isError && (
-        <p role="alert" className="text-danger-ink text-xs">
-          {failureMessage(download.error, t("users.import.sheet.failed"))}
+      {outcome === "failed" && (
+        <p role="alert" className="text-danger-ink text-xs leading-[1.45]">
+          {t("users.import.sheet.retry")}
         </p>
       )}
       <Button
@@ -82,10 +103,13 @@ function SheetPart({ job, locale }: Readonly<{ job: UserImportJob; locale: Local
  * ImportProgress follows one import: "Creating accounts… {done}/{total}" with
  * its bar while the worker runs, then how many accounts were made and skipped
  * and how the sign-in details reach people. A sheet is offered once, with a
- * warning before the button that it downloads once and when it is deleted;
- * afterwards the time it was taken, or why it can no longer be. A failed job
- * says why it stopped and that the accounts made before it stay; its sheet,
- * erased when it failed, is not offered.
+ * warning before the button that it downloads once and when it is deleted.
+ * It reads as downloaded only once the whole file has arrived and been handed
+ * to the browser; a download that fails after the server erased the sheet
+ * says so and that the accounts need a password reset, as does a sheet taken
+ * elsewhere. A failed job says why it stopped and that the accounts made
+ * before it stay; under a sheet, those accounts have no password, because the
+ * sheet is erased when the job fails, and it says to reset them.
  */
 export function ImportProgress({
   job,
@@ -110,7 +134,9 @@ export function ImportProgress({
           cap="round"
         />
         <p className="text-muted-fg text-xs leading-[1.45]">
-          {t("users.import.leave")}
+          {t(
+            job.delivery === "sheet" ? "users.import.leaveSheet" : "users.import.leave",
+          )}
         </p>
       </div>
     );
@@ -122,7 +148,12 @@ export function ImportProgress({
         </Callout>
         {job.created > 0 && (
           <p className="text-sm">
-            {t("users.import.failed.kept", { count: job.created })}
+            {t(
+              job.delivery === "sheet"
+                ? "users.import.failed.keptNoPassword"
+                : "users.import.failed.kept",
+              { count: job.created },
+            )}
           </p>
         )}
       </div>
