@@ -168,9 +168,10 @@ overwritten, in-app notifications that carry the account's full or display name 
 `anonymous-<id>@anonymous.invalid`, the name with a placeholder ("Học viên đã ẩn danh" for a
 student, "Người dùng đã ẩn danh" for anyone else), clears the display name, phone, avatar key and
 password, removes the Google link and the refresh tokens, and revokes unused set-password links. It
-clears the avatar *key* only: the photo object under `avatars/<id>/` is not deleted by this step. The
-daily housekeeping of T-R5.16 removes the objects of anonymised accounts, and its step joins after this
-one, so until then the object stays in storage with nothing pointing at it. A
+clears the avatar *key* only: the photo object under `avatars/<id>/` is not deleted by this step, because
+the maintenance role holds no storage credential. The daily housekeeping of the API removes every object
+under that prefix at its next run (where media storage is configured), so until then the object stays in
+storage with nothing pointing at it. A
 revoked link holds a hash of a random token, its purpose, its dates and the account's id, which is no
 personal data, and is as unusable as a deleted one; the daily housekeeping removes the row 30 days later.
 Attempts, memberships and the audit trail stay, which is why this is **structured-identity
@@ -661,7 +662,9 @@ ago (a link that still works never); the sealed passwords of a hand-out sheet
 nobody downloaded in its 24 hours (where the import worker is configured); user
 imports, with their rows, 30 days after they finished (one still waiting or
 running never; this step runs without the import worker); the files of data
-exports past their 24 hours, which are then marked `expired` (this step needs `IMPORT_S3_BUCKET`); and
+exports past their 24 hours, which are then marked `expired` (this step needs `IMPORT_S3_BUCKET`); the
+profile photo objects under `avatars/<id>/` of every anonymised account, once per account (this step
+needs media storage); and
 the `branding/` logo objects that neither the light nor the dark logo names, once
 they are 24 hours old (this step needs media storage). Two machines running it
 at once only repeat each other's deletes, and one can end a step early, as done,
@@ -671,9 +674,11 @@ run goes on.
 Every step handles 500 rows or objects at a time, at most 20 times and for at
 most a minute, so a run clears 10,000 rows or objects of a step at most and a
 large backlog goes over several days rather than in one long transaction. The
-exception is the import step, which counts jobs: a full batch of 500 jobs with
+exceptions are the import step, which counts jobs: a full batch of 500 jobs with
 2,000 rows each is one statement that measured about three seconds and 54 MB of
-write-ahead log. The logs say how each went and carry counts, never a key, id, address, endpoint or
+write-ahead log; and the photo step, which counts accounts and lists and deletes
+each account's objects one by one, so it is the step most likely to report
+"left work for the next run" after a large anonymisation sweep. The logs say how each went and carry counts, never a key, id, address, endpoint or
 bucket:
 
 - `housekeeping step done` with `step` and `removed`: the last batch came back
@@ -697,6 +702,14 @@ rows stay until the worker is switched on and the jobs finish, or until someone
 deletes those jobs by hand. The import step can wait for rows that a class or a
 user deleted at the same moment holds, and be chosen as a deadlock victim; the
 step then logs `database 40P01` and the next run goes on (D-044).
+
+The photo step marks an account in `app.avatar_sweeps` once its prefix is empty
+and never lists it again (D-050). An account whose objects could not be listed
+or deleted is not marked and is tried again at the next run. A server without
+media storage runs no photo step and marks nothing, so turning storage on later
+still finds every anonymised account. A photo written under a marked account's
+prefix afterwards (which only a restored backup or a manual upload could do) is
+not removed; delete it by hand.
 
 ## The plan the Admin console shows
 

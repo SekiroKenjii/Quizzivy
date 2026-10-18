@@ -1404,6 +1404,7 @@ listed here matches the spec.
 | D-56 | Add `user_import_jobs`, one row for each Admin's import of accounts from a file, with `UNIQUE (created_by, request_id)` and a partial index on the open jobs | The API reads and judges the file and the worker creates the accounts (T-R5.14), so a job is both the request and the worker's queue: `user_import_jobs_open_idx (created_at) WHERE status IN ('queued','running')` holds the rows the worker may take and nothing else. `(created_by, request_id)` is unique so a retried request returns the job it stored the first time, and the caller's `requestId` is held for as long as the dialog is open. `total_rows` is the rows stored (1 to 2,000): the rows that passed every rule, including those whose address already belonged to an account, which are stored settled as skipped; a refused row is only counted in `invalid_count`, so the file's text does not outlive the request. `created_count + skipped_count` may not pass `total_rows`, and a `done` job has settled every row (`user_import_jobs_done_settled`). `attempts` (0 to 3) counts claims, and `error_code` is a short code and never a message, so nothing about the file reaches the table (`failed` has one and no other status does). `default_role_id` is kept because the worker re-checks the importer's right to every role of the job when it runs; it is `RESTRICT` and roles are never deleted. `created_by` is `ON DELETE CASCADE`: the job of a deleted account has no reader. `sheet_expires_at` and `sheet_downloaded_at` exist only for `delivery = 'sheet'`. See §54 |
 | D-57 | Add `user_import_rows`, the rows of a job that passed, with `PRIMARY KEY (job_id, ordinal)` and a sealed password that only a created row may hold | `ordinal` counts the stored rows from 0 (not the file's lines) and is also a row's place in the hand-out sheet. `full_name` and `email` are kept as the file spelled them, trimmed and composed (NFC), and the account takes the same. `outcome` is `pending` until the worker settles the row as `created` (`user_id` is the account) or `skipped_exists`. `secret_ciphertext` holds the temporary password of a row created for a sheet, sealed under `SECRETS_KEY` with the job id and ordinal as associated data; `user_import_rows_secret_only_when_created` makes a password exist only beside the account it opens, and the transaction that hands the sheet out erases it. `user_id` and `class_id` are `ON DELETE SET NULL`, so a row outlives the account and the class it created or named, each with a partial index for the cascade. The housekeeping step `import_sheets` erases the ciphertexts of a sheet nobody downloaded within its 24 hours (D-038); a download and a failure erase them at once. The rows keep names and addresses until the housekeeping step `import_jobs` removes the job 30 days after it finished, the rows by the cascade. That cascade and the `SET NULL` of a class or user delete visit the same rows in different orders and can deadlock, a known limit (D-044). See §54 |
 | D-58 | Add `users_search_trgm_idx`, a gin `gin_trgm_ops` index on `app.immutable_unaccent(lower(full_name \|\| ' ' \|\| email))`, built `CONCURRENTLY` | The Users search of the Admin console (`listUsers`, `q`, T-R5.9a) is a `LIKE '%…%'` over that expression, which no b-tree serves, and it runs up to three times a request (the count, the facets, a sparse page). §13.6 held an index back until there was evidence; QC measured 99 ms with no filter, 400 ms for `q=nghe` and about 1 s for a search that finds nothing at 100,000 accounts (1.3 to 5 s at 500,000), and an index over this expression took them to 71 ms and 4 ms once the table is analysed (QC-N-5). Creating an index never wakes autovacuum, and without statistics for the expression the page of a search that finds nothing walks `users_pkey` backwards (346 ms at 100,000, 3.8 s at 500,000), so the file ends with `ANALYZE app.users` (QC-N-13). The expression is `repositories.UserSearchText`, shared by the query and the test; `users_search_index_test.go` EXPLAINs it and the count, page and facets statements the directory sends, so a change to the constant, to the index, or to the clause the directory builds fails it (QC-N-14). The index reads `full_name` and `email` only, so an update of any other column stays heap-only; it adds a gin pending-list entry for each insert and each rename. A query of one or two characters has no trigram and still scans. Changing the `unaccent` dictionary needs a `REINDEX`, as for every index on `app.immutable_unaccent` (00001). The file is `NO TRANSACTION` and drops any invalid leftover first, as 00133 does |
+| D-59 | Add `avatar_sweeps`, one row for each anonymised account whose profile photo objects the housekeeping removed, `user_id` the primary key and `ON DELETE CASCADE`, and the app role holds `SELECT` and `INSERT` only | Anonymisation (T-R5.17a) runs as the maintenance role, which holds no storage credential, so it clears `users.avatar_key` and leaves the objects under `avatars/{user_id}/`; the API's daily housekeeping deletes them (T-R5.16, D-050). Nothing else records which anonymised accounts still have objects, so without a mark every run would list every anonymised account's prefix for ever, and listing the whole `avatars/` prefix instead would read every live photo daily and lose its place on a restart. The row is written only once the prefix is empty, so a failed list or delete leaves the account due for the next run, and an account is listed once. It is a table of its own, not a column on `users`: the maintenance guard (D-042) pins what an anonymised row holds, and the mark is the API's state, not the account's. `REVOKE UPDATE, DELETE` makes a mark permanent for the application; it goes only with its account. No index beyond the key: the pick reads `users` by the anonymised shape and anti-joins this table, and D-050 names the revisit at about 100,000 anonymised accounts. See §56 |
 ---
 
 ## 13. Migration inventory
@@ -1543,6 +1544,7 @@ the file it adds.
 | `00137_create_user_import_rows.sql` | `user_import_rows`, its checks (`user_import_rows_outcome_check`, `user_import_rows_secret_only_when_created`) and the `user_id` and `class_id` partial indexes | R5 (T-R5.14), D-57, §55 |
 | `00138_index_users_search.sql` | `users_search_trgm_idx`, built `CONCURRENTLY` (no transaction) | R5 (T-R5.9a), D-58 |
 | `00139_grant_maintenance_role.sql` | the grants of `quizzivy_maintenance`, column by column; fails when the role is missing; `app.users_maintenance_guard()` and its trigger `users_maintenance_guard` on `app.users` | R5 (T-R5.17a), §55 |
+| `00140_create_avatar_sweeps.sql` | `avatar_sweeps` and the `REVOKE UPDATE, DELETE` from the app role | R5 (T-R5.16), D-59, §56 |
 
 Notes on migration mechanics (§13.7):
 
@@ -3936,7 +3938,7 @@ skip an account that owns classes or content (`ownsContent`, which reads the six
 therefore anonymise any other account by direct SQL, a teacher's included, and `operations.md` states that among the
 costs of a leak (QC-RS-17; the owner chose on 2026-10-16 not to enforce the owner rule in the trigger).
 Anonymisation clears `users.avatar_key` and does not delete the photo object, which T-R5.16's housekeeping removes
-for anonymised accounts (`email = 'anonymous-' || id || '@anonymous.invalid'`).
+for anonymised accounts (`email = 'anonymous-' || id || '@anonymous.invalid'`, §56).
 
 | Table | Privilege | Columns | Used by |
 |---|---|---|---|
@@ -4020,3 +4022,22 @@ run changes nothing; a dry run writes nothing and runs read-only; and every audi
 `role_test.go` runs the window commands, `rekey-join-codes`, the AI commands and `retain-integrity` as the role.
 A scratch database is created by the migrate role (`CREATEDB`, `scripts/provision-db.sh`), migrated, and dropped
 with the test; `TEST_MAINTENANCE_DATABASE_URL` names the role, and in CI its absence fails the test.
+
+## 56. Photo objects of anonymised accounts (T-R5.16, D-050)
+
+`app.avatar_sweeps` (`00140_create_avatar_sweeps.sql`, D-59) holds one row for each anonymised account whose
+objects under `avatars/{user_id}/` the daily housekeeping has deleted: `user_id uuid PRIMARY KEY REFERENCES
+app.users(id) ON DELETE CASCADE` and `swept_at timestamptz NOT NULL`. The app role may read and add rows and
+cannot change or delete one; the row goes with the account. Down drops the table (`IF EXISTS`).
+
+**Which accounts are due.** `repositories.AvatarSweeps.Due` reads the accounts in the shape anonymisation leaves
+(`core/maintenance/anonymize.go`, and what `users_maintenance_guard` requires of the maintenance role's writes):
+`email = 'anonymous-' || id || '@anonymous.invalid'`, `disabled_at IS NOT NULL` and `avatar_key IS NULL`, with no
+row here, in id order, at most `limit`. An account re-enabled or given a photo again is not due. The read is a scan of
+`users` with an anti-join on this table's key; no index serves the predicate, which costs little at a centre's size.
+
+**Marking.** `identity.SweepAvatarObjects` deletes every object under the account's prefix first and then
+`INSERT … ON CONFLICT (user_id) DO NOTHING`, so a second machine that swept the same account keeps the first mark,
+and an account whose objects could not be listed or deleted has no row and is tried at the next run. A server
+without media storage has no step, so it writes no row and a bucket configured later still finds every account. A
+photo written under a marked account's prefix later is not removed (anonymisation leaves no way to write one).
