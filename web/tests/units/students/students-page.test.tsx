@@ -83,6 +83,9 @@ describe("the Students list", () => {
     expect(await rowOf("Đã Hoạt Động")).toHaveTextContent("2 tuần trước");
     expect(await rowOf("Vừa Xong")).toHaveTextContent("vừa xong");
     expect(await rowOf("Lâu Rồi")).not.toHaveTextContent("tháng");
+    const when = within(await rowOf("Đã Hoạt Động")).getByText("2 tuần trước");
+    expect(when.tagName).toBe("TIME");
+    expect(when).toHaveAttribute("title");
     expect(await rowOf("Lâu Rồi")).toHaveTextContent(/\d{2}\/\d{2}\/\d{4}/);
   });
 

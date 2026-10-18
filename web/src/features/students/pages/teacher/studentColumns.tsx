@@ -2,6 +2,7 @@ import type { TFunction } from "i18next";
 import type { DataColumn } from "@/components/shared/data/DataTable";
 import type { Student } from "@/features/students/api";
 import type { Locale } from "@/lib/i18n";
+import { formatDateTime } from "@/lib/i18n/datetime";
 import { AccountPill, ClassChips, Initials } from "./StudentCells";
 import { averageOf, classLineOf, lastActiveOf } from "./studentText";
 
@@ -57,11 +58,20 @@ export function studentColumns(t: TFunction, locale: Locale): DataColumn<Student
       header: t("students.lastActive"),
       track: "110px",
       showFrom: 920,
-      cell: (student) => (
-        <span className="text-muted-fg text-[13px] whitespace-nowrap">
-          {lastActiveOf(student, locale, t)}
-        </span>
-      ),
+      cell: (student) =>
+        student.lastActiveAt && !student.stats.activity.live ? (
+          <time
+            dateTime={student.lastActiveAt}
+            title={formatDateTime(student.lastActiveAt, locale)}
+            className="text-muted-fg text-[13px] whitespace-nowrap"
+          >
+            {lastActiveOf(student, locale, t)}
+          </time>
+        ) : (
+          <span className="text-muted-fg text-[13px] whitespace-nowrap">
+            {lastActiveOf(student, locale, t)}
+          </span>
+        ),
     },
     {
       id: "account",

@@ -23,7 +23,7 @@ import { BulkSelectRow, type BulkSelection } from "@/components/shared/BulkSelec
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import type { Test, TestStatus } from "@/features/tests/api";
 import { assignedLabel } from "@/features/tests/testFacts";
-import { formatRelativeShort } from "@/lib/i18n/datetime";
+import { formatDateTime, formatRelativeShort } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
 
 /**
@@ -98,7 +98,10 @@ export function TestCard({
               </Badge>
             ) : null}
           </div>
-          <span className="text-muted-fg shrink-0 text-xs leading-normal">
+          <span
+            title={formatDateTime(test.updatedAt, locale)}
+            className="text-muted-fg shrink-0 text-xs leading-normal"
+          >
             {t("tests.edited", {
               when: formatRelativeShort(test.updatedAt, locale, t("common.agoNow")),
             })}
