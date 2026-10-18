@@ -3285,10 +3285,12 @@
       "wrong": "Sai",
       "partial": "Đúng một phần",
       "pending": "Chờ chấm",
-      "unanswered": "Chưa trả lời"
+      "unanswered": "Chưa trả lời",
+      "removed": "Đã xoá"
     },
     "studentAnswer": "Bài làm của học viên",
     "unanswered": "Học viên không trả lời câu này.",
+    "answerRemoved": "Câu trả lời đã được xoá theo chính sách lưu trữ của trung tâm.",
     "accepted": "Đáp án được chấp nhận: {{answers}}",
     "pickedCorrect": "học viên chọn · đúng",
     "picked": "học viên chọn",
@@ -3461,6 +3463,7 @@
     "youAnswered": "Bạn trả lời",
     "correctAnswer": "Đáp án đúng",
     "noAnswer": "Chưa trả lời",
+    "answerRemoved": "Câu trả lời đã được xoá theo chính sách lưu trữ của trung tâm.",
     "true": "Đúng",
     "false": "Sai",
     "blank": "chỗ trống",

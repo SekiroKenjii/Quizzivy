@@ -127,6 +127,7 @@ type Review = {
     string,
     {
       answer: components["schemas"]["Answer"] | null;
+      answerRemoved?: boolean;
       autoScore?: number | null;
       manualScore?: number | null;
       requiresManual?: boolean;

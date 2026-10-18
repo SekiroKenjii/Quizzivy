@@ -3285,10 +3285,12 @@
       "wrong": "Wrong",
       "partial": "Partly correct",
       "pending": "To grade",
-      "unanswered": "Unanswered"
+      "unanswered": "Unanswered",
+      "removed": "Removed"
     },
     "studentAnswer": "Student's answer",
     "unanswered": "The student didn't answer this question.",
+    "answerRemoved": "This answer was removed under the centre's retention policy.",
     "accepted": "Accepted answers: {{answers}}",
     "pickedCorrect": "student's choice · correct",
     "picked": "student's choice",
@@ -3461,6 +3463,7 @@
     "youAnswered": "You answered",
     "correctAnswer": "Correct answer",
     "noAnswer": "No answer",
+    "answerRemoved": "This answer was removed under the centre's retention policy.",
     "true": "True",
     "false": "False",
     "blank": "blank",
