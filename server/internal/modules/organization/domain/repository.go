@@ -18,8 +18,8 @@ type Save struct {
 	GoogleConfigured bool
 }
 
-// Repository reads and writes the one settings row and judges a sign-in
-// policy against the accounts.
+// Repository reads and writes the one settings row, judges a sign-in policy
+// against the accounts and counts what a retention policy would remove.
 type Repository interface {
 	// Read returns the stored document.
 	Read(ctx context.Context) (Settings, error)
@@ -34,4 +34,7 @@ type Repository interface {
 	// Impact judges policy against the active accounts for actorID. Google
 	// counts only when googleConfigured.
 	Impact(ctx context.Context, policy SignIn, actorID string, googleConfigured bool) (Impact, error)
+	// RetentionImpact counts what the retention sweep would do today under
+	// policy, with the sweep's rules (shared/retention). Nothing is stored.
+	RetentionImpact(ctx context.Context, policy Retention) (RetentionImpact, error)
 }

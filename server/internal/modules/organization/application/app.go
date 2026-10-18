@@ -1,4 +1,4 @@
-// Package application is the organization use cases: reading and saving the centre's settings, uploading its logos and sweeping the ones nothing names, judging a sign-in policy, and answering the sign-in policy and branding other modules act on from a snapshot every server refreshes at most every 30 seconds.
+// Package application is the organization use cases: reading and saving the centre's settings, uploading its logos and sweeping the ones nothing names, judging a sign-in policy, counting what a retention policy would remove, and answering the sign-in policy and branding other modules act on from a snapshot every server refreshes at most every 30 seconds.
 package application
 
 import (
@@ -30,12 +30,13 @@ type Commands struct {
 
 // Queries are the module's reads.
 type Queries struct {
-	Settings     cqrs.QueryHandler[query.Settings, domain.Settings]
-	Current      cqrs.QueryHandler[query.Current, domain.Settings]
-	SignInPolicy cqrs.QueryHandler[query.SignInPolicy, model.SignInPolicy]
-	Branding     cqrs.QueryHandler[query.Branding, model.Branding]
-	SignInImpact cqrs.QueryHandler[query.SignInImpact, domain.Impact]
-	Logo         cqrs.QueryHandler[query.Logo, query.LogoBytes]
+	Settings        cqrs.QueryHandler[query.Settings, domain.Settings]
+	Current         cqrs.QueryHandler[query.Current, domain.Settings]
+	SignInPolicy    cqrs.QueryHandler[query.SignInPolicy, model.SignInPolicy]
+	Branding        cqrs.QueryHandler[query.Branding, model.Branding]
+	SignInImpact    cqrs.QueryHandler[query.SignInImpact, domain.Impact]
+	RetentionImpact cqrs.QueryHandler[query.RetentionImpact, domain.RetentionImpact]
+	Logo            cqrs.QueryHandler[query.Logo, query.LogoBytes]
 }
 
 // New builds the application over the repository, with one snapshot shared
@@ -52,12 +53,13 @@ func New(repo domain.Repository, logger *slog.Logger, googleConfigured bool) *Ap
 			SweepLogos:     command.SweepLogosHandler{Service: service},
 		},
 		Queries: Queries{
-			Settings:     query.SettingsHandler{Service: service},
-			Current:      query.CurrentHandler{Service: service},
-			SignInPolicy: query.SignInPolicyHandler{Service: service},
-			Branding:     query.BrandingHandler{Service: service},
-			SignInImpact: query.SignInImpactHandler{Service: service},
-			Logo:         query.LogoHandler{Service: service},
+			Settings:        query.SettingsHandler{Service: service},
+			Current:         query.CurrentHandler{Service: service},
+			SignInPolicy:    query.SignInPolicyHandler{Service: service},
+			Branding:        query.BrandingHandler{Service: service},
+			SignInImpact:    query.SignInImpactHandler{Service: service},
+			RetentionImpact: query.RetentionImpactHandler{Service: service},
+			Logo:            query.LogoHandler{Service: service},
 		},
 		service: service,
 	}

@@ -96,6 +96,7 @@ POST /admin/data-exports/{id}/download system.data_export
 POST /admin/docs-session system.api_reference
 POST /admin/roles people.roles.manage
 POST /admin/settings/logo system.settings.write
+POST /admin/settings/retention-impact system.settings.write
 POST /admin/settings/sign-in-impact system.settings.write
 POST /admin/user-imports people.users.manage
 POST /admin/user-imports/preview people.users.manage
