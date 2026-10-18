@@ -50,6 +50,14 @@ func lockAccount(ctx context.Context, tx pgx.Tx, in domain.AccountWrite) (locked
 	return acct, nil
 }
 
+// Contended returns err wrapped in domain.ErrWriteContended when the database
+// ended its transaction to break a deadlock or a serialization conflict, and
+// err unchanged otherwise.
+func Contended(err error) error {
+	contended(&err)
+	return err
+}
+
 func contended(err *error) {
 	var pg *pgconn.PgError
 	if errors.As(*err, &pg) && (pg.Code == pgerrcode.DeadlockDetected || pg.Code == pgerrcode.SerializationFailure) {

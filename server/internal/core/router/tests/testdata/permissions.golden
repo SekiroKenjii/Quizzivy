@@ -108,6 +108,7 @@ POST /admin/users/{id}/disable people.users.manage
 POST /admin/users/{id}/enable people.users.manage
 POST /admin/users/{id}/reset-password people.users.manage
 POST /admin/users/{id}/sign-out people.users.manage
+POST /admin/users/{id}/transfer-content scope.all
 POST /app/assignments/{id}/attempts learning.take_tests
 POST /app/attempts/{id}/audio-play learning.take_tests
 POST /app/attempts/{id}/group-audio-play learning.take_tests

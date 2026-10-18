@@ -104,6 +104,7 @@ var catalogue = []Action{
 	{"user.anonymized", "Đã ẩn danh tài khoản", "Anonymized an account"},
 	{"user.avatar_removed", "Đã gỡ ảnh đại diện", "Removed a profile photo"},
 	{"user.avatar_set", "Đã đặt ảnh đại diện", "Set a profile photo"},
+	{"user.content_transferred", "Đã chuyển nội dung của tài khoản cho giáo viên khác", "Transferred an account's content to another teacher"},
 	{"user.created", "Đã tạo tài khoản", "Created an account"},
 	{"user.disabled", "Đã vô hiệu hoá tài khoản", "Disabled an account"},
 	{"user.enabled", "Đã kích hoạt lại tài khoản", "Enabled an account again"},

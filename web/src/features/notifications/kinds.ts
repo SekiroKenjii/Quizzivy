@@ -5,6 +5,7 @@ import {
   Clock,
   FileCheck,
   Flag,
+  FolderInput,
   Hand,
   RotateCw,
   Sparkles,
@@ -49,6 +50,7 @@ export const KIND_LOOK: Record<
   "ai.allowance_warning": { icon: Sparkles, tone: "warning" },
   "ai.credit_request": { icon: Hand, tone: "warning" },
   "ai.credit_request.decided": { icon: Sparkles, tone: "info" },
+  "content.transferred": { icon: FolderInput, tone: "info" },
 };
 /** TEACHER_EVENTS lists the teacher's switches in contract order. */
 export const TEACHER_EVENTS = [
@@ -71,6 +73,7 @@ const teacherKinds = new Set<NotificationKind>([
   "ai.allowance_warning",
   "ai.credit_request",
   "ai.credit_request.decided",
+  "content.transferred",
 ]);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function idPath(prefix: string, id: string | undefined, suffix = "") {
@@ -251,6 +254,14 @@ const sentences: Record<
         : "notifications.kind.aiDeclined";
     return literalSentence(key, { credits: credits(p.credits, locale) }, t);
   },
+  "content.transferred": (p, t) =>
+    hasText(p.teacherName) && hasCount(p.count)
+      ? literalSentence(
+          "notifications.kind.transferred",
+          { teacherName: p.teacherName, count: p.count },
+          t,
+        )
+      : null,
 };
 
 /** describeNotification returns a complete localised row or null for an unknown kind or missing sentence input, preserving grading fallback for readers who cannot grade. */

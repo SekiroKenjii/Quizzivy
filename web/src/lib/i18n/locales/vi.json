@@ -382,6 +382,7 @@
       "user.anonymized": "Đã ẩn danh tài khoản",
       "user.avatar_removed": "Đã gỡ ảnh đại diện",
       "user.avatar_set": "Đã đặt ảnh đại diện",
+      "user.content_transferred": "Đã chuyển nội dung của tài khoản cho giáo viên khác",
       "user.created": "Đã tạo tài khoản",
       "user.disabled": "Đã vô hiệu hoá tài khoản",
       "user.enabled": "Đã kích hoạt lại tài khoản",
@@ -3321,7 +3322,9 @@
       "aiWarning": "Bạn đã dùng {{used}} trên {{allowance}} tín dụng AI trong tháng này",
       "aiRequest": "{{teacherName}} xin thêm {{credits}} tín dụng AI",
       "aiApproved": "Yêu cầu thêm {{credits}} tín dụng AI của bạn đã được duyệt",
-      "aiDeclined": "Yêu cầu thêm {{credits}} tín dụng AI của bạn đã bị từ chối"
+      "aiDeclined": "Yêu cầu thêm {{credits}} tín dụng AI của bạn đã bị từ chối",
+      "transferred_one": "Nội dung của {{teacherName}} đã được chuyển cho bạn: {{count}} mục",
+      "transferred_other": "Nội dung của {{teacherName}} đã được chuyển cho bạn: {{count}} mục"
     },
     "bell": {
       "label": "Thông báo",

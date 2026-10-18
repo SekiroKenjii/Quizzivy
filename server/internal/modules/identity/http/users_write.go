@@ -321,3 +321,51 @@ func (h Identity) ResetUsersPasswords(ctx context.Context, request openapi.Reset
 	out.Body.Failed = userFailures(result.Failed)
 	return out, nil
 }
+
+// TransferUserContent implements POST /admin/users/{id}/transfer-content.
+func (h Identity) TransferUserContent(ctx context.Context, request openapi.TransferUserContentRequestObject) (openapi.TransferUserContentResponseObject, error) {
+	if h.app == nil || h.app.Commands.TransferUserContent == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	req, ok := studentRequest(ctx)
+	if !ok {
+		return nil, httpx.ErrNotImplemented
+	}
+	notify := request.Body.Notify != nil && *request.Body.Notify
+	result, err := h.app.Commands.TransferUserContent.Handle(ctx, command.TransferUserContent{
+		Request: req, ID: request.Id.String(), ToID: request.Body.ToUserId.String(), Notify: notify,
+	})
+	switch {
+	case err == nil:
+		return openapi.TransferUserContent200JSONResponse(toAPITransferred(result)), nil
+	case errors.Is(err, domain.ErrUserNotFound):
+		return openapi.TransferUserContent404JSONResponse{NotFoundJSONResponse: userNotFound(ctx)}, nil
+	case errors.Is(err, accessdomain.ErrTargetRoleNotAllowed):
+		return openapi.TransferUserContent403JSONResponse(targetNotAllowed(ctx)), nil
+	case errors.Is(err, domain.ErrUserNotDisabled):
+		return openapi.TransferUserContent409JSONResponse(httpapi.Error(ctx, openapi.USERNOTDISABLED,
+			httpx.Text(ctx, "Hãy vô hiệu hoá tài khoản này trước khi chuyển nội dung của nó.",
+				"Disable this account before you transfer its content."))), nil
+	case isStale(err):
+		return openapi.TransferUserContent409JSONResponse(staleWrite(ctx, err)), nil
+	case errors.Is(err, domain.ErrInvalidRecipient):
+		return openapi.TransferUserContent422JSONResponse(httpapi.Error(ctx, openapi.INVALIDRECIPIENT,
+			httpx.Text(ctx, "Người nhận phải là một giáo viên khác đang hoạt động.",
+				"The recipient must be another active teacher."))), nil
+	default:
+		return nil, err
+	}
+}
+
+func toAPITransferred(r domain.TransferredContent) openapi.UserContentTransferResult {
+	var out openapi.UserContentTransferResult
+	out.Moved.Classes = r.Moved.Classes
+	out.Moved.Tests = r.Moved.Tests
+	out.Moved.Questions = r.Moved.Questions
+	out.Moved.QuestionGroups = r.Moved.QuestionGroups
+	out.Moved.Media = r.Moved.Media
+	out.Moved.Assignments = r.Moved.Assignments
+	out.LeftBehind.Imports = r.LeftBehind.Imports
+	out.LeftBehind.Students = r.LeftBehind.Students
+	return out
+}

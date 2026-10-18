@@ -899,6 +899,8 @@ components:
         - TARGET_ROLE_NOT_ALLOWED
         - LAST_ADMIN
         - USER_OWNS_CONTENT
+        - USER_NOT_DISABLED
+        - INVALID_RECIPIENT
         # authoring
         - RESOURCE_REFERENCED
         - RESOURCE_NOT_ARCHIVED
@@ -2855,6 +2857,54 @@ components:
         code:
           $ref: '#/components/schemas/ErrorCode'
           description: One of `NOT_FOUND`, `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`, `LAST_ADMIN`, `ACCOUNT_DISABLED`, `STALE_WRITE` or `INTERNAL`.
+
+    UserContentTransfer:
+      type: object
+      required: [toUserId]
+      additionalProperties: false
+      properties:
+        toUserId: { $ref: '#/components/schemas/Uuid' }
+        notify:
+          type: boolean
+          default: false
+          description: Tell the recipient in their bell.
+
+    UserContentTransferResult:
+      type: object
+      required: [moved, leftBehind]
+      additionalProperties: false
+      properties:
+        moved:
+          type: object
+          description: |
+            What changed owner, counted as `ownedContent` counts it: every
+            class, and every test, question, question group and media asset
+            not deleted, and every assignment. Deleted rows move too, uncounted.
+          required: [classes, tests, questions, questionGroups, media, assignments]
+          additionalProperties: false
+          properties:
+            classes: { type: integer, minimum: 0 }
+            tests: { type: integer, minimum: 0 }
+            questions: { type: integer, minimum: 0 }
+            questionGroups: { type: integer, minimum: 0 }
+            media: { type: integer, minimum: 0 }
+            assignments: { type: integer, minimum: 0 }
+        leftBehind:
+          type: object
+          required: [imports, students]
+          additionalProperties: false
+          properties:
+            imports: { type: integer, minimum: 0, description: "The account's Word imports that are not finished, which stay with it." }
+            students:
+              type: integer
+              minimum: 0
+              description: |
+                Student accounts the account created that the recipient still
+                does not reach after the move: in none of the moved classes and
+                on none of the moved assignments, disabled and anonymised ones
+                included, counted as the transfer commits. Who created an account
+                does not change, so only an Admin reaches them until one adds them
+                to a class.
 
     UserImportDefaultRole:
       type: string
@@ -6343,6 +6393,7 @@ components:
         | `ai.allowance_warning` | a teacher | `used`, `allowance` |
         | `ai.credit_request` | a teacher | `teacherName`, `credits` |
         | `ai.credit_request.decided` | a teacher | `credits`, `decision` |
+        | `content.transferred` | a teacher | `teacherName`, `count` |
 
         The three `ai.*` kinds are for the teacher's bell. `ai.credit_request`
         is written for every holder of `ai.credits.manage`, who reads it in the
@@ -6360,6 +6411,7 @@ components:
         - ai.allowance_warning
         - ai.credit_request
         - ai.credit_request.decided
+        - content.transferred
 
     NotificationAudience:
       type: string
@@ -6404,7 +6456,7 @@ components:
         count:
           type: integer
           minimum: 0
-          description: Papers handed in (`attempt.submitted`), or classes whose join code was replaced (`join_codes.rotated`).
+          description: Papers handed in (`attempt.submitted`), classes whose join code was replaced (`join_codes.rotated`), or classes, tests, questions, question groups, media and assignments given to the reader (`content.transferred`).
         toGrade: { type: integer, minimum: 0, description: 'Of the papers handed in, those with an answer waiting for a mark.' }
         focusLost: { type: integer, minimum: 0, description: Times the student left the test. }
         notSubmitted: { type: integer, minimum: 0, description: Students who have not handed in. }
@@ -6419,7 +6471,7 @@ components:
         used: { type: integer, minimum: 0, description: AI credits the teacher has used this month. }
         allowance: { type: integer, minimum: 0, description: "The teacher's AI allowance this month, in credits." }
         credits: { type: integer, minimum: 0, description: AI credits a request asks for. }
-        teacherName: { type: string, minLength: 1, maxLength: 200, description: The teacher who asked for credits. }
+        teacherName: { type: string, minLength: 1, maxLength: 200, description: 'The teacher who asked for credits (`ai.credit_request`), or whose content was given to the reader (`content.transferred`).' }
         decision: { type: string, enum: [approved, declined], description: How an Admin decided a request for credits. }
 
     NotificationTarget:
@@ -11423,6 +11475,63 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '422':
           description: '`CANNOT_ACT_ON_SELF` — the account is the caller''s own.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /admin/users/{id}/transfer-content:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: transferUserContent
+      x-permission: scope.all
+      tags: [admin-users]
+      summary: Give everything a disabled account owns to another teacher
+      description: |
+        Moves every class the account teaches (archived ones too) and every
+        test, question, question group, media asset and assignment it owns,
+        deleted ones too, to `toUserId`, in one transaction, so a reader sees
+        all of it with the old owner or all of it with the new one. A test and
+        its questions move together, so a draft still uses only its owner's
+        questions, and the classes' students keep their assignments and
+        results. Who made a row (`createdBy`, `uploadedBy`) does not change.
+        The account's Word imports that are not finished stay with it and are
+        counted in `leftBehind`.
+
+        The subset rule applies to the account. The account must be disabled
+        (`USER_NOT_DISABLED`); the recipient must exist, be active, hold
+        `workspace.teacher` and be another account (`INVALID_RECIPIENT`).
+        Writes one audit row, `user.content_transferred`, with the recipient
+        and the counts. With `notify`, the recipient finds a
+        `content.transferred` notification in their bell when anything moved.
+        An account that owns nothing answers zeros and still writes its row.
+
+        Limited to 10 a minute per signed-in user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserContentTransfer' }
+      responses:
+        '200':
+          description: What moved, and what stayed behind.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserContentTransferResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — the account''s role holds a permission the caller lacks.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`USER_NOT_DISABLED` — disable the account first. `STALE_WRITE` — the account''s role, or another write to the account or its content, changed while it was being moved. Nothing was moved; try again.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: '`INVALID_RECIPIENT` — the recipient does not exist, is disabled, has no teacher workspace or is the account itself.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }

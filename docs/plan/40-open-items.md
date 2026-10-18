@@ -661,6 +661,28 @@ only.
 
 ---
 
+### O-R5.10 — Students the source of a transfer created · decided 2026-10-18 (D-051)
+**Decided:** they stay, reported as `leftBehind.students` (#718 QC-TC-2). `users.created_by` on a
+student is provenance as well as reach (`visibility.StudentIDs`), and the transfer never rewrites who
+made a row. The transfer moves classes and assignments, so the recipient reaches every student in a
+moved class or on a moved assignment; the result counts, inside the transaction, the student-like
+accounts the source created that the recipient still does not reach, the audit row records them as
+`studentsLeft`, and the Admin who ran the transfer adds them to a class. Moving `created_by` would
+lock student rows after the two accounts, which can cycle with a users write that locks every active
+Admin and the target in id order now that an Admin can be the recipient; it is its own task if the
+owner asks for it.
+
+---
+
+### O-R5.11 — A recipient that cannot edit what it receives · decided 2026-10-18 (D-052)
+**Decided:** the recipient needs `workspace.teacher` only, as the task specifies (#718 QC-TC-3). A
+role that opens the teacher workspace without `teaching.classes.write` or `content.tests.write` (the
+built-in Assistant, a custom role) can receive classes and tests that only an Admin can then edit.
+Parking content with a reader until a new teacher arrives is legitimate and recoverable, and a map of
+kinds to keys would be a second copy of the catalogue. T-R5.22b's dialog warns before the Admin
+confirms, naming the kinds the recipient cannot edit.
+---
+
 ## Answered during planning
 
 For the record, so a later session does not reopen them:

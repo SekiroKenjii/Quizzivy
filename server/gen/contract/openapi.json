@@ -1399,6 +1399,8 @@
           "TARGET_ROLE_NOT_ALLOWED",
           "LAST_ADMIN",
           "USER_OWNS_CONTENT",
+          "USER_NOT_DISABLED",
+          "INVALID_RECIPIENT",
           "RESOURCE_REFERENCED",
           "RESOURCE_NOT_ARCHIVED",
           "VERSION_IS_CURRENT",
@@ -5204,6 +5206,92 @@
           "code": {
             "$ref": "#/components/schemas/ErrorCode",
             "description": "One of `NOT_FOUND`, `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`, `LAST_ADMIN`, `ACCOUNT_DISABLED`, `STALE_WRITE` or `INTERNAL`."
+          }
+        }
+      },
+      "UserContentTransfer": {
+        "type": "object",
+        "required": [
+          "toUserId"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "toUserId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "notify": {
+            "type": "boolean",
+            "default": false,
+            "description": "Tell the recipient in their bell."
+          }
+        }
+      },
+      "UserContentTransferResult": {
+        "type": "object",
+        "required": [
+          "moved",
+          "leftBehind"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "moved": {
+            "type": "object",
+            "description": "What changed owner, counted as `ownedContent` counts it: every\nclass, and every test, question, question group and media asset\nnot deleted, and every assignment. Deleted rows move too, uncounted.\n",
+            "required": [
+              "classes",
+              "tests",
+              "questions",
+              "questionGroups",
+              "media",
+              "assignments"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "classes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "tests": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "questions": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "questionGroups": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "media": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "assignments": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "leftBehind": {
+            "type": "object",
+            "required": [
+              "imports",
+              "students"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "imports": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "The account's Word imports that are not finished, which stay with it."
+              },
+              "students": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Student accounts the account created that the recipient still\ndoes not reach after the move: in none of the moved classes and\non none of the moved assignments, disabled and anonymised ones\nincluded, counted as the transfer commits. Who created an account\ndoes not change, so only an Admin reaches them until one adds them\nto a class.\n"
+              }
+            }
           }
         }
       },
@@ -12164,7 +12252,7 @@
       },
       "NotificationKind": {
         "type": "string",
-        "description": "What a notification is about. The server sends no sentence: the client\nwords the item from `kind` and `params` in the reader's language.\n\nEach kind carries exactly these `params`:\n\n| Kind | For | Params |\n|---|---|---|\n| `attempt.submitted` | a teacher | `title`, `count`, `toGrade` |\n| `attempt.flagged` | a teacher | `studentName`, `title`, `focusLost` |\n| `assignment.closing` | a teacher | `title`, `notSubmitted` |\n| `class.joined` | a teacher | `studentName`, `className` |\n| `join_codes.rotated` | a teacher | `count`, `classNames` |\n| `assignment.opened` | a student | `title`, `closesAt` |\n| `assignment.due_soon` | a student | `title`, `closesAt` |\n| `assignment.extended` | a student | `title`, `closesAt` |\n| `result.ready` | a student | `title` |\n| `ai.allowance_warning` | a teacher | `used`, `allowance` |\n| `ai.credit_request` | a teacher | `teacherName`, `credits` |\n| `ai.credit_request.decided` | a teacher | `credits`, `decision` |\n\nThe three `ai.*` kinds are for the teacher's bell. `ai.credit_request`\nis written for every holder of `ai.credits.manage`, who reads it in the\nteacher workspace until the Admin console has a bell of its own.\n",
+        "description": "What a notification is about. The server sends no sentence: the client\nwords the item from `kind` and `params` in the reader's language.\n\nEach kind carries exactly these `params`:\n\n| Kind | For | Params |\n|---|---|---|\n| `attempt.submitted` | a teacher | `title`, `count`, `toGrade` |\n| `attempt.flagged` | a teacher | `studentName`, `title`, `focusLost` |\n| `assignment.closing` | a teacher | `title`, `notSubmitted` |\n| `class.joined` | a teacher | `studentName`, `className` |\n| `join_codes.rotated` | a teacher | `count`, `classNames` |\n| `assignment.opened` | a student | `title`, `closesAt` |\n| `assignment.due_soon` | a student | `title`, `closesAt` |\n| `assignment.extended` | a student | `title`, `closesAt` |\n| `result.ready` | a student | `title` |\n| `ai.allowance_warning` | a teacher | `used`, `allowance` |\n| `ai.credit_request` | a teacher | `teacherName`, `credits` |\n| `ai.credit_request.decided` | a teacher | `credits`, `decision` |\n| `content.transferred` | a teacher | `teacherName`, `count` |\n\nThe three `ai.*` kinds are for the teacher's bell. `ai.credit_request`\nis written for every holder of `ai.credits.manage`, who reads it in the\nteacher workspace until the Admin console has a bell of its own.\n",
         "enum": [
           "attempt.submitted",
           "attempt.flagged",
@@ -12177,7 +12265,8 @@
           "result.ready",
           "ai.allowance_warning",
           "ai.credit_request",
-          "ai.credit_request.decided"
+          "ai.credit_request.decided",
+          "content.transferred"
         ]
       },
       "NotificationAudience": {
@@ -12213,7 +12302,7 @@
           "count": {
             "type": "integer",
             "minimum": 0,
-            "description": "Papers handed in (`attempt.submitted`), or classes whose join code was replaced (`join_codes.rotated`)."
+            "description": "Papers handed in (`attempt.submitted`), classes whose join code was replaced (`join_codes.rotated`), or classes, tests, questions, question groups, media and assignments given to the reader (`content.transferred`)."
           },
           "toGrade": {
             "type": "integer",
@@ -12272,7 +12361,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 200,
-            "description": "The teacher who asked for credits."
+            "description": "The teacher who asked for credits (`ai.credit_request`), or whose content was given to the reader (`content.transferred`)."
           },
           "decision": {
             "type": "string",
@@ -20669,6 +20758,83 @@
           },
           "422": {
             "description": "`CANNOT_ACT_ON_SELF` — the account is the caller's own.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/transfer-content": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "post": {
+        "operationId": "transferUserContent",
+        "x-permission": "scope.all",
+        "tags": [
+          "admin-users"
+        ],
+        "summary": "Give everything a disabled account owns to another teacher",
+        "description": "Moves every class the account teaches (archived ones too) and every\ntest, question, question group, media asset and assignment it owns,\ndeleted ones too, to `toUserId`, in one transaction, so a reader sees\nall of it with the old owner or all of it with the new one. A test and\nits questions move together, so a draft still uses only its owner's\nquestions, and the classes' students keep their assignments and\nresults. Who made a row (`createdBy`, `uploadedBy`) does not change.\nThe account's Word imports that are not finished stay with it and are\ncounted in `leftBehind`.\n\nThe subset rule applies to the account. The account must be disabled\n(`USER_NOT_DISABLED`); the recipient must exist, be active, hold\n`workspace.teacher` and be another account (`INVALID_RECIPIENT`).\nWrites one audit row, `user.content_transferred`, with the recipient\nand the counts. With `notify`, the recipient finds a\n`content.transferred` notification in their bell when anything moved.\nAn account that owns nothing answers zeros and still writes its row.\n\nLimited to 10 a minute per signed-in user.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserContentTransfer"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What moved, and what stayed behind.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserContentTransferResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "description": "`TARGET_ROLE_NOT_ALLOWED` — the account's role holds a permission the caller lacks.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "`USER_NOT_DISABLED` — disable the account first. `STALE_WRITE` — the account's role, or another write to the account or its content, changed while it was being moved. Nothing was moved; try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`INVALID_RECIPIENT` — the recipient does not exist, is disabled, has no teacher workspace or is the account itself.",
             "content": {
               "application/json": {
                 "schema": {
