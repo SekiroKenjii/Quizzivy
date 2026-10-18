@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"quizzivy/internal/shared/answered"
 
 	"quizzivy/internal/shared/stats"
 )
@@ -43,7 +44,7 @@ func (s *StudentStats) ClassScores(ctx context.Context, classIDs []string) (map[
 		  LEFT JOIN LATERAL (
 		    SELECT count(*) AS pending_manual
 		      FROM app.attempt_answers ans
-		     WHERE ans.attempt_id = b.id AND ans.requires_manual AND ans.manual_score IS NULL
+		     WHERE ans.attempt_id = b.id AND `+answered.AwaitsGrade("ans")+`
 		  ) p ON TRUE
 		 WHERE c.id = ANY($1::uuid[])
 		 GROUP BY c.id`, classIDs)

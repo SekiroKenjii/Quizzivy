@@ -78,7 +78,7 @@ func (s *Reviews) Get(ctx context.Context, scope access.Scope, attemptID string)
 		switch {
 		case ans.ManualScore != nil:
 			out.Score.Earned += *ans.ManualScore
-		case ans.RequiresManual:
+		case ans.RequiresManual && !domain.AnswerRemoved(ans.Payload):
 			out.Score.PendingManual++
 		case ans.AutoScore != nil:
 			out.Score.Earned += *ans.AutoScore

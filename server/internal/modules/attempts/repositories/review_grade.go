@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/answered"
 	"quizzivy/internal/shared/opt"
+	"quizzivy/internal/shared/retention"
 	"quizzivy/internal/shared/visibility"
 
 	"github.com/jackc/pgx/v5"
@@ -121,7 +123,7 @@ func lockGradable(ctx context.Context, tx pgx.Tx, scope access.Scope, attemptID 
 
 func validateGrades(ctx context.Context, tx pgx.Tx, attemptID, versionID string, items []domain.GradeItem) error {
 	rows, err := tx.Query(ctx, `
-		SELECT q.id::text, q.points, (aa.attempt_id IS NOT NULL)
+		SELECT q.id::text, q.points, (aa.attempt_id IS NOT NULL), coalesce(aa.payload = '`+retention.RemovedAnswer+`'::jsonb, false)
 		  FROM app.test_version_questions q
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
 		  LEFT JOIN app.attempt_answers aa
@@ -135,12 +137,13 @@ func validateGrades(ctx context.Context, tx pgx.Tx, attemptID, versionID string,
 	type slot struct {
 		ceiling  float64
 		answered bool
+		removed  bool
 	}
 	paper := map[string]slot{}
 	for rows.Next() {
 		var id string
 		var sl slot
-		if err := rows.Scan(&id, &sl.ceiling, &sl.answered); err != nil {
+		if err := rows.Scan(&id, &sl.ceiling, &sl.answered, &sl.removed); err != nil {
 			return fmt.Errorf("review: scan paper: %w", err)
 		}
 		paper[id] = sl
@@ -149,6 +152,15 @@ func validateGrades(ctx context.Context, tx pgx.Tx, attemptID, versionID string,
 		return fmt.Errorf("review: read paper for grading: %w", err)
 	}
 
+	var removed []string
+	for _, it := range items {
+		if sl, ok := paper[it.QuestionID]; ok && sl.removed {
+			removed = append(removed, it.QuestionID)
+		}
+	}
+	if len(removed) > 0 {
+		return &domain.AnswerRemovedError{QuestionIDs: removed}
+	}
 	var invalid []domain.GradeItemError
 	for _, it := range items {
 		sl, ok := paper[it.QuestionID]
@@ -177,7 +189,7 @@ func recomputeScore(ctx context.Context, tx pgx.Tx, attemptID string) (domain.Sc
 		 WHERE at.id = $1::uuid
 		RETURNING at.score_earned, at.score_total,
 		          (SELECT count(*) FROM app.attempt_answers aa
-		            WHERE aa.attempt_id = at.id AND aa.requires_manual AND aa.manual_score IS NULL)`,
+		            WHERE aa.attempt_id = at.id AND `+answered.AwaitsGrade("aa")+`)`,
 		attemptID).Scan(&out.Earned, &total, &out.PendingManual)
 	if err != nil {
 		return domain.Score{}, fmt.Errorf("review: recompute score: %w", err)
