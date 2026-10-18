@@ -57,20 +57,31 @@ func contended(err *error) {
 	}
 }
 
-func lockActiveAdmins(ctx context.Context, tx pgx.Tx) ([]string, error) {
+func lockActiveAdmins(ctx context.Context, tx pgx.Tx, target string) ([]string, error) {
 	rows, err := tx.Query(ctx, `
-		SELECT u.id::text
+		SELECT u.id::text,
+		       u.role_id = (SELECT r.id FROM app.roles r WHERE r.builtin_key = 'admin') AND u.disabled_at IS NULL
 		  FROM app.users u
-		  JOIN app.roles r ON r.id = u.role_id
-		 WHERE r.builtin_key = 'admin' AND u.disabled_at IS NULL
+		 WHERE (u.role_id = (SELECT r.id FROM app.roles r WHERE r.builtin_key = 'admin') AND u.disabled_at IS NULL)
+		    OR u.id = $1::uuid
 		 ORDER BY u.id
-		   FOR NO KEY UPDATE OF u`)
+		   FOR NO KEY UPDATE`, target)
 	if err != nil {
 		return nil, fmt.Errorf("users: lock active admins: %w", err)
 	}
-	ids, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	type locked struct {
+		ID    string
+		Admin bool
+	}
+	all, err := pgx.CollectRows(rows, pgx.RowToStructByPos[locked])
 	if err != nil {
 		return nil, fmt.Errorf("users: lock active admins: %w", err)
+	}
+	ids := make([]string, 0, len(all))
+	for _, row := range all {
+		if row.Admin {
+			ids = append(ids, row.ID)
+		}
 	}
 	return ids, nil
 }
@@ -126,9 +137,9 @@ func (a *AdminUsers) Get(ctx context.Context, id string) (domain.AdminUser, erro
 	return scanAdminUser(a.QueryRow(ctx, adminUserSelect+` WHERE u.id = $1::uuid`, id))
 }
 
-// ChangeRole gives an account another role. It locks every active Admin in id
-// order, the account and then the new role, the order every account write
-// keeps, because two role changes or disables that each leave a third Admin
+// ChangeRole gives an account another role. It locks every active Admin and
+// the account in one statement, in id order, and then the new role, the order
+// every account write keeps, because two role changes or disables that each leave a third Admin
 // must not deadlock, and two that each take one of the last two Admins away
 // must not both pass. The role comes last because the users_last_admin trigger
 // locks the Admin role when an Admin is taken away, after the user rows. A
@@ -142,7 +153,7 @@ func (a *AdminUsers) ChangeRole(ctx context.Context, req domain.WriteRequest, in
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	admins, err := lockActiveAdmins(ctx, tx)
+	admins, err := lockActiveAdmins(ctx, tx, in.UserID)
 	if err != nil {
 		return err
 	}
@@ -192,7 +203,7 @@ func (a *AdminUsers) Disable(ctx context.Context, req domain.WriteRequest, in do
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	admins, err := lockActiveAdmins(ctx, tx)
+	admins, err := lockActiveAdmins(ctx, tx, in.UserID)
 	if err != nil {
 		return err
 	}
