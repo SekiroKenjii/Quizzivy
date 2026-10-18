@@ -20,6 +20,10 @@ const ALLOWED_LITERALS = new Set([
   "/admin/roles",
   "/admin/roles/permissions",
   "/admin/roles/{id}",
+  "/admin/user-imports",
+  "/admin/user-imports/preview",
+  "/admin/user-imports/{id}",
+  "/admin/user-imports/{id}/sheet",
 ]);
 const LITERAL = /(["'`])(\/admin(?=[/"'`?#$]|$)[^"'`]*)/gi;
 const SETTINGS_API_CALL = /\bapi\("(?:get|put)", "\/admin\/settings"/g;
