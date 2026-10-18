@@ -1,13 +1,15 @@
-import { useEffect, useRef, type FocusEvent } from "react";
+import { useEffect, useMemo, useRef, type FocusEvent } from "react";
 import type { LucideIcon } from "lucide-react";
 
+import { useLocale } from "@/lib/i18n/useLocale";
 import { revealWithin } from "@/lib/revealWithin";
 import { cn } from "@/lib/utils";
 
 /**
  * SegmentedOption is one choice of a Segmented: its value, its label, an
  * optional icon before the label and an optional count after it. A count is
- * drawn whenever it is a number, zero included. A disabled option cannot be
+ * drawn whenever it is a number, zero included, grouped for the viewer's
+ * language ("1.248"). A disabled option cannot be
  * chosen; `describedBy` names the element that says why. A pending option is
  * unavailable while a request it started runs: it answers `aria-disabled`,
  * ignores a press and keeps focus (T-35).
@@ -79,6 +81,8 @@ export function Segmented({
   className?: string;
 }>) {
   const track = useRef<HTMLDivElement>(null);
+  const locale = useLocale();
+  const figure = useMemo(() => new Intl.NumberFormat(locale), [locale]);
 
   useEffect(() => {
     if (scroll && track.current !== null) revealPressed(track.current);
@@ -139,7 +143,7 @@ export function Segmented({
               <>
                 {" "}
                 <span className="bg-primary text-primary-fg text-2xs inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1.25 leading-none font-semibold tabular-nums">
-                  {option.count}
+                  {figure.format(option.count)}
                 </span>
               </>
             )}

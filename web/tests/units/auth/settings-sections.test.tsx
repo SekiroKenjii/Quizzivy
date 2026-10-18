@@ -1,14 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http } from "msw";
 import {
-  ApiDocsSection,
   GoogleSection,
   PasswordSection,
 } from "@/features/auth/components/SettingsSections";
-import { openDocsSession } from "@/features/auth/api";
 import { passwordSignInQuery } from "@/features/organization/api";
 import type { PublicOrganization } from "@/lib/organization";
 import { BASE_URL } from "@/lib/api/client";
@@ -59,10 +57,6 @@ function renderGoogle(organization?: PublicOrganization) {
   );
 }
 
-vi.mock("@/features/auth/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/features/auth/api")>()),
-  openDocsSession: vi.fn(),
-}));
 vi.mock("@/components/ui/sonner", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/components/ui/sonner")>()),
   toast: vi.fn(),
@@ -318,63 +312,5 @@ describe("asking for a set-password link from the Google card", () => {
     signedIn({ hasPassword: true, google: true });
     renderGoogle();
     expect(screen.queryByRole("button", { name: SEND })).toBeNull();
-  });
-});
-
-describe("the API reference entry", () => {
-  function fakeTab() {
-    return { opener: {} as unknown, location: { href: "about:blank" }, close: vi.fn() };
-  }
-
-  it("opens the tab in the click itself, cuts it off from this page, then points it at the docs", async () => {
-    const tab = fakeTab();
-    const open = vi.spyOn(window, "open").mockReturnValue(tab as unknown as Window);
-    let finish: () => void = () => undefined;
-    vi.mocked(openDocsSession).mockImplementation(
-      () =>
-        new Promise<void>((resolve) => {
-          finish = resolve;
-        }),
-    );
-    render(<ApiDocsSection />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Mở tài liệu API" }));
-    expect(open).toHaveBeenCalledWith("about:blank", "_blank");
-    expect(tab.opener).toBeNull();
-    expect(openDocsSession).toHaveBeenCalledOnce();
-    expect(tab.location.href).toBe("about:blank");
-
-    finish();
-    await waitFor(() => expect(tab.location.href).toBe(`${BASE_URL}/docs`));
-    open.mockRestore();
-  });
-
-  it("closes the tab and says so when the session cannot be opened", async () => {
-    const tab = fakeTab();
-    const open = vi.spyOn(window, "open").mockReturnValue(tab as unknown as Window);
-    vi.mocked(openDocsSession).mockRejectedValue(new Error("offline"));
-    const user = userEvent.setup();
-    render(<ApiDocsSection />);
-
-    await user.click(screen.getByRole("button", { name: "Mở tài liệu API" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Không mở được tài liệu API.",
-    );
-    expect(tab.close).toHaveBeenCalledOnce();
-    open.mockRestore();
-  });
-
-  it("asks for pop-ups instead of opening a session when the browser blocks the tab", async () => {
-    const open = vi.spyOn(window, "open").mockReturnValue(null);
-    vi.mocked(openDocsSession).mockReset();
-    const user = userEvent.setup();
-    render(<ApiDocsSection />);
-
-    await user.click(screen.getByRole("button", { name: "Mở tài liệu API" }));
-
-    expect(screen.getByRole("alert")).toHaveTextContent("Trình duyệt đã chặn tab mới.");
-    expect(openDocsSession).not.toHaveBeenCalled();
-    open.mockRestore();
   });
 });

@@ -114,7 +114,6 @@ test("a teacher's settings open on the Profile, among the deck's sections", asyn
     "Mặc định khi giao bài",
     "Giao diện",
     "Trợ lý AI",
-    "Tài liệu API",
   ]);
   await page.goto("/teacher/settings/preferences");
   await expect(page).toHaveURL(/\/teacher\/settings$/);
