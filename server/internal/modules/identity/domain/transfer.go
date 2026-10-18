@@ -66,6 +66,6 @@ type TransferLedger interface {
 	LockTransfer(ctx context.Context, in ContentTransfer) error
 	// RecordTransfer counts, after the moves, what stays with the source and
 	// writes the user.content_transferred audit row with the owner change as
-	// both names, the recipient and the counts.
+	// both account ids, never a name, and the counts.
 	RecordTransfer(ctx context.Context, req WriteRequest, in ContentTransfer, moved MovedContent) (LeftBehind, error)
 }

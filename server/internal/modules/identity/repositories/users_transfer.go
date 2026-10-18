@@ -89,7 +89,6 @@ func (l *TransferLedger) lockTeacherRole(ctx context.Context, roleID string) err
 
 type transferDiff struct {
 	Owner          ownerDiff `json:"owner"`
-	To             string    `json:"to"`
 	Classes        int       `json:"classes"`
 	Tests          int       `json:"tests"`
 	Questions      int       `json:"questions"`
@@ -119,14 +118,8 @@ func (l *TransferLedger) RecordTransfer(ctx context.Context, req domain.WriteReq
 		   AND u.id NOT IN `+visibility.StudentIDs(2), in.FromID, in.ToID).Scan(&left.Students); err != nil {
 		return domain.LeftBehind{}, fmt.Errorf("users: count students left behind: %w", err)
 	}
-	var owner ownerDiff
-	if err := l.QueryRow(ctx, `
-		SELECT (SELECT u.full_name FROM app.users u WHERE u.id = $1::uuid), (SELECT u.full_name FROM app.users u WHERE u.id = $2::uuid)`,
-		in.FromID, in.ToID).Scan(&owner.Old, &owner.New); err != nil {
-		return domain.LeftBehind{}, fmt.Errorf("users: read transfer names: %w", err)
-	}
 	diff, err := json.Marshal(transferDiff{
-		Owner: owner, To: in.ToID, Classes: moved.Classes, Tests: moved.Tests, Questions: moved.Questions,
+		Owner: ownerDiff{Old: in.FromID, New: in.ToID}, Classes: moved.Classes, Tests: moved.Tests, Questions: moved.Questions,
 		QuestionGroups: moved.QuestionGroups, Media: moved.Media, Assignments: moved.Assignments, ImportsLeft: left.Imports,
 		StudentsLeft: left.Students,
 	})

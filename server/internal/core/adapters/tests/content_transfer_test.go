@@ -196,15 +196,11 @@ func TestATransferMovesDeletedRowsUncountedLeavesProvenanceAndAuditsTheCounts(t 
 		SELECT diff::text FROM app.audit_log WHERE action = 'user.content_transferred' AND entity_id = $1::uuid AND actor_user_id = $2::uuid`, from, to).Scan(&diff); err != nil {
 		t.Fatal(err)
 	}
-	var named bool
-	if err := w.pool.QueryRow(context.Background(), `
-		SELECT a.diff->'owner' = jsonb_build_object('old', f.full_name, 'new', r.full_name)
-		  FROM app.audit_log a, app.users f, app.users r
-		 WHERE a.action = 'user.content_transferred' AND a.entity_id = $1::uuid AND f.id = $1::uuid AND r.id = $2::uuid`, from, to).Scan(&named); err != nil || !named {
-		t.Errorf("the audit row does not name the owner change from the source to the recipient (%v): %s", err, diff)
+	if strings.Contains(diff, "Transfer teacher") {
+		t.Errorf("the audit row %s holds a name, which the append-only log could never anonymise", diff)
 	}
 	for _, part := range []string{
-		`"to": "` + to + `"`, `"classes": 2`, `"tests": 1`, `"questions": 2`, `"questionGroups": 1`, `"importsLeft": 0`,
+		`"owner": {"new": "` + to + `", "old": "` + from + `"}`, `"classes": 2`, `"tests": 1`, `"questions": 2`, `"questionGroups": 1`, `"importsLeft": 0`,
 	} {
 		if !strings.Contains(diff, part) {
 			t.Errorf("audit diff %s lacks %s", diff, part)
@@ -439,7 +435,11 @@ func TestATransferCountsTheStudentsTheSourceCreatedThatTheRecipientStillDoesNotR
 	from, fromRole := w.user(t, "teacher", true)
 	to, _ := w.user(t, "teacher", false)
 	w.content(t, from)
-	alone, classed, own := w.student(t, from), w.student(t, from), w.student(t, to)
+	alone, again, classed, own := w.student(t, from), w.student(t, from), w.student(t, from), w.student(t, to)
+	staff, _ := w.user(t, "teacher", false)
+	if _, err := w.q.Exec(context.Background(), `UPDATE app.users SET created_by = $2::uuid WHERE id = $1::uuid`, staff, from); err != nil {
+		t.Fatal(err)
+	}
 	for _, id := range []string{classed, own} {
 		if _, err := w.q.Exec(context.Background(), `
 			INSERT INTO app.class_members (class_id, user_id, joined_via) SELECT c.id, $2::uuid, 'admin' FROM app.classes c WHERE c.teacher_id = $1::uuid AND c.archived_at IS NULL`, from, id); err != nil {
@@ -452,12 +452,12 @@ func TestATransferCountsTheStudentsTheSourceCreatedThatTheRecipientStillDoesNotR
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.LeftBehind.Students != 1 {
-		t.Errorf("students left behind = %d, want 1: only %s is in no moved class", got.LeftBehind.Students, alone)
+	if got.LeftBehind.Students != 2 {
+		t.Errorf("students left behind = %d, want 2: %s and %s are in no moved class, and a teacher the source created is no student", got.LeftBehind.Students, alone, again)
 	}
 	var left int
 	if err := w.q.QueryRow(context.Background(), `
-		SELECT (diff->>'studentsLeft')::int FROM app.audit_log WHERE action = 'user.content_transferred' AND entity_id = $1::uuid`, from).Scan(&left); err != nil || left != 1 {
-		t.Errorf("the audit row's studentsLeft = %d (%v), want 1", left, err)
+		SELECT (diff->>'studentsLeft')::int FROM app.audit_log WHERE action = 'user.content_transferred' AND entity_id = $1::uuid`, from).Scan(&left); err != nil || left != 2 {
+		t.Errorf("the audit row's studentsLeft = %d (%v), want 2", left, err)
 	}
 }

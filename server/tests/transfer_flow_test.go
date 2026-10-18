@@ -153,7 +153,7 @@ func TestADisabledTeachersContentMovesToAnotherTeacherWhoListsAndEditsItWhileStu
 	}
 	var audited string
 	if err := w.pool.QueryRow(context.Background(), `
-		SELECT diff->>'to' FROM app.audit_log WHERE action = 'user.content_transferred' AND entity_id = $1::uuid`, a.userID).Scan(&audited); err != nil || audited != heirID {
+		SELECT diff->'owner'->>'new' FROM app.audit_log WHERE action = 'user.content_transferred' AND entity_id = $1::uuid`, a.userID).Scan(&audited); err != nil || audited != heirID {
 		t.Errorf("audit row names %q (%v), want the recipient", audited, err)
 	}
 

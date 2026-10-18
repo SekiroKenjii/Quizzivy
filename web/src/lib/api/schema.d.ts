@@ -6318,9 +6318,10 @@ export interface components {
                 /**
                  * @description Student accounts the account created that the recipient still
                  *     does not reach after the move: in none of the moved classes and
-                 *     on none of the moved assignments. Who created an account does
-                 *     not change, so only an Admin reaches them until one adds them to
-                 *     a class.
+                 *     on none of the moved assignments, disabled and anonymised ones
+                 *     included, counted as the transfer commits. Who created an account
+                 *     does not change, so only an Admin reaches them until one adds them
+                 *     to a class.
                  */
                 students: number;
             };
