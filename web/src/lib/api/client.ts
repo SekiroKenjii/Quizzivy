@@ -415,7 +415,16 @@ function attachmentName(disposition: string | null): string | null {
 }
 
 /**
- * downloadFile GETs a file the contract answers with something other than
+ * DownloadOptions are the method of a download, which is GET unless `method`
+ * says POST, and the values of the path's `{name}` parameters.
+ */
+export interface DownloadOptions {
+  method?: "GET" | "POST";
+  path?: Record<string, unknown>;
+}
+
+/**
+ * downloadFile fetches a file the contract answers with something other than
  * JSON, such as a CSV, sharing this module's token and single-flight refresh.
  * Like `api`, it loses the session over a 401 only when the store still holds
  * the token that request was sent with, and it throws a refusal's error
@@ -426,12 +435,13 @@ function attachmentName(disposition: string | null): string | null {
 export async function downloadFile(
   path: keyof paths,
   query?: Record<string, unknown>,
+  options: DownloadOptions = {},
 ): Promise<DownloadedFile> {
-  const url = buildUrl(path, undefined, query);
+  const url = buildUrl(path, options.path, query);
   const lease = authStore.captureActor();
   const send = (token: string | null) =>
     fetch(url, {
-      method: "GET",
+      method: options.method ?? "GET",
       credentials: "include",
       headers: {
         Accept: "*/*",
