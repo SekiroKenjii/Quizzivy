@@ -14,6 +14,7 @@ import { useAuthStore } from "@/stores/auth";
 import { ImportDownloadMenu } from "../../components/ImportDownloadMenu";
 import { Pager } from "@/components/shared/data/Pager";
 import { SearchInput } from "@/components/shared/SearchInput";
+import { trimmed, useDebouncedInput } from "@/hooks/useDebouncedInput";
 import { useListFilters } from "@/hooks/useListFilters";
 import { usePage, usePageSize } from "@/hooks/usePage";
 import {
@@ -24,7 +25,6 @@ import {
 import type { Locale } from "@/lib/i18n";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { cn } from "@/lib/utils";
-import { useDebounced } from "@/lib/useDebounced";
 import { listWordImports, type WordImport } from "../../api";
 import { useImportAvailability } from "../../availability";
 import { ImportStatusBadge } from "../../components/ImportStatusBadge";
@@ -75,8 +75,13 @@ export default function ImportsListPage() {
   const canStart = availability === "on";
   const poll = useIdlePolling(HISTORY_POLL_MS);
   const [size] = usePageSize(PAGE_SIZES);
-  const query = params.get("q") ?? "";
-  const search = useDebounced(query.trim(), 300);
+  const applied = params.get("q") ?? "";
+  const [typed, setTyped] = useDebouncedInput(
+    applied,
+    (value) => setFilter("q", value),
+    trimmed,
+  );
+  const search = applied.trim();
   const requested = params.get("status");
   const status = isImportStatus(requested) ? requested : null;
   const [page] = usePage(JSON.stringify({ search, status }));
@@ -244,8 +249,8 @@ export default function ImportsListPage() {
         />
         <SearchInput
           className="max-w-[280px] min-w-[200px] flex-[1_1_280px]"
-          value={query}
-          onChange={(value) => setFilter("q", value)}
+          value={typed}
+          onChange={setTyped}
           placeholder={t("imports.searchPlaceholder")}
         />
       </div>

@@ -44,7 +44,7 @@ import { StudentDrawer } from "@/features/students/components/StudentDrawer";
 import type { OneTimeCredential } from "@/features/students/credentials";
 import { classesLeftBy, removeFromClasses } from "@/features/students/membership";
 import { useBulkSelection } from "@/hooks/useBulkSelection";
-import { useDebouncedInput } from "@/hooks/useDebouncedInput";
+import { trimmed, useDebouncedInput } from "@/hooks/useDebouncedInput";
 import { useListFilters } from "@/hooks/useListFilters";
 import { usePage, usePageSize } from "@/hooks/usePage";
 import { PageHead } from "@/layouts/shell/PageHead";
@@ -56,7 +56,6 @@ import { studentColumns } from "./studentColumns";
 import { statusOf } from "./studentText";
 
 const QUERY_KEY = ["teacher-students"] as const;
-const trimmed = (typed: string) => typed.trim();
 
 const ACCOUNTS = ["active", "notSignedIn", "reset", "suspended"] as const;
 

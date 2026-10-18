@@ -36,12 +36,12 @@ import { invalidateClassMembership } from "@/features/classes/invalidate";
 import { useJoinCodesOff } from "@/features/organization/api";
 import { scorePercent } from "@/features/students/api";
 import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { trimmed, useDebouncedInput } from "@/hooks/useDebouncedInput";
 import { useListFilters } from "@/hooks/useListFilters";
 import { usePage, usePageSize } from "@/hooks/usePage";
 import { useContentBand } from "@/layouts/shell/contentWidth";
 import { dayMonth, dayMonthYear, getDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
-import { useDebounced } from "@/lib/useDebounced";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZES = [20, 50] as const;
@@ -94,8 +94,13 @@ export function ClassMembersCard({
   const bulk = useBulkSelection<Member>();
   const band = useContentBand(MEMBER_BANDS);
   const { params, setFilter } = useListFilters();
-  const query = params.get("q") ?? "";
-  const search = useDebounced(query, 300).trim();
+  const applied = params.get("q") ?? "";
+  const [typed, setTyped] = useDebouncedInput(
+    applied,
+    (value) => setFilter("q", value),
+    trimmed,
+  );
+  const search = applied.trim();
   const [size] = usePageSize(PAGE_SIZES);
   const [page] = usePage(search);
   const members = useQuery({
@@ -165,8 +170,8 @@ export function ClassMembersCard({
         </h2>
         <SearchInput
           className="[&_input]:bg-bg [&_input]:border-border max-w-60 min-w-0 flex-[0_1_240px] [&_input]:h-8.5 [&_input]:pl-8.25 [&_input]:text-[0.8125rem] [&_svg]:top-[9.5px] [&_svg]:size-3.75"
-          value={query}
-          onChange={(value) => setFilter("q", value)}
+          value={typed}
+          onChange={setTyped}
           placeholder={t("classDetail.searchMembers")}
         />
       </div>
