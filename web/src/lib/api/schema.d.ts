@@ -2443,7 +2443,8 @@ export interface paths {
          *     The new role is held against edits from the check to the commit; if it
          *     or the account's own role changed in between, the check is made again,
          *     up to three times, and then `STALE_WRITE` asks the caller to send the
-         *     request again. A change ends the account's sessions: every refresh
+         *     request again; so does a write the database ended three times over a
+         *     lock another write held. A change ends the account's sessions: every refresh
          *     family is revoked and the session epoch moves, so its next request is
          *     authorised by the new role on this machine and within 10 seconds on any
          *     other. Writes one audit row, `user.role_changed`, with the old and the
@@ -2546,7 +2547,9 @@ export interface paths {
          * @description Does for each account what `disableUser` does, one transaction each, so
          *     a batch cannot do what one disable cannot. An account that fails does
          *     not stop the others: `failed` names it with `NOT_FOUND`,
-         *     `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`, `LAST_ADMIN` or
+         *     `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`, `LAST_ADMIN`,
+         *     `STALE_WRITE` (the account's role, or another write to it, kept
+         *     changing while it was being written; nothing was written to it) or
          *     `INTERNAL` (a fault with that account alone, logged on the server). The
          *     answer is 200 whenever the request was accepted, even when every
          *     account failed. An account disabled already counts in `disabled`.
@@ -2673,7 +2676,9 @@ export interface paths {
          *
          *     An account that fails does not stop the others: `failed` names it with
          *     `NOT_FOUND`, `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`,
-         *     `ACCOUNT_DISABLED` or `INTERNAL` (a fault with that account alone,
+         *     `ACCOUNT_DISABLED`, `STALE_WRITE` (the account's role, or another write
+         *     to it, kept changing while it was being written; nothing was written to
+         *     it) or `INTERNAL` (a fault with that account alone,
          *     logged on the server). The answer is 200 whenever the request was
          *     accepted, even when every account failed. `items` and `failed` keep the
          *     order of `userIds`. `PASSWORD_SIGN_IN_DISABLED` refuses the whole
@@ -6219,7 +6224,7 @@ export interface components {
         /** @description One account a bulk action did not reach, and why. */
         UserActionFailure: {
             userId: components["schemas"]["Uuid"];
-            /** @description One of `NOT_FOUND`, `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`, `LAST_ADMIN`, `ACCOUNT_DISABLED` or `INTERNAL`. */
+            /** @description One of `NOT_FOUND`, `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`, `LAST_ADMIN`, `ACCOUNT_DISABLED`, `STALE_WRITE` or `INTERNAL`. */
             code: components["schemas"]["ErrorCode"];
         };
         UserContentTransfer: {
@@ -13659,7 +13664,7 @@ export interface operations {
             /**
              * @description `LAST_ADMIN` — the account is the only active Admin.
              *     `USER_OWNS_CONTENT` — the account owns classes or content and the new role opens no teacher workspace; `details` holds `classes`, `tests`, `questions`, `media` and `assignments`, each a count.
-             *     `STALE_WRITE` — a role changed three times while the change was being made; nothing was written, so the same request may be sent again.
+             *     `STALE_WRITE` — a role changed, or another write to the account held what this one needed, three times while the change was being made; nothing was written, so the same request may be sent again.
              */
             409: {
                 headers: {
@@ -13944,7 +13949,7 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
-            /** @description `ACCOUNT_DISABLED` — the account is disabled; enable it first. */
+            /** @description `ACCOUNT_DISABLED` — the account is disabled; enable it first. `STALE_WRITE` — the account's role, or another write to the account, changed while it was being written. Nothing was written; try again. */
             409: {
                 headers: {
                     [name: string]: unknown;

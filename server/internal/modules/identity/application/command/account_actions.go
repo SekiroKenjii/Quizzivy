@@ -58,6 +58,8 @@ var refusedForAccount = []error{
 	domain.ErrCannotActOnSelf,
 	domain.ErrLastAdmin,
 	domain.ErrAccountDisabled,
+	domain.ErrRoleChanged,
+	domain.ErrWriteContended,
 	domain.ErrActionFailed,
 }
 

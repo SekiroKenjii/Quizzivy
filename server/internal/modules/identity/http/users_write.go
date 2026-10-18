@@ -75,6 +75,8 @@ func failureCode(reason error) openapi.ErrorCode {
 		return openapi.LASTADMIN
 	case errors.Is(reason, domain.ErrAccountDisabled):
 		return openapi.ACCOUNTDISABLED
+	case isStale(reason):
+		return openapi.STALEWRITE
 	default:
 		return openapi.INTERNAL
 	}
