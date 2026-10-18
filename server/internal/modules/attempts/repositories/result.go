@@ -176,7 +176,7 @@ func resultQuestion(q domain.Question, extras map[string]resultExtra, plays map[
 		if !withheld {
 			rq.GraderComment = ans.comment
 		}
-		rq.PendingManual = ans.requiresManual && ans.manual == nil
+		rq.PendingManual = ans.requiresManual && ans.manual == nil && !domain.AnswerRemoved(ans.payload)
 	}
 	if rq.PendingManual || !showScore {
 		return rq, nil

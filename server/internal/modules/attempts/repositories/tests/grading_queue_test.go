@@ -229,3 +229,24 @@ func TestGradingQueueFullCountsBeforeCap(t *testing.T) {
 	f.assertAll("student")
 	f.assertAll("question")
 }
+
+func TestAnAnswerRemovedUnderTheRetentionPolicyLeavesTheGradingQueue(t *testing.T) {
+	f := newQueueFixture(t)
+	p := f.paper(f.teacher, "Retention", "short_answer", "short_answer")
+	attempt := f.attempt(p, f.students[0], "submitted", queueTime(1), 1)
+	for _, q := range p.questions {
+		f.answer(attempt, q, true, nil)
+	}
+	f.exec(`UPDATE app.attempt_answers SET payload = '{"removed": true}'::jsonb WHERE attempt_id = $1 AND question_id = $2`, attempt, p.questions[0])
+	queue := f.read(domain.GradingQueueQuery{Scope: f.own()})
+	if queue.AnswersRemaining != 1 || queue.StudentsWaiting != 1 {
+		t.Fatalf("counts %+v, want the one answer still there", queue)
+	}
+	if got := queueItemIDs(queue); !reflect.DeepEqual(got, []string{attempt + ":" + p.questions[1]}) {
+		t.Fatalf("items %v, want only the answer that was not removed", got)
+	}
+	f.exec(`UPDATE app.attempt_answers SET payload = '{"removed": true}'::jsonb WHERE attempt_id = $1`, attempt)
+	if queue := f.read(domain.GradingQueueQuery{Scope: f.own()}); queue.AnswersRemaining != 0 || queue.StudentsWaiting != 0 || len(queue.Items) != 0 {
+		t.Fatalf("a paper whose answers are all removed is still waiting: %+v", queue)
+	}
+}

@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/retention"
 )
 
 const (
@@ -16,25 +17,12 @@ const (
 	userPlaceholder    = "Người dùng đã ẩn danh"
 )
 
-const anonymousEmail = `'anonymous-' || u.id::text || '@anonymous.invalid'`
-
-const notAnonymous = `u.email <> ` + anonymousEmail
-
-const ownsContent = `(EXISTS (SELECT 1 FROM app.classes c WHERE c.teacher_id = u.id)
-  OR EXISTS (SELECT 1 FROM app.tests t WHERE t.owner_id = u.id)
-  OR EXISTS (SELECT 1 FROM app.questions q WHERE q.owner_id = u.id)
-  OR EXISTS (SELECT 1 FROM app.question_groups g WHERE g.owner_id = u.id)
-  OR EXISTS (SELECT 1 FROM app.media_assets m WHERE m.owner_id = u.id)
-  OR EXISTS (SELECT 1 FROM app.assignments s WHERE s.created_by = u.id))`
-
-const hasAttemptInProgress = `EXISTS (SELECT 1 FROM app.attempts p WHERE p.student_id = u.id AND p.status = 'in_progress')`
-
 const anonymiseUsers = `
 	WITH targets AS (
 	  SELECT u.id, u.full_name, u.display_name,
 	         EXISTS (SELECT 1 FROM app.student_like_roles s WHERE s.id = u.role_id) AS student
 	    FROM app.users u
-	   WHERE u.id = ANY($1::uuid[]) AND ` + notAnonymous + `
+	   WHERE u.id = ANY($1::uuid[]) AND ` + retention.NotAnonymous + `
 	), names AS MATERIALIZED (
 	  SELECT DISTINCT n AS name
 	    FROM targets t CROSS JOIN LATERAL unnest(ARRAY[t.full_name, t.display_name]) AS n
@@ -56,7 +44,7 @@ const anonymiseUsers = `
 	   WHERE user_id IN (SELECT id FROM targets) AND used_at IS NULL AND revoked_at IS NULL
 	), changed AS (
 	  UPDATE app.users u
-	     SET email = ` + anonymousEmail + `,
+	     SET email = ` + retention.AnonymousEmail + `,
 	         full_name = CASE WHEN t.student THEN $2::text ELSE $3::text END,
 	         display_name = NULL, phone = NULL, avatar_key = NULL,
 	         password_hash = NULL, must_change_password = false,
@@ -103,7 +91,7 @@ func AnonymizeUser(ctx context.Context, conn db.Conn, userID string, apply bool)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	var owns, busy, done bool
-	err = tx.QueryRow(ctx, `SELECT `+ownsContent+`, `+hasAttemptInProgress+`, u.email = `+anonymousEmail+`
+	err = tx.QueryRow(ctx, `SELECT `+retention.OwnsContent+`, `+retention.HasAttemptInProgress+`, u.email = `+retention.AnonymousEmail+`
 		 FROM app.users u WHERE u.id = $1 FOR UPDATE OF u`, userID).Scan(&owns, &busy, &done)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return out, errors.New("no account has that ID")

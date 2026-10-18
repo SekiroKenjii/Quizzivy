@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/answered"
 	"time"
 )
 
@@ -21,6 +22,6 @@ func (p *Postgres) AnswersToGrade(ctx context.Context, scope access.Scope) (int,
 	err := p.QueryRow(ctx, `SELECT count(*) FROM app.attempts at
  JOIN app.attempt_answers ans ON ans.attempt_id=at.id
  WHERE `+ownPapers()+` AND at.status IN ('submitted','timed_out')
- AND ans.requires_manual AND ans.manual_score IS NULL`, homeArgs(scope)...).Scan(&count)
+ AND `+answered.AwaitsGrade("ans")+``, homeArgs(scope)...).Scan(&count)
 	return count, err
 }

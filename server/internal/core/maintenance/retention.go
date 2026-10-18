@@ -181,10 +181,7 @@ func (s *sweeper) answers(ctx context.Context, months *int, step *AnswersStep) e
 	}
 	if !s.opts.Apply {
 		return s.readOnly(ctx, func(tx pgx.Tx) error {
-			return tx.QueryRow(ctx, `SELECT count(DISTINCT x.attempt_id), count(*)
-				 FROM app.attempt_answers x
-				 JOIN app.attempts at ON at.id = x.attempt_id `+retention.AttemptJoins+`
-				WHERE `+eligibleAttempts+` AND x.payload <> `+removedAnswer, cutoff).Scan(&step.Attempts, &step.Answers)
+			return tx.QueryRow(ctx, retention.CountAnswers, cutoff).Scan(&step.Attempts, &step.Answers)
 		})
 	}
 	after := nilUUID
@@ -248,7 +245,7 @@ func (s *sweeper) events(ctx context.Context, months int, step *EventsStep) erro
 	step.Cutoff = cutoff
 	if !s.opts.Apply {
 		return s.readOnly(ctx, func(tx pgx.Tx) error {
-			return tx.QueryRow(ctx, `SELECT count(e.id) `+eventsDue, cutoff).Scan(&step.Events)
+			return tx.QueryRow(ctx, retention.CountEvents, cutoff).Scan(&step.Events)
 		})
 	}
 	after := fromTheStart
@@ -270,15 +267,10 @@ func (s *sweeper) events(ctx context.Context, months int, step *EventsStep) erro
 	}
 }
 
-const dueAccounts = `
-	SELECT u.id, ` + ownsContent + ` AS owner, ` + hasAttemptInProgress + ` AS busy
-	  FROM app.users u
-	 WHERE u.disabled_at < $1 AND ` + notAnonymous
-
 const pickAccounts = `
 	SELECT u.id::text FROM app.users u
-	 WHERE u.id > $3::uuid AND u.disabled_at < $1 AND ` + notAnonymous + `
-	   AND NOT ` + ownsContent + ` AND NOT ` + hasAttemptInProgress + `
+	 WHERE u.id > $3::uuid AND u.disabled_at < $1 AND ` + retention.NotAnonymous + `
+	   AND NOT ` + retention.OwnsContent + ` AND NOT ` + retention.HasAttemptInProgress + `
 	 ORDER BY u.id LIMIT $2
 	   FOR UPDATE OF u SKIP LOCKED`
 
@@ -292,10 +284,7 @@ func (s *sweeper) accounts(ctx context.Context, months *int, step *AccountsStep)
 	}
 	step.Enabled, step.Cutoff = true, &cutoff
 	count := func(ctx context.Context, q db.Querier, counted *AccountsStep) error {
-		return q.QueryRow(ctx, `WITH due AS MATERIALIZED (`+dueAccounts+`)
-			SELECT count(*) FILTER (WHERE NOT owner AND NOT busy), count(*) FILTER (WHERE owner),
-			       count(*) FILTER (WHERE NOT owner AND busy)
-			  FROM due`, cutoff).Scan(&counted.Anonymise, &counted.SkippedOwners, &counted.SkippedInProgress)
+		return q.QueryRow(ctx, retention.CountAccounts, cutoff).Scan(&counted.Anonymise, &counted.SkippedOwners, &counted.SkippedInProgress)
 	}
 	if !s.opts.Apply {
 		return s.readOnly(ctx, func(tx pgx.Tx) error { return count(ctx, tx, step) })

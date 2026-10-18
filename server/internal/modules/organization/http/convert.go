@@ -77,7 +77,10 @@ func settingsOf(in openapi.OrganizationSettingsInput) domain.Settings {
 		FrontDeskPhone: text(p.FrontDeskPhone), FrontDeskHours: text(p.FrontDeskHours), Address: text(p.Address),
 		LightLogo: logoOf(p.Logo.Light), DarkLogo: logoOf(p.Logo.Dark),
 	}
-	r := in.Retention
+	return domain.Settings{Profile: profile, SignIn: signInOf(in.SignIn), Retention: retentionOf(in.Retention)}
+}
+
+func retentionOf(r openapi.RetentionPolicy) domain.Retention {
 	retention := domain.Retention{KeepFocusEventsMonths: int(r.KeepFocusEventsMonths)}
 	if r.KeepAnswersMonths != nil {
 		retention.KeepAnswersMonths = months(new(int(*r.KeepAnswersMonths)))
@@ -85,7 +88,7 @@ func settingsOf(in openapi.OrganizationSettingsInput) domain.Settings {
 	if r.AnonymiseDisabledAfterMonths != nil {
 		retention.AnonymiseDisabledAfterMonths = months(new(int(*r.AnonymiseDisabledAfterMonths)))
 	}
-	return domain.Settings{Profile: profile, SignIn: signInOf(in.SignIn), Retention: retention}
+	return retention
 }
 
 func signInOf(s openapi.SignInPolicy) domain.SignIn {

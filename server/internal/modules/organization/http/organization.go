@@ -95,6 +95,32 @@ func (h Organization) GetSignInImpact(ctx context.Context, request openapi.GetSi
 	}), nil
 }
 
+// GetRetentionImpact implements POST /admin/settings/retention-impact.
+func (h Organization) GetRetentionImpact(ctx context.Context, request openapi.GetRetentionImpactRequestObject) (openapi.GetRetentionImpactResponseObject, error) {
+	if h.app == nil || request.Body == nil {
+		return nil, httpx.ErrNotImplemented
+	}
+	impact, err := h.app.Queries.RetentionImpact.Handle(ctx, query.RetentionImpact{Policy: retentionOf(request.Body.Retention)})
+	if err != nil {
+		return nil, err
+	}
+	var out openapi.RetentionImpact
+	out.FocusEvents = impact.FocusEvents
+	if a := impact.Answers; a != nil {
+		out.Answers = &struct {
+			Answers  int64 `json:"answers"`
+			Attempts int64 `json:"attempts"`
+		}{Answers: a.Answers, Attempts: a.Attempts}
+	}
+	if a := impact.Accounts; a != nil {
+		out.Accounts = &struct {
+			Anonymise     int64 `json:"anonymise"`
+			SkippedOwners int64 `json:"skippedOwners"`
+		}{Anonymise: a.Anonymise, SkippedOwners: a.SkippedOwners}
+	}
+	return openapi.GetRetentionImpact200JSONResponse(out), nil
+}
+
 // UploadOrganizationLogo implements POST /admin/settings/logo.
 func (h Organization) UploadOrganizationLogo(ctx context.Context, request openapi.UploadOrganizationLogoRequestObject) (openapi.UploadOrganizationLogoResponseObject, error) {
 	if h.app == nil {

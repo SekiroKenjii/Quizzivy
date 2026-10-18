@@ -15,13 +15,19 @@ import { PageHead } from "@/layouts/shell/PageHead";
 import { ApiError } from "@/lib/api/errors";
 import { nfc } from "@/lib/nfc";
 import { cn } from "@/lib/utils";
-import { gradeAttempt, listAnswersForQuestion, type QuestionAnswerRow } from "../api";
+import {
+  answerRemovedRefusal,
+  gradeAttempt,
+  listAnswersForQuestion,
+  type QuestionAnswerRow,
+} from "../api";
 import { answersKey, monitorKey, reviewKey } from "../keys";
 
 /**
  * G-04: one question across every paper, rubric pinned on the left, names
  * hidden until the question is graded. Same grading write as G-03, one paper
- * per call; what changes is the order the teacher walks in.
+ * per call; what changes is the order the teacher walks in. An answer the
+ * retention policy removed shows the notice that says so and no points box.
  */
 export function GradeByQuestion({
   assignmentId,
@@ -61,8 +67,13 @@ export function GradeByQuestion({
       await queryClient.invalidateQueries({ queryKey: ["teacher-dashboard"] });
       await queryClient.invalidateQueries({ queryKey: ["teacher-attempts"] });
     },
-    onError: (cause) =>
-      setFailure(cause instanceof ApiError ? cause.message : t("review.saveFailed")),
+    onError: (cause) => {
+      setFailure(cause instanceof ApiError ? cause.message : t("review.saveFailed"));
+      if (answerRemovedRefusal(cause))
+        void queryClient.invalidateQueries({
+          queryKey: answersKey(assignmentId, questionId),
+        });
+    },
   });
 
   const data = answers.data;
@@ -70,7 +81,9 @@ export function GradeByQuestion({
   const at = manual.indexOf(questionId);
   const nextId = at >= 0 ? manual[at + 1] : undefined;
   const items = data?.items ?? [];
-  const gradable = items.filter((row) => row.answer !== null);
+  const gradable = items.filter(
+    (row) => row.answer !== null && row.answerRemoved !== true,
+  );
   const done = gradable.filter((row) => row.manualScore != null).length;
   // The board's fairness rule: names come back once nothing is left to judge.
   const revealed = showNames || (gradable.length > 0 && done === gradable.length);
@@ -303,7 +316,8 @@ function AnswerRow({
   const value = Number(points);
   const valid =
     points.trim() !== "" && Number.isFinite(value) && value >= 0 && value <= max;
-  const blank = row.answer === null;
+  const removed = row.answerRemoved === true;
+  const blank = removed || row.answer === null;
   const text = row.answer?.type === "text" ? row.answer.value : null;
   const step = (delta: number) => {
     const next = Math.min(
@@ -329,9 +343,25 @@ function AnswerRow({
             </Badge>
           )}
         </div>
-        {blank ? (
+        {removed && (
+          <div className="flex items-baseline gap-3">
+            <p
+              data-slot="answer-removed"
+              className="text-muted-foreground min-w-0 flex-1 text-sm italic"
+            >
+              {t("review.answerRemoved")}
+            </p>
+            {row.manualScore != null && (
+              <span className="text-sm tabular-nums">
+                {row.manualScore}/{max}
+              </span>
+            )}
+          </div>
+        )}
+        {blank && !removed && (
           <p className="text-muted-foreground text-sm">{t("byQuestion.blank")}</p>
-        ) : (
+        )}
+        {!blank && (
           <p className="text-sm leading-relaxed whitespace-pre-wrap">
             {nfc(text ?? "")}
           </p>

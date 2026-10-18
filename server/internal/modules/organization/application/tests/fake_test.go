@@ -68,6 +68,10 @@ func (f *fakeRepo) Impact(_ context.Context, _ domain.SignIn, _ string, googleCo
 	return f.impact, nil
 }
 
+func (f *fakeRepo) RetentionImpact(context.Context, domain.Retention) (domain.RetentionImpact, error) {
+	return domain.RetentionImpact{}, nil
+}
+
 func (f *fakeRepo) readCount() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
