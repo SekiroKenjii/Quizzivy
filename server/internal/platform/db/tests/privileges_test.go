@@ -200,3 +200,165 @@ func TestTheAppRoleWritesRolesAndGrantsAndNothingElseOfTheAccessModel(t *testing
 		}
 	}
 }
+
+const maintenanceRole = "quizzivy_maintenance"
+
+var maintenanceGrants = map[string]map[string]string{
+	"ai_credit_periods":            {"SELECT": "*", "INSERT": "*", "UPDATE": "*"},
+	"ai_credit_requests":           {"SELECT": "*", "UPDATE": "*"},
+	"ai_reservations":              {"SELECT": "*", "DELETE": "*"},
+	"ai_settings":                  {"SELECT": "*", "UPDATE": "*"},
+	"ai_teacher_credits":           {"SELECT": "*", "INSERT": "*", "UPDATE": "*"},
+	"assignment_student_overrides": {"SELECT": "assignment_id,closes_at,student_id", "UPDATE": "closes_at"},
+	"assignments":                  {"SELECT": "closed_at,closes_at,created_by,id,published_at", "UPDATE": "closes_at"},
+	"attempt_answers":              {"SELECT": "attempt_id,payload,question_id", "UPDATE": "payload"},
+	"attempt_events":               {"SELECT": "attempt_id,id,received_at", "DELETE": "*"},
+	"attempts":                     {"SELECT": "assignment_id,deadline_at,id,status,student_id,submitted_at", "UPDATE": "deadline_at"},
+	"audit_log":                    {"INSERT": "*"},
+	"class_join_codes":             {"SELECT": "class_id,code_ciphertext,id,key_id,lookup_scheme,revoked_at", "UPDATE": "code_ciphertext,code_hash,key_id"},
+	"classes":                      {"SELECT": "teacher_id"},
+	"maintenance_windows":          {"SELECT": "*", "INSERT": "ends_at,starts_at", "UPDATE": "cancelled_at,ends_at"},
+	"media_assets":                 {"SELECT": "owner_id"},
+	"notification_preferences":     {"SELECT": "event,in_app,user_id"},
+	"notifications": {
+		"SELECT": "dedupe_key,id,kind,params,target,user_id",
+		"INSERT": "dedupe_key,kind,params,target,user_id",
+		"UPDATE": "kind,params,read_at,target",
+		"DELETE": "*",
+	},
+	"organization_settings": {"SELECT": "anonymise_disabled_after_months,keep_answers_months,keep_focus_events_months"},
+	"question_groups":       {"SELECT": "owner_id"},
+	"questions":             {"SELECT": "owner_id"},
+	"refresh_tokens":        {"SELECT": "user_id", "DELETE": "*"},
+	"role_permissions":      {"SELECT": "*"},
+	"roles":                 {"SELECT": "*"},
+	"set_password_tokens":   {"SELECT": "revoked_at,used_at,user_id", "UPDATE": "revoked_at"},
+	"student_like_roles":    {"SELECT": "*"},
+	"tests":                 {"SELECT": "owner_id"},
+	"user_identities":       {"SELECT": "user_id", "DELETE": "*"},
+	"users": {
+		"SELECT": "disabled_at,display_name,email,full_name,id,role_id",
+		"UPDATE": "avatar_key,disabled_at,display_name,email,full_name,must_change_password,password_hash,phone",
+	},
+}
+
+const maintenanceGrantsQuery = `
+	WITH cols AS (
+	  SELECT c.oid, c.relname, a.attnum, a.attname, count(*) OVER (PARTITION BY c.oid) AS total
+	    FROM pg_class c
+	    JOIN pg_namespace n ON n.oid = c.relnamespace
+	    JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+	   WHERE n.nspname = 'app' AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+	), held AS (
+	  SELECT cols.relname, p.priv, cols.attname, cols.total
+	    FROM cols
+	   CROSS JOIN unnest(ARRAY['SELECT', 'INSERT', 'UPDATE', 'REFERENCES']) AS p(priv)
+	   WHERE has_column_privilege($1, cols.oid, cols.attnum, p.priv)
+	)
+	SELECT relname, priv, CASE WHEN count(*) = max(total) THEN '*' ELSE string_agg(attname, ',' ORDER BY attname) END
+	  FROM held GROUP BY relname, priv
+	UNION ALL
+	SELECT c.relname, p.priv, '*'
+	  FROM pg_class c
+	  JOIN pg_namespace n ON n.oid = c.relnamespace
+	 CROSS JOIN unnest(ARRAY['DELETE', 'TRUNCATE', 'TRIGGER']) AS p(priv)
+	 WHERE n.nspname = 'app' AND c.relkind IN ('r', 'p') AND has_table_privilege($1, c.oid, p.priv)`
+
+func TestTheMaintenanceRoleHoldsExactlyTheGrantsItsCommandsUse(t *testing.T) {
+	conn := migrated(t)
+	rows, err := conn.Query(maintenanceGrantsQuery, maintenanceRole)
+	if err != nil {
+		t.Fatalf("reading %s's grants: %v", maintenanceRole, err)
+	}
+	defer func() { _ = rows.Close() }()
+	got := map[string]string{}
+	for rows.Next() {
+		var table, priv, columns string
+		if err := rows.Scan(&table, &priv, &columns); err != nil {
+			t.Fatal(err)
+		}
+		got[table+" "+priv] = columns
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{}
+	for table, privileges := range maintenanceGrants {
+		for priv, columns := range privileges {
+			want[table+" "+priv] = columns
+		}
+	}
+	for key, columns := range want {
+		if got[key] != columns {
+			t.Errorf("%s on %s = %q, want %q", maintenanceRole, key, got[key], columns)
+		}
+	}
+	for key, columns := range got {
+		if _, ok := want[key]; !ok {
+			t.Errorf("%s holds %s (%s) that no command uses; a grant is added to this list in the migration that needs it", maintenanceRole, key, columns)
+		}
+	}
+}
+
+func TestTheMaintenanceRoleCannotRewriteARecordOrCreateAnything(t *testing.T) {
+	conn := migrated(t)
+
+	for _, table := range []string{"app.audit_log", "app.attempt_events", "app.attempt_group_audio_receipts", "app.ai_usage_ledger"} {
+		for _, priv := range []string{"UPDATE", "TRUNCATE"} {
+			if hasTablePrivilege(t, conn, maintenanceRole, table, priv) {
+				t.Errorf("%s can %s %s; a record the application can rewrite is not evidence", maintenanceRole, priv, table)
+			}
+		}
+	}
+	if hasTablePrivilege(t, conn, maintenanceRole, "app.audit_log", "DELETE") {
+		t.Errorf("%s can DELETE app.audit_log; the audit log is kept for ever", maintenanceRole)
+	}
+	var ledger bool
+	if err := conn.QueryRow(`SELECT has_any_column_privilege($1, 'app.ai_usage_ledger', 'SELECT, INSERT, UPDATE, REFERENCES')
+		OR has_table_privilege($1, 'app.ai_usage_ledger', 'DELETE')`, maintenanceRole).Scan(&ledger); err != nil {
+		t.Fatal(err)
+	}
+	if ledger {
+		t.Errorf("%s holds a privilege on app.ai_usage_ledger; the ledger is the provider's invoice and nothing here needs it", maintenanceRole)
+	}
+
+	for _, c := range []struct {
+		query string
+		want  bool
+		what  string
+	}{
+		{`SELECT has_schema_privilege($1, 'app', 'USAGE')`, true, "USAGE on schema app"},
+		{`SELECT has_schema_privilege($1, 'app', 'CREATE')`, false, "CREATE on schema app"},
+		{`SELECT has_schema_privilege($1, 'public', 'USAGE')`, true, "USAGE on schema public, which app.immutable_unaccent reaches"},
+		{`SELECT has_schema_privilege($1, 'public', 'CREATE')`, false, "CREATE on schema public"},
+		{`SELECT has_database_privilege($1, current_database(), 'CONNECT')`, true, "CONNECT on the database"},
+		{`SELECT has_database_privilege($1, current_database(), 'CREATE')`, false, "CREATE on the database"},
+		{`SELECT has_database_privilege($1, current_database(), 'TEMPORARY')`, false, "TEMPORARY on the database"},
+		{`SELECT NOT coalesce(bool_or(CASE WHEN c.relkind = 'S' THEN has_sequence_privilege($1, c.oid, 'USAGE, SELECT, UPDATE') END), false)
+		    FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname IN ('app', 'public')`, true, "no privilege on any sequence"},
+		{`SELECT count(*) = 0 FROM pg_shdepend d JOIN pg_roles r ON r.oid = d.refobjid
+		   WHERE r.rolname = $1 AND d.deptype = 'o'`, true, "owning no object"},
+		{`SELECT count(*) = 0 FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member WHERE r.rolname = $1`, true, "membership of no role"},
+		{`SELECT EXISTS (SELECT 1 FROM pg_trigger t
+		     WHERE t.tgrelid = 'app.users'::regclass AND t.tgname = 'users_maintenance_guard' AND t.tgenabled = 'O'
+		       AND pg_get_triggerdef(t.oid) LIKE 'CREATE TRIGGER users_maintenance_guard BEFORE UPDATE ON app.users FOR EACH ROW WHEN%'
+		       AND pg_get_triggerdef(t.oid) LIKE '%' || $1 || '%')`, true, "a BEFORE UPDATE guard on app.users that fires for the role alone"},
+		{`SELECT NOT has_function_privilege('public', 'app.users_maintenance_guard()', 'EXECUTE') AND NOT has_function_privilege($1, 'app.users_maintenance_guard()', 'EXECUTE')`, true, "no EXECUTE on the users guard, which fires without it"},
+		{`SELECT coalesce(NOT p.prosecdef AND p.proconfig = ARRAY['search_path=pg_catalog, pg_temp']
+		       AND p.proowner <> (SELECT oid FROM pg_roles WHERE rolname = $1), false)
+		    FROM pg_proc p WHERE p.oid = 'app.users_maintenance_guard()'::regprocedure`, true, "a SECURITY INVOKER users guard, not owned by the role, with search_path pinned to pg_catalog, pg_temp"},
+		{`SELECT NOT has_parameter_privilege($1, 'session_replication_role', 'SET')
+		     AND NOT EXISTS (SELECT 1 FROM pg_parameter_acl a
+		                      WHERE has_parameter_privilege($1, a.parname, 'SET') OR has_parameter_privilege($1, a.parname, 'ALTER SYSTEM'))`, true, "no right to set a parameter, session_replication_role above all, which would skip the users guard"},
+		{`SELECT rolcanlogin AND rolconnlimit = 2 AND NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)
+		    FROM pg_roles WHERE rolname = $1`, true, "a login role limited to two connections with no attribute"},
+	} {
+		var got bool
+		if err := conn.QueryRow(c.query, maintenanceRole).Scan(&got); err != nil {
+			t.Fatalf("%s: %v", c.what, err)
+		}
+		if got != c.want {
+			t.Errorf("%s: %s = %v, want %v", maintenanceRole, c.what, got, c.want)
+		}
+	}
+}
