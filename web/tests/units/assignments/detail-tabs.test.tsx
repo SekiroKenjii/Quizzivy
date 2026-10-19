@@ -225,7 +225,6 @@ describe("the Questions tab", () => {
       expect.any(String),
     ]);
     expect(screen.getByText("C27")).toBeInTheDocument();
-    expect(await screen.findByRole("link", { name: "Xem đề" })).toBeInTheDocument();
   });
 
   it("draws a fill-blank excerpt's markers as gaps, a cut one included (QA-26-4)", async () => {

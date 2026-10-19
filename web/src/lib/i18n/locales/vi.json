@@ -1992,9 +1992,6 @@
       "test": "Đề thi",
       "versionMeta": "{{questions}} câu · {{points}} điểm · {{audio}} câu nghe · {{manual}} câu chấm tay · bản v{{version}}",
       "versionOnly": "bản v{{version}}",
-      "viewTest": "Xem đề",
-      "pinned": "Bài giao gắn với bản v{{version}}. Đề có sửa sau này, học viên vẫn làm đúng bản này.",
-      "pinnedClosed": "Học viên đã làm trên bản v{{version}}, kể cả khi đề hiện có bản mới hơn.",
       "targets": "Giao cho",
       "targetCount": "{{count}} học viên",
       "classes": "Lớp",
@@ -4244,7 +4241,6 @@
     "studentsNoun_one": "học viên",
     "studentsNoun_other": "học viên",
     "draftHint": "Học viên chưa thấy bài này. Giao bài để học viên có thể bắt đầu trong thời gian đã chọn.",
-    "questionsUnavailable": "Không thể tải nội dung phiên bản đề đã giao.",
     "noQuestions": "Phiên bản này chưa có câu hỏi.",
     "sheet": {
       "unavailableTitle": "Bài làm",

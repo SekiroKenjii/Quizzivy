@@ -22,7 +22,7 @@ export function VariantAction({
   test,
   className,
 }: Readonly<{
-  test: Pick<Test, "id" | "title" | "currentVersion">;
+  test: Test;
   className?: string;
 }>) {
   const { t } = useTranslation();

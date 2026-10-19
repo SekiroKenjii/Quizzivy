@@ -370,52 +370,40 @@ describe("actual assignment detail permission and identity gates", () => {
 });
 
 describe("useful pinned assignment panels", () => {
-  it.each([3, 4])(
-    "requests the immutable version and never substitutes response version %i",
-    async (version) => {
-      let requestedVersion: string | null = null;
-      const prompt = "Published version question";
-      server.use(
-        http.get(`${BASE}/teacher/tests/:id/preview`, ({ request }) => {
-          requestedVersion = new URL(request.url).searchParams.get("version");
-          return contractJson("/teacher/tests/{id}/preview", "get", 200, {
-            version,
-            questions: [
-              {
-                id: "018f0000-0000-7000-8000-00000000aa01",
-                sectionId: "018f0000-0000-7000-8000-00000000aa04",
-                type: "single_choice",
-                prompt,
-                media: null,
-                audio: null,
-                options: [
-                  { id: "018f0000-0000-7000-8000-00000000bb01", text: "First" },
-                  { id: "018f0000-0000-7000-8000-00000000bb02", text: "Second" },
-                ],
-                blanks: [],
-                points: 1,
-              },
-            ],
-          });
-        }),
-      );
-      mount(`${PATH}?tab=questions`);
-      await waitFor(() => expect(requestedVersion).toBe("3"));
-      expect(screen.getByRole("link", { name: "Xem đề" })).toHaveAttribute(
-        "href",
-        `/teacher/tests/${assignment().testId}`,
-      );
-      if (version === 3) expect(await screen.findByText(prompt)).toBeInTheDocument();
-      else {
-        expect(
-          await screen.findByText("Không thể tải nội dung phiên bản đề đã giao."),
-        ).toBeInTheDocument();
-        expect(screen.queryByText(prompt)).toBeNull();
-      }
-      expect(requests.reviews).toEqual([]);
-      expect(requests.events).toEqual([]);
-    },
-  );
+  it("reads the pinned version for the insights and draws no paper under the analysis", async () => {
+    let requestedVersion: string | null = null;
+    const prompt = "Published version question";
+    server.use(
+      http.get(`${BASE}/teacher/tests/:id/preview`, ({ request }) => {
+        requestedVersion = new URL(request.url).searchParams.get("version");
+        return contractJson("/teacher/tests/{id}/preview", "get", 200, {
+          version: 3,
+          questions: [
+            {
+              id: "018f0000-0000-7000-8000-00000000aa01",
+              sectionId: "018f0000-0000-7000-8000-00000000aa04",
+              type: "single_choice",
+              prompt,
+              media: null,
+              audio: null,
+              options: [
+                { id: "018f0000-0000-7000-8000-00000000bb01", text: "First" },
+                { id: "018f0000-0000-7000-8000-00000000bb02", text: "Second" },
+              ],
+              blanks: [],
+              points: 1,
+            },
+          ],
+        });
+      }),
+    );
+    mount(`${PATH}?tab=questions`);
+    await waitFor(() => expect(requestedVersion).toBe("3"));
+    expect(screen.queryByText(prompt)).toBeNull();
+    expect(screen.queryByRole("link", { name: "Xem đề" })).toBeNull();
+    expect(requests.reviews).toEqual([]);
+    expect(requests.events).toEqual([]);
+  });
 
   it("keeps a separately denied test preview local and the roster reachable", async () => {
     server.use(
@@ -433,11 +421,7 @@ describe("useful pinned assignment panels", () => {
       ),
     );
     const { user } = mount(`${PATH}?tab=questions`);
-    expect(
-      await screen.findByText("Không thể tải nội dung phiên bản đề đã giao."),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Xem đề" })).toBeInTheDocument();
-    await user.click(screen.getByRole("tab", { name: "Học viên" }));
+    await user.click(await screen.findByRole("tab", { name: "Học viên" }));
     expect(
       await screen.findByRole("table", { name: "Học viên được giao bài" }),
     ).toBeInTheDocument();
