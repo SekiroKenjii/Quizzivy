@@ -60,7 +60,33 @@ var variantAim = map[string]string{
 	DifficultyHarder: "Make the wording a little harder.",
 }
 
-// Variant builds the request for "Make a variant". It answers domain.ErrNothingToRead for a draft with no question and domain.ErrTooLarge for one longer than MaxReadChars.
+// VariantChunkSize is the most questions one request of "Make a variant" varies, so that every request is answered well within the time the API has for the whole pass.
+const VariantChunkSize = 8
+
+const variantMaxTokens = 2500
+
+// VariantCalls builds the requests for "Make a variant" of a whole draft: one Variant request for each VariantChunkSize questions in paper order, and beside each the part of in it varies, which DecodeVariant reads its answer against. It answers domain.ErrNothingToRead for a draft with no question and domain.ErrTooLarge for one longer than MaxReadChars, whatever the size of its parts.
+func VariantCalls(in VariantInput) ([]Prompt, []VariantInput, error) {
+	if len(in.Questions) == 0 {
+		return nil, nil, domain.ErrNothingToRead
+	}
+	if _, err := paperText(in.Questions); err != nil {
+		return nil, nil, err
+	}
+	var calls []Prompt
+	var parts []VariantInput
+	for chunk := range slices.Chunk(in.Questions, VariantChunkSize) {
+		part := VariantInput{Questions: chunk, Changes: in.Changes, Difficulty: in.Difficulty}
+		prompt, err := Variant(part)
+		if err != nil {
+			return nil, nil, err
+		}
+		calls, parts = append(calls, prompt), append(parts, part)
+	}
+	return calls, parts, nil
+}
+
+// Variant builds one request for "Make a variant" of in's questions, which VariantCalls keeps to VariantChunkSize. It answers domain.ErrNothingToRead for a draft with no question and domain.ErrTooLarge for one longer than MaxReadChars.
 func Variant(in VariantInput) (Prompt, error) {
 	if len(in.Questions) == 0 {
 		return Prompt{}, domain.ErrNothingToRead
@@ -77,7 +103,7 @@ func Variant(in VariantInput) (Prompt, error) {
 		"Never make a wrong option correct. Keep every ___ gap and the language of each question. Make at most one change of each kind to a question, and skip a question you cannot vary safely.\n"+
 		"For kinds that do not use them, prompt is \"\", order is [], option is \"\" and text is \"\".",
 		body, strings.Join(what, "; "), variantAim[in.Difficulty])
-	return Prompt{Feature: domain.FeatureVariant, Tier: domain.TierCapable, System: variantSystem, User: user, Schema: json.RawMessage(variantSchema), MaxTokens: 6000}, nil
+	return Prompt{Feature: domain.FeatureVariant, Tier: domain.TierCapable, System: variantSystem, User: user, Schema: json.RawMessage(variantSchema), MaxTokens: variantMaxTokens}, nil
 }
 
 type rawChange struct {
