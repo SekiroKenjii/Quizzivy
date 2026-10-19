@@ -13,6 +13,8 @@ type Tests interface {
 	Passage(ctx context.Context, scope access.Scope, testID, stimulusID string) (domain.Passage, error)
 	// Draft reads the draft's questions in the order the builder shows them, standalone questions and the members of its groups alike, each member carrying its group's id and passage. It skips a question the scope does not reach but keeps its number.
 	Draft(ctx context.Context, scope access.Scope, testID string) (domain.Paper, error)
+	// Section reads the section named sectionID of the draft of testID: its title, its instructions and the type and prompt of each question in it, the members of its groups included. A section the test does not hold answers domain.ErrNotFound.
+	Section(ctx context.Context, scope access.Scope, testID, sectionID string) (domain.Section, error)
 }
 
 // Questions reads the bank through the questions module.

@@ -168,7 +168,7 @@ describe("AiPanelStack", () => {
     const { user } = renderWithApp(<Page />);
     show("generate");
     let dialog = await screen.findByRole("dialog");
-    await user.type(within(dialog).getByLabelText(ai.generate.source), SOURCE);
+    await user.type(within(dialog).getByLabelText(ai.generate.topic), SOURCE);
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 
@@ -182,7 +182,7 @@ describe("AiPanelStack", () => {
 
     show("generate");
     dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByLabelText(ai.generate.source)).toHaveValue(SOURCE);
+    expect(within(dialog).getByLabelText(ai.generate.topic)).toHaveValue(SOURCE);
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     show("check");
@@ -357,7 +357,7 @@ describe("AiPanelStack", () => {
       show("generate");
       const dialog = await screen.findByRole("dialog");
       if (round === 1)
-        await user.type(within(dialog).getByLabelText(ai.generate.source), SOURCE);
+        await user.type(within(dialog).getByLabelText(ai.generate.topic), SOURCE);
       await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
       await user.click(
         await within(dialog).findByRole("button", { name: "Thêm 1 câu vào Phần 1" }),

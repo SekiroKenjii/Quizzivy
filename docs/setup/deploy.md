@@ -376,6 +376,22 @@ What v0.9.0 then does with what v0.10.0 wrote:
 - `00084`'s Down leaves its constraint `NOT VALID` for the same reason. Never roll back past v0.8.0
   (the join-code key).
 
+## Rolling out v0.11.10 (hotfix)
+
+v0.11.10 lets "Generate questions" write standalone questions, about a topic or fitted to a section of the
+open test (spec 0.114, "Changes since v0.113"; change request CR-001). It changes no schema and no
+configuration; the contract gains two optional fields on `generateAiQuestions` (`standalone`, `sectionId`)
+and lowers the schema's minimum for `source` to 3 characters.
+
+- **No migration.** `release_command` runs `migrate up` and finds nothing to do.
+- **Deploy the API first.** The old API refuses the new web's standalone request (`400`, an unknown field),
+  while the old web on the new API sends what it always did and is answered as before.
+- **Live smoke** with the key before the merge to `main` (`aismoke`, `docs/setup/operations.md`): one
+  standalone run from a topic, one fitted to a section with questions in it.
+- **What to watch.** Nothing new is logged; a run that keeps no usable question logs `ai answer unusable`,
+  as before.
+- **Rolling back to v0.11.9** needs nothing; the panel loses the style control.
+
 ## Rolling out v0.11.9 (hotfix)
 
 v0.11.9 carries two hotfixes and changes no schema, no configuration and no contract (spec 0.113, "Changes

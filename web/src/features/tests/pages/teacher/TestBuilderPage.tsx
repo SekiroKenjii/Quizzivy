@@ -433,11 +433,14 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     }
   }
 
-  function appendQuestions(added: readonly string[]) {
+  function appendQuestions(added: readonly string[], sectionId?: string) {
     const first = added[0];
     if (first === undefined) return;
     const current = latestOutline.current;
-    const last = destinationIndex();
+    const named = sectionId
+      ? current.findIndex((section) => section.id === sectionId)
+      : -1;
+    const last = named < 0 ? destinationIndex() : named;
     updateOutline(
       current.map((section, i) =>
         i === last
@@ -451,7 +454,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     void selectQuestion(first);
   }
 
-  async function addGenerated(values: QuestionValues[]) {
+  async function addGenerated(values: QuestionValues[], sectionId?: string) {
     const ids: string[] = [];
     try {
       for (const value of values) {
@@ -460,7 +463,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         ids.push(created.id);
       }
     } finally {
-      appendQuestions(ids);
+      appendQuestions(ids, sectionId);
       void queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
     }
   }
@@ -1039,6 +1042,10 @@ function Builder({ test }: Readonly<{ test: Test }>) {
       });
     }),
     section: sections[destinationIndex()]?.title ?? null,
+    sectionId: sections[destinationIndex()]?.id ?? null,
+    sections: sections.flatMap((section) =>
+      section.id ? [{ id: section.id, title: section.title }] : [],
+    ),
     prepare: async () => {
       setPublishError(null);
       await flushQuestion.current?.();

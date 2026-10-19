@@ -92,6 +92,12 @@ func (h AI) GenerateAiQuestions(ctx context.Context, request openapi.GenerateAiQ
 	if body.StimulusId != nil {
 		q.StimulusID = body.StimulusId.String()
 	}
+	if body.SectionId != nil {
+		q.SectionID = body.SectionId.String()
+	}
+	if body.Standalone != nil {
+		q.Standalone = *body.Standalone
+	}
 	got, err := h.app.Queries.Generate.Handle(ctx, q)
 	if err != nil {
 		return failed[openapi.GenerateAiQuestionsResponseObject](ctx, err)
