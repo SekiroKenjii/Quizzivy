@@ -115,7 +115,7 @@ func TestTheAdminListSearchesClassesAndTeachersAndFiltersDisabledTeachers(t *tes
 		t.Errorf("disabledTeacherClasses moved by %d, want 1: A's live class and not the archived one", delta)
 	}
 	for _, item := range result.Items {
-		if item.Teacher == nil || item.Teacher.ID != w.a || !item.Teacher.Disabled || item.Teacher.Name != "Giáo viên A "+w.marker {
+		if item.Teacher.ID != w.a || !item.Teacher.Disabled || item.Teacher.Name != "Giáo viên A "+w.marker {
 			t.Errorf("the row names %+v, want A, disabled", item.Teacher)
 		}
 	}

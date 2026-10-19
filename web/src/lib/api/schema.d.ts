@@ -6719,8 +6719,7 @@ export interface components {
             name: string;
             scheduleLabel: string | null;
             room: string | null;
-            /** @description `null` for a class that names no teacher. */
-            teacher: components["schemas"]["AdminClassTeacher"] | null;
+            teacher: components["schemas"]["AdminClassTeacher"];
             /** @description Live members, as `Class.studentCount` counts them. */
             studentCount: number;
             /**

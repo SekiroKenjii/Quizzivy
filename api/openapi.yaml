@@ -3348,11 +3348,7 @@ components:
         name: { type: string, minLength: 1, maxLength: 120 }
         scheduleLabel: { type: [string, 'null'], minLength: 1, maxLength: 120 }
         room: { type: [string, 'null'], minLength: 1, maxLength: 60 }
-        teacher:
-          description: '`null` for a class that names no teacher.'
-          oneOf:
-            - $ref: '#/components/schemas/AdminClassTeacher'
-            - type: 'null'
+        teacher: { $ref: '#/components/schemas/AdminClassTeacher' }
         studentCount: { type: integer, minimum: 0, description: "Live members, as `Class.studentCount` counts them." }
         joinCode:
           description: |

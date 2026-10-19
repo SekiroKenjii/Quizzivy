@@ -115,11 +115,9 @@ func toAPIAdminClassRow(c domain.AdminClass) openapi.AdminClassRow {
 		Room:          c.Room,
 		StudentCount:  c.StudentCount,
 		CreatedAt:     c.CreatedAt,
-	}
-	if t := c.Teacher; t != nil {
-		out.Teacher = &openapi.AdminClassTeacher{
-			Id: httpapi.ParseUUID(t.ID), Name: t.Name, AvatarUrl: t.AvatarURL, Disabled: t.Disabled,
-		}
+		Teacher: openapi.AdminClassTeacher{
+			Id: httpapi.ParseUUID(c.Teacher.ID), Name: c.Teacher.Name, AvatarUrl: c.Teacher.AvatarURL, Disabled: c.Teacher.Disabled,
+		},
 	}
 	if jc := c.JoinCode; jc != nil && c.Code != "" {
 		out.JoinCode = &openapi.AdminClassJoinCode{

@@ -78,8 +78,8 @@ func (s ListAllHandler) signAvatars(ctx context.Context, items []domain.AdminCla
 	}
 	signed := map[string]*string{}
 	for i := range items {
-		teacher := items[i].Teacher
-		if teacher == nil || teacher.AvatarKey == nil {
+		teacher := &items[i].Teacher
+		if teacher.AvatarKey == nil {
 			continue
 		}
 		url, seen := signed[*teacher.AvatarKey]

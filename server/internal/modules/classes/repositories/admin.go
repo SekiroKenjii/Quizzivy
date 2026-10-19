@@ -24,7 +24,7 @@ const (
 const teacherName = `coalesce(t.display_name, t.full_name)`
 
 const teacherSource = `
-	  LEFT JOIN app.users t ON t.id = c.teacher_id`
+	  JOIN app.users t ON t.id = c.teacher_id`
 
 func folded(n int) string {
 	return fmt.Sprintf(`EXISTS (SELECT FROM unnest(ARRAY[c.name, t.full_name, t.display_name]) AS f(v)
@@ -72,18 +72,12 @@ func (s *Postgres) ListAll(ctx context.Context, in domain.AdminListInput) ([]dom
 
 	out := make([]domain.AdminClass, 0, limit)
 	for rows.Next() {
-		var id, name *string
-		var avatar *string
-		var disabled *bool
-		c, err := scanClass(rows, &id, &name, &avatar, &disabled)
+		var t domain.ClassTeacher
+		c, err := scanClass(rows, &t.ID, &t.Name, &t.AvatarKey, &t.Disabled)
 		if err != nil {
 			return nil, paging.Page{}, fmt.Errorf("list every class: %w", err)
 		}
-		row := domain.AdminClass{Class: c}
-		if id != nil && name != nil && disabled != nil {
-			row.Teacher = &domain.ClassTeacher{ID: *id, Name: *name, AvatarKey: avatar, Disabled: *disabled}
-		}
-		out = append(out, row)
+		out = append(out, domain.AdminClass{Class: c, Teacher: t})
 	}
 	return out, page, rows.Err()
 }

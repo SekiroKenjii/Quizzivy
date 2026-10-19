@@ -32,12 +32,11 @@ type ClassTeacher struct {
 	Disabled  bool
 }
 
-// AdminClass is a row of the Admin console's class list. Teacher is nil for a
-// class that names none, and Code is the active code read in full, empty when
-// there is none or it cannot be read.
+// AdminClass is a row of the Admin console's class list. Code is the active
+// code read in full, empty when there is none or it cannot be read.
 type AdminClass struct {
 	Class
-	Teacher *ClassTeacher
+	Teacher ClassTeacher
 	Code    string
 }
 
