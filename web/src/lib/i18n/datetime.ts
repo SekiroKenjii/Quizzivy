@@ -187,6 +187,17 @@ export function dayMonthYear(
   });
 }
 
+/** monthYear is a month and its year: "Th6 2026" in Vietnamese, "Jun 2026" in English. */
+export function monthYear(
+  utc: string | Date,
+  locale: AppLocale = "vi",
+  zone = getDisplayTimeZone(),
+) {
+  return locale === "vi"
+    ? `Th${formatInTimeZone(utc, zone, "M yyyy")}`
+    : formatInTimeZone(utc, zone, "MMM yyyy", { locale: dateFnsLocale.en });
+}
+
 /**
  * dayDate is a short weekday and date: "Thứ 6, 19/09" in Vietnamese, "Fri 19
  * Sep" in English.

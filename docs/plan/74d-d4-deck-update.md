@@ -2440,7 +2440,7 @@ and `max-w-full`, sized by the classes a host passes (`previewFrame.ts`: `PANEL_
 still scrolls by keyboard. The frame measures itself with a ResizeObserver and provides
 `EngineWidthContext` (T-D4.3's seam): without it the 390px frame on a wide window drew the
 options four to a row, one word wide; T-D4.16's engine reads the same value. The R4 pane with
-its own "Desktop | Phone" toggle, which the question group's preview dialog and Assignment detail
+its own "Desktop | Phone" toggle, which the question group's preview dialog and (until v0.11.9) Assignment detail
 still use, is kept unchanged as `InlineStudentPreview`; neither host is in this task.
 `DraftPreviewDialog` is the overlay on Radix's Dialog: `--overlay` behind, a content box
 `fixed inset-0`, padding 14px, gap 12px, `aria-label` "Xem như học viên" (`builder.previewAsStudent`,
@@ -2566,7 +2566,7 @@ their loading, error and empty states in `PreviewFrameMessage`. The engine is lo
 `PaperPreview` (`tests/components/`), a `lazy` of `@/features/take-test`, into a chunk the three
 hosts share with `TakeTestPage`; `router-chunks.test.ts` passes untouched. Test detail keys the
 preview by version, so another version starts at its first question. `StudentPreview.tsx` stays:
-`InlineStudentPreview` (the group preview dialog and Assignment detail, outside this task)
+`InlineStudentPreview` (the group preview dialog, and Assignment detail until v0.11.9, outside this task)
 imports it, and `group-preview.test.tsx` covers it unchanged. Tests moved: `preview-and-leave`
 (the bar holds only the segment and Close; the frame is the engine's, with its Finish),
 `detail-versions` (version 2 is read from its second square, as one question shows at a time),

@@ -46,7 +46,13 @@ import { TimingRules, WindowFields, type SchedulePatch } from "./wizard/Schedule
 
 type Status = ReturnType<typeof statusAt>;
 type Pill = { on: boolean; text: string };
-type Row = { label: string; value: ReactNode; sub?: string | null; pill?: Pill };
+type Row = {
+  label: string;
+  value: ReactNode;
+  sub?: string | null;
+  note?: string;
+  pill?: Pill;
+};
 
 const GROUPS: readonly { group: SettingsGroup; icon: LucideIcon }[] = [
   { group: "timing", icon: FileText },
@@ -73,7 +79,7 @@ export function SettingsGroups({
   const { t } = useTranslation();
   const write = useCan("teaching.assignments.write");
   const [editing, setEditing] = useState<SettingsGroup | null>(null);
-  const rows = useRows(a, version);
+  const rows = useRows(a, version, status === "closed");
   return (
     <>
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,23.75rem),1fr))] items-start gap-3">
@@ -179,6 +185,9 @@ function SettingsCard({
                 {row.value}
               </span>
               {row.sub && <span className="text-muted-fg text-meta">{row.sub}</span>}
+              {row.note && (
+                <span className="text-muted-fg text-meta text-pretty">{row.note}</span>
+              )}
             </dd>
           </div>
         ))}
@@ -230,6 +239,7 @@ function SettingPill({ pill }: Readonly<{ pill: Pill }>) {
 function useRows(
   a: Assignment,
   version: TestVersion | undefined,
+  closed: boolean,
 ): Record<SettingsGroup, Row[]> {
   const { t } = useTranslation();
   const locale = useLocale();
@@ -252,7 +262,17 @@ function useRows(
     timing: [
       {
         label: t("assignments.detail.test"),
-        value: a.testTitle,
+        value:
+          version === undefined ? (
+            a.testTitle
+          ) : (
+            <Link
+              to={`/teacher/tests/${a.testId}`}
+              className="underline-offset-2 hover:underline"
+            >
+              {a.testTitle}
+            </Link>
+          ),
         sub:
           version === undefined
             ? t("assignments.detail.versionOnly", { version: a.testVersion })
@@ -263,6 +283,12 @@ function useRows(
                 manual: version.manualCount,
                 version: version.version,
               }),
+        note: t(
+          closed ? "assignments.detail.pinnedClosed" : "assignments.detail.pinned",
+          {
+            version: a.testVersion,
+          },
+        ),
       },
       {
         label: t("assignments.wizard.timeLimit"),
