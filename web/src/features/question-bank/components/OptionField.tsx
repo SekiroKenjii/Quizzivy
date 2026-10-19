@@ -97,7 +97,7 @@ export function OptionField({
               aria-label={label}
               className={
                 bare
-                  ? "h-8 rounded-[6px] border-transparent bg-transparent px-px shadow-none in-data-[scale=deck]:h-8 in-data-[scale=deck]:bg-transparent in-data-[scale=deck]:px-px lg:text-[14px] in-data-[scale=deck]:lg:text-[14px] dark:bg-transparent dark:in-data-[scale=deck]:bg-transparent"
+                  ? "h-8 rounded-[6px] border-transparent bg-transparent px-px shadow-none lg:text-[14px] dark:bg-transparent"
                   : undefined
               }
               onChange={(event) => onChange(event.target.value, null)}

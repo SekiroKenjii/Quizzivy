@@ -8,7 +8,6 @@ import {
 } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
@@ -210,7 +209,7 @@ export default function ClassesPage() {
   };
 
   return (
-    <DeckScale className="flex w-full min-w-0 flex-col gap-4">
+    <div className="flex w-full min-w-0 flex-col gap-4">
       <PageHead
         title={t("teacherShell.nav.classes")}
         description={t(joinOff ? "classes.pageLeadOff" : "classes.pageLead")}
@@ -327,7 +326,7 @@ export default function ClassesPage() {
           queryClient.invalidateQueries({ queryKey: ["teacher-classes"] })
         }
       />
-    </DeckScale>
+    </div>
   );
 }
 

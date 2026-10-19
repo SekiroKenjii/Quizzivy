@@ -231,11 +231,7 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
     return () => document.removeEventListener("keydown", handle);
   }, []);
   return (
-    <section
-      data-scale="deck"
-      aria-label={t("grading.title")}
-      className="flex min-w-0 flex-col gap-4"
-    >
+    <section aria-label={t("grading.title")} className="flex min-w-0 flex-col gap-4">
       <div
         className={cn(
           "flex min-w-0 flex-col gap-4",

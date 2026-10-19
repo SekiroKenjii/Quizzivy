@@ -102,7 +102,7 @@ export function AuditFilterBar({
           <Button
             type="button"
             variant="ghost"
-            className="text-muted-fg hover:bg-muted hover:text-fg h-9 flex-none px-2.5 in-data-[scale=deck]:px-2.5 in-data-[scale=deck]:text-sm"
+            className="text-muted-fg hover:bg-muted hover:text-fg h-9 flex-none px-2.5 text-sm"
             onClick={() => {
               onReset();
               search.current?.focus();

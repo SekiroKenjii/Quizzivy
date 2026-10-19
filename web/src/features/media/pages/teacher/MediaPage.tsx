@@ -217,7 +217,7 @@ export default function MediaPage() {
   };
 
   return (
-    <div className="flex w-full min-w-0 flex-col gap-4" data-scale="deck">
+    <div className="flex w-full min-w-0 flex-col gap-4">
       <PageHead
         title={t("media.title")}
         description={t("media.description")}

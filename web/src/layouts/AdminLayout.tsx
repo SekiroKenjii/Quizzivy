@@ -17,11 +17,7 @@ registerSkeleton("admin", () => <ConsoleSkeleton workspace="admin" pageMax="1320
 function TeacherView() {
   const { t } = useTranslation();
   return (
-    <Button
-      asChild
-      variant="outline"
-      className="h-8.5 gap-1.5 rounded-md px-3 in-data-[scale=deck]:px-3 in-data-[scale=deck]:text-sm"
-    >
+    <Button asChild variant="outline" className="h-8.5 gap-1.5 rounded-md px-3 text-sm">
       <Link
         to="/teacher"
         aria-label={t("adminShell.teacherView")}

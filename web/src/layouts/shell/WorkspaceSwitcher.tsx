@@ -40,8 +40,7 @@ const DESTINATIONS: readonly Destination[] = [
 ];
 
 const ROW = "flex w-full items-center gap-2.5 rounded-md p-1.5 text-left";
-const MENU_ROW =
-  "focus:bg-hover focus:text-fg text-sm in-data-[scale=deck]:gap-2.5 in-data-[scale=deck]:p-2 in-data-[scale=deck]:leading-4";
+const MENU_ROW = "focus:bg-hover focus:text-fg text-sm gap-2.5 p-2 leading-4";
 
 function Tile({
   workspace,
@@ -131,11 +130,7 @@ export function WorkspaceSwitcher({
           />
         )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        sideOffset={0}
-        className="data-[scale=deck]:w-60 data-[scale=deck]:p-1.5"
-      >
+      <DropdownMenuContent align="start" sideOffset={0} className="w-60 p-1.5">
         <DropdownMenuLabel>{t("teacherShell.switchWorkspace")}</DropdownMenuLabel>
         {DESTINATIONS.map((destination) =>
           destination.workspace === workspace ? (

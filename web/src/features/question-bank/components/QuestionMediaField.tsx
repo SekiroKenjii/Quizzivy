@@ -243,7 +243,7 @@ function DropZone({
           type="button"
           variant="outline"
           size="sm"
-          className="h-8 rounded-[8px] px-3 text-[13px] in-data-[scale=deck]:h-8 in-data-[scale=deck]:rounded-[8px] in-data-[scale=deck]:text-[13px]"
+          className="h-8 rounded-[8px] px-3 text-[13px]"
           onClick={onChoose}
         >
           <Upload aria-hidden="true" className="size-3.5" />
@@ -254,7 +254,7 @@ function DropZone({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-8 rounded-[8px] border border-transparent px-3 text-[13px] in-data-[scale=deck]:h-8 in-data-[scale=deck]:rounded-[8px] in-data-[scale=deck]:text-[13px]"
+          className="h-8 rounded-[8px] border border-transparent px-3 text-[13px]"
           onClick={onLibrary}
         >
           <Library aria-hidden="true" className="size-3.5" />
@@ -359,7 +359,7 @@ function AttachedCard({
           variant="ghost"
           size="sm"
           aria-label={t("questionEditor.questionMedia.replaceLabel")}
-          className="h-7.5 rounded-[7px] px-2.5 text-[12.5px] in-data-[scale=deck]:h-7.5 in-data-[scale=deck]:rounded-[7px] in-data-[scale=deck]:text-[12.5px]"
+          className="h-7.5 rounded-[7px] px-2.5 text-[12.5px]"
           onClick={onReplace}
         >
           {t("questionEditor.questionMedia.replace")}
@@ -370,7 +370,7 @@ function AttachedCard({
           size="icon-sm"
           aria-label={t("questionEditor.questionMedia.remove")}
           title={t("questionEditor.questionMedia.remove")}
-          className="text-muted-fg hover:text-danger-ink size-7.5 rounded-[7px] in-data-[scale=deck]:size-7.5 in-data-[scale=deck]:rounded-[7px]"
+          className="text-muted-fg hover:text-danger-ink size-7.5 rounded-[7px]"
           onClick={onRemove}
         >
           <Trash2 aria-hidden="true" className="size-3.75" />
@@ -454,7 +454,7 @@ function ImageDetails({
         aria-label={t("questionEditor.questionMedia.altLabel")}
         aria-describedby={help}
         placeholder={t("questionEditor.questionMedia.altPlaceholder")}
-        className="bg-background h-8.5 rounded-[8px] in-data-[scale=deck]:h-8.5 in-data-[scale=deck]:rounded-[8px]"
+        className="bg-background h-8.5 rounded-[8px]"
         onChange={(event) =>
           onChange({
             ...value,

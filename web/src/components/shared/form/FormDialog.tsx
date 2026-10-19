@@ -262,7 +262,7 @@ export function FormDialog<V extends FormValues>({
           <Button
             type="button"
             variant="outline"
-            className="bg-card text-ui h-9 px-3.5 leading-normal shadow-none in-data-[scale=deck]:h-9 in-data-[scale=deck]:px-3.5"
+            className="bg-card text-ui h-9 px-3.5 leading-normal shadow-none"
             onClick={() => onOpenChange(false)}
           >
             {cancelLabel ?? t("common.cancel")}
@@ -276,7 +276,7 @@ export function FormDialog<V extends FormValues>({
           disabled={disabled && !pending}
           aria-disabled={pending || !valid || undefined}
           className={cn(
-            "text-ui h-9 px-4 leading-normal shadow-none in-data-[scale=deck]:h-9 in-data-[scale=deck]:px-4",
+            "text-ui h-9 px-4 leading-normal shadow-none",
             danger
               ? "bg-danger text-primary-fg hover:bg-danger/90 aria-disabled:bg-danger/50 aria-disabled:hover:bg-danger/50"
               : "aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50",

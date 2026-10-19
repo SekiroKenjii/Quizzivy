@@ -36,7 +36,7 @@ export function RowMenu({
           ref={triggerRef}
           variant="ghost"
           size="icon-xs"
-          className="data-[state=open]:bg-accent in-data-[scale=deck]:rounded-seg in-data-[scale=deck]:hover:bg-hover dark:in-data-[scale=deck]:hover:bg-hover in-data-[scale=deck]:size-7.5 in-data-[scale=deck]:[&_svg:not([class*='size-'])]:size-4"
+          className="data-[state=open]:bg-accent rounded-seg hover:bg-hover dark:hover:bg-hover size-7.5 [&_svg:not([class*='size-'])]:size-4"
           aria-label={label ?? t("common.actions")}
           onClick={stopClick}
         >
@@ -45,7 +45,7 @@ export function RowMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className={cn("data-[scale=deck]:w-55", className ?? "w-52")}
+        className={cn("w-55", className)}
         onClick={stopClick}
       >
         {title !== undefined && <DropdownMenuLabel>{title}</DropdownMenuLabel>}

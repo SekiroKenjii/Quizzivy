@@ -19,7 +19,7 @@ export function PasswordInput({
         type={visible ? "text" : "password"}
         className={cn(
           "h-11 pr-12",
-          props.size === "lg" && "pr-11 in-data-[scale=deck]:pr-11",
+          props.size === "lg" && "pr-11",
           props.size === "xl" && "pr-11.5",
           className,
         )}
@@ -33,7 +33,7 @@ export function PasswordInput({
           props.size === "lg" &&
             "text-muted-fg hover:text-fg inset-y-auto top-1/2 right-1 size-8.5 -translate-y-1/2",
           props.size === "xl" &&
-            "text-muted-fg hover:text-fg inset-y-auto top-1/2 right-1.5 size-9 -translate-y-1/2 in-data-[scale=deck]:size-9 [&_svg]:size-[17px]",
+            "text-muted-fg hover:text-fg inset-y-auto top-1/2 right-1.5 size-9 -translate-y-1/2 [&_svg]:size-[17px]",
         )}
         aria-label={t(visible ? "common.hidePassword" : "common.showPassword")}
         aria-controls={props.id}

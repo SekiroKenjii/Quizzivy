@@ -40,7 +40,7 @@ export function ErrorScreen({
  */
 export function ErrorActions({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <div className="*:rounded-ctl in-data-[scale=deck]:*:text-md mt-5 flex flex-col gap-2 *:h-11 *:w-full in-data-[scale=deck]:*:px-4.5 lg:*:h-9.5 in-data-[scale=deck]:lg:*:text-base">
+    <div className="*:rounded-ctl *:text-md mt-5 flex flex-col gap-2 *:h-11 *:w-full *:px-4.5 lg:*:h-9.5 lg:*:text-base">
       {children}
     </div>
   );

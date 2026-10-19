@@ -24,7 +24,7 @@ export function SampleAnswerField({
         value={value ?? ""}
         placeholder={t("questionEditor.sampleAnswerPlaceholder")}
         aria-describedby="question-sample-answer-hint"
-        className="bg-background min-h-0 resize-y rounded-[9px] px-3 py-2.5 leading-[1.55] lg:text-[14px] in-data-[scale=deck]:lg:text-[14px]"
+        className="bg-background min-h-0 resize-y rounded-[9px] px-3 py-2.5 leading-[1.55] lg:text-[14px]"
         onChange={(event) => onChange(event.target.value)}
       />
     </div>

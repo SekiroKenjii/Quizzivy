@@ -19,8 +19,7 @@ import { ApiError } from "@/lib/api/errors";
 import { useDebounced } from "@/lib/useDebounced";
 import { cn } from "@/lib/utils";
 
-const FOOTER_BUTTON =
-  "text-ui h-9 px-4 leading-normal shadow-none in-data-[scale=deck]:h-9 in-data-[scale=deck]:px-4";
+const FOOTER_BUTTON = "text-ui leading-normal shadow-none h-9 px-4";
 
 /**
  * AddMemberDialog is the deck's "Add students to {class}": a search by name
@@ -223,7 +222,7 @@ export function AddMemberDialog({
         <Button
           type="button"
           variant="outline"
-          className={`bg-card ${FOOTER_BUTTON} px-3.5 in-data-[scale=deck]:px-3.5`}
+          className={`bg-card ${FOOTER_BUTTON} px-3.5`}
           onClick={close}
         >
           {t("common.cancel")}

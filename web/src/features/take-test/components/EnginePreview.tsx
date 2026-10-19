@@ -8,7 +8,6 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { Eye } from "lucide-react";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { forgetAllPlaces } from "@/features/media/playback";
 import { notify } from "@/lib/toast";
 import { Paper } from "./Paper";
@@ -144,7 +143,7 @@ export function EnginePreview({
   };
 
   return (
-    <DeckScale
+    <div
       ref={setLayer}
       onKeyDown={onKeyDown}
       className="student-surface bg-bg text-fg @container/student relative flex h-full min-h-0 flex-col leading-relaxed [contain:layout]"
@@ -164,6 +163,6 @@ export function EnginePreview({
           />
         </PaperSourceContext>
       </EngineLayerContext>
-    </DeckScale>
+    </div>
   );
 }

@@ -107,12 +107,12 @@ function EditAssignment({ id }: Readonly<{ id: string }>) {
   }
   if (!existing.isError && !versions.isError)
     return (
-      <div data-scale="deck">
+      <div>
         <ListSkeleton rows={8} />
       </div>
     );
   return (
-    <div data-scale="deck">
+    <div>
       <LoadError
         error={existing.error ?? versions.error}
         onRetry={() => {
@@ -250,7 +250,7 @@ function Wizard({
   }));
 
   return (
-    <div data-scale="deck" className="flex min-w-0 flex-col gap-4.5">
+    <div className="flex min-w-0 flex-col gap-4.5">
       <PageHead
         title={existing === undefined ? t("assignments.new") : t("assignments.edit")}
         description={

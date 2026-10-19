@@ -13,7 +13,7 @@ const FROM = {
  * panel beside a centred 380px column. The panel shows from `from` (900px on
  * the sign-in pages, 1024px on the system pages) and holds the logo, `panel`
  * in the middle and `caption` at the foot; below that width a small logo sits
- * above the column instead. The frame is a deck surface.
+ * above the column instead.
  */
 export function BrandFrame({
   from,
@@ -30,7 +30,7 @@ export function BrandFrame({
 }>) {
   const at = FROM[from];
   return (
-    <div data-scale="deck" className="bg-bg text-fg flex min-h-svh">
+    <div className="bg-bg text-fg flex min-h-svh">
       {showPanel && (
         <aside
           className={cn(

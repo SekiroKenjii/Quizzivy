@@ -32,11 +32,7 @@ export function ConsoleSkeleton({
 }: Readonly<{ workspace: StaffWorkspace; pageMax?: string }>) {
   const collapsed = readSidebarState() === "collapsed";
   return (
-    <div
-      data-slot={`${workspace}-skeleton`}
-      data-scale="deck"
-      className="bg-bg flex h-full"
-    >
+    <div data-slot={`${workspace}-skeleton`} className="bg-bg flex h-full">
       <div
         data-slot="skeleton-sidebar"
         className={cn(

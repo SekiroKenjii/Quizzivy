@@ -186,7 +186,7 @@ export function GradingAnswerCard({
                   aria-pressed={points === value}
                   aria-label={t("grading.score", { count: value })}
                   data-score={value}
-                  className="h-11 min-w-16 gap-2 rounded-[9px] px-3.5 text-[15px] font-semibold tabular-nums in-data-[scale=deck]:gap-2 in-data-[scale=deck]:text-[15px]"
+                  className="h-11 min-w-16 gap-2 rounded-[9px] px-3.5 text-[15px] font-semibold tabular-nums"
                   onClick={() => onScore(value)}
                 >
                   {figure.format(value)}

@@ -1130,7 +1130,6 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   return (
     <fieldset
       disabled={creating || publishing || movingQuestion !== null}
-      data-scale="deck"
       className="flex min-w-0 flex-col gap-3.5"
     >
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
@@ -1150,7 +1149,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
             status={test.status}
             className={
               test.status === "draft"
-                ? "border-border text-muted-fg h-5.5 shrink-0 rounded-full bg-transparent px-2 text-xs leading-[18px] font-medium in-data-[scale=deck]:px-2"
+                ? "border-border text-muted-fg h-5.5 shrink-0 rounded-full bg-transparent px-2 text-xs leading-[18px] font-medium"
                 : "shrink-0"
             }
           />

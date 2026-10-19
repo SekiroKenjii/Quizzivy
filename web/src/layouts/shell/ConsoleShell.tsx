@@ -9,7 +9,6 @@ import {
 } from "react";
 import { Outlet, useLocation, useMatches } from "react-router";
 import { useTranslation } from "react-i18next";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { registerContentElement } from "@/layouts/shell/contentWidth";
 import { CrumbTailContext, trailOf, type PageCrumb } from "@/layouts/shell/crumbs";
@@ -153,7 +152,7 @@ export function ConsoleShell({
   };
 
   return (
-    <DeckScale className="bg-bg text-fg flex h-svh overflow-hidden text-base">
+    <div className="bg-bg text-fg flex h-svh overflow-hidden text-base">
       {wide && (
         <Sidebar
           workspace={workspace}
@@ -203,6 +202,6 @@ export function ConsoleShell({
           )}
         </main>
       </div>
-    </DeckScale>
+    </div>
   );
 }
