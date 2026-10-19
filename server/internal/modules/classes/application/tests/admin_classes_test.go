@@ -332,3 +332,60 @@ func TestADisabledPreviousTeacherIsNotToldAndNotifyOffTellsNobody(t *testing.T) 
 		t.Errorf("sent %+v, want B's item alone", w.notices.sent)
 	}
 }
+
+func TestAnActiveAdminCanBeGivenAClass(t *testing.T) {
+	w := newAdminWorld(t)
+	ctx := context.Background()
+	teacherOf := func(classID string) string {
+		return w.id(t, `SELECT teacher_id::text FROM app.classes WHERE id = $1`, classID)
+	}
+	created, err := w.svc.Commands.CreateForTeacher.Handle(ctx, command.CreateForTeacher{Name: "Lớp " + w.marker, TeacherID: w.admin, Actor: w.who(w.admin)})
+	if err != nil {
+		t.Fatalf("creating a class for an Admin: %v, want it made: the built-in Admin holds every key", err)
+	}
+	if got := teacherOf(created.ID); got != w.admin {
+		t.Errorf("the class made for the Admin is taught by %s", got)
+	}
+	if _, err := w.svc.Commands.ChangeTeacher.Handle(ctx, command.ChangeTeacher{ClassID: w.classA, TeacherID: w.admin, Actor: w.who(w.admin)}); err != nil {
+		t.Fatalf("giving A's class to an Admin: %v, want it moved", err)
+	}
+	if got := teacherOf(w.classA); got != w.admin {
+		t.Errorf("A's class is taught by %s after the change, want the Admin", got)
+	}
+}
+
+func TestAnUnreadableCodeListsAsNoCodeAndLeavesTheOthersReadable(t *testing.T) {
+	w := newAdminWorld(t)
+	ctx := context.Background()
+	create := func() string {
+		t.Helper()
+		class, err := w.svc.Commands.CreateForTeacher.Handle(ctx, command.CreateForTeacher{Name: "Lớp " + w.marker, TeacherID: w.a, Actor: w.who(w.admin)})
+		if err != nil || class.JoinCode == nil {
+			t.Fatalf("create: %+v (%v), want a class with a code", class, err)
+		}
+		return class.ID
+	}
+	broken, intact := create(), create()
+	w.exec(t, `UPDATE app.class_join_codes SET code_ciphertext = set_byte(code_ciphertext, 20, get_byte(code_ciphertext, 20) # 255)
+		WHERE class_id = $1 AND revoked_at IS NULL`, broken)
+
+	_, result := w.listAll(t, domain.AdminListInput{Query: w.marker})
+	seen := 0
+	for _, item := range result.Items {
+		switch item.ID {
+		case broken:
+			seen++
+			if item.Code != "" {
+				t.Errorf("the class whose code cannot be opened lists %q, want no code", item.Code)
+			}
+		case intact:
+			seen++
+			if item.Code == "" {
+				t.Error("the class beside it lists no code")
+			}
+		}
+	}
+	if seen != 2 {
+		t.Errorf("the list holds %d of the two classes, want both", seen)
+	}
+}
