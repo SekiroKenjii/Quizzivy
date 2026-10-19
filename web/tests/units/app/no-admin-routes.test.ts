@@ -27,6 +27,8 @@ const ALLOWED_LITERALS = new Set([
   "/admin/overview",
   "/admin/roles/*",
   "/admin/classes/*",
+  "/admin/classes",
+  "/admin/classes/{id}/teacher",
   "/admin/settings/*",
   "/admin/users/*",
   "/admin/users",
