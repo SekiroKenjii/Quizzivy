@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 import type { FieldControlProps, FormOption } from "./types";
 /**
  * SelectField edits one value and dismisses its option list when disabled.
+ * The list is never wider than the viewport less 2rem, and a label too long
+ * for it is cut with an ellipsis.
  * While `locked` (its form is saving) the trigger answers `aria-disabled`,
  * keeps focus and opens nothing, and a change is ignored (T-35).
  */
@@ -70,15 +72,16 @@ export function SelectField({
       >
         <SelectValue {...(placeholder === undefined ? {} : { placeholder })} />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="max-w-[calc(100vw-2rem)]">
         <SelectGroup>
           {options.map((option, index) => (
             <SelectItem
               key={option.value}
               value={String(index + 1)}
               disabled={disabled ?? false}
+              className="*:[span]:last:min-w-0"
             >
-              {option.label}
+              <span className="truncate">{option.label}</span>
             </SelectItem>
           ))}
         </SelectGroup>

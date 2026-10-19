@@ -122,7 +122,7 @@ function CodeCell({
   const code = klass.joinCode;
   if (klass.tab === "archived")
     return (
-      <span className="text-muted-fg text-[13px]">
+      <span className="font-mono text-[13px] font-semibold">
         <span aria-hidden="true">—</span>
         <span className="sr-only">{t("classes.admin.noCodeArchived")}</span>
       </span>
