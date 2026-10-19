@@ -40,11 +40,13 @@ describe("the change of a class's teacher's notification kind", () => {
       "<b>{{teacherName}}</b> is now taught by $& {{className}}",
     );
   });
-  it.each([{}, { className: "" }, { className: "Lớp A", teacherName: "" }, { teacherName: "Khoa" }])(
-    "skips params %j",
-    (params) => {
-      const notice = { ...changed, params };
-      expect(describeNotification(notice, i18n.getFixedT("vi"), "vi")).toBeNull();
-    },
-  );
+  it.each([
+    {},
+    { className: "" },
+    { className: "Lớp A", teacherName: "" },
+    { teacherName: "Khoa" },
+  ])("skips params %j", (params) => {
+    const notice = { ...changed, params };
+    expect(describeNotification(notice, i18n.getFixedT("vi"), "vi")).toBeNull();
+  });
 });
