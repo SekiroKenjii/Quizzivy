@@ -21,7 +21,7 @@ export function AiRunParts({ parts }: Readonly<{ parts: readonly AiPart[] }>) {
         </strong>
         <div className="bg-muted h-1 overflow-hidden rounded-full">
           <div
-            className="bg-accent-c h-full transition-[width] duration-300 motion-reduce:transition-none"
+            className="bg-brand h-full transition-[width] duration-300 motion-reduce:transition-none"
             style={{ width: `${percent}%` }}
           />
         </div>
