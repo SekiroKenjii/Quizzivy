@@ -180,13 +180,16 @@ describe("the assignment detail", () => {
       expect(screen.getByRole("region", { name: title })).toBeInTheDocument();
   });
 
-  it("keeps the pinned version's facts on the Questions tab", async () => {
+  it("draws only the item analysis on the Questions tab, as the deck does", async () => {
     serve(assignment({ status: "scheduled", window: scheduledWindow }));
     renderDetail("questions");
-    expect(await screen.findByRole("link", { name: "Xem đề" })).toHaveAttribute(
-      "href",
-      `/teacher/tests/${TEST_ID}`,
-    );
+    expect(
+      await screen.findByText(
+        "Các câu hỏi xếp theo mức độ học viên làm sai nhiều nhất.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Xem đề" })).toBeNull();
+    expect(screen.queryByText(/Bài giao gắn với bản v/)).toBeNull();
   });
 
   it("draft: can be edited or given out, and says students cannot see it", async () => {
