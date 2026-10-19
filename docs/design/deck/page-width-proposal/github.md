@@ -1,17 +1,23 @@
 repo: SekiroKenjii/Quizzivy
-branch: work/deck-d4
+branch: main
 path: web/src
 
 ## Last sync
-date: 2026-10-13T10:20:00Z
+date: 2026-10-19T12:25:03Z
 
 ### Updated in this project
-- Grading: empty queue (all graded / papers to finish) and "Ready to finish" card at 1280/768/360
-- Answers: Review on the row (Finish inside the check); card folded below panes while answers wait; grouped by assignment
+- AI Generate Sections: CR-001 parts A, B and C at 1280 and 360, in light and dark, Vietnamese and English
+- Style radio cards, the "Thêm vào phần" card with a section picker and the fit toggle, the topic field
+- Whole-test plan rows, limits, progress for each section, results grouped by section with retry, and the credit ceiling line
 
 ## Screen map
 | Project screen | Repo files |
 | --- | --- |
+| AI Generate Sections · panel frame, footer, credit line | web/src/features/ai/components/AiPanel.tsx, AiCreditNote.tsx, components/shared/Sheet.tsx, features/ai/credits.ts, outcome.ts |
+| AI Generate Sections · fields (style, section, topic, source, chips, seg, toggle) | web/src/features/ai/kinds/generate.ts, components/AiPanelField.tsx, components/ui/segmented.tsx, switch.tsx, components/shared/form/fields/ChipsField.tsx |
+| AI Generate Sections · running, results, cards | web/src/features/ai/components/AiRunSteps.tsx, AiItemCard.tsx, kind.ts, components/shared/Callout.tsx |
+| AI Generate Sections · builder entry | web/src/features/tests/components/BuilderAiActions.tsx |
+| AI Generate Sections · copy | web/src/lib/i18n/locales/en.json, vi.json (ai.*) |
 | Grading Finish States · page, card, check | web/src/features/attempts/pages/teacher/GradingPage.tsx, GradingQueueAside.tsx, gradingRecovery.ts, useGradingQueue.ts, features/attempts/gradingMessages.ts, components/shared/ListState.tsx, api/openapi.yaml |
 | Cloze Decision · strip and squares | web/src/features/take-test/components/Navigator.tsx, docs/design/deck/Quizzivy Student.dc.html (rail, sheet) |
 | Cloze Decision · gap card (take test) | web/src/features/take-test/components/QuestionSheet.tsx, take-test/worth.ts, docs/plan/74d-d4-deck-update.md (T-D4.10, S-12, S-13) |
@@ -26,5 +32,6 @@ date: 2026-10-13T10:20:00Z
 | Imports history | docs/design/gaps.md (DG-203, work/deck-d4), components/shared/data/Pager.tsx |
 
 ## Sync history
+- 2026-10-13T10:20:00Z (work/deck-d4): Grading empty queue and "Ready to finish" card
 - 2026-10-13T09:15:52Z (work/deck-d4): Cloze decision (Q6)
 - 2026-10-12T13:31:27Z (main): Page-width proposal, unified pager (DG-203), focus rings, AI panel missing states (DG-201)
