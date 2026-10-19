@@ -72,7 +72,7 @@ func TestACheckReadsAStandaloneQuestionAndAGroupsMembersTogetherUnderTheirBuilde
 	}
 }
 
-func TestAVariantLeavesAGroupsMembersOutAndKeepsTheStandaloneQuestionsNumber(t *testing.T) {
+func TestAVariantVariesAGroupsMembersAndAStandaloneQuestionUnderTheirBuilderNumbers(t *testing.T) {
 	o := newOps(t, true)
 	standalone := o.reads.paper.Questions[0]
 	standalone.Number = 3
@@ -87,29 +87,58 @@ func TestAVariantLeavesAGroupsMembersOutAndKeepsTheStandaloneQuestionsNumber(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got.Changes) != 1 || got.Changes[0].Number != 3 || got.Changes[0].QuestionID != standalone.ID {
-		t.Fatalf("changes %+v, want only the standalone question's, still numbered 3: a member is never varied, whatever the assistant proposes", got.Changes)
+	if len(got.Changes) != 2 || got.Changes[0].Number != 1 || got.Changes[0].QuestionID != "m-1" || got.Changes[1].Number != 3 || got.Changes[1].QuestionID != standalone.ID {
+		t.Fatalf("changes %+v, want the member's as question 1 and the standalone question's as question 3", got.Changes)
 	}
 	sent := o.completer.text()
-	for _, secret := range []string{"When did the harbour open?", "What did the harbour handle?", harbourPassage} {
-		if strings.Contains(sent, secret) {
-			t.Errorf("the variant request carries %q of a group's member", secret)
+	for _, want := range []string{"When did the harbour open?", "Q1 [single_choice] (uses P1)", "What did planners see parks as?"} {
+		if !strings.Contains(sent, want) {
+			t.Errorf("the variant request lacks %q", want)
 		}
 	}
-	if !strings.Contains(sent, "What did planners see parks as?") {
-		t.Error("the variant request lacks the standalone question")
+	if n := strings.Count(sent, harbourPassage); n != 1 {
+		t.Errorf("the passage is sent %d times, want once for the group's two members", n)
 	}
 }
 
-func TestAVariantOfATestWhoseQuestionsAreAllGroupMembersHasNothingToRead(t *testing.T) {
+func TestAVariantNeitherReordersAFixedMemberNorRewordsAGappedOne(t *testing.T) {
+	o := newOps(t, true)
+	free := harbourMember(1, "When did the harbour open?")
+	free.OrderFixed = false
+	free.Options = append(free.Options, domain.Option{ID: "m-1-c", Text: "In 1950"})
+	fixed := harbourMember(2, "What did the harbour handle?")
+	fixed.Options = append(fixed.Options, domain.Option{ID: "m-2-c", Text: "Coal"})
+	gapped := harbourMember(3, "Gap 1")
+	gapped.Gapped = true
+	o.reads.paper = domain.Paper{Questions: []domain.PaperQuestion{free, fixed, gapped}}
+	o.completer.object = func(ports.Request) string {
+		return `{"changes":[
+			{"question":1,"kind":"reorder","prompt":"","order":["C","A","B"],"option":"","text":""},
+			{"question":2,"kind":"reorder","prompt":"","order":["C","A","B"],"option":"","text":""},
+			{"question":3,"kind":"reword","prompt":"The first gap","order":[],"option":"","text":""}]}`
+	}
+
+	got, err := o.app.Queries.Variant.Handle(context.Background(), query.Variant{Actor: teacher, TestID: "t-1", Changes: []string{"reword", "reorder"}, Difficulty: "same"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Changes) != 1 || got.Changes[0].Number != 1 || got.Changes[0].Kind != "reorder" {
+		t.Fatalf("changes %+v, want only the reorder of the member whose order is free", got.Changes)
+	}
+}
+
+func TestAVariantOfATestWhoseQuestionsAreAllGroupMembersVariesThem(t *testing.T) {
 	o := newOps(t, true)
 	membersOnly(o)
-
-	_, err := o.app.Queries.Variant.Handle(context.Background(), query.Variant{Actor: teacher, TestID: "t-1", Changes: []string{"reword"}, Difficulty: "same"})
-	if !errors.Is(err, domain.ErrNothingToRead) {
-		t.Fatalf("err = %v, want ErrNothingToRead", err)
+	o.completer.object = func(ports.Request) string {
+		return `{"changes":[{"question":2,"kind":"reword","prompt":"What goods passed through the harbour?","order":[],"option":"","text":""}]}`
 	}
-	if len(o.completer.requests) != 0 || len(o.repo.reserved) != 0 {
-		t.Errorf("asked the assistant %d times and reserved %d times for a variant with nothing to vary", len(o.completer.requests), len(o.repo.reserved))
+
+	got, err := o.app.Queries.Variant.Handle(context.Background(), query.Variant{Actor: teacher, TestID: "t-1", Changes: []string{"reword"}, Difficulty: "same"})
+	if err != nil {
+		t.Fatalf("a test made only of group members: %v", err)
+	}
+	if len(got.Changes) != 1 || got.Changes[0].QuestionID != "m-2" {
+		t.Errorf("changes %+v, want the second member's", got.Changes)
 	}
 }
