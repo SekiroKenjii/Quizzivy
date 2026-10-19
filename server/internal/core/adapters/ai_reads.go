@@ -124,6 +124,12 @@ func (r AITests) readGroup(ctx context.Context, scope access.Scope, groupID stri
 	for _, question := range stored.Bundle.Questions {
 		byID[strings.ToLower(question.ID)] = question
 	}
+	gapped := map[string]bool{}
+	for _, stimulus := range stored.Bundle.Group.Stimuli {
+		for _, gap := range stimulus.Gaps {
+			gapped[strings.ToLower(gap.QuestionID)] = true
+		}
+	}
 	members := stored.Bundle.Group.Members
 	var read []aidomain.PaperQuestion
 	for i, member := range members {
@@ -133,6 +139,7 @@ func (r AITests) readGroup(ctx context.Context, scope access.Scope, groupID stri
 		}
 		item := paperQuestion(questionOf(question), first+i)
 		item.GroupID, item.Passage, item.OrderFixed = groupID, passage, member.OptionOrder == fixedOptionOrder
+		item.Gapped = gapped[strings.ToLower(member.QuestionID)]
 		read = append(read, item)
 	}
 	return read, len(members), nil

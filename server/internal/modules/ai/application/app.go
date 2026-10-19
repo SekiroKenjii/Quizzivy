@@ -50,7 +50,7 @@ type Queries struct {
 	Cleanup      cqrs.QueryHandler[query.Cleanup, query.Cleaned]
 }
 
-// Options is what the application takes from outside its module: the price of each tier, the calendar zone months are counted in, the way to tell a user (nil tells no one), the logger and the time one bank clean-up may spend with the provider (zero is support.DefaultCleanupBudget). Completer is the provider and nil when none is configured, so every suggestion answers domain.ErrOff; Tests, Questions, Grading, Analysis and People are what the suggestions read.
+// Options is what the application takes from outside its module: the price of each tier, the calendar zone months are counted in, the way to tell a user (nil tells no one), the logger and the time one bank clean-up or one variant may spend with the provider (zero is support.DefaultCleanupBudget). Completer is the provider and nil when none is configured, so every suggestion answers domain.ErrOff; Tests, Questions, Grading, Analysis and People are what the suggestions read.
 type Options struct {
 	Prices        domain.Prices
 	Zone          *time.Location

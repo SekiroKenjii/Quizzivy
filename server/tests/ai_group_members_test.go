@@ -78,7 +78,7 @@ func TestTheAssistantChecksATestMadeOnlyOfGroupMembersInsteadOfFindingNothingToR
 	}
 }
 
-func TestTheAssistantNumbersAStandaloneQuestionAndAGroupsMembersAsTheBuilderDoesAndVariesOnlyTheStandaloneOne(t *testing.T) {
+func TestTheAssistantNumbersAStandaloneQuestionAndAGroupsMembersAsTheBuilderDoesInACheckAndAVariant(t *testing.T) {
 	provider := newAssistant()
 	w := bootAssisted(t, provider)
 	email, password := w.createStaff("teacher")
@@ -88,7 +88,7 @@ func TestTheAssistantNumbersAStandaloneQuestionAndAGroupsMembersAsTheBuilderDoes
 	teacher.must(http.StatusOK, http.MethodPost, "/teacher/ai/tests/"+test+"/check", map[string]any{"checks": []string{"key"}})
 	varied := teacher.must(http.StatusOK, http.MethodPost, "/teacher/ai/tests/"+test+"/variant", map[string]any{"changes": []string{"reword"}, "difficulty": "same"})
 	if changes, ok := varied["changes"].([]any); !ok || len(changes) != 1 {
-		t.Fatalf("the variant answered %v, want the one change to the standalone question", varied)
+		t.Fatalf("the variant answered %v, want the one change the provider proposed", varied)
 	}
 	sent := provider.sent()
 	if len(sent) != 2 {
@@ -100,28 +100,29 @@ func TestTheAssistantNumbersAStandaloneQuestionAndAGroupsMembersAsTheBuilderDoes
 			t.Errorf("the check was not shown %q:\n%s", want, check)
 		}
 	}
-	if !strings.Contains(variant, loneQuestion) {
-		t.Errorf("the variant was not shown the standalone question:\n%s", variant)
-	}
-	for _, leaked := range []string{firstMember, secondMember, harbourPassage} {
-		if strings.Contains(variant, leaked) {
-			t.Errorf("the variant request carries %q of a group's member", leaked)
+	for _, want := range []string{"Q1 [short_answer]", loneQuestion, "Q2 [single_choice] (uses P1)", "Q3 [single_choice] (uses P1)", firstMember, secondMember, harbourPassage} {
+		if !strings.Contains(variant, want) {
+			t.Errorf("the variant was not shown %q:\n%s", want, variant)
 		}
 	}
 }
 
-func TestAVariantOfATestMadeOnlyOfGroupMembersHasNothingToRead(t *testing.T) {
+func TestAVariantOfATestMadeOnlyOfGroupMembersVariesTheMembers(t *testing.T) {
 	provider := newAssistant()
 	w := bootAssisted(t, provider)
 	email, password := w.createStaff("teacher")
 	teacher := w.signedIn(email, password)
 	test := w.harbourTest(teacher, false)
 
-	got := teacher.must(http.StatusUnprocessableEntity, http.MethodPost, "/teacher/ai/tests/"+test+"/variant", map[string]any{"changes": []string{"reword"}, "difficulty": "same"})
-	if refusal, _ := got["error"].(map[string]any); refusal["code"] != "VALIDATION_FAILED" {
-		t.Errorf("a variant with nothing to vary answered %v", got)
+	varied := teacher.must(http.StatusOK, http.MethodPost, "/teacher/ai/tests/"+test+"/variant", map[string]any{"changes": []string{"reword"}, "difficulty": "same"})
+	changes, ok := varied["changes"].([]any)
+	if !ok || len(changes) != 1 {
+		t.Fatalf("the variant answered %v, want the reword of the first member", varied)
 	}
-	if n := len(provider.sent()); n != 0 {
-		t.Errorf("the provider was asked %d times for a variant with nothing to vary", n)
+	if change, _ := changes[0].(map[string]any); change["number"] != float64(1) || change["before"] != firstMember {
+		t.Errorf("the change is %v, want question 1, the first member", changes[0])
+	}
+	if read := textOf(provider.sent()[0]); !strings.Contains(read, harbourPassage) {
+		t.Errorf("the variant was not shown the members' passage:\n%s", read)
 	}
 }
