@@ -65,8 +65,9 @@ type QuestionType = AiGeneratedQuestion["type"];
 
 /**
  * GenerateContext is what a page gives the Generate panel: the test whose
- * passages it offers, the section a standalone run can be fitted to (the one
- * new questions join), the question types to start from when not the default,
+ * passages it offers, the sections a standalone run can be fitted to and
+ * `section`, the one it starts from (the one new questions join), the
+ * question types to start from when not the default,
  * where the kept questions go (a section, the bank, or a new practice test),
  * and `save`, the page's own write for them into the run's destination, which
  * tags each with `tag` when it is not null. A section gives way to the group
@@ -76,6 +77,7 @@ export interface GenerateContext {
   testId?: string;
   passages: readonly AiPassage[];
   section?: AiSection;
+  sections?: readonly AiSection[];
   types?: readonly QuestionType[];
   destination: Exclude<GenerateDestination, { kind: "group" }>;
   save: (
@@ -90,6 +92,7 @@ type GenerateStyle = "standalone" | "passage";
 interface GenerateValues {
   style: GenerateStyle;
   fitSection: boolean;
+  sectionId: string;
   source: string;
   types: readonly string[];
   count: string;
@@ -139,15 +142,20 @@ function chosenPassage(values: GenerateValues, context: GenerateContext) {
     : undefined;
 }
 
-function offeredSection(context: GenerateContext) {
-  return context.testId && context.destination.kind === "section"
-    ? context.section
-    : undefined;
+function offeredSections(context: GenerateContext): readonly AiSection[] {
+  if (!context.testId || context.destination.kind !== "section") return [];
+  if (context.sections && context.sections.length > 0) return context.sections;
+  return context.section ? [context.section] : [];
+}
+
+function chosenSection(values: GenerateValues, context: GenerateContext) {
+  const offered = offeredSections(context);
+  return offered.find((section) => section.id === values.sectionId) ?? offered[0];
 }
 
 function fittedSection(values: GenerateValues, context: GenerateContext) {
   return values.style === "standalone" && values.fitSection
-    ? offeredSection(context)
+    ? chosenSection(values, context)
     : undefined;
 }
 
@@ -180,7 +188,7 @@ function withStyle(
 }
 
 function topicMissing(values: GenerateValues, context: GenerateContext) {
-  const topic = values.source.trim().length;
+  const topic = [...values.source.trim()].length;
   if (topic > 0) return topic < TOPIC_MIN;
   return !fittedSection(values, context);
 }
@@ -298,7 +306,8 @@ function sourceFields(
         onChange: (source) => set({ source }),
       },
     ];
-  const section = offeredSection(context);
+  const offered = offeredSections(context);
+  const section = chosenSection(values, context);
   const topic: AiField = {
     kind: "source",
     label: t("ai.generate.topic"),
@@ -318,6 +327,17 @@ function sourceFields(
       value: values.fitSection,
       onChange: (fitSection) => set({ fitSection }),
     },
+    ...(values.fitSection && offered.length > 1
+      ? [
+          {
+            kind: "seg" as const,
+            label: t("ai.generate.section"),
+            options: offered.map((item) => ({ value: item.id, label: item.title })),
+            value: section.id,
+            onChange: (sectionId: string) => set({ sectionId }),
+          },
+        ]
+      : []),
   ];
 }
 
@@ -341,6 +361,7 @@ export const generateKind: AiKind<GenerateValues, GenerateItem, GenerateContext>
   initial: (context) => ({
     style: context.passages.length > 0 ? "passage" : "standalone",
     fitSection: true,
+    sectionId: context.section?.id ?? "",
     source: context.passages[0]?.text ?? "",
     types: initialTypes(context.types),
     count: "5",

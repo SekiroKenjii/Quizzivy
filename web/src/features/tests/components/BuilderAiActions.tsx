@@ -7,6 +7,7 @@ import { AiEntryButton } from "@/features/ai/components/AiEntryButton";
 import { AiWriteError } from "@/features/ai/kind";
 import type {
   AiPassage,
+  AiSection,
   GeneratedDraft,
   GenerateDestination,
 } from "@/features/ai/kinds/generate";
@@ -27,6 +28,7 @@ type BuilderPanel = "generate" | "check";
  * BuilderAi is what the builder hands its AI panels: the open test, its
  * passages, each with the group that holds it, the section new questions join
  * and its id (null when it has none, and the id null while it is unsaved),
+ * every saved section a standalone run can be fitted to,
  * and the builder's own writes and moves. `prepare` saves every pending edit
  * before a panel opens; `add` creates the kept questions and appends them to
  * the section `sectionId` names, or else to that section; `addToGroup` appends them to
@@ -39,6 +41,7 @@ export interface BuilderAi {
   passages: readonly AiPassage[];
   section: string | null;
   sectionId: string | null;
+  sections: readonly AiSection[];
   prepare: () => Promise<void>;
   add: (questions: QuestionValues[], sectionId?: string) => Promise<void>;
   addToGroup: (groupId: string, questions: QuestionValues[]) => Promise<void>;
@@ -82,6 +85,14 @@ export function BuilderAiActions({ ai }: Readonly<{ ai: BuilderAi }>) {
     );
     if (invalid >= 0)
       throw new AiWriteError(t("ai.generate.invalid", { n: invalid + 1 }));
+    if (
+      destination.kind === "section" &&
+      destination.id &&
+      !ai.sections.some((section) => section.id === destination.id)
+    )
+      throw new AiWriteError(
+        t("ai.generate.sectionGone", { section: destination.title }),
+      );
     if (destination.kind === "group") await ai.addToGroup(destination.id, values);
     else
       await ai.add(values, destination.kind === "section" ? destination.id : undefined);
@@ -97,6 +108,7 @@ export function BuilderAiActions({ ai }: Readonly<{ ai: BuilderAi }>) {
           ...(ai.section !== null && ai.sectionId
             ? { section: { id: ai.sectionId, title: ai.section } }
             : {}),
+          sections: ai.sections,
           destination: { kind: "section", title: ai.section ?? "" },
           save,
         },

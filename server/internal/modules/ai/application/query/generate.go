@@ -123,8 +123,8 @@ func (h GenerateHandler) topic(ctx context.Context, q Generate) (string, *domain
 	if err != nil {
 		return "", nil, err
 	}
-	if strings.TrimSpace(q.Source) == "" && len(section.Questions) == 0 && strings.TrimSpace(section.Instructions) == "" {
-		refused.Add("source", "name a topic: the section has no questions or instructions yet")
+	if strings.TrimSpace(q.Source) == "" && len(section.Questions) == 0 && strings.TrimSpace(section.Instructions) == "" && strings.TrimSpace(section.Title) == "" {
+		refused.Add("source", "name a topic: the section has no title, instructions or questions yet")
 		return "", nil, refused.OrNil()
 	}
 	return q.Source, &section, nil

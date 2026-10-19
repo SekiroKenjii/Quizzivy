@@ -299,7 +299,7 @@ func TestTheGenerationPromptSendsTheSourceTheSettingsAndNothingMore(t *testing.T
 
 func TestAStandaloneGenerationDropsRepeatsAndQuestionsThatLeanOnMaterial(t *testing.T) {
 	section := &domain.Section{Title: "Part 2", Questions: []domain.SectionQuestion{{Type: "fill_blank", Prompt: "She ___ to school yesterday."}}}
-	in := prompts.GenerateInput{Types: []string{prompts.FillBlank}, Count: 3, Level: "b1", Language: domain.English, Standalone: true, Section: section}
+	in := prompts.GenerateInput{Types: []string{prompts.FillBlank}, Count: 5, Level: "b1", Language: domain.English, Standalone: true, Section: section}
 	row := func(prompt string) map[string]any {
 		return map[string]any{"type": "fill_blank", "prompt": prompt, "options": []string{}, "answers": []string{"went"}, "explanation": ""}
 	}
@@ -310,6 +310,8 @@ func TestAStandaloneGenerationDropsRepeatsAndQuestionsThatLeanOnMaterial(t *test
 		row("They ___ home late last night."),
 		row("They ___  home late last night."),
 		row("We ___ the film twice."),
+		row("I read the article ___ breakfast."),
+		row("Choose the article: ___ hour ago."),
 	}
 	got, err := prompts.DecodeGenerate(marshal(t, map[string]any{"questions": rows}), in)
 	if err != nil {
@@ -319,7 +321,7 @@ func TestAStandaloneGenerationDropsRepeatsAndQuestionsThatLeanOnMaterial(t *test
 	for _, q := range got {
 		kept = append(kept, q.Prompt)
 	}
-	if !slices.Equal(kept, []string{"They ___ home late last night.", "We ___ the film twice."}) {
+	if !slices.Equal(kept, []string{"They ___ home late last night.", "We ___ the film twice.", "I read the article ___ breakfast.", "Choose the article: ___ hour ago."}) {
 		t.Errorf("kept %q; want the section's own question, the ones pointing at material and the repeat dropped", kept)
 	}
 	in.Standalone, in.Section, in.Source = false, nil, sourceText
