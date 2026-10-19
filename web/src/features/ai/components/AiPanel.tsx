@@ -637,7 +637,7 @@ function AiKindPanel<F, I, C>({
         <div className="ml-auto flex max-w-full min-w-0 flex-wrap items-center justify-end gap-x-2.5 gap-y-2 max-[767px]:flex-[1_1_100%]">
           <Button
             variant="outline"
-            className={FOOTER_BUTTON}
+            className={cn(FOOTER_BUTTON, "max-[767px]:flex-none")}
             disabled={busy}
             onClick={() => setStage({ name: "setup", failure: null })}
           >
@@ -650,7 +650,7 @@ function AiKindPanel<F, I, C>({
               disabled={
                 busy ||
                 selectedItems.length === 0 ||
-                (kind.primary.blocked?.(answered, env, values) ?? false)
+                (kind.primary.blocked?.(answered, env, values, selectedItems) ?? false)
               }
               onClick={() => void apply(selectedCards)}
             />
@@ -896,7 +896,10 @@ function PrimaryButton({
 }>) {
   return (
     <Button
-      className={cn(FOOTER_BUTTON, "max-w-full min-w-0 shrink")}
+      className={cn(
+        FOOTER_BUTTON,
+        "max-w-full min-w-0 shrink max-[767px]:flex-[1_1_160px]",
+      )}
       title={label}
       disabled={disabled}
       onClick={onClick}

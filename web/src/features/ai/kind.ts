@@ -288,11 +288,18 @@ export type AiDone =
  * which may read every item the run answered, and the write it asks the host
  * for, which answers the toast. `available` says whether the answer holds
  * anything it can save; without it, or when it says no, the button is "Done".
+ * `blocked` disables it while the answer, or the picks in `selected`, cannot
+ * be saved as they stand.
  */
 export interface AiPrimary<I, C, F = unknown> {
   icon: (env: AiEnv<C>, items: readonly I[], values: F) => LucideIcon;
   available?: (items: readonly I[]) => boolean;
-  blocked?: (items: readonly I[], env: AiEnv<C>, values: F) => boolean;
+  blocked?: (
+    items: readonly I[],
+    env: AiEnv<C>,
+    values: F,
+    selected: readonly I[],
+  ) => boolean;
   label: (
     selected: readonly I[],
     env: AiEnv<C>,

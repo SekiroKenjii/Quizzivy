@@ -82,7 +82,7 @@ function PlanRow({
               </span>
             </div>
           )}
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5 max-[767px]:[&_button]:h-10">
             <span aria-hidden="true" className={SUB_LABEL}>
               {row.types.label}
               <span className="text-muted-fg font-normal">{row.types.hint}</span>
