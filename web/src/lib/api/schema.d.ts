@@ -2825,6 +2825,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/classes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every teacher's classes
+         * @description The Admin Classes table: every class in the centre, newest first, with
+         *     its teacher and its active join code read in full. `tab` is `active`
+         *     (the default) or `archived`. `q` matches the class's name or its
+         *     teacher's name, ignoring case and accents (D-11). `teacher=disabled`
+         *     keeps the classes whose teacher's account is disabled.
+         *     `disabledTeacherClasses` counts the centre's classes that are not
+         *     archived and whose teacher is disabled, whatever the search, the tab
+         *     and the filter.
+         *
+         *     Each `joinCode.code` is a bearer secret, so the answer is never cached
+         *     and the operation is limited like the others that reveal one: 60 a
+         *     minute and 600 an hour per signed-in user.
+         */
+        get: operations["listAllClasses"];
+        put?: never;
+        /**
+         * Create a class for a teacher
+         * @description Creates a class `teacherId` teaches, with self-join on. The teacher
+         *     must exist, be active and hold `workspace.teacher`
+         *     (`INVALID_RECIPIENT`). While the centre lets students join with a code
+         *     the class gets a new code in the same transaction, as
+         *     `rotateJoinCode` would issue it with its defaults; while joining with
+         *     a code is off it gets none, and `joinCode` is `null`. Writes the audit
+         *     row `class.created` with `onBehalfOf`, the teacher's id, and
+         *     `class.join_code_issued` when a code was issued.
+         */
+        post: operations["createClassForTeacher"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/classes/{id}/teacher": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Give a class to another teacher
+         * @description Makes `teacherId` the class's teacher. The class, archived or not, its
+         *     members, its join code and the assignments that target it stay as they
+         *     are: the new teacher reaches them through the class, and the previous
+         *     one no longer does, except for the assignments they created. The
+         *     teacher must exist, be active and hold `workspace.teacher`
+         *     (`INVALID_RECIPIENT`). Writes the audit row `class.teacher_changed`
+         *     with `teacher {old, new}`; with `notify`, the new teacher and the
+         *     previous one, unless their account is disabled, find a
+         *     `class.teacher_changed` item in their bells. Naming the class's
+         *     current teacher changes nothing, writes nothing and tells nobody.
+         */
+        put: operations["changeClassTeacher"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/roles": {
         parameters: {
             query?: never;
@@ -6613,6 +6686,72 @@ export interface components {
             archived: number;
             students: number;
         };
+        /** @description The teacher of a class in the Admin console. `name` is the display name, or the full name when there is none. */
+        AdminClassTeacher: {
+            id: components["schemas"]["Uuid"];
+            name: string;
+            /**
+             * Format: uri
+             * @description A signed URL of the teacher's profile photo, or `null` when there is none.
+             */
+            avatarUrl: string | null;
+            /** @description The teacher's account is disabled. */
+            disabled: boolean;
+        };
+        /**
+         * @description A class's active join code, read in full for the Admin console (D5),
+         *     with what tells whether it still works: an expired or used-up code is
+         *     returned as it is.
+         */
+        AdminClassJoinCode: {
+            /**
+             * @description Grouped `XXXX-XXXX`.
+             * @example K7M3-P9QR
+             */
+            code: string;
+            expiresAt: components["schemas"]["Timestamp"];
+            maxUses: number | null;
+            usesCount: number;
+        };
+        /** @description A row of `listAllClasses`. */
+        AdminClassRow: {
+            id: components["schemas"]["Uuid"];
+            name: string;
+            scheduleLabel: string | null;
+            room: string | null;
+            /** @description `null` for a class that names no teacher. */
+            teacher: components["schemas"]["AdminClassTeacher"] | null;
+            /** @description Live members, as `Class.studentCount` counts them. */
+            studentCount: number;
+            /**
+             * @description The active code, or `null` when the class has none or its code
+             *     cannot be read back (a code issued before v0.8.0, or one sealed
+             *     under a key this server no longer holds).
+             */
+            joinCode: components["schemas"]["AdminClassJoinCode"] | null;
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        /** @description The tab counts for the current search and teacher filter, ignoring the tab. */
+        AdminClassFacets: {
+            active: number;
+            archived: number;
+        };
+        AdminClassCreate: {
+            name: string;
+            teacherId: components["schemas"]["Uuid"];
+            /** @description As in `createClass`. */
+            scheduleLabel?: string | null;
+            /** @description As in `createClass`. */
+            room?: string | null;
+        };
+        ClassTeacherChange: {
+            teacherId: components["schemas"]["Uuid"];
+            /**
+             * @description Tell both teachers in their bells.
+             * @default false
+             */
+            notify: boolean;
+        };
         ClassMember: {
             userId: components["schemas"]["Uuid"];
             /** @description The same figures G-07 shows, so G-06's roster carries "Bài đã nộp" and "Điểm TB". */
@@ -8769,13 +8908,14 @@ export interface components {
          *     | `ai.credit_request` | a teacher | `teacherName`, `credits` |
          *     | `ai.credit_request.decided` | a teacher | `credits`, `decision` |
          *     | `content.transferred` | a teacher | `teacherName`, `count` |
+         *     | `class.teacher_changed` | a teacher | `className`, and `teacherName` for the class's previous teacher |
          *
          *     The three `ai.*` kinds are for the teacher's bell. `ai.credit_request`
          *     is written for every holder of `ai.credits.manage`, who reads it in the
          *     teacher workspace until the Admin console has a bell of its own.
          * @enum {string}
          */
-        NotificationKind: "attempt.submitted" | "attempt.flagged" | "assignment.closing" | "class.joined" | "join_codes.rotated" | "assignment.opened" | "assignment.due_soon" | "assignment.extended" | "result.ready" | "ai.allowance_warning" | "ai.credit_request" | "ai.credit_request.decided" | "content.transferred";
+        NotificationKind: "attempt.submitted" | "attempt.flagged" | "assignment.closing" | "class.joined" | "join_codes.rotated" | "assignment.opened" | "assignment.due_soon" | "assignment.extended" | "result.ready" | "ai.allowance_warning" | "ai.credit_request" | "ai.credit_request.decided" | "content.transferred" | "class.teacher_changed";
         /**
          * @description The console that reads a notification, and so which of the caller's
          *     notifications a bell counts, lists and clears. Which kinds each one
@@ -8795,7 +8935,7 @@ export interface components {
          *     `assignment.due_soon` and `result.ready` the student's. A switch
          *     governs the kind of the same name, and `assignment.due_soon` also
          *     governs `assignment.opened` and `assignment.extended`. `class.joined`
-         *     and `join_codes.rotated` have no switch.
+         *     `join_codes.rotated` and `class.teacher_changed` have no switch.
          * @enum {string}
          */
         NotificationEvent: "attempt.submitted" | "attempt.flagged" | "assignment.closing" | "assignment.due_soon" | "result.ready";
@@ -8827,7 +8967,7 @@ export interface components {
             allowance?: number;
             /** @description AI credits a request asks for. */
             credits?: number;
-            /** @description The teacher who asked for credits (`ai.credit_request`), or whose content was given to the reader (`content.transferred`). */
+            /** @description The teacher who asked for credits (`ai.credit_request`), whose content was given to the reader (`content.transferred`), or who now teaches a class the reader taught (`class.teacher_changed`, on the previous teacher's item only: the new teacher's item has no `teacherName`). */
             teacherName?: string;
             /**
              * @description How an Admin decided a request for credits.
@@ -14303,6 +14443,123 @@ export interface operations {
             };
             429: components["responses"]["TooManyRequests"];
             501: components["responses"]["UserImportUnavailable"];
+        };
+    };
+    listAllClasses: {
+        parameters: {
+            query?: {
+                tab?: "active" | "archived";
+                /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
+                q?: components["parameters"]["Query"];
+                teacher?: "disabled";
+                /**
+                 * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
+                 *     lists: at this scale the teacher wants "trang 3 / 26" more than
+                 *     stability under concurrent inserts). A page past the end is an empty
+                 *     `items` with the same `total`.
+                 *
+                 *     Page size is `limit`, declared per operation with its own default -- a
+                 *     media grid wants a different page from a table of tests. The response
+                 *     echoes the size actually used as `pageSize`; compute page counts from
+                 *     that and `total`, never from an assumed size.
+                 */
+                page?: components["parameters"]["Page"];
+                limit?: 10 | 20 | 50;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageInfo"] & {
+                        items: components["schemas"]["AdminClassRow"][];
+                        facets: components["schemas"]["AdminClassFacets"];
+                        disabledTeacherClasses: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    createClassForTeacher: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminClassCreate"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Class"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `INVALID_RECIPIENT` — the teacher does not exist, is disabled or has no teacher workspace. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    changeClassTeacher: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClassTeacherChange"];
+            };
+        };
+        responses: {
+            /** @description The class with its new teacher. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Class"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description `INVALID_RECIPIENT` — the teacher does not exist, is disabled or has no teacher workspace. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     listRoles: {

@@ -102,6 +102,13 @@ var theV070AdminOperations = []string{
 	"PUT /admin/question-groups/{id}",
 }
 
+// takenByR5 are the v0.7.0 operations whose paths R5's Admin console serves
+// with operations of its own, so the alias no longer rewrites them (D-053).
+var takenByR5 = map[string]string{
+	"GET /admin/classes":  "ListAllClasses",
+	"POST /admin/classes": "CreateClassForTeacher",
+}
+
 var wildcard = regexp.MustCompile(`\{[^/]+\}`)
 
 func sample(schema *openapi3.Schema) string {
@@ -182,13 +189,28 @@ func TestTheLegacyTableIsTheV070AdminOperations(t *testing.T) {
 		keys = append(keys, pattern)
 	}
 	sort.Strings(keys)
-	want := slices.Clone(theV070AdminOperations)
+	want := slices.DeleteFunc(slices.Clone(theV070AdminOperations), func(pattern string) bool {
+		_, taken := takenByR5[pattern]
+		return taken
+	})
+	if len(want) != len(theV070AdminOperations)-len(takenByR5) {
+		t.Fatalf("takenByR5 names an operation v0.7.0 did not have: %v", takenByR5)
+	}
 	sort.Strings(want)
 	if !slices.Equal(keys, want) {
 		t.Fatalf("the alias table differs from v0.7.0's /admin operations:\n%s", lineDiff(strings.Join(want, "\n"), strings.Join(keys, "\n")))
 	}
 	current := map[string]bool{}
-	eachOperation(freshSpec(t), func(pattern string, _ *openapi3.Operation) { current[pattern] = true })
+	operations := map[string]string{}
+	eachOperation(freshSpec(t), func(pattern string, op *openapi3.Operation) {
+		current[pattern] = true
+		operations[pattern] = op.OperationID
+	})
+	for pattern, id := range takenByR5 {
+		if operations[pattern] != id {
+			t.Errorf("%s is served by %q, want %s", pattern, operations[pattern], id)
+		}
+	}
 	for old, target := range table {
 		method, path := splitPattern(old)
 		expected := "/teacher/" + strings.TrimPrefix(path, "/admin/")
@@ -337,5 +359,36 @@ func TestAnEncodedSlashStaysInsideItsSegment(t *testing.T) {
 	}
 	if errorCode(t, old) != errorCode(t, current) {
 		t.Errorf("error code %q on the old path, %q on the new", errorCode(t, old), errorCode(t, current))
+	}
+}
+
+func TestThePathsR5TookReachItsOperationsAndAreNotRewritten(t *testing.T) {
+	issuer := testIssuer(t)
+	for pattern := range takenByR5 {
+		method, path := splitPattern(pattern)
+		logs := &logLines{}
+		h := loggedRouter(t, issuer, logs)
+		if rec := sendAs(t, h, issuer, method, path, teacherUser, ""); rec.Code != http.StatusForbidden {
+			t.Errorf("%s as a teacher: %d, want the 403 of a scope.all operation, not the teacher's own list", pattern, rec.Code)
+		}
+		admin := sendAs(t, h, issuer, method, path, adminUser, "")
+		if admin.Code == http.StatusNotFound || admin.Code == http.StatusMethodNotAllowed ||
+			admin.Code == http.StatusForbidden || admin.Code == http.StatusUnauthorized {
+			t.Errorf("%s as an Admin: %d, want it to reach the handler", pattern, admin.Code)
+		}
+		if lines := logs.legacy(t); len(lines) != 0 {
+			t.Errorf("%s was rewritten: %v", pattern, lines)
+		}
+	}
+}
+
+func TestAClassByIDUnderAdminIsStillRewritten(t *testing.T) {
+	issuer := testIssuer(t)
+	logs := &logLines{}
+	h := loggedRouter(t, issuer, logs)
+	sendAs(t, h, issuer, http.MethodGet, "/admin/classes/01935000-0000-7000-8000-0000000000e1", adminUser, "")
+	lines := logs.legacy(t)
+	if len(lines) != 1 || lines[0]["pattern"] != "GET /admin/classes/{id}" {
+		t.Fatalf("GET /admin/classes/{id} logged %v, want one legacy_admin_path line for its pattern", lines)
 	}
 }

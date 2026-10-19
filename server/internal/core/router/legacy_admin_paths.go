@@ -19,8 +19,6 @@ var legacyAdminPatterns = []string{
 	"PATCH /admin/attempts/{id}/note",
 	"POST /admin/attempts/{id}/reset",
 	"POST /admin/attempts/{id}/void",
-	"GET /admin/classes",
-	"POST /admin/classes",
 	"GET /admin/classes/{id}",
 	"PATCH /admin/classes/{id}",
 	"DELETE /admin/classes/{id}",

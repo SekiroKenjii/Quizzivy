@@ -13,7 +13,9 @@ import (
 // LegacyAdminPaths returns the v0.7.0 /admin operations that R2 moved, each
 // keyed by its old route pattern ("GET /admin/tests/{id}") and paired with the
 // path pattern that serves it now ("/teacher/tests/{id}"). The router answers
-// the old patterns through the new ones for one release; R3 removes them.
+// the old patterns through the new ones until T-R5.36 removes them. GET and
+// POST /admin/classes are not among them: R5's Admin console took them
+// (D-053).
 func LegacyAdminPaths() map[string]string {
 	return maps.Clone(legacyAdminPaths)
 }

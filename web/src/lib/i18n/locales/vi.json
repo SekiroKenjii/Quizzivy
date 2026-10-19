@@ -328,6 +328,7 @@
       "class.member_enrolled": "Học viên đã vào lớp bằng mã tham gia",
       "class.member_removed": "Đã xoá học viên khỏi lớp",
       "class.restored": "Đã khôi phục lớp",
+      "class.teacher_changed": "Đã đổi giáo viên của lớp",
       "data_export.downloaded": "Đã tải bản xuất dữ liệu",
       "data_export.requested": "Đã yêu cầu bản xuất dữ liệu",
       "import.cancelled": "Đã huỷ lần nhập Word",
@@ -3324,7 +3325,9 @@
       "aiApproved": "Yêu cầu thêm {{credits}} tín dụng AI của bạn đã được duyệt",
       "aiDeclined": "Yêu cầu thêm {{credits}} tín dụng AI của bạn đã bị từ chối",
       "transferred_one": "Nội dung của {{teacherName}} đã được chuyển cho bạn: {{count}} mục",
-      "transferred_other": "Nội dung của {{teacherName}} đã được chuyển cho bạn: {{count}} mục"
+      "transferred_other": "Nội dung của {{teacherName}} đã được chuyển cho bạn: {{count}} mục",
+      "teacherReceived": "Bạn được giao dạy lớp {{className}}",
+      "teacherChanged": "Lớp {{className}} đã được giao cho {{teacherName}}"
     },
     "bell": {
       "label": "Thông báo",
@@ -5134,6 +5137,10 @@
       "admin-roles": {
         "name": "Vai trò & quyền",
         "blurb": "Tạo và sửa vai trò, bảng quyền theo quy tắc tập con."
+      },
+      "admin-classes": {
+        "name": "Lớp của mọi giáo viên",
+        "blurb": "Danh sách lớp của cả trung tâm, tạo lớp cho một giáo viên và đổi giáo viên của lớp."
       },
       "admin-ai": {
         "name": "Tín dụng AI",
