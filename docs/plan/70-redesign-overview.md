@@ -30,7 +30,7 @@ Where either disagrees with the spec, the spec wins and the plan is corrected (A
 | D13 | Admin rows | The People and System rows may be granted to any role, under the **subset rule** (§4.3). |
 | D14 | Assistant | Attached per class (class staff); hidden from role pickers until the deck draws it (DG-04). |
 | D15 | Credentials by email | A one-time set-password link valid 24 hours. A password never sits in an inbox. |
-| D16 | Retention | The Admin retention settings drive `cmd/maintenance retention-sweep`, run nightly at 03:00 ICT by the GitHub Actions workflow `retention-sweep.yml` as the `quizzivy_maintenance` role. Its credential lives in the GitHub environment `production-maintenance`, never on Fly. Runs are audited as System, and a scheduled run applies only once `RETENTION_SWEEP_ENABLED` is set after a reviewed dry run. Every `cmd/maintenance` command runs as that role, and a release that adds or widens a command grants exactly what it needs in its own migration. "Delete disabled accounts" anonymises (the O-23 method). Supersedes O-23. |
+| D16 | Retention | The Admin retention settings drive `cmd/maintenance retention-sweep`, run nightly at 03:00 ICT by the GitHub Actions workflow `retention-sweep.yml` as the `quizzivy_maintenance` role. Its credential lives in the GitHub environment `production-maintenance`, never on Fly. Runs are audited as System, and a scheduled run applies only once `RETENTION_SWEEP_ENABLED` is set after a reviewed dry run. Every `cmd/maintenance` command runs as that role, and a release that adds or widens a command grants exactly what it needs in its own migration. "Delete disabled accounts" anonymises (the O-23 method). Supersedes O-23. As built (T-R5.17a): the schedule is `0 20 * * *` UTC; a manual run is a dry run unless its `apply` input is ticked, and `RETENTION_SWEEP_ENABLED` is a repository variable. `scripts/provision-db.sh` creates the role (`LOGIN`, `CONNECTION LIMIT 2`, no `CREATEDB` or `CREATEROLE`); `00139_grant_maintenance_role.sql` fails without it and grants it, column by column, what the commands read and write, never `UPDATE` or `DELETE` on `audit_log`, and adds the trigger `users_maintenance_guard`, which lets the role update an account only to leave it anonymised; `privileges_test.go` pins the grants. A run's audit entries have no actor and carry `databaseRole`. |
 | D17 | Messages | Direct messages are readable by their participants only. Admins see counts, never contents. |
 | D18 | Leads | A consent checkbox and a privacy notice (Decree 13/2023); leads kept 12 months. |
 
@@ -210,9 +210,11 @@ requests). Neither is a pseudo-key: a role may hold every teaching key and no AI
   this, and `permissions_test.go`, `testdata/permissions.golden` and the web contract suite
   fail the build.
 - **Open operations.** There are six at v0.6.0 (login, Google, refresh, logout,
-  `/join/preview`, the integrity beacon). R1 adds `getPublicStatus` (7). R5 adds
-  `checkSetPasswordLink`, `setPasswordWithLink`, `getPublicOrganization` and
-  `getOrganizationLogo` (11). R7 adds the Resend webhook `POST /public/email-events` (12). R11
+  `/join/preview`, the integrity beacon). R1 adds `getPublicStatus` (7). R5 added
+  `checkSetPasswordLink` (`POST /auth/set-password/check`), `setPasswordWithLink`
+  (`POST /auth/set-password`), `getPublicOrganization` (`GET /public/organization`) and
+  `getOrganizationLogo` (`GET /public/organization/logo`): eleven, as shipped, pinned by
+  `theOpenEleven` in `core/router/tests/auth_middleware_test.go`. R7 adds the Resend webhook `POST /public/email-events` (12). R11
   adds `submitLead` (13). Each is rate-limited, leak-reviewed and added to the pinned list in its
   own PR.
 - `httpx.RequirePermission` replaces `RequireRole`'s `/admin/` prefix gate. It resolves the
@@ -268,7 +270,7 @@ requests). Neither is a pseudo-key: a role may hold every teaching key and no AI
 | `/` | Anyone (signed-in → console) | Landing (R11) |
 | `/login`, `/forgot-password`, `/join`, `/join/:code`, `/set-password`, `/change-password` | Front door | `AuthLayout` |
 | `/teacher/*` | `workspace.teacher` | `TeacherLayout` |
-| `/admin/*` | `workspace.admin` | R5's Admin console; until then every `/admin/*` address redirects to the same path under `/teacher` (T-R4.5) |
+| `/admin/*` | `workspace.admin` | `AdminLayout`, R5's Admin console (T-R5.20); an `/admin/*` address that is not a console route redirects to the same path under `/teacher` (T-R4.5) |
 | `/app/*` | `learning.take_tests` | `StudentLayout`; `/app/attempts/:id` in `FocusLayout` |
 | `/403`, `*`, error boundary, maintenance | Everyone | System pages |
 
@@ -287,7 +289,7 @@ API prefixes follow the same split (`/teacher/*`, `/admin/*`, `/app/*`, `/auth/*
 | Tokens | Refresh tokens unchanged; access-token claims change additively; no forced re-login. `users.role` and `app.user_role` are dropped by 00105 (T-R4.49, T-R3.1), and an access token carries no role. | R2 (done), v0.9.1 |
 | Attempts in flight | R3 reads the existing local answer drafts unchanged. Deploys happen outside exam windows. | R3 |
 | Assignment integrity | Existing assignments keep their stored policy; the wizard's new defaults apply to new assignments. | R4 |
-| Retention | O-23's fixed rules apply until an admin changes the R5 settings. | R5 |
+| Retention | The R5 settings start at O-23's rules (`00130`: focus-loss events 13 months, answers kept, disabled accounts never anonymised), so nothing changes until an admin changes a select. The nightly sweep applies them only once `RETENTION_SWEEP_ENABLED` is `true` after a reviewed dry run (D16); until then it is a dry run. | R5 |
 | Browser storage | The student has no `quizzivy.column.*` key since R3: the engine's footer deletes `quizzivy.column.studentNavigator`, the only one, when it mounts. The theme is `quizzivy.theme` since R1; `quizzivy.locale` stays. The student's keys are listed below. | R1 (done), R3 |
 
 The student's browser storage in v0.9.0, as `web/src` reads and writes it:

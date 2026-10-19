@@ -525,6 +525,32 @@ DROP INDEX CONCURRENTLY IF EXISTS app.users_created_by_idx;            -- 00076
 DROP INDEX CONCURRENTLY IF EXISTS app.assignments_creator_idx;         -- 00077
 ```
 
+## Rolling out v0.12.0 (R5)
+
+v0.12.0 adds the Admin console, outgoing email and the nightly retention sweep, with
+migrations `00128` to `00140`. Three things must exist before the merge to `main`. A missing secret or a missing
+maintenance role stops the deploy on its own; the sending domain has to be checked by hand:
+
+- **Fly secrets `SECRETS_KEY` and `RESEND_API_KEY`** (`dns.md`, "Secrets on Fly").
+  `EMAIL_FROM`, `APP_URL`, `EMAIL_DAILY_LIMIT`, `EMAIL_SEND_RATE` and `APP_TIMEZONE`
+  are in `fly.toml`'s `[env]`. The preflight fails without any of `SECRETS_KEY`,
+  `RESEND_API_KEY`, `EMAIL_FROM` and `APP_URL`, and fails if `EMAIL_SINK_DIR` is set, before anything is built.
+- **The `quizzivy.com` sending domain verified in Resend**, open and click tracking
+  off (`dns.md`, "Email (Resend)"). Without it the API starts and every message
+  fails at Resend.
+- **The `quizzivy_maintenance` role**, created by `scripts/provision-db.sh`
+  (`operations.md`, "The nightly workflow", step 1). `00139_grant_maintenance_role.sql`
+  fails while the role is missing, so the release command stops and the previous
+  version keeps serving. Create the `production-maintenance` environment as step 2
+  says, and leave `RETENTION_SWEEP_ENABLED` unset until the first dry run on
+  production has been read.
+
+The `PLAN_*` variables stay unset until the centre's plan is decided
+(`operations.md`, "The plan the Admin console shows"). A tab still signed in with a
+temporary password gets `403 PASSWORD_CHANGE_REQUIRED` once and is sent to change it;
+the release notes say so. Roll forward rather than back
+(`docs/plan/70-redesign-overview.md` §8).
+
 ## Interrupted index build in v0.12.0 (R5)
 
 `00133` builds `audit_log_recent_idx` on `app.audit_log (occurred_at DESC, id DESC)`

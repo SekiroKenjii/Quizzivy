@@ -387,9 +387,10 @@ ignored. `VITE_GOOGLE_CLIENT_ID` and `VITE_API_BASE_URL` are the only public
 values (§5.3). The Google client secret, R2 credentials, and the JWT signing key
 are backend-only.
 
-**Two database roles** (§13.5): `quizzivy_migrate` owns the schema and runs
-`goose`; `quizzivy_app` has DML plus `USAGE` and is what the API connects as.
-Compose provisions both, so a missing grant fails locally rather than in
+**Three database roles** (§13.5): `quizzivy_migrate` owns the schema and runs
+`goose`; `quizzivy_app` has DML plus `USAGE` and is what the API connects as;
+`quizzivy_maintenance` holds 00139's column grants for `cmd/maintenance` (R5).
+Compose provisions all three, so a missing grant fails locally rather than in
 production.
 
 ## 10. Git workflow
