@@ -376,6 +376,20 @@ What v0.9.0 then does with what v0.10.0 wrote:
 - `00084`'s Down leaves its constraint `NOT VALID` for the same reason. Never roll back past v0.8.0
   (the join-code key).
 
+## Rolling out v0.11.9 (hotfix)
+
+v0.11.9 fixes "Make a variant" and changes no schema, no configuration, no contract and no web code (spec
+0.113, "Changes since v0.112"). The variant used to ask the provider about the whole test in one call, which
+timed out on a test of about thirty questions or more and answered `503 AI_UNAVAILABLE`. It now asks about 8
+questions a call, at most five at a time, within 45 seconds, under one reservation.
+
+- **No migration.** `release_command` runs `migrate up` and finds nothing to do. Only the API changes; the
+  web build of v0.11.8 works with it unchanged.
+- **What to watch.** Each variant logs one `ai variant` line (`docs/setup/operations.md`) with its calls, how
+  many were usable and whether the budget ran out. A pass whose calls all fail still logs `ai call failed` or
+  `ai answer unusable` for each, as before.
+- **Rolling back to v0.11.8** needs nothing, and brings the timeout back for long tests.
+
 ## Rolling out v0.11.8 (hotfix)
 
 v0.11.8 carries three hotfixes and changes no schema, no configuration and no response (spec 0.112, "Changes

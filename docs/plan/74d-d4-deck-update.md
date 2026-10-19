@@ -3458,6 +3458,12 @@ the 256 MiB sandbox included; `BenchmarkRenderForty*` in `pdftext/tests` repeats
       variant duplicates bank questions and writes each change to the duplicate, which a group's
       members cannot be, so `VariantHandler` drops `GroupID != ""` questions before it builds the
       prompt and a test whose questions are all members answers `ErrNothingToRead`, as before.
+      **Corrected in v0.11.9: a variant is a bounded pass.** One call for the whole draft, with
+      6,000 tokens of answer, could not come back inside the 60 seconds a call and the proxy
+      allow on a test of about thirty questions or more, so it answered `503`. `VariantHandler`
+      now asks about `prompts.VariantChunkSize` (8) questions a call, at most
+      `VariantCallsInFlight` (5) at a time within the clean-up's budget, under one reservation and
+      one `Finish`, and returns the usable calls' changes in paper order.
 - [x] Clean up: a duplicate card offers "Open" for each question and "Keep both"; no merge
       (DG-197); "Add tags to {n} questions" is the bulk tag write.
 - [x] **Corrected in the next patch release (v0.11.8): a panel's session outlives its drawer.**

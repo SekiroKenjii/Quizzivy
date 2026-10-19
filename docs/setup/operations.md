@@ -638,6 +638,7 @@ where the provider answered, its `request_id`, which is what the provider's cons
 | `ai call rejected` | ERROR | The provider refused the request itself, which is the key, the account or a model name. Read the provider console. The teacher saw the same 503. |
 | `ai call failed unexpectedly` | ERROR | An error that is none of the above. |
 | `ai clean-up` | INFO | One bank clean-up: how many calls it made and how many gave a usable answer, whether the 45-second budget ran out, and every `request_id` of the pass. The ledger gets one row for the pass and keeps only the ids that fit 200 characters, so this line is where all of them are. |
+| `ai variant` | INFO | One "Make a variant": how many calls it made (8 questions to a call), how many gave a usable answer, whether the 45-second budget ran out, and every `request_id` of the pass. The ledger gets one row for the pass. |
 | `ai clean-up: an answer had nothing usable` | WARN | One call of a clean-up answered something no decoder could use. It was billed and settled; the other calls' findings were returned with `truncated` set. |
 | `ai clean-up: the smallest call can cost more than the reservation` | ERROR | At the configured prices not even one call of the clean-up fits its 200-credit ceiling, so none was made and nothing was reserved: the fast tier's prices are wrong. The teacher saw `503 AI_UNAVAILABLE`. |
 | `ai reservation not ended` | ERROR | `Finish` could not settle or release a call. The sweep returns the credits once the reservation is ten minutes old. |
