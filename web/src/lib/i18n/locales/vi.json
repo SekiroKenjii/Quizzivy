@@ -1097,10 +1097,10 @@
     },
     "export": {
       "title": "Xuất toàn bộ dữ liệu",
-      "hint": "Gửi cho bạn một liên kết tải về toàn bộ dữ liệu của trung tâm.",
+      "hint": "Gửi cho bạn một liên kết tải về toàn bộ dữ liệu của trung tâm. Liên kết hết hạn sau 24 giờ.",
       "request": "Yêu cầu xuất",
       "dialogTitle": "Xuất toàn bộ dữ liệu?",
-      "dialogHint": "Liên kết tải về sẽ được gửi tới email của bạn và chỉ dùng được một lần.",
+      "dialogHint": "Liên kết mở trang tải xuống và có hiệu lực trong 24 giờ.",
       "sendTo": "Gửi liên kết tới",
       "includeAnswers": "Bao gồm câu trả lời",
       "includeAnswersHint": "Tệp sẽ lớn hơn nhiều",
@@ -1137,7 +1137,7 @@
       "importsCount_one": "{{count}} lần nhập",
       "importsCount_other": "{{count}} lần nhập",
       "teachers": "Giáo viên",
-      "aiCredits": "Điểm AI",
+      "aiCredits": "Tín dụng AI",
       "aiCreditsOf": "{{used}} / {{pool}} trong tháng này"
     }
   },
@@ -1166,10 +1166,12 @@
     "failed": "Không tạo được tệp xuất. Hãy yêu cầu xuất lại từ Cài đặt hệ thống.",
     "expiredNote": "Liên kết đã hết hạn. Hãy yêu cầu xuất lại từ Cài đặt hệ thống.",
     "download": "Tải xuống",
-    "downloadedAt": "Đã tải lúc {{time}}",
+    "downloadedAt": "Đã tải lúc {{time}} · {{count}}/{{max}} lần",
     "missing": "Không tìm thấy bản xuất này",
     "missingHint": "Bản xuất không tồn tại hoặc do người khác yêu cầu.",
-    "loadFailed": "Không tải được bản xuất."
+    "loadFailed": "Không tải được bản xuất.",
+    "downloadCount": "Đã tải {{count}}/{{max}} lần",
+    "exhausted": "Đã dùng hết lượt tải. Hãy yêu cầu xuất lại từ Cài đặt hệ thống."
   },
   "student": {
     "shell": {

@@ -95,6 +95,7 @@ export function SettingsForm({
   const [stale, setStale] = useState(false);
   const [refusal, setRefusal] = useState<SignInRefusal | null>(null);
   const revision = useRef(saved.revision);
+  const persisting = useRef(false);
   const lastEdited = useRef("organization.name");
   const pendingFocus = useRef<string | null>(null);
 
@@ -108,6 +109,7 @@ export function SettingsForm({
   const [checking, setChecking] = useState(false);
   const [confirming, setConfirming] = useState<{
     values: SettingsFormOutput;
+    sent: unknown;
     impact: RetentionImpact;
   } | null>(null);
   const saving = save.isPending || checking;
@@ -186,13 +188,15 @@ export function SettingsForm({
     setError(null);
     setStale(false);
     setRefusal(null);
+    const sent: unknown = JSON.parse(JSON.stringify(form.getValues()));
     if (!retentionShortened(saved.retention, values.retention)) {
-      await persist(values);
+      await persist(values, sent);
       return;
     }
     setChecking(true);
     try {
-      setConfirming({ values, impact: await retentionImpact(values.retention) });
+      const impact = await retentionImpact(values.retention);
+      setConfirming({ values, sent, impact });
     } catch (cause) {
       setError(failureMessage(cause, t("api.failed")));
     } finally {
@@ -200,8 +204,9 @@ export function SettingsForm({
     }
   }
 
-  async function persist(values: SettingsFormOutput) {
-    const sent: unknown = JSON.parse(JSON.stringify(form.getValues()));
+  async function persist(values: SettingsFormOutput, sent: unknown) {
+    if (persisting.current) return;
+    persisting.current = true;
     try {
       const stored = await save.mutateAsync(settingsInput(values, revision.current));
       const typedSince = editsSince(sent, form.getValues());
@@ -214,6 +219,8 @@ export function SettingsForm({
       toast(t("settings.saved"));
     } catch (cause) {
       failed(cause, values);
+    } finally {
+      persisting.current = false;
     }
   }
 
@@ -294,7 +301,9 @@ export function SettingsForm({
         }}
         onConfirm={() => {
           if (confirming === null) return;
-          void persist(confirming.values).then(() => setConfirming(null));
+          void persist(confirming.values, confirming.sent).then(() =>
+            setConfirming(null),
+          );
         }}
       />
     </FormProvider>

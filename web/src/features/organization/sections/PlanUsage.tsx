@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { credits } from "@/features/ai/credits";
 import { usageQuery, type Usage } from "@/features/organization/api";
 import { formatStorage } from "@/features/media/format";
+import { ApiError } from "@/lib/api/errors";
 import { formatDate } from "@/lib/i18n/datetime";
 import type { Locale } from "@/lib/i18n";
 import { useLocale } from "@/lib/i18n/useLocale";
@@ -128,14 +129,16 @@ function UsageBody({ query }: Readonly<{ query: UseQueryResult<Usage> }>) {
         <p role="alert" className="text-muted-fg text-ui min-w-40 flex-1">
           {t("systemSettings.plan.loadFailed")}
         </p>
-        <Button
-          type="button"
-          variant="outline"
-          className="h-8.5"
-          onClick={() => void query.refetch()}
-        >
-          {t("common.retry")}
-        </Button>
+        {query.error instanceof ApiError && query.error.status === 403 ? null : (
+          <Button
+            type="button"
+            variant="outline"
+            className="h-8.5"
+            onClick={() => void query.refetch()}
+          >
+            {t("common.retry")}
+          </Button>
+        )}
       </div>
     );
   }
@@ -152,7 +155,13 @@ function UsageBody({ query }: Readonly<{ query: UseQueryResult<Usage> }>) {
   );
 }
 
-function planLine(plan: Usage["plan"], locale: Locale, t: TFunction): string {
+function planLine(
+  usage: Usage | undefined,
+  locale: Locale,
+  t: TFunction,
+): string | undefined {
+  if (usage === undefined) return undefined;
+  const plan = usage.plan;
   if (plan === null) return t("systemSettings.plan.hint");
   if (plan.renewsOn === null)
     return t("systemSettings.plan.named", { name: plan.name });
@@ -176,7 +185,7 @@ export function PlanUsageSection() {
   return (
     <SettingsCard
       title={t("systemSettings.plan.title")}
-      description={planLine(usage.data?.plan ?? null, locale, t)}
+      description={planLine(usage.data, locale, t)}
     >
       <UsageBody query={usage} />
     </SettingsCard>

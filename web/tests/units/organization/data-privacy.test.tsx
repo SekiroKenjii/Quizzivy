@@ -3,7 +3,18 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { contentWidth } from "@tests/support/contentWidth";
 import { useAuthStore } from "@/stores/auth";
-import { SAVED, servesRetentionImpact, servesSettings, signInAsAdmin } from "./support";
+import { http } from "msw";
+import { adminUser } from "@tests/support/fixtures";
+import { contractJson } from "@tests/support/contractResponse";
+import { server } from "@tests/support/server";
+import {
+  BASE,
+  IMPACT,
+  SAVED,
+  servesRetentionImpact,
+  servesSettings,
+  signInAsAdmin,
+} from "./support";
 import { renderSettings } from "./render";
 import "@/lib/i18n";
 
@@ -130,5 +141,69 @@ describe("the Data & privacy section", () => {
     expect(stored.puts).toEqual([]);
     expect(focus()).toHaveTextContent("6 tháng");
     expect(save()).toBeVisible();
+  });
+
+  it("sends one save when the confirmation is pressed twice", async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const stored = servesSettings(SAVED, async (body) => {
+      await gate;
+      return contractJson("/admin/settings", "put", 200, {
+        ...body,
+        revision: body.expectedRevision + 1,
+        updatedAt: "2026-10-15T09:00:00Z",
+        updatedBy: adminUser.id,
+      });
+    });
+    servesRetentionImpact();
+    await openData();
+    const user = userEvent.setup({ delay: null });
+
+    await choose(user, await answers(), "1 năm");
+    await user.click(save());
+    const dialog = await screen.findByRole("dialog");
+    await user.dblClick(within(dialog).getByRole("button", { name: "Lưu và xoá" }));
+    release();
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(stored.puts).toHaveLength(1);
+  });
+
+  it("keeps an edit typed while the impact is being counted as an unsaved change", async () => {
+    const stored = servesSettings();
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.post(`${BASE}/admin/settings/retention-impact`, async () => {
+        await gate;
+        return contractJson("/admin/settings/retention-impact", "post", 200, IMPACT);
+      }),
+    );
+    const { router } = renderSettings("/admin/settings/data");
+    await answers();
+    const user = userEvent.setup({ delay: null });
+
+    await choose(user, await answers(), "1 năm");
+    await user.click(save());
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Đang lưu…" })).toBeVisible(),
+    );
+    await router.navigate("/admin/settings/organization");
+    const name = await screen.findByRole("textbox", { name: "Tên tổ chức" });
+    await user.clear(name);
+    await user.type(name, "Tên mới");
+    release();
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Lưu và xoá" }));
+
+    await waitFor(() => expect(stored.puts).toHaveLength(1));
+    expect(stored.puts[0]?.organization.name).toBe("Quizzivy English Centre");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("textbox", { name: "Tên tổ chức" })).toHaveValue("Tên mới");
+    expect(screen.getByText("Bạn có thay đổi chưa lưu.")).toBeVisible();
   });
 });

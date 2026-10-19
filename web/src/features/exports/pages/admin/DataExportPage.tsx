@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router";
@@ -15,6 +15,7 @@ import {
   dataExportQuery,
   downloadDataExport,
   EXPORT_POLL_MS,
+  MAX_DOWNLOADS,
   type DataExport,
 } from "@/features/exports/api";
 import { formatStorage } from "@/features/media/format";
@@ -46,10 +47,12 @@ function ReadyActions({ data }: Readonly<{ data: DataExport }>) {
   const locale = useLocale();
   const client = useQueryClient();
   const [pending, setPending] = useState(false);
+  const busy = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   async function download() {
-    if (pending) return;
+    if (busy.current) return;
+    busy.current = true;
     setPending(true);
     setError(null);
     try {
@@ -67,32 +70,40 @@ function ReadyActions({ data }: Readonly<{ data: DataExport }>) {
       }
       setError(failureMessage(cause, t("api.failed")));
     } finally {
+      busy.current = false;
       setPending(false);
     }
   }
 
-  if (data.downloadedAt !== null) {
-    return (
-      <p className="text-muted-fg text-ui px-4.5 py-3">
-        {t("dataExport.downloadedAt", {
-          time: formatDateTime(data.downloadedAt, locale),
-        })}
-      </p>
-    );
-  }
+  const taken = data.downloads;
   return (
     <div className="flex flex-col gap-2 px-4.5 py-3">
-      <div>
-        <Button
-          type="button"
-          aria-disabled={pending || undefined}
-          className="aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50 h-8.5"
-          onClick={() => void download()}
-        >
-          <Download aria-hidden="true" />
-          {t("dataExport.download")}
-        </Button>
-      </div>
+      {taken > 0 ? (
+        <p className="text-muted-fg text-ui">
+          {data.downloadedAt === null
+            ? t("dataExport.downloadCount", { count: taken, max: MAX_DOWNLOADS })
+            : t("dataExport.downloadedAt", {
+                time: formatDateTime(data.downloadedAt, locale),
+                count: taken,
+                max: MAX_DOWNLOADS,
+              })}
+        </p>
+      ) : null}
+      {taken < MAX_DOWNLOADS ? (
+        <div>
+          <Button
+            type="button"
+            aria-disabled={pending || undefined}
+            className="aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50 h-8.5"
+            onClick={() => void download()}
+          >
+            <Download aria-hidden="true" />
+            {t("dataExport.download")}
+          </Button>
+        </div>
+      ) : (
+        <p className="text-muted-fg text-ui">{t("dataExport.exhausted")}</p>
+      )}
       {error === null ? null : (
         <p role="alert" className="text-danger-ink text-xs">
           {error}

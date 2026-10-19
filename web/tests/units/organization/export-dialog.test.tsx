@@ -138,4 +138,35 @@ describe("the export dialog", () => {
       "Máy chủ này chưa bật tính năng xuất dữ liệu.",
     );
   });
+
+  it("sends one request however fast the button is pressed, and leaves no stale error", async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let posts = 0;
+    server.use(
+      http.post(`${BASE}/admin/data-exports`, async () => {
+        posts += 1;
+        await gate;
+        return posts === 1
+          ? contractJson("/admin/data-exports", "post", 202, QUEUED)
+          : contractJson(
+              "/admin/data-exports",
+              "post",
+              409,
+              failure("EXPORT_IN_PROGRESS", "Đang xuất."),
+            );
+      }),
+    );
+    const { user, dialog } = await openDialog();
+
+    await user.dblClick(submit(dialog));
+    release();
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(posts).toBe(1);
+    await user.click(screen.getByRole("button", { name: "Yêu cầu xuất" }));
+    expect(within(await screen.findByRole("dialog")).queryByRole("alert")).toBeNull();
+  });
 });

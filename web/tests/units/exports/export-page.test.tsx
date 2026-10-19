@@ -61,7 +61,7 @@ function renderPage() {
     [{ path: "/admin/exports/:id", element: <DataExportPage /> }],
     { initialEntries: [`/admin/exports/${ID}`] },
   );
-  render(
+  return render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
@@ -105,7 +105,7 @@ describe("the export page", () => {
     expect(seen.reads).toBe(3);
   });
 
-  it("shows a ready export's size and expiry and downloads it once", async () => {
+  it("shows a ready export's size and expiry, downloads it and counts the download", async () => {
     const clicked: string[] = [];
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
       this: HTMLAnchorElement,
@@ -132,9 +132,32 @@ describe("the export page", () => {
     await user.click(screen.getByRole("button", { name: "Tải xuống" }));
 
     expect(
-      await screen.findByText(/^Đã tải lúc \d{2}:\d{2}, \d{2}\/\d{2}\/\d{4}$/),
+      await screen.findByText(
+        /^Đã tải lúc \d{2}:\d{2}, \d{2}\/\d{2}\/\d{4} · 1\/3 lần$/,
+      ),
     ).toBeVisible();
     expect(clicked).toEqual(["https://files.example.test/export.zip?sig=1"]);
+    expect(screen.getByRole("button", { name: "Tải xuống" })).toBeVisible();
+  });
+
+  it("keeps Download until the third signing and then says the downloads are used", async () => {
+    serves(() =>
+      body({ ...READY, downloads: 2, downloadedAt: "2026-10-19T04:00:00Z" }),
+    );
+    const view = renderPage();
+    expect(await screen.findByRole("button", { name: "Tải xuống" })).toBeVisible();
+    expect(screen.getByText(/· 2\/3 lần$/)).toBeVisible();
+    view.unmount();
+
+    serves(() =>
+      body({ ...READY, downloads: 3, downloadedAt: "2026-10-19T04:00:00Z" }),
+    );
+    renderPage();
+    expect(
+      await screen.findByText(
+        "Đã dùng hết lượt tải. Hãy yêu cầu xuất lại từ Cài đặt hệ thống.",
+      ),
+    ).toBeVisible();
     expect(screen.queryByRole("button", { name: "Tải xuống" })).toBeNull();
   });
 

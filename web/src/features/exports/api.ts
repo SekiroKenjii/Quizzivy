@@ -11,6 +11,9 @@ export type DataExportDownload = components["schemas"]["DataExportDownload"];
 /** EXPORT_POLL_MS is how often a queued or running export is read again. */
 export const EXPORT_POLL_MS = 5000;
 
+/** MAX_DOWNLOADS is how many times a ready export may be signed for download. */
+export const MAX_DOWNLOADS = 3;
+
 /** dataExportKey is the query key of `GET /admin/data-exports/{id}`. */
 export function dataExportKey(id: string) {
   return ["data-export", id] as const;

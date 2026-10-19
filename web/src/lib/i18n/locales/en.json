@@ -1097,10 +1097,10 @@
     },
     "export": {
       "title": "Export all data",
-      "hint": "Emails you a link to download everything the centre holds.",
+      "hint": "Emails you a link to download everything the centre holds. The link expires in 24 hours.",
       "request": "Request export",
       "dialogTitle": "Export all data?",
-      "dialogHint": "The download link is emailed to you and works once.",
+      "dialogHint": "The link opens the download page and is valid for 24 hours.",
       "sendTo": "Send the link to",
       "includeAnswers": "Include attempt answers",
       "includeAnswersHint": "Makes the file much larger",
@@ -1166,10 +1166,12 @@
     "failed": "The export could not be built. Request another from System settings.",
     "expiredNote": "The link has expired. Request another from System settings.",
     "download": "Download",
-    "downloadedAt": "Downloaded {{time}}",
+    "downloadedAt": "Downloaded {{time}} · {{count}}/{{max}} times",
     "missing": "This export was not found",
     "missingHint": "It does not exist, or somebody else requested it.",
-    "loadFailed": "The export could not be loaded."
+    "loadFailed": "The export could not be loaded.",
+    "downloadCount": "Downloaded {{count}}/{{max}} times",
+    "exhausted": "All downloads are used. Request another export from System settings."
   },
   "student": {
     "shell": {

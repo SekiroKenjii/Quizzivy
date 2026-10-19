@@ -1,4 +1,4 @@
-import { useId, useState, type RefObject } from "react";
+import { useId, useRef, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { FormDialog, type FormField } from "@/components/shared/form/FormDialog";
@@ -45,6 +45,7 @@ export function ExportDataDialog({
   const request = useRequestDataExport();
   const [error, setError] = useState<string | null>(null);
   const addressId = useId();
+  const sending = useRef(false);
   const fields: readonly FormField<Values>[] = [
     {
       kind: "toggle",
@@ -55,6 +56,8 @@ export function ExportDataDialog({
   ];
 
   async function submit(values: Values) {
+    if (sending.current) return;
+    sending.current = true;
     setError(null);
     try {
       await request.mutateAsync(values.includeAnswers);
@@ -62,6 +65,8 @@ export function ExportDataDialog({
       toast(t("systemSettings.export.requested", { email }));
     } catch (cause) {
       setError(refusal(cause, t));
+    } finally {
+      sending.current = false;
     }
   }
 

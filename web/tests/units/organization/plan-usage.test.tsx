@@ -79,7 +79,7 @@ describe("the Plan & usage section", () => {
     servesUsage();
     await openPlan();
 
-    const row = screen.getByRole("meter", { name: "Điểm AI" });
+    const row = screen.getByRole("meter", { name: "Tín dụng AI" });
     expect(row).toHaveAttribute("aria-valuetext", "6.200 / 20.000 trong tháng này");
   });
 
@@ -87,7 +87,7 @@ describe("the Plan & usage section", () => {
     servesUsage({ ...USAGE, aiCredits: null });
     await openPlan();
 
-    expect(screen.queryByText("Điểm AI")).toBeNull();
+    expect(screen.queryByText("Tín dụng AI")).toBeNull();
   });
 
   it("says no plan is set when there is none", async () => {
@@ -113,5 +113,46 @@ describe("the Plan & usage section", () => {
       }),
     ).toBeVisible();
     expect(alert).toHaveTextContent("Không tải được mức dùng.");
+  });
+
+  it("claims nothing about the plan while the usage loads or when it cannot be read", async () => {
+    servesSettings();
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get(`${BASE}/admin/usage`, async () => {
+        await gate;
+        return contractJson("/admin/usage", "get", 200, USAGE);
+      }),
+    );
+    renderSettings("/admin/settings/plan");
+
+    expect(await screen.findByRole("status", { name: "Đang tải…" })).toBeVisible();
+    expect(screen.queryByText("Chưa cấu hình gói cho trung tâm này.")).toBeNull();
+    release();
+    expect(await screen.findByText("Gói Trung tâm · gia hạn 01/12/2026")).toBeVisible();
+  });
+
+  it("says nothing about the plan after a failure and offers no retry on a 403", async () => {
+    servesSettings();
+    server.use(
+      http.get(`${BASE}/admin/usage`, () =>
+        contractJson(
+          "/admin/usage",
+          "get",
+          403,
+          failure("FORBIDDEN", "Không có quyền."),
+        ),
+      ),
+    );
+    renderSettings("/admin/settings/plan");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Không tải được mức dùng.",
+    );
+    expect(screen.queryByText("Chưa cấu hình gói cho trung tâm này.")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Thử lại" })).toBeNull();
   });
 });
