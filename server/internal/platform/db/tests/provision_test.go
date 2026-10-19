@@ -77,7 +77,7 @@ func TestTheProvisioningScriptRunsAsAManagedAdminThatIsNotASuperuser(t *testing.
 		t.Fatalf("%s is not set in CI; the provisioning script must be proved against a real non-superuser admin", superuserDSN)
 	}
 	if dsn == "" {
-		t.Skipf("%s is not set; skipping the provisioning script test", superuserDSN)
+		t.Skip("TEST_SUPERUSER_DATABASE_URL is not set; skipping the provisioning script test")
 	}
 	super, err := sql.Open("pgx", dsn)
 	if err != nil {

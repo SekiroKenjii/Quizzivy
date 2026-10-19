@@ -123,7 +123,7 @@ func sharedScratch(t *testing.T) string {
 		shared.name, shared.owner = createScratch(t)
 	})
 	if shared.owner == "" {
-		t.Skip("the shared scratch database could not be created")
+		t.Fatal("the shared scratch database could not be created; the first test that asked for it says why")
 	}
 	return shared.owner
 }
@@ -142,7 +142,7 @@ func newIsolated(t *testing.T) isolated {
 		t.Fatalf("%s is not set in CI; the tests that run as the maintenance role must not be skipped", maintenanceDSN)
 	}
 	if dsn == "" {
-		t.Skipf("%s is not set; skipping the tests that run as the maintenance role", maintenanceDSN)
+		t.Skip("TEST_MAINTENANCE_DATABASE_URL is not set; skipping the tests that run as the maintenance role")
 	}
 	name, ownerURL := createScratch(t)
 	t.Cleanup(func() {
