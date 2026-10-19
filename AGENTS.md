@@ -29,17 +29,7 @@ this file describe the code as it is and name the release that changes them.
   of the release that rebuilds it.
 - **Since R2** (v0.8.0) permissions, not paths, gate the API, repositories
   scope rows to their owner, and teaching operations are under `/teacher/*`
-  ("Authentication and authorization" below). The v0.7.0 `/admin/*` API paths
-  answer through an alias until T-R5.36 removes it (T-R3.3, moved from v0.9.1).
-- **v0.9.1** (T-R3.1 to T-R3.3, no earlier than 2026-10-10) removes that alias,
-  drops the legacy `users.role` column with its sync trigger, and validates the
-  owner constraints and drops their fill triggers. The first two shipped in
-  v0.10.0 (R4, T-R4.49); the owner moved the alias removal to R5 as T-R5.36
-  (`75-r5.md`) on 2026-10-12. The legacy role is gone (00105, T-R3.1):
-  no `users.role`, no `app.user_role`, no sync trigger, and no `role` in the
-  contract or in an access token. The owner constraints are validated and their
-  fill triggers dropped (00106, T-R3.2). Only the alias (T-R3.3) is in the code
-  until its step merges.
+  ("Authentication and authorization" below).
 - **R4** moved the teacher web routes from `/admin/*` to `/teacher/*` (T-R4.5);
   an old `/admin/*` bookmark that is not a route of the Admin console redirects
   to the same path under `/teacher`. **R5** builds the console at `/admin`:
@@ -171,7 +161,7 @@ module:
 | `core` (`core.go`) | `App`: config, signals, lifecycle, `Handler()`, `Serve()` |
 | `core/wiring` | `Build`: one file per module, repository → `Application` → transport, in dependency order, starting with `access.go`, which refuses a database whose `app.permissions` lacks a key this binary knows; returns the `Assembly` (transports, the access application as `Principals`, token issuer, identity application, the AI `Completer` and the AI credits application). `ai.go` builds the AI module over the provider, which is nil without `ANTHROPIC_API_KEY`; `organization.go` builds the organization module over the media bucket, so a logo is stored when storage is configured and an upload answers `501` when it is not, and hands identity and classes its `SignInPolicy` query; `import_worker.go` gives the import worker the same provider and credits (`scanReader`) when the key is set, and no reader when it is not; `user_imports.go` gives identity the user imports when the import worker is configured (none, so `501`, without it) and builds `UserImportsWorker`, the runner the import worker drains after its own queue; `exports.go` builds the data export over the import bucket (a nil application, so `501`, without the import worker's configuration) and `ExportsWorker`, the runner the import worker drains after the user imports; `content_transfer.go` gives identity the adapter that moves one user's content to another; `email.go` builds `Mail`, the email outbox modules enqueue into and the dispatcher that sends it (Resend, or the sink directory outside production), which `Serve` and the import worker both run |
 | `core/adapters` | platform clients behind module ports (`Google`, `AudioProbe`, and `AI`, the Anthropic client behind the ai module's `Completer`), one module's handlers behind another's port (`Media`, `MediaKinds`, and `ai_reads.go`: the tests, questions, attempts and identity reads the AI operations take), and `Principals`: the access module's `ResolvePrincipal` as `httpx.PrincipalResolver`. `adapters.NewAI` returns a nil `Completer` without the key, and every AI operation then answers `501 AI_OFF` and `GET /public/status` says `ai: false`, as media does without storage; `PDFPages` draws a scan's pages for the worker's AI reader; `ContentTransfer` moves a user's classes, tests, questions, question groups, media and assignments in one transaction; `LogoStore` and `LogoChecker` (through `imagesafe`) are the organization's logos; `ExportTable` and `UserImportTables` write and read a table through `tabular`, and `UserImportBudget` is the outbox's daily allowance |
-| `core/router` | `Deps`, whose `Principals` resolves who a request acts as for the permission and docs gates (`New` refuses a nil one), `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/livez`, `/healthz`, `/docs`, the `/admin` alias until T-R5.36 (T-R3.3)), `RateLimits` (per address or body field) and `PrincipalRateLimits` (per signed-in user) for contract operations, and `ServiceRateLimits` for the routes beside it |
+| `core/router` | `Deps`, whose `Principals` resolves who a request acts as for the permission and docs gates (`New` refuses a nil one), `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/livez`, `/healthz`, `/docs`), `RateLimits` (per address or body field) and `PrincipalRateLimits` (per signed-in user) for contract operations, and `ServiceRateLimits` for the routes beside it |
 | `core/jobs` | background commands (`PruneRefreshTokens`, whose 24-hour tick also runs `Housekeep`, the daily housekeeping whose steps `core/housekeeping.go` assembles, `PruneNotifications`, `RunEmail`, which sends the outbox in the API and in the worker, and `ReleaseStaleAiReservations`, which runs only when the provider is configured) |
 | `core/maintenance` | the operator's commands `cmd/maintenance` runs as `quizzivy_maintenance` (`MAINTENANCE_DATABASE_URL`, never set on the API): `retention-sweep`, which `.github/workflows/retention-sweep.yml` runs nightly, `retain-integrity`, `anonymize-user`, the maintenance windows, `rekey-join-codes`, `ai-credits` and `ai-reservations-sweep`; writes are dry runs until `-apply`, and the role holds what `00139_grant_maintenance_role.sql` grants, so a command that needs more grants it in its own migration |
 | `platform/httpserver` | the HTTP server, its timeouts and graceful shutdown |
@@ -274,12 +264,6 @@ unit, integration and end-to-end in that order.
   declares `x-resource-list`. `TestAnotherTeachersIdsAnswerAsMissingOnes`
   fails naming an operation the table lacks, and `resource_contract_test.go`
   a uuid without a kind.
-- **The v0.7.0 `/admin/*` teaching paths answer until T-R5.36 (T-R3.3).** The router
-  rewrites each to its new path (`LegacyAdminPaths`: a `/teacher/*` path, and
-  `DELETE /admin/students/{id}` to `DELETE /admin/users/{id}`) and logs
-  `legacy_admin_path`. A new operation never joins that table. `GET` and
-  `POST /admin/classes` left it in R5: they are the Admin console's
-  `listAllClasses` and `createClassForTeacher` (D-053).
 - **The Admin console's operations are under `/admin/*`** and declare an Admin
   key: that tree takes `people.users.manage`, `people.roles.manage`, the
   `system.*` keys, `ai.credits.manage`, `scope.all` and `workspace.admin`, and

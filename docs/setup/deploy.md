@@ -257,9 +257,10 @@ While v0.7.0 and v0.8.0 machines overlap:
   machine issues tokens with no epoch, so a student it signs in stays signed
   out until the old machine is gone.
 
-Tabs still open on v0.7.0 keep working: the `/admin` alias serves the old
-teaching paths and logs `legacy_admin_path`. v0.9.1 removes it
-(`docs/plan/73-r3.md` T-R3.3).
+Tabs still open on v0.7.0 kept working through an `/admin` alias that served
+the old teaching paths and logged `legacy_admin_path`. v0.12.0 removes it
+(`docs/plan/75-r5.md` T-R5.36), and a former teaching path under `/admin/` now
+answers `404`.
 
 Roll forward, never back. The migrations are the expand half, so v0.7.0 would
 still boot on the new schema, but it cannot redeem a code v0.8.0 issued, and
