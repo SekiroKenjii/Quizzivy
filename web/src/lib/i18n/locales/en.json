@@ -51,6 +51,7 @@
     "confirmSelected": "Confirm {{count}} items",
     "bulkProgress": "Processing {{completed}}/{{total}} items",
     "selectPage": "Select all items on this page",
+    "selectPageShort": "Select page",
     "selectNamed": "Select {{name}}",
     "deleteNamed": "Permanently delete {{name}}",
     "deleted": "Deleted.",
@@ -1133,8 +1134,9 @@
       "failed": "The account could not be created.",
       "linkSent": "Account created and a link sent to {{email}}",
       "done": "Temporary password for {{name}}",
-      "class": "Add to class (optional)",
-      "classGone": "This class no longer takes students. Pick another one."
+      "class": "Add to class",
+      "classGone": "This class no longer takes students. Pick another one.",
+      "classOptional": "(optional)"
     },
     "error": {
       "targetRoleNotAllowed": "You cannot act on an account or role that holds a permission you do not have.",
@@ -1169,16 +1171,18 @@
       "notReached_other": "{{count}} people were not changed",
       "reason": {
         "internal": "Something went wrong on our side. Try again.",
-        "notAStudent": "Only active students can be added."
+        "notAStudent": "Only active students can be added.",
+        "forbidden": "You are not allowed to do this to this account."
       },
       "leaveFirst": "Copy or print the password, then press Done before you leave this page."
     },
     "classPicker": {
       "label": "Class",
-      "search": "Search by class or teacher name",
+      "search": "Search classes or teachers",
       "none": "No class yet",
       "empty": "No class matches.",
-      "failed": "The classes could not be loaded. Try again."
+      "failed": "The classes could not be loaded. Try again.",
+      "loading": "Loading classes…"
     },
     "bulk": {
       "reset": "Reset password",
@@ -1208,7 +1212,8 @@
       "addToClassPick": "Pick a class.",
       "added_one": "{{count}} added to {{name}}",
       "added_other": "{{count}} added to {{name}}",
-      "addedTitle": "Add to class results"
+      "addedTitle": "Add to class results",
+      "adding": "Adding {{done}} of {{total}}…"
     }
   },
   "systemSettings": {

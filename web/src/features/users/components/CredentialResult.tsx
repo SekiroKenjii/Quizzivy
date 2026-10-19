@@ -43,7 +43,8 @@ function LeaveGuard({ done }: Readonly<{ done: RefObject<HTMLButtonElement | nul
 /**
  * CredentialResult ends a bulk action on the Users screen: the temporary
  * passwords the server returned once, each with Copy, with Copy all and
- * Print; `sent` links, as one line; and every account the action did not
+ * Print; `sent` links, or a `summary` of what the action did, as one line;
+ * and every account the action did not
  * reach, with the reason. It closes only through Done or its close button,
  * never on Escape or a click outside, so a password is not lost by accident;
  * Escape moves focus to Done. While it shows a password, leaving the page is
@@ -57,6 +58,7 @@ export function CredentialResult({
   icon = KeyRound,
   credentials = [],
   sent = 0,
+  summary,
   failures,
   returnFocus,
   onDone,
@@ -66,6 +68,7 @@ export function CredentialResult({
   icon?: LucideIcon;
   credentials?: readonly UserPasswordReset[];
   sent?: number;
+  summary?: string | undefined;
   failures: readonly BulkFailure[];
   returnFocus?: RefObject<HTMLElement | null> | undefined;
   onDone: () => void;
@@ -136,6 +139,7 @@ export function CredentialResult({
             </ul>
           </>
         )}
+        {summary === undefined ? null : <p className="text-ui">{summary}</p>}
         {sent > 0 ? (
           <p className="text-ui">{t("users.credential.linksSent", { count: sent })}</p>
         ) : null}

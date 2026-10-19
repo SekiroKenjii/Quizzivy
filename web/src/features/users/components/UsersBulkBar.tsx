@@ -30,6 +30,7 @@ type Result = Readonly<{
   kind: "reset" | "disable" | "class";
   credentials: readonly UserPasswordReset[];
   sent: number;
+  summary?: string | undefined;
   failures: readonly BulkFailure[];
 }>;
 
@@ -110,9 +111,17 @@ export function UsersBulkBar({
 
   async function added(choice: ClassChoice, failures: BulkFailure[]) {
     setActing(null);
-    if (failures.length === 0)
-      toast.success(t("users.bulk.added", { count, name: choice.name }));
-    else setResult({ kind: "class", credentials: [], sent: 0, failures });
+    const reached = count - failures.length;
+    const summary = t("users.bulk.added", { count: reached, name: choice.name });
+    if (failures.length === 0) toast.success(summary);
+    else
+      setResult({
+        kind: "class",
+        credentials: [],
+        sent: 0,
+        summary: reached > 0 ? summary : undefined,
+        failures,
+      });
     await settle(failures);
   }
 
@@ -152,9 +161,16 @@ export function UsersBulkBar({
       const answer = await disableUsers(selected.map((user) => user.id));
       const failures = named(answer.failed, selected);
       setActing(null);
-      if (failures.length === 0)
-        toast.success(t("users.bulk.disabled", { count: answer.disabled.length }));
-      else setResult({ kind: "disable", credentials: [], sent: 0, failures });
+      const summary = t("users.bulk.disabled", { count: answer.disabled.length });
+      if (failures.length === 0) toast.success(summary);
+      else
+        setResult({
+          kind: "disable",
+          credentials: [],
+          sent: 0,
+          summary: answer.disabled.length > 0 ? summary : undefined,
+          failures,
+        });
       await settle(answer.failed);
     } catch (cause) {
       setError(refusalText(cause, t, t("users.sheet.disableFailed")));
@@ -238,6 +254,7 @@ export function UsersBulkBar({
         title={t(RESULT_TITLES[result?.kind ?? "reset"])}
         credentials={result?.credentials ?? []}
         sent={result?.sent ?? 0}
+        summary={result?.summary}
         failures={result?.failures ?? []}
         onDone={() => setResult(null)}
       />

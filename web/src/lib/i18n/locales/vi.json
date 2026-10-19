@@ -51,6 +51,7 @@
     "confirmSelected": "Xác nhận {{count}} mục",
     "bulkProgress": "Đang xử lý {{completed}}/{{total}} mục",
     "selectPage": "Chọn tất cả mục trên trang này",
+    "selectPageShort": "Chọn trang",
     "selectNamed": "Chọn {{name}}",
     "deleteNamed": "Xoá vĩnh viễn {{name}}",
     "deleted": "Đã xoá.",
@@ -1133,8 +1134,9 @@
       "failed": "Không tạo được tài khoản.",
       "linkSent": "Đã tạo tài khoản và gửi liên kết tới {{email}}",
       "done": "Mật khẩu tạm thời của {{name}}",
-      "class": "Thêm vào lớp (không bắt buộc)",
-      "classGone": "Lớp này không còn nhận học viên. Hãy chọn lớp khác."
+      "class": "Thêm vào lớp",
+      "classGone": "Lớp này không còn nhận học viên. Hãy chọn lớp khác.",
+      "classOptional": "(không bắt buộc)"
     },
     "error": {
       "targetRoleNotAllowed": "Bạn không thể thao tác trên tài khoản hoặc vai trò có quyền mà bạn không có.",
@@ -1169,16 +1171,18 @@
       "notReached_other": "{{count}} người chưa được xử lý",
       "reason": {
         "internal": "Đã có lỗi ở phía chúng tôi. Hãy thử lại.",
-        "notAStudent": "Chỉ thêm được học viên đang hoạt động."
+        "notAStudent": "Chỉ thêm được học viên đang hoạt động.",
+        "forbidden": "Bạn không có quyền làm việc này với tài khoản này."
       },
       "leaveFirst": "Hãy sao chép hoặc in mật khẩu rồi bấm Xong trước khi rời trang."
     },
     "classPicker": {
       "label": "Lớp",
-      "search": "Tìm theo tên lớp hoặc giáo viên",
+      "search": "Tìm lớp hoặc giáo viên",
       "none": "Chưa vào lớp nào",
       "empty": "Không có lớp nào khớp.",
-      "failed": "Không tải được danh sách lớp. Hãy thử lại."
+      "failed": "Không tải được danh sách lớp. Hãy thử lại.",
+      "loading": "Đang tải danh sách lớp…"
     },
     "bulk": {
       "reset": "Đặt lại mật khẩu",
@@ -1208,7 +1212,8 @@
       "addToClassPick": "Hãy chọn một lớp.",
       "added_one": "Đã thêm {{count}} người vào {{name}}",
       "added_other": "Đã thêm {{count}} người vào {{name}}",
-      "addedTitle": "Kết quả thêm vào lớp"
+      "addedTitle": "Kết quả thêm vào lớp",
+      "adding": "Đang thêm {{done}}/{{total}} người…"
     }
   },
   "systemSettings": {

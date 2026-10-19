@@ -61,9 +61,14 @@ function ClassField({
   if (!offered) return null;
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-meta font-medium">{t("users.addUser.class")}</span>
+      <span className="text-meta font-medium">
+        {t("users.addUser.class")}{" "}
+        <span className="text-muted-fg font-normal">
+          {t("users.addUser.classOptional")}
+        </span>
+      </span>
       <ClassPicker
-        label={t("users.addUser.class")}
+        label={`${t("users.addUser.class")} ${t("users.addUser.classOptional")}`}
         value={value}
         none={t("users.classPicker.none")}
         onChange={onChange}

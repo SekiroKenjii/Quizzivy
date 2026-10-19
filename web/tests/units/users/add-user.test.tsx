@@ -296,6 +296,47 @@ describe("Users: Add user's class (T-R5.22a)", () => {
     expect(sent[0]).not.toHaveProperty("classId");
   });
 
+  it("says a class that stopped taking students is gone, and drops the choice (QC A5)", async () => {
+    const sent: components["schemas"]["UserCreate"][] = [];
+    serveUsers([TAKEN]);
+    serveCreate(sent);
+    serveClasses([CLASS]);
+    server.use(
+      http.post(`${BASE}/admin/users`, async ({ request }) => {
+        sent.push((await request.json()) as components["schemas"]["UserCreate"]);
+        return HttpResponse.json(
+          {
+            error: {
+              code: "NOT_FOUND",
+              message: "class",
+              requestId: "019535d9-3df7-79fb-b466-fa907fa17f9e",
+            },
+          },
+          { status: 404 },
+        );
+      }),
+    );
+    const { user: actor, dialog } = await openAdd();
+    await fill(actor, dialog);
+    const field = await within(dialog).findByRole("radiogroup", {
+      name: "Thêm vào lớp (không bắt buộc)",
+    });
+    await actor.click(
+      await within(field).findByRole("radio", { name: /IELTS 6.5 Tối/ }),
+    );
+    await actor.click(within(dialog).getByRole("button", { name: "Tạo tài khoản" }));
+    expect(
+      await within(dialog).findByText(
+        "Lớp này không còn nhận học viên. Hãy chọn lớp khác.",
+      ),
+    ).toBeInTheDocument();
+    expect(sent[0]).toMatchObject({ classId: CLASS.id });
+    expect(
+      within(field).getByRole("radio", { name: "Chưa vào lớp nào" }),
+    ).toBeChecked();
+    expect(screen.getByRole("dialog", { name: "Thêm người dùng" })).toBeInTheDocument();
+  });
+
   it("offers no class for a teacher role", async () => {
     serveUsers([TAKEN]);
     serveCreate([]);

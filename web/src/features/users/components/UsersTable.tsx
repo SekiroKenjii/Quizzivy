@@ -44,6 +44,7 @@ export function UsersTable({
       rowSize={{ height: 58 }}
       card={(user) => <UserCard user={user} locale={locale} />}
       cardLayout="joined"
+      selectCards
       cards={cards}
       empty={empty}
       onOpen={onOpen}

@@ -59,6 +59,8 @@ const REFUSALS = new Map<string, string>([
   ["EMAIL_TAKEN", "users.addUser.emailTaken"],
   ["NOT_FOUND", "users.error.notFound"],
   ["NOT_A_STUDENT", "users.credential.reason.notAStudent"],
+  ["RATE_LIMITED", "users.error.rateLimited"],
+  ["FORBIDDEN", "users.credential.reason.forbidden"],
 ]);
 
 /**
