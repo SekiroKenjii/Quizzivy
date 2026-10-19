@@ -21,6 +21,7 @@ var theCredentialMinters = map[string]bool{
 	"SetPasswordWithLink":     true,
 	"CreateStudent":           true,
 	"CreateUser":              true,
+	"CreateUserImport":        true,
 	"DownloadUserImportSheet": true,
 	"RotateJoinCode":          true,
 	"GetJoinCode":             true,
