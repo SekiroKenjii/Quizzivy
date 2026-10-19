@@ -14,11 +14,12 @@ interface Backend {
   taken: boolean;
   answers: Session["answers"];
   named: (string | null)[];
+  resumed: number;
   saves: { sessionId: string; answers?: Session["answers"] }[];
 }
 
 function backend(): Backend {
-  return { data: paper(), taken: false, answers: {}, named: [], saves: [] };
+  return { data: paper(), taken: false, answers: {}, named: [], resumed: 0, saves: [] };
 }
 
 function card(data: Session): components["schemas"]["StudentAssignmentCard"] {
@@ -74,6 +75,7 @@ function serve(page: Page, server: Backend) {
     },
     "POST /app/assignments/assignment/attempts": async (route) => {
       server.taken = true;
+      server.resumed += 1;
       await route.fulfill({ json: { ...data, sessionId: S2 } });
     },
     "POST /app/attempts/paper/events": { body: {} },
@@ -128,7 +130,7 @@ test("a tab another device took over stays read-only after a reload", async ({
   expect(await storedDraft(page)).toBe(stored);
 });
 
-test("Continue gives the tab the new session, and its reload keeps it", async ({
+test("Continue in a tab that holds the session keeps it and resumes nothing", async ({
   page,
 }) => {
   const server = backend();
@@ -144,18 +146,70 @@ test("Continue gives the tab the new session, and its reload keeps it", async ({
   await page.getByRole("button", { name: "Tiếp tục làm bài" }).click();
   await expect(page).toHaveURL(/\/app\/attempts\/paper$/);
   await expect(choiceA(page)).toBeEnabled();
-  expect(server.named).toEqual([S2]);
+  expect(server.resumed).toBe(0);
+  expect(new Set(server.named)).toEqual(new Set([S1]));
   await expect(page.getByText(BAR)).toHaveCount(0);
 
   await page.locator("label").filter({ hasText: "Đáp án A" }).click();
   await expect.poll(() => server.saves.length).toBe(1);
   expect(server.saves[0]).toMatchObject({
-    sessionId: S2,
+    sessionId: S1,
     answers: { q1: { type: "choice", optionIds: ["a"] } },
   });
 
   await page.reload();
   await expect(choiceA(page)).toBeChecked();
   await expect(choiceA(page)).toBeEnabled();
-  expect(server.named).toEqual([S2, S2]);
+  expect(server.resumed).toBe(0);
+});
+
+test("Continue in a tab that holds no session resumes, and its reload keeps the new one", async ({
+  page,
+}) => {
+  const server = backend();
+  await serve(page, server);
+
+  await page.goto("/app");
+  await page.getByRole("button", { name: "Tiếp tục làm bài" }).click();
+  await expect(page).toHaveURL(/\/app\/attempts\/paper$/);
+  await expect(choiceA(page)).toBeEnabled();
+  expect(server.resumed).toBe(1);
+  await expect(page.getByText(BAR)).toHaveCount(0);
+
+  await page.locator("label").filter({ hasText: "Đáp án A" }).click();
+  await expect.poll(() => server.saves.length).toBe(1);
+  expect(server.saves[0]).toMatchObject({ sessionId: S2 });
+
+  await page.reload();
+  await expect(choiceA(page)).toBeChecked();
+  await expect(choiceA(page)).toBeEnabled();
+  expect(server.resumed).toBe(1);
+  expect(server.named.at(-1)).toBe(S2);
+});
+
+test("Continue in a tab another device took over resumes once, and the tab saves under the new session", async ({
+  page,
+}) => {
+  const server = backend();
+  server.taken = true;
+  await serve(page, server);
+  await page.addInitScript(
+    ([key, sessionId]) => {
+      if (sessionStorage.getItem(key) === null) sessionStorage.setItem(key, sessionId);
+    },
+    [HELD, S1] as const,
+  );
+
+  await page.goto("/app");
+  await page.getByRole("button", { name: "Tiếp tục làm bài" }).click();
+  await expect(page).toHaveURL(/\/app\/attempts\/paper$/);
+  await expect(choiceA(page)).toBeEnabled();
+  expect(server.resumed).toBe(1);
+  await expect(page.getByText(BAR)).toHaveCount(0);
+  expect(server.named[0]).toBe(S1);
+
+  await page.locator("label").filter({ hasText: "Đáp án A" }).click();
+  await expect.poll(() => server.saves.length).toBe(1);
+  expect(server.saves[0]).toMatchObject({ sessionId: S2 });
+  expect(await page.evaluate((key) => sessionStorage.getItem(key), HELD)).toBe(S2);
 });

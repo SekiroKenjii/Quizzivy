@@ -13,6 +13,7 @@ import (
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
 	"time"
+	"unicode/utf8"
 )
 
 // StartOrResumeAttempt backs §9's "Bắt đầu": one call whether the student is
@@ -378,15 +379,28 @@ func (h Attempts) RecordAudioPlay(ctx context.Context, request openapi.RecordAud
 		return nil, httpx.ErrNotImplemented
 	}
 
-	plays, err := h.app.Commands.RecordPlay.Handle(ctx, command.RecordPlay{AttemptID: request.Id.String(), StudentID: principal.UserID, QuestionID: request.Body.QuestionId.String()})
-	if errors.Is(err, domain.ErrForbidden) {
+	cmd := command.RecordPlay{AttemptID: request.Id.String(), StudentID: principal.UserID, QuestionID: request.Body.QuestionId.String()}
+	if request.Body.SessionId != nil {
+		cmd.SessionID = request.Body.SessionId.String()
+	}
+	plays, err := h.app.Commands.RecordPlay.Handle(ctx, cmd)
+	switch {
+	case errors.Is(err, domain.ErrForbidden):
 		return openapi.RecordAudioPlay403JSONResponse{
 			ForbiddenJSONResponse: openapi.ForbiddenJSONResponse(
 				httpapi.Error(ctx, openapi.FORBIDDEN, httpx.Text(ctx,
 					"Bạn không có quyền nghe câu hỏi này.", "You do not have permission to listen to this question."))),
 		}, nil
-	}
-	if err != nil {
+	case errors.Is(err, domain.ErrSessionSuperseded):
+		return openapi.RecordAudioPlay409JSONResponse(httpapi.Error(ctx, openapi.SESSIONSUPERSEDED,
+			httpx.Text(ctx, "Bài làm này đã được mở ở nơi khác.", "This attempt was opened somewhere else."))), nil
+	case errors.Is(err, domain.ErrDeadlinePassed):
+		return openapi.RecordAudioPlay409JSONResponse(httpapi.Error(ctx, openapi.DEADLINEPASSED,
+			httpx.Text(ctx, "Đã hết giờ làm bài.", "Time is up."))), nil
+	case errors.Is(err, domain.ErrAttemptClosed):
+		return openapi.RecordAudioPlay409JSONResponse(httpapi.Error(ctx, openapi.ATTEMPTCLOSED,
+			httpx.Text(ctx, "Bài làm này đã kết thúc.", "This attempt has ended."))), nil
+	case err != nil:
 		return nil, err
 	}
 	return openapi.RecordAudioPlay200JSONResponse{
@@ -395,10 +409,51 @@ func (h Attempts) RecordAudioPlay(ctx context.Context, request openapi.RecordAud
 	}, nil
 }
 
+const (
+	maxFlushEvents = 500
+	maxEventKind   = 40
+)
+
+type beaconEvent struct {
+	Kind       *string                `json:"kind"`
+	OccurredAt *time.Time             `json:"occurredAt"`
+	ClientSeq  *int64                 `json:"clientSeq"`
+	QuestionID *openapi.Uuid          `json:"questionId"`
+	Meta       map[string]interface{} `json:"meta"`
+}
+
 type beaconFlush struct {
-	BeaconToken string                        `json:"beaconToken"`
-	SessionID   openapi.Uuid                  `json:"sessionId"`
-	Events      []openapi.IntegrityEventInput `json:"events"`
+	BeaconToken string        `json:"beaconToken"`
+	SessionID   openapi.Uuid  `json:"sessionId"`
+	Events      []beaconEvent `json:"events"`
+}
+
+func (b beaconFlush) inputs() ([]openapi.IntegrityEventInput, bool) {
+	if len(b.Events) > maxFlushEvents {
+		return nil, false
+	}
+	out := make([]openapi.IntegrityEventInput, len(b.Events))
+	for i, e := range b.Events {
+		if e.Kind == nil || e.OccurredAt == nil || e.ClientSeq == nil {
+			return nil, false
+		}
+		if n := utf8.RuneCountInString(*e.Kind); n < 1 || n > maxEventKind {
+			return nil, false
+		}
+		if *e.ClientSeq < 0 || *e.ClientSeq > domain.MaxClientSeq {
+			return nil, false
+		}
+		out[i] = openapi.IntegrityEventInput{
+			Kind:       *e.Kind,
+			OccurredAt: *e.OccurredAt,
+			ClientSeq:  int(*e.ClientSeq),
+			QuestionId: e.QuestionID,
+		}
+		if e.Meta != nil {
+			out[i].Meta = &e.Meta
+		}
+	}
+	return out, true
 }
 
 // FlushEvents accepts the ordinary authenticated flush and the beacon one.
@@ -408,39 +463,24 @@ func (h Attempts) FlushEvents(ctx context.Context, request openapi.FlushEventsRe
 	}
 
 	in := domain.FlushInput{AttemptID: request.Id.String()}
+	var refused openapi.FlushEventsResponseObject
+	var err error
 	switch {
 	case request.JSONBody != nil:
-		principal, ok := httpx.PrincipalFromContext(ctx)
-		if !ok {
-			return forbiddenFlush(ctx), nil
-		}
-		in.StudentID = principal.UserID
-		in.SessionID = request.JSONBody.SessionId.String()
-		events, err := toDomainEvents(&request.JSONBody.Events)
-		if err != nil {
-			return nil, err
-		}
-		in.Events = events
-
+		refused, err = authenticatedFlush(ctx, request.JSONBody, &in)
 	case request.TextBody != nil:
-		var body beaconFlush
-		if err := json.Unmarshal([]byte(*request.TextBody), &body); err != nil {
-
-			return forbiddenFlush(ctx), nil
-		}
-		in.BeaconToken = body.BeaconToken
-		in.SessionID = body.SessionID.String()
-		events, err := toDomainEvents(&body.Events)
-		if err != nil {
-			return nil, err
-		}
-		in.Events = events
-
+		refused, err = beaconFlushInput(ctx, *request.TextBody, &in)
 	default:
-		return forbiddenFlush(ctx), nil
+		refused = forbiddenFlush(ctx)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if refused != nil {
+		return refused, nil
 	}
 
-	_, err := h.app.Commands.Flush.Handle(ctx, command.Flush{Input: in})
+	_, err = h.app.Commands.Flush.Handle(ctx, command.Flush{Input: in})
 	if errors.Is(err, domain.ErrForbidden) || errors.Is(err, domain.ErrBeaconExpired) {
 		return forbiddenFlush(ctx), nil
 	}
@@ -448,6 +488,50 @@ func (h Attempts) FlushEvents(ctx context.Context, request openapi.FlushEventsRe
 		return nil, err
 	}
 	return openapi.FlushEvents202Response{}, nil
+}
+
+func authenticatedFlush(ctx context.Context, body *openapi.FlushEventsJSONRequestBody, in *domain.FlushInput) (openapi.FlushEventsResponseObject, error) {
+	principal, ok := httpx.PrincipalFromContext(ctx)
+	if !ok {
+		return forbiddenFlush(ctx), nil
+	}
+	events, err := toDomainEvents(&body.Events)
+	if err != nil {
+		return nil, err
+	}
+	in.StudentID = principal.UserID
+	in.SessionID = body.SessionId.String()
+	in.Events = events
+	return nil, nil
+}
+
+func beaconFlushInput(ctx context.Context, raw string, in *domain.FlushInput) (openapi.FlushEventsResponseObject, error) {
+	var body beaconFlush
+	if err := json.Unmarshal([]byte(raw), &body); err != nil {
+		var wrongType *json.UnmarshalTypeError
+		if errors.As(err, &wrongType) {
+			return badBeaconEvents(ctx), nil
+		}
+		return forbiddenFlush(ctx), nil
+	}
+	inputs, ok := body.inputs()
+	if !ok {
+		return badBeaconEvents(ctx), nil
+	}
+	events, err := toDomainEvents(&inputs)
+	if err != nil {
+		return nil, err
+	}
+	in.BeaconToken = body.BeaconToken
+	in.SessionID = body.SessionID.String()
+	in.Events = events
+	return nil, nil
+}
+
+func badBeaconEvents(ctx context.Context) openapi.FlushEvents400JSONResponse {
+	return openapi.FlushEvents400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
+		httpapi.Error(ctx, openapi.VALIDATIONFAILED, httpx.Text(ctx,
+			"Danh sách sự kiện không hợp lệ.", "The events are not valid.")))}
 }
 
 func forbiddenFlush(ctx context.Context) openapi.FlushEvents403JSONResponse {

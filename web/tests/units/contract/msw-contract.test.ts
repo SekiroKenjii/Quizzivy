@@ -10,6 +10,15 @@ import { studentUser } from "@tests/support/fixtures";
  * protection would be gone with nothing to show for it.
  */
 
+function refusal(body: unknown, path = "/auth/me", status = 200): string {
+  try {
+    contractJson(path, "get", status, body);
+  } catch (e) {
+    return (e as Error).message.split("\n\nBody:")[0]!;
+  }
+  throw new Error(`the contract accepted ${JSON.stringify(body)}`);
+}
+
 describe("MSW fixtures are validated against api/openapi.yaml", () => {
   it("accepts a body that matches the contract", () => {
     expect(() => contractJson("/auth/me", "get", 200, studentUser)).not.toThrow();
@@ -19,25 +28,25 @@ describe("MSW fixtures are validated against api/openapi.yaml", () => {
     const withoutEmail = Object.fromEntries(
       Object.entries(studentUser).filter(([key]) => key !== "email"),
     );
-    expect(() => contractJson("/auth/me", "get", 200, withoutEmail)).toThrow(/email/);
+    expect(refusal(withoutEmail)).toContain("must have required property 'email'");
   });
 
   it("rejects a field the contract does not define", () => {
-    expect(() =>
-      contractJson("/auth/me", "get", 200, { ...studentUser, isCorrect: true }),
-    ).toThrow(/isCorrect|additional/i);
+    expect(refusal({ ...studentUser, isCorrect: true })).toContain(
+      "must NOT have additional properties",
+    );
   });
 
   it("rejects a wrong type", () => {
-    expect(() =>
-      contractJson("/auth/me", "get", 200, { ...studentUser, hasPassword: "yes" }),
-    ).toThrow(/hasPassword/);
+    expect(refusal({ ...studentUser, hasPassword: "yes" })).toContain(
+      "/hasPassword must be boolean",
+    );
   });
 
   it("rejects a value outside an enum", () => {
-    expect(() =>
-      contractJson("/auth/me", "get", 200, { ...studentUser, role: "superuser" }),
-    ).toThrow(/role/);
+    expect(refusal({ ...studentUser, locale: "klingon" })).toContain(
+      "/locale must be equal to one of the allowed values",
+    );
   });
 
   it("rejects a response the contract never declares", () => {
@@ -47,13 +56,8 @@ describe("MSW fixtures are validated against api/openapi.yaml", () => {
   });
 
   it("names the offending field, so the failure is actionable", () => {
-    let message = "";
-    try {
-      contractJson("/app/classes", "get", 200, { items: [{ id: "not-a-uuid" }] });
-    } catch (e) {
-      message = (e as Error).message;
-    }
+    const message = refusal({ items: [{ id: "not-a-uuid" }] }, "/app/classes");
     expect(message).toContain("/app/classes");
-    expect(message).toMatch(/items/);
+    expect(message).toMatch(/\/items\/0/);
   });
 });

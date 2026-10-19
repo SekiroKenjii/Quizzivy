@@ -62,8 +62,8 @@ func TestAutosaveWritesAnswersAndTheEventsBesideThem(t *testing.T) {
 	if answerCount(t, pool, session.Attempt.ID) != 2 {
 		t.Error("the answers are not in the table")
 	}
-	if n := len(eventKinds(t, pool, session.Attempt.ID)); n != 2 {
-		t.Errorf("%d events recorded, want 2", n)
+	if n := len(eventKinds(t, pool, session.Attempt.ID)); n != 3 {
+		t.Errorf("%d events recorded, want the start and the 2 saved", n)
 	}
 }
 
@@ -86,8 +86,8 @@ func TestReplayingTheIdenticalBatchChangesNothing(t *testing.T) {
 	if n := answerCount(t, pool, session.Attempt.ID); n != 2 {
 		t.Errorf("%d answers after a replay, want 2", n)
 	}
-	if n := len(eventKinds(t, pool, session.Attempt.ID)); n != 2 {
-		t.Errorf("%d events after a replay, want 2 — the batch was recorded twice", n)
+	if n := len(eventKinds(t, pool, session.Attempt.ID)); n != 3 {
+		t.Errorf("%d events after a replay, want 3 (the start and the batch once) — the batch was recorded twice", n)
 	}
 }
 

@@ -710,6 +710,17 @@ CREATE TABLE app.question_options (
   `question_blanks`, `test_sections`, `test_section_questions`. **Not** applied to
   the `test_version_*` tables, which are written once and never reordered.
 
+  **Used by a question save from the H-05 change on.** `updateQuestion` keeps an
+  option's and a blank's id: a row the write names by an id the question holds is
+  updated in place, with its new ordinal written under
+  `SET CONSTRAINTS app.question_options_ordinal_key DEFERRED` (blanks:
+  `app.question_blanks_ordinal_key`) one statement at a time, then checked with
+  `IMMEDIATE`; a row sent without an id, or with one the question does not hold,
+  is inserted; a row not sent is deleted. `question_blanks_gap_key` is not
+  deferrable, so a kept blank whose `gap_id` changes has it set to `NULL` first,
+  which lets two blanks swap gaps. An AI check's held finding names an option or
+  blank by id and so still matches after the teacher saves the question.
+
 ### `00013_create_question_blanks.sql`
 
 §13.3 says only "`question_blanks` and `question_blank_answers` mirror this".
@@ -1263,6 +1274,14 @@ The failure is silent — §10.6 mandates fire-and-forget — and it destroys ex
 the portion of the timeline the teacher most wants: what happened *after* the
 student came back. Adding `session_id` to the key scopes the sequence to the
 session that generated it, which is what `clientSeq` always meant.
+
+The server writes three kinds itself, each with a NULL `client_seq`: `start`
+(once, under an attempt's first session, at `started_at`), `resume` and
+`session_takeover`. `start` gives a first session a row, so a flush that names
+it after another device took over is known to `Flush` (D-025). The liveness
+query excludes all three; its predicate is stricter than the partial index's,
+which excludes the last two, so the index still serves it and no migration
+changes.
 
 Inserts additionally use `ON CONFLICT (attempt_id, session_id, client_seq) DO
 NOTHING`, so a retried `sendBeacon` (which cannot report success, and so is
@@ -2321,14 +2340,20 @@ sync trigger, `users.role`, `users_role_active_idx` and `app.user_role`.
   - EXECUTE is revoked from PUBLIC, so no role can attach it to a table of its
     own. A trigger fires regardless of EXECUTE.
 
-`platform/db/tests/expand_r2_test.go` proves all of this on a scratch database.
-It migrates to the version before `create_roles_and_permissions`, writes users
-the v0.7.0 way, migrates the rest of the way up, then checks the backfill and
-`updated_at`. As the app role, it checks both insert paths, the last-Admin
-refusals and the two-transaction race, and it checks the definer's
-attributes and that a foreign-key check on the Admin role does not hold the
-guard up. It carries the `integration` tag and runs where `TEST_DESTRUCTIVE=1`
-is set, as CI does.
+`platform/db/tests/last_admin_test.go` (`TestTheLastActiveAdminCannotLeave`) proves
+the guard on a scratch database migrated to head. As the app role it checks that
+each way out is refused and maps to `ErrLastAdmin`, that a student change takes no
+lock on the Admin role, the two-transaction race, that a foreign-key check on the
+Admin role does not hold the guard up, and the definer's attributes. It carries
+the `integration` tag and runs where `TEST_DESTRUCTIVE=1` is set, as CI does. It
+needs a database of its own because the guard counts every active Admin in the
+database, so "the last one" is not a state a shared database can hold while other
+packages create Admins.
+
+The v0.7.0 expand test that first held these checks (`expand_r2_test.go`) also
+checked the backfill and both insert paths on the way up from v0.7.0's schema. It
+was retired after v0.10.0 shipped 00105 and 00106: nothing it ran against exists any
+more.
 
 ## 31. Ownership (T-R2.9)
 
@@ -2401,18 +2426,15 @@ triggers and their functions.
   `questions`, `question_groups` and `media_assets` names `owner_id` too: a
   fixture that omits it fails with `23502`.
 
-`platform/db/tests/expand_r2_test.go` (`TestTheOwnershipExpandKeepsTheOldBinaryWorking`)
-writes a legacy dataset at v0.7.0's schema by two authors, with an older,
-disabled Admin, and migrates to the version before 00106, the end of the expand
-half. It checks that every row went to its author and
-the class to the oldest active Admin, with `updated_at` unmoved. It also
-checks the old binary's inserts are filled, an explicit owner is kept, an
-account's creator is optional and cleared when the creator goes, and each
-constraint stays NOT VALID.
-`TestAddingTheClassTeacherWaitsForTheOldStudentCreateInsteadOfDeadlocking`
-holds a v0.7.0-style student insert open across `00065`, enrols the student
-into a class after it, and checks the foreign-key files wait for the commit
-instead of deadlocking.
+The expand half was proved in `expand_r2_test.go`: a legacy dataset at v0.7.0's
+schema by two authors, migrated to the version before 00106, checked for the owner
+backfill, the filled inserts and the `NOT VALID` constraints, with
+`TestAddingTheClassTeacherWaitsForTheOldStudentCreateInsteadOfDeadlocking` holding
+a v0.7.0-style student insert open across `00065`. Both windows closed with
+v0.10.0, and the file was retired. What outlives them is in
+`platform/db/tests/contract_state_test.go`: the owner foreign keys are validated
+and RESTRICT, and an account's creator is optional and cleared when the creator
+goes (`TestAnAccountsCreatorIsOptionalAndSurvivesItsCreator`).
 
 ## 32. Ownership indexes (T-R2.10)
 
@@ -2987,11 +3009,12 @@ then `NOT NULL DEFAULT 'student'`, the index, the function and the trigger. The 
 student. The constraint stays validated, because Down never weakens a valid `NOT NULL`. Nothing
 runs it in production.
 
-Tests: `contract_r3_test.go` (what is gone and what is kept, the refusal of a user without
-`role_id`, the stop at a user without a role, the give-up under a held lock, and the Down), the
-two expand tests in `expand_r2_test.go`, which stop at the migration before this one because they
-prove the old binary on the expand schema, and `core/tests/legacy_role_test.go`, which fails on
-the legacy role anywhere in `server/`, `seed/` and `docker/` except the directory of migration tests.
+Tests: `platform/db/tests/contract_state_test.go` (what is gone and what is kept, and the refusal of
+a user without `role_id`) and `core/tests/legacy_role_test.go`, which fails on the legacy role
+anywhere in `server/`, `seed/` and `docker/` except the directory of migration tests. The stop at a
+user without a role, the give-up under a held lock and the Down were proved in `contract_r3_test.go`
+and the old-binary window in `expand_r2_test.go`; both were retired after v0.10.0 shipped this
+migration. `TestMigrationsAreReversible` still runs this Down, and no longer checks what it restores.
 
 ## 43. Ownership is validated and the fill triggers go (T-R4.49, T-R3.2)
 
@@ -3051,14 +3074,16 @@ created them (a test compares `pg_get_functiondef`, `pg_get_triggerdef`, owner a
 and after Down). The constraints stay validated, because Down never weakens a valid `NOT NULL`.
 Nothing runs it in production.
 
-Tests, in `platform/db/tests/contract_r3_ownership_test.go` and `constraints_test.go`: what is gone
-and what is kept; a row without an owner, in each of the five tables, stops the migration naming
-that table and leaves everything as it was; a held lock makes it give up with `55P03`; the previous
-binary's inserts, reads and class inserts run through the migration without an error; Down restores
-the objects and a bare insert is filled again; validating blocks neither a read nor a write; an
-insert that omits an owner is refused; and the not-validated constraints in `app` equal an explicit
-list, which is empty once 00105 and 00106 have both run. A later expand step adds its constraint
-to that list and its contract step removes it, so a forgotten `NOT VALID` fails CI.
+Tests, in `platform/db/tests/contract_state_test.go` and `constraints_test.go`: what is gone and
+what is kept; an insert that omits an owner is refused; and the not-validated constraints in `app`
+equal an explicit list, which is empty once 00105 and 00106 have both run. A later expand step adds
+its constraint to that list and its contract step removes it, so a forgotten `NOT VALID` fails CI.
+
+`contract_r3_ownership_test.go` proved the migration itself and was retired after v0.10.0 shipped
+it: a row without an owner, in each of the five tables, stopped the migration naming that table and
+left everything as it was; a held lock made it give up with `55P03`; the previous binary's inserts,
+reads and class inserts ran through it without an error; Down restored the objects and a bare insert
+was filled again; and validating blocked neither a read nor a write.
 
 ## 44. Students can pause (T-D4.13)
 

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import "@/lib/i18n";
 
@@ -78,13 +78,41 @@ describe("starting playback", () => {
     expect(play).toHaveBeenCalledTimes(1);
   });
 
-  it("counts the play without waiting for it", () => {
+  it("counts the play once play() resolves, and not before", async () => {
+    let settle: () => void = () => undefined;
+    play.mockImplementation(() => {
+      paused = false;
+      return new Promise<void>((resolve) => {
+        settle = resolve;
+      });
+    });
     const onPlay = vi.fn();
     render(<AudioPlayer src="/a.mp3" label="Audio" onPlay={onPlay} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Phát" }));
+    expect(play).toHaveBeenCalledTimes(1);
+    expect(onPlay).not.toHaveBeenCalled();
+
+    await act(async () => settle());
     expect(onPlay).toHaveBeenCalledTimes(1);
   });
+
+  it.each(["NotAllowedError", "AbortError"])(
+    "spends nothing when play() is refused with %s",
+    async (name) => {
+      play.mockImplementation(() => {
+        paused = false;
+        return Promise.reject(new DOMException("refused", name));
+      });
+      const onPlay = vi.fn();
+      render(<AudioPlayer src="/a.mp3" label="Audio" onPlay={onPlay} />);
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Phát" }));
+      });
+      expect(onPlay).not.toHaveBeenCalled();
+    },
+  );
 
   it("shows pause once the element reports it is playing", () => {
     render(<AudioPlayer src="/a.mp3" label="Audio" />);

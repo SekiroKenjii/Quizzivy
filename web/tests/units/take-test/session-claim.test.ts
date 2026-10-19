@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { http } from "msw";
+import { http, HttpResponse } from "msw";
 import { contractJson } from "@tests/support/contractResponse";
 import { server } from "@tests/support/server";
 import type { AttemptSession } from "@/features/take-test/api";
@@ -10,10 +10,12 @@ const ATTEMPT = DECK_ATTEMPT;
 const ASSIGNMENT = "018f0000-0000-7000-8000-0000000000d1";
 const A = "018f0000-0000-7000-8000-00000000a001";
 const B = "018f0000-0000-7000-8000-00000000b002";
+const C = "018f0000-0000-7000-8000-00000000c003";
 const KEY = `quizzivy.session.${ATTEMPT}`;
 const NOW = new Date("2026-09-22T05:00:00.000Z");
 
 let named: (string | null)[] = [];
+let resumed = 0;
 
 function paper(over: Partial<AttemptSession> = {}): AttemptSession {
   return { ...deckSession(NOW), sessionId: A, ...over };
@@ -30,9 +32,10 @@ function answerReads(body: AttemptSession) {
 
 function answerResumes(body: AttemptSession) {
   server.use(
-    http.post(`${BASE}/app/assignments/${ASSIGNMENT}/attempts`, () =>
-      contractJson("/app/assignments/{id}/attempts", "post", 200, body),
-    ),
+    http.post(`${BASE}/app/assignments/${ASSIGNMENT}/attempts`, () => {
+      resumed += 1;
+      return contractJson("/app/assignments/{id}/attempts", "post", 200, body);
+    }),
   );
 }
 
@@ -45,6 +48,7 @@ async function load() {
   ]);
   return {
     getAttempt: engine.getAttempt,
+    recordAudioPlay: engine.recordAudioPlay,
     startOrResumeAttempt: engine.startOrResumeAttempt,
     continueAttempt: assignments.continueAttempt,
     heldSession: held.heldSession,
@@ -56,6 +60,7 @@ beforeEach(() => {
   sessionStorage.clear();
   localStorage.clear();
   named = [];
+  resumed = 0;
 });
 
 describe("the session a tab names when it reads its attempt", () => {
@@ -130,19 +135,99 @@ describe("the session a tab names when it reads its attempt", () => {
     expect(sessionStorage.getItem(KEY)).toBe(B);
   });
 
-  it("holds the session Continue returns, so the engine's read names it", async () => {
-    const { continueAttempt, getAttempt, heldSession, holdSession } = await load();
-    holdSession(ATTEMPT, A);
+  it("holds the session Continue returns when the tab held none, so the engine's read names it", async () => {
+    const { continueAttempt, getAttempt, heldSession } = await load();
     answerResumes(paper({ sessionId: B }));
     answerReads(paper({ sessionId: B }));
 
     const session = await continueAttempt(ASSIGNMENT, ATTEMPT);
     expect(session.sessionId).toBe(B);
+    expect(resumed).toBe(1);
     expect(heldSession(ATTEMPT)).toBe(B);
 
     await getAttempt(ATTEMPT);
 
     expect(named).toEqual([B]);
+  });
+
+  it("reads the attempt with the session it holds when Continue is pressed, and resumes nothing", async () => {
+    const { continueAttempt, heldSession, holdSession } = await load();
+    holdSession(ATTEMPT, A);
+    answerResumes(paper({ sessionId: B }));
+    answerReads(paper({ sessionId: A }));
+
+    const session = await continueAttempt(ASSIGNMENT, ATTEMPT);
+
+    expect(session.sessionId).toBe(A);
+    expect(named).toEqual([A]);
+    expect(resumed).toBe(0);
+    expect(heldSession(ATTEMPT)).toBe(A);
+  });
+
+  it("resumes when the read of a held session answers that another device took it, and holds the new session", async () => {
+    const { continueAttempt, heldSession, holdSession } = await load();
+    holdSession(ATTEMPT, A);
+    answerResumes(paper({ sessionId: B }));
+    answerReads(paper({ sessionId: C, beaconToken: "", superseded: true }));
+
+    const session = await continueAttempt(ASSIGNMENT, ATTEMPT);
+
+    expect(named).toEqual([A]);
+    expect(resumed).toBe(1);
+    expect(session.sessionId).toBe(B);
+    expect(session.superseded).not.toBe(true);
+    expect(heldSession(ATTEMPT)).toBe(B);
+  });
+
+  it("keeps the session it held when the resume fails, so a later open still names it", async () => {
+    const { continueAttempt, heldSession, holdSession } = await load();
+    holdSession(ATTEMPT, A);
+    answerReads(paper({ sessionId: C, beaconToken: "", superseded: true }));
+    server.use(
+      http.post(
+        `${BASE}/app/assignments/${ASSIGNMENT}/attempts`,
+        () => new HttpResponse(null, { status: 500 }),
+      ),
+    );
+
+    await expect(continueAttempt(ASSIGNMENT, ATTEMPT)).rejects.toBeDefined();
+
+    expect(heldSession(ATTEMPT)).toBe(A);
+    expect(sessionStorage.getItem(KEY)).toBe(A);
+  });
+
+  it("forgets the session it held when the resume answers that the attempt has ended", async () => {
+    const { continueAttempt, heldSession, holdSession } = await load();
+    holdSession(ATTEMPT, A);
+    answerReads(paper({ sessionId: C, beaconToken: "", superseded: true }));
+    server.use(
+      http.post(`${BASE}/app/assignments/${ASSIGNMENT}/attempts`, () =>
+        HttpResponse.json(
+          { error: { code: "ATTEMPT_CLOSED", message: "ended" } },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    await expect(continueAttempt(ASSIGNMENT, ATTEMPT)).rejects.toMatchObject({
+      code: "ATTEMPT_CLOSED",
+    });
+
+    expect(heldSession(ATTEMPT)).toBeNull();
+    expect(sessionStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("leaves a plain read of a superseded held session superseded, resuming nothing and keeping the session", async () => {
+    const { getAttempt, heldSession, holdSession } = await load();
+    holdSession(ATTEMPT, A);
+    answerResumes(paper({ sessionId: B }));
+    answerReads(paper({ sessionId: C, beaconToken: "", superseded: true }));
+
+    const read = await getAttempt(ATTEMPT);
+
+    expect(read.superseded).toBe(true);
+    expect(resumed).toBe(0);
+    expect(heldSession(ATTEMPT)).toBe(A);
   });
 
   it("names the session it held before a reload", async () => {
@@ -153,5 +238,23 @@ describe("the session a tab names when it reads its attempt", () => {
     await getAttempt(ATTEMPT);
 
     expect(named).toEqual([A]);
+  });
+
+  it("sends the session it names in the body of the request that counts a play", async () => {
+    const { recordAudioPlay } = await load();
+    let body: unknown = null;
+    server.use(
+      http.post(`${BASE}/app/attempts/${ATTEMPT}/audio-play`, async ({ request }) => {
+        body = await request.json();
+        return contractJson("/app/attempts/{id}/audio-play", "post", 200, {
+          plays: 1,
+          maxPlays: 2,
+        });
+      }),
+    );
+
+    await recordAudioPlay(ATTEMPT, "q1", A);
+
+    expect(body).toEqual({ questionId: "q1", sessionId: A });
   });
 });

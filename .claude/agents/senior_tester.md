@@ -42,6 +42,9 @@ A migration needs up/down/up on a database created for it.
   type, colour tokens, states (loading, empty, error, success, disabled, focus), copy in
   both languages, keyboard paths and focus order. Playwright's Chromium is at
   `/opt/pw-browsers`. Never run `playwright install`.
+- Reject a new `*.spec.ts` or `*.live.spec.ts` whose spec does not state the claim only a
+  browser, or only a real server, can prove, and the single production change that makes it
+  fail. A spec that restates a unit, integration or Go test is a finding for its owner.
 - Retest a fix yourself before you close its finding.
 
 ## Findings

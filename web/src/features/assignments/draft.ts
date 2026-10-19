@@ -51,6 +51,17 @@ export function windowInstant(value: string): Date {
   return fromZonedTime(value, WINDOW_ZONE);
 }
 
+/**
+ * windowMoment is the instant `value` names, as an ISO string. When `value` is
+ * still the minute `stored` falls in, it is `stored` itself, so a save that
+ * did not move a moment never rounds it to the minute.
+ */
+export function windowMoment(value: string, stored?: string): string {
+  return stored !== undefined && value === windowInput(stored)
+    ? stored
+    : windowInstant(value).toISOString();
+}
+
 /** AssignmentDefaults is the teacher's stored starting point for a new assignment. */
 export type AssignmentDefaults = NonNullable<
   components["schemas"]["UserPreferences"]["assignmentDefaults"]
@@ -100,8 +111,15 @@ export function emptyDraft(
   };
 }
 
-/** draftBody is the request body for `draft`, which must have a picked version. */
-export function draftBody(draft: AssignmentDraft): Omit<AssignmentInput, "draft"> {
+/**
+ * draftBody is the request body for `draft`, which must have a picked version.
+ * `stored` is the window of the assignment being edited: a moment the teacher
+ * did not change is sent as stored.
+ */
+export function draftBody(
+  draft: AssignmentDraft,
+  stored?: { opensAt: string; closesAt: string },
+): Omit<AssignmentInput, "draft"> {
   const picked = draft.picked;
   if (!picked) throw new Error("no version picked");
   return {
@@ -111,8 +129,8 @@ export function draftBody(draft: AssignmentDraft): Omit<AssignmentInput, "draft"
       studentIds: draft.students.map((s) => s.id),
     },
     window: {
-      opensAt: windowInstant(draft.opensAt).toISOString(),
-      closesAt: windowInstant(draft.closesAt).toISOString(),
+      opensAt: windowMoment(draft.opensAt, stored?.opensAt),
+      closesAt: windowMoment(draft.closesAt, stored?.closesAt),
     },
     durationMinutes: draft.durationMinutes,
     maxAttempts: draft.maxAttempts,

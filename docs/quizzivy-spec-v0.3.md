@@ -1,6 +1,6 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.112 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.115 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
 **Changes pending (R5, v0.12.0)**
@@ -113,28 +113,63 @@
 - T-R5.35 §12 Where the page departs from the deck: "Add credits" is the deck's outline button, not the primary one the plan named; the pace reads "~156,100" because Be Vietnam Pro has no "≈" (`font-coverage.test.ts`); the Vietnamese "Near limit" is "Gần hạn mức" so the status column stays 124px beside "Chạm hạn mức"; a teacher's status pill and pencil wrap together, so the pencil is never alone on a line as the deck's own row leaves it between 560 and 640px; and `SettingsCard` takes `headerClassName` for the 14px 16px header the deck gives these two cards.
 - D-055 §12 Assignment detail › Questions is the item analysis and its AI insights alone, as on main since v0.11.9 (#727). Settings › Test & timing's Test row links the test once its versions are read and, under the version's facts, says that students get the pinned version, or took it once the assignment is closed.
 - T-R5.32 §5, §6, §8, §9, §13, §15, §16 The sections caught up with what R5 merged: eleven open operations and `PASSWORD_CHANGE_REQUIRED` (§5); the R5 guards and the new §5.7, Admin user management, with activity and statuses; Data & privacy and Plan & usage in §5.6; joining by code switched off in §6.2 and the per-user limits of the Admin's credential operations in §6.5; the Admin console and `/admin/exports/:id` in §8, without the "Availability: R5" line; the front door's policy in §9; the R5 tables, columns, the retention sweep, the maintenance role and its grants in §13; the Admin's classes, audit log, transfer, retention impact and API reference operations, the error codes and the removed answer in §15; and in §16 what R5 has built and what is still open.
+- H-04b §9 A tab that learns its session was taken over (a 409 on a save or a play, or a read that answers `superseded`) sends the events it holds once, under that session, and records nothing until it holds a session again. "Tiếp tục làm bài" keeps the tab's held session until the resume succeeds. §10.6 The pagehide beacon carries at most about 60 kB and leaves what it could not take buffered; submitting sends every waiting event; a reload is not an away episode.
+- H-05 §7 An option or a blank keeps its id when its question is saved. In a write, one sent with an id the question holds is updated in place (ordinal, text, correctness and formatting, or a blank's accepted answers replaced under the same id); one sent without an id, or with an id the question does not hold, is created with a new one; one not sent is deleted. A held AI check finding therefore still names the same option or blank after the teacher saves the question, and the check's "Apply fix" no longer refuses for that reason alone.
+- H-05 §15 `POST` and `PATCH /teacher/questions`, and the group member writes, follow the same rule for `options[].id` and `blanks[].id`. A create ignores every id it is sent. An id sent twice in one write updates once and creates the second. No migration, no new operation, no new permission, and no change to the contract's shape.
+- T-R5.8 §15 Five operations under `/admin/roles`: `listRoles` and `createRole`, `updateRole` (`PATCH /admin/roles/:id`), `setRolePermissions` (`PUT /admin/roles/permissions`), all `people.roles.manage`, and `listAssignableRoles` (`people.users.manage`). A role is never deleted (DG-52). Seven new error codes: `ROLE_NAME_TAKEN`, `ROLE_NOT_ASSIGNABLE`, `ROLE_LOCKED`, `STUDENT_NEEDS_TAKE_TESTS`, `KEY_NOT_GRANTABLE`, `CANNOT_ACT_ON_SELF` and `TARGET_ROLE_NOT_ALLOWED`.
+- T-R5.8 §5 Every role write is held to the subset rule (`access.CanActOn`): a caller acts only on a role whose permissions, `learning.take_tests` apart, are their own, grants or revokes only keys they hold, and never changes their own role's permissions, except the Admin role's `learning.take_tests` cell. A matrix save is one transaction and refused whole. It and `updateRole` make every cached principal on the machine that served them be read again on its next request.
+- T-R5.8 §13.5 The app role may now insert roles, update the columns a role command changes and add and remove grants (`00129_grant_role_writes.sql`). It still cannot delete a role or write `app.permissions`.
+- T-R5.8 §15 `createRole` and `updateRole` store a name and a description in Unicode NFC, so the composed and decomposed forms of one name are one name, and refuse a name that holds a line break or a control, format, line- or paragraph-separator character. At most 200 roles exist, the built-in four included; `createRole` past that answers `422 ROLE_LIMIT_REACHED`. `AssignableRole.studentTarget` says a custom role with no permission is a student target. The role operations promise propagation to another machine "within about ten seconds".
+- T-R5.8 §13 Advisory lock `(73819, 44)` serialises role creation against the limit (`docs/plan/20-data-model.md` §28).
+- T-R5.8 §15 `createRole` and `updateRole` refuse a name that has no letter, digit, punctuation mark or symbol (a lone combining accent, a variation selector), and, in a name or a description, any character that is not graphic: a control, format, line- or paragraph-separator, private-use or unassigned code point, and the blank fillers the Hangul filler, its two jamo forms, the halfwidth filler and the Braille blank. A description may still hold line breaks, as the Edit role dialog's text area sends them. The refusal names the first offending code point in `details`.
+- T-R5.8 §15 The 60 characters of a name and the 300 of a description count the text after NFC. The schema's own bound on the text as sent is four times that (240 and 1200), so a name typed decomposed is no longer refused before it is composed.
+
+**Changes since v0.114**
+
+v0.11.11 is a patch release that finishes the owner's change request CR-001 (2026-10-19) to the design team's answer (`docs/design/deck/page-width-proposal/AI Generate Sections.dc.html`). No schema, no new operation, no new permission; `count` on `AiGenerateRequest` becomes any whole number from 1 to 8.
+
+- §8 Generate in the builder has a **scope**: *Một phần* / *One section* (the form of v0.11.10, redrawn) or *Cả đề* / *Whole test*. The question style is two radio cards, each with a line under it, and starts from a passage only when the open section holds one. A standalone run names the section new questions join on a card with "Đổi" / "Change" and the switch "Hợp với phần này" / "Fit this section"; with the switch off the section is not read, the questions still land there and the topic is required. The count is a stepper from 1 to 8 (5). The footer names the ceiling: "Tối đa 200 tín dụng · còn {left} trong tháng này"; with less left than the ceiling it says so and the run does not start.
+- §8 *Whole test* is a plan, one row per saved section in the builder's order: a count from 0 to 8, and for a section with passages "Theo từng bài đọc" / "Per passage" (the count per passage, into each passage's group) or standalone; its types (preset from the section's own) and its level (the section's commonest, or the shared level). A section with no title, instructions or questions cannot be planned. The plan is at most 40 questions and 5 calls. Each section, or each passage of a per-passage section, is **its own call** reserving its own ceiling, so the run states "Tối đa {200 × calls}"; the calls run together, the panel shows each section writing, done or failed, and a failed section is tried again alone, for its own ceiling, while the others stay. Results are grouped by section, with select-all per section; "Thêm {n} câu vào {k} phần" saves each section's picks in order, and when one save is refused the earlier ones stand, those picks leave the list and the panel names the section that failed.
+- §8 A section removed while its questions wait is named, and the panel asks for another section instead of failing the save (DG-223).
+
+**Changes since v0.113**
+
+v0.11.10 is a patch release after the owner's request (2026-10-19, change request CR-001): "Generate questions" wrote only from a shared text, so a section of standalone grammar or vocabulary questions could not be filled from it. A topic was refused as too short, a pasted text gave questions that said "according to the passage" and landed without it, and nothing of the section reached the provider. No schema, no new operation, no new permission; the request gains two optional fields.
+
+- §8 Generate has a **Question style**: *Standalone* ("Câu độc lập") or *From a passage* ("Theo bài đọc"). It starts from a passage where the page offers one (the builder with a shared-context group, "Explain results with AI") and is standalone otherwise (the bank, a test with no group). From a passage is unchanged. Standalone takes a **Topic or notes** of 3 characters or more, and every question carries what it needs to be answered and names no passage, recording or other question. In the builder, "Fit {section}" (on by default) sends a section: the one new questions join, or another saved section of the test chosen under it, an empty one included. It sends the section's title, its instructions and the type and prompt of every question in it, group members included, never a key; the topic is then optional, unless the section has no title, instructions or questions. The kept questions land in the section that was read; if that section was removed meanwhile, the panel says so and adds nothing (DG-222).
+- §15 `AiGenerateRequest` gains `standalone` and `sectionId` (with `testId`, resolved only inside that test; another teacher's test or a section the test does not hold is `404`). `source` is 3 characters or more in the schema; a source read from a passage still needs 40. One call, the same ceiling and limits. A draft whose prompt repeats, word for word, a question of the section or an earlier draft of the same answer is dropped, and so is a standalone draft that points at material it does not have ("according to the passage", "in the recording", "the conversation").
+
+**Changes since v0.112**
+
+v0.11.9 is a patch release of two hotfixes after the owner's report (2026-10-19). The first: "Make a variant" did not work on a real test. The owner's test had all its questions inside shared-context groups, and a variant read only the standalone questions, so it answered "There is nothing for the assistant to read yet." (`422`), the limit v0.11.4 stated. A long test of standalone questions failed another way: one call for the whole draft, with room for 6,000 tokens of answer, could not come back inside the 60 seconds a call has, the proxy's idle timeout, so the teacher saw `503 AI_UNAVAILABLE`. No schema, no new operation, no new permission and no change to a request or a response.
+
+- §8, §15 "Make a variant" covers the members of a test's groups as well as its standalone questions, in the builder's order and numbering, each with its group's passage. A member's changes are written to the copy's own group (a copied test's groups are its own), a standalone question's to a duplicate of it, as before. A member whose group fixes the order of its options is not reordered, and a member that answers a gap of its group's passage is not reworded. The v0.11.4 limit below is lifted.
+- §15 One `makeTestVariant` request is a bounded pass, like the bank clean-up: it reserves its 300 credits once, asks about 8 questions per call, at most five calls at the same time inside 45 seconds, and ends with one settlement of what the calls were billed. The changes of every call that answered usably come back in paper order; a call that failed or ran out of time leaves its questions out of the answer, so the variant copies them as they are. Only a pass in which no call gave a usable change is `503 AI_UNAVAILABLE`.
+
+The second (#727, web only): the Questions tab of Assignment detail drew more than the deck.
+
+- §12 Assignment detail > Questions is the item analysis and its AI insights alone, as the deck draws it; the version card and the read-only paper below it are gone, and the version's facts stay in Settings > Test & timing.
 
 **Changes since v0.111**
 
-R5, T-R5.8 (second QC follow-up on the roles API: QC-X-13, QC-X-14).
+v0.11.8, the other two hotfixes, from the email round-trip review (D-032, D-034): a quoted address could be stored and then not printed back, and one account's login budget could be sidestepped by spelling its address differently on each try. No schema, no new operation, no new permission and no change to a response. The AI panel hotfix of the same release is in the entry below.
 
-- §15 `createRole` and `updateRole` refuse a name that has no letter, digit, punctuation mark or symbol (a lone combining accent, a variation selector), and, in a name or a description, any character that is not graphic: a control, format, line- or paragraph-separator, private-use or unassigned code point, and the blank fillers the Hangul filler, its two jamo forms, the halfwidth filler and the Braille blank. A description may still hold line breaks, as the Edit role dialog's text area sends them. The refusal names the first offending code point in `details`.
-- §15 The 60 characters of a name and the 300 of a description count the text after NFC. The schema's own bound on the text as sent is four times that (240 and 1200), so a name typed decomposed is no longer refused before it is composed.
+- §15 Every contract `email` field (login, `createStudent`, `updateStudent` and any other `format: email` parameter) admits a value only if the bare address it yields parses again to the same address. `"qc tp"@example.com` is refused with `400 VALIDATION_FAILED` naming `email`, and no row is written; `Name <addr>` and a quoted atom that needs no quotes (`"a"@x.co`, stored as `a@x.co`) are unchanged. Rows already stored are not repaired; `docs/setup/operations.md`, "Stored emails the API cannot print", has the read-only query to run before and after the release.
+- §6.5 `POST /auth/login` counts one account once, however its address is written: the 10-a-minute per-address-and-email and the 20-an-hour per-email budgets key on the lower-cased bare address, the one the sign-in looks up, so `N <a@x.co>`, `"a"@x.co`, `a@x.co (note)`, `A@X.CO` and ` a@x.co ` spend one budget. The limits do not change. A value that does not parse keeps its own key and is refused `400` as before.
 
 **Changes since v0.110**
 
-R5, T-R5.8 (QC follow-up on the roles API).
+v0.11.8 is a patch release of three hotfixes. This entry is the first, after a teacher's report (2026-10-14): closing an AI panel threw its results away, and getting them back meant running the assistant, and paying for it, again. The other two, from the email round-trip review, are in the entry above.
 
-- §15 `createRole` and `updateRole` store a name and a description in Unicode NFC, so the composed and decomposed forms of one name are one name, and refuse a name that holds a line break or a control, format, line- or paragraph-separator character. At most 200 roles exist, the built-in four included; `createRole` past that answers `422 ROLE_LIMIT_REACHED`. `AssignableRole.studentTarget` says a custom role with no permission is a student target. The role operations promise propagation to another machine "within about ten seconds".
-- §13 Advisory lock `(73819, 44)` serialises role creation against the limit (`docs/plan/20-data-model.md` §28).
+- §8 An AI panel keeps its session while the page that opened it stays open. Closing the drawer by Esc, the backdrop, Close, Cancel or "Open question" does not end it: the setup fields, a run still in flight and the suggestions a run answered are there when the entry point is pressed again, and a run that finishes while the drawer is closed is waiting in it, and says so in a toast ("Finished. Open it to see the results.", or "It didn’t finish. Open it to see why.") whose Open reopens that drawer; a run the teacher stopped, or whose page was left, says nothing, and the toast goes once the drawer is open again, and when the page is left. While another drawer is showing it waits for that one to close. Done, a primary's successful write and Start over end it, and so does leaving the page or opening another test, which also aborts a run that has not answered. The bank's "Open" on a near-duplicate still leaves the page and so ends the clean-up.
+- §8 A check's finding whose question is no longer in the test is left out of the list and its count. Generate's "Add {n} to {section}" names, and writes to, the section the builder is on when the questions are kept, not the one it was on when they were made; a group the passage came from stays the destination.
+- §8 A check's one-click fix names an option or a blank by id, and the server gives a question's options new ids whenever it is saved, so a finding held across a save can no longer be applied. "Apply fix" then fails in the panel with a sentence ("This fix no longer matches the question ..."), writes nothing, keeps the finding and does not report success; "Open question" and "Dismiss" are still there. The bank clean-up's "Tags added to {n} questions" counts the questions the write changed, and says so when it changed none.
 
 **Changes since v0.109**
 
-R5, T-R5.8 (roles and permissions API, no screen yet).
+A clarification, no behaviour change (ledger F-33).
 
-- §15 Five operations under `/admin/roles`: `listRoles` and `createRole`, `updateRole` (`PATCH /admin/roles/:id`), `setRolePermissions` (`PUT /admin/roles/permissions`), all `people.roles.manage`, and `listAssignableRoles` (`people.users.manage`). A role is never deleted (DG-52). Seven new error codes: `ROLE_NAME_TAKEN`, `ROLE_NOT_ASSIGNABLE`, `ROLE_LOCKED`, `STUDENT_NEEDS_TAKE_TESTS`, `KEY_NOT_GRANTABLE`, `CANNOT_ACT_ON_SELF` and `TARGET_ROLE_NOT_ALLOWED`.
-- §5 Every role write is held to the subset rule (`access.CanActOn`): a caller acts only on a role whose permissions, `learning.take_tests` apart, are their own, grants or revokes only keys they hold, and never changes their own role's permissions, except the Admin role's `learning.take_tests` cell. A matrix save is one transaction and refused whole. It and `updateRole` make every cached principal on the machine that served them be read again on its next request.
-- §13.5 The app role may now insert roles, update the columns a role command changes and add and remove grants (`00129_grant_role_writes.sql`). It still cannot delete a role or write `app.permissions`.
+- §7 The `true_false` answer form is legacy input. The engine writes `choice` for a true/false question, and the server grades both.
 
 **Changes since v0.108**
 
@@ -1699,7 +1734,7 @@ A leaked code lets a stranger into the class. Mitigations, all required:
 
 - **Rate limit** the sign-in and join operations, and return `429` with `Retry-After`. Without this, an 8-char code space is still worth probing at scale. The budgets let a class of 40 behind one school address make three tries at each step (T-R2.15):
   - `POST /join/preview`, `POST /app/classes/join` and `POST /auth/google`: 120/min and 600/h per address; 200/h per code, from any address. Google sign-in counts a code only when the body carries a `joinCode`.
-  - `POST /auth/login`: 120/min and 600/h per address; 10/min per address and email; 20/h per email.
+  - `POST /auth/login`: 120/min and 600/h per address; 10/min per address and email; 20/h per email. The email is the address as the sign-in finds it (D-034): the lower-cased bare address, so every spelling of one account spends one budget.
   - `POST /auth/refresh` and `POST /auth/logout`: 120/min and 1,200/h per address.
   - `POST /auth/set-password/check`: 120/min and 1,000/h per address; 20/h per token. `POST /auth/set-password`: 60/min and 600/h per address; 10/h per token. A token is counted as sent, so a wrong guess spends the budget of the string it guessed and a password that fails the rules spends the token's. A class of 40 behind one address opens its links together without meeting either limit.
   - `DELETE /auth/sessions/{familyId}`: 10/min and 60/h, and `POST /auth/sessions/revoke-others`: 5/min and 30/h, per signed-in user. Neither hands out a credential; each moves the user's session epoch and so makes every device of the user refresh (T-R4.9).
@@ -1871,6 +1906,10 @@ type Answer =
   | { type: 'fill_blank'; values: Record<string, string> }
   | { type: 'text'; value: string };
 ```
+
+An option or a blank keeps its id across saves of its question: a write that sends an id the question holds updates that row, one that omits the id or sends an id the question does not hold creates a new one, and one that leaves a row out deletes it. An id read from a question therefore stays valid until its option or blank is removed.
+
+The engine writes a true/false answer as `choice`, with the id of the option the student chose. `{ type: 'true_false'; value: boolean }` is the legacy form: the server still accepts and grades it (`true` is the first option), but no screen sends it.
 
 **Invariant:** an attempt references `testVersionId`. Editing a published test creates a new version; in-flight attempts keep rendering the version they started with. In the student flow, test content is fetched **only** via `GET /app/attempts/:id`.
 
@@ -2204,9 +2243,11 @@ Every entry point is drawn only while `GET /public/status` says `ai` and the cal
 | Assignment detail › Questions | "Explain results with AI", under the same switch (with it off, the same kind of line); "Make a practice set" opens Generate and saves a new draft test "{title} · Practice" | `explainAssignmentResults`, then `createQuestion`, `createTest` and `updateTest` |
 | Import workspace, Sources pane | the "Read with AI" card, which mirrors the preference "Read imports with AI" | `createWordImport` with `readWithAi` |
 
-The builder's Generate adds the kept questions where its source belongs: from a passage that a shared-context group holds, to that group, as new members after its existing ones, through the group's own update under its revision ("Add {n} to {group}"); from pasted text, a topic or nothing, to the open question's section as new questions ("Add {n} to {section}"). Either way the first new question opens.
+The builder's Generate adds the kept questions where its source belongs: from a passage that a shared-context group holds, to that group, as new members after its existing ones, through the group's own update under its revision ("Add {n} to {group}"); from pasted text, a topic or nothing, to the open question's section as new questions ("Add {n} to {section}"); from a standalone run fitted to a section, to that section, wherever the builder is when they are kept. Either way the first new question opens.
 
-A variant is a new draft test named "{title} · Variant", never a version of the open one. A copied draft names the same bank questions as the test it copies, so each changed question is duplicated and the change is written to the duplicate: the test and its questions are untouched. A variant covers the standalone questions; the members of a group are not varied and are copied as they are. The bank clean-up merges nothing: a near-duplicate offers "Open" for each question and "Keep both", and tag suggestions apply through the bulk tag write (DG-197).
+A panel is a session that belongs to its page, not to the drawer: it ends with Done, a primary's write or Start over, and with the page, never with the drawer closing (the deck's prototype resets on every open, and ours does not, because each run spends the teacher's credits). In the builder, "Open question" on a finding closes the drawer and opens the question beside it; the same "AI check" button brings the findings back.
+
+A variant is a new draft test named "{title} · Variant", never a version of the open one. A copied draft names the same bank questions as the test it copies, so each changed question is duplicated and the change is written to the duplicate: the test and its questions are untouched. A copied draft's groups are its own, so a member's change is written to the copy's group, at the same place in the outline and in the group. A member whose group fixes its options' order is not reordered, and one that answers a gap of the group's passage is not reworded. The bank clean-up merges nothing: a near-duplicate offers "Open" for each question and "Keep both", and tag suggestions apply through the bulk tag write (DG-197).
 
 **Settings › AI assistant** (`/teacher/settings/ai`, `ai.use`) holds the month's usage from `getAiUsage` (used of the allowance, what is left, a bar and the five rows generation, grading, explanations, imports and checks, with the date the allowance resets, the first of the next month in `APP_TIMEZONE`: "It resets on 1 November"), the preferences (`UserPreferences.ai`: the language the assistant writes in, tagging what it drafts as "AI draft", letting it read student answers, reading imports with it), and "Ask for more credits" (1,000 to 100,000 and a reason of at most 500 characters) while the centre's rule is to take requests and none is waiting, and the request waiting, with its date, until an Admin decides it (DG-200). With the assistant off the section says "AI is not turned on for this school." (DG-201).
 
@@ -2446,7 +2487,7 @@ is one screen ("A cloze" below).
   `ATTEMPT_CLOSED`) or as a body that can never be accepted
   (`VALIDATION_FAILED`), it is dropped: a superseded session must not overwrite
   a newer session's answers. On any other failure the draft is kept and the
-  attempt is not resumed. Explicit sign-out clears the local cache.
+  attempt is not resumed. Explicit sign-out clears the local cache, the sessions the tab holds included.
 - **Held session.** A tab names the session it holds each time it reads an
   attempt. An in-progress paper taken over elsewhere is answered as
   `superseded`: it stays read-only after a reload or refetch, reads no local
@@ -2454,6 +2495,18 @@ is one screen ("A cloze" below).
   again only when the student continues the attempt there. A tab that holds
   no session is given the current one. Such a read still replaces the
   attempt's beacon token, and two tabs of one browser can share a session.
+  "Tiếp tục làm bài" in a tab that holds a session for the attempt reads it
+  with that session and starts no resume, so the tab never takes over from
+  itself. When that read answers `superseded`, another tab or device has
+  taken the attempt, and Continue then resumes, which takes it back and
+  records the takeover, and the tab keeps its session if that resume fails.
+  A tab that holds none resumes. A tab that learns it was superseded, by a
+  `409 SESSION_SUPERSEDED` on a save or a play or by a read that answers
+  `superseded`, sends the events it holds once, under its own session,
+  through the bearer events request, drops them whatever the answer, and
+  records nothing until it holds a session again.
+  An attempt that has ended releases the tab's held session, and a paper
+  sealed as ended or superseded stops its deadline timer.
 - **Keys.** A–E choose an option, on a cloze for the open gap; a sixth has no
   key, because F flags the question. The arrows move between screens, as
   Previous and Next do, and stop at either end. Esc closes a dialog, the sheet
@@ -2478,8 +2531,9 @@ Every signal produces an append-only event `{ kind, occurredAt, clientSeq, quest
 | `context_menu` | `contextmenu` | Recorded; blocking off by default (it breaks assistive tooling). |
 | `network_offline` / `network_online` | `navigator.onLine` + fetch failures | Distinguishes cheating from bad wifi. Matters for fairness. |
 | `audio_play` / `audio_ended` / `audio_blocked` / `audio_seek` | player (§11.4) | Gives the teacher listening behaviour. `audio_seek` is a jump the player put back on a recording that may not be skipped. The events only report: a question's play is counted by `POST /app/attempts/:id/audio-play`. |
+| `start` | server-side | The attempt began. Written once, under the first session, at `startedAt`; it only gives that session a first row, so a flush it makes later is known to the server. It is no evidence that the tab is open. |
 | `resume` | server-side | Re-entry into an `in_progress` attempt: reload, crash, device change. |
-| `session_takeover` | server-side | Attempt opened in another tab/device. |
+| `session_takeover` | server-side | Attempt opened in another tab/device. The teacher's timeline reads "Resumed in another tab or device". A tab that still holds the attempt's session never causes one: Continue in it reads the attempt with that session and resumes nothing (§9). |
 | `page_hide` | `pagehide` | Best-effort final flush via `navigator.sendBeacon`. |
 
 **Deliberately excluded:** devtools-detection heuristics (window-size deltas, `debugger` timing). They false-positive on zoom, split-screen, and extensions, and are bypassed in seconds. Do not implement them.
@@ -2526,10 +2580,14 @@ What the teacher sees, by D8 (R4). One tone marks "Flagged" everywhere, the dang
 `/teacher/attempts/:id` → **Integrity** tab: ordered timeline with event kind, wall-clock time, offset from attempt start, duration for paired events, and the question on screen. Summary strip: total away-time, away episodes ≥ `minAwayMs`, paste count, resume count, audio replays. Neutral text — no red banners, no "CHEATING DETECTED". The teacher judges; the app reports. An audio play with no recorded end shows no duration and is not called ongoing.
 
 Sessions are ordered by their earliest `receivedAt`, with `sessionId` breaking
-ties. Within a session, `resume` comes first and `session_takeover` last.
+ties. Within a session, `start` and `resume` come first and `session_takeover` last.
 Within each priority, two events with different non-null `clientSeq` values
 compare by `clientSeq`; otherwise by `occurredAt` and then event id. This order
 is not a guarantee of wall-clock chronology across tabs or sessions.
+
+The timeline draws no row for `start`: the synthetic "Started" row already
+marks it, and an attempt whose only recorded event is `start` shows the empty
+state.
 
 ### 10.5 Honest limits — say this in the UI help text
 
@@ -2560,7 +2618,7 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
   and `offline` on `window`, only for the save line (§9); `useVersionWatch`
   listens to `visibilitychange` on `document`, only to look for a newer build
   (§9). The monitor records and stops whether or not they run.
-- Events buffer in memory + `sessionStorage`, flush with the autosave batch, and immediately on `pagehide` via `sendBeacon`. Leaving the engine while the attempt goes on sends what is buffered through the same beacon and keeps the sequence in `sessionStorage`, so a return in the same session numbers on from it; the buffer is forgotten once the attempt has ended.
+- Events buffer in memory + `sessionStorage`, flush with the autosave batch, and immediately on `pagehide` via `sendBeacon`. Leaving the engine while the attempt goes on sends what is buffered through the same beacon and keeps the sequence in `sessionStorage`, so a return in the same session numbers on from it; the buffer is forgotten once the attempt has ended. A tab that begins a new session on an attempt whose stored buffer belongs to another session still holding events sends those events first, through the bearer `POST /app/attempts/:id/events` under their own session id, which the server accepts as one the attempt has recorded events under, in slices of at most 500, one after another; a refusal or a failure drops the rest quietly, and the new session is not held back. No request carries more than the contract's 500 events: an autosave or the pagehide beacon takes the oldest 500 and leaves the rest buffered, and an autosave that leaves events schedules the next one. The pagehide beacon takes the oldest events that fit about 60 kB, because `sendBeacon` refuses a body above 64 KiB, and removes them from the buffer only when the browser took them. Submitting, manually or by `auto_submit`, flushes again while events wait, so none is dropped when the attempt ends. A page that is unloading, not one that may return from the back/forward cache, records nothing after `page_hide`, so a reload leaves no open away episode.
 - `clientSeq` uses an attempt-relative millisecond offset, calibrated by
   `getAttempt` from `startedAt` and `serverTime`, and is never below the tab's
   stored next sequence. It increases within a tab. The offset component caps
@@ -2570,7 +2628,13 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
   Cross-tab chronology and uniqueness are not guaranteed. Older builds still
   send counters from zero, which the server accepts. The append-only dedup
   key remains `(attempt, session, clientSeq)`; a repeated key is treated as a
-  retry and not stored.
+  retry and not stored. A `clientSeq` above 2,147,483,647 or below 0 answers
+  `400` on every path that takes events, the beacon included, and writes nothing.
+- A flush names the session it was written under. The server accepts the
+  attempt's current session, or one that began with a `start` or `resume` and
+  so has a row of its own (a superseded tab finishing its flush), and answers `403 FORBIDDEN`
+  for any other id without writing. A flush never changes which session is
+  current.
 - Failed background event flushes do not block answering or manual submission.
   The immediate `auto_submit` policy retries its final answer/event batch before
   confirming submission so the violation is retained with the answers.
@@ -2641,7 +2705,9 @@ Browser monitoring detects *this tab* losing focus. It cannot see a second devic
 The obvious client-side counter resets on reload, which makes the limit meaningless. So:
 
 - A play is spent when playback starts and no play is in progress: from 0:00, or after the recording ended. A resume after a pause spends none. With seeking allowed, moving inside a play in progress spends nothing. A remembered place (§11.3) is put back once the element has its metadata, and the no-seek guard is told the new position first, so a restore is never reported as a blocked seek. If playback then runs more than 0.5s short of the remembered point (the browser refused the seek, or the metadata never came), the start is counted as a play after all and the place forgotten: a place that cannot be put back is never free.
+- A play is counted once `play()` resolves, not when the button is pressed: the call itself still runs in the click's own tick (§11.3), and the count, the `audio_play` event and the request wait for it. A play the browser refuses (`NotAllowedError`) or that is paused before it starts (`AbortError`) spends nothing, here or on the server.
 - Each play calls `POST /app/attempts/:id/audio-play`; the server increments `attempt_audio_plays (attempt_id, question_id, plays)` and the count is returned in `GET /app/attempts/:id` as `audioPlays`. The `audio_play` event the player records beside it (§10.6) only reports the play and changes no count.
+- A play is written like an answer: it is counted only while the attempt is in progress, before its deadline, and from its current session. The request names the `sessionId` it was started under, and a play from a session another tab has replaced answers `409 SESSION_SUPERSEDED`, one on a closed attempt `409 ATTEMPT_CLOSED`, and one past the deadline `409 DEADLINE_PASSED`; none is counted, and the client neither counts nor retries on them: it takes back the optimistic decrement and seals the paper the way a refused save does. `sessionId` is optional for one release, and a play without it is checked for status and deadline only. Review playback after submit stays unlimited and uncounted.
 - Client renders remaining plays from the server value, optimistically decrements on play, and reconciles on the next fetch.
 - Playback is **optimistic**: a failed event POST does not block the audio. A student who goes offline to farm replays will show a gap in the event log, which is exactly what the integrity timeline is for. Blocking playback on a network round-trip would punish bad wifi far more often than it would catch anyone.
 - On submit, the server rejects nothing based on play count. Over-limit plays are reported to the teacher, not enforced retroactively.
@@ -3397,6 +3463,9 @@ POST   /teacher/questions | PATCH /:id | DELETE /:id
                                         an audio policy carries allowPause (§11.1): optional in a request,
                                         where a create stores true and an update keeps the stored value;
                                         always sent in an answer. The group writes follow the same rule
+                                        options[].id and blanks[].id: sent with an id the question holds, the row is
+                                        updated in place; sent without one, or with a foreign id, it is created; not
+                                        sent, it is deleted. A create ignores the ids it is sent
 POST   /teacher/media?defaultMaxPlays=  multipart → MediaAsset (validates mime, size, duration, quota)
 GET    /teacher/media?kind=&unused=&q=&page=&limit=   rows, totalBytes, facets and usage (library, held and pending bytes) against the quota
 PATCH  /teacher/media/:id               {displayName?, defaultMaxPlays?} → the library row
@@ -3665,7 +3734,7 @@ GET    /app/attempts/:id                → Attempt + questions + serverTime + a
                                        and an empty beacon token, without a write
 PATCH  /app/attempts/:id/answers        {sessionId,answers:[...],events:[...]} → {savedAt, serverTime, deadlineAt}
 POST   /app/attempts/:id/events         standalone flush (sendBeacon path)
-POST   /app/attempts/:id/audio-play     {questionId} → {plays, maxPlays}
+POST   /app/attempts/:id/audio-play     {questionId,sessionId?} → {plays, maxPlays}; 409 SESSION_SUPERSEDED | ATTEMPT_CLOSED | DEADLINE_PASSED
 POST   /app/attempts/:id/submit         idempotent; 409 if already closed; 409 DEADLINE_NOT_REACHED
                                           {deadlineAt} for timer_expired more than 5 s early
 GET    /app/attempts/:id/result         → Attempt + review policy + sections + questions,
@@ -3705,8 +3774,9 @@ a body string, a body member name, a query parameter or a path segment (v0.83).
 
 - **Refusals.** A paused teacher is refused before any lock: `403 AI_PAUSED`. An allowance or a pool that cannot cover the ceiling is `402 AI_CREDITS_EXHAUSTED` with `details.scope` `teacher` or `pool`, and nothing is held. `403 AI_READ_OFF` is a teacher whose `readStudentAnswers` is off asking for a feature that sends a student's answer. A provider that stays down after three retries, refuses, answers something no decoder can use, or rejects the request (a bad key or account, logged at ERROR for an operator) is `503 AI_UNAVAILABLE` with `Retry-After: 30`, and nothing is written. The other codes are `AI_REQUESTS_OFF`, `AI_REQUEST_PENDING`, `AI_REQUEST_DECIDED`, `AI_REQUEST_EXPIRED` and `AI_ALLOWANCE_BELOW_USE`.
 - **The bank clean-up is one pass.** It reserves its 200 credits once, before the first call, and plans only the calls whose worst case at the configured prices fits that reservation. It makes at most five calls at the same time (up to four of 50 questions to tag, and one that judges the closest pairs of prompts) inside 45 seconds, which with the 10 seconds allowed to settle keeps it under the proxy's 60-second idle timeout, and ends with one `Finish` of the usage of every call the provider billed, on success, on a failed call, when the caller goes away and when a call panics. A call that fails, a call cut off by the time and a call the reservation could not cover leave what the other calls found in the answer with `truncated` true, and what was billed is settled; only a pass in which no call gave a usable answer is `503 AI_UNAVAILABLE`. A rewording that shares few words with the original is not found, and neither is a prompt typed without its diacritics next to its accented twin, because pairs are chosen by the words their prompts share, as typed; a duplicates call too long for its cap is cut to the best pairs that fit and the answer is `truncated`, never refused.
+- **A variant is one pass.** It reserves its 300 credits once and asks about the questions 8 to a call, at most five calls at the same time inside the clean-up's 45 seconds, ending with one `Finish` of what every call was billed. The changes of the calls that answered usably are returned in paper order, and a question whose call failed or was cut off by the time gets no change; only a pass in which no call gave a usable change is `503 AI_UNAVAILABLE`.
 - **What a suggestion is checked against.** A score is moved to the nearest multiple of 0.5 up to the question's points; a wrong option that repeats an option is dropped; a clean-up tag for a question the call did not ask about, and a duplicate pair the call did not offer, are dropped; a formatted question is read for its words and never rewritten.
-- **What leaves the system (D20).** Each prompt carries only what its feature needs. Generate: the pasted or chosen passage (its first 8,000 characters), the types, count, level and language. Check and variant: the draft's prompts, options, keys, explanations and passages, up to 120,000 characters; a check reads the members of the test's groups with their groups' passages, a variant only the standalone questions. Explanation and wrong options: the one question. Bank clean-up: the prompts, types and tags of the caller's own questions, newest first, at most 2,000 read, named q1 to qN in every call so that no id is sent; no call carries more than 50 questions to tag (the first 200 that have no tags, with the tags the bank already uses so a suggestion reuses them) or more than the questions of the 100 closest pairs of prompts, and a question without a pair is never sent for duplicates. Score: the question, its accepted or sample answers and the student's answer text. Insights: per question the correct rate and the eight most frequent wrong answer texts with their counts. No operation sends a student's name, email, id or class, an attempt id, or who wrote what; `operations_test.go` and `ai_flow_test.go` assert it with a fixture whose student is named in every other field. The two features that carry a student's words also need `teaching.grading`, and the score suggestion only for a short answer waiting for a mark by hand. No AI response reaches a student payload.
+- **What leaves the system (D20).** Each prompt carries only what its feature needs. Generate: the pasted or chosen passage, or a standalone run's topic (its first 8,000 characters), the types, count, level and language; a run fitted to a section also sends the section's title, instructions and the type and prompt of each of its questions, group members included (at most 8,000 characters, no key). Check and variant: the draft's prompts, options, keys, explanations and passages, up to 120,000 characters; a check and a variant read the members of the test's groups with their groups' passages. Explanation and wrong options: the one question. Bank clean-up: the prompts, types and tags of the caller's own questions, newest first, at most 2,000 read, named q1 to qN in every call so that no id is sent; no call carries more than 50 questions to tag (the first 200 that have no tags, with the tags the bank already uses so a suggestion reuses them) or more than the questions of the 100 closest pairs of prompts, and a question without a pair is never sent for duplicates. Score: the question, its accepted or sample answers and the student's answer text. Insights: per question the correct rate and the eight most frequent wrong answer texts with their counts. No operation sends a student's name, email, id or class, an attempt id, or who wrote what; `operations_test.go` and `ai_flow_test.go` assert it with a fixture whose student is named in every other field. The two features that carry a student's words also need `teaching.grading`, and the score suggestion only for a short answer waiting for a mark by hand. No AI response reaches a student payload.
 - **The subset rule.** The three Admin writes that name one teacher (`setAiAllowance`, which also pauses and resumes, and the two credit-request decisions) call `access.CanActOn`; a target outside the subset answers `403 FORBIDDEN`. `cmd/maintenance ai-credits` runs the same handlers as System and is not asked.
 - **Limits per signed-in user.** The seven suggestions and the console writes 10 a minute and 100 an hour, the bank clean-up 3 an hour, the credit request 5 an hour, and the two reads (`getAiUsage`, `getAiCredits`) 60 a minute and 600 an hour.
 - **Notifications.** Three kinds join the nine, all for the teacher's bell and none with a switch: `ai.allowance_warning` (once a month, when use crosses the warning share), `ai.credit_request` (to every holder of `ai.credits.manage`) and `ai.credit_request.decided`. Their params are `used`, `allowance`, `credits`, `teacherName` and `decision`.

@@ -27,16 +27,29 @@ const recordPlayQuery = `
 	)
 	SELECT bumped.plays, allowed.audio_max_plays FROM bumped, allowed`
 
-func (s *Postgres) RecordPlay(ctx context.Context, attemptID, studentID, questionID string, now time.Time) (domain.Plays, error) {
+// RecordPlay counts one play of a question's audio while the attempt can
+// still be written. The attempt row is locked first, like a save, so a play
+// cannot land after a submit that is in flight.
+func (s *Postgres) RecordPlay(ctx context.Context, in domain.PlayInput, now time.Time) (domain.Plays, error) {
+	tx, err := s.Begin(ctx)
+	if err != nil {
+		return domain.Plays{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, _, err := lockWritable(ctx, tx, in.AttemptID, in.StudentID, in.SessionID, in.SessionID == "", now); err != nil {
+		return domain.Plays{}, err
+	}
 	var out domain.Plays
-	err := s.QueryRow(ctx, recordPlayQuery, attemptID, studentID, questionID, now).
+	err = tx.QueryRow(ctx, recordPlayQuery, in.AttemptID, in.StudentID, in.QuestionID, now).
 		Scan(&out.Plays, &out.MaxPlays)
 	if errors.Is(err, pgx.ErrNoRows) {
-
 		return domain.Plays{}, domain.ErrForbidden
 	}
 	if err != nil {
 		return domain.Plays{}, fmt.Errorf("attempts: record audio play: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.Plays{}, fmt.Errorf("attempts: commit audio play: %w", err)
 	}
 	return out, nil
 }

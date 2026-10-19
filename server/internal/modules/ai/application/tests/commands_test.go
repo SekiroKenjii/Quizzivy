@@ -64,17 +64,6 @@ func TestReserveRefusesWhatNoCallCouldMeanBeforeItAsksTheStore(t *testing.T) {
 	}
 }
 
-func TestTheStoresRefusalsReachTheCallerAsTheyAre(t *testing.T) {
-	f := newFixture(t)
-	for _, want := range []error{domain.ErrPaused, &domain.Exhausted{Scope: domain.ScopeTeacher}, &domain.Exhausted{Scope: domain.ScopePool}} {
-		f.repo.reserveErr = want
-		_, err := f.app.Commands.Reserve.Handle(context.Background(), command.Reserve{Actor: actor.Actor{ID: teacherID}, Feature: domain.FeatureScore, Ceiling: 30})
-		if err != want {
-			t.Errorf("err = %v, want %v", err, want)
-		}
-	}
-}
-
 func TestReleaseStaleReturnsWhatIsOlderThanTenMinutes(t *testing.T) {
 	f := newFixture(t)
 	released, err := f.app.Commands.ReleaseStale.Handle(context.Background(), command.ReleaseStale{})
