@@ -315,6 +315,7 @@ describe("the students search and the URL", () => {
     await table();
 
     expect(asked.at(-1)?.get("q")).toBe("An");
+    expect(asked.map((query) => query.get("q"))).not.toContain(" An ");
     expect(screen.getByRole("searchbox")).toHaveValue(" An ");
   });
 

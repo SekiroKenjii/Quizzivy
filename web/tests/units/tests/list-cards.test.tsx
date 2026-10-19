@@ -371,6 +371,7 @@ describe("the tests list's tabs and search", () => {
     await screen.findByRole("link", { name: "Unit 5" });
 
     expect(lists.at(-1)?.get("q")).toBe("Unit");
+    expect(lists.map((query) => query.get("q"))).not.toContain(" Unit ");
   });
 
   it("reads an old Archived bookmark as All", async () => {

@@ -3,6 +3,8 @@ import { join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const SRC = resolve(import.meta.dirname, "../../../src");
+const WRITES_THE_SEARCH = /(?:setFilter|change)\("q",|params\.get\("q"\)/;
+const HOOK = /const \[(\w+), (\w+)\] = useDebouncedInput\(/;
 
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -12,20 +14,38 @@ function sources(dir: string): string[] {
   });
 }
 
-const searchesInTheUrl = sources(SRC).filter((path) => {
-  const text = readFileSync(path, "utf8");
-  return text.includes("<SearchInput") && text.includes('"q"');
-});
+const searchesInTheUrl = sources(SRC)
+  .filter((path) => WRITES_THE_SEARCH.test(readFileSync(path, "utf8")))
+  .map((path) => relative(SRC, path));
 
 describe("a search box whose text lives in the URL", () => {
-  it("is found where the lists are", () => {
-    expect(searchesInTheUrl.length).toBeGreaterThanOrEqual(10);
+  it("is found on every list that has one", () => {
+    expect(searchesInTheUrl).toEqual(
+      expect.arrayContaining([
+        "features/assignments/pages/teacher/AssignmentsListPage.tsx",
+        "features/attempts/components/Monitor.tsx",
+        "features/audit/pages/admin/AuditLogPage.tsx",
+        "features/classes/components/ClassMembersCard.tsx",
+        "features/imports/pages/teacher/ImportsListPage.tsx",
+        "features/media/pages/teacher/MediaPage.tsx",
+        "features/question-bank/pages/teacher/QuestionBankPage.tsx",
+        "features/question-groups/pages/teacher/GroupsListPage.tsx",
+        "features/students/pages/teacher/StudentsPage.tsx",
+        "features/tests/pages/teacher/TestsListPage.tsx",
+        "features/users/pages/admin/UsersPage.tsx",
+      ]),
+    );
   });
 
-  it.each(searchesInTheUrl.map((path) => relative(SRC, path)))(
-    "%s holds its text through useDebouncedInput, so a slow navigation cannot take a keystroke back",
+  it.each(searchesInTheUrl)(
+    "%s binds its field to useDebouncedInput, so a slow navigation cannot take a keystroke back",
     (path) => {
-      expect(readFileSync(join(SRC, path), "utf8")).toContain("useDebouncedInput(");
+      const text = readFileSync(join(SRC, path), "utf8");
+      const hook = HOOK.exec(text);
+      expect(hook, "a useDebouncedInput call").not.toBeNull();
+      const [, value, setter] = hook!;
+      expect(text).toMatch(new RegExp(`=\\{${value}\\}`));
+      expect(text).toMatch(new RegExp(`=\\{${setter}\\}`));
     },
   );
 });
