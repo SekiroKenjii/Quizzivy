@@ -213,12 +213,14 @@ describe("the builder's AI entry points", () => {
     expect(events).toEqual([`patch test Unit 5 (AI) ${QUESTION_ID}`]);
   });
 
-  it("add the kept questions to the open question's section and open the first", async () => {
+  it("fit standalone questions to the open question's section, add the kept ones there and open the first", async () => {
     aiOn();
     let posted: Record<string, unknown> = {};
+    let asked: Record<string, unknown> = {};
     server.use(
-      http.post(`${BASE}/teacher/ai/questions/generate`, () =>
-        contractJson("/teacher/ai/questions/generate", "post", 200, {
+      http.post(`${BASE}/teacher/ai/questions/generate`, async ({ request }) => {
+        asked = (await request.json()) as Record<string, unknown>;
+        return contractJson("/teacher/ai/questions/generate", "post", 200, {
           items: [
             {
               type: "short_answer",
@@ -228,8 +230,8 @@ describe("the builder's AI entry points", () => {
             },
           ],
           usage: { credits: 500, left: 1000 },
-        }),
-      ),
+        });
+      }),
       http.post(`${BASE}/teacher/questions`, async ({ request }) => {
         posted = (await request.json()) as Record<string, unknown>;
         events.push("create question");
@@ -239,14 +241,23 @@ describe("the builder's AI entry points", () => {
     const { user } = await renderBuilder();
     await user.click(await screen.findByRole("button", { name: ai.entry.generate }));
     const dialog = await screen.findByRole("dialog");
-    await user.type(
-      within(dialog).getByLabelText(ai.generate.source),
-      "Cities around the world are rethinking how they use open land.",
-    );
+    expect(
+      within(dialog).getByRole("switch", {
+        name: new RegExp(
+          `^${ai.generate.fitSection.replace("{{section}}", "Ngữ pháp")}`,
+        ),
+      }),
+    ).toBeChecked();
     await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
     await user.click(
       await within(dialog).findByRole("button", { name: "Thêm 1 câu vào Ngữ pháp" }),
     );
+    expect(asked).toMatchObject({
+      standalone: true,
+      testId: TEST_ID,
+      sectionId: SECTION_ID,
+    });
+    expect(asked["source"]).toBeUndefined();
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(posted).toMatchObject({

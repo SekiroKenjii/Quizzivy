@@ -64,6 +64,17 @@ func TestLiveEachAIFeatureGetsAUsableAnswerFromTheProvider(t *testing.T) {
 			t.Fatalf("kept %d of %d questions: %v", len(got), in.Count, err)
 		}
 	})
+	t.Run("generate standalone for a section", func(t *testing.T) {
+		section := domain.Section{Title: "Part 2: Past simple and present perfect", Instructions: "Choose the correct form of the verb.", Questions: []domain.SectionQuestion{
+			{Type: prompts.SingleChoice, Prompt: "I ___ to Da Nang last summer."},
+			{Type: prompts.FillBlank, Prompt: "She has ___ (live) in Hanoi since 2019."},
+		}}
+		in := prompts.GenerateInput{Source: "irregular verbs", Types: []string{prompts.SingleChoice, prompts.FillBlank}, Count: 8, Level: "b1", Explanations: true, Language: domain.Vietnamese, Standalone: true, Section: &section}
+		got, err := prompts.DecodeGenerate(ask(t, c, prompts.Generate(in)).Object, in)
+		if err != nil || len(got) < in.Count-1 {
+			t.Fatalf("kept %d of %d questions: %v", len(got), in.Count, err)
+		}
+	})
 	question := domain.Question{Type: prompts.SingleChoice, Prompt: "Why do many London workers live outside the city?", Options: []domain.Option{{ID: "a", Text: "Houses are cheaper", Correct: true}, {ID: "b", Text: "The trains are free"}, {ID: "c", Text: "Offices are outside London"}}}
 	t.Run("explanation", func(t *testing.T) {
 		p, err := prompts.Explanation(prompts.ExplanationInput{Question: question, Language: domain.Vietnamese})

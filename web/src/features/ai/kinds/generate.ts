@@ -14,7 +14,7 @@ import {
   type AiGeneratedQuestion,
   type AiGenerateRequest,
 } from "../api";
-import type { AiCard, AiKind } from "../kind";
+import type { AiCard, AiField, AiKind } from "../kind";
 
 /** AiPassageGroup is the shared-context group of the open test that holds a passage. */
 export interface AiPassageGroup {
@@ -34,13 +34,20 @@ export interface AiPassage {
   group?: AiPassageGroup;
 }
 
+/** AiSection is a section of the open test that a standalone run can read and fill. */
+export interface AiSection {
+  id: string;
+  title: string;
+}
+
 /**
- * GenerateDestination is where the kept questions go: a section, the group
- * that holds the passage they were generated from, the bank, or a new
- * practice test.
+ * GenerateDestination is where the kept questions go: a section (by `id`
+ * when the run read that section, else the one the page is on when they are
+ * kept), the group that holds the passage they were generated from, the
+ * bank, or a new practice test.
  */
 export type GenerateDestination =
-  | { kind: "section"; title: string }
+  | { kind: "section"; title: string; id?: string }
   | { kind: "group"; id: string; title: string }
   | { kind: "bank" }
   | { kind: "practice" };
@@ -58,7 +65,9 @@ type QuestionType = AiGeneratedQuestion["type"];
 
 /**
  * GenerateContext is what a page gives the Generate panel: the test whose
- * passages it offers, the question types to start from when not the default,
+ * passages it offers, the sections a standalone run can be fitted to and
+ * `section`, the one it starts from (the one new questions join), the
+ * question types to start from when not the default,
  * where the kept questions go (a section, the bank, or a new practice test),
  * and `save`, the page's own write for them into the run's destination, which
  * tags each with `tag` when it is not null. A section gives way to the group
@@ -67,6 +76,8 @@ type QuestionType = AiGeneratedQuestion["type"];
 export interface GenerateContext {
   testId?: string;
   passages: readonly AiPassage[];
+  section?: AiSection;
+  sections?: readonly AiSection[];
   types?: readonly QuestionType[];
   destination: Exclude<GenerateDestination, { kind: "group" }>;
   save: (
@@ -76,7 +87,12 @@ export interface GenerateContext {
   ) => Promise<void>;
 }
 
+type GenerateStyle = "standalone" | "passage";
+
 interface GenerateValues {
+  style: GenerateStyle;
+  fitSection: boolean;
+  sectionId: string;
   source: string;
   types: readonly string[];
   count: string;
@@ -100,6 +116,8 @@ const DEFAULT_TYPES: readonly QuestionType[] = ["single_choice", "true_false"];
 const COUNTS = ["3", "5", "8"] as const;
 const LEVELS = ["b1", "b2", "c1"] as const;
 const SOURCE_MIN = 40;
+const TOPIC_MIN = 3;
+const STYLES: readonly GenerateStyle[] = ["standalone", "passage"];
 const SOURCE_MAX = 20000;
 
 const PRIMARY_ICONS = {
@@ -119,16 +137,60 @@ function initialTypes(preset: readonly QuestionType[] | undefined) {
 }
 
 function chosenPassage(values: GenerateValues, context: GenerateContext) {
-  return context.passages.find((item) => item.text === values.source);
+  return values.style === "passage"
+    ? context.passages.find((item) => item.text === values.source)
+    : undefined;
+}
+
+function offeredSections(context: GenerateContext): readonly AiSection[] {
+  if (!context.testId || context.destination.kind !== "section") return [];
+  if (context.sections && context.sections.length > 0) return context.sections;
+  return context.section ? [context.section] : [];
+}
+
+function chosenSection(values: GenerateValues, context: GenerateContext) {
+  const offered = offeredSections(context);
+  return offered.find((section) => section.id === values.sectionId) ?? offered[0];
+}
+
+function fittedSection(values: GenerateValues, context: GenerateContext) {
+  return values.style === "standalone" && values.fitSection
+    ? chosenSection(values, context)
+    : undefined;
 }
 
 function destinationFor(
-  passage: AiPassage | undefined,
+  values: GenerateValues,
   context: GenerateContext,
 ): GenerateDestination {
+  const section = fittedSection(values, context);
+  if (section) return { kind: "section", id: section.id, title: section.title };
+  const passage = chosenPassage(values, context);
   return passage?.group && context.destination.kind === "section"
     ? { kind: "group", id: passage.group.id, title: passage.group.title }
     : context.destination;
+}
+
+function withStyle(
+  style: string,
+  values: GenerateValues,
+  context: GenerateContext,
+): Partial<GenerateValues> {
+  if (style === "standalone") {
+    const fromPassage = context.passages.some((item) => item.text === values.source);
+    return { style, ...(fromPassage ? { source: "" } : {}) };
+  }
+  const first = context.passages[0];
+  return {
+    style: "passage",
+    ...(values.source.trim() === "" && first ? { source: first.text } : {}),
+  };
+}
+
+function topicMissing(values: GenerateValues, context: GenerateContext) {
+  const topic = [...values.source.trim()].length;
+  if (topic > 0) return topic < TOPIC_MIN;
+  return !fittedSection(values, context);
 }
 
 function destinationOf(items: readonly GenerateItem[], context: GenerateContext) {
@@ -149,6 +211,18 @@ function request(
     explanations: values.explanations,
     language,
   };
+  if (values.style === "standalone") {
+    const topic = values.source.trim().slice(0, SOURCE_MAX);
+    const section = fittedSection(values, context);
+    return {
+      ...settings,
+      standalone: true,
+      ...(topic === "" ? {} : { source: topic }),
+      ...(section && context.testId
+        ? { testId: context.testId, sectionId: section.id }
+        : {}),
+    };
+  }
   return passage && context.testId
     ? { ...settings, testId: context.testId, stimulusId: passage.id }
     : { ...settings, source: values.source.slice(0, SOURCE_MAX) };
@@ -193,12 +267,89 @@ function card(item: GenerateItem, t: TFunction, tagDrafts: boolean): AiCard {
   };
 }
 
+function sourceFields(
+  values: GenerateValues,
+  set: (patch: Partial<GenerateValues>) => void,
+  context: GenerateContext,
+  t: TFunction,
+): AiField[] {
+  if (values.style === "passage")
+    return [
+      {
+        kind: "source",
+        label: t("ai.generate.source"),
+        value: values.source,
+        placeholder: t("ai.generate.sourcePlaceholder"),
+        rows: 8,
+        sources:
+          context.passages.length === 0
+            ? []
+            : [
+                ...context.passages.map((passage, index) => ({
+                  key: passage.id,
+                  label: t("ai.generate.passage", {
+                    n: index + 1,
+                    title: passage.title,
+                  }),
+                  icon: BookOpenText,
+                  active: values.source === passage.text,
+                  pick: () => set({ source: passage.text }),
+                })),
+                {
+                  key: "empty",
+                  label: t("ai.generate.startEmpty"),
+                  icon: Eraser,
+                  active: values.source === "",
+                  pick: () => set({ source: "" }),
+                },
+              ],
+        onChange: (source) => set({ source }),
+      },
+    ];
+  const offered = offeredSections(context);
+  const section = chosenSection(values, context);
+  const topic: AiField = {
+    kind: "source",
+    label: t("ai.generate.topic"),
+    value: values.source,
+    placeholder: t("ai.generate.topicPlaceholder"),
+    rows: 3,
+    sources: [],
+    onChange: (source) => set({ source }),
+  };
+  if (!section) return [topic];
+  return [
+    topic,
+    {
+      kind: "toggle",
+      text: t("ai.generate.fitSection", { section: section.title }),
+      sub: t("ai.generate.fitSectionSub"),
+      value: values.fitSection,
+      onChange: (fitSection) => set({ fitSection }),
+    },
+    ...(values.fitSection && offered.length > 1
+      ? [
+          {
+            kind: "select" as const,
+            label: t("ai.generate.section"),
+            options: offered.map((item) => ({ value: item.id, label: item.title })),
+            value: section.id,
+            onChange: (sectionId: string) => set({ sectionId }),
+          },
+        ]
+      : []),
+  ];
+}
+
 /**
- * generateKind is "Generate questions" (V-14a): from a passage of the open
- * test, pasted text or a topic, in the five stored types (TFNG waits for R6,
- * DG-202). Its primary saves the kept questions through the page's write:
- * in the builder into the group that holds the chosen passage, or else into
- * the open question's section; into the bank; or into a new practice test.
+ * generateKind is "Generate questions" (V-14a): standalone questions about a
+ * topic or fitted to the open section, or questions from a passage of the
+ * open test or pasted text, in the five stored types (TFNG waits for R6,
+ * DG-202). It starts from a passage where the page offers one and is
+ * standalone otherwise. Its primary saves the kept questions through the
+ * page's write: in the builder into the section a fitted run read, the group
+ * that holds the chosen passage, or else the open question's section; into
+ * the bank; or into a new practice test.
  */
 export const generateKind: AiKind<GenerateValues, GenerateItem, GenerateContext> = {
   icon: Sparkles,
@@ -208,6 +359,9 @@ export const generateKind: AiKind<GenerateValues, GenerateItem, GenerateContext>
   stepKeys: ["ai.generate.step1", "ai.generate.step2", "ai.generate.step3"],
   emptyKey: "ai.generate.empty",
   initial: (context) => ({
+    style: context.passages.length > 0 ? "passage" : "standalone",
+    fitSection: true,
+    sectionId: context.section?.id ?? "",
     source: context.passages[0]?.text ?? "",
     types: initialTypes(context.types),
     count: "5",
@@ -216,32 +370,16 @@ export const generateKind: AiKind<GenerateValues, GenerateItem, GenerateContext>
   }),
   fields: (values, set, context, t) => [
     {
-      kind: "source",
-      label: t("ai.generate.source"),
-      value: values.source,
-      placeholder: t("ai.generate.sourcePlaceholder"),
-      rows: 8,
-      sources:
-        context.passages.length === 0
-          ? []
-          : [
-              ...context.passages.map((passage, index) => ({
-                key: passage.id,
-                label: t("ai.generate.passage", { n: index + 1, title: passage.title }),
-                icon: BookOpenText,
-                active: values.source === passage.text,
-                pick: () => set({ source: passage.text }),
-              })),
-              {
-                key: "empty",
-                label: t("ai.generate.startEmpty"),
-                icon: Eraser,
-                active: values.source === "",
-                pick: () => set({ source: "" }),
-              },
-            ],
-      onChange: (source) => set({ source }),
+      kind: "seg",
+      label: t("ai.generate.style"),
+      options: STYLES.map((style) => ({
+        value: style,
+        label: t(`ai.generate.styles.${style}`),
+      })),
+      value: values.style,
+      onChange: (style) => set(withStyle(style, values, context)),
     },
+    ...sourceFields(values, set, context, t),
     {
       kind: "chips",
       label: t("ai.generate.types"),
@@ -277,14 +415,17 @@ export const generateKind: AiKind<GenerateValues, GenerateItem, GenerateContext>
       onChange: (explanations) => set({ explanations }),
     },
   ],
-  problem: (values) => {
-    if (values.source.trim().length < SOURCE_MIN) return "ai.generate.needSource";
+  problem: (values, context) => {
+    if (values.style === "standalone") {
+      if (topicMissing(values, context)) return "ai.generate.needTopic";
+    } else if (values.source.trim().length < SOURCE_MIN)
+      return "ai.generate.needSource";
     if (values.types.length === 0) return "ai.generate.needType";
     return null;
   },
   run: async (values, env, signal) => {
     const body = request(values, env.context, env.language);
-    const destination = destinationFor(chosenPassage(values, env.context), env.context);
+    const destination = destinationFor(values, env.context);
     const result = await generateAiQuestions(body, signal);
     return {
       items: result.items.map((question) => ({

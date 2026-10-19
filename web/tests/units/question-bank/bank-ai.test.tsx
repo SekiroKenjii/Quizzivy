@@ -162,7 +162,7 @@ describe("the bank's AI entry points", () => {
       within(dialog).queryByRole("button", { name: ai.generate.startEmpty }),
     ).toBeNull();
     await user.type(
-      within(dialog).getByLabelText(ai.generate.source),
+      within(dialog).getByLabelText(ai.generate.topic),
       "Cities around the world are rethinking how they use open land.",
     );
     await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));

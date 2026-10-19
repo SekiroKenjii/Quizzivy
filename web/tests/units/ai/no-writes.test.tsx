@@ -133,7 +133,7 @@ describe("features/ai", () => {
       />,
     );
     const dialog = await screen.findByRole("dialog");
-    await generate.user.type(within(dialog).getByLabelText(ai.generate.source), SOURCE);
+    await generate.user.type(within(dialog).getByLabelText(ai.generate.topic), SOURCE);
     await generate.user.click(
       within(dialog).getByRole("button", { name: ai.generate.run }),
     );

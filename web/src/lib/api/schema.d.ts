@@ -3814,13 +3814,14 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Draft questions from a passage, a transcript or a topic
+         * Draft questions from a passage, a transcript, a topic or for a section
          * @description Answers draft questions and writes nothing: the teacher adds the ones
-         *     they keep through `createQuestion` or the section writes. Exactly one
-         *     source is named: `source`, or `testId` with `stimulusId`, which is a
-         *     shared-content passage of the test's draft and which `stimulusId`
-         *     resolves only inside that test. Only the source text and the settings
-         *     are sent to the provider.
+         *     they keep through `createQuestion` or the section writes. The request
+         *     names one of the shapes `AiGenerateRequest` describes. `stimulusId` and
+         *     `sectionId` resolve only inside the test `testId` names. Only the source
+         *     text, the section's own title, instructions and question prompts and
+         *     types, and the settings are sent to the provider; no answer key of an
+         *     existing question is sent.
          *
          *     Reserves the call's ceiling before it reaches the provider and settles
          *     what the provider billed after; `usage` says what it cost.
@@ -8505,15 +8506,24 @@ export interface components {
             left: number;
         };
         /**
-         * @description Exactly one source: `source` (text the teacher pasted), or `testId`
-         *     with `stimulusId` (a shared-content passage of the test's draft). The
-         *     first 8,000 characters of a source are sent. Nothing about a student is
-         *     ever sent.
+         * @description One of four shapes. From a passage: `source` (text the teacher pasted,
+         *     40 characters or more), or `testId` with `stimulusId` (a shared-content
+         *     passage of the test's draft). Standalone (`standalone: true`), where
+         *     every question carries all it needs and refers to no passage: `source`
+         *     (a topic or notes, 3 characters or more), or `testId` with `sectionId`
+         *     (a section of the test's draft, whose title, instructions and the
+         *     prompts and types of the questions already in it, group members
+         *     included, are sent so the drafts fit it and do not repeat it), with
+         *     `source` as an optional topic beside it. The first 8,000 characters of
+         *     a source are sent. Nothing about a student is ever sent.
          */
         AiGenerateRequest: {
             source?: string;
             testId?: components["schemas"]["Uuid"];
             stimulusId?: components["schemas"]["Uuid"];
+            /** @description Write questions that each stand alone, about a topic rather than answered from a text. Off when absent. */
+            standalone?: boolean;
+            sectionId?: components["schemas"]["Uuid"];
             types: components["schemas"]["QuestionType"][];
             /** @enum {integer} */
             count: 3 | 5 | 8;
@@ -15908,7 +15918,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             402: components["responses"]["AiCreditsExhausted"];
             403: components["responses"]["AiNotAllowed"];
-            /** @description No such test or passage in the caller's reach. */
+            /** @description No such test, passage or section in the caller's reach. */
             404: {
                 headers: {
                     [name: string]: unknown;
