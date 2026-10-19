@@ -6,6 +6,7 @@ import (
 	"context"
 	"net/http"
 	"slices"
+	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -213,8 +214,9 @@ func TestAnAdminCannotRemoveTheLastAdminWayOrLockEveryoneOut(t *testing.T) {
 		t.Errorf("deleting themselves: %d %v, want 404: a delete reaches only a disabled student", status, body)
 	}
 	bulk := r.admin.must(http.StatusOK, http.MethodPost, "/admin/users/disable", map[string]any{"userIds": []string{r.adminID}})
-	if failed, _ := bulk["failed"].([]any); len(failed) != 1 {
-		t.Errorf("a bulk disable naming only the caller answered %v, want the caller among the failures", bulk)
+	failed, _ := bulk["failed"].([]any)
+	if len(failed) != 1 || failed[0].(map[string]any)["userId"] != r.adminID || failed[0].(map[string]any)["code"] != "CANNOT_ACT_ON_SELF" {
+		t.Errorf("a bulk disable naming only the caller answered %v, want the caller failed with CANNOT_ACT_ON_SELF", bulk)
 	}
 	r.admin.must(http.StatusOK, http.MethodGet, "/admin/users", nil)
 
@@ -237,5 +239,90 @@ func TestAnAdminCannotRemoveTheLastAdminWayOrLockEveryoneOut(t *testing.T) {
 	}
 	if after := r.admin.must(http.StatusOK, http.MethodGet, "/admin/settings", nil); after["revision"] != settings["revision"] {
 		t.Errorf("the refused policy moved the revision from %v to %v", settings["revision"], after["revision"])
+	}
+}
+
+func TestTwoLastAdminsDisablingEachOtherAtOnceLeaveOneAndTellTheOtherLastAdmin(t *testing.T) {
+	w := bootForUserImports(t)
+	ctx := context.Background()
+	var parked []string
+	t.Cleanup(func() {
+		if _, err := w.pool.Exec(context.Background(), `UPDATE app.users SET disabled_at = NULL WHERE id = ANY($1::uuid[])`, parked); err != nil {
+			t.Errorf("cleanup of the parked Admins: %v", err)
+		}
+	})
+	var lastAdmin int
+	for round := 1; round <= 20 && lastAdmin == 0; round++ {
+		aEmail, aPassword := w.createStaff("admin")
+		bEmail, bPassword := w.createStaff("admin")
+		a, b := w.signedIn(aEmail, aPassword), w.signedIn(bEmail, bPassword)
+		aID, bID := w.userID(aEmail), w.userID(bEmail)
+		rows, err := w.pool.Query(ctx, `
+			UPDATE app.users SET disabled_at = now()
+			WHERE role_id = (SELECT id FROM app.roles WHERE builtin_key = 'admin') AND disabled_at IS NULL AND id <> ALL($1::uuid[])
+			RETURNING id::text`, []string{aID, bID})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				t.Fatal(err)
+			}
+			parked = append(parked, id)
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatal(err)
+		}
+
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		statuses := make([]int, 2)
+		bodies := make([]map[string]any, 2)
+		for i, c := range []struct {
+			caller *client
+			target string
+		}{{a, bID}, {b, aID}} {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				<-start
+				statuses[i], bodies[i] = c.caller.call(http.MethodPost, "/admin/users/"+c.target+"/disable", nil)
+			}()
+		}
+		close(start)
+		wg.Wait()
+
+		var active int
+		if err := w.pool.QueryRow(ctx, `
+			SELECT count(*) FROM app.users u JOIN app.roles r ON r.id = u.role_id
+			WHERE r.builtin_key = 'admin' AND u.disabled_at IS NULL`).Scan(&active); err != nil {
+			t.Fatal(err)
+		}
+		if active != 1 {
+			t.Fatalf("round %d: %d active Admins after %d %v and %d %v, want exactly one", round, active, statuses[0], bodies[0], statuses[1], bodies[1])
+		}
+		winners := 0
+		for i, status := range statuses {
+			switch {
+			case status == http.StatusOK:
+				winners++
+			case status == http.StatusConflict && refusalCode(bodies[i]) == "LAST_ADMIN":
+				lastAdmin++
+			case status == http.StatusUnauthorized:
+			default:
+				t.Errorf("round %d: a disable answered %d %v, want 200, 409 LAST_ADMIN, or 401 once the other had won", round, status, bodies[i])
+			}
+		}
+		if winners != 1 {
+			t.Fatalf("round %d: %d disables succeeded (%d, %d), want exactly one", round, winners, statuses[0], statuses[1])
+		}
+		if _, err := w.pool.Exec(ctx, `UPDATE app.users SET disabled_at = NULL WHERE id = ANY($1::uuid[])`, parked); err != nil {
+			t.Fatal(err)
+		}
+		parked = parked[:0]
+	}
+	if lastAdmin == 0 {
+		t.Error("in twenty rounds no loser met the last-Admin guard: every race ended before the second disable was judged")
 	}
 }
