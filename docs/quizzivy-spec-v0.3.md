@@ -106,6 +106,7 @@
 - T-R5.35 §8 The Admin's AI credits page is built at `/admin/ai` (`ai.credits.manage`, lazy): the month's pool (the figure at 28px; a 10px bar that turns warning from 75% and danger from 90%; a projection tick at the server's `onPace`, never one computed in the browser), the requests waiting, the teachers by the share of their allowance used, and the rules, docked through `StickyAside` from a content width of 900. One query, `["admin","ai-credits"]`, feeds the page and the sidebar's count of requests, so a request decided elsewhere leaves both on the next read. A `501 AI_OFF` reads as one sentence, draws no card and is not retried.
 - T-R5.35 §8 A rule saves as it is chosen, one request at a time: the chosen option shows at once, a refusal puts the one in force back, and a figure the maintenance command set that the buttons do not offer is shown as an option too. The allowance dialog sends only what the Admin changed (a custom figure of 1,000 to 10,000,000 sends `custom: true` with `credits`, the default sends `custom: false`, the switch alone sends `paused`), a dialog closed without a change sends nothing, and a figure below what the teacher has used is the server's refusal, shown in the dialog. A custom teacher opens on their own figure, their allowance less what approved requests added.
 - T-R5.35 §12 Where the page departs from the deck: "Add credits" is the deck's outline button, not the primary one the plan named; the pace reads "~156,100" because Be Vietnam Pro has no "≈" (`font-coverage.test.ts`); the Vietnamese "Near limit" is "Gần hạn mức" so the status column stays 124px beside "Chạm hạn mức"; a teacher's status pill and pencil wrap together, so the pencil is never alone on a line as the deck's own row leaves it between 560 and 640px; and `SettingsCard` takes `headerClassName` for the 14px 16px header the deck gives these two cards.
+- D-055 §12 Assignment detail › Questions is the item analysis and its AI insights alone, as on main since v0.11.9 (#727). Settings › Test & timing's Test row links the test once its versions are read and, under the version's facts, says that students get the pinned version, or took it once the assignment is closed.
 
 **Changes since v0.111**
 
@@ -2097,7 +2098,11 @@ window's (T-D4.16, DG-188): the paper can be answered, and what is chosen is kep
 only while the preview is open; nothing is saved, recorded for integrity or
 counted as a play, no time is shown, because a time limit is the assignment's,
 and Finish says that students submit there. The question group's preview dialog
-and Assignment detail keep the read-only paper.
+keeps the read-only paper. Assignment detail › Questions draws no paper and no
+test card: as the deck draws it, the tab is the item analysis and its AI insights
+alone. Settings › Test & timing names the test, as a link to it once its versions
+are read, with the pinned version's facts and the sentence that students get that
+version, or took it once the assignment is closed (D-055).
 Existing version questions and historical attempts are unchanged.
 
 Archived tests must be restored before creating a draft from a version or changing
