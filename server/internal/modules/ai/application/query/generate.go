@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+	"strings"
 	"unicode/utf8"
 
 	"quizzivy/internal/modules/ai/application/internal/support"
@@ -14,12 +15,17 @@ import (
 // MinSource is the fewest characters a source may hold: a few sentences.
 const MinSource = 40
 
-// Generate drafts questions from a source: text the teacher pasted, or a shared-content passage of the draft of TestID named by StimulusID. Exactly one of the two is named. It writes nothing; the teacher adds the questions they keep through the existing writes.
+// MinTopic is the fewest characters a standalone run's topic may hold.
+const MinTopic = 3
+
+// Generate drafts questions. From a passage, it reads text the teacher pasted or a shared-content passage of the draft of TestID named by StimulusID, exactly one of the two. Standalone, it writes questions that each stand alone, about Source as a topic, for the section of the draft of TestID named by SectionID, or both; a section's existing questions are read so they are not repeated. It writes nothing; the teacher adds the questions they keep through the existing writes.
 type Generate struct {
 	Actor        actor.Actor
 	Source       string
 	TestID       string
 	StimulusID   string
+	SectionID    string
+	Standalone   bool
 	Types        []string
 	Count        int
 	Level        string
@@ -39,11 +45,17 @@ func (h GenerateHandler) Handle(ctx context.Context, q Generate) (Generated, err
 	if h.Completer == nil {
 		return Generated{}, domain.ErrOff
 	}
-	source, err := h.source(ctx, q)
+	in := prompts.GenerateInput{Types: q.Types, Count: q.Count, Level: q.Level, Explanations: q.Explanations, Standalone: q.Standalone}
+	var err error
+	if q.Standalone {
+		in.Source, in.Section, err = h.topic(ctx, q)
+	} else {
+		in.Source, err = h.source(ctx, q)
+	}
 	if err != nil {
 		return Generated{}, err
 	}
-	in := prompts.GenerateInput{Source: source, Types: q.Types, Count: q.Count, Level: q.Level, Explanations: q.Explanations, Language: h.LanguageFor(ctx, q.Actor.ID, q.Language)}
+	in.Language = h.LanguageFor(ctx, q.Actor.ID, q.Language)
 	got, err := asker(h).ask(ctx, q.Actor, prompts.Generate(in))
 	if err != nil {
 		return Generated{}, err
@@ -62,6 +74,8 @@ func (h GenerateHandler) source(ctx context.Context, q Generate) (string, error)
 	switch {
 	case named == passage:
 		refused.Add("source", "name a source, or a passage of a test")
+	case q.SectionID != "":
+		refused.Add("sectionId", "a section is read only for standalone questions")
 	case passage && (q.TestID == "" || q.StimulusID == ""):
 		refused.Add("stimulusId", "name the test and the passage")
 	}
@@ -83,4 +97,35 @@ func (h GenerateHandler) source(ctx context.Context, q Generate) (string, error)
 		return "", err
 	}
 	return text, nil
+}
+
+func (h GenerateHandler) topic(ctx context.Context, q Generate) (string, *domain.Section, error) {
+	var refused validation.Error
+	switch {
+	case q.StimulusID != "":
+		refused.Add("stimulusId", "standalone questions are not written from a passage")
+	case q.SectionID != "" && q.TestID == "":
+		refused.Add("testId", "name the test that holds the section")
+	case q.SectionID == "" && q.TestID != "":
+		refused.Add("sectionId", "name the section of the test")
+	case q.SectionID == "" && utf8.RuneCountInString(strings.TrimSpace(q.Source)) < MinTopic:
+		refused.Add("source", "name a topic, or a section of a test")
+	case q.Source != "" && utf8.RuneCountInString(strings.TrimSpace(q.Source)) < MinTopic:
+		refused.Add("source", "name a topic of at least a few letters")
+	}
+	if err := refused.OrNil(); err != nil {
+		return "", nil, err
+	}
+	if q.SectionID == "" {
+		return q.Source, nil, nil
+	}
+	section, err := h.Tests.Section(ctx, q.Actor.Scope, q.TestID, q.SectionID)
+	if err != nil {
+		return "", nil, err
+	}
+	if strings.TrimSpace(q.Source) == "" && len(section.Questions) == 0 && strings.TrimSpace(section.Instructions) == "" {
+		refused.Add("source", "name a topic: the section has no questions or instructions yet")
+		return "", nil, refused.OrNil()
+	}
+	return q.Source, &section, nil
 }

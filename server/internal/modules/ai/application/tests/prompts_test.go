@@ -297,6 +297,61 @@ func TestTheGenerationPromptSendsTheSourceTheSettingsAndNothingMore(t *testing.T
 	}
 }
 
+func TestAStandaloneGenerationDropsRepeatsAndQuestionsThatLeanOnMaterial(t *testing.T) {
+	section := &domain.Section{Title: "Part 2", Questions: []domain.SectionQuestion{{Type: "fill_blank", Prompt: "She ___ to school yesterday."}}}
+	in := prompts.GenerateInput{Types: []string{prompts.FillBlank}, Count: 3, Level: "b1", Language: domain.English, Standalone: true, Section: section}
+	row := func(prompt string) map[string]any {
+		return map[string]any{"type": "fill_blank", "prompt": prompt, "options": []string{}, "answers": []string{"went"}, "explanation": ""}
+	}
+	rows := []map[string]any{
+		row("  she ___ to SCHOOL yesterday. "),
+		row("According to the passage, they ___ home."),
+		row("In the recording, the man ___ early."),
+		row("They ___ home late last night."),
+		row("They ___  home late last night."),
+		row("We ___ the film twice."),
+	}
+	got, err := prompts.DecodeGenerate(marshal(t, map[string]any{"questions": rows}), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var kept []string
+	for _, q := range got {
+		kept = append(kept, q.Prompt)
+	}
+	if !slices.Equal(kept, []string{"They ___ home late last night.", "We ___ the film twice."}) {
+		t.Errorf("kept %q; want the section's own question, the ones pointing at material and the repeat dropped", kept)
+	}
+	in.Standalone, in.Section, in.Source = false, nil, sourceText
+	if got, err := prompts.DecodeGenerate(marshal(t, map[string]any{"questions": rows[1:2]}), in); err != nil || len(got) != 1 {
+		t.Errorf("a question from a passage may name the passage: %v, %v", got, err)
+	}
+}
+
+func TestTheStandalonePromptSendsTheTopicAndTheSectionWithoutKeys(t *testing.T) {
+	section := domain.Section{Title: "Part 2: Past tenses", Instructions: "Choose the correct form.", Questions: []domain.SectionQuestion{{Type: "single_choice", Prompt: "Choose the past form of go."}}}
+	p := prompts.Generate(prompts.GenerateInput{Source: "irregular verbs", Types: []string{prompts.ShortAnswer}, Count: 5, Level: "b1", Standalone: true, Section: &section})
+	for _, want := range []string{"stands alone", "irregular verbs", "Title: Part 2: Past tenses", "Instructions: Choose the correct form.", "1. [single_choice] Choose the past form of go.", "do not repeat", "Write 5 new questions at CEFR B1", "short_answer = a question with one answer"} {
+		if !strings.Contains(p.System+p.User, want) {
+			t.Errorf("the prompt lacks %q:\n%s\n%s", want, p.System, p.User)
+		}
+	}
+	if strings.Contains(p.System+p.User, "from the source") {
+		t.Error("a standalone prompt asks for answers from a source")
+	}
+	topicOnly := prompts.Generate(prompts.GenerateInput{Source: "phrasal verbs", Types: []string{prompts.SingleChoice}, Count: 3, Level: "b2", Standalone: true})
+	if strings.Contains(topicOnly.User, "section") {
+		t.Errorf("a topic-only prompt mentions a section:\n%s", topicOnly.User)
+	}
+	many := domain.Section{Title: "Long"}
+	for range 400 {
+		many.Questions = append(many.Questions, domain.SectionQuestion{Type: "single_choice", Prompt: strings.Repeat("word ", 40)})
+	}
+	if long := prompts.Generate(prompts.GenerateInput{Types: []string{prompts.SingleChoice}, Count: 3, Level: "b2", Standalone: true, Section: &many}); len([]rune(long.User)) > prompts.MaxSource+1000 {
+		t.Errorf("a long section was sent %d characters long; it is cut near %d", len([]rune(long.User)), prompts.MaxSource)
+	}
+}
+
 func checkPaper() []domain.PaperQuestion {
 	paper := make([]domain.PaperQuestion, 8)
 	for i := range paper {
