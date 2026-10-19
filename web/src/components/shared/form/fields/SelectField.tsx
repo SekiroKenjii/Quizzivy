@@ -70,14 +70,13 @@ export function SelectField({
       >
         <SelectValue {...(placeholder === undefined ? {} : { placeholder })} />
       </SelectTrigger>
-      <SelectContent className="max-w-(--radix-select-content-available-width)">
+      <SelectContent>
         <SelectGroup>
           {options.map((option, index) => (
             <SelectItem
               key={option.value}
               value={String(index + 1)}
               disabled={disabled ?? false}
-              className="whitespace-normal"
             >
               {option.label}
             </SelectItem>
