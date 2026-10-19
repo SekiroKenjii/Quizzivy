@@ -386,9 +386,9 @@ answer "There is nothing for the assistant to read yet." It also asks about 8 qu
 at a time, within 45 seconds, under one reservation, where one call for a long test timed out with
 `503 AI_UNAVAILABLE`.
 
-- **No migration.** `release_command` runs `migrate up` and finds nothing to do. Deploy the web build first:
-  the new web on the old API varies the standalone questions, as before, while the old web on the new API
-  would write a member's change to a stray duplicate in the bank.
+- **No migration.** `release_command` runs `migrate up` and finds nothing to do. The web build and the API
+  can deploy in either order. The new web on the old API varies the standalone questions, as before; the old
+  web on the new API stops on its first read of a member's change (`404`) before it writes anything.
 - **What to watch.** Each variant logs one `ai variant` line (`docs/setup/operations.md`) with its calls, how
   many were usable and whether the budget ran out. A pass whose calls all fail still logs `ai call failed` or
   `ai answer unusable` for each, as before.
