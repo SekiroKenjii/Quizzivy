@@ -376,6 +376,34 @@ What v0.9.0 then does with what v0.10.0 wrote:
 - `00084`'s Down leaves its constraint `NOT VALID` for the same reason. Never roll back past v0.8.0
   (the join-code key).
 
+## Rolling out v0.11.8 (hotfix)
+
+v0.11.8 carries three hotfixes and changes no schema, no configuration and no response (spec 0.112, "Changes
+since v0.111" and "Changes since v0.110"). An AI panel keeps its session when its drawer closes, and says
+in a toast when a run finishes behind a closed drawer (web only). The contract's `email` format refuses an
+address the API cannot print back, such as `"qc tp"@example.com`. And `POST /auth/login` counts one account
+once, however its address is written.
+
+- **No migration.** `release_command` runs `migrate up` and finds nothing to do. The web build and the API
+  can deploy in either order: no contract shape changed.
+- **Run the email query before and after.** `docs/setup/operations.md`, "Stored emails the API cannot
+  print", has a read-only query that lists accounts the previous API could have stored with a quoted
+  local part. No rows is the expected answer. If it returns rows, nothing in the release rewrites them; the
+  repair is per row and the owner's, and the section says how. Until a row is repaired, the lists that hold
+  it keep answering `500`, as they did before this release.
+- **What a user sees.** `POST /auth/login`, `createStudent`, `updateStudent` and any other `format: email`
+  parameter answer `400 VALIDATION_FAILED` naming `email` for a quoted local part. `Name <addr>` and a
+  quoted atom that needs no quotes are unchanged, and no stored value changes.
+- **The login limiter's key changes, its limits do not.** The buckets live in each API process's memory,
+  so a deploy starts them empty, and a pod still on v0.11.7 keys on the address as written until it is
+  replaced.
+- **Rolling back to v0.11.7** needs nothing: there is no schema and no stored value to undo. Rolling the API
+  back brings back the quoted-address `500`, so run the query again if it was out for long. Rolling Pages back
+  brings back the drawer that discards its results.
+- **Afterwards**, in the builder run "AI check", open a finding's question and open "AI check" again: the
+  findings must still be there, with no new call. Create a student with the address `"a b"@example.com`: it
+  must answer `400` and write no row. The query above must return no rows.
+
 ## Rolling out v0.11.7 (hotfix)
 
 v0.11.7 adds one nullable column and one index and changes no configuration
