@@ -55,8 +55,9 @@ is cross-site, and it hides the cookie behaviour the real deployment depends on
 MinIO is why the app builds and tests without R2 credentials:
 `aws-sdk-go-v2/s3` targets both and only the endpoint differs.
 
-Two database roles, per spec §13.5. `quizzivy_migrate` owns the schema and runs
-goose; `quizzivy_app` is what the API connects as and owns nothing.
+Three database roles, per spec §13.5. `quizzivy_migrate` owns the schema and runs
+goose; `quizzivy_app` is what the API connects as and owns nothing;
+`quizzivy_maintenance` is what `cmd/maintenance` connects as (migration 00139).
 
 ## Status
 

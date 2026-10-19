@@ -528,13 +528,13 @@ DROP INDEX CONCURRENTLY IF EXISTS app.assignments_creator_idx;         -- 00077
 ## Rolling out v0.12.0 (R5)
 
 v0.12.0 adds the Admin console, outgoing email and the nightly retention sweep, with
-migrations `00128` to `00140`. Three things must exist before the merge to `main`, or
-the deploy stops on its own:
+migrations `00128` to `00140`. Three things must exist before the merge to `main`. A missing secret or a missing
+maintenance role stops the deploy on its own; the sending domain has to be checked by hand:
 
 - **Fly secrets `SECRETS_KEY` and `RESEND_API_KEY`** (`dns.md`, "Secrets on Fly").
   `EMAIL_FROM`, `APP_URL`, `EMAIL_DAILY_LIMIT`, `EMAIL_SEND_RATE` and `APP_TIMEZONE`
-  are in `fly.toml`'s `[env]`. The preflight fails without any of the first three
-  names, and fails if `EMAIL_SINK_DIR` is set, before anything is built.
+  are in `fly.toml`'s `[env]`. The preflight fails without any of `SECRETS_KEY`,
+  `RESEND_API_KEY`, `EMAIL_FROM` and `APP_URL`, and fails if `EMAIL_SINK_DIR` is set, before anything is built.
 - **The `quizzivy.com` sending domain verified in Resend**, open and click tracking
   off (`dns.md`, "Email (Resend)"). Without it the API starts and every message
   fails at Resend.
