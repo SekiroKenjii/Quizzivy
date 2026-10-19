@@ -682,6 +682,10 @@ jobs:
       IMPORT_PROCESSING_ENABLED: "true"
       IMPORT_WORKER_WAKE_URL: http://localhost:8091/wake
       IMPORT_WORKER_WAKE_ADDR: localhost:8091
+      # base64 of "e2e-live-secrets-key-not-secret!", 32 bytes. Throwaway.
+      # Without it the outbox cannot seal a set-password token, and the Add
+      # user the admin-console spec drives would queue no link.
+      SECRETS_KEY: ZTJlLWxpdmUtc2VjcmV0cy1rZXktbm90LXNlY3JldCE=
 
     steps:
       - uses: actions/checkout@v7
@@ -736,6 +740,15 @@ jobs:
             echo "IMPORT_DOCKER_BINARY=$(command -v docker)"
             echo "IMPORT_CONVERTER_IMAGE=$CONVERTER_IMAGE"
           } >> "$GITHUB_ENV"
+
+      # With no RESEND_API_KEY the API and the worker write every message to
+      # EMAIL_SINK_DIR, and admin-console.live.spec.ts reads set-password links
+      # back from it, so the three processes take this one path. A step sets
+      # it, because a job's env cannot read the runner context.
+      - name: Choose the email sink
+        run: |
+          install -d -m 0700 "$RUNNER_TEMP/email-sink"
+          echo "EMAIL_SINK_DIR=$RUNNER_TEMP/email-sink" >> "$GITHUB_ENV"
 
       # Built rather than `go run`, so a compile error fails here with a clear
       # message instead of as a connection refused thirty seconds later.

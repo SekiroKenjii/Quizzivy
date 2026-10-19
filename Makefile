@@ -109,11 +109,17 @@ gen-check: gen ## Fail if generated output drifts from the contract (what CI run
 dev: ## Run web and api together, plus the Word import worker when imports are configured
 	$(MAKE) -j3 dev-api dev-web $(if $(IMPORT_S3_BUCKET),dev-worker IMPORT_PROCESSING_ENABLED=true IMPORT_WORKER_WAKE_URL=http://localhost:8091/wake)
 
+# Where the API and the worker write email outside production, and where the
+# live E2E (web/playwright.config.ts) reads set-password links: EMAIL_SINK_DIR,
+# or tmp/email-sink when it is unset or empty, and a relative value, as
+# .env.example's, taken from the repository root, as Playwright takes it.
+EMAIL_SINK_PATH := $(abspath $(or $(EMAIL_SINK_DIR),tmp/email-sink))
+
 dev-api: ## Go API on :8080
-	cd server && DATABASE_URL="$(APP_DSN)" go run ./cmd/api
+	cd server && DATABASE_URL="$(APP_DSN)" EMAIL_SINK_DIR="$(EMAIL_SINK_PATH)" go run ./cmd/api
 
 dev-worker: ## Word import worker against the local database and bucket
-	cd server && DATABASE_URL="$(APP_DSN)" GOMAXPROCS=2 go run ./cmd/import-worker
+	cd server && DATABASE_URL="$(APP_DSN)" EMAIL_SINK_DIR="$(EMAIL_SINK_PATH)" GOMAXPROCS=2 go run ./cmd/import-worker
 
 dev-web: ## Vite on :5173
 	cd web && pnpm dev
