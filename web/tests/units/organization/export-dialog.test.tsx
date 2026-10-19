@@ -170,3 +170,30 @@ describe("the export dialog", () => {
     expect(within(await screen.findByRole("dialog")).queryByRole("alert")).toBeNull();
   });
 });
+
+describe("the export card", () => {
+  it("is not offered to a role that writes the settings without system.data_export", async () => {
+    useAuthStore.getState().setSession("token-a", {
+      ...adminUser,
+      permissions: adminUser.permissions.filter((key) => key !== "system.data_export"),
+    });
+    servesSettings();
+    renderSettings("/admin/settings/data");
+
+    expect(
+      await screen.findByRole("combobox", { name: "Giữ câu trả lời của bài làm" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Xuất toàn bộ dữ liệu" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Yêu cầu xuất" })).toBeNull();
+  });
+
+  it("is offered to a role holding system.data_export", async () => {
+    servesSettings();
+    renderSettings("/admin/settings/data");
+
+    expect(
+      await screen.findByRole("heading", { name: "Xuất toàn bộ dữ liệu" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Yêu cầu xuất" })).toBeInTheDocument();
+  });
+});
