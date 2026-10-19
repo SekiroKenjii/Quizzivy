@@ -30,8 +30,6 @@ import {
   Clock,
   Copy,
   Ellipsis,
-  ExternalLink,
-  FileText,
   Pencil,
   RotateCcw,
   Send,
@@ -41,7 +39,6 @@ import { EmptyState, ListSkeleton, LoadError } from "@/components/shared/ListSta
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,8 +59,7 @@ import { Monitor } from "@/features/attempts/components/Monitor";
 import { ProgressCard } from "@/features/attempts/components/ProgressCard";
 import { SheetNoteController } from "@/features/attempts/components/sheetNotes";
 import { POLL_MS, monitorKey, reviewKey } from "@/features/attempts/keys";
-import { listVersions, previewTest, type TestVersion } from "@/features/tests/api";
-import { InlineStudentPreview } from "@/features/tests/components/InlineStudentPreview";
+import { listVersions, previewTest } from "@/features/tests/api";
 import { useIdlePolling, useRefetchOnResume } from "@/hooks/useIdlePolling";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { useCrumbs } from "@/layouts/shell/crumbs";
@@ -329,8 +325,6 @@ export default function AssignmentDetailPage() {
               groups={preview.data?.groups}
             />
           </ItemAnalysis>
-          <TestCard a={a} version={version} closed={status === "closed"} />
-          <QuestionsPanel preview={preview} a={a} />
         </TabsContent>
         <TabsContent value="settings" className="pt-4.5">
           <SettingsGroups a={a} version={version} status={status} />
@@ -849,86 +843,5 @@ function StudentsPanel({
       onOpen={onOpen}
       onRefresh={onRefresh}
     />
-  );
-}
-
-function QuestionsPanel({
-  preview,
-  a,
-}: Readonly<{
-  preview: UseQueryResult<Awaited<ReturnType<typeof previewTest>>, Error>;
-  a: Assignment;
-}>) {
-  const { t } = useTranslation();
-  if (preview.isPending) return <ListSkeleton />;
-  if (preview.isError)
-    return (
-      <LoadError error={preview.error} onRetry={() => void preview.refetch()}>
-        {t("assignmentDetail.questionsUnavailable")}
-      </LoadError>
-    );
-  if (preview.data.version !== a.testVersion)
-    return <EmptyState>{t("assignmentDetail.questionsUnavailable")}</EmptyState>;
-  if (preview.data.questions.length === 0)
-    return <EmptyState>{t("assignmentDetail.noQuestions")}</EmptyState>;
-  return (
-    <InlineStudentPreview
-      questions={preview.data.questions}
-      sections={preview.data.sections ?? []}
-      groups={preview.data.groups ?? []}
-      onRetryMedia={() => void preview.refetch()}
-    />
-  );
-}
-
-function TestCard({
-  a,
-  version,
-  closed,
-}: Readonly<{
-  a: Assignment;
-  version: TestVersion | undefined;
-  closed: boolean;
-}>) {
-  const { t } = useTranslation();
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("assignments.detail.test")}</CardTitle>
-      </CardHeader>
-      <CardContent className="pt-1">
-        <div className="flex items-center gap-3 rounded-md border p-3">
-          <FileText
-            className="text-muted-foreground size-5 shrink-0"
-            aria-hidden="true"
-          />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{a.testTitle}</p>
-            <p className="text-muted-foreground text-xs">
-              {version === undefined
-                ? t("assignments.detail.versionOnly", { version: a.testVersion })
-                : t("assignments.detail.versionMeta", {
-                    questions: version.questionCount,
-                    points: version.totalPoints,
-                    audio: version.audioCount,
-                    manual: version.manualCount,
-                    version: version.version,
-                  })}
-            </p>
-          </div>
-          <Button variant="ghost" size="sm" asChild>
-            <Link to={`/teacher/tests/${a.testId}`}>
-              <ExternalLink aria-hidden="true" />
-              {t("assignments.detail.viewTest")}
-            </Link>
-          </Button>
-        </div>
-        <p className="text-muted-foreground mt-2 text-xs leading-relaxed">
-          {t(closed ? "assignments.detail.pinnedClosed" : "assignments.detail.pinned", {
-            version: a.testVersion,
-          })}
-        </p>
-      </CardContent>
-    </Card>
   );
 }

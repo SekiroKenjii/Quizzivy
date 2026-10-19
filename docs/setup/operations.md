@@ -440,7 +440,8 @@ UPDATE app.organization_settings SET password_sign_in = true, revision = revisio
 ```
 
 A logo is stored once under `branding/{sha256}.png` in the media bucket and is never
-replaced, so an unreferenced one is harmless; delete it by hand if it matters. Without object
+replaced. One that neither the light nor the dark logo names is removed by the daily
+housekeeping once it is 24 hours old ("Daily housekeeping"). Without object
 storage the settings still save and the front door still reads them, and an upload answers `501`.
 
 ## Maintenance windows
@@ -1043,3 +1044,8 @@ hold a student's words.
   `REVOKE TEMPORARY ON DATABASE <database> FROM PUBLIC;` once; the query must
   then answer false. Pending.
 - Maintenance dry-run review and first authorized production batch: pending.
+- Email (v0.12.0): one real message from `quizzivy.com` whose headers show SPF, DKIM
+  and DMARC passing (`dns.md`, "Email (Resend)"): pending the release.
+- Retention sweep (v0.12.0): the first manual dry run of `retention-sweep.yml` on
+  production, read by the owner before `RETENTION_SWEEP_ENABLED` is set ("The
+  nightly workflow"): pending the release.

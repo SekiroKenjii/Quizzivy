@@ -86,6 +86,34 @@ func (r AITests) Draft(ctx context.Context, scope access.Scope, testID string) (
 	return paper, nil
 }
 
+// Section reads the section named sectionID of the draft of testID: its title, its instructions, and the type and prompt of each of its standalone questions and of each member of its groups, in the order the builder shows them. A question or group the scope cannot read is left out. It answers aidomain.ErrNotFound for a test the scope does not reach and for a section the test does not hold.
+func (r AITests) Section(ctx context.Context, scope access.Scope, testID, sectionID string) (aidomain.Section, error) {
+	test, err := r.Test.Handle(ctx, testsquery.Get{ID: testID, Scope: scope})
+	if errors.Is(err, testsdomain.ErrNotFound) {
+		return aidomain.Section{}, aidomain.ErrNotFound
+	}
+	if err != nil {
+		return aidomain.Section{}, err
+	}
+	for _, section := range test.Sections {
+		if !strings.EqualFold(section.ID, sectionID) {
+			continue
+		}
+		read := aidomain.Section{Title: section.Title, Instructions: deref(section.Instructions)}
+		for _, unit := range outlineUnits(section) {
+			questions, _, err := r.readUnit(ctx, scope, unit, 1)
+			if err != nil {
+				return aidomain.Section{}, err
+			}
+			for _, q := range questions {
+				read.Questions = append(read.Questions, aidomain.SectionQuestion{Type: q.Type, Prompt: q.Prompt})
+			}
+		}
+		return read, nil
+	}
+	return aidomain.Section{}, aidomain.ErrNotFound
+}
+
 func outlineUnits(section testsdomain.Section) []testsdomain.SectionUnit {
 	if len(section.Units) > 0 {
 		return section.Units
@@ -124,6 +152,12 @@ func (r AITests) readGroup(ctx context.Context, scope access.Scope, groupID stri
 	for _, question := range stored.Bundle.Questions {
 		byID[strings.ToLower(question.ID)] = question
 	}
+	gapped := map[string]bool{}
+	for _, stimulus := range stored.Bundle.Group.Stimuli {
+		for _, gap := range stimulus.Gaps {
+			gapped[strings.ToLower(gap.QuestionID)] = true
+		}
+	}
 	members := stored.Bundle.Group.Members
 	var read []aidomain.PaperQuestion
 	for i, member := range members {
@@ -133,6 +167,7 @@ func (r AITests) readGroup(ctx context.Context, scope access.Scope, groupID stri
 		}
 		item := paperQuestion(questionOf(question), first+i)
 		item.GroupID, item.Passage, item.OrderFixed = groupID, passage, member.OptionOrder == fixedOptionOrder
+		item.Gapped = gapped[strings.ToLower(member.QuestionID)]
 		read = append(read, item)
 	}
 	return read, len(members), nil

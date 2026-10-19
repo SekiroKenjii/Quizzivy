@@ -13,7 +13,9 @@ export const TOOLBAR_SEARCH =
 /**
  * SearchInput is a list-toolbar search field with icon clearance at either
  * density. `inputRef` reaches the field, for a page that returns focus to it,
- * and `maxLength` is the most the field takes.
+ * `maxLength` is the most the field takes in UTF-16 units, and
+ * `maxCharacters` in characters (code points), which also cuts a longer
+ * `value` the field is given, such as one from a link.
  */
 export function SearchInput({
   value,
@@ -23,6 +25,7 @@ export function SearchInput({
   dense = false,
   inputRef,
   maxLength,
+  maxCharacters,
 }: Readonly<{
   value: string;
   onChange: (value: string) => void;
@@ -31,7 +34,15 @@ export function SearchInput({
   dense?: boolean;
   inputRef?: Ref<HTMLInputElement>;
   maxLength?: number;
+  maxCharacters?: number;
 }>) {
+  const fit = (text: string) => {
+    if (maxCharacters === undefined) return text;
+    const letters = [...text];
+    return letters.length > maxCharacters
+      ? letters.slice(0, maxCharacters).join("")
+      : text;
+  };
   return (
     <div className={cn("relative w-72", className)}>
       <Search
@@ -50,10 +61,10 @@ export function SearchInput({
         )}
         ref={inputRef}
         maxLength={maxLength}
-        value={value}
+        value={fit(value)}
         placeholder={placeholder}
         aria-label={placeholder}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) => onChange(fit(event.target.value))}
       />
     </div>
   );

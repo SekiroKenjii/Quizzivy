@@ -499,6 +499,31 @@ func TestAPassageIsFoundInTheDraftsGroupsOrNotFound(t *testing.T) {
 	}
 }
 
+func TestASectionIsReadWithItsTitleInstructionsAndEveryQuestionItHoldsGroupMembersIncluded(t *testing.T) {
+	instructions := "Choose the best answer."
+	r := draft(
+		testsdomain.Section{ID: "sec-1", Title: "Part 1", Units: unitsOf("question", "q-9")},
+		testsdomain.Section{ID: "sec-2", Title: "Part 2", Instructions: &instructions, Units: append(unitsOf("question", "q-1", "q-gone"), unitsOf("group", "g-1")...)},
+	)
+	got, err := r.Section(context.Background(), access.Scope{UserID: "t"}, "t-1", "SEC-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var read []string
+	for _, q := range got.Questions {
+		read = append(read, q.Type+":"+q.Prompt)
+	}
+	want := []string{"short_answer:Prompt of q-1", "single_choice:Prompt of q-2", "fill_blank:Prompt of q-3"}
+	if got.Title != "Part 2" || got.Instructions != instructions || !slices.Equal(read, want) {
+		t.Errorf("section %+v, questions %q; want its title, instructions and %q", got, read, want)
+	}
+	for name, ids := range map[string][2]string{"a section the test does not hold": {"t-1", "sec-9"}, "a test the scope does not reach": {"other", "sec-1"}} {
+		if _, err := r.Section(context.Background(), access.Scope{UserID: "t"}, ids[0], ids[1]); !errors.Is(err, aidomain.ErrNotFound) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+}
+
 func TestAnAnswerTheGraderMarkedItselfIsNotReportedAsWaitingForAMark(t *testing.T) {
 	typed := []byte(`{"type":"text","value":"A teacher."}`)
 	g := grading(reviewOf(attemptsdomain.Graded, map[string]attemptsdomain.ReviewAnswer{shortID: {Payload: typed}}), nil)

@@ -38,7 +38,7 @@ import { PageAsideSlot } from "@/layouts/slots";
 import { contentPlainText } from "@/components/shared/content/plainText";
 import type { AiFinding } from "@/features/ai/api";
 import { AiWriteError } from "@/features/ai/kind";
-import { withFix } from "@/features/question-bank/aiDrafts";
+import { fixFits, withFix } from "@/features/question-bank/aiDrafts";
 import {
   createQuestion,
   duplicateQuestion,
@@ -105,6 +105,7 @@ import {
 import { GroupPickerDialog } from "../../components/GroupPickerDialog";
 import { BuilderWrites } from "../../BuilderWrites";
 import { BuilderAiActions, type BuilderAi } from "../../components/BuilderAiActions";
+import { aiPassagesIn, aiSections } from "../../aiSections";
 import {
   editableOutline,
   findMember,
@@ -433,11 +434,14 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     }
   }
 
-  function appendQuestions(added: readonly string[]) {
+  function appendQuestions(added: readonly string[], sectionId?: string) {
     const first = added[0];
     if (first === undefined) return;
     const current = latestOutline.current;
-    const last = destinationIndex();
+    const named = sectionId
+      ? current.findIndex((section) => section.id === sectionId)
+      : -1;
+    const last = named < 0 ? destinationIndex() : named;
     updateOutline(
       current.map((section, i) =>
         i === last
@@ -451,7 +455,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     void selectQuestion(first);
   }
 
-  async function addGenerated(values: QuestionValues[]) {
+  async function addGenerated(values: QuestionValues[], sectionId?: string) {
     const ids: string[] = [];
     try {
       for (const value of values) {
@@ -460,7 +464,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         ids.push(created.id);
       }
     } finally {
-      appendQuestions(ids);
+      appendQuestions(ids, sectionId);
       void queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
     }
   }
@@ -505,7 +509,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         queryClient.getQueryData<StoredGroup>(["teacher-group", groupId]) ??
         (await getGroup(groupId));
       const next = withMemberFix(stored.bundle, finding);
-      if (!next) throw new Error("The question is no longer in its group");
+      if (!next) throw new AiWriteError(t("ai.check.fixGone"));
       await saveGroup(next, stored.revision);
       groupBridge.current?.advanceOwner(false, version.current);
     });
@@ -525,10 +529,9 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     const questionId = finding.questionId;
     await queryClient.cancelQueries({ queryKey: ["teacher-question", questionId] });
     const fresh = await getQuestion(questionId);
-    const saved = await updateQuestion(
-      questionId,
-      withFix(toFormValues(fresh), finding),
-    );
+    const values = toFormValues(fresh);
+    if (!fixFits(values, finding)) throw new AiWriteError(t("ai.check.fixGone"));
+    const saved = await updateQuestion(questionId, withFix(values, finding));
     queryClient.setQueryData(["teacher-question", questionId], saved);
     void queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
     if (selectedId === questionId) setEditorEpoch((epoch) => epoch + 1);
@@ -1028,18 +1031,30 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   const ai: BuilderAi = {
     testId: test.id,
     title: title.trim() || t("tests.untitled"),
-    passages: groupIds.flatMap((groupId) => {
-      const bundle = groups.get(groupId);
-      if (!bundle) return [];
-      const group = { id: groupId, title: bundle.group.title || t("groups.newGroup") };
-      return bundle.group.stimuli.flatMap((stimulus) => {
-        const text = contentPlainText(stimulus.content).trim();
-        return text === ""
-          ? []
-          : [{ id: stimulus.id, title: stimulus.title, text, group }];
-      });
-    }),
+    passages: aiPassagesIn(
+      groupIds.flatMap((groupId) => {
+        const bundle = groups.get(groupId);
+        if (!bundle) return [];
+        const group = {
+          id: groupId,
+          title: bundle.group.title || t("groups.newGroup"),
+        };
+        return bundle.group.stimuli.flatMap((stimulus) => {
+          const text = contentPlainText(stimulus.content).trim();
+          return text === ""
+            ? []
+            : [{ id: stimulus.id, title: stimulus.title, text, group }];
+        });
+      }),
+      sections,
+    ),
     section: sections[destinationIndex()]?.title ?? null,
+    sectionId: sections[destinationIndex()]?.id ?? null,
+    sections: aiSections(
+      sections,
+      groups,
+      (questionId) => loaded[questionIds.indexOf(questionId)]?.data,
+    ),
     prepare: async () => {
       setPublishError(null);
       await flushQuestion.current?.();
@@ -1793,7 +1808,10 @@ function describePosition(
 }
 
 function withMemberFix(bundle: GroupBundle, finding: AiFinding): GroupBundle | null {
-  if (!bundle.questions.some((question) => question.id === finding.questionId))
+  const member = bundle.questions.find(
+    (question) => question.id === finding.questionId,
+  );
+  if (member === undefined || !fixFits(memberValues(member.input), finding))
     return null;
   return {
     ...bundle,

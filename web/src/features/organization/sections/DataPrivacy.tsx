@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useCan } from "@/features/auth/permissions";
 import { ExportDataDialog } from "@/features/organization/components/ExportDataDialog";
 import { controlId } from "@/features/organization/controls";
 import {
@@ -103,15 +104,7 @@ function RetentionRow({
   );
 }
 
-/**
- * DataPrivacySection is the Data & privacy cards of System settings: how long
- * the centre keeps attempt answers, focus-loss events and a disabled
- * account's name and email, as three selects that join the page's unsaved
- * changes, and Export all data, a danger-bordered card whose button opens the
- * request dialog and is not part of the form. Shortening a retention is
- * confirmed by the page before it is saved.
- */
-export function DataPrivacySection({ saving }: Readonly<{ saving: boolean }>) {
+function ExportAllData() {
   const { t } = useTranslation();
   const email = useAuthStore((state) => state.user?.email ?? "");
   const [open, setOpen] = useState(false);
@@ -119,16 +112,6 @@ export function DataPrivacySection({ saving }: Readonly<{ saving: boolean }>) {
   const titleId = useId();
   return (
     <>
-      <SettingsCard
-        title={t("systemSettings.data.title")}
-        description={t("systemSettings.data.hint")}
-      >
-        <div className="divide-y">
-          {ROWS.map((row) => (
-            <RetentionRow key={row.name} row={row} saving={saving} />
-          ))}
-        </div>
-      </SettingsCard>
       <section
         aria-labelledby={titleId}
         className="bg-card shadow-card border-danger-soft flex flex-wrap items-center gap-x-3.5 gap-y-3 rounded-xl border px-4.5 py-4"
@@ -161,6 +144,35 @@ export function DataPrivacySection({ saving }: Readonly<{ saving: boolean }>) {
         onOpenChange={setOpen}
         returnFocus={opener}
       />
+    </>
+  );
+}
+
+/**
+ * DataPrivacySection is the Data & privacy cards of System settings: how long
+ * the centre keeps attempt answers, focus-loss events and a disabled
+ * account's name and email, as three selects that join the page's unsaved
+ * changes, and Export all data, a danger-bordered card whose button opens the
+ * request dialog and is not part of the form. The export card shows only to a
+ * role holding system.data_export. Shortening a retention is confirmed by the
+ * page before it is saved.
+ */
+export function DataPrivacySection({ saving }: Readonly<{ saving: boolean }>) {
+  const { t } = useTranslation();
+  const canExport = useCan("system.data_export");
+  return (
+    <>
+      <SettingsCard
+        title={t("systemSettings.data.title")}
+        description={t("systemSettings.data.hint")}
+      >
+        <div className="divide-y">
+          {ROWS.map((row) => (
+            <RetentionRow key={row.name} row={row} saving={saving} />
+          ))}
+        </div>
+      </SettingsCard>
+      {canExport ? <ExportAllData /> : null}
     </>
   );
 }

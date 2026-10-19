@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, screen, waitFor } from "@testing-library/react";
-import { PAGE_MAX, SEARCH_MAX } from "@/features/users/api";
+import { SEARCH_MAX } from "@/features/users/api";
 import i18n from "@/lib/i18n";
 import { useAuthStore } from "@/stores/auth";
-import { renderUsers, rowOf, serveUsers, table, user } from "./support";
+import { http } from "msw";
+import { server } from "@tests/support/server";
+import { BASE, renderUsers, rowOf, serveUsers, table, user } from "./support";
 
 const NO_ONE = "Không có người dùng phù hợp.";
 const NGUYEN = user("4", "Nguyễn Văn An");
@@ -160,24 +162,31 @@ describe("the search box and the URL", () => {
     );
   });
 
-  it("takes no more characters than the contract does", async () => {
+  it("shows no more of a long q from a link than is searched (QC-UL-12)", async () => {
     serveUsers(FEW);
-    renderUsers();
+    renderUsers(`/admin/users?q=${"a".repeat(5000)}`);
     await table();
-    expect(screen.getByRole("searchbox")).toHaveAttribute(
-      "maxlength",
-      String(SEARCH_MAX),
-    );
+    expect(screen.getByRole("searchbox")).toHaveValue("a".repeat(SEARCH_MAX));
+  });
+
+  it("counts the box's characters as the contract does, not in UTF-16 units", async () => {
+    serveUsers(FEW);
+    const { user: actor } = renderUsers();
+    await table();
+    const box = screen.getByRole("searchbox");
+    await actor.click(box);
+    await actor.paste("😀".repeat(250));
+    expect([...(box as HTMLInputElement).value]).toHaveLength(SEARCH_MAX);
   });
 });
 
 describe("the page", () => {
   it("asks for no page past the highest the contract takes, and goes to the last one", async () => {
     const asked = serveUsers(FEW);
-    const { router } = renderUsers(`/admin/users?page=${PAGE_MAX + 1}`);
+    const { router } = renderUsers("/admin/users?page=1000001");
     expect(await rowOf("Thường Võ")).toBeVisible();
-    expect(asked[0]?.get("page")).toBe(String(PAGE_MAX));
-    expect(asked.every((query) => Number(query.get("page") ?? 1) <= PAGE_MAX)).toBe(
+    expect(asked[0]?.get("page")).toBe("1000000");
+    expect(asked.every((query) => Number(query.get("page") ?? 1) <= 1_000_000)).toBe(
       true,
     );
     expect(router.state.location.search).toBe("");
@@ -234,5 +243,33 @@ describe("the page", () => {
     await waitFor(() => expect(asked.at(-1)?.get("page")).toBe("3"));
     expect(router.state.location.search).toBe("?page=3");
     expect(await rowOf("Bạn 25")).toBeVisible();
+  });
+
+  it("keeps a page of an empty list on the empty state (QC-UL-11)", async () => {
+    const asked = serveUsers(FEW);
+    const { router } = renderUsers("/admin/users?q=zzz&page=5");
+    expect(await screen.findByText(NO_ONE)).toBeVisible();
+    expect(asked.map((query) => query.get("page"))).toEqual(["5"]);
+    expect(router.state.location.search).toBe("?q=zzz&page=5");
+  });
+
+  it("keeps the table on screen while the next page loads (QC-UL-11)", async () => {
+    serveUsers(crowd(25));
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get(`${BASE}/admin/users`, async ({ request }) => {
+        if (new URL(request.url).searchParams.get("page") === "2") await gate;
+      }),
+    );
+    const { user: actor } = renderUsers();
+    expect(await rowOf("Bạn 3")).toBeVisible();
+    await actor.click(screen.getByRole("link", { name: "Trang sau" }));
+    expect(screen.getByRole("table", { name: "Người dùng" })).toBeVisible();
+    expect(screen.getByText("Bạn 3")).toBeVisible();
+    act(() => release());
+    expect(await rowOf("Bạn 13")).toBeVisible();
   });
 });

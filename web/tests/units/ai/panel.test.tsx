@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AiPanel, { type AiPanelRequest } from "@/features/ai/components/AiPanel";
 import {
   AI_USAGE_KEY,
@@ -147,9 +147,13 @@ describe("the Generate panel", () => {
       vi_.questionEditor.type.true_false,
     ]);
     expect(
-      within(dialog).getByRole("group", { name: ai.generate.count }),
-    ).toHaveTextContent("358");
-    expect(await within(dialog).findByText(/Còn 18\.800 tín dụng/)).toBeVisible();
+      within(dialog).getByRole("textbox", { name: ai.generate.count }),
+    ).toHaveValue("5");
+    expect(
+      await within(dialog).findByText(
+        "Tối đa 200 tín dụng · còn 18.800 trong tháng này",
+      ),
+    ).toBeVisible();
   });
 
   it("names what stops the run, and does not start it", async () => {
@@ -179,7 +183,7 @@ describe("the Generate panel", () => {
     );
     const context = generateContext();
     const { dialog, user, client } = await openPanel({ kind: "generate", context });
-    await within(dialog).findByText(/Còn 18\.800 tín dụng/);
+    await within(dialog).findByText(/còn 18\.800 trong tháng này/);
     await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
     expect(await within(dialog).findByText("What do cities rethink?")).toBeVisible();
     expect(body).toEqual({
@@ -246,6 +250,44 @@ describe("the Generate panel", () => {
     ).toBeVisible();
   });
 
+  it("saves into the section the page is on when the questions are kept, and says so", async () => {
+    answerWith(generated.slice(0, 1));
+    const save = vi.fn(() => Promise.resolve());
+    const page: { moveTo: ((title: string) => void) | null } = { moveTo: null };
+    function Moving() {
+      const [title, setTitle] = useState("Phần 1");
+      useEffect(() => {
+        page.moveTo = setTitle;
+      }, []);
+      return (
+        <AiPanel
+          request={{
+            kind: "generate",
+            context: generateContext({
+              save,
+              destination: { kind: "section", title },
+            }),
+          }}
+          onClose={() => undefined}
+        />
+      );
+    }
+    const { user } = renderWithApp(<Moving />);
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
+    await within(dialog).findByRole("button", { name: "Thêm 1 câu vào Phần 1" });
+
+    act(() => page.moveTo?.("Phần 2"));
+    await user.click(
+      within(dialog).getByRole("button", { name: "Thêm 1 câu vào Phần 2" }),
+    );
+    expect(save).toHaveBeenCalledWith(
+      [{ question: generated[0], level: "b2" }],
+      ai.draftTag,
+      { kind: "section", title: "Phần 2" },
+    );
+  });
+
   it("keeps the section for pasted text, even where a group's passage is offered", async () => {
     answerWith(generated.slice(0, 1));
     const context = generateContext({ passages: [groupPassage] });
@@ -306,14 +348,153 @@ describe("the Generate panel", () => {
       kind: "generate",
       context: generateContext({ passages: [] }),
     });
+    await user.click(within(dialog).getByRole("radio", { name: /^Theo bài đọc/ }));
     const source = within(dialog).getByLabelText(ai.generate.source);
     await user.type(source, `${PASSAGE} A topic.`);
     await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
     await within(dialog).findByText("What do cities rethink?");
     expect(body["source"]).toBe(`${PASSAGE} A topic.`);
     expect(body["testId"]).toBeUndefined();
+    expect(body["standalone"]).toBeUndefined();
     expect(body["language"]).toBe("en");
     expect(within(dialog).queryByText(ai.draftTag)).toBeNull();
+  });
+
+  it("is standalone where no passage is offered, asking for a topic of a few letters", async () => {
+    let body: Record<string, unknown> = {};
+    server.use(
+      http.post(`${BASE}/teacher/ai/questions/generate`, async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return contractJson("/teacher/ai/questions/generate", "post", 200, {
+          items: generated.slice(0, 1),
+          usage: { credits: 900, left: 100 },
+        });
+      }),
+    );
+    const context = generateContext({ passages: [], destination: { kind: "bank" } });
+    const { dialog, user } = await openPanel({ kind: "generate", context });
+    expect(within(dialog).getByRole("radio", { name: /^Câu độc lập/ })).toBeChecked();
+    expect(within(dialog).queryByRole("switch", { name: /^Hợp với/ })).toBeNull();
+    const topic = within(dialog).getByLabelText(ai.generate.topic);
+    await user.type(topic, "ab");
+    expect(within(dialog).getByText(ai.generate.needTopic)).toBeVisible();
+    expect(
+      within(dialog).getByRole("button", { name: ai.generate.run }),
+    ).toBeDisabled();
+    await user.type(topic, "c phrasal verbs ");
+    await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
+    await within(dialog).findByText("What do cities rethink?");
+    expect(body).toMatchObject({ standalone: true, source: "abc phrasal verbs" });
+    expect(body["testId"]).toBeUndefined();
+    expect(body["sectionId"]).toBeUndefined();
+  });
+
+  it("fits a standalone run to the section, needs a topic only when the switch is off, and adds to that section", async () => {
+    let body: Record<string, unknown> = {};
+    server.use(
+      http.post(`${BASE}/teacher/ai/questions/generate`, async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return contractJson("/teacher/ai/questions/generate", "post", 200, {
+          items: generated.slice(0, 1),
+          usage: { credits: 900, left: 100 },
+        });
+      }),
+    );
+    const SECTION_ID = "018f0000-0000-7000-8000-0000000000c9";
+    const open = { id: SECTION_ID, title: "Phần 1", questions: 3 };
+    const context = generateContext({ section: open, sections: [open] });
+    const { dialog, user } = await openPanel({ kind: "generate", context });
+    await user.click(within(dialog).getByRole("radio", { name: /^Câu độc lập/ }));
+    expect(within(dialog).getByLabelText(/^Chủ đề hoặc ghi chú/)).toHaveValue("");
+    const fit = within(dialog).getByRole("switch", { name: /^Hợp với phần này/ });
+    expect(fit).toBeChecked();
+    expect(within(dialog).queryByText(ai.generate.needTopic)).toBeNull();
+    await user.click(fit);
+    expect(within(dialog).getByText(ai.generate.needTopic)).toBeVisible();
+    expect(within(dialog).getByText(ai.generate.fitOffSub)).toBeVisible();
+    await user.click(fit);
+    await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
+    await user.click(
+      await within(dialog).findByRole("button", { name: "Thêm 1 câu vào Phần 1" }),
+    );
+    expect(body).toMatchObject({
+      standalone: true,
+      testId: TEST_ID,
+      sectionId: SECTION_ID,
+    });
+    expect(body["source"]).toBeUndefined();
+    expect(body["stimulusId"]).toBeUndefined();
+    expect(context.save).toHaveBeenCalledWith(
+      [{ question: generated[0], level: "b2" }],
+      ai.draftTag,
+      { kind: "section", id: SECTION_ID, title: "Phần 1" },
+    );
+  });
+
+  it("lets a fitted run choose another section of the test, an empty one included", async () => {
+    let body: Record<string, unknown> = {};
+    server.use(
+      http.post(`${BASE}/teacher/ai/questions/generate`, async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return contractJson("/teacher/ai/questions/generate", "post", 200, {
+          items: generated.slice(0, 1),
+          usage: { credits: 900, left: 100 },
+        });
+      }),
+    );
+    const first = {
+      id: "018f0000-0000-7000-8000-0000000000c1",
+      title: "Phần 1",
+      questions: 4,
+    };
+    const empty = {
+      id: "018f0000-0000-7000-8000-0000000000c2",
+      title: "Phần 3: Thì động từ",
+    };
+    const context = generateContext({
+      passages: [],
+      section: first,
+      sections: [first, empty],
+    });
+    const { dialog, user } = await openPanel({ kind: "generate", context });
+    await user.click(
+      within(dialog).getByRole("combobox", {
+        name: "Đổi phần nhận câu mới: Phần 1",
+      }),
+    );
+    await user.click(
+      await screen.findByRole("option", { name: new RegExp(empty.title) }),
+    );
+    expect(
+      within(dialog).getByRole("combobox", {
+        name: `Đổi phần nhận câu mới: ${empty.title}`,
+      }),
+    ).toBeVisible();
+    expect(
+      within(dialog).getByRole("switch", { name: /^Hợp với phần này/ }),
+    ).toBeChecked();
+    await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
+    await user.click(
+      await within(dialog).findByRole("button", {
+        name: `Thêm 1 câu vào ${empty.title}`,
+      }),
+    );
+    expect(body).toMatchObject({ standalone: true, sectionId: empty.id });
+    expect(context.save).toHaveBeenCalledWith(
+      [{ question: generated[0], level: "b2" }],
+      ai.draftTag,
+      { kind: "section", ...empty },
+    );
+  });
+
+  it("puts the first passage back when the teacher returns to From a passage", async () => {
+    const { dialog, user } = await openPanel({
+      kind: "generate",
+      context: generateContext(),
+    });
+    await user.click(within(dialog).getByRole("radio", { name: /^Câu độc lập/ }));
+    await user.click(within(dialog).getByRole("radio", { name: /^Theo bài đọc/ }));
+    expect(within(dialog).getByLabelText(ai.generate.source)).toHaveValue(PASSAGE);
   });
 
   it("draws an outage as the warning callout and runs again from it, never sample output", async () => {
@@ -497,6 +678,22 @@ describe("the Check panel", () => {
     );
     expect(context.open).toHaveBeenCalledWith("018f0000-0000-7000-8000-0000000000b2");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("leaves out a finding whose question has left the test, and counts the rest", async () => {
+    answer([
+      finding(),
+      finding({ questionId: "018f0000-0000-7000-8000-0000000000b2", issue: "Second." }),
+    ]);
+    const context = checkContext({
+      numberOf: (questionId) => (questionId === QUESTION_ID ? null : 3),
+    });
+    const { dialog, user } = await openPanel({ kind: "check", context });
+    await user.click(within(dialog).getByRole("button", { name: ai.check.run }));
+
+    expect(await within(dialog).findByText("Second.")).toBeVisible();
+    expect(within(dialog).queryByText("Two options fit the passage.")).toBeNull();
+    expect(within(dialog).getByText("1 điều nên xem lại")).toBeVisible();
   });
 
   it("keeps a card and says so when the fix cannot be written", async () => {

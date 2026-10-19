@@ -84,7 +84,7 @@ export type DataTableProps<T extends Item> = Opening<T> &
     readonly rows: readonly T[];
     readonly rowSize: RowSize;
     readonly dense?: boolean | undefined;
-    readonly rowTone?: ((row: T) => "danger" | "selected" | undefined) | undefined;
+    readonly rowTone?: ((row: T) => RowTone) | undefined;
     readonly canOpen?: ((row: T) => boolean) | undefined;
     readonly shown?: ReadonlySet<string> | undefined;
     readonly menu?: ((row: T, context: DataTableMenuContext) => ReactNode) | undefined;
@@ -94,6 +94,7 @@ export type DataTableProps<T extends Item> = Opening<T> &
     readonly card?: ((row: T) => ReactNode) | undefined;
     readonly cardLayout?: "stacked" | "joined" | undefined;
     readonly cards?: boolean | undefined;
+    readonly selectCards?: boolean | undefined;
     readonly framed?: boolean | undefined;
     readonly expansion?: DataTableExpansion<T> | undefined;
     readonly empty?: ReactNode;
@@ -272,7 +273,7 @@ function BodyRow<T extends Item>({
   template: string;
   padX: number;
   box: RowBox;
-  tone: "danger" | "selected" | undefined;
+  tone: RowTone;
   canOpen: boolean;
   expansion: DataTableExpansion<T> | undefined;
 }>) {
@@ -355,24 +356,51 @@ function BodyRow<T extends Item>({
 
 const panelIdOf = (labelId: string) => `${labelId}-panel`;
 
+function CardSelectPage<T extends Item>({
+  rows,
+  select,
+}: Readonly<{ rows: readonly T[]; select: Select<T> }>) {
+  const { t } = useTranslation();
+  return (
+    <div
+      data-slot="data-table-select-page"
+      className="bg-muted text-muted-fg text-meta flex items-center gap-2.5 px-3.5 py-2.5 leading-normal font-medium"
+    >
+      <BulkSelectAll items={rows} selection={select.selection} />
+      <span aria-hidden="true">{t("common.selectPageShort")}</span>
+    </div>
+  );
+}
+
+type RowTone = "danger" | "selected" | undefined;
+
+function toneClass(tone: RowTone): string | undefined {
+  if (tone === "danger") return "bg-danger-soft";
+  return tone === "selected" ? "bg-muted" : undefined;
+}
+
 function CardList<T extends Item>({
   label,
   rows,
   card,
+  select,
   joined,
   canOpen,
   rowHref,
   onOpen,
+  tone,
   empty,
   footer,
 }: Readonly<{
   label: string;
   rows: readonly T[];
   card: (row: T) => ReactNode;
+  select: Select<T> | undefined;
   joined: boolean;
   canOpen: ((row: T) => boolean) | undefined;
   rowHref: ((row: T) => string) | undefined;
   onOpen: ((row: T) => void) | undefined;
+  tone: ((row: T) => RowTone) | undefined;
   empty: ReactNode;
   footer: ReactNode;
 }>) {
@@ -380,12 +408,32 @@ function CardList<T extends Item>({
     rows.length === 0 ? null : (
       <ul aria-label={label} className={joined ? undefined : "flex flex-col gap-2.5"}>
         {rows.map((row) => (
-          <li key={row.id} className={joined ? "border-t first:border-t-0" : undefined}>
+          <li
+            key={row.id}
+            className={cn(
+              joined && "border-t first:border-t-0",
+              select !== undefined && "flex items-start pl-3.5",
+              joined && toneClass(tone?.(row)),
+            )}
+          >
+            {select === undefined ? null : (
+              <span className="flex flex-none pt-[21px]">
+                <BulkSelectRow
+                  item={row}
+                  name={select.name(row)}
+                  selection={select.selection}
+                />
+              </span>
+            )}
             <Opener
               row={row}
               rowHref={canOpen?.(row) === false ? undefined : rowHref}
               onOpen={canOpen?.(row) === false ? undefined : onOpen}
-              className={joined ? JOINED_ROW : STACKED_CARD}
+              className={cn(
+                joined ? JOINED_ROW : STACKED_CARD,
+                select !== undefined && "pl-3",
+                !joined && toneClass(tone?.(row)),
+              )}
             >
               {card(row)}
             </Opener>
@@ -400,6 +448,9 @@ function CardList<T extends Item>({
   if (joined) {
     return (
       <div data-slot="data-table" className="bg-card overflow-hidden rounded-xl border">
+        {select === undefined || rows.length === 0 ? null : (
+          <CardSelectPage rows={rows} select={select} />
+        )}
         {list}
         {none}
         {footer}
@@ -433,7 +484,10 @@ function CardList<T extends Item>({
  * marked `data-slot="data-table-select-page"`, where a screen can find it to
  * give focus back. `menuLabel` names a row's menu button, "Actions"
  * otherwise. Below 768px a table that has `card` renders a
- * list of cards instead, without checkboxes, menus or asides; `cards`, when
+ * list of cards instead, without menus or asides, and without checkboxes
+ * unless `selectCards` asks for them: then a joined list opens with a "Select
+ * page" row and each card has its checkbox before it; a card takes its
+ * row's `rowTone`; `cards`, when
  * a screen gives it, decides that in place of the window's width, for a table
  * that turns into cards by the width of the content. Content wider
  * than the table scrolls sideways inside it. Rows are dense when `dense`
@@ -461,6 +515,7 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
     card,
     cardLayout = "stacked",
     cards,
+    selectCards = false,
     framed = true,
     expansion,
     empty,
@@ -491,10 +546,12 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
         label={label}
         rows={rows}
         card={card}
+        select={selectCards ? select : undefined}
         joined={cardLayout === "joined"}
         canOpen={canOpen}
         rowHref={rowHref}
         onOpen={onOpen}
+        tone={rowTone}
         empty={empty}
         footer={footer}
       />

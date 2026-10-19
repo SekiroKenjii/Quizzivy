@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { act, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { http } from "msw";
+import { Toaster, toast } from "@/components/ui/sonner";
 import vi_ from "@/lib/i18n/locales/vi.json";
 import { useAuthStore } from "@/stores/auth";
 import { contractJson } from "@tests/support/contractResponse";
@@ -31,6 +32,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  toast.dismiss();
   useAuthStore.setState({ accessToken: null, user: null });
 });
 
@@ -114,6 +116,85 @@ describe("the bank's AI entry points", () => {
     await waitFor(() => expect(lists).toBeGreaterThan(1));
   });
 
+  it.each([
+    [[1, 0], "Đã thêm thẻ cho 1 câu"],
+    [[0, 0], ai.cleanup.nothingTagged],
+  ])(
+    "reports the questions the tag write changed, not the ones kept (%j)",
+    async (updated, sentence) => {
+      aiOn();
+      let call = 0;
+      server.use(
+        http.post(`${BANK_API}/teacher/ai/bank/cleanup`, () =>
+          contractJson("/teacher/ai/bank/cleanup", "post", 200, {
+            scanned: 2,
+            truncated: false,
+            duplicates: [],
+            tags: [
+              { questionId: Q1, prompt: "One?", tags: ["maps"] },
+              { questionId: Q2, prompt: "Two?", tags: ["grammar"] },
+            ],
+            usage: { credits: 900, left: 1000 },
+          }),
+        ),
+        http.post(`${BANK_API}/teacher/questions/tags`, () => {
+          const reply = { updated: updated[call] ?? 0 };
+          call += 1;
+          return contractJson("/teacher/questions/tags", "post", 200, reply);
+        }),
+      );
+      render(<Toaster />);
+      const { user } = renderBank();
+      await user.click(await screen.findByRole("button", { name: ai.entry.cleanup }));
+      const dialog = await screen.findByRole("dialog");
+      await user.click(within(dialog).getByRole("button", { name: ai.cleanup.run }));
+      await user.click(
+        await within(dialog).findByRole("button", { name: "Thêm thẻ cho 2 câu" }),
+      );
+      expect(await screen.findByText(sentence)).toBeVisible();
+      expect(call).toBe(2);
+    },
+  );
+
+  it("keep what a clean-up found when the drawer is closed, and a dismissed pair stays dismissed", async () => {
+    aiOn();
+    let runs = 0;
+    const pair = (why: string, a: string, b: string) => ({
+      a: { questionId: a, prompt: `${why} one`, usedInTests: 1 },
+      b: { questionId: b, prompt: `${why} other`, usedInTests: 0 },
+      why,
+    });
+    server.use(
+      http.post(`${BANK_API}/teacher/ai/bank/cleanup`, () => {
+        runs += 1;
+        return contractJson("/teacher/ai/bank/cleanup", "post", 200, {
+          scanned: 3,
+          truncated: false,
+          duplicates: [pair("Same map question.", Q1, Q2), pair("Same quiz.", Q2, Q3)],
+          tags: [],
+          usage: { credits: 900, left: 1000 },
+        });
+      }),
+    );
+    const { user } = renderBank();
+    await user.click(await screen.findByRole("button", { name: ai.entry.cleanup }));
+    let dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: ai.cleanup.run }));
+    await within(dialog).findByText("Same map question.");
+    await user.click(
+      within(dialog).getAllByRole("button", { name: ai.cleanup.keepBoth })[0]!,
+    );
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    await user.click(screen.getByRole("button", { name: ai.entry.cleanup }));
+    dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Same quiz.")).toBeVisible();
+    expect(within(dialog).queryByText("Same map question.")).toBeNull();
+    expect(within(dialog).queryByRole("button", { name: ai.cleanup.run })).toBeNull();
+    expect(runs).toBe(1);
+  });
+
   it("save generated questions to the bank, tagged", async () => {
     aiOn();
     const created: { tags: string[]; type: string }[] = [];
@@ -162,7 +243,7 @@ describe("the bank's AI entry points", () => {
       within(dialog).queryByRole("button", { name: ai.generate.startEmpty }),
     ).toBeNull();
     await user.type(
-      within(dialog).getByLabelText(ai.generate.source),
+      within(dialog).getByLabelText(ai.generate.topic),
       "Cities around the world are rethinking how they use open land.",
     );
     await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));

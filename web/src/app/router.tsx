@@ -386,7 +386,9 @@ const adminTree: RouteObject = {
                 permission: "scope.all",
                 width: 1320,
               },
-              lazy: pending,
+              lazy: page(
+                () => import("@/features/classes/pages/admin/AdminClassesPage"),
+              ),
             },
             {
               path: "ai",

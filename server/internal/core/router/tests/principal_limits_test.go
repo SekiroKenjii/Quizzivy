@@ -371,7 +371,7 @@ func TestEveryAuthenticatedCredentialMinterIsLimitedPerActorOnly(t *testing.T) {
 			t.Errorf("%s is still in RateLimits(): staff behind one address would share its budget", pattern)
 		}
 	})
-	for _, id := range []string{"ResetStudentPassword", "ResetUserPassword", "ResetUsersPasswords", "CreateStudent", "CreateUser", "RotateJoinCode", "GetJoinCode", "OpenDocsSession"} {
+	for _, id := range []string{"ResetStudentPassword", "ResetUserPassword", "ResetUsersPasswords", "CreateStudent", "CreateUser", "CreateUserImport", "DownloadUserImportSheet", "ListAllClasses", "RotateJoinCode", "GetJoinCode", "OpenDocsSession"} {
 		if !authenticated[id] {
 			t.Errorf("%s was not found among the minters behind a token: the walk is looking at the wrong thing", id)
 		}

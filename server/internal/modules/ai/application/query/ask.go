@@ -115,13 +115,20 @@ func (c *crash) Error() string {
 }
 
 func (s *session) callAll(ctx context.Context, calls []prompts.Prompt) []outcome {
+	return s.callEach(ctx, calls, len(calls))
+}
+
+func (s *session) callEach(ctx context.Context, calls []prompts.Prompt, inFlight int) []outcome {
 	outcomes := make([]outcome, len(calls))
 	crashes := make([]*crash, len(calls))
+	slots := make(chan struct{}, max(inFlight, 1))
 	var wg sync.WaitGroup
 	for i := range calls {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			slots <- struct{}{}
+			defer func() { <-slots }()
 			defer func() {
 				if recovered := recover(); recovered != nil {
 					crashes[i] = &crash{value: recovered, stack: debug.Stack()}
