@@ -1,6 +1,7 @@
 import { useId } from "react";
 import { Info } from "lucide-react";
 import { ChipsField } from "@/components/shared/form/fields/ChipsField";
+import { SelectField } from "@/components/shared/form/fields/SelectField";
 import { Segmented } from "@/components/ui/segmented";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,7 +13,7 @@ const LABEL = "text-sm font-medium";
 /**
  * AiPanelField draws one setup field of an AI panel as the deck does: a source
  * (its ready passages as pills above a textarea), toggle chips, a segmented
- * control, a switch on a bordered card, or an info note.
+ * control, a select, a switch on a bordered card, or an info note.
  */
 export function AiPanelField({ field }: Readonly<{ field: AiField }>) {
   const id = useId();
@@ -85,6 +86,21 @@ export function AiPanelField({ field }: Readonly<{ field: AiField }>) {
             onChange={field.onChange}
             scroll
             className="self-start [&>button]:px-3.5"
+          />
+        </div>
+      );
+    case "select":
+      return (
+        <div className="flex flex-col gap-2">
+          <label htmlFor={id} className={LABEL}>
+            {field.label}
+          </label>
+          <SelectField
+            id={id}
+            label={field.label}
+            value={field.value}
+            options={field.options}
+            onChange={field.onChange}
           />
         </div>
       );

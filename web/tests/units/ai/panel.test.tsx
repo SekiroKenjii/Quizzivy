@@ -415,8 +415,10 @@ describe("the Generate panel", () => {
       sections: [first, empty],
     });
     const { dialog, user } = await openPanel({ kind: "generate", context });
-    const sections = within(dialog).getByRole("group", { name: ai.generate.section });
-    await user.click(within(sections).getByRole("button", { name: empty.title }));
+    await user.click(
+      within(dialog).getByRole("combobox", { name: ai.generate.section }),
+    );
+    await user.click(await screen.findByRole("option", { name: empty.title }));
     expect(
       within(dialog).getByRole("switch", { name: /^Hợp với Phần 3: Thì động từ/ }),
     ).toBeChecked();
