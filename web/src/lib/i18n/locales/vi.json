@@ -1147,6 +1147,7 @@
       "notFound": "Không tìm thấy tài khoản này.",
       "noLinkKey": "Máy chủ chưa được cấu hình để gửi liên kết.",
       "rateLimited": "Bạn thao tác quá nhanh. Hãy thử lại sau ít phút.",
+      "rateLimitedSeconds_one": "Bạn thao tác quá nhanh. Hãy thử lại sau {{count}} giây.",
       "rateLimitedSeconds_other": "Bạn thao tác quá nhanh. Hãy thử lại sau {{count}} giây."
     }
   },
