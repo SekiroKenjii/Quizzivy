@@ -7,19 +7,22 @@ import { cn } from "@/lib/utils";
  * title, with an optional sentence under it and an optional `action` at the
  * end of the header, which a border separates from what the card holds.
  * The card adds no padding around `children`, so a list's rows can run to
- * its edges.
+ * its edges. `headerClassName` adjusts the header's own box, for a screen
+ * whose deck draws it tighter than the settings pages'.
  */
 export function SettingsCard({
   title,
   description,
   action,
   className,
+  headerClassName,
   children,
 }: Readonly<{
   title: string;
   description?: ReactNode;
   action?: ReactNode;
   className?: string | undefined;
+  headerClassName?: string | undefined;
   children: ReactNode;
 }>) {
   const id = useId();
@@ -28,7 +31,12 @@ export function SettingsCard({
       aria-labelledby={id}
       className={cn("bg-card shadow-card rounded-xl border", className)}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2.5 border-b px-4.5 py-4">
+      <div
+        className={cn(
+          "flex flex-wrap items-center justify-between gap-2.5 border-b px-4.5 py-4",
+          headerClassName,
+        )}
+      >
         <div className="min-w-0">
           <h2 id={id} className="text-md leading-normal font-semibold">
             {title}
