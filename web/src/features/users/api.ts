@@ -272,7 +272,7 @@ export function transferUserContent(id: string, toUserId: string, notify: boolea
 
 /** UserActionFailure is one account a bulk action did not reach, and why. */
 export type UserActionFailure = components["schemas"]["UserActionFailure"];
-/** UserPasswordReset is one account a bulk reset reached, with its temporary password when one was asked for. */
+/** UserPasswordReset is one account a reset reached, with its temporary password when one was asked for. */
 export type UserPasswordReset = components["schemas"]["UserPasswordReset"];
 
 /** BULK_LIMIT is the most accounts one bulk call names. */
@@ -295,5 +295,26 @@ export function resetUsersPasswords(
 ) {
   return api("post", "/admin/users/reset-passwords", {
     body: { userIds: [...userIds], delivery },
+  });
+}
+
+/** ClassChoice is a class the Admin can add an account to, with its teacher. */
+export type ClassChoice = components["schemas"]["AdminClassRow"];
+
+/**
+ * classChoicesQuery lists the first ten classes that are not archived whose
+ * name or teacher matches `q` (`GET /admin/classes`, which needs `scope.all`),
+ * newest first.
+ */
+export function classChoicesQuery(q: string) {
+  return queryOptions({
+    queryKey: ["class-choices", q] as const,
+    queryFn: async ({ signal }) => {
+      const page = await api("get", "/admin/classes", {
+        query: { tab: "active", limit: 10, ...(q === "" ? {} : { q }) },
+        signal,
+      });
+      return page.items;
+    },
   });
 }

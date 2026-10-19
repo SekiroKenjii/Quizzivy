@@ -1,19 +1,22 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { KeyRound, UserX } from "lucide-react";
+import { GraduationCap, KeyRound, UserX } from "lucide-react";
 import { BulkActions, BulkBarButton } from "@/components/shared/BulkActions";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { toast } from "@/components/ui/sonner";
+import { useCan } from "@/features/auth/permissions";
 import {
   BULK_LIMIT,
   BULK_TEMPORARY_LIMIT,
   disableUsers,
   resetUsersPasswords,
   type AdminUser,
+  type ClassChoice,
   type UserActionFailure,
   type UserDelivery,
   type UserPasswordReset,
 } from "@/features/users/api";
+import { AddToClassDialog } from "@/features/users/components/AddToClassDialog";
 import {
   CredentialResult,
   type BulkFailure,
@@ -21,14 +24,21 @@ import {
 import { DeliveryChoice } from "@/features/users/components/DeliveryChoice";
 import { refusalText } from "@/features/users/userText";
 
-type Acting = "reset" | "disable" | null;
+type Acting = "reset" | "disable" | "class" | null;
 
 type Result = Readonly<{
-  kind: "reset" | "disable";
+  kind: "reset" | "disable" | "class";
   credentials: readonly UserPasswordReset[];
   sent: number;
   failures: readonly BulkFailure[];
 }>;
+
+const RESULT_ICONS = { reset: KeyRound, disable: UserX, class: GraduationCap } as const;
+const RESULT_TITLES = {
+  reset: "users.bulk.resetDoneTitle",
+  disable: "users.bulk.disabledTitle",
+  class: "users.bulk.addedTitle",
+} as const;
 
 function named(
   failed: readonly UserActionFailure[],
@@ -46,7 +56,8 @@ function named(
  * UsersBulkBar is the Users screen's bar while accounts are selected, on any
  * page: Reset password, a confirmation with the delivery choice (a link by
  * default, at most 40 for temporary passwords), and Disable, a danger
- * confirmation, each one call for at most 100 accounts. The temporary
+ * confirmation, each one call for at most 100 accounts. With `scope.all`
+ * and `teaching.classes.write`, Add to class puts them in one class. The temporary
  * passwords are shown once in CredentialResult, which also names every
  * account a call did not reach and why. The accounts a call reached leave the
  * selection (`onReached`); those it did not stay selected. `onSettled`
@@ -71,6 +82,9 @@ export function UsersBulkBar({
   const [result, setResult] = useState<Result | null>(null);
   const count = selected.length;
   const tooMany = delivery === "temporary_password" && count > BULK_TEMPORARY_LIMIT;
+  const seesAll = useCan("scope.all");
+  const writesClasses = useCan("teaching.classes.write");
+  const enrols = seesAll && writesClasses;
 
   function open(next: Exclude<Acting, null>) {
     if (count > BULK_LIMIT) {
@@ -88,10 +102,18 @@ export function UsersBulkBar({
     setError(null);
   }
 
-  async function settle(failed: readonly UserActionFailure[]) {
+  async function settle(failed: readonly Pick<UserActionFailure, "userId">[]) {
     const missed = new Set(failed.map((failure) => failure.userId));
     onReached(selected.filter((user) => !missed.has(user.id)).map((user) => user.id));
     await onSettled().catch(() => toast(t("common.refreshFailed")));
+  }
+
+  async function added(choice: ClassChoice, failures: BulkFailure[]) {
+    setActing(null);
+    if (failures.length === 0)
+      toast.success(t("users.bulk.added", { count, name: choice.name }));
+    else setResult({ kind: "class", credentials: [], sent: 0, failures });
+    await settle(failures);
   }
 
   async function reset() {
@@ -154,6 +176,15 @@ export function UsersBulkBar({
         <BulkBarButton icon={KeyRound} pending={pending} onClick={() => open("reset")}>
           {t("users.bulk.reset")}
         </BulkBarButton>
+        {enrols ? (
+          <BulkBarButton
+            icon={GraduationCap}
+            pending={pending}
+            onClick={() => open("class")}
+          >
+            {t("users.bulk.addToClass")}
+          </BulkBarButton>
+        ) : null}
         <BulkBarButton icon={UserX} pending={pending} onClick={() => open("disable")}>
           {t("users.bulk.disable")}
         </BulkBarButton>
@@ -195,14 +226,16 @@ export function UsersBulkBar({
         error={error}
         onConfirm={() => void disable()}
       />
+      <AddToClassDialog
+        open={acting === "class"}
+        selected={selected}
+        onClose={close}
+        onFinished={(choice, failures) => void added(choice, failures)}
+      />
       <CredentialResult
         open={result !== null}
-        icon={result?.kind === "disable" ? UserX : KeyRound}
-        title={
-          result?.kind === "disable"
-            ? t("users.bulk.disabledTitle")
-            : t("users.bulk.resetDoneTitle")
-        }
+        icon={RESULT_ICONS[result?.kind ?? "reset"]}
+        title={t(RESULT_TITLES[result?.kind ?? "reset"])}
         credentials={result?.credentials ?? []}
         sent={result?.sent ?? 0}
         failures={result?.failures ?? []}

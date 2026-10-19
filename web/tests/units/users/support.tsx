@@ -182,3 +182,49 @@ export async function lastQuery(asked: readonly URLSearchParams[]) {
   await waitFor(() => expect(asked.length).toBeGreaterThan(0));
   return asked.at(-1)!;
 }
+
+export type ClassRow = components["schemas"]["AdminClassRow"];
+
+/** classRow is an active class `name` taught by `teacher`, with no join code. */
+export function classRow(n: string, name: string, teacher: string): ClassRow {
+  return {
+    id: `018f0000-0000-7000-8000-c${n.padStart(11, "0")}`,
+    name,
+    scheduleLabel: null,
+    room: null,
+    teacher: {
+      id: `018f0000-0000-7000-8000-d${n.padStart(11, "0")}`,
+      name: teacher,
+      avatarUrl: null,
+      disabled: false,
+    },
+    studentCount: 0,
+    joinCode: null,
+    createdAt: "2026-09-01T08:00:00Z",
+  };
+}
+
+/** serveClasses answers `GET /admin/classes` from `rows`, searched by class or teacher name. */
+export function serveClasses(rows: readonly ClassRow[], seen: string[] = []) {
+  server.use(
+    http.get(`${BASE}/admin/classes`, ({ request }) => {
+      const url = new URL(request.url);
+      seen.push(url.search);
+      const q = (url.searchParams.get("q") ?? "").toLowerCase();
+      const items = rows.filter(
+        (row) =>
+          q === "" ||
+          row.name.toLowerCase().includes(q) ||
+          row.teacher.name.toLowerCase().includes(q),
+      );
+      return contractJson("/admin/classes", "get", 200, {
+        items,
+        total: items.length,
+        page: 1,
+        pageSize: 10,
+        facets: { active: items.length, archived: 0 },
+        disabledTeacherClasses: 0,
+      });
+    }),
+  );
+}

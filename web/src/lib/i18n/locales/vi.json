@@ -1132,7 +1132,9 @@
       "submit": "Tạo tài khoản",
       "failed": "Không tạo được tài khoản.",
       "linkSent": "Đã tạo tài khoản và gửi liên kết tới {{email}}",
-      "done": "Mật khẩu tạm thời của {{name}}"
+      "done": "Mật khẩu tạm thời của {{name}}",
+      "class": "Thêm vào lớp (không bắt buộc)",
+      "classGone": "Lớp này không còn nhận học viên. Hãy chọn lớp khác."
     },
     "error": {
       "targetRoleNotAllowed": "Bạn không thể thao tác trên tài khoản hoặc vai trò có quyền mà bạn không có.",
@@ -1166,8 +1168,16 @@
       "notReached_one": "{{count}} người chưa được xử lý",
       "notReached_other": "{{count}} người chưa được xử lý",
       "reason": {
-        "internal": "Đã có lỗi ở phía chúng tôi. Hãy thử lại."
+        "internal": "Đã có lỗi ở phía chúng tôi. Hãy thử lại.",
+        "notAStudent": "Chỉ thêm được học viên đang hoạt động."
       }
+    },
+    "classPicker": {
+      "label": "Lớp",
+      "search": "Tìm theo tên lớp hoặc giáo viên",
+      "none": "Chưa vào lớp nào",
+      "empty": "Không có lớp nào khớp.",
+      "failed": "Không tải được danh sách lớp. Hãy thử lại."
     },
     "bulk": {
       "reset": "Đặt lại mật khẩu",
@@ -1188,7 +1198,16 @@
       "disableSubmit": "Vô hiệu hoá",
       "disabled_one": "Đã vô hiệu hoá {{count}} tài khoản",
       "disabled_other": "Đã vô hiệu hoá {{count}} tài khoản",
-      "disabledTitle": "Kết quả vô hiệu hoá"
+      "disabledTitle": "Kết quả vô hiệu hoá",
+      "addToClass": "Thêm vào lớp",
+      "addToClassTitle_one": "Thêm {{count}} người vào một lớp",
+      "addToClassTitle_other": "Thêm {{count}} người vào một lớp",
+      "addToClassBody": "Chỉ học viên đang hoạt động được thêm. Người đã ở trong lớp giữ nguyên.",
+      "addToClassSubmit": "Thêm vào lớp",
+      "addToClassPick": "Hãy chọn một lớp.",
+      "added_one": "Đã thêm {{count}} người vào {{name}}",
+      "added_other": "Đã thêm {{count}} người vào {{name}}",
+      "addedTitle": "Kết quả thêm vào lớp"
     }
   },
   "systemSettings": {

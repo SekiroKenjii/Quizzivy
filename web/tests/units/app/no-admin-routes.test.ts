@@ -40,6 +40,7 @@ const ALLOWED_LITERALS = new Set([
   "/admin/roles/assignable",
   "/admin/users/disable",
   "/admin/users/reset-passwords",
+  "/admin/classes",
   "/admin/settings/sign-in",
   "/admin/settings/logo",
   "/admin/settings/sign-in-impact",

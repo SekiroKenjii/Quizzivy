@@ -1132,7 +1132,9 @@
       "submit": "Create account",
       "failed": "The account could not be created.",
       "linkSent": "Account created and a link sent to {{email}}",
-      "done": "Temporary password for {{name}}"
+      "done": "Temporary password for {{name}}",
+      "class": "Add to class (optional)",
+      "classGone": "This class no longer takes students. Pick another one."
     },
     "error": {
       "targetRoleNotAllowed": "You cannot act on an account or role that holds a permission you do not have.",
@@ -1166,8 +1168,16 @@
       "notReached_one": "{{count}} person was not changed",
       "notReached_other": "{{count}} people were not changed",
       "reason": {
-        "internal": "Something went wrong on our side. Try again."
+        "internal": "Something went wrong on our side. Try again.",
+        "notAStudent": "Only active students can be added."
       }
+    },
+    "classPicker": {
+      "label": "Class",
+      "search": "Search by class or teacher name",
+      "none": "No class yet",
+      "empty": "No class matches.",
+      "failed": "The classes could not be loaded. Try again."
     },
     "bulk": {
       "reset": "Reset password",
@@ -1188,7 +1198,16 @@
       "disableSubmit": "Disable",
       "disabled_one": "{{count}} account disabled",
       "disabled_other": "{{count}} accounts disabled",
-      "disabledTitle": "Disable results"
+      "disabledTitle": "Disable results",
+      "addToClass": "Add to class",
+      "addToClassTitle_one": "Add {{count}} person to a class",
+      "addToClassTitle_other": "Add {{count}} people to a class",
+      "addToClassBody": "Only active students are added. Anyone already in the class stays as they are.",
+      "addToClassSubmit": "Add to class",
+      "addToClassPick": "Pick a class.",
+      "added_one": "{{count}} added to {{name}}",
+      "added_other": "{{count}} added to {{name}}",
+      "addedTitle": "Add to class results"
     }
   },
   "systemSettings": {

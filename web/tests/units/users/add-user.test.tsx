@@ -4,13 +4,16 @@ import { http, HttpResponse } from "msw";
 import { toast } from "@/components/ui/sonner";
 import type { components } from "@/lib/api/schema";
 import { contractJson } from "@tests/support/contractResponse";
+import { adminUser } from "@tests/support/fixtures";
 import { server } from "@tests/support/server";
 import {
   ADMIN_ROLE,
   BASE,
   STUDENT_ROLE,
   TEACHER_ROLE,
+  classRow,
   renderUsers,
+  serveClasses,
   serveUsers,
   table,
   user,
@@ -29,6 +32,7 @@ const ROLES: components["schemas"]["AssignableRole"][] = [
 const TAKEN = user("9", "Phạm Minh", { email: "minh@example.com" });
 
 function serveCreate(sent: unknown[]) {
+  serveClasses([]);
   server.use(
     http.get(`${BASE}/admin/roles/assignable`, () =>
       contractJson("/admin/roles/assignable", "get", 200, ROLES),
@@ -241,5 +245,91 @@ describe("Users: Add user after QC (#724)", () => {
         "user=018f0000-0000-7000-8000-000000000005",
       ),
     );
+  });
+});
+
+describe("Users: Add user's class (T-R5.22a)", () => {
+  const CLASS = classRow("1", "IELTS 6.5 Tối", "Lê Thu");
+
+  async function fill(
+    actor: ReturnType<typeof renderUsers>["user"],
+    dialog: HTMLElement,
+  ) {
+    await actor.type(within(dialog).getByLabelText("Họ và tên"), "Đỗ Hà");
+    await actor.type(within(dialog).getByLabelText("Email"), "ha@example.com");
+  }
+
+  it("adds a new student to the class picked, and to none by default", async () => {
+    const sent: components["schemas"]["UserCreate"][] = [];
+    serveUsers([TAKEN]);
+    serveCreate(sent);
+    serveClasses([CLASS]);
+    const { user: actor, dialog } = await openAdd();
+    await fill(actor, dialog);
+    const field = await within(dialog).findByRole("radiogroup", {
+      name: "Thêm vào lớp (không bắt buộc)",
+    });
+    expect(
+      within(field).getByRole("radio", { name: "Chưa vào lớp nào" }),
+    ).toBeChecked();
+    await actor.click(
+      await within(field).findByRole("radio", { name: /IELTS 6.5 Tối/ }),
+    );
+    const create = within(dialog).getByRole("button", { name: "Tạo tài khoản" });
+    await waitFor(() => expect(create).not.toHaveAttribute("aria-disabled"));
+    await actor.click(create);
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toMatchObject({ roleId: STUDENT_ROLE.id, classId: CLASS.id });
+  });
+
+  it("sends no class when none is picked", async () => {
+    const sent: components["schemas"]["UserCreate"][] = [];
+    serveUsers([TAKEN]);
+    serveCreate(sent);
+    serveClasses([CLASS]);
+    const { user: actor, dialog } = await openAdd();
+    await fill(actor, dialog);
+    const create = within(dialog).getByRole("button", { name: "Tạo tài khoản" });
+    await waitFor(() => expect(create).not.toHaveAttribute("aria-disabled"));
+    await actor.click(create);
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).not.toHaveProperty("classId");
+  });
+
+  it("offers no class for a teacher role", async () => {
+    serveUsers([TAKEN]);
+    serveCreate([]);
+    serveClasses([CLASS]);
+    const { user: actor, dialog } = await openAdd();
+    await within(dialog).findByRole("radiogroup", {
+      name: "Thêm vào lớp (không bắt buộc)",
+    });
+    await actor.click(within(dialog).getByRole("button", { name: "Giáo viên" }));
+    expect(
+      within(dialog).queryByRole("radiogroup", {
+        name: "Thêm vào lớp (không bắt buộc)",
+      }),
+    ).toBeNull();
+  });
+
+  it("offers no class to a caller without scope.all", async () => {
+    serveUsers([TAKEN]);
+    serveCreate([]);
+    serveClasses([CLASS]);
+    const view = renderUsers("/admin/users", 1280, {
+      ...adminUser,
+      permissions: adminUser.permissions.filter((key) => key !== "scope.all"),
+    });
+    await table();
+    await view.user.click(screen.getByRole("button", { name: "Thêm người dùng" }));
+    const dialog = await screen.findByRole("dialog", { name: "Thêm người dùng" });
+    expect(
+      await within(dialog).findByRole("button", { name: "Học viên" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      within(dialog).queryByRole("radiogroup", {
+        name: "Thêm vào lớp (không bắt buộc)",
+      }),
+    ).toBeNull();
   });
 });

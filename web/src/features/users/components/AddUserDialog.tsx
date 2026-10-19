@@ -11,15 +11,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
+import { useCan } from "@/features/auth/permissions";
 import {
   USERS_KEY,
   assignableRolesQuery,
   createUser,
   emailTakenQuery,
   type AssignableRole,
+  type ClassChoice,
   type UserDelivery,
   type UserPasswordReset,
 } from "@/features/users/api";
+import { ClassPicker } from "@/features/users/components/ClassPicker";
 import { CredentialResult } from "@/features/users/components/CredentialResult";
 import { DeliveryChoice } from "@/features/users/components/DeliveryChoice";
 import { RolePicker } from "@/features/users/components/RolePicker";
@@ -39,12 +42,43 @@ function defaultRole(roles: readonly AssignableRole[]): string {
   return (roles.find((role) => role.builtinKey === "student") ?? roles[0])?.id ?? "";
 }
 
+function refusalOf(cause: unknown, classSent: boolean): "email" | "class" | null {
+  if (!(cause instanceof ApiError)) return null;
+  if (cause.code === "EMAIL_TAKEN") return "email";
+  return classSent && cause.status === 404 ? "class" : null;
+}
+
+function ClassField({
+  offered,
+  value,
+  onChange,
+}: Readonly<{
+  offered: boolean;
+  value: ClassChoice | null;
+  onChange: (choice: ClassChoice | null) => void;
+}>) {
+  const { t } = useTranslation();
+  if (!offered) return null;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-meta font-medium">{t("users.addUser.class")}</span>
+      <ClassPicker
+        label={t("users.addUser.class")}
+        value={value}
+        none={t("users.classPicker.none")}
+        onChange={onChange}
+      />
+    </div>
+  );
+}
+
 /**
  * AddUserDialog is the deck's "Add user", 480px: Full name, Email, which says
  * "Nhập đầy đủ địa chỉ email" for a partial address and, after a 300 ms
  * pause, "Email này đã có người dùng" when an account already uses it, the
- * role among those the caller may give, and how the password reaches the
- * person. Create answers `aria-disabled` until the form is valid. A
+ * role among those the caller may give, for a student role and a caller with
+ * `scope.all` the class to add them to (none by default), and how the
+ * password reaches the person. Create answers `aria-disabled` until the form is valid. A
  * temporary password is shown once in CredentialResult; then, or at once for
  * an emailed link, `onCreated` opens the new account.
  */
@@ -72,6 +106,8 @@ export function AddUserDialog({
   const [error, setError] = useState<string | null>(null);
   const [takenOnSubmit, setTakenOnSubmit] = useState<string | null>(null);
   const [created, setCreated] = useState<UserPasswordReset | null>(null);
+  const [classChoice, setClassChoice] = useState<ClassChoice | null>(null);
+  const seesAll = useCan("scope.all");
   const emailField = useRef<HTMLInputElement>(null);
 
   const typedEmail = email.trim();
@@ -85,6 +121,9 @@ export function AddUserDialog({
     (taken.data === true && settled === typedEmail) ||
     takenOnSubmit?.toLowerCase() === typedEmail.toLowerCase();
   const roleId = picked === "" ? defaultRole(roles.data ?? []) : picked;
+  const classOffered =
+    seesAll && roles.data?.find((role) => role.id === roleId)?.studentTarget === true;
+  const classId = classOffered ? classChoice?.id : undefined;
   const valid = fullName.trim() !== "" && emailOk && !emailTaken && roleId !== "";
   let emailError: string | null = null;
   if (emailTouched && typedEmail !== "" && !emailOk)
@@ -99,12 +138,28 @@ export function AddUserDialog({
     setDelivery("email_link");
     setError(null);
     setTakenOnSubmit(null);
+    setClassChoice(null);
   }
 
   function close() {
     if (pending) return;
     reset();
     onOpenChange(false);
+  }
+
+  function refused(cause: unknown) {
+    const refusal = refusalOf(cause, classId !== undefined);
+    if (refusal === "email") {
+      setTakenOnSubmit(typedEmail);
+      emailField.current?.focus();
+      return;
+    }
+    if (refusal === "class") {
+      setClassChoice(null);
+      setError(t("users.addUser.classGone"));
+      return;
+    }
+    setError(refusalText(cause, t, t("users.addUser.failed")));
   }
 
   async function submit(event: SubmitEvent<HTMLFormElement>) {
@@ -119,6 +174,7 @@ export function AddUserDialog({
         email: typedEmail,
         roleId,
         delivery,
+        ...(classId === undefined ? {} : { classId }),
       });
       void client.invalidateQueries({ queryKey: USERS_KEY });
       reset();
@@ -135,10 +191,7 @@ export function AddUserDialog({
         });
       }
     } catch (cause) {
-      if (cause instanceof ApiError && cause.code === "EMAIL_TAKEN") {
-        setTakenOnSubmit(typedEmail);
-        emailField.current?.focus();
-      } else setError(refusalText(cause, t, t("users.addUser.failed")));
+      refused(cause);
     } finally {
       setPending(false);
     }
@@ -225,6 +278,11 @@ export function AddUserDialog({
                 />
               )}
             </div>
+            <ClassField
+              offered={classOffered}
+              value={classChoice}
+              onChange={setClassChoice}
+            />
             <div className="flex flex-col gap-1.5">
               <span className="text-meta font-medium">{t("users.delivery.label")}</span>
               <DeliveryChoice value={delivery} onChange={setDelivery} />
