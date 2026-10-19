@@ -105,6 +105,7 @@ import {
 import { GroupPickerDialog } from "../../components/GroupPickerDialog";
 import { BuilderWrites } from "../../BuilderWrites";
 import { BuilderAiActions, type BuilderAi } from "../../components/BuilderAiActions";
+import { aiPassagesIn, aiSections } from "../../aiSections";
 import {
   editableOutline,
   findMember,
@@ -433,11 +434,14 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     }
   }
 
-  function appendQuestions(added: readonly string[]) {
+  function appendQuestions(added: readonly string[], sectionId?: string) {
     const first = added[0];
     if (first === undefined) return;
     const current = latestOutline.current;
-    const last = destinationIndex();
+    const named = sectionId
+      ? current.findIndex((section) => section.id === sectionId)
+      : -1;
+    const last = named < 0 ? destinationIndex() : named;
     updateOutline(
       current.map((section, i) =>
         i === last
@@ -451,7 +455,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     void selectQuestion(first);
   }
 
-  async function addGenerated(values: QuestionValues[]) {
+  async function addGenerated(values: QuestionValues[], sectionId?: string) {
     const ids: string[] = [];
     try {
       for (const value of values) {
@@ -460,7 +464,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         ids.push(created.id);
       }
     } finally {
-      appendQuestions(ids);
+      appendQuestions(ids, sectionId);
       void queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
     }
   }
@@ -1027,18 +1031,30 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   const ai: BuilderAi = {
     testId: test.id,
     title: title.trim() || t("tests.untitled"),
-    passages: groupIds.flatMap((groupId) => {
-      const bundle = groups.get(groupId);
-      if (!bundle) return [];
-      const group = { id: groupId, title: bundle.group.title || t("groups.newGroup") };
-      return bundle.group.stimuli.flatMap((stimulus) => {
-        const text = contentPlainText(stimulus.content).trim();
-        return text === ""
-          ? []
-          : [{ id: stimulus.id, title: stimulus.title, text, group }];
-      });
-    }),
+    passages: aiPassagesIn(
+      groupIds.flatMap((groupId) => {
+        const bundle = groups.get(groupId);
+        if (!bundle) return [];
+        const group = {
+          id: groupId,
+          title: bundle.group.title || t("groups.newGroup"),
+        };
+        return bundle.group.stimuli.flatMap((stimulus) => {
+          const text = contentPlainText(stimulus.content).trim();
+          return text === ""
+            ? []
+            : [{ id: stimulus.id, title: stimulus.title, text, group }];
+        });
+      }),
+      sections,
+    ),
     section: sections[destinationIndex()]?.title ?? null,
+    sectionId: sections[destinationIndex()]?.id ?? null,
+    sections: aiSections(
+      sections,
+      groups,
+      (questionId) => loaded[questionIds.indexOf(questionId)]?.data,
+    ),
     prepare: async () => {
       setPublishError(null);
       await flushQuestion.current?.();

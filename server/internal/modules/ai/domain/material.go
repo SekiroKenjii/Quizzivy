@@ -6,6 +6,19 @@ type Passage struct {
 	Text  string
 }
 
+// SectionQuestion is the type and prompt of one question already in a section, standalone or a group's member.
+type SectionQuestion struct {
+	Type   string
+	Prompt string
+}
+
+// Section is one section of a test's draft as the assistant reads it to write more questions for it: its title, its instructions, and the questions already in it in the order the builder shows them, without their keys.
+type Section struct {
+	Title        string
+	Instructions string
+	Questions    []SectionQuestion
+}
+
 // Option is one option of a choice question.
 type Option struct {
 	ID      string
