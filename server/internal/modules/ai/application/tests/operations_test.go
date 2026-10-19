@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -102,6 +103,7 @@ type reads struct {
 
 	passage   domain.Passage
 	paper     domain.Paper
+	section   domain.Section
 	question  domain.Question
 	bank      domain.Bank
 	answer    domain.GradedAnswer
@@ -126,6 +128,10 @@ func (r *reads) Passage(_ context.Context, scope access.Scope, _, _ string) (dom
 
 func (r *reads) Draft(_ context.Context, scope access.Scope, _ string) (domain.Paper, error) {
 	return r.paper, r.note("draft", scope)
+}
+
+func (r *reads) Section(_ context.Context, scope access.Scope, _, _ string) (domain.Section, error) {
+	return r.section, r.note("section", scope)
 }
 
 func (r *reads) Get(_ context.Context, scope access.Scope, _ string) (domain.Question, error) {
@@ -171,6 +177,7 @@ func newOps(t *testing.T, configured bool) ops {
 	r := &reads{
 		prefs:   domain.Preferences{Language: domain.English, ReadStudentAnswers: true},
 		passage: domain.Passage{Title: "Passage 1", Text: sourceText},
+		section: domain.Section{Title: "Part 2: Past tenses", Instructions: "Choose the correct form.", Questions: []domain.SectionQuestion{{Type: "single_choice", Prompt: "Choose the past form of go."}}},
 		paper: domain.Paper{Questions: []domain.PaperQuestion{{
 			ID: "0198f5f0-0000-7000-8000-0000000000b1", Number: 1, Type: "single_choice", Prompt: "What did planners see parks as?",
 			Options: []domain.Option{{ID: "0198f5f0-0000-7000-8000-0000000000c1", Text: "Decoration", Correct: true}, {ID: "0198f5f0-0000-7000-8000-0000000000c2", Text: "Roads"}, {ID: "0198f5f0-0000-7000-8000-0000000000c3", Text: "Cars"}},
@@ -244,6 +251,12 @@ func operations() []operation {
 		}},
 		{"cleanup", domain.FeatureCleanup, ports.TierFast, func(o ops) (domain.Usage, error) {
 			got, err := o.app.Queries.Cleanup.Handle(context.Background(), query.Cleanup{Actor: teacher, Checks: []string{"duplicates", "tags"}})
+			return got.Usage, err
+		}},
+		{"generate_section", domain.FeatureGenerate, ports.TierCapable, func(o ops) (domain.Usage, error) {
+			got, err := o.app.Queries.Generate.Handle(context.Background(), query.Generate{
+				Actor: teacher, Standalone: true, TestID: "t-1", SectionID: "sec-1", Types: []string{"single_choice"}, Count: 3, Level: "b2", Explanations: true, Language: domain.English,
+			})
 			return got.Usage, err
 		}},
 	}
@@ -538,6 +551,76 @@ func TestGenerateNeedsExactlyOneSourceOfAFewSentences(t *testing.T) {
 	}
 }
 
+func TestStandaloneGenerateNamesATopicOrASectionOfATest(t *testing.T) {
+	base := query.Generate{Actor: teacher, Standalone: true, Types: []string{"single_choice"}, Count: 3, Level: "b1", Language: domain.English}
+	for name, c := range map[string]struct {
+		mod    func(q *query.Generate)
+		fields []string
+	}{
+		"nothing":                   {func(*query.Generate) {}, []string{"source"}},
+		"a topic too short":         {func(q *query.Generate) { q.Source = " a " }, []string{"source"}},
+		"a passage":                 {func(q *query.Generate) { q.TestID, q.StimulusID = "t", "s" }, []string{"stimulusId"}},
+		"a section without a test":  {func(q *query.Generate) { q.SectionID = "sec" }, []string{"testId"}},
+		"a test without a section":  {func(q *query.Generate) { q.Source, q.TestID = "past tenses", "t" }, []string{"sectionId"}},
+		"a section with a 2-letter": {func(q *query.Generate) { q.TestID, q.SectionID, q.Source = "t", "sec", "ab" }, []string{"source"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			o := newOps(t, true)
+			q := base
+			c.mod(&q)
+			_, err := o.app.Queries.Generate.Handle(context.Background(), q)
+			if got := refusedFields(t, err); strings.Join(got, ",") != strings.Join(c.fields, ",") {
+				t.Errorf("refused %v, want %v", got, c.fields)
+			}
+			if len(o.repo.reserved) != 0 {
+				t.Errorf("reserved %d after a refusal", len(o.repo.reserved))
+			}
+		})
+	}
+
+	o := newOps(t, true)
+	q := base
+	q.TestID, q.SectionID = "t", "sec"
+	q.Standalone = false
+	if _, err := o.app.Queries.Generate.Handle(context.Background(), q); !slices.Equal(refusedFields(t, err), []string{"sectionId"}) {
+		t.Errorf("a section without standalone: %v, want sectionId refused", err)
+	}
+
+	o = newOps(t, true)
+	o.reads.section = domain.Section{Title: "Part 3"}
+	q = base
+	q.TestID, q.SectionID = "t", "sec"
+	if _, err := o.app.Queries.Generate.Handle(context.Background(), q); !slices.Equal(refusedFields(t, err), []string{"source"}) || len(o.repo.reserved) != 0 {
+		t.Errorf("an empty section and no topic: %v, reserved %d; want source refused before a reservation", err, len(o.repo.reserved))
+	}
+
+	o = newOps(t, true)
+	q = base
+	q.Source = "past simple of irregular verbs"
+	if _, err := o.app.Queries.Generate.Handle(context.Background(), q); err != nil {
+		t.Fatal(err)
+	}
+	if o.reads.called() != "" || !strings.Contains(o.completer.text(), "past simple of irregular verbs") || !strings.Contains(o.completer.text(), "stands alone") {
+		t.Errorf("read %q, sent %q; want the topic sent with the standalone rules and nothing read", o.reads.called(), o.completer.text())
+	}
+
+	o = newOps(t, true)
+	q = base
+	q.TestID, q.SectionID, q.Source = "t", "sec", "irregular verbs"
+	if _, err := o.app.Queries.Generate.Handle(context.Background(), q); err != nil {
+		t.Fatal(err)
+	}
+	sent := o.completer.text()
+	for _, want := range []string{"irregular verbs", "Part 2: Past tenses", "Choose the correct form.", "[single_choice] Choose the past form of go.", "do not repeat"} {
+		if !strings.Contains(sent, want) {
+			t.Errorf("the prompt lacks %q:\n%s", want, sent)
+		}
+	}
+	if o.reads.called() != "section" {
+		t.Errorf("read %q, want the section", o.reads.called())
+	}
+}
+
 func TestAnOperationThatNeedsThePreferredLanguageReadsItOnlyWhenTheRequestNamesNone(t *testing.T) {
 	o := newOps(t, true)
 	o.reads.prefs.Language = domain.Vietnamese
@@ -575,7 +658,7 @@ func mentions(text, token string) bool {
 
 func TestNoIdentifierOfAPersonOrARecordReachesAPromptButTheContentDoes(t *testing.T) {
 	content := map[string]string{
-		"generate": "Cities around the world", "check": "What did planners see parks as?", "variant": "What did planners see parks as?",
+		"generate": "Cities around the world", "generate_section": "Choose the past form of go.", "check": "What did planners see parks as?", "variant": "What did planners see parks as?",
 		"explanation": "She ___ in Hanoi", "distractors": "has lived", "score": "green space", "insights": "parks", "cleanup": "Name one park",
 	}
 	for _, op := range operations() {

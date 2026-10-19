@@ -306,14 +306,105 @@ describe("the Generate panel", () => {
       kind: "generate",
       context: generateContext({ passages: [] }),
     });
+    await user.click(
+      within(dialog).getByRole("button", { name: ai.generate.styles.passage }),
+    );
     const source = within(dialog).getByLabelText(ai.generate.source);
     await user.type(source, `${PASSAGE} A topic.`);
     await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
     await within(dialog).findByText("What do cities rethink?");
     expect(body["source"]).toBe(`${PASSAGE} A topic.`);
     expect(body["testId"]).toBeUndefined();
+    expect(body["standalone"]).toBeUndefined();
     expect(body["language"]).toBe("en");
     expect(within(dialog).queryByText(ai.draftTag)).toBeNull();
+  });
+
+  it("is standalone where no passage is offered, asking for a topic of a few letters", async () => {
+    let body: Record<string, unknown> = {};
+    server.use(
+      http.post(`${BASE}/teacher/ai/questions/generate`, async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return contractJson("/teacher/ai/questions/generate", "post", 200, {
+          items: generated.slice(0, 1),
+          usage: { credits: 900, left: 100 },
+        });
+      }),
+    );
+    const context = generateContext({ passages: [], destination: { kind: "bank" } });
+    const { dialog, user } = await openPanel({ kind: "generate", context });
+    expect(
+      within(dialog).getByRole("button", { name: ai.generate.styles.standalone }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(within(dialog).queryByRole("switch", { name: /^Hợp với/ })).toBeNull();
+    const topic = within(dialog).getByLabelText(ai.generate.topic);
+    await user.type(topic, "ab");
+    expect(within(dialog).getByText(ai.generate.needTopic)).toBeVisible();
+    expect(
+      within(dialog).getByRole("button", { name: ai.generate.run }),
+    ).toBeDisabled();
+    await user.type(topic, "c phrasal verbs ");
+    await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
+    await within(dialog).findByText("What do cities rethink?");
+    expect(body).toMatchObject({ standalone: true, source: "abc phrasal verbs" });
+    expect(body["testId"]).toBeUndefined();
+    expect(body["sectionId"]).toBeUndefined();
+  });
+
+  it("fits a standalone run to the section, needs a topic only when the switch is off, and adds to that section", async () => {
+    let body: Record<string, unknown> = {};
+    server.use(
+      http.post(`${BASE}/teacher/ai/questions/generate`, async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return contractJson("/teacher/ai/questions/generate", "post", 200, {
+          items: generated.slice(0, 1),
+          usage: { credits: 900, left: 100 },
+        });
+      }),
+    );
+    const SECTION_ID = "018f0000-0000-7000-8000-0000000000c9";
+    const context = generateContext({ section: { id: SECTION_ID, title: "Phần 1" } });
+    const { dialog, user } = await openPanel({ kind: "generate", context });
+    await user.click(
+      within(dialog).getByRole("button", { name: ai.generate.styles.standalone }),
+    );
+    expect(within(dialog).getByLabelText(ai.generate.topic)).toHaveValue("");
+    const fit = within(dialog).getByRole("switch", { name: /^Hợp với Phần 1/ });
+    expect(fit).toBeChecked();
+    expect(within(dialog).queryByText(ai.generate.needTopic)).toBeNull();
+    await user.click(fit);
+    expect(within(dialog).getByText(ai.generate.needTopic)).toBeVisible();
+    await user.click(fit);
+    await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
+    await user.click(
+      await within(dialog).findByRole("button", { name: "Thêm 1 câu vào Phần 1" }),
+    );
+    expect(body).toMatchObject({
+      standalone: true,
+      testId: TEST_ID,
+      sectionId: SECTION_ID,
+    });
+    expect(body["source"]).toBeUndefined();
+    expect(body["stimulusId"]).toBeUndefined();
+    expect(context.save).toHaveBeenCalledWith(
+      [{ question: generated[0], level: "b2" }],
+      ai.draftTag,
+      { kind: "section", id: SECTION_ID, title: "Phần 1" },
+    );
+  });
+
+  it("puts the first passage back when the teacher returns to From a passage", async () => {
+    const { dialog, user } = await openPanel({
+      kind: "generate",
+      context: generateContext(),
+    });
+    await user.click(
+      within(dialog).getByRole("button", { name: ai.generate.styles.standalone }),
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: ai.generate.styles.passage }),
+    );
+    expect(within(dialog).getByLabelText(ai.generate.source)).toHaveValue(PASSAGE);
   });
 
   it("draws an outage as the warning callout and runs again from it, never sample output", async () => {

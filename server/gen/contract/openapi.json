@@ -11195,7 +11195,7 @@
       },
       "AiGenerateRequest": {
         "type": "object",
-        "description": "Exactly one source: `source` (text the teacher pasted), or `testId`\nwith `stimulusId` (a shared-content passage of the test's draft). The\nfirst 8,000 characters of a source are sent. Nothing about a student is\never sent.\n",
+        "description": "One of four shapes. From a passage: `source` (text the teacher pasted,\n40 characters or more), or `testId` with `stimulusId` (a shared-content\npassage of the test's draft). Standalone (`standalone: true`), where\nevery question carries all it needs and refers to no passage: `source`\n(a topic or notes, 3 characters or more), or `testId` with `sectionId`\n(a section of the test's draft, whose title, instructions and the\nprompts and types of the questions already in it, group members\nincluded, are sent so the drafts fit it and do not repeat it), with\n`source` as an optional topic beside it. The first 8,000 characters of\na source are sent. Nothing about a student is ever sent.\n",
         "required": [
           "types",
           "count",
@@ -11207,13 +11207,20 @@
         "properties": {
           "source": {
             "type": "string",
-            "minLength": 40,
+            "minLength": 3,
             "maxLength": 20000
           },
           "testId": {
             "$ref": "#/components/schemas/Uuid"
           },
           "stimulusId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "standalone": {
+            "type": "boolean",
+            "description": "Write questions that each stand alone, about a topic rather than answered from a text. Off when absent."
+          },
+          "sectionId": {
             "$ref": "#/components/schemas/Uuid"
           },
           "types": {
@@ -24000,14 +24007,19 @@
             "in": "body",
             "name": "/stimulusId",
             "kind": "none"
+          },
+          {
+            "in": "body",
+            "name": "/sectionId",
+            "kind": "none"
           }
         ],
         "x-permission": "ai.use",
         "tags": [
           "teacher-ai"
         ],
-        "summary": "Draft questions from a passage, a transcript or a topic",
-        "description": "Answers draft questions and writes nothing: the teacher adds the ones\nthey keep through `createQuestion` or the section writes. Exactly one\nsource is named: `source`, or `testId` with `stimulusId`, which is a\nshared-content passage of the test's draft and which `stimulusId`\nresolves only inside that test. Only the source text and the settings\nare sent to the provider.\n\nReserves the call's ceiling before it reaches the provider and settles\nwhat the provider billed after; `usage` says what it cost.\n",
+        "summary": "Draft questions from a passage, a transcript, a topic or for a section",
+        "description": "Answers draft questions and writes nothing: the teacher adds the ones\nthey keep through `createQuestion` or the section writes. The request\nnames one of the shapes `AiGenerateRequest` describes. `stimulusId` and\n`sectionId` resolve only inside the test `testId` names. Only the source\ntext, the section's own title, instructions and question prompts and\ntypes, and the settings are sent to the provider; no answer key of an\nexisting question is sent.\n\nReserves the call's ceiling before it reaches the provider and settles\nwhat the provider billed after; `usage` says what it cost.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -24039,7 +24051,7 @@
             "$ref": "#/components/responses/AiNotAllowed"
           },
           "404": {
-            "description": "No such test or passage in the caller's reach.",
+            "description": "No such test, passage or section in the caller's reach.",
             "content": {
               "application/json": {
                 "schema": {

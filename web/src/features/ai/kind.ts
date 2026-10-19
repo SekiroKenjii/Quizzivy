@@ -151,7 +151,7 @@ export interface AiKind<F, I, C> {
     context: C,
     t: TFunction,
   ) => AiField[];
-  problem: (values: F) => string | null;
+  problem: (values: F, context: C) => string | null;
   run: (values: F, env: AiEnv<C>, signal: AbortSignal) => Promise<AiRunResult<I>>;
   card: (item: I, env: AiCardEnv<C>) => AiCard;
   summary: (items: readonly I[], selected: number, t: TFunction) => string;
