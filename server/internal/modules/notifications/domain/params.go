@@ -266,3 +266,17 @@ func (Transferred) Kind() Kind { return ContentTransferred }
 func (p Transferred) fields() fields {
 	return fields{TeacherName: &p.TeacherName, Count: &p.Count}
 }
+
+// TeacherChanged is ClassTeacherChanged's params: the class an Admin gave to
+// another teacher and, on the previous teacher's item only, the teacher who
+// teaches it now. The new teacher's item names no teacher.
+type TeacherChanged struct {
+	ClassName   string
+	TeacherName *string
+}
+
+func (TeacherChanged) Kind() Kind { return ClassTeacherChanged }
+
+func (p TeacherChanged) fields() fields {
+	return fields{ClassName: &p.ClassName, TeacherName: p.TeacherName}
+}

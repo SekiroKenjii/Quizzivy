@@ -46,7 +46,9 @@ const openAssignments = `
 const joinable = `(c.archived_at IS NULL AND c.self_join_enabled AND jc.expires_at > now()
 	           AND (jc.max_uses IS NULL OR jc.uses_count < jc.max_uses))`
 
-const classProjection = `
+const classProjection = classColumns + classSource
+
+const classColumns = `
 	SELECT c.id::text, c.name, c.description, c.self_join_enabled, c.archived_at, c.created_at,
 	       c.schedule_label, c.room,
 	       -- Live members only. A disabled account cannot sign in, so counting
@@ -54,7 +56,9 @@ const classProjection = `
 	       (SELECT count(*) FROM app.class_members m
 	          JOIN app.users u ON u.id = m.user_id AND u.disabled_at IS NULL
 	         WHERE m.class_id = c.id),` + openAssignments + `,
-	       jc.code_hint, jc.expires_at, jc.max_uses, jc.uses_count, jc.lookup_scheme
+	       jc.code_hint, jc.expires_at, jc.max_uses, jc.uses_count, jc.lookup_scheme`
+
+const classSource = `
 	  FROM app.classes c
 	  -- The active code, if there is one. LEFT JOIN because a class with
 	  -- self-join closed has none, and that is a normal state rather than a
@@ -62,7 +66,7 @@ const classProjection = `
 	  LEFT JOIN app.class_join_codes jc
 	         ON jc.class_id = c.id AND jc.revoked_at IS NULL`
 
-func scanClass(row pgx.Row) (domain.Class, error) {
+func scanClass(row pgx.Row, extra ...any) (domain.Class, error) {
 	var c domain.Class
 	var hint *string
 	var expires *time.Time
@@ -70,9 +74,9 @@ func scanClass(row pgx.Row) (domain.Class, error) {
 	var uses *int
 	var scheme *domain.LookupScheme
 
-	err := row.Scan(&c.ID, &c.Name, &c.Description, &c.SelfJoinEnabled, &c.ArchivedAt, &c.CreatedAt,
+	err := row.Scan(append([]any{&c.ID, &c.Name, &c.Description, &c.SelfJoinEnabled, &c.ArchivedAt, &c.CreatedAt,
 		&c.ScheduleLabel, &c.Room,
-		&c.StudentCount, &c.OpenAssignmentCount, &hint, &expires, &maxUses, &uses, &scheme)
+		&c.StudentCount, &c.OpenAssignmentCount, &hint, &expires, &maxUses, &uses, &scheme}, extra...)...)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Class{}, domain.ErrNotFound
 	}

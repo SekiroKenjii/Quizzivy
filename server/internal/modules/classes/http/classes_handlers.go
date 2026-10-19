@@ -4,6 +4,8 @@ import (
 	"quizzivy/internal/modules/classes/application"
 )
 
+const noStore = "no-store"
+
 type Classes struct {
 	app *application.Application
 }

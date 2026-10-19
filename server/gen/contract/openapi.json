@@ -78,6 +78,10 @@
       "description": "Roles and the permission matrix. A role is created and edited, never\ndeleted (DG-52). Every write is held to the subset rule: a caller acts\nonly on a role whose permissions, except `learning.take_tests`, are their\nown, and grants only keys they hold. The built-in roles keep their key.\n"
     },
     {
+      "name": "admin-classes",
+      "description": "Every teacher's classes in one list, creating a class for a teacher and\nchanging a class's teacher. Editing, rotating the code, archiving,\nrestoring and adding members are the teacher workspace's operations,\nwhich `scope.all` opens on any class.\n"
+    },
+    {
       "name": "admin-ai",
       "description": "The AI credits console: the pool, the teachers' allowances, their\nrequests for more and the centre's rules. With no provider configured\nevery operation answers `501 AI_OFF`.\n"
     },
@@ -6031,6 +6035,206 @@
           "students": {
             "type": "integer",
             "minimum": 0
+          }
+        }
+      },
+      "AdminClassTeacher": {
+        "type": "object",
+        "description": "The teacher of a class in the Admin console. `name` is the display name, or the full name when there is none.",
+        "required": [
+          "id",
+          "name",
+          "avatarUrl",
+          "disabled"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "avatarUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri",
+            "description": "A signed URL of the teacher's profile photo, or `null` when there is none."
+          },
+          "disabled": {
+            "type": "boolean",
+            "description": "The teacher's account is disabled."
+          }
+        }
+      },
+      "AdminClassJoinCode": {
+        "type": "object",
+        "description": "A class's active join code, read in full for the Admin console (D5),\nwith what tells whether it still works: an expired or used-up code is\nreturned as it is.\n",
+        "required": [
+          "code",
+          "expiresAt",
+          "maxUses",
+          "usesCount"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Grouped `XXXX-XXXX`.",
+            "examples": [
+              "K7M3-P9QR"
+            ]
+          },
+          "expiresAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "maxUses": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "usesCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "AdminClassRow": {
+        "type": "object",
+        "description": "A row of `listAllClasses`.",
+        "required": [
+          "id",
+          "name",
+          "scheduleLabel",
+          "room",
+          "teacher",
+          "studentCount",
+          "joinCode",
+          "createdAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "scheduleLabel": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "room": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "teacher": {
+            "$ref": "#/components/schemas/AdminClassTeacher"
+          },
+          "studentCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Live members, as `Class.studentCount` counts them."
+          },
+          "joinCode": {
+            "description": "The active code, or `null` when the class has none or its code\ncannot be read back (a code issued before v0.8.0, or one sealed\nunder a key this server no longer holds).\n",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AdminClassJoinCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "AdminClassFacets": {
+        "type": "object",
+        "description": "The tab counts for the current search and teacher filter, ignoring the tab.",
+        "required": [
+          "active",
+          "archived"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "archived": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "AdminClassCreate": {
+        "type": "object",
+        "required": [
+          "name",
+          "teacherId"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "teacherId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "scheduleLabel": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120,
+            "description": "As in `createClass`."
+          },
+          "room": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 60,
+            "description": "As in `createClass`."
+          }
+        }
+      },
+      "ClassTeacherChange": {
+        "type": "object",
+        "required": [
+          "teacherId"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "teacherId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "notify": {
+            "type": "boolean",
+            "default": false,
+            "description": "Tell both teachers in their bells."
           }
         }
       },
@@ -12252,7 +12456,7 @@
       },
       "NotificationKind": {
         "type": "string",
-        "description": "What a notification is about. The server sends no sentence: the client\nwords the item from `kind` and `params` in the reader's language.\n\nEach kind carries exactly these `params`:\n\n| Kind | For | Params |\n|---|---|---|\n| `attempt.submitted` | a teacher | `title`, `count`, `toGrade` |\n| `attempt.flagged` | a teacher | `studentName`, `title`, `focusLost` |\n| `assignment.closing` | a teacher | `title`, `notSubmitted` |\n| `class.joined` | a teacher | `studentName`, `className` |\n| `join_codes.rotated` | a teacher | `count`, `classNames` |\n| `assignment.opened` | a student | `title`, `closesAt` |\n| `assignment.due_soon` | a student | `title`, `closesAt` |\n| `assignment.extended` | a student | `title`, `closesAt` |\n| `result.ready` | a student | `title` |\n| `ai.allowance_warning` | a teacher | `used`, `allowance` |\n| `ai.credit_request` | a teacher | `teacherName`, `credits` |\n| `ai.credit_request.decided` | a teacher | `credits`, `decision` |\n| `content.transferred` | a teacher | `teacherName`, `count` |\n\nThe three `ai.*` kinds are for the teacher's bell. `ai.credit_request`\nis written for every holder of `ai.credits.manage`, who reads it in the\nteacher workspace until the Admin console has a bell of its own.\n",
+        "description": "What a notification is about. The server sends no sentence: the client\nwords the item from `kind` and `params` in the reader's language.\n\nEach kind carries exactly these `params`:\n\n| Kind | For | Params |\n|---|---|---|\n| `attempt.submitted` | a teacher | `title`, `count`, `toGrade` |\n| `attempt.flagged` | a teacher | `studentName`, `title`, `focusLost` |\n| `assignment.closing` | a teacher | `title`, `notSubmitted` |\n| `class.joined` | a teacher | `studentName`, `className` |\n| `join_codes.rotated` | a teacher | `count`, `classNames` |\n| `assignment.opened` | a student | `title`, `closesAt` |\n| `assignment.due_soon` | a student | `title`, `closesAt` |\n| `assignment.extended` | a student | `title`, `closesAt` |\n| `result.ready` | a student | `title` |\n| `ai.allowance_warning` | a teacher | `used`, `allowance` |\n| `ai.credit_request` | a teacher | `teacherName`, `credits` |\n| `ai.credit_request.decided` | a teacher | `credits`, `decision` |\n| `content.transferred` | a teacher | `teacherName`, `count` |\n| `class.teacher_changed` | a teacher | `className`, and `teacherName` for the class's previous teacher |\n\nThe three `ai.*` kinds are for the teacher's bell. `ai.credit_request`\nis written for every holder of `ai.credits.manage`, who reads it in the\nteacher workspace until the Admin console has a bell of its own.\n",
         "enum": [
           "attempt.submitted",
           "attempt.flagged",
@@ -12266,7 +12470,8 @@
           "ai.allowance_warning",
           "ai.credit_request",
           "ai.credit_request.decided",
-          "content.transferred"
+          "content.transferred",
+          "class.teacher_changed"
         ]
       },
       "NotificationAudience": {
@@ -12279,7 +12484,7 @@
       },
       "NotificationEvent": {
         "type": "string",
-        "description": "One switch of the notification settings. `attempt.submitted`,\n`attempt.flagged` and `assignment.closing` are the teacher's;\n`assignment.due_soon` and `result.ready` the student's. A switch\ngoverns the kind of the same name, and `assignment.due_soon` also\ngoverns `assignment.opened` and `assignment.extended`. `class.joined`\nand `join_codes.rotated` have no switch.\n",
+        "description": "One switch of the notification settings. `attempt.submitted`,\n`attempt.flagged` and `assignment.closing` are the teacher's;\n`assignment.due_soon` and `result.ready` the student's. A switch\ngoverns the kind of the same name, and `assignment.due_soon` also\ngoverns `assignment.opened` and `assignment.extended`. `class.joined`\n`join_codes.rotated` and `class.teacher_changed` have no switch.\n",
         "enum": [
           "attempt.submitted",
           "attempt.flagged",
@@ -12361,7 +12566,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 200,
-            "description": "The teacher who asked for credits (`ai.credit_request`), or whose content was given to the reader (`content.transferred`)."
+            "description": "The teacher who asked for credits (`ai.credit_request`), whose content was given to the reader (`content.transferred`), or who now teaches a class the reader taught (`class.teacher_changed`, on the previous teacher's item only: the new teacher's item has no `teacherName`)."
           },
           "decision": {
             "type": "string",
@@ -21517,6 +21722,216 @@
           },
           "501": {
             "$ref": "#/components/responses/UserImportUnavailable"
+          }
+        }
+      }
+    },
+    "/admin/classes": {
+      "get": {
+        "operationId": "listAllClasses",
+        "x-permission": "scope.all",
+        "tags": [
+          "admin-classes"
+        ],
+        "summary": "Every teacher's classes",
+        "description": "The Admin Classes table: every class in the centre, newest first, with\nits teacher and its active join code read in full. `tab` is `active`\n(the default) or `archived`. `q` matches the class's name or its\nteacher's name, ignoring case and accents (D-11). `teacher=disabled`\nkeeps the classes whose teacher's account is disabled.\n`disabledTeacherClasses` counts the centre's classes that are not\narchived and whose teacher is disabled, whatever the search, the tab\nand the filter.\n\nEach `joinCode.code` is a bearer secret, so the answer is never cached\nand the operation is limited like the others that reveal one: 60 a\nminute and 600 an hour per signed-in user.\n",
+        "parameters": [
+          {
+            "name": "tab",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "archived"
+              ],
+              "default": "active"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Query"
+          },
+          {
+            "name": "teacher",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "disabled"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                10,
+                20,
+                50
+              ],
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageInfo"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "facets",
+                        "disabledTeacherClasses"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AdminClassRow"
+                          }
+                        },
+                        "facets": {
+                          "$ref": "#/components/schemas/AdminClassFacets"
+                        },
+                        "disabledTeacherClasses": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createClassForTeacher",
+        "x-permission": "scope.all",
+        "tags": [
+          "admin-classes"
+        ],
+        "summary": "Create a class for a teacher",
+        "description": "Creates a class `teacherId` teaches, with self-join on. The teacher\nmust exist, be active and hold `workspace.teacher`\n(`INVALID_RECIPIENT`). While the centre lets students join with a code\nthe class gets a new code in the same transaction, as\n`rotateJoinCode` would issue it with its defaults; while joining with\na code is off it gets none, and `joinCode` is `null`. Writes the audit\nrow `class.created` with `onBehalfOf`, the teacher's id, and\n`class.join_code_issued` when a code was issued.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminClassCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Class"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "422": {
+            "description": "`INVALID_RECIPIENT` — the teacher does not exist, is disabled or has no teacher workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/classes/{id}/teacher": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "put": {
+        "operationId": "changeClassTeacher",
+        "x-permission": "scope.all",
+        "tags": [
+          "admin-classes"
+        ],
+        "summary": "Give a class to another teacher",
+        "description": "Makes `teacherId` the class's teacher. The class, archived or not, its\nmembers, its join code and the assignments that target it stay as they\nare: the new teacher reaches them through the class, and the previous\none no longer does, except for the assignments they created. The\nteacher must exist, be active and hold `workspace.teacher`\n(`INVALID_RECIPIENT`). Writes the audit row `class.teacher_changed`\nwith `teacher {old, new}`; with `notify`, the new teacher and the\nprevious one, unless their account is disabled, find a\n`class.teacher_changed` item in their bells. Naming the class's\ncurrent teacher changes nothing, writes nothing and tells nobody.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassTeacherChange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The class with its new teacher.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Class"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "description": "`INVALID_RECIPIENT` — the teacher does not exist, is disabled or has no teacher workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }

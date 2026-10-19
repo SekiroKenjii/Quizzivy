@@ -683,6 +683,13 @@ kinds to keys would be a second copy of the catalogue. T-R5.22b's dialog warns b
 confirms, naming the kinds the recipient cannot edit.
 ---
 
+### O-R5.12 — Adding several class members at once · decided 2026-10-19 (D-054)
+**Decided:** `addClassMember` stays single. No R5 screen adds members in bulk, so T-R5.11 did not
+build `userIds`. The first screen that adds several members at once builds the batch, as its own
+operation if its response differs from the single add's.
+
+---
+
 ## Answered during planning
 
 For the record, so a later session does not reopen them:

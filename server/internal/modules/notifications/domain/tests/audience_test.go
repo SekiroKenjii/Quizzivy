@@ -35,8 +35,8 @@ func TestEveryKindBelongsToExactlyOneAudienceAndTheContractAgrees(t *testing.T) 
 			t.Errorf("the contract says %s is for a %s, the domain says %q", c.kind, want, c.kind.Audience())
 		}
 	}
-	if len(covered) != len(everyKind) || len(described) != len(everyKind) {
-		t.Errorf("%d kinds are in an audience and %d in the contract's table, want %d", len(covered), len(described), len(everyKind))
+	if kinds := distinctKinds(); len(covered) != kinds || len(described) != kinds {
+		t.Errorf("%d kinds are in an audience and %d in the contract's table, want %d", len(covered), len(described), kinds)
 	}
 	if domain.Kind("content.shared").Audience() != "" {
 		t.Error("a kind outside the contract has an audience")
