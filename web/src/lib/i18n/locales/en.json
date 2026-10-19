@@ -1167,6 +1167,27 @@
       "reason": {
         "internal": "Something went wrong on our side. Try again."
       }
+    },
+    "bulk": {
+      "reset": "Reset password",
+      "disable": "Disable",
+      "tooMany_one": "Select at most {{count}} person for one action.",
+      "tooMany_other": "Select at most {{count}} people for one action.",
+      "resetTitle_one": "Reset {{count}} password?",
+      "resetTitle_other": "Reset {{count}} passwords?",
+      "resetLinkBody": "Each person gets a link to choose a new password. This is recorded in the audit log.",
+      "resetPasswordBody": "Each person gets a temporary password and must change it when they next sign in. This is recorded in the audit log.",
+      "resetSubmit": "Reset passwords",
+      "temporaryTooMany_one": "At most {{count}} temporary password can be shown at once. Select fewer people or send links.",
+      "temporaryTooMany_other": "At most {{count}} temporary passwords can be shown at once. Select fewer people or send links.",
+      "resetDoneTitle": "Password reset results",
+      "disableTitle_one": "Disable {{count}} account?",
+      "disableTitle_other": "Disable {{count}} accounts?",
+      "disableBody": "They are signed out and cannot sign in. Their results are kept.",
+      "disableSubmit": "Disable",
+      "disabled_one": "{{count}} account disabled",
+      "disabled_other": "{{count}} accounts disabled",
+      "disabledTitle": "Disable results"
     }
   },
   "systemSettings": {

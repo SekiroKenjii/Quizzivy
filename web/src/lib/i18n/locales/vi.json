@@ -1167,6 +1167,27 @@
       "reason": {
         "internal": "Đã có lỗi ở phía chúng tôi. Hãy thử lại."
       }
+    },
+    "bulk": {
+      "reset": "Đặt lại mật khẩu",
+      "disable": "Vô hiệu hoá",
+      "tooMany_one": "Chọn tối đa {{count}} người cho một thao tác.",
+      "tooMany_other": "Chọn tối đa {{count}} người cho một thao tác.",
+      "resetTitle_one": "Đặt lại {{count}} mật khẩu?",
+      "resetTitle_other": "Đặt lại {{count}} mật khẩu?",
+      "resetLinkBody": "Mỗi người nhận một liên kết để tự đặt mật khẩu mới. Việc này được ghi vào nhật ký kiểm tra.",
+      "resetPasswordBody": "Mỗi người nhận một mật khẩu tạm thời và phải đổi khi đăng nhập lần tới. Việc này được ghi vào nhật ký kiểm tra.",
+      "resetSubmit": "Đặt lại mật khẩu",
+      "temporaryTooMany_one": "Mỗi lần chỉ hiện được tối đa {{count}} mật khẩu tạm thời. Hãy bỏ bớt người đã chọn hoặc gửi liên kết.",
+      "temporaryTooMany_other": "Mỗi lần chỉ hiện được tối đa {{count}} mật khẩu tạm thời. Hãy bỏ bớt người đã chọn hoặc gửi liên kết.",
+      "resetDoneTitle": "Kết quả đặt lại mật khẩu",
+      "disableTitle_one": "Vô hiệu hoá {{count}} tài khoản?",
+      "disableTitle_other": "Vô hiệu hoá {{count}} tài khoản?",
+      "disableBody": "Họ bị đăng xuất và không thể đăng nhập. Kết quả của họ được giữ lại.",
+      "disableSubmit": "Vô hiệu hoá",
+      "disabled_one": "Đã vô hiệu hoá {{count}} tài khoản",
+      "disabled_other": "Đã vô hiệu hoá {{count}} tài khoản",
+      "disabledTitle": "Kết quả vô hiệu hoá"
     }
   },
   "systemSettings": {

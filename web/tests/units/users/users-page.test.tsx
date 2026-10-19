@@ -77,13 +77,12 @@ describe("the Users page", () => {
     ).toEqual(ROWS.map((_, index) => index));
   });
 
-  it("offers Import CSV and Add user, and no bulk selection yet", async () => {
+  it("offers Import CSV and Add user", async () => {
     serveUsers(ROWS);
     renderUsers();
     await table();
     expect(screen.getByRole("button", { name: "Nhập CSV" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Thêm người dùng" })).toBeVisible();
-    expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
   it("shows a skeleton until the first page arrives", async () => {

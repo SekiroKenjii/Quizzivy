@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Upload, UserPlus } from "lucide-react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LoadError } from "@/components/shared/ListState";
 import { SearchInput, TOOLBAR_SEARCH } from "@/components/shared/SearchInput";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { AddUserDialog } from "@/features/users/components/AddUserDialog";
 import { ImportUsersDialog } from "@/features/users/components/ImportUsersDialog";
 import { StateChip } from "@/features/users/components/StateChip";
 import { UserSheet } from "@/features/users/components/UserSheet";
+import { UsersBulkBar } from "@/features/users/components/UsersBulkBar";
 import { UsersTable } from "@/features/users/components/UsersTable";
 import { CARDS_BELOW } from "@/features/users/components/userColumns";
 import { UsersSkeleton } from "@/features/users/components/UsersSkeleton";
@@ -19,7 +20,9 @@ import {
   SEARCH_MIN,
   USER_PAGE_SIZES,
   USER_TABS,
+  USERS_KEY,
   usersQuery,
+  type AdminUser,
   type AdminUserFacets,
 } from "@/features/users/api";
 import {
@@ -30,6 +33,7 @@ import {
   stateOf,
   tabOf,
 } from "@/features/users/userFilters";
+import { useBulkSelection } from "@/hooks/useBulkSelection";
 import { useDebouncedInput } from "@/hooks/useDebouncedInput";
 import { useListFilters } from "@/hooks/useListFilters";
 import { usePage, usePageSize } from "@/hooks/usePage";
@@ -67,7 +71,8 @@ function announcement(t: TFunction, total: number | undefined): string {
  * Admin has paused for 300 ms. A search under three characters is not sent, and
  * the page says so (QC-N-15). A page past the end goes to the last one. The
  * table's columns join as the content widens, and below 560px each account is
- * a card. "Import CSV" opens the Import users dialog (T-R5.23), which stays
+ * a card. Rows are selected across pages for the bulk bar, and a change of
+ * tab, search or state clears the selection. "Import CSV" opens the Import users dialog (T-R5.23), which stays
  * mounted so a job it started is followed while it is closed, and "Add user"
  * the Add user dialog (T-R5.22b). A row opens the account's sheet at
  * `?user=<id>`, which Back closes.
@@ -83,6 +88,14 @@ export default function UsersPage() {
   const applyQuery = useCallback((value: string) => setFilter("q", value), [setFilter]);
   const [typed, setTyped] = useDebouncedInput(applied, applyQuery, searchOf);
   const q = searchOf(applied);
+  const client = useQueryClient();
+  const bulk = useBulkSelection<AdminUser>();
+  const scope = JSON.stringify({ tab, state, q });
+  const [selectionScope, setSelectionScope] = useState(scope);
+  if (selectionScope !== scope) {
+    setSelectionScope(scope);
+    bulk.clear();
+  }
   const [size] = usePageSize(USER_PAGE_SIZES);
   const [asked, setPage] = usePage(JSON.stringify({ tab, state, q, size }));
   const page = pageOf(asked);
@@ -200,7 +213,7 @@ export default function UsersPage() {
           onChange={setTyped}
           placeholder={t("users.search.placeholder")}
           inputRef={searchRef}
-          maxLength={SEARCH_MAX}
+          maxCharacters={SEARCH_MAX}
         />
       </div>
 
@@ -211,6 +224,13 @@ export default function UsersPage() {
       ) : null}
 
       {state === null ? null : <StateChip state={state} onRemove={removeState} />}
+
+      <UsersBulkBar
+        selected={[...bulk.selected.values()]}
+        onReached={bulk.remove}
+        onClear={bulk.clear}
+        onSettled={() => client.invalidateQueries({ queryKey: USERS_KEY })}
+      />
 
       {users.isError ? (
         <LoadError error={users.error} onRetry={() => void users.refetch()}>
@@ -229,6 +249,7 @@ export default function UsersPage() {
           empty={empty}
           locale={locale}
           onOpen={(user) => openUser(user.id)}
+          selection={bulk}
         />
       )}
     </div>
