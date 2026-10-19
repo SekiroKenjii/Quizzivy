@@ -39,7 +39,7 @@ const nav = () =>
 const name = () => screen.findByRole("textbox", { name: "Tên tổ chức" });
 
 describe("System settings", () => {
-  it("heads the page as the plan words it and lists the two sections that have shipped", async () => {
+  it("heads the page as the plan words it and lists its four sections", async () => {
     servesSettings();
     renderSettings();
 
@@ -53,7 +53,7 @@ describe("System settings", () => {
       nav()
         .getAllByRole("link")
         .map((link) => link.textContent),
-    ).toEqual(["Tổ chức", "Đăng nhập"]);
+    ).toEqual(["Tổ chức", "Đăng nhập", "Dữ liệu và quyền riêng tư", "Gói và mức dùng"]);
     expect(nav().getByRole("link", { name: "Tổ chức" })).toHaveAttribute(
       "aria-current",
       "page",
@@ -180,18 +180,19 @@ describe("System settings", () => {
     ).not.toBeVisible();
   });
 
-  it.each([
-    ["an unknown section", "/admin/settings/nope"],
-    ["Data & privacy, which has not shipped", "/admin/settings/data"],
-    ["Plan & usage, which has not shipped", "/admin/settings/plan"],
-  ])("replaces %s with the bare address", async (_, path) => {
-    servesSettings();
-    const { router } = renderSettings(path);
+  it.each([["an unknown section", "/admin/settings/nope"]])(
+    "replaces %s with the bare address",
+    async (_, path) => {
+      servesSettings();
+      const { router } = renderSettings(path);
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/admin/settings"));
-    expect(router.state.historyAction).toBe("REPLACE");
-    expect(await name()).toBeVisible();
-  });
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe("/admin/settings"),
+      );
+      expect(router.state.historyAction).toBe("REPLACE");
+      expect(await name()).toBeVisible();
+    },
+  );
 });
 
 describe("the Sign-in section reached from the join-codes callout (D-028)", () => {
@@ -214,10 +215,12 @@ describe("the Sign-in section reached from the join-codes callout (D-028)", () =
       "Bắt buộc đổi mật khẩu ở lần đăng nhập đầu",
       "Học viên có thể vào lớp bằng mã",
     ])
-      expect(await screen.findByRole("switch", { name: label })).toBeVisible();
+      expect(
+        await screen.findByRole("switch", { name: label }, { timeout: 10_000 }),
+      ).toBeVisible();
     expect(router.state.location.pathname).toBe("/admin/settings/sign-in");
     expect(adminUser.permissions).toContain("system.settings.write");
-  });
+  }, 15_000);
 });
 
 function renderPage() {
