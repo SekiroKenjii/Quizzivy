@@ -90,7 +90,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	previousKeyID, rotating := keys.PreviousID()
 	logger.Info("join code keys", "current_key_id", keys.CurrentID(), "previous_key_id", previousKeyID, "rotating", rotating)
 	classesApp := classes(dbx, stats, keys, notificationsApp.Commands.Notify, logger).WithSignInPolicy(organizationApp.Queries.SignInPolicy)
-	mail, err := BuildMail(cfg, dbx, logger)
+	mail, err := BuildMail(cfg, dbx, organizationApp.Queries.Branding, logger)
 	if err != nil {
 		return Assembly{}, err
 	}

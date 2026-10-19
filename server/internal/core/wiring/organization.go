@@ -35,6 +35,13 @@ func organization(ctx context.Context, cfg config.Config, logger *slog.Logger, d
 	return app.WithLogos(adapters.LogoStore{Objects: objects}, adapters.LogoChecker{Images: images}), nil
 }
 
+// OrganizationBranding builds the branding read of a process that does not
+// assemble the organization module, such as the import worker. It refreshes
+// as the module's snapshot does, at most every 30 seconds.
+func OrganizationBranding(cfg config.Config, dbx db.Context, logger *slog.Logger) Branding {
+	return organizationapp.New(organizationrepo.NewPostgres(dbx), logger, cfg.GoogleEnabled()).Queries.Branding
+}
+
 func organizationTransport(app *organizationapp.Application) organizationhttp.Organization {
 	return organizationhttp.NewOrganization(app)
 }
