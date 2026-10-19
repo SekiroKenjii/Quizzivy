@@ -245,11 +245,12 @@ describe("the builder's AI entry points", () => {
     await user.click(await screen.findByRole("button", { name: ai.entry.generate }));
     const dialog = await screen.findByRole("dialog");
     expect(
-      within(dialog).getByRole("switch", {
-        name: new RegExp(
-          `^${ai.generate.fitSection.replace("{{section}}", "Ngữ pháp")}`,
-        ),
+      within(dialog).getByRole("combobox", {
+        name: "Đổi phần nhận câu mới: Ngữ pháp",
       }),
+    ).toBeVisible();
+    expect(
+      within(dialog).getByRole("switch", { name: /^Hợp với phần này/ }),
     ).toBeChecked();
     await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
     await user.click(
@@ -516,7 +517,7 @@ describe("Generate in a test with a shared-context group", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(events).toEqual([
       `generate ${JSON.stringify({
-        types: ["single_choice", "true_false"],
+        types: ["single_choice"],
         count: 5,
         level: "b2",
         explanations: true,
@@ -1061,7 +1062,7 @@ describe("an AI session in the builder", () => {
     const { user } = await renderBuilder();
     let dialog = await open(user, ai.entry.generate);
     await user.type(
-      within(dialog).getByLabelText(ai.generate.topic),
+      within(dialog).getByLabelText(/^Chủ đề hoặc ghi chú/),
       "Cities around the world are rethinking how they use open land.",
     );
     await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
