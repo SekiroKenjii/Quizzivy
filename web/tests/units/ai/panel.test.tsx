@@ -431,6 +431,47 @@ describe("the Generate panel", () => {
     );
   });
 
+  it("lets a fitted run choose another section of the test, an empty one included", async () => {
+    let body: Record<string, unknown> = {};
+    server.use(
+      http.post(`${BASE}/teacher/ai/questions/generate`, async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return contractJson("/teacher/ai/questions/generate", "post", 200, {
+          items: generated.slice(0, 1),
+          usage: { credits: 900, left: 100 },
+        });
+      }),
+    );
+    const first = { id: "018f0000-0000-7000-8000-0000000000c1", title: "Phần 1" };
+    const empty = {
+      id: "018f0000-0000-7000-8000-0000000000c2",
+      title: "Phần 3: Thì động từ",
+    };
+    const context = generateContext({
+      passages: [],
+      section: first,
+      sections: [first, empty],
+    });
+    const { dialog, user } = await openPanel({ kind: "generate", context });
+    const sections = within(dialog).getByRole("group", { name: ai.generate.section });
+    await user.click(within(sections).getByRole("button", { name: empty.title }));
+    expect(
+      within(dialog).getByRole("switch", { name: /^Hợp với Phần 3: Thì động từ/ }),
+    ).toBeChecked();
+    await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
+    await user.click(
+      await within(dialog).findByRole("button", {
+        name: `Thêm 1 câu vào ${empty.title}`,
+      }),
+    );
+    expect(body).toMatchObject({ standalone: true, sectionId: empty.id });
+    expect(context.save).toHaveBeenCalledWith(
+      [{ question: generated[0], level: "b2" }],
+      ai.draftTag,
+      { kind: "section", ...empty },
+    );
+  });
+
   it("puts the first passage back when the teacher returns to From a passage", async () => {
     const { dialog, user } = await openPanel({
       kind: "generate",

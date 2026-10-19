@@ -3,6 +3,7 @@ package prompts
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -155,7 +156,7 @@ func DecodeGenerate(raw json.RawMessage, in GenerateInput) ([]Question, error) {
 	return out, nil
 }
 
-var materialWords = []string{"passage", "the text", "the article", "the conversation", "the dialogue", "the recording", "the listening", "the audio", "the speaker", "the picture", "the extract", "the reading"}
+var leaningOnMaterial = regexp.MustCompile(`(?i)\b(according to the (passage|text|article|conversation|dialogue|recording|extract|audio|speaker)|(in|from) the (passage|text|article|conversation|dialogue|recording|extract|audio|listening|reading)\b|the (passage|extract|recording|conversation|dialogue|following text)\b|the speaker (says|said|mentions|mentioned|thinks|believes|means))`)
 
 func existingPrompts(in GenerateInput) []string {
 	if in.Section == nil {
@@ -173,8 +174,7 @@ func repeats(seen []string, prompt string) bool {
 }
 
 func leansOnMaterial(prompt string) bool {
-	lower := strings.ToLower(prompt)
-	return slices.ContainsFunc(materialWords, func(w string) bool { return strings.Contains(lower, w) })
+	return leaningOnMaterial.MatchString(prompt)
 }
 
 func tidyQuestion(q rawQuestion, in GenerateInput) (Question, bool) {

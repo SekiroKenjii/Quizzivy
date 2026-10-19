@@ -587,11 +587,17 @@ func TestStandaloneGenerateNamesATopicOrASectionOfATest(t *testing.T) {
 	}
 
 	o = newOps(t, true)
-	o.reads.section = domain.Section{Title: "Part 3"}
+	o.reads.section = domain.Section{}
 	q = base
 	q.TestID, q.SectionID = "t", "sec"
 	if _, err := o.app.Queries.Generate.Handle(context.Background(), q); !slices.Equal(refusedFields(t, err), []string{"source"}) || len(o.repo.reserved) != 0 {
-		t.Errorf("an empty section and no topic: %v, reserved %d; want source refused before a reservation", err, len(o.repo.reserved))
+		t.Errorf("a section with nothing in it and no topic: %v, reserved %d; want source refused before a reservation", err, len(o.repo.reserved))
+	}
+
+	o = newOps(t, true)
+	o.reads.section = domain.Section{Title: "Part 3: Choose the correct tense"}
+	if _, err := o.app.Queries.Generate.Handle(context.Background(), q); err != nil || !strings.Contains(o.completer.text(), "Title: Part 3: Choose the correct tense") {
+		t.Errorf("a named empty section and no topic: %v; want the run to write from the title", err)
 	}
 
 	o = newOps(t, true)

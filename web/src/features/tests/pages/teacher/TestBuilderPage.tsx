@@ -1043,6 +1043,9 @@ function Builder({ test }: Readonly<{ test: Test }>) {
     }),
     section: sections[destinationIndex()]?.title ?? null,
     sectionId: sections[destinationIndex()]?.id ?? null,
+    sections: sections.flatMap((section) =>
+      section.id ? [{ id: section.id, title: section.title }] : [],
+    ),
     prepare: async () => {
       setPublishError(null);
       await flushQuestion.current?.();
