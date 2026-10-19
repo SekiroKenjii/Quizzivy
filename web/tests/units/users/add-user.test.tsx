@@ -1,16 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { toast } from "@/components/ui/sonner";
 import type { components } from "@/lib/api/schema";
 import { contractJson } from "@tests/support/contractResponse";
+import { adminUser } from "@tests/support/fixtures";
 import { server } from "@tests/support/server";
 import {
   ADMIN_ROLE,
   BASE,
   STUDENT_ROLE,
   TEACHER_ROLE,
+  classRow,
   renderUsers,
+  serveClasses,
   serveUsers,
   table,
   user,
@@ -29,6 +32,7 @@ const ROLES: components["schemas"]["AssignableRole"][] = [
 const TAKEN = user("9", "Phạm Minh", { email: "minh@example.com" });
 
 function serveCreate(sent: unknown[]) {
+  serveClasses([]);
   server.use(
     http.get(`${BASE}/admin/roles/assignable`, () =>
       contractJson("/admin/roles/assignable", "get", 200, ROLES),
@@ -241,5 +245,176 @@ describe("Users: Add user after QC (#724)", () => {
         "user=018f0000-0000-7000-8000-000000000005",
       ),
     );
+  });
+});
+
+describe("Users: Add user's class (T-R5.22a)", () => {
+  const CLASS = classRow("1", "IELTS 6.5 Tối", "Lê Thu");
+
+  async function fill(
+    actor: ReturnType<typeof renderUsers>["user"],
+    dialog: HTMLElement,
+  ) {
+    await actor.type(within(dialog).getByLabelText("Họ và tên"), "Đỗ Hà");
+    await actor.type(within(dialog).getByLabelText("Email"), "ha@example.com");
+  }
+
+  it("adds a new student to the class picked, and to none by default", async () => {
+    const sent: components["schemas"]["UserCreate"][] = [];
+    serveUsers([TAKEN]);
+    serveCreate(sent);
+    serveClasses([CLASS]);
+    const { user: actor, dialog } = await openAdd();
+    await fill(actor, dialog);
+    const field = await within(dialog).findByRole("radiogroup", {
+      name: "Thêm vào lớp (không bắt buộc)",
+    });
+    expect(
+      within(field).getByRole("radio", { name: "Chưa vào lớp nào" }),
+    ).toBeChecked();
+    await actor.click(
+      await within(field).findByRole("radio", { name: /IELTS 6.5 Tối/ }),
+    );
+    const create = within(dialog).getByRole("button", { name: "Tạo tài khoản" });
+    await waitFor(() => expect(create).not.toHaveAttribute("aria-disabled"));
+    await actor.click(create);
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toMatchObject({ roleId: STUDENT_ROLE.id, classId: CLASS.id });
+  });
+
+  it("sends no class when none is picked", async () => {
+    const sent: components["schemas"]["UserCreate"][] = [];
+    serveUsers([TAKEN]);
+    serveCreate(sent);
+    serveClasses([CLASS]);
+    const { user: actor, dialog } = await openAdd();
+    await fill(actor, dialog);
+    const create = within(dialog).getByRole("button", { name: "Tạo tài khoản" });
+    await waitFor(() => expect(create).not.toHaveAttribute("aria-disabled"));
+    await actor.click(create);
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).not.toHaveProperty("classId");
+  });
+
+  it("says a class that stopped taking students is gone, and drops the choice (QC A5)", async () => {
+    const sent: components["schemas"]["UserCreate"][] = [];
+    serveUsers([TAKEN]);
+    serveCreate(sent);
+    serveClasses([CLASS]);
+    server.use(
+      http.post(`${BASE}/admin/users`, async ({ request }) => {
+        sent.push((await request.json()) as components["schemas"]["UserCreate"]);
+        return HttpResponse.json(
+          {
+            error: {
+              code: "NOT_FOUND",
+              message: "class",
+              requestId: "019535d9-3df7-79fb-b466-fa907fa17f9e",
+            },
+          },
+          { status: 404 },
+        );
+      }),
+    );
+    const { user: actor, dialog } = await openAdd();
+    await fill(actor, dialog);
+    const field = await within(dialog).findByRole("radiogroup", {
+      name: "Thêm vào lớp (không bắt buộc)",
+    });
+    await actor.click(
+      await within(field).findByRole("radio", { name: /IELTS 6.5 Tối/ }),
+    );
+    await actor.click(within(dialog).getByRole("button", { name: "Tạo tài khoản" }));
+    expect(
+      await within(dialog).findByText(
+        "Lớp này không còn nhận học viên. Hãy chọn lớp khác.",
+      ),
+    ).toBeInTheDocument();
+    expect(sent[0]).toMatchObject({ classId: CLASS.id });
+    expect(
+      within(field).getByRole("radio", { name: "Chưa vào lớp nào" }),
+    ).toBeChecked();
+    expect(screen.getByRole("dialog", { name: "Thêm người dùng" })).toBeInTheDocument();
+  });
+
+  it("offers no class for a teacher role", async () => {
+    serveUsers([TAKEN]);
+    serveCreate([]);
+    serveClasses([CLASS]);
+    const { user: actor, dialog } = await openAdd();
+    await within(dialog).findByRole("radiogroup", {
+      name: "Thêm vào lớp (không bắt buộc)",
+    });
+    await actor.click(within(dialog).getByRole("button", { name: "Giáo viên" }));
+    expect(
+      within(dialog).queryByRole("radiogroup", {
+        name: "Thêm vào lớp (không bắt buộc)",
+      }),
+    ).toBeNull();
+  });
+
+  it("offers no class to a caller without scope.all", async () => {
+    serveUsers([TAKEN]);
+    serveCreate([]);
+    serveClasses([CLASS]);
+    const view = renderUsers("/admin/users", 1280, {
+      ...adminUser,
+      permissions: adminUser.permissions.filter((key) => key !== "scope.all"),
+    });
+    await table();
+    await view.user.click(screen.getByRole("button", { name: "Thêm người dùng" }));
+    const dialog = await screen.findByRole("dialog", { name: "Thêm người dùng" });
+    expect(
+      await within(dialog).findByRole("button", { name: "Học viên" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      within(dialog).queryByRole("radiogroup", {
+        name: "Thêm vào lớp (không bắt buộc)",
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("Users: Add user's password dialog after QC's recheck (#724)", () => {
+  async function created() {
+    serveUsers([TAKEN]);
+    serveCreate([]);
+    const view = await openAdd();
+    await view.user.type(within(view.dialog).getByLabelText("Họ và tên"), "Đỗ Hà");
+    await view.user.type(within(view.dialog).getByLabelText("Email"), "ha@example.com");
+    await view.user.click(
+      within(view.dialog).getByRole("radio", { name: /Hiện mật khẩu tạm thời/ }),
+    );
+    const create = within(view.dialog).getByRole("button", { name: "Tạo tài khoản" });
+    await waitFor(() => expect(create).not.toHaveAttribute("aria-disabled"));
+    await view.user.click(create);
+    expect(await screen.findByText("Mai-Hoa-17")).toBeVisible();
+    return view;
+  }
+
+  it("keeps the password on Esc and on a click outside, and drops it on Done (QC-US-18)", async () => {
+    const { user: actor } = await created();
+    await actor.keyboard("{Escape}");
+    expect(screen.getByText("Mai-Hoa-17")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Xong" })).toHaveFocus();
+    const overlays = document.querySelectorAll('[data-slot="dialog-overlay"]');
+    const overlay = overlays[overlays.length - 1]!;
+    fireEvent.pointerDown(overlay);
+    fireEvent.click(overlay);
+    expect(screen.getByText("Mai-Hoa-17")).toBeVisible();
+    await actor.click(screen.getByRole("button", { name: "Xong" }));
+    await waitFor(() => expect(screen.queryByText("Mai-Hoa-17")).toBeNull());
+  });
+
+  it("announces the email's error line politely (QC-US-18)", async () => {
+    serveUsers([TAKEN]);
+    serveCreate([]);
+    const { user: actor, dialog } = await openAdd();
+    const email = within(dialog).getByLabelText("Email");
+    await actor.type(email, "ha@example");
+    await actor.tab();
+    const line = within(dialog).getByText("Nhập đầy đủ địa chỉ email");
+    expect(line).toHaveAttribute("aria-live", "polite");
+    expect(email).toHaveAttribute("aria-describedby", line.id);
   });
 });

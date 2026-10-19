@@ -669,3 +669,171 @@ describe("Users: the user sheet after QC (#724)", () => {
     expect(within(dialog).queryByRole("radio", { name: /Phạm Quản Lý/ })).toBeNull();
   });
 });
+
+describe("Users: the user sheet after QC's recheck (#724)", () => {
+  async function showPassword(actor: ReturnType<typeof renderUsers>["user"]) {
+    const panel = await sheet();
+    const reset = await within(panel).findByRole("button", {
+      name: /Đặt lại mật khẩu/,
+    });
+    await actor.click(reset);
+    const confirm = await screen.findByRole("dialog", {
+      name: "Đặt lại mật khẩu của Trần Thị Bình?",
+    });
+    await actor.click(
+      within(confirm).getByRole("radio", { name: /Hiện mật khẩu tạm thời/ }),
+    );
+    await actor.click(
+      within(confirm).getByRole("button", { name: "Đặt lại mật khẩu" }),
+    );
+    expect(await screen.findByText("Ngoc-Lan-42")).toBeVisible();
+  }
+
+  function serveReset() {
+    serveUsers([BINH]);
+    serveDetail(detail(BINH));
+    server.use(
+      http.post(`${BASE}/admin/users/:id/reset-password`, () =>
+        contractJson("/admin/users/{id}/reset-password", "post", 200, {
+          temporaryPassword: "Ngoc-Lan-42",
+        }),
+      ),
+    );
+  }
+
+  it("refuses to leave the page while a password is shown, and lets go after Done (QC-US-15)", async () => {
+    serveReset();
+    const { user: actor, router } = renderUsers(`/admin/users?user=${BINH.id}`);
+    await showPassword(actor);
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
+    void router.navigate("/admin/roles");
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        "Hãy sao chép hoặc in mật khẩu rồi bấm Xong trước khi rời trang.",
+      ),
+    );
+    expect(router.state.location.pathname).toBe("/admin/users");
+    expect(screen.getByText("Ngoc-Lan-42")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Xong" })).toHaveFocus();
+    await actor.click(screen.getByRole("button", { name: "Xong" }));
+    await waitFor(() => expect(screen.queryByText("Ngoc-Lan-42")).toBeNull());
+    const later = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(later);
+    expect(later.defaultPrevented).toBe(false);
+  });
+
+  it("gives focus back to the role control when the role confirm is cancelled (QC-US-16)", async () => {
+    serveUsers([BINH]);
+    serveDetail(detail(BINH));
+    const { user: actor } = renderUsers(`/admin/users?user=${BINH.id}`);
+    const panel = await sheet();
+    const segment = await within(panel).findByRole("button", { name: "Quản trị viên" });
+    await actor.click(segment);
+    const confirm = await screen.findByRole("dialog", {
+      name: "Chuyển Trần Thị Bình thành quản trị viên?",
+    });
+    await actor.click(within(confirm).getByRole("button", { name: "Huỷ" }));
+    await waitFor(() => expect(segment).toHaveFocus());
+  });
+
+  it("gives focus back to the role control after Disable opened from the owns-content answer (QC-US-16)", async () => {
+    serveUsers([BINH]);
+    serveDetail(
+      detail(BINH, {
+        can: { ...ALL, transfer: false },
+        ownedContent: { ...NOTHING, classes: 1 },
+      }),
+    );
+    server.use(
+      http.put(`${BASE}/admin/users/:id/role`, () => refusal(409, "USER_OWNS_CONTENT")),
+    );
+    const { user: actor } = renderUsers(`/admin/users?user=${BINH.id}`);
+    const panel = await sheet();
+    const segment = await within(panel).findByRole("button", { name: "Học viên" });
+    await actor.click(segment);
+    const confirm = await screen.findByRole("dialog", {
+      name: "Chuyển Trần Thị Bình thành học viên?",
+    });
+    await actor.click(within(confirm).getByRole("button", { name: "Đổi vai trò" }));
+    await actor.click(
+      await within(confirm).findByRole("button", { name: "Vô hiệu hoá tài khoản" }),
+    );
+    await screen.findByRole("dialog", { name: "Vô hiệu hoá Trần Thị Bình?" });
+    await actor.keyboard("{Escape}");
+    await waitFor(() => expect(segment).toHaveFocus());
+  });
+
+  it("says a malformed id was not found, without Retry (QC-US-18)", async () => {
+    serveUsers([BINH]);
+    server.use(
+      http.get(`${BASE}/admin/users/:id`, () => refusal(400, "VALIDATION_FAILED")),
+    );
+    renderUsers(`/admin/users?user=${BINH.id}`);
+    expect(await screen.findByText("Không tìm thấy tài khoản này.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Thử lại" })).toBeNull();
+  });
+
+  it("puts the whole email in the header's tooltip (QC-US-18)", async () => {
+    serveUsers([BINH]);
+    serveDetail(detail(BINH));
+    renderUsers(`/admin/users?user=${BINH.id}`);
+    const panel = await sheet();
+    await within(panel).findByRole("button", { name: /Đặt lại mật khẩu/ });
+    expect(within(panel).getByTitle(BINH.email)).toHaveTextContent(BINH.email);
+  });
+
+  it("keeps recipients whose role holds only content or student keys (QC-US-18)", async () => {
+    const off = { ...BINH, status: "disabled" as const };
+    const AUTHOR_ID = "019535d8-0000-7000-8000-0000000000b2";
+    const TUTOR_ID = "019535d8-0000-7000-8000-0000000000b3";
+    const custom = (id: string, name: string) =>
+      user(id === AUTHOR_ID ? "8" : "9", name, {
+        role: { ...ADMIN_ROLE, id, name, builtinKey: null },
+      });
+    serveUsers([off, custom(AUTHOR_ID, "Soạn đề"), custom(TUTOR_ID, "Trợ giảng")]);
+    serveDetail(
+      detail(off, {
+        can: { ...ALL, disable: false, enable: true },
+        ownedContent: { ...NOTHING, tests: 1 },
+      }),
+    );
+    serveRoles(
+      listOf([
+        admin,
+        teacher,
+        {
+          ...admin,
+          id: AUTHOR_ID,
+          builtinKey: null,
+          custom: true,
+          name: "Soạn đề",
+          permissions: ["content.tests.write"],
+        },
+        {
+          ...admin,
+          id: TUTOR_ID,
+          builtinKey: null,
+          custom: true,
+          name: "Trợ giảng",
+          permissions: ["people.students.read"],
+        },
+      ]),
+    );
+    const { user: actor } = renderUsers(`/admin/users?user=${BINH.id}`);
+    const panel = await sheet();
+    await actor.click(
+      await within(panel).findByRole("button", { name: /Chuyển nội dung/ }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Chuyển nội dung của Trần Thị Bình cho",
+    });
+    expect(
+      await within(dialog).findAllByRole("radio", { name: /Soạn đề/ }),
+    ).not.toHaveLength(0);
+    expect(
+      within(dialog).getAllByRole("radio", { name: /Trợ giảng/ }),
+    ).not.toHaveLength(0);
+  });
+});

@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { DataTable } from "@/components/shared/data/DataTable";
 import { Pager } from "@/components/shared/data/Pager";
+import type { BulkSelection } from "@/components/shared/BulkSelection";
 import { USER_PAGE_SIZES, type AdminUser } from "@/features/users/api";
 import { UserCard } from "@/features/users/components/UserCard";
 import { userColumns } from "@/features/users/components/userColumns";
@@ -21,6 +22,7 @@ export function UsersTable({
   empty,
   locale,
   onOpen,
+  selection,
 }: Readonly<{
   users: readonly AdminUser[];
   page: number;
@@ -30,6 +32,7 @@ export function UsersTable({
   empty: ReactNode;
   locale: Locale;
   onOpen: (user: AdminUser) => void;
+  selection: BulkSelection<AdminUser>;
 }>) {
   const { t } = useTranslation();
   const columns = useMemo(() => userColumns(t, locale), [t, locale]);
@@ -41,9 +44,12 @@ export function UsersTable({
       rowSize={{ height: 58 }}
       card={(user) => <UserCard user={user} locale={locale} />}
       cardLayout="joined"
+      selectCards
       cards={cards}
       empty={empty}
       onOpen={onOpen}
+      selection={selection}
+      rowName={(user) => user.fullName}
       footer={
         <Pager
           page={page}

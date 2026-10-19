@@ -17,7 +17,7 @@ export type ConfirmDialogProps = Readonly<{
   pending?: boolean;
   error?: string | null;
   onConfirm?: () => void;
-  returnFocus?: RefObject<HTMLElement | null>;
+  returnFocus?: RefObject<HTMLElement | null> | undefined;
   icon?: LucideIcon;
 }>;
 const INITIAL = {};

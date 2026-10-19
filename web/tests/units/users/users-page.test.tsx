@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import i18n from "@/lib/i18n";
@@ -53,8 +53,14 @@ const DUNG = user("7", "Vũ Thuỳ Dung", {
   lastActiveAt: hoursAgo(24 * 14),
 });
 const ROWS = [THUONG, GIAU, DUC, AN, BINH, CUONG, DUNG];
+const NOW = Date.now();
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"], now: NOW });
+});
 
 afterEach(async () => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   useAuthStore.getState().clearSession();
   await act(() => i18n.changeLanguage("vi"));
@@ -77,13 +83,12 @@ describe("the Users page", () => {
     ).toEqual(ROWS.map((_, index) => index));
   });
 
-  it("offers Import CSV and Add user, and no bulk selection yet", async () => {
+  it("offers Import CSV and Add user", async () => {
     serveUsers(ROWS);
     renderUsers();
     await table();
     expect(screen.getByRole("button", { name: "Nhập CSV" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Thêm người dùng" })).toBeVisible();
-    expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
   it("shows a skeleton until the first page arrives", async () => {
