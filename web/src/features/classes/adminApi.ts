@@ -99,7 +99,8 @@ async function everyUser(tab: "teachers" | "admins", signal: AbortSignal) {
 
 /**
  * classTeachersQuery lists who may teach a class: every active account of the
- * Users table's Teachers and Admins tabs, read page by page to the end. The
+ * Users table's Teachers and Admins tabs, read page by page to the end, each
+ * once however the pages shift between reads. The
  * server makes the last check (`INVALID_RECIPIENT`), so a role without the
  * teacher workspace that the Teachers tab holds is refused there.
  */
@@ -110,10 +111,11 @@ export function classTeachersQuery() {
       const tabs = await Promise.all(
         (["teachers", "admins"] as const).map((tab) => everyUser(tab, signal)),
       );
-      return tabs
-        .flat()
-        .filter((user) => user.status !== "disabled")
-        .map((user) => ({ id: user.id, name: user.fullName, email: user.email }));
+      const byId = new Map<string, ClassTeacherOption>();
+      for (const user of tabs.flat())
+        if (user.status !== "disabled" && !byId.has(user.id))
+          byId.set(user.id, { id: user.id, name: user.fullName, email: user.email });
+      return [...byId.values()];
     },
   });
 }

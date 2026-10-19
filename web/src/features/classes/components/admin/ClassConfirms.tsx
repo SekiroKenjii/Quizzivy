@@ -39,7 +39,9 @@ export function RotateCodeDialog({
       await invalidateClass(queryClient, target.id);
       await invalidateAdminClasses(queryClient);
     },
-    onError: () => invalidateAdminClasses(queryClient),
+    onError: () => {
+      void invalidateAdminClasses(queryClient);
+    },
   });
   const fresh = klass?.joinCode === null;
   return (
@@ -95,7 +97,9 @@ export function ArchiveAdminClassDialog({
       await invalidateClass(queryClient, target.id);
       await invalidateAdminClasses(queryClient);
     },
-    onError: () => invalidateAdminClasses(queryClient),
+    onError: () => {
+      void invalidateAdminClasses(queryClient);
+    },
   });
   return (
     <ConfirmDialog

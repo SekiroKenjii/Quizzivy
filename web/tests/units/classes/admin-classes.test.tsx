@@ -370,6 +370,9 @@ describe("a class's menu", () => {
     expect(within(row).queryByRole("button", { name: /Sao chép/ })).toBeNull();
     expect(within(row).queryByText("K7QM-2PXA")).toBeNull();
     expect(within(row).getByText("—")).toBeInTheDocument();
+    expect(within(row).getByText("Lớp đã lưu trữ, không có mã tham gia")).toHaveClass(
+      "sr-only",
+    );
     const menu = await openMenu(user, SUMMER.name);
     expect(
       within(menu)
@@ -581,10 +584,10 @@ describe("the class dialogs", () => {
 });
 
 describe("the teacher picker", () => {
-  function many(count: number) {
+  function many(count: number, prefix: string) {
     return Array.from({ length: count }, (_, index) => {
-      const n = String(index + 1).padStart(3, "0");
-      return staff(`018f0000-0000-7000-8000-000000001${n}`, `Giáo viên ${n}`);
+      const n = prefix + String(index + 1).padStart(3, "0");
+      return staff(`018f0000-0000-7000-8000-00000000${n}`, `Giáo viên ${n}`);
     });
   }
 
@@ -597,8 +600,9 @@ describe("the teacher picker", () => {
     return dialog;
   }
 
-  it("offers the 51st teacher, reading the Users list to its end", async () => {
-    const teachers = many(51);
+  it("offers the 51st teacher and the 51st admin, reading both tabs to their end", async () => {
+    const teachers = many(51, "1");
+    const admins = many(51, "2");
     const asked: string[] = [];
     server.use(
       http.get(`${BASE}/admin/users`, ({ request }) => {
@@ -606,8 +610,38 @@ describe("the teacher picker", () => {
         const tab = query.get("tab") ?? "";
         const page = Number(query.get("page") ?? 1);
         asked.push(`${tab}:${page}`);
-        const all = tab === "teachers" ? teachers : [];
+        const all = tab === "teachers" ? teachers : admins;
         const items = all.slice((page - 1) * 50, page * 50);
+        return contractJson("/admin/users", "get", 200, {
+          items,
+          page,
+          pageSize: 50,
+          total: all.length,
+          facets: { all: 102, teachers: 51, students: 0, admins: 51, disabled: 0 },
+        });
+      }),
+    );
+    const { user } = renderPage();
+    await pick(user);
+    expect(await screen.findByRole("option", { name: "Giáo viên 1051" })).toBeVisible();
+    expect(screen.getByRole("option", { name: "Giáo viên 2051" })).toBeVisible();
+    expect(screen.getAllByRole("option")).toHaveLength(102);
+    expect([...asked].sort((a, b) => a.localeCompare(b))).toEqual([
+      "admins:1",
+      "admins:2",
+      "teachers:1",
+      "teachers:2",
+    ]);
+  });
+
+  it("lists an account once when the pages shift between reads", async () => {
+    const teachers = many(51, "1");
+    server.use(
+      http.get(`${BASE}/admin/users`, ({ request }) => {
+        const query = new URL(request.url).searchParams;
+        const page = Number(query.get("page") ?? 1);
+        const all = query.get("tab") === "teachers" ? teachers : [];
+        const items = page === 1 ? all.slice(0, 50) : all.slice(49);
         return contractJson("/admin/users", "get", 200, {
           items,
           page,
@@ -619,13 +653,9 @@ describe("the teacher picker", () => {
     );
     const { user } = renderPage();
     await pick(user);
-    expect(await screen.findByRole("option", { name: "Giáo viên 051" })).toBeVisible();
-    expect(screen.getAllByRole("option")).toHaveLength(51);
-    expect([...asked].sort((a, b) => a.localeCompare(b))).toEqual([
-      "admins:1",
-      "teachers:1",
-      "teachers:2",
-    ]);
+    expect(await screen.findAllByRole("option")).toHaveLength(51);
+    expect(screen.getByRole("option", { name: "Giáo viên 1050" })).toBeVisible();
+    expect(screen.queryByRole("option", { name: /Giáo viên 1050 \(/ })).toBeNull();
   });
 
   it("tells two teachers of the same name apart by their email", async () => {
@@ -660,6 +690,20 @@ describe("the teacher picker", () => {
     ]);
   });
 
+  it("changes the teacher once however fast Change is pressed twice", async () => {
+    const { user } = renderPage();
+    const menu = await openMenu(user, MORNING.name);
+    await user.click(within(menu).getByRole("menuitem", { name: "Đổi giáo viên" }));
+    const dialog = await screen.findByRole("dialog", { name: "Đổi giáo viên" });
+    const change = within(dialog).getByRole("button", { name: "Đổi" });
+    act(() => {
+      change.click();
+      change.click();
+    });
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    expect(changes).toHaveLength(1);
+  });
+
   it("creates one class however fast Create is pressed twice", async () => {
     const { user } = renderPage();
     const dialog = await pick(user);
@@ -675,6 +719,124 @@ describe("the teacher picker", () => {
     });
     await waitFor(() => expect(dialog).not.toBeInTheDocument());
     expect(creates).toHaveLength(1);
+  });
+});
+
+describe("a refusal", () => {
+  function refused(status = 404) {
+    return HttpResponse.json(
+      { error: { code: "NOT_FOUND", message: "Không tìm thấy lớp." } },
+      { status },
+    );
+  }
+
+  async function readsAgain(before: number) {
+    await waitFor(() => expect(lists.length).toBeGreaterThan(before));
+  }
+
+  it("of a rotation reads the list again", async () => {
+    server.use(http.post(`${BASE}/teacher/classes/:id/join-code`, () => refused(409)));
+    const { user } = renderPage();
+    const row = await rowOf(MORNING.name);
+    await user.click(
+      within(row).getByRole("button", {
+        name: `Đổi mã tham gia của ${MORNING.name}`,
+      }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    const before = lists.length;
+    await user.click(within(dialog).getByRole("button", { name: "Đổi mã" }));
+    expect(await within(dialog).findByText("Không tìm thấy lớp.")).toBeVisible();
+    await readsAgain(before);
+  });
+
+  it("of an edit reads the list again", async () => {
+    server.use(http.patch(`${BASE}/teacher/classes/:id`, () => refused()));
+    const { user } = renderPage();
+    const menu = await openMenu(user, MORNING.name);
+    await user.click(within(menu).getByRole("menuitem", { name: "Sửa lớp" }));
+    const dialog = await screen.findByRole("dialog", { name: "Sửa lớp" });
+    const before = lists.length;
+    await user.click(within(dialog).getByRole("button", { name: "Lưu thay đổi" }));
+    expect(await within(dialog).findByRole("alert")).toBeVisible();
+    await readsAgain(before);
+  });
+
+  it("of a change of teacher reads the list again", async () => {
+    server.use(http.put(`${BASE}/admin/classes/:id/teacher`, () => refused()));
+    const { user } = renderPage();
+    const menu = await openMenu(user, MORNING.name);
+    await user.click(within(menu).getByRole("menuitem", { name: "Đổi giáo viên" }));
+    const dialog = await screen.findByRole("dialog", { name: "Đổi giáo viên" });
+    const before = lists.length;
+    await user.click(within(dialog).getByRole("button", { name: "Đổi" }));
+    expect(await within(dialog).findByRole("alert")).toBeVisible();
+    await readsAgain(before);
+  });
+
+  it("of a restore reads the list again", async () => {
+    server.use(http.patch(`${BASE}/teacher/classes/:id`, () => refused()));
+    const { user } = renderPage("/admin/classes?tab=archived");
+    const menu = await openMenu(user, SUMMER.name);
+    const before = lists.length;
+    await user.click(within(menu).getByRole("menuitem", { name: "Khôi phục lớp" }));
+    expect(await screen.findByText("Không tìm thấy lớp.")).toBeVisible();
+    await readsAgain(before);
+  });
+
+  it("shows before the list has been read again", async () => {
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const { user } = renderPage();
+    const menu = await openMenu(user, MORNING.name);
+    await user.click(within(menu).getByRole("menuitem", { name: "Đổi giáo viên" }));
+    const dialog = await screen.findByRole("dialog", { name: "Đổi giáo viên" });
+    server.use(
+      http.put(`${BASE}/admin/classes/:id/teacher`, () => refused()),
+      http.get(`${BASE}/admin/classes`, async () => {
+        await held;
+        return undefined;
+      }),
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Đổi" }));
+    expect(await within(dialog).findByRole("alert")).toBeVisible();
+    expect(within(dialog).getByRole("button", { name: "Đổi" })).toBeEnabled();
+    release();
+  });
+
+  it("leaves Create ready to send again", async () => {
+    let refuse = true;
+    server.use(
+      http.post(`${BASE}/admin/classes`, async ({ request }) => {
+        creates.push(await request.json());
+        if (refuse) {
+          refuse = false;
+          return HttpResponse.json(
+            { error: { code: "INVALID_RECIPIENT", message: "not a teacher" } },
+            { status: 422 },
+          );
+        }
+        return contractJson("/admin/classes", "post", 201, classBody(MORNING));
+      }),
+    );
+    const { user } = renderPage();
+    await user.click(await screen.findByRole("button", { name: "Lớp mới" }));
+    const dialog = await screen.findByRole("dialog", { name: "Lớp mới" });
+    await user.type(
+      within(dialog).getByRole("textbox", { name: /Tên lớp/ }),
+      "IELTS 8.0",
+    );
+    await user.click(
+      await within(dialog).findByRole("combobox", { name: /Giáo viên/ }),
+    );
+    await user.click(await screen.findByRole("option", { name: /Minh Trần/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Tạo lớp" }));
+    expect(await within(dialog).findByRole("alert")).toBeVisible();
+    await user.click(within(dialog).getByRole("button", { name: "Tạo lớp" }));
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    expect(creates).toHaveLength(2);
   });
 });
 

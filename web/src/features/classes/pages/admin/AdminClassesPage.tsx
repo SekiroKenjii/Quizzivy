@@ -131,9 +131,9 @@ export default function AdminClassesPage() {
       await invalidateClass(queryClient, klass.id);
       await invalidateAdminClasses(queryClient);
     },
-    onError: async (cause) => {
+    onError: (cause) => {
       toast.error(message(cause, t("classes.restoreFailed")));
-      await invalidateAdminClasses(queryClient);
+      void invalidateAdminClasses(queryClient);
     },
   });
 

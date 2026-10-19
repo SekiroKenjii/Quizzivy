@@ -157,7 +157,9 @@ export function AdminClassDialog({
       if (klass !== null) await invalidateClass(queryClient, klass.id);
       await invalidateAdminClasses(queryClient);
     },
-    onError: () => invalidateAdminClasses(queryClient),
+    onError: () => {
+      void invalidateAdminClasses(queryClient);
+    },
     onSettled: () => {
       sending.current = false;
     },

@@ -74,7 +74,9 @@ export function ChangeTeacherDialog({
       await invalidateClass(queryClient, id);
       await invalidateAdminClasses(queryClient);
     },
-    onError: () => invalidateAdminClasses(queryClient),
+    onError: () => {
+      void invalidateAdminClasses(queryClient);
+    },
     onSettled: () => {
       sending.current = false;
     },
