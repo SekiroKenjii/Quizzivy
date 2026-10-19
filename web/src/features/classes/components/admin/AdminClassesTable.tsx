@@ -120,7 +120,13 @@ function CodeCell({
 }>) {
   const { t } = useTranslation();
   const code = klass.joinCode;
-  const archived = klass.tab === "archived";
+  if (klass.tab === "archived")
+    return (
+      <span className="text-muted-fg text-[13px]">
+        <span aria-hidden="true">—</span>
+        <span className="sr-only">{t("classes.admin.noCodeArchived")}</span>
+      </span>
+    );
   const why = t("classes.joinCodesOff");
   const heldBack = (named: string) =>
     joinOff ? t("classes.heldBackNamed", { named, why }) : named;
@@ -138,20 +144,18 @@ function CodeCell({
           <Copy aria-hidden="true" className="size-3.25" />
         </InlineAction>
       )}
-      {archived ? null : (
-        <InlineAction
-          named={heldBack(
-            t(code === null ? "classes.createCodeNamed" : "classes.admin.rotateNamed", {
-              name: klass.name,
-            }),
-          )}
-          title={joinOff ? why : t("classes.admin.rotate")}
-          paused={joinOff}
-          onAct={(button) => actions.onRotate(klass, button)}
-        >
-          <RefreshCw aria-hidden="true" className="size-3.25" />
-        </InlineAction>
-      )}
+      <InlineAction
+        named={heldBack(
+          t(code === null ? "classes.createCodeNamed" : "classes.admin.rotateNamed", {
+            name: klass.name,
+          }),
+        )}
+        title={joinOff ? why : t("classes.admin.rotate")}
+        paused={joinOff}
+        onAct={(button) => actions.onRotate(klass, button)}
+      >
+        <RefreshCw aria-hidden="true" className="size-3.25" />
+      </InlineAction>
     </span>
   );
 }
@@ -241,8 +245,8 @@ function columns(
  * from a content width of 600, the join code from 760 and Created from 900,
  * and a folded teacher joins the class's sub-line. Rows are not links. A
  * code reads in full with Copy and Rotate beside it (Create on a class
- * without one); an archived class's code cannot be rotated, so neither the
- * button nor the menu offers it there. While `joinOff` says the centre has
+ * without one). An archived class takes no student, so its code is a dash,
+ * with nothing to copy or rotate, and the menu offers no rotation there. While `joinOff` says the centre has
  * turned joining by code off, Copy, Rotate and Create stay but are paused with
  * the centre's sentence as their reason (D-028). `empty` is what an empty
  * page says.

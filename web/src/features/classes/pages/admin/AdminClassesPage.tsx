@@ -131,7 +131,10 @@ export default function AdminClassesPage() {
       await invalidateClass(queryClient, klass.id);
       await invalidateAdminClasses(queryClient);
     },
-    onError: (cause) => toast.error(message(cause, t("classes.restoreFailed"))),
+    onError: async (cause) => {
+      toast.error(message(cause, t("classes.restoreFailed")));
+      await invalidateAdminClasses(queryClient);
+    },
   });
 
   const actions: AdminClassActions = {
@@ -259,7 +262,7 @@ export default function AdminClassesPage() {
       ) : (
         <AdminClassesTable
           classes={data.items}
-          tab={tab}
+          tab={data.tab}
           page={data.page}
           pageSize={data.pageSize}
           total={data.total}

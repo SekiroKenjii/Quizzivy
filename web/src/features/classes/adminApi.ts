@@ -28,8 +28,10 @@ export interface AdminClassesParams {
 
 /**
  * adminClassesQuery reads `GET /admin/classes`: one page of every teacher's
- * classes with their join codes in full, and the two tabs' counts. The codes
- * are bearer secrets, so the answer leaves memory with the screen.
+ * classes with their join codes in full, and the two tabs' counts, with the
+ * tab it was asked for, so a page shown while the next one loads keeps its
+ * own tab's rules. The codes are bearer secrets, so the answer leaves memory
+ * with the screen.
  */
 export function adminClassesQuery(params: AdminClassesParams) {
   const { tab, q, disabledTeacher, page, limit } = params;
@@ -43,8 +45,8 @@ export function adminClassesQuery(params: AdminClassesParams) {
       page,
       limit,
     ] as const,
-    queryFn: ({ signal }) =>
-      api("get", "/admin/classes", {
+    queryFn: async ({ signal }) => {
+      const answer = await api("get", "/admin/classes", {
         query: {
           ...(tab === "archived" ? { tab } : {}),
           ...(q === "" ? {} : { q }),
@@ -53,7 +55,9 @@ export function adminClassesQuery(params: AdminClassesParams) {
           limit,
         },
         signal,
-      }),
+      });
+      return { ...answer, tab };
+    },
     gcTime: 0,
   });
 }
@@ -78,27 +82,53 @@ export function changeClassTeacher(id: string, teacherId: string, notify: boolea
 /** ClassTeacherOption is an account a class can be given to. */
 export type ClassTeacherOption = Readonly<{ id: string; name: string; email: string }>;
 
+const TEACHER_PAGE = 50;
+
+async function everyUser(tab: "teachers" | "admins", signal: AbortSignal) {
+  const users: components["schemas"]["AdminUserRow"][] = [];
+  for (let page = 1; ; page++) {
+    const answer = await api("get", "/admin/users", {
+      query: { tab, limit: TEACHER_PAGE, ...(page > 1 ? { page } : {}) },
+      signal,
+    });
+    users.push(...answer.items);
+    if (answer.items.length < TEACHER_PAGE || users.length >= answer.total)
+      return users;
+  }
+}
+
 /**
- * classTeachersQuery lists who may teach a class: the active accounts of the
- * Users table's Teachers and Admins tabs. The server makes the last check
- * (`INVALID_RECIPIENT`), so a role without the teacher workspace that the
- * Teachers tab holds is refused there.
+ * classTeachersQuery lists who may teach a class: every active account of the
+ * Users table's Teachers and Admins tabs, read page by page to the end. The
+ * server makes the last check (`INVALID_RECIPIENT`), so a role without the
+ * teacher workspace that the Teachers tab holds is refused there.
  */
 export function classTeachersQuery() {
   return queryOptions({
     queryKey: [...ADMIN_CLASSES_KEY, "teachers"] as const,
     queryFn: async ({ signal }): Promise<readonly ClassTeacherOption[]> => {
-      const pages = await Promise.all(
-        (["teachers", "admins"] as const).map((tab) =>
-          api("get", "/admin/users", { query: { tab, limit: 50 }, signal }),
-        ),
+      const tabs = await Promise.all(
+        (["teachers", "admins"] as const).map((tab) => everyUser(tab, signal)),
       );
-      return pages
-        .flatMap((page) => page.items)
+      return tabs
+        .flat()
         .filter((user) => user.status !== "disabled")
         .map((user) => ({ id: user.id, name: user.fullName, email: user.email }));
     },
   });
+}
+
+/**
+ * teacherOptions are the choices of a teacher picker. A name two accounts
+ * share carries the email after it, since the picker draws only the label.
+ */
+export function teacherOptions(teachers: readonly ClassTeacherOption[]) {
+  const seen = new Map<string, number>();
+  for (const one of teachers) seen.set(one.name, (seen.get(one.name) ?? 0) + 1);
+  return teachers.map((one) => ({
+    value: one.id,
+    label: (seen.get(one.name) ?? 0) > 1 ? `${one.name} (${one.email})` : one.name,
+  }));
 }
 
 /** invalidateAdminClasses marks every list of classes stale, the console's and the teacher's. */

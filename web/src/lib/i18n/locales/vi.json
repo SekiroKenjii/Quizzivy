@@ -1830,6 +1830,7 @@
       "teacherDisabled": "Đã tắt",
       "teacherDisabledInline": "{{name}} (đã tắt)",
       "noCode": "Chưa có mã",
+      "noCodeArchived": "Lớp đã lưu trữ, không có mã tham gia",
       "copyCode": "Sao chép mã tham gia",
       "copyCodeNamed": "Sao chép mã tham gia của {{name}}",
       "rotate": "Đổi mã tham gia",

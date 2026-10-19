@@ -1830,6 +1830,7 @@
       "teacherDisabled": "Disabled",
       "teacherDisabledInline": "{{name}} (disabled)",
       "noCode": "No code",
+      "noCodeArchived": "Archived, no join code",
       "copyCode": "Copy join code",
       "copyCodeNamed": "Copy the join code of {{name}}",
       "rotate": "Rotate join code",

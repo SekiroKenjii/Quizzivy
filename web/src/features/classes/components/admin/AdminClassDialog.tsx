@@ -1,4 +1,4 @@
-import { useMemo, type RefObject } from "react";
+import { useMemo, useRef, type RefObject } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import {
@@ -14,6 +14,7 @@ import {
   classTeachersQuery,
   createClassForTeacher,
   invalidateAdminClasses,
+  teacherOptions,
   type AdminClass,
   type ClassTeacherOption,
 } from "@/features/classes/adminApi";
@@ -26,14 +27,6 @@ import { useJoinCodesOff } from "@/features/organization/api";
 type Values = { name: string; teacher: string; schedule: string };
 
 const BLANK: Values = { name: "", teacher: "", schedule: "" };
-
-function teacherOptions(teachers: readonly ClassTeacherOption[] | undefined) {
-  return (teachers ?? []).map((one) => ({
-    value: one.id,
-    label: one.name,
-    meta: one.email,
-  }));
-}
 
 function fieldsOf(
   t: TFunction,
@@ -89,7 +82,7 @@ function fieldsOf(
       name: "teacher",
       label: t("classes.admin.column.teacher"),
       placeholder: t("classes.admin.teacherPlaceholder"),
-      options: teacherOptions(teachers.data),
+      options: teacherOptions(teachers.data ?? []),
       required: true,
       ...(hint === undefined ? {} : { hint }),
     },
@@ -140,6 +133,7 @@ export function AdminClassDialog({
     [klass],
   );
 
+  const sending = useRef(false);
   const save = useMutation({
     mutationFn: async (values: Values) => {
       if (klass !== null) {
@@ -162,6 +156,10 @@ export function AdminClassDialog({
       else toast(t("classes.admin.created"));
       if (klass !== null) await invalidateClass(queryClient, klass.id);
       await invalidateAdminClasses(queryClient);
+    },
+    onError: () => invalidateAdminClasses(queryClient),
+    onSettled: () => {
+      sending.current = false;
     },
   });
 
@@ -187,7 +185,9 @@ export function AdminClassDialog({
       error={error}
       returnFocus={returnFocus}
       onSubmit={(values) => {
-        if (!save.isPending) save.mutate(values);
+        if (sending.current) return;
+        sending.current = true;
+        save.mutate(values);
       }}
     />
   );

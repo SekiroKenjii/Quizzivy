@@ -83,6 +83,7 @@ let creates: unknown[] = [];
 let changes: { id: string; body: unknown }[] = [];
 let patches: { id: string; body: unknown }[] = [];
 let rotations: string[] = [];
+let rotationBodies: unknown[] = [];
 
 function serveClasses(active: AdminClass[], archived: AdminClass[] = [SUMMER]) {
   server.use(
@@ -146,6 +147,7 @@ beforeEach(() => {
   changes = [];
   patches = [];
   rotations = [];
+  rotationBodies = [];
   serveClasses([MORNING, ORPHANED]);
   serveJoinCodes(true);
   server.use(
@@ -180,8 +182,9 @@ beforeEach(() => {
       patches.push({ id: String(params["id"]), body: await request.json() });
       return contractJson("/teacher/classes/{id}", "patch", 200, classBody(MORNING));
     }),
-    http.post(`${BASE}/teacher/classes/:id/join-code`, ({ params }) => {
+    http.post(`${BASE}/teacher/classes/:id/join-code`, async ({ request, params }) => {
       rotations.push(String(params["id"]));
+      rotationBodies.push(await request.json());
       return contractJson("/teacher/classes/{id}/join-code", "post", 201, {
         code: "Z9Z9-Y8Y8",
         expiresAt: "2099-01-01T00:00:00Z",
@@ -275,31 +278,26 @@ describe("the Admin Classes page", () => {
     expect(within(row).queryByRole("link")).toBeNull();
   });
 
-  it("folds Created below 900, the code below 760 and the teacher into the sub-line below 600", async () => {
-    renderPage("/admin/classes", 800);
-    expect(await headers()).toEqual([
-      "Lớp",
-      "Giáo viên",
-      "Học viên",
-      "Mã tham gia",
-      "Thao tác",
-    ]);
+  it.each([
+    [899, ["Lớp", "Giáo viên", "Học viên", "Mã tham gia", "Thao tác"]],
+    [900, ["Lớp", "Giáo viên", "Học viên", "Mã tham gia", "Ngày tạo", "Thao tác"]],
+    [759, ["Lớp", "Giáo viên", "Học viên", "Thao tác"]],
+    [760, ["Lớp", "Giáo viên", "Học viên", "Mã tham gia", "Thao tác"]],
+    [599, ["Lớp", "Học viên", "Thao tác"]],
+    [600, ["Lớp", "Giáo viên", "Học viên", "Thao tác"]],
+  ])("draws the columns a content width of %i takes", async (width, expected) => {
+    renderPage("/admin/classes", width);
+    expect(await headers()).toEqual(expected);
   });
 
   it("folds the teacher into the class's sub-line on a narrow page", async () => {
     renderPage("/admin/classes", 560);
-    expect(await headers()).toEqual(["Lớp", "Học viên", "Thao tác"]);
     const row = await rowOf(MORNING.name);
     expect(within(row).getByText("Giàu Bùi · T2 · T4, 09:00")).toBeVisible();
     const orphan = await rowOf(ORPHANED.name);
     expect(
       within(orphan).getByText("Vũ Thuỳ Dung (đã tắt) · Chưa có lịch học"),
     ).toBeVisible();
-  });
-
-  it("keeps the teacher in its column between 600 and 760", async () => {
-    renderPage("/admin/classes", 640);
-    expect(await headers()).toEqual(["Lớp", "Giáo viên", "Học viên", "Thao tác"]);
   });
 
   it("shows a skeleton first, then an error with Retry", async () => {
@@ -369,6 +367,9 @@ describe("a class's menu", () => {
     const { user } = renderPage("/admin/classes?tab=archived");
     const row = await rowOf(SUMMER.name);
     expect(within(row).queryByRole("button", { name: /Đổi mã tham gia/ })).toBeNull();
+    expect(within(row).queryByRole("button", { name: /Sao chép/ })).toBeNull();
+    expect(within(row).queryByText("K7QM-2PXA")).toBeNull();
+    expect(within(row).getByText("—")).toBeInTheDocument();
     const menu = await openMenu(user, SUMMER.name);
     expect(
       within(menu)
@@ -398,6 +399,7 @@ describe("a class's menu", () => {
     ).toBeVisible();
     await user.click(within(dialog).getByRole("button", { name: "Đổi mã" }));
     await waitFor(() => expect(rotations).toEqual([MORNING.id]));
+    expect(rotationBodies).toEqual([{ expiresInDays: 30, maxUses: 40 }]);
     expect(await screen.findByText("Mã tham gia mới: Z9Z9-Y8Y8")).toBeVisible();
   });
 
@@ -417,6 +419,53 @@ describe("a class's menu", () => {
     await waitFor(() =>
       expect(patches).toEqual([{ id: MORNING.id, body: { archived: true } }]),
     );
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("Tìm lớp hoặc giáo viên")).toHaveFocus(),
+    );
+  });
+
+  it("reads the list again when the server refuses an archive", async () => {
+    server.use(
+      http.patch(`${BASE}/teacher/classes/:id`, () =>
+        HttpResponse.json(
+          { error: { code: "NOT_FOUND", message: "Không tìm thấy lớp." } },
+          { status: 404 },
+        ),
+      ),
+    );
+    const { user } = renderPage();
+    const menu = await openMenu(user, MORNING.name);
+    await user.click(within(menu).getByRole("menuitem", { name: "Lưu trữ lớp" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: `Lưu trữ ${MORNING.name}?`,
+    });
+    const before = lists.length;
+    await user.click(within(dialog).getByRole("button", { name: "Lưu trữ" }));
+    expect(await within(dialog).findByText("Không tìm thấy lớp.")).toBeVisible();
+    await waitFor(() => expect(lists.length).toBeGreaterThan(before));
+  });
+
+  it("keeps the shown page's menu while the next tab loads", async () => {
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const { user } = renderPage();
+    await rowOf(MORNING.name);
+    server.use(
+      http.get(`${BASE}/admin/classes`, async ({ request }) => {
+        if (new URL(request.url).searchParams.get("tab") === "archived") await held;
+        return undefined;
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: /Đã lưu trữ/ }));
+    const menu = await openMenu(user, MORNING.name);
+    expect(
+      within(menu)
+        .getAllByRole("menuitem")
+        .map((item) => item.textContent),
+    ).toEqual(["Sửa lớp", "Đổi giáo viên", "Đổi mã tham gia", "Lưu trữ lớp"]);
+    release();
   });
 });
 
@@ -531,6 +580,104 @@ describe("the class dialogs", () => {
   });
 });
 
+describe("the teacher picker", () => {
+  function many(count: number) {
+    return Array.from({ length: count }, (_, index) => {
+      const n = String(index + 1).padStart(3, "0");
+      return staff(`018f0000-0000-7000-8000-000000001${n}`, `Giáo viên ${n}`);
+    });
+  }
+
+  async function pick(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole("button", { name: "Lớp mới" }));
+    const dialog = await screen.findByRole("dialog", { name: "Lớp mới" });
+    await user.click(
+      await within(dialog).findByRole("combobox", { name: /Giáo viên/ }),
+    );
+    return dialog;
+  }
+
+  it("offers the 51st teacher, reading the Users list to its end", async () => {
+    const teachers = many(51);
+    const asked: string[] = [];
+    server.use(
+      http.get(`${BASE}/admin/users`, ({ request }) => {
+        const query = new URL(request.url).searchParams;
+        const tab = query.get("tab") ?? "";
+        const page = Number(query.get("page") ?? 1);
+        asked.push(`${tab}:${page}`);
+        const all = tab === "teachers" ? teachers : [];
+        const items = all.slice((page - 1) * 50, page * 50);
+        return contractJson("/admin/users", "get", 200, {
+          items,
+          page,
+          pageSize: 50,
+          total: all.length,
+          facets: { all: 51, teachers: 51, students: 0, admins: 0, disabled: 0 },
+        });
+      }),
+    );
+    const { user } = renderPage();
+    await pick(user);
+    expect(await screen.findByRole("option", { name: "Giáo viên 051" })).toBeVisible();
+    expect(screen.getAllByRole("option")).toHaveLength(51);
+    expect([...asked].sort((a, b) => a.localeCompare(b))).toEqual([
+      "admins:1",
+      "teachers:1",
+      "teachers:2",
+    ]);
+  });
+
+  it("tells two teachers of the same name apart by their email", async () => {
+    server.use(
+      http.get(`${BASE}/admin/users`, ({ request }) => {
+        const tab = new URL(request.url).searchParams.get("tab");
+        const items =
+          tab === "teachers"
+            ? [
+                staff(GIAU, "Lan Nguyễn"),
+                staff(DUNG, "Lan Nguyễn"),
+                staff(MINH, "Minh Trần"),
+              ]
+            : [];
+        return contractJson("/admin/users", "get", 200, {
+          items,
+          page: 1,
+          pageSize: 50,
+          total: items.length,
+          facets: { all: 3, teachers: 3, students: 0, admins: 0, disabled: 0 },
+        });
+      }),
+    );
+    const { user } = renderPage();
+    await pick(user);
+    expect(
+      (await screen.findAllByRole("option")).map((option) => option.textContent),
+    ).toEqual([
+      "Lan Nguyễn (a1@example.com)",
+      "Lan Nguyễn (a2@example.com)",
+      "Minh Trần",
+    ]);
+  });
+
+  it("creates one class however fast Create is pressed twice", async () => {
+    const { user } = renderPage();
+    const dialog = await pick(user);
+    await user.click(screen.getByRole("option", { name: /Minh Trần/ }));
+    await user.type(
+      within(dialog).getByRole("textbox", { name: /Tên lớp/ }),
+      "IELTS 8.0",
+    );
+    const create = within(dialog).getByRole("button", { name: "Tạo lớp" });
+    act(() => {
+      create.click();
+      create.click();
+    });
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    expect(creates).toHaveLength(1);
+  });
+});
+
 describe("the page while the centre has turned joining by code off (D-028)", () => {
   it("says so, and pauses Copy, Rotate and the menu's rotation with the centre's sentence", async () => {
     serveJoinCodes(false);
@@ -555,6 +702,28 @@ describe("the page while the centre has turned joining by code off (D-028)", () 
     expect(item).toHaveAttribute("aria-disabled", "true");
     await user.click(item);
     expect(rotations).toEqual([]);
+  });
+
+  it("says a new class has no code yet", async () => {
+    serveJoinCodes(false);
+    const { user } = renderPage();
+    await screen.findByText(/Trung tâm đang tắt tham gia bằng mã\./);
+    await user.click(screen.getByRole("button", { name: "Lớp mới" }));
+    const dialog = await screen.findByRole("dialog", { name: "Lớp mới" });
+    await user.type(
+      within(dialog).getByRole("textbox", { name: /Tên lớp/ }),
+      "IELTS 8.0",
+    );
+    await user.click(
+      await within(dialog).findByRole("combobox", { name: /Giáo viên/ }),
+    );
+    await user.click(await screen.findByRole("option", { name: /Minh Trần/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Tạo lớp" }));
+    expect(
+      await screen.findByText(
+        "Đã tạo lớp. Trung tâm đang tắt tham gia bằng mã nên lớp chưa có mã.",
+      ),
+    ).toBeVisible();
   });
 });
 

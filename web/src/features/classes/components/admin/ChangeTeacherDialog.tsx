@@ -1,4 +1,4 @@
-import { useMemo, type RefObject } from "react";
+import { useMemo, useRef, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { UserRoundCog } from "lucide-react";
@@ -8,6 +8,7 @@ import {
   changeClassTeacher,
   classTeachersQuery,
   invalidateAdminClasses,
+  teacherOptions,
   type AdminClass,
 } from "@/features/classes/adminApi";
 import { teacherRefusal } from "@/features/classes/adminText";
@@ -42,13 +43,9 @@ export function ChangeTeacherDialog({
   let hint: string | undefined;
   if (teachers.isPending) hint = t("classes.admin.teachersLoading");
   else if (teachers.isError) hint = t("classes.admin.teachersFailed");
-  const options = (teachers.data ?? []).map((one) => ({
-    value: one.id,
-    label: one.name,
-    meta: one.email,
-  }));
+  const options = teacherOptions(teachers.data ?? []);
   if (klass !== null && !options.some((one) => one.value === klass.teacher.id))
-    options.unshift({ value: klass.teacher.id, label: klass.teacher.name, meta: "" });
+    options.unshift({ value: klass.teacher.id, label: klass.teacher.name });
   const fields: readonly FormField<Values>[] = [
     {
       kind: "select",
@@ -61,6 +58,7 @@ export function ChangeTeacherDialog({
     { kind: "toggle", name: "notify", text: t("classes.admin.notifyBoth") },
   ];
 
+  const sending = useRef(false);
   const change = useMutation({
     mutationFn: ({ id, values }: { id: string; values: Values }) =>
       changeClassTeacher(id, values.teacher, values.notify),
@@ -75,6 +73,10 @@ export function ChangeTeacherDialog({
       );
       await invalidateClass(queryClient, id);
       await invalidateAdminClasses(queryClient);
+    },
+    onError: () => invalidateAdminClasses(queryClient),
+    onSettled: () => {
+      sending.current = false;
     },
   });
 
@@ -100,8 +102,9 @@ export function ChangeTeacherDialog({
       }
       returnFocus={returnFocus}
       onSubmit={(values) => {
-        if (klass !== null && !change.isPending)
-          change.mutate({ id: klass.id, values });
+        if (klass === null || sending.current) return;
+        sending.current = true;
+        change.mutate({ id: klass.id, values });
       }}
     />
   );
