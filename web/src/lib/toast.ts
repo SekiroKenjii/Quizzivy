@@ -22,4 +22,18 @@ export const notify = {
       closeButton: true,
       ...options,
     }),
+  dismiss: (id: string | number) => toast.dismiss(id),
 };
+
+/**
+ * leaveToast takes focus out of the toaster when it is inside, for an action
+ * that opens something else. Sonner returns focus to where it was before the
+ * toasts took it, and does so when focus leaves the toaster or, if it has not
+ * left yet, when the toast is removed 200ms later, which would take focus
+ * from whatever the action opened.
+ */
+export function leaveToast() {
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && active.closest("[data-sonner-toaster]"))
+    active.blur();
+}

@@ -1,9 +1,10 @@
-import { lazy, Suspense, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScanSearch, Sparkles } from "lucide-react";
 import type { AiFinding } from "@/features/ai/api";
 import type { AiPanelRequest } from "@/features/ai/components/AiPanel";
 import { AiEntryButton } from "@/features/ai/components/AiEntryButton";
+import { AiPanelStack } from "@/features/ai/components/AiPanelStack";
 import { AiWriteError } from "@/features/ai/kind";
 import type {
   AiPassage,
@@ -17,8 +18,6 @@ import {
   questionSchema,
   type QuestionValues,
 } from "@/features/question-bank/questionSchema";
-
-const AiPanel = lazy(() => import("@/features/ai/components/AiPanel"));
 
 const ENTRY = "shadow-card h-9";
 
@@ -56,6 +55,8 @@ export interface BuilderAi {
  * the panel each opens. Neither is drawn without the assistant or `ai.use`;
  * both are drawn disabled with the reason while the teacher is paused or out
  * of credits (Q34). Like Preview, each saves pending edits before it opens.
+ * Closing a panel keeps its session while the builder is open, and Done, a
+ * write of what it made or Start over end it.
  */
 export function BuilderAiActions({ ai }: Readonly<{ ai: BuilderAi }>) {
   const { t } = useTranslation();
@@ -106,7 +107,12 @@ export function BuilderAiActions({ ai }: Readonly<{ ai: BuilderAi }>) {
           testId: ai.testId,
           passages: ai.passages,
           ...(ai.section !== null && ai.sectionId
-            ? { section: { id: ai.sectionId, title: ai.section } }
+            ? {
+                section: ai.sections.find((section) => section.id === ai.sectionId) ?? {
+                  id: ai.sectionId,
+                  title: ai.section,
+                },
+              }
             : {}),
           sections: ai.sections,
           destination: { kind: "section", title: ai.section ?? "" },
@@ -144,11 +150,13 @@ export function BuilderAiActions({ ai }: Readonly<{ ai: BuilderAi }>) {
         unavailable={ai.section === null ? t("ai.needsSection") : null}
         onClick={() => void start("generate")}
       />
-      {open !== null && (
-        <Suspense fallback={null}>
-          <AiPanel request={requestFor(open)} onClose={() => setOpen(null)} />
-        </Suspense>
-      )}
+      <AiPanelStack
+        key={ai.testId}
+        open={open}
+        requestFor={requestFor}
+        onOpen={setOpen}
+        onClose={() => setOpen(null)}
+      />
     </>
   );
 }

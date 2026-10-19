@@ -395,4 +395,36 @@ describe("Make a variant", () => {
     );
     expect(writes).toEqual([]);
   });
+
+  it("brings back a variant that finished behind a closed drawer from the toast", async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.post(`${BASE}/teacher/ai/tests/:id/variant`, async () => {
+        await gate;
+        return contractJson("/teacher/ai/tests/{id}/variant", "post", 200, {
+          changes,
+          usage: { credits: 2600, left: 15000 },
+        });
+      }),
+    );
+    const { user } = renderDetail();
+    await user.click(await screen.findByRole("button", { name: ai.entry.variant }));
+    let dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: ai.variant.run }));
+    await within(dialog).findByRole("status");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    release();
+
+    await user.click(await screen.findByRole("button", { name: ai.finished.open }));
+    dialog = await screen.findByRole("dialog");
+    expect(
+      await within(dialog).findByRole("button", {
+        name: "Lưu 2 thay đổi thành bản nháp",
+      }),
+    ).toBeVisible();
+  });
 });

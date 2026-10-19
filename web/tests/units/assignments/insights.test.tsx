@@ -440,4 +440,42 @@ describe("Make a practice set", () => {
     ]);
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
+
+  it("brings back a practice set that finished behind a closed drawer from the toast", async () => {
+    serve();
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.post(`${DETAIL_API}/teacher/ai/questions/generate`, async () => {
+        await gate;
+        return contractJson("/teacher/ai/questions/generate", "post", 200, {
+          items: [
+            {
+              type: "short_answer",
+              prompt: "What do cities rethink?",
+              answerKey: ["open land"],
+              explanation: "",
+            },
+          ],
+          usage: { credits: 200, left: 18540 },
+        });
+      }),
+    );
+    const user = renderDetail("questions");
+    await user.click(await explainButton());
+    const panel = await screen.findByRole("region", { name: copy.title });
+    await user.click(within(panel).getByRole("button", { name: copy.practice }));
+    let dialog = await screen.findByRole("dialog", { name: vi_.ai.generate.title });
+    await user.click(within(dialog).getByRole("button", { name: vi_.ai.generate.run }));
+    await within(dialog).findByRole("status");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    release();
+
+    await user.click(await screen.findByRole("button", { name: vi_.ai.finished.open }));
+    dialog = await screen.findByRole("dialog", { name: vi_.ai.generate.title });
+    expect(await within(dialog).findByText("What do cities rethink?")).toBeVisible();
+  });
 });

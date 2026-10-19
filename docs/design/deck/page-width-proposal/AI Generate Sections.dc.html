@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.469.0/font/lucide.css">
+<style>
+html,body{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;-webkit-font-smoothing:antialiased}
+[data-qz]{--bg:#ffffff;--sidebar:#f7f8f8;--card:#ffffff;--muted:#f2f4f4;--hover:#eceff0;--fg:#1b2123;--muted-fg:#646c6e;--border:#e4e7e8;--primary:#252c2e;--primary-fg:#fafbfb;--ring:#9aa3a5;--shadow:0 1px 2px rgba(20,28,30,.05);--shadow-lg:0 12px 32px -8px rgba(20,28,30,.18),0 2px 6px rgba(20,28,30,.06);--accent-c:#a4ca3e;--accent-soft:#f1f7e0;--accent-ink:#4f6c12;--success:oklch(.62 .14 155);--success-soft:oklch(.96 .03 155);--success-ink:oklch(.42 .1 155);--warning-soft:oklch(.96 .04 80);--warning-ink:oklch(.48 .11 60);--danger-soft:oklch(.96 .03 27);--danger-ink:oklch(.48 .17 27);--info-soft:oklch(.96 .02 230);--info-ink:oklch(.45 .09 235);--overlay:rgba(15,20,22,.4);--focus:var(--muted-fg);--anno:oklch(.6 .19 330);color-scheme:light}
+[data-qz="dark"]{--bg:#0e1213;--sidebar:#0a0d0e;--card:#131819;--muted:#1a2022;--hover:#20282a;--fg:#ecefef;--muted-fg:#98a0a2;--border:#252d2f;--primary:#ecefef;--primary-fg:#141a1b;--ring:#5d6769;--shadow:0 1px 2px rgba(0,0,0,.3);--shadow-lg:0 16px 40px -8px rgba(0,0,0,.6);--accent-soft:rgba(164,202,62,.13);--accent-ink:#c2e070;--success-soft:oklch(.3 .05 155);--success-ink:oklch(.8 .12 155);--warning-soft:oklch(.32 .06 70);--warning-ink:oklch(.85 .12 80);--danger-soft:oklch(.3 .08 27);--danger-ink:oklch(.78 .13 27);--info-soft:oklch(.3 .05 235);--info-ink:oklch(.8 .08 230);--overlay:rgba(0,0,0,.6);--anno:oklch(.74 .17 330);color-scheme:dark}
+[data-qz] *{box-sizing:border-box}
+[data-qz] :focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+[data-qz] a{color:var(--fg);text-decoration:underline;text-underline-offset:3px}
+[data-qz] a:hover{color:var(--muted-fg)}
+[data-qz] button,[data-qz] textarea{font:inherit;color:inherit}
+[data-qz] textarea::placeholder{color:var(--muted-fg)}
+[data-qz] [class^="icon-"]{line-height:1;display:inline-block}
+@keyframes qz-spin{to{transform:rotate(360deg)}}
+@keyframes qz-shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+@media (prefers-reduced-motion:reduce){[data-anim]{animation:none!important}}
+</style>
+</helmet>
+<div data-qz="{{ theme }}" style="min-height:100vh;background:var(--sidebar);color:var(--fg);font-family:'Be Vietnam Pro',ui-sans-serif,system-ui,sans-serif;font-size:14px;line-height:1.5">
+<div style="max-width:1440px;margin:0 auto;padding:40px clamp(16px,3vw,40px) 80px;display:flex;flex-direction:column;gap:52px">
+
+<header data-screen-label="Cover" style="display:flex;flex-direction:column;gap:16px;max-width:940px">
+  <div style="display:flex;align-items:center;gap:10px">
+    <span style="display:grid;place-items:center;width:32px;height:32px;flex:none;border-radius:8px;background:var(--card);border:1px solid var(--border)"><sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}"><img src="web/public/brand/quizzivy-mark-color.svg" alt="" style="height:18px;width:auto"></sc-if><sc-if value="{{ isDark }}" hint-placeholder-val="{{ false }}"><img src="web/public/brand/quizzivy-mark-on-dark.svg" alt="" style="height:18px;width:auto"></sc-if></span>
+    <span style="font-size:13px;color:var(--muted-fg)">Quizzivy · Teacher › Test builder › Generate · Design answer to CR-001 · 19 Oct 2026</span>
+  </div>
+  <h1 style="margin:0;font-size:40px;line-height:1.1;font-weight:600;letter-spacing:-0.025em;text-wrap:balance">Generate for standalone questions, a section and a whole test</h1>
+  <p style="margin:0;font-size:17px;line-height:1.55;color:var(--muted-fg);text-wrap:pretty">The answer to the brief's three parts. A refines the hotfix's style control and section toggle, B draws the whole-test plan, and C puts the credit ceiling next to Generate. Everything is built from the panel as it is on main: the 560px Sheet, the panel's fields, the item card, the run steps and the credit note. Only three pieces are new: a radio card, a section picker and a plan row. Nothing here changes the H1 contract. The mockups are in Vietnamese and switch to English from the bar.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:8px">
+    <span style="display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:var(--card);border:1px solid var(--border);font-size:12px;color:var(--muted-fg);white-space:nowrap">Source: main · AiPanel.tsx, kinds/generate.ts, AiPanelField.tsx, AiItemCard.tsx</span>
+    <span style="display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:var(--card);border:1px solid var(--border);font-size:12px;color:var(--muted-fg);white-space:nowrap">CR-001 · H1 v0.11.10 · H2</span>
+    <span style="display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:var(--card);border:1px solid var(--border);font-size:12px;color:var(--muted-fg);white-space:nowrap">QC-739-1 to 3 · DG-211</span>
+  </div>
+</header>
+
+<section data-screen-label="Answers" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(400px,100%),1fr));gap:16px;align-items:start">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+    <span style="font-size:12px;font-weight:600;color:var(--muted-fg);letter-spacing:.04em;text-transform:uppercase">A.1 · Cards or segmented?</span>
+    <strong style="font-size:17px;font-weight:600;line-height:1.35">Two cards with one line each. The hotfix's segmented control can ship first, with the same values.</strong>
+    <ul style="margin:0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:7px;color:var(--muted-fg);text-wrap:pretty">
+      <li>The choice changes three things: what the box asks for, whether the passage chips show, and where the questions go. Two words can't explain that, but one line under each can.</li>
+      <li>Teachers pick it once per session, so 40px more height costs little. The cards sit side by side in the drawer and stack at 360. They're one radio group: one tab stop, and arrow keys move between them.</li>
+      <li><span style="color:var(--fg)">Pick the default from the open section, not from the page.</span> Under the CR's rule, opening Generate from Part 3 (grammar, no groups) lands on Theo bài đọc with Part 1's passage chosen. That's one line in <code>initial</code>.</li>
+    </ul>
+  </div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+    <span style="font-size:12px;font-weight:600;color:var(--muted-fg);letter-spacing:.04em;text-transform:uppercase">A.3 · Showing and changing the section</span>
+    <strong style="font-size:17px;font-weight:600;line-height:1.35">A "Thêm vào phần" card shows the section and its count, with the fit toggle under it.</strong>
+    <ul style="margin:0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:7px;color:var(--muted-fg);text-wrap:pretty">
+      <li>The card names the section and says what AI will find there: "6 câu · có hướng dẫn". Đổi lists every saved section, including empty ones (QC-739-2), and marks the open one "đang mở".</li>
+      <li>The toggle sits inside the card because it's about that section. Its label shortens to "Hợp với phần này", since the title is already right above it.</li>
+      <li>When the toggle is off, the card stays and still says where the questions will go. We suggest pinning the destination at Run in both cases. The CR pins it only when the section is read.</li>
+    </ul>
+  </div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+    <span style="font-size:12px;font-weight:600;color:var(--muted-fg);letter-spacing:.04em;text-transform:uppercase">B · One section or the whole test</span>
+    <strong style="font-size:17px;font-weight:600;line-height:1.35">A segmented control at the top of the body, shown only in the builder.</strong>
+    <ul style="margin:0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:7px;color:var(--muted-fg);text-wrap:pretty">
+      <li>Tabs in the header would read as two tools. It's one panel: one header, one footer, one credit line and the same result cards.</li>
+      <li>Each scope keeps its own values while you switch. The control hides once a run starts, and Làm lại từ đầu brings it back.</li>
+      <li>The bank and Explain results never show it, because they have no sections.</li>
+    </ul>
+  </div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+    <span style="font-size:12px;font-weight:600;color:var(--muted-fg);letter-spacing:.04em;text-transform:uppercase">B.1 · A plan table in a 560px drawer</span>
+    <strong style="font-size:17px;font-weight:600;line-height:1.35">Rows that open: each row shows the section and its count, and the other options appear once the count isn't 0.</strong>
+    <ul style="margin:0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:7px;color:var(--muted-fg);text-wrap:pretty">
+      <li>Four columns don't fit in 524px of content with Vietnamese labels. Every row starts at 0, so most rows stay on one line. Types and Theo từng bài đọc / Câu độc lập appear under a row once it gets a count.</li>
+      <li>From 768 the rows sit under a header ("Phần · Số câu mới"). Below 768 they become cards and the count control fills the width. The Sheet needs no new width.</li>
+      <li>In a passage section the count is per passage, because each passage is one batch: "2 bài đọc × 3 câu = 6 câu, mỗi bài vào nhóm của nó".</li>
+    </ul>
+  </div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+    <span style="font-size:12px;font-weight:600;color:var(--muted-fg);letter-spacing:.04em;text-transform:uppercase">B.2 and C · Limits and cost</span>
+    <strong style="font-size:17px;font-weight:600;line-height:1.35">Limits stay quiet until crossed. The credit ceiling goes where "N left" is today.</strong>
+    <ul style="margin:0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:7px;color:var(--muted-fg);text-wrap:pretty">
+      <li>The total line is the brief's "Tổng 16 câu · 3 phần". When a plan goes over 40 questions or 5 sections and passages, a warning says which limit and how to fix it, and Generate turns off.</li>
+      <li>"Tối đa 800 tín dụng · còn 1.840 trong tháng này" replaces "Còn 1.840 tín dụng". We wrote "tối đa", not "tối đa khoảng", because the figure is the reservation and a real ceiling. After the run, the footer shows what was used, as it does today.</li>
+      <li>When fewer credits are left than the ceiling, the line becomes a warning and Generate turns off, because the run would be refused anyway.</li>
+    </ul>
+  </div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+    <span style="font-size:12px;font-weight:600;color:var(--muted-fg);letter-spacing:.04em;text-transform:uppercase">B.6 · 30 to 45 seconds</span>
+    <strong style="font-size:17px;font-weight:600;line-height:1.35">A status for each section, if the server can report it.</strong>
+    <ul style="margin:0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:7px;color:var(--muted-fg);text-wrap:pretty">
+      <li>Each section shows Đang viết, then its count, or Chưa tạo được. A bar and "2/3 phần xong" sit above the rows. One line says closing the panel keeps the result, which has been true since v0.11.8.</li>
+      <li><span style="color:var(--fg)">The CR's operation is one request with one answer.</span> To show real status for each section, the server must report it by streaming or polling. Without that, every row stays Đang viết with the time so far. Please don't show a fake 2/3.</li>
+    </ul>
+  </div>
+</section>
+
+<div style="position:sticky;top:12px;z-index:30;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg)">
+  <sc-for list="{{ ctl }}" as="cg" hint-placeholder-count="6"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:500;color:var(--muted-fg);white-space:nowrap">{{ cg.label }}</span><div role="group" aria-label="{{ cg.label }}" style="display:inline-flex;flex-wrap:wrap;gap:2px;padding:3px;background:var(--muted);border-radius:9px"><sc-for list="{{ cg.opts }}" as="o" hint-placeholder-count="2"><button type="button" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="height:28px;padding:0 10px;border:0;border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer;white-space:nowrap;background:{{ o.bg }};color:{{ o.fg }};box-shadow:{{ o.ring }}">{{ o.label }}</button></sc-for></div></div></sc-for>
+  <div style="display:flex;gap:8px;margin-left:auto">
+    <button type="button" onClick="{{ reset }}" style="height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><i class="icon-rotate-ccw" style="font-size:14px"></i>Reset</button>
+    <button type="button" aria-pressed="{{ anno }}" onClick="{{ toggleAnno }}" style="height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><span style="width:10px;height:10px;border-radius:50%;background:var(--anno)"></span>{{ annoLabel }}</button>
+  </div>
+</div>
+
+<section data-screen-label="Frames" style="display:flex;flex-direction:column;gap:16px">
+  <div style="display:flex;flex-direction:column;gap:6px;max-width:820px">
+    <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.015em">The panel at 1280 and 360</h2>
+    <p style="margin:0;color:var(--muted-fg);text-wrap:pretty">Both frames share one state, and everything inside them works: the style cards, the section list, the toggle, chips and counts, Generate (about 3 seconds here), Dừng, Làm lại từ đầu, ticking cards, Thử lại on a failed section, and Add, which closes the panel and shows the toast. Generate in the title bar opens the panel again. In this mock, Part 3 always fails on the first whole-test run, so you can see a partial result.</p>
+  </div>
+  <div ref="{{ stageRef }}" style="width:100%;display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start">
+    <sc-for list="{{ frames }}" as="f" hint-placeholder-count="2">
+      <figure style="margin:0;display:flex;flex-direction:column;gap:8px;width:{{ f.ow }}px;max-width:100%">
+        <figcaption style="font-size:12.5px;color:var(--muted-fg)"><strong style="color:var(--fg);font-weight:600">{{ f.title }}</strong> · {{ f.sub }}</figcaption>
+        <div style="width:{{ f.ow }}px;height:{{ f.oh }}px;overflow:hidden;border-radius:12px;border:1px solid var(--border);box-shadow:var(--shadow-lg);background:var(--bg)">
+          <div data-screen-label="{{ f.screen }}" style="width:{{ f.w }}px;height:{{ f.h }}px;transform:scale({{ f.s }});transform-origin:0 0;position:relative;overflow:hidden;background:var(--bg);color:var(--fg);font-size:14px;line-height:1.5">
+
+            <sc-if value="{{ f.desk }}" hint-placeholder-val="{{ true }}">
+              <div style="position:absolute;inset:0;display:flex;flex-direction:column">
+                <div style="height:56px;flex:none;display:flex;align-items:center;gap:10px;padding:0 20px;border-bottom:1px solid var(--border);background:var(--bg)">
+                  <span style="width:32px;height:32px;display:grid;place-items:center;border-radius:8px;color:var(--muted-fg)"><i class="icon-arrow-left" style="font-size:17px"></i></span>
+                  <span style="font-size:15px;font-weight:600;white-space:nowrap">{{ bk.title }}</span>
+                  <sc-if value="{{ bk.builder }}" hint-placeholder-val="{{ true }}"><span style="height:22px;padding:0 8px;border-radius:999px;background:var(--muted);color:var(--muted-fg);font-size:12px;font-weight:500;display:inline-flex;align-items:center">{{ bk.draft }}</span></sc-if>
+                  <span style="flex:1"></span>
+                  <sc-if value="{{ bk.builder }}" hint-placeholder-val="{{ true }}"><span style="height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);font-size:13.5px;font-weight:500;display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><i class="icon-eye" style="font-size:15px"></i>{{ bk.preview }}</span><span style="height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);font-size:13.5px;font-weight:500;display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><i class="icon-scan-search" style="font-size:15px"></i>{{ bk.check }}</span></sc-if>
+                  <button type="button" onClick="{{ bk.open }}" disabled="{{ bk.off }}" title="{{ bk.offWhy }}" style="height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);font-size:13.5px;font-weight:500;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer;opacity:{{ bk.op }}"><i class="icon-sparkles" style="font-size:15px"></i>{{ bk.gen }}</button>
+                </div>
+                <div style="flex:1;min-height:0;display:flex">
+                  <sc-if value="{{ bk.builder }}" hint-placeholder-val="{{ true }}">
+                    <aside style="width:264px;flex:none;border-right:1px solid var(--border);background:var(--sidebar);padding:16px 12px;display:flex;flex-direction:column;gap:2px">
+                      <span style="padding:0 8px 6px;font-size:11.5px;font-weight:600;color:var(--muted-fg);letter-spacing:.04em;text-transform:uppercase">{{ bk.sections }}</span>
+                      <sc-for list="{{ bk.outline }}" as="o" hint-placeholder-count="6"><span style="min-height:36px;display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;background:{{ o.bg }};font-size:13px;font-weight:{{ o.w }}"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:{{ o.italic }}">{{ o.title }}</span><span style="font-size:12px;color:var(--muted-fg);font-variant-numeric:tabular-nums">{{ o.n }}</span></span></sc-for>
+                    </aside>
+                  </sc-if>
+                  <div style="flex:1;min-width:0;padding:24px 28px;display:flex;flex-direction:column;gap:10px">
+                    <h2 style="margin:0;font-size:18px;font-weight:600">{{ bk.head }}</h2>
+                    <p style="margin:0 0 6px;font-size:13px;color:var(--muted-fg)">{{ bk.sub }}</p>
+                    <sc-for list="{{ bk.rows }}" as="r" hint-placeholder-count="6"><div style="min-height:48px;display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--card);box-shadow:var(--shadow)"><span style="min-width:22px;font-size:12.5px;color:var(--muted-fg);font-variant-numeric:tabular-nums">{{ r.n }}</span><span style="flex:1;min-width:0;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.text }}</span><span style="font-size:12px;color:var(--muted-fg);white-space:nowrap">{{ r.tag }}</span></div></sc-for>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ f.phone }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;inset:0;display:flex;flex-direction:column">
+                <div style="height:56px;flex:none;display:flex;align-items:center;gap:4px;padding:0 6px;border-bottom:1px solid var(--border)">
+                  <span style="width:44px;height:44px;display:grid;place-items:center;color:var(--muted-fg)"><i class="icon-arrow-left" style="font-size:19px"></i></span>
+                  <span style="flex:1;min-width:0;font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ bk.title }}</span>
+                  <button type="button" onClick="{{ bk.open }}" disabled="{{ bk.off }}" aria-label="{{ bk.gen }}" title="{{ bk.offWhy }}" style="width:44px;height:44px;border:0;border-radius:10px;background:transparent;display:grid;place-items:center;cursor:pointer;opacity:{{ bk.op }}"><i class="icon-sparkles" style="font-size:19px"></i></button>
+                </div>
+                <div style="flex:1;min-height:0;overflow:hidden;padding:16px 14px;display:flex;flex-direction:column;gap:8px">
+                  <h2 style="margin:0;font-size:16px;font-weight:600">{{ bk.head }}</h2>
+                  <p style="margin:0 0 4px;font-size:13px;color:var(--muted-fg)">{{ bk.sub }}</p>
+                  <sc-for list="{{ bk.rows }}" as="r" hint-placeholder-count="6"><div style="min-height:52px;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--card)"><span style="min-width:20px;font-size:12.5px;color:var(--muted-fg)">{{ r.n }}</span><span style="flex:1;min-width:0;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.text }}</span></div></sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ f.dim }}" hint-placeholder-val="{{ true }}"><div style="position:absolute;inset:0;background:var(--overlay)"></div></sc-if>
+
+            <sc-if value="{{ P.open }}" hint-placeholder-val="{{ true }}">
+              <div role="dialog" aria-label="{{ t.title }}" style="position:absolute;top:0;bottom:0;right:0;width:{{ f.panelW }};display:flex;flex-direction:column;background:var(--card);border-left:{{ f.panelBd }};box-shadow:{{ f.panelSh }}">
+                <div style="flex:none;display:flex;align-items:flex-start;gap:12px;padding:16px 16px 16px 18px;border-bottom:1px solid var(--border)">
+                  <span style="width:36px;height:36px;flex:none;border-radius:10px;background:var(--accent-soft);color:var(--accent-ink);display:grid;place-items:center"><i class="icon-sparkles" style="font-size:18px"></i></span>
+                  <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:600;line-height:1.35">{{ t.title }}</div><div style="margin-top:2px;font-size:12.5px;line-height:1.5;color:var(--muted-fg);text-wrap:pretty">{{ t.subtitle }}</div></div>
+                  <button type="button" onClick="{{ P.close }}" aria-label="Close" style="width:{{ f.closeS }};height:{{ f.closeS }};flex:none;border:0;border-radius:7px;background:transparent;color:var(--muted-fg);display:grid;place-items:center;cursor:pointer" style-hover="background:var(--hover);color:var(--fg)"><i class="icon-x" style="font-size:17px"></i></button>
+                </div>
+
+                <div style="flex:1;min-height:0;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:18px">
+
+                  <sc-if value="{{ P.setup }}" hint-placeholder-val="{{ true }}">
+                    <sc-if value="{{ P.failUnavailable }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:8px;background:var(--warning-soft);font-size:13px;line-height:1.5"><i class="icon-triangle-alert" style="font-size:15px;color:var(--warning-ink);margin-top:2px"></i><span style="flex:1 1 220px;min-width:0">{{ t.unavailable }}</span><button type="button" onClick="{{ P.run }}" style="height:30px;padding:0 10px;border-radius:7px;border:1px solid var(--border);background:var(--card);font-size:12.5px;font-weight:500;cursor:pointer;white-space:nowrap">{{ t.tryAgain }}</button></div></sc-if>
+
+                    <sc-if value="{{ P.showScope }}" hint-placeholder-val="{{ true }}">
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <div role="group" aria-label="{{ t.scope }}" style="flex:1;display:flex;gap:2px;padding:3px;background:var(--muted);border-radius:9px"><sc-for list="{{ P.scopeOpts }}" as="o" hint-placeholder-count="2"><button type="button" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="flex:1 1 0;height:{{ f.segH }};padding:0 12px;border:0;border-radius:7px;font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }};box-shadow:{{ o.ring }}">{{ o.label }}</button></sc-for></div>
+                        <sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:18px;height:18px;flex:none;border-radius:50%;background:var(--anno);color:#fff;font-size:10.5px;font-weight:700">1</span></sc-if>
+                      </div>
+                    </sc-if>
+
+                    <sc-if value="{{ P.one }}" hint-placeholder-val="{{ true }}">
+                      <div style="display:flex;flex-direction:column;gap:8px">
+                        <div style="display:flex;align-items:center;gap:8px"><span id="style-{{ f.key }}" style="font-size:13px;font-weight:500">{{ t.style }}</span><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:18px;height:18px;flex:none;border-radius:50%;background:var(--anno);color:#fff;font-size:10.5px;font-weight:700">2</span></sc-if></div>
+                        <div role="radiogroup" aria-labelledby="style-{{ f.key }}" style="display:flex;flex-wrap:wrap;gap:8px">
+                          <sc-for list="{{ P.styleCards }}" as="c" hint-placeholder-count="2"><button type="button" role="radio" aria-checked="{{ c.on }}" tabIndex="{{ c.tab }}" onClick="{{ c.pick }}" onKeyDown="{{ P.styleKey }}" style="flex:1 1 200px;min-width:0;display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:10px;border:1px solid {{ c.bd }};box-shadow:{{ c.ring }};background:var(--card);text-align:left;cursor:pointer"><span style="width:16px;height:16px;margin-top:2px;flex:none;border-radius:50%;border:{{ c.dot }};background:var(--card)"></span><span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:13.5px;font-weight:500;line-height:1.45">{{ c.title }}</span><span style="font-size:12.5px;line-height:1.45;color:var(--muted-fg);text-wrap:pretty">{{ c.sub }}</span></span></button></sc-for>
+                        </div>
+                      </div>
+
+                      <sc-if value="{{ P.showSecCard }}" hint-placeholder-val="{{ true }}">
+                        <div style="display:flex;flex-direction:column;gap:8px">
+                          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:13px;font-weight:500">{{ t.addToLabel }}</span><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:18px;height:18px;flex:none;border-radius:50%;background:var(--anno);color:#fff;font-size:10.5px;font-weight:700">3</span></sc-if></div>
+                          <div style="border:1px solid var(--border);border-radius:10px;background:var(--card)">
+                            <div style="position:relative">
+                              <button type="button" aria-haspopup="listbox" aria-expanded="{{ P.picker }}" aria-label="{{ P.pickerAria }}" onClick="{{ P.togglePicker }}" style="width:100%;min-height:{{ f.pickH }};display:flex;align-items:center;gap:10px;padding:8px 10px 8px 14px;border:0;border-radius:10px 10px 0 0;background:transparent;text-align:left;cursor:pointer" style-hover="background:var(--hover)">
+                                <i class="icon-list" style="font-size:16px;color:var(--muted-fg);flex:none"></i>
+                                <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:13.5px;font-weight:500;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:{{ P.secItalic }}">{{ P.secTitle }}</span><span style="font-size:12.5px;line-height:1.45;color:var(--muted-fg)">{{ P.secMeta }}</span></span>
+                                <span style="flex:none;display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 8px;border-radius:7px;border:1px solid var(--border);background:var(--card);font-size:12.5px;font-weight:500">{{ t.change }}<i class="icon-chevron-down" style="font-size:14px"></i></span>
+                              </button>
+                              <sc-if value="{{ P.picker }}" hint-placeholder-val="{{ false }}">
+                                <div role="listbox" aria-label="{{ t.addToLabel }}" style="position:absolute;z-index:20;top:calc(100% + 4px);left:-1px;right:-1px;padding:4px;display:flex;flex-direction:column;gap:2px;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg)">
+                                  <sc-for list="{{ P.secOpts }}" as="o" hint-placeholder-count="6"><button type="button" role="option" aria-selected="{{ o.on }}" onClick="{{ o.pick }}" style="width:100%;min-height:{{ f.optH }};display:flex;align-items:center;gap:8px;padding:6px 10px 6px 8px;border:0;border-radius:7px;background:{{ o.bg }};text-align:left;cursor:pointer" style-hover="background:var(--hover)"><span style="width:16px;flex:none;display:grid;place-items:center"><sc-if value="{{ o.on }}" hint-placeholder-val="{{ false }}"><i class="icon-check" style="font-size:14px"></i></sc-if></span><span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:500;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:{{ o.italic }}">{{ o.title }}</span><span style="display:block;font-size:12px;line-height:1.4;color:var(--muted-fg)">{{ o.meta }}</span></span><sc-if value="{{ o.open }}" hint-placeholder-val="{{ false }}"><span style="flex:none;height:20px;padding:0 7px;border-radius:999px;background:var(--muted);color:var(--muted-fg);font-size:11.5px;font-weight:500;display:inline-flex;align-items:center">{{ t.openNow }}</span></sc-if></button></sc-for>
+                                </div>
+                              </sc-if>
+                            </div>
+                            <div style="border-top:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:12px 14px">
+                              <label for="fit-{{ f.key }}" style="flex:1;min-width:0;cursor:pointer"><span style="display:block;font-size:13.5px;font-weight:500;line-height:1.5">{{ t.fit }}</span><span style="display:block;font-size:12.5px;line-height:1.5;color:var(--muted-fg);text-wrap:pretty">{{ P.fitSub }}</span></label>
+                              <button type="button" id="fit-{{ f.key }}" role="switch" aria-checked="{{ P.fit.on }}" onClick="{{ P.fit.toggle }}" style="width:38px;height:22px;flex:none;border:0;padding:0;border-radius:999px;background:{{ P.fit.track }};position:relative;cursor:pointer"><span style="position:absolute;top:2px;left:{{ P.fit.knob }};width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .15s"></span></button>
+                            </div>
+                          </div>
+                        </div>
+                      </sc-if>
+
+                      <sc-if value="{{ P.standalone }}" hint-placeholder-val="{{ true }}">
+                        <div style="display:flex;flex-direction:column;gap:8px">
+                          <div style="display:flex;align-items:center;gap:8px"><label for="topic-{{ f.key }}" style="font-size:13px;font-weight:500">{{ t.topic }}<span style="font-weight:400;color:var(--muted-fg)">{{ P.topicOpt }}</span></label><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:18px;height:18px;flex:none;border-radius:50%;background:var(--anno);color:#fff;font-size:10.5px;font-weight:700">4</span></sc-if></div>
+                          <textarea id="topic-{{ f.key }}" rows="3" value="{{ P.topic }}" onChange="{{ P.onTopic }}" placeholder="{{ t.topicPh }}" style="width:100%;resize:vertical;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:{{ f.inputFs }};line-height:1.6"></textarea>
+                        </div>
+                      </sc-if>
+
+                      <sc-if value="{{ P.passage }}" hint-placeholder-val="{{ false }}">
+                        <div style="display:flex;flex-direction:column;gap:8px">
+                          <div style="display:flex;align-items:center;gap:8px"><label for="src-{{ f.key }}" style="font-size:13px;font-weight:500">{{ t.source }}</label><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:18px;height:18px;flex:none;border-radius:50%;background:var(--anno);color:#fff;font-size:10.5px;font-weight:700">4</span></sc-if></div>
+                          <sc-if value="{{ P.hasSrcChips }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ P.srcChips }}" as="c" hint-placeholder-count="3"><button type="button" aria-pressed="{{ c.on }}" onClick="{{ c.pick }}" style="height:{{ f.srcChipH }};max-width:100%;display:inline-flex;align-items:center;gap:6px;padding:0 10px;border-radius:999px;border:1px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font-size:12.5px;font-weight:500;cursor:pointer"><i class="icon-{{ c.icon }}" style="font-size:13px;flex:none"></i><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.label }}</span></button></sc-for></div></sc-if>
+                          <textarea id="src-{{ f.key }}" rows="8" value="{{ P.srcText }}" onChange="{{ P.onSrc }}" placeholder="{{ t.sourcePh }}" style="width:100%;resize:vertical;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:{{ f.inputFs }};line-height:1.6"></textarea>
+                        </div>
+                      </sc-if>
+
+                      <div style="display:flex;flex-direction:column;gap:8px">
+                        <span style="font-size:13px;font-weight:500">{{ t.types }}</span>
+                        <div role="group" aria-label="{{ t.types }}" style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ P.typeChips }}" as="c" hint-placeholder-count="5"><button type="button" aria-pressed="{{ c.on }}" onClick="{{ c.pick }}" style="height:{{ f.chipH }};padding:0 12px;border-radius:999px;border:1px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font-size:12.5px;font-weight:500;display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap"><sc-if value="{{ c.on }}" hint-placeholder-val="{{ false }}"><i class="icon-check" style="font-size:13px"></i></sc-if>{{ c.label }}</button></sc-for></div>
+                      </div>
+                      <div style="display:flex;flex-direction:column;gap:8px">
+                        <div style="display:flex;align-items:center;gap:8px"><label for="count-{{ f.key }}" style="font-size:13px;font-weight:500">{{ t.count }}</label><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:18px;height:18px;flex:none;border-radius:50%;background:var(--anno);color:#fff;font-size:10.5px;font-weight:700">17</span></sc-if></div>
+                        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px">
+                          <div role="group" aria-label="{{ t.count }}" style="display:inline-flex;align-items:stretch;height:{{ f.stepH }};border:1px solid var(--border);border-radius:9px;background:var(--card);overflow:hidden"><button type="button" aria-label="{{ t.fewer }}" onClick="{{ P.cnt.dec }}" disabled="{{ P.cnt.decOff }}" style="width:{{ f.stepH }};flex:none;border:0;padding:0;background:transparent;display:grid;place-items:center;cursor:pointer;opacity:{{ P.cnt.decOp }}" style-hover="background:var(--hover)"><i class="icon-minus" style="font-size:15px"></i></button><input id="count-{{ f.key }}" type="text" inputMode="numeric" maxLength="2" aria-describedby="count-hint-{{ f.key }}" value="{{ P.cnt.value }}" onChange="{{ P.cnt.onChange }}" onBlur="{{ P.cnt.onBlur }}" style="width:{{ f.stepInW }};min-width:0;border:0;border-left:1px solid var(--border);border-right:1px solid var(--border);border-radius:0;padding:0;background:var(--bg);color:var(--fg);text-align:center;font-family:inherit;font-size:{{ f.inputFs }};font-weight:600;font-variant-numeric:tabular-nums"><button type="button" aria-label="{{ t.more }}" onClick="{{ P.cnt.inc }}" disabled="{{ P.cnt.incOff }}" style="width:{{ f.stepH }};flex:none;border:0;padding:0;background:transparent;display:grid;place-items:center;cursor:pointer;opacity:{{ P.cnt.incOp }}" style-hover="background:var(--hover)"><i class="icon-plus" style="font-size:15px"></i></button></div>
+                          <span id="count-hint-{{ f.key }}" style="font-size:12.5px;color:var(--muted-fg)">{{ t.countRange }}</span>
+                        </div>
+                      </div>
+                    </sc-if>
+
+                    <sc-if value="{{ P.all }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;flex-direction:column;gap:10px">
+                        <div style="display:flex;flex-direction:column;gap:2px">
+                          <div style="display:flex;align-items:center;gap:8px"><span style="font-size:13px;font-weight:500">{{ t.plan }}</span><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:18px;height:18px;flex:none;border-radius:50%;background:var(--anno);color:#fff;font-size:10.5px;font-weight:700">10</span></sc-if></div>
+                          <span style="font-size:12.5px;line-height:1.5;color:var(--muted-fg);text-wrap:pretty">{{ t.planSub }}</span>
+                        </div>
+                        <div role="list" aria-label="{{ t.plan }}" style="border:1px solid var(--border);border-radius:10px;background:var(--card)">
+                          <sc-if value="{{ f.desk }}" hint-placeholder-val="{{ true }}"><div aria-hidden="true" style="display:flex;justify-content:space-between;gap:12px;padding:8px 14px;background:var(--sidebar);border-bottom:1px solid var(--border);border-radius:10px 10px 0 0;font-size:12px;font-weight:500;color:var(--muted-fg)"><span>{{ t.colSection }}</span><span>{{ t.colCount }}</span></div></sc-if>
+                          <sc-for list="{{ P.planRows }}" as="r" hint-placeholder-count="6">
+                            <div role="listitem" aria-label="{{ r.title }}" style="padding:12px 14px;border-top:{{ r.sep }};display:flex;flex-direction:column;gap:10px">
+                              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px">
+                                <div style="flex:1 1 200px;min-width:0;display:flex;flex-direction:column">
+                                  <span style="font-size:13.5px;font-weight:500;line-height:1.4;font-style:{{ r.italic }};color:{{ r.titleFg }};overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">{{ r.title }}</span>
+                                  <span style="font-size:12.5px;line-height:1.45;color:var(--muted-fg)">{{ r.meta }}</span>
+                                </div>
+                                <div style="flex:none;display:flex;align-items:center;gap:8px">
+                                  <div role="group" aria-label="{{ r.aria }}" style="display:inline-flex;align-items:stretch;height:{{ f.stepH }};border:1px solid var(--border);border-radius:9px;background:var(--card);overflow:hidden;opacity:{{ r.st.op }}"><button type="button" aria-label="{{ t.fewer }}" onClick="{{ r.st.dec }}" disabled="{{ r.st.decOff }}" style="width:{{ f.stepH }};flex:none;border:0;padding:0;background:transparent;display:grid;place-items:center;cursor:pointer;opacity:{{ r.st.decOp }}" style-hover="background:var(--hover)"><i class="icon-minus" style="font-size:15px"></i></button><input type="text" inputMode="numeric" maxLength="2" aria-label="{{ r.aria }}" value="{{ r.st.value }}" onChange="{{ r.st.onChange }}" onBlur="{{ r.st.onBlur }}" disabled="{{ r.st.dis }}" style="width:{{ f.stepInW }};min-width:0;border:0;border-left:1px solid var(--border);border-right:1px solid var(--border);border-radius:0;padding:0;background:var(--bg);color:var(--fg);text-align:center;font-family:inherit;font-size:{{ f.inputFs }};font-weight:600;font-variant-numeric:tabular-nums"><button type="button" aria-label="{{ t.more }}" onClick="{{ r.st.inc }}" disabled="{{ r.st.incOff }}" style="width:{{ f.stepH }};flex:none;border:0;padding:0;background:transparent;display:grid;place-items:center;cursor:pointer;opacity:{{ r.st.incOp }}" style-hover="background:var(--hover)"><i class="icon-plus" style="font-size:15px"></i></button></div>
+                                  <sc-if value="{{ r.hasUnit }}" hint-placeholder-val="{{ false }}"><span style="font-size:12.5px;color:var(--muted-fg);white-space:nowrap">{{ t.perPassageUnit }}</span></sc-if>
+                                </div>
+                              </div>
+                              <sc-if value="{{ r.blocked }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:flex-start;gap:6px;font-size:12.5px;line-height:1.5;color:var(--muted-fg)"><i class="icon-info" style="font-size:14px;margin-top:2px;flex:none"></i><span style="flex:1;min-width:0;text-wrap:pretty">{{ t.blocked }}</span><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:18px;height:18px;flex:none;border-radius:50%;background:var(--anno);color:#fff;font-size:10.5px;font-weight:700">16</span></sc-if></div></sc-if>
+                              <sc-if value="{{ r.open }}" hint-placeholder-val="{{ false }}">
+                                <div style="display:flex;flex-direction:column;gap:10px;position:relative">
+                                  <sc-if value="{{ r.pin11 }}" hint-placeholder-val="{{ false }}"><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;right:0;top:0;display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--anno);color:#fff;font-size:10.5px;font-weight:700">11</span></sc-if></sc-if>
+                                  <sc-if value="{{ r.hasMode }}" hint-placeholder-val="{{ false }}">
+                                    <div style="display:flex;flex-direction:column;gap:6px">
+                                      <span style="font-size:12.5px;font-weight:500">{{ t.style }}</span>
+                                      <div role="group" aria-label="{{ t.style }}" style="display:{{ f.segTrack }};width:{{ f.segW }};align-self:flex-start;max-width:100%;gap:2px;padding:3px;background:var(--muted);border-radius:9px"><sc-for list="{{ r.modeOpts }}" as="o" hint-placeholder-count="2"><button type="button" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="flex:{{ f.segFlex }};height:{{ f.segH }};padding:0 12px;border:0;border-radius:7px;font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }};box-shadow:{{ o.ring }}">{{ o.label }}</button></sc-for></div>
+                                      <span style="display:flex;align-items:flex-start;gap:6px;font-size:12.5px;line-height:1.5;color:var(--muted-fg)"><i class="icon-layers" style="font-size:14px;margin-top:2px;flex:none"></i><span style="text-wrap:pretty">{{ r.calc }}</span></span>
+                                    </div>
+                                  </sc-if>
+                                  <div style="display:flex;flex-direction:column;gap:6px">
+                                    <span style="font-size:12.5px;font-weight:500">{{ t.types }}<span style="font-weight:400;color:var(--muted-fg)">{{ r.hint }}</span></span>
+                                    <div role="group" aria-label="{{ t.types }}" style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ r.chips }}" as="c" hint-placeholder-count="5"><button type="button" aria-pressed="{{ c.on }}" onClick="{{ c.pick }}" style="height:{{ f.chipSmH }};padding:0 11px;border-radius:999px;border:1px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.fg }};font-size:12.5px;font-weight:500;display:inline-flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap"><sc-if value="{{ c.on }}" hint-placeholder-val="{{ false }}"><i class="icon-check" style="font-size:12px"></i></sc-if>{{ c.label }}</button></sc-for></div>
+                                  </div>
+                                  <div style="display:flex;flex-direction:column;gap:6px">
+                                    <span style="font-size:12.5px;font-weight:500">{{ t.level }}<span style="font-weight:400;color:var(--muted-fg)">{{ r.lvlHint }}</span></span>
+                                    <div role="group" aria-label="{{ t.level }}" style="display:{{ f.segTrack }};width:{{ f.segW }};align-self:flex-start;max-width:100%;gap:2px;padding:3px;background:var(--muted);border-radius:9px"><sc-for list="{{ r.lvlOpts }}" as="o" hint-placeholder-count="4"><button type="button" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="flex:{{ f.segFlex }};height:{{ f.segH }};padding:0 12px;border:0;border-radius:7px;font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }};box-shadow:{{ o.ring }}">{{ o.label }}</button></sc-for></div>
+                                  </div>
+                                </div>
+                              </sc-if>
+                            </div>
+                          </sc-for>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;padding:0 2px"><strong style="font-size:13.5px;font-weight:600;font-variant-numeric:tabular-nums">{{ P.totalText }}</strong><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:18px;height:18px;flex:none;border-radius:50%;background:var(--anno);color:#fff;font-size:10.5px;font-weight:700">12</span></sc-if></div>
+                        <sc-if value="{{ P.over }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:8px;background:var(--warning-soft);font-size:13px;line-height:1.5"><i class="icon-triangle-alert" style="font-size:15px;color:var(--warning-ink);margin-top:2px;flex:none"></i><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><sc-for list="{{ P.overMsgs }}" as="m" hint-placeholder-count="1"><span style="text-wrap:pretty">{{ m.text }}</span></sc-for></div></div></sc-if>
+                      </div>
+                    </sc-if>
+
+                    <div style="display:flex;flex-direction:column;gap:8px">
+                      <div style="display:flex;align-items:center;gap:8px"><span style="font-size:13px;font-weight:500">{{ P.levelLabel }}</span><sc-if value="{{ P.all }}" hint-placeholder-val="{{ false }}"><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:18px;height:18px;flex:none;border-radius:50%;background:var(--anno);color:#fff;font-size:10.5px;font-weight:700">18</span></sc-if></sc-if></div>
+                      <sc-if value="{{ P.all }}" hint-placeholder-val="{{ false }}"><span style="margin-top:-4px;font-size:12.5px;line-height:1.5;color:var(--muted-fg)">{{ t.levelSharedSub }}</span></sc-if>
+                      <div role="group" aria-label="{{ t.level }}" style="display:{{ f.segTrack }};width:{{ f.segW }};align-self:flex-start;max-width:100%;gap:2px;padding:3px;background:var(--muted);border-radius:9px"><sc-for list="{{ P.levelOpts }}" as="o" hint-placeholder-count="3"><button type="button" aria-pressed="{{ o.on }}" onClick="{{ o.pick }}" style="flex:{{ f.segFlex }};height:{{ f.segH }};padding:0 14px;border:0;border-radius:7px;font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }};box-shadow:{{ o.ring }}">{{ o.label }}</button></sc-for></div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px">
+                      <label for="expl-{{ f.key }}" style="flex:1;min-width:0;cursor:pointer"><span style="display:block;font-size:13.5px;font-weight:500;line-height:1.5">{{ t.explanations }}</span><span style="display:block;font-size:12.5px;line-height:1.5;color:var(--muted-fg)">{{ t.explanationsSub }}</span></label>
+                      <button type="button" id="expl-{{ f.key }}" role="switch" aria-checked="{{ P.expl.on }}" onClick="{{ P.expl.toggle }}" style="width:38px;height:22px;flex:none;border:0;padding:0;border-radius:999px;background:{{ P.expl.track }};position:relative;cursor:pointer"><span style="position:absolute;top:2px;left:{{ P.expl.knob }};width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .15s"></span></button>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ P.running }}" hint-placeholder-val="{{ false }}">
+                    <sc-if value="{{ P.one }}" hint-placeholder-val="{{ true }}">
+                      <div role="status" aria-live="polite" style="display:flex;flex-direction:column;gap:18px">
+                        <div style="display:flex;align-items:flex-start;gap:8px">
+                          <ol style="flex:1;margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px"><sc-for list="{{ P.steps }}" as="st" hint-placeholder-count="3"><li style="display:flex;align-items:center;gap:10px;font-size:13.5px;line-height:1.45;color:{{ st.fg }}"><span style="width:20px;height:20px;flex:none;display:grid;place-items:center"><sc-if value="{{ st.done }}" hint-placeholder-val="{{ false }}"><i class="icon-check" style="font-size:15px;color:var(--success)"></i></sc-if><sc-if value="{{ st.cur }}" hint-placeholder-val="{{ false }}">{{ spin }}</sc-if><sc-if value="{{ st.wait }}" hint-placeholder-val="{{ true }}"><span style="width:7px;height:7px;border-radius:50%;background:var(--border)"></span></sc-if></span>{{ st.label }}</li></sc-for></ol>
+                          <sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:18px;height:18px;flex:none;border-radius:50%;background:var(--anno);color:#fff;font-size:10.5px;font-weight:700">6</span></sc-if>
+                        </div>
+                        {{ skel }}
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ P.all }}" hint-placeholder-val="{{ false }}">
+                      <div role="status" aria-live="polite" style="display:flex;flex-direction:column;gap:14px">
+                        <div style="display:flex;flex-direction:column;gap:8px">
+                          <div style="display:flex;align-items:center;gap:8px"><strong style="flex:1;font-size:13.5px;font-weight:600">{{ P.progText }}</strong><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:18px;height:18px;flex:none;border-radius:50%;background:var(--anno);color:#fff;font-size:10.5px;font-weight:700">13</span></sc-if></div>
+                          <div style="height:4px;border-radius:999px;background:var(--muted);overflow:hidden"><div style="height:100%;width:{{ P.progPct }};background:var(--accent-c);transition:width .3s"></div></div>
+                        </div>
+                        <div style="border:1px solid var(--border);border-radius:10px">
+                          <sc-for list="{{ P.runRows }}" as="rr" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:{{ rr.sep }}"><span style="width:20px;height:20px;flex:none;display:grid;place-items:center"><sc-if value="{{ rr.running }}" hint-placeholder-val="{{ true }}">{{ spin }}</sc-if><sc-if value="{{ rr.done }}" hint-placeholder-val="{{ false }}"><i class="icon-check" style="font-size:15px;color:var(--success)"></i></sc-if><sc-if value="{{ rr.failed }}" hint-placeholder-val="{{ false }}"><i class="icon-circle-alert" style="font-size:15px;color:var(--warning-ink)"></i></sc-if></span><span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:13.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ rr.title }}</span><span style="font-size:12.5px;color:var(--muted-fg)">{{ rr.meta }}</span></span><span style="flex:none;font-size:12.5px;font-weight:500;white-space:nowrap;color:{{ rr.fg }}">{{ rr.label }}</span></div></sc-for>
+                        </div>
+                        <span style="display:flex;align-items:flex-start;gap:6px;font-size:12.5px;line-height:1.5;color:var(--muted-fg)"><i class="icon-info" style="font-size:14px;margin-top:2px;flex:none"></i><span style="text-wrap:pretty">{{ t.progressHint }}</span></span>
+                      </div>
+                    </sc-if>
+                  </sc-if>
+
+                  <sc-if value="{{ P.done }}" hint-placeholder-val="{{ false }}">
+                    <sc-if value="{{ P.gone }}" hint-placeholder-val="{{ false }}">
+                      <div role="alert" style="display:flex;flex-direction:column;gap:10px;padding:10px 12px;border-radius:8px;background:var(--danger-soft);font-size:13px;line-height:1.5">
+                        <div style="display:flex;align-items:flex-start;gap:8px"><i class="icon-triangle-alert" style="font-size:15px;color:var(--danger-ink);margin-top:2px;flex:none"></i><span style="flex:1;min-width:0;text-wrap:pretty">{{ P.goneText }}</span><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:18px;height:18px;flex:none;border-radius:50%;background:var(--anno);color:#fff;font-size:10.5px;font-weight:700">9</span></sc-if></div>
+                        <div style="padding-left:23px;display:flex;flex-direction:column;gap:6px">
+                          <button type="button" aria-haspopup="listbox" aria-expanded="{{ P.gonePicker }}" onClick="{{ P.toggleGonePicker }}" style="align-self:flex-start;height:{{ f.smBtnH }};padding:0 10px;border-radius:7px;border:1px solid var(--border);background:var(--card);font-size:12.5px;font-weight:500;display:inline-flex;align-items:center;gap:4px;cursor:pointer">{{ t.chooseSection }}<i class="icon-chevron-down" style="font-size:14px"></i></button>
+                          <sc-if value="{{ P.gonePicker }}" hint-placeholder-val="{{ false }}"><div role="listbox" aria-label="{{ t.addToLabel }}" style="padding:4px;display:flex;flex-direction:column;gap:2px;background:var(--card);border:1px solid var(--border);border-radius:10px"><sc-for list="{{ P.secOpts }}" as="o" hint-placeholder-count="5"><button type="button" role="option" aria-selected="{{ o.on }}" onClick="{{ o.pick }}" style="width:100%;min-height:{{ f.optH }};display:flex;align-items:center;gap:8px;padding:6px 10px;border:0;border-radius:7px;background:transparent;text-align:left;cursor:pointer" style-hover="background:var(--hover)"><span style="flex:1;min-width:0"><span style="display:block;font-size:13.5px;font-weight:500;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:{{ o.italic }}">{{ o.title }}</span><span style="display:block;font-size:12px;color:var(--muted-fg)">{{ o.meta }}</span></span></button></sc-for></div></sc-if>
+                        </div>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ P.hasNotice }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:8px;background:var(--info-soft);font-size:13px;line-height:1.5"><i class="icon-info" style="font-size:15px;color:var(--info-ink);margin-top:2px;flex:none"></i><span style="flex:1;min-width:0;text-wrap:pretty">{{ t.notice }}</span><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:18px;height:18px;flex:none;border-radius:50%;background:var(--anno);color:#fff;font-size:10.5px;font-weight:700">7</span></sc-if></div></sc-if>
+                    <sc-if value="{{ P.hasSummary }}" hint-placeholder-val="{{ true }}"><div style="flex:none;min-height:30px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 10px"><p style="margin:0;font-size:13px;color:var(--muted-fg);text-wrap:pretty">{{ P.summary }}</p><button type="button" onClick="{{ P.selAll }}" style="height:{{ f.smBtnH }};padding:0 10px;border:0;border-radius:7px;background:transparent;font-size:12.5px;font-weight:500;white-space:nowrap;cursor:pointer" style-hover="background:var(--muted)">{{ P.selAllLabel }}</button></div></sc-if>
+                    <sc-if value="{{ P.isEmpty }}" hint-placeholder-val="{{ false }}"><p style="margin:0;padding:28px 16px;border:1px dashed var(--border);border-radius:12px;text-align:center;font-size:13.5px;line-height:1.5;color:var(--muted-fg);text-wrap:pretty">{{ P.emptyText }}</p></sc-if>
+                    <sc-for list="{{ P.groups }}" as="g" hint-placeholder-count="1">
+                      <section aria-label="{{ g.title }}" style="display:flex;flex-direction:column;gap:10px">
+                        <sc-if value="{{ g.hasHead }}" hint-placeholder-val="{{ false }}">
+                          <div style="position:sticky;top:-18px;z-index:3;margin:0 -18px;padding:10px 18px;background:var(--card);border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px">
+                            <strong style="flex:1 1 200px;min-width:0;font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ g.title }}</strong>
+                            <sc-if value="{{ g.pin14 }}" hint-placeholder-val="{{ false }}"><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:18px;height:18px;flex:none;border-radius:50%;background:var(--anno);color:#fff;font-size:10.5px;font-weight:700">14</span></sc-if></sc-if>
+                            <sc-if value="{{ g.canSelect }}" hint-placeholder-val="{{ true }}"><span style="font-size:12.5px;color:var(--muted-fg);white-space:nowrap">{{ g.selText }}</span><button type="button" onClick="{{ g.selAll }}" style="height:{{ f.smBtnH }};padding:0 10px;border:0;border-radius:7px;background:transparent;font-size:12.5px;font-weight:500;white-space:nowrap;cursor:pointer" style-hover="background:var(--muted)">{{ g.selAllLabel }}</button></sc-if>
+                          </div>
+                        </sc-if>
+                        <sc-if value="{{ g.failed }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:8px;background:var(--warning-soft);font-size:13px;line-height:1.5"><i class="icon-triangle-alert" style="font-size:15px;color:var(--warning-ink);margin-top:2px;flex:none"></i><span style="flex:1 1 220px;min-width:0;display:flex;flex-direction:column"><span style="text-wrap:pretty">{{ t.secFailed }}</span><span style="font-size:12.5px;color:var(--muted-fg)">{{ t.retryCost }}</span></span><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:18px;height:18px;flex:none;border-radius:50%;background:var(--anno);color:#fff;font-size:10.5px;font-weight:700">15</span></sc-if><button type="button" onClick="{{ g.retry }}" style="height:{{ f.smBtnH }};padding:0 10px;border-radius:7px;border:1px solid var(--border);background:var(--card);font-size:12.5px;font-weight:500;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:5px"><i class="icon-refresh-cw" style="font-size:13px"></i>{{ t.tryAgain }}</button></div></sc-if>
+                        <sc-if value="{{ g.retrying }}" hint-placeholder-val="{{ false }}"><div role="status" style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;background:var(--muted);font-size:13px">{{ spin }}<span>{{ t.writing }}</span></div></sc-if>
+                        <sc-for list="{{ g.subs }}" as="sg" hint-placeholder-count="1">
+                          <sc-if value="{{ sg.hasHead }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;font-size:12.5px;color:var(--muted-fg)"><i class="icon-layers" style="font-size:13px"></i><strong style="font-weight:600;color:var(--fg)">{{ sg.head }}</strong><span>· {{ t.intoGroup }}</span></div></sc-if>
+                          <sc-for list="{{ sg.cards }}" as="c" hint-placeholder-count="3">
+                            <div style="display:flex;gap:12px;padding:14px;border-radius:12px;border:1px solid {{ c.bd }};background:var(--card)">
+                              <button type="button" role="checkbox" aria-checked="{{ c.sel }}" aria-label="{{ t.keep }}" onClick="{{ c.toggle }}" style="width:{{ f.cbHit }};height:{{ f.cbHit }};margin:{{ f.cbMargin }};flex:none;border:0;padding:0;background:transparent;display:grid;place-items:center;cursor:pointer"><span style="width:18px;height:18px;border-radius:5px;border:1px solid {{ c.cbBd }};background:{{ c.cbBg }};color:var(--primary-fg);display:grid;place-items:center"><sc-if value="{{ c.sel }}" hint-placeholder-val="{{ true }}"><i class="icon-check" style="font-size:12px"></i></sc-if></span></button>
+                              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:10px">
+                                <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ c.tags }}" as="tg" hint-placeholder-count="3"><span style="height:22px;padding:0 8px;border-radius:999px;display:inline-flex;align-items:center;font-size:12px;font-weight:500;white-space:nowrap;background:{{ tg.bg }};color:{{ tg.fg }}">{{ tg.label }}</span></sc-for></div>
+                                <p style="margin:0;font-size:14px;font-weight:500;line-height:1.5;text-wrap:pretty;overflow-wrap:anywhere">{{ c.title }}</p>
+                                <sc-if value="{{ c.hasOpts }}" hint-placeholder-val="{{ true }}"><ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px"><sc-for list="{{ c.opts }}" as="o" hint-placeholder-count="4"><li style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:7px;font-size:13px;line-height:1.45;background:{{ o.bg }};color:{{ o.fg }}"><span aria-hidden="true" style="width:14px;flex:none;font-size:12px;font-weight:600">{{ o.letter }}</span><span style="flex:1;min-width:0;overflow-wrap:anywhere">{{ o.text }}</span><sc-if value="{{ o.ok }}" hint-placeholder-val="{{ false }}"><i class="icon-check" style="font-size:14px;flex:none"></i></sc-if></li></sc-for></ul></sc-if>
+                                <sc-if value="{{ c.hasAns }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px"><span style="color:var(--muted-fg)">{{ t.answer }}</span><span style="padding:2px 8px;border-radius:6px;background:var(--success-soft);color:var(--success-ink);font-weight:500;overflow-wrap:anywhere">{{ c.ans }}</span></div></sc-if>
+                                <sc-if value="{{ c.hasEx }}" hint-placeholder-val="{{ true }}"><p style="margin:0;padding:8px 10px;border-radius:8px;background:var(--muted);font-size:12.5px;line-height:1.55;text-wrap:pretty"><strong style="font-weight:600">{{ t.explanation }}</strong> {{ c.ex }}</p></sc-if>
+                              </div>
+                            </div>
+                          </sc-for>
+                        </sc-for>
+                      </section>
+                    </sc-for>
+                  </sc-if>
+                </div>
+
+                <div style="flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:12px 18px;border-top:1px solid var(--border)">
+                  <p aria-live="polite" style="margin:0;flex:1 1 180px;min-width:0;display:flex;align-items:flex-start;gap:6px;font-size:12.5px;line-height:1.45;color:{{ P.noteFg }}"><i class="icon-{{ P.noteIcon }}" style="font-size:14px;flex:none;margin-top:1px"></i><span style="min-width:0;text-wrap:pretty">{{ P.noteText }}</span><sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:18px;height:18px;flex:none;border-radius:50%;background:var(--anno);color:#fff;font-size:10.5px;font-weight:700">5</span></sc-if></p>
+                  <sc-if value="{{ P.setup }}" hint-placeholder-val="{{ true }}">
+                    <button type="button" onClick="{{ P.close }}" style="flex:{{ f.btnFlex }};height:{{ f.btnH }};padding:0 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);font-size:13.5px;font-weight:500;white-space:nowrap;cursor:pointer" style-hover="background:var(--muted)">{{ t.cancel }}</button>
+                    <button type="button" onClick="{{ P.run }}" disabled="{{ P.runOff }}" style="flex:{{ f.btnFlex }};height:{{ f.btnH }};padding:0 14px;border-radius:8px;border:0;background:var(--primary);color:var(--primary-fg);font-size:13.5px;font-weight:500;white-space:nowrap;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;opacity:{{ P.runOp }}"><i class="icon-sparkles" style="font-size:15px"></i>{{ P.runLabel }}</button>
+                  </sc-if>
+                  <sc-if value="{{ P.running }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ P.stop }}" style="flex:{{ f.btnFlex }};height:{{ f.btnH }};padding:0 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);font-size:13.5px;font-weight:500;white-space:nowrap;cursor:pointer" style-hover="background:var(--muted)">{{ t.stop }}</button></sc-if>
+                  <sc-if value="{{ P.done }}" hint-placeholder-val="{{ false }}"><div style="flex:{{ f.doneWrapFlex }};min-width:0;max-width:100%;margin-left:auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px 10px">
+                    <button type="button" onClick="{{ P.startOver }}" style="flex:{{ f.btnFlex }};height:{{ f.btnH }};padding:0 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);font-size:13.5px;font-weight:500;white-space:nowrap;cursor:pointer" style-hover="background:var(--muted)">{{ t.startOver }}</button>
+                    <sc-if value="{{ f.pins }}" hint-placeholder-val="{{ false }}"><span style="display:inline-grid;place-items:center;width:18px;height:18px;flex:none;border-radius:50%;background:var(--anno);color:#fff;font-size:10.5px;font-weight:700">8</span></sc-if>
+                    <button type="button" onClick="{{ P.primary }}" disabled="{{ P.primOff }}" title="{{ P.primLabel }}" style="flex:{{ f.primFlex }};min-width:0;max-width:100%;height:{{ f.btnH }};padding:0 14px;border-radius:8px;border:0;background:var(--primary);color:var(--primary-fg);font-size:13.5px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;opacity:{{ P.primOp }}"><i class="icon-{{ P.primIcon }}" style="font-size:15px;flex:none"></i><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ P.primLabel }}</span></button>
+                  </div></sc-if>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ toast.show }}" hint-placeholder-val="{{ false }}"><div role="status" style="position:absolute;z-index:40;left:{{ f.toastL }};right:{{ f.toastR }};bottom:{{ f.toastB }};transform:{{ f.toastTf }};max-width:{{ f.toastMax }};width:{{ f.toastW }};display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:10px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow-lg);font-size:13.5px;line-height:1.45"><i class="icon-circle-check" style="font-size:16px;color:var(--success);margin-top:1px;flex:none"></i><span style="text-wrap:pretty">{{ toast.text }}</span></div></sc-if>
+          </div>
+        </div>
+      </figure>
+    </sc-for>
+    <aside style="flex:1 1 300px;max-width:560px;display:flex;flex-direction:column;gap:12px;padding-top:26px">
+      <h3 style="margin:0;font-size:15px;font-weight:600">On this screen</h3>
+      <sc-if value="{{ anno }}" hint-placeholder-val="{{ true }}">
+        <ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px">
+          <sc-for list="{{ notes }}" as="n" hint-placeholder-count="5"><li style="display:flex;gap:10px;align-items:flex-start"><span style="display:inline-grid;place-items:center;width:20px;height:20px;flex:none;margin-top:1px;border-radius:50%;background:var(--anno);color:#fff;font-size:11px;font-weight:700">{{ n.n }}</span><span style="color:var(--muted-fg);text-wrap:pretty">{{ n.text }}</span></li></sc-for>
+        </ol>
+      </sc-if>
+      <sc-if value="{{ noAnno }}" hint-placeholder-val="{{ false }}"><p style="margin:0;color:var(--muted-fg)">The notes are hidden. Use Show annotations in the bar to see them again.</p></sc-if>
+    </aside>
+  </div>
+</section>
+
+<section data-screen-label="Behaviour" style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;flex-direction:column;gap:6px;max-width:820px">
+    <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.015em">How each state behaves</h2>
+    <p style="margin:0;color:var(--muted-fg);text-wrap:pretty">These cover A.6, B.4 and B.6 from the brief. "As today" means the panel already does this on main.</p>
+  </div>
+  <sc-for list="{{ beh }}" as="b" hint-placeholder-count="3">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <h3 style="margin:0;font-size:15px;font-weight:600">{{ b.title }}</h3>
+      <div style="overflow-x:auto;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow)">
+        <table style="width:100%;min-width:720px;border-collapse:collapse;font-size:13.5px;line-height:1.5">
+          <thead><tr><th style="text-align:left;padding:10px 14px;font-size:12px;font-weight:600;color:var(--muted-fg);width:20%">State</th><th style="text-align:left;padding:10px 14px;font-size:12px;font-weight:600;color:var(--muted-fg);width:26%">When</th><th style="text-align:left;padding:10px 14px;font-size:12px;font-weight:600;color:var(--muted-fg)">What shows, and what the teacher can do</th></tr></thead>
+          <tbody><sc-for list="{{ b.rows }}" as="r" hint-placeholder-count="5"><tr><td style="padding:10px 14px;border-top:1px solid var(--border);vertical-align:top;font-weight:500">{{ r.s }}</td><td style="padding:10px 14px;border-top:1px solid var(--border);vertical-align:top;color:var(--muted-fg);text-wrap:pretty">{{ r.w }}</td><td style="padding:10px 14px;border-top:1px solid var(--border);vertical-align:top;text-wrap:pretty">{{ r.d }}</td></tr></sc-for></tbody>
+        </table>
+      </div>
+    </div>
+  </sc-for>
+</section>
+
+<section data-screen-label="Strings" style="display:flex;flex-direction:column;gap:12px">
+  <div style="display:flex;flex-direction:column;gap:6px;max-width:820px">
+    <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.015em">Every label, in Vietnamese and English</h2>
+    <p style="margin:0;color:var(--muted-fg);text-wrap:pretty">The keys follow the panel's <code>ai.generate.*</code> and <code>ai.credits.*</code>. "New" is a new string, "Changed" replaces a hotfix or current string, and "As today" rows are listed so the table reads whole. For credits, the Vietnamese uses the product's "tín dụng", not the brief's "credit".</p>
+  </div>
+  <div style="overflow-x:auto;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow)">
+    <table style="width:100%;min-width:980px;border-collapse:collapse;font-size:13px;line-height:1.5">
+      <thead><tr><th style="text-align:left;padding:10px 14px;font-size:12px;font-weight:600;color:var(--muted-fg)">Key</th><th style="text-align:left;padding:10px 14px;font-size:12px;font-weight:600;color:var(--muted-fg);width:32%">Tiếng Việt</th><th style="text-align:left;padding:10px 14px;font-size:12px;font-weight:600;color:var(--muted-fg);width:30%">English</th><th style="text-align:left;padding:10px 14px;font-size:12px;font-weight:600;color:var(--muted-fg)">Status</th><th style="text-align:left;padding:10px 14px;font-size:12px;font-weight:600;color:var(--muted-fg)">Where</th></tr></thead>
+      <tbody><sc-for list="{{ copyRows }}" as="r" hint-placeholder-count="12"><tr><td style="padding:9px 14px;border-top:1px solid var(--border);vertical-align:top;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted-fg);overflow-wrap:anywhere">{{ r.key }}</td><td style="padding:9px 14px;border-top:1px solid var(--border);vertical-align:top;text-wrap:pretty">{{ r.vi }}</td><td style="padding:9px 14px;border-top:1px solid var(--border);vertical-align:top;text-wrap:pretty">{{ r.en }}</td><td style="padding:9px 14px;border-top:1px solid var(--border);vertical-align:top;white-space:nowrap"><span style="height:22px;padding:0 8px;border-radius:999px;display:inline-flex;align-items:center;font-size:12px;font-weight:500;background:{{ r.bg }};color:{{ r.fg }}">{{ r.st }}</span></td><td style="padding:9px 14px;border-top:1px solid var(--border);vertical-align:top;font-size:12.5px;color:var(--muted-fg);white-space:nowrap">{{ r.where }}</td></tr></sc-for></tbody>
+    </table>
+  </div>
+</section>
+
+<section data-screen-label="Open questions" style="display:flex;flex-direction:column;gap:12px;max-width:900px">
+  <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.015em">For the owner and engineering</h2>
+  <ol style="margin:0;padding:0 0 0 20px;display:flex;flex-direction:column;gap:10px;text-wrap:pretty">
+    <sc-for list="{{ openQs }}" as="q" hint-placeholder-count="6"><li><strong style="font-weight:600">{{ q.h }}</strong> <span style="color:var(--muted-fg)">{{ q.b }}</span></li></sc-for>
+  </ol>
+</section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;}}">
+const TYPES = ['single_choice', 'multiple_choice', 'true_false', 'fill_blank', 'short_answer'];
+const DEF = ['single_choice', 'true_false'];
+const CEIL = 200, MAXQ = 40, MAXB = 5;
+const SEC = [
+  { id: 's1', title: 'Part 1 · Reading: Life in the city', qs: 10, lvl: 'b1', instr: true, types: ['single_choice', 'true_false'], pas: [{ id: 'p1', title: 'Urban gardens' }, { id: 'p2', title: 'Night markets' }] },
+  { id: 's2', title: 'Part 2 · Vocabulary: The environment', qs: 8, instr: true, types: ['single_choice', 'fill_blank'], pas: [] },
+  { id: 's3', title: 'Part 3 · Choose the correct tense', qs: 6, instr: true, types: ['single_choice'], pas: [] },
+  { id: 's4', title: 'Part 4 · Sentence transformation', qs: 0, instr: true, types: [], pas: [] },
+  { id: 's5', title: 'Part 5 · Phrasal verbs', qs: 4, lvl: 'b1', instr: false, types: ['single_choice', 'fill_blank'], pas: [] },
+  { id: 's6', title: '', qs: 0, instr: false, types: [], pas: [] }
+];
+const ALLPAS = SEC.flatMap(x => x.pas);
+const sec = id => SEC.find(x => x.id === id);
+const ctxOf = x => !!(x.title || x.instr || x.qs);
+const PTEXT = {
+  p1: 'In many Vietnamese cities, rooftops and balconies are turning green. Families grow herbs, morning glory and chillies in old paint tins and polystyrene boxes. A recent survey in Ho Chi Minh City found that one in five households now grows some of its own vegetables. Supporters say the gardens cool buildings in summer and cut food bills, while critics worry about the extra weight on older roofs.',
+  p2: 'Every evening at six, the car park behind the stadium becomes a night market. Most of the eighty stalls sell street food, from grilled corn to sugarcane juice, and a few sell phone cases and T-shirts. Prices are not fixed, so visitors are expected to bargain, and students come for the cheap snacks after class.'
+};
+const TF = ['True', 'False'];
+const Q = {
+  s3: [
+    { type: 'single_choice', p: 'By the time we got to the cinema, the film ___.', o: ['already started', 'has already started', 'had already started', 'was already starting'], k: 2, ex: 'Past perfect: the film started before another past event, our arrival.' },
+    { type: 'single_choice', p: 'I ___ this book three times, and I still love it.', o: ['read', 'have read', 'had read', 'am reading'], k: 1, ex: 'Present perfect for experience up to now; no finished time is given.' },
+    { type: 'single_choice', p: 'Look at those dark clouds! It ___ rain.', o: ['will', 'is going to', 'rains', 'has rained'], k: 1, ex: 'Be going to for a prediction from what we can see now.' },
+    { type: 'single_choice', p: 'While I ___ dinner, the lights went out.', o: ['cooked', 'was cooking', 'have cooked', 'had cooked'], k: 1, ex: 'Past continuous for the longer action that was interrupted.' },
+    { type: 'single_choice', p: 'She ___ to three countries since she left school.', o: ['travelled', 'has travelled', 'was travelling', 'travels'], k: 1, ex: 'Since + a past point, and the period runs up to now: present perfect.' }
+  ],
+  p1: [
+    { type: 'true_false', p: 'One in five households in Ho Chi Minh City grows some of its own vegetables.', o: TF, k: 0, ex: 'The survey sentence says this directly.' },
+    { type: 'single_choice', p: 'What do critics of rooftop gardens worry about?', o: ['The cost of seeds', 'The extra weight on older roofs', 'Water use in summer', 'Noise from neighbours'], k: 1, ex: 'The last sentence names the weight on older roofs.' },
+    { type: 'true_false', p: 'The gardens make buildings warmer in summer.', o: TF, k: 1, ex: 'Supporters say the gardens cool buildings.' },
+    { type: 'single_choice', p: 'Which container does the passage mention?', o: ['Plastic bottles', 'Old paint tins', 'Wooden crates', 'Clay pots'], k: 1, ex: 'Families use old paint tins and polystyrene boxes.' },
+    { type: 'single_choice', p: 'What is the passage mainly about?', o: ['Gardens spreading onto city rooftops', 'The price of vegetables', 'Dangerous old buildings', 'Growing herbs indoors'], k: 0, ex: 'Every sentence develops the first one: rooftops are turning green.' }
+  ],
+  p2: [
+    { type: 'single_choice', p: 'When does the night market open?', o: ['At 5 p.m.', 'At 6 p.m.', 'At 7 p.m.', 'At 8 p.m.'], k: 1, ex: 'Every evening at six.' },
+    { type: 'true_false', p: 'Most stalls sell clothes.', o: TF, k: 1, ex: 'Most of the stalls sell street food.' },
+    { type: 'single_choice', p: 'What does the writer say about prices?', o: ['They are fixed', 'Visitors are expected to bargain', 'They are higher than in shops', 'They change every hour'], k: 1, ex: 'Prices are not fixed, so visitors bargain.' }
+  ],
+  s1: [
+    { type: 'single_choice', p: 'Which word describes a place with too many people?', o: ['crowded', 'peaceful', 'rural', 'spacious'], k: 0, ex: 'Crowded means full of people.' },
+    { type: 'single_choice', p: 'Living in the city centre is convenient, ___ it is also noisy.', o: ['so', 'because', 'but', 'or'], k: 2, ex: 'But joins two contrasting ideas.' },
+    { type: 'fill_blank', p: 'Traffic ___ are common in big cities during rush hour.', a: 'jams', ex: 'A traffic jam is a long line of slow cars.' }
+  ],
+  s2: [
+    { type: 'fill_blank', p: 'Plastic bags can take hundreds of years to ___ down.', a: 'break', ex: 'Break down: to decay into smaller parts.' },
+    { type: 'single_choice', p: 'Which word means “to use less of something”?', o: ['reduce', 'recycle', 'reuse', 'refill'], k: 0, ex: 'Reduce means use less.' },
+    { type: 'single_choice', p: 'Trees absorb carbon ___ from the air.', o: ['dioxide', 'monoxide', 'fuel', 'footprint'], k: 0, ex: 'Carbon dioxide is what trees take in.' },
+    { type: 'fill_blank', p: 'Many animals are now ___ because their forests are disappearing. (DANGER)', a: 'endangered', ex: 'Endangered: at risk of dying out.' },
+    { type: 'single_choice', p: 'Coral reefs are being damaged by rising ocean ___.', o: ['temperatures', 'levels', 'waves', 'currents'], k: 0, ex: 'Warmer water bleaches coral.' }
+  ],
+  s4: [
+    { type: 'short_answer', p: 'I started learning English five years ago. → I have …', a: 'I have been learning English for five years.', ex: 'Started … ago becomes have been … for.' },
+    { type: 'short_answer', p: 'It’s a pity I can’t swim. → I wish …', a: 'I wish I could swim.', ex: 'Wish + past simple for a present regret.' },
+    { type: 'short_answer', p: 'They built this bridge in 1998. → This bridge …', a: 'This bridge was built in 1998.', ex: 'Passive: was or were + past participle.' }
+  ],
+  s5: [
+    { type: 'single_choice', p: 'Please ___ the lights when you leave the room.', o: ['turn off', 'turn up', 'take off', 'put up'], k: 0, ex: 'Turn off: stop a machine or light.' },
+    { type: 'fill_blank', p: 'I’m looking ___ to the summer holiday.', a: 'forward', ex: 'Look forward to: wait for something with pleasure.' },
+    { type: 'single_choice', p: 'Could you ___ my cat while I’m away?', o: ['look for', 'look after', 'look up', 'look into'], k: 1, ex: 'Look after: take care of.' }
+  ]
+};
+const TL = {
+  vi: { single_choice: 'Một đáp án', multiple_choice: 'Nhiều đáp án', true_false: 'Đúng/Sai', fill_blank: 'Điền từ', short_answer: 'Tự luận' },
+  en: { single_choice: 'Single choice', multiple_choice: 'Multiple choice', true_false: 'True / False', fill_blank: 'Fill in the blank', short_answer: 'Short answer' }
+};
+const STR = [
+  ['scope', 'ai.generate.scope', 'Phạm vi', 'Scope', 'New', 'A · builder (aria)'],
+  ['scopeSection', 'ai.generate.scopeSection', 'Một phần', 'One section', 'New', 'A · builder'],
+  ['scopeTest', 'ai.generate.scopeTest', 'Cả đề', 'Whole test', 'New', 'B'],
+  ['style', 'ai.generate.style', 'Kiểu câu hỏi', 'Question style', 'New', 'A, B'],
+  ['styleStandalone', 'ai.generate.styleStandalone', 'Câu độc lập', 'Standalone', 'New', 'A, B'],
+  ['styleStandaloneSub', 'ai.generate.styleStandaloneSub', 'Mỗi câu tự đủ ý, không cần bài đọc.', 'Each question stands on its own, with no passage.', 'New', 'A'],
+  ['stylePassage', 'ai.generate.stylePassage', 'Theo bài đọc', 'From a passage', 'New', 'A'],
+  ['stylePassageSub', 'ai.generate.stylePassageSub', 'Mọi câu đều trả lời được từ một bài đọc hoặc bản ghi lời.', 'Every question is answered from one passage or transcript.', 'New', 'A'],
+  ['addToLabel', 'ai.generate.destination', 'Thêm vào phần', 'Add to', 'New', 'A · builder'],
+  ['change', 'ai.generate.changeSection', 'Đổi', 'Change', 'New', 'A · builder'],
+  ['changeAria', 'ai.generate.changeSectionLabel', 'Đổi phần nhận câu mới: {{section}}', 'Change the section new questions go to: {{section}}', 'New', 'A · aria'],
+  ['qCount', 'ai.generate.questionCount', '{{count}} câu', '{{count}} questions', 'New', 'A, B'],
+  ['noQs', 'ai.generate.noQuestions', 'Chưa có câu', 'No questions yet', 'New', 'A, B'],
+  ['pasCount', 'ai.generate.passageCount', '{{count}} bài đọc', '{{count}} passages', 'New', 'A, B'],
+  ['hasInstr', 'ai.generate.hasInstructions', 'có hướng dẫn', 'has instructions', 'New', 'A'],
+  ['openNow', 'ai.generate.openNow', 'đang mở', 'open', 'New', 'A · section list'],
+  ['untitled', 'ai.generate.untitled', 'Phần chưa đặt tên', 'Untitled section', 'New', 'A, B'],
+  ['fit', 'ai.generate.fit', 'Hợp với phần này', 'Fit this section', 'Changed', 'A · was “Hợp với phần «X»”'],
+  ['fitSub', 'ai.generate.fitSub', 'AI đọc tên, hướng dẫn và các câu đã có trong phần để câu mới ăn khớp và không trùng.', 'AI reads the section’s title, instructions and questions so new ones match and don’t repeat.', 'New', 'A'],
+  ['fitOffSub', 'ai.generate.fitOffSub', 'AI không đọc phần này. Câu mới vẫn được thêm vào đây.', 'AI won’t read this section. New questions still go here.', 'New', 'A'],
+  ['topic', 'ai.generate.topic', 'Chủ đề hoặc ghi chú', 'Topic or notes', 'New', 'A'],
+  ['optional', 'ai.generate.optional', 'không bắt buộc', 'optional', 'New', 'A'],
+  ['topicPh', 'ai.generate.topicPlaceholder', 'VD: thì hiện tại hoàn thành và quá khứ đơn, hoặc dán danh sách từ, ghi chú, câu mẫu', 'E.g. present perfect and past simple, or paste a word list, notes or sample questions', 'New', 'A'],
+  ['needTopic', 'ai.generate.needTopic', 'Hãy nhập một chủ đề', 'Enter a topic', 'New', 'A · footer'],
+  ['needTopicEmpty', 'ai.generate.needTopicEmptySection', 'Phần này chưa có tên, hướng dẫn hay câu hỏi. Hãy nhập một chủ đề.', 'This section has no title, instructions or questions yet. Enter a topic.', 'New', 'A · footer'],
+  ['countRange', 'ai.generate.countRange', 'Từ 1 đến 8 câu mỗi lượt', '1 to 8 per run', 'New', 'A'],
+  ['needCount', 'ai.generate.needCount', 'Hãy nhập số câu từ 1 đến 8', 'Enter a number from 1 to 8', 'New', 'A · footer'],
+  ['fewer', 'ai.generate.fewer', 'Bớt một câu', 'One fewer', 'New', 'A, B · aria'],
+  ['more', 'ai.generate.more', 'Thêm một câu', 'One more', 'New', 'A, B · aria'],
+  ['stepReadSection', 'ai.generate.stepSection', 'Đang đọc {{section}}', 'Reading {{section}}', 'New', 'A · running'],
+  ['stepReadTopic', 'ai.generate.stepTopic', 'Đang đọc chủ đề', 'Reading your topic', 'New', 'A · running'],
+  ['stepDrop', 'ai.generate.stepRepeats', 'Đang bỏ những câu trùng với câu đã có', 'Dropping questions that repeat ones already there', 'New', 'A · running'],
+  ['notice', 'ai.generate.standaloneNotice', 'Câu độc lập không có bài đọc để đối chiếu đáp án. Hãy xem kỹ từng đáp án trước khi thêm.', 'Standalone questions have no passage to check answers against. Look at each answer before adding.', 'New', 'A, B · results'],
+  ['emptyStandalone', 'ai.generate.emptyStandalone', 'AI chưa viết được câu nào mới. Có thể mọi câu đều trùng với câu đã có trong phần. Hãy thử một chủ đề cụ thể hơn.', 'AI couldn’t write anything new. Everything it wrote may have repeated questions already in the section. Try a more specific topic.', 'New', 'A · results'],
+  ['gone', 'ai.generate.sectionGone', '«{{section}}» đã bị xoá nên chưa thêm được câu nào. Hãy chọn một phần khác.', '“{{section}}” was deleted, so nothing was added. Choose another section.', 'New', 'A · results'],
+  ['chooseSection', 'ai.generate.chooseSection', 'Chọn phần', 'Choose a section', 'New', 'A · results'],
+  ['plan', 'ai.generate.plan', 'Kế hoạch', 'Plan', 'New', 'B'],
+  ['planSub', 'ai.generate.planSub', 'Chọn số câu mới cho từng phần, từ 0 đến 8. Phần để 0 sẽ được bỏ qua.', 'Choose 0 to 8 new questions for each section. Sections left at 0 are skipped.', 'New', 'B'],
+  ['colSection', 'ai.generate.planSection', 'Phần', 'Section', 'New', 'B · from 768'],
+  ['colCount', 'ai.generate.planCount', 'Số câu mới', 'New questions', 'New', 'B'],
+  ['typesFrom', 'ai.generate.typesFromSection', 'theo các dạng đã có', 'from the section’s types', 'New', 'B'],
+  ['perPassageUnit', 'ai.generate.perPassageUnit', 'mỗi bài', 'per passage', 'New', 'B'],
+  ['levelShared', 'ai.generate.levelShared', 'Trình độ chung', 'Shared level', 'New', 'B'],
+  ['levelSharedSub', 'ai.generate.levelSharedSub', 'Dùng cho mọi phần đang để “Chung”.', 'Used by every section set to “Shared”.', 'New', 'B'],
+  ['levelUseShared', 'ai.generate.levelUseShared', 'Chung · {{level}}', 'Shared · {{level}}', 'New', 'B'],
+  ['levelFromSection', 'ai.generate.levelFromSection', 'theo các câu đã có', 'from the questions already there', 'New', 'B'],
+  ['perPassage', 'ai.generate.perPassage', 'Theo từng bài đọc', 'Per passage', 'New', 'B'],
+  ['perPassageCalc', 'ai.generate.planPerPassage', '{{passages}} bài đọc × {{count}} câu = {{total}} câu, mỗi bài vào nhóm của nó', '{{passages}} passages × {{count}} = {{total}}, each into its own group', 'New', 'B'],
+  ['standaloneCalc', 'ai.generate.planStandalone', '{{count}} câu độc lập, thêm sau các nhóm của phần', '{{count}} standalone questions, after the section’s groups', 'New', 'B'],
+  ['blocked', 'ai.generate.planNeedsContext', 'Đặt tên hoặc viết hướng dẫn cho phần này để AI biết cần viết gì.', 'Give this section a title or instructions so AI knows what to write.', 'New', 'B'],
+  ['total', 'ai.generate.planTotal', 'Tổng {{count}} câu · {{sections}} phần', '{{count}} questions · {{sections}} sections', 'New', 'B'],
+  ['planEmpty', 'ai.generate.planEmpty', 'Hãy chọn số câu cho ít nhất một phần', 'Choose a number for at least one section', 'New', 'B · footer'],
+  ['overShort', 'ai.generate.overLimit', 'Vượt giới hạn của một lượt', 'Over the limit for one run', 'New', 'B · footer'],
+  ['overCount', 'ai.generate.overCount', 'Một lượt tạo tối đa 40 câu, kế hoạch này có {{count}}. Hãy bớt số câu ở vài phần.', 'One run writes up to 40 questions and this plan has {{count}}. Lower a few sections.', 'New', 'B'],
+  ['overBatches', 'ai.generate.overBatches', 'Một lượt viết cho tối đa 5 phần hoặc bài đọc, kế hoạch này có {{count}}. Hãy đặt một phần về 0, hoặc chọn Câu độc lập cho phần có bài đọc.', 'One run writes for up to 5 sections or passages and this plan has {{count}}. Set a section to 0, or make a passage section Standalone.', 'New', 'B'],
+  ['runCount', 'ai.generate.runCount', 'Tạo {{count}} câu', 'Generate {{count}}', 'New', 'B · footer'],
+  ['progress', 'ai.generate.progress', '{{done}}/{{total}} phần xong', '{{done}} of {{total}} sections done', 'New', 'B · running'],
+  ['progressHint', 'ai.generate.progressHint', 'Có thể mất đến 45 giây. Bạn có thể đóng lại, kết quả vẫn được giữ.', 'This can take up to 45 seconds. You can close this; the result is kept.', 'New', 'B · running'],
+  ['writing', 'ai.generate.sectionWriting', 'Đang viết', 'Writing', 'New', 'B · running'],
+  ['failedShort', 'ai.generate.sectionFailedShort', 'Chưa tạo được', 'Didn’t finish', 'New', 'B · running'],
+  ['summaryTest', 'ai.generate.summaryTest', 'Đã chọn {{n}}/{{total}} · {{sections}} phần · kiểm tra từng câu trước khi thêm', '{{n}} of {{total}} selected · {{sections}} sections · check each one before adding', 'New', 'B · results'],
+  ['secSelected', 'ai.generate.sectionSelected', 'Đã chọn {{n}}/{{total}}', '{{n}} of {{total}} selected', 'New', 'B · results'],
+  ['secFailed', 'ai.generate.sectionFailed', 'Phần này chưa tạo được. Các phần khác không bị ảnh hưởng.', 'This section didn’t finish. The others are fine.', 'New', 'B · results'],
+  ['retryCost', 'ai.generate.retryCost', 'Thử lại dùng tối đa 200 tín dụng.', 'Trying again uses up to 200 credits.', 'New', 'B · results'],
+  ['intoGroup', 'ai.generate.intoGroup', 'vào nhóm của bài này', 'into this passage’s group', 'New', 'B · results'],
+  ['allFailed', 'ai.generate.allFailed', 'Chưa tạo được phần nào.', 'No section finished.', 'New', 'B · results'],
+  ['addToSections', 'ai.generate.addToSections', 'Thêm {{count}} câu vào {{sections}} phần', 'Add {{count}} to {{sections}} sections', 'New', 'B · footer'],
+  ['addedToSections', 'ai.generate.addedToSections', 'Đã thêm {{count}} câu hỏi vào {{sections}} phần. Hãy kiểm tra từng câu trước khi xuất bản.', '{{count}} questions added to {{sections}} sections. Check each one before publishing.', 'New', 'B · toast'],
+  ['maxLine', 'ai.credits.max', 'Tối đa {{max}} tín dụng · còn {{left}} trong tháng này', 'Up to {{max}} credits · {{left}} left this month', 'New', 'C · footer'],
+  ['shortOne', 'ai.credits.shortOne', 'Lượt này cần tối đa {{max}} tín dụng, bạn còn {{left}}. Hãy xin thêm trong Cài đặt.', 'This run can use up to {{max}} credits and you have {{left}}. Ask for more in Settings.', 'New', 'C · footer'],
+  ['shortTest', 'ai.credits.shortTest', 'Lượt này cần tối đa {{max}} tín dụng, bạn còn {{left}}. Hãy bớt kế hoạch, hoặc xin thêm trong Cài đặt.', 'This run can use up to {{max}} credits and you have {{left}}. Plan less, or ask for more in Settings.', 'New', 'C · footer'],
+  ['left', 'ai.credits.left', 'Còn {{left}} tín dụng trong tháng này', '{{left}} credits left this month', 'Changed', 'C · replaced by ai.credits.max in Generate'],
+  ['title', 'ai.generate.title', 'Tạo câu hỏi', 'Generate questions', 'As today', 'Header'],
+  ['subtitle', 'ai.generate.subtitle', 'Từ một bài đọc, một bản ghi lời hoặc một chủ đề. Câu hỏi đến dưới dạng bản nháp để bạn kiểm tra.', 'From a passage, a transcript or a topic. Questions arrive as drafts for you to check.', 'As today', 'Header'],
+  ['run', 'ai.generate.run', 'Tạo', 'Generate', 'As today', 'Footer'],
+  ['source', 'ai.generate.source', 'Nguồn', 'Source', 'As today', 'A · passage'],
+  ['sourcePh', 'ai.generate.sourcePlaceholder', 'Dán một bài đọc hoặc bản ghi lời, hoặc mô tả một chủ đề', 'Paste a passage or transcript, or describe a topic', 'As today', 'A · passage'],
+  ['passage', 'ai.generate.passage', 'Bài đọc {{n}} · {{title}}', 'Passage {{n}} · {{title}}', 'As today', 'A, B'],
+  ['startEmpty', 'ai.generate.startEmpty', 'Bắt đầu trống', 'Start empty', 'As today', 'A · passage'],
+  ['types', 'ai.generate.types', 'Dạng câu hỏi', 'Question types', 'As today', 'A, B'],
+  ['count', 'ai.generate.count', 'Số câu', 'How many', 'As today', 'A · now − / + with a field'],
+  ['level', 'ai.generate.level', 'Trình độ', 'Level', 'As today', 'A, B'],
+  ['explanations', 'ai.generate.explanations', 'Viết lời giải thích cho từng câu', 'Write an explanation for each question', 'As today', 'A, B'],
+  ['explanationsSub', 'ai.generate.explanationsSub', 'Học viên xem được sau khi kết quả được công bố.', 'Students see it after results are released.', 'As today', 'A, B'],
+  ['needSource', 'ai.generate.needSource', 'Hãy thêm một nguồn dài ít nhất vài câu', 'Add a source of at least a few sentences', 'As today', 'A · footer'],
+  ['needType', 'ai.generate.needType', 'Hãy chọn ít nhất một dạng câu hỏi', 'Pick at least one question type', 'As today', 'A, B · footer'],
+  ['step1', 'ai.generate.step1', 'Đang đọc nguồn', 'Reading the source', 'As today', 'A · passage'],
+  ['step2', 'ai.generate.step2', 'Đang viết câu hỏi', 'Writing questions', 'As today', 'A'],
+  ['step3', 'ai.generate.step3', 'Đang đối chiếu từng đáp án với nguồn', 'Checking every answer against the source', 'As today', 'A · passage only'],
+  ['empty', 'ai.generate.empty', 'Không có câu nào. Hãy thử một nguồn dài hơn hoặc lựa chọn khác.', 'Nothing found. Try a longer source or different options.', 'As today', 'A · passage'],
+  ['summary', 'ai.generate.summary', 'Đã chọn {{n}}/{{total}} · kiểm tra từng câu trước khi thêm', '{{n}} of {{total}} selected · check each one before adding', 'As today', 'A'],
+  ['explanation', 'ai.generate.explanation', 'Giải thích', 'Explanation', 'As today', 'Cards'],
+  ['addTo', 'ai.generate.addTo', 'Thêm {{count}} câu vào {{section}}', 'Add {{count}} to {{section}}', 'As today', 'Footer'],
+  ['addToGroup', 'ai.generate.addToGroup', 'Thêm {{count}} câu vào nhóm {{group}}', 'Add {{count}} to {{group}}', 'As today', 'Footer'],
+  ['saveToBank', 'ai.generate.saveToBank', 'Lưu {{count}} câu vào ngân hàng', 'Save {{count}} to the bank', 'As today', 'Footer · bank'],
+  ['added', 'ai.generate.added', 'Đã thêm {{count}} câu hỏi vào {{section}}. Hãy kiểm tra từng câu trước khi xuất bản.', '{{count}} questions added to {{section}}. Check each one before publishing.', 'As today', 'Toast'],
+  ['addedToGroup', 'ai.generate.addedToGroup', 'Đã thêm {{count}} câu hỏi vào nhóm {{group}}. Hãy kiểm tra từng câu trước khi xuất bản.', '{{count}} questions added to {{group}}. Check each one before publishing.', 'As today', 'Toast'],
+  ['saved', 'ai.generate.saved', 'Đã lưu {{count}} câu hỏi vào ngân hàng', '{{count}} questions saved to the bank', 'As today', 'Toast · bank'],
+  ['used', 'ai.credits.used', 'Đã dùng {{credits}} tín dụng · còn {{left}}', 'Used {{credits}} credits · {{left}} left', 'As today', 'Footer'],
+  ['blockTeacher', 'ai.blocked.teacher', 'Bạn đã dùng hết hạn mức. Hãy xin thêm trong Cài đặt.', 'Your allowance is used up. Ask for more in Settings.', 'As today', 'Footer'],
+  ['unavailable', 'ai.unavailable', 'AI chưa phản hồi. Hãy thử lại sau một phút.', 'AI didn’t respond. Try again in a minute.', 'As today', 'Callout'],
+  ['tryAgain', 'ai.tryAgain', 'Thử lại', 'Try again', 'As today', 'Callout'],
+  ['cancel', 'common.cancel', 'Huỷ', 'Cancel', 'As today', 'Footer'],
+  ['stop', 'ai.stop', 'Dừng', 'Stop', 'As today', 'Footer'],
+  ['startOver', 'ai.startOver', 'Làm lại từ đầu', 'Start over', 'As today', 'Footer'],
+  ['selectAll', 'ai.selectAll', 'Chọn tất cả', 'Select all', 'As today', 'Results'],
+  ['clearSelection', 'ai.clearSelection', 'Bỏ chọn', 'Clear selection', 'As today', 'Results'],
+  ['draftTag', 'ai.draftTag', 'Bản nháp AI', 'AI draft', 'As today', 'Cards'],
+  ['answer', 'ai.answer', 'Đáp án', 'Answer', 'As today', 'Cards'],
+  ['keep', 'ai.keep', 'Giữ lại', 'Keep this', 'As today', 'Cards (aria)'],
+  ['done', 'ai.done', 'Xong', 'Done', 'As today', 'Footer'],
+  ['tfTrue', 'trueFalse.true', 'Đúng', 'True', 'As today', 'Cards'],
+  ['tfFalse', 'trueFalse.false', 'Sai', 'False', 'As today', 'Cards']
+];
+const BK = {
+  vi: { draft: 'Bản nháp', preview: 'Xem trước', check: 'Kiểm tra bằng AI', gen: 'Tạo câu hỏi', sections: 'Các phần', bank: 'Ngân hàng câu hỏi', bankSub: '248 câu hỏi' },
+  en: { draft: 'Draft', preview: 'Preview', check: 'AI check', gen: 'Generate', sections: 'Sections', bank: 'Question bank', bankSub: '248 questions' }
+};
+const BACK = {
+  s3: ['I ___ (visit) Hue last summer.', 'They ___ (not finish) their homework yet.', 'When I called, she ___ (have) a shower.', 'We ___ (know) each other for ten years.', '___ you ever ___ (eat) bánh xèo?', 'The train ___ (leave) before we reached the station.'],
+  bank: ['She has lived here ___ 2019.', 'Choose the word whose stress is different.', 'If I ___ you, I would take the bus.', 'The report ___ by Friday.', 'Which sentence is correct?', 'He suggested ___ a taxi.']
+};
+const ZERO = {};
+const PLAN = { s1: '3', s2: '5', s3: '5' };
+const OVER = { s1: '5', s2: '8', s3: '8', s4: '8', s5: '8' };
+const fmt = (s, v) => String(s).replace(/\{\{(\w+)\}\}/g, (_, k) => (v[k] ?? ''));
+function mkPlan(src) { return Object.fromEntries(SEC.map(x => [x.id, { c: src[x.id] || '0', mode: 'passage', level: x.lvl || 'shared', types: x.types.length ? x.types.slice() : DEF.slice() }])); }
+function baseA(ctx) {
+  if (ctx === 'bank') return { style: 'standalone', fit: false, sid: 's3', topic: '', src: 'empty', srcText: '', types: DEF.slice(), touched: false };
+  const open = ctx === 'p1' ? 's1' : 's3', S = sec(open), passage = S.pas.length > 0;
+  return { style: passage ? 'passage' : 'standalone', fit: true, sid: open, topic: '', src: passage ? 'p1' : 'empty', srcText: passage ? PTEXT.p1 : '', types: S.types.length ? S.types.slice() : DEF.slice(), touched: false };
+}
+function poolA(st) {
+  if (st.style === 'passage') return st.src === 'p2' ? Q.p2 : Q.p1;
+  if (st.ctx === 'bank') return Q.s3;
+  return Q[st.sid] && Q[st.sid].length ? Q[st.sid] : Q.s3;
+}
+function itemsA(st) { return poolA(st).slice(0, +st.count).map((item, i) => ({ key: 'a' + i, item })); }
+function planned(plan) { return SEC.filter(x => ctxOf(x) && +plan[x.id].c > 0); }
+function batchesOf(x, p) { return x.pas.length && p.mode === 'passage' ? x.pas.length : 1; }
+function itemsB(x, p) {
+  const c = +p.c;
+  if (x.pas.length && p.mode === 'passage') return x.pas.flatMap(ps => Q[ps.id].slice(0, c).map((item, i) => ({ key: x.id + '-' + ps.id + '-' + i, item, group: ps.id })));
+  return (Q[x.id] && Q[x.id].length ? Q[x.id] : Q.s3).slice(0, c).map((item, i) => ({ key: x.id + '-' + i, item, group: null }));
+}
+function resultsB(plan, failId) { const r = {}; planned(plan).forEach(x => { r[x.id] = x.id === failId ? { status: 'failed', items: [] } : { status: 'ok', items: itemsB(x, plan[x.id]) }; }); return r; }
+function allSel(res) { const o = {}; Object.values(res).forEach(g => g.items.forEach(it => { o[it.key] = true; })); return o; }
+function seed(ctx, scope, view) {
+  const st = Object.assign({ ctx, scope, view, stage: 'setup', failure: null, stepA: 0, itemsA: [], selA: {}, gone: false, picker: false, gonePicker: false, panelOpen: true, toast: null, count: '5', level: 'b2', expl: true, plan: mkPlan(view === 'over' ? OVER : view === 'fresh' ? ZERO : PLAN), runB: {}, resB: {}, selB: {} }, baseA(ctx));
+  if (scope === 'one') {
+    if (view === 'running') { st.stage = 'running'; st.stepA = 1; }
+    if (view === 'done' || view === 'empty' || view === 'gone') {
+      st.stage = 'done';
+      st.itemsA = view === 'empty' ? [] : itemsA(st);
+      st.selA = Object.fromEntries(st.itemsA.map(i => [i.key, true]));
+      st.gone = view === 'gone';
+    }
+    if (view === 'failed') st.failure = 'unavailable';
+  } else {
+    if (view === 'running') { st.stage = 'running'; st.runB = { s1: 'done', s2: 'done', s3: 'running' }; }
+    if (view === 'done') { st.stage = 'done'; st.resB = resultsB(st.plan, 's3'); st.selB = allSel(st.resB); delete st.selB['s2-3']; }
+  }
+  return st;
+}
+
+class Component extends DCLogic {
+  state = Object.assign({ theme: null, lang: 'vi', anno: true, stageW: 1280, credit: 'ok' }, seed('p3', 'one', 'setup'));
+  stageRef = React.createRef();
+  timers = [];
+
+  componentDidMount() {
+    const el = this.stageRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    this.ro = new ResizeObserver(es => { const w = Math.round(es[0].contentRect.width); if (w && w !== this.state.stageW) this.setState({ stageW: w }); });
+    this.ro.observe(el);
+  }
+  componentWillUnmount() { if (this.ro) this.ro.disconnect(); this.clear(); }
+  later(fn, ms) { this.timers.push(setTimeout(fn, ms)); }
+  clear() { this.timers.forEach(clearTimeout); this.timers = []; }
+
+  go(p) {
+    this.clear();
+    const s = this.state;
+    let ctx = p.ctx ?? s.ctx, scope = p.scope ?? s.scope, view = p.view;
+    if (p.ctx === 'bank') scope = 'one';
+    if (p.scope === 'all' && ctx === 'bank') ctx = 'p3';
+    if (!view) view = scope === 'one' ? 'setup' : 'plan';
+    if (view === 'gone' && ctx !== 'p3') ctx = 'p3';
+    this.setState(seed(ctx, scope, view));
+  }
+  runA() {
+    this.clear();
+    this.setState({ stage: 'running', stepA: 0, failure: null, picker: false });
+    this.later(() => this.setState({ stepA: 1 }), 1300);
+    this.later(() => this.setState({ stepA: 2 }), 2600);
+    this.later(() => this.setState(st => { const items = itemsA(st); return { stage: 'done', itemsA: items, selA: Object.fromEntries(items.map(i => [i.key, true])), gone: false }; }), 3700);
+  }
+  runB() {
+    this.clear();
+    const list = planned(this.state.plan);
+    this.setState({ stage: 'running', runB: Object.fromEntries(list.map(x => [x.id, 'running'])), resB: {}, selB: {} });
+    const D = [2600, 1400, 3000, 2000, 2300, 1800];
+    let max = 0;
+    list.forEach((x, i) => { const d = D[i % D.length]; max = Math.max(max, d); this.later(() => this.setState(st => ({ runB: { ...st.runB, [x.id]: x.id === 's3' ? 'failed' : 'done' } })), d); });
+    this.later(() => this.setState(st => { const res = resultsB(st.plan, 's3'); return { stage: 'done', resB: res, selB: allSel(res) }; }), max + 300);
+  }
+  retry(id) {
+    this.setState(st => ({ resB: { ...st.resB, [id]: { status: 'retrying', items: [] } } }));
+    this.later(() => this.setState(st => { const items = itemsB(sec(id), st.plan[id]); const selB = { ...st.selB }; items.forEach(i => { selB[i.key] = true; }); return { resB: { ...st.resB, [id]: { status: 'ok', items, retried: true } }, selB }; }), 1600);
+  }
+  conclude(text) {
+    this.clear();
+    this.setState({ toast: text, panelOpen: false, stage: 'setup', gone: false, failure: null, picker: false });
+    this.later(() => this.setState({ toast: null }), 4500);
+  }
+  pickStyle(v) {
+    this.setState(st => { const patch = { style: v, picker: false }; if (v === 'passage' && !st.srcText && st.ctx !== 'bank') { patch.src = 'p1'; patch.srcText = PTEXT.p1; } return patch; });
+  }
+  pickSection(id) {
+    this.setState(st => ({ sid: id, picker: false, gonePicker: false, gone: false, types: st.touched ? st.types : (sec(id).types.length ? sec(id).types.slice() : DEF.slice()) }));
+  }
+  setPlan(id, patch) { this.setState(st => ({ plan: { ...st.plan, [id]: { ...st.plan[id], ...patch } } })); }
+
+  renderVals() {
+    const s = this.state, p = this.props || {};
+    const theme = s.theme ?? p.theme ?? 'light', L = s.lang;
+    const T = {}; STR.forEach(r => { T[r[0]] = L === 'vi' ? r[2] : r[3]; });
+    const fix = str => L === 'en' ? str.replace(/\b1 (question|passage|section)s\b/g, '1 $1') : str;
+    const F = (k, v) => fix(fmt(T[k], v));
+    const nf = n => new Intl.NumberFormat(L === 'vi' ? 'vi-VN' : 'en-US').format(n);
+    const tq = n => F('qCount', { count: n }), tp = n => F('pasCount', { count: n });
+    const builder = s.ctx !== 'bank', openId = s.ctx === 'p1' ? 's1' : 's3';
+    const scope = builder ? s.scope : 'one', one = scope === 'one';
+    const left = { ok: 1840, low: 150, out: 0 }[s.credit];
+    const segOf = (opts, cur, set, dis) => opts.map(([v, label]) => { const on = v === cur; return { label, on, dis: !!dis, pick: () => { if (!dis) set(v); }, bg: on ? 'var(--card)' : 'transparent', fg: on ? 'var(--fg)' : 'var(--muted-fg)', ring: on ? '0 0 0 1px var(--border), var(--shadow)' : 'none', op: dis ? 0.45 : 1, cur: dis ? 'not-allowed' : 'pointer' }; });
+    const chipsOf = (cur, set) => TYPES.map(ty => { const on = cur.includes(ty); return { label: TL[L][ty], on, pick: () => set(on ? cur.filter(v => v !== ty) : TYPES.filter(v => v === ty || cur.includes(v))), bd: on ? 'var(--primary)' : 'var(--border)', bg: on ? 'var(--primary)' : 'var(--card)', fg: on ? 'var(--primary-fg)' : 'var(--fg)' }; });
+    const stepper = (val, min, max, set, dis, blank) => {
+      const n = val === '' ? null : +val;
+      const decOff = !!dis || n === null || n <= min, incOff = !!dis || (n !== null && n >= max);
+      return { value: val, dis: !!dis, decOff, incOff, decOp: decOff ? 0.4 : 1, incOp: incOff ? 0.4 : 1, op: dis ? 0.5 : 1,
+        dec: () => { if (!decOff) set(String(n - 1)); },
+        inc: () => { if (!incOff) set(String(n === null ? min : n + 1)); },
+        onChange: e => { const d = e.target.value.replace(/\D/g, '').slice(-1); set(d === '' ? '' : String(Math.min(max, Math.max(min, +d)))); },
+        onBlur: () => { if (val === '' && blank !== undefined) set(blank); } };
+    };
+    const sw = (on, toggle) => ({ on, toggle, track: on ? 'var(--primary)' : 'var(--border)', knob: on ? '18px' : '2px' });
+    const secMeta = x => [x.qs ? tq(x.qs) : T.noQs, x.pas.length ? tp(x.pas.length) : null, x.instr ? T.hasInstr : null].filter(Boolean).join(' · ');
+
+    const S = sec(s.sid), standalone = s.style === 'standalone', fitOn = builder && s.fit;
+    let probA = null;
+    if (standalone) { if (s.topic.trim().length < 3) { if (!fitOn) probA = T.needTopic; else if (!ctxOf(S)) probA = T.needTopicEmpty; } }
+    else if (s.srcText.trim().length < 40) probA = T.needSource;
+    if (!probA && s.count === '') probA = T.needCount;
+    if (!probA && !s.types.length) probA = T.needType;
+
+    const effLvl = x => { const l = s.plan[x.id].level; return l === 'shared' ? s.level : l; };
+    const rowsB = SEC.map(x => { const pl = s.plan[x.id], c = +pl.c, blocked = !ctxOf(x), perPas = x.pas.length > 0 && pl.mode === 'passage'; const q = blocked ? 0 : perPas ? c * x.pas.length : c; const b = blocked || !c ? 0 : perPas ? x.pas.length : 1; return { x, pl, c, blocked, perPas, q, b }; });
+    const totQ = rowsB.reduce((a, r) => a + r.q, 0), totB = rowsB.reduce((a, r) => a + r.b, 0), nSec = rowsB.filter(r => r.q > 0).length;
+    const overMsgs = [];
+    if (totQ > MAXQ) overMsgs.push({ text: F('overCount', { count: totQ }) });
+    if (totB > MAXB) overMsgs.push({ text: F('overBatches', { count: totB }) });
+    let probB = null;
+    if (!nSec) probB = T.planEmpty; else if (overMsgs.length) probB = T.overShort; else if (rowsB.some(r => r.q > 0 && !r.pl.types.length)) probB = T.needType;
+    const prob = one ? probA : probB;
+    const max = one ? CEIL : Math.max(1, totB) * CEIL;
+
+    let used = 0;
+    if (s.stage === 'done') {
+      if (one) used = s.itemsA.length ? 64 : 22;
+      else Object.entries(s.resB).forEach(([id, g]) => { if (g.status === 'ok') used += g.retried ? 58 : 62 * batchesOf(sec(id), s.plan[id]); });
+    }
+    let note;
+    if (s.stage === 'done') note = [false, fmt(T.used, { credits: nf(used), left: nf(Math.max(0, left - used)) })];
+    else if (s.stage === 'setup' && prob) note = [true, prob];
+    else if (s.credit === 'out') note = [true, T.blockTeacher];
+    else if (s.stage === 'setup' && max > left) note = [true, fmt(one ? T.shortOne : T.shortTest, { max: nf(max), left: nf(left) })];
+    else note = [false, fmt(T.maxLine, { max: nf(max), left: nf(left) })];
+    const runOff = !!prob || s.credit === 'out' || max > left;
+
+    const styleCards = [['standalone', T.styleStandalone, T.styleStandaloneSub], ['passage', T.stylePassage, T.stylePassageSub]].map(([v, title, sub]) => { const on = s.style === v; return { title, sub, on, tab: on ? 0 : -1, pick: () => this.pickStyle(v), bd: on ? 'var(--primary)' : 'var(--border)', ring: on ? 'inset 0 0 0 1px var(--primary)' : 'none', dot: on ? '5px solid var(--primary)' : '1px solid var(--ring)' }; });
+    const styleKey = e => {
+      if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
+      e.preventDefault();
+      const g = e.currentTarget.parentElement;
+      this.pickStyle(this.state.style === 'standalone' ? 'passage' : 'standalone');
+      setTimeout(() => { const b = g && g.querySelector('[aria-checked="true"]'); if (b) b.focus(); }, 30);
+    };
+    const secOpts = SEC.filter(x => !(s.gone && x.id === s.sid)).map(x => { const on = !s.gone && x.id === s.sid; return { title: x.title || T.untitled, italic: x.title ? 'normal' : 'italic', meta: secMeta(x), on, open: builder && x.id === openId && !s.gone, bg: on ? 'var(--muted)' : 'transparent', pick: () => this.pickSection(x.id) }; });
+    const srcChips = builder ? [...ALLPAS.map((ps, i) => ({ id: ps.id, label: fmt(T.passage, { n: i + 1, title: ps.title }), icon: 'book-open-text', pick: () => this.setState({ src: ps.id, srcText: PTEXT[ps.id] }) })), { id: 'empty', label: T.startEmpty, icon: 'eraser', pick: () => this.setState({ src: 'empty', srcText: '' }) }].map(c => { const on = s.src === c.id; return { ...c, on, bd: on ? 'var(--primary)' : 'var(--border)', bg: on ? 'var(--primary)' : 'var(--card)', fg: on ? 'var(--primary-fg)' : 'var(--fg)' }; }) : [];
+
+    let pin11 = false;
+    const planRows = rowsB.map(({ x, pl, c, blocked, perPas, q }, i) => {
+      const open = !blocked && c > 0, pin = open && !pin11; if (pin) pin11 = true;
+      const title = x.title || T.untitled;
+      return {
+        title, italic: x.title ? 'normal' : 'italic', titleFg: blocked ? 'var(--muted-fg)' : 'var(--fg)',
+        meta: [x.qs ? tq(x.qs) : T.noQs, x.pas.length ? tp(x.pas.length) : null].filter(Boolean).join(' · '),
+        sep: i ? '1px solid var(--border)' : '0', aria: T.colCount + ' · ' + title,
+        st: stepper(pl.c, 0, 8, v => this.setPlan(x.id, { c: v }), blocked, '0'), hasUnit: perPas && !blocked,
+        lvlOpts: segOf([['shared', fmt(T.levelUseShared, { level: s.level.toUpperCase() })], ['b1', 'B1'], ['b2', 'B2'], ['c1', 'C1']], pl.level, v => this.setPlan(x.id, { level: v })),
+        lvlHint: x.lvl && pl.level === x.lvl ? ' · ' + T.levelFromSection : '',
+        blocked, open, pin11: pin, hasMode: x.pas.length > 0,
+        modeOpts: segOf([['passage', T.perPassage], ['standalone', T.styleStandalone]], pl.mode, v => this.setPlan(x.id, { mode: v })),
+        calc: perPas ? F('perPassageCalc', { passages: x.pas.length, count: c, total: q }) : F('standaloneCalc', { count: c }),
+        chips: chipsOf(pl.types, v => this.setPlan(x.id, { types: v })), hint: x.types.length ? ' · ' + T.typesFrom : ''
+      };
+    });
+
+    const stepLabels = standalone ? [fitOn ? fmt(T.stepReadSection, { section: S.title || T.untitled }) : T.stepReadTopic, T.step2, T.stepDrop] : [T.step1, T.step2, T.step3];
+    const steps = stepLabels.map((label, i) => ({ label, done: i < s.stepA, cur: i === s.stepA, wait: i > s.stepA, fg: i <= s.stepA ? 'var(--fg)' : 'var(--muted-fg)' }));
+    const runList = SEC.filter(x => s.runB[x.id]);
+    const settled = runList.filter(x => s.runB[x.id] !== 'running').length;
+    const runRows = runList.map((x, i) => { const stt = s.runB[x.id], pl = s.plan[x.id], perPas = x.pas.length > 0 && pl.mode === 'passage'; const q = perPas ? +pl.c * x.pas.length : +pl.c; return { title: x.title, meta: (perPas ? tp(x.pas.length) + ' · ' + T.perPassage.toLowerCase() : T.styleStandalone) + ' · ' + effLvl(x).toUpperCase(), sep: i ? '1px solid var(--border)' : '0', running: stt === 'running', done: stt === 'done', failed: stt === 'failed', label: stt === 'running' ? T.writing : stt === 'done' ? tq(q) : T.failedShort, fg: stt === 'done' ? 'var(--success-ink)' : stt === 'failed' ? 'var(--warning-ink)' : 'var(--muted-fg)' }; });
+
+    const card = (key, item, sel, toggle, lv) => {
+      const ok = i => i === item.k;
+      return {
+        key, sel, toggle, title: item.p,
+        tags: [{ label: TL[L][item.type], bg: 'var(--muted)', fg: 'var(--muted-fg)' }, { label: (lv || s.level).toUpperCase(), bg: 'var(--muted)', fg: 'var(--muted-fg)' }, { label: T.draftTag, bg: 'var(--accent-soft)', fg: 'var(--accent-ink)' }],
+        hasOpts: !!item.o, opts: (item.o || []).map((o, i) => ({ letter: 'ABCDEFGH'[i], text: item.type === 'true_false' ? (o === 'True' ? T.tfTrue : T.tfFalse) : o, ok: ok(i), bg: ok(i) ? 'var(--success-soft)' : 'var(--muted)', fg: ok(i) ? 'var(--success-ink)' : 'var(--fg)' })),
+        hasAns: !!item.a, ans: item.a || '', hasEx: s.expl && !!item.ex, ex: item.ex || '',
+        bd: sel ? 'var(--ring)' : 'var(--border)', cbBg: sel ? 'var(--primary)' : 'var(--card)', cbBd: sel ? 'var(--primary)' : 'var(--ring)'
+      };
+    };
+    let groups = [], total = 0, nSel = 0, selAllLabel = T.selectAll, selAll = () => {}, summary = '', primLabel = T.done, primIcon = 'check', primOff = false, primary = () => this.conclude(null), hasNotice = false;
+    if (s.stage === 'done' && one) {
+      total = s.itemsA.length; nSel = s.itemsA.filter(i => s.selA[i.key]).length;
+      const all = total > 0 && nSel === total;
+      groups = total ? [{ hasHead: false, title: '', failed: false, retrying: false, canSelect: false, pin14: false, subs: [{ hasHead: false, head: '', cards: s.itemsA.map(({ key, item }) => card(key, item, !!s.selA[key], () => this.setState(st => ({ selA: { ...st.selA, [key]: !st.selA[key] } })))) }] }] : [];
+      selAllLabel = all ? T.clearSelection : T.selectAll;
+      selAll = () => this.setState(st => ({ selA: Object.fromEntries(st.itemsA.map(i => [i.key, !all])) }));
+      summary = fmt(T.summary, { n: nSel, total });
+      hasNotice = standalone && total > 0;
+      if (total) {
+        if (!builder) { primLabel = fmt(T.saveToBank, { count: nSel }); primIcon = 'library'; primary = () => this.conclude(fmt(T.saved, { count: nSel })); }
+        else if (!standalone && (s.src === 'p1' || s.src === 'p2')) { const ps = ALLPAS.find(x => x.id === s.src); primLabel = fmt(T.addToGroup, { count: nSel, group: ps.title }); primIcon = 'layers'; primary = () => this.conclude(fmt(T.addedToGroup, { count: nSel, group: ps.title })); }
+        else { const dest = standalone ? S : sec(openId), name = dest.title || T.untitled; primLabel = fmt(T.addTo, { count: nSel, section: name }); primIcon = 'plus'; primary = () => this.conclude(fmt(T.added, { count: nSel, section: name })); }
+        primOff = nSel === 0 || s.gone;
+      }
+    }
+    if (s.stage === 'done' && !one) {
+      let first = true;
+      const okSecs = [];
+      groups = SEC.filter(x => s.resB[x.id]).map(x => {
+        const g = s.resB[x.id], keys = g.items.map(i => i.key), n = keys.filter(k => s.selB[k]).length, all = keys.length > 0 && n === keys.length;
+        total += keys.length; nSel += n;
+        if (g.status === 'ok') { okSecs.push(x); if (!(x.pas.length && s.plan[x.id].mode === 'passage')) hasNotice = true; }
+        const subs = [];
+        g.items.forEach(it => { let sg = subs.find(z => z.group === it.group); if (!sg) { sg = { group: it.group, items: [] }; subs.push(sg); } sg.items.push(it); });
+        const pin = first; first = false;
+        return {
+          hasHead: true, title: x.title, pin14: pin, canSelect: g.status === 'ok' && keys.length > 0,
+          selText: fmt(T.secSelected, { n, total: keys.length }), selAllLabel: all ? T.clearSelection : T.selectAll,
+          selAll: () => this.setState(st => { const selB = { ...st.selB }; keys.forEach(k => { selB[k] = !all; }); return { selB }; }),
+          failed: g.status === 'failed', retrying: g.status === 'retrying', retry: () => this.retry(x.id),
+          subs: subs.map(sg => { const pi = ALLPAS.findIndex(z => z.id === sg.group); return { hasHead: !!sg.group, head: sg.group ? fmt(T.passage, { n: pi + 1, title: ALLPAS[pi].title }) : '', cards: sg.items.map(it => card(it.key, it.item, !!s.selB[it.key], () => this.setState(st => ({ selB: { ...st.selB, [it.key]: !st.selB[it.key] } })), effLvl(x))) }; })
+        };
+      });
+      const allOn = total > 0 && nSel === total;
+      selAllLabel = allOn ? T.clearSelection : T.selectAll;
+      selAll = () => this.setState(st => { const selB = {}; Object.values(st.resB).forEach(g => g.items.forEach(i => { selB[i.key] = !allOn; })); return { selB }; });
+      const withSel = okSecs.filter(x => s.resB[x.id].items.some(i => s.selB[i.key]));
+      summary = F('summaryTest', { n: nSel, total, sections: okSecs.length });
+      if (total) {
+        primIcon = 'plus'; primOff = nSel === 0;
+        if (withSel.length === 1) { primLabel = fmt(T.addTo, { count: nSel, section: withSel[0].title }); primary = () => this.conclude(fmt(T.added, { count: nSel, section: withSel[0].title })); }
+        else { primLabel = F('addToSections', { count: nSel, sections: withSel.length }); primary = () => this.conclude(F('addedToSections', { count: nSel, sections: withSel.length })); }
+      }
+    }
+
+    const P = {
+      open: s.panelOpen, setup: s.stage === 'setup', running: s.stage === 'running', done: s.stage === 'done', one, all: !one,
+      failUnavailable: s.failure === 'unavailable', showScope: builder && s.stage === 'setup',
+      scopeOpts: segOf([['one', T.scopeSection], ['all', T.scopeTest]], scope, v => this.setState({ scope: v, view: v === 'one' ? 'setup' : 'plan', picker: false })),
+      styleCards, styleKey, showSecCard: builder && standalone, standalone, passage: !standalone,
+      picker: s.picker, togglePicker: () => this.setState(st => ({ picker: !st.picker })), pickerAria: fmt(T.changeAria, { section: S.title || T.untitled }),
+      secTitle: S.title || T.untitled, secItalic: S.title ? 'normal' : 'italic', secMeta: secMeta(S), secOpts,
+      fit: sw(s.fit, () => this.setState(st => ({ fit: !st.fit }))), fitSub: s.fit ? T.fitSub : T.fitOffSub,
+      topicOpt: fitOn && ctxOf(S) ? ' · ' + T.optional : '', topic: s.topic, onTopic: e => this.setState({ topic: e.target.value }),
+      hasSrcChips: srcChips.length > 0, srcChips, srcText: s.srcText, onSrc: e => this.setState({ srcText: e.target.value, src: 'custom' }),
+      typeChips: chipsOf(s.types, v => this.setState({ types: v, touched: true })),
+      cnt: stepper(s.count, 1, 8, v => this.setState({ count: v })), levelLabel: one ? T.level : T.levelShared,
+      levelOpts: segOf([['b1', 'B1'], ['b2', 'B2'], ['c1', 'C1']], s.level, v => this.setState({ level: v })),
+      expl: sw(s.expl, () => this.setState(st => ({ expl: !st.expl }))),
+      planRows, totalText: F('total', { count: totQ, sections: nSec }), over: overMsgs.length > 0, overMsgs,
+      steps, progText: F('progress', { done: settled, total: runList.length }), progPct: (runList.length ? Math.round(settled / runList.length * 100) : 0) + '%', runRows,
+      gone: s.gone, goneText: fmt(T.gone, { section: S.title || T.untitled }), gonePicker: s.gonePicker, toggleGonePicker: () => this.setState(st => ({ gonePicker: !st.gonePicker })),
+      hasNotice, hasSummary: total > 0, summary, selAllLabel, selAll, isEmpty: s.stage === 'done' && total === 0,
+      emptyText: one ? (standalone ? T.emptyStandalone : T.empty) : T.allFailed, groups,
+      noteText: note[1], noteFg: note[0] ? 'var(--warning-ink)' : 'var(--muted-fg)', noteIcon: note[0] ? 'circle-alert' : 'coins',
+      runLabel: one ? T.run : F('runCount', { count: totQ }), runOff, runOp: runOff ? 0.5 : 1,
+      run: () => { if (runOff) return; if (one) this.runA(); else this.runB(); },
+      close: () => this.setState({ panelOpen: false, picker: false }),
+      stop: () => { this.clear(); this.setState({ stage: 'setup', runB: {} }); },
+      startOver: () => { this.clear(); this.setState({ stage: 'setup', failure: null, gone: false, gonePicker: false }); },
+      primLabel, primIcon, primOff, primOp: primOff ? 0.5 : 1, primary
+    };
+
+    const W = s.stageW || 1280, sd = Math.min(1, W / 1280), sp = Math.min(1, W / 360);
+    const desk = { key: 'd', w: 1280, h: 800, s: sd, ow: Math.floor(1280 * sd), oh: Math.floor(800 * sd), title: '1280', sub: 'drawer, 560px over the page', screen: 'Generate · 1280', desk: true, phone: false, dim: s.panelOpen, pins: s.anno, panelW: '560px', panelBd: '1px solid var(--border)', panelSh: 'var(--shadow-lg)', segH: '30px', segFlex: '0 0 auto', segTrack: 'inline-flex', segW: 'auto', chipH: '30px', chipSmH: '28px', srcChipH: '28px', btnH: '36px', smBtnH: '30px', btnFlex: '0 0 auto', primFlex: '0 1 auto', doneWrapFlex: '0 1 auto', pickH: '52px', optH: '44px', closeS: '32px', stepH: '32px', stepInW: '40px', cbHit: '18px', cbMargin: '2px 0 0', inputFs: '13.5px', toastL: '50%', toastR: 'auto', toastB: '24px', toastTf: 'translateX(-50%)', toastMax: '480px', toastW: 'max-content' };
+    const phone = { ...desk, key: 'm', w: 360, h: 760, s: sp, ow: Math.floor(360 * sp), oh: Math.floor(760 * sp), title: '360', sub: 'full screen, controls at 40 to 44px', screen: 'Generate · 360', desk: false, phone: true, dim: false, pins: false, panelW: '100%', panelBd: '0', panelSh: 'none', segH: '40px', segFlex: '1 1 0', segTrack: 'flex', segW: '100%', chipH: '40px', chipSmH: '40px', srcChipH: '40px', btnH: '44px', smBtnH: '40px', btnFlex: '1 1 120px', primFlex: '1 1 160px', doneWrapFlex: '1 1 100%', pickH: '60px', optH: '52px', closeS: '44px', stepH: '44px', stepInW: '52px', cbHit: '44px', cbMargin: '-13px -13px -13px -13px', inputFs: '16px', toastL: '12px', toastR: '12px', toastB: '16px', toastTf: 'none', toastMax: 'none', toastW: 'auto' };
+
+    const B = BK[L];
+    const bk = builder ? {
+      builder: true, title: 'Kiểm tra giữa kỳ I · Tiếng Anh 10', draft: B.draft, preview: B.preview, check: B.check, gen: B.gen, sections: B.sections,
+      outline: SEC.map(x => ({ title: x.title || T.untitled, italic: x.title ? 'normal' : 'italic', n: x.qs, bg: x.id === openId ? 'var(--hover)' : 'transparent', w: x.id === openId ? 600 : 500 })),
+      head: sec(openId).title, sub: openId === 's1' ? 'Read each passage and answer the questions.' : 'Choose the correct form of the verb in brackets.',
+      rows: openId === 's1' ? ALLPAS.map((ps, i) => ({ n: i ? '6–10' : '1–5', text: ps.title, tag: tq(5) })) : BACK.s3.map((text, i) => ({ n: String(i + 1), text, tag: TL[L].single_choice }))
+    } : { builder: false, title: B.bank, gen: B.gen, head: B.bank, sub: B.bankSub, outline: [], rows: BACK.bank.map((text, i) => ({ n: String(i + 1), text, tag: TL[L].single_choice })) };
+    Object.assign(bk, { open: () => this.setState({ panelOpen: true }), off: s.credit === 'out', offWhy: s.credit === 'out' ? T.blockTeacher : '', op: s.credit === 'out' ? 0.5 : 1 });
+
+    const N = [];
+    if (s.panelOpen) {
+      if (s.stage === 'setup' && one) {
+        if (builder) N.push([1, 'Một phần / Cả đề, in the builder only. Each side keeps its values, and the control hides once a run starts.']);
+        N.push([2, s.ctx === 'p1' ? 'Part 1 holds passage groups, so the panel opens on Theo bài đọc. The source field below is the same as today.' : s.ctx === 'bank' ? 'The bank has no passages, so the panel opens on Câu độc lập. Theo bài đọc still works with pasted text. One tab stop; arrow keys move between the cards.' : 'Part 3 has no passage groups, so the panel opens on Câu độc lập, even though Part 1 has passages. One tab stop; arrow keys move between the cards.']);
+        if (builder && standalone) N.push([3, 'This is what AI reads and where the questions land. Đổi lists every saved section, including empty ones, with “đang mở” on the open one. Pick the untitled one to see the topic become required.']);
+        N.push([4, standalone ? 'Three rows, 3 characters or more. It says “không bắt buộc” while the toggle is on and the section has a title, instructions or questions. In the bank, or with the toggle off, a topic is required.' : 'As today: passage chips, 8 rows, at least 40 characters.']);
+        N.push([17, 'Type a digit, or use − and +: 1 to 8, which is what one call can write. A 9 becomes 8, a 0 becomes 1, and letters are ignored. If the field is empty, the footer asks for a number. This replaces 3 / 5 / 8.']);
+        N.push([5, 'One line next to Generate, most urgent first: what’s missing, then a block, then the credit ceiling (C). When the line is a warning, Generate is off.']);
+      }
+      if (s.stage === 'setup' && !one) {
+        N.push([1, 'Đang ở Cả đề. Một phần still holds its own values.']);
+        N.push([10, 'One row per section, in builder order. Every row starts at 0 and opens once it gets a count. From 768 there’s a header row; at 360 the rows become cards and the count control fills the width.']);
+        N.push([11, 'Each row has a count from 0 to 8, per passage in a passage section, typed or set with − and +. An empty field goes back to 0 when you leave it. Passage sections choose Theo từng bài đọc or Câu độc lập. Types start from the section’s own. The level is “Chung” unless the section’s questions already carry one: Part 1 and Part 5 start on B1.']);
+        N.push([12, 'The total line from the brief. Over 40 questions or 5 sections and passages, a warning says which limit and how to fix it. Try the Over limit state.']);
+        N.push([16, 'A section with no title, instructions or questions can’t take a count, and the row says why.']);
+        N.push([18, 'Trình độ chung applies to every row left on “Chung”. A row with its own level sends that level for its section only, and its cards show it.']);
+        N.push([5, 'The ceiling grows with the plan. Here it’s 200 per section or passage, which is an assumption to confirm.']);
+      }
+      if (s.stage === 'running' && one) { N.push([6, standalone ? 'The first step names what’s being read: the section, or the topic when the toggle is off. The third step drops repeats; there’s no source to check answers against.' : 'As today.']); N.push([5, 'The ceiling stays during the run. The amount used replaces it afterwards.']); }
+      if (s.stage === 'running' && !one) N.push([13, 'A status for each section, if the server reports it. Otherwise every row says Đang viết with the time so far. The bar counts settled sections, failed ones included.']);
+      if (s.stage === 'done' && one) {
+        if (s.gone) N.push([9, 'The section was deleted while the panel was open (QC-739-3). The cards and ticks stay. Choosing another section relabels Add. We suggest allowing this, where the CR only refuses.']);
+        if (hasNotice) N.push([7, 'Standalone only. Answers have no source to check against (CR §5). Drafts carry the AI draft tag, and AI check can run afterwards.']);
+        if (!total) N.push([8, 'Every draft was dropped, so the primary button is Xong. The credits used still show.']);
+        else N.push([8, 'Questions land in the section that was read, even if the teacher has opened another one since. At 360 the label truncates, and the full label shows as a tooltip.']);
+      }
+      if (s.stage === 'done' && !one) {
+        N.push([14, 'Each section header sticks while its cards scroll, with its own Chọn tất cả. Passage sections split by passage, each into its group.']);
+        if (groups.some(g => g.failed || g.retrying)) N.push([15, 'Only this section failed. Thử lại calls H1’s one-section operation for it alone, up to 200 credits.']);
+        N.push([8, 'Counts only the ticked cards across all sections. One save per section.']);
+      }
+    } else N.push([0, 'The panel is closed and the session is kept. Generate in the title bar opens it again.']);
+    if (s.credit === 'out') N.push([0, 'Credits are used up: the footer says so, Generate is off, and the title bar’s Generate is disabled with the reason as its tooltip (as today).']);
+    const notes = N.filter(n => s.panelOpen || true).map(([n, text]) => ({ n: n || 'i', text }));
+
+    const beh = [
+      { title: 'A.6 · One section: setup and results', rows: [
+        { s: 'Default, with a passage', w: 'Builder, and the open section holds passage groups (Part 1).', d: 'Theo bài đọc is chosen, with passage chips and the first passage in the box. Types come from the section. Generate is on.' },
+        { s: 'Default, no passage', w: 'The bank, or a section without groups (Part 3).', d: 'Câu độc lập is chosen, with Chủ đề hoặc ghi chú (3 rows, empty). In the builder, the Thêm vào phần card has the toggle on, so Generate is on with no topic. In the bank, the footer says “Hãy nhập một chủ đề” and Generate is off.' },
+        { s: 'Nothing to read', w: 'The toggle is on and the section has no title, instructions or questions (QC-739-1).', d: 'The topic loses “không bắt buộc”, and the footer says “Phần này chưa có tên, hướng dẫn hay câu hỏi. Hãy nhập một chủ đề.” Generate stays off until there are 3 characters.' },
+        { s: 'Số câu', w: 'Typing, or pressing − or +.', d: 'One digit, from 1 to 8. A 9 becomes 8, a 0 becomes 1, and letters are ignored. If the field is empty, the footer says “Hãy nhập số câu từ 1 đến 8” and Generate is off. − is off at 1 and + is off at 8. AI may return fewer than asked once repeats are dropped, and the summary counts what it returned.' },
+        { s: 'Running', w: 'After Generate, up to 45 s.', d: 'Three steps, the first naming the section or the topic, plus the card skeletons. Dừng returns to the fields with values kept. Closing the panel keeps the run, and a toast says when it settles (v0.11.8).' },
+        { s: 'Results', w: 'The run returned drafts.', d: 'The standalone notice, “Đã chọn 5/5 · …” with Chọn tất cả, every card ticked, and “Thêm 5 câu vào «section»”. The questions land in the section that was read.' },
+        { s: 'Empty', w: 'Every draft was dropped: repeats, or pointing at a passage it doesn’t have.', d: 'The dashed box with the standalone empty line. The primary button is Xong, and the credits used still show. Làm lại từ đầu goes back with the fields kept.' },
+        { s: 'AI didn’t respond', w: 'The provider is down, a timeout, or a 5xx.', d: 'As today: the warning callout with Thử lại above the kept fields.' },
+        { s: 'Refused', w: 'A 4xx with a message, such as a section the test doesn’t hold (404).', d: 'As today: the danger callout with the server’s sentence.' },
+        { s: 'Out of credits', w: 'The allowance or the school’s pool is used up, or AI is paused.', d: 'As today: the footer sentence, with Generate off. The title bar’s Generate is disabled, with the reason as its tooltip.' },
+        { s: 'Below the ceiling (C)', w: 'Fewer credits are left than the run’s ceiling.', d: 'A footer warning, “Lượt này cần tối đa 200 tín dụng, bạn còn 150…”, and Generate is off.' },
+        { s: 'Save refused', w: 'The section that was read was deleted while the panel was open (QC-739-3).', d: 'A danger callout names the section. The cards and ticks are kept. Chọn phần lists the remaining sections, and Add stays off until one is chosen.' }
+      ] },
+      { title: 'B.1 · Whole test: plan', rows: [
+        { s: 'Count', w: 'Typing, or pressing − or + in a row.', d: 'From 0 to 8. In a passage section the count is per passage, “mỗi bài”. An empty field goes back to 0 when you leave it. A row opens once its count isn’t 0 and closes again at 0, keeping its types and level.' },
+        { s: 'Level', w: 'An open row.', d: 'The row starts on “Chung · B2” (the shared level), or on the level its existing questions carry, with the hint “theo các câu đã có”. Changing Trình độ chung moves every row that’s on Chung. Each section’s call uses its own level, and its cards show it.' },
+        { s: 'Section with nothing to read', w: 'No title, instructions or questions.', d: 'The count is off, and the row says why.' },
+        { s: 'Over a limit', w: 'More than 40 questions, or more than 5 sections and passages.', d: 'A warning under the total says which limit and how to fix it, and Generate is off.' }
+      ] },
+      { title: 'B.6 · Whole test: running', rows: [
+        { s: 'Start', w: 'After “Tạo 16 câu”.', d: 'Every planned section shows Đang viết, with “0/3 phần xong” and Dừng.' },
+        { s: 'A section settles', w: 'Its call answers or fails.', d: 'Its row shows a tick and its count, or Chưa tạo được. The bar and “2/3 phần xong” count settled sections.' },
+        { s: 'Closing the panel', w: 'Any time.', d: 'The run carries on. When it settles, a toast says so and offers Mở lại (as today).' },
+        { s: 'Dừng', w: 'Any time.', d: 'Stops the run and returns to the plan, with values kept.' },
+        { s: '45 s pass', w: 'The run’s budget runs out.', d: 'Sections still writing settle as failed, and the rest are shown.' },
+        { s: 'No status from the server', w: 'If the operation can only answer once.', d: 'Every row stays Đang viết, with the time so far (“0:18”), until the answer arrives. Don’t show a fake 2/3.' }
+      ] },
+      { title: 'B.4 · Whole test: results', rows: [
+        { s: 'Every section done', w: 'All calls answered.', d: 'Groups in plan order, each with a sticky header, “Đã chọn n/N” and its own Chọn tất cả. Passage sections split by passage, labelled “vào nhóm của bài này”. The footer counts ticks across all sections.' },
+        { s: 'One section failed', w: 'Its call failed or timed out.', d: 'Its group keeps its header and shows a warning callout with Thử lại and its cost (up to 200 credits, H1’s one-section call). The other sections stay usable, and the primary counts only them.' },
+        { s: 'Trying again', w: 'After Thử lại.', d: 'The callout becomes a spinner line, “Đang viết”, and the rest of the panel stays usable. When it succeeds, its cards arrive ticked and the footer recounts.' },
+        { s: 'Fails again', w: 'The retry fails.', d: 'The callout comes back, with the server’s sentence if there is one.' },
+        { s: 'Every section failed', w: 'No call answered.', d: 'No cards and no summary. One callout says “Chưa tạo được phần nào.”, with Thử lại for the whole plan. The footer shows what was used, if anything.' },
+        { s: 'Adding', w: 'After “Thêm 10 câu vào 2 phần”.', d: 'One save per section, in plan order. Then the panel closes and the toast says “Đã thêm 10 câu hỏi vào 2 phần…”. If one section’s save is refused, the others still land, and the refused one stays in the panel with the Save refused callout.' }
+      ] }
+    ];
+
+    const tone = { New: ['var(--accent-soft)', 'var(--accent-ink)'], Changed: ['var(--info-soft)', 'var(--info-ink)'], 'As today': ['var(--muted)', 'var(--muted-fg)'] };
+    const copyRows = STR.map(r => ({ key: r[1], vi: r[2], en: r[3], st: r[4], where: r[5], bg: tone[r[4]][0], fg: tone[r[4]][1] }));
+    const openQs = [
+      { h: 'Contract for count and level', b: 'count would accept 1 to 8 instead of 3, 5 or 8. This is additive: old clients still send 3, 5 or 8. generate_test would take an optional level per section, falling back to the run’s level. Adding A2 or C2 is a separate decision for the owner.' },
+      { h: 'Default style by the open section?', b: 'The CR picks it by the page (“the builder with groups”). We suggest the open section: one line in initial, and Part 3 stops opening on a Part 1 passage.' },
+      { h: 'Can generate_test report each section?', b: 'One request with one answer can’t show 2/3. Streaming or polling makes the B.6 drawing real. Without it, use the fallback row in B.6.' },
+      { h: 'How is the ceiling N worked out?', b: 'We assumed 200 per section or passage, the one-section ceiling. If the server reserves differently, the client needs the same number before Run. Should H1 show “Tối đa 200” now, or wait for H2?' },
+      { h: 'Per passage or per section?', b: 'In passage sections we drew the count as per passage, because each passage is one batch. If it’s per section, the calc line changes and 8 can’t split evenly.' },
+      { h: 'Pin the destination with the toggle off too?', b: 'The CR pins it only when the section is read. Pinning it always means the card is the one place that says where the questions go.' },
+      { h: 'Save refused: allow another section?', b: 'The CR refuses with a message. Letting the teacher pick another section needs only the client, and it keeps a paid result usable.' },
+      { h: 'Touch sizes below 768', b: 'At 360 the drawing raises controls to 40–44px, as the grading page does. On main the panel uses deck sizes (30px) at every width.' },
+      { h: 'Report dropped repeats?', b: 'If the response says how many drafts were dropped, an info line could say so (“Đã bỏ 2 câu trùng…”). That needs a new field, so skip it if there isn’t one.' }
+    ];
+
+    const spin = React.createElement('i', { className: 'icon-loader-circle', 'data-anim': '', style: { fontSize: 14, display: 'inline-block', animation: 'qz-spin 1s linear infinite' } });
+    const skel = React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } }, [92, 120, 92].map((h, i) => React.createElement('div', { key: i, 'data-anim': '', style: { height: h, borderRadius: 12, background: 'linear-gradient(90deg,var(--muted) 0,var(--hover) 50%,var(--muted) 100%)', backgroundSize: '800px 100%', animation: 'qz-shimmer 1.4s linear infinite' } })));
+
+    const seg = (opts, cur, set) => opts.map(([v, label]) => { const on = v === cur; return { label, on, pick: () => set(v), bg: on ? 'var(--card)' : 'transparent', fg: on ? 'var(--fg)' : 'var(--muted-fg)', ring: on ? 'var(--shadow)' : 'none' }; });
+    const ctl = [
+      { label: 'Opened from', opts: seg([['p3', 'Builder · Part 3'], ['p1', 'Builder · Part 1'], ['bank', 'Question bank']], s.ctx, v => this.go({ ctx: v })) },
+      { label: 'Scope', opts: seg([['one', 'One section'], ['all', 'Whole test']], scope, v => this.go({ scope: v })) },
+      { label: 'State', opts: seg(one ? [['setup', 'Setup'], ['running', 'Running'], ['done', 'Results'], ['empty', 'Empty'], ['failed', 'No response'], ['gone', 'Save refused']] : [['fresh', 'New plan'], ['plan', 'Plan'], ['over', 'Over limit'], ['running', 'Running'], ['done', 'Results']], s.view, v => this.go({ view: v })) },
+      { label: 'Credits', opts: seg([['ok', '1,840 left'], ['low', '150 left'], ['out', 'Used up']], s.credit, v => this.setState({ credit: v })) },
+      { label: 'Language', opts: seg([['vi', 'Tiếng Việt'], ['en', 'English']], L, v => this.setState({ lang: v })) },
+      { label: 'Theme', opts: seg([['light', 'Light'], ['dark', 'Dark']], theme, v => this.setState({ theme: v })) }
+    ];
+
+    return {
+      theme, isLight: theme !== 'dark', isDark: theme === 'dark', ctl,
+      reset: () => { this.clear(); this.setState(Object.assign({ credit: 'ok', lang: 'vi' }, seed('p3', 'one', 'setup'))); },
+      anno: s.anno, noAnno: !s.anno, annoLabel: s.anno ? 'Hide annotations' : 'Show annotations', toggleAnno: () => this.setState(x => ({ anno: !x.anno })),
+      stageRef: this.stageRef, frames: [desk, phone], t: T, P, bk, notes, toast: { show: !!s.toast, text: s.toast || '' },
+      beh, copyRows, openQs, spin, skel
+    };
+  }
+}
+</script>
+</body>
+</html>

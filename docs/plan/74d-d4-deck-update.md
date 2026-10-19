@@ -3196,7 +3196,7 @@ production and puts the timings in the release pull request).
       `permissions.golden` is regenerated once, in this PR. Operations, all `ai.use`, all `POST`,
       all answering a suggestion object and never writing content:
       - `/teacher/ai/questions/generate` `{source | testId + stimulusId, types ⊆ the five stored
-        types, count 3 | 5 | 8, level, explanations, language}` → `{items: [{type, prompt,
+        types, count 1..8, level, explanations, language}` → `{items: [{type, prompt,
         options?, answerKey, explanation}]}` (`x-resource`: body `testId` kind `test`);
       - `/teacher/ai/tests/{id}/check` `{checks}` → `{findings: [{severity, questionId, number,
         type, title, issue, fix: {kind: option_text | accepted_answer | explanation | none,
@@ -3460,6 +3460,39 @@ the 256 MiB sandbox included; `BenchmarkRenderForty*` in `pdftext/tests` repeats
       prompt and a test whose questions are all members answers `ErrNothingToRead`, as before.
 - [x] Clean up: a duplicate card offers "Open" for each question and "Keep both"; no merge
       (DG-197); "Add tags to {n} questions" is the bulk tag write.
+- [x] **Corrected in the next patch release (v0.11.8): a panel's session outlives its drawer.**
+      The panel had unmounted whenever the drawer closed, which dropped its fields, the
+      suggestions of a run and, through the unmount cleanup, aborted a run in flight. A teacher
+      who pressed "Open question" on a finding, or closed the drawer by mistake, got a blank
+      setup and paid for another run. `AiPanelStack` now keeps each panel mounted from its first
+      opening, drawn closed (`AiPanel`'s `open`), for as long as its host page is; the four hosts
+      (the builder, the bank, Test detail and the insights' practice panel) use it and own the
+      lazy import. Done, a successful primary and Start over end the session; the unmount cleanup
+      still aborts a run when the page goes. Two things followed from keeping results across
+      edits: a kind may declare an item `stale` (a check's finding whose question has left the
+      test is hidden and not counted), and Generate reads a section, bank or practice destination
+      from the page when the questions are kept, since the builder's open section can change
+      between the run and the write. A run that settles while its drawer is closed, answered or
+      failed, raises one toast naming the panel with an Open action (`AiPanelStack`'s `onOpen`,
+      which each host points at its own open state), so a teacher who closed the drawer
+      mid-run is not left waiting on a run that is already done; Stop and leaving the page raise
+      none, opening the drawer by any route or leaving the page takes the toast away, and while
+      another drawer is showing (a modal keeps a toast from being clicked) it waits for that one to
+      close. Its action takes focus out of the toaster first (`leaveToast`), because Sonner
+      returns focus to where it was before the toasts took it and would do so after the drawer
+      has opened; the Sheet falls back to the page's `<main>` when nothing had focus as it opened.
+      A check's fix names an option or a blank by id and the server re-ids options on every save,
+      so a held finding stops fitting after any save of its question; `fixFits` makes "Apply fix"
+      fail with a sentence and write nothing (matching by text is not possible: the finding does
+      not carry the option's old text; stable option ids would end the problem). The bank
+      clean-up's tag write reports the questions it changed (`updated`), not the ones kept.
+      Stop and leaving the page abort the request, the server cancels the provider call and `Finish` releases the
+      reservation, so a single-call operation charges nothing and the bank clean-up settles only
+      the calls already billed (`Tally`). That a cancelled call bills nothing is `Billed`'s
+      assumption ("as far as anyone can tell"): Anthropic's documentation does not say what a
+      request abandoned midway costs. The bank clean-up's "Open" is a link and still leaves the
+      page, ending its session; keeping it needs state above the router or a new tab, and a second
+      tab races the refresh cookie's rotation, so it is not done here.
 - [x] Every write a primary makes goes through the existing mutation hooks and their autosave
       flushes; the panel itself calls only `/teacher/ai/*`. A unit test spies on the API module
       and finds no write from `features/ai/`.
