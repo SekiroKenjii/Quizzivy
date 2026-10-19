@@ -25,9 +25,10 @@ type BuilderPanel = "generate" | "check";
 /**
  * BuilderAi is what the builder hands its AI panels: the open test, its
  * passages, each with the group that holds it, the section new questions join
- * (null when it has none), and the builder's own writes and moves. `prepare`
- * saves every pending edit before a panel opens; `add` creates the kept
- * questions and appends them to that section; `addToGroup` appends them to
+ * and its id (null when it has none, and the id null while it is unsaved),
+ * and the builder's own writes and moves. `prepare` saves every pending edit
+ * before a panel opens; `add` creates the kept questions and appends them to
+ * the section `sectionId` names, or else to that section; `addToGroup` appends them to
  * the group whose passage they were generated from, as new members after its
  * existing ones; `fix` writes a check's fix into its question.
  */
@@ -36,8 +37,9 @@ export interface BuilderAi {
   title: string;
   passages: readonly AiPassage[];
   section: string | null;
+  sectionId: string | null;
   prepare: () => Promise<void>;
-  add: (questions: QuestionValues[]) => Promise<void>;
+  add: (questions: QuestionValues[], sectionId?: string) => Promise<void>;
   addToGroup: (groupId: string, questions: QuestionValues[]) => Promise<void>;
   fix: (finding: AiFinding) => Promise<void>;
   open: (questionId: string) => void;
@@ -82,7 +84,8 @@ export function BuilderAiActions({ ai }: Readonly<{ ai: BuilderAi }>) {
     if (invalid >= 0)
       throw new AiWriteError(t("ai.generate.invalid", { n: invalid + 1 }));
     if (destination.kind === "group") await ai.addToGroup(destination.id, values);
-    else await ai.add(values);
+    else
+      await ai.add(values, destination.kind === "section" ? destination.id : undefined);
   }
 
   function requestFor(kind: BuilderPanel): AiPanelRequest {
@@ -92,6 +95,9 @@ export function BuilderAiActions({ ai }: Readonly<{ ai: BuilderAi }>) {
         context: {
           testId: ai.testId,
           passages: ai.passages,
+          ...(ai.section !== null && ai.sectionId
+            ? { section: { id: ai.sectionId, title: ai.section } }
+            : {}),
           destination: { kind: "section", title: ai.section ?? "" },
           save,
         },

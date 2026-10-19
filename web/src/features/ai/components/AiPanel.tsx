@@ -182,7 +182,7 @@ function AiKindPanel<F, I, C>({
 
   const env: AiEnv<C> = { t, language, tagDrafts, context };
   const set = (patch: Partial<F>) => setValues((current) => ({ ...current, ...patch }));
-  const problem = kind.problem(values);
+  const problem = kind.problem(values, context);
   const failedBlock =
     stage.name === "setup" && stage.failure?.kind === "blocked"
       ? stage.failure.block

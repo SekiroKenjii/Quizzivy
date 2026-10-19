@@ -651,7 +651,7 @@ call of each kind of feature with a key that is not production's:
 QUIZZIVY_AI_TEST_KEY=… go test -tags aismoke ./internal/core/adapters/tests/ -run TestLive -v
 ```
 
-It sends Generate, an explanation, wrong options, a score and a tagging (fast tier) with the models
+It sends Generate (from a passage, and standalone for a section), an explanation, wrong options, a score and a tagging (fast tier) with the models
 in `QUIZZIVY_AI_TEST_CAPABLE_MODEL` and `QUIZZIVY_AI_TEST_FAST_MODEL` (default `claude-sonnet-5-5`
 and `claude-haiku-5-5`), and fails unless every answer passes its decoder and Generate keeps all
 five questions. It costs a few cents. Without the key it fails rather than skips, and CI never

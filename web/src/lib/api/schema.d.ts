@@ -6225,11 +6225,8 @@ export interface components {
             source?: string;
             testId?: components["schemas"]["Uuid"];
             stimulusId?: components["schemas"]["Uuid"];
-            /**
-             * @description Write questions that each stand alone
-             * @default false
-             */
-            standalone: boolean;
+            /** @description Write questions that each stand alone, about a topic rather than answered from a text. Off when absent. */
+            standalone?: boolean;
             sectionId?: components["schemas"]["Uuid"];
             types: components["schemas"]["QuestionType"][];
             /** @enum {integer} */

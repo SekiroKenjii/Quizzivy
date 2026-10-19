@@ -113,6 +113,15 @@
       "step2": "Đang viết câu hỏi",
       "step3": "Đang đối chiếu từng đáp án với nguồn",
       "empty": "Không có câu nào. Hãy thử một nguồn dài hơn hoặc lựa chọn khác.",
+      "style": "Kiểu câu hỏi",
+      "styles": {
+        "standalone": "Câu độc lập",
+        "passage": "Theo bài đọc"
+      },
+      "topic": "Chủ đề hoặc ghi chú",
+      "topicPlaceholder": "VD: thì hiện tại hoàn thành và quá khứ đơn, hoặc dán danh sách từ, ghi chú, câu mẫu",
+      "fitSection": "Hợp với {{section}}",
+      "fitSectionSub": "AI đọc tên, hướng dẫn và các câu đã có trong phần để câu mới ăn khớp và không trùng lặp.",
       "source": "Nguồn",
       "sourcePlaceholder": "Dán một bài đọc hoặc bản ghi lời, hoặc mô tả một chủ đề",
       "passage": "Bài đọc {{n}} · {{title}}",
@@ -123,6 +132,7 @@
       "explanations": "Viết lời giải thích cho từng câu",
       "explanationsSub": "Học viên xem được sau khi kết quả được công bố.",
       "needSource": "Hãy thêm một nguồn dài ít nhất vài câu",
+      "needTopic": "Hãy nhập một chủ đề",
       "needType": "Hãy chọn ít nhất một dạng câu hỏi",
       "explanation": "Giải thích",
       "summary": "Đã chọn {{n}}/{{total}} · kiểm tra từng câu trước khi thêm",

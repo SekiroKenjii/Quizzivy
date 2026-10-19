@@ -4412,7 +4412,7 @@ components:
         source: { type: string, minLength: 3, maxLength: 20000 }
         testId: { $ref: '#/components/schemas/Uuid' }
         stimulusId: { $ref: '#/components/schemas/Uuid' }
-        standalone: { type: boolean, default: false, description: Write questions that each stand alone, about a topic rather than answered from a text. }
+        standalone: { type: boolean, description: "Write questions that each stand alone, about a topic rather than answered from a text. Off when absent." }
         sectionId: { $ref: '#/components/schemas/Uuid' }
         types:
           type: array
