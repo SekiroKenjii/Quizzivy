@@ -152,3 +152,113 @@ export async function downloadUserImportSheet(id: string) {
   });
   saveDownloadedFile(file, sheetFileName(new Date()));
 }
+
+export type AdminUserDetail = components["schemas"]["AdminUserDetail"];
+export type AdminUserCan = components["schemas"]["AdminUserCan"];
+export type AdminUserActivity = components["schemas"]["AdminUserActivity"];
+export type AssignableRole = components["schemas"]["AssignableRole"];
+export type UserDelivery = components["schemas"]["UserResetDelivery"];
+export type UserCreate = components["schemas"]["UserCreate"];
+export type UserContentTransferResult =
+  components["schemas"]["UserContentTransferResult"];
+
+/** userQuery reads `GET /admin/users/{id}`: one account with what the sheet draws beside it. */
+export function userQuery(id: string) {
+  return queryOptions({
+    queryKey: [...USERS_KEY, "detail", id] as const,
+    queryFn: ({ signal }) => api("get", "/admin/users/{id}", { path: { id }, signal }),
+  });
+}
+
+/** ASSIGNABLE_ROLES_KEY is the query key of the roles the caller may give. */
+export const ASSIGNABLE_ROLES_KEY = ["admin", "roles", "assignable"] as const;
+
+/** assignableRolesQuery reads `GET /admin/roles/assignable`, the roles the caller may give to a user. */
+export function assignableRolesQuery() {
+  return queryOptions({
+    queryKey: ASSIGNABLE_ROLES_KEY,
+    queryFn: ({ signal }) => api("get", "/admin/roles/assignable", { signal }),
+  });
+}
+
+/**
+ * emailTakenQuery asks `GET /admin/users?email=` whether an account already
+ * uses `email`, compared as the server compares it, case-insensitively.
+ */
+export function emailTakenQuery(email: string) {
+  return queryOptions({
+    queryKey: [...USERS_KEY, "email", email.toLowerCase()] as const,
+    queryFn: async ({ signal }) => {
+      const page = await api("get", "/admin/users", {
+        query: { email, limit: 10 },
+        signal,
+      });
+      return page.total > 0;
+    },
+  });
+}
+
+/**
+ * recipientsQuery lists who may receive a disabled account's content: the
+ * accounts of the Teachers and the Admins tabs matching `q`, without the
+ * disabled ones. The server makes the last check (`INVALID_RECIPIENT`).
+ */
+export function recipientsQuery(q: string) {
+  return queryOptions({
+    queryKey: [...USERS_KEY, "recipients", q] as const,
+    queryFn: async ({ signal }) => {
+      const pages = await Promise.all(
+        (["teachers", "admins"] as const).map((tab) =>
+          api("get", "/admin/users", {
+            query: { tab, limit: 20, ...(q === "" ? {} : { q }) },
+            signal,
+          }),
+        ),
+      );
+      return pages
+        .flatMap((page) => page.items)
+        .filter((user) => user.status !== "disabled");
+    },
+  });
+}
+
+/** createUser sends `POST /admin/users`; a temporary password in the answer is shown once. */
+export function createUser(body: UserCreate) {
+  return api("post", "/admin/users", { body });
+}
+
+/** changeUserRole sends `PUT /admin/users/{id}/role`. */
+export function changeUserRole(id: string, roleId: string) {
+  return api("put", "/admin/users/{id}/role", { path: { id }, body: { roleId } });
+}
+
+/** resetUserPassword sends `POST /admin/users/{id}/reset-password`. */
+export function resetUserPassword(id: string, delivery: UserDelivery) {
+  return api("post", "/admin/users/{id}/reset-password", {
+    path: { id },
+    body: { delivery },
+  });
+}
+
+/** signOutUser sends `POST /admin/users/{id}/sign-out`. */
+export function signOutUser(id: string) {
+  return api("post", "/admin/users/{id}/sign-out", { path: { id } });
+}
+
+/** disableUser sends `POST /admin/users/{id}/disable`. */
+export function disableUser(id: string) {
+  return api("post", "/admin/users/{id}/disable", { path: { id } });
+}
+
+/** enableUser sends `POST /admin/users/{id}/enable`. */
+export function enableUser(id: string) {
+  return api("post", "/admin/users/{id}/enable", { path: { id } });
+}
+
+/** transferUserContent sends `POST /admin/users/{id}/transfer-content`. */
+export function transferUserContent(id: string, toUserId: string, notify: boolean) {
+  return api("post", "/admin/users/{id}/transfer-content", {
+    path: { id },
+    body: { toUserId, notify },
+  });
+}
