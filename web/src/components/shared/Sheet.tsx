@@ -7,7 +7,7 @@ import { useDeckScale } from "@/components/ui/deck-scale";
 import { preventLocalEscapeDismissal } from "@/lib/localEscape";
 import { cn } from "@/lib/utils";
 
-type SheetWidth = 320 | 380 | 420 | 560;
+type SheetWidth = 320 | 380 | 420 | 440 | 560;
 
 const FRAMES: Record<
   SheetWidth,
@@ -38,6 +38,13 @@ const FRAMES: Record<
     body: "gap-4.5 p-4.5",
     footer: "px-4.5 py-3.5",
   },
+  440: {
+    panel: "w-[min(440px,100%)]",
+    header: "border-b px-4.5 py-4",
+    body: "gap-5 p-4.5",
+    footer: "px-4.5 py-3.5",
+    subtitle: "truncate",
+  },
   560: {
     panel: "w-[min(560px,100%)]",
     header:
@@ -54,9 +61,10 @@ const MOTION =
 
 /**
  * Sheet is the panel the Teacher deck pins to the right edge: a modal dialog
- * of the deck's 320, 380, 420 or 560px, or the whole width when the window is
+ * of the deck's 320, 380, 420, 440 or 560px, or the whole width when the window is
  * narrower. `title` names it and is drawn in the header with `subtitle` under
- * it, `leading` before it and the close button after it; the body is the only
+ * it (on one line at 440px, with the whole text as its tooltip), `leading`
+ * before it and the close button after it; the body is the only
  * part that scrolls, and `footer` stays under it. Esc, the backdrop and the
  * close button ask to close through `onOpenChange`. It is controlled, so it
  * remembers what opened it: on close, focus goes back to that control, or to
@@ -134,6 +142,7 @@ export function Sheet({
               </Primitive.Title>
               {subtitle !== undefined && (
                 <Primitive.Description
+                  title={frame.subtitle === "truncate" ? subtitle : undefined}
                   className={cn(
                     "text-muted-fg text-meta leading-normal",
                     frame.subtitle,

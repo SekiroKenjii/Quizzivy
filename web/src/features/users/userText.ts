@@ -1,4 +1,5 @@
 import type { TFunction } from "i18next";
+import { ApiError } from "@/lib/api/errors";
 import type { AdminUser } from "@/features/users/api";
 import type { Locale } from "@/lib/i18n";
 import { formatRelativeShort } from "@/lib/i18n/datetime";
@@ -42,4 +43,46 @@ export function lastActiveText(
   return at === null
     ? t("users.neverActive")
     : formatRelativeShort(at, locale, t("common.agoNow"));
+}
+
+const REFUSALS = new Map<string, string>([
+  ["TARGET_ROLE_NOT_ALLOWED", "users.error.targetRoleNotAllowed"],
+  ["LAST_ADMIN", "users.error.lastAdmin"],
+  ["USER_OWNS_CONTENT", "users.error.ownsContent"],
+  ["CANNOT_ACT_ON_SELF", "users.error.self"],
+  ["ACCOUNT_DISABLED", "users.error.accountDisabled"],
+  ["PASSWORD_SIGN_IN_DISABLED", "users.error.passwordSignInOff"],
+  ["STALE_WRITE", "users.error.stale"],
+  ["ROLE_NOT_ASSIGNABLE", "users.error.roleNotAssignable"],
+  ["USER_NOT_DISABLED", "users.error.notDisabled"],
+  ["INVALID_RECIPIENT", "users.error.invalidRecipient"],
+  ["EMAIL_TAKEN", "users.addUser.emailTaken"],
+  ["NOT_FOUND", "users.error.notFound"],
+]);
+
+/**
+ * refusalText is what the sheet and its dialogs say when the server refused
+ * a write: the reason for a refusal the Users screens know, how long to wait
+ * after a rate limit, a missing link key (501) as such, and `fallback`
+ * otherwise.
+ */
+export function refusalText(cause: unknown, t: TFunction, fallback: string): string {
+  if (!(cause instanceof ApiError)) return fallback;
+  const key = REFUSALS.get(cause.code);
+  if (key !== undefined) return t(key);
+  if (cause.status === 501) return t("users.error.noLinkKey");
+  const seconds = cause.retryAfterSeconds;
+  if (cause.isRateLimited)
+    return seconds === undefined
+      ? t("users.error.rateLimited")
+      : t("users.error.rateLimitedSeconds", { count: Math.max(1, Math.ceil(seconds)) });
+  return fallback;
+}
+
+/**
+ * failureText says why a bulk action did not reach one account: a refusal
+ * the Users screens know, or a fault on our side.
+ */
+export function failureText(code: string, t: TFunction): string {
+  return t(REFUSALS.get(code) ?? "users.credential.reason.internal");
 }

@@ -441,7 +441,7 @@ const adminTree: RouteObject = {
                 permission: "system.data_export",
                 width: 1080,
               },
-              lazy: pending,
+              lazy: page(() => import("@/features/exports/pages/admin/DataExportPage")),
             },
           ],
         },

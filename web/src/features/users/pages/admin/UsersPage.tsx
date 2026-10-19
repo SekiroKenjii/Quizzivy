@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { Upload } from "lucide-react";
+import { Upload, UserPlus } from "lucide-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { LoadError } from "@/components/shared/ListState";
 import { SearchInput, TOOLBAR_SEARCH } from "@/components/shared/SearchInput";
 import { Button } from "@/components/ui/button";
 import { Segmented, type SegmentedOption } from "@/components/ui/segmented";
+import { AddUserDialog } from "@/features/users/components/AddUserDialog";
 import { ImportUsersDialog } from "@/features/users/components/ImportUsersDialog";
 import { StateChip } from "@/features/users/components/StateChip";
+import { UserSheet } from "@/features/users/components/UserSheet";
 import { UsersTable } from "@/features/users/components/UsersTable";
 import { CARDS_BELOW } from "@/features/users/components/userColumns";
 import { UsersSkeleton } from "@/features/users/components/UsersSkeleton";
@@ -66,7 +68,9 @@ function announcement(t: TFunction, total: number | undefined): string {
  * the page says so (QC-N-15). A page past the end goes to the last one. The
  * table's columns join as the content widens, and below 560px each account is
  * a card. "Import CSV" opens the Import users dialog (T-R5.23), which stays
- * mounted so a job it started is followed while it is closed.
+ * mounted so a job it started is followed while it is closed, and "Add user"
+ * the Add user dialog (T-R5.22b). A row opens the account's sheet at
+ * `?user=<id>`, which Back closes.
  */
 export default function UsersPage() {
   useDisplayTimeZone();
@@ -86,6 +90,19 @@ export default function UsersPage() {
   const searchRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const importButton = useRef<HTMLButtonElement>(null);
+  const [adding, setAdding] = useState(false);
+  const addButton = useRef<HTMLButtonElement>(null);
+  const opened = params.get("user");
+  const openUser = (id: string | null) =>
+    setParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        if (id === null) next.delete("user");
+        else next.set("user", id);
+        return next;
+      },
+      { replace: id === null },
+    );
 
   const users = useQuery({
     ...usersQuery({ tab, status: state, q, page, limit: limitOf(size) }),
@@ -135,16 +152,29 @@ export default function UsersPage() {
         title={t("users.title")}
         description={t("users.lead")}
         actions={
-          <Button
-            ref={importButton}
-            variant="outline"
-            onClick={() => setImporting(true)}
-          >
-            <Upload aria-hidden="true" />
-            {t("users.import.open")}
-          </Button>
+          <>
+            <Button
+              ref={importButton}
+              variant="outline"
+              onClick={() => setImporting(true)}
+            >
+              <Upload aria-hidden="true" />
+              {t("users.import.open")}
+            </Button>
+            <Button ref={addButton} onClick={() => setAdding(true)}>
+              <UserPlus aria-hidden="true" />
+              {t("users.addUser.open")}
+            </Button>
+          </>
         }
       />
+      <AddUserDialog
+        open={adding}
+        onOpenChange={setAdding}
+        returnFocus={addButton}
+        onCreated={openUser}
+      />
+      <UserSheet userId={opened} onClose={() => openUser(null)} />
       <ImportUsersDialog
         open={importing}
         onOpenChange={setImporting}
@@ -198,6 +228,7 @@ export default function UsersPage() {
           cards={cards}
           empty={empty}
           locale={locale}
+          onOpen={(user) => openUser(user.id)}
         />
       )}
     </div>

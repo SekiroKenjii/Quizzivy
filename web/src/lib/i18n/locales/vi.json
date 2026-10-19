@@ -997,7 +997,178 @@
     },
     "result_one": "Tìm thấy {{count}} người dùng.",
     "result_other": "Tìm thấy {{count}} người dùng.",
-    "resultNone": "Không tìm thấy người dùng nào."
+    "resultNone": "Không tìm thấy người dùng nào.",
+    "role": {
+      "choose": "Chọn vai trò"
+    },
+    "delivery": {
+      "label": "Cách giao mật khẩu",
+      "link": "Gửi liên kết đặt mật khẩu qua email",
+      "linkHint": "Họ tự chọn mật khẩu. Liên kết dùng một lần, trong 24 giờ.",
+      "password": "Hiện mật khẩu tạm thời",
+      "passwordHint": "Bạn trao mật khẩu cho họ. Họ phải đổi khi đăng nhập."
+    },
+    "sheet": {
+      "title": "Người dùng",
+      "loadFailed": "Không tải được người dùng này.",
+      "role": "Vai trò",
+      "status": "Trạng thái",
+      "signIn": "Đăng nhập",
+      "classes": "Lớp",
+      "lastActive": "Hoạt động cuối",
+      "created": "Ngày tạo",
+      "actions": "Thao tác",
+      "reset": "Đặt lại mật khẩu",
+      "resetHint": "Gửi liên kết hoặc đặt mật khẩu tạm thời",
+      "signOut": "Đăng xuất khỏi mọi thiết bị",
+      "signOutHint": "Kết thúc mọi phiên đăng nhập trên mọi thiết bị",
+      "signedOut": "{{name}} đã bị đăng xuất khỏi mọi thiết bị",
+      "signOutFailed": "Không đăng xuất được tài khoản này.",
+      "disable": "Vô hiệu hoá tài khoản",
+      "disableHint": "Đăng xuất họ. Kết quả vẫn được giữ.",
+      "disabled": "Đã vô hiệu hoá tài khoản",
+      "disableFailed": "Không vô hiệu hoá được tài khoản này.",
+      "enable": "Kích hoạt lại tài khoản",
+      "enableHint": "Họ có thể đăng nhập lại",
+      "enabled": "Đã kích hoạt lại tài khoản",
+      "enableFailed": "Không kích hoạt lại được tài khoản này.",
+      "activity": "Hoạt động gần đây",
+      "roleFixed": "Bạn không thể giao vai trò này, nên không thể đổi ở đây."
+    },
+    "activity": {
+      "signIn": {
+        "password": "Đăng nhập bằng mật khẩu",
+        "google": "Đăng nhập bằng Google",
+        "set_password_link": "Đăng nhập bằng liên kết đặt mật khẩu"
+      },
+      "signInPlain": "Đã đăng nhập",
+      "submitted": "Đã nộp {{title}}",
+      "submittedRemoved": "Đã nộp một bài kiểm tra đã bị xoá",
+      "joined": "Đã vào lớp {{name}}",
+      "joinedRemoved": "Đã vào một lớp đã bị xoá",
+      "audit": "Một thao tác đã được ghi vào nhật ký"
+    },
+    "changeRole": {
+      "title": "Chuyển {{name}} thành {{role}}?",
+      "adminBody": "Quản trị viên có thể thay đổi mọi cài đặt và xem nhật ký kiểm tra.",
+      "body": "Quyền của họ thay đổi ở lần tải trang tiếp theo. Việc này được ghi vào nhật ký kiểm tra.",
+      "submit": "Đổi vai trò",
+      "done": "Đã đổi vai trò thành {{role}}",
+      "failed": "Không đổi được vai trò."
+    },
+    "reset": {
+      "title": "Đặt lại mật khẩu của {{name}}?",
+      "body": "Mọi phiên đăng nhập của họ kết thúc, và mật khẩu cũ không còn dùng được.",
+      "submit": "Đặt lại mật khẩu",
+      "done": "Mật khẩu tạm thời của {{name}}",
+      "linkSent": "Đã gửi liên kết tới {{email}}",
+      "failed": "Không đặt lại được mật khẩu."
+    },
+    "disable": {
+      "title": "Vô hiệu hoá {{name}}?",
+      "body": "Họ bị đăng xuất và không thể đăng nhập. Kết quả của họ được giữ lại.",
+      "teaches_one": "Họ đang dạy {{count}} lớp. Học viên vẫn giữ quyền truy cập; hãy chuyển lớp bằng Chuyển nội dung.",
+      "teaches_other": "Họ đang dạy {{count}} lớp. Học viên vẫn giữ quyền truy cập; hãy chuyển các lớp bằng Chuyển nội dung.",
+      "midTest": "Họ đang làm bài kiểm tra ngay lúc này.",
+      "submit": "Vô hiệu hoá"
+    },
+    "transfer": {
+      "open": "Chuyển nội dung",
+      "openHint": "Giao lớp, đề và câu hỏi của họ cho một giáo viên khác",
+      "title": "Chuyển nội dung của {{name}} cho",
+      "lead": "Mọi lớp, đề, câu hỏi, tệp phương tiện và bài giao của họ chuyển sang người nhận cùng một lúc.",
+      "willMove": "Sẽ chuyển",
+      "search": "Tìm giáo viên theo tên hoặc email",
+      "recipient": "Người nhận",
+      "noRecipient": "Không có giáo viên nào phù hợp.",
+      "recipientsFailed": "Không tải được danh sách giáo viên.",
+      "notify": "Báo cho giáo viên nhận",
+      "pick": "Hãy chọn người nhận.",
+      "submit": "Chuyển nội dung",
+      "failed": "Không chuyển được nội dung.",
+      "doneTitle": "Đã chuyển nội dung",
+      "movedTo": "Đã chuyển cho {{name}}:",
+      "moved": "Đã chuyển",
+      "done": "Xong",
+      "importsLeft_one": "{{count}} lượt nhập Word chưa xong vẫn ở lại với tài khoản này.",
+      "importsLeft_other": "{{count}} lượt nhập Word chưa xong vẫn ở lại với tài khoản này.",
+      "studentsLeft_one": "{{count}} học viên do tài khoản này tạo chưa thuộc lớp nào của người nhận; chỉ quản trị viên thấy họ cho tới khi được thêm vào lớp.",
+      "studentsLeft_other": "{{count}} học viên do tài khoản này tạo chưa thuộc lớp nào của người nhận; chỉ quản trị viên thấy họ cho tới khi được thêm vào lớp.",
+      "count": {
+        "classes_one": "{{count}} lớp",
+        "classes_other": "{{count}} lớp",
+        "tests_one": "{{count}} đề",
+        "tests_other": "{{count}} đề",
+        "questions_one": "{{count}} câu hỏi",
+        "questions_other": "{{count}} câu hỏi",
+        "questionGroups_one": "{{count}} nhóm câu hỏi",
+        "questionGroups_other": "{{count}} nhóm câu hỏi",
+        "media_one": "{{count}} tệp phương tiện",
+        "media_other": "{{count}} tệp phương tiện",
+        "assignments_one": "{{count}} bài giao",
+        "assignments_other": "{{count}} bài giao"
+      },
+      "readOnly": "{{name}} không có quyền sửa {{kinds}}, nên sau khi chuyển chỉ xem được chúng.",
+      "kind": {
+        "classes": "lớp",
+        "tests": "đề",
+        "questions": "câu hỏi",
+        "media": "tệp phương tiện",
+        "assignments": "bài giao"
+      }
+    },
+    "addUser": {
+      "open": "Thêm người dùng",
+      "title": "Thêm người dùng",
+      "lead": "Tạo tài khoản và gửi cho họ cách đăng nhập.",
+      "fullName": "Họ và tên",
+      "namePlaceholder": "Nguyễn Văn An",
+      "email": "Email",
+      "emailPlaceholder": "an.nguyen@example.com",
+      "emailPartial": "Nhập đầy đủ địa chỉ email",
+      "emailTaken": "Email này đã có người dùng",
+      "role": "Vai trò",
+      "rolesFailed": "Không tải được danh sách vai trò.",
+      "submit": "Tạo tài khoản",
+      "failed": "Không tạo được tài khoản.",
+      "linkSent": "Đã tạo tài khoản và gửi liên kết tới {{email}}",
+      "done": "Mật khẩu tạm thời của {{name}}"
+    },
+    "error": {
+      "targetRoleNotAllowed": "Bạn không thể thao tác trên tài khoản hoặc vai trò có quyền mà bạn không có.",
+      "lastAdmin": "Đây là quản trị viên đang hoạt động cuối cùng.",
+      "ownsContent": "Tài khoản này còn sở hữu lớp hoặc nội dung. Hãy vô hiệu hoá rồi chuyển nội dung trước.",
+      "ownsContentAsk": "Tài khoản này còn sở hữu lớp hoặc nội dung. Một quản trị viên xem được mọi dữ liệu phải chuyển nội dung trước.",
+      "self": "Bạn không thể làm việc này với tài khoản của chính mình.",
+      "accountDisabled": "Tài khoản đang bị vô hiệu hoá. Hãy kích hoạt lại trước.",
+      "passwordSignInOff": "Trung tâm đã tắt đăng nhập bằng mật khẩu, nên không thể đặt mật khẩu tạm thời.",
+      "stale": "Tài khoản vừa được thay đổi ở nơi khác. Hãy thử lại.",
+      "roleNotAssignable": "Không thể giao vai trò này.",
+      "notDisabled": "Hãy vô hiệu hoá tài khoản trước.",
+      "invalidRecipient": "Người nhận phải là một giáo viên khác đang hoạt động.",
+      "notFound": "Không tìm thấy tài khoản này.",
+      "noLinkKey": "Máy chủ chưa được cấu hình để gửi liên kết.",
+      "rateLimited": "Bạn thao tác quá nhanh. Hãy thử lại sau ít phút.",
+      "rateLimitedSeconds_one": "Bạn thao tác quá nhanh. Hãy thử lại sau {{count}} giây.",
+      "rateLimitedSeconds_other": "Bạn thao tác quá nhanh. Hãy thử lại sau {{count}} giây.",
+      "ownsContentTransfer": "Tài khoản này còn sở hữu lớp hoặc nội dung. Hãy chuyển nội dung của họ trước."
+    },
+    "credential": {
+      "mustChange": "Họ phải đổi mật khẩu khi đăng nhập lần tới.",
+      "shownOnce": "Mật khẩu chỉ hiện một lần. Hãy sao chép hoặc in trước khi đóng, và trao tận tay hoặc qua kênh riêng.",
+      "passwords": "Mật khẩu tạm thời",
+      "copy": "Sao chép",
+      "copyAll": "Sao chép tất cả",
+      "copyFailed": "Không sao chép được. Hãy chọn và sao chép thủ công.",
+      "print": "In",
+      "linksSent_one": "Đã gửi {{count}} liên kết đặt mật khẩu",
+      "linksSent_other": "Đã gửi {{count}} liên kết đặt mật khẩu",
+      "notReached_one": "{{count}} người chưa được xử lý",
+      "notReached_other": "{{count}} người chưa được xử lý",
+      "reason": {
+        "internal": "Đã có lỗi ở phía chúng tôi. Hãy thử lại."
+      }
+    }
   },
   "systemSettings": {
     "title": "Cài đặt hệ thống",
@@ -1007,7 +1178,9 @@
     "reload": "Tải lại",
     "sections": {
       "organization": "Tổ chức",
-      "signIn": "Đăng nhập"
+      "signIn": "Đăng nhập",
+      "data": "Dữ liệu và quyền riêng tư",
+      "plan": "Gói và mức dùng"
     },
     "organization": {
       "title": "Tổ chức",
@@ -1075,7 +1248,102 @@
       "domainInvalid": "Tên miền không hợp lệ.",
       "domainsTooMany": "Tối đa 50 tên miền.",
       "noMethod": "Phải bật ít nhất một cách đăng nhập."
+    },
+    "data": {
+      "title": "Dữ liệu và quyền riêng tư",
+      "hint": "Quizzivy giữ dữ liệu trong bao lâu.",
+      "keepAnswers": "Giữ câu trả lời của bài làm",
+      "keepAnswersHint": "Sau thời hạn này, câu trả lời của học viên bị xoá hằng đêm. Điểm vẫn được giữ.",
+      "keepFocus": "Giữ sự kiện rời khỏi bài thi",
+      "keepFocusHint": "Sau thời hạn này, các sự kiện rời khỏi bài thi bị xoá hằng đêm.",
+      "anonymise": "Ẩn danh tài khoản đã tắt sau",
+      "anonymiseHint": "Kết quả được giữ; tên và email bị xoá.",
+      "options": {
+        "year1": "1 năm",
+        "year2": "2 năm",
+        "forever": "Mãi mãi",
+        "month6": "6 tháng",
+        "month13": "13 tháng (mặc định)",
+        "never": "Không bao giờ"
+      }
+    },
+    "export": {
+      "title": "Xuất toàn bộ dữ liệu",
+      "hint": "Gửi cho bạn một liên kết tải về toàn bộ dữ liệu của trung tâm. Liên kết hết hạn sau 24 giờ.",
+      "request": "Yêu cầu xuất",
+      "dialogTitle": "Xuất toàn bộ dữ liệu?",
+      "dialogHint": "Liên kết mở trang tải xuống và có hiệu lực trong 24 giờ.",
+      "sendTo": "Gửi liên kết tới",
+      "includeAnswers": "Bao gồm câu trả lời",
+      "includeAnswersHint": "Tệp sẽ lớn hơn nhiều",
+      "submit": "Yêu cầu xuất",
+      "requested": "Đã yêu cầu xuất. Liên kết sẽ gửi tới {{email}}",
+      "inProgress": "Một yêu cầu xuất đang được xử lý. Hãy đợi email của nó trước khi yêu cầu lại.",
+      "rateLimited_one": "Mỗi giờ chỉ yêu cầu xuất được một lần. Hãy thử lại sau {{count}} phút.",
+      "rateLimited_other": "Mỗi giờ chỉ yêu cầu xuất được một lần. Hãy thử lại sau {{count}} phút.",
+      "off": "Máy chủ này chưa bật tính năng xuất dữ liệu."
+    },
+    "retentionConfirm": {
+      "title": "Rút ngắn thời gian lưu giữ?",
+      "hint": "Việc dọn dẹp chạy mỗi đêm và không thể hoàn tác.",
+      "confirm": "Lưu và xoá",
+      "nothing": "Hiện chưa có gì bị xoá tối nay.",
+      "answers_one": "Tối nay sẽ xoá câu trả lời của {{count}} lượt làm bài ({{answers}} câu trả lời).",
+      "answers_other": "Tối nay sẽ xoá câu trả lời của {{count}} lượt làm bài ({{answers}} câu trả lời).",
+      "focus_one": "Tối nay sẽ xoá {{count}} sự kiện rời khỏi bài thi.",
+      "focus_other": "Tối nay sẽ xoá {{count}} sự kiện rời khỏi bài thi.",
+      "accounts_one": "Tối nay sẽ ẩn danh {{count}} tài khoản đã tắt.",
+      "accounts_other": "Tối nay sẽ ẩn danh {{count}} tài khoản đã tắt.",
+      "owners_one": "{{count}} tài khoản đã tắt được giữ nguyên vì còn sở hữu lớp hoặc nội dung.",
+      "owners_other": "{{count}} tài khoản đã tắt được giữ nguyên vì còn sở hữu lớp hoặc nội dung."
+    },
+    "plan": {
+      "title": "Gói và mức dùng",
+      "hint": "Chưa cấu hình gói cho trung tâm này.",
+      "named": "Gói {{name}}",
+      "namedRenews": "Gói {{name}} · gia hạn {{date}}",
+      "loadFailed": "Không tải được mức dùng.",
+      "seats": "Chỗ ngồi",
+      "media": "Dung lượng tệp media",
+      "imports": "Dung lượng tài liệu nhập",
+      "importsCount_one": "{{count}} lần nhập",
+      "importsCount_other": "{{count}} lần nhập",
+      "teachers": "Giáo viên",
+      "aiCredits": "Tín dụng AI",
+      "aiCreditsOf": "{{used}} / {{pool}} trong tháng này"
     }
+  },
+  "dataExport": {
+    "title": "Xuất dữ liệu",
+    "hint": "Tệp xuất toàn bộ dữ liệu của trung tâm.",
+    "back": "Dữ liệu và quyền riêng tư",
+    "cardTitle": "Yêu cầu xuất",
+    "requested": "Đã yêu cầu lúc",
+    "contents": "Nội dung",
+    "withAnswers": "Có câu trả lời",
+    "withoutAnswers": "Không có câu trả lời",
+    "size": "Dung lượng",
+    "expires": "Hết hạn lúc",
+    "status": {
+      "queued": "Đang chờ",
+      "running": "Đang xuất",
+      "ready": "Sẵn sàng",
+      "failed": "Lỗi",
+      "expired": "Đã hết hạn"
+    },
+    "waiting": {
+      "queued": "Yêu cầu đang chờ tới lượt. Trang này tự cập nhật.",
+      "running": "Đang tạo tệp. Trang này tự cập nhật."
+    },
+    "failed": "Không tạo được tệp xuất. Hãy yêu cầu xuất lại từ Cài đặt hệ thống.",
+    "expiredNote": "Liên kết đã hết hạn. Hãy yêu cầu xuất lại từ Cài đặt hệ thống.",
+    "download": "Tải xuống",
+    "downloadedAt": "Đã tải lúc {{time}} · {{count}}/{{max}} lần",
+    "missing": "Không tìm thấy bản xuất này",
+    "missingHint": "Bản xuất không tồn tại hoặc do người khác yêu cầu.",
+    "loadFailed": "Không tải được bản xuất.",
+    "downloadCount": "Đã tải {{count}}/{{max}} lần",
+    "exhausted": "Đã dùng hết lượt tải. Hãy yêu cầu xuất lại từ Cài đặt hệ thống."
   },
   "student": {
     "shell": {

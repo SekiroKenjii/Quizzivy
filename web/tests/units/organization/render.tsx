@@ -1,8 +1,11 @@
 import { render } from "@testing-library/react";
+import { vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, Link, Outlet, RouterProvider } from "react-router";
 import { Toaster } from "@/components/ui/sonner";
 import SystemSettingsPage from "@/features/organization/pages/admin/SystemSettingsPage";
+
+vi.setConfig({ testTimeout: 15_000 });
 
 /** renderSettings renders System settings at `path`, with a link out to check what leaving asks. */
 export function renderSettings(path = "/admin/settings") {

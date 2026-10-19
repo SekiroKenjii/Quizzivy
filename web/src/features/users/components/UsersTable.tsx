@@ -20,6 +20,7 @@ export function UsersTable({
   cards,
   empty,
   locale,
+  onOpen,
 }: Readonly<{
   users: readonly AdminUser[];
   page: number;
@@ -28,6 +29,7 @@ export function UsersTable({
   cards: boolean;
   empty: ReactNode;
   locale: Locale;
+  onOpen: (user: AdminUser) => void;
 }>) {
   const { t } = useTranslation();
   const columns = useMemo(() => userColumns(t, locale), [t, locale]);
@@ -41,6 +43,7 @@ export function UsersTable({
       cardLayout="joined"
       cards={cards}
       empty={empty}
+      onOpen={onOpen}
       footer={
         <Pager
           page={page}

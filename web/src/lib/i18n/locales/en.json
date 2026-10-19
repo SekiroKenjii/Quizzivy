@@ -997,7 +997,178 @@
     },
     "result_one": "{{count}} user found.",
     "result_other": "{{count}} users found.",
-    "resultNone": "No users found."
+    "resultNone": "No users found.",
+    "role": {
+      "choose": "Choose a role"
+    },
+    "delivery": {
+      "label": "How they get a password",
+      "link": "Email a link to set a password",
+      "linkHint": "They choose their own. The link works once, for 24 hours.",
+      "password": "Show a temporary password",
+      "passwordHint": "You hand it to them. They must change it when they sign in."
+    },
+    "sheet": {
+      "title": "User",
+      "loadFailed": "This user could not be loaded.",
+      "role": "Role",
+      "status": "Status",
+      "signIn": "Sign-in",
+      "classes": "Classes",
+      "lastActive": "Last active",
+      "created": "Created",
+      "actions": "Actions",
+      "reset": "Reset password",
+      "resetHint": "Send a link or set a temporary password",
+      "signOut": "Sign out everywhere",
+      "signOutHint": "Ends every session on every device",
+      "signedOut": "{{name}} signed out of all devices",
+      "signOutFailed": "This account could not be signed out.",
+      "disable": "Disable account",
+      "disableHint": "Signs them out. Results are kept.",
+      "disabled": "Account disabled",
+      "disableFailed": "This account could not be disabled.",
+      "enable": "Enable account",
+      "enableHint": "They can sign in again",
+      "enabled": "Account enabled",
+      "enableFailed": "This account could not be enabled.",
+      "activity": "Recent activity",
+      "roleFixed": "You cannot give this role, so it cannot be changed here."
+    },
+    "activity": {
+      "signIn": {
+        "password": "Signed in with password",
+        "google": "Signed in with Google",
+        "set_password_link": "Signed in with a set-password link"
+      },
+      "signInPlain": "Signed in",
+      "submitted": "Submitted {{title}}",
+      "submittedRemoved": "Submitted a test that has been deleted",
+      "joined": "Joined {{name}}",
+      "joinedRemoved": "Joined a class that has been deleted",
+      "audit": "An action was recorded in the audit log"
+    },
+    "changeRole": {
+      "title": "Make {{name}} {{role}}?",
+      "adminBody": "Admins can change every setting and see the audit log.",
+      "body": "Their permissions change the next time they load a page. This is recorded in the audit log.",
+      "submit": "Change role",
+      "done": "Role changed to {{role}}",
+      "failed": "The role could not be changed."
+    },
+    "reset": {
+      "title": "Reset password for {{name}}?",
+      "body": "Every session they have ends, and the old password stops working.",
+      "submit": "Reset password",
+      "done": "Temporary password for {{name}}",
+      "linkSent": "Link sent to {{email}}",
+      "failed": "The password could not be reset."
+    },
+    "disable": {
+      "title": "Disable {{name}}?",
+      "body": "They are signed out and cannot sign in. Their results are kept.",
+      "teaches_one": "They teach {{count}} class. Students keep access; move the class with Transfer content.",
+      "teaches_other": "They teach {{count}} classes. Students keep access; move the classes with Transfer content.",
+      "midTest": "They are taking a test right now.",
+      "submit": "Disable"
+    },
+    "transfer": {
+      "open": "Transfer content",
+      "openHint": "Give their classes, tests and questions to another teacher",
+      "title": "Transfer {{name}}'s content to",
+      "lead": "Every class, test, question, media file and assignment they own moves to the recipient at once.",
+      "willMove": "Will move",
+      "search": "Find a teacher by name or email",
+      "recipient": "Recipient",
+      "noRecipient": "No teacher matches.",
+      "recipientsFailed": "The teachers could not be loaded.",
+      "notify": "Tell the receiving teacher",
+      "pick": "Choose a recipient.",
+      "submit": "Transfer content",
+      "failed": "The content could not be transferred.",
+      "doneTitle": "Content transferred",
+      "movedTo": "Moved to {{name}}:",
+      "moved": "Moved",
+      "done": "Done",
+      "importsLeft_one": "{{count}} unfinished Word import stays with this account.",
+      "importsLeft_other": "{{count}} unfinished Word imports stay with this account.",
+      "studentsLeft_one": "{{count}} student this account created is in none of the recipient's classes; only Admins see them until someone adds them to a class.",
+      "studentsLeft_other": "{{count}} students this account created are in none of the recipient's classes; only Admins see them until someone adds them to a class.",
+      "count": {
+        "classes_one": "{{count}} class",
+        "classes_other": "{{count}} classes",
+        "tests_one": "{{count}} test",
+        "tests_other": "{{count}} tests",
+        "questions_one": "{{count}} question",
+        "questions_other": "{{count}} questions",
+        "questionGroups_one": "{{count}} question group",
+        "questionGroups_other": "{{count}} question groups",
+        "media_one": "{{count}} media file",
+        "media_other": "{{count}} media files",
+        "assignments_one": "{{count}} assignment",
+        "assignments_other": "{{count}} assignments"
+      },
+      "readOnly": "{{name}}'s role cannot edit {{kinds}}, so after the transfer they can only view them.",
+      "kind": {
+        "classes": "classes",
+        "tests": "tests",
+        "questions": "questions",
+        "media": "media",
+        "assignments": "assignments"
+      }
+    },
+    "addUser": {
+      "open": "Add user",
+      "title": "Add user",
+      "lead": "Create an account and send them a way to sign in.",
+      "fullName": "Full name",
+      "namePlaceholder": "Nguyễn Văn An",
+      "email": "Email",
+      "emailPlaceholder": "an.nguyen@example.com",
+      "emailPartial": "Enter a full email address",
+      "emailTaken": "Someone already uses this email",
+      "role": "Role",
+      "rolesFailed": "The roles could not be loaded.",
+      "submit": "Create account",
+      "failed": "The account could not be created.",
+      "linkSent": "Account created and a link sent to {{email}}",
+      "done": "Temporary password for {{name}}"
+    },
+    "error": {
+      "targetRoleNotAllowed": "You cannot act on an account or role that holds a permission you do not have.",
+      "lastAdmin": "This is the last active Admin.",
+      "ownsContent": "This account still owns classes or content. Disable it and transfer its content first.",
+      "ownsContentAsk": "This account still owns classes or content. An Admin who sees everything must transfer it first.",
+      "self": "You cannot do this to your own account.",
+      "accountDisabled": "The account is disabled. Enable it first.",
+      "passwordSignInOff": "The centre has turned password sign-in off, so no temporary password can be set.",
+      "stale": "The account just changed somewhere else. Try again.",
+      "roleNotAssignable": "This role cannot be given.",
+      "notDisabled": "Disable the account first.",
+      "invalidRecipient": "The recipient must be another active teacher.",
+      "notFound": "This account was not found.",
+      "noLinkKey": "This server is not set up to send links.",
+      "rateLimited": "Too many attempts. Try again in a few minutes.",
+      "rateLimitedSeconds_one": "Too many attempts. Try again in {{count}} second.",
+      "rateLimitedSeconds_other": "Too many attempts. Try again in {{count}} seconds.",
+      "ownsContentTransfer": "This account still owns classes or content. Transfer its content first."
+    },
+    "credential": {
+      "mustChange": "They must change it when they next sign in.",
+      "shownOnce": "Passwords are shown only once. Copy or print them before you close, and hand them over in person or privately.",
+      "passwords": "Temporary passwords",
+      "copy": "Copy",
+      "copyAll": "Copy all",
+      "copyFailed": "Could not copy. Select the text and copy it yourself.",
+      "print": "Print",
+      "linksSent_one": "{{count}} link sent",
+      "linksSent_other": "{{count}} links sent",
+      "notReached_one": "{{count}} person was not changed",
+      "notReached_other": "{{count}} people were not changed",
+      "reason": {
+        "internal": "Something went wrong on our side. Try again."
+      }
+    }
   },
   "systemSettings": {
     "title": "System settings",
@@ -1007,7 +1178,9 @@
     "reload": "Reload",
     "sections": {
       "organization": "Organization",
-      "signIn": "Sign-in"
+      "signIn": "Sign-in",
+      "data": "Data & privacy",
+      "plan": "Plan & usage"
     },
     "organization": {
       "title": "Organization",
@@ -1075,7 +1248,102 @@
       "domainInvalid": "Not a valid domain.",
       "domainsTooMany": "At most 50 domains.",
       "noMethod": "Keep at least one way to sign in on."
+    },
+    "data": {
+      "title": "Data & privacy",
+      "hint": "How long Quizzivy keeps things.",
+      "keepAnswers": "Keep attempt answers",
+      "keepAnswersHint": "After this, students' answers are deleted overnight. Scores are kept.",
+      "keepFocus": "Keep focus-loss events",
+      "keepFocusHint": "After this, focus-loss events are deleted overnight.",
+      "anonymise": "Anonymise disabled accounts after",
+      "anonymiseHint": "Results are kept; name and email are removed.",
+      "options": {
+        "year1": "1 year",
+        "year2": "2 years",
+        "forever": "Forever",
+        "month6": "6 months",
+        "month13": "13 months (default)",
+        "never": "Never"
+      }
+    },
+    "export": {
+      "title": "Export all data",
+      "hint": "Emails you a link to download everything the centre holds. The link expires in 24 hours.",
+      "request": "Request export",
+      "dialogTitle": "Export all data?",
+      "dialogHint": "The link opens the download page and is valid for 24 hours.",
+      "sendTo": "Send the link to",
+      "includeAnswers": "Include attempt answers",
+      "includeAnswersHint": "Makes the file much larger",
+      "submit": "Request export",
+      "requested": "Export requested. The link will be sent to {{email}}",
+      "inProgress": "An export is already being prepared. Wait for its email before asking again.",
+      "rateLimited_one": "Only one export can be requested per hour. Try again in {{count}} minute.",
+      "rateLimited_other": "Only one export can be requested per hour. Try again in {{count}} minutes.",
+      "off": "Data export is not switched on for this server."
+    },
+    "retentionConfirm": {
+      "title": "Shorten how long data is kept?",
+      "hint": "The clean-up runs every night and cannot be undone.",
+      "confirm": "Save and delete",
+      "nothing": "Nothing would be deleted tonight.",
+      "answers_one": "Tonight will delete the answers of {{count}} attempt ({{answers}} answers).",
+      "answers_other": "Tonight will delete the answers of {{count}} attempts ({{answers}} answers).",
+      "focus_one": "Tonight will delete {{count}} focus-loss event.",
+      "focus_other": "Tonight will delete {{count}} focus-loss events.",
+      "accounts_one": "Tonight will anonymise {{count}} disabled account.",
+      "accounts_other": "Tonight will anonymise {{count}} disabled accounts.",
+      "owners_one": "{{count}} disabled account is kept because it still owns classes or content.",
+      "owners_other": "{{count}} disabled accounts are kept because they still own classes or content."
+    },
+    "plan": {
+      "title": "Plan & usage",
+      "hint": "No plan is set for this centre.",
+      "named": "{{name}} plan",
+      "namedRenews": "{{name}} plan · renews {{date}}",
+      "loadFailed": "Usage could not be loaded.",
+      "seats": "Seats",
+      "media": "Media storage",
+      "imports": "Import document storage",
+      "importsCount_one": "{{count}} import",
+      "importsCount_other": "{{count}} imports",
+      "teachers": "Teachers",
+      "aiCredits": "AI credits",
+      "aiCreditsOf": "{{used}} of {{pool}} this month"
     }
+  },
+  "dataExport": {
+    "title": "Data export",
+    "hint": "A file of everything the centre holds.",
+    "back": "Data & privacy",
+    "cardTitle": "Export request",
+    "requested": "Requested",
+    "contents": "Contents",
+    "withAnswers": "With attempt answers",
+    "withoutAnswers": "Without attempt answers",
+    "size": "Size",
+    "expires": "Expires",
+    "status": {
+      "queued": "Queued",
+      "running": "Running",
+      "ready": "Ready",
+      "failed": "Failed",
+      "expired": "Expired"
+    },
+    "waiting": {
+      "queued": "The request is waiting its turn. This page updates by itself.",
+      "running": "The file is being built. This page updates by itself."
+    },
+    "failed": "The export could not be built. Request another from System settings.",
+    "expiredNote": "The link has expired. Request another from System settings.",
+    "download": "Download",
+    "downloadedAt": "Downloaded {{time}} · {{count}}/{{max}} times",
+    "missing": "This export was not found",
+    "missingHint": "It does not exist, or somebody else requested it.",
+    "loadFailed": "The export could not be loaded.",
+    "downloadCount": "Downloaded {{count}}/{{max}} times",
+    "exhausted": "All downloads are used. Request another export from System settings."
   },
   "student": {
     "shell": {

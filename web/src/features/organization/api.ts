@@ -32,6 +32,12 @@ export type RetentionPolicy = components["schemas"]["RetentionPolicy"];
 /** SignInImpact is what a proposed sign-in policy would do to the active accounts. */
 export type SignInImpact = components["schemas"]["SignInImpact"];
 
+/** RetentionImpact is what the nightly sweep would do today under a proposed retention policy. */
+export type RetentionImpact = components["schemas"]["RetentionImpact"];
+
+/** Usage is how much of the centre's plan is in use. */
+export type Usage = components["schemas"]["Usage"];
+
 /** OrganizationLogo is a stored logo, named by the hash of its bytes. */
 export type OrganizationLogo = components["schemas"]["OrganizationLogo"];
 
@@ -76,6 +82,25 @@ export function signInImpactQuery(policy: SignInPolicy) {
         body: { signIn: policy },
         signal,
       }),
+  });
+}
+
+/**
+ * retentionImpact asks `POST /admin/settings/retention-impact` what the
+ * nightly sweep would delete today under `retention`. It stores nothing.
+ */
+export function retentionImpact(retention: RetentionPolicy): Promise<RetentionImpact> {
+  return api("post", "/admin/settings/retention-impact", { body: { retention } });
+}
+
+/** USAGE_KEY is the query key of `GET /admin/usage`. */
+export const USAGE_KEY = ["organization-usage"] as const;
+
+/** usageQuery reads `GET /admin/usage`, the plan and what the centre uses of it. */
+export function usageQuery() {
+  return queryOptions({
+    queryKey: USAGE_KEY,
+    queryFn: ({ signal }) => api("get", "/admin/usage", { signal }),
   });
 }
 
