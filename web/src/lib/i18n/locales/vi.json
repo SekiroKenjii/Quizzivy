@@ -742,6 +742,73 @@
       "password": "Đổi mật khẩu"
     }
   },
+  "adminOverview": {
+    "title": "Tổng quan",
+    "subtitle": "{{organization}} · {{total}} người",
+    "loadFailed": "Không tải được dữ liệu tổng quan.",
+    "kpi": {
+      "view": "Xem",
+      "active": "Hoạt động tuần này",
+      "activeHint": "{{percent}}% trên {{total}} người",
+      "teachers": "Giáo viên",
+      "teachersHint_one": "{{count}} bị vô hiệu hóa",
+      "teachersHint_other": "{{count}} bị vô hiệu hóa",
+      "students": "Học viên",
+      "studentsHint_one": "+{{count}} trong tháng này",
+      "studentsHint_other": "+{{count}} trong tháng này",
+      "classes": "Lớp học",
+      "classesHint_one": "{{count}} đã lưu trữ",
+      "classesHint_other": "{{count}} đã lưu trữ"
+    },
+    "daily": {
+      "title": "Người hoạt động mỗi ngày",
+      "summary": "14 ngày qua · <strong>{{average}}</strong> người mỗi ngày",
+      "students": "Học viên",
+      "teachers": "Giáo viên",
+      "date": "Ngày",
+      "total": "Tổng",
+      "tip": "{{total}} người ({{students}} học viên, {{staff}} giáo viên) · {{date}}"
+    },
+    "attention": {
+      "title": "Cần xử lý",
+      "none": "Không có gì cần xử lý.",
+      "mustChangePassword_one": "{{count}} người cần đổi mật khẩu",
+      "mustChangePassword_other": "{{count}} người cần đổi mật khẩu",
+      "mustChangePasswordHint": "Mật khẩu tạm thời chưa được thay",
+      "neverSignedIn_one": "{{count}} tài khoản chưa từng đăng nhập",
+      "neverSignedIn_other": "{{count}} tài khoản chưa từng đăng nhập",
+      "neverSignedInHint": "Tạo sớm nhất {{when}}",
+      "disabledTeacher_one": "{{count}} lớp có giáo viên bị vô hiệu hóa",
+      "disabledTeacher_other": "{{count}} lớp có giáo viên bị vô hiệu hóa",
+      "disabledTeacherHint": "{{className}} · {{teacherName}}",
+      "storage": {
+        "both": "Dung lượng: phương tiện {{media}}%, tài liệu nhập {{imports}}%",
+        "media": "Dung lượng: phương tiện {{media}}%",
+        "imports": "Dung lượng: tài liệu nhập {{imports}}%"
+      },
+      "storageHint": "Gần chạm giới hạn của gói",
+      "creditRequests_one": "{{count}} giáo viên xin thêm tín dụng AI",
+      "creditRequests_other": "{{count}} giáo viên xin thêm tín dụng AI",
+      "creditRequestsHint": "{{teacherName}} · đã dùng {{used}} trên {{allowance}}"
+    },
+    "recent": {
+      "title": "Thay đổi gần đây",
+      "all": "Nhật ký",
+      "none": "Chưa có thay đổi nào."
+    },
+    "storage": {
+      "title": "Dung lượng và mức dùng",
+      "of": "{{used}} trên {{limit}}",
+      "media": "Phương tiện",
+      "imports": "Tài liệu nhập",
+      "seats": "Chỗ ngồi",
+      "attempts": "Lượt làm bài được giữ",
+      "attemptsCount_one": "{{value}} lượt",
+      "attemptsCount_other": "{{value}} lượt",
+      "credits": "Tín dụng AI",
+      "creditsOf": "{{used}} trên {{pool}} trong tháng này"
+    }
+  },
   "aiCredits": {
     "title": "Tín dụng AI",
     "lead": "Hạn mức hằng tháng cho các tính năng AI.",

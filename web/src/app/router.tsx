@@ -357,7 +357,9 @@ const adminTree: RouteObject = {
                 permission: "workspace.admin",
                 width: 1320,
               },
-              lazy: pending,
+              lazy: page(
+                () => import("@/features/admin-overview/pages/admin/OverviewPage"),
+              ),
             },
             {
               path: "users",

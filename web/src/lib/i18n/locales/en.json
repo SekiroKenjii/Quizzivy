@@ -742,6 +742,73 @@
       "password": "Change password"
     }
   },
+  "adminOverview": {
+    "title": "Overview",
+    "subtitle": "{{organization}} · {{total}} people",
+    "loadFailed": "Couldn't load the overview.",
+    "kpi": {
+      "view": "View",
+      "active": "Active this week",
+      "activeHint": "{{percent}}% of {{total}} people",
+      "teachers": "Teachers",
+      "teachersHint_one": "{{count}} disabled",
+      "teachersHint_other": "{{count}} disabled",
+      "students": "Students",
+      "studentsHint_one": "+{{count}} this month",
+      "studentsHint_other": "+{{count}} this month",
+      "classes": "Classes",
+      "classesHint_one": "{{count}} archived",
+      "classesHint_other": "{{count}} archived"
+    },
+    "daily": {
+      "title": "Daily active people",
+      "summary": "Last 14 days · <strong>{{average}}</strong> on average",
+      "students": "Students",
+      "teachers": "Teachers",
+      "date": "Date",
+      "total": "Total",
+      "tip": "{{total}} people ({{students}} students, {{staff}} teachers) · {{date}}"
+    },
+    "attention": {
+      "title": "Needs attention",
+      "none": "Nothing needs attention.",
+      "mustChangePassword_one": "{{count}} person must change their password",
+      "mustChangePassword_other": "{{count}} people must change their password",
+      "mustChangePasswordHint": "Temporary password not replaced yet",
+      "neverSignedIn_one": "{{count}} account never signed in",
+      "neverSignedIn_other": "{{count}} accounts never signed in",
+      "neverSignedInHint": "Oldest created {{when}}",
+      "disabledTeacher_one": "{{count}} class has a disabled teacher",
+      "disabledTeacher_other": "{{count}} classes have a disabled teacher",
+      "disabledTeacherHint": "{{className}} · {{teacherName}}",
+      "storage": {
+        "both": "Storage: media {{media}}%, imports {{imports}}%",
+        "media": "Storage: media {{media}}%",
+        "imports": "Storage: imports {{imports}}%"
+      },
+      "storageHint": "Close to the plan's limit",
+      "creditRequests_one": "{{count}} teacher asked for more AI credits",
+      "creditRequests_other": "{{count}} teachers asked for more AI credits",
+      "creditRequestsHint": "{{teacherName}} · {{used}} of {{allowance}} used"
+    },
+    "recent": {
+      "title": "Recent changes",
+      "all": "Audit log",
+      "none": "No changes yet."
+    },
+    "storage": {
+      "title": "Storage",
+      "of": "{{used}} of {{limit}}",
+      "media": "Media",
+      "imports": "Import documents",
+      "seats": "Seats",
+      "attempts": "Attempts kept",
+      "attemptsCount_one": "{{value}} attempt",
+      "attemptsCount_other": "{{value}} attempts",
+      "credits": "AI credits",
+      "creditsOf": "{{used}} of {{pool}} this month"
+    }
+  },
   "aiCredits": {
     "title": "AI credits",
     "lead": "Monthly allowances for AI features.",

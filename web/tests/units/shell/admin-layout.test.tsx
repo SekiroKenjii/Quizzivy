@@ -374,6 +374,72 @@ describe("the AI credits badge", () => {
   });
 });
 
+function serveSummary(count: number | null) {
+  const seen = { asked: 0 };
+  server.use(
+    http.get(`${BASE}/admin/summary`, () => {
+      seen.asked += 1;
+      return contractJson("/admin/summary", "get", 200, { mustChangePassword: count });
+    }),
+  );
+  return seen;
+}
+
+const USERS_BADGE = /^Người dùng\s*4 người cần đổi mật khẩu$/;
+
+describe("the Users badge", () => {
+  it("counts the accounts on a temporary password, in the warning tone, for a screen reader too", async () => {
+    serveSummary(4);
+    renderAdmin("/admin");
+
+    const users = await within(nav()).findByRole("link", { name: USERS_BADGE });
+    expect(users.querySelector("[data-slot='nav-count']")).toHaveClass(
+      "bg-warning-soft",
+    );
+    expect(within(users).getByText("4")).toHaveAttribute("aria-hidden", "true");
+    expect(badges()).toHaveLength(1);
+  });
+
+  it("is hidden at zero and when the count is withheld", async () => {
+    const seen = serveSummary(0);
+    renderAdmin("/admin");
+
+    await waitFor(() => expect(seen.asked).toBe(1));
+    await within(nav()).findByRole("link", { name: "Người dùng" });
+    expect(badges()).toHaveLength(0);
+  });
+
+  it("is not asked for by a role that lacks people.users.manage", async () => {
+    const seen = serveSummary(4);
+    renderAdmin("/admin", { ...usersOnly, permissions: ["people.roles.manage"] });
+
+    await screen.findByRole("main");
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(seen.asked).toBe(0);
+    expect(badges()).toHaveLength(0);
+  });
+
+  it("is left off while the sidebar is collapsed", async () => {
+    const user = userEvent.setup();
+    serveSummary(4);
+    renderAdmin("/admin");
+    await within(nav()).findByRole("link", { name: USERS_BADGE });
+
+    await user.click(toggle("Thu gọn thanh bên"));
+    expect(badges()).toHaveLength(0);
+  });
+
+  it("asks again every minute", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const seen = serveSummary(4);
+    renderAdmin("/admin");
+    await waitFor(() => expect(seen.asked).toBe(1));
+
+    await act(() => vi.advanceTimersByTimeAsync(61_000));
+    await waitFor(() => expect(seen.asked).toBe(2));
+  });
+});
+
 describe("collapsing the Admin sidebar", () => {
   it("leaves icons that keep their names, 60px wide, and a separator between the groups", async () => {
     const user = userEvent.setup();
