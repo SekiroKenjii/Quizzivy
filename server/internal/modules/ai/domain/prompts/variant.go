@@ -173,7 +173,7 @@ func tidyChange(c rawChange, q domain.PaperQuestion) (Change, bool) {
 
 func reword(out Change, c rawChange, q domain.PaperQuestion) (Change, bool) {
 	prompt := strings.TrimSpace(c.Prompt)
-	if q.Rich || q.Type == FillBlank || prompt == "" || len([]rune(prompt)) > 2000 || sameText(prompt, q.Prompt) {
+	if q.Rich || q.Gapped || q.Type == FillBlank || prompt == "" || len([]rune(prompt)) > 2000 || sameText(prompt, q.Prompt) {
 		return Change{}, false
 	}
 	out.Before, out.After, out.Prompt = clip(q.Prompt, 2000), prompt, prompt
