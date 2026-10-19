@@ -1,5 +1,6 @@
-import { useRef, useState, type ReactNode } from "react";
-import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
 import { Trans, useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { Activity, GraduationCap, LayoutGrid, UserPlus, Users } from "lucide-react";
@@ -17,6 +18,8 @@ import { PageHead } from "@/layouts/shell/PageHead";
 import { useContentWidthAtLeast } from "@/layouts/shell/contentWidth";
 import { useLocale } from "@/lib/i18n/useLocale";
 import {
+  ADMIN_OVERVIEW_KEY,
+  ADMIN_SUMMARY_KEY,
   adminOverviewQuery,
   type AdminDailyActive,
   type AdminOverview,
@@ -172,6 +175,7 @@ function DailyActive({ daily }: Readonly<{ daily: AdminDailyActive }>) {
         caption={t("adminOverview.daily.title")}
         columns={[t("adminOverview.daily.date"), t("adminOverview.daily.total")]}
         series={series}
+        plotClassName="h-42.5"
         labelEvery={wide ? 1 : 2}
         data={daily.days.map((day) => {
           const total = day.students + day.staff;
@@ -193,6 +197,47 @@ function DailyActive({ daily }: Readonly<{ daily: AdminDailyActive }>) {
   );
 }
 
+function AddUser() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const client = useQueryClient();
+  const button = useRef<HTMLButtonElement>(null);
+  const [adding, setAdding] = useState(false);
+  const [created, setCreated] = useState<string | null>(null);
+  useEffect(() => {
+    if (created === null) return;
+    void navigate(`${ADMIN_PATHS.users}?user=${created}`);
+  }, [created, navigate]);
+  return (
+    <>
+      <Button ref={button} onClick={() => setAdding(true)}>
+        <UserPlus aria-hidden="true" />
+        {t("users.addUser.open")}
+      </Button>
+      <AddUserDialog
+        open={adding}
+        onOpenChange={setAdding}
+        returnFocus={button}
+        onCreated={(id) => {
+          void client.invalidateQueries({ queryKey: ADMIN_OVERVIEW_KEY });
+          void client.invalidateQueries({ queryKey: ADMIN_SUMMARY_KEY });
+          setCreated(id);
+        }}
+      />
+    </>
+  );
+}
+
+function Figures({ query }: Readonly<{ query: Overview }>) {
+  if (query.data !== undefined) return <Kpis data={query.data} />;
+  return query.isError ? null : <KpiSkeleton />;
+}
+
+function subtitle(data: AdminOverview, total: string, t: TFunction): string {
+  if (data.people === null) return data.organizationName;
+  return t("adminOverview.subtitle", { organization: data.organizationName, total });
+}
+
 /**
  * OverviewPage is the Admin console's home: the centre's headline figures,
  * who was active on each of the last fourteen days, what needs doing, the
@@ -205,45 +250,17 @@ export default function OverviewPage() {
   const query = useQuery(adminOverviewQuery());
   const data = query.data;
   const manages = useCan("people.users.manage");
-  const navigate = useNavigate();
-  const addButton = useRef<HTMLButtonElement>(null);
-  const [adding, setAdding] = useState(false);
   const locale = useLocale();
-  const people = data?.people ?? null;
-  let description: string | undefined;
-  if (data !== undefined) {
-    description =
-      people === null
-        ? data.organizationName
-        : t("adminOverview.subtitle", {
-            organization: data.organizationName,
-            total: new Intl.NumberFormat(locale).format(people.total),
-          });
-  }
+  const total = new Intl.NumberFormat(locale).format(data?.people?.total ?? 0);
   return (
     <div className="flex flex-col gap-5">
       <PageHead
         title={t("adminOverview.title")}
-        description={description}
+        description={data === undefined ? undefined : subtitle(data, total, t)}
         crumb
-        actions={
-          manages ? (
-            <Button ref={addButton} onClick={() => setAdding(true)}>
-              <UserPlus aria-hidden="true" />
-              {t("users.addUser.open")}
-            </Button>
-          ) : undefined
-        }
+        actions={manages ? <AddUser /> : undefined}
       />
-      {manages ? (
-        <AddUserDialog
-          open={adding}
-          onOpenChange={setAdding}
-          returnFocus={addButton}
-          onCreated={(id) => void navigate(`${ADMIN_PATHS.users}?user=${id}`)}
-        />
-      ) : null}
-      {data === undefined ? <KpiSkeleton /> : <Kpis data={data} />}
+      <Figures query={query} />
       <div className="flex flex-wrap gap-3">
         {data === undefined || data.dailyActive !== null ? (
           <SettingsCard

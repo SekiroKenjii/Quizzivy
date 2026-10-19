@@ -25,6 +25,7 @@ export type BarChartProps = Readonly<{
   columns: readonly [string, string];
   data: readonly BarChartDatum[];
   series?: readonly BarChartSeries[] | undefined;
+  plotClassName?: string | undefined;
   labelEvery?: number | undefined;
   className?: string | undefined;
 }>;
@@ -88,6 +89,7 @@ export function BarChart({
   columns,
   data,
   series,
+  plotClassName,
   labelEvery = 1,
   className,
 }: BarChartProps) {
@@ -97,7 +99,7 @@ export function BarChart({
   return (
     <div className={cn("relative", className)}>
       <div aria-hidden="true">
-        <div className="flex h-45 items-end gap-1.5 border-b pb-1">
+        <div className={cn("flex h-45 items-end gap-1.5 border-b pb-1", plotClassName)}>
           {data.map((datum, index) => (
             <div
               key={datum.key}

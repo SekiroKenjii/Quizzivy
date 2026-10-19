@@ -42,7 +42,11 @@ export function AttentionList({
   const { t } = useTranslation();
   const locale = useLocale();
   if (items.length === 0) {
-    return <EmptyState>{t("adminOverview.attention.none")}</EmptyState>;
+    return (
+      <div className="p-4.5 pt-0">
+        <EmptyState>{t("adminOverview.attention.none")}</EmptyState>
+      </div>
+    );
   }
   const rows: Row[] = items.map((item) => {
     const { count, detail } = item;

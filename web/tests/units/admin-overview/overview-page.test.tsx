@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
@@ -12,6 +12,7 @@ import { server } from "@tests/support/server";
 import { entry } from "@tests/units/audit/support";
 import { adminUser, studentUser } from "@tests/support/fixtures";
 import { useAuthStore } from "@/stores/auth";
+import { STUDENT_ROLE, serveClasses, user } from "@tests/units/users/support";
 import "@/lib/i18n";
 
 const BASE = "http://localhost:8080";
@@ -85,11 +86,15 @@ function renderPage() {
     ],
     { initialEntries: ["/admin"] },
   );
-  return render(
-    <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
-  );
+  return {
+    ...render(
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    ),
+    router,
+    client,
+  };
 }
 
 const loaded = () => screen.findByText("Quizzivy English Centre · 312 người");
@@ -124,7 +129,7 @@ describe("the Overview's header and figures", () => {
       "/admin/users?tab=teachers",
     );
     expect(
-      screen.getByRole("link", { name: /Giáo viên.*1 bị vô hiệu hóa/ }),
+      screen.getByRole("link", { name: /Giáo viên.*1 bị vô hiệu hoá/ }),
     ).toBeVisible();
     const students = screen.getByRole("link", { name: /Học viên.*300/ });
     expect(students).toHaveAttribute("href", "/admin/users?tab=students");
@@ -176,6 +181,44 @@ describe("the Add user button", () => {
     expect(
       await screen.findByRole("dialog", { name: "Thêm người dùng" }),
     ).toBeVisible();
+  });
+
+  it("opens the new account after a temporary password's Done, and reads the totals again", async () => {
+    const actor = userEvent.setup({ delay: null });
+    useAuthStore.getState().setSession("token", adminUser);
+    const id = "018f0000-0000-7000-8000-000000000005";
+    serveClasses([]);
+    server.use(
+      http.get(`${BASE}/admin/roles/assignable`, () =>
+        contractJson("/admin/roles/assignable", "get", 200, [
+          { ...STUDENT_ROLE, studentTarget: true },
+        ]),
+      ),
+      http.post(`${BASE}/admin/users`, () =>
+        contractJson("/admin/users", "post", 201, {
+          user: user("5", "Đỗ Hà", { id, email: "ha@example.com" }),
+          temporaryPassword: "Mai-Hoa-17",
+        }),
+      ),
+    );
+    const seen = serve(FULL);
+    const { router } = renderPage();
+    await loaded();
+    await actor.click(screen.getByRole("button", { name: "Thêm người dùng" }));
+    const dialog = await screen.findByRole("dialog", { name: "Thêm người dùng" });
+    await actor.type(within(dialog).getByLabelText("Họ và tên"), "Đỗ Hà");
+    await actor.type(within(dialog).getByLabelText("Email"), "ha@example.com");
+    await actor.click(
+      within(dialog).getByRole("radio", { name: /Hiện mật khẩu tạm thời/ }),
+    );
+    const create = within(dialog).getByRole("button", { name: "Tạo tài khoản" });
+    await waitFor(() => expect(create).not.toHaveAttribute("aria-disabled"));
+    await actor.click(create);
+    expect(await screen.findByText("Mai-Hoa-17")).toBeVisible();
+    await actor.click(screen.getByRole("button", { name: "Xong" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/admin/users"));
+    expect(router.state.location.search).toBe(`?user=${id}`);
+    await waitFor(() => expect(seen.asked).toBe(2));
   });
 
   it("is absent without the permission", async () => {
@@ -235,7 +278,8 @@ describe("the needs-attention card", () => {
   it("says so when nothing needs doing", async () => {
     serve({ ...FULL, attention: [] });
     renderPage();
-    expect(await screen.findByText("Không có gì cần xử lý.")).toBeInTheDocument();
+    const none = await screen.findByText("Không có gì cần xử lý.");
+    expect(none.closest("section")!.lastElementChild).toHaveClass("p-4.5");
   });
 });
 
@@ -301,6 +345,56 @@ describe("a section the caller cannot open", () => {
   });
 });
 
+describe("the figures under their headers", () => {
+  it("puts the students before the teachers in each row of the table", async () => {
+    serve(FULL);
+    renderPage();
+    await loaded();
+    const table = screen.getByRole("table", { name: "Người hoạt động mỗi ngày" });
+    const first = within(table).getAllByRole("row")[1]!;
+    expect(
+      within(first)
+        .getAllByRole("cell")
+        .map((cell) => cell.textContent),
+    ).toEqual(["100", "10", "110"]);
+  });
+
+  it("draws the plot 170px tall, the deck's height", async () => {
+    serve(FULL);
+    renderPage();
+    await loaded();
+    expect(
+      screen
+        .getByRole("region", { name: "Người hoạt động mỗi ngày" })
+        .querySelector(".h-42\\.5"),
+    ).not.toBeNull();
+  });
+});
+
+describe("a change without a named actor or a live entity", () => {
+  it("reads the system for a missing actor and the bare type for a removed entity", async () => {
+    serve({
+      ...FULL,
+      recentChanges: [
+        entry({ id: 1, actor: null }),
+        entry({
+          id: 2,
+          entity: {
+            type: "class",
+            id: "019535d9-3df7-79fb-b466-fa907fa17f10",
+            label: null,
+          },
+        }),
+      ],
+    });
+    renderPage();
+    await loaded();
+    const card = screen.getByRole("region", { name: "Thay đổi gần đây" });
+    expect(within(card).getAllByRole("listitem")[0]).toHaveTextContent("Hệ thống");
+    expect(within(card).getAllByRole("listitem")[1]).toHaveTextContent("Lớp đã xoá");
+  });
+});
+
 describe("loading and failing", () => {
   it("shows a skeleton in each card while the first read is out", () => {
     server.use(http.get(`${BASE}/admin/overview`, () => new Promise(() => undefined)));
@@ -332,6 +426,7 @@ describe("loading and failing", () => {
     renderPage();
     const retries = await screen.findAllByRole("button", { name: "Thử lại" });
     expect(retries).toHaveLength(4);
+    expect(document.querySelectorAll(".animate-pulse")).toHaveLength(0);
 
     failing = false;
     await user.click(retries[0]!);

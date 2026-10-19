@@ -48,7 +48,9 @@ export function RecentChanges({
       className="min-w-0 flex-[2_1_32.5rem] overflow-hidden"
     >
       {entries.length === 0 ? (
-        <EmptyState>{t("adminOverview.recent.none")}</EmptyState>
+        <div className="p-4.5 pt-0">
+          <EmptyState>{t("adminOverview.recent.none")}</EmptyState>
+        </div>
       ) : (
         <ul>
           {entries.map((entry) => {

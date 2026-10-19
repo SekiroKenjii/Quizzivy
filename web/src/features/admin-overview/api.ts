@@ -20,6 +20,7 @@ export function adminOverviewQuery() {
   return queryOptions({
     queryKey: ADMIN_OVERVIEW_KEY,
     queryFn: ({ signal }) => api("get", "/admin/overview", { signal }),
+    refetchOnMount: "always",
   });
 }
 
