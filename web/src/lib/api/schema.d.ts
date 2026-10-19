@@ -6229,8 +6229,8 @@ export interface components {
             standalone?: boolean;
             sectionId?: components["schemas"]["Uuid"];
             types: components["schemas"]["QuestionType"][];
-            /** @enum {integer} */
-            count: 3 | 5 | 8;
+            /** @description How many questions to write, 1 to 8. */
+            count: number;
             /** @enum {string} */
             level: "b1" | "b2" | "c1";
             /** @description Write an explanation for each question. */

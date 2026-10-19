@@ -57,6 +57,8 @@ func runStandaloneGenerate(t *testing.T, part int) {
 	}{
 		{"passage source 39 chars", base(map[string]any{"source": strings.Repeat("x", 39)}), 400, "source"},
 		{"passage source 2 chars (schema)", base(map[string]any{"source": "ab"}), 400, ""},
+		{"count 0 (schema)", base(map[string]any{"standalone": true, "source": "phrasal verbs", "count": 0}), 400, ""},
+		{"count 9 (schema)", base(map[string]any{"standalone": true, "source": "phrasal verbs", "count": 9}), 400, ""},
 		{"standalone no source no test", base(map[string]any{"standalone": true}), 400, "source"},
 		{"standalone topic 2 chars", base(map[string]any{"standalone": true, "source": "ab"}), 400, ""},
 		{"standalone whitespace topic", base(map[string]any{"standalone": true, "source": "  a  "}), 400, "source"},
@@ -70,9 +72,9 @@ func runStandaloneGenerate(t *testing.T, part int) {
 		{"section the test does not hold", base(map[string]any{"standalone": true, "testId": aTest, "sectionId": other}), 404, ""},
 	}
 	if part == 0 {
-		refusals = refusals[:8]
+		refusals = refusals[:10]
 	} else {
-		refusals = refusals[8:]
+		refusals = refusals[10:]
 	}
 	for _, c := range refusals {
 		before, usedBefore := len(provider.sent()), used()
