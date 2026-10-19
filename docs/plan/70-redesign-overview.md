@@ -173,8 +173,8 @@ requests). Neither is a pseudo-key: a role may hold every teaching key and no AI
   `scope.all` reads and edits any teacher's content, classes and people by id, and powers the
   Admin console's cross-teacher views. In the teacher workspace, content lists (tests, bank,
   media, imports, assignments) show the caller's own rows for everyone, admins included;
-  Students and Classes keep `scope.all` lists until R5's Admin Classes and Users take them over
-  (DG-53, T-R4.54).
+  Students and Classes keep `scope.all` lists (DG-53, T-R4.54), and v0.12.0 leaves them so
+  beside R5's Admin Classes and Users (O-R5.5, `40-open-items.md`).
 - **Pseudo-keys**, evaluated by the middleware, not stored: `self` (any active signed-in user);
   `workspace.teacher` (holds any `content.*`, `teaching.*` or `people.students.*` key);
   `workspace.admin` (holds `people.users.manage`, `people.roles.manage`, `system.audit.read`,
