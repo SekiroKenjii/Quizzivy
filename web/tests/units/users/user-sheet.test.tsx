@@ -765,6 +765,36 @@ describe("Users: the user sheet after QC's recheck (#724)", () => {
     await waitFor(() => expect(segment).toHaveFocus());
   });
 
+  it("gives focus back to the role control after Transfer opened from the owns-content answer (QC-UB-13)", async () => {
+    const off = { ...BINH, status: "disabled" as const };
+    serveUsers([off, CHI]);
+    serveDetail(
+      detail(off, {
+        can: { ...ALL, disable: false, enable: true },
+        ownedContent: { ...NOTHING, tests: 2 },
+      }),
+    );
+    server.use(
+      http.put(`${BASE}/admin/users/:id/role`, () => refusal(409, "USER_OWNS_CONTENT")),
+    );
+    const { user: actor } = renderUsers(`/admin/users?user=${BINH.id}`);
+    const panel = await sheet();
+    const segment = await within(panel).findByRole("button", { name: "Học viên" });
+    await actor.click(segment);
+    const confirm = await screen.findByRole("dialog", {
+      name: "Chuyển Trần Thị Bình thành học viên?",
+    });
+    await actor.click(within(confirm).getByRole("button", { name: "Đổi vai trò" }));
+    await actor.click(
+      await within(confirm).findByRole("button", { name: "Chuyển nội dung" }),
+    );
+    await screen.findByRole("dialog", {
+      name: "Chuyển nội dung của Trần Thị Bình cho",
+    });
+    await actor.keyboard("{Escape}");
+    await waitFor(() => expect(segment).toHaveFocus());
+  });
+
   it("says a malformed id was not found, without Retry (QC-US-18)", async () => {
     serveUsers([BINH]);
     server.use(
