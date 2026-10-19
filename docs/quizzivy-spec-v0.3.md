@@ -1,6 +1,6 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.111 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.112 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
 **Changes pending (develop)**
@@ -9,9 +9,16 @@
 - H-05 §7 An option or a blank keeps its id when its question is saved. In a write, one sent with an id the question holds is updated in place (ordinal, text, correctness and formatting, or a blank's accepted answers replaced under the same id); one sent without an id, or with an id the question does not hold, is created with a new one; one not sent is deleted. A held AI check finding therefore still names the same option or blank after the teacher saves the question, and the check's "Apply fix" no longer refuses for that reason alone.
 - H-05 §15 `POST` and `PATCH /teacher/questions`, and the group member writes, follow the same rule for `options[].id` and `blanks[].id`. A create ignores every id it is sent. An id sent twice in one write updates once and creates the second. No migration, no new operation, no new permission, and no change to the contract's shape.
 
+**Changes since v0.111**
+
+v0.11.8, the other two hotfixes, from the email round-trip review (D-032, D-034): a quoted address could be stored and then not printed back, and one account's login budget could be sidestepped by spelling its address differently on each try. No schema, no new operation, no new permission and no change to a response. The AI panel hotfix of the same release is in the entry below.
+
+- §15 Every contract `email` field (login, `createStudent`, `updateStudent` and any other `format: email` parameter) admits a value only if the bare address it yields parses again to the same address. `"qc tp"@example.com` is refused with `400 VALIDATION_FAILED` naming `email`, and no row is written; `Name <addr>` and a quoted atom that needs no quotes (`"a"@x.co`, stored as `a@x.co`) are unchanged. Rows already stored are not repaired; `docs/setup/operations.md`, "Stored emails the API cannot print", has the read-only query to run before and after the release.
+- §6.5 `POST /auth/login` counts one account once, however its address is written: the 10-a-minute per-address-and-email and the 20-an-hour per-email budgets key on the lower-cased bare address, the one the sign-in looks up, so `N <a@x.co>`, `"a"@x.co`, `a@x.co (note)`, `A@X.CO` and ` a@x.co ` spend one budget. The limits do not change. A value that does not parse keeps its own key and is refused `400` as before.
+
 **Changes since v0.110**
 
-The next patch release (v0.11.8), a hotfix after a teacher's report (2026-10-14): closing an AI panel threw its results away, and getting them back meant running the assistant, and paying for it, again.
+v0.11.8 is a patch release of three hotfixes. This entry is the first, after a teacher's report (2026-10-14): closing an AI panel threw its results away, and getting them back meant running the assistant, and paying for it, again. The other two, from the email round-trip review, are in the entry above.
 
 - §8 An AI panel keeps its session while the page that opened it stays open. Closing the drawer by Esc, the backdrop, Close, Cancel or "Open question" does not end it: the setup fields, a run still in flight and the suggestions a run answered are there when the entry point is pressed again, and a run that finishes while the drawer is closed is waiting in it, and says so in a toast ("Finished. Open it to see the results.", or "It didn’t finish. Open it to see why.") whose Open reopens that drawer; a run the teacher stopped, or whose page was left, says nothing, and the toast goes once the drawer is open again, and when the page is left. While another drawer is showing it waits for that one to close. Done, a primary's successful write and Start over end it, and so does leaving the page or opening another test, which also aborts a run that has not answered. The bank's "Open" on a near-duplicate still leaves the page and so ends the clean-up.
 - §8 A check's finding whose question is no longer in the test is left out of the list and its count. Generate's "Add {n} to {section}" names, and writes to, the section the builder is on when the questions are kept, not the one it was on when they were made; a group the passage came from stays the destination.
@@ -1553,7 +1560,7 @@ A leaked code lets a stranger into the class. Mitigations, all required:
 
 - **Rate limit** the sign-in and join operations, and return `429` with `Retry-After`. Without this, an 8-char code space is still worth probing at scale. The budgets let a class of 40 behind one school address make three tries at each step (T-R2.15):
   - `POST /join/preview`, `POST /app/classes/join` and `POST /auth/google`: 120/min and 600/h per address; 200/h per code, from any address. Google sign-in counts a code only when the body carries a `joinCode`.
-  - `POST /auth/login`: 120/min and 600/h per address; 10/min per address and email; 20/h per email.
+  - `POST /auth/login`: 120/min and 600/h per address; 10/min per address and email; 20/h per email. The email is the address as the sign-in finds it (D-034): the lower-cased bare address, so every spelling of one account spends one budget.
   - `POST /auth/refresh` and `POST /auth/logout`: 120/min and 1,200/h per address.
   - `DELETE /auth/sessions/{familyId}`: 10/min and 60/h, and `POST /auth/sessions/revoke-others`: 5/min and 30/h, per signed-in user. Neither hands out a credential; each moves the user's session epoch and so makes every device of the user refresh (T-R4.9).
   - A code is counted after normalization, so respelling it buys no fresh allowance. Guessing stays at 600 codes an hour per address on each operation that checks one.
