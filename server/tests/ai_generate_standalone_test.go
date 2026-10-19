@@ -72,9 +72,9 @@ func runStandaloneGenerate(t *testing.T, part int) {
 		{"section the test does not hold", base(map[string]any{"standalone": true, "testId": aTest, "sectionId": other}), 404, ""},
 	}
 	if part == 0 {
-		refusals = refusals[:10]
+		refusals = refusals[:8]
 	} else {
-		refusals = refusals[10:]
+		refusals = refusals[8:]
 	}
 	for _, c := range refusals {
 		before, usedBefore := len(provider.sent()), used()
