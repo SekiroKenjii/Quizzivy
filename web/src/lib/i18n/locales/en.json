@@ -328,6 +328,7 @@
       "class.member_enrolled": "A student joined a class with a code",
       "class.member_removed": "Removed a student from a class",
       "class.restored": "Restored a class",
+      "class.teacher_changed": "Changed a class's teacher",
       "data_export.downloaded": "Downloaded a data export",
       "data_export.requested": "Requested a data export",
       "import.cancelled": "Cancelled a Word import",
@@ -3616,7 +3617,9 @@
       "aiApproved": "Your request for {{credits}} more AI credits was approved",
       "aiDeclined": "Your request for {{credits}} more AI credits was declined",
       "transferred_one": "{{teacherName}}'s content is now yours: {{count}} item",
-      "transferred_other": "{{teacherName}}'s content is now yours: {{count}} items"
+      "transferred_other": "{{teacherName}}'s content is now yours: {{count}} items",
+      "teacherReceived": "You now teach {{className}}",
+      "teacherChanged": "{{className}} is now taught by {{teacherName}}"
     },
     "bell": {
       "label": "Notifications",
@@ -5426,6 +5429,10 @@
       "admin-roles": {
         "name": "Roles & permissions",
         "blurb": "Creating and editing roles, and the permission matrix under the subset rule."
+      },
+      "admin-classes": {
+        "name": "Classes across teachers",
+        "blurb": "Every class in the centre, creating a class for a teacher and changing a class's teacher."
       },
       "admin-ai": {
         "name": "AI credits",

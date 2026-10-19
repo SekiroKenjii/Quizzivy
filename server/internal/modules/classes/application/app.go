@@ -82,6 +82,9 @@ type Commands struct {
 	Rotate         cqrs.CommandHandler[command.Rotate, domain.Rotated]
 	Update         cqrs.CommandHandler[command.Update, domain.Class]
 
+	CreateForTeacher cqrs.CommandHandler[command.CreateForTeacher, domain.Class]
+	ChangeTeacher    cqrs.CommandHandler[command.ChangeTeacher, domain.Class]
+
 	RotateLegacyJoinCodes cqrs.CommandHandler[command.RotateLegacyJoinCodes, domain.LegacyRotation]
 }
 
@@ -90,6 +93,7 @@ type Queries struct {
 	Facets     cqrs.QueryHandler[query.Facets, domain.Facets]
 	Get        cqrs.QueryHandler[query.Get, domain.Class]
 	List       cqrs.QueryHandler[query.List, query.ListResult]
+	ListAll    cqrs.QueryHandler[query.ListAll, query.ListAllResult]
 	ListMine   cqrs.QueryHandler[query.ListMine, []domain.MyClass]
 	Members    cqrs.QueryHandler[query.Members, query.MembersResult]
 	Preview    cqrs.QueryHandler[query.Preview, domain.PreviewResult]
@@ -114,12 +118,16 @@ func New(repo domain.Repository, stats stats.Source, keys domain.JoinCodeKeys) *
 			Update:         command.UpdateHandler{Service: service},
 
 			RotateLegacyJoinCodes: command.RotateLegacyJoinCodesHandler{Enrolment: enrolment},
+
+			CreateForTeacher: command.CreateForTeacherHandler{Service: service, Codes: enrolment},
+			ChangeTeacher:    command.ChangeTeacherHandler{Service: service, Codes: enrolment},
 		},
 		Queries: Queries{
 			ActiveCode: query.ActiveCodeHandler{Enrolment: enrolment},
 			Facets:     query.FacetsHandler{Service: service},
 			Get:        query.GetHandler{Service: service},
 			List:       query.ListHandler{Service: service, Codes: enrolment},
+			ListAll:    query.ListAllHandler{Service: service, Codes: enrolment},
 			ListMine:   query.ListMineHandler{Service: service},
 			Members:    query.MembersHandler{Service: service},
 			Preview:    query.PreviewHandler{Enrolment: enrolment},

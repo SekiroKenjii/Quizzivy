@@ -44,4 +44,17 @@ type Repository interface {
 	RotateLegacyCode(ctx context.Context, in LegacyRotationInput) (bool, error)
 	Enrol(ctx context.Context, in EnrolInput) (EnrolResult, error)
 	LookupByCode(ctx context.Context, code JoinCodeLookup) (*CodeRow, error)
+	// ListAll returns one page of every teacher's classes, newest first, each
+	// with its teacher; Code is left for the caller to open.
+	ListAll(ctx context.Context, in AdminListInput) ([]AdminClass, paging.Page, error)
+	// AdminFacets counts what ListAll's tabs and callout show for in.
+	AdminFacets(ctx context.Context, in AdminListInput) (AdminFacets, error)
+	// CreateForTeacher creates a class for another teacher, with its code
+	// when in.Code is set, in one transaction. A teacher who cannot teach
+	// answers ErrInvalidTeacher, and nothing is written.
+	CreateForTeacher(ctx context.Context, in CreateForTeacherInput) (Class, error)
+	// ChangeTeacher gives a class to another teacher. A missing class answers
+	// ErrNotFound and a teacher who cannot teach ErrInvalidTeacher; the class's
+	// current teacher changes nothing and writes nothing.
+	ChangeTeacher(ctx context.Context, in ChangeTeacherInput) (TeacherChange, error)
 }

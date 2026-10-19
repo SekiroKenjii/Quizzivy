@@ -17,6 +17,13 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+const issueCode = `
+		INSERT INTO app.class_join_codes
+		       (id, class_id, code_hash, code_ciphertext, key_id, lookup_scheme,
+		        code_hint, expires_at, max_uses, created_by, created_at)
+		VALUES ($1, $2, $3, $4, $5, 2, $6, $7, $8, $9, $10)
+		RETURNING id::text, uses_count`
+
 // Rotate revokes the active code of a class the actor teaches and issues a
 // replacement in one transaction, so a class is never left with two active
 // codes or none. Another teacher's class answers ErrClassNotFound. The class
@@ -58,19 +65,13 @@ func (s *Postgres) Rotate(ctx context.Context, in domain.RotateInput) (domain.Is
 		return domain.IssuedCode{}, fmt.Errorf("revoke previous code: %w", err)
 	}
 
-	const issue = `
-		INSERT INTO app.class_join_codes
-		       (id, class_id, code_hash, code_ciphertext, key_id, lookup_scheme,
-		        code_hint, expires_at, max_uses, created_by, created_at)
-		VALUES ($1, $2, $3, $4, $5, 2, $6, $7, $8, $9, $10)
-		RETURNING id::text, uses_count`
 	out := domain.IssuedCode{
 		ClassID:   in.ClassID,
 		Hint:      in.Hint,
 		ExpiresAt: in.ExpiresAt,
 		MaxUses:   in.MaxUses,
 	}
-	if err := tx.QueryRow(ctx, issue,
+	if err := tx.QueryRow(ctx, issueCode,
 		in.CodeID, in.ClassID, in.CodeHash, in.Ciphertext, in.KeyID,
 		in.Hint, in.ExpiresAt, in.MaxUses, in.ActorUserID, in.Now,
 	).Scan(&out.ID, &out.UsesCount); err != nil {
@@ -88,7 +89,7 @@ func (s *Postgres) Rotate(ctx context.Context, in domain.RotateInput) (domain.Is
 	if err := audit.Write(ctx, tx, audit.Entry{
 		ActorUserID: &in.ActorUserID,
 		Action:      action,
-		Entity:      "class_join_code",
+		Entity:      entityJoinCode,
 		EntityID:    &out.ID,
 		OccurredAt:  in.Now,
 		IP:          in.IP,
@@ -144,7 +145,7 @@ func (s *Postgres) Revoke(ctx context.Context, in domain.RevokeInput) error {
 	if err := audit.Write(ctx, tx, audit.Entry{
 		ActorUserID: &in.ActorUserID,
 		Action:      "class.join_code_revoked",
-		Entity:      "class_join_code",
+		Entity:      entityJoinCode,
 		EntityID:    revokedID,
 		OccurredAt:  in.Now,
 		IP:          in.IP,

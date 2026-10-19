@@ -177,3 +177,14 @@ afterEach(() => {
   cleanup();
   for (const client of clients.splice(0)) client.clear();
 });
+export const teacherChangedNotices = [
+  { className: "IELTS Foundation A" },
+  { className: "IELTS Foundation A", teacherName: "Trần Minh Khoa" },
+].map((params, index) => ({
+  kind: "class.teacher_changed",
+  params,
+  target: { route: "classes" },
+  id: id(210 + index),
+  createdAt: "2026-10-01T12:00:00Z",
+  readAt: null,
+})) as Notification[];

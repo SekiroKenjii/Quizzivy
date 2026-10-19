@@ -92,3 +92,9 @@ func CreditDecisionKey(requestID string) string {
 func TransferredKey(fromUserID string) string {
 	return "transferred:" + fromUserID
 }
+
+// TeacherChangedKey is the dedupe key of a teacher being told that a class's
+// teacher changed: a later change replaces the item.
+func TeacherChangedKey(classID string) string {
+	return "teacher_changed:" + classID
+}
