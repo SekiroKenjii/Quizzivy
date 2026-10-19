@@ -742,6 +742,106 @@
       "password": "Change password"
     }
   },
+  "aiCredits": {
+    "title": "AI credits",
+    "lead": "Monthly allowances for AI features.",
+    "leadReset": "Monthly allowances for AI features. Usage resets on {{date}}.",
+    "off": "AI is not turned on for this school.",
+    "loadFailed": "Couldn’t load the AI credits.",
+    "pool": {
+      "title": "Centre pool · {{month}}",
+      "plan": "Centre plan {{plan}} · resets {{date}}",
+      "planAdded": "Centre plan {{plan}} + {{added}} added · resets {{date}}",
+      "of": "of {{pool}} credits used",
+      "bar": "{{used}} of {{pool}} credits used",
+      "projected": "Projected by {{date}}",
+      "left": "Left this month",
+      "daysToGo_one": "{{count}} day to go",
+      "daysToGo_other": "{{count}} days to go",
+      "lastDay": "Last day of the month",
+      "pace": "On pace for",
+      "paceWithin": "by {{date}}, within the pool",
+      "paceOver": "More than the pool. Add credits or lower allowances.",
+      "allowances": "Teacher allowances",
+      "allowancesHint": "Can add up to more than the pool, since few teachers use all of theirs"
+    },
+    "add": {
+      "open": "Add credits",
+      "title": "Add credits to this month",
+      "hint": "Added to the centre pool right away. The extra is paid for outside Quizzivy. Added credits don’t carry over to next month.",
+      "amount": "Amount",
+      "submit": "Add credits",
+      "added": "{{amount}} credits added to the pool",
+      "failed": "Couldn’t add the credits. Try again."
+    },
+    "request": {
+      "list": "Credit requests waiting",
+      "title": "{{name}} asked for {{amount}} more credits · {{used}} of {{allowance}} used",
+      "why": "“{{reason}}” · {{ago}}",
+      "decline": "Decline",
+      "approve": "Approve {{amount}}",
+      "approved": "{{name}}’s allowance is now {{allowance}} this month",
+      "declined": "{{name}} will be told the request was declined",
+      "failed": "Couldn’t decide this request. Try again."
+    },
+    "teachers": {
+      "title": "Teachers",
+      "summary_one": "{{count}} teacher used AI this month · {{idle}} haven’t yet",
+      "summary_other": "{{count}} teachers used AI this month · {{idle}} haven’t yet",
+      "empty": "No teacher can use AI yet.",
+      "of": "of {{allowance}}",
+      "ofCustom": "of {{allowance}} · custom",
+      "bar": "{{name}}: {{used}} of {{allowance}} credits used",
+      "edit": "Edit allowance for {{name}}",
+      "status": {
+        "on_track": "On track",
+        "near_limit": "Near limit",
+        "at_limit": "At limit",
+        "paused": "Paused"
+      }
+    },
+    "allowance": {
+      "title": "AI allowance · {{name}}",
+      "used": "{{used}} credits used so far this month.",
+      "mode": "Monthly allowance",
+      "default": "Default · {{n}}",
+      "custom": "Custom",
+      "credits": "Credits per month",
+      "creditsHint": "Takes effect right away. Usage so far still counts.",
+      "min": "Enter at least {{min}}",
+      "max": "Enter at most {{max}}",
+      "whole": "Enter a whole number",
+      "paused": "Pause AI for this teacher",
+      "pausedHint": "AI buttons stay visible but can’t be used until you turn this off.",
+      "saved": "Allowance saved for {{name}}",
+      "failed": "Couldn’t save the allowance. Try again."
+    },
+    "rules": {
+      "title": "Rules",
+      "hint": "For every teacher without a custom allowance.",
+      "allowance": {
+        "label": "Monthly allowance per teacher",
+        "hint": "Teachers see their balance in Settings › AI assistant."
+      },
+      "warn": {
+        "label": "Warn the teacher at",
+        "hint": "They get a notification."
+      },
+      "limit": {
+        "label": "When a teacher runs out",
+        "hint": "Requests appear at the top of this page.",
+        "pause": "Pause until next month",
+        "request": "Let them ask for more"
+      },
+      "pool": {
+        "label": "When the centre pool runs out",
+        "hint": "To allow more use, add credits.",
+        "value": "Pause AI for everyone"
+      },
+      "saved": "Rules saved",
+      "failed": "Couldn’t save the rules. Try again."
+    }
+  },
   "users": {
     "title": "Users",
     "lead": "Everyone who can sign in to Quizzivy.",

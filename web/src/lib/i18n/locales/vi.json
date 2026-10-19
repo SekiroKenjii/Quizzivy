@@ -742,6 +742,106 @@
       "password": "Đổi mật khẩu"
     }
   },
+  "aiCredits": {
+    "title": "Tín dụng AI",
+    "lead": "Hạn mức hằng tháng cho các tính năng AI.",
+    "leadReset": "Hạn mức hằng tháng cho các tính năng AI. Mức dùng được làm mới vào {{date}}.",
+    "off": "AI chưa được bật cho trung tâm này.",
+    "loadFailed": "Không tải được tín dụng AI.",
+    "pool": {
+      "title": "Quỹ chung · {{month}}",
+      "plan": "Gói của trung tâm {{plan}} · làm mới vào {{date}}",
+      "planAdded": "Gói của trung tâm {{plan}} + {{added}} đã thêm · làm mới vào {{date}}",
+      "of": "trên {{pool}} tín dụng đã dùng",
+      "bar": "Đã dùng {{used}} trên {{pool}} tín dụng",
+      "projected": "Dự kiến đến {{date}}",
+      "left": "Còn lại tháng này",
+      "daysToGo_one": "còn {{count}} ngày",
+      "daysToGo_other": "còn {{count}} ngày",
+      "lastDay": "Hôm nay là ngày cuối tháng",
+      "pace": "Theo tốc độ hiện tại",
+      "paceWithin": "đến {{date}}, trong giới hạn của quỹ chung",
+      "paceOver": "Vượt quỹ chung. Hãy thêm tín dụng hoặc giảm hạn mức.",
+      "allowances": "Hạn mức của giáo viên",
+      "allowancesHint": "Tổng có thể vượt quỹ chung, vì ít giáo viên dùng hết hạn mức của mình"
+    },
+    "add": {
+      "open": "Thêm tín dụng",
+      "title": "Thêm tín dụng cho tháng này",
+      "hint": "Được thêm vào quỹ chung của trung tâm ngay. Phần thêm do trung tâm thanh toán ngoài Quizzivy. Tín dụng thêm vào không chuyển sang tháng sau.",
+      "amount": "Số lượng",
+      "submit": "Thêm tín dụng",
+      "added": "Đã thêm {{amount}} tín dụng vào quỹ chung",
+      "failed": "Không thêm được tín dụng. Hãy thử lại."
+    },
+    "request": {
+      "list": "Yêu cầu thêm tín dụng đang chờ duyệt",
+      "title": "{{name}} xin thêm {{amount}} tín dụng · đã dùng {{used}} trên {{allowance}}",
+      "why": "“{{reason}}” · {{ago}}",
+      "decline": "Từ chối",
+      "approve": "Duyệt {{amount}}",
+      "approved": "Hạn mức tháng này của {{name}} giờ là {{allowance}}",
+      "declined": "{{name}} sẽ được báo là yêu cầu bị từ chối",
+      "failed": "Không xử lý được yêu cầu. Hãy thử lại."
+    },
+    "teachers": {
+      "title": "Giáo viên",
+      "summary_one": "{{count}} giáo viên đã dùng AI tháng này · {{idle}} chưa dùng",
+      "summary_other": "{{count}} giáo viên đã dùng AI tháng này · {{idle}} chưa dùng",
+      "empty": "Chưa có giáo viên nào được dùng AI.",
+      "of": "trên {{allowance}}",
+      "ofCustom": "trên {{allowance}} · tùy chỉnh",
+      "bar": "{{name}}: đã dùng {{used}} trên {{allowance}} tín dụng",
+      "edit": "Sửa hạn mức của {{name}}",
+      "status": {
+        "on_track": "Ổn định",
+        "near_limit": "Gần hạn mức",
+        "at_limit": "Chạm hạn mức",
+        "paused": "Tạm dừng"
+      }
+    },
+    "allowance": {
+      "title": "Hạn mức AI · {{name}}",
+      "used": "Đã dùng {{used}} tín dụng trong tháng này.",
+      "mode": "Hạn mức hằng tháng",
+      "default": "Mặc định · {{n}}",
+      "custom": "Tùy chỉnh",
+      "credits": "Số tín dụng mỗi tháng",
+      "creditsHint": "Có hiệu lực ngay. Mức đã dùng vẫn được tính.",
+      "min": "Nhập ít nhất {{min}}",
+      "max": "Nhập tối đa {{max}}",
+      "whole": "Nhập một số nguyên",
+      "paused": "Tạm dừng AI cho giáo viên này",
+      "pausedHint": "Các nút AI vẫn hiện nhưng không dùng được cho đến khi bạn tắt mục này.",
+      "saved": "Đã lưu hạn mức của {{name}}",
+      "failed": "Không lưu được hạn mức. Hãy thử lại."
+    },
+    "rules": {
+      "title": "Quy tắc",
+      "hint": "Áp dụng cho mọi giáo viên không có hạn mức tùy chỉnh.",
+      "allowance": {
+        "label": "Hạn mức hằng tháng của mỗi giáo viên",
+        "hint": "Giáo viên xem số dư trong Cài đặt › Trợ lý AI."
+      },
+      "warn": {
+        "label": "Cảnh báo giáo viên khi dùng đến",
+        "hint": "Họ nhận được một thông báo."
+      },
+      "limit": {
+        "label": "Khi giáo viên dùng hết hạn mức",
+        "hint": "Yêu cầu xin thêm hiện ở đầu trang này.",
+        "pause": "Tạm dừng đến tháng sau",
+        "request": "Cho phép xin thêm"
+      },
+      "pool": {
+        "label": "Khi quỹ chung hết",
+        "hint": "Muốn cho dùng thêm, hãy thêm tín dụng.",
+        "value": "Tạm dừng AI cho mọi người"
+      },
+      "saved": "Đã lưu quy tắc",
+      "failed": "Không lưu được quy tắc. Hãy thử lại."
+    }
+  },
   "users": {
     "title": "Người dùng",
     "lead": "Mọi người có thể đăng nhập vào Quizzivy.",
