@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"quizzivy/internal/core/wiring"
@@ -25,8 +26,13 @@ func (b branding) Handle(context.Context, organizationquery.Branding) (organizat
 
 func headerName(t *testing.T, b branding) (string, error) {
 	t.Helper()
+	return headerNameLogging(t, b, io.Discard)
+}
+
+func headerNameLogging(t *testing.T, b branding, logs io.Writer) (string, error) {
+	t.Helper()
 	cfg := config.Config{Email: config.Email{SinkDir: t.TempDir()}}
-	mail, err := wiring.BuildMail(cfg, db.NewContext(nil), b, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	mail, err := wiring.BuildMail(cfg, db.NewContext(nil), b, slog.New(slog.NewJSONHandler(logs, nil)))
 	if err != nil {
 		t.Fatalf("BuildMail: %v", err)
 	}
@@ -56,9 +62,13 @@ func TestEmailHeaderNamesTheCentre(t *testing.T) {
 	}
 }
 
-func TestEmailHeaderPassesOnAFailedSettingsRead(t *testing.T) {
-	failed := errors.New("settings unavailable")
-	if _, err := headerName(t, branding{err: failed}); !errors.Is(err, failed) {
+func TestEmailHeaderPassesOnAFailedSettingsReadAndLogsItsCode(t *testing.T) {
+	failed := errors.New("password=hunter2 refused")
+	var logs strings.Builder
+	if _, err := headerNameLogging(t, branding{err: failed}, &logs); !errors.Is(err, failed) {
 		t.Fatalf("Org error = %v, want %v", err, failed)
+	}
+	if out := logs.String(); !strings.Contains(out, `"code":"ORGANIZATION_SETTINGS_UNAVAILABLE"`) || strings.Contains(out, "hunter2") {
+		t.Fatalf("log: %s", out)
 	}
 }
