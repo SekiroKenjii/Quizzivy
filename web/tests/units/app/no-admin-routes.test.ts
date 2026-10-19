@@ -10,13 +10,24 @@ const ALLOWED_FILES = new Set([
   "lib/api/schema.d.ts",
 ]);
 const ALLOWED_LITERALS = new Set([
+  "/admin/ai/*",
   "/admin/ai/credits",
+  "/admin/api-reference",
+  "/admin/api-reference/*",
+  "/admin/api-reference/openapi.json",
+  "/admin/audit-log",
+  "/admin/audit-log/export",
+  "/admin/data-exports/*",
   "/admin/ai/credits/additions",
   "/admin/ai/rules",
   "/admin/ai/teachers/{userId}/allowance",
   "/admin/ai/credit-requests/{id}/approve",
   "/admin/ai/credit-requests/{id}/decline",
   "/admin/docs-session",
+  "/admin/overview",
+  "/admin/roles/*",
+  "/admin/settings/*",
+  "/admin/users/*",
   "/admin/users",
   "/admin/users/{id}",
   "/admin/settings/sign-in",
@@ -25,6 +36,10 @@ const ALLOWED_LITERALS = new Set([
   "/admin/roles",
   "/admin/roles/permissions",
   "/admin/roles/{id}",
+  "/admin/user-imports",
+  "/admin/user-imports/preview",
+  "/admin/user-imports/{id}",
+  "/admin/user-imports/{id}/sheet",
 ]);
 const LITERAL = /(["'`])(\/admin(?=[/"'`?#$]|$)[^"'`]*)/gi;
 const SETTINGS_API_CALL = /\bapi\("(?:get|put)", "\/admin\/settings"/g;
@@ -93,6 +108,11 @@ describe("the teacher's routes live at /teacher", () => {
     ["const to = `/admin", "a template left open on its line"],
     ['<Link to="/admin/settings/sign-in/extra">', "longer than the settings route"],
     ['<Link to="/admin/settings">', "the settings route without its section"],
+    [
+      '<Link to="/admin/audit">',
+      "the audit screen, which a link reaches by ADMIN_PATHS",
+    ],
+    ['<Link to="/admin/api-reference/extra">', "longer than the reference's API path"],
     ['navigate("/admin/settings")', "the settings route, navigated to"],
     ['api("delete", "/admin/settings")', "a verb the settings API does not take"],
   ])("would be caught: %s (%s)", (line) => {
@@ -108,6 +128,10 @@ describe("the teacher's routes live at /teacher", () => {
     ['api("get", "/admin/roles", { signal })', "the roles read"],
     ['api("put", "/admin/roles/permissions", { body })', "the matrix save"],
     ['api("patch", "/admin/roles/{id}", { path: { id }, body })', "an edit of a role"],
+    ['api("get", "/admin/api-reference", { signal })', "the API reference summary"],
+    ['downloadFile("/admin/api-reference/openapi.json")', "the contract download"],
+    ['api("get", "/admin/audit-log", { query })', "the audit log read"],
+    ['downloadFile("/admin/audit-log/export", query)', "the audit log export"],
     ['<Link to="/admin/settings/sign-in">', "the Admin console's sign-in settings"],
     ['api("get", "/admin/settings", { signal })', "reading the settings document"],
     ['api("put", "/admin/settings", { body: input })', "saving the settings document"],

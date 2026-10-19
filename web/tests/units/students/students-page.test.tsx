@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { useAuthStore } from "@/stores/auth";
 import { server } from "@tests/support/server";
@@ -73,12 +73,20 @@ describe("the Students list", () => {
       student("018f0000-0000-7000-8000-0000000000f3", "Vừa Xong", {
         lastActiveAt: new Date(Date.now() - 5_000).toISOString(),
       }),
+      student("018f0000-0000-7000-8000-0000000000f5", "Lâu Rồi", {
+        lastActiveAt: new Date(Date.now() - 40 * 86_400_000).toISOString(),
+      }),
     ]);
     renderStudents(teacherUser);
 
     expect(await rowOf("Chưa Hoạt Động")).toHaveTextContent("Chưa bao giờ");
     expect(await rowOf("Đã Hoạt Động")).toHaveTextContent("2 tuần trước");
     expect(await rowOf("Vừa Xong")).toHaveTextContent("vừa xong");
+    expect(await rowOf("Lâu Rồi")).not.toHaveTextContent("tháng");
+    const when = within(await rowOf("Đã Hoạt Động")).getByText("2 tuần trước");
+    expect(when.tagName).toBe("TIME");
+    expect(when).toHaveAttribute("title");
+    expect(await rowOf("Lâu Rồi")).toHaveTextContent(/\d{2}\/\d{2}\/\d{4}/);
   });
 
   it("still draws a row whose account state this build does not know", async () => {
@@ -264,5 +272,63 @@ describe("the Students list", () => {
     await user.type(screen.getByRole("searchbox"), "An");
 
     await waitFor(() => expect(screen.queryByText(/Đã chọn 1/)).toBeNull());
+  });
+});
+
+describe("the students search and the URL", () => {
+  it("keeps what is typed out of the URL and the request until the typing pauses", async () => {
+    const asked = serveStudents([AN, BINH]);
+    const { user, router } = renderStudents(teacherUser);
+    await table();
+    const before = asked.length;
+    const box = screen.getByRole("searchbox");
+
+    await user.type(box, "nguyen van ");
+    expect(box).toHaveValue("nguyen van ");
+    expect(router.state.location.search).toBe("");
+    expect(asked).toHaveLength(before);
+
+    await waitFor(() => expect(router.state.location.search).toBe("?q=nguyen+van"));
+    await waitFor(() => expect(asked.at(-1)?.get("q")).toBe("nguyen van"));
+    expect(box).toHaveValue("nguyen van ");
+  });
+
+  it("never takes a keystroke back: text typed after an applied search stays in the box", async () => {
+    serveStudents([AN, BINH]);
+    const { user, router } = renderStudents(teacherUser);
+    await table();
+    const box = screen.getByRole("searchbox");
+
+    await user.type(box, "ngu");
+    await waitFor(() => expect(router.state.location.search).toBe("?q=ngu"));
+    await user.type(box, "yen");
+    expect(box).toHaveValue("nguyen");
+    expect(router.state.location.search).toBe("?q=ngu");
+
+    await waitFor(() => expect(router.state.location.search).toBe("?q=nguyen"));
+    expect(box).toHaveValue("nguyen");
+  });
+
+  it("asks for a search from a link without its outer spaces, and shows it as written", async () => {
+    const asked = serveStudents([AN, BINH]);
+    renderStudents(teacherUser, "/teacher/students?q=%20An%20");
+    await table();
+
+    expect(asked.at(-1)?.get("q")).toBe("An");
+    expect(asked.map((query) => query.get("q"))).not.toContain(" An ");
+    expect(screen.getByRole("searchbox")).toHaveValue(" An ");
+  });
+
+  it("puts the text of an outside change of the URL in the box", async () => {
+    serveStudents([AN, BINH]);
+    const { router } = renderStudents(teacherUser);
+    await table();
+    const box = screen.getByRole("searchbox");
+
+    await act(() => router.navigate("/teacher/students?q=tran"));
+    expect(box).toHaveValue("tran");
+    await act(() => router.navigate(-1));
+    expect(router.state.location.search).toBe("");
+    await waitFor(() => expect(box).toHaveValue(""));
   });
 });

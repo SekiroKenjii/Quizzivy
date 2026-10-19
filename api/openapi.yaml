@@ -795,6 +795,35 @@ components:
           type: boolean
           description: Whether a save would be refused with `SIGN_IN_POLICY_LOCKOUT`; the caller is locked out, or no active built-in Admin keeps a method.
 
+    RetentionImpact:
+      type: object
+      description: |
+        What the nightly sweep would do today under a proposed retention
+        policy. `answers` and `accounts` are `null` when the policy keeps
+        answers for ever or never anonymises.
+      required: [answers, focusEvents, accounts]
+      additionalProperties: false
+      properties:
+        answers:
+          oneOf:
+            - type: object
+              required: [attempts, answers]
+              additionalProperties: false
+              properties:
+                attempts: { type: integer, format: int64, minimum: 0, description: Ended attempts that hold an answer to remove. }
+                answers: { type: integer, format: int64, minimum: 0, description: Answers that would be removed. }
+            - { type: 'null' }
+        focusEvents: { type: integer, format: int64, minimum: 0, description: Focus-loss events that would be deleted. }
+        accounts:
+          oneOf:
+            - type: object
+              required: [anonymise, skippedOwners]
+              additionalProperties: false
+              properties:
+                anonymise: { type: integer, format: int64, minimum: 0, description: Disabled accounts that would be anonymised. }
+                skippedOwners: { type: integer, format: int64, minimum: 0, description: Disabled accounts left because they own classes or content. }
+            - { type: 'null' }
+
     OrganizationLogoUpload:
       type: object
       description: A logo stored and ready to be named in a save.
@@ -870,6 +899,8 @@ components:
         - TARGET_ROLE_NOT_ALLOWED
         - LAST_ADMIN
         - USER_OWNS_CONTENT
+        - USER_NOT_DISABLED
+        - INVALID_RECIPIENT
         # authoring
         - RESOURCE_REFERENCED
         - RESOURCE_NOT_ARCHIVED
@@ -913,6 +944,7 @@ components:
         - DEADLINE_PASSED
         - DEADLINE_NOT_REACHED
         - GRADING_INCOMPLETE
+        - ANSWER_REMOVED
         - VERSION_LOCKED
         - ASSIGNMENT_LOCKED
         # AI assistant
@@ -2166,7 +2198,10 @@ components:
         attemptNo: { type: integer, minimum: 1 }
         answer:
           oneOf: [{ $ref: '#/components/schemas/Answer' }, { type: 'null' }]
-          description: Null when the student left it blank, which cannot be marked.
+          description: Null when the student left it blank, or when it was removed under the retention policy; neither can be marked.
+        answerRemoved:
+          type: boolean
+          description: Present and true when the answer was removed under the retention policy.
         manualScore: { oneOf: [{ $ref: '#/components/schemas/Points' }, { type: 'null' }] }
         graderComment: { type: [string, 'null'] }
 
@@ -2821,7 +2856,55 @@ components:
         userId: { $ref: '#/components/schemas/Uuid' }
         code:
           $ref: '#/components/schemas/ErrorCode'
-          description: One of `NOT_FOUND`, `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`, `LAST_ADMIN`, `ACCOUNT_DISABLED` or `INTERNAL`.
+          description: One of `NOT_FOUND`, `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`, `LAST_ADMIN`, `ACCOUNT_DISABLED`, `STALE_WRITE` or `INTERNAL`.
+
+    UserContentTransfer:
+      type: object
+      required: [toUserId]
+      additionalProperties: false
+      properties:
+        toUserId: { $ref: '#/components/schemas/Uuid' }
+        notify:
+          type: boolean
+          default: false
+          description: Tell the recipient in their bell.
+
+    UserContentTransferResult:
+      type: object
+      required: [moved, leftBehind]
+      additionalProperties: false
+      properties:
+        moved:
+          type: object
+          description: |
+            What changed owner, counted as `ownedContent` counts it: every
+            class, and every test, question, question group and media asset
+            not deleted, and every assignment. Deleted rows move too, uncounted.
+          required: [classes, tests, questions, questionGroups, media, assignments]
+          additionalProperties: false
+          properties:
+            classes: { type: integer, minimum: 0 }
+            tests: { type: integer, minimum: 0 }
+            questions: { type: integer, minimum: 0 }
+            questionGroups: { type: integer, minimum: 0 }
+            media: { type: integer, minimum: 0 }
+            assignments: { type: integer, minimum: 0 }
+        leftBehind:
+          type: object
+          required: [imports, students]
+          additionalProperties: false
+          properties:
+            imports: { type: integer, minimum: 0, description: "The account's Word imports that are not finished, which stay with it." }
+            students:
+              type: integer
+              minimum: 0
+              description: |
+                Student accounts the account created that the recipient still
+                does not reach after the move: in none of the moved classes and
+                on none of the moved assignments, disabled and anonymised ones
+                included, counted as the transfer commits. Who created an account
+                does not change, so only an Admin reaches them until one adds them
+                to a class.
 
     UserImportDefaultRole:
       type: string
@@ -4317,7 +4400,13 @@ components:
         points: { $ref: '#/components/schemas/Points' }
         answer:
           oneOf: [{ $ref: '#/components/schemas/Answer' }, { type: 'null' }]
-          description: What the student submitted. `null` if unanswered.
+          description: What the student submitted. `null` if unanswered, or removed under the retention policy.
+        answerRemoved:
+          type: boolean
+          description: |
+            Present and true when the answer was removed under the centre's
+            retention policy (T-R5.17a): `answer` is then `null` and no response
+            content is sent. Scores and the grader's comment are unchanged.
         earned:
           oneOf: [{ $ref: '#/components/schemas/Points' }, { type: 'null' }]
           description: Present only when `review.showScore`. `null` while awaiting manual grading.
@@ -6304,6 +6393,7 @@ components:
         | `ai.allowance_warning` | a teacher | `used`, `allowance` |
         | `ai.credit_request` | a teacher | `teacherName`, `credits` |
         | `ai.credit_request.decided` | a teacher | `credits`, `decision` |
+        | `content.transferred` | a teacher | `teacherName`, `count` |
 
         The three `ai.*` kinds are for the teacher's bell. `ai.credit_request`
         is written for every holder of `ai.credits.manage`, who reads it in the
@@ -6321,6 +6411,7 @@ components:
         - ai.allowance_warning
         - ai.credit_request
         - ai.credit_request.decided
+        - content.transferred
 
     NotificationAudience:
       type: string
@@ -6365,7 +6456,7 @@ components:
         count:
           type: integer
           minimum: 0
-          description: Papers handed in (`attempt.submitted`), or classes whose join code was replaced (`join_codes.rotated`).
+          description: Papers handed in (`attempt.submitted`), classes whose join code was replaced (`join_codes.rotated`), or classes, tests, questions, question groups, media and assignments given to the reader (`content.transferred`).
         toGrade: { type: integer, minimum: 0, description: 'Of the papers handed in, those with an answer waiting for a mark.' }
         focusLost: { type: integer, minimum: 0, description: Times the student left the test. }
         notSubmitted: { type: integer, minimum: 0, description: Students who have not handed in. }
@@ -6380,7 +6471,7 @@ components:
         used: { type: integer, minimum: 0, description: AI credits the teacher has used this month. }
         allowance: { type: integer, minimum: 0, description: "The teacher's AI allowance this month, in credits." }
         credits: { type: integer, minimum: 0, description: AI credits a request asks for. }
-        teacherName: { type: string, minLength: 1, maxLength: 200, description: The teacher who asked for credits. }
+        teacherName: { type: string, minLength: 1, maxLength: 200, description: 'The teacher who asked for credits (`ai.credit_request`), or whose content was given to the reader (`content.transferred`).' }
         decision: { type: string, enum: [approved, declined], description: How an Admin decided a request for credits. }
 
     NotificationTarget:
@@ -10418,6 +10509,9 @@ paths:
                       additionalProperties: false
                       properties:
                         answer: { oneOf: [{ $ref: '#/components/schemas/Answer' }, { type: 'null' }] }
+                        answerRemoved:
+                          type: boolean
+                          description: Present and true when the answer was removed under the retention policy; `answer` is then `null` and it cannot be graded.
                         autoScore: { oneOf: [{ $ref: '#/components/schemas/Points' }, { type: 'null' }] }
                         manualScore: { oneOf: [{ $ref: '#/components/schemas/Points' }, { type: 'null' }] }
                         requiresManual: { type: boolean }
@@ -10702,7 +10796,11 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: '`ATTEMPT_IN_PROGRESS` or `ATTEMPT_VOIDED` — nothing to grade yet, or nothing that counts.'
+          description: |
+            `ATTEMPT_IN_PROGRESS` or `ATTEMPT_VOIDED` — nothing to grade yet, or
+            nothing that counts. `ANSWER_REMOVED` — an item names an answer
+            removed under the retention policy; `details.questionIds` lists them
+            and nothing was saved.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -11288,7 +11386,8 @@ paths:
         The new role is held against edits from the check to the commit; if it
         or the account's own role changed in between, the check is made again,
         up to three times, and then `STALE_WRITE` asks the caller to send the
-        request again. A change ends the account's sessions: every refresh
+        request again; so does a write the database ended three times over a
+        lock another write held. A change ends the account's sessions: every refresh
         family is revoked and the session epoch moves, so its next request is
         authorised by the new role on this machine and within 10 seconds on any
         other. Writes one audit row, `user.role_changed`, with the old and the
@@ -11324,7 +11423,7 @@ paths:
           description: |
             `LAST_ADMIN` — the account is the only active Admin.
             `USER_OWNS_CONTENT` — the account owns classes or content and the new role opens no teacher workspace; `details` holds `classes`, `tests`, `questions`, `media` and `assignments`, each a count.
-            `STALE_WRITE` — a role changed three times while the change was being made; nothing was written, so the same request may be sent again.
+            `STALE_WRITE` — a role changed, or another write to the account held what this one needed, three times while the change was being made; nothing was written, so the same request may be sent again.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -11370,12 +11469,69 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: '`LAST_ADMIN` — the account is the only active Admin.'
+          description: '`LAST_ADMIN` — the account is the only active Admin. `STALE_WRITE` — the account''s role, or another write to the account, changed while it was being written; try again.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '422':
           description: '`CANNOT_ACT_ON_SELF` — the account is the caller''s own.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /admin/users/{id}/transfer-content:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: transferUserContent
+      x-permission: scope.all
+      tags: [admin-users]
+      summary: Give everything a disabled account owns to another teacher
+      description: |
+        Moves every class the account teaches (archived ones too) and every
+        test, question, question group, media asset and assignment it owns,
+        deleted ones too, to `toUserId`, in one transaction, so a reader sees
+        all of it with the old owner or all of it with the new one. A test and
+        its questions move together, so a draft still uses only its owner's
+        questions, and the classes' students keep their assignments and
+        results. Who made a row (`createdBy`, `uploadedBy`) does not change.
+        The account's Word imports that are not finished stay with it and are
+        counted in `leftBehind`.
+
+        The subset rule applies to the account. The account must be disabled
+        (`USER_NOT_DISABLED`); the recipient must exist, be active, hold
+        `workspace.teacher` and be another account (`INVALID_RECIPIENT`).
+        Writes one audit row, `user.content_transferred`, with the recipient
+        and the counts. With `notify`, the recipient finds a
+        `content.transferred` notification in their bell when anything moved.
+        An account that owns nothing answers zeros and still writes its row.
+
+        Limited to 10 a minute per signed-in user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserContentTransfer' }
+      responses:
+        '200':
+          description: What moved, and what stayed behind.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserContentTransferResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — the account''s role holds a permission the caller lacks.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`USER_NOT_DISABLED` — disable the account first. `STALE_WRITE` — the account''s role, or another write to the account or its content, changed while it was being moved. Nothing was moved; try again.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: '`INVALID_RECIPIENT` — the recipient does not exist, is disabled, has no teacher workspace or is the account itself.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -11391,7 +11547,9 @@ paths:
         Does for each account what `disableUser` does, one transaction each, so
         a batch cannot do what one disable cannot. An account that fails does
         not stop the others: `failed` names it with `NOT_FOUND`,
-        `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`, `LAST_ADMIN` or
+        `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`, `LAST_ADMIN`,
+        `STALE_WRITE` (the account's role, or another write to it, kept
+        changing while it was being written; nothing was written to it) or
         `INTERNAL` (a fault with that account alone, logged on the server). The
         answer is 200 whenever the request was accepted, even when every
         account failed. An account disabled already counts in `disabled`.
@@ -11463,6 +11621,11 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`STALE_WRITE` — the account''s role, or another write to the account, changed while it was being written. Nothing was written; try again.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /admin/users/{id}/sign-out:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -11486,6 +11649,11 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`STALE_WRITE` — the account''s role, or another write to the account, changed while it was being written. Nothing was written; try again.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /admin/users/{id}/reset-password:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -11544,7 +11712,7 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: '`ACCOUNT_DISABLED` — the account is disabled; enable it first.'
+          description: '`ACCOUNT_DISABLED` — the account is disabled; enable it first. `STALE_WRITE` — the account''s role, or another write to the account, changed while it was being written. Nothing was written; try again.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -11577,7 +11745,9 @@ paths:
 
         An account that fails does not stop the others: `failed` names it with
         `NOT_FOUND`, `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`,
-        `ACCOUNT_DISABLED` or `INTERNAL` (a fault with that account alone,
+        `ACCOUNT_DISABLED`, `STALE_WRITE` (the account's role, or another write
+        to it, kept changing while it was being written; nothing was written to
+        it) or `INTERNAL` (a fault with that account alone,
         logged on the server). The answer is 200 whenever the request was
         accepted, even when every account failed. `items` and `failed` keep the
         order of `userIds`. `PASSWORD_SIGN_IN_DISABLED` refuses the whole
@@ -12696,6 +12866,37 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/SignInImpact' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /admin/settings/retention-impact:
+    post:
+      operationId: getRetentionImpact
+      x-permission: system.settings.write
+      tags: [admin-settings]
+      summary: What a retention policy would remove today
+      description: |
+        Counts, without storing or removing anything, what the nightly sweep
+        would do today under the proposed policy: the answers it would remove
+        and the attempts they belong to, the focus-loss events it would delete,
+        and the disabled accounts it would anonymise, with those it would leave
+        because they own classes or content. The counts are the sweep's dry run
+        (T-R5.17a), built from the same rule.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [retention]
+              additionalProperties: false
+              properties:
+                retention: { $ref: '#/components/schemas/RetentionPolicy' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RetentionImpact' }
         '400': { $ref: '#/components/responses/BadRequest' }
 
   /admin/settings/logo:

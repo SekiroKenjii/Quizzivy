@@ -390,3 +390,37 @@ export function countdown(ms: number): string {
 export function compactMoment(utc: string | Date, zone = getDisplayTimeZone()) {
   return formatInTimeZone(utc, zone, "HH:mm · dd/MM");
 }
+
+/**
+ * auditMoment is when an audit entry happened, in the viewer's zone and
+ * without its year: "24 Th9, 20:31" in Vietnamese, "24 Sep, 20:31" in
+ * English.
+ */
+export function auditMoment(
+  utc: string | Date,
+  locale: AppLocale = "vi",
+  zone = getDisplayTimeZone(),
+) {
+  return formatInTimeZone(
+    utc,
+    zone,
+    locale === "vi" ? "d 'Th'M, HH:mm" : "d MMM, HH:mm",
+    {
+      locale: dateFnsLocale[locale],
+    },
+  );
+}
+
+/**
+ * auditDay is a calendar day, given as a `YYYY-MM-DD` key, without its year:
+ * "24 Th9" in Vietnamese, "24 Sep" in English. A key that is not a date is
+ * returned as it is.
+ */
+export function auditDay(key: string, locale: AppLocale = "vi") {
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+  if (parts === null) return key;
+  const noon = Date.UTC(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]), 12);
+  return formatInTimeZone(noon, "UTC", locale === "vi" ? "d 'Th'M" : "d MMM", {
+    locale: dateFnsLocale[locale],
+  });
+}

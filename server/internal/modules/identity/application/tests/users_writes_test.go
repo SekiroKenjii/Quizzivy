@@ -32,11 +32,12 @@ type accountShelf struct {
 	resets  []domain.AccountPasswordReset
 	refuse  map[string]error
 	changed map[string]int
+	held    map[string]int
 	panics  map[string]bool
 }
 
 func newShelf(ids ...string) *accountShelf {
-	s := &accountShelf{users: map[string]domain.AdminUser{}, refuse: map[string]error{}, changed: map[string]int{}, panics: map[string]bool{}}
+	s := &accountShelf{users: map[string]domain.AdminUser{}, refuse: map[string]error{}, changed: map[string]int{}, held: map[string]int{}, panics: map[string]bool{}}
 	for _, id := range ids {
 		s.users[id] = domain.AdminUser{ID: id, FullName: "Tên " + id, Email: id + "@example.test", Status: domain.AccountActive}
 	}
@@ -62,6 +63,10 @@ func (s *accountShelf) write(what string, req domain.WriteRequest, in domain.Acc
 	if s.changed[in.UserID] > 0 {
 		s.changed[in.UserID]--
 		return domain.ErrRoleChanged
+	}
+	if s.held[in.UserID] > 0 {
+		s.held[in.UserID]--
+		return fmt.Errorf("%w: deadlock detected", domain.ErrWriteContended)
 	}
 	if err := s.refuse[in.UserID]; err != nil {
 		return err
@@ -286,6 +291,34 @@ func TestATargetWhoseRoleChangedIsReadAgainAndAThirdChangeIsRefused(t *testing.T
 	}
 }
 
+func TestAWriteTheDatabaseEndedOverAContendedLockIsMadeAgainAndAThirdIsRefused(t *testing.T) {
+	for _, a := range accountActions {
+		t.Run(a.name, func(t *testing.T) {
+			r := newWriteRig("pupil")
+			r.shelf.held["pupil"] = 2
+
+			if err := a.run(r, theAdmin, "pupil"); err != nil {
+				t.Fatalf("after two contended writes: %v, want the third to go through", err)
+			}
+			if got := r.shelf.written(); len(got) != 1 {
+				t.Errorf("wrote %v, want one write", got)
+			}
+
+			r = newWriteRig("pupil")
+			r.shelf.held["pupil"] = 3
+			if err := a.run(r, theAdmin, "pupil"); !errors.Is(err, domain.ErrWriteContended) {
+				t.Errorf("after three contended writes: %v, want ErrWriteContended", err)
+			}
+			if got := r.shelf.written(); len(got) != 0 {
+				t.Errorf("wrote %v", got)
+			}
+			if got := r.principal.forgotten(); len(got) != 0 {
+				t.Errorf("forgot %v after writes that wrote nothing", got)
+			}
+		})
+	}
+}
+
 func TestChangingARoleNamesTheRoleItsRevisionAndWhetherItOpensTheTeacherWorkspace(t *testing.T) {
 	r := newWriteRig("pupil")
 	var given domain.RoleChange
@@ -419,16 +452,17 @@ func TestATemporaryPasswordIsKeptOnlyWhereTheCentreAllowsIt(t *testing.T) {
 }
 
 func TestABulkDisableReportsEachRefusalAndDisablesTheRest(t *testing.T) {
-	r := newWriteRig("one", "two", "last", "broken", "boom", "outside")
+	r := newWriteRig("one", "two", "last", "broken", "boom", "outside", "held")
 	r.principal.sets["outside"] = adminKeys
 	r.shelf.refuse["last"] = domain.ErrLastAdmin
+	r.shelf.held["held"] = 3
 	r.shelf.refuse["broken"] = errors.New("pq: connection reset by peer, password=hunter2")
 	r.shelf.panics["boom"] = true
 	by := domain.WriteRequest{ActorID: "manager", Grants: access.NewSet(access.PeopleUsersManage, access.TeachingGrading)}
 	r.principal.sets["manager"] = by.Grants
 
 	result, err := r.app.Commands.DisableUsers.Handle(context.Background(), command.DisableUsers{
-		Request: by, IDs: []string{"one", "ghost", "manager", "last", "broken", "outside", "boom", "two"},
+		Request: by, IDs: []string{"one", "ghost", "manager", "last", "broken", "outside", "boom", "held", "two"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -444,6 +478,7 @@ func TestABulkDisableReportsEachRefusalAndDisablesTheRest(t *testing.T) {
 		{UserID: "broken", Reason: domain.ErrActionFailed},
 		{UserID: "outside", Reason: accessdomain.ErrTargetRoleNotAllowed},
 		{UserID: "boom", Reason: domain.ErrActionFailed},
+		{UserID: "held", Reason: domain.ErrWriteContended},
 	}
 	if len(result.Failed) != len(want) {
 		t.Fatalf("failed %+v, want %+v in the order named", result.Failed, want)
@@ -463,6 +498,9 @@ func TestABulkDisableReportsEachRefusalAndDisablesTheRest(t *testing.T) {
 	}
 	if !strings.Contains(r.logs.String(), "broken") || !strings.Contains(r.logs.String(), "boom") {
 		t.Errorf("the faults were not logged: %q", r.logs.String())
+	}
+	if strings.Contains(r.logs.String(), "held") {
+		t.Errorf("a write that only lost a race was logged as a fault: %q", r.logs.String())
 	}
 	batches := map[string]bool{}
 	for _, req := range r.shelf.reqs {
@@ -557,6 +595,9 @@ func TestABulkResetNamesNoMoreAccountsThanItsDeliveryAllows(t *testing.T) {
 				if !errors.As(err, &invalid) || len(invalid.Fields) != 1 || invalid.Fields[0].Field != "userIds" {
 					t.Fatalf("answered %v, want a validation error naming userIds", err)
 				}
+				if field := invalid.Fields[0]; field.English == "" || field.English == field.Message {
+					t.Errorf("field = %+v, want a Vietnamese and an English sentence", field)
+				}
 				if r.passwords.calls.Load() != 0 || len(r.shelf.written()) != 0 {
 					t.Errorf("a refused batch made %d passwords and wrote %d", r.passwords.calls.Load(), len(r.shelf.written()))
 				}
@@ -569,5 +610,22 @@ func TestABulkResetNamesNoMoreAccountsThanItsDeliveryAllows(t *testing.T) {
 				t.Errorf("%d reset and %d failed for %d named", len(result.Reset), len(result.Failed), c.count)
 			}
 		})
+	}
+}
+
+func TestABulkRowWhoseRoleKeptChangingIsAStaleWriteAndNotAFault(t *testing.T) {
+	r := newWriteRig("one", "moving")
+	r.shelf.changed["moving"] = 3
+
+	result, err := r.app.Commands.DisableUsers.Handle(context.Background(), command.DisableUsers{Request: theAdmin, IDs: []string{"moving", "one"}})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(result.Disabled, []string{"one"}) || len(result.Failed) != 1 || result.Failed[0].UserID != "moving" || !errors.Is(result.Failed[0].Reason, domain.ErrRoleChanged) {
+		t.Errorf("result %+v, want one disabled and moving refused with ErrRoleChanged", result)
+	}
+	if strings.Contains(r.logs.String(), "moving") {
+		t.Errorf("a role that kept changing was logged as a fault: %q", r.logs.String())
 	}
 }

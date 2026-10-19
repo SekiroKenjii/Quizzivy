@@ -13,8 +13,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// hashWorkers is how many temporary passwords a bulk reset hashes at once, and
-// so how many of the process's password-hash slots one call can hold.
 const hashWorkers = 2
 
 // ResetUserPassword resets the password of the account ID as Delivery says.
@@ -88,7 +86,9 @@ func (h ResetUsersPasswordsHandler) Handle(ctx context.Context, cmd ResetUsersPa
 	}
 	if len(cmd.IDs) > limit {
 		var refused validation.Error
-		refused.Add("userIds", fmt.Sprintf("Chỉ đặt lại được tối đa %d tài khoản cùng lúc theo cách này.", limit))
+		refused.AddIn("userIds",
+			fmt.Sprintf("Chỉ đặt lại được tối đa %d tài khoản cùng lúc theo cách này.", limit),
+			fmt.Sprintf("At most %d accounts can be reset at once this way.", limit))
 		return domain.BulkUserReset{}, &refused
 	}
 	req, err := beginReset(ctx, h.Admin, cmd.Request, cmd.Delivery)

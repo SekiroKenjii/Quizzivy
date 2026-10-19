@@ -18,6 +18,11 @@ var ErrClassNotAllowed = errors.New("users: a class is allowed only for a studen
 // the check can be made again.
 var ErrRoleChanged = errors.New("users: a role changed while the account was being written")
 
+// ErrWriteContended means the database ended the write because another one
+// held what it needed (a deadlock or a serialization failure). Nothing was
+// written; the write can be made again.
+var ErrWriteContended = errors.New("users: another write to the account held what this one needed")
+
 // ErrCannotActOnSelf means the operation is refused on the caller's own
 // account: a role change, a disable or a password reset. The caller changes
 // their own password through ChangePassword, and may sign themselves out.

@@ -296,6 +296,54 @@ describe("New role", () => {
     await waitFor(() => expect(seen.reads).toBe(2));
   });
 
+  it("stops sending a source that left the options, and says to choose again", async () => {
+    const seen = serveRoles();
+    const posts: unknown[] = [];
+    server.use(
+      http.post(`${BASE}/admin/roles`, async ({ request }) => {
+        posts.push(await request.json());
+        return HttpResponse.json(
+          {
+            error: {
+              code: "TARGET_ROLE_NOT_ALLOWED",
+              message: "Máy chủ: TARGET_ROLE_NOT_ALLOWED",
+              requestId: "r-1",
+            },
+          },
+          { status: 403 },
+        );
+      }),
+    );
+    const { user } = renderRolesPage();
+    const dialog = await openNew(user);
+    await user.type(
+      within(dialog).getByRole("textbox", { name: /Tên vai trò/ }),
+      "Tổ phó",
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Giáo viên" }));
+    seen.list = listOf([admin, { ...teacher, editable: false }, student, head]);
+    await user.click(within(dialog).getByRole("button", { name: "Tạo vai trò" }));
+    await waitFor(() => expect(seen.reads).toBe(2));
+    expect(
+      await within(dialog).findByText(
+        "Vai trò này không còn để sao chép nữa. Hãy chọn lại.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Giáo viên" })).toBeNull();
+    expect(within(dialog).getByRole("button", { name: "Tạo vai trò" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Tạo vai trò" }));
+    expect(posts).toHaveLength(1);
+    await user.click(within(dialog).getByRole("button", { name: "Không sao chép" }));
+    expect(
+      within(dialog).queryByText(
+        "Vai trò này không còn để sao chép nữa. Hãy chọn lại.",
+      ),
+    ).toBeNull();
+  });
+
   it("starts empty each time it opens", async () => {
     serveRoles();
     const { user } = renderRolesPage();

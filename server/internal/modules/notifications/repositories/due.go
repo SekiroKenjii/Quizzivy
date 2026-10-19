@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"quizzivy/internal/shared/answered"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -75,7 +76,7 @@ SELECT '` + dueReady + `', m.assignment_id::text, at.id::text, m.title, m.closes
    AND m.closes_at > $3::timestamptz AND m.closes_at <= $2::timestamptz
    AND at.status IN ('submitted','timed_out','graded')
    AND NOT EXISTS (SELECT 1 FROM app.attempt_answers ans
-                    WHERE ans.attempt_id = at.id AND ans.requires_manual AND ans.manual_score IS NULL)
+                    WHERE ans.attempt_id = at.id AND ` + answered.AwaitsGrade("ans") + `)
 UNION ALL
 SELECT '` + dueClosing + `', a.id::text, NULL::text, t.title, ` + schedule.CloseOf("") + `, NULL::text, waiting.n::int
   FROM app.assignments a

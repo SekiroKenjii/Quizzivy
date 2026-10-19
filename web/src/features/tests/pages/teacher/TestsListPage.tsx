@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import {
@@ -29,12 +29,12 @@ import { EmptyState, LoadError, QueryStates } from "@/components/shared/ListStat
 import { Pager } from "@/components/shared/data/Pager";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { trimmed, useDebouncedInput } from "@/hooks/useDebouncedInput";
 import { useListFilters } from "@/hooks/useListFilters";
 import { usePage, usePageSize } from "@/hooks/usePage";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { ApiError } from "@/lib/api/errors";
 import { useDisplayTimeZone } from "@/lib/i18n/datetime";
-import { useDebounced } from "@/lib/useDebounced";
 import { useImportAvailability } from "@/features/imports/availability";
 import {
   archiveTest,
@@ -130,7 +130,8 @@ function message(cause: unknown, fallback: string): string {
 /**
  * TestsListPage is the teacher's tests, as the deck's Tests screen draws them:
  * the ways to start a test (Word or PDF, paste, or from nothing), the status
- * tabs with their counts, a search by title, and the tests as cards. Every
+ * tabs with their counts, a search by title that reaches the URL once the
+ * teacher has paused for 300 ms, and the tests as cards. Every
  * test, archived ones included, is under All. A card can be selected for the
  * bulk archive and delete, duplicated in place, and archived, restored or
  * deleted from its menu. The list pages 24 or 48 cards at a time, and its
@@ -146,8 +147,10 @@ export default function TestsListPage() {
   const bulk = useBulkSelection<Test>();
   const { params, setParams, setFilter } = useListFilters();
   const tab = toTab(params.get("status"));
-  const query = params.get("q") ?? "";
-  const search = useDebounced(query.trim(), 300);
+  const applied = params.get("q") ?? "";
+  const applyQuery = useCallback((value: string) => setFilter("q", value), [setFilter]);
+  const [typed, setTyped] = useDebouncedInput(applied, applyQuery, trimmed);
+  const search = applied.trim();
   const [size] = usePageSize(PAGE_SIZES);
   const [page] = usePage(JSON.stringify({ tab, search }));
   const tests = useQuery({
@@ -365,8 +368,8 @@ export default function TestsListPage() {
         />
         <SearchInput
           className={SEARCH}
-          value={query}
-          onChange={(value) => setFilter("q", value)}
+          value={typed}
+          onChange={setTyped}
           placeholder={t("tests.searchPlaceholder")}
         />
       </div>

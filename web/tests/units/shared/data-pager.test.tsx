@@ -318,6 +318,14 @@ describe("rows per page", () => {
     expect(router.state.location.search).toBe("?size=48");
   });
 
+  it("draws no size control when a screen offers one size, and still pages by it", () => {
+    renderPager("", 100, { sizes: [10] });
+    expect(within(nav()).queryByRole("combobox")).toBeNull();
+    expect(within(nav()).queryByText("Số dòng mỗi trang")).toBeNull();
+    expect(within(nav()).getByText("1–10 trên 100 bài giao")).toBeInTheDocument();
+    expect(within(nav()).getByText("Trang 1 trên 10")).toBeInTheDocument();
+  });
+
   it("is the deck's 32px control: the primitive's deck classes restated, not doubled", () => {
     renderPager("", 312);
     expect(trigger()).toHaveAttribute("data-size", "sm");

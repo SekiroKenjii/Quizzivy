@@ -29,6 +29,8 @@ const (
 	AIAllowanceWarning     Kind = "ai.allowance_warning"
 	AICreditRequest        Kind = "ai.credit_request"
 	AICreditRequestDecided Kind = "ai.credit_request.decided"
+
+	ContentTransferred Kind = "content.transferred"
 )
 
 var governing = map[Kind]Event{
@@ -44,6 +46,7 @@ var governing = map[Kind]Event{
 var switchless = map[Kind]bool{
 	ClassJoined: true, JoinCodesRotated: true,
 	AIAllowanceWarning: true, AICreditRequest: true, AICreditRequestDecided: true,
+	ContentTransferred: true,
 }
 
 // Known reports whether k is a kind this binary writes and words.

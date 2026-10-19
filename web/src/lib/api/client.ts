@@ -430,29 +430,43 @@ function attachmentName(disposition: string | null): string | null {
 }
 
 /**
- * downloadFile GETs a file the contract answers with something other than
+ * DownloadOptions are the method of a download, which is GET unless `method`
+ * says POST, the values of the path's `{name}` parameters, and a `signal` to
+ * abort it with.
+ */
+export interface DownloadOptions {
+  method?: "GET" | "POST";
+  path?: Record<string, unknown>;
+  signal?: AbortSignal | undefined;
+}
+
+/**
+ * downloadFile fetches a file the contract answers with something other than
  * JSON, such as a CSV, sharing this module's token and single-flight refresh.
  * Like `api`, it loses the session over a 401 only when the store still holds
  * the token that request was sent with, and it throws a refusal's error
  * envelope as an ApiError. The file's name is the response's
  * `Content-Disposition` name, `filename*` (RFC 6266) before `filename`, or
- * null when it names none.
+ * null when it names none. An aborted `options.signal` rejects it with an
+ * `AbortError`.
  */
 export async function downloadFile(
   path: keyof paths,
   query?: Record<string, unknown>,
+  options: DownloadOptions = {},
 ): Promise<DownloadedFile> {
-  const url = buildUrl(path, undefined, query);
+  const url = buildUrl(path, options.path, query);
   const lease = authStore.captureActor();
   const send = (token: string | null) =>
     fetch(url, {
-      method: "GET",
+      method: options.method ?? "GET",
       credentials: "include",
       headers: {
         Accept: "*/*",
         "Accept-Language": language(),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
+      ...(options.signal ? { signal: options.signal } : {}),
     });
 
   let sentWith = authStore.getAccessToken();

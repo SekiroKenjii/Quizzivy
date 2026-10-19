@@ -151,4 +151,23 @@ describe("downloadFile", () => {
     handler = () => csv();
     expect((await downloadFile(CSV, IDS)).filename).toBeNull();
   });
+
+  it("posts to a path with its parameters filled when asked to", async () => {
+    let seen: { url: string; method: string | undefined } | undefined;
+    handler = (url, init) => {
+      seen = { url, method: init.method };
+      return csv('attachment; filename="new-accounts-20261015.csv"');
+    };
+
+    const file = await downloadFile("/admin/user-imports/{id}/sheet", undefined, {
+      method: "POST",
+      path: { id: "018f0000-0000-7000-8000-0000000000d1" },
+    });
+
+    expect(seen).toEqual({
+      url: "http://localhost:8080/admin/user-imports/018f0000-0000-7000-8000-0000000000d1/sheet",
+      method: "POST",
+    });
+    expect(file.filename).toBe("new-accounts-20261015.csv");
+  });
 });

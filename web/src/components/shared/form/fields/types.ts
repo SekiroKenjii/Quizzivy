@@ -52,12 +52,21 @@ export type FormColorOption = Readonly<{
   label: string;
   swatch: string;
 }>;
-/** FormInfoRow is an informational line with an optional independent action. */
+/**
+ * FormInfoRow is an informational line with an optional independent action.
+ * An action that opens or closes something sets `expanded`, which the button
+ * announces; `controls` names what it opens.
+ */
 export type FormInfoRow = Readonly<{
   icon: LucideIcon;
   tone?: "neutral" | "success" | "warning" | "danger" | "info";
   text: ReactNode;
-  action?: { label: string; onAction: () => void };
+  action?: {
+    label: string;
+    onAction: () => void;
+    expanded?: boolean;
+    controls?: string;
+  };
 }>;
 /**
  * FormField ties each field kind to a compatible key of the form's values. A

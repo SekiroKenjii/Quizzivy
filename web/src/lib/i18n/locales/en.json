@@ -382,6 +382,7 @@
       "user.anonymized": "Anonymized an account",
       "user.avatar_removed": "Removed a profile photo",
       "user.avatar_set": "Set a profile photo",
+      "user.content_transferred": "Transferred an account's content to another teacher",
       "user.created": "Created an account",
       "user.disabled": "Disabled an account",
       "user.enabled": "Enabled an account again",
@@ -398,6 +399,116 @@
       "user.signed_out_everywhere": "Signed an account out everywhere",
       "user_import.requested": "Requested an import of users from a file",
       "user_import.sheet_downloaded": "Downloaded the temporary-password sheet of a user import"
+    },
+    "title": "Audit log",
+    "lead": "A record of sensitive changes. Entries cannot be edited or deleted.",
+    "export": "Export CSV",
+    "noun_one": "entry",
+    "noun_other": "entries",
+    "loadFailed": "The audit log could not be loaded.",
+    "empty": "No entries in this range.",
+    "noMatches": "No entries match these filters.",
+    "system": "System",
+    "categories": {
+      "label": "Kind of change",
+      "all": "All",
+      "accounts": "Accounts",
+      "classes": "Classes",
+      "attempts": "Attempts",
+      "tests": "Tests",
+      "media": "Media",
+      "imports": "Imports"
+    },
+    "search": {
+      "placeholder": "Search person, action or entity",
+      "label": "Search audit log",
+      "clear": "Clear search"
+    },
+    "range": {
+      "label": "Date range",
+      "today": "Today",
+      "7d": "Last 7 days",
+      "30d": "Last 30 days",
+      "all": "All time",
+      "custom": "Custom range…",
+      "span": "{{from}} – {{to}}",
+      "reset": "Reset"
+    },
+    "custom": {
+      "title": "Custom date range",
+      "from": "From",
+      "to": "To",
+      "apply": "Apply",
+      "order": "Must be on or after the start date"
+    },
+    "columns": {
+      "when": "When",
+      "who": "Who",
+      "action": "Action",
+      "entity": "Entity",
+      "ip": "IP address",
+      "details": "Details"
+    },
+    "row": "{{action}}, {{who}}, {{when}}",
+    "entity": {
+      "named": "{{type}} · {{label}}",
+      "gone": "{{type}} (deleted)",
+      "types": {
+        "user": "User",
+        "users": "Users",
+        "student": "Student",
+        "user_identity": "Sign-in link",
+        "refresh_token_family": "Session",
+        "role": "Role",
+        "class": "Class",
+        "class_member": "Class member",
+        "class_join_code": "Join code",
+        "attempt": "Attempt",
+        "assignment": "Assignment",
+        "test": "Test",
+        "test_version": "Test version",
+        "question": "Question",
+        "question_group": "Question group",
+        "media_asset": "Media file",
+        "word_import": "Word import",
+        "ai_credit_periods": "AI credit period",
+        "ai_credit_requests": "AI credit request",
+        "ai_settings": "AI settings",
+        "ai_teacher_credits": "Teacher AI allowance",
+        "attempt_events": "Attempt events",
+        "audit_log": "Audit log",
+        "data_export": "Data export",
+        "maintenance_window": "Maintenance window",
+        "organization": "Organization",
+        "user_import": "User import"
+      }
+    },
+    "diff": {
+      "none": "No field changes were recorded for this entry.",
+      "empty": "—"
+    },
+    "exportDialog": {
+      "title": "Export the audit log",
+      "description": "The file holds the entries of the period you choose, newest first.",
+      "period": "Period",
+      "periods": {
+        "7d": "Last 7 days",
+        "30d": "Last 30 days",
+        "year": "This year"
+      },
+      "beforePeriod": "The range on screen starts before this period, so the file leaves out its older entries.",
+      "format": "Format",
+      "formats": {
+        "csv": "CSV",
+        "json": "JSON"
+      },
+      "filtersOnly": "Current filters only",
+      "filtersOnlyHint": "Only the kind of change and the search you have set. The period comes from the choice above.",
+      "submit": "Export file",
+      "running": "Exporting…",
+      "done": "The audit log was downloaded.",
+      "tooLarge": "That period holds more than 100,000 entries. Choose a shorter period.",
+      "failed": "The audit log could not be exported. Please try again."
     }
   },
   "error": {
@@ -524,6 +635,7 @@
       "description": "Description",
       "descriptionPlaceholder": "Leads the IELTS team",
       "taken": "A role with this name already exists",
+      "sourceGone": "That role can no longer be copied from. Choose again.",
       "created": "Role created: {{name}}. Its column is in the table below.",
       "failed": "Couldn't create the role. Try again."
     },
@@ -778,6 +890,110 @@
     "loadFailed": "Could not load users.",
     "noun_one": "user",
     "noun_other": "users",
+    "import": {
+      "open": "Import CSV",
+      "title": "Import users",
+      "columns": "Columns: full_name, email, role, class.",
+      "file": "File",
+      "choose": "Choose a CSV or XLSX file",
+      "limits": "CSV or XLSX · up to 5 MB",
+      "preview": "Preview",
+      "reading": "Reading the file…",
+      "newAccounts_one": "{{count}} new account",
+      "newAccounts_other": "{{count}} new accounts",
+      "existing_one": "{{count}} email already exists and will be skipped",
+      "existing_other": "{{count}} emails already exist and will be skipped",
+      "existingSample": "For example: {{emails}}",
+      "classes": "Adds them to {{classes}}",
+      "invalid_one": "{{count}} row has errors",
+      "invalid_other": "{{count}} rows have errors",
+      "showIssues": "Show errors",
+      "hideIssues": "Hide errors",
+      "issues": "Cells with errors",
+      "issueRow": "Row",
+      "issueColumn": "Column",
+      "issueReason": "Reason",
+      "issuesHint": "Rows are numbered as your spreadsheet shows them, the header being row 1.",
+      "issuesCapped": "Only the first {{count}} errors are shown. Fix the file and choose it again to see the rest.",
+      "budget_one": "{{count}} more email can go out today; the rest follow on the next days.",
+      "budget_other": "{{count}} more emails can go out today; the rest follow on the next days.",
+      "role": "Role if the file has none",
+      "roleStudent": "Student",
+      "roleTeacher": "Teacher",
+      "deliveryText": "Email sign-in details",
+      "deliverySub": "Otherwise download a sheet to hand out",
+      "submit": "Import",
+      "submitCount_one": "Import {{count}} person",
+      "submitCount_other": "Import {{count}} people",
+      "progress": "User import progress",
+      "running": "Creating accounts… {{done}}/{{total}}",
+      "leave": "You can close this dialog; the import carries on and the list updates itself.",
+      "leaveSheet": "You can close this dialog; the import carries on. Stay on this page: once the import finishes, the password sheet can be downloaded only here.",
+      "summary": "{{created}} · {{skipped}}",
+      "created_one": "{{count}} account created",
+      "created_other": "{{count}} accounts created",
+      "skipped_one": "{{count}} skipped",
+      "skipped_other": "{{count}} skipped",
+      "notImported_one": "{{count}} row with errors was not imported.",
+      "notImported_other": "{{count}} rows with errors were not imported.",
+      "emailSent": "Each person gets an email with a link to set a password, usable once within 24 hours.",
+      "again": "Import another file",
+      "done": "Done",
+      "progressFailed": "Could not read the progress. The import may still be running at the server; try again.",
+      "sheet": {
+        "warning": "The password sheet can be downloaded once and is deleted at {{time}}. Save the file somewhere safe before you close.",
+        "download": "Download password sheet",
+        "downloading": "Downloading…",
+        "downloaded": "Downloaded at {{time}}",
+        "expired": "The password sheet is more than 24 hours old and can no longer be downloaded. Reset these accounts' passwords from the Users list.",
+        "none": "No account was created, so there is no password sheet.",
+        "gone": "The password sheet is no longer available: it was downloaded already or is more than 24 hours old. If the file was not saved, reset these accounts' passwords from the Users list.",
+        "failed": "Could not download the password sheet.",
+        "taken": "The password sheet was downloaded at {{time}}. If you do not have that file, reset these accounts' passwords from the Users list.",
+        "lost": "The file did not arrive, but the server has already deleted the password sheet. Reset these accounts' passwords from the Users list.",
+        "retry": "Could not download the password sheet. Try again now; if it still fails, reset these accounts' passwords from the Users list."
+      },
+      "failed": {
+        "title": "The import stopped part way",
+        "kept_one": "The {{count}} account created before it stopped stays.",
+        "kept_other": "The {{count}} accounts created before it stopped stay.",
+        "keptNoPassword_one": "The {{count}} account created before it stopped stays, but has no password. Reset it from the Users list.",
+        "keptNoPassword_other": "The {{count}} accounts created before it stopped stay, but have no password. Reset them from the Users list.",
+        "importerNotAllowed": "Your account no longer has the permissions to create these accounts.",
+        "deliveryUnavailable": "Temporary passwords could not be handed out: your centre turned password sign-in off, or the server can no longer keep passwords safe.",
+        "workerInterrupted": "The import was interrupted several times, so it stopped.",
+        "unknown": "The import stopped because of an error."
+      },
+      "reason": {
+        "required": "Empty; a value is required.",
+        "tooLong": "Longer than allowed.",
+        "invalid": "Not valid: not an email address, or a name with control characters.",
+        "formulaLike": "The email starts with a character a spreadsheet reads as a formula (+, =, - or @), so it cannot be used. Correct the address.",
+        "duplicateInFile": "This email is already on an earlier row.",
+        "unknownRole": "No role has this name.",
+        "ambiguousRole": "More than one role has this name.",
+        "roleNotAllowed": "This role holds a permission you do not have, so you cannot give it.",
+        "roleNotGivable": "The Assistant role cannot be given to anyone.",
+        "unknownClass": "No active class has this name.",
+        "ambiguousClass": "More than one active class has this name.",
+        "classNotAllowed": "Only students can be added to a class, and only someone who manages every class can add them from a file."
+      },
+      "refusal": {
+        "tooLarge": "The file is larger than 5 MB. Split the list into smaller files, or save it as CSV UTF-8, which is lighter, and upload that.",
+        "empty": "The file has no header row. The first row needs the columns full_name and email.",
+        "tooManyRows": "The file has more than 2,000 data rows. Split it into several files of at most 2,000 rows each.",
+        "nothingToCreate": "No row would create an account: every valid row uses an email that already has one, or the file has no valid row.",
+        "csvNotUtf8": "The CSV file is not UTF-8. Save it as \"CSV UTF-8\" and upload it again.",
+        "macros": "The workbook contains macros, so it cannot be imported. Save it as an .xlsx without macros or as CSV UTF-8 and upload that.",
+        "encrypted": "The workbook is protected by a password. Remove the password, or save the sheet as CSV UTF-8 and upload that.",
+        "passwordSignInDisabled": "Your centre has turned off password sign-in, so temporary passwords cannot be handed out. Turn on emailing the sign-in details.",
+        "roleNotAllowed": "The default role holds a permission you do not have. Choose another role.",
+        "rateLimited_one": "Too many attempts. Try again in {{count}} second.",
+        "rateLimited_other": "Too many attempts. Try again in {{count}} seconds.",
+        "unavailable": "This server is not set up to import users. Tell whoever runs it.",
+        "unknown": "The file could not be read. Try again."
+      }
+    },
     "result_one": "{{count}} user found.",
     "result_other": "{{count}} users found.",
     "resultNone": "No users found."
@@ -1362,13 +1578,6 @@
     "signInGoogle": "Google",
     "classCount": "Classes",
     "googleBothExplainer": "You can sign in with Google or with your password. Unlinking leaves only the password.",
-    "apiDocs": {
-      "title": "API reference",
-      "body": "Browse the Quizzivy API reference. It opens in a new tab and stays open for 15 minutes; after that, open it again from here.",
-      "open": "Open API reference",
-      "blocked": "Your browser blocked the new tab. Allow pop-ups for Quizzivy and try again.",
-      "failed": "The API reference could not be opened. Please try again."
-    },
     "profileSaved": "Your name has been saved.",
     "errors": {
       "nameRequired": "Enter your name.",
@@ -1381,7 +1590,6 @@
       "profile": "Profile",
       "security": "Sign-in & security",
       "appearance": "Appearance",
-      "api": "API reference",
       "notifications": "Notifications",
       "defaults": "Assignment defaults",
       "ai": "AI assistant"
@@ -3214,7 +3422,9 @@
       "aiWarning": "You have used {{used}} of your {{allowance}} AI credits this month",
       "aiRequest": "{{teacherName}} asked for {{credits}} more AI credits",
       "aiApproved": "Your request for {{credits}} more AI credits was approved",
-      "aiDeclined": "Your request for {{credits}} more AI credits was declined"
+      "aiDeclined": "Your request for {{credits}} more AI credits was declined",
+      "transferred_one": "{{teacherName}}'s content is now yours: {{count}} item",
+      "transferred_other": "{{teacherName}}'s content is now yours: {{count}} items"
     },
     "bell": {
       "label": "Notifications",
@@ -3388,10 +3598,12 @@
       "wrong": "Wrong",
       "partial": "Partly correct",
       "pending": "To grade",
-      "unanswered": "Unanswered"
+      "unanswered": "Unanswered",
+      "removed": "Removed"
     },
     "studentAnswer": "Student's answer",
     "unanswered": "The student didn't answer this question.",
+    "answerRemoved": "This answer was removed under the centre's retention policy.",
     "accepted": "Accepted answers: {{answers}}",
     "pickedCorrect": "student's choice · correct",
     "picked": "student's choice",
@@ -3564,6 +3776,7 @@
     "youAnswered": "You answered",
     "correctAnswer": "Correct answer",
     "noAnswer": "No answer",
+    "answerRemoved": "This answer was removed under the centre's retention policy.",
     "true": "True",
     "false": "False",
     "blank": "blank",
@@ -4948,5 +5161,116 @@
     "enter": "Enter",
     "up": "Up arrow",
     "down": "Down arrow"
+  },
+  "apiReference": {
+    "title": "API reference",
+    "lead": "Every Quizzivy endpoint, generated from the same contract the app uses. Only admins can open it.",
+    "loadFailed": "The API reference details could not be loaded.",
+    "hero": "Quizzivy API",
+    "version_one": "OpenAPI {{openapi}} · v{{version}} · {{count}} endpoint",
+    "version_other": "OpenAPI {{openapi}} · v{{version}} · {{count}} endpoints",
+    "download": "openapi.json",
+    "downloadFailed": "openapi.json could not be downloaded. Please try again.",
+    "open": "Open reference",
+    "opening": "Opening…",
+    "baseUrl": "Base URL",
+    "copyFailed": "Could not copy. Select the base URL and copy it by hand.",
+    "security": "Opens in a new tab with a short docs session tied to your account. The session can only read the documentation and does not call the API for you.",
+    "blocked": "Your browser blocked the new tab. Allow pop-ups for Quizzivy and try again.",
+    "failed": "The API reference could not be opened. Please try again.",
+    "inside": "What's in it",
+    "insideHint": "Open a group to jump to it in the reference",
+    "endpoints_one": "{{n}} endpoint",
+    "endpoints_other": "{{n}} endpoints",
+    "groups": {
+      "public": {
+        "name": "Public",
+        "blurb": "No sign-in needed: the system status, the centre's details and the join-code preview."
+      },
+      "auth": {
+        "name": "Sign-in & account",
+        "blurb": "Sign-in, Google, the refresh session, password changes and your own sessions."
+      },
+      "teacher-tests": {
+        "name": "Tests",
+        "blurb": "Drafts, shared-context groups, publishing, versions and the preview."
+      },
+      "teacher-questions": {
+        "name": "Question bank",
+        "blurb": "Questions, tags, search and the question groups."
+      },
+      "teacher-imports": {
+        "name": "Word import",
+        "blurb": "Upload, processing, review and commit."
+      },
+      "teacher-media": {
+        "name": "Media",
+        "blurb": "Images and audio: uploads, names and where they are used."
+      },
+      "teacher-assignments": {
+        "name": "Assignments",
+        "blurb": "Giving a version to classes and students, its schedule, exceptions and results."
+      },
+      "teacher-attempts": {
+        "name": "Attempts & grading",
+        "blurb": "The monitor, grading, comments and integrity events."
+      },
+      "teacher-students": {
+        "name": "Students",
+        "blurb": "The accounts, passwords and classes of the students a teacher reaches."
+      },
+      "teacher-classes": {
+        "name": "Classes",
+        "blurb": "Classes, members and join codes."
+      },
+      "teacher-ai": {
+        "name": "AI assistant",
+        "blurb": "The assistant's suggestions and a teacher's credits. It never writes a grade or a question."
+      },
+      "admin-users": {
+        "name": "Users",
+        "blurb": "Listing, creating and deleting user accounts, and importing many at once from a file."
+      },
+      "admin-roles": {
+        "name": "Roles & permissions",
+        "blurb": "Creating and editing roles, and the permission matrix under the subset rule."
+      },
+      "admin-ai": {
+        "name": "AI credits",
+        "blurb": "The pool, teachers' allowances, requests for more credits and the rules."
+      },
+      "admin-docs": {
+        "name": "API reference",
+        "blurb": "The docs session, the summary and the contract file."
+      },
+      "admin-audit": {
+        "name": "Audit log",
+        "blurb": "A read-only history of sensitive changes, downloadable as a file."
+      },
+      "admin-exports": {
+        "name": "Data export",
+        "blurb": "Asking for and downloading a full export of the centre's data."
+      },
+      "admin-overview": {
+        "name": "Overview",
+        "blurb": "The overview figures, the sidebar badge and the plan's usage."
+      },
+      "admin-settings": {
+        "name": "System settings",
+        "blurb": "The centre's details, the sign-in policy and retention."
+      },
+      "student": {
+        "name": "Student app",
+        "blurb": "A student's classes and assignments."
+      },
+      "take-test": {
+        "name": "Taking tests",
+        "blurb": "Starting, saving answers, submitting and an attempt's media."
+      },
+      "me": {
+        "name": "My account",
+        "blurb": "Notifications, the avatar, the summary and notification preferences."
+      }
+    }
   }
 }

@@ -114,7 +114,10 @@ function Options({
   ));
 }
 
-function GivenText({ answer, type }: Readonly<{ answer: Given; type: string }>) {
+function GivenText({
+  answer,
+  type,
+}: Readonly<{ answer: Exclude<Given, { kind: "removed" }>; type: string }>) {
   const { t } = useTranslation();
   switch (answer.kind) {
     case "none":
@@ -155,7 +158,9 @@ function points(
  * a hidden score shows a dash and no points, and the answer is struck through
  * in danger only when it was marked and earned nothing. A question's own
  * recording, its transcript by the recording's own rule, and the grader's
- * comment follow. Nothing here is read from a field the policy removed.
+ * comment follow. Nothing here is read from a field the policy removed. An
+ * answer the centre's retention policy removed is named in place of "You
+ * answered", and its mark and comment stay.
  * A gap of a run whose shared prompt is printed above it is `compact`: its
  * number and what was answered share one line, and the prompt is not
  * repeated.
@@ -180,20 +185,26 @@ export function ReviewItem({
   const key = correctKey(question, review);
   const earned = points(mark, question, i18n.language as Locale, t);
   const numbered = `${number}. `;
-  const struck = mark === "wrong" && answer.kind !== "none";
+  const struck =
+    mark === "wrong" && answer.kind !== "none" && answer.kind !== "removed";
   const audio = question.media?.kind === "audio" ? question.media : null;
   const explanation = review.showExplanations ? (question.explanation ?? null) : null;
-  const answered = (
-    <>
-      <span className="text-muted-fg">{t("result.youAnswered")} </span>
-      <span
-        data-slot="given"
-        className={cn("font-medium", struck && "text-danger-ink line-through")}
-      >
-        <GivenText answer={answer} type={question.type} />
+  const answered =
+    answer.kind === "removed" ? (
+      <span data-slot="answer-removed" className="text-muted-fg italic">
+        {t("result.answerRemoved")}
       </span>
-    </>
-  );
+    ) : (
+      <>
+        <span className="text-muted-fg">{t("result.youAnswered")} </span>
+        <span
+          data-slot="given"
+          className={cn("font-medium", struck && "text-danger-ink line-through")}
+        >
+          <GivenText answer={answer} type={question.type} />
+        </span>
+      </>
+    );
   const score = earned !== null && (
     <span className="text-muted-fg text-meta leading-normal whitespace-nowrap">
       {earned}

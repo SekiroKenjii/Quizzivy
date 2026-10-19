@@ -86,3 +86,9 @@ func CreditRequestKey(requestID string) string {
 func CreditDecisionKey(requestID string) string {
 	return "ai_decision:" + requestID
 }
+
+// TransferredKey is the dedupe key of a teacher being told that one disabled
+// teacher's content was handed to them: a second hand-over replaces the first.
+func TransferredKey(fromUserID string) string {
+	return "transferred:" + fromUserID
+}

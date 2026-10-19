@@ -79,6 +79,12 @@ describe("how many cards show", () => {
     expect(dots()).toHaveLength(5);
   });
 
+  it("lets the dots wrap to a second row where there are more than a narrow column holds", () => {
+    contentWidth(400);
+    show();
+    expect(dots()[0]!.parentElement).toHaveClass("flex-wrap");
+  });
+
   it("draws no dots when every card fits", () => {
     contentWidth(1100);
     show({ roles: ROLES.slice(0, 3) });

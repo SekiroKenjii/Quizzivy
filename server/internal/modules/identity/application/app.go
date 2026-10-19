@@ -22,6 +22,7 @@ type Application struct {
 	service  *support.Service
 	students *support.Students
 	activity *support.Activity
+	admin    *support.Admin
 }
 
 func (a *Application) SetClock(now func() time.Time) {
@@ -100,6 +101,14 @@ func (a *Application) SetUserImportRetention(imports domain.UserImportRetention)
 	a.Commands.PruneUserImports = command.PruneUserImportsHandler{Service: a.service, Imports: imports}
 }
 
+// SetAvatarSweeps attaches the store of swept accounts and the photos' object
+// store, and makes Commands.SweepAvatarObjects available. Without an object
+// store nothing is swept and no account is marked, so a store configured later
+// still finds every anonymised account.
+func (a *Application) SetAvatarSweeps(sweeps domain.AvatarSweeps, objects ports.AvatarObjects) {
+	a.Commands.SweepAvatarObjects = command.SweepAvatarObjectsHandler{Service: a.service, Sweeps: sweeps, Objects: objects}
+}
+
 // SetAdminUsers attaches the Admin console's account directory and the access
 // module's say on which roles a caller may give, which opens createUser,
 // listUsers, getUser, changeUserRole, disableUser, disableUsers, enableUser,
@@ -111,6 +120,7 @@ func (a *Application) SetUserImportRetention(imports domain.UserImportRetention)
 // and their operations answer 501.
 func (a *Application) SetAdminUsers(repo domain.AdminUsers, roles ports.AssignableRole) {
 	admin := &support.Admin{Repo: repo, Roles: roles, Service: a.service, Students: a.students}
+	a.admin = admin
 	a.Commands.CreateUser = command.CreateUserHandler{Admin: admin}
 	a.Commands.ChangeUserRole = command.ChangeUserRoleHandler{Admin: admin}
 	a.Commands.DisableUser = command.DisableUserHandler{Admin: admin}
@@ -121,6 +131,18 @@ func (a *Application) SetAdminUsers(repo domain.AdminUsers, roles ports.Assignab
 	a.Commands.ResetUsersPasswords = command.ResetUsersPasswordsHandler{Admin: admin}
 	a.Queries.ListUsers = query.ListUsersHandler{Admin: admin}
 	a.Queries.GetUser = query.GetUserHandler{Admin: admin}
+}
+
+// SetContentTransfer attaches the mover that hands a disabled account's
+// content to another account and the notifier that tells the recipient, which
+// opens transferUserContent. It needs SetAdminUsers first and does nothing
+// without it; notifier may be nil, and the recipient is then not told. Without
+// it Commands.TransferUserContent is nil and the operation answers 501.
+func (a *Application) SetContentTransfer(mover ports.ContentMover, notifier ports.Notifier) {
+	if a.admin == nil || mover == nil {
+		return
+	}
+	a.Commands.TransferUserContent = command.TransferUserContentHandler{Admin: a.admin, Mover: mover, Notifier: notifier}
 }
 
 // SetUserImports attaches the store of user imports, the access module's say on
@@ -160,7 +182,9 @@ type Commands struct {
 	EnableUser               cqrs.CommandHandler[command.EnableUser, domain.AdminUser]
 	ResetUserPassword        cqrs.CommandHandler[command.ResetUserPassword, command.ResetUserPasswordResult]
 	ResetUsersPasswords      cqrs.CommandHandler[command.ResetUsersPasswords, domain.BulkUserReset]
+	TransferUserContent      cqrs.CommandHandler[command.TransferUserContent, domain.TransferredContent]
 	SignOutUser              cqrs.CommandHandler[command.SignOutUser, cqrs.Nothing]
+	SweepAvatarObjects       cqrs.CommandHandler[command.SweepAvatarObjects, int]
 	RemoveAvatar             cqrs.CommandHandler[command.RemoveAvatar, domain.User]
 	SetAvatar                cqrs.CommandHandler[command.SetAvatar, domain.User]
 	ChangePassword           cqrs.CommandHandler[command.ChangePassword, cqrs.Nothing]

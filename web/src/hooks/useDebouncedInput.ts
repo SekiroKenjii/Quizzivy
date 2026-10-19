@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { useDebounced } from "@/lib/useDebounced";
 
 /**
@@ -8,7 +8,9 @@ import { useDebounced } from "@/lib/useDebounced";
  * makes of the text once it has stopped changing for `delay` ms, only when
  * that differs from what was applied last. A change of `applied` that this
  * hook did not make, such as a cleared filter or a visit through Back, puts
- * the new value in the field. `normalize` must be stable.
+ * the new value in the field, and it stays there however often `apply` or
+ * `normalize` changes identity; text that was typed before such a change and
+ * settles with it is dropped, not applied over it.
  */
 export function useDebouncedInput(
   applied: string,
@@ -19,20 +21,40 @@ export function useDebouncedInput(
   const [typed, setTyped] = useState(applied);
   const settled = useDebounced(typed, delay);
   const written = useRef(applied);
+  const superseded = useRef<string | null>(null);
+
+  const adopt = useEffectEvent((value: string) => {
+    written.current = value;
+    superseded.current = typed;
+    setTyped(value);
+  });
 
   useEffect(() => {
     if (applied === written.current) return;
-    written.current = applied;
-    setTyped(applied);
+    adopt(applied);
   }, [applied]);
 
-  useEffect(() => {
-    if (settled !== typed) return;
-    const next = normalize(settled);
+  const commit = useEffectEvent((value: string) => {
+    const next = normalize(value);
     if (next === written.current) return;
     written.current = next;
     apply(next);
-  }, [settled, typed, normalize, apply]);
+  });
 
-  return [typed, setTyped];
+  useEffect(() => {
+    if (settled !== typed || settled === superseded.current) return;
+    commit(settled);
+  }, [settled, typed]);
+
+  const type = useCallback((text: string) => {
+    superseded.current = null;
+    setTyped(text);
+  }, []);
+
+  return [typed, type];
+}
+
+/** trimmed is the `normalize` of a search that the server reads without its outer spaces. */
+export function trimmed(typed: string): string {
+  return typed.trim();
 }

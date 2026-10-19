@@ -19,6 +19,7 @@ import {
   newRoleFields,
   NO_SOURCE,
   saveError,
+  sourcesOf,
   takenNames,
   type EditRoleValues,
   type NewRoleValues,
@@ -59,6 +60,10 @@ export function NewRoleDialog({
   const queryClient = useQueryClient();
   const fields = useMemo(() => newRoleFields(t, roles), [t, roles]);
   const taken = useMemo(() => takenNames(roles, t), [roles, t]);
+  const sources = useMemo(
+    () => new Set(sourcesOf(roles).map((role) => role.id)),
+    [roles],
+  );
 
   const create = useMutation({
     mutationFn: (values: NewRoleValues) =>
@@ -100,9 +105,13 @@ export function NewRoleDialog({
       icon={KeyRound}
       initial={EMPTY}
       fields={fields}
-      validate={(values) =>
-        taken.has(nameKeyOf(values.name)) ? { name: t("roles.newRole.taken") } : null
-      }
+      validate={(values) => {
+        const problems: Partial<Record<keyof NewRoleValues, string>> = {};
+        if (taken.has(nameKeyOf(values.name))) problems.name = t("roles.newRole.taken");
+        if (values.from !== NO_SOURCE && !sources.has(values.from))
+          problems.from = t("roles.newRole.sourceGone");
+        return Object.keys(problems).length === 0 ? null : problems;
+      }}
       submitLabel={t("roles.newRole.submit")}
       pending={create.isPending}
       error={error}

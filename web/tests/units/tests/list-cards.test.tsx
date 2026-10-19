@@ -108,9 +108,11 @@ afterEach(() => {
   toast.dismiss();
 });
 
+let router: ReturnType<typeof createMemoryRouter>;
+
 function renderList(initial = "/teacher/tests") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const router = createMemoryRouter(
+  router = createMemoryRouter(
     [{ path: "/teacher/tests", element: <TestsListPage /> }],
     { initialEntries: [initial] },
   );
@@ -345,6 +347,31 @@ describe("the tests list's tabs and search", () => {
     await user.type(screen.getByRole("searchbox", { name: "Tìm theo tên đề" }), "Unit");
 
     await waitFor(() => expect(lists.at(-1)?.get("q")).toBe("Unit"));
+  });
+
+  it("keeps what is typed out of the URL until the typing pauses, and never takes a keystroke back", async () => {
+    const user = renderList();
+    await screen.findByRole("link", { name: "Unit 5" });
+    const box = screen.getByRole("searchbox", { name: "Tìm theo tên đề" });
+
+    await user.type(box, "Uni");
+    expect(box).toHaveValue("Uni");
+    expect(router.state.location.search).toBe("");
+    await waitFor(() => expect(router.state.location.search).toBe("?q=Uni"));
+
+    await user.type(box, "t 5 ");
+    expect(box).toHaveValue("Unit 5 ");
+    expect(router.state.location.search).toBe("?q=Uni");
+    await waitFor(() => expect(router.state.location.search).toBe("?q=Unit+5"));
+    expect(box).toHaveValue("Unit 5 ");
+  });
+
+  it("asks for a search from a link without its outer spaces", async () => {
+    renderList("/teacher/tests?q=%20Unit%20");
+    await screen.findByRole("link", { name: "Unit 5" });
+
+    expect(lists.at(-1)?.get("q")).toBe("Unit");
+    expect(lists.map((query) => query.get("q"))).not.toContain(" Unit ");
   });
 
   it("reads an old Archived bookmark as All", async () => {

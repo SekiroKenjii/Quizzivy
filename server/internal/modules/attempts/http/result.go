@@ -94,7 +94,9 @@ func (h Attempts) toAPIResultQuestion(ctx context.Context, studentID string, q d
 		Transcript:         q.Transcript,
 		AudioPlaysUsed:     q.AudioPlaysUsed,
 	}
-	if len(q.Answer) > 0 {
+	if domain.AnswerRemoved(q.Answer) {
+		out.AnswerRemoved = httpapi.Ptr(true)
+	} else if len(q.Answer) > 0 {
 		var decoded openapi.Answer
 		if err := json.Unmarshal(q.Answer, &decoded); err != nil {
 			return openapi.ResultQuestion{}, fmt.Errorf("decode stored answer for %s: %w", q.ID, err)

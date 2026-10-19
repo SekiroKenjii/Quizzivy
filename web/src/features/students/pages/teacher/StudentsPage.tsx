@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useMemo, useRef, useState, type RefObject } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -44,13 +44,13 @@ import { StudentDrawer } from "@/features/students/components/StudentDrawer";
 import type { OneTimeCredential } from "@/features/students/credentials";
 import { classesLeftBy, removeFromClasses } from "@/features/students/membership";
 import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { trimmed, useDebouncedInput } from "@/hooks/useDebouncedInput";
 import { useListFilters } from "@/hooks/useListFilters";
 import { usePage, usePageSize } from "@/hooks/usePage";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { failureMessage } from "@/lib/api/errors";
 import { useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
-import { useDebounced } from "@/lib/useDebounced";
 import { StudentCard } from "./StudentCells";
 import { studentColumns } from "./studentColumns";
 import { statusOf } from "./studentText";
@@ -383,7 +383,8 @@ function RemoveStudentDialog({
  * the content narrows and which becomes cards below 768px, without checkboxes
  * or menus. The search (`q`), the classes (`classId`), the statuses
  * (`account`), the page and its size live in the URL, and so does the student
- * whose record is open (`studentId`). Each control shows only with its
+ * whose record is open (`studentId`); the search reaches the URL, and the
+ * request, once the teacher has paused for 300 ms. Each control shows only with its
  * permission: Add student with `people.students.create`, Reset password with
  * `people.students.reset_password`, Move to class and Remove from class with
  * `teaching.classes.write`. When a dialog closes, focus goes back to what
@@ -400,11 +401,13 @@ export default function StudentsPage() {
   const canMove = useCan("teaching.classes.write");
   const canManage = useCan("people.users.manage");
   const { params, setParams, setFilter } = useListFilters();
-  const query = params.get("q") ?? "";
+  const applied = params.get("q") ?? "";
+  const applyQuery = useCallback((value: string) => setFilter("q", value), [setFilter]);
+  const [typed, setTyped] = useDebouncedInput(applied, applyQuery, trimmed);
   const classIds = params.getAll("classId");
   const accounts = params.getAll("account");
   const selectedId = params.get("studentId");
-  const search = useDebounced(query.trim(), 300);
+  const search = applied.trim();
   const [size] = usePageSize();
   const scope = JSON.stringify({ classIds, accounts, search });
   const [page] = usePage(JSON.stringify({ classIds, accounts, search, size }));
@@ -509,8 +512,8 @@ export default function StudentsPage() {
       <div className="flex flex-wrap items-center gap-2">
         <SearchInput
           className={TOOLBAR_SEARCH}
-          value={query}
-          onChange={(value) => setFilter("q", value)}
+          value={typed}
+          onChange={setTyped}
           placeholder={t("students.searchPlaceholder")}
         />
         <FacetFilter

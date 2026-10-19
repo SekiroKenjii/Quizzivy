@@ -15,14 +15,18 @@ import { SearchInput } from "@/components/shared/SearchInput";
 import { DataTable, type DataColumn } from "@/components/shared/data/DataTable";
 import { Pager } from "@/components/shared/data/Pager";
 import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { trimmed, useDebouncedInput } from "@/hooks/useDebouncedInput";
 import { useListFilters } from "@/hooks/useListFilters";
 import { usePage, usePageSize } from "@/hooks/usePage";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { ApiError } from "@/lib/api/errors";
-import { formatRelative, useDisplayTimeZone } from "@/lib/i18n/datetime";
+import {
+  formatDateTime,
+  formatRelativeShort,
+  useDisplayTimeZone,
+} from "@/lib/i18n/datetime";
 import type { Locale } from "@/lib/i18n";
 import { useLocale } from "@/lib/i18n/useLocale";
-import { useDebounced } from "@/lib/useDebounced";
 import {
   archiveGroup,
   copyGroup,
@@ -98,7 +102,13 @@ function groupColumns(
       track: "150px",
       showFrom: 680,
       cell: (group) => (
-        <span className="text-muted-fg">{formatRelative(group.updatedAt, locale)}</span>
+        <time
+          dateTime={group.updatedAt}
+          title={formatDateTime(group.updatedAt, locale)}
+          className="text-muted-fg whitespace-nowrap"
+        >
+          {formatRelativeShort(group.updatedAt, locale, t("common.agoNow"))}
+        </time>
       ),
     },
   ];
@@ -146,8 +156,13 @@ export default function GroupsListPage() {
   const navigate = useNavigate();
   const client = useQueryClient();
   const { params, setFilter } = useListFilters();
-  const query = params.get("q") ?? "";
-  const search = useDebounced(query.trim(), 300);
+  const applied = params.get("q") ?? "";
+  const [typed, setTyped] = useDebouncedInput(
+    applied,
+    (value) => setFilter("q", value),
+    trimmed,
+  );
+  const search = applied.trim();
   const status = params.get("status") === "archived" ? "archived" : "active";
   const [size] = usePageSize();
   const [page, setPage] = usePage(JSON.stringify({ search, status, size }));
@@ -235,8 +250,8 @@ export default function GroupsListPage() {
       <div className="flex flex-wrap items-center gap-2">
         <SearchInput
           className={SEARCH}
-          value={query}
-          onChange={(value) => setFilter("q", value)}
+          value={typed}
+          onChange={setTyped}
           placeholder={t("groups.search")}
         />
         <Segmented

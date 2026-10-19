@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const SRC = resolve(import.meta.dirname, "../../../src");
 const ADMIN_KEY = /["'`]admin-[a-z]/;
+const FILE_OF_CONTRACT_TAG_NAMES = "features/api-reference/groups.ts";
 
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -15,15 +16,20 @@ function sources(dir: string): string[] {
 
 describe("the workspace's query keys (T-R4.48)", () => {
   it("never start with admin-, so no invalidation is left on an old name", () => {
-    const offenders = sources(SRC).flatMap((path) =>
-      readFileSync(path, "utf8")
-        .split("\n")
-        .flatMap((line, index) =>
-          ADMIN_KEY.test(line)
-            ? [`${relative(SRC, path)}:${index + 1}: ${line.trim()}`]
-            : [],
-        ),
-    );
+    const offenders = sources(SRC)
+      .filter(
+        (path) =>
+          relative(SRC, path).replaceAll("\\", "/") !== FILE_OF_CONTRACT_TAG_NAMES,
+      )
+      .flatMap((path) =>
+        readFileSync(path, "utf8")
+          .split("\n")
+          .flatMap((line, index) =>
+            ADMIN_KEY.test(line)
+              ? [`${relative(SRC, path)}:${index + 1}: ${line.trim()}`]
+              : [],
+          ),
+      );
     expect(offenders).toEqual([]);
   });
 });

@@ -404,7 +404,7 @@ const adminTree: RouteObject = {
                 permission: "system.audit.read",
                 width: 1320,
               },
-              lazy: pending,
+              lazy: page(() => import("@/features/audit/pages/admin/AuditLogPage")),
             },
             {
               path: "api",
@@ -413,7 +413,9 @@ const adminTree: RouteObject = {
                 permission: "system.api_reference",
                 width: 1080,
               },
-              lazy: pending,
+              lazy: page(
+                () => import("@/features/api-reference/pages/admin/ApiReferencePage"),
+              ),
             },
             {
               path: "settings/:section?",

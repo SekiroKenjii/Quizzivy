@@ -16,7 +16,12 @@ type ReviewQuestion = Pick<
 
 type ShortAnswerPresentation = Readonly<{ label: string }>;
 
-/** AnswerReview preserves full-review defaults and optionally presents a short answer with grading metrics and its supplied label. */
+/**
+ * AnswerReview preserves full-review defaults and optionally presents a short
+ * answer with grading metrics and its supplied label. An answer the centre's
+ * retention policy removed shows the notice that says so in place of the
+ * response.
+ */
 export function AnswerReview({
   question,
   answer,
@@ -26,6 +31,7 @@ export function AnswerReview({
   answer: ReviewAnswer | undefined;
   shortAnswerPresentation?: ShortAnswerPresentation;
 }>) {
+  const { t } = useTranslation();
   const given = answer?.answer ?? null;
   return (
     <div className="space-y-4">
@@ -44,11 +50,17 @@ export function AnswerReview({
           preload="metadata"
         />
       )}
-      <Body
-        question={question}
-        given={given}
-        shortAnswerPresentation={shortAnswerPresentation}
-      />
+      {answer?.answerRemoved === true ? (
+        <p data-slot="answer-removed" className="text-muted-foreground text-sm italic">
+          {t("review.answerRemoved")}
+        </p>
+      ) : (
+        <Body
+          question={question}
+          given={given}
+          shortAnswerPresentation={shortAnswerPresentation}
+        />
+      )}
     </div>
   );
 }
