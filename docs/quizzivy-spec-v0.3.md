@@ -5,9 +5,13 @@
 
 **Changes since v0.112**
 
-v0.11.9, a hotfix after the owner's report (2026-10-19): "Make a variant" did not work on a real test. It asked the provider about every standalone question in one call with room for 6,000 tokens of answer, which a test of about thirty questions or more could not get back inside the 60 seconds a call has, the proxy's idle timeout, so the teacher saw `503 AI_UNAVAILABLE`. No schema, no new operation, no new permission and no change to a request or a response.
+v0.11.9 is a patch release of two hotfixes after the owner's report (2026-10-19). The first: "Make a variant" did not work on a real test. It asked the provider about every standalone question in one call with room for 6,000 tokens of answer, which a test of about thirty questions or more could not get back inside the 60 seconds a call has, the proxy's idle timeout, so the teacher saw `503 AI_UNAVAILABLE`. No schema, no new operation, no new permission and no change to a request or a response.
 
 - §15 One `makeTestVariant` request is a bounded pass, like the bank clean-up: it reserves its 300 credits once, asks about 8 standalone questions per call, at most five calls at the same time inside 45 seconds, and ends with one settlement of what the calls were billed. The changes of every call that answered usably come back in paper order; a call that failed or ran out of time leaves its questions out of the answer, so the variant copies them as they are. Only a pass in which no call gave a usable change is `503 AI_UNAVAILABLE`.
+
+The second (#727, web only): the Questions tab of Assignment detail drew more than the deck.
+
+- §12 Assignment detail > Questions is the item analysis and its AI insights alone, as the deck draws it; the version card and the read-only paper below it are gone, and the version's facts stay in Settings > Test & timing.
 
 **Changes since v0.111**
 
