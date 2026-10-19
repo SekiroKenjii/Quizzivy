@@ -906,7 +906,9 @@
     "reload": "Tải lại",
     "sections": {
       "organization": "Tổ chức",
-      "signIn": "Đăng nhập"
+      "signIn": "Đăng nhập",
+      "data": "Dữ liệu và quyền riêng tư",
+      "plan": "Gói và mức dùng"
     },
     "organization": {
       "title": "Tổ chức",
@@ -974,7 +976,100 @@
       "domainInvalid": "Tên miền không hợp lệ.",
       "domainsTooMany": "Tối đa 50 tên miền.",
       "noMethod": "Phải bật ít nhất một cách đăng nhập."
+    },
+    "data": {
+      "title": "Dữ liệu và quyền riêng tư",
+      "hint": "Quizzivy giữ dữ liệu trong bao lâu.",
+      "keepAnswers": "Giữ câu trả lời của bài làm",
+      "keepAnswersHint": "Sau thời hạn này, câu trả lời của học viên bị xoá hằng đêm. Điểm vẫn được giữ.",
+      "keepFocus": "Giữ sự kiện rời khỏi bài thi",
+      "keepFocusHint": "Sau thời hạn này, các sự kiện rời khỏi bài thi bị xoá hằng đêm.",
+      "anonymise": "Ẩn danh tài khoản đã tắt sau",
+      "anonymiseHint": "Kết quả được giữ; tên và email bị xoá.",
+      "options": {
+        "year1": "1 năm",
+        "year2": "2 năm",
+        "forever": "Mãi mãi",
+        "month6": "6 tháng",
+        "month13": "13 tháng (mặc định)",
+        "never": "Không bao giờ"
+      }
+    },
+    "export": {
+      "title": "Xuất toàn bộ dữ liệu",
+      "hint": "Gửi cho bạn một liên kết tải về toàn bộ dữ liệu của trung tâm.",
+      "request": "Yêu cầu xuất",
+      "dialogTitle": "Xuất toàn bộ dữ liệu?",
+      "dialogHint": "Liên kết tải về sẽ được gửi tới email của bạn và chỉ dùng được một lần.",
+      "sendTo": "Gửi liên kết tới",
+      "includeAnswers": "Bao gồm câu trả lời",
+      "includeAnswersHint": "Tệp sẽ lớn hơn nhiều",
+      "submit": "Yêu cầu xuất",
+      "requested": "Đã yêu cầu xuất. Liên kết sẽ gửi tới {{email}}",
+      "inProgress": "Một yêu cầu xuất đang được xử lý. Hãy đợi email của nó trước khi yêu cầu lại.",
+      "rateLimited_one": "Mỗi giờ chỉ yêu cầu xuất được một lần. Hãy thử lại sau {{count}} phút.",
+      "rateLimited_other": "Mỗi giờ chỉ yêu cầu xuất được một lần. Hãy thử lại sau {{count}} phút.",
+      "off": "Máy chủ này chưa bật tính năng xuất dữ liệu."
+    },
+    "retentionConfirm": {
+      "title": "Rút ngắn thời gian lưu giữ?",
+      "hint": "Việc dọn dẹp chạy mỗi đêm và không thể hoàn tác.",
+      "confirm": "Lưu và xoá",
+      "nothing": "Hiện chưa có gì bị xoá tối nay.",
+      "answers_one": "Tối nay sẽ xoá câu trả lời của {{count}} lượt làm bài ({{answers}} câu trả lời).",
+      "answers_other": "Tối nay sẽ xoá câu trả lời của {{count}} lượt làm bài ({{answers}} câu trả lời).",
+      "focus_one": "Tối nay sẽ xoá {{count}} sự kiện rời khỏi bài thi.",
+      "focus_other": "Tối nay sẽ xoá {{count}} sự kiện rời khỏi bài thi.",
+      "accounts_one": "Tối nay sẽ ẩn danh {{count}} tài khoản đã tắt.",
+      "accounts_other": "Tối nay sẽ ẩn danh {{count}} tài khoản đã tắt.",
+      "owners_one": "{{count}} tài khoản đã tắt được giữ nguyên vì còn sở hữu lớp hoặc nội dung.",
+      "owners_other": "{{count}} tài khoản đã tắt được giữ nguyên vì còn sở hữu lớp hoặc nội dung."
+    },
+    "plan": {
+      "title": "Gói và mức dùng",
+      "hint": "Chưa cấu hình gói cho trung tâm này.",
+      "named": "Gói {{name}}",
+      "namedRenews": "Gói {{name}} · gia hạn {{date}}",
+      "loadFailed": "Không tải được mức dùng.",
+      "seats": "Chỗ ngồi",
+      "media": "Dung lượng tệp media",
+      "imports": "Dung lượng tài liệu nhập",
+      "importsCount_one": "{{count}} lần nhập",
+      "importsCount_other": "{{count}} lần nhập",
+      "teachers": "Giáo viên",
+      "aiCredits": "Điểm AI",
+      "aiCreditsOf": "{{used}} / {{pool}} trong tháng này"
     }
+  },
+  "dataExport": {
+    "title": "Xuất dữ liệu",
+    "hint": "Tệp xuất toàn bộ dữ liệu của trung tâm.",
+    "back": "Dữ liệu và quyền riêng tư",
+    "cardTitle": "Yêu cầu xuất",
+    "requested": "Đã yêu cầu lúc",
+    "contents": "Nội dung",
+    "withAnswers": "Có câu trả lời",
+    "withoutAnswers": "Không có câu trả lời",
+    "size": "Dung lượng",
+    "expires": "Hết hạn lúc",
+    "status": {
+      "queued": "Đang chờ",
+      "running": "Đang xuất",
+      "ready": "Sẵn sàng",
+      "failed": "Lỗi",
+      "expired": "Đã hết hạn"
+    },
+    "waiting": {
+      "queued": "Yêu cầu đang chờ tới lượt. Trang này tự cập nhật.",
+      "running": "Đang tạo tệp. Trang này tự cập nhật."
+    },
+    "failed": "Không tạo được tệp xuất. Hãy yêu cầu xuất lại từ Cài đặt hệ thống.",
+    "expiredNote": "Liên kết đã hết hạn. Hãy yêu cầu xuất lại từ Cài đặt hệ thống.",
+    "download": "Tải xuống",
+    "downloadedAt": "Đã tải lúc {{time}}",
+    "missing": "Không tìm thấy bản xuất này",
+    "missingHint": "Bản xuất không tồn tại hoặc do người khác yêu cầu.",
+    "loadFailed": "Không tải được bản xuất."
   },
   "student": {
     "shell": {

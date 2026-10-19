@@ -192,3 +192,50 @@ export function servesPublicOrganization() {
 export function signInAsAdmin() {
   useAuthStore.getState().setSession("token-a", adminUser);
 }
+
+type Usage = components["schemas"]["Usage"];
+type RetentionImpact = components["schemas"]["RetentionImpact"];
+
+/** USAGE is the usage the Plan & usage section reads unless a test serves another. */
+export const USAGE: Usage = {
+  plan: { name: "Trung tâm", renewsOn: "2026-12-01" },
+  seats: { used: 412, limit: 500 },
+  teachers: { used: 18, limit: 25 },
+  media: { bytes: 2 * 1024 ** 3, limit: 5 * 1024 ** 3 },
+  imports: { bytes: 300 * 1024 ** 2, count: 14, limit: 1024 ** 3 },
+  attemptsKept: { count: 9120 },
+  aiCredits: { used: 6200, pool: 20000 },
+};
+
+/** servesUsage answers `GET /admin/usage` with `answer` and counts the reads. */
+export function servesUsage(answer: Usage = USAGE) {
+  const seen = { reads: 0 };
+  server.use(
+    http.get(`${BASE}/admin/usage`, () => {
+      seen.reads += 1;
+      return contractJson("/admin/usage", "get", 200, answer);
+    }),
+  );
+  return seen;
+}
+
+/** IMPACT is a retention impact that deletes something of every kind. */
+export const IMPACT: RetentionImpact = {
+  answers: { attempts: 120, answers: 3400 },
+  focusEvents: 56,
+  accounts: { anonymise: 3, skippedOwners: 1 },
+};
+
+/** servesRetentionImpact answers `POST /admin/settings/retention-impact` and records the policies asked about. */
+export function servesRetentionImpact(answer: RetentionImpact = IMPACT) {
+  const asked: Input["retention"][] = [];
+  server.use(
+    http.post(`${BASE}/admin/settings/retention-impact`, async ({ request }) => {
+      const body = (await request.json()) as { retention: Input["retention"] };
+      assertContractRequest("/admin/settings/retention-impact", "post", body);
+      asked.push(body.retention);
+      return contractJson("/admin/settings/retention-impact", "post", 200, answer);
+    }),
+  );
+  return asked;
+}

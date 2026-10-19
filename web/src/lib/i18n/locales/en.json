@@ -906,7 +906,9 @@
     "reload": "Reload",
     "sections": {
       "organization": "Organization",
-      "signIn": "Sign-in"
+      "signIn": "Sign-in",
+      "data": "Data & privacy",
+      "plan": "Plan & usage"
     },
     "organization": {
       "title": "Organization",
@@ -974,7 +976,100 @@
       "domainInvalid": "Not a valid domain.",
       "domainsTooMany": "At most 50 domains.",
       "noMethod": "Keep at least one way to sign in on."
+    },
+    "data": {
+      "title": "Data & privacy",
+      "hint": "How long Quizzivy keeps things.",
+      "keepAnswers": "Keep attempt answers",
+      "keepAnswersHint": "After this, students' answers are deleted overnight. Scores are kept.",
+      "keepFocus": "Keep focus-loss events",
+      "keepFocusHint": "After this, focus-loss events are deleted overnight.",
+      "anonymise": "Anonymise disabled accounts after",
+      "anonymiseHint": "Results are kept; name and email are removed.",
+      "options": {
+        "year1": "1 year",
+        "year2": "2 years",
+        "forever": "Forever",
+        "month6": "6 months",
+        "month13": "13 months (default)",
+        "never": "Never"
+      }
+    },
+    "export": {
+      "title": "Export all data",
+      "hint": "Emails you a link to download everything the centre holds.",
+      "request": "Request export",
+      "dialogTitle": "Export all data?",
+      "dialogHint": "The download link is emailed to you and works once.",
+      "sendTo": "Send the link to",
+      "includeAnswers": "Include attempt answers",
+      "includeAnswersHint": "Makes the file much larger",
+      "submit": "Request export",
+      "requested": "Export requested. The link will be sent to {{email}}",
+      "inProgress": "An export is already being prepared. Wait for its email before asking again.",
+      "rateLimited_one": "Only one export can be requested per hour. Try again in {{count}} minute.",
+      "rateLimited_other": "Only one export can be requested per hour. Try again in {{count}} minutes.",
+      "off": "Data export is not switched on for this server."
+    },
+    "retentionConfirm": {
+      "title": "Shorten how long data is kept?",
+      "hint": "The clean-up runs every night and cannot be undone.",
+      "confirm": "Save and delete",
+      "nothing": "Nothing would be deleted tonight.",
+      "answers_one": "Tonight will delete the answers of {{count}} attempt ({{answers}} answers).",
+      "answers_other": "Tonight will delete the answers of {{count}} attempts ({{answers}} answers).",
+      "focus_one": "Tonight will delete {{count}} focus-loss event.",
+      "focus_other": "Tonight will delete {{count}} focus-loss events.",
+      "accounts_one": "Tonight will anonymise {{count}} disabled account.",
+      "accounts_other": "Tonight will anonymise {{count}} disabled accounts.",
+      "owners_one": "{{count}} disabled account is kept because it still owns classes or content.",
+      "owners_other": "{{count}} disabled accounts are kept because they still own classes or content."
+    },
+    "plan": {
+      "title": "Plan & usage",
+      "hint": "No plan is set for this centre.",
+      "named": "{{name}} plan",
+      "namedRenews": "{{name}} plan · renews {{date}}",
+      "loadFailed": "Usage could not be loaded.",
+      "seats": "Seats",
+      "media": "Media storage",
+      "imports": "Import document storage",
+      "importsCount_one": "{{count}} import",
+      "importsCount_other": "{{count}} imports",
+      "teachers": "Teachers",
+      "aiCredits": "AI credits",
+      "aiCreditsOf": "{{used}} of {{pool}} this month"
     }
+  },
+  "dataExport": {
+    "title": "Data export",
+    "hint": "A file of everything the centre holds.",
+    "back": "Data & privacy",
+    "cardTitle": "Export request",
+    "requested": "Requested",
+    "contents": "Contents",
+    "withAnswers": "With attempt answers",
+    "withoutAnswers": "Without attempt answers",
+    "size": "Size",
+    "expires": "Expires",
+    "status": {
+      "queued": "Queued",
+      "running": "Running",
+      "ready": "Ready",
+      "failed": "Failed",
+      "expired": "Expired"
+    },
+    "waiting": {
+      "queued": "The request is waiting its turn. This page updates by itself.",
+      "running": "The file is being built. This page updates by itself."
+    },
+    "failed": "The export could not be built. Request another from System settings.",
+    "expiredNote": "The link has expired. Request another from System settings.",
+    "download": "Download",
+    "downloadedAt": "Downloaded {{time}}",
+    "missing": "This export was not found",
+    "missingHint": "It does not exist, or somebody else requested it.",
+    "loadFailed": "The export could not be loaded."
   },
   "student": {
     "shell": {
