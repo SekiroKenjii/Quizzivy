@@ -169,10 +169,11 @@ module:
 | package | holds |
 |---|---|
 | `core` (`core.go`) | `App`: config, signals, lifecycle, `Handler()`, `Serve()` |
-| `core/wiring` | `Build`: one file per module, repository → `Application` → transport, in dependency order, starting with `access.go`, which refuses a database whose `app.permissions` lacks a key this binary knows; returns the `Assembly` (transports, the access application as `Principals`, token issuer, identity application, the AI `Completer` and the AI credits application). `ai.go` builds the AI module over the provider, which is nil without `ANTHROPIC_API_KEY`; `organization.go` builds the organization module over the media bucket, so a logo is stored when storage is configured and an upload answers `501` when it is not, and hands identity and classes its `SignInPolicy` query; `import_worker.go` gives the import worker the same provider and credits (`scanReader`) when the key is set, and no reader when it is not; `exports.go` builds the data export over the import bucket (a nil application, so `501`, without the import worker's configuration) and `ExportsWorker`, the runner the import worker drains after its own queue; `email.go` builds `Mail`, the email outbox modules enqueue into and the dispatcher that sends it (Resend, or the sink directory outside production), which `Serve` and the import worker both run |
-| `core/adapters` | platform clients behind module ports (`Google`, `AudioProbe`, and `AI`, the Anthropic client behind the ai module's `Completer`), one module's handlers behind another's port (`Media`, `MediaKinds`, and `ai_reads.go`: the tests, questions, attempts and identity reads the AI operations take), and `Principals`: the access module's `ResolvePrincipal` as `httpx.PrincipalResolver`. `adapters.NewAI` returns a nil `Completer` without the key, and every AI operation then answers `501 AI_OFF` and `GET /public/status` says `ai: false`, as media does without storage; `PDFPages` draws a scan's pages for the worker's AI reader |
+| `core/wiring` | `Build`: one file per module, repository → `Application` → transport, in dependency order, starting with `access.go`, which refuses a database whose `app.permissions` lacks a key this binary knows; returns the `Assembly` (transports, the access application as `Principals`, token issuer, identity application, the AI `Completer` and the AI credits application). `ai.go` builds the AI module over the provider, which is nil without `ANTHROPIC_API_KEY`; `organization.go` builds the organization module over the media bucket, so a logo is stored when storage is configured and an upload answers `501` when it is not, and hands identity and classes its `SignInPolicy` query; `import_worker.go` gives the import worker the same provider and credits (`scanReader`) when the key is set, and no reader when it is not; `user_imports.go` gives identity the user imports when the import worker is configured (none, so `501`, without it) and builds `UserImportsWorker`, the runner the import worker drains after its own queue; `exports.go` builds the data export over the import bucket (a nil application, so `501`, without the import worker's configuration) and `ExportsWorker`, the runner the import worker drains after the user imports; `content_transfer.go` gives identity the adapter that moves one user's content to another; `email.go` builds `Mail`, the email outbox modules enqueue into and the dispatcher that sends it (Resend, or the sink directory outside production), which `Serve` and the import worker both run |
+| `core/adapters` | platform clients behind module ports (`Google`, `AudioProbe`, and `AI`, the Anthropic client behind the ai module's `Completer`), one module's handlers behind another's port (`Media`, `MediaKinds`, and `ai_reads.go`: the tests, questions, attempts and identity reads the AI operations take), and `Principals`: the access module's `ResolvePrincipal` as `httpx.PrincipalResolver`. `adapters.NewAI` returns a nil `Completer` without the key, and every AI operation then answers `501 AI_OFF` and `GET /public/status` says `ai: false`, as media does without storage; `PDFPages` draws a scan's pages for the worker's AI reader; `ContentTransfer` moves a user's classes, tests, questions, media and assignments in one transaction; `LogoStore` and `LogoChecker` (through `imagesafe`) are the organization's logos; `ExportTable` and `UserImportTables` write and read a table through `tabular`, and `UserImportBudget` is the outbox's daily allowance |
 | `core/router` | `Deps`, whose `Principals` resolves who a request acts as for the permission and docs gates (`New` refuses a nil one), `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/livez`, `/healthz`, `/docs`, the `/admin` alias until v0.9.1 (T-R3.3)), `RateLimits` (per address or body field) and `PrincipalRateLimits` (per signed-in user) for contract operations, and `ServiceRateLimits` for the routes beside it |
 | `core/jobs` | background commands (`PruneRefreshTokens`, whose 24-hour tick also runs `Housekeep`, the daily housekeeping whose steps `core/housekeeping.go` assembles, `PruneNotifications`, `RunEmail`, which sends the outbox in the API and in the worker, and `ReleaseStaleAiReservations`, which runs only when the provider is configured) |
+| `core/maintenance` | the operator's commands `cmd/maintenance` runs as `quizzivy_maintenance` (`MAINTENANCE_DATABASE_URL`, never set on the API): `retention-sweep`, which `.github/workflows/retention-sweep.yml` runs nightly, `retain-integrity`, `anonymize-user`, the maintenance windows, `rekey-join-codes`, `ai-credits` and `ai-reservations-sweep`; writes are dry runs until `-apply`, and the role holds what `00139_grant_maintenance_role.sql` grants, so a command that needs more grants it in its own migration |
 | `platform/httpserver` | the HTTP server, its timeouts and graceful shutdown |
 
 A new module is wired in `wiring/<module>.go`. An optional dependency stays a
@@ -193,12 +194,17 @@ web/               quizzivy-web
                    pages are in features/<name>/pages/teacher/ and an Admin's in
                    features/<name>/pages/admin/, the shells in layouts/TeacherLayout.tsx,
                    layouts/AdminLayout.tsx and layouts/shell/; features/notifications
-                   is the bell and its preferences in both consoles
+                   is the bell and its preferences in both consoles; users, roles, audit,
+                   exports, organization, ai-credits and api-reference are the Admin
+                   console's (admin-overview holds the Overview's placeholder until T-R5.21)
   tests/           units/ integration/ e2e/ support/ -- see web/tests/README.md
 server/            Go module `quizzivy`: a modular monolith
   internal/core/     composition root: wiring/ router/ adapters/ jobs/
-  internal/platform/ technical adapters (db context + repository base, storage, google, probe, httpx, httpserver, apidocs, anthropic, email, secrets, ...);
-                     anthropic is the AI provider's client and the only package that imports its SDK
+  internal/platform/ technical adapters (db context + repository base, storage, google, probe, httpx, httpserver, apidocs, anthropic, email, secrets, tabular, imagesafe, ...);
+                     anthropic is the AI provider's client and the only package that imports its SDK;
+                     email is the outbox, its templates and its senders (Resend, or a sink directory);
+                     secrets seals short-lived values under SECRETS_KEY; tabular writes the CSVs people
+                     download and reads the CSV and XLSX files they upload
   internal/shared/   kernel: cqrs, actor, paging, audit, stats, opt, validation, content,
                      access (permission keys, Principal, Scope, CanActOn), visibility (who a teacher reaches),
                      answered (when a saved answer counts as answered), schedule (the assignment status and close rules, a student's override of them, and the lock and recompute that move a deadline in progress)
@@ -208,9 +214,13 @@ server/            Go module `quizzivy`: a modular monolith
                      ai (the provider port, the credits and the eight suggestions) is D4's, with
                      domain/prompts/ for each feature's prompt and schema;
                      notifications (the store, the kinds and their producers, the
-                     due-time items, a user's switches) is R4's
+                     due-time items, a user's switches) is R4's;
+                     organization (the centre's one settings document: details, logos, sign-in
+                     policy, retention), audit (the Admin console's read of the audit log) and
+                     exports (an Admin's data export) are R5's; identity's and exports'
+                     application/worker/ is the runner cmd/import-worker drives
   tests/             end-to-end tests (build tag e2e)
-  gen/openapi/       generated, committed, never hand-edited
+  gen/openapi/       generated, committed, never hand-edited (gen/contract/ too)
 migrations/        goose, forward-only, 00001…
 seed/              seed data — never in a migration
 docs/plan/         the plan; 20-data-model.md is the schema authority; 70–81 are Phase R
@@ -267,7 +277,16 @@ unit, integration and end-to-end in that order.
 - **The v0.7.0 `/admin/*` teaching paths answer until v0.9.1 (T-R3.3).** The router
   rewrites each to its new path (`LegacyAdminPaths`: a `/teacher/*` path, and
   `DELETE /admin/students/{id}` to `DELETE /admin/users/{id}`) and logs
-  `legacy_admin_path`. A new operation never joins that table.
+  `legacy_admin_path`. A new operation never joins that table. `GET` and
+  `POST /admin/classes` left it in R5: they are the Admin console's
+  `listAllClasses` and `createClassForTeacher` (D-053).
+- **The Admin console's operations are under `/admin/*`** and declare an Admin
+  key: that tree takes `people.users.manage`, `people.roles.manage`, the
+  `system.*` keys, `ai.credits.manage`, `scope.all` and `workspace.admin`, and
+  is the only tree that may name a hidden key (`scope.all`,
+  `system.api_reference`, `system.data_export`, `system.leads`), which only the
+  Admin wildcard holds (`httpx.PermissionRequirements`). The console's web
+  routes and their guard are under "Design".
 - **Everything the contract does not explicitly open requires a bearer token**,
   derived from `api/openapi.yaml`'s `security`. Eleven operations are open —
   login, Google sign-in, refresh, logout, `POST /join/preview`, the integrity
@@ -358,7 +377,7 @@ Use `localhost` for both, never a `127.0.0.1`/`localhost` split — that is
 cross-site and hides the cookie behaviour described in
 `docs/plan/00-overview.md` §4.1.
 
-Four local-dev facts worth not rediscovering:
+Six local-dev facts worth not rediscovering:
 
 - **The `postgres:18` image changed its data layout.** The volume mounts at
   `/var/lib/postgresql`, and the image puts data in a version subdirectory
@@ -367,7 +386,10 @@ Four local-dev facts worth not rediscovering:
 - **Roles are created by `docker/initdb/`, not by a migration.** `CREATE ROLE`
   needs superuser and `quizzivy_migrate` deliberately is not one. `pg_trgm` and
   `unaccent` are *trusted* extensions, so the migrate role can install them
-  itself — verified.
+  itself — verified. A volume made before R5 has no `quizzivy_maintenance`, and
+  migration 00139 fails for want of it: run
+  `docker compose exec -T -e PGUSER=postgres db /provision/provision-db.sh`
+  once (`scripts/provision-db.sh`, idempotent).
 - **The API refuses to start without `JOIN_CODE_KEY`** in `.env`: standard
   base64 of exactly 32 random bytes, generated with `openssl rand -base64 32`.
   A code sealed under a key the server no longer holds can be neither read nor
@@ -376,9 +398,23 @@ Four local-dev facts worth not rediscovering:
 - **`make test-api`'s end-to-end tier needs MinIO** (`make up`): the isolation
   suite uploads real images, audio and Word sources, through the compose
   endpoint and buckets unless `S3_*` and `IMPORT_S3_BUCKET` say otherwise.
+- **Without Resend, email lands in a directory.** Without
+  `RESEND_API_KEY`, `EMAIL_FROM` and `APP_URL` (production refuses to start
+  without them), every message, a set-password
+  link included, is a JSON file under `EMAIL_SINK_DIR` (default
+  `tmp/email-sink`, relative to the process: `server/tmp/email-sink` under
+  `make dev`). Without `SECRETS_KEY` a message that carries a secret cannot be
+  queued at all.
+- **The import worker runs more than Word imports.** `cmd/import-worker` drains
+  Word imports, then user imports, then data exports, and sends the email
+  outbox as the API does. Without `IMPORT_PROCESSING_ENABLED` user imports and
+  the data export answer `501`; `make dev` sets it, and starts the worker, when
+  `IMPORT_S3_BUCKET` is set.
 
-Two database roles: `quizzivy_migrate` owns the schema and runs goose;
-`quizzivy_app` is what the API connects as and owns nothing.
+Three database roles: `quizzivy_migrate` owns the schema and runs goose;
+`quizzivy_app` is what the API connects as and owns nothing;
+`quizzivy_maintenance` is what `cmd/maintenance` connects as, with the column
+grants of migration 00139, and is never set on the API.
 
 ## Migrations
 

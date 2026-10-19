@@ -14,7 +14,8 @@ audio probe implementation, and build order.
 Phase R (the redesign) records its eighteen decisions in
 `70-redesign-overview.md` §1 and its design questions in `docs/design/gaps.md`;
 questions that come up during a release go into that release's plan file under
-"Open items" and move here at the release's docs task (R4's are O-R4.1 to O-R4.23, below).
+"Open items" and move here at the release's docs task (R4's are O-R4.1 to O-R4.23, R5's
+O-R5.1 to O-R5.12, below).
 
 ---
 
@@ -623,6 +624,80 @@ as T-R5.36 (`75-r5.md`), before T-R5.11's `/admin/classes`.
 **Default:** unchanged. `attempt.integrity.flagged` is in the student's attempt and result payloads
 since v0.9.0 and carries a teacher's manual flag too. The student screens never show it. R5
 decides whether the student payload drops it.
+
+---
+
+## Phase R — R5's open items (v0.12.0)
+
+R5's questions, moved here from `75-r5.md` "Open items" at the release
+(T-R5.32). Each default is what v0.12.0 ships unless the entry says otherwise;
+an answer that differs becomes a task in the release it names.
+
+### O-R5.1 — Resend plan and the daily budget · before the first import by email
+**Default:** Resend's free tier, 100 emails a day and 3,000 a month. `EMAIL_DAILY_LIMIT` is 100
+(`fly.toml`) and moves the excess to the next local midnight in `APP_TIMEZONE`
+(`docs/setup/operations.md`, "Outgoing email"). Thuong decides whether to upgrade before the first
+class-sized import by email, and raises `EMAIL_DAILY_LIMIT` with the plan.
+
+---
+
+### O-R5.2 — Bounces and complaints · R7
+**Default:** no Resend webhook in R5. A hard bounce shows only as a failed outbox row
+(`last_error_code`) and in the dispatcher's log. R7 adds Resend's signed webhook
+(`POST /public/email-events`, `RESEND_WEBHOOK_SECRET`) and `app.email_suppressions`, which the
+dispatcher skips (`70-redesign-overview.md` D9).
+
+---
+
+### O-R5.3 — "Send the link to" on Export all data · design
+**Default:** built read-only with the requester's own address (`ExportDataDialog`): a notice about
+a full export of personal data has no reason to go anywhere else. The deck draws an editable
+field; the design team is asked to redraw it.
+
+---
+
+### O-R5.4 — Enforcing a temporary password on the server · decided 2026-10-14 (D-011)
+**Decided:** built as the default. While `must_change_password` is set, `RequirePermission` answers
+`403 PASSWORD_CHANGE_REQUIRED` to every operation but `getCurrentUser`, `changePassword`, `logout`
+and `refreshSession`; the flag rides in the cached principal. The web client sends that code to
+`/change-password` in every workspace, never to the 403 page, and the change needs no current
+password while the flag is set. Open operations are untouched. A session in flight sees the 403
+once and is routed; the release notes say so.
+
+---
+
+### O-R5.5 — An Admin's Students and Classes lists in the teacher workspace · any release
+**Default:** unchanged in v0.12.0. Content lists show the caller's own rows for everyone (DG-53,
+O-R4.17), while Students and Classes keep their `scope.all` lists now that the console's Users and
+Classes exist (`70-redesign-overview.md` §4.1). Narrowing them to the Admin's own rows is Thuong's
+call.
+
+---
+
+### O-R5.6 — Self-join by an Admin who takes tests · any release
+**Default, not built in v0.12.0:** refuse the self-join on the server through
+`app.student_like_roles` in the enrol path, and hide the student app's join links for a user who
+is not a strict student. Today turning on the Admin's Take tests (DG-51) opens the student app,
+and `joinClass`, which needs only `learning.take_tests`, accepts the Admin. Rosters, resets and
+assignment targets never treat the Admin as a student, and JoinPage still says joining is for
+students (`72-r2.md` open items, T-R2.17). Thuong decides.
+
+---
+
+### O-R5.7 — The paused-control sweep · R6 (D-029)
+**Default:** one sweep after R5, as the first R6 task that touches one of the listed features or a
+task of its own at R6's start, whichever comes first. A focusable control paused with
+`aria-disabled` and faded by `opacity` draws its focus ring at 2.0 to 2.6:1 against the 3:1 the
+repo requires. R5 fixed the shared pieces its screens reuse (`FormDialog`'s submit, `DirtyBar`,
+`BulkActions`' deck bar, the join-code controls) and holds the rest with
+`web/tests/units/styles/paused-opacity.test.ts`, whose baseline is the list: the count per file is
+exact, the failure names `file:line`, and the scan (`tests/support/pausedOpacity.ts`) reads the
+variant's usual spellings and a plain `opacity-*` or `style` opacity on an element that declares
+`aria-disabled`. It does not see a class held in a constant, a template, `cva`, a spread or an
+ancestor, nor a quoted attribute value, so review still applies. Each touched screen is compared
+with the deck at five widths in both themes. The take-test engine and the audio player
+(`AudioPlayer.tsx`, `QuestionBody.tsx`, the navigator) go in a separate PR, with the audio canary
+and the engine's unit tests run before and after.
 
 ---
 

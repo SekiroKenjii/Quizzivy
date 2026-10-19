@@ -29,6 +29,12 @@ GRANT CONNECT ON DATABASE quizzivy TO quizzivy_app;
 API connects as and never owns anything (§13.5). `pg_trgm` is a trusted extension
 in PG13+, so `quizzivy_migrate` can install it without superuser.
 
+Since R5 a third role, `quizzivy_maintenance` (`LOGIN`, `CONNECTION LIMIT 2`), is
+what `cmd/maintenance` connects as (`MAINTENANCE_DATABASE_URL`). All three are
+created by `scripts/provision-db.sh`, which the compose `initdb` hook runs too, and
+the new one gets `CONNECT` like the app role; `00139` grants it the columns its
+commands use and fails when it is missing (§55, D-60).
+
 ---
 
 ## 2. Foundations
@@ -358,9 +364,9 @@ reads the table once (100,000 rows: 18 ms). Grants are unchanged: the app role s
   per the schema-design reference.
 - `actor_user_id ON DELETE SET NULL` — an audit row must survive the actor. The
   only nullable-actor case besides deletion is a system action.
-- No `(occurred_at DESC)` index yet. §8 has no global audit screen, and §13.6
-  says to leave skip scan passive rather than adding indexes preemptively. Add it
-  with the screen that needs it.
+- No `(occurred_at DESC)` index until R5. §8 had no global audit screen, and §13.6
+  says to leave skip scan passive rather than adding indexes preemptively. The
+  Admin console's audit log is the screen that needs it, and `00133` above adds it.
 
 Required entries per §13.4: class enrolment, join-code generation and rotation,
 attempt reset/void/extend, password reset, media deletion, test publish. Each is
@@ -1405,6 +1411,9 @@ listed here matches the spec.
 | D-57 | Add `user_import_rows`, the rows of a job that passed, with `PRIMARY KEY (job_id, ordinal)` and a sealed password that only a created row may hold | `ordinal` counts the stored rows from 0 (not the file's lines) and is also a row's place in the hand-out sheet. `full_name` and `email` are kept as the file spelled them, trimmed and composed (NFC), and the account takes the same. `outcome` is `pending` until the worker settles the row as `created` (`user_id` is the account) or `skipped_exists`. `secret_ciphertext` holds the temporary password of a row created for a sheet, sealed under `SECRETS_KEY` with the job id and ordinal as associated data; `user_import_rows_secret_only_when_created` makes a password exist only beside the account it opens, and the transaction that hands the sheet out erases it. `user_id` and `class_id` are `ON DELETE SET NULL`, so a row outlives the account and the class it created or named, each with a partial index for the cascade. The housekeeping step `import_sheets` erases the ciphertexts of a sheet nobody downloaded within its 24 hours (D-038); a download and a failure erase them at once. The rows keep names and addresses until the housekeeping step `import_jobs` removes the job 30 days after it finished, the rows by the cascade. That cascade and the `SET NULL` of a class or user delete visit the same rows in different orders and can deadlock, a known limit (D-044). See §54 |
 | D-58 | Add `users_search_trgm_idx`, a gin `gin_trgm_ops` index on `app.immutable_unaccent(lower(full_name \|\| ' ' \|\| email))`, built `CONCURRENTLY` | The Users search of the Admin console (`listUsers`, `q`, T-R5.9a) is a `LIKE '%…%'` over that expression, which no b-tree serves, and it runs up to three times a request (the count, the facets, a sparse page). §13.6 held an index back until there was evidence; QC measured 99 ms with no filter, 400 ms for `q=nghe` and about 1 s for a search that finds nothing at 100,000 accounts (1.3 to 5 s at 500,000), and an index over this expression took them to 71 ms and 4 ms once the table is analysed (QC-N-5). Creating an index never wakes autovacuum, and without statistics for the expression the page of a search that finds nothing walks `users_pkey` backwards (346 ms at 100,000, 3.8 s at 500,000), so the file ends with `ANALYZE app.users` (QC-N-13). The expression is `repositories.UserSearchText`, shared by the query and the test; `users_search_index_test.go` EXPLAINs it and the count, page and facets statements the directory sends, so a change to the constant, to the index, or to the clause the directory builds fails it (QC-N-14). The index reads `full_name` and `email` only, so an update of any other column stays heap-only; it adds a gin pending-list entry for each insert and each rename. A query of one or two characters has no trigram and still scans. Changing the `unaccent` dictionary needs a `REINDEX`, as for every index on `app.immutable_unaccent` (00001). The file is `NO TRANSACTION` and drops any invalid leftover first, as 00133 does |
 | D-59 | Add `avatar_sweeps`, one row for each anonymised account whose profile photo objects the housekeeping removed, `user_id` the primary key and `ON DELETE CASCADE`, and the app role holds `SELECT` and `INSERT` only | Anonymisation (T-R5.17a) runs as the maintenance role, which holds no storage credential, so it clears `users.avatar_key` and leaves the objects under `avatars/{user_id}/`; the API's daily housekeeping deletes them (T-R5.16, D-050). Nothing else records which anonymised accounts still have objects, so without a mark every run would list every anonymised account's prefix for ever, and listing the whole `avatars/` prefix instead would read every live photo daily and lose its place on a restart. The row is written only once the prefix is empty, so a failed list or delete leaves the account due for the next run, and an account is listed once. It is a table of its own, not a column on `users`: the maintenance guard (D-042) pins what an anonymised row holds, and the mark is the API's state, not the account's. `REVOKE UPDATE, DELETE` makes a mark permanent for the application; it goes only with its account. No index beyond the key: the pick reads `users` by the anonymised shape and anti-joins this table, and D-050 names the revisit at about 100,000 anonymised accounts. See §56 |
+| D-60 | A third role, `quizzivy_maintenance`, created outside migrations (§1); `00139` grants it table by table and column by column only what `cmd/maintenance`'s commands read and write: `INSERT` alone on `audit_log`, `DELETE` only where a command deletes, nothing on a sequence or on `ai_usage_ledger`, `USAGE` on schemas `app` and `public` and `CREATE` on neither. The file fails when the role is missing, and adds `users_maintenance_guard`, a `BEFORE UPDATE` trigger on `users` fired only for this role, which refuses (`42501`) an update that does not leave the row anonymised | §13.5 had two roles, and before R5 `MAINTENANCE_DATABASE_URL` named the owner or another privileged role. The retention sweep runs unattended from a nightly workflow (T-R5.17a, D16), so its credential holds the least the commands need, and a grant nothing uses is a fault too: `privileges_test.go` compares the role's effective column privileges with §55's table in both directions. There is no conditional grant, so a database that migrates has the role. The `UPDATE` on the login columns that anonymising needs is also what a leaked credential would use to take an account over, so the guard pins the anonymised shape (D-042). It reads no ownership: by direct SQL the role can still anonymise any account but the last active Admin, a teacher's included, and only the sweep and `anonymize-user` skip owners (D-045). See §55 |
+| D-61 | An answer the retention sweep removes keeps its `attempt_answers` row, with `payload` replaced by the marker `{"removed": true}` (`retention.RemovedAnswer`); no column is added | Only the response goes: `auto_score`, `manual_score`, the grader's comment and the grader stay, so no result or average moves (plan 75, "Removing answers keeps scores and comments"). The marker is a JSON object, which the existing `jsonb_typeof(payload) = 'object'` check accepts, so neither T-R5.17a nor T-R5.17b needed a migration. It has no `type`, so no real answer shape can be mistaken for it and `answered.SaysSomething` counts it as saying nothing. Every reader goes through one test: `attempts/domain.AnswerRemoved` in Go, and an equality with `retention.RemovedAnswer` in SQL, where `answered.AwaitsGrade` drops it from every count of answers awaiting a mark (`attempt_answers_pending_idx` still serves them, the marker filtering the rows it returns), a grade naming one is refused whole (`409 ANSWER_REMOVED`), the sweep and the settings page's impact count skip a row already removed, and the data export's `removed` column reports it. See §55 |
+
 ---
 
 ## 13. Migration inventory
@@ -1538,12 +1547,13 @@ the file it adds.
 | `00130_create_organization_settings.sql` | `organization_settings`, the singleton, its checks and `updated_at` trigger, the one row the migration writes, and `REVOKE INSERT, DELETE` from the app role | R5 (T-R5.5), D-53, §51 |
 | `00131_add_users_activity.sql` | `users.last_active_at`, `last_sign_in_at`, `last_sign_in_method` (`users_last_sign_in_method_check`), `password_changed_at`, all nullable; backfills the first two | R5 (T-R5.4), D-52, §50 |
 | `00132_create_user_activity_days.sql` | `user_activity_days (user_id REFERENCES users ON DELETE CASCADE, day date, PRIMARY KEY (user_id, day))` and `user_activity_days_day_idx (day)` | R5 (T-R5.4), D-52, §50 |
+| `00133_index_audit_log_recency.sql` | `audit_log_recent_idx (occurred_at DESC, id DESC)`, `CONCURRENTLY` (no transaction), dropping an invalid leftover first; grants unchanged | R5 (T-R5.12), §5 |
 | `00134_create_data_exports.sql` | `data_exports`, its checks (`data_exports_ready_has_file`, `data_exports_failed_has_code`), the active index `data_exports_active_idx` and `data_exports_requested_by_idx` | R5 (T-R5.15), D-54, §52 |
 | `00135_create_set_password_tokens.sql` | `set_password_tokens`, its checks (`token_hash` length, `purpose`, the 24-hour bound), `set_password_tokens_token_hash_key` and `set_password_tokens_user_idx` | R5 (T-R5.3), D-55, §53 |
-| `00136_create_user_import_jobs.sql` | `user_import_jobs`, its checks (counts, `attempts`, `user_import_jobs_done_settled`, `user_import_jobs_failed_has_code`, `user_import_jobs_completed_has_end`, `user_import_jobs_started_once_claimed`, `user_import_jobs_sheet_only_by_sheet`), `user_import_jobs_request_key` and the open-jobs index `user_import_jobs_open_idx` | R5 (T-R5.14), D-56, §55 |
-| `00137_create_user_import_rows.sql` | `user_import_rows`, its checks (`user_import_rows_outcome_check`, `user_import_rows_secret_only_when_created`) and the `user_id` and `class_id` partial indexes | R5 (T-R5.14), D-57, §55 |
+| `00136_create_user_import_jobs.sql` | `user_import_jobs`, its checks (counts, `attempts`, `user_import_jobs_done_settled`, `user_import_jobs_failed_has_code`, `user_import_jobs_completed_has_end`, `user_import_jobs_started_once_claimed`, `user_import_jobs_sheet_only_by_sheet`), `user_import_jobs_request_key` and the open-jobs index `user_import_jobs_open_idx` | R5 (T-R5.14), D-56, §54 |
+| `00137_create_user_import_rows.sql` | `user_import_rows`, its checks (`user_import_rows_outcome_check`, `user_import_rows_secret_only_when_created`) and the `user_id` and `class_id` partial indexes | R5 (T-R5.14), D-57, §54 |
 | `00138_index_users_search.sql` | `users_search_trgm_idx`, built `CONCURRENTLY` (no transaction) | R5 (T-R5.9a), D-58 |
-| `00139_grant_maintenance_role.sql` | the grants of `quizzivy_maintenance`, column by column; fails when the role is missing; `app.users_maintenance_guard()` and its trigger `users_maintenance_guard` on `app.users` | R5 (T-R5.17a), §55 |
+| `00139_grant_maintenance_role.sql` | the grants of `quizzivy_maintenance`, column by column; fails when the role is missing; `app.users_maintenance_guard()` and its trigger `users_maintenance_guard` on `app.users` | R5 (T-R5.17a), D-60, §55 |
 | `00140_create_avatar_sweeps.sql` | `avatar_sweeps` and the `REVOKE UPDATE, DELETE` from the app role | R5 (T-R5.16), D-59, §56 |
 
 Notes on migration mechanics (§13.7):
@@ -1559,7 +1569,8 @@ Notes on migration mechanics (§13.7):
 - **No `CREATE INDEX CONCURRENTLY` in `00001`–`00022`.** They create empty
   tables, where a plain `CREATE INDEX` is instant and transactional.
   `CONCURRENTLY` becomes mandatory once an index is added to a populated table
-  (`00029`, `00036`, `00038`, `00057`, `00071`–`00077`), and each such file
+  (`00029`, `00036`, `00038`, `00057`, `00071`–`00077`, `00112`, `00127`, `00133`,
+  `00138`), and each such file
   gets `-- +goose NO TRANSACTION`, because
   [CREATE INDEX CONCURRENTLY cannot run inside a transaction block](https://www.postgresql.org/docs/18/sql-createindex.html)
   and leaves an `INVALID` index if it fails.
@@ -3899,7 +3910,7 @@ the sheet's single use) and `server/tests/user_import_flow_test.go` (the router 
 
 ## 55. The maintenance role and the retention sweep (T-R5.17a, D16)
 
-`00139_grant_maintenance_role.sql` gives `quizzivy_maintenance` what `cmd/maintenance` uses and nothing else.
+`00139_grant_maintenance_role.sql` gives `quizzivy_maintenance` what `cmd/maintenance` uses and nothing else (D-60).
 `scripts/provision-db.sh` creates the role (`LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE CONNECTION LIMIT 2`,
 password from `QUIZZIVY_MAINTENANCE_PASSWORD`) and grants it `CONNECT`, as it does the other two. On a database
 that is not local it sets that password and no other, and grants no `CREATEDB`; a local run keeps the development
@@ -3984,7 +3995,7 @@ is `shared/retention.EndedBefore`, which the sweep, its dry run and the settings
 all build their SQL from, and the statuses are listed so that a status added later has to be considered. An
 attempt in progress is never eligible, however overdue, because the lazy close that ends it scores it from the
 stored answers; the report counts those as `overdueInProgress` (`OverdueInProgressBefore`). Each eligible
-answer whose `payload` is not already `{"removed": true}` gets that payload; the scores, comments and grader stay. A batch
+answer whose `payload` is not already `{"removed": true}` gets that payload (D-61); the scores, comments and grader stay. A batch
 is `-batch` attempts picked by id after the last one (a keyset, not an offset), their answers locked
 `FOR UPDATE OF x SKIP LOCKED`, and one `retention.answers_removed {cutoff, attempts, answers, databaseRole}`
 entry for the batch when it removed any. An answer row another transaction holds is skipped and taken by the next run.
