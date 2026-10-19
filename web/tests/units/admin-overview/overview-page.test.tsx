@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -10,6 +10,8 @@ import { contractJson } from "@tests/support/contractResponse";
 import { contentWidth } from "@tests/support/contentWidth";
 import { server } from "@tests/support/server";
 import { entry } from "@tests/units/audit/support";
+import { adminUser, studentUser } from "@tests/support/fixtures";
+import { useAuthStore } from "@/stores/auth";
 import "@/lib/i18n";
 
 const BASE = "http://localhost:8080";
@@ -76,9 +78,13 @@ function serve(overview: AdminOverview) {
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const router = createMemoryRouter([{ path: "/admin", element: <OverviewPage /> }], {
-    initialEntries: ["/admin"],
-  });
+  const router = createMemoryRouter(
+    [
+      { path: "/admin", element: <OverviewPage /> },
+      { path: "/admin/users", element: <p>trang người dùng</p> },
+    ],
+    { initialEntries: ["/admin"] },
+  );
   return render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
@@ -90,6 +96,10 @@ const loaded = () => screen.findByText("Quizzivy English Centre · 312 người"
 
 beforeEach(() => {
   contentWidth(1200);
+});
+
+afterEach(() => {
+  useAuthStore.getState().clearSession();
 });
 
 describe("the Overview's header and figures", () => {
@@ -139,6 +149,41 @@ describe("the Overview's header and figures", () => {
     expect(wide.parentElement).toHaveStyle({
       gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
     });
+  });
+});
+
+describe("the Add user button", () => {
+  it("opens the dialog in place for a holder of people.users.manage", async () => {
+    const actor = userEvent.setup({ delay: null });
+    useAuthStore.getState().setSession("token", adminUser);
+    server.use(
+      http.get(`${BASE}/admin/roles/assignable`, () =>
+        contractJson("/admin/roles/assignable", "get", 200, []),
+      ),
+      http.get(`${BASE}/admin/classes`, () =>
+        contractJson("/admin/classes", "get", 200, {
+          items: [],
+          total: 0,
+          page: 1,
+          limit: 100,
+        } as never),
+      ),
+    );
+    serve(FULL);
+    renderPage();
+    await loaded();
+    await actor.click(screen.getByRole("button", { name: "Thêm người dùng" }));
+    expect(
+      await screen.findByRole("dialog", { name: "Thêm người dùng" }),
+    ).toBeVisible();
+  });
+
+  it("is absent without the permission", async () => {
+    useAuthStore.getState().setSession("token", studentUser);
+    serve(FULL);
+    renderPage();
+    await loaded();
+    expect(screen.queryByRole("button", { name: "Thêm người dùng" })).toBeNull();
   });
 });
 

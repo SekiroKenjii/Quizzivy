@@ -1,13 +1,17 @@
-import type { ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { Trans, useTranslation } from "react-i18next";
-import { Activity, GraduationCap, LayoutGrid, Users } from "lucide-react";
+import { useNavigate } from "react-router";
+import { Activity, GraduationCap, LayoutGrid, UserPlus, Users } from "lucide-react";
 import { ADMIN_PATHS } from "@/app/adminPaths";
 import { BarChart, type BarChartSeries } from "@/components/shared/charts/BarChart";
 import { LoadError } from "@/components/shared/ListState";
 import { SettingsCard } from "@/components/shared/SettingsCard";
 import { KpiTile } from "@/components/shared/stats/KpiTile";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCan } from "@/features/auth/permissions";
+import { AddUserDialog } from "@/features/users/components/AddUserDialog";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { useContentWidthAtLeast } from "@/layouts/shell/contentWidth";
@@ -200,6 +204,10 @@ export default function OverviewPage() {
   const { t } = useTranslation();
   const query = useQuery(adminOverviewQuery());
   const data = query.data;
+  const manages = useCan("people.users.manage");
+  const navigate = useNavigate();
+  const addButton = useRef<HTMLButtonElement>(null);
+  const [adding, setAdding] = useState(false);
   const locale = useLocale();
   const people = data?.people ?? null;
   let description: string | undefined;
@@ -214,7 +222,27 @@ export default function OverviewPage() {
   }
   return (
     <div className="flex flex-col gap-5">
-      <PageHead title={t("adminOverview.title")} description={description} crumb />
+      <PageHead
+        title={t("adminOverview.title")}
+        description={description}
+        crumb
+        actions={
+          manages ? (
+            <Button ref={addButton} onClick={() => setAdding(true)}>
+              <UserPlus aria-hidden="true" />
+              {t("users.addUser.open")}
+            </Button>
+          ) : undefined
+        }
+      />
+      {manages ? (
+        <AddUserDialog
+          open={adding}
+          onOpenChange={setAdding}
+          returnFocus={addButton}
+          onCreated={(id) => void navigate(`${ADMIN_PATHS.users}?user=${id}`)}
+        />
+      ) : null}
       {data === undefined ? <KpiSkeleton /> : <Kpis data={data} />}
       <div className="flex flex-wrap gap-3">
         {data === undefined || data.dailyActive !== null ? (
