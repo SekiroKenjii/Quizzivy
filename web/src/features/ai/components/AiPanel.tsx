@@ -898,7 +898,7 @@ function PrimaryButton({
     <Button
       className={cn(
         FOOTER_BUTTON,
-        "max-w-full min-w-0 shrink max-[767px]:flex-[1_1_160px]",
+        "max-w-full min-w-0 shrink max-[767px]:flex-[1_1_160px] max-[379px]:basis-full",
       )}
       title={label}
       disabled={disabled}
