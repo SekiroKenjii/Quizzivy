@@ -390,7 +390,7 @@ are backend-only.
 **Three database roles** (§13.5): `quizzivy_migrate` owns the schema and runs
 `goose`; `quizzivy_app` has DML plus `USAGE` and is what the API connects as;
 `quizzivy_maintenance` holds 00139's column grants for `cmd/maintenance` (R5).
-Compose provisions both, so a missing grant fails locally rather than in
+Compose provisions all three, so a missing grant fails locally rather than in
 production.
 
 ## 10. Git workflow
