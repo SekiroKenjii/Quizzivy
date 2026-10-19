@@ -107,7 +107,12 @@ export function BuilderAiActions({ ai }: Readonly<{ ai: BuilderAi }>) {
           testId: ai.testId,
           passages: ai.passages,
           ...(ai.section !== null && ai.sectionId
-            ? { section: { id: ai.sectionId, title: ai.section } }
+            ? {
+                section: ai.sections.find((section) => section.id === ai.sectionId) ?? {
+                  id: ai.sectionId,
+                  title: ai.section,
+                },
+              }
             : {}),
           sections: ai.sections,
           destination: { kind: "section", title: ai.section ?? "" },

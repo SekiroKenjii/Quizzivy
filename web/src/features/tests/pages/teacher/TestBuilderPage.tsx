@@ -105,6 +105,7 @@ import {
 import { GroupPickerDialog } from "../../components/GroupPickerDialog";
 import { BuilderWrites } from "../../BuilderWrites";
 import { BuilderAiActions, type BuilderAi } from "../../components/BuilderAiActions";
+import { aiPassagesIn, aiSections } from "../../aiSections";
 import {
   editableOutline,
   findMember,
@@ -1030,21 +1031,29 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   const ai: BuilderAi = {
     testId: test.id,
     title: title.trim() || t("tests.untitled"),
-    passages: groupIds.flatMap((groupId) => {
-      const bundle = groups.get(groupId);
-      if (!bundle) return [];
-      const group = { id: groupId, title: bundle.group.title || t("groups.newGroup") };
-      return bundle.group.stimuli.flatMap((stimulus) => {
-        const text = contentPlainText(stimulus.content).trim();
-        return text === ""
-          ? []
-          : [{ id: stimulus.id, title: stimulus.title, text, group }];
-      });
-    }),
+    passages: aiPassagesIn(
+      groupIds.flatMap((groupId) => {
+        const bundle = groups.get(groupId);
+        if (!bundle) return [];
+        const group = {
+          id: groupId,
+          title: bundle.group.title || t("groups.newGroup"),
+        };
+        return bundle.group.stimuli.flatMap((stimulus) => {
+          const text = contentPlainText(stimulus.content).trim();
+          return text === ""
+            ? []
+            : [{ id: stimulus.id, title: stimulus.title, text, group }];
+        });
+      }),
+      sections,
+    ),
     section: sections[destinationIndex()]?.title ?? null,
     sectionId: sections[destinationIndex()]?.id ?? null,
-    sections: sections.flatMap((section) =>
-      section.id ? [{ id: section.id, title: section.title }] : [],
+    sections: aiSections(
+      sections,
+      groups,
+      (questionId) => loaded[questionIds.indexOf(questionId)]?.data,
     ),
     prepare: async () => {
       setPublishError(null);
