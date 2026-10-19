@@ -337,7 +337,7 @@ function sourceFields(
     ...(values.fitSection && offered.length > 1
       ? [
           {
-            kind: "seg" as const,
+            kind: "select" as const,
             label: t("ai.generate.section"),
             options: offered.map((item) => ({ value: item.id, label: item.title })),
             value: section.id,

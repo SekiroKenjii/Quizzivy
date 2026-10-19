@@ -83,6 +83,13 @@ export type AiField =
       onChange: (value: string) => void;
     }
   | {
+      kind: "select";
+      label: string;
+      options: readonly FormOption[];
+      value: string;
+      onChange: (value: string) => void;
+    }
+  | {
       kind: "toggle";
       text: string;
       sub?: string;
