@@ -15,12 +15,18 @@ import { SettingsLayout } from "@/components/shared/SettingsLayout";
 import { toast } from "@/components/ui/sonner";
 import {
   reloadOrganizationSettings,
+  retentionImpact,
+  type RetentionImpact,
   useSaveOrganizationSettings,
   type OrganizationSettings,
 } from "@/features/organization/api";
 import { controlId } from "@/features/organization/controls";
 import { editsSince } from "@/features/organization/editsSince";
+import { RetentionConfirm } from "@/features/organization/components/RetentionConfirm";
+import { retentionShortened } from "@/features/organization/retention";
+import { DataPrivacySection } from "@/features/organization/sections/DataPrivacy";
 import { OrganizationSection } from "@/features/organization/sections/Organization";
+import { PlanUsageSection } from "@/features/organization/sections/PlanUsage";
 import { SignInSection } from "@/features/organization/sections/SignIn";
 import {
   formValues,
@@ -89,6 +95,7 @@ export function SettingsForm({
   const [stale, setStale] = useState(false);
   const [refusal, setRefusal] = useState<SignInRefusal | null>(null);
   const revision = useRef(saved.revision);
+  const persisting = useRef(false);
   const lastEdited = useRef("organization.name");
   const pendingFocus = useRef<string | null>(null);
 
@@ -99,7 +106,13 @@ export function SettingsForm({
   });
   const { reset, subscribe, formState, control } = form;
   const dirty = formState.isDirty;
-  const saving = save.isPending;
+  const [checking, setChecking] = useState(false);
+  const [confirming, setConfirming] = useState<{
+    values: SettingsFormOutput;
+    sent: unknown;
+    impact: RetentionImpact;
+  } | null>(null);
+  const saving = save.isPending || checking;
   useUnsavedSection("system-settings", dirty);
 
   const policy = useWatch({ control, name: "signIn" });
@@ -176,6 +189,24 @@ export function SettingsForm({
     setStale(false);
     setRefusal(null);
     const sent: unknown = JSON.parse(JSON.stringify(form.getValues()));
+    if (!retentionShortened(saved.retention, values.retention)) {
+      await persist(values, sent);
+      return;
+    }
+    setChecking(true);
+    try {
+      const impact = await retentionImpact(values.retention);
+      setConfirming({ values, sent, impact });
+    } catch (cause) {
+      setError(failureMessage(cause, t("api.failed")));
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function persist(values: SettingsFormOutput, sent: unknown) {
+    if (persisting.current) return;
+    persisting.current = true;
     try {
       const stored = await save.mutateAsync(settingsInput(values, revision.current));
       const typedSince = editsSince(sent, form.getValues());
@@ -188,6 +219,8 @@ export function SettingsForm({
       toast(t("settings.saved"));
     } catch (cause) {
       failed(cause, values);
+    } finally {
+      persisting.current = false;
     }
   }
 
@@ -207,17 +240,19 @@ export function SettingsForm({
     }
   }
 
+  function sectionContent(id: string) {
+    if (id === "sign-in") return <SignInSection verdict={verdict} saving={saving} />;
+    if (id === "data") return <DataPrivacySection saving={saving} />;
+    if (id === "plan") return <PlanUsageSection />;
+    return <OrganizationSection />;
+  }
+
   const sections = SYSTEM_SECTIONS.map(({ id, label, icon, to }) => ({
     id,
     label: t(label),
     icon,
     to,
-    content:
-      id === "sign-in" ? (
-        <SignInSection verdict={verdict} saving={saving} />
-      ) : (
-        <OrganizationSection />
-      ),
+    content: sectionContent(id),
   }));
 
   return (
@@ -258,6 +293,19 @@ export function SettingsForm({
           }
         />
       </form>
+      <RetentionConfirm
+        impact={confirming?.impact ?? null}
+        pending={save.isPending}
+        onCancel={() => {
+          if (!save.isPending) setConfirming(null);
+        }}
+        onConfirm={() => {
+          if (confirming === null) return;
+          void persist(confirming.values, confirming.sent).then(() =>
+            setConfirming(null),
+          );
+        }}
+      />
     </FormProvider>
   );
 }

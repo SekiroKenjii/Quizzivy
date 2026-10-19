@@ -1,4 +1,4 @@
-import { Building2, LogIn, type LucideIcon } from "lucide-react";
+import { Building2, Gauge, LogIn, ShieldCheck, type LucideIcon } from "lucide-react";
 import { ADMIN_PATHS } from "@/app/adminPaths";
 
 /**
@@ -33,6 +33,20 @@ export const SYSTEM_SECTIONS: readonly SystemSection[] = [
     icon: LogIn,
     to: `${ADMIN_PATHS.settings}/sign-in`,
     owns: "signIn",
+  },
+  {
+    id: "data",
+    label: "systemSettings.sections.data",
+    icon: ShieldCheck,
+    to: `${ADMIN_PATHS.settings}/data`,
+    owns: "retention",
+  },
+  {
+    id: "plan",
+    label: "systemSettings.sections.plan",
+    icon: Gauge,
+    to: `${ADMIN_PATHS.settings}/plan`,
+    owns: "usage",
   },
 ];
 
