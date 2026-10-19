@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowRightLeft, UserCog, UserX } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -69,6 +69,7 @@ export function ChangeRoleConfirm({
   role,
   canDisable,
   canTransfer,
+  returnFocus,
   onDisable,
   onTransfer,
   onClose,
@@ -78,6 +79,7 @@ export function ChangeRoleConfirm({
   role: AssignableRole | null;
   canDisable: boolean;
   canTransfer: boolean;
+  returnFocus?: RefObject<HTMLElement | null> | undefined;
   onDisable: () => void;
   onTransfer: () => void;
   onClose: () => void;
@@ -122,6 +124,7 @@ export function ChangeRoleConfirm({
       onOpenChange={(open) => {
         if (!open && !pending) close();
       }}
+      returnFocus={returnFocus}
       icon={UserCog}
       title={t("users.changeRole.title", { name: user.fullName, role: inSentence })}
       description={t(admin ? "users.changeRole.adminBody" : "users.changeRole.body")}

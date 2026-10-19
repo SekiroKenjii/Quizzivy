@@ -1170,7 +1170,8 @@
       "reason": {
         "internal": "Đã có lỗi ở phía chúng tôi. Hãy thử lại.",
         "notAStudent": "Chỉ thêm được học viên đang hoạt động."
-      }
+      },
+      "leaveFirst": "Hãy sao chép hoặc in mật khẩu rồi bấm Xong trước khi rời trang."
     },
     "classPicker": {
       "label": "Lớp",

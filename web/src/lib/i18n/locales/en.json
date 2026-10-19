@@ -1170,7 +1170,8 @@
       "reason": {
         "internal": "Something went wrong on our side. Try again.",
         "notAStudent": "Only active students can be added."
-      }
+      },
+      "leaveFirst": "Copy or print the password, then press Done before you leave this page."
     },
     "classPicker": {
       "label": "Class",

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { KeyRound } from "lucide-react";
@@ -23,11 +23,13 @@ import { refusalText } from "@/features/users/userText";
 export function ResetUserPassword({
   open,
   user,
+  returnFocus,
   onClose,
   onCredential,
 }: Readonly<{
   open: boolean;
   user: AdminUser;
+  returnFocus?: RefObject<HTMLElement | null> | undefined;
   onClose: () => void;
   onCredential: (credential: UserPasswordReset) => void;
 }>) {
@@ -73,6 +75,7 @@ export function ResetUserPassword({
       onOpenChange={(next) => {
         if (!next && !pending) finish();
       }}
+      returnFocus={returnFocus}
       icon={KeyRound}
       title={t("users.reset.title", { name: user.fullName })}
       description={t("users.reset.body")}

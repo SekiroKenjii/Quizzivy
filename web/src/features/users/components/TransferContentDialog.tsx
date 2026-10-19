@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRightLeft } from "lucide-react";
@@ -148,12 +148,14 @@ export function TransferContentDialog({
   open,
   user,
   owned,
+  returnFocus,
   onClose,
   onMoved,
 }: Readonly<{
   open: boolean;
   user: AdminUser;
   owned: AdminUserDetail["ownedContent"];
+  returnFocus?: RefObject<HTMLElement | null> | undefined;
   onClose: () => void;
   onMoved: () => void;
 }>) {
@@ -221,6 +223,7 @@ export function TransferContentDialog({
     <DialogShell
       open={open}
       width={480}
+      returnFocus={returnFocus}
       onOpenChange={(next) => {
         if (!next) finish();
       }}

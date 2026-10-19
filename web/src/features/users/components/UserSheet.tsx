@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode, type RefObject } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -203,12 +203,16 @@ function SheetSkeleton() {
 function RoleSection({
   data,
   roles,
+  origin,
+  onRemember,
   onOpen,
   onChanged,
 }: Readonly<{
   data: AdminUserDetail;
   roles: readonly AssignableRole[];
-  onOpen: (dialog: Dialog) => void;
+  origin: RefObject<HTMLElement | null>;
+  onRemember: () => void;
+  onOpen: (dialog: Dialog, keepOrigin: boolean) => void;
   onChanged: () => void;
 }>) {
   const { t } = useTranslation();
@@ -227,7 +231,9 @@ function RoleSection({
           value={person.role.id}
           disabled={!data.can.changeRole}
           onChange={(roleId) => {
-            if (roleId !== person.role.id) setTarget(roleId);
+            if (roleId === person.role.id) return;
+            onRemember();
+            setTarget(roleId);
           }}
         />
       ) : (
@@ -243,8 +249,9 @@ function RoleSection({
         role={roles.find((role) => role.id === target) ?? null}
         canDisable={data.can.disable}
         canTransfer={data.can.transfer && owned(data) > 0}
-        onDisable={() => onOpen("disable")}
-        onTransfer={() => onOpen("transfer")}
+        returnFocus={origin}
+        onDisable={() => onOpen("disable", true)}
+        onTransfer={() => onOpen("transfer", true)}
         onClose={() => setTarget(null)}
         onChanged={onChanged}
       />
@@ -339,11 +346,15 @@ function Actions({
 function Body({
   data,
   roles,
+  origin,
+  onRemember,
   onChanged,
   onCredential,
 }: Readonly<{
   data: AdminUserDetail;
   roles: readonly AssignableRole[] | undefined;
+  origin: RefObject<HTMLElement | null>;
+  onRemember: () => void;
   onChanged: () => Promise<void>;
   onCredential: (credential: UserPasswordReset) => void;
 }>) {
@@ -374,8 +385,9 @@ function Body({
     }
   }
 
-  function open(next: Dialog) {
+  function open(next: Dialog, keepOrigin = false) {
     if (busy.current) return;
+    if (next !== null && !keepOrigin) onRemember();
     setError(null);
     setDialog(next);
   }
@@ -386,6 +398,8 @@ function Body({
         <RoleSection
           data={data}
           roles={roles}
+          origin={origin}
+          onRemember={onRemember}
           onOpen={open}
           onChanged={() => void onChanged()}
         />
@@ -402,6 +416,7 @@ function Body({
       <ResetUserPassword
         open={dialog === "reset"}
         user={person}
+        returnFocus={origin}
         onClose={() => open(null)}
         onCredential={onCredential}
       />
@@ -411,6 +426,7 @@ function Body({
           if (!next) open(null);
         }}
         destructive
+        returnFocus={origin}
         icon={UserX}
         title={t("users.disable.title", { name: person.fullName })}
         description={
@@ -440,12 +456,18 @@ function Body({
       <TransferContentDialog
         open={dialog === "transfer"}
         user={person}
+        returnFocus={origin}
         owned={data.ownedContent}
         onClose={() => open(null)}
         onMoved={() => void onChanged()}
       />
     </>
   );
+}
+
+function focused(): HTMLElement | null {
+  const active = document.activeElement;
+  return active instanceof HTMLElement && active !== document.body ? active : null;
 }
 
 function missing(error: unknown): boolean {
@@ -461,7 +483,8 @@ function missing(error: unknown): boolean {
  * hidden when it is not allowed, and none at all with no heading; and the
  * recent activity. Transfer content is offered for a disabled account that
  * owns something (DG-56). A temporary password is shown outside the sheet,
- * so it outlives a Back that closes it. An id that answers 404 or 400 says
+ * so it outlives a Back that closes it. Each dialog gives focus back to the
+ * control that opened it, the role control for one reached from a role change. An id that answers 404 or 400 says
  * the account was not found. `onClose` clears the address.
  */
 export function UserSheet({
@@ -477,6 +500,7 @@ export function UserSheet({
     enabled: userId !== null && manageRoles,
   });
   const [credential, setCredential] = useState<UserPasswordReset | null>(null);
+  const origin = useRef<HTMLElement | null>(null);
   const data = detail.data;
   const person = data?.user;
   const refresh = () => client.invalidateQueries({ queryKey: USERS_KEY });
@@ -514,6 +538,10 @@ export function UserSheet({
             key={data.user.id}
             data={data}
             roles={manageRoles ? roles.data : undefined}
+            origin={origin}
+            onRemember={() => {
+              origin.current = focused();
+            }}
             onChanged={refresh}
             onCredential={setCredential}
           />
@@ -524,6 +552,7 @@ export function UserSheet({
         title={t("users.reset.done", { name: credential?.fullName ?? "" })}
         credentials={credential === null ? [] : [credential]}
         failures={[]}
+        returnFocus={origin}
         onDone={() => setCredential(null)}
       />
     </>

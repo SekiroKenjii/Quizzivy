@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { toast } from "@/components/ui/sonner";
 import type { components } from "@/lib/api/schema";
@@ -331,5 +331,49 @@ describe("Users: Add user's class (T-R5.22a)", () => {
         name: "Thêm vào lớp (không bắt buộc)",
       }),
     ).toBeNull();
+  });
+});
+
+describe("Users: Add user's password dialog after QC's recheck (#724)", () => {
+  async function created() {
+    serveUsers([TAKEN]);
+    serveCreate([]);
+    const view = await openAdd();
+    await view.user.type(within(view.dialog).getByLabelText("Họ và tên"), "Đỗ Hà");
+    await view.user.type(within(view.dialog).getByLabelText("Email"), "ha@example.com");
+    await view.user.click(
+      within(view.dialog).getByRole("radio", { name: /Hiện mật khẩu tạm thời/ }),
+    );
+    const create = within(view.dialog).getByRole("button", { name: "Tạo tài khoản" });
+    await waitFor(() => expect(create).not.toHaveAttribute("aria-disabled"));
+    await view.user.click(create);
+    expect(await screen.findByText("Mai-Hoa-17")).toBeVisible();
+    return view;
+  }
+
+  it("keeps the password on Esc and on a click outside, and drops it on Done (QC-US-18)", async () => {
+    const { user: actor } = await created();
+    await actor.keyboard("{Escape}");
+    expect(screen.getByText("Mai-Hoa-17")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Xong" })).toHaveFocus();
+    const overlays = document.querySelectorAll('[data-slot="dialog-overlay"]');
+    const overlay = overlays[overlays.length - 1]!;
+    fireEvent.pointerDown(overlay);
+    fireEvent.click(overlay);
+    expect(screen.getByText("Mai-Hoa-17")).toBeVisible();
+    await actor.click(screen.getByRole("button", { name: "Xong" }));
+    await waitFor(() => expect(screen.queryByText("Mai-Hoa-17")).toBeNull());
+  });
+
+  it("announces the email's error line politely (QC-US-18)", async () => {
+    serveUsers([TAKEN]);
+    serveCreate([]);
+    const { user: actor, dialog } = await openAdd();
+    const email = within(dialog).getByLabelText("Email");
+    await actor.type(email, "ha@example");
+    await actor.tab();
+    const line = within(dialog).getByText("Nhập đầy đủ địa chỉ email");
+    expect(line).toHaveAttribute("aria-live", "polite");
+    expect(email).toHaveAttribute("aria-describedby", line.id);
   });
 });

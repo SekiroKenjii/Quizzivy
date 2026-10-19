@@ -1,4 +1,5 @@
-import { useRef, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
+import { useBlocker } from "react-router";
 import { useTranslation } from "react-i18next";
 import { KeyRound, Printer, type LucideIcon } from "lucide-react";
 import { Callout } from "@/components/shared/Callout";
@@ -10,11 +11,34 @@ import {
   DialogShellHeader,
 } from "@/components/shared/form/DialogShell";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/sonner";
 import type { UserPasswordReset } from "@/features/users/api";
 import { failureText } from "@/features/users/userText";
 
 /** BulkFailure is an account a bulk action did not reach, named for the reader. */
 export type BulkFailure = Readonly<{ userId: string; fullName: string; code: string }>;
+
+function LeaveGuard({ done }: Readonly<{ done: RefObject<HTMLButtonElement | null> }>) {
+  const { t } = useTranslation();
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      currentLocation.pathname !== nextLocation.pathname,
+  );
+  const blocked = blocker.state === "blocked";
+  const reset = blocker.reset;
+  useEffect(() => {
+    if (!blocked) return;
+    reset?.();
+    done.current?.focus();
+    toast(t("users.credential.leaveFirst"));
+  }, [blocked, reset, done, t]);
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, []);
+  return null;
+}
 
 /**
  * CredentialResult ends a bulk action on the Users screen: the temporary
@@ -22,7 +46,10 @@ export type BulkFailure = Readonly<{ userId: string; fullName: string; code: str
  * Print; `sent` links, as one line; and every account the action did not
  * reach, with the reason. It closes only through Done or its close button,
  * never on Escape or a click outside, so a password is not lost by accident;
- * Escape moves focus to Done. The caller drops the passwords when it closes.
+ * Escape moves focus to Done. While it shows a password, leaving the page is
+ * refused, in the app with a toast and focus on Done, and by the browser's
+ * own prompt on a reload or a closed tab. The caller drops the passwords when
+ * it closes.
  */
 export function CredentialResult({
   open,
@@ -65,6 +92,7 @@ export function CredentialResult({
       onPointerDownOutside={(event) => event.preventDefault()}
       onInteractOutside={(event) => event.preventDefault()}
     >
+      {open && shown.length > 0 ? <LeaveGuard done={done} /> : null}
       <DialogShellHeader
         title={title}
         icon={icon}

@@ -313,6 +313,7 @@ export function AddUserDialog({
         title={t("users.addUser.done", { name: created?.fullName ?? "" })}
         credentials={created === null ? [] : [created]}
         failures={[]}
+        returnFocus={returnFocus}
         onDone={() => {
           const next = created?.userId;
           setCreated(null);
