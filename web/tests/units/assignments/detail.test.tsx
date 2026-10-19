@@ -192,6 +192,52 @@ describe("the assignment detail", () => {
     expect(screen.queryByText(/Bài giao gắn với bản v/)).toBeNull();
   });
 
+  it("links the pinned test from Settings and says which version students get", async () => {
+    serve(assignment({ status: "scheduled", window: scheduledWindow }));
+    renderDetail("settings");
+    const timing = await screen.findByRole("region", { name: "Đề và thời gian" });
+    expect(
+      await within(timing).findByRole("link", {
+        name: "Unit 5 — Present perfect & listening",
+      }),
+    ).toHaveAttribute("href", `/teacher/tests/${TEST_ID}`);
+    expect(
+      within(timing).getByText(
+        "Bài giao gắn với bản v3. Đề có sửa sau này, học viên vẫn làm đúng bản này.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("says students took the pinned version once the assignment is closed", async () => {
+    serve(assignment({ status: "closed", window: pastWindow }));
+    renderDetail("settings");
+    expect(
+      await screen.findByText(
+        "Học viên đã làm trên bản v3, kể cả khi đề hiện có bản mới hơn.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("names the test without a link when its versions cannot be read", async () => {
+    serve(assignment({ status: "scheduled", window: scheduledWindow }));
+    server.use(
+      http.get(`${BASE}/teacher/tests/${TEST_ID}/versions`, () =>
+        HttpResponse.json(
+          { error: { code: "NOT_FOUND", message: "Not found", requestId: "versions" } },
+          { status: 404 },
+        ),
+      ),
+    );
+    renderDetail("settings");
+    const timing = await screen.findByRole("region", { name: "Đề và thời gian" });
+    expect(
+      await within(timing).findByText("Unit 5 — Present perfect & listening"),
+    ).toBeInTheDocument();
+    expect(within(timing).getByText("bản v3")).toBeInTheDocument();
+    expect(within(timing).queryByRole("link")).toBeNull();
+    expect(within(timing).getByText(/Bài giao gắn với bản v3\./)).toBeInTheDocument();
+  });
+
   it("draft: can be edited or given out, and says students cannot see it", async () => {
     serve(assignment({ publishedAt: null, status: "draft" }));
     const user = renderDetail("settings");

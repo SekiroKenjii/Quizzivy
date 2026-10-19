@@ -3019,6 +3019,8 @@
       "test": "Đề thi",
       "versionMeta": "{{questions}} câu · {{points}} điểm · {{audio}} câu nghe · {{manual}} câu chấm tay · bản v{{version}}",
       "versionOnly": "bản v{{version}}",
+      "pinned": "Bài giao gắn với bản v{{version}}. Đề có sửa sau này, học viên vẫn làm đúng bản này.",
+      "pinnedClosed": "Học viên đã làm trên bản v{{version}}, kể cả khi đề hiện có bản mới hơn.",
       "targets": "Giao cho",
       "targetCount": "{{count}} học viên",
       "classes": "Lớp",

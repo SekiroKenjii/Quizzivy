@@ -2099,7 +2099,9 @@ counted as a play, no time is shown, because a time limit is the assignment's,
 and Finish says that students submit there. The question group's preview dialog
 keeps the read-only paper. Assignment detail › Questions draws no paper and no
 test card: as the deck draws it, the tab is the item analysis and its AI insights
-alone, and the pinned version's facts are in Settings › Test & timing.
+alone. Settings › Test & timing names the test, as a link to it once its versions
+are read, with the pinned version's facts and the sentence that students get that
+version, or took it once the assignment is closed (D-055).
 Existing version questions and historical attempts are unchanged.
 
 Archived tests must be restored before creating a draft from a version or changing
