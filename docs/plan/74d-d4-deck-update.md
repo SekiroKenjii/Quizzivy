@@ -3464,6 +3464,14 @@ the 256 MiB sandbox included; `BenchmarkRenderForty*` in `pdftext/tests` repeats
       now asks about `prompts.VariantChunkSize` (8) questions a call, at most
       `VariantCallsInFlight` (5) at a time within the clean-up's budget, under one reservation and
       one `Finish`, and returns the usable calls' changes in paper order.
+      **Lifted in v0.11.9: a variant covers group members.** The owner's report was a test made only
+      of group members, which answered `ErrNothingToRead` under the limit above. The draft read
+      gives every question, a member marked `Gapped` when a gap of its group's material is bound to
+      it; `prompts.Variant` neither reorders an `OrderFixed` member nor rewords a `Gapped` one.
+      `saveVariant` writes a standalone question's changes to a duplicate, as before, saves the
+      outline, then writes each changed member to the copy's group at the same group-unit index,
+      the member at the same position, with `updateGroup` (the copy's groups are section-owned
+      copies, `copyDraftGraph`).
 - [x] Clean up: a duplicate card offers "Open" for each question and "Keep both"; no merge
       (DG-197); "Add tags to {n} questions" is the bulk tag write.
 - [x] **Corrected in the next patch release (v0.11.8): a panel's session outlives its drawer.**

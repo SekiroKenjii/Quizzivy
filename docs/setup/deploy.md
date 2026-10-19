@@ -379,17 +379,20 @@ What v0.9.0 then does with what v0.10.0 wrote:
 ## Rolling out v0.11.9 (hotfix)
 
 v0.11.9 carries two hotfixes and changes no schema, no configuration and no contract (spec 0.113, "Changes
-since v0.112"): "Make a variant" (#728, API only) and the Questions tab of Assignment detail, which now draws
-only the item analysis and its AI insights (#727, web only). Merge #727 into `main` before this release. The variant used to ask the provider about the whole test in one call, which
-timed out on a test of about thirty questions or more and answered `503 AI_UNAVAILABLE`. It now asks about 8
-questions a call, at most five at a time, within 45 seconds, under one reservation.
+since v0.112"): "Make a variant" (#728, API and web) and the Questions tab of Assignment detail, which now
+draws only the item analysis and its AI insights (#727, web only). Merge #727 into `main` before this
+release. A variant now covers the members of a test's groups: a test made only of group members used to
+answer "There is nothing for the assistant to read yet." It also asks about 8 questions a call, at most five
+at a time, within 45 seconds, under one reservation, where one call for a long test timed out with
+`503 AI_UNAVAILABLE`.
 
-- **No migration.** `release_command` runs `migrate up` and finds nothing to do. The web build and the API
-  can deploy in either order: no contract shape changed.
+- **No migration.** `release_command` runs `migrate up` and finds nothing to do. Deploy the web build first:
+  the new web on the old API varies the standalone questions, as before, while the old web on the new API
+  would write a member's change to a stray duplicate in the bank.
 - **What to watch.** Each variant logs one `ai variant` line (`docs/setup/operations.md`) with its calls, how
   many were usable and whether the budget ran out. A pass whose calls all fail still logs `ai call failed` or
   `ai answer unusable` for each, as before.
-- **Rolling back to v0.11.8** needs nothing, and brings the timeout back for long tests.
+- **Rolling back to v0.11.8** needs nothing, and brings back both the group-member limit and the timeout.
 
 ## Rolling out v0.11.8 (hotfix)
 
