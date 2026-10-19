@@ -1992,9 +1992,6 @@
       "test": "Test",
       "versionMeta": "{{questions}} questions · {{points}} points · {{audio}} listening · {{manual}} graded by hand · v{{version}}",
       "versionOnly": "v{{version}}",
-      "viewTest": "View test",
-      "pinned": "Pinned to v{{version}}. Later edits to the test do not reach students on this assignment.",
-      "pinnedClosed": "Students took v{{version}}, even if the test now has a newer version.",
       "targets": "Assigned to",
       "targetCount": "{{count}} students",
       "classes": "Classes",
@@ -4246,7 +4243,6 @@
     "studentsNoun_one": "student",
     "studentsNoun_other": "students",
     "draftHint": "Students cannot see this draft. Publish it to let them start during its chosen window.",
-    "questionsUnavailable": "The assigned test version is unavailable.",
     "noQuestions": "This version has no questions.",
     "sheet": {
       "unavailableTitle": "Attempt",

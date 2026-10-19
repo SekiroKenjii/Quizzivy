@@ -1959,7 +1959,9 @@ window's (T-D4.16, DG-188): the paper can be answered, and what is chosen is kep
 only while the preview is open; nothing is saved, recorded for integrity or
 counted as a play, no time is shown, because a time limit is the assignment's,
 and Finish says that students submit there. The question group's preview dialog
-and Assignment detail keep the read-only paper.
+keeps the read-only paper. Assignment detail › Questions draws no paper and no
+test card: as the deck draws it, the tab is the item analysis and its AI insights
+alone, and the pinned version's facts are in Settings › Test & timing.
 Existing version questions and historical attempts are unchanged.
 
 Archived tests must be restored before creating a draft from a version or changing
