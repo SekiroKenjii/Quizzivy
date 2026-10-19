@@ -3554,7 +3554,8 @@ link carries, under the `email-outbox` key derived from `SECRETS_KEY`, with the 
 data, so a ciphertext copied to another row does not open), `dedupe_key` (unique), `deliver_after`,
 `attempts` (0 to 10), `last_error_code`, `provider_id`, and the two outcomes `sent_at` and `failed_at`,
 which a check keeps from both being set. No sentence is stored: the subject, text and HTML are rendered
-when the row is sent, from the template, the params, the organization's short name and the locale.
+when the row is sent, from the template, the params, the organization's short name (its name when
+it has none, as the settings snapshot reads it) and the locale.
 
 **Indexes.** `email_outbox_pending_idx (deliver_after) WHERE sent_at IS NULL AND failed_at IS NULL` is
 the dispatcher's claim and the earliest-due read its timer waits on; it holds the queue only.

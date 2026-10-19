@@ -8,10 +8,13 @@ import (
 	"time"
 
 	"quizzivy/internal/core/jobs"
+	organizationmodel "quizzivy/internal/modules/organization/application/model"
+	organizationquery "quizzivy/internal/modules/organization/application/query"
 	"quizzivy/internal/platform/config"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/platform/email"
 	"quizzivy/internal/platform/secrets"
+	"quizzivy/internal/shared/cqrs"
 )
 
 const (
@@ -40,11 +43,16 @@ func (m Mail) Run(ctx context.Context, logger *slog.Logger) {
 	})
 }
 
+// Branding is the organization's branding read as it heads every email.
+type Branding = cqrs.QueryHandler[organizationquery.Branding, organizationmodel.Branding]
+
 // BuildMail wires the email platform over cfg: Resend when its group is
 // configured and the sink directory otherwise, which the configuration refuses
-// in production. A missing SECRETS_KEY leaves the outbox unable to seal a
-// secret and every sealed row failing closed.
-func BuildMail(cfg config.Config, dbx db.Context, logger *slog.Logger) (Mail, error) {
+// in production. Every header names the centre by branding's short name, else
+// its name, else Quizzivy; until the settings have been read once, a batch
+// fails and logs ORGANIZATION_SETTINGS_UNAVAILABLE. A missing SECRETS_KEY leaves the outbox unable to
+// seal a secret and every sealed row failing closed.
+func BuildMail(cfg config.Config, dbx db.Context, branding Branding, logger *slog.Logger) (Mail, error) {
 	var sealer *secrets.Sealer
 	if cfg.SecretsKey != nil {
 		var err error
@@ -68,11 +76,25 @@ func BuildMail(cfg config.Config, dbx db.Context, logger *slog.Logger) (Mail, er
 		Outbox: email.NewOutbox(sealer),
 		Dispatcher: &email.Dispatcher{
 			DB: dbx, Sealer: sealer, Sender: sender, Renderer: renderer,
-			Org: organizationName, AppURL: appURL, ReplyTo: cfg.Email.ReplyTo,
+			Org: organizationName(branding, logger), AppURL: appURL, ReplyTo: cfg.Email.ReplyTo,
 			DailyLimit: cfg.Email.DailyLimit, Interval: cfg.Email.SendInterval(),
 			Location: cfg.AppLocation, Logger: logger,
 		},
 	}, nil
 }
 
-func organizationName(context.Context) (string, error) { return fallbackOrganizationName, nil }
+func organizationName(branding Branding, logger *slog.Logger) func(context.Context) (string, error) {
+	return func(ctx context.Context) (string, error) {
+		b, err := branding.Handle(ctx, organizationquery.Branding{})
+		if err != nil {
+			logger.Warn("organization settings unavailable; email waits for them", "code", "ORGANIZATION_SETTINGS_UNAVAILABLE")
+			return "", err
+		}
+		for _, name := range []string{b.ShortName, b.Name} {
+			if name != "" {
+				return name, nil
+			}
+		}
+		return fallbackOrganizationName, nil
+	}
+}

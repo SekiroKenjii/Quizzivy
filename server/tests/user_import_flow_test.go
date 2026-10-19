@@ -30,7 +30,8 @@ func (w *world) userImportRunner() identityworker.UserImports {
 
 func (w *world) userImportRunnerLogging(logger *slog.Logger) identityworker.UserImports {
 	w.t.Helper()
-	mail, err := wiring.BuildMail(w.cfg, db.NewContext(w.pool), logger)
+	dbx := db.NewContext(w.pool)
+	mail, err := wiring.BuildMail(w.cfg, dbx, wiring.OrganizationBranding(w.cfg, dbx, logger), logger)
 	if err != nil {
 		w.t.Fatalf("assemble the mail: %v", err)
 	}

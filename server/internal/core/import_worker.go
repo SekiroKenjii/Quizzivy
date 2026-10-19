@@ -40,7 +40,8 @@ func RunImportWorker(ctx context.Context, logger *slog.Logger) error {
 		return err
 	}
 	runner.Observe = jobs.ObserveImportRun(logger)
-	mail, err := wiring.BuildMail(cfg.Base, db.NewContext(pool.Pool), logger)
+	dbx := db.NewContext(pool.Pool)
+	mail, err := wiring.BuildMail(cfg.Base, dbx, wiring.OrganizationBranding(cfg.Base, dbx, logger), logger)
 	if err != nil {
 		return err
 	}
