@@ -49,6 +49,7 @@ export function UsersTable({
       empty={empty}
       onOpen={onOpen}
       selection={selection}
+      rowTone={(user) => (selection.selected.has(user.id) ? "selected" : undefined)}
       rowName={(user) => user.fullName}
       footer={
         <Pager

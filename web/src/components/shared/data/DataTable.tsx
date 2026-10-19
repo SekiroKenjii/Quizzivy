@@ -84,7 +84,7 @@ export type DataTableProps<T extends Item> = Opening<T> &
     readonly rows: readonly T[];
     readonly rowSize: RowSize;
     readonly dense?: boolean | undefined;
-    readonly rowTone?: ((row: T) => "danger" | "selected" | undefined) | undefined;
+    readonly rowTone?: ((row: T) => RowTone) | undefined;
     readonly canOpen?: ((row: T) => boolean) | undefined;
     readonly shown?: ReadonlySet<string> | undefined;
     readonly menu?: ((row: T, context: DataTableMenuContext) => ReactNode) | undefined;
@@ -273,7 +273,7 @@ function BodyRow<T extends Item>({
   template: string;
   padX: number;
   box: RowBox;
-  tone: "danger" | "selected" | undefined;
+  tone: RowTone;
   canOpen: boolean;
   expansion: DataTableExpansion<T> | undefined;
 }>) {
@@ -372,6 +372,13 @@ function CardSelectPage<T extends Item>({
   );
 }
 
+type RowTone = "danger" | "selected" | undefined;
+
+function toneClass(tone: RowTone): string | undefined {
+  if (tone === "danger") return "bg-danger-soft";
+  return tone === "selected" ? "bg-muted" : undefined;
+}
+
 function CardList<T extends Item>({
   label,
   rows,
@@ -381,6 +388,7 @@ function CardList<T extends Item>({
   canOpen,
   rowHref,
   onOpen,
+  tone,
   empty,
   footer,
 }: Readonly<{
@@ -392,6 +400,7 @@ function CardList<T extends Item>({
   canOpen: ((row: T) => boolean) | undefined;
   rowHref: ((row: T) => string) | undefined;
   onOpen: ((row: T) => void) | undefined;
+  tone: ((row: T) => RowTone) | undefined;
   empty: ReactNode;
   footer: ReactNode;
 }>) {
@@ -404,6 +413,7 @@ function CardList<T extends Item>({
             className={cn(
               joined && "border-t first:border-t-0",
               select !== undefined && "flex items-start pl-3.5",
+              joined && toneClass(tone?.(row)),
             )}
           >
             {select === undefined ? null : (
@@ -422,6 +432,7 @@ function CardList<T extends Item>({
               className={cn(
                 joined ? JOINED_ROW : STACKED_CARD,
                 select !== undefined && "pl-3",
+                !joined && toneClass(tone?.(row)),
               )}
             >
               {card(row)}
@@ -475,7 +486,8 @@ function CardList<T extends Item>({
  * otherwise. Below 768px a table that has `card` renders a
  * list of cards instead, without menus or asides, and without checkboxes
  * unless `selectCards` asks for them: then a joined list opens with a "Select
- * page" row and each card has its checkbox before it; `cards`, when
+ * page" row and each card has its checkbox before it; a card takes its
+ * row's `rowTone`; `cards`, when
  * a screen gives it, decides that in place of the window's width, for a table
  * that turns into cards by the width of the content. Content wider
  * than the table scrolls sideways inside it. Rows are dense when `dense`
@@ -539,6 +551,7 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
         canOpen={canOpen}
         rowHref={rowHref}
         onOpen={onOpen}
+        tone={rowTone}
         empty={empty}
         footer={footer}
       />

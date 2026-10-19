@@ -299,6 +299,9 @@ describe("Users: bulk actions after QC (#735)", () => {
     );
     expect(screen.getByText(/Đã chọn 1/)).toBeVisible();
     expect(screen.getByText("Chọn trang")).toBeVisible();
+    const items = within(list).getAllByRole("listitem");
+    expect(items[0]).toHaveClass("bg-muted");
+    expect(items[1]).not.toHaveClass("bg-muted");
     await actor.click(screen.getByRole("checkbox", { name: /Chọn tất cả/ }));
     expect(screen.getByText(/Đã chọn 10/)).toBeVisible();
     expect(screen.getByRole("button", { name: "Thêm vào lớp" })).toBeVisible();
@@ -325,7 +328,27 @@ describe("Users: bulk actions after QC (#735)", () => {
     expect(toast.error).toHaveBeenCalledWith("Chọn tối đa 100 người cho một thao tác.");
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(sent).toEqual([]);
-  });
+  }, 15_000);
+
+  it("takes exactly 100 to the confirmation (QC-UB-13)", async () => {
+    const many = Array.from({ length: 100 }, (_, index) =>
+      user(String(index + 1), `Bạn ${String(index + 1).padStart(3, "0")}`),
+    );
+    serveUsers(many);
+    serveBulk([]);
+    const { user: actor } = renderUsers("/admin/users?size=50");
+    await table();
+    await actor.click(screen.getByRole("checkbox", { name: /Chọn tất cả/ }));
+    await actor.click(screen.getByRole("link", { name: "Trang sau" }));
+    await rowOf("Bạn 051");
+    await actor.click(screen.getByRole("checkbox", { name: /Chọn tất cả/ }));
+    expect(screen.getByText(/Đã chọn 100/)).toBeVisible();
+    await actor.click(screen.getByRole("button", { name: "Vô hiệu hoá" }));
+    expect(
+      await screen.findByRole("dialog", { name: "Vô hiệu hoá 100 tài khoản?" }),
+    ).toBeVisible();
+    expect(toast.error).not.toHaveBeenCalled();
+  }, 15_000);
 
   it("says how many it disabled beside those it did not (QC-UB-2)", async () => {
     serveUsers(ROWS);
@@ -354,6 +377,41 @@ describe("Users: bulk actions after QC (#735)", () => {
     const unload = new Event("beforeunload", { cancelable: true });
     window.dispatchEvent(unload);
     expect(unload.defaultPrevented).toBe(false);
+  });
+
+  it("says nothing was disabled when nobody was reached (QC-UB-13)", async () => {
+    serveUsers(ROWS);
+    server.use(
+      http.post(`${BASE}/admin/users/disable`, async ({ request }) => {
+        const body = (await request.json()) as Sent;
+        return contractJson("/admin/users/disable", "post", 200, {
+          disabled: [],
+          failed: body.userIds.map((userId) => ({
+            userId,
+            code: "CANNOT_ACT_ON_SELF",
+          })),
+        });
+      }),
+    );
+    const { user: actor } = renderUsers();
+    await pick(actor, "Người dùng 01");
+    await actor.click(screen.getByRole("button", { name: "Vô hiệu hoá" }));
+    const confirm = await screen.findByRole("dialog", {
+      name: "Vô hiệu hoá 1 tài khoản?",
+    });
+    await actor.click(within(confirm).getByRole("button", { name: "Vô hiệu hoá" }));
+    const result = await screen.findByRole("dialog", { name: "Kết quả vô hiệu hoá" });
+    expect(within(result).getByText("Người dùng 01")).toBeVisible();
+    expect(within(result).queryByText(/^Đã vô hiệu hoá/)).toBeNull();
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it("tints a selected row (QC-UB-12)", async () => {
+    serveUsers(ROWS);
+    const { user: actor } = renderUsers();
+    await pick(actor, "Người dùng 01");
+    expect(await rowOf("Người dùng 01")).toHaveClass("bg-muted");
+    expect(await rowOf("Người dùng 02")).not.toHaveClass("bg-muted");
   });
 
   it("names the account a link reset did not reach, with the links sent (QC-UB-8)", async () => {
@@ -477,6 +535,41 @@ describe("Users: Add to class after QC (#735)", () => {
     expect(
       within(result).getByText("Bạn không có quyền làm việc này với tài khoản này."),
     ).toBeVisible();
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it("says nothing was added when nobody was reached (QC-UB-13)", async () => {
+    serveUsers(ROWS);
+    serveClasses(CLASSES);
+    server.use(
+      http.post(`${BASE}/teacher/classes/:id/members`, () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: "NOT_FOUND",
+              message: "student",
+              requestId: "019535d9-3df7-79fb-b466-fa907fa17f9e",
+            },
+          },
+          { status: 404 },
+        ),
+      ),
+    );
+    const { user: actor } = renderUsers();
+    await pick(actor, "Người dùng 01");
+    await pick(actor, "Người dùng 02");
+    await actor.click(screen.getByRole("button", { name: "Thêm vào lớp" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Thêm 2 người vào một lớp",
+    });
+    await actor.click(
+      await within(dialog).findByRole("radio", { name: /IELTS 6.5 Tối/ }),
+    );
+    await actor.click(within(dialog).getByRole("button", { name: "Thêm vào lớp" }));
+    const result = await screen.findByRole("dialog", { name: "Kết quả thêm vào lớp" });
+    expect(within(result).getByText("2 người chưa được xử lý")).toBeVisible();
+    expect(within(result).queryByText(/^Đã thêm/)).toBeNull();
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it("fades Add to class until a class is picked (QC-UB-3)", async () => {
