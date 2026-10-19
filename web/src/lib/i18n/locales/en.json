@@ -1031,7 +1031,8 @@
       "enableHint": "They can sign in again",
       "enabled": "Account enabled",
       "enableFailed": "This account could not be enabled.",
-      "activity": "Recent activity"
+      "activity": "Recent activity",
+      "roleFixed": "You cannot give this role, so it cannot be changed here."
     },
     "activity": {
       "signIn": {
@@ -1148,7 +1149,24 @@
       "noLinkKey": "This server is not set up to send links.",
       "rateLimited": "Too many attempts. Try again in a few minutes.",
       "rateLimitedSeconds_one": "Too many attempts. Try again in {{count}} second.",
-      "rateLimitedSeconds_other": "Too many attempts. Try again in {{count}} seconds."
+      "rateLimitedSeconds_other": "Too many attempts. Try again in {{count}} seconds.",
+      "ownsContentTransfer": "This account still owns classes or content. Transfer its content first."
+    },
+    "credential": {
+      "mustChange": "They must change it when they next sign in.",
+      "shownOnce": "Passwords are shown only once. Copy or print them before you close, and hand them over in person or privately.",
+      "passwords": "Temporary passwords",
+      "copy": "Copy",
+      "copyAll": "Copy all",
+      "copyFailed": "Could not copy. Select the text and copy it yourself.",
+      "print": "Print",
+      "linksSent_one": "{{count}} link sent",
+      "linksSent_other": "{{count}} links sent",
+      "notReached_one": "{{count}} person was not changed",
+      "notReached_other": "{{count}} people were not changed",
+      "reason": {
+        "internal": "Something went wrong on our side. Try again."
+      }
     }
   },
   "systemSettings": {

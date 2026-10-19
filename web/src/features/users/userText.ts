@@ -78,3 +78,11 @@ export function refusalText(cause: unknown, t: TFunction, fallback: string): str
       : t("users.error.rateLimitedSeconds", { count: Math.max(1, Math.ceil(seconds)) });
   return fallback;
 }
+
+/**
+ * failureText says why a bulk action did not reach one account: a refusal
+ * the Users screens know, or a fault on our side.
+ */
+export function failureText(code: string, t: TFunction): string {
+  return t(REFUSALS.get(code) ?? "users.credential.reason.internal");
+}

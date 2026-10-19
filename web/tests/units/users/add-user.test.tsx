@@ -176,3 +176,70 @@ describe("Users: Add user (T-R5.22b)", () => {
     expect(screen.getByRole("button", { name: "Thêm người dùng" })).toHaveFocus();
   });
 });
+
+describe("Users: Add user after QC (#724)", () => {
+  it("sends nothing when Create is pressed while the form is invalid", async () => {
+    const sent: unknown[] = [];
+    serveUsers([TAKEN]);
+    serveCreate(sent);
+    const { user: actor, dialog } = await openAdd();
+    await actor.type(within(dialog).getByLabelText("Email"), "ha@example");
+    await actor.click(within(dialog).getByRole("button", { name: "Tạo tài khoản" }));
+    expect(await within(dialog).findByText("Nhập đầy đủ địa chỉ email")).toBeVisible();
+    expect(sent).toEqual([]);
+  });
+
+  it("marks the field, not an alert, and focuses it when the email is taken on submit", async () => {
+    serveUsers([TAKEN]);
+    serveCreate([]);
+    const { user: actor, dialog } = await openAdd();
+    await actor.type(within(dialog).getByLabelText("Họ và tên"), "Đỗ Hà");
+    const email = within(dialog).getByLabelText("Email");
+    await actor.type(email, "late@example.com");
+    const create = within(dialog).getByRole("button", { name: "Tạo tài khoản" });
+    await waitFor(() => expect(create).not.toHaveAttribute("aria-disabled"));
+    await actor.click(create);
+    await waitFor(() => expect(email).toHaveAttribute("aria-invalid", "true"));
+    expect(email).toHaveFocus();
+    expect(within(dialog).queryByRole("alert")).toBeNull();
+  });
+
+  it("keeps an email taken on submit taken in another case", async () => {
+    serveUsers([TAKEN]);
+    serveCreate([]);
+    const { user: actor, dialog } = await openAdd();
+    await actor.type(within(dialog).getByLabelText("Họ và tên"), "Đỗ Hà");
+    const email = within(dialog).getByLabelText("Email");
+    await actor.type(email, "late@example.com");
+    const create = within(dialog).getByRole("button", { name: "Tạo tài khoản" });
+    await waitFor(() => expect(create).not.toHaveAttribute("aria-disabled"));
+    await actor.click(create);
+    expect(await within(dialog).findByText("Email này đã có người dùng")).toBeVisible();
+    await actor.clear(email);
+    await actor.type(email, "LATE@example.com");
+    expect(within(dialog).getByText("Email này đã có người dùng")).toBeVisible();
+    expect(create).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("opens the new account once a temporary password's Done is pressed", async () => {
+    serveUsers([TAKEN]);
+    serveCreate([]);
+    const { user: actor, dialog, router } = await openAdd();
+    await actor.type(within(dialog).getByLabelText("Họ và tên"), "Đỗ Hà");
+    await actor.type(within(dialog).getByLabelText("Email"), "ha@example.com");
+    await actor.click(
+      within(dialog).getByRole("radio", { name: /Hiện mật khẩu tạm thời/ }),
+    );
+    const create = within(dialog).getByRole("button", { name: "Tạo tài khoản" });
+    await waitFor(() => expect(create).not.toHaveAttribute("aria-disabled"));
+    await actor.click(create);
+    expect(await screen.findByText("Mai-Hoa-17")).toBeVisible();
+    expect(router.state.location.search).not.toContain("user=");
+    await actor.click(screen.getByRole("button", { name: "Xong" }));
+    await waitFor(() =>
+      expect(router.state.location.search).toContain(
+        "user=018f0000-0000-7000-8000-000000000005",
+      ),
+    );
+  });
+});

@@ -47,6 +47,14 @@ const MOVED = [
   "assignments",
 ] as const;
 
+const TEACHING = ["content.", "teaching.", "people.students."];
+
+function teaches(role: RoleSummary): boolean {
+  return role.permissions.some((key) =>
+    TEACHING.some((prefix) => key.startsWith(prefix)),
+  );
+}
+
 function readOnlyKinds(
   owned: AdminUserDetail["ownedContent"],
   role: RoleSummary | undefined,
@@ -128,7 +136,8 @@ function Moved({
 /**
  * TransferContentDialog gives everything a disabled `user` owns to another
  * teacher (DG-56): "Chuyển nội dung của {name} cho" with a picker of the
- * active teachers and Admins, searched by name or email, the counts that
+ * active teachers and Admins whose role opens the teacher workspace (when
+ * the caller can read the roles), searched by name or email, the counts that
  * will move, a warning naming the kinds the chosen recipient's role cannot
  * edit (D-052, read from the roles when the caller holds
  * `people.roles.manage`), and "Báo cho giáo viên nhận", on by default. It then lists what
@@ -165,11 +174,16 @@ export function TransferContentDialog({
     ...recipientsQuery(q),
     enabled: open && result === null,
   });
-  const options = (recipients.data ?? []).filter((one) => one.id !== user.id);
+  const byRole = new Map((roles.data?.roles ?? []).map((role) => [role.id, role]));
+  const options = (recipients.data ?? []).filter((one) => {
+    if (one.id === user.id) return false;
+    const role = byRole.get(one.role.id);
+    return role === undefined || teaches(role);
+  });
   const chosen = options.find((one) => one.id === toUserId);
   const readOnly = readOnlyKinds(
     owned,
-    roles.data?.roles.find((role) => role.id === chosen?.role.id),
+    chosen === undefined ? undefined : byRole.get(chosen.role.id),
   );
 
   function finish() {
@@ -233,6 +247,16 @@ export function TransferContentDialog({
                 </li>
               ))}
             </ul>
+            {chosen === undefined || readOnly.length === 0 ? null : (
+              <p role="status" className="text-warning-ink text-meta">
+                {t("users.transfer.readOnly", {
+                  name: chosen.fullName,
+                  kinds: new Intl.ListFormat(locale, { type: "conjunction" }).format(
+                    readOnly.map((kind) => t(`users.transfer.kind.${kind}`)),
+                  ),
+                })}
+              </p>
+            )}
             <SearchInput
               className="w-full"
               value={typed}
@@ -246,16 +270,6 @@ export function TransferContentDialog({
               value={toUserId}
               onChange={setToUserId}
             />
-            {chosen === undefined || readOnly.length === 0 ? null : (
-              <p role="status" className="text-warning-ink text-meta">
-                {t("users.transfer.readOnly", {
-                  name: chosen.fullName,
-                  kinds: new Intl.ListFormat(locale, { type: "conjunction" }).format(
-                    readOnly.map((kind) => t(`users.transfer.kind.${kind}`)),
-                  ),
-                })}
-              </p>
-            )}
             <label
               htmlFor={notifyId}
               className="text-ui flex items-center justify-between gap-3"

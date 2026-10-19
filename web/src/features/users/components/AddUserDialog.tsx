@@ -1,4 +1,4 @@
-import { useId, useState, type RefObject, type SubmitEvent } from "react";
+import { useId, useRef, useState, type RefObject, type SubmitEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { UserPlus } from "lucide-react";
@@ -11,8 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
-import type { OneTimeCredential } from "@/features/students/credentials";
-import { ResetSheet } from "@/features/students/components/ResetSheet";
 import {
   USERS_KEY,
   assignableRolesQuery,
@@ -20,7 +18,9 @@ import {
   emailTakenQuery,
   type AssignableRole,
   type UserDelivery,
+  type UserPasswordReset,
 } from "@/features/users/api";
+import { CredentialResult } from "@/features/users/components/CredentialResult";
 import { DeliveryChoice } from "@/features/users/components/DeliveryChoice";
 import { RolePicker } from "@/features/users/components/RolePicker";
 import { refusalText } from "@/features/users/userText";
@@ -45,7 +45,7 @@ function defaultRole(roles: readonly AssignableRole[]): string {
  * pause, "Email này đã có người dùng" when an account already uses it, the
  * role among those the caller may give, and how the password reaches the
  * person. Create answers `aria-disabled` until the form is valid. A
- * temporary password is shown once in the ResetSheet; then, or at once for
+ * temporary password is shown once in CredentialResult; then, or at once for
  * an emailed link, `onCreated` opens the new account.
  */
 export function AddUserDialog({
@@ -71,9 +71,8 @@ export function AddUserDialog({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [takenOnSubmit, setTakenOnSubmit] = useState<string | null>(null);
-  const [created, setCreated] = useState<
-    (OneTimeCredential & { userId: string }) | null
-  >(null);
+  const [created, setCreated] = useState<UserPasswordReset | null>(null);
+  const emailField = useRef<HTMLInputElement>(null);
 
   const typedEmail = email.trim();
   const emailOk = isEmail(typedEmail);
@@ -130,16 +129,16 @@ export function AddUserDialog({
       } else {
         setCreated({
           userId: answer.user.id,
-          studentId: answer.user.id,
           fullName: answer.user.fullName,
           email: answer.user.email,
           temporaryPassword: answer.temporaryPassword,
         });
       }
     } catch (cause) {
-      if (cause instanceof ApiError && cause.code === "EMAIL_TAKEN")
+      if (cause instanceof ApiError && cause.code === "EMAIL_TAKEN") {
         setTakenOnSubmit(typedEmail);
-      else setError(refusalText(cause, t, t("users.addUser.failed")));
+        emailField.current?.focus();
+      } else setError(refusalText(cause, t, t("users.addUser.failed")));
     } finally {
       setPending(false);
     }
@@ -186,6 +185,7 @@ export function AddUserDialog({
                 {t("users.addUser.email")}
               </label>
               <Input
+                ref={emailField}
                 id={`${id}-email`}
                 type="email"
                 value={email}
@@ -198,11 +198,13 @@ export function AddUserDialog({
                 onChange={(event) => setEmail(event.target.value)}
                 onBlur={() => setEmailTouched(true)}
               />
-              {emailError === null ? null : (
-                <p id={`${id}-email-error`} className="text-danger-ink text-xs">
-                  {emailError}
-                </p>
-              )}
+              <p
+                id={`${id}-email-error`}
+                aria-live="polite"
+                className="text-danger-ink text-xs empty:hidden"
+              >
+                {emailError}
+              </p>
             </div>
             <div className="flex flex-col gap-1.5">
               <span id={`${id}-role`} className="text-meta font-medium">
@@ -248,10 +250,11 @@ export function AddUserDialog({
           </Button>
         </DialogShellFooter>
       </DialogShell>
-      <ResetSheet
+      <CredentialResult
         open={created !== null}
         title={t("users.addUser.done", { name: created?.fullName ?? "" })}
         credentials={created === null ? [] : [created]}
+        failures={[]}
         onDone={() => {
           const next = created?.userId;
           setCreated(null);

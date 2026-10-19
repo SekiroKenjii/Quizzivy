@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import { api, downloadFile, uploadFile } from "@/lib/api/client";
+import { ApiError } from "@/lib/api/errors";
 import type { components } from "@/lib/api/schema";
 import { formatInTimeZone } from "date-fns-tz";
 import { getDisplayTimeZone } from "@/lib/i18n/datetime";
@@ -162,11 +163,17 @@ export type UserCreate = components["schemas"]["UserCreate"];
 export type UserContentTransferResult =
   components["schemas"]["UserContentTransferResult"];
 
-/** userQuery reads `GET /admin/users/{id}`: one account with what the sheet draws beside it. */
+/**
+ * userQuery reads `GET /admin/users/{id}`: one account with what the sheet
+ * draws beside it. A 4xx answer is final and not retried.
+ */
 export function userQuery(id: string) {
   return queryOptions({
     queryKey: [...USERS_KEY, "detail", id] as const,
     queryFn: ({ signal }) => api("get", "/admin/users/{id}", { path: { id }, signal }),
+    retry: (count, error) =>
+      !(error instanceof ApiError && error.status >= 400 && error.status < 500) &&
+      count < 3,
   });
 }
 
@@ -262,3 +269,6 @@ export function transferUserContent(id: string, toUserId: string, notify: boolea
     body: { toUserId, notify },
   });
 }
+
+/** UserPasswordReset is one account a reset reached, with its temporary password when one was asked for. */
+export type UserPasswordReset = components["schemas"]["UserPasswordReset"];

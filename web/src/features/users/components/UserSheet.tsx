@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -26,19 +26,22 @@ import {
   enableUser,
   signOutUser,
   userQuery,
-  type AdminUser,
   type AdminUserActivity,
   type AdminUserDetail,
   type AssignableRole,
+  type UserPasswordReset,
 } from "@/features/users/api";
+import { CredentialResult } from "@/features/users/components/CredentialResult";
 import { ChangeRoleConfirm } from "@/features/users/components/ChangeRoleConfirm";
 import { ResetUserPassword } from "@/features/users/components/ResetUserPassword";
 import { RolePicker } from "@/features/users/components/RolePicker";
 import { TransferContentDialog } from "@/features/users/components/TransferContentDialog";
 import { lastActiveText, refusalText, statusKeyOf } from "@/features/users/userText";
+import { ApiError } from "@/lib/api/errors";
 import i18n, { type Locale } from "@/lib/i18n";
 import { dayMonthYear, formatRelativeShort } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
+import { roleName } from "@/lib/roleName";
 import { cn } from "@/lib/utils";
 
 type Dialog = "reset" | "disable" | "transfer" | null;
@@ -102,18 +105,23 @@ function Action({
   label,
   hint,
   danger = false,
+  pending = false,
   onClick,
 }: Readonly<{
   icon: LucideIcon;
   label: string;
   hint: string;
   danger?: boolean;
+  pending?: boolean;
   onClick: () => void;
 }>) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      aria-disabled={pending || undefined}
+      onClick={() => {
+        if (!pending) onClick();
+      }}
       className={cn(
         "bg-card hover:bg-muted flex items-center gap-2.5 rounded-[9px] border px-3 py-2.5 text-left",
         danger ? "text-danger-ink" : "text-fg",
@@ -193,38 +201,50 @@ function SheetSkeleton() {
 }
 
 function RoleSection({
-  person,
+  data,
   roles,
-  allowed,
-  canTransfer,
+  onOpen,
   onChanged,
 }: Readonly<{
-  person: AdminUser;
+  data: AdminUserDetail;
   roles: readonly AssignableRole[];
-  allowed: boolean;
-  canTransfer: boolean;
+  onOpen: (dialog: Dialog) => void;
   onChanged: () => void;
 }>) {
   const { t } = useTranslation();
   const [target, setTarget] = useState<string | null>(null);
+  const person = data.user;
+  const offered = roles.some((role) => role.id === person.role.id);
   return (
     <section aria-labelledby="user-sheet-role" className="flex flex-col gap-2">
       <h3 id="user-sheet-role" className="text-meta font-semibold">
         {t("users.sheet.role")}
       </h3>
-      <RolePicker
-        label={t("users.sheet.role")}
-        roles={roles}
-        value={person.role.id}
-        disabled={!allowed}
-        onChange={(roleId) => {
-          if (roleId !== person.role.id) setTarget(roleId);
-        }}
-      />
+      {offered ? (
+        <RolePicker
+          label={t("users.sheet.role")}
+          roles={roles}
+          value={person.role.id}
+          disabled={!data.can.changeRole}
+          onChange={(roleId) => {
+            if (roleId !== person.role.id) setTarget(roleId);
+          }}
+        />
+      ) : (
+        <p className="text-ui">
+          {roleName(person.role, t)}
+          <span className="text-muted-fg text-meta block">
+            {t("users.sheet.roleFixed")}
+          </span>
+        </p>
+      )}
       <ChangeRoleConfirm
         user={person}
         role={roles.find((role) => role.id === target) ?? null}
-        canTransfer={canTransfer}
+        canDisable={data.can.disable}
+        canTransfer={data.can.transfer && owned(data) > 0}
+        onDisable={() => onOpen("disable")}
+        onTransfer={() => onOpen("transfer")}
         onClose={() => setTarget(null)}
         onChanged={onChanged}
       />
@@ -234,39 +254,21 @@ function RoleSection({
 
 function Actions({
   data,
-  onChanged,
-}: Readonly<{ data: AdminUserDetail; onChanged: () => Promise<void> }>) {
+  pending,
+  onOpen,
+  onRun,
+}: Readonly<{
+  data: AdminUserDetail;
+  pending: boolean;
+  onOpen: (dialog: Dialog) => void;
+  onRun: (write: () => Promise<unknown>, done: string, fallback: string) => void;
+}>) {
   const { t } = useTranslation();
   const person = data.user;
   const can = data.can;
-  const [dialog, setDialog] = useState<Dialog>(null);
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function run(write: () => Promise<unknown>, done: string, fallback: string) {
-    setPending(true);
-    setError(null);
-    try {
-      await write();
-      toast.success(done);
-      setDialog(null);
-      await onChanged();
-    } catch (cause) {
-      const message = refusalText(cause, t, fallback);
-      if (dialog === null) toast.error(message);
-      else setError(message);
-    } finally {
-      setPending(false);
-    }
-  }
-
-  function open(next: Dialog) {
-    if (pending) return;
-    setError(null);
-    setDialog(next);
-  }
-
   const transferable = can.transfer && person.status === "disabled" && owned(data) > 0;
+  if (!(can.resetPassword || can.signOut || can.enable || can.disable || transferable))
+    return null;
   return (
     <section aria-labelledby="user-sheet-actions" className="flex flex-col gap-2">
       <h3 id="user-sheet-actions" className="text-meta font-semibold">
@@ -277,7 +279,8 @@ function Actions({
           icon={KeyRound}
           label={t("users.sheet.reset")}
           hint={t("users.sheet.resetHint")}
-          onClick={() => open("reset")}
+          pending={pending}
+          onClick={() => onOpen("reset")}
         />
       ) : null}
       {can.signOut ? (
@@ -285,8 +288,9 @@ function Actions({
           icon={LogOut}
           label={t("users.sheet.signOut")}
           hint={t("users.sheet.signOutHint")}
+          pending={pending}
           onClick={() =>
-            void run(
+            onRun(
               () => signOutUser(person.id),
               t("users.sheet.signedOut", { name: person.fullName }),
               t("users.sheet.signOutFailed"),
@@ -299,8 +303,9 @@ function Actions({
           icon={UserCheck}
           label={t("users.sheet.enable")}
           hint={t("users.sheet.enableHint")}
+          pending={pending}
           onClick={() =>
-            void run(
+            onRun(
               () => enableUser(person.id),
               t("users.sheet.enabled"),
               t("users.sheet.enableFailed"),
@@ -314,7 +319,8 @@ function Actions({
           label={t("users.sheet.disable")}
           hint={t("users.sheet.disableHint")}
           danger
-          onClick={() => open("disable")}
+          pending={pending}
+          onClick={() => onOpen("disable")}
         />
       ) : null}
       {transferable ? (
@@ -322,14 +328,82 @@ function Actions({
           icon={ArrowRightLeft}
           label={t("users.transfer.open")}
           hint={t("users.transfer.openHint")}
-          onClick={() => open("transfer")}
+          pending={pending}
+          onClick={() => onOpen("transfer")}
         />
       ) : null}
+    </section>
+  );
+}
+
+function Body({
+  data,
+  roles,
+  onChanged,
+  onCredential,
+}: Readonly<{
+  data: AdminUserDetail;
+  roles: readonly AssignableRole[] | undefined;
+  onChanged: () => Promise<void>;
+  onCredential: (credential: UserPasswordReset) => void;
+}>) {
+  const { t } = useTranslation();
+  const person = data.user;
+  const [dialog, setDialog] = useState<Dialog>(null);
+  const [pending, setPending] = useState(false);
+  const busy = useRef(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run(write: () => Promise<unknown>, done: string, fallback: string) {
+    if (busy.current) return;
+    busy.current = true;
+    setPending(true);
+    setError(null);
+    try {
+      await write();
+      toast.success(done);
+      setDialog(null);
+      await onChanged();
+    } catch (cause) {
+      const message = refusalText(cause, t, fallback);
+      if (dialog === null) toast.error(message);
+      else setError(message);
+    } finally {
+      busy.current = false;
+      setPending(false);
+    }
+  }
+
+  function open(next: Dialog) {
+    if (busy.current) return;
+    setError(null);
+    setDialog(next);
+  }
+
+  return (
+    <>
+      {roles === undefined ? null : (
+        <RoleSection
+          data={data}
+          roles={roles}
+          onOpen={open}
+          onChanged={() => void onChanged()}
+        />
+      )}
+      <Facts data={data} />
+      <Actions
+        data={data}
+        pending={pending}
+        onOpen={open}
+        onRun={(write, done, fallback) => void run(write, done, fallback)}
+      />
+      <Activity items={data.activity} />
 
       <ResetUserPassword
         open={dialog === "reset"}
         user={person}
         onClose={() => open(null)}
+        onCredential={onCredential}
       />
       <ConfirmDialog
         open={dialog === "disable"}
@@ -370,18 +444,25 @@ function Actions({
         onClose={() => open(null)}
         onMoved={() => void onChanged()}
       />
-    </section>
+    </>
   );
+}
+
+function missing(error: unknown): boolean {
+  return error instanceof ApiError && (error.status === 404 || error.status === 400);
 }
 
 /**
  * UserSheet is the deck's user sheet, 440px at the right edge and the whole
  * width on a phone, for the account `userId` names (`?user=` on the Users
  * screen): the role, shown only with `people.roles.manage` and changed
- * through a confirmation; the facts; the actions the server says the caller
- * may take (`can`), each hidden when it is not allowed; and the recent
- * activity. Transfer content is offered for a disabled account that owns
- * something (DG-56). `onClose` clears the address.
+ * through a confirmation, or named when the caller cannot give it; the
+ * facts; the actions the server says the caller may take (`can`), each
+ * hidden when it is not allowed, and none at all with no heading; and the
+ * recent activity. Transfer content is offered for a disabled account that
+ * owns something (DG-56). A temporary password is shown outside the sheet,
+ * so it outlives a Back that closes it. An id that answers 404 or 400 says
+ * the account was not found. `onClose` clears the address.
  */
 export function UserSheet({
   userId,
@@ -395,48 +476,56 @@ export function UserSheet({
     ...assignableRolesQuery(),
     enabled: userId !== null && manageRoles,
   });
+  const [credential, setCredential] = useState<UserPasswordReset | null>(null);
   const data = detail.data;
   const person = data?.user;
   const refresh = () => client.invalidateQueries({ queryKey: USERS_KEY });
 
   return (
-    <Sheet
-      open={userId !== null}
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-      width={440}
-      title={person?.fullName ?? t("users.sheet.title")}
-      subtitle={person?.email}
-      leading={
-        person === undefined ? undefined : (
-          <Avatar name={person.fullName} src={person.avatarUrl} size="44" />
-        )
-      }
-    >
-      {detail.isError ? (
-        <LoadError error={detail.error} onRetry={() => void detail.refetch()}>
-          {t("users.sheet.loadFailed")}
-        </LoadError>
-      ) : null}
-      {data === undefined ? (
-        detail.isPending && userId !== null && <SheetSkeleton />
-      ) : (
-        <>
-          {manageRoles && roles.data !== undefined ? (
-            <RoleSection
-              person={data.user}
-              roles={roles.data}
-              allowed={data.can.changeRole}
-              canTransfer={data.can.transfer}
-              onChanged={() => void refresh()}
-            />
-          ) : null}
-          <Facts data={data} />
-          <Actions data={data} onChanged={refresh} />
-          <Activity items={data.activity} />
-        </>
-      )}
-    </Sheet>
+    <>
+      <Sheet
+        open={userId !== null}
+        onOpenChange={(open) => {
+          if (!open) onClose();
+        }}
+        width={440}
+        title={person?.fullName ?? t("users.sheet.title")}
+        subtitle={person?.email}
+        leading={
+          person === undefined ? undefined : (
+            <Avatar name={person.fullName} src={person.avatarUrl} size="44" />
+          )
+        }
+      >
+        {detail.isError && missing(detail.error) ? (
+          <p role="alert" className="text-muted-fg text-ui">
+            {t("users.error.notFound")}
+          </p>
+        ) : null}
+        {detail.isError && !missing(detail.error) ? (
+          <LoadError error={detail.error} onRetry={() => void detail.refetch()}>
+            {t("users.sheet.loadFailed")}
+          </LoadError>
+        ) : null}
+        {data === undefined ? (
+          detail.isPending && userId !== null && <SheetSkeleton />
+        ) : (
+          <Body
+            key={data.user.id}
+            data={data}
+            roles={manageRoles ? roles.data : undefined}
+            onChanged={refresh}
+            onCredential={setCredential}
+          />
+        )}
+      </Sheet>
+      <CredentialResult
+        open={credential !== null}
+        title={t("users.reset.done", { name: credential?.fullName ?? "" })}
+        credentials={credential === null ? [] : [credential]}
+        failures={[]}
+        onDone={() => setCredential(null)}
+      />
+    </>
   );
 }

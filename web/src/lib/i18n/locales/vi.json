@@ -1031,7 +1031,8 @@
       "enableHint": "Họ có thể đăng nhập lại",
       "enabled": "Đã kích hoạt lại tài khoản",
       "enableFailed": "Không kích hoạt lại được tài khoản này.",
-      "activity": "Hoạt động gần đây"
+      "activity": "Hoạt động gần đây",
+      "roleFixed": "Bạn không thể giao vai trò này, nên không thể đổi ở đây."
     },
     "activity": {
       "signIn": {
@@ -1148,7 +1149,24 @@
       "noLinkKey": "Máy chủ chưa được cấu hình để gửi liên kết.",
       "rateLimited": "Bạn thao tác quá nhanh. Hãy thử lại sau ít phút.",
       "rateLimitedSeconds_one": "Bạn thao tác quá nhanh. Hãy thử lại sau {{count}} giây.",
-      "rateLimitedSeconds_other": "Bạn thao tác quá nhanh. Hãy thử lại sau {{count}} giây."
+      "rateLimitedSeconds_other": "Bạn thao tác quá nhanh. Hãy thử lại sau {{count}} giây.",
+      "ownsContentTransfer": "Tài khoản này còn sở hữu lớp hoặc nội dung. Hãy chuyển nội dung của họ trước."
+    },
+    "credential": {
+      "mustChange": "Họ phải đổi mật khẩu khi đăng nhập lần tới.",
+      "shownOnce": "Mật khẩu chỉ hiện một lần. Hãy sao chép hoặc in trước khi đóng, và trao tận tay hoặc qua kênh riêng.",
+      "passwords": "Mật khẩu tạm thời",
+      "copy": "Sao chép",
+      "copyAll": "Sao chép tất cả",
+      "copyFailed": "Không sao chép được. Hãy chọn và sao chép thủ công.",
+      "print": "In",
+      "linksSent_one": "Đã gửi {{count}} liên kết đặt mật khẩu",
+      "linksSent_other": "Đã gửi {{count}} liên kết đặt mật khẩu",
+      "notReached_one": "{{count}} người chưa được xử lý",
+      "notReached_other": "{{count}} người chưa được xử lý",
+      "reason": {
+        "internal": "Đã có lỗi ở phía chúng tôi. Hãy thử lại."
+      }
     }
   },
   "systemSettings": {
