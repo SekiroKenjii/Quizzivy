@@ -3273,7 +3273,7 @@ GET    /teacher/imports/:id/source?role= → one source's extracted blocks
 POST   /teacher/imports/:id/commit      → one draft test
 
 # teacher: AI assistant (ai.use; a suggestion only, nothing is saved; 501 AI_OFF without a provider)
-POST   /teacher/ai/questions/generate   {source | testId + stimulusId, types (the five stored), count 3|5|8,
+POST   /teacher/ai/questions/generate   {source | testId + stimulusId, types (the five stored), count 1..8,
                                           level b1|b2|c1, explanations, language}
                                           → {items: [{type, prompt, options?, answerKey, explanation}], usage}
 POST   /teacher/ai/tests/:id/check      {checks ⊆ key|clarity|giveaway|language, language?} → {findings: [{severity,

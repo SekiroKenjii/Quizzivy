@@ -3196,7 +3196,7 @@ production and puts the timings in the release pull request).
       `permissions.golden` is regenerated once, in this PR. Operations, all `ai.use`, all `POST`,
       all answering a suggestion object and never writing content:
       - `/teacher/ai/questions/generate` `{source | testId + stimulusId, types ⊆ the five stored
-        types, count 3 | 5 | 8, level, explanations, language}` → `{items: [{type, prompt,
+        types, count 1..8, level, explanations, language}` → `{items: [{type, prompt,
         options?, answerKey, explanation}]}` (`x-resource`: body `testId` kind `test`);
       - `/teacher/ai/tests/{id}/check` `{checks}` → `{findings: [{severity, questionId, number,
         type, title, issue, fix: {kind: option_text | accepted_answer | explanation | none,

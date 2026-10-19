@@ -387,4 +387,78 @@ describe("Generate for the whole test", () => {
       within(dialog).getByRole("button", { name: "Thêm 1 câu vào Đọc hiểu" }),
     ).toBeEnabled();
   });
+  it("saves the later sections when an earlier one refuses the write", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    answerBoth(bodies, standaloneAnswer);
+    const save = vi
+      .fn<GenerateContext["save"]>()
+      .mockRejectedValueOnce(new AiWriteError("Phần đã bị khoá."))
+      .mockResolvedValueOnce(undefined);
+    const { dialog, user } = await openPanel(context({ save }));
+    await planTwoSections(dialog, user);
+    await user.click(within(dialog).getByRole("button", { name: "Tạo 2 câu" }));
+    await user.click(
+      await within(dialog).findByRole("button", { name: "Thêm 2 câu vào 2 phần" }),
+    );
+
+    expect(
+      await within(dialog).findByText(
+        "Chưa thêm được vào Ngữ pháp: Phần đã bị khoá. Các phần khác đã được thêm.",
+      ),
+    ).toBeVisible();
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(within(dialog).queryByText("Cities rethink open land.")).toBeNull();
+    expect(within(dialog).getByText("She ___ to school every day.")).toBeVisible();
+  });
+
+  it("asks where a removed section's questions go, and saves every section once one is chosen", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    answerBoth(bodies, standaloneAnswer);
+    const save = vi.fn<GenerateContext["save"]>(() => Promise.resolve());
+    const page: { drop: (() => void) | null } = { drop: null };
+    function Shrinking() {
+      const [sections, setSections] = useState([grammar, reading, blank]);
+      useEffect(() => {
+        page.drop = () => setSections([reading, blank]);
+      }, []);
+      return (
+        <AiPanel
+          request={{ kind: "generate", context: context({ sections, save }) }}
+          onClose={() => undefined}
+        />
+      );
+    }
+    const { user } = renderWithApp(<Shrinking />);
+    const dialog = await screen.findByRole("dialog");
+    await planTwoSections(dialog, user);
+    await user.click(within(dialog).getByRole("button", { name: "Tạo 2 câu" }));
+    const add = await within(dialog).findByRole("button", {
+      name: "Thêm 2 câu vào 2 phần",
+    });
+
+    act(() => page.drop?.());
+    expect(
+      within(dialog).getByText(
+        "«Ngữ pháp» đã bị xoá nên chưa thêm được câu nào. Hãy chọn một phần khác.",
+      ),
+    ).toBeVisible();
+    expect(add).toBeDisabled();
+    await user.click(
+      within(dialog).getByRole("combobox", { name: ai.generate.chooseSection }),
+    );
+    await user.click(await screen.findByRole("option", { name: "Đọc hiểu" }));
+    await user.click(add);
+    expect(save).toHaveBeenNthCalledWith(
+      1,
+      [{ question: standaloneQuestion, level: "b2" }],
+      ai.draftTag,
+      { kind: "section", id: READING, title: "Đọc hiểu" },
+    );
+    expect(save).toHaveBeenNthCalledWith(
+      2,
+      [{ question: passageQuestion, level: "b2" }],
+      ai.draftTag,
+      { kind: "group", id: GROUP_ID, title: "Reading club" },
+    );
+  });
 });

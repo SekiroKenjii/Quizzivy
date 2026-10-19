@@ -137,6 +137,7 @@ interface GenerateValues {
   explanations: boolean;
   plan: Readonly<Record<string, PlanEntry>>;
   retarget: string;
+  retargets: Record<string, string>;
 }
 
 interface GenerateItem extends GeneratedDraft {
@@ -349,6 +350,44 @@ function goneSection(items: readonly GenerateItem[], context: GenerateContext) {
     !(context.sections ?? []).some((section) => section.id === kept.id)
     ? kept
     : undefined;
+}
+
+function goneParts(items: readonly GenerateItem[], context: GenerateContext) {
+  const known = new Set((context.sections ?? []).map((section) => section.id));
+  return [
+    ...new Map(
+      items.flatMap((item) =>
+        item.group && !known.has(item.group.key) ? [[item.group.key, item.group]] : [],
+      ),
+    ).values(),
+  ];
+}
+
+function retargeted(
+  item: GenerateItem,
+  context: GenerateContext,
+  values: GenerateValues,
+): GenerateDestination {
+  const part = item.group?.key;
+  if (part === undefined || (context.sections ?? []).some((s) => s.id === part))
+    return item.destination;
+  const instead = (context.sections ?? []).find(
+    (section) => section.id === values.retargets[part],
+  );
+  return instead
+    ? { kind: "section", id: instead.id, title: instead.title }
+    : item.destination;
+}
+
+function unplaced(
+  items: readonly GenerateItem[],
+  context: GenerateContext,
+  values: GenerateValues,
+) {
+  const known = new Set((context.sections ?? []).map((section) => section.id));
+  return goneParts(items, context).some(
+    (part) => !known.has(values.retargets[part.key] ?? ""),
+  );
 }
 
 function destinationOf(
@@ -899,52 +938,59 @@ function saveKey(destination: GenerateDestination) {
   return `section:${destination.kind === "section" ? (destination.id ?? "") : ""}`;
 }
 
-function refusal(
-  cause: unknown,
-  first: GenerateItem,
-  saved: readonly GenerateItem[],
-  t: TFunction,
-) {
-  if (saved.length === 0) return cause;
-  return new AiPartialWriteError(
-    t("ai.generate.saveRefused", {
-      section: first.group?.title ?? "",
-      reason:
-        cause instanceof AiWriteError
-          ? cause.message
-          : failureMessage(cause, t("ai.applyFailed")),
-    }),
-    saved,
-  );
+function reasonOf(cause: unknown, t: TFunction) {
+  return cause instanceof AiWriteError
+    ? cause.message
+    : failureMessage(cause, t("ai.applyFailed"));
 }
 
 async function savePlan(
   selected: readonly GenerateItem[],
   { t, context, tagDrafts }: AiEnv<GenerateContext>,
+  values: GenerateValues,
 ) {
-  const batches = new Map<string, GenerateItem[]>();
+  const batches = new Map<
+    string,
+    { destination: GenerateDestination; title: string; items: GenerateItem[] }
+  >();
   const ordered = [...selected].sort(
     (a, b) => (a.group?.order ?? 0) - (b.group?.order ?? 0),
   );
   for (const item of ordered) {
-    const key = saveKey(item.destination);
-    batches.set(key, [...(batches.get(key) ?? []), item]);
+    const destination = retargeted(item, context, values);
+    const key = saveKey(destination);
+    const batch = batches.get(key) ?? {
+      destination,
+      title: item.group?.title ?? "",
+      items: [],
+    };
+    batch.items.push(item);
+    batches.set(key, batch);
   }
   const saved: GenerateItem[] = [];
-  for (const items of batches.values()) {
-    const first = items[0];
-    if (!first) continue;
+  const refused: { title: string; cause: unknown }[] = [];
+  for (const { destination, title, items } of batches.values()) {
     try {
       await context.save(
         items.map(({ question, level }) => ({ question, level })),
         tagDrafts ? t("ai.draftTag") : null,
-        first.destination,
+        destination,
       );
+      saved.push(...items);
     } catch (cause) {
-      throw refusal(cause, first, saved, t);
+      refused.push({ title, cause });
     }
-    saved.push(...items);
   }
+  const first = refused[0];
+  if (!first) return;
+  if (saved.length === 0 && refused.length === 1) throw first.cause;
+  throw new AiPartialWriteError(
+    t("ai.generate.saveRefused", {
+      section: refused.map((entry) => entry.title).join(", "),
+      reason: reasonOf(first.cause, t),
+    }),
+    saved,
+  );
 }
 
 /**
@@ -988,6 +1034,7 @@ export const generateKind: AiKind<GenerateValues, GenerateItem, GenerateContext>
       explanations: true,
       plan: {},
       retarget: "",
+      retargets: {},
     };
   },
   fields: (values, set, context, t) => [
@@ -1096,7 +1143,24 @@ export const generateKind: AiKind<GenerateValues, GenerateItem, GenerateContext>
   card: (item, env) => card(item, env.t, env.tagDrafts),
   group: (item) => item.group ?? { key: "", title: "", order: 0 },
   resultFields: (values, set, items, context, t) => {
-    if (values.scope === "test") return [];
+    const options = (context.sections ?? []).map((section) => ({
+      value: section.id,
+      label: titleOf(section, t),
+    }));
+    if (values.scope === "test")
+      return goneParts(items, context).map((part): AiField => ({
+        kind: "alert",
+        text: t("ai.generate.sectionGone", {
+          section: part.title || t("ai.generate.untitled"),
+        }),
+        choose: {
+          label: t("ai.generate.chooseSection"),
+          options,
+          value: values.retargets[part.key] ?? "",
+          onChange: (instead) =>
+            set({ retargets: { ...values.retargets, [part.key]: instead } }),
+        },
+      }));
     const gone = goneSection(items, context);
     if (!gone) return [];
     return [
@@ -1107,10 +1171,7 @@ export const generateKind: AiKind<GenerateValues, GenerateItem, GenerateContext>
         }),
         choose: {
           label: t("ai.generate.chooseSection"),
-          options: (context.sections ?? []).map((section) => ({
-            value: section.id,
-            label: titleOf(section, t),
-          })),
+          options,
           value: values.retarget,
           onChange: (retarget) => set({ retarget }),
         },
@@ -1130,10 +1191,11 @@ export const generateKind: AiKind<GenerateValues, GenerateItem, GenerateContext>
       values.scope === "test"
         ? Plus
         : PRIMARY_ICONS[destinationOf(items, context, values).kind],
-    blocked: (items, { context }, values) =>
-      values.scope !== "test" &&
-      goneSection(items, context) !== undefined &&
-      !(context.sections ?? []).some((section) => section.id === values.retarget),
+    blocked: (items, { context }, values, selected) =>
+      values.scope === "test"
+        ? unplaced(selected, context, values)
+        : goneSection(items, context) !== undefined &&
+          !(context.sections ?? []).some((section) => section.id === values.retarget),
     label: (selected, { t, context }, items, values) => {
       const count = selected.length;
       if (values.scope === "test") {
@@ -1161,7 +1223,7 @@ export const generateKind: AiKind<GenerateValues, GenerateItem, GenerateContext>
       const { t, context, tagDrafts } = env;
       const count = selected.length;
       if (values.scope === "test") {
-        await savePlan(selected, env);
+        await savePlan(selected, env, values);
         const sections = sectionsOf(selected);
         return sections.size === 1
           ? t("ai.generate.added", { count, section: titleOfGroup(selected) })
