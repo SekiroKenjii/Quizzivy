@@ -11234,11 +11234,9 @@
           },
           "count": {
             "type": "integer",
-            "enum": [
-              3,
-              5,
-              8
-            ]
+            "minimum": 1,
+            "maximum": 8,
+            "description": "How many questions to write, 1 to 8."
           },
           "level": {
             "type": "string",

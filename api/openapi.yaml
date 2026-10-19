@@ -5931,7 +5931,7 @@ components:
           maxItems: 5
           uniqueItems: true
           items: { $ref: '#/components/schemas/QuestionType' }
-        count: { type: integer, enum: [3, 5, 8] }
+        count: { type: integer, minimum: 1, maximum: 8, description: "How many questions to write, 1 to 8." }
         level: { type: string, enum: [b1, b2, c1] }
         explanations: { type: boolean, description: Write an explanation for each question. }
         language: { $ref: '#/components/schemas/AiLanguage' }
