@@ -1,7 +1,15 @@
 # Quizzivy — Frontend Portal & Data Model Specification
 
-**Version:** 0.114 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
+**Version:** 0.115 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
+
+**Changes since v0.114**
+
+v0.11.11 is a patch release that finishes the owner's change request CR-001 (2026-10-19) to the design team's answer (`docs/design/deck/page-width-proposal/AI Generate Sections.dc.html`). No schema, no new operation, no new permission; `count` on `AiGenerateRequest` becomes any whole number from 1 to 8.
+
+- §8 Generate in the builder has a **scope**: *Một phần* / *One section* (the form of v0.11.10, redrawn) or *Cả đề* / *Whole test*. The question style is two radio cards, each with a line under it, and starts from a passage only when the open section holds one. A standalone run names the section new questions join on a card with "Đổi" / "Change" and the switch "Hợp với phần này" / "Fit this section"; with the switch off the section is not read, the questions still land there and the topic is required. The count is a stepper from 1 to 8 (5). The footer names the ceiling: "Tối đa 200 tín dụng · còn {left} trong tháng này"; with less left than the ceiling it says so and the run does not start.
+- §8 *Whole test* is a plan, one row per saved section in the builder's order: a count from 0 to 8, and for a section with passages "Theo từng bài đọc" / "Per passage" (the count per passage, into each passage's group) or standalone; its types (preset from the section's own) and its level (the section's commonest, or the shared level). A section with no title, instructions or questions cannot be planned. The plan is at most 40 questions and 5 calls. Each section, or each passage of a per-passage section, is **its own call** reserving its own ceiling, so the run states "Tối đa {200 × calls}"; the calls run together, the panel shows each section writing, done or failed, and a failed section is tried again alone, for its own ceiling, while the others stay. Results are grouped by section, with select-all per section; "Thêm {n} câu vào {k} phần" saves each section's picks in order, and when one save is refused the earlier ones stand, those picks leave the list and the panel names the section that failed.
+- §8 A section removed while its questions wait is named, and the panel asks for another section instead of failing the save (DG-223).
 
 **Changes since v0.113**
 

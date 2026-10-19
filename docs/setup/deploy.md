@@ -376,6 +376,22 @@ What v0.9.0 then does with what v0.10.0 wrote:
 - `00084`'s Down leaves its constraint `NOT VALID` for the same reason. Never roll back past v0.8.0
   (the join-code key).
 
+## Rolling out v0.11.11 (hotfix)
+
+v0.11.11 finishes change request CR-001 to the design team's drawing: "Generate questions" in the builder
+fills one section or the whole test, from a plan of up to 40 questions and 5 calls, each call reserving its
+own ceiling (spec 0.115, "Changes since v0.114"). It changes no schema and no configuration; the contract's
+`count` on `generateAiQuestions` becomes any whole number from 1 to 8 (it was 3, 5 or 8).
+
+- **No migration.** `release_command` runs `migrate up` and finds nothing to do.
+- **Deploy the API first.** The old API refuses a count of 1, 2, 4, 6 or 7 (`400`), which the new web sends
+  whenever the teacher chooses one; the old web on the new API sends 3, 5 or 8, as before.
+- **Live smoke** with the key before the merge to `main` (`aismoke`, `docs/setup/operations.md`): a
+  standalone run of 2 questions, and a whole-test plan of two sections, one standalone and one per passage.
+- **What to watch.** A whole-test run is several ordinary generate calls, each logged and metered as
+  before; nothing new is logged.
+- **Rolling back to v0.11.10** needs nothing; the panel loses the whole-test scope and the stepper.
+
 ## Rolling out v0.11.10 (hotfix)
 
 v0.11.10 lets "Generate questions" write standalone questions, about a topic or fitted to a section of the
