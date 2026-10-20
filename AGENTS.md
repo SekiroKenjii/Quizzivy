@@ -768,8 +768,8 @@ batched at the end.
 **The spec's version is numbered at release, not per PR.** On an integration
 branch (`develop`, `work/**`) a task PR never edits the version line. It adds its
 bullets under the one heading at the top of the changelog,
-`**Changes pending (R5, v0.12.0)**`, each bullet starting with its task id
-(`T-R5.15 §15 …`). The release PR sets the version line to the next free number
+`**Changes pending (R<k>, v<version>)**` (R5's was `(R5, v0.12.0)`), each
+bullet starting with its task id (`T-R5.15 §15 …`). The release PR sets the version line to the next free number
 and renames the heading `**Changes since v0.NNN**`, where NNN is the version the
 release replaces. A hotfix off `main` numbers
 itself, because it is its own release, and its back-merge carries the number
