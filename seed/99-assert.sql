@@ -266,3 +266,65 @@ BEGIN
 
   RAISE NOTICE 'seed: teacher workspace holds';
 END $$;
+
+-- The Admin console (09): the deck's shape, so every screen and state of
+-- /admin has rows to draw.
+DO $$
+DECLARE
+  found integer;
+  bad text;
+BEGIN
+  SELECT count(*) INTO found FROM app.users u JOIN app.roles r ON r.id = u.role_id WHERE r.builtin_key = 'admin';
+  IF found <> 3 THEN
+    RAISE EXCEPTION 'seed: expected three Admins, found %', found;
+  END IF;
+  SELECT count(*) INTO found FROM app.users u JOIN app.roles r ON r.id = u.role_id WHERE r.builtin_key = 'teacher';
+  IF found <> 9 THEN
+    RAISE EXCEPTION 'seed: expected nine Teachers, found %', found;
+  END IF;
+  SELECT count(*) INTO found
+    FROM app.users u JOIN app.roles r ON r.id = u.role_id AND r.builtin_key = 'teacher'
+   WHERE u.disabled_at IS NOT NULL AND EXISTS (SELECT 1 FROM app.classes c WHERE c.teacher_id = u.id);
+  IF found <> 1 THEN
+    RAISE EXCEPTION 'seed: expected one disabled Teacher who teaches a class, found %', found;
+  END IF;
+
+  SELECT string_agg(s.status, ', ') INTO bad
+    FROM (VALUES ('active'), ('must_change_password'), ('never_signed_in'), ('disabled')) AS s(status)
+   WHERE NOT EXISTS (
+     SELECT 1 FROM app.users u JOIN app.roles r ON r.id = u.role_id AND r.builtin_key = 'student'
+      WHERE CASE s.status
+              WHEN 'disabled' THEN u.disabled_at IS NOT NULL
+              WHEN 'must_change_password' THEN u.disabled_at IS NULL AND u.must_change_password
+              WHEN 'never_signed_in' THEN u.disabled_at IS NULL AND NOT u.must_change_password AND u.last_sign_in_at IS NULL
+              ELSE u.disabled_at IS NULL AND NOT u.must_change_password AND u.last_sign_in_at IS NOT NULL END);
+  IF bad IS NOT NULL THEN
+    RAISE EXCEPTION 'seed: no student in status %', bad;
+  END IF;
+
+  SELECT count(*) INTO found FROM app.classes WHERE archived_at IS NOT NULL;
+  IF found <> 1 THEN
+    RAISE EXCEPTION 'seed: expected one archived class, found %', found;
+  END IF;
+  SELECT count(*) INTO found FROM app.roles WHERE builtin_key IS NULL AND name = 'Tổ trưởng';
+  IF found <> 1 THEN
+    RAISE EXCEPTION 'seed: the custom role Tổ trưởng is missing';
+  END IF;
+
+  SELECT string_agg(c.category, ', ') INTO bad
+    FROM (VALUES ('user'), ('class'), ('attempt'), ('test'), ('media_asset'), ('word_import')) AS c(category)
+   WHERE NOT EXISTS (SELECT 1 FROM app.audit_log a WHERE a.entity = c.category);
+  IF bad IS NOT NULL THEN
+    RAISE EXCEPTION 'seed: no audit entry about %', bad;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM app.audit_log WHERE actor_user_id IS NULL) THEN
+    RAISE EXCEPTION 'seed: no audit entry written by the system';
+  END IF;
+
+  SELECT count(DISTINCT day) INTO found FROM app.user_activity_days WHERE day > current_date - 14;
+  IF found <> 14 THEN
+    RAISE EXCEPTION 'seed: expected fourteen days of activity, found %', found;
+  END IF;
+
+  RAISE NOTICE 'seed: admin console holds';
+END $$;
