@@ -69,20 +69,6 @@ func TestAClassWithoutALiveCodeHasNoneToRead(t *testing.T) {
 	}
 }
 
-func TestALegacyCodeIsReadAsLegacyWithoutItsCode(t *testing.T) {
-	pool := newPool(t)
-	svc := newSvc(t, pool)
-	classID, teacherID, _ := makeClassRow(t, pool)
-	grouped := legacyCode(t, pool, classID, teacherID)
-	got, err := svc.Queries.ActiveCode.Handle(context.Background(), query.ActiveCode{Scope: access.Scope{UserID: teacherID}, ClassID: classID})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !got.Legacy || got.Code != "" || got.Hint != domain.JoinCodes.Hint(domain.JoinCodes.Normalize(grouped)) {
-		t.Errorf("a legacy code read as %+v", got)
-	}
-}
-
 func TestACodeUnderAKeyThisServerLacksIsReadWithoutItsCode(t *testing.T) {
 	pool := newPool(t)
 	classID, teacherID, _ := makeClassRow(t, pool)

@@ -37,9 +37,25 @@ type liveCodeRepository struct {
 	domain.Repository
 }
 
+func liveHash() []byte {
+	keys, err := domain.NewJoinCodeKeys([]byte("0123456789abcdef0123456789abcdef"), nil)
+	if err != nil {
+		panic(err)
+	}
+	return keys.Hash(liveCode)
+}
+
+var liveKeyID = func() int16 {
+	keys, err := domain.NewJoinCodeKeys([]byte("0123456789abcdef0123456789abcdef"), nil)
+	if err != nil {
+		panic(err)
+	}
+	return keys.CurrentID()
+}()
+
 func (r liveCodeRepository) isLive(code domain.JoinCodeLookup) bool {
-	legacy := domain.JoinCodes.Hash(liveCode)
-	return slices.ContainsFunc(code.Hashes(), func(hash []byte) bool { return bytes.Equal(hash, legacy) })
+	live := liveHash()
+	return slices.ContainsFunc(code.Hashes(), func(hash []byte) bool { return bytes.Equal(hash, live) })
 }
 
 func (r liveCodeRepository) LookupByCode(_ context.Context, code domain.JoinCodeLookup) (*domain.CodeRow, error) {
@@ -51,7 +67,7 @@ func (r liveCodeRepository) LookupByCode(_ context.Context, code domain.JoinCode
 		CodeState:   domain.CodeState{SelfJoinEnabled: true, ExpiresAt: time.Now().Add(time.Hour)},
 		ClassID:     liveClassID,
 		ClassName:   liveClassName,
-		Lookup:      domain.StoredLookup{Scheme: domain.LookupLegacy, Hash: domain.JoinCodes.Hash(liveCode)},
+		Lookup:      domain.StoredLookup{Scheme: domain.LookupKeyed, KeyID: &liveKeyID, Hash: liveHash()},
 		TeacherName: &teacher,
 	}, nil
 }

@@ -71,7 +71,7 @@ func TestRecentActivityHasOneRowPerPaperAndCodeJoinsOnly(t *testing.T) {
 	execHome(t, w, `UPDATE app.attempts SET status='in_progress',submitted_at=NULL,started_at=$2,deadline_at=$3 WHERE id=$1`, w.p3, now.Add(-time.Hour), now.Add(time.Hour))
 	execHome(t, w, `UPDATE app.users SET full_name=$2 WHERE id=$1`, w.s3, "code-student")
 	execHome(t, w, `UPDATE app.classes SET name=$2 WHERE id=$1`, w.classA, "Code class")
-	code := w.id(t, `INSERT INTO app.class_join_codes (class_id,code_hash,code_hint,expires_at,max_uses,created_by) VALUES ($1,sha256($2::bytea),'test',now()+interval '1 day',100,$3) RETURNING id::text`, w.classA, nonce(t), w.a)
+	code := w.id(t, `INSERT INTO app.class_join_codes (class_id,code_hash,code_hint,expires_at,max_uses,created_by,lookup_scheme,key_id,code_ciphertext) VALUES ($1,sha256($2::bytea),'test',now()+interval '1 day',100,$3,2,7,decode(repeat('00',36),'hex')) RETURNING id::text`, w.classA, nonce(t), w.a)
 	execHome(t, w, `UPDATE app.class_members SET joined_via='join_code',join_code_id=$3,added_by=NULL,joined_at=$4 WHERE class_id=$1 AND user_id=$2`, w.classA, w.s3, code, now.Add(time.Minute))
 	out := homeAt(t, w, scope, now, "Asia/Ho_Chi_Minh", 14)
 	submitted, started, joined := 0, 0, 0

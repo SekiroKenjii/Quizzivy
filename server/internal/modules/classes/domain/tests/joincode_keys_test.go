@@ -158,9 +158,8 @@ func TestTheDerivationIsPinned(t *testing.T) {
 		t.Fatalf("a code sealed by hand with the pinned AES key opened as %q (%v)", opened, err)
 	}
 
-	legacy := sha256.Sum256([]byte(code))
 	hashes := keysOf(t, otherKey, pinnedKey).LookupHashes(code).Hashes()
-	want := [][]byte{keysOf(t, otherKey, nil).Hash(code), keys.Hash(code), legacy[:]}
+	want := [][]byte{keysOf(t, otherKey, nil).Hash(code), keys.Hash(code)}
 	if len(hashes) != len(want) {
 		t.Fatalf("%d candidate hashes, want %d", len(hashes), len(want))
 	}
@@ -185,7 +184,7 @@ func TestALookupMatchesARowOnlyUnderItsOwnSchemeAndKey(t *testing.T) {
 	}{
 		"a keyed row under the current key":        {domain.StoredLookup{Scheme: domain.LookupKeyed, KeyID: &current, Hash: keyed}, true},
 		"a keyed row under the previous key":       {domain.StoredLookup{Scheme: domain.LookupKeyed, KeyID: &previous, Hash: underPrevious}, true},
-		"a legacy row":                             {domain.StoredLookup{Scheme: domain.LookupLegacy, Hash: legacy[:]}, true},
+		"a legacy row":                             {domain.StoredLookup{Scheme: domain.LookupLegacy, Hash: legacy[:]}, false},
 		"a keyed row holding the legacy hash":      {domain.StoredLookup{Scheme: domain.LookupKeyed, KeyID: &current, Hash: legacy[:]}, false},
 		"a legacy row holding the keyed hash":      {domain.StoredLookup{Scheme: domain.LookupLegacy, Hash: keyed}, false},
 		"a current-key row holding the old hash":   {domain.StoredLookup{Scheme: domain.LookupKeyed, KeyID: &current, Hash: underPrevious}, false},
@@ -218,7 +217,7 @@ func TestKeysThatCannotBeToldApartAreRefused(t *testing.T) {
 	}
 }
 
-func TestAKeylessValueSealsNothingAndFindsOnlyLegacyRows(t *testing.T) {
+func TestAKeylessValueSealsNothingAndFindsNothing(t *testing.T) {
 	var keys domain.JoinCodeKeys
 	if _, err := keys.Seal(aClass, aCode, code); err == nil {
 		t.Error("a keyless value sealed a code")
@@ -226,9 +225,8 @@ func TestAKeylessValueSealsNothingAndFindsOnlyLegacyRows(t *testing.T) {
 	if keys.CurrentID() != 0 || keys.Hash(code) != nil {
 		t.Error("a keyless value has a key")
 	}
-	legacy := sha256.Sum256([]byte(code))
-	if hashes := keys.LookupHashes(code).Hashes(); len(hashes) != 1 || !bytes.Equal(hashes[0], legacy[:]) {
-		t.Errorf("a keyless lookup searches %x, want only the legacy hash", hashes)
+	if hashes := keys.LookupHashes(code).Hashes(); len(hashes) != 0 {
+		t.Errorf("a keyless lookup searches %x, want nothing", hashes)
 	}
 	if _, err := keysOf(t, pinnedKey, nil).Seal(aClass, aCode, "K7M3-P9QR"); err == nil {
 		t.Error("a grouped, non-canonical code was sealed")

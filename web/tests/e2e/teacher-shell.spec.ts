@@ -38,12 +38,9 @@ async function prepare(
     ...sessionAs(user),
     "GET /teacher/dashboard": {
       body: {
-        openAssignments: 1,
         awaitingGrading: 2,
-        activeStudents: 3,
         flaggedAttempts: 1,
         newestFlaggedAttempt: null,
-        recentAttempts: [],
         takingNow: { students: 0, assignments: 0, assignmentId: null },
         submissions: {
           days: Array.from({ length: 14 }, (_, index) => ({

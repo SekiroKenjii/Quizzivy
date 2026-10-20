@@ -15,12 +15,9 @@ export function dashboard23(
 ): components["schemas"]["Dashboard"] {
   const length = Number.parseInt(range);
   return {
-    openAssignments: 999,
-    activeStudents: 999,
     awaitingGrading: 7,
     flaggedAttempts: 3,
     newestFlaggedAttempt: { assignmentId: ASSIGNMENT_ID, attemptId: ATTEMPT_ID },
-    recentAttempts: [],
     closingSoon: 2,
     waitingStudents: 4,
     oldestWaitingAt: "2026-09-22T01:00:00Z",

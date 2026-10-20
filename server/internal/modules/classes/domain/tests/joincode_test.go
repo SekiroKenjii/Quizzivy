@@ -117,32 +117,3 @@ func TestTheHintIsTheLastFourCharacters(t *testing.T) {
 		t.Errorf("Hint = %q, want P9QR", got)
 	}
 }
-
-func TestHashingIsStableAndTheCodeIsNotRecoverableFromIt(t *testing.T) {
-	code, err := domain.JoinCodes.Generate()
-	if err != nil {
-		t.Fatal(err)
-	}
-	h := domain.JoinCodes.Hash(code)
-	if len(h) != 32 {
-		t.Fatalf("hash is %d bytes, want 32 -- the column CHECKs for it", len(h))
-	}
-	if !domain.JoinCodes.Equal(h, domain.JoinCodes.Hash(code)) {
-		t.Error("hashing the same code twice produced different output")
-	}
-	if domain.JoinCodes.Equal(h, domain.JoinCodes.Hash("K7M3P9QR")) {
-		t.Error("two different codes hashed alike")
-	}
-	if strings.Contains(string(h), code) {
-		t.Error("the plaintext is recoverable from the stored hash")
-	}
-}
-
-func TestDifferentSpellingsOfOneCodeHashAlike(t *testing.T) {
-	want := domain.JoinCodes.Hash(domain.JoinCodes.Normalize("K7M3P9QR"))
-	for _, typed := range []string{"k7m3-p9qr", "K7M3 P9QR", " k7m3p9qr "} {
-		if !domain.JoinCodes.Equal(want, domain.JoinCodes.Hash(domain.JoinCodes.Normalize(typed))) {
-			t.Errorf("%q hashed to a different value", typed)
-		}
-	}
-}
