@@ -92,8 +92,9 @@ export function userColumns(t: TFunction, locale: Locale): DataColumn<AdminUser>
     },
     {
       id: "open",
-      header: "",
+      header: t("users.column.open"),
       track: "40px",
+      hideHeader: true,
       cell: () => (
         <span
           aria-hidden="true"

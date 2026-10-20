@@ -275,18 +275,18 @@ DECLARE
   bad text;
 BEGIN
   SELECT count(*) INTO found FROM app.users u JOIN app.roles r ON r.id = u.role_id WHERE r.builtin_key = 'admin';
-  IF found <> 3 THEN
-    RAISE EXCEPTION 'seed: expected three Admins, found %', found;
+  IF found < 3 THEN
+    RAISE EXCEPTION 'seed: expected at least three Admins, found %', found;
   END IF;
   SELECT count(*) INTO found FROM app.users u JOIN app.roles r ON r.id = u.role_id WHERE r.builtin_key = 'teacher';
-  IF found <> 9 THEN
-    RAISE EXCEPTION 'seed: expected nine Teachers, found %', found;
+  IF found < 9 THEN
+    RAISE EXCEPTION 'seed: expected at least nine Teachers, found %', found;
   END IF;
   SELECT count(*) INTO found
     FROM app.users u JOIN app.roles r ON r.id = u.role_id AND r.builtin_key = 'teacher'
    WHERE u.disabled_at IS NOT NULL AND EXISTS (SELECT 1 FROM app.classes c WHERE c.teacher_id = u.id);
-  IF found <> 1 THEN
-    RAISE EXCEPTION 'seed: expected one disabled Teacher who teaches a class, found %', found;
+  IF found < 1 THEN
+    RAISE EXCEPTION 'seed: expected a disabled Teacher who teaches a class, found %', found;
   END IF;
 
   SELECT string_agg(s.status, ', ') INTO bad

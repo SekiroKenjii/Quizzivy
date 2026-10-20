@@ -375,7 +375,18 @@ describe("the columns", () => {
     serveUsers(ROWS);
     renderUsers("/admin/users", width);
     await table();
-    expect((await headersOf()).filter((name) => name !== "")).toEqual(headers);
+    expect((await headersOf()).filter((name) => name !== "")).toEqual([
+      ...headers,
+      "Mở",
+    ]);
+  });
+
+  it("draws the deck's 36px checkbox track and its 40px ellipsis track", async () => {
+    serveUsers(ROWS);
+    renderUsers("/admin/users", 1080);
+    await table();
+    const header = screen.getAllByRole("row")[0]!;
+    expect(header.style.gridTemplateColumns).toMatch(/^36px .* 40px$/);
   });
 
   it("folds the role and the last activity under the name while their columns are gone", async () => {

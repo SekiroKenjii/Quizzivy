@@ -1027,7 +1027,8 @@
       "signIn": "Sign-in",
       "classes": "Classes",
       "lastActive": "Last active",
-      "status": "Status"
+      "status": "Status",
+      "open": "Open"
     },
     "signIn": {
       "password": "Password",
