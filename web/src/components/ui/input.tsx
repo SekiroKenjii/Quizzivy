@@ -20,7 +20,7 @@ function Input({
         "border-input selection:bg-primary selection:text-primary-foreground file:text-foreground placeholder:text-muted-foreground w-full min-w-0 rounded-md border py-1 text-[length:var(--text-input)] transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
         "focus-visible:border-ring",
         "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40",
-        "bg-bg dark:bg-bg lg:text-ui aria-invalid:border-danger h-9.5 px-3 shadow-none focus-visible:ring-0",
+        "bg-bg dark:bg-bg lg:text-ui aria-invalid:border-danger h-9.5 px-3 shadow-none",
         size === "lg" && "rounded-ctl lg:text-body h-10.5",
         size === "xl" && "lg:text-md h-11.5 rounded-lg px-3.5",
         className,
