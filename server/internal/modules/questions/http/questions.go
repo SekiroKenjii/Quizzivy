@@ -296,6 +296,7 @@ func ToQuestionInput(body openapi.QuestionInput) domain.Input {
 	if body.Blanks != nil {
 		for _, b := range *body.Blanks {
 			blank := domain.BlankInput{
+				ID:              optionID(b.Id),
 				GapID:           b.GapId,
 				Ordinal:         b.Ordinal,
 				AcceptedAnswers: b.AcceptedAnswers,

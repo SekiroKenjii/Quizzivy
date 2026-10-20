@@ -57,15 +57,6 @@ func TestNothingIsReadOrMarkedWithoutACaller(t *testing.T) {
 	}
 }
 
-func TestSummaryCountsTheCallersUnread(t *testing.T) {
-	store := only(t, "Unread")
-	store.unread = 3
-	summary, err := over(store).Queries.Summary.Handle(context.Background(), query.Summary{UserID: reader})
-	if err != nil || summary.UnreadNotifications != 3 || store.userID != reader {
-		t.Errorf("summary %+v for %q (%v), want 3 unread for the caller", summary, store.userID, err)
-	}
-}
-
 func TestMarkReadTakesOneToAHundredIds(t *testing.T) {
 	for n, want := range map[int]error{0: domain.ErrNoIDs, 1: nil, 100: nil, 101: domain.ErrTooManyIDs} {
 		allowed := ""

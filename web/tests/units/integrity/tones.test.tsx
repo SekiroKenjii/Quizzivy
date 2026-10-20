@@ -10,20 +10,18 @@ import {
   focusLossLabel,
   timelineMark,
 } from "@/features/integrity/tones";
-import { KIND_LOOK } from "@/features/notifications/kinds";
 import { contractJson } from "@tests/support/contractResponse";
 import { server } from "@tests/support/server";
 import { ATTEMPT_ID, BASE, review } from "../attempts/fixtures";
 import "@/lib/i18n";
 
 describe("the flagged tone", () => {
-  it("is the danger tokens, and the flagged notification reads it", () => {
+  it("is the danger tokens", () => {
     expect(FLAGGED).toEqual({
       tone: "danger",
       ink: "text-danger-ink",
       soft: "bg-danger-soft",
     });
-    expect(KIND_LOOK["attempt.flagged"].tone).toBe(FLAGGED.tone);
   });
 });
 

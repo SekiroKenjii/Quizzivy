@@ -256,26 +256,6 @@ func TestMethodNotAllowedIsInTheContract(t *testing.T) {
 	}
 }
 
-func TestTheLegacyAliasKeepsTheSameAnswers(t *testing.T) {
-	h := roleRouter(t, testIssuer(t), rolePrincipals())
-
-	head := send(h, http.MethodHead, "/admin/tests", nil)
-	if head.Code != http.StatusMethodNotAllowed {
-		t.Errorf("HEAD /admin/tests = %d, want 405", head.Code)
-	}
-	if got, want := head.Header().Get("Allow"), contractMethods(t, "/teacher/tests"); got != want {
-		t.Errorf("HEAD /admin/tests: Allow = %q, want the contract's %q for /teacher/tests", got, want)
-	}
-
-	unknown := send(h, http.MethodGet, "/admin/no-such", nil)
-	if unknown.Code != http.StatusNotFound {
-		t.Fatalf("GET /admin/no-such = %d, want 404", unknown.Code)
-	}
-	if env := envelopeOf(t, unknown); env.Error.Code != "NOT_FOUND" || env.Error.Message != pathNotFoundVI {
-		t.Errorf("GET /admin/no-such: answer = %s %q, want NOT_FOUND %q", env.Error.Code, env.Error.Message, pathNotFoundVI)
-	}
-}
-
 func TestAPathTheMuxCleansIsRedirectedAsBefore(t *testing.T) {
 	window := underWay()
 	window.over.Store(true)

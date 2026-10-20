@@ -34,3 +34,4 @@ server/bin/
 /tmp-*
 .import-work/
 **/tmp/email-sink/
+__pycache__/

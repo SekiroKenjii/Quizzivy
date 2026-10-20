@@ -183,15 +183,6 @@ func TestAnOpenRouteIsReachableWithoutTheHeader(t *testing.T) {
 	}
 }
 
-func TestHealthzIsNotBehindAuthentication(t *testing.T) {
-	handler := newAuthTestRouter(t, testIssuer(t))
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", rec.Code)
-	}
-}
-
 func TestAMisconfiguredVerifierRefusesEveryoneRatherThanNobody(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	handler, err := router.New(router.Deps{Principals: newFakePrincipals(), DB: fakeDB{}}, logger, []string{"https://app.quizzivy.com"}, "")

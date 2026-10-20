@@ -52,11 +52,13 @@ func scanVersion(row pgx.Row) (domain.Version, error) {
 	return v, err
 }
 
-// ListVersions returns the test's publish history, newest first; a test
-// outside scope has none, as an unknown id has none.
+// ListVersions returns the test's publish history, newest first. A test
+// that was never published has none; a test outside scope is
+// domain.ErrNotFound, as an unknown id is.
 func (s *Postgres) ListVersions(ctx context.Context, scope access.Scope, testID string) ([]domain.Version, error) {
 	rows, err := s.Query(ctx, `SELECT `+versionColumns+` JOIN app.tests vt ON vt.id = v.test_id
-		WHERE v.test_id = $1 AND ($2::boolean OR vt.owner_id = $3::uuid) ORDER BY v.version DESC`,
+		WHERE v.test_id = $1 AND vt.deleted_at IS NULL AND ($2::boolean OR vt.owner_id = $3::uuid)
+		ORDER BY v.version DESC`,
 		testID, scope.All, opt.String(scope.UserID))
 	if err != nil {
 		return nil, fmt.Errorf("tests: list versions: %w", err)
@@ -74,5 +76,26 @@ func (s *Postgres) ListVersions(ctx context.Context, scope access.Scope, testID 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("tests: list versions: %w", err)
 	}
+	if len(out) == 0 {
+		if err := requireVisibleTest(ctx, s, scope, testID); err != nil {
+			return nil, err
+		}
+	}
 	return out, nil
+}
+
+func requireVisibleTest(ctx context.Context, q interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, scope access.Scope, testID string) error {
+	var visible bool
+	err := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM app.tests
+		WHERE id = $1 AND deleted_at IS NULL AND `+scopedTest+`)`,
+		testID, scope.All, opt.String(scope.UserID)).Scan(&visible)
+	if err != nil {
+		return fmt.Errorf("tests: read test: %w", err)
+	}
+	if !visible {
+		return domain.ErrNotFound
+	}
+	return nil
 }

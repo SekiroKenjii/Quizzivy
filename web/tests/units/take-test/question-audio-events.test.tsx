@@ -90,7 +90,13 @@ afterEach(() => {
 });
 
 const audio = () => document.querySelector("audio") as HTMLAudioElement;
-const pressPlay = () => fireEvent.click(screen.getByRole("button", { name: "Phát" }));
+async function click(element: HTMLElement) {
+  await act(async () => {
+    fireEvent.click(element);
+  });
+}
+
+const pressPlay = () => click(screen.getByRole("button", { name: "Phát" }));
 const recorded = () => pending().map((event) => [event.kind, event.questionId]);
 
 function mount() {
@@ -99,10 +105,10 @@ function mount() {
   );
 }
 
-it("records the play, then its end, for the question", () => {
+it("records the play, then its end, for the question", async () => {
   mount();
 
-  pressPlay();
+  await pressPlay();
   fireEvent.ended(audio());
 
   expect(recorded()).toEqual([
@@ -112,27 +118,24 @@ it("records the play, then its end, for the question", () => {
   expect(counted).toHaveBeenCalledTimes(1);
 });
 
-it("records a blocked play, and counts the play as it did before", async () => {
+it("records a blocked play, and spends no play on it", async () => {
   play.mockImplementation(() =>
     Promise.reject(new DOMException("blocked", "NotAllowedError")),
   );
   mount();
 
-  pressPlay();
+  await pressPlay();
 
   expect(await screen.findByRole("alert")).toBeInTheDocument();
-  expect(recorded()).toEqual([
-    ["audio_play", "q1"],
-    ["audio_blocked", "q1"],
-  ]);
-  expect(counted).toHaveBeenCalledTimes(1);
+  expect(recorded()).toEqual([["audio_blocked", "q1"]]);
+  expect(counted).not.toHaveBeenCalled();
 });
 
-it("records nothing new when the attempt is not loaded", () => {
+it("records nothing new when the attempt is not loaded", async () => {
   useTakeTestStore.getState().reset();
   mount();
 
-  pressPlay();
+  await pressPlay();
   fireEvent.ended(audio());
 
   expect(pending()).toEqual([]);
@@ -181,32 +184,29 @@ it("records no seek when the attempt is not loaded", () => {
   expect(pending()).toEqual([]);
 });
 
-it("records nothing for a pause before the start, and still counts the play", async () => {
+it("records nothing for a pause before the start, and spends no play on it", async () => {
   play.mockImplementation(() =>
     Promise.reject(new DOMException("aborted", "AbortError")),
   );
   mount();
 
-  pressPlay();
-  await act(async () => {
-    await Promise.resolve();
-  });
+  await pressPlay();
 
-  expect(recorded()).toEqual([["audio_play", "q1"]]);
+  expect(recorded()).toEqual([]);
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  expect(counted).toHaveBeenCalledTimes(1);
+  expect(counted).not.toHaveBeenCalled();
 });
 
-it("records no second play for a resume", () => {
+it("records no second play for a resume", async () => {
   mount();
 
-  pressPlay();
+  await pressPlay();
   fireEvent.play(audio());
   audio().currentTime = 4;
   fireEvent.timeUpdate(audio());
   paused = true;
   fireEvent.pause(audio());
-  fireEvent.click(screen.getByRole("button", { name: "Nghe tiếp" }));
+  await click(screen.getByRole("button", { name: "Nghe tiếp" }));
   paused = true;
   fireEvent.ended(audio());
 
@@ -217,15 +217,15 @@ it("records no second play for a resume", () => {
   expect(counted).toHaveBeenCalledTimes(1);
 });
 
-it("resumes a play left on another question where it stopped, recording nothing new", () => {
+it("resumes a play left on another question where it stopped, recording nothing new", async () => {
   const view = mount();
-  pressPlay();
+  await pressPlay();
   audio().currentTime = 6;
   fireEvent.timeUpdate(audio());
   view.unmount();
 
   mount();
-  fireEvent.click(screen.getByRole("button", { name: "Nghe tiếp" }));
+  await click(screen.getByRole("button", { name: "Nghe tiếp" }));
   fireEvent.loadedMetadata(audio());
 
   expect(audio().currentTime).toBe(6);
@@ -233,7 +233,7 @@ it("resumes a play left on another question where it stopped, recording nothing 
   expect(counted).toHaveBeenCalledTimes(1);
 });
 
-it("keeps a question's recording that cannot be paused playing, and a stop from elsewhere resumes for no play", () => {
+it("keeps a question's recording that cannot be paused playing, and a stop from elsewhere resumes for no play", async () => {
   renderWithPaper(
     <QuestionAudio
       question={{ ...question, audio: { ...question.audio!, allowPause: false } }}
@@ -241,7 +241,7 @@ it("keeps a question's recording that cannot be paused playing, and a stop from 
     />,
   );
 
-  pressPlay();
+  await pressPlay();
   fireEvent.play(audio());
   audio().currentTime = 3;
   fireEvent.timeUpdate(audio());
@@ -252,7 +252,7 @@ it("keeps a question's recording that cannot be paused playing, and a stop from 
 
   paused = true;
   fireEvent.pause(audio());
-  fireEvent.click(screen.getByRole("button", { name: "Nghe tiếp" }));
+  await click(screen.getByRole("button", { name: "Nghe tiếp" }));
 
   expect(play).toHaveBeenCalledTimes(2);
   expect(recorded()).toEqual([["audio_play", "q1"]]);

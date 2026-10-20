@@ -26,6 +26,33 @@ export function holdSession(attemptId: string, sessionId: string): void {
   }
 }
 
+/**
+ * releaseSession forgets the session this tab held for an attempt that has
+ * ended, in memory and in the storage.
+ */
+export function releaseSession(attemptId: string): void {
+  held.delete(attemptId);
+  forget(attemptId);
+}
+
+/**
+ * clearHeldSessions forgets every session this tab holds, as a sign-out
+ * clears the rest of what the browser kept for the account.
+ */
+export function clearHeldSessions(): void {
+  held.clear();
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i += 1) {
+      const key = sessionStorage.key(i);
+      if (key?.startsWith(PREFIX)) keys.push(key);
+    }
+    for (const key of keys) sessionStorage.removeItem(key);
+  } catch {
+    return;
+  }
+}
+
 function stored(attemptId: string): string | null {
   try {
     return sessionStorage.getItem(PREFIX + attemptId);

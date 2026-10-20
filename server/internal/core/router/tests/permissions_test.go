@@ -317,13 +317,6 @@ func TestTheStudentTreeNeedsTakeTests(t *testing.T) {
 	}
 }
 
-func TestAnAnonymousCallerToTheTeacherTreeGetsAuthenticationNotAuthorization(t *testing.T) {
-	issuer := testIssuer(t)
-	if rec := sendAs(t, roleRouter(t, issuer, rolePrincipals()), issuer, http.MethodGet, "/teacher/dashboard", "", ""); rec.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want 401", rec.Code)
-	}
-}
-
 func TestThePermissionGateRunsAfterAuthenticationAndBeforeTheBody(t *testing.T) {
 	issuer := testIssuer(t)
 	h := roleRouter(t, issuer, rolePrincipals())

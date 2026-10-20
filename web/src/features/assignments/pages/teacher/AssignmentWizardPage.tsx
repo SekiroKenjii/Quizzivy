@@ -180,7 +180,7 @@ function Wizard({
 
   const save = useMutation({
     mutationFn: ({ asDraft, body }: { asDraft: boolean; body: AssignmentDraft }) => {
-      const input = { draft: asDraft, ...draftBody(body) };
+      const input = { draft: asDraft, ...draftBody(body, existing?.window) };
       return existing === undefined
         ? createAssignment(input)
         : updateAssignment(existing.id, input);

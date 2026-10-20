@@ -81,7 +81,9 @@ it("keeps one player and its position in the stimulus pane while moving between 
   await screen.findByText(previewQuestions[1]!.prompt);
   const audio = container.querySelector("audio")!;
   expect(passage()).toContainElement(audio);
-  fireEvent.click(screen.getByRole("button", { name: "Phát" }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Phát" }));
+  });
   expect(play).toHaveBeenCalledOnce();
   expect(recordGroupAudioPlay).toHaveBeenCalled();
   audio.currentTime = 0.5;
@@ -461,7 +463,9 @@ it("pauses a recording when the student leaves its group, and resumes it there f
   const { container } = mount();
   await screen.findByRole("article", { name: "Part 1 · Asking the way" });
   const first = container.querySelector("audio")!;
-  fireEvent.click(screen.getByRole("button", { name: "Phát" }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Phát" }));
+  });
   expect(recordGroupAudioPlay).toHaveBeenCalledTimes(1);
   first.currentTime = 42;
   fireEvent.timeUpdate(first);

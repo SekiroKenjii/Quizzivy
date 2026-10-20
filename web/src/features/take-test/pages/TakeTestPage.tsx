@@ -37,11 +37,15 @@ import { PaperSourceContext } from "../paper";
 import { useLivePaperSource } from "../livePaper";
 import { paperKey } from "../shortcuts";
 import { paperStops } from "../stops";
-import { useTakeTestStore } from "../store";
+import { useTakeTestStore, type LockReason } from "../store";
 import { useLeave } from "../useLeave";
 import { useEngineWidthAtLeast } from "../width";
 
 const WIDE_PX = 768;
+
+function unlessTaken(sessionId: string | null, lock: LockReason | null) {
+  return lock === "superseded" ? null : sessionId;
+}
 
 /**
  * TakeTestPage is the engine, one question at a time, with the navigator as
@@ -97,7 +101,7 @@ export default function TakeTestPage() {
 
   const { strikes, fullscreen } = useIntegrityMonitor({
     attemptId: attemptId ?? null,
-    sessionId,
+    sessionId: unlessTaken(sessionId, lock),
     beaconToken,
     policy:
       ended && integrity !== null

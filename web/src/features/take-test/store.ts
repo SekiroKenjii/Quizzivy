@@ -6,7 +6,9 @@ import {
   pending as pendingEvents,
   restore as restoreEvents,
 } from "@/features/integrity/buffer";
+import { abandonSession } from "@/features/integrity/sendHeld";
 import { ApiError } from "@/lib/api/errors";
+import { releaseSession } from "./heldSession";
 import { remainingMs } from "./timeLeft";
 import {
   getAttempt,
@@ -213,24 +215,33 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
     scheduleFlush();
   },
 
-  // Counts a play the moment it starts, then lets the server correct it.
+  // Counts a play the moment it starts, then lets the server correct it. A
+  // refusal takes the count back and locks the paper; it is never retried.
   notePlay: (questionId) => {
-    const { attemptId, audioPlays } = get();
-    if (attemptId === null) return;
+    const { attemptId, sessionId, audioPlays } = get();
+    if (attemptId === null || sessionId === null) return;
 
     set({
       audioPlays: { ...audioPlays, [questionId]: (audioPlays[questionId] ?? 0) + 1 },
     });
     const epoch = generation;
-    recordAudioPlay(attemptId, questionId)
+    recordAudioPlay(attemptId, questionId, sessionId)
       .then((counted) => {
         if (generation !== epoch) return;
         set((state) => ({
           audioPlays: { ...state.audioPlays, [questionId]: counted.plays },
         }));
       })
-      .catch(() => {
-        // The count is the server's, and it will be right on the next fetch.
+      .catch((error: unknown) => {
+        const lock = lockForError(error);
+        if (lock === null || generation !== epoch) return;
+        set((state) => ({
+          audioPlays: {
+            ...state.audioPlays,
+            [questionId]: Math.max(0, (state.audioPlays[questionId] ?? 0) - 1),
+          },
+        }));
+        get().lockNow(lock);
       });
   },
 
@@ -272,7 +283,7 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
             ...(deadlineAt === null ? {} : { deadlineAt }),
           };
         });
-        if (get().dirty.size > 0) scheduleFlush();
+        if (get().dirty.size > 0 || pendingEvents().length > 0) scheduleFlush();
         return true;
       } catch (error) {
         if (generation !== epoch) return false;
@@ -308,8 +319,11 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
     set({ submitState: "inFlight", submitReason: reason });
     try {
       let saved = await get().flush();
-      if (generation !== epoch) return;
-      if (saved && get().dirty.size > 0) saved = await get().flush();
+      let left = Infinity;
+      while (saved && generation === epoch && waiting() > 0 && waiting() < left) {
+        left = waiting();
+        saved = await get().flush();
+      }
       if (generation !== epoch) return;
       if (
         get().lock === "superseded" ||
@@ -371,6 +385,10 @@ export const useTakeTestStore = create<TakeTestState>((set, get) => ({
   },
 }));
 
+function waiting(): number {
+  return useTakeTestStore.getState().dirty.size + pendingEvents().length;
+}
+
 function serverNow(state: Pick<TakeTestState, "offsetMs">): string {
   return new Date(Date.now() + state.offsetMs).toISOString();
 }
@@ -409,8 +427,7 @@ export function cancelDeadline() {
 }
 
 useTakeTestStore.subscribe((state, previous) => {
-  if (state.lock !== null && state.lock !== previous.lock)
-    useGroupPlaybackStore.getState().lockNow(state.lock);
+  if (state.lock !== previous.lock) onLock(state);
   if (
     state.attemptId !== null &&
     state.studentId !== null &&
@@ -436,6 +453,16 @@ useTakeTestStore.subscribe((state, previous) => {
     armDeadline();
   }
 });
+
+function onLock(state: TakeTestState): void {
+  if (state.lock === null) return;
+  useGroupPlaybackStore.getState().lockNow(state.lock);
+  if (state.lock === "closed" || state.lock === "superseded") cancelDeadline();
+  if (state.attemptId === null) return;
+  if (state.lock === "closed") releaseSession(state.attemptId);
+  if (state.lock === "superseded" && state.sessionId !== null)
+    void abandonSession(state.attemptId, state.sessionId);
+}
 
 const FLAGS_PREFIX = "quizzivy.flags.";
 

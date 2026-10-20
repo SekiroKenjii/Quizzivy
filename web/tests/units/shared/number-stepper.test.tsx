@@ -264,6 +264,22 @@ describe("typing the stepper's value", () => {
     expect(spin()).toHaveAttribute("aria-valuetext", "47 phút");
   });
 
+  it("selects the number again after Enter, so the next entry replaces it", async () => {
+    const user = userEvent.setup();
+    render(<Minutes />);
+    await user.click(spin());
+    await user.keyboard("47{Enter}");
+    expect(spin()).toHaveValue("47");
+    expect(spin().selectionStart).toBe(0);
+    expect(spin().selectionEnd).toBe(2);
+
+    await user.keyboard("{Enter}");
+    expect(spin().selectionStart).toBe(0);
+    expect(spin().selectionEnd).toBe(2);
+    await user.keyboard("60{Enter}");
+    expect(spin()).toHaveValue("60");
+  });
+
   it("commits on leaving the field in the same way", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

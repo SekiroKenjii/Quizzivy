@@ -62,7 +62,7 @@ interface AudioPlayerProps {
   place?: string | undefined;
   // §11.3 asks for `metadata` so the duration renders without downloading the file.
   preload?: "none" | "metadata";
-  // Fired synchronously as a play starts, inside the gesture; later for a resume that lost its place.
+  // Fired once the browser has started a play from the gesture, so a refused or interrupted start spends nothing; later for a resume that lost its place.
   onPlay?: (() => void) | undefined;
   // Fired synchronously as a paused play resumes, which spends no play.
   onResume?: (() => void) | undefined;
@@ -87,7 +87,9 @@ const RESTORE_SLACK_S = 0.5;
  * card instead.
  *
  * A play is spent when playback starts and no play is in progress, that is
- * from 0:00 or after an end: the press calls `onPlay`. A press that continues
+ * from 0:00 or after an end: the press calls `play()` in its own tick and
+ * `onPlay` once the browser has started it, so a start the browser refuses or
+ * a pause that interrupts it spends nothing. A press that continues
  * a paused play calls `onResume` and spends none. Given `place`, a play in
  * progress and its position outlive the player; the next one under that key
  * puts the position back once the element has its metadata, and calls
@@ -228,24 +230,33 @@ function PlacedPlayer({
     if (!element) return;
     if (element.paused) {
       const started = element.play();
-      if (liveRef.current && (element.currentTime > 0 || restoreTo.current !== null)) {
-        onResume?.();
-      } else {
+      const resuming =
+        liveRef.current && (element.currentTime > 0 || restoreTo.current !== null);
+      if (resuming) onResume?.();
+      else {
         liveRef.current = true;
         setLive(true);
-        onPlay?.();
       }
       setBlockedFor(null);
-      void started.catch((cause: unknown) => {
-        const name = cause instanceof DOMException ? cause.name : null;
-        if (name === "AbortError") return;
-        if (name === "NotAllowedError") {
-          onBlocked?.();
-          setBlockedFor(src);
-          return;
-        }
-        setFailedFor(src);
-      });
+      void started.then(
+        () => {
+          if (!resuming) onPlay?.();
+        },
+        (cause: unknown) => {
+          if (!resuming && element.currentTime === 0) {
+            liveRef.current = false;
+            setLive(false);
+          }
+          const name = cause instanceof DOMException ? cause.name : null;
+          if (name === "AbortError") return;
+          if (name === "NotAllowedError") {
+            onBlocked?.();
+            setBlockedFor(src);
+            return;
+          }
+          setFailedFor(src);
+        },
+      );
     } else if (allowPause) {
       element.pause();
     }

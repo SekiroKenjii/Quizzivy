@@ -46,6 +46,10 @@ func (s *Postgres) Save(ctx context.Context, in domain.SaveInput, now time.Time)
 }
 
 func writable(ctx context.Context, tx pgx.Tx, in domain.SaveInput, now time.Time) (string, time.Time, error) {
+	return lockWritable(ctx, tx, in.AttemptID, in.StudentID, in.SessionID, false, now)
+}
+
+func lockWritable(ctx context.Context, tx pgx.Tx, attemptID, studentID, sessionID string, anySession bool, now time.Time) (string, time.Time, error) {
 	var (
 		session    string
 		status     domain.Status
@@ -56,7 +60,7 @@ func writable(ctx context.Context, tx pgx.Tx, in domain.SaveInput, now time.Time
 		SELECT session_id, status, deadline_at, test_version_id
 		  FROM app.attempts
 		 WHERE id = $1::uuid AND student_id = $2::uuid
-		   FOR UPDATE`, in.AttemptID, in.StudentID).Scan(&session, &status, &deadlineAt, &versionID)
+		   FOR UPDATE`, attemptID, studentID).Scan(&session, &status, &deadlineAt, &versionID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", time.Time{}, domain.ErrForbidden
 	}
@@ -67,7 +71,7 @@ func writable(ctx context.Context, tx pgx.Tx, in domain.SaveInput, now time.Time
 	switch {
 	case status != domain.InProgress:
 		return "", time.Time{}, domain.ErrAttemptClosed
-	case session != in.SessionID:
+	case !anySession && session != sessionID:
 		return "", time.Time{}, domain.ErrSessionSuperseded
 	case now.After(deadlineAt):
 		return "", time.Time{}, domain.ErrDeadlinePassed

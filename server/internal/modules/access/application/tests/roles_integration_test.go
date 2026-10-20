@@ -121,6 +121,12 @@ func (w *realWorld) caller(userID string) domain.Caller {
 
 func (w *realWorld) admin() domain.Caller { return w.caller(w.user(w.builtin(access.BuiltinAdmin))) }
 
+func (w *realWorld) adminWithoutTakeTests() domain.Caller {
+	w.t.Helper()
+	w.exec(`DELETE FROM app.role_permissions WHERE role_id = $1 AND permission_key = $2`, w.builtin(access.BuiltinAdmin), string(access.LearningTakeTests))
+	return w.admin()
+}
+
 func (w *realWorld) revision(roleID string) int64 {
 	w.t.Helper()
 	var r int64
@@ -268,10 +274,7 @@ func TestAStaleSaveWritesNothingForAnyRole(t *testing.T) {
 
 func TestAnAdminWithoutTakeTestsGrantsItToACustomRole(t *testing.T) {
 	w := appWorld(t)
-	by := w.admin()
-	if by.Permissions.Has(access.LearningTakeTests) {
-		t.Skip("the Admin role has Take tests on in this database")
-	}
+	by := w.adminWithoutTakeTests()
 	role := w.role("Chỉ làm bài")
 	roles, err := save(w, by, map[string]int64{role: w.revision(role)}, domain.GrantChange{RoleID: role, Key: access.LearningTakeTests, Granted: true})
 	if err != nil {
@@ -285,10 +288,7 @@ func TestAnAdminWithoutTakeTestsGrantsItToACustomRole(t *testing.T) {
 func TestAnAdminTurnsItsOwnRolesTakeTestsOnAndOff(t *testing.T) {
 	w := appWorld(t)
 	adminRole := w.builtin(access.BuiltinAdmin)
-	by := w.admin()
-	if by.Permissions.Has(access.LearningTakeTests) {
-		t.Skip("the Admin role has Take tests on in this database")
-	}
+	by := w.adminWithoutTakeTests()
 	if _, err := save(w, by, map[string]int64{adminRole: w.revision(adminRole)}, domain.GrantChange{RoleID: adminRole, Key: access.LearningTakeTests, Granted: true}); err != nil {
 		t.Fatalf("turning it on: %v", err)
 	}

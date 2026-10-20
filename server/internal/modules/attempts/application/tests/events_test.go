@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -434,5 +435,53 @@ func TestAMalformedAwayMsIsSkippedNotFatal(t *testing.T) {
 	}
 	if n, _ := focusState(t, pool, session.Attempt.ID); n != 1 {
 		t.Errorf("count %d, want 1: the junk is skipped and the real episode counted", n)
+	}
+}
+
+func TestAFlushNamingASessionTheAttemptNeverHadIsRefusedAndWritesNothing(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := started(t, pool)
+	ctx := context.Background()
+
+	stranger := session
+	stranger.SessionID = uuid.NewString()
+	if _, err := svc.Commands.Flush.Handle(ctx, command.Flush{Input: flushOf(w, stranger, 41, "paste")}); !errors.Is(err, domain.ErrForbidden) {
+		t.Fatalf("bearer: got %v, want ErrForbidden", err)
+	}
+	beacon := domain.FlushInput{
+		AttemptID:   session.Attempt.ID,
+		SessionID:   stranger.SessionID,
+		BeaconToken: session.BeaconToken,
+		Events:      []domain.Event{{Kind: "paste", OccurredAt: time.Now(), ClientSeq: 42}},
+	}
+	if _, err := svc.Commands.Flush.Handle(ctx, command.Flush{Input: beacon}); !errors.Is(err, domain.ErrForbidden) {
+		t.Fatalf("beacon: got %v, want ErrForbidden", err)
+	}
+	if containsKind(eventKinds(t, pool, session.Attempt.ID), "paste") {
+		t.Error("an unknown session's events were recorded")
+	}
+}
+
+func TestASupersededSessionThatRecordedEventsCanStillFlushThem(t *testing.T) {
+	pool := newPool(t)
+	svc, w, first := started(t, pool)
+	ctx := context.Background()
+
+	if _, err := svc.Commands.Flush.Handle(ctx, command.Flush{Input: flushOf(w, first, 0, "tab_hidden")}); err != nil {
+		t.Fatalf("first session: %v", err)
+	}
+	second, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
+	if err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	if _, err := svc.Commands.Flush.Handle(ctx, command.Flush{Input: flushOf(w, first, 1, "page_hide")}); err != nil {
+		t.Fatalf("a superseded session's late flush was refused: %v", err)
+	}
+	if !containsKind(eventKinds(t, pool, first.Attempt.ID), "page_hide") {
+		t.Error("the late flush was not stored")
+	}
+	if n := count(t, pool, `SELECT count(*) FROM app.attempts WHERE id = $1::uuid AND session_id = $2::uuid`,
+		first.Attempt.ID, second.SessionID); n != 1 {
+		t.Error("a flush from the old session changed the attempt's current session")
 	}
 }
