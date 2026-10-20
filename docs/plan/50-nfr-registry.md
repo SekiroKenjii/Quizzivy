@@ -43,7 +43,7 @@ at the end says how much is covered and what the next round is.
 | NFR-S15 | Dependencies: none added without a stated reason; Sonar runs on every push | §14 DoD, §18 | ✅ | CI `Sonar` job; PR template |
 | NFR-S16 | Every operation declares `x-permission` (a key, a pseudo-key or an any-of list) or is open, and `httpx.RequirePermission` enforces it on every request; the API refuses to start when an operation breaks that rule, names a key outside the catalogue or its path's tree, or `app.permissions` lacks a compiled key | 70 §4.2 and D6, T-R2.4, T-R2.5 | ✅ | `httpx.PermissionRequirements` in `router.New`; `CheckCatalogue` in `wiring.Build`; `core/router/tests/permissions_test.go` with `testdata/permissions.golden` (97 operations); `core/tests/catalogue_test.go`; `web/tests/units/contract/openapi-contract.test.ts` |
 | NFR-S17 | Another owner's id is answered as a missing id: for every id an operation under `/teacher/*`, `/app/*` or `/me/*` takes, a second teacher or student gets the status and body a random id gets, never sees the first one's rows in a list, and leaves them unchanged; a scoped uuid that names no resource kind fails the build | 70 §4.2, PR-1, T-R2.16 | ✅ | `server/tests/isolation_*_test.go` (tag `e2e`, CI Server job), driven by the contract's `x-resource` and `x-resource-list`; `core/router/tests/resource_contract_test.go`. No leak found |
-| NFR-S18 | Join codes are encrypted at rest: a new code is sealed with AES-256-GCM under `JOIN_CODE_KEY`, bound to its class and code ids, and found by an HMAC-SHA256 under a key the database never holds; rotating the key is documented and scripted | 70 D5, §6.5, §13.3, T-R2.14a, T-R2.14b | 🟡 | `migrations/00078`, `classes/domain/joincode_keys.go`, `joincode_encryption_test.go`, `server/tests/join_code_key_flow_test.go`; `maintenance rekey-join-codes` and `../setup/operations.md` "Join-code key". Codes issued before v0.8.0 keep their SHA-256, which a dump reverses in 2^20 guesses, until R4 rotates them (D5) |
+| NFR-S18 | Join codes are encrypted at rest: a new code is sealed with AES-256-GCM under `JOIN_CODE_KEY`, bound to its class and code ids, and found by an HMAC-SHA256 under a key the database never holds; rotating the key is documented and scripted | 70 D5, §6.5, §13.3, T-R2.14a, T-R2.14b, T-R5.1 | ✅ | `migrations/00078`, `classes/domain/joincode_keys.go`, `joincode_encryption_test.go`, `server/tests/join_code_key_flow_test.go`; `maintenance rekey-join-codes` and `../setup/operations.md` "Join-code key". R4 replaced the live codes issued before v0.8.0 (D5, T-R4.22); R5 removed their SHA-256 lookup, and `migrations/00141`'s `class_join_codes_live_encrypted` refuses an unrevoked code without a ciphertext (T-R5.1), so a legacy hash a dump reverses names a code that redeems nothing |
 
 ## B. Privacy and data honesty
 
@@ -177,7 +177,7 @@ at the end says how much is covered and what the next round is.
 
 | Category | ✅ | 🟡 | ⬜ | ❌ | ❓ | Total |
 |---|---|---|---|---|---|---|
-| A. Security | 14 | 4 | 0 | 0 | 0 | 18 |
+| A. Security | 15 | 3 | 0 | 0 | 0 | 18 |
 | B. Privacy | 6 | 0 | 0 | 0 | 0 | 6 |
 | C. Reliability | 9 | 1 | 0 | 0 | 0 | 10 |
 | D. Availability | 6 | 3 | 0 | 0 | 1 | 10 |
@@ -188,7 +188,7 @@ at the end says how much is covered and what the next round is.
 | I. Compatibility | 3 | 2 | 0 | 0 | 0 | 5 |
 | J. Maintainability | 12 | 0 | 0 | 0 | 0 | 12 |
 | K. Observability | 3 | 1 | 0 | 0 | 0 | 4 |
-| **Total** | **72** | **17** | **4** | **0** | **1** | **94** |
+| **Total** | **73** | **16** | **4** | **0** | **1** | **94** |
 
 Counts include all twelve maintainability requirements. Implemented mechanisms
 remain partial where deployment, notification delivery or device evidence is

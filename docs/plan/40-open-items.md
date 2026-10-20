@@ -15,7 +15,7 @@ Phase R (the redesign) records its eighteen decisions in
 `70-redesign-overview.md` §1 and its design questions in `docs/design/gaps.md`;
 questions that come up during a release go into that release's plan file under
 "Open items" and move here at the release's docs task (R4's are O-R4.1 to O-R4.23, R5's
-O-R5.1 to O-R5.12, below).
+O-R5.1 to O-R5.13, below).
 
 ---
 

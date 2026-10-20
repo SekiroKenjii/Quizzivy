@@ -30,8 +30,8 @@ this file describe the code as it is and name the release that changes them.
 - **R4** moved the teacher web routes from `/admin/*` to `/teacher/*` (T-R4.5);
   an old `/admin/*` bookmark that is not a route of the Admin console redirects
   to the same path under `/teacher`. **R5** builds the console at `/admin`:
-  T-R5.20 is its shell and route tree, each later task takes a route over from
-  the placeholder.
+  T-R5.20 is its shell and route tree, and each destination has its page since
+  T-R5.21 took the Overview over from the last placeholder.
 
 ## Sources of truth, in order
 
@@ -183,7 +183,7 @@ web/               quizzivy-web
                    layouts/AdminLayout.tsx and layouts/shell/; features/notifications
                    is the bell and its preferences in both consoles; users, roles, audit,
                    exports, organization, ai-credits and api-reference are the Admin
-                   console's (admin-overview holds the Overview's placeholder until T-R5.21)
+                   console's, and admin-overview is its Overview
   tests/           units/ integration/ e2e/ support/ -- see web/tests/README.md
 server/            Go module `quizzivy`: a modular monolith
   internal/core/     composition root: wiring/ router/ adapters/ jobs/

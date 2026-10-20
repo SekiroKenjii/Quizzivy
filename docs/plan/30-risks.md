@@ -147,7 +147,9 @@ unread). The old code then answers as any replaced one does. What stays open is
 the release's, not the code's: a class the run could not reach waits for the next
 start-up, a teacher whose notification failed is told only by the release note, and
 the count of classes to rotate is read once from a copy of production for that note
-(T-R4.52). The scheme-1 lookup branch stays until R5 removes it.
+(T-R4.52). R5 removed the scheme-1 lookup and the job (T-R5.1, #750): a revoked or
+expired legacy code answers as an unknown one, and `00141`'s
+`class_join_codes_live_encrypted` refuses an unrevoked code without a ciphertext.
 
 ---
 

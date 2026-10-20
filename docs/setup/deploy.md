@@ -624,6 +624,21 @@ maintenance role stops the deploy on its own; the sending domain has to be check
   says, and leave `RETENTION_SWEEP_ENABLED` unset until the first dry run on
   production has been read.
 
+Two changes need a check rather than a setting:
+
+- **`00141_require_encrypted_join_codes.sql` stops on a live legacy join code.** Run the
+  count in `operations.md`, "Legacy join codes", on a Neon branch of production before the
+  merge; it is 0 once any v0.10.0 or later API has started. Otherwise start a v0.11.x API
+  once and count again. If the migration stops, the release command fails and the previous
+  version keeps serving. It holds `ACCESS EXCLUSIVE` on `class_join_codes` for its few
+  hundred rows, so a join waits for it.
+- **The v0.7.0 `/admin` alias is gone** (T-R5.36). A script or bookmark that still calls a
+  teaching operation at its v0.7.0 path under `/admin/` gets `404 NOT_FOUND`; it moves to
+  the operation's `/teacher/*` path in `api/openapi.yaml`. The release notes say so.
+  Production logged no aliased request in the seven days to 2026-10-19
+  (`docs/plan/40-open-items.md` O-R4.22). A web address under `/admin/` that is not a
+  console route still redirects to `/teacher`.
+
 The `PLAN_*` variables stay unset until the centre's plan is decided
 (`operations.md`, "The plan the Admin console shows"). A tab still signed in with a
 temporary password gets `403 PASSWORD_CHANGE_REQUIRED` once and is sent to change it;

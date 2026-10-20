@@ -553,11 +553,10 @@ for the retention workflow and no join-code key.
    - `pending` is the number of codes that will move.
    - `unopened` lists the codes under the old key whose ciphertext does not
      open, by row and class id, never by code.
-   - `legacy` counts every code issued before v0.8.0, revoked or expired
-     ones included. They hold no ciphertext and cannot be re-keyed. From
-     v0.10.0 the API replaces the live ones at start-up (see "Legacy join
-     codes" below), so what remains here is revoked or expired, and has
-     nothing to re-key.
+   - `legacy` counts every code issued before v0.8.0. They hold no
+     ciphertext and cannot be re-keyed. Since v0.12.0 every one is revoked
+     (migration `00141`, see "Legacy join codes" below), so it has nothing to
+     re-key.
 4. Apply it. It walks the codes in batches of 500 (`-batch`), one
    transaction each, and writes only `code_hash`, `code_ciphertext` and
    `key_id`. Joins to the codes in a batch wait until that batch commits, so
