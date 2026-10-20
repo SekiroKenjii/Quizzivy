@@ -2495,8 +2495,8 @@ redeem one. Three columns join `app.class_join_codes`:
   a ciphertext; on production that count was 0 before the merge (T-R5.1's
   pull request). `ADD … NOT VALID` then `VALIDATE` in the same file, which
   runs in one transaction, so the `ADD`'s `ACCESS EXCLUSIVE` lock is held
-  through the scan and joins wait for it; the table holds a few hundred rows,
-  so the wait is brief.
+  through the scan and joins wait for it; the table is small, so the wait is
+  brief.
 - **The keys never reach the database.** A dump yields ciphertexts and keyed
   hashes; without `JOIN_CODE_KEY` neither opens nor can be hashed through the
   code space. A legacy row's SHA-256 still can, and quickly: beside the

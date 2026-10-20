@@ -628,16 +628,18 @@ Two changes need a check rather than a setting:
 
 - **`00141_require_encrypted_join_codes.sql` stops on a live legacy join code.** Run the
   count in `operations.md`, "Legacy join codes", on a Neon branch of production before the
-  merge; it is 0 once any v0.10.0 or later API has started. Otherwise start a v0.11.x API
-  once and count again. If the migration stops, the release command fails and the previous
-  version keeps serving. It holds `ACCESS EXCLUSIVE` on `class_join_codes` for its few
-  hundred rows, so a join waits for it.
+  merge; it should be 0, since every v0.10.0 or later API replaces live legacy codes at
+  start-up. If it is not, start a v0.11.x API once, then count again on a new Neon branch. If the migration stops, the release command fails and the previous
+  version keeps serving. It holds `ACCESS EXCLUSIVE` on `class_join_codes`, a small
+  table, so a join waits for it briefly.
 - **The v0.7.0 `/admin` alias is gone** (T-R5.36). A script or bookmark that still calls a
-  teaching operation at its v0.7.0 path under `/admin/` gets `404 NOT_FOUND`; it moves to
-  the operation's `/teacher/*` path in `api/openapi.yaml`. The release notes say so.
+  teaching operation at its v0.7.0 path under `/admin/` gets `404 NOT_FOUND`, except
+  `GET` and `POST /admin/classes`, which are now the console's `listAllClasses` and
+  `createClassForTeacher` (D-053) and answer a teacher's token `403`; it moves to the
+  operation's `/teacher/*` path in `api/openapi.yaml`. The release notes say so.
   Production logged no aliased request in the seven days to 2026-10-19
   (`docs/plan/40-open-items.md` O-R4.22). A web address under `/admin/` that is not a
-  console route still redirects to `/teacher`.
+  console route still redirects to the same path under `/teacher`.
 
 The `PLAN_*` variables stay unset until the centre's plan is decided
 (`operations.md`, "The plan the Admin console shows"). A tab still signed in with a

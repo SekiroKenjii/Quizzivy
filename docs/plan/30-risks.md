@@ -42,7 +42,7 @@ role beyond the importer is refused), and
 `organization/repositories/tests/lockout_test.go` (a sign-in policy that leaves the
 saving Admin, or every Admin, without a way in is refused,
 `SIGN_IN_POLICY_LOCKOUT`). `server/tests/admin_escalation_flow_test.go`, which
-drives all of it through the API as a custom role, lands with T-R5.31.
+drives all of it through the API as a custom role, landed with T-R5.31 (#744).
 
 ---
 
