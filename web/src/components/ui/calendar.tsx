@@ -51,13 +51,13 @@ function Calendar({
         ),
         button_previous: cn(
           buttonVariants({ variant: buttonVariant }),
-          "size-(--cell-size) p-0 select-none aria-disabled:opacity-50",
+          "size-(--cell-size) select-none aria-disabled:opacity-50",
           "h-7.5 w-7.5 rounded-seg border bg-card hover:bg-muted [&_svg]:size-3.75",
           defaultClassNames.button_previous,
         ),
         button_next: cn(
           buttonVariants({ variant: buttonVariant }),
-          "size-(--cell-size) p-0 select-none aria-disabled:opacity-50",
+          "size-(--cell-size) select-none aria-disabled:opacity-50",
           "h-7.5 w-7.5 rounded-seg border bg-card hover:bg-muted [&_svg]:size-3.75",
           defaultClassNames.button_next,
         ),
