@@ -54,15 +54,14 @@ import { authStore, useAuthStore } from "@/stores/auth";
 
 const CARD = "bg-card shadow-card rounded-xl border";
 const FIELD = "flex flex-col gap-1.5";
-const LABEL = "in-data-[scale=deck]:text-meta";
+const LABEL = "text-meta leading-normal";
 const HINT = "text-muted-fg text-xs leading-normal";
 const NOTE = "text-meta leading-normal";
 const ROW = "flex items-center gap-3 px-4 py-3.5";
 const TILE = "bg-muted rounded-ctl grid size-9 flex-none place-items-center";
 const ROW_TITLE = "block text-base leading-normal font-medium";
 const ROW_SUB = "text-muted-fg text-meta block leading-normal";
-const ROW_BUTTON =
-  "h-8.5 flex-none rounded-md shadow-none in-data-[scale=deck]:px-3 in-data-[scale=deck]:text-sm";
+const ROW_BUTTON = "h-8.5 flex-none rounded-md shadow-none px-3 text-sm";
 const BAR_BUTTON = "h-8.5 flex-none rounded-md";
 
 const NAME = "student-settings-name";
@@ -174,10 +173,7 @@ export function StudentProfileSection() {
             {...form.register("fullName", { onChange: () => setFailure(null) })}
           />
           {nameError ? (
-            <FieldError
-              id={`${NAME}-note`}
-              className="leading-normal in-data-[scale=deck]:text-xs"
-            >
+            <FieldError id={`${NAME}-note`} className="text-xs leading-normal">
               {t(nameError.message ?? "settings.errors.nameRequired")}
             </FieldError>
           ) : (
@@ -246,7 +242,7 @@ export function StudentProfileSection() {
               disabled={isSubmitting}
               className={cn(
                 BAR_BUTTON,
-                "hover:bg-muted dark:hover:bg-muted in-data-[scale=deck]:px-3 in-data-[scale=deck]:text-sm",
+                "hover:bg-muted dark:hover:bg-muted px-3 text-sm",
               )}
               onClick={discard}
             >

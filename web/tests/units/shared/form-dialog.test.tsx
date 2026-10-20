@@ -2,7 +2,6 @@ import { useState } from "react";
 import { it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, within, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { FormDialog, type FormField } from "@/components/shared/form/FormDialog";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { TagCombobox } from "@/components/shared/form/TagCombobox";
@@ -436,32 +435,30 @@ function Nested({ kind }: Readonly<{ kind: "tag" | "dirty" | "empty" | "unchange
   const [number, setNumber] = useState(45);
   const [tags, setTags] = useState<readonly string[]>([]);
   return (
-    <DeckScale>
-      <FormDialog
-        {...base}
-        open={open}
-        onOpenChange={setOpen}
-        initial={{ ...initial, title: "Giữ tên" }}
-        onSubmit={() => {}}
-      >
-        {kind === "tag" ? (
-          <TagCombobox
-            label="Thẻ"
-            tags={tags}
-            onChange={setTags}
-            suggestions={[{ tag: "Reading" }]}
-          />
-        ) : (
-          <NumberStepper
-            label="Giới hạn"
-            value={number}
-            onChange={setNumber}
-            min={0}
-            max={100}
-          />
-        )}
-      </FormDialog>
-    </DeckScale>
+    <FormDialog
+      {...base}
+      open={open}
+      onOpenChange={setOpen}
+      initial={{ ...initial, title: "Giữ tên" }}
+      onSubmit={() => {}}
+    >
+      {kind === "tag" ? (
+        <TagCombobox
+          label="Thẻ"
+          tags={tags}
+          onChange={setTags}
+          suggestions={[{ tag: "Reading" }]}
+        />
+      ) : (
+        <NumberStepper
+          label="Giới hạn"
+          value={number}
+          onChange={setNumber}
+          min={0}
+          max={100}
+        />
+      )}
+    </FormDialog>
   );
 }
 it.each(["tag", "dirty", "empty"] as const)(
@@ -508,7 +505,7 @@ beforeEach(() =>
 afterEach(() => vi.unstubAllGlobals());
 
 it.each(["date", "time"] as const)(
-  "focuses and describes the invalid %s trigger in either scale",
+  "focuses and describes the invalid %s trigger",
   async (kind) => {
     const user = userEvent.setup();
     const node = (
@@ -524,45 +521,34 @@ it.each(["date", "time"] as const)(
         onSubmit={() => {}}
       />
     );
-    const view = render(<DeckScale>{node}</DeckScale>);
+    render(node);
     await user.click(screen.getByRole("button", { name: "Lưu" }));
     const trigger = screen.getByRole("button", { name: "Mốc" });
     expect(trigger).toHaveFocus();
     expect(trigger).toHaveAttribute("aria-invalid", "true");
     expect(trigger).toHaveAccessibleDescription("Giờ địa phương Bắt buộc");
-    view.unmount();
-    render(node);
-    await user.click(screen.getByRole("button", { name: "Lưu" }));
-    const legacyTrigger = screen.getByRole("button", {
-      name: /Mốc/,
-    });
-    expect(legacyTrigger).toHaveFocus();
-    expect(legacyTrigger).toHaveAttribute("aria-invalid", "true");
-    expect(legacyTrigger).toHaveAccessibleDescription("Giờ địa phương Bắt buộc");
   },
 );
 it("disables segmented and picker buttons while pending, which cannot start a submit", () => {
   render(
-    <DeckScale>
-      <FormDialog
-        open
-        pending
-        onOpenChange={() => {}}
-        title="Đang lưu"
-        initial={{ one: "a", day: "2026-09-24" }}
-        fields={[
-          {
-            kind: "seg",
-            name: "one",
-            label: "Loại",
-            options: [{ value: "a", label: "Một" }],
-          },
-          { kind: "date", name: "day", label: "Ngày" },
-        ]}
-        submitLabel="Lưu"
-        onSubmit={() => {}}
-      />
-    </DeckScale>,
+    <FormDialog
+      open
+      pending
+      onOpenChange={() => {}}
+      title="Đang lưu"
+      initial={{ one: "a", day: "2026-09-24" }}
+      fields={[
+        {
+          kind: "seg",
+          name: "one",
+          label: "Loại",
+          options: [{ value: "a", label: "Một" }],
+        },
+        { kind: "date", name: "day", label: "Ngày" },
+      ]}
+      submitLabel="Lưu"
+      onSubmit={() => {}}
+    />,
   );
   expect(screen.getByRole("button", { name: "Một" })).toBeDisabled();
   expect(screen.getByRole("button", { name: /Ngày/ })).toBeDisabled();
@@ -649,9 +635,7 @@ it.each([
       onSubmit: submit,
     };
     const renderForm = (locked: boolean) => (
-      <DeckScale>
-        <FormDialog {...props} {...{ [lock]: locked }} />
-      </DeckScale>
+      <FormDialog {...props} {...{ [lock]: locked }} />
     );
     const portalOptions = scenario.portalName ? { name: scenario.portalName } : {};
     const view = render(renderForm(false));

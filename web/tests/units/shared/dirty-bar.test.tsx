@@ -3,7 +3,6 @@ import { useRef, useState } from "react";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DirtyBar } from "@/components/shared/DirtyBar";
-import { DeckScale } from "@/components/ui/deck-scale";
 import "@/lib/i18n";
 
 const SENTENCE = "Bạn có thay đổi chưa lưu.";
@@ -25,11 +24,9 @@ function inForm(
     event.preventDefault(),
   );
   const view = render(
-    <DeckScale>
-      <form aria-label="Hồ sơ" onSubmit={onSubmit}>
-        <DirtyBar dirty onDiscard={() => {}} returnFocus={() => null} {...props} />
-      </form>
-    </DeckScale>,
+    <form aria-label="Hồ sơ" onSubmit={onSubmit}>
+      <DirtyBar dirty onDiscard={() => {}} returnFocus={() => null} {...props} />
+    </form>,
   );
   return { onSubmit, ...view };
 }
@@ -171,17 +168,15 @@ describe("the unsaved-changes bar", () => {
     expect(screen.queryByRole("button", { name: "Tải lại" })).toBeNull();
 
     rerender(
-      <DeckScale>
-        <form aria-label="Hồ sơ">
-          <DirtyBar
-            dirty
-            error="Đã lưu ở nơi khác."
-            errorAction={{ label: "Tải lại", onAction }}
-            onDiscard={() => {}}
-            returnFocus={() => null}
-          />
-        </form>
-      </DeckScale>,
+      <form aria-label="Hồ sơ">
+        <DirtyBar
+          dirty
+          error="Đã lưu ở nơi khác."
+          errorAction={{ label: "Tải lại", onAction }}
+          onDiscard={() => {}}
+          returnFocus={() => null}
+        />
+      </form>,
     );
     const action = screen.getByRole("button", { name: "Tải lại" });
     expect(action).toHaveAttribute("type", "button");
@@ -232,20 +227,14 @@ describe("the unsaved-changes bar", () => {
     expect(discard()).toHaveClass(
       "h-8.5",
       "px-3",
-      "in-data-[scale=deck]:px-3",
-      "in-data-[scale=deck]:text-sm",
+      "text-sm",
       "hover:bg-muted",
       "dark:hover:bg-muted",
     );
     expect(discard()).toHaveAttribute("data-variant", "ghost");
-    expect(discard()).not.toHaveClass("in-data-[scale=deck]:px-3.5");
-    expect(discard()).not.toHaveClass("in-data-[scale=deck]:text-ui");
-    expect(save()).toHaveClass(
-      "h-8.5",
-      "bg-primary",
-      "in-data-[scale=deck]:px-3.5",
-      "in-data-[scale=deck]:text-ui",
-    );
+    expect(discard()).not.toHaveClass("px-3.5");
+    expect(discard()).not.toHaveClass("text-ui");
+    expect(save()).toHaveClass("h-8.5", "bg-primary", "px-3.5", "text-ui");
     expect(save()).not.toHaveClass("h-9");
   });
 });
@@ -254,25 +243,23 @@ function Editor() {
   const [dirty, setDirty] = useState(false);
   const target = useRef<HTMLButtonElement>(null);
   return (
-    <DeckScale>
-      <form
-        aria-label="Hồ sơ"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setDirty(false);
-        }}
-      >
-        <button ref={target} type="button">
-          Đích
-        </button>
-        <input aria-label="Tên" onChange={() => setDirty(true)} />
-        <DirtyBar
-          dirty={dirty}
-          onDiscard={() => setDirty(false)}
-          returnFocus={() => target.current}
-        />
-      </form>
-    </DeckScale>
+    <form
+      aria-label="Hồ sơ"
+      onSubmit={(event) => {
+        event.preventDefault();
+        setDirty(false);
+      }}
+    >
+      <button ref={target} type="button">
+        Đích
+      </button>
+      <input aria-label="Tên" onChange={() => setDirty(true)} />
+      <DirtyBar
+        dirty={dirty}
+        onDiscard={() => setDirty(false)}
+        returnFocus={() => target.current}
+      />
+    </form>
   );
 }
 
@@ -303,16 +290,14 @@ describe("focus when the unsaved-changes bar goes", () => {
     const target = document.createElement("button");
     document.body.append(target);
     const bar = (dirty: boolean, saving: boolean) => (
-      <DeckScale>
-        <form aria-label="Hồ sơ" onSubmit={(event) => event.preventDefault()}>
-          <DirtyBar
-            dirty={dirty}
-            saving={saving}
-            onDiscard={() => {}}
-            returnFocus={() => target}
-          />
-        </form>
-      </DeckScale>
+      <form aria-label="Hồ sơ" onSubmit={(event) => event.preventDefault()}>
+        <DirtyBar
+          dirty={dirty}
+          saving={saving}
+          onDiscard={() => {}}
+          returnFocus={() => target}
+        />
+      </form>
     );
     const view = render(bar(true, false));
 

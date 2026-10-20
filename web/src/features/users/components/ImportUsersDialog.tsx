@@ -28,8 +28,7 @@ import { useUserImport, type UserImport } from "@/features/users/useUserImport";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { cn } from "@/lib/utils";
 
-const FOOTER_BUTTON =
-  "text-ui h-9 px-3.5 leading-normal shadow-none in-data-[scale=deck]:h-9 in-data-[scale=deck]:px-3.5";
+const FOOTER_BUTTON = "text-ui leading-normal shadow-none h-9 px-3.5";
 
 function ChooseBody({ run }: Readonly<{ run: UserImport }>) {
   const { t } = useTranslation();
@@ -228,7 +227,7 @@ export function ImportUsersDialog({
           aria-disabled={(choosing && paused) || undefined}
           className={cn(
             FOOTER_BUTTON,
-            "aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50 px-4 in-data-[scale=deck]:px-4",
+            "aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50 px-4",
           )}
           onClick={() => {
             if (!choosing) close(false);

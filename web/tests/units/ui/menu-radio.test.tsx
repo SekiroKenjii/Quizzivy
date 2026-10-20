@@ -2,7 +2,6 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { DeckScale } from "@/components/ui/deck-scale";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,28 +15,26 @@ import {
 function Ranges({ onChange }: Readonly<{ onChange?: (value: string) => void }>) {
   const [value, setValue] = useState("7d");
   return (
-    <DeckScale>
-      <DropdownMenu>
-        <DropdownMenuTrigger>Khoảng thời gian</DropdownMenuTrigger>
-        <DropdownMenuContent>
-          <DropdownMenuRadioGroup
-            value={value}
-            onValueChange={(next) => {
-              setValue(next);
-              onChange?.(next);
-            }}
-          >
-            <DropdownMenuRadioItem value="today">Hôm nay</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="7d">7 ngày qua</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="30d" disabled>
-              30 ngày qua
-            </DropdownMenuRadioItem>
-          </DropdownMenuRadioGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem>Khoảng tuỳ chọn…</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </DeckScale>
+    <DropdownMenu>
+      <DropdownMenuTrigger>Khoảng thời gian</DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuRadioGroup
+          value={value}
+          onValueChange={(next) => {
+            setValue(next);
+            onChange?.(next);
+          }}
+        >
+          <DropdownMenuRadioItem value="today">Hôm nay</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="7d">7 ngày qua</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="30d" disabled>
+            30 ngày qua
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem>Khoảng tuỳ chọn…</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -76,7 +73,7 @@ describe("a radio group in a menu", () => {
     expect(on.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
     expect(off.querySelector("svg")).toBeNull();
     expect(on.firstElementChild?.className).toContain(
-      "in-data-[scale=deck]:in-data-[state=checked]:bg-primary",
+      "in-data-[state=checked]:bg-primary",
     );
   });
 

@@ -192,7 +192,6 @@ export function SidebarDrawer({
         <Dialog.Overlay className="bg-overlay data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0 z-(--z-sheet) duration-200" />
         <Dialog.Content
           id={SIDEBAR_ID}
-          data-scale="deck"
           aria-describedby={undefined}
           onCloseAutoFocus={onCloseAutoFocus}
           className="bg-sidebar text-fg data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=open]:animate-in data-[state=open]:slide-in-from-left fixed inset-y-0 left-0 z-(--z-sheet) flex w-68 max-w-full flex-col border-r text-base duration-200 ease-[cubic-bezier(0,0,0.58,1)] outline-none"

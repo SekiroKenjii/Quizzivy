@@ -33,10 +33,7 @@ export function RoleBadge({ role }: Readonly<{ role: AdminUserRole }>) {
   const { t } = useTranslation();
   const name = roleName(role, t);
   return (
-    <Badge
-      title={name}
-      className="text-fg max-w-full font-medium in-data-[scale=deck]:gap-1.25 in-data-[scale=deck]:px-2"
-    >
+    <Badge title={name} className="text-fg max-w-full gap-1.25 px-2 font-medium">
       <RoleGlyph icon={iconOf(role.icon)} />
       <span className="min-w-0 truncate">{name}</span>
     </Badge>
@@ -67,7 +64,7 @@ export function StatusPill({
       variant={look.variant}
       dot
       title={label}
-      className={cn("max-w-full font-medium in-data-[scale=deck]:px-2", look.className)}
+      className={cn("max-w-full px-2 font-medium", look.className)}
     >
       <span className="min-w-0 truncate">{text}</span>
     </Badge>

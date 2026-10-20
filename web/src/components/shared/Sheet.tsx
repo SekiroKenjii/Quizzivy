@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { Dialog as Primitive } from "radix-ui";
 
-import { useDeckScale } from "@/components/ui/deck-scale";
 import { preventLocalEscapeDismissal } from "@/lib/localEscape";
 import { cn } from "@/lib/utils";
 
@@ -69,9 +68,8 @@ const MOTION =
  * close button ask to close through `onOpenChange`. It is controlled, so it
  * remembers what opened it: on close, focus goes back to that control, or to
  * the `<main>` it was in (the page's, when nothing had focus) when the control
- * has gone, unless the page has already put focus somewhere else. It sits at `--z-sheet`, under dialogs and
- * menus, and tells content inside it that it is on a deck surface when it was
- * opened from one.
+ * has gone, unless the page has already put focus somewhere else. It sits at
+ * `--z-sheet`, under dialogs and menus.
  */
 export function Sheet({
   open,
@@ -93,7 +91,6 @@ export function Sheet({
   children: ReactNode;
 }>) {
   const { t } = useTranslation();
-  const deck = useDeckScale();
   const opener = useRef<HTMLElement | null>(null);
   const page = useRef<HTMLElement | null>(null);
   const frame = FRAMES[width];
@@ -109,7 +106,6 @@ export function Sheet({
         />
         <Primitive.Content
           data-slot="sheet"
-          data-scale={deck ? "deck" : undefined}
           className={cn(
             "bg-card text-fg shadow-float data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right fixed inset-y-0 right-0 z-(--z-sheet) flex flex-col border-l outline-none!",
             MOTION,

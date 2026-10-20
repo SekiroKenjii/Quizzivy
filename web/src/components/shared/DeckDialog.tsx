@@ -95,7 +95,7 @@ export function DeckDialogCancel({
       type="button"
       variant="outline"
       size="lg"
-      className={cn("shadow-none in-data-[scale=deck]:font-medium", className)}
+      className={cn("font-medium shadow-none", className)}
       {...props}
     />
   );

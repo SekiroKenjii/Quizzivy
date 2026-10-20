@@ -4,7 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { AccountMenu } from "@/features/auth/AccountMenu";
 import { setLocale } from "@/lib/i18n";
 import type { components } from "@/lib/api/schema";
@@ -36,9 +35,7 @@ function renderMenu(user: User, workspace: Console, at = "/") {
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[at]}>
-        <DeckScale>
-          <AccountMenu workspace={workspace} />
-        </DeckScale>
+        <AccountMenu workspace={workspace} />
       </MemoryRouter>
     </QueryClientProvider>,
   );

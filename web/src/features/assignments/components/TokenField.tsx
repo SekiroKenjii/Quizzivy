@@ -136,7 +136,7 @@ export function TokenField({
       <div className="mt-1.5">
         <div className="focus-within:ring-ring flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border p-2 focus-within:ring-2">
           {selected.map((token) => (
-            <Badge key={token.id} variant="secondary" className="gap-1 pr-1">
+            <Badge key={token.id} variant="secondary">
               {token.label}
               {token.hint === undefined ? null : (
                 <span className="text-muted-foreground tabular-nums">

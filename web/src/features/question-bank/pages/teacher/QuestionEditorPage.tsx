@@ -13,7 +13,6 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmptyState, LoadError } from "@/components/shared/ListState";
 import { StickyAside } from "@/components/shared/StickyAside";
 import { Button } from "@/components/ui/button";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
 import type { MediaAsset } from "@/features/media/api";
@@ -71,7 +70,7 @@ export default function QuestionEditorPage() {
       (existing.error.status === 404 || existing.error.status === 400)
     )
       return (
-        <DeckScale className="w-full min-w-0">
+        <div className="w-full min-w-0">
           <EmptyState
             action={
               <Button asChild size="sm" variant="outline">
@@ -81,14 +80,14 @@ export default function QuestionEditorPage() {
           >
             {t("questionEditor.notFound")}
           </EmptyState>
-        </DeckScale>
+        </div>
       );
     return (
-      <DeckScale className="w-full min-w-0">
+      <div className="w-full min-w-0">
         <LoadError error={existing.error} onRetry={() => void existing.refetch()}>
           {t("questionEditor.loadFailed")}
         </LoadError>
-      </DeckScale>
+      </div>
     );
   }
 
@@ -109,7 +108,7 @@ export default function QuestionEditorPage() {
 function EditorSkeleton() {
   const { t } = useTranslation();
   return (
-    <DeckScale
+    <div
       role="status"
       aria-label={t("common.loading")}
       className={`${FRAME} focus-within:[&_[data-slot=skeleton]]:[animation-play-state:paused]! hover:[&_[data-slot=skeleton]]:[animation-play-state:paused]!`}
@@ -120,7 +119,7 @@ function EditorSkeleton() {
         <Skeleton className="h-96 w-full rounded-xl" />
         <Skeleton className="h-72 w-full rounded-xl" />
       </div>
-    </DeckScale>
+    </div>
   );
 }
 
@@ -210,7 +209,7 @@ function Editor({
   }
 
   return (
-    <DeckScale className={FRAME}>
+    <div className={FRAME}>
       <PageHead
         title={
           question === null
@@ -237,11 +236,7 @@ function Editor({
                 onDeleted={() => leaveFor(BANK)}
               />
             )}
-            <Button
-              className="h-9 px-4 in-data-[scale=deck]:h-9 in-data-[scale=deck]:px-4"
-              disabled={!canSave}
-              onClick={submit}
-            >
+            <Button className="h-9 px-4" disabled={!canSave} onClick={submit}>
               {save.isPending ? t("common.saving") : t("common.save")}
             </Button>
           </div>
@@ -314,6 +309,6 @@ function Editor({
           } else if (blocker.state === "blocked") blocker.proceed();
         }}
       />
-    </DeckScale>
+    </div>
   );
 }

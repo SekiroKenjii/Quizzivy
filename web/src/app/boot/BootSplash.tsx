@@ -176,10 +176,7 @@ function OfflineState() {
 
   return (
     <div className="qz-boot-state">
-      <Badge
-        variant="warning"
-        className="text-meta border-0 in-data-[scale=deck]:h-6.5"
-      >
+      <Badge variant="warning" className="text-meta h-6.5 border-0">
         <WifiOff aria-hidden="true" className="size-[13px]" />
         {t("splash.offlinePill")}
       </Badge>

@@ -1,18 +1,13 @@
 import { expect, it } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { cases } from "@tests/support/deck-harness/cases/r4-02b";
 import "@/lib/i18n";
 
 it("keeps the Extend switch checked state independent of its legitimate help tooltip trigger", async () => {
   const Extend = cases["form-extend"]!;
   const user = userEvent.setup();
-  render(
-    <DeckScale>
-      <Extend />
-    </DeckScale>,
-  );
+  render(<Extend />);
   const toggle = screen.getByRole("switch", { name: "Notify students" });
   expect(toggle).toBeChecked();
   expect(toggle).toHaveAttribute("data-state", "checked");

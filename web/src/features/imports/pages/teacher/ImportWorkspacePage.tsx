@@ -142,7 +142,7 @@ function DraftWorkspace() {
   );
   if (availability === "reviewOnly" || availability === "off")
     return (
-      <div className="flex w-full min-w-0 flex-col gap-4.5" data-scale="deck">
+      <div className="flex w-full min-w-0 flex-col gap-4.5">
         {head}
         <EmptyState
           hint={t("imports.availability.newOffHint")}
@@ -157,7 +157,7 @@ function DraftWorkspace() {
       </div>
     );
   return (
-    <div className="flex w-full min-w-0 flex-col gap-4.5" data-scale="deck">
+    <div className="flex w-full min-w-0 flex-col gap-4.5">
       {head}
       <SourceIntake
         existing={null}
@@ -306,7 +306,6 @@ function ImportWorkspace({ id }: Readonly<{ id: string }>) {
         <div
           role="status"
           aria-label={t("common.loading")}
-          data-scale="deck"
           className="flex w-full flex-col gap-3 focus-within:[&_[data-slot=skeleton]]:[animation-play-state:paused]! hover:[&_[data-slot=skeleton]]:[animation-play-state:paused]!"
         >
           <Skeleton className="h-8 w-72" />
@@ -320,7 +319,7 @@ function ImportWorkspace({ id }: Readonly<{ id: string }>) {
       );
     if (query.error instanceof ApiError && query.error.status === 404)
       return (
-        <div className="w-full min-w-0" data-scale="deck">
+        <div className="w-full min-w-0">
           <EmptyState
             action={
               <Button asChild size="sm" variant="outline">
@@ -333,7 +332,7 @@ function ImportWorkspace({ id }: Readonly<{ id: string }>) {
         </div>
       );
     return (
-      <div className="w-full min-w-0" data-scale="deck">
+      <div className="w-full min-w-0">
         <LoadError error={query.error} onRetry={() => void query.refetch()}>
           {t("imports.detailFailed")}
         </LoadError>
@@ -359,7 +358,7 @@ function ImportWorkspace({ id }: Readonly<{ id: string }>) {
     </>
   );
   return (
-    <div className="flex w-full min-w-0 flex-col gap-4.5" data-scale="deck">
+    <div className="flex w-full min-w-0 flex-col gap-4.5">
       <ImportHead value={value} />
       <p role="status" aria-live="polite" className="sr-only">
         {outcome === null

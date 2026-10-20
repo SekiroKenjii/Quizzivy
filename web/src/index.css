@@ -15,9 +15,8 @@
   variable; tokens.test.ts and no-raw-colours.test.ts enforce it, which is what
   lets the dark set below replace the light one without touching a component.
 
-  Deck geometry (control heights, the sm/md/lg radii) applies only inside an
-  element carrying data-scale="deck", so a screen not yet rebuilt cannot shift.
-  Colours, the font and the focus ring are global.
+  Deck geometry (control heights, the sm/md/lg radii), the colours, the font
+  and the focus ring apply everywhere.
 */
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -36,7 +35,7 @@
 
 :root {
   color-scheme: light;
-  --radius: 0.375rem;
+  --radius: 0.5rem;
 
   --bg: #ffffff;
   --sidebar: #f7f8f8;
@@ -73,6 +72,7 @@
   --accent-fg: #1b2123;
   --switch-thumb: #ffffff;
   --danger-solid-fg: #ffffff;
+  --success-solid-fg: #ffffff;
   --paper: #ffffff;
   --paper-fg: #1b2123;
   --qr-bg: #ffffff;
@@ -104,12 +104,6 @@
   --accent: var(--hover);
   --accent-foreground: var(--fg);
   --destructive: var(--danger);
-
-  /* Legacy names the old consoles still use; removed in R5. */
-  --destructive-foreground: var(--danger-solid-fg);
-  --destructive-ink: var(--danger-ink);
-  --success-foreground: #ffffff;
-  --warning-foreground: var(--accent-fg);
 
   --z-sheet: 70;
   --z-alert: 80;
@@ -153,10 +147,6 @@
 
 :root[data-accent="mono"] {
   --accent-c: var(--fg);
-}
-
-[data-scale="deck"] {
-  --radius: 0.5rem;
 }
 
 /*
@@ -221,8 +211,6 @@
   --color-ring: var(--ring);
   --color-focus: var(--focus);
   --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-destructive-ink: var(--destructive-ink);
 
   --color-bg: var(--bg);
   --color-sidebar: var(--sidebar);
@@ -238,16 +226,15 @@
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
   --color-success-ink: var(--success-ink);
-  --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-soft: var(--warning-soft);
   --color-warning-ink: var(--warning-ink);
-  --color-warning-foreground: var(--warning-foreground);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --color-danger-ink: var(--danger-ink);
   --color-danger-solid: var(--danger-solid);
   --color-danger-solid-fg: var(--danger-solid-fg);
+  --color-success-solid-fg: var(--success-solid-fg);
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
   --color-info-ink: var(--info-ink);
@@ -496,7 +483,7 @@
   animation: qz-shimmer 1.4s linear infinite;
 }
 
-[data-scale="deck"] [data-slot="skeleton"] {
+[data-slot="skeleton"] {
   background: linear-gradient(
     90deg,
     var(--muted) 0,
@@ -527,7 +514,7 @@
     animation: none;
   }
   .qz-shimmer,
-  [data-scale="deck"] [data-slot="skeleton"] {
+  [data-slot="skeleton"] {
     animation: none;
     background: var(--muted);
   }

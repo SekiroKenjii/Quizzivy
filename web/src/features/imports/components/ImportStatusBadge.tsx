@@ -41,12 +41,7 @@ export function ImportStatusBadge({ status }: Readonly<{ status: ImportStatus }>
   const { t } = useTranslation();
   const { icon: Icon, tone } = PILLS[PILL_OF[status]];
   return (
-    <Badge
-      className={cn(
-        "border-0 in-data-[scale=deck]:h-6 in-data-[scale=deck]:rounded-full in-data-[scale=deck]:px-[9px]",
-        tone,
-      )}
-    >
+    <Badge className={cn("h-6 rounded-full border-0 px-[9px]", tone)}>
       <Icon aria-hidden="true" />
       {t(`imports.status.${status}`)}
     </Badge>

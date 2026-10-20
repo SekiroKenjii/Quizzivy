@@ -3,7 +3,6 @@ import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { Pager } from "@/components/shared/data/Pager";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { usePage, usePageSize } from "@/hooks/usePage";
 import i18n from "@/lib/i18n";
 import { viewport } from "@tests/support/viewport";
@@ -31,16 +30,14 @@ function Screen({
   const [page] = usePage();
   const [size] = usePageSize(sizes);
   return (
-    <DeckScale>
-      <Pager
-        page={answered ?? page}
-        pageSize={size}
-        total={total}
-        noun={noun}
-        sizes={sizes}
-        frame={frame}
-      />
-    </DeckScale>
+    <Pager
+      page={answered ?? page}
+      pageSize={size}
+      total={total}
+      noun={noun}
+      sizes={sizes}
+      frame={frame}
+    />
   );
 }
 
@@ -326,7 +323,7 @@ describe("rows per page", () => {
     expect(within(nav()).getByText("Trang 1 trên 10")).toBeInTheDocument();
   });
 
-  it("is the deck's 32px control: the primitive's deck classes restated, not doubled", () => {
+  it("is the deck's 32px control: the primitive's classes replaced, not doubled", () => {
     renderPager("", 312);
     expect(trigger()).toHaveAttribute("data-size", "sm");
     const own = classes(trigger());
@@ -340,10 +337,9 @@ describe("rows per page", () => {
         "px-2.5",
         "pr-2",
         "py-0",
-        "in-data-[scale=deck]:bg-card",
-        "dark:in-data-[scale=deck]:bg-card",
-        "dark:in-data-[scale=deck]:hover:bg-card",
-        "in-data-[scale=deck]:text-sm",
+        "dark:bg-card",
+        "dark:hover:bg-card",
+        "text-sm",
       ]),
     );
     for (const replaced of [
@@ -352,10 +348,10 @@ describe("rows per page", () => {
       "rounded-md",
       "px-3",
       "py-2",
-      "in-data-[scale=deck]:bg-bg",
-      "dark:in-data-[scale=deck]:bg-bg",
-      "dark:in-data-[scale=deck]:hover:bg-bg",
-      "in-data-[scale=deck]:text-ui",
+      "bg-bg",
+      "dark:bg-bg",
+      "dark:hover:bg-bg",
+      "text-ui",
       "dark:bg-input/30",
       "dark:hover:bg-input/50",
     ]) {

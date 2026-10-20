@@ -71,8 +71,7 @@ const ContentEditor = lazy(() =>
 
 type Edit = (update: (question: ImportDraftQuestion) => ImportDraftQuestion) => void;
 
-const SMALL_BUTTON =
-  "h-7 rounded-[7px] px-2.25 text-xs font-medium shadow-none in-data-[scale=deck]:h-7 in-data-[scale=deck]:px-2.25 in-data-[scale=deck]:text-xs";
+const SMALL_BUTTON = "rounded-[7px] font-medium shadow-none h-7 px-2.25 text-xs";
 
 /**
  * QuestionEditor is the body of the open question card: where it was printed
@@ -331,7 +330,7 @@ function FieldLabel({
       {htmlFor === undefined ? (
         <span id={id}>{label}</span>
       ) : (
-        <Label htmlFor={htmlFor} className="text-meta font-medium">
+        <Label htmlFor={htmlFor} className="font-medium">
           {label}
         </Label>
       )}
@@ -760,7 +759,7 @@ function BlankField({
       entered.some((line) => Array.from(line).length > ACCEPTED_LIMITS.length));
   return (
     <div className="bg-card flex flex-col gap-2 rounded-[10px] border p-3">
-      <Label htmlFor={id} className="text-meta font-medium">
+      <Label htmlFor={id} className="font-medium">
         {t("imports.review.blankLabel", { label })}
       </Label>
       <Textarea

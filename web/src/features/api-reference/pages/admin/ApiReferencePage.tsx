@@ -143,7 +143,7 @@ function Hero({
         <CopyButton
           value={BASE_URL}
           failedMessage={t("apiReference.copyFailed")}
-          className="bg-card h-7 border px-2.5"
+          className="bg-card border px-2.5"
         />
       </div>
       {docs.problem === null ? null : (

@@ -261,7 +261,7 @@ export function SharedContentDialog({
         <Button
           type="button"
           variant="outline"
-          className="bg-card text-ui h-9 px-3.5 leading-normal shadow-none in-data-[scale=deck]:h-9 in-data-[scale=deck]:px-3.5"
+          className="bg-card text-ui h-9 px-3.5 leading-normal shadow-none"
           onClick={requestClose}
         >
           {t("common.cancel")}
@@ -272,7 +272,7 @@ export function SharedContentDialog({
           aria-disabled={pending || undefined}
           aria-describedby={reason ? reasonId : undefined}
           className={cn(
-            "text-ui h-9 px-4 leading-normal shadow-none in-data-[scale=deck]:h-9 in-data-[scale=deck]:px-4",
+            "text-ui h-9 px-4 leading-normal shadow-none",
             pending && "opacity-50",
           )}
           onClick={() => {
@@ -344,7 +344,7 @@ function PassageFields({
           value={material.title}
           maxLength={200}
           placeholder={t("builder.sharedDialog.titlePlaceholder")}
-          className="h-9 rounded-[8px] in-data-[scale=deck]:h-9 in-data-[scale=deck]:rounded-[8px]"
+          className="h-9 rounded-[8px]"
           onChange={(event) => onChange({ ...material, title: event.target.value })}
         />
       </div>
@@ -447,7 +447,7 @@ function AudioFields({
             type="button"
             variant="outline"
             aria-label={t("builder.sharedDialog.replaceFile", { name: file })}
-            className="bg-card h-7 rounded-[7px] px-2.5 text-xs font-medium shadow-none in-data-[scale=deck]:h-7 in-data-[scale=deck]:rounded-[7px] in-data-[scale=deck]:px-2.5 in-data-[scale=deck]:text-xs"
+            className="bg-card h-7 rounded-[7px] px-2.5 text-xs font-medium shadow-none"
             onClick={() => {
               onReplace();
               requestAnimationFrame(() => choose.current?.focus());
@@ -494,7 +494,7 @@ function AudioFields({
 }
 
 const ZONE_BUTTON =
-  "bg-card h-7.5 rounded-[7px] px-2.5 text-meta font-medium shadow-none in-data-[scale=deck]:h-7.5 in-data-[scale=deck]:rounded-[7px] in-data-[scale=deck]:px-2.5 in-data-[scale=deck]:text-meta";
+  "bg-card font-medium shadow-none h-7.5 rounded-[7px] px-2.5 text-meta";
 
 function initialDraft(stored: SharedContent): Draft {
   return {

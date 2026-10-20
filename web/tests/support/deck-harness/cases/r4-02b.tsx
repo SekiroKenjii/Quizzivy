@@ -245,15 +245,12 @@ export const cases: Record<string, () => ReactElement> = {
           <DialogShellFooter>
             <Button
               variant="outline"
-              className="bg-card h-9 px-3.5 shadow-none in-data-[scale=deck]:h-9 in-data-[scale=deck]:px-3.5"
+              className="bg-card h-9 px-3.5 shadow-none"
               onClick={() => setOpen(false)}
             >
               Cancel
             </Button>
-            <Button
-              className="h-9 px-4 shadow-none in-data-[scale=deck]:h-9 in-data-[scale=deck]:px-4"
-              onClick={() => setOpen(false)}
-            >
+            <Button className="h-9 px-4 shadow-none" onClick={() => setOpen(false)}>
               Extend
             </Button>
           </DialogShellFooter>

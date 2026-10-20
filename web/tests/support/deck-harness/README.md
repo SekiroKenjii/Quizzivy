@@ -1,8 +1,8 @@
 # Deck harness
 
 A second entry beside the app, for composites that have no route yet. It renders
-one case at a time under `DeckScale`, so a composite can be measured against the
-design deck in a browser before a screen uses it. The production build never
+one case at a time on the page background, so a composite can be measured
+against the design deck in a browser before a screen uses it. The production build never
 includes it, and it has no package script and no committed spec.
 
 ## Adding a case
@@ -17,10 +17,10 @@ export const cases: Record<string, () => ReactElement> = {
 };
 ```
 
-It imports from `@/` and nothing from the harness. The harness gives a case
-`DeckScale`, the app's stylesheet and its translations, and nothing else: a case
-that needs a router, a query client, a signed-in user or a registered content
-element sets that up itself. Write a case that calls a hook as a named function
+It imports from `@/` and nothing from the harness. The harness gives a case the
+page background, the app's stylesheet and its translations, and nothing else: a
+case that needs a router, a query client, a signed-in user or a registered
+content element sets that up itself. Write a case that calls a hook as a named function
 expression (`"tabs": function DetailTabs() { … }`), which keeps the hook and the
 fast-refresh lint rules quiet.
 

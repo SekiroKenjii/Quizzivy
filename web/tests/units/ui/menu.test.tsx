@@ -4,8 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { ArrowUpRight } from "lucide-react";
-import type { ReactNode } from "react";
-import { DeckScale } from "@/components/ui/deck-scale";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -22,84 +20,98 @@ import { useAuthStore } from "@/stores/auth";
 import { STUDENT } from "../student/support";
 import "@/lib/i18n";
 
-const INSIDE = "in-data-[scale=deck]:";
-const OWN = "data-[scale=deck]:";
-
 const classes = (element: Element) =>
   (element.getAttribute("class") ?? "").split(" ").filter(Boolean);
-const plain = (element: Element) => classes(element).filter((c) => !c.includes(OWN));
-const inside = (element: Element) =>
-  classes(element)
-    .filter((c) => c.startsWith(INSIDE))
-    .map((c) => c.slice(INSIDE.length));
-const own = (element: Element) =>
-  classes(element)
-    .filter((c) => c.startsWith(OWN))
-    .map((c) => c.slice(OWN.length));
+const lacks = (element: Element, replaced: readonly string[]) => {
+  for (const c of replaced) expect(classes(element), c).not.toContain(c);
+};
 
-const TODAY_CONTENT = [
-  "bg-popover",
+const CONTENT = [
   "text-popover-foreground",
-  "z-50",
   "min-w-40",
   "overflow-hidden",
-  "rounded-md",
   "border",
-  "p-1",
-  "shadow-md",
   "data-[state=closed]:animate-out",
   "data-[state=closed]:fade-out-0",
   "data-[state=open]:animate-in",
   "data-[state=open]:fade-in-0",
+  "bg-card",
+  "shadow-float",
+  "z-(--z-popover)",
+  "max-h-[min(60vh,var(--radix-dropdown-menu-content-available-height))]",
+  "overflow-y-auto",
+  "rounded-lg",
+  "p-1.25",
 ];
-const TODAY_ITEM = [
+const REPLACED_CONTENT = ["bg-popover", "z-50", "rounded-md", "p-1", "shadow-md"];
+const ITEM = [
   "focus:bg-accent",
   "focus:text-accent-foreground",
   "relative",
   "flex",
   "cursor-default",
   "items-center",
-  "gap-2",
   "rounded-sm",
   "px-2",
-  "py-1.5",
   "text-sm",
   "outline-none",
   "select-none",
   "data-[disabled]:pointer-events-none",
+  "[&_svg]:shrink-0",
+  "gap-2.25",
+  "py-1.75",
+  "leading-4",
+  "data-[disabled]:opacity-45",
+  "[&_svg:not([class*='size-'])]:size-3.5",
+  "data-[variant=destructive]:text-danger-ink",
+  "data-[variant=destructive]:focus:bg-hover",
+  "data-[variant=destructive]:focus:text-danger-ink",
+];
+const REPLACED_ITEM = [
+  "gap-2",
+  "py-1.5",
   "data-[disabled]:opacity-50",
   "data-[variant=destructive]:text-destructive-ink",
   "data-[variant=destructive]:focus:bg-destructive/10",
-  "[&_svg]:shrink-0",
   "[&_svg:not([class*='size-'])]:size-4",
 ];
-const TODAY_CHECK_ITEM = [
+const CHECK_ITEM = [
   "focus:bg-accent",
   "focus:text-accent-foreground",
   "relative",
   "flex",
   "cursor-default",
   "items-center",
-  "gap-2",
   "rounded-sm",
-  "py-1.5",
   "pr-2",
-  "pl-7",
   "text-sm",
   "outline-none",
   "select-none",
   "data-[disabled]:pointer-events-none",
-  "data-[disabled]:opacity-50",
+  "gap-2.25",
+  "py-1.75",
+  "pl-2",
+  "leading-4",
+  "data-[disabled]:opacity-45",
 ];
-const TODAY_CHECK_BOX = [
-  "absolute",
+const REPLACED_CHECK_ITEM = ["gap-2", "py-1.5", "pl-7", "data-[disabled]:opacity-50"];
+const CHECK_BOX = [
   "left-2",
   "flex",
-  "size-3.5",
   "items-center",
   "justify-center",
+  "border-ring",
+  "bg-card",
+  "text-primary-fg",
+  "static",
+  "size-4",
+  "flex-none",
+  "rounded-[0.25rem]",
+  "border",
+  "in-data-[state=checked]:border-primary",
+  "in-data-[state=checked]:bg-primary",
 ];
-const TODAY_SEPARATOR = ["bg-border", "-mx-1", "my-1", "h-px"];
+const SEPARATOR = ["bg-border", "h-px", "mx-0", "my-0"];
 
 function Parts() {
   return (
@@ -122,106 +134,59 @@ function Parts() {
   );
 }
 
-const onDeck = (node: ReactNode) => render(<DeckScale>{node}</DeckScale>);
-
 describe("the menu's surface", () => {
-  it("is today's off a deck surface", () => {
+  it("is the deck's container, and sets no width", () => {
     render(<Parts />);
     const menu = screen.getByRole("menu");
-    expect(menu).not.toHaveAttribute("data-scale");
-    expect(plain(menu)).toEqual(TODAY_CONTENT);
+    expect(classes(menu)).toEqual(CONTENT);
+    lacks(menu, REPLACED_CONTENT);
+    expect(classes(menu).filter((c) => c.startsWith("w-"))).toEqual([]);
   });
 
-  it("is the deck's container on a deck surface, and sets no width", () => {
-    onDeck(<Parts />);
-    const menu = screen.getByRole("menu");
-    expect(menu).toHaveAttribute("data-scale", "deck");
-    expect(plain(menu)).toEqual(TODAY_CONTENT);
-    expect(own(menu)).toEqual([
-      "bg-card",
-      "shadow-float",
-      "z-(--z-popover)",
-      "max-h-[min(60vh,var(--radix-dropdown-menu-content-available-height))]",
-      "overflow-y-auto",
-      "rounded-lg",
-      "p-1.25",
-    ]);
-  });
-
-  it.each([
-    ["none off a deck surface", false, "0px"] as const,
-    ["8px on each side on one", true, "-16px"] as const,
-  ])("keeps clear of the window's edges: %s", async (_, deck, room) => {
-    if (deck) onDeck(<Parts />);
-    else render(<Parts />);
+  it("keeps 8px clear of the window's edges on each side", async () => {
+    render(<Parts />);
     const wrapper = screen.getByRole("menu").parentElement!;
     await waitFor(() =>
       expect(wrapper.style.getPropertyValue("--radix-popper-available-width")).toBe(
-        room,
+        "-16px",
       ),
     );
-  });
-
-  it("writes every deck class of the portalled element for the element itself", () => {
-    onDeck(<Parts />);
-    const menu = screen.getByRole("menu");
-    const deck = classes(menu).filter((c) => c.includes("scale=deck"));
-    expect(deck.length).toBeGreaterThan(0);
-    expect(deck.filter((c) => !c.startsWith(OWN))).toEqual([]);
-    expect(classes(menu).filter((c) => c.includes(INSIDE))).toEqual([]);
   });
 });
 
 describe("the menu's rows", () => {
-  it.each([["off a deck surface", false] as const, ["on one", true] as const])(
-    "keep today's classes and carry the deck's beside them, %s",
-    (_, deck) => {
-      if (deck) onDeck(<Parts />);
-      else render(<Parts />);
-      const menu = screen.getByRole("menu");
+  it("are the deck's rows, and the separator is as wide as they are", () => {
+    render(<Parts />);
+    const menu = screen.getByRole("menu");
 
-      const item = within(menu).getByRole("menuitem", { name: /Mở/ });
-      expect(plain(item)).toEqual(TODAY_ITEM);
-      expect(inside(item)).toEqual([
-        "gap-2.25",
-        "py-1.75",
-        "leading-4",
-        "data-[disabled]:opacity-45",
-        "[&_svg:not([class*='size-'])]:size-3.5",
-        "data-[variant=destructive]:text-danger-ink",
-        "data-[variant=destructive]:focus:bg-hover",
-        "data-[variant=destructive]:focus:text-danger-ink",
-      ]);
-      expect(classes(item).filter((c) => c.startsWith(OWN))).toEqual([]);
+    const item = within(menu).getByRole("menuitem", { name: /Mở/ });
+    expect(classes(item)).toEqual(ITEM);
+    lacks(item, REPLACED_ITEM);
 
-      const separator = within(menu).getByRole("separator");
-      expect(plain(separator)).toEqual(TODAY_SEPARATOR);
-      expect(inside(separator)).toEqual(["mx-0", "my-0"]);
-    },
-  );
+    const separator = within(menu).getByRole("separator");
+    expect(classes(separator)).toEqual(SEPARATOR);
+    lacks(separator, ["-mx-1", "my-1"]);
+  });
 
   it("draws the title row in the deck's 11.5px muted line", () => {
-    onDeck(<Parts />);
+    render(<Parts />);
     const label = screen.getByText("Lọc theo lớp");
     expect(label).toHaveAttribute("data-slot", "dropdown-menu-label");
-    expect(plain(label)).toEqual([
-      "text-muted-foreground",
+    expect(classes(label)).toEqual([
       "px-2",
       "py-1.5",
-      "text-xs",
-    ]);
-    expect(inside(label)).toEqual([
       "text-muted-fg",
       "text-caption",
       "pt-1",
       "pb-1.5",
       "leading-normal",
     ]);
+    lacks(label, ["text-muted-foreground", "text-xs"]);
     expect(screen.queryByRole("menuitem", { name: "Lọc theo lớp" })).toBeNull();
   });
 
   it("puts the meta at the row's end, muted and tabular, and lets the label truncate", () => {
-    onDeck(<Parts />);
+    render(<Parts />);
     const item = screen.getByRole("menuitem", { name: /Mở/ });
     const meta = within(item).getByText("24");
     expect(meta).toHaveAttribute("data-slot", "dropdown-menu-meta");
@@ -243,69 +208,46 @@ describe("the menu's rows", () => {
   });
 
   it("marks a destructive row and a disabled row for the deck's ink and opacity", () => {
-    onDeck(<Parts />);
+    render(<Parts />);
     const danger = screen.getByRole("menuitem", { name: "Đóng sớm" });
     expect(danger).toHaveAttribute("data-variant", "destructive");
-    expect(plain(danger)).toContain("data-[variant=destructive]:text-destructive-ink");
-    expect(inside(danger)).toEqual(
+    expect(classes(danger)).toEqual(
       expect.arrayContaining([
         "data-[variant=destructive]:text-danger-ink",
         "data-[variant=destructive]:focus:text-danger-ink",
         "data-[variant=destructive]:focus:bg-hover",
       ]),
     );
+    lacks(danger, ["data-[variant=destructive]:text-destructive-ink"]);
 
     const disabled = screen.getByRole("menuitem", { name: "Gia hạn" });
     expect(disabled).toHaveAttribute("aria-disabled", "true");
     expect(disabled).toHaveAttribute("data-disabled");
-    expect(plain(disabled)).toContain("data-[disabled]:opacity-50");
-    expect(inside(disabled)).toContain("data-[disabled]:opacity-45");
-    expect(inside(disabled)).not.toContain("data-[disabled]:opacity-50");
+    expect(classes(disabled)).toContain("data-[disabled]:opacity-45");
+    expect(classes(disabled)).not.toContain("data-[disabled]:opacity-50");
   });
 
-  it.each([["off a deck surface", false] as const, ["on one", true] as const])(
-    "draws a check row's box, ticked only when the row is on, %s",
-    (_, deck) => {
-      if (deck) onDeck(<Parts />);
-      else render(<Parts />);
-      const on = screen.getByRole("menuitemcheckbox", { name: "IELTS 6.5 Tối" });
-      const off = screen.getByRole("menuitemcheckbox", { name: "TOEIC 600" });
-      expect(on).toHaveAttribute("data-state", "checked");
-      expect(off).toHaveAttribute("data-state", "unchecked");
+  it("draws a check row's box, ticked only when the row is on", () => {
+    render(<Parts />);
+    const on = screen.getByRole("menuitemcheckbox", { name: "IELTS 6.5 Tối" });
+    const off = screen.getByRole("menuitemcheckbox", { name: "TOEIC 600" });
+    expect(on).toHaveAttribute("data-state", "checked");
+    expect(off).toHaveAttribute("data-state", "unchecked");
 
-      for (const row of [on, off]) {
-        expect(plain(row)).toEqual(TODAY_CHECK_ITEM);
-        expect(inside(row)).toEqual([
-          "gap-2.25",
-          "py-1.75",
-          "pl-2",
-          "leading-4",
-          "data-[disabled]:opacity-45",
-        ]);
-        const box = row.firstElementChild!;
-        expect(plain(box)).toEqual(TODAY_CHECK_BOX);
-        expect(inside(box)).toEqual([
-          "border-ring",
-          "bg-card",
-          "text-primary-fg",
-          "static",
-          "size-4",
-          "flex-none",
-          "rounded-[0.25rem]",
-          "border",
-          "in-data-[state=checked]:border-primary",
-          "in-data-[state=checked]:bg-primary",
-        ]);
-      }
+    for (const row of [on, off]) {
+      expect(classes(row)).toEqual(CHECK_ITEM);
+      lacks(row, REPLACED_CHECK_ITEM);
+      const box = row.firstElementChild!;
+      expect(classes(box)).toEqual(CHECK_BOX);
+      lacks(box, ["absolute", "size-3.5"]);
+    }
 
-      const tick = on.querySelector("svg")!;
-      expect(classes(tick)).toEqual(
-        expect.arrayContaining(["size-3.5", "in-data-[scale=deck]:size-[0.6875rem]"]),
-      );
-      expect(tick).toHaveAttribute("aria-hidden", "true");
-      expect(off.querySelector("svg")).toBeNull();
-    },
-  );
+    const tick = on.querySelector("svg")!;
+    expect(classes(tick)).toContain("size-[0.6875rem]");
+    expect(classes(tick)).not.toContain("size-3.5");
+    expect(tick).toHaveAttribute("aria-hidden", "true");
+    expect(off.querySelector("svg")).toBeNull();
+  });
 });
 
 function Actions({
@@ -344,7 +286,7 @@ const row = (name: string) => screen.getByRole("menuitem", { name });
 describe("the menu from the keyboard", () => {
   it("moves with the arrow keys, passing the title and the disabled row", async () => {
     const user = userEvent.setup();
-    onDeck(<Actions />);
+    render(<Actions />);
     trigger().focus();
     await user.keyboard("{Enter}");
 
@@ -359,7 +301,7 @@ describe("the menu from the keyboard", () => {
 
   it("jumps to the last row on End and the first on Home", async () => {
     const user = userEvent.setup();
-    onDeck(<Actions />);
+    render(<Actions />);
     trigger().focus();
     await user.keyboard("{Enter}");
     await user.keyboard("{End}");
@@ -370,7 +312,7 @@ describe("the menu from the keyboard", () => {
 
   it("finds a row by its first letters", async () => {
     const user = userEvent.setup();
-    onDeck(<Actions />);
+    render(<Actions />);
     trigger().focus();
     await user.keyboard("{Enter}");
     await user.keyboard("nh");
@@ -379,7 +321,7 @@ describe("the menu from the keyboard", () => {
 
   it("closes on Escape and gives focus back to its button", async () => {
     const user = userEvent.setup();
-    onDeck(<Actions />);
+    render(<Actions />);
     trigger().focus();
     await user.keyboard("{Enter}");
     expect(screen.getByRole("menu")).toBeInTheDocument();
@@ -391,7 +333,7 @@ describe("the menu from the keyboard", () => {
   it("runs a row on Enter and closes", async () => {
     const user = userEvent.setup();
     const onOpen = vi.fn();
-    onDeck(<Actions onOpen={onOpen} />);
+    render(<Actions onOpen={onOpen} />);
     trigger().focus();
     await user.keyboard("{Enter}");
     await user.keyboard("{Enter}");
@@ -404,7 +346,7 @@ describe("rows that do not close the menu", () => {
   it("does nothing for a disabled row", async () => {
     const user = userEvent.setup();
     const onExtend = vi.fn();
-    onDeck(<Actions onExtend={onExtend} />);
+    render(<Actions onExtend={onExtend} />);
     await user.click(trigger());
     await user.click(row("Gia hạn"));
     expect(onExtend).not.toHaveBeenCalled();
@@ -414,7 +356,7 @@ describe("rows that do not close the menu", () => {
   it("toggles a check row and stays open", async () => {
     const user = userEvent.setup();
     const onClass = vi.fn();
-    onDeck(<Actions onClass={onClass} />);
+    render(<Actions onClass={onClass} />);
     await user.click(trigger());
     await user.click(screen.getByRole("menuitemcheckbox", { name: "Lớp tối" }));
     expect(onClass).toHaveBeenCalledWith(true);
@@ -427,9 +369,7 @@ function renderStudentMenu() {
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <DeckScale>
-          <AccountMenu settingsTo="/app/settings" />
-        </DeckScale>
+        <AccountMenu settingsTo="/app/settings" />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -444,31 +384,26 @@ describe("the student's account menu keeps its own geometry", () => {
     useAuthStore.setState({ user: STUDENT });
   });
 
-  it("restates its width, radius and padding for the element that carries the scale", async () => {
+  it("restates its width, radius and padding over the menu's", async () => {
     const user = renderStudentMenu();
     await user.click(
       screen.getByRole("button", { name: "Tài khoản của Nguyễn Văn An" }),
     );
     const menu = screen.getByRole("menu");
-    expect(menu).toHaveAttribute("data-scale", "deck");
-
-    const deck = own(menu);
-    expect(deck).toEqual([
-      "max-h-[min(60vh,var(--radix-dropdown-menu-content-available-height))]",
-      "overflow-y-auto",
-      "bg-card",
-      "shadow-float",
-      "z-(--z-popover)",
-      "w-60",
-      "rounded-lg",
-      "p-1.5",
-    ]);
-    expect(deck.filter(startsWithAny(["w-"]))).toEqual(["w-60"]);
-    expect(deck.filter(startsWithAny(["rounded-"]))).toEqual(["rounded-lg"]);
-    expect(deck.filter(startsWithAny(["p-", "px-", "py-"]))).toEqual(["p-1.5"]);
-    expect(deck).not.toContain("p-1.25");
-    expect(classes(menu).filter((c) => c.includes(INSIDE))).toEqual([]);
-    expect(plain(menu)).toEqual(TODAY_CONTENT);
+    const own = classes(menu);
+    expect(own).toEqual(
+      expect.arrayContaining([
+        "bg-card",
+        "shadow-float",
+        "z-(--z-popover)",
+        "max-h-[min(60vh,var(--radix-dropdown-menu-content-available-height))]",
+        "overflow-y-auto",
+      ]),
+    );
+    expect(own.filter(startsWithAny(["w-"]))).toEqual(["w-60"]);
+    expect(own.filter(startsWithAny(["rounded-"]))).toEqual(["rounded-lg"]);
+    expect(own.filter(startsWithAny(["p-", "px-", "py-"]))).toEqual(["p-1.5"]);
+    expect(own).not.toContain("p-1.25");
   });
 
   it("restates each row's gap, padding, line height, icon size and disabled opacity", async () => {
@@ -477,23 +412,20 @@ describe("the student's account menu keeps its own geometry", () => {
       screen.getByRole("button", { name: "Tài khoản của Nguyễn Văn An" }),
     );
     for (const name of ["Cài đặt", "Chế độ tối", "Đăng xuất"]) {
-      const deck = inside(row(name));
-      expect(deck.filter(startsWithAny(["gap-"]))).toEqual(["gap-2.5"]);
-      expect(deck.filter(startsWithAny(["p-", "px-", "py-"]))).toEqual(["p-2"]);
-      expect(deck.filter(startsWithAny(["leading-"]))).toEqual(["leading-4"]);
-      expect(deck.filter(startsWithAny(["h-", "min-h-", "text-"]))).toEqual([]);
-      expect(deck.filter(startsWithAny(["data-[disabled]:"]))).toEqual([
+      const own = classes(row(name));
+      expect(own.filter(startsWithAny(["gap-"]))).toEqual(["gap-2.5"]);
+      expect(own.filter(startsWithAny(["p-", "px-", "py-"]))).toEqual(["p-2"]);
+      expect(own.filter(startsWithAny(["leading-"]))).toEqual(["leading-4"]);
+      expect(own.filter(startsWithAny(["h-", "min-h-"]))).toEqual([]);
+      expect(own.filter(startsWithAny(["data-[disabled]:opacity-"]))).toEqual([
         "data-[disabled]:opacity-50",
       ]);
-      expect(deck.filter(startsWithAny(["[&_svg"]))).toEqual([
+      expect(own.filter(startsWithAny(["[&_svg:not"]))).toEqual([
         "[&_svg:not([class*='size-'])]:size-[0.9375rem]",
       ]);
-      expect(plain(row(name)).filter(startsWithAny(["text-sm", "gap-"]))).toEqual([
-        "gap-2",
-        "text-sm",
-      ]);
-      expect(plain(row(name))).toContain("focus:bg-hover");
-      expect(plain(row(name))).not.toContain("focus:bg-accent");
+      expect(own).toContain("text-sm");
+      expect(own).toContain("focus:bg-hover");
+      expect(own).not.toContain("focus:bg-accent");
     }
   });
 
@@ -504,16 +436,12 @@ describe("the student's account menu keeps its own geometry", () => {
     );
     const signOut = row("Đăng xuất");
     expect(signOut).toHaveAttribute("data-variant", "default");
-    expect(plain(signOut)).toEqual(
+    expect(classes(signOut)).toEqual(
       expect.arrayContaining(["text-danger-ink", "focus:text-danger-ink", "border-t"]),
     );
-    expect(plain(signOut)).not.toContain("focus:text-fg");
-    expect(
-      inside(signOut).filter(
-        (c) => c.includes("text-") && !c.startsWith("data-[variant=destructive]:"),
-      ),
-    ).toEqual([]);
-    expect(plain(row("Cài đặt"))).toContain("focus:text-fg");
+    expect(classes(signOut)).not.toContain("focus:text-fg");
+    expect(classes(signOut)).not.toContain("focus:text-accent-foreground");
+    expect(classes(row("Cài đặt"))).toContain("focus:text-fg");
 
     const header = screen.getByRole("menu").firstElementChild!;
     expect(header.getAttribute("class")).toBe(

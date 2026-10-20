@@ -255,10 +255,7 @@ export function ExamPane({
           <span className="text-ui min-w-0 flex-[1_1_220px] font-medium">
             {t("imports.review.allResolved")}
           </span>
-          <Button
-            className="h-8 rounded-lg px-3 text-sm font-semibold"
-            onClick={onFinish}
-          >
+          <Button className="h-8 rounded-lg font-semibold" onClick={onFinish}>
             {t("imports.review.finish")}
           </Button>
         </div>

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 const ACTION =
-  "border-border bg-card hover:bg-muted dark:hover:bg-muted rounded-seg h-7 border px-2.5 in-data-[scale=deck]:h-7";
+  "border-border bg-card hover:bg-muted dark:hover:bg-muted rounded-seg border px-2.5 h-7";
 
 /**
  * CopyField shows a value nobody edits, such as a join link or a code, under

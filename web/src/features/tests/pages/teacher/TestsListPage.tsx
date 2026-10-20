@@ -17,7 +17,6 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
@@ -59,8 +58,7 @@ const TAB_LABELS = {
 const SEARCH =
   "[&_input]:bg-card [&_input]:border-border max-w-[280px] flex-[0_1_280px] [&_input]:h-8.5 [&_input]:pl-8.25 [&_input]:text-sm [&_svg]:top-[9.5px] [&_svg]:size-3.75";
 
-const GHOST =
-  "text-muted-fg hover:bg-muted hover:text-fg dark:hover:bg-muted in-data-[scale=deck]:px-3";
+const GHOST = "text-muted-fg hover:bg-muted hover:text-fg dark:hover:bg-muted px-3";
 
 function toTab(value: string | null): Tab {
   return TABS.find((tab) => tab === value) ?? "all";
@@ -316,7 +314,7 @@ export default function TestsListPage() {
   };
 
   return (
-    <DeckScale className="flex w-full min-w-0 flex-col gap-4">
+    <div className="flex w-full min-w-0 flex-col gap-4">
       <PageHead
         title={t("teacherShell.nav.tests")}
         description={t("tests.description")}
@@ -422,7 +420,7 @@ export default function TestsListPage() {
         }}
         onDeleted={invalidate}
       />
-    </DeckScale>
+    </div>
   );
 }
 

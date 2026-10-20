@@ -1,43 +1,40 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-const INSIDE = "in-data-[scale=deck]:";
 
 const classes = (element: Element) =>
   (element.getAttribute("class") ?? "").split(" ").filter(Boolean);
-const plain = (element: Element) =>
-  classes(element).filter((c) => !c.includes("scale=deck"));
-const inside = (element: Element) =>
-  classes(element)
-    .filter((c) => c.startsWith(INSIDE))
-    .map((c) => c.slice(INSIDE.length));
 
-const TODAY_LIST = [
-  "bg-muted",
-  "inline-flex",
-  "gap-0.5",
-  "rounded-lg",
-  "p-[0.1875rem]",
+const LIST = [
+  "flex",
+  "gap-5",
+  "overflow-x-auto",
+  "rounded-none",
+  "border-b",
+  "bg-transparent",
+  "p-0",
 ];
-const TODAY_TRIGGER = [
-  "text-muted-foreground",
-  "data-[state=active]:bg-background",
-  "data-[state=active]:text-foreground",
-  "data-[state=active]:shadow-card",
+const TRIGGER = [
   "inline-flex",
-  "h-7",
   "items-center",
   "gap-1.5",
-  "rounded-md",
   "border-0",
   "bg-transparent",
-  "px-3",
-  "text-[0.8125rem]",
   "font-medium",
   "transition-colors",
+  "text-muted-fg",
+  "text-ui",
+  "h-auto",
+  "rounded-none",
+  "px-0.5",
+  "pb-2.5",
+  "leading-4.5",
+  "whitespace-nowrap",
+  "-outline-offset-2!",
+  "data-[state=active]:text-fg",
+  "data-[state=active]:bg-transparent",
+  "data-[state=active]:shadow-[inset_0_-2px_0_var(--fg)]",
 ];
 
 function Detail() {
@@ -75,75 +72,49 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("tabs off a deck surface", () => {
-  it("are today's pills", () => {
+describe("the tabs' row", () => {
+  it("is the deck's underlined row: 20px apart, a line beneath, scrolling sideways", () => {
     render(<Detail />);
-    expect(plain(screen.getByRole("tablist"))).toEqual(TODAY_LIST);
-    expect(plain(tab("Học viên"))).toEqual(TODAY_TRIGGER);
-    expect(plain(tab("Câu hỏi"))).toEqual(TODAY_TRIGGER);
-    expect(screen.getByRole("tablist").closest("[data-scale]")).toBeNull();
-  });
-});
-
-describe("tabs on a deck surface", () => {
-  it("sit in the deck's underlined row: 20px apart, a line beneath, scrolling sideways", () => {
-    render(
-      <DeckScale>
-        <Detail />
-      </DeckScale>,
-    );
     const list = screen.getByRole("tablist");
-    expect(plain(list)).toEqual(TODAY_LIST);
-    expect(inside(list)).toEqual([
-      "flex",
-      "gap-5",
-      "overflow-x-auto",
-      "rounded-none",
-      "border-b",
-      "bg-transparent",
-      "p-0",
-    ]);
+    expect(classes(list)).toEqual(LIST);
+    for (const replaced of [
+      "inline-flex",
+      "bg-muted",
+      "gap-0.5",
+      "rounded-lg",
+      "p-[0.1875rem]",
+    ])
+      expect(classes(list)).not.toContain(replaced);
   });
 
   it("draws the selected tab in the foreground colour over a 2px line", () => {
-    render(
-      <DeckScale>
-        <Detail />
-      </DeckScale>,
-    );
+    render(<Detail />);
     const on = tab("Học viên");
     const off = tab("Câu hỏi");
     expect(on).toHaveAttribute("data-state", "active");
     expect(on).toHaveAttribute("aria-selected", "true");
     expect(off).toHaveAttribute("data-state", "inactive");
     for (const trigger of [on, off]) {
-      expect(plain(trigger)).toEqual(TODAY_TRIGGER);
-      expect(inside(trigger)).toEqual([
-        "text-muted-fg",
-        "text-ui",
-        "h-auto",
-        "rounded-none",
-        "px-0.5",
-        "pb-2.5",
-        "leading-4.5",
-        "whitespace-nowrap",
-        "-outline-offset-2!",
-        "data-[state=active]:text-fg",
-        "data-[state=active]:bg-transparent",
-        "data-[state=active]:shadow-[inset_0_-2px_0_var(--fg)]",
-      ]);
+      expect(classes(trigger)).toEqual(TRIGGER);
+      for (const replaced of [
+        "text-muted-foreground",
+        "data-[state=active]:bg-background",
+        "data-[state=active]:text-foreground",
+        "data-[state=active]:shadow-card",
+        "h-7",
+        "rounded-md",
+        "px-3",
+        "text-[0.8125rem]",
+      ])
+        expect(classes(trigger)).not.toContain(replaced);
     }
   });
 
   it("keeps a focus ring of its own, drawn inside the tab, and never removes the outline", () => {
-    render(
-      <DeckScale>
-        <Detail />
-      </DeckScale>,
-    );
+    render(<Detail />);
     for (const name of ["Học viên", "Câu hỏi", "Cài đặt"]) {
       const outline = classes(tab(name)).filter((c) => c.includes("outline"));
-      expect(outline).toEqual(["in-data-[scale=deck]:-outline-offset-2!"]);
+      expect(outline).toEqual(["-outline-offset-2!"]);
     }
   });
 });
@@ -151,11 +122,7 @@ describe("tabs on a deck surface", () => {
 describe("tabs from the keyboard", () => {
   it("move with the arrow keys and show the tab's panel", async () => {
     const user = userEvent.setup();
-    render(
-      <DeckScale>
-        <Detail />
-      </DeckScale>,
-    );
+    render(<Detail />);
     expect(screen.getByRole("tabpanel")).toHaveTextContent("Danh sách học viên");
     await user.tab();
     expect(tab("Học viên")).toHaveFocus();
@@ -181,18 +148,16 @@ describe("tabs from the keyboard", () => {
     const user = userEvent.setup();
     const seen: string[] = [];
     render(
-      <DeckScale>
-        <Tabs defaultValue="students">
-          <TabsList
-            aria-label="Bài giao"
-            onFocus={(event) => seen.push(event.target.textContent)}
-          >
-            <TabsTrigger value="students">Học viên</TabsTrigger>
-            <TabsTrigger value="questions">Câu hỏi</TabsTrigger>
-            <TabsTrigger value="settings">Cài đặt</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </DeckScale>,
+      <Tabs defaultValue="students">
+        <TabsList
+          aria-label="Bài giao"
+          onFocus={(event) => seen.push(event.target.textContent)}
+        >
+          <TabsTrigger value="students">Học viên</TabsTrigger>
+          <TabsTrigger value="questions">Câu hỏi</TabsTrigger>
+          <TabsTrigger value="settings">Cài đặt</TabsTrigger>
+        </TabsList>
+      </Tabs>,
     );
     const list = screen.getByRole("tablist");
     const moved = () => list.scrollLeft;

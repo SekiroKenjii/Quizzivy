@@ -59,14 +59,14 @@ export async function student(
   });
 }
 
-/** fits waits until neither the document, the deck surface nor `<main>` scrolls sideways. */
+/** fits waits until neither the document, the student layout's root nor `<main>` scrolls sideways. */
 export async function fits(page: Page) {
   await expect
     .poll(() =>
       page.evaluate(() =>
         [
           document.documentElement,
-          document.querySelector("[data-scale='deck']"),
+          document.querySelector("[class~='@container/student']"),
           document.querySelector("main"),
         ].every((node) => node === null || node.scrollWidth <= node.clientWidth + 1),
       ),

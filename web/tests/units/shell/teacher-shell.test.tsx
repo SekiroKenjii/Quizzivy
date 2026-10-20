@@ -46,7 +46,7 @@ describe("the shell every teacher page renders in", () => {
     expect(sidebar()).not.toBeNull();
     expect(document.getElementById("admin-sidebar")).toBeNull();
     expect(document.documentElement).toHaveClass("dark");
-    expect(screen.getByRole("main").closest("[data-scale='deck']")).not.toBeNull();
+    expect(screen.getByRole("main").querySelector("[data-slot='page']")).not.toBeNull();
     expect(document.title).toBe("Tổng quan · Quizzivy");
   });
 

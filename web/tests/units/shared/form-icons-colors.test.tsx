@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Crown, Shield, Star } from "lucide-react";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { FormDialog, type FormField } from "@/components/shared/form/FormDialog";
 import "@/lib/i18n";
 
@@ -33,18 +32,16 @@ const fields: readonly FormField<Values>[] = [
 
 function frame(onSubmit: (values: Values) => void, extra: { pending?: boolean } = {}) {
   return (
-    <DeckScale>
-      <FormDialog
-        open
-        onOpenChange={() => undefined}
-        title="Sửa vai trò"
-        initial={{ icon: "shield", color: "dark" }}
-        fields={fields}
-        submitLabel="Lưu"
-        onSubmit={onSubmit}
-        {...extra}
-      />
-    </DeckScale>
+    <FormDialog
+      open
+      onOpenChange={() => undefined}
+      title="Sửa vai trò"
+      initial={{ icon: "shield", color: "dark" }}
+      fields={fields}
+      submitLabel="Lưu"
+      onSubmit={onSubmit}
+      {...extra}
+    />
   );
 }
 

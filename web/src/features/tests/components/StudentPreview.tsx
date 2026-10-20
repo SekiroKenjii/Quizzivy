@@ -3,7 +3,6 @@ import { useId, useMemo } from "react";
 import { PreviewGroupContext } from "./PreviewGroupContext";
 import { useTranslation } from "react-i18next";
 import { Markdown } from "@/components/shared/Markdown";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { QuestionSheet } from "@/features/take-test/components/QuestionSheet";
 import type { components } from "@/lib/api/schema";
 
@@ -16,7 +15,7 @@ function ignoreAnswer() {
 /**
  * StudentPreview renders frozen questions and their shared context as the
  * student's paper draws them: the engine's passage and question panes, one
- * under the other, on a deck surface. Nothing can be answered: every control
+ * under the other. Nothing can be answered: every control
  * is disabled and no answer is written.
  */
 export function StudentPreview({
@@ -41,7 +40,7 @@ export function StudentPreview({
   const sectionById = new Map(sections.map((section) => [section.id, section]));
 
   return (
-    <DeckScale>
+    <div>
       <ol className="flex min-w-0 flex-col gap-4">
         {questions.map((question, index) => {
           const group = contexts.get(question.id);
@@ -92,6 +91,6 @@ export function StudentPreview({
           );
         })}
       </ol>
-    </DeckScale>
+    </div>
   );
 }

@@ -4,8 +4,7 @@ import type { Assignment, AssignmentStatus } from "@/features/assignments/api";
 import { statusAt } from "@/features/assignments/status";
 import { targetsOf, windowOf, type ListTab } from "./assignmentWindow";
 
-const PILL_SHAPE =
-  "border-0 in-data-[scale=deck]:rounded-full in-data-[scale=deck]:px-2";
+const PILL_SHAPE = "border-0 rounded-full px-2";
 
 const PILL: Record<AssignmentStatus, string> = {
   open: `${PILL_SHAPE} [&>[aria-hidden]]:bg-success`,

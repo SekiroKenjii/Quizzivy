@@ -114,7 +114,7 @@ export function DirtyBar({
           className={cn(
             BUTTON,
             PAUSED_DISCARD,
-            "hover:bg-muted dark:hover:bg-muted px-3 in-data-[scale=deck]:px-3 in-data-[scale=deck]:text-sm",
+            "hover:bg-muted dark:hover:bg-muted px-3 text-sm",
           )}
           onClick={() => {
             if (saving) return;

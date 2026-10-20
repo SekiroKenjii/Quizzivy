@@ -50,14 +50,14 @@ export function DateRangeMenu({
           type="button"
           variant="outline"
           aria-label={`${t("audit.range.label")}: ${label}`}
-          className="shadow-card h-9 flex-none gap-2 pr-2.5 pl-3 font-medium in-data-[scale=deck]:gap-2 in-data-[scale=deck]:pr-2.5 in-data-[scale=deck]:pl-3 in-data-[scale=deck]:text-sm"
+          className="shadow-card h-9 flex-none gap-2 pr-2.5 pl-3 text-sm font-medium"
         >
           <Calendar aria-hidden="true" className="text-muted-fg" />
           {label}
           <ChevronDown aria-hidden="true" className="text-muted-fg size-3.5" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="data-[scale=deck]:w-55">
+      <DropdownMenuContent align="end" className="w-55">
         <DropdownMenuRadioGroup
           value={filters.range}
           onValueChange={(value) => onPreset(value as AuditRange)}

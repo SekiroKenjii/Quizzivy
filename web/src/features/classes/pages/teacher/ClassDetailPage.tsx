@@ -4,7 +4,6 @@ import { Link, useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ClipboardList, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadError } from "@/components/shared/ListState";
 import { StickyAside } from "@/components/shared/StickyAside";
@@ -51,7 +50,7 @@ export default function ClassDetailPage() {
   if (klass.isError) {
     const missing = klass.error instanceof ApiError && klass.error.status === 404;
     return (
-      <DeckScale className="flex w-full min-w-0 flex-col gap-4">
+      <div className="flex w-full min-w-0 flex-col gap-4">
         <PageHead
           title={t(missing ? "classDetail.notFoundTitle" : "classDetail.crumb")}
           back={{ to: "/teacher/classes", label: t("teacherShell.nav.classes") }}
@@ -63,13 +62,13 @@ export default function ClassDetailPage() {
             {t("classDetail.loadFailed")}
           </LoadError>
         )}
-      </DeckScale>
+      </div>
     );
   }
 
   const data = klass.data;
   return (
-    <DeckScale className="flex w-full min-w-0 flex-col gap-4.5">
+    <div className="flex w-full min-w-0 flex-col gap-4.5">
       <PageHead
         title={data.name}
         crumb
@@ -127,7 +126,7 @@ export default function ClassDetailPage() {
         onOpenChange={setAdding}
         returnFocus={addButton}
       />
-    </DeckScale>
+    </div>
   );
 }
 

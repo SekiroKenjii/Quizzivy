@@ -38,12 +38,12 @@ export type TestCardActions = Readonly<{
   onDelete: (test: Test) => void;
 }>;
 
-const PILL_SHAPE = "border-0 in-data-[scale=deck]:px-2";
+const PILL_SHAPE = "border-0 px-2";
 
 const PILL: Record<TestStatus, string> = {
   published: `${PILL_SHAPE} [&>[aria-hidden]]:bg-success`,
   draft: `${PILL_SHAPE} bg-transparent text-muted-fg [&>[aria-hidden]]:bg-border`,
-  archived: `${PILL_SHAPE} bg-muted text-muted-fg in-data-[scale=deck]:rounded-full [&>[aria-hidden]]:bg-muted-fg`,
+  archived: `${PILL_SHAPE} bg-muted text-muted-fg rounded-full [&>[aria-hidden]]:bg-muted-fg`,
 };
 
 const ICON_BUTTON =
@@ -194,7 +194,7 @@ function CardMenu({
           <Ellipsis aria-hidden="true" className="size-3.75" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52 data-[scale=deck]:w-55">
+      <DropdownMenuContent align="end" className="w-55">
         {archived ? (
           <DropdownMenuItem onSelect={() => onRestore(test)}>
             <RotateCw aria-hidden="true" />

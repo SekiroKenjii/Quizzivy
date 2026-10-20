@@ -112,12 +112,13 @@ afterEach(() => {
 });
 
 describe("the teacher shell from 768", () => {
-  it("draws the sidebar, the top bar and the page as landmarks on one deck surface", async () => {
+  it("draws the sidebar, the top bar and the page as landmarks on one surface", async () => {
     serveSummary(QUIET);
     renderShell("/teacher", [home()]);
     const main = await screen.findByRole("main");
-    const root = main.closest<HTMLElement>("[data-scale='deck']")!;
+    const root = sidebar()!.parentElement!;
 
+    expect(root).toContainElement(main);
     expect(root).toHaveClass("bg-bg", "text-fg", "h-svh", "text-base");
     expect(within(root).getByRole("banner")).toBeInTheDocument();
     expect(screen.getAllByRole("navigation")).toHaveLength(2);
@@ -697,7 +698,7 @@ describe("the top bar", () => {
     );
   });
 
-  it("opens the command palette from the search button and with Ctrl+K, outside the deck surface", async () => {
+  it("opens the command palette from the search button and with Ctrl+K", async () => {
     const user = userEvent.setup();
     serveSummary(QUIET);
     renderShell("/teacher", [home()]);
@@ -716,9 +717,9 @@ describe("the top bar", () => {
     expect(search).toHaveClass("w-8.5", "min-[768px]:w-50", "min-[1100px]:w-65");
 
     await user.click(search);
-    const palette = await screen.findByRole("dialog", { name: "Tìm kiếm và lệnh" });
-    expect(palette.closest("[data-scale='deck']")).toBeNull();
-    expect(palette).not.toHaveAttribute("data-scale");
+    expect(
+      await screen.findByRole("dialog", { name: "Tìm kiếm và lệnh" }),
+    ).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -776,7 +777,6 @@ describe("the teacher shell below 768", () => {
 
     expect(drawer).toBe(sidebar());
     expect(drawer).toHaveAttribute("data-state", "open");
-    expect(drawer).toHaveAttribute("data-scale", "deck");
     expect(drawer).toHaveClass("w-68", "bg-sidebar", "z-(--z-sheet)", "text-base");
     expect(drawer).toContainElement(document.activeElement as HTMLElement);
     expect(within(drawer).getByText("Giảng dạy")).toBeInTheDocument();

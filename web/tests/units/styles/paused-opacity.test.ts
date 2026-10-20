@@ -6,7 +6,6 @@ import { pausedOpacity, type PausedOpacityUse } from "@tests/support/pausedOpaci
 const SRC = resolve(import.meta.dirname, "../../../src");
 
 const BASELINE: Readonly<Record<string, number>> = {
-  "components/shared/BulkActions.tsx": 2,
   "components/shared/form/fields/SelectField.tsx": 1,
   "features/ai/components/AiEntryButton.tsx": 1,
   "features/assignments/components/SettingsGroups.tsx": 2,

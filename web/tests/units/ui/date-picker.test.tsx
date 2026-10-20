@@ -4,7 +4,6 @@ import { render, screen, within, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { format } from "date-fns";
 import { vi as viLocale } from "date-fns/locale";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { DateTimeField, type DateTimeMode } from "@/components/shared/DateTimeField";
 import { FormDialog } from "@/components/shared/form/FormDialog";
 import i18n from "@/lib/i18n";
@@ -23,7 +22,7 @@ function Picker({
 }: Readonly<{ mode?: DateTimeMode; initial?: string; step?: number }>) {
   const [value, setValue] = useState(initial);
   return (
-    <DeckScale>
+    <>
       <DateTimeField
         id="date"
         label="Đóng lúc"
@@ -34,7 +33,7 @@ function Picker({
       />
       <output aria-label="Giá trị">{value}</output>
       <button type="button">Ngoài</button>
-    </DeckScale>
+    </>
   );
 }
 const trigger = () => screen.getByRole("button", { name: /Đóng lúc/ });
@@ -54,9 +53,8 @@ it("uses one named trigger and ArrowDown opens a Monday-first six-week picker", 
   expect(
     within(dialog).getAllByRole("columnheader", { hidden: true })[0],
   ).toHaveTextContent(format(new Date(2026, 8, 21), "cccccc", { locale: viLocale }));
-  expect(dialog).toHaveAttribute("data-scale", "deck");
   expect(dialog).toHaveClass(
-    "data-[scale=deck]:z-(--z-popover)",
+    "z-(--z-popover)",
     "duration-120",
     "ease-[cubic-bezier(0,0,0.58,1)]",
     "data-[state=open]:slide-in-from-top-[3px]",
@@ -64,6 +62,7 @@ it("uses one named trigger and ArrowDown opens a Monday-first six-week picker", 
     "data-[state=closed]:animate-none",
   );
   expect(dialog.className).not.toMatch(/zoom-|slide-in-from-bottom/);
+  expect(dialog).not.toHaveClass("z-50");
 });
 it("date-only selects immediately and has no Today or Done footer", async () => {
   const user = userEvent.setup();
@@ -162,17 +161,15 @@ it("locale changes relabel an open draft without committing or resetting it", as
 function NestedPicker() {
   const [open, setOpen] = useState(true);
   return (
-    <DeckScale>
-      <FormDialog
-        open={open}
-        onOpenChange={setOpen}
-        title="Cửa sổ"
-        initial={{ date: "2026-09-24" }}
-        fields={[{ kind: "date", name: "date", label: "Ngày" }]}
-        submitLabel="Lưu"
-        onSubmit={() => {}}
-      />
-    </DeckScale>
+    <FormDialog
+      open={open}
+      onOpenChange={setOpen}
+      title="Cửa sổ"
+      initial={{ date: "2026-09-24" }}
+      fields={[{ kind: "date", name: "date", label: "Ngày" }]}
+      submitLabel="Lưu"
+      onSubmit={() => {}}
+    />
   );
 }
 it("Escape dismisses only the calendar above its surrounding FormDialog", async () => {
@@ -200,7 +197,7 @@ beforeEach(() =>
 afterEach(() => vi.unstubAllGlobals());
 
 it.each(["date", "time"] as const)(
-  "keeps the legacy %s trigger's new ARIA props absent by default",
+  "keeps the %s trigger's ARIA props absent by default",
   (mode) => {
     render(
       <DateTimeField
@@ -210,69 +207,36 @@ it.each(["date", "time"] as const)(
         onChange={() => {}}
       />,
     );
-    const group = screen.getByRole("group", { name: "Mốc" });
-    const button = within(group).getByRole("button");
+    const button = screen.getByRole("button", { name: /Mốc/ });
     expect(button).not.toHaveAttribute("aria-invalid");
     expect(button).not.toHaveAttribute("aria-describedby");
+    expect(button).not.toBeDisabled();
   },
 );
 
 it.each(["date", "time"] as const)(
-  "pins absent-disabled legacy %s defaults",
-  (mode) => {
-    render(
-      <DateTimeField
-        id="default-field"
-        label="Mốc"
-        value={mode === "date" ? "2026-09-24" : "08:00"}
-        mode={mode}
-        onChange={() => {}}
-      />,
-    );
-    const html = screen
-      .getByRole("group", { name: "Mốc" })
-      .outerHTML.replace(/aria-controls="[^"]+"/g, 'aria-controls="radix-id"');
-    const expected = {
-      date: '<div role="group" aria-label="Mốc" class="flex"><button data-slot="popover-trigger" data-variant="outline" data-size="default" class="inline-flex items-center gap-2 rounded-md text-sm whitespace-nowrap transition-all outline-none focus-visible:border-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*=\'size-\'])]:size-4 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50 in-data-[scale=deck]:bg-card in-data-[scale=deck]:hover:bg-muted dark:in-data-[scale=deck]:border-border dark:in-data-[scale=deck]:bg-card dark:in-data-[scale=deck]:hover:bg-muted h-9 px-4 py-2 in-data-[scale=deck]:px-3.5 in-data-[scale=deck]:text-ui in-data-[scale=deck]:gap-1.5 in-data-[scale=deck]:[&amp;_svg:not([class*=\'size-\'])]:size-[15px] flex-1 justify-between font-normal" id="default-field" type="button" aria-haspopup="dialog" aria-expanded="false" data-state="closed">24/09/2026<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg></button></div>',
-      time: '<div role="group" aria-label="Mốc" class="flex"><button data-slot="popover-trigger" data-variant="outline" data-size="default" class="inline-flex items-center gap-2 rounded-md text-sm whitespace-nowrap transition-all outline-none focus-visible:border-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 [&amp;_svg:not([class*=\'size-\'])]:size-4 border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50 in-data-[scale=deck]:bg-card in-data-[scale=deck]:hover:bg-muted dark:in-data-[scale=deck]:border-border dark:in-data-[scale=deck]:bg-card dark:in-data-[scale=deck]:hover:bg-muted h-9 px-4 py-2 in-data-[scale=deck]:px-3.5 in-data-[scale=deck]:text-ui in-data-[scale=deck]:gap-1.5 in-data-[scale=deck]:[&amp;_svg:not([class*=\'size-\'])]:size-[15px] justify-between font-normal tabular-nums flex-1" id="default-field" aria-label="Mốc — giờ" type="button" aria-haspopup="dialog" aria-expanded="false" data-state="closed">08:00<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-clock" aria-hidden="true"><path d="M12 6v6l4 2"></path><circle cx="12" cy="12" r="10"></circle></svg></button></div>',
-    };
-    expect(html).toBe(expected[mode]);
-    expect(screen.getByRole("button")).not.toBeDisabled();
-  },
-);
-
-it.each(["date", "time"] as const)(
-  "dismisses an already-open legacy %s picker when disabled and edits again after re-enable",
+  "dismisses an already-open %s picker when disabled and edits again after re-enable",
   async (mode) => {
     const user = userEvent.setup();
     const change = vi.fn();
     const value = mode === "date" ? "2026-09-24" : "08:07";
-    const props = { id: "legacy-lock", label: "Mốc", value, mode, onChange: change };
+    const props = { id: "lock", label: "Mốc", value, mode, onChange: change };
     const view = render(<DateTimeField {...props} />);
-    await user.click(
-      within(screen.getByRole("group", { name: "Mốc" })).getByRole("button"),
-    );
+    await user.click(screen.getByRole("button", { name: /Mốc/ }));
     expect(document.querySelector('[data-slot="popover-content"]')).toBeInTheDocument();
     view.rerender(<DateTimeField {...props} disabled />);
     expect(
       document.querySelector('[data-slot="popover-content"]'),
     ).not.toBeInTheDocument();
-    expect(
-      within(screen.getByRole("group", { name: "Mốc" })).getByRole("button"),
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Mốc/ })).toBeDisabled();
     expect(change).not.toHaveBeenCalled();
     view.rerender(<DateTimeField {...props} />);
-    await user.click(
-      within(screen.getByRole("group", { name: "Mốc" })).getByRole("button"),
-    );
-    if (mode === "date")
-      await user.click(screen.getByRole("button", { name: /ngày 25 tháng 09/ }));
-    else
-      await user.click(
-        within(screen.getByRole("listbox", { name: "Phút" })).getByRole("option", {
-          name: "10",
-        }),
-      );
+    await user.click(screen.getByRole("button", { name: /Mốc/ }));
+    if (mode === "date") await user.click(day("25"));
+    else {
+      await user.click(screen.getByRole("button", { name: "Tăng phút" }));
+      await user.click(screen.getByRole("button", { name: "Xong" }));
+    }
     expect(change).toHaveBeenCalledExactlyOnceWith(
       mode === "date" ? "2026-09-25" : "08:10",
     );
@@ -282,26 +246,14 @@ it("discards a standalone datetime draft on lock and accepts a fresh draft after
   const user = userEvent.setup();
   const change = vi.fn();
   const props = { label: "Mốc", value: "2026-09-24T08:07", onChange: change };
-  const view = render(
-    <DeckScale>
-      <DateTimeField {...props} />
-    </DeckScale>,
-  );
+  const view = render(<DateTimeField {...props} />);
   await user.click(screen.getByRole("button", { name: /Mốc/ }));
   await user.click(screen.getByRole("button", { name: /ngày 25 tháng 09/ }));
   await user.click(screen.getByRole("button", { name: "Tăng phút" }));
-  view.rerender(
-    <DeckScale>
-      <DateTimeField {...props} disabled />
-    </DeckScale>,
-  );
+  view.rerender(<DateTimeField {...props} disabled />);
   expect(screen.queryByRole("dialog", { name: "Chọn ngày" })).toBeNull();
   expect(change).not.toHaveBeenCalled();
-  view.rerender(
-    <DeckScale>
-      <DateTimeField {...props} />
-    </DeckScale>,
-  );
+  view.rerender(<DateTimeField {...props} />);
   await user.click(screen.getByRole("button", { name: /Mốc/ }));
   await user.click(screen.getByRole("button", { name: "Xong" }));
   expect(change).toHaveBeenCalledExactlyOnceWith("2026-09-24T08:07");

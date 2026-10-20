@@ -18,10 +18,10 @@ afterEach(() => {
 });
 
 describe("the teacher frame the splash fades onto", () => {
-  it("is its own deck surface of grey blocks, with nothing to read or follow", () => {
+  it("is a frame of grey blocks, with nothing to read or follow", () => {
     const { frame, column } = draw();
 
-    expect(frame.dataset["scale"]).toBe("deck");
+    expect(frame.dataset["slot"]).toBe("teacher-skeleton");
     expect(frame).toHaveClass("bg-bg", "flex", "h-full");
     expect(frame.querySelectorAll("[data-slot='skeleton']").length).toBeGreaterThan(40);
     expect(frame).toHaveTextContent(/^$/);
@@ -46,7 +46,9 @@ describe("the splash hand-off for a teacher route", () => {
     for (const path of ["/teacher", "/teacher/tests"]) {
       const { container, unmount } = render(<>{skeletonFor(path)}</>);
       expect(
-        container.querySelector("[data-scale='deck'] [data-slot='skeleton-sidebar']"),
+        container.querySelector(
+          "[data-slot='teacher-skeleton'] [data-slot='skeleton-sidebar']",
+        ),
         path,
       ).not.toBeNull();
       unmount();

@@ -4,7 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import { DeckScale } from "@/components/ui/deck-scale";
 import GroupEditorPage from "@/features/question-groups/pages/teacher/GroupEditorPage";
 import { emptyGroup } from "@/features/question-groups/model";
 import { useAuthStore } from "@/stores/auth";
@@ -40,11 +39,7 @@ it("returns focus to Student preview when the preview closes", async () => {
     [
       {
         path: "/teacher/question-bank/groups/:id",
-        element: (
-          <DeckScale>
-            <GroupEditorPage />
-          </DeckScale>
-        ),
+        element: <GroupEditorPage />,
       },
     ],
     { initialEntries: [`/teacher/question-bank/groups/${id}`] },

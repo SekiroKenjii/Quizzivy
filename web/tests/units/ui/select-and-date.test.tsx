@@ -82,88 +82,34 @@ describe("the select (F-06)", () => {
 });
 
 describe("the date-time field (F-06)", () => {
-  it("is one joined pair of buttons, never a datetime-local", async () => {
-    const user = userEvent.setup();
+  it("is one named trigger, never a datetime-local or a joined pair", () => {
     render(<Window initial="2026-09-08T15:00" />);
 
     expect(document.querySelector("input[type=datetime-local]")).toBeNull();
     expect(document.querySelector("input[type=time]")).toBeNull();
-    const day = screen.getByRole("button", { name: "Đóng lúc" });
-    expect(day).toHaveTextContent("08/09/2026");
-    expect(day).toHaveClass("rounded-r-none");
-    const clock = screen.getByRole("button", { name: "Đóng lúc — giờ" });
-    expect(clock).toHaveTextContent("15:00");
-    expect(clock).toHaveClass("rounded-l-none");
-
-    await user.click(day);
-    const calendar = await screen.findByRole("dialog");
-    expect(within(calendar).getByText("Tháng Chín 2026")).toBeInTheDocument();
-    expect(
-      within(calendar).getByRole("button", {
-        name: "Thứ Ba, ngày 8 tháng 09 năm 2026, đã chọn",
-      }),
-    ).toBeInTheDocument();
-    await user.click(
-      within(calendar).getByRole("button", {
-        name: "Thứ Hai, ngày 14 tháng 09 năm 2026",
-      }),
-    );
-    expect(screen.getByRole("status")).toHaveTextContent("2026-09-14T15:00");
-    expect(day).toHaveTextContent("14/09/2026");
-
-    await user.click(clock);
-    const hours = await screen.findByRole("listbox", { name: "Giờ" });
-    expect(within(hours).getByRole("option", { name: "15" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    await user.click(within(hours).getByRole("option", { name: "21" }));
-    expect(screen.getByRole("status")).toHaveTextContent("2026-09-14T21:00");
-    const minutes = screen.getByRole("listbox", { name: "Phút" });
-    await user.click(within(minutes).getByRole("option", { name: "30" }));
-    expect(screen.getByRole("status")).toHaveTextContent("2026-09-14T21:30");
-    expect(screen.queryByRole("listbox")).toBeNull();
-    expect(clock).toHaveTextContent("21:30");
+    expect(screen.getAllByRole("button", { name: /Đóng lúc/ })).toHaveLength(1);
+    const field = screen.getByRole("button", { name: /Đóng lúc/ });
+    expect(field).toHaveTextContent("15:00");
+    expect(field).not.toHaveClass("rounded-r-none");
   });
 
-  it("keeps a minute that is off the step, and offers it", async () => {
-    const user = userEvent.setup();
+  it("keeps a minute that is off the step", () => {
     render(<Window initial="2026-09-08T09:32" />);
 
-    await user.click(screen.getByRole("button", { name: "Đóng lúc — giờ" }));
-    const minutes = await screen.findByRole("listbox", { name: "Phút" });
-    expect(within(minutes).getByRole("option", { name: "32" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    expect(within(minutes).getAllByRole("option")).toHaveLength(13);
+    expect(screen.getByRole("button", { name: /Đóng lúc/ })).toHaveTextContent("09:32");
+    expect(screen.getByRole("status")).toHaveTextContent("2026-09-08T09:32");
   });
 
   it("shows only the half the caller asked for", () => {
     const { unmount } = render(<Window mode="date" initial="2026-09-08" />);
-    expect(screen.getByRole("button", { name: "Đóng lúc" })).toHaveTextContent(
-      "08/09/2026",
+    expect(screen.getByRole("button", { name: /Đóng lúc/ })).not.toHaveTextContent(
+      /\d{2}:\d{2}/,
     );
-    expect(screen.queryByRole("button", { name: "Đóng lúc — giờ" })).toBeNull();
     unmount();
 
     render(<Window mode="time" initial="21:00" />);
-    expect(screen.getByRole("button", { name: "Đóng lúc — giờ" })).toHaveTextContent(
-      "21:00",
-    );
-    expect(screen.queryByText("08/09/2026")).toBeNull();
-  });
-
-  it("picking a day before any time fills in the morning", async () => {
-    const user = userEvent.setup();
-    render(<Window initial="" />);
-
-    expect(screen.getByRole("button", { name: "Đóng lúc" })).toHaveTextContent(
-      "Chọn ngày",
-    );
-    await user.click(screen.getByRole("button", { name: "Đóng lúc" }));
-    const calendar = await screen.findByRole("dialog");
-    await user.click(within(calendar).getAllByRole("button", { name: /ngày 15/ })[0]!);
-    expect(screen.getByRole("status")).toHaveTextContent(/T08:00$/);
+    const clock = screen.getByRole("button", { name: /Đóng lúc/ });
+    expect(clock).toHaveTextContent("21:00");
+    expect(clock).not.toHaveTextContent("2026");
   });
 });

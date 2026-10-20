@@ -21,15 +21,13 @@ function board() {
     {
       path: "/",
       element: (
-        <div data-scale="deck">
-          <Monitor
-            assignment={assignment()}
-            data={monitor(defaultRows())}
-            selectedAttempt={null}
-            onOpen={() => {}}
-            onRefresh={async () => {}}
-          />
-        </div>
+        <Monitor
+          assignment={assignment()}
+          data={monitor(defaultRows())}
+          selectedAttempt={null}
+          onOpen={() => {}}
+          onRefresh={async () => {}}
+        />
       ),
     },
   ]);

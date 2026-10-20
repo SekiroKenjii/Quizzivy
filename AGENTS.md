@@ -15,16 +15,13 @@ this file describe the code as it is and name the release that changes them.
   not cite them. Deliberate departures from the deck are in
   `docs/design/gaps.md`.
 - **Since R1** (v0.7.0) the deck's tokens, Be Vietnam Pro and the primitives
-  are in. Deck geometry that would change an existing primitive (control
-  heights, radii, badge and card shapes) applies only inside
-  `data-scale="deck"`, which a rebuilt surface sets on its root. The student
-  app and the take-test engine are such surfaces since R3 (v0.9.0) and follow
-  the theme. Since R4 (v0.10.0) every teacher screen is one too: it renders in
+  are in. Since T-R5.30 the deck's geometry (control heights, radii, badge and
+  card shapes) is the primitives' only geometry, with no scale attribute on any
+  root. The student app and the take-test engine follow the theme since R3
+  (v0.9.0). Since R4 (v0.10.0) every teacher screen renders in
   `TeacherLayout` and follows the theme; the v0.7.0 `AdminLayout` and
   `useForcedLightTheme` are gone (T-R4.48), and R5's `AdminLayout` (T-R5.20) is
-  the Admin console's shell. R5 makes the deck geometry the
-  default and removes `data-scale`
-  (T-R5.30). `web/public/boot.js` applies the theme and language before paint,
+  the Admin console's shell. `web/public/boot.js` applies the theme and language before paint,
   since the CSP allows no inline script. Do not restyle a screen ad hoc ahead
   of the release that rebuilds it.
 - **Since R2** (v0.8.0) permissions, not paths, gate the API, repositories

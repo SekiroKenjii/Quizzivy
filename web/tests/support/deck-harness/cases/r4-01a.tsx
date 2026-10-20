@@ -91,7 +91,7 @@ function bar(row: Assignment): ReactNode {
 
 function pill(label: string): ReactNode {
   return (
-    <Badge variant="success" dot className="in-data-[scale=deck]:px-2">
+    <Badge variant="success" dot className="px-2">
       {label}
     </Badge>
   );

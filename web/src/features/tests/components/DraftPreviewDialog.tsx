@@ -58,7 +58,6 @@ export function DraftPreviewDialog({
       <Primitive.Portal>
         <Primitive.Overlay className="bg-overlay fixed inset-0 z-(--z-dialog)" />
         <Primitive.Content
-          data-scale="deck"
           aria-label={t("builder.previewAsStudent")}
           aria-labelledby={undefined}
           aria-describedby={undefined}

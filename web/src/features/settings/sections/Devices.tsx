@@ -292,7 +292,7 @@ function DeviceRow({
           type="button"
           variant="ghost"
           className={cn(
-            "text-danger-ink hover:bg-danger-soft hover:text-danger-ink dark:hover:bg-danger-soft text-meta in-data-[scale=deck]:text-meta h-7.5 flex-none rounded-[7px] px-2.5 font-normal in-data-[scale=deck]:h-7.5 in-data-[scale=deck]:px-2.5",
+            "text-danger-ink hover:bg-danger-soft hover:text-danger-ink dark:hover:bg-danger-soft text-meta h-7.5 flex-none rounded-[7px] px-2.5 font-normal",
             QUIET,
           )}
           data-family-id={session.familyId}

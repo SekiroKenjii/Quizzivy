@@ -131,7 +131,7 @@ function entriesFor(
 }
 
 const DECK_ITEM =
-  "focus:bg-hover focus:text-fg text-sm in-data-[scale=deck]:gap-2.5 in-data-[scale=deck]:p-2 in-data-[scale=deck]:leading-4 in-data-[scale=deck]:data-[disabled]:opacity-50 in-data-[scale=deck]:[&_svg:not([class*='size-'])]:size-[0.9375rem]";
+  "focus:bg-hover focus:text-fg text-sm gap-2.5 p-2 leading-4 data-[disabled]:opacity-50 [&_svg:not([class*='size-'])]:size-[0.9375rem]";
 
 const TOP_BAR = {
   trigger:
@@ -259,7 +259,7 @@ function DeckAccountMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         {...form.menu}
-        className="data-[scale=deck]:bg-card data-[scale=deck]:shadow-float data-[scale=deck]:z-(--z-popover) data-[scale=deck]:w-60 data-[scale=deck]:rounded-lg data-[scale=deck]:p-1.5"
+        className="bg-card shadow-float z-(--z-popover) w-60 rounded-lg p-1.5"
       >
         <div className="mb-1 flex items-center gap-2.5 border-b px-2 pt-1.5 pb-2.5">
           <Avatar

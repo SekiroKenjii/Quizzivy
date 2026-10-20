@@ -1,68 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { RowMenu } from "@/components/shared/RowMenu";
 import "@/lib/i18n";
 
-const INSIDE = "in-data-[scale=deck]:";
-const OWN = "data-[scale=deck]:";
-
 const classes = (element: Element) =>
   (element.getAttribute("class") ?? "").split(" ").filter(Boolean);
-const plain = (element: Element) => classes(element).filter((c) => !c.includes(OWN));
-const inside = (element: Element) =>
-  classes(element)
-    .filter((c) => c.startsWith(INSIDE))
-    .map((c) => c.slice(INSIDE.length));
-const own = (element: Element) =>
-  classes(element)
-    .filter((c) => c.startsWith(OWN))
-    .map((c) => c.slice(OWN.length));
-
-const TODAY_TRIGGER = [
-  "inline-flex",
-  "shrink-0",
-  "items-center",
-  "justify-center",
-  "gap-2",
-  "text-sm",
-  "font-medium",
-  "whitespace-nowrap",
-  "transition-all",
-  "outline-none",
-  "focus-visible:border-ring",
-  "disabled:pointer-events-none",
-  "disabled:opacity-50",
-  "aria-invalid:border-destructive",
-  "aria-invalid:ring-destructive/20",
-  "dark:aria-invalid:ring-destructive/40",
-  "[&_svg]:pointer-events-none",
-  "[&_svg]:shrink-0",
-  "hover:bg-accent",
-  "hover:text-accent-foreground",
-  "dark:hover:bg-accent/50",
-  "size-7",
-  "rounded-sm",
-  "[&_svg:not([class*='size-'])]:size-3.5",
-  "data-[state=open]:bg-accent",
-];
-const TODAY_CONTENT = [
-  "bg-popover",
-  "text-popover-foreground",
-  "z-50",
-  "min-w-40",
-  "overflow-hidden",
-  "rounded-md",
-  "border",
-  "p-1",
-  "shadow-md",
-  "data-[state=closed]:animate-out",
-  "data-[state=closed]:fade-out-0",
-  "data-[state=open]:animate-in",
-  "data-[state=open]:fade-in-0",
-];
 
 const trigger = (name = "Thao tác") => screen.getByRole("button", { name });
 
@@ -85,33 +29,31 @@ describe("the row menu's button", () => {
     expect(screen.queryByRole("button", { name: "Thao tác" })).toBeNull();
   });
 
-  it("is today's ghost button off a deck surface", () => {
+  it("is the deck's 30px square with a 16px icon", () => {
     render(
       <RowMenu>
         <DropdownMenuItem>Mở</DropdownMenuItem>
       </RowMenu>,
     );
-    expect(plain(trigger())).toEqual(TODAY_TRIGGER);
-    expect(trigger().closest("[data-scale]")).toBeNull();
-  });
-
-  it("is the deck's 30px square with a 16px icon on a deck surface", () => {
-    render(
-      <DeckScale>
-        <RowMenu>
-          <DropdownMenuItem>Mở</DropdownMenuItem>
-        </RowMenu>
-      </DeckScale>,
+    expect(classes(trigger())).toEqual(
+      expect.arrayContaining([
+        "rounded-seg",
+        "hover:bg-hover",
+        "dark:hover:bg-hover",
+        "size-7.5",
+        "[&_svg:not([class*='size-'])]:size-4",
+        "data-[state=open]:bg-accent",
+      ]),
     );
-    expect(plain(trigger())).toEqual(TODAY_TRIGGER);
-    expect(inside(trigger())).toEqual([
-      "rounded-seg",
-      "hover:bg-hover",
-      "size-7.5",
-      "[&_svg:not([class*='size-'])]:size-4",
-    ]);
-    expect(classes(trigger())).toContain("dark:in-data-[scale=deck]:hover:bg-hover");
-    expect(classes(trigger()).filter((c) => c.startsWith(OWN))).toEqual([]);
+    for (const replaced of [
+      "size-6",
+      "size-7",
+      "rounded-sm",
+      "hover:bg-accent",
+      "dark:hover:bg-accent/50",
+      "[&_svg:not([class*='size-'])]:size-3.5",
+    ])
+      expect(classes(trigger())).not.toContain(replaced);
     expect(trigger().querySelector("svg")).toHaveAttribute("aria-hidden", "true");
   });
 });
@@ -142,56 +84,30 @@ describe("the row menu's menu", () => {
     );
   });
 
-  it("is today's width off a deck surface, or the width the caller gives", async () => {
+  it("is 220px wide, aligned to the button's end", async () => {
     const user = userEvent.setup();
-    const first = render(
+    render(
       <RowMenu>
         <DropdownMenuItem>Mở</DropdownMenuItem>
       </RowMenu>,
     );
     await user.click(trigger());
-    expect(plain(screen.getByRole("menu"))).toEqual([...TODAY_CONTENT, "w-52"]);
-    expect(screen.getByRole("menu")).toHaveAttribute("data-align", "end");
-    first.unmount();
+    const menu = screen.getByRole("menu");
+    expect(classes(menu).filter((c) => c.startsWith("w-"))).toEqual(["w-55"]);
+    expect(menu).toHaveAttribute("data-align", "end");
+  });
 
+  it("takes another width from the caller", async () => {
+    const user = userEvent.setup();
     render(
       <RowMenu className="w-60">
         <DropdownMenuItem>Mở</DropdownMenuItem>
       </RowMenu>,
     );
     await user.click(trigger());
-    expect(plain(screen.getByRole("menu"))).toEqual([...TODAY_CONTENT, "w-60"]);
-  });
-
-  it("is 220px wide on a deck surface, written for the element that carries the scale", async () => {
-    const user = userEvent.setup();
-    render(
-      <DeckScale>
-        <RowMenu>
-          <DropdownMenuItem>Mở</DropdownMenuItem>
-        </RowMenu>
-      </DeckScale>,
+    expect(classes(screen.getByRole("menu")).filter((c) => c.startsWith("w-"))).toEqual(
+      ["w-60"],
     );
-    await user.click(trigger());
-    const menu = screen.getByRole("menu");
-    expect(menu).toHaveAttribute("data-scale", "deck");
-    expect(own(menu).filter((c) => c.startsWith("w-"))).toEqual(["w-55"]);
-    expect(classes(menu).filter((c) => c.includes(INSIDE))).toEqual([]);
-  });
-
-  it("takes another deck width from the caller", async () => {
-    const user = userEvent.setup();
-    render(
-      <DeckScale>
-        <RowMenu className="data-[scale=deck]:w-60">
-          <DropdownMenuItem>Mở</DropdownMenuItem>
-        </RowMenu>
-      </DeckScale>,
-    );
-    await user.click(trigger());
-    expect(own(screen.getByRole("menu")).filter((c) => c.startsWith("w-"))).toEqual([
-      "w-60",
-    ]);
   });
 });
 

@@ -62,7 +62,7 @@ const PROCESSING_STATUSES = [
 ] as const;
 const GRID =
   "@[960px]/import-history:grid-cols-[minmax(200px,2.4fr)_minmax(160px,1fr)_minmax(150px,1.4fr)_minmax(110px,1fr)_minmax(150px,1fr)_32px] @[1240px]/import-history:grid-cols-[minmax(200px,2.4fr)_minmax(160px,1fr)_130px_minmax(150px,1.4fr)_minmax(110px,1fr)_minmax(150px,1fr)_32px]";
-const CHIP = "in-data-[scale=deck]:rounded-sm in-data-[scale=deck]:px-2";
+const CHIP = "rounded-sm px-2";
 const ALL = "all";
 const HISTORY_POLL_MS = 5000;
 
@@ -219,7 +219,7 @@ export default function ImportsListPage() {
   };
 
   return (
-    <div className="flex w-full min-w-0 flex-col gap-4" data-scale="deck">
+    <div className="flex w-full min-w-0 flex-col gap-4">
       <PageHead
         className="[&>div:first-child]:max-w-[720px] [&>div:first-child]:flex-[1_1_360px]"
         title={t("imports.historyTitle")}
@@ -408,7 +408,7 @@ function HistoryRow({
           asChild
           size="sm"
           variant="outline"
-          className="h-auto min-h-8 max-w-full rounded-md py-1 leading-[normal] whitespace-normal in-data-[scale=deck]:h-auto in-data-[scale=deck]:rounded-md"
+          className="h-auto min-h-8 max-w-full rounded-md py-1 leading-[normal] whitespace-normal"
         >
           <Link
             to={importActionHref(item)}

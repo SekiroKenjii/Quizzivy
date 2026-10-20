@@ -12,8 +12,7 @@ import type { PageCrumb } from "@/layouts/shell/crumbs";
 import { SIDEBAR_ID } from "@/layouts/shell/Sidebar";
 import { useResolvedTheme } from "@/lib/theme";
 
-const KEY_CAP =
-  "bg-muted text-muted-fg in-data-[scale=deck]:text-2xs h-auto min-w-0 border-b leading-3.5";
+const KEY_CAP = "bg-muted text-muted-fg text-2xs h-auto min-w-0 border-b leading-3.5";
 
 /**
  * TopBar is a console's 56px bar: the sidebar toggle, the breadcrumb trail,

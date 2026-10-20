@@ -30,7 +30,7 @@ export const cases: Record<string, () => ReactElement> = {
         title="IELTS 6.5 Evening"
         back={{ to: "/teacher/classes", label: "Classes" }}
         status={
-          <Badge variant="secondary" className="in-data-[scale=deck]:px-2.25">
+          <Badge variant="secondary" className="px-2.25">
             24 students
           </Badge>
         }
@@ -56,7 +56,7 @@ export const cases: Record<string, () => ReactElement> = {
         title={LONG_TITLE}
         back={{ to: "/teacher/classes", label: "Lớp học" }}
         status={
-          <Badge variant="secondary" className="in-data-[scale=deck]:px-2.25">
+          <Badge variant="secondary" className="px-2.25">
             24 học viên
           </Badge>
         }

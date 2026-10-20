@@ -257,9 +257,7 @@ function GroupActions({
           disabled={disabled}
           className={cn(
             "text-muted-fg shrink-0 rounded-[6px] min-[768px]:opacity-0 min-[768px]:group-focus-within/unit:opacity-100 min-[768px]:group-hover/unit:opacity-100 min-[768px]:data-[state=open]:opacity-100",
-            selected
-              ? "max-[767px]:size-11 max-[767px]:in-data-[scale=deck]:size-11"
-              : "max-[767px]:hidden",
+            selected ? "max-[767px]:size-11" : "max-[767px]:hidden",
           )}
         >
           <Ellipsis aria-hidden="true" />
@@ -565,7 +563,7 @@ function MemberActions({
             variant="ghost"
             size="icon-xs"
             aria-label={t("builder.memberActions", { number })}
-            className="text-muted-fg shrink-0 rounded-[6px] max-[767px]:size-11 max-[767px]:in-data-[scale=deck]:size-11"
+            className="text-muted-fg shrink-0 rounded-[6px] max-[767px]:size-11"
           >
             <Ellipsis aria-hidden="true" />
           </Button>

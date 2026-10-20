@@ -57,7 +57,7 @@ export function RequestCard({
           size="sm"
           aria-disabled={busy || undefined}
           aria-describedby={titleId}
-          className="hover:bg-muted aria-disabled:text-foreground/50 h-8 px-3 in-data-[scale=deck]:h-8 in-data-[scale=deck]:rounded-md aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent"
+          className="hover:bg-muted aria-disabled:text-foreground/50 h-8 rounded-md px-3 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent"
           onClick={() => press("decline")}
         >
           {t("aiCredits.request.decline")}
@@ -67,7 +67,7 @@ export function RequestCard({
           size="sm"
           aria-disabled={busy || undefined}
           aria-describedby={titleId}
-          className="aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50 h-8 px-3 in-data-[scale=deck]:h-8 in-data-[scale=deck]:rounded-md aria-disabled:cursor-not-allowed"
+          className="aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50 h-8 rounded-md px-3 aria-disabled:cursor-not-allowed"
           onClick={() => press("approve")}
         >
           <Check aria-hidden="true" />

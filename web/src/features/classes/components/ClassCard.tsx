@@ -372,7 +372,7 @@ function CardMenu({
           <Ellipsis aria-hidden="true" className="size-4" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52 data-[scale=deck]:w-55">
+      <DropdownMenuContent align="end" className="w-55">
         {archived ? (
           <>
             <DropdownMenuItem onSelect={() => onRestore(klass)}>

@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { PASTE_EXAMPLE } from "../paste";
 
 const TOOL_BUTTON =
-  "h-8 gap-1.5 rounded-[8px] px-[11px] text-[13px] leading-[normal] in-data-[scale=deck]:h-8 in-data-[scale=deck]:rounded-[8px] [&_svg:not([class*='size-'])]:size-3.5";
+  "h-8 gap-1.5 rounded-[8px] px-[11px] leading-[normal] [&_svg:not([class*='size-'])]:size-3.5";
 
 function startOnShortcut(event: KeyboardEvent<HTMLTextAreaElement>) {
   if (event.key !== "Enter" || !(event.ctrlKey || event.metaKey)) return;
@@ -105,7 +105,7 @@ export function PasteField({
           onChange={(event) => onTextChange(event.target.value)}
           onKeyDown={startOnShortcut}
           className={cn(
-            "bg-bg border-border min-h-[340px] rounded-[10px] border-[1.5px] px-4 py-3.5 font-mono text-[13.5px] leading-[1.7] [tab-size:4] in-data-[scale=deck]:px-4 lg:text-[13.5px] in-data-[scale=deck]:lg:text-[13.5px]",
+            "bg-bg border-border min-h-[340px] rounded-[10px] border-[1.5px] px-4 py-3.5 font-mono text-[13.5px] leading-[1.7] [tab-size:4] lg:text-[13.5px]",
             over && "border-danger focus-visible:border-danger",
           )}
         />
@@ -193,7 +193,7 @@ export function PasteField({
               value={PASTE_EXAMPLE}
               label={t("imports.paste.copyExample")}
               failedMessage={t("imports.paste.copyFailed")}
-              className="bg-card h-7 gap-1.5 rounded-[8px] border px-[11px] text-xs in-data-[scale=deck]:h-7"
+              className="bg-card h-7 gap-1.5 rounded-[8px] border px-[11px] text-xs"
             />
           </div>
         </div>

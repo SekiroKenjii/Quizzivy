@@ -94,7 +94,7 @@ export function LinkPanel({
         sideOffset={6}
         collisionPadding={8}
         aria-label={t("contentEditor.link")}
-        className="w-68 max-w-[calc(100vw-24px)] rounded-[10px] p-1.5 data-[scale=deck]:rounded-[10px] data-[scale=deck]:p-1.5"
+        className="w-68 max-w-[calc(100vw-24px)] rounded-[10px] p-1.5"
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           const field = input.current;

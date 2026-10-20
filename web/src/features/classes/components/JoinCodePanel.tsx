@@ -332,7 +332,7 @@ function CodeActions({
               variant="outline"
               aria-disabled={joinOff || undefined}
               aria-describedby={joinOff ? OFF_REASON : undefined}
-              className="aria-disabled:text-foreground/50 aria-disabled:border-border/50 h-8.5 flex-1 in-data-[scale=deck]:h-8.5 in-data-[scale=deck]:text-sm aria-disabled:cursor-not-allowed"
+              className="aria-disabled:text-foreground/50 aria-disabled:border-border/50 h-8.5 flex-1 text-sm aria-disabled:cursor-not-allowed"
               onClick={onRotate}
             >
               <RotateCw aria-hidden="true" className="size-3.5" />
@@ -342,7 +342,7 @@ function CodeActions({
           {hasCode ? (
             <Button
               variant="ghost"
-              className="text-muted-fg h-8.5 font-normal in-data-[scale=deck]:h-8.5 in-data-[scale=deck]:px-3 in-data-[scale=deck]:text-sm"
+              className="text-muted-fg h-8.5 px-3 text-sm font-normal"
               onClick={onStop}
             >
               {t("classDetail.stop")}
@@ -408,7 +408,7 @@ function CodeSummary({
           {paused ? (
             <Badge
               variant="warning"
-              className="mt-0.5 max-w-full border-0 in-data-[scale=deck]:px-2 [&>svg]:size-3"
+              className="mt-0.5 max-w-full border-0 px-2 [&>svg]:size-3"
             >
               <Pause aria-hidden="true" />
               <span className="truncate">

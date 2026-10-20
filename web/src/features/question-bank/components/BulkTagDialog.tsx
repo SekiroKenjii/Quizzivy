@@ -111,7 +111,7 @@ export function BulkTagDialog({
             <Label htmlFor="bulk-tag">{t("bank.tagFilter")}</Label>
             <div className="focus-within:ring-ring mt-1.5 flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border p-2 focus-within:ring-2">
               {tags.map((tag) => (
-                <Badge key={tag} variant="secondary" className="gap-1 pr-1">
+                <Badge key={tag} variant="secondary">
                   {tag}
                   <button
                     type="button"
@@ -125,7 +125,7 @@ export function BulkTagDialog({
               <Input
                 list={suggestionId}
                 id="bulk-tag"
-                className="h-6 min-w-32 flex-1 border-0 p-0 shadow-none"
+                className="min-w-32 flex-1 border-0 py-0 shadow-none"
                 placeholder={t("bank.tagPlaceholder")}
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}

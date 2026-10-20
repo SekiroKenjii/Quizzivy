@@ -632,7 +632,7 @@ export function OutlineTree({
         <Button
           variant="outline"
           size="sm"
-          className="shadow-card w-full justify-start gap-2 px-2.5 in-data-[scale=deck]:h-8 in-data-[scale=deck]:gap-2 in-data-[scale=deck]:px-2.5"
+          className="shadow-card h-8 w-full justify-start gap-2 px-2.5"
           disabled={creating || sections.length === 0}
           onClick={onCreateQuestion}
         >
@@ -654,7 +654,7 @@ export function OutlineTree({
           <Button
             variant="outline"
             size="sm"
-            className="shadow-card w-full justify-start gap-2 px-2.5 in-data-[scale=deck]:h-8 in-data-[scale=deck]:gap-2 in-data-[scale=deck]:px-2.5"
+            className="shadow-card h-8 w-full justify-start gap-2 px-2.5"
             disabled={creating || sections.length === 0}
             onClick={onCreateGroup}
           >
@@ -665,7 +665,7 @@ export function OutlineTree({
         <Button
           variant="ghost"
           size="sm"
-          className="text-muted-foreground w-full justify-start gap-2 px-2.5 in-data-[scale=deck]:h-8 in-data-[scale=deck]:gap-2 in-data-[scale=deck]:px-2.5"
+          className="text-muted-foreground h-8 w-full justify-start gap-2 px-2.5"
           disabled={sections.length === 0}
           onClick={(event) => onPickFromBank(event.currentTarget)}
         >
@@ -675,7 +675,7 @@ export function OutlineTree({
         <Button
           variant="ghost"
           size="sm"
-          className="text-muted-foreground w-full justify-start gap-2 px-2.5 in-data-[scale=deck]:h-8 in-data-[scale=deck]:gap-2 in-data-[scale=deck]:px-2.5"
+          className="text-muted-foreground h-8 w-full justify-start gap-2 px-2.5"
           onClick={() => {
             onAddSection();
             setRenameNew(sections.length);
@@ -982,7 +982,7 @@ function SectionTitleInput({
         ref={field}
         value={value}
         aria-label={t("builder.sectionNameLabel")}
-        className="h-7 px-2 text-xs font-semibold"
+        className="text-xs font-semibold"
         onChange={(event) => setValue(event.target.value)}
         onBlur={blur}
         onKeyDown={(event) => {

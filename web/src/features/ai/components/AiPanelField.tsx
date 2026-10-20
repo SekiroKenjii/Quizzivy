@@ -124,7 +124,7 @@ function DestinationCard({ field }: Readonly<{ field: Destination }>) {
               <SelectItem
                 key={option.value}
                 value={option.value}
-                className="min-h-11 max-[767px]:min-h-13"
+                className="max-[767px]:min-h-13"
               >
                 <span
                   className={cn(
@@ -218,7 +218,7 @@ export function AiPanelField({ field }: Readonly<{ field: AiField }>) {
             rows={field.rows}
             placeholder={field.placeholder}
             onChange={(event) => field.onChange(event.target.value)}
-            className="bg-bg border-border focus-visible:border-ring text-ui in-data-[scale=deck]:lg:text-ui rounded-[0.5rem] px-3 py-2.5 leading-[1.6] max-[767px]:text-base"
+            className="bg-bg border-border focus-visible:border-ring text-ui lg:text-ui rounded-[0.5rem] px-3 py-2.5 leading-[1.6] max-[767px]:text-base"
           />
         </div>
       );

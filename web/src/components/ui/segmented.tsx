@@ -28,9 +28,9 @@ type SegmentedSize = "default" | "lg" | "sm" | "xs";
 
 const SIZES: Record<SegmentedSize, string> = {
   default: "",
-  lg: "h-8 in-data-[scale=deck]:h-8",
-  sm: "px-2.5 text-meta leading-4 in-data-[scale=deck]:h-7",
-  xs: "h-6.5 gap-1.25 px-2.5 text-xs leading-[0.9375rem] in-data-[scale=deck]:h-6.5 in-data-[scale=deck]:rounded-sm",
+  lg: "h-8",
+  sm: "px-2.5 text-meta leading-4 h-7",
+  xs: "gap-1.25 px-2.5 text-xs leading-[0.9375rem] h-6.5 rounded-sm",
 };
 
 const ICONS: Record<SegmentedSize, string> = {
@@ -95,9 +95,9 @@ export function Segmented({
       aria-label={label}
       onFocus={scroll ? revealFocused : undefined}
       className={cn(
-        "bg-muted in-data-[scale=deck]:rounded-ctl inline-flex gap-0.5 rounded-lg p-[0.1875rem]",
+        "bg-muted rounded-ctl inline-flex gap-0.5 p-[0.1875rem]",
         fill && "flex w-full flex-wrap",
-        size === "xs" && "in-data-[scale=deck]:rounded-md",
+        size === "xs" && "rounded-md",
         scroll &&
           "max-w-full [scrollbar-width:none] overflow-x-auto [&::-webkit-scrollbar]:hidden",
         className,
@@ -119,20 +119,15 @@ export function Segmented({
               if (!unavailable) onChange(option.value);
             }}
             className={cn(
-              "inline-flex h-7 items-center gap-1.5 rounded-md border-0 bg-transparent px-3 text-[0.8125rem] font-medium transition-colors",
-              "in-data-[scale=deck]:rounded-seg in-data-[scale=deck]:h-7.5 in-data-[scale=deck]:whitespace-nowrap",
+              "inline-flex items-center gap-1.5 border-0 bg-transparent px-3 text-[0.8125rem] font-medium transition-colors",
+              "rounded-seg h-7.5 whitespace-nowrap",
               scroll && "shrink-0 leading-4 whitespace-nowrap outline-offset-1!",
               SIZES[size],
               fill && "flex-1 justify-center leading-normal",
-              fill &&
-                size !== "lg" &&
-                "text-meta h-7.5 px-2.5 in-data-[scale=deck]:h-7.5",
+              fill && size !== "lg" && "text-meta h-7.5 px-2.5",
               Icon !== undefined && size === "lg" && "gap-1.75",
-              on
-                ? "bg-background text-foreground shadow-card in-data-[scale=deck]:bg-card in-data-[scale=deck]:text-fg in-data-[scale=deck]:ring-border in-data-[scale=deck]:ring-1"
-                : "text-muted-foreground in-data-[scale=deck]:text-muted-fg",
-              (option.disabled || unavailable) &&
-                "text-muted-foreground/45 in-data-[scale=deck]:text-muted-fg/45 cursor-not-allowed",
+              on ? "shadow-card bg-card text-fg ring-border ring-1" : "text-muted-fg",
+              (option.disabled || unavailable) && "text-muted-fg/45 cursor-not-allowed",
             )}
           >
             {Icon !== undefined && (
