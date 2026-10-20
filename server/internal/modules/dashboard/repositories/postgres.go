@@ -45,28 +45,21 @@ const (
 	attemptStudent    = "at.student_id"
 )
 
-const studentLike = ` AND u.role_id IN (SELECT r.id FROM app.student_like_roles r)`
-
 type reach struct {
 	args        []any
 	assignments string
 	papers      string
-	active      string
-	students    string
 }
 
 func reachOf(scope access.Scope) reach {
 	if scope.All {
-		return reach{students: `(SELECT count(*) FROM app.users u WHERE u.disabled_at IS NULL` + studentLike + `)`}
+		return reach{}
 	}
-	members := studentLike + ` AND u.id IN ` + visibility.TaughtMemberIDs(2)
 	papers := ` AND at.assignment_id IN ` + visibility.AssignmentIDs(2) + ` AND ` + visibility.Papers(1, 2, attemptAssignment, attemptStudent)
 	return reach{
 		args:        []any{false, opt.String(scope.UserID)},
 		assignments: ` AND a.id IN ` + visibility.AssignmentIDs(2),
 		papers:      papers,
-		active:      ` AND at.assignment_id IN ` + visibility.AssignmentIDs(2) + members,
-		students:    `(SELECT count(*) FROM app.users u WHERE u.disabled_at IS NULL` + members + `)`,
 	}
 }
 
@@ -74,24 +67,16 @@ func reachOf(scope access.Scope) reach {
 func (p *Postgres) Summary(ctx context.Context, q domain.SummaryQuery) (domain.Summary, error) {
 	scope := q.Scope
 	r := reachOf(scope)
-	window := fmt.Sprintf(`$%d`, len(r.args)+1)
-	review := fmt.Sprintf(`$%d`, len(r.args)+2)
+	review := fmt.Sprintf(`$%d`, len(r.args)+1)
 	var out domain.Summary
 	var assignmentID, attemptID *string
 	err := p.QueryRow(ctx, `
 		SELECT
-		  (SELECT count(*) FROM app.assignments a
-		    WHERE a.published_at IS NOT NULL
-		      AND a.closed_at IS NULL
-		      AND now() >= a.opens_at AND now() < a.closes_at`+r.assignments+`),
 		  (SELECT count(*)
 		     FROM app.attempt_answers ans
 		     JOIN app.attempts at ON at.id = ans.attempt_id
 		    WHERE `+answered.AwaitsGrade("ans")+`
 		      AND at.status IN ('submitted', 'timed_out')`+r.papers+`),
-		  (SELECT count(DISTINCT at.student_id) FROM app.attempts at
-             JOIN app.users u ON u.id = at.student_id AND u.disabled_at IS NULL
-		    WHERE at.started_at >= now() - `+window+`::interval`+r.active+`),
 		  (SELECT count(*) FROM app.attempts at WHERE at.flagged`+r.papers+`),
           (SELECT count(*) FROM app.assignments a WHERE a.published_at IS NOT NULL
              AND a.closed_at IS NULL AND a.opens_at <= now() AND a.closes_at > now()
@@ -103,16 +88,16 @@ func (p *Postgres) Summary(ctx context.Context, q domain.SummaryQuery) (domain.S
              WHERE at.status IN ('submitted','timed_out') AND EXISTS (
                SELECT 1 FROM app.attempt_answers ans WHERE ans.attempt_id = at.id
                  AND `+answered.AwaitsGrade("ans")+`)`+r.papers+`),
-          `+r.students+`, destination.assignment_id::text,destination.id::text
+          destination.assignment_id::text,destination.id::text
           FROM (VALUES (1)) anchor(value)
           LEFT JOIN LATERAL (
             SELECT at.assignment_id,at.id FROM app.attempts at
             WHERE `+review+`::boolean AND at.flagged`+r.papers+`
             ORDER BY at.started_at DESC,at.id DESC LIMIT 1
           ) destination ON TRUE
-	`, append(r.args, domain.ActiveWindow, q.CanReviewFlagged)...).Scan(
-		&out.OpenAssignments, &out.AwaitingGrading, &out.ActiveStudents, &out.FlaggedAttempts,
-		&out.ClosingSoon, &out.WaitingStudents, &out.OldestWaitingAt, &out.TotalStudents, &assignmentID, &attemptID)
+	`, append(r.args, q.CanReviewFlagged)...).Scan(
+		&out.AwaitingGrading, &out.FlaggedAttempts,
+		&out.ClosingSoon, &out.WaitingStudents, &out.OldestWaitingAt, &assignmentID, &attemptID)
 	if err != nil {
 		return domain.Summary{}, fmt.Errorf("dashboard: counts: %w", err)
 	}
@@ -121,21 +106,6 @@ func (p *Postgres) Summary(ctx context.Context, q domain.SummaryQuery) (domain.S
 		out.NewestFlaggedAttempt = &domain.FlaggedAttempt{AssignmentID: *assignmentID, AttemptID: *attemptID}
 	}
 	out.NextClosing, err = p.nextClosing(ctx, scope)
-	if err != nil {
-		return domain.Summary{}, err
-	}
-	recent := ``
-	if !scope.All {
-		recent = `
-		 WHERE TRUE` + r.papers
-	}
-	rows, err := p.Query(ctx, recentColumns+recent+`
-		 ORDER BY at.started_at DESC
-		 LIMIT 10`, r.args...)
-	if err != nil {
-		return domain.Summary{}, fmt.Errorf("dashboard: recent: %w", err)
-	}
-	out.Recent, err = scanRecent(rows, 10)
 	if err != nil {
 		return domain.Summary{}, err
 	}

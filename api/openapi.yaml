@@ -5675,30 +5675,20 @@ components:
         The Teacher dashboard covers the caller's own teaching, including an Admin:
         assignments they created or targeting classes they teach, reachable papers on
         them, and their classes. Its repository supports scope.all for a future Admin
-        console, but this operation never requests it. Legacy fields retain their
-        meaning; T-R4.23 stops reading openAssignments, activeStudents, totalStudents
-        and recentAttempts, and R5 removes them. Range affects submissions only.
-      required: [openAssignments, awaitingGrading, activeStudents, flaggedAttempts, newestFlaggedAttempt, recentAttempts, takingNow, submissions, today, recentActivity]
+        console, but this operation never requests it. Range affects submissions only.
+      required: [awaitingGrading, flaggedAttempts, newestFlaggedAttempt, takingNow, submissions, today, recentActivity]
       additionalProperties: false
       properties:
         closingSoon: { type: integer, minimum: 0, description: Open assignments closing within the next 24 hours. }
         waitingStudents: { type: integer, minimum: 0, description: Distinct students with unmarked manual answers in handed-in papers. }
         oldestWaitingAt: { type: [string, 'null'], format: date-time }
-        totalStudents: { type: integer, minimum: 0, description: 'Enabled student-like accounts in the classes the caller teaches, for an Admin too; this operation never requests the repository wide scope.' }
         nextClosing:
           oneOf: [{ $ref: '#/components/schemas/ClosingAssignment' }, { type: 'null' }]
-        openAssignments: { type: integer, minimum: 0 }
         awaitingGrading: { type: integer, minimum: 0 }
-        activeStudents: { type: integer, minimum: 0, description: 'Of the enabled student-like members of classes the caller teaches, those who started an attempt in the last seven days on an assignment they reach; an Admin has the same own scope and cannot request the repository wide reading here.' }
         flaggedAttempts: { type: integer, minimum: 0 }
         newestFlaggedAttempt:
           oneOf: [{ $ref: '#/components/schemas/DashboardFlaggedAttempt' }, { type: 'null' }]
           description: Newest started currently flagged reachable paper, ordered by started_at then id descending, from the flagged count statement snapshot; null without grading or intervention permission or a matching paper. Historical, voided and former-roster papers remain eligible.
-        recentAttempts:
-          type: array
-          maxItems: 10
-          items: { $ref: '#/components/schemas/AttemptListRow' }
-
         takingNow: { $ref: '#/components/schemas/DashboardTakingNow' }
         submissions: { $ref: '#/components/schemas/DashboardSubmissions' }
         today:

@@ -7,20 +7,16 @@ import (
 	"time"
 )
 
-// Summary is the teacher home with legacy figures and its calendar readings.
+// Summary is the teacher home: its queue figures and its calendar readings.
 type Summary struct {
 	Home
 	NewestFlaggedAttempt *FlaggedAttempt
 	ClosingSoon          int
 	WaitingStudents      int
 	OldestWaitingAt      *time.Time
-	TotalStudents        int
 	NextClosing          *ClosingAssignment
-	OpenAssignments      int
 	AwaitingGrading      int
-	ActiveStudents       int
 	FlaggedAttempts      int
-	Recent               []Recent
 }
 
 // FlaggedAttempt identifies one reachable flagged paper and its assignment.

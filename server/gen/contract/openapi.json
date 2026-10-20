@@ -10705,14 +10705,11 @@
       },
       "Dashboard": {
         "type": "object",
-        "description": "The Teacher dashboard covers the caller's own teaching, including an Admin:\nassignments they created or targeting classes they teach, reachable papers on\nthem, and their classes. Its repository supports scope.all for a future Admin\nconsole, but this operation never requests it. Legacy fields retain their\nmeaning; T-R4.23 stops reading openAssignments, activeStudents, totalStudents\nand recentAttempts, and R5 removes them. Range affects submissions only.\n",
+        "description": "The Teacher dashboard covers the caller's own teaching, including an Admin:\nassignments they created or targeting classes they teach, reachable papers on\nthem, and their classes. Its repository supports scope.all for a future Admin\nconsole, but this operation never requests it. Range affects submissions only.\n",
         "required": [
-          "openAssignments",
           "awaitingGrading",
-          "activeStudents",
           "flaggedAttempts",
           "newestFlaggedAttempt",
-          "recentAttempts",
           "takingNow",
           "submissions",
           "today",
@@ -10737,11 +10734,6 @@
             ],
             "format": "date-time"
           },
-          "totalStudents": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Enabled student-like accounts in the classes the caller teaches, for an Admin too; this operation never requests the repository wide scope."
-          },
           "nextClosing": {
             "oneOf": [
               {
@@ -10752,18 +10744,9 @@
               }
             ]
           },
-          "openAssignments": {
-            "type": "integer",
-            "minimum": 0
-          },
           "awaitingGrading": {
             "type": "integer",
             "minimum": 0
-          },
-          "activeStudents": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Of the enabled student-like members of classes the caller teaches, those who started an attempt in the last seven days on an assignment they reach; an Admin has the same own scope and cannot request the repository wide reading here."
           },
           "flaggedAttempts": {
             "type": "integer",
@@ -10779,13 +10762,6 @@
               }
             ],
             "description": "Newest started currently flagged reachable paper, ordered by started_at then id descending, from the flagged count statement snapshot; null without grading or intervention permission or a matching paper. Historical, voided and former-roster papers remain eligible."
-          },
-          "recentAttempts": {
-            "type": "array",
-            "maxItems": 10,
-            "items": {
-              "$ref": "#/components/schemas/AttemptListRow"
-            }
           },
           "takingNow": {
             "$ref": "#/components/schemas/DashboardTakingNow"

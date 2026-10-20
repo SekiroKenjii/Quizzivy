@@ -8345,9 +8345,7 @@ export interface components {
          * @description The Teacher dashboard covers the caller's own teaching, including an Admin:
          *     assignments they created or targeting classes they teach, reachable papers on
          *     them, and their classes. Its repository supports scope.all for a future Admin
-         *     console, but this operation never requests it. Legacy fields retain their
-         *     meaning; T-R4.23 stops reading openAssignments, activeStudents, totalStudents
-         *     and recentAttempts, and R5 removes them. Range affects submissions only.
+         *     console, but this operation never requests it. Range affects submissions only.
          */
         Dashboard: {
             /** @description Open assignments closing within the next 24 hours. */
@@ -8356,17 +8354,11 @@ export interface components {
             waitingStudents?: number;
             /** Format: date-time */
             oldestWaitingAt?: string | null;
-            /** @description Enabled student-like accounts in the classes the caller teaches, for an Admin too; this operation never requests the repository wide scope. */
-            totalStudents?: number;
             nextClosing?: components["schemas"]["ClosingAssignment"] | null;
-            openAssignments: number;
             awaitingGrading: number;
-            /** @description Of the enabled student-like members of classes the caller teaches, those who started an attempt in the last seven days on an assignment they reach; an Admin has the same own scope and cannot request the repository wide reading here. */
-            activeStudents: number;
             flaggedAttempts: number;
             /** @description Newest started currently flagged reachable paper, ordered by started_at then id descending, from the flagged count statement snapshot; null without grading or intervention permission or a matching paper. Historical, voided and former-roster papers remain eligible. */
             newestFlaggedAttempt: components["schemas"]["DashboardFlaggedAttempt"] | null;
-            recentAttempts: components["schemas"]["AttemptListRow"][];
             takingNow: components["schemas"]["DashboardTakingNow"];
             submissions: components["schemas"]["DashboardSubmissions"];
             today: components["schemas"]["DashboardToday"][];
