@@ -869,8 +869,8 @@ allowance (`docs/plan/20-data-model.md` §46). A month is the calendar month in 
 (`Asia/Ho_Chi_Minh` when unset), and the pool, the allowances and the used credits start over on
 the 1st. Credits an Admin adds do not carry over; a teacher's custom allowance and pause do.
 
-Until the Admin's AI credits page exists (R5, T-R5.35) the console is `cmd/maintenance`, the
-operator's tool, run with `MAINTENANCE_DATABASE_URL` as the other commands are. Every write names
+Since v0.12.0 the Admin's AI credits page (T-R5.35) does all of this in the console;
+`cmd/maintenance ai-credits` stays as the operator's tool, run with `MAINTENANCE_DATABASE_URL` as the other commands are. Every write names
 who is running it and is a dry run until `-apply`; a dry run runs the same code as the Admin
 operation inside a transaction it rolls back, so it reports exactly what would happen, writes
 nothing and tells nobody. The report is JSON.

@@ -612,17 +612,23 @@ migrations `00128` to `00141` (`docs/plan/75-r5.md`, the release checklist).
 **The order.** Merging `release/0.12.0` to `main` deploys the API first: Fly's
 `release_command` (`fly.toml`, `/app/migrate -dir /app/migrations up`) runs `00128` to
 `00141` before the new version takes traffic, and v0.11.11 keeps serving while they
-apply. The rolling strategy then replaces the `app` and `worker` machines. Pages deploys
+apply, except while `00131` holds `app.users` (below). Each migration commits on its own, so a
+stop at `00139` or `00141` leaves the earlier ones applied, which v0.11.11 tolerates. The rolling strategy then replaces the `app` and `worker` machines. Pages deploys
 second. Every new column on a populated table (`00131`, four on `app.users`) is nullable
 with no default, so v0.11.11's inserts keep working during the roll.
 
-- `00128` to `00130`, `00132`, `00134` to `00137` and `00140` create tables v0.11.11 never
+- `00128`, `00130`, `00132`, `00134` to `00137` and `00140` create tables v0.11.11 never
   reads. `00130` writes the one `organization_settings` row and revokes `INSERT` and
   `DELETE` on it from the app role.
 - `00129` grants the app role the role writes (`INSERT` and some `UPDATE` columns on
   `roles`, `INSERT` and `DELETE` on `role_permissions`).
 - `00131` backfills `last_sign_in_at` and `last_active_at` once, from refresh tokens,
-  attempts and the audit log, with `users_set_updated_at` disabled for the update.
+  attempts and the audit log, with `users_set_updated_at` disabled for the update. The
+  backfill runs in the transaction that adds the columns, so `app.users` is held
+  `ACCESS EXCLUSIVE` until it ends, and every request that reads a user (sign-in, refresh,
+  any authenticated call) waits for it. `refresh_tokens` has only a partial index on its user,
+  so the backfill scans it per user. Its time on the Neon-branch rehearsal is a go/no-go: if it
+  takes more than a few seconds, deploy outside teaching hours.
 - `00133` and `00138` build their indexes `CONCURRENTLY` (`-- +goose NO TRANSACTION`); see
   "Interrupted index build in v0.12.0" below.
 - `00139` stops unless `quizzivy_maintenance` exists, then grants it column by column and adds
@@ -677,16 +683,19 @@ already holds `EMAIL_FROM`, `APP_URL`, `EMAIL_DAILY_LIMIT` (`100`), `EMAIL_SEND_
 production: 0. Still owed before the merge, by the owner: Resend's open and click tracking off
 and the `RESEND_API_KEY` secret; `provision-db.sh` for `quizzivy_maintenance` and the
 `production-maintenance` environment's `MAINTENANCE_DATABASE_URL`; the Neon-branch rehearsal of
-`goose up` with its timings, `audit_log_recent_idx` valid and the retention sweep's dry run; and
-the exam-window check.
+`goose up` with its timings (`00131`'s above all), `audit_log_recent_idx` valid and T-R5.12's
+`EXPLAIN` of the audit log's first page using it, `has_schema_privilege('quizzivy_maintenance',
+'public', 'USAGE')` true after `00139` with no `WARNING` from its grants in goose's output, and
+the retention sweep's dry run; and the exam-window check.
 
 ### Rolling v0.12.0 back
 
 Rollback is roll forward (`docs/plan/70-redesign-overview.md` §8): prefer a hotfix and run no
 Down migration. Every Down of `00128` to `00141` drops what its Up created (`00141`'s keeps the
 revocations of expired legacy codes), but none is needed for v0.11.11 to run, and the Downs of
-`00128`, `00130`, `00134` to `00137` and `00140` delete the outbox, the settings, the exports,
-the set-password links, the imports and the avatar sweeps with their rows. If the API must go
+`00128`, `00130` to `00132`, `00134` to `00137` and `00140` delete the outbox, the settings, the
+users' activity columns and daily activity, the exports, the set-password links, the imports and
+the avatar sweeps with their rows. If the API must go
 back to v0.11.11, roll Pages back to its previous deployment **in the same hour**: the v0.12.0
 bundle calls the Admin console's operations, which v0.11.11 does not serve (`404`), and two of
 them reach the wrong handler (below).
