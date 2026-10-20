@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Sheet } from "@/components/shared/Sheet";
-import { DeckScale } from "@/components/ui/deck-scale";
 import "@/lib/i18n";
 
 type Width = 320 | 380 | 420;
@@ -332,25 +331,5 @@ describe("the sheet's frame", () => {
       "data-[state=closed]:fade-out-0",
       "motion-reduce:animate-none!",
     );
-  });
-});
-
-describe("the sheet on a deck surface", () => {
-  it("carries the deck scale itself, because it is portalled out of the surface", () => {
-    render(
-      <DeckScale data-testid="surface">
-        <Sheet open onOpenChange={() => {}} title="Lê Hoàng Nam">
-          <p>Dòng thời gian</p>
-        </Sheet>
-      </DeckScale>,
-    );
-    expect(panel()).toHaveAttribute("data-scale", "deck");
-    expect(screen.getByTestId("surface")).not.toContainElement(panel());
-    expect(slot("sheet-overlay")).not.toHaveAttribute("data-scale");
-  });
-
-  it("carries no scale off a deck surface", () => {
-    open();
-    expect(panel()).not.toHaveAttribute("data-scale");
   });
 });

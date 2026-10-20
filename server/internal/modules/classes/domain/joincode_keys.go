@@ -51,7 +51,7 @@ type StoredLookup struct {
 // JoinCodeKeys holds the current join-code key and, while a rotation is under
 // way, the previous one. Each raw key yields, through HKDF-SHA256 with no salt,
 // an AES-256-GCM key, an HMAC-SHA256 lookup key and a non-zero 16-bit id. The
-// zero value holds no key: Seal refuses and a lookup matches only legacy rows.
+// zero value holds no key: Seal refuses and a lookup matches no row.
 type JoinCodeKeys struct {
 	current  *joinCodeKey
 	previous *joinCodeKey
@@ -188,16 +188,15 @@ func (k JoinCodeKeys) Hash(code string) []byte {
 }
 
 // LookupHashes is every hash a canonical code may be stored under: the keyed
-// hash under the current key, under the previous key when one is set, and the
-// legacy SHA-256.
+// hash under the current key, and under the previous key when one is set. A
+// legacy SHA-256 row is never a candidate.
 func (k JoinCodeKeys) LookupHashes(code string) JoinCodeLookup {
 	var l JoinCodeLookup
 	for _, key := range []*joinCodeKey{k.current, k.previous} {
 		if key != nil {
-			l.candidates = append(l.candidates, lookupCandidate{scheme: LookupKeyed, keyID: key.id, hash: key.hash(code)})
+			l.candidates = append(l.candidates, lookupCandidate{keyID: key.id, hash: key.hash(code)})
 		}
 	}
-	l.candidates = append(l.candidates, lookupCandidate{scheme: LookupLegacy, hash: JoinCodes.Hash(code)})
 	return l
 }
 
@@ -235,9 +234,8 @@ type JoinCodeLookup struct {
 }
 
 type lookupCandidate struct {
-	scheme LookupScheme
-	keyID  int16
-	hash   []byte
+	keyID int16
+	hash  []byte
 }
 
 // Hashes lists the candidate hashes for the database to search.
@@ -250,14 +248,14 @@ func (l JoinCodeLookup) Hashes() [][]byte {
 }
 
 // Matches reports, in constant time per comparison, whether a stored row is
-// this code: a legacy row only against the SHA-256 candidate, a keyed row only
-// against the candidate under its own key id.
+// this code: a keyed row against the candidate under its own key id. A legacy
+// row never matches.
 func (l JoinCodeLookup) Matches(s StoredLookup) bool {
+	if s.Scheme != LookupKeyed || s.KeyID == nil {
+		return false
+	}
 	for _, c := range l.candidates {
-		if c.scheme != s.Scheme {
-			continue
-		}
-		if c.scheme == LookupKeyed && (s.KeyID == nil || *s.KeyID != c.keyID) {
+		if *s.KeyID != c.keyID {
 			continue
 		}
 		return JoinCodes.Equal(c.hash, s.Hash)

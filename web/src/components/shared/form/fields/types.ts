@@ -37,12 +37,36 @@ type Multiple<V> = Named<V, readonly string[]> & {
   search?: boolean;
   searchPlaceholder?: string;
 };
-/** FormInfoRow is an informational line with an optional independent action. */
+/** FormIconOption is an icon a form offers, drawn as a square button named by its label. */
+export type FormIconOption = Readonly<{
+  value: string;
+  label: string;
+  icon: LucideIcon;
+}>;
+/**
+ * FormColorOption is a swatch a form offers, named by its label. `swatch` is
+ * the classes that paint the circle and the tick on it, token classes only.
+ */
+export type FormColorOption = Readonly<{
+  value: string;
+  label: string;
+  swatch: string;
+}>;
+/**
+ * FormInfoRow is an informational line with an optional independent action.
+ * An action that opens or closes something sets `expanded`, which the button
+ * announces; `controls` names what it opens.
+ */
 export type FormInfoRow = Readonly<{
   icon: LucideIcon;
   tone?: "neutral" | "success" | "warning" | "danger" | "info";
   text: ReactNode;
-  action?: { label: string; onAction: () => void };
+  action?: {
+    label: string;
+    onAction: () => void;
+    expanded?: boolean;
+    controls?: string;
+  };
 }>;
 /**
  * FormField ties each field kind to a compatible key of the form's values. A
@@ -55,6 +79,8 @@ export type FormField<V extends FormValues> =
   | Multiple<V>
   | (Named<V, string> & { kind: "area"; placeholder?: string; maxLength?: number })
   | (Named<V, string> & { kind: "date" | "time"; minuteStep?: number })
+  | (Named<V, string> & { kind: "icons"; options: readonly FormIconOption[] })
+  | (Named<V, string> & { kind: "colors"; options: readonly FormColorOption[] })
   | (Named<V, boolean> & { kind: "toggle"; text: string; sub?: string })
   | (Named<V, File | null> & {
       kind: "file";

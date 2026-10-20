@@ -337,7 +337,7 @@ describe("the Students can join switch", () => {
       screen.getByText("Tạo mã mới thì mã, liên kết và mã QR cũ đều ngừng hoạt động."),
     ).toBeVisible();
     const opener = screen.getByRole("button", { name: "Hiện mã QR cỡ lớn" });
-    expect(opener).toHaveClass("opacity-40");
+    expect(opener).toHaveClass("[&>svg]:opacity-40");
     await user.click(opener);
     const dialog = await screen.findByRole("dialog", {
       name: "Tham gia IELTS 6.5 Evening",
@@ -387,5 +387,108 @@ describe("a code that cannot be read", () => {
       screen.getByRole("switch", { name: "Cho học viên tham gia" }),
     ).toBeDisabled();
     expect(reads).toBe(0);
+  });
+});
+
+function serveJoinCodes(joinCodes: boolean) {
+  server.use(
+    http.get(`${BASE}/public/organization`, () =>
+      contractJson("/public/organization", "get", 200, {
+        name: "Quizzivy",
+        shortName: null,
+        website: null,
+        contactEmail: null,
+        frontDeskPhone: null,
+        frontDeskHours: null,
+        address: null,
+        logo: { lightUrl: null, darkUrl: null },
+        signIn: { google: true, password: true },
+        joinCodes,
+      }),
+    ),
+  );
+}
+
+describe("the join code card while the centre has turned joining by code off (D-023)", () => {
+  it("disables the switch and New code with the centre's sentence as their reason, and marks the code inactive", async () => {
+    serveJoinCodes(false);
+    const user = renderPanel();
+    await screen.findByText("K7QM-2PXA", { selector: "p" });
+    const reason = await screen.findByText("Trung tâm đang tắt tham gia bằng mã.");
+    const toggle = screen.getByRole("switch");
+    const renew = screen.getByRole("button", { name: "Mã mới" });
+    for (const control of [toggle, renew]) {
+      expect(control).toHaveAttribute("aria-disabled", "true");
+      expect(control).toHaveAccessibleDescription(reason.textContent);
+    }
+    expect(screen.getByText("Không hoạt động")).toBeInTheDocument();
+    expect(screen.queryByText("Tạm ngừng tham gia")).toBeNull();
+    await user.click(toggle);
+    await user.click(renew);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(patches).toEqual([]);
+    expect(screen.getByRole("button", { name: "Ngừng" })).not.toHaveAttribute(
+      "aria-disabled",
+    );
+  });
+
+  it("pauses Copy code, Copy link, Download QR and the QR, with the same reason (D-028)", async () => {
+    serveJoinCodes(false);
+    const user = renderPanel();
+    await navigator.clipboard.writeText("untouched");
+    await screen.findByText("K7QM-2PXA", { selector: "p" });
+    const reason = await screen.findByText("Trung tâm đang tắt tham gia bằng mã.");
+    const controls = [
+      screen.getByRole("button", { name: "Chép mã" }),
+      screen.getByRole("button", { name: "Chép liên kết" }),
+      screen.getByRole("button", { name: "Tải mã QR" }),
+      screen.getByRole("button", { name: "Hiện mã QR cỡ lớn" }),
+    ];
+    for (const control of controls) {
+      expect(control).toHaveAttribute("aria-disabled", "true");
+      expect(control).toHaveAccessibleDescription(reason.textContent);
+      await user.click(control);
+    }
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(await navigator.clipboard.readText()).toBe("untouched");
+  });
+
+  it("does not tell the teacher to make a new code for a code that cannot be read (QC-U-21)", async () => {
+    serveJoinCodes(false);
+    readable = { ...CODE, code: null, legacy: true };
+    renderPanel();
+    expect(await screen.findByText("Không đọc lại được mã này.")).toBeVisible();
+    expect(screen.queryByText(/Hãy tạo mã mới/)).toBeNull();
+    expect(screen.getByText("••••-2PXA")).toBeVisible();
+  });
+
+  it("drops the new-code note, and the advice to restore an archived class to make a code, while joining is off (QC-U-30)", async () => {
+    serveJoinCodes(false);
+    renderPanel();
+    await screen.findByText("Trung tâm đang tắt tham gia bằng mã.");
+    expect(screen.queryByText(/Tạo mã mới thì mã/)).toBeNull();
+  });
+
+  it("says only that an archived class cannot be joined while joining is off (QC-U-30)", async () => {
+    serveJoinCodes(false);
+    renderPanel({ ...KLASS, archivedAt: "2026-09-01T00:00:00Z" });
+    expect(
+      await screen.findByText("Lớp đã lưu trữ nên không ai tham gia được."),
+    ).toBeVisible();
+    expect(screen.queryByText(/Khôi phục lớp ở trang Lớp học/)).toBeNull();
+  });
+
+  it("keeps them live while the centre allows joining by code", async () => {
+    serveJoinCodes(true);
+    const user = renderPanel();
+    await screen.findByText("K7QM-2PXA", { selector: "p" });
+    expect(screen.getByText(/Tạo mã mới thì mã/)).toBeVisible();
+    const opener = screen.getByRole("button", { name: "Hiện mã QR cỡ lớn" });
+    expect(opener).not.toHaveAttribute("aria-disabled");
+    expect(screen.getByRole("button", { name: "Chép mã" })).not.toHaveAttribute(
+      "aria-disabled",
+    );
+    await user.click(opener);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 });

@@ -67,21 +67,64 @@ describe("workspaces", () => {
 });
 
 describe("home", () => {
-  it("sends the teacher and admin workspaces to /teacher and everyone else to /app", () => {
-    expect(homePathFor(adminUser)).toBe("/teacher");
+  const asksFor = (workspace: "teacher" | "admin") => ({
+    ...adminUser,
+    preferences: { workspace },
+  });
+  const bothWithoutAllScope = {
+    ...adminUser,
+    permissions: adminUser.permissions.filter((key) => key !== "scope.all"),
+  };
+
+  it("sends the teacher workspace to /teacher, the Admin console to /admin and everyone else to /app", () => {
     expect(homePathFor(teacherUser)).toBe("/teacher");
     expect(homePathFor(assistantUser)).toBe("/teacher");
-    expect(homePathFor({ ...adminUser, workspaces: ["admin"] })).toBe("/teacher");
+    expect(homePathFor({ ...adminUser, workspaces: ["admin"] })).toBe("/admin");
     expect(homePathFor(studentUser)).toBe("/app");
     expect(homePathFor({ ...studentUser, workspaces: [] })).toBe("/app");
     expect(homePathFor(null)).toBe("/app");
+  });
+
+  it("opens the Admin console for a built-in Admin who has not chosen", () => {
+    expect(homePathFor(adminUser)).toBe("/admin");
+    expect(homePathFor({ ...adminUser, preferences: {} })).toBe("/admin");
+  });
+
+  it("opens the console a built-in Admin last switched to", () => {
+    expect(homePathFor(asksFor("teacher"))).toBe("/teacher");
+    expect(homePathFor(asksFor("admin"))).toBe("/admin");
+  });
+
+  it("sends any other holder of the teacher workspace to /teacher, whatever they stored", () => {
+    expect(
+      homePathFor({ ...bothWithoutAllScope, preferences: { workspace: "admin" } }),
+    ).toBe("/teacher");
+    expect(homePathFor(bothWithoutAllScope)).toBe("/teacher");
+  });
+
+  it("does not let a stored choice open a console the user no longer holds", () => {
+    expect(
+      homePathFor({
+        ...teacherUser,
+        preferences: { workspace: "admin" },
+      }),
+    ).toBe("/teacher");
+    expect(
+      homePathFor({
+        ...adminUser,
+        workspaces: ["admin"],
+        preferences: { workspace: "teacher" },
+      }),
+    ).toBe("/admin");
   });
 
   it("prefers a same-site next over the home", () => {
     expect(destinationAfterSignIn("/teacher/tests", studentUser)).toBe(
       "/teacher/tests",
     );
+    expect(destinationAfterSignIn("/admin/users", adminUser)).toBe("/admin/users");
     expect(destinationAfterSignIn("//evil.example", teacherUser)).toBe("/teacher");
+    expect(destinationAfterSignIn("//evil.example", adminUser)).toBe("/admin");
     expect(destinationAfterSignIn(null, studentUser)).toBe("/app");
   });
 });

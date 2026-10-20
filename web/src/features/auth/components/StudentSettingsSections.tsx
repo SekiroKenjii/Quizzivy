@@ -32,6 +32,7 @@ import {
   type ChangePasswordValues,
 } from "@/features/auth/changePasswordSchema";
 import { GoogleMark } from "@/features/auth/components/GoogleMark";
+import { SetPasswordLinkButton } from "@/features/auth/components/SetPasswordLinkButton";
 import {
   googleSignInAvailable,
   useGoogleSignIn,
@@ -46,19 +47,21 @@ import { useLargerTestText } from "@/lib/testText";
 import { useThemePreference, type ThemePreference } from "@/lib/theme";
 import { notify } from "@/lib/toast";
 import { cn } from "@/lib/utils";
+import { usePasswordChanged } from "@/features/auth/passwordChanged";
+import { useSetPasswordLinkRequest } from "@/features/auth/setPasswordLink";
+import { usePasswordSignInOff } from "@/features/organization/api";
 import { authStore, useAuthStore } from "@/stores/auth";
 
 const CARD = "bg-card shadow-card rounded-xl border";
 const FIELD = "flex flex-col gap-1.5";
-const LABEL = "in-data-[scale=deck]:text-meta";
+const LABEL = "text-meta leading-normal";
 const HINT = "text-muted-fg text-xs leading-normal";
 const NOTE = "text-meta leading-normal";
 const ROW = "flex items-center gap-3 px-4 py-3.5";
 const TILE = "bg-muted rounded-ctl grid size-9 flex-none place-items-center";
 const ROW_TITLE = "block text-base leading-normal font-medium";
 const ROW_SUB = "text-muted-fg text-meta block leading-normal";
-const ROW_BUTTON =
-  "h-8.5 flex-none rounded-md shadow-none in-data-[scale=deck]:px-3 in-data-[scale=deck]:text-sm";
+const ROW_BUTTON = "h-8.5 flex-none rounded-md shadow-none px-3 text-sm";
 const BAR_BUTTON = "h-8.5 flex-none rounded-md";
 
 const NAME = "student-settings-name";
@@ -170,10 +173,7 @@ export function StudentProfileSection() {
             {...form.register("fullName", { onChange: () => setFailure(null) })}
           />
           {nameError ? (
-            <FieldError
-              id={`${NAME}-note`}
-              className="leading-normal in-data-[scale=deck]:text-xs"
-            >
+            <FieldError id={`${NAME}-note`} className="text-xs leading-normal">
               {t(nameError.message ?? "settings.errors.nameRequired")}
             </FieldError>
           ) : (
@@ -242,7 +242,7 @@ export function StudentProfileSection() {
               disabled={isSubmitting}
               className={cn(
                 BAR_BUTTON,
-                "hover:bg-muted dark:hover:bg-muted in-data-[scale=deck]:px-3 in-data-[scale=deck]:text-sm",
+                "hover:bg-muted dark:hover:bg-muted px-3 text-sm",
               )}
               onClick={discard}
             >
@@ -263,8 +263,9 @@ export function StudentProfileSection() {
  * design deck draws it: a password row that opens the change form, and the
  * Google row. An account with no password has no password row, and its Unlink
  * stays in the tab order, switched off, beside the reason: Google is then its
- * only way in. The strength meter only advises; the form's rules and the
- * server decide.
+ * only way in. Such an account can ask for an emailed link to set a password
+ * (T-R5.3), unless the centre is known to have password sign-in off. The
+ * strength meter only advises; the form's rules and the server decide.
  */
 export function StudentSignInSection() {
   const { t } = useTranslation();
@@ -304,6 +305,7 @@ function meterHint(password: string, t: TFunction): string {
 
 function PasswordRow() {
   const { t } = useTranslation();
+  const changed = usePasswordChanged();
   const mounted = useMounted();
   const [open, setOpen] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -355,6 +357,11 @@ function PasswordRow() {
           <span id={KEY_ROW} className={ROW_TITLE}>
             {t("settings.password")}
           </span>
+          {changed === null ? null : (
+            <span className={ROW_SUB}>
+              {t("student.settings.passwordChangedLine", { when: changed })}
+            </span>
+          )}
         </span>
         <Button
           id={KEY_TOGGLE}
@@ -455,14 +462,18 @@ function GoogleRow() {
     (s) => s.user?.linkedProviders.includes("google") ?? false,
   );
   const hasPassword = useAuthStore((s) => s.user?.hasPassword ?? false);
+  const email = useAuthStore((s) => s.user?.email ?? "");
   const mounted = useMounted();
   const google = useGoogleSignIn();
+  const passwordsOff = usePasswordSignInOff();
+  const link = useSetPasswordLinkRequest();
   const [failure, setFailure] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const available = googleSignInAvailable();
   const problem = failure ?? google.error;
   const locked = pending || !hasPassword;
   const sentence = !linked || !hasPassword;
+  const offerLink = linked && !hasPassword && !passwordsOff;
 
   async function unlink() {
     setFailure(null);
@@ -491,7 +502,7 @@ function GoogleRow() {
             {t("student.settings.google")}
           </span>
           <span id={`${GOOGLE}-status`} className={cn(ROW_SUB, "break-words")}>
-            {googleStatus({ linked, hasPassword, available }, t)}
+            {googleStatus({ linked, hasPassword, available, passwordsOff }, t)}
           </span>
         </span>
         {linked && (
@@ -531,18 +542,46 @@ function GoogleRow() {
           {problem}
         </p>
       )}
+      {offerLink && (
+        <div className="flex flex-col items-start gap-2.5 px-4 pb-3.5">
+          {link.request.state === "sent" && (
+            <p role="status" className={NOTE}>
+              {t("settings.setPasswordLink.sent", { email })}
+            </p>
+          )}
+          {link.request.state === "failed" && (
+            <p role="alert" className={cn(NOTE, "text-danger-ink")}>
+              {link.request.message}
+            </p>
+          )}
+          <SetPasswordLinkButton
+            state={link.request.state}
+            className={cn(
+              ROW_BUTTON,
+              "aria-disabled:border-border/50 aria-disabled:text-foreground/50",
+            )}
+            onSend={() => void link.send()}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
 function googleStatus(
-  account: Readonly<{ linked: boolean; hasPassword: boolean; available: boolean }>,
+  account: Readonly<{
+    linked: boolean;
+    hasPassword: boolean;
+    available: boolean;
+    passwordsOff: boolean;
+  }>,
   t: TFunction,
 ): string {
-  if (account.linked)
-    return account.hasPassword
-      ? t("student.settings.googleLinked")
+  if (account.linked && !account.hasPassword)
+    return account.passwordsOff
+      ? t("settings.googleOnlyPasswordsOff")
       : t("settings.googleOnlyExplainer");
+  if (account.linked) return t("student.settings.googleLinked");
   return account.available
     ? t("student.settings.googleNotLinked")
     : t("login.googleUnavailable");

@@ -266,7 +266,7 @@ function CardMenu({
           <Ellipsis aria-hidden="true" className="size-3.75" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52 data-[scale=deck]:w-55">
+      <DropdownMenuContent align="end" className="w-55">
         <DropdownMenuItem onSelect={() => onRename(asset)}>
           <Pencil aria-hidden="true" />
           {t("media.rename")}

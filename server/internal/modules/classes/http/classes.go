@@ -157,9 +157,9 @@ func (h Classes) ListClasses(ctx context.Context, request openapi.ListClassesReq
 	for _, c := range found {
 		items = append(items, toAPIListItem(c))
 	}
-	noStore := "no-store"
+	cache := noStore
 	var out openapi.ListClasses200JSONResponse
-	out.Headers.CacheControl = &noStore
+	out.Headers.CacheControl = &cache
 	out.Body.Items, out.Body.Page, out.Body.PageSize, out.Body.Total = items, page.Number, page.Size, page.Total
 	out.Body.Facets = openapi.ClassFacets{
 		All: facets.All, Joinable: facets.Joinable, Archived: facets.Archived, Students: facets.Students,

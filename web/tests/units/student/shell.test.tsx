@@ -137,21 +137,21 @@ describe("the shell from 768", () => {
     expect(screen.queryByRole("link", { name: "Tôi" })).toBeNull();
   });
 
-  it("is a deck surface and opens the deck's account menu", async () => {
+  it("opens the deck's account menu from the bar", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     serveStudent({});
     shell("/app", <p>trang</p>);
     const account = await screen.findByRole("button", {
       name: "Tài khoản của Nguyễn Văn An",
     });
-    expect(account.closest("[data-scale='deck']")).toBe(
-      screen.getByRole("banner").parentElement,
+    expect(screen.getByRole("banner")).toContainElement(account);
+    expect(screen.getByRole("banner").parentElement).toContainElement(
+      screen.getByRole("main"),
     );
-    expect(screen.getByRole("main").closest("[data-scale='deck']")).not.toBeNull();
 
     await user.click(account);
     const menu = screen.getByRole("menu");
-    expect(menu.dataset["scale"]).toBe("deck");
+    expect(menu).toHaveClass("w-60", "rounded-lg", "p-1.5");
     expect(
       within(menu)
         .getAllByRole("menuitem")
@@ -275,10 +275,9 @@ describe("the shell from 768", () => {
 });
 
 describe("the splash hand-off", () => {
-  it("gives the splash a student frame to fade onto, on its own deck surface", () => {
+  it("gives the splash a student frame to fade onto", () => {
     const { container } = render(<>{skeletonFor("/app/classes")}</>);
     const frame = container.firstElementChild as HTMLElement;
-    expect(frame.dataset["scale"]).toBe("deck");
     expect(frame.className).toContain("bg-bg");
     expect(frame.querySelectorAll("[data-slot='skeleton']").length).toBeGreaterThan(10);
     expect(within(frame).queryAllByRole("link")).toEqual([]);

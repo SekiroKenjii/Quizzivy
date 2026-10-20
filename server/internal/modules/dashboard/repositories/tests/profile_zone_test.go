@@ -4,7 +4,6 @@ package repositories_test
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
 	"github.com/jackc/pgx/v5"
 	"quizzivy/internal/core/adapters"
@@ -72,8 +71,7 @@ func TestChosenTeacherNameReachesClassesPreviewAndAssignmentIntroOnly(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	hash := sha256.Sum256([]byte("ABCD2345"))
-	if _, err := w.tx.Exec(ctx, `INSERT INTO app.class_join_codes(class_id,code_hash,code_hint,expires_at,created_by) VALUES ($1,$2,'2345',now()+interval '1 day',$3)`, w.classA, hash[:], w.a); err != nil {
+	if _, err := w.tx.Exec(ctx, `INSERT INTO app.class_join_codes(class_id,code_hash,code_hint,expires_at,created_by,lookup_scheme,key_id,code_ciphertext) VALUES ($1,$2,'2345',now()+interval '1 day',$3,2,$4,decode(repeat('00',36),'hex'))`, w.classA, keys.Hash("ABCD2345"), w.a, keys.CurrentID()); err != nil {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct {

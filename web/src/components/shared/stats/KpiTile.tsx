@@ -45,12 +45,12 @@ export function KpiTile({
 }: KpiTileProps) {
   const figure = (
     <>
-      <div className="text-muted-fg flex items-center justify-between gap-2 text-sm leading-4 font-medium whitespace-nowrap">
+      <div className="text-muted-fg flex items-center justify-between gap-2 text-sm leading-4 font-medium">
         <div className="flex min-w-0 items-center gap-1.75">
           {live && (
             <LiveDot className="group-focus-within/kpi:[animation-play-state:paused]! group-hover/kpi:[animation-play-state:paused]!" />
           )}
-          <span className="truncate">{label}</span>
+          <span className="line-clamp-2 min-w-0 break-words">{label}</span>
         </div>
         <Icon aria-hidden="true" className={cn("size-4 shrink-0", ICONS[tone])} />
       </div>

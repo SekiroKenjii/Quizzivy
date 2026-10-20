@@ -207,7 +207,7 @@ function UpdateCard() {
   return (
     <SplashFrame mark="still">
       <div className="qz-boot-state">
-        <Badge variant="info" className="text-meta border-0 in-data-[scale=deck]:h-6.5">
+        <Badge variant="info" className="text-meta h-6.5 border-0">
           <Sparkles aria-hidden="true" className="size-[13px]" />
           {t("splash.updatePill")}
         </Badge>

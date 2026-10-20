@@ -36,6 +36,8 @@
     "saveChanges": "Lưu thay đổi",
     "showPassword": "Hiện mật khẩu",
     "hidePassword": "Ẩn mật khẩu",
+    "agoNow": "vừa xong",
+    "agoJustNow": "vừa xong",
     "justDuplicated": "Vừa nhân bản",
     "duplicateNamed": "Nhân bản {{name}}",
     "updated": "Cập nhật",
@@ -49,6 +51,7 @@
     "confirmSelected": "Xác nhận {{count}} mục",
     "bulkProgress": "Đang xử lý {{completed}}/{{total}} mục",
     "selectPage": "Chọn tất cả mục trên trang này",
+    "selectPageShort": "Chọn trang",
     "selectNamed": "Chọn {{name}}",
     "deleteNamed": "Xoá vĩnh viễn {{name}}",
     "deleted": "Đã xoá.",
@@ -383,6 +386,224 @@
     "unavailable": "Không kết nối được với máy chủ. Vui lòng thử lại.",
     "failed": "Đã xảy ra lỗi. Vui lòng thử lại."
   },
+  "audit": {
+    "action": {
+      "ai.allowance.updated": "Đã cập nhật hạn mức AI của giáo viên",
+      "ai.credit_request.approved": "Đã duyệt yêu cầu thêm tín dụng AI",
+      "ai.credit_request.declined": "Đã từ chối yêu cầu thêm tín dụng AI",
+      "ai.credits.added": "Đã thêm tín dụng AI",
+      "ai.rules.updated": "Đã cập nhật quy tắc AI",
+      "assignment.closed": "Đã đóng bài giao",
+      "assignment.created": "Đã tạo bài giao",
+      "assignment.deleted": "Đã xoá bài giao",
+      "assignment.duplicated": "Đã nhân bản bài giao",
+      "assignment.extended": "Đã gia hạn bài giao vì bảo trì",
+      "assignment.override_extended": "Đã gia hạn ngoại lệ của học viên vì bảo trì",
+      "assignment.override_removed": "Đã gỡ ngoại lệ của học viên",
+      "assignment.override_set": "Đã đặt ngoại lệ cho học viên",
+      "assignment.published": "Đã phát hành bài giao",
+      "assignment.reopened": "Đã mở lại bài giao",
+      "assignment.updated": "Đã cập nhật bài giao",
+      "attempt.extended": "Đã gia hạn lượt làm bài vì bảo trì",
+      "attempt.flagged": "Đã gắn cờ lượt làm bài",
+      "attempt.reset": "Đã đặt lại lượt làm bài",
+      "attempt.unflagged": "Đã bỏ cờ lượt làm bài",
+      "attempt.voided": "Đã huỷ lượt làm bài",
+      "audit.exported": "Đã xuất nhật ký hoạt động",
+      "class.archived": "Đã lưu trữ lớp",
+      "class.created": "Đã tạo lớp",
+      "class.deleted": "Đã xoá lớp",
+      "class.join_code_issued": "Đã cấp mã tham gia lớp",
+      "class.join_code_revoked": "Đã thu hồi mã tham gia lớp",
+      "class.join_code_rotated": "Đã đổi mã tham gia lớp",
+      "class.member_added": "Đã thêm học viên vào lớp",
+      "class.member_enrolled": "Học viên đã vào lớp bằng mã tham gia",
+      "class.member_removed": "Đã xoá học viên khỏi lớp",
+      "class.restored": "Đã khôi phục lớp",
+      "class.teacher_changed": "Đã đổi giáo viên của lớp",
+      "data_export.downloaded": "Đã tải bản xuất dữ liệu",
+      "data_export.requested": "Đã yêu cầu bản xuất dữ liệu",
+      "import.cancelled": "Đã huỷ lần nhập Word",
+      "import.closed_idle": "Đã tự đóng lần nhập Word không hoạt động",
+      "import.committed": "Đã lưu câu hỏi từ lần nhập Word",
+      "import.created": "Đã tạo lần nhập Word",
+      "import.files_removed": "Đã xoá tệp của lần nhập Word",
+      "import.queued": "Đã đưa lần nhập Word vào hàng chờ",
+      "import.reprocess_cancelled": "Đã huỷ xử lý lại lần nhập Word",
+      "import.reprocessed_adopted": "Đã dùng kết quả xử lý lại của lần nhập Word",
+      "import.source_completed": "Đã tải xong tệp nguồn của lần nhập Word",
+      "import.source_reserved": "Đã giữ chỗ tệp nguồn cho lần nhập Word",
+      "integrity.retained": "Đã xoá nhật ký chống gian lận quá hạn lưu",
+      "maintenance.cancelled": "Đã huỷ lịch bảo trì",
+      "maintenance.ended": "Đã kết thúc bảo trì",
+      "maintenance.scheduled": "Đã lên lịch bảo trì",
+      "media.deleted": "Đã xoá tệp phương tiện",
+      "media.purged": "Đã xoá hẳn tệp phương tiện",
+      "media.replaced": "Đã thay tệp phương tiện",
+      "media.updated": "Đã cập nhật tệp phương tiện",
+      "media.uploaded": "Đã tải lên tệp phương tiện",
+      "organization.updated": "Đã cập nhật thông tin trung tâm",
+      "question.created": "Đã tạo câu hỏi",
+      "question.deleted": "Đã xoá câu hỏi",
+      "question.updated": "Đã cập nhật câu hỏi",
+      "question_group.archived": "Đã lưu trữ nhóm câu hỏi",
+      "question_group.created": "Đã tạo nhóm câu hỏi",
+      "question_group.deleted": "Đã xoá nhóm câu hỏi",
+      "question_group.removed": "Đã gỡ nhóm câu hỏi khỏi bài kiểm tra",
+      "question_group.restored": "Đã khôi phục nhóm câu hỏi",
+      "question_group.updated": "Đã cập nhật nhóm câu hỏi",
+      "refresh_token.reuse_detected": "Phát hiện một phiên đăng nhập bị dùng lại",
+      "retention.answers_removed": "Đã xoá câu trả lời quá hạn lưu",
+      "role.created": "Đã tạo vai trò",
+      "role.permissions_changed": "Đã thay đổi quyền của vai trò",
+      "role.updated": "Đã cập nhật vai trò",
+      "session.revoked": "Đã thu hồi một phiên đăng nhập",
+      "session.revoked_others": "Đã thu hồi các phiên đăng nhập khác",
+      "student.created": "Đã tạo tài khoản học viên",
+      "student.deleted": "Đã xoá tài khoản học viên",
+      "student.password_reset": "Đã đặt lại mật khẩu của học viên",
+      "student.updated": "Đã cập nhật tài khoản học viên",
+      "test.created": "Đã tạo bài kiểm tra",
+      "test.current_version_changed": "Đã đổi phiên bản hiện hành của bài kiểm tra",
+      "test.deleted": "Đã xoá bài kiểm tra",
+      "test.draft_restored": "Đã khôi phục bản nháp từ một phiên bản",
+      "test.duplicated": "Đã nhân bản bài kiểm tra",
+      "test.published": "Đã phát hành bài kiểm tra",
+      "test.question_moved": "Đã chuyển câu hỏi giữa các phần",
+      "test.updated": "Đã cập nhật bài kiểm tra",
+      "test.version_deleted": "Đã xoá một phiên bản của bài kiểm tra",
+      "user.anonymized": "Đã ẩn danh tài khoản",
+      "user.avatar_removed": "Đã gỡ ảnh đại diện",
+      "user.avatar_set": "Đã đặt ảnh đại diện",
+      "user.content_transferred": "Đã chuyển nội dung của tài khoản cho giáo viên khác",
+      "user.created": "Đã tạo tài khoản",
+      "user.disabled": "Đã vô hiệu hoá tài khoản",
+      "user.enabled": "Đã kích hoạt lại tài khoản",
+      "user.google_linked": "Đã liên kết tài khoản Google",
+      "user.google_unlinked": "Đã huỷ liên kết tài khoản Google",
+      "user.password_changed": "Đã đổi mật khẩu",
+      "user.password_link_requested": "Đã yêu cầu liên kết đặt mật khẩu",
+      "user.password_reset": "Đã đặt lại mật khẩu của tài khoản",
+      "user.password_set": "Đã đặt mật khẩu bằng liên kết",
+      "user.preferences_updated": "Đã cập nhật tuỳ chọn cá nhân",
+      "user.profile_updated": "Đã cập nhật hồ sơ",
+      "user.renamed": "Đã đổi tên tài khoản",
+      "user.role_changed": "Đã đổi vai trò của tài khoản",
+      "user.signed_out_everywhere": "Đã đăng xuất tài khoản khỏi mọi thiết bị",
+      "user_import.requested": "Đã yêu cầu nhập người dùng từ tệp",
+      "user_import.sheet_downloaded": "Đã tải bảng mật khẩu tạm của lần nhập người dùng"
+    },
+    "title": "Nhật ký kiểm tra",
+    "lead": "Bản ghi các thay đổi quan trọng. Không thể sửa hay xoá.",
+    "export": "Xuất CSV",
+    "noun_one": "mục",
+    "noun_other": "mục",
+    "loadFailed": "Không tải được nhật ký kiểm tra.",
+    "empty": "Không có mục nào trong khoảng này.",
+    "noMatches": "Không có mục nào khớp bộ lọc này.",
+    "system": "Hệ thống",
+    "categories": {
+      "label": "Nhóm thay đổi",
+      "all": "Tất cả",
+      "accounts": "Tài khoản",
+      "classes": "Lớp học",
+      "attempts": "Lượt làm bài",
+      "tests": "Bài kiểm tra",
+      "media": "Phương tiện",
+      "imports": "Nhập Word"
+    },
+    "search": {
+      "placeholder": "Tìm người, thao tác hoặc đối tượng",
+      "label": "Tìm trong nhật ký kiểm tra",
+      "clear": "Xoá tìm kiếm"
+    },
+    "range": {
+      "label": "Khoảng thời gian",
+      "today": "Hôm nay",
+      "7d": "7 ngày qua",
+      "30d": "30 ngày qua",
+      "all": "Mọi lúc",
+      "custom": "Khoảng tuỳ chọn…",
+      "span": "{{from}} – {{to}}",
+      "reset": "Đặt lại"
+    },
+    "custom": {
+      "title": "Khoảng ngày tuỳ chọn",
+      "from": "Từ ngày",
+      "to": "Đến ngày",
+      "apply": "Áp dụng",
+      "order": "Phải trùng hoặc sau ngày bắt đầu."
+    },
+    "columns": {
+      "when": "Thời gian",
+      "who": "Người thực hiện",
+      "action": "Thao tác",
+      "entity": "Đối tượng",
+      "ip": "Địa chỉ IP",
+      "details": "Chi tiết"
+    },
+    "row": "{{action}}, {{who}}, {{when}}",
+    "entity": {
+      "named": "{{type}} · {{label}}",
+      "gone": "{{type}} đã xoá",
+      "types": {
+        "user": "Người dùng",
+        "users": "Người dùng",
+        "student": "Học viên",
+        "user_identity": "Liên kết đăng nhập",
+        "refresh_token_family": "Phiên đăng nhập",
+        "role": "Vai trò",
+        "class": "Lớp",
+        "class_member": "Thành viên lớp",
+        "class_join_code": "Mã tham gia lớp",
+        "attempt": "Lượt làm bài",
+        "assignment": "Bài giao",
+        "test": "Bài kiểm tra",
+        "test_version": "Phiên bản bài kiểm tra",
+        "question": "Câu hỏi",
+        "question_group": "Nhóm câu hỏi",
+        "media_asset": "Tệp phương tiện",
+        "word_import": "Lần nhập Word",
+        "ai_credit_periods": "Kỳ tín dụng AI",
+        "ai_credit_requests": "Yêu cầu tín dụng AI",
+        "ai_settings": "Cài đặt AI",
+        "ai_teacher_credits": "Hạn mức AI của giáo viên",
+        "attempt_events": "Sự kiện làm bài",
+        "audit_log": "Nhật ký kiểm tra",
+        "data_export": "Xuất dữ liệu",
+        "maintenance_window": "Lịch bảo trì",
+        "organization": "Trung tâm",
+        "user_import": "Lần nhập người dùng"
+      }
+    },
+    "diff": {
+      "none": "Mục này không ghi lại thay đổi nào ở từng trường.",
+      "empty": "—"
+    },
+    "exportDialog": {
+      "title": "Xuất nhật ký kiểm tra",
+      "description": "Tệp gồm các mục trong khoảng đã chọn, mục mới nhất ở đầu.",
+      "period": "Khoảng thời gian",
+      "periods": {
+        "7d": "7 ngày qua",
+        "30d": "30 ngày qua",
+        "year": "Năm nay"
+      },
+      "beforePeriod": "Khoảng ngày đang xem bắt đầu trước khoảng này, nên tệp sẽ không có các mục cũ hơn.",
+      "format": "Định dạng",
+      "formats": {
+        "csv": "CSV",
+        "json": "JSON"
+      },
+      "filtersOnly": "Chỉ bộ lọc hiện tại",
+      "filtersOnlyHint": "Chỉ gồm nhóm thay đổi và từ khoá đang chọn. Khoảng thời gian lấy theo mục ở trên.",
+      "submit": "Xuất tệp",
+      "running": "Đang xuất…",
+      "done": "Đã tải xuống nhật ký kiểm tra.",
+      "tooLarge": "Khoảng này có hơn 100.000 mục. Hãy chọn khoảng ngắn hơn.",
+      "failed": "Không xuất được nhật ký kiểm tra. Vui lòng thử lại."
+    }
+  },
   "error": {
     "title": "Đã xảy ra lỗi",
     "body": "Sự cố nằm ở phía chúng tôi, không phải do bạn. Nếu bạn đang làm bài kiểm tra, các câu trả lời đã lưu vẫn an toàn.",
@@ -417,6 +638,139 @@
     "mainNavigation": "Điều hướng chính",
     "account": "Tài khoản của {{name}}"
   },
+  "role": {
+    "builtin": {
+      "admin": "Quản trị viên",
+      "teacher": "Giáo viên",
+      "assistant": "Trợ giảng",
+      "student": "Học viên"
+    },
+    "builtinDescription": {
+      "admin": "Điều hành trung tâm. Quản lý người dùng và cài đặt.",
+      "teacher": "Soạn đề, quản lý lớp, chấm bài.",
+      "assistant": "Hỗ trợ giáo viên chấm bài và điểm danh.",
+      "student": "Làm bài và xem kết quả của mình."
+    }
+  },
+  "roles": {
+    "title": "Vai trò & quyền",
+    "lead": "Mỗi vai trò làm được gì. Quản trị viên luôn làm được mọi việc.",
+    "loadFailed": "Không tải được danh sách vai trò.",
+    "carousel": "Các vai trò",
+    "carouselKind": "băng chuyền",
+    "previous": "Các vai trò trước",
+    "next": "Các vai trò tiếp theo",
+    "slide": "Đến vị trí {{n}}",
+    "custom": "Tùy chỉnh",
+    "peopleLabel_one": "người",
+    "peopleLabel_other": "người",
+    "permissionsLabel_one": "quyền",
+    "permissionsLabel_other": "quyền",
+    "editPermissions": "Sửa quyền",
+    "editPermissionsOf": "Sửa quyền của {{name}}",
+    "matrix": "Bảng quyền theo vai trò",
+    "permission": "Quyền",
+    "cell": "{{permission}} — {{role}}",
+    "group": {
+      "content": "Nội dung",
+      "teaching": "Giảng dạy",
+      "people": "Mọi người",
+      "system": "Hệ thống"
+    },
+    "lock": {
+      "admin": "Quản trị viên luôn có quyền này",
+      "student": "Học viên luôn có quyền này để làm bài",
+      "self": "Bạn không đổi được quyền của chính vai trò mình đang giữ.",
+      "subset": "Bạn chỉ đổi được những quyền bạn có."
+    },
+    "changed_one": "{{count}} quyền đã thay đổi. Mọi người nhận quyền mới ở lần tải trang tiếp theo.",
+    "changed_other": "{{count}} quyền đã thay đổi. Mọi người nhận quyền mới ở lần tải trang tiếp theo.",
+    "takingNow_one": "{{count}} lượt làm bài đang diễn ra ngay lúc này.",
+    "takingNow_other": "{{count}} lượt làm bài đang diễn ra ngay lúc này.",
+    "saved": "Đã lưu quyền",
+    "saveFailed": "Không lưu được quyền. Hãy thử lại.",
+    "stale": "Có người vừa thay đổi các vai trò này. Bảng đã được tải lại; hãy kiểm tra các ô đã đánh dấu rồi lưu lại.",
+    "perm": {
+      "contentTestsWrite": "Tạo và sửa bài kiểm tra",
+      "contentTestsPublish": "Xuất bản bài kiểm tra",
+      "contentQuestionsWrite": "Quản lý ngân hàng câu hỏi",
+      "contentMediaWrite": "Tải lên và xóa tệp phương tiện",
+      "contentShare": "Chia sẻ nội dung của mình với giáo viên khác",
+      "aiUse": "Dùng tính năng AI",
+      "teachingClassesWrite": "Tạo lớp học",
+      "teachingAssignmentsWrite": "Giao bài kiểm tra cho lớp",
+      "teachingGrading": "Chấm điểm câu trả lời",
+      "teachingAttemptsIntervene": "Đặt lại, hủy hoặc gia hạn bài làm",
+      "teachingAttendance": "Điểm danh",
+      "peopleStudentsRead": "Xem học viên trong lớp của mình",
+      "peopleStudentsCreate": "Tạo tài khoản học viên",
+      "peopleStudentsResetPassword": "Đặt lại mật khẩu học viên",
+      "peopleUsersManage": "Thêm và vô hiệu hóa người dùng",
+      "peopleRolesManage": "Thay đổi vai trò",
+      "systemAuditRead": "Xem nhật ký kiểm tra",
+      "systemSettingsWrite": "Thay đổi cài đặt hệ thống",
+      "learningTakeTests": "Làm bài kiểm tra và xem kết quả của mình",
+      "aiCreditsManage": "Quản lý tín dụng AI"
+    },
+    "hint": {
+      "contentTestsPublish": "Giúp bài kiểm tra có thể được giao",
+      "contentShare": "Bài kiểm tra, câu hỏi, danh sách từ và khóa học. Nếu không, chủ sở hữu chỉ thấy nội dung của chính mình.",
+      "audited": "Được ghi vào nhật ký kiểm tra"
+    },
+    "newRole": {
+      "title": "Vai trò mới",
+      "hint": "Bắt đầu với quyền của vai trò bạn sao chép. Sau đó đổi trong bảng bên dưới.",
+      "submit": "Tạo vai trò",
+      "name": "Tên vai trò",
+      "namePlaceholder": "Tổ trưởng bộ môn",
+      "copyFrom": "Sao chép quyền từ",
+      "copyNone": "Không sao chép",
+      "description": "Mô tả",
+      "descriptionPlaceholder": "Phụ trách nhóm IELTS",
+      "taken": "Vai trò này đã tồn tại",
+      "sourceGone": "Vai trò này không còn để sao chép nữa. Hãy chọn lại.",
+      "created": "Đã tạo vai trò {{name}}. Cột của vai trò nằm trong bảng bên dưới.",
+      "failed": "Không tạo được vai trò. Hãy thử lại."
+    },
+    "editRole": {
+      "title": "Sửa vai trò",
+      "pencil": "Sửa vai trò {{name}}",
+      "hint": "Thay đổi hiện ở mọi nơi vai trò này xuất hiện.",
+      "adminHint": "Quản trị viên luôn giữ mọi quyền.",
+      "icon": "Biểu tượng",
+      "name": "Tên",
+      "description": "Mô tả",
+      "color": "Màu thẻ",
+      "submit": "Lưu vai trò",
+      "taken": "Một vai trò khác đã dùng tên này",
+      "saved": "Đã lưu vai trò",
+      "failed": "Không lưu được vai trò. Hãy thử lại.",
+      "stale": "Vai trò này vừa được thay đổi ở nơi khác. Đã tải lại; hãy xem rồi lưu lại."
+    },
+    "icons": {
+      "shield": "Khiên",
+      "graduation-cap": "Mũ cử nhân",
+      "hand-helping": "Bàn tay hỗ trợ",
+      "user": "Người dùng",
+      "key-round": "Chìa khóa",
+      "crown": "Vương miện",
+      "briefcase": "Cặp công tác",
+      "book-open": "Sách mở",
+      "users": "Nhóm người",
+      "clipboard-check": "Bảng kiểm",
+      "headset": "Tai nghe hỗ trợ",
+      "star": "Ngôi sao"
+    },
+    "colors": {
+      "dark": "Đậm",
+      "lime": "Chanh",
+      "blue": "Xanh dương",
+      "green": "Xanh lá",
+      "amber": "Hổ phách",
+      "rose": "Hồng",
+      "gray": "Xám"
+    }
+  },
   "teacherShell": {
     "workspace": "Không gian giáo viên",
     "switchWorkspace": "Chuyển không gian làm việc",
@@ -447,11 +801,754 @@
     },
     "breadcrumb": "Đường dẫn",
     "search": "Tìm kiếm…",
-    "role": {
-      "teacher": "Giáo viên",
-      "admin": "Quản trị viên"
-    },
     "documentTitle": "{{page}} · Quizzivy"
+  },
+  "adminShell": {
+    "workspace": "Bảng quản trị",
+    "crumb": "Quản trị",
+    "crumbExport": "Xuất dữ liệu",
+    "teacherView": "Chế độ giáo viên",
+    "group": {
+      "people": "Mọi người",
+      "teaching": "Giảng dạy",
+      "system": "Hệ thống"
+    },
+    "nav": {
+      "overview": "Tổng quan",
+      "users": "Người dùng",
+      "roles": "Vai trò & quyền",
+      "classes": "Lớp học",
+      "ai": "Tín dụng AI",
+      "audit": "Nhật ký kiểm tra",
+      "api": "Tài liệu API",
+      "settings": "Cài đặt"
+    },
+    "count": {
+      "mustChangePassword_one": "{{count}} người cần đổi mật khẩu",
+      "mustChangePassword_other": "{{count}} người cần đổi mật khẩu",
+      "creditRequests_one": "{{count}} yêu cầu thêm tín dụng đang chờ",
+      "creditRequests_other": "{{count}} yêu cầu thêm tín dụng đang chờ"
+    },
+    "account": {
+      "settings": "Cài đặt hệ thống",
+      "password": "Đổi mật khẩu"
+    }
+  },
+  "adminOverview": {
+    "title": "Tổng quan",
+    "subtitle": "{{organization}} · {{total}} người",
+    "loadFailed": "Không tải được dữ liệu tổng quan.",
+    "kpi": {
+      "view": "Xem",
+      "active": "Hoạt động tuần này",
+      "activeHint": "{{percent}}% trên {{total}} người",
+      "teachers": "Giáo viên",
+      "teachersHint_one": "{{count}} bị vô hiệu hoá",
+      "teachersHint_other": "{{count}} bị vô hiệu hoá",
+      "students": "Học viên",
+      "studentsHint_one": "+{{count}} trong tháng này",
+      "studentsHint_other": "+{{count}} trong tháng này",
+      "classes": "Lớp học",
+      "classesHint_one": "{{count}} đã lưu trữ",
+      "classesHint_other": "{{count}} đã lưu trữ"
+    },
+    "daily": {
+      "title": "Người hoạt động mỗi ngày",
+      "summary": "14 ngày qua · <strong>{{average}}</strong> người mỗi ngày",
+      "students": "Học viên",
+      "teachers": "Giáo viên",
+      "date": "Ngày",
+      "total": "Tổng",
+      "tip": "{{total}} người ({{students}} học viên, {{staff}} giáo viên) · {{date}}"
+    },
+    "attention": {
+      "title": "Cần xử lý",
+      "none": "Không có gì cần xử lý.",
+      "mustChangePassword_one": "{{count}} người cần đổi mật khẩu",
+      "mustChangePassword_other": "{{count}} người cần đổi mật khẩu",
+      "mustChangePasswordHint": "Mật khẩu tạm thời chưa được thay",
+      "neverSignedIn_one": "{{count}} tài khoản chưa từng đăng nhập",
+      "neverSignedIn_other": "{{count}} tài khoản chưa từng đăng nhập",
+      "neverSignedInHint": "Tạo sớm nhất {{when}}",
+      "disabledTeacher_one": "{{count}} lớp có giáo viên bị vô hiệu hoá",
+      "disabledTeacher_other": "{{count}} lớp có giáo viên bị vô hiệu hoá",
+      "disabledTeacherHint": "{{className}} · {{teacherName}}",
+      "storage": {
+        "both": "Dung lượng: phương tiện {{media}}%, tài liệu nhập {{imports}}%",
+        "media": "Dung lượng: phương tiện {{media}}%",
+        "imports": "Dung lượng: tài liệu nhập {{imports}}%"
+      },
+      "storageHint": "Gần chạm giới hạn của gói",
+      "creditRequests_one": "{{count}} giáo viên xin thêm tín dụng AI",
+      "creditRequests_other": "{{count}} giáo viên xin thêm tín dụng AI",
+      "creditRequestsHint": "{{teacherName}} · đã dùng {{used}} trên {{allowance}}"
+    },
+    "recent": {
+      "title": "Thay đổi gần đây",
+      "all": "Nhật ký",
+      "none": "Chưa có thay đổi nào."
+    },
+    "storage": {
+      "title": "Dung lượng và mức dùng",
+      "of": "{{used}} trên {{limit}}",
+      "media": "Phương tiện",
+      "imports": "Tài liệu nhập",
+      "seats": "Chỗ ngồi",
+      "attempts": "Lượt làm bài được giữ",
+      "attemptsCount_one": "{{value}} lượt",
+      "attemptsCount_other": "{{value}} lượt",
+      "credits": "Tín dụng AI",
+      "creditsOf": "{{used}} trên {{pool}} trong tháng này"
+    }
+  },
+  "aiCredits": {
+    "title": "Tín dụng AI",
+    "lead": "Hạn mức hằng tháng cho các tính năng AI.",
+    "leadReset": "Hạn mức hằng tháng cho các tính năng AI. Mức dùng được làm mới vào {{date}}.",
+    "off": "AI chưa được bật cho trung tâm này.",
+    "loadFailed": "Không tải được tín dụng AI.",
+    "pool": {
+      "title": "Quỹ chung · {{month}}",
+      "plan": "Gói của trung tâm {{plan}} · làm mới vào {{date}}",
+      "planAdded": "Gói của trung tâm {{plan}} + {{added}} đã thêm · làm mới vào {{date}}",
+      "of": "trên {{pool}} tín dụng đã dùng",
+      "bar": "Đã dùng {{used}} trên {{pool}} tín dụng",
+      "projected": "Dự kiến đến {{date}}",
+      "left": "Còn lại tháng này",
+      "daysToGo_one": "còn {{count}} ngày",
+      "daysToGo_other": "còn {{count}} ngày",
+      "lastDay": "Hôm nay là ngày cuối tháng",
+      "pace": "Theo tốc độ hiện tại",
+      "paceWithin": "đến {{date}}, trong giới hạn của quỹ chung",
+      "paceOver": "Vượt quỹ chung. Hãy thêm tín dụng hoặc giảm hạn mức.",
+      "allowances": "Hạn mức của giáo viên",
+      "allowancesHint": "Tổng có thể vượt quỹ chung, vì ít giáo viên dùng hết hạn mức của mình"
+    },
+    "add": {
+      "open": "Thêm tín dụng",
+      "title": "Thêm tín dụng cho tháng này",
+      "hint": "Được thêm vào quỹ chung của trung tâm ngay. Phần thêm do trung tâm thanh toán ngoài Quizzivy. Tín dụng thêm vào không chuyển sang tháng sau.",
+      "amount": "Số lượng",
+      "submit": "Thêm tín dụng",
+      "added": "Đã thêm {{amount}} tín dụng vào quỹ chung",
+      "failed": "Không thêm được tín dụng. Hãy thử lại."
+    },
+    "request": {
+      "list": "Yêu cầu thêm tín dụng đang chờ duyệt",
+      "title": "{{name}} xin thêm {{amount}} tín dụng · đã dùng {{used}} trên {{allowance}}",
+      "why": "“{{reason}}” · {{ago}}",
+      "decline": "Từ chối",
+      "approve": "Duyệt {{amount}}",
+      "approved": "Hạn mức tháng này của {{name}} giờ là {{allowance}}",
+      "declined": "{{name}} sẽ được báo là yêu cầu bị từ chối",
+      "failed": "Không xử lý được yêu cầu. Hãy thử lại."
+    },
+    "teachers": {
+      "title": "Giáo viên",
+      "summary_one": "{{count}} giáo viên đã dùng AI tháng này · {{idle}} chưa dùng",
+      "summary_other": "{{count}} giáo viên đã dùng AI tháng này · {{idle}} chưa dùng",
+      "empty": "Chưa có giáo viên nào được dùng AI.",
+      "of": "trên {{allowance}}",
+      "ofCustom": "trên {{allowance}} · tùy chỉnh",
+      "bar": "{{name}}: đã dùng {{used}} trên {{allowance}} tín dụng",
+      "edit": "Sửa hạn mức của {{name}}",
+      "status": {
+        "on_track": "Ổn định",
+        "near_limit": "Gần hạn mức",
+        "at_limit": "Chạm hạn mức",
+        "paused": "Tạm dừng"
+      }
+    },
+    "allowance": {
+      "title": "Hạn mức AI · {{name}}",
+      "used": "Đã dùng {{used}} tín dụng trong tháng này.",
+      "mode": "Hạn mức hằng tháng",
+      "default": "Mặc định · {{n}}",
+      "custom": "Tùy chỉnh",
+      "credits": "Số tín dụng mỗi tháng",
+      "creditsHint": "Có hiệu lực ngay. Mức đã dùng vẫn được tính.",
+      "min": "Nhập ít nhất {{min}}",
+      "max": "Nhập tối đa {{max}}",
+      "whole": "Nhập một số nguyên",
+      "paused": "Tạm dừng AI cho giáo viên này",
+      "pausedHint": "Các nút AI vẫn hiện nhưng không dùng được cho đến khi bạn tắt mục này.",
+      "saved": "Đã lưu hạn mức của {{name}}",
+      "failed": "Không lưu được hạn mức. Hãy thử lại."
+    },
+    "rules": {
+      "title": "Quy tắc",
+      "hint": "Áp dụng cho mọi giáo viên không có hạn mức tùy chỉnh.",
+      "allowance": {
+        "label": "Hạn mức hằng tháng của mỗi giáo viên",
+        "hint": "Giáo viên xem số dư trong Cài đặt › Trợ lý AI."
+      },
+      "warn": {
+        "label": "Cảnh báo giáo viên khi dùng đến",
+        "hint": "Họ nhận được một thông báo."
+      },
+      "limit": {
+        "label": "Khi giáo viên dùng hết hạn mức",
+        "hint": "Yêu cầu xin thêm hiện ở đầu trang này.",
+        "pause": "Tạm dừng đến tháng sau",
+        "request": "Cho phép xin thêm"
+      },
+      "pool": {
+        "label": "Khi quỹ chung hết",
+        "hint": "Muốn cho dùng thêm, hãy thêm tín dụng.",
+        "value": "Tạm dừng AI cho mọi người"
+      },
+      "saved": "Đã lưu quy tắc",
+      "failed": "Không lưu được quy tắc. Hãy thử lại."
+    }
+  },
+  "users": {
+    "title": "Người dùng",
+    "lead": "Mọi người có thể đăng nhập vào Quizzivy.",
+    "tabs": {
+      "label": "Nhóm người dùng",
+      "all": "Tất cả",
+      "teachers": "Giáo viên",
+      "students": "Học viên",
+      "admins": "Quản trị viên",
+      "disabled": "Đã vô hiệu hoá"
+    },
+    "search": {
+      "placeholder": "Tìm theo tên hoặc email",
+      "short": "Nhập ít nhất {{min}} ký tự để tìm kiếm."
+    },
+    "filter": {
+      "label": "Bộ lọc đang áp dụng",
+      "remove": "Bỏ lọc {{label}}"
+    },
+    "table": "Người dùng",
+    "column": {
+      "user": "Người dùng",
+      "role": "Vai trò",
+      "signIn": "Đăng nhập",
+      "classes": "Lớp",
+      "lastActive": "Hoạt động cuối",
+      "status": "Trạng thái",
+      "open": "Mở"
+    },
+    "signIn": {
+      "password": "Mật khẩu",
+      "google": "Google",
+      "none": "Chưa có"
+    },
+    "noClass": "Chưa vào lớp",
+    "moreCount": "+{{n}}",
+    "moreClasses": "và {{count}} lớp khác",
+    "neverActive": "Chưa bao giờ",
+    "status": {
+      "active": "Đang hoạt động",
+      "mustChangePassword": "Phải đổi mật khẩu",
+      "mustChangePasswordShort": "Đổi mật khẩu",
+      "neverSignedIn": "Chưa đăng nhập",
+      "disabled": "Đã vô hiệu hoá"
+    },
+    "empty": "Không có người dùng phù hợp.",
+    "clearFilters": "Bỏ lọc",
+    "loadFailed": "Không tải được danh sách người dùng.",
+    "noun_one": "người dùng",
+    "noun_other": "người dùng",
+    "import": {
+      "open": "Nhập CSV",
+      "title": "Nhập người dùng",
+      "columns": "Cột: full_name, email, role, class.",
+      "file": "Tệp",
+      "choose": "Chọn tệp CSV hoặc XLSX",
+      "limits": "CSV hoặc XLSX · tối đa 5 MB",
+      "preview": "Xem trước",
+      "reading": "Đang đọc tệp…",
+      "newAccounts_one": "{{count}} tài khoản mới",
+      "newAccounts_other": "{{count}} tài khoản mới",
+      "existing_one": "{{count}} email đã có và sẽ được bỏ qua",
+      "existing_other": "{{count}} email đã có và sẽ được bỏ qua",
+      "existingSample": "Ví dụ: {{emails}}",
+      "classes": "Thêm vào {{classes}}",
+      "invalid_one": "{{count}} dòng có lỗi",
+      "invalid_other": "{{count}} dòng có lỗi",
+      "showIssues": "Xem lỗi",
+      "hideIssues": "Ẩn lỗi",
+      "issues": "Các ô có lỗi",
+      "issueRow": "Dòng",
+      "issueColumn": "Cột",
+      "issueReason": "Lý do",
+      "issuesHint": "Số dòng như bảng tính hiển thị, dòng tiêu đề là dòng 1.",
+      "issuesCapped": "Chỉ hiện {{count}} lỗi đầu tiên. Sửa tệp rồi chọn lại để xem tiếp.",
+      "budget_one": "Hôm nay còn gửi được {{count}} email; phần còn lại sẽ gửi vào những ngày sau.",
+      "budget_other": "Hôm nay còn gửi được {{count}} email; phần còn lại sẽ gửi vào những ngày sau.",
+      "role": "Vai trò nếu tệp không có",
+      "roleStudent": "Học viên",
+      "roleTeacher": "Giáo viên",
+      "deliveryText": "Gửi thông tin đăng nhập qua email",
+      "deliverySub": "Nếu tắt, tải bảng mật khẩu tạm để phát tay",
+      "submit": "Nhập",
+      "submitCount_one": "Nhập {{count}} người",
+      "submitCount_other": "Nhập {{count}} người",
+      "progress": "Tiến độ nhập người dùng",
+      "running": "Đang tạo tài khoản… {{done}}/{{total}}",
+      "leave": "Bạn có thể đóng hộp thoại; việc nhập vẫn tiếp tục và danh sách sẽ tự cập nhật.",
+      "leaveSheet": "Bạn có thể đóng hộp thoại; việc nhập vẫn tiếp tục. Hãy ở lại trang này: khi việc nhập xong, bảng mật khẩu chỉ tải được ở đây.",
+      "summary": "{{created}} · {{skipped}}",
+      "created_one": "{{count}} tài khoản đã tạo",
+      "created_other": "{{count}} tài khoản đã tạo",
+      "skipped_one": "{{count}} bỏ qua",
+      "skipped_other": "{{count}} bỏ qua",
+      "notImported_one": "{{count}} dòng có lỗi không được nhập.",
+      "notImported_other": "{{count}} dòng có lỗi không được nhập.",
+      "emailSent": "Mỗi người sẽ nhận email có liên kết đặt mật khẩu, dùng được một lần trong 24 giờ.",
+      "again": "Nhập tệp khác",
+      "done": "Xong",
+      "progressFailed": "Không đọc được tiến độ. Việc nhập có thể vẫn đang chạy trên máy chủ; hãy thử lại.",
+      "sheet": {
+        "warning": "Bảng mật khẩu chỉ tải được một lần và bị xoá lúc {{time}}. Hãy lưu tệp ở nơi an toàn trước khi đóng.",
+        "download": "Tải bảng mật khẩu",
+        "downloading": "Đang tải…",
+        "downloaded": "Đã tải lúc {{time}}",
+        "expired": "Bảng mật khẩu đã quá 24 giờ nên không còn để tải. Hãy đặt lại mật khẩu cho những tài khoản này từ danh sách Người dùng.",
+        "none": "Không có tài khoản mới nên không có bảng mật khẩu.",
+        "gone": "Bảng mật khẩu không còn để tải: đã được tải hoặc đã quá 24 giờ. Nếu tệp chưa được lưu, hãy đặt lại mật khẩu cho những tài khoản này từ danh sách Người dùng.",
+        "failed": "Không tải được bảng mật khẩu.",
+        "taken": "Bảng mật khẩu đã được tải lúc {{time}}. Nếu bạn không có tệp đó, hãy đặt lại mật khẩu cho những tài khoản này từ danh sách Người dùng.",
+        "lost": "Tệp không tải về được, nhưng máy chủ đã xoá bảng mật khẩu. Hãy đặt lại mật khẩu cho những tài khoản này từ danh sách Người dùng.",
+        "retry": "Không tải được bảng mật khẩu. Hãy thử lại ngay; nếu vẫn không được, hãy đặt lại mật khẩu cho những tài khoản này từ danh sách Người dùng."
+      },
+      "failed": {
+        "title": "Việc nhập dừng giữa chừng",
+        "kept_one": "{{count}} tài khoản đã tạo trước đó vẫn được giữ.",
+        "kept_other": "{{count}} tài khoản đã tạo trước đó vẫn được giữ.",
+        "keptNoPassword_one": "{{count}} tài khoản đã tạo trước đó vẫn được giữ nhưng chưa có mật khẩu. Hãy đặt lại mật khẩu từ danh sách Người dùng.",
+        "keptNoPassword_other": "{{count}} tài khoản đã tạo trước đó vẫn được giữ nhưng chưa có mật khẩu. Hãy đặt lại mật khẩu từ danh sách Người dùng.",
+        "importerNotAllowed": "Tài khoản của bạn không còn đủ quyền để tạo những tài khoản này.",
+        "deliveryUnavailable": "Không phát được mật khẩu tạm: trung tâm đã tắt đăng nhập bằng mật khẩu, hoặc máy chủ không còn giữ được mật khẩu an toàn.",
+        "workerInterrupted": "Việc nhập bị gián đoạn nhiều lần nên đã dừng.",
+        "unknown": "Việc nhập đã dừng vì một lỗi."
+      },
+      "reason": {
+        "required": "Còn trống, cần có giá trị.",
+        "tooLong": "Dài quá giới hạn cho phép.",
+        "invalid": "Không hợp lệ: không phải địa chỉ email, hoặc tên có ký tự điều khiển.",
+        "formulaLike": "Email bắt đầu bằng ký tự mà bảng tính đọc là công thức (+, =, - hoặc @) nên không dùng được. Hãy sửa lại địa chỉ.",
+        "duplicateInFile": "Email này đã có ở một dòng phía trên.",
+        "unknownRole": "Không có vai trò nào tên này.",
+        "ambiguousRole": "Có nhiều vai trò trùng tên này.",
+        "roleNotAllowed": "Vai trò này có quyền mà bạn không có, nên bạn không giao được.",
+        "roleNotGivable": "Vai trò Trợ giảng không giao cho ai được.",
+        "unknownClass": "Không có lớp đang hoạt động nào tên này.",
+        "ambiguousClass": "Có nhiều lớp đang hoạt động trùng tên này.",
+        "classNotAllowed": "Chỉ học viên mới được thêm vào lớp, và chỉ người quản lý mọi lớp mới thêm được từ tệp."
+      },
+      "refusal": {
+        "tooLarge": "Tệp lớn hơn 5 MB. Hãy chia danh sách thành nhiều tệp nhỏ hơn, hoặc lưu thành CSV UTF-8 cho nhẹ hơn, rồi tải lên.",
+        "empty": "Tệp không có dòng tiêu đề. Dòng đầu tiên cần có các cột full_name và email.",
+        "tooManyRows": "Tệp có hơn 2.000 dòng dữ liệu. Hãy chia thành nhiều tệp, mỗi tệp tối đa 2.000 dòng.",
+        "nothingToCreate": "Không có dòng nào tạo được tài khoản mới: các dòng hợp lệ đều dùng email đã có tài khoản, hoặc tệp không có dòng hợp lệ.",
+        "csvNotUtf8": "Tệp CSV không dùng mã hoá UTF-8. Hãy lưu lại thành \"CSV UTF-8\" rồi tải lên.",
+        "macros": "Bảng tính có macro nên không nhập được. Hãy lưu thành .xlsx không macro hoặc CSV UTF-8 rồi tải lên.",
+        "encrypted": "Bảng tính được bảo vệ bằng mật khẩu. Hãy gỡ mật khẩu hoặc lưu thành CSV UTF-8 rồi tải lên.",
+        "passwordSignInDisabled": "Trung tâm đã tắt đăng nhập bằng mật khẩu nên không phát được mật khẩu tạm. Hãy bật gửi thông tin đăng nhập qua email.",
+        "roleNotAllowed": "Vai trò mặc định có quyền mà bạn không có. Hãy chọn vai trò khác.",
+        "rateLimited_one": "Bạn đã gửi quá nhiều lần. Thử lại sau {{count}} giây.",
+        "rateLimited_other": "Bạn đã gửi quá nhiều lần. Thử lại sau {{count}} giây.",
+        "unavailable": "Máy chủ chưa được cấu hình để nhập người dùng. Hãy báo người vận hành.",
+        "unknown": "Không đọc được tệp. Hãy thử lại."
+      }
+    },
+    "result_one": "Tìm thấy {{count}} người dùng.",
+    "result_other": "Tìm thấy {{count}} người dùng.",
+    "resultNone": "Không tìm thấy người dùng nào.",
+    "role": {
+      "choose": "Chọn vai trò"
+    },
+    "delivery": {
+      "label": "Cách giao mật khẩu",
+      "link": "Gửi liên kết đặt mật khẩu qua email",
+      "linkHint": "Họ tự chọn mật khẩu. Liên kết dùng một lần, trong 24 giờ.",
+      "password": "Hiện mật khẩu tạm thời",
+      "passwordHint": "Bạn trao mật khẩu cho họ. Họ phải đổi khi đăng nhập."
+    },
+    "sheet": {
+      "title": "Người dùng",
+      "loadFailed": "Không tải được người dùng này.",
+      "role": "Vai trò",
+      "status": "Trạng thái",
+      "signIn": "Đăng nhập",
+      "classes": "Lớp",
+      "lastActive": "Hoạt động cuối",
+      "created": "Ngày tạo",
+      "actions": "Thao tác",
+      "reset": "Đặt lại mật khẩu",
+      "resetHint": "Gửi liên kết hoặc đặt mật khẩu tạm thời",
+      "signOut": "Đăng xuất khỏi mọi thiết bị",
+      "signOutHint": "Kết thúc mọi phiên đăng nhập trên mọi thiết bị",
+      "signedOut": "{{name}} đã bị đăng xuất khỏi mọi thiết bị",
+      "signOutFailed": "Không đăng xuất được tài khoản này.",
+      "disable": "Vô hiệu hoá tài khoản",
+      "disableHint": "Đăng xuất họ. Kết quả vẫn được giữ.",
+      "disabled": "Đã vô hiệu hoá tài khoản",
+      "disableFailed": "Không vô hiệu hoá được tài khoản này.",
+      "enable": "Kích hoạt lại tài khoản",
+      "enableHint": "Họ có thể đăng nhập lại",
+      "enabled": "Đã kích hoạt lại tài khoản",
+      "enableFailed": "Không kích hoạt lại được tài khoản này.",
+      "activity": "Hoạt động gần đây",
+      "roleFixed": "Bạn không thể giao vai trò này, nên không thể đổi ở đây."
+    },
+    "activity": {
+      "signIn": {
+        "password": "Đăng nhập bằng mật khẩu",
+        "google": "Đăng nhập bằng Google",
+        "set_password_link": "Đăng nhập bằng liên kết đặt mật khẩu"
+      },
+      "signInPlain": "Đã đăng nhập",
+      "submitted": "Đã nộp {{title}}",
+      "submittedRemoved": "Đã nộp một bài kiểm tra đã bị xoá",
+      "joined": "Đã vào lớp {{name}}",
+      "joinedRemoved": "Đã vào một lớp đã bị xoá",
+      "audit": "Một thao tác đã được ghi vào nhật ký"
+    },
+    "changeRole": {
+      "title": "Chuyển {{name}} thành {{role}}?",
+      "adminBody": "Quản trị viên có thể thay đổi mọi cài đặt và xem nhật ký kiểm tra.",
+      "body": "Quyền của họ thay đổi ở lần tải trang tiếp theo. Việc này được ghi vào nhật ký kiểm tra.",
+      "submit": "Đổi vai trò",
+      "done": "Đã đổi vai trò thành {{role}}",
+      "failed": "Không đổi được vai trò."
+    },
+    "reset": {
+      "title": "Đặt lại mật khẩu của {{name}}?",
+      "body": "Mọi phiên đăng nhập của họ kết thúc, và mật khẩu cũ không còn dùng được.",
+      "submit": "Đặt lại mật khẩu",
+      "done": "Mật khẩu tạm thời của {{name}}",
+      "linkSent": "Đã gửi liên kết tới {{email}}",
+      "failed": "Không đặt lại được mật khẩu."
+    },
+    "disable": {
+      "title": "Vô hiệu hoá {{name}}?",
+      "body": "Họ bị đăng xuất và không thể đăng nhập. Kết quả của họ được giữ lại.",
+      "teaches_one": "Họ đang dạy {{count}} lớp. Học viên vẫn giữ quyền truy cập; hãy chuyển lớp bằng Chuyển nội dung.",
+      "teaches_other": "Họ đang dạy {{count}} lớp. Học viên vẫn giữ quyền truy cập; hãy chuyển các lớp bằng Chuyển nội dung.",
+      "midTest": "Họ đang làm bài kiểm tra ngay lúc này.",
+      "submit": "Vô hiệu hoá"
+    },
+    "transfer": {
+      "open": "Chuyển nội dung",
+      "openHint": "Giao lớp, đề và câu hỏi của họ cho một giáo viên khác",
+      "title": "Chuyển nội dung của {{name}} cho",
+      "lead": "Mọi lớp, đề, câu hỏi, tệp phương tiện và bài giao của họ chuyển sang người nhận cùng một lúc.",
+      "willMove": "Sẽ chuyển",
+      "search": "Tìm giáo viên theo tên hoặc email",
+      "recipient": "Người nhận",
+      "noRecipient": "Không có giáo viên nào phù hợp.",
+      "recipientsFailed": "Không tải được danh sách giáo viên.",
+      "notify": "Báo cho giáo viên nhận",
+      "pick": "Hãy chọn người nhận.",
+      "submit": "Chuyển nội dung",
+      "failed": "Không chuyển được nội dung.",
+      "doneTitle": "Đã chuyển nội dung",
+      "movedTo": "Đã chuyển cho {{name}}:",
+      "moved": "Đã chuyển",
+      "done": "Xong",
+      "importsLeft_one": "{{count}} lượt nhập Word chưa xong vẫn ở lại với tài khoản này.",
+      "importsLeft_other": "{{count}} lượt nhập Word chưa xong vẫn ở lại với tài khoản này.",
+      "studentsLeft_one": "{{count}} học viên do tài khoản này tạo chưa thuộc lớp nào của người nhận; chỉ quản trị viên thấy họ cho tới khi được thêm vào lớp.",
+      "studentsLeft_other": "{{count}} học viên do tài khoản này tạo chưa thuộc lớp nào của người nhận; chỉ quản trị viên thấy họ cho tới khi được thêm vào lớp.",
+      "count": {
+        "classes_one": "{{count}} lớp",
+        "classes_other": "{{count}} lớp",
+        "tests_one": "{{count}} đề",
+        "tests_other": "{{count}} đề",
+        "questions_one": "{{count}} câu hỏi",
+        "questions_other": "{{count}} câu hỏi",
+        "questionGroups_one": "{{count}} nhóm câu hỏi",
+        "questionGroups_other": "{{count}} nhóm câu hỏi",
+        "media_one": "{{count}} tệp phương tiện",
+        "media_other": "{{count}} tệp phương tiện",
+        "assignments_one": "{{count}} bài giao",
+        "assignments_other": "{{count}} bài giao"
+      },
+      "readOnly": "{{name}} không có quyền sửa {{kinds}}, nên sau khi chuyển chỉ xem được chúng.",
+      "kind": {
+        "classes": "lớp",
+        "tests": "đề",
+        "questions": "câu hỏi",
+        "media": "tệp phương tiện",
+        "assignments": "bài giao"
+      }
+    },
+    "addUser": {
+      "open": "Thêm người dùng",
+      "title": "Thêm người dùng",
+      "lead": "Tạo tài khoản và gửi cho họ cách đăng nhập.",
+      "fullName": "Họ và tên",
+      "namePlaceholder": "Nguyễn Văn An",
+      "email": "Email",
+      "emailPlaceholder": "an.nguyen@example.com",
+      "emailPartial": "Nhập đầy đủ địa chỉ email",
+      "emailTaken": "Email này đã có người dùng",
+      "role": "Vai trò",
+      "rolesFailed": "Không tải được danh sách vai trò.",
+      "submit": "Tạo tài khoản",
+      "failed": "Không tạo được tài khoản.",
+      "linkSent": "Đã tạo tài khoản và gửi liên kết tới {{email}}",
+      "done": "Mật khẩu tạm thời của {{name}}",
+      "class": "Thêm vào lớp",
+      "classGone": "Lớp này không còn nhận học viên. Hãy chọn lớp khác.",
+      "classOptional": "(không bắt buộc)"
+    },
+    "error": {
+      "targetRoleNotAllowed": "Bạn không thể thao tác trên tài khoản hoặc vai trò có quyền mà bạn không có.",
+      "lastAdmin": "Đây là quản trị viên đang hoạt động cuối cùng.",
+      "ownsContent": "Tài khoản này còn sở hữu lớp hoặc nội dung. Hãy vô hiệu hoá rồi chuyển nội dung trước.",
+      "ownsContentAsk": "Tài khoản này còn sở hữu lớp hoặc nội dung. Một quản trị viên xem được mọi dữ liệu phải chuyển nội dung trước.",
+      "self": "Bạn không thể làm việc này với tài khoản của chính mình.",
+      "accountDisabled": "Tài khoản đang bị vô hiệu hoá. Hãy kích hoạt lại trước.",
+      "passwordSignInOff": "Trung tâm đã tắt đăng nhập bằng mật khẩu, nên không thể đặt mật khẩu tạm thời.",
+      "stale": "Tài khoản vừa được thay đổi ở nơi khác. Hãy thử lại.",
+      "roleNotAssignable": "Không thể giao vai trò này.",
+      "notDisabled": "Hãy vô hiệu hoá tài khoản trước.",
+      "invalidRecipient": "Người nhận phải là một giáo viên khác đang hoạt động.",
+      "notFound": "Không tìm thấy tài khoản này.",
+      "noLinkKey": "Máy chủ chưa được cấu hình để gửi liên kết.",
+      "rateLimited": "Bạn thao tác quá nhanh. Hãy thử lại sau ít phút.",
+      "rateLimitedSeconds_one": "Bạn thao tác quá nhanh. Hãy thử lại sau {{count}} giây.",
+      "rateLimitedSeconds_other": "Bạn thao tác quá nhanh. Hãy thử lại sau {{count}} giây.",
+      "ownsContentTransfer": "Tài khoản này còn sở hữu lớp hoặc nội dung. Hãy chuyển nội dung của họ trước."
+    },
+    "credential": {
+      "mustChange": "Họ phải đổi mật khẩu khi đăng nhập lần tới.",
+      "shownOnce": "Mật khẩu chỉ hiện một lần. Hãy sao chép hoặc in trước khi đóng, và trao tận tay hoặc qua kênh riêng.",
+      "passwords": "Mật khẩu tạm thời",
+      "copy": "Sao chép",
+      "copyAll": "Sao chép tất cả",
+      "copyFailed": "Không sao chép được. Hãy chọn và sao chép thủ công.",
+      "print": "In",
+      "linksSent_one": "Đã gửi {{count}} liên kết đặt mật khẩu",
+      "linksSent_other": "Đã gửi {{count}} liên kết đặt mật khẩu",
+      "notReached_one": "{{count}} người chưa được xử lý",
+      "notReached_other": "{{count}} người chưa được xử lý",
+      "reason": {
+        "internal": "Đã có lỗi ở phía chúng tôi. Hãy thử lại.",
+        "notAStudent": "Chỉ thêm được học viên đang hoạt động.",
+        "forbidden": "Bạn không có quyền làm việc này với tài khoản này."
+      },
+      "leaveFirst": "Hãy sao chép hoặc in mật khẩu rồi bấm Xong trước khi rời trang."
+    },
+    "classPicker": {
+      "label": "Lớp",
+      "search": "Tìm lớp hoặc giáo viên",
+      "none": "Chưa vào lớp nào",
+      "empty": "Không có lớp nào khớp.",
+      "failed": "Không tải được danh sách lớp. Hãy thử lại.",
+      "loading": "Đang tải danh sách lớp…"
+    },
+    "bulk": {
+      "reset": "Đặt lại mật khẩu",
+      "disable": "Vô hiệu hoá",
+      "tooMany_one": "Chọn tối đa {{count}} người cho một thao tác.",
+      "tooMany_other": "Chọn tối đa {{count}} người cho một thao tác.",
+      "resetTitle_one": "Đặt lại {{count}} mật khẩu?",
+      "resetTitle_other": "Đặt lại {{count}} mật khẩu?",
+      "resetLinkBody": "Mỗi người nhận một liên kết để tự đặt mật khẩu mới. Việc này được ghi vào nhật ký kiểm tra.",
+      "resetPasswordBody": "Mỗi người nhận một mật khẩu tạm thời và phải đổi khi đăng nhập lần tới. Việc này được ghi vào nhật ký kiểm tra.",
+      "resetSubmit": "Đặt lại mật khẩu",
+      "temporaryTooMany_one": "Mỗi lần chỉ hiện được tối đa {{count}} mật khẩu tạm thời. Hãy bỏ bớt người đã chọn hoặc gửi liên kết.",
+      "temporaryTooMany_other": "Mỗi lần chỉ hiện được tối đa {{count}} mật khẩu tạm thời. Hãy bỏ bớt người đã chọn hoặc gửi liên kết.",
+      "resetDoneTitle": "Kết quả đặt lại mật khẩu",
+      "disableTitle_one": "Vô hiệu hoá {{count}} tài khoản?",
+      "disableTitle_other": "Vô hiệu hoá {{count}} tài khoản?",
+      "disableBody": "Họ bị đăng xuất và không thể đăng nhập. Kết quả của họ được giữ lại.",
+      "disableSubmit": "Vô hiệu hoá",
+      "disabled_one": "Đã vô hiệu hoá {{count}} tài khoản",
+      "disabled_other": "Đã vô hiệu hoá {{count}} tài khoản",
+      "disabledTitle": "Kết quả vô hiệu hoá",
+      "addToClass": "Thêm vào lớp",
+      "addToClassTitle_one": "Thêm {{count}} người vào một lớp",
+      "addToClassTitle_other": "Thêm {{count}} người vào một lớp",
+      "addToClassBody": "Chỉ học viên đang hoạt động được thêm. Người đã ở trong lớp giữ nguyên.",
+      "addToClassSubmit": "Thêm vào lớp",
+      "addToClassPick": "Hãy chọn một lớp.",
+      "added_one": "Đã thêm {{count}} người vào {{name}}",
+      "added_other": "Đã thêm {{count}} người vào {{name}}",
+      "addedTitle": "Kết quả thêm vào lớp",
+      "adding": "Đang thêm {{done}}/{{total}} người…"
+    }
+  },
+  "systemSettings": {
+    "title": "Cài đặt hệ thống",
+    "hint": "Áp dụng cho mọi người ở {{organization}}.",
+    "navigation": "Mục cài đặt hệ thống",
+    "loadFailed": "Không tải được cài đặt hệ thống.",
+    "reload": "Tải lại",
+    "sections": {
+      "organization": "Tổ chức",
+      "signIn": "Đăng nhập",
+      "data": "Dữ liệu và quyền riêng tư",
+      "plan": "Gói và mức dùng"
+    },
+    "organization": {
+      "title": "Tổ chức",
+      "hint": "Hiển thị ở trang đăng nhập, email và kết quả in.",
+      "name": "Tên tổ chức",
+      "shortName": "Tên viết tắt",
+      "shortNameHint": "Dùng trong email và thẻ trình duyệt",
+      "website": "Website",
+      "contactEmail": "Email liên hệ",
+      "frontDeskPhone": "Điện thoại quầy lễ tân",
+      "frontDeskHours": "Giờ làm việc của quầy lễ tân",
+      "address": "Địa chỉ"
+    },
+    "logo": {
+      "title": "Thay logo",
+      "change": "Thay logo",
+      "save": "Lưu logo",
+      "light": "Logo",
+      "dark": "Bản cho chế độ tối",
+      "limits": "SVG hoặc PNG vuông, tối thiểu 256 × 256",
+      "darkLimits": "Logo sáng trên nền trong suốt",
+      "hint": "SVG hoặc PNG, hình vuông",
+      "hintWithDark": "SVG hoặc PNG, hình vuông · có bản cho chế độ tối",
+      "alt": "Logo của trung tâm",
+      "uploaded": "Logo đã tải lên. Lưu cài đặt để áp dụng.",
+      "problem": {
+        "type": "Hãy chọn tệp SVG hoặc PNG.",
+        "tooLarge": "PNG tối đa 1 MiB.",
+        "unreadable": "Không vẽ được tệp này. Hãy chọn tệp SVG hoặc PNG khác.",
+        "notSquare": "Logo phải là hình vuông (lệch tối đa 2%)."
+      }
+    },
+    "signIn": {
+      "title": "Đăng nhập",
+      "hint": "Cách mọi người vào Quizzivy.",
+      "google": "Đăng nhập bằng Google",
+      "googleHint": "Liên kết với tài khoản có sẵn qua email đã xác minh",
+      "password": "Đăng nhập bằng email và mật khẩu",
+      "passwordHint": "Chỉ tắt khi mọi người đều dùng Google",
+      "force": "Bắt buộc đổi mật khẩu ở lần đăng nhập đầu",
+      "forceHint": "Áp dụng cho tài khoản tạo với mật khẩu tạm",
+      "joinCodes": "Học viên có thể vào lớp bằng mã",
+      "joinCodesHint": "Giáo viên chia sẻ mã hoặc liên kết",
+      "domains": "Tên miền Google được phép",
+      "domainsHint": "Chỉ các tên miền email này đăng nhập được bằng Google. Để trống để cho phép mọi tên miền.",
+      "domainsAdd": "Thêm tên miền…",
+      "domainsRemove": "Bỏ tên miền {{domain}}",
+      "impact_one": "{{count}} người sẽ không đăng nhập được nữa.",
+      "impact_other": "{{count}} người sẽ không đăng nhập được nữa.",
+      "impactAdmins_one": "Trong đó có {{count}} quản trị viên.",
+      "impactAdmins_other": "Trong đó có {{count}} quản trị viên.",
+      "noMethod": "Phải bật ít nhất một cách đăng nhập: Google, hoặc email và mật khẩu.",
+      "lockedYou": "Với chính sách này, chính bạn sẽ không đăng nhập được nữa. Hãy giữ lại một cách đăng nhập cho bạn.",
+      "lockedAdmins": "Với chính sách này, không quản trị viên nào còn cách đăng nhập. Hãy giữ lại ít nhất một cách cho họ."
+    },
+    "errors": {
+      "nameRequired": "Hãy nhập tên tổ chức.",
+      "nameTooLong": "Tên tổ chức tối đa 120 ký tự.",
+      "shortNameTooLong": "Tên viết tắt tối đa 40 ký tự.",
+      "websiteTooLong": "Website tối đa 200 ký tự.",
+      "contactEmailTooLong": "Email liên hệ tối đa 254 ký tự.",
+      "frontDeskPhoneTooLong": "Số điện thoại tối đa 30 ký tự.",
+      "frontDeskHoursTooLong": "Giờ làm việc tối đa 120 ký tự.",
+      "addressTooLong": "Địa chỉ tối đa 300 ký tự.",
+      "domainInvalid": "Tên miền không hợp lệ.",
+      "domainsTooMany": "Tối đa 50 tên miền.",
+      "noMethod": "Phải bật ít nhất một cách đăng nhập."
+    },
+    "data": {
+      "title": "Dữ liệu và quyền riêng tư",
+      "hint": "Quizzivy giữ dữ liệu trong bao lâu.",
+      "keepAnswers": "Giữ câu trả lời của bài làm",
+      "keepAnswersHint": "Sau thời hạn này, câu trả lời của học viên bị xoá hằng đêm. Điểm vẫn được giữ.",
+      "keepFocus": "Giữ sự kiện rời khỏi bài thi",
+      "keepFocusHint": "Sau thời hạn này, các sự kiện rời khỏi bài thi bị xoá hằng đêm.",
+      "anonymise": "Ẩn danh tài khoản đã tắt sau",
+      "anonymiseHint": "Kết quả được giữ; tên và email bị xoá.",
+      "options": {
+        "year1": "1 năm",
+        "year2": "2 năm",
+        "forever": "Mãi mãi",
+        "month6": "6 tháng",
+        "month13": "13 tháng (mặc định)",
+        "never": "Không bao giờ"
+      }
+    },
+    "export": {
+      "title": "Xuất toàn bộ dữ liệu",
+      "hint": "Gửi cho bạn một liên kết tải về toàn bộ dữ liệu của trung tâm. Liên kết hết hạn sau 24 giờ.",
+      "request": "Yêu cầu xuất",
+      "dialogTitle": "Xuất toàn bộ dữ liệu?",
+      "dialogHint": "Liên kết mở trang tải xuống và có hiệu lực trong 24 giờ.",
+      "sendTo": "Gửi liên kết tới",
+      "includeAnswers": "Bao gồm câu trả lời",
+      "includeAnswersHint": "Tệp sẽ lớn hơn nhiều",
+      "submit": "Yêu cầu xuất",
+      "requested": "Đã yêu cầu xuất. Liên kết sẽ gửi tới {{email}}",
+      "inProgress": "Một yêu cầu xuất đang được xử lý. Hãy đợi email của nó trước khi yêu cầu lại.",
+      "rateLimited_one": "Mỗi giờ chỉ yêu cầu xuất được một lần. Hãy thử lại sau {{count}} phút.",
+      "rateLimited_other": "Mỗi giờ chỉ yêu cầu xuất được một lần. Hãy thử lại sau {{count}} phút.",
+      "off": "Máy chủ này chưa bật tính năng xuất dữ liệu."
+    },
+    "retentionConfirm": {
+      "title": "Rút ngắn thời gian lưu giữ?",
+      "hint": "Việc dọn dẹp chạy mỗi đêm và không thể hoàn tác.",
+      "confirm": "Lưu và xoá",
+      "nothing": "Hiện chưa có gì bị xoá tối nay.",
+      "answers_one": "Tối nay sẽ xoá câu trả lời của {{count}} lượt làm bài ({{answers}} câu trả lời).",
+      "answers_other": "Tối nay sẽ xoá câu trả lời của {{count}} lượt làm bài ({{answers}} câu trả lời).",
+      "focus_one": "Tối nay sẽ xoá {{count}} sự kiện rời khỏi bài thi.",
+      "focus_other": "Tối nay sẽ xoá {{count}} sự kiện rời khỏi bài thi.",
+      "accounts_one": "Tối nay sẽ ẩn danh {{count}} tài khoản đã tắt.",
+      "accounts_other": "Tối nay sẽ ẩn danh {{count}} tài khoản đã tắt.",
+      "owners_one": "{{count}} tài khoản đã tắt được giữ nguyên vì còn sở hữu lớp hoặc nội dung.",
+      "owners_other": "{{count}} tài khoản đã tắt được giữ nguyên vì còn sở hữu lớp hoặc nội dung."
+    },
+    "plan": {
+      "title": "Gói và mức dùng",
+      "hint": "Chưa cấu hình gói cho trung tâm này.",
+      "named": "Gói {{name}}",
+      "namedRenews": "Gói {{name}} · gia hạn {{date}}",
+      "loadFailed": "Không tải được mức dùng.",
+      "seats": "Chỗ ngồi",
+      "media": "Dung lượng tệp media",
+      "imports": "Dung lượng tài liệu nhập",
+      "importsCount_one": "{{count}} lần nhập",
+      "importsCount_other": "{{count}} lần nhập",
+      "teachers": "Giáo viên",
+      "aiCredits": "Tín dụng AI",
+      "aiCreditsOf": "{{used}} / {{pool}} trong tháng này"
+    }
+  },
+  "dataExport": {
+    "title": "Xuất dữ liệu",
+    "hint": "Tệp xuất toàn bộ dữ liệu của trung tâm.",
+    "back": "Dữ liệu và quyền riêng tư",
+    "cardTitle": "Yêu cầu xuất",
+    "requested": "Đã yêu cầu lúc",
+    "contents": "Nội dung",
+    "withAnswers": "Có câu trả lời",
+    "withoutAnswers": "Không có câu trả lời",
+    "size": "Dung lượng",
+    "expires": "Hết hạn lúc",
+    "status": {
+      "queued": "Đang chờ",
+      "running": "Đang xuất",
+      "ready": "Sẵn sàng",
+      "failed": "Lỗi",
+      "expired": "Đã hết hạn"
+    },
+    "waiting": {
+      "queued": "Yêu cầu đang chờ tới lượt. Trang này tự cập nhật.",
+      "running": "Đang tạo tệp. Trang này tự cập nhật."
+    },
+    "failed": "Không tạo được tệp xuất. Hãy yêu cầu xuất lại từ Cài đặt hệ thống.",
+    "expiredNote": "Liên kết đã hết hạn. Hãy yêu cầu xuất lại từ Cài đặt hệ thống.",
+    "download": "Tải xuống",
+    "downloadedAt": "Đã tải lúc {{time}} · {{count}}/{{max}} lần",
+    "missing": "Không tìm thấy bản xuất này",
+    "missingHint": "Bản xuất không tồn tại hoặc do người khác yêu cầu.",
+    "loadFailed": "Không tải được bản xuất.",
+    "downloadCount": "Đã tải {{count}}/{{max}} lần",
+    "exhausted": "Đã dùng hết lượt tải. Hãy yêu cầu xuất lại từ Cài đặt hệ thống."
   },
   "student": {
     "shell": {
@@ -564,6 +1661,7 @@
       "change": "Đổi",
       "updatePassword": "Cập nhật mật khẩu",
       "passwordUpdated": "Đã cập nhật mật khẩu. Các thiết bị khác đã được đăng xuất.",
+      "passwordChangedLine": "Đã đổi {{when}}",
       "passwordMin": "Ít nhất 8 ký tự.",
       "strength": {
         "okay": "Tạm được",
@@ -589,7 +1687,9 @@
   },
   "changePassword": {
     "title": "Chọn mật khẩu của bạn",
+    "titleVoluntary": "Đổi mật khẩu",
     "body": "Bạn đã đăng nhập bằng mật khẩu tạm. Hãy chọn một mật khẩu chỉ mình bạn biết.",
+    "bodyVoluntary": "Nhập mật khẩu hiện tại, rồi chọn một mật khẩu mới chỉ mình bạn biết.",
     "current": "Mật khẩu hiện tại",
     "new": "Mật khẩu mới",
     "again": "Nhập lại mật khẩu",
@@ -601,6 +1701,7 @@
       "length": "Ít nhất 8 ký tự",
       "numberOrSymbol": "Có số hoặc ký hiệu",
       "different": "Khác mật khẩu tạm",
+      "differentCurrent": "Khác mật khẩu hiện tại",
       "met": "đã đạt",
       "unmet": "chưa đạt"
     },
@@ -608,7 +1709,33 @@
       "tooShort": "Mật khẩu mới cần ít nhất 8 ký tự.",
       "numberOrSymbol": "Mật khẩu mới cần có số hoặc ký hiệu.",
       "mismatch": "Hai mật khẩu không giống nhau.",
-      "unchanged": "Mật khẩu mới phải khác mật khẩu hiện tại."
+      "unchanged": "Mật khẩu mới phải khác mật khẩu hiện tại.",
+      "currentMissing": "Nhập mật khẩu hiện tại."
+    }
+  },
+  "setPassword": {
+    "checking": "Đang kiểm tra liên kết…",
+    "title": "Đặt mật khẩu cho {{email}}",
+    "body": {
+      "invite": "Chào {{name}}. Hãy chọn một mật khẩu chỉ mình bạn biết. Lưu xong là bạn được đăng nhập ngay.",
+      "reset": "Chào {{name}}. Hãy chọn mật khẩu mới chỉ mình bạn biết. Lưu xong là bạn được đăng nhập, và các thiết bị khác sẽ bị đăng xuất."
+    },
+    "submit": "Đặt mật khẩu và đăng nhập",
+    "submitting": "Đang lưu…",
+    "toSignIn": "Đến trang đăng nhập",
+    "invalid": {
+      "title": "Liên kết không còn dùng được",
+      "body": "Liên kết này đã hết hạn hoặc đã được dùng. Hãy nhờ trung tâm gửi liên kết mới."
+    },
+    "passwordsOff": {
+      "title": "Hãy đăng nhập bằng Google",
+      "body": "Trung tâm đã tắt đăng nhập bằng mật khẩu, nên bạn không cần đặt mật khẩu. Hãy đăng nhập bằng Google với địa chỉ email của bạn."
+    },
+    "unavailable": {
+      "title": "Chưa kiểm tra được liên kết"
+    },
+    "errors": {
+      "tooLong": "Mật khẩu chỉ được dài tối đa 512 ký tự."
     }
   },
   "login": {
@@ -637,7 +1764,8 @@
     "invalidCredentials": "Email và mật khẩu không khớp. Hãy kiểm tra lỗi gõ, hoặc nhờ giáo viên đặt lại mật khẩu.",
     "haveCode": "Bạn có mã lớp?",
     "joinClass": "Tham gia lớp",
-    "googleFailedTitle": "Không đăng nhập được bằng Google"
+    "googleFailedTitle": "Không đăng nhập được bằng Google",
+    "noMethod": "Hiện chưa có cách đăng nhập nào dùng được. Hãy hỏi quầy lễ tân hoặc quản trị viên của trung tâm."
   },
   "join": {
     "title": "Tham gia lớp học",
@@ -657,6 +1785,10 @@
     "joining": "Đang thêm bạn vào {{className}}…",
     "failed": "Không thể tham gia lớp. Vui lòng thử lại.",
     "goToClasses": "Đến lớp của tôi",
+    "off": {
+      "title": "Tham gia bằng mã đang tắt",
+      "body": "Trung tâm hiện không cho phép học viên tự tham gia lớp bằng mã. Hãy nhờ giáo viên thêm bạn vào lớp, hoặc hỏi quầy lễ tân."
+    },
     "joined": {
       "title": "Bạn đã vào lớp {{className}}",
       "body": "{{teacherName}} sẽ thấy bạn trong danh sách lớp.",
@@ -683,6 +1815,7 @@
     "uses": "Lượt dùng",
     "noActiveCode": "Chưa có mã đang dùng. Chỉ bạn thêm được học viên vào lớp.",
     "archivedNoCode": "Lớp đã lưu trữ nên không ai tham gia được. Khôi phục lớp ở trang Lớp học để tạo mã.",
+    "archivedNoCodeOff": "Lớp đã lưu trữ nên không ai tham gia được.",
     "copyLink": "Chép liên kết",
     "rotate": "Mã mới",
     "issue": "Tạo mã",
@@ -693,6 +1826,7 @@
     "revokeFailed": "Không thể ngừng tham gia. Vui lòng thử lại.",
     "loadFailed": "Không tải được lớp học.",
     "noMembers": "Lớp chưa có học viên. Hãy gửi mã tham gia hoặc tự thêm học viên.",
+    "noMembersOff": "Chưa có học viên. Hãy thêm học viên vào lớp.",
     "name": "Họ tên",
     "joinedVia": "Tham gia qua",
     "joinedAt": "Ngày vào",
@@ -709,6 +1843,7 @@
     "revokeConfirmBody": "Không ai tham gia bằng mã này được nữa. Bạn có thể tạo mã mới sau.",
     "revokeConfirm": "Ngừng mã",
     "removeConfirmBody": "Bài đã nộp và điểm của học viên vẫn được giữ. Học viên có thể vào lại bằng mã.",
+    "removeConfirmBodyOff": "Bài đã nộp và điểm của học viên vẫn được giữ.",
     "removeConfirm": "Xoá",
     "studentCount_one": "{{count}} học viên",
     "studentCount_other": "{{count}} học viên",
@@ -757,6 +1892,7 @@
     "memberActions": "Thao tác với {{name}}",
     "viewResults": "Xem kết quả",
     "unreadableNote": "Không đọc lại được mã này. Hãy tạo mã mới để gửi cho học viên.",
+    "unreadableNoteOff": "Không đọc lại được mã này.",
     "showQr": "Hiện mã QR cỡ lớn",
     "showQrFull": "Hiện cỡ lớn để chiếu lên màn hình",
     "qrDialogTitle": "Tham gia {{name}}",
@@ -784,13 +1920,15 @@
     "addCount_one": "Thêm {{count}}",
     "addCount_other": "Thêm {{count}}",
     "expiresIn_one": "· còn {{count}} ngày",
-    "expiresIn_other": "· còn {{count}} ngày"
+    "expiresIn_other": "· còn {{count}} ngày",
+    "codeInactive": "Không hoạt động"
   },
   "classes": {
     "loadFailed": "Không tải được danh sách lớp.",
     "empty": "Chưa có lớp học nào.",
     "new": "Lớp mới",
     "newHint": "Bạn sẽ có mã tham gia để gửi cho học viên.",
+    "newHintOff": "Bạn thêm học viên vào lớp sau khi tạo.",
     "name": "Tên lớp",
     "namePlaceholder": "Ví dụ: IELTS Foundation — Lớp tối T3/T5",
     "create": "Tạo lớp",
@@ -821,12 +1959,14 @@
     "noActive": "Không có lớp nào đang hoạt động.",
     "noArchived": "Không có lớp nào đã lưu trữ.",
     "emptyHint": "Tạo lớp để có mã tham gia gửi cho học viên.",
+    "emptyHintOff": "Tạo lớp rồi thêm học viên vào lớp.",
     "schedule": "Lịch học",
     "schedulePlaceholder": "T2 · T4, 09:00",
     "room": "Phòng",
     "roomPlaceholder": "Phòng 3",
     "createdWithCode": "Đã tạo lớp · mã tham gia {{code}}",
     "createdNoCode": "Đã tạo lớp, nhưng chưa tạo được mã tham gia. Hãy tạo mã từ thẻ của lớp.",
+    "createdJoinOff": "Đã tạo lớp. Trung tâm đang tắt tham gia bằng mã nên lớp chưa có mã.",
     "edit": "Sửa lớp",
     "updated": "Đã cập nhật lớp",
     "updateFailed": "Không lưu được thay đổi của lớp.",
@@ -842,8 +1982,11 @@
     "maskedCode": "••••-{{hint}}",
     "codeState": {
       "expired": "Hết hạn",
-      "usedUp": "Hết lượt"
+      "usedUp": "Hết lượt",
+      "off": "Không hoạt động"
     },
+    "heldBackNamed": "{{named}}. {{why}}",
+    "codeStateBoth": "{{state}} · {{why}}",
     "noCode": "Chưa có mã tham gia",
     "createCode": "Tạo mã",
     "createCodeNamed": "Tạo mã tham gia cho {{name}}",
@@ -870,7 +2013,63 @@
     "createCodeBody": "Mã dùng được 30 ngày, tối đa 40 lượt tham gia.",
     "codeRenewedWith": "Mã tham gia mới: {{code}}",
     "newCodeFailed": "Không tạo được mã tham gia mới.",
-    "codesReplaced": "Mã tham gia của các lớp đã được thay ngày {{date}}. Hãy gửi mã mới cho học viên."
+    "codesReplaced": "Mã tham gia của các lớp đã được thay ngày {{date}}. Hãy gửi mã mới cho học viên.",
+    "codesReplacedOff": "Mã tham gia của các lớp đã được thay ngày {{date}}.",
+    "joinCodesOff": "Trung tâm đang tắt tham gia bằng mã.",
+    "joinCodesOffOpen": "Mở cài đặt đăng nhập",
+    "joinCodesOffAsk": "Hãy hỏi quản trị viên.",
+    "pageLeadOff": "Giáo viên thêm học viên vào lớp.",
+    "admin": {
+      "lead": "Mọi lớp của mọi giáo viên.",
+      "search": "Tìm lớp hoặc giáo viên",
+      "result_one": "{{count}} lớp",
+      "result_other": "{{count}} lớp",
+      "table": "Lớp học",
+      "column": {
+        "class": "Lớp",
+        "teacher": "Giáo viên",
+        "students": "Học viên",
+        "code": "Mã tham gia",
+        "created": "Ngày tạo"
+      },
+      "teacherDisabled": "Đã tắt",
+      "teacherDisabledInline": "{{name}} (đã tắt)",
+      "noCode": "Chưa có mã",
+      "noCodeArchived": "Lớp đã lưu trữ, không có mã tham gia",
+      "copyCode": "Sao chép mã tham gia",
+      "copyCodeNamed": "Sao chép mã tham gia của {{name}}",
+      "rotate": "Đổi mã tham gia",
+      "rotateNamed": "Đổi mã tham gia của {{name}}",
+      "rotateTitle": "Đổi mã tham gia của {{name}}?",
+      "rotateBody": "Mã và liên kết cũ ngừng hoạt động ngay. Học viên đã ở trong lớp không bị ảnh hưởng.",
+      "rotateConfirm": "Đổi mã",
+      "changeTeacher": "Đổi giáo viên",
+      "changeTeacherShort": "Đổi giáo viên",
+      "restore": "Khôi phục lớp",
+      "archiveTitle": "Lưu trữ {{name}}?",
+      "archiveBody": "Học viên không thể tham gia hay bắt đầu bài nữa. Kết quả được giữ lại.",
+      "emptyActive": "Chưa có lớp nào đang hoạt động.",
+      "emptyArchived": "Không có lớp nào đã lưu trữ.",
+      "emptyFiltered": "Không có lớp nào khớp bộ lọc này.",
+      "clearFilters": "Xoá bộ lọc",
+      "filterLabel": "Bộ lọc đang dùng",
+      "disabledTeachers": "Giáo viên đã tắt",
+      "removeFilter": "Bỏ bộ lọc {{label}}",
+      "namePlaceholder": "IELTS 7.0 Buổi sáng",
+      "teacherPlaceholder": "Chọn giáo viên",
+      "teachersLoading": "Đang tải danh sách giáo viên…",
+      "teachersFailed": "Không tải được danh sách giáo viên.",
+      "teachersNone": "Chưa có giáo viên nào đang hoạt động.",
+      "newHint": "Lớp có sẵn mã tham gia để gửi cho học viên.",
+      "newHintOff": "Giáo viên thêm học viên vào lớp sau khi tạo.",
+      "created": "Đã tạo lớp",
+      "invalidTeacher": "Người này không dạy lớp được: tài khoản đã tắt hoặc vai trò không có khu vực giáo viên.",
+      "newTeacher": "Giáo viên mới",
+      "notifyBoth": "Báo cho cả hai giáo viên",
+      "change": "Đổi",
+      "changeFailed": "Không đổi được giáo viên.",
+      "teacherChanged": "{{name}} giờ do {{teacher}} dạy"
+    }
   },
   "settings": {
     "profile": "Hồ sơ",
@@ -878,11 +2077,19 @@
     "email": "Email",
     "password": "Mật khẩu",
     "passwordChanged": "Đã đổi mật khẩu. Các thiết bị khác đã được đăng xuất.",
+    "passwordChangedLine": "Đổi lần cuối {{when}}.",
     "google": "Tài khoản Google",
     "googleLinked": "Đã liên kết với Google.",
     "googleNotLinked": "Chưa liên kết với Google.",
     "googleOnlyExplainer": "Google đang là cách duy nhất để đăng nhập vào tài khoản này. Hãy đặt mật khẩu trước khi bỏ liên kết.",
-    "googleOnlyTeacher": "Bạn chỉ đăng nhập bằng Google, nên chưa thể bỏ liên kết Google.",
+    "googleNoPassword": "Tài khoản này chưa có mật khẩu, nên chưa thể bỏ liên kết Google. Hãy đặt mật khẩu để có thêm một cách đăng nhập.",
+    "googleOnlyPasswordsOff": "Bạn chỉ đăng nhập bằng Google, nên chưa thể bỏ liên kết Google.",
+    "setPasswordLink": {
+      "send": "Gửi liên kết đặt mật khẩu qua email",
+      "sendAgain": "Gửi lại liên kết",
+      "sending": "Đang gửi…",
+      "sent": "Đã gửi liên kết tới {{email}}. Liên kết chỉ dùng được một lần và hết hạn sau 24 giờ."
+    },
     "linkGoogle": "Liên kết Google",
     "unlinkGoogle": "Bỏ liên kết Google",
     "locale": {
@@ -896,13 +2103,6 @@
     "signInGoogle": "Google",
     "classCount": "Lớp",
     "googleBothExplainer": "Bạn có thể đăng nhập bằng Google hoặc bằng mật khẩu. Bỏ liên kết thì chỉ còn mật khẩu.",
-    "apiDocs": {
-      "title": "Tài liệu API",
-      "body": "Xem tài liệu tham chiếu của API Quizzivy. Trang mở trong tab mới và chỉ dùng được trong 15 phút; sau đó hãy mở lại từ đây.",
-      "open": "Mở tài liệu API",
-      "blocked": "Trình duyệt đã chặn tab mới. Hãy cho phép cửa sổ bật lên cho Quizzivy rồi thử lại.",
-      "failed": "Không mở được tài liệu API. Vui lòng thử lại."
-    },
     "profileSaved": "Đã lưu họ và tên.",
     "errors": {
       "nameRequired": "Họ và tên không được để trống.",
@@ -915,7 +2115,6 @@
       "profile": "Hồ sơ",
       "security": "Đăng nhập & bảo mật",
       "appearance": "Giao diện",
-      "api": "Tài liệu API",
       "notifications": "Thông báo",
       "defaults": "Mặc định khi giao bài",
       "ai": "Trợ lý AI"
@@ -1959,8 +3158,6 @@
       "rowToGrade_other": "{{count}} bài chờ chấm"
     },
     "awaitingGradingHint": "Bài đã nộp, còn câu cần bạn chấm tay.",
-    "openAssignments": "Bài đang mở",
-    "openAssignmentsHint": "Đang trong thời gian làm bài.",
     "status": {
       "in_progress": "đang làm",
       "submitted": "nộp",
@@ -2076,6 +3273,8 @@
       "test": "Đề thi",
       "versionMeta": "{{questions}} câu · {{points}} điểm · {{audio}} câu nghe · {{manual}} câu chấm tay · bản v{{version}}",
       "versionOnly": "bản v{{version}}",
+      "pinned": "Bài giao gắn với bản v{{version}}. Đề có sửa sau này, học viên vẫn làm đúng bản này.",
+      "pinnedClosed": "Học viên đã làm trên bản v{{version}}, kể cả khi đề hiện có bản mới hơn.",
       "targets": "Giao cho",
       "targetCount": "{{count}} học viên",
       "classes": "Lớp",
@@ -2417,6 +3616,7 @@
     "password": "Mật khẩu",
     "average": "Điểm TB",
     "percent": "{{value}}%",
+    "neverActive": "Chưa bao giờ",
     "takingNow": "đang làm bài",
     "flagged": "Đánh dấu",
     "joinedVia": {
@@ -2475,6 +3675,7 @@
     "accountHeader": "Tài khoản",
     "account": {
       "active": "Đang hoạt động",
+      "notSignedIn": "Chưa đăng nhập",
       "reset": "Mật khẩu tạm",
       "suspended": "Đã khoá"
     },
@@ -2498,6 +3699,7 @@
     "removeAll": "Xoá khỏi lớp",
     "removeAllTitle": "Xoá {{name}} khỏi các lớp của học viên?",
     "removeAllBody": "{{name}} sẽ rời: {{classes}}. Tài khoản và kết quả vẫn được giữ. Học viên có thể vào lại lớp bằng mã lớp.",
+    "removeAllBodyOff": "{{name}} sẽ rời: {{classes}}. Tài khoản và kết quả vẫn được giữ.",
     "removedAll": "Đã xoá {{name}} khỏi các lớp",
     "move": {
       "titleOne": "Chuyển {{name}}",
@@ -2742,7 +3944,11 @@
       "aiWarning": "Bạn đã dùng {{used}} trên {{allowance}} tín dụng AI trong tháng này",
       "aiRequest": "{{teacherName}} xin thêm {{credits}} tín dụng AI",
       "aiApproved": "Yêu cầu thêm {{credits}} tín dụng AI của bạn đã được duyệt",
-      "aiDeclined": "Yêu cầu thêm {{credits}} tín dụng AI của bạn đã bị từ chối"
+      "aiDeclined": "Yêu cầu thêm {{credits}} tín dụng AI của bạn đã bị từ chối",
+      "transferred_one": "Nội dung của {{teacherName}} đã được chuyển cho bạn: {{count}} mục",
+      "transferred_other": "Nội dung của {{teacherName}} đã được chuyển cho bạn: {{count}} mục",
+      "teacherReceived": "Bạn được giao dạy lớp {{className}}",
+      "teacherChanged": "Lớp {{className}} đã được giao cho {{teacherName}}"
     },
     "bell": {
       "label": "Thông báo",
@@ -2916,10 +4122,12 @@
       "wrong": "Sai",
       "partial": "Đúng một phần",
       "pending": "Chờ chấm",
-      "unanswered": "Chưa trả lời"
+      "unanswered": "Chưa trả lời",
+      "removed": "Đã xoá"
     },
     "studentAnswer": "Bài làm của học viên",
     "unanswered": "Học viên không trả lời câu này.",
+    "answerRemoved": "Câu trả lời đã được xoá theo chính sách lưu trữ của trung tâm.",
     "accepted": "Đáp án được chấp nhận: {{answers}}",
     "pickedCorrect": "học viên chọn · đúng",
     "picked": "học viên chọn",
@@ -3092,6 +4300,7 @@
     "youAnswered": "Bạn trả lời",
     "correctAnswer": "Đáp án đúng",
     "noAnswer": "Chưa trả lời",
+    "answerRemoved": "Câu trả lời đã được xoá theo chính sách lưu trữ của trung tâm.",
     "true": "Đúng",
     "false": "Sai",
     "blank": "chỗ trống",
@@ -4473,5 +5682,120 @@
     "enter": "Enter",
     "up": "Mũi tên lên",
     "down": "Mũi tên xuống"
+  },
+  "apiReference": {
+    "title": "Tài liệu API",
+    "lead": "Mọi endpoint của Quizzivy, sinh ra từ cùng bản hợp đồng mà ứng dụng dùng. Chỉ quản trị viên mới mở được.",
+    "loadFailed": "Không tải được thông tin tài liệu API.",
+    "hero": "Quizzivy API",
+    "version_one": "OpenAPI {{openapi}} · v{{version}} · {{count}} endpoint",
+    "version_other": "OpenAPI {{openapi}} · v{{version}} · {{count}} endpoint",
+    "download": "openapi.json",
+    "downloadFailed": "Không tải được tệp openapi.json. Vui lòng thử lại.",
+    "open": "Mở tài liệu",
+    "opening": "Đang mở…",
+    "baseUrl": "URL gốc",
+    "copyFailed": "Không sao chép được. Hãy chọn URL gốc rồi sao chép thủ công.",
+    "security": "Mở trong thẻ mới bằng một phiên xem tài liệu ngắn gắn với tài khoản của bạn. Phiên này chỉ đọc được tài liệu và không thay bạn gọi API.",
+    "blocked": "Trình duyệt đã chặn tab mới. Hãy cho phép cửa sổ bật lên cho Quizzivy rồi thử lại.",
+    "failed": "Không mở được tài liệu API. Vui lòng thử lại.",
+    "inside": "Có gì bên trong",
+    "insideHint": "Mở một nhóm để nhảy tới đó trong tài liệu",
+    "endpoints_one": "{{n}} endpoint",
+    "endpoints_other": "{{n}} endpoint",
+    "groups": {
+      "public": {
+        "name": "Công khai",
+        "blurb": "Không cần đăng nhập: trạng thái hệ thống, thông tin trung tâm và xem trước mã tham gia."
+      },
+      "auth": {
+        "name": "Đăng nhập & tài khoản",
+        "blurb": "Đăng nhập, Google, phiên làm mới, đổi mật khẩu và các phiên của chính bạn."
+      },
+      "teacher-tests": {
+        "name": "Bài kiểm tra",
+        "blurb": "Bản nháp, nhóm dùng chung, phát hành, phiên bản và xem trước."
+      },
+      "teacher-questions": {
+        "name": "Ngân hàng câu hỏi",
+        "blurb": "Câu hỏi, thẻ, tìm kiếm và các nhóm câu hỏi."
+      },
+      "teacher-imports": {
+        "name": "Nhập từ Word",
+        "blurb": "Tải tệp lên, xử lý, duyệt và lưu."
+      },
+      "teacher-media": {
+        "name": "Thư viện phương tiện",
+        "blurb": "Ảnh và âm thanh: tải lên, tên và nơi được dùng."
+      },
+      "teacher-assignments": {
+        "name": "Bài giao",
+        "blurb": "Giao một phiên bản cho lớp và học viên, lịch, ngoại lệ và kết quả."
+      },
+      "teacher-attempts": {
+        "name": "Lượt làm bài & chấm điểm",
+        "blurb": "Theo dõi, chấm điểm, nhận xét và sự kiện toàn vẹn."
+      },
+      "teacher-students": {
+        "name": "Học viên",
+        "blurb": "Tài khoản, mật khẩu và lớp của học viên mà giáo viên phụ trách."
+      },
+      "teacher-classes": {
+        "name": "Lớp học",
+        "blurb": "Lớp, thành viên và mã tham gia."
+      },
+      "teacher-ai": {
+        "name": "Trợ lý AI",
+        "blurb": "Gợi ý của trợ lý và tín dụng của giáo viên. Trợ lý không bao giờ tự ghi điểm hay câu hỏi."
+      },
+      "admin-users": {
+        "name": "Người dùng",
+        "blurb": "Danh sách, tạo và xoá tài khoản người dùng, và nhập nhiều tài khoản cùng lúc từ tệp."
+      },
+      "admin-roles": {
+        "name": "Vai trò & quyền",
+        "blurb": "Tạo và sửa vai trò, bảng quyền theo quy tắc tập con."
+      },
+      "admin-classes": {
+        "name": "Lớp của mọi giáo viên",
+        "blurb": "Danh sách lớp của cả trung tâm, tạo lớp cho một giáo viên và đổi giáo viên của lớp."
+      },
+      "admin-ai": {
+        "name": "Tín dụng AI",
+        "blurb": "Quỹ chung, hạn mức của giáo viên, yêu cầu thêm tín dụng và quy tắc."
+      },
+      "admin-docs": {
+        "name": "Tài liệu API",
+        "blurb": "Phiên xem tài liệu, phần tóm tắt và tệp hợp đồng."
+      },
+      "admin-audit": {
+        "name": "Nhật ký kiểm tra",
+        "blurb": "Lịch sử chỉ đọc của các thay đổi quan trọng, có thể xuất ra tệp."
+      },
+      "admin-exports": {
+        "name": "Xuất dữ liệu",
+        "blurb": "Yêu cầu và tải bản xuất toàn bộ dữ liệu của trung tâm."
+      },
+      "admin-overview": {
+        "name": "Tổng quan",
+        "blurb": "Số liệu tổng quan, huy hiệu thanh bên và mức sử dụng của gói."
+      },
+      "admin-settings": {
+        "name": "Cài đặt hệ thống",
+        "blurb": "Thông tin trung tâm, chính sách đăng nhập và thời hạn lưu trữ."
+      },
+      "student": {
+        "name": "Ứng dụng học viên",
+        "blurb": "Lớp và bài giao của học viên."
+      },
+      "take-test": {
+        "name": "Làm bài",
+        "blurb": "Bắt đầu, lưu câu trả lời, nộp bài và tệp phương tiện của lượt làm."
+      },
+      "me": {
+        "name": "Tài khoản của tôi",
+        "blurb": "Thông báo, ảnh đại diện, phần tóm tắt và tuỳ chọn thông báo."
+      }
+    }
   }
 }

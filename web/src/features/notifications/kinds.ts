@@ -5,11 +5,13 @@ import {
   Clock,
   FileCheck,
   Flag,
+  FolderInput,
   Hand,
   RotateCw,
   Sparkles,
   SquarePen,
   UserPlus,
+  UserRoundCog,
   type LucideIcon,
 } from "lucide-react";
 import { FLAGGED } from "@/features/integrity/tones";
@@ -49,6 +51,8 @@ export const KIND_LOOK: Record<
   "ai.allowance_warning": { icon: Sparkles, tone: "warning" },
   "ai.credit_request": { icon: Hand, tone: "warning" },
   "ai.credit_request.decided": { icon: Sparkles, tone: "info" },
+  "content.transferred": { icon: FolderInput, tone: "info" },
+  "class.teacher_changed": { icon: UserRoundCog, tone: "info" },
 };
 /** TEACHER_EVENTS lists the teacher's switches in contract order. */
 export const TEACHER_EVENTS = [
@@ -71,6 +75,8 @@ const teacherKinds = new Set<NotificationKind>([
   "ai.allowance_warning",
   "ai.credit_request",
   "ai.credit_request.decided",
+  "content.transferred",
+  "class.teacher_changed",
 ]);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function idPath(prefix: string, id: string | undefined, suffix = "") {
@@ -250,6 +256,30 @@ const sentences: Record<
         ? "notifications.kind.aiApproved"
         : "notifications.kind.aiDeclined";
     return literalSentence(key, { credits: credits(p.credits, locale) }, t);
+  },
+  "content.transferred": (p, t) =>
+    hasText(p.teacherName) && hasCount(p.count)
+      ? literalSentence(
+          "notifications.kind.transferred",
+          { teacherName: p.teacherName, count: p.count },
+          t,
+        )
+      : null,
+  "class.teacher_changed": (p, t) => {
+    if (!hasText(p.className)) return null;
+    if (p.teacherName === undefined)
+      return literalSentence(
+        "notifications.kind.teacherReceived",
+        { className: p.className },
+        t,
+      );
+    return hasText(p.teacherName)
+      ? literalSentence(
+          "notifications.kind.teacherChanged",
+          { className: p.className, teacherName: p.teacherName },
+          t,
+        )
+      : null;
   },
 };
 

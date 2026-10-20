@@ -30,7 +30,7 @@ export function FullscreenBar() {
       action={
         <Button
           variant="outline"
-          className="text-fg in-data-[scale=deck]:text-meta h-8 flex-none shadow-none in-data-[scale=deck]:px-2.5"
+          className="text-fg text-meta h-8 flex-none px-2.5 shadow-none"
           onClick={() => void enterFullscreen()}
         >
           {t("integrity.fullscreenReturn")}

@@ -10,6 +10,8 @@ import type { ReactNode } from "react";
  * are shown, so the first column can draw the table's sub-line for the ones
  * that are not. `aside` draws under `cell` in the same cell, outside the link
  * or button that opens the row: the place for a control in the first column.
+ * `hideHeader` keeps the header's text for assistive technology only, for a
+ * column the deck draws no header over.
  */
 export interface DataColumn<T> {
   readonly id: string;
@@ -17,6 +19,7 @@ export interface DataColumn<T> {
   readonly track: string;
   readonly showFrom?: number;
   readonly align?: "end";
+  readonly hideHeader?: boolean;
   readonly cell: (row: T, shown: ReadonlySet<string>) => ReactNode;
   readonly aside?: (row: T, shown: ReadonlySet<string>) => ReactNode;
 }
@@ -40,7 +43,7 @@ export interface RowBox {
 
 type ColumnLayout = Pick<DataColumn<never>, "id" | "track" | "showFrom">;
 
-/** SELECT_TRACK is the checkbox column's track. */
+/** SELECT_TRACK is the checkbox column's track unless the table gives its own. */
 export const SELECT_TRACK = "16px";
 
 /** MENU_TRACK is the row menu's track unless the table gives its own. */
@@ -84,18 +87,19 @@ export function shownAt(
 
 /**
  * templateOf joins the tracks of the columns in `shown`, in the order of
- * `columns`, into one `grid-template-columns` value, after the checkbox track
- * when the table selects and before `menuTrack` when it has a row menu.
+ * `columns`, into one `grid-template-columns` value, after `selectTrack`
+ * (SELECT_TRACK unless given) when the table selects and before `menuTrack`
+ * when it has a row menu.
  */
 export function templateOf(
   columns: readonly ColumnLayout[],
   shown: ReadonlySet<string>,
-  edges: Readonly<{ select: boolean; menuTrack?: string }>,
+  edges: Readonly<{ select: boolean; selectTrack?: string; menuTrack?: string }>,
 ): string {
   const tracks = columns
     .filter((column) => shown.has(column.id))
     .map((column) => column.track);
-  if (edges.select) tracks.unshift(SELECT_TRACK);
+  if (edges.select) tracks.unshift(edges.selectTrack ?? SELECT_TRACK);
   if (edges.menuTrack !== undefined) tracks.push(edges.menuTrack);
   return tracks.join(" ");
 }

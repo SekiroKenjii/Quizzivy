@@ -47,8 +47,12 @@ const entry = () => {
 const matches = (ids: readonly string[], re: RegExp) =>
   ids.map((i) => i.replace(/\\/g, "/")).filter((i) => re.test(i));
 
-const ADMIN =
+const TEACHER =
   /\/(layouts\/(Teacher(Layout|Skeleton)|shell\/(?!contentWidth\.)|teacherNav\.)|features\/[^/]+\/pages\/teacher\/|features\/(tests|question-bank|media|students)\/)/;
+const TEACHER_PAGES =
+  /\/(layouts\/TeacherLayout\.|features\/[^/]+\/pages\/teacher\/|features\/(tests|question-bank|media|students)\/)/;
+const ADMIN =
+  /\/(layouts\/(AdminLayout|adminNav\.|useAdminNavCounts\.)|features\/[^/]+\/pages\/admin\/|features\/(users|roles|audit|admin-overview|api-reference|exports)\/)/;
 const STUDENT_PAGES = [
   "layouts/StudentLayout",
   "features/assignments/pages/StudentHomePage",
@@ -119,10 +123,17 @@ describe("route-level code splitting (§2)", () => {
     expect(chunks().length).toBeGreaterThan(3);
   });
 
-  it("keeps the admin tree out of the entry chunk", () => {
+  it("keeps the teacher tree out of the entry chunk", () => {
+    expect(
+      matches(entry().moduleIds, TEACHER),
+      "an anonymous visitor must not download teacher code",
+    ).toEqual([]);
+  });
+
+  it("keeps the Admin console out of the entry chunk", () => {
     expect(
       matches(entry().moduleIds, ADMIN),
-      "an anonymous visitor must not download admin code",
+      "an anonymous visitor must not download the Admin console",
     ).toEqual([]);
   });
 
@@ -201,19 +212,33 @@ describe("route-level code splitting (§2)", () => {
     }
   });
 
-  it("still builds the admin tree, in non-entry chunks", () => {
-    const owning = chunks().filter((c) => matches(c.moduleIds, ADMIN).length > 0);
-    expect(owning.length, "admin modules must be built somewhere").toBeGreaterThan(0);
+  it("still builds the teacher tree, in non-entry chunks", () => {
+    const owning = chunks().filter((c) => matches(c.moduleIds, TEACHER).length > 0);
+    expect(owning.length, "teacher modules must be built somewhere").toBeGreaterThan(0);
     expect(owning.map((c) => c.isEntry)).not.toContain(true);
   });
 
-  it("does not let the admin and student trees share a chunk", () => {
+  it("still builds the Admin console, in non-entry chunks", () => {
+    const owning = chunks().filter((c) => matches(c.moduleIds, ADMIN).length > 0);
+    expect(owning.length, "Admin modules must be built somewhere").toBeGreaterThan(0);
+    expect(owning.map((c) => c.isEntry)).not.toContain(true);
+  });
+
+  it("does not let the teacher and student trees share a chunk", () => {
     for (const c of chunks()) {
-      const hasAdmin = matches(c.moduleIds, ADMIN).length > 0;
+      const hasTeacher = matches(c.moduleIds, TEACHER).length > 0;
       const hasStudent = matches(c.moduleIds, STUDENT).length > 0;
-      expect(hasAdmin && hasStudent, `chunk ${c.fileName} contains both trees`).toBe(
+      expect(hasTeacher && hasStudent, `chunk ${c.fileName} contains both trees`).toBe(
         false,
       );
+    }
+  });
+
+  it("does not let the Admin console share a chunk with a student or a teacher page", () => {
+    for (const c of chunks()) {
+      if (matches(c.moduleIds, ADMIN).length === 0) continue;
+      expect(matches(c.moduleIds, STUDENT), `chunk ${c.fileName}`).toEqual([]);
+      expect(matches(c.moduleIds, TEACHER_PAGES), `chunk ${c.fileName}`).toEqual([]);
     }
   });
 

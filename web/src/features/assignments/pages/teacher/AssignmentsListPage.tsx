@@ -43,12 +43,12 @@ import { toInput } from "@/features/assignments/input";
 import { statusAt } from "@/features/assignments/status";
 import { fetchClasses } from "@/features/classes/api";
 import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { trimmed, useDebouncedInput } from "@/hooks/useDebouncedInput";
 import { useListFilters } from "@/hooks/useListFilters";
 import { usePage, usePageSize } from "@/hooks/usePage";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { ApiError } from "@/lib/api/errors";
 import { useDisplayTimeZone } from "@/lib/i18n/datetime";
-import { useDebounced } from "@/lib/useDebounced";
 import { AssignmentCard } from "./AssignmentCells";
 import { assignmentColumns } from "./assignmentColumns";
 import { moment, nameOf, type ListTab } from "./assignmentWindow";
@@ -317,8 +317,13 @@ export default function AssignmentsListPage() {
   const { params, setFilter } = useListFilters();
   const tab = toTab(params.get("status"));
   const classIds = params.getAll("classId");
-  const query = params.get("q") ?? "";
-  const search = useDebounced(query.trim(), 300);
+  const applied = params.get("q") ?? "";
+  const [typed, setTyped] = useDebouncedInput(
+    applied,
+    (value) => setFilter("q", value),
+    trimmed,
+  );
+  const search = applied.trim();
   const [size] = usePageSize();
   const [page, setPage] = usePage(JSON.stringify({ tab, classIds, search, size }));
   const bulk = useBulkSelection<Assignment>();
@@ -428,8 +433,8 @@ export default function AssignmentsListPage() {
         <div className="flex flex-[1_1_260px] justify-end gap-2">
           <SearchInput
             className={SEARCH}
-            value={query}
-            onChange={(value) => setFilter("q", value)}
+            value={typed}
+            onChange={setTyped}
             placeholder={t("assignments.list.search")}
           />
           <FacetFilter

@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"quizzivy/internal/core/adapters"
 	"quizzivy/internal/core/maintenance"
@@ -24,7 +23,7 @@ import (
 
 type world struct {
 	ctx context.Context
-	tx  pgx.Tx
+	tx  db.Conn
 	now time.Time
 }
 

@@ -53,7 +53,7 @@ export function FacetFilter({
               ? t("facet.active", { label, count: selected.length })
               : label
           }
-          className="bg-card text-fg hover:bg-muted inline-flex h-9 items-center gap-1.5 rounded-md border border-dashed px-3 text-sm leading-4 font-normal disabled:pointer-events-none disabled:opacity-50 in-data-[scale=deck]:h-8.5 in-data-[scale=deck]:rounded-[0.5rem]"
+          className="bg-card text-fg hover:bg-muted inline-flex h-8.5 items-center gap-1.5 rounded-[0.5rem] border border-dashed px-3 text-sm leading-4 font-normal disabled:pointer-events-none disabled:opacity-50"
         >
           <CirclePlus aria-hidden="true" className="text-muted-fg size-3.5 shrink-0" />
           <span>{label}</span>
@@ -67,10 +67,7 @@ export function FacetFilter({
           )}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align={align}
-        className={cn("data-[scale=deck]:w-60", menuClassName)}
-      >
+      <DropdownMenuContent align={align} className={cn("w-60", menuClassName)}>
         {title && <DropdownMenuLabel>{title}</DropdownMenuLabel>}
         {options.length ? (
           options.map((option) => (

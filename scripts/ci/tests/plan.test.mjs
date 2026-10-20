@@ -71,6 +71,8 @@ test('the longest rule decides, and the base decides where none matches', () => 
   assert.equal(inSet(SETS.web, 'migrations/00001_init.sql'), false);
   assert.equal(inSet(SETS.server, 'web/src/main.tsx'), false);
   assert.equal(inSet(SETS.server, 'web/tests/e2e/fixtures/unit5-listening.mp3'), true);
+  assert.equal(inSet(SETS.server, 'web/src/lib/i18n/locales/vi.json'), true);
+  assert.equal(inSet(SETS.server, 'web/src/lib/i18n/index.ts'), false);
   assert.equal(inSet(SETS.server, 'fly.toml'), true);
   assert.equal(inSet(SETS.server, 'docs/setup/operations.md'), true);
   assert.equal(inSet(SETS.server, 'docs/setup/ci.md'), false);

@@ -309,11 +309,11 @@ describe("the profile photo", () => {
       "font-normal",
       "text-muted-fg",
       "hover:bg-transparent",
-      "in-data-[scale=deck]:px-2.5",
-      "in-data-[scale=deck]:text-sm",
+      "px-2.5",
+      "text-sm",
     );
-    expect(remove).not.toHaveClass("in-data-[scale=deck]:px-3.5");
-    expect(remove).not.toHaveClass("in-data-[scale=deck]:text-ui");
+    expect(remove).not.toHaveClass("px-3.5");
+    expect(remove).not.toHaveClass("text-ui");
   });
 
   it("removes the photo after a confirmation", async () => {

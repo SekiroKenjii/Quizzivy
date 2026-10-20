@@ -25,8 +25,8 @@ export function QuestionUsageRow({
   });
   const tests = usage.data?.usedIn ?? [];
   return (
-    <TableRow className="hover:bg-transparent">
-      <TableCell colSpan={8} className="bg-muted/30 p-4">
+    <TableRow>
+      <TableCell colSpan={8} className="bg-muted/30">
         <section
           id={`question-usage-${questionId}`}
           aria-label={t("bank.usageTitle", { prompt })}

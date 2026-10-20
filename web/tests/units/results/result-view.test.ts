@@ -367,6 +367,18 @@ describe("given", () => {
     expect(given(blank(1, "{{1}}", null))).toEqual({ kind: "none" });
   });
 
+  it("reads an answer the retention policy removed as removed, whatever its type", () => {
+    expect(given(choice(1, AB, null, { answerRemoved: true }))).toEqual({
+      kind: "removed",
+    });
+    expect(given(essay(1, "Viết.", null, { answerRemoved: true }))).toEqual({
+      kind: "removed",
+    });
+    expect(given(blank(1, "{{1}}", null, { answerRemoved: true }))).toEqual({
+      kind: "removed",
+    });
+  });
+
   it("gives a written answer without the space around it", () => {
     expect(given(essay(1, "Viết.", "  Hai dòng\nchữ.  "))).toEqual({
       kind: "text",

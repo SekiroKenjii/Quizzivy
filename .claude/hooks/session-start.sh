@@ -88,6 +88,8 @@ create_env() {
   local key
   key=$(openssl rand -base64 32) || return 1
   sed -i "s|^JOIN_CODE_KEY=.*|JOIN_CODE_KEY=$key|" .env
+  key=$(openssl rand -base64 32) || return 1
+  sed -i "s|^SECRETS_KEY=.*|SECRETS_KEY=$key|" .env
 }
 
 install_goose() {
@@ -153,6 +155,10 @@ start_postgres() {
   compose_up db
 }
 
+provision_roles() {
+  docker compose exec -T -e PGUSER=postgres db /provision/provision-db.sh
+}
+
 start_minio() {
   compose_up minio && docker compose run --rm minio-init
 }
@@ -172,7 +178,7 @@ step ".env" create_env
 step "web dependencies" install_web_dependencies
 if step "docker daemon" start_docker; then
   step "MinIO image $MINIO_IMAGE" ensure_minio_image
-  step "postgres" start_postgres && step "migrations" migrate
+  step "postgres" start_postgres && step "database roles" provision_roles && step "migrations" migrate
   docker image inspect "$MINIO_IMAGE" >/dev/null 2>&1 && step "MinIO" start_minio
 fi
 echo "$(date -u +%FT%TZ) session start hook ends"

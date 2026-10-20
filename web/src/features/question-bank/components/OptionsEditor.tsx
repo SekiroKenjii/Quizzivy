@@ -79,7 +79,7 @@ export function OptionsEditor({
       type="button"
       variant="ghost"
       size="sm"
-      className="text-muted-fg h-7.5 self-start rounded-[7px] px-2.5 text-[12.5px] font-normal in-data-[scale=deck]:rounded-[7px] in-data-[scale=deck]:px-2.5 in-data-[scale=deck]:text-[12.5px]"
+      className="text-muted-fg h-7.5 self-start rounded-[7px] px-2.5 text-[12.5px] font-normal"
       onClick={add}
     >
       <Plus aria-hidden="true" className="size-3.5" />
@@ -162,7 +162,7 @@ export function OptionsEditor({
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                className="text-muted-fg size-7 flex-none rounded-[6px] in-data-[scale=deck]:rounded-[6px]"
+                className="text-muted-fg size-7 flex-none rounded-[6px]"
                 aria-label={t("questionEditor.removeOptionLetter", { letter })}
                 disabled={options.length <= 2}
                 onClick={() => {
@@ -311,7 +311,7 @@ function MarkVisual({ multiple, on }: Readonly<{ multiple: boolean; on: boolean 
       <span
         aria-hidden="true"
         className={cn(
-          "text-success-foreground grid size-4.5 place-items-center rounded-[5px] border-2",
+          "text-success-solid-fg grid size-4.5 place-items-center rounded-[5px] border-2",
           on ? "border-success bg-success" : "border-ring bg-transparent",
         )}
       >

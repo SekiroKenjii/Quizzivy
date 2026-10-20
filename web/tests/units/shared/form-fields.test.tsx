@@ -3,7 +3,6 @@ import { render, screen, within, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QRCodeSVG } from "qrcode.react";
 import { Link } from "lucide-react";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { FormDialog, type FormField } from "@/components/shared/form/FormDialog";
 import "@/lib/i18n";
 beforeEach(() =>
@@ -60,17 +59,15 @@ const options = [
   { value: "f", label: "Bùi Ngọc Mai" },
 ];
 const frame = (fields: readonly FormField<Values>[], onSubmit = () => {}) => (
-  <DeckScale>
-    <FormDialog
-      open
-      onOpenChange={() => {}}
-      title="Trường"
-      initial={initial}
-      fields={fields}
-      submitLabel="Lưu"
-      onSubmit={onSubmit}
-    />
-  </DeckScale>
+  <FormDialog
+    open
+    onOpenChange={() => {}}
+    title="Trường"
+    initial={initial}
+    fields={fields}
+    submitLabel="Lưu"
+    onSubmit={onSubmit}
+  />
 );
 it("renders each text, date, time and toggle kind by accessible name", () => {
   render(

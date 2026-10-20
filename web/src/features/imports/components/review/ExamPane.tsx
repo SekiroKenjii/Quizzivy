@@ -256,7 +256,7 @@ export function ExamPane({
             {t("imports.review.allResolved")}
           </span>
           <Button
-            className="h-8 rounded-lg px-3 text-sm font-semibold"
+            className="h-8 rounded-md px-3 text-sm font-semibold"
             onClick={onFinish}
           >
             {t("imports.review.finish")}

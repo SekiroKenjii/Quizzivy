@@ -31,6 +31,7 @@ import { useLocale } from "@/lib/i18n/useLocale";
 import { formatTime, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
 import {
+  answerRemovedRefusal,
   finishGrading,
   flagAttempt,
   getAttemptForReview,
@@ -85,7 +86,10 @@ export default function AttemptReviewPage() {
       setFailure(null);
       await invalidate();
     },
-    onError: (cause) => setFailure(failureMessage(cause, t("review.saveFailed"))),
+    onError: (cause) => {
+      setFailure(failureMessage(cause, t("review.saveFailed")));
+      if (answerRemovedRefusal(cause)) void invalidate();
+    },
   });
   const flag = useMutation({
     mutationFn: (flagged: boolean) => flagAttempt(id, { flagged }),
@@ -373,24 +377,29 @@ export default function AttemptReviewPage() {
                   </CardContent>
                 </Card>
 
-                {question.type === "short_answer" && gradable && (
-                  <GradingCard
-                    key={question.id}
-                    question={question}
-                    answer={answer}
-                    pending={grade.isPending}
-                    error={null}
-                    focusPoints={pointsFor === question.id}
-                    onPointsFocused={() => setPointsFor(null)}
-                    onSave={(points, comment) =>
-                      grade.mutate(
-                        { questionId: question.id, points, comment },
-                        { onSuccess: next },
-                      )
-                    }
-                    onSkip={next}
-                  />
+                {question.type === "short_answer" && answer?.answerRemoved === true && (
+                  <RecordedGrade answer={answer} max={question.points} />
                 )}
+                {question.type === "short_answer" &&
+                  gradable &&
+                  answer?.answerRemoved !== true && (
+                    <GradingCard
+                      key={question.id}
+                      question={question}
+                      answer={answer}
+                      pending={grade.isPending}
+                      error={null}
+                      focusPoints={pointsFor === question.id}
+                      onPointsFocused={() => setPointsFor(null)}
+                      onSave={(points, comment) =>
+                        grade.mutate(
+                          { questionId: question.id, points, comment },
+                          { onSuccess: next },
+                        )
+                      }
+                      onSkip={next}
+                    />
+                  )}
                 {question.type === "short_answer" && !gradable && (
                   <p className="text-muted-fg text-sm">
                     {t(live ? "review.notYetSubmitted" : "review.voided")}
@@ -553,6 +562,37 @@ function AudioNote({
   );
 }
 
+function RecordedGrade({
+  answer,
+  max,
+}: Readonly<{ answer: ReviewAnswer; max: number }>) {
+  const { t } = useTranslation();
+  const comment = answer.graderComment?.trim() ?? "";
+  if (answer.manualScore == null && comment === "") return null;
+  return (
+    <Card>
+      <CardContent className="space-y-3">
+        {answer.manualScore != null && (
+          <p className="flex items-center gap-3 text-sm">
+            <span className="font-medium">{t("review.points")}</span>
+            <span className="tabular-nums">
+              {trim(answer.manualScore)} / {trim(max)}
+            </span>
+          </p>
+        )}
+        {comment !== "" && (
+          <div className="space-y-1.5 text-sm">
+            <p className="font-medium">{t("review.comment")}</p>
+            <p className="leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap">
+              {comment}
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function VerdictBadge({ verdict }: Readonly<{ verdict: Verdict }>) {
   const { t } = useTranslation();
   const variant = VERDICT_VARIANT[verdict] ?? "outline";
@@ -564,11 +604,18 @@ function VerdictBadge({ verdict }: Readonly<{ verdict: Verdict }>) {
 }
 
 function isPending(answer: ReviewAnswer | undefined): boolean {
-  return answer?.requiresManual === true && answer.manualScore == null;
+  return (
+    answer?.requiresManual === true &&
+    answer.manualScore == null &&
+    answer.answerRemoved !== true
+  );
 }
 
 function verdictOf(question: AdminQuestion, answer: ReviewAnswer | undefined): Verdict {
-  if (answer === undefined || answer.answer === null) return "unanswered";
+  if (answer === undefined) return "unanswered";
+  if (answer.answerRemoved === true) {
+    if (answer.manualScore == null && answer.autoScore == null) return "removed";
+  } else if (answer.answer === null) return "unanswered";
   if (isPending(answer)) return "pending";
   const earned = answer.manualScore ?? answer.autoScore ?? 0;
   if (earned >= question.points) return "correct";

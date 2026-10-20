@@ -10,7 +10,7 @@ const ROWS = ["first", "second", "third"] as const;
  */
 export function StudentSkeleton() {
   return (
-    <div data-scale="deck" className="bg-bg flex h-full flex-col">
+    <div className="bg-bg flex h-full flex-col">
       <div className="flex h-15 flex-none items-center gap-3 border-b px-5">
         <Skeleton className="h-5.5 w-27.5 rounded-sm" />
         <Skeleton className="hidden h-3 w-70 rounded-sm min-[768px]:block" />

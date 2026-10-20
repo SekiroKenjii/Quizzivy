@@ -23,7 +23,7 @@ import { BulkSelectRow, type BulkSelection } from "@/components/shared/BulkSelec
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import type { Test, TestStatus } from "@/features/tests/api";
 import { assignedLabel } from "@/features/tests/testFacts";
-import { formatRelative } from "@/lib/i18n/datetime";
+import { formatDateTime, formatRelativeShort } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
 
 /**
@@ -38,12 +38,12 @@ export type TestCardActions = Readonly<{
   onDelete: (test: Test) => void;
 }>;
 
-const PILL_SHAPE = "border-0 in-data-[scale=deck]:px-2";
+const PILL_SHAPE = "border-0 px-2";
 
 const PILL: Record<TestStatus, string> = {
   published: `${PILL_SHAPE} [&>[aria-hidden]]:bg-success`,
   draft: `${PILL_SHAPE} bg-transparent text-muted-fg [&>[aria-hidden]]:bg-border`,
-  archived: `${PILL_SHAPE} bg-muted text-muted-fg in-data-[scale=deck]:rounded-full [&>[aria-hidden]]:bg-muted-fg`,
+  archived: `${PILL_SHAPE} bg-muted text-muted-fg rounded-full [&>[aria-hidden]]:bg-muted-fg`,
 };
 
 const ICON_BUTTON =
@@ -98,8 +98,13 @@ export function TestCard({
               </Badge>
             ) : null}
           </div>
-          <span className="text-muted-fg shrink-0 text-xs leading-normal">
-            {t("tests.edited", { when: formatRelative(test.updatedAt, locale) })}
+          <span
+            title={formatDateTime(test.updatedAt, locale)}
+            className="text-muted-fg shrink-0 text-xs leading-normal"
+          >
+            {t("tests.edited", {
+              when: formatRelativeShort(test.updatedAt, locale, t("common.agoNow")),
+            })}
           </span>
         </div>
         <h2 className="text-body leading-[1.35] font-semibold [overflow-wrap:anywhere]">
@@ -189,7 +194,7 @@ function CardMenu({
           <Ellipsis aria-hidden="true" className="size-3.75" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52 data-[scale=deck]:w-55">
+      <DropdownMenuContent align="end" className="w-55">
         {archived ? (
           <DropdownMenuItem onSelect={() => onRestore(test)}>
             <RotateCw aria-hidden="true" />

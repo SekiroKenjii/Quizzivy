@@ -187,6 +187,17 @@ export function dayMonthYear(
   });
 }
 
+/** monthYear is a month and its year: "Th6 2026" in Vietnamese, "Jun 2026" in English. */
+export function monthYear(
+  utc: string | Date,
+  locale: AppLocale = "vi",
+  zone = getDisplayTimeZone(),
+) {
+  return locale === "vi"
+    ? `Th${formatInTimeZone(utc, zone, "M yyyy")}`
+    : formatInTimeZone(utc, zone, "MMM yyyy", { locale: dateFnsLocale.en });
+}
+
 /**
  * dayDate is a short weekday and date: "Thứ 6, 19/09" in Vietnamese, "Fri 19
  * Sep" in English.
@@ -276,6 +287,88 @@ export function formatRelative(
   return locale === "vi" ? result.toLocaleLowerCase("vi") : result;
 }
 
+/**
+ * formatAgo is how long ago a moment was, for a line that states a fact about
+ * an account ("Changed 2 weeks ago", "Last active 3 months ago"): `justNow`
+ * under a minute and for a moment the browser's clock has not reached yet,
+ * then minutes, hours, "yesterday", days, weeks, months and years. It never
+ * falls back to a bare date, which reads as the other month to an English reader.
+ */
+export function formatAgo(
+  utc: string | Date,
+  locale: AppLocale,
+  justNow: string,
+  now: number = Date.now(),
+) {
+  const seconds = (now - new Date(utc).getTime()) / 1000;
+  if (seconds < 60 || Number.isNaN(seconds)) return justNow;
+
+  const ago = (
+    count: number,
+    unit: Intl.RelativeTimeFormatUnit,
+    numeric: "always" | "auto" = "always",
+  ) =>
+    new Intl.RelativeTimeFormat(locale, { numeric })
+      .format(-count, unit)
+      .toLocaleLowerCase(locale);
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return ago(minutes, "minute");
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return ago(hours, "hour");
+  const days = Math.floor(hours / 24);
+  if (days < 7) return ago(days, "day", "auto");
+  if (days < 30) return ago(Math.floor(days / 7), "week");
+  if (days < 365) return ago(Math.max(1, Math.floor(days / 30.4375)), "month");
+  return ago(Math.max(1, Math.floor(days / 365.25)), "year");
+}
+
+const shortFormats = new Map<AppLocale, Intl.RelativeTimeFormat>();
+
+function shortFormat(locale: AppLocale): Intl.RelativeTimeFormat {
+  let format = shortFormats.get(locale);
+  if (format === undefined) {
+    format = new Intl.RelativeTimeFormat(locale, {
+      numeric: "always",
+      style: "narrow",
+    });
+    shortFormats.set(locale, format);
+  }
+  return format;
+}
+
+const SHORT_WEEKS_MAX = 4;
+
+/**
+ * formatRelativeShort is how long ago a moment was for a table cell, whose
+ * column header already says what the moment is: the bare value with no verb
+ * beyond the language's own "ago". `justNow` stands under a minute and for a
+ * moment the browser's clock has not reached yet; then come minutes, hours,
+ * days to six, weeks to four, and after that the date with its year, which
+ * reads one way in both languages. The cell should hold the exact time in a
+ * `title`. Sentences keep `formatRelative` and `formatAgo`.
+ */
+export function formatRelativeShort(
+  utc: string | Date,
+  locale: AppLocale,
+  justNow: string,
+  now: number = Date.now(),
+  zone = getDisplayTimeZone(),
+) {
+  const seconds = (now - new Date(utc).getTime()) / 1000;
+  if (seconds < 60 || Number.isNaN(seconds)) return justNow;
+
+  const format = shortFormat(locale);
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return format.format(-minutes, "minute");
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return format.format(-hours, "hour");
+  const days = Math.floor(hours / 24);
+  if (days < 7) return format.format(-days, "day");
+  const weeks = Math.floor(days / 7);
+  if (weeks <= SHORT_WEEKS_MAX) return format.format(-weeks, "week");
+  return dayMonthYear(utc, locale, zone);
+}
+
 /** The two halves of a `datetime-local` field, both pinned to APP_TIME_ZONE. */
 export function toDateTimeInput(utc: string | Date): string {
   return formatInTimeZone(utc, APP_TIME_ZONE, "yyyy-MM-dd'T'HH:mm");
@@ -307,4 +400,38 @@ export function countdown(ms: number): string {
 /** compactMoment formats a table timestamp without repeating the current year. */
 export function compactMoment(utc: string | Date, zone = getDisplayTimeZone()) {
   return formatInTimeZone(utc, zone, "HH:mm · dd/MM");
+}
+
+/**
+ * auditMoment is when an audit entry happened, in the viewer's zone and
+ * without its year: "24 Th9, 20:31" in Vietnamese, "24 Sep, 20:31" in
+ * English.
+ */
+export function auditMoment(
+  utc: string | Date,
+  locale: AppLocale = "vi",
+  zone = getDisplayTimeZone(),
+) {
+  return formatInTimeZone(
+    utc,
+    zone,
+    locale === "vi" ? "d 'Th'M, HH:mm" : "d MMM, HH:mm",
+    {
+      locale: dateFnsLocale[locale],
+    },
+  );
+}
+
+/**
+ * auditDay is a calendar day, given as a `YYYY-MM-DD` key, without its year:
+ * "24 Th9" in Vietnamese, "24 Sep" in English. A key that is not a date is
+ * returned as it is.
+ */
+export function auditDay(key: string, locale: AppLocale = "vi") {
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+  if (parts === null) return key;
+  const noon = Date.UTC(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]), 12);
+  return formatInTimeZone(noon, "UTC", locale === "vi" ? "d 'Th'M" : "d MMM", {
+    locale: dateFnsLocale[locale],
+  });
 }

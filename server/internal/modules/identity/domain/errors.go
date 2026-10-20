@@ -84,6 +84,22 @@ var (
 var ErrIdentityAlreadyLinked = errors.New("identity already linked")
 
 var (
+	// ErrPasswordSignInDisabled is a password sign-in while the centre has turned password sign-in off.
+	ErrPasswordSignInDisabled = errors.New("password sign-in is turned off")
+	// ErrGoogleSignInDisabled is a Google sign-in or link while the centre has turned Google sign-in off.
+	ErrGoogleSignInDisabled = errors.New("google sign-in is turned off")
+	// ErrGoogleDomainNotAllowed is a Google address outside the domains the centre allows.
+	ErrGoogleDomainNotAllowed = errors.New("google address is outside the allowed domains")
+)
+
+var (
+	// ErrSetPasswordLinkInvalid is a set-password link that cannot be used: unknown, used, expired or revoked, or its account is disabled. The five read alike, so a caller cannot tell which it was.
+	ErrSetPasswordLinkInvalid = errors.New("set-password link is not valid")
+	// ErrSetPasswordUnavailable is a set-password link asked for on a server that cannot send one.
+	ErrSetPasswordUnavailable = errors.New("set-password links cannot be sent by this server")
+)
+
+var (
 	ErrGoogleExchangeFailed     = errors.New("google: code exchange failed")
 	ErrGoogleRedirectNotAllowed = errors.New("google: redirect uri is not allowed")
 	ErrGoogleTokenInvalid       = errors.New("google: id token is invalid")

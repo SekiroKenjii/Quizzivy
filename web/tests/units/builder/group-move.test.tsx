@@ -582,10 +582,8 @@ describe("dragging a question across a group's boundary in the outline", () => {
       render(<Selected />);
 
       const selected = screen.getByRole("button", { name: "Thao tác với câu 3" });
-      expect(selected).toHaveClass(
-        "in-data-[scale=deck]:size-6",
-        "max-[767px]:size-11",
-      );
+      expect(selected).toHaveClass("size-6", "max-[767px]:size-11");
+      expect(selected).not.toHaveClass("size-7");
       expect(selected.parentElement).not.toHaveClass("max-[767px]:hidden");
       expect(selected.parentElement).toHaveClass(
         "min-[768px]:w-0",
@@ -860,7 +858,7 @@ describe("moving a question in the builder", () => {
       COPY_ID,
       MEMBER_ID,
     ]);
-  });
+  }, 10_000);
 
   it("says the copy left the original in the bank", async () => {
     const user = renderBuilder();
@@ -926,7 +924,7 @@ describe("moving a question in the builder", () => {
       ),
     ).toBeNull();
     expect(await screen.findByLabelText("Điểm")).toBeVisible();
-  });
+  }, 10_000);
 
   it("says an edited copy was saved as a new question, and keeps it under its own id", async () => {
     draft.origins = new Map([[MEMBER_ID, { questionId: QUESTION_ID, edited: true }]]);

@@ -79,6 +79,7 @@ func toAPIScore(sc domain.Score) *openapi.AttemptScore {
 
 type reviewAnswer = struct {
 	Answer         *openapi.Answer `json:"answer"`
+	AnswerRemoved  *bool           `json:"answerRemoved,omitempty"`
 	AutoScore      *openapi.Points `json:"autoScore,omitempty"`
 	GraderComment  *string         `json:"graderComment,omitempty"`
 	ManualScore    *openapi.Points `json:"manualScore,omitempty"`
@@ -161,7 +162,10 @@ func toAPIReviewAnswers(stored map[string]domain.ReviewAnswer) (map[string]revie
 			AutoScore: a.AutoScore, ManualScore: a.ManualScore,
 			GraderComment: a.GraderComment, RequiresManual: httpapi.Ptr(a.RequiresManual),
 		}
-		if len(a.Payload) > 0 {
+		switch {
+		case domain.AnswerRemoved(a.Payload):
+			entry.AnswerRemoved = httpapi.Ptr(true)
+		case len(a.Payload) > 0:
 			var decoded openapi.Answer
 			if err := json.Unmarshal(a.Payload, &decoded); err != nil {
 				return nil, fmt.Errorf("decode stored answer for %s: %w", id, err)
@@ -207,7 +211,10 @@ func (h Attempts) ListAnswersForQuestion(ctx context.Context, request openapi.Li
 			ManualScore:   it.ManualScore,
 			GraderComment: it.GraderComment,
 		}
-		if len(it.Payload) > 0 {
+		switch {
+		case domain.AnswerRemoved(it.Payload):
+			row.AnswerRemoved = httpapi.Ptr(true)
+		case len(it.Payload) > 0:
 			var decoded openapi.Answer
 			if err := json.Unmarshal(it.Payload, &decoded); err != nil {
 				return nil, fmt.Errorf("decode stored answer for %s: %w", it.AttemptID, err)
@@ -502,7 +509,15 @@ func (h Attempts) GradeAttempt(ctx context.Context, request openapi.GradeAttempt
 	}
 	score, err := h.app.Commands.Grade.Handle(ctx, command.Grade{AttemptID: request.Id.String(), GraderID: principal.UserID, Items: items, Scope: httpapi.ScopeFromContext(ctx)})
 	var invalid *domain.GradeValidationError
+	var removed *domain.AnswerRemovedError
 	switch {
+	case errors.As(err, &removed):
+		resp := httpapi.Error(ctx, openapi.ANSWERREMOVED, httpx.Text(ctx,
+			"Câu trả lời đã được xoá theo chính sách lưu trữ của trung tâm, nên không thể chấm.",
+			"This answer was removed under the centre's retention policy, so it cannot be graded."))
+		details := map[string]interface{}{"questionIds": removed.QuestionIDs}
+		resp.Error.Details = &details
+		return openapi.GradeAttempt409JSONResponse(resp), nil
 	case errors.As(err, &invalid):
 		return openapi.GradeAttempt400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(gradeValidationError(ctx, invalid))}, nil
 	case errors.Is(err, domain.ErrPaperNotFound):

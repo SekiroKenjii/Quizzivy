@@ -1,11 +1,17 @@
 package router_test
 
 import (
+	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"quizzivy/internal/core/router"
+	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/getkin/kin-openapi/openapi3"
 
 	"quizzivy/gen/openapi"
 	"quizzivy/internal/platform/httpx"
@@ -115,4 +121,69 @@ func TestPublicStatusFitsAClassroomBehindOneAddressAndNoMore(t *testing.T) {
 	if rec.Code != http.StatusTooManyRequests || rec.Header().Get("Retry-After") == "" {
 		t.Fatalf("request 121: status = %d, Retry-After %q; want 429 with Retry-After", rec.Code, rec.Header().Get("Retry-After"))
 	}
+}
+
+func TestEveryOpenOperationAnswers429PastItsAddressBudget(t *testing.T) {
+	spec, err := openapi.GetSpec()
+	if err != nil {
+		t.Fatalf("GetSwagger: %v", err)
+	}
+	limits := router.RateLimits()
+	params := regexp.MustCompile(`\{[^}]+\}`)
+	open := httpx.OpenRoutes(spec, "bearerAuth")
+	if len(open) != len(theOpenEleven) {
+		t.Fatalf("%d open operations, want the %d of theOpenEleven", len(open), len(theOpenEleven))
+	}
+	for pattern := range open {
+		route, ok := limits.Lookup(pattern)
+		if !ok || route.PerIP == nil {
+			t.Errorf("%s has no per-address budget", pattern)
+			continue
+		}
+		budget := math.MaxInt
+		for _, rule := range route.PerIP.Rules() {
+			budget = min(budget, rule.Burst)
+		}
+		method, template, _ := strings.Cut(pattern, " ")
+		path := params.ReplaceAllString(template, "01935000-0000-7000-8000-00000000f00d") + requiredQuery(spec.Paths.Value(template).GetOperation(method))
+		handler := newTestRouter(t, fakeDB{})
+		refill := budget/20 + 1
+		var first int
+		for i := 1; i <= budget+refill && first == 0; i++ {
+			body := fmt.Sprintf(`{"email":"a%d@example.test","token":"t%d","joinCode":"ABC%03d"}`, i, i, i%1000)
+			req := httptest.NewRequest(method, path, strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			req.RemoteAddr = "203.0.113.31:5555"
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			if rec.Code == http.StatusTooManyRequests {
+				first = i
+				if rec.Header().Get("Retry-After") == "" || errorCode(t, rec) != "RATE_LIMITED" {
+					t.Errorf("%s request %d: 429 without Retry-After or RATE_LIMITED: %s", pattern, i, rec.Body)
+				}
+			}
+		}
+		if first <= budget {
+			t.Errorf("%s from one address: first 429 at request %d, want none within its budget of %d and one past it", pattern, first, budget)
+		}
+	}
+}
+
+func requiredQuery(op *openapi3.Operation) string {
+	query := url.Values{}
+	for _, ref := range op.Parameters {
+		p := ref.Value
+		if p.In != "query" || !p.Required {
+			continue
+		}
+		value := "x"
+		if p.Schema != nil && len(p.Schema.Value.Enum) > 0 {
+			value = fmt.Sprint(p.Schema.Value.Enum[0])
+		}
+		query.Set(p.Name, value)
+	}
+	if len(query) == 0 {
+		return ""
+	}
+	return "?" + query.Encode()
 }

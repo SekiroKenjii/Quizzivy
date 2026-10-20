@@ -13,8 +13,7 @@ import { JoinQr } from "@/features/classes/components/JoinQr";
 import { downloadJoinQr } from "@/features/classes/joinQrImage";
 import { useCopyJoinLink } from "@/features/classes/joinLink";
 
-const FOOTER_BUTTON =
-  "text-ui h-9 px-4 leading-normal shadow-none in-data-[scale=deck]:h-9 in-data-[scale=deck]:px-4";
+const FOOTER_BUTTON = "text-ui leading-normal shadow-none h-9 px-4";
 
 /**
  * ShowQrDialog is the deck's "Show QR code" for one class: its name, how a
@@ -67,7 +66,7 @@ export function ShowQrDialog({
         <Button
           type="button"
           variant="outline"
-          className={`bg-card ${FOOTER_BUTTON} px-3.5 in-data-[scale=deck]:px-3.5`}
+          className={`bg-card ${FOOTER_BUTTON} px-3.5`}
           onClick={onClose}
         >
           {t("common.close")}

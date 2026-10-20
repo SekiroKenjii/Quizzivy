@@ -118,11 +118,13 @@ export function RadioCards({
             <span className="group-data-[state=checked]:bg-primary size-2 rounded-full" />
           </span>
           <span className="min-w-0">
-            <span className="text-ui block leading-4.5 font-medium">
+            <span className="text-ui block leading-4.5 font-medium wrap-anywhere">
               {option.label}
             </span>
             {option.hint !== undefined && (
-              <span className="text-muted-fg text-meta block">{option.hint}</span>
+              <span className="text-muted-fg text-meta block wrap-anywhere">
+                {option.hint}
+              </span>
             )}
           </span>
         </RadioGroup.Item>

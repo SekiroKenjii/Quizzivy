@@ -2,7 +2,6 @@ import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { DeckScale } from "@/components/ui/deck-scale";
 import {
   FacetFilter,
   type FacetFilterProps,
@@ -21,19 +20,17 @@ function fixture(props: Partial<FacetFilterProps> = {}) {
   function Controlled() {
     const [selected, setSelected] = useState<readonly string[]>(props.selected ?? []);
     return (
-      <DeckScale>
-        <FacetFilter
-          label="Lớp"
-          title="Lọc theo lớp"
-          options={OPTIONS}
-          {...props}
-          selected={selected}
-          onChange={(next) => {
-            onChange(next);
-            setSelected(next);
-          }}
-        />
-      </DeckScale>
+      <FacetFilter
+        label="Lớp"
+        title="Lọc theo lớp"
+        options={OPTIONS}
+        {...props}
+        selected={selected}
+        onChange={(next) => {
+          onChange(next);
+          setSelected(next);
+        }}
+      />
     );
   }
   const view = render(<Controlled />);
@@ -165,38 +162,40 @@ describe("FacetFilter", () => {
     expect(trigger).toHaveFocus();
   });
 
-  it("uses a portalled deck width and end alignment", async () => {
+  it("uses the deck's 240px width and end alignment", async () => {
     const { user } = fixture();
     await user.click(screen.getByRole("button"));
-    expect(screen.getByRole("menu")).toHaveAttribute("data-scale", "deck");
-    expect(screen.getByRole("menu")).toHaveClass("data-[scale=deck]:w-60");
+    expect(screen.getByRole("menu")).toHaveClass("w-60");
     expect(screen.getByRole("menu")).toHaveAttribute("data-align", "end");
   });
 
-  it("accepts a caller's deck width and start alignment", async () => {
+  it("accepts a caller's width and start alignment", async () => {
     const { user } = fixture({
-      menuClassName: "data-[scale=deck]:w-55",
+      menuClassName: "w-55",
       align: "start",
     });
     await user.click(screen.getByRole("button"));
-    expect(screen.getByRole("menu")).toHaveClass("data-[scale=deck]:w-55");
-    expect(screen.getByRole("menu")).not.toHaveClass("data-[scale=deck]:w-60");
+    expect(screen.getByRole("menu")).toHaveClass("w-55");
+    expect(screen.getByRole("menu")).not.toHaveClass("w-60");
     expect(screen.getByRole("menu")).toHaveAttribute("data-align", "start");
   });
 
-  it("keeps the trigger dashed and 34px under deck scale without a fixed label width", () => {
+  it("keeps the trigger dashed and 34px without a fixed label width", () => {
     fixture();
     const trigger = screen.getByRole("button");
     expect(trigger.tagName).toBe("BUTTON");
     expect(trigger).toHaveClass(
       "border-dashed",
-      "in-data-[scale=deck]:h-8.5",
+      "h-8.5",
+      "rounded-[0.5rem]",
       "px-3",
       "gap-1.5",
       "font-normal",
       "leading-4",
       "hover:bg-muted",
     );
+    expect(trigger).not.toHaveClass("h-9");
+    expect(trigger).not.toHaveClass("rounded-md");
     expect(trigger).toHaveAttribute("type", "button");
     expect(within(trigger).getByText("Lớp")).not.toHaveAttribute("style");
   });

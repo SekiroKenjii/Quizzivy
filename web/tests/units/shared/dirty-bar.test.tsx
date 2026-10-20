@@ -3,7 +3,6 @@ import { useRef, useState } from "react";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DirtyBar } from "@/components/shared/DirtyBar";
-import { DeckScale } from "@/components/ui/deck-scale";
 import "@/lib/i18n";
 
 const SENTENCE = "Bạn có thay đổi chưa lưu.";
@@ -15,6 +14,8 @@ function inForm(
     dirty: boolean;
     saving: boolean;
     error: string | null;
+    blocked: string | null;
+    errorAction: { label: string; onAction: () => void };
     onDiscard: () => void;
     onSave: () => void;
   }> = {},
@@ -23,11 +24,9 @@ function inForm(
     event.preventDefault(),
   );
   const view = render(
-    <DeckScale>
-      <form aria-label="Hồ sơ" onSubmit={onSubmit}>
-        <DirtyBar dirty onDiscard={() => {}} returnFocus={() => null} {...props} />
-      </form>
-    </DeckScale>,
+    <form aria-label="Hồ sơ" onSubmit={onSubmit}>
+      <DirtyBar dirty onDiscard={() => {}} returnFocus={() => null} {...props} />
+    </form>,
   );
   return { onSubmit, ...view };
 }
@@ -90,6 +89,9 @@ describe("the unsaved-changes bar", () => {
     expect(screen.queryByRole("button", { name: "Lưu thay đổi" })).toBeNull();
     expect(save("Đang lưu…")).toHaveAttribute("aria-disabled", "true");
     expect(discard()).toHaveAttribute("aria-disabled", "true");
+    for (const button of [save("Đang lưu…"), discard()])
+      expect(button.className).not.toMatch(/aria-disabled:opacity-|(^|\s)opacity-/);
+    expect(save("Đang lưu…")).toHaveClass("aria-disabled:bg-primary/50");
     expect(save("Đang lưu…")).toBeEnabled();
     expect(discard()).toBeEnabled();
     await user.click(save("Đang lưu…"));
@@ -123,6 +125,82 @@ describe("the unsaved-changes bar", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("reads the reason in the sentence's place, in the danger tone, and describes Save changes with it", () => {
+    inForm({ blocked: "Phải bật ít nhất một cách đăng nhập." });
+    const reason = screen.getByText("Phải bật ít nhất một cách đăng nhập.");
+    expect(reason).toHaveClass("text-danger-ink", "text-sm", "flex-1");
+    expect(screen.queryByText(SENTENCE)).toBeNull();
+    expect(save()).toHaveAccessibleDescription("Phải bật ít nhất một cách đăng nhập.");
+    expect(discard()).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("pauses only Save changes while a reason blocks it, and ignores a press on it", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    const { onSubmit } = inForm({ blocked: "Không lưu được.", onSave });
+    expect(save()).toHaveAttribute("aria-disabled", "true");
+    expect(save()).toBeEnabled();
+    expect(save().className).not.toMatch(/aria-disabled:opacity-|(^|\s)opacity-/);
+    await user.click(save());
+    expect(save()).toHaveFocus();
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("treats an empty reason as none", () => {
+    inForm({ blocked: "" });
+    expect(screen.getByText(SENTENCE)).toBeInTheDocument();
+    expect(save()).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("lets the error stand in for the reason, and leaves Save changes paused", () => {
+    inForm({ error: "Lỗi máy chủ.", blocked: "Không lưu được." });
+    expect(screen.getByRole("alert")).toHaveTextContent("Lỗi máy chủ.");
+    expect(screen.queryByText("Không lưu được.")).toBeNull();
+    expect(save()).toHaveAttribute("aria-disabled", "true");
+    expect(save()).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("offers the error's action as a button beside Discard, and only with an error", async () => {
+    const user = userEvent.setup();
+    const onAction = vi.fn();
+    const { rerender } = inForm({ errorAction: { label: "Tải lại", onAction } });
+    expect(screen.queryByRole("button", { name: "Tải lại" })).toBeNull();
+
+    rerender(
+      <form aria-label="Hồ sơ">
+        <DirtyBar
+          dirty
+          error="Đã lưu ở nơi khác."
+          errorAction={{ label: "Tải lại", onAction }}
+          onDiscard={() => {}}
+          returnFocus={() => null}
+        />
+      </form>,
+    );
+    const action = screen.getByRole("button", { name: "Tải lại" });
+    expect(action).toHaveAttribute("type", "button");
+    expect(action).toHaveAttribute("data-variant", "outline");
+    expect(action.nextElementSibling).toBe(discard());
+    await user.click(action);
+    expect(onAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("pauses the error's action while it saves, without fading the element", async () => {
+    const user = userEvent.setup();
+    const onAction = vi.fn();
+    inForm({
+      saving: true,
+      error: "Đã lưu ở nơi khác.",
+      errorAction: { label: "Tải lại", onAction },
+    });
+    const action = screen.getByRole("button", { name: "Tải lại" });
+    expect(action).toHaveAttribute("aria-disabled", "true");
+    expect(action.className).not.toMatch(/aria-disabled:opacity-|(^|\s)opacity-/);
+    await user.click(action);
+    expect(onAction).not.toHaveBeenCalled();
+  });
+
   it("sticks 12px above the bottom as the deck's floating card, and wraps", () => {
     inForm();
     const bar = document.querySelector('[data-slot="dirty-bar"]')!;
@@ -149,20 +227,14 @@ describe("the unsaved-changes bar", () => {
     expect(discard()).toHaveClass(
       "h-8.5",
       "px-3",
-      "in-data-[scale=deck]:px-3",
-      "in-data-[scale=deck]:text-sm",
+      "text-sm",
       "hover:bg-muted",
       "dark:hover:bg-muted",
     );
     expect(discard()).toHaveAttribute("data-variant", "ghost");
-    expect(discard()).not.toHaveClass("in-data-[scale=deck]:px-3.5");
-    expect(discard()).not.toHaveClass("in-data-[scale=deck]:text-ui");
-    expect(save()).toHaveClass(
-      "h-8.5",
-      "bg-primary",
-      "in-data-[scale=deck]:px-3.5",
-      "in-data-[scale=deck]:text-ui",
-    );
+    expect(discard()).not.toHaveClass("px-3.5");
+    expect(discard()).not.toHaveClass("text-ui");
+    expect(save()).toHaveClass("h-8.5", "bg-primary", "px-3.5", "text-ui");
     expect(save()).not.toHaveClass("h-9");
   });
 });
@@ -171,25 +243,23 @@ function Editor() {
   const [dirty, setDirty] = useState(false);
   const target = useRef<HTMLButtonElement>(null);
   return (
-    <DeckScale>
-      <form
-        aria-label="Hồ sơ"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setDirty(false);
-        }}
-      >
-        <button ref={target} type="button">
-          Đích
-        </button>
-        <input aria-label="Tên" onChange={() => setDirty(true)} />
-        <DirtyBar
-          dirty={dirty}
-          onDiscard={() => setDirty(false)}
-          returnFocus={() => target.current}
-        />
-      </form>
-    </DeckScale>
+    <form
+      aria-label="Hồ sơ"
+      onSubmit={(event) => {
+        event.preventDefault();
+        setDirty(false);
+      }}
+    >
+      <button ref={target} type="button">
+        Đích
+      </button>
+      <input aria-label="Tên" onChange={() => setDirty(true)} />
+      <DirtyBar
+        dirty={dirty}
+        onDiscard={() => setDirty(false)}
+        returnFocus={() => target.current}
+      />
+    </form>
   );
 }
 
@@ -220,16 +290,14 @@ describe("focus when the unsaved-changes bar goes", () => {
     const target = document.createElement("button");
     document.body.append(target);
     const bar = (dirty: boolean, saving: boolean) => (
-      <DeckScale>
-        <form aria-label="Hồ sơ" onSubmit={(event) => event.preventDefault()}>
-          <DirtyBar
-            dirty={dirty}
-            saving={saving}
-            onDiscard={() => {}}
-            returnFocus={() => target}
-          />
-        </form>
-      </DeckScale>
+      <form aria-label="Hồ sơ" onSubmit={(event) => event.preventDefault()}>
+        <DirtyBar
+          dirty={dirty}
+          saving={saving}
+          onDiscard={() => {}}
+          returnFocus={() => target}
+        />
+      </form>
     );
     const view = render(bar(true, false));
 

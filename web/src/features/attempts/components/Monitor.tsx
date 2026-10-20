@@ -34,6 +34,7 @@ import { assignmentDetailLocation } from "@/features/assignments/pages/teacher/a
 import { scoreText } from "@/features/assignments/studentTime";
 import { useCan } from "@/features/auth/permissions";
 import { FLAGGED } from "@/features/integrity/tones";
+import { trimmed, useDebouncedInput } from "@/hooks/useDebouncedInput";
 import { usePage, usePageSize } from "@/hooks/usePage";
 import { compactMoment, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
@@ -250,6 +251,13 @@ export function Monitor({
     navigate(assignmentDetailLocation(location, { [key]: value, page: null }), {
       replace: true,
     });
+  const [typed, setTyped] = useDebouncedInput(
+    query,
+    (value) => {
+      void change("q", value);
+    },
+    trimmed,
+  );
   const act = (kind: Intervention, row: MonitorRow, context: DataTableMenuContext) => {
     if (
       intervene &&
@@ -286,10 +294,8 @@ export function Monitor({
       <div className="flex flex-wrap items-center gap-2">
         <SearchInput
           dense
-          value={query}
-          onChange={(value) => {
-            void change("q", value);
-          }}
+          value={typed}
+          onChange={setTyped}
           placeholder={t("papers.search")}
           className="max-w-(--field-max) min-w-0 flex-[1_1_180px]"
         />

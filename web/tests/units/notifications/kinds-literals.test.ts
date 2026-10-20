@@ -107,7 +107,7 @@ function expectCollisionFreeTemplates(locale: "vi" | "en") {
   expect(templates).toBeTypeOf("object");
   expect(templates).not.toBeNull();
   const values = Object.values(templates as Record<string, unknown>);
-  expect(values).toHaveLength(19);
+  expect(values).toHaveLength(23);
   for (const value of values) {
     expect(value).toBeTypeOf("string");
     expect(value).not.toMatch(/\uE000quizzivy-notification:\d+\uE001/);
@@ -116,7 +116,7 @@ function expectCollisionFreeTemplates(locale: "vi" | "en") {
 
 describe("supported notification template invariant", () => {
   it.each(["vi", "en"] as const)(
-    "keeps all 19 %s templates free of reserved tokens",
+    "keeps all 23 %s templates free of reserved tokens",
     (locale) => {
       expectCollisionFreeTemplates(locale);
     },

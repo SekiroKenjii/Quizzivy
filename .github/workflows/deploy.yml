@@ -123,7 +123,7 @@ jobs:
             exit 1
           fi
 
-      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
 
       # Ask, before building anything, whether the configuration this app will
       # boot with is one it accepts.
@@ -169,6 +169,7 @@ jobs:
           need DATABASE_URL
           need JWT_SIGNING_KEY
           need JOIN_CODE_KEY
+          need SECRETS_KEY
           need CORS_ALLOWED_ORIGINS
 
           # loadGoogle takes the client id from either name, so the group is
@@ -181,6 +182,15 @@ jobs:
 
           group "object storage" S3_ENDPOINT S3_BUCKET S3_ACCESS_KEY_ID S3_SECRET_ACCESS_KEY
           group "Word import storage" IMPORT_S3_BUCKET IMPORT_WORK_DIR
+          # Production sends through Resend or does not start: loadEmail
+          # refuses the sink there, so all three are required, not optional.
+          need RESEND_API_KEY
+          need EMAIL_FROM
+          need APP_URL
+          if has EMAIL_SINK_DIR; then
+            echo "::error::EMAIL_SINK_DIR is set. The app refuses it in production: it writes every message, links included, to disk instead of sending it"
+            fail=1
+          fi
 
           # The processing switch says a worker process runs beside the API.
           # deployment_test.go checks that against fly.toml's [processes]; as a
@@ -419,7 +429,7 @@ jobs:
             exit 1
           fi
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: ${{ env.PNPM_VERSION }}
 

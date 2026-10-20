@@ -24,12 +24,18 @@ func (a *Application) SetClock(now func() time.Time) {
 	a.enrolment.SetClock(now)
 }
 
-// WithNotifier supplies the notifier RotateLegacyJoinCodes tells each teacher
-// through, and the enrolments tell a class's teacher of a join by code. Without
-// one the commands rotate and enrol and tell nobody.
+// WithNotifier supplies the notifier the enrolments tell a class's teacher of
+// a join by code through. Without one the commands enrol and tell nobody.
 func (a *Application) WithNotifier(notifier ports.Notifier) *Application {
 	a.enrolment.Notifier = notifier
-	a.Commands.RotateLegacyJoinCodes = command.RotateLegacyJoinCodesHandler{Enrolment: a.enrolment, Notifier: notifier}
+	return a
+}
+
+// WithSignInPolicy supplies how the centre lets students join. While it turns
+// joining with a code off, the preview and both enrolments answer every code
+// as an unknown one, whatever it is. Without one joining is on.
+func (a *Application) WithSignInPolicy(policy ports.SignInPolicy) *Application {
+	a.enrolment.Policy = policy
 	return a
 }
 
@@ -74,7 +80,8 @@ type Commands struct {
 	Rotate         cqrs.CommandHandler[command.Rotate, domain.Rotated]
 	Update         cqrs.CommandHandler[command.Update, domain.Class]
 
-	RotateLegacyJoinCodes cqrs.CommandHandler[command.RotateLegacyJoinCodes, domain.LegacyRotation]
+	CreateForTeacher cqrs.CommandHandler[command.CreateForTeacher, domain.Class]
+	ChangeTeacher    cqrs.CommandHandler[command.ChangeTeacher, domain.Class]
 }
 
 type Queries struct {
@@ -82,13 +89,14 @@ type Queries struct {
 	Facets     cqrs.QueryHandler[query.Facets, domain.Facets]
 	Get        cqrs.QueryHandler[query.Get, domain.Class]
 	List       cqrs.QueryHandler[query.List, query.ListResult]
+	ListAll    cqrs.QueryHandler[query.ListAll, query.ListAllResult]
 	ListMine   cqrs.QueryHandler[query.ListMine, []domain.MyClass]
 	Members    cqrs.QueryHandler[query.Members, query.MembersResult]
 	Preview    cqrs.QueryHandler[query.Preview, domain.PreviewResult]
 }
 
-// New builds the module. keys seal new join codes and find every code, legacy
-// or keyed, under the current and previous key.
+// New builds the module. keys seal new join codes and find every code under
+// the current and previous key.
 func New(repo domain.Repository, stats stats.Source, keys domain.JoinCodeKeys) *Application {
 	enrolment := support.NewEnrolment(repo, keys)
 	service := support.NewService(repo, stats)
@@ -105,13 +113,15 @@ func New(repo domain.Repository, stats stats.Source, keys domain.JoinCodeKeys) *
 			Rotate:         command.RotateHandler{Enrolment: enrolment},
 			Update:         command.UpdateHandler{Service: service},
 
-			RotateLegacyJoinCodes: command.RotateLegacyJoinCodesHandler{Enrolment: enrolment},
+			CreateForTeacher: command.CreateForTeacherHandler{Service: service, Codes: enrolment},
+			ChangeTeacher:    command.ChangeTeacherHandler{Service: service, Codes: enrolment},
 		},
 		Queries: Queries{
 			ActiveCode: query.ActiveCodeHandler{Enrolment: enrolment},
 			Facets:     query.FacetsHandler{Service: service},
 			Get:        query.GetHandler{Service: service},
 			List:       query.ListHandler{Service: service, Codes: enrolment},
+			ListAll:    query.ListAllHandler{Service: service, Codes: enrolment},
 			ListMine:   query.ListMineHandler{Service: service},
 			Members:    query.MembersHandler{Service: service},
 			Preview:    query.PreviewHandler{Enrolment: enrolment},

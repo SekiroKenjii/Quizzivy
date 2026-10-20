@@ -72,7 +72,7 @@ function board(
       {
         path: "/teacher",
         element: (
-          <main data-scale="deck">
+          <main>
             <TeacherDashboardPage />
           </main>
         ),
@@ -199,7 +199,6 @@ describe("actual Teacher dashboard readings and actions", () => {
       within(region("Bài đang mở")).getByText("2 bài chờ chấm"),
     ).toBeInTheDocument();
     expect(screen.queryByText("9 bài chờ chấm")).toBeNull();
-    expect(screen.queryByText("999")).toBeNull();
     expect(reads).toEqual([
       "/teacher/dashboard?range=14d",
       "/teacher/assignments?status=open&limit=10",

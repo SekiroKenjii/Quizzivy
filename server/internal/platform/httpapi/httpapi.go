@@ -73,11 +73,17 @@ func FieldError(ctx context.Context, field, message string) openapi.ErrorRespons
 	return ErrorWithDetails(ctx, openapi.VALIDATIONFAILED, message, map[string]interface{}{field: message})
 }
 
-// Invalid is VALIDATION_FAILED carrying the first message of each field invalid refused, keyed by field.
+// Invalid is VALIDATION_FAILED carrying the first message of each field invalid refused, keyed by field, in the
+// request's language where the field has an English message.
 func Invalid(ctx context.Context, message string, invalid *validation.Error) openapi.ErrorResponse {
 	details := make(map[string]interface{}, len(invalid.Fields))
 	for _, field := range invalid.Fields {
-		if _, seen := details[field.Field]; !seen {
+		if _, seen := details[field.Field]; seen {
+			continue
+		}
+		if field.English != "" {
+			details[field.Field] = httpx.Text(ctx, field.Message, field.English)
+		} else {
 			details[field.Field] = field.Message
 		}
 	}

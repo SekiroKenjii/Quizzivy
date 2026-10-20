@@ -487,3 +487,19 @@ describe("the history's pager (QA-F1-2)", () => {
     expect(screen.queryByText("Không có lần nhập nào khớp bộ lọc.")).toBeNull();
   });
 });
+
+describe("the Word import history's search", () => {
+  it("keeps what is typed in the box and out of the URL until the typing pauses", async () => {
+    const { user, router } = renderHistory();
+    const box = await screen.findByRole("searchbox");
+    await waitFor(() => expect(queries).not.toHaveLength(0));
+
+    await user.type(box, "hk1 ");
+    expect(box).toHaveValue("hk1 ");
+    expect(router.state.location.search).toBe("");
+
+    await waitFor(() => expect(router.state.location.search).toBe("?q=hk1"));
+    await waitFor(() => expect(queries.at(-1)?.get("q")).toBe("hk1"));
+    expect(box).toHaveValue("hk1 ");
+  });
+});

@@ -3,7 +3,6 @@ import { resolve } from "node:path";
 import { compile } from "tailwindcss";
 import { expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const animations = readFileSync(
@@ -23,12 +22,8 @@ function OpenPopover() {
     </Popover>
   );
 }
-it("emits reduced animation none with importance that beats the deck open-state entrance", async () => {
-  render(
-    <DeckScale>
-      <OpenPopover />
-    </DeckScale>,
-  );
+it("emits reduced animation none with importance that beats the open-state entrance", async () => {
+  render(<OpenPopover />);
   const content = screen.getByRole("dialog", { name: "Lịch" });
   expect(content).toHaveAttribute("data-state", "open");
   const compiler = await compile(`${animations}\n@tailwind utilities;`);
@@ -44,19 +39,18 @@ it("emits reduced animation none with importance that beats the deck open-state 
     "data-[state=closed]:animate-none",
   );
 });
-it("retains the inherited off-deck entrance and exit without a deck reduced override", async () => {
+it("draws neither the replaced zoom entrance nor an exit animation", async () => {
   render(<OpenPopover />);
   const content = screen.getByRole("dialog", { name: "Lịch" });
-  expect(content).not.toHaveAttribute("data-scale");
-  expect(content).toHaveClass(
-    "data-[state=open]:animate-in",
+  expect(content).toHaveClass("z-(--z-popover)");
+  for (const replaced of [
     "data-[state=closed]:animate-out",
     "data-[state=open]:zoom-in-95",
     "z-50",
-  );
+  ]) {
+    expect(content).not.toHaveClass(replaced);
+  }
   const compiler = await compile(`${animations}\n@tailwind utilities;`);
   const css = compiler.build(Array.from(content.classList));
-  expect(css).toMatch(/animation: enter [^;]+;/);
-  expect(css).toMatch(/animation: exit [^;]+;/);
-  expect(css).not.toContain("prefers-reduced-motion");
+  expect(css).not.toMatch(/animation: exit [^;]+;/);
 });

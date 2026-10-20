@@ -19,10 +19,10 @@ export interface paths {
          *     the student sees **which class they are joining** before authenticating.
          *     Never create an account and enrol in one blind tap (§6.2).
          *
-         *     Lookup is by a keyed hash of the normalized code, or by its SHA-256 for
-         *     a code issued before v0.8.0, compared in constant time. The plaintext
-         *     is never stored; a code issued from v0.8.0 on is stored encrypted
-         *     (§6.5).
+         *     Lookup is by a keyed hash of the normalized code, compared in constant
+         *     time. The plaintext is never stored; the code is stored encrypted
+         *     (§6.5). A code issued before v0.8.0, held only as its SHA-256, answers
+         *     as an unknown code.
          */
         post: operations["previewJoinCode"];
         delete?: never;
@@ -53,6 +53,63 @@ export interface paths {
          *     says anything about the database.
          */
         get: operations["getPublicStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/organization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The centre as the front door shows it
+         * @description The centre's name and contact lines, its logos and the ways in the
+         *     sign-in page offers, so the front door can print them before anyone
+         *     signs in. Served from a snapshot the server refreshes at most every
+         *     30 seconds.
+         *
+         *     **Leak review (§6.5).** The answer is identical for every caller and
+         *     never depends on a token. It carries only what the front door already
+         *     prints: the centre's own name and contact lines, two logo paths, and
+         *     three switches the sign-in and join pages act on. No plan, usage or
+         *     count, no person or id, no allowed-domain list, no retention value,
+         *     and nothing about when or by whom the settings were saved.
+         */
+        get: operations["getPublicOrganization"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/organization/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The centre's logo
+         * @description The PNG bytes of the light or the dark logo, served as a download and
+         *     never read as another type. A `v` equal to the current logo's hash makes
+         *     the answer immutable for a year; any other `v`, or none, is cached for
+         *     five minutes. No logo of that variant: 404.
+         *
+         *     **Leak review (§6.5).** Public bytes the centre chose to show on its
+         *     front door, the same for every caller. Nothing names the bucket, the
+         *     object key or who uploaded them.
+         */
+        get: operations["getOrganizationLogo"];
         put?: never;
         post?: never;
         delete?: never;
@@ -109,6 +166,81 @@ export interface paths {
          *     account-takeover path and is not negotiable (§5.1).
          */
         post: operations["googleAuth"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/set-password/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read what a set-password link is for
+         * @description The set-password page calls this with the token it read from the link's
+         *     fragment, before it shows the form, so it can say whose password it is
+         *     about to set. Nothing is consumed: the same token can be checked again
+         *     until it is used, replaced or expired.
+         *
+         *     A link is a one-time secret an Admin or the account's owner had emailed
+         *     (D15). It works once, for 24 hours, and a newer link for the same
+         *     account replaces it.
+         *
+         *     **Leak review (§6.5).** An unknown, used, expired or revoked token, and
+         *     the token of a disabled account, all answer the same `410
+         *     SET_PASSWORD_LINK_INVALID`, with the same message, from the same single
+         *     indexed lookup, so the answer says nothing about which of them it was.
+         *     The lookup is an equality on the SHA-256 of a 256-bit token, which is
+         *     all the database keeps, so its timing reveals nothing usable. A valid
+         *     token is answered with the account's own email and name: the caller
+         *     already holds the secret that controls that account. The token is never
+         *     logged, is never in a query string and never reaches a `Referer`, since
+         *     the page sends it in this body only.
+         */
+        post: operations["checkSetPasswordLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/set-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a password from an emailed link, and sign in
+         * @description Sets the account's password, clears `mustChangePassword`, signs the
+         *     account in and answers as `login` does. The link has just proved
+         *     control of the mailbox, so no other proof is asked for.
+         *
+         *     One statement claims the token, so two submits at once set the password
+         *     once and the second is answered `410`. Setting a password also ends the
+         *     account's other sessions and links: it revokes every refresh family,
+         *     moves `session_epoch`, and revokes the account's other unused links, all
+         *     before the new session is issued. A Google-only account that sets a
+         *     password this way keeps its Google link.
+         *
+         *     **Leak review (§6.5).** The same single `410` as `checkSetPasswordLink`
+         *     for every invalid state. `422 PASSWORD_SIGN_IN_DISABLED` is decided
+         *     before the token is looked up, so it is the same for every caller and
+         *     says nothing about any token or account. A token that is not valid is
+         *     refused before any password is hashed, so the endpoint is no way to
+         *     spend the server's hashing capacity. The token is never logged, is never
+         *     in a query string and never reaches a `Referer`.
+         */
+        post: operations["setPasswordWithLink"];
         delete?: never;
         options?: never;
         head?: never;
@@ -230,6 +362,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/set-password/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email the caller a link to set a password
+         * @description For an account that signs in with Google and has no password: emails
+         *     the account's own address a link, valid once for 24 hours, that opens
+         *     the set-password page. A newer link replaces an earlier unused one. The
+         *     caller stays signed in; using the link later ends the other sessions,
+         *     as setting a password does.
+         *
+         *     The answer is `204` once the message is queued; delivery is by the
+         *     outbox and may follow a moment later. Nothing in the answer says
+         *     whether the address received it.
+         */
+        post: operations["requestSetPasswordLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/google/link": {
         parameters: {
             query?: never;
@@ -241,13 +401,17 @@ export interface paths {
         put?: never;
         /**
          * Link Google to the current account
-         * @description Same `email_verified` rule as sign-in (§5.1).
+         * @description Same `email_verified` rule as sign-in (§5.1), and the same sign-in
+         *     policy: with Google sign-in off, or an address outside the allowed
+         *     domains, nothing is linked (`403`).
          */
         post: operations["linkGoogle"];
         /**
          * Unlink Google
          * @description **Rejected if it would leave no login method** (§15). A Google-only
-         *     account cannot unlink; the client disables the control and explains why.
+         *     account cannot unlink, and neither can an account whose password
+         *     cannot be used because the centre has turned password sign-in off; the
+         *     client disables the control and explains why.
          */
         delete: operations["unlinkGoogle"];
         options?: never;
@@ -2060,7 +2224,8 @@ export interface paths {
         put?: never;
         /**
          * @description Teacher-created accounts get a temporary password and
-         *     `mustChangePassword: true`. Self-signup requires Google (§6.3).
+         *     `mustChangePassword` as the organization's "force password change"
+         *     setting says (on by default). Self-signup requires Google (§6.3).
          *
          *     Every `classIds` entry must be a class the caller teaches, or any class
          *     with `scope.all`. Anything else answers 404, exactly as a missing class
@@ -2175,7 +2340,674 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every account, whatever its role
+         * @description The Users table: every account in the centre, newest first: highest id
+         *     first, which is creation order for every account the app creates. Pages
+         *     are offset based, so accounts added between two requests shift the later
+         *     pages. `q` matches the name and the email together, ignoring case and
+         *     accents (D-11), and `email` is an exact, case-insensitive match for the
+         *     Add user form's "already taken" check. `status` narrows to the accounts
+         *     in that state, which never includes a disabled one (`AccountStatus`
+         *     lists `disabled` first).
+         */
+        get: operations["listUsers"];
+        put?: never;
+        /**
+         * Add an account with a role
+         * @description Creates an account of any role the caller may give (`listAssignableRoles`):
+         *     its permissions, `learning.take_tests` apart, must be the caller's own,
+         *     and the Assistant is never offered. `created_by` is the caller. The role
+         *     is held against edits from the check to the commit; if it changed in
+         *     between, the check is made again, up to three times.
+         *
+         *     `fullName` is composed to NFC, trimmed, and each run of white space is
+         *     one space. A name that is then empty, longer than 200 characters, holds
+         *     a control, format, bidirectional or filler character or a code point
+         *     that is unassigned, or holds no letter, digit, punctuation mark or
+         *     symbol, is refused with `VALIDATION_FAILED` naming `fullName`.
+         *
+         *     `delivery: email_link` sets no password and enqueues a set-password
+         *     link (an invite) in the same transaction as the account, so the account
+         *     and its message exist together or not at all. While the centre has
+         *     turned password sign-in off, the message is a sign-in invite and
+         *     carries no link. `delivery: temporary_password` returns a temporary
+         *     password **once** and keeps only its hash; the account must change it
+         *     at the first sign-in unless the centre's sign-in policy lets it keep
+         *     it. It is refused with `PASSWORD_SIGN_IN_DISABLED` while password
+         *     sign-in is off.
+         *
+         *     `classId` is allowed only for a student-target role and only with
+         *     `scope.all`, and must name a class that is not archived. Writes one
+         *     audit row, `user.created`, with the role and the delivery.
+         *
+         *     Limited to 30 a minute and 300 an hour per signed-in user.
+         */
+        post: operations["createUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * One account for the Users sheet
+         * @description The account with what the sheet draws beside it: who created it, its
+         *     classes, what it owns, the tests it is taking, its latest activity and
+         *     what the caller may do to it (`can`). Any account is visible, whatever
+         *     its role; the subset rule limits what may be done, not what is seen.
+         */
+        get: operations["getUser"];
+        put?: never;
+        post?: never;
+        /** @description Permanently deletes a disabled student account only when no assignment, attempt, retained audit record or owned content references it, and only when the student's permissions, except `learning.take_tests`, are a subset of the caller's. Historical identities use the approved manual anonymization process instead. */
+        delete: operations["deleteUser"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{id}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Give an account another role
+         * @description Both roles, the account's own and the one it is given, must pass the
+         *     subset rule (`TARGET_ROLE_NOT_ALLOWED`); the Assistant is never offered
+         *     (`ROLE_NOT_ASSIGNABLE`), as in `createUser`. The caller cannot change
+         *     their own role (`CANNOT_ACT_ON_SELF`), and the last active Admin cannot
+         *     be moved off the Admin role (`LAST_ADMIN`). The guards apply in that
+         *     order, so an account the caller may not touch is not told it is the last
+         *     Admin.
+         *
+         *     An account that owns classes or content (`ownedContent` of `getUser`)
+         *     cannot be given a role that does not open the teacher workspace: it
+         *     answers `USER_OWNS_CONTENT` with the counts in `details`, and the
+         *     content is moved first (`transferUserContent`). Sending the role the
+         *     account already has writes nothing and answers the account as it is.
+         *
+         *     The new role is held against edits from the check to the commit; if it
+         *     or the account's own role changed in between, the check is made again,
+         *     up to three times, and then `STALE_WRITE` asks the caller to send the
+         *     request again; so does a write the database ended three times over a
+         *     lock another write held. A change ends the account's sessions: every refresh
+         *     family is revoked and the session epoch moves, so its next request is
+         *     authorised by the new role on this machine and within 10 seconds on any
+         *     other. Writes one audit row, `user.role_changed`, with the old and the
+         *     new role.
+         *
+         *     Limited to 30 a minute per signed-in user.
+         */
+        put: operations["changeUserRole"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable an account
+         * @description Blocks sign-in without deleting anything the account has done. The
+         *     subset rule, then not oneself (`CANNOT_ACT_ON_SELF`), then the last
+         *     active Admin (`LAST_ADMIN`) apply in that order. In the same
+         *     transaction every refresh family is revoked, the session epoch moves,
+         *     every set-password link not yet used is revoked and every message still
+         *     waiting in the outbox for the account is cancelled, so nothing sent
+         *     before the disable lets the person in afterwards; enabling the account
+         *     again restores none of them. Disabling an account that is disabled
+         *     already writes nothing and answers the account as it is. Writes one
+         *     audit row, `user.disabled`.
+         *
+         *     Limited to 30 a minute per signed-in user.
+         */
+        post: operations["disableUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{id}/transfer-content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give everything a disabled account owns to another teacher
+         * @description Moves every class the account teaches (archived ones too) and every
+         *     test, question, question group, media asset and assignment it owns,
+         *     deleted ones too, to `toUserId`, in one transaction, so a reader sees
+         *     all of it with the old owner or all of it with the new one. A test and
+         *     its questions move together, so a draft still uses only its owner's
+         *     questions, and the classes' students keep their assignments and
+         *     results. Who made a row (`createdBy`, `uploadedBy`) does not change.
+         *     The account's Word imports that are not finished stay with it and are
+         *     counted in `leftBehind`.
+         *
+         *     The subset rule applies to the account. The account must be disabled
+         *     (`USER_NOT_DISABLED`); the recipient must exist, be active, hold
+         *     `workspace.teacher` and be another account (`INVALID_RECIPIENT`).
+         *     Writes one audit row, `user.content_transferred`, with the recipient
+         *     and the counts. With `notify`, the recipient finds a
+         *     `content.transferred` notification in their bell when anything moved.
+         *     An account that owns nothing answers zeros and still writes its row.
+         *
+         *     Limited to 10 a minute per signed-in user.
+         */
+        post: operations["transferUserContent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable up to 100 accounts at once
+         * @description Does for each account what `disableUser` does, one transaction each, so
+         *     a batch cannot do what one disable cannot. An account that fails does
+         *     not stop the others: `failed` names it with `NOT_FOUND`,
+         *     `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`, `LAST_ADMIN`,
+         *     `STALE_WRITE` (the account's role, or another write to it, kept
+         *     changing while it was being written; nothing was written to it) or
+         *     `INTERNAL` (a fault with that account alone, logged on the server). The
+         *     answer is 200 whenever the request was accepted, even when every
+         *     account failed. An account disabled already counts in `disabled`.
+         *     `disabled` and `failed` keep the order of `userIds`. The audit rows of
+         *     one call carry one batch id.
+         *
+         *     Limited to 30 a minute per signed-in user, a call counting once however
+         *     many accounts it names.
+         */
+        post: operations["disableUsers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enable a disabled account
+         * @description Lets the account sign in again. The subset rule applies
+         *     (`TARGET_ROLE_NOT_ALLOWED`). The sessions and links a disable ended stay
+         *     ended: the person signs in again, and an Admin sends a new link with
+         *     `resetUserPassword`. Enabling an account that is enabled already writes
+         *     nothing and answers the account as it is. Writes one audit row,
+         *     `user.enabled`.
+         */
+        post: operations["enableUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{id}/sign-out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign an account out everywhere
+         * @description Revokes every refresh family the account has and moves its session
+         *     epoch, so its access tokens stop working at once, on this machine and,
+         *     within 10 seconds, on any other. The subset rule applies
+         *     (`TARGET_ROLE_NOT_ALLOWED`). Signing oneself out is allowed, and ends
+         *     the caller's own session too. Writes one audit row,
+         *     `user.signed_out_everywhere`.
+         */
+        post: operations["signOutUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{id}/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset an account's password
+         * @description `delivery: temporary_password` sets a temporary password, returned
+         *     **once** and kept nowhere but as a hash; the account must change it at
+         *     the first sign-in unless the centre's sign-in policy lets it keep it.
+         *     `delivery: email_link` clears the password, so the old one stops working
+         *     at once, and emails a link to choose a new one (24 hours, once).
+         *
+         *     Either way the account's sessions end: every refresh family is revoked,
+         *     the session epoch moves and the unused links it held are revoked. The
+         *     subset rule, then not oneself (`CANNOT_ACT_ON_SELF`; the caller changes
+         *     their own password with `changePassword`) apply in that order. A
+         *     disabled account is refused (`ACCOUNT_DISABLED`). While the centre has
+         *     turned password sign-in off the answer is `PASSWORD_SIGN_IN_DISABLED`.
+         *     The answer is never cached. Writes one audit row,
+         *     `user.password_reset`, with the delivery.
+         *
+         *     Limited to 5 a minute and 30 an hour per signed-in user.
+         */
+        post: operations["resetUserPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/reset-passwords": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset the passwords of up to 100 accounts at once
+         * @description Does for each account what `resetUserPassword` does, one transaction
+         *     each, with the same guards in the same order, so a batch cannot do what
+         *     one reset cannot. `userIds` holds at most 40 ids for
+         *     `delivery: temporary_password`, because each password is hashed, two at
+         *     a time, and at most 100 for `email_link`.
+         *
+         *     An account that fails does not stop the others: `failed` names it with
+         *     `NOT_FOUND`, `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`,
+         *     `ACCOUNT_DISABLED`, `STALE_WRITE` (the account's role, or another write
+         *     to it, kept changing while it was being written; nothing was written to
+         *     it) or `INTERNAL` (a fault with that account alone,
+         *     logged on the server). The answer is 200 whenever the request was
+         *     accepted, even when every account failed. `items` and `failed` keep the
+         *     order of `userIds`. `PASSWORD_SIGN_IN_DISABLED` refuses the whole
+         *     request while the centre has turned password sign-in off.
+         *
+         *     Each `temporaryPassword` is returned **once** and stored nowhere. A
+         *     reset that committed before the connection dropped has lost its
+         *     password for good; `listUsers` with `status=must_change_password` lists
+         *     those accounts for another reset. The answer is never cached. The audit
+         *     rows of one call carry one batch id.
+         *
+         *     Limited to 2 a minute and 10 an hour per signed-in user, a call counting
+         *     once however many accounts it names.
+         */
+        post: operations["resetUsersPasswords"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/user-imports/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What a CSV or XLSX file of accounts would come to
+         * @description Reads the file under a one-slot gate and judges every row against what
+         *     the caller may do, writing nothing. The first sheet of a workbook, or a
+         *     UTF-8 CSV file, holds the columns `full_name` and `email` and may hold
+         *     `role` and `class`, named in any case and order; any other column is
+         *     ignored. The format is read from the bytes and never from the name.
+         *     A file is at most 5 MiB, 2,000 data rows, 20 columns and 1,000
+         *     characters a cell.
+         *
+         *     `role` is a built-in key (`student`, `teacher`), a role's name (the
+         *     built-ins are "Học viên" and "Giáo viên") or empty, which takes
+         *     `defaultRole`. `class` is the exact name of an active class, only for a
+         *     student-target role and only for a caller holding `scope.all`. An
+         *     address that already belongs to an account is counted and skipped, never
+         *     updated. Every refused cell is reported once, so one pass shows
+         *     everything to correct.
+         *
+         *     `defaultRole` must be a role the caller may give, as `createUser`
+         *     requires of `roleId`. Limited to 10 a minute per signed-in user.
+         */
+        post: operations["previewUserImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/user-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import the accounts of a file
+         * @description Reads and judges the file again, never trusting a preview, stores the
+         *     job and every row that passed in one transaction, and wakes the worker,
+         *     which creates the accounts a few at a time. The caller's `requestId`,
+         *     held for as long as the dialog is open, makes the request idempotent:
+         *     the same `requestId` returns the job it stored the first time, whatever
+         *     the file then holds, and creates no second one. Audits
+         *     `user_import.requested`; the accounts are audited as `user.created`
+         *     with `via: import` when the worker creates them.
+         *
+         *     The file, `defaultRole` and `delivery` are those of `previewUserImport`.
+         *     A file in which no row would create an account is refused with
+         *     `USER_IMPORT_NOTHING_TO_CREATE`. Limited to 5 an hour per signed-in
+         *     user.
+         */
+        post: operations["createUserImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/user-imports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * How an import is going
+         * @description The progress of one of the caller's own imports. Another user's import
+         *     answers as a missing one.
+         */
+        get: operations["getUserImport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/user-imports/{id}/sheet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take the sheet of temporary passwords an import made
+         * @description For a job delivered by `sheet`, hands its importer one CSV file, once:
+         *     a row for every account the job created, with `full_name`, `email`,
+         *     `role`, `class` and `temporary_password`. One transaction opens the
+         *     passwords, erases them from the job and records the download, so the
+         *     file is the only copy and a second request cannot have it. A job that is
+         *     not done, was delivered by email, created no account, has been
+         *     downloaded, or finished more than 24 hours ago answers
+         *     `410 SHEET_UNAVAILABLE`; another user's job is `404`. The response is
+         *     `no-store`, a UTF-8 file with a byte-order mark and CRLF line ends in
+         *     which a cell that a spreadsheet would run as a formula starts with `'`.
+         *     Audited as `user_import.sheet_downloaded`. Limited to 5 a minute per
+         *     signed-in user.
+         */
+        post: operations["downloadUserImportSheet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/classes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every teacher's classes
+         * @description The Admin Classes table: every class in the centre, newest first, with
+         *     its teacher and its active join code read in full. `tab` is `active`
+         *     (the default) or `archived`. `q` matches the class's name or its
+         *     teacher's name, ignoring case and accents (D-11). `teacher=disabled`
+         *     keeps the classes whose teacher's account is disabled.
+         *     `disabledTeacherClasses` counts the centre's classes that are not
+         *     archived and whose teacher is disabled, whatever the search, the tab
+         *     and the filter.
+         *
+         *     Each `joinCode.code` is a bearer secret, so the answer is never cached
+         *     and the operation is limited like the others that reveal one: 60 a
+         *     minute and 600 an hour per signed-in user.
+         */
+        get: operations["listAllClasses"];
+        put?: never;
+        /**
+         * Create a class for a teacher
+         * @description Creates a class `teacherId` teaches, with self-join on. The teacher
+         *     must exist, be active and hold `workspace.teacher`
+         *     (`INVALID_RECIPIENT`). While the centre lets students join with a code
+         *     the class gets a new code in the same transaction, as
+         *     `rotateJoinCode` would issue it with its defaults; while joining with
+         *     a code is off it gets none, and `joinCode` is `null`. Writes the audit
+         *     row `class.created` with `onBehalfOf`, the teacher's id, and
+         *     `class.join_code_issued` when a code was issued.
+         */
+        post: operations["createClassForTeacher"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/classes/{id}/teacher": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Give a class to another teacher
+         * @description Makes `teacherId` the class's teacher. The class, archived or not, its
+         *     members, its join code and the assignments that target it stay as they
+         *     are: the new teacher reaches them through the class, and the previous
+         *     one no longer does, except for the assignments they created. The
+         *     teacher must exist, be active and hold `workspace.teacher`
+         *     (`INVALID_RECIPIENT`). Writes the audit row `class.teacher_changed`
+         *     with `teacher {old, new}`; with `notify`, the new teacher and the
+         *     previous one, unless their account is disabled, find a
+         *     `class.teacher_changed` item in their bells. Naming the class's
+         *     current teacher changes nothing, writes nothing and tells nobody.
+         */
+        put: operations["changeClassTeacher"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The roles and the permission catalogue
+         * @description Every role with its permissions, head count and revision, and the
+         *     catalogue of matrix rows, for the Roles & permissions page. The
+         *     Assistant is listed as the deck draws it; only the role pickers
+         *     (`listAssignableRoles`) leave it out.
+         */
+        get: operations["listRoles"];
+        put?: never;
+        /**
+         * Create a custom role
+         * @description The new role takes the icon `key-round` and the colour `gray`, and starts
+         *     with the permissions of `copyFromRoleId`, if given. The source must pass
+         *     the subset rule: its permissions, `learning.take_tests` apart, are the
+         *     caller's own. The Assistant cannot be a source. A name and a description
+         *     are stored in Unicode NFC, so the composed and decomposed forms of one
+         *     name are the same name. The limits of 60 and 300 characters count the
+         *     text after NFC; the schema bounds the text as sent at four times that,
+         *     so a name typed decomposed is not refused before it is composed. A name
+         *     holds a letter, a digit, a punctuation mark or a symbol. Neither field
+         *     holds a control or invisible character, a tab included: a zero-width
+         *     one, a blank filler such as the Hangul filler or the Braille blank, a
+         *     lone code point nothing assigns. A description may hold line breaks,
+         *     which are stored as LF whether they arrive as CR LF, CR or LF; a name
+         *     may not. At most 200 roles exist, the four built-in ones included; past
+         *     that the answer is `ROLE_LIMIT_REACHED`. Writes one audit row,
+         *     `role.created`.
+         */
+        post: operations["createRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/roles/assignable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The roles the caller may give to a user
+         * @description The roles whose permissions, `learning.take_tests` apart, are a subset of
+         *     the caller's, without the Assistant, which no picker offers. For the Add
+         *     user dialog and the user sheet.
+         */
+        get: operations["listAssignableRoles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/roles/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save the matrix
+         * @description Grants and revokes permissions across roles in one transaction, and
+         *     refuses the whole save when any change breaks a rule:
+         *
+         *     - `KEY_NOT_GRANTABLE` — a hidden key.
+         *     - `ROLE_LOCKED` — an Admin cell other than `learning.take_tests`.
+         *     - `STUDENT_NEEDS_TAKE_TESTS` — `learning.take_tests` off the built-in Student.
+         *     - `CANNOT_ACT_ON_SELF` — a change to the caller's own role, except the
+         *       Admin role's `learning.take_tests` cell, which gives no power over anyone.
+         *     - `TARGET_ROLE_NOT_ALLOWED` (403) — a role, or a key granted or revoked,
+         *       that the subset rule keeps from the caller.
+         *     - `STALE_WRITE` (409) — a role is past its expected revision, or the
+         *       save names no revision for it.
+         *
+         *     A change that leaves a cell as it was is accepted and writes nothing.
+         *     Everyone's permissions are read again on their next request on the
+         *     machine that served the save, and within about ten seconds on any other. Writes
+         *     one `role.permissions_changed` audit row per role changed.
+         */
+        put: operations["setRolePermissions"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/roles/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2187,8 +3019,104 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** @description Permanently deletes a disabled student account only when no assignment, attempt, retained audit record or owned content references it, and only when the student's permissions, except `learning.take_tests`, are a subset of the caller's. Historical identities use the approved manual anonymization process instead. */
-        delete: operations["deleteUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit a role's name, description, icon or colour
+         * @description A supplied field is changed and the others are kept; a body with only
+         *     `expectedRevision` is refused. A built-in role may be renamed; its key never changes. The target must pass the subset rule.
+         *     A name and a description are stored in Unicode NFC and follow the rules
+         *     of a role's creation: the limits count the text after NFC, a name holds
+         *     a letter, a digit, a punctuation mark or a symbol, and neither holds a
+         *     control or invisible character.
+         *     A change moves the revision. Writes one audit row, `role.updated`, naming
+         *     what changed.
+         */
+        patch: operations["updateRole"];
+        trace?: never;
+    };
+    "/admin/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Admin console's Overview
+         * @description Everything the Overview draws in one read: the centre's name, how many
+         *     people and classes it holds, who was active on each of the last
+         *     fourteen days, what needs attention, the five newest audit entries and
+         *     the storage meters.
+         *
+         *     Each section is `null` for a caller who lacks its key, never an error,
+         *     so a custom role sees only what it may: `people` and `dailyActive` need
+         *     `people.users.manage`, `classes` needs `scope.all`, `recentChanges`
+         *     `system.audit.read` and `storage` `system.settings.write`. An attention
+         *     row is held to the key of the page it leads to: `must_change_password`
+         *     and `never_signed_in` need `people.users.manage`,
+         *     `disabled_teacher_classes` `scope.all`, `storage` `system.settings.write`
+         *     and `ai_credit_requests` `ai.credits.manage`, which exists only while the
+         *     AI assistant is configured. A row whose count is zero is left out.
+         *
+         *     Days are the local dates of the centre's `APP_TIMEZONE`, the same days
+         *     the activity table records. `people.activeThisWeek` counts the
+         *     distinct accounts active on any of the last seven of them, today
+         *     included.
+         */
+        get: operations["getAdminOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Admin console's nav counts
+         * @description The one count the Admin sidebar draws as a badge: the accounts that
+         *     must change their password (DG-54). It is the number the Overview's
+         *     `must_change_password` attention row carries, counted by the same rule.
+         *     `mustChangePassword` is `null` without `people.users.manage`, when the
+         *     count is not run.
+         */
+        get: operations["getAdminSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the centre uses against its plan
+         * @description The Plan & usage figures. The plan and its limits come from the
+         *     server's `PLAN_*` configuration, each optional, and nothing here is
+         *     enforced (DG-55): a limit is shown, never applied. `aiCredits` is the
+         *     month's credits used against the centre pool, and is `null` without
+         *     `ai.credits.manage` and while the AI assistant is off.
+         */
+        get: operations["getUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2215,6 +3143,239 @@ export interface paths {
          *     rate-limited as an operation that mints a credential.
          */
         post: operations["openDocsSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/api-reference": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the API reference holds
+         * @description The contract's OpenAPI and document versions, how many operations it
+         *     declares and, for each tag in the order the contract lists them, how
+         *     many operations carry it (an operation with two tags is counted under
+         *     both). It is read once from the spec the server embeds, so it always
+         *     describes the build that answers. The page draws its own names and
+         *     blurbs for the groups; this is the part only the server knows.
+         */
+        get: operations["getApiReferenceSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/api-reference/openapi.json": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the contract
+         * @description This file, `api/openapi.yaml`, converted to JSON with its keys, values
+         *     and order unchanged (DG-10), an attachment named `quizzivy-openapi.json`.
+         *     It is not the spec the server routes by, whose operation ids the code
+         *     generator has rewritten and whose descriptions beside a `$ref` it has
+         *     dropped. The body is that JSON document, declared as a byte stream so
+         *     the generated server writes it as it is and does not encode it a second
+         *     time. The response is
+         *     `no-store`. It needs the bearer token and `system.api_reference`,
+         *     unlike `/docs/openapi.json`, which answers to a docs session.
+         */
+        get: operations["downloadOpenApi"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/audit-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The audit log
+         * @description One page of the audit log, newest first, and how many entries each
+         *     category holds. The log is append-only: nothing here changes it.
+         *
+         *     **Range.** `range` is `today` (from midnight), `7d` (the last seven
+         *     calendar days, today included), `30d` (the last thirty), `all`, or
+         *     `custom`, which takes `from` and `to` as dates, both inclusive. Every
+         *     day is the viewer's own: their stored time zone, else the centre's
+         *     default. `from` and `to` without `custom`, `custom` without both, and a
+         *     `to` before `from` answer `400 VALIDATION_FAILED` naming the field.
+         *
+         *     **Search.** `q` matches, without regard to case or accents, the actor's
+         *     name or email, the sentence that words the action in either language,
+         *     and the label of the user, class, test, assignment, attempt, media file,
+         *     import or question group an entry is about.
+         *
+         *     **Categories.** An entry's category follows from the kind of thing it
+         *     is about. Entries about the organization, exports, maintenance,
+         *     retention and the AI credits belong to no category: `category` is
+         *     `null` and only the unfiltered list holds them.
+         *
+         *     **Facets.** `facets` counts the entries that match the current `q` and
+         *     range and ignores `category`, so selecting one never zeroes the others;
+         *     `all` counts every such entry, those in no category included, so it can
+         *     exceed the sum of the six. `total` is the selected category's count, or
+         *     `all`.
+         *
+         *     **Entries.** `changes` lists the fields an entry changed, each with the
+         *     value it had and the value it has. `details` holds anything else the
+         *     entry recorded. A join code is shown as `••••-` and its last four
+         *     characters, and a password, token or secret is never shown. `label` is
+         *     `null` when the row the entry is about no longer exists.
+         */
+        get: operations["listAuditLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/audit-log/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the audit log
+         * @description The entries of a period, newest first, as one file. `period` is the
+         *     last seven or thirty calendar days or the calendar year so far, counted
+         *     in the viewer's own time zone; `range`, `from` and `to` are not
+         *     parameters here. `category` and `q` narrow it as they narrow the list.
+         *
+         *     The file is an attachment named `audit-log-YYYYMMDD` with `.csv` or
+         *     `.json`, and the response is `no-store`. A CSV is UTF-8 with a
+         *     byte-order mark and CRLF line ends, headers in the viewer's language
+         *     by `Accept-Language`, and every cell that a spreadsheet would run as a
+         *     formula is written with a leading `'`. A JSON file is an array of the
+         *     entries `listAuditLog` returns. Both are streamed.
+         *
+         *     More than 100,000 entries answer `422 EXPORT_TOO_LARGE`, and the caller
+         *     is asked for a shorter period. Each file is itself audited as
+         *     `audit.exported`, with the period, the format and the number of rows.
+         *     A caller is limited to 5 files a minute and 30 an hour.
+         */
+        get: operations["exportAuditLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/data-exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for a full export of the centre's data
+         * @description Queues one export for the worker and answers at once. It builds a ZIP
+         *     of `users.csv` (no password hashes or tokens), `roles.csv`,
+         *     `classes.csv` (no join codes), `class_members.csv`, `tests.csv`,
+         *     `test_versions.csv`, `assignments.csv`, `attempts.csv`, with
+         *     `answers.csv` when `includeAnswers` is true, and a `README.txt` in
+         *     Vietnamese and English that describes each file. Every CSV is UTF-8
+         *     with a byte-order mark and CRLF line ends, and a cell that a
+         *     spreadsheet would run as a formula is written with a leading `'`.
+         *
+         *     Only one export runs at a time for the whole centre: while any is
+         *     queued or running, another request answers `409 EXPORT_IN_PROGRESS`.
+         *     When the file is ready the requester gets an email that links to the
+         *     app page `/admin/exports/{id}`, never to the file. The file can be
+         *     fetched up to three times, by the requester, within 24 hours
+         *     (`downloadDataExport`).
+         *     The request is audited as `data_export.requested`. A caller who has an
+         *     export from the last hour that has not failed (queued, running, ready
+         *     or fetched) is refused with `429 RATE_LIMITED` and `Retry-After`, the
+         *     seconds until that export is an hour old. A failed export, a request
+         *     refused with `409` and a request refused with `429` do not count.
+         *     Without object storage and the worker the answer is `501 EXPORT_OFF`.
+         */
+        post: operations["requestDataExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/data-exports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Where an export stands
+         * @description The state of an export the caller requested; another user's export
+         *     answers `404` exactly as a missing one does. A `ready` export whose
+         *     24 hours have passed reads `expired`, whether or not the housekeeping
+         *     has removed its file yet.
+         */
+        get: operations["getDataExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/data-exports/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fetch an export, up to three times
+         * @description Hands the requester a presigned URL for the ZIP, valid for 60 seconds,
+         *     that forces an attachment named `quizzivy-export-YYYYMMDD.zip`. One
+         *     statement checks that the export is `ready`, unexpired and signed fewer
+         *     than three times, and counts the signing in `downloads`, so a failed
+         *     transfer can be tried again; the fourth request, and a request after the
+         *     24 hours, answer `410 EXPORT_UNAVAILABLE`. Another user's export answers
+         *     `404`. The response is `no-store`, because the URL is a credential. Each
+         *     signing is audited as `data_export.downloaded`, and a caller may fetch
+         *     ten an hour.
+         */
+        post: operations["downloadDataExport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2361,6 +3522,119 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The centre's settings
+         * @description The whole settings document as stored, read from the database.
+         */
+        get: operations["getOrganizationSettings"];
+        /**
+         * Save the centre's settings
+         * @description Replaces the whole document when `expectedRevision` is the stored one,
+         *     and answers it as stored, its revision one higher. A logo is named by
+         *     the hash `uploadOrganizationLogo` answered; until a save names it, an
+         *     upload changes nothing. A policy that would leave the caller, or every
+         *     active built-in Admin, without a way to sign in is refused, judged
+         *     inside the save as `getSignInImpact` judges it. One audit row,
+         *     `organization.updated`, names the caller and the fields that changed.
+         *     Other servers apply the new document within 30 seconds.
+         */
+        put: operations["updateOrganizationSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/settings/sign-in-impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What a sign-in policy would do to the active accounts
+         * @description Counts, without storing anything, the active accounts the proposed
+         *     policy would leave with no way to sign in, the built-in Admins among
+         *     them, and whether the caller is one. The settings page asks before it
+         *     offers Save; the save judges again.
+         */
+        post: operations["getSignInImpact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/settings/retention-impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What a retention policy would remove today
+         * @description Counts, without storing or removing anything, what the nightly sweep
+         *     would do today under the proposed policy: the answers it would remove
+         *     and the attempts they belong to, the focus-loss events it would delete,
+         *     and the disabled accounts it would anonymise, with those it would leave
+         *     because they own classes or content. The counts are the sweep's dry run
+         *     (T-R5.17a), built from the same rule.
+         */
+        post: operations["getRetentionImpact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/settings/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a logo
+         * @description Stores a logo and answers its hash, which a save of the settings then
+         *     names; the upload alone changes nothing ("Logo uploaded. Save settings
+         *     to apply."). The object is content-addressed, so the same file uploaded
+         *     twice is stored once.
+         *
+         *     A PNG is at most 1 MiB, square within 2% and 256 to 2048 pixels a side.
+         *     Its type is read from its first bytes, its header before any pixel is
+         *     decoded, and it is decoded and encoded afresh, which drops every
+         *     metadata chunk. Any other type, an SVG included, answers
+         *     `MEDIA_TYPE_UNSUPPORTED`: the settings page draws an SVG to a PNG in the
+         *     browser before it uploads (D-019). A caller
+         *     may upload 20 logos an hour.
+         *
+         *     The request may carry 16 KiB more than the 1 MiB file for the multipart
+         *     framing.
+         */
+        post: operations["uploadOrganizationLogo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teacher/classes": {
         parameters: {
             query?: never;
@@ -2491,11 +3765,11 @@ export interface paths {
          *     other that reveals one. It is not audited, because the teacher's
          *     screens show the code on every class card.
          *
-         *     `code` is `null` when the code cannot be read back. A code issued
-         *     before v0.8.0 is held only as a hash (`legacy: true`), and R4 rotates
-         *     those. A code sealed under a key this server no longer holds
-         *     (`legacy: false`) can be neither read nor redeemed. Rotate either to
-         *     get a readable code.
+         *     `code` is `null` when the code cannot be read back: it is sealed under
+         *     a key this server no longer holds, and can be neither read nor
+         *     redeemed. Rotate it to get a readable code. `legacy` is always false:
+         *     a code issued before v0.8.0, held only as a hash, was rotated in R4,
+         *     and the database refuses one that is not revoked (§13.3).
          *
          *     404 when the class is not the caller's, exactly as a missing class
          *     answers, or when it has no active code.
@@ -3536,6 +4810,178 @@ export interface components {
              */
             ai: boolean;
         };
+        /**
+         * @description What `GET /public/organization` answers: the lines the front door prints
+         *     about the centre, its logos and the ways in it offers. A line the centre
+         *     has not filled is `null`, and the front door then prints its build value.
+         */
+        PublicOrganization: {
+            name: string;
+            shortName: string | null;
+            website: string | null;
+            contactEmail: string | null;
+            frontDeskPhone: string | null;
+            frontDeskHours: string | null;
+            address: string | null;
+            logo: {
+                /**
+                 * @description The light logo's path on the API's origin, carrying its content
+                 *     hash as `v`, so a new logo is a new URL and the bytes behind one
+                 *     never change; `null` when the centre has none.
+                 * @example /public/organization/logo?variant=light&v=5e88…
+                 */
+                lightUrl: string | null;
+                /** @description The dark logo's path, as `lightUrl`; `null` when the centre has none. */
+                darkUrl: string | null;
+            };
+            signIn: {
+                /** @description Whether Google sign-in is offered. */
+                google: boolean;
+                /** @description Whether email and password sign-in is offered. */
+                password: boolean;
+            };
+            /** @description Whether students can join a class with a code. */
+            joinCodes: boolean;
+        };
+        /** @description A stored logo, named by the SHA-256 of its bytes. */
+        OrganizationLogo: {
+            sha256: string;
+            /** @enum {string} */
+            type: "image/png";
+        };
+        /**
+         * @description Who the centre is and how it is reached. Every text is trimmed; an
+         *     optional one that is empty after trimming is stored as `null`.
+         */
+        OrganizationProfile: {
+            /** @description At most 120 characters after Unicode NFC. */
+            name: string;
+            /** @description At most 40 characters after Unicode NFC. */
+            shortName: string | null;
+            /** @description A domain or an `https` address, without spaces or credentials, as `quizzivy.com` or `https://quizzivy.com/lien-he`. `http` and other schemes are refused. */
+            website: string | null;
+            /** @description An address of a local part and a domain with a dot, as `hello@quizzivy.com`. */
+            contactEmail: string | null;
+            /** @description Digits, spaces and `+ ( ) . -`, 6 to 30 characters. */
+            frontDeskPhone: string | null;
+            frontDeskHours: string | null;
+            address: string | null;
+            logo: {
+                /** @description The logo on a light background, or `null` for none. */
+                light: components["schemas"]["OrganizationLogo"] | null;
+                /** @description The logo on a dark background, or `null` for none. */
+                dark: components["schemas"]["OrganizationLogo"] | null;
+            };
+        };
+        /** @description How people sign in. At least one of `google` and `password` is on. */
+        SignInPolicy: {
+            google: boolean;
+            password: boolean;
+            /** @description Whether a temporary password issued from now on must be changed at the first sign-in. Passwords issued before keep what they had. */
+            forcePasswordChange: boolean;
+            /** @description Whether students can join a class with a code. */
+            joinCodes: boolean;
+            /**
+             * @description The email domains a Google account must be in to sign in, link or
+             *     join; empty allows every domain. Stored lower-case.
+             */
+            allowedGoogleDomains: string[];
+        };
+        /**
+         * @description How long the centre keeps what it collects. The nightly sweep applies
+         *     it once enabled (T-R5.17a); `null` means for ever, or never.
+         */
+        RetentionPolicy: {
+            /** @description Months an answer is kept after its attempt ends, or `null` for ever. */
+            keepAnswersMonths: (12 | 24) | null;
+            /** @enum {integer} */
+            keepFocusEventsMonths: 6 | 12 | 13 | 24;
+            /** @description Months after which a disabled account is anonymised, or `null` for never. */
+            anonymiseDisabledAfterMonths: (12 | 24) | null;
+        };
+        /** @description The whole settings document, as stored. */
+        OrganizationSettings: {
+            organization: components["schemas"]["OrganizationProfile"];
+            signIn: components["schemas"]["SignInPolicy"];
+            retention: components["schemas"]["RetentionPolicy"];
+            /**
+             * Format: int64
+             * @description Grows by one with every save; a save names the revision it was read at.
+             */
+            revision: number;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description Who saved last, or `null` before the first save and once that account is gone. */
+            updatedBy: components["schemas"]["Uuid"] | null;
+        };
+        /** @description The whole document to store, and the revision it was read at. */
+        OrganizationSettingsInput: {
+            organization: components["schemas"]["OrganizationProfile"];
+            signIn: components["schemas"]["SignInPolicy"];
+            retention: components["schemas"]["RetentionPolicy"];
+            /** Format: int64 */
+            expectedRevision: number;
+        };
+        /**
+         * @description What a proposed policy would do to the active accounts. A method counts
+         *     for an account when the policy allows it: a password when the account
+         *     has one, Google when a linked Google account's email is in an allowed
+         *     domain (any domain when the list is empty).
+         */
+        SignInImpact: {
+            /** @description Active accounts left with no method that counts. */
+            affectedUsers: number;
+            /** @description Of those, the accounts of the built-in Admin role. */
+            affectedAdmins: number;
+            /** @description Whether the caller is among them. */
+            actorLocked: boolean;
+            /** @description Whether a save would be refused with `SIGN_IN_POLICY_LOCKOUT`; the caller is locked out, or no active built-in Admin keeps a method. */
+            lockout: boolean;
+        };
+        /**
+         * @description What the nightly sweep would do today under a proposed retention
+         *     policy. `answers` and `accounts` are `null` when the policy keeps
+         *     answers for ever or never anonymises.
+         */
+        RetentionImpact: {
+            answers: {
+                /**
+                 * Format: int64
+                 * @description Ended attempts that hold an answer to remove.
+                 */
+                attempts: number;
+                /**
+                 * Format: int64
+                 * @description Answers that would be removed.
+                 */
+                answers: number;
+            } | null;
+            /**
+             * Format: int64
+             * @description Focus-loss events that would be deleted.
+             */
+            focusEvents: number;
+            accounts: {
+                /**
+                 * Format: int64
+                 * @description Disabled accounts that would be anonymised.
+                 */
+                anonymise: number;
+                /**
+                 * Format: int64
+                 * @description Disabled accounts left because they own classes or content.
+                 */
+                skippedOwners: number;
+            } | null;
+        };
+        /** @description A logo stored and ready to be named in a save. */
+        OrganizationLogoUpload: {
+            sha256: string;
+            /** @enum {string} */
+            type: "image/png";
+            width: number;
+            height: number;
+        };
         MaintenanceWindow: {
             startsAt: components["schemas"]["Timestamp"];
             endsAt: components["schemas"]["Timestamp"];
@@ -3562,7 +5008,7 @@ export interface components {
          *     be sent again.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "SET_PASSWORD_LINK_INVALID" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_LIMIT_REACHED" | "ROLE_NOT_ASSIGNABLE" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "LAST_ADMIN" | "USER_OWNS_CONTENT" | "USER_NOT_DISABLED" | "INVALID_RECIPIENT" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "ANSWER_REMOVED" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "EXPORT_IN_PROGRESS" | "EXPORT_UNAVAILABLE" | "EXPORT_OFF" | "USER_IMPORT_FILE_TOO_LARGE" | "USER_IMPORT_FILE_UNREADABLE" | "USER_IMPORT_FILE_EMPTY" | "USER_IMPORT_TOO_MANY_ROWS" | "USER_IMPORT_COLUMNS" | "USER_IMPORT_NOTHING_TO_CREATE" | "SHEET_UNAVAILABLE" | "CSV_NOT_UTF8" | "XLSX_MACROS" | "XLSX_ENCRYPTED" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -3777,6 +5223,42 @@ export interface components {
             /** Format: uri */
             url: string;
             expiresAt: components["schemas"]["Timestamp"];
+        };
+        DataExportRequest: {
+            /** @description Whether the ZIP also holds `answers.csv`, every answer of every attempt. */
+            includeAnswers: boolean;
+        };
+        /**
+         * @description One data export. `status` is `queued` until the worker claims it,
+         *     `running` while it builds the file, `ready` once the file is stored and
+         *     the requester has been told, `failed` when it could not be built (the
+         *     requester may ask again), and `expired` once the 24 hours of a `ready`
+         *     export have passed. `downloadedAt` is the first time the file was
+         *     fetched, and `downloads` counts how many times a URL was handed out (0
+         *     to 3): the third fetch is the last. `bytes`, `completedAt` and
+         *     `expiresAt` are `null` until the export is ready.
+         */
+        DataExport: {
+            id: components["schemas"]["Uuid"];
+            /** @enum {string} */
+            status: "queued" | "running" | "ready" | "failed" | "expired";
+            includeAnswers: boolean;
+            /** Format: int64 */
+            bytes: number | null;
+            createdAt: components["schemas"]["Timestamp"];
+            /** Format: date-time */
+            completedAt: string | null;
+            /** Format: date-time */
+            expiresAt: string | null;
+            /** Format: date-time */
+            downloadedAt: string | null;
+            downloads: number;
+        };
+        DataExportDownload: {
+            /** Format: uri */
+            url: string;
+            /** @constant */
+            expiresInSeconds: 60;
         };
         ImportCapabilities: {
             retention: components["schemas"]["ImportRetention"];
@@ -4036,7 +5518,8 @@ export interface components {
          *     `ai.use` gates every `/teacher/ai/*` operation and the import's "Read
          *     with AI"; `ai.credits.manage` gates every `/admin/ai/*` operation. The
          *     Admin holds both, the built-in Teacher holds `ai.use`, and a custom role
-         *     may hold either alone. `ai.credits.manage` opens no workspace by itself.
+         *     may hold either alone. `ai.credits.manage` opens the Admin console by
+         *     itself (`workspace.admin`); `ai.use` opens no workspace.
          *
          *     The last four keys in the enum are hidden: no matrix row shows them,
          *     no role is granted them, and only the Admin holds them. The Admin
@@ -4052,6 +5535,121 @@ export interface components {
          * @enum {string}
          */
         PermissionKey: "content.tests.write" | "content.tests.publish" | "content.questions.write" | "content.media.write" | "content.share" | "ai.use" | "teaching.classes.write" | "teaching.assignments.write" | "teaching.grading" | "teaching.attempts.intervene" | "teaching.attendance" | "people.students.read" | "people.students.create" | "people.students.reset_password" | "people.users.manage" | "people.roles.manage" | "system.audit.read" | "system.settings.write" | "learning.take_tests" | "ai.credits.manage" | "scope.all" | "system.api_reference" | "system.data_export" | "system.leads";
+        /**
+         * @description The Edit role dialog's twelve icons; the same set `app.roles.icon` checks.
+         * @enum {string}
+         */
+        RoleIcon: "shield" | "graduation-cap" | "hand-helping" | "user" | "key-round" | "crown" | "briefcase" | "book-open" | "users" | "clipboard-check" | "headset" | "star";
+        /**
+         * @description The Edit role dialog's seven card colours; the same set `app.roles.color` checks.
+         * @enum {string}
+         */
+        RoleColor: "dark" | "lime" | "blue" | "green" | "amber" | "rose" | "gray";
+        /**
+         * @description The immutable key of a built-in role. A custom role has none.
+         * @enum {string}
+         */
+        BuiltinRoleKey: "admin" | "teacher" | "assistant" | "student";
+        RoleSummary: {
+            id: components["schemas"]["Uuid"];
+            builtinKey: components["schemas"]["BuiltinRoleKey"] | null;
+            name: string;
+            description: string;
+            icon: components["schemas"]["RoleIcon"];
+            color: components["schemas"]["RoleColor"];
+            /** @description True when the role is not built in. */
+            custom: boolean;
+            /** @description Accounts that hold the role, disabled ones included. */
+            userCount: number;
+            /**
+             * @description What the role's users may do, in catalogue order, without the
+             *     hidden keys: the matrix column. The Admin's is every matrix key
+             *     except `learning.take_tests`, which it holds only when that cell
+             *     is turned on.
+             */
+            permissions: components["schemas"]["PermissionKey"][];
+            /**
+             * Format: int64
+             * @description Moves with every change to the role. Sent back as `expectedRevision` so a stale save is refused.
+             */
+            revision: number;
+            /**
+             * @description False where the subset rule stops the caller from acting on the
+             *     role: it holds a permission the caller lacks, `learning.take_tests`
+             *     apart. The caller's own role is editable here, but its permissions
+             *     are never changed by its holder (`CANNOT_ACT_ON_SELF`).
+             */
+            editable: boolean;
+            /** @description Attempts in progress right now by users who hold the role. */
+            inProgressAttempts: number;
+        };
+        PermissionCatalogueEntry: {
+            key: components["schemas"]["PermissionKey"];
+            /** @enum {string} */
+            group: "content" | "teaching" | "people" | "system";
+            /** @description True where the Admin's cell cannot be changed, which is every key but `learning.take_tests`. */
+            adminLocked: boolean;
+        };
+        RoleList: {
+            /** @description Every role, in the order Admin, Teacher, Assistant, Student, then custom roles oldest first. */
+            roles: components["schemas"]["RoleSummary"][];
+            /** @description The matrix rows in order. The hidden keys are left out. */
+            catalogue: components["schemas"]["PermissionCatalogueEntry"][];
+        };
+        AssignableRole: {
+            id: components["schemas"]["Uuid"];
+            builtinKey: components["schemas"]["BuiltinRoleKey"] | null;
+            name: string;
+            icon: components["schemas"]["RoleIcon"];
+            color: components["schemas"]["RoleColor"];
+            /** @description True for the built-in Student and any custom role whose permissions are a subset of `learning.take_tests`, so a custom role with no permission at all is a student target. */
+            studentTarget: boolean;
+        };
+        RoleInput: {
+            /** @description At most 60 characters after Unicode NFC. */
+            name: string;
+            /** @description At most 300 characters after Unicode NFC. */
+            description?: string;
+            /** @description The role whose permissions the new role starts with. Omitted, it starts with none. */
+            copyFromRoleId?: components["schemas"]["Uuid"];
+        };
+        RoleUpdate: {
+            /** @description At most 60 characters after Unicode NFC. */
+            name?: string;
+            /** @description At most 300 characters after Unicode NFC. */
+            description?: string;
+            icon?: components["schemas"]["RoleIcon"];
+            color?: components["schemas"]["RoleColor"];
+            /** Format: int64 */
+            expectedRevision: number;
+        };
+        RolePermissionChange: {
+            roleId: components["schemas"]["Uuid"];
+            key: components["schemas"]["PermissionKey"];
+            granted: boolean;
+        };
+        RoleRevision: {
+            roleId: components["schemas"]["Uuid"];
+            /** Format: int64 */
+            revision: number;
+        };
+        RolePermissionsInput: {
+            changes: components["schemas"]["RolePermissionChange"][];
+            /** @description The revision of every role a change touches, as the matrix last read it. */
+            expectedRevisions: components["schemas"]["RoleRevision"][];
+        };
+        RolePermissionsResult: {
+            /** @description The roles the save touched, as they stand after it. */
+            roles: components["schemas"]["RoleSummary"][];
+        };
+        /**
+         * @description The one state an account is listed under (DG-54), in this order of
+         *     precedence: `disabled`, then `must_change_password` (a temporary
+         *     password is still in use), then `never_signed_in` (`last_sign_in_at` is
+         *     null), then `active`.
+         * @enum {string}
+         */
+        AccountStatus: "disabled" | "must_change_password" | "never_signed_in" | "active";
         User: {
             id: components["schemas"]["Uuid"];
             /** Format: email */
@@ -4073,6 +5671,12 @@ export interface components {
             theme?: "light" | "dark" | "system";
             compactTables?: boolean;
             largerTestText?: boolean;
+            /**
+             * @description The console the user last switched to. A built-in Admin, who holds
+             *     both, opens it after sign-in; omitted, the Admin console.
+             * @enum {string}
+             */
+            workspace?: "teacher" | "admin";
             assignmentDefaults?: {
                 durationMinutes?: number;
                 shuffleQuestions?: boolean;
@@ -4107,9 +5711,23 @@ export interface components {
          */
         Workspace: "teacher" | "admin" | "app";
         /**
+         * @description The role the caller holds, on the caller's own document and nowhere
+         *     else, so no payload about another person names a role. `name` is the
+         *     stored name. A client shows a built-in role (`builtinKey` set) by its
+         *     localised name while the stored name is still the seeded one, and the
+         *     stored name otherwise, as the Roles screen does. Always sent by the
+         *     server, and optional in the schema as `preferences` is. It is not the
+         *     legacy `role` string of v0.9.x, which `User` still does not carry.
+         */
+        CurrentUserRole: {
+            id: components["schemas"]["Uuid"];
+            builtinKey: components["schemas"]["BuiltinRoleKey"] | null;
+            name: string;
+        };
+        /**
          * @description The signed-in user, as only the user sees it: `User`'s properties plus
-         *     the permissions the user's role holds, in catalogue order, and the
-         *     workspaces they open. Written flat, because a closed schema cannot be
+         *     the user's own role, the permissions it holds, in catalogue order, and
+         *     the workspaces they open. Written flat, because a closed schema cannot be
          *     extended with `allOf` (issue #41). `User` stays where a response
          *     describes someone else, so a student's permissions never reach a
          *     teacher's payload.
@@ -4139,6 +5757,15 @@ export interface components {
             /** @description Forces `/change-password`. Always false for Google-only users (§5.4). */
             mustChangePassword: boolean;
             createdAt: components["schemas"]["Timestamp"];
+            /**
+             * Format: date-time
+             * @description When the caller last changed their own password. Absent for an
+             *     account that never has, including one still on a temporary password
+             *     and one whose password is older than R5. Self only: it is on
+             *     `CurrentUser` and not on `User` or `StudentRow`.
+             */
+            passwordChangedAt?: string;
+            role?: components["schemas"]["CurrentUserRole"];
             permissions: components["schemas"]["PermissionKey"][];
             workspaces: components["schemas"]["Workspace"][];
         };
@@ -4195,9 +5822,9 @@ export interface components {
             assignmentId: components["schemas"]["Uuid"];
             assignmentTitle: string;
             studentId: components["schemas"]["Uuid"];
-            /** @description Raw current full name */
+            /** @description Raw current full name, without private account fields. */
             studentName: string;
-            /** @description One-based section/question paper order */
+            /** @description One-based section/question paper order, independent of the student's shuffle. */
             questionNumber: number;
             type: components["schemas"]["QuestionType"];
             prompt: string;
@@ -4226,8 +5853,10 @@ export interface components {
             studentId: components["schemas"]["Uuid"];
             studentName: string;
             attemptNo: number;
-            /** @description Null when the student left it blank, which cannot be marked. */
+            /** @description Null when the student left it blank, or when it was removed under the retention policy; neither can be marked. */
             answer: components["schemas"]["Answer"] | null;
+            /** @description Present and true when the answer was removed under the retention policy. */
+            answerRemoved?: boolean;
             manualScore: components["schemas"]["Points"] | null;
             graderComment: string | null;
         };
@@ -4570,9 +6199,330 @@ export interface components {
              *     them again.
              */
             disabledAt: string | null;
+            /**
+             * Format: date-time
+             * @description The student's latest authenticated request, which the server records
+             *     at most once every five minutes per instance (DG-54). Null before
+             *     the student has ever been active. Not the same as
+             *     `stats.activity.lastAttemptAt`, the last time they started a test.
+             */
+            lastActiveAt: string | null;
+            accountStatus: components["schemas"]["AccountStatus"];
             /** @description Memberships in classes the caller teaches, or every one with `scope.all`. The table truncates; the drawer lists them. */
             classes: components["schemas"]["StudentClass"][];
             stats: components["schemas"]["StudentStats"];
+        };
+        /** @description The role an account holds, as the Users table draws it. */
+        AdminUserRole: {
+            id: components["schemas"]["Uuid"];
+            name: string;
+            builtinKey: components["schemas"]["BuiltinRoleKey"] | null;
+            icon: components["schemas"]["RoleIcon"];
+            color: components["schemas"]["RoleColor"];
+        };
+        /**
+         * @description One account as the Admin console's Users table lists it, whatever its
+         *     role. Flat, as `StudentRow` is, for the same reason (issue #41).
+         */
+        AdminUserRow: {
+            id: components["schemas"]["Uuid"];
+            fullName: string;
+            /** Format: email */
+            email: string;
+            /**
+             * Format: uri
+             * @description A signed link to the account's photo, null when it has none or this server stores none.
+             */
+            avatarUrl: string | null;
+            role: components["schemas"]["AdminUserRole"];
+            /** @description The ways the account can sign in with, as it stands; the centre's policy may have turned one off. */
+            signIn: {
+                /** @description True when the account has a password. */
+                password: boolean;
+                /** @description True when a Google identity is linked. */
+                google: boolean;
+            };
+            /**
+             * @description The classes that are not archived: for a student target, those the
+             *     account is a member of; for any other account, those it teaches.
+             */
+            classes: {
+                count: number;
+                /** @description The name of the class the account joined first (a student target) or was given first (anyone else), null when `count` is 0. */
+                firstName: string | null;
+            };
+            /**
+             * Format: date-time
+             * @description The account's latest authenticated request (DG-54), null before it has ever been active.
+             */
+            lastActiveAt: string | null;
+            status: components["schemas"]["AccountStatus"];
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        /**
+         * @description The Users table's tabs. `admins` are the built-in Admin role; `students`
+         *     are the student targets (a role holding at most `learning.take_tests`,
+         *     so an Admin who also takes tests is never one); `teachers` are everyone
+         *     else, the Assistant and every custom role with a permission included.
+         *     These three include disabled accounts, as the tabs' counts do;
+         *     `disabled` is every disabled account, whatever its role.
+         * @enum {string}
+         */
+        AdminUserTab: "all" | "teachers" | "students" | "admins" | "disabled";
+        /**
+         * @description The tabs' counts. They follow `q`, `email` and `status` but not `tab`,
+         *     so each tab shows what it would list.
+         */
+        AdminUserFacets: {
+            all: number;
+            teachers: number;
+            students: number;
+            admins: number;
+            disabled: number;
+        };
+        AdminUserClass: {
+            id: components["schemas"]["Uuid"];
+            name: string;
+        };
+        /**
+         * @description One line of the sheet's recent activity. `detail` is the sign-in method
+         *     (`password`, `google` or `set_password_link`) for `sign_in`; the audit
+         *     action key (`audit.action.*`) for `audit`; the test's title for
+         *     `submission`; the class's name for `class_joined`. It is null when the
+         *     subject has since been removed.
+         */
+        AdminUserActivity: {
+            /** @enum {string} */
+            kind: "sign_in" | "audit" | "submission" | "class_joined";
+            at: components["schemas"]["Timestamp"];
+            detail: string | null;
+        };
+        /**
+         * @description What the caller may do to this account, each answer the server's own
+         *     guards give: the subset rule (`TARGET_ROLE_NOT_ALLOWED`), not oneself,
+         *     and the last active Admin. A `false` here is what the operation would
+         *     refuse, so the sheet hides the action rather than offer a button that
+         *     fails.
+         */
+        AdminUserCan: {
+            /** @description Needs `people.roles.manage`; not oneself; not the last active Admin. */
+            changeRole: boolean;
+            /** @description Not oneself, and the account is not disabled. */
+            resetPassword: boolean;
+            /** @description Not oneself, not the last active Admin, and not already disabled. */
+            disable: boolean;
+            /** @description The account is disabled. */
+            enable: boolean;
+            /** @description Signing oneself out everywhere is allowed. */
+            signOut: boolean;
+            /** @description Needs `scope.all`, and the account must be disabled. */
+            transfer: boolean;
+        };
+        /** @description One account for the Users sheet. */
+        AdminUserDetail: {
+            user: components["schemas"]["AdminUserRow"];
+            /** @description Who created the account, null for one that signed itself up or whose creator is gone. */
+            createdBy: null | {
+                id: components["schemas"]["Uuid"];
+                fullName: string;
+            };
+            /** @description The first 20 of `user.classes.count`, in the order `firstName` is drawn from. */
+            classes: components["schemas"]["AdminUserClass"][];
+            /**
+             * @description What `transferUserContent` would move: every class the account
+             *     teaches (archived ones too) and every test, question, media asset
+             *     and assignment it owns that has not been deleted.
+             */
+            ownedContent: {
+                classes: number;
+                tests: number;
+                questions: number;
+                media: number;
+                assignments: number;
+            };
+            /** @description Tests the account is taking right now. */
+            inProgressAttempts: number;
+            /** @description Newest first. */
+            activity: components["schemas"]["AdminUserActivity"][];
+            can: components["schemas"]["AdminUserCan"];
+        };
+        UserCreate: {
+            fullName: string;
+            /** Format: email */
+            email: string;
+            /** @description A role from `listAssignableRoles`. */
+            roleId: components["schemas"]["Uuid"];
+            /** @description A class to add the account to. Allowed only for a student-target role and only to a caller holding `scope.all`. */
+            classId?: components["schemas"]["Uuid"];
+            /**
+             * @description `email_link` creates the account without a password and emails it a
+             *     link to choose one (24 hours, once). `temporary_password` returns a
+             *     temporary password once, for the admin to hand over.
+             * @enum {string}
+             */
+            delivery: "email_link" | "temporary_password";
+        };
+        /**
+         * @description `email_link` clears the password and emails a link to choose a new one
+         *     (24 hours, once). `temporary_password` sets a temporary password and
+         *     returns it once, for the admin to hand over.
+         * @enum {string}
+         */
+        UserResetDelivery: "email_link" | "temporary_password";
+        /** @description One account `resetUsersPasswords` reset. A temporary password is shown once. */
+        UserPasswordReset: {
+            userId: components["schemas"]["Uuid"];
+            fullName: string;
+            /** Format: email */
+            email: string;
+            /** @description Present only for `delivery: temporary_password`. */
+            temporaryPassword?: string;
+        };
+        /** @description One account a bulk action did not reach, and why. */
+        UserActionFailure: {
+            userId: components["schemas"]["Uuid"];
+            /** @description One of `NOT_FOUND`, `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`, `LAST_ADMIN`, `ACCOUNT_DISABLED`, `STALE_WRITE` or `INTERNAL`. */
+            code: components["schemas"]["ErrorCode"];
+        };
+        UserContentTransfer: {
+            toUserId: components["schemas"]["Uuid"];
+            /**
+             * @description Tell the recipient in their bell.
+             * @default false
+             */
+            notify: boolean;
+        };
+        UserContentTransferResult: {
+            /**
+             * @description What changed owner, counted as `ownedContent` counts it: every
+             *     class, and every test, question, question group and media asset
+             *     not deleted, and every assignment. Deleted rows move too, uncounted.
+             */
+            moved: {
+                classes: number;
+                tests: number;
+                questions: number;
+                questionGroups: number;
+                media: number;
+                assignments: number;
+            };
+            leftBehind: {
+                /** @description The account's Word imports that are not finished, which stay with it. */
+                imports: number;
+                /**
+                 * @description Student accounts the account created that the recipient still
+                 *     does not reach after the move: in none of the moved classes and
+                 *     on none of the moved assignments, disabled and anonymised ones
+                 *     included, counted as the transfer commits. Who created an account
+                 *     does not change, so only an Admin reaches them until one adds them
+                 *     to a class.
+                 */
+                students: number;
+            };
+        };
+        /**
+         * @description The role of a row whose file names none.
+         * @enum {string}
+         */
+        UserImportDefaultRole: "student" | "teacher";
+        /**
+         * @description `email_link` emails each new account a link to choose a password (24
+         *     hours, once). `sheet` gives each a temporary password and collects them
+         *     in a sheet the importer downloads once.
+         * @enum {string}
+         */
+        UserImportDelivery: "email_link" | "sheet";
+        /** @enum {string} */
+        UserImportField: "full_name" | "email" | "role" | "class";
+        /**
+         * @description One cell the import refused. `row` is the line of the file the row sits
+         *     on, counting the header as line 1, which is the number a spreadsheet
+         *     shows beside it. `code` says why: `REQUIRED` (empty), `TOO_LONG`,
+         *     `INVALID` (not an address, or a name with control characters),
+         *     `FORMULA_LIKE` (an address that starts with a character a spreadsheet
+         *     reads as a formula, such as `+` or `=`, which the hand-out sheet could not
+         *     carry as the address that signs in),
+         *     `DUPLICATE_IN_FILE` (an address an earlier row has), `UNKNOWN_ROLE` and
+         *     `AMBIGUOUS_ROLE` (no role, or more than one, answers to the name),
+         *     `ROLE_NOT_ALLOWED` (the role holds a permission the importer lacks),
+         *     `ROLE_NOT_GIVABLE` (the Assistant, which no one is given), `UNKNOWN_CLASS` and
+         *     `AMBIGUOUS_CLASS` (no active class, or more than one, has the name), and
+         *     `CLASS_NOT_ALLOWED` (a class for a role that is not a student target, or
+         *     by an importer without `scope.all`). A refusal carries no text of the file.
+         */
+        UserImportIssue: {
+            row: number;
+            field: components["schemas"]["UserImportField"];
+            /** @enum {string} */
+            code: "REQUIRED" | "TOO_LONG" | "INVALID" | "FORMULA_LIKE" | "DUPLICATE_IN_FILE" | "UNKNOWN_ROLE" | "AMBIGUOUS_ROLE" | "ROLE_NOT_ALLOWED" | "ROLE_NOT_GIVABLE" | "UNKNOWN_CLASS" | "AMBIGUOUS_CLASS" | "CLASS_NOT_ALLOWED";
+        };
+        /**
+         * @description What a file would come to. `rows` are the data rows it holds;
+         *     `newAccounts` would be created and `existingEmails.count` already
+         *     belong to an account and would be skipped, never changed (`sample` names
+         *     up to five of them). `invalid` lists up to 50 refused cells and
+         *     `invalidCount` counts every refused row. `classes` are the classes the
+         *     accepted rows would join. `emailBudget` is `null` unless `delivery` is
+         *     `email_link`: `remainingToday` is what the centre can still send today,
+         *     counting what already waits, and `limit` its daily maximum; the rest of
+         *     the links go out on the following days.
+         */
+        UserImportPreview: {
+            rows: number;
+            newAccounts: number;
+            existingEmails: {
+                count: number;
+                sample: string[];
+            };
+            invalid: components["schemas"]["UserImportIssue"][];
+            invalidCount: number;
+            classes: {
+                id: components["schemas"]["Uuid"];
+                name: string;
+            }[];
+            emailBudget: {
+                remainingToday: number;
+                limit: number;
+            } | null;
+        };
+        /**
+         * @description One import. `status` is `queued` until the worker claims it, `running`
+         *     while it creates the accounts, `done` once every stored row is settled,
+         *     and `failed` when it gave up (`errorCode` says why, a short code that
+         *     never carries the file). `total` is the rows stored, those that passed
+         *     every rule; `processed` is those settled so far, `created` + `skipped`;
+         *     `skipped` are the addresses that already belonged to an account.
+         *     `invalid` counts the rows refused, which are not stored. `sheet` is `null`
+         *     unless `delivery` is `sheet`: `available` is true from `done` until the
+         *     sheet is downloaded or 24 hours have passed, whichever comes first.
+         */
+        UserImportJob: {
+            id: components["schemas"]["Uuid"];
+            /** @enum {string} */
+            status: "queued" | "running" | "done" | "failed";
+            total: number;
+            processed: number;
+            created: number;
+            skipped: number;
+            invalid: number;
+            delivery: components["schemas"]["UserImportDelivery"];
+            sheet: {
+                available: boolean;
+                /** Format: date-time */
+                expiresAt: string | null;
+                /** Format: date-time */
+                downloadedAt: string | null;
+            } | null;
+            /**
+             * @description Why a `failed` job gave up, and `null` otherwise: `IMPORTER_NOT_ALLOWED`
+             *     (the importer's account is disabled, or lost the permission or a role
+             *     the file names), `DELIVERY_UNAVAILABLE` (password sign-in was turned
+             *     off, or the server can no longer seal, before a sheet job finished)
+             *     or `WORKER_INTERRUPTED` (the worker claimed the job three times and
+             *     none finished it). The accounts created before the job failed stay.
+             */
+            errorCode: string | null;
+            createdAt: components["schemas"]["Timestamp"];
         };
         /** @description One student `resetStudentsPasswords` reset. The password is shown once. */
         StudentPasswordReset: {
@@ -4607,6 +6557,24 @@ export interface components {
             /** @description Seconds. */
             expiresIn: number;
             user: components["schemas"]["CurrentUser"];
+        };
+        /**
+         * @description What a valid set-password link is for: the account it controls, which
+         *     the page names so a person can tell the link is theirs, and when it
+         *     stops working. The email and the name are the account's own, given to
+         *     whoever already holds the secret that controls it.
+         */
+        SetPasswordLinkInfo: {
+            /** Format: email */
+            email: string;
+            fullName: string;
+            /**
+             * @description `invite` for a new account's first password, `reset` for a new one.
+             * @enum {string}
+             */
+            purpose: "invite" | "reset";
+            /** Format: date-time */
+            expiresAt: string;
         };
         /**
          * @description One sign-in of the caller that is still live: a refresh-token family
@@ -4703,9 +6671,7 @@ export interface components {
          * @description Metadata about the active code — **not the code itself**, which
          *     `getJoinCode` reads for its teacher. A code issued from v0.8.0 on
          *     is stored encrypted under a key the database does not hold and found
-         *     by a keyed hash (§13.3), so a database dump does not hand it over. A
-         *     code issued before v0.8.0 is held only as its SHA-256 hash, which a
-         *     dump can reverse beside the hint, until it is rotated (D5).
+         *     by a keyed hash (§13.3), so a database dump does not hand it over.
          */
         JoinCodeInfo: {
             /** @example 7K3M */
@@ -4726,7 +6692,7 @@ export interface components {
             code: string | null;
             /** @example 7K3M */
             hint: string;
-            /** @description True for a code issued before v0.8.0, held only as a hash until it is rotated. */
+            /** @description Always false. It was true for a code issued before v0.8.0, held only as a hash, which can no longer be active. */
             legacy: boolean;
             expiresAt: components["schemas"]["Timestamp"];
             maxUses: number | null;
@@ -4738,6 +6704,71 @@ export interface components {
             joinable: number;
             archived: number;
             students: number;
+        };
+        /** @description The teacher of a class in the Admin console. `name` is the display name, or the full name when there is none. */
+        AdminClassTeacher: {
+            id: components["schemas"]["Uuid"];
+            name: string;
+            /**
+             * Format: uri
+             * @description A signed URL of the teacher's profile photo, or `null` when there is none.
+             */
+            avatarUrl: string | null;
+            /** @description The teacher's account is disabled. */
+            disabled: boolean;
+        };
+        /**
+         * @description A class's active join code, read in full for the Admin console (D5),
+         *     with what tells whether it still works: an expired or used-up code is
+         *     returned as it is.
+         */
+        AdminClassJoinCode: {
+            /**
+             * @description Grouped `XXXX-XXXX`.
+             * @example K7M3-P9QR
+             */
+            code: string;
+            expiresAt: components["schemas"]["Timestamp"];
+            maxUses: number | null;
+            usesCount: number;
+        };
+        /** @description A row of `listAllClasses`. */
+        AdminClassRow: {
+            id: components["schemas"]["Uuid"];
+            name: string;
+            scheduleLabel: string | null;
+            room: string | null;
+            teacher: components["schemas"]["AdminClassTeacher"];
+            /** @description Live members, as `Class.studentCount` counts them. */
+            studentCount: number;
+            /**
+             * @description The active code, or `null` when the class has none or its code
+             *     cannot be read back (a code issued before v0.8.0, or one sealed
+             *     under a key this server no longer holds).
+             */
+            joinCode: components["schemas"]["AdminClassJoinCode"] | null;
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        /** @description The tab counts for the current search and teacher filter, ignoring the tab. */
+        AdminClassFacets: {
+            active: number;
+            archived: number;
+        };
+        AdminClassCreate: {
+            name: string;
+            teacherId: components["schemas"]["Uuid"];
+            /** @description As in `createClass`. */
+            scheduleLabel?: string | null;
+            /** @description As in `createClass`. */
+            room?: string | null;
+        };
+        ClassTeacherChange: {
+            teacherId: components["schemas"]["Uuid"];
+            /**
+             * @description Tell both teachers in their bells.
+             * @default false
+             */
+            notify: boolean;
         };
         ClassMember: {
             userId: components["schemas"]["Uuid"];
@@ -5003,6 +7034,263 @@ export interface components {
             caseSensitive: boolean;
         };
         /**
+         * @description The six families of the audit log's tabs. An entry about the
+         *     organization, an export, maintenance, retention or the AI credits is in
+         *     none of them.
+         * @enum {string}
+         */
+        AuditCategory: "accounts" | "classes" | "attempts" | "tests" | "media" | "imports";
+        /**
+         * @description How many entries each category holds for the CURRENT search and range,
+         *     ignoring the category filter itself, in the shape of `TestStatusFacets`.
+         *     `all` counts every such entry, including those in no category.
+         */
+        AuditCategoryFacets: {
+            all: number;
+            accounts: number;
+            classes: number;
+            attempts: number;
+            tests: number;
+            media: number;
+            imports: number;
+        };
+        AuditActor: {
+            id: components["schemas"]["Uuid"];
+            name: string;
+            /** @description A signed address for the actor's photo. Absent when they have none. */
+            avatarUrl?: string;
+        };
+        /** @description What an entry is about. */
+        AuditEntity: {
+            /** @description The kind of thing, as the server stores it (`class`, `test`, `media_asset`, `word_import`, ...). */
+            type: string;
+            /**
+             * Format: uuid
+             * @description `null` for an entry about no single row.
+             */
+            id: string | null;
+            /**
+             * @description The name of the user, class, test, assignment, attempt (its
+             *     student), media file, import or question group, read when the page
+             *     is read. `null` when the row is gone or has no name.
+             */
+            label: string | null;
+        };
+        AuditChange: {
+            field: string;
+            /** @description The value before the change. Any JSON value, `null` included. */
+            from: unknown;
+            /** @description The value after the change. Any JSON value, `null` included. */
+            to: unknown;
+        };
+        AuditEntry: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            occurredAt: string;
+            /** @description Who did it; `null` is the system itself, or an account since removed. */
+            actor: components["schemas"]["AuditActor"] | null;
+            /**
+             * @description A stable key such as `class.created`. The sentence that words it is
+             *     the client's, from `audit.action.<action>`; an action a client has
+             *     no sentence for is shown humanised.
+             */
+            action: string;
+            /** @description `null` for an entry only the unfiltered list holds. */
+            category: components["schemas"]["AuditCategory"] | null;
+            entity: components["schemas"]["AuditEntity"];
+            /** @description The address the request came from. `null` for the system. */
+            ip: string | null;
+            /** @description A label such as `Mac · Chrome`, classified from the user agent; `null` when none was recorded or none is recognised. */
+            device: string | null;
+            changes: components["schemas"]["AuditChange"][];
+            /** @description Whatever the entry recorded beyond `changes`; `null` when nothing. */
+            details: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
+         * @description What `getApiReferenceSummary` reports about the embedded contract.
+         *     `endpointCount` is the number of operations, and a group's `count` the
+         *     number of operations that carry its tag.
+         */
+        ApiReferenceSummary: {
+            /** @description The OpenAPI version the contract is written in. */
+            openapi: string;
+            /** @description The contract's own `info.version`. */
+            version: string;
+            endpointCount: number;
+            groups: components["schemas"]["ApiReferenceGroup"][];
+        };
+        ApiReferenceGroup: {
+            tag: string;
+            count: number;
+        };
+        /**
+         * @description The Admin console's Overview. A section the caller's keys do not open
+         *     is `null`; `attention` is then shorter, never an error.
+         */
+        AdminOverview: {
+            /** @description The centre's name, from its organization settings. */
+            organizationName: string;
+            /** @description Needs `people.users.manage`. */
+            people: components["schemas"]["AdminOverviewPeople"] | null;
+            /** @description Needs `scope.all`. */
+            classes: components["schemas"]["AdminOverviewClasses"] | null;
+            /** @description Needs `people.users.manage`. */
+            dailyActive: components["schemas"]["AdminDailyActive"] | null;
+            /** @description What needs doing, most urgent first. Empty when nothing does. */
+            attention: components["schemas"]["AdminAttention"][];
+            /** @description The five newest audit entries of any category, newest first. Needs `system.audit.read`. */
+            recentChanges: components["schemas"]["AuditEntry"][] | null;
+            /** @description Needs `system.settings.write`. */
+            storage: components["schemas"]["Usage"] | null;
+        };
+        /**
+         * @description The accounts of the centre. A student is a student target of R2's
+         *     student-like roles and a teacher is every other account, an Admin and
+         *     a custom role included. `teachers` are the enabled ones and
+         *     `teachersDisabled` the disabled ones, so the two never overlap. `total`
+         *     and `students` count disabled accounts, as the Users tabs count them.
+         */
+        AdminOverviewPeople: {
+            total: number;
+            /** @description Accounts with an authenticated request on any of the last seven local days, today included, whether they have been disabled since or not. */
+            activeThisWeek: number;
+            teachers: number;
+            /** @description Disabled accounts that are not a student target; none of them is in `teachers`. */
+            teachersDisabled: number;
+            students: number;
+            /** @description Students whose account was created since the first of this local month. */
+            studentsNewThisMonth: number;
+        };
+        AdminOverviewClasses: {
+            active: number;
+            archived: number;
+        };
+        /**
+         * @description Who made an authenticated request on each of the last fourteen local
+         *     days. Staff is every account that is not a student target, which the
+         *     chart labels Teachers. A day counts the accounts that were active on it,
+         *     whether they have been disabled since or not.
+         */
+        AdminDailyActive: {
+            /** @description One entry per day, oldest first and today last, zero days included. */
+            days: components["schemas"]["AdminDailyActiveDay"][];
+            /** @description The mean of students plus staff over the fourteen days, rounded half up. */
+            average: number;
+        };
+        AdminDailyActiveDay: {
+            /** Format: date */
+            date: string;
+            students: number;
+            staff: number;
+        };
+        /** @enum {string} */
+        AdminAttentionKind: "must_change_password" | "never_signed_in" | "disabled_teacher_classes" | "storage" | "ai_credit_requests";
+        /**
+         * @description One thing that needs doing. `count` is at least 1: a row with nothing
+         *     to do is not sent.
+         */
+        AdminAttention: {
+            kind: components["schemas"]["AdminAttentionKind"];
+            /**
+             * @description `must_change_password`: enabled accounts on a temporary password.
+             *     `never_signed_in`: enabled accounts that have never signed in and
+             *     are not on a temporary password. `disabled_teacher_classes`: classes,
+             *     archived ones too, whose teacher is disabled. `storage`: how many of
+             *     the media and import meters with a configured limit read 80 percent
+             *     or more, as `detail` quotes them (rounded half up). `ai_credit_requests`: the teachers waiting for more credits
+             *     this month.
+             */
+            count: number;
+            /** @description What the row's line quotes. `null` for `must_change_password`. */
+            detail: components["schemas"]["AdminAttentionDetail"] | null;
+        };
+        /**
+         * @description The facts a row quotes, by kind; a field its kind does not use is
+         *     absent. `never_signed_in`: `oldestCreatedAt`.
+         *     `disabled_teacher_classes`: `className` and `teacherName` of the newest
+         *     such class. `storage`: `mediaPercent` and `importsPercent`, each absent
+         *     when that meter has no limit. `ai_credit_requests`: `teacherName`,
+         *     `used` and `allowance` of the request waiting longest.
+         */
+        AdminAttentionDetail: {
+            /** Format: date-time */
+            oldestCreatedAt?: string;
+            className?: string;
+            teacherName?: string;
+            mediaPercent?: number;
+            importsPercent?: number;
+            used?: number;
+            allowance?: number;
+        };
+        AdminSummary: {
+            /** @description Enabled accounts on a temporary password; `null` without `people.users.manage`. */
+            mustChangePassword: number | null;
+        };
+        /**
+         * @description What the centre uses against its plan. Nothing is enforced (DG-55): a
+         *     `limit` is `null` when its `PLAN_*` variable is unset, and a figure may
+         *     pass its limit.
+         *
+         *     `seats` counts the accounts that are not disabled against
+         *     `PLAN_SEAT_LIMIT`. `teachers` counts the enabled accounts that are not
+         *     a student target, Admins included, against `PLAN_TEACHER_LIMIT`; it is
+         *     the Overview's `people.teachers`. `media` is the bytes of the media
+         *     files still held in storage, against `PLAN_MEDIA_BYTES`, and `imports`
+         *     the bytes of the source documents of
+         *     the imports whose files are still kept and the number of those imports,
+         *     against `PLAN_IMPORT_BYTES`. `attemptsKept` has no limit until a
+         *     denominator is named.
+         */
+        Usage: {
+            /** @description `null` when `PLAN_NAME` is unset. */
+            plan: components["schemas"]["UsagePlan"] | null;
+            seats: components["schemas"]["UsageCount"];
+            teachers: components["schemas"]["UsageCount"];
+            media: components["schemas"]["UsageBytes"];
+            imports: components["schemas"]["UsageImports"];
+            attemptsKept: components["schemas"]["UsageAttempts"];
+            /** @description The month's credits. `null` without `ai.credits.manage`, and while the AI assistant is off. */
+            aiCredits: components["schemas"]["UsageCredits"] | null;
+        };
+        UsagePlan: {
+            name: string;
+            /**
+             * Format: date
+             * @description `PLAN_RENEWS_ON`, or `null` when unset.
+             */
+            renewsOn: string | null;
+        };
+        UsageCount: {
+            used: number;
+            limit: number | null;
+        };
+        UsageBytes: {
+            /** Format: int64 */
+            bytes: number;
+            /** Format: int64 */
+            limit: number | null;
+        };
+        UsageImports: {
+            /** Format: int64 */
+            bytes: number;
+            count: number;
+            /** Format: int64 */
+            limit: number | null;
+        };
+        UsageAttempts: {
+            /** Format: int64 */
+            count: number;
+        };
+        UsageCredits: {
+            /** Format: int64 */
+            used: number;
+            /** Format: int64 */
+            pool: number;
+        };
+        /**
          * @description How many tests each status holds for the CURRENT search, ignoring the
          *     status filter itself — selecting one tab must not zero the others.
          *     Backs A-03's "Tất cả 12 · Bản nháp 3 · Đã phát hành 8".
@@ -5207,8 +7495,14 @@ export interface components {
             options?: components["schemas"]["StudentOption"][];
             blanks?: components["schemas"]["StudentBlank"][];
             points: components["schemas"]["Points"];
-            /** @description What the student submitted. `null` if unanswered. */
+            /** @description What the student submitted. `null` if unanswered, or removed under the retention policy. */
             answer: components["schemas"]["Answer"] | null;
+            /**
+             * @description Present and true when the answer was removed under the centre's
+             *     retention policy (T-R5.17a): `answer` is then `null` and no response
+             *     content is sent. Scores and the grader's comment are unchanged.
+             */
+            answerRemoved?: boolean;
             /** @description Present only when `review.showScore`. `null` while awaiting manual grading. */
             earned?: components["schemas"]["Points"] | null;
             pendingManual?: boolean;
@@ -5802,10 +8096,10 @@ export interface components {
         };
         ItemAnalysisItem: {
             questionId: components["schemas"]["Uuid"];
-            /** @description The question's place on the paper */
+            /** @description The question's place on the paper, counted across sections. */
             number: number;
             type: components["schemas"]["QuestionType"];
-            /** @description The prompt as plain text with its whitespace collapsed */
+            /** @description The prompt as plain text with its whitespace collapsed, cut at 140 characters. */
             promptExcerpt: string;
             /** @description Papers with an answer that says something to this question. */
             answered: number;
@@ -5887,7 +8181,7 @@ export interface components {
          *     engine needs to run authoritatively.
          */
         AttemptSession: {
-            /** @description Additional attempts available after this one */
+            /** @description Additional attempts available after this one, excluding voided attempts. */
             remainingAttempts?: number;
             attempt: components["schemas"]["Attempt"];
             /** @description The engine's header names the paper from 1024px up (S-08). */
@@ -6047,7 +8341,7 @@ export interface components {
             score?: components["schemas"]["AttemptScore"] | null;
             focusLossCount?: number | null;
             flagged?: boolean;
-            /** @description Reported */
+            /** @description Reported, never enforced (§11.4). */
             audioOverLimit?: boolean;
             /**
              * Format: date-time
@@ -6071,9 +8365,7 @@ export interface components {
          * @description The Teacher dashboard covers the caller's own teaching, including an Admin:
          *     assignments they created or targeting classes they teach, reachable papers on
          *     them, and their classes. Its repository supports scope.all for a future Admin
-         *     console, but this operation never requests it. Legacy fields retain their
-         *     meaning; T-R4.23 stops reading openAssignments, activeStudents, totalStudents
-         *     and recentAttempts, and R5 removes them. Range affects submissions only.
+         *     console, but this operation never requests it. Range affects submissions only.
          */
         Dashboard: {
             /** @description Open assignments closing within the next 24 hours. */
@@ -6082,17 +8374,11 @@ export interface components {
             waitingStudents?: number;
             /** Format: date-time */
             oldestWaitingAt?: string | null;
-            /** @description Enabled student-like accounts in the classes the caller teaches, for an Admin too; this operation never requests the repository wide scope. */
-            totalStudents?: number;
             nextClosing?: components["schemas"]["ClosingAssignment"] | null;
-            openAssignments: number;
             awaitingGrading: number;
-            /** @description Of the enabled student-like members of classes the caller teaches, those who started an attempt in the last seven days on an assignment they reach; an Admin has the same own scope and cannot request the repository wide reading here. */
-            activeStudents: number;
             flaggedAttempts: number;
             /** @description Newest started currently flagged reachable paper, ordered by started_at then id descending, from the flagged count statement snapshot; null without grading or intervention permission or a matching paper. Historical, voided and former-roster papers remain eligible. */
             newestFlaggedAttempt: components["schemas"]["DashboardFlaggedAttempt"] | null;
-            recentAttempts: components["schemas"]["AttemptListRow"][];
             takingNow: components["schemas"]["DashboardTakingNow"];
             submissions: components["schemas"]["DashboardSubmissions"];
             today: components["schemas"]["DashboardToday"][];
@@ -6228,7 +8514,7 @@ export interface components {
         AiUsage: {
             /** @description Credits the call was charged. */
             credits: number;
-            /** @description The least of what remains of the teacher's allowance and of the centre's pool */
+            /** @description The least of what remains of the teacher's allowance and of the centre's pool, after the call. */
             left: number;
         };
         /**
@@ -6319,7 +8605,7 @@ export interface components {
             /** @description The question's 1-based place in the draft. */
             number: number;
             type: components["schemas"]["QuestionType"];
-            /** @description The question's prompt */
+            /** @description The question's prompt, shortened. */
             title: string;
             issue: string;
             fix: components["schemas"]["AiFix"];
@@ -6352,7 +8638,7 @@ export interface components {
         };
         AiVariantChange: {
             questionId: components["schemas"]["Uuid"];
-            /** @description The question's 1-based place in the draft */
+            /** @description The question's 1-based place in the draft, which the copy keeps. */
             number: number;
             kind: components["schemas"]["AiVariantKind"];
             title: string;
@@ -6395,7 +8681,7 @@ export interface components {
             /** @enum {string} */
             confidence: "high" | "medium" | "low";
             reasons: string[];
-            /** @description A comment to the student */
+            /** @description A comment to the student, for the teacher to keep, change or drop. */
             comment: string;
             usage: components["schemas"]["AiUsage"];
         };
@@ -6496,7 +8782,7 @@ export interface components {
         AiMonthUsage: {
             /**
              * Format: date
-             * @description The first day of the month
+             * @description The first day of the month, counted in the centre's time zone.
              */
             month: string;
             used: number;
@@ -6520,7 +8806,7 @@ export interface components {
             /** @description The share of the allowance at which the teacher is told. */
             warnPercent: number;
             /**
-             * @description Pause a teacher who runs out
+             * @description Pause a teacher who runs out, or let them ask for more.
              * @enum {string}
              */
             onTeacherLimit: "pause" | "request";
@@ -6642,13 +8928,15 @@ export interface components {
          *     | `ai.allowance_warning` | a teacher | `used`, `allowance` |
          *     | `ai.credit_request` | a teacher | `teacherName`, `credits` |
          *     | `ai.credit_request.decided` | a teacher | `credits`, `decision` |
+         *     | `content.transferred` | a teacher | `teacherName`, `count` |
+         *     | `class.teacher_changed` | a teacher | `className`, and `teacherName` for the class's previous teacher |
          *
          *     The three `ai.*` kinds are for the teacher's bell. `ai.credit_request`
          *     is written for every holder of `ai.credits.manage`, who reads it in the
          *     teacher workspace until the Admin console has a bell of its own.
          * @enum {string}
          */
-        NotificationKind: "attempt.submitted" | "attempt.flagged" | "assignment.closing" | "class.joined" | "join_codes.rotated" | "assignment.opened" | "assignment.due_soon" | "assignment.extended" | "result.ready" | "ai.allowance_warning" | "ai.credit_request" | "ai.credit_request.decided";
+        NotificationKind: "attempt.submitted" | "attempt.flagged" | "assignment.closing" | "class.joined" | "join_codes.rotated" | "assignment.opened" | "assignment.due_soon" | "assignment.extended" | "result.ready" | "ai.allowance_warning" | "ai.credit_request" | "ai.credit_request.decided" | "content.transferred" | "class.teacher_changed";
         /**
          * @description The console that reads a notification, and so which of the caller's
          *     notifications a bell counts, lists and clears. Which kinds each one
@@ -6668,7 +8956,7 @@ export interface components {
          *     `assignment.due_soon` and `result.ready` the student's. A switch
          *     governs the kind of the same name, and `assignment.due_soon` also
          *     governs `assignment.opened` and `assignment.extended`. `class.joined`
-         *     and `join_codes.rotated` have no switch.
+         *     `join_codes.rotated` and `class.teacher_changed` have no switch.
          * @enum {string}
          */
         NotificationEvent: "attempt.submitted" | "attempt.flagged" | "assignment.closing" | "assignment.due_soon" | "result.ready";
@@ -6681,7 +8969,7 @@ export interface components {
         NotificationParams: {
             /** @description The title of the test the assignment gives. */
             title?: string;
-            /** @description Papers handed in (`attempt.submitted`), or classes whose join code was replaced (`join_codes.rotated`). */
+            /** @description Papers handed in (`attempt.submitted`), classes whose join code was replaced (`join_codes.rotated`), or classes, tests, questions, question groups, media and assignments given to the reader (`content.transferred`). */
             count?: number;
             /** @description Of the papers handed in, those with an answer waiting for a mark. */
             toGrade?: number;
@@ -6696,11 +8984,11 @@ export interface components {
             closesAt?: components["schemas"]["Timestamp"];
             /** @description AI credits the teacher has used this month. */
             used?: number;
-            /** @description The teacher's AI allowance this month */
+            /** @description The teacher's AI allowance this month, in credits. */
             allowance?: number;
             /** @description AI credits a request asks for. */
             credits?: number;
-            /** @description The teacher who asked for credits. */
+            /** @description The teacher who asked for credits (`ai.credit_request`), whose content was given to the reader (`content.transferred`), or who now teaches a class the reader taught (`class.teacher_changed`, on the previous teacher's item only: the new teacher's item has no `teacherName`). */
             teacherName?: string;
             /**
              * @description How an Admin decided a request for credits.
@@ -6981,6 +9269,10 @@ export interface components {
          *     `x-permission`, as a `student` reaching a `/teacher/*` route does. It
          *     gets this, and the client renders a 403 page rather than redirecting —
          *     a redirect hides the misconfiguration (§5.4).
+         *
+         *     `PASSWORD_CHANGE_REQUIRED` is a 403 of its own kind: the permission is
+         *     held, but the account is on a temporary password and must change it
+         *     first (see `bearerAuth`).
          */
         Forbidden: {
             headers: {
@@ -7004,6 +9296,42 @@ export interface components {
             headers: {
                 /** @description Seconds until the caller may retry. */
                 "Retry-After": number;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /**
+         * @description The file or the request cannot be imported, and the message says which.
+         *     `USER_IMPORT_FILE_UNREADABLE` — not a table this reader opens: damaged,
+         *     not a workbook, a first sheet that is a chart, a workbook that keeps its
+         *     parts elsewhere than Excel does, or one too large once unpacked.
+         *     `USER_IMPORT_FILE_EMPTY` — no header row.
+         *     `USER_IMPORT_TOO_MANY_ROWS` — more than 2,000 data rows.
+         *     `USER_IMPORT_COLUMNS` — the header lacks `full_name` or `email`, or names
+         *     a column twice.
+         *     `CSV_NOT_UTF8` — a CSV file in another encoding; save it as CSV UTF-8.
+         *     `XLSX_MACROS` — a workbook with macros.
+         *     `XLSX_ENCRYPTED` — a workbook with a password.
+         *     `PASSWORD_SIGN_IN_DISABLED` — `sheet` while the centre has turned
+         *     password sign-in off.
+         */
+        UserImportRefused: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /**
+         * @description This server cannot do it: `delivery: email_link` needs the key that seals
+         *     a link (`SECRETS_KEY`), and `delivery: sheet` needs the same key to keep
+         *     the passwords it hands out.
+         */
+        UserImportUnavailable: {
+            headers: {
                 [name: string]: unknown;
             };
             content: {
@@ -7038,6 +9366,18 @@ export interface components {
          *     key). Nothing was reserved or metered. `GET /public/status` says `ai: false`.
          */
         AiOff: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /**
+         * @description `EXPORT_OFF` — this server has no object storage or no worker, so it
+         *     builds no export. Nothing was queued.
+         */
+        ExportOff: {
             headers: {
                 [name: string]: unknown;
             };
@@ -7206,6 +9546,61 @@ export interface operations {
             429: components["responses"]["TooManyRequests"];
         };
     };
+    getPublicOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    /** @description `public, max-age=300`. */
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicOrganization"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getOrganizationLogo: {
+        parameters: {
+            query: {
+                variant: "light" | "dark";
+                v?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The logo. */
+            200: {
+                headers: {
+                    /** @description `public, max-age=31536000, immutable` when `v` is the current hash, else `public, max-age=300`. */
+                    "Cache-Control": string;
+                    /** @description `attachment; filename="logo.png"`. */
+                    "Content-Disposition": string;
+                    /** @description `nosniff`. */
+                    "X-Content-Type-Options": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
     login: {
         parameters: {
             query?: never;
@@ -7242,6 +9637,20 @@ export interface operations {
              *     the same thing.
              */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `PASSWORD_SIGN_IN_DISABLED` — the centre has turned password
+             *     sign-in off. It is decided before the email or the password is
+             *     looked at, so every password sign-in gets it alike and it says
+             *     nothing about any account.
+             */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7318,6 +9727,11 @@ export interface operations {
              *     `IDENTITY_ALREADY_LINKED` — the verified email matches an account
              *     that is already linked to a DIFFERENT Google `sub`. Linking a second
              *     one would make "unlink Google" ambiguous, so it is refused (D-08).
+             *
+             *     `GOOGLE_SIGN_IN_DISABLED` — the centre has turned Google sign-in
+             *     off. `GOOGLE_DOMAIN_NOT_ALLOWED` — the verified address is outside
+             *     the centre's allowed domains. Both are decided for a code that
+             *     joins a class as well.
              */
             403: {
                 headers: {
@@ -7346,6 +9760,127 @@ export interface operations {
                 };
             };
             429: components["responses"]["TooManyRequests"];
+        };
+    };
+    checkSetPasswordLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The `token` the link carries after `#token=`. */
+                    token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The link can still be used. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetPasswordLinkInfo"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /**
+             * @description `SET_PASSWORD_LINK_INVALID` — the link is unknown, used, expired or
+             *     revoked, or its account is disabled. The client says the link has
+             *     expired or was already used and asks the user to request a new one.
+             */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The body is over 8 KiB, which the rate limiter's keys read in full. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["Maintenance"];
+        };
+    };
+    setPasswordWithLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The `token` the link carries after `#token=`. */
+                    token: string;
+                    /**
+                     * @description The same rule as `changePassword`: at least 8 characters,
+                     *     at least one of which is a digit, a punctuation mark or a
+                     *     symbol, in any script.
+                     */
+                    newPassword: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The password is set and the account is signed in. Sets the rotating refresh cookie. */
+            200: {
+                headers: {
+                    /** @description `quizzivy_refresh=…; HttpOnly; Secure; SameSite=Lax; Path=/auth` */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthSuccess"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `SET_PASSWORD_LINK_INVALID` — as for `checkSetPasswordLink`. Nothing was changed. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The body is over 8 KiB, which the rate limiter's keys read in full. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `PASSWORD_SIGN_IN_DISABLED` — the centre has turned password
+             *     sign-in off, so there is no password to set. The client sends the
+             *     person to sign in with Google.
+             */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["Maintenance"];
         };
     };
     refreshSession: {
@@ -7571,6 +10106,41 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
+    requestSetPasswordLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthorized"];
+            /**
+             * @description `PASSWORD_SIGN_IN_DISABLED` — the centre has turned password
+             *     sign-in off, so a password would be of no use.
+             */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            /** @description This server has no key to seal a link with (`SECRETS_KEY`), so it cannot send one. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     linkGoogle: {
         parameters: {
             query?: never;
@@ -7618,6 +10188,19 @@ export interface operations {
                 };
             };
             /**
+             * @description `GOOGLE_SIGN_IN_DISABLED` — the centre has turned Google sign-in
+             *     off. `GOOGLE_DOMAIN_NOT_ALLOWED` — the verified address is outside
+             *     the centre's allowed domains.
+             */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
              * @description `IDENTITY_ALREADY_LINKED` covers three cases, all of which mean
              *     "this link cannot be made":
              *
@@ -7653,7 +10236,7 @@ export interface operations {
         responses: {
             204: components["responses"]["NoContent"];
             401: components["responses"]["Unauthorized"];
-            /** @description `LAST_LOGIN_METHOD` — the account has no password to fall back to. */
+            /** @description `LAST_LOGIN_METHOD` — the account has no password to fall back to, or the centre has turned password sign-in off. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -10469,6 +13052,8 @@ export interface operations {
                         answers: {
                             [key: string]: {
                                 answer: components["schemas"]["Answer"] | null;
+                                /** @description Present and true when the answer was removed under the retention policy; `answer` is then `null` and it cannot be graded. */
+                                answerRemoved?: boolean;
                                 autoScore?: components["schemas"]["Points"] | null;
                                 manualScore?: components["schemas"]["Points"] | null;
                                 requiresManual?: boolean;
@@ -10741,7 +13326,12 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
-            /** @description `ATTEMPT_IN_PROGRESS` or `ATTEMPT_VOIDED` — nothing to grade yet, or nothing that counts. */
+            /**
+             * @description `ATTEMPT_IN_PROGRESS` or `ATTEMPT_VOIDED` — nothing to grade yet, or
+             *     nothing that counts. `ANSWER_REMOVED` — an item names an answer
+             *     removed under the retention policy; `details.questionIds` lists them
+             *     and nothing was saved.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -10848,6 +13438,21 @@ export interface operations {
                  *     Absent lists both.
                  */
                 mustChangePassword?: boolean;
+                /**
+                 * @description `true` lists only the accounts that have never signed in
+                 *     (`last_sign_in_at` is null); `false` lists only the others. Absent
+                 *     lists both. It narrows beside `mustChangePassword`, as a plain
+                 *     predicate: an account on a temporary password that never signed in
+                 *     is in both.
+                 */
+                neverSignedIn?: boolean;
+                /**
+                 * @description Only the accounts listed under one of these statuses
+                 *     (`accountStatus=active&accountStatus=never_signed_in`), in
+                 *     `AccountStatus`'s order of precedence. A `disabled` account is
+                 *     returned only when `status` is `disabled` or `all`.
+                 */
+                accountStatus?: components["schemas"]["AccountStatus"][];
                 /**
                  * @description Defaults to `active`. Without `disabled` there is no request that can
                  *     return a suspended account, so `updateStudent`'s `disabled: false`
@@ -11083,6 +13688,147 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listUsers: {
+        parameters: {
+            query?: {
+                tab?: components["schemas"]["AdminUserTab"];
+                status?: "must_change_password" | "never_signed_in";
+                /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
+                q?: components["parameters"]["Query"];
+                email?: string;
+                /**
+                 * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
+                 *     lists: at this scale the teacher wants "trang 3 / 26" more than
+                 *     stability under concurrent inserts). A page past the end is an empty
+                 *     `items` with the same `total`.
+                 *
+                 *     Page size is `limit`, declared per operation with its own default -- a
+                 *     media grid wants a different page from a table of tests. The response
+                 *     echoes the size actually used as `pageSize`; compute page counts from
+                 *     that and `total`, never from an assumed size.
+                 */
+                page?: components["parameters"]["Page"];
+                limit?: 10 | 20 | 50;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageInfo"] & {
+                        items: components["schemas"]["AdminUserRow"][];
+                        facets: components["schemas"]["AdminUserFacets"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    createUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserCreate"];
+            };
+        };
+        responses: {
+            /** @description Created. A temporary password is returned **once**, and the answer is never cached. */
+            201: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        user: components["schemas"]["AdminUserRow"];
+                        /** @description Present only for `delivery: temporary_password`. */
+                        temporaryPassword?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `TARGET_ROLE_NOT_ALLOWED` — the role holds a permission the caller lacks. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /**
+             * @description `EMAIL_TAKEN` — already in use, compared case-insensitively.
+             *     `STALE_WRITE` — the role changed three times while the account was being created; nothing was written, so the same request may be sent again.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `ROLE_NOT_ASSIGNABLE` — the role is the Assistant.
+             *     `PASSWORD_SIGN_IN_DISABLED` — a temporary password was asked for while the centre has turned password sign-in off.
+             */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            /** @description This server has no key to seal a link with (`SECRETS_KEY`), so it cannot send one. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
     deleteUser: {
         parameters: {
             query?: never;
@@ -11131,6 +13877,978 @@ export interface operations {
             };
         };
     };
+    changeUserRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description A role from `listAssignableRoles`. */
+                    roleId: components["schemas"]["Uuid"];
+                };
+            };
+        };
+        responses: {
+            /** @description The account with its new role. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserRow"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `TARGET_ROLE_NOT_ALLOWED` — the account's role, or the new one, holds a permission the caller lacks. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /**
+             * @description `LAST_ADMIN` — the account is the only active Admin.
+             *     `USER_OWNS_CONTENT` — the account owns classes or content and the new role opens no teacher workspace; `details` holds `classes`, `tests`, `questions`, `media` and `assignments`, each a count.
+             *     `STALE_WRITE` — a role changed, or another write to the account held what this one needed, three times while the change was being made; nothing was written, so the same request may be sent again.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `CANNOT_ACT_ON_SELF` — the account is the caller's own.
+             *     `ROLE_NOT_ASSIGNABLE` — the new role is the Assistant.
+             */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    disableUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account, disabled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserRow"];
+                };
+            };
+            /** @description `TARGET_ROLE_NOT_ALLOWED` — the account's role holds a permission the caller lacks. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description `LAST_ADMIN` — the account is the only active Admin. `STALE_WRITE` — the account's role, or another write to the account, changed while it was being written; try again. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `CANNOT_ACT_ON_SELF` — the account is the caller's own. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    transferUserContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserContentTransfer"];
+            };
+        };
+        responses: {
+            /** @description What moved, and what stayed behind. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserContentTransferResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `TARGET_ROLE_NOT_ALLOWED` — the account's role holds a permission the caller lacks. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description `USER_NOT_DISABLED` — disable the account first. `STALE_WRITE` — the account's role, or another write to the account or its content, changed while it was being moved. Nothing was moved; try again. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `INVALID_RECIPIENT` — the recipient does not exist, is disabled, has no teacher workspace or is the account itself. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    disableUsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    userIds: components["schemas"]["Uuid"][];
+                };
+            };
+        };
+        responses: {
+            /** @description The batch ran. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description The ids of the accounts that are disabled now. */
+                        disabled: components["schemas"]["Uuid"][];
+                        failed: components["schemas"]["UserActionFailure"][];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    enableUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account, enabled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserRow"];
+                };
+            };
+            /** @description `TARGET_ROLE_NOT_ALLOWED` — the account's role holds a permission the caller lacks. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description `STALE_WRITE` — the account's role, or another write to the account, changed while it was being written. Nothing was written; try again. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    signOutUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed out. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `TARGET_ROLE_NOT_ALLOWED` — the account's role holds a permission the caller lacks. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description `STALE_WRITE` — the account's role, or another write to the account, changed while it was being written. Nothing was written; try again. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    resetUserPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    delivery: components["schemas"]["UserResetDelivery"];
+                };
+            };
+        };
+        responses: {
+            /** @description Reset. A temporary password is returned **once**, and the answer is never cached. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Present only for `delivery: temporary_password`. */
+                        temporaryPassword?: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `TARGET_ROLE_NOT_ALLOWED` — the account's role holds a permission the caller lacks. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description `ACCOUNT_DISABLED` — the account is disabled; enable it first. `STALE_WRITE` — the account's role, or another write to the account, changed while it was being written. Nothing was written; try again. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `CANNOT_ACT_ON_SELF` — the account is the caller's own.
+             *     `PASSWORD_SIGN_IN_DISABLED` — the centre has turned password sign-in off.
+             */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            /** @description This server has no key to seal a link with (`SECRETS_KEY`), so it cannot send one. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    resetUsersPasswords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    userIds: components["schemas"]["Uuid"][];
+                    delivery: components["schemas"]["UserResetDelivery"];
+                };
+            };
+        };
+        responses: {
+            /** @description The batch ran. Passwords are returned **once**. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["UserPasswordReset"][];
+                        failed: components["schemas"]["UserActionFailure"][];
+                    };
+                };
+            };
+            /** @description Fails the schema, or `VALIDATION_FAILED` naming `userIds`: more than 40 ids for `temporary_password`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `PASSWORD_SIGN_IN_DISABLED` — the centre has turned password sign-in off. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            /** @description This server has no key to seal a link with (`SECRETS_KEY`), so it cannot send one. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    previewUserImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    defaultRole: components["schemas"]["UserImportDefaultRole"];
+                    delivery: components["schemas"]["UserImportDelivery"];
+                };
+            };
+        };
+        responses: {
+            /** @description The counts. Nothing was stored. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserImportPreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `TARGET_ROLE_NOT_ALLOWED` — `defaultRole` holds a permission the caller lacks. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `USER_IMPORT_FILE_TOO_LARGE` — over 5 MiB. The message tells the user
+             *     to save the sheet as CSV UTF-8 and upload that.
+             */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            422: components["responses"]["UserImportRefused"];
+            429: components["responses"]["TooManyRequests"];
+            501: components["responses"]["UserImportUnavailable"];
+        };
+    };
+    createUserImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    defaultRole: components["schemas"]["UserImportDefaultRole"];
+                    delivery: components["schemas"]["UserImportDelivery"];
+                    requestId: components["schemas"]["Uuid"];
+                };
+            };
+        };
+        responses: {
+            /** @description Queued. Poll `getUserImport` for its progress. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserImportJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `TARGET_ROLE_NOT_ALLOWED` — `defaultRole` holds a permission the caller lacks. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `USER_IMPORT_FILE_TOO_LARGE` — over 5 MiB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description Any code `previewUserImport` answers with, and
+             *     `USER_IMPORT_NOTHING_TO_CREATE` — no row of the file would create an
+             *     account.
+             */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            501: components["responses"]["UserImportUnavailable"];
+        };
+    };
+    getUserImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserImportJob"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    downloadUserImportSheet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sheet. */
+            200: {
+                headers: {
+                    /** @description `attachment; filename="new-accounts-YYYYMMDD.csv"`. */
+                    "Content-Disposition": string;
+                    /** @description `no-store`. */
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description `SHEET_UNAVAILABLE` — the job has no sheet to give: it is not done, was delivered by email, created no account, was downloaded already, or finished more than 24 hours ago. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            501: components["responses"]["UserImportUnavailable"];
+        };
+    };
+    listAllClasses: {
+        parameters: {
+            query?: {
+                tab?: "active" | "archived";
+                /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
+                q?: components["parameters"]["Query"];
+                teacher?: "disabled";
+                /**
+                 * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
+                 *     lists: at this scale the teacher wants "trang 3 / 26" more than
+                 *     stability under concurrent inserts). A page past the end is an empty
+                 *     `items` with the same `total`.
+                 *
+                 *     Page size is `limit`, declared per operation with its own default -- a
+                 *     media grid wants a different page from a table of tests. The response
+                 *     echoes the size actually used as `pageSize`; compute page counts from
+                 *     that and `total`, never from an assumed size.
+                 */
+                page?: components["parameters"]["Page"];
+                limit?: 10 | 20 | 50;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageInfo"] & {
+                        items: components["schemas"]["AdminClassRow"][];
+                        facets: components["schemas"]["AdminClassFacets"];
+                        disabledTeacherClasses: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    createClassForTeacher: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminClassCreate"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Class"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `INVALID_RECIPIENT` — the teacher does not exist, is disabled or has no teacher workspace. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    changeClassTeacher: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClassTeacherChange"];
+            };
+        };
+        responses: {
+            /** @description The class with its new teacher. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Class"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description `INVALID_RECIPIENT` — the teacher does not exist, is disabled or has no teacher workspace. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleList"];
+                };
+            };
+        };
+    };
+    createRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleInput"];
+            };
+        };
+        responses: {
+            /** @description The new role. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleSummary"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `TARGET_ROLE_NOT_ALLOWED` — the source role holds a permission the caller lacks. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description `ROLE_NAME_TAKEN` — another role has the name, in any letter case. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `ROLE_NOT_ASSIGNABLE` — the source is the Assistant. `ROLE_LIMIT_REACHED` — 200 roles exist already. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listAssignableRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignableRole"][];
+                };
+            };
+        };
+    };
+    setRolePermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RolePermissionsInput"];
+            };
+        };
+        responses: {
+            /** @description The roles the save touched. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RolePermissionsResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `TARGET_ROLE_NOT_ALLOWED` — the subset rule keeps the caller from a role or a key. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description `STALE_WRITE` — a role changed since the matrix was read. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `KEY_NOT_GRANTABLE`, `ROLE_LOCKED`, `STUDENT_NEEDS_TAKE_TESTS` or `CANNOT_ACT_ON_SELF`. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleUpdate"];
+            };
+        };
+        responses: {
+            /** @description The role after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleSummary"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `TARGET_ROLE_NOT_ALLOWED` — the role holds a permission the caller lacks. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description `STALE_WRITE` — the role changed since `expectedRevision`. `ROLE_NAME_TAKEN` — another role has the name, in any letter case. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getAdminOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOverview"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getAdminSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSummary"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Usage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
     openDocsSession: {
         parameters: {
             query?: never;
@@ -11149,6 +14867,247 @@ export interface operations {
                 };
                 content?: never;
             };
+        };
+    };
+    getApiReferenceSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiReferenceSummary"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    downloadOpenApi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file. */
+            200: {
+                headers: {
+                    /** @description `attachment; filename="quizzivy-openapi.json"`. */
+                    "Content-Disposition": string;
+                    /** @description `no-store`. */
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listAuditLog: {
+        parameters: {
+            query?: {
+                category?: components["schemas"]["AuditCategory"];
+                /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
+                q?: components["parameters"]["Query"];
+                range?: "today" | "7d" | "30d" | "all" | "custom";
+                /** @description First day of a `custom` range, `YYYY-MM-DD`. */
+                from?: string;
+                /** @description Last day of a `custom` range, `YYYY-MM-DD`, inclusive. */
+                to?: string;
+                /**
+                 * @description 1-based page number. Lists are OFFSET-paginated so a client can draw
+                 *     numbered pages (O-20 overrides §13.8's keyset rule for the teacher's
+                 *     lists: at this scale the teacher wants "trang 3 / 26" more than
+                 *     stability under concurrent inserts). A page past the end is an empty
+                 *     `items` with the same `total`.
+                 *
+                 *     Page size is `limit`, declared per operation with its own default -- a
+                 *     media grid wants a different page from a table of tests. The response
+                 *     echoes the size actually used as `pageSize`; compute page counts from
+                 *     that and `total`, never from an assumed size.
+                 */
+                page?: components["parameters"]["Page"];
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageInfo"] & {
+                        items: components["schemas"]["AuditEntry"][];
+                        facets: components["schemas"]["AuditCategoryFacets"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    exportAuditLog: {
+        parameters: {
+            query?: {
+                period?: "7d" | "30d" | "year";
+                format?: "csv" | "json";
+                category?: components["schemas"]["AuditCategory"];
+                /** @description Free-text search. Accent-insensitive (D-11) — `phat am` matches `phát âm`. */
+                q?: components["parameters"]["Query"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file. */
+            200: {
+                headers: {
+                    /** @description `attachment; filename="audit-log-YYYYMMDD.csv"` or `.json`. */
+                    "Content-Disposition": string;
+                    /** @description `no-store`. */
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                    "application/json": components["schemas"]["AuditEntry"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description `EXPORT_TOO_LARGE` — the period holds more than 100,000 entries. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    requestDataExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DataExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataExport"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description `EXPORT_IN_PROGRESS` — an export is already queued or running. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+            501: components["responses"]["ExportOff"];
+        };
+    };
+    getDataExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataExport"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            501: components["responses"]["ExportOff"];
+        };
+    };
+    downloadDataExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The URL. */
+            200: {
+                headers: {
+                    /** @description `no-store`. */
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataExportDownload"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description `EXPORT_UNAVAILABLE` — the export is not ready, has expired, failed, or was already signed three times. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            501: components["responses"]["ExportOff"];
         };
     };
     getAiCredits: {
@@ -11365,6 +15324,210 @@ export interface operations {
                 };
             };
             501: components["responses"]["AiOff"];
+        };
+    };
+    getOrganizationSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    /** @description `private, no-store`. */
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationSettings"];
+                };
+            };
+        };
+    };
+    updateOrganizationSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrganizationSettingsInput"];
+            };
+        };
+        responses: {
+            /**
+             * @description The document as stored. A document equal to the stored one changes
+             *     nothing: the same revision comes back and no audit row is written.
+             */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationSettings"];
+                };
+            };
+            /**
+             * @description The body fails its schema, or `VALIDATION_FAILED` with a message per
+             *     field: a text that is empty or too long after trimming, a name that
+             *     holds a line break or an invisible character, a website that is not a
+             *     domain or an `https` address without credentials, an email or a
+             *     phone number that is not one, a repeated domain, or a logo the server
+             *     does not hold (as `organization.logo.light` or `organization.logo.dark`).
+             */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `STALE_WRITE` — saved elsewhere since `expectedRevision`; read again. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `SIGN_IN_POLICY_LOCKOUT` — the policy would leave the caller, or every
+             *     active built-in Admin, with no way to sign in. `details.affectedUsers`
+             *     and `details.affectedAdmins` count the active accounts it leaves
+             *     without one. Nothing was stored.
+             */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getSignInImpact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    signIn: components["schemas"]["SignInPolicy"];
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignInImpact"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    getRetentionImpact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    retention: components["schemas"]["RetentionPolicy"];
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionImpact"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    uploadOrganizationLogo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    /** @enum {string} */
+                    variant: "light" | "dark";
+                };
+            };
+        };
+        responses: {
+            /** @description Stored. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationLogoUpload"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description `MEDIA_TOO_LARGE` — a file over 1 MiB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description `MEDIA_TYPE_UNSUPPORTED` (not a PNG), `MEDIA_UNREADABLE` (the header or
+             *     the pixels cannot be read) or `IMAGE_DIMENSIONS` (not square within 2%,
+             *     a side outside 256 to 2048 pixels, or needing more memory to decode
+             *     than the server allows). Nothing was stored.
+             */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Object storage is not configured, so no logo can be kept. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     listClasses: {

@@ -85,6 +85,13 @@ describe("templateOf", () => {
     );
   });
 
+  it("takes the table's own checkbox track in place of the default", () => {
+    const shown = shownAt(ASSIGNMENTS, THRESHOLDS, 0);
+    expect(templateOf(ASSIGNMENTS, shown, { select: true, selectTrack: "36px" })).toBe(
+      "36px minmax(200px,2.2fr)",
+    );
+  });
+
   it("has no checkbox track without selection and no menu track without a menu", () => {
     const shown = shownAt(ASSIGNMENTS, THRESHOLDS, 0);
     expect(templateOf(ASSIGNMENTS, shown, { select: false })).toBe(

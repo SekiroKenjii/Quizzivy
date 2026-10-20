@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { vi } from "vitest";
-import { DeckScale } from "@/components/ui/deck-scale";
 import QuestionBankPage from "@/features/question-bank/pages/teacher/QuestionBankPage";
 
 /** BANK_API is the stubbed API origin the bank page calls. */
@@ -83,11 +82,7 @@ export function renderBank(path = "/teacher/question-bank", fakeTimers = false) 
     [
       {
         path: "/teacher/question-bank",
-        element: (
-          <DeckScale>
-            <QuestionBankPage />
-          </DeckScale>
-        ),
+        element: <QuestionBankPage />,
       },
       { path: "/teacher/question-bank/new", element: <p>new question page</p> },
       { path: "/teacher/question-bank/:id", element: <p>editor page</p> },

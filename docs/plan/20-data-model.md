@@ -29,6 +29,12 @@ GRANT CONNECT ON DATABASE quizzivy TO quizzivy_app;
 API connects as and never owns anything (§13.5). `pg_trgm` is a trusted extension
 in PG13+, so `quizzivy_migrate` can install it without superuser.
 
+Since R5 a third role, `quizzivy_maintenance` (`LOGIN`, `CONNECTION LIMIT 2`), is
+what `cmd/maintenance` connects as (`MAINTENANCE_DATABASE_URL`). All three are
+created by `scripts/provision-db.sh`, which the compose `initdb` hook runs too, and
+the new one gets `CONNECT` like the app role; `00139` grants it the columns its
+commands use and fails when it is missing (§55, D-60).
+
 ---
 
 ## 2. Foundations
@@ -267,8 +273,9 @@ CREATE UNIQUE INDEX class_join_codes_one_active
   uses are judged on the row found (§33). The plaintext code is never stored
   (§13.3). From `00078` a new code is also sealed under a key the database
   never holds (D-27), so a dump does not hand it over; a legacy row's SHA-256
-  still does, in 2^20 guesses, until the start-up rotation of v0.10.0 replaces it
-  (§33); a revoked or expired one stays.
+  still does, in 2^20 guesses, but no legacy row is live: the start-up rotation
+  of v0.10.0 revoked the live ones, `00141` the expired ones, and since R5 no
+  lookup reads a legacy hash (§33, T-R5.1).
 - **The exhaustion check is in the database**, not only in the handler. §6.5
   treats the code as a bearer secret; a `uses_count > max_uses` row is a silent
   policy failure and this makes it impossible.
@@ -334,15 +341,33 @@ CREATE INDEX audit_log_actor_idx
   ON app.audit_log (actor_user_id, occurred_at DESC);
 ```
 
+`00133_index_audit_log_recency.sql` (R5, T-R5.12) adds the order the Admin audit log is read in:
+
+```sql
+DROP INDEX CONCURRENTLY IF EXISTS app.audit_log_recent_idx;
+CREATE INDEX CONCURRENTLY audit_log_recent_idx
+  ON app.audit_log (occurred_at DESC, id DESC);
+```
+
+The drop is there for a rerun: a build that is interrupted leaves the index INVALID and the file
+unrecorded, and `CREATE INDEX CONCURRENTLY IF NOT EXISTS` would find the name taken, build nothing
+and let goose record the file.
+
+Neither index above leads with the time, so without it every page sorts the whole range and the
+export's keyset batches `(occurred_at, id) < ($1, $2)` have no index to walk. `entity` is read from
+the heap; the facet statement at `range=7d` reads a week of rows through the index and `range=all`
+reads the table once (100,000 rows: 18 ms). Grants are unchanged: the app role still has `INSERT` and
+`SELECT` only.
+
 - `bigint IDENTITY` not uuid, for the same reason §13.3 gives for
   `attempt_events`: a high-volume append-only log read by a narrow key is better
   served by a narrow sequential key. `GENERATED ALWAYS AS IDENTITY` over `serial`
   per the schema-design reference.
 - `actor_user_id ON DELETE SET NULL` — an audit row must survive the actor. The
   only nullable-actor case besides deletion is a system action.
-- No `(occurred_at DESC)` index yet. §8 has no global audit screen, and §13.6
-  says to leave skip scan passive rather than adding indexes preemptively. Add it
-  with the screen that needs it.
+- No `(occurred_at DESC)` index until R5. §8 had no global audit screen, and §13.6
+  says to leave skip scan passive rather than adding indexes preemptively. The
+  Admin console's audit log is the screen that needs it, and `00133` above adds it.
 
 Required entries per §13.4: class enrolment, join-code generation and rotation,
 attempt reset/void/extend, password reset, media deletion, test publish. Each is
@@ -1373,7 +1398,7 @@ listed here matches the spec.
 | D-24 | Add the view `app.student_like_roles`, the one strict-student predicate: the built-in Student, or a custom role holding nothing but `learning.take_tests`; the other built-in roles are excluded by key | The Admin stores only its "Take tests" cell, so a predicate on grants alone would make it a student target; every student read and write, the legacy-role sync and the anonymiser use this one definition (plan 70 §4.3, T-R2.1) |
 | D-25 | `users.role_id` references `app.roles` and replaces the `app.user_role` enum. Expand half (00056): added nullable, backfilled and `NOT NULL NOT VALID`, with `users_sync_legacy_role` keeping `role` in step. Contract half (00105, T-R4.49, §42): the constraint validated, and the trigger, `role`, its index and the enum dropped | §13.3's two-value enum holds no Teacher, Assistant or custom role, and v0.7.0 keeps writing `role` while both binaries run (plan 70 §3, T-R2.2) |
 | D-26 | `users_last_admin`, an AFTER UPDATE OR DELETE trigger, refuses any change that leaves no active Admin; its function is `SECURITY DEFINER`, owned by `quizzivy_migrate`, with a pinned `search_path` and EXECUTE revoked from PUBLIC | The guard must hold on every path, a hand-written `UPDATE` included, and its row lock on `app.roles` needs the UPDATE privilege `00054` withholds from the app role (§30, T-R2.2) |
-| D-27 | `class_join_codes` gains `code_ciphertext`, `key_id` and `lookup_scheme`: a new code is sealed with AES-256-GCM under `JOIN_CODE_KEY`, and its `code_hash` is an HMAC-SHA256 under that key's lookup key; legacy rows keep the SHA-256 | D5 has a teacher read a code back, which a hash cannot give; the key never reaches the database, so a dump can neither open a sealed code nor search the code space against its keyed hash (§33, T-R2.14a) |
+| D-27 | `class_join_codes` gains `code_ciphertext`, `key_id` and `lookup_scheme`: a new code is sealed with AES-256-GCM under `JOIN_CODE_KEY`, and its `code_hash` is an HMAC-SHA256 under that key's lookup key; legacy rows keep the SHA-256; from `00141` (T-R5.1) only a revoked row may lack a ciphertext | D5 has a teacher read a code back, which a hash cannot give; the key never reaches the database, so a dump can neither open a sealed code nor search the code space against its keyed hash (§33, T-R2.14a) |
 | D-28 | Add `notifications` and `notification_preferences`. `notifications.params` and `target` are `jsonb`, bounded objects rather than columns, and `kind` is a checked dotted `text`, not an enum | §13.3 has no notification. Each kind carries its own few fields and every release adds kinds, so columns would be mostly NULL and an enum a migration per kind; the contract's closed `NotificationParams` and the Go type per kind are the schema. A name in `params` is a copy, not a reference: R5's anonymisation (T-R5.17a) deletes or scrubs the notifications that name an anonymised user (§34, T-R4.10a) |
 | D-29 | `media_assets` gains `display_name`, `default_max_plays`, `replaced_by`, `width` and `height`, and its size limit depends on the kind: audio 50 MiB, an image 10 MiB | §13.3's row is a stored file and nothing else, and §11.1 allowed 10 MB for either kind. The deck's Media page names a file, gives it a play limit, shows an image's size and replaces a file in place (DG-63, DG-09); a replaced row stays, because published versions still point at it (§6, T-R4.17a, T-R4.17b) |
 | D-30 | `users` gains nullable profile fields and bounded object `preferences` | The caller's private profile and account settings are required by T-R4.7; student-facing teacher names use the chosen display name without exposing private account fields |
@@ -1397,6 +1422,17 @@ listed here matches the spec.
 | D-48 | Add `ai_usage_ledger`, append-only: `UPDATE` and `DELETE` are revoked from the app role in the file that creates it | One row per settled call with the actor, the feature, the tier, the four token counts the provider reported, the credits charged and the provider's request id, so a month's invoice reconciles with the pool. A ledger the application can rewrite proves nothing, which is why `audit_log` and `attempt_events` are the same (D-01, §11). `user_id` is `ON DELETE SET NULL`, run by the table's owner, so a row outlives its actor |
 | D-49 | Add `ai_credit_requests`, with a partial unique index `ai_credit_requests_one_pending_idx (user_id, month) WHERE status = 'pending'` | At most one request per teacher per month is waiting (DG-200), which the index makes a fact of the data and not a race between two clicks. `decided_by` is `ON DELETE SET NULL` and is NULL when the console decided, which the audit row says. It is the one foreign key left unindexed on purpose: the table gains a row per request, and removing an Admin scans a few hundred |
 | D-50 | `questions` gains a nullable `copied_from_id`, a self-reference `ON DELETE SET NULL`, and a partial index on the copies | A member copy of a bank question names the question it was made from, so that dragging an unedited copy out of its group (E1, `74e-e1-group-move.md`, "After release") puts the original back and no second bank question is left. The link is informational, like `test_version_questions.source_question_id` (D-07): it is cleared when the copy leaves its group and becomes an independent question, and `SET NULL` means a deleted origin never waits on a copy. Nullable with no default and no backfill, so the v0.11.6 binary's insert, which names no such column, keeps working; a copy it wrote reads NULL and is never restored. The REFERENCES is inline in the `ADD COLUMN`, so PostgreSQL skips the validation scan of a column it is adding. The index is partial because almost every question is not a copy, and `ON DELETE SET NULL` updates the copies by equality, which implies its predicate. See §48 |
+| D-51 | Add `email_outbox`, one row per message to send, with a partial index on the pending rows | A message is written in the transaction that decided to send it, so a rolled-back decision sends nothing, and the API and the worker both drain the table (T-R5.2). `template` is a checked slug and not an enum, as `notifications.kind` is (D-28), because the template list is Go's and R7 adds templates without a migration. `to_address` is a copy, since `to_user_id` is `ON DELETE SET NULL` and an unsent message must outlive its user's row. `secret_ciphertext` holds a set-password token sealed under `SECRETS_KEY` with the row id as associated data, and is cleared in the statement that marks the row sent or failed. `dedupe_key` is a plain unique column: a second message with the same key is not written. `attempts` is bounded at 10 to match the dispatcher. See §49 |
+| D-52 | `users` gains four nullable columns, `last_active_at`, `last_sign_in_at`, `last_sign_in_method` (CHECK in `password`, `google`, `set_password_link`) and `password_changed_at`; a new `user_activity_days (user_id, day)` records the local days a user was active | DG-54: the Students list's "Last active" and "Not signed in", the Settings "Changed …" line and R5's daily chart need facts the schema did not keep (the Students list used the last attempt). All four are nullable with no default, so the v0.10.0 binary's insert, which names none, keeps working; NULL `last_sign_in_at` is "never signed in". The migration backfills `last_sign_in_at` and `last_active_at` with the newest of the user's refresh token `issued_at`, attempt `started_at` and audit entry as actor, with the `updated_at` trigger off, so an account used before R5 does not read "Not signed in"; the method and `password_changed_at` stay NULL because nothing records them. The day table is keyed by the pair, indexed on `day` for range reads, and cascades with the user; a day is the local date in `APP_TIMEZONE`. See §50 |
+| D-53 | `organization_settings` is a singleton keyed by `id boolean PRIMARY KEY DEFAULT true CHECK (id)`, written by the migration, and the app role has neither `INSERT` nor `DELETE` on it | The centre has exactly one settings document, and the front door and sign-in cannot run without it, so it is reference data the migration owns (D-21) and not a seed. A boolean key that only `true` satisfies makes a second row impossible without a trigger, and revoking the two statements means the application can only change the row, never lose it or add a rival. Every optional text is nullable and every bound is a CHECK, so the database refuses what the application would have refused. `CHECK (google_sign_in OR password_sign_in)` is the last line of the rule that keeps a way in. See §51 |
+| D-54 | Add `data_exports`, one row for each request, with a partial unique index `data_exports_active_idx ON ((true)) WHERE status IN ('queued','running')` | At most one export is queued or running in the whole centre (T-R5.15): a full export of personal data is heavy and two Admins asking at once must not both build a ZIP, so the index makes "one at a time" a fact of the data and `409 EXPORT_IN_PROGRESS` its report. It is also the worker's queue, which holds one row at most. `status` is a checked text, not an enum, as `notifications.kind` is (D-28). `attempts` counts claims so an export a dying worker keeps re-claiming is failed after the third. `error_code` is a short code and never a message, so nothing about the data reaches the table. `requested_by` is `ON DELETE CASCADE`: an export of a deleted account has no reader. `data_exports_ready_has_file` ties `ready` to its key, size and expiry. See §52 |
+| D-55 | Add `set_password_tokens`, one row per set-password link, with a full index on `user_id` and the 24-hour bound as a `CHECK` | A link is the credential of an account that has none yet (T-R5.3, D15), so the database holds only the SHA-256 of a 256-bit token (`token_hash bytea`, 32 bytes, unique), never the token, which waits sealed in `email_outbox` until the message is sent (D-51). `expires_at <= created_at + interval '24 hours'` is the database's own last line against a longer-lived link; the application writes `created_at` itself, from the clock it computes `expires_at` with, truncated to the microsecond, so the bound holds exactly. `used_at` and `revoked_at` are separate because the claim is one `UPDATE … SET used_at … WHERE used_at IS NULL AND revoked_at IS NULL AND expires_at > $now`, which two submits of one link race for and one wins, while a newer link, a password set and a disable revoke by `revoked_at`; the lookup reads all three alike. `user_id` cascades, since a link without its account is meaningless; `created_by` is provenance (an Admin, the account itself, or NULL for a job) and `SET NULL`s, so a deleted account's issuer leaves rows nobody can use. **Deviation from the plan:** T-R5.3 asked for a *partial* index on `(user_id) WHERE used_at IS NULL AND revoked_at IS NULL`. The index is full instead, because `ON DELETE CASCADE` from `users` must find rows of every state and a partial index would leave a delete of a user scanning the table; the unused-link reads (revoke-and-replace) still use it, over a handful of rows per account. See §53 |
+| D-56 | Add `user_import_jobs`, one row for each Admin's import of accounts from a file, with `UNIQUE (created_by, request_id)` and a partial index on the open jobs | The API reads and judges the file and the worker creates the accounts (T-R5.14), so a job is both the request and the worker's queue: `user_import_jobs_open_idx (created_at) WHERE status IN ('queued','running')` holds the rows the worker may take and nothing else. `(created_by, request_id)` is unique so a retried request returns the job it stored the first time, and the caller's `requestId` is held for as long as the dialog is open. `total_rows` is the rows stored (1 to 2,000): the rows that passed every rule, including those whose address already belonged to an account, which are stored settled as skipped; a refused row is only counted in `invalid_count`, so the file's text does not outlive the request. `created_count + skipped_count` may not pass `total_rows`, and a `done` job has settled every row (`user_import_jobs_done_settled`). `attempts` (0 to 3) counts claims, and `error_code` is a short code and never a message, so nothing about the file reaches the table (`failed` has one and no other status does). `default_role_id` is kept because the worker re-checks the importer's right to every role of the job when it runs; it is `RESTRICT` and roles are never deleted. `created_by` is `ON DELETE CASCADE`: the job of a deleted account has no reader. `sheet_expires_at` and `sheet_downloaded_at` exist only for `delivery = 'sheet'`. See §54 |
+| D-57 | Add `user_import_rows`, the rows of a job that passed, with `PRIMARY KEY (job_id, ordinal)` and a sealed password that only a created row may hold | `ordinal` counts the stored rows from 0 (not the file's lines) and is also a row's place in the hand-out sheet. `full_name` and `email` are kept as the file spelled them, trimmed and composed (NFC), and the account takes the same. `outcome` is `pending` until the worker settles the row as `created` (`user_id` is the account) or `skipped_exists`. `secret_ciphertext` holds the temporary password of a row created for a sheet, sealed under `SECRETS_KEY` with the job id and ordinal as associated data; `user_import_rows_secret_only_when_created` makes a password exist only beside the account it opens, and the transaction that hands the sheet out erases it. `user_id` and `class_id` are `ON DELETE SET NULL`, so a row outlives the account and the class it created or named, each with a partial index for the cascade. The housekeeping step `import_sheets` erases the ciphertexts of a sheet nobody downloaded within its 24 hours (D-038); a download and a failure erase them at once. The rows keep names and addresses until the housekeeping step `import_jobs` removes the job 30 days after it finished, the rows by the cascade. That cascade and the `SET NULL` of a class or user delete visit the same rows in different orders and can deadlock, a known limit (D-044). See §54 |
+| D-58 | Add `users_search_trgm_idx`, a gin `gin_trgm_ops` index on `app.immutable_unaccent(lower(full_name \|\| ' ' \|\| email))`, built `CONCURRENTLY` | The Users search of the Admin console (`listUsers`, `q`, T-R5.9a) is a `LIKE '%…%'` over that expression, which no b-tree serves, and it runs up to three times a request (the count, the facets, a sparse page). §13.6 held an index back until there was evidence; QC measured 99 ms with no filter, 400 ms for `q=nghe` and about 1 s for a search that finds nothing at 100,000 accounts (1.3 to 5 s at 500,000), and an index over this expression took them to 71 ms and 4 ms once the table is analysed (QC-N-5). Creating an index never wakes autovacuum, and without statistics for the expression the page of a search that finds nothing walks `users_pkey` backwards (346 ms at 100,000, 3.8 s at 500,000), so the file ends with `ANALYZE app.users` (QC-N-13). The expression is `repositories.UserSearchText`, shared by the query and the test; `users_search_index_test.go` EXPLAINs it and the count, page and facets statements the directory sends, so a change to the constant, to the index, or to the clause the directory builds fails it (QC-N-14). The index reads `full_name` and `email` only, so an update of any other column stays heap-only; it adds a gin pending-list entry for each insert and each rename. A query of one or two characters has no trigram and still scans. Changing the `unaccent` dictionary needs a `REINDEX`, as for every index on `app.immutable_unaccent` (00001). The file is `NO TRANSACTION` and drops any invalid leftover first, as 00133 does |
+| D-59 | Add `avatar_sweeps`, one row for each anonymised account whose profile photo objects the housekeeping removed, `user_id` the primary key and `ON DELETE CASCADE`, and the app role holds `SELECT` and `INSERT` only | Anonymisation (T-R5.17a) runs as the maintenance role, which holds no storage credential, so it clears `users.avatar_key` and leaves the objects under `avatars/{user_id}/`; the API's daily housekeeping deletes them (T-R5.16, D-050). Nothing else records which anonymised accounts still have objects, so without a mark every run would list every anonymised account's prefix for ever, and listing the whole `avatars/` prefix instead would read every live photo daily and lose its place on a restart. The row is written only once the prefix is empty, so a failed list or delete leaves the account due for the next run, and an account is listed once. It is a table of its own, not a column on `users`: the maintenance guard (D-042) pins what an anonymised row holds, and the mark is the API's state, not the account's. `REVOKE UPDATE, DELETE` makes a mark permanent for the application; it goes only with its account. No index beyond the key: the pick reads `users` by the anonymised shape and anti-joins this table, and D-050 names the revisit at about 100,000 anonymised accounts. See §56 |
+| D-60 | A third role, `quizzivy_maintenance`, created outside migrations (§1); `00139` grants it table by table and column by column only what `cmd/maintenance`'s commands read and write: `INSERT` alone on `audit_log`, `DELETE` only where a command deletes, nothing on a sequence or on `ai_usage_ledger`, `USAGE` on schemas `app` and `public` and `CREATE` on neither. The file fails when the role is missing, and adds `users_maintenance_guard`, a `BEFORE UPDATE` trigger on `users` fired only for this role, which refuses (`42501`) an update that does not leave the row anonymised | §13.5 had two roles, and before R5 `MAINTENANCE_DATABASE_URL` named the owner or another privileged role. The retention sweep runs unattended from a nightly workflow (T-R5.17a, D16), so its credential holds the least the commands need, and a grant nothing uses is a fault too: `privileges_test.go` compares the role's effective column privileges with its own list of them, which §55's table mirrors, in both directions. There is no conditional grant, so a database that migrates has the role. The `UPDATE` on the login columns that anonymising needs is also what a leaked credential would use to take an account over, so the guard pins the anonymised shape (D-042). It reads no ownership: by direct SQL the role can still anonymise any account but the last active Admin, a teacher's included, and only the sweep and `anonymize-user` skip owners (D-045). See §55 |
+| D-61 | An answer the retention sweep removes keeps its `attempt_answers` row, with `payload` replaced by the marker `{"removed": true}` (`retention.RemovedAnswer`); no column is added | Only the response goes: `auto_score`, `manual_score`, the grader's comment and the grader stay, so no result or average moves (plan 75, "Removing answers keeps scores and comments"). The marker is a JSON object, which the existing `jsonb_typeof(payload) = 'object'` check accepts, so neither T-R5.17a nor T-R5.17b needed a migration. It has no `type`, so no real answer shape can be mistaken for it and `answered.SaysSomething` counts it as saying nothing. Every reader goes through one test: `attempts/domain.AnswerRemoved` in Go, and an equality with `retention.RemovedAnswer` in SQL, where `answered.AwaitsGrade` drops it from every count of answers awaiting a mark (`attempt_answers_pending_idx` still serves them, the marker filtering the rows it returns), a grade naming one is refused whole (`409 ANSWER_REMOVED`), the sweep and the settings page's impact count skip a row already removed, and the data export's `removed` column reports it. See §55 |
 
 ---
 
@@ -1526,6 +1562,20 @@ the file it adds.
 | `00125_add_word_imports_read_with_ai.sql` | `word_imports.read_with_ai boolean NOT NULL DEFAULT false`; a constant default, so the v0.10.x binary keeps inserting | D4 (T-D4.33), §47 |
 | `00126_add_questions_copied_from.sql` | `questions.copied_from_id` and `questions_copied_from_id_fkey` (`REFERENCES questions (id) ON DELETE SET NULL`), added with the column, nullable with no default | E1 hotfix v0.11.7, D-50, §48 |
 | `00127_index_questions_copied_from.sql` | `questions_copied_from_idx (copied_from_id) WHERE copied_from_id IS NOT NULL`, `CONCURRENTLY` | E1 hotfix v0.11.7, D-50, §48 |
+| `00128_create_email_outbox.sql` | `email_outbox`, its checks, `email_outbox_dedupe_key`, the pending index `email_outbox_pending_idx`, `email_outbox_sent_idx` and the `to_user_id` index | R5 (T-R5.2), D-51, §49 |
+| `00129_grant_role_writes.sql` | `INSERT` and `UPDATE (name, description, icon, color, revision, updated_at)` on `roles`, `INSERT` and `DELETE` on `role_permissions`, for the app role; `DELETE` on `roles` and any write on `permissions` stay revoked | R5 (T-R5.8), DG-52, §29 |
+| `00130_create_organization_settings.sql` | `organization_settings`, the singleton, its checks and `updated_at` trigger, the one row the migration writes, and `REVOKE INSERT, DELETE` from the app role | R5 (T-R5.5), D-53, §51 |
+| `00131_add_users_activity.sql` | `users.last_active_at`, `last_sign_in_at`, `last_sign_in_method` (`users_last_sign_in_method_check`), `password_changed_at`, all nullable; backfills the first two | R5 (T-R5.4), D-52, §50 |
+| `00132_create_user_activity_days.sql` | `user_activity_days (user_id REFERENCES users ON DELETE CASCADE, day date, PRIMARY KEY (user_id, day))` and `user_activity_days_day_idx (day)` | R5 (T-R5.4), D-52, §50 |
+| `00133_index_audit_log_recency.sql` | `audit_log_recent_idx (occurred_at DESC, id DESC)`, `CONCURRENTLY` (no transaction), dropping an invalid leftover first; grants unchanged | R5 (T-R5.12), §5 |
+| `00134_create_data_exports.sql` | `data_exports`, its checks (`data_exports_ready_has_file`, `data_exports_failed_has_code`), the active index `data_exports_active_idx` and `data_exports_requested_by_idx` | R5 (T-R5.15), D-54, §52 |
+| `00135_create_set_password_tokens.sql` | `set_password_tokens`, its checks (`token_hash` length, `purpose`, the 24-hour bound), `set_password_tokens_token_hash_key` and `set_password_tokens_user_idx` | R5 (T-R5.3), D-55, §53 |
+| `00136_create_user_import_jobs.sql` | `user_import_jobs`, its checks (counts, `attempts`, `user_import_jobs_done_settled`, `user_import_jobs_failed_has_code`, `user_import_jobs_completed_has_end`, `user_import_jobs_started_once_claimed`, `user_import_jobs_sheet_only_by_sheet`), `user_import_jobs_request_key` and the open-jobs index `user_import_jobs_open_idx` | R5 (T-R5.14), D-56, §54 |
+| `00137_create_user_import_rows.sql` | `user_import_rows`, its checks (`user_import_rows_outcome_check`, `user_import_rows_secret_only_when_created`) and the `user_id` and `class_id` partial indexes | R5 (T-R5.14), D-57, §54 |
+| `00138_index_users_search.sql` | `users_search_trgm_idx`, built `CONCURRENTLY` (no transaction) | R5 (T-R5.9a), D-58 |
+| `00139_grant_maintenance_role.sql` | the grants of `quizzivy_maintenance`, column by column; fails when the role is missing; `app.users_maintenance_guard()` and its trigger `users_maintenance_guard` on `app.users` | R5 (T-R5.17a), D-60, §55 |
+| `00140_create_avatar_sweeps.sql` | `avatar_sweeps` and the `REVOKE UPDATE, DELETE` from the app role | R5 (T-R5.16), D-59, §56 |
+| `00141_require_encrypted_join_codes.sql` | refuses a live code without a ciphertext, revokes each expired unrevoked legacy code at its `expires_at`, and adds and validates `class_join_codes_live_encrypted`; Down drops the constraint and keeps the revocations | R5 (T-R5.1), §33 |
 
 Notes on migration mechanics (§13.7):
 
@@ -1540,7 +1590,8 @@ Notes on migration mechanics (§13.7):
 - **No `CREATE INDEX CONCURRENTLY` in `00001`–`00022`.** They create empty
   tables, where a plain `CREATE INDEX` is instant and transactional.
   `CONCURRENTLY` becomes mandatory once an index is added to a populated table
-  (`00029`, `00036`, `00038`, `00057`, `00071`–`00077`), and each such file
+  (`00029`, `00036`, `00038`, `00057`, `00071`–`00077`, `00112`, `00127`, `00133`,
+  `00138`), and each such file
   gets `-- +goose NO TRANSACTION`, because
   [CREATE INDEX CONCURRENTLY cannot run inside a transaction block](https://www.postgresql.org/docs/18/sql-createindex.html)
   and leaves an `INVALID` index if it fails.
@@ -1586,8 +1637,9 @@ Notes on migration mechanics (§13.7):
 ## 15. Approved retention maintenance (2026-09-22)
 
 `00029_index_integrity_retention.sql` adds `(received_at, id)` concurrently to
-support bounded owner-role deletion strictly before the UTC thirteen-month
-cutoff, with assignment closure also older than that cutoff. Down drops the index concurrently. No application privileges change.
+support bounded deletion strictly before the UTC thirteen-month
+cutoff, with assignment closure also older than that cutoff; since R5 the months are the organization's setting
+and the role is `quizzivy_maintenance` (§55). Down drops the index concurrently. No application privileges change.
 `audit_log` remains append-only and retained. Manual anonymization keeps user
 IDs and historical relationships while removing structured identity and login
 credentials. See `../setup/operations.md` for execution and privacy limits.
@@ -2152,8 +2204,10 @@ media owner, described under the table.
 | 10 | Word imports (W-10a, W-13b) | Upload quota reservation |
 | 11 | Word imports (W-11a) | Run capacity allocation and renewal |
 | 40 | Maintenance windows (T-R1.12, T-R1.13, T-R4.12b) | `window-schedule`, `window-cancel` and `window-end` take it exclusively; the attempt start guard takes it shared, so no attempt starts between a window's scheduling and its extensions. `extendAssignment`, `updateAssignment`, `reopenAssignment`, `setStudentOverrides` and `deleteStudentOverride` take it shared too, before they lock the assignment row (`schedule.LockWindows`), so none of them runs between a window's scheduling and its extensions, and none can wait on a row that `window-schedule` holds while it waits on theirs |
-| 41 | Legacy join-code rotation (T-R4.22) | Each class's rotation across API machines |
+| 41 | Retired: the legacy join-code rotation (T-R4.22), removed in R5 (T-R5.1). Not reused | Each class's rotation across API machines, v0.10.0 to v0.11.x |
 | 42 | Reserved: R7's notification scheduler | Confirmed by R7 |
+| 43 | Email dispatch (T-R5.2) | `pg_try_advisory_xact_lock(73819, 43)` in the API's and the worker's dispatcher: one batch is claimed and sent at a time across both processes, so the daily budget and the provider's request rate hold. A dispatcher that does not get it waits and tries again |
+| 44 | Role creation (T-R5.8) | `pg_advisory_xact_lock(73819, 44)` in `createRole`'s insert, then a count of `app.roles`: two creations cannot both take the last of the 200 roles the contract's lists hold (`ROLE_LIMIT_REACHED`). Nothing else takes it, and it is taken after the copy source's `FOR SHARE`, never before a role row lock. |
 
 **Namespace 73820: one media library's quota (T-R4.17a).**
 `pg_advisory_xact_lock(73820, hashtext(<owner id>::uuid::text))` serialises
@@ -2212,8 +2266,10 @@ writes them (D-21).
   UPDATE is covered although no role may update a grant: an update is a delete
   and an insert in one statement.
 - All three tables are read-only for `quizzivy_app`, narrowing `00009`'s
-  default privileges; R5 (T-R5.8) grants the role commands' writes, never
-  DELETE on `roles` and never any write on `permissions`.
+  default privileges; `00129_grant_role_writes.sql` (R5, T-R5.8) grants the role
+  commands' writes: `INSERT` and `UPDATE (name, description, icon, color,
+  revision, updated_at)` on `roles`, `INSERT` and `DELETE` on `role_permissions`.
+  Never `DELETE` on `roles` and never any write on `permissions`.
 
 `00055_create_student_like_roles_view.sql` adds `app.student_like_roles (id)`,
 the one definition of a strict student target (plan 70 §4.3, D-24): the built-in
@@ -2425,17 +2481,33 @@ redeem one. Three columns join `app.class_join_codes`:
   binary's insert names none of the columns and is a legacy row.
 - **`code_hash` keeps its `UNIQUE` index**, and it is still the only lookup
   path: a typed code is searched as `code_hash = ANY(candidates)`, the keyed
-  hash under the current and the previous key and the legacy SHA-256. The
-  newest matching row is taken, and it counts only against the candidate of
-  its own scheme and key.
+  hash under the current and the previous key. The newest matching row is
+  taken, and it counts only against the candidate of its own key. From R5
+  (T-R5.1) the legacy SHA-256 is not a candidate, and a scheme-1 row never
+  matches: a revoked or expired legacy code answers as an unknown one.
+- **`class_join_codes_live_encrypted`** (`00141`, T-R5.1):
+  `CHECK (revoked_at IS NOT NULL OR code_ciphertext IS NOT NULL)`. A code that
+  is not revoked is a sealed one, so no binary can issue or keep a code that
+  only the legacy lookup would find. Expiry does not count: an unrevoked
+  legacy code past its expiry was revoked at its `expires_at` by `00141`
+  before the constraint was validated, and a sealed code that expires keeps
+  its ciphertext. The file first raises if any unrevoked, unexpired code lacks
+  a ciphertext; on production that count was 0 before the merge (T-R5.1's
+  pull request). `ADD … NOT VALID` then `VALIDATE` in the same file, which
+  runs in one transaction, so the `ADD`'s `ACCESS EXCLUSIVE` lock is held
+  through the scan and joins wait for it; the table is small, so the wait is
+  brief.
 - **The keys never reach the database.** A dump yields ciphertexts and keyed
   hashes; without `JOIN_CODE_KEY` neither opens nor can be hashed through the
   code space. A legacy row's SHA-256 still can, and quickly: beside the
   stored four-character hint only 2^20 codes remain. That is why R4 replaced the
-  live legacy codes at start-up (D5, below).
+  live legacy codes at start-up (D5, below); since `00141` every legacy row is
+  revoked, and since R5 none is looked up (T-R5.1).
 - **Down refuses** while an unrevoked, unexpired scheme-2 code exists,
   because the previous binary looks codes up by SHA-256 alone.
-- **The API replaces the legacy rows at start-up from v0.10.0 (T-R4.22):**
+- **The API replaced the legacy rows at start-up in v0.10.0 to v0.11.x
+  (T-R4.22); R5 removed the job with the lookup it served (T-R5.1), since
+  `class_join_codes_live_encrypted` leaves it nothing to find:**
   each unrevoked, unexpired scheme-1 row is revoked and a scheme-2 row is
   inserted for its class with the same `expires_at`, `max_uses` and
   `created_by` and `uses_count` (F-67), in one transaction per class under
@@ -2443,9 +2515,9 @@ redeem one. Three columns join `app.class_join_codes`:
   scheme-1 row is left as it is.
 - **Lock order for a class and its join codes (F-23).** The transactions that
   lock a class row and one of its code rows take them in these modes and orders:
-  - The start-up rotation takes advisory `(73819, 41)` (§28), then the class row
-    `FOR NO KEY UPDATE`, then the class's active scheme-1 code row `FOR UPDATE`.
-    `Rotate` and `Revoke` take the class row `FOR NO KEY UPDATE`, then update the
+  - Until R5, the start-up rotation took advisory `(73819, 41)` (§28), then the
+    class row `FOR NO KEY UPDATE`, then the class's active scheme-1 code row
+    `FOR UPDATE`. `Rotate` and `Revoke` take the class row `FOR NO KEY UPDATE`, then update the
     code row, and take no advisory key.
   - `Rotate` reads `archived_at` in that same locking `SELECT` (F-64), so the read
     and the lock are one statement: an `Archive`, which holds the same row lock for
@@ -2472,9 +2544,9 @@ redeem one. Three columns join `app.class_join_codes`:
     `claimCode`), so an `Archive` can commit between a claim and its insert; this
     predates F-23 and is unchanged. `Delete` stays as it is: taking the code rows first
     would invert it against `Rotate` and `Revoke`.
-  - A contender outside this list can still abort the rotation as a deadlock or
-    serialization victim; the repository answers `domain.ErrRotationContended` and
-    the command tries that class once more (T-R4.22).
+  - Until R5, a contender outside this list could abort the rotation as a
+    deadlock or serialization victim; the command tried that class once more
+    (T-R4.22).
 
 ## 34. Notifications (T-R4.10a)
 
@@ -2740,8 +2812,9 @@ CREATE TABLE app.assignment_student_overrides (
 accommodation they gave. The previous release neither reads nor writes the table, so
 the table needs no expand step, and a rolled-back binary leaves its rows alone. The
 app role holds the usual `SELECT, INSERT, UPDATE, DELETE` through the default
-privileges. R5's `grant_maintenance_role` grants `quizzivy_maintenance` `SELECT,
-UPDATE (closes_at)` on it for the maintenance extension (T-R4.12b).
+privileges. `00139_grant_maintenance_role.sql` grants `quizzivy_maintenance` `SELECT` of
+`assignment_id, student_id, closes_at` and `UPDATE (closes_at)` on it for the maintenance extension
+(T-R4.12b, §55).
 
 **The merge.** `setStudentOverrides` computes the merged row in its `wanted`
 CTE, from the existing override, and inserts that row: PostgreSQL checks the
@@ -3267,9 +3340,8 @@ transaction it rolls back, with no notifier, so nothing is written and nobody is
 **Privileges.** The app role has full DML on the five tables that hold balances and requests
 (the default privileges of `00009`) and only `INSERT` and `SELECT` on `ai_usage_ledger`;
 `privileges_test.go` lists the ledger beside `audit_log` and `attempt_events`. `cmd/maintenance`
-runs as the owner or maintenance credential `MAINTENANCE_DATABASE_URL` names. When R5's
-`grant_maintenance_role` moves it to `quizzivy_maintenance`, `ai-credits` and
-`ai-reservations-sweep` need `SELECT`, `INSERT` and `UPDATE` on `ai_credit_periods` and
+runs as `quizzivy_maintenance`, which `00139_grant_maintenance_role.sql` (§55) gave what `ai-credits` and
+`ai-reservations-sweep` need: `SELECT`, `INSERT` and `UPDATE` on `ai_credit_periods` and
 `ai_teacher_credits`, `SELECT` and `UPDATE` on `ai_settings` and `ai_credit_requests`, `SELECT` and
 `DELETE` on `ai_reservations`, `INSERT` and `UPDATE` on `notifications` (the upsert that tells a
 teacher), `INSERT` on `audit_log`, and `SELECT` on the users, roles and grants they read; they
@@ -3510,3 +3582,517 @@ refused; a published version keeps every frozen row but the link; the foreign ke
 `group_move_origin_race_test.go` drives the races, both orders, against a delete of the origin and
 another test's autosave. `tests/group_move_flow_test.go` drives the round trip over HTTP, and
 `builder-groups.live.spec.ts` in a browser against the real API.
+
+## 49. The email outbox (T-R5.2)
+
+`app.email_outbox` (00128, D-51) holds every message the app has to send. A module enqueues in its own
+transaction with `email.Outbox.Enqueue` and calls `Notify` after the commit; the API's and the worker's
+dispatchers send what is due.
+
+**What a row is.** `template` (a slug, the list is Go's), `locale` (`vi` or `en`; the recipient's
+`users.locale`, else `vi`, unless the caller names one), `to_address` (one bare address, 3 to 254
+characters, copied), `to_user_id` (`ON DELETE SET NULL`), `params` (a JSON object of at most 4096 bytes,
+each template's own type, decoded strictly), `secret_ciphertext` (the AES-256-GCM seal of the one secret a
+link carries, under the `email-outbox` key derived from `SECRETS_KEY`, with the row id as associated
+data, so a ciphertext copied to another row does not open), `dedupe_key` (unique), `deliver_after`,
+`attempts` (0 to 10), `last_error_code`, `provider_id`, and the two outcomes `sent_at` and `failed_at`,
+which a check keeps from both being set. No sentence is stored: the subject, text and HTML are rendered
+when the row is sent, from the template, the params, the organization's short name (its name when
+it has none, as the settings snapshot reads it) and the locale.
+
+**Indexes.** `email_outbox_pending_idx (deliver_after) WHERE sent_at IS NULL AND failed_at IS NULL` is
+the dispatcher's claim and the earliest-due read its timer waits on; it holds the queue only.
+`email_outbox_sent_idx (sent_at) WHERE sent_at IS NOT NULL` serves the day's budget count.
+`email_outbox_to_user_idx` serves the cascade from `users`.
+
+**The dispatcher.** One batch at a time across both processes, under `pg_try_advisory_xact_lock(73819,
+43)` (§28): it counts the sends since local midnight in `APP_TIMEZONE`; at or over `EMAIL_DAILY_LIMIT` it
+moves every due row to the next local midnight, otherwise it claims up to 10 due rows `FOR UPDATE SKIP
+LOCKED`, sends them `EMAIL_SEND_RATE` a second apart, and records each outcome in the same transaction. A
+sent row and a failed row lose `secret_ciphertext` in that statement. A transient failure backs off 1, 5
+and 15 minutes and then hourly; the tenth attempt, or any permanent failure, sets `failed_at`. A row whose
+secret cannot be opened, whose params no longer decode (a wrong type; a field the binary does not know is
+ignored) or which no longer renders fails closed with `secret_unreadable`, `params_unreadable` or
+`render_failed`. A row of a template the binary does not send is not its row: the claim, the day's
+deferral and the timer all skip it, so it stays pending, secret and attempts intact, for the newer binary
+the API and the worker run side by side while a deploy rolls out. A release therefore never removes or
+renames a template while rows of it can be pending. The timer is armed only for the earliest pending
+`deliver_after` of a known template, so an empty outbox never wakes the database.
+
+**Cancelling.** Disabling an account (T-R5.9b) calls `email.CancelPending(ctx, tx, userID, at)` on the disabling
+transaction: every pending row whose `to_user_id` is that account is set to `failed_at = at`,
+`last_error_code = 'cancelled'` and `secret_ciphertext = NULL`, so a queued invite or reset link can no longer be
+sent and carries no sealed token. The statement claims its rows `FOR UPDATE SKIP LOCKED`: a row a dispatcher
+holds in its batch is sent, which is the same as the message having gone a moment before the disable. Enabling the
+account again requeues nothing; an Admin who wants the person back sends a new link through Reset. `cancelled`
+joins the codes a failed row can carry and is not retried.
+
+**Retention.** The daily housekeeping (T-R5.16, `core/jobs.Housekeep`) deletes, oldest first and 500 at a time,
+the rows whose `sent_at` or `failed_at` is more than 30 days old (`email.Retention`). A pending row is never
+touched, however old. The delete reads the table in order of the outcome's instant without an index: the table
+holds a day's budget of mail a day for 30 days, a few thousand rows at most, and a partial index on `failed_at`
+would cost every failure a write for a scan that runs once a day. A pruned row frees its `dedupe_key`: the only
+producer today keys on the export id, which never comes round again, but a producer whose key can repeat after 30
+days would send again. The app role has full DML on the table (it is not append-only: it is a queue).
+
+## 50. Activity (T-R5.4, DG-54)
+
+**What is recorded, and when.** A password or Google sign-in stamps `last_sign_in_at`, `last_sign_in_method` and
+`last_active_at` in one statement after the session's refresh token is stored. It is not part of that
+transaction, which holds the user `FOR SHARE`: two sign-ins of one account would each have to upgrade the
+lock to write and would wait for each other. A failed stamp is logged and the sign-in goes on. `changePassword`
+sets `password_changed_at` in the statement that sets the hash. A temporary password set by someone else does
+not, so a student who has never chosen one reads no "Changed …" line.
+
+**What "active" means.** An authenticated request that day. `adapters.Principals.Resolve`, which the permission
+gate and the docs gate both call, tells the identity module's `StampActivity` of each user it resolved and did
+not find disabled. The collector lets a user through once every five minutes per instance, and again at the
+first request of a new local day, and writes what waits every 30 seconds or at 200 entries, only while any
+waits, in one transaction: `last_active_at` raised with `greatest`, in user id order so two instances take row
+locks in the same order, and the days with `ON CONFLICT DO NOTHING`. A user deleted in between drops out of both
+statements. A failed write is logged and its entries dropped, since activity is a statistic and a queue behind a
+database that is down only grows. `updated_at` moves with every `last_active_at` write, because the trigger has
+no column list; nothing reads it for a user.
+
+**Retention.** The daily housekeeping (T-R5.16) deletes the days older than 400 days, `domain.ActivityDaysKept`,
+counted back from the start of the local day in `APP_TIMEZONE`, 500 rows a batch and oldest day first over
+`user_activity_days_day_idx`. R5's readers look back 14 days at most, so nothing the product shows is lost;
+`last_active_at` on the user is never pruned.
+
+**Status.** `domain.StatusOf` applies DG-54's order: disabled, must change password, never signed in
+(`last_sign_in_at IS NULL`), active. The contract's `AccountStatus` is that value, and `listStudents` filters by
+it (`accountStatus`, any subset), because the order makes the Status facet's states disjoint and two flags
+cannot express every pair of them. `neverSignedIn` is the plain predicate beside `mustChangePassword`.
+
+## 51. The organization's settings (T-R5.5, T-R5.7)
+
+`00130_create_organization_settings.sql` adds `app.organization_settings`, one row for the whole
+installation, keyed `id boolean PRIMARY KEY DEFAULT true CHECK (id)` (D-53). The migration inserts
+the row, named `Quizzivy`, and revokes `INSERT` and `DELETE` from `quizzivy_app`; the API only
+`UPDATE`s it, under `SELECT … FOR UPDATE`, with the `set_updated_at` trigger.
+
+- **Profile.** `name` (1 to 120 after `btrim`), and nullable `short_name` (1 to 40), `website`
+  (≤ 200), `contact_email` (3 to 254), `front_desk_phone` (`^[0-9+ ().-]{6,30}$`),
+  `front_desk_hours` (≤ 120) and `address` (≤ 300). An optional text that is empty after trimming
+  is stored as `NULL`, never as `''`.
+- **Logos.** `logo_sha256`, `logo_type` and the `_dark_` pair. A hash is 32 bytes, a type is
+  `image/png` or `image/svg+xml`, and each pair is both NULL or both set. The application writes
+  only `image/png`; `image/svg+xml` is a reserved value no code writes (D-019), and a row that held
+  it would read as no logo. The bytes are not in
+  the database: they are objects at `branding/{sha256}.png`, content-addressed, so a key's
+  bytes never change and a new logo is a new URL.
+- **Sign-in.** `google_sign_in`, `password_sign_in`, `force_password_change` and
+  `join_codes_enabled` are `boolean NOT NULL DEFAULT true`; `allowed_google_domains text[] NOT
+  NULL DEFAULT '{}'` holds at most 50 lower-case domains and no NULL element; an empty list allows
+  every domain. `CHECK (google_sign_in OR password_sign_in)`.
+- **Retention.** `keep_answers_months` (12 or 24, NULL for ever), `keep_focus_events_months` (6, 12,
+  13 or 24, default 13) and `anonymise_disabled_after_months` (12 or 24, NULL never). T-R5.17a
+  applies them; this table only holds the choice.
+- **Revision.** `revision integer NOT NULL DEFAULT 1`. A save names the revision it read; the
+  `UPDATE` runs only when it is still the stored one, and `revision` goes up by one. `updated_by`
+  is `REFERENCES app.users ON DELETE SET NULL`.
+
+**The lockout judgement** is a query over `app.users`, inside the save's transaction, and writes
+nothing. An active account (`disabled_at IS NULL`) has a way in under a proposed policy when
+password sign-in is on and `password_hash IS NOT NULL`, or when Google sign-in is on, the server
+has Google configured and the account has a `user_identities` row for `google` whose
+`email_at_link` is in an allowed domain (any domain when the list is empty). A policy is refused
+when the actor is among the accounts left with none, or when every active built-in Admin is.
+`email_at_link` is the address at the time of linking, not today's; an Admin whose Google address
+changed domain since is counted by the domain they linked with, which is the one sign-in checks.
+
+**Audit.** Every save writes `organization.updated` in the same transaction, with `fields`, the
+contract paths of what changed, and the new `revision`. No value is in the diff.
+
+**Cache.** Each server keeps the row in memory for at most 30 seconds, refreshed only when something
+asks and single-flight, and replaced at once on the server that saved. Another server therefore
+serves the old policy for up to 30 seconds after a change, and an idle server never queries.
+
+**Tests.** `organization/domain/tests/settings_test.go` (the validation table),
+`organization/application/tests` (revision conflict, the snapshot's reads and refresh, the
+logo-in-store check), `organization/repositories/tests` (the constraints, the lockout outcomes and
+counts, the concurrent saves, the audit row, the grants), `organization/http/tests` (the public
+document's exact keys, the logo headers and caches, the error mapping).
+
+## 52. Data exports (T-R5.15)
+
+`app.data_exports` (00134, D-54) holds one row for each request for the centre's data. An Admin asks, the
+worker builds a ZIP of CSV files into the private import bucket at `exports/{id}.zip`, and the requester
+fetches it from an app page, up to three times.
+
+**What a row is.** `requested_by` (`ON DELETE CASCADE`), `include_answers`, `status` (`queued`, `running`,
+`ready`, `failed`, `expired`), `attempts` (0 to 3, the claims so far), `storage_key` (1 to 200 characters),
+`bytes` (above 0), `error_code` (1 to 64 characters), and the instants `created_at`, `started_at` (the
+current claim), `completed_at`, `expires_at` (24 hours after `ready`), `downloaded_at` and `downloads`. `ready` requires
+`storage_key`, `bytes` and `expires_at`; `failed` requires `error_code`. A read reports a `ready` row past
+`expires_at` as `expired`. The daily housekeeping (T-R5.16) makes it true in the table: it deletes the object,
+then sets `status = 'expired'` and `storage_key = NULL` on the row, guarded by `status = 'ready' AND expires_at <=
+now()` so a second run changes nothing. The row stays, with `bytes`, `expires_at` and `downloads`, for the audit
+trail of who asked.
+
+**One at a time.** `data_exports_active_idx` is a unique index on the constant `true` over the rows
+`queued` or `running`. A second request inserts into it, fails with `23505` and answers
+`EXPORT_IN_PROGRESS`; a finished or failed export leaves the index at once.
+
+**One an hour (D-021).** In the same transaction, before the insert, the request reads the newest row of
+`requested_by` with `status <> 'failed'` and `created_at > now() - 1 hour` on `data_exports_requested_by_idx`;
+if there is one it answers `RATE_LIMITED` with the seconds until that row is an hour old. A `failed` row never
+counts, and a refused request leaves no row, so neither a `409` nor a `429` spends the hour. Two requests of one
+actor at once both pass the read, and the active index lets only one insert.
+
+**The claim.** One transaction first fails the `running` row whose lease (30 minutes from `started_at`) has
+lapsed and whose `attempts` has reached 3 (`WORKER_INTERRUPTED`), then takes the oldest `queued` row or
+lapsed `running` row `FOR UPDATE SKIP LOCKED`, sets `started_at = now()` and adds one to `attempts`. Complete,
+fail and release each name the attempt they hold and change the row only while it is `running` under that
+attempt, so a worker whose lease was taken changes nothing. Complete also enqueues `data_export_ready` into
+`email_outbox` (§49) in the same transaction.
+
+**The fetch (D-024).** `UPDATE … SET downloaded_at = coalesce(downloaded_at, now()), downloads = downloads + 1
+WHERE requested_by = $actor AND status = 'ready' AND expires_at > now() AND downloads < 3 RETURNING storage_key`
+is the whole check; it signs the address and audits `data_export.downloaded` before it commits, so a failure to
+sign counts nothing. `downloads smallint NOT NULL DEFAULT 0` is checked between 0 and 3, and `downloaded_at` keeps
+the first fetch. The server cannot tell whether a transfer finished (the browser reads the object from storage),
+so a failed transfer may be tried twice more without building another ZIP. Another admin's export finds no row
+for them and answers as a missing one.
+
+**Reading the tables.** The worker reads every file in one `REPEATABLE READ`, read-only transaction with a
+20-minute statement timeout. Each file's columns are listed in `exports/domain/files.go` and the snapshot
+fails a query whose columns differ, so a new column on a table never reaches a file unnoticed. A time is
+written as ISO 8601 in UTC and a boolean as `true` or `false`; NULL is an empty cell.
+
+**Tests.** `exports/domain/tests` (the catalogue, vi and en for every column, no secret column names, the
+README), `exports/application/worker/tests` (the flow with fakes), `exports/repositories/tests` (the index,
+the claim and its races, the lease, the three fetches, the audit rows, the notice, every query's columns),
+`server/tests/data_export_flow_test.go` (API, worker and MinIO), `data_export_heap_test.go` (50,000 attempts).
+
+## 53. Set-password links (T-R5.3, D15, DG-05)
+
+`00135_create_set_password_tokens.sql` adds `app.set_password_tokens` (D-55). A link is the way an account
+chooses a password without anyone typing one for it: an invite carries a new account's first password, a reset
+any later one. The token is 32 random bytes in unpadded base64url; the row keeps `sha256(token)` and nothing
+that could be presented. The raw token lives in two places only, the link in the email and the sealed secret
+of the outbox row that carries it, which is cleared when the row is sent or fails (§49).
+
+**States.** A link is *usable* while `used_at` and `revoked_at` are NULL, `now < expires_at` and its account is
+not disabled. Every other state is one `domain.ErrSetPasswordLinkInvalid`, and the HTTP layer answers it as one
+`410 SET_PASSWORD_LINK_INVALID` with one body, so nothing says which state a link is in. A link is revoked by
+issuing another to the same account (`RevokeUnused`), using one (`Claim` revokes the account's other unused
+links), or disabling the account: `Students.Update` runs the same `revokeUnusedLinks` in the transaction that
+sets `disabled_at`, beside the revoke of the refresh families, and the anonymisation command revokes them (§55).
+Enabling the account again issues nothing, so a disable then an enable within 24 hours leaves the old link
+revoked and an Admin sends a new one through Reset. The lookup's `AccountDisabled` check and the claim's
+`disabled_at IS NULL` stay as the second line, for a link issued in the instant before a disable.
+
+**Issuing.** `IssueSetPasswordLink` is a command other commands call with a `domain.LinkTx`, the writes of one
+transaction the caller owns: `Recipient`, `RevokeUnused`, `Insert`, `EndSessions`, `Enqueue`, `Audit` and
+`AfterCommit`. `repositories.SetPasswordLinks.InTx` begins that transaction for a caller that has none;
+`Writes(tx)` returns the same writes over a transaction the caller already holds (T-R5.9a creates the account
+in it), and the function that runs what was registered with `AfterCommit`, which the caller runs after its own
+commit and never after a rollback. That is where `Principals.Forget` and the dispatcher's wake-up wait, so
+neither fires for a transaction that rolled back. `Enqueue` maps the outbox's `ErrNoSecretsKey` to
+`domain.ErrSetPasswordUnavailable`, which the HTTP layer answers `501`, as media does without storage. Order
+inside the transaction is: read the recipient, revoke unused links, insert the link, (for a reset someone else
+asked for) end sessions, enqueue the message, audit.
+
+**Claiming.** `Claim` is one transaction: `UPDATE set_password_tokens SET used_at … WHERE token_hash = $1 AND
+used_at IS NULL AND revoked_at IS NULL AND expires_at > $now RETURNING user_id, purpose`; then the account's
+password hash, `must_change_password = false`, `password_changed_at` and `session_epoch + 1` (refused, and the
+whole claim rolled back, for a disabled account, so a refused claim leaves the link unused); then the account's
+other unused links revoked, its refresh tokens revoked, and `user.password_set` written as the account itself
+with `{"purpose": …}`. The lock order is the link, then the user, then its refresh tokens, the order issuing
+takes them in, so issuing and using links at once cannot deadlock. The caller forgets the principal, reloads the
+account and issues the session (`SignInSetPasswordLink`, stamped like any sign-in, §50). A token that is
+unknown, used, revoked, expired or for a disabled account is refused by `Find` and `Usable` before the password
+is hashed, so an invalid token costs the server no argon2 work.
+
+**Self-service.** `RequestSetPasswordLink` issues a `reset` to the signed-in account with `By` set to itself and
+`KeepSessions`, writes `user.password_link_requested` in the same transaction, and ends nothing: the account
+asked while signed in on purpose, and using the link ends the other sessions. A Google-only account keeps its
+`user_identities` row, since setting a password adds a way in and removes none.
+
+**Not here.** A reset does not clear the account's current password; T-R5.9b's "a link reset clears the
+password" belongs to that task.
+
+**Retention.** The daily housekeeping (T-R5.16) deletes a link 30 days after it ended, by being used, revoked or
+expiring, whichever came first (`least(used_at, revoked_at, expires_at)`, `domain.SetPasswordLinksKept`), the
+earliest first and 500 at a time. A link that can still be used has not ended and is never touched, and a token
+whose row is gone is refused as any unknown one is. The batch locks its rows `FOR UPDATE SKIP LOCKED`: a link that
+was never revoked is also a target of `RevokeUnused`, and a delete that waited on rows in its own order could
+deadlock with it; a locked row is left for the next run. The scan has no index of its own, because the table holds the
+links of 30 days; the cascade from `users` keeps using `set_password_tokens_user_idx`. The anonymisation command
+revokes a user's unused links (§55) and leaves the rows to this sweep, which removes them 30 days on like any other.
+
+**Tests.** `identity/domain/tests/setpassword_test.go` (token shape, the purposes, the usable states),
+`identity/application/tests/set_password_test.go` (every path against fakes: the order of the writes, forgets
+after the commit, the policy, a disabled account, an unusable link costs no hash) and
+`set_password_db_test.go` (the real repository, the outbox and the app role: hash-only storage, a sealed token,
+a reissue revokes, eight concurrent submits set once, expiry at exactly 24 hours, a rolled-back issue leaves no
+link, mail or wake-up, issuing and using at once do not deadlock), `identity/http/tests/set_password_test.go`
+(byte-identical 410 bodies in both languages, the 200 with its cookie, the 400, 422 and 501 mappings),
+`platform/db/tests/set_password_tokens_test.go` (each constraint fires, the cascade and the `SET NULL`) and
+`core/router/tests/set_password_limits_test.go` (a class of 40 behind one address, the per-address and
+per-token limits, a weak password spends the token's budget, the per-user limit of the request).
+`identity/application/tests/prune_set_password_links_test.go` and `prune_set_password_links_db_test.go` (the cutoff
+and the limit against a fake store; against Postgres, ten links in every state either side of 30 days, a live link
+untouched, the earliest first from rows inserted newest first, the edge to the microsecond, a row another transaction
+holds skipped without waiting, and a second run changing nothing).
+
+## 54. User imports (T-R5.14)
+
+`00136_create_user_import_jobs.sql` and `00137_create_user_import_rows.sql` add `app.user_import_jobs` (D-56) and
+`app.user_import_rows` (D-57). An Admin uploads a CSV or XLSX file of people; the API reads it, judges every row
+against what the Admin may give, and stores the job and the rows that passed in one transaction; the worker then
+creates the accounts a few at a time and, for a sheet job, hands the temporary passwords out once.
+
+**Judging a file.** The columns are `full_name` and `email` (required) and `role` and `class` (optional), found in
+the header whatever their case or order; any other column is ignored. A header that lacks a required column, or
+names one twice, is refused as a whole. Every other rule refuses one cell, so one pass shows everything to correct,
+and a row with a refused cell is counted once in `invalidCount` and never stored. The cells are composed (NFC) and the
+name's whitespace collapsed before they are judged.
+
+| Code | Field | Meaning |
+|---|---|---|
+| `REQUIRED`, `TOO_LONG`, `INVALID` | `full_name`, `email` | empty; over 200 characters (254 for an address); a control or invisible character, or an address that is not a bare `local@domain` |
+| `FORMULA_LIKE` | `email` | a valid address that starts with a character a spreadsheet reads as a formula (`=`, `+`, `-`, `@`, a tab or carriage return, or a full-width form, after any spaces); the sheet would write it `'+x@…`, which does not sign in (D-039) |
+| `DUPLICATE_IN_FILE` | `email` | the address, in any letter case, appeared in an earlier row, whether that row was refused or not |
+| `UNKNOWN_ROLE`, `AMBIGUOUS_ROLE` | `role` | no role has that name or key; two roles do (a custom role named like a built-in key) |
+| `ROLE_NOT_ALLOWED` | `role` | the role holds a permission the importer lacks (the subset rule of §5) |
+| `ROLE_NOT_GIVABLE` | `role` | the Assistant, which no one is given. The plan called this `ROLE_NOT_ASSIGNABLE`; the code generator prefixes a constant that two enums share, and the other is an `ErrorCode`, so the row code has its own name |
+| `UNKNOWN_CLASS`, `AMBIGUOUS_CLASS` | `class` | no active class has that name; two do |
+| `CLASS_NOT_ALLOWED` | `class` | the importer lacks `scope.all`, or the row's role is not a student target |
+
+A role is named by its built-in key (`student`), its name (`Học viên`; the accents count) or a custom role's name,
+compared without case or extra whitespace; empty takes the dialog's default, which is the built-in Student or
+Teacher role and one the importer must be able to give, or the whole request is refused `403
+TARGET_ROLE_NOT_ALLOWED`. An address that already belongs to an account, of any state, is not refused: its row is
+stored settled `skipped_exists`, counted as `existingEmails`, and the account is never changed. A file in which no
+row would create an account is refused `422 USER_IMPORT_NOTHING_TO_CREATE`.
+
+**Reading a file.** The format is chosen by the file's first four bytes (`PK\x03\x04` is a workbook), never by its
+name or the browser's type. The platform's reader (T-R5.13) takes it under its default limits, 5 MiB, 2,000 rows,
+20 columns and 1,000 characters a cell; each of its errors has its own code and a vi/en message that says what to
+do, and no message carries the reader's error text, since that can hold up to 64 KiB of the file. One file is held
+at a time (a one-slot semaphore), a waiting upload that is cancelled leaves it.
+
+**Creating the job.** `createUserImport` re-reads and re-judges the file; the preview is never trusted. A
+`requestId` the caller has used returns that job without reading the file. Otherwise the job and the accepted rows
+are inserted in one transaction with `ON CONFLICT (created_by, request_id) DO NOTHING`, so two requests at once
+store one job, and `user_import.requested` is audited with the counts and the format, never with the file's names or
+addresses. Both deliveries need `SECRETS_KEY` (a link by email and a sheet's passwords are sealed); without it, or
+without the import worker, the operations answer `501`. A `sheet` also needs password sign-in on
+(`422 PASSWORD_SIGN_IN_DISABLED`).
+
+**Reading a job.** `getUserImport` finds the job by `id` and `created_by`; another user's job is a missing one.
+`sheet` is null for an email job and otherwise says whether the sheet can still be downloaded: the job is `done`,
+created an account, has not been downloaded and has not passed `sheet_expires_at`.
+
+**Running a job.** The worker claims the oldest `queued` job, or a `running` one whose `started_at` is over 30
+minutes old (`ImportLease`), in one statement `FOR UPDATE SKIP LOCKED`, and adds one to `attempts`. A job that has
+been claimed three times and is claimable again is failed `WORKER_INTERRUPTED` instead, in the same transaction
+that erases its sealed passwords. A run is cut off after 25 minutes (`ImportRunLimit`) and the job goes back to
+`queued` with the attempt spent; a shutdown puts it back and takes the attempt away. Every write the worker makes to
+a job names the attempt it holds (`status = 'running' AND attempts = $n`), so a worker whose claim was taken over
+writes nothing. The rows still `pending` are the work left, so a resumed job needs no state beyond the table.
+
+A batch of 25 rows is one transaction. It locks the job row, locks each role of the batch `FOR SHARE` and compares
+its `revision` with the one the worker read the role at (a role edited in between sends the worker to read it again,
+three times at most), inserts the account with `ON CONFLICT ((lower(email))) DO NOTHING` (no row back is a
+`skipped_exists`), adds the class membership (`joined_via 'admin'`, `added_by` the importer; a class archived since
+the job was stored is left out, the account still counts as created and the row forgets the class), issues the invite for an email job,
+audits `user.created {role, roleId, delivery, via: import, jobId}` with the importer as the actor, settles the
+row and moves `created_count` and `skipped_count`. The batch that makes them reach `total_rows` sets `done`,
+`completed_at` and, for a sheet job that created an account, `sheet_expires_at` 24 hours on. The importer is read
+again before every batch: a disabled account or one that lost a right fails the job `IMPORTER_NOT_ALLOWED`, and a
+sheet that can no longer be sealed or a sign-in policy that turned passwords off fails it `DELIVERY_UNAVAILABLE`.
+The accounts made before a failure stay. A failed job's sealed passwords are erased in the transaction that fails
+it, so those accounts are reached by a password reset.
+
+**The hand-out sheet.** `POST /admin/user-imports/{id}/sheet` locks the requester's job row `FOR UPDATE`, answers
+`SHEET_UNAVAILABLE` (`410`) unless the job is `done`, delivered by `sheet`, created an account, has not been
+downloaded and is within `sheet_expires_at`, opens each `created` row's `secret_ciphertext` in `ordinal` order,
+sets every ciphertext NULL, sets `sheet_downloaded_at` (`WHERE sheet_downloaded_at IS NULL`, one row, as a second
+guard), writes `user_import.sheet_downloaded` (the row count, never a password) and commits, so two requests at once
+give the file to one and an unreadable ciphertext leaves the sheet whole. A job with no sealed row left is
+`SHEET_UNAVAILABLE` and nothing is written. The role and class names on a line are read at that moment; the class
+column is blank for a student the worker did not place in it.
+
+**Erasing what nobody took.** The housekeeping step `import_sheets` (the API's 24-hour tick, D-038) clears
+`secret_ciphertext` on the rows of the sheet jobs whose `sheet_expires_at` is at or before the sweep's time and that
+were not downloaded, at most a batch of rows at a time, locking each job `FOR UPDATE SKIP LOCKED` so a download in
+flight finishes first. It changes nothing else; no index serves it, since the jobs are few.
+
+**Retention.** The rows keep full names and addresses for as long as the job exists, so the daily housekeeping
+(T-R5.16, the step `import_jobs`) deletes a job 30 days after `completed_at` (`domain.UserImportsKept`), the earliest
+first and 500 at a time, and the `ON DELETE CASCADE` of `user_import_rows.job_id` takes its rows. A job that is
+`queued` or `running` has no `completed_at` and is never touched. The accounts, the classes and the audit trail
+stay. The job is locked `FOR UPDATE SKIP LOCKED`, the lock `TakeSheet` and `EraseExpiredSheets` take first, so a
+download in flight is passed over and left for the next run. No index serves it, since the table holds the jobs of
+30 days. The step is attached whether or not the import worker is configured, so a server that turned imports off
+still removes what it stored. An account anonymised before its job's 30 days are up keeps its old name and address
+in the job's row until then. **Known limit (D-044, #701 QC-H-18, H-19, H-22):** the delete locks the job `SKIP LOCKED`
+but not its rows, which a class delete or a user delete locks (their `SET NULL`) in another order, so the prune can wait
+for them and, with a class or user delete running in the same moments, be chosen as a deadlock victim (`40P01`); the
+step reports it and the next run goes on, and if the delete is the victim its action fails and is repeated. The same
+cycle exists between a class delete and a user delete without the prune. If it shows in a production log, delete the
+rows first in `(job_id, ordinal)` order with `SKIP LOCKED` and then the empty jobs, and fix the row order of the two
+deletes. `getUserImport` and the sheet answer `404` for a removed job, as for any unknown id, which
+the Users screen (T-R5.9b) has to read as "no longer kept".
+
+**Tests.** `identity/application/tests/prune_user_imports_test.go` and `prune_user_imports_db_test.go` (the cutoff and
+the limit against a fake store; against Postgres, jobs in every state either side of 30 days with their rows, an
+open job 60 days old kept, the account an import made untouched, the earliest first from jobs inserted newest first,
+the edge to the microsecond, a job another transaction holds skipped without waiting) and
+`server/tests/housekeeping_flow_test.go` (the start-up run, also with the import worker off). `identity/domain/tests`
+(the rules table, the sniff, the header, the file name), `identity/application/tests/user_imports_db_test.go`
+(preview counts, the stored rows and their order, the audit diff, replay, another user's job, nothing to create, the
+subset rule, classes, deliveries, 2,000 rows, one file at a time), `identity/http/tests/user_imports_test.go` (the form,
+each reader error's code and both languages, no echo of the file), `core/adapters/tests/user_import_tables_test.go`,
+`platform/email/tests/budget_test.go`, `server/tests/user_import_api_flow_test.go` (the real router: 401, 403, 413,
+422, 501, the rate limit). The worker and the sheet: `identity/application/tests/user_import_worker_db_test.go`
+(batches, the lease and its loss, the third claim, each failure code, a role edited in between, an archived class,
+the sheet's single use) and `server/tests/user_import_flow_test.go` (the router and the worker runner together).
+
+## 55. The maintenance role and the retention sweep (T-R5.17a, D16)
+
+`00139_grant_maintenance_role.sql` gives `quizzivy_maintenance` what `cmd/maintenance` uses and nothing else (D-60).
+`scripts/provision-db.sh` creates the role (`LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE CONNECTION LIMIT 2`,
+password from `QUIZZIVY_MAINTENANCE_PASSWORD`) and grants it `CONNECT`, as it does the other two. On a database
+that is not local it sets that password and no other, and grants no `CREATEDB`; a local run keeps the development
+defaults. The migration
+fails when the role is missing, so there is no conditional grant. The role owns nothing, creates nothing, has
+no privilege on a sequence (an identity column's insert needs none) and none on `ai_usage_ledger`, and holds
+`INSERT` alone on `audit_log` and no `UPDATE` or `TRUNCATE` on `attempt_events`. It holds `USAGE` on schema `app`
+and on schema `public`, the second because `app.immutable_unaccent` calls `public.unaccent` and the trigram
+indexes on a user's name and email call it on every write: `scripts/provision-db.sh` denies `public` to
+everyone else, and the first role-world run of the accounts step failed on exactly that. It has no `CREATE`
+anywhere. Down revokes every grant the role holds in the schema, the sequences and `USAGE` on both schemas. The `CONNECTION LIMIT` is cluster-wide, so
+the command's pool is capped at two and the tests that connect as the role do not run at the same time.
+
+**Which answers are due (D-035).** `shared/retention.EndedBefore` over `AttemptJoins` reads an attempt's own
+student's close, `greatest(least(closed_at, closes_at), assignment_student_overrides.closes_at)`
+(`schedule.CloseOf("o")`), so an assignment reopened for one student does not lose that student's answers while it
+is open to them. The events step reads the same close (`retention.ClosedBefore`, D-041): the 00029 command read
+`coalesce(closed_at, closes_at)` on the assignment alone, which predates R4's per-student closes (00101), so it was a
+rule nobody had revisited and not a decision, and two steps that disagree about when an assignment closed would be
+harder to explain than one. The step pages by `(received_at, id)` on `attempt_events_retention_idx`, each batch
+starting after the last event the one before took, so events an extension keeps alive are read once and not again by
+every later batch (QC-RS-19: 150,000 held events cost the unpaged step 5 minutes 41 seconds for 446,900 events, and 7
+seconds paged).
+
+**The guard on `app.users` (D-042).** The role's `UPDATE` on the identity columns is what anonymising needs and is also
+what a leaked credential would use to take an account over. `app.users_maintenance_guard()` is a `SECURITY INVOKER`
+trigger function with a pinned `search_path`, no `EXECUTE` for `PUBLIC`, fired `BEFORE UPDATE FOR EACH ROW WHEN
+(current_user = 'quizzivy_maintenance')`; it raises `42501` unless the new row is anonymised:
+`email = 'anonymous-' || id || '@anonymous.invalid'`, `password_hash IS NULL`, `must_change_password = false`,
+`disabled_at IS NOT NULL`, and `phone`, `avatar_key` and `display_name` NULL. That is exactly what the anonymise
+statement writes and all it writes (`full_name` is a name, not a credential, and is not pinned). The role holds no
+`INSERT` on `user_identities` or `set_password_tokens`, so it cannot reopen an anonymised row. Every other role pays one
+`current_user` test. Which accounts may be anonymised is not the trigger's rule: the sweep and `anonymize-user`
+skip an account that owns classes or content (`ownsContent`, which reads the six owner columns the role holds
+`SELECT` on) or has an attempt in progress, and `users_last_admin` refuses the last active Admin. The credential can
+therefore anonymise any other account by direct SQL, a teacher's included, and `operations.md` states that among the
+costs of a leak (QC-RS-17; the owner chose on 2026-10-16 not to enforce the owner rule in the trigger).
+Anonymisation clears `users.avatar_key` and does not delete the photo object, which T-R5.16's housekeeping removes
+for anonymised accounts (`email = 'anonymous-' || id || '@anonymous.invalid'`, §56).
+
+| Table | Privilege | Columns | Used by |
+|---|---|---|---|
+| `organization_settings` | `SELECT` | the three retention columns | the sweep, `retain-integrity` |
+| `attempts` | `SELECT`, `UPDATE` | `id, assignment_id, student_id, status, submitted_at, deadline_at`; `deadline_at` | the sweep and `anonymize-user` read; `window-schedule` extends |
+| `assignments` | `SELECT`, `UPDATE` | `id, created_by, published_at, closed_at, closes_at`; `closes_at` | the same |
+| `assignment_student_overrides` | `SELECT`, `UPDATE` | `assignment_id, student_id, closes_at`; `closes_at` | the answers and events steps read a student's own close; `window-schedule` (T-R4.12b) extends |
+| `attempt_answers` | `SELECT`, `UPDATE` | `attempt_id, question_id, payload`; `payload` | the answers step |
+| `attempt_events` | `SELECT`, `DELETE` | `id, attempt_id, received_at` | the events step |
+| `users` | `SELECT`, `UPDATE` | `id, email, full_name, display_name, role_id, disabled_at`; `email, full_name, display_name, phone, avatar_key, password_hash, must_change_password, disabled_at` | the accounts step |
+| `student_like_roles`, `roles`, `role_permissions` | `SELECT` | all | the placeholder name; the AI status read |
+| `user_identities`, `refresh_tokens` | `SELECT (user_id)`, `DELETE` | | the accounts step |
+| `set_password_tokens` | `SELECT`, `UPDATE` | `user_id, used_at, revoked_at`; `revoked_at` | the accounts step revokes unused links |
+| `notifications` | `SELECT`, `INSERT`, `UPDATE`, `DELETE` | `id, user_id, kind, params, target, dedupe_key`; `user_id, kind, params, target, dedupe_key`; `kind, params, target, read_at` | the accounts step deletes; the AI commands upsert |
+| `notification_preferences` | `SELECT` | `user_id, event, in_app` | the AI commands' notices |
+| `classes`, `tests`, `questions`, `question_groups`, `media_assets` | `SELECT (teacher_id)` or `(owner_id)` | | the owner check |
+| `audit_log` | `INSERT` | all | every command |
+| `maintenance_windows` | `SELECT`, `INSERT`, `UPDATE` | all; `starts_at, ends_at`; `ends_at, cancelled_at` | the window commands |
+| `class_join_codes` | `SELECT`, `UPDATE` | `id, class_id, revoked_at, code_ciphertext, key_id, lookup_scheme`; `code_hash, code_ciphertext, key_id` | `rekey-join-codes` |
+| `ai_credit_periods`, `ai_teacher_credits` | `SELECT`, `INSERT`, `UPDATE` | all | `ai-credits` |
+| `ai_settings`, `ai_credit_requests` | `SELECT`, `UPDATE` | all | `ai-credits` |
+| `ai_reservations` | `SELECT`, `DELETE` | all | `ai-reservations-sweep` |
+
+`platform/db/tests/privileges_test.go` reads the role's effective column privileges from the catalogue and
+compares them with its own list (`maintenanceGrants`), which this table mirrors, in both directions: a grant nothing uses fails as surely as a missing one.
+
+**What column privileges cost the SQL.** `FOR UPDATE` and `FOR SHARE` need `UPDATE` on the table, so a row is
+locked only where the role holds it; `RETURNING col` needs `SELECT` on `col`, so a data-modifying CTE that feeds
+`audit_log` returns nothing the role cannot read (`RETURNING 1`, or no `RETURNING`, needs none); and
+`ON CONFLICT … DO UPDATE` needs `SELECT` on its inference columns and on every `EXCLUDED` column it reads. A
+missing grant on `notifications` is not an error to the AI commands: `cqrs.Announce` swallows a notice's
+failure, so the teacher was simply not told, and the role test asserts that the notification exists.
+
+**Settings to cutoffs.** `keep_answers_months`, `keep_focus_events_months` and
+`anonymise_disabled_after_months` (§51) become `(now() at time zone 'UTC' - N months) at time zone 'UTC'`,
+read once per step, and every comparison is a strict `<`. A row exactly at the cutoff stays.
+
+**Answers.** An attempt is eligible when it has ended, `status IN ('submitted', 'timed_out', 'graded',
+'voided')`, `coalesce(submitted_at, deadline_at)` is before the cutoff (a voided attempt that was never submitted
+ends at its deadline) and the close of its assignment for its student, `schedule.CloseOf("o")` (`greatest(least(closed_at,
+closes_at), override.closes_at)`), is too. The rule
+is `shared/retention.EndedBefore`, which the sweep, its dry run and the settings page's impact count (T-R5.17b)
+all build their SQL from, and the statuses are listed so that a status added later has to be considered. An
+attempt in progress is never eligible, however overdue, because the lazy close that ends it scores it from the
+stored answers; the report counts those as `overdueInProgress` (`OverdueInProgressBefore`). Each eligible
+answer whose `payload` is not already `{"removed": true}` gets that payload (D-61); the scores, comments and grader stay. A batch
+is `-batch` attempts picked by id after the last one (a keyset, not an offset), their answers locked
+`FOR UPDATE OF x SKIP LOCKED`, and one `retention.answers_removed {cutoff, attempts, answers, databaseRole}`
+entry for the batch when it removed any. An answer row another transaction holds is skipped and taken by the next run.
+
+**Events.** `RetainEvents` with `keep_focus_events_months`: an event is eligible when `received_at` is before the cutoff
+and the assignment has closed for the attempt's student before it (`retention.ClosedBefore`, the same close as the
+answers, D-041). At the default 13 it deletes what 00029's command deleted except the events of a student whose
+extension is still open. A batch is `-batch` events in `(received_at, id)` order, and one `integrity.retained` entry
+for the batch.
+
+**Accounts.** A user disabled before the cutoff, not already anonymous (`email = 'anonymous-' || id ||
+'@anonymous.invalid'`), is anonymised unless they own a class, a test, a question, a group, a media asset or an
+assignment, or have an attempt in progress. Owners and the in-progress are counted in the report, not touched.
+`users.created_by` is not read: an Admin reaches an account they created through the Users directory.
+The statement is one data-modifying CTE per batch: it deletes the notifications whose `params` hold the user's
+full or display name as a value (the names are a `MATERIALIZED` set the notifications are joined to; written as
+`= ANY(array)` inside a correlated `EXISTS`, the planner re-aggregated the 500 users' names for every
+notification and a batch took 256 seconds over 50,000 notifications, where the join takes 0.4), the Google link and the refresh tokens, revokes the unused set-password links
+(`revoked_at = now()` where `user_id` matches and `used_at` and `revoked_at` are NULL, the statement a disable
+runs, so §53's states stay true and the role needs no `DELETE` there), rewrites the user, and writes
+`user.anonymized` for each. The student placeholder name is for a user whose role is in `student_like_roles`,
+"Người dùng đã ẩn danh" for any other. `anonymize-user` runs the same statement for one id on request, without
+the cutoff, and refuses an owner or an attempt in progress; the `users_last_admin` trigger refuses the last
+active Admin, because anonymising disables the account.
+
+**Audit.** Every sweep entry has `actor_user_id` NULL and `databaseRole` in its diff, so the log shows which
+credential did it. `attempt_answers` is an All-only entity in the audit console (`audit/domain/categories.go`), so only the All tab
+lists it.
+
+**Tests.** `core/maintenance/tests/retention_test.go` runs each step at, just before and just after its cutoff
+in two worlds, one transaction on a shared scratch database as the owner and one scratch database per test with
+the role's own pool, so a missing grant fails a test and not production. The defaults touch no answer and no
+account; owners and in-progress attempts are skipped; a notification naming an anonymised user is gone; a second
+run changes nothing; a dry run writes nothing and runs read-only; and every audit entry has a NULL actor.
+`role_test.go` runs the window commands, `rekey-join-codes`, the AI commands and `retain-integrity` as the role.
+A scratch database is created by the migrate role (`CREATEDB`, `scripts/provision-db.sh`), migrated, and dropped
+with the test; `TEST_MAINTENANCE_DATABASE_URL` names the role, and in CI its absence fails the test.
+
+## 56. Photo objects of anonymised accounts (T-R5.16, D-050)
+
+`app.avatar_sweeps` (`00140_create_avatar_sweeps.sql`, D-59) holds one row for each anonymised account whose
+objects under `avatars/{user_id}/` the daily housekeeping has deleted: `user_id uuid PRIMARY KEY REFERENCES
+app.users(id) ON DELETE CASCADE` and `swept_at timestamptz NOT NULL`. The app role may read and add rows and
+cannot change or delete one; the row goes with the account. Down drops the table (`IF EXISTS`).
+
+**Which accounts are due.** `repositories.AvatarSweeps.Due` reads the accounts in the shape anonymisation leaves
+(`core/maintenance/anonymize.go`, and what `users_maintenance_guard` requires of the maintenance role's writes):
+`email = 'anonymous-' || id || '@anonymous.invalid'`, `disabled_at IS NOT NULL` and `avatar_key IS NULL`, with no
+row here, in id order, at most `limit`. An account re-enabled or given a photo again is not due. The read is a scan of
+`users` with an anti-join on this table's key; no index serves the predicate, which costs little at a centre's size.
+
+**Marking.** `identity.SweepAvatarObjects` deletes every object under the account's prefix first and then
+`INSERT … ON CONFLICT (user_id) DO NOTHING`, so a second machine that swept the same account keeps the first mark,
+and an account whose objects could not be listed or deleted has no row and is tried at the next run. A server
+without media storage has no step, so it writes no row and a bucket configured later still finds every account. A
+photo written under a marked account's prefix later is not removed (anonymisation leaves no way to write one).

@@ -38,7 +38,6 @@ export function QuestionSettingsFields({
           value={value.points}
           aria-invalid={invalid || undefined}
           aria-describedby={invalid ? ids.error : undefined}
-          className="bg-background"
           onChange={(event) =>
             onChange({ ...value, points: Number(event.target.value) })
           }

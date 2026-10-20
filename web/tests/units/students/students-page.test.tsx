@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { useAuthStore } from "@/stores/auth";
 import { server } from "@tests/support/server";
@@ -64,6 +64,52 @@ describe("the Students list", () => {
     expect(await rowOf("Trần Thị Bình")).toHaveTextContent("Mật khẩu tạm");
   });
 
+  it('says "Chưa bao giờ" for a student who was never active, and how long ago for one who was', async () => {
+    serveStudents([
+      student("018f0000-0000-7000-8000-0000000000f1", "Chưa Hoạt Động"),
+      student("018f0000-0000-7000-8000-0000000000f2", "Đã Hoạt Động", {
+        lastActiveAt: new Date(Date.now() - 20 * 86_400_000).toISOString(),
+      }),
+      student("018f0000-0000-7000-8000-0000000000f3", "Vừa Xong", {
+        lastActiveAt: new Date(Date.now() - 5_000).toISOString(),
+      }),
+      student("018f0000-0000-7000-8000-0000000000f5", "Lâu Rồi", {
+        lastActiveAt: new Date(Date.now() - 40 * 86_400_000).toISOString(),
+      }),
+    ]);
+    renderStudents(teacherUser);
+
+    expect(await rowOf("Chưa Hoạt Động")).toHaveTextContent("Chưa bao giờ");
+    expect(await rowOf("Đã Hoạt Động")).toHaveTextContent("2 tuần trước");
+    expect(await rowOf("Vừa Xong")).toHaveTextContent("vừa xong");
+    expect(await rowOf("Lâu Rồi")).not.toHaveTextContent("tháng");
+    const when = within(await rowOf("Đã Hoạt Động")).getByText("2 tuần trước");
+    expect(when.tagName).toBe("TIME");
+    expect(when).toHaveAttribute("title");
+    expect(await rowOf("Lâu Rồi")).toHaveTextContent(/\d{2}\/\d{2}\/\d{4}/);
+  });
+
+  it("still draws a row whose account state this build does not know", async () => {
+    const odd = student("018f0000-0000-7000-8000-0000000000f4", "Trạng Thái Lạ", {
+      mustChangePassword: true,
+    });
+    serveStudents([odd]);
+    server.use(
+      http.get(`${BASE}/teacher/students`, () =>
+        HttpResponse.json({
+          items: [{ ...odd, accountStatus: "from_the_future" }],
+          page: 1,
+          pageSize: 20,
+          total: 1,
+          facets: { total: 1, activeLast7Days: 0 },
+        }),
+      ),
+    );
+    renderStudents(teacherUser);
+
+    expect(await rowOf("Trạng Thái Lạ")).toHaveTextContent("Mật khẩu tạm");
+  });
+
   it("keeps a student's classes on one line in their cell: two chips and +N naming the rest (QA-40-2)", async () => {
     const seven = Array.from({ length: 7 }, (_, index) => ({
       id: `018f0000-0000-7000-8000-0000000000b${index}`,
@@ -101,7 +147,7 @@ describe("the Students list", () => {
     await table();
     const last = asked.at(-1)!;
     expect(last.getAll("classId")).toEqual([CLASS_A.id, CLASS_B.id]);
-    expect(last.get("mustChangePassword")).toBe("true");
+    expect(last.getAll("accountStatus")).toEqual(["must_change_password"]);
     expect(last.get("status")).toBeNull();
   });
 
@@ -111,7 +157,19 @@ describe("the Students list", () => {
 
     await table();
     expect(asked.at(-1)!.get("status")).toBe("all");
-    expect(asked.at(-1)!.get("mustChangePassword")).toBe("false");
+    expect(asked.at(-1)!.getAll("accountStatus")).toEqual(["active", "disabled"]);
+  });
+
+  it("asks for the accounts that have not signed in yet when Not signed in is chosen", async () => {
+    const asked = serveStudents([AN]);
+    renderStudents(teacherUser, "/teacher/students?account=notSignedIn&account=reset");
+
+    await table();
+    expect(asked.at(-1)!.getAll("accountStatus")).toEqual([
+      "never_signed_in",
+      "must_change_password",
+    ]);
+    expect(asked.at(-1)!.get("status")).toBeNull();
   });
 
   it("offers Add student when there are no students yet", async () => {
@@ -197,7 +255,7 @@ describe("the Students list", () => {
 
     const list = await screen.findByRole("list", { name: "Học viên" });
     expect(within(list).getByText("Nguyễn Văn An")).toBeVisible();
-    expect(within(list).getByText(/IELTS 6\.5 Tối · —/)).toBeVisible();
+    expect(within(list).getByText(/IELTS 6\.5 Tối · Chưa bao giờ/)).toBeVisible();
     expect(screen.queryByRole("checkbox")).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Thao tác với Nguyễn Văn An" }),
@@ -214,5 +272,63 @@ describe("the Students list", () => {
     await user.type(screen.getByRole("searchbox"), "An");
 
     await waitFor(() => expect(screen.queryByText(/Đã chọn 1/)).toBeNull());
+  });
+});
+
+describe("the students search and the URL", () => {
+  it("keeps what is typed out of the URL and the request until the typing pauses", async () => {
+    const asked = serveStudents([AN, BINH]);
+    const { user, router } = renderStudents(teacherUser);
+    await table();
+    const before = asked.length;
+    const box = screen.getByRole("searchbox");
+
+    await user.type(box, "nguyen van ");
+    expect(box).toHaveValue("nguyen van ");
+    expect(router.state.location.search).toBe("");
+    expect(asked).toHaveLength(before);
+
+    await waitFor(() => expect(router.state.location.search).toBe("?q=nguyen+van"));
+    await waitFor(() => expect(asked.at(-1)?.get("q")).toBe("nguyen van"));
+    expect(box).toHaveValue("nguyen van ");
+  });
+
+  it("never takes a keystroke back: text typed after an applied search stays in the box", async () => {
+    serveStudents([AN, BINH]);
+    const { user, router } = renderStudents(teacherUser);
+    await table();
+    const box = screen.getByRole("searchbox");
+
+    await user.type(box, "ngu");
+    await waitFor(() => expect(router.state.location.search).toBe("?q=ngu"));
+    await user.type(box, "yen");
+    expect(box).toHaveValue("nguyen");
+    expect(router.state.location.search).toBe("?q=ngu");
+
+    await waitFor(() => expect(router.state.location.search).toBe("?q=nguyen"));
+    expect(box).toHaveValue("nguyen");
+  });
+
+  it("asks for a search from a link without its outer spaces, and shows it as written", async () => {
+    const asked = serveStudents([AN, BINH]);
+    renderStudents(teacherUser, "/teacher/students?q=%20An%20");
+    await table();
+
+    expect(asked.at(-1)?.get("q")).toBe("An");
+    expect(asked.map((query) => query.get("q"))).not.toContain(" An ");
+    expect(screen.getByRole("searchbox")).toHaveValue(" An ");
+  });
+
+  it("puts the text of an outside change of the URL in the box", async () => {
+    serveStudents([AN, BINH]);
+    const { router } = renderStudents(teacherUser);
+    await table();
+    const box = screen.getByRole("searchbox");
+
+    await act(() => router.navigate("/teacher/students?q=tran"));
+    expect(box).toHaveValue("tran");
+    await act(() => router.navigate(-1));
+    expect(router.state.location.search).toBe("");
+    await waitFor(() => expect(box).toHaveValue(""));
   });
 });

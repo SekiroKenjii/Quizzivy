@@ -9,23 +9,26 @@ import (
 	"quizzivy/internal/core/adapters"
 	"quizzivy/internal/core/router"
 	accessapp "quizzivy/internal/modules/access/application"
+	accesshttp "quizzivy/internal/modules/access/http"
 	aiapp "quizzivy/internal/modules/ai/application"
 	aiports "quizzivy/internal/modules/ai/application/ports"
 	attemptsrepo "quizzivy/internal/modules/attempts/repositories"
 	classesapp "quizzivy/internal/modules/classes/application"
 	classesdomain "quizzivy/internal/modules/classes/domain"
+	exportsapp "quizzivy/internal/modules/exports/application"
 	identityapp "quizzivy/internal/modules/identity/application"
 	identitytoken "quizzivy/internal/modules/identity/application/token"
 	importsworker "quizzivy/internal/modules/imports/application/worker"
 	mediaapp "quizzivy/internal/modules/media/application"
 	notificationsapp "quizzivy/internal/modules/notifications/application"
+	organizationapp "quizzivy/internal/modules/organization/application"
 	"quizzivy/internal/platform/config"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/platform/httpx"
 	"quizzivy/internal/platform/imagesafe"
 )
 
-// Assembly is what Build produces: the transports the router serves, the token verifiers the auth middleware and the docs gate need, the access application that resolves who a request acts as, and the identity, classes, notifications and media applications and the import sweeper the background jobs drive.
+// Assembly is what Build produces: the transports the router serves, the token verifiers the auth middleware and the docs gate need, the access application that resolves who a request acts as, and the identity, classes, notifications, organization, exports and media applications, the mail outbox and dispatcher and the import sweeper the background jobs drive.
 type Assembly struct {
 	Modules       router.Modules
 	Principals    *accessapp.Application
@@ -34,9 +37,14 @@ type Assembly struct {
 	Identity      *identityapp.Application
 	Classes       *classesapp.Application
 	Notifications *notificationsapp.Application
+	Organization  *organizationapp.Application
 	ImportSweeper *importsworker.Sweeper
-	Media         *mediaapp.Application
-	Maintenance   httpx.MaintenanceSource
+	// Exports is the data export, nil without import storage and the worker.
+	Exports     *exportsapp.Application
+	Media       *mediaapp.Application
+	Maintenance httpx.MaintenanceSource
+	// Mail is the outbox the modules enqueue into and the dispatcher that sends it.
+	Mail Mail
 	// AI is the provider behind the AI assistant's port, nil when no ANTHROPIC_API_KEY is set.
 	AI aiports.Completer
 	// AICredits is the credits model the AI operations reserve and settle through and the console sets allowances through. It is built with or without the provider.
@@ -56,7 +64,7 @@ func WithCompleter(completer aiports.Completer) Option {
 	return func(o *options) { o.completer, o.hasCompleter = completer, true }
 }
 
-// Build refuses when app.permissions lacks a key this binary was compiled with, or when the join-code keys derive a zero or shared key id, then assembles every module against the pool in dependency order: notifications depends on no module and is built first, so that its Notify command can be handed to any module as a port; attempts' student statistics feed classes and identity, classes' enrolment feeds identity's Google sign-in, media feeds questions, tests and attempts.
+// Build refuses when app.permissions lacks a key this binary was compiled with, or when the join-code keys derive a zero or shared key id, then assembles every module against the pool in dependency order: notifications depends on no module and is built first, so that its Notify command can be handed to any module as a port; the mail outbox is built before identity, which writes its set-password links to it; attempts' student statistics feed classes and identity, classes' enrolment feeds identity's Google sign-in, media feeds questions, tests and attempts.
 func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db.Pool, opts ...Option) (Assembly, error) {
 	var chosen options
 	for _, opt := range opts {
@@ -68,6 +76,11 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 		return Assembly{}, err
 	}
 	notificationsApp := notifications(dbx)
+	images := imagesafe.New(imagesafe.NewGate(photoDecodeSlots))
+	organizationApp, err := organization(ctx, cfg, logger, dbx, images)
+	if err != nil {
+		return Assembly{}, err
+	}
 	stats := attemptsrepo.NewStudentStats(dbx)
 
 	keys, err := classesdomain.NewJoinCodeKeys(cfg.JoinCodeKey, cfg.JoinCodeKeyPrevious)
@@ -76,14 +89,20 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	}
 	previousKeyID, rotating := keys.PreviousID()
 	logger.Info("join code keys", "current_key_id", keys.CurrentID(), "previous_key_id", previousKeyID, "rotating", rotating)
-	classesApp := classes(dbx, stats, keys, notificationsApp.Commands.Notify, logger)
-	identityApp, tokens, err := identity(cfg, logger, dbx, stats, classesApp.Commands.EnrolNewMember)
+	classesApp := classes(dbx, stats, keys, notificationsApp.Commands.Notify, logger).WithSignInPolicy(organizationApp.Queries.SignInPolicy)
+	mail, err := BuildMail(cfg, dbx, organizationApp.Queries.Branding, logger)
 	if err != nil {
 		return Assembly{}, err
 	}
+	identityApp, tokens, err := identity(cfg, logger, dbx, stats, classesApp.Commands.EnrolNewMember, mail.Outbox, principals.Queries.AssignableRole)
+	if err != nil {
+		return Assembly{}, err
+	}
+	contentTransfer(dbx, identityApp, notificationsApp.Commands.Notify)
 	identityApp.SetPrincipals(principals)
+	identityApp.SetSignInPolicy(organizationApp.Queries.SignInPolicy)
 	attachClassPorts(classesApp, identityApp, stats)
-	if err := attachAvatars(ctx, cfg, logger, identityApp, imagesafe.New(imagesafe.NewGate(photoDecodeSlots))); err != nil {
+	if err := attachIdentityPorts(ctx, cfg, logger, dbx, identityApp, principals.Queries.RoleChoices, images); err != nil {
 		return Assembly{}, err
 	}
 	docs, err := identitytoken.NewDocsIssuer(cfg.JWTSigningKey)
@@ -96,6 +115,10 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 	}
 	if chosen.hasCompleter {
 		completer = chosen.completer
+	}
+	exportsTransport, exportsApp, err := exports(ctx, cfg, logger, dbx)
+	if err != nil {
+		return Assembly{}, err
 	}
 	mediaApp, mediaRepo, err := media(ctx, cfg, logger, dbx)
 	if err != nil {
@@ -117,11 +140,22 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 		return Assembly{}, err
 	}
 
+	auditApp, auditTransport := audit(dbx, identityApp, logger)
+	dashboardTransport, err := dashboard(cfg, dbx, dashboardModules{
+		notifications: notificationsApp, identity: identityApp, organization: organizationApp, audit: auditApp, ai: aiApp,
+	}, completer != nil)
+	if err != nil {
+		return Assembly{}, err
+	}
+
 	return Assembly{
+		Mail: mail,
 		Modules: router.Modules{
+			Access:        accesshttp.NewAccess(principals),
 			AI:            aiTransport,
+			Audit:         auditTransport,
 			Imports:       importsTransport,
-			Dashboard:     dashboard(dbx, notificationsApp, identityApp),
+			Dashboard:     dashboardTransport,
 			Classes:       classesTransport(classesApp),
 			Identity:      identityTransport(cfg, identityApp, docs),
 			Questions:     questionsTransport(questionsApp, mediaApp),
@@ -131,17 +165,21 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 			Attempts:      attemptsTransport(attemptsApp, mediaApp, identityApp, logger),
 			Availability:  availabilityTransport,
 			Notifications: notificationsTransport(notificationsApp, logger),
+			Organization:  organizationTransport(organizationApp),
+			Exports:       exportsTransport,
 		},
 		Principals:    principals,
 		Maintenance:   adapters.MaintenanceGate{Current: availabilityApp.Queries.CurrentWindow},
 		AI:            completer,
 		AICredits:     aiApp,
 		ImportSweeper: sweeper,
+		Exports:       exportsApp,
 		Media:         mediaApp,
 		Tokens:        tokens,
 		Docs:          docs,
 		Identity:      identityApp,
 		Classes:       classesApp,
 		Notifications: notificationsApp,
+		Organization:  organizationApp,
 	}, nil
 }

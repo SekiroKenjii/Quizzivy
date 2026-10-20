@@ -2,7 +2,6 @@ import { useState } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { DateTimeField, type DateTimeMode } from "@/components/shared/DateTimeField";
 import { FormDialog, type FormDialogProps } from "@/components/shared/form/FormDialog";
 import i18n from "@/lib/i18n";
@@ -28,7 +27,7 @@ function Selection({
 }>) {
   const [value, setValue] = useState(initial);
   return (
-    <DeckScale>
+    <>
       <DateTimeField
         id="selected-day"
         label="Mốc"
@@ -42,7 +41,7 @@ function Selection({
       />
       <output aria-label="Giá trị">{value}</output>
       <button type="button">Ngoài</button>
-    </DeckScale>
+    </>
   );
 }
 const trigger = () => screen.getByRole("button", { name: /Mốc/ });
@@ -136,11 +135,7 @@ it.each(["pending", "disabled"] as const)(
       submitLabel: "Lưu",
       onSubmit: submitted,
     };
-    const view = render(
-      <DeckScale>
-        <FormDialog {...props} />
-      </DeckScale>,
-    );
+    const view = render(<FormDialog {...props} />);
     const submit = screen.getByRole("button", { name: "Lưu" }) as HTMLButtonElement;
     await user.click(submit);
     expect(submitted).not.toHaveBeenCalled();
@@ -168,21 +163,13 @@ it.each(["pending", "disabled"] as const)(
     submitted.mockClear();
     await user.click(trigger());
     const heldDay = today();
-    view.rerender(
-      <DeckScale>
-        <FormDialog {...props} {...{ [lock]: true }} />
-      </DeckScale>,
-    );
+    view.rerender(<FormDialog {...props} {...{ [lock]: true }} />);
     expect(screen.queryByRole("dialog", { name: "Chọn ngày" })).toBeNull();
     fireEvent.click(heldDay);
     fireEvent.submit(title.form!);
     expect(submitted).not.toHaveBeenCalled();
     expect(title).toHaveValue("Tên mới");
-    view.rerender(
-      <DeckScale>
-        <FormDialog {...props} />
-      </DeckScale>,
-    );
+    view.rerender(<FormDialog {...props} />);
     expect(screen.queryByRole("dialog", { name: "Chọn ngày" })).toBeNull();
     await user.click(trigger());
     await user.click(today());

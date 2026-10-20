@@ -111,8 +111,10 @@ Before anything is built, the API job unions `fly.toml`'s `[env]` with
 accepts. It reports missing names in seconds instead of after a build, a
 migration, a rollout and a health check.
 
-It exists because `config.Load` has two all-or-nothing groups — Google sign-in
-and object storage — and each exits 1 on a partial set. Both shipped partial,
+It exists because `config.Load` has all-or-nothing groups — Google sign-in,
+object storage and, from v0.12.0, email (`RESEND_API_KEY`, `EMAIL_FROM`,
+`APP_URL`, all required in production, with `SECRETS_KEY`) — and each exits 1
+on a partial set. Both shipped partial,
 one after the other, and the cause was legible only in the app's own stderr:
 Fly reports it as "the app appears to be crashing" and prints an empty log tail,
 because the machine is gone before it attaches.
@@ -255,9 +257,10 @@ While v0.7.0 and v0.8.0 machines overlap:
   machine issues tokens with no epoch, so a student it signs in stays signed
   out until the old machine is gone.
 
-Tabs still open on v0.7.0 keep working: the `/admin` alias serves the old
-teaching paths and logs `legacy_admin_path`. v0.9.1 removes it
-(`docs/plan/73-r3.md` T-R3.3).
+Tabs still open on v0.7.0 kept working through an `/admin` alias that served
+the old teaching paths and logged `legacy_admin_path`. v0.12.0 removes it
+(`docs/plan/75-r5.md` T-R5.36), and a former teaching path under `/admin/` now
+answers `404`.
 
 Roll forward, never back. The migrations are the expand half, so v0.7.0 would
 still boot on the new schema, but it cannot redeem a code v0.8.0 issued, and
@@ -600,6 +603,91 @@ DROP INDEX CONCURRENTLY IF EXISTS app.media_assets_owner_idx;          -- 00075
 DROP INDEX CONCURRENTLY IF EXISTS app.users_created_by_idx;            -- 00076
 DROP INDEX CONCURRENTLY IF EXISTS app.assignments_creator_idx;         -- 00077
 ```
+
+## Rolling out v0.12.0 (R5)
+
+v0.12.0 adds the Admin console, outgoing email and the nightly retention sweep, with
+migrations `00128` to `00141`. Three things must exist before the merge to `main`. A missing secret or a missing
+maintenance role stops the deploy on its own; the sending domain has to be checked by hand:
+
+- **Fly secrets `SECRETS_KEY` and `RESEND_API_KEY`** (`dns.md`, "Secrets on Fly").
+  `EMAIL_FROM`, `APP_URL`, `EMAIL_DAILY_LIMIT`, `EMAIL_SEND_RATE` and `APP_TIMEZONE`
+  are in `fly.toml`'s `[env]`. The preflight fails without any of `SECRETS_KEY`,
+  `RESEND_API_KEY`, `EMAIL_FROM` and `APP_URL`, and fails if `EMAIL_SINK_DIR` is set, before anything is built.
+- **The `quizzivy.com` sending domain verified in Resend**, open and click tracking
+  off (`dns.md`, "Email (Resend)"). Without it the API starts and every message
+  fails at Resend.
+- **The `quizzivy_maintenance` role**, created by `scripts/provision-db.sh`
+  (`operations.md`, "The nightly workflow", step 1). `00139_grant_maintenance_role.sql`
+  fails while the role is missing, so the release command stops and the previous
+  version keeps serving. Create the `production-maintenance` environment as step 2
+  says, and leave `RETENTION_SWEEP_ENABLED` unset until the first dry run on
+  production has been read.
+
+Two changes need a check rather than a setting:
+
+- **`00141_require_encrypted_join_codes.sql` stops on a live legacy join code.** Run the
+  count in `operations.md`, "Legacy join codes", on a Neon branch of production before the
+  merge; it should be 0, since every v0.10.0 or later API replaces live legacy codes at
+  start-up. If it is not, start a v0.11.x API once, then count again on a new Neon branch. If the migration stops, the release command fails and the previous
+  version keeps serving. It holds `ACCESS EXCLUSIVE` on `class_join_codes`, a small
+  table, so a join waits for it briefly.
+- **The v0.7.0 `/admin` alias is gone** (T-R5.36). A script or bookmark that still calls a
+  teaching operation at its v0.7.0 path under `/admin/` gets `404 NOT_FOUND`, except
+  `GET` and `POST /admin/classes`, which are now the console's `listAllClasses` and
+  `createClassForTeacher` (D-053) and answer a teacher's token `403`; it moves to the
+  operation's `/teacher/*` path in `api/openapi.yaml`. The release notes say so.
+  Production logged no aliased request in the seven days to 2026-10-19
+  (`docs/plan/40-open-items.md` O-R4.22). A web address under `/admin/` that is not a
+  console route still redirects to the same path under `/teacher`.
+
+The `PLAN_*` variables stay unset until the centre's plan is decided
+(`operations.md`, "The plan the Admin console shows"). A tab still signed in with a
+temporary password gets `403 PASSWORD_CHANGE_REQUIRED` once and is sent to change it;
+the release notes say so. Roll forward rather than back
+(`docs/plan/70-redesign-overview.md` §8).
+
+## Interrupted index build in v0.12.0 (R5)
+
+`00133` builds `audit_log_recent_idx` on `app.audit_log (occurred_at DESC, id DESC)`
+`CONCURRENTLY`, so writes to the log carry on while it builds. `00138` does the same
+for `users_search_trgm_idx`, a gin trigram index on the Users search expression of
+`app.users`: about 4 seconds at 100,000 accounts and 12 to 17 seconds at 500,000
+(more with a `maintenance_work_mem` below 64 MB, 107 seconds at 64 kB), and it ends
+with `ANALYZE app.users`, which takes about a second. Both drop any index of their
+name before they build, so an interrupted build needs nothing from you: redeploy,
+and the rerun removes the INVALID leftover and builds the index again. A rerun over
+a valid index drops it and builds it again, which leaves the search unindexed for
+the length of the build. Check afterwards, as
+`quizzivy_migrate`; the query returns no row when every index is valid:
+
+```sql
+SELECT indexrelid::regclass FROM pg_index WHERE NOT indisvalid;
+```
+
+The Admin audit log reads through its index. Until it is valid the list still
+answers, by sorting the range it was asked for, which on a large log is slow. The
+Users search reads through `users_search_trgm_idx` in the same way: until it is
+valid the directory answers every search by reading the whole table.
+
+A database that ran the first form of `00133` (`CREATE INDEX CONCURRENTLY IF NOT
+EXISTS`, merged in #641) and was interrupted has the file recorded over an INVALID
+index, and the query above names it. Repair it by hand, as `quizzivy_migrate`, in
+a session that is not inside a transaction, running the two statements one after
+the other. Neither can run inside a transaction block, so `psql -c` with both in
+one string, or a script that wraps them in `BEGIN`, fails with "cannot run inside
+a transaction block" and repairs nothing; give each its own `-c`, or paste them
+into an interactive `psql`:
+
+```sql
+DROP INDEX CONCURRENTLY IF EXISTS app.audit_log_recent_idx;
+```
+
+```sql
+CREATE INDEX CONCURRENTLY audit_log_recent_idx ON app.audit_log (occurred_at DESC, id DESC);
+```
+
+Then run the query above again: it returns no row.
 
 ## Backups and operational verification
 

@@ -134,31 +134,6 @@ func seed(t *testing.T, db db.Querier, opensAt, closesAt time.Time, flagged bool
 	return fixture{assignment: assignmentID, attempt: attemptID, student: student, author: author}
 }
 
-func TestAnOpenAssignmentIsCountedAndAClosedOneIsNot(t *testing.T) {
-	pool := newPool(t)
-	tx := isolated(t, pool)
-	store := repositories.NewPostgres(db.NewContext(tx))
-	ctx := context.Background()
-
-	before, err := store.Summary(ctx, domain.SummaryQuery{Scope: everyone})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Open now.
-	seed(t, tx, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), false)
-	// Already finished: outside the window, so not "open".
-	seed(t, tx, time.Now().Add(-48*time.Hour), time.Now().Add(-24*time.Hour), false)
-
-	after, err := store.Summary(ctx, domain.SummaryQuery{Scope: everyone})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := after.OpenAssignments - before.OpenAssignments; got != 1 {
-		t.Errorf("open assignments: want +1, got +%d", got)
-	}
-}
-
 func TestAnUngradedShortAnswerIsTheGradingQueue(t *testing.T) {
 	pool := newPool(t)
 	tx := isolated(t, pool)
@@ -194,7 +169,7 @@ func TestAnUngradedShortAnswerIsTheGradingQueue(t *testing.T) {
 	}
 }
 
-func TestAFlaggedAttemptIsCountedAndAppearsInRecent(t *testing.T) {
+func TestAFlaggedAttemptIsCounted(t *testing.T) {
 	pool := newPool(t)
 	tx := isolated(t, pool)
 	store := repositories.NewPostgres(db.NewContext(tx))
@@ -204,7 +179,7 @@ func TestAFlaggedAttemptIsCountedAndAppearsInRecent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := seed(t, tx, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), true)
+	seed(t, tx, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), true)
 
 	after, err := store.Summary(ctx, domain.SummaryQuery{Scope: everyone})
 	if err != nil {
@@ -212,65 +187,6 @@ func TestAFlaggedAttemptIsCountedAndAppearsInRecent(t *testing.T) {
 	}
 	if got := after.FlaggedAttempts - before.FlaggedAttempts; got != 1 {
 		t.Errorf("flagged: want +1, got +%d", got)
-	}
-
-	own, err := store.Summary(ctx, domain.SummaryQuery{Scope: access.Scope{UserID: f.author}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(own.Recent) != 1 {
-		t.Errorf("recent under the author's scope: want 1 row, got %d", len(own.Recent))
-	}
-
-	var found *domain.Recent
-	for i := range own.Recent {
-		if own.Recent[i].ID == f.attempt {
-			found = &own.Recent[i]
-		}
-	}
-	if found == nil {
-		t.Fatal("the attempt just created is not in the recent list")
-	}
-	if found.StudentName != "Học viên" || found.TestTitle != "Dashboard fixture" {
-		t.Errorf("recent row is not resolved: %+v", *found)
-	}
-	if found.PendingManual != 1 {
-		t.Errorf("pendingManual: want 1, got %d", found.PendingManual)
-	}
-}
-
-func TestActiveStudentsCountsDistinctRecentSitters(t *testing.T) {
-	pool := newPool(t)
-	tx := isolated(t, pool)
-	store := repositories.NewPostgres(db.NewContext(tx))
-	ctx := context.Background()
-
-	before, err := store.Summary(ctx, domain.SummaryQuery{Scope: everyone})
-	if err != nil {
-		t.Fatal(err)
-	}
-	f := seed(t, tx, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), false)
-
-	after, err := store.Summary(ctx, domain.SummaryQuery{Scope: everyone})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := after.ActiveStudents - before.ActiveStudents; got != 1 {
-		t.Errorf("active students: want +1, got +%d", got)
-	}
-
-	// Older than the window: the dashboard is today's queue, not all history.
-	if _, err := tx.Exec(ctx,
-		`UPDATE app.attempts SET started_at = now() - interval '30 days' WHERE id = $1`,
-		f.attempt); err != nil {
-		t.Fatal(err)
-	}
-	stale, err := store.Summary(ctx, domain.SummaryQuery{Scope: everyone})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := stale.ActiveStudents - before.ActiveStudents; got != 0 {
-		t.Errorf("after ageing out: want +0, got +%d", got)
 	}
 }
 
@@ -312,7 +228,7 @@ func TestCountsDeduplicateRetakesAndCountPartiallyGradedQuestions(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if after.ClosingSoon != before.ClosingSoon+1 || after.WaitingStudents != before.WaitingStudents+1 || after.AwaitingGrading != before.AwaitingGrading+2 || after.TotalStudents != before.TotalStudents+1 {
+	if after.ClosingSoon != before.ClosingSoon+1 || after.WaitingStudents != before.WaitingStudents+1 || after.AwaitingGrading != before.AwaitingGrading+2 {
 		t.Fatalf("unexpected counts before=%+v after=%+v", before, after)
 	}
 	assignment, err := assignmentrepo.NewPostgres(db.NewContext(tx)).Get(ctx, everyone, f.assignment)

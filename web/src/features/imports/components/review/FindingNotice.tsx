@@ -46,7 +46,7 @@ const RING: Record<Tone, string> = {
 
 /** ACTION is the class of a finding's action buttons, the deck's 32px outline button. */
 export const FINDING_ACTION =
-  "bg-card text-fg h-8 rounded-lg px-3 text-meta font-medium shadow-none in-data-[scale=deck]:h-8 in-data-[scale=deck]:px-3 in-data-[scale=deck]:text-meta";
+  "bg-card text-fg rounded-lg font-medium shadow-none h-8 px-3 text-meta";
 
 function toneOf(finding: ImportFinding): Tone {
   if (finding.severity === "blocking") return "blocking";

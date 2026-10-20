@@ -16,14 +16,16 @@ import (
 )
 
 type fakeRepo struct {
-	mu         sync.Mutex
-	users      map[string]domain.PrincipalRow
-	grants     map[string]access.Set
-	catalogue  []access.Key
-	roles      []domain.RoleRow
-	userReads  int
-	grantReads int
-	duringRead func()
+	mu          sync.Mutex
+	users       map[string]domain.PrincipalRow
+	grants      map[string]access.Set
+	catalogue   []access.Key
+	roles       []domain.RoleRow
+	permissions []domain.PermissionRow
+	heads       map[string]domain.Headcount
+	userReads   int
+	grantReads  int
+	duringRead  func()
 }
 
 func (f *fakeRepo) Principal(ctx context.Context, userID string) (domain.PrincipalRow, error) {
@@ -54,6 +56,14 @@ func (f *fakeRepo) Grants(_ context.Context, roleID string) (access.Set, error) 
 func (f *fakeRepo) Catalogue(context.Context) ([]access.Key, error) { return f.catalogue, nil }
 
 func (f *fakeRepo) Roles(context.Context) ([]domain.RoleRow, error) { return f.roles, nil }
+
+func (f *fakeRepo) Permissions(context.Context) ([]domain.PermissionRow, error) {
+	return f.permissions, nil
+}
+
+func (f *fakeRepo) Headcounts(context.Context) (map[string]domain.Headcount, error) {
+	return f.heads, nil
+}
 
 func (f *fakeRepo) reads() (int, int) {
 	f.mu.Lock()
@@ -115,6 +125,25 @@ func TestAPrincipalCarriesItsRoleEpochAndDisabledState(t *testing.T) {
 	}
 	if minh := resolve(t, app, "minh"); !minh.Disabled {
 		t.Error("a disabled student resolved as enabled")
+	}
+}
+
+func TestAPrincipalCarriesWhetherTheAccountMustStillChangeItsTemporaryPassword(t *testing.T) {
+	repo := newRepo()
+	repo.setUser("temporary", domain.PrincipalRow{Role: teacherRole, MustChangePassword: true})
+	app := application.New(repo)
+
+	if p := resolve(t, app, "temporary"); !p.MustChangePassword {
+		t.Errorf("a teacher on a temporary password resolved as %+v", p)
+	}
+	if p := resolve(t, app, "teacher"); p.MustChangePassword {
+		t.Errorf("a teacher with a password of their own resolved as %+v", p)
+	}
+
+	repo.setUser("temporary", domain.PrincipalRow{Role: teacherRole})
+	app.Forget("temporary")
+	if p := resolve(t, app, "temporary"); p.MustChangePassword {
+		t.Errorf("after the change and a Forget the principal is %+v, want the flag cleared", p)
 	}
 }
 

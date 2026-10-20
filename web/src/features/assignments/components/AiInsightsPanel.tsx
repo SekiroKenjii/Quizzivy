@@ -76,7 +76,7 @@ export function AiInsightsAction({
       blocked={blocked}
       unavailable={handedIn === 0 ? t("assignmentDetail.analysis.empty") : null}
       busy={insights.running}
-      className="shadow-card h-8 gap-1.5 rounded-[0.5rem] px-3 text-sm in-data-[scale=deck]:px-3 in-data-[scale=deck]:text-sm in-data-[scale=deck]:[&_svg:not([class*='size-'])]:size-3.5"
+      className="shadow-card h-8 gap-1.5 rounded-[0.5rem] px-3 text-sm [&_svg:not([class*='size-'])]:size-3.5"
       onClick={insights.run}
     />
   );
@@ -277,8 +277,7 @@ function InsightsResult({
   );
 }
 
-const ACTION =
-  "text-meta h-7.5 gap-1.5 rounded-seg px-2.5 font-medium shadow-none in-data-[scale=deck]:px-2.5 in-data-[scale=deck]:text-meta";
+const ACTION = "h-7.5 gap-1.5 rounded-seg font-medium shadow-none px-2.5 text-meta";
 
 function InsightCard({
   insight,

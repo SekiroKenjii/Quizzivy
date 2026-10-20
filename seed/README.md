@@ -21,6 +21,11 @@ What is here:
 - `08-dev-teacher-workspace.sql` — the Teacher deck's fixtures for `giaovien@quizzivy.com`
   (R4, T-R4.51): seven tests, eight media files, four classes with members, assignments in
   every status, attempts, imports. It follows 06 and 07 and relies on 06's teacher. See below.
+- `09-dev-admin-console.sql` — the Admin deck's fixtures (R5, T-R5.33): three Admins, nine
+  Teachers (Lý Thanh Vân disabled, teaching the archived *Summer Camp 2026*), students in every
+  status, *IELTS Writing Clinic* and *Business English B1*, the custom role *Tổ trưởng*, audit
+  entries in every category and one by the system, fourteen days of activity, and this month's
+  AI credits with Phan Minh Đức's request waiting. It relies on 01, 03, 06 and 08.
 - `99-assert.sql` — runs last and refuses the seed if the rows above break a
   rule `publish` would have enforced, or if a user, class or owned row lacks
   the column R2's access model reads. The seed writes frozen version rows
@@ -42,6 +47,12 @@ Every account's password is `quizzivy-dev`.
 | `hocvien.lop01@quizzivy.com` … `hocvien.lop30@quizzivy.com` | Student | `07` |
 | `minhanh.tran@quizzivy.com`, `nam.le@quizzivy.com`, `thuha.pham@quizzivy.com`, `giabao.nguyen@quizzivy.com`, `khanhlinh.vo@quizzivy.com`, `phuongthao.do@quizzivy.com`, `ngocmai.bui@quizzivy.com`, `thanhtung.ngo@quizzivy.com` | Student, the deck's roster | `08` |
 | `quochuy.dang@quizzivy.com`, `ducminh.hoang@quizzivy.com` | Student with a temporary password (the deck's "Password reset" and "Not signed in") | `08` |
+| `yen.nguyen@quizzivy.com`, `quan.do@quizzivy.com` | Admin | `09` |
+| `giau.bui@quizzivy.com`, `bao.dinh@quizzivy.com`, `trang.ngo@quizzivy.com`, `linh.ha@quizzivy.com` | Teacher (Linh has never signed in) | `09` |
+| `khai.truong@quizzivy.com` | Teacher with a temporary password | `09` |
+| `duc.phan@quizzivy.com` | Teacher, Google only: no password | `09` |
+| `van.ly@quizzivy.com` | Teacher, disabled | `09` |
+| `bich.hoang@quizzivy.com` (disabled), `son.vu@quizzivy.com` (temporary password), `tam.truong@quizzivy.com` (never signed in), `an.lam@quizzivy.com`, `khoa.dinh@quizzivy.com`, `nhi.ta@quizzivy.com`, `phuc.luu@quizzivy.com`, `chi.mai@quizzivy.com` (Google only) | Student | `09` |
 | `hocvien.ielts65.01@quizzivy.com` … `hocvien.kids.59@quizzivy.com` | Student, fillers that bring the four classes to the deck's sizes | `08` |
 
 ## `08`: the teacher workspace

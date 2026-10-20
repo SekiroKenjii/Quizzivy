@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { GoogleMark } from "@/features/auth/components/GoogleMark";
 import { Label } from "@/components/ui/label";
-import { changePassword, openDocsSession } from "@/features/auth/api";
+import { changePassword } from "@/features/auth/api";
 import {
   changePasswordSchema,
   type ChangePasswordValues,
@@ -19,15 +19,19 @@ import {
   googleSignInAvailable,
   useGoogleSignIn,
 } from "@/features/auth/google/useGoogleSignIn";
-import { api, BASE_URL } from "@/lib/api/client";
+import { api } from "@/lib/api/client";
 import { ApiError, failureMessage } from "@/lib/api/errors";
 import { focusIsLost } from "@/lib/focusIsLost";
+import { usePasswordChanged } from "@/features/auth/passwordChanged";
+import { useSetPasswordLinkRequest } from "@/features/auth/setPasswordLink";
+import { SetPasswordLinkButton } from "@/features/auth/components/SetPasswordLinkButton";
+import { usePasswordSignInOff } from "@/features/organization/api";
 import { authStore, useAuthStore } from "@/stores/auth";
 
 const BODY = "flex flex-col gap-3.5 p-4.5";
 const GRID = "grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3.5";
 const FIELD = "flex min-w-0 flex-col gap-1.5";
-const LABEL = "text-meta in-data-[scale=deck]:text-meta leading-normal font-medium";
+const LABEL = "text-meta leading-normal font-medium";
 const INPUT = "bg-bg h-9.5";
 const ACTION = "h-8.5 self-start aria-disabled:opacity-50";
 
@@ -39,6 +43,7 @@ const ACTION = "h-8.5 self-start aria-disabled:opacity-50";
 export function PasswordSection() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
+  const changed = usePasswordChanged();
   const mounted = useMounted();
 
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +77,14 @@ export function PasswordSection() {
   if (user && !user.hasPassword) return null;
 
   return (
-    <SettingsCard title={t("settings.password")}>
+    <SettingsCard
+      title={t("settings.password")}
+      description={
+        changed === null
+          ? undefined
+          : t("settings.passwordChangedLine", { when: changed })
+      }
+    >
       <form
         onSubmit={(event) => {
           if (form.formState.isSubmitting) {
@@ -148,7 +160,9 @@ export function PasswordSection() {
  * GoogleSection is the Google account card the deck does not draw (DG-157):
  * whether Google is linked, what unlinking would leave, and the control that
  * links or unlinks it. A Google-only account keeps Unlink in the tab order,
- * switched off and described by the fact that it signs in with Google only.
+ * switched off and described by the fact that it has no password yet, and can
+ * ask for an emailed link to set one (T-R5.3); while the centre is known to
+ * have password sign-in off, it is told only that it signs in with Google.
  * Unlinking replaces Unlink with Link Google, so focus moves to the line that
  * now reads "Not linked".
  */
@@ -157,6 +171,8 @@ export function GoogleSection() {
   const user = useAuthStore((s) => s.user);
   const mounted = useMounted();
   const google = useGoogleSignIn();
+  const passwordsOff = usePasswordSignInOff();
+  const link = useSetPasswordLinkRequest();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -165,6 +181,7 @@ export function GoogleSection() {
 
   const linked = user?.linkedProviders.includes("google") ?? false;
   const wouldLockOut = linked && !(user?.hasPassword ?? false);
+  const offerLink = wouldLockOut && !passwordsOff;
 
   useEffect(() => {
     if (linked || !unlinking.current) return;
@@ -208,11 +225,12 @@ export function GoogleSection() {
             id="settings-google-explainer"
             className="text-muted-fg text-meta leading-normal"
           >
-            {t(
-              wouldLockOut
-                ? "settings.googleOnlyTeacher"
-                : "settings.googleBothExplainer",
-            )}
+            {t(googleExplainer(wouldLockOut, passwordsOff))}
+          </p>
+        ) : null}
+        {offerLink && link.request.state === "sent" ? (
+          <p role="status" className="text-ui leading-normal">
+            {t("settings.setPasswordLink.sent", { email: user.email })}
           </p>
         ) : null}
         {(error ?? google.error) ? (
@@ -220,19 +238,33 @@ export function GoogleSection() {
             {error ?? google.error}
           </p>
         ) : null}
+        {offerLink && link.request.state === "failed" ? (
+          <p role="alert" className="text-danger-ink text-sm">
+            {link.request.message}
+          </p>
+        ) : null}
         {linked ? (
-          <Button
-            variant="outline"
-            aria-disabled={pending || wouldLockOut || undefined}
-            aria-describedby="settings-google-explainer"
-            className={ACTION}
-            onClick={() => {
-              if (pending || wouldLockOut) return;
-              void unlink();
-            }}
-          >
-            {t("settings.unlinkGoogle")}
-          </Button>
+          <div className="flex flex-wrap gap-2.5">
+            <Button
+              variant="outline"
+              aria-disabled={pending || wouldLockOut || undefined}
+              aria-describedby="settings-google-explainer"
+              className={ACTION}
+              onClick={() => {
+                if (pending || wouldLockOut) return;
+                void unlink();
+              }}
+            >
+              {t("settings.unlinkGoogle")}
+            </Button>
+            {offerLink ? (
+              <SetPasswordLinkButton
+                state={link.request.state}
+                className={ACTION}
+                onSend={() => void link.send()}
+              />
+            ) : null}
+          </div>
         ) : (
           <LinkGoogleControl
             pending={google.pending}
@@ -244,6 +276,11 @@ export function GoogleSection() {
       </div>
     </SettingsCard>
   );
+}
+
+function googleExplainer(wouldLockOut: boolean, passwordsOff: boolean) {
+  if (!wouldLockOut) return "settings.googleBothExplainer";
+  return passwordsOff ? "settings.googleOnlyPasswordsOff" : "settings.googleNoPassword";
 }
 
 function LinkGoogleControl({
@@ -266,71 +303,6 @@ function LinkGoogleControl({
       <GoogleMark />
       {t("settings.linkGoogle")}
     </Button>
-  );
-}
-
-/**
- * ApiDocsSection opens the API reference in a new tab: the tab is opened with its
- * opener cleared, then pointed at /docs once the docs session exists, and closed
- * if it cannot be opened.
- */
-export function ApiDocsSection() {
-  const { t } = useTranslation();
-  const [problem, setProblem] = useState<"blocked" | "failed" | null>(null);
-  const [pending, setPending] = useState(false);
-  const mounted = useMounted();
-  const open = () => {
-    const lease = authStore.captureActor();
-    const tab = window.open("about:blank", "_blank");
-    if (!tab) {
-      setProblem("blocked");
-      return;
-    }
-    tab.opener = null;
-    setProblem(null);
-    setPending(true);
-    openDocsSession()
-      .then(
-        () => {
-          if (!mounted.current || !authStore.isCurrent(lease)) {
-            tab.close();
-            return;
-          }
-          tab.location.href = `${BASE_URL}/docs`;
-        },
-        () => {
-          tab.close();
-          if (mounted.current && authStore.isCurrent(lease)) setProblem("failed");
-        },
-      )
-      .finally(() => {
-        if (mounted.current && authStore.isCurrent(lease)) setPending(false);
-      });
-  };
-  return (
-    <SettingsCard title={t("settings.apiDocs.title")}>
-      <div className={BODY}>
-        <p className="text-muted-fg text-ui leading-relaxed">
-          {t("settings.apiDocs.body")}
-        </p>
-        <Button
-          type="button"
-          variant="outline"
-          className={ACTION}
-          aria-disabled={pending || undefined}
-          onClick={() => {
-            if (!pending) open();
-          }}
-        >
-          {t("settings.apiDocs.open")}
-        </Button>
-        {problem ? (
-          <p role="alert" className="text-sm">
-            {t(`settings.apiDocs.${problem}`)}
-          </p>
-        ) : null}
-      </div>
-    </SettingsCard>
   );
 }
 

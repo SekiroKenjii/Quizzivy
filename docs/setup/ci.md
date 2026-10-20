@@ -184,6 +184,7 @@ Today's cross-tree reads:
 |---|---|
 | `web/tests/units/join/code.test.ts` | `server/internal/modules/classes/domain/joincode.go` |
 | `server/tests/isolation_world_test.go` | `web/tests/e2e/fixtures/unit5-listening.mp3` |
+| `server/internal/modules/audit/domain/tests/catalog_test.go` | `web/src/lib/i18n/locales/vi.json`, `en.json` |
 | `server/internal/modules/identity/repositories/tests/stored_email_test.go` | `docs/setup/operations.md` |
 | Server tests | `api/`, `migrations/`, `fly.toml`, `Dockerfile`, `docker/word-converter/`, `.github/workflows/deploy.yml` |
 | Production image | `Dockerfile`, `.dockerignore`, `fly.toml`, `server/`, `migrations/`, `scripts/provision-db.sh` (its set, `image`, holds these and nothing else) |
@@ -250,6 +251,30 @@ which proves profile writes through the role the API connects as and skips
 without it. The step **App-role profile test ran** runs it once with `-v` and
 fails unless it passed, so removing the variable cannot turn it back into a
 silent skip. `make test-api-integration` sets it from `APP_DSN`.
+
+`TEST_MAINTENANCE_DATABASE_URL`, the DSN of `quizzivy_maintenance`, is set on the
+same job for the tests in `internal/core/maintenance/tests` that run the commands
+as the role. Each makes a database of its own with the migrate role's `CREATEDB`
+(`scripts/provision-db.sh` gives it), migrates it and drops it, so no test shares
+rows with another. Where `CI` is set and the variable is not, those tests fail
+instead of skipping, for the reason the paragraph above gives. The role's limit
+of two connections is cluster-wide, so they do not run in parallel with one
+another.
+
+`TEST_SUPERUSER_DATABASE_URL`, the DSN of the service container's superuser, is set on the
+same job for `TestTheProvisioningScriptRunsAsAManagedAdminThatIsNotASuperuser` in
+`internal/platform/db/tests`. It makes a role with `CREATEROLE` and `CREATEDB` that is not a
+superuser, as a managed provider's admin is, runs `scripts/provision-db.sh` as it against a
+database of its own and drops both, because the script's node tests use a stub `psql` and cannot
+see a statement a non-superuser may not run. Where `CI` is set and the variable is not, it fails
+instead of skipping.
+
+`.github/workflows/retention-sweep.yml` is the nightly sweep, not a CI job: the
+planner lists it with the files whose change runs no code job, and
+`scripts/ci/tests/retention-sweep.test.mjs`, which `Plan` runs, pins its
+schedule, its one-at-a-time group, the 15-minute limit, that the environment
+secret is read by the sweep step alone and that no expression is written into a
+script (`docs/setup/operations.md`, "Retention and anonymization").
 
 A test that needs the object store or the image skips when its variable is
 unset, and `go test` reports a package whose tests all skipped as `ok`. The
@@ -348,6 +373,16 @@ no test runs. CI therefore pulls every Docker Hub image from Google's mirror,
 If the mirror ever fails too, the alternative is a Docker Hub login from a
 repository secret, which raises the limit for the account; it needs Thuong to
 create a read-only access token and add it as a secret, and is not built.
+
+## Third-party actions
+
+An action from outside `actions/` is pinned to a full commit SHA, with the tag
+it was resolved from in a trailing comment (`uses: owner/name@<sha> # v1.2.3`).
+A tag or branch moves, and the deploy workflow holds `FLY_API_TOKEN`, so a moved
+ref would run someone else's code with it. To update one, resolve the new tag
+to its commit (the peeled one, `git ls-remote <repo> 'refs/tags/<tag>^{}'`, when
+the tag is annotated), check that the action file exists there, and change the
+SHA and the comment together. The `actions/*` actions stay on a major tag.
 
 ## Branch rules
 

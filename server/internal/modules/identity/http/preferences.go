@@ -23,7 +23,7 @@ func (h Identity) UpdatePreferences(ctx context.Context, request openapi.UpdateP
 		return openapi.UpdatePreferences400JSONResponse(httpapi.Error(ctx, openapi.VALIDATIONFAILED, httpx.Text(ctx, "Thiếu tùy chọn.", "Supply preferences."))), nil
 	}
 	body := request.Body
-	patch := domain.Preferences{Theme: (*string)(body.Theme), CompactTables: body.CompactTables, LargerTestText: body.LargerTestText, AssignmentDefaults: (*domain.AssignmentDefaults)(body.AssignmentDefaults), AI: aiPreferences(body)}
+	patch := domain.Preferences{Theme: (*string)(body.Theme), CompactTables: body.CompactTables, LargerTestText: body.LargerTestText, Workspace: (*string)(body.Workspace), AssignmentDefaults: (*domain.AssignmentDefaults)(body.AssignmentDefaults), AI: aiPreferences(body)}
 	meta := httpx.RequestMetaFromContext(ctx)
 	prefs, err := h.app.Commands.UpdatePreferences.Handle(ctx, command.UpdatePreferences{UserID: principal.UserID, Preferences: patch, IP: meta.IP, UserAgent: meta.UserAgent})
 	switch {
@@ -50,7 +50,7 @@ func aiPreferences(body *openapi.UserPreferences) *domain.AIPreferences {
 }
 
 func toAPIPreferences(p domain.Preferences) openapi.UserPreferences {
-	out := openapi.UserPreferences{Theme: (*openapi.UserPreferencesTheme)(p.Theme), CompactTables: p.CompactTables, LargerTestText: p.LargerTestText}
+	out := openapi.UserPreferences{Theme: (*openapi.UserPreferencesTheme)(p.Theme), CompactTables: p.CompactTables, LargerTestText: p.LargerTestText, Workspace: (*openapi.UserPreferencesWorkspace)(p.Workspace)}
 	if ai := p.AI; ai != nil {
 		out.Ai = &struct {
 			Language           *openapi.AiLanguage `json:"language,omitempty"`

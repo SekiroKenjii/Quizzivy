@@ -22,7 +22,6 @@ export function SplashFrame({
   const { t } = useTranslation();
   return (
     <div
-      data-scale="deck"
       role="status"
       aria-live="polite"
       aria-hidden={leaving || undefined}

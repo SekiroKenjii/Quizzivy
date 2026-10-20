@@ -1,0 +1,62 @@
+name: Retention sweep
+on:
+  schedule:
+    - cron: '0 20 * * *'
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Write the changes; leave it off for a dry run that counts what the sweep would do
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: retention-sweep
+  cancel-in-progress: false
+jobs:
+  sweep:
+    name: Retention sweep
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-maintenance
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: server/go.mod
+          cache: false
+      - name: Build the maintenance command
+        working-directory: server
+        run: go build -o "$RUNNER_TEMP/maintenance" ./cmd/maintenance
+      - name: Sweep
+        env:
+          MAINTENANCE_DATABASE_URL: ${{ secrets.MAINTENANCE_DATABASE_URL }}
+          EVENT: ${{ github.event_name }}
+          REQUESTED: ${{ inputs.apply }}
+          ENABLED: ${{ vars.RETENTION_SWEEP_ENABLED }}
+        run: |
+          apply=false
+          if [ "$EVENT" = schedule ]; then
+            if [ "$ENABLED" = true ]; then apply=true; fi
+          elif [ "$REQUESTED" = true ]; then
+            apply=true
+          fi
+          flags=(-budget 5m)
+          mode="dry run"
+          if [ "$apply" = true ]; then
+            flags+=(-apply)
+            mode="apply"
+          fi
+          echo "retention-sweep: $mode"
+          status=0
+          "$RUNNER_TEMP/maintenance" retention-sweep "${flags[@]}" > "$RUNNER_TEMP/report.json" || status=$?
+          cat "$RUNNER_TEMP/report.json"
+          {
+            echo "### Retention sweep ($mode)"
+            echo '```json'
+            cat "$RUNNER_TEMP/report.json"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"

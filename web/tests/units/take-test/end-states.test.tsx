@@ -549,7 +549,6 @@ describe("the focus dialog on the page", () => {
     expect(alert).toHaveTextContent(
       "Lần này được tính là lần 1 trong 2 lần được phép. Hãy ở lại trang này cho đến khi nộp bài.",
     );
-    expect(alert).toHaveAttribute("data-scale", "deck");
 
     fireEvent.click(within(alert).getByRole("button", { name: "Quay lại bài làm" }));
     await pass(0);

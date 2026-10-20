@@ -224,3 +224,65 @@ describe("labelShown", () => {
     expect(labelShown(1, Number.NaN)).toBe(true);
   });
 });
+
+describe("BarChart stacked", () => {
+  const SERIES = [
+    { key: "students", label: "Học viên", tone: "accent" },
+    { key: "staff", label: "Giáo viên", tone: "info" },
+  ] as const;
+  const STACKED = [
+    { key: "a", label: "1", value: 10, parts: [6, 4], title: "a" },
+    { key: "b", label: "2", value: 5, parts: [5, 0], title: "b" },
+    { key: "c", label: "3", value: 0, parts: [0, 0], title: "c" },
+  ];
+
+  function stacked() {
+    const { container } = render(
+      <BarChart
+        caption={CAPTION}
+        columns={["Ngày", "Tổng"]}
+        series={SERIES}
+        data={STACKED}
+      />,
+    );
+    return [...container.querySelectorAll<HTMLElement>("[title]")];
+  }
+
+  it("draws each part from the baseline in the series' order, the first at the bottom", () => {
+    const [first] = stacked();
+    const [top, bottom] = [...first!.children] as HTMLElement[];
+    expect(top).toHaveClass("bg-info", "rounded-t-[0.25rem]");
+    expect(bottom).toHaveClass("bg-brand");
+    expect(top!.style.height).toBe("40%");
+    expect(bottom!.style.height).toBe("60%");
+  });
+
+  it("scales every column against the tallest total and draws no segment for a zero part", () => {
+    const [, second, third] = stacked();
+    expect(second!.children).toHaveLength(1);
+    expect((second!.firstElementChild as HTMLElement).style.height).toBe("50%");
+    expect(third!.children).toHaveLength(0);
+  });
+
+  it("names the series in a legend and in the table, a column each before the total", () => {
+    stacked();
+    expect(screen.getByText("Học viên", { selector: "li" })).toBeInTheDocument();
+    const table = screen.getByRole("table", { name: CAPTION });
+    expect(
+      within(table)
+        .getAllByRole("columnheader")
+        .map((header) => header.textContent),
+    ).toEqual(["Ngày", "Học viên", "Giáo viên", "Tổng"]);
+    const row = within(table).getAllByRole("row")[1]!;
+    expect(
+      within(row)
+        .getAllByRole("cell")
+        .map((cell) => cell.textContent),
+    ).toEqual(["6", "4", "10"]);
+  });
+
+  it("draws no legend for a single series chart", () => {
+    chart();
+    expect(screen.queryByRole("list")).toBeNull();
+  });
+});

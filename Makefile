@@ -22,6 +22,8 @@ GOLANGCI_VERSION ?= v2.14.0
 
 MIGRATE_DSN ?= postgres://quizzivy_migrate:$(or $(QUIZZIVY_MIGRATE_PASSWORD),migrate)@localhost:5432/quizzivy?sslmode=disable
 APP_DSN     ?= postgres://quizzivy_app:$(or $(QUIZZIVY_APP_PASSWORD),app)@localhost:5432/quizzivy?sslmode=disable
+MAINTENANCE_DSN ?= postgres://quizzivy_maintenance:$(or $(QUIZZIVY_MAINTENANCE_PASSWORD),maintenance)@localhost:5432/quizzivy?sslmode=disable
+SUPERUSER_DSN ?= postgres://postgres:$(or $(POSTGRES_SUPERUSER_PASSWORD),postgres)@localhost:5432/postgres?sslmode=disable
 
 .PHONY: help doctor up down reset db-shell migrate migrate-down migrate-redo \
         seed gen contract verify-google verify-r2 verify-r2-imports dev dev-web dev-api test test-web test-api \
@@ -92,9 +94,10 @@ contract: ## Lint api/openapi.yaml and assert its invariants
 
 gen: contract ## Regenerate Go + TS from api/openapi.yaml
 	cd server && go tool oapi-codegen --config ../api/oapi-codegen.yaml ../api/openapi.yaml
+	cd server && go run ./cmd/gencontract ../api/openapi.yaml gen/contract
 	npx --yes openapi-typescript@$(OPENAPI_TS_VERSION) api/openapi.yaml -o web/src/lib/api/schema.d.ts
 	cd server && go build ./... && go test ./gen/...
-	@echo "generated: server/gen/openapi/openapi.gen.go, web/src/lib/api/schema.d.ts"
+	@echo "generated: server/gen/openapi/openapi.gen.go, server/gen/contract/, web/src/lib/api/schema.d.ts"
 
 gen-check: gen ## Fail if generated output drifts from the contract (what CI runs)
 	@git diff --exit-code -- server/gen web/src/lib/api/schema.d.ts \
@@ -106,11 +109,17 @@ gen-check: gen ## Fail if generated output drifts from the contract (what CI run
 dev: ## Run web and api together, plus the Word import worker when imports are configured
 	$(MAKE) -j3 dev-api dev-web $(if $(IMPORT_S3_BUCKET),dev-worker IMPORT_PROCESSING_ENABLED=true IMPORT_WORKER_WAKE_URL=http://localhost:8091/wake)
 
+# Where the API and the worker write email outside production, and where the
+# live E2E (web/playwright.config.ts) reads set-password links: EMAIL_SINK_DIR,
+# or tmp/email-sink when it is unset or empty, and a relative value, as
+# .env.example's, taken from the repository root, as Playwright takes it.
+EMAIL_SINK_PATH := $(abspath $(or $(EMAIL_SINK_DIR),tmp/email-sink))
+
 dev-api: ## Go API on :8080
-	cd server && DATABASE_URL="$(APP_DSN)" go run ./cmd/api
+	cd server && DATABASE_URL="$(APP_DSN)" EMAIL_SINK_DIR="$(EMAIL_SINK_PATH)" go run ./cmd/api
 
 dev-worker: ## Word import worker against the local database and bucket
-	cd server && DATABASE_URL="$(APP_DSN)" GOMAXPROCS=2 go run ./cmd/import-worker
+	cd server && DATABASE_URL="$(APP_DSN)" EMAIL_SINK_DIR="$(EMAIL_SINK_PATH)" GOMAXPROCS=2 go run ./cmd/import-worker
 
 dev-web: ## Vite on :5173
 	cd web && pnpm dev
@@ -124,7 +133,7 @@ test-api-unit: ## Go unit tests: domain rules, transports with fakes, platform h
 	cd server && go test ./...
 
 test-api-integration: migrate ## Go integration tests: repositories and use cases against Postgres
-	cd server && TEST_DATABASE_URL="$(MIGRATE_DSN)" APP_DATABASE_URL="$(APP_DSN)" go test -tags integration ./internal/... -count=1
+	cd server && TEST_DATABASE_URL="$(MIGRATE_DSN)" APP_DATABASE_URL="$(APP_DSN)" TEST_MAINTENANCE_DATABASE_URL="$(MAINTENANCE_DSN)" TEST_SUPERUSER_DATABASE_URL="$(SUPERUSER_DSN)" go test -tags integration ./internal/... -count=1
 
 test-api-e2e: migrate ## Go end-to-end tests: the whole application in-process, over HTTP, against Postgres
 	cd server && TEST_DATABASE_URL="$(MIGRATE_DSN)" go test -tags e2e ./tests/... -count=1

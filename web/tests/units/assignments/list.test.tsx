@@ -293,7 +293,11 @@ describe("the assignments list", () => {
     const { user, router } = renderList();
     await table();
 
+    const asked = requests.length;
     await user.type(screen.getByRole("searchbox"), "unit");
+    expect(screen.getByRole("searchbox")).toHaveValue("unit");
+    expect(router.state.location.search).toBe("");
+    expect(requests.slice(asked).some((query) => query.has("q"))).toBe(false);
     await waitFor(() => expect(requests.at(-1)?.get("q")).toBe("unit"));
 
     await user.click(screen.getByRole("button", { name: "Lớp" }));

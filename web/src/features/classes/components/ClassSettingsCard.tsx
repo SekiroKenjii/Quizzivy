@@ -137,7 +137,7 @@ export function ClassSettingsCard({
           <div className="flex items-center gap-2.5">
             <Button
               type="submit"
-              className="h-8.5 px-3.5 in-data-[scale=deck]:h-8.5 aria-disabled:opacity-50"
+              className="h-8.5 px-3.5 aria-disabled:opacity-50"
               aria-disabled={!ready || save.isPending || undefined}
             >
               {t("common.save")}

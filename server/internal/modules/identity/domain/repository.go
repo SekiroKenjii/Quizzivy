@@ -23,6 +23,7 @@ type Users interface {
 	RevokeSession(ctx context.Context, in RevokeSessionRecord) error
 	RevokeOtherSessions(ctx context.Context, in RevokeOtherSessionsRecord) (int, error)
 	DeleteExpired(ctx context.Context, before time.Time) (int64, error)
+	StampSignIn(ctx context.Context, userID string, method SignInMethod, at time.Time) error
 	ChangePassword(ctx context.Context, in ChangePasswordRecord) error
 	UpdateProfile(ctx context.Context, in ProfileRecord) (User, error)
 	SetAvatar(ctx context.Context, in AvatarRecord) (AvatarWrite, error)
@@ -43,4 +44,22 @@ type Students interface {
 	Update(ctx context.Context, req WriteRequest, in StudentPatch) (Student, error)
 	ResetPassword(ctx context.Context, req WriteRequest, id, hash string, now time.Time) error
 	CheckResettable(ctx context.Context, req WriteRequest, id string) error
+}
+
+// ActivityDaysKept is how many local days of activity are kept: the Admin console reads a year, and the rest is gone.
+const ActivityDaysKept = 400
+
+// ActivityEntry is a user's authenticated request: the moment, and the local day it falls on.
+type ActivityEntry struct {
+	UserID string
+	At     time.Time
+	Day    time.Time
+}
+
+// Activity persists what users did, in batches.
+type Activity interface {
+	// RecordActivity raises each user's last_active_at to the newest At given for them and adds the days, once each. An account deleted since the entry was taken is skipped.
+	RecordActivity(ctx context.Context, entries []ActivityEntry) error
+	// PruneDays deletes at most limit activity days earlier than before and reports how many went.
+	PruneDays(ctx context.Context, before time.Time, limit int) (int, error)
 }

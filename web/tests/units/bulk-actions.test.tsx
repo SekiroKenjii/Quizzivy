@@ -16,7 +16,6 @@ import {
   type BulkAction,
 } from "@/components/shared/BulkActions";
 import { BulkSelectAll } from "@/components/shared/BulkSelection";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { useBulkSelection } from "@/hooks/useBulkSelection";
 import { ApiError } from "@/lib/api/errors";
 import { viewport } from "@tests/support/viewport";
@@ -62,7 +61,7 @@ it("confirms the selection, retains failed items and retries only those items", 
   expect(run).not.toHaveBeenCalled();
   await user.click(screen.getByRole("button", { name: "Xác nhận 2 mục" }));
   await screen.findByText("Referenced: Still assigned");
-  expect(screen.getByText("Đã chọn 1 mục")).toBeInTheDocument();
+  expect(screen.getByText("Đã chọn 1")).toBeInTheDocument();
   await user.click(
     screen.getByRole("button", { name: "Thử lại 1 mục chưa thành công" }),
   );
@@ -71,23 +70,6 @@ it("confirms the selection, retains failed items and retries only those items", 
 });
 
 type Item = (typeof items)[number];
-
-const BUTTON =
-  "inline-flex shrink-0 items-center justify-center text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4";
-const OUTLINE =
-  "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50 in-data-[scale=deck]:bg-card in-data-[scale=deck]:hover:bg-muted dark:in-data-[scale=deck]:border-border dark:in-data-[scale=deck]:bg-card dark:in-data-[scale=deck]:hover:bg-muted";
-const GHOST = "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50";
-const SM =
-  "h-8 gap-1.5 rounded-md px-3 in-data-[scale=deck]:h-7.5 in-data-[scale=deck]:rounded-seg in-data-[scale=deck]:text-sm in-data-[scale=deck]:[&_svg:not([class*='size-'])]:size-3.5";
-
-const todayAction = (label: string) =>
-  `<button data-slot="button" data-variant="outline" data-size="sm" class="${BUTTON} ${OUTLINE} ${SM}">${label}</button>`;
-const TODAY_CLEAR = `<button data-slot="button" data-variant="ghost" data-size="sm" class="${BUTTON} ${GHOST} ${SM}">Bỏ chọn</button>`;
-const todayBar = (count: string, inside: string) =>
-  `<div class="bg-secondary flex flex-wrap items-center gap-2 rounded-md px-3 py-2"><span class="mr-auto text-sm font-medium">${count}</span>${inside}${TODAY_CLEAR}</div>`.replaceAll(
-    "&",
-    "&amp;",
-  );
 
 const MIXED = [
   "indeterminate:bg-primary",
@@ -109,12 +91,10 @@ const remove: BulkAction<Item> = {
 };
 
 function Bar({
-  deck = false,
   actions = [remove],
   onClear = nothing,
   ...rest
 }: Readonly<{
-  deck?: boolean;
   actions?: readonly BulkAction<Item>[];
   onClear?: () => void;
   selected?: readonly Item[];
@@ -123,7 +103,7 @@ function Bar({
   className?: string;
   children?: ReactNode;
 }>) {
-  const bar = (
+  return (
     <BulkActions
       selected={items}
       name={(item) => item.name}
@@ -134,7 +114,6 @@ function Bar({
       {...rest}
     />
   );
-  return deck ? <DeckScale>{bar}</DeckScale> : bar;
 }
 
 const barOf = (count: string) => screen.getByText(count).parentElement!;
@@ -144,66 +123,16 @@ afterEach(async () => {
   await act(() => i18n.changeLanguage("vi"));
 });
 
-describe("outside a deck surface", () => {
-  it("draws today's bar, byte for byte", () => {
-    render(<Bar />);
-    const bar = barOf("Đã chọn 2 mục");
-    expect(bar.outerHTML).toBe(
-      todayBar("Đã chọn 2 mục", todayAction("Delete selected")),
-    );
-    expect(bar.className).not.toContain("scale=deck");
-    expect(screen.getByText("Đã chọn 2 mục").className).not.toContain("scale=deck");
-  });
-
-  it("keeps a page's label and its own controls before the actions", () => {
-    render(
-      <Bar
-        selectionLabel="Đã chọn 2 câu"
-        actions={[{ label: "Archive", description: "Later", run: done }, remove]}
-      >
-        <button type="button">Add tag</button>
-      </Bar>,
-    );
-    expect(barOf("Đã chọn 2 câu").outerHTML).toBe(
-      todayBar(
-        "Đã chọn 2 câu",
-        `<button type="button">Add tag</button>${todayAction("Archive")}${todayAction("Delete selected")}`,
-      ),
-    );
-  });
-
-  it("draws no icon, takes no class and stays on a phone whatever the deck props say", () => {
-    viewport("phone");
-    render(
-      <Bar
-        hideOnPhone
-        className="mx-3 mb-2.5"
-        actions={[{ ...remove, icon: CircleStop }]}
-      >
-        <BulkBarButton icon={Tag} onClick={nothing}>
-          Add tag
-        </BulkBarButton>
-      </Bar>,
-    );
-    expect(barOf("Đã chọn 2 mục").outerHTML).toBe(
-      todayBar(
-        "Đã chọn 2 mục",
-        `${todayAction("Add tag")}${todayAction("Delete selected")}`,
-      ),
-    );
-  });
-});
-
-describe("on a deck surface", () => {
+describe("the bar", () => {
   it("writes the deck's selection count and clear name in English", async () => {
-    render(<Bar deck />);
+    render(<Bar />);
     await act(() => i18n.changeLanguage("en"));
     expect(screen.getByText("2 selected")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Clear selection" })).toBeInTheDocument();
   });
 
   it("is the inverted bar with the deck's count", () => {
-    render(<Bar deck />);
+    render(<Bar />);
     expect(screen.queryByText("Đã chọn 2 mục")).toBeNull();
     const bar = barOf("Đã chọn 2");
     const classes = bar.className.split(" ");
@@ -215,24 +144,37 @@ describe("on a deck surface", () => {
   });
 
   it("recolours the focus ring for what is inside the bar", () => {
-    render(<Bar deck />);
+    render(<Bar />);
     expect(barOf("Đã chọn 2").className.split(" ")).toContain(
       "[--focus:var(--primary-fg)]",
     );
   });
 
   it("keeps a page's own label", () => {
-    render(<Bar deck selectionLabel="Đã chọn 2 câu" />);
+    render(<Bar selectionLabel="Đã chọn 2 câu" />);
     expect(screen.getByText("Đã chọn 2 câu")).toBeInTheDocument();
     expect(screen.queryByText("Đã chọn 2")).toBeNull();
   });
 
-  it("draws an action's icon before its label, and none for an action without one", () => {
+  it("draws the label, then a page's own controls, then the actions and the clear button", () => {
     render(
       <Bar
-        deck
-        actions={[{ ...remove, label: "Close now", icon: CircleStop }, remove]}
-      />,
+        selectionLabel="Đã chọn 2 câu"
+        actions={[{ label: "Archive", description: "Later", run: done }, remove]}
+      >
+        <button type="button">Add tag</button>
+      </Bar>,
+    );
+    expect(
+      [...barOf("Đã chọn 2 câu").children].map(
+        (child) => child.textContent || child.getAttribute("aria-label"),
+      ),
+    ).toEqual(["Đã chọn 2 câu", "Add tag", "Archive", "Delete selected", "Bỏ chọn"]);
+  });
+
+  it("draws an action's icon before its label, and none for an action without one", () => {
+    render(
+      <Bar actions={[{ ...remove, label: "Close now", icon: CircleStop }, remove]} />,
     );
     const close = screen.getByRole("button", { name: "Close now" });
     const icon = close.querySelector("svg");
@@ -246,7 +188,7 @@ describe("on a deck surface", () => {
 
   it("clears through an icon button that carries the name", async () => {
     const onClear = vi.fn();
-    render(<Bar deck onClear={onClear} />);
+    render(<Bar onClear={onClear} />);
     const clear = screen.getByRole("button", { name: "Bỏ chọn" });
     expect(clear).toHaveTextContent("");
     expect(clear.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
@@ -265,7 +207,7 @@ describe("on a deck surface", () => {
         }),
     };
     const onClear = vi.fn();
-    render(<Bar deck actions={[held]} onClear={onClear} />);
+    render(<Bar actions={[held]} onClear={onClear} />);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Remove selected" }));
     await user.click(screen.getByRole("button", { name: "Xác nhận 2 mục" }));
@@ -277,6 +219,7 @@ describe("on a deck surface", () => {
     for (const button of [action, clear]) {
       expect(button).not.toBeDisabled();
       expect(button).toHaveAttribute("aria-disabled", "true");
+      expect(button.className).not.toMatch(/(^|\s)(aria-disabled:)?opacity-/);
       button.focus();
     }
     fireEvent.click(clear);
@@ -287,7 +230,7 @@ describe("on a deck surface", () => {
   });
 
   it("takes the caller's class on the bar", () => {
-    render(<Bar deck className="mx-3 mb-2.5" />);
+    render(<Bar className="mx-3 mb-2.5" />);
     expect(barOf("Đã chọn 2").className.split(" ")).toEqual(
       expect.arrayContaining(["mx-3", "mb-2.5", "bg-primary"]),
     );
@@ -296,7 +239,7 @@ describe("on a deck surface", () => {
   it("draws a page's own button with its icon and passes the click on", async () => {
     const open = vi.fn();
     render(
-      <Bar deck>
+      <Bar>
         <BulkBarButton icon={Tag} onClick={open}>
           Add tag
         </BulkBarButton>
@@ -317,7 +260,7 @@ describe("on a deck surface", () => {
   it("disables a page's own button when told to", async () => {
     const open = vi.fn();
     render(
-      <Bar deck>
+      <Bar>
         <BulkBarButton onClick={open} disabled>
           Add tag
         </BulkBarButton>
@@ -345,7 +288,7 @@ describe("on a deck surface", () => {
     function Harness() {
       const selection = useBulkSelection<Item>();
       return (
-        <DeckScale>
+        <>
           <button onClick={() => selection.selectPage(items, true)}>Select page</button>
           <BulkActions
             selected={[...selection.selected.values()]}
@@ -362,7 +305,7 @@ describe("on a deck surface", () => {
             onClear={selection.clear}
             onSettled={settled}
           />
-        </DeckScale>
+        </>
       );
     }
     render(<Harness />);
@@ -387,22 +330,22 @@ describe("on a deck surface", () => {
 });
 
 describe("the bar on a phone", () => {
-  it("is drawn on a deck surface unless the list asks for it to hide", () => {
+  it("is drawn unless the list asks for it to hide", () => {
     viewport("phone");
-    const view = render(<Bar deck />);
+    const view = render(<Bar />);
     expect(screen.getByText("Đã chọn 2")).toBeInTheDocument();
     view.unmount();
-    render(<Bar deck hideOnPhone />);
+    render(<Bar hideOnPhone />);
     expect(screen.queryByText("Đã chọn 2")).toBeNull();
     expect(screen.queryByRole("button")).toBeNull();
   });
 
   it("is drawn from 768px with hideOnPhone, and at the default width", () => {
-    const first = render(<Bar deck hideOnPhone />);
+    const first = render(<Bar hideOnPhone />);
     expect(screen.getByText("Đã chọn 2")).toBeInTheDocument();
     first.unmount();
     const width = viewport(768);
-    render(<Bar deck hideOnPhone />);
+    render(<Bar hideOnPhone />);
     expect(screen.getByText("Đã chọn 2")).toBeInTheDocument();
     act(() => width.resize(767));
     expect(screen.queryByText("Đã chọn 2")).toBeNull();
@@ -413,7 +356,7 @@ describe("the bar on a phone", () => {
   it("keeps an open confirmation when the bar hides, and still runs it", async () => {
     const width = viewport("desktop");
     const run = vi.fn<(item: Item) => Promise<void>>().mockResolvedValue(undefined);
-    render(<Bar deck hideOnPhone actions={[{ ...remove, run }]} />);
+    render(<Bar hideOnPhone actions={[{ ...remove, run }]} />);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Delete selected" }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -428,46 +371,39 @@ describe("the bar on a phone", () => {
 });
 
 describe("the confirmation's weight", () => {
-  it.each([
-    ["outside a deck surface", false],
-    ["on a deck surface", true],
-  ] as const)(
-    "is destructive unless the action says otherwise, %s",
-    async (_, deck) => {
-      render(
-        <Bar
-          deck={deck}
-          actions={[
-            remove,
-            {
-              label: "Reset passwords",
-              description: "Recorded",
-              run: done,
-              destructive: false,
-            },
-            {
-              label: "Close now",
-              description: "Submitted as is",
-              run: done,
-              destructive: true,
-            },
-          ]}
-        />,
-      );
-      const user = userEvent.setup();
-      const confirming = () => screen.getByRole("button", { name: "Xác nhận 2 mục" });
-      const cancel = () => user.click(screen.getByRole("button", { name: "Huỷ" }));
+  it("is destructive unless the action says otherwise", async () => {
+    render(
+      <Bar
+        actions={[
+          remove,
+          {
+            label: "Reset passwords",
+            description: "Recorded",
+            run: done,
+            destructive: false,
+          },
+          {
+            label: "Close now",
+            description: "Submitted as is",
+            run: done,
+            destructive: true,
+          },
+        ]}
+      />,
+    );
+    const user = userEvent.setup();
+    const confirming = () => screen.getByRole("button", { name: "Xác nhận 2 mục" });
+    const cancel = () => user.click(screen.getByRole("button", { name: "Huỷ" }));
 
-      await user.click(screen.getByRole("button", { name: "Delete selected" }));
-      expect(confirming()).toHaveAttribute("data-variant", "destructive");
-      await cancel();
-      await user.click(screen.getByRole("button", { name: "Reset passwords" }));
-      expect(confirming()).toHaveAttribute("data-variant", "default");
-      await cancel();
-      await user.click(screen.getByRole("button", { name: "Close now" }));
-      expect(confirming()).toHaveAttribute("data-variant", "destructive");
-    },
-  );
+    await user.click(screen.getByRole("button", { name: "Delete selected" }));
+    expect(confirming()).toHaveAttribute("data-variant", "destructive");
+    await cancel();
+    await user.click(screen.getByRole("button", { name: "Reset passwords" }));
+    expect(confirming()).toHaveAttribute("data-variant", "default");
+    await cancel();
+    await user.click(screen.getByRole("button", { name: "Close now" }));
+    expect(confirming()).toHaveAttribute("data-variant", "destructive");
+  });
 });
 
 describe("the select-all box", () => {

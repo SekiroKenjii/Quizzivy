@@ -1,8 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { DeckScale } from "@/components/ui/deck-scale";
 import {
   DialogShell,
   DialogShellHeader,
@@ -36,19 +35,6 @@ it.each([480, 520, 540, 560, 680, 720])(
     );
   },
 );
-it("has the same frame inside and outside deck context apart from its z class", () => {
-  render(shell());
-  const before = screen.getByRole("dialog").className;
-  cleanup();
-  render(<DeckScale>{shell()}</DeckScale>);
-  expect(
-    screen
-      .getByRole("dialog")
-      .className.split(" ")
-      .filter((c) => !c.includes("scale=deck"))
-      .sort((a, b) => a.localeCompare(b)),
-  ).toEqual(before.split(" ").sort((a, b) => a.localeCompare(b)));
-});
 it.each(["escape", "overlay", "close"])("dismisses through %s", async (method) => {
   const change = vi.fn();
   render(

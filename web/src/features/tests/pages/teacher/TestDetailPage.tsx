@@ -64,8 +64,7 @@ import { cn } from "@/lib/utils";
 
 const TWO_COLUMNS = 1000;
 
-const PILL_SHAPE =
-  "border-0 in-data-[scale=deck]:rounded-full in-data-[scale=deck]:px-2";
+const PILL_SHAPE = "border-0 rounded-full px-2";
 
 const PILL: Record<TestStatus, string> = {
   published: `${PILL_SHAPE} [&>[aria-hidden]]:bg-success`,
@@ -75,8 +74,7 @@ const PILL: Record<TestStatus, string> = {
 
 const HEAD_BUTTON = "shadow-card h-9";
 
-const BANNER_BUTTON =
-  "h-8 rounded-md px-3 text-sm in-data-[scale=deck]:px-3 in-data-[scale=deck]:text-sm";
+const BANNER_BUTTON = "h-8 rounded-md px-3 text-sm";
 
 type PublishValues = { note: string };
 

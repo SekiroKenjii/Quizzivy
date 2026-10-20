@@ -169,7 +169,7 @@ func freshAttempt(x *iso, own *party) *party {
 		"email": "lam-bai-" + nonce(x.t) + "@example.com", "fullName": "Học viên làm bài", "classIds": []any{own.id("class")},
 	})
 	user := created["user"].(map[string]any)
-	learner := x.w.signedIn(user["email"].(string), created["temporaryPassword"].(string))
+	learner := x.w.settledIn(user["email"].(string), created["temporaryPassword"].(string))
 	session := learner.must(http.StatusOK, http.MethodPost, "/app/assignments/"+own.id("assignment")+"/attempts", nil)
 	attempt := id(session["attempt"].(map[string]any))
 	learner.must(http.StatusOK, http.MethodPost, "/app/attempts/"+attempt+"/submit", map[string]any{"sessionId": session["sessionId"], "reason": "manual"})

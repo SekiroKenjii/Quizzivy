@@ -13,7 +13,7 @@ const (
 )
 
 var kindsByAudience = map[Audience][]Kind{
-	AudienceTeacher: {AttemptSubmitted, AttemptFlagged, AssignmentClosing, ClassJoined, JoinCodesRotated, AIAllowanceWarning, AICreditRequest, AICreditRequestDecided},
+	AudienceTeacher: {AttemptSubmitted, AttemptFlagged, AssignmentClosing, ClassJoined, JoinCodesRotated, AIAllowanceWarning, AICreditRequest, AICreditRequestDecided, ContentTransferred, ClassTeacherChanged},
 	AudienceStudent: {AssignmentOpened, AssignmentDueSoon, AssignmentExtended, ResultReady},
 }
 

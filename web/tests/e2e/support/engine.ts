@@ -172,11 +172,11 @@ export async function startGroupPaper(
 
 /**
  * engineFits waits until nothing in the engine scrolls sideways: the
- * document, to the pixel; the deck surface, `<main>` and every scroller inside
- * it, which is where a pane's overflow goes; and an open dialog with every
- * scroller inside it, which the document cannot show because a dialog is
- * fixed. A rich table's own scroll box is left out, because scrolling there is
- * how a wide table is read.
+ * document, to the pixel; the engine's root (`.student-surface`), `<main>` and
+ * every scroller inside it, which is where a pane's overflow goes; and an open
+ * dialog with every scroller inside it, which the document cannot show because
+ * a dialog is fixed. A rich table's own scroll box is left out, because
+ * scrolling there is how a wide table is read.
  */
 /**
  * fulfillWithRanges answers a media request from the file at `path` as object
@@ -209,7 +209,7 @@ export async function engineFits(page: Page) {
         return (
           root.scrollWidth <= root.clientWidth &&
           [
-            document.querySelector("[data-scale='deck']"),
+            document.querySelector(".student-surface"),
             document.querySelector("main"),
             document.querySelector("[role='dialog']"),
             ...[...document.querySelectorAll("main *, [role='dialog'] *")].filter(

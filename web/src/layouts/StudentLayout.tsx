@@ -13,7 +13,6 @@ import { useTranslation } from "react-i18next";
 import { registerSkeleton } from "@/app/boot/handoff";
 import { modules } from "@/app/modules";
 import { BrandMark } from "@/components/shared/Brand";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { AccountMenu } from "@/features/auth/AccountMenu";
 import { NotificationBell } from "@/features/notifications/components/NotificationBell";
 import { useNotificationSummary } from "@/features/notifications/useNotificationSummary";
@@ -92,7 +91,7 @@ export default function StudentLayout() {
   const phoneDetail = !wide && detail !== null;
 
   return (
-    <DeckScale className="bg-bg text-fg @container/student flex h-svh flex-col overflow-hidden">
+    <div className="bg-bg text-fg @container/student flex h-svh flex-col overflow-hidden">
       <header
         className={cn(
           "bg-bg flex h-15 flex-none items-center gap-3.5 border-b",
@@ -190,7 +189,7 @@ export default function StudentLayout() {
           ))}
         </nav>
       )}
-    </DeckScale>
+    </div>
   );
 }
 

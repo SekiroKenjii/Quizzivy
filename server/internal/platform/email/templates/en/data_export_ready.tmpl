@@ -1,0 +1,24 @@
+{{define "subject"}}{{.Org}}: Your data export is ready{{end}}
+
+{{define "text"}}{{.Org}}
+
+{{if .Params.FullName}}Hello {{.Params.FullName}},{{else}}Hello,{{end}}
+
+The data export you asked for is ready. Open the page below in Quizzivy to download it:
+
+{{.Link}}
+
+Sign in with the account that asked for the export. The file can be downloaded up to three times within 24 hours.{{end}}
+
+{{define "html"}}<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{template "subject" .}}</title></head>
+<body style="margin:0;padding:24px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5">
+<p style="margin:0 0 24px;font-size:18px;font-weight:bold">{{.Org}}</p>
+<p>{{if .Params.FullName}}Hello {{.Params.FullName}},{{else}}Hello,{{end}}</p>
+<p>The data export you asked for is ready. Open the page below in Quizzivy to download it:</p>
+<p><a href="{{.Link}}">Open the download page</a></p>
+<p style="font-size:14px;word-break:break-all">{{.Link}}</p>
+<p>Sign in with the account that asked for the export. The file can be downloaded up to three times within 24 hours.</p>
+</body>
+</html>{{end}}

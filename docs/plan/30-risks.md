@@ -26,6 +26,24 @@ Phase R, the redesign, adds programme risks PR-1 … PR-10 in
 PR-1, PR-2 and PR-5; R4: PR-6, closed below under R-02). Multi-teacher ownership
 changes the radius of several risks above; each release file says which.
 
+**PR-2 in R5.** The Admin console opens role, matrix and account writes to holders
+of People and System keys, and every one goes through `access.CanActOn` and the
+grant guards. The evidence as merged: `access/domain/tests/guard_test.go` (a caller
+acts only on a role whose permissions are its own; a copy from the Assistant or
+from beyond the caller is refused; each grant guard refuses its own breach),
+`roles_integration_test.go` (`TestARoleManagerStaysInsideItsOwnPermissions`, and a
+member's next request sees the new set), the account writes'
+`users_admin_test.go`, `users_writes_db_test.go` and `users_admin_lock_test.go`
+(`TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`), `users_writes_admins_db_test.go`
+and `users_writes_guards_db_test.go` (the last active Admin can be neither disabled
+nor demoted, from the API or from the app role, and two or three Admins acting on
+each other leave one and never deadlock), `user_imports_db_test.go` (a row naming a
+role beyond the importer is refused), and
+`organization/repositories/tests/lockout_test.go` (a sign-in policy that leaves the
+saving Admin, or every Admin, without a way in is refused,
+`SIGN_IN_POLICY_LOCKOUT`). `server/tests/admin_escalation_flow_test.go`, which
+drives all of it through the API as a custom role, landed with T-R5.31 (#744).
+
 ---
 
 ## R-01 — The take-test engine loses student work
@@ -129,7 +147,9 @@ unread). The old code then answers as any replaced one does. What stays open is
 the release's, not the code's: a class the run could not reach waits for the next
 start-up, a teacher whose notification failed is told only by the release note, and
 the count of classes to rotate is read once from a copy of production for that note
-(T-R4.52). The scheme-1 lookup branch stays until R5 removes it.
+(T-R4.52). R5 removed the scheme-1 lookup and the job (T-R5.1, #750): a revoked or
+expired legacy code answers as an unknown one, and `00141`'s
+`class_join_codes_live_encrypted` refuses an unrevoked code without a ciphertext.
 
 ---
 

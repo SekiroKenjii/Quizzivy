@@ -25,15 +25,13 @@ function board(focusLossCount: number | null | undefined) {
     {
       path: "/",
       element: (
-        <div data-scale="deck">
-          <Monitor
-            assignment={assignment()}
-            data={monitor([row])}
-            selectedAttempt={null}
-            onOpen={onOpen}
-            onRefresh={async () => {}}
-          />
-        </div>
+        <Monitor
+          assignment={assignment()}
+          data={monitor([row])}
+          selectedAttempt={null}
+          onOpen={onOpen}
+          onRefresh={async () => {}}
+        />
       ),
     },
   ]);
@@ -91,15 +89,13 @@ describe("the flag marker where the Focus lost column is hidden", () => {
       {
         path: "/",
         element: (
-          <div data-scale="deck">
-            <Monitor
-              assignment={assignment()}
-              data={monitor([flagged, calm])}
-              selectedAttempt={null}
-              onOpen={vi.fn()}
-              onRefresh={async () => {}}
-            />
-          </div>
+          <Monitor
+            assignment={assignment()}
+            data={monitor([flagged, calm])}
+            selectedAttempt={null}
+            onOpen={vi.fn()}
+            onRefresh={async () => {}}
+          />
         ),
       },
     ]);

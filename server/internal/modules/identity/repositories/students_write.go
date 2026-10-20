@@ -37,8 +37,8 @@ func (s *Students) Create(ctx context.Context, req domain.WriteRequest, in domai
 	var id string
 	err = tx.QueryRow(ctx, `
 		INSERT INTO app.users (email, full_name, role_id, password_hash, must_change_password, created_by)
-		VALUES ($1, $2, (SELECT r.id FROM app.roles r WHERE r.builtin_key = 'student'), $3, true, $4::uuid)
-		RETURNING id::text`, in.Email, in.FullName, in.Hash, req.ActorID).Scan(&id)
+		VALUES ($1, $2, (SELECT r.id FROM app.roles r WHERE r.builtin_key = 'student'), $3, $5, $4::uuid)
+		RETURNING id::text`, in.Email, in.FullName, in.Hash, req.ActorID, !req.KeepTemporaryPassword).Scan(&id)
 	if db.IsUniqueViolation(err, "") {
 		return domain.Student{}, domain.ErrEmailTaken
 	}
@@ -96,9 +96,9 @@ func lockTaughtClasses(ctx context.Context, tx pgx.Tx, req domain.WriteRequest, 
 
 // Update edits profile fields of a student the actor reaches, or disables the
 // account; another teacher's student answers ErrStudentNotFound and is never
-// touched. A disable revokes every refresh family the student has and moves the
-// session epoch, so no session, live or idle, survives it, including after the
-// account is enabled again.
+// touched. A disable revokes every refresh family and every unused set-password
+// link the student has and moves the session epoch, so no session and no link,
+// live or idle, survives it, including after the account is enabled again.
 func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domain.StudentPatch) (domain.Student, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -138,11 +138,8 @@ func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domai
 		return domain.Student{}, domain.ErrStudentNotFound
 	}
 	if in.Disabled != nil && *in.Disabled {
-		if _, err := tx.Exec(ctx, `
-			UPDATE app.refresh_tokens
-			   SET revoked_at = $2
-			 WHERE user_id = $1::uuid AND revoked_at IS NULL`, in.ID, in.Now); err != nil {
-			return domain.Student{}, fmt.Errorf("students: revoke sessions: %w", err)
+		if err := revokeAccess(ctx, tx, in.ID, in.Now); err != nil {
+			return domain.Student{}, err
 		}
 	}
 
@@ -162,6 +159,19 @@ func (s *Students) Update(ctx context.Context, req domain.WriteRequest, in domai
 	}
 
 	return s.get(ctx, req.Scope(), in.ID, true)
+}
+
+func revokeAccess(ctx context.Context, tx pgx.Tx, userID string, at time.Time) error {
+	if _, err := tx.Exec(ctx, `
+		UPDATE app.refresh_tokens
+		   SET revoked_at = $2
+		 WHERE user_id = $1::uuid AND revoked_at IS NULL`, userID, at); err != nil {
+		return fmt.Errorf("students: revoke sessions: %w", err)
+	}
+	if _, err := tx.Exec(ctx, revokeUnusedLinks, userID, at); err != nil {
+		return fmt.Errorf("students: revoke set-password links: %w", err)
+	}
+	return nil
 }
 
 // ResetPassword sets a temporary password on a student the actor reaches,
@@ -187,9 +197,9 @@ func (s *Students) ResetPassword(ctx context.Context, req domain.WriteRequest, i
 	}
 	tag, err := tx.Exec(ctx, `
 		UPDATE app.users u
-		   SET password_hash = $2, must_change_password = true, session_epoch = session_epoch + 1
+		   SET password_hash = $2, must_change_password = $5::boolean, session_epoch = session_epoch + 1
 		 WHERE u.id = $1::uuid AND `+studentLike+` AND u.disabled_at IS NULL
-		   AND ($3::boolean OR u.id IN `+visibility.StudentIDs(4)+`)`, id, hash, req.All, opt.String(req.ActorID))
+		   AND ($3::boolean OR u.id IN `+visibility.StudentIDs(4)+`)`, id, hash, req.All, opt.String(req.ActorID), !req.KeepTemporaryPassword)
 	if err != nil {
 		return fmt.Errorf("students: reset password: %w", err)
 	}

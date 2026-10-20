@@ -1,13 +1,15 @@
-import { useEffect, useRef, type FocusEvent } from "react";
+import { useEffect, useMemo, useRef, type FocusEvent } from "react";
 import type { LucideIcon } from "lucide-react";
 
+import { useLocale } from "@/lib/i18n/useLocale";
 import { revealWithin } from "@/lib/revealWithin";
 import { cn } from "@/lib/utils";
 
 /**
  * SegmentedOption is one choice of a Segmented: its value, its label, an
  * optional icon before the label and an optional count after it. A count is
- * drawn whenever it is a number, zero included. A disabled option cannot be
+ * drawn whenever it is a number, zero included, grouped for the viewer's
+ * language ("1.248"). A disabled option cannot be
  * chosen; `describedBy` names the element that says why. A pending option is
  * unavailable while a request it started runs: it answers `aria-disabled`,
  * ignores a press and keeps focus (T-35).
@@ -26,9 +28,9 @@ type SegmentedSize = "default" | "lg" | "sm" | "xs";
 
 const SIZES: Record<SegmentedSize, string> = {
   default: "",
-  lg: "h-8 in-data-[scale=deck]:h-8",
-  sm: "px-2.5 text-meta leading-4 in-data-[scale=deck]:h-7",
-  xs: "h-6.5 gap-1.25 px-2.5 text-xs leading-[0.9375rem] in-data-[scale=deck]:h-6.5 in-data-[scale=deck]:rounded-sm",
+  lg: "h-8",
+  sm: "px-2.5 text-meta leading-4 h-7",
+  xs: "gap-1.25 px-2.5 text-xs leading-[0.9375rem] h-6.5 rounded-sm",
 };
 
 const ICONS: Record<SegmentedSize, string> = {
@@ -79,6 +81,8 @@ export function Segmented({
   className?: string;
 }>) {
   const track = useRef<HTMLDivElement>(null);
+  const locale = useLocale();
+  const figure = useMemo(() => new Intl.NumberFormat(locale), [locale]);
 
   useEffect(() => {
     if (scroll && track.current !== null) revealPressed(track.current);
@@ -91,9 +95,9 @@ export function Segmented({
       aria-label={label}
       onFocus={scroll ? revealFocused : undefined}
       className={cn(
-        "bg-muted in-data-[scale=deck]:rounded-ctl inline-flex gap-0.5 rounded-lg p-[0.1875rem]",
+        "bg-muted rounded-ctl inline-flex gap-0.5 p-[0.1875rem]",
         fill && "flex w-full flex-wrap",
-        size === "xs" && "in-data-[scale=deck]:rounded-md",
+        size === "xs" && "rounded-md",
         scroll &&
           "max-w-full [scrollbar-width:none] overflow-x-auto [&::-webkit-scrollbar]:hidden",
         className,
@@ -115,19 +119,15 @@ export function Segmented({
               if (!unavailable) onChange(option.value);
             }}
             className={cn(
-              "inline-flex h-7 items-center gap-1.5 rounded-md border-0 bg-transparent px-3 text-[0.8125rem] font-medium transition-colors",
-              "in-data-[scale=deck]:rounded-seg in-data-[scale=deck]:h-7.5 in-data-[scale=deck]:whitespace-nowrap",
+              "inline-flex items-center gap-1.5 border-0 bg-transparent px-3 text-[0.8125rem] font-medium transition-colors",
+              "rounded-seg h-7.5 whitespace-nowrap",
               scroll && "shrink-0 leading-4 whitespace-nowrap outline-offset-1!",
               SIZES[size],
-              (option.disabled || unavailable) && "cursor-not-allowed opacity-45",
               fill && "flex-1 justify-center leading-normal",
-              fill &&
-                size !== "lg" &&
-                "text-meta h-7.5 px-2.5 in-data-[scale=deck]:h-7.5",
+              fill && size !== "lg" && "text-meta h-7.5 px-2.5",
               Icon !== undefined && size === "lg" && "gap-1.75",
-              on
-                ? "bg-background text-foreground shadow-card in-data-[scale=deck]:bg-card in-data-[scale=deck]:text-fg in-data-[scale=deck]:ring-border in-data-[scale=deck]:ring-1"
-                : "text-muted-foreground in-data-[scale=deck]:text-muted-fg",
+              on ? "shadow-card bg-card text-fg ring-border ring-1" : "text-muted-fg",
+              (option.disabled || unavailable) && "text-muted-fg/45 cursor-not-allowed",
             )}
           >
             {Icon !== undefined && (
@@ -138,7 +138,7 @@ export function Segmented({
               <>
                 {" "}
                 <span className="bg-primary text-primary-fg text-2xs inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1.25 leading-none font-semibold tabular-nums">
-                  {option.count}
+                  {figure.format(option.count)}
                 </span>
               </>
             )}
