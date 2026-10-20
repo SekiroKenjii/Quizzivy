@@ -109,6 +109,37 @@ function renderTimeline(
 }
 
 describe("the integrity timeline", () => {
+  it("shows the empty state when the server's own start is the only event, and no row for it", async () => {
+    renderTimeline([event({ id: 1, kind: "start", offsetMs: 0, clientSeq: 0 })]);
+
+    expect(
+      await screen.findByText("Không ghi nhận sự kiện nào trong lượt làm này."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("draws the server's start as the one Started row, not a second raw row", async () => {
+    renderTimeline([
+      event({ id: 1, kind: "start", offsetMs: 0, clientSeq: 0 }),
+      ...EVENTS,
+    ]);
+    const table = await screen.findByRole("table");
+
+    expect(within(table).getAllByText("Bắt đầu làm bài")).toHaveLength(1);
+    expect(within(table).queryByText("start")).not.toBeInTheDocument();
+    expect(
+      timelineRows([event({ id: 1, kind: "start" }), ...EVENTS], "all"),
+    ).toHaveLength(timelineRows(EVENTS, "all").length);
+  });
+
+  it("labels a takeover as a re-entry from another tab or device", async () => {
+    renderTimeline([event({ id: 9, kind: "session_takeover", clientSeq: 0 })]);
+
+    expect(
+      await screen.findByText("Vào lại bài ở thẻ hoặc thiết bị khác"),
+    ).toBeInTheDocument();
+  });
+
   it("renders a paired episode with its duration and a trailing one as open-ended", async () => {
     renderTimeline(EVENTS);
     const table = await screen.findByRole("table");

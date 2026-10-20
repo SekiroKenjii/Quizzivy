@@ -52,6 +52,12 @@ const button = (name = "Part 2") => within(card(name)).getByRole("button");
 const audioOf = (name = "Part 2") =>
   card(name).querySelector("audio") as HTMLAudioElement;
 
+async function click(element: HTMLElement) {
+  await act(async () => {
+    fireEvent.click(element);
+  });
+}
+
 function playTo(seconds: number, name = "Part 2") {
   audioOf(name).currentTime = seconds;
   fireEvent.timeUpdate(audioOf(name));
@@ -84,11 +90,16 @@ describe("a recording that cannot be paused", () => {
     expect(button()).not.toHaveAttribute("aria-disabled");
   });
 
-  it("calls play() in the same synchronous tick as the click", () => {
+  it("calls play() in the same synchronous tick as the click", async () => {
     const onPlay = vi.fn();
     render(player({ onPlay }));
     fireEvent.click(button());
     expect(play).toHaveBeenCalledTimes(1);
+    expect(onPlay).not.toHaveBeenCalled();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(onPlay).toHaveBeenCalledTimes(1);
     expect(play.mock.invocationCallOrder[0]).toBeLessThan(
       onPlay.mock.invocationCallOrder[0]!,
     );
@@ -133,11 +144,11 @@ describe("a recording that cannot be paused", () => {
     ).toBeInTheDocument();
   });
 
-  it("reads Paused when playback stops anyway, and Resume continues it for no play", () => {
+  it("reads Paused when playback stops anyway, and Resume continues it for no play", async () => {
     const onPlay = vi.fn();
     const onResume = vi.fn();
     render(player({ onPlay, onResume }));
-    fireEvent.click(button());
+    await click(button());
     playTo(40);
 
     act(() => {
@@ -150,7 +161,7 @@ describe("a recording that cannot be paused", () => {
     expect(button()).toHaveAccessibleName("Nghe tiếp");
     expect(button()).not.toHaveAttribute("aria-disabled");
 
-    fireEvent.click(button());
+    await click(button());
 
     expect(play).toHaveBeenCalledTimes(2);
     expect(onPlay).toHaveBeenCalledTimes(1);
@@ -158,7 +169,7 @@ describe("a recording that cannot be paused", () => {
     expect(button()).toHaveAttribute("aria-disabled", "true");
   });
 
-  it("is paused by another recording starting, and resumes for no play", () => {
+  it("is paused by another recording starting, and resumes for no play", async () => {
     const onPlay = vi.fn();
     const onResume = vi.fn();
     render(
@@ -167,44 +178,44 @@ describe("a recording that cannot be paused", () => {
         {player({ label: "Part 1", src: "/l1.mp3", allowPause: true })}
       </>,
     );
-    fireEvent.click(button());
+    await click(button());
     playTo(12);
-    fireEvent.click(button("Part 1"));
+    await click(button("Part 1"));
 
     expect(card()).toHaveAttribute("data-phase", "paused");
-    fireEvent.click(button());
+    await click(button());
     expect(onPlay).toHaveBeenCalledTimes(1);
     expect(onResume).toHaveBeenCalledTimes(1);
   });
 
-  it("is paused by a lock, and resumes for no play once the lock lifts", () => {
+  it("is paused by a lock, and resumes for no play once the lock lifts", async () => {
     const onPlay = vi.fn();
     const onResume = vi.fn();
     const { rerender } = render(player({ onPlay, onResume }));
-    fireEvent.click(button());
+    await click(button());
     playTo(20);
 
     rerender(player({ onPlay, onResume, disabled: true }));
     expect(card()).toHaveAttribute("data-phase", "paused");
 
     rerender(player({ onPlay, onResume }));
-    fireEvent.click(button());
+    await click(button());
     expect(onPlay).toHaveBeenCalledTimes(1);
     expect(onResume).toHaveBeenCalledTimes(1);
   });
 
-  it("comes back paused after its group was left, and resumes for no play", () => {
+  it("comes back paused after its group was left, and resumes for no play", async () => {
     const onPlay = vi.fn();
     const onResume = vi.fn();
     const { unmount } = render(player({ place: "recording:l2", onPlay }));
-    fireEvent.click(button());
+    await click(button());
     playTo(33);
     unmount();
 
     render(player({ place: "recording:l2", onPlay, onResume }));
     expect(card()).toHaveAttribute("data-phase", "paused");
     expect(within(card()).getByText("0:33 / 3:10")).toBeInTheDocument();
-    fireEvent.click(button());
+    await click(button());
 
     expect(onPlay).toHaveBeenCalledTimes(1);
     expect(onResume).toHaveBeenCalledTimes(1);

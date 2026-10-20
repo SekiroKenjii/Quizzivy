@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import TakeTestPage from "@/features/take-test/pages/TakeTestPage";
 import {
@@ -106,8 +106,14 @@ const questionPlays = () =>
     .mocked(recordAudioPlay)
     .mock.calls.map(([attemptId, questionId]) => [attemptId, questionId]);
 
-function startAndPlayTo(seconds: number) {
-  fireEvent.click(cardButton());
+async function click(element: HTMLElement) {
+  await act(async () => {
+    fireEvent.click(element);
+  });
+}
+
+async function startAndPlayTo(seconds: number) {
+  await click(cardButton());
   fireEvent.play(audio());
   audio().currentTime = seconds;
   fireEvent.timeUpdate(audio());
@@ -160,7 +166,7 @@ describe("two audio questions in a row", () => {
   it("puts the first question's remembered place on neither the second's player nor its count", async () => {
     await open(twoAudioQuestions());
     next();
-    startAndPlayTo(20);
+    await startAndPlayTo(20);
     sounding.clear();
     fireEvent.pause(audio());
     previous();
@@ -175,7 +181,7 @@ describe("two audio questions in a row", () => {
     fireEvent.loadedMetadata(audio());
     expect(audio().currentTime).toBe(0);
     expect(cardButton()).toHaveAccessibleName("Phát");
-    fireEvent.click(cardButton());
+    await click(cardButton());
 
     expect(questionPlays()).toEqual([
       [DECK_ATTEMPT, AUDIO_1],
@@ -186,7 +192,7 @@ describe("two audio questions in a row", () => {
   it("gives the second question an idle card while the first is playing", async () => {
     await open(twoAudioQuestions());
     next();
-    startAndPlayTo(20);
+    await startAndPlayTo(20);
     const first = audio();
 
     next();
@@ -201,14 +207,14 @@ describe("two audio questions in a row", () => {
   it("resumes the first question where it stopped on coming back from the second", async () => {
     await open(twoAudioQuestions());
     next();
-    startAndPlayTo(20);
+    await startAndPlayTo(20);
     next();
     previous();
 
     fireEvent.loadedMetadata(audio());
     expect(audio().currentTime).toBe(20);
     expect(cardButton()).toHaveAccessibleName("Nghe tiếp");
-    fireEvent.click(cardButton());
+    await click(cardButton());
     expect(questionPlays()).toEqual([[DECK_ATTEMPT, AUDIO_1]]);
   });
 });
@@ -217,7 +223,7 @@ describe("leaving the engine", () => {
   it("forgets a play that was in progress, so a later attempt in the tab starts from the top", async () => {
     const view = await open(twoAudioQuestions());
     next();
-    startAndPlayTo(20);
+    await startAndPlayTo(20);
     view.unmount();
     store().reset();
 
@@ -227,7 +233,7 @@ describe("leaving the engine", () => {
 
     expect(audio().currentTime).toBe(0);
     expect(cardButton()).toHaveAccessibleName("Phát");
-    fireEvent.click(cardButton());
+    await click(cardButton());
     expect(questionPlays()).toEqual([
       [DECK_ATTEMPT, AUDIO_1],
       [NEXT_ATTEMPT, AUDIO_1],
@@ -237,7 +243,7 @@ describe("leaving the engine", () => {
   it("forgets it for the same attempt too, whose next start spends a play", async () => {
     const view = await open(twoAudioQuestions());
     next();
-    startAndPlayTo(20);
+    await startAndPlayTo(20);
     view.unmount();
     store().reset({ keepDraft: true });
 
@@ -247,7 +253,7 @@ describe("leaving the engine", () => {
 
     expect(audio().currentTime).toBe(0);
     expect(cardButton()).toHaveAccessibleName("Phát");
-    fireEvent.click(cardButton());
+    await click(cardButton());
     expect(questionPlays()).toEqual([
       [DECK_ATTEMPT, AUDIO_1],
       [DECK_ATTEMPT, AUDIO_1],
@@ -267,7 +273,7 @@ describe("a recording its group's questions share", () => {
       if (width === "phone")
         fireEvent.click(screen.getByRole("button", { name: "Mở bài nghe" }));
       const card = screen.getByRole("group", { name: "Asking the way" });
-      fireEvent.click(within(card).getByRole("button", { name: "Phát" }));
+      await click(within(card).getByRole("button", { name: "Phát" }));
       fireEvent.play(audio());
       audio().currentTime = 12;
       fireEvent.timeUpdate(audio());

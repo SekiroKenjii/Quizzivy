@@ -10,6 +10,7 @@ type RecordPlay struct {
 	AttemptID  string
 	StudentID  string
 	QuestionID string
+	SessionID  string
 }
 
 type RecordPlayHandler struct {
@@ -17,5 +18,7 @@ type RecordPlayHandler struct {
 }
 
 func (s RecordPlayHandler) Handle(ctx context.Context, cmd RecordPlay) (domain.Plays, error) {
-	return s.Store.RecordPlay(ctx, cmd.AttemptID, cmd.StudentID, cmd.QuestionID, s.Now())
+	return s.Store.RecordPlay(ctx, domain.PlayInput{
+		AttemptID: cmd.AttemptID, StudentID: cmd.StudentID, QuestionID: cmd.QuestionID, SessionID: cmd.SessionID,
+	}, s.Now())
 }

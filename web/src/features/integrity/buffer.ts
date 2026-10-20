@@ -7,6 +7,9 @@ export interface Buffered {
   events: IntegrityEventInput[];
 }
 
+/** MAX_EVENTS_PER_REQUEST is the contract's `maxItems` for the events of one request. */
+export const MAX_EVENTS_PER_REQUEST = 500;
+
 const KEY_PREFIX = "quizzivy.integrity.";
 const SEQUENCE_BOUND = 2_000_000_000;
 
@@ -59,14 +62,19 @@ function write(attemptId: string, next: Buffered): void {
   }
 }
 
-/** Starts or resumes a session's buffer. */
-export function beginSession(attemptId: string, sessionId: string): void {
+/**
+ * Starts or resumes a session's buffer. When the stored buffer belongs to
+ * another session and still holds events, they are returned, still under
+ * their own session id, for the caller to send before they are replaced.
+ */
+export function beginSession(attemptId: string, sessionId: string): Buffered | null {
   const stored = read(attemptId);
   if (stored !== null && stored.sessionId === sessionId) {
     state = stored;
-    return;
+    return null;
   }
   write(attemptId, { sessionId, nextSeq: 0, events: [] });
+  return stored !== null && stored.events.length > 0 ? stored : null;
 }
 
 /**
@@ -100,17 +108,31 @@ export function pending(): IntegrityEventInput[] {
 }
 
 /**
- * Takes the buffer for a flush.
+ * Takes the oldest events for a flush, at most `count` of them and never more
+ * than MAX_EVENTS_PER_REQUEST, and leaves the rest buffered for the next
+ * request.
  *
  * The sequence is NOT rewound -- these numbers are spent whether or not the
  * request arrives, and reusing one would make a genuinely new event look like
  * a retry of an old one and be silently dropped by ON CONFLICT DO NOTHING.
  */
-export function drain(attemptId: string): IntegrityEventInput[] {
+export function drain(
+  attemptId: string,
+  count: number = MAX_EVENTS_PER_REQUEST,
+): IntegrityEventInput[] {
   if (state === null) return [];
-  const taken = state.events;
-  write(attemptId, { ...state, events: [] });
+  const size = Math.min(count, MAX_EVENTS_PER_REQUEST);
+  const taken = state.events.slice(0, size);
+  write(attemptId, { ...state, events: state.events.slice(size) });
   return taken;
+}
+
+/** inBatches splits events, in order, into lists of at most MAX_EVENTS_PER_REQUEST. */
+export function inBatches(events: IntegrityEventInput[]): IntegrityEventInput[][] {
+  const batches: IntegrityEventInput[][] = [];
+  for (let at = 0; at < events.length; at += MAX_EVENTS_PER_REQUEST)
+    batches.push(events.slice(at, at + MAX_EVENTS_PER_REQUEST));
+  return batches;
 }
 
 /**
@@ -131,6 +153,20 @@ export function restore(attemptId: string, events: IntegrityEventInput[]): void 
  */
 export function suspendSession(): void {
   state = null;
+}
+
+/**
+ * surrender empties the stored buffer of `sessionId` and returns what it held,
+ * for a tab that has learned the session is no longer its own. The buffer
+ * stops recording when it was that session's, and its numbering is kept.
+ */
+export function surrender(attemptId: string, sessionId: string): IntegrityEventInput[] {
+  const live = state;
+  const own = live?.sessionId === sessionId ? live : read(attemptId);
+  if (own === null || own.sessionId !== sessionId) return [];
+  write(attemptId, { ...own, events: [] });
+  state = live !== null && live.sessionId !== sessionId ? live : null;
+  return own.events;
 }
 
 /**

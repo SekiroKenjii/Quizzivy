@@ -186,7 +186,13 @@ afterEach(() => {
 });
 
 const element = () => document.querySelector("audio") as HTMLAudioElement;
-const pressPlay = () => fireEvent.click(screen.getByRole("button", { name: "Phát" }));
+async function click(target: HTMLElement) {
+  await act(async () => {
+    fireEvent.click(target);
+  });
+}
+
+const pressPlay = () => click(screen.getByRole("button", { name: "Phát" }));
 
 describe("a paper drawn from a source with no store", () => {
   it("hands an answer and a flag to the source", async () => {
@@ -211,7 +217,7 @@ describe("a paper drawn from a source with no store", () => {
   it("reports a question's play, its end, a blocked play and a jump put back", async () => {
     render(<Host />);
 
-    pressPlay();
+    await pressPlay();
     expect(calls.onAudioPlay).toHaveBeenCalledWith(listening.id);
     paused = true;
     fireEvent.ended(element());
@@ -224,12 +230,9 @@ describe("a paper drawn from a source with no store", () => {
     play.mockImplementation(() =>
       Promise.reject(new DOMException("blocked", "NotAllowedError")),
     );
-    pressPlay();
-    await act(async () => {
-      await Promise.resolve();
-    });
+    await pressPlay();
     expect(calls.onAudioBlocked).toHaveBeenCalledWith(listening.id);
-    expect(calls.onAudioPlay).toHaveBeenCalledTimes(2);
+    expect(calls.onAudioPlay).toHaveBeenCalledTimes(1);
   });
 
   it("reports a shared recording's play and its end, from its card in the stimulus pane", async () => {
@@ -240,7 +243,7 @@ describe("a paper drawn from a source with no store", () => {
     const recording = within(
       screen.getByRole("article", { name: "A guided walk" }),
     ).getByRole("group", { name: "Tour guide" });
-    fireEvent.click(within(recording).getByRole("button", { name: "Phát" }));
+    await click(within(recording).getByRole("button", { name: "Phát" }));
     expect(calls.noteRecordingPlay).toHaveBeenCalledWith(RECORDING);
     vi.setSystemTime(NOW + 4000);
     fireEvent.ended(element());

@@ -66,7 +66,16 @@ afterEach(() => {
 });
 
 const audio = () => document.querySelector("audio") as HTMLAudioElement;
-const pressPlay = () => fireEvent.click(screen.getByRole("button", { name: "Phát" }));
+const clickPlay = () => fireEvent.click(screen.getByRole("button", { name: "Phát" }));
+const settle = () =>
+  act(async () => {
+    await Promise.resolve();
+  });
+async function pressPlay() {
+  await act(async () => {
+    clickPlay();
+  });
+}
 const mount = () =>
   renderWithPaper(
     <GroupListening group={previewGroup} onRetryMedia={() => undefined} />,
@@ -77,7 +86,7 @@ const flush = () => act(() => useGroupPlaybackStore.getState().flush());
 
 it("records the end of a shared play, with the recording and how long it lasted", async () => {
   mount();
-  pressPlay();
+  await pressPlay();
   advance(12000);
   fireEvent.ended(audio());
   expect(pending()).toEqual([
@@ -92,12 +101,12 @@ it("records the end of a shared play, with the recording and how long it lasted"
   await flush();
 });
 
-it("records a shared play the browser blocked", async () => {
+it("records a shared play the browser blocked, and spends no play on it", async () => {
   play.mockImplementation(() =>
     Promise.reject(new DOMException("blocked", "NotAllowedError")),
   );
   mount();
-  pressPlay();
+  await pressPlay();
   expect(await screen.findByRole("alert")).toBeInTheDocument();
   expect(
     pending().map(({ kind, questionId, meta }) => ({ kind, questionId, meta })),
@@ -108,33 +117,30 @@ it("records a shared play the browser blocked", async () => {
       meta: { scope: "group", recordingId },
     },
   ]);
-  expect(counted).toHaveBeenCalledTimes(1);
+  expect(counted).not.toHaveBeenCalled();
   await flush();
 });
 
-it("records nothing for a pause before the start", async () => {
+it("records nothing for a pause before the start, and spends no play on it", async () => {
   play.mockImplementation(() =>
     Promise.reject(new DOMException("aborted", "AbortError")),
   );
   mount();
-  pressPlay();
-  await act(async () => {
-    await Promise.resolve();
-  });
+  await pressPlay();
   expect(pending()).toEqual([]);
   expect(screen.queryByRole("alert")).toBeNull();
-  expect(counted).toHaveBeenCalledTimes(1);
+  expect(counted).not.toHaveBeenCalled();
   await flush();
 });
 
 it("measures from the last start after a pause and a resume", async () => {
   mount();
-  pressPlay();
+  await pressPlay();
   advance(5000);
   paused = true;
   fireEvent.pause(audio());
   advance(30000);
-  pressPlay();
+  await pressPlay();
   advance(7000);
   fireEvent.ended(audio());
   expect(duration()).toEqual({ scope: "group", recordingId, durationMs: 7000 });
@@ -142,10 +148,10 @@ it("measures from the last start after a pause and a resume", async () => {
   expect(counted).toHaveBeenCalledTimes(2);
 });
 
-it("records nothing when the attempt is not loaded", () => {
+it("records nothing when the attempt is not loaded", async () => {
   useTakeTestStore.getState().reset();
   mount();
-  pressPlay();
+  await pressPlay();
   fireEvent.ended(audio());
   expect(pending()).toEqual([]);
   expect(counted).not.toHaveBeenCalled();
@@ -157,7 +163,7 @@ it("records no blocked event when the attempt is not loaded", async () => {
     Promise.reject(new DOMException("blocked", "NotAllowedError")),
   );
   mount();
-  pressPlay();
+  await pressPlay();
   await screen.findByRole("alert");
   expect(pending()).toEqual([]);
   expect(counted).not.toHaveBeenCalled();
@@ -165,7 +171,7 @@ it("records no blocked event when the attempt is not loaded", async () => {
 
 it("reports zero when the clock moves backwards during a play", async () => {
   mount();
-  pressPlay();
+  await pressPlay();
   advance(-5000);
   fireEvent.ended(audio());
   expect(duration()).toEqual({ scope: "group", recordingId, durationMs: 0 });
@@ -180,7 +186,7 @@ it("omits a duration when no start was observed", () => {
 
 it("forgets the start after an end", async () => {
   mount();
-  pressPlay();
+  await pressPlay();
   advance(12000);
   fireEvent.ended(audio());
   advance(5000);
@@ -197,7 +203,7 @@ it("forgets the start after a block", async () => {
     Promise.reject(new DOMException("blocked", "NotAllowedError")),
   );
   mount();
-  pressPlay();
+  await pressPlay();
   await screen.findByRole("alert");
   advance(5000);
   fireEvent.ended(audio());
@@ -207,15 +213,20 @@ it("forgets the start after a block", async () => {
 
 it("captures the start before counting and plays in the click's synchronous tick", async () => {
   const note = useGroupPlaybackStore.getState().notePlay;
-  useGroupPlaybackStore.setState({
-    notePlay: (id) => {
-      advance(5000);
-      note(id);
-    },
+  const noted = vi.fn((id: string) => {
+    advance(5000);
+    note(id);
   });
+  useGroupPlaybackStore.setState({ notePlay: noted });
   mount();
-  pressPlay();
+  clickPlay();
   expect(play).toHaveBeenCalledTimes(1);
+  expect(noted).not.toHaveBeenCalled();
+  await settle();
+  expect(noted).toHaveBeenCalledTimes(1);
+  expect(play.mock.invocationCallOrder[0]).toBeLessThan(
+    noted.mock.invocationCallOrder[0]!,
+  );
   advance(7000);
   fireEvent.ended(audio());
   expect(duration()).toEqual({ scope: "group", recordingId, durationMs: 12000 });

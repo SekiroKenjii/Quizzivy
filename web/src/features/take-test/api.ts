@@ -63,11 +63,23 @@ export function saveAnswers(
   });
 }
 
-export function recordAudioPlay(attemptId: string, questionId: string) {
+export function recordAudioPlay(
+  attemptId: string,
+  questionId: string,
+  sessionId: string,
+) {
   return api("post", "/app/attempts/{id}/audio-play", {
     path: { id: attemptId },
-    body: { questionId },
+    body: { questionId, sessionId },
   });
+}
+
+/** flushEvents sends events recorded under a session this tab no longer holds, with the bearer token. */
+export function flushEvents(
+  attemptId: string,
+  body: { sessionId: string; events: IntegrityEventInput[] },
+) {
+  return api("post", "/app/attempts/{id}/events", { path: { id: attemptId }, body });
 }
 
 export function recordGroupAudioPlay(

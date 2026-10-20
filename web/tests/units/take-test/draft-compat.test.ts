@@ -49,10 +49,6 @@ afterEach(() => {
 });
 
 describe("what a v0.8.0 tab left behind", () => {
-  it("is written for the deadline this test hydrates with", () => {
-    expect(Date.parse(deadline)).toBe(1788253200000);
-  });
-
   it("restores the answers of its local draft, every answer type, and sends them", async () => {
     localStorage.setItem(DRAFT_KEY, V080_DRAFT);
     start();

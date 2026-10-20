@@ -26,12 +26,14 @@ process.env["EMAIL_SINK_DIR"] = EMAIL_SINK_DIR;
  * Phase 4. This file and the smoke test exist so that when the first real one
  * is written there is nothing to set up.
  */
+const SLOW = /timer-expiry\.live\.spec\.ts$/;
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
   forbidOnly: !!process.env["CI"],
   retries: process.env["CI"] ? 2 : 0,
-  workers: process.env["CI"] ? 1 : undefined,
+  workers: process.env["CI"] ? 3 : undefined,
   reporter: process.env["CI"] ? [["github"], ["html", { open: "never" }]] : [["list"]],
 
   use: {
@@ -75,6 +77,18 @@ export default defineConfig({
     {
       name: "live",
       testMatch: /\.live\.spec\.ts$/,
+      testIgnore: SLOW,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    /**
+     * The live specs that wait on real time, kept off every pull request: E2E 5
+     * waits out a one-minute deadline, a fifth of the live suite. The "Slow
+     * tail" workflow runs it nightly and on a pull request into main, with
+     * `pnpm e2e:slow`, which needs postgres and the Go API.
+     */
+    {
+      name: "slow",
+      testMatch: SLOW,
       use: { ...devices["Desktop Chrome"] },
     },
   ],

@@ -13,7 +13,8 @@ import (
 )
 
 // Preview renders a published version the way a student would receive it. A
-// test outside scope is domain.ErrNotPublished, as an unknown id is.
+// test outside scope is domain.ErrNotFound, as an unknown id is, and a test
+// without the version asked for is domain.ErrNotPublished.
 func (s *Postgres) Preview(ctx context.Context, scope access.Scope, testID string, version int) (domain.PreviewPaper, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -30,6 +31,9 @@ func (s *Postgres) Preview(ctx context.Context, scope access.Scope, testID strin
         AND v.version=CASE WHEN $2::integer=0 THEN t.current_version ELSE $2 END
         FOR SHARE OF v`, testID, version, scope.All, opt.String(scope.UserID)).Scan(&versionID, &paper.Version)
 	if errors.Is(err, pgx.ErrNoRows) {
+		if err := requireVisibleTest(ctx, tx, scope, testID); err != nil {
+			return domain.PreviewPaper{}, err
+		}
 		return domain.PreviewPaper{}, domain.ErrNotPublished
 	}
 	if err != nil {

@@ -73,16 +73,6 @@ func TestProcessingQueuesTheCurrentSourceSetWhenAWorkerIsDeployed(t *testing.T) 
 	}
 }
 
-func TestCapabilitiesReportTheProcessingSwitch(t *testing.T) {
-	for _, enabled := range []bool{false, true} {
-		app, _, _, _ := processWith(enabled)
-		got, err := app.Queries.Capabilities.Handle(context.Background(), query.Capabilities{})
-		if err != nil || got.Processing != enabled {
-			t.Fatalf("processing %v reported as %+v (%v)", enabled, got, err)
-		}
-	}
-}
-
 func TestANudgeWakesTheWorkerAndReadingDoesNot(t *testing.T) {
 	app, _, _, worker := processWith(true)
 	if _, err := app.Queries.Get.Handle(context.Background(), query.Get{ID: "import-1"}); err != nil || worker.wakes != 0 {

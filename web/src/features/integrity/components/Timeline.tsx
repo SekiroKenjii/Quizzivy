@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import {
   clockSpan,
   hasOpenEpisode,
+  hasRecordedEvents,
   timelineRows,
   type TimelineFilter,
 } from "../timeline";
@@ -94,7 +95,7 @@ export function Timeline({
   }
 
   const data = events.data;
-  const empty = data.events.length === 0;
+  const empty = !hasRecordedEvents(data.events);
   const open = hasOpenEpisode(data.events);
   const rows = timelineRows(data.events, filter);
   const numberOf = new Map(questions.map((q, i) => [q.id, i + 1]));

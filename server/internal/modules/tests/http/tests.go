@@ -315,6 +315,10 @@ func (h Tests) ListTestVersions(ctx context.Context, request openapi.ListTestVer
 		return nil, httpx.ErrNotImplemented
 	}
 	versions, err := h.app.Queries.ListVersions.Handle(ctx, query.ListVersions{TestID: request.Id.String(), Scope: httpapi.ScopeFromContext(ctx)})
+	if errors.Is(err, domain.ErrNotFound) {
+		return openapi.ListTestVersions404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
+			httpapi.NotFound(ctx, msgTestNotFound(ctx)))}, nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -365,6 +369,10 @@ func (h Tests) PreviewTest(ctx context.Context, request openapi.PreviewTestReque
 
 	previewResult, err := h.app.Queries.Preview.Handle(ctx, query.Preview{TestID: request.Id.String(), Version: version, Scope: httpapi.ScopeFromContext(ctx)})
 	resolved, questions := previewResult.Version, previewResult.Questions
+	if errors.Is(err, domain.ErrNotFound) {
+		return openapi.PreviewTest404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(
+			httpapi.NotFound(ctx, msgTestNotFound(ctx)))}, nil
+	}
 	if errors.Is(err, domain.ErrNotPublished) {
 		return openapi.PreviewTest409JSONResponse(httpapi.Error(ctx,
 			openapi.TESTNOTPUBLISHED, httpx.Text(ctx, "Đề này chưa được phát hành.", "This test has not been published."))), nil

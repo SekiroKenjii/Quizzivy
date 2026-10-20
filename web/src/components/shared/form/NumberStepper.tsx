@@ -26,7 +26,8 @@ function keepFocus(event: MouseEvent) {
  * `min` and `max`, and the two buttons do the same with the mouse. It can
  * also be typed: while it has focus it shows the bare number, and Enter or
  * leaving the field commits what was typed, clamped to `min` and `max` and
- * never snapped to `step`; Escape and an empty field restore the value.
+ * never snapped to `step`; Enter leaves the number selected for the next
+ * entry. Escape and an empty field restore the value.
  * `onChange` is called with a number inside the bounds, and only when it
  * differs from `value`. A `value` outside the bounds is drawn at the nearer
  * one. `format` writes the value with its unit, as "45 min".
@@ -54,13 +55,14 @@ export function NumberStepper({
   const input = useRef<HTMLInputElement>(null);
   const [focused, setFocused] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
+  const [committed, setCommitted] = useState(0);
   const current = clampTo(value, min, max);
   const text = format(current);
   const shown = focused ? (draft ?? String(current)) : text;
 
   useEffect(() => {
     if (focused) input.current?.select();
-  }, [focused]);
+  }, [focused, committed]);
 
   function move(next: number) {
     setDraft(null);
@@ -83,6 +85,7 @@ export function NumberStepper({
       if (event.nativeEvent.isComposing) return;
       event.preventDefault();
       commit();
+      setCommitted((count) => count + 1);
       return;
     }
     const target = keyTarget(event.key, current, step, min, max);

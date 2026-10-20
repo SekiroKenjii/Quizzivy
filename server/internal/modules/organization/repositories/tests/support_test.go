@@ -35,7 +35,7 @@ func connectMax(t *testing.T, env string, maxConns int32) *pgxpool.Pool {
 	t.Helper()
 	dsn := os.Getenv(env)
 	if dsn == "" {
-		t.Skip(env + " is not set")
+		t.Skipf("%s is not set (TEST_DATABASE_URL or APP_DATABASE_URL)", env)
 	}
 	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {

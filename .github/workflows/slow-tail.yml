@@ -1,0 +1,125 @@
+name: Slow tail
+
+# Tests that wait on real time, kept off every pull request into develop. They
+# run nightly against develop, on any pull request into main (the release gate)
+# and on demand. This workflow is not a `needs` of CI result and no branch rule
+# requires it, so a failure here is read by whoever owns the schedule, not by
+# the merge that happened to be open. docs/setup/ci.md, "The slow tail".
+#
+# GitHub starts a schedule, and offers a manual run, only from the copy of this
+# file on the default branch, which is main, so both begin with the first
+# release that carries it. The scheduled run checks out develop for that reason.
+on:
+  schedule:
+    - cron: "0 19 * * *"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or commit to test
+        type: string
+        default: develop
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: slow-tail-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "24"
+  PNPM_VERSION: "11.25.0"
+  GO_VERSION: "1.27"
+
+jobs:
+  e2e-slow:
+    name: E2E (waits on real time)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: mirror.gcr.io/library/postgres:18  # see server-test in ci.yml
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      MIGRATE_URL: postgres://quizzivy_migrate:migrate@localhost:5432/quizzivy?sslmode=disable
+      DATABASE_URL: postgres://quizzivy_app:app@localhost:5432/quizzivy?sslmode=disable
+      APP_ENV: development
+      API_PORT: "8080"
+      CORS_ALLOWED_ORIGINS: http://localhost:4173
+      JWT_SIGNING_KEY: e2e-live-signing-key-not-a-secret-32b
+      # base64 of "e2e-live-join-code-key-not-secre", 32 bytes. Throwaway.
+      JOIN_CODE_KEY: ZTJlLWxpdmUtam9pbi1jb2RlLWtleS1ub3Qtc2VjcmU=
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'develop' || inputs.ref || github.sha }}
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: server/go.sum
+
+      - uses: ./.github/actions/db-tools
+
+      - name: Provision roles and database
+        run: ./scripts/provision-db.sh
+
+      - name: Apply migrations and seed
+        run: |
+          goose -dir migrations postgres "$MIGRATE_URL" up
+          for f in seed/*.sql; do psql "$MIGRATE_URL" -v ON_ERROR_STOP=1 -f "$f"; done
+
+      # No object store and no import worker: the specs here sit on seeded
+      # assignments, and the API answers 501 to media without a bucket.
+      - name: Start the API
+        run: |
+          go -C server build -o "$RUNNER_TEMP/api" ./cmd/api
+          "$RUNNER_TEMP/api" > "$RUNNER_TEMP/api.log" 2>&1 &
+          for _ in $(seq 1 40); do
+            curl -fsS http://localhost:8080/healthz >/dev/null && exit 0
+            sleep 1
+          done
+          echo "API did not become healthy"; cat "$RUNNER_TEMP/api.log"; exit 1
+
+      - uses: ./.github/actions/web
+        with:
+          node: ${{ env.NODE_VERSION }}
+          pnpm: ${{ env.PNPM_VERSION }}
+
+      - name: Install Chromium
+        working-directory: web
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run the slow E2Es
+        working-directory: web
+        run: pnpm e2e:slow
+
+      - name: API log
+        if: failure()
+        run: cat "$RUNNER_TEMP/api.log"
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report-slow
+          path: web/playwright-report/
+          retention-days: 7
+          overwrite: true

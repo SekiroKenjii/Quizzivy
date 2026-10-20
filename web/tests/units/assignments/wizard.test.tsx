@@ -276,4 +276,34 @@ describe("the assignment draft", () => {
       review: { ...draft.review, release: "on_submit", showClassAverage: false },
     });
   });
+
+  it("sends a moment the teacher did not change as stored, to the second", () => {
+    const base = emptyDraft(new Date("2026-09-01T03:20:00Z"));
+    const draft = {
+      ...base,
+      picked: {
+        testId: TEST_ID,
+        testTitle: "Unit 5 Reading",
+        version: { ...version(VERSION_ID, 2), testUpdatedAt: NOW },
+      },
+      opensAt: "2026-09-10T08:00",
+      closesAt: "2026-09-10T09:00",
+    };
+    const stored = {
+      opensAt: "2026-09-10T01:00:30.250Z",
+      closesAt: "2026-09-10T03:00:00.000Z",
+    };
+
+    expect(draftBody(draft, stored).window).toEqual({
+      opensAt: "2026-09-10T01:00:30.250Z",
+      closesAt: "2026-09-10T02:00:00.000Z",
+    });
+    expect(draftBody({ ...draft, opensAt: "2026-09-10T08:05" }, stored).window).toEqual(
+      {
+        opensAt: "2026-09-10T01:05:00.000Z",
+        closesAt: "2026-09-10T02:00:00.000Z",
+      },
+    );
+    expect(draftBody(draft).window.opensAt).toBe("2026-09-10T01:00:00.000Z");
+  });
 });

@@ -1,6 +1,6 @@
 import { StrictMode, useEffect } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import { forgetAllPlaces, keepPlace, recallPlace } from "@/features/media/playback";
 import "@/lib/i18n";
@@ -45,8 +45,14 @@ afterEach(() => {
 const audio = () => document.querySelector("audio") as HTMLAudioElement;
 const button = () => screen.getByRole("button");
 
-function startAndPlayTo(seconds: number) {
-  fireEvent.click(screen.getByRole("button", { name: "Phát" }));
+async function click(element: HTMLElement) {
+  await act(async () => {
+    fireEvent.click(element);
+  });
+}
+
+async function startAndPlayTo(seconds: number) {
+  await click(screen.getByRole("button", { name: "Phát" }));
   fireEvent.play(audio());
   audio().currentTime = seconds;
   fireEvent.timeUpdate(audio());
@@ -79,11 +85,11 @@ function Page({
   return card(place, { onPlay });
 }
 
-it("starts clean when its host gives it another place, with a new element", () => {
+it("starts clean when its host gives it another place, with a new element", async () => {
   const onPlay = vi.fn();
   const onResume = vi.fn();
   const view = render(card("question:q1", { onPlay, onResume }));
-  startAndPlayTo(30);
+  await startAndPlayTo(30);
   const first = audio();
 
   view.rerender(card("question:q2", { onPlay, onResume }));
@@ -96,12 +102,12 @@ it("starts clean when its host gives it another place, with a new element", () =
     "ready",
   );
   expect(screen.getByText("0:00 / 1:00")).toBeInTheDocument();
-  fireEvent.click(button());
+  await click(button());
   expect(onPlay).toHaveBeenCalledTimes(2);
   expect(onResume).not.toHaveBeenCalled();
 });
 
-it("puts no other place's position on the next one", () => {
+it("puts no other place's position on the next one", async () => {
   keepPlace("question:q1", 30);
   const onPlay = vi.fn();
   const onResume = vi.fn();
@@ -111,17 +117,17 @@ it("puts no other place's position on the next one", () => {
   fireEvent.loadedMetadata(audio());
 
   expect(audio().currentTime).toBe(0);
-  fireEvent.click(button());
+  await click(button());
   expect(onPlay).toHaveBeenCalledTimes(1);
   expect(onResume).not.toHaveBeenCalled();
   expect(recallPlace("question:q1")).toBe(30);
 });
 
-it("keeps the place it leaves, and resumes there when its host comes back", () => {
+it("keeps the place it leaves, and resumes there when its host comes back", async () => {
   const onPlay = vi.fn();
   const onResume = vi.fn();
   const view = render(card("question:q1", { onPlay, onResume }));
-  startAndPlayTo(30);
+  await startAndPlayTo(30);
 
   view.rerender(card("question:q2", { onPlay, onResume }));
   expect(recallPlace("question:q1")).toBe(30);
@@ -130,15 +136,15 @@ it("keeps the place it leaves, and resumes there when its host comes back", () =
   expect(button()).toHaveAccessibleName("Nghe tiếp");
   fireEvent.loadedMetadata(audio());
   expect(audio().currentTime).toBe(30);
-  fireEvent.click(button());
+  await click(button());
   expect(onPlay).toHaveBeenCalledTimes(1);
   expect(onResume).toHaveBeenCalledTimes(1);
 });
 
-it("stays the same player, still playing, while its place stays the same", () => {
+it("stays the same player, still playing, while its place stays the same", async () => {
   const onPlay = vi.fn();
   const view = render(card("recording:r1", { onPlay }));
-  startAndPlayTo(12);
+  await startAndPlayTo(12);
   const element = audio();
 
   view.rerender(
@@ -160,10 +166,10 @@ it("stays the same player, still playing, while its place stays the same", () =>
   expect(onPlay).toHaveBeenCalledTimes(1);
 });
 
-it("keeps no place when the memory it was opened under was forgotten before it went away", () => {
+it("keeps no place when the memory it was opened under was forgotten before it went away", async () => {
   const onPlay = vi.fn();
   const page = render(<Page onPlay={onPlay} />);
-  startAndPlayTo(30);
+  await startAndPlayTo(30);
   expect(onPlay).toHaveBeenCalledTimes(1);
 
   page.unmount();
@@ -171,9 +177,9 @@ it("keeps no place when the memory it was opened under was forgotten before it w
   expect(recallPlace("recording:r1")).toBeNull();
 });
 
-it("spends a play on the first press under the next memory", () => {
+it("spends a play on the first press under the next memory", async () => {
   const page = render(<Page onPlay={vi.fn()} />);
-  startAndPlayTo(30);
+  await startAndPlayTo(30);
   page.unmount();
 
   const onPlay = vi.fn();
@@ -182,18 +188,18 @@ it("spends a play on the first press under the next memory", () => {
 
   expect(button()).toHaveAccessibleName("Phát");
   expect(audio().currentTime).toBe(0);
-  fireEvent.click(button());
+  await click(button());
   expect(onPlay).toHaveBeenCalledTimes(1);
 });
 
-it("keeps places under StrictMode, whose rehearsed unmount forgets them once at mount", () => {
+it("keeps places under StrictMode, whose rehearsed unmount forgets them once at mount", async () => {
   const onPlay = vi.fn();
   const view = render(
     <StrictMode>
       <Page onPlay={onPlay} place="question:q1" />
     </StrictMode>,
   );
-  startAndPlayTo(30);
+  await startAndPlayTo(30);
 
   view.rerender(
     <StrictMode>

@@ -94,3 +94,31 @@ describe("the session a tab holds for an attempt", () => {
     expect(heldSession("att-1")).toBeNull();
   });
 });
+
+describe("forgetting the sessions a tab holds", () => {
+  it("releases one attempt's session and leaves the others", async () => {
+    const { heldSession, holdSession, releaseSession } = await fresh();
+    holdSession("att-1", A);
+    holdSession("att-2", B);
+
+    releaseSession("att-1");
+
+    expect(heldSession("att-1")).toBeNull();
+    expect(sessionStorage.getItem(KEY)).toBeNull();
+    expect(heldSession("att-2")).toBe(B);
+  });
+
+  it("clears every session the tab holds at sign-out, and nothing else in the storage", async () => {
+    const { clearHeldSessions, heldSession, holdSession } = await fresh();
+    holdSession("att-1", A);
+    holdSession("att-2", B);
+    sessionStorage.setItem("quizzivy.flags.att-1", "[]");
+
+    clearHeldSessions();
+
+    expect(heldSession("att-1")).toBeNull();
+    expect(heldSession("att-2")).toBeNull();
+    expect(sessionStorage.getItem(KEY)).toBeNull();
+    expect(sessionStorage.getItem("quizzivy.flags.att-1")).toBe("[]");
+  });
+});

@@ -115,8 +115,10 @@ func TestAReloadIsAResumeAndNotATakeover(t *testing.T) {
 	}
 
 	// A tab that sent nothing is a tab that is gone -- a crash, a closed laptop, a reload.
-	if got := eventKinds(t, pool, first.Attempt.ID); len(got) != 1 || got[0] != domain.KindResume {
-		t.Fatalf("events %v, want exactly [resume]", got)
+	// The start the server wrote for the first session is not a sign of life.
+	got := eventKinds(t, pool, first.Attempt.ID)
+	if len(got) != 2 || got[0] != domain.KindStart || got[1] != domain.KindResume {
+		t.Fatalf("events %v, want exactly [start resume]", got)
 	}
 }
 
@@ -325,5 +327,70 @@ func TestContinuingAnAttemptThatIsNotTheLiveOneTakesNothingOver(t *testing.T) {
 		live.Attempt.ID, live.SessionID)
 	if kept != 1 {
 		t.Error("continuing an older attempt took the live one's session")
+	}
+}
+
+func TestCreatingAnAttemptWritesOneStartUnderItsFirstSession(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, openAssignment())
+	svc := newService(t, pool)
+
+	first, err := svc.Commands.StartOrResume.Handle(context.Background(), command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	if got := eventKinds(t, pool, first.Attempt.ID); len(got) != 1 || got[0] != domain.KindStart {
+		t.Fatalf("events %v, want exactly [start]", got)
+	}
+	if n := count(t, pool, `
+		SELECT count(*) FROM app.attempt_events
+		 WHERE attempt_id = $1::uuid AND session_id = $2::uuid AND kind = 'start'
+		   AND client_seq IS NULL AND occurred_at = $3`,
+		first.Attempt.ID, first.SessionID, first.Attempt.StartedAt); n != 1 {
+		t.Errorf("the start is not under the first session at startedAt with no clientSeq")
+	}
+}
+
+func TestAFirstSessionTakenOverWhileNotLiveCanStillFlush(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, openAssignment())
+	svc := newService(t, pool)
+	ctx := context.Background()
+
+	first, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	if _, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student}); err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	in := domain.FlushInput{
+		AttemptID: first.Attempt.ID,
+		SessionID: first.SessionID,
+		StudentID: w.student,
+		Events:    []domain.Event{{Kind: "tab_hidden", OccurredAt: time.Now(), ClientSeq: 0}},
+	}
+	if _, err := svc.Commands.Flush.Handle(ctx, command.Flush{Input: in}); err != nil {
+		t.Fatalf("the first session's late flush was refused: %v", err)
+	}
+	if !containsKind(eventKinds(t, pool, first.Attempt.ID), "tab_hidden") {
+		t.Error("the late flush was not stored")
+	}
+}
+
+func TestTheStartDoesNotMakeANewAttemptsFirstSessionLive(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, openAssignment())
+	svc := newService(t, pool)
+	ctx := context.Background()
+
+	first, _ := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student})
+	if _, err := svc.Commands.StartOrResume.Handle(ctx, command.StartOrResume{AssignmentID: w.assignment, StudentID: w.student}); err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	if n := count(t, pool, `
+		SELECT count(*) FROM app.attempt_events
+		 WHERE attempt_id = $1::uuid AND kind = 'session_takeover'`, first.Attempt.ID); n != 0 {
+		t.Errorf("%d takeovers within two minutes of a start nothing else followed, want 0", n)
 	}
 }

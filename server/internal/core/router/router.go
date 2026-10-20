@@ -105,7 +105,7 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 	})
 
 	gated := routedOnly(mux, httpx.Maintenance(deps.Maintenance, deps.Modules.Identity.ClearSessionOnRefusedLogout)(servedMethodOnly(mux, handler, requirements, openRoutes)))
-	return httpx.RequestID(httpx.Logging(logger)(httpx.SecurityHeaders(httpx.CORS(allowedOrigins)(legacyAdmin(logger)(gated))))), nil
+	return httpx.RequestID(httpx.Logging(logger)(httpx.SecurityHeaders(httpx.CORS(allowedOrigins)(gated)))), nil
 }
 
 func parameterName(err error) string {

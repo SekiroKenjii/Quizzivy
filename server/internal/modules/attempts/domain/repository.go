@@ -29,7 +29,7 @@ type Repository interface {
 	GroupAudioPlays(ctx context.Context, attemptID string) (map[string]int, error)
 	ReleasedGroupTranscripts(ctx context.Context, versionID string) (map[string]string, error)
 	RecordGroupPlay(ctx context.Context, in GroupPlayInput, now time.Time) (GroupPlays, error)
-	RecordPlay(ctx context.Context, attemptID, studentID, questionID string, now time.Time) (Plays, error)
+	RecordPlay(ctx context.Context, in PlayInput, now time.Time) (Plays, error)
 	Save(ctx context.Context, in SaveInput, now time.Time) (SaveResult, Milestones, error)
 	Flush(ctx context.Context, in FlushInput, now time.Time) (Milestones, error)
 	Submit(ctx context.Context, attemptID, studentID string, reason Reason, now time.Time) (AttemptRecord, Milestones, error)

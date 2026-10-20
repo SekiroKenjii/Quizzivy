@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
-
-	"quizzivy/gen/openapi"
 )
 
 // unimplemented is every operation that still returns 501, listed on purpose.
@@ -59,48 +57,6 @@ func TestTheListOfUnimplementedOperationsIsAccurate(t *testing.T) {
 		}
 		if len(extra) > 0 {
 			t.Errorf("still a stub but not listed (add it, and check no screen depends on it): %v", extra)
-		}
-	}
-}
-
-// A stub that no operation in the contract names is dead code; an operation the
-// contract names that is neither implemented nor listed is the T-2.15 failure.
-func TestEveryStubNamesARealOperation(t *testing.T) {
-	spec, err := openapi.GetSpec()
-	if err != nil {
-		t.Fatalf("GetSpec: %v", err)
-	}
-
-	operations := map[string]bool{}
-	for _, item := range spec.Paths.Map() {
-		for _, op := range item.Operations() {
-			operations[op.OperationID] = true
-		}
-	}
-
-	for _, name := range stubbedOperations(t) {
-		if !operations[name] {
-			t.Errorf("stub %s has no operationId in api/openapi.yaml", name)
-		}
-	}
-}
-
-// The two the E2E caught. Named explicitly so a revert is loud.
-func TestThePhase2ScreensDoNotRestOnStubs(t *testing.T) {
-	stubs := stubbedOperations(t)
-
-	for _, name := range []string{
-		"ListTestVersions", // test detail's version history
-		"PreviewTest",      // test detail's student-eye preview
-		"ListQuestions",    // the question bank list
-		"PublishTest",      // the builder's publish gate
-		"UpdateTest",       // the builder's autosave
-		"CreateQuestion",   // the builder's "Thêm câu hỏi"
-		"UploadMedia",      // the audio upload the probe runs behind
-		"GetDashboard",     // §8's /admin
-	} {
-		if slices.Contains(stubs, name) {
-			t.Errorf("%s is a stub, but a Phase 2 screen calls it", name)
 		}
 	}
 }

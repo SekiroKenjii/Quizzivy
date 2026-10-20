@@ -183,6 +183,8 @@ it("still calls play() first, before the count and before anything is set", asyn
   pressPlay();
 
   expect(play).toHaveBeenCalledTimes(1);
+  expect(onPlay).not.toHaveBeenCalled();
+  await settle();
   expect(onPlay).toHaveBeenCalledTimes(1);
   expect(play.mock.invocationCallOrder[0]).toBeLessThan(
     onPlay.mock.invocationCallOrder[0]!,
