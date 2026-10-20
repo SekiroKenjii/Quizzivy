@@ -119,6 +119,7 @@ func createScratch(t *testing.T) (name, ownerURL string) {
 
 func sharedScratch(t *testing.T) string {
 	t.Helper()
+	db.TestDSN(t)
 	shared.once.Do(func() {
 		shared.name, shared.owner = createScratch(t)
 	})
