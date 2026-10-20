@@ -447,7 +447,10 @@ those tests are about what the browser does, and the server's behaviour is
 covered by Go tests against a real Postgres. The live suite exists for claims
 that are about the two halves meeting: E2E 1a uploads a real mp3 so §11.1's
 sniff, size check and duration probe run rather than being mocked. Adding a case
-there needs a reason of that kind; the default is `pnpm e2e`.
+there needs a reason of that kind; the default is `pnpm e2e`. A live spec that
+waits on real time (E2E 5's one-minute deadline) is in the `slow` project
+instead, `pnpm e2e:slow`, which the Slow tail workflow runs nightly and on a pull
+request into `main` (`docs/setup/ci.md`).
 
 It needs `make up`, `make migrate`, `make seed`, and the API on :8080 with
 `http://localhost:4173` in `CORS_ALLOWED_ORIGINS`. Kill any leftover `vite
@@ -644,6 +647,9 @@ Design for longer Vietnamese strings; avoid fixed-width labels.
 - [ ] Keyboard-operable; visible focus
 - [ ] All strings via `t()`, keys in both `vi` and `en`
 - [ ] Tests added or updated at the right level (spec §14)
+- [ ] Each new test names the single production change that makes it fail and
+      the existing test it is not a copy of; a Playwright test names the claim
+      only a browser, or only a real server, can prove
 - [ ] DDL reviewed against spec §13, `docs/plan/20-data-model.md`, and the Neon
       skill; migration file named
 - [ ] New public (unauthenticated) endpoint: rate-limited **and** leak-reviewed
@@ -772,3 +778,7 @@ release replaces. A hotfix off `main` numbers
 itself, because it is its own release, and its back-merge carries the number
 down. Migration numbers and the `D-nn` ids of `docs/plan/20-data-model.md` are
 permanent ids, not a version, and keep the rule in `docs/team/README.md`.
+
+The wiki is generated from these documents on every push to `develop`
+(`docs/setup/ci.md`, "The wiki"). Edit the file in the repository, never a wiki
+page.

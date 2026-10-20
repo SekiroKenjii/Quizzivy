@@ -17,6 +17,9 @@ const NOT_CODE = [
   '.github/pull_request_template.md',
   '.github/workflows/production-monitor.yml',
   '.github/workflows/retention-sweep.yml',
+  '.github/workflows/slow-tail.yml',
+  '.github/workflows/wiki.yml',
+  'scripts/wiki/',
 ];
 
 /**
@@ -63,7 +66,7 @@ export const JOBS = [
   { id: 'server-test', set: 'server' },
   { id: 'production-image', set: 'image' },
   { id: 'web-check', set: 'web' },
-  { id: 'web-unit', set: 'web', shards: 2 },
+  { id: 'web-unit', set: 'web', shards: 3 },
   { id: 'e2e', set: 'web' },
   { id: 'e2e-live', set: 'code' },
 ];

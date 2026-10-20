@@ -11,7 +11,6 @@ import (
 	"quizzivy/internal/shared/opt"
 
 	"github.com/jackc/pgx/v5"
-	"golang.org/x/text/unicode/norm"
 )
 
 type Postgres struct{ db.Repository }
@@ -301,65 +300,6 @@ func imageAlt(kind, alt *string) *string {
 		return nil
 	}
 	return alt
-}
-
-func replaceOptions(ctx context.Context, tx pgx.Tx, questionID string, in domain.Input) error {
-	if err := preserveOptionContent(ctx, tx, questionID, in.Options); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(ctx,
-		`DELETE FROM app.question_options WHERE question_id = $1`, questionID); err != nil {
-		return fmt.Errorf("questions: clear options: %w", err)
-	}
-	if !in.Type.IsChoice() || len(in.Options) == 0 {
-		return nil
-	}
-	rows := make([][]any, len(in.Options))
-	for i, o := range in.Options {
-		rows[i] = []any{questionID, i, o.Text, o.IsCorrect, nullableContent(o.Content)}
-	}
-	_, err := tx.CopyFrom(ctx,
-		pgx.Identifier{"app", "question_options"},
-		[]string{"question_id", "ordinal", "text", "is_correct", "content"},
-		pgx.CopyFromRows(rows))
-	if err != nil {
-		return fmt.Errorf("questions: write options: %w", err)
-	}
-	return nil
-}
-
-func replaceBlanks(ctx context.Context, tx pgx.Tx, questionID string, in domain.Input) error {
-	if _, err := tx.Exec(ctx,
-		`DELETE FROM app.question_blanks WHERE question_id = $1`, questionID); err != nil {
-		return fmt.Errorf("questions: clear blanks: %w", err)
-	}
-	if in.Type != domain.FillBlank || len(in.Blanks) == 0 {
-		return nil
-	}
-
-	for _, b := range in.Blanks {
-		var blankID string
-		if err := tx.QueryRow(ctx,
-			`INSERT INTO app.question_blanks (question_id, ordinal, case_sensitive, gap_id)
-			 VALUES ($1, $2, $3, $4) RETURNING id::text`,
-			questionID, b.Ordinal, b.CaseSensitive, b.GapID).Scan(&blankID); err != nil {
-			return fmt.Errorf("questions: write blank: %w", err)
-		}
-		seen := map[string]bool{}
-		for _, answer := range b.AcceptedAnswers {
-			answer = norm.NFC.String(answer)
-			if seen[answer] {
-				continue
-			}
-			seen[answer] = true
-			if _, err := tx.Exec(ctx,
-				`INSERT INTO app.question_blank_answers (blank_id, answer) VALUES ($1, $2)`,
-				blankID, answer); err != nil {
-				return fmt.Errorf("questions: write blank answer: %w", err)
-			}
-		}
-	}
-	return nil
 }
 
 // SoftDelete marks a bank question deleted and audits it. The actor must own it

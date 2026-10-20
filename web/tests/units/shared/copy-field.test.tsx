@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { act, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CopyButton } from "@/components/shared/CopyButton";
 import { CopyField } from "@/components/shared/CopyField";
@@ -25,6 +25,10 @@ function renderField(props: Partial<{ copyLabel: string; mono: boolean }> = {}) 
   );
 }
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe("the copy field", () => {
   it("shows the value in a labelled field nobody can edit", async () => {
     const user = userEvent.setup();
@@ -40,21 +44,23 @@ describe("the copy field", () => {
   });
 
   it("copies the value and says so for two seconds", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    const writeText = vi.spyOn(navigator.clipboard, "writeText");
+    vi.useFakeTimers();
+    const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
     renderField();
-    await user.click(screen.getByRole("button", { name: "Sao chép" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Sao chép" }));
+    });
 
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(writeText).toHaveBeenCalledWith(LINK);
     expect(screen.getByRole("status")).toHaveTextContent("Đã sao chép");
     expect(screen.getByRole("button", { name: "Đã sao chép" })).toBeInTheDocument();
     expect(screen.queryByRole("alert")).toBeNull();
-    await act(() => vi.advanceTimersByTimeAsync(2000));
+    await act(() => vi.advanceTimersByTimeAsync(1999));
+    expect(screen.getByRole("button", { name: "Đã sao chép" })).toBeInTheDocument();
+    await act(() => vi.advanceTimersByTimeAsync(1));
     expect(screen.getByRole("button", { name: "Sao chép" })).toBeInTheDocument();
     expect(screen.getByRole("status")).toBeEmptyDOMElement();
-    vi.useRealTimers();
   });
 
   it("leaves the field alone after a copy that worked", async () => {

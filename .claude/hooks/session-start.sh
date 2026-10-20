@@ -51,11 +51,27 @@ step() {
   fi
 }
 
+drop_stale_pidfile() {
+  local pidfile="$1" comm="$2"
+  [ -f "$pidfile" ] || return 0
+  [ "$(cat "/proc/$(cat "$pidfile" 2>/dev/null)/comm" 2>/dev/null)" = "$comm" ] && return 0
+  echo "removing the stale $pidfile: its process is not $comm"
+  rm -f "$pidfile"
+}
+
 start_docker() {
   if docker info >/dev/null 2>&1; then
     return 0
   fi
-  setsid nohup dockerd >/tmp/dockerd.log 2>&1 &
+  drop_stale_pidfile /var/run/docker.pid dockerd
+  drop_stale_pidfile /var/run/docker/containerd/containerd.pid containerd
+  if [ ! -f /var/run/docker.pid ] && [ ! -f /var/run/docker/containerd/containerd.pid ]; then
+    echo "removing the sockets the previous boot left behind"
+    rm -f /var/run/docker.sock \
+      /var/run/docker/containerd/containerd-debug.sock \
+      /var/run/docker/containerd/containerd.sock.ttrpc
+  fi
+  setsid nohup dockerd 9>&- >/tmp/dockerd.log 2>&1 &
   local i
   for i in $(seq 1 90); do
     docker info >/dev/null 2>&1 && return 0
@@ -129,8 +145,14 @@ ensure_minio_image() {
   build_minio_image
 }
 
+compose_up() {
+  docker compose up -d --wait "$1" && return 0
+  echo "recreating $1: the first start failed, as it does on the runc state a container restart leaves behind"
+  docker compose up -d --force-recreate --wait "$1"
+}
+
 start_postgres() {
-  docker compose up -d --wait db
+  compose_up db
 }
 
 provision_roles() {
@@ -138,7 +160,7 @@ provision_roles() {
 }
 
 start_minio() {
-  docker compose up -d --wait minio && docker compose run --rm minio-init
+  compose_up minio && docker compose run --rm minio-init
 }
 
 migrate() {

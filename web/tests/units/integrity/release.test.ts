@@ -145,4 +145,20 @@ describe("releasing the buffer when the engine unmounts", () => {
     expect(navigator.sendBeacon).not.toHaveBeenCalled();
     expect(pending()).toEqual([]);
   });
+
+  it("hands the beacon at most 500 events and keeps the rest for the next session", async () => {
+    beginSession(ATTEMPT, "ses-1");
+    for (let at = 0; at < 600; at += 1) record(ATTEMPT, "window_blur");
+
+    releaseSession({
+      attemptId: ATTEMPT,
+      sessionId: "ses-1",
+      beaconToken: "tok",
+      ended: false,
+    });
+
+    const body = JSON.parse(await sent[0]!.body.text()) as { events: unknown[] };
+    expect(body.events).toHaveLength(500);
+    expect(stored()?.events).toHaveLength(100);
+  });
 });

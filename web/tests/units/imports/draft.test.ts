@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ContentDocument } from "@/components/shared/content/model";
+import { contentPlainText } from "@/components/shared/content/plainText";
 import {
   ACCEPTED_LIMITS,
   BLANK_LIMIT,
@@ -29,7 +30,6 @@ import {
 import { EXAM_SOURCE_ID, finding, option, question, run } from "./fixtures";
 
 const value = (text: string) => ({ value: text, evidence: [] });
-const TRUE_FALSE = { truth: "Đúng", falsity: "Sai" };
 
 function withGaps(ids: string[]): ContentDocument {
   return {
@@ -104,7 +104,7 @@ describe("reading a conflicting key the way recognition does", () => {
 describe("changing a question's type", () => {
   it("keeps the key when single choice becomes multiple choice", () => {
     const q = question({ id: "q", label: "1" });
-    const next = changeType(q, "multiple_choice", TRUE_FALSE);
+    const next = changeType(q, "multiple_choice");
     expect(next.answer.optionIds).toEqual(["q-a"]);
     expect(next.origins.type).toBe("teacher_entered");
     expect(dropsAnswerData(q, next)).toBe(false);
@@ -117,17 +117,13 @@ describe("changing a question's type", () => {
       type: "multiple_choice",
       answer: { state: "known", optionIds: ["q-a", "q-b"], evidence: [] },
     });
-    expect(
-      dropsAnswerData(multiple, changeType(multiple, "single_choice", TRUE_FALSE)),
-    ).toBe(true);
-    expect(
-      dropsAnswerData(multiple, changeType(multiple, "short_answer", TRUE_FALSE)),
-    ).toBe(true);
+    expect(dropsAnswerData(multiple, changeType(multiple, "single_choice"))).toBe(true);
+    expect(dropsAnswerData(multiple, changeType(multiple, "short_answer"))).toBe(true);
   });
 
   it("binds fill-blank answers to the prompt's gaps", () => {
     const q = question({ id: "q", label: "1", prompt: withGaps(["g1"]) });
-    const blank = changeType(q, "fill_blank", TRUE_FALSE);
+    const blank = changeType(q, "fill_blank");
     expect(blank.options).toEqual([]);
     expect(blank.blanks).toEqual([
       { gapId: "g1", label: "1", accepted: [], caseSensitive: false },
@@ -316,12 +312,15 @@ describe("round-two rules", () => {
     expect(clampAccepted([" go ", "go", "", "went"])).toEqual(["go", "went"]);
   });
 
-  it("seeds a question converted to true/false with the teacher's words", () => {
+  it("seeds a question converted to true/false with the canonical True and False", () => {
     const q = question({ id: "q", label: "1" });
-    const tf = changeType(q, "true_false", TRUE_FALSE);
+    const tf = changeType(q, "true_false");
     expect(tf.options.map((item) => item.label)).toEqual(["T", "F"]);
-    expect(JSON.stringify(tf.options)).toContain("Đúng");
-    expect(JSON.stringify(tf.options)).not.toContain("True");
+    expect(tf.options.map((item) => contentPlainText(item.content))).toEqual([
+      "True",
+      "False",
+    ]);
+    expect(JSON.stringify(tf.options)).not.toContain("Đúng");
   });
 
   it("groups run errors by what the teacher can do", () => {
@@ -374,7 +373,7 @@ describe("round-three rules", () => {
 
   it("binds no more than the limit when a question becomes fill-blank", () => {
     const q = question({ id: "q", label: "1", prompt: gaps(BLANK_LIMIT + 3) });
-    expect(changeType(q, "fill_blank", TRUE_FALSE).blanks).toHaveLength(BLANK_LIMIT);
+    expect(changeType(q, "fill_blank").blanks).toHaveLength(BLANK_LIMIT);
   });
 
   it("keeps a single-choice prompt whatever its gaps", () => {

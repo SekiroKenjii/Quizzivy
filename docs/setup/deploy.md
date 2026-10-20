@@ -379,6 +379,84 @@ What v0.9.0 then does with what v0.10.0 wrote:
 - `00084`'s Down leaves its constraint `NOT VALID` for the same reason. Never roll back past v0.8.0
   (the join-code key).
 
+## Rolling out v0.11.11 (hotfix)
+
+v0.11.11 finishes change request CR-001 to the design team's drawing: "Generate questions" in the builder
+fills one section or the whole test, from a plan of up to 40 questions and 5 calls, each call reserving its
+own ceiling (spec 0.115, "Changes since v0.114"). It changes no schema and no configuration; the contract's
+`count` on `generateAiQuestions` becomes any whole number from 1 to 8 (it was 3, 5 or 8).
+
+- **No migration.** `release_command` runs `migrate up` and finds nothing to do.
+- **Deploy the API first.** The old API refuses a count of 1, 2, 4, 6 or 7 (`400`), which the new web sends
+  whenever the teacher chooses one; the old web on the new API sends 3, 5 or 8, as before.
+- **Live smoke** with the key before the merge to `main` (`aismoke`, `docs/setup/operations.md`): a
+  standalone run of 2 questions, and a whole-test plan of two sections, one standalone and one per passage.
+- **What to watch.** A whole-test run is several ordinary generate calls, each logged and metered as
+  before; nothing new is logged.
+- **Rolling back to v0.11.10** needs nothing; the panel loses the whole-test scope and the stepper.
+
+## Rolling out v0.11.10 (hotfix)
+
+v0.11.10 lets "Generate questions" write standalone questions, about a topic or fitted to a section of the
+open test (spec 0.114, "Changes since v0.113"; change request CR-001). It changes no schema and no
+configuration; the contract gains two optional fields on `generateAiQuestions` (`standalone`, `sectionId`)
+and lowers the schema's minimum for `source` to 3 characters.
+
+- **No migration.** `release_command` runs `migrate up` and finds nothing to do.
+- **Deploy the API first.** The old API refuses the new web's standalone request (`400`, an unknown field),
+  while the old web on the new API sends what it always did and is answered as before.
+- **Live smoke** with the key before the merge to `main` (`aismoke`, `docs/setup/operations.md`): one
+  standalone run from a topic, one fitted to a section with questions in it.
+- **What to watch.** Nothing new is logged; a run that keeps no usable question logs `ai answer unusable`,
+  as before.
+- **Rolling back to v0.11.9** needs nothing; the panel loses the style control.
+
+## Rolling out v0.11.9 (hotfix)
+
+v0.11.9 carries two hotfixes and changes no schema, no configuration and no contract (spec 0.113, "Changes
+since v0.112"): "Make a variant" (#728, API and web) and the Questions tab of Assignment detail, which now
+draws only the item analysis and its AI insights (#727, web only). Merge #727 into `main` before this
+release. A variant now covers the members of a test's groups: a test made only of group members used to
+answer "There is nothing for the assistant to read yet." It also asks about 8 questions a call, at most five
+at a time, within 45 seconds, under one reservation, where one call for a long test timed out with
+`503 AI_UNAVAILABLE`.
+
+- **No migration.** `release_command` runs `migrate up` and finds nothing to do. The web build and the API
+  can deploy in either order. The new web on the old API varies the standalone questions, as before; the old
+  web on the new API stops on its first read of a member's change (`404`) before it writes anything.
+- **What to watch.** Each variant logs one `ai variant` line (`docs/setup/operations.md`) with its calls, how
+  many were usable and whether the budget ran out. A pass whose calls all fail still logs `ai call failed` or
+  `ai answer unusable` for each, as before.
+- **Rolling back to v0.11.8** needs nothing, and brings back both the group-member limit and the timeout.
+
+## Rolling out v0.11.8 (hotfix)
+
+v0.11.8 carries three hotfixes and changes no schema, no configuration and no response (spec 0.112, "Changes
+since v0.111" and "Changes since v0.110"). An AI panel keeps its session when its drawer closes, and says
+in a toast when a run finishes behind a closed drawer (web only). The contract's `email` format refuses an
+address the API cannot print back, such as `"qc tp"@example.com`. And `POST /auth/login` counts one account
+once, however its address is written.
+
+- **No migration.** `release_command` runs `migrate up` and finds nothing to do. The web build and the API
+  can deploy in either order: no contract shape changed.
+- **Run the email query before and after.** `docs/setup/operations.md`, "Stored emails the API cannot
+  print", has a read-only query that lists accounts the previous API could have stored with a quoted
+  local part. No rows is the expected answer. If it returns rows, nothing in the release rewrites them; the
+  repair is per row and the owner's, and the section says how. Until a row is repaired, the lists that hold
+  it keep answering `500`, as they did before this release.
+- **What a user sees.** `POST /auth/login`, `createStudent`, `updateStudent` and any other `format: email`
+  parameter answer `400 VALIDATION_FAILED` naming `email` for a quoted local part. `Name <addr>` and a
+  quoted atom that needs no quotes are unchanged, and no stored value changes.
+- **The login limiter's key changes, its limits do not.** The buckets live in each API process's memory,
+  so a deploy starts them empty, and a pod still on v0.11.7 keys on the address as written until it is
+  replaced.
+- **Rolling back to v0.11.7** needs nothing: there is no schema and no stored value to undo. Rolling the API
+  back brings back the quoted-address `500`, so run the query again if it was out for long. Rolling Pages back
+  brings back the drawer that discards its results.
+- **Afterwards**, in the builder run "AI check", open a finding's question and open "AI check" again: the
+  findings must still be there, with no new call. Create a student with the address `"a b"@example.com`: it
+  must answer `400` and write no row. The query above must return no rows.
+
 ## Rolling out v0.11.7 (hotfix)
 
 v0.11.7 adds one nullable column and one index and changes no configuration

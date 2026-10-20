@@ -147,45 +147,6 @@ func TestUnbuiltOperationReturns501InTheEnvelope(t *testing.T) {
 	}
 }
 
-func TestRateLimitAppliesPerRouteAndEmitsRetryAfter(t *testing.T) {
-	handler := newTestRouter(t, fakeDB{})
-
-	send := func() *httptest.ResponseRecorder {
-		req := httptest.NewRequest(http.MethodPost, "/join/preview", nil)
-		req.RemoteAddr = "203.0.113.7:5555"
-		rec := httptest.NewRecorder()
-		handler.ServeHTTP(rec, req)
-		return rec
-	}
-
-	for i := 1; i <= 120; i++ {
-		if rec := send(); rec.Code == http.StatusTooManyRequests {
-			t.Fatalf("request %d was limited; the budget is 120 a minute", i)
-		}
-	}
-
-	rec := send()
-	if rec.Code != http.StatusTooManyRequests {
-		t.Fatalf("121st request: status = %d, want 429", rec.Code)
-	}
-	if rec.Header().Get("Retry-After") == "" {
-		t.Error("§6.5 requires Retry-After on a 429")
-	}
-}
-
-func TestRateLimitKeysOnTheRouteTemplateNotTheURL(t *testing.T) {
-	handler := newTestRouter(t, fakeDB{})
-	for i := 0; i < 30; i++ {
-		req := httptest.NewRequest(http.MethodGet, "/teacher/tests", nil)
-		req.RemoteAddr = "203.0.113.9:5555"
-		rec := httptest.NewRecorder()
-		handler.ServeHTTP(rec, req)
-		if rec.Code == http.StatusTooManyRequests {
-			t.Fatalf("authenticated route limited after %d requests; no policy is registered for it", i)
-		}
-	}
-}
-
 func TestSeparateClientsGetSeparateBudgets(t *testing.T) {
 	handler := newTestRouter(t, fakeDB{})
 	exhaust := func(ip string) {

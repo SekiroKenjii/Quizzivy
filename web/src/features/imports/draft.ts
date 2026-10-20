@@ -453,13 +453,7 @@ export function removeOption(
   };
 }
 
-/** TrueFalseText is the option text a question converted to true/false starts with, in the teacher's language. */
-export interface TrueFalseText {
-  truth: string;
-  falsity: string;
-}
-
-function trueFalseOptions(text: TrueFalseText): ImportDraftOption[] {
+function trueFalseOptions(): ImportDraftOption[] {
   const option = (label: string, text: string): ImportDraftOption => ({
     id: crypto.randomUUID(),
     label,
@@ -468,18 +462,19 @@ function trueFalseOptions(text: TrueFalseText): ImportDraftOption[] {
       blocks: [{ type: "paragraph", content: [{ type: "text", text, marks: [] }] }],
     },
   });
-  return [option("T", text.truth), option("F", text.falsity)];
+  return [option("T", "True"), option("F", "False")];
 }
 
 /**
  * changeType converts a question to another interaction, keeping every piece
- * of answer data the target can still represent. Callers compare the result
- * with dropsAnswerData before applying it.
+ * of answer data the target can still represent. A question converted to
+ * true/false gets the canonical options "True" and "False", which every
+ * screen reads in the reader's language. Callers compare the result with
+ * dropsAnswerData before applying it.
  */
 export function changeType(
   question: ImportDraftQuestion,
   type: QuestionType,
-  trueFalse: TrueFalseText,
 ): ImportDraftQuestion {
   if (type === question.type) return question;
   const base = { ...question, type, origins: entered(question, "type") };
@@ -507,7 +502,7 @@ export function changeType(
   if (type === "true_false" && question.options.length !== 2) {
     return {
       ...base,
-      options: trueFalseOptions(trueFalse),
+      options: trueFalseOptions(),
       blanks: [],
       answer: answer("unknown", [], evidence),
       origins: entered(question, "type", "options"),
