@@ -273,8 +273,9 @@ CREATE UNIQUE INDEX class_join_codes_one_active
   uses are judged on the row found (§33). The plaintext code is never stored
   (§13.3). From `00078` a new code is also sealed under a key the database
   never holds (D-27), so a dump does not hand it over; a legacy row's SHA-256
-  still does, in 2^20 guesses, until the start-up rotation of v0.10.0 replaces it
-  (§33); a revoked or expired one stays.
+  still does, in 2^20 guesses, but no legacy row is live: the start-up rotation
+  of v0.10.0 revoked the live ones, `00141` the expired ones, and since R5 no
+  lookup reads a legacy hash (§33, T-R5.1).
 - **The exhaustion check is in the database**, not only in the handler. §6.5
   treats the code as a bearer secret; a `uses_count > max_uses` row is a silent
   policy failure and this makes it impossible.
@@ -1397,7 +1398,7 @@ listed here matches the spec.
 | D-24 | Add the view `app.student_like_roles`, the one strict-student predicate: the built-in Student, or a custom role holding nothing but `learning.take_tests`; the other built-in roles are excluded by key | The Admin stores only its "Take tests" cell, so a predicate on grants alone would make it a student target; every student read and write, the legacy-role sync and the anonymiser use this one definition (plan 70 §4.3, T-R2.1) |
 | D-25 | `users.role_id` references `app.roles` and replaces the `app.user_role` enum. Expand half (00056): added nullable, backfilled and `NOT NULL NOT VALID`, with `users_sync_legacy_role` keeping `role` in step. Contract half (00105, T-R4.49, §42): the constraint validated, and the trigger, `role`, its index and the enum dropped | §13.3's two-value enum holds no Teacher, Assistant or custom role, and v0.7.0 keeps writing `role` while both binaries run (plan 70 §3, T-R2.2) |
 | D-26 | `users_last_admin`, an AFTER UPDATE OR DELETE trigger, refuses any change that leaves no active Admin; its function is `SECURITY DEFINER`, owned by `quizzivy_migrate`, with a pinned `search_path` and EXECUTE revoked from PUBLIC | The guard must hold on every path, a hand-written `UPDATE` included, and its row lock on `app.roles` needs the UPDATE privilege `00054` withholds from the app role (§30, T-R2.2) |
-| D-27 | `class_join_codes` gains `code_ciphertext`, `key_id` and `lookup_scheme`: a new code is sealed with AES-256-GCM under `JOIN_CODE_KEY`, and its `code_hash` is an HMAC-SHA256 under that key's lookup key; legacy rows keep the SHA-256 | D5 has a teacher read a code back, which a hash cannot give; the key never reaches the database, so a dump can neither open a sealed code nor search the code space against its keyed hash (§33, T-R2.14a) |
+| D-27 | `class_join_codes` gains `code_ciphertext`, `key_id` and `lookup_scheme`: a new code is sealed with AES-256-GCM under `JOIN_CODE_KEY`, and its `code_hash` is an HMAC-SHA256 under that key's lookup key; legacy rows keep the SHA-256; from `00141` (T-R5.1) only a revoked row may lack a ciphertext | D5 has a teacher read a code back, which a hash cannot give; the key never reaches the database, so a dump can neither open a sealed code nor search the code space against its keyed hash (§33, T-R2.14a) |
 | D-28 | Add `notifications` and `notification_preferences`. `notifications.params` and `target` are `jsonb`, bounded objects rather than columns, and `kind` is a checked dotted `text`, not an enum | §13.3 has no notification. Each kind carries its own few fields and every release adds kinds, so columns would be mostly NULL and an enum a migration per kind; the contract's closed `NotificationParams` and the Go type per kind are the schema. A name in `params` is a copy, not a reference: R5's anonymisation (T-R5.17a) deletes or scrubs the notifications that name an anonymised user (§34, T-R4.10a) |
 | D-29 | `media_assets` gains `display_name`, `default_max_plays`, `replaced_by`, `width` and `height`, and its size limit depends on the kind: audio 50 MiB, an image 10 MiB | §13.3's row is a stored file and nothing else, and §11.1 allowed 10 MB for either kind. The deck's Media page names a file, gives it a play limit, shows an image's size and replaces a file in place (DG-63, DG-09); a replaced row stays, because published versions still point at it (§6, T-R4.17a, T-R4.17b) |
 | D-30 | `users` gains nullable profile fields and bounded object `preferences` | The caller's private profile and account settings are required by T-R4.7; student-facing teacher names use the chosen display name without exposing private account fields |
@@ -2203,7 +2204,7 @@ media owner, described under the table.
 | 10 | Word imports (W-10a, W-13b) | Upload quota reservation |
 | 11 | Word imports (W-11a) | Run capacity allocation and renewal |
 | 40 | Maintenance windows (T-R1.12, T-R1.13, T-R4.12b) | `window-schedule`, `window-cancel` and `window-end` take it exclusively; the attempt start guard takes it shared, so no attempt starts between a window's scheduling and its extensions. `extendAssignment`, `updateAssignment`, `reopenAssignment`, `setStudentOverrides` and `deleteStudentOverride` take it shared too, before they lock the assignment row (`schedule.LockWindows`), so none of them runs between a window's scheduling and its extensions, and none can wait on a row that `window-schedule` holds while it waits on theirs |
-| 41 | Legacy join-code rotation (T-R4.22) | Each class's rotation across API machines |
+| 41 | Retired: the legacy join-code rotation (T-R4.22), removed in R5 (T-R5.1). Not reused | Each class's rotation across API machines, v0.10.0 to v0.11.x |
 | 42 | Reserved: R7's notification scheduler | Confirmed by R7 |
 | 43 | Email dispatch (T-R5.2) | `pg_try_advisory_xact_lock(73819, 43)` in the API's and the worker's dispatcher: one batch is claimed and sent at a time across both processes, so the daily budget and the provider's request rate hold. A dispatcher that does not get it waits and tries again |
 | 44 | Role creation (T-R5.8) | `pg_advisory_xact_lock(73819, 44)` in `createRole`'s insert, then a count of `app.roles`: two creations cannot both take the last of the 200 roles the contract's lists hold (`ROLE_LIMIT_REACHED`). Nothing else takes it, and it is taken after the copy source's `FOR SHARE`, never before a role row lock. |
@@ -2492,14 +2493,16 @@ redeem one. Three columns join `app.class_join_codes`:
   before the constraint was validated, and a sealed code that expires keeps
   its ciphertext. The file first raises if any unrevoked, unexpired code lacks
   a ciphertext; on production that count was 0 before the merge (T-R5.1's
-  pull request). `ADD … NOT VALID` then `VALIDATE` in the same file: the table
-  is small, and `VALIDATE` takes `SHARE UPDATE EXCLUSIVE`, which blocks no
-  read or write.
+  pull request). `ADD … NOT VALID` then `VALIDATE` in the same file, which
+  runs in one transaction, so the `ADD`'s `ACCESS EXCLUSIVE` lock is held
+  through the scan and joins wait for it; the table is small, so the wait is
+  brief.
 - **The keys never reach the database.** A dump yields ciphertexts and keyed
   hashes; without `JOIN_CODE_KEY` neither opens nor can be hashed through the
   code space. A legacy row's SHA-256 still can, and quickly: beside the
   stored four-character hint only 2^20 codes remain. That is why R4 replaced the
-  live legacy codes at start-up (D5, below).
+  live legacy codes at start-up (D5, below); since `00141` every legacy row is
+  revoked, and since R5 none is looked up (T-R5.1).
 - **Down refuses** while an unrevoked, unexpired scheme-2 code exists,
   because the previous binary looks codes up by SHA-256 alone.
 - **The API replaced the legacy rows at start-up in v0.10.0 to v0.11.x

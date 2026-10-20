@@ -275,7 +275,9 @@ requests). Neither is a pseudo-key: a role may hold every teaching key and no AI
 | `/403`, `*`, error boundary, maintenance | Everyone | System pages |
 
 API prefixes follow the same split (`/teacher/*`, `/admin/*`, `/app/*`, `/auth/*`, `/me/*`,
-`/public/*`). Every tree is a lazy chunk kept out of the entry chunk;
+`/public/*`). The v0.7.0 teaching paths under `/admin/*` answer `404 NOT_FOUND` once the
+alias goes in v0.12.0 (T-R5.36), except `GET` and `POST /admin/classes`, which are the
+console's `listAllClasses` and `createClassForTeacher` (D-053) and answer a teacher `403`. Every tree is a lazy chunk kept out of the entry chunk;
 `web/tests/integration/router-chunks.test.ts` is updated, never weakened.
 
 ## 6. Production data
@@ -285,7 +287,7 @@ API prefixes follow the same split (`/teacher/*`, `/admin/*`, `/app/*`, `/auth/*
 | The owner's account | `role='admin'` maps to the built-in Admin role: every permission, both workspaces. No manual step. | R2 (done) |
 | Students | `role='student'` → built-in Student. Memberships, attempts, answers and events are untouched. | R2 (done) |
 | Ownership | `owner_id` backfilled from `created_by` / `uploaded_by`; classes' `teacher_id` from the oldest active Admin, the teacher v0.7.0 shows, because `app.classes` has never recorded a creator (D-23, decided 2026-09-28). Each backfill raises if a row would stay NULL. The constraints are validated and the fill triggers dropped by 00106 (T-R4.49, T-R3.2). | R2 (done), R4 (T-R4.49) |
-| Join codes | New codes are encrypted from R2. Every legacy hashed code is rotated at the R4 release, when the new class screens can show codes (D5); legacy codes redeem until then. | R2 (done), R4 |
+| Join codes | New codes are encrypted from R2. Every legacy hashed code is rotated at the R4 release, when the new class screens can show codes (D5); legacy codes redeem until then. R5 removed the legacy lookup, and `00141` refuses an unrevoked code without a ciphertext (T-R5.1). | R2 (done), R4, R5 |
 | Tokens | Refresh tokens unchanged; access-token claims change additively; no forced re-login. `users.role` and `app.user_role` are dropped by 00105 (T-R4.49, T-R3.1), and an access token carries no role. | R2 (done), v0.9.1 |
 | Attempts in flight | R3 reads the existing local answer drafts unchanged. Deploys happen outside exam windows. | R3 |
 | Assignment integrity | Existing assignments keep their stored policy; the wizard's new defaults apply to new assignments. | R4 |
@@ -357,8 +359,8 @@ No production change; PRs straight to `develop`, riding to production in v0.7.0.
 | PR-2 | A role or permission edit escalates privilege | Landed in R2: the subset rule (`access.CanActOn`) on every student write; strict student targets through `app.student_like_roles`; `people.users.manage` for a disable and for resetting or re-addressing a shared student; the `users_last_admin` trigger; grant triggers that keep the hidden keys ungranted and the Student's "Take tests" (T-R2.1, T-R2.2, T-R2.13); `escalation_test.go` with an Admin who takes tests and a custom role per matrix key as targets. R5 adds the role and matrix edits, the sign-in lockout guard and `admin_escalation_flow_test.go` |
 | PR-3 | The rebuilt take-test engine loses work | The five canaries before and after every PR; local drafts read unchanged; live E2E 5–8; deploy outside exam windows |
 | PR-4 | Rolling deploy breaks inserts from the old binary | Expand/contract with fill triggers; the old-binary insert test |
-| PR-5 | The path rename breaks old tabs or drops a rate limit | Landed in R2: the outer `/admin` alias rewrites the 78 v0.7.0 paths, logs `legacy_admin_path` and lasts until v0.9.1 (T-R2.8, T-R3.3); every rate-limit key moved, and `credential_limits_test.go` fails on a credential-minting operation without a limit (T-R2.7); `ratelimit_contract_test.go` pins every `x-rate-limit` block to the registry (T-R2.15) |
-| PR-6 | Legacy join codes stop working unannounced | Landed in R4: the API replaces every live legacy code once at start-up and tells each class's teacher in the app (T-R4.22, spec §6.1); the release note says so |
+| PR-5 | The path rename breaks old tabs or drops a rate limit | Landed in R2: the outer `/admin` alias rewrites the 78 v0.7.0 paths, logged `legacy_admin_path` and goes in v0.12.0 (T-R2.8; removed by T-R5.36, #749, after seven days of production logs held none); every rate-limit key moved, and `credential_limits_test.go` fails on a credential-minting operation without a limit (T-R2.7); `ratelimit_contract_test.go` pins every `x-rate-limit` block to the registry (T-R2.15) |
+| PR-6 | Legacy join codes stop working unannounced | Landed in R4: the API replaces every live legacy code once at start-up and tells each class's teacher in the app (T-R4.22, spec §6.1); the release note says so. R5 removed the job and the legacy lookup (T-R5.1, #750) |
 | PR-7 | Polling keeps Neon awake | Principal cache; polling stops after idle, not only when hidden; compute hours measured after R4 and R7 |
 | PR-8 | English-only deck leaks English into the product | vi first per PR; `no-hardcoded-strings` and parity tests; a native review before v1.0 |
 | PR-9 | The deck keeps changing under the work | The manifest pins the imported version; re-imports are PRs that say which screens changed |
