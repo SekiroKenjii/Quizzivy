@@ -32,8 +32,7 @@ works.
 - Every bearer operation declares `x-permission`; every uuid it takes has an `x-resource`
   kind, and a `/teacher/*` list also declares `x-resource-list`; a `/teacher/*`, `/app/*` or
   `/me/*` operation gets its isolation-suite entry (`server/tests/isolation_cases_test.go`)
-  in the same PR. `permissions.golden` changes with it. A new operation never joins
-  `LegacyAdminPaths`.
+  in the same PR. `permissions.golden` changes with it.
 - Repositories take `access.Scope`. `Own()` belongs only to the six teacher content lists.
   Call `access.CanActOn`; never restate it. Students only through `app.student_like_roles`.
 - Validation is the contract's job (`httpx.ValidateRequests`). Handlers own only rules a

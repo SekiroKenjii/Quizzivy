@@ -617,6 +617,8 @@ and the session ends: a forced sign-in, rare and self-healing. Options, in order
 **Default:** kept in v0.10.0. Removing it (T-R3.3) needs seven days of production
 `legacy_admin_path` logs read first. R5 removes it when it gives `/admin` to the Admin console,
 as T-R5.36 (`75-r5.md`), before T-R5.11's `/admin/classes`.
+**Resolved:** removed in T-R5.36 (#749) after a production read of 0 `legacy_admin_path` lines in
+the seven days to 2026-10-19, with a `livez` control search matching across the same days.
 
 ---
 

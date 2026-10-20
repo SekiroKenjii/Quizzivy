@@ -60,8 +60,6 @@ distributed components, generic layers or rewrites to look thorough.
   locks (`questions.LockForDraftUse`, `media.LockForVersionUse`).
 - Invariants: the student-payload leak rule, append-only `attempt_events` and `audit_log`,
   the single-flight refresh, published snapshots, and the five canaries left untouched.
-- Compatibility windows: the `/admin/*` alias, `users.role` and the fill triggers stay
-  until v0.9.1 (T-R3.1 to T-R3.3, no earlier than 2026-10-10; T-R4.49 if R4 ships first).
 - Clarity: names, small cohesive functions, explicit control flow, and comments only where
   `AGENTS.md` "Code style" allows them.
 
