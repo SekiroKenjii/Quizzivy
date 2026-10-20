@@ -12,9 +12,10 @@
 -- waiting. Every account's password is quizzivy-dev.
 --
 -- Times are relative to now(), so "last active" and the activity chart read
--- the same whenever the seed runs. Ids are fixed (…0000009 + a number); the
--- audit entries and activity days are inserted once, while none from this
--- file exist, since audit_log has no natural key to conflict on.
+-- the same whenever the seed runs. Ids are fixed (…0000009 + a number). The
+-- audit entries are inserted once, while none from this file exist, since
+-- audit_log has no natural key to conflict on; a later run adds only the
+-- activity days since the last one.
 
 INSERT INTO app.users
   (id, email, full_name, role_id, password_hash, must_change_password, disabled_at,
