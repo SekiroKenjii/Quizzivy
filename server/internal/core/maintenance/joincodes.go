@@ -42,7 +42,7 @@ type UnopenedCode struct {
 // in id order in batches of batch rows, one transaction each, and writes only
 // code_hash, code_ciphertext and key_id. A code that does not open is listed
 // in Unopened and left where it is. Legacy codes hold no ciphertext and
-// cannot be re-keyed; R4 rotates them. keys must hold a previous key, and
+// cannot be re-keyed; R4 rotated the live ones. keys must hold a previous key, and
 // -apply refuses while an active code is sealed under a key id that is
 // neither key, because one of the two keys given is then not the pair the
 // API runs with. A dry run opens every code and writes nothing.

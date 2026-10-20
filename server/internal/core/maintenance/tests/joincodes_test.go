@@ -94,8 +94,8 @@ func newRekeyWorld(t *testing.T) *rekeyWorld {
 		t.Fatal(err)
 	}
 	legacyClass := w.id(t, `INSERT INTO app.classes (name, teacher_id) VALUES ($1, $2) RETURNING id::text`, "Lớp mã cũ "+n, w.teacher)
-	w.legacy = w.id(t, `INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by)
-		VALUES ($1, sha256($2::bytea), 'EGAC', now() + interval '30 days', $3) RETURNING id::text`, legacyClass, n, w.teacher)
+	w.legacy = w.id(t, `INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, revoked_at, created_by)
+		VALUES ($1, sha256($2::bytea), 'EGAC', now() + interval '30 days', now(), $3) RETURNING id::text`, legacyClass, n, w.teacher)
 	return w
 }
 

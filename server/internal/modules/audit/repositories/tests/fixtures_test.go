@@ -62,8 +62,8 @@ func (f fixtures) all() map[string]fixture {
 		"code": {"class_join_code", func(label string) string {
 			class := w.class(label, f.owner)
 			return w.insertID(`
-				INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by)
-				VALUES ($1::uuid, sha256($2::bytea), 'AB12', now() + interval '1 day', $3::uuid) RETURNING id::text`,
+				INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by, lookup_scheme, key_id, code_ciphertext)
+				VALUES ($1::uuid, sha256($2::bytea), 'AB12', now() + interval '1 day', $3::uuid, 2, 7, decode(repeat('00', 36), 'hex')) RETURNING id::text`,
 				`DELETE FROM app.class_join_codes WHERE id = $1::uuid`, class, label, f.owner)
 		}},
 		"test": {"test", f.test},

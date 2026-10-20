@@ -421,8 +421,8 @@ func TestAStudentListsTheirOwnClassesWithoutTheCode(t *testing.T) {
 	}
 	// An active code, so the blanking is tested against something.
 	if _, err := pool.Exec(ctx,
-		`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by)
-		 VALUES ($1::uuid, sha256('secret'::bytea), 'P9QR', now() + interval '1 day', $2::uuid)`,
+		`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by, lookup_scheme, key_id, code_ciphertext)
+		 VALUES ($1::uuid, sha256('secret'::bytea), 'P9QR', now() + interval '1 day', $2::uuid, 2, 7, decode(repeat('00', 36), 'hex'))`,
 		classID, teacherID); err != nil {
 		t.Fatal(err)
 	}

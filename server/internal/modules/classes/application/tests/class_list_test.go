@@ -66,11 +66,10 @@ func newCodeWorld(t *testing.T) *codeWorld {
 	w := &codeWorld{pool: pool, marker: "dm" + nonce(t), logs: &bytes.Buffer{}, classes: map[string]string{}}
 	_, w.teacher, _ = makeClassRow(t, pool)
 	_, w.other, _ = makeClassRow(t, pool)
-	for _, name := range []string{"sealed", "legacy", "none", "lost", "tampered"} {
+	for _, name := range []string{"sealed", "none", "lost", "tampered"} {
 		w.classes[name] = extraClass(t, pool, w.teacher, w.marker+" "+name)
 	}
 	issueCode(t, withKeys(pool, mustJoinCodeKeys(joinKeyA, nil)), w.classes["sealed"], w.teacher)
-	legacyCode(t, pool, w.classes["legacy"], w.teacher)
 	issueCode(t, withKeys(pool, mustJoinCodeKeys(joinKeyC, nil)), w.classes["lost"], w.teacher)
 	issueCode(t, withKeys(pool, mustJoinCodeKeys(joinKeyA, nil)), w.classes["tampered"], w.teacher)
 	if _, err := pool.Exec(context.Background(), `
@@ -134,12 +133,12 @@ func TestTheListOpensACodeExactlyWhereReadingItByIdWould(t *testing.T) {
 	}
 
 	owner := w.list(t, callers["the class's teacher"], true)
-	if owner[w.classes["sealed"]].Code == "" || owner[w.classes["legacy"]].Code != "" || owner[w.classes["lost"]].Code != "" {
-		t.Errorf("the teacher's list opens the sealed code (%q), and neither the legacy (%q) nor the lost (%q)",
-			owner[w.classes["sealed"]].Code, owner[w.classes["legacy"]].Code, owner[w.classes["lost"]].Code)
+	if owner[w.classes["sealed"]].Code == "" || owner[w.classes["lost"]].Code != "" {
+		t.Errorf("the teacher's list opens the sealed code (%q), and not the lost (%q)",
+			owner[w.classes["sealed"]].Code, owner[w.classes["lost"]].Code)
 	}
-	if !owner[w.classes["legacy"]].JoinCode.Legacy || owner[w.classes["sealed"]].JoinCode.Legacy {
-		t.Error("the legacy flag does not follow the stored scheme")
+	if owner[w.classes["sealed"]].JoinCode.Legacy {
+		t.Error("a sealed code is listed as legacy")
 	}
 	if logs := w.logs.String(); !strings.Contains(logs, w.classes["tampered"]) || strings.Contains(logs, owner[w.classes["sealed"]].Code) {
 		t.Errorf("the tampered code must be logged by class, and no code may be logged:\n%s", logs)
@@ -248,8 +247,8 @@ func TestReadingActiveCodesInBulkAppliesTheScopeItself(t *testing.T) {
 		scope access.Scope
 		want  int
 	}{
-		"the class's teacher": {access.Scope{UserID: w.teacher}, 4},
-		"scope.all":           {everyone, 4},
+		"the class's teacher": {access.Scope{UserID: w.teacher}, 3},
+		"scope.all":           {everyone, 3},
 		"another teacher":     {access.Scope{UserID: w.other}, 0},
 		"no one":              {access.Scope{}, 0},
 	} {

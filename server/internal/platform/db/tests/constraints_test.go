@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"strings"
 	"testing"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
@@ -188,8 +189,8 @@ func TestRefreshTokenCannotExpireBeforeItIsIssued(t *testing.T) {
 func TestJoinCodeCannotExceedMaxUses(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "class_join_codes_not_over_used",
-			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, max_uses, uses_count, created_by)
-			 VALUES ($1, sha256('c'::bytea), 'AB12', now() + interval '30 days', 5, 6, $2)`,
+			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, max_uses, uses_count, created_by, lookup_scheme, key_id, code_ciphertext)
+			 VALUES ($1, sha256('c'::bytea), 'AB12', now() + interval '30 days', 5, 6, $2, 2, 7, decode(repeat('00', 36), 'hex'))`,
 			f.classID, f.adminID)
 	})
 }
@@ -197,8 +198,8 @@ func TestJoinCodeCannotExceedMaxUses(t *testing.T) {
 func TestJoinCodeCannotExpireBeforeItIsCreated(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "class_join_codes_expiry_after_creation",
-			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by)
-			 VALUES ($1, sha256('c'::bytea), 'AB12', now() - interval '1 day', $2)`,
+			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by, lookup_scheme, key_id, code_ciphertext)
+			 VALUES ($1, sha256('c'::bytea), 'AB12', now() - interval '1 day', $2, 2, 7, decode(repeat('00', 36), 'hex'))`,
 			f.classID, f.adminID)
 	})
 }
@@ -206,12 +207,12 @@ func TestJoinCodeCannotExpireBeforeItIsCreated(t *testing.T) {
 func TestOnlyOneActiveCodePerClass(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		mustExec(t, tx,
-			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by)
-			 VALUES ($1, sha256('one'::bytea), 'AB12', now() + interval '30 days', $2)`,
+			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by, lookup_scheme, key_id, code_ciphertext)
+			 VALUES ($1, sha256('one'::bytea), 'AB12', now() + interval '30 days', $2, 2, 7, decode(repeat('00', 36), 'hex'))`,
 			f.classID, f.adminID)
 		rejectsWith(t, tx, "class_join_codes_one_active",
-			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by)
-			 VALUES ($1, sha256('two'::bytea), 'CD34', now() + interval '30 days', $2)`,
+			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by, lookup_scheme, key_id, code_ciphertext)
+			 VALUES ($1, sha256('two'::bytea), 'CD34', now() + interval '30 days', $2, 2, 7, decode(repeat('00', 36), 'hex'))`,
 			f.classID, f.adminID)
 	})
 }
@@ -219,12 +220,12 @@ func TestOnlyOneActiveCodePerClass(t *testing.T) {
 func TestRevokingFreesTheActiveSlot(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		mustExec(t, tx,
-			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, revoked_at, created_by)
-			 VALUES ($1, sha256('old'::bytea), 'AB12', now() + interval '30 days', now(), $2)`,
+			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, revoked_at, created_by, lookup_scheme, key_id, code_ciphertext)
+			 VALUES ($1, sha256('old'::bytea), 'AB12', now() + interval '30 days', now(), $2, 2, 7, decode(repeat('00', 36), 'hex'))`,
 			f.classID, f.adminID)
 		mustExec(t, tx,
-			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by)
-			 VALUES ($1, sha256('new'::bytea), 'CD34', now() + interval '30 days', $2)`,
+			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by, lookup_scheme, key_id, code_ciphertext)
+			 VALUES ($1, sha256('new'::bytea), 'CD34', now() + interval '30 days', $2, 2, 7, decode(repeat('00', 36), 'hex'))`,
 			f.classID, f.adminID)
 	})
 }
@@ -232,20 +233,20 @@ func TestRevokingFreesTheActiveSlot(t *testing.T) {
 func TestAnExpiredCodeStillOccupiesTheActiveSlot(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		mustExec(t, tx,
-			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by)
-			 VALUES ($1, sha256('expired'::bytea), 'AB12', now() + interval '1 second', $2)`,
+			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by, lookup_scheme, key_id, code_ciphertext)
+			 VALUES ($1, sha256('expired'::bytea), 'AB12', now() + interval '1 second', $2, 2, 7, decode(repeat('00', 36), 'hex'))`,
 			f.classID, f.adminID)
 		rejectsWith(t, tx, "class_join_codes_one_active",
-			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by)
-			 VALUES ($1, sha256('fresh'::bytea), 'CD34', now() + interval '30 days', $2)`,
+			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by, lookup_scheme, key_id, code_ciphertext)
+			 VALUES ($1, sha256('fresh'::bytea), 'CD34', now() + interval '30 days', $2, 2, 7, decode(repeat('00', 36), 'hex'))`,
 			f.classID, f.adminID)
 	})
 }
 
 func TestAJoinCodeRowIsEitherLegacyOrFullySealed(t *testing.T) {
 	const insert = `INSERT INTO app.class_join_codes
-		       (class_id, code_hash, code_hint, expires_at, created_by, lookup_scheme, code_ciphertext, key_id)
-		VALUES ($1, sha256(gen_random_uuid()::text::bytea), 'AB12', now() + interval '30 days', $2, $3, $4, $5)`
+		       (class_id, code_hash, code_hint, expires_at, created_by, lookup_scheme, code_ciphertext, key_id, revoked_at)
+		VALUES ($1, sha256(gen_random_uuid()::text::bytea), 'AB12', now() + interval '30 days', $2, $3, $4, $5, $6)`
 	sealed := make([]byte, 36)
 	for name, c := range map[string]struct {
 		constraint string
@@ -264,14 +265,37 @@ func TestAJoinCodeRowIsEitherLegacyOrFullySealed(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
-				rejectsWith(t, tx, c.constraint, insert, f.classID, f.adminID, c.scheme, c.ciphertext, c.keyID)
+				rejectsWith(t, tx, c.constraint, insert, f.classID, f.adminID, c.scheme, c.ciphertext, c.keyID, time.Now())
 			})
 		})
 	}
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
-		mustExec(t, tx, insert, f.classID, f.adminID, 2, sealed, 7)
+		mustExec(t, tx, insert, f.classID, f.adminID, 2, sealed, 7, nil)
 		mustExec(t, tx, `UPDATE app.class_join_codes SET revoked_at = now() WHERE class_id = $1`, f.classID)
-		mustExec(t, tx, insert, f.classID, f.adminID, 1, nil, nil)
+		mustExec(t, tx, insert, f.classID, f.adminID, 1, nil, nil, time.Now())
+	})
+}
+
+func TestACodeThatIsNotRevokedIsSealed(t *testing.T) {
+	const insert = `INSERT INTO app.class_join_codes
+		       (class_id, code_hash, code_hint, expires_at, created_by)
+		VALUES ($1, sha256(gen_random_uuid()::text::bytea), 'AB12', $3::timestamptz, $2)`
+	for name, expires := range map[string]time.Time{
+		"a live legacy code":      time.Now().Add(30 * 24 * time.Hour),
+		"an expiring legacy code": time.Now().Add(time.Second),
+	} {
+		t.Run(name, func(t *testing.T) {
+			withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+				rejectsWith(t, tx, "class_join_codes_live_encrypted", insert, f.classID, f.adminID, expires)
+			})
+		})
+	}
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		mustExec(t, tx, `INSERT INTO app.class_join_codes
+		       (class_id, code_hash, code_hint, expires_at, created_by, lookup_scheme, key_id, code_ciphertext)
+		VALUES ($1, sha256(gen_random_uuid()::text::bytea), 'AB12', now() + interval '30 days', $2, 2, 7, decode(repeat('00', 36), 'hex'))`, f.classID, f.adminID)
+		rejectsWith(t, tx, "class_join_codes_live_encrypted",
+			`UPDATE app.class_join_codes SET lookup_scheme = 1, key_id = NULL, code_ciphertext = NULL WHERE class_id = $1`, f.classID)
 	})
 }
 
@@ -297,8 +321,8 @@ func TestCodeJoinRecordsWhichCode(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		var codeID string
 		if err := tx.QueryRow(
-			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by)
-			 VALUES ($1, sha256('c'::bytea), 'AB12', now() + interval '30 days', $2) RETURNING id`,
+			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by, lookup_scheme, key_id, code_ciphertext)
+			 VALUES ($1, sha256('c'::bytea), 'AB12', now() + interval '30 days', $2, 2, 7, decode(repeat('00', 36), 'hex')) RETURNING id`,
 			f.classID, f.adminID,
 		).Scan(&codeID); err != nil {
 			t.Fatal(err)
@@ -338,8 +362,8 @@ func TestAuditRowsSurviveTheirActor(t *testing.T) {
 func TestDeletingAUserWhoIssuedACodeIsRefused(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		mustExec(t, tx,
-			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by)
-			 VALUES ($1, sha256('c'::bytea), 'AB12', now() + interval '30 days', $2)`,
+			`INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, created_by, lookup_scheme, key_id, code_ciphertext)
+			 VALUES ($1, sha256('c'::bytea), 'AB12', now() + interval '30 days', $2, 2, 7, decode(repeat('00', 36), 'hex'))`,
 			f.classID, f.adminID)
 		rejectsWith(t, tx, "class_join_codes_created_by_fkey",
 			`DELETE FROM app.users WHERE id = $1`, f.adminID)
