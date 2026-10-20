@@ -3157,8 +3157,6 @@
       "rowToGrade_other": "{{count}} bài chờ chấm"
     },
     "awaitingGradingHint": "Bài đã nộp, còn câu cần bạn chấm tay.",
-    "openAssignments": "Bài đang mở",
-    "openAssignmentsHint": "Đang trong thời gian làm bài.",
     "status": {
       "in_progress": "đang làm",
       "submitted": "nộp",

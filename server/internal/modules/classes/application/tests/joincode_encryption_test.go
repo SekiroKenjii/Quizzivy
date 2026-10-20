@@ -9,9 +9,12 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"quizzivy/internal/modules/classes/application"
@@ -46,16 +49,21 @@ func withKeys(pool *pgxpool.Pool, keys domain.JoinCodeKeys) *application.Applica
 	return application.New(repositories.NewPostgres(db.NewContext(pool)), nil, keys)
 }
 
-func legacyCode(t *testing.T, pool *pgxpool.Pool, classID, teacherID string) string {
+func legacyHash(code string) []byte {
+	sum := sha256.Sum256([]byte(code))
+	return sum[:]
+}
+
+func revokedLegacyCode(t *testing.T, pool *pgxpool.Pool, classID, teacherID string) string {
 	t.Helper()
 	code, err := domain.JoinCodes.Generate()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(context.Background(), `
-		INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, max_uses, created_by, created_at)
-		VALUES ($1, $2, $3, now() + interval '30 days', 40, $4, now())`,
-		classID, domain.JoinCodes.Hash(code), domain.JoinCodes.Hint(code), teacherID); err != nil {
+		INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, revoked_at, max_uses, created_by, created_at)
+		VALUES ($1, $2, $3, now() + interval '30 days', now(), 40, $4, now())`,
+		classID, legacyHash(code), domain.JoinCodes.Hint(code), teacherID); err != nil {
 		t.Fatalf("the v0.7.0 insert: %v", err)
 	}
 	return domain.JoinCodes.Format(code)
@@ -124,19 +132,39 @@ func TestANewCodeIsStoredSealedUnderTheKeyedScheme(t *testing.T) {
 	}
 }
 
-func TestALegacyCodePreviewsJoinsAndGoogleJoins(t *testing.T) {
+func TestARevokedLegacyCodeNeverMatches(t *testing.T) {
 	pool := newPool(t)
 	svc := newSvc(t, pool)
 	classID, teacherID, _ := makeClassRow(t, pool)
-	code := legacyCode(t, pool, classID, teacherID)
+	code := revokedLegacyCode(t, pool, classID, teacherID)
 
-	row := activeRow(t, pool, classID)
-	if row.scheme != int16(domain.LookupLegacy) || row.keyID != nil || row.ciphertext != nil {
-		t.Fatalf("the v0.7.0 insert is scheme %d, key %v, ciphertext %x", row.scheme, row.keyID, row.ciphertext)
+	refusesAll(t, pool, svc, code)
+	m := newMember(t)
+	dropUser(t, pool, m.Email)
+	google, err := svc.Commands.EnrolNewMember.Handle(context.Background(), command.EnrolNewMember{Member: m, Code: code})
+	if err != nil || google.Outcome != domain.PreviewInvalid {
+		t.Errorf("the Google join: %+v (%v), want PreviewInvalid", google, err)
 	}
-	joinsAll(t, pool, svc, classID, code)
-	if n := usesCount(t, pool, classID); n != 2 {
-		t.Errorf("uses_count = %d, want 2", n)
+	var uses int
+	if err := pool.QueryRow(context.Background(), `SELECT uses_count FROM app.class_join_codes WHERE class_id = $1`, classID).Scan(&uses); err != nil || uses != 0 {
+		t.Errorf("uses_count = %d (%v), want 0", uses, err)
+	}
+}
+
+func TestAnUnrevokedCodeWithoutACiphertextIsRefused(t *testing.T) {
+	pool := newPool(t)
+	classID, teacherID, _ := makeClassRow(t, pool)
+	code, err := domain.JoinCodes.Generate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = pool.Exec(context.Background(), `
+		INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, max_uses, created_by)
+		VALUES ($1, $2, $3, now() + interval '30 days', 40, $4)`,
+		classID, legacyHash(code), domain.JoinCodes.Hint(code), teacherID)
+	var pg *pgconn.PgError
+	if !errors.As(err, &pg) || pg.Code != pgerrcode.CheckViolation || pg.ConstraintName != "class_join_codes_live_encrypted" {
+		t.Fatalf("the v0.7.0 insert answered %v, want class_join_codes_live_encrypted", err)
 	}
 }
 
@@ -173,7 +201,7 @@ func TestAKeyedRowHoldingALegacyHashIsRefused(t *testing.T) {
 		INSERT INTO app.class_join_codes
 		       (class_id, code_hash, code_ciphertext, key_id, lookup_scheme, code_hint, expires_at, max_uses, created_by)
 		VALUES ($1, $2, $3, $4, 2, $5, now() + interval '30 days', 40, $6)`,
-		classID, domain.JoinCodes.Hash(code), junk, joinKeys.CurrentID(), domain.JoinCodes.Hint(code), teacherID); err != nil {
+		classID, legacyHash(code), junk, joinKeys.CurrentID(), domain.JoinCodes.Hint(code), teacherID); err != nil {
 		t.Fatal(err)
 	}
 	refusesAll(t, pool, svc, code)
@@ -195,7 +223,7 @@ func TestTheNewestRowWinsWhenTwoRowsHoldTheSameCode(t *testing.T) {
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO app.class_join_codes (class_id, code_hash, code_hint, expires_at, revoked_at, created_by, created_at)
 		VALUES ($1, $2, $3, now() + interval '30 days', now(), $4, now() - interval '1 hour')`,
-		oldClass, domain.JoinCodes.Hash(code), domain.JoinCodes.Hint(code), oldTeacher); err != nil {
+		oldClass, legacyHash(code), domain.JoinCodes.Hint(code), oldTeacher); err != nil {
 		t.Fatal(err)
 	}
 	id := uuid.Must(uuid.NewV7()).String()

@@ -5925,7 +5925,7 @@
       },
       "JoinCodeInfo": {
         "type": "object",
-        "description": "Metadata about the active code — **not the code itself**, which\n`getJoinCode` reads for its teacher. A code issued from v0.8.0 on\nis stored encrypted under a key the database does not hold and found\nby a keyed hash (§13.3), so a database dump does not hand it over. A\ncode issued before v0.8.0 is held only as its SHA-256 hash, which a\ndump can reverse beside the hint, until it is rotated (D5).\n",
+        "description": "Metadata about the active code — **not the code itself**, which\n`getJoinCode` reads for its teacher. A code issued from v0.8.0 on\nis stored encrypted under a key the database does not hold and found\nby a keyed hash (§13.3), so a database dump does not hand it over.\n",
         "required": [
           "hint",
           "expiresAt",
@@ -5991,7 +5991,7 @@
           },
           "legacy": {
             "type": "boolean",
-            "description": "True for a code issued before v0.8.0, held only as a hash until it is rotated."
+            "description": "Always false. It was true for a code issued before v0.8.0, held only as a hash, which can no longer be active."
           },
           "expiresAt": {
             "$ref": "#/components/schemas/Timestamp"
@@ -10707,14 +10707,11 @@
       },
       "Dashboard": {
         "type": "object",
-        "description": "The Teacher dashboard covers the caller's own teaching, including an Admin:\nassignments they created or targeting classes they teach, reachable papers on\nthem, and their classes. Its repository supports scope.all for a future Admin\nconsole, but this operation never requests it. Legacy fields retain their\nmeaning; T-R4.23 stops reading openAssignments, activeStudents, totalStudents\nand recentAttempts, and R5 removes them. Range affects submissions only.\n",
+        "description": "The Teacher dashboard covers the caller's own teaching, including an Admin:\nassignments they created or targeting classes they teach, reachable papers on\nthem, and their classes. Its repository supports scope.all for a future Admin\nconsole, but this operation never requests it. Range affects submissions only.\n",
         "required": [
-          "openAssignments",
           "awaitingGrading",
-          "activeStudents",
           "flaggedAttempts",
           "newestFlaggedAttempt",
-          "recentAttempts",
           "takingNow",
           "submissions",
           "today",
@@ -10739,11 +10736,6 @@
             ],
             "format": "date-time"
           },
-          "totalStudents": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Enabled student-like accounts in the classes the caller teaches, for an Admin too; this operation never requests the repository wide scope."
-          },
           "nextClosing": {
             "oneOf": [
               {
@@ -10754,18 +10746,9 @@
               }
             ]
           },
-          "openAssignments": {
-            "type": "integer",
-            "minimum": 0
-          },
           "awaitingGrading": {
             "type": "integer",
             "minimum": 0
-          },
-          "activeStudents": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Of the enabled student-like members of classes the caller teaches, those who started an attempt in the last seven days on an assignment they reach; an Admin has the same own scope and cannot request the repository wide reading here."
           },
           "flaggedAttempts": {
             "type": "integer",
@@ -10781,13 +10764,6 @@
               }
             ],
             "description": "Newest started currently flagged reachable paper, ordered by started_at then id descending, from the flagged count statement snapshot; null without grading or intervention permission or a matching paper. Historical, voided and former-roster papers remain eligible."
-          },
-          "recentAttempts": {
-            "type": "array",
-            "maxItems": 10,
-            "items": {
-              "$ref": "#/components/schemas/AttemptListRow"
-            }
           },
           "takingNow": {
             "$ref": "#/components/schemas/DashboardTakingNow"
@@ -13351,7 +13327,7 @@
         ],
         "security": [],
         "summary": "Look up a class by join code",
-        "description": "Backs the inline preview on `/join` and `/join/:code`, which exists so\nthe student sees **which class they are joining** before authenticating.\nNever create an account and enrol in one blind tap (§6.2).\n\nLookup is by a keyed hash of the normalized code, or by its SHA-256 for\na code issued before v0.8.0, compared in constant time. The plaintext\nis never stored; a code issued from v0.8.0 on is stored encrypted\n(§6.5).\n",
+        "description": "Backs the inline preview on `/join` and `/join/:code`, which exists so\nthe student sees **which class they are joining** before authenticating.\nNever create an account and enrol in one blind tap (§6.2).\n\nLookup is by a keyed hash of the normalized code, compared in constant\ntime. The plaintext is never stored; the code is stored encrypted\n(§6.5). A code issued before v0.8.0, held only as its SHA-256, answers\nas an unknown code.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -23848,7 +23824,7 @@
           "teacher-classes"
         ],
         "summary": "Read the class's active join code",
-        "description": "The active code of a class the caller teaches, or of any class under\n`scope.all`, with its metadata (D5). The code is a bearer secret: the\nresponse is never cached, and the operation is rate-limited like every\nother that reveals one. It is not audited, because the teacher's\nscreens show the code on every class card.\n\n`code` is `null` when the code cannot be read back. A code issued\nbefore v0.8.0 is held only as a hash (`legacy: true`), and R4 rotates\nthose. A code sealed under a key this server no longer holds\n(`legacy: false`) can be neither read nor redeemed. Rotate either to\nget a readable code.\n\n404 when the class is not the caller's, exactly as a missing class\nanswers, or when it has no active code.\n",
+        "description": "The active code of a class the caller teaches, or of any class under\n`scope.all`, with its metadata (D5). The code is a bearer secret: the\nresponse is never cached, and the operation is rate-limited like every\nother that reveals one. It is not audited, because the teacher's\nscreens show the code on every class card.\n\n`code` is `null` when the code cannot be read back: it is sealed under\na key this server no longer holds, and can be neither read nor\nredeemed. Rotate it to get a readable code. `legacy` is always false:\na code issued before v0.8.0, held only as a hash, was rotated in R4,\nand the database refuses one that is not revoked (§13.3).\n\n404 when the class is not the caller's, exactly as a missing class\nanswers, or when it has no active code.\n",
         "responses": {
           "200": {
             "description": "OK.",

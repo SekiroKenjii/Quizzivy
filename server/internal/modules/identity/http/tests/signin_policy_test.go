@@ -328,7 +328,11 @@ type liveCodeRepository struct {
 }
 
 func (liveCodeRepository) Enrol(_ context.Context, in classesdomain.EnrolInput) (classesdomain.EnrolResult, error) {
-	live := classesdomain.JoinCodes.Hash(liveJoinCode)
+	keys, err := classesdomain.NewJoinCodeKeys([]byte("0123456789abcdef0123456789abcdef"), nil)
+	if err != nil {
+		return classesdomain.EnrolResult{}, err
+	}
+	live := keys.Hash(liveJoinCode)
 	if !slices.ContainsFunc(in.Code.Hashes(), func(hash []byte) bool { return bytes.Equal(hash, live) }) {
 		return classesdomain.EnrolResult{Outcome: classesdomain.PreviewInvalid}, nil
 	}

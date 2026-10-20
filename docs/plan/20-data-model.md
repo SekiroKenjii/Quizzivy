@@ -1574,6 +1574,7 @@ the file it adds.
 | `00138_index_users_search.sql` | `users_search_trgm_idx`, built `CONCURRENTLY` (no transaction) | R5 (T-R5.9a), D-58 |
 | `00139_grant_maintenance_role.sql` | the grants of `quizzivy_maintenance`, column by column; fails when the role is missing; `app.users_maintenance_guard()` and its trigger `users_maintenance_guard` on `app.users` | R5 (T-R5.17a), D-60, §55 |
 | `00140_create_avatar_sweeps.sql` | `avatar_sweeps` and the `REVOKE UPDATE, DELETE` from the app role | R5 (T-R5.16), D-59, §56 |
+| `00141_require_encrypted_join_codes.sql` | refuses a live code without a ciphertext, revokes each expired unrevoked legacy code at its `expires_at`, and adds and validates `class_join_codes_live_encrypted`; Down drops the constraint and keeps the revocations | R5 (T-R5.1), §33 |
 
 Notes on migration mechanics (§13.7):
 
@@ -2479,9 +2480,21 @@ redeem one. Three columns join `app.class_join_codes`:
   binary's insert names none of the columns and is a legacy row.
 - **`code_hash` keeps its `UNIQUE` index**, and it is still the only lookup
   path: a typed code is searched as `code_hash = ANY(candidates)`, the keyed
-  hash under the current and the previous key and the legacy SHA-256. The
-  newest matching row is taken, and it counts only against the candidate of
-  its own scheme and key.
+  hash under the current and the previous key. The newest matching row is
+  taken, and it counts only against the candidate of its own key. From R5
+  (T-R5.1) the legacy SHA-256 is not a candidate, and a scheme-1 row never
+  matches: a revoked or expired legacy code answers as an unknown one.
+- **`class_join_codes_live_encrypted`** (`00141`, T-R5.1):
+  `CHECK (revoked_at IS NOT NULL OR code_ciphertext IS NOT NULL)`. A code that
+  is not revoked is a sealed one, so no binary can issue or keep a code that
+  only the legacy lookup would find. Expiry does not count: an unrevoked
+  legacy code past its expiry was revoked at its `expires_at` by `00141`
+  before the constraint was validated, and a sealed code that expires keeps
+  its ciphertext. The file first raises if any unrevoked, unexpired code lacks
+  a ciphertext; on production that count was 0 before the merge (T-R5.1's
+  pull request). `ADD … NOT VALID` then `VALIDATE` in the same file: the table
+  is small, and `VALIDATE` takes `SHARE UPDATE EXCLUSIVE`, which blocks no
+  read or write.
 - **The keys never reach the database.** A dump yields ciphertexts and keyed
   hashes; without `JOIN_CODE_KEY` neither opens nor can be hashed through the
   code space. A legacy row's SHA-256 still can, and quickly: beside the
@@ -2489,7 +2502,9 @@ redeem one. Three columns join `app.class_join_codes`:
   live legacy codes at start-up (D5, below).
 - **Down refuses** while an unrevoked, unexpired scheme-2 code exists,
   because the previous binary looks codes up by SHA-256 alone.
-- **The API replaces the legacy rows at start-up from v0.10.0 (T-R4.22):**
+- **The API replaced the legacy rows at start-up in v0.10.0 to v0.11.x
+  (T-R4.22); R5 removed the job with the lookup it served (T-R5.1), since
+  `class_join_codes_live_encrypted` leaves it nothing to find:**
   each unrevoked, unexpired scheme-1 row is revoked and a scheme-2 row is
   inserted for its class with the same `expires_at`, `max_uses` and
   `created_by` and `uses_count` (F-67), in one transaction per class under
@@ -2497,9 +2512,9 @@ redeem one. Three columns join `app.class_join_codes`:
   scheme-1 row is left as it is.
 - **Lock order for a class and its join codes (F-23).** The transactions that
   lock a class row and one of its code rows take them in these modes and orders:
-  - The start-up rotation takes advisory `(73819, 41)` (§28), then the class row
-    `FOR NO KEY UPDATE`, then the class's active scheme-1 code row `FOR UPDATE`.
-    `Rotate` and `Revoke` take the class row `FOR NO KEY UPDATE`, then update the
+  - Until R5, the start-up rotation took advisory `(73819, 41)` (§28), then the
+    class row `FOR NO KEY UPDATE`, then the class's active scheme-1 code row
+    `FOR UPDATE`. `Rotate` and `Revoke` take the class row `FOR NO KEY UPDATE`, then update the
     code row, and take no advisory key.
   - `Rotate` reads `archived_at` in that same locking `SELECT` (F-64), so the read
     and the lock are one statement: an `Archive`, which holds the same row lock for
@@ -2526,9 +2541,9 @@ redeem one. Three columns join `app.class_join_codes`:
     `claimCode`), so an `Archive` can commit between a claim and its insert; this
     predates F-23 and is unchanged. `Delete` stays as it is: taking the code rows first
     would invert it against `Rotate` and `Revoke`.
-  - A contender outside this list can still abort the rotation as a deadlock or
-    serialization victim; the repository answers `domain.ErrRotationContended` and
-    the command tries that class once more (T-R4.22).
+  - Until R5, a contender outside this list could abort the rotation as a
+    deadlock or serialization victim; the command tried that class once more
+    (T-R4.22).
 
 ## 34. Notifications (T-R4.10a)
 

@@ -18,12 +18,9 @@ type User = components["schemas"]["CurrentUser"];
 export const BASE = "http://localhost:8080";
 
 export const dashboardBody: Dashboard = {
-  openAssignments: 3,
   awaitingGrading: 6,
-  activeStudents: 0,
   flaggedAttempts: 0,
   newestFlaggedAttempt: null,
-  recentAttempts: [],
   takingNow: { students: 0, assignments: 0, assignmentId: null },
   submissions: {
     days: Array.from({ length: 14 }, (_, i) => ({

@@ -93,7 +93,6 @@ func (a *App) Serve(ctx context.Context) error {
 	go jobs.PruneRefreshTokens(ctx, a.logger, a.assembly.Identity, a.housekeep)
 	go a.assembly.Identity.RunActivity(ctx)
 	go jobs.PruneNotifications(ctx, a.logger, a.assembly.Notifications)
-	go jobs.RotateLegacyJoinCodes(ctx, a.logger, a.assembly.Classes)
 	go a.assembly.Mail.Run(ctx, a.logger)
 	if a.assembly.AI != nil {
 		go jobs.ReleaseStaleAiReservations(ctx, a.logger, a.assembly.AICredits)

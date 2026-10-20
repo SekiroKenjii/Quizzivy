@@ -39,10 +39,6 @@ func (h Dashboard) GetDashboard(ctx context.Context, request openapi.GetDashboar
 	if err != nil {
 		return nil, err
 	}
-	recent := make([]openapi.AttemptListRow, len(summary.Recent))
-	for i, r := range summary.Recent {
-		recent[i] = toAPIAttemptListRow(r)
-	}
 	var next *openapi.ClosingAssignment
 	if summary.NextClosing != nil {
 		row := summary.NextClosing
@@ -61,14 +57,11 @@ func (h Dashboard) GetDashboard(ctx context.Context, request openapi.GetDashboar
 	return openapi.GetDashboard200JSONResponse{
 		NewestFlaggedAttempt: flagged,
 		ClosingSoon:          &summary.ClosingSoon, WaitingStudents: &summary.WaitingStudents,
-		OldestWaitingAt: summary.OldestWaitingAt, TotalStudents: &summary.TotalStudents, NextClosing: next,
+		OldestWaitingAt: summary.OldestWaitingAt, NextClosing: next,
 		TakingNow:   openapi.DashboardTakingNow{Students: summary.TakingNow.Students, Assignments: summary.TakingNow.Assignments, AssignmentId: takingAssignment},
 		Submissions: submissions, Today: toAPIToday(summary.Today), RecentActivity: toAPIActivity(summary.RecentActivity),
-		OpenAssignments: summary.OpenAssignments,
 		AwaitingGrading: summary.AwaitingGrading,
-		ActiveStudents:  summary.ActiveStudents,
 		FlaggedAttempts: summary.FlaggedAttempts,
-		RecentAttempts:  recent,
 	}, nil
 }
 

@@ -24,12 +24,10 @@ func (a *Application) SetClock(now func() time.Time) {
 	a.enrolment.SetClock(now)
 }
 
-// WithNotifier supplies the notifier RotateLegacyJoinCodes tells each teacher
-// through, and the enrolments tell a class's teacher of a join by code. Without
-// one the commands rotate and enrol and tell nobody.
+// WithNotifier supplies the notifier the enrolments tell a class's teacher of
+// a join by code through. Without one the commands enrol and tell nobody.
 func (a *Application) WithNotifier(notifier ports.Notifier) *Application {
 	a.enrolment.Notifier = notifier
-	a.Commands.RotateLegacyJoinCodes = command.RotateLegacyJoinCodesHandler{Enrolment: a.enrolment, Notifier: notifier}
 	return a
 }
 
@@ -84,8 +82,6 @@ type Commands struct {
 
 	CreateForTeacher cqrs.CommandHandler[command.CreateForTeacher, domain.Class]
 	ChangeTeacher    cqrs.CommandHandler[command.ChangeTeacher, domain.Class]
-
-	RotateLegacyJoinCodes cqrs.CommandHandler[command.RotateLegacyJoinCodes, domain.LegacyRotation]
 }
 
 type Queries struct {
@@ -99,8 +95,8 @@ type Queries struct {
 	Preview    cqrs.QueryHandler[query.Preview, domain.PreviewResult]
 }
 
-// New builds the module. keys seal new join codes and find every code, legacy
-// or keyed, under the current and previous key.
+// New builds the module. keys seal new join codes and find every code under
+// the current and previous key.
 func New(repo domain.Repository, stats stats.Source, keys domain.JoinCodeKeys) *Application {
 	enrolment := support.NewEnrolment(repo, keys)
 	service := support.NewService(repo, stats)
@@ -116,8 +112,6 @@ func New(repo domain.Repository, stats stats.Source, keys domain.JoinCodeKeys) *
 			Revoke:         command.RevokeHandler{Enrolment: enrolment},
 			Rotate:         command.RotateHandler{Enrolment: enrolment},
 			Update:         command.UpdateHandler{Service: service},
-
-			RotateLegacyJoinCodes: command.RotateLegacyJoinCodesHandler{Enrolment: enrolment},
 
 			CreateForTeacher: command.CreateForTeacherHandler{Service: service, Codes: enrolment},
 			ChangeTeacher:    command.ChangeTeacherHandler{Service: service, Codes: enrolment},

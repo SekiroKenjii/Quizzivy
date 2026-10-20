@@ -5,7 +5,6 @@ package repositories_test
 import (
 	"context"
 	"errors"
-	"slices"
 	"testing"
 	"time"
 
@@ -146,16 +145,15 @@ func (w *homeWorld) summary(t *testing.T, scope access.Scope) domain.Summary {
 }
 
 type figures struct {
-	open, awaiting, active, flagged, closingSoon, waiting, total int
-	oldest                                                       *time.Time
-	next                                                         string
-	submittedCount, targetCount                                  int
-	recent                                                       []string
+	awaiting, flagged, closingSoon, waiting int
+	oldest                                  *time.Time
+	next                                    string
+	submittedCount, targetCount             int
 }
 
 func figuresOf(s domain.Summary) figures {
-	f := figures{open: s.OpenAssignments, awaiting: s.AwaitingGrading, active: s.ActiveStudents, flagged: s.FlaggedAttempts,
-		closingSoon: s.ClosingSoon, waiting: s.WaitingStudents, total: s.TotalStudents, oldest: s.OldestWaitingAt, recent: ids(s.Recent)}
+	f := figures{awaiting: s.AwaitingGrading, flagged: s.FlaggedAttempts,
+		closingSoon: s.ClosingSoon, waiting: s.WaitingStudents, oldest: s.OldestWaitingAt}
 	if s.NextClosing != nil {
 		f.next, f.submittedCount, f.targetCount = s.NextClosing.ID, s.NextClosing.SubmittedCount, s.NextClosing.TargetCount
 	}
@@ -164,9 +162,9 @@ func figuresOf(s domain.Summary) figures {
 
 func sameFigures(a, b figures) bool {
 	sameOldest := (a.oldest == nil) == (b.oldest == nil) && (a.oldest == nil || a.oldest.Equal(*b.oldest))
-	return sameOldest && a.open == b.open && a.awaiting == b.awaiting && a.active == b.active && a.flagged == b.flagged &&
-		a.closingSoon == b.closingSoon && a.waiting == b.waiting && a.total == b.total && a.next == b.next &&
-		a.submittedCount == b.submittedCount && a.targetCount == b.targetCount && slices.Equal(a.recent, b.recent)
+	return sameOldest && a.awaiting == b.awaiting && a.flagged == b.flagged &&
+		a.closingSoon == b.closingSoon && a.waiting == b.waiting && a.next == b.next &&
+		a.submittedCount == b.submittedCount && a.targetCount == b.targetCount
 }
 
 func TestEachReaderSeesOnlyWhatTheyReachOnTheirHome(t *testing.T) {
@@ -175,13 +173,13 @@ func TestEachReaderSeesOnlyWhatTheyReachOnTheirHome(t *testing.T) {
 		scope access.Scope
 		want  figures
 	}{
-		"B": {access.Scope{UserID: w.b}, figures{open: 3, awaiting: 4, active: 1, flagged: 2, closingSoon: 2, waiting: 3, total: 3,
-			oldest: w.submitted(t, w.p7), next: w.aM, submittedCount: 2, targetCount: 4, recent: []string{w.p8, w.p6, w.p5, w.p1, w.p7, w.p10}}},
-		"A": {access.Scope{UserID: w.a}, figures{open: 2, awaiting: 3, active: 2, flagged: 3, closingSoon: 2, waiting: 2, total: 2,
-			oldest: w.submitted(t, w.p2), next: w.aA, submittedCount: 2, targetCount: 2, recent: []string{w.p4, w.p3, w.p2}}},
-		"the Admin without scope.all": {access.Scope{UserID: w.admin}, figures{open: 1, awaiting: 2, active: 0, flagged: 1, closingSoon: 1, waiting: 2, total: 0,
-			oldest: w.submitted(t, w.p4), next: w.aM, submittedCount: 2, targetCount: 2, recent: []string{w.p5, w.p4}}},
-		"the zero scope": {access.Scope{}, figures{recent: []string{}}},
+		"B": {access.Scope{UserID: w.b}, figures{awaiting: 4, flagged: 2, closingSoon: 2, waiting: 3,
+			oldest: w.submitted(t, w.p7), next: w.aM, submittedCount: 2, targetCount: 4}},
+		"A": {access.Scope{UserID: w.a}, figures{awaiting: 3, flagged: 3, closingSoon: 2, waiting: 2,
+			oldest: w.submitted(t, w.p2), next: w.aA, submittedCount: 2, targetCount: 2}},
+		"the Admin without scope.all": {access.Scope{UserID: w.admin}, figures{awaiting: 2, flagged: 1, closingSoon: 1, waiting: 2,
+			oldest: w.submitted(t, w.p4), next: w.aM, submittedCount: 2, targetCount: 2}},
+		"the zero scope": {access.Scope{}, figures{}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := figuresOf(w.summary(t, c.scope)); !sameFigures(got, c.want) {
@@ -224,15 +222,6 @@ func TestEveryFigureAgreesWithThePageItOpens(t *testing.T) {
 				t.Errorf("awaiting %d from %d students since %v, the queue holds %d from %d since %v",
 					home.AwaitingGrading, home.WaitingStudents, home.OldestWaitingAt, pending, len(students), oldest)
 			}
-			all, _, err := store.List(ctx, domain.ListQuery{Scope: scope, Limit: 100})
-			if err != nil {
-				t.Fatal(err)
-			}
-			for _, id := range ids(home.Recent) {
-				if !has(all, id) {
-					t.Errorf("recent attempt %s is not in the reader's attempt list", id)
-				}
-			}
 			if home.ClosingSoon == 0 || home.NextClosing == nil {
 				t.Fatalf("closing soon %d with next %v", home.ClosingSoon, home.NextClosing)
 			}
@@ -254,9 +243,8 @@ func TestScopeAllReadsExactlyWhatTheUnscopedHomeRead(t *testing.T) {
 	before := legacySummary(t, tx)
 	w := buildHome(t, tx)
 	after := legacySummary(t, tx)
-	if after.OpenAssignments-before.OpenAssignments != 4 || after.TotalStudents-before.TotalStudents != 8 {
-		t.Fatalf("the fixture moved open by %d and students by %d, want 4 and 8",
-			after.OpenAssignments-before.OpenAssignments, after.TotalStudents-before.TotalStudents)
+	if after.ClosingSoon-before.ClosingSoon != 3 {
+		t.Fatalf("the fixture moved closing soon by %d, want 3", after.ClosingSoon-before.ClosingSoon)
 	}
 	for name, scope := range map[string]access.Scope{"everyone": everyone, "a scope.all reader who teaches classes of their own": {UserID: w.b, All: true}} {
 		if got, want := figuresOf(w.summary(t, scope)), figuresOf(after); !sameFigures(got, want) {
@@ -271,18 +259,11 @@ func legacySummary(t *testing.T, q db.Querier) domain.Summary {
 	var out domain.Summary
 	if err := q.QueryRow(ctx, `
 		SELECT
-		  (SELECT count(*) FROM app.assignments a
-		    WHERE a.published_at IS NOT NULL
-		      AND a.closed_at IS NULL
-		      AND now() >= a.opens_at AND now() < a.closes_at),
 		  (SELECT count(*)
 		     FROM app.attempt_answers ans
 		     JOIN app.attempts at ON at.id = ans.attempt_id
 		    WHERE ans.requires_manual AND ans.manual_score IS NULL
 		      AND at.status IN ('submitted', 'timed_out')),
-		  (SELECT count(DISTINCT at.student_id) FROM app.attempts at
-             JOIN app.users u ON u.id = at.student_id AND u.disabled_at IS NULL
-		    WHERE at.started_at >= now() - $1::interval),
 		  (SELECT count(*) FROM app.attempts at WHERE at.flagged),
           (SELECT count(*) FROM app.assignments a WHERE a.published_at IS NOT NULL
              AND a.closed_at IS NULL AND a.opens_at <= now() AND a.closes_at > now()
@@ -293,11 +274,10 @@ func legacySummary(t *testing.T, q db.Querier) domain.Summary {
           (SELECT min(at.submitted_at) FROM app.attempts at
              WHERE at.status IN ('submitted','timed_out') AND EXISTS (
                SELECT 1 FROM app.attempt_answers ans WHERE ans.attempt_id = at.id
-                 AND ans.requires_manual AND ans.manual_score IS NULL)),
-          (SELECT count(*) FROM app.users u WHERE u.disabled_at IS NULL AND u.role_id IN (SELECT r.id FROM app.student_like_roles r))
-	`, domain.ActiveWindow).Scan(
-		&out.OpenAssignments, &out.AwaitingGrading, &out.ActiveStudents, &out.FlaggedAttempts,
-		&out.ClosingSoon, &out.WaitingStudents, &out.OldestWaitingAt, &out.TotalStudents); err != nil {
+                 AND ans.requires_manual AND ans.manual_score IS NULL))
+	`).Scan(
+		&out.AwaitingGrading, &out.FlaggedAttempts,
+		&out.ClosingSoon, &out.WaitingStudents, &out.OldestWaitingAt); err != nil {
 		t.Fatal(err)
 	}
 	var next domain.ClosingAssignment
@@ -322,62 +302,5 @@ func legacySummary(t *testing.T, q db.Querier) domain.Summary {
 	case !errors.Is(err, pgx.ErrNoRows):
 		t.Fatal(err)
 	}
-	rows, err := q.Query(ctx, `
-		SELECT at.id::text, at.student_id::text, u.full_name,
-		       at.assignment_id::text, t.title, at.status::text, at.submitted_at,
-		       (SELECT count(*) FROM app.attempt_answers ans
-		         WHERE ans.attempt_id = at.id
-		           AND ans.requires_manual AND ans.manual_score IS NULL),
-		       at.flagged
-		  FROM app.attempts at
-		  JOIN app.users u ON u.id = at.student_id
-		  JOIN app.assignments a ON a.id = at.assignment_id
-		  JOIN app.tests t ON t.id = a.test_id
-		 ORDER BY at.started_at DESC
-		 LIMIT 10`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var r domain.Recent
-		if err := rows.Scan(&r.ID, &r.StudentID, &r.StudentName, &r.AssignmentID, &r.TestTitle, &r.Status, &r.SubmittedAt, &r.PendingManual, &r.Flagged); err != nil {
-			t.Fatal(err)
-		}
-		out.Recent = append(out.Recent, r)
-	}
-	if err := rows.Err(); err != nil {
-		t.Fatal(err)
-	}
 	return out
-}
-
-func TestScopeAllCountsStudentsByWhatTheirRoleHoldsNow(t *testing.T) {
-	w := &homeWorld{tx: isolated(t, newPool(t))}
-	total := func() int { return w.summary(t, everyone).TotalStudents }
-	role := func(key string) string {
-		id := w.id(t, `INSERT INTO app.roles (name, icon, color) VALUES ('Trang chủ ' || gen_random_uuid()::text, 'user', 'gray') RETURNING id::text`)
-		w.id(t, `INSERT INTO app.role_permissions (role_id, permission_key) VALUES ($1::uuid, $2) RETURNING permission_key`, id, key)
-		return id
-	}
-	holder := func(role string) {
-		w.id(t, `INSERT INTO app.users (email, full_name, role_id) VALUES (gen_random_uuid()::text || '@example.test', 'Vai tuỳ chỉnh', $1::uuid) RETURNING id::text`, role)
-	}
-	start := total()
-	grader := role("learning.take_tests")
-	holder(grader)
-	w.id(t, `INSERT INTO app.role_permissions (role_id, permission_key) VALUES ($1::uuid, 'teaching.grading') RETURNING permission_key`, grader)
-	if got := total(); got != start {
-		t.Errorf("a role granted grading after it was assigned moved the student count by %d", got-start)
-	}
-	emptied := role("teaching.grading")
-	holder(emptied)
-	w.id(t, `DELETE FROM app.role_permissions WHERE role_id = $1::uuid RETURNING permission_key`, emptied)
-	if got := total(); got != start+1 {
-		t.Errorf("a role emptied after it was assigned moved the student count by %d, want 1", got-start)
-	}
-	w.user(t, "admin", nil)
-	if got := total(); got != start+1 {
-		t.Errorf("an Admin moved the student count by %d, want 1 in all", got-start)
-	}
 }

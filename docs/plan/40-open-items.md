@@ -798,6 +798,13 @@ confirms, naming the kinds the recipient cannot edit.
 build `userIds`. The first screen that adds several members at once builds the batch, as its own
 operation if its response differs from the single add's.
 
+### O-R5.13 — What the legacy join codes leave behind · post-R5 cleanup (D-058)
+**Decided:** T-R5.1 removed the legacy lookup and the start-up rotation, and kept two things.
+`JoinCode.legacy` stays in the contract, always false, and is not marked deprecated, because
+the generated marker would fail staticcheck's SA1019 where the server sets it. Remove it in a
+contract change after R5. The `join_codes.rotated` notification kind stays while stored rows
+still render. Remove it once the notification prune has deleted the last row of that kind.
+
 ---
 
 ## Answered during planning

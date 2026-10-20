@@ -3157,8 +3157,6 @@
       "rowToGrade_other": "{{count}} to grade"
     },
     "awaitingGradingHint": "Submitted, with answers only you can score.",
-    "openAssignments": "Open assignments",
-    "openAssignmentsHint": "Inside their window right now.",
     "status": {
       "in_progress": "started",
       "submitted": "submitted",
