@@ -85,7 +85,7 @@ function RetentionRow({
               aria-labelledby={`${id}-label`}
               aria-describedby={`${id}-hint`}
               aria-disabled={saving || undefined}
-              className="aria-disabled:text-foreground/50 w-44"
+              className="aria-disabled:text-foreground/50 w-auto max-w-full min-w-36"
               onBlur={field.onBlur}
             >
               <SelectValue />

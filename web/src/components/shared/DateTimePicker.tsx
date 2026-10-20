@@ -94,7 +94,7 @@ export function DateTimePicker({
             }
           }}
           className={cn(
-            "border-border hover:border-ring text-ui flex h-9.5 w-full items-center gap-2 rounded-md border px-2.5 text-left leading-normal font-normal shadow-none",
+            "bg-bg hover:bg-bg dark:bg-bg dark:hover:bg-bg border-border hover:border-ring text-ui flex h-9.5 w-full items-center gap-2 rounded-md border px-2.5 text-left leading-normal font-normal shadow-none",
             className,
           )}
         >

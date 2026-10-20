@@ -1,6 +1,7 @@
 import { useId, useRef, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import { Download } from "lucide-react";
 import { FormDialog, type FormField } from "@/components/shared/form/FormDialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,6 +78,7 @@ export function ExportDataDialog({
         if (!next) setError(null);
         onOpenChange(next);
       }}
+      icon={Download}
       title={t("systemSettings.export.dialogTitle")}
       description={t("systemSettings.export.dialogHint")}
       initial={INITIAL}
@@ -88,7 +90,7 @@ export function ExportDataDialog({
       onSubmit={(values) => void submit(values)}
     >
       <div className="mt-3.5 flex flex-col gap-1.5">
-        <Label htmlFor={addressId} className="font-medium">
+        <Label htmlFor={addressId} className="text-meta font-medium">
           {t("systemSettings.export.sendTo")}
         </Label>
         <Input id={addressId} readOnly value={email} />

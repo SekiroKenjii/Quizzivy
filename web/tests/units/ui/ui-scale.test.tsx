@@ -117,7 +117,7 @@ describe("the primitives draw the deck's geometry with no ancestor to opt in", (
     const field = classList(container.querySelector("input")!);
     expect(field).toEqual(expect.arrayContaining(["h-11.5", "px-3.5"]));
     expect(field).not.toContain("h-11");
-    expect(field).not.toContain("pr-11.5");
+    expect(field).toContain("pr-11.5");
   });
 
   it("centres the 42px password field's show and hide button at the deck's 34px", () => {

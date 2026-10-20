@@ -42,6 +42,7 @@ export function UsersTable({
       columns={columns}
       rows={users}
       rowSize={{ height: 58 }}
+      selectTrack="36px"
       card={(user) => <UserCard user={user} locale={locale} />}
       cardLayout="joined"
       selectCards

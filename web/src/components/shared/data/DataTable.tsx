@@ -90,6 +90,7 @@ export type DataTableProps<T extends Item> = Opening<T> &
     readonly menu?: ((row: T, context: DataTableMenuContext) => ReactNode) | undefined;
     readonly menuLabel?: ((row: T) => string) | undefined;
     readonly menuTrack?: string | undefined;
+    readonly selectTrack?: string | undefined;
     readonly padX?: number | undefined;
     readonly card?: ((row: T) => ReactNode) | undefined;
     readonly cardLayout?: "stacked" | "joined" | undefined;
@@ -511,6 +512,7 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
     menu,
     menuLabel,
     menuTrack = MENU_TRACK,
+    selectTrack,
     padX = PAD_X,
     card,
     cardLayout = "stacked",
@@ -561,6 +563,7 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
   const visible = columns.filter((column) => shown.has(column.id));
   const template = templateOf(columns, shown, {
     select: select !== undefined,
+    ...(selectTrack === undefined ? {} : { selectTrack }),
     ...(menu === undefined ? {} : { menuTrack }),
   });
   const box = rowBox(rowSize, denseChoice ?? compact);

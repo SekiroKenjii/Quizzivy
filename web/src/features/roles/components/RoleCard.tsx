@@ -89,7 +89,7 @@ export function RoleCard({
           type="button"
           aria-label={t("roles.editPermissionsOf", { name })}
           className={cn(
-            "inline-flex h-8.5 items-center gap-1.5 rounded-lg border px-3 text-[0.8125rem] font-medium whitespace-nowrap",
+            "inline-flex h-8.5 items-center gap-1.5 rounded-md border px-3 text-[0.8125rem] font-medium whitespace-nowrap",
             look.button,
           )}
           onClick={() => onEditPermissions(role)}

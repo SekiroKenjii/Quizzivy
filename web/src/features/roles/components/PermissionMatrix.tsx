@@ -203,7 +203,7 @@ export function PermissionMatrix({
                   data-role-col={role.id}
                   aria-pressed={highlight === role.id}
                   title={names[col]}
-                  className="hover:bg-hover block w-full overflow-hidden rounded-md py-1 text-center text-ellipsis whitespace-nowrap"
+                  className="hover:bg-hover block w-full overflow-hidden rounded-sm py-1 text-center text-ellipsis whitespace-nowrap"
                   onClick={() => onHighlight(role)}
                 >
                   {names[col]}

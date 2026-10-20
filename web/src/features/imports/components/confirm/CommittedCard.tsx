@@ -60,7 +60,7 @@ export function CommittedCard({
               })}
         </p>
       </div>
-      <Button asChild className="h-10 rounded-[9px] font-semibold">
+      <Button asChild className="h-10 rounded-[9px] text-base font-semibold">
         <Link to={`/teacher/tests/${testId}/edit`}>
           {t("imports.confirm.openBuilder")}
           <ArrowRight aria-hidden="true" />

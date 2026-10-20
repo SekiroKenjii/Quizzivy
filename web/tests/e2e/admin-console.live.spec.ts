@@ -114,10 +114,8 @@ test("the owner adds a teacher by email, narrows Teacher's rights and disables t
   const add = owner.getByRole("dialog", { name: "Thêm người dùng" });
   await add.getByLabel("Họ và tên", { exact: true }).fill(teacherName);
   await add.getByLabel("Email", { exact: true }).fill(teacherEmail);
-  await add
-    .getByRole("group", { name: "Vai trò", exact: true })
-    .getByRole("button", { name: "Giáo viên", exact: true })
-    .click();
+  await add.getByRole("combobox", { name: "Vai trò", exact: true }).click();
+  await owner.getByRole("option", { name: "Giáo viên", exact: true }).click();
   await expect(
     add.getByRole("radio", { name: /^Gửi liên kết đặt mật khẩu qua email/ }),
   ).toBeChecked();

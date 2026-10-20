@@ -1,4 +1,5 @@
 import type { TFunction } from "i18next";
+import { Ellipsis } from "lucide-react";
 import type { DataColumn } from "@/components/shared/data/DataTable";
 import type { AdminUser } from "@/features/users/api";
 import {
@@ -24,7 +25,9 @@ export const CARDS_BELOW = 560;
  * always shows, with the email and, under it, the role and the last activity
  * while their columns are folded away. The others join by the content's width
  * (`showFrom`): Status from 560, Role from 640, Last active from 820, Classes
- * from 960 and Sign-in from 1080.
+ * from 960 and Sign-in from 1080. The last column is the deck's ellipsis, a
+ * pointer target that opens the row as the row does; the keyboard opens it
+ * from the User column.
  */
 export function userColumns(t: TFunction, locale: Locale): DataColumn<AdminUser>[] {
   return [
@@ -86,6 +89,20 @@ export function userColumns(t: TFunction, locale: Locale): DataColumn<AdminUser>
       track: "minmax(96px,150px)",
       showFrom: 560,
       cell: (user, shown) => <StatusPill user={user} short={!shown.has("last")} />,
+    },
+    {
+      id: "open",
+      header: t("users.column.open"),
+      track: "40px",
+      hideHeader: true,
+      cell: () => (
+        <span
+          aria-hidden="true"
+          className="rounded-seg hover:bg-hover grid size-7.5 place-items-center"
+        >
+          <Ellipsis className="size-4" />
+        </span>
+      ),
     },
   ];
 }
