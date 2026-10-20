@@ -65,7 +65,7 @@ test("draws Students in the rebuilt shell under a dark preference", async ({
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/teacher/students");
   await expect(page.getByRole("heading", { name: "Học viên", level: 1 })).toBeVisible();
-  await expect(page.locator('[data-scale="deck"] main')).toBeVisible();
+  await expect(page.locator('main > [data-slot="page"]')).toBeVisible();
   await expect(page.locator("[data-columns] main")).toHaveCount(0);
   await expect(
     page.getByRole("navigation", { name: "Điều hướng chính" }),
@@ -100,7 +100,7 @@ test("keeps the dark preference through SPA links from the dashboard to Settings
   await page.goto("/teacher");
   await expect(page.locator('[data-slot="teacher-dashboard"]')).toBeVisible();
   await expect(page.getByText(/14 trong 14 ngày qua/)).toBeVisible();
-  await expect(page.locator('[data-scale="deck"] main')).toBeVisible();
+  await expect(page.locator('main > [data-slot="page"]')).toBeVisible();
   await expect(page.locator("html")).toHaveClass(/\bdark\b/);
   expect(await background(page)).toBe("rgb(14, 18, 19)");
   expect(await page.evaluate(() => localStorage.getItem("quizzivy.theme"))).toBe(
@@ -113,7 +113,7 @@ test("keeps the dark preference through SPA links from the dashboard to Settings
   await expect(page.getByRole("heading", { name: "Cài đặt", level: 1 })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Họ và tên" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Họ và tên" })).toHaveValue("Thuong");
-  await expect(page.locator('[data-scale="deck"] main')).toBeVisible();
+  await expect(page.locator('main > [data-slot="page"]')).toBeVisible();
   await expect(page.locator("[data-columns] main")).toHaveCount(0);
   await expect(page.locator("html")).toHaveClass(/\bdark\b/);
   expect(await background(page)).toBe("rgb(14, 18, 19)");
@@ -124,7 +124,7 @@ test("keeps the dark preference through SPA links from the dashboard to Settings
     .click();
   await expect(page).toHaveURL(/\/teacher\/students$/);
   await expect(page.getByRole("heading", { name: "Học viên", level: 1 })).toBeVisible();
-  await expect(page.locator('[data-scale="deck"] main')).toBeVisible();
+  await expect(page.locator('main > [data-slot="page"]')).toBeVisible();
   await expect(page.locator("[data-columns] main")).toHaveCount(0);
   await expect(page.locator("html")).toHaveClass(/\bdark\b/);
   expect(await background(page)).toBe("rgb(14, 18, 19)");
@@ -139,7 +139,7 @@ test("keeps the dark preference through SPA links from the dashboard to Settings
   await expect(page).toHaveURL(/\/teacher$/);
   await expect(page.locator('[data-slot="teacher-dashboard"]')).toBeVisible();
   await expect(page.getByText(/14 trong 14 ngày qua/)).toBeVisible();
-  await expect(page.locator('[data-scale="deck"] main')).toBeVisible();
+  await expect(page.locator('main > [data-slot="page"]')).toBeVisible();
   await expect(page.locator("[data-columns] main")).toHaveCount(0);
   await expect(page.locator("html")).toHaveClass(/\bdark\b/);
   expect(await background(page)).toBe("rgb(14, 18, 19)");

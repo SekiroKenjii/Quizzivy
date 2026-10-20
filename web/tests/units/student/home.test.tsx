@@ -642,9 +642,7 @@ describe("coming up", () => {
   ])("reads a paper closing at %s as %s", async (closesAt, pill, tone, tile) => {
     home({ dueNow: [card({ closesAt })] });
     const link = await screen.findByRole("link", { name: /Unit 5/ });
-    expect(within(link).getByText(pill)).toHaveClass(
-      `in-data-[scale=deck]:bg-${tone}-soft`,
-    );
+    expect(within(link).getByText(pill)).toHaveClass(`bg-${tone}-soft`);
     expect(link.querySelector("[aria-hidden='true']")).toHaveClass(tile);
   });
 

@@ -507,11 +507,7 @@ describe("the Admin console below 768", () => {
     await screen.findByRole("main");
 
     const view = screen.getByRole("link", { name: "Chế độ giáo viên" });
-    expect(view).toHaveClass(
-      "rounded-md",
-      "in-data-[scale=deck]:px-3",
-      "in-data-[scale=deck]:text-sm",
-    );
+    expect(view).toHaveClass("rounded-md", "px-3", "text-sm");
     expect(view.querySelector("span")).toHaveClass("hidden", "min-[768px]:inline");
   });
 });

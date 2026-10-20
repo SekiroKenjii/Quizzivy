@@ -63,7 +63,7 @@ const QUIET_ATTEMPT: readonly EventListItem[] = [
   { key: "submit", tone: "success", text: "Submitted", time: "20:02" },
 ];
 
-const BANNER_BUTTON = "in-data-[scale=deck]:h-8 in-data-[scale=deck]:rounded-md";
+const BANNER_BUTTON = "h-8 rounded-md";
 
 function countedBar(bar: ReactElement, count: string) {
   return (
@@ -281,10 +281,7 @@ export const cases: Record<string, () => ReactElement> = {
               <Button variant="outline" size="sm" className={BANNER_BUTTON}>
                 Review draft
               </Button>
-              <Button
-                size="sm"
-                className={`${BANNER_BUTTON} in-data-[scale=deck]:font-semibold`}
-              >
+              <Button size="sm" className={`${BANNER_BUTTON} font-semibold`}>
                 Publish version 4
               </Button>
             </>

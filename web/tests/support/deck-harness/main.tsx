@@ -1,6 +1,5 @@
 import { StrictMode, type ReactElement } from "react";
 import { createRoot } from "react-dom/client";
-import { DeckScale } from "@/components/ui/deck-scale";
 import i18n from "@/lib/i18n";
 import { readThemePreference, writeThemePreference } from "@/lib/theme";
 import "@/index.css";
@@ -42,9 +41,9 @@ function CaseList() {
 }
 
 /**
- * Harness renders the case the address names, under DeckScale and in a
- * container of the width the address gives, or a list of links to every case
- * when it names none.
+ * Harness renders the case the address names, on the page background and in
+ * a container of the width the address gives, or a list of links to every
+ * case when it names none.
  */
 export function Harness() {
   if (NAME === null) return <CaseList />;
@@ -56,11 +55,11 @@ export function Harness() {
     );
   }
   return (
-    <DeckScale className="bg-bg text-fg min-h-svh p-6">
+    <div className="bg-bg text-fg min-h-svh p-6">
       <div data-case={NAME} style={WIDTH > 0 ? { width: WIDTH } : undefined}>
         <Selected />
       </div>
-    </DeckScale>
+    </div>
   );
 }
 

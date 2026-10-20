@@ -137,7 +137,7 @@ export const cases: Record<string, () => ReactElement> = {
               Class
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="data-[scale=deck]:w-60">
+          <DropdownMenuContent align="end" className="w-60">
             <DropdownMenuLabel>Filter by class</DropdownMenuLabel>
             {CLASSES.map((name) => (
               <DropdownMenuCheckboxItem
@@ -172,7 +172,7 @@ export const cases: Record<string, () => ReactElement> = {
             <ChevronDown aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="data-[scale=deck]:w-62.5">
+        <DropdownMenuContent align="end" className="w-62.5">
           <DropdownMenuLabel>Question type</DropdownMenuLabel>
           {QUESTION_TYPES.map(({ label, icon: Icon }, index) => (
             <DropdownMenuItem key={label}>

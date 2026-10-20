@@ -72,7 +72,7 @@ function board(
       {
         path: "/teacher",
         element: (
-          <main data-scale="deck">
+          <main>
             <TeacherDashboardPage />
           </main>
         ),

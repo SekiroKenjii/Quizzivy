@@ -8,8 +8,8 @@ import "@/lib/i18n";
 const LINK = "https://quizzivy.app/join/K7M2-QX9P";
 const FAILED = "Không sao chép được. Hãy chọn liên kết rồi sao chép.";
 
-const IDLE = `<button data-slot="button" data-variant="ghost" data-size="xs" class="inline-flex shrink-0 items-center justify-center whitespace-nowrap transition-all outline-none focus-visible:border-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 hover:text-accent-foreground dark:hover:bg-accent/50 h-7 rounded-sm in-data-[scale=deck]:h-6.5 hover:bg-hover gap-[5px] px-2 text-xs font-medium [&amp;_svg:not([class*='size-'])]:size-[13px]" type="button"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-copy" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>Sao chép</button><span role="status" class="sr-only"></span>`;
-const COPIED = `<button data-slot="button" data-variant="ghost" data-size="xs" class="inline-flex shrink-0 items-center justify-center whitespace-nowrap transition-all outline-none focus-visible:border-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 hover:text-accent-foreground dark:hover:bg-accent/50 h-7 rounded-sm in-data-[scale=deck]:h-6.5 hover:bg-hover gap-[5px] px-2 text-xs font-medium [&amp;_svg:not([class*='size-'])]:size-[13px]" type="button"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Đã sao chép</button><span role="status" class="sr-only">Đã sao chép</span>`;
+const IDLE = `<button data-slot="button" data-variant="ghost" data-size="xs" class="inline-flex shrink-0 items-center justify-center whitespace-nowrap transition-all outline-none focus-visible:border-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 hover:text-accent-foreground dark:hover:bg-accent/50 rounded-sm h-6.5 hover:bg-hover gap-[5px] px-2 text-xs font-medium [&amp;_svg:not([class*='size-'])]:size-[13px]" type="button"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-copy" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>Sao chép</button><span role="status" class="sr-only"></span>`;
+const COPIED = `<button data-slot="button" data-variant="ghost" data-size="xs" class="inline-flex shrink-0 items-center justify-center whitespace-nowrap transition-all outline-none focus-visible:border-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&amp;_svg]:pointer-events-none [&amp;_svg]:shrink-0 hover:text-accent-foreground dark:hover:bg-accent/50 rounded-sm h-6.5 hover:bg-hover gap-[5px] px-2 text-xs font-medium [&amp;_svg:not([class*='size-'])]:size-[13px]" type="button"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Đã sao chép</button><span role="status" class="sr-only">Đã sao chép</span>`;
 
 const field = () =>
   screen.getByRole<HTMLInputElement>("textbox", { name: "Liên kết tham gia" });
@@ -101,7 +101,6 @@ describe("the copy field", () => {
     const button = screen.getByRole("button", { name: "Sao chép" });
     expect(button).toHaveClass(
       "h-7",
-      "in-data-[scale=deck]:h-7",
       "rounded-seg",
       "border",
       "border-border",
@@ -112,7 +111,7 @@ describe("the copy field", () => {
       "hover:bg-muted",
       "dark:hover:bg-muted",
     );
-    expect(button).not.toHaveClass("in-data-[scale=deck]:h-6.5");
+    expect(button).not.toHaveClass("h-6.5");
     expect(button).not.toHaveClass("hover:bg-hover");
     expect(button).not.toHaveClass("px-2");
     expect(button.parentElement).toHaveClass("flex", "flex-wrap");

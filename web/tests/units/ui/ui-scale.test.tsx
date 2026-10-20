@@ -5,14 +5,6 @@ import { describe, expect, it } from "vitest";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { DeckScale } from "@/components/ui/deck-scale";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,61 +21,50 @@ import { Textarea } from "@/components/ui/textarea";
 import { PasswordInput } from "@/components/shared/PasswordInput";
 import "@/lib/i18n";
 
-const SCOPE = "in-data-[scale=deck]:";
-
 function classesOf(element: ReactElement) {
-  const { container } = render(<div data-scale="deck">{element}</div>);
-  const classes = (
-    container.firstElementChild!.firstElementChild as HTMLElement
-  ).className.split(" ");
-  return {
-    unscoped: classes.filter((c) => !c.startsWith(SCOPE)),
-    scoped: classes
-      .filter((c) => c.startsWith(SCOPE))
-      .map((c) => c.slice(SCOPE.length)),
-  };
+  const { container } = render(element);
+  return classList(container.firstElementChild!);
 }
 
-describe("deck geometry applies only on a deck surface", () => {
-  it.each([
-    ["default", ["h-9", "px-4"], ["px-3.5", "text-ui"]],
-    ["xs", ["h-7", "px-2"], ["h-6.5"]],
-    ["sm", ["h-8", "px-3"], ["h-7.5", "rounded-seg"]],
-    ["lg", ["h-11", "px-6"], ["h-10.5", "rounded-lg", "font-semibold"]],
-    ["icon", ["size-9"], ["size-8.5"]],
-  ] as const)(
-    "keeps today's %s button outside and adds the deck's inside",
-    (size, today, deck) => {
-      const { unscoped, scoped } = classesOf(<Button size={size}>Lưu</Button>);
-      for (const c of today) expect(unscoped).toContain(c);
-      for (const c of deck) expect(scoped).toContain(c);
-    },
-  );
+function classList(element: Element) {
+  return element.className.split(" ");
+}
 
-  it("gives the new deck-only sizes their geometry everywhere", () => {
-    expect(classesOf(<Button size="md">Lưu</Button>).unscoped).toEqual(
-      expect.arrayContaining(["h-9.5", "rounded-ctl", "text-ui"]),
-    );
-    expect(classesOf(<Button size="xl">Đăng nhập</Button>).unscoped).toEqual(
-      expect.arrayContaining(["h-11.5", "rounded-lg", "font-semibold"]),
-    );
-    expect(classesOf(<Button size="icon-xl" aria-label="Menu" />).unscoped).toContain(
-      "size-10",
-    );
+describe("the primitives draw the deck's geometry with no ancestor to opt in", () => {
+  it.each([
+    ["default", ["h-9", "px-3.5", "text-ui"], ["px-4"]],
+    ["xs", ["h-6.5", "px-2"], ["h-7"]],
+    ["sm", ["h-7.5", "px-3", "rounded-seg"], ["h-8", "rounded-md"]],
+    ["lg", ["h-10.5", "px-4", "rounded-lg", "font-semibold"], ["h-11", "px-6"]],
+    ["icon", ["size-8.5"], ["size-9"]],
+  ] as const)("draws the deck's %s button", (size, deck, replaced) => {
+    const classes = classesOf(<Button size={size}>Lưu</Button>);
+    for (const c of deck) expect(classes).toContain(c);
+    for (const c of replaced) expect(classes).not.toContain(c);
   });
 
-  it("keeps today's field outside and the deck's 38/42/46px fields inside", () => {
+  it("gives the deck-only sizes their geometry", () => {
+    expect(classesOf(<Button size="md">Lưu</Button>)).toEqual(
+      expect.arrayContaining(["h-9.5", "rounded-ctl", "text-ui"]),
+    );
+    expect(classesOf(<Button size="xl">Đăng nhập</Button>)).toEqual(
+      expect.arrayContaining(["h-11.5", "rounded-lg", "font-semibold"]),
+    );
+    expect(classesOf(<Button size="icon-xl" aria-label="Menu" />)).toContain("size-10");
+  });
+
+  it("draws the deck's 38/42/46px fields", () => {
     const plain = classesOf(<Input aria-label="Email" />);
-    expect(plain.unscoped).toContain("h-9");
-    expect(plain.scoped).toContain("h-9.5");
-    expect(classesOf(<Input aria-label="Email" size="lg" />).scoped).toContain(
-      "h-10.5",
-    );
-    expect(classesOf(<Input aria-label="Email" size="xl" />).scoped).toContain(
-      "h-11.5",
-    );
-    expect(classesOf(<Textarea aria-label="Ghi chú" />).scoped).toContain("lg:text-ui");
-    expect(classesOf(<Label>Email</Label>).scoped).toContain("gap-1.5");
+    expect(plain).toContain("h-9.5");
+    expect(plain).not.toContain("h-9");
+    expect(classesOf(<Input aria-label="Email" size="lg" />)).toContain("h-10.5");
+    expect(classesOf(<Input aria-label="Email" size="xl" />)).toContain("h-11.5");
+    const note = classesOf(<Textarea aria-label="Ghi chú" />);
+    expect(note).toContain("lg:text-ui");
+    expect(note).not.toContain("lg:text-sm");
+    const label = classesOf(<Label>Email</Label>);
+    expect(label).toContain("gap-1.5");
+    expect(label).not.toContain("gap-2");
   });
 
   it("never passes the deck size to the input element", () => {
@@ -91,15 +72,13 @@ describe("deck geometry applies only on a deck surface", () => {
     expect(container.querySelector("input")).not.toHaveAttribute("size");
   });
 
-  it("turns a status badge into the deck's soft pill only on a deck surface", () => {
-    const { unscoped, scoped } = classesOf(<Badge variant="success">Đã nộp</Badge>);
-    expect(unscoped).toEqual(
-      expect.arrayContaining(["rounded-sm", "text-success-ink"]),
+  it("draws a status badge as the deck's soft pill", () => {
+    const classes = classesOf(<Badge variant="success">Đã nộp</Badge>);
+    expect(classes).toEqual(
+      expect.arrayContaining(["rounded-full", "bg-success-soft", "text-success-ink"]),
     );
-    expect(scoped).toEqual(expect.arrayContaining(["rounded-full", "bg-success-soft"]));
-    expect(classesOf(<Badge variant="count-brand">3</Badge>).unscoped).toContain(
-      "bg-brand",
-    );
+    expect(classes).not.toContain("rounded-sm");
+    expect(classesOf(<Badge variant="count-brand">3</Badge>)).toContain("bg-brand");
   });
 
   it("draws the status dot only when asked", () => {
@@ -119,75 +98,57 @@ describe("deck geometry applies only on a deck surface", () => {
     ).toBeNull();
   });
 
-  it("gives cards and key caps the deck's radius and type only on a deck surface", () => {
-    expect(classesOf(<Card />).scoped).toEqual(
-      expect.arrayContaining(["shadow-card", "rounded-xl"]),
-    );
-    expect(classesOf(<Kbd>K</Kbd>).scoped).toContain("text-caption");
+  it("gives cards and key caps the deck's radius and type", () => {
+    const card = classesOf(<Card />);
+    expect(card).toEqual(expect.arrayContaining(["shadow-card", "rounded-xl"]));
+    expect(card).not.toContain("shadow-xs");
+    expect(card).not.toContain("rounded-lg");
+    const key = classesOf(<Kbd>K</Kbd>);
+    expect(key).toContain("text-caption");
+    expect(key).not.toContain("text-[0.6875rem]");
+    expect(key).not.toContain("font-mono");
   });
 
   it("keeps the large password field's show and hide button at the deck's 36px", () => {
-    const { container } = render(
-      <div data-scale="deck">
-        <PasswordInput id="password" size="xl" />
-      </div>,
-    );
-    const scoped = container
-      .querySelector("button")!
-      .className.split(" ")
-      .filter((c) => c.startsWith(SCOPE))
-      .map((c) => c.slice(SCOPE.length));
-    expect(scoped).toContain("size-9");
-    expect(scoped).not.toContain("size-8.5");
+    const { container } = render(<PasswordInput id="password" size="xl" />);
+    const button = classList(container.querySelector("button")!);
+    expect(button).toContain("size-9");
+    expect(button).not.toContain("size-8.5");
+    const field = classList(container.querySelector("input")!);
+    expect(field).toEqual(expect.arrayContaining(["h-11.5", "pr-11.5"]));
+    expect(field).not.toContain("h-11");
   });
 
   it("centres the 42px password field's show and hide button at the deck's 34px", () => {
-    const { container } = render(
-      <div data-scale="deck">
-        <PasswordInput id="password" size="lg" />
-      </div>,
-    );
-    const button = split(container.querySelector("button")!);
-    expect(button.scoped).toContain("size-8.5");
-    expect(button.unscoped).toEqual(
+    const { container } = render(<PasswordInput id="password" size="lg" />);
+    const button = classList(container.querySelector("button")!);
+    expect(button).toEqual(
       expect.arrayContaining(["top-1/2", "-translate-y-1/2", "right-1", "size-8.5"]),
     );
-    expect(button.unscoped).not.toContain("inset-y-0");
-    expect(button.unscoped).not.toContain("h-11");
-    const field = split(container.querySelector("input")!);
-    expect(field.scoped).toContain("h-10.5");
-    expect(field.unscoped).toContain("pr-11");
-    expect(field.scoped).toContain("pr-11");
-    expect(field.unscoped).not.toContain("pr-12");
+    expect(button).not.toContain("inset-y-0");
+    expect(button).not.toContain("h-11");
+    const field = classList(container.querySelector("input")!);
+    expect(field).toContain("h-10.5");
+    expect(field).not.toContain("h-11");
+    expect(field).toContain("pr-11");
+    expect(field).not.toContain("pr-12");
   });
 
-  it("leaves the password field of a screen not yet rebuilt as it was", () => {
+  it("keeps the default password field at the deck's 38px with its 44px button at the edge", () => {
     const { container } = render(<PasswordInput id="password" />);
-    const button = split(container.querySelector("button")!);
-    expect(button.unscoped).toEqual(
+    const button = classList(container.querySelector("button")!);
+    expect(button).toEqual(
       expect.arrayContaining(["inset-y-0", "right-0", "h-11", "w-11"]),
     );
-    expect(button.unscoped).not.toContain("top-1/2");
-    expect(split(container.querySelector("input")!).unscoped).toEqual(
-      expect.arrayContaining(["h-11", "pr-12"]),
-    );
+    expect(button).not.toContain("top-1/2");
+    const field = classList(container.querySelector("input")!);
+    expect(field).toEqual(expect.arrayContaining(["h-9.5", "pr-12"]));
+    expect(field).not.toContain("h-11");
   });
 });
 
-function split(element: Element) {
-  const classes = element.className.split(" ");
-  return {
-    unscoped: classes.filter((c) => !c.startsWith(SCOPE)),
-    scoped: classes
-      .filter((c) => c.startsWith(SCOPE))
-      .map((c) => c.slice(SCOPE.length)),
-  };
-}
-
-const OWN_SCOPE = "data-[scale=deck]:";
-
 describe("the three controls the student screens use first", () => {
-  it("keeps today's segmented buttons outside and the deck's 30px inside", () => {
+  it("draws the deck's 30px segmented buttons", () => {
     render(
       <Segmented
         label="Ngôn ngữ"
@@ -199,31 +160,33 @@ describe("the three controls the student screens use first", () => {
         ]}
       />,
     );
-    const track = split(screen.getByRole("group", { name: "Ngôn ngữ" }));
-    expect(track.unscoped).toEqual(expect.arrayContaining(["rounded-lg", "gap-0.5"]));
-    expect(track.scoped).toEqual(["rounded-ctl"]);
+    const track = classList(screen.getByRole("group", { name: "Ngôn ngữ" }));
+    expect(track).toEqual(expect.arrayContaining(["rounded-ctl", "gap-0.5"]));
+    expect(track).not.toContain("rounded-lg");
 
-    const on = split(screen.getByRole("button", { name: "Tiếng Việt" }));
-    expect(on.unscoped).toEqual(
-      expect.arrayContaining(["h-7", "rounded-md", "bg-background", "shadow-card"]),
-    );
-    expect(on.scoped).toEqual(
+    const on = classList(screen.getByRole("button", { name: "Tiếng Việt" }));
+    expect(on).toEqual(
       expect.arrayContaining([
         "h-7.5",
         "rounded-seg",
         "bg-card",
+        "shadow-card",
         "ring-1",
         "ring-border",
       ]),
     );
+    expect(on).not.toContain("h-7");
+    expect(on).not.toContain("rounded-md");
+    expect(on).not.toContain("bg-background");
 
-    const off = split(screen.getByRole("button", { name: "English" }));
-    expect(off.unscoped).toContain("text-muted-foreground");
-    expect(off.scoped).not.toContain("bg-card");
-    expect(off.scoped).not.toContain("ring-1");
+    const off = classList(screen.getByRole("button", { name: "English" }));
+    expect(off).toContain("text-muted-fg");
+    expect(off).not.toContain("text-muted-foreground");
+    expect(off).not.toContain("bg-card");
+    expect(off).not.toContain("ring-1");
   });
 
-  it("draws the deck's 32px row for a page's sections everywhere", () => {
+  it("draws the deck's 32px row for a page's sections", () => {
     render(
       <Segmented
         label="Mục"
@@ -233,26 +196,17 @@ describe("the three controls the student screens use first", () => {
         options={[{ value: "a", label: "Hồ sơ" }]}
       />,
     );
-    const button = split(screen.getByRole("button", { name: "Hồ sơ" }));
-    expect(button.unscoped).toContain("h-8");
-    expect(button.unscoped).not.toContain("h-7");
-    expect(button.scoped).toContain("h-8");
-    expect(button.scoped).not.toContain("h-7.5");
+    const button = classList(screen.getByRole("button", { name: "Hồ sơ" }));
+    expect(button).toContain("h-8");
+    expect(button).not.toContain("h-7");
+    expect(button).not.toContain("h-7.5");
   });
 
-  it("keeps today's switch outside and the deck's 38x22 in the primary colour inside", () => {
+  it("draws the deck's 38x22 switch in the primary colour", () => {
     render(<Switch aria-label="Âm thanh" />);
     const root = screen.getByRole("switch", { name: "Âm thanh" });
-    const track = split(root);
-    expect(track.unscoped).toEqual(
-      expect.arrayContaining([
-        "h-[1.15rem]",
-        "w-8",
-        "data-[state=checked]:bg-foreground",
-        "data-[state=unchecked]:bg-foreground/22",
-      ]),
-    );
-    expect(track.scoped).toEqual(
+    const track = classList(root);
+    expect(track).toEqual(
       expect.arrayContaining([
         "h-5.5",
         "w-9.5",
@@ -260,14 +214,16 @@ describe("the three controls the student screens use first", () => {
         "data-[state=unchecked]:bg-border",
       ]),
     );
-    const thumb = split(root.firstElementChild!);
-    expect(thumb.unscoped).toEqual(
-      expect.arrayContaining([
-        "size-[0.9rem]",
-        "data-[state=checked]:translate-x-[0.975rem]",
-      ]),
-    );
-    expect(thumb.scoped).toEqual(
+    for (const c of [
+      "h-[1.15rem]",
+      "w-8",
+      "data-[state=checked]:bg-foreground",
+      "data-[state=unchecked]:bg-foreground/22",
+    ]) {
+      expect(track).not.toContain(c);
+    }
+    const thumb = classList(root.firstElementChild!);
+    expect(thumb).toEqual(
       expect.arrayContaining([
         "size-4.5",
         "translate-x-0.5",
@@ -276,35 +232,31 @@ describe("the three controls the student screens use first", () => {
         "shadow-thumb",
       ]),
     );
-    expect(thumb.unscoped).toContain("shadow-sm");
-    expect(thumb.unscoped).not.toContain("shadow-thumb");
+    for (const c of [
+      "size-[0.9rem]",
+      "data-[state=checked]:translate-x-[0.975rem]",
+      "shadow-sm",
+    ]) {
+      expect(thumb).not.toContain(c);
+    }
   });
 
   it.each([
     ["sm", ["h-5", "w-9"], ["size-4", "data-[state=checked]:translate-x-4.5"]],
     ["lg", ["h-6", "w-10.5"], ["size-5", "data-[state=checked]:translate-x-5"]],
-  ] as const)(
-    "gives the %s switch the deck's geometry everywhere",
-    (size, track, thumb) => {
-      render(<Switch size={size} aria-label="Chữ to" />);
-      const root = screen.getByRole("switch", { name: "Chữ to" });
-      const rootClasses = split(root);
-      const thumbClasses = split(root.firstElementChild!);
-      for (const c of track) {
-        expect(rootClasses.unscoped).toContain(c);
-        expect(rootClasses.scoped).toContain(c);
-      }
-      for (const c of thumb) {
-        expect(thumbClasses.unscoped).toContain(c);
-        expect(thumbClasses.scoped).toContain(c);
-      }
-      expect(rootClasses.unscoped).not.toContain("w-8");
-      expect(rootClasses.scoped).not.toContain("w-9.5");
-      expect(thumbClasses.unscoped).not.toContain("size-[0.9rem]");
-    },
-  );
+  ] as const)("gives the %s switch the deck's geometry", (size, track, thumb) => {
+    render(<Switch size={size} aria-label="Chữ to" />);
+    const root = screen.getByRole("switch", { name: "Chữ to" });
+    const rootClasses = classList(root);
+    const thumbClasses = classList(root.firstElementChild!);
+    for (const c of track) expect(rootClasses).toContain(c);
+    for (const c of thumb) expect(thumbClasses).toContain(c);
+    expect(rootClasses).not.toContain("w-8");
+    expect(rootClasses).not.toContain("w-9.5");
+    expect(thumbClasses).not.toContain("size-[0.9rem]");
+  });
 
-  it("keeps today's select trigger outside and the deck's 38px inside, with a 42px size", () => {
+  it("draws the deck's 38px select trigger, with a 42px size", () => {
     render(
       <>
         <Select value="45">
@@ -325,25 +277,21 @@ describe("the three controls the student screens use first", () => {
         </Select>
       </>,
     );
-    const standard = split(screen.getByRole("combobox", { name: "Thời lượng" }));
-    expect(standard.unscoped).toEqual(
-      expect.arrayContaining([
-        "data-[size=default]:h-9",
-        "data-[size=sm]:h-8",
-        "shadow-xs",
-      ]),
-    );
-    expect(standard.scoped).toEqual(
+    const standard = classList(screen.getByRole("combobox", { name: "Thời lượng" }));
+    expect(standard).toEqual(
       expect.arrayContaining([
         "data-[size=default]:h-9.5",
+        "data-[size=sm]:h-8",
         "shadow-none",
         "bg-bg",
         "text-ui",
       ]),
     );
+    expect(standard).not.toContain("data-[size=default]:h-9");
+    expect(standard).not.toContain("shadow-xs");
     const large = screen.getByRole("combobox", { name: "Ngôn ngữ" });
     expect(large.dataset["size"]).toBe("lg");
-    expect(split(large).unscoped).toEqual(
+    expect(classList(large)).toEqual(
       expect.arrayContaining([
         "data-[size=lg]:h-10.5",
         "data-[size=lg]:rounded-ctl",
@@ -352,20 +300,12 @@ describe("the three controls the student screens use first", () => {
     );
   });
 
-  it("draws the deck's list only when the list is on a deck surface", () => {
-    render(
-      <DeckScale>
-        <OpenSelect />
-      </DeckScale>,
+  it("draws the deck's list", () => {
+    render(<OpenSelect />);
+    const content = classList(
+      screen.getByRole("listbox").closest("[data-slot='select-content']")!,
     );
-    const content = screen
-      .getByRole("listbox")
-      .closest("[data-slot='select-content']")!;
-    const own = content.className
-      .split(" ")
-      .filter((c) => c.startsWith(OWN_SCOPE))
-      .map((c) => c.slice(OWN_SCOPE.length));
-    expect(own).toEqual(
+    expect(content).toEqual(
       expect.arrayContaining([
         "bg-card",
         "shadow-float",
@@ -374,15 +314,12 @@ describe("the three controls the student screens use first", () => {
         "z-(--z-popover)",
       ]),
     );
-    expect(content.className.split(" ")).toEqual(
-      expect.arrayContaining(["bg-popover", "shadow-md", "z-50", "rounded-md"]),
-    );
+    for (const c of ["bg-popover", "shadow-md", "z-50", "rounded-md"]) {
+      expect(content).not.toContain(c);
+    }
 
-    const option = split(screen.getByRole("option", { name: "45 phút" }));
-    expect(option.unscoped).toEqual(
-      expect.arrayContaining(["pr-8", "pl-2", "focus:bg-accent"]),
-    );
-    expect(option.scoped).toEqual(
+    const option = classList(screen.getByRole("option", { name: "45 phút" }));
+    expect(option).toEqual(
       expect.arrayContaining([
         "min-h-8",
         "pl-7.5",
@@ -391,13 +328,25 @@ describe("the three controls the student screens use first", () => {
         "data-[state=checked]:font-medium",
       ]),
     );
-    const indicator = split(
+    for (const c of ["pr-8", "pl-2", "focus:bg-accent"]) {
+      expect(option).not.toContain(c);
+    }
+    const indicator = classList(
       screen
         .getByRole("option", { name: "45 phút" })
         .querySelector("[data-slot='select-item-indicator']")!,
     );
-    expect(indicator.unscoped).toContain("right-2");
-    expect(indicator.scoped).toEqual(expect.arrayContaining(["left-2", "right-auto"]));
+    expect(indicator).toEqual(expect.arrayContaining(["left-2", "right-auto"]));
+    expect(indicator).not.toContain("right-2");
+  });
+
+  it("draws the select's tick at the deck's size and ink", () => {
+    render(<OpenSelect />);
+    const tick = screen
+      .getByRole("option", { name: "45 phút" })
+      .querySelector("[data-slot='select-item-indicator'] svg")!;
+    expect(tick).toHaveClass("size-3.5", "text-fg");
+    expect(tick).not.toHaveClass("size-4");
   });
 });
 
@@ -413,101 +362,3 @@ function OpenSelect() {
     </Select>
   );
 }
-
-function OpenMenu() {
-  return (
-    <DropdownMenu open>
-      <DropdownMenuTrigger>Tài khoản</DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuItem>Cài đặt</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function OpenDialog() {
-  return (
-    <Dialog open>
-      <DialogContent aria-describedby={undefined}>
-        <DialogTitle>Tham gia lớp</DialogTitle>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-describe("content that portals out of a deck surface stays on it", () => {
-  it("carries the scale onto a dialog, which renders under the body", () => {
-    const { container } = render(
-      <DeckScale>
-        <OpenDialog />
-      </DeckScale>,
-    );
-    const dialog = screen.getByRole("dialog");
-    expect(container.contains(dialog)).toBe(false);
-    expect(dialog.dataset["scale"]).toBe("deck");
-  });
-
-  it("leaves a dialog unmarked off a deck surface", () => {
-    render(<OpenDialog />);
-    expect(screen.getByRole("dialog").closest("[data-scale]")).toBeNull();
-  });
-
-  it("marks the surface itself", () => {
-    const { container } = render(<DeckScale className="shell">nội dung</DeckScale>);
-    const root = container.firstElementChild as HTMLElement;
-    expect(root.dataset["scale"]).toBe("deck");
-    expect(root.className).toBe("shell");
-  });
-
-  it("carries the scale onto a select's list, which renders under the body", () => {
-    const { container } = render(
-      <DeckScale>
-        <OpenSelect />
-      </DeckScale>,
-    );
-    const list = screen.getByRole("listbox");
-    expect(container.contains(list)).toBe(false);
-    expect(list.closest("[data-scale='deck']")).not.toBeNull();
-  });
-
-  it("carries the scale onto a menu, which renders under the body", () => {
-    const { container } = render(
-      <DeckScale>
-        <OpenMenu />
-      </DeckScale>,
-    );
-    const menu = screen.getByRole("menu");
-    expect(container.contains(menu)).toBe(false);
-    expect(menu.dataset["scale"]).toBe("deck");
-  });
-
-  it("draws the select's tick at the deck's size and ink on a deck surface only", () => {
-    const tick = () =>
-      screen
-        .getByRole("option", { name: "45 phút" })
-        .querySelector("[data-slot='select-item-indicator'] svg")!;
-    const deck = render(
-      <DeckScale>
-        <OpenSelect />
-      </DeckScale>,
-    );
-    expect(tick()).toHaveClass("size-3.5", "text-fg");
-    expect(tick()).not.toHaveClass("size-4");
-    deck.unmount();
-
-    render(<OpenSelect />);
-    expect(tick()).toHaveClass("size-4");
-    expect([...tick().classList].filter((c) => c.startsWith("text-"))).toEqual([]);
-    expect([...tick().classList].filter((c) => c.includes("scale=deck"))).toEqual([]);
-  });
-
-  it("leaves a select's list unmarked off a deck surface", () => {
-    render(<OpenSelect />);
-    expect(screen.getByRole("listbox").closest("[data-scale]")).toBeNull();
-  });
-
-  it("leaves a menu unmarked off a deck surface", () => {
-    render(<OpenMenu />);
-    expect(screen.getByRole("menu").closest("[data-scale]")).toBeNull();
-  });
-});

@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { rememberWorkspace } from "@/features/auth/accountPreferences";
 import { WorkspaceSwitcher } from "@/layouts/shell/WorkspaceSwitcher";
 import type { StaffWorkspace } from "@/layouts/shell/nav";
@@ -19,9 +18,7 @@ function mount(user: typeof teacherUser, workspace: StaffWorkspace, collapsed = 
   useAuthStore.setState({ user });
   render(
     <MemoryRouter>
-      <DeckScale>
-        <WorkspaceSwitcher workspace={workspace} collapsed={collapsed} />
-      </DeckScale>
+      <WorkspaceSwitcher workspace={workspace} collapsed={collapsed} />
     </MemoryRouter>,
   );
   return document.querySelector<HTMLElement>("[data-slot='workspace']")!;
@@ -79,8 +76,8 @@ describe("the workspace block of the teacher console", () => {
 
     await userEvent.setup().click(screen.getByRole("button", { name: /Quizzivy/ }));
     const menu = screen.getByRole("menu");
-    expect(menu.dataset["scale"]).toBe("deck");
-    expect(menu).toHaveClass("data-[scale=deck]:w-60", "data-[scale=deck]:p-1.5");
+    expect(menu).toHaveClass("w-60", "p-1.5");
+    expect(menu).not.toHaveClass("p-1.25");
     expect(within(menu).getByText("Chuyển không gian làm việc")).toBeInTheDocument();
     const rows = within(menu).getAllByRole("menuitem");
     expect(rows.map((row) => row.textContent)).toEqual([

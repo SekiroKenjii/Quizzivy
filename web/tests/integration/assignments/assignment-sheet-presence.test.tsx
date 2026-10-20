@@ -129,7 +129,7 @@ function board(attempt: string | null = ATTEMPT_ID) {
       {
         path: "/teacher/assignments/:id",
         element: (
-          <main tabIndex={-1} data-scale="deck">
+          <main tabIndex={-1}>
             <AssignmentDetailPage />
           </main>
         ),

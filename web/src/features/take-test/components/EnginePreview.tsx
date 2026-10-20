@@ -145,6 +145,7 @@ export function EnginePreview({
   return (
     <div
       ref={setLayer}
+      role="presentation"
       onKeyDown={onKeyDown}
       className="student-surface bg-bg text-fg @container/student relative flex h-full min-h-0 flex-col leading-relaxed [contain:layout]"
     >

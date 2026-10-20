@@ -9,7 +9,6 @@ import {
   useQuery,
 } from "@tanstack/react-query";
 import { delay, http } from "msw";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { Toaster, toast } from "@/components/ui/sonner";
 import { listMyAssignments } from "@/features/assignments/api";
 import { myClassesQuery } from "@/features/classes/api";
@@ -126,7 +125,7 @@ function Harness({ vanishing }: Readonly<{ vanishing: boolean }>) {
   });
   const gone = vanishing && (classes.data?.items.length ?? 0) > 0;
   return (
-    <DeckScale>
+    <>
       <main tabIndex={-1}>
         {!gone && (
           <button type="button" onClick={() => setOpen(true)}>
@@ -141,7 +140,7 @@ function Harness({ vanishing }: Readonly<{ vanishing: boolean }>) {
         <JoinDialog open={open} onOpenChange={setOpen} />
       </main>
       <Toaster />
-    </DeckScale>
+    </>
   );
 }
 
@@ -195,10 +194,9 @@ describe("the frame and the field", () => {
     await waitFor(() => expect(field()).toHaveFocus());
   });
 
-  it("is a deck surface with the dialog's 52px field", async () => {
+  it("is the deck's dialog with its 52px field", async () => {
     lists();
     const { dialog } = await opened();
-    expect(dialog.dataset["scale"]).toBe("deck");
     expect(dialog).toHaveClass("top-[12%]", "min-[768px]:top-[50%]");
     expect(field()).toHaveClass("h-13", "text-xl", "rounded-[11px]");
     expect(field()).not.toHaveClass("h-[58px]");

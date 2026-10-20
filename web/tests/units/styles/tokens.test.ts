@@ -210,6 +210,7 @@ describe("design tokens (spec §12)", () => {
       ]),
       ["--input", "--bg"],
       ["--input", "--card"],
+      ["--success-solid-fg", "--success"],
     ];
     for (const theme of THEMES) {
       for (const [fg, bg] of text) {
@@ -224,6 +225,17 @@ describe("design tokens (spec §12)", () => {
           `${fg} on ${bg} (${theme})`,
         ).toBeGreaterThanOrEqual(3);
       }
+    }
+  });
+
+  it("keeps none of the legacy names R1 carried for the old consoles", () => {
+    for (const name of [
+      "--destructive-ink",
+      "--destructive-foreground",
+      "--success-foreground",
+      "--warning-foreground",
+    ]) {
+      expect(CSS, name).not.toMatch(new RegExp(`${name}\\b`));
     }
   });
 

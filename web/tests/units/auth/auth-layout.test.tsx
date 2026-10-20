@@ -20,11 +20,11 @@ async function renderLayout(props: { panel?: boolean } = {}) {
 }
 
 describe("the sign-in frame", () => {
-  it("shows the brand panel from the 900px breakpoint, on a deck surface", async () => {
+  it("shows the brand panel from the 900px breakpoint, on the page background", async () => {
     const { container } = await renderLayout();
     const panel = container.querySelector("aside");
     expect(panel).toHaveClass("hidden", "auth:flex");
-    expect(container.firstElementChild).toHaveAttribute("data-scale", "deck");
+    expect(container.firstElementChild).toHaveClass("bg-bg", "text-fg", "min-h-svh");
     expect(
       screen.getByText("Bài kiểm tra, bài học và luyện tập cho lớp tiếng Anh của bạn."),
     ).toBeInTheDocument();

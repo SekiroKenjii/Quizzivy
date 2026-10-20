@@ -31,37 +31,30 @@ async function spacing(input: HTMLElement, properties: readonly string[]) {
 afterEach(cleanup);
 
 describe("SearchInput compiled spacing", () => {
-  for (const deck of [false, true]) {
-    for (const dense of [false, true]) {
-      it(`preserves ${deck ? "deck" : "off-deck"} ${dense ? "dense" : "default"} clearance and height`, async () => {
-        const changes: string[] = [];
-        render(
-          <div data-scale={deck ? "deck" : undefined}>
-            <SearchInput
-              dense={dense}
-              value=""
-              placeholder="Tìm học viên"
-              onChange={(value) => changes.push(value)}
-            />
-          </div>,
-        );
-        const input = screen.getByRole("searchbox", { name: "Tìm học viên" });
-        const css = await spacing(input, ["padding-left", "padding-inline", "height"]);
-        expect(css.get("padding")).toBe(`calc(var(--spacing) * ${dense ? 8 : 9})`);
-        const defaultHeight = deck ? 9.5 : 9;
-        expect(css.get("height")).toBe(
-          `calc(var(--spacing) * ${dense ? 8 : defaultHeight})`,
-        );
-        fireEvent.change(input, {
-          target: { value: "Nguyễn Thị Hoàng Anh tìm học viên rất dài" },
-        });
-        expect(changes).toEqual(["Nguyễn Thị Hoàng Anh tìm học viên rất dài"]);
-        expect(input).toHaveAttribute("type", "search");
-        expect(input.parentElement!.querySelector("svg")).toHaveAttribute(
-          "aria-hidden",
-          "true",
-        );
+  for (const dense of [false, true]) {
+    it(`preserves ${dense ? "dense" : "default"} clearance and height`, async () => {
+      const changes: string[] = [];
+      render(
+        <SearchInput
+          dense={dense}
+          value=""
+          placeholder="Tìm học viên"
+          onChange={(value) => changes.push(value)}
+        />,
+      );
+      const input = screen.getByRole("searchbox", { name: "Tìm học viên" });
+      const css = await spacing(input, ["padding-left", "padding-inline", "height"]);
+      expect(css.get("padding")).toBe(`calc(var(--spacing) * ${dense ? 8 : 9})`);
+      expect(css.get("height")).toBe(`calc(var(--spacing) * ${dense ? 8 : 9.5})`);
+      fireEvent.change(input, {
+        target: { value: "Nguyễn Thị Hoàng Anh tìm học viên rất dài" },
       });
-    }
+      expect(changes).toEqual(["Nguyễn Thị Hoàng Anh tìm học viên rất dài"]);
+      expect(input).toHaveAttribute("type", "search");
+      expect(input.parentElement!.querySelector("svg")).toHaveAttribute(
+        "aria-hidden",
+        "true",
+      );
+    });
   }
 });

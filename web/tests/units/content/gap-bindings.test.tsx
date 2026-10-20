@@ -13,7 +13,6 @@ import { questionGaps } from "@/components/shared/content/gaps";
 import type { QuestionPromptContent } from "@/components/shared/content/questionContent";
 import { GapAnswers } from "@/features/question-bank/components/GapAnswers";
 import { publishProblem } from "@/features/tests/publishProblem";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { GroupComposer } from "@/features/question-groups/components/GroupComposer";
 import {
   materialGaps,
@@ -247,9 +246,7 @@ test("an unbound gap's row is named as unbound, and Remove gap takes the gap out
   }
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <DeckScale>
-        <Host />
-      </DeckScale>
+      <Host />
     </QueryClientProvider>,
   );
   expect(

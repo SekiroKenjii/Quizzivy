@@ -4,7 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import { DeckScale } from "@/components/ui/deck-scale";
 import GroupEditorPage from "@/features/question-groups/pages/teacher/GroupEditorPage";
 import { emptyGroup } from "@/features/question-groups/model";
 import type { DraftScope } from "@/lib/drafts/store";
@@ -75,11 +74,7 @@ it("keeps focus on Keep local draft and leave while the local write is pending",
     [
       {
         path: "/teacher/question-bank/groups/:id",
-        element: (
-          <DeckScale>
-            <GroupEditorPage />
-          </DeckScale>
-        ),
+        element: <GroupEditorPage />,
       },
       { path: "/teacher/question-bank/groups", element: <p>Group list</p> },
     ],

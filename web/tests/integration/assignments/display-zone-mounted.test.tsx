@@ -21,7 +21,6 @@ import "@/features/auth/accountPreferences";
 import { useAuthStore } from "@/stores/auth";
 import { teacherUser } from "@tests/support/fixtures";
 import { installWizardServer } from "@tests/support/assignmentWizard";
-import { DeckScale } from "@/components/ui/deck-scale";
 import AssignmentWizardPage from "@/features/assignments/pages/teacher/AssignmentWizardPage";
 import { server } from "@tests/support/server";
 import {
@@ -154,11 +153,7 @@ it("keeps the wizard's mounted dirty close time fixed to HCM while the account's
     [
       {
         path: "/teacher/assignments/:id/edit",
-        element: (
-          <DeckScale>
-            <AssignmentWizardPage />
-          </DeckScale>
-        ),
+        element: <AssignmentWizardPage />,
       },
     ],
     { initialEntries: [`/teacher/assignments/${ID}/edit?step=3`] },
