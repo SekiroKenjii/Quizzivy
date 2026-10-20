@@ -1567,7 +1567,7 @@ function BuilderTitle({
           ref={input}
           value={title}
           aria-label={t("builder.titleLabel")}
-          className="text-stat w-full py-0 leading-[34px] font-semibold tracking-[-0.02em]"
+          className="text-stat h-9 w-full px-2 py-0 leading-[34px] font-semibold tracking-[-0.02em]"
           onChange={(event) => onChange(event.target.value)}
           onBlur={() => {
             const next = title.trim() || t("tests.untitled");

@@ -17,7 +17,11 @@ export function PasswordInput({
       <Input
         {...props}
         type={visible ? "text" : "password"}
-        className={cn(props.size === "lg" && "pr-11", className)}
+        className={cn(
+          props.size === "lg" && "pr-11",
+          props.size === "xl" && "pr-11.5",
+          className,
+        )}
       />
       <Button
         type="button"

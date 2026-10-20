@@ -330,7 +330,7 @@ function FieldLabel({
       {htmlFor === undefined ? (
         <span id={id}>{label}</span>
       ) : (
-        <Label htmlFor={htmlFor} className="font-medium">
+        <Label htmlFor={htmlFor} className="text-meta font-medium">
           {label}
         </Label>
       )}
@@ -759,7 +759,7 @@ function BlankField({
       entered.some((line) => Array.from(line).length > ACCEPTED_LIMITS.length));
   return (
     <div className="bg-card flex flex-col gap-2 rounded-[10px] border p-3">
-      <Label htmlFor={id} className="font-medium">
+      <Label htmlFor={id} className="text-meta font-medium">
         {t("imports.review.blankLabel", { label })}
       </Label>
       <Textarea
