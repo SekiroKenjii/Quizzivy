@@ -369,7 +369,7 @@ function PlacedPlayer({
         )}
 
         {blocked ? (
-          <p role="alert" className="text-danger-ink text-meta mt-1.5">
+          <p role="alert" className="text-danger-ink text-meta mt-1.5 leading-relaxed">
             {t("media.playBlocked")}
           </p>
         ) : null}
@@ -396,7 +396,7 @@ function Expired({
         frame,
       )}
     >
-      <p className="text-meta min-w-0 flex-1">{t("media.expired")}</p>
+      <p className="text-meta min-w-0 flex-1 leading-relaxed">{t("media.expired")}</p>
       {onRetry === undefined ? null : (
         <Button variant="outline" size="xs" onClick={onRetry}>
           {t("common.retry")}

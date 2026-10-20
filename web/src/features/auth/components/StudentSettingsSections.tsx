@@ -173,7 +173,7 @@ export function StudentProfileSection() {
             {...form.register("fullName", { onChange: () => setFailure(null) })}
           />
           {nameError ? (
-            <FieldError id={`${NAME}-note`} className="text-xs">
+            <FieldError id={`${NAME}-note`} className="text-xs leading-normal">
               {t(nameError.message ?? "settings.errors.nameRequired")}
             </FieldError>
           ) : (

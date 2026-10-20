@@ -43,7 +43,7 @@ function Field({
 }>) {
   return (
     <div className="flex max-w-(--field-max) min-w-0 flex-col gap-1.5">
-      <Label htmlFor={id} className="text-meta font-medium">
+      <Label htmlFor={id} className="text-meta leading-normal font-medium">
         {label}
       </Label>
       {children}

@@ -31,7 +31,7 @@ import { authStore, useAuthStore } from "@/stores/auth";
 const BODY = "flex flex-col gap-3.5 p-4.5";
 const GRID = "grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3.5";
 const FIELD = "flex min-w-0 flex-col gap-1.5";
-const LABEL = "text-meta font-medium";
+const LABEL = "text-meta leading-normal font-medium";
 const INPUT = "bg-bg h-9.5";
 const ACTION = "h-8.5 self-start aria-disabled:opacity-50";
 

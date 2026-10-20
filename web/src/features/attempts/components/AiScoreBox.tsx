@@ -37,7 +37,7 @@ const CONFIDENCE: Readonly<Record<AiScoreSuggestion["confidence"], string>> = {
   low: "bg-danger-soft text-danger-ink",
 };
 
-const ACTION = "text-meta h-7.5 rounded-seg px-2.5 font-medium";
+const ACTION = "text-meta h-7.5 rounded-seg px-2.5 leading-normal font-medium";
 
 /**
  * AiScoreBox is the grading card's "Suggest a score" (V-07) for one short
