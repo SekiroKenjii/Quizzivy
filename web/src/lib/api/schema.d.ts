@@ -19,10 +19,10 @@ export interface paths {
          *     the student sees **which class they are joining** before authenticating.
          *     Never create an account and enrol in one blind tap (§6.2).
          *
-         *     Lookup is by a keyed hash of the normalized code, or by its SHA-256 for
-         *     a code issued before v0.8.0, compared in constant time. The plaintext
-         *     is never stored; a code issued from v0.8.0 on is stored encrypted
-         *     (§6.5).
+         *     Lookup is by a keyed hash of the normalized code, compared in constant
+         *     time. The plaintext is never stored; the code is stored encrypted
+         *     (§6.5). A code issued before v0.8.0, held only as its SHA-256, answers
+         *     as an unknown code.
          */
         post: operations["previewJoinCode"];
         delete?: never;
@@ -3765,11 +3765,11 @@ export interface paths {
          *     other that reveals one. It is not audited, because the teacher's
          *     screens show the code on every class card.
          *
-         *     `code` is `null` when the code cannot be read back. A code issued
-         *     before v0.8.0 is held only as a hash (`legacy: true`), and R4 rotates
-         *     those. A code sealed under a key this server no longer holds
-         *     (`legacy: false`) can be neither read nor redeemed. Rotate either to
-         *     get a readable code.
+         *     `code` is `null` when the code cannot be read back: it is sealed under
+         *     a key this server no longer holds, and can be neither read nor
+         *     redeemed. Rotate it to get a readable code. `legacy` is always false:
+         *     a code issued before v0.8.0, held only as a hash, was rotated in R4,
+         *     and the database refuses one that is not revoked (§13.3).
          *
          *     404 when the class is not the caller's, exactly as a missing class
          *     answers, or when it has no active code.
@@ -6671,9 +6671,7 @@ export interface components {
          * @description Metadata about the active code — **not the code itself**, which
          *     `getJoinCode` reads for its teacher. A code issued from v0.8.0 on
          *     is stored encrypted under a key the database does not hold and found
-         *     by a keyed hash (§13.3), so a database dump does not hand it over. A
-         *     code issued before v0.8.0 is held only as its SHA-256 hash, which a
-         *     dump can reverse beside the hint, until it is rotated (D5).
+         *     by a keyed hash (§13.3), so a database dump does not hand it over.
          */
         JoinCodeInfo: {
             /** @example 7K3M */
@@ -6694,7 +6692,7 @@ export interface components {
             code: string | null;
             /** @example 7K3M */
             hint: string;
-            /** @description True for a code issued before v0.8.0, held only as a hash until it is rotated. */
+            /** @description Always false. It was true for a code issued before v0.8.0, held only as a hash, which can no longer be active. */
             legacy: boolean;
             expiresAt: components["schemas"]["Timestamp"];
             maxUses: number | null;

@@ -607,7 +607,7 @@ DROP INDEX CONCURRENTLY IF EXISTS app.assignments_creator_idx;         -- 00077
 ## Rolling out v0.12.0 (R5)
 
 v0.12.0 adds the Admin console, outgoing email and the nightly retention sweep, with
-migrations `00128` to `00140`. Three things must exist before the merge to `main`. A missing secret or a missing
+migrations `00128` to `00141`. Three things must exist before the merge to `main`. A missing secret or a missing
 maintenance role stops the deploy on its own; the sending domain has to be checked by hand:
 
 - **Fly secrets `SECRETS_KEY` and `RESEND_API_KEY`** (`dns.md`, "Secrets on Fly").
