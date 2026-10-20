@@ -54,7 +54,7 @@ import { authStore, useAuthStore } from "@/stores/auth";
 
 const CARD = "bg-card shadow-card rounded-xl border";
 const FIELD = "flex flex-col gap-1.5";
-const LABEL = "text-meta";
+const LABEL = "text-meta leading-normal";
 const HINT = "text-muted-fg text-xs leading-normal";
 const NOTE = "text-meta leading-normal";
 const ROW = "flex items-center gap-3 px-4 py-3.5";
