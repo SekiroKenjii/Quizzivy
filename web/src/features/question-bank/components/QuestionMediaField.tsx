@@ -454,7 +454,7 @@ function ImageDetails({
         aria-label={t("questionEditor.questionMedia.altLabel")}
         aria-describedby={help}
         placeholder={t("questionEditor.questionMedia.altPlaceholder")}
-        className="bg-background h-8.5 rounded-[8px]"
+        className="h-8.5 rounded-[8px]"
         onChange={(event) =>
           onChange({
             ...value,

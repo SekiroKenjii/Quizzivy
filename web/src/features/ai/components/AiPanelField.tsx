@@ -124,7 +124,7 @@ function DestinationCard({ field }: Readonly<{ field: Destination }>) {
               <SelectItem
                 key={option.value}
                 value={option.value}
-                className="min-h-11 max-[767px]:min-h-13"
+                className="max-[767px]:min-h-13"
               >
                 <span
                   className={cn(

@@ -115,8 +115,9 @@ describe("the primitives draw the deck's geometry with no ancestor to opt in", (
     expect(button).toContain("size-9");
     expect(button).not.toContain("size-8.5");
     const field = classList(container.querySelector("input")!);
-    expect(field).toEqual(expect.arrayContaining(["h-11.5", "pr-11.5"]));
+    expect(field).toEqual(expect.arrayContaining(["h-11.5", "px-3.5"]));
     expect(field).not.toContain("h-11");
+    expect(field).not.toContain("pr-11.5");
   });
 
   it("centres the 42px password field's show and hide button at the deck's 34px", () => {
@@ -134,15 +135,16 @@ describe("the primitives draw the deck's geometry with no ancestor to opt in", (
     expect(field).not.toContain("pr-12");
   });
 
-  it("keeps the default password field at the deck's 38px with its 44px button at the edge", () => {
+  it("keeps the default password field at the deck's 38px with its 34px button at the edge", () => {
     const { container } = render(<PasswordInput id="password" />);
     const button = classList(container.querySelector("button")!);
-    expect(button).toEqual(
-      expect.arrayContaining(["inset-y-0", "right-0", "h-11", "w-11"]),
-    );
+    expect(button).toEqual(expect.arrayContaining(["inset-y-0", "right-0", "size-8.5"]));
+    expect(button).not.toContain("h-11");
+    expect(button).not.toContain("w-11");
     expect(button).not.toContain("top-1/2");
     const field = classList(container.querySelector("input")!);
-    expect(field).toEqual(expect.arrayContaining(["h-9.5", "pr-12"]));
+    expect(field).toEqual(expect.arrayContaining(["h-9.5", "px-3"]));
+    expect(field).not.toContain("pr-12");
     expect(field).not.toContain("h-11");
   });
 });

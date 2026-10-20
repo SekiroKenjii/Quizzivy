@@ -54,7 +54,7 @@ export function SearchInput({
       />
       <Input
         type="search"
-        className={cn("pl-9", dense && "h-8 pl-8 text-xs lg:text-xs")}
+        className={cn("pl-9", dense && "h-8 pl-8 text-xs")}
         ref={inputRef}
         maxLength={maxLength}
         value={fit(value)}

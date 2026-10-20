@@ -982,7 +982,7 @@ function SectionTitleInput({
         ref={field}
         value={value}
         aria-label={t("builder.sectionNameLabel")}
-        className="h-7 px-2 text-xs font-semibold"
+        className="text-xs font-semibold"
         onChange={(event) => setValue(event.target.value)}
         onBlur={blur}
         onKeyDown={(event) => {

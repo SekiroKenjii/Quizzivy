@@ -281,7 +281,7 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
                 aria-pressed={mode === value}
                 disabled={model.busy}
                 className={cn(
-                  "h-7.5 rounded-[7px] px-3",
+                  "h-7.5 px-3",
                   mode === value
                     ? "bg-card! text-foreground shadow-[var(--qz-shadow),0_0_0_1px_var(--border)]"
                     : "text-muted-foreground",
@@ -309,7 +309,7 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
                 <Button
                   size="sm"
                   disabled={model.busy}
-                  className="bg-danger-ink text-bg hover:bg-danger-ink/90 h-8 px-3 font-semibold"
+                  className="bg-danger-ink text-bg hover:bg-danger-ink/90 px-3 font-semibold"
                   onClick={() => void model.retryFinish(state)}
                 >
                   {t("grading.retryFinish")}
@@ -318,7 +318,7 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
                   asChild
                   size="sm"
                   variant="outline"
-                  className="text-danger-ink! h-8 border-current! bg-transparent! px-3"
+                  className="text-danger-ink! border-current! bg-transparent! px-3"
                 >
                   <Link
                     to={`/teacher/attempts/${state.item.attemptId}`}

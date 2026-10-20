@@ -88,7 +88,7 @@ export function ExportDataDialog({
       onSubmit={(values) => void submit(values)}
     >
       <div className="mt-3.5 flex flex-col gap-1.5">
-        <Label htmlFor={addressId} className="text-meta font-medium">
+        <Label htmlFor={addressId} className="font-medium">
           {t("systemSettings.export.sendTo")}
         </Label>
         <Input id={addressId} readOnly value={email} />

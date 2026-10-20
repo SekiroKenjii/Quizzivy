@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { PASTE_EXAMPLE } from "../paste";
 
 const TOOL_BUTTON =
-  "gap-1.5 px-[11px] text-[13px] leading-[normal] h-8 rounded-[8px] [&_svg:not([class*='size-'])]:size-3.5";
+  "h-8 gap-1.5 rounded-[8px] px-[11px] leading-[normal] [&_svg:not([class*='size-'])]:size-3.5";
 
 function startOnShortcut(event: KeyboardEvent<HTMLTextAreaElement>) {
   if (event.key !== "Enter" || !(event.ctrlKey || event.metaKey)) return;

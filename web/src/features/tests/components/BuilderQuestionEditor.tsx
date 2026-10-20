@@ -91,7 +91,7 @@ export function BuilderQuestionEditor({
             step={0.5}
             value={value.points}
             aria-invalid={value.points <= 0}
-            className="bg-background h-7.5 w-12 rounded-[7px] px-0.5 text-center lg:text-[13px]"
+            className="h-7.5 w-12 rounded-[7px] px-0.5 text-center lg:text-[13px]"
             onChange={(event) =>
               onChange({ ...value, points: Number(event.target.value) })
             }

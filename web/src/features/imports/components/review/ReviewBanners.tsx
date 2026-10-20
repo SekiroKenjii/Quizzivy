@@ -7,7 +7,7 @@ import { isActiveStatus } from "../../status";
 import { ReprocessNotice } from "../ReprocessNotice";
 
 const BAR = "flex flex-none flex-wrap items-center gap-3 border-b px-4 py-2";
-const BAR_BUTTON = "ml-auto h-8 rounded-lg px-3 text-sm shadow-none";
+const BAR_BUTTON = "ml-auto h-8 rounded-lg shadow-none";
 
 /**
  * ReviewBanners are the review's state notices: a stale draft, processing that
