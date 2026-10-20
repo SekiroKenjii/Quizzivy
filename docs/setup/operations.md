@@ -735,59 +735,22 @@ dates in `APP_TIMEZONE`.
 
 ## Legacy join codes
 
-A code issued before v0.8.0 is held only as its SHA-256 (lookup scheme 1): it
-redeems, but cannot be read back. `jobs.RotateLegacyJoinCodes` replaces each live
-one, once, when the API starts. No operator command is involved; `Serve` starts
-the job beside the prunes, and the `worker` process does not run it.
+A code issued before v0.8.0 was held only as its SHA-256 (lookup scheme 1).
+v0.10.0 to v0.11.x replaced each live one, once, at API start-up
+(`jobs.RotateLegacyJoinCodes`, T-R4.22). v0.12.0 removed that job and the
+scheme-1 lookup (T-R5.1): a code is found only by its keyed hash, so an old
+revoked or expired legacy code answers as an unknown code, and migration
+`00141` adds `class_join_codes_live_encrypted`, which refuses any unrevoked code
+without a ciphertext.
 
-For every class whose active code is scheme 1, not revoked and not yet expired,
-one transaction revokes that code and issues a sealed one (scheme 2, under the
-current `JOIN_CODE_KEY`). The new code keeps the old one's expiry, use cap (a
-stored NULL stays NULL), use count and creator, and leaves the class's
-self-join switch as it was. A class whose legacy code had reached its cap
-therefore gets a code that is used up: its teacher issues a new one to admit
-more students (F-67). The old code then answers as any replaced code does:
-"revoked" where self-join is open, and as an unknown code where self-join is
-closed or the class is archived. Archived classes are rotated too. Each rotation
-is audited as `class.join_code_rotated` with no actor (the System), the diff
-`{reason: "legacy_rotation", previousHint, hint}`, never a code.
-
-- **Concurrency.** Each class is its own transaction and takes
-  `pg_advisory_xact_lock(73819, 41)`, then the class row (`FOR NO KEY UPDATE`),
-  then re-reads the class's active code. Two machines starting together
-  therefore rotate a class once, and a second run finds nothing to do. A class
-  whose transaction lost a deadlock or serialization conflict is tried once more
-  after the other classes (`docs/plan/20-data-model.md` §28 and §33).
-- **Budget.** Two minutes for the whole run. It never runs on a timer. A class it
-  did not reach, or that failed, waits for the next start-up: restart the app
-  machine or deploy again.
-- **Teachers.** Each affected teacher gets one in-app notification,
-  `join_codes.rotated`, with how many of their classes were rotated and the first
-  five names; a later run adds its count to the same unread row. A failed
-  notification undoes nothing, and a process that stops between a teacher's last
-  rotation and their notification leaves them untold (the next run finds nothing
-  to rotate), so the release note tells the teachers as well.
-- **Logs** (`slog` JSON; none carries a code or a hint, only class and user ids):
-  `legacy_join_codes_found {count}` before the first class when there is one;
-  `legacy_join_codes_rotated {found, rotated, failed, teachers, notify_failed}`
-  after the last; `legacy_join_codes_problem {err}` at Warn for each class left
-  unrotated and each teacher left untold; `legacy_join_codes_failed {err}` when
-  the listing itself failed. A run that finds nothing logs nothing.
-
-Release check: run this with any credential that can read `app.class_join_codes`,
-before and after the deploy. The count before is the number of classes the run will
-rotate (record it for the release note); the count after must be 0, or the classes
-that `legacy_join_codes_rotated` reports as `failed` are waiting for the next
-start-up:
+`00141` stops with an error if a live legacy code is still there. That cannot
+happen after a v0.10.0 start-up; if it does, start a v0.11.x API once before
+deploying v0.12.0. The check it runs, on a Neon branch before the release:
 
 ```sql
-SELECT count(*) FROM app.class_join_codes
- WHERE revoked_at IS NULL AND lookup_scheme = 1 AND expires_at > now();
+SELECT count(*) AS live_legacy_codes FROM app.class_join_codes
+ WHERE revoked_at IS NULL AND expires_at > now() AND code_ciphertext IS NULL;
 ```
-
-The lookup branch that still finds a scheme-1 row (so a revoked or expired
-legacy code answers as revoked or expired, not as unknown) stays until R5 removes
-it.
 
 ## Stored emails the API cannot print
 
