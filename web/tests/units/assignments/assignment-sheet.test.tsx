@@ -370,7 +370,7 @@ describe("actual assignment detail permission and identity gates", () => {
 });
 
 describe("useful pinned assignment panels", () => {
-  it("reads the pinned version for the insights and draws no paper under the analysis", async () => {
+  it("draws no paper under the analysis and reads no preview while the assistant is off", async () => {
     let requestedVersion: string | null = null;
     const prompt = "Published version question";
     server.use(
@@ -398,7 +398,11 @@ describe("useful pinned assignment panels", () => {
       }),
     );
     mount(`${PATH}?tab=questions`);
-    await waitFor(() => expect(requestedVersion).toBe("3"));
+    expect(
+      await screen.findByRole("tab", { name: "Câu hỏi", selected: true }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(requests.monitor).toBe(1));
+    expect(requestedVersion).toBeNull();
     expect(screen.queryByText(prompt)).toBeNull();
     expect(screen.queryByRole("link", { name: "Xem đề" })).toBeNull();
     expect(requests.reviews).toEqual([]);

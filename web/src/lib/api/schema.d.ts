@@ -3651,8 +3651,8 @@ export interface paths {
          *     only when the request says `withCodes=true`, which the class cards send and
          *     the pickers do not. It is then the code exactly when `getJoinCode` would
          *     read it for the same caller and class: the caller holds
-         *     `teaching.classes.write`, reaches the class, and the code is readable (not
-         *     a legacy code, and sealed under a key this server holds). In every other
+         *     `teaching.classes.write`, reaches the class, and the code is readable
+         *     (sealed under a key this server holds). In every other
          *     case `code` is `null`, a missing permission included, which is not an
          *     error. The answer is never cached, whether or not codes are asked for, and
          *     the operation is limited like the others that reveal one: 60 a minute and
@@ -8934,6 +8934,10 @@ export interface components {
          *     The three `ai.*` kinds are for the teacher's bell. `ai.credit_request`
          *     is written for every holder of `ai.credits.manage`, who reads it in the
          *     teacher workspace until the Admin console has a bell of its own.
+         *
+         *     `join_codes.rotated` was written by the one-time start-up rotation of
+         *     pre-v0.8.0 join codes, which v0.12.0 removed. Nothing writes it now;
+         *     the kind stays so that the notifications it wrote still read.
          * @enum {string}
          */
         NotificationKind: "attempt.submitted" | "attempt.flagged" | "assignment.closing" | "class.joined" | "join_codes.rotated" | "assignment.opened" | "assignment.due_soon" | "assignment.extended" | "result.ready" | "ai.allowance_warning" | "ai.credit_request" | "ai.credit_request.decided" | "content.transferred" | "class.teacher_changed";
@@ -8969,7 +8973,7 @@ export interface components {
         NotificationParams: {
             /** @description The title of the test the assignment gives. */
             title?: string;
-            /** @description Papers handed in (`attempt.submitted`), classes whose join code was replaced (`join_codes.rotated`), or classes, tests, questions, question groups, media and assignments given to the reader (`content.transferred`). */
+            /** @description Papers handed in (`attempt.submitted`), classes whose pre-v0.8.0 join code was replaced at start-up (`join_codes.rotated`, no longer written), or classes, tests, questions, question groups, media and assignments given to the reader (`content.transferred`). */
             count?: number;
             /** @description Of the papers handed in, those with an answer waiting for a mark. */
             toGrade?: number;
@@ -10308,6 +10312,7 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: components["responses"]["NoContent"];
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             /** @description `SESSION_IS_CURRENT` — the session is the one making the request. */
@@ -10361,6 +10366,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     createQuestionGroup: {
@@ -10437,6 +10443,7 @@ export interface operations {
                     "application/json": components["schemas"]["StoredQuestionGroup"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -10517,6 +10524,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             /** @description Stale revision, archived enclosing test, bank group not archived, or `RESOURCE_REFERENCED`: the group or one of its questions is still referenced elsewhere and nothing is deleted. */
@@ -10718,6 +10726,7 @@ export interface operations {
                     "application/json": components["schemas"]["Test"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -10739,6 +10748,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /** @description The resource is still referenced or has not reached its required inactive state. */
             409: {
@@ -10975,6 +10985,7 @@ export interface operations {
                     "application/json": components["schemas"]["Test"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -11000,6 +11011,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -11022,6 +11034,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /** @description The version is referenced or current. Archiving does not prevent deletion of an unused, non-current version. */
             409: {
@@ -11191,6 +11204,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /** @description `TEST_NOT_PUBLISHED`. */
             409: {
@@ -11356,6 +11370,7 @@ export interface operations {
                     "application/json": components["schemas"]["AdminQuestion"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -11371,6 +11386,7 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: components["responses"]["NoContent"];
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /**
              * @description `QUESTION_REFERENCED` — still referenced by a draft test outline.
@@ -11479,6 +11495,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     createWordImport: {
@@ -11557,6 +11574,7 @@ export interface operations {
                     "application/json": components["schemas"]["WordImport"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description Import not found. */
             404: {
                 headers: {
@@ -11765,6 +11783,7 @@ export interface operations {
                     "application/json": components["schemas"]["ImportSourceDownload"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description Completed source not found in this import. */
             404: {
                 headers: {
@@ -11956,6 +11975,7 @@ export interface operations {
                     "application/json": components["schemas"]["ImportReview"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description IMPORT_NOT_PROCESSED — no draft yet, or import not found. */
             404: {
                 headers: {
@@ -12098,6 +12118,7 @@ export interface operations {
                     "application/json": components["schemas"]["ImportSourceView"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description IMPORT_NOT_PROCESSED — the source has not been extracted, or import not found. */
             404: {
                 headers: {
@@ -12400,6 +12421,7 @@ export interface operations {
                     "application/json": components["schemas"]["MediaRetirement"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /**
              * @description `MEDIA_REFERENCED` — a published version or independent question group still uses it (§8, §15).
@@ -12579,6 +12601,7 @@ export interface operations {
                     "application/json": components["schemas"]["Assignment"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -12600,6 +12623,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /** @description The resource is still referenced or has not reached its required inactive state. */
             409: {
@@ -12715,6 +12739,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description The assignment, or a question that is not on its paper. */
             404: {
                 headers: {
@@ -12783,6 +12808,7 @@ export interface operations {
                     "application/json": components["schemas"]["ItemAnalysis"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -12889,6 +12915,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -12953,6 +12980,7 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: components["responses"]["NoContent"];
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -12981,6 +13009,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -13022,6 +13051,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     getAttemptForReview: {
@@ -13074,6 +13104,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -13101,6 +13132,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -13362,6 +13394,7 @@ export interface operations {
                     "application/json": components["schemas"]["Attempt"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /** @description `GRADING_INCOMPLETE` — a `short_answer` is still ungraded; `ATTEMPT_IN_PROGRESS` / `ATTEMPT_VOIDED` as for grade. */
             409: {
@@ -13395,6 +13428,7 @@ export interface operations {
                     "application/json": components["schemas"]["Dashboard"];
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     getTeacherSummary: {
@@ -13590,6 +13624,7 @@ export interface operations {
                     "application/json": components["schemas"]["StudentRow"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -13671,6 +13706,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             /**
              * @description `STUDENT_SHARED` — someone else also reaches the student, so only a
              *     holder of `people.users.manage` may reset them. `FORBIDDEN` — the
@@ -13826,6 +13862,7 @@ export interface operations {
                     "application/json": components["schemas"]["AdminUserDetail"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -13847,6 +13884,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             /** @description `FORBIDDEN` — the student's permissions are not a subset of the caller's. */
             403: {
                 headers: {
@@ -13963,6 +14001,7 @@ export interface operations {
                     "application/json": components["schemas"]["AdminUserRow"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description `TARGET_ROLE_NOT_ALLOWED` — the account's role holds a permission the caller lacks. */
             403: {
                 headers: {
@@ -14102,6 +14141,7 @@ export interface operations {
                     "application/json": components["schemas"]["AdminUserRow"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description `TARGET_ROLE_NOT_ALLOWED` — the account's role holds a permission the caller lacks. */
             403: {
                 headers: {
@@ -14141,6 +14181,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             /** @description `TARGET_ROLE_NOT_ALLOWED` — the account's role holds a permission the caller lacks. */
             403: {
                 headers: {
@@ -14433,6 +14474,7 @@ export interface operations {
                     "application/json": components["schemas"]["UserImportJob"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -14460,6 +14502,7 @@ export interface operations {
                     "text/csv": string;
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /** @description `SHEET_UNAVAILABLE` — the job has no sheet to give: it is not done, was delivered by email, created no account, was downloaded already, or finished more than 24 hours ago. */
             410: {
@@ -15067,6 +15110,7 @@ export interface operations {
                     "application/json": components["schemas"]["DataExport"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -15095,6 +15139,7 @@ export interface operations {
                     "application/json": components["schemas"]["DataExportDownload"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -15258,6 +15303,7 @@ export interface operations {
                     "application/json": components["schemas"]["AiCreditDecision"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description `FORBIDDEN` — the teacher's permissions are not a subset of the caller's. */
             403: {
                 headers: {
@@ -15304,6 +15350,7 @@ export interface operations {
                     "application/json": components["schemas"]["AiCreditDecision"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description `FORBIDDEN` — the teacher's permissions are not a subset of the caller's. */
             403: {
                 headers: {
@@ -15573,6 +15620,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             429: components["responses"]["TooManyRequests"];
         };
     };
@@ -15630,6 +15678,7 @@ export interface operations {
                     "application/json": components["schemas"]["Class"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -15651,6 +15700,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /**
              * @description `RESOURCE_NOT_ARCHIVED` — the class is not archived.
@@ -15752,6 +15802,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     addClassMember: {
@@ -15797,6 +15848,7 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: components["responses"]["NoContent"];
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
@@ -15822,6 +15874,7 @@ export interface operations {
                     "application/json": components["schemas"]["JoinCode"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
@@ -15909,6 +15962,7 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: components["responses"]["NoContent"];
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
@@ -16094,6 +16148,7 @@ export interface operations {
                     "application/json": components["schemas"]["AiDistractorsResult"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             402: components["responses"]["AiCreditsExhausted"];
             403: components["responses"]["AiNotAllowed"];
             404: components["responses"]["NotFound"];
@@ -16131,6 +16186,7 @@ export interface operations {
                     "application/json": components["schemas"]["AiScoreSuggestion"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             402: components["responses"]["AiCreditsExhausted"];
             403: components["responses"]["AiNotAllowed"];
             /** @description The attempt, or a question that is not on its paper, is not in the caller's reach. */
@@ -16187,6 +16243,7 @@ export interface operations {
                     "application/json": components["schemas"]["AiInsightsResult"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             402: components["responses"]["AiCreditsExhausted"];
             403: components["responses"]["AiNotAllowed"];
             404: components["responses"]["NotFound"];
@@ -16413,6 +16470,7 @@ export interface operations {
                     "application/json": components["schemas"]["StudentAssignmentDetail"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
@@ -16769,6 +16827,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             /** @description `ATTEMPT_IN_PROGRESS` — not yet submitted; `ATTEMPT_VOIDED` — nothing to show. */
             409: {
@@ -16812,6 +16871,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
         };
     };

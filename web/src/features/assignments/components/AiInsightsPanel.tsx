@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Link } from "react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { KeyRound, Sparkles, TrendingUp, TriangleAlert, X } from "lucide-react";
 import { contentPlainText } from "@/components/shared/content/plainText";
 import { Callout } from "@/components/shared/Callout";
@@ -21,6 +21,7 @@ import { aiPreferencesOf } from "@/features/auth/preferences";
 import { draftQuestion } from "@/features/question-bank/aiDrafts";
 import { questionSchema } from "@/features/question-bank/questionSchema";
 import { savePractice } from "@/features/tests/aiPractice";
+import { previewTest } from "@/features/tests/api";
 import type { AssignmentInsights, InsightsFailure } from "../assignmentInsights";
 import type { components } from "@/lib/api/schema";
 import { useAuthStore } from "@/stores/auth";
@@ -108,30 +109,52 @@ function passagesOf(groups: readonly StudentGroup[]): AiPassage[] {
 }
 
 /**
+ * usePinnedGroups reads the groups of version `version` of the test `testId`,
+ * the passages a practice set starts from, only while `enabled`. A preview
+ * that answers another version gives none rather than the wrong passages.
+ */
+function usePinnedGroups(
+  testId: string,
+  version: number,
+  enabled: boolean,
+): readonly StudentGroup[] | undefined {
+  const preview = useQuery({
+    queryKey: ["teacher-test-preview", testId, version],
+    queryFn: ({ signal }) => previewTest(testId, version, signal),
+    enabled,
+  });
+  return preview.data?.version === version ? preview.data.groups : undefined;
+}
+
+/**
  * AiInsightsPanel is what "Explain results with AI" answered (V-06): "What AI
  * noticed", the number of papers it read, "Hide insights", and up to four
  * cards, each a pattern with its icon tile and, where the assistant suggests
  * one, "Review answers" (Grading narrowed to the assignment) or "Make a
  * practice set" (the Generate panel with the insight's types, saving a new
- * draft test "{title} · Practice"). It writes nothing itself; the practice
- * set is the one write, made by its primary through the existing writes. A
- * failed explanation is a callout in its place, with "Try again" when the
- * assistant did not answer.
+ * draft test "{title} · Practice", whose passages come from the assignment's
+ * pinned version `testVersion`, read only while the entry is offered). It
+ * writes nothing itself; the practice set is the one write, made by its
+ * primary through the existing writes. A failed explanation is a callout in
+ * its place, with "Try again" when the assistant did not answer.
  */
 export function AiInsightsPanel({
   insights,
   assignmentId,
   testTitle,
-  groups,
+  testId,
+  testVersion,
 }: Readonly<{
   insights: AssignmentInsights;
   assignmentId: string;
   testTitle: string;
-  groups: readonly StudentGroup[] | undefined;
+  testId: string;
+  testVersion: number;
 }>) {
   const { t } = useTranslation();
   const available = useAiAvailable();
   const reads = useReadsStudentAnswers();
+  const groups = usePinnedGroups(testId, testVersion, available && reads);
   const [practice, setPractice] = useState<{
     types: readonly QuestionType[];
     open: boolean;

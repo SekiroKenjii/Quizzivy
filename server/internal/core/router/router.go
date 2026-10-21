@@ -100,7 +100,10 @@ func New(deps Deps, logger *slog.Logger, allowedOrigins []string, clientIPHeader
 			validate,
 		),
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			httpx.WriteMalformedParameter(w, r, parameterName(err))
+			malformed := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				httpx.WriteMalformedParameter(w, r, parameterName(err))
+			})
+			httpx.RequireAuth(openRoutes, deps.verifyAccessToken)(httpx.RequirePermission(requirements, deps.Principals)(malformed)).ServeHTTP(w, r)
 		},
 	})
 

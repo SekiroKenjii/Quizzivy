@@ -12439,7 +12439,7 @@
       },
       "NotificationKind": {
         "type": "string",
-        "description": "What a notification is about. The server sends no sentence: the client\nwords the item from `kind` and `params` in the reader's language.\n\nEach kind carries exactly these `params`:\n\n| Kind | For | Params |\n|---|---|---|\n| `attempt.submitted` | a teacher | `title`, `count`, `toGrade` |\n| `attempt.flagged` | a teacher | `studentName`, `title`, `focusLost` |\n| `assignment.closing` | a teacher | `title`, `notSubmitted` |\n| `class.joined` | a teacher | `studentName`, `className` |\n| `join_codes.rotated` | a teacher | `count`, `classNames` |\n| `assignment.opened` | a student | `title`, `closesAt` |\n| `assignment.due_soon` | a student | `title`, `closesAt` |\n| `assignment.extended` | a student | `title`, `closesAt` |\n| `result.ready` | a student | `title` |\n| `ai.allowance_warning` | a teacher | `used`, `allowance` |\n| `ai.credit_request` | a teacher | `teacherName`, `credits` |\n| `ai.credit_request.decided` | a teacher | `credits`, `decision` |\n| `content.transferred` | a teacher | `teacherName`, `count` |\n| `class.teacher_changed` | a teacher | `className`, and `teacherName` for the class's previous teacher |\n\nThe three `ai.*` kinds are for the teacher's bell. `ai.credit_request`\nis written for every holder of `ai.credits.manage`, who reads it in the\nteacher workspace until the Admin console has a bell of its own.\n",
+        "description": "What a notification is about. The server sends no sentence: the client\nwords the item from `kind` and `params` in the reader's language.\n\nEach kind carries exactly these `params`:\n\n| Kind | For | Params |\n|---|---|---|\n| `attempt.submitted` | a teacher | `title`, `count`, `toGrade` |\n| `attempt.flagged` | a teacher | `studentName`, `title`, `focusLost` |\n| `assignment.closing` | a teacher | `title`, `notSubmitted` |\n| `class.joined` | a teacher | `studentName`, `className` |\n| `join_codes.rotated` | a teacher | `count`, `classNames` |\n| `assignment.opened` | a student | `title`, `closesAt` |\n| `assignment.due_soon` | a student | `title`, `closesAt` |\n| `assignment.extended` | a student | `title`, `closesAt` |\n| `result.ready` | a student | `title` |\n| `ai.allowance_warning` | a teacher | `used`, `allowance` |\n| `ai.credit_request` | a teacher | `teacherName`, `credits` |\n| `ai.credit_request.decided` | a teacher | `credits`, `decision` |\n| `content.transferred` | a teacher | `teacherName`, `count` |\n| `class.teacher_changed` | a teacher | `className`, and `teacherName` for the class's previous teacher |\n\nThe three `ai.*` kinds are for the teacher's bell. `ai.credit_request`\nis written for every holder of `ai.credits.manage`, who reads it in the\nteacher workspace until the Admin console has a bell of its own.\n\n`join_codes.rotated` was written by the one-time start-up rotation of\npre-v0.8.0 join codes, which v0.12.0 removed. Nothing writes it now;\nthe kind stays so that the notifications it wrote still read.\n",
         "enum": [
           "attempt.submitted",
           "attempt.flagged",
@@ -12490,7 +12490,7 @@
           "count": {
             "type": "integer",
             "minimum": 0,
-            "description": "Papers handed in (`attempt.submitted`), classes whose join code was replaced (`join_codes.rotated`), or classes, tests, questions, question groups, media and assignments given to the reader (`content.transferred`)."
+            "description": "Papers handed in (`attempt.submitted`), classes whose pre-v0.8.0 join code was replaced at start-up (`join_codes.rotated`, no longer written), or classes, tests, questions, question groups, media and assignments given to the reader (`content.transferred`)."
           },
           "toGrade": {
             "type": "integer",
@@ -14564,6 +14564,9 @@
           "204": {
             "$ref": "#/components/responses/NoContent"
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
@@ -14663,6 +14666,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
         }
       },
@@ -14834,6 +14840,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -15015,6 +15024,9 @@
         "responses": {
           "204": {
             "description": "Deleted."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
@@ -15368,6 +15380,9 @@
           "204": {
             "description": "Deleted."
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
@@ -15407,6 +15422,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -15781,6 +15799,9 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "404": {
             "$ref": "#/components/responses/NotFound"
           }
@@ -15832,6 +15853,9 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "404": {
             "$ref": "#/components/responses/NotFound"
           }
@@ -15870,6 +15894,9 @@
         "responses": {
           "204": {
             "description": "Deleted."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -16185,6 +16212,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -16514,6 +16544,9 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "404": {
             "$ref": "#/components/responses/NotFound"
           }
@@ -16597,6 +16630,9 @@
         "responses": {
           "204": {
             "$ref": "#/components/responses/NoContent"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -16801,6 +16837,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
         }
       }
@@ -16836,6 +16875,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "404": {
             "description": "Import not found.",
@@ -17164,6 +17206,9 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "404": {
             "description": "Completed source not found in this import.",
             "content": {
@@ -17426,6 +17471,9 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "404": {
             "description": "IMPORT_NOT_PROCESSED — no draft yet, or import not found.",
             "content": {
@@ -17665,6 +17713,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "404": {
             "description": "IMPORT_NOT_PROCESSED — the source has not been extracted, or import not found.",
@@ -18131,6 +18182,9 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
@@ -18408,6 +18462,9 @@
           "204": {
             "description": "Deleted."
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
@@ -18447,6 +18504,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -18685,6 +18745,9 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "404": {
             "description": "The assignment, or a question that is not on its paper.",
             "content": {
@@ -18796,6 +18859,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -18998,6 +19064,9 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "404": {
             "$ref": "#/components/responses/NotFound"
           }
@@ -19121,6 +19190,9 @@
           "204": {
             "$ref": "#/components/responses/NoContent"
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "404": {
             "$ref": "#/components/responses/NotFound"
           }
@@ -19181,6 +19253,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -19266,6 +19341,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
         }
       }
@@ -19414,6 +19492,9 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "404": {
             "$ref": "#/components/responses/NotFound"
           }
@@ -19474,6 +19555,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -19978,6 +20062,9 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
@@ -20028,6 +20115,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
         }
       }
@@ -20408,6 +20498,9 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "404": {
             "$ref": "#/components/responses/NotFound"
           }
@@ -20533,6 +20626,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "403": {
             "description": "`STUDENT_SHARED` — someone else also reaches the student, so only a\nholder of `people.users.manage` may reset them. `FORBIDDEN` — the\nstudent's permissions are not a subset of the caller's. Nothing is\nwritten.\n",
@@ -20775,6 +20871,9 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "404": {
             "$ref": "#/components/responses/NotFound"
           }
@@ -20790,6 +20889,9 @@
         "responses": {
           "204": {
             "description": "Deleted."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "403": {
             "description": "`FORBIDDEN` — the student's permissions are not a subset of the caller's.",
@@ -20928,6 +21030,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "403": {
             "description": "`TARGET_ROLE_NOT_ALLOWED` — the account's role holds a permission the caller lacks.",
@@ -21146,6 +21251,9 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "403": {
             "description": "`TARGET_ROLE_NOT_ALLOWED` — the account's role holds a permission the caller lacks.",
             "content": {
@@ -21189,6 +21297,9 @@
         "responses": {
           "204": {
             "description": "Signed out."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "403": {
             "description": "`TARGET_ROLE_NOT_ALLOWED` — the account's role holds a permission the caller lacks.",
@@ -21647,6 +21758,9 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "404": {
             "$ref": "#/components/responses/NotFound"
           }
@@ -21694,6 +21808,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -22670,6 +22787,9 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
@@ -22718,6 +22838,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -22952,6 +23075,9 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "403": {
             "description": "`FORBIDDEN` — the teacher's permissions are not a subset of the caller's.",
             "content": {
@@ -23005,6 +23131,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "403": {
             "description": "`FORBIDDEN` — the teacher's permissions are not a subset of the caller's.",
@@ -23307,7 +23436,7 @@
         "operationId": "listClasses",
         "x-resource-list": "class",
         "x-permission": "workspace.teacher",
-        "description": "Classes, newest first. Paginated and searchable like every other list:\n§1.3 promised single-digit classes, and a development database already\nholds over a hundred, which is what broke the class pickers.\n\n**Codes.** Each item's `joinCode.code` is a bearer secret, so it is opened\nonly when the request says `withCodes=true`, which the class cards send and\nthe pickers do not. It is then the code exactly when `getJoinCode` would\nread it for the same caller and class: the caller holds\n`teaching.classes.write`, reaches the class, and the code is readable (not\na legacy code, and sealed under a key this server holds). In every other\ncase `code` is `null`, a missing permission included, which is not an\nerror. The answer is never cached, whether or not codes are asked for, and\nthe operation is limited like the others that reveal one: 60 a minute and\n600 an hour per user.\n",
+        "description": "Classes, newest first. Paginated and searchable like every other list:\n§1.3 promised single-digit classes, and a development database already\nholds over a hundred, which is what broke the class pickers.\n\n**Codes.** Each item's `joinCode.code` is a bearer secret, so it is opened\nonly when the request says `withCodes=true`, which the class cards send and\nthe pickers do not. It is then the code exactly when `getJoinCode` would\nread it for the same caller and class: the caller holds\n`teaching.classes.write`, reaches the class, and the code is readable\n(sealed under a key this server holds). In every other\ncase `code` is `null`, a missing permission included, which is not an\nerror. The answer is never cached, whether or not codes are asked for, and\nthe operation is limited like the others that reveal one: 60 a minute and\n600 an hour per user.\n",
         "tags": [
           "teacher-classes"
         ],
@@ -23398,6 +23527,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
@@ -23499,6 +23631,9 @@
           "204": {
             "description": "Deleted."
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
@@ -23538,6 +23673,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -23697,6 +23835,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
         }
       },
@@ -23795,6 +23936,9 @@
           "204": {
             "$ref": "#/components/responses/NoContent"
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "403": {
             "$ref": "#/components/responses/Forbidden"
           },
@@ -23845,6 +23989,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
@@ -23968,6 +24115,9 @@
         "responses": {
           "204": {
             "$ref": "#/components/responses/NoContent"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
@@ -24304,6 +24454,9 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "402": {
             "$ref": "#/components/responses/AiCreditsExhausted"
           },
@@ -24382,6 +24535,9 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "402": {
             "$ref": "#/components/responses/AiCreditsExhausted"
           },
@@ -24458,6 +24614,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "402": {
             "$ref": "#/components/responses/AiCreditsExhausted"
@@ -24814,6 +24973,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
@@ -25507,6 +25669,9 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
           "403": {
             "$ref": "#/components/responses/Forbidden"
           },
@@ -25582,6 +25747,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
