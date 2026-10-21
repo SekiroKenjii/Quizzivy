@@ -1164,8 +1164,8 @@
         "unavailable": "This server is not set up to import users. Tell whoever runs it.",
         "unknown": "The file could not be read. Try again."
       },
-      "overLimit_one": "{{count}} account not created: the centre reached a limit. An administrator can raise it in Settings → Plan & usage.",
-      "overLimit_other": "{{count}} accounts not created: the centre reached a limit. An administrator can raise it in Settings → Plan & usage."
+      "overLimit_one": "{{count}} account not created: the centre reached a limit. An administrator can raise it in Settings, under Plan & usage.",
+      "overLimit_other": "{{count}} accounts not created: the centre reached a limit. An administrator can raise it in Settings, under Plan & usage."
     },
     "result_one": "{{count}} user found.",
     "result_other": "{{count}} users found.",

@@ -405,7 +405,7 @@ describe("the Import users dialog", () => {
     expect(dialog.getByText("3 dòng có lỗi không được nhập.")).toBeVisible();
     expect(
       dialog.getByText(
-        "1 tài khoản không được tạo vì trung tâm đã đạt giới hạn. Quản trị viên có thể nâng giới hạn trong Cài đặt → Gói và mức dùng.",
+        "1 tài khoản không được tạo vì trung tâm đã đạt giới hạn. Quản trị viên có thể nâng giới hạn trong Cài đặt, mục Gói và mức dùng.",
       ),
     ).toBeVisible();
     expect(dialog.getByRole("button", { name: "Nhập tệp khác" })).toBeVisible();

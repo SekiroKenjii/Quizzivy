@@ -1164,8 +1164,8 @@
         "unavailable": "Máy chủ chưa được cấu hình để nhập người dùng. Hãy báo người vận hành.",
         "unknown": "Không đọc được tệp. Hãy thử lại."
       },
-      "overLimit_one": "{{count}} tài khoản không được tạo vì trung tâm đã đạt giới hạn. Quản trị viên có thể nâng giới hạn trong Cài đặt → Gói và mức dùng.",
-      "overLimit_other": "{{count}} tài khoản không được tạo vì trung tâm đã đạt giới hạn. Quản trị viên có thể nâng giới hạn trong Cài đặt → Gói và mức dùng."
+      "overLimit_one": "{{count}} tài khoản không được tạo vì trung tâm đã đạt giới hạn. Quản trị viên có thể nâng giới hạn trong Cài đặt, mục Gói và mức dùng.",
+      "overLimit_other": "{{count}} tài khoản không được tạo vì trung tâm đã đạt giới hạn. Quản trị viên có thể nâng giới hạn trong Cài đặt, mục Gói và mức dùng."
     },
     "result_one": "Tìm thấy {{count}} người dùng.",
     "result_other": "Tìm thấy {{count}} người dùng.",
