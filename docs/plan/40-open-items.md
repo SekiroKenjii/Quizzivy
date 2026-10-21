@@ -736,8 +736,8 @@ and the engine's unit tests run before and after.
 **Status (R6-00, 2026-10-21):** the screens are swept: `Button` and `Switch` carry the paused look, every
 screen site fades its colours, paused labels hold 3:1 (`tokens.test.ts`), forced colours show `GrayText`, and
 the scan reads class strings only, lets `opacity-100` and a child's opacity through, reads props objects and
-spreads, and follows a constant in scope one hop; an ancestor's opacity stays out of its reach. The baseline holds the audio player alone, which the engine PR sweeps with the navigator and
-`QuestionBody.tsx`.
+spreads, and follows a constant in scope one hop; an ancestor's opacity stays out of its reach. The engine PR then swept the audio player (its fill fades instead); the navigator and `QuestionBody.tsx`
+pause with the native `disabled` only. The baseline is empty, so the ratchet is now a ban. **Closed.**
 
 ---
 

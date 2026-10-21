@@ -6,9 +6,7 @@ import { pausedOpacity, type PausedOpacityUse } from "@tests/support/pausedOpaci
 
 const SRC = resolve(import.meta.dirname, "../../../src");
 
-const BASELINE: Readonly<Record<string, number>> = {
-  "features/media/components/AudioPlayer.tsx": 2,
-};
+const BASELINE: Readonly<Record<string, number>> = {};
 
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -186,6 +184,50 @@ describe("a paused control fades its colours, never the element (D-029)", () => 
     [
       'function f() {\n  const OFF = "h-7";\n  return <b aria-disabled className={OFF} />;\n}\nfunction g() {\n  const OFF = "opacity-50";\n  return <b className={OFF} />;\n}',
       "a constant of the same name in another function",
+    ],
+  ])("is not fooled by %s (%s)", (source) => {
+    expect(pausedOpacity(source)).toEqual([]);
+  });
+
+  it.each([
+    [
+      'const a = <b aria-disabled={p} className="md:opacity-50" />;',
+      "a responsive variant",
+    ],
+    [
+      'const a = <b aria-disabled={p} className="dark:opacity-50" />;',
+      "a theme variant",
+    ],
+    [
+      'const a = <b aria-disabled={p} className="[opacity:.5]" />;',
+      "an arbitrary property",
+    ],
+    [
+      'const a = <b {...{ "aria-disabled": p }} className="opacity-50" />;',
+      "aria-disabled from a spread",
+    ],
+    [
+      'const className = "opacity-50";\nconst o = { "aria-disabled": p, className };',
+      "a shorthand class in a props object",
+    ],
+  ])("sees %s (%s)", (source) => {
+    expect(pausedOpacity(source)).toHaveLength(1);
+  });
+
+  it.each([
+    [
+      'const a = <b aria-disabled={!x} className={x ? "opacity-50" : ""} />;',
+      "a negated pause",
+    ],
+    [
+      'const a = <b aria-disabled={p ? true : undefined} className={p ? "" : "opacity-50"} />;',
+      "a ternary pause",
+    ],
+    ['const a = <b aria-disabled={p} className={cn(!p && "opacity-50")} />;', "!p &&"],
+    ['const a = <b aria-disabled={undefined} className="opacity-50" />;', "undefined"],
+    [
+      'const OFF = "opacity-50";\nfunction f(OFF: string) {\n  return <b aria-disabled className={OFF} />;\n}',
+      "a parameter that shadows a constant",
     ],
   ])("is not fooled by %s (%s)", (source) => {
     expect(pausedOpacity(source)).toEqual([]);
