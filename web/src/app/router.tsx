@@ -333,9 +333,9 @@ const ADMIN_CRUMB = { key: "adminShell.crumb" } as const;
 /**
  * The Admin console (T-R5.20): behind the admin workspace, then the
  * permission each route's handle names, in `AdminLayout`. Every route
- * declares `crumb`, `width` (the page frame's maximum, 1320px, or 1080px for
- * API reference and Settings) and `permission`, the `x-permission` of the
- * operation its page opens with. The screens are R5's later tasks; each takes
+ * declares `crumb` and `permission`, the `x-permission` of the operation its
+ * page opens with, and no width: it renders in the teacher's page frame
+ * (DG-205). The screens are R5's later tasks; each takes
  * its route over from the placeholder it started as.
  */
 const adminTree: RouteObject = {

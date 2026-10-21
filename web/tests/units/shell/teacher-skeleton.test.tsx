@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { render, within } from "@testing-library/react";
 import { skeletonFor } from "@/app/boot/handoff";
 import { writeSidebarState } from "@/layouts/shell/sidebarState";
+import "@/layouts/AdminLayout";
 import "@/layouts/TeacherLayout";
 import { TeacherSkeleton } from "@/layouts/TeacherSkeleton";
 
@@ -58,5 +59,24 @@ describe("the splash hand-off for a teacher route", () => {
   it("draws nothing for a path outside the teacher tree", () => {
     expect(skeletonFor("/login")).toBeNull();
     expect(skeletonFor("/teachers")).toBeNull();
+  });
+});
+
+describe("the splash hand-off's page block (DG-205)", () => {
+  it("is the page frame in both consoles, never a narrower Admin width", () => {
+    for (const [path, slot] of [
+      ["/teacher", "teacher-skeleton"],
+      ["/admin/users", "admin-skeleton"],
+      ["/admin/settings", "admin-skeleton"],
+    ] as const) {
+      const { container, unmount } = render(<>{skeletonFor(path)}</>);
+      const frame = container.querySelector<HTMLElement>(`[data-slot='${slot}']`);
+      expect(frame, path).not.toBeNull();
+      const block = frame!.querySelector<HTMLElement>("[style*='max-width']")!;
+      expect(block.style.maxWidth, path).toBe(
+        "calc(var(--page-max) + 2 * var(--page-gutter))",
+      );
+      unmount();
+    }
   });
 });
