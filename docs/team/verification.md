@@ -95,7 +95,7 @@ and that the storage tests ran against MinIO and did not skip.
 | Migrations rehearsed on a Neon branch | Timings, count of questions with more than 8 options, count of legacy codes to rotate (R4 only: from v0.12.0, `00141` refuses a live legacy code). Not reproducible in this container | Rel | Thuong or platform engineer; tester checks the numbers are recorded |
 | Exam windows | Query assignments closing inside the deploy window | Rel | Thuong |
 | No import queued or running | Query imports by status; `word-pipeline-v3` retires v2 runs | Rel | Thuong |
-| Cloudflare headers, `.env.example`, Fly config | `grep MEDIA_OWNER_QUOTA_MIB .env.example fly.toml`; `grep VITE_RICH_QUESTION_EDITOR -r .env.example web/ .github/` must find nothing except history | Rel | tester (repo part), Thuong (Cloudflare) |
+| Cloudflare headers, `.env.example`, Fly config | `grep -E 'MEDIA_OWNER_QUOTA_MIB|EMAIL_DAILY_LIMIT|PLAN_' fly.toml` must find nothing, since the limits live in Settings → Plan & usage (v0.12.2); `grep VITE_RICH_QUESTION_EDITOR -r .env.example web/ .github/` must find nothing except history | Rel | tester (repo part), Thuong (Cloudflare) |
 | Deploy and smoke | `node scripts/verify-deployment.mjs` (`/healthz`, `/livez`, headers) then the checklist's manual smoke per role | Rel | Thuong; tester supplies the click path |
 | Smoke of #330, #320, #314, #331 | Phone-class checks (airplane mode, reload mid-question, roster events). Only the engine's unit and stubbed phone specs run here; the real-device part is Thuong's | Rel | Thuong |
 | Release notes | Read against the shipped behaviour: new join code sentence, notifications, extensions, versions, media replace, paste a test, editor | Rel | tester reads, Tech Lead edits |

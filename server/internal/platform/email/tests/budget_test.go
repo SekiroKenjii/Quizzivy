@@ -57,22 +57,45 @@ func TestTheBudgetCountsWhatWaitsAndWhatWasSentInTheLocalDay(t *testing.T) {
 	}
 }
 
-func TestAMessageForAnotherDayOrOneThatFailedUsesNoneOfToday(t *testing.T) {
+func TestARetryForAnotherDayOrAMessageThatFailedUsesNoneOfToday(t *testing.T) {
 	at := longAgo(21)
 	w := newWorld(t, at)
 	b := w.budget(5)
 
-	w.enqueue(t, email.Mail{To: addr(t, "mai"), Params: email.SignInInviteParams{FullName: "An"}, DeliverAfter: at.AddDate(0, 0, 1)})
+	retry := w.enqueue(t, email.Mail{To: addr(t, "mai"), Params: email.SignInInviteParams{FullName: "An"}, DeliverAfter: at.AddDate(0, 0, 1)})
+	if _, err := w.pool.Exec(context.Background(), `UPDATE app.email_outbox SET attempts = 1, last_error_code = 'unavailable' WHERE id = $1::uuid`, retry); err != nil {
+		t.Fatal(err)
+	}
 	id := waiting(t, w, at, "hong")
 	if _, err := w.pool.Exec(context.Background(), `UPDATE app.email_outbox SET failed_at = $2, last_error_code = 'rejected' WHERE id = $1::uuid`, id, at); err != nil {
 		t.Fatal(err)
 	}
 
 	if left, _ := remaining(t, b, at); left != 5 {
-		t.Errorf("a message for tomorrow and a failed one leave %d, want 5", left)
+		t.Errorf("a retry for tomorrow and a failed message leave %d, want 5", left)
 	}
 	if left, _ := remaining(t, b, at.AddDate(0, 0, 1)); left != 4 {
-		t.Errorf("tomorrow's message leaves %d on its own day, want 4", left)
+		t.Errorf("tomorrow's retry leaves %d on its own day, want 4", left)
+	}
+}
+
+func TestMailACapHeldUsesTodaysBudgetSinceItGoesFirst(t *testing.T) {
+	at := longAgo(23)
+	w := newWorld(t, at)
+	held := w.enqueue(t, email.Mail{To: addr(t, "giu"), Params: email.SignInInviteParams{FullName: "An"}, DeliverAfter: at.AddDate(0, 1, 0)})
+	if left, _ := remaining(t, w.budget(5), at); left != 5 {
+		t.Errorf("a message enqueued for next month leaves %d, want 5: it is not held", left)
+	}
+	if _, err := w.pool.Exec(context.Background(), `UPDATE app.email_outbox SET held_by = 'month' WHERE id = $1::uuid`, held); err != nil {
+		t.Fatal(err)
+	}
+	if left, limit := remaining(t, w.budget(5), at); left != 4 || limit != 5 {
+		t.Errorf("one held message leaves %d of %d, want 4 of 5", left, limit)
+	}
+	monthly := w.budget(5)
+	monthly.MonthlyLimit = 3
+	if left, limit := remaining(t, monthly, at); left != 2 || limit != 3 {
+		t.Errorf("with the month's cap at 3 the day has %d of %d, want 2 of the month's 3", left, limit)
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"quizzivy/internal/modules/media/application/query"
 	"quizzivy/internal/modules/media/domain"
 	"quizzivy/internal/shared/cqrs"
+	"quizzivy/internal/shared/limits"
 	"time"
 )
 
@@ -31,6 +32,13 @@ func (a *Application) WithSignedURLTTL(ttl time.Duration) *Application {
 // one an image is stored with no size.
 func (a *Application) WithImageProbe(images ports.ImageProbe) *Application {
 	a.service.WithImageProbe(images)
+	return a
+}
+
+// WithLimits sets where the usage limits are read: the library quota and the
+// centre's storage limit then come from them.
+func (a *Application) WithLimits(reader limits.Reader) *Application {
+	a.service.WithLimits(reader)
 	return a
 }
 

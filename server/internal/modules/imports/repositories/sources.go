@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"quizzivy/internal/modules/imports/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/limits"
 )
 
 func (s *Postgres) Sources(ctx context.Context, importID string, revision int64) ([]domain.Source, error) {
@@ -92,6 +93,13 @@ func sourceQuota(ctx context.Context, tx pgx.Tx, in domain.Reserve, quotas domai
 	}
 	if in.Source.Bytes > quotas.ActorBytes-actorBytes || in.Source.Bytes > quotas.GlobalBytes-totalBytes || sourceCount >= quotas.SourcesPerImport {
 		return domain.ErrQuota
+	}
+	if quotas.StorageBytes != nil {
+		err := limits.RequireStorage(ctx, tx, *quotas.StorageBytes, in.Source.Bytes)
+		if errors.Is(err, limits.ErrStorageLimit) {
+			return domain.ErrQuota
+		}
+		return err
 	}
 	return nil
 }

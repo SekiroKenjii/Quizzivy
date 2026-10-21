@@ -10,6 +10,7 @@ import (
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
 	"quizzivy/internal/shared/actor"
+	"quizzivy/internal/shared/limits"
 )
 
 // GoogleAuth completes the §5.3 sign-in: verify the ID token, then resolve the
@@ -53,6 +54,10 @@ func (h Identity) GoogleAuth(ctx context.Context, request openapi.GoogleAuthRequ
 			httpx.Text(ctx, "Tài khoản này chưa được đăng ký. Bạn cần mã lớp từ giáo viên để tham gia.",
 				"This account is not registered. You need a class code from your teacher to join."))), nil
 
+	case errors.Is(err, limits.ErrSeatLimit):
+		return openapi.GoogleAuth403JSONResponse(httpapi.Error(ctx, openapi.SEATLIMIT,
+			httpx.Text(ctx, "Lớp học này chưa nhận thêm học viên lúc này. Hãy báo giáo viên của bạn.",
+				"This class cannot take new students right now. Tell your teacher."))), nil
 	case errors.Is(err, domain.ErrGoogleSignInDisabled):
 		return openapi.GoogleAuth403JSONResponse(googleDisabled(ctx)), nil
 	case errors.Is(err, domain.ErrGoogleDomainNotAllowed):

@@ -45,6 +45,15 @@ type ImportRules struct {
 	// put students in them (scope.all).
 	Classes      []ImportClass
 	PlaceInClass bool
+	// Room is how many new accounts the centre's limits leave room for.
+	Room ImportRoom
+}
+
+// ImportRoom is how many more seats and teacher places the centre's limits
+// allow, nil where there is no limit, and which roles take a teacher place.
+type ImportRoom struct {
+	Seats, Teachers *int
+	TeacherRoles    map[string]struct{}
 }
 
 // ImportIssue is one refused cell.
@@ -101,12 +110,16 @@ func ImportEmails(rows []ImportRow) []string {
 // addresses that already belong to an account. A row is refused cell by cell,
 // so one pass shows everything to correct; an address named twice is refused
 // from its second row on, and an existing address is accepted and skipped when
-// the job runs.
+// the job runs. A new account the limits have no room for is refused, in file
+// order.
 func PlanImport(rows []ImportRow, rules ImportRules, existing map[string]struct{}) ImportPlan {
 	judge := newJudge(rules, existing)
 	var plan ImportPlan
 	for _, row := range rows {
 		accepted, issues := judge.row(row)
+		if len(issues) == 0 && !accepted.Existing {
+			issues = judge.admit(accepted)
+		}
 		if len(issues) > 0 {
 			plan.InvalidRows++
 			plan.Issues = append(plan.Issues, issues...)
@@ -150,6 +163,9 @@ type judge struct {
 	place        bool
 	existing     map[string]struct{}
 	seen         map[string]struct{}
+	seats        *int
+	teachers     *int
+	teacherRoles map[string]struct{}
 }
 
 func newJudge(rules ImportRules, existing map[string]struct{}) *judge {
@@ -162,6 +178,9 @@ func newJudge(rules ImportRules, existing map[string]struct{}) *judge {
 		place:        rules.PlaceInClass,
 		existing:     existing,
 		seen:         map[string]struct{}{},
+		seats:        copied(rules.Room.Seats),
+		teachers:     copied(rules.Room.Teachers),
+		teacherRoles: rules.Room.TeacherRoles,
 	}
 	for _, role := range rules.Roles {
 		j.roles[role.ID] = role
@@ -174,6 +193,31 @@ func newJudge(rules ImportRules, existing map[string]struct{}) *judge {
 		j.classByID[class.ID] = class
 	}
 	return j
+}
+
+func copied(v *int) *int {
+	if v == nil {
+		return nil
+	}
+	n := *v
+	return &n
+}
+
+func (j *judge) admit(row ImportAccepted) []ImportIssue {
+	_, teacher := j.teacherRoles[row.RoleID]
+	switch {
+	case j.seats != nil && *j.seats <= 0:
+		return []ImportIssue{{Line: row.Line, Field: FieldEmail, Code: CodeOverSeatLimit}}
+	case teacher && j.teachers != nil && *j.teachers <= 0:
+		return []ImportIssue{{Line: row.Line, Field: FieldRole, Code: CodeOverTeacherLimit}}
+	}
+	if j.seats != nil {
+		*j.seats--
+	}
+	if teacher && j.teachers != nil {
+		*j.teachers--
+	}
+	return nil
 }
 
 func (j *judge) nameRole(token, id string) {

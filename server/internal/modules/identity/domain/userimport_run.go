@@ -93,9 +93,10 @@ type ImportBatch struct {
 
 // ImportProgress is what a settled batch did, and whether it finished the job.
 type ImportProgress struct {
-	Created int
-	Skipped int
-	Done    bool
+	Created   int
+	Skipped   int
+	OverLimit int
+	Done      bool
 }
 
 // SheetRow is one line of the hand-out sheet.

@@ -135,7 +135,7 @@ func (w *linkWrites) Enqueue(ctx context.Context, m domain.LinkMail) error {
 	if w.outbox == nil {
 		return domain.ErrSetPasswordUnavailable
 	}
-	mail := email.Mail{ToUserID: m.UserID, To: m.To, Secret: m.Token}
+	mail := email.Mail{ToUserID: m.UserID, To: m.To, Secret: m.Token, ExpiresAt: m.ExpiresAt}
 	switch m.Kind {
 	case domain.MailAccountInvite:
 		mail.Params = email.AccountInviteParams{FullName: m.FullName}

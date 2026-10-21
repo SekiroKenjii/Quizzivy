@@ -11,6 +11,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"quizzivy/internal/platform/config"
+	"quizzivy/internal/shared/limits"
 	"testing"
 	"time"
 )
@@ -68,6 +69,7 @@ func TestAReplacedFileAPublishedTestHoldsCountsTowardTheQuotaUntilNothingUsesIt(
 		c.S3ForcePathStyle = true
 		c.SignedURLTTL = time.Minute
 		c.MediaOwnerQuotaMiB = quotaMiB
+		c.Limits = limits.Env{limits.MediaPerTeacherBytes: int64(quotaMiB) * limits.MiB}
 	})
 	email, password := w.createStaff("teacher")
 	teacher := w.signedIn(email, password)

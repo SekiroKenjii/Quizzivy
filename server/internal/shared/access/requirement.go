@@ -88,6 +88,10 @@ func Workspaces(s Set) []Workspace {
 
 var teacherPrefixes = []string{"content.", "teaching.", "people.students."}
 
+// TeacherPrefixes returns the key prefixes any one of which opens the teacher
+// workspace, for a query that has to class roles the way Workspaces does.
+func TeacherPrefixes() []string { return slices.Clone(teacherPrefixes) }
+
 var adminKeys = []Key{PeopleUsersManage, PeopleRolesManage, SystemAuditRead, SystemSettingsWrite, AICreditsManage, ScopeAll}
 
 func opensTeacher(s Set) bool {
