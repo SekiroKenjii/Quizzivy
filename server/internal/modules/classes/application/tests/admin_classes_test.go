@@ -208,7 +208,7 @@ func TestAClassGoesOnlyToAnActiveTeacher(t *testing.T) {
 	w.exec(t, `UPDATE app.users SET role_id = $2 WHERE id = $1`, noWorkspace, role)
 	var classes int
 	count := func() int {
-		if err := w.tx.QueryRow(ctx, `SELECT count(*) FROM app.classes`).Scan(&classes); err != nil {
+		if err := w.tx.QueryRow(ctx, `SELECT count(*) FROM app.classes WHERE name = $1`, "Lớp "+w.marker).Scan(&classes); err != nil {
 			t.Fatal(err)
 		}
 		return classes

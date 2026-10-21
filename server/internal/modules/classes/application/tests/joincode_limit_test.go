@@ -16,7 +16,8 @@ import (
 )
 
 // The seat limit is set inside one transaction that is rolled back, so the
-// packages sharing the database never see it.
+// packages sharing the database never see it, and that transaction holds the
+// accounts in SHARE mode, so the seats it counts cannot move under it.
 func TestAJoinCodeMakesNoAccountPastTheSeatLimit(t *testing.T) {
 	for _, room := range []int{0, 1} {
 		ctx := context.Background()
@@ -25,6 +26,12 @@ func TestAJoinCodeMakesNoAccountPastTheSeatLimit(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = tx.Rollback(ctx) })
+		if _, err := tx.Exec(ctx, `SET LOCAL lock_timeout = '5s'`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tx.Exec(ctx, `LOCK TABLE app.users IN SHARE MODE`); err != nil {
+			t.Fatal(err)
+		}
 		svc := application.New(repositories.NewPostgres(db.NewContext(tx)), nil, joinKeys)
 		n := nonce(t)
 		var teacherID, classID string
