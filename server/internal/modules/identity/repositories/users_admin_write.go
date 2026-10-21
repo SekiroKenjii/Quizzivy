@@ -176,22 +176,8 @@ func (a *AdminUsers) ChangeRole(ctx context.Context, req domain.WriteRequest, in
 	if acct.roleID == in.ToRoleID {
 		return nil
 	}
-	if acct.admin && !acct.disabled && !in.ToAdmin && len(admins) == 1 {
-		return domain.ErrLastAdmin
-	}
-	if !in.ToOpensTeacher {
-		owned, err := ownedContent(ctx, tx, in.UserID)
-		if err != nil {
-			return err
-		}
-		if owned.Any() {
-			return &domain.OwnsContentError{Owned: owned}
-		}
-	}
-	if !acct.disabled {
-		if err := limits.Admit(ctx, tx, limits.Admission{RoleID: in.ToRoleID, FromRoleID: acct.roleID}); err != nil {
-			return err
-		}
+	if err := roleChangeAllowed(ctx, tx, acct, len(admins), in); err != nil {
+		return err
 	}
 	if _, err := tx.Exec(ctx, `UPDATE app.users SET role_id = $2::uuid WHERE id = $1::uuid`, in.UserID, in.ToRoleID); err != nil {
 		return fmt.Errorf("users: change role: %w", UserWriteError(err))
@@ -204,6 +190,25 @@ func (a *AdminUsers) ChangeRole(ctx context.Context, req domain.WriteRequest, in
 		return err
 	}
 	return a.commit(ctx, tx, "role change")
+}
+
+func roleChangeAllowed(ctx context.Context, tx pgx.Tx, acct lockedAccount, admins int, in domain.RoleChange) error {
+	if acct.admin && !acct.disabled && !in.ToAdmin && admins == 1 {
+		return domain.ErrLastAdmin
+	}
+	if !in.ToOpensTeacher {
+		owned, err := ownedContent(ctx, tx, in.UserID)
+		if err != nil {
+			return err
+		}
+		if owned.Any() {
+			return &domain.OwnsContentError{Owned: owned}
+		}
+	}
+	if acct.disabled {
+		return nil
+	}
+	return limits.Admit(ctx, tx, limits.Admission{RoleID: in.ToRoleID, FromRoleID: acct.roleID})
 }
 
 // Disable blocks an account's sign-in and ends every way back in that was

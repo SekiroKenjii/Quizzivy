@@ -76,13 +76,9 @@ func (h UploadHandler) handlePrepared(ctx context.Context, in Upload, format str
 			return domain.Receipt{}, err
 		}
 	}
-	quotas := h.Quotas
-	if h.Limits != nil {
-		resolved, err := h.Limits.Read(ctx, nil)
-		if err != nil {
-			return domain.Receipt{}, err
-		}
-		quotas = quotas.Within(resolved)
+	quotas, err := h.quotas(ctx)
+	if err != nil {
+		return domain.Receipt{}, err
 	}
 	source, err := h.Repo.Reserve(ctx, domain.Reserve{Actor: in.Actor, Source: domain.Source{ImportID: in.ImportID, UploadID: in.UploadID, ExpectedRevision: in.ExpectedRevision, Role: in.Role, Filename: in.Filename, Format: format, Characters: characters, Bytes: n, SHA256: checksum}}, quotas)
 	if err != nil {
@@ -102,6 +98,17 @@ func (h UploadHandler) handlePrepared(ctx context.Context, in Upload, format str
 		_ = h.Store.Delete(context.WithoutCancel(ctx), source.StorageKey)
 	}
 	return receipt, err
+}
+
+func (h UploadHandler) quotas(ctx context.Context) (domain.Quotas, error) {
+	if h.Limits == nil {
+		return h.Quotas, nil
+	}
+	resolved, err := h.Limits.Read(ctx, nil)
+	if err != nil {
+		return domain.Quotas{}, err
+	}
+	return h.Quotas.Within(resolved), nil
 }
 
 func stageSource(ctx context.Context, in Upload, file *os.File) (int64, []byte, error) {
