@@ -25,10 +25,10 @@ const choice = (n: number) => ({
 
 describe("question metadata wire boundaries", () => {
   it("caps only submitted inputs and preserves strict nullable stored responses", () => {
-    expect(input(choice(8))).toBe(true);
-    expect(input(choice(9))).toBe(false);
-    expect(stored({ ...choice(9), level: null, skill: null })).toBe(true);
-    expect(stored(choice(9))).toBe(false);
+    expect(input(choice(12))).toBe(true);
+    expect(input(choice(13))).toBe(false);
+    expect(stored({ ...choice(13), level: null, skill: null })).toBe(true);
+    expect(stored(choice(13))).toBe(false);
     const bundle = {
       group: {
         id,
@@ -37,7 +37,7 @@ describe("question metadata wire boundaries", () => {
         stimuli: [],
         recordings: [],
       },
-      questions: [{ id, input: choice(9) }],
+      questions: [{ id, input: choice(13) }],
     };
     expect(storedGroup(storedGroupBundle(bundle))).toBe(true);
   });
@@ -67,6 +67,9 @@ describe("question metadata wire boundaries", () => {
       true_false: 0,
       fill_blank: 0,
       short_answer: 0,
+      tfng: 0,
+      matching: 0,
+      essay: 0,
       levels: { pre_a1: 0, a1: 0, a2: 0, b1: 0, b2: 0, c1: 0, c2: 0 },
       skills: {
         grammar: 0,

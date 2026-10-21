@@ -9,7 +9,9 @@ import type { StudentQuestion } from "./api";
  */
 export type QuestionKind = "choice" | "fill_blank" | "short_answer" | "unknown";
 
-const KIND: Record<StudentQuestion["type"], Exclude<QuestionKind, "unknown">> = {
+type DrawnType = Exclude<StudentQuestion["type"], "tfng" | "matching" | "essay">;
+
+const KIND: Record<DrawnType, Exclude<QuestionKind, "unknown">> = {
   single_choice: "choice",
   multiple_choice: "choice",
   true_false: "choice",
@@ -17,7 +19,7 @@ const KIND: Record<StudentQuestion["type"], Exclude<QuestionKind, "unknown">> = 
   short_answer: "short_answer",
 };
 
-const LABEL: Record<StudentQuestion["type"], string> = {
+const LABEL: Record<DrawnType, string> = {
   single_choice: "takeTest.type.single_choice",
   multiple_choice: "takeTest.type.multiple_choice",
   true_false: "takeTest.type.true_false",
@@ -27,10 +29,15 @@ const LABEL: Record<StudentQuestion["type"], string> = {
 
 /**
  * questionKind reads the kind from the question's type. A type the server
- * added after this page was loaded is `unknown`, never a choice.
+ * added after this page was loaded is `unknown`, never a choice, and so are
+ * true / false / not given, matching and essay until the engine draws them.
  */
 export function questionKind(question: Pick<StudentQuestion, "type">): QuestionKind {
-  return Object.hasOwn(KIND, question.type) ? KIND[question.type] : "unknown";
+  return isDrawn(question.type) ? KIND[question.type] : "unknown";
+}
+
+function isDrawn(type: string): type is DrawnType {
+  return Object.hasOwn(KIND, type);
 }
 
 /**
@@ -44,7 +51,7 @@ export function questionLine(
   total: number,
   t: TFunction,
 ): string {
-  if (!Object.hasOwn(LABEL, question.type)) {
+  if (!isDrawn(question.type)) {
     return t("takeTest.questionOf", { n: number, total });
   }
   return t("takeTest.questionOfType", {

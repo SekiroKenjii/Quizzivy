@@ -27,6 +27,12 @@ export function answered(
     }
     case "text":
       return answer.value.trim() !== "";
+    case "matching": {
+      const items = question.matchItems ?? [];
+      return (
+        items.length > 0 && items.every((item) => answer.pairs[item.id] !== undefined)
+      );
+    }
   }
 }
 

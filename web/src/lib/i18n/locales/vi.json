@@ -2564,10 +2564,13 @@
     "tags": "Thẻ",
     "typeLabel": "Loại câu hỏi",
     "type": {
+      "essay": "Bài luận",
       "fill_blank": "Điền từ",
+      "matching": "Nối",
       "multiple_choice": "Nhiều đáp án",
       "short_answer": "Tự luận",
       "single_choice": "Một đáp án",
+      "tfng": "Đúng/Sai/Không có thông tin",
       "true_false": "Đúng/Sai"
     },
     "newTitle": "Câu hỏi mới",
@@ -3970,7 +3973,10 @@
       "multiple_choice": "Nhiều đáp án",
       "true_false": "Đúng/Sai",
       "fill_blank": "Điền từ",
-      "short_answer": "Tự luận"
+      "short_answer": "Tự luận",
+      "tfng": "Đúng/Sai/Không có thông tin",
+      "matching": "Nối",
+      "essay": "Bài luận"
     },
     "blankRuleInsensitive": "Không phân biệt hoa thường. Viết đúng chính tả.",
     "blankRuleSensitive": "Phân biệt hoa thường. Viết đúng chính tả.",
@@ -5071,6 +5077,7 @@
       "true_false": "Đúng/Sai",
       "fill_blank": "Điền từ",
       "short_answer": "Tự luận",
+      "tfng": "Đúng/Sai/Không có thông tin",
       "unsupported": "Chưa hỗ trợ"
     },
     "origin": {

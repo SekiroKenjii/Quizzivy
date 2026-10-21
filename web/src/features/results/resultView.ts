@@ -372,6 +372,7 @@ export function given(question: ResultQuestion): Given {
   if (!answered(question, answer)) return { kind: "none" };
   if (answer.type === "text") return { kind: "text", text: answer.value.trim() };
   if (answer.type === "true_false") return { kind: "boolean", value: answer.value };
+  if (answer.type === "matching") return { kind: "none" };
   const chosen = new Set(answer.optionIds);
   const options = (question.options ?? []).filter((option) => chosen.has(option.id));
   return options.length > 0 ? { kind: "options", options } : { kind: "none" };

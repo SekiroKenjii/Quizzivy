@@ -61,6 +61,34 @@ function allowedAt(bad: string, path: string): boolean {
   );
 }
 
+/**
+ * Result-only keys must never reach the session. The attempt's own `score`
+ * carries `AttemptScore.band`, which the server sends only once the attempt is
+ * handed in, so the walk drops that one field and must then find no band.
+ */
+const RESULT_ONLY = [
+  "correctOptionIds",
+  "correctAnswers",
+  "correctMatches",
+  "band",
+  "criteria",
+] as const;
+
+function sessionLeaks(spec: Json): string[] {
+  const walked = structuredClone(spec);
+  delete walked.components.schemas.AttemptScore.properties.band;
+  return operations(walked)
+    .filter(({ op }) => ["startOrResumeAttempt", "getAttempt"].includes(op.operationId))
+    .flatMap(({ op }) => {
+      const names = propertyNames(walked, jsonResponseSchema(op, 200));
+      if (!names.has("matchItems"))
+        return [`${op.operationId} does not reach matchItems`];
+      return RESULT_ONLY.filter((bad) => names.has(bad)).map(
+        (bad) => `${op.operationId} exposes '${bad}'`,
+      );
+    });
+}
+
 describe("references", () => {
   it("has no dangling $ref", () => {
     const dangling = [...new Set(collectRefs(doc))]
@@ -116,6 +144,35 @@ describe("§13.5: the student-payload boundary", () => {
     expect(
       ops.filter(({ op }) => op.operationId === "previewTest").flatMap(leaksIn),
     ).toEqual([]);
+  });
+
+  it("keeps a matching item's key off every /app/* response", () => {
+    const item = propertyNames(doc, doc.components.schemas.StudentMatchItem);
+    expect(item.has("text"), "the walk does not reach StudentMatchItem").toBe(true);
+    expect(item.has("correctOptionId")).toBe(false);
+    const leaks = ops
+      .filter(({ path }) => path.startsWith("/app/"))
+      .flatMap(({ path, method, op }) =>
+        successStatuses(op).flatMap((status) => {
+          const names = propertyNames(doc, jsonResponseSchema(op, status));
+          return ["correctOptionId", "rubric"]
+            .filter((bad) => names.has(bad))
+            .map((bad) => `${method.toUpperCase()} ${path} ${status} exposes '${bad}'`);
+        }),
+      );
+    expect(leaks).toEqual([]);
+  });
+
+  it("keeps result-only keys off the attempt session", () => {
+    expect(sessionLeaks(doc)).toEqual([]);
+    const leaky = structuredClone(doc);
+    leaky.components.schemas.StudentQuestion.properties.correctMatches = {
+      type: "array",
+    };
+    expect(sessionLeaks(leaky)).toEqual([
+      "startOrResumeAttempt exposes 'correctMatches'",
+      "getAttempt exposes 'correctMatches'",
+    ]);
   });
 
   it("still gives AdminQuestion the grading key", () => {

@@ -1,7 +1,10 @@
 import {
   AlignLeft,
+  ArrowLeftRight,
   CircleCheck,
   CircleDot,
+  FileText,
+  ListChecks,
   SquareCheck,
   TextCursorInput,
   type LucideIcon,
@@ -18,4 +21,7 @@ export const QUESTION_TYPE_ICONS: Readonly<Record<QuestionType, LucideIcon>> = {
   true_false: CircleCheck,
   fill_blank: TextCursorInput,
   short_answer: AlignLeft,
+  tfng: ListChecks,
+  matching: ArrowLeftRight,
+  essay: FileText,
 };

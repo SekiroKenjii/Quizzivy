@@ -78,12 +78,14 @@ func toAPIScore(sc domain.Score) *openapi.AttemptScore {
 }
 
 type reviewAnswer = struct {
-	Answer         *openapi.Answer `json:"answer"`
-	AnswerRemoved  *bool           `json:"answerRemoved,omitempty"`
-	AutoScore      *openapi.Points `json:"autoScore,omitempty"`
-	GraderComment  *string         `json:"graderComment,omitempty"`
-	ManualScore    *openapi.Points `json:"manualScore,omitempty"`
-	RequiresManual *bool           `json:"requiresManual,omitempty"`
+	Answer         *openapi.Answer          `json:"answer"`
+	AnswerRemoved  *bool                    `json:"answerRemoved,omitempty"`
+	AutoScore      *openapi.Points          `json:"autoScore,omitempty"`
+	Band           *openapi.Band            `json:"band,omitempty"`
+	Criteria       *[]openapi.CriterionBand `json:"criteria,omitempty"`
+	GraderComment  *string                  `json:"graderComment,omitempty"`
+	ManualScore    *openapi.Points          `json:"manualScore,omitempty"`
+	RequiresManual *bool                    `json:"requiresManual,omitempty"`
 }
 
 // GetAttemptForReview backs G-03. This is the one response that carries the
@@ -503,9 +505,12 @@ func (h Attempts) GradeAttempt(ctx context.Context, request openapi.GradeAttempt
 	if !ok {
 		return nil, httpx.ErrNotImplemented
 	}
+	if code, refused := gradeShapeRefusal(request.Body); len(refused) > 0 {
+		return openapi.GradeAttempt422JSONResponse(gradeRefusal(ctx, code, refused)), nil
+	}
 	items := make([]domain.GradeItem, len(request.Body.Items))
 	for i, it := range request.Body.Items {
-		items[i] = domain.GradeItem{QuestionID: it.QuestionId.String(), Points: it.Points, Comment: it.Comment}
+		items[i] = domain.GradeItem{QuestionID: it.QuestionId.String(), Points: *it.Points, Comment: it.Comment}
 	}
 	score, err := h.app.Commands.Grade.Handle(ctx, command.Grade{AttemptID: request.Id.String(), GraderID: principal.UserID, Items: items, Scope: httpapi.ScopeFromContext(ctx)})
 	var invalid *domain.GradeValidationError
@@ -530,6 +535,39 @@ func (h Attempts) GradeAttempt(ctx context.Context, request openapi.GradeAttempt
 		return nil, err
 	}
 	return openapi.GradeAttempt200JSONResponse(*toAPIScore(score)), nil
+}
+
+func gradeShapeRefusal(body *openapi.GradeAttemptJSONRequestBody) (openapi.ErrorCode, []string) {
+	var banded, pointless []string
+	for _, it := range body.Items {
+		switch {
+		case it.Band != nil || it.Criteria != nil:
+			banded = append(banded, it.QuestionId.String())
+		case it.Points == nil:
+			pointless = append(pointless, it.QuestionId.String())
+		}
+	}
+	if len(banded) > 0 {
+		return openapi.GRADEBANDNOTALLOWED, banded
+	}
+	return openapi.GRADENEEDSPOINTS, pointless
+}
+
+func gradeRefusal(ctx context.Context, code openapi.ErrorCode, questionIDs []string) openapi.ErrorResponse {
+	var resp openapi.ErrorResponse
+	switch code {
+	case openapi.GRADEBANDNOTALLOWED:
+		resp = httpapi.Error(ctx, code, httpx.Text(ctx,
+			"Chỉ bài luận mới được chấm theo band.",
+			"Only an essay is graded on a band."))
+	default:
+		resp = httpapi.Error(ctx, code, httpx.Text(ctx,
+			"Câu này cần được chấm bằng điểm số.",
+			"This question needs a score in points."))
+	}
+	details := map[string]interface{}{"questionIds": questionIDs}
+	resp.Error.Details = &details
+	return resp
 }
 
 func gradeValidationError(ctx context.Context, invalid *domain.GradeValidationError) openapi.ErrorResponse {
