@@ -4,7 +4,10 @@
 -- each a label the grader scores on a band. When a question has criteria, its
 -- band is their mean rounded half up to 0.5; without them the grader sets the
 -- band directly. The count of six is the bank's rule (T-R6.3), not a CHECK.
---
+-- The foreign keys lock the tables they reference while the file runs, so
+-- lock_timeout fails it at once rather than queue writers behind it.
+SET LOCAL lock_timeout = '5s';
+
 -- [D-13] The ordinal key is DEFERRABLE INITIALLY IMMEDIATE for the editor's
 -- reorder, as question_options_ordinal_key is (00012).
 CREATE TABLE app.question_rubric_criteria (
@@ -35,6 +38,8 @@ CREATE TABLE app.test_version_rubric_criteria (
 REVOKE UPDATE ON app.test_version_rubric_criteria FROM quizzivy_app;
 
 -- +goose Down
+
+SET LOCAL lock_timeout = '5s';
 
 DROP TABLE app.test_version_rubric_criteria;
 DROP TABLE app.question_rubric_criteria;

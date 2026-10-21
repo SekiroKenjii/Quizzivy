@@ -1585,8 +1585,8 @@ the file it adds.
 | `00145_add_question_types.sql` | `tfng`, `matching` and `essay` on `app.question_type`; Down refuses while a row uses one and leaves the values | R6 (T-R6.1a), D-62 |
 | `00146_add_question_select_count.sql` | `select_count` on `questions` and `test_version_questions`, CHECK added `NOT VALID` and validated; Down refuses while a value exists | R6 (T-R6.1a), D-63 |
 | `00147_add_question_max_words.sql` | `max_words` on `questions` and `test_version_questions`, the same pattern and Down | R6 (T-R6.1a), D-63 |
-| `00148_allow_essay_sample_answer.sql` | `questions_sample_answer_only_written` replaces `questions_sample_answer_only_short_answer`; Down refuses while an essay has a sample answer | R6 (T-R6.1a), D-64 |
-| `00149_allow_fixed_order_for_tfng_and_matching.sql` | `questions_context_option_order` admits `fixed` on `tfng` and `matching`; Down refuses while such a member keeps it | R6 (T-R6.1a), D-64 |
+| `00148_allow_essay_sample_answer.sql` | `questions_sample_answer_only_written` replaces `questions_sample_answer_only_short_answer`; Down refuses while an essay has a sample answer; `lock_timeout` 5 s | R6 (T-R6.1a), D-64 |
+| `00149_allow_fixed_order_for_tfng_and_matching.sql` | `questions_context_option_order` admits `fixed` on `tfng` and `matching`; Down refuses while such a member keeps it; `lock_timeout` 5 s | R6 (T-R6.1a), D-64 |
 | `00150_create_question_rubric_criteria.sql` | `question_rubric_criteria`, `test_version_rubric_criteria` (`UPDATE` revoked) | R6 (T-R6.1b), D-65 |
 | `00151_index_question_options_identity.sql` | `NO TRANSACTION`: unique indexes `question_options (question_id, id)` and `test_version_options (test_version_question_id, id)`, `CONCURRENTLY` | R6 (T-R6.1b), D-66 |
 | `00152_create_question_match_items.sql` | `question_match_items`, `test_version_match_items` (`UPDATE` revoked), `match_allow_reuse` on both question tables | R6 (T-R6.1b), D-66 |
@@ -4178,8 +4178,8 @@ Both tables hold rows, so each CHECK is added `NOT VALID` and then validated, th
 gets (§13). Each file runs in one transaction, so the `ADD COLUMN`'s `ACCESS EXCLUSIVE` lock is held through the
 `VALIDATE`: the pattern buys no weaker lock here, and the scan reads a centre's bank, where the column is NULL on
 every row. It keeps the two steps apart, so the Neon rehearsal times each, and it is already the shape a table too
-large to scan under that lock would need, split across two files. Each file sets `lock_timeout = '5s'`, so a
-lock it cannot get fails the deploy at once, to be run again, rather than queueing every writer behind it (as
+large to scan under that lock would need, split across two files. Each file sets `lock_timeout = '5s'` in its Up and
+its Down, so a lock it cannot get fails the deploy at once, to be run again, rather than queueing every writer behind it (as
 `00103` does). The Downs refuse while either table holds a value, since an older binary would mark a choose-N
 question all or nothing and the rule cannot be rebuilt once the column goes, as `00145` refuses for the types; with
 no value they drop the columns.
@@ -4258,3 +4258,6 @@ grade write is not audited (last write wins, ledger T-11); whether a regrade kee
 open decision for the user (spec §13.4), so this file records only what it builds. The retention sweep keeps
 answer rows (D-61), so a band outlives a removed response with its points. Down refuses while any band or criterion
 grade exists, and otherwise drops the table and the column.
+
+Every transactional file in this section, Up and Down, sets `lock_timeout = '5s'` (QC-R6M-4, QC-R6M-6), as §58's do;
+`00151` runs outside a transaction and builds its indexes `CONCURRENTLY`, so it takes no lock that blocks writers.

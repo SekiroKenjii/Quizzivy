@@ -30,6 +30,8 @@ ALTER TABLE app.test_version_questions VALIDATE CONSTRAINT test_version_question
 
 -- +goose Down
 
+SET LOCAL lock_timeout = '5s';
+
 -- Refuses while a question or a frozen version question has a select_count, as
 -- 00145 refuses for the types: the rule cannot be rebuilt once the column goes,
 -- and an older binary would mark the question all or nothing.

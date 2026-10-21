@@ -19,11 +19,16 @@ const (
 	beforeQuestionTypes int64 = 144
 	questionTypes       int64 = 145
 	selectCount         int64 = 146
+	maxWords            int64 = 147
 	essaySampleAnswer   int64 = 148
 	fixedOrderChoices   int64 = 149
 	answerBands         int64 = 153
 )
 
+// TestTheQuestionTypeRollbacksRefuseWhileARowNeedsThem walks every Down of
+// T-R6.1a past each row that blocks it, and keeps rows each Down must let
+// through (a short answer's sample answer, a single choice's fixed order): the
+// version each refusal leaves shows the Down before it did not over-refuse.
 func TestTheQuestionTypeRollbacksRefuseWhileARowNeedsThem(t *testing.T) {
 	if os.Getenv("TEST_DESTRUCTIVE") != "1" {
 		t.Skip("TEST_DESTRUCTIVE=1 required for an isolated migration database")
@@ -46,7 +51,7 @@ func TestTheQuestionTypeRollbacksRefuseWhileARowNeedsThem(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var essay, chooseTwo, member, frozen string
+	var essay, chooseTwo, limited, member, frozen, frozenChoose, frozenLimited string
 	withTx(t, conn, func(tx *sql.Tx, f fixture) {
 		scan := func(dest *string, insert string, args ...any) {
 			t.Helper()
@@ -62,8 +67,20 @@ func TestTheQuestionTypeRollbacksRefuseWhileARowNeedsThem(t *testing.T) {
 			(type, prompt, points, created_by, owner_id, context_group_id, context_ordinal, context_option_order)
 			VALUES ('tfng', 'Đúng, sai hay không có', 1.0, $1, $1, $2, 0, 'fixed') RETURNING id`,
 			f.adminID, newGroup(t, tx, f.adminID, nil))
+		scan(&limited, `INSERT INTO app.questions (type, prompt, points, created_by, owner_id, max_words)
+			VALUES ('short_answer', 'Không quá BA từ', 1.0, $1, $1, 3) RETURNING id`, f.adminID)
+		section := newVersion(t, tx, f.adminID)
 		scan(&frozen, `INSERT INTO app.test_version_questions (test_version_section_id, ordinal, type, prompt, points)
-			VALUES ($1, 0, 'tfng', 'Câu đã chốt', 1.0) RETURNING id`, newVersion(t, tx, f.adminID))
+			VALUES ($1, 0, 'tfng', 'Câu đã chốt', 1.0) RETURNING id`, section)
+		scan(&frozenChoose, `INSERT INTO app.test_version_questions (test_version_section_id, ordinal, type, prompt, points, select_count)
+			VALUES ($1, 1, 'multiple_choice', 'Chọn HAI đáp án', 2.0, 2) RETURNING id`, section)
+		scan(&frozenLimited, `INSERT INTO app.test_version_questions (test_version_section_id, ordinal, type, prompt, points, max_words)
+			VALUES ($1, 2, 'short_answer', 'Không quá BA từ', 1.0, 3) RETURNING id`, section)
+		mustExec(t, tx, `INSERT INTO app.questions (type, prompt, points, created_by, owner_id, sample_answer)
+			VALUES ('short_answer', 'Viết câu trả lời', 1.0, $1, $1, 'Đáp án mẫu')`, f.adminID)
+		mustExec(t, tx, `INSERT INTO app.questions
+			(type, prompt, points, created_by, owner_id, context_group_id, context_ordinal, context_option_order)
+			VALUES ('single_choice', 'Chọn một', 1.0, $1, $1, $2, 0, 'fixed')`, f.adminID, newGroup(t, tx, f.adminID, nil))
 		if err := tx.Commit(); err != nil {
 			t.Fatal(err)
 		}
@@ -79,8 +96,14 @@ func TestTheQuestionTypeRollbacksRefuseWhileARowNeedsThem(t *testing.T) {
 			`UPDATE app.questions SET context_option_order = 'shuffle' WHERE id = $1`, &member},
 		{"an essay's sample answer", essaySampleAnswer - 1, essaySampleAnswer,
 			`UPDATE app.questions SET sample_answer = NULL WHERE id = $1`, &essay},
+		{"a short answer with a word limit", selectCount, maxWords,
+			`UPDATE app.questions SET max_words = NULL WHERE id = $1`, &limited},
+		{"a frozen short answer with a word limit", selectCount, maxWords,
+			`UPDATE app.test_version_questions SET max_words = NULL WHERE id = $1`, &frozenLimited},
 		{"a choose-two question", questionTypes, selectCount,
 			`UPDATE app.questions SET select_count = NULL WHERE id = $1`, &chooseTwo},
+		{"a frozen choose-two question", questionTypes, selectCount,
+			`UPDATE app.test_version_questions SET select_count = NULL WHERE id = $1`, &frozenChoose},
 		{"a bank question of a new type", beforeQuestionTypes, questionTypes,
 			`DELETE FROM app.questions WHERE id = $1`, &essay},
 		{"a tfng bank question", beforeQuestionTypes, questionTypes,

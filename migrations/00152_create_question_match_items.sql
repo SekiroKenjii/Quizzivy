@@ -10,6 +10,10 @@
 -- cascades to its options and its items together, passes whatever order the
 -- cascade visits them in, while deleting an option an item still names fails.
 --
+-- The ALTERs below take ACCESS EXCLUSIVE on both question tables, so
+-- lock_timeout fails the file at once rather than queue writers behind it.
+SET LOCAL lock_timeout = '5s';
+
 -- [D-13] The ordinal key is deferrable for the editor's reorder.
 CREATE TABLE app.question_match_items (
   id                uuid PRIMARY KEY DEFAULT uuidv7(),
@@ -65,6 +69,8 @@ ALTER TABLE app.test_version_questions
 ALTER TABLE app.test_version_questions VALIDATE CONSTRAINT test_version_questions_match_allow_reuse_iff_matching;
 
 -- +goose Down
+
+SET LOCAL lock_timeout = '5s';
 
 -- The indexes the FKs use stay for 00151's Down.
 ALTER TABLE app.test_version_questions DROP COLUMN match_allow_reuse;

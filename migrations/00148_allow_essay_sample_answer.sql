@@ -15,6 +15,8 @@ ALTER TABLE app.questions DROP CONSTRAINT questions_sample_answer_only_short_ans
 
 -- +goose Down
 
+SET LOCAL lock_timeout = '5s';
+
 -- +goose StatementBegin
 DO $$
 BEGIN

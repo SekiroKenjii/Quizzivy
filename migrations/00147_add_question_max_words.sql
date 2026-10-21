@@ -22,6 +22,8 @@ ALTER TABLE app.test_version_questions VALIDATE CONSTRAINT test_version_question
 
 -- +goose Down
 
+SET LOCAL lock_timeout = '5s';
+
 -- Refuses while a question or a frozen version question has a max_words, as
 -- 00145 refuses for the types: the limit cannot be rebuilt once the column goes.
 -- +goose StatementBegin

@@ -5,6 +5,10 @@
 -- final_score, finishGrading and every total stay as they are. A band is a
 -- grade, so it needs the manual score it was converted to. numeric(3,1) rounds
 -- 6.25 to 6.3 before the CHECK runs, and the step rule then refuses it.
+-- attempt_answers is written by every autosave, so lock_timeout fails the
+-- file at once rather than hold those writes behind its ACCESS EXCLUSIVE lock.
+SET LOCAL lock_timeout = '5s';
+
 ALTER TABLE app.attempt_answers ADD COLUMN band numeric(3,1);
 ALTER TABLE app.attempt_answers
   ADD CONSTRAINT attempt_answers_band_step
@@ -40,6 +44,8 @@ CREATE INDEX attempt_answer_criteria_criterion_idx
   ON app.attempt_answer_criteria (question_id, criterion_id);
 
 -- +goose Down
+
+SET LOCAL lock_timeout = '5s';
 
 -- +goose StatementBegin
 DO $$
