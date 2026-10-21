@@ -505,19 +505,8 @@ func (h Attempts) GradeAttempt(ctx context.Context, request openapi.GradeAttempt
 	if !ok {
 		return nil, httpx.ErrNotImplemented
 	}
-	var refused []string
-	for _, it := range request.Body.Items {
-		if it.Points == nil || it.Band != nil || it.Criteria != nil {
-			refused = append(refused, it.QuestionId.String())
-		}
-	}
-	if len(refused) > 0 {
-		resp := httpapi.Error(ctx, openapi.GRADENEEDSPOINTS, httpx.Text(ctx,
-			"Câu này được chấm bằng điểm số.",
-			"This question is graded with points."))
-		details := map[string]interface{}{"questionIds": refused}
-		resp.Error.Details = &details
-		return openapi.GradeAttempt422JSONResponse(resp), nil
+	if code, refused := gradeShapeRefusal(request.Body); len(refused) > 0 {
+		return openapi.GradeAttempt422JSONResponse(gradeRefusal(ctx, code, refused)), nil
 	}
 	items := make([]domain.GradeItem, len(request.Body.Items))
 	for i, it := range request.Body.Items {
@@ -546,6 +535,39 @@ func (h Attempts) GradeAttempt(ctx context.Context, request openapi.GradeAttempt
 		return nil, err
 	}
 	return openapi.GradeAttempt200JSONResponse(*toAPIScore(score)), nil
+}
+
+func gradeShapeRefusal(body *openapi.GradeAttemptJSONRequestBody) (openapi.ErrorCode, []string) {
+	var banded, pointless []string
+	for _, it := range body.Items {
+		switch {
+		case it.Band != nil || it.Criteria != nil:
+			banded = append(banded, it.QuestionId.String())
+		case it.Points == nil:
+			pointless = append(pointless, it.QuestionId.String())
+		}
+	}
+	if len(banded) > 0 {
+		return openapi.GRADEBANDNOTALLOWED, banded
+	}
+	return openapi.GRADENEEDSPOINTS, pointless
+}
+
+func gradeRefusal(ctx context.Context, code openapi.ErrorCode, questionIDs []string) openapi.ErrorResponse {
+	var resp openapi.ErrorResponse
+	switch code {
+	case openapi.GRADEBANDNOTALLOWED:
+		resp = httpapi.Error(ctx, code, httpx.Text(ctx,
+			"Chỉ bài luận mới được chấm theo band.",
+			"Only an essay is graded on a band."))
+	default:
+		resp = httpapi.Error(ctx, code, httpx.Text(ctx,
+			"Câu này cần được chấm bằng điểm số.",
+			"This question needs a score in points."))
+	}
+	details := map[string]interface{}{"questionIds": questionIDs}
+	resp.Error.Details = &details
+	return resp
 }
 
 func gradeValidationError(ctx context.Context, invalid *domain.GradeValidationError) openapi.ErrorResponse {
