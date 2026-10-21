@@ -26,16 +26,13 @@ const TRAIL = "Đường dẫn";
 const CRUMB = { key: "adminShell.crumb" } as const;
 const OVERVIEW: TeacherHandle = {
   crumb: [CRUMB, { key: "adminShell.nav.overview" }],
-  width: 1320,
-} as TeacherHandle;
+};
 const USERS: TeacherHandle = {
   crumb: [CRUMB, { key: "adminShell.nav.users" }],
-  width: 1320,
-} as TeacherHandle;
+};
 const SETTINGS: TeacherHandle = {
   crumb: [CRUMB, { key: "adminShell.nav.settings" }],
-  width: 1080,
-} as TeacherHandle;
+};
 
 const pages: RouteObject[] = [
   { index: true, handle: OVERVIEW, element: <p>trang tổng quan</p> },
@@ -278,17 +275,38 @@ describe("the Admin top bar", () => {
     await waitFor(() => expect(document.title).toBe("Người dùng · Quizzivy"));
   });
 
-  it("frames the page at 1320px, and at 1080px for Settings", async () => {
+  it("frames every page as the teacher's are, up to --page-max (DG-205)", async () => {
     const { router } = renderAdmin("/admin/users");
     const page = async () =>
       (await screen.findByRole("main")).querySelector<HTMLElement>(
         "[data-slot='page']",
       )!;
 
-    expect((await page()).style.maxWidth).toBe("1320px");
-    await act(() => router.navigate("/admin/settings/sign-in"));
-    await screen.findByText("trang cài đặt");
-    expect((await page()).style.maxWidth).toBe("1080px");
+    for (const at of ["/admin/users", "/admin/settings/sign-in"]) {
+      await act(() => router.navigate(at));
+      const frame = await page();
+      expect(frame).toHaveClass("mx-auto", "w-full", "max-w-(--page-max)");
+      expect(frame.className.match(/max-w-/g)).toHaveLength(1);
+      expect(frame.style.maxWidth).toBe("");
+    }
+  });
+
+  it("ignores a pixel width a stale handle still declares", async () => {
+    const stale = { ...USERS, width: 1320 } as unknown as TeacherHandle;
+    renderRoutes(
+      "/admin/users",
+      [
+        {
+          path: "/admin",
+          element: <AdminLayout />,
+          children: [{ path: "users", handle: stale, element: <p>trang cũ</p> }],
+        },
+      ],
+      adminUser,
+    );
+    const frame = (await screen.findByText("trang cũ")).parentElement!;
+    expect(frame).toHaveClass("max-w-(--page-max)");
+    expect(frame.style.maxWidth).toBe("");
   });
 });
 
