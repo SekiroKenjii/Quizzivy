@@ -19,6 +19,8 @@ ALTER TABLE app.questions VALIDATE CONSTRAINT questions_context_option_order;
 
 -- +goose Down
 
+SET LOCAL lock_timeout = '5s';
+
 -- +goose StatementBegin
 DO $$
 BEGIN
