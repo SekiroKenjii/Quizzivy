@@ -3,11 +3,10 @@ import type { TeacherHandle } from "@/layouts/shell/handle";
 
 /**
  * AdminHandle is the handle of a route of the Admin console: a teacher
- * handle whose `width` is always a maximum in pixels, plus the `permission`
- * a user must hold to open the route, which `RequirePermission` enforces.
+ * handle, rendered in the same page frame (DG-205), plus the `permission` a
+ * user must hold to open the route, which `RequirePermission` enforces.
  */
 export interface AdminHandle extends TeacherHandle {
-  width: number;
   permission: Requirement;
 }
 

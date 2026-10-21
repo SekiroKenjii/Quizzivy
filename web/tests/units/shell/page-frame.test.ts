@@ -5,13 +5,12 @@ import { describe, expect, it } from "vitest";
 const SRC = resolve(import.meta.dirname, "../../../src");
 const read = (path: string) => readFileSync(join(SRC, path), "utf8");
 
-function teacherPages(dir: string): string[] {
+function consolePages(dir: string, console: "teacher" | "admin"): string[] {
+  const inConsole = new RegExp(String.raw`[/\\]pages[/\\]${console}[/\\]`);
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name);
-    if (statSync(path).isDirectory()) return teacherPages(path);
-    return /\.tsx?$/.test(name) && /[/\\]pages[/\\]teacher[/\\]/.test(path)
-      ? [path]
-      : [];
+    if (statSync(path).isDirectory()) return consolePages(path, console);
+    return /\.tsx?$/.test(name) && inConsole.test(path) ? [path] : [];
   });
 }
 
@@ -26,7 +25,7 @@ function centredNarrowBoxes(source: string): string[] {
   return found;
 }
 
-describe("the teacher workspace's page frame (DG-205)", () => {
+describe("the consoles' page frame (DG-205)", () => {
   it("is the design's tokens: 1600px, gutters 14, 28 and 40, fields 480px, prose 72ch", () => {
     const css = read("index.css");
     expect(css).toMatch(/--page-max:\s*1600px;/);
@@ -52,14 +51,14 @@ describe("the teacher workspace's page frame (DG-205)", () => {
     expect(review.slice(0, review.indexOf("lazy:"))).toContain('width: "full"');
   });
 
-  it("gives the Admin console's routes the deck's two widths and no other", () => {
+  it("lets no Admin console route choose a width, so it renders in the same frame", () => {
     const router = read("app/router.tsx");
-    const admin = router.slice(router.indexOf("const adminTree"));
-    const widths = new Set(admin.match(/\bwidth:[^,}]*/g));
-    expect([...widths].sort((a, b) => a.localeCompare(b))).toEqual([
-      "width: 1080",
-      "width: 1320",
-    ]);
+    const admin = router.slice(
+      router.indexOf("const adminTree"),
+      router.indexOf("const studentTree"),
+    );
+    expect(admin.match(/\bwidth:[^,}]*/g)).toBeNull();
+    expect(read("layouts/AdminLayout.tsx")).not.toMatch(/pageMax|maxWidth/);
   });
 
   it("draws the splash's page block at the frame's width and gutters", () => {
@@ -68,18 +67,24 @@ describe("the teacher workspace's page frame (DG-205)", () => {
     expect(skeleton).toContain("px-(--page-gutter)");
   });
 
-  it("finds the teacher pages it scans", () => {
-    expect(teacherPages(join(SRC, "features")).length).toBeGreaterThan(20);
+  it("finds the teacher and admin pages it scans", () => {
+    expect(consolePages(join(SRC, "features"), "teacher").length).toBeGreaterThan(20);
+    expect(consolePages(join(SRC, "features"), "admin").length).toBeGreaterThanOrEqual(
+      9,
+    );
   });
 
-  it("never centres a teacher page, or one of its states, in a narrower box", () => {
-    const offenders = teacherPages(join(SRC, "features")).flatMap((path) =>
-      centredNarrowBoxes(readFileSync(path, "utf8")).map(
-        (text) => `${relative(SRC, path)}: ${text}`,
-      ),
-    );
-    expect(offenders).toEqual([]);
-  });
+  it.each(["teacher", "admin"] as const)(
+    "never centres a %s page, or one of its states, in a narrower box",
+    (console) => {
+      const offenders = consolePages(join(SRC, "features"), console).flatMap((path) =>
+        centredNarrowBoxes(readFileSync(path, "utf8")).map(
+          (text) => `${relative(SRC, path)}: ${text}`,
+        ),
+      );
+      expect(offenders).toEqual([]);
+    },
+  );
 
   it("would catch a page that does", () => {
     expect(
