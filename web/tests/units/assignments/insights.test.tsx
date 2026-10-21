@@ -104,9 +104,13 @@ function serve({
   answers = [
     () => contractJson("/teacher/ai/assignments/{id}/insights", "post", 200, ANSWERED),
   ],
+  previewVersion = 3,
+  previewed = [],
 }: {
   handedIn?: number;
   answers?: (() => Response | Promise<Response>)[];
+  previewVersion?: number;
+  previewed?: (string | null)[];
 } = {}) {
   serveDetail(detailAssignment(), {
     rows: [
@@ -132,9 +136,10 @@ function serve({
   const bodies: (string | null)[] = [];
   let call = 0;
   server.use(
-    http.get(`${DETAIL_API}/teacher/tests/${DETAIL_TEST_ID}/preview`, () =>
-      contractJson("/teacher/tests/{id}/preview", "get", 200, {
-        version: 3,
+    http.get(`${DETAIL_API}/teacher/tests/${DETAIL_TEST_ID}/preview`, ({ request }) => {
+      previewed.push(new URL(request.url).searchParams.get("version"));
+      return contractJson("/teacher/tests/{id}/preview", "get", 200, {
+        version: previewVersion,
         questions: [],
         groups: [
           {
@@ -163,8 +168,8 @@ function serve({
             assets: [],
           },
         ],
-      }),
-    ),
+      });
+    }),
     http.post(INSIGHTS_PATH, async ({ request }) => {
       bodies.push(await request.text());
       const answer = answers[Math.min(call, answers.length - 1)]!;
@@ -196,6 +201,7 @@ describe("Explain results with AI", () => {
     expect(await screen.findByText("C27")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: copy.explain })).toBeNull();
     expect(reached()).not.toContain("post /teacher/ai/assignments/{id}/insights");
+    expect(reached()).not.toContain("get /teacher/tests/{id}/preview");
   });
 
   it("reads the results, shows what it read and the cards, and links Review answers to the assignment's grading", async () => {
@@ -440,6 +446,30 @@ describe("Make a practice set", () => {
     ]);
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
+
+  it("reads the passages of the pinned version only while the assistant is offered", async () => {
+    const previewed: (string | null)[] = [];
+    serve({ previewed });
+    renderDetail("questions");
+    await explainButton();
+    await waitFor(() => expect(previewed).toEqual(["3"]));
+  });
+
+  it.each([2, 4])(
+    "never substitutes the passages of response version %i for the pinned version",
+    async (previewVersion) => {
+      const previewed: (string | null)[] = [];
+      serve({ previewVersion, previewed });
+      const user = renderDetail("questions");
+      await user.click(await explainButton());
+      await waitFor(() => expect(previewed).toEqual(["3"]));
+      const panel = await screen.findByRole("region", { name: copy.title });
+      await user.click(within(panel).getByRole("button", { name: copy.practice }));
+      const dialog = await screen.findByRole("dialog", { name: vi_.ai.generate.title });
+      expect(within(dialog).queryByDisplayValue(PASSAGE)).toBeNull();
+      expect(within(dialog).queryByText(PASSAGE)).toBeNull();
+    },
+  );
 
   it("brings back a practice set that finished behind a closed drawer from the toast", async () => {
     serve();

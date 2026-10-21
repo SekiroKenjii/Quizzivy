@@ -7,7 +7,7 @@
 -- one exists; a legacy code left unrevoked only because it expired is revoked
 -- at its expiry, which is when it stopped working. The file runs in one
 -- transaction, so the ADD's ACCESS EXCLUSIVE lock is held through VALIDATE;
--- the table holds a few hundred rows, so the scan is brief.
+-- the table is small (one row per code ever issued), so the scan is brief.
 -- +goose StatementBegin
 DO $$
 BEGIN
