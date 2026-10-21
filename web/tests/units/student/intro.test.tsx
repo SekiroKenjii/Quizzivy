@@ -681,7 +681,11 @@ describe("a paper that has not opened", () => {
 
   it("keeps the muted box while it waits, not the paused primary fill (DG-105)", async () => {
     const button = await waiting("2026-09-01T01:00:00Z");
-    expect(button).toHaveClass("aria-disabled:bg-muted", "text-muted-fg");
+    expect(button).toHaveClass(
+      "aria-disabled:bg-muted",
+      "aria-disabled:hover:bg-muted",
+      "text-muted-fg",
+    );
     expect(button.className).not.toMatch(/aria-disabled:bg-primary/);
   });
 
