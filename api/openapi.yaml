@@ -954,6 +954,7 @@ components:
         - GRADE_NEEDS_BAND
         - GRADE_CRITERIA_INCOMPLETE
         - GRADE_NEEDS_POINTS
+        - GRADE_BAND_NOT_ALLOWED
         - VERSION_LOCKED
         - ASSIGNMENT_LOCKED
         # AI assistant
@@ -3851,10 +3852,12 @@ components:
       minLength: 1
       maxLength: 8
       description: |
-        The label a matching choice or item is referred to by: lower-case roman
-        numerals for choices and capital letters for items, derived from the
-        ordinal by the server so the editor, the paper, grading and the result
-        name the same key (DG-194). A label, never an answer.
+        The label a matching choice or item is referred to by, derived by the
+        server from its stored ordinal and never from the order it is delivered
+        in: choices take lower-case roman numerals (ordinal 0 is `i`, 11 is
+        `xii`) and items capital letters (ordinal 0 is `A`, 19 is `T`). The
+        editor, the paper, grading and the result therefore name the same key
+        (DG-194, D-063). A label, never an answer.
 
     AdminMatchItem:
       type: object
@@ -11230,8 +11233,9 @@ paths:
             without criteria has no `band`, or has `points`.
             `GRADE_CRITERIA_INCOMPLETE`: an essay with criteria lacks one, names
             one it does not have, or has `points` or `band`.
-            `GRADE_NEEDS_POINTS`: any other type has no `points`, or has `band`
-            or `criteria`.
+            `GRADE_NEEDS_POINTS`: any other type has no `points`.
+            `GRADE_BAND_NOT_ALLOWED`: any other type has `band` or `criteria`;
+            it is answered before `GRADE_NEEDS_POINTS` when a body has both.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
