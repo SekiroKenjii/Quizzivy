@@ -15200,6 +15200,16 @@
           },
           {
             "in": "body",
+            "name": "/bundle/questions/-/input/matchItems/-/id",
+            "kind": "none"
+          },
+          {
+            "in": "body",
+            "name": "/bundle/questions/-/input/rubric/-/id",
+            "kind": "none"
+          },
+          {
+            "in": "body",
             "name": "/ownerSectionId",
             "kind": "section"
           }
@@ -15375,6 +15385,16 @@
           {
             "in": "body",
             "name": "/bundle/questions/-/input/blanks/-/id",
+            "kind": "none"
+          },
+          {
+            "in": "body",
+            "name": "/bundle/questions/-/input/matchItems/-/id",
+            "kind": "none"
+          },
+          {
+            "in": "body",
+            "name": "/bundle/questions/-/input/rubric/-/id",
             "kind": "none"
           }
         ],
@@ -16841,6 +16861,16 @@
             "in": "body",
             "name": "/blanks/-/id",
             "kind": "none"
+          },
+          {
+            "in": "body",
+            "name": "/matchItems/-/id",
+            "kind": "none"
+          },
+          {
+            "in": "body",
+            "name": "/rubric/-/id",
+            "kind": "none"
           }
         ],
         "x-permission": [
@@ -17014,6 +17044,16 @@
           {
             "in": "body",
             "name": "/blanks/-/id",
+            "kind": "none"
+          },
+          {
+            "in": "body",
+            "name": "/matchItems/-/id",
+            "kind": "none"
+          },
+          {
+            "in": "body",
+            "name": "/rubric/-/id",
             "kind": "none"
           }
         ],
@@ -20355,6 +20395,11 @@
             "in": "body",
             "name": "/items/-/questionId",
             "kind": "version-question"
+          },
+          {
+            "in": "body",
+            "name": "/items/-/criteria/-/criterionId",
+            "kind": "none"
           }
         ],
         "x-permission": "teaching.grading",
@@ -25503,6 +25548,11 @@
           {
             "in": "body",
             "name": "/answers/*/optionIds/-",
+            "kind": "none"
+          },
+          {
+            "in": "body",
+            "name": "/answers/*/pairs/*",
             "kind": "none"
           },
           {
