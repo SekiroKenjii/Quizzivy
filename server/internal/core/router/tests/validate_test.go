@@ -3,8 +3,11 @@ package router_test
 import (
 	"cmp"
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"regexp"
 	"slices"
 	"strings"
@@ -14,6 +17,7 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 
 	"quizzivy/gen/openapi"
+	"quizzivy/internal/core/router"
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/platform/httpx"
 	"quizzivy/internal/shared/access"
@@ -95,6 +99,128 @@ func TestAuthenticationIsDecidedBeforeValidation(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401 -- validation ran before authentication", rec.Code)
 	}
+
+	t.Run("parameter binding", func(t *testing.T) {
+		const (
+			forbiddenUser = "01935000-0000-7000-8000-00000000f403"
+			permittedUser = "01935000-0000-7000-8000-00000000f400"
+		)
+		issuer := testIssuer(t)
+		principals := newFakePrincipals().
+			set(access.Principal{UserID: forbiddenUser, RoleID: "role-none", Permissions: access.NewSet()}).
+			set(access.Principal{UserID: permittedUser, RoleID: "role-all", Permissions: access.NewSet(access.All()...)})
+		logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+		gated, err := router.New(router.Deps{Principals: principals, DB: fakeDB{}, Tokens: issuer}, logger, []string{"https://app.quizzivy.com"}, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		token := func(userID string) string {
+			t.Helper()
+			signed, err := issuer.Issue(userID, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return signed
+		}
+		forbidden, permitted := token(forbiddenUser), token(permittedUser)
+
+		spec := freshSpec(t)
+		requirements, err := httpx.PermissionRequirements(spec, "bearerAuth")
+		if err != nil {
+			t.Fatal(err)
+		}
+		cases := malformedParameterRequests(spec)
+		if len(cases) < 100 {
+			t.Fatalf("found %d gated operations whose parameters can fail to bind, want at least 100", len(cases))
+		}
+		for _, c := range cases {
+			t.Run(c.pattern, func(t *testing.T) {
+				send := func(bearer string) *httptest.ResponseRecorder {
+					req := httptest.NewRequest(c.method, c.target, nil)
+					if bearer != "" {
+						req.Header.Set("Authorization", "Bearer "+bearer)
+					}
+					rec := httptest.NewRecorder()
+					gated.ServeHTTP(rec, req)
+					return rec
+				}
+				if rec := send(""); rec.Code != http.StatusUnauthorized {
+					t.Errorf("anonymous %s: status = %d, want 401 before %s is bound", c.target, rec.Code, c.parameter)
+				}
+				if !requirements[c.pattern].SatisfiedBy(access.NewSet()) {
+					if rec := send(forbidden); rec.Code != http.StatusForbidden || errorCode(t, rec) != "FORBIDDEN" {
+						t.Errorf("caller without the permission %s: status = %d, want 403 FORBIDDEN before %s is bound", c.target, rec.Code, c.parameter)
+					}
+				}
+				rec := send(permitted)
+				if rec.Code != http.StatusBadRequest {
+					t.Fatalf("permitted %s: status = %d, want 400 naming %s", c.target, rec.Code, c.parameter)
+				}
+				if code, message := errorCodeAndMessage(t, rec); code != "VALIDATION_FAILED" || !strings.Contains(message, c.parameter) {
+					t.Errorf("permitted %s: %s %q, want VALIDATION_FAILED naming %s", c.target, code, message, c.parameter)
+				}
+			})
+		}
+	})
+}
+
+type malformedParameterRequest struct {
+	pattern, method, target, parameter string
+}
+
+func malformedParameterRequests(spec *openapi3.T) []malformedParameterRequest {
+	open := openPatterns(spec)
+	var out []malformedParameterRequest
+	for path, item := range spec.Paths.Map() {
+		for method, op := range item.Operations() {
+			pattern := method + " " + path
+			if _, isOpen := open[pattern]; isOpen {
+				continue
+			}
+			target, failing := path, ""
+			query := url.Values{}
+			for _, ref := range slices.Concat(item.Parameters, op.Parameters) {
+				p := ref.Value
+				switch {
+				case p.In == openapi3.ParameterInPath && bindsTyped(p.Schema):
+					target = strings.Replace(target, "{"+p.Name+"}", "not-valid", 1)
+					if failing == "" {
+						failing = p.Name
+					}
+				case p.In == openapi3.ParameterInPath:
+					target = strings.Replace(target, "{"+p.Name+"}", "plain", 1)
+				case p.In == openapi3.ParameterInQuery && p.Required && failing == "":
+					failing = p.Name
+				case p.In == openapi3.ParameterInQuery && bindsTyped(p.Schema) && failing == "":
+					query.Set(p.Name, "not-valid")
+					failing = p.Name
+				}
+			}
+			if failing == "" {
+				continue
+			}
+			if len(query) > 0 {
+				target += "?" + query.Encode()
+			}
+			out = append(out, malformedParameterRequest{pattern: pattern, method: method, target: target, parameter: failing})
+		}
+	}
+	slices.SortFunc(out, func(a, b malformedParameterRequest) int { return cmp.Compare(a.pattern, b.pattern) })
+	return out
+}
+
+func bindsTyped(ref *openapi3.SchemaRef) bool {
+	if ref == nil || ref.Value == nil {
+		return false
+	}
+	schema := ref.Value
+	if schema.Type.Is(openapi3.TypeArray) {
+		return bindsTyped(schema.Items)
+	}
+	if schema.Type.Is(openapi3.TypeString) {
+		return slices.Contains([]string{"uuid", "date", "date-time"}, schema.Format)
+	}
+	return schema.Type.Includes(openapi3.TypeInteger) || schema.Type.Includes(openapi3.TypeNumber) || schema.Type.Includes(openapi3.TypeBoolean)
 }
 
 func TestPathParametersAreValidatedToo(t *testing.T) {
@@ -772,8 +898,6 @@ func TestAMalformedParameterNamesTheParameter(t *testing.T) {
 	}{
 		{name: "a path parameter", path: "/teacher/classes/not-a-uuid", token: admin, want: `Tham số "id" không hợp lệ.`},
 		{name: "a path parameter, English preferred", path: "/teacher/classes/not-a-uuid", token: admin, acceptLanguage: "en", want: `The parameter "id" is not valid.`},
-		{name: "a path parameter from nobody", path: "/teacher/classes/not-a-uuid", want: `Tham số "id" không hợp lệ.`},
-		{name: "a path parameter from nobody, English preferred", path: "/teacher/classes/not-a-uuid", acceptLanguage: "en", want: `The parameter "id" is not valid.`},
 		{name: "a query parameter that does not bind", path: "/teacher/classes?limit=abc", token: admin, want: `Tham số "limit" không hợp lệ.`},
 		{name: "a query parameter the validator refuses", path: "/teacher/classes?limit=100000", token: admin, want: `Tham số "limit" không hợp lệ.`},
 	} {
