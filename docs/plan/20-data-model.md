@@ -1433,6 +1433,9 @@ listed here matches the spec.
 | D-59 | Add `avatar_sweeps`, one row for each anonymised account whose profile photo objects the housekeeping removed, `user_id` the primary key and `ON DELETE CASCADE`, and the app role holds `SELECT` and `INSERT` only | Anonymisation (T-R5.17a) runs as the maintenance role, which holds no storage credential, so it clears `users.avatar_key` and leaves the objects under `avatars/{user_id}/`; the API's daily housekeeping deletes them (T-R5.16, D-050). Nothing else records which anonymised accounts still have objects, so without a mark every run would list every anonymised account's prefix for ever, and listing the whole `avatars/` prefix instead would read every live photo daily and lose its place on a restart. The row is written only once the prefix is empty, so a failed list or delete leaves the account due for the next run, and an account is listed once. It is a table of its own, not a column on `users`: the maintenance guard (D-042) pins what an anonymised row holds, and the mark is the API's state, not the account's. `REVOKE UPDATE, DELETE` makes a mark permanent for the application; it goes only with its account. No index beyond the key: the pick reads `users` by the anonymised shape and anti-joins this table, and D-050 names the revisit at about 100,000 anonymised accounts. See §56 |
 | D-60 | A third role, `quizzivy_maintenance`, created outside migrations (§1); `00139` grants it table by table and column by column only what `cmd/maintenance`'s commands read and write: `INSERT` alone on `audit_log`, `DELETE` only where a command deletes, nothing on a sequence or on `ai_usage_ledger`, `USAGE` on schemas `app` and `public` and `CREATE` on neither. The file fails when the role is missing, and adds `users_maintenance_guard`, a `BEFORE UPDATE` trigger on `users` fired only for this role, which refuses (`42501`) an update that does not leave the row anonymised | §13.5 had two roles, and before R5 `MAINTENANCE_DATABASE_URL` named the owner or another privileged role. The retention sweep runs unattended from a nightly workflow (T-R5.17a, D16), so its credential holds the least the commands need, and a grant nothing uses is a fault too: `privileges_test.go` compares the role's effective column privileges with its own list of them, which §55's table mirrors, in both directions. There is no conditional grant, so a database that migrates has the role. The `UPDATE` on the login columns that anonymising needs is also what a leaked credential would use to take an account over, so the guard pins the anonymised shape (D-042). It reads no ownership: by direct SQL the role can still anonymise any account but the last active Admin, a teacher's included, and only the sweep and `anonymize-user` skip owners (D-045). See §55 |
 | D-61 | An answer the retention sweep removes keeps its `attempt_answers` row, with `payload` replaced by the marker `{"removed": true}` (`retention.RemovedAnswer`); no column is added | Only the response goes: `auto_score`, `manual_score`, the grader's comment and the grader stay, so no result or average moves (plan 75, "Removing answers keeps scores and comments"). The marker is a JSON object, which the existing `jsonb_typeof(payload) = 'object'` check accepts, so neither T-R5.17a nor T-R5.17b needed a migration. It has no `type`, so no real answer shape can be mistaken for it and `answered.SaysSomething` counts it as saying nothing. Every reader goes through one test: `attempts/domain.AnswerRemoved` in Go, and an equality with `retention.RemovedAnswer` in SQL, where `answered.AwaitsGrade` drops it from every count of answers awaiting a mark (`attempt_answers_pending_idx` still serves them, the marker filtering the rows it returns), a grade naming one is refused whole (`409 ANSWER_REMOVED`), the sweep and the settings page's impact count skip a row already removed, and the data export's `removed` column reports it. See §55 |
+| D-62 | `app.question_type` gains `tfng`, `matching` and `essay` (`00145`), and that file's Down leaves the three values in place, refusing while any question or version question uses one | PostgreSQL cannot drop an enum value, and rebuilding the type fails, because `ALTER COLUMN … TYPE` re-parses every CHECK that compares `type` and each fails with `operator does not exist`. An unused value is harmless, so the Down still undoes everything an older binary could notice; a full reset drops the type with `00002`. Enum values rather than text, because the column is already the enum and every query, index (`questions_type_id_idx`) and CHECK compares it as one (§58) |
+| D-63 | `questions` and `test_version_questions` gain nullable `select_count smallint` (a multiple choice only, 2 to 7) and `max_words smallint` (a short answer only, 1 to 100) | "Choose exactly N" and the word limit are rules of the question (T-R6.1a, plan 76): NULL keeps every existing question's rule, and the frozen copy carries both because marking and the engine read the version, never the bank. Seven is the 8-option cap (DG-63) less one. The word limit is advice: the server stores whatever was typed (§58) |
+| D-64 | `questions_sample_answer_only_short_answer` becomes `questions_sample_answer_only_written`: a short answer or an essay | The grader reads an essay's sample answer beside the student's text, as a short answer's (T-R6.1a). `00148`'s Down refuses while an essay has one and otherwise restores the original rule (§58) |
 
 ---
 
@@ -1576,6 +1579,10 @@ the file it adds.
 | `00139_grant_maintenance_role.sql` | the grants of `quizzivy_maintenance`, column by column; fails when the role is missing; `app.users_maintenance_guard()` and its trigger `users_maintenance_guard` on `app.users` | R5 (T-R5.17a), D-60, §55 |
 | `00140_create_avatar_sweeps.sql` | `avatar_sweeps` and the `REVOKE UPDATE, DELETE` from the app role | R5 (T-R5.16), D-59, §56 |
 | `00141_require_encrypted_join_codes.sql` | refuses a live code without a ciphertext, revokes each expired unrevoked legacy code at its `expires_at`, and adds and validates `class_join_codes_live_encrypted`; Down drops the constraint and keeps the revocations | R5 (T-R5.1), §33 |
+| `00145_add_question_types.sql` | `tfng`, `matching` and `essay` on `app.question_type`; Down refuses while a row uses one and leaves the values | R6 (T-R6.1a), D-62 |
+| `00146_add_question_select_count.sql` | `select_count` on `questions` and `test_version_questions`, CHECK added `NOT VALID` and validated | R6 (T-R6.1a), D-63 |
+| `00147_add_question_max_words.sql` | `max_words` on `questions` and `test_version_questions`, the same pattern | R6 (T-R6.1a), D-63 |
+| `00148_allow_essay_sample_answer.sql` | `questions_sample_answer_only_written` replaces `questions_sample_answer_only_short_answer`; Down refuses while an essay has a sample answer | R6 (T-R6.1a), D-64 |
 
 Notes on migration mechanics (§13.7):
 
@@ -4096,3 +4103,43 @@ row here, in id order, at most `limit`. An account re-enabled or given a photo a
 and an account whose objects could not be listed or deleted has no row and is tried at the next run. A server
 without media storage has no step, so it writes no row and a bucket configured later still finds every account. A
 photo written under a marked account's prefix later is not removed (anonymisation leaves no way to write one).
+
+## 58. Question types, "choose N" and word limits (T-R6.1a)
+
+R6 adds three types and two rules to the question bank and its frozen copy. Every change is additive, so the
+v0.12.0 binary keeps writing with its own column lists (`TestTheV0120WritesStillInsert`).
+
+**`00145_add_question_types.sql`** adds `tfng`, `matching` and `essay` to `app.question_type` with
+`ADD VALUE IF NOT EXISTS`. They are enum values rather than a `text` column because `type` already is the enum:
+`questions_type_id_idx`, every CHECK and every repository compare it as one, and a second column would be a
+second source of truth. A value added in a transaction cannot be used before that transaction commits, so no
+statement in the file names one, and every CHECK that does is in a later file. The Down refuses while a question or
+version question uses one of them and otherwise leaves them in place (D-62): PostgreSQL cannot drop an enum value,
+and rebuilding the type fails on the CHECKs that compare `type`. `IF NOT EXISTS` is what lets the up after that
+Down run.
+
+- `tfng` is True / False / Not given: three `question_options` in fixed order with exactly one correct, answered
+  with the `choice` shape and marked by the choice rule (plan 76). The three-option shape is the application's
+  rule, enforced by the bank's validation (T-R6.3), not by a CHECK.
+- `matching` reuses `question_options` as its choice list and adds items (T-R6.1b).
+- `essay` is a written answer scored on a band (T-R6.1b).
+
+**`00146_add_question_select_count.sql`** and **`00147_add_question_max_words.sql`** add `select_count smallint`
+and `max_words smallint` to `questions` and `test_version_questions` (D-63):
+
+- `CHECK (select_count IS NULL OR (type = 'multiple_choice' AND select_count BETWEEN 2 AND 7))`. NULL is a plain
+  multiple choice, all or nothing; N is "choose exactly N", marked per correct pick.
+- `CHECK (max_words IS NULL OR (type = 'short_answer' AND max_words BETWEEN 1 AND 100))`. NULL is no limit. The
+  limit is advice: the server stores what was typed, and the grader sees the over-limit badge.
+
+Both tables hold rows, so each CHECK is added `NOT VALID` and then validated, the pattern every populated table
+gets (§13). Each file runs in one transaction, so the `ADD COLUMN`'s `ACCESS EXCLUSIVE` lock is held through the
+`VALIDATE`: the pattern buys no weaker lock here, and the scan reads a centre's bank, where the column is NULL on
+every row. It keeps the two steps apart, so the Neon rehearsal times each, and it is already the shape a table too
+large to scan under that lock would need, split across two files. The Downs drop the columns.
+
+**`00148_allow_essay_sample_answer.sql`** replaces `questions_sample_answer_only_short_answer` with
+`questions_sample_answer_only_written`, `CHECK (sample_answer IS NULL OR type IN ('short_answer', 'essay'))`, added
+`NOT VALID` and validated before the old rule is dropped, so no moment has neither (D-64). `test_version_questions`
+has no such rule and gains none. The Down refuses while an essay has a sample answer and otherwise restores the
+original the same way.

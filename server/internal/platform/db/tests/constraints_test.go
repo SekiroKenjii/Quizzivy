@@ -615,9 +615,9 @@ func TestMediaPairMustBeCompleteOrAbsent(t *testing.T) {
 	})
 }
 
-func TestSampleAnswerIsShortAnswerOnly(t *testing.T) {
+func TestSampleAnswerIsForWrittenAnswersOnly(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
-		rejectsWith(t, tx, "questions_sample_answer_only_short_answer",
+		rejectsWith(t, tx, "questions_sample_answer_only_written",
 			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, sample_answer)
 			 VALUES ('single_choice', 'Chọn một đáp án', 1.0, $1, $1, 'Đáp án mẫu')`, f.adminID)
 	})
@@ -628,6 +628,22 @@ func TestSampleAnswerOnShortAnswerIsAccepted(t *testing.T) {
 		mustExec(t, tx,
 			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, sample_answer)
 			 VALUES ('short_answer', 'Viết câu trả lời', 1.0, $1, $1, 'Đáp án mẫu')`, f.adminID)
+	})
+}
+
+func TestAMatchingQuestionCannotCarryASampleAnswer(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "questions_sample_answer_only_written",
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, sample_answer)
+			 VALUES ('matching', 'Nối tiêu đề với đoạn văn', 1.0, $1, $1, 'Đáp án mẫu')`, f.adminID)
+	})
+}
+
+func TestSampleAnswerOnAnEssayIsAccepted(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		mustExec(t, tx,
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, sample_answer)
+			 VALUES ('essay', 'Viết bài luận 250 từ', 9.0, $1, $1, 'Bài mẫu')`, f.adminID)
 	})
 }
 
@@ -1103,4 +1119,102 @@ func TestAnInsertWithoutAnOwnerIsRefused(t *testing.T) {
 			})
 		})
 	}
+}
+
+// ---------------------------------------------------------------- R6 question types (T-R6.1a)
+
+func TestASelectCountNeedsAMultipleChoice(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "questions_select_count_check",
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, select_count)
+			 VALUES ('single_choice', 'Chọn một đáp án', 1.0, $1, $1, 2)`, f.adminID)
+	})
+}
+
+func TestASelectCountStaysBelowTheOptionCap(t *testing.T) {
+	for _, n := range []int{1, 8} {
+		withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+			rejectsWith(t, tx, "questions_select_count_check",
+				`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, select_count)
+				 VALUES ('multiple_choice', 'Chọn N đáp án', 1.0, $1, $1, $2)`, f.adminID, n)
+		})
+	}
+}
+
+func TestAChooseTwoQuestionIsAccepted(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		mustExec(t, tx,
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, select_count)
+			 VALUES ('multiple_choice', 'Chọn HAI đáp án', 2.0, $1, $1, 2)`, f.adminID)
+	})
+}
+
+func TestAWordLimitOfZeroIsRefused(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "questions_max_words_check",
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, max_words)
+			 VALUES ('short_answer', 'Không quá 0 từ', 1.0, $1, $1, 0)`, f.adminID)
+	})
+}
+
+func TestAWordLimitIsForShortAnswersOnly(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "questions_max_words_check",
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, max_words)
+			 VALUES ('essay', 'Viết bài luận', 9.0, $1, $1, 250)`, f.adminID)
+	})
+}
+
+func TestAShortAnswerOfThreeWordsIsAccepted(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		mustExec(t, tx,
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, max_words)
+			 VALUES ('short_answer', 'Không quá BA từ', 1.0, $1, $1, 3)`, f.adminID)
+	})
+}
+
+func TestAVersionQuestionKeepsTheSameRules(t *testing.T) {
+	for _, c := range []struct{ constraint, column, qtype string }{
+		{"test_version_questions_select_count_check", "select_count", "single_choice"},
+		{"test_version_questions_max_words_check", "max_words", "multiple_choice"},
+	} {
+		t.Run(c.column, func(t *testing.T) {
+			withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+				section := newVersion(t, tx, f.adminID)
+				rejectsWith(t, tx, c.constraint,
+					`INSERT INTO app.test_version_questions (test_version_section_id, ordinal, type, prompt, points, `+c.column+`)
+					 VALUES ($1, 0, $2::app.question_type, 'Câu đã chốt', 1.0, 3)`, section, c.qtype)
+			})
+		})
+	}
+}
+
+// TestTheV0120WritesStillInsert runs the bank's and the publish's inserts with
+// the column lists of v0.12.0 (questions/repositories/store.go and
+// tests/repositories/publish_snapshot.go before R6), which an old binary sends
+// while the new schema is live.
+func TestTheV0120WritesStillInsert(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		for _, qtype := range []string{"single_choice", "multiple_choice", "true_false", "fill_blank", "short_answer"} {
+			mustExec(t, tx, `
+				INSERT INTO app.questions
+				       (type, prompt, media_asset_id, media_asset_kind,
+				        audio_max_plays, audio_allow_seek, audio_show_transcript_after,
+				        transcript, points, explanation, sample_answer, tags, created_by, prompt_content, explanation_content,
+				        id, context_group_id, context_ordinal, context_option_order, owner_id, level, skill, media_alt,
+				        audio_allow_pause, copied_from_id)
+				VALUES ($1::app.question_type, 'Câu hỏi cũ', NULL, NULL, NULL, NULL, NULL,
+				        NULL, 1.0, NULL, CASE WHEN $1 = 'short_answer' THEN 'Đáp án mẫu' END, '{}', $2, NULL, NULL,
+				        uuidv7(), NULL, NULL, NULL, $2, NULL, NULL, NULL, NULL, NULL)`, qtype, f.adminID)
+		}
+		section := newVersion(t, tx, f.adminID)
+		mustExec(t, tx, `
+			INSERT INTO app.test_version_questions
+			       (test_version_section_id, ordinal, source_question_id, type, prompt,
+			        media_asset_id, media_asset_kind, audio_max_plays, audio_allow_seek,
+			        audio_show_transcript_after, transcript, points, explanation, sample_answer, prompt_content, explanation_content, level, skill, media_alt,
+			        audio_allow_pause)
+			VALUES ($1, 0, NULL, 'multiple_choice', 'Câu đã chốt', NULL, NULL, NULL, NULL, NULL,
+			        NULL, 1.0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)`, section)
+	})
 }
