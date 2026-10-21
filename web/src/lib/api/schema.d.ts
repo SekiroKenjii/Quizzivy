@@ -2141,6 +2141,15 @@ export interface paths {
          * Save manual grades
          * @description Saved per call rather than as one giant submit, so a half-graded attempt
          *     survives a refresh. `points` is rejected above the question's ceiling.
+         *
+         *     An item for an `essay` takes a `band` when the question has no rubric
+         *     criteria, or `criteria` naming every one of them, and no `points`: the
+         *     server derives `manual_score = round(band × points ÷ 9, 2)`, with the
+         *     band of a rubric the mean of its criteria rounded half up to 0.5. An
+         *     item for any other type takes `points` and neither of the others. The
+         *     schema cannot express that rule, so the handler applies it and answers
+         *     422 (see below). G-04's by-question grading writes through this
+         *     operation too.
          */
         post: operations["gradeAttempt"];
         delete?: never;
@@ -5008,7 +5017,7 @@ export interface components {
          *     be sent again.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "SET_PASSWORD_LINK_INVALID" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_LIMIT_REACHED" | "ROLE_NOT_ASSIGNABLE" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "LAST_ADMIN" | "USER_OWNS_CONTENT" | "USER_NOT_DISABLED" | "INVALID_RECIPIENT" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "ANSWER_REMOVED" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "EXPORT_IN_PROGRESS" | "EXPORT_UNAVAILABLE" | "EXPORT_OFF" | "USER_IMPORT_FILE_TOO_LARGE" | "USER_IMPORT_FILE_UNREADABLE" | "USER_IMPORT_FILE_EMPTY" | "USER_IMPORT_TOO_MANY_ROWS" | "USER_IMPORT_COLUMNS" | "USER_IMPORT_NOTHING_TO_CREATE" | "SHEET_UNAVAILABLE" | "CSV_NOT_UTF8" | "XLSX_MACROS" | "XLSX_ENCRYPTED" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "SET_PASSWORD_LINK_INVALID" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_LIMIT_REACHED" | "ROLE_NOT_ASSIGNABLE" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "LAST_ADMIN" | "USER_OWNS_CONTENT" | "USER_NOT_DISABLED" | "INVALID_RECIPIENT" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "ANSWER_REMOVED" | "GRADE_NEEDS_BAND" | "GRADE_CRITERIA_INCOMPLETE" | "GRADE_NEEDS_POINTS" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "EXPORT_IN_PROGRESS" | "EXPORT_UNAVAILABLE" | "EXPORT_OFF" | "USER_IMPORT_FILE_TOO_LARGE" | "USER_IMPORT_FILE_UNREADABLE" | "USER_IMPORT_FILE_EMPTY" | "USER_IMPORT_TOO_MANY_ROWS" | "USER_IMPORT_COLUMNS" | "USER_IMPORT_NOTHING_TO_CREATE" | "SHEET_UNAVAILABLE" | "CSV_NOT_UTF8" | "XLSX_MACROS" | "XLSX_ENCRYPTED" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -5382,8 +5391,12 @@ export interface components {
             label: string;
             task?: string;
             /** @enum {string} */
-            type: "single_choice" | "multiple_choice" | "true_false" | "fill_blank" | "short_answer" | "unsupported";
+            type: "single_choice" | "multiple_choice" | "true_false" | "fill_blank" | "short_answer" | "tfng" | "unsupported";
             prompt: components["schemas"]["ContentDocument"];
+            /** @description `multiple_choice` only: the N of a "Choose N" instruction. */
+            selectCount?: components["schemas"]["SelectCount"];
+            /** @description `short_answer` only: the limit of a "NO MORE THAN n WORDS" instruction. */
+            maxWords?: components["schemas"]["MaxWords"];
             options: components["schemas"]["ImportDraftOption"][];
             blanks: components["schemas"]["ImportDraftBlank"][];
             answer: components["schemas"]["ImportDraftAnswer"];
@@ -5842,6 +5855,13 @@ export interface components {
             transcript?: string | null;
             options?: components["schemas"]["AdminQuestionOption"][];
             blanks?: components["schemas"]["AdminQuestionBlank"][];
+            maxWords?: components["schemas"]["MaxWords"];
+            /** @description `essay` only, in authored order. */
+            rubric?: components["schemas"]["RubricCriterion"][];
+            /** @description An essay's band, once graded. Absent on every other type. */
+            band?: components["schemas"]["Band"];
+            /** @description The band each rubric criterion was given, once graded. Absent when the essay has no criteria. */
+            criteria?: components["schemas"]["CriterionBand"][];
             explanation?: string | null;
             explanationContent?: components["schemas"]["QuestionContent"] | null;
             sampleAnswer?: string | null;
@@ -5858,6 +5878,10 @@ export interface components {
             /** @description Present and true when the answer was removed under the retention policy. */
             answerRemoved?: boolean;
             manualScore: components["schemas"]["Points"] | null;
+            /** @description An essay's band, once graded. Absent on every other type. */
+            band?: components["schemas"]["Band"];
+            /** @description The band each rubric criterion was given, once graded. Absent when the essay has no criteria. */
+            criteria?: components["schemas"]["CriterionBand"][];
             graderComment: string | null;
         };
         /**
@@ -6836,8 +6860,15 @@ export interface components {
             originalFilename: string;
             createdAt: components["schemas"]["Timestamp"];
         };
-        /** @enum {string} */
-        QuestionType: "single_choice" | "multiple_choice" | "true_false" | "fill_blank" | "short_answer";
+        /**
+         * @description `tfng` is true / false / not given: three fixed options (True, False,
+         *     Not given) in that order, exactly one correct, answered with a
+         *     `ChoiceAnswer` and never shuffled. `matching` keys each of its
+         *     `matchItems` to one of its options. `essay` is hand-graded on a band
+         *     (3 to 9 in half steps) or on its rubric criteria (R6, DG-60).
+         * @enum {string}
+         */
+        QuestionType: "single_choice" | "multiple_choice" | "true_false" | "fill_blank" | "short_answer" | "tfng" | "matching" | "essay";
         /** @enum {string} */
         QuestionLevel: "pre_a1" | "a1" | "a2" | "b1" | "b2" | "c1" | "c2";
         /** @enum {string} */
@@ -7023,7 +7054,61 @@ export interface components {
             content?: components["schemas"]["OptionContent"] | null;
             text: string;
             isCorrect: boolean;
+            /** @description A `matching` choice's key (i, ii, iii…). Absent on every other type. */
+            key?: components["schemas"]["MatchKey"];
         };
+        /**
+         * @description The label a matching choice or item is referred to by: lower-case roman
+         *     numerals for choices and capital letters for items, derived from the
+         *     ordinal by the server so the editor, the paper, grading and the result
+         *     name the same key (DG-194). A label, never an answer.
+         */
+        MatchKey: string;
+        /**
+         * @description One matching item and its key: the choice (an option of the same
+         *     question) it matches. Teacher-only, like `isCorrect`.
+         */
+        AdminMatchItem: {
+            id: components["schemas"]["Uuid"];
+            ordinal: number;
+            key: components["schemas"]["MatchKey"];
+            text: string;
+            correctOptionId: components["schemas"]["Uuid"];
+        };
+        /**
+         * @description One of an essay's rubric criteria (at most six, frozen at publish). When
+         *     an essay has criteria, its band is their mean rounded half up to 0.5
+         *     (DG-61, interim).
+         */
+        RubricCriterion: {
+            id: components["schemas"]["Uuid"];
+            ordinal: number;
+            label: string;
+        };
+        /**
+         * Format: double
+         * @description An essay band, 3 to 9 in half steps.
+         */
+        Band: number;
+        /** @description The band one rubric criterion was given. */
+        CriterionBand: {
+            criterionId: components["schemas"]["Uuid"];
+            band: components["schemas"]["Band"];
+        };
+        /**
+         * @description `multiple_choice` only: "choose exactly N". The question scores
+         *     `points × correct picks ÷ N`, and more than N picks score 0. Null is
+         *     a plain multiple choice, marked all or nothing.
+         */
+        SelectCount: number | null;
+        /**
+         * @description `short_answer` only: the word limit. Advice, never truncation: the
+         *     engine counts words and flags "too many", the server stores whatever
+         *     was typed, and the grader sees an over-limit badge.
+         */
+        MaxWords: number | null;
+        /** @description `matching` only, where it is required: whether one choice may answer more than one item. Null on every other type. */
+        MatchAllowReuse: boolean | null;
         AdminQuestionBlank: {
             /** @description Stable identity of the rich prompt gap; null for legacy Markdown. */
             gapId?: string | null;
@@ -7324,6 +7409,9 @@ export interface components {
             true_false: number;
             fill_blank: number;
             short_answer: number;
+            tfng: number;
+            matching: number;
+            essay: number;
             levels: {
                 pre_a1: number;
                 a1: number;
@@ -7365,10 +7453,17 @@ export interface components {
             explanationContent?: components["schemas"]["QuestionContent"] | null;
             explanation?: string | null;
             /**
-             * @description `short_answer` only. **Teacher-only, shown during grading.** Never
+             * @description `short_answer` and `essay` only. **Teacher-only, shown during grading.** Never
              *     appears in any `/app/*` schema, including the result endpoint.
              */
             sampleAnswer?: string | null;
+            selectCount?: components["schemas"]["SelectCount"];
+            maxWords?: components["schemas"]["MaxWords"];
+            matchAllowReuse?: components["schemas"]["MatchAllowReuse"];
+            /** @description `matching` only, in authored order. The choices are `options`, none of them marked correct. */
+            matchItems?: components["schemas"]["AdminMatchItem"][];
+            /** @description `essay` only, in authored order. Empty when the teacher sets the band directly. */
+            rubric?: components["schemas"]["RubricCriterion"][];
             tags: string[];
             /**
              * @description How many DRAFT test outlines reference this question. Editing the
@@ -7387,6 +7482,18 @@ export interface components {
         StudentOption: {
             id: components["schemas"]["Uuid"];
             content?: components["schemas"]["OptionContent"] | null;
+            text: string;
+            /** @description A `matching` choice's key. Absent on every other type. */
+            key?: components["schemas"]["MatchKey"];
+        };
+        /**
+         * @description A matching item as the student sees it: no `correctOptionId`, which is
+         *     the grading key. The pairing the student chose travels in
+         *     `MatchingAnswer`.
+         */
+        StudentMatchItem: {
+            id: components["schemas"]["Uuid"];
+            key: components["schemas"]["MatchKey"];
             text: string;
         };
         /**
@@ -7435,8 +7542,16 @@ export interface components {
             /** @description The alt text frozen with the version for the question's image, for a screen reader. Absent when the question has none or its media is not an image. It is a description, not an answer key. */
             mediaAlt?: string | null;
             audio?: components["schemas"]["StudentAudioPolicy"] | null;
+            /** @description `tfng` and `matching` options keep their authored order; every other choice type arrives shuffled per `shuffleSeed`. */
             options?: components["schemas"]["StudentOption"][];
             blanks?: components["schemas"]["StudentBlank"][];
+            /** @description `multiple_choice` only. A rule the student is told, like `caseSensitive`; the engine replaces the oldest pick on the (N+1)th. */
+            selectCount?: components["schemas"]["SelectCount"];
+            /** @description `short_answer` only. A rule the student is told; the engine counts words and never cuts text. */
+            maxWords?: components["schemas"]["MaxWords"];
+            matchAllowReuse?: components["schemas"]["MatchAllowReuse"];
+            /** @description `matching` only, in authored order. The choices are `options`. */
+            matchItems?: components["schemas"]["StudentMatchItem"][];
             points: components["schemas"]["Points"];
         };
         /**
@@ -7494,6 +7609,8 @@ export interface components {
             mediaAlt?: string | null;
             options?: components["schemas"]["StudentOption"][];
             blanks?: components["schemas"]["StudentBlank"][];
+            /** @description `matching` only, as on `StudentQuestion`. */
+            matchItems?: components["schemas"]["StudentMatchItem"][];
             points: components["schemas"]["Points"];
             /** @description What the student submitted. `null` if unanswered, or removed under the retention policy. */
             answer: components["schemas"]["Answer"] | null;
@@ -7521,6 +7638,25 @@ export interface components {
                  */
                 answer: string;
             }[] | null;
+            /** @description Only when `review.showCorrectAnswers`, for `matching`. Absent, not null, otherwise. */
+            correctMatches?: {
+                itemId: components["schemas"]["Uuid"];
+                optionId: components["schemas"]["Uuid"];
+            }[];
+            /** @description Only when `review.showScore` and the essay is graded. Absent otherwise. */
+            band?: components["schemas"]["Band"];
+            /**
+             * @description An essay's rubric criteria and the band each was given. Only when
+             *     `review.showScore` and the essay is graded; the rubric is never sent
+             *     before submission.
+             */
+            criteria?: {
+                id: components["schemas"]["Uuid"];
+                label: string;
+                band: components["schemas"]["Band"];
+            }[];
+            /** @description The skill frozen with the version (R4). Present under every review policy, for the skill tiles. */
+            skill?: components["schemas"]["QuestionSkill"] | null;
             /** @description Absent unless review.showExplanations permits the frozen explanation. */
             explanationContent?: components["schemas"]["QuestionContent"] | null;
             /** @description Only when `review.showExplanations`. */
@@ -8115,7 +8251,7 @@ export interface components {
         /** @enum {string} */
         AttemptStatus: "in_progress" | "submitted" | "timed_out" | "graded" | "voided";
         /** @description Discriminated by `type` (§7). */
-        Answer: components["schemas"]["ChoiceAnswer"] | components["schemas"]["TrueFalseAnswer"] | components["schemas"]["FillBlankAnswer"] | components["schemas"]["TextAnswer"];
+        Answer: components["schemas"]["ChoiceAnswer"] | components["schemas"]["TrueFalseAnswer"] | components["schemas"]["FillBlankAnswer"] | components["schemas"]["TextAnswer"] | components["schemas"]["MatchingAnswer"];
         ChoiceAnswer: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -8151,11 +8287,31 @@ export interface components {
             type: "text";
             value: string;
         };
+        MatchingAnswer: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "matching";
+            /**
+             * @description The choice the student picked for each item: keyed by match item id,
+             *     valued by option id. An item left unanswered is absent.
+             */
+            pairs: {
+                [key: string]: components["schemas"]["Uuid"];
+            };
+        };
         AttemptScore: {
             earned: components["schemas"]["Points"];
             total: components["schemas"]["Points"];
             /** @description Questions still awaiting manual grading. */
             pendingManual: number;
+            /**
+             * @description The essays' points-weighted mean band, rounded to 0.5. Present only
+             *     when every scored question on the paper is a graded essay, and on a
+             *     student's payload only under `review.showScore`.
+             */
+            band?: components["schemas"]["Band"];
         };
         Attempt: {
             id: components["schemas"]["Uuid"];
@@ -8518,6 +8674,11 @@ export interface components {
             left: number;
         };
         /**
+         * @description The question types the assistant writes, a subset of `QuestionType`.
+         * @enum {string}
+         */
+        AiQuestionType: "single_choice" | "multiple_choice" | "true_false" | "fill_blank" | "short_answer";
+        /**
          * @description One of four shapes. From a passage: `source` (text the teacher pasted,
          *     40 characters or more), or `testId` with `stimulusId` (a shared-content
          *     passage of the test's draft). Standalone (`standalone: true`), where
@@ -8536,7 +8697,7 @@ export interface components {
             /** @description Write questions that each stand alone, about a topic rather than answered from a text. Off when absent. */
             standalone?: boolean;
             sectionId?: components["schemas"]["Uuid"];
-            types: components["schemas"]["QuestionType"][];
+            types: components["schemas"]["AiQuestionType"][];
             /** @description How many questions to write, 1 to 8. */
             count: number;
             /** @enum {string} */
@@ -8553,7 +8714,7 @@ export interface components {
          *     accepted answers; for `short_answer` it holds the sample answer.
          */
         AiGeneratedQuestion: {
-            type: components["schemas"]["QuestionType"];
+            type: components["schemas"]["AiQuestionType"];
             prompt: string;
             options?: string[];
             answerKey: string[];
@@ -9046,7 +9207,11 @@ export interface components {
          *     schema cannot express — single_choice and true_false need exactly one correct
          *     option (true_false has exactly two options), multiple_choice needs at least one correct
          *     option, a `fill_blank` needs exact gapId bindings for rich prompts or matching
-         *     `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset and alt text an image — are validated by the
+         *     `{{n}}` ordinals for legacy Markdown, `tfng` has exactly three options with one correct,
+         *     `matching` has 2 to 12 options none marked correct and 2 to 20 items each keyed to one of them,
+         *     `selectCount` is for `multiple_choice` and at most its option count minus one, `maxWords` is for
+         *     `short_answer`, `matchAllowReuse` is required on `matching` and refused elsewhere, `rubric` is for
+         *     `essay`, an audio policy requires an audio asset and alt text an image — are validated by the
          *     server and again at publish (§8). Failing them returns
          *     `VALIDATION_FAILED` with per-field `details`.
          */
@@ -9065,7 +9230,12 @@ export interface components {
             audio?: components["schemas"]["AudioPolicy"] | null;
             /** @description Audio questions only. Teacher-authored; the student sees it only per policy. */
             transcript?: string | null;
-            /** @description Order in the array is the stored ordinal. */
+            /**
+             * @description Order in the array is the stored ordinal. A choice type takes at most
+             *     eight; a `matching` question takes 2 to 12 choices, none marked
+             *     correct; a `tfng` question takes exactly three, True, False and Not
+             *     given in that order.
+             */
             options?: {
                 /**
                  * Format: uuid
@@ -9091,9 +9261,38 @@ export interface components {
             points: components["schemas"]["Points"];
             explanationContent?: components["schemas"]["QuestionContent"] | null;
             explanation?: string | null;
-            /** @description `short_answer` only. Rejected on any other type. */
+            /** @description `short_answer` and `essay` only. Rejected on any other type. */
             sampleAnswer?: string | null;
+            selectCount?: components["schemas"]["SelectCount"];
+            maxWords?: components["schemas"]["MaxWords"];
+            matchAllowReuse?: components["schemas"]["MatchAllowReuse"];
+            /** @description `matching` only, 2 to 20 items. Order in the array is the stored ordinal. */
+            matchItems?: components["schemas"]["MatchItemInput"][];
+            /** @description `essay` only. Order in the array is the stored ordinal; an empty list means the teacher sets the band directly. */
+            rubric?: components["schemas"]["RubricCriterionInput"][];
             tags?: string[];
+        };
+        /**
+         * @description One matching item. Its key is named by position in the same body's
+         *     `options`, because a choice created by this write has no id yet.
+         */
+        MatchItemInput: {
+            /**
+             * Format: uuid
+             * @description Omit to create.
+             */
+            id?: string | null;
+            text: string;
+            /** @description The 0-based index into `options` of the choice this item matches. */
+            correctOption: number;
+        };
+        RubricCriterionInput: {
+            /**
+             * Format: uuid
+             * @description Omit to create.
+             */
+            id?: string | null;
+            label: string;
         };
         /**
          * @description Stored editable content used by teacher reads, bodyless copies and version
@@ -9102,7 +9301,11 @@ export interface components {
          *     schema cannot express — single_choice and true_false need exactly one correct
          *     option (true_false has exactly two options), multiple_choice needs at least one correct
          *     option, a `fill_blank` needs exact gapId bindings for rich prompts or matching
-         *     `{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset and alt text an image — are validated by the
+         *     `{{n}}` ordinals for legacy Markdown, `tfng` has exactly three options with one correct,
+         *     `matching` has 2 to 12 options none marked correct and 2 to 20 items each keyed to one of them,
+         *     `selectCount` is for `multiple_choice` and at most its option count minus one, `maxWords` is for
+         *     `short_answer`, `matchAllowReuse` is required on `matching` and refused elsewhere, `rubric` is for
+         *     `essay`, an audio policy requires an audio asset and alt text an image — are validated by the
          *     server and again at publish (§8). Failing them returns
          *     `VALIDATION_FAILED` with per-field `details`.
          */
@@ -9121,7 +9324,12 @@ export interface components {
             audio?: components["schemas"]["AudioPolicy"] | null;
             /** @description Audio questions only. Teacher-authored; the student sees it only per policy. */
             transcript?: string | null;
-            /** @description Order in the array is the stored ordinal. */
+            /**
+             * @description Order in the array is the stored ordinal. A choice type takes at most
+             *     eight; a `matching` question takes 2 to 12 choices, none marked
+             *     correct; a `tfng` question takes exactly three, True, False and Not
+             *     given in that order.
+             */
             options?: {
                 /**
                  * Format: uuid
@@ -9147,8 +9355,15 @@ export interface components {
             points: components["schemas"]["Points"];
             explanationContent?: components["schemas"]["QuestionContent"] | null;
             explanation?: string | null;
-            /** @description `short_answer` only. Rejected on any other type. */
+            /** @description `short_answer` and `essay` only. Rejected on any other type. */
             sampleAnswer?: string | null;
+            selectCount?: components["schemas"]["SelectCount"];
+            maxWords?: components["schemas"]["MaxWords"];
+            matchAllowReuse?: components["schemas"]["MatchAllowReuse"];
+            /** @description `matching` only, 2 to 20 items. Order in the array is the stored ordinal. */
+            matchItems?: components["schemas"]["MatchItemInput"][];
+            /** @description `essay` only. Order in the array is the stored ordinal; an empty list means the teacher sets the band directly. */
+            rubric?: components["schemas"]["RubricCriterionInput"][];
             tags?: string[];
         };
         /**
@@ -13056,6 +13271,10 @@ export interface operations {
                                 answerRemoved?: boolean;
                                 autoScore?: components["schemas"]["Points"] | null;
                                 manualScore?: components["schemas"]["Points"] | null;
+                                /** @description An essay's band, once graded. Absent on every other type. */
+                                band?: components["schemas"]["Band"];
+                                /** @description The band each rubric criterion was given, once graded. */
+                                criteria?: components["schemas"]["CriterionBand"][];
                                 requiresManual?: boolean;
                                 graderComment?: string | null;
                             };
@@ -13308,7 +13527,12 @@ export interface operations {
                 "application/json": {
                     items: {
                         questionId: components["schemas"]["Uuid"];
-                        points: components["schemas"]["Points"];
+                        /** @description Every type but `essay`. */
+                        points?: components["schemas"]["Points"];
+                        /** @description An `essay` without rubric criteria. */
+                        band?: components["schemas"]["Band"];
+                        /** @description An `essay` with rubric criteria, one entry for each. */
+                        criteria?: components["schemas"]["CriterionBand"][];
                         comment?: string | null;
                     }[];
                 };
@@ -13333,6 +13557,23 @@ export interface operations {
              *     and nothing was saved.
              */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /**
+             * @description An item does not fit its question's type, and nothing was saved;
+             *     `details.questionIds` lists the items. `GRADE_NEEDS_BAND`: an essay
+             *     without criteria has no `band`, or has `points`.
+             *     `GRADE_CRITERIA_INCOMPLETE`: an essay with criteria lacks one, names
+             *     one it does not have, or has `points` or `band`.
+             *     `GRADE_NEEDS_POINTS`: any other type has no `points`, or has `band`
+             *     or `criteria`.
+             */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
