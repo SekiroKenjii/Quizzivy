@@ -260,3 +260,33 @@ func TestALimitOutsideItsRangeIsRefusedByName(t *testing.T) {
 		t.Errorf("refused = %+v, want limits.warnAtPercent out of range", got)
 	}
 }
+
+type mailWake struct{ woken int }
+
+func (m *mailWake) Notify() { m.woken++ }
+
+func TestASaveThatChangesTheLimitsWakesMailAndOneThatKeepsThemDoesNot(t *testing.T) {
+	repo := &fakeRepo{settings: stored()}
+	repo.settings.Limits = limits.Stored{limits.EmailsPerDay: 60}
+	app, _ := build(t, repo)
+	mail := &mailWake{}
+	app.WithMail(mail)
+	next := stored()
+	next.Profile.Name = "Ánh Dương"
+	if _, err := app.Commands.UpdateSettings.Handle(context.Background(), command.UpdateSettings{Actor: admin, Settings: next, ExpectedRevision: 1, KeepLimits: true}); err != nil {
+		t.Fatal(err)
+	}
+	if mail.woken != 0 {
+		t.Errorf("a save that kept the limits woke mail %d times, want none", mail.woken)
+	}
+	next.Limits = limits.Stored{limits.EmailsPerDay: 90}
+	if _, err := app.Commands.UpdateSettings.Handle(context.Background(), command.UpdateSettings{Actor: admin, Settings: next, ExpectedRevision: 2}); err != nil {
+		t.Fatal(err)
+	}
+	if mail.woken != 1 {
+		t.Errorf("a save that raised the daily email cap woke mail %d times, want once", mail.woken)
+	}
+	if _, err := app.Commands.UpdateSettings.Handle(context.Background(), command.UpdateSettings{Actor: admin, Settings: next, ExpectedRevision: 2}); !errors.Is(err, domain.ErrStale) || mail.woken != 1 {
+		t.Errorf("a stale save: err = %v, woken = %d; want ErrStale and mail left asleep", err, mail.woken)
+	}
+}

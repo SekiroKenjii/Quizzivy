@@ -874,7 +874,7 @@
       "disabledTeacher_other": "{{count}} lớp có giáo viên bị vô hiệu hoá",
       "disabledTeacherHint": "{{className}} · {{teacherName}}",
       "storage": {
-        "title": "Gần chạm giới hạn: {{readings}}",
+        "title": "Đã chạm hoặc sắp chạm giới hạn: {{readings}}",
         "seats": "tài khoản {{percent}}%",
         "teachers": "giáo viên {{percent}}%",
         "files": "lưu trữ tệp {{percent}}%",

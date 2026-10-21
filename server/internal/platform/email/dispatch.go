@@ -309,11 +309,13 @@ func Backoff(attempts int) time.Duration {
 }
 
 // NextDue answers when the earliest pending row of a template this binary
-// sends falls due, and false when nothing is pending.
+// sends falls due or its link expires, whichever is first, and false when
+// nothing is pending: a row a cap holds to the 1st is failed when its link
+// expires, not on the 1st.
 func (d *Dispatcher) NextDue(ctx context.Context) (time.Time, bool, error) {
 	var due *time.Time
 	if err := d.DB.QueryRow(ctx, `
-		SELECT min(deliver_after) FROM app.email_outbox
+		SELECT least(min(deliver_after), min(expires_at)) FROM app.email_outbox
 		 WHERE sent_at IS NULL AND failed_at IS NULL AND template = ANY($1::text[])`, templateNames()).Scan(&due); err != nil {
 		return time.Time{}, false, err
 	}

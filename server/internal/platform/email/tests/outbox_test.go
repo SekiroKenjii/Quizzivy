@@ -305,6 +305,15 @@ func TestNextDueIsNoLaterThanTheEarliestPendingRow(t *testing.T) {
 	}
 }
 
+func TestNextDueIsNoLaterThanAPendingRowsLinkExpires(t *testing.T) {
+	w := newWorld(t, day(12))
+	w.enqueue(t, email.Mail{To: addr(t, "held"), Params: email.SignInInviteParams{}, DeliverAfter: day(30), ExpiresAt: day(25)})
+	due, pending, err := w.disp.NextDue(context.Background())
+	if err != nil || !pending || due.After(day(25)) {
+		t.Fatalf("next due = %v %v %v, want no later than the link's expiry", due, pending, err)
+	}
+}
+
 func TestARowOfATemplateThisBinaryDoesNotSendStaysPendingWithItsSecret(t *testing.T) {
 	w := newWorld(t, day(13))
 	longAgo := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)

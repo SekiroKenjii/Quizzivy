@@ -250,6 +250,15 @@ func TestSeatsAndTeachersAtTheWarningLineRaiseTheStorageRow(t *testing.T) {
 	if row.Detail.TeachersPercent != nil {
 		t.Errorf("teachers percent = %d, want none at 75%%", *row.Detail.TeachersPercent)
 	}
+	teachersOnly := domain.StorageAttention(domain.Usage{
+		Seats:         domain.Count{Used: 10, Limit: &seats},
+		Teachers:      domain.Count{Used: 16, Limit: &teachers},
+		WarnAtPercent: 80,
+	})
+	if teachersOnly == nil || teachersOnly.Count != 1 || teachersOnly.Detail.SeatsPercent != nil ||
+		teachersOnly.Detail.TeachersPercent == nil || *teachersOnly.Detail.TeachersPercent != 80 {
+		t.Errorf("16 of 20 teachers = %+v, want a row quoting teachers at 80%% and no seats", teachersOnly)
+	}
 	if none := domain.StorageAttention(domain.Usage{Seats: domain.Count{Used: 149}, WarnAtPercent: 80}); none != nil {
 		t.Errorf("seats with no limit = %+v, want no row", none)
 	}

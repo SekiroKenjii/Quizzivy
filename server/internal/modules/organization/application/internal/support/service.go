@@ -11,13 +11,15 @@ import (
 )
 
 // Service carries what the handlers share: the store, the snapshot, the logo
-// store and checker (nil without object storage), the clock and whether this
-// server signs anyone in with Google.
+// store and checker (nil without object storage), the mail dispatcher to wake
+// when the usage limits change (nil when nothing sends mail), the clock and
+// whether this server signs anyone in with Google.
 type Service struct {
 	Repo             domain.Repository
 	Snapshot         *Snapshot
 	Logos            ports.LogoStore
 	Checker          ports.LogoChecker
+	Mail             ports.MailWake
 	Now              func() time.Time
 	GoogleConfigured bool
 

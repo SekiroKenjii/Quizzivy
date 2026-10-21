@@ -874,7 +874,7 @@
       "disabledTeacher_other": "{{count}} classes have a disabled teacher",
       "disabledTeacherHint": "{{className}} · {{teacherName}}",
       "storage": {
-        "title": "Near a limit: {{readings}}",
+        "title": "At or near a limit: {{readings}}",
         "seats": "accounts {{percent}}%",
         "teachers": "teachers {{percent}}%",
         "files": "file storage {{percent}}%",

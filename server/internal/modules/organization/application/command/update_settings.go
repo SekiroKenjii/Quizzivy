@@ -15,7 +15,9 @@ import (
 // It fails with domain.ErrStale, or *domain.LockedOut when the sign-in policy
 // would leave Actor or every active built-in Admin without a way in, and
 // otherwise returns the document as stored, which this server serves at once.
-// KeepLimits keeps the stored usage limits, for a client that sends none.
+// KeepLimits keeps the stored usage limits, for a client that sends none. A
+// save that changes the limits wakes the mail dispatcher, which releases the
+// mail a raised cap held.
 type UpdateSettings struct {
 	Actor            actor.Actor
 	Settings         domain.Settings
@@ -50,6 +52,9 @@ func (h UpdateSettingsHandler) Handle(ctx context.Context, cmd UpdateSettings) (
 		return domain.Settings{}, err
 	}
 	h.Snapshot.Remember(saved)
+	if h.Mail != nil && !stored.Limits.Equal(saved.Limits) {
+		h.Mail.Notify()
+	}
 	return saved, nil
 }
 
