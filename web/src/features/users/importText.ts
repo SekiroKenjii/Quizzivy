@@ -27,6 +27,8 @@ const ISSUE_KEYS: Record<IssueCode, string> = {
   UNKNOWN_CLASS: "users.import.reason.unknownClass",
   AMBIGUOUS_CLASS: "users.import.reason.ambiguousClass",
   CLASS_NOT_ALLOWED: "users.import.reason.classNotAllowed",
+  OVER_SEAT_LIMIT: "users.import.reason.overSeatLimit",
+  OVER_TEACHER_LIMIT: "users.import.reason.overTeacherLimit",
 };
 
 /** ISSUE_CODES are the reasons a row can be refused, in the contract's order. */

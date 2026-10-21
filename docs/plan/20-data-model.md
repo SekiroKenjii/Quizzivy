@@ -4096,3 +4096,32 @@ row here, in id order, at most `limit`. An account re-enabled or given a photo a
 and an account whose objects could not be listed or deleted has no row and is tried at the next run. A server
 without media storage has no step, so it writes no row and a bucket configured later still finds every account. A
 photo written under a marked account's prefix later is not removed (anonymisation leaves no way to write one).
+
+## 57. Usage limits, link expiry and over-limit import rows (CR-002, D-060, v0.12.2)
+
+**`00142_add_organization_limits.sql`** adds ten nullable columns to the one-row `app.organization_settings`:
+`limit_seats` and `limit_teachers` (`integer`, 1 to 1,000,000), `limit_storage_bytes`,
+`limit_media_per_teacher_bytes`, `limit_import_bytes`, `limit_import_per_teacher_bytes` and
+`limit_database_bytes` (`bigint`, 1 MiB to 1 PiB), `limit_emails_per_day` (`integer`, 1 to 100,000),
+`limit_emails_per_month` (`integer`, 1 to 10,000,000) and `warn_at_percent` (`smallint`, 50 to 100), each
+with a named CHECK on that range. `NULL` is "not set": the reader (`shared/limits.Read`) takes the deploy
+variable when one is set, else the hosting plan's constant, and for seats and teachers no limit. There is no
+0 sentinel. The app role already holds `UPDATE` on the row, so no grant changes. Down drops the columns.
+
+**`00143_add_email_outbox_expires_at.sql`** adds `email_outbox.expires_at timestamptz`, set at enqueue for the
+templates whose link expires (invite, sign-in invite, password reset, export ready) and `NULL` for the rest.
+Dispatch fails a waiting row whose `expires_at` has passed with `last_error_code = 'expired'` and
+`secret_ciphertext = NULL`, `FOR UPDATE SKIP LOCKED`, before it claims what to send. Down drops the column.
+
+**`00144_add_user_import_over_limit.sql`** adds `user_import_rows.outcome = 'skipped_limit'` for a row the
+seat or teacher limit refused when the job ran, and `user_import_jobs.over_limit_count smallint NOT NULL
+DEFAULT 0`, with the count and done checks widened so that created, skipped and over-limit rows together
+reach `total_rows`. Down folds the over-limit rows back into `skipped_exists` and the skipped count first, so
+it never fails on data the release wrote.
+
+**Counting.** Seats are `app.users` rows with `disabled_at IS NULL` (an anonymised account is always disabled); teachers are
+those whose role holds a key under `content.`, `teaching.` or `people.students.` (D-052's teacher
+workspace), one SQL predicate (`limits.TeacherRole`) used by the guards and by `GET /admin/usage`. While a
+limit is set, a guard takes `pg_advisory_xact_lock(73819, 45)` for accounts or `(73819, 46)` for storage
+before it counts, in the transaction of the write, so two writes cannot both take the last place.
+

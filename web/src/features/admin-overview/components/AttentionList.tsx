@@ -1,10 +1,12 @@
 import { Link } from "react-router";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import {
   ChevronRight,
   GraduationCap,
   HardDrive,
   KeyRound,
+  MailWarning,
   Sparkles,
   UserX,
   type LucideIcon,
@@ -25,10 +27,21 @@ type Row = Readonly<{
   hint: string;
 }>;
 
-function percents(attention: AdminAttention): string {
-  const { mediaPercent, importsPercent } = attention.detail ?? {};
-  if (mediaPercent !== undefined && importsPercent !== undefined) return "both";
-  return mediaPercent === undefined ? "imports" : "media";
+const READINGS = [
+  ["storagePercent", "files"],
+  ["mediaPercent", "media"],
+  ["importsPercent", "imports"],
+  ["databasePercent", "database"],
+] as const;
+
+function readings(attention: AdminAttention, t: TFunction): string {
+  const detail = attention.detail ?? {};
+  return READINGS.flatMap(([field, name]) => {
+    const percent = detail[field];
+    return percent === undefined
+      ? []
+      : [t(`adminOverview.attention.storage.${name}`, { percent })];
+  }).join(", ");
 }
 
 /**
@@ -88,11 +101,23 @@ export function AttentionList({
           icon: HardDrive,
           tone: "neutral",
           to: `${ADMIN_PATHS.settings}/plan`,
-          title: t(`adminOverview.attention.storage.${percents(item)}`, {
-            media: detail?.mediaPercent ?? 0,
-            imports: detail?.importsPercent ?? 0,
+          title: t("adminOverview.attention.storage.title", {
+            readings: readings(item, t),
           }),
           hint: t("adminOverview.attention.storageHint"),
+        };
+      case "email_held":
+        return {
+          icon: MailWarning,
+          tone: "warning",
+          to: `${ADMIN_PATHS.settings}/plan`,
+          title: t("adminOverview.attention.emailHeld", { count }),
+          hint:
+            detail?.heldUntil === undefined
+              ? t("adminOverview.attention.emailHeldHint")
+              : t("adminOverview.attention.emailHeldUntil", {
+                  when: formatRelative(detail.heldUntil, locale),
+                }),
         };
       case "ai_credit_requests":
         return {

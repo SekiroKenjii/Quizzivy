@@ -47,7 +47,12 @@ const FULL: AdminOverview = {
       count: 1,
       detail: { className: "Summer Camp 2026", teacherName: "Lý Thanh Vân" },
     },
-    { kind: "storage", count: 1, detail: { mediaPercent: 85 } },
+    { kind: "storage", count: 1, detail: { storagePercent: 92, mediaPercent: 85 } },
+    {
+      kind: "email_held",
+      count: 3,
+      detail: { heldUntil: "2026-11-01T00:00:00+07:00" },
+    },
     {
       kind: "ai_credit_requests",
       count: 2,
@@ -56,13 +61,26 @@ const FULL: AdminOverview = {
   ],
   recentChanges: [1, 2, 3, 4, 5].map((id) => entry({ id })),
   storage: {
-    plan: null,
     seats: { used: 312, limit: 400 },
     teachers: { used: 9, limit: null },
-    media: { bytes: 1_342_177_280, limit: 5_368_709_120 },
-    imports: { bytes: 644_245_094, count: 7, limit: 2_147_483_648 },
+    storage: { bytes: 9_878_175_744, limit: 10_737_418_240 },
+    media: {
+      bytes: 9_233_858_560,
+      largestLibrary: 1_342_177_280,
+      perTeacherLimit: 5_368_709_120,
+    },
+    imports: {
+      bytes: 644_245_094,
+      count: 7,
+      openBytes: 322_122_547,
+      limit: 2_147_483_648,
+      perTeacherLimit: null,
+    },
+    email: { today: 40, month: 3000, held: 3, dailyLimit: 100, monthlyLimit: 3000 },
+    database: { bytes: 734_003_200, limit: null },
     attemptsKept: { count: 18420 },
     aiCredits: { used: 400, pool: 1000 },
+    warnAtPercent: 80,
   },
 };
 
@@ -267,11 +285,15 @@ describe("the needs-attention card", () => {
       "/admin/users?status=never_signed_in",
       "/admin/classes?teacher=disabled",
       "/admin/settings/plan",
+      "/admin/settings/plan",
       "/admin/ai",
     ]);
     expect(card).toHaveTextContent("4 người cần đổi mật khẩu");
     expect(card).toHaveTextContent("Summer Camp 2026 · Lý Thanh Vân");
-    expect(card).toHaveTextContent("Dung lượng: phương tiện 85%");
+    expect(card).toHaveTextContent(
+      "Gần chạm giới hạn: lưu trữ tệp 92%, một thư viện media 85%",
+    );
+    expect(card).toHaveTextContent("3 email đang chờ vì giới hạn email");
     expect(card).toHaveTextContent("2 giáo viên xin thêm tín dụng AI");
   });
 
@@ -302,11 +324,18 @@ describe("recent changes and storage", () => {
     const view = renderPage();
     await loaded();
     const card = screen.getByRole("region", { name: "Dung lượng và mức dùng" });
-    expect(within(card).getAllByRole("meter")).toHaveLength(4);
-    expect(within(card).getByRole("meter", { name: "Phương tiện" })).toHaveAttribute(
+    expect(within(card).getAllByRole("meter")).toHaveLength(5);
+    expect(within(card).getByRole("meter", { name: "Lưu trữ tệp" })).toHaveAttribute(
       "aria-valuetext",
-      "1.25\u00a0GB trên 5\u00a0GB",
+      "9.2\u00a0GB trên 10\u00a0GB",
     );
+    expect(
+      within(card).getByRole("meter", { name: "Thư viện media lớn nhất" }),
+    ).toHaveAttribute("aria-valuetext", "1.25\u00a0GB trên 5\u00a0GB");
+    expect(card).toHaveTextContent("Cơ sở dữ liệu (ước tính)");
+    expect(
+      within(card).queryByRole("meter", { name: "Cơ sở dữ liệu (ước tính)" }),
+    ).toBeNull();
     expect(card).toHaveTextContent("18.420 lượt");
     expect(card).toHaveTextContent("400 trên 1.000 trong tháng này");
     view.unmount();
@@ -316,7 +345,7 @@ describe("recent changes and storage", () => {
     renderPage();
     await screen.findByText("Quizzivy English Centre · 312 người");
     const bare = screen.getByRole("region", { name: "Dung lượng và mức dùng" });
-    expect(within(bare).getAllByRole("meter")).toHaveLength(3);
+    expect(within(bare).getAllByRole("meter")).toHaveLength(4);
     expect(bare).not.toHaveTextContent("Tín dụng AI");
   });
 });

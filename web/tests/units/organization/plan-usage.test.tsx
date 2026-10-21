@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { http } from "msw";
 import { contentWidth } from "@tests/support/contentWidth";
 import { server } from "@tests/support/server";
 import { useAuthStore } from "@/stores/auth";
 import {
   BASE,
+  SAVED,
   USAGE,
   failure,
   servesSettings,
@@ -25,134 +27,211 @@ afterEach(() => {
   useAuthStore.getState().clearSession();
 });
 
+const GIB = 1024 ** 3;
+const MIB = 1024 ** 2;
+
+const field = (name: string) => screen.getByRole("textbox", { name });
+const save = () => screen.getByRole("button", { name: "Lưu thay đổi" });
+
 async function openPlan() {
-  servesSettings();
   renderSettings("/admin/settings/plan");
-  return screen.findByRole("meter", { name: "Chỗ ngồi" });
+  return screen.findByRole("textbox", { name: "Tài khoản" });
 }
 
 describe("the Plan & usage section", () => {
-  it("names the plan and when it renews, and draws a meter per resource", async () => {
+  it("shows each limit empty with its default and where the default comes from", async () => {
+    servesSettings();
     servesUsage();
     const seats = await openPlan();
 
-    expect(screen.getByText("Gói Trung tâm · gia hạn 01/12/2026")).toBeVisible();
-    expect(seats).toHaveAttribute("aria-valuetext", "412 / 500");
-    expect(seats).toHaveAttribute("aria-valuenow", "412");
-    expect(screen.getByRole("meter", { name: "Dung lượng tệp media" })).toHaveAttribute(
-      "aria-valuetext",
-      "2\u00a0GB / 5\u00a0GB",
+    expect(seats).toHaveValue("");
+    expect(seats).toHaveAttribute("placeholder", "Không giới hạn");
+    expect(screen.getAllByText("Mặc định: không giới hạn")).toHaveLength(2);
+    const storage = field("Tổng dung lượng tệp");
+    expect(storage).toHaveAttribute("placeholder", "10");
+    expect(storage).toHaveAccessibleDescription(
+      expect.stringMatching(/Mặc định: 10\sGB · gói miễn phí Cloudflare R2/),
     );
+    expect(field("Tài liệu nhập mỗi giáo viên")).toHaveAttribute("placeholder", "256");
+    expect(screen.getByText("Mặc định: 100 · gói miễn phí Resend")).toBeVisible();
+    expect(screen.getByText("Mặc định: 3.000 · gói miễn phí Resend")).toBeVisible();
     expect(
-      screen.getByRole("meter", { name: "Dung lượng tài liệu nhập" }),
-    ).toHaveAttribute("aria-valuetext", "0.29\u00a0GB / 1\u00a0GB");
-    expect(screen.getByText("14 lần nhập", { exact: false })).toBeVisible();
-    expect(screen.getByRole("meter", { name: "Giáo viên" })).toHaveAttribute(
-      "aria-valuetext",
-      "18 / 25",
-    );
+      screen.getByText("Mặc định: 10 GB · ngưỡng cảnh báo cho gói Neon Launch"),
+    ).toBeVisible();
+    expect(screen.getByText("Mặc định: 80% · mức riêng của Quizzivy")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Dùng mặc định/ })).toBeNull();
   });
 
-  it("shows only the figure of a resource that has no limit", async () => {
-    servesUsage({
-      ...USAGE,
-      seats: { used: 412, limit: null },
-      teachers: { used: 18, limit: null },
-      media: { bytes: 2 * 1024 ** 3, limit: null },
-      imports: { bytes: 0, count: 0, limit: null },
-    });
+  it("says what is in use beside each limit, and draws no meters", async () => {
     servesSettings();
-    renderSettings("/admin/settings/plan");
-
-    expect(await screen.findByText("Chỗ ngồi")).toBeVisible();
-    expect(screen.getByText("412")).toBeVisible();
-    expect(screen.getByText("2 GB")).toBeVisible();
-    expect(screen.queryByRole("meter", { name: "Chỗ ngồi" })).toBeNull();
-    expect(screen.queryByRole("meter", { name: "Giáo viên" })).toBeNull();
-    expect(screen.queryByRole("meter", { name: "Dung lượng tệp media" })).toBeNull();
-    expect(
-      screen.queryByRole("meter", { name: "Dung lượng tài liệu nhập" }),
-    ).toBeNull();
-  });
-
-  it("shows the AI credits row when the server reports the month's credits", async () => {
     servesUsage();
     await openPlan();
 
-    const row = screen.getByRole("meter", { name: "Tín dụng AI" });
-    expect(row).toHaveAttribute("aria-valuetext", "6.200 / 20.000 trong tháng này");
+    expect(await screen.findAllByText("Đang dùng 412")).toHaveLength(1);
+    expect(screen.getByText("Đang dùng 18")).toBeVisible();
+    expect(screen.getByText("Đang dùng 3 GB")).toBeVisible();
+    expect(screen.getByText("Thư viện lớn nhất: 1 GB")).toBeVisible();
+    expect(screen.getByText("Hôm nay đã gửi 12")).toBeVisible();
+    expect(screen.getByText("Tháng này đã gửi 340")).toBeVisible();
+    expect(screen.getByText("Hiện khoảng 0.59 GB")).toBeVisible();
+    expect(screen.queryByRole("meter")).toBeNull();
   });
 
-  it("leaves the AI credits row out while the credits are null", async () => {
+  it("saves typed limits in bytes, and Use default sends null", async () => {
+    const stored = servesSettings();
+    servesUsage();
+    await openPlan();
+    const user = userEvent.setup({ delay: null });
+
+    await user.type(field("Tài khoản"), "500");
+    await user.type(field("Tổng dung lượng tệp"), "2,5");
+    await user.type(field("Tài liệu nhập mỗi giáo viên"), "300");
+    await user.type(field("Email mỗi ngày"), "80");
+    expect(screen.getByText("Bạn có thay đổi chưa lưu.")).toBeVisible();
+    await user.click(save());
+
+    await waitFor(() => expect(stored.puts).toHaveLength(1));
+    expect(stored.puts[0]?.limits).toEqual({
+      ...SAVED.limits,
+      seats: 500,
+      storageBytes: 2560 * MIB,
+      importPerTeacherBytes: 300 * MIB,
+      emailsPerDay: 80,
+    });
+
+    expect(await screen.findByDisplayValue("2560")).toBe(field("Tổng dung lượng tệp"));
+    await user.click(
+      screen.getByRole("button", { name: "Dùng mặc định cho Tổng dung lượng tệp" }),
+    );
+    expect(field("Tổng dung lượng tệp")).toHaveValue("");
+    await user.click(save());
+
+    await waitFor(() => expect(stored.puts).toHaveLength(2));
+    expect(stored.puts[1]?.limits?.storageBytes).toBeNull();
+    expect(stored.puts[1]?.limits?.seats).toBe(500);
+  });
+
+  it("reads a stored size in the unit it fits, and changes nothing until edited", async () => {
+    servesSettings({
+      ...SAVED,
+      limits: {
+        ...SAVED.limits,
+        mediaPerTeacherBytes: 3 * GIB,
+        importBytes: 768 * MIB,
+      },
+    });
+    servesUsage();
+    await openPlan();
+
+    expect(field("Thư viện media mỗi giáo viên")).toHaveValue("3");
+    expect(field("Tài liệu nhập, toàn trung tâm")).toHaveValue("768");
+    expect(screen.getAllByRole("button", { name: /^Dùng mặc định cho/ })).toHaveLength(
+      2,
+    );
+    expect(screen.queryByText("Bạn có thay đổi chưa lưu.")).toBeNull();
+  });
+
+  it("warns, and still saves, a limit below what is in use", async () => {
+    const stored = servesSettings();
+    servesUsage();
+    await openPlan();
+    const user = userEvent.setup({ delay: null });
+
+    await user.type(field("Tài khoản"), "400");
+    const warning = await screen.findByText(
+      /^Thấp hơn mức đang dùng\. Không ai bị vô hiệu hoá/,
+    );
+    expect(warning).toBeVisible();
+    expect(field("Tài khoản")).toHaveAccessibleDescription(
+      expect.stringContaining("Thấp hơn mức đang dùng."),
+    );
+    await user.click(save());
+
+    await waitFor(() => expect(stored.puts).toHaveLength(1));
+    expect(stored.puts[0]?.limits?.seats).toBe(400);
+  });
+
+  it("refuses a value out of range on its field, without saving", async () => {
+    const stored = servesSettings();
+    servesUsage();
+    await openPlan();
+    const user = userEvent.setup({ delay: null });
+
+    await user.type(field("Cảnh báo khi đạt"), "40");
+    await user.type(field("Thư viện media mỗi giáo viên"), "abc");
+    await user.click(save());
+
+    expect(
+      await screen.findByText("Nhập số nguyên từ 50 đến 100, hoặc để trống."),
+    ).toBeVisible();
+    expect(
+      screen.getByText("Nhập dung lượng từ 1 MB đến 1.048.576 GB, hoặc để trống."),
+    ).toBeVisible();
+    expect(field("Thư viện media mỗi giáo viên")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(stored.puts).toHaveLength(0);
+  });
+
+  it("shows the server's refusal on the limit it names", async () => {
+    servesSettings(SAVED, () =>
+      contractJson(
+        "/admin/settings",
+        "put",
+        400,
+        failure("VALIDATION_FAILED", "Không hợp lệ.", {
+          "limits.emailsPerMonth": "Phải từ 1 đến 10.000.000.",
+        }),
+      ),
+    );
+    servesUsage();
+    await openPlan();
+    const user = userEvent.setup({ delay: null });
+
+    await user.type(field("Email mỗi tháng"), "9");
+    await user.click(save());
+
+    expect(await screen.findByText("Phải từ 1 đến 10.000.000.")).toBeVisible();
+    expect(field("Email mỗi tháng")).toHaveFocus();
+  });
+
+  it("names the month's AI credits with a link to where they are edited, only while reported", async () => {
+    servesSettings();
+    servesUsage();
+    await openPlan();
+
+    expect(await screen.findByText("6.200 / 20.000 trong tháng này")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Quản lý tín dụng AI" })).toHaveAttribute(
+      "href",
+      "/admin/ai",
+    );
+  });
+
+  it("leaves the AI credits out while the credits are null", async () => {
+    servesSettings();
     servesUsage({ ...USAGE, aiCredits: null });
     await openPlan();
 
+    await screen.findByText("Đang dùng 412");
     expect(screen.queryByText("Tín dụng AI")).toBeNull();
   });
 
-  it("says no plan is set when there is none", async () => {
-    servesUsage({ ...USAGE, plan: null });
-    await openPlan();
-
-    expect(screen.getByText("Chưa cấu hình gói cho trung tâm này.")).toBeVisible();
-  });
-
-  it("says the usage could not be read, with a retry", async () => {
+  it("keeps the limits editable when the usage cannot be read", async () => {
     servesSettings();
     server.use(
       http.get(`${BASE}/admin/usage`, () =>
         contractJson("/admin/usage", "get", 500, failure("INTERNAL", "Lỗi máy chủ")),
       ),
     );
-    renderSettings("/admin/settings/plan");
+    await openPlan();
 
-    const alert = await screen.findByRole("alert");
     expect(
-      within(alert.parentElement as HTMLElement).getByRole("button", {
-        name: "Thử lại",
-      }),
-    ).toBeVisible();
-    expect(alert).toHaveTextContent("Không tải được mức dùng.");
-  });
-
-  it("claims nothing about the plan while the usage loads or when it cannot be read", async () => {
-    servesSettings();
-    let release: () => void = () => undefined;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    server.use(
-      http.get(`${BASE}/admin/usage`, async () => {
-        await gate;
-        return contractJson("/admin/usage", "get", 200, USAGE);
-      }),
-    );
-    renderSettings("/admin/settings/plan");
-
-    expect(await screen.findByRole("status", { name: "Đang tải…" })).toBeVisible();
-    expect(screen.queryByText("Chưa cấu hình gói cho trung tâm này.")).toBeNull();
-    release();
-    expect(await screen.findByText("Gói Trung tâm · gia hạn 01/12/2026")).toBeVisible();
-  });
-
-  it("says nothing about the plan after a failure and offers no retry on a 403", async () => {
-    servesSettings();
-    server.use(
-      http.get(`${BASE}/admin/usage`, () =>
-        contractJson(
-          "/admin/usage",
-          "get",
-          403,
-          failure("FORBIDDEN", "Không có quyền."),
-        ),
+      await screen.findByText(
+        "Không tải được mức đang dùng. Vẫn có thể đổi các giới hạn.",
       ),
-    );
-    renderSettings("/admin/settings/plan");
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Không tải được mức dùng.",
-    );
-    expect(screen.queryByText("Chưa cấu hình gói cho trung tâm này.")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Thử lại" })).toBeNull();
+    ).toBeVisible();
+    expect(field("Tài khoản")).toBeEnabled();
+    expect(screen.queryByText(/^Đang dùng/)).toBeNull();
   });
 });

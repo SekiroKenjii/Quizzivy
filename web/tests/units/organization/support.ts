@@ -40,6 +40,30 @@ export const SAVED: Settings = {
     keepFocusEventsMonths: 13,
     anonymiseDisabledAfterMonths: null,
   },
+  limits: {
+    seats: null,
+    teachers: null,
+    storageBytes: null,
+    mediaPerTeacherBytes: null,
+    importBytes: null,
+    importPerTeacherBytes: null,
+    emailsPerDay: null,
+    emailsPerMonth: null,
+    databaseBytes: null,
+    warnAtPercent: null,
+  },
+  limitDefaults: {
+    seats: { value: null, source: "none" },
+    teachers: { value: null, source: "none" },
+    storageBytes: { value: 10 * 1024 ** 3, source: "r2_free" },
+    mediaPerTeacherBytes: { value: 5 * 1024 ** 3, source: "app" },
+    importBytes: { value: 1024 ** 3, source: "app" },
+    importPerTeacherBytes: { value: 256 * 1024 ** 2, source: "app" },
+    emailsPerDay: { value: 100, source: "resend_free" },
+    emailsPerMonth: { value: 3000, source: "resend_free" },
+    databaseBytes: { value: 10 * 1024 ** 3, source: "neon_launch" },
+    warnAtPercent: { value: 80, source: "app" },
+  },
   revision: 7,
   updatedAt: "2026-10-14T09:00:00Z",
   updatedBy: adminUser.id,
@@ -93,6 +117,8 @@ export function servesSettings(
       const { expectedRevision, ...rest } = body;
       seen.document = {
         ...rest,
+        limits: rest.limits ?? seen.document.limits,
+        limitDefaults: seen.document.limitDefaults,
         revision: expectedRevision + 1,
         updatedAt: "2026-10-15T09:00:00Z",
         updatedBy: adminUser.id,
@@ -198,13 +224,26 @@ type RetentionImpact = components["schemas"]["RetentionImpact"];
 
 /** USAGE is the usage the Plan & usage section reads unless a test serves another. */
 export const USAGE: Usage = {
-  plan: { name: "Trung tâm", renewsOn: "2026-12-01" },
   seats: { used: 412, limit: 500 },
   teachers: { used: 18, limit: 25 },
-  media: { bytes: 2 * 1024 ** 3, limit: 5 * 1024 ** 3 },
-  imports: { bytes: 300 * 1024 ** 2, count: 14, limit: 1024 ** 3 },
+  storage: { bytes: 3 * 1024 ** 3, limit: 10 * 1024 ** 3 },
+  media: {
+    bytes: 2 * 1024 ** 3,
+    largestLibrary: 1024 ** 3,
+    perTeacherLimit: 5 * 1024 ** 3,
+  },
+  imports: {
+    bytes: 300 * 1024 ** 2,
+    count: 14,
+    openBytes: 200 * 1024 ** 2,
+    limit: 1024 ** 3,
+    perTeacherLimit: 256 * 1024 ** 2,
+  },
+  email: { today: 12, month: 340, held: 0, dailyLimit: 100, monthlyLimit: 3000 },
+  database: { bytes: 600 * 1024 ** 2, limit: 10 * 1024 ** 3 },
   attemptsKept: { count: 9120 },
   aiCredits: { used: 6200, pool: 20000 },
+  warnAtPercent: 80,
 };
 
 /** servesUsage answers `GET /admin/usage` with `answer` and counts the reads. */

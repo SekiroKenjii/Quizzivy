@@ -630,8 +630,10 @@ worker, through Resend's HTTP API with `RESEND_API_KEY`. `EMAIL_FROM`,
 `APP_URL` and the key are set together, and production refuses to start
 without all three. Start-up refuses a malformed `EMAIL_FROM` or
 `EMAIL_REPLY_TO` (one address, no line break) and an `APP_URL` that is not a
-bare origin (no path, `?`, `#` or whitespace). `EMAIL_DAILY_LIMIT` (100, Resend's free tier) counts sends
-per local day in `APP_TIMEZONE`; the excess moves to the next local midnight.
+bare origin (no path, `?`, `#` or whitespace). The emails-per-day and emails-per-month limits ("The centre's usage limits",
+below) count sends per local day and month in `APP_TIMEZONE`; the excess moves to
+the next local midnight or the 1st, and a held message whose link has expired is
+failed with code `expired` instead of sent.
 `EMAIL_SEND_RATE` (2 a second) spaces the sends. Outside production, without
 the three, every message is written as a JSON file under `EMAIL_SINK_DIR`.
 
@@ -711,26 +713,30 @@ still finds every anonymised account. A photo written under a marked account's
 prefix afterwards (which only a restored backup or a manual upload could do) is
 not removed; delete it by hand.
 
-## The plan the Admin console shows
+## The centre's usage limits
 
-The Admin console's Overview and its Plan & usage page set what the centre holds beside the plan
-it states (T-R5.18). The plan is six optional variables, read at start-up: `PLAN_NAME` (up to 80
-characters), `PLAN_RENEWS_ON` (`YYYY-MM-DD`, and it needs a name), `PLAN_SEAT_LIMIT` and
-`PLAN_TEACHER_LIMIT` (whole numbers from 1 to 1,000,000), and `PLAN_MEDIA_BYTES` and
-`PLAN_IMPORT_BYTES` (bytes, from 1 to 2^50). A number is plain digits: a sign, a leading zero, a
-space or a separator stops the server at start-up. A variable that is unset states no limit, and a value
-the server cannot read stops it at start-up, so a typo is found at deploy and not at the first
-page load. Nothing is enforced (DG-55): a limit is drawn beside its figure, and a figure may pass
-it.
+The limits live in the settings document and an Admin edits them in Settings → Plan & usage (CR-002,
+D-060). Each is resolved, in order, as the value stored there, else a deploy variable when one is set
+(`MEDIA_OWNER_QUOTA_MIB`, `IMPORT_GLOBAL_MIB`, `IMPORT_ACTOR_MIB`, `EMAIL_DAILY_LIMIT`), else the hosting
+plan's figure in `server/internal/shared/limits`, read on 2026-10-21:
 
-Production sets none of them until the centre's plan is decided; the names are listed in
-`fly.toml` and `.env.example`. Seats count the accounts that are not disabled against
-`PLAN_SEAT_LIMIT`; teachers count the enabled accounts that are not a student target, Admins
-included, against `PLAN_TEACHER_LIMIT`.
-Media is the bytes of the files not yet purged from storage, and imports the bytes of the source
-documents of the imports whose files have not been removed, against their limits. A meter at 80%
-of its limit adds a storage row to the Overview's attention list. Days on the Overview are local
-dates in `APP_TIMEZONE`.
+| Limit | Default | Source | What happens at it |
+|---|---|---|---|
+| Accounts (not disabled) | none | — | a new, re-enabled or joining account is refused (`SEAT_LIMIT`) |
+| Teachers (enabled, role opens the teacher workspace) | none | — | a new teacher or a role change to one is refused (`TEACHER_LIMIT`) |
+| Total file storage | 10 GB | Cloudflare R2 free | an upload or an import is refused |
+| Media library per teacher | 5 GB | the app | that teacher's upload is refused |
+| Import documents, centre / per teacher | 1 GB / 256 MB | the app | a new import is refused |
+| Emails per day / per month | 100 / 3,000 | Resend free | the rest waits for the next local day or the 1st |
+| Database size | 10 GB | warning line for Neon Launch | the Overview warns; nothing is refused |
+| Warn at | 80% | the app | the share at which the Overview's storage row appears |
+
+Leave the deploy variables unset in production so the page is the one place a limit is changed. If
+Resend or R2 moves off its free plan, raise the matching limits on the page; if Neon's plan changes,
+move the database line. The guards for accounts and teachers count under advisory lock `(73819, 45)`
+and the storage guard under `(73819, 46)`, each only while its limit is set. Database size is
+`pg_database_size`, which is close to but not what Neon bills. Days and months are local to
+`APP_TIMEZONE`. The `PLAN_*` variables of v0.12.0 are retired and ignored.
 
 ## Legacy join codes
 

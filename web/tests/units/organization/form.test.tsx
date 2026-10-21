@@ -141,6 +141,7 @@ describe("Save changes", () => {
         allowedGoogleDomains: ["quizzivy.com", "gmail.com"],
       },
       retention: SAVED.retention,
+      limits: SAVED.limits,
       expectedRevision: 7,
     });
   });
@@ -177,6 +178,8 @@ describe("Save changes", () => {
       await held;
       return contractJson("/admin/settings", "put", 200, {
         ...rest,
+        limits: rest.limits ?? SAVED.limits,
+        limitDefaults: SAVED.limitDefaults,
         revision: expectedRevision + 1,
         updatedAt: "2026-10-15T09:00:00Z",
         updatedBy: adminUser.id,

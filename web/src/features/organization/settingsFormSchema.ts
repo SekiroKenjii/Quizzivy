@@ -4,6 +4,7 @@ import type {
   OrganizationSettingsInput,
   SignInPolicy,
 } from "@/features/organization/api";
+import { limitsSchema, limitsValues } from "@/features/organization/limits";
 
 const DOMAIN =
   /^(?=.{1,253}$)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/;
@@ -28,8 +29,8 @@ const keptMonths = z.union([z.literal(12), z.literal(24)]).nullable();
 
 /**
  * settingsFormSchema is the System settings form: the centre's profile and
- * logos, the sign-in policy and the retention the document carries. The
- * four sections edit one document, so they share one schema. A logo's
+ * logos, the sign-in policy, the retention and the usage limits the document
+ * carries. The four sections edit one document, so they share one schema. A logo's
  * `preview` is the address of the PNG just uploaded, for the tile, and is
  * not sent. The rules only the server can judge, a website, an email address
  * and a phone number, are left to it and shown on their field.
@@ -73,6 +74,7 @@ export const settingsFormSchema = z.object({
     ]),
     anonymiseDisabledAfterMonths: keptMonths,
   }),
+  limits: limitsSchema,
 });
 
 /** SettingsFormValues is what the System settings form's fields hold. */
@@ -87,12 +89,15 @@ type Equal<A, B> =
 
 /** SettingsFormMatchesTheContract pins the form's output to every field of `PUT /admin/settings` but the revision. */
 export type SettingsFormMatchesTheContract = Expect<
-  Equal<SettingsFormOutput, Omit<OrganizationSettingsInput, "expectedRevision">>
+  Equal<
+    SettingsFormOutput,
+    Required<Omit<OrganizationSettingsInput, "expectedRevision">>
+  >
 >;
 
 /** formValues is the form's fields for a stored document, with an optional text shown empty. */
 export function formValues(saved: OrganizationSettings): SettingsFormValues {
-  const { organization, signIn, retention } = saved;
+  const { organization, signIn, retention, limits, limitDefaults } = saved;
   return {
     organization: {
       name: organization.name,
@@ -106,6 +111,7 @@ export function formValues(saved: OrganizationSettings): SettingsFormValues {
     },
     signIn: { ...signIn, allowedGoogleDomains: [...signIn.allowedGoogleDomains] },
     retention: { ...retention },
+    limits: limitsValues(limits, limitDefaults),
   };
 }
 
