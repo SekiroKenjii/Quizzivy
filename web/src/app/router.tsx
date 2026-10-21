@@ -334,7 +334,7 @@ const ADMIN_CRUMB = { key: "adminShell.crumb" } as const;
  * The Admin console (T-R5.20): behind the admin workspace, then the
  * permission each route's handle names, in `AdminLayout`. Every route
  * declares `crumb` and `permission`, the `x-permission` of the operation its
- * page opens with, and no width: it renders in the teacher's page frame
+ * page opens with, and never a width, so it renders in the teacher's page frame
  * (DG-205). The screens are R5's later tasks; each takes
  * its route over from the placeholder it started as.
  */
