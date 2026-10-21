@@ -22,6 +22,10 @@ func (s UsageHandler) Handle(ctx context.Context, q Usage) (domain.Usage, error)
 	if err != nil {
 		return domain.Usage{}, err
 	}
-	usage.QuotaBytes = s.Quota
+	quota, _, err := s.Bounds(ctx)
+	if err != nil {
+		return domain.Usage{}, err
+	}
+	usage.QuotaBytes = quota
 	return usage, nil
 }

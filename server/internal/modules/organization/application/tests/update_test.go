@@ -11,6 +11,7 @@ import (
 	"quizzivy/internal/modules/organization/application/query"
 	"quizzivy/internal/modules/organization/domain"
 	"quizzivy/internal/shared/actor"
+	"quizzivy/internal/shared/limits"
 	"quizzivy/internal/shared/validation"
 )
 
@@ -219,5 +220,73 @@ func TestSignInImpactNormalisesDomainsAndAsksTheStore(t *testing.T) {
 	}
 	if !repo.saves[0].GoogleConfigured {
 		t.Fatal("the impact must know that Google is configured on this server")
+	}
+}
+
+func TestASaveWithoutLimitsKeepsTheStoredOnesAndOneWithLimitsReplacesThem(t *testing.T) {
+	repo := &fakeRepo{settings: stored()}
+	repo.settings.Limits = limits.Stored{limits.Seats: 300}
+	app, _ := build(t, repo)
+	next := stored()
+	next.Limits = nil
+	if _, err := app.Commands.UpdateSettings.Handle(context.Background(), command.UpdateSettings{Actor: admin, Settings: next, ExpectedRevision: 1, KeepLimits: true}); err != nil {
+		t.Fatal(err)
+	}
+	if got := repo.saves[0].Settings.Limits; !got.Equal(limits.Stored{limits.Seats: 300}) {
+		t.Errorf("a client that sends no limits handed the store %v, want the stored seats kept", got)
+	}
+
+	next = stored()
+	next.Limits = limits.Stored{limits.EmailsPerDay: 60}
+	if _, err := app.Commands.UpdateSettings.Handle(context.Background(), command.UpdateSettings{Actor: admin, Settings: next, ExpectedRevision: 2}); err != nil {
+		t.Fatal(err)
+	}
+	if got := repo.saves[1].Settings.Limits; !got.Equal(limits.Stored{limits.EmailsPerDay: 60}) {
+		t.Errorf("limits sent = %v, want exactly what was sent, the seats back to no limit", got)
+	}
+}
+
+func TestALimitOutsideItsRangeIsRefusedByName(t *testing.T) {
+	repo := &fakeRepo{settings: stored()}
+	app, _ := build(t, repo)
+	next := stored()
+	next.Limits = limits.Stored{limits.WarnAtPercent: 30, limits.Seats: 10}
+	_, err := app.Commands.UpdateSettings.Handle(context.Background(), command.UpdateSettings{Actor: admin, Settings: next, ExpectedRevision: 1})
+	var invalid *validation.Error
+	if !errors.As(err, &invalid) || len(repo.saves) != 0 {
+		t.Fatalf("err = %v, saves = %d; want a validation error and nothing saved", err, len(repo.saves))
+	}
+	if got := invalid.Fields; len(got) != 1 || got[0].Field != "limits.warnAtPercent" || got[0].Message != domain.ReasonRange {
+		t.Errorf("refused = %+v, want limits.warnAtPercent out of range", got)
+	}
+}
+
+type mailWake struct{ woken int }
+
+func (m *mailWake) Notify() { m.woken++ }
+
+func TestASaveThatChangesTheLimitsWakesMailAndOneThatKeepsThemDoesNot(t *testing.T) {
+	repo := &fakeRepo{settings: stored()}
+	repo.settings.Limits = limits.Stored{limits.EmailsPerDay: 60}
+	app, _ := build(t, repo)
+	mail := &mailWake{}
+	app.WithMail(mail)
+	next := stored()
+	next.Profile.Name = "Ánh Dương"
+	if _, err := app.Commands.UpdateSettings.Handle(context.Background(), command.UpdateSettings{Actor: admin, Settings: next, ExpectedRevision: 1, KeepLimits: true}); err != nil {
+		t.Fatal(err)
+	}
+	if mail.woken != 0 {
+		t.Errorf("a save that kept the limits woke mail %d times, want none", mail.woken)
+	}
+	next.Limits = limits.Stored{limits.EmailsPerDay: 90}
+	if _, err := app.Commands.UpdateSettings.Handle(context.Background(), command.UpdateSettings{Actor: admin, Settings: next, ExpectedRevision: 2}); err != nil {
+		t.Fatal(err)
+	}
+	if mail.woken != 1 {
+		t.Errorf("a save that raised the daily email cap woke mail %d times, want once", mail.woken)
+	}
+	if _, err := app.Commands.UpdateSettings.Handle(context.Background(), command.UpdateSettings{Actor: admin, Settings: next, ExpectedRevision: 2}); !errors.Is(err, domain.ErrStale) || mail.woken != 1 {
+		t.Errorf("a stale save: err = %v, woken = %d; want ErrStale and mail left asleep", err, mail.woken)
 	}
 }

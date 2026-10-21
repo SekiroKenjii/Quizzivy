@@ -1,193 +1,357 @@
-import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
+import { ArrowRight } from "lucide-react";
+import {
+  Controller,
+  get,
+  useFormContext,
+  useWatch,
+  type FieldPath,
+} from "react-hook-form";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
+import { ADMIN_PATHS } from "@/app/adminPaths";
 import { SettingsCard } from "@/components/shared/SettingsCard";
-import { Meter } from "@/components/shared/stats/Meter";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { credits } from "@/features/ai/credits";
-import { usageQuery, type Usage } from "@/features/organization/api";
 import { formatStorage } from "@/features/media/format";
-import { ApiError } from "@/lib/api/errors";
-import { formatDate } from "@/lib/i18n/datetime";
+import {
+  usageQuery,
+  type OrganizationSettings,
+  type Usage,
+} from "@/features/organization/api";
+import { FIELD_INPUT, controlId } from "@/features/organization/controls";
+import { fieldMessage } from "@/features/organization/fieldMessage";
+import {
+  inUnit,
+  isByteLimit,
+  typedLimit,
+  unitFor,
+  type ByteLimitValue,
+  type ByteUnit,
+  type LimitName,
+  type UsageLimitDefaults,
+} from "@/features/organization/limits";
+import type { SettingsFormValues } from "@/features/organization/settingsFormSchema";
 import type { Locale } from "@/lib/i18n";
 import { useLocale } from "@/lib/i18n/useLocale";
+import { cn } from "@/lib/utils";
 
-type Tone = "accent" | "info" | "warning";
+const GROUPS: readonly { id: string; rows: readonly LimitName[] }[] = [
+  { id: "people", rows: ["seats", "teachers"] },
+  {
+    id: "storage",
+    rows: [
+      "storageBytes",
+      "mediaPerTeacherBytes",
+      "importBytes",
+      "importPerTeacherBytes",
+    ],
+  },
+  { id: "email", rows: ["emailsPerDay", "emailsPerMonth"] },
+  { id: "database", rows: ["databaseBytes", "warnAtPercent"] },
+];
 
-function UsageRow({
-  label,
-  value,
-  note,
-  used,
-  limit,
-  tone,
-}: Readonly<{
-  label: string;
-  value: string;
-  note?: string | undefined;
-  used: number;
-  limit: number | null;
-  tone: Tone;
-}>) {
-  return (
-    <div className="flex flex-col gap-1.5 px-4.5 py-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-        <span className="text-ui leading-normal font-medium">{label}</span>
-        <span className="text-muted-fg text-meta leading-normal">
-          {value}
-          {note === undefined ? null : ` · ${note}`}
-        </span>
-      </div>
-      {limit === null || limit <= 0 ? null : (
-        <Meter
-          label={label}
-          valueText={value}
-          max={limit}
-          parts={[{ key: "used", value: used, tone }]}
-          className="h-1.5"
-        />
-      )}
-    </div>
-  );
-}
-
-function ofLimit(used: string, limit: string | null) {
-  return limit === null ? used : `${used} / ${limit}`;
-}
-
-function Rows({ usage }: Readonly<{ usage: Usage }>) {
-  const { t } = useTranslation();
-  const locale = useLocale();
-  const count = (value: number) => new Intl.NumberFormat(locale).format(value);
-  const { seats, teachers, media, imports, aiCredits } = usage;
-  return (
-    <div className="divide-y">
-      <UsageRow
-        label={t("systemSettings.plan.seats")}
-        value={ofLimit(
-          count(seats.used),
-          seats.limit === null ? null : count(seats.limit),
-        )}
-        used={seats.used}
-        limit={seats.limit}
-        tone="info"
-      />
-      <UsageRow
-        label={t("systemSettings.plan.media")}
-        value={ofLimit(
-          formatStorage(media.bytes),
-          media.limit === null ? null : formatStorage(media.limit),
-        )}
-        used={media.bytes}
-        limit={media.limit}
-        tone="accent"
-      />
-      <UsageRow
-        label={t("systemSettings.plan.imports")}
-        value={ofLimit(
-          formatStorage(imports.bytes),
-          imports.limit === null ? null : formatStorage(imports.limit),
-        )}
-        note={t("systemSettings.plan.importsCount", { count: imports.count })}
-        used={imports.bytes}
-        limit={imports.limit}
-        tone="warning"
-      />
-      <UsageRow
-        label={t("systemSettings.plan.teachers")}
-        value={ofLimit(
-          count(teachers.used),
-          teachers.limit === null ? null : count(teachers.limit),
-        )}
-        used={teachers.used}
-        limit={teachers.limit}
-        tone="info"
-      />
-      {aiCredits === null ? null : (
-        <UsageRow
-          label={t("systemSettings.plan.aiCredits")}
-          value={t("systemSettings.plan.aiCreditsOf", {
-            used: credits(aiCredits.used, locale),
-            pool: credits(aiCredits.pool, locale),
-          })}
-          used={aiCredits.used}
-          limit={aiCredits.pool}
-          tone="accent"
-        />
-      )}
-    </div>
-  );
-}
-
-function UsageBody({ query }: Readonly<{ query: UseQueryResult<Usage> }>) {
-  const { t } = useTranslation();
-  if (query.data !== undefined) return <Rows usage={query.data} />;
-  if (query.isError) {
-    return (
-      <div className="flex flex-wrap items-center gap-3 px-4.5 py-4">
-        <p role="alert" className="text-muted-fg text-ui min-w-40 flex-1">
-          {t("systemSettings.plan.loadFailed")}
-        </p>
-        {query.error instanceof ApiError && query.error.status === 403 ? null : (
-          <Button
-            type="button"
-            variant="outline"
-            className="h-8.5"
-            onClick={() => void query.refetch()}
-          >
-            {t("common.retry")}
-          </Button>
-        )}
-      </div>
-    );
+function usedOf(name: LimitName, usage: Usage | undefined): number | undefined {
+  if (usage === undefined) return undefined;
+  switch (name) {
+    case "seats":
+      return usage.seats.used;
+    case "teachers":
+      return usage.teachers.used;
+    case "storageBytes":
+      return usage.storage.bytes;
+    case "mediaPerTeacherBytes":
+      return usage.media.largestLibrary;
+    case "importBytes":
+      return usage.imports.openBytes;
+    case "emailsPerDay":
+      return usage.email.today;
+    case "emailsPerMonth":
+      return usage.email.month;
+    case "databaseBytes":
+      return usage.database.bytes;
+    default:
+      return undefined;
   }
-  return (
-    <div
-      role="status"
-      aria-label={t("common.loading")}
-      className="flex flex-col gap-4 px-4.5 py-4"
-    >
-      <Skeleton className="h-4 w-full" />
-      <Skeleton className="h-4 w-full" />
-      <Skeleton className="h-4 w-full" />
-    </div>
-  );
 }
 
-function planLine(
-  usage: Usage | undefined,
+const UNITS: readonly ByteUnit[] = ["MB", "GB"];
+
+const NO_BREAK_SPACE = String.fromCharCode(0xa0);
+
+function reading(name: LimitName, limit: number | null, usage: Usage | undefined) {
+  const used = usedOf(name, usage);
+  if (used === undefined || limit === null || usage === undefined) {
+    return { used, below: false, near: false };
+  }
+  const below = used > limit;
+  return { used, below, near: !below && used * 100 >= limit * usage.warnAtPercent };
+}
+
+function shownIn(bytesOrCount: number, value: string | ByteLimitValue): string {
+  return typeof value === "string"
+    ? String(bytesOrCount)
+    : inUnit(bytesOrCount, value.unit);
+}
+
+function amount(name: LimitName, value: number, locale: Locale): string {
+  if (isByteLimit(name)) return formatStorage(value);
+  if (name === "warnAtPercent") return `${value}%`;
+  return new Intl.NumberFormat(locale).format(value);
+}
+
+function defaultLine(
+  name: LimitName,
+  defaults: UsageLimitDefaults,
   locale: Locale,
   t: TFunction,
-): string | undefined {
-  if (usage === undefined) return undefined;
-  const plan = usage.plan;
-  if (plan === null) return t("systemSettings.plan.hint");
-  if (plan.renewsOn === null)
-    return t("systemSettings.plan.named", { name: plan.name });
-  return t("systemSettings.plan.namedRenews", {
-    name: plan.name,
-    date: formatDate(plan.renewsOn, locale, "UTC"),
+): string {
+  const { value, source } = defaults[name];
+  if (value === null) return t("systemSettings.plan.defaultNone");
+  const unit = unitFor(value);
+  return t("systemSettings.plan.default", {
+    value: isByteLimit(name)
+      ? `${inUnit(value, unit)}${NO_BREAK_SPACE}${unit}`
+      : amount(name, value, locale),
+    source: t(`systemSettings.plan.sources.${source}`),
   });
 }
 
-/**
- * PlanUsageSection is the Plan & usage card of System settings, read-only: the
- * centre's plan and when it renews, when it has one, and a meter per
- * resource, seats, media storage, import document storage and teachers, that
- * shows only its figure when no limit is configured. The AI credits row is
- * there only while the server reports the month's credits.
- */
-export function PlanUsageSection() {
+function UnitSelect({
+  name,
+  saving,
+  label,
+}: Readonly<{ name: LimitName; saving: boolean; label: string }>) {
+  const { t } = useTranslation();
+  const { control } = useFormContext<SettingsFormValues>();
+  if (!isByteLimit(name)) {
+    return (
+      <span className="text-muted-fg text-ui w-20 shrink-0 truncate">
+        {t(`systemSettings.plan.units.${name}`)}
+      </span>
+    );
+  }
+  return (
+    <Controller
+      control={control}
+      name={`limits.${name}.unit`}
+      render={({ field }) => (
+        <Select
+          value={field.value}
+          onValueChange={(next) => {
+            if (!saving) field.onChange(next);
+          }}
+        >
+          <SelectTrigger
+            ref={field.ref}
+            aria-label={t("systemSettings.plan.unitOf", { name: label })}
+            aria-disabled={saving || undefined}
+            className="aria-disabled:text-foreground/50 h-9.5 w-20 shrink-0"
+            onBlur={field.onBlur}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {UNITS.map((unit) => (
+              <SelectItem key={unit} value={unit}>
+                {unit}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+    />
+  );
+}
+
+function LimitRow({
+  name,
+  defaults,
+  usage,
+  saving,
+}: Readonly<{
+  name: LimitName;
+  defaults: UsageLimitDefaults;
+  usage: Usage | undefined;
+  saving: boolean;
+}>) {
   const { t } = useTranslation();
   const locale = useLocale();
-  const usage = useQuery(usageQuery());
+  const form = useFormContext<SettingsFormValues>();
+  const value = useWatch({ control: form.control, name: `limits.${name}` });
+  const id = controlId(`limits.${name}`);
+  const path = (
+    isByteLimit(name) ? `limits.${name}.amount` : `limits.${name}`
+  ) as FieldPath<SettingsFormValues>;
+  const typed = typeof value === "string" ? value : value.amount;
+  const message = fieldMessage(get(form.formState.errors, `limits.${name}`), t);
+  const label = t(`systemSettings.plan.rows.${name}.label`);
+  const fallback = defaults[name].value;
+  const { used, below, near } = reading(name, typedLimit(value) ?? fallback, usage);
+  const placeholder =
+    fallback === null ? t("systemSettings.plan.noLimit") : shownIn(fallback, value);
+  const notes = [`${id}-hint`, used === undefined ? null : `${id}-use`];
+  if (below) notes.push(`${id}-below`);
+  notes.push(`${id}-default`);
+  return (
+    <div className="flex flex-wrap items-start gap-x-3.5 gap-y-2 px-4.5 py-3">
+      <div className="min-w-52 flex-1">
+        <label htmlFor={id} className="text-ui block leading-normal font-medium">
+          {label}
+        </label>
+        <p id={`${id}-hint`} className="text-muted-fg text-meta leading-normal">
+          {t(`systemSettings.plan.rows.${name}.hint`)}
+        </p>
+        {used === undefined ? null : (
+          <p
+            id={`${id}-use`}
+            className={cn(
+              "text-meta leading-normal tabular-nums",
+              near && "text-warning-ink",
+            )}
+          >
+            {t(`systemSettings.plan.rows.${name}.used`, {
+              value: amount(name, used, locale),
+            })}
+          </p>
+        )}
+        {below ? (
+          <p id={`${id}-below`} className="text-warning-ink text-meta leading-normal">
+            {t(`systemSettings.plan.rows.${name}.below`)}
+          </p>
+        ) : null}
+      </div>
+      <div className="flex w-68 max-w-full flex-col gap-1.5">
+        <div className="flex items-center gap-2">
+          <Input
+            id={id}
+            className={cn(FIELD_INPUT, "min-w-0 flex-1 tabular-nums")}
+            inputMode={isByteLimit(name) ? "decimal" : "numeric"}
+            autoComplete="off"
+            placeholder={placeholder}
+            aria-invalid={message === undefined ? undefined : true}
+            aria-describedby={
+              message === undefined ? notes.filter(Boolean).join(" ") : `${id}-error`
+            }
+            {...form.register(path)}
+          />
+          <UnitSelect name={name} saving={saving} label={label} />
+        </div>
+        {message === undefined ? null : (
+          <p id={`${id}-error`} className="text-danger-ink text-xs leading-normal">
+            {message}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-x-2">
+          <p id={`${id}-default`} className="text-muted-fg text-xs leading-normal">
+            {defaultLine(name, defaults, locale, t)}
+          </p>
+          {typed.trim() === "" ? null : (
+            <Button
+              type="button"
+              variant="link"
+              size="xs"
+              className="h-auto px-0"
+              aria-label={t("systemSettings.plan.useDefaultFor", { name: label })}
+              onClick={() => {
+                if (saving) return;
+                form.setValue(path, "" as never, {
+                  shouldDirty: true,
+                  shouldTouch: true,
+                  shouldValidate: true,
+                });
+              }}
+            >
+              {t("systemSettings.plan.useDefault")}
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CreditsRow({ usage }: Readonly<{ usage: Usage }>) {
+  const { t } = useTranslation();
+  const locale = useLocale();
+  const { aiCredits } = usage;
+  if (aiCredits === null) return null;
   return (
     <SettingsCard
-      title={t("systemSettings.plan.title")}
-      description={planLine(usage.data, locale, t)}
+      title={t("systemSettings.plan.aiCredits")}
+      description={t("systemSettings.plan.aiCreditsOf", {
+        used: credits(aiCredits.used, locale),
+        pool: credits(aiCredits.pool, locale),
+      })}
+      action={
+        <Link
+          to={ADMIN_PATHS.ai}
+          className="text-muted-fg hover:text-fg flex items-center gap-1 text-sm transition-colors ease-[ease]"
+        >
+          {t("systemSettings.plan.aiCreditsManage")}
+          <ArrowRight aria-hidden="true" className="size-3.5" />
+        </Link>
+      }
+      headerClassName="border-b-0"
     >
-      <UsageBody query={usage} />
+      {null}
     </SettingsCard>
+  );
+}
+
+/**
+ * PlanUsageSection is the Plan & usage cards of System settings (CR-002): the
+ * centre's usage limits, grouped as people, file storage, email and the
+ * database, each a field that joins the page's unsaved changes. A row says
+ * what the limit bounds, what is in use now when the usage could be read, and
+ * the default an empty field takes and where it comes from, with Use default
+ * once a value is typed. A limit below what is in use is allowed and says
+ * what it will refuse; nothing is disabled. The month's AI credits are a
+ * line with a link to where they are edited, there only while the server
+ * reports them. The meters are the Overview's.
+ */
+export function PlanUsageSection({
+  saving,
+  defaults,
+}: Readonly<{ saving: boolean; defaults: OrganizationSettings["limitDefaults"] }>) {
+  const { t } = useTranslation();
+  const usage = useQuery(usageQuery());
+  return (
+    <>
+      {GROUPS.map((group) => (
+        <SettingsCard
+          key={group.id}
+          title={t(`systemSettings.plan.groups.${group.id}.title`)}
+          description={t(`systemSettings.plan.groups.${group.id}.hint`)}
+        >
+          <div className="divide-y">
+            {group.rows.map((name) => (
+              <LimitRow
+                key={name}
+                name={name}
+                defaults={defaults}
+                usage={usage.data}
+                saving={saving}
+              />
+            ))}
+          </div>
+        </SettingsCard>
+      ))}
+      {usage.data === undefined ? null : <CreditsRow usage={usage.data} />}
+      {usage.isError ? (
+        <p role="status" className="text-muted-fg text-meta">
+          {t("systemSettings.plan.loadFailed")}
+        </p>
+      ) : null}
+    </>
   );
 }

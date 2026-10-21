@@ -3,6 +3,7 @@ package support
 import (
 	"quizzivy/internal/modules/dashboard/application/ports"
 	"quizzivy/internal/modules/dashboard/domain"
+	"quizzivy/internal/shared/limits"
 	"time"
 )
 
@@ -15,7 +16,7 @@ type Service struct {
 	Branding      ports.Branding
 	Recent        ports.RecentChanges
 	Credits       ports.AICredits
-	Plan          domain.Plan
+	LimitEnv      limits.Env
 	Location      *time.Location
 }
 

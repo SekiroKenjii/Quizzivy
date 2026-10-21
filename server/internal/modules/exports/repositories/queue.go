@@ -103,20 +103,21 @@ func (p *Postgres) NextDue(ctx context.Context) (time.Time, bool, error) {
 func (p *Postgres) Complete(ctx context.Context, done domain.Completion) error {
 	err := p.InTx(ctx, "exports: complete", func(tx pgx.Tx) error {
 		var requester string
+		var expires time.Time
 		err := tx.QueryRow(ctx, `
 			UPDATE app.data_exports
 			   SET status = 'ready', storage_key = $3, bytes = $4, error_code = NULL,
 			       completed_at = now(), expires_at = now() + $5 * interval '1 second'
 			 WHERE id = $1::uuid AND status = 'running' AND attempts = $2
-			RETURNING requested_by::text`,
-			done.ID, done.Attempt, done.StorageKey, done.Bytes, int64(domain.KeepFor/time.Second)).Scan(&requester)
+			RETURNING requested_by::text, expires_at`,
+			done.ID, done.Attempt, done.StorageKey, done.Bytes, int64(domain.KeepFor/time.Second)).Scan(&requester, &expires)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.ErrLeaseLost
 		}
 		if err != nil {
 			return fmt.Errorf("exports: mark the export ready: %w", err)
 		}
-		return p.tell(ctx, tx, done.ID, requester)
+		return p.tell(ctx, tx, done.ID, requester, expires)
 	})
 	if err != nil {
 		return err
@@ -127,7 +128,7 @@ func (p *Postgres) Complete(ctx context.Context, done domain.Completion) error {
 	return nil
 }
 
-func (p *Postgres) tell(ctx context.Context, tx pgx.Tx, id, requester string) error {
+func (p *Postgres) tell(ctx context.Context, tx pgx.Tx, id, requester string, expires time.Time) error {
 	if p.outbox == nil {
 		return nil
 	}
@@ -140,6 +141,7 @@ func (p *Postgres) tell(ctx context.Context, tx pgx.Tx, id, requester string) er
 		To:        address,
 		Params:    email.DataExportReadyParams{FullName: name, ExportID: id},
 		DedupeKey: "data_export_ready:" + id,
+		ExpiresAt: expires,
 	})
 	if err != nil {
 		return fmt.Errorf("exports: enqueue the ready notice: %w", err)

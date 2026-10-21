@@ -42,6 +42,6 @@ func OrganizationBranding(cfg config.Config, dbx db.Context, logger *slog.Logger
 	return organizationapp.New(organizationrepo.NewPostgres(dbx), logger, cfg.GoogleEnabled()).Queries.Branding
 }
 
-func organizationTransport(app *organizationapp.Application) organizationhttp.Organization {
-	return organizationhttp.NewOrganization(app)
+func organizationTransport(app *organizationapp.Application, cfg config.Config) organizationhttp.Organization {
+	return organizationhttp.NewOrganization(app, cfg.Limits)
 }

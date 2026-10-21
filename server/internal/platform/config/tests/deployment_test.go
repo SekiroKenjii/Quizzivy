@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -19,7 +18,7 @@ import (
 // Every name config.Load reads. Cleared before each case so a developer's own
 // shell -- which has all of these set, from the repo's .env -- cannot make a
 // deployment look bootable when it is not.
-var configuredBy = slices.Concat(aiVariables, emailVariables, planVariables, []string{
+var configuredBy = slices.Concat(aiVariables, emailVariables, []string{
 	"API_PORT", "APP_ENV", "CLIENT_IP_HEADER", "CORS_ALLOWED_ORIGINS", "DATABASE_URL",
 	"GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI", "JWT_SIGNING_KEY",
 	"JOIN_CODE_KEY", "JOIN_CODE_KEY_PREVIOUS",
@@ -129,8 +128,8 @@ func TestTheCommittedFlyConfigBootsWithTheDocumentedSecrets(t *testing.T) {
 	if cfg.DocsPublic {
 		t.Error("the API reference is open to anyone; production must keep the docs gate on")
 	}
-	if declared := flyEnv(t)["MEDIA_OWNER_QUOTA_MIB"]; declared == "" || declared != strconv.Itoa(cfg.MediaOwnerQuotaMiB) {
-		t.Errorf("fly.toml sets MEDIA_OWNER_QUOTA_MIB to %q and the API runs with %d MiB; production must name its media quota", declared, cfg.MediaOwnerQuotaMiB)
+	if len(cfg.Limits) != 0 {
+		t.Errorf("fly.toml overrides the usage limits %v; production takes them from Settings → Plan & usage, whose defaults are the hosting plans (CR-002)", cfg.Limits)
 	}
 }
 

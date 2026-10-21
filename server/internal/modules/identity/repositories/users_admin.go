@@ -8,6 +8,7 @@ import (
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/limits"
 	"quizzivy/internal/shared/opt"
 
 	"github.com/jackc/pgx/v5"
@@ -173,6 +174,9 @@ func lockOpenClass(ctx context.Context, tx pgx.Tx, classID string) error {
 }
 
 func insertUser(ctx context.Context, tx pgx.Tx, req domain.WriteRequest, in domain.NewUser) (string, error) {
+	if err := limits.Admit(ctx, tx, limits.Admission{Seat: true, RoleID: in.RoleID}); err != nil {
+		return "", err
+	}
 	var hash *string
 	if in.Hash != "" {
 		hash = &in.Hash

@@ -7,6 +7,7 @@ import (
 	"quizzivy/internal/modules/media/application/model"
 	"quizzivy/internal/modules/media/application/ports"
 	"quizzivy/internal/modules/media/domain"
+	"quizzivy/internal/shared/limits"
 	"time"
 )
 
@@ -19,6 +20,35 @@ type Service struct {
 	Now    func() time.Time
 	TTL    time.Duration
 	Quota  int64
+	Limits *limits.Reader
+}
+
+// Bounds returns what one owner's library may hold and what every stored file
+// may come to, nil for no limit: the usage limits when the service reads them,
+// and Quota with no centre limit when it does not.
+func (s *Service) Bounds(ctx context.Context) (int64, *int64, error) {
+	if s.Limits == nil {
+		return s.Quota, nil, nil
+	}
+	resolved, err := s.Limits.Read(ctx, nil)
+	if err != nil {
+		return 0, nil, err
+	}
+	quota, ok := resolved.Of(limits.MediaPerTeacherBytes)
+	if !ok {
+		quota = s.Quota
+	}
+	var storage *int64
+	if v, ok := resolved.Of(limits.StorageBytes); ok {
+		storage = &v
+	}
+	return quota, storage, nil
+}
+
+// WithLimits sets where the usage limits are read, which then replace Quota.
+func (s *Service) WithLimits(reader limits.Reader) *Service {
+	s.Limits = &reader
+	return s
 }
 
 func NewService(repo domain.Repository, object ports.ObjectStore, probe ports.AudioProbe) *Service {
