@@ -46,7 +46,7 @@ export function AiEntryButton({
         "aria-disabled:cursor-default",
         variant === "outline"
           ? "aria-disabled:hover:bg-card"
-          : "aria-disabled:hover:text-muted-fg aria-disabled:hover:bg-transparent",
+          : "aria-disabled:hover:bg-transparent",
         className,
       )}
       onClick={(event) => {

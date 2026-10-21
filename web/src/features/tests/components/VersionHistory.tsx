@@ -216,7 +216,7 @@ function VersionCard({
               variant="ghost"
               className={cn(
                 CARD_BUTTON,
-                "text-danger-ink hover:bg-hover hover:text-danger-ink",
+                "text-danger-ink hover:bg-hover hover:text-danger-ink aria-disabled:text-danger-ink/60 aria-disabled:hover:text-danger-ink/60",
               )}
               aria-disabled={inUse || undefined}
               title={inUse ? t("tests.detail.history.deleteLocked") : undefined}

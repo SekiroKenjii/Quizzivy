@@ -539,10 +539,10 @@ it("disables an option, says why, and leaves the others as they were", async () 
   const markdown = screen.getByRole("button", { name: "Markdown" });
   expect(markdown).toBeDisabled();
   expect(markdown).toHaveAccessibleDescription("Hãy bỏ các chỗ trống trước.");
-  expect(markdown).toHaveClass("text-muted-fg/45");
+  expect(markdown).toHaveClass("text-fg/55");
   expect(markdown).not.toHaveClass("opacity-45");
   expect(screen.getByRole("button", { name: "Văn bản định dạng" })).not.toHaveClass(
-    "text-muted-fg/45",
+    "text-fg/55",
   );
   await userEvent.setup().click(markdown);
   expect(onChange).not.toHaveBeenCalled();
@@ -603,7 +603,7 @@ it("marks one pending option unavailable and leaves the others choosable", async
   await user.keyboard("{Enter}");
   expect(english).toHaveFocus();
   expect(english).toHaveAttribute("aria-disabled", "true");
-  expect(english).toHaveClass("text-muted-fg/45");
+  expect(english).toHaveClass("text-fg/55");
   expect(english).not.toHaveClass("opacity-45");
   expect(onChange).not.toHaveBeenCalled();
   const vietnamese = screen.getByRole("button", { name: "Tiếng Việt" });

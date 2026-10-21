@@ -290,7 +290,7 @@ function DeviceRow({
           type="button"
           variant="ghost"
           className={cn(
-            "text-danger-ink hover:bg-danger-soft hover:text-danger-ink dark:hover:bg-danger-soft text-meta h-7.5 flex-none rounded-[7px] px-2.5 font-normal",
+            "text-danger-ink hover:bg-danger-soft hover:text-danger-ink dark:hover:bg-danger-soft aria-disabled:text-danger-ink/60 aria-disabled:hover:text-danger-ink/60 text-meta h-7.5 flex-none rounded-[7px] px-2.5 font-normal",
           )}
           data-family-id={session.familyId}
           aria-disabled={busy || undefined}

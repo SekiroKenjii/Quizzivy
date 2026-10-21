@@ -152,6 +152,51 @@ describe("a paused control fades its colours, never the element (D-029)", () => 
     expect(pausedOpacity(source)).toEqual([]);
   });
 
+  it.each([
+    [
+      'function held(off: boolean) {\n  return { "aria-disabled": off, className: off ? "opacity-50" : "" };\n}',
+      "a props object a helper returns",
+    ],
+    [
+      'const a = <b {...{ "aria-disabled": p, className: "opacity-50" }} />;',
+      "a spread",
+    ],
+    [
+      'const a = <b aria-disabled={p} style={{ "opacity": 0.5 }} />;',
+      "a quoted style key",
+    ],
+    ["const a = <b aria-disabled={p} style={{ opacity }} />;", "a shorthand style key"],
+    [
+      "const DIM = { opacity: 0.5 };\nconst a = <b aria-disabled={p} style={DIM} />;",
+      "a style held in a constant",
+    ],
+  ])("sees %s (%s)", (source) => {
+    expect(pausedOpacity(source)).toHaveLength(1);
+  });
+
+  it.each([
+    [
+      'const a = <b aria-disabled={false} className="opacity-50" />;',
+      "aria-disabled false",
+    ],
+    [
+      'const a = <b aria-disabled={p || undefined} className={p ? "" : "opacity-50"} />;',
+      "the unpaused branch of a ternary",
+    ],
+    [
+      'function f() {\n  const OFF = "h-7";\n  return <b aria-disabled className={OFF} />;\n}\nfunction g() {\n  const OFF = "opacity-50";\n  return <b className={OFF} />;\n}',
+      "a constant of the same name in another function",
+    ],
+  ])("is not fooled by %s (%s)", (source) => {
+    expect(pausedOpacity(source)).toEqual([]);
+  });
+
+  it("reads the constant in scope, not one of the same name elsewhere", () => {
+    const source =
+      'function f() {\n  const OFF = "opacity-50";\n  return <b aria-disabled className={OFF} />;\n}\nfunction g() {\n  const OFF = "h-7";\n  return <i />;\n}';
+    expect(pausedOpacity(source)).toEqual([{ line: 3, text: "opacity-50" }]);
+  });
+
   it("lets a conditional opacity through on an element that is not paused", () => {
     const source =
       'const a = <button className={cn("h-9", pending && "opacity-50")} />;';
