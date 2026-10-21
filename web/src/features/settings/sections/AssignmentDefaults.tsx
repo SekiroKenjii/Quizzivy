@@ -26,8 +26,6 @@ const RULES = [
 
 type Defaults = Required<AssignmentDefaults>;
 
-const QUIET = "aria-disabled:opacity-50";
-
 function fieldControl(field: keyof Defaults): HTMLElement | null {
   if (field === "durationMinutes")
     return document.querySelector<HTMLElement>(
@@ -124,7 +122,7 @@ export function AssignmentDefaultsSection() {
             {t("settings.defaults.duration")}
           </span>
           <Segmented
-            className={saving ? "opacity-50" : ""}
+            pending={saving}
             label={t("settings.defaults.duration")}
             value={String(current.durationMinutes)}
             fill
@@ -159,7 +157,6 @@ export function AssignmentDefaultsSection() {
               aria-labelledby={`defaults-${key}`}
               aria-describedby={`defaults-${key}-hint`}
               aria-disabled={saving || undefined}
-              className={QUIET}
               onCheckedChange={(on) => change(field, { [field]: on })}
             />
           </div>

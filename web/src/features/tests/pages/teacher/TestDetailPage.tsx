@@ -430,7 +430,7 @@ function DetailHead({
             </Button>
           ) : (
             <Button
-              className="aria-disabled:hover:bg-primary h-9 aria-disabled:cursor-default aria-disabled:opacity-50"
+              className="h-9 aria-disabled:cursor-default"
               aria-disabled="true"
               title={assignLocked}
             >

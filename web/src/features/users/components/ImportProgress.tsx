@@ -96,7 +96,7 @@ function SheetPart({ job, locale, saved, onSaved }: SheetProps) {
       )}
       <Button
         type="button"
-        className="aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50 self-start"
+        className="aria-disabled:bg-primary/55 aria-disabled:hover:bg-primary/55 self-start"
         aria-disabled={download.isPending || undefined}
         aria-busy={download.isPending || undefined}
         onClick={() => {

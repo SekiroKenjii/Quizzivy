@@ -441,7 +441,7 @@ function PasswordRow() {
             type="submit"
             size="md"
             aria-disabled={blocked}
-            className="self-start px-4 aria-disabled:opacity-50"
+            className="self-start px-4"
             onClick={(event) => {
               if (blocked) event.preventDefault();
             }}
@@ -511,11 +511,7 @@ function GoogleRow() {
             variant="outline"
             aria-disabled={locked}
             aria-describedby={`${GOOGLE} ${GOOGLE}-status`}
-            className={cn(
-              ROW_BUTTON,
-              "aria-disabled:opacity-50",
-              sentence && "ml-auto",
-            )}
+            className={cn(ROW_BUTTON, sentence && "ml-auto")}
             onClick={() => {
               if (!locked) void unlink();
             }}

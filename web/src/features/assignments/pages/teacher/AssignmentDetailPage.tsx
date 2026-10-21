@@ -730,7 +730,6 @@ function WriteActions({
         <Button
           disabled={unpublishable}
           aria-disabled={pending || undefined}
-          className="aria-disabled:opacity-50"
           onClick={() => {
             if (write && status === "draft" && !pending) onPublish();
           }}

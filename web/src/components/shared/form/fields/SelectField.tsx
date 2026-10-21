@@ -65,7 +65,7 @@ export function SelectField({
         className={cn(
           "w-full",
           invalid && "border-danger",
-          locked && "cursor-default opacity-50",
+          locked && "border-input/50 text-foreground/50 cursor-default",
         )}
       >
         <SelectValue {...(placeholder === undefined ? {} : { placeholder })} />

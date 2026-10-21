@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 export type VersionAction = "draft" | "current" | "delete";
 
 const CARD_BUTTON =
-  "h-7 rounded-seg font-medium px-2.5 text-xs disabled:opacity-45 aria-disabled:cursor-default aria-disabled:opacity-45 aria-disabled:hover:bg-transparent";
+  "h-7 rounded-seg font-medium px-2.5 text-xs disabled:opacity-45 aria-disabled:cursor-default aria-disabled:hover:bg-transparent";
 
 /**
  * VersionHistory is the body of the test detail's version history, drawn in

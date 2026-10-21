@@ -16,7 +16,7 @@ import { ApiError } from "@/lib/api/errors";
 
 const PARALLEL = 4;
 
-const PAUSED = "aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50";
+const PAUSED = "aria-disabled:bg-primary/55 aria-disabled:hover:bg-primary/55";
 
 function codeOf(cause: unknown): string {
   if (!(cause instanceof ApiError)) return "INTERNAL";

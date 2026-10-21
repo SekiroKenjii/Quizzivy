@@ -306,7 +306,7 @@ describe("the cells an Admin cannot change", () => {
     await screen.findByRole("grid");
     const locked = cell(WRITE, ADMIN_NAME);
     expect(locked.className).not.toMatch(/(^|\s)(aria-disabled:)?opacity-/);
-    expect(locked).toHaveClass("aria-disabled:checked:bg-primary/50");
+    expect(locked).toHaveClass("aria-disabled:checked:bg-primary/55");
     locked.focus();
     expect(locked).toHaveFocus();
   });

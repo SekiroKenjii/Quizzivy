@@ -173,7 +173,7 @@ export function AddMemberDialog({
                 aria-disabled={member || undefined}
                 className={cn(
                   "flex items-center gap-2.5 border-t px-3 py-2.5 text-left first:border-t-0",
-                  member ? "cursor-default opacity-60" : "hover:bg-muted",
+                  member ? "cursor-default *:opacity-60" : "hover:bg-muted",
                   on && !member && "bg-muted",
                 )}
                 onClick={() => {
@@ -232,7 +232,7 @@ export function AddMemberDialog({
           className={cn(
             FOOTER_BUTTON,
             add.isPending &&
-              "aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50",
+              "aria-disabled:bg-primary/55 aria-disabled:hover:bg-primary/55",
           )}
           aria-disabled={add.isPending || undefined}
           onClick={() => {

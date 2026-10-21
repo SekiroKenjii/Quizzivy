@@ -5,23 +5,59 @@ export interface PausedOpacityUse {
   text: string;
 }
 
-const TOKEN = /[^\s"'`]+/g;
 const ARIA_DISABLED = /aria-(?:disabled|\[disabled(?:=[^\]]*)?\])|\[&\[aria-disabled/;
 const ENDS_IN_OPACITY = /(?:^|[:\]])!?(?:opacity-[^\s:]*|\[opacity:[^\]]*\])$/;
+const FULL_OPACITY = /(?:^|[:\]])!?opacity-100!?$/;
+const ON_DESCENDANT = /(?:^|:)\*{1,2}:|\[&[^\]>_~+\s]*[>_~+\s]/;
 
-function lineOf(source: string, index: number): number {
-  let line = 1;
-  for (let i = 0; i < index; i++) if (source.charCodeAt(i) === 10) line++;
-  return line;
+interface Literal {
+  text: string;
+  start: number;
 }
 
-function inTokens(source: string): PausedOpacityUse[] {
-  return [...source.matchAll(TOKEN)].flatMap((match) => {
-    const token = match[0];
-    return ARIA_DISABLED.test(token) && ENDS_IN_OPACITY.test(token)
-      ? [{ line: lineOf(source, match.index), text: token }]
-      : [];
-  });
+function literals(node: ts.Node, file: ts.SourceFile): Literal[] {
+  const found: Literal[] = [];
+  const walk = (n: ts.Node) => {
+    if (
+      ts.isStringLiteralLike(n) ||
+      ts.isTemplateHead(n) ||
+      ts.isTemplateMiddle(n) ||
+      ts.isTemplateTail(n)
+    )
+      found.push({ text: n.text, start: n.getStart(file) + 1 });
+    ts.forEachChild(n, walk);
+  };
+  walk(node);
+  return found;
+}
+
+function tokens(literal: Literal): { token: string; at: number }[] {
+  return [...literal.text.matchAll(/\S+/g)].map((match) => ({
+    token: match[0],
+    at: literal.start + match.index,
+  }));
+}
+
+function dimsTheElement(token: string): boolean {
+  return (
+    ENDS_IN_OPACITY.test(token) &&
+    !FULL_OPACITY.test(token) &&
+    !ON_DESCENDANT.test(token)
+  );
+}
+
+function lineAt(file: ts.SourceFile, position: number): number {
+  return file.getLineAndCharacterOfPosition(position).line + 1;
+}
+
+function inTokens(file: ts.SourceFile): PausedOpacityUse[] {
+  return literals(file, file).flatMap((literal) =>
+    tokens(literal).flatMap(({ token, at }) =>
+      ARIA_DISABLED.test(token) && dimsTheElement(token)
+        ? [{ line: lineAt(file, at), text: token }]
+        : [],
+    ),
+  );
 }
 
 function attribute(
@@ -33,16 +69,26 @@ function attribute(
   );
 }
 
-function literals(node: ts.Node): string[] {
-  const found: string[] = [];
+function constants(file: ts.SourceFile): Map<string, ts.Expression> {
+  const found = new Map<string, ts.Expression>();
   const walk = (n: ts.Node) => {
-    if (
-      ts.isStringLiteralLike(n) ||
-      ts.isTemplateHead(n) ||
-      ts.isTemplateMiddle(n) ||
-      ts.isTemplateTail(n)
-    )
-      found.push(n.text);
+    if (ts.isVariableDeclarationList(n) && (n.flags & ts.NodeFlags.Const) !== 0)
+      for (const declaration of n.declarations)
+        if (ts.isIdentifier(declaration.name) && declaration.initializer)
+          found.set(declaration.name.text, declaration.initializer);
+    ts.forEachChild(n, walk);
+  };
+  walk(file);
+  return found;
+}
+
+function referenced(node: ts.Node, known: Map<string, ts.Expression>): ts.Expression[] {
+  const found: ts.Expression[] = [];
+  const walk = (n: ts.Node) => {
+    if (ts.isIdentifier(n)) {
+      const value = known.get(n.text);
+      if (value) found.push(value);
+    }
     ts.forEachChild(n, walk);
   };
   walk(node);
@@ -50,7 +96,7 @@ function literals(node: ts.Node): string[] {
 }
 
 function plainOpacity(token: string): boolean {
-  return /^!?opacity-/.test(token);
+  return /^!?opacity-/.test(token) && dimsTheElement(token);
 }
 
 function styleSetsOpacity(style: ts.JsxAttribute): boolean {
@@ -63,12 +109,12 @@ function styleSetsOpacity(style: ts.JsxAttribute): boolean {
   return sets;
 }
 
-function onPausedElements(source: string, fileName: string): PausedOpacityUse[] {
-  const file = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true);
+function onPausedElements(file: ts.SourceFile): PausedOpacityUse[] {
+  const known = constants(file);
   const found: PausedOpacityUse[] = [];
   const visit = (node: ts.Node) => {
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
-      if (attribute(node, "aria-disabled")) found.push(...opacityOn(node, file));
+      if (attribute(node, "aria-disabled")) found.push(...opacityOn(node, file, known));
     }
     ts.forEachChild(node, visit);
   };
@@ -76,37 +122,49 @@ function onPausedElements(source: string, fileName: string): PausedOpacityUse[] 
   return found;
 }
 
+function classOpacity(
+  className: ts.JsxAttribute,
+  file: ts.SourceFile,
+  known: Map<string, ts.Expression>,
+): PausedOpacityUse[] {
+  if (!className.initializer) return [];
+  const line = lineAt(file, className.getStart(file));
+  const sources = [className.initializer, ...referenced(className.initializer, known)];
+  return sources.flatMap((source) =>
+    literals(source, file).flatMap((literal) =>
+      tokens(literal)
+        .filter(({ token }) => plainOpacity(token))
+        .map(({ token }) => ({ line, text: token })),
+    ),
+  );
+}
+
 function opacityOn(
   element: ts.JsxOpeningLikeElement,
   file: ts.SourceFile,
+  known: Map<string, ts.Expression>,
 ): PausedOpacityUse[] {
-  const out: PausedOpacityUse[] = [];
-  const at = (node: ts.Node, text: string) => ({
-    line: file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1,
-    text,
-  });
   const className = attribute(element, "className");
-  if (className?.initializer) {
-    for (const text of literals(className.initializer))
-      for (const token of text.split(/\s+/))
-        if (plainOpacity(token)) out.push(at(className, token));
-  }
+  const out = className ? classOpacity(className, file, known) : [];
   const style = attribute(element, "style");
-  if (style && styleSetsOpacity(style)) out.push(at(style, "style opacity"));
+  if (style && styleSetsOpacity(style))
+    out.push({ line: lineAt(file, style.getStart(file)), text: "style opacity" });
   return out;
 }
 
 /**
  * pausedOpacity lists the places in a TSX source that dim an aria-disabled
- * control with opacity: a class token that holds aria-disabled and ends in an
- * opacity utility, in any spelling, and an opacity utility or style on an element
- * that declares aria-disabled. A class built in another module is out of reach.
+ * control with opacity: a class token in a string that holds aria-disabled and
+ * ends in an opacity utility, in any spelling, and an opacity utility or style
+ * on an element that declares aria-disabled, its class read through one hop of
+ * a constant in the same file. Comments, `opacity-100` and an opacity aimed at
+ * the control's children are not uses. A class built in another module is out
+ * of reach.
  */
 export function pausedOpacity(
   source: string,
   fileName = "file.tsx",
 ): PausedOpacityUse[] {
-  return [...inTokens(source), ...onPausedElements(source, fileName)].sort(
-    (a, b) => a.line - b.line,
-  );
+  const file = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true);
+  return [...inTokens(file), ...onPausedElements(file)].sort((a, b) => a.line - b.line);
 }

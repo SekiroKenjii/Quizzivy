@@ -3,6 +3,10 @@
 **Version:** 0.117 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
+**Changes pending (R6, v0.13.0)**
+
+- R6-00 §12 O-R5.7 The paused-control sweep, screens: `Button` (every variant) and `Switch` draw a paused control's look themselves, so the screens that faded a paused button, switch, select, menu item, theme card or member row by its opacity now fade its colours and keep their focus ring whole. A paused primary fill is 55% (its label 3.3:1 in light, 5.3:1 in dark), a paused danger fill keeps its tone at half strength with a `--danger-ink` label, and a paused outline or ghost label is the text colour at half strength; each is 3:1 or more on its fill in both themes. Under forced colours a paused control takes the system's `GrayText` for its text and border, so it no longer looks enabled. `paused-opacity.test.ts` reads class strings, not comments, lets `opacity-100` and an opacity on the control's children through, sees a quoted attribute value and a class held in a constant of the same file, and now holds only the audio player.
+
 **Changes since v0.116**
 
 Hotfix v0.12.1: the Admin console renders in the page frame of DG-205, as the teacher workspace does.
@@ -2785,7 +2789,7 @@ Deliberate. Do not "improve" them with trendy defaults.
 
   `no-raw-colours.test.ts` refuses a Tailwind palette class, or a literal hex, `rgb()`/`rgba()` or `oklch()` colour, in the `.ts`/`.tsx` files under `src/` (except `GoogleMark.tsx`); the literal values live only in `src/index.css`.
 - **Accessibility tokens beyond the deck** (DG-30, DG-31), each measured in both themes:
-  - `--focus`, the 2px `:focus-visible` ring on every control, 3:1 or more on `--bg`, `--card`, `--sidebar` and `--muted`; a control paused with `aria-disabled` stays focusable and fades its colours, never the element's opacity, which halves the ring (`paused-opacity.test.ts` holds the sites that still do to a baseline that only goes down);
+  - `--focus`, the 2px `:focus-visible` ring on every control, 3:1 or more on `--bg`, `--card`, `--sidebar` and `--muted`; a control paused with `aria-disabled` stays focusable and fades its colours, never the element's opacity, which halves the ring; `Button` and `Switch` draw that look for every variant with the label at 3:1 or more on its faded fill, and under forced colours a paused control takes `GrayText` (`paused-opacity.test.ts` holds the sites that still dim the element to an exact baseline);
   - `--input`, input borders, 3:1 or more;
   - `--danger-solid` / `--danger-solid-fg`, danger buttons, 4.5:1 or more.
 - **The deck's geometry is the primitives' only geometry** since T-R5.30: control heights, `--radius` at 8px with sm 6, md 8 and lg 10, and the badge and card shapes apply everywhere, and no root sets a scale attribute. The deck's type steps are global tokens, and the pre-R1 steps keep their values.

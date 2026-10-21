@@ -187,7 +187,6 @@ export function JoinCodePanel({
             disabled={!canWrite}
             aria-disabled={selfJoin.isPending || joinOff || undefined}
             aria-describedby={joinOff ? OFF_REASON : undefined}
-            className="aria-disabled:data-[state=checked]:bg-primary/50 aria-disabled:data-[state=unchecked]:bg-border/50 aria-disabled:[&>span]:bg-switch-thumb/50"
             onCheckedChange={(next) => {
               if (!selfJoin.isPending && !joinOff) selfJoin.mutate(next);
             }}

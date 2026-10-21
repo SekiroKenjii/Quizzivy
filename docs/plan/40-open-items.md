@@ -733,6 +733,11 @@ ancestor, nor a quoted attribute value, so review still applies. Each touched sc
 with the deck at five widths in both themes. The take-test engine and the audio player
 (`AudioPlayer.tsx`, `QuestionBody.tsx`, the navigator) go in a separate PR, with the audio canary
 and the engine's unit tests run before and after.
+**Status (R6-00, 2026-10-21):** the screens are swept: `Button` and `Switch` carry the paused look, every
+screen site fades its colours, paused labels hold 3:1 (`tokens.test.ts`), forced colours show `GrayText`, and
+the scan reads class strings only, lets `opacity-100` and a child's opacity through, and follows a constant one
+hop. The baseline holds the audio player alone, which the engine PR sweeps with the navigator and
+`QuestionBody.tsx`.
 
 ---
 

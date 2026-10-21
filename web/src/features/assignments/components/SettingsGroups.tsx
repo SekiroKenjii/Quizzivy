@@ -467,7 +467,6 @@ function SettingsEditDialog({
         <Button
           variant="outline"
           aria-disabled={save.isPending || undefined}
-          className="aria-disabled:opacity-50"
           onClick={() => {
             if (!save.isPending) onClose();
           }}
@@ -477,7 +476,6 @@ function SettingsEditDialog({
         <Button
           disabled={invalid}
           aria-disabled={save.isPending || undefined}
-          className="aria-disabled:opacity-50"
           onClick={() => {
             if (save.isPending) return;
             setError(null);
