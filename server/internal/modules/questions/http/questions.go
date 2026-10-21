@@ -233,16 +233,7 @@ func (h Questions) DeleteQuestion(ctx context.Context, request openapi.DeleteQue
 func questionWriteError(ctx context.Context, err error) (openapi.ErrorResponse, bool) {
 	var invalid *domain.ValidationError
 	if errors.As(err, &invalid) {
-		resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED,
-			httpx.Text(ctx, "Dữ liệu câu hỏi không hợp lệ.", "The question data is not valid."))
-		details := map[string]interface{}{}
-		for _, f := range invalid.Fields {
-			if _, seen := details[f.Field]; !seen {
-				details[f.Field] = f.Message
-			}
-		}
-		resp.Error.Details = &details
-		return resp, true
+		return httpapi.Invalid(ctx, httpx.Text(ctx, "Dữ liệu câu hỏi không hợp lệ.", "The question data is not valid."), invalid), true
 	}
 	if errors.Is(err, domain.ErrMediaNotFound) {
 		resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED,

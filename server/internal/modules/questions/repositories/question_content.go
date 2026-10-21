@@ -45,9 +45,8 @@ func preserveProse(field string, next *json.RawMessage, old json.RawMessage, tex
 		return nil
 	}
 	if text == nil || previous == nil || content.NFC(*text) != content.NFC(*previous) {
-		return &validation.Error{Fields: []validation.Field{{
-			Field: field, Message: "Câu hỏi đã có định dạng. Hãy tải lại trước khi sửa nội dung.",
-		}}}
+		return validation.Refuse(field, "Câu hỏi đã có định dạng. Hãy tải lại trước khi sửa nội dung.",
+			"The question has formatting. Reload it before you change its text.")
 	}
 	*next, *text = composedProse(old, *text, *previous)
 	return nil

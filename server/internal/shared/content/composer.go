@@ -19,7 +19,8 @@ type Composer struct {
 func (c *Composer) Text(field, s string, limit int) string {
 	composed := NFC(s)
 	if limit > 0 && utf8.RuneCountInString(composed) > limit {
-		c.invalid.Add(field, fmt.Sprintf("Nội dung không được dài quá %d ký tự.", limit))
+		c.invalid.AddIn(field, fmt.Sprintf("Nội dung không được dài quá %d ký tự.", limit),
+			fmt.Sprintf("The text cannot be longer than %d characters.", limit))
 		return s
 	}
 	return composed
@@ -46,8 +47,9 @@ func (c *Composer) Each(field string, values []string, limit int) []string {
 	return out
 }
 
-// Refuse records field as refused with message, for a refusal the caller found itself.
-func (c *Composer) Refuse(field, message string) { c.invalid.Add(field, message) }
+// Refuse records field as refused with message in Vietnamese and english in
+// English, for a refusal the caller found itself.
+func (c *Composer) Refuse(field, message, english string) { c.invalid.AddIn(field, message, english) }
 
 // Err is the *validation.Error holding every refused field, or nil when there is none.
 func (c *Composer) Err() error {

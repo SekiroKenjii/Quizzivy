@@ -27,6 +27,18 @@ func (e *Error) AddIn(field, message, english string) {
 	e.Fields = append(e.Fields, Field{Field: field, Message: message, English: english})
 }
 
+// Pair is a refusal of field with message in Vietnamese and english in English,
+// for a caller that records it later.
+func Pair(field, message, english string) Field {
+	return Field{Field: field, Message: message, English: english}
+}
+
+// Refuse is an Error refusing the one field, with message in Vietnamese and
+// english in English.
+func Refuse(field, message, english string) *Error {
+	return &Error{Fields: []Field{Pair(field, message, english)}}
+}
+
 // OrNil is e when it holds anything, else nil, so a validator can build one and return it in one line.
 func (e *Error) OrNil() *Error {
 	if e == nil || len(e.Fields) == 0 {
