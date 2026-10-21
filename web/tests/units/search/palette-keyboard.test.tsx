@@ -81,6 +81,8 @@ function student() {
     mustChangePassword: false,
     createdAt: "2026-01-01T00:00:00Z",
     disabledAt: null,
+    lastActiveAt: null,
+    accountStatus: "active",
     classes: [
       {
         id: CLASS_ID,

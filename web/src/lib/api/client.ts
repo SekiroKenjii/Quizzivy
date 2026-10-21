@@ -141,6 +141,8 @@ let onSessionLost: () => void = () => {
 
 let onMaintenance: (window: { startsAt: string; endsAt: string }) => void = () => {};
 
+let onPasswordChangeRequired: () => void = () => {};
+
 /**
  * setSessionLostHandler registers what runs when the session is refused. A
  * refusal counts only against the session its request was sent under: when the
@@ -173,6 +175,16 @@ export function setMaintenanceHandler(
   onMaintenance = handler;
 }
 
+/**
+ * setPasswordChangeHandler registers what runs when any response is a 403
+ * `PASSWORD_CHANGE_REQUIRED`, before the error is thrown: the account still
+ * holds a temporary password, which the server accepts for nothing but reading
+ * the account and changing it.
+ */
+export function setPasswordChangeHandler(handler: () => void) {
+  onPasswordChangeRequired = handler;
+}
+
 /** Test seam. Never call this from application code. */
 export function __resetRefreshStateForTests() {
   inFlightRefresh = null;
@@ -193,6 +205,9 @@ function unavailable(): ApiError {
 function noticed(error: ApiError, lease: ActorLease): ApiError {
   const window = maintenanceWindow(error);
   if (window && authStore.isCurrent(lease)) onMaintenance(window);
+  if (error.code === "PASSWORD_CHANGE_REQUIRED" && authStore.isCurrent(lease)) {
+    onPasswordChangeRequired();
+  }
   return error;
 }
 
@@ -248,6 +263,7 @@ function isAuthEntryPoint(path: string): boolean {
   return (
     path === "/auth/refresh" ||
     path === "/auth/login" ||
+    path === "/auth/set-password" ||
     path === "/auth/google" ||
     path === "/auth/logout"
   );
@@ -256,7 +272,7 @@ function isAuthEntryPoint(path: string): boolean {
 function cookieKind(method: string, path: string): CookieKind | null {
   if (method !== "post") return null;
   if (path === "/auth/refresh") return "refresh";
-  if (path === "/auth/login") return "login";
+  if (path === "/auth/login" || path === "/auth/set-password") return "login";
   if (path === "/auth/google") return "google";
   if (path === "/auth/logout") return "logout";
   return null;
@@ -414,29 +430,43 @@ function attachmentName(disposition: string | null): string | null {
 }
 
 /**
- * downloadFile GETs a file the contract answers with something other than
+ * DownloadOptions are the method of a download, which is GET unless `method`
+ * says POST, the values of the path's `{name}` parameters, and a `signal` to
+ * abort it with.
+ */
+export interface DownloadOptions {
+  method?: "GET" | "POST";
+  path?: Record<string, unknown>;
+  signal?: AbortSignal | undefined;
+}
+
+/**
+ * downloadFile fetches a file the contract answers with something other than
  * JSON, such as a CSV, sharing this module's token and single-flight refresh.
  * Like `api`, it loses the session over a 401 only when the store still holds
  * the token that request was sent with, and it throws a refusal's error
  * envelope as an ApiError. The file's name is the response's
  * `Content-Disposition` name, `filename*` (RFC 6266) before `filename`, or
- * null when it names none.
+ * null when it names none. An aborted `options.signal` rejects it with an
+ * `AbortError`.
  */
 export async function downloadFile(
   path: keyof paths,
   query?: Record<string, unknown>,
+  options: DownloadOptions = {},
 ): Promise<DownloadedFile> {
-  const url = buildUrl(path, undefined, query);
+  const url = buildUrl(path, options.path, query);
   const lease = authStore.captureActor();
   const send = (token: string | null) =>
     fetch(url, {
-      method: "GET",
+      method: options.method ?? "GET",
       credentials: "include",
       headers: {
         Accept: "*/*",
         "Accept-Language": language(),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
+      ...(options.signal ? { signal: options.signal } : {}),
     });
 
   let sentWith = authStore.getAccessToken();
@@ -460,12 +490,14 @@ export async function downloadFile(
 
 /**
  * UploadOptions are an upload's progress and cancellation, which fetch cannot
- * report, and its method, which is POST unless `method` says PUT.
+ * report, its method, which is POST unless `method` says PUT, and the text
+ * fields sent beside the file, in the order given.
  */
 export interface UploadOptions {
   onProgress?: (fraction: number) => void;
   signal?: AbortSignal;
   method?: "POST" | "PUT";
+  fields?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -514,6 +546,8 @@ export async function uploadFile<T>(
       }
 
       const form = new FormData();
+      for (const [name, value] of Object.entries(options.fields ?? {}))
+        form.append(name, value);
       form.append("file", file);
       request.send(form);
     });

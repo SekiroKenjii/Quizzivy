@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useMemo, useRef, useState, type RefObject } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,13 +17,14 @@ import { DataTable } from "@/components/shared/data/DataTable";
 import { FacetFilter } from "@/components/shared/data/FacetFilter";
 import { Pager } from "@/components/shared/data/Pager";
 import { LoadError } from "@/components/shared/ListState";
-import { SearchInput } from "@/components/shared/SearchInput";
+import { SearchInput, TOOLBAR_SEARCH } from "@/components/shared/SearchInput";
 import { Button } from "@/components/ui/button";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
 import { useCan } from "@/features/auth/permissions";
 import { fetchClasses } from "@/features/classes/api";
+import { useJoinCodesOff } from "@/features/organization/api";
 import {
   deleteStudent,
   getStudent,
@@ -43,23 +44,20 @@ import { StudentDrawer } from "@/features/students/components/StudentDrawer";
 import type { OneTimeCredential } from "@/features/students/credentials";
 import { classesLeftBy, removeFromClasses } from "@/features/students/membership";
 import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { trimmed, useDebouncedInput } from "@/hooks/useDebouncedInput";
 import { useListFilters } from "@/hooks/useListFilters";
 import { usePage, usePageSize } from "@/hooks/usePage";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { failureMessage } from "@/lib/api/errors";
 import { useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
-import { useDebounced } from "@/lib/useDebounced";
 import { StudentCard } from "./StudentCells";
 import { studentColumns } from "./studentColumns";
+import { statusOf } from "./studentText";
 
 const QUERY_KEY = ["teacher-students"] as const;
 
-const ACCOUNTS = ["active", "reset", "suspended"] as const;
-type AccountFacet = (typeof ACCOUNTS)[number];
-
-const SEARCH =
-  "w-auto min-w-0 flex-[0_1_300px] [&_input]:bg-card [&_input]:border-border [&_input]:h-8.5 [&_input]:pl-8.5 [&_input]:text-sm [&_svg]:top-[9.5px] [&_svg]:size-3.75";
+const ACCOUNTS = ["active", "notSignedIn", "reset", "suspended"] as const;
 
 type Origin = RefObject<HTMLElement | null> | undefined;
 
@@ -90,18 +88,20 @@ type Acting =
   | null;
 
 /**
- * accountQuery turns the Status facet into the list's query: Active and
- * Password reset each narrow by `mustChangePassword` when chosen alone, and
- * Suspended lists the suspended accounts, alone or beside the others.
+ * accountQuery turns the Status facet into the list's query: the states
+ * chosen, by the server's names, and the suspended accounts that Suspended
+ * adds: alone they are the whole list, beside the others they join it.
  */
 function accountQuery(
   chosen: readonly string[],
-): Pick<ListStudentsParams, "mustChangePassword" | "status"> {
-  const has = (value: AccountFacet) => chosen.includes(value);
-  const open = has("active") || has("reset");
-  const query: Pick<ListStudentsParams, "mustChangePassword" | "status"> = {};
-  if (has("suspended")) query.status = open ? "all" : "disabled";
-  if (has("active") !== has("reset")) query.mustChangePassword = has("reset");
+): Pick<ListStudentsParams, "accountStatus" | "status"> {
+  const states = ACCOUNTS.filter((value) => chosen.includes(value));
+  if (states.length === 0) return {};
+  const query: Pick<ListStudentsParams, "accountStatus" | "status"> = {
+    accountStatus: states.map(statusOf),
+  };
+  if (states.includes("suspended"))
+    query.status = states.length === 1 ? "disabled" : "all";
   return query;
 }
 
@@ -331,6 +331,7 @@ function RemoveStudentDialog({
   onRemoved: () => Promise<unknown>;
 }>) {
   const { t } = useTranslation();
+  const joinOff = useJoinCodesOff();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -360,7 +361,7 @@ function RemoveStudentDialog({
       }}
       icon={UserMinus}
       title={t("students.removeAllTitle", { name: student?.fullName ?? "" })}
-      description={t("students.removeAllBody", {
+      description={t(joinOff ? "students.removeAllBodyOff" : "students.removeAllBody", {
         name: student?.fullName ?? "",
         classes: student === null ? "" : classesLeftBy([student]).names,
       })}
@@ -382,7 +383,8 @@ function RemoveStudentDialog({
  * the content narrows and which becomes cards below 768px, without checkboxes
  * or menus. The search (`q`), the classes (`classId`), the statuses
  * (`account`), the page and its size live in the URL, and so does the student
- * whose record is open (`studentId`). Each control shows only with its
+ * whose record is open (`studentId`); the search reaches the URL, and the
+ * request, once the teacher has paused for 300 ms. Each control shows only with its
  * permission: Add student with `people.students.create`, Reset password with
  * `people.students.reset_password`, Move to class and Remove from class with
  * `teaching.classes.write`. When a dialog closes, focus goes back to what
@@ -399,11 +401,13 @@ export default function StudentsPage() {
   const canMove = useCan("teaching.classes.write");
   const canManage = useCan("people.users.manage");
   const { params, setParams, setFilter } = useListFilters();
-  const query = params.get("q") ?? "";
+  const applied = params.get("q") ?? "";
+  const applyQuery = useCallback((value: string) => setFilter("q", value), [setFilter]);
+  const [typed, setTyped] = useDebouncedInput(applied, applyQuery, trimmed);
   const classIds = params.getAll("classId");
   const accounts = params.getAll("account");
   const selectedId = params.get("studentId");
-  const search = useDebounced(query.trim(), 300);
+  const search = applied.trim();
   const [size] = usePageSize();
   const scope = JSON.stringify({ classIds, accounts, search });
   const [page] = usePage(JSON.stringify({ classIds, accounts, search, size }));
@@ -507,9 +511,9 @@ export default function StudentsPage() {
 
       <div className="flex flex-wrap items-center gap-2">
         <SearchInput
-          className={SEARCH}
-          value={query}
-          onChange={(value) => setFilter("q", value)}
+          className={TOOLBAR_SEARCH}
+          value={typed}
+          onChange={setTyped}
           placeholder={t("students.searchPlaceholder")}
         />
         <FacetFilter

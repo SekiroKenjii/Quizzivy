@@ -51,11 +51,27 @@ step() {
   fi
 }
 
+drop_stale_pidfile() {
+  local pidfile="$1" comm="$2"
+  [ -f "$pidfile" ] || return 0
+  [ "$(cat "/proc/$(cat "$pidfile" 2>/dev/null)/comm" 2>/dev/null)" = "$comm" ] && return 0
+  echo "removing the stale $pidfile: its process is not $comm"
+  rm -f "$pidfile"
+}
+
 start_docker() {
   if docker info >/dev/null 2>&1; then
     return 0
   fi
-  setsid nohup dockerd >/tmp/dockerd.log 2>&1 &
+  drop_stale_pidfile /var/run/docker.pid dockerd
+  drop_stale_pidfile /var/run/docker/containerd/containerd.pid containerd
+  if [ ! -f /var/run/docker.pid ] && [ ! -f /var/run/docker/containerd/containerd.pid ]; then
+    echo "removing the sockets the previous boot left behind"
+    rm -f /var/run/docker.sock \
+      /var/run/docker/containerd/containerd-debug.sock \
+      /var/run/docker/containerd/containerd.sock.ttrpc
+  fi
+  setsid nohup dockerd 9>&- >/tmp/dockerd.log 2>&1 &
   local i
   for i in $(seq 1 90); do
     docker info >/dev/null 2>&1 && return 0
@@ -72,6 +88,8 @@ create_env() {
   local key
   key=$(openssl rand -base64 32) || return 1
   sed -i "s|^JOIN_CODE_KEY=.*|JOIN_CODE_KEY=$key|" .env
+  key=$(openssl rand -base64 32) || return 1
+  sed -i "s|^SECRETS_KEY=.*|SECRETS_KEY=$key|" .env
 }
 
 install_goose() {
@@ -127,12 +145,22 @@ ensure_minio_image() {
   build_minio_image
 }
 
+compose_up() {
+  docker compose up -d --wait "$1" && return 0
+  echo "recreating $1: the first start failed, as it does on the runc state a container restart leaves behind"
+  docker compose up -d --force-recreate --wait "$1"
+}
+
 start_postgres() {
-  docker compose up -d --wait db
+  compose_up db
+}
+
+provision_roles() {
+  docker compose exec -T -e PGUSER=postgres db /provision/provision-db.sh
 }
 
 start_minio() {
-  docker compose up -d --wait minio && docker compose run --rm minio-init
+  compose_up minio && docker compose run --rm minio-init
 }
 
 migrate() {
@@ -150,7 +178,7 @@ step ".env" create_env
 step "web dependencies" install_web_dependencies
 if step "docker daemon" start_docker; then
   step "MinIO image $MINIO_IMAGE" ensure_minio_image
-  step "postgres" start_postgres && step "migrations" migrate
+  step "postgres" start_postgres && step "database roles" provision_roles && step "migrations" migrate
   docker image inspect "$MINIO_IMAGE" >/dev/null 2>&1 && step "MinIO" start_minio
 fi
 echo "$(date -u +%FT%TZ) session start hook ends"

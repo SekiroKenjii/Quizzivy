@@ -41,7 +41,7 @@ func (h Classes) GetJoinCode(ctx context.Context, request openapi.GetJoinCodeReq
 	case err != nil:
 		return nil, err
 	}
-	noStore := "no-store"
+	cache := noStore
 	out := openapi.JoinCode{
 		Hint:      active.Hint,
 		Legacy:    active.Legacy,
@@ -53,7 +53,7 @@ func (h Classes) GetJoinCode(ctx context.Context, request openapi.GetJoinCodeReq
 		grouped := domain.JoinCodes.Format(active.Code)
 		out.Code = &grouped
 	}
-	return openapi.GetJoinCode200JSONResponse{Body: out, Headers: openapi.GetJoinCode200ResponseHeaders{CacheControl: &noStore}}, nil
+	return openapi.GetJoinCode200JSONResponse{Body: out, Headers: openapi.GetJoinCode200ResponseHeaders{CacheControl: &cache}}, nil
 }
 
 // RotateJoinCode implements POST /teacher/classes/{id}/join-code (§6.1).

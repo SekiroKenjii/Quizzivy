@@ -2,7 +2,6 @@ package domain
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/subtle"
 	"fmt"
 	"strings"
@@ -47,14 +46,6 @@ func (JoinCodeManager) Normalize(input string) string {
 	return b.String()
 }
 
-// Hash is the legacy lookup hash, SHA-256, which v0.7.0 stored and its rows
-// still carry. New rows store JoinCodeKeys.Hash instead: 40 bits of code space
-// is too little to stop a database dump being hashed through offline.
-func (JoinCodeManager) Hash(normalized string) []byte {
-	sum := sha256.Sum256([]byte(normalized))
-	return sum[:]
-}
-
 // Equal compares two code hashes in constant time (§13.5).
 func (JoinCodeManager) Equal(a, b []byte) bool {
 	return subtle.ConstantTimeCompare(a, b) == 1
@@ -69,8 +60,8 @@ func (JoinCodeManager) Hint(normalized string) string {
 	return normalized[len(normalized)-HintLength:]
 }
 
-// JoinCodeManager mints, normalises, formats and hints join codes and computes
-// their legacy hash; it holds no key.
+// JoinCodeManager mints, normalises, formats and hints join codes; it holds no
+// key.
 type JoinCodeManager struct{}
 
 var JoinCodes JoinCodeManager

@@ -15,33 +15,23 @@ this file describe the code as it is and name the release that changes them.
   not cite them. Deliberate departures from the deck are in
   `docs/design/gaps.md`.
 - **Since R1** (v0.7.0) the deck's tokens, Be Vietnam Pro and the primitives
-  are in. Deck geometry that would change an existing primitive (control
-  heights, radii, badge and card shapes) applies only inside
-  `data-scale="deck"`, which a rebuilt surface sets on its root. The student
-  app and the take-test engine are such surfaces since R3 (v0.9.0) and follow
-  the theme. Since R4 (v0.10.0) every teacher screen is one too: it renders in
-  `TeacherLayout` and follows the theme, and `AdminLayout` and
-  `useForcedLightTheme` are gone (T-R4.48). R5 makes the deck geometry the
-  default and removes `data-scale`
-  (T-R5.30). `web/public/boot.js` applies the theme and language before paint,
+  are in. Since T-R5.30 the deck's geometry (control heights, radii, badge and
+  card shapes) is the primitives' only geometry, with no scale attribute on any
+  root. The student app and the take-test engine follow the theme since R3
+  (v0.9.0). Since R4 (v0.10.0) every teacher screen renders in
+  `TeacherLayout` and follows the theme; the v0.7.0 `AdminLayout` and
+  `useForcedLightTheme` are gone (T-R4.48), and R5's `AdminLayout` (T-R5.20) is
+  the Admin console's shell. `web/public/boot.js` applies the theme and language before paint,
   since the CSP allows no inline script. Do not restyle a screen ad hoc ahead
   of the release that rebuilds it.
 - **Since R2** (v0.8.0) permissions, not paths, gate the API, repositories
   scope rows to their owner, and teaching operations are under `/teacher/*`
-  ("Authentication and authorization" below). The v0.7.0 `/admin/*` API paths
-  answer through an alias until v0.9.1 (T-R3.3).
-- **v0.9.1** (T-R3.1 to T-R3.3, no earlier than 2026-10-10) removes that alias,
-  drops the legacy `users.role` column with its sync trigger, and validates the
-  owner constraints and drops their fill triggers. By default the three now ship
-  inside R4 as T-R4.49, because R4 has already taken migrations 00080 to 00091
-  (`73-r3.md`, "Migration numbers"). The legacy role is gone (00105, T-R3.1):
-  no `users.role`, no `app.user_role`, no sync trigger, and no `role` in the
-  contract or in an access token. The owner constraints are validated and their
-  fill triggers dropped (00106, T-R3.2). Only the alias (T-R3.3) is in the code
-  until its step merges.
+  ("Authentication and authorization" below).
 - **R4** moved the teacher web routes from `/admin/*` to `/teacher/*` (T-R4.5);
-  an old `/admin/*` bookmark redirects to the same path under `/teacher` until
-  R5 builds the Admin console at `/admin`.
+  an old `/admin/*` bookmark that is not a route of the Admin console redirects
+  to the same path under `/teacher`. **R5** builds the console at `/admin`:
+  T-R5.20 is its shell and route tree, and each destination has its page since
+  T-R5.21 took the Overview over from the last placeholder.
 
 ## Sources of truth, in order
 
@@ -74,7 +64,7 @@ conflict to know: the skill teaches the pre-18
 - Never remove or skip a failing test to make CI green. Fix it or flag it.
 - No new dependency without a stated reason in the PR description.
 - Never commit secrets. `.env.example` stays current; `.env` stays ignored.
-- **Never hand-edit generated code.** `server/gen/openapi/` and
+- **Never hand-edit generated code.** `server/gen/openapi/`, `server/gen/contract/` and
   `web/src/lib/api/schema.d.ts` come from `api/openapi.yaml`. Change the
   contract and run `make gen`. CI fails on drift.
 - **`attempt_events` and `audit_log` are append-only.** The app role has no
@@ -166,10 +156,11 @@ module:
 | package | holds |
 |---|---|
 | `core` (`core.go`) | `App`: config, signals, lifecycle, `Handler()`, `Serve()` |
-| `core/wiring` | `Build`: one file per module, repository → `Application` → transport, in dependency order, starting with `access.go`, which refuses a database whose `app.permissions` lacks a key this binary knows; returns the `Assembly` (transports, the access application as `Principals`, token issuer, identity application, the AI `Completer` and the AI credits application). `ai.go` builds the AI module over the provider, which is nil without `ANTHROPIC_API_KEY`; `import_worker.go` gives the import worker the same provider and credits (`scanReader`) when the key is set, and no reader when it is not |
-| `core/adapters` | platform clients behind module ports (`Google`, `AudioProbe`, and `AI`, the Anthropic client behind the ai module's `Completer`), one module's handlers behind another's port (`Media`, `MediaKinds`, and `ai_reads.go`: the tests, questions, attempts and identity reads the AI operations take), and `Principals`: the access module's `ResolvePrincipal` as `httpx.PrincipalResolver`. `adapters.NewAI` returns a nil `Completer` without the key, and every AI operation then answers `501 AI_OFF` and `GET /public/status` says `ai: false`, as media does without storage; `PDFPages` draws a scan's pages for the worker's AI reader |
-| `core/router` | `Deps`, whose `Principals` resolves who a request acts as for the permission and docs gates (`New` refuses a nil one), `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/livez`, `/healthz`, `/docs`, the `/admin` alias until v0.9.1 (T-R3.3)), `RateLimits` (per address or body field) and `PrincipalRateLimits` (per signed-in user) for contract operations, and `ServiceRateLimits` for the routes beside it |
-| `core/jobs` | background commands (`PruneRefreshTokens`, `PruneNotifications`, and `ReleaseStaleAiReservations`, which runs only when the provider is configured) |
+| `core/wiring` | `Build`: one file per module, repository → `Application` → transport, in dependency order, starting with `access.go`, which refuses a database whose `app.permissions` lacks a key this binary knows; returns the `Assembly` (transports, the access application as `Principals`, token issuer, identity application, the AI `Completer` and the AI credits application). `ai.go` builds the AI module over the provider, which is nil without `ANTHROPIC_API_KEY`; `organization.go` builds the organization module over the media bucket, so a logo is stored when storage is configured and an upload answers `501` when it is not, and hands identity and classes its `SignInPolicy` query; `import_worker.go` gives the import worker the same provider and credits (`scanReader`) when the key is set, and no reader when it is not; `user_imports.go` gives identity the user imports when the import worker is configured (none, so `501`, without it) and builds `UserImportsWorker`, the runner the import worker drains after its own queue; `exports.go` builds the data export over the import bucket (a nil application, so `501`, without the import worker's configuration) and `ExportsWorker`, the runner the import worker drains after the user imports; `content_transfer.go` gives identity the adapter that moves one user's content to another; `email.go` builds `Mail`, the email outbox modules enqueue into and the dispatcher that sends it (Resend, or the sink directory outside production), which `Serve` and the import worker both run |
+| `core/adapters` | platform clients behind module ports (`Google`, `AudioProbe`, and `AI`, the Anthropic client behind the ai module's `Completer`), one module's handlers behind another's port (`Media`, `MediaKinds`, and `ai_reads.go`: the tests, questions, attempts and identity reads the AI operations take), and `Principals`: the access module's `ResolvePrincipal` as `httpx.PrincipalResolver`. `adapters.NewAI` returns a nil `Completer` without the key, and every AI operation then answers `501 AI_OFF` and `GET /public/status` says `ai: false`, as media does without storage; `PDFPages` draws a scan's pages for the worker's AI reader; `ContentTransfer` moves a user's classes, tests, questions, question groups, media and assignments in one transaction; `LogoStore` and `LogoChecker` (through `imagesafe`) are the organization's logos; `ExportTable` and `UserImportTables` write and read a table through `tabular`, and `UserImportBudget` is the outbox's daily allowance |
+| `core/router` | `Deps`, whose `Principals` resolves who a request acts as for the permission and docs gates (`New` refuses a nil one), `Modules`, the `Server` composite embedding every module's `http` type, `New` (middleware order, `/livez`, `/healthz`, `/docs`), `RateLimits` (per address or body field) and `PrincipalRateLimits` (per signed-in user) for contract operations, and `ServiceRateLimits` for the routes beside it |
+| `core/jobs` | background commands (`PruneRefreshTokens`, whose 24-hour tick also runs `Housekeep`, the daily housekeeping whose steps `core/housekeeping.go` assembles, `PruneNotifications`, `RunEmail`, which sends the outbox in the API and in the worker, and `ReleaseStaleAiReservations`, which runs only when the provider is configured) |
+| `core/maintenance` | the operator's commands `cmd/maintenance` runs as `quizzivy_maintenance` (`MAINTENANCE_DATABASE_URL`, never set on the API): `retention-sweep`, which `.github/workflows/retention-sweep.yml` runs nightly, `retain-integrity`, `anonymize-user`, the maintenance windows, `rekey-join-codes`, `ai-credits` and `ai-reservations-sweep`; writes are dry runs until `-apply`, and the role holds what `00139_grant_maintenance_role.sql` grants, so a command that needs more grants it in its own migration |
 | `platform/httpserver` | the HTTP server, its timeouts and graceful shutdown |
 
 A new module is wired in `wiring/<module>.go`. An optional dependency stays a
@@ -187,26 +178,36 @@ by `core/tests/architecture_test.go`.
 api/openapi.yaml   the contract — edit this first, then `make gen`
 web/               quizzivy-web
   src/             spec §3 layout -- source only, no tests; a feature's teacher
-                   pages are in features/<name>/pages/teacher/, the shell in
-                   layouts/TeacherLayout.tsx and layouts/shell/; features/notifications
-                   is the bell and its preferences in both consoles
+                   pages are in features/<name>/pages/teacher/ and an Admin's in
+                   features/<name>/pages/admin/, the shells in layouts/TeacherLayout.tsx,
+                   layouts/AdminLayout.tsx and layouts/shell/; features/notifications
+                   is the bell and its preferences in both consoles; users, roles, audit,
+                   exports, organization, ai-credits and api-reference are the Admin
+                   console's, and admin-overview is its Overview
   tests/           units/ integration/ e2e/ support/ -- see web/tests/README.md
 server/            Go module `quizzivy`: a modular monolith
   internal/core/     composition root: wiring/ router/ adapters/ jobs/
-  internal/platform/ technical adapters (db context + repository base, storage, google, probe, httpx, httpserver, apidocs, anthropic, ...);
-                     anthropic is the AI provider's client and the only package that imports its SDK
+  internal/platform/ technical adapters (db context + repository base, storage, google, probe, httpx, httpserver, apidocs, anthropic, email, secrets, tabular, imagesafe, ...);
+                     anthropic is the AI provider's client and the only package that imports its SDK;
+                     email is the outbox, its templates and its senders (Resend, or a sink directory);
+                     secrets seals short-lived values under SECRETS_KEY; tabular writes the CSVs people
+                     download and reads the CSV and XLSX files they upload
   internal/shared/   kernel: cqrs, actor, paging, audit, stats, opt, validation, content,
                      access (permission keys, Principal, Scope, CanActOn), visibility (who a teacher reaches),
                      answered (when a saved answer counts as answered), schedule (the assignment status and close rules, a student's override of them, and the lock and recompute that move a deadline in progress)
   internal/modules/  one directory per bounded context, four layers each:
                      domain/ application/{command,query,ports,model} repositories/ http/, tests in <layer>/tests/;
-                     access (roles, grants, the principal cache) has no http/ until R5;
+                     access (roles, grants, the principal cache; http/ serves /admin/roles);
                      ai (the provider port, the credits and the eight suggestions) is D4's, with
                      domain/prompts/ for each feature's prompt and schema;
                      notifications (the store, the kinds and their producers, the
-                     due-time items, a user's switches) is R4's
+                     due-time items, a user's switches) is R4's;
+                     organization (the centre's one settings document: details, logos, sign-in
+                     policy, retention), audit (the Admin console's read of the audit log) and
+                     exports (an Admin's data export) are R5's; identity's and exports'
+                     application/worker/ is the runner cmd/import-worker drives
   tests/             end-to-end tests (build tag e2e)
-  gen/openapi/       generated, committed, never hand-edited
+  gen/openapi/       generated, committed, never hand-edited (gen/contract/ too)
 migrations/        goose, forward-only, 00001…
 seed/              seed data — never in a migration
 docs/plan/         the plan; 20-data-model.md is the schema authority; 70–81 are Phase R
@@ -233,6 +234,12 @@ unit, integration and end-to-end in that order.
   guards that are not permissions (the subset rule, strict student targets,
   the last admin, sign-in lockout) are in `docs/plan/70-redesign-overview.md`
   §4.
+- **A temporary password opens two operations.** While `Principal.MustChangePassword`
+  is set, `RequirePermission` answers `403 PASSWORD_CHANGE_REQUIRED` to every operation
+  that needs a bearer token except one declaring `x-allows-temporary-password: true`,
+  which only an operation open to `self` may (`getCurrentUser` and `changePassword`).
+  A new operation never declares it. A test that acts as a student made with a
+  temporary password changes it first (`loginSettled` in `server/tests`).
 - **A permission says what a caller may do; `access.Scope` says whose rows.**
   Repositories take an `access.Scope`, which only `scope.all` widens. Another
   teacher's id answers exactly as a missing one does: 404, or for a reference
@@ -254,16 +261,21 @@ unit, integration and end-to-end in that order.
   declares `x-resource-list`. `TestAnotherTeachersIdsAnswerAsMissingOnes`
   fails naming an operation the table lacks, and `resource_contract_test.go`
   a uuid without a kind.
-- **The v0.7.0 `/admin/*` teaching paths answer until v0.9.1 (T-R3.3).** The router
-  rewrites each to its new path (`LegacyAdminPaths`: a `/teacher/*` path, and
-  `DELETE /admin/students/{id}` to `DELETE /admin/users/{id}`) and logs
-  `legacy_admin_path`. A new operation never joins that table.
+- **The Admin console's operations are under `/admin/*`** and declare an Admin
+  key: that tree takes `people.users.manage`, `people.roles.manage`, the
+  `system.*` keys, `ai.credits.manage`, `scope.all` and `workspace.admin`, and
+  is the only tree that may name a hidden key (`scope.all`,
+  `system.api_reference`, `system.data_export`, `system.leads`), which only the
+  Admin wildcard holds (`httpx.PermissionRequirements`). The console's web
+  routes and their guard are under "Design".
 - **Everything the contract does not explicitly open requires a bearer token**,
-  derived from `api/openapi.yaml`'s `security`. Seven operations are open —
+  derived from `api/openapi.yaml`'s `security`. Eleven operations are open —
   login, Google sign-in, refresh, logout, `POST /join/preview`, the integrity
-  beacon `POST /app/attempts/{id}/events` and `GET /public/status` — and the
-  list is pinned by `theOpenSeven` in `core/router/tests/auth_middleware_test.go`,
-  so an eighth takes an argument.
+  beacon `POST /app/attempts/{id}/events`, `GET /public/status`,
+  `GET /public/organization`, `GET /public/organization/logo`,
+  `POST /auth/set-password/check` and `POST /auth/set-password` — and the
+  list is pinned by `theOpenEleven` in `core/router/tests/auth_middleware_test.go`,
+  so a twelfth takes an argument.
 
 ## `pnpm typecheck`, never `tsc --noEmit`
 
@@ -346,7 +358,7 @@ Use `localhost` for both, never a `127.0.0.1`/`localhost` split — that is
 cross-site and hides the cookie behaviour described in
 `docs/plan/00-overview.md` §4.1.
 
-Four local-dev facts worth not rediscovering:
+Six local-dev facts worth not rediscovering:
 
 - **The `postgres:18` image changed its data layout.** The volume mounts at
   `/var/lib/postgresql`, and the image puts data in a version subdirectory
@@ -355,7 +367,10 @@ Four local-dev facts worth not rediscovering:
 - **Roles are created by `docker/initdb/`, not by a migration.** `CREATE ROLE`
   needs superuser and `quizzivy_migrate` deliberately is not one. `pg_trgm` and
   `unaccent` are *trusted* extensions, so the migrate role can install them
-  itself — verified.
+  itself — verified. A volume made before R5 has no `quizzivy_maintenance`, and
+  migration 00139 fails for want of it: run
+  `docker compose exec -T -e PGUSER=postgres db /provision/provision-db.sh`
+  once (`scripts/provision-db.sh`, idempotent).
 - **The API refuses to start without `JOIN_CODE_KEY`** in `.env`: standard
   base64 of exactly 32 random bytes, generated with `openssl rand -base64 32`.
   A code sealed under a key the server no longer holds can be neither read nor
@@ -364,9 +379,23 @@ Four local-dev facts worth not rediscovering:
 - **`make test-api`'s end-to-end tier needs MinIO** (`make up`): the isolation
   suite uploads real images, audio and Word sources, through the compose
   endpoint and buckets unless `S3_*` and `IMPORT_S3_BUCKET` say otherwise.
+- **Without Resend, email lands in a directory.** Without
+  `RESEND_API_KEY`, `EMAIL_FROM` and `APP_URL` (production refuses to start
+  without them), every message, a set-password
+  link included, is a JSON file under `EMAIL_SINK_DIR` (default
+  `tmp/email-sink`, relative to the process: `server/tmp/email-sink` under
+  `make dev`). Without `SECRETS_KEY` a message that carries a secret cannot be
+  queued at all.
+- **The import worker runs more than Word imports.** `cmd/import-worker` drains
+  Word imports, then user imports, then data exports, and sends the email
+  outbox as the API does. Without `IMPORT_PROCESSING_ENABLED` user imports and
+  the data export answer `501`; `make dev` sets it, and starts the worker, when
+  `IMPORT_S3_BUCKET` is set.
 
-Two database roles: `quizzivy_migrate` owns the schema and runs goose;
-`quizzivy_app` is what the API connects as and owns nothing.
+Three database roles: `quizzivy_migrate` owns the schema and runs goose;
+`quizzivy_app` is what the API connects as and owns nothing;
+`quizzivy_maintenance` is what `cmd/maintenance` connects as, with the column
+grants of migration 00139, and is never set on the API.
 
 ## Migrations
 
@@ -415,7 +444,10 @@ those tests are about what the browser does, and the server's behaviour is
 covered by Go tests against a real Postgres. The live suite exists for claims
 that are about the two halves meeting: E2E 1a uploads a real mp3 so §11.1's
 sniff, size check and duration probe run rather than being mocked. Adding a case
-there needs a reason of that kind; the default is `pnpm e2e`.
+there needs a reason of that kind; the default is `pnpm e2e`. A live spec that
+waits on real time (E2E 5's one-minute deadline) is in the `slow` project
+instead, `pnpm e2e:slow`, which the Slow tail workflow runs nightly and on a pull
+request into `main` (`docs/setup/ci.md`).
 
 It needs `make up`, `make migrate`, `make seed`, and the API on :8080 with
 `http://localhost:4173` in `CORS_ALLOWED_ORIGINS`. Kill any leftover `vite
@@ -495,6 +527,8 @@ live in `src/index.css`, which it does not scan.
 Every control has a visible `:focus-visible` ring, although the deck draws none.
 Its colour is `--focus`, which `tokens.test.ts` holds at 3:1 or more on `--bg`,
 `--card`, `--sidebar` and `--muted` in both themes.
+A control paused with `aria-disabled` stays focusable and fades its colours, never
+the element's opacity, which halves its focus outline.
 Continuous motion (the marquee on overflowing titles, the live dot) pauses on
 hover and focus and is static under `prefers-reduced-motion`.
 
@@ -544,6 +578,21 @@ of `<main>`'s content (`useContentWidthAtLeast`, `useContentBand`), so
 collapsing the sidebar can move a page into its next layout. A unit test of a
 page in the shell calls `contentWidth(px)` (`tests/support/contentWidth.ts`)
 first, because jsdom measures 0.
+
+The Admin console lives in `AdminLayout` on the same shell: `ConsoleShell`
+(`layouts/shell/`) is the frame both layouts render, each with its own
+destinations (`teacherNav.ts`, `adminNav.ts`) and top-bar end. Its routes are
+under `/admin`, behind `AdminWorkspace` and then `RequirePermission`
+(`app/guards/`), and each declares `handle.crumb`, `width` (1320px, 1080px for
+API reference and Settings) and `permission`, the `x-permission` of the
+operation its page opens with; the guard answers the 403 page to a user who
+lacks it, and `adminNavFor` leaves such a destination out of the sidebar.
+`tests/units/contract/admin-nav.test.ts` holds the table to the contract. An
+`/admin/...` path that is not one of the console's (`consolePath` in
+`app/adminPaths.ts`) is a teacher address from before R4 and redirects. A
+console address for a user without the workspace answers the 403 page, except
+`/admin` and `/admin/classes` (`hasTeacherTwin`), which are teacher pages too
+and redirect.
 
 The take-test engine runs in `FocusLayout` and asks every width question through
 `useEngineWidthAtLeast` (`take-test/width.ts`): the window's width there, and the
@@ -595,6 +644,9 @@ Design for longer Vietnamese strings; avoid fixed-width labels.
 - [ ] Keyboard-operable; visible focus
 - [ ] All strings via `t()`, keys in both `vi` and `en`
 - [ ] Tests added or updated at the right level (spec §14)
+- [ ] Each new test names the single production change that makes it fail and
+      the existing test it is not a copy of; a Playwright test names the claim
+      only a browser, or only a real server, can prove
 - [ ] DDL reviewed against spec §13, `docs/plan/20-data-model.md`, and the Neon
       skill; migration file named
 - [ ] New public (unauthenticated) endpoint: rate-limited **and** leak-reviewed
@@ -673,8 +725,9 @@ fix the cause, never the test:
   resumed attempt's timeline vanishing.
 - `web/tests/units/api/client.refresh.test.ts` — five concurrent 401s must issue
   exactly one refresh.
-- `web/tests/integration/router-chunks.test.ts` — the admin tree must stay out of
-  the entry chunk. It runs a real build; reading the router and trusting `lazy`
+- `web/tests/integration/router-chunks.test.ts` — the teacher tree and the Admin
+  console must stay out of the entry chunk, and the console out of every student
+  and teacher page's chunk. It runs a real build; reading the router and trusting `lazy`
   would not catch the regression that actually happens.
 
 `docs/plan/30-risks.md` explains what each one is guarding.
@@ -706,7 +759,23 @@ a stated default, in which case build the default and move on.
 
 ## Keeping documents current
 
-When a decision changes, edit the spec section and bump its version at the top
-(§18), then correct the affected plan file. A plan that disagrees with what was
-built is worse than no plan. In Phase R, the spec, this file and the plan
-change in the release that changes the behaviour, never batched at the end.
+When a decision changes, edit the spec section and record the change in the
+spec's changelog (§18), then correct the affected plan file. A plan that
+disagrees with what was built is worse than no plan. In Phase R, the spec, this
+file and the plan change in the release that changes the behaviour, never
+batched at the end.
+
+**The spec's version is numbered at release, not per PR.** On an integration
+branch (`develop`, `work/**`) a task PR never edits the version line. It adds its
+bullets under the one heading at the top of the changelog,
+`**Changes pending (R<k>, v<version>)**` (R5's was `(R5, v0.12.0)`), each
+bullet starting with its task id (`T-R5.15 §15 …`). The release PR sets the version line to the next free number
+and renames the heading `**Changes since v0.NNN**`, where NNN is the version the
+release replaces. A hotfix off `main` numbers
+itself, because it is its own release, and its back-merge carries the number
+down. Migration numbers and the `D-nn` ids of `docs/plan/20-data-model.md` are
+permanent ids, not a version, and keep the rule in `docs/team/README.md`.
+
+The wiki is generated from these documents on every push to `develop`
+(`docs/setup/ci.md`, "The wiki"). Edit the file in the repository, never a wiki
+page.

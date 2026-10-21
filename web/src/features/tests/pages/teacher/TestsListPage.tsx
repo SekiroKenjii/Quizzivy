@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import {
@@ -17,7 +17,6 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
@@ -29,12 +28,12 @@ import { EmptyState, LoadError, QueryStates } from "@/components/shared/ListStat
 import { Pager } from "@/components/shared/data/Pager";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { trimmed, useDebouncedInput } from "@/hooks/useDebouncedInput";
 import { useListFilters } from "@/hooks/useListFilters";
 import { usePage, usePageSize } from "@/hooks/usePage";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { ApiError } from "@/lib/api/errors";
 import { useDisplayTimeZone } from "@/lib/i18n/datetime";
-import { useDebounced } from "@/lib/useDebounced";
 import { useImportAvailability } from "@/features/imports/availability";
 import {
   archiveTest,
@@ -59,8 +58,7 @@ const TAB_LABELS = {
 const SEARCH =
   "[&_input]:bg-card [&_input]:border-border max-w-[280px] flex-[0_1_280px] [&_input]:h-8.5 [&_input]:pl-8.25 [&_input]:text-sm [&_svg]:top-[9.5px] [&_svg]:size-3.75";
 
-const GHOST =
-  "text-muted-fg hover:bg-muted hover:text-fg dark:hover:bg-muted in-data-[scale=deck]:px-3";
+const GHOST = "text-muted-fg hover:bg-muted hover:text-fg dark:hover:bg-muted px-3";
 
 function toTab(value: string | null): Tab {
   return TABS.find((tab) => tab === value) ?? "all";
@@ -130,7 +128,8 @@ function message(cause: unknown, fallback: string): string {
 /**
  * TestsListPage is the teacher's tests, as the deck's Tests screen draws them:
  * the ways to start a test (Word or PDF, paste, or from nothing), the status
- * tabs with their counts, a search by title, and the tests as cards. Every
+ * tabs with their counts, a search by title that reaches the URL once the
+ * teacher has paused for 300 ms, and the tests as cards. Every
  * test, archived ones included, is under All. A card can be selected for the
  * bulk archive and delete, duplicated in place, and archived, restored or
  * deleted from its menu. The list pages 24 or 48 cards at a time, and its
@@ -146,8 +145,10 @@ export default function TestsListPage() {
   const bulk = useBulkSelection<Test>();
   const { params, setParams, setFilter } = useListFilters();
   const tab = toTab(params.get("status"));
-  const query = params.get("q") ?? "";
-  const search = useDebounced(query.trim(), 300);
+  const applied = params.get("q") ?? "";
+  const applyQuery = useCallback((value: string) => setFilter("q", value), [setFilter]);
+  const [typed, setTyped] = useDebouncedInput(applied, applyQuery, trimmed);
+  const search = applied.trim();
   const [size] = usePageSize(PAGE_SIZES);
   const [page] = usePage(JSON.stringify({ tab, search }));
   const tests = useQuery({
@@ -313,7 +314,7 @@ export default function TestsListPage() {
   };
 
   return (
-    <DeckScale className="flex w-full min-w-0 flex-col gap-4">
+    <div className="flex w-full min-w-0 flex-col gap-4">
       <PageHead
         title={t("teacherShell.nav.tests")}
         description={t("tests.description")}
@@ -365,8 +366,8 @@ export default function TestsListPage() {
         />
         <SearchInput
           className={SEARCH}
-          value={query}
-          onChange={(value) => setFilter("q", value)}
+          value={typed}
+          onChange={setTyped}
           placeholder={t("tests.searchPlaceholder")}
         />
       </div>
@@ -419,7 +420,7 @@ export default function TestsListPage() {
         }}
         onDeleted={invalidate}
       />
-    </DeckScale>
+    </div>
   );
 }
 

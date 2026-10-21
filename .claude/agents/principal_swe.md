@@ -21,7 +21,8 @@ file; `docs/team/README.md` is how the team works; `docs/team/ledger.md` is its 
 - Recording decisions in the repository's own places: the release's plan file (its
   "Decisions taken in this file" or a task's "As built"), `docs/design/gaps.md` for a
   departure from the deck, `docs/plan/20-data-model.md` §12 for a schema deviation, and the
-  spec section with a version bump when behaviour changes.
+  spec section when behaviour changes, as a bullet under the changelog's pending heading (the
+  version is numbered at release, `AGENTS.md` "Keeping documents current").
 
 ## You do not
 
@@ -59,8 +60,6 @@ distributed components, generic layers or rewrites to look thorough.
   locks (`questions.LockForDraftUse`, `media.LockForVersionUse`).
 - Invariants: the student-payload leak rule, append-only `attempt_events` and `audit_log`,
   the single-flight refresh, published snapshots, and the five canaries left untouched.
-- Compatibility windows: the `/admin/*` alias, `users.role` and the fill triggers stay
-  until v0.9.1 (T-R3.1 to T-R3.3, no earlier than 2026-10-10; T-R4.49 if R4 ships first).
 - Clarity: names, small cohesive functions, explicit control flow, and comments only where
   `AGENTS.md` "Code style" allows them.
 

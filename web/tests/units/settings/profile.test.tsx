@@ -1,8 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { Toaster } from "@/components/ui/sonner";
+import { setAvatar } from "@/features/settings/api";
 import { ProfileSection } from "@/features/settings/sections/Profile";
 import { useAuthStore } from "@/stores/auth";
 import { contractJson } from "@tests/support/contractResponse";
@@ -11,6 +12,11 @@ import { teacherUser } from "@tests/support/fixtures";
 import { server } from "@tests/support/server";
 import { BASE, REQUEST_ID, signIn } from "./support";
 import "@/lib/i18n";
+
+vi.mock("@/features/settings/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/features/settings/api")>();
+  return { ...actual, setAvatar: vi.fn(actual.setAvatar) };
+});
 
 const SAVED = {
   ...teacherUser,
@@ -28,6 +34,8 @@ beforeEach(() => {
 
 afterEach(() => {
   useAuthStore.getState().clearSession();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 function renderProfile() {
@@ -238,6 +246,40 @@ describe("the profile photo", () => {
     expect(await within(dialog).findByText("Ảnh tối đa 2 MB.")).toBeVisible();
   });
 
+  it("scales a phone photo down before sending it, even when the file is over 2 MiB", async () => {
+    vi.mocked(setAvatar).mockClear();
+    const close = vi.fn();
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn().mockResolvedValue({ width: 4032, height: 3024, close }),
+    );
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((callback) =>
+      callback(new Blob([new Uint8Array(700 * 1024)], { type: "image/jpeg" })),
+    );
+    server.use(
+      http.put(`${BASE}/me/avatar`, () =>
+        contractJson("/me/avatar", "put", 200, {
+          ...SAVED,
+          avatarUrl: "https://media.example.com/avatar.png",
+        }),
+      ),
+    );
+    renderProfile();
+
+    await choose(
+      new File([new Uint8Array(3 * 1024 * 1024)], "camera.jpg", { type: "image/jpeg" }),
+    );
+
+    await waitFor(() => expect(setAvatar).toHaveBeenCalledTimes(1));
+    const [uploaded] = vi.mocked(setAvatar).mock.calls[0]!;
+    expect(uploaded.size).toBe(700 * 1024);
+    expect(uploaded.name).toBe("camera.jpg");
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     [413, "MEDIA_TOO_LARGE", "Ảnh lớn hơn 2 MiB."],
     [415, "MEDIA_TYPE_UNSUPPORTED", "Chỉ nhận PNG hoặc JPEG."],
@@ -267,11 +309,11 @@ describe("the profile photo", () => {
       "font-normal",
       "text-muted-fg",
       "hover:bg-transparent",
-      "in-data-[scale=deck]:px-2.5",
-      "in-data-[scale=deck]:text-sm",
+      "px-2.5",
+      "text-sm",
     );
-    expect(remove).not.toHaveClass("in-data-[scale=deck]:px-3.5");
-    expect(remove).not.toHaveClass("in-data-[scale=deck]:text-ui");
+    expect(remove).not.toHaveClass("px-3.5");
+    expect(remove).not.toHaveClass("text-ui");
   });
 
   it("removes the photo after a confirmation", async () => {

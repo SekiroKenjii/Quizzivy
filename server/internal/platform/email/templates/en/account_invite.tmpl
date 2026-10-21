@@ -1,0 +1,27 @@
+{{define "subject"}}{{.Org}}: Set a password for your Quizzivy account{{end}}
+
+{{define "text"}}{{.Org}}
+
+{{if .Params.FullName}}Hello {{.Params.FullName}},{{else}}Hello,{{end}}
+
+{{.Org}} has created a Quizzivy account for you. Open the link below to set a password and sign in:
+
+{{.Link}}
+
+The link works once and expires after 24 hours. If it has expired, ask your centre for a new one.
+
+If you were not expecting this email, you can ignore it.{{end}}
+
+{{define "html"}}<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{template "subject" .}}</title></head>
+<body style="margin:0;padding:24px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5">
+<p style="margin:0 0 24px;font-size:18px;font-weight:bold">{{.Org}}</p>
+<p>{{if .Params.FullName}}Hello {{.Params.FullName}},{{else}}Hello,{{end}}</p>
+<p>{{.Org}} has created a Quizzivy account for you. Open the link below to set a password and sign in:</p>
+<p><a href="{{.Link}}">Set a password</a></p>
+<p style="font-size:14px;word-break:break-all">{{.Link}}</p>
+<p>The link works once and expires after 24 hours. If it has expired, ask your centre for a new one.</p>
+<p>If you were not expecting this email, you can ignore it.</p>
+</body>
+</html>{{end}}

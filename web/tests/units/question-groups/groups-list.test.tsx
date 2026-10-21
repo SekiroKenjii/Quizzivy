@@ -1,10 +1,9 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, describe, expect, it } from "vitest";
 import { http } from "msw";
-import { DeckScale } from "@/components/ui/deck-scale";
 import GroupsListPage from "@/features/question-groups/pages/teacher/GroupsListPage";
 import { contractJson } from "@tests/support/contractResponse";
 import { server } from "@tests/support/server";
@@ -50,11 +49,7 @@ function renderList(path = "/teacher/question-bank/groups") {
     [
       {
         path: "/teacher/question-bank/groups",
-        element: (
-          <DeckScale>
-            <GroupsListPage />
-          </DeckScale>
-        ),
+        element: <GroupsListPage />,
       },
       { path: "/teacher/question-bank/groups/:id", element: <p>editor page</p> },
       { path: "/teacher/question-bank", element: <p>bank page</p> },
@@ -139,5 +134,21 @@ describe("the archive confirmation", () => {
     expect(
       await screen.findByText(/^Archive these 2 groups from the active list\./),
     ).toBeInTheDocument();
+  });
+});
+
+describe("the groups list's search", () => {
+  it("keeps what is typed in the box and out of the URL until the typing pauses", async () => {
+    serve({ active: 2, archived: 0 });
+    const { user, router } = renderList();
+    const box = await screen.findByRole("searchbox");
+    const before = router.state.location.search;
+
+    await user.type(box, "pass");
+    expect(box).toHaveValue("pass");
+    expect(router.state.location.search).toBe(before);
+
+    await waitFor(() => expect(router.state.location.search).toContain("q=pass"));
+    expect(box).toHaveValue("pass");
   });
 });

@@ -14,3 +14,18 @@ export function labelShown(index: number, every: number): boolean {
   const step = Math.max(1, Math.floor(every) || 1);
   return index % step === step - 1;
 }
+
+/**
+ * stackHeights scales each stack of parts against the tallest stack's total,
+ * so a part's height is its share of the column. An invalid part counts as zero.
+ */
+export function stackHeights(stacks: readonly (readonly number[])[]): number[][] {
+  const drawn = stacks.map((stack) => stack.map(drawable));
+  const top = Math.max(
+    0,
+    ...drawn.map((stack) => stack.reduce((sum, part) => sum + part, 0)),
+  );
+  return drawn.map((stack) =>
+    stack.map((part) => (top > 0 ? Math.round((part / top) * 10_000) / 100 : 0)),
+  );
+}

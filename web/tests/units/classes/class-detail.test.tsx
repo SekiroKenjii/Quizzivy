@@ -186,6 +186,8 @@ beforeEach(() => {
             mustChangePassword: false,
             createdAt: "2026-06-01T00:00:00Z",
             disabledAt: null,
+            lastActiveAt: null,
+            accountStatus: "active",
             classes: [
               {
                 id: CLASS_ID,
@@ -205,6 +207,8 @@ beforeEach(() => {
             mustChangePassword: false,
             createdAt: "2026-06-01T00:00:00Z",
             disabledAt: null,
+            lastActiveAt: null,
+            accountStatus: "active",
             classes: [],
             stats: stats({}),
           },
@@ -275,6 +279,70 @@ describe("the class's head", () => {
     );
     expect(screen.getByRole("button", { name: "Thêm học viên" })).toBeVisible();
   });
+
+  it("puts the joining-off callout on a row of its own above the cards, not among them", async () => {
+    server.use(
+      http.get(`${BASE}/public/organization`, () =>
+        contractJson("/public/organization", "get", 200, {
+          name: "Quizzivy",
+          shortName: null,
+          website: null,
+          contactEmail: null,
+          frontDeskPhone: null,
+          frontDeskHours: null,
+          address: null,
+          logo: { lightUrl: null, darkUrl: null },
+          signIn: { google: true, password: true },
+          joinCodes: false,
+        }),
+      ),
+    );
+    renderDetail();
+    const callout = (await screen.findAllByText(/Trung tâm đang tắt tham gia bằng mã/))
+      .map((node) => node.closest<HTMLElement>("[class*=bg-warning-soft]"))
+      .find(Boolean);
+    const panel = screen.getByRole("region", { name: "Mã tham gia" });
+    expect(callout).toBeTruthy();
+    expect(callout?.parentElement).not.toBe(panel.parentElement);
+    expect(
+      callout!.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it.each([
+    [false, "Chưa có học viên. Hãy thêm học viên vào lớp."],
+    [true, "Lớp chưa có học viên. Hãy gửi mã tham gia hoặc tự thêm học viên."],
+  ])(
+    "tells an empty class what to do when the centre's joining by code is %s (D-028)",
+    async (joinCodes, line) => {
+      server.use(
+        http.get(`${BASE}/teacher/classes/${CLASS_ID}/members`, () =>
+          contractJson("/teacher/classes/{id}/members", "get", 200, {
+            items: [],
+            page: 1,
+            pageSize: 20,
+            total: 0,
+          }),
+        ),
+        http.get(`${BASE}/public/organization`, () =>
+          contractJson("/public/organization", "get", 200, {
+            name: "Quizzivy",
+            shortName: null,
+            website: null,
+            contactEmail: null,
+            frontDeskPhone: null,
+            frontDeskHours: null,
+            address: null,
+            logo: { lightUrl: null, darkUrl: null },
+            signIn: { google: true, password: true },
+            joinCodes,
+          }),
+        ),
+      );
+      renderDetail();
+      expect(await screen.findByText(line)).toBeVisible();
+    },
+  );
 
   it("says a class it cannot read is not found", async () => {
     server.use(
@@ -350,6 +418,48 @@ describe("the members", () => {
       screen.getByText("Xoá học viên khỏi lớp vẫn giữ bài đã nộp và điểm của họ."),
     ).toBeVisible();
   });
+
+  it.each([
+    [true, "Học viên có thể vào lại bằng mã."],
+    [false, null],
+  ])(
+    "mentions rejoining with a code in the remove confirm only while joining by code is %s (QC-U-30)",
+    async (joinCodes, rejoin) => {
+      server.use(
+        http.get(`${BASE}/public/organization`, () =>
+          contractJson("/public/organization", "get", 200, {
+            name: "Quizzivy",
+            shortName: null,
+            website: null,
+            contactEmail: null,
+            frontDeskPhone: null,
+            frontDeskHours: null,
+            address: null,
+            logo: { lightUrl: null, darkUrl: null },
+            signIn: { google: true, password: true },
+            joinCodes,
+          }),
+        ),
+      );
+      const { user } = renderDetail();
+      const han = await memberRow("Phạm Gia Hân");
+      await user.click(
+        within(han).getByRole("button", { name: "Thao tác với Phạm Gia Hân" }),
+      );
+      await user.click(screen.getByRole("menuitem", { name: "Xoá khỏi lớp" }));
+      const dialog = await screen.findByRole("dialog", {
+        name: `Xoá Phạm Gia Hân khỏi ${klass.name}?`,
+      });
+      if (rejoin === null) {
+        await waitFor(() => expect(dialog).not.toHaveTextContent("vào lại"));
+        expect(dialog).toHaveTextContent(
+          "Bài đã nộp và điểm của học viên vẫn được giữ.",
+        );
+      } else {
+        await waitFor(() => expect(dialog).toHaveTextContent(rejoin));
+      }
+    },
+  );
 
   it("removes a member after a confirm naming them and the class, then gives focus to the members' search", async () => {
     const { user } = renderDetail();
@@ -433,6 +543,8 @@ describe("adding students", () => {
       mustChangePassword: false,
       createdAt: "2026-06-01T00:00:00Z",
       disabledAt: null,
+      lastActiveAt: null,
+      accountStatus: "active",
       classes: joined.has(id)
         ? [
             {

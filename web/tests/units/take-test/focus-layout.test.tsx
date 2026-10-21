@@ -35,10 +35,9 @@ afterEach(() => {
 });
 
 describe("FocusLayout", () => {
-  it("is a deck surface that fills the viewport and keeps the 44px floor for what is not rebuilt", () => {
+  it("fills the viewport and keeps the 44px floor for what is not rebuilt", () => {
     const { container } = mount();
     const root = container.firstElementChild;
-    expect(root).toHaveAttribute("data-scale", "deck");
     expect(root).toHaveClass(
       "student-surface",
       "@container/student",

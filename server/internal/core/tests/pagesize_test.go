@@ -5,6 +5,7 @@ import (
 
 	"quizzivy/gen/openapi"
 	assignmentsrepo "quizzivy/internal/modules/assignments/repositories"
+	classesrepo "quizzivy/internal/modules/classes/repositories"
 	identityrepo "quizzivy/internal/modules/identity/repositories"
 	importsrepo "quizzivy/internal/modules/imports/repositories"
 	mediarepo "quizzivy/internal/modules/media/repositories"
@@ -30,6 +31,8 @@ func TestEveryPageSizeMatchesItsContract(t *testing.T) {
 		"ListMedia":          mediarepo.DefaultLimit,
 		"ListAssignments":    assignmentsrepo.DefaultLimit,
 		"ListStudents":       identityrepo.DefaultLimit,
+		"ListUsers":          identityrepo.AdminUsersDefaultLimit,
+		"ListAllClasses":     classesrepo.AdminDefaultLimit,
 	}
 
 	seen := map[string]bool{}

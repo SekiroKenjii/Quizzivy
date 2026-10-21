@@ -62,7 +62,7 @@ interface AudioPlayerProps {
   place?: string | undefined;
   // §11.3 asks for `metadata` so the duration renders without downloading the file.
   preload?: "none" | "metadata";
-  // Fired synchronously as a play starts, inside the gesture; later for a resume that lost its place.
+  // Fired once the browser has started a play from the gesture, so a refused or interrupted start spends nothing; later for a resume that lost its place.
   onPlay?: (() => void) | undefined;
   // Fired synchronously as a paused play resumes, which spends no play.
   onResume?: (() => void) | undefined;
@@ -76,18 +76,20 @@ interface AudioPlayerProps {
   onRetry?: (() => void) | undefined;
 }
 
-const PADDING = "p-3.5 px-4 in-data-[scale=deck]:px-3.5 in-data-[scale=deck]:py-2.5";
+const PADDING = "p-3.5 px-3.5 py-2.5";
 const RESTORE_SLACK_S = 0.5;
 
 /**
  * The deck's `AudioPlayer` (foundations, §11.3): a round play button, one flat
- * track, and a time readout. Monochrome — no waveform, no equaliser. On a deck
- * surface it takes the frame of the engine's answer rows: the card colour, a
- * 1.5px border, an 11px radius and a 40px button; `layout="card"` is the
- * engine's recording card instead.
+ * track, and a time readout. Monochrome — no waveform, no equaliser. It takes
+ * the frame of the engine's answer rows: the card colour, a 1.5px border, an
+ * 11px radius and a 40px button; `layout="card"` is the engine's recording
+ * card instead.
  *
  * A play is spent when playback starts and no play is in progress, that is
- * from 0:00 or after an end: the press calls `onPlay`. A press that continues
+ * from 0:00 or after an end: the press calls `play()` in its own tick and
+ * `onPlay` once the browser has started it, so a start the browser refuses or
+ * a pause that interrupts it spends nothing. A press that continues
  * a paused play calls `onResume` and spends none. Given `place`, a play in
  * progress and its position outlive the player; the next one under that key
  * puts the position back once the element has its metadata, and calls
@@ -228,24 +230,33 @@ function PlacedPlayer({
     if (!element) return;
     if (element.paused) {
       const started = element.play();
-      if (liveRef.current && (element.currentTime > 0 || restoreTo.current !== null)) {
-        onResume?.();
-      } else {
+      const resuming =
+        liveRef.current && (element.currentTime > 0 || restoreTo.current !== null);
+      if (resuming) onResume?.();
+      else {
         liveRef.current = true;
         setLive(true);
-        onPlay?.();
       }
       setBlockedFor(null);
-      void started.catch((cause: unknown) => {
-        const name = cause instanceof DOMException ? cause.name : null;
-        if (name === "AbortError") return;
-        if (name === "NotAllowedError") {
-          onBlocked?.();
-          setBlockedFor(src);
-          return;
-        }
-        setFailedFor(src);
-      });
+      void started.then(
+        () => {
+          if (!resuming) onPlay?.();
+        },
+        (cause: unknown) => {
+          if (!resuming && element.currentTime === 0) {
+            liveRef.current = false;
+            setLive(false);
+          }
+          const name = cause instanceof DOMException ? cause.name : null;
+          if (name === "AbortError") return;
+          if (name === "NotAllowedError") {
+            onBlocked?.();
+            setBlockedFor(src);
+            return;
+          }
+          setFailedFor(src);
+        },
+      );
     } else if (allowPause) {
       element.pause();
     }
@@ -369,10 +380,7 @@ function PlacedPlayer({
         )}
 
         {blocked ? (
-          <p
-            role="alert"
-            className="text-danger-ink in-data-[scale=deck]:text-meta mt-1.5 text-xs leading-relaxed"
-          >
+          <p role="alert" className="text-danger-ink text-meta mt-1.5 leading-relaxed">
             {t("media.playBlocked")}
           </p>
         ) : null}
@@ -394,14 +402,12 @@ function Expired({
     <div
       role="alert"
       className={cn(
-        "border-destructive/25 bg-destructive/5 flex items-center gap-3 rounded-lg border",
-        "in-data-[scale=deck]:border-danger/25 in-data-[scale=deck]:bg-danger-soft in-data-[scale=deck]:rounded-[11px] in-data-[scale=deck]:border-[1.5px]",
+        "flex items-center gap-3",
+        "border-danger/25 bg-danger-soft rounded-[11px] border-[1.5px]",
         frame,
       )}
     >
-      <p className="in-data-[scale=deck]:text-meta min-w-0 flex-1 text-xs leading-relaxed">
-        {t("media.expired")}
-      </p>
+      <p className="text-meta min-w-0 flex-1 leading-relaxed">{t("media.expired")}</p>
       {onRetry === undefined ? null : (
         <Button variant="outline" size="xs" onClick={onRetry}>
           {t("common.retry")}
@@ -637,7 +643,7 @@ function Readout({
       {hint === undefined ? null : (
         <span
           aria-live="polite"
-          className="text-muted-foreground in-data-[scale=deck]:text-meta text-xs wrap-break-word"
+          className="text-muted-foreground text-meta wrap-break-word"
         >
           {hint}
         </span>
@@ -648,7 +654,7 @@ function Readout({
 
 function Clock({ position, total }: Readonly<{ position: number; total: number }>) {
   return (
-    <span className="text-muted-foreground in-data-[scale=deck]:text-meta shrink-0 text-xs whitespace-nowrap tabular-nums">
+    <span className="text-muted-foreground text-meta shrink-0 whitespace-nowrap tabular-nums">
       {clock(position)}
       {" / "}
       {clock(total)}
@@ -659,22 +665,20 @@ function Clock({ position, total }: Readonly<{ position: number; total: number }
 function frameClass(size: PlayerSize): string {
   if (size === "row") return "flex items-center gap-2.5";
   return cn(
-    "bg-background flex items-center gap-3.5 rounded-lg border",
-    "in-data-[scale=deck]:bg-card in-data-[scale=deck]:gap-3 in-data-[scale=deck]:rounded-[11px] in-data-[scale=deck]:border-[1.5px]",
+    "flex items-center",
+    "bg-card gap-3 rounded-[11px] border-[1.5px]",
     size === "sm" ? "px-3 py-2.5" : PADDING,
   );
 }
 
 function buttonSize(size: PlayerSize): string {
   if (size === "row") return "size-8";
-  return size === "sm" ? "size-9" : "size-11 in-data-[scale=deck]:size-10";
+  return size === "sm" ? "size-9" : "size-10";
 }
 
 function iconSize(size: PlayerSize): string {
   if (size === "row") return "size-3.5 fill-current";
-  return size === "sm"
-    ? "size-4 fill-current"
-    : "size-5 fill-current in-data-[scale=deck]:size-[17px]";
+  return size === "sm" ? "size-4 fill-current" : "fill-current size-[17px]";
 }
 
 function lengths(

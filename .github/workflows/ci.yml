@@ -153,7 +153,7 @@ jobs:
       # same from eslint-plugin-sonarjs inside `pnpm lint`. Same pin as the
       # Makefile's GOLANGCI_VERSION.
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           version: v2.14.0
           working-directory: server
@@ -211,6 +211,13 @@ jobs:
       # The one integration test that proves profile writes through the role
       # the API connects as skips without it.
       APP_DATABASE_URL: postgres://quizzivy_app:app@localhost:5432/quizzivy?sslmode=disable
+      # The tests that run cmd/maintenance's commands as quizzivy_maintenance
+      # fail without it when CI is set; they never skip.
+      TEST_MAINTENANCE_DATABASE_URL: postgres://quizzivy_maintenance:maintenance@localhost:5432/quizzivy?sslmode=disable
+      # The one test that runs scripts/provision-db.sh as a managed-style admin
+      # (CREATEROLE, CREATEDB, not a superuser) needs a superuser to make that
+      # admin; it fails without it when CI is set.
+      TEST_SUPERUSER_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
       # Enables the migration round trip, which drops and recreates schema app.
       # Safe here -- the service container is thrown away after the job. Locally
       # it is off by default so `go test ./...` cannot wipe a seeded database.
@@ -675,6 +682,10 @@ jobs:
       IMPORT_PROCESSING_ENABLED: "true"
       IMPORT_WORKER_WAKE_URL: http://localhost:8091/wake
       IMPORT_WORKER_WAKE_ADDR: localhost:8091
+      # base64 of "e2e-live-secrets-key-not-secret!", 32 bytes. Throwaway.
+      # Without it the outbox cannot seal a set-password token, and the Add
+      # user the admin-console spec drives would queue no link.
+      SECRETS_KEY: ZTJlLWxpdmUtc2VjcmV0cy1rZXktbm90LXNlY3JldCE=
 
     steps:
       - uses: actions/checkout@v7
@@ -729,6 +740,15 @@ jobs:
             echo "IMPORT_DOCKER_BINARY=$(command -v docker)"
             echo "IMPORT_CONVERTER_IMAGE=$CONVERTER_IMAGE"
           } >> "$GITHUB_ENV"
+
+      # With no RESEND_API_KEY the API and the worker write every message to
+      # EMAIL_SINK_DIR, and admin-console.live.spec.ts reads set-password links
+      # back from it, so the three processes take this one path. A step sets
+      # it, because a job's env cannot read the runner context.
+      - name: Choose the email sink
+        run: |
+          install -d -m 0700 "$RUNNER_TEMP/email-sink"
+          echo "EMAIL_SINK_DIR=$RUNNER_TEMP/email-sink" >> "$GITHUB_ENV"
 
       # Built rather than `go run`, so a compile error fails here with a clear
       # message instead of as a connection refused thirty seconds later.
@@ -859,7 +879,7 @@ jobs:
       # merged before the SonarCloud project exists.
       - name: Scan
         if: env.SONAR_TOKEN != ''
-        uses: SonarSource/sonarqube-scan-action@v8
+        uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8.3.0
 
       - name: Say why it was skipped
         if: env.SONAR_TOKEN == ''

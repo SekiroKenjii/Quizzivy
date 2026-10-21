@@ -142,7 +142,6 @@ describe("the Submit dialog", () => {
     );
     expect(frame).toHaveClass("w-[min(27.5rem,calc(100%-1.5rem))]", "bg-card");
     expect(frame).toHaveClass("gap-3.5", "p-5.5", "rounded-2xl", "top-[50%]");
-    expect(frame).toHaveAttribute("data-scale", "deck");
 
     expect(
       inDialog()
@@ -171,7 +170,7 @@ describe("the Submit dialog", () => {
         .map((button) => button.textContent),
     ).toEqual([KEEP, SUBMIT]);
     expect(inDialog().getByRole("button", { name: SUBMIT })).toHaveClass(
-      "in-data-[scale=deck]:h-10.5",
+      "h-10.5",
       "bg-primary",
     );
     expect(inDialog().getByRole("button", { name: KEEP })).toHaveClass("shadow-none");

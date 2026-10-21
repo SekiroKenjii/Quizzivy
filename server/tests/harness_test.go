@@ -33,6 +33,7 @@ type world struct {
 	t      *testing.T
 	server *httptest.Server
 	pool   *pgxpool.Pool
+	cfg    config.Config
 }
 
 func boot(t *testing.T, configure ...func(*config.Config)) *world {
@@ -77,7 +78,7 @@ func assemble(t *testing.T, logger *slog.Logger, options []wiring.Option, config
 	if err != nil {
 		t.Fatalf("pool: %v", err)
 	}
-	return &world{t: t, server: server, pool: pool}
+	return &world{t: t, server: server, pool: pool, cfg: cfg}
 }
 
 func e2eConfig(t *testing.T, configure ...func(*config.Config)) config.Config {
@@ -168,6 +169,18 @@ func (c *client) login(email, password string) map[string]any {
 		c.w.t.Fatalf("login %s: status %d: %v", email, status, body)
 	}
 	c.token = body["accessToken"].(string)
+	return body
+}
+
+// loginSettled signs in as login does and, for an account that must still
+// change its temporary password, chooses another, as a person does before
+// anything else, so the session can act.
+func (c *client) loginSettled(email, password string) map[string]any {
+	c.w.t.Helper()
+	body := c.login(email, password)
+	if user, _ := body["user"].(map[string]any); user["mustChangePassword"] == true {
+		c.must(http.StatusNoContent, http.MethodPost, "/auth/change-password", map[string]any{"newPassword": "mat-khau-da-chon-" + nonce(c.w.t)})
+	}
 	return body
 }
 

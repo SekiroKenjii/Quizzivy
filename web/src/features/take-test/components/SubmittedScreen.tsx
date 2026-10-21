@@ -57,7 +57,7 @@ export function SubmittedScreen({
         <Button
           variant="outline"
           size="lg"
-          className="shadow-none in-data-[scale=deck]:font-medium"
+          className="font-medium shadow-none"
           onClick={onHome}
         >
           {t("takeTest.backHome")}

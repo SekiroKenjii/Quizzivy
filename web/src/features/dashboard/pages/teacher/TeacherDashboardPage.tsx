@@ -500,7 +500,7 @@ function LiveAssignment({ assignment }: Readonly<{ assignment: Assignment }>) {
       </span>
       {progress}
       {(assignment.pendingGradingCount ?? 0) > 0 && (
-        <Badge className="bg-warning-soft text-warning-ink rounded-full border-0 px-2 py-0.25 text-xs">
+        <Badge className="bg-warning-soft text-warning-ink h-auto rounded-full border-0 px-2 py-0.25 text-xs leading-normal">
           {t("dashboard.home.rowToGrade", { count: assignment.pendingGradingCount })}
         </Badge>
       )}

@@ -14,14 +14,19 @@ audio probe implementation, and build order.
 Phase R (the redesign) records its eighteen decisions in
 `70-redesign-overview.md` §1 and its design questions in `docs/design/gaps.md`;
 questions that come up during a release go into that release's plan file under
-"Open items" and move here at the release's docs task (R4's are O-R4.1 to O-R4.23, below).
+"Open items" and move here at the release's docs task (R4's are O-R4.1 to O-R4.23, R5's
+O-R5.1 to O-R5.13, below).
 
 ---
 
 ## BLOCKING
 
 
-### O-14 — DNS records for quizzivy.com · before first deploy
+### O-14 — DNS records for quizzivy.com · before first deploy — **RESOLVED**
+**Resolved:** production serves the SPA on `app.quizzivy.com` and the API on
+`api.quizzivy.com` (`docs/setup/dns.md`, `docs/setup/deploy.md`). The apex is kept for R11's
+Landing (D10). The text below is the question as it was asked.
+
 **Default:** `app.quizzivy.com` for the SPA, `api.quizzivy.com` for the API, as
 already written throughout the plan. See `docs/setup/dns.md`.
 
@@ -53,8 +58,12 @@ after students have bookmarks is unpleasant.
 
 ---
 
+### O-13 — GIS `initCodeClient` or our own authorization request · Phase 1 — **RESOLVED**
+**Resolved: B, own the authorization request** (see "Answered during planning" below,
+`00-overview.md` §5, and AGENTS.md "Verified platform facts"). The options as they were put:
 
----|---|
+| Option | What | Trade-off |
+|---|---|---|
 | **A** | GIS `initCodeClient`, no PKCE | Keeps §2. Drops §5.3's PKCE. The code passes through browser JS, so an XSS could steal it — though redeeming it still needs the client secret, which never leaves the backend. |
 | **B** | Own the authorization request | Keeps §5.3. Deviates from §2. ~40 lines: verifier, S256 challenge, `state`, popup, callback. |
 
@@ -339,8 +348,19 @@ Issue #337; round 5 questions 1 and 1b.
 
 ---
 
-### O-27 — When a session counts as still open · round 5
-**Default:** nothing is built until the owner answers. The candidate is that a
+### O-27 — When a session counts as still open · round 5 — **RESOLVED**
+**Resolved (D-003, 2026-10-14):** a tab that holds the live attempt's session
+never takes over from itself. "Tiếp tục làm bài" in such a tab reads the attempt
+with its held session and resumes nothing; only a tab holding none calls the
+resume. The server's two-minute rule is unchanged, and no farewell rule,
+`engine_leave` kind, shorter window or heartbeat is built. The timeline label
+for `session_takeover` is "Vào lại bài ở thẻ hoặc thiết bị khác" / "Resumed in
+another tab or device". When that read answers `superseded`, Continue
+resumes, which takes the attempt back and records the takeover.
+
+The rest of this entry is the question as it stood.
+
+**Default (superseded):** nothing is built until the owner answers. The candidate is that a
 session which said it was leaving, and has not returned, is no longer live.
 
 What happens today: any ordinary event received within two minutes makes the
@@ -372,8 +392,16 @@ Issue #341; round 5 question 2.
 
 ---
 
-### O-28 — A play that never started is counted · round 5
-**Default:** keep counting; no compensation is built. This awaits the owner.
+### O-28 — A play that never started is counted · round 5 — **RESOLVED**
+**Resolved (D-002, 2026-10-14):** a play is counted once `play()` resolves. One the
+browser refuses (`NotAllowedError`) or that is paused before it starts
+(`AbortError`) spends nothing on the client and sends no request, so no
+compensation, receipts table or migration is needed. The call to `play()` stays
+in the click's own tick (§11.3).
+
+The rest of this entry is the question as it stood.
+
+**Default (superseded):** keep counting; no compensation is built. This awaits the owner.
 
 What happens: a play refused by the browser or paused before it starts can
 already have spent a server play. The player stays enabled at the limit; the
@@ -404,7 +432,25 @@ Issue #353; round 5 question 5.
 
 ---
 
-### O-12 — Dark mode · post-v1
+### O-30 — May a superseded tab or an ended attempt play question audio? · round 5 — **RESOLVED**
+**Resolved (D-005, 2026-10-14):** no new grant. A question's play goes through the
+same write lock as an answer and a shared recording's play: a session that is not
+current answers `409 SESSION_SUPERSEDED`, an attempt not in progress
+`409 ATTEMPT_CLOSED`, and a play past the deadline `409 DEADLINE_PASSED`. None is
+counted and the client does not retry. Review playback after submit stays
+unlimited and uncounted. Issue #370, step 2.
+
+The request's `sessionId` is optional for one release, so an older client keeps
+counting; a play without it is checked for status and deadline only. A later
+release can make it required.
+
+---
+
+### O-12 — Dark mode · post-v1 — **RESOLVED**
+**Resolved:** dark mode shipped in R1 (v0.7.0): the deck's tokens in both themes, the
+`quizzivy.theme` preference, and `web/public/boot.js` applying the theme before paint. The
+token discipline below is what made it cheap.
+
 **Default:** not in v1, per §12. Theming goes through CSS variables and Tailwind
 tokens from T-0.9, so it can be added later without touching components.
 
@@ -602,7 +648,10 @@ and the session ends: a forced sign-in, rare and self-healing. Options, in order
 
 ### O-R4.22 — The `/admin` alias · R5
 **Default:** kept in v0.10.0. Removing it (T-R3.3) needs seven days of production
-`legacy_admin_path` logs read first. R5 removes it when it gives `/admin` to the Admin console.
+`legacy_admin_path` logs read first. R5 removes it when it gives `/admin` to the Admin console,
+as T-R5.36 (`75-r5.md`), before T-R5.11's `/admin/classes`.
+**Resolved:** removed in T-R5.36 (#749) after a production read of 0 `legacy_admin_path` lines in
+the seven days to 2026-10-19, with a `livez` control search matching across the same days.
 
 ---
 
@@ -610,6 +659,151 @@ and the session ends: a forced sign-in, rare and self-healing. Options, in order
 **Default:** unchanged. `attempt.integrity.flagged` is in the student's attempt and result payloads
 since v0.9.0 and carries a teacher's manual flag too. The student screens never show it. R5
 decides whether the student payload drops it.
+
+---
+
+## Phase R — R5's open items (v0.12.0)
+
+R5's questions, moved here from `75-r5.md` "Open items" at the release
+(T-R5.32). Each default is what v0.12.0 ships unless the entry says otherwise;
+an answer that differs becomes a task in the release it names.
+
+### O-R5.1 — Resend plan and the daily budget · before the first import by email
+**Default:** Resend's free tier, 100 emails a day and 3,000 a month. `EMAIL_DAILY_LIMIT` is 100
+(`fly.toml`) and moves the excess to the next local midnight in `APP_TIMEZONE`
+(`docs/setup/operations.md`, "Outgoing email"). Thuong decides whether to upgrade before the first
+class-sized import by email, and raises `EMAIL_DAILY_LIMIT` with the plan.
+
+---
+
+### O-R5.2 — Bounces and complaints · R7
+**Default:** no Resend webhook in R5. A hard bounce shows only as a failed outbox row
+(`last_error_code`) and in the dispatcher's log. R7 adds Resend's signed webhook
+(`POST /public/email-events`, `RESEND_WEBHOOK_SECRET`) and `app.email_suppressions`, which the
+dispatcher skips (`70-redesign-overview.md` D9).
+
+---
+
+### O-R5.3 — "Send the link to" on Export all data · design
+**Default:** built read-only with the requester's own address (`ExportDataDialog`): a notice about
+a full export of personal data has no reason to go anywhere else. The deck draws an editable
+field; the design team is asked to redraw it.
+
+---
+
+### O-R5.4 — Enforcing a temporary password on the server · decided 2026-10-14 (D-011)
+**Decided:** built as the default. While `must_change_password` is set, `RequirePermission` answers
+`403 PASSWORD_CHANGE_REQUIRED` to every operation but `getCurrentUser`, `changePassword`, `logout`
+and `refreshSession`; the flag rides in the cached principal. The web client sends that code to
+`/change-password` in every workspace, never to the 403 page, and the change needs no current
+password while the flag is set. Open operations are untouched. A session in flight sees the 403
+once and is routed; the release notes say so.
+
+---
+
+### O-R5.5 — An Admin's Students and Classes lists in the teacher workspace · any release
+**Default:** unchanged in v0.12.0. Content lists show the caller's own rows for everyone (DG-53,
+O-R4.17), while Students and Classes keep their `scope.all` lists now that the console's Users and
+Classes exist (`70-redesign-overview.md` §4.1). Narrowing them to the Admin's own rows is Thuong's
+call.
+
+---
+
+### O-R5.6 — Self-join by an Admin who takes tests · any release
+**Default, not built in v0.12.0:** refuse the self-join on the server through
+`app.student_like_roles` in the enrol path, and hide the student app's join links for a user who
+is not a strict student. Today turning on the Admin's Take tests (DG-51) opens the student app,
+and `joinClass`, which needs only `learning.take_tests`, accepts the Admin. Rosters, resets and
+assignment targets never treat the Admin as a student, and JoinPage still says joining is for
+students (`72-r2.md` open items, T-R2.17). Thuong decides.
+
+---
+
+### O-R5.7 — The paused-control sweep · R6 (D-029)
+**Default:** one sweep after R5, as the first R6 task that touches one of the listed features or a
+task of its own at R6's start, whichever comes first. A focusable control paused with
+`aria-disabled` and faded by `opacity` draws its focus ring at 2.0 to 2.6:1 against the 3:1 the
+repo requires. R5 fixed the shared pieces its screens reuse (`FormDialog`'s submit, `DirtyBar`,
+`BulkActions`' deck bar, the join-code controls) and holds the rest with
+`web/tests/units/styles/paused-opacity.test.ts`, whose baseline is the list: the count per file is
+exact, the failure names `file:line`, and the scan (`tests/support/pausedOpacity.ts`) reads the
+variant's usual spellings and a plain `opacity-*` or `style` opacity on an element that declares
+`aria-disabled`. It does not see a class held in a constant, a template, `cva`, a spread or an
+ancestor, nor a quoted attribute value, so review still applies. Each touched screen is compared
+with the deck at five widths in both themes. The take-test engine and the audio player
+(`AudioPlayer.tsx`, `QuestionBody.tsx`, the navigator) go in a separate PR, with the audio canary
+and the engine's unit tests run before and after.
+
+---
+
+### O-R5.8 — Closing overdue attempts nobody monitors · R5 (T-R5.17a), any release
+**Default:** no closer job (D-035, 2026-10-15). The retention sweep never removes the answers of an
+attempt still in progress, however overdue, because closing it scores it from the stored answers
+and a payload already replaced by `{"removed": true}` would be scored blank for good. An overdue
+attempt is closed lazily, when a teacher's monitor reads its assignment (`DueAttempts`), so one on
+an assignment nobody monitors keeps its answers and blocks its student's anonymisation. The
+sweep's JSON report counts them as `overdueInProgress` (in progress, deadline and assignment close
+both before the answers cutoff); it is not in `getRetentionImpact`. A job that closes such
+attempts (scoring them first, as the monitor does) is the owner's decision once the figure is not
+zero on a real installation. Not a gate for v0.12.0.
+
+---
+
+### O-R5.9 — A retention-only database role for the nightly workflow · R5 (T-R5.17a), any release
+**Default:** one operator role, `quizzivy_maintenance`, as T-R5.17a specified, made unable to take an
+account over (D-042, 2026-10-15). The GitHub environment secret `MAINTENANCE_DATABASE_URL` is that role,
+which every `cmd/maintenance` command uses. QC took a disabled Admin over with it (QC-RS-4), so 00139 carries
+a `BEFORE UPDATE` trigger on `app.users` that refuses, for this role alone, any update that does not leave the
+row anonymised; with it the role can set no email, no password hash and re-enable no account. The database
+refuses to anonymise only the last active Admin; the sweep and `anonymize-user` also skip owners of classes or
+content and accounts with an attempt in progress, which direct SQL with the credential does not (QC-RS-17: the
+owner chose on 2026-10-16 not to enforce the owner rule in the trigger). What a leak still costs (answers and
+emails read, exam windows and AI credits moved, join codes and sessions rewritten, any account but the last
+active Admin anonymised, a teacher's included) is written in `docs/setup/operations.md`, with the environment's default-branch restriction as a
+precondition to verify, no required reviewers (they would hold the scheduled run), and the rotation step.
+**Follow-up, not a gate:** a second role holding only what `retention-sweep` reads and writes (`UPDATE (payload)`
+on answers, `DELETE` on events, the accounts step's columns, `INSERT` on the audit log), created by
+`provision-db.sh` and given by its own migration, with the workflow using it and the operator's machine keeping
+the wider role. Do it if the workflow ever runs another command, a second consumer holds the connection string,
+or the nightly gains a write the trigger cannot pin. The repository's deploy credential already reaches the
+application's own database URL, so the second role would shrink the Actions-supply-chain and log-leak paths
+only.
+
+---
+
+### O-R5.10 — Students the source of a transfer created · decided 2026-10-18 (D-051)
+**Decided:** they stay, reported as `leftBehind.students` (#718 QC-TC-2). `users.created_by` on a
+student is provenance as well as reach (`visibility.StudentIDs`), and the transfer never rewrites who
+made a row. The transfer moves classes and assignments, so the recipient reaches every student in a
+moved class or on a moved assignment; the result counts, inside the transaction, the student-like
+accounts the source created that the recipient still does not reach, the audit row records them as
+`studentsLeft`, and the Admin who ran the transfer adds them to a class. Moving `created_by` would
+lock student rows after the two accounts, which can cycle with a users write that locks every active
+Admin and the target in id order now that an Admin can be the recipient; it is its own task if the
+owner asks for it.
+
+---
+
+### O-R5.11 — A recipient that cannot edit what it receives · decided 2026-10-18 (D-052)
+**Decided:** the recipient needs `workspace.teacher` only, as the task specifies (#718 QC-TC-3). A
+role that opens the teacher workspace without `teaching.classes.write` or `content.tests.write` (the
+built-in Assistant, a custom role) can receive classes and tests that only an Admin can then edit.
+Parking content with a reader until a new teacher arrives is legitimate and recoverable, and a map of
+kinds to keys would be a second copy of the catalogue. T-R5.22b's dialog warns before the Admin
+confirms, naming the kinds the recipient cannot edit.
+---
+
+### O-R5.12 — Adding several class members at once · decided 2026-10-19 (D-054)
+**Decided:** `addClassMember` stays single. No R5 screen adds members in bulk, so T-R5.11 did not
+build `userIds`. The first screen that adds several members at once builds the batch, as its own
+operation if its response differs from the single add's.
+
+### O-R5.13 — What the legacy join codes leave behind · post-R5 cleanup (D-058)
+**Decided:** T-R5.1 removed the legacy lookup and the start-up rotation, and kept two things.
+`JoinCode.legacy` stays in the contract, always false, and is not marked deprecated, because
+the generated marker would fail staticcheck's SA1019 where the server sets it. Remove it in a
+contract change after R5. The `join_codes.rotated` notification kind stays while stored rows
+still render. Remove it once the notification prune has deleted the last row of that kind.
 
 ---
 

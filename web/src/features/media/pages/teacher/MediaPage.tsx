@@ -12,11 +12,11 @@ import { Pager } from "@/components/shared/data/Pager";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { useFileDrop } from "@/hooks/useFileDrop";
+import { trimmed, useDebouncedInput } from "@/hooks/useDebouncedInput";
 import { useListFilters } from "@/hooks/useListFilters";
 import { usePage, usePageSize } from "@/hooks/usePage";
 import { dayMonthYear } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
-import { useDebounced } from "@/lib/useDebounced";
 import { listMedia, type LibraryAsset, type MediaUsage } from "@/features/media/api";
 import { DeleteMediaDialog } from "@/features/media/components/DeleteMediaDialog";
 import { MediaCard } from "@/features/media/components/MediaCard";
@@ -66,8 +66,13 @@ export default function MediaPage() {
   const locale = useLocale();
   const client = useQueryClient();
   const { params, setParams, setFilter } = useListFilters();
-  const query = params.get("q") ?? "";
-  const search = useDebounced(query.trim(), 300);
+  const applied = params.get("q") ?? "";
+  const [typed, setTyped] = useDebouncedInput(
+    applied,
+    (value) => setFilter("q", value),
+    trimmed,
+  );
+  const search = applied.trim();
   const tab = toTab(params.get("tab"));
   const [size] = usePageSize(PAGE_SIZES);
   const [page] = usePage(JSON.stringify({ search, tab }));
@@ -212,7 +217,7 @@ export default function MediaPage() {
   };
 
   return (
-    <div className="flex w-full min-w-0 flex-col gap-4" data-scale="deck">
+    <div className="flex w-full min-w-0 flex-col gap-4">
       <PageHead
         title={t("media.title")}
         description={t("media.description")}
@@ -246,8 +251,8 @@ export default function MediaPage() {
         />
         <SearchInput
           className="[&_input]:bg-card [&_input]:border-border max-w-[280px] flex-[0_1_280px] [&_input]:h-8.5 [&_input]:pl-8.25 [&_input]:text-sm [&_svg]:top-[9.5px] [&_svg]:size-3.75"
-          value={query}
-          onChange={(value) => setFilter("q", value)}
+          value={typed}
+          onChange={setTyped}
           placeholder={t("media.searchPlaceholder")}
         />
       </div>

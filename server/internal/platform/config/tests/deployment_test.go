@@ -19,7 +19,7 @@ import (
 // Every name config.Load reads. Cleared before each case so a developer's own
 // shell -- which has all of these set, from the repo's .env -- cannot make a
 // deployment look bootable when it is not.
-var configuredBy = slices.Concat(aiVariables, []string{
+var configuredBy = slices.Concat(aiVariables, emailVariables, planVariables, []string{
 	"API_PORT", "APP_ENV", "CLIENT_IP_HEADER", "CORS_ALLOWED_ORIGINS", "DATABASE_URL",
 	"GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI", "JWT_SIGNING_KEY",
 	"JOIN_CODE_KEY", "JOIN_CODE_KEY_PREVIOUS",
@@ -44,6 +44,8 @@ var flySecrets = map[string]string{
 	"S3_BUCKET":            "quizzivy-media",
 	"S3_ACCESS_KEY_ID":     "placeholder-key-id",
 	"S3_SECRET_ACCESS_KEY": "placeholder-secret-key",
+	"RESEND_API_KEY":       "re_placeholder",
+	"SECRETS_KEY":          "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
 }
 
 var tableLine = regexp.MustCompile(`^\s*([A-Za-z0-9_-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s#"']+))\s*(?:#.*)?$`)

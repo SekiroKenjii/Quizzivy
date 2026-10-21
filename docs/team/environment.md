@@ -15,8 +15,9 @@ GitHub but not every registry (see "What did not work").
 
 `.claude/hooks/session-start.sh`, registered in `.claude/settings.json`, does the work of
 the steps below when a Claude Code cloud container starts: the daemon, `.env`, goose, the web
-dependencies, the MinIO image (built if missing), Postgres, MinIO and `make migrate`
-(not `make seed`). It runs
+dependencies, the MinIO image (built if missing), Postgres, the database roles
+(`scripts/provision-db.sh` again, which is idempotent, adds `quizzivy_maintenance` to a
+volume made before it existed and leaves the other roles' passwords as they are), MinIO and `make migrate` (not `make seed`). It runs
 only where `CLAUDE_CODE_REMOTE=true` and exits 0 silently elsewhere, so a laptop is
 never touched. It reports itself asynchronous, so the session starts while it works.
 It does not run steps 8 to 10: those create databases and buckets that need cleanup.
@@ -41,6 +42,17 @@ It does not run steps 8 to 10: those create databases and buckets that need clea
   you open yourself needs the exports of steps 5 and 6.
 - The hook starts Postgres and MinIO and leaves them running. A step it could not
   finish is in the log; fix that step by hand from the list below.
+- It recovers the failures a container restart leaves behind. A `/var/run/docker.pid`
+  whose process is not `dockerd`, and a `/var/run/docker/containerd/containerd.pid` whose
+  process is not `containerd` (gone, or a number the new boot gave to something else), are
+  removed before `dockerd` starts, or the daemon refuses to run ("containerd is still
+  running"). When neither names a live daemon, `/var/run/docker.sock`,
+  `containerd-debug.sock` and `containerd.sock.ttrpc` from the previous boot are removed
+  too (QC-H-17). The daemon is started
+  without the hook's lock, so a second run is not blocked for as long as `dockerd` lives.
+  A service whose first start fails ("container with given ID already exists", stale runc
+  state) is started once more with `docker compose up -d --force-recreate`, which keeps
+  the volumes (ledger F-13, INC-3).
 
 ## Reaching the state
 
@@ -104,10 +116,13 @@ Run from `/home/user/Quizzivy`. Each step is safe to repeat. The hook does steps
    ```
 
    `db` is `postgres:18` on 5432. On its first start `docker/initdb/` creates the
-   roles `quizzivy_migrate` and `quizzivy_app` and the database `quizzivy` by
-   calling `scripts/provision-db.sh`. The roles live in the `db-data` volume, so
-   they survive a container restart. If the volume is gone, step 4 creates them
-   again.
+   roles `quizzivy_migrate`, `quizzivy_app` and `quizzivy_maintenance` and the database
+   `quizzivy` by calling `scripts/provision-db.sh`. The roles live in the `db-data` volume,
+   so they survive a container restart. If the volume is gone, step 4 creates them again.
+   A volume made before R5's T-R5.17a has no `quizzivy_maintenance`, and migration 00139
+   fails for want of it; run
+   `docker compose exec -T -e PGUSER=postgres db /provision/provision-db.sh` once (the
+   session hook does).
 
 5. **Install the tools the repository expects on `PATH`.**
    - goose v3.27.3, the version of `.github/actions/db-tools`, in
@@ -144,6 +159,8 @@ Run from `/home/user/Quizzivy`. Each step is safe to repeat. The hook does steps
    export TEST_DATABASE_URL='postgres://quizzivy_migrate:migrate@localhost:5432/quizzivy?sslmode=disable'
    export TEST_DESTRUCTIVE=1 S3_ACCESS_KEY_ID=quizzivy S3_SECRET_ACCESS_KEY=quizzivy-dev-secret
    export APP_DATABASE_URL='postgres://quizzivy_app:app@localhost:5432/quizzivy?sslmode=disable'
+   export TEST_MAINTENANCE_DATABASE_URL='postgres://quizzivy_maintenance:maintenance@localhost:5432/quizzivy?sslmode=disable'
+   export TEST_SUPERUSER_DATABASE_URL='postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable'
    T=$(mktemp -d); J=$T/journal.json
 
    createdb --owner=quizzivy_migrate quizzivy_grading_queue
@@ -155,6 +172,18 @@ Run from `/home/user/Quizzivy`. Each step is safe to repeat. The hook does steps
    `prepare` creates a database `qvtext_<token>` and a bucket `qv-text-<token>`
    and writes their names, with the two connection strings, to `$GITHUB_OUTPUT`
    as `database`, `bucket`, `app_url` and `migrate_url`.
+
+   `TEST_MAINTENANCE_DATABASE_URL` names the `quizzivy_maintenance` role. The tests that run
+   `cmd/maintenance`'s commands as that role create a scratch database `qvmaint_<hex>` for each
+   run with the migrate role's `CREATEDB`, migrate it, connect as the role to it and drop it, so
+   `quizzivy` is never written. Without the variable they skip locally and fail when `CI` is
+   set. Never point it at a production URL: it is not `MAINTENANCE_DATABASE_URL` for that reason.
+
+   `TEST_SUPERUSER_DATABASE_URL` names the cluster's superuser. The one test that uses it makes a role
+   with `CREATEROLE` and `CREATEDB` that is not a superuser, as a managed provider's admin is, and runs
+   `scripts/provision-db.sh` as it against a new database `qv_prov_<hex>`; it checks that the script
+   finishes and leaves the three roles as they were, then drops the role and the database. Without the
+   variable it skips locally and fails when `CI` is set. Never point it at a production URL.
 
 9. **Run the tiers** from `server/`. The integration step's variables belong to
    that command only, as in CI, where they are the step's `env`:

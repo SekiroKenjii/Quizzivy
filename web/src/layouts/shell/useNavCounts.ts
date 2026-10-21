@@ -8,11 +8,11 @@ import { useIdlePolling, useRefetchOnResume } from "@/hooks/useIdlePolling";
  * NavCounts preserves unavailable figures as null rather than claiming no
  * work; `unread` is the bell's count of unread notifications.
  */
-export interface NavCounts {
+export type NavCounts = {
   liveAssignments: number | null;
   toGrade: number | null;
   unread: number;
-}
+};
 
 const POLL_MS = 60_000;
 

@@ -60,7 +60,7 @@ func TestATeacherReadsTheirJoinCodeBackAndNoOneElseCan(t *testing.T) {
 		"email": "reader-" + nonce(t) + "@example.com", "fullName": "Học viên đọc mã", "classIds": []string{classID},
 	})
 	student := w.browser()
-	student.login(created["user"].(map[string]any)["email"].(string), created["temporaryPassword"].(string))
+	student.loginSettled(created["user"].(map[string]any)["email"].(string), created["temporaryPassword"].(string))
 	if status, body := student.call(http.MethodGet, path, nil); status != http.StatusForbidden || body["code"] != nil {
 		t.Errorf("a student read %d %v, want 403", status, body)
 	}

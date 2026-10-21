@@ -51,8 +51,18 @@ describe("the teacher sidebar's destinations", () => {
       .filter((item) => item.count !== undefined)
       .map((item) => [item.id, item.count]);
     expect(counted).toEqual([
-      ["assignments", { figure: "liveAssignments", tone: "muted" }],
-      ["grading", { figure: "toGrade", tone: "urgent" }],
+      [
+        "assignments",
+        {
+          figure: "liveAssignments",
+          tone: "muted",
+          sentence: "teacherShell.count.live",
+        },
+      ],
+      [
+        "grading",
+        { figure: "toGrade", tone: "urgent", sentence: "teacherShell.count.toGrade" },
+      ],
     ]);
   });
 });

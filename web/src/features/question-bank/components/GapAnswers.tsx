@@ -226,7 +226,7 @@ function NoGapsCard({
           type="button"
           variant="outline"
           size="sm"
-          className="h-8 rounded-[8px] px-3 text-[13px] font-medium in-data-[scale=deck]:h-8 in-data-[scale=deck]:rounded-[8px] in-data-[scale=deck]:px-3 in-data-[scale=deck]:text-[13px]"
+          className="h-8 rounded-[8px] px-3 text-[13px] font-medium"
           onClick={onInsertGap}
         >
           <TextCursorInput aria-hidden="true" className="size-3.5" />

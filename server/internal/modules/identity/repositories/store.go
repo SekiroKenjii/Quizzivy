@@ -8,6 +8,8 @@ import (
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/audit"
 
+	"time"
+
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -23,16 +25,23 @@ const userProjection = `
 	SELECT u.id::text, u.email, u.full_name,
 	       u.password_hash, u.must_change_password, u.disabled_at, u.created_at, u.session_epoch,
 	       u.display_name, u.avatar_key, u.phone, u.locale, u.time_zone, u.preferences,
+	       u.last_active_at, u.last_sign_in_at, u.last_sign_in_method, u.password_changed_at,
+	       r.id::text, r.builtin_key, r.name,
 	       coalesce(array_agg(i.provider) FILTER (WHERE i.provider IS NOT NULL), '{}')
 	  FROM app.users u
+	  JOIN app.roles r ON r.id = u.role_id
 	  LEFT JOIN app.user_identities i ON i.user_id = u.id`
+
+const userGrouping = `GROUP BY u.id, r.id`
 
 func scanUser(row pgx.Row) (domain.User, error) {
 	var u domain.User
 	err := row.Scan(
 		&u.ID, &u.Email, &u.FullName, &u.PasswordHash,
 		&u.MustChangePassword, &u.DisabledAt, &u.CreatedAt, &u.SessionEpoch,
-		&u.DisplayName, &u.AvatarKey, &u.Phone, &u.Locale, &u.TimeZone, &u.Preferences, &u.LinkedProviders,
+		&u.DisplayName, &u.AvatarKey, &u.Phone, &u.Locale, &u.TimeZone, &u.Preferences,
+		&u.LastActiveAt, &u.LastSignInAt, &u.LastSignInMethod, &u.PasswordChangedAt,
+		&u.Role.ID, &u.Role.BuiltinKey, &u.Role.Name, &u.LinkedProviders,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.User{}, domain.ErrUserNotFound
@@ -49,7 +58,7 @@ func scanUser(row pgx.Row) (domain.User, error) {
 func (s *Users) FindUserByEmail(ctx context.Context, email string) (domain.User, error) {
 	q := userProjection + `
 		 WHERE lower(u.email) = lower($1)
-		 GROUP BY u.id`
+		 ` + userGrouping
 	return scanUser(s.QueryRow(ctx, q, email))
 }
 
@@ -59,7 +68,7 @@ func (s *Users) FindUserByEmail(ctx context.Context, email string) (domain.User,
 func (s *Users) FindUserByID(ctx context.Context, id string) (domain.User, error) {
 	q := userProjection + `
 		 WHERE u.id = $1
-		 GROUP BY u.id`
+		 ` + userGrouping
 	return scanUser(s.QueryRow(ctx, q, id))
 }
 
@@ -113,7 +122,7 @@ func (s *Users) UpdateProfile(ctx context.Context, in domain.ProfileRecord) (dom
 }
 
 func persistedUser(ctx context.Context, tx pgx.Tx, userID string, updated bool) (domain.User, error) {
-	user, err := scanUser(tx.QueryRow(ctx, userProjection+` WHERE u.id = $1::uuid GROUP BY u.id`, userID))
+	user, err := scanUser(tx.QueryRow(ctx, userProjection+` WHERE u.id = $1::uuid `+userGrouping, userID))
 	if err != nil {
 		return domain.User{}, err
 	}
@@ -167,6 +176,22 @@ func (s *Users) CreateRefreshToken(ctx context.Context, in domain.RefreshTokenRe
 	return tx.Commit(ctx)
 }
 
+// StampSignIn records a sign-in: the time and the method, and the same moment as the user's last activity.
+// It is its own statement after the session's token is stored and not part of
+// that transaction, which holds the user FOR SHARE: two sign-ins of one user
+// would each have to upgrade that lock to write, and wait for each other.
+func (s *Users) StampSignIn(ctx context.Context, userID string, method domain.SignInMethod, at time.Time) error {
+	const q = `
+		UPDATE app.users
+		   SET last_sign_in_at = $2, last_sign_in_method = $3,
+		       last_active_at = greatest(last_active_at, $2)
+		 WHERE id = $1::uuid`
+	if _, err := s.Exec(ctx, q, userID, at, string(method)); err != nil {
+		return fmt.Errorf("stamp sign-in: %w", err)
+	}
+	return nil
+}
+
 // FindUserByProviderIdentity is §5.3 step 4's first branch: the Google `sub`
 // we have seen before. Matching on `sub` rather than email is the whole point --
 // a Google account's email can change, its subject cannot.
@@ -174,7 +199,7 @@ func (s *Users) FindUserByProviderIdentity(ctx context.Context, provider, provid
 	q := userProjection + `
 		 WHERE u.id = (SELECT user_id FROM app.user_identities
 		                WHERE provider = $1 AND provider_user_id = $2)
-		 GROUP BY u.id`
+		 ` + userGrouping
 	return scanUser(s.QueryRow(ctx, q, provider, providerUserID))
 }
 

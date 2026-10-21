@@ -150,6 +150,7 @@ type Overrides = Partial<
     | "menuTrack"
     | "card"
     | "cardLayout"
+    | "cards"
     | "framed"
     | "empty"
     | "footer"
@@ -368,17 +369,6 @@ const MEMBER_SETS: readonly ReadonlySet<string>[] = [
   new Set(["name", "via", "at", "sub", "avg"]),
 ];
 
-function deckMembers(tw: number) {
-  const left = tw >= 1000 ? (tw * 2) / 3 : tw;
-  return [
-    "name",
-    left >= 620 && "via",
-    left >= 720 && "at",
-    "sub",
-    left >= 520 && "avg",
-  ].filter(Boolean);
-}
-
 function Members() {
   const band = useContentBand(MEMBER_BANDS);
   const selection = useBulkSelection<Member>();
@@ -400,18 +390,6 @@ function Members() {
 }
 
 describe("a table that passes the visible set itself", () => {
-  it("reproduces the deck's two-thirds arithmetic with five bands of the content width", () => {
-    for (let tw = 300; tw <= 1500; tw += 1) {
-      const band = MEMBER_BANDS.filter((threshold) => tw >= threshold).length;
-      expect([tw, ...MEMBER_SETS[band]!]).toEqual([
-        tw,
-        ...MEMBER_COLUMNS.map((column) => column.id).filter((id) =>
-          deckMembers(tw).includes(id),
-        ),
-      ]);
-    }
-  });
-
   it("shows Joined at 900, hides it at 1040 and shows it again at 1100", () => {
     const width = contentWidth(900);
     render(<Members />);
@@ -1286,6 +1264,34 @@ describe("below 768", () => {
     expect(screen.queryByRole("table")).toBeNull();
     expect(screen.getByRole("list", { name: "Bài giao" })).toBeInTheDocument();
     act(() => width.resize(768));
+    expect(screen.getByRole("table", { name: "Bài giao" })).toBeInTheDocument();
+  });
+
+  it("draws the cards on a wide window when the caller says so", () => {
+    viewport("desktop");
+    renderAssignments({ card, cards: true });
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.getByRole("list", { name: "Bài giao" })).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+  });
+
+  it("draws the table on a phone when the caller says so", () => {
+    viewport("phone");
+    renderAssignments({ card, cards: false });
+    expect(screen.getByRole("table", { name: "Bài giao" })).toBeInTheDocument();
+    expect(screen.queryByRole("list")).toBeNull();
+  });
+
+  it("follows the window when the caller does not say", () => {
+    viewport("phone");
+    renderAssignments({ card, cards: undefined });
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.getByRole("list", { name: "Bài giao" })).toBeInTheDocument();
+  });
+
+  it("stays a table without a card, whatever the caller says", () => {
+    viewport("phone");
+    renderAssignments({ cards: true });
     expect(screen.getByRole("table", { name: "Bài giao" })).toBeInTheDocument();
   });
 

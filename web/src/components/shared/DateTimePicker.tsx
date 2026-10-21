@@ -94,7 +94,7 @@ export function DateTimePicker({
             }
           }}
           className={cn(
-            "bg-bg border-border hover:border-ring text-ui flex h-9.5 w-full items-center gap-2 rounded-md border px-2.5 text-left leading-normal font-normal shadow-none in-data-[scale=deck]:h-9.5 in-data-[scale=deck]:gap-2 in-data-[scale=deck]:px-2.5",
+            "bg-bg hover:bg-bg dark:bg-bg dark:hover:bg-bg border-border hover:border-ring text-ui flex h-9.5 w-full items-center gap-2 rounded-md border px-2.5 text-left leading-normal font-normal shadow-none",
             className,
           )}
         >
@@ -114,7 +114,7 @@ export function DateTimePicker({
         aria-label={t(
           mode === "time" ? "datePicker.chooseTime" : "datePicker.chooseDate",
         )}
-        className="data-[scale=deck]:w-auto"
+        className="w-auto"
       >
         <div className="w-67 p-2">
           {mode !== "time" && (
@@ -153,7 +153,7 @@ export function DateTimePicker({
                   setMonth(next);
                 }
               }}
-              className="in-data-[scale=deck]:w-full in-data-[scale=deck]:p-0"
+              className="w-full p-0"
             />
           )}
           {mode !== "date" && (

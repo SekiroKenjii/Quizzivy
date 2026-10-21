@@ -13,7 +13,7 @@ import "@/lib/i18n";
 
 const QUIET = { ...summaryBody, liveAssignments: 0, answersToGrade: 0 };
 
-const sidebar = () => document.getElementById("teacher-sidebar");
+const sidebar = () => document.getElementById("console-sidebar");
 
 function tree(children: Parameters<typeof renderRoutes>[1]) {
   return [{ path: "/teacher", element: <TeacherLayout />, children }];
@@ -46,7 +46,7 @@ describe("the shell every teacher page renders in", () => {
     expect(sidebar()).not.toBeNull();
     expect(document.getElementById("admin-sidebar")).toBeNull();
     expect(document.documentElement).toHaveClass("dark");
-    expect(screen.getByRole("main").closest("[data-scale='deck']")).not.toBeNull();
+    expect(screen.getByRole("main").querySelector("[data-slot='page']")).not.toBeNull();
     expect(document.title).toBe("Tổng quan · Quizzivy");
   });
 

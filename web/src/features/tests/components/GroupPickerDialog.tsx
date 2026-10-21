@@ -102,7 +102,7 @@ function GroupChoices({
               <Button
                 key={group.id}
                 variant="outline"
-                className="h-auto justify-between gap-4 py-3"
+                className="h-auto justify-between py-3"
                 disabled={busy || !sections[Number(destination)]}
                 onClick={() => void choose(group)}
               >

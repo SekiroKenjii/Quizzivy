@@ -29,12 +29,15 @@ function Answers({
   onChange = () => {},
   ...props
 }: Readonly<{
+  id?: string;
   start?: readonly string[];
   onChange?: (next: string[]) => void;
   tone?: "neutral" | "success";
   size?: "sm" | "md";
   frame?: boolean;
   commaAdds?: boolean;
+  spaceAdds?: boolean;
+  resolve?: (entry: string) => string;
   invalid?: boolean;
   describedBy?: string;
   same?: ChipSame;
@@ -131,6 +134,68 @@ describe("the chip input", () => {
     expect(input()).toHaveValue("Hanoi, Vietnam");
     await user.keyboard("{Enter}");
     expect(onChange).toHaveBeenCalledWith(["travel", "Hanoi, Vietnam"]);
+  });
+
+  it("adds what is typed when a space follows it, only when a space adds", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const { unmount } = render(<Answers onChange={onChange} />);
+    await user.type(input(), "long journey");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input()).toHaveValue("long journey");
+    unmount();
+
+    render(<Answers spaceAdds onChange={onChange} />);
+    await user.type(input(), "journey ");
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(["travel", "journey"]);
+    expect(input()).toHaveValue("");
+  });
+
+  it("adds every part of what is pasted when commas and spaces both add", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<Answers spaceAdds onChange={onChange} />);
+    await user.click(input());
+    await user.paste("journey, trip  voyage,tou");
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(["travel", "journey", "trip", "voyage"]);
+    expect(input()).toHaveValue("tou");
+  });
+
+  it("adds a space-separated entry when only spaces add, keeping a comma in it", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<Answers spaceAdds commaAdds={false} onChange={onChange} />);
+    await user.type(input(), "a,b ");
+    expect(onChange).toHaveBeenCalledWith(["travel", "a,b"]);
+  });
+
+  it("adds the value that resolve gives for an entry, and compares that value with the chips", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const resolve = (entry: string) => entry.replace(/^@+/, "").toLowerCase();
+    render(<Answers resolve={resolve} onChange={onChange} />);
+    await user.type(input(), "@TRAVEL{Enter}");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input()).toHaveValue("");
+
+    await user.type(input(), "@@Journey,");
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(["travel", "journey"]);
+  });
+
+  it("never calls resolve for a blank entry", async () => {
+    const user = userEvent.setup();
+    const resolve = vi.fn((entry: string) => entry);
+    render(<Answers resolve={resolve} />);
+    await user.type(input(), "   {Enter}");
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
+  it("puts the id on the input", () => {
+    render(<Answers id="tu-khoa" />);
+    expect(input()).toHaveAttribute("id", "tu-khoa");
   });
 
   it("adds what is typed when the input loses focus", async () => {
@@ -339,6 +404,18 @@ describe("the chip input's drawing", () => {
     expect(remove.querySelector("svg")).toHaveClass("size-2.75");
     expect(input()).toHaveClass("h-6.5", "min-w-35");
   });
+
+  it.each([
+    ["sm", "size-4", "after:-inset-1"],
+    ["md", "size-4.5", "after:-inset-1.5"],
+  ] as const)(
+    "gives the %s remove button a hit area of at least 24px around its mark",
+    (size, drawn, reach) => {
+      render(<Answers size={size} />);
+      const remove = screen.getByRole("button", { name: "Bỏ đáp án travel" });
+      expect(remove).toHaveClass("relative", "after:absolute", drawn, reach);
+    },
+  );
 
   it("draws no box of its own without a frame, and leaves the input its focus ring", () => {
     render(<Answers frame={false} size="md" tone="success" />);

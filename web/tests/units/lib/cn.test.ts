@@ -14,10 +14,4 @@ describe("cn knows the deck's scales", () => {
     expect(cn("rounded-md", "rounded-ctl")).toBe("rounded-ctl");
     expect(cn("shadow-xs", "shadow-card")).toBe("shadow-card");
   });
-
-  it("keeps a deck-scoped class beside the unscoped one", () => {
-    expect(cn("h-9", "in-data-[scale=deck]:h-9.5")).toBe(
-      "h-9 in-data-[scale=deck]:h-9.5",
-    );
-  });
 });

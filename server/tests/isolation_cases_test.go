@@ -169,7 +169,7 @@ func freshAttempt(x *iso, own *party) *party {
 		"email": "lam-bai-" + nonce(x.t) + "@example.com", "fullName": "Học viên làm bài", "classIds": []any{own.id("class")},
 	})
 	user := created["user"].(map[string]any)
-	learner := x.w.signedIn(user["email"].(string), created["temporaryPassword"].(string))
+	learner := x.w.settledIn(user["email"].(string), created["temporaryPassword"].(string))
 	session := learner.must(http.StatusOK, http.MethodPost, "/app/assignments/"+own.id("assignment")+"/attempts", nil)
 	attempt := id(session["attempt"].(map[string]any))
 	learner.must(http.StatusOK, http.MethodPost, "/app/attempts/"+attempt+"/submit", map[string]any{"sessionId": session["sessionId"], "reason": "manual"})
@@ -295,7 +295,7 @@ func isolationCases() map[string]isoCase {
 		},
 		"publishTest":        {},
 		"duplicateTest":      {},
-		"listTestVersions":   {excuse: map[string]string{"path id": "a missing test lists no versions"}},
+		"listTestVersions":   {},
 		"deleteTestVersion":  {params: map[string]string{"version": "1"}, fresh: freshPublishedTest},
 		"getTestVersionDiff": {params: map[string]string{"version": "1"}, query: map[string]string{"against": "draft"}, fresh: freshPublishedTest},
 		"setCurrentTestVersion": {params: map[string]string{"version": "1"}, fresh: freshPublishedTest, body: func(x *iso, own *party, _ string) any {

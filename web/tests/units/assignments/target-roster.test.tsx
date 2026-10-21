@@ -39,6 +39,8 @@ it("unions all membership pages and individual selections, excluding disabled st
     mustChangePassword: false,
     createdAt: joinedAt,
     disabledAt: id === "disabled" ? joinedAt : null,
+    lastActiveAt: null,
+    accountStatus: id === "disabled" ? "disabled" : "active",
     classes: [],
     stats,
   }));

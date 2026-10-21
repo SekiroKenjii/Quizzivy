@@ -41,7 +41,7 @@ func bootWithStorage(t *testing.T) *world {
 	return bootAssistedWithStorage(t, nil)
 }
 
-func bootAssistedWithStorage(t *testing.T, completer aiports.Completer) *world {
+func bootAssistedWithStorage(t *testing.T, completer aiports.Completer, more ...func(*config.Config)) *world {
 	t.Helper()
 	work := t.TempDir()
 	if err := os.Chmod(work, 0o700); err != nil {
@@ -51,7 +51,7 @@ func bootAssistedWithStorage(t *testing.T, completer aiports.Completer) *world {
 	if completer != nil {
 		options = append(options, wiring.WithCompleter(completer))
 	}
-	return assemble(t, slog.New(slog.DiscardHandler), options, withPrices, func(c *config.Config) {
+	configure := append([]func(*config.Config){withPrices, func(c *config.Config) {
 		c.S3Endpoint = storageEnv("S3_ENDPOINT", "http://localhost:9000")
 		c.S3Region = storageEnv("S3_REGION", "us-east-1")
 		c.S3Bucket = storageEnv("S3_BUCKET", "quizzivy-media")
@@ -64,7 +64,8 @@ func bootAssistedWithStorage(t *testing.T, completer aiports.Completer) *world {
 		c.ImportActorCount, c.ImportGlobalCount, c.ImportSourcesPerItem = 100, 1000, 32
 		c.ImportActorMiB, c.ImportGlobalMiB = 256, 1024
 		c.ImportProcessing = true
-	})
+	}}, more...)
+	return assemble(t, slog.New(slog.DiscardHandler), options, configure...)
 }
 
 type sent struct {
@@ -208,6 +209,12 @@ func (w *world) signedIn(email, password string) *client {
 	return c
 }
 
+func (w *world) settledIn(email, password string) *client {
+	c := w.browser()
+	c.loginSettled(email, password)
+	return c
+}
+
 func (w *world) teacherWorld(name string) *party {
 	w.t.Helper()
 	email, password := w.createStaff("teacher")
@@ -287,7 +294,7 @@ func (w *world) teacherWorld(name string) *party {
 	})
 	p.ids["override"] = p.ids["student"]
 
-	learner := w.signedIn(user["email"].(string), created["temporaryPassword"].(string))
+	learner := w.settledIn(user["email"].(string), created["temporaryPassword"].(string))
 	session := learner.must(http.StatusOK, http.MethodPost, "/app/assignments/"+p.ids["assignment"]+"/attempts", nil)
 	attempt := session["attempt"].(map[string]any)
 	p.ids["attempt"] = id(attempt)
@@ -302,7 +309,7 @@ func (w *world) teacherWorld(name string) *party {
 	sitting := c.must(http.StatusCreated, http.MethodPost, "/teacher/students", map[string]any{
 		"email": "dang-lam-" + name + "-" + nonce(w.t) + "@example.com", "fullName": "Học viên đang làm " + name, "classIds": []string{p.ids["class"]},
 	})
-	sitter := w.signedIn(sitting["user"].(map[string]any)["email"].(string), sitting["temporaryPassword"].(string))
+	sitter := w.settledIn(sitting["user"].(map[string]any)["email"].(string), sitting["temporaryPassword"].(string))
 	listened := c.assign(w.listeningVersion(p), p.ids["class"])
 	open := sitter.must(http.StatusOK, http.MethodPost, "/app/assignments/"+id(listened)+"/attempts", nil)
 	stimulus := open["groups"].([]any)[0].(map[string]any)
@@ -356,7 +363,7 @@ func (w *world) sharedStudent(p *party) (*client, string) {
 		"email": "dung-chung-" + nonce(w.t) + "@example.com", "fullName": "Học viên học hai lớp", "classIds": []string{p.ids["class"]},
 	})
 	user := created["user"].(map[string]any)
-	return w.signedIn(user["email"].(string), created["temporaryPassword"].(string)), user["id"].(string)
+	return w.settledIn(user["email"].(string), created["temporaryPassword"].(string)), user["id"].(string)
 }
 
 func (w *world) listeningVersion(p *party) string {

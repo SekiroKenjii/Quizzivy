@@ -8,6 +8,8 @@
 // upright by their EXIF orientation and encoded afresh. Nothing but pixels
 // survives: the output carries no EXIF, ICC profile, text chunk or trailing
 // bytes.
+//
+// Logo takes a PNG that is already square and re-encodes it at its own size.
 package imagesafe
 
 import (
@@ -90,7 +92,7 @@ func (p *Processor) Square(ctx context.Context, body io.Reader, lim Limits) ([]b
 	if err != nil {
 		return nil, err
 	}
-	return encode(orient(boxSquare(img, lim.OutSide), head.orientation))
+	return encode(orient(boxSquare(img, lim.OutSide), head.orientation), png.BestCompression)
 }
 
 func readBounded(body io.Reader, limit int64) ([]byte, error) {
@@ -173,9 +175,9 @@ func decode(data []byte, kind string, head header) (img image.Image, err error) 
 	return img, nil
 }
 
-func encode(img *image.NRGBA) ([]byte, error) {
+func encode(img image.Image, level png.CompressionLevel) ([]byte, error) {
 	var out bytes.Buffer
-	encoder := png.Encoder{CompressionLevel: png.BestCompression}
+	encoder := png.Encoder{CompressionLevel: level}
 	if err := encoder.Encode(&out, img); err != nil {
 		return nil, fmt.Errorf("imagesafe: encode: %w", err)
 	}

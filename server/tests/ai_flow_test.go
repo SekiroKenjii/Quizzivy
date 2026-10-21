@@ -82,7 +82,7 @@ func (w *world) assistedSitting(teacher *client) sitting {
 		"email": s.email, "fullName": s.name, "classIds": []string{s.classID},
 	})
 	s.studentID = created["user"].(map[string]any)["id"].(string)
-	s.student = w.signedIn(s.email, created["temporaryPassword"].(string))
+	s.student = w.settledIn(s.email, created["temporaryPassword"].(string))
 	s.assignment = id(teacher.assign(version, s.classID))
 	session := s.student.must(http.StatusOK, http.MethodPost, "/app/assignments/"+s.assignment+"/attempts", nil)
 	s.attempt = id(session["attempt"].(map[string]any))

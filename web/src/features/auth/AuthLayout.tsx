@@ -2,11 +2,11 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { BrandFrame } from "@/components/shared/BrandFrame";
-import { config } from "@/lib/config";
+import { OrganizationIdentity } from "@/components/shared/OrganizationIdentity";
 
 /**
  * AuthLayout is the frame of the sign-in pages: the brand panel from 900px
- * with the product line and the organisation's name, then the form column.
+ * with the product line and the organisation's logo and name, then the form column.
  * Join and its confirmation pass `panel={false}` and stay one column at every
  * width, as the deck draws them. `footer` sits under the form.
  */
@@ -25,9 +25,7 @@ export function AuthLayout({
           <p className="text-kpi leading-tight font-semibold tracking-[-0.02em] text-balance">
             {t("auth.panel.headline")}
           </p>
-          {config.orgName && (
-            <p className="text-muted-fg text-md leading-relaxed">{config.orgName}</p>
-          )}
+          <OrganizationIdentity variant="panel" />
         </div>
       }
       caption={t("auth.panel.help")}

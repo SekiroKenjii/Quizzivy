@@ -88,7 +88,7 @@ export function JoinQrDialog({
       <DialogShellFooter>
         <Button
           type="button"
-          className="text-ui h-9 px-4 leading-normal shadow-none in-data-[scale=deck]:h-9 in-data-[scale=deck]:px-4"
+          className="text-ui h-9 px-4 leading-normal shadow-none"
           onClick={onClose}
         >
           {t("classDetail.done")}

@@ -145,7 +145,7 @@ export function GapBindings({
                     size="sm"
                     aria-label={t("groups.gapTarget", { label: gap.label })}
                     aria-invalid={!binding}
-                    className="bg-card text-fg text-meta in-data-[scale=deck]:bg-card in-data-[scale=deck]:text-meta dark:bg-card dark:hover:bg-card dark:in-data-[scale=deck]:bg-card dark:in-data-[scale=deck]:hover:bg-card h-8 w-full min-w-0 rounded-[7px] px-2 shadow-none"
+                    className="text-fg bg-card text-meta dark:bg-card dark:hover:bg-card h-8 w-full min-w-0 rounded-[7px] px-2 shadow-none"
                   >
                     <SelectValue />
                   </SelectTrigger>
@@ -174,7 +174,7 @@ export function GapBindings({
                     variant="ghost"
                     size="icon-sm"
                     aria-label={t("groups.removeGap", { label: gap.label })}
-                    className="text-muted-fg hover:bg-hover dark:hover:bg-hover size-7 rounded-[6px] in-data-[scale=deck]:size-7 in-data-[scale=deck]:rounded-[6px]"
+                    className="text-muted-fg hover:bg-hover dark:hover:bg-hover size-7 rounded-[6px]"
                     onClick={() => onRemove(gap.id)}
                   >
                     <X className="size-3.5" aria-hidden="true" />

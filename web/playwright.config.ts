@@ -1,4 +1,19 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
+
+/**
+ * EMAIL_SINK_DIR is the directory the API's email sink writes to, which the
+ * live specs read set-password links from. It is the variable the API reads,
+ * resolved against the repository root as `make dev-api` resolves it, and
+ * `tmp/email-sink` there when unset, the Makefile's default. Setting it here
+ * hands the one resolved path to every worker.
+ */
+const EMAIL_SINK_DIR = path.resolve(
+  fileURLToPath(new URL("..", import.meta.url)),
+  process.env["EMAIL_SINK_DIR"] || "tmp/email-sink",
+);
+process.env["EMAIL_SINK_DIR"] = EMAIL_SINK_DIR;
 
 /**
  * E2E runs against a real production build served by `vite preview`, not the
@@ -11,12 +26,14 @@ import { defineConfig, devices } from "@playwright/test";
  * Phase 4. This file and the smoke test exist so that when the first real one
  * is written there is nothing to set up.
  */
+const SLOW = /timer-expiry\.live\.spec\.ts$/;
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
   forbidOnly: !!process.env["CI"],
   retries: process.env["CI"] ? 2 : 0,
-  workers: process.env["CI"] ? 1 : undefined,
+  workers: process.env["CI"] ? 3 : undefined,
   reporter: process.env["CI"] ? [["github"], ["html", { open: "never" }]] : [["list"]],
 
   use: {
@@ -54,11 +71,24 @@ export default defineConfig({
      * mock returns, which is not the thing the phase-2 exit criterion is about.
      * Everything else stays stubbed -- see tests/e2e/support/api.ts for why.
      *
-     * Run with `pnpm e2e:live`, which needs postgres, MinIO and the Go API up.
+     * Run with `pnpm e2e:live`, which needs postgres, MinIO and the Go API up,
+     * the API writing its email to EMAIL_SINK_DIR (above).
      */
     {
       name: "live",
       testMatch: /\.live\.spec\.ts$/,
+      testIgnore: SLOW,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    /**
+     * The live specs that wait on real time, kept off every pull request: E2E 5
+     * waits out a one-minute deadline, a fifth of the live suite. The "Slow
+     * tail" workflow runs it nightly and on a pull request into main, with
+     * `pnpm e2e:slow`, which needs postgres and the Go API.
+     */
+    {
+      name: "slow",
+      testMatch: SLOW,
       use: { ...devices["Desktop Chrome"] },
     },
   ],

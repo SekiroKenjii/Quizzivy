@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"quizzivy/internal/platform/tabular"
+	"quizzivy/internal/shared/validation"
 )
 
 func TestACellASpreadsheetWouldRunIsWrittenAsText(t *testing.T) {
@@ -28,6 +29,20 @@ func TestAnOrdinaryCellIsWrittenAsItIs(t *testing.T) {
 	} {
 		if got := tabular.EscapeCell(value); got != value {
 			t.Errorf("EscapeCell(%q) = %q, want it unchanged", value, got)
+		}
+	}
+}
+
+func TestACellIsEscapedExactlyWhenItIsFormulaLike(t *testing.T) {
+	leads := []string{"", " ", "  ", "\u00A0", "\u3000", "\t", "\r", "\n", "=", "+", "-", "@", "＝", "＋", "－", "＠", "'", "a", "1", "・", "_", ".", "\u200b"}
+	for _, first := range leads {
+		for _, second := range leads {
+			for _, rest := range []string{"", "x@example.com", "1+1"} {
+				value := first + second + rest
+				if escaped := tabular.EscapeCell(value) != value; escaped != validation.FormulaLike(value) {
+					t.Errorf("EscapeCell(%q) changed the value = %v, FormulaLike = %v", value, escaped, validation.FormulaLike(value))
+				}
+			}
 		}
 	}
 }

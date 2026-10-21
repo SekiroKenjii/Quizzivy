@@ -181,19 +181,42 @@ func TestTheBuiltInGrantsAreTheMatrixCellByCell(t *testing.T) {
 	if !slices.Equal(names, []string{"Quản trị viên", "Giáo viên", "Trợ giảng", "Học viên"}) {
 		t.Errorf("built-in role names = %v", names)
 	}
+	rows, err = pool.Query(ctx, `SELECT description FROM app.roles WHERE builtin_key IS NOT NULL ORDER BY array_position(ARRAY['admin', 'teacher', 'assistant', 'student'], builtin_key)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	descriptions, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantDescriptions := []string{
+		"Điều hành trung tâm. Quản lý người dùng và cài đặt.",
+		"Soạn đề, quản lý lớp, chấm bài.",
+		"Hỗ trợ giáo viên chấm bài và điểm danh.",
+		"Làm bài và xem kết quả của mình.",
+	}
+	if !slices.Equal(descriptions, wantDescriptions) {
+		t.Errorf("built-in role descriptions = %v, want the seed the web's role.builtinDescription.vi strings are compared with", descriptions)
+	}
 }
 
-func TestTheAppRoleOnlyReadsTheCatalogue(t *testing.T) {
+func TestTheAppRoleReadsTheCatalogueAndWritesOnlyWhatTheRoleCommandsNeed(t *testing.T) {
 	pool := cataloguePool(t)
-	for _, relation := range []string{"app.permissions", "app.roles", "app.role_permissions", "app.student_like_roles"} {
-		for privilege, want := range map[string]bool{"SELECT": true, "INSERT": false, "UPDATE": false, "DELETE": false} {
+	want := map[string]map[string]bool{
+		"app.permissions":        {"SELECT": true, "INSERT": false, "UPDATE": false, "DELETE": false},
+		"app.roles":              {"SELECT": true, "INSERT": true, "UPDATE": false, "DELETE": false},
+		"app.role_permissions":   {"SELECT": true, "INSERT": true, "UPDATE": false, "DELETE": true},
+		"app.student_like_roles": {"SELECT": true, "INSERT": false, "UPDATE": false, "DELETE": false},
+	}
+	for relation, privileges := range want {
+		for privilege, wanted := range privileges {
 			var got bool
 			if err := pool.QueryRow(context.Background(),
 				`SELECT has_table_privilege('quizzivy_app', $1, $2)`, relation, privilege).Scan(&got); err != nil {
 				t.Fatal(err)
 			}
-			if got != want {
-				t.Errorf("quizzivy_app %s on %s = %v, want %v", privilege, relation, got, want)
+			if got != wanted {
+				t.Errorf("quizzivy_app %s on %s = %v, want %v", privilege, relation, got, wanted)
 			}
 		}
 	}

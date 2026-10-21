@@ -1,4 +1,5 @@
 import {
+  Fragment,
   memo,
   useId,
   useMemo,
@@ -63,6 +64,18 @@ type Select<T extends Item> = Readonly<{
   name: (row: T) => string;
 }>;
 
+/**
+ * DataTableExpansion lets a row open a panel under itself. `isOpen` says which
+ * rows are open, `detail` draws the panel of an open row, and `label` names
+ * the button that toggles it, which is the opener of the row, so the table's
+ * `onOpen` is what toggles. The panel is a row of its own with one cell.
+ */
+export type DataTableExpansion<T> = Readonly<{
+  isOpen: (row: T) => boolean;
+  detail: (row: T) => ReactNode;
+  label: (row: T) => string;
+}>;
+
 /** DataTableProps supplies columns, rows and optional selection, opening, per-row tones and menus while preserving plain default rows. */
 export type DataTableProps<T extends Item> = Opening<T> &
   Selecting<T> & {
@@ -71,16 +84,20 @@ export type DataTableProps<T extends Item> = Opening<T> &
     readonly rows: readonly T[];
     readonly rowSize: RowSize;
     readonly dense?: boolean | undefined;
-    readonly rowTone?: ((row: T) => "danger" | "selected" | undefined) | undefined;
+    readonly rowTone?: ((row: T) => RowTone) | undefined;
     readonly canOpen?: ((row: T) => boolean) | undefined;
     readonly shown?: ReadonlySet<string> | undefined;
     readonly menu?: ((row: T, context: DataTableMenuContext) => ReactNode) | undefined;
     readonly menuLabel?: ((row: T) => string) | undefined;
     readonly menuTrack?: string | undefined;
+    readonly selectTrack?: string | undefined;
     readonly padX?: number | undefined;
     readonly card?: ((row: T) => ReactNode) | undefined;
     readonly cardLayout?: "stacked" | "joined" | undefined;
+    readonly cards?: boolean | undefined;
+    readonly selectCards?: boolean | undefined;
     readonly framed?: boolean | undefined;
+    readonly expansion?: DataTableExpansion<T> | undefined;
     readonly empty?: ReactNode;
     readonly footer?: ReactNode;
   };
@@ -121,12 +138,16 @@ function Opener<T>({
   rowHref,
   onOpen,
   className,
+  expansion,
+  panelId,
   children,
 }: Readonly<{
   row: T;
   rowHref: ((row: T) => string) | undefined;
   onOpen: ((row: T) => void) | undefined;
   className: string;
+  expansion?: DataTableExpansion<T> | undefined;
+  panelId?: string | undefined;
   children: ReactNode;
 }>) {
   if (rowHref !== undefined) {
@@ -137,11 +158,15 @@ function Opener<T>({
     );
   }
   if (onOpen !== undefined) {
+    const open = expansion?.isOpen(row);
     return (
       <button
         type="button"
         data-slot={OPENER}
         className={cn("cursor-pointer", className)}
+        aria-label={expansion?.label(row)}
+        aria-expanded={open}
+        aria-controls={open ? panelId : undefined}
         onClick={() => onOpen(row)}
       >
         {children}
@@ -204,7 +229,11 @@ function HeaderRow<T extends Item>({
           role="columnheader"
           className={cn("min-w-0", column.align === "end" && "text-right")}
         >
-          {column.header}
+          {column.hideHeader ? (
+            <span className="sr-only">{column.header}</span>
+          ) : (
+            column.header
+          )}
         </div>
       ))}
       {hasMenu ? (
@@ -231,6 +260,7 @@ function BodyRow<T extends Item>({
   box,
   tone,
   canOpen,
+  expansion,
 }: Readonly<{
   row: T;
   visible: readonly DataColumn<T>[];
@@ -244,8 +274,9 @@ function BodyRow<T extends Item>({
   template: string;
   padX: number;
   box: RowBox;
-  tone: "danger" | "selected" | undefined;
+  tone: RowTone;
   canOpen: boolean;
+  expansion: DataTableExpansion<T> | undefined;
 }>) {
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const opens = canOpen && (rowHref !== undefined || onOpen !== undefined);
@@ -297,6 +328,8 @@ function BodyRow<T extends Item>({
               row={row}
               rowHref={rowHref}
               onOpen={onOpen}
+              expansion={expansion}
+              panelId={panelIdOf(labelId)}
               className="block w-full min-w-0 rounded-sm text-left"
             >
               <Cell column={column} row={row} shown={shown} />
@@ -322,24 +355,53 @@ function BodyRow<T extends Item>({
   );
 }
 
+const panelIdOf = (labelId: string) => `${labelId}-panel`;
+
+function CardSelectPage<T extends Item>({
+  rows,
+  select,
+}: Readonly<{ rows: readonly T[]; select: Select<T> }>) {
+  const { t } = useTranslation();
+  return (
+    <div
+      data-slot="data-table-select-page"
+      className="bg-muted text-muted-fg text-meta flex items-center gap-2.5 px-3.5 py-2.5 leading-normal font-medium"
+    >
+      <BulkSelectAll items={rows} selection={select.selection} />
+      <span aria-hidden="true">{t("common.selectPageShort")}</span>
+    </div>
+  );
+}
+
+type RowTone = "danger" | "selected" | undefined;
+
+function toneClass(tone: RowTone): string | undefined {
+  if (tone === "danger") return "bg-danger-soft";
+  return tone === "selected" ? "bg-muted" : undefined;
+}
+
 function CardList<T extends Item>({
   label,
   rows,
   card,
+  select,
   joined,
   canOpen,
   rowHref,
   onOpen,
+  tone,
   empty,
   footer,
 }: Readonly<{
   label: string;
   rows: readonly T[];
   card: (row: T) => ReactNode;
+  select: Select<T> | undefined;
   joined: boolean;
   canOpen: ((row: T) => boolean) | undefined;
   rowHref: ((row: T) => string) | undefined;
   onOpen: ((row: T) => void) | undefined;
+  tone: ((row: T) => RowTone) | undefined;
   empty: ReactNode;
   footer: ReactNode;
 }>) {
@@ -347,12 +409,32 @@ function CardList<T extends Item>({
     rows.length === 0 ? null : (
       <ul aria-label={label} className={joined ? undefined : "flex flex-col gap-2.5"}>
         {rows.map((row) => (
-          <li key={row.id} className={joined ? "border-t first:border-t-0" : undefined}>
+          <li
+            key={row.id}
+            className={cn(
+              joined && "border-t first:border-t-0",
+              select !== undefined && "flex items-start pl-3.5",
+              joined && toneClass(tone?.(row)),
+            )}
+          >
+            {select === undefined ? null : (
+              <span className="flex flex-none pt-[21px]">
+                <BulkSelectRow
+                  item={row}
+                  name={select.name(row)}
+                  selection={select.selection}
+                />
+              </span>
+            )}
             <Opener
               row={row}
               rowHref={canOpen?.(row) === false ? undefined : rowHref}
               onOpen={canOpen?.(row) === false ? undefined : onOpen}
-              className={joined ? JOINED_ROW : STACKED_CARD}
+              className={cn(
+                joined ? JOINED_ROW : STACKED_CARD,
+                select !== undefined && "pl-3",
+                !joined && toneClass(tone?.(row)),
+              )}
             >
               {card(row)}
             </Opener>
@@ -367,6 +449,9 @@ function CardList<T extends Item>({
   if (joined) {
     return (
       <div data-slot="data-table" className="bg-card overflow-hidden rounded-xl border">
+        {select === undefined || rows.length === 0 ? null : (
+          <CardSelectPage rows={rows} select={select} />
+        )}
         {list}
         {none}
         {footer}
@@ -400,10 +485,17 @@ function CardList<T extends Item>({
  * marked `data-slot="data-table-select-page"`, where a screen can find it to
  * give focus back. `menuLabel` names a row's menu button, "Actions"
  * otherwise. Below 768px a table that has `card` renders a
- * list of cards instead, without checkboxes, menus or asides. Content wider
+ * list of cards instead, without menus or asides, and without checkboxes
+ * unless `selectCards` asks for them: then a joined list opens with a "Select
+ * page" row and each card has its checkbox before it; a card takes its
+ * row's `rowTone`; `cards`, when
+ * a screen gives it, decides that in place of the window's width, for a table
+ * that turns into cards by the width of the content. Content wider
  * than the table scrolls sideways inside it. Rows are dense when `dense`
- * says so, and otherwise when the account chose "Compact tables" (DG-37).
- * Loading and failure stay with the screen.
+ * says so, and otherwise when the account chose "Compact tables" (DG-37). A
+ * table with an `expansion` opens a panel under a row: the row's opener, which
+ * `onOpen` toggles, answers `aria-expanded`. Loading and failure stay with
+ * the screen.
  */
 export function DataTable<T extends Item>(props: DataTableProps<T>) {
   const {
@@ -420,10 +512,14 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
     menu,
     menuLabel,
     menuTrack = MENU_TRACK,
+    selectTrack,
     padX = PAD_X,
     card,
     cardLayout = "stacked",
+    cards,
+    selectCards = false,
     framed = true,
+    expansion,
     empty,
     footer,
   } = props;
@@ -446,16 +542,18 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
   );
   const shown = given ?? derived;
 
-  if (card !== undefined && !wide) {
+  if (card !== undefined && (cards ?? !wide)) {
     return (
       <CardList
         label={label}
         rows={rows}
         card={card}
+        select={selectCards ? select : undefined}
         joined={cardLayout === "joined"}
         canOpen={canOpen}
         rowHref={rowHref}
         onOpen={onOpen}
+        tone={rowTone}
         empty={empty}
         footer={footer}
       />
@@ -465,6 +563,7 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
   const visible = columns.filter((column) => shown.has(column.id));
   const template = templateOf(columns, shown, {
     select: select !== undefined,
+    ...(selectTrack === undefined ? {} : { selectTrack }),
     ...(menu === undefined ? {} : { menuTrack }),
   });
   const box = rowBox(rowSize, denseChoice ?? compact);
@@ -487,23 +586,36 @@ export function DataTable<T extends Item>(props: DataTableProps<T>) {
         {rows.length === 0 ? null : (
           <div role="rowgroup">
             {rows.map((row) => (
-              <BodyRow
-                key={row.id}
-                row={row}
-                visible={visible}
-                shown={shown}
-                labelId={`${baseId}-${row.id}`}
-                rowHref={rowHref}
-                onOpen={onOpen}
-                select={select}
-                menu={menu}
-                menuLabel={menuLabel?.(row)}
-                template={template}
-                padX={padX}
-                box={box}
-                tone={rowTone?.(row)}
-                canOpen={canOpen?.(row) ?? true}
-              />
+              <Fragment key={row.id}>
+                <BodyRow
+                  row={row}
+                  visible={visible}
+                  shown={shown}
+                  labelId={`${baseId}-${row.id}`}
+                  rowHref={rowHref}
+                  onOpen={onOpen}
+                  select={select}
+                  menu={menu}
+                  menuLabel={menuLabel?.(row)}
+                  template={template}
+                  padX={padX}
+                  box={box}
+                  tone={rowTone?.(row)}
+                  canOpen={canOpen?.(row) ?? true}
+                  expansion={expansion}
+                />
+                {expansion?.isOpen(row) === true ? (
+                  <div
+                    role="row"
+                    id={panelIdOf(`${baseId}-${row.id}`)}
+                    className="bg-muted"
+                  >
+                    <div role="cell" className="min-w-0">
+                      {expansion.detail(row)}
+                    </div>
+                  </div>
+                ) : null}
+              </Fragment>
             ))}
           </div>
         )}

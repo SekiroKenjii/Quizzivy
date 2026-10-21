@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import "@/lib/i18n";
 
@@ -72,7 +72,7 @@ it.each(["NotSupportedError"])("does not report %s as blocked", async (name) => 
   expect(onBlocked).not.toHaveBeenCalled();
 });
 
-it("still calls play() in the click's own tick with the new callbacks passed", () => {
+it("still calls play() in the click's own tick with the new callbacks passed", async () => {
   const onPlay = vi.fn();
   const onEnded = vi.fn();
   const onBlocked = vi.fn();
@@ -89,6 +89,10 @@ it("still calls play() in the click's own tick with the new callbacks passed", (
   pressPlay();
 
   expect(play).toHaveBeenCalledTimes(1);
+  expect(onPlay).not.toHaveBeenCalled();
+  await act(async () => {
+    await Promise.resolve();
+  });
   expect(onPlay).toHaveBeenCalledTimes(1);
   expect(play.mock.invocationCallOrder[0]).toBeLessThan(
     onPlay.mock.invocationCallOrder[0]!,

@@ -19,7 +19,7 @@ import (
 	"quizzivy/internal/shared/stats"
 )
 
-func identity(cfg config.Config, logger *slog.Logger, dbx db.Context, stats stats.Source, enroller identityports.SelfEnroller) (*identityapp.Application, *identitytoken.Issuer, error) {
+func identity(cfg config.Config, logger *slog.Logger, dbx db.Context, stats stats.Source, enroller identityports.SelfEnroller, outbox identityrepo.Outbox, roles identityports.AssignableRole) (*identityapp.Application, *identitytoken.Issuer, error) {
 	boundPasswordHashing(cfg, logger)
 	tokens, err := identitytoken.NewIssuer(cfg.JWTSigningKey, cfg.AccessTokenTTL)
 	if err != nil {
@@ -27,13 +27,29 @@ func identity(cfg config.Config, logger *slog.Logger, dbx db.Context, stats stat
 	}
 	app := identityapp.New(identityrepo.NewUsers(dbx), tokens, cfg.RefreshTokenTTL, identityrepo.NewStudents(dbx), stats)
 	app.SetLogger(logger)
+	zone, err := config.AppLocation()
+	if err != nil {
+		return nil, nil, err
+	}
+	app.SetActivity(identityrepo.NewActivity(dbx), zone, logger)
+	links := identityrepo.NewSetPasswordLinks(dbx, outbox)
+	app.SetPasswordLinks(links)
+	app.SetUserImportRetention(identityrepo.NewUserImports(dbx))
+	app.SetAdminUsers(identityrepo.NewAdminUsers(dbx, links), roles)
 	attachGoogle(cfg, logger, app, enroller)
 	return app, tokens, nil
 }
 
 const photoDecodeSlots = 2
 
-func attachAvatars(ctx context.Context, cfg config.Config, logger *slog.Logger, app *identityapp.Application, images *imagesafe.Processor) error {
+func attachIdentityPorts(ctx context.Context, cfg config.Config, logger *slog.Logger, dbx db.Context, app *identityapp.Application, roles identityports.RoleChoices, images *imagesafe.Processor) error {
+	if err := attachUserImports(ctx, cfg, logger, dbx, app, roles); err != nil {
+		return err
+	}
+	return attachAvatars(ctx, cfg, logger, dbx, app, images)
+}
+
+func attachAvatars(ctx context.Context, cfg config.Config, logger *slog.Logger, dbx db.Context, app *identityapp.Application, images *imagesafe.Processor) error {
 	if !cfg.MediaEnabled() {
 		logger.Info("profile photos disabled (no bucket configured)")
 		return nil
@@ -50,6 +66,7 @@ func attachAvatars(ctx context.Context, cfg config.Config, logger *slog.Logger, 
 		return err
 	}
 	app.SetAvatars(objects, adapters.Photos{Processor: images, Log: logger}, logger)
+	app.SetAvatarSweeps(identityrepo.NewAvatarSweeps(dbx), adapters.AvatarObjects{Objects: objects})
 	logger.Info("profile photos enabled", "bucket", cfg.S3Bucket, "decode_slots", photoDecodeSlots)
 	return nil
 }

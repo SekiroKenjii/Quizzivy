@@ -87,6 +87,91 @@ E2E (live API) is the longest job, a little over four minutes (4 min 3 s in
 that run), and Server tests the next (3 min 40 s, the converter image and its
 nine tests included); a faster run starts with those two.
 
+Measured again on 2026-10-14 from the job timings of 702 of the 1,000 latest
+runs (2026-10-03 to 2026-10-14; 653 of the 1,000 were pull request runs). A pull
+request that passed took a median 6 min 11 s (p90 8 min 20 s); a push that
+passed took a median 25 s, nearly every job having been proved already.
+
+| Job | Median | p90 | Share of job-minutes |
+|---|---|---|---|
+| E2E | 5 min 55 s | 7 min 43 s | 18% |
+| Web unit (two shards, before the third) | 5 min 21 s and 4 min 58 s | 7 min 28 s | 34% |
+| E2E (live API) | 4 min 39 s | 6 min 10 s | 19% |
+| Web checks | 4 min 3 s | 5 min 14 s | 13% |
+| Server tests | 4 min 31 s | 6 min 44 s | 7% |
+| Contract | 1 min 19 s | 1 min 38 s | 5% |
+| Everything else | under 2 min | | 5% |
+
+The web jobs are 83% of the 16,239 job-minutes. The hosted minutes of a public
+repository are free, so what these numbers cost is the time a person or an agent
+waits, not an invoice. Where the time goes inside a job: E2E spent a median
+296 s in Playwright, on one worker; Web unit spent about 300 s per shard in
+Vitest; E2E (live API) spent 177 s in the suite and about 100 s starting what the
+suite needs.
+
+## Tests in CI
+
+- **Playwright workers.** The stubbed projects (`chromium`, `mobile-chromium`)
+  run on three workers in CI: they stub the API per page and share no rows. The
+  live project shares one seeded database, so `pnpm e2e:live` pins one worker
+  in CI and locally. On a 4-core container the 271 stubbed tests took 649 s on
+  one worker and 343 s on three.
+- **Web unit runs in three shards.** On the 14 full runs of 2026-10-14 the two
+  shards took a median 8 min 20 s and 9 min 13 s (5 min 44 s and 5 min 34 s over
+  all 106 full runs of the period), and E2E 8 min 39 s, so with E2E on three
+  workers Web unit is the longest job. Vitest splits by a hash of the file path,
+  so the shards are not equal: on the file timings of one local run the three
+  hold 501, 426 and 559 s of file time against 634 and 851 s for two. A fourth
+  would leave Server tests (7 min 9 s) and E2E (live API) (6 min 21 s) as the
+  longest jobs, so three is where it stops.
+- **E2E 5 waits for a real deadline, so it runs in the slow tail.** The fixture's
+  one-minute timer is the shortest expiry the product can express, and the spec
+  waits it out: 60 s of the 273 s the 16 live specs took in one local run, the
+  largest single item. It is the `slow` Playwright project, `pnpm e2e:slow`, and
+  not part of `pnpm e2e:live` (see "The slow tail"). Re-authoring a paper through
+  the builder, which the audio specs do, costs 5 to 8 s of UI per spec and about 2
+  s to assign it, 16 s in all, so no seeding helper is worth its upkeep.
+- **A skipped test fails Plan.** `scripts/ci/tests/skipped-tests.test.mjs` fails
+  on a web test that is skipped, todo, fixme, expected to fail or focused, and on
+  a Go `t.Skip` whose message neither names the variable it waits for (`TEST_*`,
+  `S3_*`, `IMPORT_*`, `APP_DATABASE_URL`) nor is listed in `ENVIRONMENT_SKIPS`.
+  A new entry is a test that stops running somewhere, so it takes the owner's
+  word.
+- **Playwright retries twice.** A flaky test therefore passes: search the job log
+  for `flaky` and treat each as a finding (`docs/team/verification.md`).
+
+## The slow tail
+
+`.github/workflows/slow-tail.yml` runs the specs of the `slow` Playwright
+project, which holds one spec today: E2E 5, `timer-expiry.live.spec.ts`. It is a
+workflow of its own, not a job of CI, so it is not a `needs` of CI result, no
+branch rule requires it, and the planner's markers do not apply to it.
+
+It runs:
+
+- every night at 19:00 UTC (02:00 in Ho Chi Minh City), against `develop`;
+- on every pull request into `main`, which is the release gate: read its check,
+  **E2E (waits on real time)**, before merging a release, because nothing makes
+  it block the merge;
+- by hand from the Actions tab, with a branch, tag or commit to test.
+
+GitHub starts a schedule, and offers a manual run, only from the copy of the file
+on the default branch, which is `main`, so the nightly and the manual run begin
+with the first release that carries the file. The pull request trigger works from
+that release's own pull request. A failed scheduled run notifies whoever last
+changed the cron line.
+
+A spec belongs here only when its wait is real time that cannot be faked, a
+deadline or a time-to-live, and each half is proved elsewhere on every pull
+request: for E2E 5 the engine's timeout in `take-test/deadline.test.ts` and
+`integrity/auto-submit.test.tsx`, and the server's deadline in the attempts
+`timeout_test.go`. To move a spec, add its file to `SLOW` in
+`web/playwright.config.ts`, which keeps it out of `live` and puts it in `slow`.
+
+No Go test moved. On a local run the integration tier took 147 s in all, its
+slowest test took 24.6 s (the legacy `/admin/*` alias test, which goes with
+T-R5.36) and the next 13.1 s, so a Go tag would move about a tenth of the tier.
+
 ## When a job needs a file outside its set
 
 Add the path to that set's `include` in `scripts/ci/plan.mjs`, in the same pull
@@ -99,6 +184,7 @@ Today's cross-tree reads:
 |---|---|
 | `web/tests/units/join/code.test.ts` | `server/internal/modules/classes/domain/joincode.go` |
 | `server/tests/isolation_world_test.go` | `web/tests/e2e/fixtures/unit5-listening.mp3` |
+| `server/internal/modules/audit/domain/tests/catalog_test.go` | `web/src/lib/i18n/locales/vi.json`, `en.json` |
 | `server/internal/modules/identity/repositories/tests/stored_email_test.go` | `docs/setup/operations.md` |
 | Server tests | `api/`, `migrations/`, `fly.toml`, `Dockerfile`, `docker/word-converter/`, `.github/workflows/deploy.yml` |
 | Production image | `Dockerfile`, `.dockerignore`, `fly.toml`, `server/`, `migrations/`, `scripts/provision-db.sh` (its set, `image`, holds these and nothing else) |
@@ -165,6 +251,30 @@ which proves profile writes through the role the API connects as and skips
 without it. The step **App-role profile test ran** runs it once with `-v` and
 fails unless it passed, so removing the variable cannot turn it back into a
 silent skip. `make test-api-integration` sets it from `APP_DSN`.
+
+`TEST_MAINTENANCE_DATABASE_URL`, the DSN of `quizzivy_maintenance`, is set on the
+same job for the tests in `internal/core/maintenance/tests` that run the commands
+as the role. Each makes a database of its own with the migrate role's `CREATEDB`
+(`scripts/provision-db.sh` gives it), migrates it and drops it, so no test shares
+rows with another. Where `CI` is set and the variable is not, those tests fail
+instead of skipping, for the reason the paragraph above gives. The role's limit
+of two connections is cluster-wide, so they do not run in parallel with one
+another.
+
+`TEST_SUPERUSER_DATABASE_URL`, the DSN of the service container's superuser, is set on the
+same job for `TestTheProvisioningScriptRunsAsAManagedAdminThatIsNotASuperuser` in
+`internal/platform/db/tests`. It makes a role with `CREATEROLE` and `CREATEDB` that is not a
+superuser, as a managed provider's admin is, runs `scripts/provision-db.sh` as it against a
+database of its own and drops both, because the script's node tests use a stub `psql` and cannot
+see a statement a non-superuser may not run. Where `CI` is set and the variable is not, it fails
+instead of skipping.
+
+`.github/workflows/retention-sweep.yml` is the nightly sweep, not a CI job: the
+planner lists it with the files whose change runs no code job, and
+`scripts/ci/tests/retention-sweep.test.mjs`, which `Plan` runs, pins its
+schedule, its one-at-a-time group, the 15-minute limit, that the environment
+secret is read by the sweep step alone and that no expression is written into a
+script (`docs/setup/operations.md`, "Retention and anonymization").
 
 A test that needs the object store or the image skips when its variable is
 unset, and `go test` reports a package whose tests all skipped as `ok`. The
@@ -264,6 +374,16 @@ If the mirror ever fails too, the alternative is a Docker Hub login from a
 repository secret, which raises the limit for the account; it needs Thuong to
 create a read-only access token and add it as a secret, and is not built.
 
+## Third-party actions
+
+An action from outside `actions/` is pinned to a full commit SHA, with the tag
+it was resolved from in a trailing comment (`uses: owner/name@<sha> # v1.2.3`).
+A tag or branch moves, and the deploy workflow holds `FLY_API_TOKEN`, so a moved
+ref would run someone else's code with it. To update one, resolve the new tag
+to its commit (the peeled one, `git ls-remote <repo> 'refs/tags/<tag>^{}'`, when
+the tag is annotated), check that the action file exists there, and change the
+SHA and the comment together. The `actions/*` actions stay on a major tag.
+
 ## Branch rules
 
 Three rulesets, under Settings › Rules:
@@ -280,6 +400,46 @@ never reports **CI result**.
 
 A repository admin can merge a pull request past a failing check. That is for
 the case where CI itself is broken, and the pull request should say so.
+
+## The wiki
+
+`.github/workflows/wiki.yml` publishes the documentation to the repository's
+GitHub Wiki. It is a workflow of its own, outside CI, and its result is not
+part of **CI result**. The planner counts `wiki.yml` and `scripts/wiki/` as
+not code, so a change to them runs no code job.
+
+| Event | Job | Does |
+|---|---|---|
+| Pull request that touches docs or `scripts/wiki/` | Check | Tests `scripts/wiki/`, then builds the pages without publishing |
+| Push to `develop` that touches the same files | Publish | Builds the pages into a clone of the wiki and pushes the difference as `github-actions[bot]` |
+| Manual run on `develop` | Publish | The same, for a resync after the wiki was edited by hand; GitHub offers it once the workflow is on `main` |
+
+`scripts/wiki/build.py` reads the checkout and writes one page per document:
+every `docs/**/*.md` outside `docs/design/deck/` (the deck is pinned by
+`MANIFEST.sha256`), `AGENTS.md`, `CONTRIBUTING.md` and each directory's
+`README.md`. The root `README.md` becomes Home. What it does to them:
+
+- A document over 200 KB is split at heading boundaries into parts of about
+  120 KB behind an index page that links every heading; the product spec is
+  split into one page per section instead.
+- A relative link to another document becomes a link to its wiki page, and to
+  a heading in a split document the part that holds it. A link to anything
+  else becomes a link to the file on `develop`. A code span that is exactly a
+  document's path or file name is linked too. Fenced code is left as written.
+- A document the table in the script does not name is still published, under a
+  name derived from its path, and the run logs a warning. Add it to the table
+  to name it and place it in the sidebar.
+- Every page ends with the file it came from and carries a marker comment. A
+  page with the marker that the build no longer writes is removed; a page
+  without it, such as one written by hand in the wiki, is never touched. A
+  generated page edited in the wiki is overwritten by the next run, so edit
+  the file in the repository.
+
+The build exits 1, and the run fails, when a link between wiki pages does not
+resolve or a split loses text. Nothing is committed to the wiki when the
+output matches what it holds. The `GITHUB_TOKEN` of the run writes to the
+wiki, which needs the wiki to exist: GitHub creates its repository when
+someone saves a first page in the browser.
 
 ## Deploy
 

@@ -6,7 +6,6 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { AccountMenu } from "@/features/auth/AccountMenu";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { writeThemePreference } from "@/lib/theme";
 import { useAuthStore } from "@/stores/auth";
 import { STUDENT } from "../student/support";
@@ -17,9 +16,7 @@ function renderMenu() {
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <DeckScale>
-          <AccountMenu settingsTo="/app/settings" />
-        </DeckScale>
+        <AccountMenu settingsTo="/app/settings" />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -57,7 +54,7 @@ describe("the account menu on a console built to the deck", () => {
       "href",
       "/app/settings",
     );
-    expect(menu.dataset["scale"]).toBe("deck");
+    expect(menu).toHaveClass("bg-card", "shadow-float", "rounded-lg");
   });
 
   it("opens from the keyboard, moves through its items and gives focus back on Escape", async () => {

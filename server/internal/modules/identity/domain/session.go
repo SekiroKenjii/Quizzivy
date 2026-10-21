@@ -4,6 +4,15 @@ import (
 	"time"
 )
 
+// SignInMethod is how a user proved who they are when a session began.
+type SignInMethod string
+
+const (
+	SignInPassword        SignInMethod = "password"
+	SignInGoogle          SignInMethod = "google"
+	SignInSetPasswordLink SignInMethod = "set_password_link"
+)
+
 type RefreshTokenRecord struct {
 	UserID    string
 	FamilyID  string

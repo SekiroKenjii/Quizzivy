@@ -174,3 +174,46 @@ func TestPrivateOriginalDownloadForcesAttachment(t *testing.T) {
 		t.Fatal("original bytes changed")
 	}
 }
+
+func TestListReturnsTheObjectsUnderAPrefixInKeyOrderUpToTheLimit(t *testing.T) {
+	client := newClient(t)
+	ctx := context.Background()
+	nonce := make([]byte, 6)
+	if _, err := rand.Read(nonce); err != nil {
+		t.Fatal(err)
+	}
+	prefix := "test-list/" + hex.EncodeToString(nonce) + "/"
+	keys := []string{prefix + "c.bin", prefix + "a.bin", prefix + "b.bin"}
+	before := time.Now().Add(-time.Minute)
+	for _, key := range keys {
+		if err := client.Put(ctx, key, "application/octet-stream", strings.NewReader("x"), 1); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if err := client.Delete(context.Background(), key); err != nil {
+				t.Errorf("removing %s: %v", key, err)
+			}
+		})
+	}
+
+	all, err := client.List(ctx, prefix, 10)
+	if err != nil || len(all) != 3 || all[0].Key != prefix+"a.bin" || all[1].Key != prefix+"b.bin" || all[2].Key != prefix+"c.bin" {
+		t.Fatalf("listed %+v (%v), want the three keys in order", all, err)
+	}
+	for _, o := range all {
+		if o.LastModified.Before(before) || o.LastModified.After(time.Now().Add(time.Minute)) {
+			t.Errorf("%s was last modified %v, want just now", o.Key, o.LastModified)
+		}
+	}
+	two, err := client.List(ctx, prefix, 2)
+	if err != nil || len(two) != 2 || two[1].Key != prefix+"b.bin" {
+		t.Errorf("listed %+v (%v) with a limit of 2, want the first two", two, err)
+	}
+	none, err := client.List(ctx, prefix+"missing/", 10)
+	if err != nil || len(none) != 0 {
+		t.Errorf("listed %+v (%v) under a prefix with nothing, want none", none, err)
+	}
+	if _, err := client.List(ctx, prefix, 0); err == nil {
+		t.Error("a limit of 0 was accepted")
+	}
+}

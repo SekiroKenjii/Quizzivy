@@ -1885,3 +1885,60 @@ describe("a cloze on the result", () => {
     expect(chip("Câu 4, Chưa trả lời")).toHaveAttribute("data-state", "empty");
   });
 });
+
+describe("an answer the centre's retention policy removed", () => {
+  const NOTICE = "Câu trả lời đã được xoá theo chính sách lưu trữ của trung tâm.";
+
+  it("names the removal in place of the answer and keeps its mark and comment", async () => {
+    serve(
+      scored([
+        choice(1, AB, null, {
+          prompt: "Câu đã bị xoá",
+          answerRemoved: true,
+          earned: 0,
+        }),
+        essay(2, "Bài viết đã bị xoá", null, {
+          answerRemoved: true,
+          pendingManual: false,
+          earned: 1,
+          graderComment: "Viết tốt.",
+        }),
+        choice(3, AB, [1], { prompt: "Câu còn giữ", earned: 1 }),
+      ]),
+    );
+    renderResult();
+    const gone = (await screen.findByText("Câu đã bị xoá")).closest("article")!;
+    expect(within(gone).getByText(NOTICE)).toBeVisible();
+    expect(within(gone).queryByText("Bạn trả lời")).toBeNull();
+    expect(within(gone).queryByText("Chưa trả lời")).toBeNull();
+    expect(gone.querySelector("[data-slot=given]")).toBeNull();
+    expect(within(gone).getByText("0 / 1")).toBeVisible();
+
+    const essayItem = item("Bài viết đã bị xoá");
+    expect(within(essayItem).getByText(NOTICE)).toBeVisible();
+    expect(within(essayItem).getByText("1 / 1")).toBeVisible();
+    expect(within(essayItem).getByText("Viết tốt.")).toBeVisible();
+
+    const kept = item("Câu còn giữ");
+    expect(within(kept).queryByText(NOTICE)).toBeNull();
+    expect(within(kept).getByText("Bạn trả lời")).toBeVisible();
+    expect(within(kept).getByText("was written")).toBeVisible();
+  });
+
+  it("reads as the deck's English", async () => {
+    await i18n.changeLanguage("en");
+    serve(
+      scored([
+        choice(1, AB, null, { prompt: "Removed one", answerRemoved: true, earned: 0 }),
+      ]),
+    );
+    renderResult();
+    const gone = (await screen.findByText("Removed one")).closest("article")!;
+    expect(
+      within(gone).getByText(
+        "This answer was removed under the centre's retention policy.",
+      ),
+    ).toBeVisible();
+    expect(within(gone).queryByText("You answered")).toBeNull();
+  });
+});

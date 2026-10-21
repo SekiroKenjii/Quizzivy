@@ -20,12 +20,9 @@ beforeEach(() => {
   server.use(
     http.get(`${BASE}/teacher/dashboard`, () =>
       contractJson("/teacher/dashboard", "get", 200, {
-        openAssignments: 0,
         awaitingGrading: 7,
-        activeStudents: 23,
         flaggedAttempts: 0,
         newestFlaggedAttempt: null,
-        recentAttempts: [],
         takingNow: { students: 0, assignments: 0, assignmentId: null },
         submissions: {
           days: Array.from({ length: 14 }, (_, i) => ({

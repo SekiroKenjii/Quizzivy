@@ -43,9 +43,23 @@ describe("the teacher workspace's page frame (DG-205)", () => {
 
   it("lets one route, the import review, lift the maximum, and no route choose a width", () => {
     const router = read("app/router.tsx");
-    expect(router.match(/\bwidth:[^,}]*/g)).toEqual(['width: "full"']);
+    const teacher = router.slice(
+      router.indexOf("const teacherTree"),
+      router.indexOf("const adminTree"),
+    );
+    expect(teacher.match(/\bwidth:[^,}]*/g)).toEqual(['width: "full"']);
     const review = router.slice(router.indexOf('path: ":id/review"'));
     expect(review.slice(0, review.indexOf("lazy:"))).toContain('width: "full"');
+  });
+
+  it("gives the Admin console's routes the deck's two widths and no other", () => {
+    const router = read("app/router.tsx");
+    const admin = router.slice(router.indexOf("const adminTree"));
+    const widths = new Set(admin.match(/\bwidth:[^,}]*/g));
+    expect([...widths].sort((a, b) => a.localeCompare(b))).toEqual([
+      "width: 1080",
+      "width: 1320",
+    ]);
   });
 
   it("draws the splash's page block at the frame's width and gutters", () => {

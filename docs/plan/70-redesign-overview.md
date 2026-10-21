@@ -30,7 +30,7 @@ Where either disagrees with the spec, the spec wins and the plan is corrected (A
 | D13 | Admin rows | The People and System rows may be granted to any role, under the **subset rule** (§4.3). |
 | D14 | Assistant | Attached per class (class staff); hidden from role pickers until the deck draws it (DG-04). |
 | D15 | Credentials by email | A one-time set-password link valid 24 hours. A password never sits in an inbox. |
-| D16 | Retention | The Admin retention settings drive `cmd/maintenance retention-sweep`, run nightly at 03:00 ICT by the GitHub Actions workflow `retention-sweep.yml` as the `quizzivy_maintenance` role. Its credential lives in the GitHub environment `production-maintenance`, never on Fly. Runs are audited as System, and a scheduled run applies only once `RETENTION_SWEEP_ENABLED` is set after a reviewed dry run. Every `cmd/maintenance` command runs as that role, and a release that adds or widens a command grants exactly what it needs in its own migration. "Delete disabled accounts" anonymises (the O-23 method). Supersedes O-23. |
+| D16 | Retention | The Admin retention settings drive `cmd/maintenance retention-sweep`, run nightly at 03:00 ICT by the GitHub Actions workflow `retention-sweep.yml` as the `quizzivy_maintenance` role. Its credential lives in the GitHub environment `production-maintenance`, never on Fly. Runs are audited as System, and a scheduled run applies only once `RETENTION_SWEEP_ENABLED` is set after a reviewed dry run. Every `cmd/maintenance` command runs as that role, and a release that adds or widens a command grants exactly what it needs in its own migration. "Delete disabled accounts" anonymises (the O-23 method). Supersedes O-23. As built (T-R5.17a): the schedule is `0 20 * * *` UTC; a manual run is a dry run unless its `apply` input is ticked, and `RETENTION_SWEEP_ENABLED` is a repository variable. `scripts/provision-db.sh` creates the role (`LOGIN`, `CONNECTION LIMIT 2`, no `CREATEDB` or `CREATEROLE`); `00139_grant_maintenance_role.sql` fails without it and grants it, column by column, what the commands read and write, never `UPDATE` or `DELETE` on `audit_log`, and adds the trigger `users_maintenance_guard`, which lets the role update an account only to leave it anonymised; `privileges_test.go` pins the grants. A run's audit entries have no actor and carry `databaseRole`. |
 | D17 | Messages | Direct messages are readable by their participants only. Admins see counts, never contents. |
 | D18 | Leads | A consent checkbox and a privacy notice (Decree 13/2023); leads kept 12 months. |
 
@@ -54,11 +54,11 @@ As built (D4, T-D4.30 to T-D4.33; spec v0.99): with `ANTHROPIC_API_KEY` unset ev
 | R1 | v0.7.0 | Foundations and front door | `71-r1.md` |
 | R2 | v0.8.0 | Access: permissions, ownership, `/teacher` rename, encrypted join codes (no screen changes) | `72-r2.md` |
 | R3 | v0.9.0 | Student console and the take-test engine | `73-r3.md` |
-| R3 | v0.9.1 | R2's contract steps (T-R3.1 to T-R3.3): the legacy role, the ownership constraints and the `/admin` alias. No earlier than 2026-10-10. By default carried inside v0.10.0 as T-R4.49 (2026-10-08; `73-r3.md`, "Migration numbers") | `73-r3.md` |
+| R3 | v0.9.1 | R2's contract steps (T-R3.1 to T-R3.3): the legacy role, the ownership constraints and the `/admin` alias. No earlier than 2026-10-10. T-R3.1 and T-R3.2 shipped inside v0.10.0 as T-R4.49 (00105, 00106); the alias (T-R3.3) moved to R5 as T-R5.36 (the owner, 2026-10-12) and was removed there (#749) | `73-r3.md` |
 | R4 | v0.10.0 | Teacher workspace | `74-r4.md` |
 | D4 | v0.11.0 (decided 2026-10-10, `74d` Q29) | Deck update: the fourth export (2026-10-04) and v2 (2026-10-10). The take-test engine, the builder's shared content and the three previews, rebuilt to it; the AI assistant (D19 to D22); the four R4 screens v2 redraws | `74d-d4-deck-update.md` |
 | E1 | v0.11.6 (decided 2026-10-14, the owner, after a teacher escalation) | Escalation: a question dragged into and out of a shared-context group in the test builder, one new operation (`moveTestQuestion`) and no migration. It overrides D4's Q8 (`74d` Q8, DG-186) and follows the hotfixes v0.11.3 to v0.11.5 | `74e-e1-group-move.md` |
-| R5 | v0.12.0 | Admin console and email; the AI credits page on D4's operations | `75-r5.md` |
+| R5 | v0.12.0 | Admin console and email; the AI credits page on D4's operations; the `/admin` alias removed (T-R5.36) | `75-r5.md` |
 | R6 | v0.13.0 | Question types and scoring | `76-r6.md` |
 | R7 | v0.14.0 | Collaboration: sharing, messages, email notifications | `77-r7.md` |
 | R8 | v0.15.0 | Schedule: sessions, calendar, attendance, terms | `78-r8.md` |
@@ -173,12 +173,13 @@ requests). Neither is a pseudo-key: a role may hold every teaching key and no AI
   `scope.all` reads and edits any teacher's content, classes and people by id, and powers the
   Admin console's cross-teacher views. In the teacher workspace, content lists (tests, bank,
   media, imports, assignments) show the caller's own rows for everyone, admins included;
-  Students and Classes keep `scope.all` lists until R5's Admin Classes and Users take them over
-  (DG-53, T-R4.54).
+  Students and Classes keep `scope.all` lists (DG-53, T-R4.54), and v0.12.0 leaves them so
+  beside R5's Admin Classes and Users (O-R5.5, `40-open-items.md`).
 - **Pseudo-keys**, evaluated by the middleware, not stored: `self` (any active signed-in user);
   `workspace.teacher` (holds any `content.*`, `teaching.*` or `people.students.*` key);
   `workspace.admin` (holds `people.users.manage`, `people.roles.manage`, `system.audit.read`,
-  `system.settings.write` or `scope.all`).
+  `system.settings.write`, `ai.credits.manage` or `scope.all`; a key whose only screen is in the
+  Admin console must open it, or a role holding only that key signs in and goes nowhere, D-022.2).
 - **Capabilities the matrix does not draw** (DG-50) map as follows until the deck draws rows:
   imports, from a file or from pasted text → `content.tests.write`; question sets →
   `content.questions.write`; word lists → `content.questions.write`; courses and lessons →
@@ -209,9 +210,11 @@ requests). Neither is a pseudo-key: a role may hold every teaching key and no AI
   this, and `permissions_test.go`, `testdata/permissions.golden` and the web contract suite
   fail the build.
 - **Open operations.** There are six at v0.6.0 (login, Google, refresh, logout,
-  `/join/preview`, the integrity beacon). R1 adds `getPublicStatus` (7). R5 adds
-  `checkSetPasswordLink`, `setPasswordWithLink`, `getPublicOrganization` and
-  `getOrganizationLogo` (11). R7 adds the Resend webhook `POST /public/email-events` (12). R11
+  `/join/preview`, the integrity beacon). R1 adds `getPublicStatus` (7). R5 added
+  `checkSetPasswordLink` (`POST /auth/set-password/check`), `setPasswordWithLink`
+  (`POST /auth/set-password`), `getPublicOrganization` (`GET /public/organization`) and
+  `getOrganizationLogo` (`GET /public/organization/logo`): eleven, as shipped, pinned by
+  `theOpenEleven` in `core/router/tests/auth_middleware_test.go`. R7 adds the Resend webhook `POST /public/email-events` (12). R11
   adds `submitLead` (13). Each is rate-limited, leak-reviewed and added to the pinned list in its
   own PR.
 - `httpx.RequirePermission` replaces `RequireRole`'s `/admin/` prefix gate. It resolves the
@@ -267,12 +270,14 @@ requests). Neither is a pseudo-key: a role may hold every teaching key and no AI
 | `/` | Anyone (signed-in → console) | Landing (R11) |
 | `/login`, `/forgot-password`, `/join`, `/join/:code`, `/set-password`, `/change-password` | Front door | `AuthLayout` |
 | `/teacher/*` | `workspace.teacher` | `TeacherLayout` |
-| `/admin/*` | `workspace.admin` | R5's Admin console; until then every `/admin/*` address redirects to the same path under `/teacher` (T-R4.5) |
+| `/admin/*` | `workspace.admin` | `AdminLayout`, R5's Admin console (T-R5.20); an `/admin/*` address that is not a console route redirects to the same path under `/teacher` (T-R4.5) |
 | `/app/*` | `learning.take_tests` | `StudentLayout`; `/app/attempts/:id` in `FocusLayout` |
 | `/403`, `*`, error boundary, maintenance | Everyone | System pages |
 
 API prefixes follow the same split (`/teacher/*`, `/admin/*`, `/app/*`, `/auth/*`, `/me/*`,
-`/public/*`). Every tree is a lazy chunk kept out of the entry chunk;
+`/public/*`). The v0.7.0 teaching paths under `/admin/*` answer `404 NOT_FOUND` once the
+alias goes in v0.12.0 (T-R5.36), except `GET` and `POST /admin/classes`, which are the
+console's `listAllClasses` and `createClassForTeacher` (D-053) and answer a teacher `403`. Every tree is a lazy chunk kept out of the entry chunk;
 `web/tests/integration/router-chunks.test.ts` is updated, never weakened.
 
 ## 6. Production data
@@ -282,11 +287,11 @@ API prefixes follow the same split (`/teacher/*`, `/admin/*`, `/app/*`, `/auth/*
 | The owner's account | `role='admin'` maps to the built-in Admin role: every permission, both workspaces. No manual step. | R2 (done) |
 | Students | `role='student'` → built-in Student. Memberships, attempts, answers and events are untouched. | R2 (done) |
 | Ownership | `owner_id` backfilled from `created_by` / `uploaded_by`; classes' `teacher_id` from the oldest active Admin, the teacher v0.7.0 shows, because `app.classes` has never recorded a creator (D-23, decided 2026-09-28). Each backfill raises if a row would stay NULL. The constraints are validated and the fill triggers dropped by 00106 (T-R4.49, T-R3.2). | R2 (done), R4 (T-R4.49) |
-| Join codes | New codes are encrypted from R2. Every legacy hashed code is rotated at the R4 release, when the new class screens can show codes (D5); legacy codes redeem until then. | R2 (done), R4 |
+| Join codes | New codes are encrypted from R2. Every legacy hashed code is rotated at the R4 release, when the new class screens can show codes (D5); legacy codes redeem until then. R5 removed the legacy lookup, and `00141` refuses an unrevoked code without a ciphertext (T-R5.1). | R2 (done), R4, R5 |
 | Tokens | Refresh tokens unchanged; access-token claims change additively; no forced re-login. `users.role` and `app.user_role` are dropped by 00105 (T-R4.49, T-R3.1), and an access token carries no role. | R2 (done), v0.9.1 |
 | Attempts in flight | R3 reads the existing local answer drafts unchanged. Deploys happen outside exam windows. | R3 |
 | Assignment integrity | Existing assignments keep their stored policy; the wizard's new defaults apply to new assignments. | R4 |
-| Retention | O-23's fixed rules apply until an admin changes the R5 settings. | R5 |
+| Retention | The R5 settings start at O-23's rules (`00130`: focus-loss events 13 months, answers kept, disabled accounts never anonymised), so nothing changes until an admin changes a select. The nightly sweep applies them only once `RETENTION_SWEEP_ENABLED` is `true` after a reviewed dry run (D16); until then it is a dry run. | R5 |
 | Browser storage | The student has no `quizzivy.column.*` key since R3: the engine's footer deletes `quizzivy.column.studentNavigator`, the only one, when it mounts. The theme is `quizzivy.theme` since R1; `quizzivy.locale` stays. The student's keys are listed below. | R1 (done), R3 |
 
 The student's browser storage in v0.9.0, as `web/src` reads and writes it:
@@ -354,8 +359,8 @@ No production change; PRs straight to `develop`, riding to production in v0.7.0.
 | PR-2 | A role or permission edit escalates privilege | Landed in R2: the subset rule (`access.CanActOn`) on every student write; strict student targets through `app.student_like_roles`; `people.users.manage` for a disable and for resetting or re-addressing a shared student; the `users_last_admin` trigger; grant triggers that keep the hidden keys ungranted and the Student's "Take tests" (T-R2.1, T-R2.2, T-R2.13); `escalation_test.go` with an Admin who takes tests and a custom role per matrix key as targets. R5 adds the role and matrix edits, the sign-in lockout guard and `admin_escalation_flow_test.go` |
 | PR-3 | The rebuilt take-test engine loses work | The five canaries before and after every PR; local drafts read unchanged; live E2E 5–8; deploy outside exam windows |
 | PR-4 | Rolling deploy breaks inserts from the old binary | Expand/contract with fill triggers; the old-binary insert test |
-| PR-5 | The path rename breaks old tabs or drops a rate limit | Landed in R2: the outer `/admin` alias rewrites the 78 v0.7.0 paths, logs `legacy_admin_path` and lasts until v0.9.1 (T-R2.8, T-R3.3); every rate-limit key moved, and `credential_limits_test.go` fails on a credential-minting operation without a limit (T-R2.7); `ratelimit_contract_test.go` pins every `x-rate-limit` block to the registry (T-R2.15) |
-| PR-6 | Legacy join codes stop working unannounced | Landed in R4: the API replaces every live legacy code once at start-up and tells each class's teacher in the app (T-R4.22, spec §6.1); the release note says so |
+| PR-5 | The path rename breaks old tabs or drops a rate limit | Landed in R2: the outer `/admin` alias rewrites the 78 v0.7.0 paths, logged `legacy_admin_path` and goes in v0.12.0 (T-R2.8; removed by T-R5.36, #749, after seven days of production logs held none); every rate-limit key moved, and `credential_limits_test.go` fails on a credential-minting operation without a limit (T-R2.7); `ratelimit_contract_test.go` pins every `x-rate-limit` block to the registry (T-R2.15) |
+| PR-6 | Legacy join codes stop working unannounced | Landed in R4: the API replaces every live legacy code once at start-up and tells each class's teacher in the app (T-R4.22, spec §6.1); the release note says so. R5 removed the job and the legacy lookup (T-R5.1, #750) |
 | PR-7 | Polling keeps Neon awake | Principal cache; polling stops after idle, not only when hidden; compute hours measured after R4 and R7 |
 | PR-8 | English-only deck leaks English into the product | vi first per PR; `no-hardcoded-strings` and parity tests; a native review before v1.0 |
 | PR-9 | The deck keeps changing under the work | The manifest pins the imported version; re-imports are PRs that say which screens changed |

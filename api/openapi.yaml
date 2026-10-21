@@ -43,12 +43,13 @@ info:
       - a pseudo-key: `self` (any signed-in user), `workspace.teacher` (any
         `content.*`, `teaching.*` or `people.students.*` key) or
         `workspace.admin` (`people.users.manage`, `people.roles.manage`,
-        `system.audit.read`, `system.settings.write` or `scope.all`);
+        `system.audit.read`, `system.settings.write`, `ai.credits.manage` or
+        `scope.all`);
       - a list, met by any one of its keys. A list is used only where one
         operation serves two matrix rows, and the server narrows the check
         when the body decides which row applies.
 
-      An operation that does not require the bearer token (the seven open
+      An operation that does not require the bearer token (the nine open
       operations) declares none. The server refuses to start when an
       operation breaks this, and a hidden key (`scope.all`,
       `system.api_reference`, `system.data_export`, `system.leads`) may appear
@@ -102,15 +103,23 @@ tags:
       Unauthenticated. Rate-limited per §6.5, and every response is leak-reviewed:
       no class, student or test is enumerable through them.
   - name: auth
+    description: Sign-in, Google sign-in with PKCE, the rotating refresh token, password change and the caller's own sessions.
   - name: teacher-tests
+    description: Tests, their drafts and sections, shared-context groups, publishing, versions and the preview.
   - name: teacher-questions
+    description: The question bank, with its tags, its search and the question groups it holds.
   - name: teacher-imports
     description: Private Word source intake and durable import review.
   - name: teacher-media
+    description: The media library, its images and audio, their names and where they are used.
   - name: teacher-assignments
+    description: Giving a published version to classes and students, its schedule and rules, overrides and results.
   - name: teacher-attempts
+    description: The attempts a teacher reviews, with the monitor, grading, scores, comments and integrity events.
   - name: teacher-students
+    description: The students a teacher reaches, with their accounts, passwords and classes.
   - name: teacher-classes
+    description: Classes, their members and their join codes.
   - name: teacher-ai
     description: |
       The AI assistant's suggestions and the teacher's own credits. Every
@@ -120,6 +129,18 @@ tags:
       `501 AI_OFF`.
   - name: admin-users
     description: The Admin console's people operations. In R2 only the deletion of a student account lives here.
+  - name: admin-roles
+    description: |
+      Roles and the permission matrix. A role is created and edited, never
+      deleted (DG-52). Every write is held to the subset rule: a caller acts
+      only on a role whose permissions, except `learning.take_tests`, are their
+      own, and grants only keys they hold. The built-in roles keep their key.
+  - name: admin-classes
+    description: |
+      Every teacher's classes in one list, creating a class for a teacher and
+      changing a class's teacher. Editing, rotating the code, archiving,
+      restoring and adding members are the teacher workspace's operations,
+      which `scope.all` opens on any class.
   - name: admin-ai
     description: |
       The AI credits console: the pool, the teachers' allowances, their
@@ -127,8 +148,32 @@ tags:
       every operation answers `501 AI_OFF`.
   - name: admin-docs
     description: Admin access to the API reference served beside the API.
+  - name: admin-audit
+    description: |
+      The Admin console's audit log: a read-only history of the sensitive
+      changes the server recorded, filterable by category, search and date, and
+      downloadable. Nothing here can change or remove an entry.
+  - name: admin-exports
+    description: |
+      The full data export. The worker builds one ZIP of CSV files, the
+      requester is told by email, and the file is fetched from an app page up
+      to three times: the email links to that page and never to the file. Without
+      object storage and the worker every operation answers `501 EXPORT_OFF`.
+  - name: admin-overview
+    description: |
+      The Admin console's Overview, its sidebar badge and the Plan & usage
+      figures: read models over what the other parts of the system hold. Each
+      section a caller's keys do not open is `null`, so a custom role reads
+      only what it may.
+  - name: admin-settings
+    description: |
+      The centre's own settings: who it is and how it is reached, its logos,
+      how people sign in, and how long it keeps answers, focus events and
+      disabled accounts. One document for the whole installation.
   - name: student
+    description: The student console, with its classes, assigned tests, results and settings.
   - name: take-test
+    description: Taking a test, from starting or resuming an attempt to saving answers, submitting and the integrity beacon.
   - name: me
     description: |
       The caller's own notifications and notification switches, for any
@@ -146,6 +191,11 @@ components:
         ~15 minute access token, held in memory only — never `localStorage`,
         never `sessionStorage` (§5.2). On 401 the client calls `/auth/refresh`
         once and retries; a second 401 logs out.
+
+        While the account's `mustChangePassword` is set, every operation that
+        needs this token answers `403 PASSWORD_CHANGE_REQUIRED`, except
+        `getCurrentUser` and `changePassword`; `logout` and `refreshSession`
+        need no token. The client sends the person to the change-password page.
     refreshCookie:
       type: apiKey
       in: cookie
@@ -211,6 +261,10 @@ components:
         `x-permission`, as a `student` reaching a `/teacher/*` route does. It
         gets this, and the client renders a 403 page rather than redirecting —
         a redirect hides the misconfiguration (§5.4).
+
+        `PASSWORD_CHANGE_REQUIRED` is a 403 of its own kind: the permission is
+        held, but the account is on a temporary password and must change it
+        first (see `bearerAuth`).
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -226,6 +280,32 @@ components:
           required: true
           description: Seconds until the caller may retry.
           schema: { type: integer, minimum: 1 }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    UserImportRefused:
+      description: |
+        The file or the request cannot be imported, and the message says which.
+        `USER_IMPORT_FILE_UNREADABLE` — not a table this reader opens: damaged,
+        not a workbook, a first sheet that is a chart, a workbook that keeps its
+        parts elsewhere than Excel does, or one too large once unpacked.
+        `USER_IMPORT_FILE_EMPTY` — no header row.
+        `USER_IMPORT_TOO_MANY_ROWS` — more than 2,000 data rows.
+        `USER_IMPORT_COLUMNS` — the header lacks `full_name` or `email`, or names
+        a column twice.
+        `CSV_NOT_UTF8` — a CSV file in another encoding; save it as CSV UTF-8.
+        `XLSX_MACROS` — a workbook with macros.
+        `XLSX_ENCRYPTED` — a workbook with a password.
+        `PASSWORD_SIGN_IN_DISABLED` — `sheet` while the centre has turned
+        password sign-in off.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    UserImportUnavailable:
+      description: |
+        This server cannot do it: `delivery: email_link` needs the key that seals
+        a link (`SECRETS_KEY`), and `delivery: sheet` needs the same key to keep
+        the passwords it hands out.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -249,6 +329,13 @@ components:
       description: |
         `AI_OFF` — the AI assistant is not configured on this server (no provider
         key). Nothing was reserved or metered. `GET /public/status` says `ai: false`.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    ExportOff:
+      description: |
+        `EXPORT_OFF` — this server has no object storage or no worker, so it
+        builds no export. Nothing was queued.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -528,6 +615,232 @@ components:
             `/admin/ai/*` operation answers `501 AI_OFF`, and the web draws no
             AI entry point.
 
+    PublicOrganization:
+      type: object
+      description: |
+        What `GET /public/organization` answers: the lines the front door prints
+        about the centre, its logos and the ways in it offers. A line the centre
+        has not filled is `null`, and the front door then prints its build value.
+      required: [name, shortName, website, contactEmail, frontDeskPhone, frontDeskHours, address, logo, signIn, joinCodes]
+      additionalProperties: false
+      properties:
+        name: { type: string }
+        shortName: { type: [string, 'null'] }
+        website: { type: [string, 'null'] }
+        contactEmail: { type: [string, 'null'] }
+        frontDeskPhone: { type: [string, 'null'] }
+        frontDeskHours: { type: [string, 'null'] }
+        address: { type: [string, 'null'] }
+        logo:
+          type: object
+          required: [lightUrl, darkUrl]
+          additionalProperties: false
+          properties:
+            lightUrl:
+              type: [string, 'null']
+              description: |
+                The light logo's path on the API's origin, carrying its content
+                hash as `v`, so a new logo is a new URL and the bytes behind one
+                never change; `null` when the centre has none.
+              examples: ['/public/organization/logo?variant=light&v=5e88…']
+            darkUrl:
+              type: [string, 'null']
+              description: The dark logo's path, as `lightUrl`; `null` when the centre has none.
+        signIn:
+          type: object
+          required: [google, password]
+          additionalProperties: false
+          properties:
+            google: { type: boolean, description: Whether Google sign-in is offered. }
+            password: { type: boolean, description: Whether email and password sign-in is offered. }
+        joinCodes:
+          type: boolean
+          description: Whether students can join a class with a code.
+
+    OrganizationLogo:
+      type: object
+      description: A stored logo, named by the SHA-256 of its bytes.
+      required: [sha256, type]
+      additionalProperties: false
+      properties:
+        sha256: { type: string, pattern: '^[0-9a-f]{64}$' }
+        type: { type: string, enum: [image/png] }
+
+    OrganizationProfile:
+      type: object
+      description: |
+        Who the centre is and how it is reached. Every text is trimmed; an
+        optional one that is empty after trimming is stored as `null`.
+      required: [name, shortName, website, contactEmail, frontDeskPhone, frontDeskHours, address, logo]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 480, description: At most 120 characters after Unicode NFC. }
+        shortName: { type: [string, 'null'], maxLength: 160, description: At most 40 characters after Unicode NFC. }
+        website:
+          type: [string, 'null']
+          maxLength: 200
+          description: A domain or an `https` address, without spaces or credentials, as `quizzivy.com` or `https://quizzivy.com/lien-he`. `http` and other schemes are refused.
+        contactEmail:
+          type: [string, 'null']
+          maxLength: 254
+          description: An address of a local part and a domain with a dot, as `hello@quizzivy.com`.
+        frontDeskPhone:
+          type: [string, 'null']
+          maxLength: 30
+          description: Digits, spaces and `+ ( ) . -`, 6 to 30 characters.
+        frontDeskHours: { type: [string, 'null'], maxLength: 120 }
+        address: { type: [string, 'null'], maxLength: 300 }
+        logo:
+          type: object
+          required: [light, dark]
+          additionalProperties: false
+          properties:
+            light:
+              description: The logo on a light background, or `null` for none.
+              oneOf: [{ $ref: '#/components/schemas/OrganizationLogo' }, { type: 'null' }]
+            dark:
+              description: The logo on a dark background, or `null` for none.
+              oneOf: [{ $ref: '#/components/schemas/OrganizationLogo' }, { type: 'null' }]
+
+    SignInPolicy:
+      type: object
+      description: |
+        How people sign in. At least one of `google` and `password` is on.
+      required: [google, password, forcePasswordChange, joinCodes, allowedGoogleDomains]
+      additionalProperties: false
+      properties:
+        google: { type: boolean }
+        password: { type: boolean }
+        forcePasswordChange:
+          type: boolean
+          description: Whether a temporary password issued from now on must be changed at the first sign-in. Passwords issued before keep what they had.
+        joinCodes:
+          type: boolean
+          description: Whether students can join a class with a code.
+        allowedGoogleDomains:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          description: |
+            The email domains a Google account must be in to sign in, link or
+            join; empty allows every domain. Stored lower-case.
+          items:
+            type: string
+            minLength: 3
+            maxLength: 253
+            pattern: '^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$'
+
+    RetentionPolicy:
+      type: object
+      description: |
+        How long the centre keeps what it collects. The nightly sweep applies
+        it once enabled (T-R5.17a); `null` means for ever, or never.
+      required: [keepAnswersMonths, keepFocusEventsMonths, anonymiseDisabledAfterMonths]
+      additionalProperties: false
+      properties:
+        keepAnswersMonths:
+          description: Months an answer is kept after its attempt ends, or `null` for ever.
+          oneOf: [{ type: integer, enum: [12, 24] }, { type: 'null' }]
+        keepFocusEventsMonths: { type: integer, enum: [6, 12, 13, 24] }
+        anonymiseDisabledAfterMonths:
+          description: Months after which a disabled account is anonymised, or `null` for never.
+          oneOf: [{ type: integer, enum: [12, 24] }, { type: 'null' }]
+
+    OrganizationSettings:
+      type: object
+      description: The whole settings document, as stored.
+      required: [organization, signIn, retention, revision, updatedAt, updatedBy]
+      additionalProperties: false
+      properties:
+        organization: { $ref: '#/components/schemas/OrganizationProfile' }
+        signIn: { $ref: '#/components/schemas/SignInPolicy' }
+        retention: { $ref: '#/components/schemas/RetentionPolicy' }
+        revision:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Grows by one with every save; a save names the revision it was read at.
+        updatedAt: { type: string, format: date-time }
+        updatedBy:
+          description: Who saved last, or `null` before the first save and once that account is gone.
+          oneOf: [{ $ref: '#/components/schemas/Uuid' }, { type: 'null' }]
+
+    OrganizationSettingsInput:
+      type: object
+      description: The whole document to store, and the revision it was read at.
+      required: [organization, signIn, retention, expectedRevision]
+      additionalProperties: false
+      properties:
+        organization: { $ref: '#/components/schemas/OrganizationProfile' }
+        signIn: { $ref: '#/components/schemas/SignInPolicy' }
+        retention: { $ref: '#/components/schemas/RetentionPolicy' }
+        expectedRevision: { type: integer, format: int64, minimum: 1 }
+
+    SignInImpact:
+      type: object
+      description: |
+        What a proposed policy would do to the active accounts. A method counts
+        for an account when the policy allows it: a password when the account
+        has one, Google when a linked Google account's email is in an allowed
+        domain (any domain when the list is empty).
+      required: [affectedUsers, affectedAdmins, actorLocked, lockout]
+      additionalProperties: false
+      properties:
+        affectedUsers:
+          type: integer
+          minimum: 0
+          description: Active accounts left with no method that counts.
+        affectedAdmins:
+          type: integer
+          minimum: 0
+          description: Of those, the accounts of the built-in Admin role.
+        actorLocked:
+          type: boolean
+          description: Whether the caller is among them.
+        lockout:
+          type: boolean
+          description: Whether a save would be refused with `SIGN_IN_POLICY_LOCKOUT`; the caller is locked out, or no active built-in Admin keeps a method.
+
+    RetentionImpact:
+      type: object
+      description: |
+        What the nightly sweep would do today under a proposed retention
+        policy. `answers` and `accounts` are `null` when the policy keeps
+        answers for ever or never anonymises.
+      required: [answers, focusEvents, accounts]
+      additionalProperties: false
+      properties:
+        answers:
+          oneOf:
+            - type: object
+              required: [attempts, answers]
+              additionalProperties: false
+              properties:
+                attempts: { type: integer, format: int64, minimum: 0, description: Ended attempts that hold an answer to remove. }
+                answers: { type: integer, format: int64, minimum: 0, description: Answers that would be removed. }
+            - { type: 'null' }
+        focusEvents: { type: integer, format: int64, minimum: 0, description: Focus-loss events that would be deleted. }
+        accounts:
+          oneOf:
+            - type: object
+              required: [anonymise, skippedOwners]
+              additionalProperties: false
+              properties:
+                anonymise: { type: integer, format: int64, minimum: 0, description: Disabled accounts that would be anonymised. }
+                skippedOwners: { type: integer, format: int64, minimum: 0, description: Disabled accounts left because they own classes or content. }
+            - { type: 'null' }
+
+    OrganizationLogoUpload:
+      type: object
+      description: A logo stored and ready to be named in a save.
+      required: [sha256, type, width, height]
+      additionalProperties: false
+      properties:
+        sha256: { type: string, pattern: '^[0-9a-f]{64}$' }
+        type: { type: string, enum: [image/png] }
+        width: { type: integer, minimum: 1 }
+        height: { type: integer, minimum: 1 }
+
     MaintenanceWindow:
       type: object
       required: [startsAt, endsAt, active]
@@ -567,6 +880,7 @@ components:
         - PASSWORD_UNCHANGED
         - IDENTITY_ALREADY_LINKED
         - LAST_LOGIN_METHOD
+        - SET_PASSWORD_LINK_INVALID
         - REFRESH_TOKEN_INVALID
         - REFRESH_TOKEN_REUSED
         - SESSION_IS_CURRENT
@@ -580,6 +894,19 @@ components:
         # students
         - EMAIL_TAKEN
         - STUDENT_SHARED
+        # roles
+        - ROLE_NAME_TAKEN
+        - ROLE_LIMIT_REACHED
+        - ROLE_NOT_ASSIGNABLE
+        - ROLE_LOCKED
+        - STUDENT_NEEDS_TAKE_TESTS
+        - KEY_NOT_GRANTABLE
+        - CANNOT_ACT_ON_SELF
+        - TARGET_ROLE_NOT_ALLOWED
+        - LAST_ADMIN
+        - USER_OWNS_CONTENT
+        - USER_NOT_DISABLED
+        - INVALID_RECIPIENT
         # authoring
         - RESOURCE_REFERENCED
         - RESOURCE_NOT_ARCHIVED
@@ -623,6 +950,7 @@ components:
         - DEADLINE_PASSED
         - DEADLINE_NOT_REACHED
         - GRADING_INCOMPLETE
+        - ANSWER_REMOVED
         - VERSION_LOCKED
         - ASSIGNMENT_LOCKED
         # AI assistant
@@ -636,6 +964,27 @@ components:
         - AI_REQUEST_DECIDED
         - AI_REQUEST_EXPIRED
         - AI_ALLOWANCE_BELOW_USE
+        # exports
+        - EXPORT_TOO_LARGE
+        - EXPORT_IN_PROGRESS
+        - EXPORT_UNAVAILABLE
+        - EXPORT_OFF
+        # user imports
+        - USER_IMPORT_FILE_TOO_LARGE
+        - USER_IMPORT_FILE_UNREADABLE
+        - USER_IMPORT_FILE_EMPTY
+        - USER_IMPORT_TOO_MANY_ROWS
+        - USER_IMPORT_COLUMNS
+        - USER_IMPORT_NOTHING_TO_CREATE
+        - SHEET_UNAVAILABLE
+        - CSV_NOT_UTF8
+        - XLSX_MACROS
+        - XLSX_ENCRYPTED
+        # organization
+        - SIGN_IN_POLICY_LOCKOUT
+        - PASSWORD_SIGN_IN_DISABLED
+        - GOOGLE_SIGN_IN_DISABLED
+        - GOOGLE_DOMAIN_NOT_ALLOWED
         # availability
         - MAINTENANCE
         - MAINTENANCE_SCHEDULED
@@ -646,6 +995,7 @@ components:
         - METHOD_NOT_ALLOWED
         - UNAUTHORIZED
         - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
         - RATE_LIMITED
         - INTERNAL
 
@@ -907,6 +1257,47 @@ components:
       properties:
         url: { type: string, format: uri }
         expiresAt: { $ref: '#/components/schemas/Timestamp' }
+
+    DataExportRequest:
+      type: object
+      additionalProperties: false
+      required: [includeAnswers]
+      properties:
+        includeAnswers:
+          type: boolean
+          description: Whether the ZIP also holds `answers.csv`, every answer of every attempt.
+
+    DataExport:
+      type: object
+      description: |
+        One data export. `status` is `queued` until the worker claims it,
+        `running` while it builds the file, `ready` once the file is stored and
+        the requester has been told, `failed` when it could not be built (the
+        requester may ask again), and `expired` once the 24 hours of a `ready`
+        export have passed. `downloadedAt` is the first time the file was
+        fetched, and `downloads` counts how many times a URL was handed out (0
+        to 3): the third fetch is the last. `bytes`, `completedAt` and
+        `expiresAt` are `null` until the export is ready.
+      additionalProperties: false
+      required: [id, status, includeAnswers, bytes, createdAt, completedAt, expiresAt, downloadedAt, downloads]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        status: { type: string, enum: [queued, running, ready, failed, expired] }
+        includeAnswers: { type: boolean }
+        bytes: { type: [integer, 'null'], format: int64, minimum: 1 }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        completedAt: { type: [string, 'null'], format: date-time }
+        expiresAt: { type: [string, 'null'], format: date-time }
+        downloadedAt: { type: [string, 'null'], format: date-time }
+        downloads: { type: integer, minimum: 0, maximum: 3 }
+
+    DataExportDownload:
+      type: object
+      additionalProperties: false
+      required: [url, expiresInSeconds]
+      properties:
+        url: { type: string, format: uri }
+        expiresInSeconds: { type: integer, const: 60 }
 
     ImportCapabilities:
       type: object
@@ -1341,7 +1732,8 @@ components:
         `ai.use` gates every `/teacher/ai/*` operation and the import's "Read
         with AI"; `ai.credits.manage` gates every `/admin/ai/*` operation. The
         Admin holds both, the built-in Teacher holds `ai.use`, and a custom role
-        may hold either alone. `ai.credits.manage` opens no workspace by itself.
+        may hold either alone. `ai.credits.manage` opens the Admin console by
+        itself (`workspace.admin`); `ai.use` opens no workspace.
 
         The last four keys in the enum are hidden: no matrix row shows them,
         no role is granted them, and only the Admin holds them. The Admin
@@ -1354,6 +1746,188 @@ components:
         and `listAssignments`, with their facets, tags and counts, hold the
         caller's own rows for every caller (for assignments, those the caller
         created and those that target a class the caller teaches).
+
+    RoleIcon:
+      type: string
+      enum: [shield, graduation-cap, hand-helping, user, key-round, crown, briefcase, book-open, users, clipboard-check, headset, star]
+      description: The Edit role dialog's twelve icons; the same set `app.roles.icon` checks.
+
+    RoleColor:
+      type: string
+      enum: [dark, lime, blue, green, amber, rose, gray]
+      description: The Edit role dialog's seven card colours; the same set `app.roles.color` checks.
+
+    BuiltinRoleKey:
+      type: string
+      enum: [admin, teacher, assistant, student]
+      description: The immutable key of a built-in role. A custom role has none.
+
+    RoleSummary:
+      type: object
+      required: [id, builtinKey, name, description, icon, color, custom, userCount, permissions, revision, editable, inProgressAttempts]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        builtinKey:
+          oneOf:
+            - { $ref: '#/components/schemas/BuiltinRoleKey' }
+            - { type: 'null' }
+        name: { type: string, minLength: 1, maxLength: 60 }
+        description: { type: string, maxLength: 300 }
+        icon: { $ref: '#/components/schemas/RoleIcon' }
+        color: { $ref: '#/components/schemas/RoleColor' }
+        custom:
+          type: boolean
+          description: True when the role is not built in.
+        userCount:
+          type: integer
+          minimum: 0
+          description: Accounts that hold the role, disabled ones included.
+        permissions:
+          type: array
+          uniqueItems: true
+          maxItems: 64
+          items: { $ref: '#/components/schemas/PermissionKey' }
+          description: |
+            What the role's users may do, in catalogue order, without the
+            hidden keys: the matrix column. The Admin's is every matrix key
+            except `learning.take_tests`, which it holds only when that cell
+            is turned on.
+        revision:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Moves with every change to the role. Sent back as `expectedRevision` so a stale save is refused.
+        editable:
+          type: boolean
+          description: |
+            False where the subset rule stops the caller from acting on the
+            role: it holds a permission the caller lacks, `learning.take_tests`
+            apart. The caller's own role is editable here, but its permissions
+            are never changed by its holder (`CANNOT_ACT_ON_SELF`).
+        inProgressAttempts:
+          type: integer
+          minimum: 0
+          description: Attempts in progress right now by users who hold the role.
+
+    PermissionCatalogueEntry:
+      type: object
+      required: [key, group, adminLocked]
+      additionalProperties: false
+      properties:
+        key: { $ref: '#/components/schemas/PermissionKey' }
+        group: { type: string, enum: [content, teaching, people, system] }
+        adminLocked:
+          type: boolean
+          description: "True where the Admin's cell cannot be changed, which is every key but `learning.take_tests`."
+
+    RoleList:
+      type: object
+      required: [roles, catalogue]
+      additionalProperties: false
+      properties:
+        roles:
+          type: array
+          maxItems: 200
+          description: Every role, in the order Admin, Teacher, Assistant, Student, then custom roles oldest first.
+          items: { $ref: '#/components/schemas/RoleSummary' }
+        catalogue:
+          type: array
+          maxItems: 64
+          description: The matrix rows in order. The hidden keys are left out.
+          items: { $ref: '#/components/schemas/PermissionCatalogueEntry' }
+
+    AssignableRole:
+      type: object
+      required: [id, builtinKey, name, icon, color, studentTarget]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        builtinKey:
+          oneOf:
+            - { $ref: '#/components/schemas/BuiltinRoleKey' }
+            - { type: 'null' }
+        name: { type: string, minLength: 1, maxLength: 60 }
+        icon: { $ref: '#/components/schemas/RoleIcon' }
+        color: { $ref: '#/components/schemas/RoleColor' }
+        studentTarget:
+          type: boolean
+          description: True for the built-in Student and any custom role whose permissions are a subset of `learning.take_tests`, so a custom role with no permission at all is a student target.
+
+    RoleInput:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 240, description: At most 60 characters after Unicode NFC. }
+        description: { type: string, maxLength: 1200, description: At most 300 characters after Unicode NFC. }
+        copyFromRoleId:
+          $ref: '#/components/schemas/Uuid'
+          description: The role whose permissions the new role starts with. Omitted, it starts with none.
+
+    RoleUpdate:
+      type: object
+      required: [expectedRevision]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 240, description: At most 60 characters after Unicode NFC. }
+        description: { type: string, maxLength: 1200, description: At most 300 characters after Unicode NFC. }
+        icon: { $ref: '#/components/schemas/RoleIcon' }
+        color: { $ref: '#/components/schemas/RoleColor' }
+        expectedRevision: { type: integer, format: int64, minimum: 1 }
+
+    RolePermissionChange:
+      type: object
+      required: [roleId, key, granted]
+      additionalProperties: false
+      properties:
+        roleId: { $ref: '#/components/schemas/Uuid' }
+        key: { $ref: '#/components/schemas/PermissionKey' }
+        granted: { type: boolean }
+
+    RoleRevision:
+      type: object
+      required: [roleId, revision]
+      additionalProperties: false
+      properties:
+        roleId: { $ref: '#/components/schemas/Uuid' }
+        revision: { type: integer, format: int64, minimum: 1 }
+
+    RolePermissionsInput:
+      type: object
+      required: [changes, expectedRevisions]
+      additionalProperties: false
+      properties:
+        changes:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items: { $ref: '#/components/schemas/RolePermissionChange' }
+        expectedRevisions:
+          type: array
+          maxItems: 200
+          description: The revision of every role a change touches, as the matrix last read it.
+          items: { $ref: '#/components/schemas/RoleRevision' }
+
+    RolePermissionsResult:
+      type: object
+      required: [roles]
+      additionalProperties: false
+      properties:
+        roles:
+          type: array
+          maxItems: 200
+          description: The roles the save touched, as they stand after it.
+          items: { $ref: '#/components/schemas/RoleSummary' }
+
+    AccountStatus:
+      type: string
+      enum: [disabled, must_change_password, never_signed_in, active]
+      description: |
+        The one state an account is listed under (DG-54), in this order of
+        precedence: `disabled`, then `must_change_password` (a temporary
+        password is still in use), then `never_signed_in` (`last_sign_in_at` is
+        null), then `active`.
 
     User:
       type: object
@@ -1385,6 +1959,12 @@ components:
         theme: { type: string, enum: [light, dark, system] }
         compactTables: { type: boolean }
         largerTestText: { type: boolean }
+        workspace:
+          type: string
+          enum: [teacher, admin]
+          description: |
+            The console the user last switched to. A built-in Admin, who holds
+            both, opens it after sign-in; omitted, the Admin console.
         assignmentDefaults:
           type: object
           additionalProperties: false
@@ -1425,12 +2005,32 @@ components:
         `system.settings.write` or `scope.all`; `app` for
         `learning.take_tests`.
 
+    CurrentUserRole:
+      type: object
+      description: |
+        The role the caller holds, on the caller's own document and nowhere
+        else, so no payload about another person names a role. `name` is the
+        stored name. A client shows a built-in role (`builtinKey` set) by its
+        localised name while the stored name is still the seeded one, and the
+        stored name otherwise, as the Roles screen does. Always sent by the
+        server, and optional in the schema as `preferences` is. It is not the
+        legacy `role` string of v0.9.x, which `User` still does not carry.
+      required: [id, builtinKey, name]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        builtinKey:
+          oneOf:
+            - { $ref: '#/components/schemas/BuiltinRoleKey' }
+            - { type: 'null' }
+        name: { type: string, minLength: 1, maxLength: 60 }
+
     CurrentUser:
       type: object
       description: |
         The signed-in user, as only the user sees it: `User`'s properties plus
-        the permissions the user's role holds, in catalogue order, and the
-        workspaces they open. Written flat, because a closed schema cannot be
+        the user's own role, the permissions it holds, in catalogue order, and
+        the workspaces they open. Written flat, because a closed schema cannot be
         extended with `allOf` (issue #41). `User` stays where a response
         describes someone else, so a student's permissions never reach a
         teacher's payload.
@@ -1465,6 +2065,15 @@ components:
           type: boolean
           description: Forces `/change-password`. Always false for Google-only users (§5.4).
         createdAt: { $ref: '#/components/schemas/Timestamp' }
+        passwordChangedAt:
+          type: string
+          format: date-time
+          description: |
+            When the caller last changed their own password. Absent for an
+            account that never has, including one still on a temporary password
+            and one whose password is older than R5. Self only: it is on
+            `CurrentUser` and not on `User` or `StudentRow`.
+        role: { $ref: '#/components/schemas/CurrentUserRole' }
         permissions:
           type: array
           uniqueItems: true
@@ -1556,8 +2165,8 @@ components:
         assignmentId: { $ref: '#/components/schemas/Uuid' }
         assignmentTitle: { type: string }
         studentId: { $ref: '#/components/schemas/Uuid' }
-        studentName: { type: string, description: Raw current full name, without private account fields. }
-        questionNumber: { type: integer, minimum: 1, description: One-based section/question paper order, independent of the student's shuffle. }
+        studentName: { type: string, description: "Raw current full name, without private account fields." }
+        questionNumber: { type: integer, minimum: 1, description: "One-based section/question paper order, independent of the student's shuffle." }
         type: { $ref: '#/components/schemas/QuestionType' }
         prompt: { type: string, minLength: 1 }
         promptContent:
@@ -1595,7 +2204,10 @@ components:
         attemptNo: { type: integer, minimum: 1 }
         answer:
           oneOf: [{ $ref: '#/components/schemas/Answer' }, { type: 'null' }]
-          description: Null when the student left it blank, which cannot be marked.
+          description: Null when the student left it blank, or when it was removed under the retention policy; neither can be marked.
+        answerRemoved:
+          type: boolean
+          description: Present and true when the answer was removed under the retention policy.
         manualScore: { oneOf: [{ $ref: '#/components/schemas/Points' }, { type: 'null' }] }
         graderComment: { type: [string, 'null'] }
 
@@ -1992,7 +2604,7 @@ components:
         rejects the very body it documents (see issue #41).
       required:
         [id, email, fullName, hasPassword, linkedProviders, mustChangePassword,
-         createdAt, disabledAt, classes, stats]
+         createdAt, disabledAt, lastActiveAt, accountStatus, classes, stats]
       additionalProperties: false
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
@@ -2014,11 +2626,438 @@ components:
             state that can be written but never read is a one-way door: the
             student would vanish from every listing with nothing able to name
             them again.
+        lastActiveAt:
+          type: [string, 'null']
+          format: date-time
+          description: |
+            The student's latest authenticated request, which the server records
+            at most once every five minutes per instance (DG-54). Null before
+            the student has ever been active. Not the same as
+            `stats.activity.lastAttemptAt`, the last time they started a test.
+        accountStatus: { $ref: '#/components/schemas/AccountStatus' }
         classes:
           type: array
           items: { $ref: '#/components/schemas/StudentClass' }
           description: Memberships in classes the caller teaches, or every one with `scope.all`. The table truncates; the drawer lists them.
         stats: { $ref: '#/components/schemas/StudentStats' }
+
+    AdminUserRole:
+      type: object
+      description: The role an account holds, as the Users table draws it.
+      required: [id, name, builtinKey, icon, color]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string, minLength: 1, maxLength: 60 }
+        builtinKey:
+          oneOf:
+            - { $ref: '#/components/schemas/BuiltinRoleKey' }
+            - { type: 'null' }
+        icon: { $ref: '#/components/schemas/RoleIcon' }
+        color: { $ref: '#/components/schemas/RoleColor' }
+
+    AdminUserRow:
+      type: object
+      description: |
+        One account as the Admin console's Users table lists it, whatever its
+        role. Flat, as `StudentRow` is, for the same reason (issue #41).
+      required: [id, fullName, email, avatarUrl, role, signIn, classes, lastActiveAt, status, createdAt]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        fullName: { type: string, minLength: 1, maxLength: 200 }
+        email: { type: string, format: email, maxLength: 254 }
+        avatarUrl:
+          type: [string, 'null']
+          format: uri
+          maxLength: 2048
+          description: A signed link to the account's photo, null when it has none or this server stores none.
+        role: { $ref: '#/components/schemas/AdminUserRole' }
+        signIn:
+          type: object
+          description: The ways the account can sign in with, as it stands; the centre's policy may have turned one off.
+          required: [password, google]
+          additionalProperties: false
+          properties:
+            password: { type: boolean, description: True when the account has a password. }
+            google: { type: boolean, description: True when a Google identity is linked. }
+        classes:
+          type: object
+          description: |
+            The classes that are not archived: for a student target, those the
+            account is a member of; for any other account, those it teaches.
+          required: [count, firstName]
+          additionalProperties: false
+          properties:
+            count: { type: integer, minimum: 0 }
+            firstName:
+              type: [string, 'null']
+              maxLength: 120
+              description: The name of the class the account joined first (a student target) or was given first (anyone else), null when `count` is 0.
+        lastActiveAt:
+          type: [string, 'null']
+          format: date-time
+          description: The account's latest authenticated request (DG-54), null before it has ever been active.
+        status: { $ref: '#/components/schemas/AccountStatus' }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+
+    AdminUserTab:
+      type: string
+      enum: [all, teachers, students, admins, disabled]
+      description: |
+        The Users table's tabs. `admins` are the built-in Admin role; `students`
+        are the student targets (a role holding at most `learning.take_tests`,
+        so an Admin who also takes tests is never one); `teachers` are everyone
+        else, the Assistant and every custom role with a permission included.
+        These three include disabled accounts, as the tabs' counts do;
+        `disabled` is every disabled account, whatever its role.
+
+    AdminUserFacets:
+      type: object
+      description: |
+        The tabs' counts. They follow `q`, `email` and `status` but not `tab`,
+        so each tab shows what it would list.
+      required: [all, teachers, students, admins, disabled]
+      additionalProperties: false
+      properties:
+        all: { type: integer, minimum: 0 }
+        teachers: { type: integer, minimum: 0 }
+        students: { type: integer, minimum: 0 }
+        admins: { type: integer, minimum: 0 }
+        disabled: { type: integer, minimum: 0 }
+
+    AdminUserClass:
+      type: object
+      required: [id, name]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string, maxLength: 120 }
+
+    AdminUserActivity:
+      type: object
+      description: |
+        One line of the sheet's recent activity. `detail` is the sign-in method
+        (`password`, `google` or `set_password_link`) for `sign_in`; the audit
+        action key (`audit.action.*`) for `audit`; the test's title for
+        `submission`; the class's name for `class_joined`. It is null when the
+        subject has since been removed.
+      required: [kind, at, detail]
+      additionalProperties: false
+      properties:
+        kind: { type: string, enum: [sign_in, audit, submission, class_joined] }
+        at: { $ref: '#/components/schemas/Timestamp' }
+        detail: { type: [string, 'null'], maxLength: 200 }
+
+    AdminUserCan:
+      type: object
+      description: |
+        What the caller may do to this account, each answer the server's own
+        guards give: the subset rule (`TARGET_ROLE_NOT_ALLOWED`), not oneself,
+        and the last active Admin. A `false` here is what the operation would
+        refuse, so the sheet hides the action rather than offer a button that
+        fails.
+      required: [changeRole, resetPassword, disable, enable, signOut, transfer]
+      additionalProperties: false
+      properties:
+        changeRole: { type: boolean, description: "Needs `people.roles.manage`; not oneself; not the last active Admin." }
+        resetPassword: { type: boolean, description: "Not oneself, and the account is not disabled." }
+        disable: { type: boolean, description: "Not oneself, not the last active Admin, and not already disabled." }
+        enable: { type: boolean, description: The account is disabled. }
+        signOut: { type: boolean, description: Signing oneself out everywhere is allowed. }
+        transfer: { type: boolean, description: "Needs `scope.all`, and the account must be disabled." }
+
+    AdminUserDetail:
+      type: object
+      description: One account for the Users sheet.
+      required: [user, createdBy, classes, ownedContent, inProgressAttempts, activity, can]
+      additionalProperties: false
+      properties:
+        user: { $ref: '#/components/schemas/AdminUserRow' }
+        createdBy:
+          description: Who created the account, null for one that signed itself up or whose creator is gone.
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [id, fullName]
+              additionalProperties: false
+              properties:
+                id: { $ref: '#/components/schemas/Uuid' }
+                fullName: { type: string, maxLength: 200 }
+        classes:
+          type: array
+          maxItems: 20
+          description: The first 20 of `user.classes.count`, in the order `firstName` is drawn from.
+          items: { $ref: '#/components/schemas/AdminUserClass' }
+        ownedContent:
+          type: object
+          description: |
+            What `transferUserContent` would move: every class the account
+            teaches (archived ones too) and every test, question, media asset
+            and assignment it owns that has not been deleted.
+          required: [classes, tests, questions, media, assignments]
+          additionalProperties: false
+          properties:
+            classes: { type: integer, minimum: 0 }
+            tests: { type: integer, minimum: 0 }
+            questions: { type: integer, minimum: 0 }
+            media: { type: integer, minimum: 0 }
+            assignments: { type: integer, minimum: 0 }
+        inProgressAttempts: { type: integer, minimum: 0, description: Tests the account is taking right now. }
+        activity:
+          type: array
+          maxItems: 8
+          description: Newest first.
+          items: { $ref: '#/components/schemas/AdminUserActivity' }
+        can: { $ref: '#/components/schemas/AdminUserCan' }
+
+    UserCreate:
+      type: object
+      required: [fullName, email, roleId, delivery]
+      additionalProperties: false
+      properties:
+        fullName: { type: string, minLength: 1, maxLength: 200 }
+        email: { type: string, format: email, maxLength: 254 }
+        roleId:
+          $ref: '#/components/schemas/Uuid'
+          description: A role from `listAssignableRoles`.
+        classId:
+          $ref: '#/components/schemas/Uuid'
+          description: A class to add the account to. Allowed only for a student-target role and only to a caller holding `scope.all`.
+        delivery:
+          type: string
+          enum: [email_link, temporary_password]
+          description: |
+            `email_link` creates the account without a password and emails it a
+            link to choose one (24 hours, once). `temporary_password` returns a
+            temporary password once, for the admin to hand over.
+
+    UserResetDelivery:
+      type: string
+      enum: [email_link, temporary_password]
+      description: |
+        `email_link` clears the password and emails a link to choose a new one
+        (24 hours, once). `temporary_password` sets a temporary password and
+        returns it once, for the admin to hand over.
+
+    UserPasswordReset:
+      type: object
+      description: One account `resetUsersPasswords` reset. A temporary password is shown once.
+      required: [userId, fullName, email]
+      additionalProperties: false
+      properties:
+        userId: { $ref: '#/components/schemas/Uuid' }
+        fullName: { type: string, minLength: 1, maxLength: 200 }
+        email: { type: string, format: email, maxLength: 254 }
+        temporaryPassword:
+          type: string
+          description: "Present only for `delivery: temporary_password`."
+
+    UserActionFailure:
+      type: object
+      description: One account a bulk action did not reach, and why.
+      required: [userId, code]
+      additionalProperties: false
+      properties:
+        userId: { $ref: '#/components/schemas/Uuid' }
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+          description: One of `NOT_FOUND`, `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`, `LAST_ADMIN`, `ACCOUNT_DISABLED`, `STALE_WRITE` or `INTERNAL`.
+
+    UserContentTransfer:
+      type: object
+      required: [toUserId]
+      additionalProperties: false
+      properties:
+        toUserId: { $ref: '#/components/schemas/Uuid' }
+        notify:
+          type: boolean
+          default: false
+          description: Tell the recipient in their bell.
+
+    UserContentTransferResult:
+      type: object
+      required: [moved, leftBehind]
+      additionalProperties: false
+      properties:
+        moved:
+          type: object
+          description: |
+            What changed owner, counted as `ownedContent` counts it: every
+            class, and every test, question, question group and media asset
+            not deleted, and every assignment. Deleted rows move too, uncounted.
+          required: [classes, tests, questions, questionGroups, media, assignments]
+          additionalProperties: false
+          properties:
+            classes: { type: integer, minimum: 0 }
+            tests: { type: integer, minimum: 0 }
+            questions: { type: integer, minimum: 0 }
+            questionGroups: { type: integer, minimum: 0 }
+            media: { type: integer, minimum: 0 }
+            assignments: { type: integer, minimum: 0 }
+        leftBehind:
+          type: object
+          required: [imports, students]
+          additionalProperties: false
+          properties:
+            imports: { type: integer, minimum: 0, description: "The account's Word imports that are not finished, which stay with it." }
+            students:
+              type: integer
+              minimum: 0
+              description: |
+                Student accounts the account created that the recipient still
+                does not reach after the move: in none of the moved classes and
+                on none of the moved assignments, disabled and anonymised ones
+                included, counted as the transfer commits. Who created an account
+                does not change, so only an Admin reaches them until one adds them
+                to a class.
+
+    UserImportDefaultRole:
+      type: string
+      enum: [student, teacher]
+      description: The role of a row whose file names none.
+
+    UserImportDelivery:
+      type: string
+      enum: [email_link, sheet]
+      description: |
+        `email_link` emails each new account a link to choose a password (24
+        hours, once). `sheet` gives each a temporary password and collects them
+        in a sheet the importer downloads once.
+
+    UserImportField:
+      type: string
+      enum: [full_name, email, role, class]
+
+    UserImportIssue:
+      type: object
+      description: |
+        One cell the import refused. `row` is the line of the file the row sits
+        on, counting the header as line 1, which is the number a spreadsheet
+        shows beside it. `code` says why: `REQUIRED` (empty), `TOO_LONG`,
+        `INVALID` (not an address, or a name with control characters),
+        `FORMULA_LIKE` (an address that starts with a character a spreadsheet
+        reads as a formula, such as `+` or `=`, which the hand-out sheet could not
+        carry as the address that signs in),
+        `DUPLICATE_IN_FILE` (an address an earlier row has), `UNKNOWN_ROLE` and
+        `AMBIGUOUS_ROLE` (no role, or more than one, answers to the name),
+        `ROLE_NOT_ALLOWED` (the role holds a permission the importer lacks),
+        `ROLE_NOT_GIVABLE` (the Assistant, which no one is given), `UNKNOWN_CLASS` and
+        `AMBIGUOUS_CLASS` (no active class, or more than one, has the name), and
+        `CLASS_NOT_ALLOWED` (a class for a role that is not a student target, or
+        by an importer without `scope.all`). A refusal carries no text of the file.
+      additionalProperties: false
+      required: [row, field, code]
+      properties:
+        row: { type: integer, minimum: 1 }
+        field: { $ref: '#/components/schemas/UserImportField' }
+        code:
+          type: string
+          enum:
+            - REQUIRED
+            - TOO_LONG
+            - INVALID
+            - FORMULA_LIKE
+            - DUPLICATE_IN_FILE
+            - UNKNOWN_ROLE
+            - AMBIGUOUS_ROLE
+            - ROLE_NOT_ALLOWED
+            - ROLE_NOT_GIVABLE
+            - UNKNOWN_CLASS
+            - AMBIGUOUS_CLASS
+            - CLASS_NOT_ALLOWED
+
+    UserImportPreview:
+      type: object
+      description: |
+        What a file would come to. `rows` are the data rows it holds;
+        `newAccounts` would be created and `existingEmails.count` already
+        belong to an account and would be skipped, never changed (`sample` names
+        up to five of them). `invalid` lists up to 50 refused cells and
+        `invalidCount` counts every refused row. `classes` are the classes the
+        accepted rows would join. `emailBudget` is `null` unless `delivery` is
+        `email_link`: `remainingToday` is what the centre can still send today,
+        counting what already waits, and `limit` its daily maximum; the rest of
+        the links go out on the following days.
+      additionalProperties: false
+      required: [rows, newAccounts, existingEmails, invalid, invalidCount, classes, emailBudget]
+      properties:
+        rows: { type: integer, minimum: 0, maximum: 2000 }
+        newAccounts: { type: integer, minimum: 0, maximum: 2000 }
+        existingEmails:
+          type: object
+          additionalProperties: false
+          required: [count, sample]
+          properties:
+            count: { type: integer, minimum: 0, maximum: 2000 }
+            sample:
+              type: array
+              maxItems: 5
+              items: { type: string, format: email }
+        invalid:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/UserImportIssue' }
+        invalidCount: { type: integer, minimum: 0, maximum: 2000 }
+        classes:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, name]
+            properties:
+              id: { $ref: '#/components/schemas/Uuid' }
+              name: { type: string }
+        emailBudget:
+          type: [object, 'null']
+          additionalProperties: false
+          required: [remainingToday, limit]
+          properties:
+            remainingToday: { type: integer, minimum: 0 }
+            limit: { type: integer, minimum: 1 }
+
+    UserImportJob:
+      type: object
+      description: |
+        One import. `status` is `queued` until the worker claims it, `running`
+        while it creates the accounts, `done` once every stored row is settled,
+        and `failed` when it gave up (`errorCode` says why, a short code that
+        never carries the file). `total` is the rows stored, those that passed
+        every rule; `processed` is those settled so far, `created` + `skipped`;
+        `skipped` are the addresses that already belonged to an account.
+        `invalid` counts the rows refused, which are not stored. `sheet` is `null`
+        unless `delivery` is `sheet`: `available` is true from `done` until the
+        sheet is downloaded or 24 hours have passed, whichever comes first.
+      additionalProperties: false
+      required: [id, status, total, processed, created, skipped, invalid, delivery, sheet, errorCode, createdAt]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        status: { type: string, enum: [queued, running, done, failed] }
+        total: { type: integer, minimum: 1, maximum: 2000 }
+        processed: { type: integer, minimum: 0, maximum: 2000 }
+        created: { type: integer, minimum: 0, maximum: 2000 }
+        skipped: { type: integer, minimum: 0, maximum: 2000 }
+        invalid: { type: integer, minimum: 0, maximum: 2000 }
+        delivery: { $ref: '#/components/schemas/UserImportDelivery' }
+        sheet:
+          type: [object, 'null']
+          additionalProperties: false
+          required: [available, expiresAt, downloadedAt]
+          properties:
+            available: { type: boolean }
+            expiresAt: { type: [string, 'null'], format: date-time }
+            downloadedAt: { type: [string, 'null'], format: date-time }
+        errorCode:
+          type: [string, 'null']
+          maxLength: 64
+          description: |
+            Why a `failed` job gave up, and `null` otherwise: `IMPORTER_NOT_ALLOWED`
+            (the importer's account is disabled, or lost the permission or a role
+            the file names), `DELIVERY_UNAVAILABLE` (password sign-in was turned
+            off, or the server can no longer seal, before a sheet job finished)
+            or `WORKER_INTERRUPTED` (the worker claimed the job three times and
+            none finished it). The accounts created before the job failed stay.
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
 
     StudentPasswordReset:
       type: object
@@ -2068,6 +3107,24 @@ components:
           description: Held in memory only (§5.2). The refresh token is set as a cookie, not returned here.
         expiresIn: { type: integer, description: Seconds. }
         user: { $ref: '#/components/schemas/CurrentUser' }
+
+    SetPasswordLinkInfo:
+      type: object
+      description: |
+        What a valid set-password link is for: the account it controls, which
+        the page names so a person can tell the link is theirs, and when it
+        stops working. The email and the name are the account's own, given to
+        whoever already holds the secret that controls it.
+      required: [email, fullName, purpose, expiresAt]
+      additionalProperties: false
+      properties:
+        email: { type: string, format: email }
+        fullName: { type: string }
+        purpose:
+          type: string
+          enum: [invite, reset]
+          description: '`invite` for a new account''s first password, `reset` for a new one.'
+        expiresAt: { type: string, format: date-time }
 
     Session:
       type: object
@@ -2211,9 +3268,7 @@ components:
         Metadata about the active code — **not the code itself**, which
         `getJoinCode` reads for its teacher. A code issued from v0.8.0 on
         is stored encrypted under a key the database does not hold and found
-        by a keyed hash (§13.3), so a database dump does not hand it over. A
-        code issued before v0.8.0 is held only as its SHA-256 hash, which a
-        dump can reverse beside the hint, until it is rotated (D5).
+        by a keyed hash (§13.3), so a database dump does not hand it over.
       required: [hint, expiresAt, maxUses, usesCount]
       additionalProperties: false
       properties:
@@ -2237,7 +3292,7 @@ components:
         hint: { type: string, minLength: 4, maxLength: 4, examples: ['7K3M'] }
         legacy:
           type: boolean
-          description: True for a code issued before v0.8.0, held only as a hash until it is rotated.
+          description: Always false. It was true for a code issued before v0.8.0, held only as a hash, which can no longer be active.
         expiresAt: { $ref: '#/components/schemas/Timestamp' }
         maxUses: { type: [integer, 'null'], minimum: 1 }
         usesCount: { type: integer, minimum: 0 }
@@ -2252,6 +3307,92 @@ components:
         joinable: { type: integer, minimum: 0 }
         archived: { type: integer, minimum: 0 }
         students: { type: integer, minimum: 0 }
+
+    AdminClassTeacher:
+      type: object
+      description: The teacher of a class in the Admin console. `name` is the display name, or the full name when there is none.
+      required: [id, name, avatarUrl, disabled]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        avatarUrl:
+          type: [string, 'null']
+          format: uri
+          description: A signed URL of the teacher's profile photo, or `null` when there is none.
+        disabled: { type: boolean, description: The teacher's account is disabled. }
+
+    AdminClassJoinCode:
+      type: object
+      description: |
+        A class's active join code, read in full for the Admin console (D5),
+        with what tells whether it still works: an expired or used-up code is
+        returned as it is.
+      required: [code, expiresAt, maxUses, usesCount]
+      additionalProperties: false
+      properties:
+        code: { type: string, description: 'Grouped `XXXX-XXXX`.', examples: ['K7M3-P9QR'] }
+        expiresAt: { $ref: '#/components/schemas/Timestamp' }
+        maxUses: { type: [integer, 'null'], minimum: 1 }
+        usesCount: { type: integer, minimum: 0 }
+
+    AdminClassRow:
+      type: object
+      description: A row of `listAllClasses`.
+      required: [id, name, scheduleLabel, room, teacher, studentCount, joinCode, createdAt]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        scheduleLabel: { type: [string, 'null'], minLength: 1, maxLength: 120 }
+        room: { type: [string, 'null'], minLength: 1, maxLength: 60 }
+        teacher: { $ref: '#/components/schemas/AdminClassTeacher' }
+        studentCount: { type: integer, minimum: 0, description: "Live members, as `Class.studentCount` counts them." }
+        joinCode:
+          description: |
+            The active code, or `null` when the class has none or its code
+            cannot be read back (a code issued before v0.8.0, or one sealed
+            under a key this server no longer holds).
+          oneOf:
+            - $ref: '#/components/schemas/AdminClassJoinCode'
+            - type: 'null'
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+
+    AdminClassFacets:
+      type: object
+      description: The tab counts for the current search and teacher filter, ignoring the tab.
+      required: [active, archived]
+      additionalProperties: false
+      properties:
+        active: { type: integer, minimum: 0 }
+        archived: { type: integer, minimum: 0 }
+
+    AdminClassCreate:
+      type: object
+      required: [name, teacherId]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        teacherId: { $ref: '#/components/schemas/Uuid' }
+        scheduleLabel:
+          type: [string, 'null']
+          maxLength: 120
+          description: As in `createClass`.
+        room:
+          type: [string, 'null']
+          maxLength: 60
+          description: As in `createClass`.
+
+    ClassTeacherChange:
+      type: object
+      required: [teacherId]
+      additionalProperties: false
+      properties:
+        teacherId: { $ref: '#/components/schemas/Uuid' }
+        notify:
+          type: boolean
+          default: false
+          description: Tell both teachers in their bells.
 
     ClassMember:
       type: object
@@ -2688,6 +3829,368 @@ components:
           minItems: 1
         caseSensitive: { type: boolean }
 
+    AuditCategory:
+      type: string
+      description: |
+        The six families of the audit log's tabs. An entry about the
+        organization, an export, maintenance, retention or the AI credits is in
+        none of them.
+      enum: [accounts, classes, attempts, tests, media, imports]
+
+    AuditCategoryFacets:
+      type: object
+      description: |
+        How many entries each category holds for the CURRENT search and range,
+        ignoring the category filter itself, in the shape of `TestStatusFacets`.
+        `all` counts every such entry, including those in no category.
+      required: [all, accounts, classes, attempts, tests, media, imports]
+      additionalProperties: false
+      properties:
+        all: { type: integer, minimum: 0 }
+        accounts: { type: integer, minimum: 0 }
+        classes: { type: integer, minimum: 0 }
+        attempts: { type: integer, minimum: 0 }
+        tests: { type: integer, minimum: 0 }
+        media: { type: integer, minimum: 0 }
+        imports: { type: integer, minimum: 0 }
+
+    AuditActor:
+      type: object
+      required: [id, name]
+      additionalProperties: false
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        name: { type: string }
+        avatarUrl:
+          type: string
+          description: A signed address for the actor's photo. Absent when they have none.
+
+    AuditEntity:
+      type: object
+      description: What an entry is about.
+      required: [type, id, label]
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          description: The kind of thing, as the server stores it (`class`, `test`, `media_asset`, `word_import`, ...).
+        id:
+          type: [string, 'null']
+          format: uuid
+          description: '`null` for an entry about no single row.'
+        label:
+          type: [string, 'null']
+          description: |
+            The name of the user, class, test, assignment, attempt (its
+            student), media file, import or question group, read when the page
+            is read. `null` when the row is gone or has no name.
+
+    AuditChange:
+      type: object
+      required: [field, from, to]
+      additionalProperties: false
+      properties:
+        field: { type: string }
+        from:
+          description: The value before the change. Any JSON value, `null` included.
+        to:
+          description: The value after the change. Any JSON value, `null` included.
+
+    AuditEntry:
+      type: object
+      required: [id, occurredAt, actor, action, category, entity, ip, device, changes, details]
+      additionalProperties: false
+      properties:
+        id: { type: integer, format: int64, minimum: 1 }
+        occurredAt: { type: string, format: date-time }
+        actor:
+          description: Who did it; `null` is the system itself, or an account since removed.
+          oneOf: [{ $ref: '#/components/schemas/AuditActor' }, { type: 'null' }]
+        action:
+          type: string
+          description: |
+            A stable key such as `class.created`. The sentence that words it is
+            the client's, from `audit.action.<action>`; an action a client has
+            no sentence for is shown humanised.
+        category:
+          description: '`null` for an entry only the unfiltered list holds.'
+          oneOf: [{ $ref: '#/components/schemas/AuditCategory' }, { type: 'null' }]
+        entity: { $ref: '#/components/schemas/AuditEntity' }
+        ip:
+          type: [string, 'null']
+          description: The address the request came from. `null` for the system.
+        device:
+          type: [string, 'null']
+          description: A label such as `Mac · Chrome`, classified from the user agent; `null` when none was recorded or none is recognised.
+        changes:
+          type: array
+          items: { $ref: '#/components/schemas/AuditChange' }
+        details:
+          type: [object, 'null']
+          additionalProperties: true
+          description: Whatever the entry recorded beyond `changes`; `null` when nothing.
+
+    ApiReferenceSummary:
+      type: object
+      description: |
+        What `getApiReferenceSummary` reports about the embedded contract.
+        `endpointCount` is the number of operations, and a group's `count` the
+        number of operations that carry its tag.
+      required: [openapi, version, endpointCount, groups]
+      additionalProperties: false
+      properties:
+        openapi: { type: string, description: The OpenAPI version the contract is written in. }
+        version: { type: string, description: The contract's own `info.version`. }
+        endpointCount: { type: integer, minimum: 0 }
+        groups:
+          type: array
+          items: { $ref: '#/components/schemas/ApiReferenceGroup' }
+
+    ApiReferenceGroup:
+      type: object
+      required: [tag, count]
+      additionalProperties: false
+      properties:
+        tag: { type: string }
+        count: { type: integer, minimum: 0 }
+
+    AdminOverview:
+      type: object
+      description: |
+        The Admin console's Overview. A section the caller's keys do not open
+        is `null`; `attention` is then shorter, never an error.
+      required: [organizationName, people, classes, dailyActive, attention, recentChanges, storage]
+      additionalProperties: false
+      properties:
+        organizationName:
+          type: string
+          description: The centre's name, from its organization settings.
+        people:
+          description: Needs `people.users.manage`.
+          oneOf: [{ $ref: '#/components/schemas/AdminOverviewPeople' }, { type: 'null' }]
+        classes:
+          description: Needs `scope.all`.
+          oneOf: [{ $ref: '#/components/schemas/AdminOverviewClasses' }, { type: 'null' }]
+        dailyActive:
+          description: Needs `people.users.manage`.
+          oneOf: [{ $ref: '#/components/schemas/AdminDailyActive' }, { type: 'null' }]
+        attention:
+          type: array
+          description: What needs doing, most urgent first. Empty when nothing does.
+          items: { $ref: '#/components/schemas/AdminAttention' }
+        recentChanges:
+          type: [array, 'null']
+          maxItems: 5
+          description: The five newest audit entries of any category, newest first. Needs `system.audit.read`.
+          items: { $ref: '#/components/schemas/AuditEntry' }
+        storage:
+          description: Needs `system.settings.write`.
+          oneOf: [{ $ref: '#/components/schemas/Usage' }, { type: 'null' }]
+
+    AdminOverviewPeople:
+      type: object
+      description: |
+        The accounts of the centre. A student is a student target of R2's
+        student-like roles and a teacher is every other account, an Admin and
+        a custom role included. `teachers` are the enabled ones and
+        `teachersDisabled` the disabled ones, so the two never overlap. `total`
+        and `students` count disabled accounts, as the Users tabs count them.
+      required: [total, activeThisWeek, teachers, teachersDisabled, students, studentsNewThisMonth]
+      additionalProperties: false
+      properties:
+        total: { type: integer, minimum: 0 }
+        activeThisWeek:
+          type: integer
+          minimum: 0
+          description: Accounts with an authenticated request on any of the last seven local days, today included, whether they have been disabled since or not.
+        teachers: { type: integer, minimum: 0 }
+        teachersDisabled:
+          type: integer
+          minimum: 0
+          description: Disabled accounts that are not a student target; none of them is in `teachers`.
+        students: { type: integer, minimum: 0 }
+        studentsNewThisMonth:
+          type: integer
+          minimum: 0
+          description: Students whose account was created since the first of this local month.
+
+    AdminOverviewClasses:
+      type: object
+      required: [active, archived]
+      additionalProperties: false
+      properties:
+        active: { type: integer, minimum: 0 }
+        archived: { type: integer, minimum: 0 }
+
+    AdminDailyActive:
+      type: object
+      description: |
+        Who made an authenticated request on each of the last fourteen local
+        days. Staff is every account that is not a student target, which the
+        chart labels Teachers. A day counts the accounts that were active on it,
+        whether they have been disabled since or not.
+      required: [days, average]
+      additionalProperties: false
+      properties:
+        days:
+          type: array
+          minItems: 14
+          maxItems: 14
+          description: One entry per day, oldest first and today last, zero days included.
+          items: { $ref: '#/components/schemas/AdminDailyActiveDay' }
+        average:
+          type: integer
+          minimum: 0
+          description: The mean of students plus staff over the fourteen days, rounded half up.
+
+    AdminDailyActiveDay:
+      type: object
+      required: [date, students, staff]
+      additionalProperties: false
+      properties:
+        date: { type: string, format: date }
+        students: { type: integer, minimum: 0 }
+        staff: { type: integer, minimum: 0 }
+
+    AdminAttentionKind:
+      type: string
+      enum: [must_change_password, never_signed_in, disabled_teacher_classes, storage, ai_credit_requests]
+
+    AdminAttention:
+      type: object
+      description: |
+        One thing that needs doing. `count` is at least 1: a row with nothing
+        to do is not sent.
+      required: [kind, count, detail]
+      additionalProperties: false
+      properties:
+        kind: { $ref: '#/components/schemas/AdminAttentionKind' }
+        count:
+          type: integer
+          minimum: 1
+          description: |
+            `must_change_password`: enabled accounts on a temporary password.
+            `never_signed_in`: enabled accounts that have never signed in and
+            are not on a temporary password. `disabled_teacher_classes`: classes,
+            archived ones too, whose teacher is disabled. `storage`: how many of
+            the media and import meters with a configured limit read 80 percent
+            or more, as `detail` quotes them (rounded half up). `ai_credit_requests`: the teachers waiting for more credits
+            this month.
+        detail:
+          description: What the row's line quotes. `null` for `must_change_password`.
+          oneOf: [{ $ref: '#/components/schemas/AdminAttentionDetail' }, { type: 'null' }]
+
+    AdminAttentionDetail:
+      type: object
+      description: |
+        The facts a row quotes, by kind; a field its kind does not use is
+        absent. `never_signed_in`: `oldestCreatedAt`.
+        `disabled_teacher_classes`: `className` and `teacherName` of the newest
+        such class. `storage`: `mediaPercent` and `importsPercent`, each absent
+        when that meter has no limit. `ai_credit_requests`: `teacherName`,
+        `used` and `allowance` of the request waiting longest.
+      additionalProperties: false
+      properties:
+        oldestCreatedAt: { type: string, format: date-time }
+        className: { type: string }
+        teacherName: { type: string }
+        mediaPercent: { type: integer, minimum: 0 }
+        importsPercent: { type: integer, minimum: 0 }
+        used: { type: integer, minimum: 0 }
+        allowance: { type: integer, minimum: 0 }
+
+    AdminSummary:
+      type: object
+      required: [mustChangePassword]
+      additionalProperties: false
+      properties:
+        mustChangePassword:
+          type: [integer, 'null']
+          minimum: 0
+          description: Enabled accounts on a temporary password; `null` without `people.users.manage`.
+
+    Usage:
+      type: object
+      description: |
+        What the centre uses against its plan. Nothing is enforced (DG-55): a
+        `limit` is `null` when its `PLAN_*` variable is unset, and a figure may
+        pass its limit.
+
+        `seats` counts the accounts that are not disabled against
+        `PLAN_SEAT_LIMIT`. `teachers` counts the enabled accounts that are not
+        a student target, Admins included, against `PLAN_TEACHER_LIMIT`; it is
+        the Overview's `people.teachers`. `media` is the bytes of the media
+        files still held in storage, against `PLAN_MEDIA_BYTES`, and `imports`
+        the bytes of the source documents of
+        the imports whose files are still kept and the number of those imports,
+        against `PLAN_IMPORT_BYTES`. `attemptsKept` has no limit until a
+        denominator is named.
+      required: [plan, seats, teachers, media, imports, attemptsKept, aiCredits]
+      additionalProperties: false
+      properties:
+        plan:
+          description: '`null` when `PLAN_NAME` is unset.'
+          oneOf: [{ $ref: '#/components/schemas/UsagePlan' }, { type: 'null' }]
+        seats: { $ref: '#/components/schemas/UsageCount' }
+        teachers: { $ref: '#/components/schemas/UsageCount' }
+        media: { $ref: '#/components/schemas/UsageBytes' }
+        imports: { $ref: '#/components/schemas/UsageImports' }
+        attemptsKept: { $ref: '#/components/schemas/UsageAttempts' }
+        aiCredits:
+          description: The month's credits. `null` without `ai.credits.manage`, and while the AI assistant is off.
+          oneOf: [{ $ref: '#/components/schemas/UsageCredits' }, { type: 'null' }]
+
+    UsagePlan:
+      type: object
+      required: [name, renewsOn]
+      additionalProperties: false
+      properties:
+        name: { type: string }
+        renewsOn:
+          type: [string, 'null']
+          format: date
+          description: '`PLAN_RENEWS_ON`, or `null` when unset.'
+
+    UsageCount:
+      type: object
+      required: [used, limit]
+      additionalProperties: false
+      properties:
+        used: { type: integer, minimum: 0 }
+        limit: { type: [integer, 'null'], minimum: 1 }
+
+    UsageBytes:
+      type: object
+      required: [bytes, limit]
+      additionalProperties: false
+      properties:
+        bytes: { type: integer, format: int64, minimum: 0 }
+        limit: { type: [integer, 'null'], format: int64, minimum: 1 }
+
+    UsageImports:
+      type: object
+      required: [bytes, count, limit]
+      additionalProperties: false
+      properties:
+        bytes: { type: integer, format: int64, minimum: 0 }
+        count: { type: integer, minimum: 0 }
+        limit: { type: [integer, 'null'], format: int64, minimum: 1 }
+
+    UsageAttempts:
+      type: object
+      required: [count]
+      additionalProperties: false
+      properties:
+        count: { type: integer, format: int64, minimum: 0 }
+
+    UsageCredits:
+      type: object
+      required: [used, pool]
+      additionalProperties: false
+      properties:
+        used: { type: integer, format: int64, minimum: 0 }
+        pool: { type: integer, format: int64, minimum: 0 }
+
     TestStatusFacets:
       type: object
       description: |
@@ -2987,7 +4490,13 @@ components:
         points: { $ref: '#/components/schemas/Points' }
         answer:
           oneOf: [{ $ref: '#/components/schemas/Answer' }, { type: 'null' }]
-          description: What the student submitted. `null` if unanswered.
+          description: What the student submitted. `null` if unanswered, or removed under the retention policy.
+        answerRemoved:
+          type: boolean
+          description: |
+            Present and true when the answer was removed under the centre's
+            retention policy (T-R5.17a): `answer` is then `null` and no response
+            content is sent. Scores and the grader's comment are unchanged.
         earned:
           oneOf: [{ $ref: '#/components/schemas/Points' }, { type: 'null' }]
           description: Present only when `review.showScore`. `null` while awaiting manual grading.
@@ -3838,9 +5347,9 @@ components:
       additionalProperties: false
       properties:
         questionId: { $ref: '#/components/schemas/Uuid' }
-        number: { type: integer, minimum: 1, description: The question's place on the paper, counted across sections. }
+        number: { type: integer, minimum: 1, description: "The question's place on the paper, counted across sections." }
         type: { $ref: '#/components/schemas/QuestionType' }
-        promptExcerpt: { type: string, maxLength: 140, description: The prompt as plain text with its whitespace collapsed, cut at 140 characters. }
+        promptExcerpt: { type: string, maxLength: 140, description: "The prompt as plain text with its whitespace collapsed, cut at 140 characters." }
         answered:
           type: integer
           minimum: 0
@@ -3955,7 +5464,7 @@ components:
       required: [attempt, testTitle, sections, questions, sessionId, beaconToken, serverTime, audioPlays, answers, integrity]
       additionalProperties: false
       properties:
-        remainingAttempts: { type: integer, minimum: 0, description: Additional attempts available after this one, excluding voided attempts. }
+        remainingAttempts: { type: integer, minimum: 0, description: "Additional attempts available after this one, excluding voided attempts." }
         attempt: { $ref: '#/components/schemas/Attempt' }
         testTitle:
           type: string
@@ -4050,6 +5559,7 @@ components:
       properties:
         kind:
           type: string
+          minLength: 1
           maxLength: 40
           description: |
             Not an enum: an append-only telemetry log reliably gains kinds, and a
@@ -4060,6 +5570,7 @@ components:
         clientSeq:
           type: integer
           minimum: 0
+          maximum: 2147483647
           description: |
             The event's offset in milliseconds from the attempt's start, as the
             tab that recorded it measured it against the server's clock, and
@@ -4067,7 +5578,9 @@ components:
             **within a tab**. Uniqueness is `(attempt, session, clientSeq)`: an
             event that repeats a number its session has used is taken for a
             retry and is not stored. A new session may use any number again
-            (D-01). A client that sends a plain counter is accepted.
+            (D-01). A client that sends a plain counter is accepted. The column
+            is a 32-bit integer, so a larger number answers 400 on every path
+            that takes events.
         questionId: { type: [string, 'null'], format: uuid }
         meta: { type: [object, 'null'], additionalProperties: true }
 
@@ -4132,7 +5645,7 @@ components:
         score: { oneOf: [{ $ref: '#/components/schemas/AttemptScore' }, { type: 'null' }] }
         focusLossCount: { type: [integer, 'null'] }
         flagged: { type: boolean }
-        audioOverLimit: { type: boolean, description: Reported, never enforced (§11.4). }
+        audioOverLimit: { type: boolean, description: "Reported, never enforced (§11.4)." }
         extendedTo:
           type: [string, 'null']
           format: date-time
@@ -4164,30 +5677,20 @@ components:
         The Teacher dashboard covers the caller's own teaching, including an Admin:
         assignments they created or targeting classes they teach, reachable papers on
         them, and their classes. Its repository supports scope.all for a future Admin
-        console, but this operation never requests it. Legacy fields retain their
-        meaning; T-R4.23 stops reading openAssignments, activeStudents, totalStudents
-        and recentAttempts, and R5 removes them. Range affects submissions only.
-      required: [openAssignments, awaitingGrading, activeStudents, flaggedAttempts, newestFlaggedAttempt, recentAttempts, takingNow, submissions, today, recentActivity]
+        console, but this operation never requests it. Range affects submissions only.
+      required: [awaitingGrading, flaggedAttempts, newestFlaggedAttempt, takingNow, submissions, today, recentActivity]
       additionalProperties: false
       properties:
         closingSoon: { type: integer, minimum: 0, description: Open assignments closing within the next 24 hours. }
         waitingStudents: { type: integer, minimum: 0, description: Distinct students with unmarked manual answers in handed-in papers. }
         oldestWaitingAt: { type: [string, 'null'], format: date-time }
-        totalStudents: { type: integer, minimum: 0, description: 'Enabled student-like accounts in the classes the caller teaches, for an Admin too; this operation never requests the repository wide scope.' }
         nextClosing:
           oneOf: [{ $ref: '#/components/schemas/ClosingAssignment' }, { type: 'null' }]
-        openAssignments: { type: integer, minimum: 0 }
         awaitingGrading: { type: integer, minimum: 0 }
-        activeStudents: { type: integer, minimum: 0, description: 'Of the enabled student-like members of classes the caller teaches, those who started an attempt in the last seven days on an assignment they reach; an Admin has the same own scope and cannot request the repository wide reading here.' }
         flaggedAttempts: { type: integer, minimum: 0 }
         newestFlaggedAttempt:
           oneOf: [{ $ref: '#/components/schemas/DashboardFlaggedAttempt' }, { type: 'null' }]
           description: Newest started currently flagged reachable paper, ordered by started_at then id descending, from the flagged count statement snapshot; null without grading or intervention permission or a matching paper. Historical, voided and former-roster papers remain eligible.
-        recentAttempts:
-          type: array
-          maxItems: 10
-          items: { $ref: '#/components/schemas/AttemptListRow' }
-
         takingNow: { $ref: '#/components/schemas/DashboardTakingNow' }
         submissions: { $ref: '#/components/schemas/DashboardSubmissions' }
         today:
@@ -4391,7 +5894,7 @@ components:
       additionalProperties: false
       properties:
         credits: { type: integer, minimum: 0, description: Credits the call was charged. }
-        left: { type: integer, minimum: 0, description: The least of what remains of the teacher's allowance and of the centre's pool, after the call. }
+        left: { type: integer, minimum: 0, description: "The least of what remains of the teacher's allowance and of the centre's pool, after the call." }
 
     AiGenerateRequest:
       type: object
@@ -4516,7 +6019,7 @@ components:
         questionId: { $ref: '#/components/schemas/Uuid' }
         number: { type: integer, minimum: 1, description: The question's 1-based place in the draft. }
         type: { $ref: '#/components/schemas/QuestionType' }
-        title: { type: string, minLength: 1, maxLength: 300, description: The question's prompt, shortened. }
+        title: { type: string, minLength: 1, maxLength: 300, description: "The question's prompt, shortened." }
         issue: { type: string, minLength: 1, maxLength: 1000 }
         fix: { $ref: '#/components/schemas/AiFix' }
 
@@ -4573,7 +6076,7 @@ components:
       additionalProperties: false
       properties:
         questionId: { $ref: '#/components/schemas/Uuid' }
-        number: { type: integer, minimum: 1, description: The question's 1-based place in the draft, which the copy keeps. }
+        number: { type: integer, minimum: 1, description: "The question's 1-based place in the draft, which the copy keeps." }
         kind: { $ref: '#/components/schemas/AiVariantKind' }
         title: { type: string, minLength: 1, maxLength: 300 }
         before: { type: string, maxLength: 2000 }
@@ -4641,7 +6144,7 @@ components:
           type: array
           maxItems: 4
           items: { type: string, minLength: 1, maxLength: 300 }
-        comment: { type: string, maxLength: 1000, description: A comment to the student, for the teacher to keep, change or drop. }
+        comment: { type: string, maxLength: 1000, description: "A comment to the student, for the teacher to keep, change or drop." }
         usage: { $ref: '#/components/schemas/AiUsage' }
 
     AiInsight:
@@ -4795,7 +6298,7 @@ components:
       required: [month, used, allowance, left, paused, requests, pending, categories]
       additionalProperties: false
       properties:
-        month: { type: string, format: date, description: The first day of the month, counted in the centre's time zone. }
+        month: { type: string, format: date, description: "The first day of the month, counted in the centre's time zone." }
         used: { type: integer, minimum: 0 }
         allowance: { type: integer, minimum: 0 }
         left: { type: integer, minimum: 0 }
@@ -4826,7 +6329,7 @@ components:
         poolCredits: { type: integer, minimum: 0, description: The plan for a month that has not begun. }
         defaultAllowance: { type: integer, minimum: 1000, maximum: 10000000, description: What a teacher without a custom allowance may use in a month. }
         warnPercent: { type: integer, minimum: 50, maximum: 99, description: The share of the allowance at which the teacher is told. }
-        onTeacherLimit: { type: string, enum: [pause, request], description: Pause a teacher who runs out, or let them ask for more. }
+        onTeacherLimit: { type: string, enum: [pause, request], description: "Pause a teacher who runs out, or let them ask for more." }
 
     AiRulesInput:
       type: object
@@ -4982,6 +6485,8 @@ components:
         | `ai.allowance_warning` | a teacher | `used`, `allowance` |
         | `ai.credit_request` | a teacher | `teacherName`, `credits` |
         | `ai.credit_request.decided` | a teacher | `credits`, `decision` |
+        | `content.transferred` | a teacher | `teacherName`, `count` |
+        | `class.teacher_changed` | a teacher | `className`, and `teacherName` for the class's previous teacher |
 
         The three `ai.*` kinds are for the teacher's bell. `ai.credit_request`
         is written for every holder of `ai.credits.manage`, who reads it in the
@@ -4999,6 +6504,8 @@ components:
         - ai.allowance_warning
         - ai.credit_request
         - ai.credit_request.decided
+        - content.transferred
+        - class.teacher_changed
 
     NotificationAudience:
       type: string
@@ -5022,7 +6529,7 @@ components:
         `assignment.due_soon` and `result.ready` the student's. A switch
         governs the kind of the same name, and `assignment.due_soon` also
         governs `assignment.opened` and `assignment.extended`. `class.joined`
-        and `join_codes.rotated` have no switch.
+        `join_codes.rotated` and `class.teacher_changed` have no switch.
       enum:
         - attempt.submitted
         - attempt.flagged
@@ -5043,7 +6550,7 @@ components:
         count:
           type: integer
           minimum: 0
-          description: Papers handed in (`attempt.submitted`), or classes whose join code was replaced (`join_codes.rotated`).
+          description: Papers handed in (`attempt.submitted`), classes whose join code was replaced (`join_codes.rotated`), or classes, tests, questions, question groups, media and assignments given to the reader (`content.transferred`).
         toGrade: { type: integer, minimum: 0, description: 'Of the papers handed in, those with an answer waiting for a mark.' }
         focusLost: { type: integer, minimum: 0, description: Times the student left the test. }
         notSubmitted: { type: integer, minimum: 0, description: Students who have not handed in. }
@@ -5056,9 +6563,9 @@ components:
           description: At most five names; `count` holds how many classes there are.
         closesAt: { $ref: '#/components/schemas/Timestamp' }
         used: { type: integer, minimum: 0, description: AI credits the teacher has used this month. }
-        allowance: { type: integer, minimum: 0, description: The teacher's AI allowance this month, in credits. }
+        allowance: { type: integer, minimum: 0, description: "The teacher's AI allowance this month, in credits." }
         credits: { type: integer, minimum: 0, description: AI credits a request asks for. }
-        teacherName: { type: string, minLength: 1, maxLength: 200, description: The teacher who asked for credits. }
+        teacherName: { type: string, minLength: 1, maxLength: 200, description: 'The teacher who asked for credits (`ai.credit_request`), whose content was given to the reader (`content.transferred`), or who now teaches a class the reader taught (`class.teacher_changed`, on the previous teacher''s item only: the new teacher''s item has no `teacherName`).' }
         decision: { type: string, enum: [approved, declined], description: How an Admin decided a request for credits. }
 
     NotificationTarget:
@@ -5189,7 +6696,7 @@ components:
             required: [ordinal, acceptedAnswers]
             additionalProperties: false
             properties:
-              id: { type: [string, 'null'], format: uuid }
+              id: { type: [string, 'null'], format: uuid, description: Omit to create. }
               gapId: { type: [string, 'null'], pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$' }
               ordinal: { type: integer, minimum: 1, maximum: 32767 }
               acceptedAnswers:
@@ -5274,7 +6781,7 @@ components:
             required: [ordinal, acceptedAnswers]
             additionalProperties: false
             properties:
-              id: { type: [string, 'null'], format: uuid }
+              id: { type: [string, 'null'], format: uuid, description: Omit to create. }
               gapId: { type: [string, 'null'], pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$' }
               ordinal: { type: integer, minimum: 1, maximum: 32767 }
               acceptedAnswers:
@@ -5432,10 +6939,10 @@ paths:
         the student sees **which class they are joining** before authenticating.
         Never create an account and enrol in one blind tap (§6.2).
 
-        Lookup is by a keyed hash of the normalized code, or by its SHA-256 for
-        a code issued before v0.8.0, compared in constant time. The plaintext
-        is never stored; a code issued from v0.8.0 on is stored encrypted
-        (§6.5).
+        Lookup is by a keyed hash of the normalized code, compared in constant
+        time. The plaintext is never stored; the code is stored encrypted
+        (§6.5). A code issued before v0.8.0, held only as its SHA-256, answers
+        as an unknown code.
       requestBody:
         required: true
         content:
@@ -5527,6 +7034,88 @@ paths:
       x-rate-limit:
         perIp: { perMinute: 120, perHour: 2000 }
 
+  /public/organization:
+    get:
+      operationId: getPublicOrganization
+      tags: [public]
+      security: []
+      summary: The centre as the front door shows it
+      description: |
+        The centre's name and contact lines, its logos and the ways in the
+        sign-in page offers, so the front door can print them before anyone
+        signs in. Served from a snapshot the server refreshes at most every
+        30 seconds.
+
+        **Leak review (§6.5).** The answer is identical for every caller and
+        never depends on a token. It carries only what the front door already
+        prints: the centre's own name and contact lines, two logo paths, and
+        three switches the sign-in and join pages act on. No plan, usage or
+        count, no person or id, no allowed-domain list, no retention value,
+        and nothing about when or by whom the settings were saved.
+      responses:
+        '200':
+          description: OK
+          headers:
+            Cache-Control:
+              required: true
+              description: '`public, max-age=300`.'
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicOrganization' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+      x-rate-limit:
+        perIp: { perMinute: 120, perHour: 2000 }
+
+  /public/organization/logo:
+    get:
+      operationId: getOrganizationLogo
+      tags: [public]
+      security: []
+      summary: The centre's logo
+      description: |
+        The PNG bytes of the light or the dark logo, served as a download and
+        never read as another type. A `v` equal to the current logo's hash makes
+        the answer immutable for a year; any other `v`, or none, is cached for
+        five minutes. No logo of that variant: 404.
+
+        **Leak review (§6.5).** Public bytes the centre chose to show on its
+        front door, the same for every caller. Nothing names the bucket, the
+        object key or who uploaded them.
+      parameters:
+        - name: variant
+          in: query
+          required: true
+          schema: { type: string, enum: [light, dark] }
+        - name: v
+          in: query
+          required: false
+          schema: { type: string, maxLength: 64, pattern: '^[0-9a-f]+$' }
+      responses:
+        '200':
+          description: The logo.
+          headers:
+            Cache-Control:
+              required: true
+              description: '`public, max-age=31536000, immutable` when `v` is the current hash, else `public, max-age=300`.'
+              schema: { type: string }
+            Content-Disposition:
+              required: true
+              description: '`attachment; filename="logo.png"`.'
+              schema: { type: string }
+            X-Content-Type-Options:
+              required: true
+              description: '`nosniff`.'
+              schema: { type: string }
+          content:
+            image/png:
+              schema: { type: string, format: binary }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+      x-rate-limit:
+        perIp: { perMinute: 300 }
+
   /auth/login:
     post:
       operationId: login
@@ -5564,6 +7153,15 @@ paths:
             a wrong password, with the same message and comparable timing, so the
             endpoint is not a user-enumeration oracle. A disabled account returns
             the same thing.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: |
+            `PASSWORD_SIGN_IN_DISABLED` — the centre has turned password
+            sign-in off. It is decided before the email or the password is
+            looked at, so every password sign-in gets it alike and it says
+            nothing about any account.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -5650,6 +7248,11 @@ paths:
             `IDENTITY_ALREADY_LINKED` — the verified email matches an account
             that is already linked to a DIFFERENT Google `sub`. Linking a second
             one would make "unlink Google" ambiguous, so it is refused (D-08).
+
+            `GOOGLE_SIGN_IN_DISABLED` — the centre has turned Google sign-in
+            off. `GOOGLE_DOMAIN_NOT_ALLOWED` — the verified address is outside
+            the centre's allowed domains. Both are decided for a code that
+            joins a class as well.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -5668,6 +7271,157 @@ paths:
       x-rate-limit:
         perIp: { perMinute: 120, perHour: 600 }
         perCode: { perHour: 200 }
+
+  /auth/set-password/check:
+    post:
+      operationId: checkSetPasswordLink
+      tags: [public, auth]
+      security: []
+      summary: Read what a set-password link is for
+      description: |
+        The set-password page calls this with the token it read from the link's
+        fragment, before it shows the form, so it can say whose password it is
+        about to set. Nothing is consumed: the same token can be checked again
+        until it is used, replaced or expired.
+
+        A link is a one-time secret an Admin or the account's owner had emailed
+        (D15). It works once, for 24 hours, and a newer link for the same
+        account replaces it.
+
+        **Leak review (§6.5).** An unknown, used, expired or revoked token, and
+        the token of a disabled account, all answer the same `410
+        SET_PASSWORD_LINK_INVALID`, with the same message, from the same single
+        indexed lookup, so the answer says nothing about which of them it was.
+        The lookup is an equality on the SHA-256 of a 256-bit token, which is
+        all the database keeps, so its timing reveals nothing usable. A valid
+        token is answered with the account's own email and name: the caller
+        already holds the secret that controls that account. The token is never
+        logged, is never in a query string and never reaches a `Referer`, since
+        the page sends it in this body only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              additionalProperties: false
+              properties:
+                token:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+                  description: The `token` the link carries after `#token=`.
+      responses:
+        '200':
+          description: The link can still be used.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SetPasswordLinkInfo' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '410':
+          description: |
+            `SET_PASSWORD_LINK_INVALID` — the link is unknown, used, expired or
+            revoked, or its account is disabled. The client says the link has
+            expired or was already used and asks the user to request a new one.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413':
+          description: The body is over 8 KiB, which the rate limiter's keys read in full.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/Maintenance' }
+      x-max-body-bytes: 8192
+      x-rate-limit:
+        perIp: { perMinute: 120, perHour: 1000 }
+        perToken: { perHour: 20 }
+
+  /auth/set-password:
+    post:
+      operationId: setPasswordWithLink
+      tags: [public, auth]
+      security: []
+      summary: Set a password from an emailed link, and sign in
+      description: |
+        Sets the account's password, clears `mustChangePassword`, signs the
+        account in and answers as `login` does. The link has just proved
+        control of the mailbox, so no other proof is asked for.
+
+        One statement claims the token, so two submits at once set the password
+        once and the second is answered `410`. Setting a password also ends the
+        account's other sessions and links: it revokes every refresh family,
+        moves `session_epoch`, and revokes the account's other unused links, all
+        before the new session is issued. A Google-only account that sets a
+        password this way keeps its Google link.
+
+        **Leak review (§6.5).** The same single `410` as `checkSetPasswordLink`
+        for every invalid state. `422 PASSWORD_SIGN_IN_DISABLED` is decided
+        before the token is looked up, so it is the same for every caller and
+        says nothing about any token or account. A token that is not valid is
+        refused before any password is hashed, so the endpoint is no way to
+        spend the server's hashing capacity. The token is never logged, is never
+        in a query string and never reaches a `Referer`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, newPassword]
+              additionalProperties: false
+              properties:
+                token:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+                  description: The `token` the link carries after `#token=`.
+                newPassword:
+                  type: string
+                  minLength: 8
+                  maxLength: 512
+                  pattern: '[\p{N}\p{P}\p{S}]'
+                  description: |
+                    The same rule as `changePassword`: at least 8 characters,
+                    at least one of which is a digit, a punctuation mark or a
+                    symbol, in any script.
+      responses:
+        '200':
+          description: The password is set and the account is signed in. Sets the rotating refresh cookie.
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+              description: '`quizzivy_refresh=…; HttpOnly; Secure; SameSite=Lax; Path=/auth`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthSuccess' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '410':
+          description: '`SET_PASSWORD_LINK_INVALID` — as for `checkSetPasswordLink`. Nothing was changed.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413':
+          description: The body is over 8 KiB, which the rate limiter's keys read in full.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: |
+            `PASSWORD_SIGN_IN_DISABLED` — the centre has turned password
+            sign-in off, so there is no password to set. The client sends the
+            person to sign in with Google.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503': { $ref: '#/components/responses/Maintenance' }
+      x-max-body-bytes: 8192
+      x-rate-limit:
+        perIp: { perMinute: 60, perHour: 600 }
+        perToken: { perHour: 10 }
 
   /auth/refresh:
     post:
@@ -5731,6 +7485,7 @@ paths:
     get:
       operationId: getCurrentUser
       x-permission: self
+      x-allows-temporary-password: true
       tags: [auth]
       summary: Current session
       description: Called on app load. A 401 sends the client to `/login` (§5.4).
@@ -5840,6 +7595,7 @@ paths:
     post:
       operationId: changePassword
       x-permission: self
+      x-allows-temporary-password: true
       tags: [auth]
       summary: Change own password
       description: |
@@ -5906,13 +7662,49 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /auth/set-password/request:
+    post:
+      operationId: requestSetPasswordLink
+      x-permission: self
+      tags: [auth]
+      summary: Email the caller a link to set a password
+      description: |
+        For an account that signs in with Google and has no password: emails
+        the account's own address a link, valid once for 24 hours, that opens
+        the set-password page. A newer link replaces an earlier unused one. The
+        caller stays signed in; using the link later ends the other sessions,
+        as setting a password does.
+
+        The answer is `204` once the message is queued; delivery is by the
+        outbox and may follow a moment later. Nothing in the answer says
+        whether the address received it.
+      responses:
+        '204': { $ref: '#/components/responses/NoContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422':
+          description: |
+            `PASSWORD_SIGN_IN_DISABLED` — the centre has turned password
+            sign-in off, so a password would be of no use.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '501':
+          description: This server has no key to seal a link with (`SECRETS_KEY`), so it cannot send one.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
   /auth/google/link:
     post:
       operationId: linkGoogle
       x-permission: self
       tags: [auth]
       summary: Link Google to the current account
-      description: Same `email_verified` rule as sign-in (§5.1).
+      description: |
+        Same `email_verified` rule as sign-in (§5.1), and the same sign-in
+        policy: with Google sign-in off, or an address outside the allowed
+        domains, nothing is linked (`403`).
       requestBody:
         required: true
         content:
@@ -5962,6 +7754,14 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: |
+            `GOOGLE_SIGN_IN_DISABLED` — the centre has turned Google sign-in
+            off. `GOOGLE_DOMAIN_NOT_ALLOWED` — the verified address is outside
+            the centre's allowed domains.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
     delete:
       operationId: unlinkGoogle
       x-permission: self
@@ -5969,12 +7769,14 @@ paths:
       summary: Unlink Google
       description: |
         **Rejected if it would leave no login method** (§15). A Google-only
-        account cannot unlink; the client disables the control and explains why.
+        account cannot unlink, and neither can an account whose password
+        cannot be used because the centre has turned password sign-in off; the
+        client disables the control and explains why.
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '409':
-          description: '`LAST_LOGIN_METHOD` — the account has no password to fall back to.'
+          description: '`LAST_LOGIN_METHOD` — the account has no password to fall back to, or the centre has turned password sign-in off.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -6722,7 +8524,10 @@ paths:
       x-permission: workspace.teacher
       tags: [teacher-tests]
       summary: Version history
-      description: Backs §8's test-detail version history. Spec §15 has no endpoint for this.
+      description: |
+        Backs §8's test-detail version history. Spec §15 has no endpoint for
+        this. A test that was never published lists no versions; a missing
+        test, or another teacher's, answers 404.
       responses:
         '200':
           description: Newest first.
@@ -6734,6 +8539,7 @@ paths:
                 additionalProperties: false
                 properties:
                   items: { type: array, items: { $ref: '#/components/schemas/TestVersion' } }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /teacher/tests/{id}/versions/{version}:
     parameters:
@@ -6900,7 +8706,9 @@ paths:
       summary: Student-eye preview of a published version
       description: |
         Renders from the **published version**, not the draft, so what the teacher
-        checks is what a student would actually receive (§8).
+        checks is what a student would actually receive (§8). A missing test, or
+        another teacher's, answers 404; a test without the version asked for, or
+        with no current version, answers 409.
       parameters:
         - { name: version, in: query, schema: { type: integer, minimum: 1 }, description: Defaults to current. }
       responses:
@@ -6917,6 +8725,7 @@ paths:
                   questions: { type: array, items: { $ref: '#/components/schemas/StudentQuestion' } }
                   sections: { type: array, items: { $ref: '#/components/schemas/StudentSection' } }
                   groups: { type: array, items: { $ref: '#/components/schemas/StudentGroup' } }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: '`TEST_NOT_PUBLISHED`.'
           content:
@@ -8164,8 +9973,13 @@ paths:
 
         An id the caller does not reach answers 404 for the whole request, as
         a missing one does. More than 20000 rows answer 422. The response is
-        `private, no-store`, and a caller is limited to 10 files a minute and
-        60 an hour.
+        `private, no-store`.
+
+        Each caller has two token buckets: 10 files, and 60 files, that refill
+        evenly over a minute and over an hour. A file spends one token from
+        each, so a caller can fetch 10 files at once and then about one every
+        six seconds, up to 60 an hour. A request that finds either bucket empty
+        answers 429 `RATE_LIMITED`, with `Retry-After` in seconds.
       parameters:
         - name: ids
           in: query
@@ -8801,6 +10615,9 @@ paths:
                       additionalProperties: false
                       properties:
                         answer: { oneOf: [{ $ref: '#/components/schemas/Answer' }, { type: 'null' }] }
+                        answerRemoved:
+                          type: boolean
+                          description: Present and true when the answer was removed under the retention policy; `answer` is then `null` and it cannot be graded.
                         autoScore: { oneOf: [{ $ref: '#/components/schemas/Points' }, { type: 'null' }] }
                         manualScore: { oneOf: [{ $ref: '#/components/schemas/Points' }, { type: 'null' }] }
                         requiresManual: { type: boolean }
@@ -9085,7 +10902,11 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: '`ATTEMPT_IN_PROGRESS` or `ATTEMPT_VOIDED` — nothing to grade yet, or nothing that counts.'
+          description: |
+            `ATTEMPT_IN_PROGRESS` or `ATTEMPT_VOIDED` — nothing to grade yet, or
+            nothing that counts. `ANSWER_REMOVED` — an item names an answer
+            removed under the retention policy; `details.questionIds` lists them
+            and nothing was saved.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -9188,6 +11009,27 @@ paths:
             whose password must be reset again. `false` lists only the others.
             Absent lists both.
           schema: { type: boolean }
+        - name: neverSignedIn
+          in: query
+          description: |
+            `true` lists only the accounts that have never signed in
+            (`last_sign_in_at` is null); `false` lists only the others. Absent
+            lists both. It narrows beside `mustChangePassword`, as a plain
+            predicate: an account on a temporary password that never signed in
+            is in both.
+          schema: { type: boolean }
+        - name: accountStatus
+          in: query
+          description: |
+            Only the accounts listed under one of these statuses
+            (`accountStatus=active&accountStatus=never_signed_in`), in
+            `AccountStatus`'s order of precedence. A `disabled` account is
+            returned only when `status` is `disabled` or `all`.
+          schema:
+            type: array
+            maxItems: 4
+            uniqueItems: true
+            items: { $ref: '#/components/schemas/AccountStatus' }
         - name: status
           in: query
           description: |
@@ -9231,7 +11073,8 @@ paths:
       tags: [teacher-students]
       description: |
         Teacher-created accounts get a temporary password and
-        `mustChangePassword: true`. Self-signup requires Google (§6.3).
+        `mustChangePassword` as the organization's "force password change"
+        setting says (on by default). Self-signup requires Google (§6.3).
 
         Every `classIds` entry must be a class the caller teaches, or any class
         with `scope.all`. Anything else answers 404, exactly as a missing class
@@ -9449,8 +11292,155 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /admin/users:
+    get:
+      operationId: listUsers
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: Every account, whatever its role
+      description: |
+        The Users table: every account in the centre, newest first: highest id
+        first, which is creation order for every account the app creates. Pages
+        are offset based, so accounts added between two requests shift the later
+        pages. `q` matches the name and the email together, ignoring case and
+        accents (D-11), and `email` is an exact, case-insensitive match for the
+        Add user form's "already taken" check. `status` narrows to the accounts
+        in that state, which never includes a disabled one (`AccountStatus`
+        lists `disabled` first).
+      parameters:
+        - name: tab
+          in: query
+          schema: { $ref: '#/components/schemas/AdminUserTab' }
+        - name: status
+          in: query
+          schema: { type: string, enum: [must_change_password, never_signed_in] }
+        - $ref: '#/components/parameters/Query'
+        - name: email
+          in: query
+          schema: { type: string, format: email, maxLength: 254 }
+        - $ref: '#/components/parameters/Page'
+        # Inline: the default is per resource, and
+        # TestEveryPageSizeMatchesItsContract reads it from here.
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, enum: [10, 20, 50], default: 20 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageInfo'
+                  - type: object
+                    required: [items, facets]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/AdminUserRow' } }
+                      facets: { $ref: '#/components/schemas/AdminUserFacets' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+    post:
+      operationId: createUser
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: Add an account with a role
+      description: |
+        Creates an account of any role the caller may give (`listAssignableRoles`):
+        its permissions, `learning.take_tests` apart, must be the caller's own,
+        and the Assistant is never offered. `created_by` is the caller. The role
+        is held against edits from the check to the commit; if it changed in
+        between, the check is made again, up to three times.
+
+        `fullName` is composed to NFC, trimmed, and each run of white space is
+        one space. A name that is then empty, longer than 200 characters, holds
+        a control, format, bidirectional or filler character or a code point
+        that is unassigned, or holds no letter, digit, punctuation mark or
+        symbol, is refused with `VALIDATION_FAILED` naming `fullName`.
+
+        `delivery: email_link` sets no password and enqueues a set-password
+        link (an invite) in the same transaction as the account, so the account
+        and its message exist together or not at all. While the centre has
+        turned password sign-in off, the message is a sign-in invite and
+        carries no link. `delivery: temporary_password` returns a temporary
+        password **once** and keeps only its hash; the account must change it
+        at the first sign-in unless the centre's sign-in policy lets it keep
+        it. It is refused with `PASSWORD_SIGN_IN_DISABLED` while password
+        sign-in is off.
+
+        `classId` is allowed only for a student-target role and only with
+        `scope.all`, and must name a class that is not archived. Writes one
+        audit row, `user.created`, with the role and the delivery.
+
+        Limited to 30 a minute and 300 an hour per signed-in user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserCreate' }
+      responses:
+        '201':
+          description: Created. A temporary password is returned **once**, and the answer is never cached.
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user]
+                additionalProperties: false
+                properties:
+                  user: { $ref: '#/components/schemas/AdminUserRow' }
+                  temporaryPassword:
+                    type: string
+                    description: "Present only for `delivery: temporary_password`."
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — the role holds a permission the caller lacks.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: |
+            `EMAIL_TAKEN` — already in use, compared case-insensitively.
+            `STALE_WRITE` — the role changed three times while the account was being created; nothing was written, so the same request may be sent again.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: |
+            `ROLE_NOT_ASSIGNABLE` — the role is the Assistant.
+            `PASSWORD_SIGN_IN_DISABLED` — a temporary password was asked for while the centre has turned password sign-in off.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '501':
+          description: This server has no key to seal a link with (`SECRETS_KEY`), so it cannot send one.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
   /admin/users/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getUser
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: One account for the Users sheet
+      description: |
+        The account with what the sheet draws beside it: who created it, its
+        classes, what it owns, the tests it is taking, its latest activity and
+        what the caller may do to it (`can`). Any account is visible, whatever
+        its role; the subset rule limits what may be done, not what is seen.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminUserDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
     delete:
       operationId: deleteUser
       x-permission: people.users.manage
@@ -9477,6 +11467,1026 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /admin/users/{id}/role:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    put:
+      operationId: changeUserRole
+      x-permission: people.roles.manage
+      tags: [admin-users]
+      summary: Give an account another role
+      description: |
+        Both roles, the account's own and the one it is given, must pass the
+        subset rule (`TARGET_ROLE_NOT_ALLOWED`); the Assistant is never offered
+        (`ROLE_NOT_ASSIGNABLE`), as in `createUser`. The caller cannot change
+        their own role (`CANNOT_ACT_ON_SELF`), and the last active Admin cannot
+        be moved off the Admin role (`LAST_ADMIN`). The guards apply in that
+        order, so an account the caller may not touch is not told it is the last
+        Admin.
+
+        An account that owns classes or content (`ownedContent` of `getUser`)
+        cannot be given a role that does not open the teacher workspace: it
+        answers `USER_OWNS_CONTENT` with the counts in `details`, and the
+        content is moved first (`transferUserContent`). Sending the role the
+        account already has writes nothing and answers the account as it is.
+
+        The new role is held against edits from the check to the commit; if it
+        or the account's own role changed in between, the check is made again,
+        up to three times, and then `STALE_WRITE` asks the caller to send the
+        request again; so does a write the database ended three times over a
+        lock another write held. A change ends the account's sessions: every refresh
+        family is revoked and the session epoch moves, so its next request is
+        authorised by the new role on this machine and within 10 seconds on any
+        other. Writes one audit row, `user.role_changed`, with the old and the
+        new role.
+
+        Limited to 30 a minute per signed-in user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [roleId]
+              additionalProperties: false
+              properties:
+                roleId:
+                  $ref: '#/components/schemas/Uuid'
+                  description: A role from `listAssignableRoles`.
+      responses:
+        '200':
+          description: The account with its new role.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminUserRow' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — the account''s role, or the new one, holds a permission the caller lacks.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: |
+            `LAST_ADMIN` — the account is the only active Admin.
+            `USER_OWNS_CONTENT` — the account owns classes or content and the new role opens no teacher workspace; `details` holds `classes`, `tests`, `questions`, `media` and `assignments`, each a count.
+            `STALE_WRITE` — a role changed, or another write to the account held what this one needed, three times while the change was being made; nothing was written, so the same request may be sent again.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: |
+            `CANNOT_ACT_ON_SELF` — the account is the caller's own.
+            `ROLE_NOT_ASSIGNABLE` — the new role is the Assistant.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /admin/users/{id}/disable:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: disableUser
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: Disable an account
+      description: |
+        Blocks sign-in without deleting anything the account has done. The
+        subset rule, then not oneself (`CANNOT_ACT_ON_SELF`), then the last
+        active Admin (`LAST_ADMIN`) apply in that order. In the same
+        transaction every refresh family is revoked, the session epoch moves,
+        every set-password link not yet used is revoked and every message still
+        waiting in the outbox for the account is cancelled, so nothing sent
+        before the disable lets the person in afterwards; enabling the account
+        again restores none of them. Disabling an account that is disabled
+        already writes nothing and answers the account as it is. Writes one
+        audit row, `user.disabled`.
+
+        Limited to 30 a minute per signed-in user.
+      responses:
+        '200':
+          description: The account, disabled.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminUserRow' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — the account''s role holds a permission the caller lacks.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`LAST_ADMIN` — the account is the only active Admin. `STALE_WRITE` — the account''s role, or another write to the account, changed while it was being written; try again.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: '`CANNOT_ACT_ON_SELF` — the account is the caller''s own.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /admin/users/{id}/transfer-content:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: transferUserContent
+      x-permission: scope.all
+      tags: [admin-users]
+      summary: Give everything a disabled account owns to another teacher
+      description: |
+        Moves every class the account teaches (archived ones too) and every
+        test, question, question group, media asset and assignment it owns,
+        deleted ones too, to `toUserId`, in one transaction, so a reader sees
+        all of it with the old owner or all of it with the new one. A test and
+        its questions move together, so a draft still uses only its owner's
+        questions, and the classes' students keep their assignments and
+        results. Who made a row (`createdBy`, `uploadedBy`) does not change.
+        The account's Word imports that are not finished stay with it and are
+        counted in `leftBehind`.
+
+        The subset rule applies to the account. The account must be disabled
+        (`USER_NOT_DISABLED`); the recipient must exist, be active, hold
+        `workspace.teacher` and be another account (`INVALID_RECIPIENT`).
+        Writes one audit row, `user.content_transferred`, with the recipient
+        and the counts. With `notify`, the recipient finds a
+        `content.transferred` notification in their bell when anything moved.
+        An account that owns nothing answers zeros and still writes its row.
+
+        Limited to 10 a minute per signed-in user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserContentTransfer' }
+      responses:
+        '200':
+          description: What moved, and what stayed behind.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserContentTransferResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — the account''s role holds a permission the caller lacks.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`USER_NOT_DISABLED` — disable the account first. `STALE_WRITE` — the account''s role, or another write to the account or its content, changed while it was being moved. Nothing was moved; try again.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: '`INVALID_RECIPIENT` — the recipient does not exist, is disabled, has no teacher workspace or is the account itself.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /admin/users/disable:
+    post:
+      operationId: disableUsers
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: Disable up to 100 accounts at once
+      description: |
+        Does for each account what `disableUser` does, one transaction each, so
+        a batch cannot do what one disable cannot. An account that fails does
+        not stop the others: `failed` names it with `NOT_FOUND`,
+        `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`, `LAST_ADMIN`,
+        `STALE_WRITE` (the account's role, or another write to it, kept
+        changing while it was being written; nothing was written to it) or
+        `INTERNAL` (a fault with that account alone, logged on the server). The
+        answer is 200 whenever the request was accepted, even when every
+        account failed. An account disabled already counts in `disabled`.
+        `disabled` and `failed` keep the order of `userIds`. The audit rows of
+        one call carry one batch id.
+
+        Limited to 30 a minute per signed-in user, a call counting once however
+        many accounts it names.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userIds]
+              additionalProperties: false
+              properties:
+                userIds:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  uniqueItems: true
+                  items: { $ref: '#/components/schemas/Uuid' }
+      responses:
+        '200':
+          description: The batch ran.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [disabled, failed]
+                additionalProperties: false
+                properties:
+                  disabled:
+                    type: array
+                    maxItems: 100
+                    description: The ids of the accounts that are disabled now.
+                    items: { $ref: '#/components/schemas/Uuid' }
+                  failed:
+                    type: array
+                    maxItems: 100
+                    items: { $ref: '#/components/schemas/UserActionFailure' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /admin/users/{id}/enable:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: enableUser
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: Enable a disabled account
+      description: |
+        Lets the account sign in again. The subset rule applies
+        (`TARGET_ROLE_NOT_ALLOWED`). The sessions and links a disable ended stay
+        ended: the person signs in again, and an Admin sends a new link with
+        `resetUserPassword`. Enabling an account that is enabled already writes
+        nothing and answers the account as it is. Writes one audit row,
+        `user.enabled`.
+      responses:
+        '200':
+          description: The account, enabled.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminUserRow' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — the account''s role holds a permission the caller lacks.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`STALE_WRITE` — the account''s role, or another write to the account, changed while it was being written. Nothing was written; try again.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/users/{id}/sign-out:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: signOutUser
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: Sign an account out everywhere
+      description: |
+        Revokes every refresh family the account has and moves its session
+        epoch, so its access tokens stop working at once, on this machine and,
+        within 10 seconds, on any other. The subset rule applies
+        (`TARGET_ROLE_NOT_ALLOWED`). Signing oneself out is allowed, and ends
+        the caller's own session too. Writes one audit row,
+        `user.signed_out_everywhere`.
+      responses:
+        '204': { description: Signed out. }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — the account''s role holds a permission the caller lacks.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`STALE_WRITE` — the account''s role, or another write to the account, changed while it was being written. Nothing was written; try again.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/users/{id}/reset-password:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: resetUserPassword
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: Reset an account's password
+      description: |
+        `delivery: temporary_password` sets a temporary password, returned
+        **once** and kept nowhere but as a hash; the account must change it at
+        the first sign-in unless the centre's sign-in policy lets it keep it.
+        `delivery: email_link` clears the password, so the old one stops working
+        at once, and emails a link to choose a new one (24 hours, once).
+
+        Either way the account's sessions end: every refresh family is revoked,
+        the session epoch moves and the unused links it held are revoked. The
+        subset rule, then not oneself (`CANNOT_ACT_ON_SELF`; the caller changes
+        their own password with `changePassword`) apply in that order. A
+        disabled account is refused (`ACCOUNT_DISABLED`). While the centre has
+        turned password sign-in off the answer is `PASSWORD_SIGN_IN_DISABLED`.
+        The answer is never cached. Writes one audit row,
+        `user.password_reset`, with the delivery.
+
+        Limited to 5 a minute and 30 an hour per signed-in user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [delivery]
+              additionalProperties: false
+              properties:
+                delivery: { $ref: '#/components/schemas/UserResetDelivery' }
+      responses:
+        '200':
+          description: Reset. A temporary password is returned **once**, and the answer is never cached.
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  temporaryPassword:
+                    type: string
+                    description: "Present only for `delivery: temporary_password`."
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — the account''s role holds a permission the caller lacks.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`ACCOUNT_DISABLED` — the account is disabled; enable it first. `STALE_WRITE` — the account''s role, or another write to the account, changed while it was being written. Nothing was written; try again.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: |
+            `CANNOT_ACT_ON_SELF` — the account is the caller's own.
+            `PASSWORD_SIGN_IN_DISABLED` — the centre has turned password sign-in off.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '501':
+          description: This server has no key to seal a link with (`SECRETS_KEY`), so it cannot send one.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/users/reset-passwords:
+    post:
+      operationId: resetUsersPasswords
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: Reset the passwords of up to 100 accounts at once
+      description: |
+        Does for each account what `resetUserPassword` does, one transaction
+        each, with the same guards in the same order, so a batch cannot do what
+        one reset cannot. `userIds` holds at most 40 ids for
+        `delivery: temporary_password`, because each password is hashed, two at
+        a time, and at most 100 for `email_link`.
+
+        An account that fails does not stop the others: `failed` names it with
+        `NOT_FOUND`, `TARGET_ROLE_NOT_ALLOWED`, `CANNOT_ACT_ON_SELF`,
+        `ACCOUNT_DISABLED`, `STALE_WRITE` (the account's role, or another write
+        to it, kept changing while it was being written; nothing was written to
+        it) or `INTERNAL` (a fault with that account alone,
+        logged on the server). The answer is 200 whenever the request was
+        accepted, even when every account failed. `items` and `failed` keep the
+        order of `userIds`. `PASSWORD_SIGN_IN_DISABLED` refuses the whole
+        request while the centre has turned password sign-in off.
+
+        Each `temporaryPassword` is returned **once** and stored nowhere. A
+        reset that committed before the connection dropped has lost its
+        password for good; `listUsers` with `status=must_change_password` lists
+        those accounts for another reset. The answer is never cached. The audit
+        rows of one call carry one batch id.
+
+        Limited to 2 a minute and 10 an hour per signed-in user, a call counting
+        once however many accounts it names.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userIds, delivery]
+              additionalProperties: false
+              properties:
+                userIds:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  uniqueItems: true
+                  items: { $ref: '#/components/schemas/Uuid' }
+                delivery: { $ref: '#/components/schemas/UserResetDelivery' }
+      responses:
+        '200':
+          description: The batch ran. Passwords are returned **once**.
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, failed]
+                additionalProperties: false
+                properties:
+                  items:
+                    type: array
+                    maxItems: 100
+                    items: { $ref: '#/components/schemas/UserPasswordReset' }
+                  failed:
+                    type: array
+                    maxItems: 100
+                    items: { $ref: '#/components/schemas/UserActionFailure' }
+        '400':
+          description: |
+            Fails the schema, or `VALIDATION_FAILED` naming `userIds`: more than 40 ids for `temporary_password`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: '`PASSWORD_SIGN_IN_DISABLED` — the centre has turned password sign-in off.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '501':
+          description: This server has no key to seal a link with (`SECRETS_KEY`), so it cannot send one.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/user-imports/preview:
+    post:
+      operationId: previewUserImport
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: What a CSV or XLSX file of accounts would come to
+      description: |
+        Reads the file under a one-slot gate and judges every row against what
+        the caller may do, writing nothing. The first sheet of a workbook, or a
+        UTF-8 CSV file, holds the columns `full_name` and `email` and may hold
+        `role` and `class`, named in any case and order; any other column is
+        ignored. The format is read from the bytes and never from the name.
+        A file is at most 5 MiB, 2,000 data rows, 20 columns and 1,000
+        characters a cell.
+
+        `role` is a built-in key (`student`, `teacher`), a role's name (the
+        built-ins are "Học viên" and "Giáo viên") or empty, which takes
+        `defaultRole`. `class` is the exact name of an active class, only for a
+        student-target role and only for a caller holding `scope.all`. An
+        address that already belongs to an account is counted and skipped, never
+        updated. Every refused cell is reported once, so one pass shows
+        everything to correct.
+
+        `defaultRole` must be a role the caller may give, as `createUser`
+        requires of `roleId`. Limited to 10 a minute per signed-in user.
+      x-max-body-bytes: 5259264
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, defaultRole, delivery]
+              properties:
+                file: { type: string, format: binary }
+                defaultRole: { $ref: '#/components/schemas/UserImportDefaultRole' }
+                delivery: { $ref: '#/components/schemas/UserImportDelivery' }
+      responses:
+        '200':
+          description: The counts. Nothing was stored.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserImportPreview' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — `defaultRole` holds a permission the caller lacks.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413':
+          description: |
+            `USER_IMPORT_FILE_TOO_LARGE` — over 5 MiB. The message tells the user
+            to save the sheet as CSV UTF-8 and upload that.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422': { $ref: '#/components/responses/UserImportRefused' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '501': { $ref: '#/components/responses/UserImportUnavailable' }
+
+  /admin/user-imports:
+    post:
+      operationId: createUserImport
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: Import the accounts of a file
+      description: |
+        Reads and judges the file again, never trusting a preview, stores the
+        job and every row that passed in one transaction, and wakes the worker,
+        which creates the accounts a few at a time. The caller's `requestId`,
+        held for as long as the dialog is open, makes the request idempotent:
+        the same `requestId` returns the job it stored the first time, whatever
+        the file then holds, and creates no second one. Audits
+        `user_import.requested`; the accounts are audited as `user.created`
+        with `via: import` when the worker creates them.
+
+        The file, `defaultRole` and `delivery` are those of `previewUserImport`.
+        A file in which no row would create an account is refused with
+        `USER_IMPORT_NOTHING_TO_CREATE`. Limited to 5 an hour per signed-in
+        user.
+      x-max-body-bytes: 5259264
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, defaultRole, delivery, requestId]
+              properties:
+                file: { type: string, format: binary }
+                defaultRole: { $ref: '#/components/schemas/UserImportDefaultRole' }
+                delivery: { $ref: '#/components/schemas/UserImportDelivery' }
+                requestId: { $ref: '#/components/schemas/Uuid' }
+      responses:
+        '202':
+          description: Queued. Poll `getUserImport` for its progress.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserImportJob' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — `defaultRole` holds a permission the caller lacks.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '413':
+          description: '`USER_IMPORT_FILE_TOO_LARGE` — over 5 MiB.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: |
+            Any code `previewUserImport` answers with, and
+            `USER_IMPORT_NOTHING_TO_CREATE` — no row of the file would create an
+            account.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '501': { $ref: '#/components/responses/UserImportUnavailable' }
+
+  /admin/user-imports/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getUserImport
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: How an import is going
+      description: |
+        The progress of one of the caller's own imports. Another user's import
+        answers as a missing one.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserImportJob' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/user-imports/{id}/sheet:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: downloadUserImportSheet
+      x-permission: people.users.manage
+      tags: [admin-users]
+      summary: Take the sheet of temporary passwords an import made
+      description: |
+        For a job delivered by `sheet`, hands its importer one CSV file, once:
+        a row for every account the job created, with `full_name`, `email`,
+        `role`, `class` and `temporary_password`. One transaction opens the
+        passwords, erases them from the job and records the download, so the
+        file is the only copy and a second request cannot have it. A job that is
+        not done, was delivered by email, created no account, has been
+        downloaded, or finished more than 24 hours ago answers
+        `410 SHEET_UNAVAILABLE`; another user's job is `404`. The response is
+        `no-store`, a UTF-8 file with a byte-order mark and CRLF line ends in
+        which a cell that a spreadsheet would run as a formula starts with `'`.
+        Audited as `user_import.sheet_downloaded`. Limited to 5 a minute per
+        signed-in user.
+      responses:
+        '200':
+          description: The sheet.
+          headers:
+            Content-Disposition:
+              required: true
+              description: '`attachment; filename="new-accounts-YYYYMMDD.csv"`.'
+              schema: { type: string }
+            Cache-Control:
+              required: true
+              description: '`no-store`.'
+              schema: { type: string }
+          content:
+            text/csv:
+              schema: { type: string, format: binary }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410':
+          description: '`SHEET_UNAVAILABLE` — the job has no sheet to give: it is not done, was delivered by email, created no account, was downloaded already, or finished more than 24 hours ago.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '501': { $ref: '#/components/responses/UserImportUnavailable' }
+
+  /admin/classes:
+    get:
+      operationId: listAllClasses
+      x-permission: scope.all
+      tags: [admin-classes]
+      summary: Every teacher's classes
+      description: |
+        The Admin Classes table: every class in the centre, newest first, with
+        its teacher and its active join code read in full. `tab` is `active`
+        (the default) or `archived`. `q` matches the class's name or its
+        teacher's name, ignoring case and accents (D-11). `teacher=disabled`
+        keeps the classes whose teacher's account is disabled.
+        `disabledTeacherClasses` counts the centre's classes that are not
+        archived and whose teacher is disabled, whatever the search, the tab
+        and the filter.
+
+        Each `joinCode.code` is a bearer secret, so the answer is never cached
+        and the operation is limited like the others that reveal one: 60 a
+        minute and 600 an hour per signed-in user.
+      parameters:
+        - name: tab
+          in: query
+          required: false
+          schema: { type: string, enum: [active, archived], default: active }
+        - $ref: '#/components/parameters/Query'
+        - name: teacher
+          in: query
+          required: false
+          schema: { type: string, enum: [disabled] }
+        - $ref: '#/components/parameters/Page'
+        # Inline: the default is per resource, and
+        # TestEveryPageSizeMatchesItsContract reads it from here.
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, enum: [10, 20, 50], default: 20 }
+      responses:
+        '200':
+          description: OK
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageInfo'
+                  - type: object
+                    required: [items, facets, disabledTeacherClasses]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/AdminClassRow' } }
+                      facets: { $ref: '#/components/schemas/AdminClassFacets' }
+                      disabledTeacherClasses: { type: integer, minimum: 0 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+    post:
+      operationId: createClassForTeacher
+      x-permission: scope.all
+      tags: [admin-classes]
+      summary: Create a class for a teacher
+      description: |
+        Creates a class `teacherId` teaches, with self-join on. The teacher
+        must exist, be active and hold `workspace.teacher`
+        (`INVALID_RECIPIENT`). While the centre lets students join with a code
+        the class gets a new code in the same transaction, as
+        `rotateJoinCode` would issue it with its defaults; while joining with
+        a code is off it gets none, and `joinCode` is `null`. Writes the audit
+        row `class.created` with `onBehalfOf`, the teacher's id, and
+        `class.join_code_issued` when a code was issued.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminClassCreate' }
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Class' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '422':
+          description: '`INVALID_RECIPIENT` — the teacher does not exist, is disabled or has no teacher workspace.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/classes/{id}/teacher:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    put:
+      operationId: changeClassTeacher
+      x-permission: scope.all
+      tags: [admin-classes]
+      summary: Give a class to another teacher
+      description: |
+        Makes `teacherId` the class's teacher. The class, archived or not, its
+        members, its join code and the assignments that target it stay as they
+        are: the new teacher reaches them through the class, and the previous
+        one no longer does, except for the assignments they created. The
+        teacher must exist, be active and hold `workspace.teacher`
+        (`INVALID_RECIPIENT`). Writes the audit row `class.teacher_changed`
+        with `teacher {old, new}`; with `notify`, the new teacher and the
+        previous one, unless their account is disabled, find a
+        `class.teacher_changed` item in their bells. Naming the class's
+        current teacher changes nothing, writes nothing and tells nobody.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClassTeacherChange' }
+      responses:
+        '200':
+          description: The class with its new teacher.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Class' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: '`INVALID_RECIPIENT` — the teacher does not exist, is disabled or has no teacher workspace.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/roles:
+    get:
+      operationId: listRoles
+      x-permission: people.roles.manage
+      tags: [admin-roles]
+      summary: The roles and the permission catalogue
+      description: |
+        Every role with its permissions, head count and revision, and the
+        catalogue of matrix rows, for the Roles & permissions page. The
+        Assistant is listed as the deck draws it; only the role pickers
+        (`listAssignableRoles`) leave it out.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleList' }
+    post:
+      operationId: createRole
+      x-permission: people.roles.manage
+      tags: [admin-roles]
+      summary: Create a custom role
+      description: |
+        The new role takes the icon `key-round` and the colour `gray`, and starts
+        with the permissions of `copyFromRoleId`, if given. The source must pass
+        the subset rule: its permissions, `learning.take_tests` apart, are the
+        caller's own. The Assistant cannot be a source. A name and a description
+        are stored in Unicode NFC, so the composed and decomposed forms of one
+        name are the same name. The limits of 60 and 300 characters count the
+        text after NFC; the schema bounds the text as sent at four times that,
+        so a name typed decomposed is not refused before it is composed. A name
+        holds a letter, a digit, a punctuation mark or a symbol. Neither field
+        holds a control or invisible character, a tab included: a zero-width
+        one, a blank filler such as the Hangul filler or the Braille blank, a
+        lone code point nothing assigns. A description may hold line breaks,
+        which are stored as LF whether they arrive as CR LF, CR or LF; a name
+        may not. At most 200 roles exist, the four built-in ones included; past
+        that the answer is `ROLE_LIMIT_REACHED`. Writes one audit row,
+        `role.created`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoleInput' }
+      responses:
+        '201':
+          description: The new role.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleSummary' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — the source role holds a permission the caller lacks.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`ROLE_NAME_TAKEN` — another role has the name, in any letter case.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: '`ROLE_NOT_ASSIGNABLE` — the source is the Assistant. `ROLE_LIMIT_REACHED` — 200 roles exist already.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/roles/assignable:
+    get:
+      operationId: listAssignableRoles
+      x-permission: people.users.manage
+      tags: [admin-roles]
+      summary: The roles the caller may give to a user
+      description: |
+        The roles whose permissions, `learning.take_tests` apart, are a subset of
+        the caller's, without the Assistant, which no picker offers. For the Add
+        user dialog and the user sheet.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 200
+                items: { $ref: '#/components/schemas/AssignableRole' }
+
+  /admin/roles/permissions:
+    put:
+      operationId: setRolePermissions
+      x-permission: people.roles.manage
+      tags: [admin-roles]
+      summary: Save the matrix
+      description: |
+        Grants and revokes permissions across roles in one transaction, and
+        refuses the whole save when any change breaks a rule:
+
+        - `KEY_NOT_GRANTABLE` — a hidden key.
+        - `ROLE_LOCKED` — an Admin cell other than `learning.take_tests`.
+        - `STUDENT_NEEDS_TAKE_TESTS` — `learning.take_tests` off the built-in Student.
+        - `CANNOT_ACT_ON_SELF` — a change to the caller's own role, except the
+          Admin role's `learning.take_tests` cell, which gives no power over anyone.
+        - `TARGET_ROLE_NOT_ALLOWED` (403) — a role, or a key granted or revoked,
+          that the subset rule keeps from the caller.
+        - `STALE_WRITE` (409) — a role is past its expected revision, or the
+          save names no revision for it.
+
+        A change that leaves a cell as it was is accepted and writes nothing.
+        Everyone's permissions are read again on their next request on the
+        machine that served the save, and within about ten seconds on any other. Writes
+        one `role.permissions_changed` audit row per role changed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RolePermissionsInput' }
+      responses:
+        '200':
+          description: The roles the save touched.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RolePermissionsResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — the subset rule keeps the caller from a role or a key.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`STALE_WRITE` — a role changed since the matrix was read.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: '`KEY_NOT_GRANTABLE`, `ROLE_LOCKED`, `STUDENT_NEEDS_TAKE_TESTS` or `CANNOT_ACT_ON_SELF`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/roles/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    patch:
+      operationId: updateRole
+      x-permission: people.roles.manage
+      tags: [admin-roles]
+      summary: Edit a role's name, description, icon or colour
+      description: |
+        A supplied field is changed and the others are kept; a body with only
+        `expectedRevision` is refused. A built-in role may be renamed; its key never changes. The target must pass the subset rule.
+        A name and a description are stored in Unicode NFC and follow the rules
+        of a role's creation: the limits count the text after NFC, a name holds
+        a letter, a digit, a punctuation mark or a symbol, and neither holds a
+        control or invisible character.
+        A change moves the revision. Writes one audit row, `role.updated`, naming
+        what changed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoleUpdate' }
+      responses:
+        '200':
+          description: The role after the change.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoleSummary' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403':
+          description: '`TARGET_ROLE_NOT_ALLOWED` — the role holds a permission the caller lacks.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`STALE_WRITE` — the role changed since `expectedRevision`. `ROLE_NAME_TAKEN` — another role has the name, in any letter case.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/overview:
+    get:
+      operationId: getAdminOverview
+      x-permission: workspace.admin
+      tags: [admin-overview]
+      summary: The Admin console's Overview
+      description: |
+        Everything the Overview draws in one read: the centre's name, how many
+        people and classes it holds, who was active on each of the last
+        fourteen days, what needs attention, the five newest audit entries and
+        the storage meters.
+
+        Each section is `null` for a caller who lacks its key, never an error,
+        so a custom role sees only what it may: `people` and `dailyActive` need
+        `people.users.manage`, `classes` needs `scope.all`, `recentChanges`
+        `system.audit.read` and `storage` `system.settings.write`. An attention
+        row is held to the key of the page it leads to: `must_change_password`
+        and `never_signed_in` need `people.users.manage`,
+        `disabled_teacher_classes` `scope.all`, `storage` `system.settings.write`
+        and `ai_credit_requests` `ai.credits.manage`, which exists only while the
+        AI assistant is configured. A row whose count is zero is left out.
+
+        Days are the local dates of the centre's `APP_TIMEZONE`, the same days
+        the activity table records. `people.activeThisWeek` counts the
+        distinct accounts active on any of the last seven of them, today
+        included.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminOverview' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/summary:
+    get:
+      operationId: getAdminSummary
+      x-permission: workspace.admin
+      tags: [admin-overview]
+      summary: The Admin console's nav counts
+      description: |
+        The one count the Admin sidebar draws as a badge: the accounts that
+        must change their password (DG-54). It is the number the Overview's
+        `must_change_password` attention row carries, counted by the same rule.
+        `mustChangePassword` is `null` without `people.users.manage`, when the
+        count is not run.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/usage:
+    get:
+      operationId: getUsage
+      x-permission: system.settings.write
+      tags: [admin-overview]
+      summary: What the centre uses against its plan
+      description: |
+        The Plan & usage figures. The plan and its limits come from the
+        server's `PLAN_*` configuration, each optional, and nothing here is
+        enforced (DG-55): a limit is shown, never applied. `aiCredits` is the
+        month's credits used against the centre pool, and is `null` without
+        `ai.credits.manage` and while the AI assistant is off.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Usage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
   /admin/docs-session:
     post:
       operationId: openDocsSession
@@ -9499,6 +12509,322 @@ paths:
             Set-Cookie:
               schema: { type: string }
               description: '`quizzivy_docs=<token>; Path=/docs; Max-Age=900; HttpOnly; Secure; SameSite=Strict`'
+
+  /admin/api-reference:
+    get:
+      operationId: getApiReferenceSummary
+      x-permission: system.api_reference
+      tags: [admin-docs]
+      summary: What the API reference holds
+      description: |
+        The contract's OpenAPI and document versions, how many operations it
+        declares and, for each tag in the order the contract lists them, how
+        many operations carry it (an operation with two tags is counted under
+        both). It is read once from the spec the server embeds, so it always
+        describes the build that answers. The page draws its own names and
+        blurbs for the groups; this is the part only the server knows.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiReferenceSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/api-reference/openapi.json:
+    get:
+      operationId: downloadOpenApi
+      x-permission: system.api_reference
+      tags: [admin-docs]
+      summary: Download the contract
+      description: |
+        This file, `api/openapi.yaml`, converted to JSON with its keys, values
+        and order unchanged (DG-10), an attachment named `quizzivy-openapi.json`.
+        It is not the spec the server routes by, whose operation ids the code
+        generator has rewritten and whose descriptions beside a `$ref` it has
+        dropped. The body is that JSON document, declared as a byte stream so
+        the generated server writes it as it is and does not encode it a second
+        time. The response is
+        `no-store`. It needs the bearer token and `system.api_reference`,
+        unlike `/docs/openapi.json`, which answers to a docs session.
+      responses:
+        '200':
+          description: The file.
+          headers:
+            Content-Disposition:
+              required: true
+              description: '`attachment; filename="quizzivy-openapi.json"`.'
+              schema: { type: string }
+            Cache-Control:
+              required: true
+              description: '`no-store`.'
+              schema: { type: string }
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/audit-log:
+    get:
+      operationId: listAuditLog
+      x-permission: system.audit.read
+      tags: [admin-audit]
+      summary: The audit log
+      description: |
+        One page of the audit log, newest first, and how many entries each
+        category holds. The log is append-only: nothing here changes it.
+
+        **Range.** `range` is `today` (from midnight), `7d` (the last seven
+        calendar days, today included), `30d` (the last thirty), `all`, or
+        `custom`, which takes `from` and `to` as dates, both inclusive. Every
+        day is the viewer's own: their stored time zone, else the centre's
+        default. `from` and `to` without `custom`, `custom` without both, and a
+        `to` before `from` answer `400 VALIDATION_FAILED` naming the field.
+
+        **Search.** `q` matches, without regard to case or accents, the actor's
+        name or email, the sentence that words the action in either language,
+        and the label of the user, class, test, assignment, attempt, media file,
+        import or question group an entry is about.
+
+        **Categories.** An entry's category follows from the kind of thing it
+        is about. Entries about the organization, exports, maintenance,
+        retention and the AI credits belong to no category: `category` is
+        `null` and only the unfiltered list holds them.
+
+        **Facets.** `facets` counts the entries that match the current `q` and
+        range and ignores `category`, so selecting one never zeroes the others;
+        `all` counts every such entry, those in no category included, so it can
+        exceed the sum of the six. `total` is the selected category's count, or
+        `all`.
+
+        **Entries.** `changes` lists the fields an entry changed, each with the
+        value it had and the value it has. `details` holds anything else the
+        entry recorded. A join code is shown as `••••-` and its last four
+        characters, and a password, token or secret is never shown. `label` is
+        `null` when the row the entry is about no longer exists.
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/AuditCategory' }
+        - $ref: '#/components/parameters/Query'
+        - name: range
+          in: query
+          required: false
+          schema: { type: string, enum: [today, 7d, 30d, all, custom], default: 7d }
+        - name: from
+          in: query
+          required: false
+          description: First day of a `custom` range, `YYYY-MM-DD`.
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: false
+          description: Last day of a `custom` range, `YYYY-MM-DD`, inclusive.
+          schema: { type: string, format: date }
+        - $ref: '#/components/parameters/Page'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageInfo'
+                  - type: object
+                    required: [items, facets]
+                    properties:
+                      items: { type: array, items: { $ref: '#/components/schemas/AuditEntry' } }
+                      facets: { $ref: '#/components/schemas/AuditCategoryFacets' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/audit-log/export:
+    get:
+      operationId: exportAuditLog
+      x-permission: system.audit.read
+      tags: [admin-audit]
+      summary: Download the audit log
+      description: |
+        The entries of a period, newest first, as one file. `period` is the
+        last seven or thirty calendar days or the calendar year so far, counted
+        in the viewer's own time zone; `range`, `from` and `to` are not
+        parameters here. `category` and `q` narrow it as they narrow the list.
+
+        The file is an attachment named `audit-log-YYYYMMDD` with `.csv` or
+        `.json`, and the response is `no-store`. A CSV is UTF-8 with a
+        byte-order mark and CRLF line ends, headers in the viewer's language
+        by `Accept-Language`, and every cell that a spreadsheet would run as a
+        formula is written with a leading `'`. A JSON file is an array of the
+        entries `listAuditLog` returns. Both are streamed.
+
+        More than 100,000 entries answer `422 EXPORT_TOO_LARGE`, and the caller
+        is asked for a shorter period. Each file is itself audited as
+        `audit.exported`, with the period, the format and the number of rows.
+        A caller is limited to 5 files a minute and 30 an hour.
+      parameters:
+        - name: period
+          in: query
+          required: false
+          schema: { type: string, enum: [7d, 30d, year], default: 7d }
+        - name: format
+          in: query
+          required: false
+          schema: { type: string, enum: [csv, json], default: csv }
+        - name: category
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/AuditCategory' }
+        - $ref: '#/components/parameters/Query'
+      responses:
+        '200':
+          description: The file.
+          headers:
+            Content-Disposition:
+              required: true
+              description: '`attachment; filename="audit-log-YYYYMMDD.csv"` or `.json`.'
+              schema: { type: string }
+            Cache-Control:
+              required: true
+              description: '`no-store`.'
+              schema: { type: string }
+          content:
+            text/csv:
+              schema: { type: string, format: binary }
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AuditEntry' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422':
+          description: '`EXPORT_TOO_LARGE` — the period holds more than 100,000 entries.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/data-exports:
+    post:
+      operationId: requestDataExport
+      x-permission: system.data_export
+      tags: [admin-exports]
+      summary: Ask for a full export of the centre's data
+      description: |
+        Queues one export for the worker and answers at once. It builds a ZIP
+        of `users.csv` (no password hashes or tokens), `roles.csv`,
+        `classes.csv` (no join codes), `class_members.csv`, `tests.csv`,
+        `test_versions.csv`, `assignments.csv`, `attempts.csv`, with
+        `answers.csv` when `includeAnswers` is true, and a `README.txt` in
+        Vietnamese and English that describes each file. Every CSV is UTF-8
+        with a byte-order mark and CRLF line ends, and a cell that a
+        spreadsheet would run as a formula is written with a leading `'`.
+
+        Only one export runs at a time for the whole centre: while any is
+        queued or running, another request answers `409 EXPORT_IN_PROGRESS`.
+        When the file is ready the requester gets an email that links to the
+        app page `/admin/exports/{id}`, never to the file. The file can be
+        fetched up to three times, by the requester, within 24 hours
+        (`downloadDataExport`).
+        The request is audited as `data_export.requested`. A caller who has an
+        export from the last hour that has not failed (queued, running, ready
+        or fetched) is refused with `429 RATE_LIMITED` and `Retry-After`, the
+        seconds until that export is an hour old. A failed export, a request
+        refused with `409` and a request refused with `429` do not count.
+        Without object storage and the worker the answer is `501 EXPORT_OFF`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DataExportRequest' }
+      responses:
+        '202':
+          description: Queued.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DataExport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: '`EXPORT_IN_PROGRESS` — an export is already queued or running.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '501': { $ref: '#/components/responses/ExportOff' }
+
+  /admin/data-exports/{id}:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    get:
+      operationId: getDataExport
+      x-permission: system.data_export
+      tags: [admin-exports]
+      summary: Where an export stands
+      description: |
+        The state of an export the caller requested; another user's export
+        answers `404` exactly as a missing one does. A `ready` export whose
+        24 hours have passed reads `expired`, whether or not the housekeeping
+        has removed its file yet.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DataExport' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { $ref: '#/components/responses/ExportOff' }
+
+  /admin/data-exports/{id}/download:
+    parameters: [{ $ref: '#/components/parameters/IdPath' }]
+    post:
+      operationId: downloadDataExport
+      x-permission: system.data_export
+      tags: [admin-exports]
+      summary: Fetch an export, up to three times
+      description: |
+        Hands the requester a presigned URL for the ZIP, valid for 60 seconds,
+        that forces an attachment named `quizzivy-export-YYYYMMDD.zip`. One
+        statement checks that the export is `ready`, unexpired and signed fewer
+        than three times, and counts the signing in `downloads`, so a failed
+        transfer can be tried again; the fourth request, and a request after the
+        24 hours, answer `410 EXPORT_UNAVAILABLE`. Another user's export answers
+        `404`. The response is `no-store`, because the URL is a credential. Each
+        signing is audited as `data_export.downloaded`, and a caller may fetch
+        ten an hour.
+      responses:
+        '200':
+          description: The URL.
+          headers:
+            Cache-Control:
+              required: true
+              description: '`no-store`.'
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DataExportDownload' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410':
+          description: '`EXPORT_UNAVAILABLE` — the export is not ready, has expired, failed, or was already signed three times.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501': { $ref: '#/components/responses/ExportOff' }
 
   /admin/ai/credits:
     get:
@@ -9671,6 +12997,197 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '501': { $ref: '#/components/responses/AiOff' }
+
+  /admin/settings:
+    get:
+      operationId: getOrganizationSettings
+      x-permission: system.settings.write
+      tags: [admin-settings]
+      summary: The centre's settings
+      description: The whole settings document as stored, read from the database.
+      responses:
+        '200':
+          description: OK
+          headers:
+            Cache-Control:
+              required: true
+              description: '`private, no-store`.'
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrganizationSettings' }
+    put:
+      operationId: updateOrganizationSettings
+      x-permission: system.settings.write
+      tags: [admin-settings]
+      summary: Save the centre's settings
+      description: |
+        Replaces the whole document when `expectedRevision` is the stored one,
+        and answers it as stored, its revision one higher. A logo is named by
+        the hash `uploadOrganizationLogo` answered; until a save names it, an
+        upload changes nothing. A policy that would leave the caller, or every
+        active built-in Admin, without a way to sign in is refused, judged
+        inside the save as `getSignInImpact` judges it. One audit row,
+        `organization.updated`, names the caller and the fields that changed.
+        Other servers apply the new document within 30 seconds.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrganizationSettingsInput' }
+      responses:
+        '200':
+          description: |
+            The document as stored. A document equal to the stored one changes
+            nothing: the same revision comes back and no audit row is written.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrganizationSettings' }
+        '400':
+          description: |
+            The body fails its schema, or `VALIDATION_FAILED` with a message per
+            field: a text that is empty or too long after trimming, a name that
+            holds a line break or an invisible character, a website that is not a
+            domain or an `https` address without credentials, an email or a
+            phone number that is not one, a repeated domain, or a logo the server
+            does not hold (as `organization.logo.light` or `organization.logo.dark`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: '`STALE_WRITE` — saved elsewhere since `expectedRevision`; read again.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: |
+            `SIGN_IN_POLICY_LOCKOUT` — the policy would leave the caller, or every
+            active built-in Admin, with no way to sign in. `details.affectedUsers`
+            and `details.affectedAdmins` count the active accounts it leaves
+            without one. Nothing was stored.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /admin/settings/sign-in-impact:
+    post:
+      operationId: getSignInImpact
+      x-permission: system.settings.write
+      tags: [admin-settings]
+      summary: What a sign-in policy would do to the active accounts
+      description: |
+        Counts, without storing anything, the active accounts the proposed
+        policy would leave with no way to sign in, the built-in Admins among
+        them, and whether the caller is one. The settings page asks before it
+        offers Save; the save judges again.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signIn]
+              additionalProperties: false
+              properties:
+                signIn: { $ref: '#/components/schemas/SignInPolicy' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SignInImpact' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /admin/settings/retention-impact:
+    post:
+      operationId: getRetentionImpact
+      x-permission: system.settings.write
+      tags: [admin-settings]
+      summary: What a retention policy would remove today
+      description: |
+        Counts, without storing or removing anything, what the nightly sweep
+        would do today under the proposed policy: the answers it would remove
+        and the attempts they belong to, the focus-loss events it would delete,
+        and the disabled accounts it would anonymise, with those it would leave
+        because they own classes or content. The counts are the sweep's dry run
+        (T-R5.17a), built from the same rule.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [retention]
+              additionalProperties: false
+              properties:
+                retention: { $ref: '#/components/schemas/RetentionPolicy' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RetentionImpact' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /admin/settings/logo:
+    post:
+      operationId: uploadOrganizationLogo
+      x-permission: system.settings.write
+      tags: [admin-settings]
+      summary: Upload a logo
+      description: |
+        Stores a logo and answers its hash, which a save of the settings then
+        names; the upload alone changes nothing ("Logo uploaded. Save settings
+        to apply."). The object is content-addressed, so the same file uploaded
+        twice is stored once.
+
+        A PNG is at most 1 MiB, square within 2% and 256 to 2048 pixels a side.
+        Its type is read from its first bytes, its header before any pixel is
+        decoded, and it is decoded and encoded afresh, which drops every
+        metadata chunk. Any other type, an SVG included, answers
+        `MEDIA_TYPE_UNSUPPORTED`: the settings page draws an SVG to a PNG in the
+        browser before it uploads (D-019). A caller
+        may upload 20 logos an hour.
+
+        The request may carry 16 KiB more than the 1 MiB file for the multipart
+        framing.
+      x-max-body-bytes: 1064960
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, variant]
+              properties:
+                file: { type: string, format: binary }
+                variant: { type: string, enum: [light, dark] }
+      responses:
+        '200':
+          description: Stored.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrganizationLogoUpload' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '413':
+          description: '`MEDIA_TOO_LARGE` — a file over 1 MiB.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '415':
+          description: |
+            `MEDIA_TYPE_UNSUPPORTED` (not a PNG), `MEDIA_UNREADABLE` (the header or
+            the pixels cannot be read) or `IMAGE_DIMENSIONS` (not square within 2%,
+            a side outside 256 to 2048 pixels, or needing more memory to decode
+            than the server allows). Nothing was stored.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501':
+          description: Object storage is not configured, so no logo can be kept.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /teacher/classes:
     get:
@@ -9957,11 +13474,11 @@ paths:
         other that reveals one. It is not audited, because the teacher's
         screens show the code on every class card.
 
-        `code` is `null` when the code cannot be read back. A code issued
-        before v0.8.0 is held only as a hash (`legacy: true`), and R4 rotates
-        those. A code sealed under a key this server no longer holds
-        (`legacy: false`) can be neither read nor redeemed. Rotate either to
-        get a readable code.
+        `code` is `null` when the code cannot be read back: it is sealed under
+        a key this server no longer holds, and can be neither read nor
+        redeemed. Rotate it to get a readable code. `legacy` is always false:
+        a code issued before v0.8.0, held only as a hash, was rotated in R4,
+        and the database refuses one that is not revoked (§13.3).
 
         404 when the class is not the caller's, exactly as a missing class
         answers, or when it has no active code.
@@ -10754,6 +14271,11 @@ paths:
 
         Fire-and-forget: this is best-effort by design and a failure here must
         never block answering or submitting (§10.6).
+
+        `sessionId` must be the attempt's current session or one the attempt
+        has already recorded events under: a tab that another device took over
+        may still flush what it holds, and a session id that was never part of
+        the attempt answers 403 and writes nothing (D-004).
       security:
         - bearerAuth: []
         - {}
@@ -10788,6 +14310,7 @@ paths:
       x-resource:
         - { in: path, name: id, kind: attempt }
         - { in: body, name: /questionId, kind: version-question }
+        - { in: body, name: /sessionId, kind: none }
       x-permission: learning.take_tests
       tags: [take-test]
       summary: Increment the server-authoritative play counter
@@ -10795,11 +14318,17 @@ paths:
         The obvious client-side counter resets on reload, which makes `maxPlays`
         meaningless — so the count lives here (§11.4).
 
-        **Never rejects a play.** Playback is optimistic: a failed POST does not
+        **Never gates playback.** Playback is optimistic: a failed POST does not
         block audio, and a student who goes offline to farm replays leaves a gap
         in the event log, which is what the integrity timeline is for. Blocking
         on a round trip would punish bad wifi far more often than it would catch
-        anyone.
+        anyone. A play is only *counted* while the attempt can still be written:
+        like the shared recording's, it answers `409` once the attempt is
+        submitted or voided (`ATTEMPT_CLOSED`), past its deadline
+        (`DEADLINE_PASSED`), or, when `sessionId` is sent, when that session is
+        no longer the attempt's (`SESSION_SUPERSEDED`), and then counts nowhere
+        (D-005). `sessionId` is optional for one release so that a web build
+        older than this server keeps counting; it becomes required after.
       requestBody:
         required: true
         content:
@@ -10810,6 +14339,7 @@ paths:
               additionalProperties: false
               properties:
                 questionId: { $ref: '#/components/schemas/Uuid' }
+                sessionId: { $ref: '#/components/schemas/Uuid' }
       responses:
         '200':
           description: '`plays` may exceed `maxPlays`. That is reported to the teacher, not enforced.'
@@ -10824,6 +14354,13 @@ paths:
                   maxPlays: { type: [integer, 'null'] }
         '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: |
+            `SESSION_SUPERSEDED`, `ATTEMPT_CLOSED` or `DEADLINE_PASSED`: the
+            play was not counted. The client neither counts it nor retries.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /app/attempts/{id}/group-audio-play:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]

@@ -21,13 +21,13 @@ import {
 } from "@/features/question-bank/api";
 import { BankNavigation } from "@/features/question-groups/components/BankNavigation";
 import { useBulkSelection } from "@/hooks/useBulkSelection";
+import { trimmed, useDebouncedInput } from "@/hooks/useDebouncedInput";
 import { useListFilters } from "@/hooks/useListFilters";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { usePage, usePageSize } from "@/hooks/usePage";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { useLocale } from "@/lib/i18n/useLocale";
-import { useDebounced } from "@/lib/useDebounced";
 import { BankFilterPanel, type BankFilterChange } from "./BankFilterPanel";
 import { activeFilterCount, promptLine, readBankFilters } from "./bankFilters";
 import { BANK_ASIDE_WIDTH, bankColumns } from "./bankColumns";
@@ -113,7 +113,12 @@ export default function QuestionBankPage() {
   const client = useQueryClient();
   const { params, setParams, setFilter } = useListFilters();
   const filters = readBankFilters(params);
-  const search = useDebounced(filters.query.trim(), 300);
+  const [typed, setTyped] = useDebouncedInput(
+    filters.query,
+    (value) => setFilter("q", value),
+    trimmed,
+  );
+  const search = filters.query.trim();
   const wide = useMediaQuery("(min-width: 1024px)");
   const [size] = usePageSize();
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -235,8 +240,8 @@ export default function QuestionBankPage() {
           <div className="flex flex-wrap gap-2">
             <SearchInput
               className={SEARCH}
-              value={filters.query}
-              onChange={(value) => setFilter("q", value)}
+              value={typed}
+              onChange={setTyped}
               placeholder={t("bank.searchPlaceholder")}
             />
             {!wide && (

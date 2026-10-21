@@ -156,7 +156,7 @@ export function FileSlot({
               size="sm"
               disabled={disabled}
               aria-label={t(`imports.upload.${role}Choose`)}
-              className="h-[34px] rounded-md in-data-[scale=deck]:h-[34px] in-data-[scale=deck]:rounded-md"
+              className="h-[34px] rounded-md"
               onClick={() => input.current?.click()}
             >
               <Upload aria-hidden="true" />
@@ -174,7 +174,7 @@ export function FileSlot({
                 size="sm"
                 disabled={disabled}
                 aria-label={t("imports.upload.replaceNamed", { name })}
-                className="text-meta in-data-[scale=deck]:text-meta h-8 px-2.5 in-data-[scale=deck]:h-8"
+                className="text-meta h-8 px-2.5"
                 onClick={() => input.current?.click()}
               >
                 {t("imports.upload.replace")}
@@ -186,7 +186,7 @@ export function FileSlot({
                   size="icon-sm"
                   disabled={disabled}
                   aria-label={t("imports.upload.removeNamed", { name })}
-                  className="text-muted-fg hover:text-fg size-8 in-data-[scale=deck]:size-8"
+                  className="text-muted-fg hover:text-fg size-8"
                   onClick={() => {
                     setDropError(null);
                     refocus.current = true;

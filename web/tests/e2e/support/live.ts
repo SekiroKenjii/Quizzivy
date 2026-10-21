@@ -1,3 +1,5 @@
+import { readdir, readFile } from "node:fs/promises";
+import path from "node:path";
 import { expect, type Page } from "@playwright/test";
 
 /** Shared by the live specs, which talk to a real API over the seeded database. */
@@ -24,7 +26,79 @@ export async function signIn(page: Page, who: typeof ADMIN, landing: RegExp) {
 }
 
 export const signInAsStudent = (page: Page) => signIn(page, STUDENT, /\/app$/);
-export const signInAsAdmin = (page: Page) => signIn(page, ADMIN, /\/teacher$/);
+
+/**
+ * emailSinkDir is the directory the API's email sink writes to: EMAIL_SINK_DIR,
+ * which playwright.config.ts resolves and sets for every worker.
+ */
+export function emailSinkDir(): string {
+  const dir = process.env["EMAIL_SINK_DIR"];
+  if (!dir) throw new Error("EMAIL_SINK_DIR is unset: playwright.config.ts sets it");
+  return dir;
+}
+
+interface SunkMessage {
+  to: string;
+  text: string;
+  tags?: Record<string, string>;
+}
+
+const SET_PASSWORD_TOKEN = /\/set-password#token=([A-Za-z0-9_-]+)/;
+
+async function sunkMessages(): Promise<SunkMessage[]> {
+  const dir = emailSinkDir();
+  const names = await readdir(dir).catch(() => [] as string[]);
+  const files = names
+    .filter((name) => name.endsWith(".json"))
+    .sort((a, b) => a.localeCompare(b));
+  return Promise.all(
+    files.map(
+      async (name) =>
+        JSON.parse(await readFile(path.join(dir, name), "utf8")) as SunkMessage,
+    ),
+  );
+}
+
+/**
+ * setPasswordToken waits up to 30 seconds for the sink to hold a message of
+ * `template` to `email` and answers the token of the newest one's set-password
+ * link: the token alone, because the link's origin is the API's APP_URL, which
+ * need not be the origin the suite serves.
+ */
+export async function setPasswordToken(
+  email: string,
+  template = "account_invite",
+): Promise<string> {
+  let token = "";
+  await expect
+    .poll(
+      async () => {
+        const sent = (await sunkMessages()).filter(
+          (message) =>
+            message.to.toLowerCase() === email.toLowerCase() &&
+            message.tags?.["template"] === template,
+        );
+        token = SET_PASSWORD_TOKEN.exec(sent.at(-1)?.text ?? "")?.[1] ?? "";
+        return token;
+      },
+      {
+        message: `a ${template} message to ${email} in ${emailSinkDir()}`,
+        timeout: 30_000,
+      },
+    )
+    .not.toBe("");
+  return token;
+}
+/**
+ * signInAsAdmin signs in as the seeded Admin, who opens the Admin console the
+ * first time and the teacher's console after switching, and ends in the
+ * teacher's console, where the specs author and assign.
+ */
+export async function signInAsAdmin(page: Page) {
+  await signIn(page, ADMIN, /\/(admin|teacher)$/);
+  await page.goto("/teacher");
+  await expect(page).toHaveURL(/\/teacher$/);
+}
 
 /**
  * Opens an assignment by id and starts or resumes it, returning the attempt id.

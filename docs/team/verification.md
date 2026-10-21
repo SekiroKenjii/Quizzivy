@@ -24,7 +24,7 @@ procedure changes.
 - Vitest in CI uses its defaults (5 s test timeout, all cores); locally
   `vite.config.ts` gives three workers and 15 s. A timing-sensitive test can pass
   locally and fail in CI. For pre-merge parity run unit tests as CI does:
-  `CI=1 pnpm --dir web test:unit` (add `--shard=1/2` and `2/2` to match).
+  `CI=1 pnpm --dir web test:unit` (add `--shard=1/3`, `2/3` and `3/3` to match).
 - A tester never edits production code, and never removes, skips or weakens a
   failing test. A failure becomes a QA finding (`QA-<task>-<n>`, format in the
   definition) for the owner. Throwaway mutations (section 7) run in a scratch
@@ -59,12 +59,13 @@ Run from the repository root; `web` commands as `pnpm --dir web ...`.
 | 8 | Web lint | `pnpm lint:ci` (no cache) | static | | PR, V, Rel | CI; tester |
 | 9 | Typecheck | `pnpm typecheck`, never `tsc --noEmit` (it checks zero files) | static | | PR, V, Rel | CI; tester |
 | 10 | Format | `pnpm format:ci` (no cache) | static | | PR, V, Rel | CI; tester |
-| 11 | Web unit | `pnpm test:unit` (CI shards 2) | unit | | PR, V, Rel | CI; tester |
+| 11 | Web unit | `pnpm test:unit` (CI shards 3) | unit | | PR, V, Rel | CI; tester |
 | 12 | Web integration | `pnpm test:integration` (includes `router-chunks.test.ts`, a real build) | integration | | PR, V, Rel | CI; tester |
 | 13 | Build | `pnpm build` | build | | PR, V, Rel | CI; tester |
 | 14 | E2E, API stubbed | `pnpm e2e` (`chromium` and `mobile-chromium` projects, production build on 4173) | end-to-end | Chromium at `/opt/pw-browsers` | PR, V, Rel | CI; tester |
 | 15 | Content editor prototype | `pnpm e2e:content` | end-to-end | Chromium | PR, V when the editor changed, Rel | CI; tester |
 | 16 | E2E, live API | `pnpm e2e:live` | live | section 7.3 | PR, V when take-test, imports, auth, join or media changed, Rel (mandatory in R4: join codes, imports and the start path changed) | CI; tester |
+| 16b | E2E, waits on real time | `pnpm e2e:slow` (E2E 5, a real one-minute deadline) | live | section 7.3, without MinIO or the import worker | V when the take-test timer, auto-submit or the attempt deadline rule changed; Rel (CI runs it nightly and on a pull request into `main`: `docs/setup/ci.md`, "The slow tail") | CI slow tail; tester |
 | 17 | Deck pinned | `node scripts/check-design-deck.mjs` | static | | PR (Deck job), Rel | CI |
 
 "Tests run" is judged by exit code **and** by the count: a Go package whose tests
@@ -78,7 +79,7 @@ and that the storage tests ran against MinIO and did not skip.
 |---|---|---|---|---|
 | Every `/teacher/*` route matches the deck at 360, 768, 1024, 1280, 1440, light and dark, sidebar expanded, collapsed and drawer | Section 4, once per route, against the T-R4.51 seed; evidence in the PR template table and a route-by-route matrix kept by the tester | browser | each screen task at V; whole matrix at T-R4.51 and Rel | tester |
 | Old teacher tree deleted; `router-chunks.test.ts` passes with regexes updated, not weakened | `grep -rn "admin" web/src/app/router.tsx` for a surviving old tree; diff of `router-chunks.test.ts` read by the tester: only path regexes may change, every assertion count stays (an assertion deleted is a finding); `pnpm test:integration -- router-chunks` | integration | T-R4.48 at V; Rel | tester |
-| No active join code in production uses the legacy lookup | The count query T-R4.22 records, run on a Neon branch before and on production after the deploy; API log shows `legacy_join_codes_rotated` with the rehearsed count | production | Rel | Thuong runs, tester supplies the query and expected numbers |
+| No active join code in production uses the legacy lookup | The count query T-R4.22 records, run on a Neon branch before and on production after the deploy; API log shows `legacy_join_codes_rotated` with the rehearsed count (R4 only: v0.12.0 removed the job, and `00141` refuses a live legacy code) | production | Rel | Thuong runs, tester supplies the query and expected numbers |
 | Pasted-text count fixture passes in Go and web | `go test ./internal/modules/imports/domain/recognition/...` and `pnpm test:unit -- paste-scan`; both read `api/testdata/pasted-text-counts.json`; also check CI's `web` and `server` sets still list the file (`scripts/ci/plan.mjs`) | unit | T-R4.57 at V; Rel | tester |
 | Five canaries green and untouched | Section 3 | unit/integration | every PR touching a high-risk area; Rel | tester |
 | Every CI step green on every PR, and once locally in order at T-R4.52 | 2.1 in order, stop at the first failure, record each exit code | all | Rel | tester |
@@ -500,8 +501,9 @@ runs are in section 10. After they are green:
   say which key breaks the tie (`uuidv7` ids order by creation). Go map iteration
   and un-sorted `SELECT`s must not be asserted positionally.
 - **Shared rows.** The live suite and the dev seed share one database and
-  `fullyParallel` is on (CI uses one worker; locally Playwright defaults to
-  several): run `pnpm e2e:live --workers=1`, and never two live runs at once.
+  `fullyParallel` is on, so `pnpm e2e:live` pins one worker, in CI and locally,
+  and two live runs never overlap. The stubbed projects stub the API per page and
+  share no rows, so CI runs them on three workers.
   The Go integration tier commits to one `TEST_DATABASE_URL` across parallel
   packages; a test that commits owns its removal (registered before the first
   insert, errors checked), and a "recent" list read must not see another

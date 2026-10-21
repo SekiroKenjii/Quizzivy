@@ -4,7 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { http } from "msw";
-import { DeckScale } from "@/components/ui/deck-scale";
 import {
   BuilderGroupPane,
   type GroupPaneBridge,
@@ -146,20 +145,18 @@ function renderPane() {
       {
         path: "/",
         element: (
-          <DeckScale>
-            <BuilderGroupPane
-              id={GROUP}
-              selectedQuestionId={null}
-              coordinate={(operation) => operation()}
-              save={save}
-              onChange={() => undefined}
-              onSelectedQuestionChange={() => undefined}
-              flushRef={flushRef}
-              retryRef={{ current: null }}
-              bridgeRef={{ current: null as GroupPaneBridge | null }}
-              onStatus={() => undefined}
-            />
-          </DeckScale>
+          <BuilderGroupPane
+            id={GROUP}
+            selectedQuestionId={null}
+            coordinate={(operation) => operation()}
+            save={save}
+            onChange={() => undefined}
+            onSelectedQuestionChange={() => undefined}
+            flushRef={flushRef}
+            retryRef={{ current: null }}
+            bridgeRef={{ current: null as GroupPaneBridge | null }}
+            onStatus={() => undefined}
+          />
         ),
       },
     ],

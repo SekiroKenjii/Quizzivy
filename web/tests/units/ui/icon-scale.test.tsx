@@ -21,7 +21,7 @@ describe("the icon scale (F-14)", () => {
     expect(screen.getByText("IELTS")).toHaveClass(SIZE_3);
   });
 
-  it("the 28px button carries a 14px icon; the 32px one keeps 16", () => {
+  it("the 26px and 30px buttons and the 24px icon button carry a 14px icon", () => {
     render(
       <>
         <Button size="xs">nhỏ</Button>
@@ -31,15 +31,15 @@ describe("the icon scale (F-14)", () => {
         <Button size="sm">vừa</Button>
       </>,
     );
-    expect(screen.getByRole("button", { name: "nhỏ" })).toHaveClass("h-7", SIZE_3_5);
+    expect(screen.getByRole("button", { name: "nhỏ" })).toHaveClass("h-6.5", SIZE_3_5);
     expect(screen.getByRole("button", { name: "thao tác" })).toHaveClass(
-      "size-7",
+      "size-6",
       SIZE_3_5,
     );
-    expect(screen.getByRole("button", { name: "vừa" })).not.toHaveClass(SIZE_3_5);
+    expect(screen.getByRole("button", { name: "vừa" })).toHaveClass("h-7.5", SIZE_3_5);
   });
 
-  it("a bare icon in a table cell is 14px, and the row kebab is the plain icon-xs button", () => {
+  it("a bare icon in a table cell is 14px, and the row kebab is the deck's 30px button with a 16px icon", () => {
     render(
       <Table>
         <TableBody>
@@ -59,6 +59,9 @@ describe("the icon scale (F-14)", () => {
     const [cell] = screen.getAllByRole("cell");
     expect(cell!.className).toContain(":size-3.5");
     expect(cell!.className).toContain(":not(button_svg)");
-    expect(screen.getByRole("button", { name: "Thao tác" })).toHaveClass("size-7");
+    const kebab = screen.getByRole("button", { name: "Thao tác" });
+    expect(kebab).toHaveClass("size-7.5", "[&_svg:not([class*='size-'])]:size-4");
+    expect(kebab).not.toHaveClass("size-6");
+    expect(kebab).not.toHaveClass(SIZE_3_5);
   });
 });

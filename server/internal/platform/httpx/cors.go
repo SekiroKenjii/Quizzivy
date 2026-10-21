@@ -43,7 +43,7 @@ func allowOrigin(w http.ResponseWriter, origin string) {
 	h := w.Header()
 	h.Set("Access-Control-Allow-Origin", origin)
 	h.Set("Access-Control-Allow-Credentials", "true")
-	h.Set("Access-Control-Expose-Headers", "X-Request-Id, Retry-After")
+	h.Set("Access-Control-Expose-Headers", "X-Request-Id, Retry-After, Content-Disposition")
 }
 
 func writePreflight(w http.ResponseWriter, permitted bool) {

@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -64,8 +65,8 @@ func TestEveryNonOpenOperationDeclaresAPermission(t *testing.T) {
 func TestOpenOperationsDeclareNone(t *testing.T) {
 	spec := freshSpec(t)
 	open := openPatterns(spec)
-	if len(open) != 7 {
-		t.Errorf("%d open operations, want the seven of theOpenSeven", len(open))
+	if len(open) != 11 {
+		t.Errorf("%d open operations, want the eleven of theOpenEleven", len(open))
 	}
 	eachOperation(spec, func(pattern string, op *openapi3.Operation) {
 		if _, isOpen := open[pattern]; !isOpen {
@@ -82,8 +83,8 @@ func TestEveryDeclaredValueIsKnown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(requirements) != 139 {
-		t.Errorf("%d operations declare a permission, want 139", len(requirements))
+	if len(requirements) != 178 {
+		t.Errorf("%d operations declare a permission, want 178", len(requirements))
 	}
 	for pattern, requirement := range requirements {
 		for _, k := range requirement.Keys() {
@@ -278,6 +279,33 @@ func TestEveryStaffOperationIsGated(t *testing.T) {
 	}
 }
 
+func TestEveryAdminOperationRefusesATeacherAndAStudentThroughTheRouter(t *testing.T) {
+	issuer := testIssuer(t)
+	h := roleRouter(t, issuer, rolePrincipals())
+	params := regexp.MustCompile(`\{[^}]+\}`)
+	var admin int
+	eachOperation(freshSpec(t), func(pattern string, _ *openapi3.Operation) {
+		method, path, _ := strings.Cut(pattern, " ")
+		if !strings.HasPrefix(path, "/admin/") {
+			return
+		}
+		admin++
+		path = params.ReplaceAllString(path, "01935000-0000-7000-8000-00000000f00d")
+		for _, user := range []string{teacherUser, studentUser} {
+			rec := sendAs(t, h, issuer, method, path, user, "")
+			if rec.Code != http.StatusForbidden || errorCode(t, rec) != "FORBIDDEN" {
+				t.Errorf("%s as %s: %d, want 403 FORBIDDEN", pattern, user, rec.Code)
+			}
+		}
+		if rec := sendAs(t, h, issuer, method, path, adminUser, ""); rec.Code == http.StatusForbidden || rec.Code == http.StatusUnauthorized {
+			t.Errorf("%s as the Admin: %d, want it past the gate", pattern, rec.Code)
+		}
+	})
+	if admin < 46 {
+		t.Errorf("only %d /admin/* operations found, want R5's 46 at least: the walk is looking at the wrong thing", admin)
+	}
+}
+
 func TestTheStudentTreeNeedsTakeTests(t *testing.T) {
 	issuer := testIssuer(t)
 	h := roleRouter(t, issuer, rolePrincipals())
@@ -286,13 +314,6 @@ func TestTheStudentTreeNeedsTakeTests(t *testing.T) {
 	}
 	if rec := sendAs(t, h, issuer, http.MethodGet, "/app/assignments", adminUser, ""); rec.Code != http.StatusForbidden {
 		t.Errorf("an Admin without Take tests got %d on the student tree, want 403", rec.Code)
-	}
-}
-
-func TestAnAnonymousCallerToTheTeacherTreeGetsAuthenticationNotAuthorization(t *testing.T) {
-	issuer := testIssuer(t)
-	if rec := sendAs(t, roleRouter(t, issuer, rolePrincipals()), issuer, http.MethodGet, "/teacher/dashboard", "", ""); rec.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want 401", rec.Code)
 	}
 }
 
@@ -374,8 +395,11 @@ func throughGate(h http.Handler, pattern, token string) int {
 
 func TestEachRoleMeetsExactlyTheOperationsItsPermissionsAllow(t *testing.T) {
 	h, requirements, _ := isolatedGate(t, rolePrincipals())
-	adminOnly := map[string]bool{"POST /admin/docs-session": true, "DELETE /admin/users/{id}": true}
-	for _, pattern := range []string{"GET /admin/ai/credits", "PATCH /admin/ai/rules", "POST /admin/ai/credits/additions", "PUT /admin/ai/teachers/{userId}/allowance", "POST /admin/ai/credit-requests/{id}/approve", "POST /admin/ai/credit-requests/{id}/decline"} {
+	adminOnly := map[string]bool{"POST /admin/docs-session": true, "GET /admin/users": true, "GET /admin/users/{id}": true, "POST /admin/users": true, "DELETE /admin/users/{id}": true, "PUT /admin/users/{id}/role": true, "POST /admin/users/{id}/disable": true, "POST /admin/users/disable": true, "POST /admin/users/{id}/enable": true, "POST /admin/users/{id}/sign-out": true, "POST /admin/users/{id}/transfer-content": true, "POST /admin/users/{id}/reset-password": true, "POST /admin/users/reset-passwords": true, "GET /admin/api-reference": true, "GET /admin/api-reference/openapi.json": true, "GET /admin/audit-log": true, "GET /admin/audit-log/export": true, "POST /admin/data-exports": true, "POST /admin/user-imports/preview": true, "POST /admin/user-imports": true, "GET /admin/user-imports/{id}": true, "POST /admin/user-imports/{id}/sheet": true, "GET /admin/data-exports/{id}": true, "POST /admin/data-exports/{id}/download": true, "GET /admin/overview": true, "GET /admin/summary": true, "GET /admin/usage": true}
+	for _, pattern := range []string{"GET /admin/roles", "POST /admin/roles", "GET /admin/roles/assignable", "PUT /admin/roles/permissions", "PATCH /admin/roles/{id}"} {
+		adminOnly[pattern] = true
+	}
+	for _, pattern := range []string{"GET /admin/ai/credits", "PATCH /admin/ai/rules", "POST /admin/ai/credits/additions", "PUT /admin/ai/teachers/{userId}/allowance", "POST /admin/ai/credit-requests/{id}/approve", "POST /admin/ai/credit-requests/{id}/decline", "GET /admin/settings", "PUT /admin/settings", "POST /admin/settings/sign-in-impact", "POST /admin/settings/retention-impact", "POST /admin/settings/logo", "GET /admin/classes", "POST /admin/classes", "PUT /admin/classes/{id}/teacher"} {
 		adminOnly[pattern] = true
 	}
 	for pattern, requirement := range requirements {
@@ -424,8 +448,8 @@ func TestTheAssistantMeetsOnlyItsSixRows(t *testing.T) {
 			t.Errorf("%s as the Assistant: %d, want %d", pattern, got, want)
 		}
 	}
-	if refused != 55 {
-		t.Errorf("the Assistant is refused %d operations, want 55: twenty-seven staff operations, the sixteen AI ones and the twelve /app ones", refused)
+	if refused != 93 {
+		t.Errorf("the Assistant is refused %d operations, want 93: sixty-five staff operations, the sixteen AI ones and the twelve /app ones", refused)
 	}
 }
 

@@ -254,3 +254,29 @@ func (CreditRequestDecided) Kind() Kind { return AICreditRequestDecided }
 func (p CreditRequestDecided) fields() fields {
 	return fields{Credits: &p.Credits, Decision: &p.Decision}
 }
+
+// Transferred is ContentTransferred's params: the disabled teacher whose content was handed over and how many items moved.
+type Transferred struct {
+	TeacherName string
+	Count       int
+}
+
+func (Transferred) Kind() Kind { return ContentTransferred }
+
+func (p Transferred) fields() fields {
+	return fields{TeacherName: &p.TeacherName, Count: &p.Count}
+}
+
+// TeacherChanged is ClassTeacherChanged's params: the class an Admin gave to
+// another teacher and, on the previous teacher's item only, the teacher who
+// teaches it now. The new teacher's item names no teacher.
+type TeacherChanged struct {
+	ClassName   string
+	TeacherName *string
+}
+
+func (TeacherChanged) Kind() Kind { return ClassTeacherChanged }
+
+func (p TeacherChanged) fields() fields {
+	return fields{ClassName: &p.ClassName, TeacherName: p.TeacherName}
+}

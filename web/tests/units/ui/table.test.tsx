@@ -1,6 +1,5 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { DeckScale } from "@/components/ui/deck-scale";
 import {
   Table,
   TableBody,
@@ -11,8 +10,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-const SCOPE = "in-data-[scale=deck]:";
 
 function Sample() {
   return (
@@ -37,17 +34,8 @@ function Sample() {
   );
 }
 
-function split(element: Element) {
-  const classes = element.className.split(" ").filter(Boolean);
-  return {
-    today: classes.filter((name) => !name.includes("[scale=deck]")),
-    deck: classes
-      .filter((name) => name.startsWith(SCOPE))
-      .map((name) => name.slice(SCOPE.length)),
-    other: classes.filter(
-      (name) => name.includes("[scale=deck]") && !name.startsWith(SCOPE),
-    ),
-  };
+function classes(element: Element) {
+  return element.className.split(" ").filter(Boolean);
 }
 
 function parts(container: HTMLElement) {
@@ -65,62 +53,60 @@ function parts(container: HTMLElement) {
   };
 }
 
-describe("the table primitive outside deck scale", () => {
-  it("keeps today's classes on every part, class for class", () => {
+describe("the table primitive", () => {
+  it("draws the deck's classes on every part, class for class", () => {
     const part = parts(render(<Sample />).container);
-    expect(split(part.container).today).toEqual([
-      "relative",
-      "w-full",
-      "overflow-x-auto",
-    ]);
-    expect(split(part.table).today).toEqual([
+    expect(classes(part.container)).toEqual(["relative", "w-full", "overflow-x-auto"]);
+    expect(classes(part.table)).toEqual([
       "w-full",
       "caption-bottom",
-      "text-[0.8125rem]",
+      "text-ui",
+      "leading-normal",
     ]);
-    expect(split(part.header).today).toEqual(["[&_tr]:border-b"]);
-    expect(split(part.body).today).toEqual(["[&_tr:last-child]:border-0"]);
-    expect(split(part.footer).today).toEqual([
+    expect(classes(part.header)).toEqual(["[&_tr]:border-b-0"]);
+    expect(classes(part.body)).toEqual(["[&_tr:last-child]:border-0"]);
+    expect(classes(part.footer)).toEqual([
       "bg-muted/50",
       "border-t",
       "font-medium",
       "[&>tr]:last:border-b-0",
     ]);
-    expect(split(part.row).today).toEqual([
-      "hover:bg-muted/50",
+    expect(classes(part.row)).toEqual([
       "has-aria-expanded:bg-muted/50",
       "data-[state=selected]:bg-muted",
-      "border-b",
       "transition-colors",
+      "hover:bg-muted",
+      "border-b-0",
     ]);
-    expect(split(part.head).today).toEqual([
+    expect(classes(part.head)).toEqual([
       "text-muted-foreground",
-      "h-9",
-      "px-3",
       "text-left",
       "align-middle",
       "font-medium",
       "whitespace-nowrap",
       "[&:has([role=checkbox])]:pr-0",
       "[&>[role=checkbox]]:translate-y-[2px]",
-    ]);
-    expect(split(part.cell).today).toEqual([
+      "bg-muted",
+      "text-meta",
       "h-10",
-      "px-3",
+      "px-4",
+      "leading-normal",
+    ]);
+    expect(classes(part.cell)).toEqual([
       "align-middle",
       "whitespace-nowrap",
       "[&_svg:not([class*='size-']):not([data-slot=badge]_svg):not(button_svg):not(a_svg)]:size-3.5",
       "[&:has([role=checkbox])]:pr-0",
       "[&>[role=checkbox]]:translate-y-[2px]",
+      "h-auto",
+      "border-t",
+      "px-4",
+      "py-2.5",
     ]);
-    expect(split(part.caption).today).toEqual([
-      "text-muted-foreground",
-      "mt-4",
-      "text-sm",
-    ]);
+    expect(classes(part.caption)).toEqual(["text-muted-foreground", "mt-4", "text-sm"]);
   });
 
-  it("lets a caller's class replace a plain one and leaves the deck's alone", () => {
+  it("lets a caller's class replace the deck's", () => {
     render(
       <table>
         <tbody>
@@ -130,79 +116,60 @@ describe("the table primitive outside deck scale", () => {
         </tbody>
       </table>,
     );
-    const { today, deck } = split(screen.getByRole("cell"));
-    expect(today).toContain("h-12");
-    expect(today).toContain("px-2");
-    expect(today).not.toContain("h-10");
-    expect(today).not.toContain("px-3");
-    expect(deck).toEqual(["h-auto", "border-t", "px-4", "py-2.5"]);
-  });
-});
-
-describe("the table primitive on a deck surface", () => {
-  it("renders inside the element that carries the scale, never as one", () => {
-    const { container } = render(
-      <DeckScale>
-        <Sample />
-      </DeckScale>,
+    const cell = classes(screen.getByRole("cell"));
+    expect(cell).toEqual(
+      expect.arrayContaining(["h-12", "px-2", "border-t", "py-2.5"]),
     );
-    const table = screen.getByRole("table");
-    expect(table.closest('[data-scale="deck"]')).toBe(container.firstElementChild);
-    expect(container.querySelectorAll("[data-scale]")).toHaveLength(1);
+    expect(cell).not.toContain("h-auto");
+    expect(cell).not.toContain("px-4");
   });
 
   it("gives a header cell the deck's 40px, 12.5px, muted text on muted and 16px padding", () => {
-    const part = parts(
-      render(
-        <DeckScale>
-          <Sample />
-        </DeckScale>,
-      ).container,
+    const head = classes(parts(render(<Sample />).container).head);
+    expect(head).toEqual(
+      expect.arrayContaining([
+        "bg-muted",
+        "text-meta",
+        "h-10",
+        "px-4",
+        "leading-normal",
+        "text-muted-foreground",
+        "font-medium",
+      ]),
     );
-    expect(split(part.head).deck).toEqual([
-      "bg-muted",
-      "text-meta",
-      "h-10",
-      "px-4",
-      "leading-normal",
-    ]);
-    expect(split(part.head).today).toEqual(
-      expect.arrayContaining(["text-muted-foreground", "font-medium"]),
-    );
+    expect(head).not.toContain("h-9");
+    expect(head).not.toContain("px-3");
   });
 
   it("gives a body cell 10px 16px padding, a top border and no fixed height", () => {
-    const part = parts(
-      render(
-        <DeckScale>
-          <Sample />
-        </DeckScale>,
-      ).container,
+    const cell = classes(parts(render(<Sample />).container).cell);
+    expect(cell).toEqual(
+      expect.arrayContaining(["h-auto", "border-t", "px-4", "py-2.5"]),
     );
-    expect(split(part.cell).deck).toEqual(["h-auto", "border-t", "px-4", "py-2.5"]);
+    expect(cell).not.toContain("h-10");
+    expect(cell).not.toContain("px-3");
   });
 
   it("sets the body text to 13.5px on the deck's line, drops the rows' bottom borders and hovers on muted", () => {
-    const part = parts(
-      render(
-        <DeckScale>
-          <Sample />
-        </DeckScale>,
-      ).container,
+    const part = parts(render(<Sample />).container);
+    expect(classes(part.table)).toEqual(
+      expect.arrayContaining(["text-ui", "leading-normal"]),
     );
-    expect(split(part.table).deck).toEqual(["text-ui", "leading-normal"]);
-    expect(split(part.header).deck).toEqual(["[&_tr]:border-b-0"]);
-    expect(split(part.row).deck).toEqual(["hover:bg-muted", "border-b-0"]);
-    expect(split(part.body).deck).toEqual([]);
-    expect(split(part.footer).deck).toEqual([]);
-    expect(split(part.caption).deck).toEqual([]);
-    expect(split(part.container).deck).toEqual([]);
+    expect(classes(part.table)).not.toContain("text-[0.8125rem]");
+    expect(classes(part.header)).not.toContain("[&_tr]:border-b");
+    expect(classes(part.row)).toEqual(
+      expect.arrayContaining(["hover:bg-muted", "border-b-0"]),
+    );
+    expect(classes(part.row)).not.toContain("hover:bg-muted/50");
+    expect(classes(part.row)).not.toContain("border-b");
   });
 
-  it("writes every deck class for a descendant of the scale, none for the element that carries it", () => {
+  it("writes no class scoped to a deck surface on any part", () => {
     const part = parts(render(<Sample />).container);
     for (const element of Object.values(part)) {
-      expect(split(element).other).toEqual([]);
+      expect(classes(element).filter((name) => name.includes("scale=deck"))).toEqual(
+        [],
+      );
     }
   });
 });

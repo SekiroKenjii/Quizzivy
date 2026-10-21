@@ -17,8 +17,5 @@ type AvatarURL struct {
 type AvatarURLHandler struct{ *support.Service }
 
 func (s AvatarURLHandler) Handle(ctx context.Context, q AvatarURL) (string, error) {
-	if q.Key == nil || s.Avatars == nil {
-		return "", nil
-	}
-	return s.Avatars.SignedURL(ctx, *q.Key, support.AvatarURLTTL)
+	return s.AvatarLink(ctx, q.Key)
 }

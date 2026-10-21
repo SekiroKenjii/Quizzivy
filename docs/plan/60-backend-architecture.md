@@ -5,12 +5,22 @@ the "one package per feature" layout AGENTS.md described until then.
 
 ## Shape
 
-- **One process, one database, eleven bounded contexts** under
+- **One process, one database, sixteen bounded contexts** under
   `server/internal/modules/`: identity, classes, questions, media, tests,
-  assignments, attempts, dashboard, imports, availability, access. Each is one
+  assignments, attempts, dashboard, imports, availability, access, ai,
+  notifications, organization, audit, exports. Each is one
   aggregate (dashboard is read models only; availability reads the maintenance
-  windows the operator writes; access reads roles and grants and resolves who a
-  request acts as, with no transport of its own until R5's Roles page) and
+  windows the operator writes; access reads roles and grants, resolves who a
+  request acts as, and from R5 serves the Roles page under `/admin/roles`;
+  organization holds the centre's one settings document, its two logos and the
+  sign-in policy, which identity and classes read through its `SignInPolicy`
+  query from a snapshot each server refreshes at most every 30 seconds;
+  audit reads the log for the Admin console (its list, its tabs and its
+  download), and outside it only identity reads `audit_log`, to know whether an
+  account ever acted before a delete and to list an account's recent actions on
+  the Users detail; exports queues the Admin's data export, which the import
+  worker's third runner builds, and serves it from a presigned address, up to
+  three times) and
   exposes its operations through its own `http/` package, which core embeds
   into the generated strict server.
 - **Four layers per module** — `domain/`, `application/`, `repositories/`,
@@ -37,7 +47,10 @@ the "one package per feature" layout AGENTS.md described until then.
   command and then the `Monitor` query.
 - **Ports at the application boundary.** identity declares `GoogleProvider`;
   media declares `AudioProbe` and `ObjectStore`; questions declares
-  `MediaKinds`; classes and identity read student figures through
+  `MediaKinds`; organization declares `LogoStore` and `LogoChecker`, which
+  `core/adapters/logos.go` fills over `platform/storage` and
+  `platform/imagesafe`, and `architecture_test.go` pins that the module's
+  domain and application import neither; classes and identity read student figures through
   `shared/stats.Source`, which attempts implements, over only the
   assignments the reader reaches; tests' repository takes
   `QuestionLocks` and `MediaLocks` for the row locks another module holds
@@ -83,7 +96,18 @@ the "one package per feature" layout AGENTS.md described until then.
 - **The answered rule in the kernel.** `shared/answered.SaysSomething` is the
   one SQL definition of a saved answer that says something. assignments (the
   student's card) and attempts (the teacher's monitor) splice it, so the two
-  counts cannot drift.
+  counts cannot drift. Its `AwaitsGrade` is the one SQL test of an answer that
+  still waits for a teacher's mark, which leaves out an answer the retention
+  sweep removed.
+- **The retention rule in the kernel** (T-R5.17a, T-R5.17b). `shared/retention`
+  is the one SQL definition of what a retention cutoff reaches: `Cutoff`,
+  `EndedBefore` and `ClosedBefore` over `AttemptJoins` (an attempt's own
+  student's close, `schedule.CloseOf`), the events and accounts rules and their
+  counts, and `RemovedAnswer`, the marker a removed answer's payload becomes.
+  `core/maintenance`'s sweep and its dry run and organization's
+  `RetentionImpact` query build their SQL from it, so the settings page counts
+  what the sweep would remove; attempts reads the marker through
+  `domain.AnswerRemoved`.
 - **The status rule in the kernel.** `shared/schedule.DerivedStatus` is the
   one SQL definition of an assignment's status (draft, scheduled, open or
   closed) from its window, over a row of `app.assignments` aliased `a`.
@@ -135,10 +159,69 @@ the "one package per feature" layout AGENTS.md described until then.
   `EscapeCell` prefixes an apostrophe to a cell a spreadsheet would run as a
   formula, and the `CSV` writer passes every cell through it after a
   byte-order mark, CRLF-ended. A transport that exports builds its file with it
-  and nothing else; R5 adds XLSX to the package. A time in such a file is
+  and nothing else; `core/tests/csv_writers_test.go` fails when any other
+  package builds a `csv.Writer`. A time in such a file is
   written in the caller's own zone, which attempts reads through its
   `ports.Zones`, the way dashboard does, wired from identity's
   `EffectiveZone` in `core/wiring`.
+- **A table that enters the product is read by `tabular.ReadTable`** (T-R5.13),
+  for CSV and for the first sheet of an XLSX workbook, under `Limits` (file
+  bytes, rows, columns, characters a cell). A CSV record of more than 16,384
+  fields is refused before `encoding/csv` parses it. The workbook is inspected
+  with `archive/zip` before excelize opens it, because excelize reads every part
+  it is handed into memory and decodes several whole: it refuses more than 1,000
+  entries (`ErrTooManyEntries`), more than 32 MiB expanded (`ErrExpandedTooLarge`),
+  a worksheet above 8 MiB (`ErrSheetTooLarge`; larger sheets are unsupported),
+  any other XML part above 1 MiB, 2 MiB for the shared strings
+  (`ErrPartTooLarge`), macros and a password, and a workbook that does not keep
+  `xl/workbook.xml` and its worksheets under `xl/worksheets/` (`ErrLayout`, which
+  is also the answer when the first sheet is kept elsewhere), a first sheet that
+  is a chart or a dialog (`ErrNotWorksheet`), more than 256
+  sheets (`ErrTooManySheets`), and more than 1,000 workbook relationships, 16
+  package relationships or a relationship Id used twice (`ErrFormat`), because
+  excelize's sheet lookup multiplies them.
+  Every part the reader uses is then read through to its end by a strict XML scan
+  (T-R5.13 follow-ups, QC-A-1 to QC-A-3, QC-A-9 to QC-A-11, QC-A-13 to QC-A-15): a truncated part,
+  a bad checksum, a size that lies or malformed XML is `ErrFormat` and never a
+  shorter table, and nesting past 64 levels, a document type declaration, a start
+  tag past 64 KiB, a row number outside the sheet and more than 16,384 cells in a
+  row are refused before excelize sees the data, in every part excelize could
+  read as the sheet. excelize is handed only the parts that were scanned.
+  Formulas are never evaluated, and nothing is written to disk: the caller closes
+  the `Table` only to release the workbook.
+- **Mail goes through an outbox** (T-R5.2). `platform/email` holds the
+  outbox, the templates (`templates/vi`, `templates/en`), the dispatcher and
+  two senders: Resend when `RESEND_API_KEY` is set, and otherwise a directory
+  of JSON files (`EMAIL_SINK_DIR`), which the configuration refuses in
+  production. A repository enqueues with `email.Outbox.Enqueue` on its own
+  transaction, so a rolled-back decision sends nothing (identity's set-password
+  links and accounts, exports' ready notice), and calls `Notify` after the
+  commit. `core/wiring.BuildMail` builds the outbox and the dispatcher for each
+  process, and the API and the worker each run the dispatcher
+  (`core/jobs.RunEmail`); one batch is sent at a time across both (advisory key
+  43, data model §49). The one secret a message carries is sealed by
+  `platform/secrets`, one HKDF-SHA256 key per purpose derived from
+  `SECRETS_KEY` and AES-256-GCM over each value; without the key nothing that
+  needs a sealed secret can be written, and its operations answer `501`.
+- **The worker drains three queues** (`core/jobs.ImportRunners`, in order):
+  the Word imports, identity's user imports (`identity/application/worker`,
+  T-R5.14) and the data exports. A queue is served only while every queue
+  before it is empty, so an import is never starved by an export.
+- **The data export has two halves** (T-R5.15). `modules/exports` serves
+  `/admin/data-exports` from the API and builds the ZIP in
+  `application/worker`, the worker's third queue. Its
+  application layer has no CSV writer: `core/adapters.ExportTable` is the
+  `ports.NewTable` over `platform/tabular`, which keeps the formula escaping in
+  the one package `csv_writers_test.go` allows. Without import storage and the
+  worker (`ImportProcessing`) the transport is built over a nil application and
+  answers `501 EXPORT_OFF`.
+- **Housekeeping rides an existing tick** (T-R5.16). `core/jobs.Housekeep` runs a list of
+  `HousekeepingStep`s in order, each a bounded batch repeated while it comes back full, under a budget of its
+  own, and logs counts only. `core/housekeeping.go` is where the list is assembled, because only `core` knows
+  every module; the modules own the single-batch commands (`PruneActivityDays`, `Outbox.Prune`,
+  `PruneSetPasswordLinks`, `EraseExpiredImportSheets`, `PruneUserImports`, `Expire`, `SweepAvatarObjects`, `SweepLogos`). `PruneRefreshTokens` takes the list as a hook and runs it after its own prune at start-up and on
+  its 24-hour tick, so housekeeping adds no timer and no database wake. A step whose dependency is nil (no
+  import bucket, no media bucket) is left out of the list.
 - **core is five packages.** `core/wiring` builds each module (one file per
   module, in dependency order) and returns the `Assembly`; `core/router`
   fronts the transports with the generated strict server, the middleware
@@ -146,9 +229,10 @@ the "one package per feature" layout AGENTS.md described until then.
   platform errors into domain errors and one module's handlers into another's
   port; `core/jobs` runs background commands; `core/maintenance` holds the
   operator's commands that `cmd/maintenance` runs outside the API
-  (retention, anonymisation, maintenance windows and, from R2,
-  `rekey-join-codes`). `platform/httpserver` owns the listener and its
-  shutdown.
+  (retention, anonymisation, maintenance windows, from R2
+  `rekey-join-codes` and from D4 the AI credits), connected since R5 as
+  `quizzivy_maintenance`, which holds only the columns they use (data model
+  §55). `platform/httpserver` owns the listener and its shutdown.
 - **Tests in three tiers** (unit, integration, e2e — see server/README.md),
   every test file in a `<layer>/tests/` directory as an external package,
   none reaching a private identifier.

@@ -4,7 +4,7 @@ import (
 	"context"
 	"quizzivy/internal/modules/identity/application/internal/support"
 	"quizzivy/internal/modules/identity/domain"
-	"quizzivy/internal/shared/content"
+	"quizzivy/internal/shared/validation"
 )
 
 // CreateStudent adds a student who signs in with the temporary password it returns.
@@ -23,10 +23,11 @@ type CreateStudentHandler struct {
 }
 
 func (s CreateStudentHandler) Handle(ctx context.Context, cmd CreateStudent) (CreateStudentResult, error) {
-	var c content.Composer
-	cmd.Input.FullName = c.Text("fullName", cmd.Input.FullName, domain.MaxFullNameLength)
-	if err := c.Err(); err != nil {
-		return CreateStudentResult{Student: domain.Student{}, TemporaryPassword: ""}, err
+	var refused validation.Error
+	cmd.Input.FullName = cleanName(&refused, cmd.Input.FullName)
+	checkAddress(&refused, cmd.Input.Email)
+	if invalid := refused.OrNil(); invalid != nil {
+		return CreateStudentResult{Student: domain.Student{}, TemporaryPassword: ""}, invalid
 	}
 	temporary, hash, err := support.TemporaryPassword(ctx)
 	if err != nil {
@@ -34,10 +35,14 @@ func (s CreateStudentHandler) Handle(ctx context.Context, cmd CreateStudent) (Cr
 	}
 	cmd.Input.Hash = hash
 	cmd.Input.Now = s.Now()
-	student, err := s.Repo.Create(ctx, cmd.Request, cmd.Input)
+	request, err := s.Issuing(ctx, cmd.Request)
 	if err != nil {
 		return CreateStudentResult{Student: domain.Student{}, TemporaryPassword: ""}, err
 	}
-	student, err = s.WithStats(ctx, cmd.Request.Scope(), student)
+	student, err := s.Repo.Create(ctx, request, cmd.Input)
+	if err != nil {
+		return CreateStudentResult{Student: domain.Student{}, TemporaryPassword: ""}, err
+	}
+	student, err = s.WithStats(ctx, request.Scope(), student)
 	return CreateStudentResult{Student: student, TemporaryPassword: temporary}, err
 }

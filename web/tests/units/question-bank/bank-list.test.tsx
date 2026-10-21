@@ -89,6 +89,22 @@ describe("the question bank", () => {
     );
   });
 
+  it("draws Updated as a short relative time with the exact moment as its title", async () => {
+    answer(
+      bankPage([
+        bankQuestion({
+          updatedAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+        }),
+      ]),
+    );
+    renderBank();
+    const table = await screen.findByRole("table", { name: "Ngân hàng câu hỏi" });
+    const updated = within(table).getByText("3 ngày trước");
+    expect(updated.tagName).toBe("TIME");
+    expect(updated).toHaveAttribute("title");
+    expect(updated).toHaveClass("whitespace-nowrap");
+  });
+
   it("keeps the deck's columns where they fit beside the aside, and drops those that would overflow", async () => {
     const width = contentWidth(976);
     renderBank();

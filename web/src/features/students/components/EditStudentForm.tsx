@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -8,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { updateStudent, type Student } from "@/features/students/api";
 import {
-  editStudentSchema,
+  editStudentSchemaFor,
   type EditStudentValues,
 } from "@/features/students/editStudentSchema";
 import { ApiError, fieldMessages } from "@/lib/api/errors";
@@ -23,8 +24,9 @@ export function EditStudentForm({
 }>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const schema = useMemo(() => editStudentSchemaFor(student.email), [student.email]);
   const form = useForm<EditStudentValues>({
-    resolver: zodResolver(editStudentSchema),
+    resolver: zodResolver(schema),
     defaultValues: { fullName: student.fullName, email: student.email },
     mode: "onTouched",
   });

@@ -3,7 +3,6 @@ import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { Pager } from "@/components/shared/data/Pager";
-import { DeckScale } from "@/components/ui/deck-scale";
 import { usePage, usePageSize } from "@/hooks/usePage";
 import i18n from "@/lib/i18n";
 import { viewport } from "@tests/support/viewport";
@@ -31,16 +30,14 @@ function Screen({
   const [page] = usePage();
   const [size] = usePageSize(sizes);
   return (
-    <DeckScale>
-      <Pager
-        page={answered ?? page}
-        pageSize={size}
-        total={total}
-        noun={noun}
-        sizes={sizes}
-        frame={frame}
-      />
-    </DeckScale>
+    <Pager
+      page={answered ?? page}
+      pageSize={size}
+      total={total}
+      noun={noun}
+      sizes={sizes}
+      frame={frame}
+    />
   );
 }
 
@@ -170,7 +167,7 @@ describe("the four arrows", () => {
     );
     for (const which of ["first", "previous", "next", "last"] as const) {
       expect(arrow(which)).not.toHaveAttribute("aria-disabled");
-      expect(classes(arrow(which))).not.toContain("opacity-45");
+      expect(classes(arrow(which))).not.toContain("text-fg/45");
       expect(classes(arrow(which))).not.toContain("pointer-events-none");
       expect(arrow(which).querySelector("svg")).toHaveAttribute("aria-hidden", "true");
     }
@@ -211,7 +208,7 @@ describe("the four arrows", () => {
       expect(arrow(which)).toHaveAttribute("aria-disabled", "true");
       expect(arrow(which)).toHaveAttribute("href", "/teacher/assignments?tab=live");
       expect(classes(arrow(which))).toEqual(
-        expect.arrayContaining(["pointer-events-none", "opacity-45"]),
+        expect.arrayContaining(["pointer-events-none", "text-fg/45"]),
       );
       await user.click(arrow(which));
       expect(router.state.location.search).toBe("?tab=live");
@@ -233,7 +230,7 @@ describe("the four arrows", () => {
         "/teacher/assignments?tab=live&page=32",
       );
       expect(classes(arrow(which))).toEqual(
-        expect.arrayContaining(["pointer-events-none", "opacity-45"]),
+        expect.arrayContaining(["pointer-events-none", "text-fg/45"]),
       );
       await user.click(arrow(which));
       expect(router.state.location.search).toBe("?tab=live&page=32");
@@ -318,7 +315,15 @@ describe("rows per page", () => {
     expect(router.state.location.search).toBe("?size=48");
   });
 
-  it("is the deck's 32px control: the primitive's deck classes restated, not doubled", () => {
+  it("draws no size control when a screen offers one size, and still pages by it", () => {
+    renderPager("", 100, { sizes: [10] });
+    expect(within(nav()).queryByRole("combobox")).toBeNull();
+    expect(within(nav()).queryByText("Số dòng mỗi trang")).toBeNull();
+    expect(within(nav()).getByText("1–10 trên 100 bài giao")).toBeInTheDocument();
+    expect(within(nav()).getByText("Trang 1 trên 10")).toBeInTheDocument();
+  });
+
+  it("is the deck's 32px control: the primitive's classes replaced, not doubled", () => {
     renderPager("", 312);
     expect(trigger()).toHaveAttribute("data-size", "sm");
     const own = classes(trigger());
@@ -332,10 +337,9 @@ describe("rows per page", () => {
         "px-2.5",
         "pr-2",
         "py-0",
-        "in-data-[scale=deck]:bg-card",
-        "dark:in-data-[scale=deck]:bg-card",
-        "dark:in-data-[scale=deck]:hover:bg-card",
-        "in-data-[scale=deck]:text-sm",
+        "dark:bg-card",
+        "dark:hover:bg-card",
+        "text-sm",
       ]),
     );
     for (const replaced of [
@@ -344,10 +348,10 @@ describe("rows per page", () => {
       "rounded-md",
       "px-3",
       "py-2",
-      "in-data-[scale=deck]:bg-bg",
-      "dark:in-data-[scale=deck]:bg-bg",
-      "dark:in-data-[scale=deck]:hover:bg-bg",
-      "in-data-[scale=deck]:text-ui",
+      "bg-bg",
+      "dark:bg-bg",
+      "dark:hover:bg-bg",
+      "text-ui",
       "dark:bg-input/30",
       "dark:hover:bg-input/50",
     ]) {

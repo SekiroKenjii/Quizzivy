@@ -16,6 +16,10 @@ const NOT_CODE = [
   'sonar-project.properties',
   '.github/pull_request_template.md',
   '.github/workflows/production-monitor.yml',
+  '.github/workflows/retention-sweep.yml',
+  '.github/workflows/slow-tail.yml',
+  '.github/workflows/wiki.yml',
+  'scripts/wiki/',
 ];
 
 /**
@@ -34,7 +38,12 @@ export const SETS = {
   },
   server: {
     base: 'all',
-    include: ['web/tests/e2e/fixtures/', 'api/testdata/pasted-text-counts.json', 'docs/setup/operations.md'],
+    include: [
+      'web/tests/e2e/fixtures/',
+      'web/src/lib/i18n/locales/',
+      'api/testdata/pasted-text-counts.json',
+      'docs/setup/operations.md',
+    ],
     exclude: [...NOT_CODE, 'web/'],
   },
   web: {
@@ -57,7 +66,7 @@ export const JOBS = [
   { id: 'server-test', set: 'server' },
   { id: 'production-image', set: 'image' },
   { id: 'web-check', set: 'web' },
-  { id: 'web-unit', set: 'web', shards: 2 },
+  { id: 'web-unit', set: 'web', shards: 3 },
   { id: 'e2e', set: 'web' },
   { id: 'e2e-live', set: 'code' },
 ];

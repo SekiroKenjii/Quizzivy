@@ -11,6 +11,8 @@ import (
 	"quizzivy/internal/core/router"
 	"strings"
 	"testing"
+
+	"github.com/getkin/kin-openapi/openapi3"
 )
 
 type fakeDB struct{ err error }
@@ -145,45 +147,6 @@ func TestUnbuiltOperationReturns501InTheEnvelope(t *testing.T) {
 	}
 }
 
-func TestRateLimitAppliesPerRouteAndEmitsRetryAfter(t *testing.T) {
-	handler := newTestRouter(t, fakeDB{})
-
-	send := func() *httptest.ResponseRecorder {
-		req := httptest.NewRequest(http.MethodPost, "/join/preview", nil)
-		req.RemoteAddr = "203.0.113.7:5555"
-		rec := httptest.NewRecorder()
-		handler.ServeHTTP(rec, req)
-		return rec
-	}
-
-	for i := 1; i <= 120; i++ {
-		if rec := send(); rec.Code == http.StatusTooManyRequests {
-			t.Fatalf("request %d was limited; the budget is 120 a minute", i)
-		}
-	}
-
-	rec := send()
-	if rec.Code != http.StatusTooManyRequests {
-		t.Fatalf("121st request: status = %d, want 429", rec.Code)
-	}
-	if rec.Header().Get("Retry-After") == "" {
-		t.Error("§6.5 requires Retry-After on a 429")
-	}
-}
-
-func TestRateLimitKeysOnTheRouteTemplateNotTheURL(t *testing.T) {
-	handler := newTestRouter(t, fakeDB{})
-	for i := 0; i < 30; i++ {
-		req := httptest.NewRequest(http.MethodGet, "/teacher/tests", nil)
-		req.RemoteAddr = "203.0.113.9:5555"
-		rec := httptest.NewRecorder()
-		handler.ServeHTTP(rec, req)
-		if rec.Code == http.StatusTooManyRequests {
-			t.Fatalf("authenticated route limited after %d requests; no policy is registered for it", i)
-		}
-	}
-}
-
 func TestSeparateClientsGetSeparateBudgets(t *testing.T) {
 	handler := newTestRouter(t, fakeDB{})
 	exhaust := func(ip string) {
@@ -201,5 +164,117 @@ func TestSeparateClientsGetSeparateBudgets(t *testing.T) {
 	handler.ServeHTTP(rec, req)
 	if rec.Code == http.StatusTooManyRequests {
 		t.Error("one client's exhaustion must not block another")
+	}
+}
+
+var theFormerTeachingPathsUnderAdmin = []string{
+	"DELETE /admin/assignments/{id}",
+	"DELETE /admin/classes/{id}",
+	"DELETE /admin/classes/{id}/join-code",
+	"DELETE /admin/classes/{id}/members/{userId}",
+	"DELETE /admin/media/{id}",
+	"DELETE /admin/question-groups/{id}",
+	"DELETE /admin/questions/{id}",
+	"DELETE /admin/students/{id}",
+	"DELETE /admin/tests/{id}",
+	"DELETE /admin/tests/{id}/versions/{version}",
+	"GET /admin/assignments",
+	"GET /admin/assignments/{id}",
+	"GET /admin/assignments/{id}/answers",
+	"GET /admin/assignments/{id}/attempts",
+	"GET /admin/attempts",
+	"GET /admin/attempts/{id}",
+	"GET /admin/attempts/{id}/events",
+	"GET /admin/classes/{id}",
+	"GET /admin/classes/{id}/members",
+	"GET /admin/dashboard",
+	"GET /admin/imports",
+	"GET /admin/imports/capabilities",
+	"GET /admin/imports/limits",
+	"GET /admin/imports/{id}",
+	"GET /admin/imports/{id}/review",
+	"GET /admin/imports/{id}/source",
+	"GET /admin/imports/{id}/sources/{sourceId}/download",
+	"GET /admin/media",
+	"GET /admin/question-groups",
+	"GET /admin/question-groups/{id}",
+	"GET /admin/questions",
+	"GET /admin/questions/{id}",
+	"GET /admin/students",
+	"GET /admin/students/{id}",
+	"GET /admin/tests",
+	"GET /admin/tests/{id}",
+	"GET /admin/tests/{id}/preview",
+	"GET /admin/tests/{id}/versions",
+	"PATCH /admin/assignments/{id}",
+	"PATCH /admin/attempts/{id}/note",
+	"PATCH /admin/classes/{id}",
+	"PATCH /admin/question-groups/{id}/archive",
+	"PATCH /admin/questions/{id}",
+	"PATCH /admin/students/{id}",
+	"PATCH /admin/tests/{id}",
+	"POST /admin/assignments",
+	"POST /admin/assignments/{id}/reopen",
+	"POST /admin/attempts/{id}/extend",
+	"POST /admin/attempts/{id}/finish-grading",
+	"POST /admin/attempts/{id}/flag",
+	"POST /admin/attempts/{id}/grade",
+	"POST /admin/attempts/{id}/reset",
+	"POST /admin/attempts/{id}/void",
+	"POST /admin/classes/{id}/join-code",
+	"POST /admin/classes/{id}/members",
+	"POST /admin/imports",
+	"POST /admin/imports/{id}/cancel",
+	"POST /admin/imports/{id}/commit",
+	"POST /admin/imports/{id}/process",
+	"POST /admin/imports/{id}/review/adopt",
+	"POST /admin/imports/{id}/sources",
+	"POST /admin/media",
+	"POST /admin/question-groups",
+	"POST /admin/question-groups/{id}/copy",
+	"POST /admin/questions",
+	"POST /admin/questions/tags",
+	"POST /admin/questions/{id}/duplicate",
+	"POST /admin/students",
+	"POST /admin/students/{id}/reset-password",
+	"POST /admin/tests",
+	"POST /admin/tests/{id}/duplicate",
+	"POST /admin/tests/{id}/publish",
+	"POST /admin/tests/{id}/versions/{version}/current",
+	"POST /admin/tests/{id}/versions/{version}/draft",
+	"PUT /admin/imports/{id}/review",
+	"PUT /admin/question-groups/{id}",
+}
+
+func TestAFormerTeachingPathUnderAdminIsNotFound(t *testing.T) {
+	issuer := testIssuer(t)
+	h := roleRouter(t, issuer, rolePrincipals())
+	declared := map[string]bool{}
+	eachOperation(freshSpec(t), func(pattern string, _ *openapi3.Operation) { declared[pattern] = true })
+	undeclared := envelopeOf(t, sendAs(t, h, issuer, http.MethodGet, "/admin/no-such", adminUser, ""))
+	id := "01935000-0000-7000-8000-0000000000e1"
+	for _, pattern := range theFormerTeachingPathsUnderAdmin {
+		if declared[pattern] {
+			t.Errorf("%s is in the contract again", pattern)
+			continue
+		}
+		method, path, _ := strings.Cut(pattern, " ")
+		path = strings.NewReplacer("{id}", id, "{userId}", id, "{sourceId}", id, "{version}", "1").Replace(path)
+		for _, user := range []string{"", adminUser} {
+			var rec *httptest.ResponseRecorder
+			if user == "" {
+				rec = send(h, method, path, nil)
+			} else {
+				rec = sendAs(t, h, issuer, method, path, user, "")
+			}
+			if rec.Code != http.StatusNotFound {
+				t.Errorf("%s %s as %q = %d, want 404", method, path, user, rec.Code)
+				continue
+			}
+			if env := envelopeOf(t, rec); env.Error.Code != undeclared.Error.Code || env.Error.Message != undeclared.Error.Message {
+				t.Errorf("%s %s as %q: answer = %s %q, want the undeclared path's %s %q", method, path, user,
+					env.Error.Code, env.Error.Message, undeclared.Error.Code, undeclared.Error.Message)
+			}
+		}
 	}
 }

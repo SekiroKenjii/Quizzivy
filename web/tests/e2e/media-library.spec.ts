@@ -106,7 +106,6 @@ for (const theme of ["light", "dark"] as const) {
         page.getByRole("heading", { level: 1, name: "Thư viện media" }),
       ).toBeVisible();
       await expect(page.getByText("Dùng trong 4 câu hỏi").first()).toBeVisible();
-      await expect(page.locator("[data-scale='deck']").first()).toBeVisible();
       expect(
         await page.evaluate(() => document.documentElement.classList.contains("dark")),
       ).toBe(theme === "dark");

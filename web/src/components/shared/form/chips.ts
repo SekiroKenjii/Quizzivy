@@ -41,10 +41,17 @@ export function withChip(
   return [...values, chip];
 }
 
+function separatorOf(commaAdds: boolean, spaceAdds: boolean): RegExp | null {
+  if (commaAdds && spaceAdds) return /[,\s]/;
+  if (commaAdds) return /,/;
+  return spaceAdds ? /\s/ : null;
+}
+
 /**
  * useChipEntry holds the draft of a chip field and its keys. `type` takes
- * what the input now holds and, with `commaAdds`, adds every part before a
- * comma; `commit` adds the draft and empties it, for Enter and for blur;
+ * what the input now holds and, with `commaAdds` or `spaceAdds`, adds every
+ * part before a comma or a space; `commit` adds the draft and empties it, for
+ * Enter and for blur;
  * `onKeyDown` commits on Enter and, on Backspace in an empty input, removes
  * the last value, once per press. `resolve` maps an entry to the value to
  * add, for a field that prefers a known spelling. Nothing is added twice by
@@ -55,12 +62,14 @@ export function useChipEntry({
   onChange,
   same,
   commaAdds,
+  spaceAdds = false,
   resolve,
 }: Readonly<{
   values: readonly string[];
   onChange: (next: string[]) => void;
   same: ChipSame;
   commaAdds: boolean;
+  spaceAdds?: boolean | undefined;
   resolve?: ((entry: string) => string) | undefined;
 }>) {
   const [draft, setDraft] = useState("");
@@ -72,11 +81,12 @@ export function useChipEntry({
   }
 
   function type(text: string) {
-    if (!commaAdds || !text.includes(",")) {
+    const separator = separatorOf(commaAdds, spaceAdds);
+    if (separator === null || !separator.test(text)) {
       setDraft(text);
       return;
     }
-    const parts = text.split(",");
+    const parts = text.split(separator);
     const rest = parts.pop() ?? "";
     let next: readonly string[] = values;
     for (const part of parts) next = added(next, part) ?? next;

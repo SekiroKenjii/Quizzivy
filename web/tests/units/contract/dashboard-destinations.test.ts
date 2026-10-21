@@ -13,11 +13,8 @@ const shape = ajv.compile({
 const id = "019535d9-3df7-79fb-b466-fa907fa17f9e";
 function fixture(): components["schemas"]["Dashboard"] {
   return {
-    openAssignments: 0,
     awaitingGrading: 0,
-    activeStudents: 0,
     flaggedAttempts: 0,
-    recentAttempts: [],
     newestFlaggedAttempt: null,
     takingNow: { students: 0, assignments: 0, assignmentId: null },
     submissions: {

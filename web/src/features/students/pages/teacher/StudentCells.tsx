@@ -13,11 +13,12 @@ import {
 
 const ACCOUNT: Record<StudentAccount, { pill: string; dot: string }> = {
   active: { pill: "bg-success-soft text-success-ink", dot: "bg-success" },
+  notSignedIn: { pill: "bg-muted text-muted-fg", dot: "bg-muted-fg" },
   reset: { pill: "bg-warning-soft text-warning-ink", dot: "bg-warning" },
   suspended: { pill: "bg-danger-soft text-danger-ink", dot: "bg-danger" },
 };
 
-/** AccountPill is the deck's account status: Active, Password reset or Suspended. */
+/** AccountPill is the deck's account status: Active, Not signed in, Password reset or Suspended. */
 export function AccountPill({ student }: Readonly<{ student: Student }>) {
   const { t } = useTranslation();
   const account = accountOf(student);

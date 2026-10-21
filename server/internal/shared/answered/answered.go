@@ -3,7 +3,11 @@
 // student's navigator.
 package answered
 
-import "fmt"
+import (
+	"fmt"
+
+	"quizzivy/internal/shared/retention"
+)
 
 const ecmaScriptWhitespace = `E'\u0009\u000A\u000B\u000C\u000D\u0020\u00A0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF'`
 
@@ -29,4 +33,12 @@ func SaysSomething(alias string) string {
 	                      AND btrim(coalesce(%[1]s.payload->'values'->>b.id::text, ''), `+ecmaScriptWhitespace+`) = '')
 	  ELSE false
 	END`, alias)
+}
+
+// AwaitsGrade is the boolean SQL expression over a row of app.attempt_answers
+// aliased alias that the answer still waits for a teacher's mark: it needs one,
+// has none, and was not removed under the retention policy, which leaves
+// nothing to mark (retention.RemovedAnswer).
+func AwaitsGrade(alias string) string {
+	return fmt.Sprintf(`(%[1]s.requires_manual AND %[1]s.manual_score IS NULL AND %[1]s.payload <> '%[2]s'::jsonb)`, alias, retention.RemovedAnswer)
 }

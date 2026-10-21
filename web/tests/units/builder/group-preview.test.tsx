@@ -45,8 +45,8 @@ it("places shared material once before its members and links gaps to their displ
   expect(screen.getByText("Nghe thử không tính lượt làm bài.")).toBeVisible();
 });
 
-it("draws the passage and the questions as the engine's panes, on a deck surface, with nothing to answer", () => {
-  const { container } = render(
+it("draws the passage and the questions as the engine's panes, with nothing to answer", () => {
+  render(
     <StudentPreview
       questions={[
         ...previewQuestions,
@@ -62,8 +62,6 @@ it("draws the passage and the questions as the engine's panes, on a deck surface
       sections={[previewSection]}
     />,
   );
-  expect(container.firstElementChild).toHaveAttribute("data-scale", "deck");
-
   const title = screen.getByRole("heading", {
     level: 3,
     name: previewGroup.stimuli[0]!.title,

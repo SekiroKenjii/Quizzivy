@@ -15,6 +15,7 @@ import {
   deleteAvatar,
   setAvatar,
 } from "@/features/settings/api";
+import { prepareAvatar } from "@/features/settings/avatarImage";
 import { failureMessage } from "@/lib/api/errors";
 import { useAuthStore } from "@/stores/auth";
 
@@ -25,17 +26,16 @@ const ACCEPT = AVATAR_TYPES.join(",");
 const ACCEPTED = new Set<string>(AVATAR_TYPES);
 
 function photoProblem(file: File, t: TFunction): string | null {
-  if (!ACCEPTED.has(file.type)) return t("settings.photo.wrongType");
-  if (file.size > AVATAR_MAX_BYTES) return t("settings.photo.tooLarge");
-  return null;
+  return ACCEPTED.has(file.type) ? null : t("settings.photo.wrongType");
 }
 
 /**
  * ProfilePhoto is the photo row of the Profile card: the account's photo, or
  * its initials, with Change photo and, while there is a photo, Remove. Both
- * save at once, outside the form's unsaved changes (DG-158). A file of the
- * wrong type or over 2 MiB is refused before it is sent; the server checks
- * again and its message is shown as written.
+ * save at once, outside the form's unsaved changes (DG-158). A photo with a
+ * side over 2048 pixels, as a phone takes them, is scaled down before it is
+ * sent. A file of the wrong type, or still over 2 MiB, is refused before it is
+ * sent; the server checks again and its message is shown as written.
  */
 export function ProfilePhoto() {
   const { t } = useTranslation();
@@ -107,7 +107,7 @@ export function ProfilePhoto() {
         <Button
           type="button"
           variant="ghost"
-          className="text-muted-fg hover:text-fg h-8.5 px-2.5 text-sm font-normal hover:bg-transparent in-data-[scale=deck]:px-2.5 in-data-[scale=deck]:text-sm dark:hover:bg-transparent"
+          className="text-muted-fg hover:text-fg h-8.5 px-2.5 text-sm font-normal hover:bg-transparent dark:hover:bg-transparent"
           onClick={() => setMode("remove")}
         >
           {t("settings.photo.remove")}
@@ -132,7 +132,16 @@ export function ProfilePhoto() {
         onSubmit={(values) => {
           const file = values.file;
           if (file === null) return;
-          run(() => setAvatar(file), "settings.photo.updated");
+          setPending(true);
+          setError(null);
+          void prepareAvatar(file).then((photo) => {
+            if (photo.size > AVATAR_MAX_BYTES) {
+              setPending(false);
+              setError(t("settings.photo.tooLarge"));
+              return;
+            }
+            run(() => setAvatar(photo), "settings.photo.updated");
+          });
         }}
       />
       <ConfirmDialog

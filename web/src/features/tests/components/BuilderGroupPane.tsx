@@ -223,7 +223,7 @@ function GroupForm({
         <Button
           variant="outline"
           size="sm"
-          className="bg-card h-7.5 shrink-0 rounded-[7px] px-2.5 text-[12.5px] font-normal in-data-[scale=deck]:h-7.5 in-data-[scale=deck]:rounded-[7px] in-data-[scale=deck]:text-[12.5px]"
+          className="bg-card h-7.5 shrink-0 rounded-[7px] px-2.5 text-[12.5px] font-normal"
           disabled={copying}
           onClick={() => void saveBankCopy()}
         >

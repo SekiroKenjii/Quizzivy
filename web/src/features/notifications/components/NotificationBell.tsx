@@ -163,7 +163,7 @@ export function NotificationBell({
           leaving.current = false;
           event.preventDefault();
         }}
-        className="bg-card text-fg z-(--z-popover) flex max-h-[min(32rem,calc(100svh-5rem))] w-[340px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-xl border p-0 data-[scale=deck]:rounded-xl data-[scale=deck]:p-0"
+        className="bg-card text-fg z-(--z-popover) flex max-h-[min(32rem,calc(100svh-5rem))] w-[340px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-xl border p-0"
       >
         {panel(true)}
       </PopoverContent>

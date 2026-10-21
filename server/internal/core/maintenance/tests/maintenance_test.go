@@ -67,7 +67,7 @@ func TestRetentionUsesReceiptTimeAndPreservesAudit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	preview, err := maintenance.RetainEvents(ctx, tx, false, 1)
+	preview, err := maintenance.RetainEvents(ctx, tx, 13, false, 1)
 	if err != nil || preview.Rows != 1 || preview.Applied {
 		t.Fatalf("preview = %+v, %v", preview, err)
 	}
@@ -75,7 +75,7 @@ func TestRetentionUsesReceiptTimeAndPreservesAudit(t *testing.T) {
 	if err := tx.QueryRow(ctx, `SELECT count(id) FROM app.audit_log`).Scan(&before); err != nil {
 		t.Fatal(err)
 	}
-	result, err := maintenance.RetainEvents(ctx, tx, true, 1)
+	result, err := maintenance.RetainEvents(ctx, tx, 13, true, 1)
 	if err != nil || result.Rows != 1 || !result.Applied {
 		t.Fatalf("apply = %+v, %v", result, err)
 	}
@@ -89,7 +89,7 @@ func TestRetentionUsesReceiptTimeAndPreservesAudit(t *testing.T) {
 	if events != 3 || audits != before+1 {
 		t.Fatalf("events=%d audits=%d before=%d", events, audits, before)
 	}
-	if _, err := maintenance.RetainEvents(ctx, tx, true, 0); err == nil {
+	if _, err := maintenance.RetainEvents(ctx, tx, 13, true, 0); err == nil {
 		t.Fatal("accepted unbounded batch")
 	}
 }
@@ -100,7 +100,10 @@ func TestAnonymizationIsExplicitAtomicAndIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := maintenance.AnonymizeStudent(ctx, tx, student, false); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO app.set_password_tokens(user_id,token_hash,purpose,created_at,expires_at) VALUES($1::uuid,sha256($1::text::bytea),'reset',now(),now() + interval '1 hour')`, student); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := maintenance.AnonymizeUser(ctx, tx, student, false); err != nil {
 		t.Fatal(err)
 	}
 	var name string
@@ -111,7 +114,7 @@ func TestAnonymizationIsExplicitAtomicAndIdempotent(t *testing.T) {
 		t.Fatal("dry run changed identity")
 	}
 	for range 2 {
-		if _, err := maintenance.AnonymizeStudent(ctx, tx, student, true); err != nil {
+		if _, err := maintenance.AnonymizeUser(ctx, tx, student, true); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -119,32 +122,33 @@ func TestAnonymizationIsExplicitAtomicAndIdempotent(t *testing.T) {
 	err = tx.QueryRow(ctx, `SELECT password_hash IS NULL AND NOT must_change_password AND disabled_at IS NOT NULL
 	  AND email = 'anonymous-' || id::text || '@anonymous.invalid'
 	  AND NOT EXISTS(SELECT 1 FROM app.user_identities WHERE user_id=$1)
+	  AND NOT EXISTS(SELECT 1 FROM app.set_password_tokens WHERE user_id=$1 AND used_at IS NULL AND revoked_at IS NULL)
 	  AND EXISTS(SELECT 1 FROM app.attempts WHERE id=$2)
-	  AND (SELECT count(id) FROM app.audit_log WHERE entity_id=$1 AND action='student.anonymized')=1
+	  AND (SELECT count(id) FROM app.audit_log WHERE entity_id=$1 AND action='user.anonymized')=1
 	  FROM app.users WHERE id=$1`, student, attempt).Scan(&safe)
 	if err != nil || !safe {
 		t.Fatalf("identity/credentials/history invariant: safe=%v err=%v", safe, err)
 	}
 }
 
-func TestAnonymizationRejectsAdminAndActiveAttempt(t *testing.T) {
+func TestAnonymizationRejectsAnOwnerAndAnActiveAttempt(t *testing.T) {
 	ctx, tx, student, attempt := setup(t)
 	if _, err := tx.Exec(ctx, `UPDATE app.attempts SET status='in_progress',submitted_at=NULL WHERE id=$1`, attempt); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := maintenance.AnonymizeStudent(ctx, tx, student, true); err == nil {
+	if _, err := maintenance.AnonymizeUser(ctx, tx, student, true); err == nil {
 		t.Fatal("anonymized active student")
 	}
 	var teacher string
 	if err := tx.QueryRow(ctx, `SELECT created_by::text FROM app.assignments WHERE id=(SELECT assignment_id FROM app.attempts WHERE id=$1)`, attempt).Scan(&teacher); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := maintenance.AnonymizeStudent(ctx, tx, teacher, true); err == nil {
-		t.Fatal("anonymized admin")
+	if _, err := maintenance.AnonymizeUser(ctx, tx, teacher, true); err == nil {
+		t.Fatal("anonymized an owner of content")
 	}
 }
 
-func TestAnonymizationRefusesEveryRoleThatIsNotStudentLike(t *testing.T) {
+func TestAnonymizationNamesAnAccountByWhetherItsRoleIsStudentLike(t *testing.T) {
 	ctx, tx, _, _ := setup(t)
 	role := func(key string) string {
 		var id string
@@ -163,25 +167,34 @@ func TestAnonymizationRefusesEveryRoleThatIsNotStudentLike(t *testing.T) {
 		}
 		return id
 	}
+	nameOf := func(user string) string {
+		var name string
+		if err := tx.QueryRow(ctx, `SELECT full_name FROM app.users WHERE id = $1`, user).Scan(&name); err != nil {
+			t.Fatal(err)
+		}
+		return name
+	}
 	grader := role("learning.take_tests")
 	graderHolder := holder(grader)
 	if _, err := tx.Exec(ctx, `INSERT INTO app.role_permissions (role_id, permission_key) VALUES ($1::uuid, 'teaching.grading')`, grader); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := maintenance.AnonymizeStudent(ctx, tx, graderHolder, true); err == nil || err.Error() != "only student accounts may be anonymized" {
+	if _, err := maintenance.AnonymizeUser(ctx, tx, graderHolder, true); err != nil {
 		t.Fatalf("anonymizing a holder of a role granted grading after assignment: %v", err)
 	}
-	var name string
-	if err := tx.QueryRow(ctx, `SELECT full_name FROM app.users WHERE id = $1`, graderHolder).Scan(&name); err != nil || name != "Vai tuỳ chỉnh" {
-		t.Fatalf("the refused account changed: %q (%v)", name, err)
+	if got := nameOf(graderHolder); got != "Người dùng đã ẩn danh" {
+		t.Errorf("a holder of a role granted grading is %q", got)
 	}
 	emptied := role("teaching.grading")
 	emptiedHolder := holder(emptied)
 	if _, err := tx.Exec(ctx, `DELETE FROM app.role_permissions WHERE role_id = $1::uuid`, emptied); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := maintenance.AnonymizeStudent(ctx, tx, emptiedHolder, false); err != nil {
-		t.Fatalf("a holder of a role emptied after assignment is a student to anonymize: %v", err)
+	if _, err := maintenance.AnonymizeUser(ctx, tx, emptiedHolder, true); err != nil {
+		t.Fatal(err)
+	}
+	if got := nameOf(emptiedHolder); got != "Học viên đã ẩn danh" {
+		t.Errorf("a holder of a role emptied after assignment is %q", got)
 	}
 }
 
@@ -201,7 +214,7 @@ func TestRetentionKeepsEventsUntilTheAssignmentCloses(t *testing.T) {
 	if _, err := tx.Exec(ctx, `INSERT INTO app.attempt_events(attempt_id,session_id,kind,occurred_at,received_at) VALUES($1,uuidv7(),'window_blur','1900-01-01','1900-01-01')`, attempt); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := maintenance.RetainEvents(ctx, tx, true, 10000); err != nil {
+	if _, err := maintenance.RetainEvents(ctx, tx, 13, true, 10000); err != nil {
 		t.Fatal(err)
 	}
 	var exists bool

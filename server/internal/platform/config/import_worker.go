@@ -38,7 +38,7 @@ func LoadImportWorker() (ImportWorker, error) {
 	if w.Base.ImportBucket == "" {
 		return w, fmt.Errorf("worker requires private import storage")
 	}
-	if err := loadAI(&w.Base); err != nil {
+	if err := loadWorkerShared(&w.Base); err != nil {
 		return w, err
 	}
 	if (w.DockerBinary != "" || w.ImageID != "") && (!filepath.IsAbs(w.DockerBinary) || !regexp.MustCompile(`^sha256:[a-f0-9]{64}$`).MatchString(w.ImageID)) {
@@ -65,6 +65,17 @@ func LoadImportWorker() (ImportWorker, error) {
 		return w, fmt.Errorf("worker actor limits must not exceed global limits")
 	}
 	return w, loadWorkerWake(&w)
+}
+
+func loadWorkerShared(base *Config) error {
+	base.Env = getenv("APP_ENV", "development")
+	if err := loadAI(base); err != nil {
+		return err
+	}
+	if err := loadHashing(base); err != nil {
+		return err
+	}
+	return loadEmailGroup(base)
 }
 
 func loadWorkerWake(w *ImportWorker) error {

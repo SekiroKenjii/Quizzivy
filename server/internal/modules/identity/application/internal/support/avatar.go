@@ -14,6 +14,16 @@ const AvatarURLTTL = 24 * time.Hour
 
 const avatarDeleteBudget = 10 * time.Second
 
+// AvatarLink signs a link to the photo a user row holds the key of. It answers
+// an empty link for no photo and when no object store is configured, so the
+// photo is left out of a payload rather than failing it.
+func (s *Service) AvatarLink(ctx context.Context, key *string) (string, error) {
+	if key == nil || s.Avatars == nil {
+		return "", nil
+	}
+	return s.Avatars.SignedURL(ctx, *key, AvatarURLTTL)
+}
+
 // AvatarKey names a new photo object. The name is a fresh uuid and never the
 // upload's file name, so two photos of one user never share a key.
 func AvatarKey(userID string) (string, error) {

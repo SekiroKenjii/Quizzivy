@@ -205,14 +205,17 @@ func TestResettingAPasswordRefusesTheLiveTokenAndTheNewSessionCarriesTheEpoch(t 
 		t.Errorf("after the reset: %d, want 401 for a token at epoch 0", code)
 	}
 	access, refresh := r.login(t, email, temporary)
-	if code := r.getWith(t, access, "/app/assignments"); !reached(code) {
+	if code := r.getWith(t, access, "/auth/me"); !reached(code) {
 		t.Errorf("signing in with the temporary password: %d, want the gate passed", code)
+	}
+	if code := r.getWith(t, access, "/app/assignments"); code != http.StatusForbidden {
+		t.Errorf("a temporary password outside the self operations: %d, want 403", code)
 	}
 	rotated, err := r.identity.Commands.Refresh.Handle(context.Background(), identitycommand.Refresh{Token: refresh})
 	if err != nil {
 		t.Fatalf("refresh: %v", err)
 	}
-	if code := r.getWith(t, rotated.AccessToken, "/app/assignments"); !reached(code) {
+	if code := r.getWith(t, rotated.AccessToken, "/auth/me"); !reached(code) {
 		t.Errorf("a refreshed token: %d, want the gate passed", code)
 	}
 }

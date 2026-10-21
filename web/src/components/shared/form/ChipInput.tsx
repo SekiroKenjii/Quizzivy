@@ -17,8 +17,16 @@ const TONES: Record<ChipTone, { chip: string; remove: string }> = {
 };
 
 const SIZES: Record<ChipSize, { chip: string; label: string; remove: string }> = {
-  sm: { chip: "h-5.5 pl-2 text-xs", label: "leading-4", remove: "size-4" },
-  md: { chip: "h-6 pl-2.25 text-meta", label: "leading-4.5", remove: "size-4.5" },
+  sm: {
+    chip: "h-5.5 pl-2 text-xs",
+    label: "leading-4",
+    remove: "size-4 after:-inset-1",
+  },
+  md: {
+    chip: "h-6 pl-2.25 text-meta",
+    label: "leading-4.5",
+    remove: "size-4.5 after:-inset-1.5",
+  },
 };
 
 const FRAME =
@@ -38,7 +46,7 @@ export const CHIP_INPUT =
  * the field's input. With `frame` it is the deck's bordered field, whose
  * border and focus ring follow the input inside it; without it the row that
  * holds it draws the box. `invalid` turns the frame's border to the danger
- * tone.
+ * tone. A remove button keeps the deck's glyph and has a 24px target around it.
  */
 export function ChipBox({
   values,
@@ -83,7 +91,7 @@ export function ChipBox({
             type="button"
             aria-label={removeLabel(value)}
             className={cn(
-              "grid flex-none place-items-center rounded-full",
+              "relative grid flex-none place-items-center rounded-full after:absolute after:content-['']",
               TONES[tone].remove,
               SIZES[size].remove,
             )}
@@ -101,15 +109,18 @@ export function ChipBox({
 /**
  * ChipInput is a field of short free-text values, each drawn as a chip: the
  * accepted answers of a gap. Enter adds what is typed, and so do a comma
- * (unless `commaAdds` is false, for values that may hold one) and leaving the
- * field; Backspace in the empty input removes the last value. An entry is
- * trimmed and put in NFC, and one that is `same` as a value already there is
- * not added: by default the two are compared lower-cased, so accents count.
- * `label` names the input and `describedBy` is its `aria-describedby`, for a
- * message the host draws. `tone` and `size` pick the chip (`md` is the
+ * (unless `commaAdds` is false, for values that may hold one), a space when
+ * `spaceAdds` is set (for values that hold none) and leaving the field;
+ * Backspace in the empty input removes the last value. An entry is trimmed
+ * and put in NFC, then given to `resolve` when there is one, which returns
+ * the value to add; one that is `same` as a value already there is not
+ * added: by default the two are compared lower-cased, so accents count.
+ * `label` names the input, `id` is its id and `describedBy` its
+ * `aria-describedby`, for a message the host draws. `tone` and `size` pick the chip (`md` is the
  * builder's 24px, `sm` the 22px of a framed field).
  */
 export function ChipInput({
+  id,
   label,
   values,
   onChange,
@@ -119,10 +130,13 @@ export function ChipInput({
   size = "sm",
   frame = true,
   commaAdds = true,
+  spaceAdds = false,
   invalid = false,
   describedBy,
   same = sameIgnoringCase,
+  resolve,
 }: Readonly<{
+  id?: string | undefined;
   label: string;
   values: readonly string[];
   onChange: (next: string[]) => void;
@@ -132,12 +146,14 @@ export function ChipInput({
   size?: ChipSize | undefined;
   frame?: boolean | undefined;
   commaAdds?: boolean | undefined;
+  spaceAdds?: boolean | undefined;
   invalid?: boolean | undefined;
   describedBy?: string | undefined;
   same?: ChipSame | undefined;
+  resolve?: ((entry: string) => string) | undefined;
 }>) {
   const input = useRef<HTMLInputElement>(null);
-  const entry = useChipEntry({ values, onChange, same, commaAdds });
+  const entry = useChipEntry({ values, onChange, same, commaAdds, spaceAdds, resolve });
   return (
     <ChipBox
       values={values}
@@ -153,6 +169,7 @@ export function ChipInput({
     >
       <input
         ref={input}
+        id={id}
         size={1}
         autoComplete="off"
         aria-label={label}

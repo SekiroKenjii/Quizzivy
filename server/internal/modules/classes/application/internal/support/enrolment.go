@@ -8,6 +8,7 @@ import (
 	"quizzivy/internal/modules/classes/domain"
 	notificationscommand "quizzivy/internal/modules/notifications/application/command"
 	notificationsdomain "quizzivy/internal/modules/notifications/domain"
+	organizationquery "quizzivy/internal/modules/organization/application/query"
 	"quizzivy/internal/shared/cqrs"
 	"time"
 )
@@ -19,6 +20,7 @@ type Enrolment struct {
 	Now      func() time.Time
 	Notifier ports.Notifier
 	Zones    ports.Zones
+	Policy   ports.SignInPolicy
 	Logger   *slog.Logger
 }
 
@@ -61,6 +63,20 @@ func (s *Enrolment) ZoneOf(ctx context.Context, userID string) *time.Location {
 		return domain.ZoneOrDefault("")
 	}
 	return domain.ZoneOrDefault(name)
+}
+
+// JoinCodesOn reports whether the centre lets students join a class with a
+// code. Without a policy port it does. While it is off, a handler answers
+// every code as an unknown one, before any lookup.
+func (s *Enrolment) JoinCodesOn(ctx context.Context) (bool, error) {
+	if s.Policy == nil {
+		return true, nil
+	}
+	policy, err := s.Policy.Handle(ctx, organizationquery.SignInPolicy{})
+	if err != nil {
+		return false, err
+	}
+	return policy.JoinCodes, nil
 }
 
 // Lookup normalises a typed code and returns every hash it may be stored

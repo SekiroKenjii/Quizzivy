@@ -102,7 +102,7 @@ export const cases = {
           selected={selected}
           onChange={onChange}
           clearable={false}
-          menuClassName="data-[scale=deck]:w-55"
+          menuClassName="w-55"
         />
       </div>
     );

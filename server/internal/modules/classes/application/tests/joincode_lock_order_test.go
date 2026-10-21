@@ -96,11 +96,11 @@ func TestATeachersRotateOrRevokeAndARedemptionNeverDeadlock(t *testing.T) {
 
 func TestARotateInFlightStillHoldsBackEveryOtherWriterOfTheClass(t *testing.T) {
 	pool := newPool(t)
-	classID, teacherID, _ := legacyClassRow(t, pool)
+	classID, teacherID, _ := makeClassRow(t, pool)
+	issueCode(t, newSvc(t, pool), classID, teacherID)
 	rotatePool, rotatePid := ownConnection(t)
 	revokePool, revokePid := ownConnection(t)
 	updatePool, updatePid := ownConnection(t)
-	jobPool, jobPid := ownConnection(t)
 	release, gate := holding(t, pool, `SELECT 1 FROM app.users WHERE id = $1 FOR UPDATE`, teacherID)
 	renamed := "Lớp đổi tên"
 
@@ -132,17 +132,12 @@ func TestARotateInFlightStillHoldsBackEveryOtherWriterOfTheClass(t *testing.T) {
 	}()
 	waitUntilBlocked(t, pool, updatePid, revokePid, "a rename of the class, in line behind Revoke for the class row")
 
-	job := startRotation(rotationOver(jobPool, nil, classID))
-	waitUntilBlocked(t, pool, jobPid, updatePid, "the legacy rotation, in line behind the rename for the class row")
 	release()
 
 	for what, done := range map[string]chan error{"Rotate": rotate, "Revoke": revoke, "the rename": update} {
 		if err := finished(t, what, done); err != nil {
 			t.Errorf("%s: %v", what, err)
 		}
-	}
-	if got := finished(t, "the legacy rotation", job); got.err != nil || got.run != (domain.LegacyRotation{Found: 1}) {
-		t.Errorf("the legacy rotation answered %+v (%v), want the class found and left to its teacher's Rotate", got.run, got.err)
 	}
 	if n := activeCodeCount(t, pool, classID); n != 0 {
 		t.Errorf("the class holds %d active codes, want none: Revoke ran after Rotate", n)
@@ -153,8 +148,5 @@ func TestARotateInFlightStillHoldsBackEveryOtherWriterOfTheClass(t *testing.T) {
 	var name string
 	if err := pool.QueryRow(context.Background(), `SELECT name FROM app.classes WHERE id = $1`, classID).Scan(&name); err != nil || name != renamed {
 		t.Errorf("the class is named %q (%v), want %q", name, err, renamed)
-	}
-	if n := rotationAudits(t, pool, classID); n != 0 {
-		t.Errorf("%d legacy rotation audit rows for a class its teacher rotated first", n)
 	}
 }

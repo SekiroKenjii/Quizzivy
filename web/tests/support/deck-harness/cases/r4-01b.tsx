@@ -163,11 +163,7 @@ const ROSTER_COLUMNS: readonly DataColumn<Attempt>[] = [
     track: "130px",
     showFrom: 560,
     cell: (row) => (
-      <Badge
-        variant={ATTEMPT_STATUS[row.status].variant}
-        dot
-        className="in-data-[scale=deck]:px-2"
-      >
+      <Badge variant={ATTEMPT_STATUS[row.status].variant} dot className="px-2">
         {ATTEMPT_STATUS[row.status].label}
       </Badge>
     ),
@@ -264,7 +260,7 @@ function bar(row: Assignment): ReactNode {
 
 function live(): ReactNode {
   return (
-    <Badge variant="success" dot className="in-data-[scale=deck]:px-2">
+    <Badge variant="success" dot className="px-2">
       Live
     </Badge>
   );

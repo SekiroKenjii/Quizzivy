@@ -106,3 +106,32 @@ func TestTheTestAndGroupListsRunInTheCallersOwnScopeAndReadsByIdInTheCallersScop
 		})
 	}
 }
+
+func TestAMissingTestsVersionsAndPreviewAnswer404(t *testing.T) {
+	app := &application.Application{Queries: application.Queries{
+		ListVersions: cqrs.HandlerFunc[query.ListVersions, []domain.Version](func(context.Context, query.ListVersions) ([]domain.Version, error) {
+			return nil, domain.ErrNotFound
+		}),
+		Preview: cqrs.HandlerFunc[query.Preview, query.PreviewResult](func(context.Context, query.Preview) (query.PreviewResult, error) {
+			return query.PreviewResult{}, domain.ErrNotFound
+		}),
+	}}
+	h := testshttp.NewTests(app, authoringMedia{})
+	ctx := contextAs(t, access.Principal{UserID: uuid.NewString(), Permissions: access.NewSet(access.ContentTestsWrite)})
+	id := uuid.New()
+
+	versions, err := h.ListTestVersions(ctx, openapi.ListTestVersionsRequestObject{Id: id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := versions.(openapi.ListTestVersions404JSONResponse); !ok {
+		t.Errorf("listTestVersions answered %T, want 404", versions)
+	}
+	preview, err := h.PreviewTest(ctx, openapi.PreviewTestRequestObject{Id: id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := preview.(openapi.PreviewTest404JSONResponse); !ok {
+		t.Errorf("previewTest answered %T, want 404", preview)
+	}
+}

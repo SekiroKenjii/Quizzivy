@@ -36,6 +36,8 @@
     "saveChanges": "Save changes",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
+    "agoNow": "now",
+    "agoJustNow": "just now",
     "justDuplicated": "Just duplicated",
     "duplicateNamed": "Duplicate {{name}}",
     "updated": "Updated",
@@ -49,6 +51,7 @@
     "confirmSelected": "Confirm {{count}} items",
     "bulkProgress": "Processing {{completed}}/{{total}} items",
     "selectPage": "Select all items on this page",
+    "selectPageShort": "Select page",
     "selectNamed": "Select {{name}}",
     "deleteNamed": "Permanently delete {{name}}",
     "deleted": "Deleted.",
@@ -383,6 +386,224 @@
     "unavailable": "Can't reach the server. Try again.",
     "failed": "Something went wrong. Try again."
   },
+  "audit": {
+    "action": {
+      "ai.allowance.updated": "Updated a teacher's AI allowance",
+      "ai.credit_request.approved": "Approved an AI credit request",
+      "ai.credit_request.declined": "Declined an AI credit request",
+      "ai.credits.added": "Added AI credits",
+      "ai.rules.updated": "Updated the AI rules",
+      "assignment.closed": "Closed an assignment",
+      "assignment.created": "Created an assignment",
+      "assignment.deleted": "Deleted an assignment",
+      "assignment.duplicated": "Duplicated an assignment",
+      "assignment.extended": "Extended an assignment for maintenance",
+      "assignment.override_extended": "Extended a student's exception for maintenance",
+      "assignment.override_removed": "Removed a student's exception",
+      "assignment.override_set": "Set an exception for a student",
+      "assignment.published": "Published an assignment",
+      "assignment.reopened": "Reopened an assignment",
+      "assignment.updated": "Updated an assignment",
+      "attempt.extended": "Extended an attempt for maintenance",
+      "attempt.flagged": "Flagged an attempt",
+      "attempt.reset": "Reset an attempt",
+      "attempt.unflagged": "Cleared the flag on an attempt",
+      "attempt.voided": "Voided an attempt",
+      "audit.exported": "Exported the audit log",
+      "class.archived": "Archived a class",
+      "class.created": "Created a class",
+      "class.deleted": "Deleted a class",
+      "class.join_code_issued": "Issued a class join code",
+      "class.join_code_revoked": "Revoked a class join code",
+      "class.join_code_rotated": "Rotated a class join code",
+      "class.member_added": "Added a student to a class",
+      "class.member_enrolled": "A student joined a class with a code",
+      "class.member_removed": "Removed a student from a class",
+      "class.restored": "Restored a class",
+      "class.teacher_changed": "Changed a class's teacher",
+      "data_export.downloaded": "Downloaded a data export",
+      "data_export.requested": "Requested a data export",
+      "import.cancelled": "Cancelled a Word import",
+      "import.closed_idle": "Closed an idle Word import",
+      "import.committed": "Saved the questions of a Word import",
+      "import.created": "Created a Word import",
+      "import.files_removed": "Removed the files of a Word import",
+      "import.queued": "Queued a Word import",
+      "import.reprocess_cancelled": "Cancelled reprocessing a Word import",
+      "import.reprocessed_adopted": "Adopted the reprocessed result of a Word import",
+      "import.source_completed": "Finished uploading a Word import's source",
+      "import.source_reserved": "Reserved a Word import's source",
+      "integrity.retained": "Deleted integrity events past their retention",
+      "maintenance.cancelled": "Cancelled a maintenance window",
+      "maintenance.ended": "Ended a maintenance window",
+      "maintenance.scheduled": "Scheduled a maintenance window",
+      "media.deleted": "Deleted a media file",
+      "media.purged": "Permanently removed a media file",
+      "media.replaced": "Replaced a media file",
+      "media.updated": "Updated a media file",
+      "media.uploaded": "Uploaded a media file",
+      "organization.updated": "Updated the centre's settings",
+      "question.created": "Created a question",
+      "question.deleted": "Deleted a question",
+      "question.updated": "Updated a question",
+      "question_group.archived": "Archived a question group",
+      "question_group.created": "Created a question group",
+      "question_group.deleted": "Deleted a question group",
+      "question_group.removed": "Removed a question group from a test",
+      "question_group.restored": "Restored a question group",
+      "question_group.updated": "Updated a question group",
+      "refresh_token.reuse_detected": "Detected a reused sign-in session",
+      "retention.answers_removed": "Removed answers past their retention",
+      "role.created": "Created a role",
+      "role.permissions_changed": "Changed a role's permissions",
+      "role.updated": "Updated a role",
+      "session.revoked": "Revoked a sign-in session",
+      "session.revoked_others": "Revoked the other sign-in sessions",
+      "student.created": "Created a student account",
+      "student.deleted": "Deleted a student account",
+      "student.password_reset": "Reset a student's password",
+      "student.updated": "Updated a student account",
+      "test.created": "Created a test",
+      "test.current_version_changed": "Changed a test's current version",
+      "test.deleted": "Deleted a test",
+      "test.draft_restored": "Restored the draft from a version",
+      "test.duplicated": "Duplicated a test",
+      "test.published": "Published a test",
+      "test.question_moved": "Moved a question between sections",
+      "test.updated": "Updated a test",
+      "test.version_deleted": "Deleted a version of a test",
+      "user.anonymized": "Anonymized an account",
+      "user.avatar_removed": "Removed a profile photo",
+      "user.avatar_set": "Set a profile photo",
+      "user.content_transferred": "Transferred an account's content to another teacher",
+      "user.created": "Created an account",
+      "user.disabled": "Disabled an account",
+      "user.enabled": "Enabled an account again",
+      "user.google_linked": "Linked a Google account",
+      "user.google_unlinked": "Unlinked a Google account",
+      "user.password_changed": "Changed a password",
+      "user.password_link_requested": "Asked for a set-password link",
+      "user.password_reset": "Reset an account's password",
+      "user.password_set": "Set a password from a link",
+      "user.preferences_updated": "Updated personal preferences",
+      "user.profile_updated": "Updated a profile",
+      "user.renamed": "Renamed an account",
+      "user.role_changed": "Changed an account's role",
+      "user.signed_out_everywhere": "Signed an account out everywhere",
+      "user_import.requested": "Requested an import of users from a file",
+      "user_import.sheet_downloaded": "Downloaded the temporary-password sheet of a user import"
+    },
+    "title": "Audit log",
+    "lead": "A record of sensitive changes. Entries cannot be edited or deleted.",
+    "export": "Export CSV",
+    "noun_one": "entry",
+    "noun_other": "entries",
+    "loadFailed": "The audit log could not be loaded.",
+    "empty": "No entries in this range.",
+    "noMatches": "No entries match these filters.",
+    "system": "System",
+    "categories": {
+      "label": "Kind of change",
+      "all": "All",
+      "accounts": "Accounts",
+      "classes": "Classes",
+      "attempts": "Attempts",
+      "tests": "Tests",
+      "media": "Media",
+      "imports": "Imports"
+    },
+    "search": {
+      "placeholder": "Search person, action or entity",
+      "label": "Search audit log",
+      "clear": "Clear search"
+    },
+    "range": {
+      "label": "Date range",
+      "today": "Today",
+      "7d": "Last 7 days",
+      "30d": "Last 30 days",
+      "all": "All time",
+      "custom": "Custom range…",
+      "span": "{{from}} – {{to}}",
+      "reset": "Reset"
+    },
+    "custom": {
+      "title": "Custom date range",
+      "from": "From",
+      "to": "To",
+      "apply": "Apply",
+      "order": "Must be on or after the start date"
+    },
+    "columns": {
+      "when": "When",
+      "who": "Who",
+      "action": "Action",
+      "entity": "Entity",
+      "ip": "IP address",
+      "details": "Details"
+    },
+    "row": "{{action}}, {{who}}, {{when}}",
+    "entity": {
+      "named": "{{type}} · {{label}}",
+      "gone": "{{type}} (deleted)",
+      "types": {
+        "user": "User",
+        "users": "Users",
+        "student": "Student",
+        "user_identity": "Sign-in link",
+        "refresh_token_family": "Session",
+        "role": "Role",
+        "class": "Class",
+        "class_member": "Class member",
+        "class_join_code": "Join code",
+        "attempt": "Attempt",
+        "assignment": "Assignment",
+        "test": "Test",
+        "test_version": "Test version",
+        "question": "Question",
+        "question_group": "Question group",
+        "media_asset": "Media file",
+        "word_import": "Word import",
+        "ai_credit_periods": "AI credit period",
+        "ai_credit_requests": "AI credit request",
+        "ai_settings": "AI settings",
+        "ai_teacher_credits": "Teacher AI allowance",
+        "attempt_events": "Attempt events",
+        "audit_log": "Audit log",
+        "data_export": "Data export",
+        "maintenance_window": "Maintenance window",
+        "organization": "Organization",
+        "user_import": "User import"
+      }
+    },
+    "diff": {
+      "none": "No field changes were recorded for this entry.",
+      "empty": "—"
+    },
+    "exportDialog": {
+      "title": "Export the audit log",
+      "description": "The file holds the entries of the period you choose, newest first.",
+      "period": "Period",
+      "periods": {
+        "7d": "Last 7 days",
+        "30d": "Last 30 days",
+        "year": "This year"
+      },
+      "beforePeriod": "The range on screen starts before this period, so the file leaves out its older entries.",
+      "format": "Format",
+      "formats": {
+        "csv": "CSV",
+        "json": "JSON"
+      },
+      "filtersOnly": "Current filters only",
+      "filtersOnlyHint": "Only the kind of change and the search you have set. The period comes from the choice above.",
+      "submit": "Export file",
+      "running": "Exporting…",
+      "done": "The audit log was downloaded.",
+      "tooLarge": "That period holds more than 100,000 entries. Choose a shorter period.",
+      "failed": "The audit log could not be exported. Please try again."
+    }
+  },
   "error": {
     "title": "Something went wrong",
     "body": "The problem is on our side, not something you did. If you were taking a test, your saved answers are safe.",
@@ -417,6 +638,139 @@
     "mainNavigation": "Main navigation",
     "account": "{{name}}'s account"
   },
+  "role": {
+    "builtin": {
+      "admin": "Admin",
+      "teacher": "Teacher",
+      "assistant": "Assistant",
+      "student": "Student"
+    },
+    "builtinDescription": {
+      "admin": "Runs the centre. Manages people and settings.",
+      "teacher": "Builds tests, runs classes, grades.",
+      "assistant": "Helps teachers grade and take attendance.",
+      "student": "Takes tests and sees their own results."
+    }
+  },
+  "roles": {
+    "title": "Roles & permissions",
+    "lead": "What each role can do. Administrators can always do everything.",
+    "loadFailed": "Could not load the roles.",
+    "carousel": "Roles",
+    "carouselKind": "carousel",
+    "previous": "Previous roles",
+    "next": "Next roles",
+    "slide": "Go to slide {{n}}",
+    "custom": "Custom",
+    "peopleLabel_one": "person",
+    "peopleLabel_other": "people",
+    "permissionsLabel_one": "permission",
+    "permissionsLabel_other": "permissions",
+    "editPermissions": "Edit permissions",
+    "editPermissionsOf": "Edit permissions of {{name}}",
+    "matrix": "Permissions by role",
+    "permission": "Permission",
+    "cell": "{{permission}} — {{role}}",
+    "group": {
+      "content": "Content",
+      "teaching": "Teaching",
+      "people": "People",
+      "system": "System"
+    },
+    "lock": {
+      "admin": "Admins always have this",
+      "student": "Students always need this to take tests",
+      "self": "You can't change the permissions of the role you hold.",
+      "subset": "You can only change what you can do yourself."
+    },
+    "changed_one": "{{count}} permission changed. People get the new permissions on their next page load.",
+    "changed_other": "{{count}} permissions changed. People get the new permissions on their next page load.",
+    "takingNow_one": "{{count}} test attempt is in progress right now.",
+    "takingNow_other": "{{count}} test attempts are in progress right now.",
+    "saved": "Permissions saved",
+    "saveFailed": "Could not save the permissions. Try again.",
+    "stale": "Someone just changed these roles. The table has been reloaded; check the marked cells and save again.",
+    "perm": {
+      "contentTestsWrite": "Create and edit tests",
+      "contentTestsPublish": "Publish tests",
+      "contentQuestionsWrite": "Manage question bank",
+      "contentMediaWrite": "Upload and delete media",
+      "contentShare": "Share own content with other teachers",
+      "aiUse": "Use AI features",
+      "teachingClassesWrite": "Create classes",
+      "teachingAssignmentsWrite": "Assign tests to classes",
+      "teachingGrading": "Grade answers",
+      "teachingAttemptsIntervene": "Reset, void or extend attempts",
+      "teachingAttendance": "Take attendance",
+      "peopleStudentsRead": "See students in own classes",
+      "peopleStudentsCreate": "Create student accounts",
+      "peopleStudentsResetPassword": "Reset student passwords",
+      "peopleUsersManage": "Add and disable users",
+      "peopleRolesManage": "Change roles",
+      "systemAuditRead": "View audit log",
+      "systemSettingsWrite": "Change system settings",
+      "learningTakeTests": "Take tests and view own results",
+      "aiCreditsManage": "Manage AI credits"
+    },
+    "hint": {
+      "contentTestsPublish": "Makes a test assignable",
+      "contentShare": "Tests, questions, word lists and courses. Owners always see only their own content otherwise.",
+      "audited": "Recorded in the audit log"
+    },
+    "newRole": {
+      "title": "New role",
+      "hint": "Starts with the permissions of the role you copy. Change them in the table after.",
+      "submit": "Create role",
+      "name": "Role name",
+      "namePlaceholder": "Head teacher",
+      "copyFrom": "Copy permissions from",
+      "copyNone": "Don't copy",
+      "description": "Description",
+      "descriptionPlaceholder": "Leads the IELTS team",
+      "taken": "A role with this name already exists",
+      "sourceGone": "That role can no longer be copied from. Choose again.",
+      "created": "Role created: {{name}}. Its column is in the table below.",
+      "failed": "Couldn't create the role. Try again."
+    },
+    "editRole": {
+      "title": "Edit role",
+      "pencil": "Edit role {{name}}",
+      "hint": "Changes show everywhere this role appears.",
+      "adminHint": "Admins always keep every permission.",
+      "icon": "Icon",
+      "name": "Name",
+      "description": "Description",
+      "color": "Card colour",
+      "submit": "Save role",
+      "taken": "Another role already uses this name",
+      "saved": "Role saved",
+      "failed": "Couldn't save the role. Try again.",
+      "stale": "This role was just changed elsewhere. It has been reloaded; review it and save again."
+    },
+    "icons": {
+      "shield": "Shield",
+      "graduation-cap": "Graduation cap",
+      "hand-helping": "Helping hand",
+      "user": "Person",
+      "key-round": "Key",
+      "crown": "Crown",
+      "briefcase": "Briefcase",
+      "book-open": "Open book",
+      "users": "People",
+      "clipboard-check": "Checklist",
+      "headset": "Headset",
+      "star": "Star"
+    },
+    "colors": {
+      "dark": "Dark",
+      "lime": "Lime",
+      "blue": "Blue",
+      "green": "Green",
+      "amber": "Amber",
+      "rose": "Rose",
+      "gray": "Gray"
+    }
+  },
   "teacherShell": {
     "workspace": "Teacher workspace",
     "switchWorkspace": "Switch workspace",
@@ -447,11 +801,754 @@
     },
     "breadcrumb": "Breadcrumb",
     "search": "Search…",
-    "role": {
-      "teacher": "Teacher",
-      "admin": "Admin"
-    },
     "documentTitle": "{{page}} · Quizzivy"
+  },
+  "adminShell": {
+    "workspace": "Admin console",
+    "crumb": "Admin",
+    "crumbExport": "Data export",
+    "teacherView": "Teacher view",
+    "group": {
+      "people": "People",
+      "teaching": "Teaching",
+      "system": "System"
+    },
+    "nav": {
+      "overview": "Overview",
+      "users": "Users",
+      "roles": "Roles & permissions",
+      "classes": "Classes",
+      "ai": "AI credits",
+      "audit": "Audit log",
+      "api": "API reference",
+      "settings": "Settings"
+    },
+    "count": {
+      "mustChangePassword_one": "{{count}} person must change their password",
+      "mustChangePassword_other": "{{count}} people must change their password",
+      "creditRequests_one": "{{count}} credit request waiting",
+      "creditRequests_other": "{{count}} credit requests waiting"
+    },
+    "account": {
+      "settings": "System settings",
+      "password": "Change password"
+    }
+  },
+  "adminOverview": {
+    "title": "Overview",
+    "subtitle": "{{organization}} · {{total}} people",
+    "loadFailed": "Couldn't load the overview.",
+    "kpi": {
+      "view": "View",
+      "active": "Active this week",
+      "activeHint": "{{percent}}% of {{total}} people",
+      "teachers": "Teachers",
+      "teachersHint_one": "{{count}} disabled",
+      "teachersHint_other": "{{count}} disabled",
+      "students": "Students",
+      "studentsHint_one": "+{{count}} this month",
+      "studentsHint_other": "+{{count}} this month",
+      "classes": "Classes",
+      "classesHint_one": "{{count}} archived",
+      "classesHint_other": "{{count}} archived"
+    },
+    "daily": {
+      "title": "Daily active people",
+      "summary": "Last 14 days · <strong>{{average}}</strong> on average",
+      "students": "Students",
+      "teachers": "Teachers",
+      "date": "Date",
+      "total": "Total",
+      "tip": "{{total}} people ({{students}} students, {{staff}} teachers) · {{date}}"
+    },
+    "attention": {
+      "title": "Needs attention",
+      "none": "Nothing needs attention.",
+      "mustChangePassword_one": "{{count}} person must change their password",
+      "mustChangePassword_other": "{{count}} people must change their password",
+      "mustChangePasswordHint": "Temporary password not replaced yet",
+      "neverSignedIn_one": "{{count}} account never signed in",
+      "neverSignedIn_other": "{{count}} accounts never signed in",
+      "neverSignedInHint": "Oldest created {{when}}",
+      "disabledTeacher_one": "{{count}} class has a disabled teacher",
+      "disabledTeacher_other": "{{count}} classes have a disabled teacher",
+      "disabledTeacherHint": "{{className}} · {{teacherName}}",
+      "storage": {
+        "both": "Storage: media {{media}}%, imports {{imports}}%",
+        "media": "Storage: media {{media}}%",
+        "imports": "Storage: imports {{imports}}%"
+      },
+      "storageHint": "Close to the plan's limit",
+      "creditRequests_one": "{{count}} teacher asked for more AI credits",
+      "creditRequests_other": "{{count}} teachers asked for more AI credits",
+      "creditRequestsHint": "{{teacherName}} · {{used}} of {{allowance}} used"
+    },
+    "recent": {
+      "title": "Recent changes",
+      "all": "Audit log",
+      "none": "No changes yet."
+    },
+    "storage": {
+      "title": "Storage",
+      "of": "{{used}} of {{limit}}",
+      "media": "Media",
+      "imports": "Import documents",
+      "seats": "Seats",
+      "attempts": "Attempts kept",
+      "attemptsCount_one": "{{value}} attempt",
+      "attemptsCount_other": "{{value}} attempts",
+      "credits": "AI credits",
+      "creditsOf": "{{used}} of {{pool}} this month"
+    }
+  },
+  "aiCredits": {
+    "title": "AI credits",
+    "lead": "Monthly allowances for AI features.",
+    "leadReset": "Monthly allowances for AI features. Usage resets on {{date}}.",
+    "off": "AI is not turned on for this school.",
+    "loadFailed": "Couldn’t load the AI credits.",
+    "pool": {
+      "title": "Centre pool · {{month}}",
+      "plan": "Centre plan {{plan}} · resets {{date}}",
+      "planAdded": "Centre plan {{plan}} + {{added}} added · resets {{date}}",
+      "of": "of {{pool}} credits used",
+      "bar": "{{used}} of {{pool}} credits used",
+      "projected": "Projected by {{date}}",
+      "left": "Left this month",
+      "daysToGo_one": "{{count}} day to go",
+      "daysToGo_other": "{{count}} days to go",
+      "lastDay": "Last day of the month",
+      "pace": "On pace for",
+      "paceWithin": "by {{date}}, within the pool",
+      "paceOver": "More than the pool. Add credits or lower allowances.",
+      "allowances": "Teacher allowances",
+      "allowancesHint": "Can add up to more than the pool, since few teachers use all of theirs"
+    },
+    "add": {
+      "open": "Add credits",
+      "title": "Add credits to this month",
+      "hint": "Added to the centre pool right away. The extra is paid for outside Quizzivy. Added credits don’t carry over to next month.",
+      "amount": "Amount",
+      "submit": "Add credits",
+      "added": "{{amount}} credits added to the pool",
+      "failed": "Couldn’t add the credits. Try again."
+    },
+    "request": {
+      "list": "Credit requests waiting",
+      "title": "{{name}} asked for {{amount}} more credits · {{used}} of {{allowance}} used",
+      "why": "“{{reason}}” · {{ago}}",
+      "decline": "Decline",
+      "approve": "Approve {{amount}}",
+      "approved": "{{name}}’s allowance is now {{allowance}} this month",
+      "declined": "{{name}} will be told the request was declined",
+      "failed": "Couldn’t decide this request. Try again."
+    },
+    "teachers": {
+      "title": "Teachers",
+      "summary_one": "{{count}} teacher used AI this month · {{idle}} haven’t yet",
+      "summary_other": "{{count}} teachers used AI this month · {{idle}} haven’t yet",
+      "empty": "No teacher can use AI yet.",
+      "of": "of {{allowance}}",
+      "ofCustom": "of {{allowance}} · custom",
+      "bar": "{{name}}: {{used}} of {{allowance}} credits used",
+      "edit": "Edit allowance for {{name}}",
+      "status": {
+        "on_track": "On track",
+        "near_limit": "Near limit",
+        "at_limit": "At limit",
+        "paused": "Paused"
+      }
+    },
+    "allowance": {
+      "title": "AI allowance · {{name}}",
+      "used": "{{used}} credits used so far this month.",
+      "mode": "Monthly allowance",
+      "default": "Default · {{n}}",
+      "custom": "Custom",
+      "credits": "Credits per month",
+      "creditsHint": "Takes effect right away. Usage so far still counts.",
+      "min": "Enter at least {{min}}",
+      "max": "Enter at most {{max}}",
+      "whole": "Enter a whole number",
+      "paused": "Pause AI for this teacher",
+      "pausedHint": "AI buttons stay visible but can’t be used until you turn this off.",
+      "saved": "Allowance saved for {{name}}",
+      "failed": "Couldn’t save the allowance. Try again."
+    },
+    "rules": {
+      "title": "Rules",
+      "hint": "For every teacher without a custom allowance.",
+      "allowance": {
+        "label": "Monthly allowance per teacher",
+        "hint": "Teachers see their balance in Settings › AI assistant."
+      },
+      "warn": {
+        "label": "Warn the teacher at",
+        "hint": "They get a notification."
+      },
+      "limit": {
+        "label": "When a teacher runs out",
+        "hint": "Requests appear at the top of this page.",
+        "pause": "Pause until next month",
+        "request": "Let them ask for more"
+      },
+      "pool": {
+        "label": "When the centre pool runs out",
+        "hint": "To allow more use, add credits.",
+        "value": "Pause AI for everyone"
+      },
+      "saved": "Rules saved",
+      "failed": "Couldn’t save the rules. Try again."
+    }
+  },
+  "users": {
+    "title": "Users",
+    "lead": "Everyone who can sign in to Quizzivy.",
+    "tabs": {
+      "label": "User groups",
+      "all": "All",
+      "teachers": "Teachers",
+      "students": "Students",
+      "admins": "Admins",
+      "disabled": "Disabled"
+    },
+    "search": {
+      "placeholder": "Search name or email",
+      "short": "Type at least {{min}} characters to search."
+    },
+    "filter": {
+      "label": "Active filters",
+      "remove": "Remove filter {{label}}"
+    },
+    "table": "Users",
+    "column": {
+      "user": "User",
+      "role": "Role",
+      "signIn": "Sign-in",
+      "classes": "Classes",
+      "lastActive": "Last active",
+      "status": "Status",
+      "open": "Open"
+    },
+    "signIn": {
+      "password": "Password",
+      "google": "Google",
+      "none": "None yet"
+    },
+    "noClass": "No class yet",
+    "moreCount": "+{{n}}",
+    "moreClasses": "and {{count}} more",
+    "neverActive": "Never",
+    "status": {
+      "active": "Active",
+      "mustChangePassword": "Must change password",
+      "mustChangePasswordShort": "Change password",
+      "neverSignedIn": "Never signed in",
+      "disabled": "Disabled"
+    },
+    "empty": "No users match.",
+    "clearFilters": "Clear filters",
+    "loadFailed": "Could not load users.",
+    "noun_one": "user",
+    "noun_other": "users",
+    "import": {
+      "open": "Import CSV",
+      "title": "Import users",
+      "columns": "Columns: full_name, email, role, class.",
+      "file": "File",
+      "choose": "Choose a CSV or XLSX file",
+      "limits": "CSV or XLSX · up to 5 MB",
+      "preview": "Preview",
+      "reading": "Reading the file…",
+      "newAccounts_one": "{{count}} new account",
+      "newAccounts_other": "{{count}} new accounts",
+      "existing_one": "{{count}} email already exists and will be skipped",
+      "existing_other": "{{count}} emails already exist and will be skipped",
+      "existingSample": "For example: {{emails}}",
+      "classes": "Adds them to {{classes}}",
+      "invalid_one": "{{count}} row has errors",
+      "invalid_other": "{{count}} rows have errors",
+      "showIssues": "Show errors",
+      "hideIssues": "Hide errors",
+      "issues": "Cells with errors",
+      "issueRow": "Row",
+      "issueColumn": "Column",
+      "issueReason": "Reason",
+      "issuesHint": "Rows are numbered as your spreadsheet shows them, the header being row 1.",
+      "issuesCapped": "Only the first {{count}} errors are shown. Fix the file and choose it again to see the rest.",
+      "budget_one": "{{count}} more email can go out today; the rest follow on the next days.",
+      "budget_other": "{{count}} more emails can go out today; the rest follow on the next days.",
+      "role": "Role if the file has none",
+      "roleStudent": "Student",
+      "roleTeacher": "Teacher",
+      "deliveryText": "Email sign-in details",
+      "deliverySub": "Otherwise download a sheet to hand out",
+      "submit": "Import",
+      "submitCount_one": "Import {{count}} person",
+      "submitCount_other": "Import {{count}} people",
+      "progress": "User import progress",
+      "running": "Creating accounts… {{done}}/{{total}}",
+      "leave": "You can close this dialog; the import carries on and the list updates itself.",
+      "leaveSheet": "You can close this dialog; the import carries on. Stay on this page: once the import finishes, the password sheet can be downloaded only here.",
+      "summary": "{{created}} · {{skipped}}",
+      "created_one": "{{count}} account created",
+      "created_other": "{{count}} accounts created",
+      "skipped_one": "{{count}} skipped",
+      "skipped_other": "{{count}} skipped",
+      "notImported_one": "{{count}} row with errors was not imported.",
+      "notImported_other": "{{count}} rows with errors were not imported.",
+      "emailSent": "Each person gets an email with a link to set a password, usable once within 24 hours.",
+      "again": "Import another file",
+      "done": "Done",
+      "progressFailed": "Could not read the progress. The import may still be running at the server; try again.",
+      "sheet": {
+        "warning": "The password sheet can be downloaded once and is deleted at {{time}}. Save the file somewhere safe before you close.",
+        "download": "Download password sheet",
+        "downloading": "Downloading…",
+        "downloaded": "Downloaded at {{time}}",
+        "expired": "The password sheet is more than 24 hours old and can no longer be downloaded. Reset these accounts' passwords from the Users list.",
+        "none": "No account was created, so there is no password sheet.",
+        "gone": "The password sheet is no longer available: it was downloaded already or is more than 24 hours old. If the file was not saved, reset these accounts' passwords from the Users list.",
+        "failed": "Could not download the password sheet.",
+        "taken": "The password sheet was downloaded at {{time}}. If you do not have that file, reset these accounts' passwords from the Users list.",
+        "lost": "The file did not arrive, but the server has already deleted the password sheet. Reset these accounts' passwords from the Users list.",
+        "retry": "Could not download the password sheet. Try again now; if it still fails, reset these accounts' passwords from the Users list."
+      },
+      "failed": {
+        "title": "The import stopped part way",
+        "kept_one": "The {{count}} account created before it stopped stays.",
+        "kept_other": "The {{count}} accounts created before it stopped stay.",
+        "keptNoPassword_one": "The {{count}} account created before it stopped stays, but has no password. Reset it from the Users list.",
+        "keptNoPassword_other": "The {{count}} accounts created before it stopped stay, but have no password. Reset them from the Users list.",
+        "importerNotAllowed": "Your account no longer has the permissions to create these accounts.",
+        "deliveryUnavailable": "Temporary passwords could not be handed out: your centre turned password sign-in off, or the server can no longer keep passwords safe.",
+        "workerInterrupted": "The import was interrupted several times, so it stopped.",
+        "unknown": "The import stopped because of an error."
+      },
+      "reason": {
+        "required": "Empty; a value is required.",
+        "tooLong": "Longer than allowed.",
+        "invalid": "Not valid: not an email address, or a name with control characters.",
+        "formulaLike": "The email starts with a character a spreadsheet reads as a formula (+, =, - or @), so it cannot be used. Correct the address.",
+        "duplicateInFile": "This email is already on an earlier row.",
+        "unknownRole": "No role has this name.",
+        "ambiguousRole": "More than one role has this name.",
+        "roleNotAllowed": "This role holds a permission you do not have, so you cannot give it.",
+        "roleNotGivable": "The Assistant role cannot be given to anyone.",
+        "unknownClass": "No active class has this name.",
+        "ambiguousClass": "More than one active class has this name.",
+        "classNotAllowed": "Only students can be added to a class, and only someone who manages every class can add them from a file."
+      },
+      "refusal": {
+        "tooLarge": "The file is larger than 5 MB. Split the list into smaller files, or save it as CSV UTF-8, which is lighter, and upload that.",
+        "empty": "The file has no header row. The first row needs the columns full_name and email.",
+        "tooManyRows": "The file has more than 2,000 data rows. Split it into several files of at most 2,000 rows each.",
+        "nothingToCreate": "No row would create an account: every valid row uses an email that already has one, or the file has no valid row.",
+        "csvNotUtf8": "The CSV file is not UTF-8. Save it as \"CSV UTF-8\" and upload it again.",
+        "macros": "The workbook contains macros, so it cannot be imported. Save it as an .xlsx without macros or as CSV UTF-8 and upload that.",
+        "encrypted": "The workbook is protected by a password. Remove the password, or save the sheet as CSV UTF-8 and upload that.",
+        "passwordSignInDisabled": "Your centre has turned off password sign-in, so temporary passwords cannot be handed out. Turn on emailing the sign-in details.",
+        "roleNotAllowed": "The default role holds a permission you do not have. Choose another role.",
+        "rateLimited_one": "Too many attempts. Try again in {{count}} second.",
+        "rateLimited_other": "Too many attempts. Try again in {{count}} seconds.",
+        "unavailable": "This server is not set up to import users. Tell whoever runs it.",
+        "unknown": "The file could not be read. Try again."
+      }
+    },
+    "result_one": "{{count}} user found.",
+    "result_other": "{{count}} users found.",
+    "resultNone": "No users found.",
+    "role": {
+      "choose": "Choose a role"
+    },
+    "delivery": {
+      "label": "How they get a password",
+      "link": "Email a link to set a password",
+      "linkHint": "They choose their own. The link works once, for 24 hours.",
+      "password": "Show a temporary password",
+      "passwordHint": "You hand it to them. They must change it when they sign in."
+    },
+    "sheet": {
+      "title": "User",
+      "loadFailed": "This user could not be loaded.",
+      "role": "Role",
+      "status": "Status",
+      "signIn": "Sign-in",
+      "classes": "Classes",
+      "lastActive": "Last active",
+      "created": "Created",
+      "actions": "Actions",
+      "reset": "Reset password",
+      "resetHint": "Send a link or set a temporary password",
+      "signOut": "Sign out everywhere",
+      "signOutHint": "Ends every session on every device",
+      "signedOut": "{{name}} signed out of all devices",
+      "signOutFailed": "This account could not be signed out.",
+      "disable": "Disable account",
+      "disableHint": "Signs them out. Results are kept.",
+      "disabled": "Account disabled",
+      "disableFailed": "This account could not be disabled.",
+      "enable": "Enable account",
+      "enableHint": "They can sign in again",
+      "enabled": "Account enabled",
+      "enableFailed": "This account could not be enabled.",
+      "activity": "Recent activity",
+      "roleFixed": "You cannot give this role, so it cannot be changed here."
+    },
+    "activity": {
+      "signIn": {
+        "password": "Signed in with password",
+        "google": "Signed in with Google",
+        "set_password_link": "Signed in with a set-password link"
+      },
+      "signInPlain": "Signed in",
+      "submitted": "Submitted {{title}}",
+      "submittedRemoved": "Submitted a test that has been deleted",
+      "joined": "Joined {{name}}",
+      "joinedRemoved": "Joined a class that has been deleted",
+      "audit": "An action was recorded in the audit log"
+    },
+    "changeRole": {
+      "title": "Make {{name}} {{role}}?",
+      "adminBody": "Admins can change every setting and see the audit log.",
+      "body": "Their permissions change the next time they load a page. This is recorded in the audit log.",
+      "submit": "Change role",
+      "done": "Role changed to {{role}}",
+      "failed": "The role could not be changed."
+    },
+    "reset": {
+      "title": "Reset password for {{name}}?",
+      "body": "Every session they have ends, and the old password stops working.",
+      "submit": "Reset password",
+      "done": "Temporary password for {{name}}",
+      "linkSent": "Link sent to {{email}}",
+      "failed": "The password could not be reset."
+    },
+    "disable": {
+      "title": "Disable {{name}}?",
+      "body": "They are signed out and cannot sign in. Their results are kept.",
+      "teaches_one": "They teach {{count}} class. Students keep access; move the class with Transfer content.",
+      "teaches_other": "They teach {{count}} classes. Students keep access; move the classes with Transfer content.",
+      "midTest": "They are taking a test right now.",
+      "submit": "Disable"
+    },
+    "transfer": {
+      "open": "Transfer content",
+      "openHint": "Give their classes, tests and questions to another teacher",
+      "title": "Transfer {{name}}'s content to",
+      "lead": "Every class, test, question, media file and assignment they own moves to the recipient at once.",
+      "willMove": "Will move",
+      "search": "Find a teacher by name or email",
+      "recipient": "Recipient",
+      "noRecipient": "No teacher matches.",
+      "recipientsFailed": "The teachers could not be loaded.",
+      "notify": "Tell the receiving teacher",
+      "pick": "Choose a recipient.",
+      "submit": "Transfer content",
+      "failed": "The content could not be transferred.",
+      "doneTitle": "Content transferred",
+      "movedTo": "Moved to {{name}}:",
+      "moved": "Moved",
+      "done": "Done",
+      "importsLeft_one": "{{count}} unfinished Word import stays with this account.",
+      "importsLeft_other": "{{count}} unfinished Word imports stay with this account.",
+      "studentsLeft_one": "{{count}} student this account created is in none of the recipient's classes; only Admins see them until someone adds them to a class.",
+      "studentsLeft_other": "{{count}} students this account created are in none of the recipient's classes; only Admins see them until someone adds them to a class.",
+      "count": {
+        "classes_one": "{{count}} class",
+        "classes_other": "{{count}} classes",
+        "tests_one": "{{count}} test",
+        "tests_other": "{{count}} tests",
+        "questions_one": "{{count}} question",
+        "questions_other": "{{count}} questions",
+        "questionGroups_one": "{{count}} question group",
+        "questionGroups_other": "{{count}} question groups",
+        "media_one": "{{count}} media file",
+        "media_other": "{{count}} media files",
+        "assignments_one": "{{count}} assignment",
+        "assignments_other": "{{count}} assignments"
+      },
+      "readOnly": "{{name}}'s role cannot edit {{kinds}}, so after the transfer they can only view them.",
+      "kind": {
+        "classes": "classes",
+        "tests": "tests",
+        "questions": "questions",
+        "media": "media",
+        "assignments": "assignments"
+      }
+    },
+    "addUser": {
+      "open": "Add user",
+      "title": "Add user",
+      "lead": "Create an account and send them a way to sign in.",
+      "fullName": "Full name",
+      "namePlaceholder": "Nguyễn Văn An",
+      "email": "Email",
+      "emailPlaceholder": "an.nguyen@example.com",
+      "emailPartial": "Enter a full email address",
+      "emailTaken": "Someone already uses this email",
+      "role": "Role",
+      "rolesFailed": "The roles could not be loaded.",
+      "submit": "Create account",
+      "failed": "The account could not be created.",
+      "linkSent": "Account created and a link sent to {{email}}",
+      "done": "Temporary password for {{name}}",
+      "class": "Add to class",
+      "classGone": "This class no longer takes students. Pick another one.",
+      "classOptional": "(optional)"
+    },
+    "error": {
+      "targetRoleNotAllowed": "You cannot act on an account or role that holds a permission you do not have.",
+      "lastAdmin": "This is the last active Admin.",
+      "ownsContent": "This account still owns classes or content. Disable it and transfer its content first.",
+      "ownsContentAsk": "This account still owns classes or content. An Admin who sees everything must transfer it first.",
+      "self": "You cannot do this to your own account.",
+      "accountDisabled": "The account is disabled. Enable it first.",
+      "passwordSignInOff": "The centre has turned password sign-in off, so no temporary password can be set.",
+      "stale": "The account just changed somewhere else. Try again.",
+      "roleNotAssignable": "This role cannot be given.",
+      "notDisabled": "Disable the account first.",
+      "invalidRecipient": "The recipient must be another active teacher.",
+      "notFound": "This account was not found.",
+      "noLinkKey": "This server is not set up to send links.",
+      "rateLimited": "Too many attempts. Try again in a few minutes.",
+      "rateLimitedSeconds_one": "Too many attempts. Try again in {{count}} second.",
+      "rateLimitedSeconds_other": "Too many attempts. Try again in {{count}} seconds.",
+      "ownsContentTransfer": "This account still owns classes or content. Transfer its content first."
+    },
+    "credential": {
+      "mustChange": "They must change it when they next sign in.",
+      "shownOnce": "Passwords are shown only once. Copy or print them before you close, and hand them over in person or privately.",
+      "passwords": "Temporary passwords",
+      "copy": "Copy",
+      "copyAll": "Copy all",
+      "copyFailed": "Could not copy. Select the text and copy it yourself.",
+      "print": "Print",
+      "linksSent_one": "{{count}} link sent",
+      "linksSent_other": "{{count}} links sent",
+      "notReached_one": "{{count}} person was not changed",
+      "notReached_other": "{{count}} people were not changed",
+      "reason": {
+        "internal": "Something went wrong on our side. Try again.",
+        "notAStudent": "Only active students can be added.",
+        "forbidden": "You are not allowed to do this to this account."
+      },
+      "leaveFirst": "Copy or print the password, then press Done before you leave this page."
+    },
+    "classPicker": {
+      "label": "Class",
+      "search": "Search classes or teachers",
+      "none": "No class yet",
+      "empty": "No class matches.",
+      "failed": "The classes could not be loaded. Try again.",
+      "loading": "Loading classes…"
+    },
+    "bulk": {
+      "reset": "Reset password",
+      "disable": "Disable",
+      "tooMany_one": "Select at most {{count}} person for one action.",
+      "tooMany_other": "Select at most {{count}} people for one action.",
+      "resetTitle_one": "Reset {{count}} password?",
+      "resetTitle_other": "Reset {{count}} passwords?",
+      "resetLinkBody": "Each person gets a link to choose a new password. This is recorded in the audit log.",
+      "resetPasswordBody": "Each person gets a temporary password and must change it when they next sign in. This is recorded in the audit log.",
+      "resetSubmit": "Reset passwords",
+      "temporaryTooMany_one": "At most {{count}} temporary password can be shown at once. Select fewer people or send links.",
+      "temporaryTooMany_other": "At most {{count}} temporary passwords can be shown at once. Select fewer people or send links.",
+      "resetDoneTitle": "Password reset results",
+      "disableTitle_one": "Disable {{count}} account?",
+      "disableTitle_other": "Disable {{count}} accounts?",
+      "disableBody": "They are signed out and cannot sign in. Their results are kept.",
+      "disableSubmit": "Disable",
+      "disabled_one": "{{count}} account disabled",
+      "disabled_other": "{{count}} accounts disabled",
+      "disabledTitle": "Disable results",
+      "addToClass": "Add to class",
+      "addToClassTitle_one": "Add {{count}} person to a class",
+      "addToClassTitle_other": "Add {{count}} people to a class",
+      "addToClassBody": "Only active students are added. Anyone already in the class stays as they are.",
+      "addToClassSubmit": "Add to class",
+      "addToClassPick": "Pick a class.",
+      "added_one": "{{count}} added to {{name}}",
+      "added_other": "{{count}} added to {{name}}",
+      "addedTitle": "Add to class results",
+      "adding": "Adding {{done}} of {{total}}…"
+    }
+  },
+  "systemSettings": {
+    "title": "System settings",
+    "hint": "Applies to everyone in {{organization}}.",
+    "navigation": "System settings sections",
+    "loadFailed": "System settings could not be loaded.",
+    "reload": "Reload",
+    "sections": {
+      "organization": "Organization",
+      "signIn": "Sign-in",
+      "data": "Data & privacy",
+      "plan": "Plan & usage"
+    },
+    "organization": {
+      "title": "Organization",
+      "hint": "Shown on sign-in, emails and printed results.",
+      "name": "Organization name",
+      "shortName": "Short name",
+      "shortNameHint": "Used in emails and the browser tab",
+      "website": "Website",
+      "contactEmail": "Contact email",
+      "frontDeskPhone": "Front-desk phone",
+      "frontDeskHours": "Front-desk hours",
+      "address": "Address"
+    },
+    "logo": {
+      "title": "Replace logo",
+      "change": "Replace logo",
+      "save": "Save logo",
+      "light": "Logo",
+      "dark": "Version for dark mode",
+      "limits": "Square SVG or PNG, at least 256 × 256",
+      "darkLimits": "Light logo on transparent",
+      "hint": "SVG or PNG, square",
+      "hintWithDark": "SVG or PNG, square · has a dark version",
+      "alt": "The centre's logo",
+      "uploaded": "Logo uploaded. Save settings to apply.",
+      "problem": {
+        "type": "Choose an SVG or PNG file.",
+        "tooLarge": "A PNG can be at most 1 MiB.",
+        "unreadable": "This file could not be drawn. Choose another SVG or PNG.",
+        "notSquare": "The logo must be square (within 2%)."
+      }
+    },
+    "signIn": {
+      "title": "Sign-in",
+      "hint": "How people get into Quizzivy.",
+      "google": "Sign in with Google",
+      "googleHint": "Links to an existing account by verified email",
+      "password": "Sign in with email and password",
+      "passwordHint": "Turn off only if everyone uses Google",
+      "force": "Force password change on first sign-in",
+      "forceHint": "Applies to accounts created with a temporary password",
+      "joinCodes": "Students can join classes with a code",
+      "joinCodesHint": "Teachers share a code or link",
+      "domains": "Allowed Google domains",
+      "domainsHint": "Only these email domains can sign in with Google. Leave empty to allow any.",
+      "domainsAdd": "Add domain…",
+      "domainsRemove": "Remove domain {{domain}}",
+      "impact_one": "{{count}} person will no longer be able to sign in.",
+      "impact_other": "{{count}} people will no longer be able to sign in.",
+      "impactAdmins_one": "{{count}} of them is an Admin.",
+      "impactAdmins_other": "{{count}} of them are Admins.",
+      "noMethod": "Keep at least one way to sign in on: Google, or email and password.",
+      "lockedYou": "With this policy you could not sign in any more. Keep a way in for yourself.",
+      "lockedAdmins": "With this policy no Admin would have a way in. Keep at least one for them."
+    },
+    "errors": {
+      "nameRequired": "Enter the organization's name.",
+      "nameTooLong": "The name can be at most 120 characters.",
+      "shortNameTooLong": "The short name can be at most 40 characters.",
+      "websiteTooLong": "The website can be at most 200 characters.",
+      "contactEmailTooLong": "The contact email can be at most 254 characters.",
+      "frontDeskPhoneTooLong": "The phone number can be at most 30 characters.",
+      "frontDeskHoursTooLong": "The hours can be at most 120 characters.",
+      "addressTooLong": "The address can be at most 300 characters.",
+      "domainInvalid": "Not a valid domain.",
+      "domainsTooMany": "At most 50 domains.",
+      "noMethod": "Keep at least one way to sign in on."
+    },
+    "data": {
+      "title": "Data & privacy",
+      "hint": "How long Quizzivy keeps things.",
+      "keepAnswers": "Keep attempt answers",
+      "keepAnswersHint": "After this, students' answers are deleted overnight. Scores are kept.",
+      "keepFocus": "Keep focus-loss events",
+      "keepFocusHint": "After this, focus-loss events are deleted overnight.",
+      "anonymise": "Anonymise disabled accounts after",
+      "anonymiseHint": "Results are kept; name and email are removed.",
+      "options": {
+        "year1": "1 year",
+        "year2": "2 years",
+        "forever": "Forever",
+        "month6": "6 months",
+        "month13": "13 months (default)",
+        "never": "Never"
+      }
+    },
+    "export": {
+      "title": "Export all data",
+      "hint": "Emails you a link to download everything the centre holds. The link expires in 24 hours.",
+      "request": "Request export",
+      "dialogTitle": "Export all data?",
+      "dialogHint": "The link opens the download page and is valid for 24 hours.",
+      "sendTo": "Send the link to",
+      "includeAnswers": "Include attempt answers",
+      "includeAnswersHint": "Makes the file much larger",
+      "submit": "Request export",
+      "requested": "Export requested. The link will be sent to {{email}}",
+      "inProgress": "An export is already being prepared. Wait for its email before asking again.",
+      "rateLimited_one": "Only one export can be requested per hour. Try again in {{count}} minute.",
+      "rateLimited_other": "Only one export can be requested per hour. Try again in {{count}} minutes.",
+      "off": "Data export is not switched on for this server."
+    },
+    "retentionConfirm": {
+      "title": "Shorten how long data is kept?",
+      "hint": "The clean-up runs every night and cannot be undone.",
+      "confirm": "Save and delete",
+      "nothing": "Nothing would be deleted tonight.",
+      "answers_one": "Tonight will delete the answers of {{count}} attempt ({{answers}} answers).",
+      "answers_other": "Tonight will delete the answers of {{count}} attempts ({{answers}} answers).",
+      "focus_one": "Tonight will delete {{count}} focus-loss event.",
+      "focus_other": "Tonight will delete {{count}} focus-loss events.",
+      "accounts_one": "Tonight will anonymise {{count}} disabled account.",
+      "accounts_other": "Tonight will anonymise {{count}} disabled accounts.",
+      "owners_one": "{{count}} disabled account is kept because it still owns classes or content.",
+      "owners_other": "{{count}} disabled accounts are kept because they still own classes or content."
+    },
+    "plan": {
+      "title": "Plan & usage",
+      "hint": "No plan is set for this centre.",
+      "named": "{{name}} plan",
+      "namedRenews": "{{name}} plan · renews {{date}}",
+      "loadFailed": "Usage could not be loaded.",
+      "seats": "Seats",
+      "media": "Media storage",
+      "imports": "Import document storage",
+      "importsCount_one": "{{count}} import",
+      "importsCount_other": "{{count}} imports",
+      "teachers": "Teachers",
+      "aiCredits": "AI credits",
+      "aiCreditsOf": "{{used}} of {{pool}} this month"
+    }
+  },
+  "dataExport": {
+    "title": "Data export",
+    "hint": "A file of everything the centre holds.",
+    "back": "Data & privacy",
+    "cardTitle": "Export request",
+    "requested": "Requested",
+    "contents": "Contents",
+    "withAnswers": "With attempt answers",
+    "withoutAnswers": "Without attempt answers",
+    "size": "Size",
+    "expires": "Expires",
+    "status": {
+      "queued": "Queued",
+      "running": "Running",
+      "ready": "Ready",
+      "failed": "Failed",
+      "expired": "Expired"
+    },
+    "waiting": {
+      "queued": "The request is waiting its turn. This page updates by itself.",
+      "running": "The file is being built. This page updates by itself."
+    },
+    "failed": "The export could not be built. Request another from System settings.",
+    "expiredNote": "The link has expired. Request another from System settings.",
+    "download": "Download",
+    "downloadedAt": "Downloaded {{time}} · {{count}}/{{max}} times",
+    "missing": "This export was not found",
+    "missingHint": "It does not exist, or somebody else requested it.",
+    "loadFailed": "The export could not be loaded.",
+    "downloadCount": "Downloaded {{count}}/{{max}} times",
+    "exhausted": "All downloads are used. Request another export from System settings."
   },
   "student": {
     "shell": {
@@ -564,6 +1661,7 @@
       "change": "Change",
       "updatePassword": "Update password",
       "passwordUpdated": "Password updated. Other devices have been signed out.",
+      "passwordChangedLine": "Changed {{when}}",
       "passwordMin": "At least 8 characters.",
       "strength": {
         "okay": "Okay",
@@ -589,7 +1687,9 @@
   },
   "changePassword": {
     "title": "Choose your password",
+    "titleVoluntary": "Change password",
     "body": "You signed in with a temporary password. Pick one only you know.",
+    "bodyVoluntary": "Enter your current password, then pick a new one only you know.",
     "current": "Current password",
     "new": "New password",
     "again": "Type it again",
@@ -601,6 +1701,7 @@
       "length": "At least 8 characters",
       "numberOrSymbol": "A number or symbol",
       "different": "Different from the temporary password",
+      "differentCurrent": "Different from the current password",
       "met": "met",
       "unmet": "not met"
     },
@@ -608,7 +1709,33 @@
       "tooShort": "The new password needs at least 8 characters.",
       "numberOrSymbol": "The new password needs a number or a symbol.",
       "mismatch": "The two passwords are different.",
-      "unchanged": "The new password must be different from the current one."
+      "unchanged": "The new password must be different from the current one.",
+      "currentMissing": "Enter your current password."
+    }
+  },
+  "setPassword": {
+    "checking": "Checking the link…",
+    "title": "Set a password for {{email}}",
+    "body": {
+      "invite": "Hi {{name}}. Choose a password only you know. Once it is saved, you are signed in.",
+      "reset": "Hi {{name}}. Choose a new password only you know. Once it is saved, you are signed in and your other devices are signed out."
+    },
+    "submit": "Set password and sign in",
+    "submitting": "Saving…",
+    "toSignIn": "Go to sign in",
+    "invalid": {
+      "title": "This link can no longer be used",
+      "body": "This link has expired or has already been used. Ask your centre for a new one."
+    },
+    "passwordsOff": {
+      "title": "Sign in with Google",
+      "body": "Your centre has turned off signing in with a password, so there is no password to set. Sign in with Google using your email address instead."
+    },
+    "unavailable": {
+      "title": "The link could not be checked"
+    },
+    "errors": {
+      "tooLong": "A password can be at most 512 characters."
     }
   },
   "login": {
@@ -637,7 +1764,8 @@
     "invalidCredentials": "That email and password do not match. Check for typos, or ask your teacher to reset your password.",
     "haveCode": "Have a class code?",
     "joinClass": "Join a class",
-    "googleFailedTitle": "Couldn't sign you in with Google"
+    "googleFailedTitle": "Couldn't sign you in with Google",
+    "noMethod": "No way to sign in is available right now. Ask the front desk or your centre's administrator."
   },
   "join": {
     "title": "Join a class",
@@ -657,6 +1785,10 @@
     "joining": "Adding you to {{className}}…",
     "failed": "Could not join the class. Please try again.",
     "goToClasses": "Go to my classes",
+    "off": {
+      "title": "Joining with a code is off",
+      "body": "Your centre is not letting students join a class with a code right now. Ask your teacher to add you, or ask the front desk."
+    },
     "joined": {
       "title": "You're in {{className}}",
       "body": "{{teacherName}} will see you in the class list.",
@@ -683,6 +1815,7 @@
     "uses": "Uses",
     "noActiveCode": "No active code. Students can only be added by you.",
     "archivedNoCode": "This class is archived, so nobody can join it. Restore it from Classes to make a code.",
+    "archivedNoCodeOff": "This class is archived, so nobody can join it.",
     "copyLink": "Copy link",
     "rotate": "New code",
     "issue": "Create code",
@@ -693,6 +1826,7 @@
     "revokeFailed": "Could not stop joining. Please try again.",
     "loadFailed": "Could not load the class.",
     "noMembers": "No students yet. Share the join code or add them yourself.",
+    "noMembersOff": "No students yet. Add them to the class yourself.",
     "name": "Name",
     "joinedVia": "Joined via",
     "joinedAt": "Joined",
@@ -709,6 +1843,7 @@
     "revokeConfirmBody": "Nobody can join with it any more. You can create a new one later.",
     "revokeConfirm": "Stop code",
     "removeConfirmBody": "Their submitted work and scores are kept. They can rejoin with a code.",
+    "removeConfirmBodyOff": "Their submitted work and scores are kept.",
     "removeConfirm": "Remove",
     "studentCount_one": "{{count}} student",
     "studentCount_other": "{{count}} students",
@@ -757,6 +1892,7 @@
     "memberActions": "Actions for {{name}}",
     "viewResults": "View results",
     "unreadableNote": "This code cannot be read back. Make a new one to share with students.",
+    "unreadableNoteOff": "This code cannot be read back.",
     "showQr": "Show QR code full size",
     "showQrFull": "Show full size for the projector",
     "qrDialogTitle": "Join {{name}}",
@@ -784,13 +1920,15 @@
     "addCount_one": "Add {{count}}",
     "addCount_other": "Add {{count}}",
     "expiresIn_one": "· in {{count}} day",
-    "expiresIn_other": "· in {{count}} days"
+    "expiresIn_other": "· in {{count}} days",
+    "codeInactive": "Inactive"
   },
   "classes": {
     "loadFailed": "Could not load classes.",
     "empty": "No classes yet.",
     "new": "New class",
     "newHint": "You get a join code to share with students.",
+    "newHintOff": "You add students to the class after creating it.",
     "name": "Class name",
     "namePlaceholder": "For example: IELTS Foundation — Tue/Thu evenings",
     "create": "Create class",
@@ -821,12 +1959,14 @@
     "noActive": "No active classes.",
     "noArchived": "No archived classes.",
     "emptyHint": "Create a class to get a join code for your students.",
+    "emptyHintOff": "Create a class, then add your students to it.",
     "schedule": "Schedule",
     "schedulePlaceholder": "Mon · Wed, 09:00",
     "room": "Room",
     "roomPlaceholder": "Room 3",
     "createdWithCode": "Class created · join code {{code}}",
     "createdNoCode": "Class created, but its join code could not be made. Create one from the class's card.",
+    "createdJoinOff": "Class created. Your centre has turned off joining with a code, so it has no code yet.",
     "edit": "Edit class",
     "updated": "Class updated",
     "updateFailed": "Could not save the class.",
@@ -842,8 +1982,11 @@
     "maskedCode": "••••-{{hint}}",
     "codeState": {
       "expired": "Expired",
-      "usedUp": "Used up"
+      "usedUp": "Used up",
+      "off": "Inactive"
     },
+    "heldBackNamed": "{{named}}. {{why}}",
+    "codeStateBoth": "{{state}} · {{why}}",
     "noCode": "No join code",
     "createCode": "Create code",
     "createCodeNamed": "Create a join code for {{name}}",
@@ -870,7 +2013,63 @@
     "createCodeBody": "The code works for 30 days and 40 joins.",
     "codeRenewedWith": "New join code: {{code}}",
     "newCodeFailed": "Could not make a new join code.",
-    "codesReplaced": "Your classes' join codes were replaced on {{date}}. Share the new ones with your students."
+    "codesReplaced": "Your classes' join codes were replaced on {{date}}. Share the new ones with your students.",
+    "codesReplacedOff": "Your classes' join codes were replaced on {{date}}.",
+    "joinCodesOff": "Your centre has turned off joining with a code.",
+    "joinCodesOffOpen": "Open sign-in settings",
+    "joinCodesOffAsk": "Ask your admin.",
+    "pageLeadOff": "Teachers add students to their classes.",
+    "admin": {
+      "lead": "Every class across teachers.",
+      "search": "Search classes or teachers",
+      "result_one": "{{count}} class",
+      "result_other": "{{count}} classes",
+      "table": "Classes",
+      "column": {
+        "class": "Class",
+        "teacher": "Teacher",
+        "students": "Students",
+        "code": "Join code",
+        "created": "Created"
+      },
+      "teacherDisabled": "Disabled",
+      "teacherDisabledInline": "{{name}} (disabled)",
+      "noCode": "No code",
+      "noCodeArchived": "Archived, no join code",
+      "copyCode": "Copy join code",
+      "copyCodeNamed": "Copy the join code of {{name}}",
+      "rotate": "Rotate join code",
+      "rotateNamed": "Rotate the join code of {{name}}",
+      "rotateTitle": "Rotate join code for {{name}}?",
+      "rotateBody": "The old code and link stop working right away. Students already in the class are not affected.",
+      "rotateConfirm": "Rotate code",
+      "changeTeacher": "Change teacher",
+      "changeTeacherShort": "Change teacher",
+      "restore": "Restore class",
+      "archiveTitle": "Archive {{name}}?",
+      "archiveBody": "Students can no longer join or start tests. Results are kept.",
+      "emptyActive": "No active classes yet.",
+      "emptyArchived": "No archived classes.",
+      "emptyFiltered": "No classes match these filters.",
+      "clearFilters": "Clear filters",
+      "filterLabel": "Filters in use",
+      "disabledTeachers": "Disabled teachers",
+      "removeFilter": "Remove the {{label}} filter",
+      "namePlaceholder": "IELTS 7.0 Morning",
+      "teacherPlaceholder": "Choose a teacher",
+      "teachersLoading": "Loading teachers…",
+      "teachersFailed": "Could not load the teachers.",
+      "teachersNone": "No active teachers yet.",
+      "newHint": "A join code is created for students.",
+      "newHintOff": "The teacher adds students to the class once it exists.",
+      "created": "Class created",
+      "invalidTeacher": "This person cannot teach a class: the account is disabled or its role has no teacher workspace.",
+      "newTeacher": "New teacher",
+      "notifyBoth": "Tell both teachers",
+      "change": "Change",
+      "changeFailed": "Could not change the teacher.",
+      "teacherChanged": "{{name}} now taught by {{teacher}}"
+    }
   },
   "settings": {
     "profile": "Profile",
@@ -878,11 +2077,19 @@
     "email": "Email",
     "password": "Password",
     "passwordChanged": "Password changed. Other devices have been signed out.",
+    "passwordChangedLine": "Last changed {{when}}.",
     "google": "Google account",
     "googleLinked": "Linked to Google.",
     "googleNotLinked": "Not linked to Google.",
     "googleOnlyExplainer": "Google is currently the only way into this account. Set a password before unlinking.",
-    "googleOnlyTeacher": "You sign in with Google only, so Google cannot be unlinked yet.",
+    "googleNoPassword": "This account has no password yet, so Google cannot be unlinked. Set a password to have a second way to sign in.",
+    "googleOnlyPasswordsOff": "You sign in with Google only, so Google cannot be unlinked yet.",
+    "setPasswordLink": {
+      "send": "Email me a link to set a password",
+      "sendAgain": "Send the link again",
+      "sending": "Sending…",
+      "sent": "We sent a link to {{email}}. It works once and expires in 24 hours."
+    },
     "linkGoogle": "Link Google",
     "unlinkGoogle": "Unlink Google",
     "locale": {
@@ -896,13 +2103,6 @@
     "signInGoogle": "Google",
     "classCount": "Classes",
     "googleBothExplainer": "You can sign in with Google or with your password. Unlinking leaves only the password.",
-    "apiDocs": {
-      "title": "API reference",
-      "body": "Browse the Quizzivy API reference. It opens in a new tab and stays open for 15 minutes; after that, open it again from here.",
-      "open": "Open API reference",
-      "blocked": "Your browser blocked the new tab. Allow pop-ups for Quizzivy and try again.",
-      "failed": "The API reference could not be opened. Please try again."
-    },
     "profileSaved": "Your name has been saved.",
     "errors": {
       "nameRequired": "Enter your name.",
@@ -915,7 +2115,6 @@
       "profile": "Profile",
       "security": "Sign-in & security",
       "appearance": "Appearance",
-      "api": "API reference",
       "notifications": "Notifications",
       "defaults": "Assignment defaults",
       "ai": "AI assistant"
@@ -1959,8 +3158,6 @@
       "rowToGrade_other": "{{count}} to grade"
     },
     "awaitingGradingHint": "Submitted, with answers only you can score.",
-    "openAssignments": "Open assignments",
-    "openAssignmentsHint": "Inside their window right now.",
     "status": {
       "in_progress": "started",
       "submitted": "submitted",
@@ -2076,6 +3273,8 @@
       "test": "Test",
       "versionMeta": "{{questions}} questions · {{points}} points · {{audio}} listening · {{manual}} graded by hand · v{{version}}",
       "versionOnly": "v{{version}}",
+      "pinned": "Pinned to v{{version}}. Later edits to the test do not reach students on this assignment.",
+      "pinnedClosed": "Students took v{{version}}, even if the test now has a newer version.",
       "targets": "Assigned to",
       "targetCount": "{{count}} students",
       "classes": "Classes",
@@ -2417,6 +3616,7 @@
     "password": "Password",
     "average": "Average",
     "percent": "{{value}}%",
+    "neverActive": "Never",
     "takingNow": "taking a test",
     "flagged": "Flagged",
     "joinedVia": {
@@ -2475,6 +3675,7 @@
     "accountHeader": "Account",
     "account": {
       "active": "Active",
+      "notSignedIn": "Not signed in",
       "reset": "Password reset",
       "suspended": "Suspended"
     },
@@ -2498,6 +3699,7 @@
     "removeAll": "Remove",
     "removeAllTitle": "Remove {{name}} from their classes?",
     "removeAllBody": "{{name}} will leave: {{classes}}. Their account and results stay. They can rejoin with a class code.",
+    "removeAllBodyOff": "{{name}} will leave: {{classes}}. Their account and results stay.",
     "removedAll": "{{name}} removed from their classes",
     "move": {
       "titleOne": "Move {{name}}",
@@ -2742,7 +3944,11 @@
       "aiWarning": "You have used {{used}} of your {{allowance}} AI credits this month",
       "aiRequest": "{{teacherName}} asked for {{credits}} more AI credits",
       "aiApproved": "Your request for {{credits}} more AI credits was approved",
-      "aiDeclined": "Your request for {{credits}} more AI credits was declined"
+      "aiDeclined": "Your request for {{credits}} more AI credits was declined",
+      "transferred_one": "{{teacherName}}'s content is now yours: {{count}} item",
+      "transferred_other": "{{teacherName}}'s content is now yours: {{count}} items",
+      "teacherReceived": "You now teach {{className}}",
+      "teacherChanged": "{{className}} is now taught by {{teacherName}}"
     },
     "bell": {
       "label": "Notifications",
@@ -2916,10 +4122,12 @@
       "wrong": "Wrong",
       "partial": "Partly correct",
       "pending": "To grade",
-      "unanswered": "Unanswered"
+      "unanswered": "Unanswered",
+      "removed": "Removed"
     },
     "studentAnswer": "Student's answer",
     "unanswered": "The student didn't answer this question.",
+    "answerRemoved": "This answer was removed under the centre's retention policy.",
     "accepted": "Accepted answers: {{answers}}",
     "pickedCorrect": "student's choice · correct",
     "picked": "student's choice",
@@ -2986,7 +4194,7 @@
       "cut": "Cut content",
       "context_menu": "Opened the context menu",
       "resume": "Resumed the test",
-      "session_takeover": "Resumed from another device",
+      "session_takeover": "Resumed in another tab or device",
       "page_hide": "Closed the page",
       "tab_visible": "Returned to the tab",
       "window_focus": "Returned to the window",
@@ -3092,6 +4300,7 @@
     "youAnswered": "You answered",
     "correctAnswer": "Correct answer",
     "noAnswer": "No answer",
+    "answerRemoved": "This answer was removed under the centre's retention policy.",
     "true": "True",
     "false": "False",
     "blank": "blank",
@@ -3961,8 +5170,6 @@
       "promptEditorLabel": "Question {{label}} content",
       "doneEditing": "Done",
       "doneOptionNamed": "Done editing option {{label}}",
-      "trueOption": "True",
-      "falseOption": "False",
       "acceptedLimit": "At most {{count}} answers of up to {{length}} characters each. Anything beyond that is not saved.",
       "blankLimit": "A question can have at most {{max}} blanks. Remove one before adding another.",
       "excludeReason": "Reason",
@@ -4475,5 +5682,120 @@
     "enter": "Enter",
     "up": "Up arrow",
     "down": "Down arrow"
+  },
+  "apiReference": {
+    "title": "API reference",
+    "lead": "Every Quizzivy endpoint, generated from the same contract the app uses. Only admins can open it.",
+    "loadFailed": "The API reference details could not be loaded.",
+    "hero": "Quizzivy API",
+    "version_one": "OpenAPI {{openapi}} · v{{version}} · {{count}} endpoint",
+    "version_other": "OpenAPI {{openapi}} · v{{version}} · {{count}} endpoints",
+    "download": "openapi.json",
+    "downloadFailed": "openapi.json could not be downloaded. Please try again.",
+    "open": "Open reference",
+    "opening": "Opening…",
+    "baseUrl": "Base URL",
+    "copyFailed": "Could not copy. Select the base URL and copy it by hand.",
+    "security": "Opens in a new tab with a short docs session tied to your account. The session can only read the documentation and does not call the API for you.",
+    "blocked": "Your browser blocked the new tab. Allow pop-ups for Quizzivy and try again.",
+    "failed": "The API reference could not be opened. Please try again.",
+    "inside": "What's in it",
+    "insideHint": "Open a group to jump to it in the reference",
+    "endpoints_one": "{{n}} endpoint",
+    "endpoints_other": "{{n}} endpoints",
+    "groups": {
+      "public": {
+        "name": "Public",
+        "blurb": "No sign-in needed: the system status, the centre's details and the join-code preview."
+      },
+      "auth": {
+        "name": "Sign-in & account",
+        "blurb": "Sign-in, Google, the refresh session, password changes and your own sessions."
+      },
+      "teacher-tests": {
+        "name": "Tests",
+        "blurb": "Drafts, shared-context groups, publishing, versions and the preview."
+      },
+      "teacher-questions": {
+        "name": "Question bank",
+        "blurb": "Questions, tags, search and the question groups."
+      },
+      "teacher-imports": {
+        "name": "Word import",
+        "blurb": "Upload, processing, review and commit."
+      },
+      "teacher-media": {
+        "name": "Media",
+        "blurb": "Images and audio: uploads, names and where they are used."
+      },
+      "teacher-assignments": {
+        "name": "Assignments",
+        "blurb": "Giving a version to classes and students, its schedule, exceptions and results."
+      },
+      "teacher-attempts": {
+        "name": "Attempts & grading",
+        "blurb": "The monitor, grading, comments and integrity events."
+      },
+      "teacher-students": {
+        "name": "Students",
+        "blurb": "The accounts, passwords and classes of the students a teacher reaches."
+      },
+      "teacher-classes": {
+        "name": "Classes",
+        "blurb": "Classes, members and join codes."
+      },
+      "teacher-ai": {
+        "name": "AI assistant",
+        "blurb": "The assistant's suggestions and a teacher's credits. It never writes a grade or a question."
+      },
+      "admin-users": {
+        "name": "Users",
+        "blurb": "Listing, creating and deleting user accounts, and importing many at once from a file."
+      },
+      "admin-roles": {
+        "name": "Roles & permissions",
+        "blurb": "Creating and editing roles, and the permission matrix under the subset rule."
+      },
+      "admin-classes": {
+        "name": "Classes across teachers",
+        "blurb": "Every class in the centre, creating a class for a teacher and changing a class's teacher."
+      },
+      "admin-ai": {
+        "name": "AI credits",
+        "blurb": "The pool, teachers' allowances, requests for more credits and the rules."
+      },
+      "admin-docs": {
+        "name": "API reference",
+        "blurb": "The docs session, the summary and the contract file."
+      },
+      "admin-audit": {
+        "name": "Audit log",
+        "blurb": "A read-only history of sensitive changes, downloadable as a file."
+      },
+      "admin-exports": {
+        "name": "Data export",
+        "blurb": "Asking for and downloading a full export of the centre's data."
+      },
+      "admin-overview": {
+        "name": "Overview",
+        "blurb": "The overview figures, the sidebar badge and the plan's usage."
+      },
+      "admin-settings": {
+        "name": "System settings",
+        "blurb": "The centre's details, the sign-in policy and retention."
+      },
+      "student": {
+        "name": "Student app",
+        "blurb": "A student's classes and assignments."
+      },
+      "take-test": {
+        "name": "Taking tests",
+        "blurb": "Starting, saving answers, submitting and an attempt's media."
+      },
+      "me": {
+        "name": "My account",
+        "blurb": "Notifications, the avatar, the summary and notification preferences."
+      }
+    }
   }
 }
