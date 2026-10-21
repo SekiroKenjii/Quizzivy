@@ -607,7 +607,36 @@ DROP INDEX CONCURRENTLY IF EXISTS app.assignments_creator_idx;         -- 00077
 ## Rolling out v0.12.0 (R5)
 
 v0.12.0 adds the Admin console, outgoing email and the nightly retention sweep, with
-migrations `00128` to `00141`. Three things must exist before the merge to `main`. A missing secret or a missing
+migrations `00128` to `00141` (`docs/plan/75-r5.md`, the release checklist).
+
+**The order.** Merging `release/0.12.0` to `main` deploys the API first: Fly's
+`release_command` (`fly.toml`, `/app/migrate -dir /app/migrations up`) runs `00128` to
+`00141` before the new version takes traffic, and v0.11.11 keeps serving while they
+apply, except while `00131` holds `app.users` (below). Each migration commits on its own, so a
+stop at `00139` or `00141` leaves the earlier ones applied, which v0.11.11 tolerates. The rolling strategy then replaces the `app` and `worker` machines. Pages deploys
+second. Every new column on a populated table (`00131`, four on `app.users`) is nullable
+with no default, so v0.11.11's inserts keep working during the roll.
+
+- `00128`, `00130`, `00132`, `00134` to `00137` and `00140` create tables v0.11.11 never
+  reads. `00130` writes the one `organization_settings` row and revokes `INSERT` and
+  `DELETE` on it from the app role.
+- `00129` grants the app role the role writes (`INSERT` and some `UPDATE` columns on
+  `roles`, `INSERT` and `DELETE` on `role_permissions`).
+- `00131` backfills `last_sign_in_at` and `last_active_at` once, from refresh tokens,
+  attempts and the audit log, with `users_set_updated_at` disabled for the update. The
+  backfill runs in the transaction that adds the columns, so `app.users` is held
+  `ACCESS EXCLUSIVE` until it ends, and every request that reads a user (sign-in, refresh,
+  any authenticated call) waits for it. `refresh_tokens` has only a partial index on its user,
+  so the backfill scans it per user. Its time on the Neon-branch rehearsal is a go/no-go: if it
+  takes more than a few seconds, deploy outside teaching hours.
+- `00133` and `00138` build their indexes `CONCURRENTLY` (`-- +goose NO TRANSACTION`); see
+  "Interrupted index build in v0.12.0" below.
+- `00139` stops unless `quizzivy_maintenance` exists, then grants it column by column and adds
+  `users_maintenance_guard`, which fires for that role only.
+- `00141` stops on a live legacy join code, revokes every unrevoked legacy code at its expiry
+  and validates `class_join_codes_live_encrypted`.
+
+Three things must exist before the merge to `main`. A missing secret or a missing
 maintenance role stops the deploy on its own; the sending domain has to be checked by hand:
 
 - **Fly secrets `SECRETS_KEY` and `RESEND_API_KEY`** (`dns.md`, "Secrets on Fly").
@@ -646,6 +675,59 @@ The `PLAN_*` variables stay unset until the centre's plan is decided
 temporary password gets `403 PASSWORD_CHANGE_REQUIRED` once and is sent to change it;
 the release notes say so. Roll forward rather than back
 (`docs/plan/70-redesign-overview.md` §8).
+
+**Where the prerequisites stand at the release commit (2026-10-20).** `fly.toml`'s `[env]`
+already holds `EMAIL_FROM`, `APP_URL`, `EMAIL_DAILY_LIMIT` (`100`), `EMAIL_SEND_RATE` and
+`APP_TIMEZONE`; no `PLAN_*` value is set. Thuong confirmed the Resend DNS records and
+`SECRETS_KEY` on 2026-10-19, and counted the live legacy join codes on a Neon branch of
+production: 0. Still owed before the merge, by the owner: Resend's open and click tracking off
+and the `RESEND_API_KEY` secret; `provision-db.sh` for `quizzivy_maintenance` and the
+`production-maintenance` environment's `MAINTENANCE_DATABASE_URL`; the Neon-branch rehearsal of
+`goose up` with its timings (`00131`'s above all), `audit_log_recent_idx` valid and T-R5.12's
+`EXPLAIN` of the audit log's first page using it, `has_schema_privilege('quizzivy_maintenance',
+'public', 'USAGE')` true after `00139` with no `WARNING` from its grants in goose's output, and
+the retention sweep's dry run; and the exam-window check.
+
+### Rolling v0.12.0 back
+
+Rollback is roll forward (`docs/plan/70-redesign-overview.md` §8): prefer a hotfix and run no
+Down migration. Every Down of `00128` to `00141` drops what its Up created (`00141`'s keeps the
+revocations of expired legacy codes), but none is needed for v0.11.11 to run, and the Downs of
+`00128`, `00130` to `00132`, `00134` to `00137` and `00140` delete the outbox, the settings, the
+users' activity columns and daily activity, the exports, the set-password links, the imports and
+the avatar sweeps with their rows. If the API must go
+back to v0.11.11, roll Pages back to its previous deployment **in the same hour**: the v0.12.0
+bundle calls the Admin console's operations, which v0.11.11 does not serve (`404`), and two of
+them reach the wrong handler (below).
+
+While v0.11.11 runs on the v0.12.0 schema, either during the rolling deploy or after a rollback:
+- **The `/admin` alias comes back.** v0.11.11's `legacyAdminPatterns` still holds `GET` and
+  `POST /admin/classes`, so the v0.12.0 Admin Classes page reads the teacher workspace's
+  `listClasses` through it, and its create is refused with `400` (`teacherId` is not a field of
+  `createClass`). Scripts on the old teaching paths work again until the roll forward, after
+  which they get `404` once more.
+- **The centre's settings are not enforced.** v0.11.11 never reads `organization_settings`:
+  password sign-in turned off, the allowed Google domains and joining by code turned off all stop
+  applying, and the front door shows the `VITE_ORG_*` build values.
+- **A temporary password is not enforced on the server.** v0.11.11 has no
+  `PASSWORD_CHANGE_REQUIRED`; its web still sends an account with `mustChangePassword` to Change
+  password (`RequireSession`), but its API answers every operation.
+- **Join codes are unaffected.** v0.11.11 seals every code it issues (`lookup_scheme` 2 with a
+  ciphertext, `classes/repositories/joincodes.go`), so it never writes a row
+  `class_join_codes_live_encrypted` refuses, and its start-up rotation finds no live legacy code
+  to replace. Its legacy SHA-256 lookup finds only revoked codes.
+- **`getDashboard` returns its four old fields again**; the v0.12.0 bundle does not read them,
+  and the v0.11.11 bundle has not read them since R4 (T-R4.23).
+- **The grants stay.** `00129`'s role writes and `00139`'s maintenance grants are unused by
+  v0.11.11, and `users_maintenance_guard` fires only for `quizzivy_maintenance`.
+- **Nothing drains or stamps.** No dispatcher sends the outbox, so pending messages wait and a
+  set-password link already emailed opens no page until v0.12.0 is back (the link lives 24
+  hours). Queued imports and exports wait for the v0.12.0 worker. `last_active_at` and
+  `user_activity_days` stop moving, so the Overview's chart has a gap for those days, and the
+  daily housekeeping does not run.
+- The nightly retention workflow builds `cmd/maintenance` from the repository in GitHub
+  Actions (`.github/workflows/retention-sweep.yml`), not from the API's image, so a rollback of
+  the API does not change it; it applies only once `RETENTION_SWEEP_ENABLED` is set.
 
 ## Interrupted index build in v0.12.0 (R5)
 
