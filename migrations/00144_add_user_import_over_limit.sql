@@ -22,7 +22,7 @@ ALTER TABLE app.user_import_jobs
 
 -- +goose Down
 UPDATE app.user_import_rows SET outcome = 'skipped_exists' WHERE outcome = 'skipped_limit';
-UPDATE app.user_import_jobs SET skipped_count = skipped_count + over_limit_count WHERE over_limit_count > 0;
+UPDATE app.user_import_jobs SET skipped_count = skipped_count + over_limit_count, over_limit_count = 0 WHERE over_limit_count > 0;
 ALTER TABLE app.user_import_jobs
   DROP CONSTRAINT user_import_jobs_done_settled,
   DROP CONSTRAINT user_import_jobs_counts_check,

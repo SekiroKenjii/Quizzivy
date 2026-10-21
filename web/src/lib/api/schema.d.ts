@@ -7289,9 +7289,10 @@ export interface components {
          * @description The facts a row quotes, by kind; a field its kind does not use is
          *     absent. `never_signed_in`: `oldestCreatedAt`.
          *     `disabled_teacher_classes`: `className` and `teacherName` of the newest
-         *     such class. `storage`: `storagePercent`, `mediaPercent`,
-         *     `importsPercent` and `databasePercent`, each present only for a
-         *     reading at or over `warnAtPercent` of its limit. `email_held`: `heldUntil`, when the first held
+         *     such class. `storage`: `seatsPercent`, `teachersPercent`,
+         *     `storagePercent`, `mediaPercent`, `importsPercent` and
+         *     `databasePercent`, each present only for a reading at or over
+         *     `warnAtPercent` of its limit. `email_held`: `heldUntil`, when the first held
          *     message may go. `ai_credit_requests`: `teacherName`,
          *     `used` and `allowance` of the request waiting longest.
          */
@@ -7300,6 +7301,8 @@ export interface components {
             oldestCreatedAt?: string;
             className?: string;
             teacherName?: string;
+            seatsPercent?: number;
+            teachersPercent?: number;
             mediaPercent?: number;
             importsPercent?: number;
             storagePercent?: number;

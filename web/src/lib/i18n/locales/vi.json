@@ -875,6 +875,8 @@
       "disabledTeacherHint": "{{className}} · {{teacherName}}",
       "storage": {
         "title": "Gần chạm giới hạn: {{readings}}",
+        "seats": "tài khoản {{percent}}%",
+        "teachers": "giáo viên {{percent}}%",
         "files": "lưu trữ tệp {{percent}}%",
         "media": "một thư viện media {{percent}}%",
         "imports": "tài liệu nhập đang mở {{percent}}%",
@@ -883,8 +885,8 @@
       "storageHint": "Xem lại giới hạn trong Gói và mức dùng",
       "emailHeld_one": "{{count}} email đang chờ vì giới hạn email",
       "emailHeld_other": "{{count}} email đang chờ vì giới hạn email",
-      "emailHeldHint": "Thư sẽ được gửi khi sang ngày hoặc tháng mới",
-      "emailHeldUntil": "Thư tiếp theo gửi {{when}}",
+      "emailHeldHint": "Thư được gửi khi giới hạn cho phép: nâng giới hạn, hoặc chờ sang ngày hoặc tháng mới",
+      "emailHeldUntil": "Thư được gửi khi giới hạn cho phép, muộn nhất {{when}}, trừ khi liên kết hết hạn trước",
       "creditRequests_one": "{{count}} giáo viên xin thêm tín dụng AI",
       "creditRequests_other": "{{count}} giáo viên xin thêm tín dụng AI",
       "creditRequestsHint": "{{teacherName}} · đã dùng {{used}} trên {{allowance}}"
@@ -1533,7 +1535,7 @@
         },
         "email": {
           "title": "Email",
-          "hint": "Thư vượt giới hạn sẽ chờ sang ngày hoặc tháng sau, không bị mất."
+          "hint": "Thư vượt giới hạn sẽ chờ và được gửi trước tiên khi giới hạn cho phép, muộn nhất là ngày hoặc tháng sau. Liên kết đăng nhập hết hạn trong lúc chờ sẽ không được gửi."
         },
         "database": {
           "title": "Cơ sở dữ liệu và cảnh báo",

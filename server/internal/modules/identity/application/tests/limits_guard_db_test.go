@@ -143,6 +143,7 @@ func TestEveryWayToTakeASeatOrATeacherPlaceStopsAtTheLimit(t *testing.T) {
 	}{
 		{"an Admin creates a student", limits.Seats, limits.ErrSeatLimit, func(w *guardWorld) error { return w.createUser(w.student) }},
 		{"an Admin creates a teacher", limits.Teachers, limits.ErrTeacherLimit, func(w *guardWorld) error { return w.createUser(w.teacher) }},
+		{"an Admin creates an Admin", limits.Teachers, limits.ErrTeacherLimit, func(w *guardWorld) error { return w.createUser(w.role("admin")) }},
 		{"a teacher adds a student", limits.Seats, limits.ErrSeatLimit, func(w *guardWorld) error {
 			_, err := w.students.Create(context.Background(), w.req(), domain.NewStudent{
 				Email: "hv" + nonce(w.t) + "@" + w.marker, FullName: "Học viên mới", Hash: "$test$hash", Now: time.Now(),
@@ -162,6 +163,14 @@ func TestEveryWayToTakeASeatOrATeacherPlaceStopsAtTheLimit(t *testing.T) {
 			return w.admins.ChangeRole(context.Background(), w.req(), domain.RoleChange{
 				AccountWrite: domain.AccountWrite{UserID: id, RoleID: w.student.id, Now: time.Now()},
 				ToRoleID:     w.teacher.id, ToRoleRevision: w.teacher.revision, ToOpensTeacher: true,
+			})
+		}},
+		{"a student is made an Admin", limits.Teachers, limits.ErrTeacherLimit, func(w *guardWorld) error {
+			id := w.account("len-qtv", w.student.id, false)
+			admin := w.role("admin")
+			return w.admins.ChangeRole(context.Background(), w.req(), domain.RoleChange{
+				AccountWrite: domain.AccountWrite{UserID: id, RoleID: w.student.id, Now: time.Now()},
+				ToRoleID:     admin.id, ToRoleRevision: admin.revision, ToAdmin: true, ToOpensTeacher: true,
 			})
 		}},
 		{"an import row", limits.Seats, nil, func(w *guardWorld) error {
@@ -250,6 +259,9 @@ func TestAnImportPreviewLeavesTheRoomTheLimitsAllow(t *testing.T) {
 	}
 	if _, ok := room.TeacherRoles[w.teacher.id]; !ok {
 		t.Error("the built-in teacher role must take a teacher place")
+	}
+	if _, ok := room.TeacherRoles[w.role("admin").id]; !ok {
+		t.Error("the built-in Admin role opens the teacher workspace and must take a teacher place")
 	}
 	if _, ok := room.TeacherRoles[w.student.id]; ok {
 		t.Error("the built-in student role must not take a teacher place")

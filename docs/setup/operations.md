@@ -734,7 +734,11 @@ plan's figure in `server/internal/shared/limits`, read on 2026-10-21:
 Leave the deploy variables unset in production so the page is the one place a limit is changed. If
 Resend or R2 moves off its free plan, raise the matching limits on the page; if Neon's plan changes,
 move the database line. The guards for accounts and teachers count under advisory lock `(73819, 45)`
-and the storage guard under `(73819, 46)`, each only while its limit is set. Database size is
+only while a seat or teacher limit is set. The storage guard takes `(73819, 46)` on every media
+upload and import, since the total file storage always resolves to a limit (10 GB by default), so
+uploads across the centre are taken one at a time. An Admin counts as a teacher. Editing the role
+matrix can take the centre past the teacher limit without a refusal; the Overview flags it. Mail a
+cap holds goes out first as soon as a cap allows, so raising a cap releases it at once. Database size is
 `pg_database_size`, which is close to but not what Neon bills. Days and months are local to
 `APP_TIMEZONE`. The `PLAN_*` variables of v0.12.0 are retired and ignored.
 

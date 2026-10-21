@@ -28,6 +28,8 @@ type Row = Readonly<{
 }>;
 
 const READINGS = [
+  ["seatsPercent", "seats"],
+  ["teachersPercent", "teachers"],
   ["storagePercent", "files"],
   ["mediaPercent", "media"],
   ["importsPercent", "imports"],

@@ -47,7 +47,11 @@ const FULL: AdminOverview = {
       count: 1,
       detail: { className: "Summer Camp 2026", teacherName: "Lý Thanh Vân" },
     },
-    { kind: "storage", count: 1, detail: { storagePercent: 92, mediaPercent: 85 } },
+    {
+      kind: "storage",
+      count: 3,
+      detail: { seatsPercent: 149, storagePercent: 92, mediaPercent: 85 },
+    },
     {
       kind: "email_held",
       count: 3,
@@ -291,7 +295,7 @@ describe("the needs-attention card", () => {
     expect(card).toHaveTextContent("4 người cần đổi mật khẩu");
     expect(card).toHaveTextContent("Summer Camp 2026 · Lý Thanh Vân");
     expect(card).toHaveTextContent(
-      "Gần chạm giới hạn: lưu trữ tệp 92%, một thư viện media 85%",
+      "Gần chạm giới hạn: tài khoản 149%, lưu trữ tệp 92%, một thư viện media 85%",
     );
     expect(card).toHaveTextContent("3 email đang chờ vì giới hạn email");
     expect(card).toHaveTextContent("2 giáo viên xin thêm tín dụng AI");

@@ -135,7 +135,7 @@ function UnitSelect({
   const { control } = useFormContext<SettingsFormValues>();
   if (!isByteLimit(name)) {
     return (
-      <span className="text-muted-fg text-ui shrink-0">
+      <span className="text-muted-fg text-ui w-20 shrink-0 truncate">
         {t(`systemSettings.plan.units.${name}`)}
       </span>
     );
@@ -155,7 +155,7 @@ function UnitSelect({
             ref={field.ref}
             aria-label={t("systemSettings.plan.unitOf", { name: label })}
             aria-disabled={saving || undefined}
-            className="aria-disabled:text-foreground/50 h-9.5 w-auto min-w-16 shrink-0"
+            className="aria-disabled:text-foreground/50 h-9.5 w-20 shrink-0"
             onBlur={field.onBlur}
           >
             <SelectValue />

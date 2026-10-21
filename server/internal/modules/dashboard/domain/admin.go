@@ -123,6 +123,8 @@ type AttentionDetail struct {
 	OldestCreatedAt *time.Time
 	ClassName       *string
 	TeacherName     *string
+	SeatsPercent    *int
+	TeachersPercent *int
 	MediaPercent    *int
 	ImportsPercent  *int
 	StoragePercent  *int
@@ -300,8 +302,8 @@ func Percent(used, limit int64) int {
 	return int((200*used + limit) / (2 * limit))
 }
 
-// StorageAttention is the storage row: the file storage, fullest media
-// library, open imports and database readings with a limit that are at
+// StorageAttention is the storage row: the seat, teacher, file storage,
+// fullest media library, open imports and database readings with a limit that are at
 // u.WarnAtPercent or more once rounded to the percent the page shows, each
 // quoted, and nil when none is.
 func StorageAttention(u Usage) *Attention {
@@ -316,6 +318,17 @@ func StorageAttention(u Usage) *Attention {
 			count++
 		}
 	}
+	count64 := func(c Count) (int64, *int64) {
+		if c.Limit == nil {
+			return int64(c.Used), nil
+		}
+		limit := int64(*c.Limit)
+		return int64(c.Used), &limit
+	}
+	used, limit := count64(u.Seats)
+	reading(used, limit, &detail.SeatsPercent)
+	used, limit = count64(u.Teachers)
+	reading(used, limit, &detail.TeachersPercent)
 	reading(u.Storage.Bytes, u.Storage.Limit, &detail.StoragePercent)
 	reading(u.Media.LargestLibrary, u.Media.PerTeacherLimit, &detail.MediaPercent)
 	reading(u.Imports.OpenBytes, u.Imports.Limit, &detail.ImportsPercent)

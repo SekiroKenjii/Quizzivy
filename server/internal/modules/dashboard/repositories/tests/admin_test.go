@@ -388,6 +388,7 @@ func TestHeldCountsTheMailOfTheDayAndMonthAndWhatACapHolds(t *testing.T) {
 	mail("", "", "2031-06-01T00:00:00Z", 0)
 	mail("", "", "2031-05-10T12:05:00Z", 2)
 	mail("", "2031-05-10T09:00:00Z", "2031-07-01T00:00:00Z", 0)
+	mail("", "", "2031-05-10T07:00:00Z", 0)
 
 	after, err := store.Held(ctx, mayTenth)
 	if err != nil {
@@ -400,7 +401,7 @@ func TestHeldCountsTheMailOfTheDayAndMonthAndWhatACapHolds(t *testing.T) {
 		t.Errorf("sent this month moved by %d, want 2: April's is not May's", got)
 	}
 	if after.EmailsHeld != 2 {
-		t.Errorf("held = %d, want 2: a retry waits for its backoff, not a cap, and a failed row is settled", after.EmailsHeld)
+		t.Errorf("held = %d, want 2: a retry waits for its backoff, not a cap, a failed row is settled and a due row is not held", after.EmailsHeld)
 	}
 	if after.HeldUntil == nil || !after.HeldUntil.Equal(mayTenth.NextMonth) {
 		t.Errorf("held until = %v, want the 1st of June", after.HeldUntil)

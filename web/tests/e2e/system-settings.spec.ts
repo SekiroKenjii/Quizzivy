@@ -255,6 +255,13 @@ for (const [width, height] of [
         page.getByRole("link", { name: "Quản lý tín dụng AI" }),
       ).toBeVisible();
       expect(await noSidewaysScroll(page)).toBe(true);
+      const edges = await page
+        .locator("main input[id^='system-limits-']")
+        .evaluateAll((inputs) =>
+          inputs.map((input) => Math.round(input.getBoundingClientRect().right)),
+        );
+      expect(edges).toHaveLength(10);
+      expect(new Set(edges).size).toBe(1);
       await page.screenshot({
         path: info.outputPath(`plan-usage-${width}${theme ? "-dark" : ""}.png`),
         fullPage: true,

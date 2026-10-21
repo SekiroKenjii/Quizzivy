@@ -387,3 +387,45 @@ func TestOnceTheMonthsBudgetIsSpentTheRestWaitForTheFirstAndAnExpiredLinkIsNever
 		t.Errorf("the link still valid on the 1st = %+v, want it sent", r)
 	}
 }
+
+func TestMailHeldByTheMonthsCapGoesFirstOnceTheCapIsRaised(t *testing.T) {
+	ict := time.FixedZone("ICT", 7*3600)
+	now := time.Date(2033, 7, 20, 10, 0, 0, 0, ict)
+	w := newWorld(t, now)
+	w.disp.Now = func() time.Time { return now }
+	w.disp.DailyLimit, w.disp.MonthlyLimit = 50, 1
+	mail := func(label string) string {
+		m := invite(addr(t, label))
+		m.DeliverAfter = now.Add(-time.Minute)
+		return w.enqueue(t, m)
+	}
+	sent, held := mail("gui-truoc"), mail("bi-giu")
+	for range 2 {
+		if _, err := w.disp.Dispatch(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	firstOfAugust := time.Date(2033, 8, 1, 0, 0, 0, 0, ict)
+	if r := read(t, w.pool, sent); r.sentAt == nil {
+		t.Fatalf("the month's one message was not sent: %+v", r)
+	}
+	if r := read(t, w.pool, held); r.sentAt != nil || !r.deliverAfter.Equal(firstOfAugust) {
+		t.Fatalf("the message past the cap = %+v, want it held for %v", r, firstOfAugust)
+	}
+
+	newer := mail("moi-hon")
+	w.disp.MonthlyLimit = 2
+	batch, err := w.disp.Dispatch(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if batch.Released != 1 || batch.Sent != 1 {
+		t.Errorf("batch = %+v, want the held message released and one sent", batch)
+	}
+	if r := read(t, w.pool, held); r.sentAt == nil {
+		t.Errorf("the held message = %+v, want it sent first once the cap allows one more", r)
+	}
+	if r := read(t, w.pool, newer); r.sentAt != nil {
+		t.Errorf("the newer message = %+v, want it to wait behind the held one", r)
+	}
+}

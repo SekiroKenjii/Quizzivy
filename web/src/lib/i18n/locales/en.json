@@ -875,6 +875,8 @@
       "disabledTeacherHint": "{{className}} · {{teacherName}}",
       "storage": {
         "title": "Near a limit: {{readings}}",
+        "seats": "accounts {{percent}}%",
+        "teachers": "teachers {{percent}}%",
         "files": "file storage {{percent}}%",
         "media": "a media library {{percent}}%",
         "imports": "open imports {{percent}}%",
@@ -883,8 +885,8 @@
       "storageHint": "Review the limits in Plan & usage",
       "emailHeld_one": "{{count}} email is waiting for the email limit",
       "emailHeld_other": "{{count}} emails are waiting for the email limit",
-      "emailHeldHint": "They go once the day or month turns",
-      "emailHeldUntil": "The next one goes {{when}}",
+      "emailHeldHint": "They go when a limit allows: raise it, or wait for the next day or month",
+      "emailHeldUntil": "They go when a limit allows, {{when}} at the latest, unless a link expires first",
       "creditRequests_one": "{{count}} teacher asked for more AI credits",
       "creditRequests_other": "{{count}} teachers asked for more AI credits",
       "creditRequestsHint": "{{teacherName}} · {{used}} of {{allowance}} used"
@@ -1533,7 +1535,7 @@
         },
         "email": {
           "title": "Email",
-          "hint": "Mail past a limit waits for the next day or month; nothing is lost."
+          "hint": "Mail past a limit waits and goes first once a limit allows it, at the latest the next day or month. A sign-in link that expires while it waits is not sent."
         },
         "database": {
           "title": "Database and warnings",

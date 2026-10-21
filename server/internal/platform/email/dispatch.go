@@ -51,8 +51,9 @@ type Dispatcher struct {
 // Batch is what one Dispatch did. Busy means another dispatcher held the
 // lock and nothing was claimed; Claimed counts the rows it locked, and the
 // rest count outcomes, Deferred being rows moved to the next local day or
-// month because its budget was spent, and Expired rows failed because their
-// link expired while they waited.
+// month because its budget was spent, Released rows a cap had held that were
+// made due again because budget remained, and Expired rows failed because
+// their link expired while they waited.
 type Batch struct {
 	Busy     bool
 	Claimed  int
@@ -60,6 +61,7 @@ type Batch struct {
 	Retried  int
 	Failed   int
 	Deferred int
+	Released int
 	Expired  int
 }
 
@@ -85,7 +87,9 @@ type outcome struct {
 // hourly, until the MaxAttempts-th attempt fails the row. A row whose link
 // expired is failed with the code "expired" and never sent. Once the month's
 // budget is spent, every due row moves to the 1st of the next local month, and
-// once the day's, to the next local midnight. A row of a
+// once the day's, to the next local midnight; while budget remains, the rows a
+// cap held back are due again at once, ahead of newer mail, so raising a cap
+// releases them without waiting for the day or month to turn. A row of a
 // template this binary does not send is never claimed, deferred or counted as
 // due: it stays pending, secret and attempts intact, for a newer release's
 // dispatcher, which the API and the worker may run while a deploy is rolling
@@ -133,16 +137,7 @@ func (d *Dispatcher) Dispatch(ctx context.Context) (Batch, error) {
 	case daily-sentToday <= 0:
 		until = nextDay
 	}
-	if !until.IsZero() {
-		tag, err := tx.Exec(ctx, `
-			UPDATE app.email_outbox SET deliver_after = $2
-			 WHERE sent_at IS NULL AND failed_at IS NULL AND deliver_after <= $1 AND template = ANY($3::text[])`,
-			now, until, templateNames())
-		if err != nil {
-			return Batch{}, err
-		}
-		batch.Deferred = int(tag.RowsAffected())
-	} else if err := d.sendDue(ctx, tx, now, min(BatchSize, daily-sentToday, monthly-sentMonth), org, &batch); err != nil {
+	if err := d.spend(ctx, tx, now, until, min(BatchSize, daily-sentToday, monthly-sentMonth), org, &batch); err != nil {
 		return Batch{}, err
 	}
 	commit, cancel := context.WithTimeout(context.WithoutCancel(ctx), commitBudget)
@@ -153,10 +148,49 @@ func (d *Dispatcher) Dispatch(ctx context.Context) (Batch, error) {
 	if batch.Expired > 0 {
 		d.Logger.Info("email links expired while waiting", "expired", batch.Expired)
 	}
+	if batch.Released > 0 {
+		d.Logger.Info("held email released", "released", batch.Released)
+	}
 	if batch.Deferred > 0 {
 		d.Logger.Info("email budget spent", "deferred", batch.Deferred, "daily", daily, "monthly", monthly, "until", until)
 	}
 	return batch, nil
+}
+
+// spend moves every due row to until when a budget is spent, and otherwise
+// releases the rows a cap held back and sends up to limit due rows.
+func (d *Dispatcher) spend(ctx context.Context, tx pgx.Tx, now, until time.Time, limit int, org string, batch *Batch) error {
+	if !until.IsZero() {
+		tag, err := tx.Exec(ctx, `
+			UPDATE app.email_outbox SET deliver_after = $2
+			 WHERE sent_at IS NULL AND failed_at IS NULL AND deliver_after <= $1 AND template = ANY($3::text[])`,
+			now, until, templateNames())
+		if err != nil {
+			return err
+		}
+		batch.Deferred = int(tag.RowsAffected())
+		return nil
+	}
+	released, err := release(ctx, tx, now)
+	if err != nil {
+		return err
+	}
+	batch.Released = released
+	return d.sendDue(ctx, tx, now, limit, org, batch)
+}
+
+// release makes the rows a cap held back due again, each at the time it was
+// written so it goes ahead of newer mail. A held row is one never attempted
+// whose delivery was moved past now; only a cap moves an unattempted row.
+func release(ctx context.Context, tx pgx.Tx, now time.Time) (int, error) {
+	tag, err := tx.Exec(ctx, `
+		UPDATE app.email_outbox SET deliver_after = least(created_at, $1)
+		 WHERE sent_at IS NULL AND failed_at IS NULL AND attempts = 0 AND deliver_after > $1 AND template = ANY($2::text[])`,
+		now, templateNames())
+	if err != nil {
+		return 0, err
+	}
+	return int(tag.RowsAffected()), nil
 }
 
 func (d *Dispatcher) sendDue(ctx context.Context, tx pgx.Tx, now time.Time, limit int, org string, batch *Batch) error {

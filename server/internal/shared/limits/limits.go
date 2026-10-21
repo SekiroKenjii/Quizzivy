@@ -358,14 +358,17 @@ var (
 )
 
 // TeacherRole is the condition that a role id, the SQL expression role, opens
-// the teacher workspace, as access.Workspaces decides it from the role's keys.
+// the teacher workspace, as access.Workspaces decides it from the role's keys:
+// the built-in Admin role holds every key by being the wildcard and stores no
+// grants, so it is named; any other role opens it by a stored grant.
 func TeacherRole(role string) string {
 	prefixes := access.TeacherPrefixes()
 	likes := make([]string, len(prefixes))
 	for i, p := range prefixes {
 		likes[i] = fmt.Sprintf("rp.permission_key LIKE '%s%%'", p)
 	}
-	return `EXISTS (SELECT 1 FROM app.role_permissions rp WHERE rp.role_id = ` + role + ` AND (` + strings.Join(likes, " OR ") + `))`
+	return `(EXISTS (SELECT 1 FROM app.roles ra WHERE ra.id = ` + role + ` AND ra.builtin_key = 'admin')` +
+		` OR EXISTS (SELECT 1 FROM app.role_permissions rp WHERE rp.role_id = ` + role + ` AND (` + strings.Join(likes, " OR ") + `)))`
 }
 
 // TeacherRoles returns the ids of the roles that take a teacher place.

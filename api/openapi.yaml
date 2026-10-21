@@ -3057,8 +3057,10 @@ components:
         `invalidCount` counts every refused row. `classes` are the classes the
         accepted rows would join. `emailBudget` is `null` unless `delivery` is
         `email_link`: `remainingToday` is what the centre can still send today,
-        counting what already waits, and `limit` its daily maximum; the rest of
-        the links go out on the following days.
+        counting what already waits or is held by a cap, and `limit` the cap
+        that binds it: the daily maximum, or the monthly one when what the
+        month has left is less than the day's; the rest of the links go out
+        on the following days or months.
       additionalProperties: false
       required: [rows, newAccounts, existingEmails, invalid, invalidCount, classes, emailBudget]
       properties:
@@ -4171,9 +4173,10 @@ components:
         The facts a row quotes, by kind; a field its kind does not use is
         absent. `never_signed_in`: `oldestCreatedAt`.
         `disabled_teacher_classes`: `className` and `teacherName` of the newest
-        such class. `storage`: `storagePercent`, `mediaPercent`,
-        `importsPercent` and `databasePercent`, each present only for a
-        reading at or over `warnAtPercent` of its limit. `email_held`: `heldUntil`, when the first held
+        such class. `storage`: `seatsPercent`, `teachersPercent`,
+        `storagePercent`, `mediaPercent`, `importsPercent` and
+        `databasePercent`, each present only for a reading at or over
+        `warnAtPercent` of its limit. `email_held`: `heldUntil`, when the first held
         message may go. `ai_credit_requests`: `teacherName`,
         `used` and `allowance` of the request waiting longest.
       additionalProperties: false
@@ -4181,6 +4184,8 @@ components:
         oldestCreatedAt: { type: string, format: date-time }
         className: { type: string }
         teacherName: { type: string }
+        seatsPercent: { type: integer, minimum: 0 }
+        teachersPercent: { type: integer, minimum: 0 }
         mediaPercent: { type: integer, minimum: 0 }
         importsPercent: { type: integer, minimum: 0 }
         storagePercent: { type: integer, minimum: 0 }

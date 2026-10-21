@@ -2208,6 +2208,8 @@ media owner, described under the table.
 | 42 | Reserved: R7's notification scheduler | Confirmed by R7 |
 | 43 | Email dispatch (T-R5.2) | `pg_try_advisory_xact_lock(73819, 43)` in the API's and the worker's dispatcher: one batch is claimed and sent at a time across both processes, so the daily budget and the provider's request rate hold. A dispatcher that does not get it waits and tries again |
 | 44 | Role creation (T-R5.8) | `pg_advisory_xact_lock(73819, 44)` in `createRole`'s insert, then a count of `app.roles`: two creations cannot both take the last of the 200 roles the contract's lists hold (`ROLE_LIMIT_REACHED`). Nothing else takes it, and it is taken after the copy source's `FOR SHARE`, never before a role row lock. |
+| 45 | Seat and teacher limits (CR-002, D-060) | `pg_advisory_xact_lock(73819, 45)` in `shared/limits.Admit`, on the writing transaction, before it counts: two creations, enables or role changes cannot both take the last seat or teacher place. Taken only while a seat or teacher limit is set. |
+| 46 | Total file storage (CR-002, D-060) | `pg_advisory_xact_lock(73819, 46)` in the storage guard of a media upload and an import source before it sums media, import and export bytes: two uploads cannot both take the last of the space. The limit always resolves, so every upload takes it. |
 
 **Namespace 73820: one media library's quota (T-R4.17a).**
 `pg_advisory_xact_lock(73820, hashtext(<owner id>::uuid::text))` serialises

@@ -7750,7 +7750,7 @@
       },
       "AdminAttentionDetail": {
         "type": "object",
-        "description": "The facts a row quotes, by kind; a field its kind does not use is\nabsent. `never_signed_in`: `oldestCreatedAt`.\n`disabled_teacher_classes`: `className` and `teacherName` of the newest\nsuch class. `storage`: `storagePercent`, `mediaPercent`,\n`importsPercent` and `databasePercent`, each present only for a\nreading at or over `warnAtPercent` of its limit. `email_held`: `heldUntil`, when the first held\nmessage may go. `ai_credit_requests`: `teacherName`,\n`used` and `allowance` of the request waiting longest.\n",
+        "description": "The facts a row quotes, by kind; a field its kind does not use is\nabsent. `never_signed_in`: `oldestCreatedAt`.\n`disabled_teacher_classes`: `className` and `teacherName` of the newest\nsuch class. `storage`: `seatsPercent`, `teachersPercent`,\n`storagePercent`, `mediaPercent`, `importsPercent` and\n`databasePercent`, each present only for a reading at or over\n`warnAtPercent` of its limit. `email_held`: `heldUntil`, when the first held\nmessage may go. `ai_credit_requests`: `teacherName`,\n`used` and `allowance` of the request waiting longest.\n",
         "additionalProperties": false,
         "properties": {
           "oldestCreatedAt": {
@@ -7762,6 +7762,14 @@
           },
           "teacherName": {
             "type": "string"
+          },
+          "seatsPercent": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "teachersPercent": {
+            "type": "integer",
+            "minimum": 0
           },
           "mediaPercent": {
             "type": "integer",

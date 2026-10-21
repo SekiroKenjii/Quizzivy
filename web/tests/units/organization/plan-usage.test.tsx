@@ -152,6 +152,26 @@ describe("the Plan & usage section", () => {
     expect(stored.puts[0]?.limits?.seats).toBe(400);
   });
 
+  it("marks a limit at what is in use as near, not below, and the warning line at its edge", async () => {
+    servesSettings();
+    servesUsage();
+    await openPlan();
+    const user = userEvent.setup({ delay: null });
+    const use = await screen.findByText("Đang dùng 412");
+
+    await user.type(field("Tài khoản"), "412");
+    expect(screen.queryByText(/^Thấp hơn mức đang dùng/)).toBeNull();
+    expect(use).toHaveClass("text-warning-ink");
+
+    await user.clear(field("Tài khoản"));
+    await user.type(field("Tài khoản"), "515");
+    expect(use).toHaveClass("text-warning-ink");
+
+    await user.clear(field("Tài khoản"));
+    await user.type(field("Tài khoản"), "516");
+    expect(use).not.toHaveClass("text-warning-ink");
+  });
+
   it("refuses a value out of range on its field, without saving", async () => {
     const stored = servesSettings();
     servesUsage();

@@ -236,3 +236,21 @@ func TestCreditRequestsAreOneRowNamingTheOldest(t *testing.T) {
 		t.Errorf("detail = %+v, want the oldest request's teacher and standing", d)
 	}
 }
+
+func TestSeatsAndTeachersAtTheWarningLineRaiseTheStorageRow(t *testing.T) {
+	seats, teachers := 100, 20
+	row := domain.StorageAttention(domain.Usage{
+		Seats:         domain.Count{Used: 149, Limit: &seats},
+		Teachers:      domain.Count{Used: 15, Limit: &teachers},
+		WarnAtPercent: 80,
+	})
+	if row == nil || row.Count != 1 || row.Detail.SeatsPercent == nil || *row.Detail.SeatsPercent != 149 {
+		t.Fatalf("149 of 100 seats = %+v, want a row quoting 149%%", row)
+	}
+	if row.Detail.TeachersPercent != nil {
+		t.Errorf("teachers percent = %d, want none at 75%%", *row.Detail.TeachersPercent)
+	}
+	if none := domain.StorageAttention(domain.Usage{Seats: domain.Count{Used: 149}, WarnAtPercent: 80}); none != nil {
+		t.Errorf("seats with no limit = %+v, want no row", none)
+	}
+}

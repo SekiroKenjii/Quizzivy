@@ -110,6 +110,7 @@ func toAPIDetail(d *domain.AttentionDetail) *openapi.AdminAttentionDetail {
 	}
 	return &openapi.AdminAttentionDetail{
 		OldestCreatedAt: d.OldestCreatedAt, ClassName: d.ClassName, TeacherName: d.TeacherName,
+		SeatsPercent: d.SeatsPercent, TeachersPercent: d.TeachersPercent,
 		MediaPercent: d.MediaPercent, ImportsPercent: d.ImportsPercent, StoragePercent: d.StoragePercent,
 		DatabasePercent: d.DatabasePercent, HeldUntil: d.HeldUntil, Used: d.Used, Allowance: d.Allowance,
 	}
