@@ -4171,9 +4171,9 @@ components:
         The facts a row quotes, by kind; a field its kind does not use is
         absent. `never_signed_in`: `oldestCreatedAt`.
         `disabled_teacher_classes`: `className` and `teacherName` of the newest
-        such class. `storage`: `mediaPercent` and `importsPercent`, each absent
-        when that meter has no limit, and `storagePercent` and
-        `databasePercent`. `email_held`: `heldUntil`, when the first held
+        such class. `storage`: `storagePercent`, `mediaPercent`,
+        `importsPercent` and `databasePercent`, each present only for a
+        reading at or over `warnAtPercent` of its limit. `email_held`: `heldUntil`, when the first held
         message may go. `ai_credit_requests`: `teacherName`,
         `used` and `allowance` of the request waiting longest.
       additionalProperties: false

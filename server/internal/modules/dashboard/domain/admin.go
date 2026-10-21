@@ -300,10 +300,10 @@ func Percent(used, limit int64) int {
 	return int((200*used + limit) / (2 * limit))
 }
 
-// StorageAttention is the storage row: how many of the file storage, largest
-// media library, open imports and database readings with a limit are at
-// u.WarnAtPercent or more once rounded to the percent the page shows, and nil
-// when none is.
+// StorageAttention is the storage row: the file storage, fullest media
+// library, open imports and database readings with a limit that are at
+// u.WarnAtPercent or more once rounded to the percent the page shows, each
+// quoted, and nil when none is.
 func StorageAttention(u Usage) *Attention {
 	detail := AttentionDetail{}
 	count := 0
@@ -311,9 +311,8 @@ func StorageAttention(u Usage) *Attention {
 		if limit == nil {
 			return
 		}
-		percent := Percent(used, *limit)
-		*into = &percent
-		if percent >= u.WarnAtPercent {
+		if percent := Percent(used, *limit); percent >= u.WarnAtPercent {
+			*into = &percent
 			count++
 		}
 	}

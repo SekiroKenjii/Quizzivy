@@ -180,8 +180,8 @@ func TestStorageNeedsAttentionFromTheMeterReadingTheWarningLine(t *testing.T) {
 	if row == nil || row.Kind != domain.AttentionStorage || row.Count != 1 {
 		t.Fatalf("80%% used = %+v, want one storage row", row)
 	}
-	if row.Detail.ImportsPercent == nil || *row.Detail.ImportsPercent != 0 {
-		t.Errorf("imports percent = %+v, want 0: a meter with a limit is quoted even below the line", row.Detail.ImportsPercent)
+	if row.Detail.ImportsPercent != nil {
+		t.Errorf("imports percent = %d, want none: only a reading at the line is quoted", *row.Detail.ImportsPercent)
 	}
 	if both := domain.StorageAttention(usage(1000, 900)); both == nil || both.Count != 2 {
 		t.Errorf("both meters over the line = %+v, want a count of 2", both)

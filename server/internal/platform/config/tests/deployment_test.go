@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -129,8 +128,8 @@ func TestTheCommittedFlyConfigBootsWithTheDocumentedSecrets(t *testing.T) {
 	if cfg.DocsPublic {
 		t.Error("the API reference is open to anyone; production must keep the docs gate on")
 	}
-	if declared := flyEnv(t)["MEDIA_OWNER_QUOTA_MIB"]; declared == "" || declared != strconv.Itoa(cfg.MediaOwnerQuotaMiB) {
-		t.Errorf("fly.toml sets MEDIA_OWNER_QUOTA_MIB to %q and the API runs with %d MiB; production must name its media quota", declared, cfg.MediaOwnerQuotaMiB)
+	if len(cfg.Limits) != 0 {
+		t.Errorf("fly.toml overrides the usage limits %v; production takes them from Settings → Plan & usage, whose defaults are the hosting plans (CR-002)", cfg.Limits)
 	}
 }
 
