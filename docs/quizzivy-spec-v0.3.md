@@ -6,6 +6,7 @@
 **Changes pending (R6, v0.13.0)**
 
 - N-01 §5 Authentication and permission are decided before the path and query parameters are bound: an anonymous caller gets `401 UNAUTHORIZED` and a caller without the operation's permission `403 FORBIDDEN` where a malformed or missing parameter answered `400 VALIDATION_FAILED` first (QC-W-7, D-047).
+- #371 §15 Every operation with a path or query parameter the server can refuse (a typed, formatted, patterned, enumerated or length-bounded parameter, or a required query parameter) declares `400 VALIDATION_FAILED`: 56 operations that take no JSON body and already answered it now say so in the contract.
 
 **Changes since v0.116**
 
