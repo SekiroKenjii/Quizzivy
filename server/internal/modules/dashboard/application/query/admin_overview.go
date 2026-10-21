@@ -144,12 +144,18 @@ func (r *overviewRead) storage(ctx context.Context) error {
 	if !r.viewer.Settings {
 		return nil
 	}
-	usage, err := r.service.Usage(ctx, r.counted, r.viewCredits)
+	usage, err := r.service.Usage(ctx, r.viewCredits)
 	if err != nil {
 		return err
 	}
 	r.out.Storage = &usage
 	if row := domain.StorageAttention(usage); row != nil {
+		r.out.Attention = append(r.out.Attention, *row)
+	}
+	if row := domain.EmailAttention(usage); row != nil {
+		r.out.Attention = append(r.out.Attention, *row)
+	}
+	if row := domain.ExpiredEmailAttention(usage); row != nil {
 		r.out.Attention = append(r.out.Attention, *row)
 	}
 	return nil

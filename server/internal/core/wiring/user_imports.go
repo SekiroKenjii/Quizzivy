@@ -39,7 +39,7 @@ func attachUserImports(ctx context.Context, cfg config.Config, logger *slog.Logg
 		return err
 	}
 	wake := adapters.NewWorkerWake(context.WithoutCancel(ctx), cfg.ImportWorkerWakeURL, logger)
-	budget := adapters.UserImportBudget{Budget: email.Budget{DB: dbx, Limit: cfg.Email.DailyLimit, Location: cfg.AppLocation}}
+	budget := adapters.UserImportBudget{Budget: email.Budget{DB: dbx, Limits: cfg.Limits, Location: cfg.AppLocation}}
 	app.SetUserImports(identityrepo.NewUserImports(dbx), roles, adapters.UserImportTables{}, budget, wake, sealer)
 	return nil
 }

@@ -82,7 +82,7 @@ func (s IssueSetPasswordLinkHandler) issue(ctx context.Context, cmd IssueSetPass
 	if err := cmd.Tx.Insert(ctx, domain.NewLink{UserID: userID, TokenHash: hash, Purpose: cmd.Purpose, CreatedBy: cmd.By, Now: now}); err != nil {
 		return domain.IssuedLink{}, err
 	}
-	mail.Kind, mail.Token = domain.MailAccountInvite, token
+	mail.Kind, mail.Token, mail.ExpiresAt = domain.MailAccountInvite, token, now.Add(domain.SetPasswordLifetime)
 	if cmd.Purpose == domain.LinkReset {
 		mail.Kind = domain.MailPasswordReset
 		if !cmd.KeepSessions {
@@ -95,5 +95,5 @@ func (s IssueSetPasswordLinkHandler) issue(ctx context.Context, cmd IssueSetPass
 	if err := cmd.Tx.Enqueue(ctx, mail); err != nil {
 		return domain.IssuedLink{}, err
 	}
-	return domain.IssuedLink{ExpiresAt: now.Add(domain.SetPasswordLifetime)}, nil
+	return domain.IssuedLink{ExpiresAt: mail.ExpiresAt}, nil
 }

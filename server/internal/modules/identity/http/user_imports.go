@@ -346,6 +346,7 @@ func toAPIUserImportJob(j domain.ImportJob, sheet *domain.ImportSheetState) open
 		Processed: j.Processed(),
 		Created:   j.Created,
 		Skipped:   j.Skipped,
+		OverLimit: j.OverLimit,
 		Invalid:   j.Invalid,
 		Delivery:  openapi.UserImportDelivery(j.Delivery),
 		CreatedAt: j.CreatedAt,

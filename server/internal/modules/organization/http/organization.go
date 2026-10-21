@@ -18,6 +18,7 @@ import (
 	"quizzivy/internal/modules/organization/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/limits"
 	"quizzivy/internal/shared/validation"
 )
 
@@ -28,12 +29,15 @@ const (
 
 // Organization serves the centre's settings and its public face.
 type Organization struct {
-	app *application.Application
+	app      *application.Application
+	limitEnv limits.Env
 }
 
-// NewOrganization builds the transport. A nil application answers 501.
-func NewOrganization(app *application.Application) Organization {
-	return Organization{app: app}
+// NewOrganization builds the transport. A nil application answers 501. env is
+// the deploy's overrides of the usage limits, which the settings name as the
+// limits' defaults.
+func NewOrganization(app *application.Application, env limits.Env) Organization {
+	return Organization{app: app, limitEnv: env}
 }
 
 // GetOrganizationSettings implements GET /admin/settings.
@@ -46,7 +50,7 @@ func (h Organization) GetOrganizationSettings(ctx context.Context, _ openapi.Get
 		return nil, err
 	}
 	return openapi.GetOrganizationSettings200JSONResponse{
-		Body:    settingsBody(settings),
+		Body:    settingsBody(settings, h.limitEnv),
 		Headers: openapi.GetOrganizationSettings200ResponseHeaders{CacheControl: "private, no-store"},
 	}, nil
 }
@@ -59,12 +63,13 @@ func (h Organization) UpdateOrganizationSettings(ctx context.Context, request op
 	}
 	saved, err := h.app.Commands.UpdateSettings.Handle(ctx, command.UpdateSettings{
 		Actor: who, Settings: settingsOf(*request.Body), ExpectedRevision: request.Body.ExpectedRevision,
+		KeepLimits: request.Body.Limits == nil,
 	})
 	var invalid *validation.Error
 	var locked *domain.LockedOut
 	switch {
 	case err == nil:
-		return openapi.UpdateOrganizationSettings200JSONResponse(settingsBody(saved)), nil
+		return openapi.UpdateOrganizationSettings200JSONResponse(settingsBody(saved, h.limitEnv)), nil
 	case errors.As(err, &invalid):
 		return openapi.UpdateOrganizationSettings400JSONResponse(httpapi.Invalid(ctx,
 			httpx.Text(ctx, "Cài đặt không hợp lệ.", "The settings are not valid."), worded(ctx, invalid))), nil

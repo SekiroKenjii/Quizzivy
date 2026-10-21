@@ -59,10 +59,11 @@ primary_region = "sin"
   # R-13. Raise this only alongside the machine's memory.
   MAX_CONCURRENT_PASSWORD_HASHES = "4"
 
-  # The most one teacher's media library may hold, in MiB (T-R4.17a): the
-  # deck's "of 5 GB". Audio is up to 50 MiB a file, so this is what bounds a
-  # library; raise it here, not per teacher.
-  MEDIA_OWNER_QUOTA_MIB = "5120"
+  # The usage limits (CR-002) live in Settings → Plan & usage, where an Admin
+  # changes them. Their defaults are the hosting plans' own figures, so this
+  # file sets none of MEDIA_OWNER_QUOTA_MIB, IMPORT_ACTOR_MIB, IMPORT_GLOBAL_MIB
+  # or EMAIL_DAILY_LIMIT: one set here overrides a default and the page names
+  # the deploy as its source.
 
   # Word and PDF import (O-24, decided 2026-09-25). The bucket is private and
   # reached with the S3_* credentials; `make verify-r2-imports` proves the
@@ -79,19 +80,14 @@ primary_region = "sin"
 
   # Outgoing mail (T-R5.2). Resend sends from the verified quizzivy.com domain;
   # RESEND_API_KEY and SECRETS_KEY are Fly secrets, and the three names form
-  # one group the app refuses to start without (config.Load). EMAIL_DAILY_LIMIT
-  # is Resend's free tier; the outbox moves the excess to the next local day.
-  # Both process groups read these: the worker sends the notices it enqueues.
+  # one group the app refuses to start without (config.Load). The outbox holds
+  # what passes the day's and the month's limits, Resend's free plan unless an
+  # Admin changes them. Both process groups read these: the worker sends the
+  # notices it enqueues.
   EMAIL_FROM = "Quizzivy <no-reply@quizzivy.com>"
   APP_URL = "https://app.quizzivy.com"
-  EMAIL_DAILY_LIMIT = "100"
   EMAIL_SEND_RATE = "2"
   APP_TIMEZONE = "Asia/Ho_Chi_Minh"
-
-  # The plan shown on the Admin console's Plan & usage page (T-R5.18). Shown,
-  # never enforced (DG-55), and every variable is optional, so none is set until
-  # the centre's plan is decided: PLAN_NAME, PLAN_RENEWS_ON (YYYY-MM-DD),
-  # PLAN_SEAT_LIMIT, PLAN_TEACHER_LIMIT, PLAN_MEDIA_BYTES, PLAN_IMPORT_BYTES.
 
 [http_service]
   processes = ["app"]

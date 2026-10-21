@@ -60,11 +60,11 @@ function SettingsLoadError({ onRetry }: Readonly<{ onRetry: () => void }>) {
  * SystemSettingsPage is the Admin console's System settings, at the
  * `settings/:section` route of the console: "Applies to everyone in {organization}." over
  * a navigation of its sections, Organization (also the bare address), Sign-in,
- * Data & privacy and Plan & usage. The first three share one form and one unsaved-changes
+ * Data & privacy and Plan & usage. All four share one form and one unsaved-changes
  * bar, and leaving with unsaved changes asks first. While the document is
  * read the sections hold a skeleton, and when it cannot be they hold the
- * failure and Retry. Plan & usage is read-only
- * and reads the usage itself. An address with an unknown section is not the console's (`consolePath`) and is sent where an
+ * failure and Retry. Plan & usage also reads what is in use itself. An
+ * address with an unknown section is not the console's (`consolePath`) and is sent where an
  * old teacher address goes.
  */
 export default function SystemSettingsPage() {

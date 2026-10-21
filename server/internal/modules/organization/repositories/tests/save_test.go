@@ -13,6 +13,7 @@ import (
 
 	"quizzivy/internal/modules/organization/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/limits"
 )
 
 func TestSaveStoresEveryFieldAndReturnsTheStoredDocument(t *testing.T) {
@@ -102,6 +103,15 @@ func TestSaveNamesOnlyTheFieldsThatChanged(t *testing.T) {
 		{"answers kept 12 months", func(d *domain.Settings) { d.Retention.KeepAnswersMonths = intp(12) }, []string{"retention.keepAnswersMonths"}},
 		{"focus events kept 24 months", func(d *domain.Settings) { d.Retention.KeepFocusEventsMonths = 24 }, []string{"retention.keepFocusEventsMonths"}},
 		{"disabled accounts never anonymised", func(d *domain.Settings) { d.Retention.AnonymiseDisabledAfterMonths = nil }, []string{"retention.anonymiseDisabledAfterMonths"}},
+		{"a limit raised", func(d *domain.Settings) {
+			d.Limits = limits.Stored{limits.Seats: 500, limits.EmailsPerDay: 80}
+		}, []string{"limits.seats"}},
+		{"a limit back to its default", func(d *domain.Settings) {
+			d.Limits = limits.Stored{limits.Seats: 400}
+		}, []string{"limits.emailsPerDay"}},
+		{"a limit set", func(d *domain.Settings) {
+			d.Limits = limits.Stored{limits.Seats: 400, limits.EmailsPerDay: 80, limits.WarnAtPercent: 90}
+		}, []string{"limits.warnAtPercent"}},
 		{"several, in the document's order", func(d *domain.Settings) {
 			d.Retention.KeepFocusEventsMonths = 12
 			d.SignIn.JoinCodes = true
@@ -138,6 +148,46 @@ func TestSaveNamesOnlyTheFieldsThatChanged(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSaveRecordsEachChangedLimitBeforeAndAfter(t *testing.T) {
+	s := lockedSession(t)
+	actor := s.coverAdmin()
+	ctx := context.Background()
+	first, err := s.repo.Save(ctx, s.save(s.fullDocument(), s.stored().Revision, actor))
+	if err != nil {
+		t.Fatalf("first save: %v", err)
+	}
+	next := first
+	next.Limits = limits.Stored{limits.Seats: 450, limits.StorageBytes: 20 * limits.GiB}
+	second, err := s.repo.Save(ctx, s.save(next, first.Revision, actor))
+	if err != nil {
+		t.Fatalf("second save: %v", err)
+	}
+	if !second.Limits.Equal(next.Limits) || !s.stored().Limits.Equal(next.Limits) {
+		t.Errorf("limits = %v, stored %v, want %v", second.Limits, s.stored().Limits, next.Limits)
+	}
+	got := decodeDiff(t, s.audits()[1].diff).Limits
+	want := map[limits.Name][2]*int64{
+		limits.Seats:        {i64(400), i64(450)},
+		limits.StorageBytes: {nil, i64(20 * limits.GiB)},
+		limits.EmailsPerDay: {i64(80), nil},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("limit changes = %+v, want %d", got, len(want))
+	}
+	for _, c := range got {
+		w, ok := want[c.Name]
+		if !ok || !sameInt(c.Before, w[0]) || !sameInt(c.After, w[1]) {
+			t.Errorf("%s: %v → %v, want %v → %v", c.Name, c.Before, c.After, w[0], w[1])
+		}
+	}
+}
+
+func i64(v int64) *int64 { return &v }
+
+func sameInt(a, b *int64) bool {
+	return (a == nil && b == nil) || (a != nil && b != nil && *a == *b)
 }
 
 func TestSaveOfADocumentEqualToTheStoredOneChangesNothing(t *testing.T) {
@@ -215,9 +265,15 @@ func TestTheFirstAuditRowNamesEveryFieldTheSaveSet(t *testing.T) {
 		"organization.logo.light", "organization.logo.dark",
 		"signIn.forcePasswordChange", "signIn.joinCodes", "signIn.allowedGoogleDomains",
 		"retention.keepAnswersMonths", "retention.keepFocusEventsMonths", "retention.anonymiseDisabledAfterMonths",
+		"limits.seats", "limits.emailsPerDay",
 	}
-	if got := decodeDiff(t, audits[0].diff); !slices.Equal(got.Fields, want) {
+	got := decodeDiff(t, audits[0].diff)
+	if !slices.Equal(got.Fields, want) {
 		t.Errorf("fields = %v, want %v", got.Fields, want)
+	}
+	if len(got.Limits) != 2 || got.Limits[0].Name != limits.Seats || got.Limits[0].Before != nil || *got.Limits[0].After != 400 ||
+		got.Limits[1].Name != limits.EmailsPerDay || got.Limits[1].Before != nil || *got.Limits[1].After != 80 {
+		t.Errorf("limits = %+v, want seats and emails per day from the default to 400 and 80", got.Limits)
 	}
 }
 

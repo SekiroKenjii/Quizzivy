@@ -52,7 +52,11 @@ func (s ReplaceHandler) Handle(ctx context.Context, cmd Replace) (domain.Replace
 	if err := s.Object.Put(ctx, key, intake.MimeType, body, intake.Bytes); err != nil {
 		return domain.ReplaceResult{}, s.compensate(ctx, key, err)
 	}
-	in := domain.ReplaceInput{ID: cmd.ID, Scope: cmd.Scope, Asset: domain.InsertInput{ID: id, Kind: intake.Kind, StorageKey: key, MimeType: intake.MimeType, Bytes: intake.Bytes, DurationMs: intake.DurationMs, OriginalFilename: support.SanitiseFilename(cmd.Filename), ChecksumSHA256: intake.Checksum, UploaderID: cmd.UploaderID, OwnerID: target.OwnerID, DisplayName: &target.Asset.DisplayName, DefaultMaxPlays: target.Asset.DefaultMaxPlays, Width: intake.Width, Height: intake.Height, QuotaBytes: s.Quota, Now: s.Now(), IP: opt.String(cmd.IP), UserAgent: opt.String(cmd.UserAgent)}}
+	quota, storage, err := s.Bounds(ctx)
+	if err != nil {
+		return domain.ReplaceResult{}, s.compensate(ctx, key, err)
+	}
+	in := domain.ReplaceInput{ID: cmd.ID, Scope: cmd.Scope, Asset: domain.InsertInput{ID: id, Kind: intake.Kind, StorageKey: key, MimeType: intake.MimeType, Bytes: intake.Bytes, DurationMs: intake.DurationMs, OriginalFilename: support.SanitiseFilename(cmd.Filename), ChecksumSHA256: intake.Checksum, UploaderID: cmd.UploaderID, OwnerID: target.OwnerID, DisplayName: &target.Asset.DisplayName, DefaultMaxPlays: target.Asset.DefaultMaxPlays, Width: intake.Width, Height: intake.Height, QuotaBytes: quota, StorageLimit: storage, Now: s.Now(), IP: opt.String(cmd.IP), UserAgent: opt.String(cmd.UserAgent)}}
 	result, err := s.Repo.Replace(ctx, in)
 	if err != nil {
 		return domain.ReplaceResult{}, s.replacementFailure(ctx, key, err)

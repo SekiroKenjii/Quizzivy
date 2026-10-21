@@ -32,7 +32,8 @@ type DeleteInput struct {
 
 // InsertInput is one new asset row. OwnerID is whose library it joins; empty
 // means the uploader. QuotaBytes is the most that library may hold once the
-// row is in it.
+// row is in it, and StorageLimit, when not nil, the most every file the centre
+// keeps may come to.
 type InsertInput struct {
 	ID               string
 	Kind             Kind
@@ -49,6 +50,7 @@ type InsertInput struct {
 	Width            *int
 	Height           *int
 	QuotaBytes       int64
+	StorageLimit     *int64
 	Now              time.Time
 	IP               *string
 	UserAgent        *string

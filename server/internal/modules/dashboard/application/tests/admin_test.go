@@ -17,6 +17,7 @@ import (
 	organizationmodel "quizzivy/internal/modules/organization/application/model"
 	organizationquery "quizzivy/internal/modules/organization/application/query"
 	"quizzivy/internal/shared/cqrs"
+	"quizzivy/internal/shared/limits"
 )
 
 type adminStore struct {
@@ -28,7 +29,9 @@ type adminStore struct {
 	classes    domain.ClassCounts
 	orphaned   domain.DisabledTeacherClasses
 	held       domain.Held
+	limits     limits.Stored
 
+	window     domain.EmailWindow
 	asked      []string
 	accountsAt time.Time
 	week       [2]time.Time
@@ -68,9 +71,15 @@ func (s *adminStore) DisabledTeacherClasses(context.Context) (domain.DisabledTea
 	return s.orphaned, nil
 }
 
-func (s *adminStore) Held(context.Context) (domain.Held, error) {
+func (s *adminStore) Held(_ context.Context, window domain.EmailWindow) (domain.Held, error) {
 	s.asked = append(s.asked, "Held")
+	s.window = window
 	return s.held, nil
+}
+
+func (s *adminStore) Limits(context.Context) (limits.Stored, error) {
+	s.asked = append(s.asked, "Limits")
+	return s.limits, nil
 }
 
 type ports struct {
@@ -124,7 +133,8 @@ func centre() (*adminStore, *ports) {
 		},
 		classes:  domain.ClassCounts{Active: 6, Archived: 2},
 		orphaned: domain.DisabledTeacherClasses{Count: 2, ClassName: "Lớp 9A", TeacherName: "Cô Lan"},
-		held:     domain.Held{MediaBytes: 900, ImportBytes: 100, ImportCount: 3, Attempts: 12},
+		held:     domain.Held{Seats: 95, Teachers: 15, MediaBytes: 900, ImportBytes: 100, ImportCount: 3, Attempts: 12},
+		limits:   limits.Stored{limits.Seats: 500, limits.Teachers: 20, limits.StorageBytes: 1000, limits.ImportBytes: 10_000},
 	}
 	return repo, &ports{
 		recent: []auditdomain.Entry{entry(2), entry(1)},
@@ -135,13 +145,11 @@ func centre() (*adminStore, *ports) {
 	}
 }
 
-func admin(repo *adminStore, p *ports, plan domain.Plan) *application.Application {
-	app := application.New(repo).WithAdmin(p.branding(), p.log(), plan, nil).WithCredits(p.month())
+func admin(repo *adminStore, p *ports, env limits.Env) *application.Application {
+	app := application.New(repo).WithAdmin(p.branding(), p.log(), env, nil).WithCredits(p.month())
 	app.SetClock(func() time.Time { return marchFourth })
 	return app
 }
-
-var wholePlan = domain.Plan{Name: "Trung tâm", SeatLimit: 500, TeacherLimit: 20, MediaBytes: 1000, ImportBytes: 10_000}
 
 func kinds(rows []domain.Attention) []domain.AttentionKind {
 	out := make([]domain.AttentionKind, len(rows))
@@ -153,7 +161,7 @@ func kinds(rows []domain.Attention) []domain.AttentionKind {
 
 func TestTheOverviewOfAnAdminHoldingEveryKeyFillsEverySection(t *testing.T) {
 	repo, p := centre()
-	got, err := admin(repo, p, wholePlan).Queries.AdminOverview.Handle(context.Background(), query.AdminOverview{Viewer: everyKey})
+	got, err := admin(repo, p, nil).Queries.AdminOverview.Handle(context.Background(), query.AdminOverview{Viewer: everyKey})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -209,7 +217,7 @@ func TestTheOverviewOfAnAdminHoldingEveryKeyFillsEverySection(t *testing.T) {
 
 func TestTheFourteenDayWindowAndTheWeekCrossAMonthBoundary(t *testing.T) {
 	repo, p := centre()
-	if _, err := admin(repo, p, wholePlan).Queries.AdminOverview.Handle(context.Background(), query.AdminOverview{Viewer: everyKey}); err != nil {
+	if _, err := admin(repo, p, nil).Queries.AdminOverview.Handle(context.Background(), query.AdminOverview{Viewer: everyKey}); err != nil {
 		t.Fatal(err)
 	}
 	day := func(m time.Month, d int) time.Time { return time.Date(2026, m, d, 0, 0, 0, 0, time.UTC) }
@@ -226,7 +234,7 @@ func TestTheFourteenDayWindowAndTheWeekCrossAMonthBoundary(t *testing.T) {
 
 func TestADayIsTheCentresDayNotUTCs(t *testing.T) {
 	repo, p := centre()
-	app := admin(repo, p, wholePlan)
+	app := admin(repo, p, nil)
 	app.SetClock(func() time.Time { return time.Date(2026, time.February, 28, 18, 30, 0, 0, time.UTC) })
 	if _, err := app.Queries.AdminOverview.Handle(context.Background(), query.AdminOverview{Viewer: everyKey}); err != nil {
 		t.Fatal(err)
@@ -248,7 +256,7 @@ func TestAConfiguredZoneMovesTheDay(t *testing.T) {
 		t.Fatal(err)
 	}
 	repo, p := centre()
-	app := application.New(repo).WithAdmin(p.branding(), p.log(), wholePlan, zone)
+	app := application.New(repo).WithAdmin(p.branding(), p.log(), nil, zone)
 	app.SetClock(func() time.Time { return time.Date(2026, time.March, 1, 3, 0, 0, 0, time.UTC) })
 	if _, err := app.Queries.AdminOverview.Handle(context.Background(), query.AdminOverview{Viewer: everyKey}); err != nil {
 		t.Fatal(err)
@@ -260,7 +268,7 @@ func TestAConfiguredZoneMovesTheDay(t *testing.T) {
 
 func TestACustomRoleHoldingOnlyTheAuditKeySeesOnlyTheRecentChanges(t *testing.T) {
 	repo, p := centre()
-	got, err := admin(repo, p, wholePlan).Queries.AdminOverview.Handle(context.Background(), query.AdminOverview{Viewer: domain.AdminViewer{UserID: "auditor", Audit: true}})
+	got, err := admin(repo, p, nil).Queries.AdminOverview.Handle(context.Background(), query.AdminOverview{Viewer: domain.AdminViewer{UserID: "auditor", Audit: true}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -297,7 +305,7 @@ func TestEachKeyOpensItsOwnSectionAndNothingElse(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			repo, p := centre()
-			got, err := admin(repo, p, wholePlan).Queries.AdminOverview.Handle(context.Background(), query.AdminOverview{Viewer: c.viewer})
+			got, err := admin(repo, p, nil).Queries.AdminOverview.Handle(context.Background(), query.AdminOverview{Viewer: c.viewer})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -316,9 +324,9 @@ func TestAnAttentionRowWithNothingToCountIsLeftOut(t *testing.T) {
 	repo, p := centre()
 	repo.accounts.MustChangePassword, repo.accounts.NeverSignedIn, repo.accounts.OldestNeverSignedIn = 0, 0, nil
 	repo.orphaned = domain.DisabledTeacherClasses{}
-	repo.held = domain.Held{MediaBytes: 794, ImportBytes: 1}
+	repo.held = domain.Held{MediaBytes: 793, ImportBytes: 1}
 	p.credits.Requests = nil
-	got, err := admin(repo, p, wholePlan).Queries.AdminOverview.Handle(context.Background(), query.AdminOverview{Viewer: everyKey})
+	got, err := admin(repo, p, nil).Queries.AdminOverview.Handle(context.Background(), query.AdminOverview{Viewer: everyKey})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -333,7 +341,7 @@ func TestAnAttentionRowWithNothingToCountIsLeftOut(t *testing.T) {
 func TestAnEmptyAuditLogIsAnEmptyListNotAWithheldSection(t *testing.T) {
 	repo, p := centre()
 	p.recent = nil
-	got, err := admin(repo, p, wholePlan).Queries.AdminOverview.Handle(context.Background(), query.AdminOverview{Viewer: domain.AdminViewer{Audit: true}})
+	got, err := admin(repo, p, nil).Queries.AdminOverview.Handle(context.Background(), query.AdminOverview{Viewer: domain.AdminViewer{Audit: true}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -344,7 +352,7 @@ func TestAnEmptyAuditLogIsAnEmptyListNotAWithheldSection(t *testing.T) {
 
 func TestWithoutTheAIModuleNeitherAIFigureAppears(t *testing.T) {
 	repo, p := centre()
-	app := application.New(repo).WithAdmin(p.branding(), p.log(), wholePlan, nil)
+	app := application.New(repo).WithAdmin(p.branding(), p.log(), nil, nil)
 	app.SetClock(func() time.Time { return marchFourth })
 	got, err := app.Queries.AdminOverview.Handle(context.Background(), query.AdminOverview{Viewer: everyKey})
 	if err != nil {
@@ -371,7 +379,7 @@ func TestTheCreditsAreNotReadForAViewerWithoutTheKey(t *testing.T) {
 	repo, p := centre()
 	viewer := everyKey
 	viewer.Credits = false
-	app := admin(repo, p, wholePlan)
+	app := admin(repo, p, nil)
 	overview, err := app.Queries.AdminOverview.Handle(context.Background(), query.AdminOverview{Viewer: viewer})
 	if err != nil {
 		t.Fatal(err)
@@ -398,7 +406,7 @@ func TestTheOverviewNeedsTheCentresName(t *testing.T) {
 
 func TestTheSummaryCountsTemporaryPasswordsOnlyForWhoManagesPeople(t *testing.T) {
 	repo, p := centre()
-	app := admin(repo, p, wholePlan)
+	app := admin(repo, p, nil)
 	with, err := app.Queries.AdminSummary.Handle(context.Background(), query.AdminSummary{Viewer: domain.AdminViewer{Users: true}})
 	if err != nil {
 		t.Fatal(err)
@@ -416,36 +424,61 @@ func TestTheSummaryCountsTemporaryPasswordsOnlyForWhoManagesPeople(t *testing.T)
 	}
 }
 
-func TestUsageWithEveryPlanValueUnsetStatesNoPlanAndNoLimit(t *testing.T) {
+func TestUsageWithNothingStoredFallsBackToTheDeployAndTheHostingPlans(t *testing.T) {
 	repo, p := centre()
-	got, err := admin(repo, p, domain.Plan{}).Queries.Usage.Handle(context.Background(), query.Usage{Viewer: domain.AdminViewer{Settings: true}})
+	repo.limits = nil
+	got, err := admin(repo, p, limits.Env{limits.EmailsPerDay: 50}).Queries.Usage.Handle(context.Background(), query.Usage{Viewer: domain.AdminViewer{Settings: true}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Plan != nil || got.Seats.Limit != nil || got.Teachers.Limit != nil || got.Media.Limit != nil || got.Imports.Limit != nil {
-		t.Errorf("usage = %+v, want no plan and no limit", got)
+	if got.Seats.Limit != nil || got.Teachers.Limit != nil {
+		t.Errorf("seats and teachers = %+v %+v, want no limit by default", got.Seats, got.Teachers)
+	}
+	if got.Storage.Limit == nil || *got.Storage.Limit != limits.R2FreeStorageBytes {
+		t.Errorf("storage limit = %v, want the R2 free tier", got.Storage.Limit)
+	}
+	if got.Email.DailyLimit == nil || *got.Email.DailyLimit != 50 {
+		t.Errorf("daily limit = %v, want the deploy's 50 over Resend's", got.Email.DailyLimit)
 	}
 	if got.Seats.Used != 95 || got.Teachers.Used != 15 || got.Media.Bytes != 900 || got.Imports.Bytes != 100 || got.Imports.Count != 3 || got.AttemptsKept != 12 {
-		t.Errorf("figures = %+v, want what is held even with no plan", got)
+		t.Errorf("figures = %+v, want what is held", got)
 	}
 }
 
-func TestUsageSetsTheFiguresAgainstThePlan(t *testing.T) {
+func TestUsageSetsTheFiguresAgainstTheStoredLimits(t *testing.T) {
 	repo, p := centre()
-	plan := wholePlan
-	plan.RenewsOn = time.Date(2027, time.January, 1, 0, 0, 0, 0, time.UTC)
-	got, err := admin(repo, p, plan).Queries.Usage.Handle(context.Background(), query.Usage{Viewer: everyKey})
+	got, err := admin(repo, p, limits.Env{limits.StorageBytes: 1}).Queries.Usage.Handle(context.Background(), query.Usage{Viewer: everyKey})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Plan == nil || got.Plan.Name != "Trung tâm" || got.Plan.RenewsOn == nil || !got.Plan.RenewsOn.Equal(plan.RenewsOn) {
-		t.Errorf("plan = %+v", got.Plan)
-	}
 	if got.Seats.Limit == nil || *got.Seats.Limit != 500 || got.Teachers.Limit == nil || *got.Teachers.Limit != 20 ||
-		got.Media.Limit == nil || *got.Media.Limit != 1000 || got.Imports.Limit == nil || *got.Imports.Limit != 10_000 {
-		t.Errorf("limits = %+v", got)
+		got.Storage.Limit == nil || *got.Storage.Limit != 1000 || got.Imports.Limit == nil || *got.Imports.Limit != 10_000 {
+		t.Errorf("limits = %+v, want the stored ones over the deploy's", got)
 	}
 	if got.AICredits == nil || *got.AICredits != (domain.Credits{Used: 300, Pool: 1500}) {
 		t.Errorf("AI credits = %+v, want 300 of 1500", got.AICredits)
+	}
+}
+
+func TestUsageCountsMailByTheCentresDayAndMonth(t *testing.T) {
+	repo, p := centre()
+	if _, err := admin(repo, p, nil).Queries.Usage.Handle(context.Background(), query.Usage{Viewer: everyKey}); err != nil {
+		t.Fatal(err)
+	}
+	zone, err := time.LoadLocation(domain.DefaultZone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := domain.EmailWindow{
+		Now:        marchFourth,
+		DayStart:   time.Date(2026, time.March, 4, 0, 0, 0, 0, zone),
+		NextDay:    time.Date(2026, time.March, 5, 0, 0, 0, 0, zone),
+		MonthStart: time.Date(2026, time.March, 1, 0, 0, 0, 0, zone),
+		NextMonth:  time.Date(2026, time.April, 1, 0, 0, 0, 0, zone),
+	}
+	w := repo.window
+	if !w.Now.Equal(want.Now) || !w.DayStart.Equal(want.DayStart) || !w.NextDay.Equal(want.NextDay) ||
+		!w.MonthStart.Equal(want.MonthStart) || !w.NextMonth.Equal(want.NextMonth) {
+		t.Errorf("window = %+v, want %+v", w, want)
 	}
 }

@@ -72,6 +72,13 @@ func (a *Application) WithLogos(store ports.LogoStore, checker ports.LogoChecker
 	return a
 }
 
+// WithMail returns the application waking mail when a save changes the usage
+// limits, so that mail a raised cap held goes out at once.
+func (a *Application) WithMail(mail ports.MailWake) *Application {
+	a.service.Mail = mail
+	return a
+}
+
 // SetClock replaces the time source of the snapshot and of the saves. Tests only.
 func (a *Application) SetClock(now func() time.Time) {
 	a.service.Now = now

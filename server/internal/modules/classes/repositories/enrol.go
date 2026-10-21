@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/classes/domain"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/limits"
 	"strings"
 	"time"
 
@@ -157,6 +158,13 @@ func createMember(ctx context.Context, tx pgx.Tx, m domain.NewMember) (string, e
 	name := strings.TrimSpace(m.FullName)
 	if name == "" {
 		name, _, _ = strings.Cut(m.Email, "@")
+	}
+	var student string
+	if err := tx.QueryRow(ctx, `SELECT r.id::text FROM app.roles r WHERE r.builtin_key = 'student'`).Scan(&student); err != nil {
+		return "", fmt.Errorf("read the student role: %w", err)
+	}
+	if err := limits.Admit(ctx, tx, limits.Admission{Seat: true, RoleID: student}); err != nil {
+		return "", err
 	}
 
 	var userID string

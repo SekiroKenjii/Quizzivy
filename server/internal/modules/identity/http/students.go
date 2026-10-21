@@ -120,8 +120,11 @@ func (h Identity) CreateStudent(ctx context.Context, request openapi.CreateStude
 	}})
 	student, temporary := createStudentResult.Student, createStudentResult.TemporaryPassword
 	var invalid *validation.Error
+	limit, over := overLimit(ctx, err)
 	switch {
 	case err == nil:
+	case over:
+		return openapi.CreateStudent409JSONResponse(limit), nil
 	case errors.As(err, &invalid):
 		return openapi.CreateStudent400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(
 			httpapi.Invalid(ctx, msgStudentInvalid(ctx), invalid))}, nil

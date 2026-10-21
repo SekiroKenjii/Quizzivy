@@ -101,9 +101,12 @@ func (h Identity) ChangeUserRole(ctx context.Context, request openapi.ChangeUser
 	}
 	user, err := h.app.Commands.ChangeUserRole.Handle(ctx, command.ChangeUserRole{Request: req, ID: request.Id.String(), RoleID: request.Body.RoleId.String()})
 	var owns *domain.OwnsContentError
+	limit, over := overLimit(ctx, err)
 	switch {
 	case err == nil:
 		return openapi.ChangeUserRole200JSONResponse(toAPIAdminUser(user)), nil
+	case over:
+		return openapi.ChangeUserRole409JSONResponse(limit), nil
 	case errors.Is(err, domain.ErrUserNotFound):
 		return openapi.ChangeUserRole404JSONResponse{NotFoundJSONResponse: userNotFound(ctx)}, nil
 	case errors.Is(err, accessdomain.ErrRoleNotFound):
@@ -198,9 +201,12 @@ func (h Identity) EnableUser(ctx context.Context, request openapi.EnableUserRequ
 		return nil, httpx.ErrNotImplemented
 	}
 	user, err := h.app.Commands.EnableUser.Handle(ctx, command.EnableUser{Request: req, ID: request.Id.String()})
+	limit, over := overLimit(ctx, err)
 	switch {
 	case err == nil:
 		return openapi.EnableUser200JSONResponse(toAPIAdminUser(user)), nil
+	case over:
+		return openapi.EnableUser409JSONResponse(limit), nil
 	case errors.Is(err, domain.ErrUserNotFound):
 		return openapi.EnableUser404JSONResponse{NotFoundJSONResponse: userNotFound(ctx)}, nil
 	case errors.Is(err, accessdomain.ErrTargetRoleNotAllowed):

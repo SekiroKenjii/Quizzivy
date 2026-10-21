@@ -1,4 +1,4 @@
-// Package ports is what the organization module needs from outside: an object store for the logos and a checker that decides whether an upload may be one.
+// Package ports is what the organization module needs from outside: an object store for the logos, a checker that decides whether an upload may be one, and the mail dispatcher to wake when the usage limits change.
 package ports
 
 import (
@@ -33,4 +33,10 @@ type StoredLogo struct {
 // it with one of the domain's ErrLogo* reasons.
 type LogoChecker interface {
 	Check(ctx context.Context, body io.Reader) (domain.LogoFile, error)
+}
+
+// MailWake wakes the mail dispatcher, so that mail a sending cap held goes out
+// as soon as a save raises the cap rather than when the dispatcher next wakes.
+type MailWake interface {
+	Notify()
 }

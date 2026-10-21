@@ -5,7 +5,6 @@ import (
 	aiapp "quizzivy/internal/modules/ai/application"
 	auditapp "quizzivy/internal/modules/audit/application"
 	dashboardapp "quizzivy/internal/modules/dashboard/application"
-	dashboarddomain "quizzivy/internal/modules/dashboard/domain"
 	dashboardhttp "quizzivy/internal/modules/dashboard/http"
 	dashboardrepo "quizzivy/internal/modules/dashboard/repositories"
 	identityapp "quizzivy/internal/modules/identity/application"
@@ -23,7 +22,7 @@ type dashboardModules struct {
 	ai            *aiapp.Application
 }
 
-// dashboard reads the Admin console's figures in the centre's own zone, against its plan. The AI credits are offered to it only while the assistant is configured, so the Overview shows no credit-request row and the usage no AI figure while it is off.
+// dashboard reads the Admin console's figures in the centre's own zone, against its usage limits. The AI credits are offered to it only while the assistant is configured, so the Overview shows no credit-request row and the usage no AI figure while it is off.
 func dashboard(cfg config.Config, dbx db.Context, m dashboardModules, aiOn bool) (dashboardhttp.Dashboard, error) {
 	zone, err := config.AppLocation()
 	if err != nil {
@@ -32,16 +31,9 @@ func dashboard(cfg config.Config, dbx db.Context, m dashboardModules, aiOn bool)
 	app := dashboardapp.New(dashboardrepo.NewPostgres(dbx)).
 		WithZones(adapters.ProfileZone{Query: m.identity.Queries.EffectiveZone}).
 		WithNotifications(m.notifications.Queries.Summary).
-		WithAdmin(m.organization.Queries.Branding, m.audit.Queries.Recent, planOf(cfg.Plan), zone)
+		WithAdmin(m.organization.Queries.Branding, m.audit.Queries.Recent, cfg.Limits, zone)
 	if aiOn {
 		app.WithCredits(m.ai.Queries.AdminCredits)
 	}
 	return dashboardhttp.NewDashboard(app), nil
-}
-
-func planOf(p config.Plan) dashboarddomain.Plan {
-	return dashboarddomain.Plan{
-		Name: p.Name, RenewsOn: p.RenewsOn, SeatLimit: p.SeatLimit, TeacherLimit: p.TeacherLimit,
-		MediaBytes: p.MediaBytes, ImportBytes: p.ImportBytes,
-	}
 }

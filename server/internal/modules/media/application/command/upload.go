@@ -40,11 +40,15 @@ func (s UploadHandler) Handle(ctx context.Context, cmd Upload) (domain.Asset, er
 	if err := domain.Assets.CheckPlayLimit(intake.Kind, cmd.DefaultMaxPlays); err != nil {
 		return domain.Asset{}, err
 	}
+	quota, storage, err := s.Bounds(ctx)
+	if err != nil {
+		return domain.Asset{}, err
+	}
 	held, err := s.Repo.Usage(ctx, access.Scope{UserID: cmd.UploaderID})
 	if err != nil {
 		return domain.Asset{}, err
 	}
-	if err := domain.Assets.CheckQuota(held.CountedBytes(), intake.Bytes, s.Quota); err != nil {
+	if err := domain.Assets.CheckQuota(held.CountedBytes(), intake.Bytes, quota); err != nil {
 		return domain.Asset{}, err
 	}
 
@@ -75,7 +79,8 @@ func (s UploadHandler) Handle(ctx context.Context, cmd Upload) (domain.Asset, er
 		DefaultMaxPlays:  cmd.DefaultMaxPlays,
 		Width:            intake.Width,
 		Height:           intake.Height,
-		QuotaBytes:       s.Quota,
+		QuotaBytes:       quota,
+		StorageLimit:     storage,
 		Now:              s.Now(),
 		IP:               opt.String(cmd.IP),
 		UserAgent:        opt.String(cmd.UserAgent),

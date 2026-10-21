@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"quizzivy/internal/modules/dashboard/domain"
+	"quizzivy/internal/shared/limits"
 )
 
 var _ domain.AdminRepository = (*Postgres)(nil)
@@ -110,20 +111,54 @@ func (p *Postgres) DisabledTeacherClasses(ctx context.Context) (domain.DisabledT
 	return out, nil
 }
 
-// Held sums the media files not yet purged, the source documents of the imports whose files are still kept and the number of those imports, and counts the attempts.
-func (p *Postgres) Held(ctx context.Context) (domain.Held, error) {
+// Held counts what the centre holds and uses: the seats and teachers and the
+// stored files as shared/limits counts them, the fullest teacher's media
+// library, the documents of the open imports, the attempts, the mail sent in
+// window's day and month, the mail a cap holds and the month's held mail whose
+// link expired before it was sent, and the database's size.
+func (p *Postgres) Held(ctx context.Context, window domain.EmailWindow) (domain.Held, error) {
 	var out domain.Held
-	err := p.QueryRow(ctx, `
-		SELECT (SELECT coalesce(sum(bytes), 0)::bigint FROM app.media_assets WHERE purged_at IS NULL),
-		       imp.bytes, imp.n,
-		       (SELECT count(*) FROM app.attempts)
-		  FROM (SELECT coalesce(sum(s.bytes), 0)::bigint AS bytes, count(DISTINCT s.import_id)::int AS n
-		          FROM app.word_import_sources s
-		          JOIN app.word_imports i ON i.id = s.import_id
-		         WHERE i.files_removed_at IS NULL) imp`,
-	).Scan(&out.MediaBytes, &out.ImportBytes, &out.ImportCount, &out.Attempts)
+	accounts, err := limits.CountAccounts(ctx, p)
+	if err != nil {
+		return domain.Held{}, err
+	}
+	out.Seats, out.Teachers = accounts.Seats, accounts.Teachers
+	files, err := limits.CountHeld(ctx, p)
+	if err != nil {
+		return domain.Held{}, err
+	}
+	out.MediaBytes, out.ImportBytes, out.ExportBytes = files.Media, files.Imports, files.Exports
+	err = p.QueryRow(ctx, `
+		SELECT (SELECT count(DISTINCT i.id)::int
+		          FROM app.word_imports i JOIN app.word_import_sources s ON s.import_id = i.id
+		         WHERE i.files_removed_at IS NULL),
+		       (SELECT coalesce(max(b), 0)::bigint
+		          FROM (SELECT sum(bytes) AS b FROM app.media_assets WHERE purged_at IS NULL GROUP BY owner_id) libraries),
+		       (SELECT coalesce(sum(s.bytes), 0)::bigint
+		          FROM app.word_import_sources s JOIN app.word_imports i ON i.id = s.import_id
+		         WHERE i.status NOT IN ('committed', 'cancelled')),
+		       (SELECT count(*) FROM app.attempts),
+		       (SELECT count(*)::int FROM app.email_outbox WHERE sent_at >= $1 AND sent_at < $2),
+		       (SELECT count(*)::int FROM app.email_outbox WHERE sent_at >= $3 AND sent_at < $4),
+		       (SELECT count(*)::int FROM app.email_outbox
+		         WHERE sent_at IS NULL AND failed_at IS NULL AND held_by IS NOT NULL),
+		       (SELECT min(deliver_after) FROM app.email_outbox
+		         WHERE sent_at IS NULL AND failed_at IS NULL AND held_by IS NOT NULL),
+		       (SELECT count(*)::int FROM app.email_outbox
+		         WHERE failed_at >= $3 AND failed_at < $4 AND last_error_code = 'expired' AND held_by IS NOT NULL)`,
+		window.DayStart, window.NextDay, window.MonthStart, window.NextMonth,
+	).Scan(&out.ImportCount, &out.LargestLibrary, &out.OpenImportBytes, &out.Attempts,
+		&out.EmailsToday, &out.EmailsMonth, &out.EmailsHeld, &out.HeldUntil, &out.EmailsExpired)
 	if err != nil {
 		return domain.Held{}, fmt.Errorf("dashboard: count what is held: %w", err)
 	}
+	if out.DatabaseBytes, err = limits.DatabaseSize(ctx, p); err != nil {
+		return domain.Held{}, err
+	}
 	return out, nil
+}
+
+// Limits reads the usage limits an Admin stored.
+func (p *Postgres) Limits(ctx context.Context) (limits.Stored, error) {
+	return limits.ReadStored(ctx, p)
 }

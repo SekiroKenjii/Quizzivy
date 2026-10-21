@@ -37,40 +37,36 @@ function GaugeRow({ gauge }: Readonly<{ gauge: Gauge }>) {
 }
 
 /**
- * StorageCard is the Overview's use of the plan: media, import documents and
- * seats against their limits when a limit is set, the attempts kept as a
- * figure, and the month's AI credits when the server reports them.
+ * StorageCard is the Overview's use of the centre's limits (CR-002): every
+ * stored file, the largest teacher's media library, the documents of the
+ * imports still open, the seats and the database's approximate size, each
+ * against its limit when one applies, the attempts kept as a figure, and the
+ * month's AI credits when the server reports them.
  */
 export function StorageCard({ usage }: Readonly<{ usage: Usage }>) {
   const { t } = useTranslation();
   const locale = useLocale();
   const count = (value: number) => new Intl.NumberFormat(locale).format(value);
-  const { media, imports, seats, attemptsKept, aiCredits } = usage;
+  const { storage, media, imports, seats, database, attemptsKept, aiCredits } = usage;
   const of = (used: string, limit: string | null) =>
     limit === null ? used : t("adminOverview.storage.of", { used, limit });
+  const bytes = (
+    key: string,
+    used: number,
+    limit: number | null,
+    tone: Gauge["tone"],
+  ) => ({
+    key,
+    label: t(`adminOverview.storage.${key}`),
+    value: of(formatStorage(used), limit === null ? null : formatStorage(limit)),
+    used,
+    limit,
+    tone,
+  });
   const gauges: Gauge[] = [
-    {
-      key: "media",
-      label: t("adminOverview.storage.media"),
-      value: of(
-        formatStorage(media.bytes),
-        media.limit === null ? null : formatStorage(media.limit),
-      ),
-      used: media.bytes,
-      limit: media.limit,
-      tone: "accent",
-    },
-    {
-      key: "imports",
-      label: t("adminOverview.storage.imports"),
-      value: of(
-        formatStorage(imports.bytes),
-        imports.limit === null ? null : formatStorage(imports.limit),
-      ),
-      used: imports.bytes,
-      limit: imports.limit,
-      tone: "warning",
-    },
+    bytes("files", storage.bytes, storage.limit, "accent"),
+    bytes("largestLibrary", media.largestLibrary, media.perTeacherLimit, "accent"),
+    bytes("openImports", imports.openBytes, imports.limit, "warning"),
     {
       key: "seats",
       label: t("adminOverview.storage.seats"),
@@ -79,6 +75,7 @@ export function StorageCard({ usage }: Readonly<{ usage: Usage }>) {
       limit: seats.limit,
       tone: "info",
     },
+    bytes("database", database.bytes, database.limit, "info"),
     {
       key: "attempts",
       label: t("adminOverview.storage.attempts"),
