@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/limits"
 	"quizzivy/internal/shared/paging"
 	"time"
 )
@@ -37,7 +38,8 @@ type AdminRepository interface {
 	ActiveByDay(ctx context.Context, from, to time.Time) ([]ActiveDay, error)
 	ClassCounts(ctx context.Context) (ClassCounts, error)
 	DisabledTeacherClasses(ctx context.Context) (DisabledTeacherClasses, error)
-	// Held sums what the media library, the import documents and the attempts
-	// keep.
-	Held(ctx context.Context) (Held, error)
+	// Held counts what the centre holds and uses, the mail in window included.
+	Held(ctx context.Context, window EmailWindow) (Held, error)
+	// Limits reads the usage limits an Admin stored.
+	Limits(ctx context.Context) (limits.Stored, error)
 }

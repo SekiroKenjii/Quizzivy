@@ -583,7 +583,7 @@ describe("Users: Add to class after QC (#735)", () => {
     });
     const submit = within(dialog).getByRole("button", { name: "Thêm vào lớp" });
     expect(submit).toHaveAttribute("aria-disabled", "true");
-    expect(submit.className).toContain("aria-disabled:bg-primary/50");
+    expect(submit.className).toContain("aria-disabled:bg-primary/55");
     await actor.click(
       await within(dialog).findByRole("radio", { name: /IELTS 6.5 Tối/ }),
     );

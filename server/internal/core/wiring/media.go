@@ -11,6 +11,7 @@ import (
 	"quizzivy/internal/platform/config"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/platform/storage"
+	"quizzivy/internal/shared/limits"
 )
 
 // media returns a nil application when object storage is not configured, which
@@ -38,7 +39,8 @@ func media(ctx context.Context, cfg config.Config, logger *slog.Logger, dbx db.C
 	app := mediaapp.New(repo, objects, adapters.AudioProbe{}).
 		WithImageProbe(adapters.ImageProbe{}).
 		WithSignedURLTTL(cfg.SignedURLTTL).
-		WithOwnerQuota(int64(cfg.MediaOwnerQuotaMiB) << 20)
+		WithOwnerQuota(int64(cfg.MediaOwnerQuotaMiB) << 20).
+		WithLimits(limits.Reader{DB: dbx, Env: cfg.Limits})
 	return app, repo, nil
 }
 

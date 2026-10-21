@@ -579,3 +579,40 @@ func TestProcessedIsWhatWasCreatedOrSkipped(t *testing.T) {
 		t.Errorf("processed = %d, want 10", got)
 	}
 }
+
+func TestANewAccountTheLimitsHaveNoRoomForIsRefusedInFileOrder(t *testing.T) {
+	seats, teachers := 3, 1
+	r := rules(false)
+	r.Room = domain.ImportRoom{Seats: &seats, Teachers: &teachers, TeacherRoles: map[string]struct{}{roleTeacher.ID: {}}}
+	plan := domain.PlanImport([]domain.ImportRow{
+		row(2, "An", "an@example.com", "", ""),
+		row(3, "Bình", "binh@example.com", "teacher", ""),
+		row(4, "Cường", "cuong@example.com", "teacher", ""),
+		row(5, "Có sẵn", "co-san@example.com", "", ""),
+		row(6, "Dung", "dung@example.com", "", ""),
+		row(7, "Em", "em@example.com", "", ""),
+		row(8, "Sai", "khong-phai-email", "", ""),
+	}, r, map[string]struct{}{"co-san@example.com": {}})
+
+	want := map[int][]string{
+		4: {"role:OVER_TEACHER_LIMIT"},
+		7: {"email:OVER_SEAT_LIMIT"},
+		8: {"email:INVALID"},
+	}
+	if got := issuesOf(plan); len(got) != len(want) || !slices.Equal(got[4], want[4]) || !slices.Equal(got[7], want[7]) || !slices.Equal(got[8], want[8]) {
+		t.Errorf("issues = %v, want %v: the teacher place goes to line 3, the seats to lines 2, 3 and 6, and an existing account takes none", got, want)
+	}
+	if plan.NewAccounts != 3 || plan.ExistingCount != 1 || plan.InvalidRows != 3 {
+		t.Errorf("plan = %d new, %d existing, %d invalid; want 3, 1 and 3", plan.NewAccounts, plan.ExistingCount, plan.InvalidRows)
+	}
+	if seats != 3 || teachers != 1 {
+		t.Errorf("the rules' room was spent: seats %d teachers %d", seats, teachers)
+	}
+}
+
+func TestWithoutALimitEveryNewAccountHasRoom(t *testing.T) {
+	plan := domain.PlanImport([]domain.ImportRow{row(2, "An", "an@example.com", "teacher", "")}, rules(false), nil)
+	if len(plan.Issues) != 0 || plan.NewAccounts != 1 {
+		t.Errorf("plan = %+v, want the row accepted", plan)
+	}
+}

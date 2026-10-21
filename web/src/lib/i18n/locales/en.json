@@ -874,11 +874,21 @@
       "disabledTeacher_other": "{{count}} classes have a disabled teacher",
       "disabledTeacherHint": "{{className}} · {{teacherName}}",
       "storage": {
-        "both": "Storage: media {{media}}%, imports {{imports}}%",
-        "media": "Storage: media {{media}}%",
-        "imports": "Storage: imports {{imports}}%"
+        "title": "At or near a limit: {{readings}}",
+        "seats": "accounts {{percent}}%",
+        "teachers": "teachers {{percent}}%",
+        "files": "file storage {{percent}}%",
+        "media": "a media library {{percent}}%",
+        "imports": "open imports {{percent}}%",
+        "database": "database {{percent}}%"
       },
-      "storageHint": "Close to the plan's limit",
+      "storageHint": "Review the limits in Plan & usage",
+      "emailHeld_one": "{{count}} email is waiting for the email limit",
+      "emailHeld_other": "{{count}} emails are waiting for the email limit",
+      "emailHeldHint": "They go when a limit allows; a sign-in link expires 24 hours after it was made",
+      "emailExpired_one": "{{count}} email expired before a limit allowed it",
+      "emailExpired_other": "{{count}} emails expired before a limit allowed them",
+      "emailExpiredHint": "Those links were not sent. Raise the limit in Plan & usage, then send them again",
       "creditRequests_one": "{{count}} teacher asked for more AI credits",
       "creditRequests_other": "{{count}} teachers asked for more AI credits",
       "creditRequestsHint": "{{teacherName}} · {{used}} of {{allowance}} used"
@@ -891,8 +901,10 @@
     "storage": {
       "title": "Storage",
       "of": "{{used}} of {{limit}}",
-      "media": "Media",
-      "imports": "Import documents",
+      "files": "File storage",
+      "largestLibrary": "Largest media library",
+      "openImports": "Open import documents",
+      "database": "Database (approximate)",
       "seats": "Seats",
       "attempts": "Attempts kept",
       "attemptsCount_one": "{{value}} attempt",
@@ -1137,7 +1149,9 @@
         "roleNotGivable": "The Assistant role cannot be given to anyone.",
         "unknownClass": "No active class has this name.",
         "ambiguousClass": "More than one active class has this name.",
-        "classNotAllowed": "Only students can be added to a class, and only someone who manages every class can add them from a file."
+        "classNotAllowed": "Only students can be added to a class, and only someone who manages every class can add them from a file.",
+        "overSeatLimit": "The centre has reached its account limit, so this account was not created.",
+        "overTeacherLimit": "The centre has reached its teacher limit, so this teacher was not created."
       },
       "refusal": {
         "tooLarge": "The file is larger than 5 MB. Split the list into smaller files, or save it as CSV UTF-8, which is lighter, and upload that.",
@@ -1153,7 +1167,9 @@
         "rateLimited_other": "Too many attempts. Try again in {{count}} seconds.",
         "unavailable": "This server is not set up to import users. Tell whoever runs it.",
         "unknown": "The file could not be read. Try again."
-      }
+      },
+      "overLimit_one": "{{count}} account not created: the centre reached a limit. An administrator can raise it in Settings, under Plan & usage.",
+      "overLimit_other": "{{count}} accounts not created: the centre reached a limit. An administrator can raise it in Settings, under Plan & usage."
     },
     "result_one": "{{count}} user found.",
     "result_other": "{{count}} users found.",
@@ -1452,7 +1468,12 @@
       "addressTooLong": "The address can be at most 300 characters.",
       "domainInvalid": "Not a valid domain.",
       "domainsTooMany": "At most 50 domains.",
-      "noMethod": "Keep at least one way to sign in on."
+      "noMethod": "Keep at least one way to sign in on.",
+      "limitPeople": "Enter a whole number from 1 to 1,000,000, or leave it empty.",
+      "limitEmailsPerDay": "Enter a whole number from 1 to 100,000, or leave it empty.",
+      "limitEmailsPerMonth": "Enter a whole number from 1 to 10,000,000, or leave it empty.",
+      "limitWarnAt": "Enter a whole number from 50 to 100, or leave it empty.",
+      "limitBytes": "Enter a size from 1 MB to 1,048,576 GB, or leave it empty."
     },
     "data": {
       "title": "Data & privacy",
@@ -1504,18 +1525,107 @@
     },
     "plan": {
       "title": "Plan & usage",
-      "hint": "No plan is set for this centre.",
-      "named": "{{name}} plan",
-      "namedRenews": "{{name}} plan · renews {{date}}",
-      "loadFailed": "Usage could not be loaded.",
-      "seats": "Seats",
-      "media": "Media storage",
-      "imports": "Import document storage",
-      "importsCount_one": "{{count}} import",
-      "importsCount_other": "{{count}} imports",
-      "teachers": "Teachers",
+      "loadFailed": "What is in use now could not be loaded. The limits can still be changed.",
+      "groups": {
+        "people": {
+          "title": "People",
+          "hint": "How many accounts the centre can have. An empty field means no limit."
+        },
+        "storage": {
+          "title": "File storage",
+          "hint": "Space for the files the centre keeps. An empty field takes the default."
+        },
+        "email": {
+          "title": "Email",
+          "hint": "Mail past a limit waits and goes first once a limit allows it. A sign-in link expires 24 hours after it was made; one that expires while it waits is not sent, and the Overview says so."
+        },
+        "database": {
+          "title": "Database and warnings",
+          "hint": "The database size only warns. The Overview warns when a reading reaches the share below."
+        }
+      },
+      "rows": {
+        "seats": {
+          "label": "Accounts",
+          "hint": "Accounts that are not disabled, students and staff together. New and re-enabled accounts past it are refused.",
+          "used": "{{value}} in use",
+          "below": "Below what is in use. Nobody is disabled, but no account can be added or re-enabled until some are disabled."
+        },
+        "teachers": {
+          "label": "Teachers",
+          "hint": "Enabled accounts whose role opens the teacher workspace.",
+          "used": "{{value}} in use",
+          "below": "Below what is in use. Nobody is disabled, but no teacher can be added until some are disabled."
+        },
+        "storageBytes": {
+          "label": "Total file storage",
+          "hint": "Media, import documents and their pages, and exports waiting to be downloaded. Uploads past it are refused.",
+          "used": "{{value}} in use",
+          "below": "Below what is in use. Nothing is deleted, but uploads and new imports are refused until space is freed."
+        },
+        "mediaPerTeacherBytes": {
+          "label": "Media library per teacher",
+          "hint": "The images and audio one teacher can keep.",
+          "used": "Largest library: {{value}}",
+          "below": "Below the largest library. Nothing is deleted, but that teacher cannot upload until they free space."
+        },
+        "importBytes": {
+          "label": "Import documents, whole centre",
+          "hint": "Documents of the AI imports still open.",
+          "used": "{{value}} in open imports",
+          "below": "Below what is in use. New imports are refused until open ones finish."
+        },
+        "importPerTeacherBytes": {
+          "label": "Import documents per teacher",
+          "hint": "Documents one teacher's open imports can hold."
+        },
+        "emailsPerDay": {
+          "label": "Emails per day",
+          "hint": "Counted from midnight in the centre's time zone.",
+          "used": "{{value}} sent today",
+          "below": "Below what was sent today. The rest of today's mail waits until tomorrow."
+        },
+        "emailsPerMonth": {
+          "label": "Emails per month",
+          "hint": "Counted from the 1st in the centre's time zone.",
+          "used": "{{value}} sent this month",
+          "below": "Below what was sent this month. The rest waits until the 1st; a link that expires before then is not sent."
+        },
+        "databaseBytes": {
+          "label": "Database size",
+          "hint": "Approximate: what PostgreSQL reports, not what Neon bills. Only warns, never refuses.",
+          "used": "About {{value}} now",
+          "below": "Below the current size. The Overview will warn; nothing is refused."
+        },
+        "warnAtPercent": {
+          "label": "Warn at",
+          "hint": "The share of a limit at which the Overview shows a warning."
+        }
+      },
+      "units": {
+        "seats": "accounts",
+        "teachers": "teachers",
+        "emailsPerDay": "emails",
+        "emailsPerMonth": "emails",
+        "warnAtPercent": "%"
+      },
+      "unitOf": "Unit for {{name}}",
+      "noLimit": "No limit",
+      "default": "Default: {{value}} · {{source}}",
+      "defaultNone": "Default: no limit",
+      "sources": {
+        "none": "no limit",
+        "app": "Quizzivy's own figure",
+        "deploy": "set by the deploy",
+        "r2_free": "Cloudflare R2 free tier",
+        "neon_launch": "warning line for Neon Launch",
+        "resend_free": "Resend free plan"
+      },
+      "useDefault": "Use default",
+      "useDefaultFor": "Use the default for {{name}}",
       "aiCredits": "AI credits",
-      "aiCreditsOf": "{{used}} of {{pool}} this month"
+      "aiCreditsOf": "{{used}} of {{pool}} this month",
+      "aiCreditsManage": "Manage AI credits"
     }
   },
   "dataExport": {

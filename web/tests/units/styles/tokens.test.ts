@@ -228,6 +228,38 @@ describe("design tokens (spec §12)", () => {
     }
   });
 
+  it("keeps a paused control's label at 3:1 on its faded fill (D-029)", () => {
+    const lum = ({ r, g, b }: Rgb) =>
+      0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+    const ratio = (x: Rgb, y: Rgb) => {
+      const [a, b] = [lum(x), lum(y)].sort((p, q) => q - p);
+      return (a! + 0.05) / (b! + 0.05);
+    };
+    const over = (top: Rgb, alpha: number, under: Rgb): Rgb => ({
+      r: top.r * alpha + under.r * (1 - alpha),
+      g: top.g * alpha + under.g * (1 - alpha),
+      b: top.b * alpha + under.b * (1 - alpha),
+    });
+    const paused: [string, number, string, number, string][] = [
+      ["--primary-fg", 1, "--primary", 0.55, "--card"],
+      ["--primary-fg", 1, "--primary", 0.55, "--bg"],
+      ["--danger-ink", 1, "--danger-solid", 0.5, "--card"],
+      ["--danger-ink", 1, "--danger", 0.5, "--card"],
+      ["--fg", 0.5, "--card", 1, "--card"],
+      ["--fg", 0.55, "--muted", 1, "--muted"],
+      ["--primary-fg", 0.55, "--primary", 1, "--primary"],
+    ];
+    for (const theme of THEMES) {
+      for (const [label, labelAlpha, fill, fillAlpha, under] of paused) {
+        const ground = over(colour(theme, fill), fillAlpha, colour(theme, under));
+        expect(
+          ratio(over(colour(theme, label), labelAlpha, ground), ground),
+          `${label}/${labelAlpha} on ${fill}/${fillAlpha} over ${under} (${theme})`,
+        ).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
+
   it("keeps none of the legacy names R1 carried for the old consoles", () => {
     for (const name of [
       "--destructive-ink",

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"quizzivy/internal/platform/config"
+	"quizzivy/internal/shared/limits"
 )
 
 var adminReadings = []string{"/admin/overview", "/admin/summary", "/admin/usage"}
@@ -49,7 +50,14 @@ func attentionRow(body map[string]any, kind string) (count int, detail map[strin
 }
 
 func planned(c *config.Config) {
-	c.Plan = config.Plan{Name: "Gói thử", SeatLimit: 1_000_000, TeacherLimit: 100_000, MediaBytes: 1 << 40, ImportBytes: 1 << 40}
+	c.Limits = limits.Env{
+		limits.Seats:                1_000_000,
+		limits.Teachers:             100_000,
+		limits.StorageBytes:         1 << 40,
+		limits.MediaPerTeacherBytes: 1 << 40,
+		limits.ImportBytes:          1 << 40,
+		limits.DatabaseBytes:        1 << 40,
+	}
 }
 
 func TestTheAdminReadingsAreOpenedByTheKeysACallerHolds(t *testing.T) {
@@ -226,12 +234,10 @@ func TestTheAdminOverviewCountsWhatTheCentreHolds(t *testing.T) {
 	if usageAfter["aiCredits"] != nil {
 		t.Errorf("aiCredits = %v, want null while the assistant is off", usageAfter["aiCredits"])
 	}
-	if walk(usageAfter, "plan", "name") != "Gói thử" || figure(t, usageAfter, "seats", "limit") != 1_000_000 {
-		t.Errorf("plan and limits = %v %v", usageAfter["plan"], usageAfter["seats"])
+	if _, ok := usageAfter["plan"]; ok || figure(t, usageAfter, "seats", "limit") != 1_000_000 {
+		t.Errorf("plan and limits = %v %v, want no plan and the deploy's seat limit", usageAfter["plan"], usageAfter["seats"])
 	}
-	if walk(usageAfter, "plan", "renewsOn") != nil {
-		t.Errorf("renewsOn = %v, want null: none is stated", walk(usageAfter, "plan", "renewsOn"))
-	}
+	moved("usage.storage.bytes", figure(t, usageAfter, "storage", "bytes")-figure(t, usageBefore, "storage", "bytes"), 1234+4321)
 }
 
 func TestTheCreditRequestRowAndTheUsageQuoteTheAIModuleOnlyToWhoManagesCredits(t *testing.T) {

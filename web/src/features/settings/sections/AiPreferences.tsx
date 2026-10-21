@@ -96,7 +96,6 @@ export function AiPreferencesSection() {
               aria-labelledby={`ai-${key}`}
               aria-describedby={`ai-${key}-hint`}
               aria-disabled={saving || undefined}
-              className="aria-disabled:opacity-50"
               onCheckedChange={(on) => void choose({ [key]: on })}
             />
           </div>

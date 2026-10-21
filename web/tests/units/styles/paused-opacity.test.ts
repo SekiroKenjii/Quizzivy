@@ -1,39 +1,12 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { buttonVariants } from "@/components/ui/button";
 import { pausedOpacity, type PausedOpacityUse } from "@tests/support/pausedOpacity";
 
 const SRC = resolve(import.meta.dirname, "../../../src");
 
-const BASELINE: Readonly<Record<string, number>> = {
-  "components/shared/form/fields/SelectField.tsx": 1,
-  "features/ai/components/AiEntryButton.tsx": 1,
-  "features/assignments/components/SettingsGroups.tsx": 2,
-  "features/assignments/pages/teacher/AssignmentDetailPage.tsx": 1,
-  "features/attempts/pages/teacher/AttemptReviewPage.tsx": 2,
-  "features/auth/components/SettingsSections.tsx": 1,
-  "features/auth/components/StudentSettingsSections.tsx": 2,
-  "features/classes/components/AddMemberDialog.tsx": 1,
-  "features/classes/components/ClassCard.tsx": 1,
-  "features/classes/components/ClassSettingsCard.tsx": 1,
-  "features/imports/components/ReadWithAiCard.tsx": 1,
-  "features/imports/components/confirm/ConfirmSummary.tsx": 1,
-  "features/join/components/JoinDialog.tsx": 1,
-  "features/media/components/AudioPlayer.tsx": 2,
-  "features/notifications/components/NotificationsPanel.tsx": 2,
-  "features/notifications/components/StudentNotificationsSection.tsx": 1,
-  "features/question-bank/components/AiDistractorsPanel.tsx": 1,
-  "features/question-groups/pages/teacher/GroupEditorPage.tsx": 1,
-  "features/settings/sections/AiCreditRequest.tsx": 1,
-  "features/settings/sections/AiPreferences.tsx": 1,
-  "features/settings/sections/Appearance.tsx": 2,
-  "features/settings/sections/AssignmentDefaults.tsx": 1,
-  "features/settings/sections/Devices.tsx": 1,
-  "features/settings/sections/Notifications.tsx": 1,
-  "features/tests/components/SharedContentDialog.tsx": 1,
-  "features/tests/components/VersionHistory.tsx": 1,
-  "features/tests/pages/teacher/TestDetailPage.tsx": 1,
-};
+const BASELINE: Readonly<Record<string, number>> = {};
 
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -87,6 +60,26 @@ describe("a paused control fades its colours, never the element (D-029)", () => 
   });
 
   it.each([
+    "components/ui/button.tsx",
+    "components/ui/switch.tsx",
+    "components/ui/segmented.tsx",
+  ])(
+    "keeps %s, which paused controls are built from, free of paused opacity",
+    (file) => {
+      expect(pausedOpacity(readFileSync(join(SRC, file), "utf8"), file)).toEqual([]);
+    },
+  );
+
+  it.each(["default", "destructive", "outline", "secondary", "ghost", "link"] as const)(
+    "gives the %s button a paused look in colour",
+    (variant) => {
+      expect(buttonVariants({ variant })).toMatch(
+        /(?:^|\s)aria-disabled:text-|aria-disabled:bg-/,
+      );
+    },
+  );
+
+  it.each([
     ["aria-disabled:opacity-50", "the plain spelling"],
     ["aria-disabled:hover:opacity-50", "behind another variant"],
     ["[&[aria-disabled]]:opacity-50", "an arbitrary variant on the attribute"],
@@ -110,6 +103,10 @@ describe("a paused control fades its colours, never the element (D-029)", () => 
     "opacity-50",
     "transition-opacity",
     "[&>svg]:opacity-40",
+    "aria-disabled:opacity-100",
+    "aria-disabled:*:opacity-50",
+    "aria-disabled:[&>span]:opacity-50",
+    "aria-disabled:[&_svg]:opacity-40",
   ])("lets %s through when no element is paused", (token) => {
     expect(pausedOpacity(`const c = "px-2 ${token} h-7";`)).toEqual([]);
   });
@@ -123,6 +120,123 @@ describe("a paused control fades its colours, never the element (D-029)", () => 
   ])("sees opacity on an element that is paused: %s (%s)", (attributes) => {
     const source = `const a = <button aria-disabled={pending || undefined} ${attributes} />;`;
     expect(pausedOpacity(source)).toHaveLength(1);
+  });
+
+  it.each([
+    'aria-[disabled="true"]:opacity-50',
+    '[&[aria-disabled="true"]]:opacity-50',
+  ])("sees %s (a quoted value)", (token) => {
+    expect(pausedOpacity(`const c = 'px-2 ${token} h-7';`)).toHaveLength(1);
+  });
+
+  it("sees a class held in a constant of the same file on a paused element", () => {
+    const source =
+      'const OFF = "pointer-events-none opacity-45";\nconst a = <a aria-disabled={off} className={cn("h-7", off && OFF)} />;';
+    expect(pausedOpacity(source)).toEqual([{ line: 2, text: "opacity-45" }]);
+  });
+
+  it.each([
+    ["// aria-disabled:opacity-50 halves the ring\nconst a = 1;", "a line comment"],
+    ["/* never aria-disabled:opacity-50 */\nconst a = 1;", "a block comment"],
+    [
+      'const a = <b aria-disabled className="disabled:opacity-50 opacity-100" />;',
+      "full opacity on a paused element",
+    ],
+    [
+      'const a = <b aria-disabled className={cn(off && "*:opacity-60")} />;',
+      "the children's opacity on a paused element",
+    ],
+  ])("is not fooled by %s (%s)", (source) => {
+    expect(pausedOpacity(source)).toEqual([]);
+  });
+
+  it.each([
+    [
+      'function held(off: boolean) {\n  return { "aria-disabled": off, className: off ? "opacity-50" : "" };\n}',
+      "a props object a helper returns",
+    ],
+    [
+      'const a = <b {...{ "aria-disabled": p, className: "opacity-50" }} />;',
+      "a spread",
+    ],
+    [
+      'const a = <b aria-disabled={p} style={{ "opacity": 0.5 }} />;',
+      "a quoted style key",
+    ],
+    ["const a = <b aria-disabled={p} style={{ opacity }} />;", "a shorthand style key"],
+    [
+      "const DIM = { opacity: 0.5 };\nconst a = <b aria-disabled={p} style={DIM} />;",
+      "a style held in a constant",
+    ],
+  ])("sees %s (%s)", (source) => {
+    expect(pausedOpacity(source)).toHaveLength(1);
+  });
+
+  it.each([
+    [
+      'const a = <b aria-disabled={false} className="opacity-50" />;',
+      "aria-disabled false",
+    ],
+    [
+      'const a = <b aria-disabled={p || undefined} className={p ? "" : "opacity-50"} />;',
+      "the unpaused branch of a ternary",
+    ],
+    [
+      'function f() {\n  const OFF = "h-7";\n  return <b aria-disabled className={OFF} />;\n}\nfunction g() {\n  const OFF = "opacity-50";\n  return <b className={OFF} />;\n}',
+      "a constant of the same name in another function",
+    ],
+  ])("is not fooled by %s (%s)", (source) => {
+    expect(pausedOpacity(source)).toEqual([]);
+  });
+
+  it.each([
+    [
+      'const a = <b aria-disabled={p} className="md:opacity-50" />;',
+      "a responsive variant",
+    ],
+    [
+      'const a = <b aria-disabled={p} className="dark:opacity-50" />;',
+      "a theme variant",
+    ],
+    [
+      'const a = <b aria-disabled={p} className="[opacity:.5]" />;',
+      "an arbitrary property",
+    ],
+    [
+      'const a = <b {...{ "aria-disabled": p }} className="opacity-50" />;',
+      "aria-disabled from a spread",
+    ],
+    [
+      'const className = "opacity-50";\nconst o = { "aria-disabled": p, className };',
+      "a shorthand class in a props object",
+    ],
+  ])("sees %s (%s)", (source) => {
+    expect(pausedOpacity(source)).toHaveLength(1);
+  });
+
+  it.each([
+    [
+      'const a = <b aria-disabled={!x} className={x ? "opacity-50" : ""} />;',
+      "a negated pause",
+    ],
+    [
+      'const a = <b aria-disabled={p ? true : undefined} className={p ? "" : "opacity-50"} />;',
+      "a ternary pause",
+    ],
+    ['const a = <b aria-disabled={p} className={cn(!p && "opacity-50")} />;', "!p &&"],
+    ['const a = <b aria-disabled={undefined} className="opacity-50" />;', "undefined"],
+    [
+      'const OFF = "opacity-50";\nfunction f(OFF: string) {\n  return <b aria-disabled className={OFF} />;\n}',
+      "a parameter that shadows a constant",
+    ],
+  ])("is not fooled by %s (%s)", (source) => {
+    expect(pausedOpacity(source)).toEqual([]);
+  });
+
+  it("reads the constant in scope, not one of the same name elsewhere", () => {
+    const source =
+      'function f() {\n  const OFF = "opacity-50";\n  return <b aria-disabled className={OFF} />;\n}\nfunction g() {\n  const OFF = "h-7";\n  return <i />;\n}';
+    expect(pausedOpacity(source)).toEqual([{ line: 3, text: "opacity-50" }]);
   });
 
   it("lets a conditional opacity through on an element that is not paused", () => {

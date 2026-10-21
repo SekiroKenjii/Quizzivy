@@ -69,6 +69,10 @@ const (
 	CodeUnknownClass    ImportCode = "UNKNOWN_CLASS"
 	CodeAmbiguousClass  ImportCode = "AMBIGUOUS_CLASS"
 	CodeClassNotAllowed ImportCode = "CLASS_NOT_ALLOWED"
+	// CodeOverSeatLimit refuses a new account the centre's seat limit has no
+	// room for, and CodeOverTeacherLimit one its teacher limit has no room for.
+	CodeOverSeatLimit    ImportCode = "OVER_SEAT_LIMIT"
+	CodeOverTeacherLimit ImportCode = "OVER_TEACHER_LIMIT"
 )
 
 // ImportColumns holds where each column of the file's header is, or -1.
@@ -158,6 +162,7 @@ type ImportJob struct {
 	Total             int
 	Created           int
 	Skipped           int
+	OverLimit         int
 	Invalid           int
 	Attempts          int
 	ErrorCode         string
@@ -168,8 +173,9 @@ type ImportJob struct {
 	CompletedAt       *time.Time
 }
 
-// Processed is the rows the job has settled: created or skipped.
-func (j ImportJob) Processed() int { return j.Created + j.Skipped }
+// Processed is the rows the job has settled: created, skipped, or not
+// created because the centre reached a seat or teacher limit.
+func (j ImportJob) Processed() int { return j.Created + j.Skipped + j.OverLimit }
 
 // ImportSheetState is whether the hand-out sheet can be downloaded.
 type ImportSheetState struct {

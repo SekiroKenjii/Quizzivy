@@ -47,7 +47,7 @@ import { useUnsavedSection } from "@/features/settings/unsavedSection";
 import { ApiError, failureMessage } from "@/lib/api/errors";
 
 const SERVER_FIELD =
-  /^(organization\.(name|shortName|website|contactEmail|frontDeskPhone|frontDeskHours|address|logo\.(light|dark))|signIn\.allowedGoogleDomains|retention\.[A-Za-z]+)$/;
+  /^(organization\.(name|shortName|website|contactEmail|frontDeskPhone|frontDeskHours|address|logo\.(light|dark))|signIn\.allowedGoogleDomains|retention\.[A-Za-z]+|limits\.[A-Za-z]+)$/;
 
 function firstPath(errors: object, prefix = ""): string | null {
   for (const [key, value] of Object.entries(errors)) {
@@ -243,7 +243,8 @@ export function SettingsForm({
   function sectionContent(id: string) {
     if (id === "sign-in") return <SignInSection verdict={verdict} saving={saving} />;
     if (id === "data") return <DataPrivacySection saving={saving} />;
-    if (id === "plan") return <PlanUsageSection />;
+    if (id === "plan")
+      return <PlanUsageSection saving={saving} defaults={saved.limitDefaults} />;
     return <OrganizationSection />;
   }
 

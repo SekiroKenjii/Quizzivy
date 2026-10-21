@@ -53,6 +53,7 @@ function job(overrides: Partial<Job> = {}): Job {
     processed: 10,
     created: 9,
     skipped: 1,
+    overLimit: 0,
     invalid: 3,
     delivery: "email_link",
     sheet: null,
@@ -360,7 +361,7 @@ describe("the Import users dialog", () => {
     const states = [
       job(),
       job({ processed: 20, created: 19 }),
-      job({ status: "done", processed: 28, created: 26, skipped: 2 }),
+      job({ status: "done", processed: 28, created: 25, skipped: 2, overLimit: 1 }),
     ];
     let reads = 0;
     const lists = serveUsers(ROWS);
@@ -400,8 +401,13 @@ describe("the Import users dialog", () => {
     expect(await dialog.findByText("Đang tạo tài khoản… 20/28")).toBeVisible();
     await act(() => vi.advanceTimersByTimeAsync(2_000));
 
-    expect(await dialog.findByText("26 tài khoản đã tạo · 2 bỏ qua")).toBeVisible();
+    expect(await dialog.findByText("25 tài khoản đã tạo · 2 bỏ qua")).toBeVisible();
     expect(dialog.getByText("3 dòng có lỗi không được nhập.")).toBeVisible();
+    expect(
+      dialog.getByText(
+        "1 tài khoản không được tạo vì trung tâm đã đạt giới hạn. Quản trị viên có thể nâng giới hạn trong Cài đặt, mục Gói và mức dùng.",
+      ),
+    ).toBeVisible();
     expect(dialog.getByRole("button", { name: "Nhập tệp khác" })).toBeVisible();
     await waitFor(() => expect(lists.length).toBeGreaterThan(before));
     const settledReads = reads;

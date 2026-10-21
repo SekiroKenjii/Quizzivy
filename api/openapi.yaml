@@ -746,15 +746,83 @@ components:
           description: Months after which a disabled account is anonymised, or `null` for never.
           oneOf: [{ type: integer, enum: [12, 24] }, { type: 'null' }]
 
+    UsageLimits:
+      type: object
+      description: |
+        The usage limits an Admin set (CR-002, D-060). `null` takes the
+        default `limitDefaults` names: the deploy's variable when one is set,
+        else the hosting plan's figure, and for `seats` and `teachers` no limit.
+        A limit below what is in use can be saved; it refuses what would add to
+        the use and disables nothing.
+
+        `seats` bounds the enabled accounts and `teachers` the enabled accounts
+        whose role opens the teacher workspace; both refuse a new, re-enabled
+        or re-roled account past them (`SEAT_LIMIT`, `TEACHER_LIMIT`).
+        `storageBytes` bounds every file the centre keeps in its buckets
+        (media, import documents and their read pages, exports ready to
+        download) and refuses an upload past it. `mediaPerTeacherBytes` bounds
+        one teacher's media library; `importBytes` and `importPerTeacherBytes`
+        the documents of the imports still open, for the centre and for one
+        teacher. `emailsPerDay` and `emailsPerMonth` hold mail past them until
+        the next local day or month. `databaseBytes` only warns.
+        `warnAtPercent` is the share of a limit at which the Overview warns.
+      required: [seats, teachers, storageBytes, mediaPerTeacherBytes, importBytes, importPerTeacherBytes, emailsPerDay, emailsPerMonth, databaseBytes, warnAtPercent]
+      additionalProperties: false
+      properties:
+        seats: { type: [integer, 'null'], minimum: 1, maximum: 1000000 }
+        teachers: { type: [integer, 'null'], minimum: 1, maximum: 1000000 }
+        storageBytes: { type: [integer, 'null'], format: int64, minimum: 1048576, maximum: 1125899906842624 }
+        mediaPerTeacherBytes: { type: [integer, 'null'], format: int64, minimum: 1048576, maximum: 1125899906842624 }
+        importBytes: { type: [integer, 'null'], format: int64, minimum: 1048576, maximum: 1125899906842624 }
+        importPerTeacherBytes: { type: [integer, 'null'], format: int64, minimum: 1048576, maximum: 1125899906842624 }
+        emailsPerDay: { type: [integer, 'null'], minimum: 1, maximum: 100000 }
+        emailsPerMonth: { type: [integer, 'null'], minimum: 1, maximum: 10000000 }
+        databaseBytes: { type: [integer, 'null'], format: int64, minimum: 1048576, maximum: 1125899906842624 }
+        warnAtPercent: { type: [integer, 'null'], minimum: 50, maximum: 100 }
+
+    UsageLimitDefault:
+      type: object
+      description: |
+        What a limit is when nothing is stored. `value` is `null` for no limit.
+        `source` says where it comes from: `r2_free` (Cloudflare R2's free tier,
+        10 GB), `neon_launch` (the warning line chosen for Neon's Launch plan,
+        which has no cap), `resend_free` (Resend's free plan, 100 a day and
+        3,000 a month), `deploy` (a deploy variable that overrides the plan),
+        `app` (the app's own figure) or `none`.
+      required: [value, source]
+      additionalProperties: false
+      properties:
+        value: { type: [integer, 'null'], format: int64, minimum: 1 }
+        source: { type: string, enum: [none, app, deploy, r2_free, neon_launch, resend_free] }
+
+    UsageLimitDefaults:
+      type: object
+      description: Each limit's default, under the same names as `UsageLimits`.
+      required: [seats, teachers, storageBytes, mediaPerTeacherBytes, importBytes, importPerTeacherBytes, emailsPerDay, emailsPerMonth, databaseBytes, warnAtPercent]
+      additionalProperties: false
+      properties:
+        seats: { $ref: '#/components/schemas/UsageLimitDefault' }
+        teachers: { $ref: '#/components/schemas/UsageLimitDefault' }
+        storageBytes: { $ref: '#/components/schemas/UsageLimitDefault' }
+        mediaPerTeacherBytes: { $ref: '#/components/schemas/UsageLimitDefault' }
+        importBytes: { $ref: '#/components/schemas/UsageLimitDefault' }
+        importPerTeacherBytes: { $ref: '#/components/schemas/UsageLimitDefault' }
+        emailsPerDay: { $ref: '#/components/schemas/UsageLimitDefault' }
+        emailsPerMonth: { $ref: '#/components/schemas/UsageLimitDefault' }
+        databaseBytes: { $ref: '#/components/schemas/UsageLimitDefault' }
+        warnAtPercent: { $ref: '#/components/schemas/UsageLimitDefault' }
+
     OrganizationSettings:
       type: object
-      description: The whole settings document, as stored.
-      required: [organization, signIn, retention, revision, updatedAt, updatedBy]
+      description: The whole settings document, as stored, and each usage limit's default.
+      required: [organization, signIn, retention, limits, limitDefaults, revision, updatedAt, updatedBy]
       additionalProperties: false
       properties:
         organization: { $ref: '#/components/schemas/OrganizationProfile' }
         signIn: { $ref: '#/components/schemas/SignInPolicy' }
         retention: { $ref: '#/components/schemas/RetentionPolicy' }
+        limits: { $ref: '#/components/schemas/UsageLimits' }
+        limitDefaults: { $ref: '#/components/schemas/UsageLimitDefaults' }
         revision:
           type: integer
           format: int64
@@ -767,13 +835,17 @@ components:
 
     OrganizationSettingsInput:
       type: object
-      description: The whole document to store, and the revision it was read at.
+      description: |
+        The whole document to store, and the revision it was read at. Without
+        `limits` the stored limits are kept, so a client that predates them
+        changes none.
       required: [organization, signIn, retention, expectedRevision]
       additionalProperties: false
       properties:
         organization: { $ref: '#/components/schemas/OrganizationProfile' }
         signIn: { $ref: '#/components/schemas/SignInPolicy' }
         retention: { $ref: '#/components/schemas/RetentionPolicy' }
+        limits: { $ref: '#/components/schemas/UsageLimits' }
         expectedRevision: { type: integer, format: int64, minimum: 1 }
 
     SignInImpact:
@@ -898,6 +970,10 @@ components:
         - ROLE_NAME_TAKEN
         - ROLE_LIMIT_REACHED
         - ROLE_NOT_ASSIGNABLE
+        # usage limits
+        - SEAT_LIMIT
+        - TEACHER_LIMIT
+        - STORAGE_LIMIT
         - ROLE_LOCKED
         - STUDENT_NEEDS_TAKE_TESTS
         - KEY_NOT_GRANTABLE
@@ -2975,7 +3051,9 @@ components:
         `ROLE_NOT_GIVABLE` (the Assistant, which no one is given), `UNKNOWN_CLASS` and
         `AMBIGUOUS_CLASS` (no active class, or more than one, has the name), and
         `CLASS_NOT_ALLOWED` (a class for a role that is not a student target, or
-        by an importer without `scope.all`). A refusal carries no text of the file.
+        by an importer without `scope.all`), and `OVER_SEAT_LIMIT` (on `email`) and
+        `OVER_TEACHER_LIMIT` (on `role`): a new account past a limit an Admin set on
+        Plan & usage, counted in the file's order. A refusal carries no text of the file.
       additionalProperties: false
       required: [row, field, code]
       properties:
@@ -2996,6 +3074,8 @@ components:
             - UNKNOWN_CLASS
             - AMBIGUOUS_CLASS
             - CLASS_NOT_ALLOWED
+            - OVER_SEAT_LIMIT
+            - OVER_TEACHER_LIMIT
 
     UserImportPreview:
       type: object
@@ -3007,8 +3087,10 @@ components:
         `invalidCount` counts every refused row. `classes` are the classes the
         accepted rows would join. `emailBudget` is `null` unless `delivery` is
         `email_link`: `remainingToday` is what the centre can still send today,
-        counting what already waits, and `limit` its daily maximum; the rest of
-        the links go out on the following days.
+        counting what already waits or is held by a cap, and `limit` the cap
+        that binds it: the daily maximum, or the monthly one when what the
+        month has left is less than the day's; the rest of the links go out
+        on the following days or months.
       additionalProperties: false
       required: [rows, newAccounts, existingEmails, invalid, invalidCount, classes, emailBudget]
       properties:
@@ -3053,13 +3135,15 @@ components:
         while it creates the accounts, `done` once every stored row is settled,
         and `failed` when it gave up (`errorCode` says why, a short code that
         never carries the file). `total` is the rows stored, those that passed
-        every rule; `processed` is those settled so far, `created` + `skipped`;
-        `skipped` are the addresses that already belonged to an account.
+        every rule; `processed` is those settled so far, `created` + `skipped` +
+        `overLimit`; `skipped` are the addresses that already belonged to an
+        account, and `overLimit` the new accounts not created because the
+        centre reached a seat or teacher limit while the job ran.
         `invalid` counts the rows refused, which are not stored. `sheet` is `null`
         unless `delivery` is `sheet`: `available` is true from `done` until the
         sheet is downloaded or 24 hours have passed, whichever comes first.
       additionalProperties: false
-      required: [id, status, total, processed, created, skipped, invalid, delivery, sheet, errorCode, createdAt]
+      required: [id, status, total, processed, created, skipped, overLimit, invalid, delivery, sheet, errorCode, createdAt]
       properties:
         id: { $ref: '#/components/schemas/Uuid' }
         status: { type: string, enum: [queued, running, done, failed] }
@@ -3067,6 +3151,7 @@ components:
         processed: { type: integer, minimum: 0, maximum: 2000 }
         created: { type: integer, minimum: 0, maximum: 2000 }
         skipped: { type: integer, minimum: 0, maximum: 2000 }
+        overLimit: { type: integer, minimum: 0, maximum: 2000 }
         invalid: { type: integer, minimum: 0, maximum: 2000 }
         delivery: { $ref: '#/components/schemas/UserImportDelivery' }
         sheet:
@@ -4171,7 +4256,7 @@ components:
 
     AdminAttentionKind:
       type: string
-      enum: [must_change_password, never_signed_in, disabled_teacher_classes, storage, ai_credit_requests]
+      enum: [must_change_password, never_signed_in, disabled_teacher_classes, storage, email_held, email_expired, ai_credit_requests]
 
     AdminAttention:
       type: object
@@ -4190,11 +4275,15 @@ components:
             `never_signed_in`: enabled accounts that have never signed in and
             are not on a temporary password. `disabled_teacher_classes`: classes,
             archived ones too, whose teacher is disabled. `storage`: how many of
-            the media and import meters with a configured limit read 80 percent
-            or more, as `detail` quotes them (rounded half up). `ai_credit_requests`: the teachers waiting for more credits
-            this month.
+            the seat, teacher, file storage, largest media library, open
+            imports and database readings are at `Usage.warnAtPercent` of their
+            limit or more, as `detail` quotes them (rounded half up).
+            `email_held`: messages an email cap holds until a cap allows them.
+            `email_expired`: this local month's messages a cap held until their
+            link expired, never sent. `ai_credit_requests`: the
+            teachers waiting for more credits this month.
         detail:
-          description: What the row's line quotes. `null` for `must_change_password`.
+          description: What the row's line quotes. `null` for `must_change_password` and `email_expired`.
           oneOf: [{ $ref: '#/components/schemas/AdminAttentionDetail' }, { type: 'null' }]
 
     AdminAttentionDetail:
@@ -4203,16 +4292,24 @@ components:
         The facts a row quotes, by kind; a field its kind does not use is
         absent. `never_signed_in`: `oldestCreatedAt`.
         `disabled_teacher_classes`: `className` and `teacherName` of the newest
-        such class. `storage`: `mediaPercent` and `importsPercent`, each absent
-        when that meter has no limit. `ai_credit_requests`: `teacherName`,
+        such class. `storage`: `seatsPercent`, `teachersPercent`,
+        `storagePercent`, `mediaPercent`, `importsPercent` and
+        `databasePercent`, each present only for a reading at or over
+        `warnAtPercent` of its limit. `email_held`: `heldUntil`, when the first held
+        message may go. `ai_credit_requests`: `teacherName`,
         `used` and `allowance` of the request waiting longest.
       additionalProperties: false
       properties:
         oldestCreatedAt: { type: string, format: date-time }
         className: { type: string }
         teacherName: { type: string }
+        seatsPercent: { type: integer, minimum: 0 }
+        teachersPercent: { type: integer, minimum: 0 }
         mediaPercent: { type: integer, minimum: 0 }
         importsPercent: { type: integer, minimum: 0 }
+        storagePercent: { type: integer, minimum: 0 }
+        databasePercent: { type: integer, minimum: 0 }
+        heldUntil: { type: string, format: date-time }
         used: { type: integer, minimum: 0 }
         allowance: { type: integer, minimum: 0 }
 
@@ -4229,44 +4326,36 @@ components:
     Usage:
       type: object
       description: |
-        What the centre uses against its plan. Nothing is enforced (DG-55): a
-        `limit` is `null` when its `PLAN_*` variable is unset, and a figure may
-        pass its limit.
+        What the centre uses against its limits (CR-002, D-060), each limit
+        resolved as `UsageLimits` says, `null` where there is none.
 
-        `seats` counts the accounts that are not disabled against
-        `PLAN_SEAT_LIMIT`. `teachers` counts the enabled accounts that are not
-        a student target, Admins included, against `PLAN_TEACHER_LIMIT`; it is
-        the Overview's `people.teachers`. `media` is the bytes of the media
-        files still held in storage, against `PLAN_MEDIA_BYTES`, and `imports`
-        the bytes of the source documents of
-        the imports whose files are still kept and the number of those imports,
-        against `PLAN_IMPORT_BYTES`. `attemptsKept` has no limit until a
-        denominator is named.
-      required: [plan, seats, teachers, media, imports, attemptsKept, aiCredits]
+        `seats` counts the enabled accounts and `teachers` the enabled accounts
+        whose role opens the teacher workspace. `storage` is every file the
+        centre keeps in its buckets, the sum `storageBytes` bounds: `media`,
+        `imports` and the exports ready to download. `media.largestLibrary` is
+        the fullest teacher's library against `mediaPerTeacherBytes`.
+        `imports.bytes` and `imports.count` are the kept documents and their
+        imports; `imports.openBytes` the documents of the imports still open,
+        which `importBytes` bounds. `email` counts what was sent today and this
+        month in `APP_TIMEZONE`, and `held` the messages a cap moved to a
+        later day or month. `database.bytes` is PostgreSQL's
+        `pg_database_size`, which approximates and is not what Neon bills.
+        `attemptsKept` has no limit.
+      required: [seats, teachers, storage, media, imports, email, database, attemptsKept, aiCredits, warnAtPercent]
       additionalProperties: false
       properties:
-        plan:
-          description: '`null` when `PLAN_NAME` is unset.'
-          oneOf: [{ $ref: '#/components/schemas/UsagePlan' }, { type: 'null' }]
         seats: { $ref: '#/components/schemas/UsageCount' }
         teachers: { $ref: '#/components/schemas/UsageCount' }
-        media: { $ref: '#/components/schemas/UsageBytes' }
+        storage: { $ref: '#/components/schemas/UsageBytes' }
+        media: { $ref: '#/components/schemas/UsageMedia' }
         imports: { $ref: '#/components/schemas/UsageImports' }
+        email: { $ref: '#/components/schemas/UsageEmail' }
+        database: { $ref: '#/components/schemas/UsageBytes' }
         attemptsKept: { $ref: '#/components/schemas/UsageAttempts' }
         aiCredits:
           description: The month's credits. `null` without `ai.credits.manage`, and while the AI assistant is off.
           oneOf: [{ $ref: '#/components/schemas/UsageCredits' }, { type: 'null' }]
-
-    UsagePlan:
-      type: object
-      required: [name, renewsOn]
-      additionalProperties: false
-      properties:
-        name: { type: string }
-        renewsOn:
-          type: [string, 'null']
-          format: date
-          description: '`PLAN_RENEWS_ON`, or `null` when unset.'
+        warnAtPercent: { type: integer, minimum: 50, maximum: 100 }
 
     UsageCount:
       type: object
@@ -4284,14 +4373,36 @@ components:
         bytes: { type: integer, format: int64, minimum: 0 }
         limit: { type: [integer, 'null'], format: int64, minimum: 1 }
 
+    UsageMedia:
+      type: object
+      required: [bytes, largestLibrary, perTeacherLimit]
+      additionalProperties: false
+      properties:
+        bytes: { type: integer, format: int64, minimum: 0 }
+        largestLibrary: { type: integer, format: int64, minimum: 0 }
+        perTeacherLimit: { type: [integer, 'null'], format: int64, minimum: 1 }
+
     UsageImports:
       type: object
-      required: [bytes, count, limit]
+      required: [bytes, count, openBytes, limit, perTeacherLimit]
       additionalProperties: false
       properties:
         bytes: { type: integer, format: int64, minimum: 0 }
         count: { type: integer, minimum: 0 }
+        openBytes: { type: integer, format: int64, minimum: 0 }
         limit: { type: [integer, 'null'], format: int64, minimum: 1 }
+        perTeacherLimit: { type: [integer, 'null'], format: int64, minimum: 1 }
+
+    UsageEmail:
+      type: object
+      required: [today, month, held, dailyLimit, monthlyLimit]
+      additionalProperties: false
+      properties:
+        today: { type: integer, minimum: 0 }
+        month: { type: integer, minimum: 0 }
+        held: { type: integer, minimum: 0 }
+        dailyLimit: { type: [integer, 'null'], minimum: 1 }
+        monthlyLimit: { type: [integer, 'null'], minimum: 1 }
 
     UsageAttempts:
       type: object
@@ -6714,6 +6825,10 @@ components:
         The three `ai.*` kinds are for the teacher's bell. `ai.credit_request`
         is written for every holder of `ai.credits.manage`, who reads it in the
         teacher workspace until the Admin console has a bell of its own.
+
+        `join_codes.rotated` was written by the one-time start-up rotation of
+        pre-v0.8.0 join codes, which v0.12.0 removed. Nothing writes it now;
+        the kind stays so that the notifications it wrote still read.
       enum:
         - attempt.submitted
         - attempt.flagged
@@ -6773,7 +6888,7 @@ components:
         count:
           type: integer
           minimum: 0
-          description: Papers handed in (`attempt.submitted`), classes whose join code was replaced (`join_codes.rotated`), or classes, tests, questions, question groups, media and assignments given to the reader (`content.transferred`).
+          description: Papers handed in (`attempt.submitted`), classes whose pre-v0.8.0 join code was replaced at start-up (`join_codes.rotated`, no longer written), or classes, tests, questions, question groups, media and assignments given to the reader (`content.transferred`).
         toGrade: { type: integer, minimum: 0, description: 'Of the papers handed in, those with an answer waiting for a mark.' }
         focusLost: { type: integer, minimum: 0, description: Times the student left the test. }
         notSubmitted: { type: integer, minimum: 0, description: Students who have not handed in. }
@@ -7542,6 +7657,10 @@ paths:
             off. `GOOGLE_DOMAIN_NOT_ALLOWED` — the verified address is outside
             the centre's allowed domains. Both are decided for a code that
             joins a class as well.
+
+            `SEAT_LIMIT` — a code would create the account, and the centre has
+            used every seat an Admin allowed. The message names no figure; no
+            account is created and the code is not used.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -8183,6 +8302,7 @@ paths:
           schema: { $ref: '#/components/schemas/Uuid' }
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
@@ -8220,6 +8340,7 @@ paths:
                     required: [items]
                     properties:
                       items: { type: array, items: { $ref: '#/components/schemas/QuestionGroupSummary' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
     post:
       operationId: createQuestionGroup
       x-resource:
@@ -8288,6 +8409,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/StoredQuestionGroup' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
     put:
       operationId: updateQuestionGroup
@@ -8351,6 +8473,7 @@ paths:
         - { name: expectedTestUpdatedAt, in: query, schema: { type: string, format: date-time } }
       responses:
         '204': { description: Deleted. }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
@@ -8520,6 +8643,7 @@ paths:
       description: Permanently deletes an archived test and its unused versions. Assignments or attempts referencing the test block deletion.
       responses:
         '204': { description: Deleted. }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: The resource is still referenced or has not reached its required inactive state.
@@ -8539,6 +8663,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Test' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       operationId: updateTest
@@ -8805,6 +8930,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Test' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /teacher/tests/{id}/versions:
@@ -8832,6 +8958,7 @@ paths:
                 additionalProperties: false
                 properties:
                   items: { type: array, items: { $ref: '#/components/schemas/TestVersion' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /teacher/tests/{id}/versions/{version}:
@@ -8850,6 +8977,7 @@ paths:
       description: Deletes an unused, non-current version. Existing assignments and attempts prevent deletion.
       responses:
         '204': { description: Deleted. }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: The version is referenced or current. Archiving does not prevent deletion of an unused, non-current version.
@@ -9018,6 +9146,7 @@ paths:
                   questions: { type: array, items: { $ref: '#/components/schemas/StudentQuestion' } }
                   sections: { type: array, items: { $ref: '#/components/schemas/StudentSection' } }
                   groups: { type: array, items: { $ref: '#/components/schemas/StudentGroup' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: '`TEST_NOT_PUBLISHED`.'
@@ -9221,6 +9350,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AdminQuestion' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       operationId: updateQuestion
@@ -9256,6 +9386,7 @@ paths:
       description: Soft delete (§13.2). Version snapshots that reference it keep working.
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: |
@@ -9363,6 +9494,7 @@ paths:
                         type: array
                         items: { $ref: '#/components/schemas/WordImportHistoryItem' }
                       facets: { $ref: '#/components/schemas/ImportStatusFacets' }
+        '400': { $ref: '#/components/responses/BadRequest' }
   /teacher/imports/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:
@@ -9379,6 +9511,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/WordImport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404':
           description: Import not found.
           content:
@@ -9548,6 +9681,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ImportSourceDownload' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404':
           description: Completed source not found in this import.
           content:
@@ -9689,6 +9823,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ImportReview' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404':
           description: IMPORT_NOT_PROCESSED — no draft yet, or import not found.
           content:
@@ -9797,6 +9932,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ImportSourceView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404':
           description: IMPORT_NOT_PROCESSED — the source has not been extracted, or import not found.
           content:
@@ -9986,6 +10122,8 @@ paths:
           description: |
             `MEDIA_QUOTA_EXCEEDED` — the caller's library, with the files it
             still holds, would hold more than its quota with this file.
+            `STORAGE_LIMIT` — the centre's files would take more than the
+            storage limit an Admin set on Plan & usage.
             Nothing was stored.
           content:
             application/json:
@@ -10061,7 +10199,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: MEDIA_QUOTA_EXCEEDED — the old owner's library would exceed its quota, counting the old file while something still uses it; no replacement committed and fresh-object compensation succeeded.
+          description: MEDIA_QUOTA_EXCEEDED — the old owner's library would exceed its quota, counting the old file while something still uses it; STORAGE_LIMIT — the centre's files would pass its storage limit; either way no replacement committed and fresh-object compensation succeeded.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -10133,6 +10271,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/MediaRetirement' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: |
@@ -10323,6 +10462,7 @@ paths:
       description: Permanently deletes a draft or closed assignment with no attempts. Open or scheduled assignments and any historical attempts block deletion.
       responses:
         '204': { description: Deleted. }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: The resource is still referenced or has not reached its required inactive state.
@@ -10342,6 +10482,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Assignment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       operationId: updateAssignment
@@ -10503,6 +10644,7 @@ paths:
                     items: { $ref: '#/components/schemas/Uuid' }
                     description: The paper's manually graded questions in paper order, for "Câu tiếp theo".
                   items: { type: array, items: { $ref: '#/components/schemas/QuestionAnswerRow' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404':
           description: The assignment, or a question that is not on its paper.
           content:
@@ -10571,6 +10713,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ItemAnalysis' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /teacher/assignments/{id}/reopen:
@@ -10699,6 +10842,7 @@ paths:
                 additionalProperties: false
                 properties:
                   items: { type: array, items: { $ref: '#/components/schemas/StudentOverride' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
     put:
       operationId: setStudentOverrides
@@ -10797,6 +10941,7 @@ paths:
         deadline never moves earlier.
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /teacher/assignments/{id}/attempts:
@@ -10832,6 +10977,7 @@ paths:
                     minimum: 0
                     description: Questions on the pinned version, the denominator of every row's progress.
                   rows: { type: array, items: { $ref: '#/components/schemas/MonitorRow' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   # ============================================================ teacher/attempts
@@ -10874,6 +11020,7 @@ paths:
                     required: [items]
                     properties:
                       items: { type: array, items: { $ref: '#/components/schemas/AttemptListRow' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
 
   /teacher/attempts/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -10937,6 +11084,7 @@ paths:
                       G-05's "Ghi chú của bạn": the teacher's private note on
                       this attempt. Teacher-only by construction — it lives on
                       this response and nowhere under `/app/*`.
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /teacher/attempts/{id}/events:
@@ -10982,6 +11130,7 @@ paths:
                   startedAt: { $ref: '#/components/schemas/Timestamp' }
                   events: { type: array, items: { $ref: '#/components/schemas/IntegrityEvent' } }
                   summary: { $ref: '#/components/schemas/IntegritySummary' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /teacher/attempts/{id}/extend:
@@ -11267,6 +11416,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Attempt' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: '`GRADING_INCOMPLETE` — a `short_answer` is still ungraded; `ATTEMPT_IN_PROGRESS` / `ATTEMPT_VOIDED` as for grade.'
@@ -11291,6 +11441,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Dashboard' }
+        '400': { $ref: '#/components/responses/BadRequest' }
 
   /teacher/summary:
     get:
@@ -11444,7 +11595,9 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: '`EMAIL_TAKEN` — already in use, compared case-insensitively.'
+          description: |
+            `EMAIL_TAKEN` — already in use, compared case-insensitively.
+            `SEAT_LIMIT` — the centre has used every seat an Admin allowed.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -11538,6 +11691,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/StudentRow' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       operationId: updateStudent
@@ -11619,6 +11773,7 @@ paths:
                 additionalProperties: false
                 properties:
                   temporaryPassword: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403':
           description: |
             `STUDENT_SHARED` — someone else also reaches the student, so only a
@@ -11743,6 +11898,7 @@ paths:
           description: |
             `EMAIL_TAKEN` — already in use, compared case-insensitively.
             `STALE_WRITE` — the role changed three times while the account was being created; nothing was written, so the same request may be sent again.
+            `SEAT_LIMIT` or `TEACHER_LIMIT` — the account would take the centre past a limit an Admin set on Plan & usage; nothing was written.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -11778,6 +11934,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AdminUserDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
       operationId: deleteUser
@@ -11786,6 +11943,7 @@ paths:
       description: Permanently deletes a disabled student account only when no assignment, attempt, retained audit record or owned content references it, and only when the student's permissions, except `learning.take_tests`, are a subset of the caller's. Historical identities use the approved manual anonymization process instead.
       responses:
         '204': { description: Deleted. }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403':
           description: '`FORBIDDEN` — the student''s permissions are not a subset of the caller''s.'
           content:
@@ -11868,6 +12026,7 @@ paths:
             `LAST_ADMIN` — the account is the only active Admin.
             `USER_OWNS_CONTENT` — the account owns classes or content and the new role opens no teacher workspace; `details` holds `classes`, `tests`, `questions`, `media` and `assignments`, each a count.
             `STALE_WRITE` — a role changed, or another write to the account held what this one needed, three times while the change was being made; nothing was written, so the same request may be sent again.
+            `TEACHER_LIMIT` — the new role opens the teacher workspace and the centre has used every teacher place an Admin allowed; nothing was written.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -11906,6 +12065,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AdminUserRow' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403':
           description: '`TARGET_ROLE_NOT_ALLOWED` — the account''s role holds a permission the caller lacks.'
           content:
@@ -12059,6 +12219,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AdminUserRow' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403':
           description: '`TARGET_ROLE_NOT_ALLOWED` — the account''s role holds a permission the caller lacks.'
           content:
@@ -12066,7 +12227,9 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: '`STALE_WRITE` — the account''s role, or another write to the account, changed while it was being written. Nothing was written; try again.'
+          description: |
+            `STALE_WRITE` — the account's role, or another write to the account, changed while it was being written. Nothing was written; try again.
+            `SEAT_LIMIT` or `TEACHER_LIMIT` — enabling the account would take the centre past a limit an Admin set on Plan & usage; it stays disabled.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -12087,6 +12250,7 @@ paths:
         `user.signed_out_everywhere`.
       responses:
         '204': { description: Signed out. }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403':
           description: '`TARGET_ROLE_NOT_ALLOWED` — the account''s role holds a permission the caller lacks.'
           content:
@@ -12397,6 +12561,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/UserImportJob' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /admin/user-imports/{id}/sheet:
@@ -12434,6 +12599,7 @@ paths:
           content:
             text/csv:
               schema: { type: string, format: binary }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '410':
           description: '`SHEET_UNAVAILABLE` — the job has no sheet to give: it is not done, was delivered by email, created no account, was downloaded already, or finished more than 24 hours ago.'
@@ -12809,13 +12975,12 @@ paths:
       operationId: getUsage
       x-permission: system.settings.write
       tags: [admin-overview]
-      summary: What the centre uses against its plan
+      summary: What the centre uses against its limits
       description: |
-        The Plan & usage figures. The plan and its limits come from the
-        server's `PLAN_*` configuration, each optional, and nothing here is
-        enforced (DG-55): a limit is shown, never applied. `aiCredits` is the
-        month's credits used against the centre pool, and is `null` without
-        `ai.credits.manage` and while the AI assistant is off.
+        The Plan & usage figures, each beside its limit as `UsageLimits`
+        resolves it (CR-002). `aiCredits` is the month's credits used against
+        the centre pool, and is `null` without `ai.credits.manage` and while the
+        AI assistant is off.
       responses:
         '200':
           description: OK
@@ -13121,6 +13286,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DataExport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -13154,6 +13320,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DataExportDownload' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -13291,6 +13458,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AiCreditDecision' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403':
           description: '`FORBIDDEN` — the teacher''s permissions are not a subset of the caller''s.'
           content:
@@ -13323,6 +13491,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AiCreditDecision' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403':
           description: '`FORBIDDEN` — the teacher''s permissions are not a subset of the caller''s.'
           content:
@@ -13366,7 +13535,9 @@ paths:
         upload changes nothing. A policy that would leave the caller, or every
         active built-in Admin, without a way to sign in is refused, judged
         inside the save as `getSignInImpact` judges it. One audit row,
-        `organization.updated`, names the caller and the fields that changed.
+        `organization.updated`, names the caller and the fields that changed,
+        and each changed limit with its value before and after (`null` for the
+        default).
         Other servers apply the new document within 30 seconds.
       requestBody:
         required: true
@@ -13388,7 +13559,8 @@ paths:
             holds a line break or an invisible character, a website that is not a
             domain or an `https` address without credentials, an email or a
             phone number that is not one, a repeated domain, or a logo the server
-            does not hold (as `organization.logo.light` or `organization.logo.dark`).
+            does not hold (as `organization.logo.light` or `organization.logo.dark`),
+            or a limit outside its range (as `limits.seats` and so on).
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -13541,8 +13713,8 @@ paths:
         only when the request says `withCodes=true`, which the class cards send and
         the pickers do not. It is then the code exactly when `getJoinCode` would
         read it for the same caller and class: the caller holds
-        `teaching.classes.write`, reaches the class, and the code is readable (not
-        a legacy code, and sealed under a key this server holds). In every other
+        `teaching.classes.write`, reaches the class, and the code is readable
+        (sealed under a key this server holds). In every other
         case `code` is `null`, a missing permission included, which is not an
         error. The answer is never cached, whether or not codes are asked for, and
         the operation is limited like the others that reveal one: 60 a minute and
@@ -13588,6 +13760,7 @@ paths:
                     properties:
                       items: { type: array, items: { $ref: '#/components/schemas/ClassListItem' } }
                       facets: { $ref: '#/components/schemas/ClassFacets' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
     post:
       operationId: createClass
@@ -13633,6 +13806,7 @@ paths:
       description: Permanently deletes an archived class and its owned memberships/join codes. Assignment references block deletion; student accounts and papers are retained.
       responses:
         '204': { description: Deleted. }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: |
@@ -13658,6 +13832,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Class' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       operationId: updateClass
@@ -13739,6 +13914,7 @@ paths:
                     required: [items]
                     properties:
                       items: { type: array, items: { $ref: '#/components/schemas/ClassMember' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
     post:
       operationId: addClassMember
       x-resource:
@@ -13793,6 +13969,7 @@ paths:
         so a typo in the URL does not look like it worked.
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -13829,6 +14006,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/JoinCode' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     post:
@@ -13932,6 +14110,7 @@ paths:
         retry that changes nothing.
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -14110,6 +14289,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AiDistractorsResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '402': { $ref: '#/components/responses/AiCreditsExhausted' }
         '403': { $ref: '#/components/responses/AiNotAllowed' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -14149,6 +14329,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AiScoreSuggestion' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '402': { $ref: '#/components/responses/AiCreditsExhausted' }
         '403': { $ref: '#/components/responses/AiNotAllowed' }
         '404':
@@ -14195,6 +14376,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AiInsightsResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '402': { $ref: '#/components/responses/AiCreditsExhausted' }
         '403': { $ref: '#/components/responses/AiNotAllowed' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -14406,6 +14588,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/StudentAssignmentDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -14851,6 +15034,7 @@ paths:
                       hides a part's title or membership.
                   questions: { type: array, items: { $ref: '#/components/schemas/ResultQuestion' } }
                   sharedContext: { $ref: '#/components/schemas/SharedReviewContext' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409':
           description: '`ATTEMPT_IN_PROGRESS` — not yet submitted; `ATTEMPT_VOIDED` — nothing to show.'
@@ -14897,6 +15081,7 @@ paths:
                 properties:
                   url: { type: string, format: uri }
                   expiresAt: { $ref: '#/components/schemas/Timestamp' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
   # ======================================================================== me

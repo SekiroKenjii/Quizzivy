@@ -167,7 +167,7 @@ describe("the four arrows", () => {
     );
     for (const which of ["first", "previous", "next", "last"] as const) {
       expect(arrow(which)).not.toHaveAttribute("aria-disabled");
-      expect(classes(arrow(which))).not.toContain("text-fg/45");
+      expect(classes(arrow(which))).not.toContain("text-fg/50");
       expect(classes(arrow(which))).not.toContain("pointer-events-none");
       expect(arrow(which).querySelector("svg")).toHaveAttribute("aria-hidden", "true");
     }
@@ -208,7 +208,7 @@ describe("the four arrows", () => {
       expect(arrow(which)).toHaveAttribute("aria-disabled", "true");
       expect(arrow(which)).toHaveAttribute("href", "/teacher/assignments?tab=live");
       expect(classes(arrow(which))).toEqual(
-        expect.arrayContaining(["pointer-events-none", "text-fg/45"]),
+        expect.arrayContaining(["pointer-events-none", "text-fg/50"]),
       );
       await user.click(arrow(which));
       expect(router.state.location.search).toBe("?tab=live");
@@ -230,7 +230,7 @@ describe("the four arrows", () => {
         "/teacher/assignments?tab=live&page=32",
       );
       expect(classes(arrow(which))).toEqual(
-        expect.arrayContaining(["pointer-events-none", "text-fg/45"]),
+        expect.arrayContaining(["pointer-events-none", "text-fg/50"]),
       );
       await user.click(arrow(which));
       expect(router.state.location.search).toBe("?tab=live&page=32");

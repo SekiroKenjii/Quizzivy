@@ -1,8 +1,5 @@
 import { Switch } from "@/components/ui/switch";
 
-const PAUSED =
-  "aria-disabled:data-[state=checked]:bg-primary/50 aria-disabled:data-[state=unchecked]:bg-border/50 aria-disabled:[&>span]:bg-switch-thumb/50";
-
 /**
  * SwitchRow is a row of a settings card: a label and a hint on the left, a
  * switch at the end. The card draws the lines between rows. While `paused` the switch stays focusable but answers
@@ -42,7 +39,6 @@ export function SwitchRow({
         aria-labelledby={`${id}-label`}
         aria-describedby={`${id}-hint`}
         aria-disabled={paused || undefined}
-        className={PAUSED}
         onCheckedChange={(on) => {
           if (!paused) onChange(on);
         }}

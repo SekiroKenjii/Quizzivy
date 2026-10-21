@@ -3115,12 +3115,11 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * What the centre uses against its plan
-         * @description The Plan & usage figures. The plan and its limits come from the
-         *     server's `PLAN_*` configuration, each optional, and nothing here is
-         *     enforced (DG-55): a limit is shown, never applied. `aiCredits` is the
-         *     month's credits used against the centre pool, and is `null` without
-         *     `ai.credits.manage` and while the AI assistant is off.
+         * What the centre uses against its limits
+         * @description The Plan & usage figures, each beside its limit as `UsageLimits`
+         *     resolves it (CR-002). `aiCredits` is the month's credits used against
+         *     the centre pool, and is `null` without `ai.credits.manage` and while the
+         *     AI assistant is off.
          */
         get: operations["getUsage"];
         put?: never;
@@ -3551,7 +3550,9 @@ export interface paths {
          *     upload changes nothing. A policy that would leave the caller, or every
          *     active built-in Admin, without a way to sign in is refused, judged
          *     inside the save as `getSignInImpact` judges it. One audit row,
-         *     `organization.updated`, names the caller and the fields that changed.
+         *     `organization.updated`, names the caller and the fields that changed,
+         *     and each changed limit with its value before and after (`null` for the
+         *     default).
          *     Other servers apply the new document within 30 seconds.
          */
         put: operations["updateOrganizationSettings"];
@@ -3660,8 +3661,8 @@ export interface paths {
          *     only when the request says `withCodes=true`, which the class cards send and
          *     the pickers do not. It is then the code exactly when `getJoinCode` would
          *     read it for the same caller and class: the caller holds
-         *     `teaching.classes.write`, reaches the class, and the code is readable (not
-         *     a legacy code, and sealed under a key this server holds). In every other
+         *     `teaching.classes.write`, reaches the class, and the code is readable
+         *     (sealed under a key this server holds). In every other
          *     case `code` is `null`, a missing permission included, which is not an
          *     error. The answer is never cached, whether or not codes are asked for, and
          *     the operation is limited like the others that reveal one: 60 a minute and
@@ -4908,11 +4909,76 @@ export interface components {
             /** @description Months after which a disabled account is anonymised, or `null` for never. */
             anonymiseDisabledAfterMonths: (12 | 24) | null;
         };
-        /** @description The whole settings document, as stored. */
+        /**
+         * @description The usage limits an Admin set (CR-002, D-060). `null` takes the
+         *     default `limitDefaults` names: the deploy's variable when one is set,
+         *     else the hosting plan's figure, and for `seats` and `teachers` no limit.
+         *     A limit below what is in use can be saved; it refuses what would add to
+         *     the use and disables nothing.
+         *
+         *     `seats` bounds the enabled accounts and `teachers` the enabled accounts
+         *     whose role opens the teacher workspace; both refuse a new, re-enabled
+         *     or re-roled account past them (`SEAT_LIMIT`, `TEACHER_LIMIT`).
+         *     `storageBytes` bounds every file the centre keeps in its buckets
+         *     (media, import documents and their read pages, exports ready to
+         *     download) and refuses an upload past it. `mediaPerTeacherBytes` bounds
+         *     one teacher's media library; `importBytes` and `importPerTeacherBytes`
+         *     the documents of the imports still open, for the centre and for one
+         *     teacher. `emailsPerDay` and `emailsPerMonth` hold mail past them until
+         *     the next local day or month. `databaseBytes` only warns.
+         *     `warnAtPercent` is the share of a limit at which the Overview warns.
+         */
+        UsageLimits: {
+            seats: number | null;
+            teachers: number | null;
+            /** Format: int64 */
+            storageBytes: number | null;
+            /** Format: int64 */
+            mediaPerTeacherBytes: number | null;
+            /** Format: int64 */
+            importBytes: number | null;
+            /** Format: int64 */
+            importPerTeacherBytes: number | null;
+            emailsPerDay: number | null;
+            emailsPerMonth: number | null;
+            /** Format: int64 */
+            databaseBytes: number | null;
+            warnAtPercent: number | null;
+        };
+        /**
+         * @description What a limit is when nothing is stored. `value` is `null` for no limit.
+         *     `source` says where it comes from: `r2_free` (Cloudflare R2's free tier,
+         *     10 GB), `neon_launch` (the warning line chosen for Neon's Launch plan,
+         *     which has no cap), `resend_free` (Resend's free plan, 100 a day and
+         *     3,000 a month), `deploy` (a deploy variable that overrides the plan),
+         *     `app` (the app's own figure) or `none`.
+         */
+        UsageLimitDefault: {
+            /** Format: int64 */
+            value: number | null;
+            /** @enum {string} */
+            source: "none" | "app" | "deploy" | "r2_free" | "neon_launch" | "resend_free";
+        };
+        /** @description Each limit's default, under the same names as `UsageLimits`. */
+        UsageLimitDefaults: {
+            seats: components["schemas"]["UsageLimitDefault"];
+            teachers: components["schemas"]["UsageLimitDefault"];
+            storageBytes: components["schemas"]["UsageLimitDefault"];
+            mediaPerTeacherBytes: components["schemas"]["UsageLimitDefault"];
+            importBytes: components["schemas"]["UsageLimitDefault"];
+            importPerTeacherBytes: components["schemas"]["UsageLimitDefault"];
+            emailsPerDay: components["schemas"]["UsageLimitDefault"];
+            emailsPerMonth: components["schemas"]["UsageLimitDefault"];
+            databaseBytes: components["schemas"]["UsageLimitDefault"];
+            warnAtPercent: components["schemas"]["UsageLimitDefault"];
+        };
+        /** @description The whole settings document, as stored, and each usage limit's default. */
         OrganizationSettings: {
             organization: components["schemas"]["OrganizationProfile"];
             signIn: components["schemas"]["SignInPolicy"];
             retention: components["schemas"]["RetentionPolicy"];
+            limits: components["schemas"]["UsageLimits"];
+            limitDefaults: components["schemas"]["UsageLimitDefaults"];
             /**
              * Format: int64
              * @description Grows by one with every save; a save names the revision it was read at.
@@ -4923,11 +4989,16 @@ export interface components {
             /** @description Who saved last, or `null` before the first save and once that account is gone. */
             updatedBy: components["schemas"]["Uuid"] | null;
         };
-        /** @description The whole document to store, and the revision it was read at. */
+        /**
+         * @description The whole document to store, and the revision it was read at. Without
+         *     `limits` the stored limits are kept, so a client that predates them
+         *     changes none.
+         */
         OrganizationSettingsInput: {
             organization: components["schemas"]["OrganizationProfile"];
             signIn: components["schemas"]["SignInPolicy"];
             retention: components["schemas"]["RetentionPolicy"];
+            limits?: components["schemas"]["UsageLimits"];
             /** Format: int64 */
             expectedRevision: number;
         };
@@ -5017,7 +5088,7 @@ export interface components {
          *     be sent again.
          * @enum {string}
          */
-        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "SET_PASSWORD_LINK_INVALID" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_LIMIT_REACHED" | "ROLE_NOT_ASSIGNABLE" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "LAST_ADMIN" | "USER_OWNS_CONTENT" | "USER_NOT_DISABLED" | "INVALID_RECIPIENT" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "ANSWER_REMOVED" | "GRADE_NEEDS_BAND" | "GRADE_CRITERIA_INCOMPLETE" | "GRADE_NEEDS_POINTS" | "GRADE_BAND_NOT_ALLOWED" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "EXPORT_IN_PROGRESS" | "EXPORT_UNAVAILABLE" | "EXPORT_OFF" | "USER_IMPORT_FILE_TOO_LARGE" | "USER_IMPORT_FILE_UNREADABLE" | "USER_IMPORT_FILE_EMPTY" | "USER_IMPORT_TOO_MANY_ROWS" | "USER_IMPORT_COLUMNS" | "USER_IMPORT_NOTHING_TO_CREATE" | "SHEET_UNAVAILABLE" | "CSV_NOT_UTF8" | "XLSX_MACROS" | "XLSX_ENCRYPTED" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED" | "RATE_LIMITED" | "INTERNAL";
+        ErrorCode: "INVALID_CREDENTIALS" | "ACCOUNT_NOT_PROVISIONED" | "ACCOUNT_DISABLED" | "EMAIL_NOT_VERIFIED" | "PASSWORD_REQUIRED" | "PASSWORD_UNCHANGED" | "IDENTITY_ALREADY_LINKED" | "LAST_LOGIN_METHOD" | "SET_PASSWORD_LINK_INVALID" | "REFRESH_TOKEN_INVALID" | "REFRESH_TOKEN_REUSED" | "SESSION_IS_CURRENT" | "JOIN_CODE_INVALID" | "JOIN_CODE_EXPIRED" | "JOIN_CODE_EXHAUSTED" | "JOIN_CODE_REVOKED" | "CLASS_ARCHIVED" | "EMAIL_TAKEN" | "STUDENT_SHARED" | "ROLE_NAME_TAKEN" | "ROLE_LIMIT_REACHED" | "ROLE_NOT_ASSIGNABLE" | "SEAT_LIMIT" | "TEACHER_LIMIT" | "STORAGE_LIMIT" | "ROLE_LOCKED" | "STUDENT_NEEDS_TAKE_TESTS" | "KEY_NOT_GRANTABLE" | "CANNOT_ACT_ON_SELF" | "TARGET_ROLE_NOT_ALLOWED" | "LAST_ADMIN" | "USER_OWNS_CONTENT" | "USER_NOT_DISABLED" | "INVALID_RECIPIENT" | "RESOURCE_REFERENCED" | "RESOURCE_NOT_ARCHIVED" | "VERSION_IS_CURRENT" | "TEST_NOT_PUBLISHED" | "TEST_ARCHIVED" | "GROUP_OUTLINE_REQUIRED" | "GROUP_CONFLICT" | "PUBLISH_VALIDATION_FAILED" | "STALE_WRITE" | "PLAY_ID_CONFLICT" | "QUESTION_REFERENCED" | "MEDIA_REFERENCED" | "MEDIA_TYPE_UNSUPPORTED" | "MEDIA_TOO_LARGE" | "MEDIA_TOO_LONG" | "MEDIA_UNREADABLE" | "MEDIA_KIND_MISMATCH" | "MEDIA_QUOTA_EXCEEDED" | "IMAGE_DIMENSIONS" | "IMPORT_CONFLICT" | "IMPORT_QUOTA_EXCEEDED" | "IMPORT_BUSY" | "IMPORT_SOURCE_INVALID" | "IMPORT_SOURCE_TOO_LARGE" | "IMPORT_SOURCE_UNSUPPORTED" | "IMPORT_NOT_READY" | "IMPORT_NOT_PROCESSED" | "IMPORT_PROCESSING_UNAVAILABLE" | "IMPORT_FILES_REMOVED" | "ASSIGNMENT_NOT_OPEN" | "ASSIGNMENT_NOT_CLOSED" | "ASSIGNMENT_CLOSED" | "ATTEMPT_LIMIT_REACHED" | "ATTEMPT_CLOSED" | "ATTEMPT_IN_PROGRESS" | "ATTEMPT_VOIDED" | "SESSION_SUPERSEDED" | "DEADLINE_PASSED" | "DEADLINE_NOT_REACHED" | "GRADING_INCOMPLETE" | "ANSWER_REMOVED" | "GRADE_NEEDS_BAND" | "GRADE_CRITERIA_INCOMPLETE" | "GRADE_NEEDS_POINTS" | "GRADE_BAND_NOT_ALLOWED" | "VERSION_LOCKED" | "ASSIGNMENT_LOCKED" | "AI_OFF" | "AI_PAUSED" | "AI_READ_OFF" | "AI_CREDITS_EXHAUSTED" | "AI_UNAVAILABLE" | "AI_REQUESTS_OFF" | "AI_REQUEST_PENDING" | "AI_REQUEST_DECIDED" | "AI_REQUEST_EXPIRED" | "AI_ALLOWANCE_BELOW_USE" | "EXPORT_TOO_LARGE" | "EXPORT_IN_PROGRESS" | "EXPORT_UNAVAILABLE" | "EXPORT_OFF" | "USER_IMPORT_FILE_TOO_LARGE" | "USER_IMPORT_FILE_UNREADABLE" | "USER_IMPORT_FILE_EMPTY" | "USER_IMPORT_TOO_MANY_ROWS" | "USER_IMPORT_COLUMNS" | "USER_IMPORT_NOTHING_TO_CREATE" | "SHEET_UNAVAILABLE" | "CSV_NOT_UTF8" | "XLSX_MACROS" | "XLSX_ENCRYPTED" | "SIGN_IN_POLICY_LOCKOUT" | "PASSWORD_SIGN_IN_DISABLED" | "GOOGLE_SIGN_IN_DISABLED" | "GOOGLE_DOMAIN_NOT_ALLOWED" | "MAINTENANCE" | "MAINTENANCE_SCHEDULED" | "VALIDATION_FAILED" | "REQUEST_INCOMPLETE" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHORIZED" | "FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED" | "RATE_LIMITED" | "INTERNAL";
         /**
          * @description Extracted so a response carrying the envelope AND something else can
          *     reference it without composing over a closed schema (issue #41).
@@ -6472,13 +6543,15 @@ export interface components {
          *     `ROLE_NOT_GIVABLE` (the Assistant, which no one is given), `UNKNOWN_CLASS` and
          *     `AMBIGUOUS_CLASS` (no active class, or more than one, has the name), and
          *     `CLASS_NOT_ALLOWED` (a class for a role that is not a student target, or
-         *     by an importer without `scope.all`). A refusal carries no text of the file.
+         *     by an importer without `scope.all`), and `OVER_SEAT_LIMIT` (on `email`) and
+         *     `OVER_TEACHER_LIMIT` (on `role`): a new account past a limit an Admin set on
+         *     Plan & usage, counted in the file's order. A refusal carries no text of the file.
          */
         UserImportIssue: {
             row: number;
             field: components["schemas"]["UserImportField"];
             /** @enum {string} */
-            code: "REQUIRED" | "TOO_LONG" | "INVALID" | "FORMULA_LIKE" | "DUPLICATE_IN_FILE" | "UNKNOWN_ROLE" | "AMBIGUOUS_ROLE" | "ROLE_NOT_ALLOWED" | "ROLE_NOT_GIVABLE" | "UNKNOWN_CLASS" | "AMBIGUOUS_CLASS" | "CLASS_NOT_ALLOWED";
+            code: "REQUIRED" | "TOO_LONG" | "INVALID" | "FORMULA_LIKE" | "DUPLICATE_IN_FILE" | "UNKNOWN_ROLE" | "AMBIGUOUS_ROLE" | "ROLE_NOT_ALLOWED" | "ROLE_NOT_GIVABLE" | "UNKNOWN_CLASS" | "AMBIGUOUS_CLASS" | "CLASS_NOT_ALLOWED" | "OVER_SEAT_LIMIT" | "OVER_TEACHER_LIMIT";
         };
         /**
          * @description What a file would come to. `rows` are the data rows it holds;
@@ -6488,8 +6561,10 @@ export interface components {
          *     `invalidCount` counts every refused row. `classes` are the classes the
          *     accepted rows would join. `emailBudget` is `null` unless `delivery` is
          *     `email_link`: `remainingToday` is what the centre can still send today,
-         *     counting what already waits, and `limit` its daily maximum; the rest of
-         *     the links go out on the following days.
+         *     counting what already waits or is held by a cap, and `limit` the cap
+         *     that binds it: the daily maximum, or the monthly one when what the
+         *     month has left is less than the day's; the rest of the links go out
+         *     on the following days or months.
          */
         UserImportPreview: {
             rows: number;
@@ -6514,8 +6589,10 @@ export interface components {
          *     while it creates the accounts, `done` once every stored row is settled,
          *     and `failed` when it gave up (`errorCode` says why, a short code that
          *     never carries the file). `total` is the rows stored, those that passed
-         *     every rule; `processed` is those settled so far, `created` + `skipped`;
-         *     `skipped` are the addresses that already belonged to an account.
+         *     every rule; `processed` is those settled so far, `created` + `skipped` +
+         *     `overLimit`; `skipped` are the addresses that already belonged to an
+         *     account, and `overLimit` the new accounts not created because the
+         *     centre reached a seat or teacher limit while the job ran.
          *     `invalid` counts the rows refused, which are not stored. `sheet` is `null`
          *     unless `delivery` is `sheet`: `available` is true from `done` until the
          *     sheet is downloaded or 24 hours have passed, whichever comes first.
@@ -6528,6 +6605,7 @@ export interface components {
             processed: number;
             created: number;
             skipped: number;
+            overLimit: number;
             invalid: number;
             delivery: components["schemas"]["UserImportDelivery"];
             sheet: {
@@ -7274,7 +7352,7 @@ export interface components {
             staff: number;
         };
         /** @enum {string} */
-        AdminAttentionKind: "must_change_password" | "never_signed_in" | "disabled_teacher_classes" | "storage" | "ai_credit_requests";
+        AdminAttentionKind: "must_change_password" | "never_signed_in" | "disabled_teacher_classes" | "storage" | "email_held" | "email_expired" | "ai_credit_requests";
         /**
          * @description One thing that needs doing. `count` is at least 1: a row with nothing
          *     to do is not sent.
@@ -7286,20 +7364,27 @@ export interface components {
              *     `never_signed_in`: enabled accounts that have never signed in and
              *     are not on a temporary password. `disabled_teacher_classes`: classes,
              *     archived ones too, whose teacher is disabled. `storage`: how many of
-             *     the media and import meters with a configured limit read 80 percent
-             *     or more, as `detail` quotes them (rounded half up). `ai_credit_requests`: the teachers waiting for more credits
-             *     this month.
+             *     the seat, teacher, file storage, largest media library, open
+             *     imports and database readings are at `Usage.warnAtPercent` of their
+             *     limit or more, as `detail` quotes them (rounded half up).
+             *     `email_held`: messages an email cap holds until a cap allows them.
+             *     `email_expired`: this local month's messages a cap held until their
+             *     link expired, never sent. `ai_credit_requests`: the
+             *     teachers waiting for more credits this month.
              */
             count: number;
-            /** @description What the row's line quotes. `null` for `must_change_password`. */
+            /** @description What the row's line quotes. `null` for `must_change_password` and `email_expired`. */
             detail: components["schemas"]["AdminAttentionDetail"] | null;
         };
         /**
          * @description The facts a row quotes, by kind; a field its kind does not use is
          *     absent. `never_signed_in`: `oldestCreatedAt`.
          *     `disabled_teacher_classes`: `className` and `teacherName` of the newest
-         *     such class. `storage`: `mediaPercent` and `importsPercent`, each absent
-         *     when that meter has no limit. `ai_credit_requests`: `teacherName`,
+         *     such class. `storage`: `seatsPercent`, `teachersPercent`,
+         *     `storagePercent`, `mediaPercent`, `importsPercent` and
+         *     `databasePercent`, each present only for a reading at or over
+         *     `warnAtPercent` of its limit. `email_held`: `heldUntil`, when the first held
+         *     message may go. `ai_credit_requests`: `teacherName`,
          *     `used` and `allowance` of the request waiting longest.
          */
         AdminAttentionDetail: {
@@ -7307,8 +7392,14 @@ export interface components {
             oldestCreatedAt?: string;
             className?: string;
             teacherName?: string;
+            seatsPercent?: number;
+            teachersPercent?: number;
             mediaPercent?: number;
             importsPercent?: number;
+            storagePercent?: number;
+            databasePercent?: number;
+            /** Format: date-time */
+            heldUntil?: string;
             used?: number;
             allowance?: number;
         };
@@ -7317,38 +7408,34 @@ export interface components {
             mustChangePassword: number | null;
         };
         /**
-         * @description What the centre uses against its plan. Nothing is enforced (DG-55): a
-         *     `limit` is `null` when its `PLAN_*` variable is unset, and a figure may
-         *     pass its limit.
+         * @description What the centre uses against its limits (CR-002, D-060), each limit
+         *     resolved as `UsageLimits` says, `null` where there is none.
          *
-         *     `seats` counts the accounts that are not disabled against
-         *     `PLAN_SEAT_LIMIT`. `teachers` counts the enabled accounts that are not
-         *     a student target, Admins included, against `PLAN_TEACHER_LIMIT`; it is
-         *     the Overview's `people.teachers`. `media` is the bytes of the media
-         *     files still held in storage, against `PLAN_MEDIA_BYTES`, and `imports`
-         *     the bytes of the source documents of
-         *     the imports whose files are still kept and the number of those imports,
-         *     against `PLAN_IMPORT_BYTES`. `attemptsKept` has no limit until a
-         *     denominator is named.
+         *     `seats` counts the enabled accounts and `teachers` the enabled accounts
+         *     whose role opens the teacher workspace. `storage` is every file the
+         *     centre keeps in its buckets, the sum `storageBytes` bounds: `media`,
+         *     `imports` and the exports ready to download. `media.largestLibrary` is
+         *     the fullest teacher's library against `mediaPerTeacherBytes`.
+         *     `imports.bytes` and `imports.count` are the kept documents and their
+         *     imports; `imports.openBytes` the documents of the imports still open,
+         *     which `importBytes` bounds. `email` counts what was sent today and this
+         *     month in `APP_TIMEZONE`, and `held` the messages a cap moved to a
+         *     later day or month. `database.bytes` is PostgreSQL's
+         *     `pg_database_size`, which approximates and is not what Neon bills.
+         *     `attemptsKept` has no limit.
          */
         Usage: {
-            /** @description `null` when `PLAN_NAME` is unset. */
-            plan: components["schemas"]["UsagePlan"] | null;
             seats: components["schemas"]["UsageCount"];
             teachers: components["schemas"]["UsageCount"];
-            media: components["schemas"]["UsageBytes"];
+            storage: components["schemas"]["UsageBytes"];
+            media: components["schemas"]["UsageMedia"];
             imports: components["schemas"]["UsageImports"];
+            email: components["schemas"]["UsageEmail"];
+            database: components["schemas"]["UsageBytes"];
             attemptsKept: components["schemas"]["UsageAttempts"];
             /** @description The month's credits. `null` without `ai.credits.manage`, and while the AI assistant is off. */
             aiCredits: components["schemas"]["UsageCredits"] | null;
-        };
-        UsagePlan: {
-            name: string;
-            /**
-             * Format: date
-             * @description `PLAN_RENEWS_ON`, or `null` when unset.
-             */
-            renewsOn: string | null;
+            warnAtPercent: number;
         };
         UsageCount: {
             used: number;
@@ -7360,12 +7447,31 @@ export interface components {
             /** Format: int64 */
             limit: number | null;
         };
+        UsageMedia: {
+            /** Format: int64 */
+            bytes: number;
+            /** Format: int64 */
+            largestLibrary: number;
+            /** Format: int64 */
+            perTeacherLimit: number | null;
+        };
         UsageImports: {
             /** Format: int64 */
             bytes: number;
             count: number;
             /** Format: int64 */
+            openBytes: number;
+            /** Format: int64 */
             limit: number | null;
+            /** Format: int64 */
+            perTeacherLimit: number | null;
+        };
+        UsageEmail: {
+            today: number;
+            month: number;
+            held: number;
+            dailyLimit: number | null;
+            monthlyLimit: number | null;
         };
         UsageAttempts: {
             /** Format: int64 */
@@ -9097,6 +9203,10 @@ export interface components {
          *     The three `ai.*` kinds are for the teacher's bell. `ai.credit_request`
          *     is written for every holder of `ai.credits.manage`, who reads it in the
          *     teacher workspace until the Admin console has a bell of its own.
+         *
+         *     `join_codes.rotated` was written by the one-time start-up rotation of
+         *     pre-v0.8.0 join codes, which v0.12.0 removed. Nothing writes it now;
+         *     the kind stays so that the notifications it wrote still read.
          * @enum {string}
          */
         NotificationKind: "attempt.submitted" | "attempt.flagged" | "assignment.closing" | "class.joined" | "join_codes.rotated" | "assignment.opened" | "assignment.due_soon" | "assignment.extended" | "result.ready" | "ai.allowance_warning" | "ai.credit_request" | "ai.credit_request.decided" | "content.transferred" | "class.teacher_changed";
@@ -9132,7 +9242,7 @@ export interface components {
         NotificationParams: {
             /** @description The title of the test the assignment gives. */
             title?: string;
-            /** @description Papers handed in (`attempt.submitted`), classes whose join code was replaced (`join_codes.rotated`), or classes, tests, questions, question groups, media and assignments given to the reader (`content.transferred`). */
+            /** @description Papers handed in (`attempt.submitted`), classes whose pre-v0.8.0 join code was replaced at start-up (`join_codes.rotated`, no longer written), or classes, tests, questions, question groups, media and assignments given to the reader (`content.transferred`). */
             count?: number;
             /** @description Of the papers handed in, those with an answer waiting for a mark. */
             toGrade?: number;
@@ -9949,6 +10059,10 @@ export interface operations {
              *     off. `GOOGLE_DOMAIN_NOT_ALLOWED` — the verified address is outside
              *     the centre's allowed domains. Both are decided for a code that
              *     joins a class as well.
+             *
+             *     `SEAT_LIMIT` — a code would create the account, and the centre has
+             *     used every seat an Admin allowed. The message names no figure; no
+             *     account is created and the code is not used.
              */
             403: {
                 headers: {
@@ -10525,6 +10639,7 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: components["responses"]["NoContent"];
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             /** @description `SESSION_IS_CURRENT` — the session is the one making the request. */
@@ -10578,6 +10693,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     createQuestionGroup: {
@@ -10654,6 +10770,7 @@ export interface operations {
                     "application/json": components["schemas"]["StoredQuestionGroup"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -10734,6 +10851,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             /** @description Stale revision, archived enclosing test, bank group not archived, or `RESOURCE_REFERENCED`: the group or one of its questions is still referenced elsewhere and nothing is deleted. */
@@ -10935,6 +11053,7 @@ export interface operations {
                     "application/json": components["schemas"]["Test"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -10956,6 +11075,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /** @description The resource is still referenced or has not reached its required inactive state. */
             409: {
@@ -11192,6 +11312,7 @@ export interface operations {
                     "application/json": components["schemas"]["Test"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -11217,6 +11338,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -11239,6 +11361,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /** @description The version is referenced or current. Archiving does not prevent deletion of an unused, non-current version. */
             409: {
@@ -11408,6 +11531,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /** @description `TEST_NOT_PUBLISHED`. */
             409: {
@@ -11573,6 +11697,7 @@ export interface operations {
                     "application/json": components["schemas"]["AdminQuestion"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -11588,6 +11713,7 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: components["responses"]["NoContent"];
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /**
              * @description `QUESTION_REFERENCED` — still referenced by a draft test outline.
@@ -11696,6 +11822,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     createWordImport: {
@@ -11774,6 +11901,7 @@ export interface operations {
                     "application/json": components["schemas"]["WordImport"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description Import not found. */
             404: {
                 headers: {
@@ -11982,6 +12110,7 @@ export interface operations {
                     "application/json": components["schemas"]["ImportSourceDownload"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description Completed source not found in this import. */
             404: {
                 headers: {
@@ -12173,6 +12302,7 @@ export interface operations {
                     "application/json": components["schemas"]["ImportReview"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description IMPORT_NOT_PROCESSED — no draft yet, or import not found. */
             404: {
                 headers: {
@@ -12315,6 +12445,7 @@ export interface operations {
                     "application/json": components["schemas"]["ImportSourceView"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description IMPORT_NOT_PROCESSED — the source has not been extracted, or import not found. */
             404: {
                 headers: {
@@ -12491,6 +12622,8 @@ export interface operations {
             /**
              * @description `MEDIA_QUOTA_EXCEEDED` — the caller's library, with the files it
              *     still holds, would hold more than its quota with this file.
+             *     `STORAGE_LIMIT` — the centre's files would take more than the
+             *     storage limit an Admin set on Plan & usage.
              *     Nothing was stored.
              */
             409: {
@@ -12558,7 +12691,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
-            /** @description MEDIA_QUOTA_EXCEEDED — the old owner's library would exceed its quota, counting the old file while something still uses it; no replacement committed and fresh-object compensation succeeded. */
+            /** @description MEDIA_QUOTA_EXCEEDED — the old owner's library would exceed its quota, counting the old file while something still uses it; STORAGE_LIMIT — the centre's files would pass its storage limit; either way no replacement committed and fresh-object compensation succeeded. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -12617,6 +12750,7 @@ export interface operations {
                     "application/json": components["schemas"]["MediaRetirement"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /**
              * @description `MEDIA_REFERENCED` — a published version or independent question group still uses it (§8, §15).
@@ -12796,6 +12930,7 @@ export interface operations {
                     "application/json": components["schemas"]["Assignment"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -12817,6 +12952,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /** @description The resource is still referenced or has not reached its required inactive state. */
             409: {
@@ -12932,6 +13068,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description The assignment, or a question that is not on its paper. */
             404: {
                 headers: {
@@ -13000,6 +13137,7 @@ export interface operations {
                     "application/json": components["schemas"]["ItemAnalysis"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -13106,6 +13244,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -13170,6 +13309,7 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: components["responses"]["NoContent"];
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -13198,6 +13338,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -13239,6 +13380,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     getAttemptForReview: {
@@ -13295,6 +13437,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -13322,6 +13465,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -13606,6 +13750,7 @@ export interface operations {
                     "application/json": components["schemas"]["Attempt"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /** @description `GRADING_INCOMPLETE` — a `short_answer` is still ungraded; `ATTEMPT_IN_PROGRESS` / `ATTEMPT_VOIDED` as for grade. */
             409: {
@@ -13639,6 +13784,7 @@ export interface operations {
                     "application/json": components["schemas"]["Dashboard"];
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     getTeacherSummary: {
@@ -13771,7 +13917,10 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
-            /** @description `EMAIL_TAKEN` — already in use, compared case-insensitively. */
+            /**
+             * @description `EMAIL_TAKEN` — already in use, compared case-insensitively.
+             *     `SEAT_LIMIT` — the centre has used every seat an Admin allowed.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -13834,6 +13983,7 @@ export interface operations {
                     "application/json": components["schemas"]["StudentRow"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -13915,6 +14065,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             /**
              * @description `STUDENT_SHARED` — someone else also reaches the student, so only a
              *     holder of `people.users.manage` may reset them. `FORBIDDEN` — the
@@ -14017,6 +14168,7 @@ export interface operations {
             /**
              * @description `EMAIL_TAKEN` — already in use, compared case-insensitively.
              *     `STALE_WRITE` — the role changed three times while the account was being created; nothing was written, so the same request may be sent again.
+             *     `SEAT_LIMIT` or `TEACHER_LIMIT` — the account would take the centre past a limit an Admin set on Plan & usage; nothing was written.
              */
             409: {
                 headers: {
@@ -14070,6 +14222,7 @@ export interface operations {
                     "application/json": components["schemas"]["AdminUserDetail"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -14091,6 +14244,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             /** @description `FORBIDDEN` — the student's permissions are not a subset of the caller's. */
             403: {
                 headers: {
@@ -14163,6 +14317,7 @@ export interface operations {
              * @description `LAST_ADMIN` — the account is the only active Admin.
              *     `USER_OWNS_CONTENT` — the account owns classes or content and the new role opens no teacher workspace; `details` holds `classes`, `tests`, `questions`, `media` and `assignments`, each a count.
              *     `STALE_WRITE` — a role changed, or another write to the account held what this one needed, three times while the change was being made; nothing was written, so the same request may be sent again.
+             *     `TEACHER_LIMIT` — the new role opens the teacher workspace and the centre has used every teacher place an Admin allowed; nothing was written.
              */
             409: {
                 headers: {
@@ -14207,6 +14362,7 @@ export interface operations {
                     "application/json": components["schemas"]["AdminUserRow"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description `TARGET_ROLE_NOT_ALLOWED` — the account's role holds a permission the caller lacks. */
             403: {
                 headers: {
@@ -14346,6 +14502,7 @@ export interface operations {
                     "application/json": components["schemas"]["AdminUserRow"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description `TARGET_ROLE_NOT_ALLOWED` — the account's role holds a permission the caller lacks. */
             403: {
                 headers: {
@@ -14356,7 +14513,10 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
-            /** @description `STALE_WRITE` — the account's role, or another write to the account, changed while it was being written. Nothing was written; try again. */
+            /**
+             * @description `STALE_WRITE` — the account's role, or another write to the account, changed while it was being written. Nothing was written; try again.
+             *     `SEAT_LIMIT` or `TEACHER_LIMIT` — enabling the account would take the centre past a limit an Admin set on Plan & usage; it stays disabled.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -14385,6 +14545,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             /** @description `TARGET_ROLE_NOT_ALLOWED` — the account's role holds a permission the caller lacks. */
             403: {
                 headers: {
@@ -14677,6 +14838,7 @@ export interface operations {
                     "application/json": components["schemas"]["UserImportJob"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -14704,6 +14866,7 @@ export interface operations {
                     "text/csv": string;
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /** @description `SHEET_UNAVAILABLE` — the job has no sheet to give: it is not done, was delivered by email, created no account, was downloaded already, or finished more than 24 hours ago. */
             410: {
@@ -15311,6 +15474,7 @@ export interface operations {
                     "application/json": components["schemas"]["DataExport"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -15339,6 +15503,7 @@ export interface operations {
                     "application/json": components["schemas"]["DataExportDownload"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -15502,6 +15667,7 @@ export interface operations {
                     "application/json": components["schemas"]["AiCreditDecision"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description `FORBIDDEN` — the teacher's permissions are not a subset of the caller's. */
             403: {
                 headers: {
@@ -15548,6 +15714,7 @@ export interface operations {
                     "application/json": components["schemas"]["AiCreditDecision"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description `FORBIDDEN` — the teacher's permissions are not a subset of the caller's. */
             403: {
                 headers: {
@@ -15623,7 +15790,8 @@ export interface operations {
              *     holds a line break or an invisible character, a website that is not a
              *     domain or an `https` address without credentials, an email or a
              *     phone number that is not one, a repeated domain, or a logo the server
-             *     does not hold (as `organization.logo.light` or `organization.logo.dark`).
+             *     does not hold (as `organization.logo.light` or `organization.logo.dark`),
+             *     or a limit outside its range (as `limits.seats` and so on).
              */
             400: {
                 headers: {
@@ -15817,6 +15985,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             429: components["responses"]["TooManyRequests"];
         };
     };
@@ -15874,6 +16043,7 @@ export interface operations {
                     "application/json": components["schemas"]["Class"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -15895,6 +16065,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             /**
              * @description `RESOURCE_NOT_ARCHIVED` — the class is not archived.
@@ -15996,6 +16167,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
         };
     };
     addClassMember: {
@@ -16041,6 +16213,7 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: components["responses"]["NoContent"];
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
@@ -16066,6 +16239,7 @@ export interface operations {
                     "application/json": components["schemas"]["JoinCode"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
@@ -16153,6 +16327,7 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: components["responses"]["NoContent"];
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
@@ -16338,6 +16513,7 @@ export interface operations {
                     "application/json": components["schemas"]["AiDistractorsResult"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             402: components["responses"]["AiCreditsExhausted"];
             403: components["responses"]["AiNotAllowed"];
             404: components["responses"]["NotFound"];
@@ -16375,6 +16551,7 @@ export interface operations {
                     "application/json": components["schemas"]["AiScoreSuggestion"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             402: components["responses"]["AiCreditsExhausted"];
             403: components["responses"]["AiNotAllowed"];
             /** @description The attempt, or a question that is not on its paper, is not in the caller's reach. */
@@ -16431,6 +16608,7 @@ export interface operations {
                     "application/json": components["schemas"]["AiInsightsResult"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             402: components["responses"]["AiCreditsExhausted"];
             403: components["responses"]["AiNotAllowed"];
             404: components["responses"]["NotFound"];
@@ -16657,6 +16835,7 @@ export interface operations {
                     "application/json": components["schemas"]["StudentAssignmentDetail"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
@@ -17013,6 +17192,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             /** @description `ATTEMPT_IN_PROGRESS` — not yet submitted; `ATTEMPT_VOIDED` — nothing to show. */
             409: {
@@ -17056,6 +17236,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
         };
     };

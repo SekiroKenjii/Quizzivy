@@ -328,7 +328,7 @@ function heldBackItem(joinOff: boolean, why: string) {
   return {
     "aria-disabled": joinOff || undefined,
     title: joinOff ? why : undefined,
-    className: "aria-disabled:opacity-50",
+    className: "aria-disabled:text-foreground/50",
   } as const;
 }
 

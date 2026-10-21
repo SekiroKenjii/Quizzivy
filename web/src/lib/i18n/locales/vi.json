@@ -874,11 +874,21 @@
       "disabledTeacher_other": "{{count}} lớp có giáo viên bị vô hiệu hoá",
       "disabledTeacherHint": "{{className}} · {{teacherName}}",
       "storage": {
-        "both": "Dung lượng: phương tiện {{media}}%, tài liệu nhập {{imports}}%",
-        "media": "Dung lượng: phương tiện {{media}}%",
-        "imports": "Dung lượng: tài liệu nhập {{imports}}%"
+        "title": "Đã chạm hoặc sắp chạm giới hạn: {{readings}}",
+        "seats": "tài khoản {{percent}}%",
+        "teachers": "giáo viên {{percent}}%",
+        "files": "lưu trữ tệp {{percent}}%",
+        "media": "một thư viện media {{percent}}%",
+        "imports": "tài liệu nhập đang mở {{percent}}%",
+        "database": "cơ sở dữ liệu {{percent}}%"
       },
-      "storageHint": "Gần chạm giới hạn của gói",
+      "storageHint": "Xem lại giới hạn trong Gói và mức dùng",
+      "emailHeld_one": "{{count}} email đang chờ vì giới hạn email",
+      "emailHeld_other": "{{count}} email đang chờ vì giới hạn email",
+      "emailHeldHint": "Thư được gửi khi giới hạn cho phép; liên kết đăng nhập hết hạn sau 24 giờ kể từ lúc tạo",
+      "emailExpired_one": "{{count}} email hết hạn trước khi giới hạn cho phép gửi",
+      "emailExpired_other": "{{count}} email hết hạn trước khi giới hạn cho phép gửi",
+      "emailExpiredHint": "Các liên kết này chưa được gửi. Nâng giới hạn trong Gói và mức dùng rồi gửi lại",
       "creditRequests_one": "{{count}} giáo viên xin thêm tín dụng AI",
       "creditRequests_other": "{{count}} giáo viên xin thêm tín dụng AI",
       "creditRequestsHint": "{{teacherName}} · đã dùng {{used}} trên {{allowance}}"
@@ -891,8 +901,10 @@
     "storage": {
       "title": "Dung lượng và mức dùng",
       "of": "{{used}} trên {{limit}}",
-      "media": "Phương tiện",
-      "imports": "Tài liệu nhập",
+      "files": "Lưu trữ tệp",
+      "largestLibrary": "Thư viện media lớn nhất",
+      "openImports": "Tài liệu nhập đang mở",
+      "database": "Cơ sở dữ liệu (ước tính)",
       "seats": "Chỗ ngồi",
       "attempts": "Lượt làm bài được giữ",
       "attemptsCount_one": "{{value}} lượt",
@@ -1137,7 +1149,9 @@
         "roleNotGivable": "Vai trò Trợ giảng không giao cho ai được.",
         "unknownClass": "Không có lớp đang hoạt động nào tên này.",
         "ambiguousClass": "Có nhiều lớp đang hoạt động trùng tên này.",
-        "classNotAllowed": "Chỉ học viên mới được thêm vào lớp, và chỉ người quản lý mọi lớp mới thêm được từ tệp."
+        "classNotAllowed": "Chỉ học viên mới được thêm vào lớp, và chỉ người quản lý mọi lớp mới thêm được từ tệp.",
+        "overSeatLimit": "Trung tâm đã đạt giới hạn số tài khoản nên tài khoản này không được tạo.",
+        "overTeacherLimit": "Trung tâm đã đạt giới hạn số giáo viên nên giáo viên này không được tạo."
       },
       "refusal": {
         "tooLarge": "Tệp lớn hơn 5 MB. Hãy chia danh sách thành nhiều tệp nhỏ hơn, hoặc lưu thành CSV UTF-8 cho nhẹ hơn, rồi tải lên.",
@@ -1153,7 +1167,9 @@
         "rateLimited_other": "Bạn đã gửi quá nhiều lần. Thử lại sau {{count}} giây.",
         "unavailable": "Máy chủ chưa được cấu hình để nhập người dùng. Hãy báo người vận hành.",
         "unknown": "Không đọc được tệp. Hãy thử lại."
-      }
+      },
+      "overLimit_one": "{{count}} tài khoản không được tạo vì trung tâm đã đạt giới hạn. Quản trị viên có thể nâng giới hạn trong Cài đặt, mục Gói và mức dùng.",
+      "overLimit_other": "{{count}} tài khoản không được tạo vì trung tâm đã đạt giới hạn. Quản trị viên có thể nâng giới hạn trong Cài đặt, mục Gói và mức dùng."
     },
     "result_one": "Tìm thấy {{count}} người dùng.",
     "result_other": "Tìm thấy {{count}} người dùng.",
@@ -1452,7 +1468,12 @@
       "addressTooLong": "Địa chỉ tối đa 300 ký tự.",
       "domainInvalid": "Tên miền không hợp lệ.",
       "domainsTooMany": "Tối đa 50 tên miền.",
-      "noMethod": "Phải bật ít nhất một cách đăng nhập."
+      "noMethod": "Phải bật ít nhất một cách đăng nhập.",
+      "limitPeople": "Nhập số nguyên từ 1 đến 1.000.000, hoặc để trống.",
+      "limitEmailsPerDay": "Nhập số nguyên từ 1 đến 100.000, hoặc để trống.",
+      "limitEmailsPerMonth": "Nhập số nguyên từ 1 đến 10.000.000, hoặc để trống.",
+      "limitWarnAt": "Nhập số nguyên từ 50 đến 100, hoặc để trống.",
+      "limitBytes": "Nhập dung lượng từ 1 MB đến 1.048.576 GB, hoặc để trống."
     },
     "data": {
       "title": "Dữ liệu và quyền riêng tư",
@@ -1504,18 +1525,107 @@
     },
     "plan": {
       "title": "Gói và mức dùng",
-      "hint": "Chưa cấu hình gói cho trung tâm này.",
-      "named": "Gói {{name}}",
-      "namedRenews": "Gói {{name}} · gia hạn {{date}}",
-      "loadFailed": "Không tải được mức dùng.",
-      "seats": "Chỗ ngồi",
-      "media": "Dung lượng tệp media",
-      "imports": "Dung lượng tài liệu nhập",
-      "importsCount_one": "{{count}} lần nhập",
-      "importsCount_other": "{{count}} lần nhập",
-      "teachers": "Giáo viên",
+      "loadFailed": "Không tải được mức đang dùng. Vẫn có thể đổi các giới hạn.",
+      "groups": {
+        "people": {
+          "title": "Người dùng",
+          "hint": "Số tài khoản trung tâm được có. Để trống là không giới hạn."
+        },
+        "storage": {
+          "title": "Lưu trữ tệp",
+          "hint": "Dung lượng cho các tệp trung tâm lưu. Để trống là dùng mặc định."
+        },
+        "email": {
+          "title": "Email",
+          "hint": "Thư vượt giới hạn sẽ chờ và được gửi trước tiên khi giới hạn cho phép. Liên kết đăng nhập hết hạn sau 24 giờ kể từ lúc tạo; liên kết hết hạn trong lúc chờ sẽ không được gửi và trang Tổng quan sẽ báo."
+        },
+        "database": {
+          "title": "Cơ sở dữ liệu và cảnh báo",
+          "hint": "Dung lượng cơ sở dữ liệu chỉ để cảnh báo. Trang Tổng quan cảnh báo khi một mức dùng chạm tỉ lệ bên dưới."
+        }
+      },
+      "rows": {
+        "seats": {
+          "label": "Tài khoản",
+          "hint": "Các tài khoản chưa bị vô hiệu hoá, gồm cả học viên và nhân sự. Tài khoản mới hoặc bật lại vượt mức sẽ bị từ chối.",
+          "used": "Đang dùng {{value}}",
+          "below": "Thấp hơn mức đang dùng. Không ai bị vô hiệu hoá, nhưng không thêm hay bật lại được tài khoản cho đến khi vô hiệu hoá bớt."
+        },
+        "teachers": {
+          "label": "Giáo viên",
+          "hint": "Các tài khoản đang bật có vai trò mở được khu vực giáo viên.",
+          "used": "Đang dùng {{value}}",
+          "below": "Thấp hơn mức đang dùng. Không ai bị vô hiệu hoá, nhưng không thêm được giáo viên cho đến khi vô hiệu hoá bớt."
+        },
+        "storageBytes": {
+          "label": "Tổng dung lượng tệp",
+          "hint": "Media, tài liệu nhập và các trang của chúng, và bản xuất đang chờ tải. Tải lên vượt mức sẽ bị từ chối.",
+          "used": "Đang dùng {{value}}",
+          "below": "Thấp hơn mức đang dùng. Không gì bị xoá, nhưng tải lên và lần nhập mới bị từ chối cho đến khi giải phóng bớt."
+        },
+        "mediaPerTeacherBytes": {
+          "label": "Thư viện media mỗi giáo viên",
+          "hint": "Ảnh và âm thanh một giáo viên được lưu.",
+          "used": "Thư viện lớn nhất: {{value}}",
+          "below": "Thấp hơn thư viện lớn nhất. Không gì bị xoá, nhưng giáo viên đó không tải lên được cho đến khi giải phóng bớt."
+        },
+        "importBytes": {
+          "label": "Tài liệu nhập, toàn trung tâm",
+          "hint": "Tài liệu của các lần nhập bằng AI còn đang mở.",
+          "used": "{{value}} trong các lần nhập đang mở",
+          "below": "Thấp hơn mức đang dùng. Lần nhập mới bị từ chối cho đến khi các lần đang mở xong."
+        },
+        "importPerTeacherBytes": {
+          "label": "Tài liệu nhập mỗi giáo viên",
+          "hint": "Tài liệu mà các lần nhập đang mở của một giáo viên được giữ."
+        },
+        "emailsPerDay": {
+          "label": "Email mỗi ngày",
+          "hint": "Tính từ nửa đêm theo múi giờ của trung tâm.",
+          "used": "Hôm nay đã gửi {{value}}",
+          "below": "Thấp hơn số đã gửi hôm nay. Thư còn lại của hôm nay sẽ chờ đến ngày mai."
+        },
+        "emailsPerMonth": {
+          "label": "Email mỗi tháng",
+          "hint": "Tính từ ngày 1 theo múi giờ của trung tâm.",
+          "used": "Tháng này đã gửi {{value}}",
+          "below": "Thấp hơn số đã gửi tháng này. Thư còn lại chờ đến ngày 1; thư có liên kết hết hạn trước đó sẽ không được gửi."
+        },
+        "databaseBytes": {
+          "label": "Dung lượng cơ sở dữ liệu",
+          "hint": "Ước tính: số PostgreSQL báo, không phải số Neon tính phí. Chỉ cảnh báo, không từ chối.",
+          "used": "Hiện khoảng {{value}}",
+          "below": "Thấp hơn dung lượng hiện tại. Trang Tổng quan sẽ cảnh báo; không gì bị từ chối."
+        },
+        "warnAtPercent": {
+          "label": "Cảnh báo khi đạt",
+          "hint": "Tỉ lệ của một giới hạn mà trang Tổng quan bắt đầu cảnh báo."
+        }
+      },
+      "units": {
+        "seats": "tài khoản",
+        "teachers": "giáo viên",
+        "emailsPerDay": "email",
+        "emailsPerMonth": "email",
+        "warnAtPercent": "%"
+      },
+      "unitOf": "Đơn vị của {{name}}",
+      "noLimit": "Không giới hạn",
+      "default": "Mặc định: {{value}} · {{source}}",
+      "defaultNone": "Mặc định: không giới hạn",
+      "sources": {
+        "none": "không giới hạn",
+        "app": "mức riêng của Quizzivy",
+        "deploy": "do cấu hình triển khai đặt",
+        "r2_free": "gói miễn phí Cloudflare R2",
+        "neon_launch": "ngưỡng cảnh báo cho gói Neon Launch",
+        "resend_free": "gói miễn phí Resend"
+      },
+      "useDefault": "Dùng mặc định",
+      "useDefaultFor": "Dùng mặc định cho {{name}}",
       "aiCredits": "Tín dụng AI",
-      "aiCreditsOf": "{{used}} / {{pool}} trong tháng này"
+      "aiCreditsOf": "{{used}} / {{pool}} trong tháng này",
+      "aiCreditsManage": "Quản lý tín dụng AI"
     }
   },
   "dataExport": {

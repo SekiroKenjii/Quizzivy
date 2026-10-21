@@ -127,7 +127,7 @@ export function Segmented({
               fill && size !== "lg" && "text-meta h-7.5 px-2.5",
               Icon !== undefined && size === "lg" && "gap-1.75",
               on ? "shadow-card bg-card text-fg ring-border ring-1" : "text-muted-fg",
-              (option.disabled || unavailable) && "text-muted-fg/45 cursor-not-allowed",
+              (option.disabled || unavailable) && "text-fg/55 cursor-not-allowed",
             )}
           >
             {Icon !== undefined && (

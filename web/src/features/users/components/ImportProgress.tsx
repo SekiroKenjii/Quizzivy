@@ -96,7 +96,7 @@ function SheetPart({ job, locale, saved, onSaved }: SheetProps) {
       )}
       <Button
         type="button"
-        className="aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50 self-start"
+        className="aria-disabled:bg-primary/55 aria-disabled:hover:bg-primary/55 self-start"
         aria-disabled={download.isPending || undefined}
         aria-busy={download.isPending || undefined}
         onClick={() => {
@@ -116,8 +116,8 @@ function SheetPart({ job, locale, saved, onSaved }: SheetProps) {
 
 /**
  * ImportProgress follows one import: "Creating accounts… {done}/{total}" with
- * its bar while the worker runs, then how many accounts were made and skipped
- * and how the sign-in details reach people. A sheet is offered once, with a
+ * its bar while the worker runs, then how many accounts were made and skipped,
+ * and how many were not made because the centre reached a limit, and how the sign-in details reach people. A sheet is offered once, with a
  * warning before the button that it downloads once and when it is deleted.
  * It reads as downloaded only once the whole file has arrived and been handed
  * to the browser; a download that fails after the server erased the sheet
@@ -193,6 +193,11 @@ export function ImportProgress({
         {job.invalid > 0 && (
           <p className="text-muted-fg text-sm">
             {t("users.import.notImported", { count: job.invalid })}
+          </p>
+        )}
+        {job.overLimit > 0 && (
+          <p className="text-warning-ink text-sm">
+            {t("users.import.overLimit", { count: job.overLimit })}
           </p>
         )}
       </div>

@@ -21,8 +21,6 @@ const EVENT_KEY: Record<(typeof TEACHER_EVENTS)[number], string> = {
   "assignment.closing": "closing",
 };
 
-const QUIET = "aria-disabled:opacity-50";
-
 const GRID = "grid grid-cols-[minmax(0,1fr)_64px] items-center gap-3 px-4.5";
 
 type Switches = ReadonlyMap<NotificationEvent, boolean>;
@@ -156,7 +154,6 @@ export function NotificationsSection() {
                       })}
                       aria-describedby={`notify-${key}-hint`}
                       aria-disabled={saving || undefined}
-                      className={QUIET}
                       onCheckedChange={(on) => toggle(event, key, on)}
                     />
                   </span>

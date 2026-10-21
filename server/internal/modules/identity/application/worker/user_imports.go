@@ -82,7 +82,7 @@ func (r UserImports) RunOne(ctx context.Context) (bool, error) {
 	cancel()
 	outcome, err := r.settle(ctx, job, runErr)
 	fields := []any{"jobId", job.ID, "attempt", job.Attempts, "outcome", outcome,
-		"created", done.Created, "skipped", done.Skipped, "durationMs", r.Now().Sub(started).Milliseconds()}
+		"created", done.Created, "skipped", done.Skipped, "overLimit", done.OverLimit, "durationMs", r.Now().Sub(started).Milliseconds()}
 	if outcome == outcomeRetried {
 		fields = append(fields, "failure", failureClass(runErr))
 	}
@@ -162,6 +162,7 @@ func (r UserImports) execute(ctx context.Context, job domain.ImportJob) (domain.
 		}
 		total.Created += progress.Created
 		total.Skipped += progress.Skipped
+		total.OverLimit += progress.OverLimit
 		if progress.Done {
 			total.Done = true
 			return total, nil

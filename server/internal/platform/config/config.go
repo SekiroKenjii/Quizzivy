@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"quizzivy/internal/shared/limits"
 )
 
 type Config struct {
@@ -53,7 +55,8 @@ type Config struct {
 	SecretsKey  []byte
 	AppLocation *time.Location
 	Email       Email
-	Plan        Plan
+	// Limits is the usage limits the deploy's variables override.
+	Limits limits.Env
 
 	AI AI
 }
@@ -119,9 +122,7 @@ func Load() (Config, error) {
 	if err := loadEmailGroup(&cfg); err != nil {
 		return cfg, err
 	}
-	if err := loadPlan(&cfg); err != nil {
-		return cfg, err
-	}
+	loadLimitEnv(&cfg)
 
 	origins, err := parseOrigins(os.Getenv("CORS_ALLOWED_ORIGINS"))
 	if err != nil {

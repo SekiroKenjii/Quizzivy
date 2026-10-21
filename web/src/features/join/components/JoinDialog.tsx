@@ -145,7 +145,6 @@ function JoinForm({ onClose }: Readonly<{ onClose: () => void }>) {
           size="lg"
           aria-disabled={!ready || undefined}
           aria-busy={joining || undefined}
-          className="aria-disabled:opacity-50"
         >
           {joining && (
             <LoaderCircle aria-hidden="true" className="size-[17px] animate-spin" />

@@ -111,7 +111,7 @@ export function NotificationsPanel({
           type="button"
           aria-disabled={markAllOff || undefined}
           onClick={markAll}
-          className="text-muted-fg hover:text-fg aria-disabled:hover:text-muted-fg text-meta rounded-sm aria-disabled:cursor-default aria-disabled:opacity-50"
+          className="text-muted-fg hover:text-fg aria-disabled:text-foreground/50 aria-disabled:hover:text-foreground/50 text-meta rounded-sm aria-disabled:cursor-default"
         >
           {t("notifications.bell.markAllRead")}
         </button>
@@ -160,7 +160,6 @@ export function NotificationsPanel({
               variant="ghost"
               size="sm"
               aria-disabled={loadingMore || undefined}
-              className="aria-disabled:opacity-50"
               onClick={loadMore}
             >
               {t("notifications.bell.loadMore")}

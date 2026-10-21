@@ -403,7 +403,7 @@ function SetPasswordForm({
           size="xl"
           className={cn(
             "group/set-busy h-12",
-            !ready && "aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50",
+            !ready && "aria-disabled:bg-primary/55 aria-disabled:hover:bg-primary/55",
           )}
           aria-disabled={!ready || undefined}
           aria-busy={busy || undefined}
