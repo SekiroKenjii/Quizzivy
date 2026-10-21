@@ -24,6 +24,7 @@ import (
 	"quizzivy/internal/modules/organization/domain"
 	organizationhttp "quizzivy/internal/modules/organization/http"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/limits"
 
 	"golang.org/x/text/unicode/norm"
 )
@@ -617,5 +618,44 @@ func TestTheContractLetsANameThroughThatIsShortOnceComposed(t *testing.T) {
 		if rec.Code != tc.want {
 			t.Errorf("%s: status %d, want %d: %s", tc.name, rec.Code, tc.want, rec.Body.String())
 		}
+	}
+}
+
+func TestASaveCarriesTheLimitsAndAnswersEachDefaultWithItsSource(t *testing.T) {
+	r := &repo{settings: stored(), impact: domain.Impact{ActiveAdmins: 2}}
+	app := application.New(r, slog.New(slog.DiscardHandler), true)
+	app.SetClock(func() time.Time { return now })
+	h := organizationhttp.NewOrganization(app, limits.Env{limits.EmailsPerDay: 40})
+	in := input(1)
+	seats, storage := 250, int64(20)<<30
+	in.Limits = &openapi.UsageLimits{Seats: &seats, StorageBytes: &storage}
+	out, err := h.UpdateOrganizationSettings(contextAs(t, ""), openapi.UpdateOrganizationSettingsRequestObject{Body: &in})
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved, ok := out.(openapi.UpdateOrganizationSettings200JSONResponse)
+	if !ok {
+		t.Fatalf("answered %T", out)
+	}
+	if saved.Limits.Seats == nil || *saved.Limits.Seats != 250 || saved.Limits.StorageBytes == nil || *saved.Limits.StorageBytes != storage || saved.Limits.Teachers != nil {
+		t.Errorf("limits = %+v, want the seats and storage sent and nothing else", saved.Limits)
+	}
+	d := saved.LimitDefaults
+	if d.EmailsPerDay.Source != "deploy" || d.EmailsPerDay.Value == nil || *d.EmailsPerDay.Value != 40 {
+		t.Errorf("emails per day default = %+v, want the deploy's 40", d.EmailsPerDay)
+	}
+	if d.StorageBytes.Source != "r2_free" || d.EmailsPerMonth.Source != "resend_free" || d.DatabaseBytes.Source != "neon_launch" {
+		t.Errorf("defaults = %+v, want the hosting plans named", d)
+	}
+	if d.Seats.Source != "none" || d.Seats.Value != nil {
+		t.Errorf("seats default = %+v, want no limit", d.Seats)
+	}
+
+	again := input(2)
+	if _, err := h.UpdateOrganizationSettings(contextAs(t, ""), openapi.UpdateOrganizationSettingsRequestObject{Body: &again}); err != nil {
+		t.Fatal(err)
+	}
+	if kept := r.settings.Limits; kept[limits.Seats] != 250 || kept[limits.StorageBytes] != storage {
+		t.Errorf("a save without limits stored %v, want the earlier limits kept", kept)
 	}
 }
