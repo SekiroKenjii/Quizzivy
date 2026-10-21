@@ -3863,10 +3863,7 @@
       "multiple_choice": "Nhiều đáp án",
       "true_false": "Đúng/Sai",
       "fill_blank": "Điền từ",
-      "short_answer": "Tự luận",
-      "tfng": "Đúng/Sai/Không có thông tin",
-      "matching": "Nối",
-      "essay": "Bài luận"
+      "short_answer": "Tự luận"
     },
     "blankRuleInsensitive": "Không phân biệt hoa thường. Viết đúng chính tả.",
     "blankRuleSensitive": "Phân biệt hoa thường. Viết đúng chính tả.",

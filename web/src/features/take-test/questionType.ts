@@ -19,15 +19,12 @@ const KIND: Record<DrawnType, Exclude<QuestionKind, "unknown">> = {
   short_answer: "short_answer",
 };
 
-const LABEL: Record<StudentQuestion["type"], string> = {
+const LABEL: Record<DrawnType, string> = {
   single_choice: "takeTest.type.single_choice",
   multiple_choice: "takeTest.type.multiple_choice",
   true_false: "takeTest.type.true_false",
   fill_blank: "takeTest.type.fill_blank",
   short_answer: "takeTest.type.short_answer",
-  tfng: "takeTest.type.tfng",
-  matching: "takeTest.type.matching",
-  essay: "takeTest.type.essay",
 };
 
 /**
@@ -54,7 +51,7 @@ export function questionLine(
   total: number,
   t: TFunction,
 ): string {
-  if (!Object.hasOwn(LABEL, question.type)) {
+  if (!isDrawn(question.type)) {
     return t("takeTest.questionOf", { n: number, total });
   }
   return t("takeTest.questionOfType", {
