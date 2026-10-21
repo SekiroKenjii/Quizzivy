@@ -11,6 +11,7 @@ import (
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/limits"
 	"quizzivy/internal/shared/opt"
 )
 
@@ -90,6 +91,35 @@ func (u *UserImports) ActiveClasses(ctx context.Context) ([]domain.ImportClass, 
 		return nil, fmt.Errorf("user imports: active classes: %w", err)
 	}
 	return classes, nil
+}
+
+// Room implements domain.UserImports.
+func (u *UserImports) Room(ctx context.Context) (domain.ImportRoom, error) {
+	stored, err := limits.ReadStored(ctx, u)
+	if err != nil {
+		return domain.ImportRoom{}, err
+	}
+	used, err := limits.CountAccounts(ctx, u)
+	if err != nil {
+		return domain.ImportRoom{}, err
+	}
+	teachers, err := limits.TeacherRoles(ctx, u)
+	if err != nil {
+		return domain.ImportRoom{}, err
+	}
+	room := domain.ImportRoom{TeacherRoles: teachers}
+	room.Seats = roomFor(stored, limits.Seats, used.Seats)
+	room.Teachers = roomFor(stored, limits.Teachers, used.Teachers)
+	return room, nil
+}
+
+func roomFor(stored limits.Stored, name limits.Name, used int) *int {
+	limit, ok := stored[name]
+	if !ok {
+		return nil
+	}
+	left := max(int(limit)-used, 0)
+	return &left
 }
 
 // FindByRequest implements domain.UserImports.

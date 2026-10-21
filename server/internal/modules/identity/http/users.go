@@ -116,6 +116,9 @@ func (h Identity) CreateUser(ctx context.Context, request openapi.CreateUserRequ
 }
 
 func createUserFailure(ctx context.Context, err error) (openapi.CreateUserResponseObject, error) {
+	if body, ok := overLimit(ctx, err); ok {
+		return openapi.CreateUser409JSONResponse(body), nil
+	}
 	var invalid *validation.Error
 	switch {
 	case errors.As(err, &invalid):

@@ -275,7 +275,7 @@ func TestHeldCountsOnlyWhatIsStillInStorage(t *testing.T) {
 	tx := isolated(t, newPool(t))
 	store := repositories.NewPostgres(db.NewContext(tx))
 	ctx := context.Background()
-	before, err := store.Held(ctx)
+	before, err := store.Held(ctx, mayTenth)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -325,7 +325,7 @@ func TestHeldCountsOnlyWhatIsStillInStorage(t *testing.T) {
 
 	seed(t, tx, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), false)
 
-	after, err := store.Held(ctx)
+	after, err := store.Held(ctx, mayTenth)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -341,4 +341,75 @@ func TestHeldCountsOnlyWhatIsStillInStorage(t *testing.T) {
 	if got := after.Attempts - before.Attempts; got != 1 {
 		t.Errorf("attempts moved by %d, want 1", got)
 	}
+	if got := after.LargestLibrary; got < 1250 {
+		t.Errorf("largest library = %d, want at least this teacher's 1250", got)
+	}
+	if got := after.OpenImportBytes - before.OpenImportBytes; got != 7500 {
+		t.Errorf("open import bytes moved by %d, want 7500: the open and the failed import, not the cancelled one", got)
+	}
+	if after.DatabaseBytes <= 0 {
+		t.Errorf("database bytes = %d, want the database's size", after.DatabaseBytes)
+	}
+}
+
+var mayTenth = domain.EmailWindow{
+	Now:        time.Date(2031, time.May, 10, 12, 0, 0, 0, time.UTC),
+	DayStart:   time.Date(2031, time.May, 10, 0, 0, 0, 0, time.UTC),
+	NextDay:    time.Date(2031, time.May, 11, 0, 0, 0, 0, time.UTC),
+	MonthStart: time.Date(2031, time.May, 1, 0, 0, 0, 0, time.UTC),
+	NextMonth:  time.Date(2031, time.June, 1, 0, 0, 0, 0, time.UTC),
+}
+
+func TestHeldCountsTheMailOfTheDayAndMonthAndWhatACapHolds(t *testing.T) {
+	tx := isolated(t, newPool(t))
+	store := repositories.NewPostgres(db.NewContext(tx))
+	ctx := context.Background()
+	if _, err := tx.Exec(ctx, `DELETE FROM app.email_outbox WHERE sent_at IS NULL AND failed_at IS NULL`); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.Held(ctx, mayTenth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mail := func(sent, failed, deliver string, attempts int) {
+		t.Helper()
+		_, err := tx.Exec(ctx, `
+			INSERT INTO app.email_outbox (to_address, template, locale, sent_at, failed_at, deliver_after, attempts)
+			VALUES ($1, 'sign_in_invite', 'vi', $2::timestamptz, $3::timestamptz, coalesce($4::timestamptz, now()), $5)`,
+			nonce(t)+"@example.com", nullable(sent), nullable(failed), nullable(deliver), attempts)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	mail("2031-05-10T08:00:00Z", "", "", 1)
+	mail("2031-05-02T08:00:00Z", "", "", 1)
+	mail("2031-04-30T23:00:00Z", "", "", 1)
+	mail("", "", "2031-06-01T00:00:00Z", 0)
+	mail("", "", "2031-06-01T00:00:00Z", 0)
+	mail("", "", "2031-05-10T12:05:00Z", 2)
+	mail("", "2031-05-10T09:00:00Z", "2031-07-01T00:00:00Z", 0)
+
+	after, err := store.Held(ctx, mayTenth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := after.EmailsToday - before.EmailsToday; got != 1 {
+		t.Errorf("sent today moved by %d, want 1", got)
+	}
+	if got := after.EmailsMonth - before.EmailsMonth; got != 2 {
+		t.Errorf("sent this month moved by %d, want 2: April's is not May's", got)
+	}
+	if after.EmailsHeld != 2 {
+		t.Errorf("held = %d, want 2: a retry waits for its backoff, not a cap, and a failed row is settled", after.EmailsHeld)
+	}
+	if after.HeldUntil == nil || !after.HeldUntil.Equal(mayTenth.NextMonth) {
+		t.Errorf("held until = %v, want the 1st of June", after.HeldUntil)
+	}
+}
+
+func nullable(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }

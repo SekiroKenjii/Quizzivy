@@ -22,6 +22,7 @@ import (
 	"quizzivy/internal/platform/httpx"
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/cqrs"
+	"quizzivy/internal/shared/limits"
 )
 
 type centre struct{ recordingHome }
@@ -40,7 +41,10 @@ func (centre) ClassCounts(context.Context) (domain.ClassCounts, error) {
 func (centre) DisabledTeacherClasses(context.Context) (domain.DisabledTeacherClasses, error) {
 	return domain.DisabledTeacherClasses{}, nil
 }
-func (centre) Held(context.Context) (domain.Held, error) { return domain.Held{Attempts: 9}, nil }
+func (centre) Held(context.Context, domain.EmailWindow) (domain.Held, error) {
+	return domain.Held{Seats: 9, Attempts: 9}, nil
+}
+func (centre) Limits(context.Context) (limits.Stored, error) { return nil, nil }
 
 func adminApp() *application.Application {
 	branding := cqrs.HandlerFunc[organizationquery.Branding, organizationmodel.Branding](func(context.Context, organizationquery.Branding) (organizationmodel.Branding, error) {
@@ -52,7 +56,7 @@ func adminApp() *application.Application {
 	credits := cqrs.HandlerFunc[aiquery.AdminCredits, aidomain.AdminCredits](func(context.Context, aiquery.AdminCredits) (aidomain.AdminCredits, error) {
 		return aidomain.AdminCredits{Pool: aidomain.Pool{Plan: 100, Used: 40}}, nil
 	})
-	return application.New(centre{}).WithAdmin(branding, recent, domain.Plan{}, nil).WithCredits(credits)
+	return application.New(centre{}).WithAdmin(branding, recent, nil, nil).WithCredits(credits)
 }
 
 func holder(keys ...access.Key) access.Principal {
@@ -146,8 +150,19 @@ func TestUsageWithNothingStatedIsNullsAndZeroesNeverMissingKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := asJSON(t, res)
-	if string(body["plan"]) != "null" || string(body["aiCredits"]) != "null" {
-		t.Errorf("plan = %s, aiCredits = %s, want both null: no plan is stated and the key is not held", body["plan"], body["aiCredits"])
+	if _, ok := body["plan"]; ok {
+		t.Errorf("plan = %s, want no plan key: the limits replaced it", body["plan"])
+	}
+	if string(body["aiCredits"]) != "null" {
+		t.Errorf("aiCredits = %s, want null: the key is not held", body["aiCredits"])
+	}
+	for _, key := range []string{"storage", "media", "imports", "email", "database", "warnAtPercent"} {
+		if _, ok := body[key]; !ok {
+			t.Errorf("usage has no %q", key)
+		}
+	}
+	if got := string(body["database"]); got != `{"bytes":0,"limit":10737418240}` {
+		t.Errorf("database = %s, want the Neon Launch warning line", got)
 	}
 	var seats map[string]json.RawMessage
 	if err := json.Unmarshal(body["seats"], &seats); err != nil {

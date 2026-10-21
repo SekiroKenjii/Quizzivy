@@ -274,16 +274,14 @@ func (l Limits) WarnPercent() int {
 	return AppWarnAtPercent
 }
 
-func selectList() string {
+// SelectList is the columns that store the limits, in Names order.
+func SelectList() string {
 	cols := make([]string, len(catalogue))
 	for i, c := range catalogue {
 		cols[i] = c.column
 	}
 	return strings.Join(cols, ", ")
 }
-
-// SelectList is the columns ScanStored reads, in Names order.
-func SelectList() string { return selectList() }
 
 // ScanTargets returns one destination per column of SelectList, and the
 // function that gathers them into a Stored once the row is scanned.
@@ -319,7 +317,7 @@ func (s Stored) Arguments() []any {
 // ReadStored reads the stored limits.
 func ReadStored(ctx context.Context, q Querier) (Stored, error) {
 	targets, gather := ScanTargets()
-	if err := q.QueryRow(ctx, `SELECT `+selectList()+` FROM app.organization_settings`).Scan(targets...); err != nil {
+	if err := q.QueryRow(ctx, `SELECT `+SelectList()+` FROM app.organization_settings`).Scan(targets...); err != nil {
 		return nil, fmt.Errorf("limits: read the stored limits: %w", err)
 	}
 	return gather(), nil
@@ -368,6 +366,19 @@ func TeacherRole(role string) string {
 		likes[i] = fmt.Sprintf("rp.permission_key LIKE '%s%%'", p)
 	}
 	return `EXISTS (SELECT 1 FROM app.role_permissions rp WHERE rp.role_id = ` + role + ` AND (` + strings.Join(likes, " OR ") + `))`
+}
+
+// TeacherRoles returns the ids of the roles that take a teacher place.
+func TeacherRoles(ctx context.Context, q Querier) (map[string]struct{}, error) {
+	var ids []string
+	if err := q.QueryRow(ctx, `SELECT coalesce(array_agg(r.id::text), '{}') FROM app.roles r WHERE `+TeacherRole("r.id")).Scan(&ids); err != nil {
+		return nil, fmt.Errorf("limits: teacher roles: %w", err)
+	}
+	out := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		out[id] = struct{}{}
+	}
+	return out, nil
 }
 
 // Accounts is how many seats and teacher places the centre uses: a seat is an

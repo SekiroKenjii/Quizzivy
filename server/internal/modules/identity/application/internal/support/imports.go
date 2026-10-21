@@ -129,6 +129,11 @@ func (i *Imports) rules(ctx context.Context, req domain.WriteRequest, choices []
 	if rules.DefaultRoleID == "" {
 		return domain.ImportRules{}, accessdomain.ErrRoleNotFound
 	}
+	room, err := i.Repo.Room(ctx)
+	if err != nil {
+		return domain.ImportRules{}, err
+	}
+	rules.Room = room
 	if req.All {
 		classes, err := i.Repo.ActiveClasses(ctx)
 		if err != nil {

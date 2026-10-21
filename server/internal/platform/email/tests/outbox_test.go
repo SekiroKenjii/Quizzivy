@@ -339,3 +339,51 @@ func TestARowOfATemplateThisBinaryDoesNotSendStaysPendingWithItsSecret(t *testin
 		t.Errorf("the unknown row is counted as due: %v %v %v", due, pending, err)
 	}
 }
+
+func TestOnceTheMonthsBudgetIsSpentTheRestWaitForTheFirstAndAnExpiredLinkIsNeverSent(t *testing.T) {
+	ict := time.FixedZone("ICT", 7*3600)
+	now := time.Date(2033, 7, 31, 22, 0, 0, 0, ict)
+	w := newWorld(t, now)
+	w.disp.Now = func() time.Time { return now }
+	w.disp.DailyLimit, w.disp.MonthlyLimit = 50, 2
+	mail := func(label string, minutesAgo int, expires time.Time) string {
+		m := invite(addr(t, label))
+		m.DeliverAfter, m.ExpiresAt = now.Add(-time.Duration(minutesAgo)*time.Minute), expires
+		return w.enqueue(t, m)
+	}
+	first, second := mail("thang-1", 3, time.Time{}), mail("thang-2", 2, time.Time{})
+	expiring := mail("het-han", 1, time.Date(2033, 7, 31, 23, 30, 0, 0, ict))
+	later := mail("de-sau", 1, time.Date(2033, 8, 8, 0, 0, 0, 0, ict))
+
+	for range 2 {
+		if _, err := w.disp.Dispatch(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	firstOfAugust := time.Date(2033, 8, 1, 0, 0, 0, 0, ict)
+	for _, id := range []string{first, second} {
+		if r := read(t, w.pool, id); r.sentAt == nil {
+			t.Errorf("row %s was not sent within the month's budget: %+v", id, r)
+		}
+	}
+	for _, id := range []string{expiring, later} {
+		if r := read(t, w.pool, id); r.sentAt != nil || !r.deliverAfter.Equal(firstOfAugust) {
+			t.Errorf("row %s = %+v, want it moved to %v", id, r, firstOfAugust)
+		}
+	}
+
+	now = firstOfAugust.Add(time.Minute)
+	batch, err := w.disp.Dispatch(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if batch.Expired != 1 {
+		t.Errorf("expired = %d, want 1", batch.Expired)
+	}
+	if r := read(t, w.pool, expiring); r.sentAt != nil || r.failedAt == nil || r.lastError != "expired" || r.hasSecret {
+		t.Errorf("the link that expired while it waited = %+v, want failed as expired with its secret erased", r)
+	}
+	if r := read(t, w.pool, later); r.sentAt == nil {
+		t.Errorf("the link still valid on the 1st = %+v, want it sent", r)
+	}
+}

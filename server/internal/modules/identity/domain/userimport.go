@@ -69,6 +69,10 @@ const (
 	CodeUnknownClass    ImportCode = "UNKNOWN_CLASS"
 	CodeAmbiguousClass  ImportCode = "AMBIGUOUS_CLASS"
 	CodeClassNotAllowed ImportCode = "CLASS_NOT_ALLOWED"
+	// CodeOverSeatLimit refuses a new account the centre's seat limit has no
+	// room for, and CodeOverTeacherLimit one its teacher limit has no room for.
+	CodeOverSeatLimit    ImportCode = "OVER_SEAT_LIMIT"
+	CodeOverTeacherLimit ImportCode = "OVER_TEACHER_LIMIT"
 )
 
 // ImportColumns holds where each column of the file's header is, or -1.

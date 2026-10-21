@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"quizzivy/internal/modules/dashboard/domain"
+	"quizzivy/internal/shared/limits"
 )
 
 func date(year int, month time.Month, day int) time.Time {
@@ -113,16 +114,21 @@ func TestPercentRoundsHalfUp(t *testing.T) {
 
 func limit(n int64) *int64 { return &n }
 
-func TestUsageWithNoPlanStatesNoLimit(t *testing.T) {
-	got := domain.NewUsage(domain.Plan{}, domain.Accounts{Total: 40, Enabled: 37, Teachers: 6}, domain.Held{MediaBytes: 10, ImportBytes: 20, ImportCount: 2, Attempts: 7}, nil)
-	if got.Plan != nil {
-		t.Errorf("plan = %+v, want none when PLAN_NAME is unset", got.Plan)
-	}
-	if got.Seats.Limit != nil || got.Teachers.Limit != nil || got.Media.Limit != nil || got.Imports.Limit != nil {
+func TestUsageWithoutLimitsStatesNoLimit(t *testing.T) {
+	held := domain.Held{Seats: 37, Teachers: 6, MediaBytes: 10, ImportBytes: 20, ExportBytes: 5, ImportCount: 2, Attempts: 7}
+	got := domain.NewUsage(limits.Limits{}, held, nil)
+	if got.Seats.Limit != nil || got.Teachers.Limit != nil || got.Storage.Limit != nil || got.Media.PerTeacherLimit != nil ||
+		got.Imports.Limit != nil || got.Email.DailyLimit != nil || got.Database.Limit != nil {
 		t.Errorf("an unset limit must be absent, got %+v", got)
 	}
 	if got.Seats.Used != 37 || got.Teachers.Used != 6 || got.Media.Bytes != 10 || got.Imports.Bytes != 20 || got.Imports.Count != 2 || got.AttemptsKept != 7 {
 		t.Errorf("figures = %+v", got)
+	}
+	if got.Storage.Bytes != 35 {
+		t.Errorf("storage = %d, want media, import documents and exports together (35)", got.Storage.Bytes)
+	}
+	if got.WarnAtPercent != 80 {
+		t.Errorf("warn at = %d, want the default 80", got.WarnAtPercent)
 	}
 	if got.AICredits != nil {
 		t.Errorf("AI credits = %+v, want none when none were read", got.AICredits)
@@ -132,36 +138,35 @@ func TestUsageWithNoPlanStatesNoLimit(t *testing.T) {
 	}
 }
 
-func TestUsageStatesWhatThePlanStates(t *testing.T) {
-	renews := date(2027, time.January, 1)
-	plan := domain.Plan{Name: "Trung tâm", RenewsOn: renews, SeatLimit: 500, TeacherLimit: 20, MediaBytes: 1000, ImportBytes: 2000}
+func TestUsageStatesTheResolvedLimits(t *testing.T) {
+	resolved := limits.Resolve(limits.Stored{limits.Seats: 500, limits.Teachers: 20, limits.WarnAtPercent: 90}, limits.Env{})
 	credits := &domain.Credits{Used: 120, Pool: 500}
-	got := domain.NewUsage(plan, domain.Accounts{Total: 12, Enabled: 11, Teachers: 3}, domain.Held{}, credits)
+	got := domain.NewUsage(resolved, domain.Held{Seats: 11, Teachers: 3}, credits)
 
-	if got.Plan == nil || got.Plan.Name != "Trung tâm" || got.Plan.RenewsOn == nil || !got.Plan.RenewsOn.Equal(renews) {
-		t.Errorf("plan = %+v", got.Plan)
-	}
 	if got.Seats.Limit == nil || *got.Seats.Limit != 500 || got.Teachers.Limit == nil || *got.Teachers.Limit != 20 {
 		t.Errorf("seat and teacher limits = %+v %+v", got.Seats, got.Teachers)
 	}
-	if got.Media.Limit == nil || *got.Media.Limit != 1000 || got.Imports.Limit == nil || *got.Imports.Limit != 2000 {
-		t.Errorf("byte limits = %+v %+v", got.Media, got.Imports)
+	if got.Storage.Limit == nil || *got.Storage.Limit != limits.R2FreeStorageBytes {
+		t.Errorf("storage limit = %v, want the R2 free tier", got.Storage.Limit)
+	}
+	if got.Email.DailyLimit == nil || *got.Email.DailyLimit != limits.ResendFreeEmailsPerDay ||
+		got.Email.MonthlyLimit == nil || *got.Email.MonthlyLimit != limits.ResendFreeEmailsPerMonth {
+		t.Errorf("email limits = %+v, want the Resend free tier", got.Email)
+	}
+	if got.WarnAtPercent != 90 {
+		t.Errorf("warn at = %d, want the stored 90", got.WarnAtPercent)
 	}
 	if got.AICredits == nil || *got.AICredits != *credits {
 		t.Errorf("AI credits = %+v, want %+v", got.AICredits, credits)
 	}
-
-	named := domain.NewUsage(domain.Plan{Name: "Trung tâm"}, domain.Accounts{}, domain.Held{}, nil)
-	if named.Plan == nil || named.Plan.RenewsOn != nil {
-		t.Errorf("a plan with no renewal date = %+v, want a name and no date", named.Plan)
-	}
 }
 
-func TestStorageNeedsAttentionFromTheMeterReadingEightyPercentOfALimit(t *testing.T) {
-	usage := func(media, imports int64) domain.Usage {
+func TestStorageNeedsAttentionFromTheMeterReadingTheWarningLine(t *testing.T) {
+	usage := func(library, open int64) domain.Usage {
 		return domain.Usage{
-			Media:   domain.Bytes{Bytes: media, Limit: limit(1000)},
-			Imports: domain.ImportBytes{Bytes: imports, Limit: limit(1000)},
+			Media:         domain.Media{LargestLibrary: library, PerTeacherLimit: limit(1000)},
+			Imports:       domain.Imports{OpenBytes: open, Limit: limit(1000)},
+			WarnAtPercent: 80,
 		}
 	}
 	if row := domain.StorageAttention(usage(794, 0)); row != nil {
@@ -175,9 +180,6 @@ func TestStorageNeedsAttentionFromTheMeterReadingEightyPercentOfALimit(t *testin
 	if row == nil || row.Kind != domain.AttentionStorage || row.Count != 1 {
 		t.Fatalf("80%% used = %+v, want one storage row", row)
 	}
-	if row.Detail == nil || row.Detail.MediaPercent == nil || *row.Detail.MediaPercent != 80 {
-		t.Errorf("media percent = %+v, want 80", row.Detail)
-	}
 	if row.Detail.ImportsPercent == nil || *row.Detail.ImportsPercent != 0 {
 		t.Errorf("imports percent = %+v, want 0: a meter with a limit is quoted even below the line", row.Detail.ImportsPercent)
 	}
@@ -185,12 +187,32 @@ func TestStorageNeedsAttentionFromTheMeterReadingEightyPercentOfALimit(t *testin
 		t.Errorf("both meters over the line = %+v, want a count of 2", both)
 	}
 
-	onlyImports := domain.StorageAttention(domain.Usage{
-		Media:   domain.Bytes{Bytes: 5000},
-		Imports: domain.ImportBytes{Bytes: 900, Limit: limit(1000)},
+	raised := usage(850, 0)
+	raised.WarnAtPercent = 90
+	if row := domain.StorageAttention(raised); row != nil {
+		t.Errorf("85%% under a 90%% line = %+v, want no row", row)
+	}
+
+	whole := domain.StorageAttention(domain.Usage{
+		Storage:       domain.Bytes{Bytes: 950, Limit: limit(1000)},
+		Database:      domain.Bytes{Bytes: 900, Limit: limit(1000)},
+		Media:         domain.Media{LargestLibrary: 5000},
+		WarnAtPercent: 80,
 	})
-	if onlyImports == nil || onlyImports.Count != 1 || onlyImports.Detail.MediaPercent != nil {
-		t.Errorf("a meter without a limit must not be measured, got %+v", onlyImports)
+	if whole == nil || whole.Count != 2 || whole.Detail.StoragePercent == nil || *whole.Detail.StoragePercent != 95 ||
+		whole.Detail.DatabasePercent == nil || *whole.Detail.DatabasePercent != 90 || whole.Detail.MediaPercent != nil {
+		t.Errorf("file storage and database over the line, a library without a limit = %+v", whole)
+	}
+}
+
+func TestHeldMailIsOneRowNamingWhenItGoes(t *testing.T) {
+	if row := domain.EmailAttention(domain.Usage{}); row != nil {
+		t.Errorf("nothing held = %+v, want no row", row)
+	}
+	until := date(2026, time.November, 1)
+	row := domain.EmailAttention(domain.Usage{Email: domain.Email{Held: 4, HeldUntil: &until}})
+	if row == nil || row.Kind != domain.AttentionEmailHeld || row.Count != 4 || row.Detail.HeldUntil == nil || !row.Detail.HeldUntil.Equal(until) {
+		t.Errorf("four held = %+v", row)
 	}
 }
 

@@ -22,6 +22,7 @@ import (
 	"quizzivy/internal/modules/organization/domain"
 	"quizzivy/internal/modules/organization/repositories"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/limits"
 )
 
 const (
@@ -214,6 +215,7 @@ func (s *session) fullDocument() domain.Settings {
 			KeepFocusEventsMonths:        6,
 			AnonymiseDisabledAfterMonths: intp(12),
 		},
+		Limits: limits.Stored{limits.Seats: 400, limits.EmailsPerDay: 80},
 	}
 }
 
@@ -377,7 +379,8 @@ func rawOf(d domain.Settings, revision int32, updatedBy string, updatedAt time.T
 func sameSettings(a, b domain.Settings) bool {
 	x, y := a, b
 	x.UpdatedAt, y.UpdatedAt = time.Time{}, time.Time{}
-	return reflect.DeepEqual(x, y) && a.UpdatedAt.Equal(b.UpdatedAt)
+	x.Limits, y.Limits = nil, nil
+	return reflect.DeepEqual(x, y) && a.UpdatedAt.Equal(b.UpdatedAt) && a.Limits.Equal(b.Limits)
 }
 
 func sameDocument(t *testing.T, what string, got, want domain.Settings) {
@@ -390,6 +393,9 @@ func sameDocument(t *testing.T, what string, got, want domain.Settings) {
 	}
 	if !reflect.DeepEqual(got.Retention, want.Retention) {
 		t.Errorf("%s: retention = %+v, want %+v", what, got.Retention, want.Retention)
+	}
+	if !got.Limits.Equal(want.Limits) {
+		t.Errorf("%s: limits = %v, want %v", what, got.Limits, want.Limits)
 	}
 }
 
@@ -430,8 +436,9 @@ func (s *session) audits() []auditRow {
 }
 
 type auditDiff struct {
-	Fields   []string `json:"fields"`
-	Revision int64    `json:"revision"`
+	Fields   []string        `json:"fields"`
+	Limits   []limits.Change `json:"limits"`
+	Revision int64           `json:"revision"`
 }
 
 func decodeDiff(t *testing.T, raw []byte) auditDiff {

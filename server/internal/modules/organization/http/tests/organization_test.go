@@ -133,7 +133,7 @@ func handler(t *testing.T, r *repo, s *store, c checker) organizationhttp.Organi
 	if s != nil {
 		app.WithLogos(s, c)
 	}
-	return organizationhttp.NewOrganization(app)
+	return organizationhttp.NewOrganization(app, nil)
 }
 
 func contextAs(t *testing.T, acceptLanguage string) context.Context {
@@ -237,7 +237,7 @@ func TestAnAbsentOptionalFieldIsNull(t *testing.T) {
 }
 
 func TestWithoutTheModuleEveryOperationIsNotImplemented(t *testing.T) {
-	h := organizationhttp.NewOrganization(nil)
+	h := organizationhttp.NewOrganization(nil, nil)
 	ctx := context.Background()
 	if _, err := h.GetPublicOrganization(ctx, openapi.GetPublicOrganizationRequestObject{}); !errors.Is(err, httpx.ErrNotImplemented) {
 		t.Errorf("public read: %v", err)
