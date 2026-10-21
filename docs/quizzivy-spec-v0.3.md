@@ -3,6 +3,10 @@
 **Version:** 0.117 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
+**Changes pending (R6, v0.13.0)**
+
+- T-R6.2 §7 The contract gains the types `tfng` (true / false / not given: three fixed options, answered as `choice`), `matching` and `essay`; `multiple_choice` takes `selectCount` ("choose exactly N") and `short_answer` takes `maxWords` (advice, never truncation); matching items and an essay's rubric criteria are teacher shapes, a student sees only an item's id, key and text, and `matching` is answered with `pairs`. Keys are labels the server derives from the stored ordinal (choices i to xii, items A to T; D-063). A grade item takes points, or for an essay a band (3 to 9 in half steps) or its criteria; until essays are stored the server refuses a band or criteria with `GRADE_BAND_NOT_ALLOWED` and a missing score with `GRADE_NEEDS_POINTS`.
+
 **Changes since v0.116**
 
 Hotfix v0.12.1: the Admin console renders in the page frame of DG-205, as the teacher workspace does.
@@ -1832,7 +1836,8 @@ interface MediaAsset {
 
 type QuestionType =
   | 'single_choice' | 'multiple_choice' | 'true_false'
-  | 'fill_blank' | 'short_answer';
+  | 'fill_blank' | 'short_answer'
+  | 'tfng' | 'matching' | 'essay';      // R6; stored once T-R6.1a and T-R6.3 land
 
 type QuestionLevel = 'pre_a1' | 'a1' | 'a2' | 'b1' | 'b2' | 'c1' | 'c2';
 type QuestionSkill = 'grammar' | 'vocabulary' | 'reading' | 'listening' | 'writing' | 'speaking';
@@ -1860,7 +1865,12 @@ interface Question {
   blanks?: { id; ordinal: number; acceptedAnswers: string[]; caseSensitive: boolean }[];
   points: number;
   explanation?: string;
-  sampleAnswer?: string;                // short_answer; ADMIN ONLY, never in a student payload
+  sampleAnswer?: string;                // short_answer and essay; ADMIN ONLY, never in a student payload
+  selectCount?: number | null;          // multiple_choice: "choose exactly N", 2..7
+  maxWords?: number | null;             // short_answer: word limit, 1..100; advice, never truncation
+  matchAllowReuse?: boolean | null;     // matching only, where it is required
+  matchItems?: { id; ordinal: number; key: string; text: string; correctOptionId: string }[];  // matching; the choices are options
+  rubric?: { id; ordinal: number; label: string }[];   // essay; at most six criteria
   tags: string[];
 }
 
@@ -1908,7 +1918,7 @@ interface Attempt {
   startedAt; deadlineAt; submittedAt?; gradedAt?;
   answers: Record<string, Answer>;
   audioPlays: Record<string /*questionId*/, number>;   // server-authoritative (§11.4)
-  score?: { earned: number; total: number; pendingManual: number };
+  score?: { earned: number; total: number; pendingManual: number; band?: number };  // band: only when every scored question is a graded essay
   integrity?: { focusLossCount: number; flagged: boolean };
 }
 
@@ -1916,7 +1926,8 @@ type Answer =
   | { type: 'choice'; optionIds: string[] }
   | { type: 'true_false'; value: boolean }
   | { type: 'fill_blank'; values: Record<string, string> }
-  | { type: 'text'; value: string };
+  | { type: 'text'; value: string }
+  | { type: 'matching'; pairs: Record<string /*itemId*/, string /*optionId*/> };
 ```
 
 An option or a blank keeps its id across saves of its question: a write that sends an id the question holds updates that row, one that omits the id or sends an id the question does not hold creates a new one, and one that leaves a row out deletes it. An id read from a question therefore stays valid until its option or blank is removed.
