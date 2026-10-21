@@ -50,7 +50,12 @@ const FULL: AdminOverview = {
     {
       kind: "storage",
       count: 3,
-      detail: { seatsPercent: 149, teachersPercent: 100, storagePercent: 92, mediaPercent: 85 },
+      detail: {
+        seatsPercent: 149,
+        teachersPercent: 100,
+        storagePercent: 92,
+        mediaPercent: 85,
+      },
     },
     {
       kind: "email_held",
