@@ -78,12 +78,14 @@ func toAPIScore(sc domain.Score) *openapi.AttemptScore {
 }
 
 type reviewAnswer = struct {
-	Answer         *openapi.Answer `json:"answer"`
-	AnswerRemoved  *bool           `json:"answerRemoved,omitempty"`
-	AutoScore      *openapi.Points `json:"autoScore,omitempty"`
-	GraderComment  *string         `json:"graderComment,omitempty"`
-	ManualScore    *openapi.Points `json:"manualScore,omitempty"`
-	RequiresManual *bool           `json:"requiresManual,omitempty"`
+	Answer         *openapi.Answer          `json:"answer"`
+	AnswerRemoved  *bool                    `json:"answerRemoved,omitempty"`
+	AutoScore      *openapi.Points          `json:"autoScore,omitempty"`
+	Band           *openapi.Band            `json:"band,omitempty"`
+	Criteria       *[]openapi.CriterionBand `json:"criteria,omitempty"`
+	GraderComment  *string                  `json:"graderComment,omitempty"`
+	ManualScore    *openapi.Points          `json:"manualScore,omitempty"`
+	RequiresManual *bool                    `json:"requiresManual,omitempty"`
 }
 
 // GetAttemptForReview backs G-03. This is the one response that carries the
@@ -503,9 +505,23 @@ func (h Attempts) GradeAttempt(ctx context.Context, request openapi.GradeAttempt
 	if !ok {
 		return nil, httpx.ErrNotImplemented
 	}
+	var refused []string
+	for _, it := range request.Body.Items {
+		if it.Points == nil || it.Band != nil || it.Criteria != nil {
+			refused = append(refused, it.QuestionId.String())
+		}
+	}
+	if len(refused) > 0 {
+		resp := httpapi.Error(ctx, openapi.GRADENEEDSPOINTS, httpx.Text(ctx,
+			"Câu này được chấm bằng điểm số.",
+			"This question is graded with points."))
+		details := map[string]interface{}{"questionIds": refused}
+		resp.Error.Details = &details
+		return openapi.GradeAttempt422JSONResponse(resp), nil
+	}
 	items := make([]domain.GradeItem, len(request.Body.Items))
 	for i, it := range request.Body.Items {
-		items[i] = domain.GradeItem{QuestionID: it.QuestionId.String(), Points: it.Points, Comment: it.Comment}
+		items[i] = domain.GradeItem{QuestionID: it.QuestionId.String(), Points: *it.Points, Comment: it.Comment}
 	}
 	score, err := h.app.Commands.Grade.Handle(ctx, command.Grade{AttemptID: request.Id.String(), GraderID: principal.UserID, Items: items, Scope: httpapi.ScopeFromContext(ctx)})
 	var invalid *domain.GradeValidationError

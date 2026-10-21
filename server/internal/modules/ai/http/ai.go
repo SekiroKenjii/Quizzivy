@@ -104,7 +104,7 @@ func (h AI) GenerateAiQuestions(ctx context.Context, request openapi.GenerateAiQ
 	}
 	out := openapi.GenerateAiQuestions200JSONResponse{Items: make([]openapi.AiGeneratedQuestion, len(got.Items)), Usage: usageOf(got.Usage)}
 	for i, item := range got.Items {
-		out.Items[i] = openapi.AiGeneratedQuestion{Type: openapi.QuestionType(item.Type), Prompt: item.Prompt, AnswerKey: item.AnswerKey, Explanation: item.Explanation}
+		out.Items[i] = openapi.AiGeneratedQuestion{Type: openapi.AiQuestionType(item.Type), Prompt: item.Prompt, AnswerKey: item.AnswerKey, Explanation: item.Explanation}
 		if len(item.Options) > 0 {
 			out.Items[i].Options = &item.Options
 		}
