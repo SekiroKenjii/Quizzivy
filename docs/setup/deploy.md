@@ -379,36 +379,6 @@ What v0.9.0 then does with what v0.10.0 wrote:
 - `00084`'s Down leaves its constraint `NOT VALID` for the same reason. Never roll back past v0.8.0
   (the join-code key).
 
-## Rolling out v0.12.2 (hotfix)
-
-v0.12.2 makes Settings → Plan & usage the centre's usage limits (change request CR-002, D-060; spec 0.118,
-"Changes since v0.117"): an Admin sets accounts, teachers, file storage, import documents, email per day and
-per month, the database's warning line and the warning share, each defaulting to the hosting plan in use.
-
-- **Three additive migrations.** `00142_add_organization_limits.sql` adds ten nullable columns to the one-row
-  `organization_settings`; `00143_add_email_outbox_expires_at.sql` adds a nullable `expires_at` to
-  `email_outbox`; `00144_add_user_import_over_limit.sql` adds `over_limit_count` to `user_import_jobs` and
-  swaps three checks on the two import tables, both small. None rewrites a large table or backfills.
-- **Configuration.** `fly.toml` no longer sets `MEDIA_OWNER_QUOTA_MIB` (5120) or `EMAIL_DAILY_LIMIT` (100):
-  the defaults are the same figures, and an Admin changes them in the app. A deploy variable still wins over
-  the hosting plan's figure when someone sets it, so leave them unset. The `PLAN_*` variables are retired;
-  one left set is ignored.
-- **Deploy the API first, then the web, without a pause.** The old web reads `Usage.plan`, which the new API
-  no longer sends, so its Plan & usage page fails to draw and the Overview's storage card shows blanks until
-  the web is deployed. The old web's settings save leaves `limits` out, which keeps what is stored.
-- **Nothing is enforced until a limit is set**, but for the defaults that were already enforced (5 GB per
-  media library, 1 GB and 256 MB of import documents, 100 emails a day). New with this release: 10 GB of
-  stored files in all (R2 free) and 3,000 emails a month (Resend free). Check Settings → Plan & usage after
-  the deploy: if Resend or R2 has been upgraded from its free plan, raise those two limits there.
-- **Smoke.** As an Admin, open Settings → Plan & usage, set Accounts to the current use plus one, save,
-  create one account, see the next one refused with "The centre has reached its account limit", then use
-  the default and save again. The Overview's storage card shows file storage and the database.
-- **What to watch.** `user import done` now logs `overLimit`; a mail held by the monthly cap is deferred like
-  one held by the daily cap, and one whose link expired is failed with code `expired`.
-- **Rolling back to v0.12.0 or v0.12.1** needs no migration down: the old API reads none of the new columns,
-  and the limits come back as configuration only. Set `MEDIA_OWNER_QUOTA_MIB` and `EMAIL_DAILY_LIMIT` back in
-  `fly.toml` first if the rollback is long, or the old API runs without those caps.
-
 ## Rolling out v0.11.11 (hotfix)
 
 v0.11.11 finishes change request CR-001 to the design team's drawing: "Generate questions" in the builder
@@ -633,6 +603,42 @@ DROP INDEX CONCURRENTLY IF EXISTS app.media_assets_owner_idx;          -- 00075
 DROP INDEX CONCURRENTLY IF EXISTS app.users_created_by_idx;            -- 00076
 DROP INDEX CONCURRENTLY IF EXISTS app.assignments_creator_idx;         -- 00077
 ```
+
+## Rolling out v0.12.2 (hotfix)
+
+v0.12.2 makes Settings → Plan & usage the centre's usage limits (change request CR-002, D-060; spec 0.118,
+"Changes since v0.117"): an Admin sets accounts, teachers, file storage, import documents, email per day and
+per month, the database's warning line and the warning share, each defaulting to the hosting plan in use.
+
+- **Three additive migrations.** `00142_add_organization_limits.sql` adds ten nullable columns to the one-row
+  `organization_settings`; `00143_add_email_outbox_expires_at.sql` adds a nullable `expires_at` to
+  `email_outbox`; `00144_add_user_import_over_limit.sql` adds `over_limit_count` to `user_import_jobs` and
+  swaps three checks on the two import tables, both small. None rewrites a large table or backfills.
+- **Configuration.** `fly.toml` no longer sets `MEDIA_OWNER_QUOTA_MIB` (5120) or `EMAIL_DAILY_LIMIT` (100):
+  the defaults are the same figures, and an Admin changes them in the app. A deploy variable still wins over
+  the hosting plan's figure when someone sets it, so leave them unset. The `PLAN_*` variables are retired;
+  one left set is ignored.
+- **Deploy the API first, then the web, without a pause.** The old web reads `Usage.plan`, which the new API
+  no longer sends, so its Plan & usage page fails to draw and the Overview's storage card shows blanks until
+  the web is deployed. The old web's settings save leaves `limits` out, which keeps what is stored.
+- **Nothing is enforced until a limit is set**, but for the defaults that were already enforced (5 GB per
+  media library, 1 GB and 256 MB of import documents, 100 emails a day). New with this release: 10 GB of
+  stored files in all (R2 free) and 3,000 emails a month (Resend free). Check Settings → Plan & usage after
+  the deploy: if Resend or R2 has been upgraded from its free plan, raise those two limits there.
+- **Smoke.** As an Admin, open Settings → Plan & usage, set Accounts to the current use plus one, save,
+  create one account, see the next one refused with "The centre has reached its account limit", then use
+  the default and save again. The Overview's storage card shows file storage and the database.
+- **What to watch.** `user import done` now logs `overLimit`; a mail held by the monthly cap is deferred like
+  one held by the daily cap, and one whose link expired is failed with code `expired`.
+- **Rolling back to v0.12.0 or v0.12.1** needs no migration down: the old API reads none of the new columns,
+  and the limits come back as configuration only. Set `MEDIA_OWNER_QUOTA_MIB` and `EMAIL_DAILY_LIMIT` back in
+  `fly.toml` first if the rollback is long, or the old API runs without those caps.
+
+## Rolling out v0.12.1 (hotfix)
+
+v0.12.1 puts every Admin console page in the teacher workspace's page frame (up to 1600px, centred
+beyond it; DG-205, spec 0.117). It is web only: no schema, no contract and no configuration change,
+so the API need not be redeployed and rolling the web back to v0.12.0 is safe.
 
 ## Rolling out v0.12.0 (R5)
 

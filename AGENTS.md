@@ -583,9 +583,9 @@ The Admin console lives in `AdminLayout` on the same shell: `ConsoleShell`
 (`layouts/shell/`) is the frame both layouts render, each with its own
 destinations (`teacherNav.ts`, `adminNav.ts`) and top-bar end. Its routes are
 under `/admin`, behind `AdminWorkspace` and then `RequirePermission`
-(`app/guards/`), and each declares `handle.crumb`, `width` (1320px, 1080px for
-API reference and Settings) and `permission`, the `x-permission` of the
-operation its page opens with; the guard answers the 403 page to a user who
+(`app/guards/`), and each declares `handle.crumb` and `permission`, the
+`x-permission` of the operation its page opens with, and never a width: every
+Admin page renders in the teacher's page frame (DG-205, `page-frame.test.ts`); the guard answers the 403 page to a user who
 lacks it, and `adminNavFor` leaves such a destination out of the sidebar.
 `tests/units/contract/admin-nav.test.ts` holds the table to the contract. An
 `/admin/...` path that is not one of the console's (`consolePath` in

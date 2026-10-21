@@ -23,13 +23,12 @@ const ROWS = ["first", "second", "third", "fourth", "fifth"] as const;
  * icon blocks alone when the stored sidebar state is collapsed. The splash
  * renders it outside the shell, so it sets its own deck scale and paints its
  * own background. `workspace` prefixes its `data-slot` with the console's
- * name, and `pageMax` is the page's maximum width as a CSS length, the
- * teacher's `--page-max` unless given.
+ * name; its page block is the page frame's, `--page-max` inside the gutters,
+ * in both consoles (DG-205).
  */
 export function ConsoleSkeleton({
   workspace,
-  pageMax = "var(--page-max)",
-}: Readonly<{ workspace: StaffWorkspace; pageMax?: string }>) {
+}: Readonly<{ workspace: StaffWorkspace }>) {
   const collapsed = readSidebarState() === "collapsed";
   return (
     <div data-slot={`${workspace}-skeleton`} className="bg-bg flex h-full">
@@ -60,7 +59,7 @@ export function ConsoleSkeleton({
           <Skeleton className="size-8 rounded-full" />
         </div>
         <div
-          style={{ maxWidth: `calc(${pageMax} + 2 * var(--page-gutter))` }}
+          style={{ maxWidth: "calc(var(--page-max) + 2 * var(--page-gutter))" }}
           className="mx-auto flex w-full flex-1 flex-col gap-4.5 px-(--page-gutter) pt-(--page-pad-top) pb-7"
         >
           <Skeleton className="h-6.5 w-50 rounded-sm" />

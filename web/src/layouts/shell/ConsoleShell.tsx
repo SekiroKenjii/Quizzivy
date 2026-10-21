@@ -41,8 +41,7 @@ type Drawer = { at: string } | "left" | null;
  * nothing in it extends the document, and the element pages measure their
  * width by. It sets the page's gutters (`--page-gutter`) and the one page
  * frame every route renders in: the full width up to `--page-max`, centred
- * beyond it, to the maximum the handle's `width` gives in pixels in the Admin
- * console, which the teacher's console ignores, or the full width when it
+ * beyond it, in both consoles, or the full width when the handle's `width`
  * says `"full"` (DG-205). It returns to the top and takes
  * focus when the route changes, and does neither when only a parameter does.
  * One outlet serves every width, so a page keeps its state across 768.
@@ -92,11 +91,7 @@ export function ConsoleShell({
   const crumb = handle?.crumb ?? NO_CRUMB;
   const trail = useMemo(() => trailOf(crumb, tail, t), [crumb, tail, t]);
   const page = trail.at(-1)?.label;
-  const declared = handle?.width;
-  const width =
-    declared === "full" || (workspace === "admin" && typeof declared === "number")
-      ? declared
-      : undefined;
+  const full = handle?.width === "full";
 
   const registerMain = useCallback((element: HTMLElement | null) => {
     main.current = element;
@@ -189,11 +184,7 @@ export function ConsoleShell({
           {registered && (
             <div
               data-slot="page"
-              className={cn(
-                "mx-auto w-full",
-                width === undefined && "max-w-(--page-max)",
-              )}
-              style={typeof width === "number" ? { maxWidth: width } : undefined}
+              className={cn("mx-auto w-full", !full && "max-w-(--page-max)")}
             >
               <CrumbTailContext value={setTail}>
                 <Outlet />
