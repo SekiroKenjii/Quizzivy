@@ -353,7 +353,6 @@ const adminTree: RouteObject = {
               handle: {
                 crumb: [ADMIN_CRUMB, { key: "adminShell.nav.overview" }],
                 permission: "workspace.admin",
-                width: 1320,
               },
               lazy: page(
                 () => import("@/features/admin-overview/pages/admin/OverviewPage"),
@@ -364,7 +363,6 @@ const adminTree: RouteObject = {
               handle: {
                 crumb: [ADMIN_CRUMB, { key: "adminShell.nav.users" }],
                 permission: "people.users.manage",
-                width: 1320,
               },
               lazy: page(() => import("@/features/users/pages/admin/UsersPage")),
             },
@@ -373,7 +371,6 @@ const adminTree: RouteObject = {
               handle: {
                 crumb: [ADMIN_CRUMB, { key: "adminShell.nav.roles" }],
                 permission: "people.roles.manage",
-                width: 1320,
               },
               lazy: page(() => import("@/features/roles/pages/admin/RolesPage")),
             },
@@ -382,7 +379,6 @@ const adminTree: RouteObject = {
               handle: {
                 crumb: [ADMIN_CRUMB, { key: "adminShell.nav.classes" }],
                 permission: "scope.all",
-                width: 1320,
               },
               lazy: page(
                 () => import("@/features/classes/pages/admin/AdminClassesPage"),
@@ -393,7 +389,6 @@ const adminTree: RouteObject = {
               handle: {
                 crumb: [ADMIN_CRUMB, { key: "adminShell.nav.ai" }],
                 permission: "ai.credits.manage",
-                width: 1320,
               },
               lazy: page(
                 () => import("@/features/ai-credits/pages/admin/AiCreditsPage"),
@@ -404,7 +399,6 @@ const adminTree: RouteObject = {
               handle: {
                 crumb: [ADMIN_CRUMB, { key: "adminShell.nav.audit" }],
                 permission: "system.audit.read",
-                width: 1320,
               },
               lazy: page(() => import("@/features/audit/pages/admin/AuditLogPage")),
             },
@@ -413,7 +407,6 @@ const adminTree: RouteObject = {
               handle: {
                 crumb: [ADMIN_CRUMB, { key: "adminShell.nav.api" }],
                 permission: "system.api_reference",
-                width: 1080,
               },
               lazy: page(
                 () => import("@/features/api-reference/pages/admin/ApiReferencePage"),
@@ -424,7 +417,6 @@ const adminTree: RouteObject = {
               handle: {
                 crumb: [ADMIN_CRUMB, { key: "adminShell.nav.settings" }],
                 permission: "system.settings.write",
-                width: 1080,
               },
               lazy: page(
                 () => import("@/features/organization/pages/admin/SystemSettingsPage"),
@@ -439,7 +431,6 @@ const adminTree: RouteObject = {
                   { key: "adminShell.crumbExport" },
                 ],
                 permission: "system.data_export",
-                width: 1080,
               },
               lazy: page(() => import("@/features/exports/pages/admin/DataExportPage")),
             },

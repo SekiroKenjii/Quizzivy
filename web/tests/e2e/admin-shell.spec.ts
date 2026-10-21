@@ -110,3 +110,27 @@ test("the switcher carries an Admin to the teacher console and back", async ({
   await page.getByRole("menuitem", { name: "Bảng quản trị" }).click();
   await expect(page).toHaveURL(/\/admin$/);
 });
+
+for (const width of [1440, 1920, 2560]) {
+  test(`every Admin page starts at one left edge and fills the frame up to 1600px at ${width}px (DG-205)`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await openConsole(page, adminUser, "/admin");
+    const boxes: { left: number; width: number }[] = [];
+    for (const path of ["/admin", "/admin/users", "/admin/api", "/admin/settings"]) {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      const box = await page.locator("main [data-slot='page']").boundingBox();
+      boxes.push({ left: Math.round(box!.x), width: Math.round(box!.width) });
+    }
+    const main = await page.getByRole("main").evaluate((el) => {
+      const style = getComputedStyle(el);
+      return (
+        el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+      );
+    });
+    for (const box of boxes) expect(box).toEqual(boxes[0]);
+    expect(boxes[0]!.width).toBe(Math.round(Math.min(main, 1600)));
+  });
+}
