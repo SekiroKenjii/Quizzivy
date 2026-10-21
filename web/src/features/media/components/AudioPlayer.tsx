@@ -345,7 +345,7 @@ function PlacedPlayer({
         aria-disabled={inert || undefined}
         aria-label={playing ? t("media.pause") : t("media.play")}
         className={cn(
-          "bg-primary text-primary-foreground grid flex-none place-content-center rounded-full aria-disabled:bg-primary/55",
+          "bg-primary text-primary-foreground aria-disabled:bg-primary/55 grid flex-none place-content-center rounded-full",
           buttonSize(size),
         )}
       >
@@ -533,7 +533,7 @@ function RecordingCard({
           disabled={disabled}
           aria-disabled={inert || undefined}
           aria-label={t(BUTTON_NAME[phase])}
-          className="bg-primary text-primary-fg grid size-13 flex-none place-content-center rounded-full disabled:opacity-45 aria-disabled:bg-primary/55"
+          className="bg-primary text-primary-fg aria-disabled:bg-primary/55 grid size-13 flex-none place-content-center rounded-full disabled:opacity-45"
         >
           <Icon className="size-5.5" aria-hidden="true" />
         </button>
