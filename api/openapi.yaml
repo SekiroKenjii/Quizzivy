@@ -7894,6 +7894,7 @@ paths:
           schema: { $ref: '#/components/schemas/Uuid' }
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
@@ -7931,6 +7932,7 @@ paths:
                     required: [items]
                     properties:
                       items: { type: array, items: { $ref: '#/components/schemas/QuestionGroupSummary' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
     post:
       operationId: createQuestionGroup
       x-resource:
@@ -7997,6 +7999,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/StoredQuestionGroup' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
     put:
       operationId: updateQuestionGroup
@@ -8058,6 +8061,7 @@ paths:
         - { name: expectedTestUpdatedAt, in: query, schema: { type: string, format: date-time } }
       responses:
         '204': { description: Deleted. }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
@@ -8227,6 +8231,7 @@ paths:
       description: Permanently deletes an archived test and its unused versions. Assignments or attempts referencing the test block deletion.
       responses:
         '204': { description: Deleted. }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: The resource is still referenced or has not reached its required inactive state.
@@ -8246,6 +8251,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Test' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       operationId: updateTest
@@ -8512,6 +8518,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Test' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /teacher/tests/{id}/versions:
@@ -8539,6 +8546,7 @@ paths:
                 additionalProperties: false
                 properties:
                   items: { type: array, items: { $ref: '#/components/schemas/TestVersion' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /teacher/tests/{id}/versions/{version}:
@@ -8557,6 +8565,7 @@ paths:
       description: Deletes an unused, non-current version. Existing assignments and attempts prevent deletion.
       responses:
         '204': { description: Deleted. }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: The version is referenced or current. Archiving does not prevent deletion of an unused, non-current version.
@@ -8725,6 +8734,7 @@ paths:
                   questions: { type: array, items: { $ref: '#/components/schemas/StudentQuestion' } }
                   sections: { type: array, items: { $ref: '#/components/schemas/StudentSection' } }
                   groups: { type: array, items: { $ref: '#/components/schemas/StudentGroup' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: '`TEST_NOT_PUBLISHED`.'
@@ -8926,6 +8936,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AdminQuestion' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       operationId: updateQuestion
@@ -8959,6 +8970,7 @@ paths:
       description: Soft delete (§13.2). Version snapshots that reference it keep working.
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: |
@@ -9066,6 +9078,7 @@ paths:
                         type: array
                         items: { $ref: '#/components/schemas/WordImportHistoryItem' }
                       facets: { $ref: '#/components/schemas/ImportStatusFacets' }
+        '400': { $ref: '#/components/responses/BadRequest' }
   /teacher/imports/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
     get:
@@ -9082,6 +9095,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/WordImport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404':
           description: Import not found.
           content:
@@ -9251,6 +9265,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ImportSourceDownload' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404':
           description: Completed source not found in this import.
           content:
@@ -9392,6 +9407,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ImportReview' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404':
           description: IMPORT_NOT_PROCESSED — no draft yet, or import not found.
           content:
@@ -9500,6 +9516,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ImportSourceView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404':
           description: IMPORT_NOT_PROCESSED — the source has not been extracted, or import not found.
           content:
@@ -9836,6 +9853,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/MediaRetirement' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: |
@@ -10026,6 +10044,7 @@ paths:
       description: Permanently deletes a draft or closed assignment with no attempts. Open or scheduled assignments and any historical attempts block deletion.
       responses:
         '204': { description: Deleted. }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: The resource is still referenced or has not reached its required inactive state.
@@ -10045,6 +10064,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Assignment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       operationId: updateAssignment
@@ -10206,6 +10226,7 @@ paths:
                     items: { $ref: '#/components/schemas/Uuid' }
                     description: The paper's manually graded questions in paper order, for "Câu tiếp theo".
                   items: { type: array, items: { $ref: '#/components/schemas/QuestionAnswerRow' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404':
           description: The assignment, or a question that is not on its paper.
           content:
@@ -10274,6 +10295,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ItemAnalysis' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /teacher/assignments/{id}/reopen:
@@ -10402,6 +10424,7 @@ paths:
                 additionalProperties: false
                 properties:
                   items: { type: array, items: { $ref: '#/components/schemas/StudentOverride' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
     put:
       operationId: setStudentOverrides
@@ -10500,6 +10523,7 @@ paths:
         deadline never moves earlier.
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /teacher/assignments/{id}/attempts:
@@ -10535,6 +10559,7 @@ paths:
                     minimum: 0
                     description: Questions on the pinned version, the denominator of every row's progress.
                   rows: { type: array, items: { $ref: '#/components/schemas/MonitorRow' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   # ============================================================ teacher/attempts
@@ -10577,6 +10602,7 @@ paths:
                     required: [items]
                     properties:
                       items: { type: array, items: { $ref: '#/components/schemas/AttemptListRow' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
 
   /teacher/attempts/{id}:
     parameters: [{ $ref: '#/components/parameters/IdPath' }]
@@ -10633,6 +10659,7 @@ paths:
                       G-05's "Ghi chú của bạn": the teacher's private note on
                       this attempt. Teacher-only by construction — it lives on
                       this response and nowhere under `/app/*`.
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /teacher/attempts/{id}/events:
@@ -10678,6 +10705,7 @@ paths:
                   startedAt: { $ref: '#/components/schemas/Timestamp' }
                   events: { type: array, items: { $ref: '#/components/schemas/IntegrityEvent' } }
                   summary: { $ref: '#/components/schemas/IntegritySummary' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /teacher/attempts/{id}/extend:
@@ -10929,6 +10957,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Attempt' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: '`GRADING_INCOMPLETE` — a `short_answer` is still ungraded; `ATTEMPT_IN_PROGRESS` / `ATTEMPT_VOIDED` as for grade.'
@@ -10953,6 +10982,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Dashboard' }
+        '400': { $ref: '#/components/responses/BadRequest' }
 
   /teacher/summary:
     get:
@@ -11200,6 +11230,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/StudentRow' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       operationId: updateStudent
@@ -11281,6 +11312,7 @@ paths:
                 additionalProperties: false
                 properties:
                   temporaryPassword: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403':
           description: |
             `STUDENT_SHARED` — someone else also reaches the student, so only a
@@ -11440,6 +11472,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AdminUserDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
       operationId: deleteUser
@@ -11448,6 +11481,7 @@ paths:
       description: Permanently deletes a disabled student account only when no assignment, attempt, retained audit record or owned content references it, and only when the student's permissions, except `learning.take_tests`, are a subset of the caller's. Historical identities use the approved manual anonymization process instead.
       responses:
         '204': { description: Deleted. }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403':
           description: '`FORBIDDEN` — the student''s permissions are not a subset of the caller''s.'
           content:
@@ -11568,6 +11602,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AdminUserRow' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403':
           description: '`TARGET_ROLE_NOT_ALLOWED` — the account''s role holds a permission the caller lacks.'
           content:
@@ -11721,6 +11756,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AdminUserRow' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403':
           description: '`TARGET_ROLE_NOT_ALLOWED` — the account''s role holds a permission the caller lacks.'
           content:
@@ -11749,6 +11785,7 @@ paths:
         `user.signed_out_everywhere`.
       responses:
         '204': { description: Signed out. }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403':
           description: '`TARGET_ROLE_NOT_ALLOWED` — the account''s role holds a permission the caller lacks.'
           content:
@@ -12059,6 +12096,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/UserImportJob' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /admin/user-imports/{id}/sheet:
@@ -12096,6 +12134,7 @@ paths:
           content:
             text/csv:
               schema: { type: string, format: binary }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '410':
           description: '`SHEET_UNAVAILABLE` — the job has no sheet to give: it is not done, was delivered by email, created no account, was downloaded already, or finished more than 24 hours ago.'
@@ -12783,6 +12822,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DataExport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -12816,6 +12856,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DataExportDownload' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -12953,6 +12994,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AiCreditDecision' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403':
           description: '`FORBIDDEN` — the teacher''s permissions are not a subset of the caller''s.'
           content:
@@ -12985,6 +13027,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AiCreditDecision' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403':
           description: '`FORBIDDEN` — the teacher''s permissions are not a subset of the caller''s.'
           content:
@@ -13250,6 +13293,7 @@ paths:
                     properties:
                       items: { type: array, items: { $ref: '#/components/schemas/ClassListItem' } }
                       facets: { $ref: '#/components/schemas/ClassFacets' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
     post:
       operationId: createClass
@@ -13295,6 +13339,7 @@ paths:
       description: Permanently deletes an archived class and its owned memberships/join codes. Assignment references block deletion; student accounts and papers are retained.
       responses:
         '204': { description: Deleted. }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: |
@@ -13320,6 +13365,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Class' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       operationId: updateClass
@@ -13401,6 +13447,7 @@ paths:
                     required: [items]
                     properties:
                       items: { type: array, items: { $ref: '#/components/schemas/ClassMember' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
     post:
       operationId: addClassMember
       x-resource:
@@ -13455,6 +13502,7 @@ paths:
         so a typo in the URL does not look like it worked.
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -13491,6 +13539,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/JoinCode' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     post:
@@ -13594,6 +13643,7 @@ paths:
         retry that changes nothing.
       responses:
         '204': { $ref: '#/components/responses/NoContent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -13772,6 +13822,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AiDistractorsResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '402': { $ref: '#/components/responses/AiCreditsExhausted' }
         '403': { $ref: '#/components/responses/AiNotAllowed' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -13811,6 +13862,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AiScoreSuggestion' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '402': { $ref: '#/components/responses/AiCreditsExhausted' }
         '403': { $ref: '#/components/responses/AiNotAllowed' }
         '404':
@@ -13857,6 +13909,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AiInsightsResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '402': { $ref: '#/components/responses/AiCreditsExhausted' }
         '403': { $ref: '#/components/responses/AiNotAllowed' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -14068,6 +14121,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/StudentAssignmentDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -14512,6 +14566,7 @@ paths:
                       hides a part's title or membership.
                   questions: { type: array, items: { $ref: '#/components/schemas/ResultQuestion' } }
                   sharedContext: { $ref: '#/components/schemas/SharedReviewContext' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409':
           description: '`ATTEMPT_IN_PROGRESS` — not yet submitted; `ATTEMPT_VOIDED` — nothing to show.'
@@ -14558,6 +14613,7 @@ paths:
                 properties:
                   url: { type: string, format: uri }
                   expiresAt: { $ref: '#/components/schemas/Timestamp' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
   # ======================================================================== me
