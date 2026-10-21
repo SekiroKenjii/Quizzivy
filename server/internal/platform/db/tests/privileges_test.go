@@ -97,6 +97,20 @@ func TestTheAppendOnlyTablesAreAppendOnlyForTheAppRole(t *testing.T) {
 	}
 }
 
+// TestTheAppRoleCannotRewriteTheFrozenRubricsAndMatchItems keeps R6's two
+// frozen tables as frozen as the rest of a published version: publish inserts
+// them and nothing changes them afterwards.
+func TestTheAppRoleCannotRewriteTheFrozenRubricsAndMatchItems(t *testing.T) {
+	conn := migrated(t)
+	for _, table := range []string{"app.test_version_rubric_criteria", "app.test_version_match_items"} {
+		for priv, want := range map[string]bool{"SELECT": true, "INSERT": true, "UPDATE": false} {
+			if got := hasTablePrivilege(t, conn, appRole, table, priv); got != want {
+				t.Errorf("%s %s on %s = %v, want %v", appRole, priv, table, got, want)
+			}
+		}
+	}
+}
+
 func TestTheAppRoleOnlyReadsMaintenanceWindows(t *testing.T) {
 	conn := migrated(t)
 

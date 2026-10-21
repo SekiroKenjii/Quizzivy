@@ -13,13 +13,15 @@ import (
 	"quizzivy/internal/platform/db"
 )
 
-// The migrations of T-R6.1a, by the version each one leaves.
+// The migrations of T-R6.1a, by the version each one leaves, and T-R6.1b's
+// bands.
 const (
 	beforeQuestionTypes int64 = 144
 	questionTypes       int64 = 145
 	selectCount         int64 = 146
 	essaySampleAnswer   int64 = 148
 	fixedOrderChoices   int64 = 149
+	answerBands         int64 = 153
 )
 
 func TestTheQuestionTypeRollbacksRefuseWhileARowNeedsThem(t *testing.T) {
@@ -117,6 +119,48 @@ func TestTheQuestionTypeRollbacksRefuseWhileARowNeedsThem(t *testing.T) {
 		t.Error("the snapshot is unchanged although the type keeps three values; the comparison below proves nothing")
 	} else if stripQuestionType(before) != stripQuestionType(after) {
 		t.Errorf("the rollback left more than the three enum values behind\n--- before ---\n%s\n--- after ---\n%s", before, after)
+	}
+}
+
+func TestTheBandRollbackRefusesWhileABandExists(t *testing.T) {
+	if os.Getenv("TEST_DESTRUCTIVE") != "1" {
+		t.Skip("TEST_DESTRUCTIVE=1 required for an isolated migration database")
+	}
+	conn, err := sql.Open("pgx", scratchDatabase(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	if err := goose.SetDialect("postgres"); err != nil {
+		t.Fatal(err)
+	}
+	goose.SetLogger(goose.NopLogger())
+	dir := db.MigrationsDir(t)
+	if err := goose.UpTo(conn, dir, answerBands); err != nil {
+		t.Fatal(err)
+	}
+	var attempt, question string
+	withTx(t, conn, func(tx *sql.Tx, f fixture) {
+		attempt, question, _ = gradedEssay(t, tx, f)
+		mustExec(t, tx, `UPDATE app.attempt_answers SET band = 6.5, manual_score = 6.50, graded_at = now()
+			WHERE attempt_id = $1 AND question_id = $2`, attempt, question)
+		if err := tx.Commit(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	before := schemaSnapshot(t, conn)
+	if err := goose.DownTo(conn, dir, answerBands-1); err == nil {
+		t.Fatal("the band rollback discarded a graded band")
+	}
+	if schemaSnapshot(t, conn) != before {
+		t.Fatal("the refused rollback changed the schema")
+	}
+	if _, err := conn.Exec(`UPDATE app.attempt_answers SET band = NULL WHERE attempt_id = $1 AND question_id = $2`,
+		attempt, question); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.DownTo(conn, dir, answerBands-1); err != nil {
+		t.Fatalf("the rollback refused with no band: %v", err)
 	}
 }
 
