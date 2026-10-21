@@ -24,7 +24,6 @@ const userManager: typeof adminUser = {
 function page(name: string, permission: AdminHandle["permission"]): RouteObject {
   const handle: AdminHandle = {
     crumb: [{ key: "adminShell.crumb" }],
-    width: 1320,
     permission,
   };
   return { path: name, handle, element: <p>{`trang ${name}`}</p> };
@@ -42,7 +41,7 @@ const routes: RouteObject[] = [
       page("teaching", "workspace.teacher"),
       {
         path: "unnamed",
-        handle: { crumb: [{ key: "adminShell.crumb" }], width: 1320 },
+        handle: { crumb: [{ key: "adminShell.crumb" }] },
         element: <p>trang unnamed</p>,
       },
       { path: "bare", element: <p>trang bare</p> },

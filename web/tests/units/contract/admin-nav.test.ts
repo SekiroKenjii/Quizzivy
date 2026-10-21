@@ -125,7 +125,7 @@ describe("the Admin sidebar against the contract", () => {
     }
   });
 
-  it("declares a crumb, a width and a permission on every route of the tree", () => {
+  it("declares a crumb and a permission, and no width, on every route of the tree", () => {
     const routes = adminChildren();
     expect(routes.map((route) => route.path ?? "(index)")).toEqual([
       "(index)",
@@ -141,28 +141,8 @@ describe("the Admin sidebar against the contract", () => {
     for (const route of routes) {
       const handle = route.handle as Record<string, unknown>;
       expect(Array.isArray(handle["crumb"]), route.path).toBe(true);
-      expect([1080, 1320], route.path).toContain(handle["width"]);
+      expect(handle["width"], route.path).toBeUndefined();
       expect(handle["permission"], route.path).toBeDefined();
     }
-  });
-
-  it("gives API reference and Settings the narrow frame, the rest the wide one", () => {
-    const widths = Object.fromEntries(
-      adminChildren().map((route) => [
-        route.path ?? "(index)",
-        (route.handle as { width: number }).width,
-      ]),
-    );
-    expect(widths).toEqual({
-      "(index)": 1320,
-      users: 1320,
-      roles: 1320,
-      classes: 1320,
-      ai: 1320,
-      audit: 1320,
-      api: 1080,
-      "settings/:section?": 1080,
-      "exports/:id": 1080,
-    });
   });
 });

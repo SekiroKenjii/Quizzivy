@@ -604,6 +604,12 @@ DROP INDEX CONCURRENTLY IF EXISTS app.users_created_by_idx;            -- 00076
 DROP INDEX CONCURRENTLY IF EXISTS app.assignments_creator_idx;         -- 00077
 ```
 
+## Rolling out v0.12.1 (hotfix)
+
+v0.12.1 puts every Admin console page in the teacher workspace's page frame (up to 1600px, centred
+beyond it; DG-205, spec 0.117). It is web only: no schema, no contract and no configuration change,
+so the API need not be redeployed and rolling the web back to v0.12.0 is safe.
+
 ## Rolling out v0.12.0 (R5)
 
 v0.12.0 adds the Admin console, outgoing email and the nightly retention sweep, with

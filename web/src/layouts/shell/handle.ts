@@ -11,15 +11,14 @@ export interface TeacherCrumb {
 /**
  * TeacherHandle is what a route rebuilt for a console's shell declares as its
  * `handle`. `crumb` is the whole trail, ancestors first; `width: "full"`
- * lifts the page frame's maximum, the one exception the teacher's design
- * names (the import review), and a number gives the frame's maximum in pixels
- * where the Admin console's design draws one; `sidebar: "collapsed"` starts
+ * lifts the page frame's maximum, the one exception the design names (the
+ * import review); `sidebar: "collapsed"` starts
  * the route with the sidebar collapsed and leaves the stored choice alone.
  * Only the leaf match's handle is read.
  */
 export interface TeacherHandle {
   crumb: readonly TeacherCrumb[];
-  width?: "full" | number;
+  width?: "full";
   sidebar?: "collapsed";
 }
 
