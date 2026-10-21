@@ -1449,6 +1449,7 @@
           "GRADE_NEEDS_BAND",
           "GRADE_CRITERIA_INCOMPLETE",
           "GRADE_NEEDS_POINTS",
+          "GRADE_BAND_NOT_ALLOWED",
           "VERSION_LOCKED",
           "ASSIGNMENT_LOCKED",
           "AI_OFF",
@@ -7077,7 +7078,7 @@
         "type": "string",
         "minLength": 1,
         "maxLength": 8,
-        "description": "The label a matching choice or item is referred to by: lower-case roman\nnumerals for choices and capital letters for items, derived from the\nordinal by the server so the editor, the paper, grading and the result\nname the same key (DG-194). A label, never an answer.\n"
+        "description": "The label a matching choice or item is referred to by, derived by the\nserver from its stored ordinal and never from the order it is delivered\nin: choices take lower-case roman numerals (ordinal 0 is `i`, 11 is\n`xii`) and items capital letters (ordinal 0 is `A`, 19 is `T`). The\neditor, the paper, grading and the result therefore name the same key\n(DG-194, D-063). A label, never an answer.\n"
       },
       "AdminMatchItem": {
         "type": "object",
@@ -20454,7 +20455,7 @@
             }
           },
           "422": {
-            "description": "An item does not fit its question's type, and nothing was saved;\n`details.questionIds` lists the items. `GRADE_NEEDS_BAND`: an essay\nwithout criteria has no `band`, or has `points`.\n`GRADE_CRITERIA_INCOMPLETE`: an essay with criteria lacks one, names\none it does not have, or has `points` or `band`.\n`GRADE_NEEDS_POINTS`: any other type has no `points`, or has `band`\nor `criteria`.\n",
+            "description": "An item does not fit its question's type, and nothing was saved;\n`details.questionIds` lists the items. `GRADE_NEEDS_BAND`: an essay\nwithout criteria has no `band`, or has `points`.\n`GRADE_CRITERIA_INCOMPLETE`: an essay with criteria lacks one, names\none it does not have, or has `points` or `band`.\n`GRADE_NEEDS_POINTS`: any other type has no `points`.\n`GRADE_BAND_NOT_ALLOWED`: any other type has `band` or `criteria`;\nit is answered before `GRADE_NEEDS_POINTS` when a body has both.\n",
             "content": {
               "application/json": {
                 "schema": {
