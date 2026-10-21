@@ -2454,10 +2454,13 @@
     "tags": "Tags",
     "typeLabel": "Question type",
     "type": {
+      "essay": "Essay",
       "fill_blank": "Fill in the blank",
+      "matching": "Matching",
       "multiple_choice": "Multiple choice",
       "short_answer": "Short answer",
       "single_choice": "Single choice",
+      "tfng": "True / False / Not given",
       "true_false": "True / False"
     },
     "newTitle": "New question",
@@ -3860,7 +3863,10 @@
       "multiple_choice": "Multiple choice",
       "true_false": "True / False",
       "fill_blank": "Fill in the blank",
-      "short_answer": "Short answer"
+      "short_answer": "Short answer",
+      "tfng": "True / False / Not given",
+      "matching": "Matching",
+      "essay": "Essay"
     },
     "blankRuleInsensitive": "Capital letters do not matter. Spell it exactly.",
     "blankRuleSensitive": "Capital letters matter. Spell it exactly.",
@@ -4961,6 +4967,7 @@
       "true_false": "True/False",
       "fill_blank": "Fill in the blank",
       "short_answer": "Short answer",
+      "tfng": "True/False/Not given",
       "unsupported": "Not supported"
     },
     "origin": {

@@ -78,6 +78,9 @@ export const questionSchema = z
       "true_false",
       "fill_blank",
       "short_answer",
+      "tfng",
+      "matching",
+      "essay",
     ]),
     level: z
       .enum(["pre_a1", "a1", "a2", "b1", "b2", "c1", "c2"])

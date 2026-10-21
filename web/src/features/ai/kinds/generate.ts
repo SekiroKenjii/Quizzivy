@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { trueFalseLabelKey } from "@/components/shared/content/trueFalse";
 import { failureMessage } from "@/lib/api/errors";
+import type { components } from "@/lib/api/schema";
 import {
   generateAiQuestions,
   type AiGeneratedQuestion,
@@ -87,6 +88,7 @@ export interface GeneratedDraft {
 }
 
 type QuestionType = AiGeneratedQuestion["type"];
+type BankQuestionType = components["schemas"]["QuestionType"];
 
 /**
  * GenerateContext is what a page gives the Generate panel: the test whose
@@ -104,7 +106,7 @@ export interface GenerateContext {
   passages: readonly AiPassage[];
   section?: AiSection;
   sections?: readonly AiSection[];
-  types?: readonly QuestionType[];
+  types?: readonly BankQuestionType[];
   destination: Exclude<GenerateDestination, { kind: "group" }>;
   save: (
     drafts: readonly GeneratedDraft[],
@@ -189,7 +191,7 @@ function isLevel(value: string): value is AiLevel {
   return (LEVELS as readonly string[]).includes(value);
 }
 
-function initialTypes(preset: readonly QuestionType[] | undefined) {
+function initialTypes(preset: readonly BankQuestionType[] | undefined) {
   const types = TYPES.filter((type) => preset?.includes(type));
   return types.length > 0 ? types : DEFAULT_TYPES;
 }
