@@ -34,6 +34,7 @@ import {
   inUnit,
   isByteLimit,
   typedLimit,
+  unitFor,
   type ByteLimitValue,
   type ByteUnit,
   type LimitName,
@@ -85,6 +86,8 @@ function usedOf(name: LimitName, usage: Usage | undefined): number | undefined {
 
 const UNITS: readonly ByteUnit[] = ["MB", "GB"];
 
+const NO_BREAK_SPACE = String.fromCharCode(0xa0);
+
 function reading(name: LimitName, limit: number | null, usage: Usage | undefined) {
   const used = usedOf(name, usage);
   if (used === undefined || limit === null || usage === undefined) {
@@ -114,8 +117,11 @@ function defaultLine(
 ): string {
   const { value, source } = defaults[name];
   if (value === null) return t("systemSettings.plan.defaultNone");
+  const unit = unitFor(value);
   return t("systemSettings.plan.default", {
-    value: amount(name, value, locale),
+    value: isByteLimit(name)
+      ? `${inUnit(value, unit)}${NO_BREAK_SPACE}${unit}`
+      : amount(name, value, locale),
     source: t(`systemSettings.plan.sources.${source}`),
   });
 }
@@ -129,7 +135,7 @@ function UnitSelect({
   const { control } = useFormContext<SettingsFormValues>();
   if (!isByteLimit(name)) {
     return (
-      <span className="text-muted-fg text-ui min-w-14">
+      <span className="text-muted-fg text-ui shrink-0">
         {t(`systemSettings.plan.units.${name}`)}
       </span>
     );
@@ -149,7 +155,7 @@ function UnitSelect({
             ref={field.ref}
             aria-label={t("systemSettings.plan.unitOf", { name: label })}
             aria-disabled={saving || undefined}
-            className="aria-disabled:text-foreground/50 h-9.5 w-auto min-w-14"
+            className="aria-disabled:text-foreground/50 h-9.5 w-auto min-w-16 shrink-0"
             onBlur={field.onBlur}
           >
             <SelectValue />
@@ -224,11 +230,11 @@ function LimitRow({
           </p>
         ) : null}
       </div>
-      <div className="flex max-w-full flex-col gap-1.5">
+      <div className="flex w-68 max-w-full flex-col gap-1.5">
         <div className="flex items-center gap-2">
           <Input
             id={id}
-            className={cn(FIELD_INPUT, "w-32 tabular-nums")}
+            className={cn(FIELD_INPUT, "min-w-0 flex-1 tabular-nums")}
             inputMode={isByteLimit(name) ? "decimal" : "numeric"}
             autoComplete="off"
             placeholder={placeholder}

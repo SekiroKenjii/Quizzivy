@@ -53,6 +53,7 @@ describe("the Plan & usage section", () => {
       expect.stringMatching(/Mặc định: 10\sGB · gói miễn phí Cloudflare R2/),
     );
     expect(field("Tài liệu nhập mỗi giáo viên")).toHaveAttribute("placeholder", "256");
+    expect(screen.getByText("Mặc định: 256 MB · mức riêng của Quizzivy")).toBeVisible();
     expect(screen.getByText("Mặc định: 100 · gói miễn phí Resend")).toBeVisible();
     expect(screen.getByText("Mặc định: 3.000 · gói miễn phí Resend")).toBeVisible();
     expect(
