@@ -34,7 +34,7 @@ it("keeps invalid submit pressable, reveals required errors on press and focuses
   expect(button).toHaveAttribute("aria-disabled", "true");
   expect(button).not.toBeDisabled();
   expect(button.className).not.toMatch(/(^|\s)opacity-/);
-  expect(button).toHaveClass("aria-disabled:bg-primary/50");
+  expect(button).toHaveClass("aria-disabled:bg-primary/55");
   expect(screen.queryByText("Bắt buộc")).toBeNull();
   await userEvent.setup().click(button);
   expect(submit).not.toHaveBeenCalled();

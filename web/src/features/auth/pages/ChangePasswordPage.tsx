@@ -198,7 +198,7 @@ export default function ChangePasswordPage() {
           size="xl"
           className={cn(
             "h-12",
-            !ready && "aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50",
+            !ready && "aria-disabled:bg-primary/55 aria-disabled:hover:bg-primary/55",
           )}
           aria-disabled={!ready || undefined}
           aria-busy={busy || undefined}

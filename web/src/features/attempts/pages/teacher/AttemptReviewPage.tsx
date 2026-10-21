@@ -205,7 +205,6 @@ export default function AttemptReviewPage() {
               aria-label={t(flagged ? "review.unflag" : "review.flag")}
               disabled={attempt.status === "voided"}
               aria-disabled={flag.isPending || undefined}
-              className={cn(flag.isPending && "opacity-50")}
               onClick={() => {
                 if (!flag.isPending) flag.mutate(!flagged);
               }}
@@ -220,7 +219,6 @@ export default function AttemptReviewPage() {
                 size="sm"
                 disabled={!gradable || pending > 0}
                 aria-disabled={finish.isPending || undefined}
-                className={cn(finish.isPending && "opacity-50")}
                 onClick={() => {
                   if (!finish.isPending) finish.mutate();
                 }}

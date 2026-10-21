@@ -80,7 +80,7 @@ export function AiDistractorsPanel({
                   aria-disabled={done || undefined}
                   className={cn(
                     "text-meta rounded-seg h-7 flex-none gap-1.25 px-2.5 [&_svg:not([class*='size-'])]:size-3.25",
-                    done && "aria-disabled:hover:bg-card cursor-default opacity-55",
+                    done && "cursor-default",
                   )}
                   onClick={() => {
                     if (!done) onAdd(index);

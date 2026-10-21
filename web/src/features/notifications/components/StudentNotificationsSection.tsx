@@ -95,7 +95,7 @@ export function StudentNotificationsSection() {
                   aria-describedby={`${id}-hint`}
                   disabled={row === undefined}
                   aria-disabled={save.isPending || undefined}
-                  className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+                  className="aria-disabled:cursor-not-allowed"
                   onCheckedChange={(on) => change(event, on)}
                 />
               </div>

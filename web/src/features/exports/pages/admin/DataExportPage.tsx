@@ -94,7 +94,7 @@ function ReadyActions({ data }: Readonly<{ data: DataExport }>) {
           <Button
             type="button"
             aria-disabled={pending || undefined}
-            className="aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50 h-8.5"
+            className="aria-disabled:bg-primary/55 aria-disabled:hover:bg-primary/55 h-8.5"
             onClick={() => void download()}
           >
             <Download aria-hidden="true" />

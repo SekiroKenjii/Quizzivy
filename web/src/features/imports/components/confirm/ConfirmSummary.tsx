@@ -278,7 +278,7 @@ export function ConfirmSummary({
           type="button"
           aria-disabled={!enabled}
           aria-describedby={hintId}
-          className="text-body h-11 rounded-[10px] font-semibold aria-disabled:cursor-default aria-disabled:opacity-50"
+          className="text-body h-11 rounded-[10px] font-semibold aria-disabled:cursor-default"
           onClick={() => {
             if (enabled) onCommit();
           }}
