@@ -41,5 +41,18 @@ REVOKE UPDATE ON app.test_version_rubric_criteria FROM quizzivy_app;
 
 SET LOCAL lock_timeout = '5s';
 
+-- Refuses while a criterion exists (QC-R6B-1): a frozen rubric is part of a
+-- published essay's grading, and an older binary would grade it without one.
+-- +goose StatementBegin
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM app.question_rubric_criteria)
+     OR EXISTS (SELECT 1 FROM app.test_version_rubric_criteria) THEN
+    RAISE EXCEPTION 'rubric criteria exist; dropping them would lose the rubrics of published essays';
+  END IF;
+END
+$$;
+-- +goose StatementEnd
+
 DROP TABLE app.test_version_rubric_criteria;
 DROP TABLE app.question_rubric_criteria;

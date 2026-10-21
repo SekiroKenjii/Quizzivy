@@ -1477,3 +1477,136 @@ func TestAGradeCannotNameAnotherQuestionsCriterion(t *testing.T) {
 			 VALUES ($1, $2, $3, 7.0)`, attempt, question, foreign)
 	})
 }
+
+// A band runs from 3 to 9 on the answer and on each criterion (QC-R6B-2).
+func TestABandStaysBetweenThreeAndNine(t *testing.T) {
+	for _, tc := range []struct {
+		band   string
+		accept bool
+	}{{"2.5", false}, {"3.0", true}, {"9.0", true}, {"9.5", false}} {
+		t.Run(tc.band, func(t *testing.T) {
+			withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+				attempt, question, criterion := gradedEssay(t, tx, f)
+				answer := `UPDATE app.attempt_answers SET band = $3::numeric, manual_score = $3::numeric, graded_at = now()
+					WHERE attempt_id = $1 AND question_id = $2`
+				grade := `INSERT INTO app.attempt_answer_criteria (attempt_id, question_id, criterion_id, band)
+					VALUES ($1, $2, $3, $4::numeric)`
+				if tc.accept {
+					mustExec(t, tx, answer, attempt, question, tc.band)
+					mustExec(t, tx, grade, attempt, question, criterion, tc.band)
+					return
+				}
+				rejectsWith(t, tx, "attempt_answers_band_step", answer, attempt, question, tc.band)
+			})
+			if tc.accept {
+				return
+			}
+			withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+				attempt, question, criterion := gradedEssay(t, tx, f)
+				rejectsWith(t, tx, "attempt_answer_criteria_band_step",
+					`INSERT INTO app.attempt_answer_criteria (attempt_id, question_id, criterion_id, band)
+					 VALUES ($1, $2, $3, $4::numeric)`, attempt, question, criterion, tc.band)
+			})
+		})
+	}
+}
+
+func TestAFrozenCriterionWithGradesCannotBeDeleted(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		attempt, question, criterion := gradedEssay(t, tx, f)
+		mustExec(t, tx, `INSERT INTO app.attempt_answer_criteria (attempt_id, question_id, criterion_id, band)
+			VALUES ($1, $2, $3, 7.0)`, attempt, question, criterion)
+		rejectsWith(t, tx, "attempt_answer_criteria_criterion_fk",
+			`DELETE FROM app.test_version_rubric_criteria WHERE id = $1`, criterion)
+	})
+}
+
+func TestRemovingAnAnswerTakesItsCriterionGrades(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		attempt, question, criterion := gradedEssay(t, tx, f)
+		mustExec(t, tx, `INSERT INTO app.attempt_answer_criteria (attempt_id, question_id, criterion_id, band)
+			VALUES ($1, $2, $3, 7.0)`, attempt, question, criterion)
+		mustExec(t, tx, `DELETE FROM app.attempt_answers WHERE attempt_id = $1 AND question_id = $2`, attempt, question)
+		var left int
+		if err := tx.QueryRow(`SELECT count(*) FROM app.attempt_answer_criteria WHERE attempt_id = $1`, attempt).Scan(&left); err != nil {
+			t.Fatal(err)
+		}
+		if left != 0 {
+			t.Errorf("%d criterion grades outlived their answer", left)
+		}
+	})
+}
+
+func TestAFrozenOptionAnItemNamesCannotBeDeleted(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		section := newVersion(t, tx, f.adminID)
+		var question, option string
+		if err := tx.QueryRow(`INSERT INTO app.test_version_questions
+			(test_version_section_id, ordinal, type, prompt, points, match_allow_reuse)
+			VALUES ($1, 0, 'matching', 'Nối', 1.0, false) RETURNING id`, section).Scan(&question); err != nil {
+			t.Fatal(err)
+		}
+		if err := tx.QueryRow(`INSERT INTO app.test_version_options (test_version_question_id, ordinal, text)
+			VALUES ($1, 0, 'Tiêu đề i') RETURNING id`, question).Scan(&option); err != nil {
+			t.Fatal(err)
+		}
+		mustExec(t, tx, `INSERT INTO app.test_version_match_items (test_version_question_id, ordinal, text, correct_option_id)
+			VALUES ($1, 0, 'Đoạn A', $2)`, question, option)
+		rejectsWith(t, tx, "test_version_match_items_option_fk",
+			`DELETE FROM app.test_version_options WHERE id = $1`, option)
+	})
+}
+
+func TestOnlyAFrozenMatchingQuestionSaysWhetherChoicesRepeat(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		section := newVersion(t, tx, f.adminID)
+		rejectsWith(t, tx, "test_version_questions_match_allow_reuse_iff_matching",
+			`INSERT INTO app.test_version_questions (test_version_section_id, ordinal, type, prompt, points)
+			 VALUES ($1, 0, 'matching', 'Nối', 1.0)`, section)
+	})
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		section := newVersion(t, tx, f.adminID)
+		rejectsWith(t, tx, "test_version_questions_match_allow_reuse_iff_matching",
+			`INSERT INTO app.test_version_questions (test_version_section_id, ordinal, type, prompt, points, match_allow_reuse)
+			 VALUES ($1, 1, 'single_choice', 'Chọn một', 1.0, true)`, section)
+	})
+}
+
+func TestRubricAndItemTextsHaveBounds(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		essay := newQuestion(t, tx, f.adminID, "essay", "Viết bài luận")
+		rejectsWith(t, tx, "question_rubric_criteria_label_check",
+			`INSERT INTO app.question_rubric_criteria (question_id, ordinal, label) VALUES ($1, 0, repeat('a', 81))`, essay)
+	})
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		section := newVersion(t, tx, f.adminID)
+		var frozen string
+		if err := tx.QueryRow(`INSERT INTO app.test_version_questions (test_version_section_id, ordinal, type, prompt, points)
+			VALUES ($1, 0, 'essay', 'Viết bài luận', 9.0) RETURNING id`, section).Scan(&frozen); err != nil {
+			t.Fatal(err)
+		}
+		rejectsWith(t, tx, "test_version_rubric_criteria_label_check",
+			`INSERT INTO app.test_version_rubric_criteria (test_version_question_id, ordinal, label) VALUES ($1, 0, '  ')`, frozen)
+	})
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		question, options := newMatchingQuestion(t, tx, f.adminID)
+		rejectsWith(t, tx, "question_match_items_text_check",
+			`INSERT INTO app.question_match_items (question_id, ordinal, text, correct_option_id)
+			 VALUES ($1, 0, repeat('a', 501), $2)`, question, options[0])
+	})
+}
+
+// The editor reorders criteria and items inside one transaction (D-13).
+func TestTheBankOrdinalKeysAreDeferrable(t *testing.T) {
+	conn := migrated(t)
+	for _, name := range []string{"question_rubric_criteria_ordinal_key", "question_match_items_ordinal_key"} {
+		var deferrable bool
+		if err := conn.QueryRow(`SELECT condeferrable FROM pg_constraint
+			WHERE conname = $1 AND connamespace = 'app'::regnamespace`, name).Scan(&deferrable); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if !deferrable {
+			t.Errorf("%s is not deferrable; the editor's reorder needs it", name)
+		}
+	}
+}

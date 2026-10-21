@@ -103,9 +103,18 @@ func TestTheAppendOnlyTablesAreAppendOnlyForTheAppRole(t *testing.T) {
 func TestTheAppRoleCannotRewriteTheFrozenRubricsAndMatchItems(t *testing.T) {
 	conn := migrated(t)
 	for _, table := range []string{"app.test_version_rubric_criteria", "app.test_version_match_items"} {
-		for priv, want := range map[string]bool{"SELECT": true, "INSERT": true, "UPDATE": false} {
+		for priv, want := range map[string]bool{"SELECT": true, "INSERT": true, "UPDATE": false, "DELETE": true} {
 			if got := hasTablePrivilege(t, conn, appRole, table, priv); got != want {
 				t.Errorf("%s %s on %s = %v, want %v", appRole, priv, table, got, want)
+			}
+		}
+	}
+	// The editor rewrites the bank rows and a regrade replaces criterion grades
+	// (QC-R6B-2), so those tables keep UPDATE and DELETE.
+	for _, table := range []string{"app.question_rubric_criteria", "app.question_match_items", "app.attempt_answer_criteria"} {
+		for _, priv := range []string{"SELECT", "INSERT", "UPDATE", "DELETE"} {
+			if !hasTablePrivilege(t, conn, appRole, table, priv) {
+				t.Errorf("%s cannot %s %s", appRole, priv, table)
 			}
 		}
 	}

@@ -1587,10 +1587,10 @@ the file it adds.
 | `00147_add_question_max_words.sql` | `max_words` on `questions` and `test_version_questions`, the same pattern and Down | R6 (T-R6.1a), D-63 |
 | `00148_allow_essay_sample_answer.sql` | `questions_sample_answer_only_written` replaces `questions_sample_answer_only_short_answer`; Down refuses while an essay has a sample answer; `lock_timeout` 5 s | R6 (T-R6.1a), D-64 |
 | `00149_allow_fixed_order_for_tfng_and_matching.sql` | `questions_context_option_order` admits `fixed` on `tfng` and `matching`; Down refuses while such a member keeps it; `lock_timeout` 5 s | R6 (T-R6.1a), D-64 |
-| `00150_create_question_rubric_criteria.sql` | `question_rubric_criteria`, `test_version_rubric_criteria` (`UPDATE` revoked) | R6 (T-R6.1b), D-65 |
+| `00150_create_question_rubric_criteria.sql` | `question_rubric_criteria`, `test_version_rubric_criteria` (`UPDATE` revoked); Down refuses while a criterion exists; `lock_timeout` 5 s | R6 (T-R6.1b), D-65 |
 | `00151_index_question_options_identity.sql` | `NO TRANSACTION`: unique indexes `question_options (question_id, id)` and `test_version_options (test_version_question_id, id)`, `CONCURRENTLY` | R6 (T-R6.1b), D-66 |
-| `00152_create_question_match_items.sql` | `question_match_items`, `test_version_match_items` (`UPDATE` revoked), `match_allow_reuse` on both question tables | R6 (T-R6.1b), D-66 |
-| `00153_add_attempt_answer_bands.sql` | `attempt_answers.band`, `attempt_answer_criteria`; Down refuses while a band exists | R6 (T-R6.1b), D-67 |
+| `00152_create_question_match_items.sql` | `question_match_items`, `test_version_match_items` (`UPDATE` revoked), `match_allow_reuse` on both question tables, backfilled on matching rows; Down refuses while a matching question exists; `lock_timeout` 5 s | R6 (T-R6.1b), D-66 |
+| `00153_add_attempt_answer_bands.sql` | `attempt_answers.band`, `attempt_answer_criteria`; Down refuses while a band or a criterion grade exists; `lock_timeout` 5 s | R6 (T-R6.1b), D-67 |
 
 Notes on migration mechanics (§13.7):
 
@@ -4207,7 +4207,9 @@ IMMEDIATE`, the D-13 reorder pattern, and `app.test_version_rubric_criteria`, th
 `test_version_questions`, with a plain ordinal key and a second key `(test_version_question_id, id)`. The app role
 may not `UPDATE` the copy, as `00039` does for the frozen group graph. At most six criteria per question is the
 bank's rule (T-R6.3). When criteria exist, the band is their mean rounded half up to 0.5,
-`floor(mean × 2 + 0.5) ÷ 2`; without them the grader sets the band directly (D-65). Down drops both.
+`floor(mean × 2 + 0.5) ÷ 2`; without them the grader sets the band directly (D-65). Down refuses while either
+table holds a criterion, since a frozen rubric is part of a published essay's grading (QC-R6B-1), and otherwise
+drops both.
 
 **`00151_index_question_options_identity.sql`** is `-- +goose NO TRANSACTION` and builds
 `question_options_question_id_id_key ON app.question_options (question_id, id)` and
@@ -4229,15 +4231,19 @@ drops both.
 - `app.test_version_match_items`, the same against `test_version_questions` and `test_version_options`, with
   `UPDATE` revoked.
 - `match_allow_reuse boolean` on `questions` and `test_version_questions`, with
-  `CHECK ((type = 'matching') = (match_allow_reuse IS NOT NULL))` added `NOT VALID` and validated (§58).
+  `CHECK ((type = 'matching') = (match_allow_reuse IS NOT NULL))` added `NOT VALID` and validated (§58). A
+  matching row can exist from `00145` on, so each table is first backfilled with `false`, the strict reading, and
+  the file applies wherever `00145` has run.
 
 The choices are the question's options in their order, none `is_correct`, keyed with roman numerals by the
 editor; the items carry letters. `NO ACTION` is checked at the end of the statement, so the purge of a matching
 question, which cascades to options and items together, passes, while deleting an option an item still names is
 refused; `RESTRICT` would depend on the order the cascade visits the two tables. A bank save that rewrites a
 question's options must therefore rewrite its items in the same statement or delete them first (T-R6.3). The
-editor's bounds are 12 options and 20 items (plan 76, DG-113), the bank's rule. Down drops the columns and the
-tables; the indexes stay for `00151`'s Down.
+editor's bounds are 12 options and 20 items (plan 76, DG-113), the bank's rule. Down refuses while a matching
+question exists in either table, or any item does (QC-R6B-1): it runs before `00145`'s refusal on a rollback to
+v0.12, and without its items and its reuse rule a published matching question can never be marked again.
+Otherwise it drops the columns and the tables; the indexes stay for `00151`'s Down.
 
 **`00153_add_attempt_answer_bands.sql`** (D-67):
 
@@ -4261,3 +4267,7 @@ grade exists, and otherwise drops the table and the column.
 
 Every transactional file in this section, Up and Down, sets `lock_timeout = '5s'` (QC-R6M-4, QC-R6M-6), as §58's do;
 `00151` runs outside a transaction and builds its indexes `CONCURRENTLY`, so it takes no lock that blocks writers.
+It waits, without a bound, for transactions older than it, so the deploy should not start beside a long one
+(QC-R6B-5). Nothing in the database ties a criterion, an item or a band to its question's type (QC-R6B-3): the
+bank's rules (T-R6.3) and the grader (T-R6.4) do. A v0.12 binary that regrades an essay overwrites `manual_score`
+and leaves `band`, so no binary older than T-R6.4 may grade once bands are written.
