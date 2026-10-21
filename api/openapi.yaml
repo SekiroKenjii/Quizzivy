@@ -8234,6 +8234,8 @@ paths:
         - { in: body, name: /bundle/questions/-/input/mediaAssetId, kind: media }
         - { in: body, name: /bundle/questions/-/input/options/-/id, kind: none }
         - { in: body, name: /bundle/questions/-/input/blanks/-/id, kind: none }
+        - { in: body, name: /bundle/questions/-/input/matchItems/-/id, kind: none }
+        - { in: body, name: /bundle/questions/-/input/rubric/-/id, kind: none }
         - { in: body, name: /ownerSectionId, kind: section }
       x-permission: [content.questions.write, content.tests.write]
       tags: [teacher-tests]
@@ -8302,6 +8304,8 @@ paths:
         - { in: body, name: /bundle/questions/-/input/mediaAssetId, kind: media }
         - { in: body, name: /bundle/questions/-/input/options/-/id, kind: none }
         - { in: body, name: /bundle/questions/-/input/blanks/-/id, kind: none }
+        - { in: body, name: /bundle/questions/-/input/matchItems/-/id, kind: none }
+        - { in: body, name: /bundle/questions/-/input/rubric/-/id, kind: none }
       x-permission: [content.questions.write, content.tests.write]
       tags: [teacher-tests]
       x-max-body-bytes: 4194304
@@ -9130,6 +9134,8 @@ paths:
         - { in: body, name: /mediaAssetId, kind: media }
         - { in: body, name: /options/-/id, kind: none }
         - { in: body, name: /blanks/-/id, kind: none }
+        - { in: body, name: /matchItems/-/id, kind: none }
+        - { in: body, name: /rubric/-/id, kind: none }
       x-permission: [content.questions.write, content.tests.write]
       description: Adds a question to the bank. Options and blanks are written in the same transaction, with ordinals normalized dense.
       tags: [teacher-questions]
@@ -9223,6 +9229,8 @@ paths:
         - { in: body, name: /mediaAssetId, kind: media }
         - { in: body, name: /options/-/id, kind: none }
         - { in: body, name: /blanks/-/id, kind: none }
+        - { in: body, name: /matchItems/-/id, kind: none }
+        - { in: body, name: /rubric/-/id, kind: none }
       x-permission: [content.questions.write, content.tests.write]
       description: Edits the bank copy only. Published versions hold their own snapshot and are unaffected (§7).
       tags: [teacher-questions]
@@ -11163,6 +11171,7 @@ paths:
       x-resource:
         - { in: path, name: id, kind: attempt }
         - { in: body, name: /items/-/questionId, kind: version-question }
+        - { in: body, name: /items/-/criteria/-/criterionId, kind: none }
       x-permission: teaching.grading
       tags: [teacher-attempts]
       summary: Save manual grades
@@ -14516,6 +14525,7 @@ paths:
         - { in: body, name: /sessionId, kind: none }
         - { in: body, name: /answers/+, kind: version-question }
         - { in: body, name: /answers/*/optionIds/-, kind: none }
+        - { in: body, name: /answers/*/pairs/*, kind: none }
         - { in: body, name: /events/-/questionId, kind: version-question }
       x-permission: learning.take_tests
       tags: [take-test]
