@@ -6,7 +6,7 @@ import { focusIsLost } from "@/lib/focusIsLost";
 import { cn } from "@/lib/utils";
 
 const BUTTON = "h-8.5 flex-none";
-const PAUSED_SAVE = "aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50";
+const PAUSED_SAVE = "aria-disabled:bg-primary/55 aria-disabled:hover:bg-primary/55";
 const PAUSED_DISCARD = "aria-disabled:text-foreground/50";
 const PAUSED_OUTLINE =
   "aria-disabled:text-foreground/50 aria-disabled:border-border/50";

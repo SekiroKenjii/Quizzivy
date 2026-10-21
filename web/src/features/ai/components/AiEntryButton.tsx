@@ -43,10 +43,10 @@ export function AiEntryButton({
       aria-disabled={reason === null ? undefined : true}
       aria-busy={busy || undefined}
       className={cn(
-        "aria-disabled:cursor-default aria-disabled:opacity-50",
+        "aria-disabled:cursor-default",
         variant === "outline"
           ? "aria-disabled:hover:bg-card"
-          : "aria-disabled:hover:text-muted-fg aria-disabled:hover:bg-transparent",
+          : "aria-disabled:hover:bg-transparent",
         className,
       )}
       onClick={(event) => {

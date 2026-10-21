@@ -11,6 +11,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"quizzivy/internal/shared/limits"
 	"quizzivy/internal/shared/validation"
 )
 
@@ -100,11 +101,13 @@ type Retention struct {
 
 // Settings is the whole document as stored: the fields an Admin writes, and
 // the revision, time and author of the last save. UpdatedBy is empty before
-// the first save and once that account is gone.
+// the first save and once that account is gone. Limits holds the usage limits
+// an Admin set; one it does not hold takes its default.
 type Settings struct {
 	Profile   Profile
 	SignIn    SignIn
 	Retention Retention
+	Limits    limits.Stored
 	Revision  int64
 	UpdatedAt time.Time
 	UpdatedBy string
@@ -141,6 +144,7 @@ const (
 	ReasonLogo       = "logo"
 	ReasonLogoGone   = "logo_missing"
 	ReasonLogoStore  = "logo_store_off"
+	ReasonRange      = "range"
 )
 
 var (
@@ -160,6 +164,12 @@ func (s Settings) Normalised() (Settings, error) {
 	out.Profile = normaliseProfile(s.Profile, &refused)
 	out.SignIn = normaliseSignIn(s.SignIn, &refused)
 	checkRetention(s.Retention, &refused)
+	for _, n := range s.Limits.Refused() {
+		refused.Add("limits."+string(n), ReasonRange)
+	}
+	if out.Limits == nil {
+		out.Limits = limits.Stored{}
+	}
 	if err := refused.OrNil(); err != nil {
 		return Settings{}, err
 	}
@@ -307,6 +317,9 @@ func (s Settings) ChangedFields(next Settings) []string {
 	add("retention.keepAnswersMonths", !equalMonths(s.Retention.KeepAnswersMonths, next.Retention.KeepAnswersMonths))
 	add("retention.keepFocusEventsMonths", s.Retention.KeepFocusEventsMonths != next.Retention.KeepFocusEventsMonths)
 	add("retention.anonymiseDisabledAfterMonths", !equalMonths(s.Retention.AnonymiseDisabledAfterMonths, next.Retention.AnonymiseDisabledAfterMonths))
+	for _, c := range s.Limits.Changes(next.Limits) {
+		out = append(out, "limits."+string(c.Name))
+	}
 	return out
 }
 

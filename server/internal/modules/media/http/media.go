@@ -13,6 +13,7 @@ import (
 	"quizzivy/internal/modules/media/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/limits"
 	"time"
 )
 
@@ -59,6 +60,8 @@ func (h Media) UploadMedia(ctx context.Context, request openapi.UploadMediaReque
 		return openapi.UploadMedia409JSONResponse(httpapi.Error(ctx, openapi.MEDIAQUOTAEXCEEDED,
 			httpx.Text(ctx, "Thư viện đã hết dung lượng. Hãy xoá bớt tệp rồi tải lại.",
 				"Your media library is full. Delete some files, then upload again."))), nil
+	case errors.Is(err, limits.ErrStorageLimit):
+		return openapi.UploadMedia409JSONResponse(storageFull(ctx)), nil
 
 	case errors.Is(err, domain.ErrPlayLimitOnImage), errors.Is(err, domain.ErrInvalidPlayLimit):
 		return openapi.UploadMedia400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(playLimitRefused(ctx, err))}, nil
@@ -457,6 +460,8 @@ func replacementRefused(ctx context.Context, err error) (openapi.ReplaceMediaRes
 		return openapi.ReplaceMedia404JSONResponse{NotFoundJSONResponse: openapi.NotFoundJSONResponse(httpapi.NotFound(ctx, httpx.Text(ctx, "Không tìm thấy tệp.", "The file was not found.")))}, nil
 	case errors.Is(err, domain.ErrInvalidFilename):
 		return openapi.ReplaceMedia400JSONResponse{BadRequestJSONResponse: openapi.BadRequestJSONResponse(filenameRefused(ctx))}, nil
+	case errors.Is(err, limits.ErrStorageLimit):
+		return openapi.ReplaceMedia409JSONResponse(storageFull(ctx)), nil
 	case errors.Is(err, domain.ErrQuotaExceeded):
 		return openapi.ReplaceMedia409JSONResponse(httpapi.Error(ctx, openapi.MEDIAQUOTAEXCEEDED, httpx.Text(ctx, "Thư viện đã hết dung lượng. Hãy xoá bớt tệp rồi tải lại.", "Your media library is full. Delete some files, then upload again."))), nil
 	case errors.Is(err, domain.ErrImageTooLarge):
@@ -474,4 +479,10 @@ func replacementRefused(ctx context.Context, err error) (openapi.ReplaceMediaRes
 	default:
 		return nil, err
 	}
+}
+
+func storageFull(ctx context.Context) openapi.ErrorResponse {
+	return httpapi.Error(ctx, openapi.STORAGELIMIT, httpx.Text(ctx,
+		"Kho tệp của trung tâm đã đầy. Hãy báo quản trị viên.",
+		"The centre's file storage is full. Tell your administrator."))
 }

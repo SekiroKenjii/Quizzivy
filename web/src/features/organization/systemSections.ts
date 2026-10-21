@@ -46,7 +46,7 @@ export const SYSTEM_SECTIONS: readonly SystemSection[] = [
     label: "systemSettings.sections.plan",
     icon: Gauge,
     to: `${ADMIN_PATHS.settings}/plan`,
-    owns: "usage",
+    owns: "limits",
   },
 ];
 

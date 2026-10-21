@@ -207,11 +207,7 @@ function RequestForm({
         <Button type="button" variant="outline" onClick={onClose}>
           {t("common.cancel")}
         </Button>
-        <Button
-          type="submit"
-          aria-disabled={send.isPending || undefined}
-          className="aria-disabled:opacity-50"
-        >
+        <Button type="submit" aria-disabled={send.isPending || undefined}>
           {send.isPending
             ? t("settings.ai.request.sending")
             : t("settings.ai.request.send")}

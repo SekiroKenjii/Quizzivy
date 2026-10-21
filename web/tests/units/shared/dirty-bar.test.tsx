@@ -91,7 +91,7 @@ describe("the unsaved-changes bar", () => {
     expect(discard()).toHaveAttribute("aria-disabled", "true");
     for (const button of [save("Đang lưu…"), discard()])
       expect(button.className).not.toMatch(/aria-disabled:opacity-|(^|\s)opacity-/);
-    expect(save("Đang lưu…")).toHaveClass("aria-disabled:bg-primary/50");
+    expect(save("Đang lưu…")).toHaveClass("aria-disabled:bg-primary/55");
     expect(save("Đang lưu…")).toBeEnabled();
     expect(discard()).toBeEnabled();
     await user.click(save("Đang lưu…"));

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -13,6 +14,7 @@ import (
 	"quizzivy/internal/modules/organization/domain"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/limits"
 	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/retention"
 )
@@ -25,12 +27,21 @@ func NewPostgres(dbx db.Context) *Postgres { return &Postgres{Repository: db.New
 
 var _ domain.Repository = (*Postgres)(nil)
 
-const columns = `
+var columns = `
 	name, short_name, website, contact_email, front_desk_phone, front_desk_hours, address,
 	logo_sha256, logo_type, logo_dark_sha256, logo_dark_type,
 	google_sign_in, password_sign_in, force_password_change, join_codes_enabled, allowed_google_domains,
 	keep_answers_months, keep_focus_events_months, anonymise_disabled_after_months,
-	revision, updated_by, updated_at`
+	revision, updated_by, updated_at, ` + limits.SelectList()
+
+var limitAssignments = func() string {
+	names := limits.Names()
+	out := make([]string, len(names))
+	for i, n := range names {
+		out[i] = fmt.Sprintf("%s = $%d", limits.Column(n), 21+i)
+	}
+	return strings.Join(out, ", ")
+}()
 
 // Read returns the stored document.
 func (p *Postgres) Read(ctx context.Context) (domain.Settings, error) {
@@ -65,7 +76,7 @@ func (p *Postgres) Save(ctx context.Context, in domain.Save) (domain.Settings, e
 		if err != nil {
 			return err
 		}
-		return record(ctx, tx, in, stored.ChangedFields(out), out.Revision)
+		return record(ctx, tx, in, stored, out)
 	})
 	if err != nil {
 		return domain.Settings{}, err
@@ -81,6 +92,14 @@ func write(ctx context.Context, tx pgx.Tx, in domain.Save) (domain.Settings, err
 	}
 	light, lightType := logoColumns(s.Profile.LightLogo)
 	dark, darkType := logoColumns(s.Profile.DarkLogo)
+	args := []any{
+		s.Profile.Name, opt.String(s.Profile.ShortName), opt.String(s.Profile.Website), opt.String(s.Profile.ContactEmail),
+		opt.String(s.Profile.FrontDeskPhone), opt.String(s.Profile.FrontDeskHours), opt.String(s.Profile.Address),
+		light, lightType, dark, darkType,
+		s.SignIn.Google, s.SignIn.Password, s.SignIn.ForcePasswordChange, s.SignIn.JoinCodes, domains,
+		s.Retention.KeepAnswersMonths, s.Retention.KeepFocusEventsMonths, s.Retention.AnonymiseDisabledAfterMonths,
+		opt.String(in.ActorID),
+	}
 	return scan(tx.QueryRow(ctx, `
 		UPDATE app.organization_settings
 		   SET name = $1, short_name = $2, website = $3, contact_email = $4, front_desk_phone = $5,
@@ -89,14 +108,9 @@ func write(ctx context.Context, tx pgx.Tx, in domain.Save) (domain.Settings, err
 		       google_sign_in = $12, password_sign_in = $13, force_password_change = $14,
 		       join_codes_enabled = $15, allowed_google_domains = $16,
 		       keep_answers_months = $17, keep_focus_events_months = $18, anonymise_disabled_after_months = $19,
-		       revision = revision + 1, updated_by = $20
+		       revision = revision + 1, updated_by = $20, `+limitAssignments+`
 		RETURNING `+columns,
-		s.Profile.Name, opt.String(s.Profile.ShortName), opt.String(s.Profile.Website), opt.String(s.Profile.ContactEmail),
-		opt.String(s.Profile.FrontDeskPhone), opt.String(s.Profile.FrontDeskHours), opt.String(s.Profile.Address),
-		light, lightType, dark, darkType,
-		s.SignIn.Google, s.SignIn.Password, s.SignIn.ForcePasswordChange, s.SignIn.JoinCodes, domains,
-		s.Retention.KeepAnswersMonths, s.Retention.KeepFocusEventsMonths, s.Retention.AnonymiseDisabledAfterMonths,
-		opt.String(in.ActorID)))
+		append(args, s.Limits.Arguments()...)...))
 }
 
 func logoColumns(l *domain.Logo) ([]byte, *string) {
@@ -107,14 +121,16 @@ func logoColumns(l *domain.Logo) ([]byte, *string) {
 	return l.SHA256, &kind
 }
 
-func record(ctx context.Context, tx pgx.Tx, in domain.Save, fields []string, revision int64) error {
+func record(ctx context.Context, tx pgx.Tx, in domain.Save, stored, saved domain.Settings) error {
+	fields := stored.ChangedFields(saved)
 	if fields == nil {
 		fields = []string{}
 	}
 	diff, err := json.Marshal(struct {
-		Fields   []string `json:"fields"`
-		Revision int64    `json:"revision"`
-	}{fields, revision})
+		Fields   []string        `json:"fields"`
+		Limits   []limits.Change `json:"limits,omitempty"`
+		Revision int64           `json:"revision"`
+	}{fields, stored.Limits.Changes(saved.Limits), saved.Revision})
 	if err != nil {
 		return fmt.Errorf("organization: encode audit diff: %w", err)
 	}
@@ -205,11 +221,12 @@ func scan(row pgx.Row) (domain.Settings, error) {
 		shortName, website, email, phone, hours, address, lightType, darkType, by *string
 		light, dark                                                               []byte
 	)
-	err := row.Scan(&s.Profile.Name, &shortName, &website, &email, &phone, &hours, &address,
+	limitTargets, gather := limits.ScanTargets()
+	err := row.Scan(append([]any{&s.Profile.Name, &shortName, &website, &email, &phone, &hours, &address,
 		&light, &lightType, &dark, &darkType,
 		&s.SignIn.Google, &s.SignIn.Password, &s.SignIn.ForcePasswordChange, &s.SignIn.JoinCodes, &s.SignIn.AllowedGoogleDomains,
 		&s.Retention.KeepAnswersMonths, &s.Retention.KeepFocusEventsMonths, &s.Retention.AnonymiseDisabledAfterMonths,
-		&s.Revision, &by, &s.UpdatedAt)
+		&s.Revision, &by, &s.UpdatedAt}, limitTargets...)...)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Settings{}, errors.New("organization: the settings row is missing")
 	}
@@ -221,6 +238,7 @@ func scan(row pgx.Row) (domain.Settings, error) {
 	s.Profile.LightLogo = logoOf(light, lightType)
 	s.Profile.DarkLogo = logoOf(dark, darkType)
 	s.UpdatedBy = opt.Deref(by)
+	s.Limits = gather()
 	if s.SignIn.AllowedGoogleDomains == nil {
 		s.SignIn.AllowedGoogleDomains = []string{}
 	}

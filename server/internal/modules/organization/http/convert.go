@@ -8,6 +8,7 @@ import (
 	"quizzivy/internal/modules/organization/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/limits"
 	"quizzivy/internal/shared/validation"
 )
 
@@ -33,7 +34,68 @@ func months(m *int) *int {
 	return &v
 }
 
-func settingsBody(s domain.Settings) openapi.OrganizationSettings {
+func limitsBody(s limits.Stored) openapi.UsageLimits {
+	wide := func(n limits.Name) *int64 {
+		if v, ok := s[n]; ok {
+			return &v
+		}
+		return nil
+	}
+	narrow := func(n limits.Name) *int {
+		if v, ok := s[n]; ok {
+			i := int(v)
+			return &i
+		}
+		return nil
+	}
+	return openapi.UsageLimits{
+		Seats: narrow(limits.Seats), Teachers: narrow(limits.Teachers),
+		StorageBytes: wide(limits.StorageBytes), MediaPerTeacherBytes: wide(limits.MediaPerTeacherBytes),
+		ImportBytes: wide(limits.ImportBytes), ImportPerTeacherBytes: wide(limits.ImportPerTeacherBytes),
+		EmailsPerDay: narrow(limits.EmailsPerDay), EmailsPerMonth: narrow(limits.EmailsPerMonth),
+		DatabaseBytes: wide(limits.DatabaseBytes), WarnAtPercent: narrow(limits.WarnAtPercent),
+	}
+}
+
+func limitsOf(in openapi.UsageLimits) limits.Stored {
+	out := limits.Stored{}
+	wide := func(n limits.Name, v *int64) {
+		if v != nil {
+			out[n] = *v
+		}
+	}
+	narrow := func(n limits.Name, v *int) {
+		if v != nil {
+			out[n] = int64(*v)
+		}
+	}
+	narrow(limits.Seats, in.Seats)
+	narrow(limits.Teachers, in.Teachers)
+	wide(limits.StorageBytes, in.StorageBytes)
+	wide(limits.MediaPerTeacherBytes, in.MediaPerTeacherBytes)
+	wide(limits.ImportBytes, in.ImportBytes)
+	wide(limits.ImportPerTeacherBytes, in.ImportPerTeacherBytes)
+	narrow(limits.EmailsPerDay, in.EmailsPerDay)
+	narrow(limits.EmailsPerMonth, in.EmailsPerMonth)
+	wide(limits.DatabaseBytes, in.DatabaseBytes)
+	narrow(limits.WarnAtPercent, in.WarnAtPercent)
+	return out
+}
+
+func defaultsBody(env limits.Env) openapi.UsageLimitDefaults {
+	of := func(n limits.Name) openapi.UsageLimitDefault {
+		d := limits.DefaultOf(n, env)
+		return openapi.UsageLimitDefault{Value: d.Value, Source: openapi.UsageLimitDefaultSource(d.Source)}
+	}
+	return openapi.UsageLimitDefaults{
+		Seats: of(limits.Seats), Teachers: of(limits.Teachers), StorageBytes: of(limits.StorageBytes),
+		MediaPerTeacherBytes: of(limits.MediaPerTeacherBytes), ImportBytes: of(limits.ImportBytes),
+		ImportPerTeacherBytes: of(limits.ImportPerTeacherBytes), EmailsPerDay: of(limits.EmailsPerDay),
+		EmailsPerMonth: of(limits.EmailsPerMonth), DatabaseBytes: of(limits.DatabaseBytes), WarnAtPercent: of(limits.WarnAtPercent),
+	}
+}
+
+func settingsBody(s domain.Settings, env limits.Env) openapi.OrganizationSettings {
 	p := s.Profile
 	out := openapi.OrganizationSettings{
 		Organization: openapi.OrganizationProfile{
@@ -44,9 +106,11 @@ func settingsBody(s domain.Settings) openapi.OrganizationSettings {
 			Google: s.SignIn.Google, Password: s.SignIn.Password, ForcePasswordChange: s.SignIn.ForcePasswordChange,
 			JoinCodes: s.SignIn.JoinCodes, AllowedGoogleDomains: append([]string{}, s.SignIn.AllowedGoogleDomains...),
 		},
-		Retention: openapi.RetentionPolicy{KeepFocusEventsMonths: openapi.RetentionPolicyKeepFocusEventsMonths(s.Retention.KeepFocusEventsMonths)},
-		Revision:  s.Revision,
-		UpdatedAt: s.UpdatedAt.UTC(),
+		Retention:     openapi.RetentionPolicy{KeepFocusEventsMonths: openapi.RetentionPolicyKeepFocusEventsMonths(s.Retention.KeepFocusEventsMonths)},
+		Limits:        limitsBody(s.Limits),
+		LimitDefaults: defaultsBody(env),
+		Revision:      s.Revision,
+		UpdatedAt:     s.UpdatedAt.UTC(),
 	}
 	if m := s.Retention.KeepAnswersMonths; m != nil {
 		out.Retention.KeepAnswersMonths = new(openapi.RetentionPolicyKeepAnswersMonths(*m))
@@ -77,7 +141,11 @@ func settingsOf(in openapi.OrganizationSettingsInput) domain.Settings {
 		FrontDeskPhone: text(p.FrontDeskPhone), FrontDeskHours: text(p.FrontDeskHours), Address: text(p.Address),
 		LightLogo: logoOf(p.Logo.Light), DarkLogo: logoOf(p.Logo.Dark),
 	}
-	return domain.Settings{Profile: profile, SignIn: signInOf(in.SignIn), Retention: retentionOf(in.Retention)}
+	out := domain.Settings{Profile: profile, SignIn: signInOf(in.SignIn), Retention: retentionOf(in.Retention)}
+	if in.Limits != nil {
+		out.Limits = limitsOf(*in.Limits)
+	}
+	return out
 }
 
 func retentionOf(r openapi.RetentionPolicy) domain.Retention {
@@ -151,6 +219,8 @@ func reasonText(ctx context.Context, reason string) (string, bool) {
 		return httpx.Text(ctx, "Logo không hợp lệ.", "Not a valid logo."), true
 	case domain.ReasonLogoGone:
 		return httpx.Text(ctx, "Máy chủ không có logo này. Hãy tải lên lại.", "The server holds no such logo. Upload it again."), true
+	case domain.ReasonRange:
+		return httpx.Text(ctx, "Giá trị nằm ngoài khoảng cho phép.", "Outside the range this limit allows."), true
 	case domain.ReasonLogoStore:
 		return httpx.Text(ctx, "Máy chủ chưa có kho lưu trữ nên chưa thể lưu logo.", "This server has no object storage, so a logo cannot be kept."), true
 	}

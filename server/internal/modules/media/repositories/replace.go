@@ -12,6 +12,7 @@ import (
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/audit"
 	"quizzivy/internal/shared/content"
+	"quizzivy/internal/shared/limits"
 	"quizzivy/internal/shared/opt"
 	"strings"
 	"time"
@@ -123,6 +124,11 @@ func replaceBody(ctx context.Context, tx pgx.Tx, in domain.ReplaceInput) (domain
 	}
 	if err := CheckQuota(ctx, tx, QuotaCheck{OwnerID: locked.OwnerID, Quota: in.Asset.QuotaBytes}); err != nil {
 		return result, err
+	}
+	if in.Asset.StorageLimit != nil {
+		if err := limits.RequireStorage(ctx, tx, *in.Asset.StorageLimit, 0); err != nil {
+			return result, err
+		}
 	}
 	return result, nil
 }

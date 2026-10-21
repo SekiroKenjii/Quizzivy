@@ -372,6 +372,15 @@
   outline-offset: 2px;
 }
 
+/* Forced colours discard the faded colours of a paused control, so it takes
+   the system's disabled colour instead. */
+@media (forced-colors: active) {
+  [aria-disabled="true"] {
+    color: GrayText;
+    border-color: GrayText;
+  }
+}
+
 @keyframes qz-nudge {
   0%,
   100% {

@@ -115,7 +115,8 @@ describe("a recording that cannot be paused", () => {
     expect(button()).toHaveAccessibleName("Tạm dừng");
     expect(button()).toHaveAttribute("aria-disabled", "true");
     expect(button()).not.toBeDisabled();
-    expect(button()).toHaveClass("aria-disabled:opacity-45");
+    expect(button()).toHaveClass("aria-disabled:bg-primary/55");
+    expect(button().className).not.toMatch(/aria-disabled:opacity/);
 
     fireEvent.click(button());
     button().focus();

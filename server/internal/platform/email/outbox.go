@@ -25,10 +25,11 @@ var (
 	ErrNoSecretsKey   = errors.New("email: SECRETS_KEY is not configured, so a secret cannot be sealed")
 )
 
-// Mail is a message to enqueue. ToUserID, Locale, Secret, DedupeKey and
-// DeliverAfter are optional: an empty Locale is the recipient's own
-// (users.locale) or else vi, a second Mail with a DedupeKey already in the
-// outbox is not written, and a zero DeliverAfter is now.
+// Mail is a message to enqueue. ToUserID, Locale, Secret, DedupeKey,
+// DeliverAfter and ExpiresAt are optional: an empty Locale is the recipient's
+// own (users.locale) or else vi, a second Mail with a DedupeKey already in the
+// outbox is not written, a zero DeliverAfter is now, and ExpiresAt is when the
+// message's link stops working, after which it is failed and never sent.
 type Mail struct {
 	ToUserID     string
 	To           string
@@ -37,6 +38,7 @@ type Mail struct {
 	Secret       string
 	DedupeKey    string
 	DeliverAfter time.Time
+	ExpiresAt    time.Time
 }
 
 // Outbox writes messages into app.email_outbox and wakes this process's
@@ -79,14 +81,14 @@ func (o *Outbox) Enqueue(ctx context.Context, q db.Querier, m Mail) (string, boo
 	var written string
 	err = q.QueryRow(ctx, `
 		INSERT INTO app.email_outbox
-		       (id, to_user_id, to_address, template, locale, params, secret_ciphertext, dedupe_key, deliver_after)
+		       (id, to_user_id, to_address, template, locale, params, secret_ciphertext, dedupe_key, deliver_after, expires_at)
 		VALUES ($1, $2::uuid, $3, $4,
 		        COALESCE($5::text, (SELECT u.locale FROM app.users u WHERE u.id = $2::uuid), 'vi'),
-		        $6, $7, $8, COALESCE($9::timestamptz, now()))
+		        $6, $7, $8, COALESCE($9::timestamptz, now()), $10)
 		ON CONFLICT ON CONSTRAINT email_outbox_dedupe_key DO NOTHING
 		RETURNING id::text`,
 		id, nullable(m.ToUserID), address.Address, string(t), nullable(m.Locale), params, sealed,
-		nullable(m.DedupeKey), nullableTime(m.DeliverAfter)).Scan(&written)
+		nullable(m.DedupeKey), nullableTime(m.DeliverAfter), nullableTime(m.ExpiresAt)).Scan(&written)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = q.QueryRow(ctx, `SELECT id::text FROM app.email_outbox WHERE dedupe_key = $1`, m.DedupeKey).Scan(&written)
 		return written, false, err

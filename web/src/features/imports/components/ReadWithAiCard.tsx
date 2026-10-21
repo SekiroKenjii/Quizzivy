@@ -60,7 +60,7 @@ export function ReadWithAiCard({
         aria-labelledby={titleId}
         aria-describedby={note === null ? hintId : `${hintId} ${noteId}`}
         aria-disabled={inert || undefined}
-        className="aria-disabled:cursor-default aria-disabled:opacity-50"
+        className="aria-disabled:cursor-default"
         onCheckedChange={(next) => {
           if (!inert) onChange(next);
         }}

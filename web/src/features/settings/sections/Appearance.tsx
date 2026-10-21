@@ -76,7 +76,7 @@ export function AppearanceSection() {
                 aria-pressed={preference === theme}
                 aria-disabled={saving || undefined}
                 className={cn(
-                  "bg-card flex flex-col gap-2 rounded-[10px] border p-2 text-left aria-disabled:opacity-50",
+                  "bg-card aria-disabled:border-border/50 flex flex-col gap-2 rounded-[10px] border p-2 text-left aria-disabled:*:opacity-50",
                   preference === theme && "border-primary ring-primary ring-1",
                 )}
                 onClick={() => {
@@ -111,7 +111,6 @@ export function AppearanceSection() {
             aria-labelledby={compactLabel}
             aria-describedby={`${compactLabel}-hint`}
             aria-disabled={saving || undefined}
-            className="aria-disabled:opacity-50"
             onCheckedChange={(compactTables) => {
               if (!saving) void chooseAccountPreference({ compactTables });
             }}

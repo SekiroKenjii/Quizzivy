@@ -6,7 +6,8 @@ import { cn } from "@/lib/utils";
 /**
  * Switch is an on/off control. The default size is the deck's 38x22 with the
  * primary colour when on; `sm` (36x20) and `lg` (42x24, the student settings)
- * are the deck's other two sizes.
+ * are the deck's other two sizes. A switch paused with `aria-disabled` stays
+ * focusable and fades its track, never the element.
  */
 function Switch({
   className,
@@ -20,6 +21,7 @@ function Switch({
       className={cn(
         "inline-flex shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50",
         "data-[state=checked]:bg-primary data-[state=unchecked]:bg-border h-5.5 w-9.5",
+        "aria-disabled:data-[state=checked]:bg-primary/55 aria-disabled:data-[state=unchecked]:bg-border/50 aria-disabled:data-[state=unchecked]:[&>span]:bg-switch-thumb/50",
         size === "sm" && "h-5 w-9",
         size === "lg" && "h-6 w-10.5",
         className,

@@ -6,6 +6,7 @@ import (
 	"quizzivy/internal/modules/dashboard/application/query"
 	"quizzivy/internal/modules/dashboard/domain"
 	"quizzivy/internal/shared/cqrs"
+	"quizzivy/internal/shared/limits"
 	"time"
 )
 
@@ -58,9 +59,9 @@ func (a *Application) WithNotifications(port ports.UnreadNotifications) *Applica
 	return a
 }
 
-// WithAdmin sets what the Admin readings are drawn from: the organization's name, the audit log's newest entries, the plan and the zone whose days they count. A nil location counts days in the centre's default zone, and a nil recent leaves the Overview's recent changes empty.
-func (a *Application) WithAdmin(branding ports.Branding, recent ports.RecentChanges, plan domain.Plan, loc *time.Location) *Application {
-	a.service.Branding, a.service.Recent, a.service.Plan = branding, recent, plan
+// WithAdmin sets what the Admin readings are drawn from: the organization's name, the audit log's newest entries, the deploy's overrides of the usage limits and the zone whose days they count. A nil location counts days in the centre's default zone, and a nil recent leaves the Overview's recent changes empty.
+func (a *Application) WithAdmin(branding ports.Branding, recent ports.RecentChanges, env limits.Env, loc *time.Location) *Application {
+	a.service.Branding, a.service.Recent, a.service.LimitEnv = branding, recent, env
 	if loc != nil {
 		a.service.Location = loc
 	}

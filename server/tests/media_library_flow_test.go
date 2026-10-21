@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"quizzivy/internal/platform/config"
+	"quizzivy/internal/shared/limits"
 )
 
 func TestTheMediaLibraryNamesMeasuresAndBoundsWhatATeacherUploads(t *testing.T) {
@@ -22,6 +23,7 @@ func TestTheMediaLibraryNamesMeasuresAndBoundsWhatATeacherUploads(t *testing.T) 
 		c.S3ForcePathStyle = true
 		c.SignedURLTTL = 10 * time.Minute
 		c.MediaOwnerQuotaMiB = quotaMiB
+		c.Limits = limits.Env{limits.MediaPerTeacherBytes: int64(quotaMiB) * limits.MiB}
 	})
 	email, password := w.createStaff("teacher")
 	teacher := w.signedIn(email, password)

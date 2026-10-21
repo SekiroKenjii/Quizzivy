@@ -368,8 +368,9 @@ requirements, not functionality implemented by the initial source inspector.
 ## 12. R4: the screens as built on the deck
 
 R4 (T-R4.36 to T-R4.39 and T-R4.57) rebuilt the five import pages in
-`TeacherLayout`, on the deck in `docs/design/deck/` and its tokens, with
-`data-scale="deck"` on each page root, in light and dark. Every string is a vi
+`TeacherLayout`, on the deck in `docs/design/deck/` and its tokens (then scoped
+by `data-scale="deck"` on each page root, which T-R5.30 removed when the deck's
+geometry became the primitives' own), in light and dark. Every string is a vi
 key first, then en. The behaviours below are read from
 `web/src/app/router.tsx` and `web/src/features/imports/`; the task notes in
 `74-r4.md` have the measurements and the departures (DG-12 to DG-18, DG-21,

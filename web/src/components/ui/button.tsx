@@ -9,15 +9,28 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive: "bg-danger-solid text-danger-solid-fg hover:bg-danger-solid/90",
+        default: [
+          "bg-primary text-primary-foreground hover:bg-primary/90",
+          "aria-disabled:bg-primary/55 aria-disabled:hover:bg-primary/55",
+        ],
+        destructive: [
+          "bg-danger-solid text-danger-solid-fg hover:bg-danger-solid/90",
+          "aria-disabled:bg-danger-solid/50 aria-disabled:text-danger-ink aria-disabled:hover:bg-danger-solid/50",
+        ],
         outline: [
           "border shadow-xs hover:text-accent-foreground",
           "bg-card hover:bg-muted dark:border-border dark:bg-card dark:hover:bg-muted",
+          "aria-disabled:border-border/50 aria-disabled:text-foreground/50 aria-disabled:hover:bg-card dark:aria-disabled:hover:bg-card aria-disabled:hover:text-foreground/50",
         ],
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-        link: "text-primary underline-offset-4 hover:underline",
+        secondary: [
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+          "aria-disabled:text-secondary-foreground/55 aria-disabled:hover:bg-secondary",
+        ],
+        ghost: [
+          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+          "aria-disabled:text-foreground/50 aria-disabled:hover:bg-transparent dark:aria-disabled:hover:bg-transparent aria-disabled:hover:text-foreground/50",
+        ],
+        link: "text-primary underline-offset-4 hover:underline aria-disabled:text-primary/55 aria-disabled:hover:no-underline",
       },
       size: {
         default: [

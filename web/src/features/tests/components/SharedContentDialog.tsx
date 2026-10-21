@@ -16,7 +16,6 @@ import {
 import { removeGap } from "@/components/shared/content/editor/gapCommands";
 import { ApiError } from "@/lib/api/errors";
 import { notify } from "@/lib/toast";
-import { cn } from "@/lib/utils";
 import type { LibraryAsset, MediaAsset, MediaKind } from "@/features/media/api";
 import { AssetLibraryDialog } from "@/features/media/components/AssetLibraryDialog";
 import { FileInput } from "@/features/media/components/FileInput";
@@ -271,10 +270,7 @@ export function SharedContentDialog({
           disabled={reason !== null}
           aria-disabled={pending || undefined}
           aria-describedby={reason ? reasonId : undefined}
-          className={cn(
-            "text-ui h-9 px-4 leading-normal shadow-none",
-            pending && "opacity-50",
-          )}
+          className="text-ui h-9 px-4 leading-normal shadow-none"
           onClick={() => {
             if (pending) return;
             if (loss) setAsking("loss");

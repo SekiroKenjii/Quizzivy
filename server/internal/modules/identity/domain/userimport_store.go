@@ -135,6 +135,9 @@ type UserImports interface {
 	ExistingEmails(ctx context.Context, emails []string) (map[string]struct{}, error)
 	// ActiveClasses returns every class that is not archived.
 	ActiveClasses(ctx context.Context) ([]ImportClass, error)
+	// Room returns how many more seats and teacher places the centre's limits
+	// allow, and which roles take a teacher place.
+	Room(ctx context.Context) (ImportRoom, error)
 	// FindByRequest returns the job createdBy stored for requestID, and false
 	// when there is none.
 	FindByRequest(ctx context.Context, createdBy, requestID string) (ImportJob, bool, error)

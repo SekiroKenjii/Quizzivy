@@ -67,7 +67,7 @@ export function RequestCard({
           size="sm"
           aria-disabled={busy || undefined}
           aria-describedby={titleId}
-          className="aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50 h-8 rounded-md px-3 aria-disabled:cursor-not-allowed"
+          className="aria-disabled:bg-primary/55 aria-disabled:hover:bg-primary/55 h-8 rounded-md px-3 aria-disabled:cursor-not-allowed"
           onClick={() => press("approve")}
         >
           <Check aria-hidden="true" />
