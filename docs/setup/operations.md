@@ -738,7 +738,9 @@ only while a seat or teacher limit is set. The storage guard takes `(73819, 46)`
 upload and import, since the total file storage always resolves to a limit (10 GB by default), so
 uploads across the centre are taken one at a time. An Admin counts as a teacher. Editing the role
 matrix can take the centre past the teacher limit without a refusal; the Overview flags it. Mail a
-cap holds goes out first as soon as a cap allows, so raising a cap releases it at once. Database size is
+cap holds (`email_outbox.held_by`) goes out first as soon as a cap allows, so raising a cap
+releases it at once. A sign-in link expires 24 hours after it was made, so mail held past that is
+failed `expired`; the Overview counts it, and those invitations need sending again. Database size is
 `pg_database_size`, which is close to but not what Neon bills. Days and months are local to
 `APP_TIMEZONE`. The `PLAN_*` variables of v0.12.0 are retired and ignored.
 

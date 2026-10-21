@@ -5561,7 +5561,7 @@
       },
       "UserImportPreview": {
         "type": "object",
-        "description": "What a file would come to. `rows` are the data rows it holds;\n`newAccounts` would be created and `existingEmails.count` already\nbelong to an account and would be skipped, never changed (`sample` names\nup to five of them). `invalid` lists up to 50 refused cells and\n`invalidCount` counts every refused row. `classes` are the classes the\naccepted rows would join. `emailBudget` is `null` unless `delivery` is\n`email_link`: `remainingToday` is what the centre can still send today,\ncounting what already waits, and `limit` its daily maximum; the rest of\nthe links go out on the following days.\n",
+        "description": "What a file would come to. `rows` are the data rows it holds;\n`newAccounts` would be created and `existingEmails.count` already\nbelong to an account and would be skipped, never changed (`sample` names\nup to five of them). `invalid` lists up to 50 refused cells and\n`invalidCount` counts every refused row. `classes` are the classes the\naccepted rows would join. `emailBudget` is `null` unless `delivery` is\n`email_link`: `remainingToday` is what the centre can still send today,\ncounting what already waits or is held by a cap, and `limit` the cap\nthat binds it: the daily maximum, or the monthly one when what the\nmonth has left is less than the day's; the rest of the links go out\non the following days or months.\n",
         "additionalProperties": false,
         "required": [
           "rows",
@@ -7714,6 +7714,7 @@
           "disabled_teacher_classes",
           "storage",
           "email_held",
+          "email_expired",
           "ai_credit_requests"
         ]
       },
@@ -7733,10 +7734,10 @@
           "count": {
             "type": "integer",
             "minimum": 1,
-            "description": "`must_change_password`: enabled accounts on a temporary password.\n`never_signed_in`: enabled accounts that have never signed in and\nare not on a temporary password. `disabled_teacher_classes`: classes,\narchived ones too, whose teacher is disabled. `storage`: how many of\nthe file storage, largest media library, open imports and database\nreadings are at `Usage.warnAtPercent` of their limit or more, as\n`detail` quotes them (rounded half up). `email_held`: messages an\nemail cap holds for a later day or month. `ai_credit_requests`: the\nteachers waiting for more credits this month.\n"
+            "description": "`must_change_password`: enabled accounts on a temporary password.\n`never_signed_in`: enabled accounts that have never signed in and\nare not on a temporary password. `disabled_teacher_classes`: classes,\narchived ones too, whose teacher is disabled. `storage`: how many of\nthe seat, teacher, file storage, largest media library, open\nimports and database readings are at `Usage.warnAtPercent` of their\nlimit or more, as `detail` quotes them (rounded half up).\n`email_held`: messages an email cap holds until a cap allows them.\n`email_expired`: this local month's messages a cap held until their\nlink expired, never sent. `ai_credit_requests`: the\nteachers waiting for more credits this month.\n"
           },
           "detail": {
-            "description": "What the row's line quotes. `null` for `must_change_password`.",
+            "description": "What the row's line quotes. `null` for `must_change_password` and `email_expired`.",
             "oneOf": [
               {
                 "$ref": "#/components/schemas/AdminAttentionDetail"

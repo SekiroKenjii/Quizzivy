@@ -4139,7 +4139,7 @@ components:
 
     AdminAttentionKind:
       type: string
-      enum: [must_change_password, never_signed_in, disabled_teacher_classes, storage, email_held, ai_credit_requests]
+      enum: [must_change_password, never_signed_in, disabled_teacher_classes, storage, email_held, email_expired, ai_credit_requests]
 
     AdminAttention:
       type: object
@@ -4158,13 +4158,15 @@ components:
             `never_signed_in`: enabled accounts that have never signed in and
             are not on a temporary password. `disabled_teacher_classes`: classes,
             archived ones too, whose teacher is disabled. `storage`: how many of
-            the file storage, largest media library, open imports and database
-            readings are at `Usage.warnAtPercent` of their limit or more, as
-            `detail` quotes them (rounded half up). `email_held`: messages an
-            email cap holds for a later day or month. `ai_credit_requests`: the
+            the seat, teacher, file storage, largest media library, open
+            imports and database readings are at `Usage.warnAtPercent` of their
+            limit or more, as `detail` quotes them (rounded half up).
+            `email_held`: messages an email cap holds until a cap allows them.
+            `email_expired`: this local month's messages a cap held until their
+            link expired, never sent. `ai_credit_requests`: the
             teachers waiting for more credits this month.
         detail:
-          description: What the row's line quotes. `null` for `must_change_password`.
+          description: What the row's line quotes. `null` for `must_change_password` and `email_expired`.
           oneOf: [{ $ref: '#/components/schemas/AdminAttentionDetail' }, { type: 'null' }]
 
     AdminAttentionDetail:

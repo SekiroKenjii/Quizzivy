@@ -885,8 +885,10 @@
       "storageHint": "Xem lại giới hạn trong Gói và mức dùng",
       "emailHeld_one": "{{count}} email đang chờ vì giới hạn email",
       "emailHeld_other": "{{count}} email đang chờ vì giới hạn email",
-      "emailHeldHint": "Thư được gửi khi giới hạn cho phép: nâng giới hạn, hoặc chờ sang ngày hoặc tháng mới",
-      "emailHeldUntil": "Thư được gửi khi giới hạn cho phép, muộn nhất {{when}}, trừ khi liên kết hết hạn trước",
+      "emailHeldHint": "Thư được gửi khi giới hạn cho phép; liên kết đăng nhập hết hạn sau 24 giờ kể từ lúc tạo",
+      "emailExpired_one": "{{count}} email hết hạn trước khi giới hạn cho phép gửi",
+      "emailExpired_other": "{{count}} email hết hạn trước khi giới hạn cho phép gửi",
+      "emailExpiredHint": "Các liên kết này chưa được gửi. Nâng giới hạn trong Gói và mức dùng rồi gửi lại",
       "creditRequests_one": "{{count}} giáo viên xin thêm tín dụng AI",
       "creditRequests_other": "{{count}} giáo viên xin thêm tín dụng AI",
       "creditRequestsHint": "{{teacherName}} · đã dùng {{used}} trên {{allowance}}"
@@ -1535,7 +1537,7 @@
         },
         "email": {
           "title": "Email",
-          "hint": "Thư vượt giới hạn sẽ chờ và được gửi trước tiên khi giới hạn cho phép, muộn nhất là ngày hoặc tháng sau. Liên kết đăng nhập hết hạn trong lúc chờ sẽ không được gửi."
+          "hint": "Thư vượt giới hạn sẽ chờ và được gửi trước tiên khi giới hạn cho phép. Liên kết đăng nhập hết hạn sau 24 giờ kể từ lúc tạo; liên kết hết hạn trong lúc chờ sẽ không được gửi và trang Tổng quan sẽ báo."
         },
         "database": {
           "title": "Cơ sở dữ liệu và cảnh báo",

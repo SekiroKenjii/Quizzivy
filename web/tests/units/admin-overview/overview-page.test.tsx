@@ -57,6 +57,7 @@ const FULL: AdminOverview = {
       count: 3,
       detail: { heldUntil: "2026-11-01T00:00:00+07:00" },
     },
+    { kind: "email_expired", count: 2, detail: null },
     {
       kind: "ai_credit_requests",
       count: 2,
@@ -290,6 +291,7 @@ describe("the needs-attention card", () => {
       "/admin/classes?teacher=disabled",
       "/admin/settings/plan",
       "/admin/settings/plan",
+      "/admin/settings/plan",
       "/admin/ai",
     ]);
     expect(card).toHaveTextContent("4 người cần đổi mật khẩu");
@@ -298,6 +300,9 @@ describe("the needs-attention card", () => {
       "Gần chạm giới hạn: tài khoản 149%, lưu trữ tệp 92%, một thư viện media 85%",
     );
     expect(card).toHaveTextContent("3 email đang chờ vì giới hạn email");
+    expect(card).not.toHaveTextContent("01/11/2026");
+    expect(card).toHaveTextContent("2 email hết hạn trước khi giới hạn cho phép gửi");
+    expect(card).toHaveTextContent("Các liên kết này chưa được gửi.");
     expect(card).toHaveTextContent("2 giáo viên xin thêm tín dụng AI");
   });
 

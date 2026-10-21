@@ -6537,8 +6537,10 @@ export interface components {
          *     `invalidCount` counts every refused row. `classes` are the classes the
          *     accepted rows would join. `emailBudget` is `null` unless `delivery` is
          *     `email_link`: `remainingToday` is what the centre can still send today,
-         *     counting what already waits, and `limit` its daily maximum; the rest of
-         *     the links go out on the following days.
+         *     counting what already waits or is held by a cap, and `limit` the cap
+         *     that binds it: the daily maximum, or the monthly one when what the
+         *     month has left is less than the day's; the rest of the links go out
+         *     on the following days or months.
          */
         UserImportPreview: {
             rows: number;
@@ -7263,7 +7265,7 @@ export interface components {
             staff: number;
         };
         /** @enum {string} */
-        AdminAttentionKind: "must_change_password" | "never_signed_in" | "disabled_teacher_classes" | "storage" | "email_held" | "ai_credit_requests";
+        AdminAttentionKind: "must_change_password" | "never_signed_in" | "disabled_teacher_classes" | "storage" | "email_held" | "email_expired" | "ai_credit_requests";
         /**
          * @description One thing that needs doing. `count` is at least 1: a row with nothing
          *     to do is not sent.
@@ -7275,14 +7277,16 @@ export interface components {
              *     `never_signed_in`: enabled accounts that have never signed in and
              *     are not on a temporary password. `disabled_teacher_classes`: classes,
              *     archived ones too, whose teacher is disabled. `storage`: how many of
-             *     the file storage, largest media library, open imports and database
-             *     readings are at `Usage.warnAtPercent` of their limit or more, as
-             *     `detail` quotes them (rounded half up). `email_held`: messages an
-             *     email cap holds for a later day or month. `ai_credit_requests`: the
+             *     the seat, teacher, file storage, largest media library, open
+             *     imports and database readings are at `Usage.warnAtPercent` of their
+             *     limit or more, as `detail` quotes them (rounded half up).
+             *     `email_held`: messages an email cap holds until a cap allows them.
+             *     `email_expired`: this local month's messages a cap held until their
+             *     link expired, never sent. `ai_credit_requests`: the
              *     teachers waiting for more credits this month.
              */
             count: number;
-            /** @description What the row's line quotes. `null` for `must_change_password`. */
+            /** @description What the row's line quotes. `null` for `must_change_password` and `email_expired`. */
             detail: components["schemas"]["AdminAttentionDetail"] | null;
         };
         /**

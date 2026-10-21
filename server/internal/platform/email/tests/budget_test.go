@@ -82,7 +82,13 @@ func TestARetryForAnotherDayOrAMessageThatFailedUsesNoneOfToday(t *testing.T) {
 func TestMailACapHeldUsesTodaysBudgetSinceItGoesFirst(t *testing.T) {
 	at := longAgo(23)
 	w := newWorld(t, at)
-	w.enqueue(t, email.Mail{To: addr(t, "giu"), Params: email.SignInInviteParams{FullName: "An"}, DeliverAfter: at.AddDate(0, 1, 0)})
+	held := w.enqueue(t, email.Mail{To: addr(t, "giu"), Params: email.SignInInviteParams{FullName: "An"}, DeliverAfter: at.AddDate(0, 1, 0)})
+	if left, _ := remaining(t, w.budget(5), at); left != 5 {
+		t.Errorf("a message enqueued for next month leaves %d, want 5: it is not held", left)
+	}
+	if _, err := w.pool.Exec(context.Background(), `UPDATE app.email_outbox SET held_by = 'month' WHERE id = $1::uuid`, held); err != nil {
+		t.Fatal(err)
+	}
 	if left, limit := remaining(t, w.budget(5), at); left != 4 || limit != 5 {
 		t.Errorf("one held message leaves %d of %d, want 4 of 5", left, limit)
 	}

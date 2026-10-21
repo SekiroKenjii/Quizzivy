@@ -155,5 +155,8 @@ func (r *overviewRead) storage(ctx context.Context) error {
 	if row := domain.EmailAttention(usage); row != nil {
 		r.out.Attention = append(r.out.Attention, *row)
 	}
+	if row := domain.ExpiredEmailAttention(usage); row != nil {
+		r.out.Attention = append(r.out.Attention, *row)
+	}
 	return nil
 }

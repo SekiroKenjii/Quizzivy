@@ -4113,7 +4113,11 @@ variable when one is set, else the hosting plan's constant, and for seats and te
 **`00143_add_email_outbox_expires_at.sql`** adds `email_outbox.expires_at timestamptz`, set at enqueue for the
 templates whose link expires (invite, sign-in invite, password reset, export ready) and `NULL` for the rest.
 Dispatch fails a waiting row whose `expires_at` has passed with `last_error_code = 'expired'` and
-`secret_ciphertext = NULL`, `FOR UPDATE SKIP LOCKED`, before it claims what to send. Down drops the column.
+`secret_ciphertext = NULL`, `FOR UPDATE SKIP LOCKED`, before it claims what to send. It also adds
+`email_outbox.held_by text` (`CHECK IN ('day', 'month')`, and `NULL` on a sent row): the cap that deferred
+the row, set by the deferral and cleared when dispatch, with both budgets left, releases it ahead of newer
+mail (D-061). A held row that expires keeps it, which is what the Overview's `email_expired` row counts.
+Down drops both columns.
 
 **`00144_add_user_import_over_limit.sql`** adds `user_import_rows.outcome = 'skipped_limit'` for a row the
 seat or teacher limit refused when the job ran, and `user_import_jobs.over_limit_count smallint NOT NULL

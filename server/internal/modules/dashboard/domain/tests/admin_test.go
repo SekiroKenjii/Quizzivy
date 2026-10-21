@@ -254,3 +254,13 @@ func TestSeatsAndTeachersAtTheWarningLineRaiseTheStorageRow(t *testing.T) {
 		t.Errorf("seats with no limit = %+v, want no row", none)
 	}
 }
+
+func TestMailThatExpiredWhileHeldRaisesItsOwnRow(t *testing.T) {
+	if row := domain.ExpiredEmailAttention(domain.Usage{}); row != nil {
+		t.Errorf("no expired mail = %+v, want no row", row)
+	}
+	row := domain.ExpiredEmailAttention(domain.Usage{Email: domain.Email{Expired: 3, Held: 1}})
+	if row == nil || row.Kind != domain.AttentionEmailExpired || row.Count != 3 || row.Detail != nil {
+		t.Errorf("three expired = %+v, want an email_expired row of 3 with no detail", row)
+	}
+}

@@ -114,8 +114,8 @@ func (p *Postgres) DisabledTeacherClasses(ctx context.Context) (domain.DisabledT
 // Held counts what the centre holds and uses: the seats and teachers and the
 // stored files as shared/limits counts them, the fullest teacher's media
 // library, the documents of the open imports, the attempts, the mail sent in
-// window's day and month and the mail a cap moved to later (never tried yet),
-// and the database's size.
+// window's day and month, the mail a cap holds and the month's held mail whose
+// link expired before it was sent, and the database's size.
 func (p *Postgres) Held(ctx context.Context, window domain.EmailWindow) (domain.Held, error) {
 	var out domain.Held
 	accounts, err := limits.CountAccounts(ctx, p)
@@ -141,12 +141,14 @@ func (p *Postgres) Held(ctx context.Context, window domain.EmailWindow) (domain.
 		       (SELECT count(*)::int FROM app.email_outbox WHERE sent_at >= $1 AND sent_at < $2),
 		       (SELECT count(*)::int FROM app.email_outbox WHERE sent_at >= $3 AND sent_at < $4),
 		       (SELECT count(*)::int FROM app.email_outbox
-		         WHERE sent_at IS NULL AND failed_at IS NULL AND attempts = 0 AND deliver_after > $5),
+		         WHERE sent_at IS NULL AND failed_at IS NULL AND held_by IS NOT NULL),
 		       (SELECT min(deliver_after) FROM app.email_outbox
-		         WHERE sent_at IS NULL AND failed_at IS NULL AND attempts = 0 AND deliver_after > $5)`,
-		window.DayStart, window.NextDay, window.MonthStart, window.NextMonth, window.Now,
+		         WHERE sent_at IS NULL AND failed_at IS NULL AND held_by IS NOT NULL),
+		       (SELECT count(*)::int FROM app.email_outbox
+		         WHERE failed_at >= $3 AND failed_at < $4 AND last_error_code = 'expired' AND held_by IS NOT NULL)`,
+		window.DayStart, window.NextDay, window.MonthStart, window.NextMonth,
 	).Scan(&out.ImportCount, &out.LargestLibrary, &out.OpenImportBytes, &out.Attempts,
-		&out.EmailsToday, &out.EmailsMonth, &out.EmailsHeld, &out.HeldUntil)
+		&out.EmailsToday, &out.EmailsMonth, &out.EmailsHeld, &out.HeldUntil, &out.EmailsExpired)
 	if err != nil {
 		return domain.Held{}, fmt.Errorf("dashboard: count what is held: %w", err)
 	}

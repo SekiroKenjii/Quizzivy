@@ -371,24 +371,27 @@ func TestHeldCountsTheMailOfTheDayAndMonthAndWhatACapHolds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mail := func(sent, failed, deliver string, attempts int) {
+	mail := func(sent, failed, deliver string, attempts int, held, code string) {
 		t.Helper()
 		_, err := tx.Exec(ctx, `
-			INSERT INTO app.email_outbox (to_address, template, locale, sent_at, failed_at, deliver_after, attempts)
-			VALUES ($1, 'sign_in_invite', 'vi', $2::timestamptz, $3::timestamptz, coalesce($4::timestamptz, now()), $5)`,
-			nonce(t)+"@example.com", nullable(sent), nullable(failed), nullable(deliver), attempts)
+			INSERT INTO app.email_outbox (to_address, template, locale, sent_at, failed_at, deliver_after, attempts, held_by, last_error_code)
+			VALUES ($1, 'sign_in_invite', 'vi', $2::timestamptz, $3::timestamptz, coalesce($4::timestamptz, now()), $5, $6, $7)`,
+			nonce(t)+"@example.com", nullable(sent), nullable(failed), nullable(deliver), attempts, nullable(held), nullable(code))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
-	mail("2031-05-10T08:00:00Z", "", "", 1)
-	mail("2031-05-02T08:00:00Z", "", "", 1)
-	mail("2031-04-30T23:00:00Z", "", "", 1)
-	mail("", "", "2031-06-01T00:00:00Z", 0)
-	mail("", "", "2031-06-01T00:00:00Z", 0)
-	mail("", "", "2031-05-10T12:05:00Z", 2)
-	mail("", "2031-05-10T09:00:00Z", "2031-07-01T00:00:00Z", 0)
-	mail("", "", "2031-05-10T07:00:00Z", 0)
+	mail("2031-05-10T08:00:00Z", "", "", 1, "", "")
+	mail("2031-05-02T08:00:00Z", "", "", 1, "", "")
+	mail("2031-04-30T23:00:00Z", "", "", 1, "", "")
+	mail("", "", "2031-06-01T00:00:00Z", 0, "month", "")
+	mail("", "", "2031-06-01T00:00:00Z", 2, "month", "")
+	mail("", "", "2031-05-10T12:05:00Z", 2, "", "")
+	mail("", "", "2031-05-11T00:00:00Z", 0, "", "")
+	mail("", "2031-05-10T09:00:00Z", "2031-07-01T00:00:00Z", 0, "month", "expired")
+	mail("", "2031-04-30T09:00:00Z", "2031-05-01T00:00:00Z", 0, "month", "expired")
+	mail("", "2031-05-09T09:00:00Z", "2031-05-09T00:00:00Z", 0, "", "expired")
+	mail("", "", "2031-05-10T07:00:00Z", 0, "", "")
 
 	after, err := store.Held(ctx, mayTenth)
 	if err != nil {
@@ -401,7 +404,10 @@ func TestHeldCountsTheMailOfTheDayAndMonthAndWhatACapHolds(t *testing.T) {
 		t.Errorf("sent this month moved by %d, want 2: April's is not May's", got)
 	}
 	if after.EmailsHeld != 2 {
-		t.Errorf("held = %d, want 2: a retry waits for its backoff, not a cap, a failed row is settled and a due row is not held", after.EmailsHeld)
+		t.Errorf("held = %d, want 2: only a row a cap marked is held, a retry or a row enqueued for later is not, and a failed row is settled", after.EmailsHeld)
+	}
+	if got := after.EmailsExpired - before.EmailsExpired; got != 1 {
+		t.Errorf("expired while held moved by %d, want 1: April's and one never held do not count", got)
 	}
 	if after.HeldUntil == nil || !after.HeldUntil.Equal(mayTenth.NextMonth) {
 		t.Errorf("held until = %v, want the 1st of June", after.HeldUntil)

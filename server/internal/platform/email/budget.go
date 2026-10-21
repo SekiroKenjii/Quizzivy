@@ -34,7 +34,7 @@ func (b Budget) Remaining(ctx context.Context, now time.Time) (remaining, limit 
 	}
 	dayStart, nextDay := localDay(now, b.Location)
 	monthStart, nextMonth := localMonth(now, b.Location)
-	const waiting = `(sent_at IS NULL AND failed_at IS NULL AND (deliver_after < $2 OR attempts = 0) AND template = ANY($5::text[]))`
+	const waiting = `(sent_at IS NULL AND failed_at IS NULL AND (deliver_after < $2 OR held_by IS NOT NULL) AND template = ANY($5::text[]))`
 	var today, month int
 	if err := b.DB.QueryRow(ctx, `
 		SELECT count(*) FILTER (WHERE (sent_at >= $1 AND sent_at < $2) OR `+waiting+`),

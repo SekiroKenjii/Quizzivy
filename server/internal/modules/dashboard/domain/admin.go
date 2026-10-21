@@ -116,6 +116,7 @@ const (
 	AttentionDisabledTeachers AttentionKind = "disabled_teacher_classes"
 	AttentionStorage          AttentionKind = "storage"
 	AttentionEmailHeld        AttentionKind = "email_held"
+	AttentionEmailExpired     AttentionKind = "email_expired"
 )
 
 // AttentionDetail holds the facts a row quotes; a field its kind does not use is nil.
@@ -205,6 +206,7 @@ type Held struct {
 	EmailsToday     int
 	EmailsMonth     int
 	EmailsHeld      int
+	EmailsExpired   int
 	HeldUntil       *time.Time
 	DatabaseBytes   int64
 	Attempts        int64
@@ -244,6 +246,7 @@ type Imports struct {
 // Email is the mail sent today and this month, the messages a cap holds and the caps.
 type Email struct {
 	Today, Month, Held       int
+	Expired                  int
 	HeldUntil                *time.Time
 	DailyLimit, MonthlyLimit *int
 }
@@ -271,7 +274,7 @@ func NewUsage(l limits.Limits, held Held, credits *Credits) Usage {
 		Media:    Media{Bytes: held.MediaBytes, LargestLibrary: held.LargestLibrary, PerTeacherLimit: int64Of(l, limits.MediaPerTeacherBytes)},
 		Imports: Imports{Bytes: held.ImportBytes, Count: held.ImportCount, OpenBytes: held.OpenImportBytes,
 			Limit: int64Of(l, limits.ImportBytes), PerTeacherLimit: int64Of(l, limits.ImportPerTeacherBytes)},
-		Email: Email{Today: held.EmailsToday, Month: held.EmailsMonth, Held: held.EmailsHeld, HeldUntil: held.HeldUntil,
+		Email: Email{Today: held.EmailsToday, Month: held.EmailsMonth, Held: held.EmailsHeld, Expired: held.EmailsExpired, HeldUntil: held.HeldUntil,
 			DailyLimit: intOf(l, limits.EmailsPerDay), MonthlyLimit: intOf(l, limits.EmailsPerMonth)},
 		Database:      Bytes{Bytes: held.DatabaseBytes, Limit: int64Of(l, limits.DatabaseBytes)},
 		AttemptsKept:  held.Attempts,
@@ -345,4 +348,14 @@ func EmailAttention(u Usage) *Attention {
 		return nil
 	}
 	return &Attention{Kind: AttentionEmailHeld, Count: u.Email.Held, Detail: &AttentionDetail{HeldUntil: u.Email.HeldUntil}}
+}
+
+// ExpiredEmailAttention is the row that counts this month's mail a cap held
+// until its link expired, never sent and to be sent again, and nil when there
+// is none (D-061).
+func ExpiredEmailAttention(u Usage) *Attention {
+	if u.Email.Expired == 0 {
+		return nil
+	}
+	return &Attention{Kind: AttentionEmailExpired, Count: u.Email.Expired}
 }

@@ -130,14 +130,14 @@ func (d *Dispatcher) Dispatch(ctx context.Context) (Batch, error) {
 		dayStart, nextDay, monthStart, nextMonth).Scan(&sentToday, &sentMonth); err != nil {
 		return Batch{}, err
 	}
-	until := time.Time{}
+	until, heldBy := time.Time{}, ""
 	switch {
 	case monthly-sentMonth <= 0:
-		until = nextMonth
+		until, heldBy = nextMonth, "month"
 	case daily-sentToday <= 0:
-		until = nextDay
+		until, heldBy = nextDay, "day"
 	}
-	if err := d.spend(ctx, tx, now, until, min(BatchSize, daily-sentToday, monthly-sentMonth), org, &batch); err != nil {
+	if err := d.spend(ctx, tx, now, until, heldBy, min(BatchSize, daily-sentToday, monthly-sentMonth), org, &batch); err != nil {
 		return Batch{}, err
 	}
 	commit, cancel := context.WithTimeout(context.WithoutCancel(ctx), commitBudget)
@@ -157,14 +157,15 @@ func (d *Dispatcher) Dispatch(ctx context.Context) (Batch, error) {
 	return batch, nil
 }
 
-// spend moves every due row to until when a budget is spent, and otherwise
-// releases the rows a cap held back and sends up to limit due rows.
-func (d *Dispatcher) spend(ctx context.Context, tx pgx.Tx, now, until time.Time, limit int, org string, batch *Batch) error {
+// spend moves every due row to until, marked held by heldBy, when a budget is
+// spent, and otherwise releases the rows a cap held back and sends up to limit
+// due rows.
+func (d *Dispatcher) spend(ctx context.Context, tx pgx.Tx, now, until time.Time, heldBy string, limit int, org string, batch *Batch) error {
 	if !until.IsZero() {
 		tag, err := tx.Exec(ctx, `
-			UPDATE app.email_outbox SET deliver_after = $2
+			UPDATE app.email_outbox SET deliver_after = $2, held_by = $4
 			 WHERE sent_at IS NULL AND failed_at IS NULL AND deliver_after <= $1 AND template = ANY($3::text[])`,
-			now, until, templateNames())
+			now, until, templateNames(), heldBy)
 		if err != nil {
 			return err
 		}
@@ -179,13 +180,12 @@ func (d *Dispatcher) spend(ctx context.Context, tx pgx.Tx, now, until time.Time,
 	return d.sendDue(ctx, tx, now, limit, org, batch)
 }
 
-// release makes the rows a cap held back due again, each at the time it was
-// written so it goes ahead of newer mail. A held row is one never attempted
-// whose delivery was moved past now; only a cap moves an unattempted row.
+// release makes the rows a cap held back due again and unmarks them, each at
+// the time it was written so it goes ahead of newer mail.
 func release(ctx context.Context, tx pgx.Tx, now time.Time) (int, error) {
 	tag, err := tx.Exec(ctx, `
-		UPDATE app.email_outbox SET deliver_after = least(created_at, $1)
-		 WHERE sent_at IS NULL AND failed_at IS NULL AND attempts = 0 AND deliver_after > $1 AND template = ANY($2::text[])`,
+		UPDATE app.email_outbox SET deliver_after = least(created_at, $1), held_by = NULL
+		 WHERE sent_at IS NULL AND failed_at IS NULL AND held_by IS NOT NULL AND template = ANY($2::text[])`,
 		now, templateNames())
 	if err != nil {
 		return 0, err

@@ -383,6 +383,9 @@ func TestOnceTheMonthsBudgetIsSpentTheRestWaitForTheFirstAndAnExpiredLinkIsNever
 	if r := read(t, w.pool, expiring); r.sentAt != nil || r.failedAt == nil || r.lastError != "expired" || r.hasSecret {
 		t.Errorf("the link that expired while it waited = %+v, want failed as expired with its secret erased", r)
 	}
+	if by := heldBy(t, w, expiring); by != "month" {
+		t.Errorf("the expired message is held by %q, want month kept as the record of why it was not sent", by)
+	}
 	if r := read(t, w.pool, later); r.sentAt == nil {
 		t.Errorf("the link still valid on the 1st = %+v, want it sent", r)
 	}
@@ -428,4 +431,80 @@ func TestMailHeldByTheMonthsCapGoesFirstOnceTheCapIsRaised(t *testing.T) {
 	if r := read(t, w.pool, newer); r.sentAt != nil {
 		t.Errorf("the newer message = %+v, want it to wait behind the held one", r)
 	}
+}
+
+func TestMailHeldByTheDaysCapGoesFirstOnceTheCapIsRaised(t *testing.T) {
+	ict := time.FixedZone("ICT", 7*3600)
+	now := time.Date(2033, 7, 20, 10, 0, 0, 0, ict)
+	w := newWorld(t, now)
+	w.disp.Now = func() time.Time { return now }
+	w.disp.DailyLimit, w.disp.MonthlyLimit = 1, 3000
+	mail := func(label string) string {
+		m := invite(addr(t, label))
+		m.DeliverAfter = now.Add(-time.Minute)
+		return w.enqueue(t, m)
+	}
+	mail("gui-truoc")
+	held := mail("bi-giu")
+	for range 2 {
+		if _, err := w.disp.Dispatch(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if by := heldBy(t, w, held); by != "day" {
+		t.Fatalf("the message past the day's cap is held by %q, want day", by)
+	}
+
+	newer := mail("moi-hon")
+	w.disp.DailyLimit = 2
+	if _, err := w.disp.Dispatch(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if r := read(t, w.pool, held); r.sentAt == nil {
+		t.Errorf("the held message = %+v, want it sent first once the day's cap allows one more", r)
+	}
+	if by := heldBy(t, w, held); by != "" {
+		t.Errorf("a sent message is still held by %q", by)
+	}
+	if r := read(t, w.pool, newer); r.sentAt != nil {
+		t.Errorf("the newer message = %+v, want it to wait behind the held one", r)
+	}
+}
+
+func TestAMessageEnqueuedForLaterIsNotHeldAndIsNotReleasedEarly(t *testing.T) {
+	ict := time.FixedZone("ICT", 7*3600)
+	now := time.Date(2033, 7, 20, 10, 0, 0, 0, ict)
+	w := newWorld(t, now)
+	w.disp.Now = func() time.Time { return now }
+	w.disp.DailyLimit, w.disp.MonthlyLimit = 50, 3000
+	midnight := time.Date(2033, 7, 21, 0, 0, 0, 0, ict)
+	m := invite(addr(t, "hen-gio"))
+	m.DeliverAfter = midnight
+	later := w.enqueue(t, m)
+
+	batch, err := w.disp.Dispatch(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if batch.Released != 0 {
+		t.Errorf("released %d, want none: nothing was held", batch.Released)
+	}
+	if r := read(t, w.pool, later); r.sentAt != nil || !r.deliverAfter.Equal(midnight) {
+		t.Errorf("a message enqueued for midnight = %+v, want it left for %v", r, midnight)
+	}
+	if by := heldBy(t, w, later); by != "" {
+		t.Errorf("a message enqueued for later is held by %q, want none", by)
+	}
+}
+
+func heldBy(t *testing.T, w *world, id string) string {
+	t.Helper()
+	var by *string
+	if err := w.pool.QueryRow(context.Background(), `SELECT held_by FROM app.email_outbox WHERE id = $1::uuid`, id).Scan(&by); err != nil {
+		t.Fatal(err)
+	}
+	if by == nil {
+		return ""
+	}
+	return *by
 }

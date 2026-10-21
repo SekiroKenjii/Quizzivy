@@ -7,6 +7,7 @@ import {
   HardDrive,
   KeyRound,
   MailWarning,
+  MailX,
   Sparkles,
   UserX,
   type LucideIcon,
@@ -114,12 +115,15 @@ export function AttentionList({
           tone: "warning",
           to: `${ADMIN_PATHS.settings}/plan`,
           title: t("adminOverview.attention.emailHeld", { count }),
-          hint:
-            detail?.heldUntil === undefined
-              ? t("adminOverview.attention.emailHeldHint")
-              : t("adminOverview.attention.emailHeldUntil", {
-                  when: formatRelative(detail.heldUntil, locale),
-                }),
+          hint: t("adminOverview.attention.emailHeldHint"),
+        };
+      case "email_expired":
+        return {
+          icon: MailX,
+          tone: "warning",
+          to: `${ADMIN_PATHS.settings}/plan`,
+          title: t("adminOverview.attention.emailExpired", { count }),
+          hint: t("adminOverview.attention.emailExpiredHint"),
         };
       case "ai_credit_requests":
         return {

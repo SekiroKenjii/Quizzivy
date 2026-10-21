@@ -885,8 +885,10 @@
       "storageHint": "Review the limits in Plan & usage",
       "emailHeld_one": "{{count}} email is waiting for the email limit",
       "emailHeld_other": "{{count}} emails are waiting for the email limit",
-      "emailHeldHint": "They go when a limit allows: raise it, or wait for the next day or month",
-      "emailHeldUntil": "They go when a limit allows, {{when}} at the latest, unless a link expires first",
+      "emailHeldHint": "They go when a limit allows; a sign-in link expires 24 hours after it was made",
+      "emailExpired_one": "{{count}} email expired before a limit allowed it",
+      "emailExpired_other": "{{count}} emails expired before a limit allowed them",
+      "emailExpiredHint": "Those links were not sent. Raise the limit in Plan & usage, then send them again",
       "creditRequests_one": "{{count}} teacher asked for more AI credits",
       "creditRequests_other": "{{count}} teachers asked for more AI credits",
       "creditRequestsHint": "{{teacherName}} · {{used}} of {{allowance}} used"
@@ -1535,7 +1537,7 @@
         },
         "email": {
           "title": "Email",
-          "hint": "Mail past a limit waits and goes first once a limit allows it, at the latest the next day or month. A sign-in link that expires while it waits is not sent."
+          "hint": "Mail past a limit waits and goes first once a limit allows it. A sign-in link expires 24 hours after it was made; one that expires while it waits is not sent, and the Overview says so."
         },
         "database": {
           "title": "Database and warnings",
