@@ -38,12 +38,15 @@ type role struct {
 
 func newGuardWorld(t *testing.T) *guardWorld {
 	t.Helper()
-	tx, err := newPool(t).Begin(context.Background())
+	tx, err := newPool(t).BeginTx(context.Background(), pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
 	if _, err := tx.Exec(context.Background(), `SET LOCAL lock_timeout = '5s'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(context.Background(), `SELECT 1 FROM app.organization_settings FOR UPDATE`); err != nil {
 		t.Fatal(err)
 	}
 	dbx := db.NewContext(tx)
