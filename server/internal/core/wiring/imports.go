@@ -19,6 +19,7 @@ import (
 	"quizzivy/internal/platform/config"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/platform/storage"
+	"quizzivy/internal/shared/limits"
 )
 
 // PrivateWorkDir prepares path as the import work directory: it creates it
@@ -66,7 +67,7 @@ func imports(ctx context.Context, cfg config.Config, logger *slog.Logger, dbx db
 			return app
 		},
 	}
-	deps := importsapp.Dependencies{Repo: repo, Drafts: repo, Runs: repo, Artifacts: repo, Store: store, Inspector: adapters.ImportInspector{}, Materializer: committer, WorkDir: cfg.ImportWorkDir, Quotas: quotas, Legacy: cfg.ImportLegacyDoc, Processing: cfg.ImportProcessing}
+	deps := importsapp.Dependencies{Repo: repo, Drafts: repo, Runs: repo, Artifacts: repo, Store: store, Inspector: adapters.ImportInspector{}, Materializer: committer, WorkDir: cfg.ImportWorkDir, Quotas: quotas, Limits: &limits.Reader{DB: dbx, Env: cfg.Limits}, Legacy: cfg.ImportLegacyDoc, Processing: cfg.ImportProcessing}
 	if cfg.ImportProcessing {
 		deps.Worker = adapters.NewWorkerWake(context.WithoutCancel(ctx), cfg.ImportWorkerWakeURL, logger)
 	}

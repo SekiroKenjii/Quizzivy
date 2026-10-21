@@ -9,6 +9,7 @@ import (
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/platform/email"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/limits"
 	"quizzivy/internal/shared/opt"
 	"time"
 
@@ -187,6 +188,11 @@ func (a *AdminUsers) ChangeRole(ctx context.Context, req domain.WriteRequest, in
 			return &domain.OwnsContentError{Owned: owned}
 		}
 	}
+	if !acct.disabled {
+		if err := limits.Admit(ctx, tx, limits.Admission{RoleID: in.ToRoleID, FromRoleID: acct.roleID}); err != nil {
+			return err
+		}
+	}
 	if _, err := tx.Exec(ctx, `UPDATE app.users SET role_id = $2::uuid WHERE id = $1::uuid`, in.UserID, in.ToRoleID); err != nil {
 		return fmt.Errorf("users: change role: %w", UserWriteError(err))
 	}
@@ -259,6 +265,9 @@ func (a *AdminUsers) Enable(ctx context.Context, req domain.WriteRequest, in dom
 	}
 	if !acct.disabled {
 		return nil
+	}
+	if err := limits.Admit(ctx, tx, limits.Admission{Seat: true, RoleID: acct.roleID}); err != nil {
+		return err
 	}
 	if _, err := tx.Exec(ctx, `UPDATE app.users SET disabled_at = NULL WHERE id = $1::uuid`, in.UserID); err != nil {
 		return fmt.Errorf("users: enable: %w", err)

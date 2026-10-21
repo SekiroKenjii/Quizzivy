@@ -37,7 +37,7 @@ func (u *UserImports) WithLinks(links *SetPasswordLinks) *UserImports {
 
 const importJobColumns = `
 	j.id::text, j.created_by::text, j.request_id::text, j.filename, j.format, j.default_role_id::text,
-	j.delivery, j.status, j.total_rows, j.created_count, j.skipped_count, j.invalid_count, j.attempts,
+	j.delivery, j.status, j.total_rows, j.created_count, j.skipped_count, j.over_limit_count, j.invalid_count, j.attempts,
 	coalesce(j.error_code, ''), j.sheet_expires_at, j.sheet_downloaded_at,
 	j.created_at, j.started_at, j.completed_at`
 
@@ -48,7 +48,7 @@ func scanImportJob(row pgx.Row) (domain.ImportJob, error) {
 	var j domain.ImportJob
 	var format, delivery, status string
 	err := row.Scan(&j.ID, &j.CreatedBy, &j.RequestID, &j.Filename, &format, &j.DefaultRoleID,
-		&delivery, &status, &j.Total, &j.Created, &j.Skipped, &j.Invalid, &j.Attempts,
+		&delivery, &status, &j.Total, &j.Created, &j.Skipped, &j.OverLimit, &j.Invalid, &j.Attempts,
 		&j.ErrorCode, &j.SheetExpiresAt, &j.SheetDownloadedAt,
 		&j.CreatedAt, &j.StartedAt, &j.CompletedAt)
 	if err != nil {

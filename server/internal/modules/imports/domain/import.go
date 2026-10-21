@@ -6,6 +6,7 @@ import (
 	"errors"
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/actor"
+	"quizzivy/internal/shared/limits"
 	"quizzivy/internal/shared/paging"
 	"time"
 )
@@ -114,9 +115,28 @@ type List struct {
 }
 
 // Quotas bounds retained reservations as well as completed sources; failed storage writes do not evade accounting.
+// StorageBytes, when not nil, bounds every file the centre keeps (shared/limits).
 type Quotas struct {
 	ActorImports, GlobalImports, SourcesPerImport int
 	ActorBytes, GlobalBytes                       int64
+	StorageBytes                                  *int64
+}
+
+// Within returns q with the usage limits an Admin governs, the open documents
+// of one teacher and of the centre and the centre's file storage, taken from
+// resolved.
+func (q Quotas) Within(resolved limits.Limits) Quotas {
+	if v, ok := resolved.Of(limits.ImportPerTeacherBytes); ok {
+		q.ActorBytes = v
+	}
+	if v, ok := resolved.Of(limits.ImportBytes); ok {
+		q.GlobalBytes = v
+	}
+	q.StorageBytes = nil
+	if v, ok := resolved.Of(limits.StorageBytes); ok {
+		q.StorageBytes = &v
+	}
+	return q
 }
 
 // DefaultQuotas returns conservative development limits, pending production capacity approval.

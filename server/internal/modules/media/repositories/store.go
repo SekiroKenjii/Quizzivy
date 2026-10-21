@@ -8,6 +8,7 @@ import (
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/limits"
 	"quizzivy/internal/shared/opt"
 
 	"github.com/jackc/pgx/v5"
@@ -121,6 +122,11 @@ func (s *Postgres) Insert(ctx context.Context, in domain.InsertInput) (domain.As
 	err := s.InTx(ctx, "media: insert", func(tx pgx.Tx) error {
 		if err := RequireQuota(ctx, tx, QuotaCheck{OwnerID: ownerOf(in), Add: in.Bytes, Quota: in.QuotaBytes}); err != nil {
 			return err
+		}
+		if in.StorageLimit != nil {
+			if err := limits.RequireStorage(ctx, tx, *in.StorageLimit, in.Bytes); err != nil {
+				return err
+			}
 		}
 		var err error
 		a, err = Insert(ctx, tx, in)

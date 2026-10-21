@@ -11,6 +11,7 @@ import (
 
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/limits"
 )
 
 const importLeaseSeconds = int64(domain.ImportLease / time.Second)
@@ -161,6 +162,7 @@ type settlement struct {
 	classes map[string]bool
 	created int
 	skipped int
+	over    int
 	after   []func()
 }
 
@@ -170,6 +172,10 @@ func (s *settlement) row(ctx context.Context, row domain.ImportCreate) error {
 			return err
 		}
 		s.locked[row.RoleID] = true
+	}
+	admitted, err := s.admit(ctx, row)
+	if err != nil || !admitted {
+		return err
 	}
 	id, inserted, err := s.insert(ctx, row)
 	if err != nil {
@@ -218,6 +224,26 @@ func (s *settlement) settle(ctx context.Context, ordinal int, statement string) 
 		return errors.New("user imports: a row to settle was not waiting")
 	}
 	return nil
+}
+
+func (s *settlement) admit(ctx context.Context, row domain.ImportCreate) (bool, error) {
+	err := limits.Admit(ctx, s.tx, limits.Admission{Seat: true, RoleID: row.RoleID})
+	if !errors.Is(err, limits.ErrSeatLimit) && !errors.Is(err, limits.ErrTeacherLimit) {
+		return err == nil, err
+	}
+	var taken bool
+	if err := s.tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM app.users WHERE lower(email) = lower($1))`, row.Email).Scan(&taken); err != nil {
+		return false, fmt.Errorf("user imports: look up an address: %w", err)
+	}
+	if taken {
+		return true, nil
+	}
+	if err := s.settle(ctx, row.Ordinal, `UPDATE app.user_import_rows SET outcome = 'skipped_limit'
+		 WHERE job_id = $1::uuid AND ordinal = $2 AND outcome = 'pending'`); err != nil {
+		return false, err
+	}
+	s.over++
+	return false, nil
 }
 
 func (s *settlement) insert(ctx context.Context, row domain.ImportCreate) (string, bool, error) {
@@ -296,22 +322,24 @@ func (s *settlement) audit(ctx context.Context, row domain.ImportCreate, userID 
 }
 
 func (s *settlement) finish(ctx context.Context) (domain.ImportProgress, error) {
-	progress := domain.ImportProgress{Created: s.created, Skipped: s.skipped}
+	progress := domain.ImportProgress{Created: s.created, Skipped: s.skipped, OverLimit: s.over}
 	err := s.tx.QueryRow(ctx, `
 		WITH moved AS (
-		  SELECT created_count + $2::int AS created, skipped_count + $3::int AS skipped
+		  SELECT created_count + $2::int AS created, skipped_count + $3::int AS skipped,
+		         over_limit_count + $6::int AS over
 		    FROM app.user_import_jobs WHERE id = $1::uuid)
 		UPDATE app.user_import_jobs j
 		   SET created_count = m.created,
 		       skipped_count = m.skipped,
-		       status = CASE WHEN m.created + m.skipped = j.total_rows THEN 'done' ELSE j.status END,
-		       completed_at = CASE WHEN m.created + m.skipped = j.total_rows THEN $4::timestamptz ELSE j.completed_at END,
-		       sheet_expires_at = CASE WHEN j.delivery = 'sheet' AND m.created > 0 AND m.created + m.skipped = j.total_rows
+		       over_limit_count = m.over,
+		       status = CASE WHEN m.created + m.skipped + m.over = j.total_rows THEN 'done' ELSE j.status END,
+		       completed_at = CASE WHEN m.created + m.skipped + m.over = j.total_rows THEN $4::timestamptz ELSE j.completed_at END,
+		       sheet_expires_at = CASE WHEN j.delivery = 'sheet' AND m.created > 0 AND m.created + m.skipped + m.over = j.total_rows
 		                               THEN $5::timestamptz ELSE j.sheet_expires_at END
 		  FROM moved m
 		 WHERE j.id = $1::uuid
 		RETURNING j.status = 'done'`,
-		s.batch.JobID, s.created, s.skipped, s.batch.Now, s.batch.Now.Add(domain.SheetLifetime)).Scan(&progress.Done)
+		s.batch.JobID, s.created, s.skipped, s.batch.Now, s.batch.Now.Add(domain.SheetLifetime), s.over).Scan(&progress.Done)
 	if err != nil {
 		return domain.ImportProgress{}, fmt.Errorf("user imports: move the counters: %w", err)
 	}

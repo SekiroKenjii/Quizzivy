@@ -5,6 +5,7 @@ import (
 	"time"
 
 	auditdomain "quizzivy/internal/modules/audit/domain"
+	"quizzivy/internal/shared/limits"
 )
 
 // ErrAdminUnavailable means the Admin readings have no organization port to name the centre from.
@@ -21,9 +22,6 @@ const ActiveWeekDays = 7
 
 // RecentChanges is how many audit entries the Overview quotes.
 const RecentChanges = 5
-
-// StorageWarnPercent is the share of a stated limit at which a storage meter needs attention.
-const StorageWarnPercent = 80
 
 // AdminViewer says which parts of the Admin readings a caller's keys open: Users is people.users.manage, Audit system.audit.read, Settings system.settings.write, Credits ai.credits.manage and All scope.all.
 type AdminViewer struct {
@@ -117,6 +115,7 @@ const (
 	AttentionNeverSignedIn    AttentionKind = "never_signed_in"
 	AttentionDisabledTeachers AttentionKind = "disabled_teacher_classes"
 	AttentionStorage          AttentionKind = "storage"
+	AttentionEmailHeld        AttentionKind = "email_held"
 )
 
 // AttentionDetail holds the facts a row quotes; a field its kind does not use is nil.
@@ -126,6 +125,9 @@ type AttentionDetail struct {
 	TeacherName     *string
 	MediaPercent    *int
 	ImportsPercent  *int
+	StoragePercent  *int
+	DatabasePercent *int
+	HeldUntil       *time.Time
 	Used            *int
 	Allowance       *int
 }
@@ -177,32 +179,37 @@ type AdminOverview struct {
 // AdminSummary is the Admin sidebar's counts. MustChangePassword is nil without people.users.manage.
 type AdminSummary struct{ MustChangePassword *int }
 
-// Plan is the plan the centre states: a name, a renewal date and the limits it holds. A zero limit is no limit and nothing is enforced (DG-55).
-type Plan struct {
-	Name         string
-	RenewsOn     time.Time
-	SeatLimit    int
-	TeacherLimit int
-	MediaBytes   int64
-	ImportBytes  int64
+// EmailWindow is the local day and month the email counts read, and now.
+type EmailWindow struct {
+	Now                   time.Time
+	DayStart, NextDay     time.Time
+	MonthStart, NextMonth time.Time
 }
 
-// Held is what the centre keeps in storage and in the database, counted from its tables.
+// Held is what the centre holds and uses, counted from its tables: the seats
+// and teachers as limits.CountAccounts counts them, the bytes of its stored
+// files as limits.CountHeld sums them, the fullest teacher's media library,
+// the documents of the imports still open, the mail sent and held, and the
+// database's approximate size.
 type Held struct {
-	MediaBytes  int64
-	ImportBytes int64
-	ImportCount int
-	Attempts    int64
+	Seats           int
+	Teachers        int
+	MediaBytes      int64
+	ImportBytes     int64
+	ExportBytes     int64
+	ImportCount     int
+	LargestLibrary  int64
+	OpenImportBytes int64
+	EmailsToday     int
+	EmailsMonth     int
+	EmailsHeld      int
+	HeldUntil       *time.Time
+	DatabaseBytes   int64
+	Attempts        int64
 }
 
 // Credits is the month's AI credits used against the centre pool.
 type Credits struct{ Used, Pool int64 }
-
-// PlanInfo is the named plan; RenewsOn is nil when none is stated.
-type PlanInfo struct {
-	Name     string
-	RenewsOn *time.Time
-}
 
 // Count is a number of accounts against a limit, nil when there is none.
 type Count struct {
@@ -216,56 +223,76 @@ type Bytes struct {
 	Limit *int64
 }
 
-// ImportBytes is the import documents' size and number against a size limit, nil when there is none.
-type ImportBytes struct {
-	Bytes int64
-	Count int
-	Limit *int64
+// Media is the media library's size, the fullest teacher's library and the limit one library may hold.
+type Media struct {
+	Bytes           int64
+	LargestLibrary  int64
+	PerTeacherLimit *int64
 }
 
-// Usage is what the centre uses against its plan. AICredits is nil without ai.credits.manage and while the assistant is off.
+// Imports is the kept import documents and their imports, the documents of the open imports and their limits.
+type Imports struct {
+	Bytes           int64
+	Count           int
+	OpenBytes       int64
+	Limit           *int64
+	PerTeacherLimit *int64
+}
+
+// Email is the mail sent today and this month, the messages a cap holds and the caps.
+type Email struct {
+	Today, Month, Held       int
+	HeldUntil                *time.Time
+	DailyLimit, MonthlyLimit *int
+}
+
+// Usage is what the centre uses against its limits. AICredits is nil without ai.credits.manage and while the assistant is off.
 type Usage struct {
-	Plan         *PlanInfo
-	Seats        Count
-	Teachers     Count
-	Media        Bytes
-	Imports      ImportBytes
-	AttemptsKept int64
-	AICredits    *Credits
+	Seats         Count
+	Teachers      Count
+	Storage       Bytes
+	Media         Media
+	Imports       Imports
+	Email         Email
+	Database      Bytes
+	AttemptsKept  int64
+	AICredits     *Credits
+	WarnAtPercent int
 }
 
-// NewUsage reads the figures against the plan.
-func NewUsage(plan Plan, accounts Accounts, held Held, credits *Credits) Usage {
-	out := Usage{
-		Seats:        Count{Used: accounts.Enabled, Limit: limitOf(plan.SeatLimit)},
-		Teachers:     Count{Used: accounts.Teachers, Limit: limitOf(plan.TeacherLimit)},
-		Media:        Bytes{Bytes: held.MediaBytes, Limit: bytesOf(plan.MediaBytes)},
-		Imports:      ImportBytes{Bytes: held.ImportBytes, Count: held.ImportCount, Limit: bytesOf(plan.ImportBytes)},
-		AttemptsKept: held.Attempts,
-		AICredits:    credits,
+// NewUsage sets what is held against the resolved limits.
+func NewUsage(l limits.Limits, held Held, credits *Credits) Usage {
+	return Usage{
+		Seats:    Count{Used: held.Seats, Limit: intOf(l, limits.Seats)},
+		Teachers: Count{Used: held.Teachers, Limit: intOf(l, limits.Teachers)},
+		Storage:  Bytes{Bytes: held.MediaBytes + held.ImportBytes + held.ExportBytes, Limit: int64Of(l, limits.StorageBytes)},
+		Media:    Media{Bytes: held.MediaBytes, LargestLibrary: held.LargestLibrary, PerTeacherLimit: int64Of(l, limits.MediaPerTeacherBytes)},
+		Imports: Imports{Bytes: held.ImportBytes, Count: held.ImportCount, OpenBytes: held.OpenImportBytes,
+			Limit: int64Of(l, limits.ImportBytes), PerTeacherLimit: int64Of(l, limits.ImportPerTeacherBytes)},
+		Email: Email{Today: held.EmailsToday, Month: held.EmailsMonth, Held: held.EmailsHeld, HeldUntil: held.HeldUntil,
+			DailyLimit: intOf(l, limits.EmailsPerDay), MonthlyLimit: intOf(l, limits.EmailsPerMonth)},
+		Database:      Bytes{Bytes: held.DatabaseBytes, Limit: int64Of(l, limits.DatabaseBytes)},
+		AttemptsKept:  held.Attempts,
+		AICredits:     credits,
+		WarnAtPercent: l.WarnPercent(),
 	}
-	if plan.Name != "" {
-		out.Plan = &PlanInfo{Name: plan.Name}
-		if !plan.RenewsOn.IsZero() {
-			renews := plan.RenewsOn
-			out.Plan.RenewsOn = &renews
-		}
-	}
-	return out
 }
 
-func limitOf(n int) *int {
-	if n < 1 {
+func intOf(l limits.Limits, n limits.Name) *int {
+	v, ok := l.Of(n)
+	if !ok {
 		return nil
 	}
-	return &n
+	i := int(v)
+	return &i
 }
 
-func bytesOf(n int64) *int64 {
-	if n < 1 {
+func int64Of(l limits.Limits, n limits.Name) *int64 {
+	v, ok := l.Of(n)
+	if !ok {
 		return nil
 	}
-	return &n
+	return &v
 }
 
 // Percent is used as a share of limit, rounded half up.
@@ -273,28 +300,37 @@ func Percent(used, limit int64) int {
 	return int((200*used + limit) / (2 * limit))
 }
 
-// StorageAttention is the storage row: how many of the media and import meters with a limit read StorageWarnPercent or more once rounded to the percent the meter shows, and nil when none does.
+// StorageAttention is the storage row: how many of the file storage, largest
+// media library, open imports and database readings with a limit are at
+// u.WarnAtPercent or more once rounded to the percent the page shows, and nil
+// when none is.
 func StorageAttention(u Usage) *Attention {
 	detail := AttentionDetail{}
 	count := 0
-	if u.Media.Limit != nil {
-		percent := Percent(u.Media.Bytes, *u.Media.Limit)
-		detail.MediaPercent = &percent
-		if nearly(u.Media.Bytes, *u.Media.Limit) {
+	reading := func(used int64, limit *int64, into **int) {
+		if limit == nil {
+			return
+		}
+		percent := Percent(used, *limit)
+		*into = &percent
+		if percent >= u.WarnAtPercent {
 			count++
 		}
 	}
-	if u.Imports.Limit != nil {
-		percent := Percent(u.Imports.Bytes, *u.Imports.Limit)
-		detail.ImportsPercent = &percent
-		if nearly(u.Imports.Bytes, *u.Imports.Limit) {
-			count++
-		}
-	}
+	reading(u.Storage.Bytes, u.Storage.Limit, &detail.StoragePercent)
+	reading(u.Media.LargestLibrary, u.Media.PerTeacherLimit, &detail.MediaPercent)
+	reading(u.Imports.OpenBytes, u.Imports.Limit, &detail.ImportsPercent)
+	reading(u.Database.Bytes, u.Database.Limit, &detail.DatabasePercent)
 	if count == 0 {
 		return nil
 	}
 	return &Attention{Kind: AttentionStorage, Count: count, Detail: &detail}
 }
 
-func nearly(used, limit int64) bool { return Percent(used, limit) >= StorageWarnPercent }
+// EmailAttention is the row that says a cap holds mail for later, and nil when none is held.
+func EmailAttention(u Usage) *Attention {
+	if u.Email.Held == 0 {
+		return nil
+	}
+	return &Attention{Kind: AttentionEmailHeld, Count: u.Email.Held, Detail: &AttentionDetail{HeldUntil: u.Email.HeldUntil}}
+}

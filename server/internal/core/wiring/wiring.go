@@ -165,7 +165,7 @@ func Build(ctx context.Context, cfg config.Config, logger *slog.Logger, pool *db
 			Attempts:      attemptsTransport(attemptsApp, mediaApp, identityApp, logger),
 			Availability:  availabilityTransport,
 			Notifications: notificationsTransport(notificationsApp, logger),
-			Organization:  organizationTransport(organizationApp),
+			Organization:  organizationTransport(organizationApp, cfg),
 			Exports:       exportsTransport,
 		},
 		Principals:    principals,

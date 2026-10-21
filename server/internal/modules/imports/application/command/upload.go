@@ -11,6 +11,7 @@ import (
 	"quizzivy/internal/modules/imports/domain"
 	"quizzivy/internal/shared/actor"
 	"quizzivy/internal/shared/content"
+	"quizzivy/internal/shared/limits"
 	"strings"
 	"time"
 	"unicode"
@@ -33,6 +34,7 @@ type UploadHandler struct {
 	Store     ports.ObjectStore
 	Inspector ports.Inspector
 	Quotas    domain.Quotas
+	Limits    *limits.Reader
 	WorkDir   string
 	Slots     chan struct{}
 	Legacy    bool
@@ -74,7 +76,15 @@ func (h UploadHandler) handlePrepared(ctx context.Context, in Upload, format str
 			return domain.Receipt{}, err
 		}
 	}
-	source, err := h.Repo.Reserve(ctx, domain.Reserve{Actor: in.Actor, Source: domain.Source{ImportID: in.ImportID, UploadID: in.UploadID, ExpectedRevision: in.ExpectedRevision, Role: in.Role, Filename: in.Filename, Format: format, Characters: characters, Bytes: n, SHA256: checksum}}, h.Quotas)
+	quotas := h.Quotas
+	if h.Limits != nil {
+		resolved, err := h.Limits.Read(ctx, nil)
+		if err != nil {
+			return domain.Receipt{}, err
+		}
+		quotas = quotas.Within(resolved)
+	}
+	source, err := h.Repo.Reserve(ctx, domain.Reserve{Actor: in.Actor, Source: domain.Source{ImportID: in.ImportID, UploadID: in.UploadID, ExpectedRevision: in.ExpectedRevision, Role: in.Role, Filename: in.Filename, Format: format, Characters: characters, Bytes: n, SHA256: checksum}}, quotas)
 	if err != nil {
 		return domain.Receipt{}, err
 	}

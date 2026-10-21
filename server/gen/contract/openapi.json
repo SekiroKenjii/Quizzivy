@@ -1139,13 +1139,198 @@
           }
         }
       },
+      "UsageLimits": {
+        "type": "object",
+        "description": "The usage limits an Admin set (CR-002, D-060). `null` takes the\ndefault `limitDefaults` names: the deploy's variable when one is set,\nelse the hosting plan's figure, and for `seats` and `teachers` no limit.\nA limit below what is in use can be saved; it refuses what would add to\nthe use and disables nothing.\n\n`seats` bounds the enabled accounts and `teachers` the enabled accounts\nwhose role opens the teacher workspace; both refuse a new, re-enabled\nor re-roled account past them (`SEAT_LIMIT`, `TEACHER_LIMIT`).\n`storageBytes` bounds every file the centre keeps in its buckets\n(media, import documents and their read pages, exports ready to\ndownload) and refuses an upload past it. `mediaPerTeacherBytes` bounds\none teacher's media library; `importBytes` and `importPerTeacherBytes`\nthe documents of the imports still open, for the centre and for one\nteacher. `emailsPerDay` and `emailsPerMonth` hold mail past them until\nthe next local day or month. `databaseBytes` only warns.\n`warnAtPercent` is the share of a limit at which the Overview warns.\n",
+        "required": [
+          "seats",
+          "teachers",
+          "storageBytes",
+          "mediaPerTeacherBytes",
+          "importBytes",
+          "importPerTeacherBytes",
+          "emailsPerDay",
+          "emailsPerMonth",
+          "databaseBytes",
+          "warnAtPercent"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "seats": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "teachers": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "storageBytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 1048576,
+            "maximum": 1125899906842624
+          },
+          "mediaPerTeacherBytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 1048576,
+            "maximum": 1125899906842624
+          },
+          "importBytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 1048576,
+            "maximum": 1125899906842624
+          },
+          "importPerTeacherBytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 1048576,
+            "maximum": 1125899906842624
+          },
+          "emailsPerDay": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "emailsPerMonth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 10000000
+          },
+          "databaseBytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 1048576,
+            "maximum": 1125899906842624
+          },
+          "warnAtPercent": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 50,
+            "maximum": 100
+          }
+        }
+      },
+      "UsageLimitDefault": {
+        "type": "object",
+        "description": "What a limit is when nothing is stored. `value` is `null` for no limit.\n`source` says where it comes from: `r2_free` (Cloudflare R2's free tier,\n10 GB), `neon_launch` (the warning line chosen for Neon's Launch plan,\nwhich has no cap), `resend_free` (Resend's free plan, 100 a day and\n3,000 a month), `deploy` (a deploy variable that overrides the plan),\n`app` (the app's own figure) or `none`.\n",
+        "required": [
+          "value",
+          "source"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "value": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 1
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "none",
+              "app",
+              "deploy",
+              "r2_free",
+              "neon_launch",
+              "resend_free"
+            ]
+          }
+        }
+      },
+      "UsageLimitDefaults": {
+        "type": "object",
+        "description": "Each limit's default, under the same names as `UsageLimits`.",
+        "required": [
+          "seats",
+          "teachers",
+          "storageBytes",
+          "mediaPerTeacherBytes",
+          "importBytes",
+          "importPerTeacherBytes",
+          "emailsPerDay",
+          "emailsPerMonth",
+          "databaseBytes",
+          "warnAtPercent"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "seats": {
+            "$ref": "#/components/schemas/UsageLimitDefault"
+          },
+          "teachers": {
+            "$ref": "#/components/schemas/UsageLimitDefault"
+          },
+          "storageBytes": {
+            "$ref": "#/components/schemas/UsageLimitDefault"
+          },
+          "mediaPerTeacherBytes": {
+            "$ref": "#/components/schemas/UsageLimitDefault"
+          },
+          "importBytes": {
+            "$ref": "#/components/schemas/UsageLimitDefault"
+          },
+          "importPerTeacherBytes": {
+            "$ref": "#/components/schemas/UsageLimitDefault"
+          },
+          "emailsPerDay": {
+            "$ref": "#/components/schemas/UsageLimitDefault"
+          },
+          "emailsPerMonth": {
+            "$ref": "#/components/schemas/UsageLimitDefault"
+          },
+          "databaseBytes": {
+            "$ref": "#/components/schemas/UsageLimitDefault"
+          },
+          "warnAtPercent": {
+            "$ref": "#/components/schemas/UsageLimitDefault"
+          }
+        }
+      },
       "OrganizationSettings": {
         "type": "object",
-        "description": "The whole settings document, as stored.",
+        "description": "The whole settings document, as stored, and each usage limit's default.",
         "required": [
           "organization",
           "signIn",
           "retention",
+          "limits",
+          "limitDefaults",
           "revision",
           "updatedAt",
           "updatedBy"
@@ -1160,6 +1345,12 @@
           },
           "retention": {
             "$ref": "#/components/schemas/RetentionPolicy"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/UsageLimits"
+          },
+          "limitDefaults": {
+            "$ref": "#/components/schemas/UsageLimitDefaults"
           },
           "revision": {
             "type": "integer",
@@ -1186,7 +1377,7 @@
       },
       "OrganizationSettingsInput": {
         "type": "object",
-        "description": "The whole document to store, and the revision it was read at.",
+        "description": "The whole document to store, and the revision it was read at. Without\n`limits` the stored limits are kept, so a client that predates them\nchanges none.\n",
         "required": [
           "organization",
           "signIn",
@@ -1203,6 +1394,9 @@
           },
           "retention": {
             "$ref": "#/components/schemas/RetentionPolicy"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/UsageLimits"
           },
           "expectedRevision": {
             "type": "integer",
@@ -1396,6 +1590,9 @@
           "ROLE_NAME_TAKEN",
           "ROLE_LIMIT_REACHED",
           "ROLE_NOT_ASSIGNABLE",
+          "SEAT_LIMIT",
+          "TEACHER_LIMIT",
+          "STORAGE_LIMIT",
           "ROLE_LOCKED",
           "STUDENT_NEEDS_TAKE_TESTS",
           "KEY_NOT_GRANTABLE",
@@ -5326,7 +5523,7 @@
       },
       "UserImportIssue": {
         "type": "object",
-        "description": "One cell the import refused. `row` is the line of the file the row sits\non, counting the header as line 1, which is the number a spreadsheet\nshows beside it. `code` says why: `REQUIRED` (empty), `TOO_LONG`,\n`INVALID` (not an address, or a name with control characters),\n`FORMULA_LIKE` (an address that starts with a character a spreadsheet\nreads as a formula, such as `+` or `=`, which the hand-out sheet could not\ncarry as the address that signs in),\n`DUPLICATE_IN_FILE` (an address an earlier row has), `UNKNOWN_ROLE` and\n`AMBIGUOUS_ROLE` (no role, or more than one, answers to the name),\n`ROLE_NOT_ALLOWED` (the role holds a permission the importer lacks),\n`ROLE_NOT_GIVABLE` (the Assistant, which no one is given), `UNKNOWN_CLASS` and\n`AMBIGUOUS_CLASS` (no active class, or more than one, has the name), and\n`CLASS_NOT_ALLOWED` (a class for a role that is not a student target, or\nby an importer without `scope.all`). A refusal carries no text of the file.\n",
+        "description": "One cell the import refused. `row` is the line of the file the row sits\non, counting the header as line 1, which is the number a spreadsheet\nshows beside it. `code` says why: `REQUIRED` (empty), `TOO_LONG`,\n`INVALID` (not an address, or a name with control characters),\n`FORMULA_LIKE` (an address that starts with a character a spreadsheet\nreads as a formula, such as `+` or `=`, which the hand-out sheet could not\ncarry as the address that signs in),\n`DUPLICATE_IN_FILE` (an address an earlier row has), `UNKNOWN_ROLE` and\n`AMBIGUOUS_ROLE` (no role, or more than one, answers to the name),\n`ROLE_NOT_ALLOWED` (the role holds a permission the importer lacks),\n`ROLE_NOT_GIVABLE` (the Assistant, which no one is given), `UNKNOWN_CLASS` and\n`AMBIGUOUS_CLASS` (no active class, or more than one, has the name), and\n`CLASS_NOT_ALLOWED` (a class for a role that is not a student target, or\nby an importer without `scope.all`), and `OVER_SEAT_LIMIT` (on `email`) and\n`OVER_TEACHER_LIMIT` (on `role`): a new account past a limit an Admin set on\nPlan \u0026 usage, counted in the file's order. A refusal carries no text of the file.\n",
         "additionalProperties": false,
         "required": [
           "row",
@@ -5355,7 +5552,9 @@
               "ROLE_NOT_GIVABLE",
               "UNKNOWN_CLASS",
               "AMBIGUOUS_CLASS",
-              "CLASS_NOT_ALLOWED"
+              "CLASS_NOT_ALLOWED",
+              "OVER_SEAT_LIMIT",
+              "OVER_TEACHER_LIMIT"
             ]
           }
         }
@@ -5463,7 +5662,7 @@
       },
       "UserImportJob": {
         "type": "object",
-        "description": "One import. `status` is `queued` until the worker claims it, `running`\nwhile it creates the accounts, `done` once every stored row is settled,\nand `failed` when it gave up (`errorCode` says why, a short code that\nnever carries the file). `total` is the rows stored, those that passed\nevery rule; `processed` is those settled so far, `created` + `skipped`;\n`skipped` are the addresses that already belonged to an account.\n`invalid` counts the rows refused, which are not stored. `sheet` is `null`\nunless `delivery` is `sheet`: `available` is true from `done` until the\nsheet is downloaded or 24 hours have passed, whichever comes first.\n",
+        "description": "One import. `status` is `queued` until the worker claims it, `running`\nwhile it creates the accounts, `done` once every stored row is settled,\nand `failed` when it gave up (`errorCode` says why, a short code that\nnever carries the file). `total` is the rows stored, those that passed\nevery rule; `processed` is those settled so far, `created` + `skipped` +\n`overLimit`; `skipped` are the addresses that already belonged to an\naccount, and `overLimit` the new accounts not created because the\ncentre reached a seat or teacher limit while the job ran.\n`invalid` counts the rows refused, which are not stored. `sheet` is `null`\nunless `delivery` is `sheet`: `available` is true from `done` until the\nsheet is downloaded or 24 hours have passed, whichever comes first.\n",
         "additionalProperties": false,
         "required": [
           "id",
@@ -5472,6 +5671,7 @@
           "processed",
           "created",
           "skipped",
+          "overLimit",
           "invalid",
           "delivery",
           "sheet",
@@ -5507,6 +5707,11 @@
             "maximum": 2000
           },
           "skipped": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "overLimit": {
             "type": "integer",
             "minimum": 0,
             "maximum": 2000
@@ -7508,6 +7713,7 @@
           "never_signed_in",
           "disabled_teacher_classes",
           "storage",
+          "email_held",
           "ai_credit_requests"
         ]
       },
@@ -7527,7 +7733,7 @@
           "count": {
             "type": "integer",
             "minimum": 1,
-            "description": "`must_change_password`: enabled accounts on a temporary password.\n`never_signed_in`: enabled accounts that have never signed in and\nare not on a temporary password. `disabled_teacher_classes`: classes,\narchived ones too, whose teacher is disabled. `storage`: how many of\nthe media and import meters with a configured limit read 80 percent\nor more, as `detail` quotes them (rounded half up). `ai_credit_requests`: the teachers waiting for more credits\nthis month.\n"
+            "description": "`must_change_password`: enabled accounts on a temporary password.\n`never_signed_in`: enabled accounts that have never signed in and\nare not on a temporary password. `disabled_teacher_classes`: classes,\narchived ones too, whose teacher is disabled. `storage`: how many of\nthe file storage, largest media library, open imports and database\nreadings are at `Usage.warnAtPercent` of their limit or more, as\n`detail` quotes them (rounded half up). `email_held`: messages an\nemail cap holds for a later day or month. `ai_credit_requests`: the\nteachers waiting for more credits this month.\n"
           },
           "detail": {
             "description": "What the row's line quotes. `null` for `must_change_password`.",
@@ -7544,7 +7750,7 @@
       },
       "AdminAttentionDetail": {
         "type": "object",
-        "description": "The facts a row quotes, by kind; a field its kind does not use is\nabsent. `never_signed_in`: `oldestCreatedAt`.\n`disabled_teacher_classes`: `className` and `teacherName` of the newest\nsuch class. `storage`: `mediaPercent` and `importsPercent`, each absent\nwhen that meter has no limit. `ai_credit_requests`: `teacherName`,\n`used` and `allowance` of the request waiting longest.\n",
+        "description": "The facts a row quotes, by kind; a field its kind does not use is\nabsent. `never_signed_in`: `oldestCreatedAt`.\n`disabled_teacher_classes`: `className` and `teacherName` of the newest\nsuch class. `storage`: `mediaPercent` and `importsPercent`, each absent\nwhen that meter has no limit, and `storagePercent` and\n`databasePercent`. `email_held`: `heldUntil`, when the first held\nmessage may go. `ai_credit_requests`: `teacherName`,\n`used` and `allowance` of the request waiting longest.\n",
         "additionalProperties": false,
         "properties": {
           "oldestCreatedAt": {
@@ -7564,6 +7770,18 @@
           "importsPercent": {
             "type": "integer",
             "minimum": 0
+          },
+          "storagePercent": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "databasePercent": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "heldUntil": {
+            "type": "string",
+            "format": "date-time"
           },
           "used": {
             "type": "integer",
@@ -7594,40 +7812,41 @@
       },
       "Usage": {
         "type": "object",
-        "description": "What the centre uses against its plan. Nothing is enforced (DG-55): a\n`limit` is `null` when its `PLAN_*` variable is unset, and a figure may\npass its limit.\n\n`seats` counts the accounts that are not disabled against\n`PLAN_SEAT_LIMIT`. `teachers` counts the enabled accounts that are not\na student target, Admins included, against `PLAN_TEACHER_LIMIT`; it is\nthe Overview's `people.teachers`. `media` is the bytes of the media\nfiles still held in storage, against `PLAN_MEDIA_BYTES`, and `imports`\nthe bytes of the source documents of\nthe imports whose files are still kept and the number of those imports,\nagainst `PLAN_IMPORT_BYTES`. `attemptsKept` has no limit until a\ndenominator is named.\n",
+        "description": "What the centre uses against its limits (CR-002, D-060), each limit\nresolved as `UsageLimits` says, `null` where there is none.\n\n`seats` counts the enabled accounts and `teachers` the enabled accounts\nwhose role opens the teacher workspace. `storage` is every file the\ncentre keeps in its buckets, the sum `storageBytes` bounds: `media`,\n`imports` and the exports ready to download. `media.largestLibrary` is\nthe fullest teacher's library against `mediaPerTeacherBytes`.\n`imports.bytes` and `imports.count` are the kept documents and their\nimports; `imports.openBytes` the documents of the imports still open,\nwhich `importBytes` bounds. `email` counts what was sent today and this\nmonth in `APP_TIMEZONE`, and `held` the messages a cap moved to a\nlater day or month. `database.bytes` is PostgreSQL's\n`pg_database_size`, which approximates and is not what Neon bills.\n`attemptsKept` has no limit.\n",
         "required": [
-          "plan",
           "seats",
           "teachers",
+          "storage",
           "media",
           "imports",
+          "email",
+          "database",
           "attemptsKept",
-          "aiCredits"
+          "aiCredits",
+          "warnAtPercent"
         ],
         "additionalProperties": false,
         "properties": {
-          "plan": {
-            "description": "`null` when `PLAN_NAME` is unset.",
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/UsagePlan"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "seats": {
             "$ref": "#/components/schemas/UsageCount"
           },
           "teachers": {
             "$ref": "#/components/schemas/UsageCount"
           },
-          "media": {
+          "storage": {
             "$ref": "#/components/schemas/UsageBytes"
+          },
+          "media": {
+            "$ref": "#/components/schemas/UsageMedia"
           },
           "imports": {
             "$ref": "#/components/schemas/UsageImports"
+          },
+          "email": {
+            "$ref": "#/components/schemas/UsageEmail"
+          },
+          "database": {
+            "$ref": "#/components/schemas/UsageBytes"
           },
           "attemptsKept": {
             "$ref": "#/components/schemas/UsageAttempts"
@@ -7642,27 +7861,11 @@
                 "type": "null"
               }
             ]
-          }
-        }
-      },
-      "UsagePlan": {
-        "type": "object",
-        "required": [
-          "name",
-          "renewsOn"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "type": "string"
           },
-          "renewsOn": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date",
-            "description": "`PLAN_RENEWS_ON`, or `null` when unset."
+          "warnAtPercent": {
+            "type": "integer",
+            "minimum": 50,
+            "maximum": 100
           }
         }
       },
@@ -7710,12 +7913,43 @@
           }
         }
       },
+      "UsageMedia": {
+        "type": "object",
+        "required": [
+          "bytes",
+          "largestLibrary",
+          "perTeacherLimit"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "largestLibrary": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "perTeacherLimit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 1
+          }
+        }
+      },
       "UsageImports": {
         "type": "object",
         "required": [
           "bytes",
           "count",
-          "limit"
+          "openBytes",
+          "limit",
+          "perTeacherLimit"
         ],
         "additionalProperties": false,
         "properties": {
@@ -7728,12 +7962,64 @@
             "type": "integer",
             "minimum": 0
           },
+          "openBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
           "limit": {
             "type": [
               "integer",
               "null"
             ],
             "format": "int64",
+            "minimum": 1
+          },
+          "perTeacherLimit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 1
+          }
+        }
+      },
+      "UsageEmail": {
+        "type": "object",
+        "required": [
+          "today",
+          "month",
+          "held",
+          "dailyLimit",
+          "monthlyLimit"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "today": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "month": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "held": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "dailyLimit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "monthlyLimit": {
+            "type": [
+              "integer",
+              "null"
+            ],
             "minimum": 1
           }
         }
@@ -13778,7 +14064,7 @@
             }
           },
           "403": {
-            "description": "`ACCOUNT_NOT_PROVISIONED` — a valid Google identity with no matching\naccount and no join code. The client explains that a class code is\nneeded rather than offering a signup form (§5.3).\n\n`ACCOUNT_DISABLED` — the matched account is suspended. Named\nexplicitly here, unlike at password login: the caller has just\nproved to Google that they control this address, so the fact\ndiscloses nothing they could not confirm themselves, and an\nunexplained failure would send them to support instead of to the\nteacher.\n\n`IDENTITY_ALREADY_LINKED` — the verified email matches an account\nthat is already linked to a DIFFERENT Google `sub`. Linking a second\none would make \"unlink Google\" ambiguous, so it is refused (D-08).\n\n`GOOGLE_SIGN_IN_DISABLED` — the centre has turned Google sign-in\noff. `GOOGLE_DOMAIN_NOT_ALLOWED` — the verified address is outside\nthe centre's allowed domains. Both are decided for a code that\njoins a class as well.\n",
+            "description": "`ACCOUNT_NOT_PROVISIONED` — a valid Google identity with no matching\naccount and no join code. The client explains that a class code is\nneeded rather than offering a signup form (§5.3).\n\n`ACCOUNT_DISABLED` — the matched account is suspended. Named\nexplicitly here, unlike at password login: the caller has just\nproved to Google that they control this address, so the fact\ndiscloses nothing they could not confirm themselves, and an\nunexplained failure would send them to support instead of to the\nteacher.\n\n`IDENTITY_ALREADY_LINKED` — the verified email matches an account\nthat is already linked to a DIFFERENT Google `sub`. Linking a second\none would make \"unlink Google\" ambiguous, so it is refused (D-08).\n\n`GOOGLE_SIGN_IN_DISABLED` — the centre has turned Google sign-in\noff. `GOOGLE_DOMAIN_NOT_ALLOWED` — the verified address is outside\nthe centre's allowed domains. Both are decided for a code that\njoins a class as well.\n\n`SEAT_LIMIT` — a code would create the account, and the centre has\nused every seat an Admin allowed. The message names no figure; no\naccount is created and the code is not used.\n",
             "content": {
               "application/json": {
                 "schema": {
@@ -17930,7 +18216,7 @@
             "$ref": "#/components/responses/BadRequest"
           },
           "409": {
-            "description": "`MEDIA_QUOTA_EXCEEDED` — the caller's library, with the files it\nstill holds, would hold more than its quota with this file.\nNothing was stored.\n",
+            "description": "`MEDIA_QUOTA_EXCEEDED` — the caller's library, with the files it\nstill holds, would hold more than its quota with this file.\n`STORAGE_LIMIT` — the centre's files would take more than the\nstorage limit an Admin set on Plan \u0026 usage.\nNothing was stored.\n",
             "content": {
               "application/json": {
                 "schema": {
@@ -18021,7 +18307,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "MEDIA_QUOTA_EXCEEDED — the old owner's library would exceed its quota, counting the old file while something still uses it; no replacement committed and fresh-object compensation succeeded.",
+            "description": "MEDIA_QUOTA_EXCEEDED — the old owner's library would exceed its quota, counting the old file while something still uses it; STORAGE_LIMIT — the centre's files would pass its storage limit; either way no replacement committed and fresh-object compensation succeeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -20273,7 +20559,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "`EMAIL_TAKEN` — already in use, compared case-insensitively.",
+            "description": "`EMAIL_TAKEN` — already in use, compared case-insensitively.\n`SEAT_LIMIT` — the centre has used every seat an Admin allowed.\n",
             "content": {
               "application/json": {
                 "schema": {
@@ -20715,7 +21001,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "`EMAIL_TAKEN` — already in use, compared case-insensitively.\n`STALE_WRITE` — the role changed three times while the account was being created; nothing was written, so the same request may be sent again.\n",
+            "description": "`EMAIL_TAKEN` — already in use, compared case-insensitively.\n`STALE_WRITE` — the role changed three times while the account was being created; nothing was written, so the same request may be sent again.\n`SEAT_LIMIT` or `TEACHER_LIMIT` — the account would take the centre past a limit an Admin set on Plan \u0026 usage; nothing was written.\n",
             "content": {
               "application/json": {
                 "schema": {
@@ -20879,7 +21165,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "`LAST_ADMIN` — the account is the only active Admin.\n`USER_OWNS_CONTENT` — the account owns classes or content and the new role opens no teacher workspace; `details` holds `classes`, `tests`, `questions`, `media` and `assignments`, each a count.\n`STALE_WRITE` — a role changed, or another write to the account held what this one needed, three times while the change was being made; nothing was written, so the same request may be sent again.\n",
+            "description": "`LAST_ADMIN` — the account is the only active Admin.\n`USER_OWNS_CONTENT` — the account owns classes or content and the new role opens no teacher workspace; `details` holds `classes`, `tests`, `questions`, `media` and `assignments`, each a count.\n`STALE_WRITE` — a role changed, or another write to the account held what this one needed, three times while the change was being made; nothing was written, so the same request may be sent again.\n`TEACHER_LIMIT` — the new role opens the teacher workspace and the centre has used every teacher place an Admin allowed; nothing was written.\n",
             "content": {
               "application/json": {
                 "schema": {
@@ -21160,7 +21446,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "`STALE_WRITE` — the account's role, or another write to the account, changed while it was being written. Nothing was written; try again.",
+            "description": "`STALE_WRITE` — the account's role, or another write to the account, changed while it was being written. Nothing was written; try again.\n`SEAT_LIMIT` or `TEACHER_LIMIT` — enabling the account would take the centre past a limit an Admin set on Plan \u0026 usage; it stays disabled.\n",
             "content": {
               "application/json": {
                 "schema": {
@@ -22242,8 +22528,8 @@
         "tags": [
           "admin-overview"
         ],
-        "summary": "What the centre uses against its plan",
-        "description": "The Plan \u0026 usage figures. The plan and its limits come from the\nserver's `PLAN_*` configuration, each optional, and nothing here is\nenforced (DG-55): a limit is shown, never applied. `aiCredits` is the\nmonth's credits used against the centre pool, and is `null` without\n`ai.credits.manage` and while the AI assistant is off.\n",
+        "summary": "What the centre uses against its limits",
+        "description": "The Plan \u0026 usage figures, each beside its limit as `UsageLimits`\nresolves it (CR-002). `aiCredits` is the month's credits used against\nthe centre pool, and is `null` without `ai.credits.manage` and while the\nAI assistant is off.\n",
         "responses": {
           "200": {
             "description": "OK",
@@ -23073,7 +23359,7 @@
           "admin-settings"
         ],
         "summary": "Save the centre's settings",
-        "description": "Replaces the whole document when `expectedRevision` is the stored one,\nand answers it as stored, its revision one higher. A logo is named by\nthe hash `uploadOrganizationLogo` answered; until a save names it, an\nupload changes nothing. A policy that would leave the caller, or every\nactive built-in Admin, without a way to sign in is refused, judged\ninside the save as `getSignInImpact` judges it. One audit row,\n`organization.updated`, names the caller and the fields that changed.\nOther servers apply the new document within 30 seconds.\n",
+        "description": "Replaces the whole document when `expectedRevision` is the stored one,\nand answers it as stored, its revision one higher. A logo is named by\nthe hash `uploadOrganizationLogo` answered; until a save names it, an\nupload changes nothing. A policy that would leave the caller, or every\nactive built-in Admin, without a way to sign in is refused, judged\ninside the save as `getSignInImpact` judges it. One audit row,\n`organization.updated`, names the caller and the fields that changed,\nand each changed limit with its value before and after (`null` for the\ndefault).\nOther servers apply the new document within 30 seconds.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -23096,7 +23382,7 @@
             }
           },
           "400": {
-            "description": "The body fails its schema, or `VALIDATION_FAILED` with a message per\nfield: a text that is empty or too long after trimming, a name that\nholds a line break or an invisible character, a website that is not a\ndomain or an `https` address without credentials, an email or a\nphone number that is not one, a repeated domain, or a logo the server\ndoes not hold (as `organization.logo.light` or `organization.logo.dark`).\n",
+            "description": "The body fails its schema, or `VALIDATION_FAILED` with a message per\nfield: a text that is empty or too long after trimming, a name that\nholds a line break or an invisible character, a website that is not a\ndomain or an `https` address without credentials, an email or a\nphone number that is not one, a repeated domain, or a logo the server\ndoes not hold (as `organization.logo.light` or `organization.logo.dark`),\nor a limit outside its range (as `limits.seats` and so on).\n",
             "content": {
               "application/json": {
                 "schema": {

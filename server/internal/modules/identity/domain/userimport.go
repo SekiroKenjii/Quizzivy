@@ -158,6 +158,7 @@ type ImportJob struct {
 	Total             int
 	Created           int
 	Skipped           int
+	OverLimit         int
 	Invalid           int
 	Attempts          int
 	ErrorCode         string
@@ -168,8 +169,9 @@ type ImportJob struct {
 	CompletedAt       *time.Time
 }
 
-// Processed is the rows the job has settled: created or skipped.
-func (j ImportJob) Processed() int { return j.Created + j.Skipped }
+// Processed is the rows the job has settled: created, skipped, or not
+// created because the centre reached a seat or teacher limit.
+func (j ImportJob) Processed() int { return j.Created + j.Skipped + j.OverLimit }
 
 // ImportSheetState is whether the hand-out sheet can be downloaded.
 type ImportSheetState struct {

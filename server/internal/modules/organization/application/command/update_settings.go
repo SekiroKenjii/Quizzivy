@@ -15,10 +15,12 @@ import (
 // It fails with domain.ErrStale, or *domain.LockedOut when the sign-in policy
 // would leave Actor or every active built-in Admin without a way in, and
 // otherwise returns the document as stored, which this server serves at once.
+// KeepLimits keeps the stored usage limits, for a client that sends none.
 type UpdateSettings struct {
 	Actor            actor.Actor
 	Settings         domain.Settings
 	ExpectedRevision int64
+	KeepLimits       bool
 }
 
 type UpdateSettingsHandler struct {
@@ -33,6 +35,9 @@ func (h UpdateSettingsHandler) Handle(ctx context.Context, cmd UpdateSettings) (
 	stored, err := h.Repo.Read(ctx)
 	if err != nil {
 		return domain.Settings{}, err
+	}
+	if cmd.KeepLimits {
+		next.Limits = stored.Limits
 	}
 	if err := h.checkLogos(ctx, stored.Profile, next.Profile); err != nil {
 		return domain.Settings{}, err

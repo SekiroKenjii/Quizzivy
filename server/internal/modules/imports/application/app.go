@@ -9,6 +9,7 @@ import (
 	"quizzivy/internal/modules/imports/application/worker"
 	"quizzivy/internal/modules/imports/domain"
 	"quizzivy/internal/shared/cqrs"
+	"quizzivy/internal/shared/limits"
 )
 
 type Application struct {
@@ -55,13 +56,14 @@ type Dependencies struct {
 	Materializer ports.Materializer
 	WorkDir      string
 	Quotas       domain.Quotas
+	Limits       *limits.Reader
 	Worker       ports.WorkerSignal
 	Legacy       bool
 	Processing   bool
 }
 
 func New(d Dependencies) *Application {
-	upload := command.UploadHandler{Repo: d.Repo, Store: d.Store, Inspector: d.Inspector, WorkDir: d.WorkDir, Quotas: d.Quotas, Slots: make(chan struct{}, 1), Legacy: d.Legacy}
+	upload := command.UploadHandler{Repo: d.Repo, Store: d.Store, Inspector: d.Inspector, WorkDir: d.WorkDir, Quotas: d.Quotas, Limits: d.Limits, Slots: make(chan struct{}, 1), Legacy: d.Legacy}
 	reader := worker.EvidenceReader{Artifacts: d.Artifacts, Store: d.Store, WorkDir: d.WorkDir}
 	return &Application{
 		Commands: Commands{

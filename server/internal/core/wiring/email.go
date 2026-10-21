@@ -77,7 +77,7 @@ func BuildMail(cfg config.Config, dbx db.Context, branding Branding, logger *slo
 		Dispatcher: &email.Dispatcher{
 			DB: dbx, Sealer: sealer, Sender: sender, Renderer: renderer,
 			Org: organizationName(branding, logger), AppURL: appURL, ReplyTo: cfg.Email.ReplyTo,
-			DailyLimit: cfg.Email.DailyLimit, Interval: cfg.Email.SendInterval(),
+			Limits: cfg.Limits, Interval: cfg.Email.SendInterval(),
 			Location: cfg.AppLocation, Logger: logger,
 		},
 	}, nil

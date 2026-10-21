@@ -8,6 +8,7 @@ import (
 	"quizzivy/internal/modules/identity/domain"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/limits"
 	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/visibility"
 	"slices"
@@ -31,6 +32,14 @@ func (s *Students) Create(ctx context.Context, req domain.WriteRequest, in domai
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	if err := lockTaughtClasses(ctx, tx, req, in.ClassIDs); err != nil {
+		return domain.Student{}, err
+	}
+
+	var student string
+	if err := tx.QueryRow(ctx, `SELECT r.id::text FROM app.roles r WHERE r.builtin_key = 'student'`).Scan(&student); err != nil {
+		return domain.Student{}, fmt.Errorf("students: read the student role: %w", err)
+	}
+	if err := limits.Admit(ctx, tx, limits.Admission{Seat: true, RoleID: student}); err != nil {
 		return domain.Student{}, err
 	}
 

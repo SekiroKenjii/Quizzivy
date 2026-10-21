@@ -105,13 +105,14 @@ const (
 )
 
 // LinkMail is the message a link issue enqueues. Token is the link's secret
-// and is empty for MailSignInInvite.
+// and ExpiresAt when it stops working; both are empty for MailSignInInvite.
 type LinkMail struct {
-	Kind     LinkMailKind
-	UserID   string
-	To       string
-	FullName string
-	Token    string
+	Kind      LinkMailKind
+	UserID    string
+	To        string
+	FullName  string
+	Token     string
+	ExpiresAt time.Time
 }
 
 // IssuedLink is what issuing a link did. SignInInvite is true when the centre

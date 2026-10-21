@@ -10,6 +10,7 @@ import (
 
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/platform/secrets"
+	"quizzivy/internal/shared/limits"
 )
 
 // BatchSize is the most rows one Dispatch claims.
@@ -25,28 +26,33 @@ const commitBudget = 10 * time.Second
 // time, so the daily budget and the provider's request rate hold across both.
 //
 // Sealer opens the rows' secrets; a nil one fails every row with a secret.
-// Org answers the organization's short name for the header. DailyLimit is the
-// most messages sent in one local day of Location, and Interval the pause
-// between two sends. Now is the clock, time.Now when nil.
+// Org answers the organization's short name for the header. DailyLimit and
+// MonthlyLimit are the most messages sent in one local day and one local month
+// of Location; one that is zero is read, in each batch, from the usage limits
+// resolved under Limits. Interval is the pause between two sends. Now is the
+// clock, time.Now when nil.
 type Dispatcher struct {
-	DB         db.Context
-	Sealer     *secrets.Sealer
-	Sender     Sender
-	Renderer   *Renderer
-	Org        func(context.Context) (string, error)
-	AppURL     string
-	ReplyTo    string
-	DailyLimit int
-	Interval   time.Duration
-	Location   *time.Location
-	Now        func() time.Time
-	Logger     *slog.Logger
+	DB           db.Context
+	Sealer       *secrets.Sealer
+	Sender       Sender
+	Renderer     *Renderer
+	Org          func(context.Context) (string, error)
+	AppURL       string
+	ReplyTo      string
+	DailyLimit   int
+	MonthlyLimit int
+	Limits       limits.Env
+	Interval     time.Duration
+	Location     *time.Location
+	Now          func() time.Time
+	Logger       *slog.Logger
 }
 
 // Batch is what one Dispatch did. Busy means another dispatcher held the
 // lock and nothing was claimed; Claimed counts the rows it locked, and the
-// rest count outcomes, Deferred being rows moved to the next local day
-// because the day's budget was spent.
+// rest count outcomes, Deferred being rows moved to the next local day or
+// month because its budget was spent, and Expired rows failed because their
+// link expired while they waited.
 type Batch struct {
 	Busy     bool
 	Claimed  int
@@ -54,6 +60,7 @@ type Batch struct {
 	Retried  int
 	Failed   int
 	Deferred int
+	Expired  int
 }
 
 type pending struct {
@@ -75,8 +82,10 @@ type outcome struct {
 // Dispatch claims up to BatchSize due rows and sends them, Interval apart. A
 // sent row and a failed one lose their secret in the statement that records
 // them. A transient failure is retried after 1, 5 and 15 minutes and then
-// hourly, until the MaxAttempts-th attempt fails the row. Once the day's
-// budget is spent, every due row moves to the next local midnight. A row of a
+// hourly, until the MaxAttempts-th attempt fails the row. A row whose link
+// expired is failed with the code "expired" and never sent. Once the month's
+// budget is spent, every due row moves to the 1st of the next local month, and
+// once the day's, to the next local midnight. A row of a
 // template this binary does not send is never claimed, deferred or counted as
 // due: it stays pending, secret and attempts intact, for a newer release's
 // dispatcher, which the API and the worker may run while a deploy is rolling
@@ -100,23 +109,40 @@ func (d *Dispatcher) Dispatch(ctx context.Context) (Batch, error) {
 		return Batch{Busy: true}, nil
 	}
 	now := d.now()
-	dayStart, nextDay := localDay(now, d.Location)
-	var sentToday int
-	if err := tx.QueryRow(ctx, `
-		SELECT count(*) FROM app.email_outbox WHERE sent_at >= $1 AND sent_at < $2`, dayStart, nextDay).Scan(&sentToday); err != nil {
+	daily, monthly, err := caps(ctx, tx, d.Limits, d.DailyLimit, d.MonthlyLimit)
+	if err != nil {
 		return Batch{}, err
 	}
 	var batch Batch
-	if remaining := d.DailyLimit - sentToday; remaining <= 0 {
+	if batch.Expired, err = failExpired(ctx, tx, now); err != nil {
+		return Batch{}, err
+	}
+	dayStart, nextDay := localDay(now, d.Location)
+	monthStart, nextMonth := localMonth(now, d.Location)
+	var sentToday, sentMonth int
+	if err := tx.QueryRow(ctx, `
+		SELECT count(*) FILTER (WHERE sent_at >= $1 AND sent_at < $2), count(*)
+		  FROM app.email_outbox WHERE sent_at >= $3 AND sent_at < $4`,
+		dayStart, nextDay, monthStart, nextMonth).Scan(&sentToday, &sentMonth); err != nil {
+		return Batch{}, err
+	}
+	until := time.Time{}
+	switch {
+	case monthly-sentMonth <= 0:
+		until = nextMonth
+	case daily-sentToday <= 0:
+		until = nextDay
+	}
+	if !until.IsZero() {
 		tag, err := tx.Exec(ctx, `
 			UPDATE app.email_outbox SET deliver_after = $2
 			 WHERE sent_at IS NULL AND failed_at IS NULL AND deliver_after <= $1 AND template = ANY($3::text[])`,
-			now, nextDay, templateNames())
+			now, until, templateNames())
 		if err != nil {
 			return Batch{}, err
 		}
 		batch.Deferred = int(tag.RowsAffected())
-	} else if err := d.sendDue(ctx, tx, now, min(BatchSize, remaining), org, &batch); err != nil {
+	} else if err := d.sendDue(ctx, tx, now, min(BatchSize, daily-sentToday, monthly-sentMonth), org, &batch); err != nil {
 		return Batch{}, err
 	}
 	commit, cancel := context.WithTimeout(context.WithoutCancel(ctx), commitBudget)
@@ -124,8 +150,11 @@ func (d *Dispatcher) Dispatch(ctx context.Context) (Batch, error) {
 	if err := tx.Commit(commit); err != nil {
 		return Batch{}, err
 	}
+	if batch.Expired > 0 {
+		d.Logger.Info("email links expired while waiting", "expired", batch.Expired)
+	}
 	if batch.Deferred > 0 {
-		d.Logger.Info("email budget spent for the day", "deferred", batch.Deferred, "limit", d.DailyLimit, "until", nextDay)
+		d.Logger.Info("email budget spent", "deferred", batch.Deferred, "daily", daily, "monthly", monthly, "until", until)
 	}
 	return batch, nil
 }

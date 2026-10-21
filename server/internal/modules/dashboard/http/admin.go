@@ -110,23 +110,24 @@ func toAPIDetail(d *domain.AttentionDetail) *openapi.AdminAttentionDetail {
 	}
 	return &openapi.AdminAttentionDetail{
 		OldestCreatedAt: d.OldestCreatedAt, ClassName: d.ClassName, TeacherName: d.TeacherName,
-		MediaPercent: d.MediaPercent, ImportsPercent: d.ImportsPercent, Used: d.Used, Allowance: d.Allowance,
+		MediaPercent: d.MediaPercent, ImportsPercent: d.ImportsPercent, StoragePercent: d.StoragePercent,
+		DatabasePercent: d.DatabasePercent, HeldUntil: d.HeldUntil, Used: d.Used, Allowance: d.Allowance,
 	}
 }
 
 func toAPIUsage(u domain.Usage) openapi.Usage {
 	out := openapi.Usage{
-		Seats:        openapi.UsageCount{Used: u.Seats.Used, Limit: u.Seats.Limit},
-		Teachers:     openapi.UsageCount{Used: u.Teachers.Used, Limit: u.Teachers.Limit},
-		Media:        openapi.UsageBytes{Bytes: u.Media.Bytes, Limit: u.Media.Limit},
-		Imports:      openapi.UsageImports{Bytes: u.Imports.Bytes, Count: u.Imports.Count, Limit: u.Imports.Limit},
-		AttemptsKept: openapi.UsageAttempts{Count: u.AttemptsKept},
-	}
-	if p := u.Plan; p != nil {
-		out.Plan = &openapi.UsagePlan{Name: p.Name}
-		if p.RenewsOn != nil {
-			out.Plan.RenewsOn = &openapi_types.Date{Time: *p.RenewsOn}
-		}
+		Seats:    openapi.UsageCount{Used: u.Seats.Used, Limit: u.Seats.Limit},
+		Teachers: openapi.UsageCount{Used: u.Teachers.Used, Limit: u.Teachers.Limit},
+		Storage:  openapi.UsageBytes{Bytes: u.Storage.Bytes, Limit: u.Storage.Limit},
+		Media:    openapi.UsageMedia{Bytes: u.Media.Bytes, LargestLibrary: u.Media.LargestLibrary, PerTeacherLimit: u.Media.PerTeacherLimit},
+		Imports: openapi.UsageImports{Bytes: u.Imports.Bytes, Count: u.Imports.Count, OpenBytes: u.Imports.OpenBytes,
+			Limit: u.Imports.Limit, PerTeacherLimit: u.Imports.PerTeacherLimit},
+		Email: openapi.UsageEmail{Today: u.Email.Today, Month: u.Email.Month, Held: u.Email.Held,
+			DailyLimit: u.Email.DailyLimit, MonthlyLimit: u.Email.MonthlyLimit},
+		Database:      openapi.UsageBytes{Bytes: u.Database.Bytes, Limit: u.Database.Limit},
+		AttemptsKept:  openapi.UsageAttempts{Count: u.AttemptsKept},
+		WarnAtPercent: u.WarnAtPercent,
 	}
 	if c := u.AICredits; c != nil {
 		out.AiCredits = &openapi.UsageCredits{Used: c.Used, Pool: c.Pool}
