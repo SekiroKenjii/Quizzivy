@@ -1208,10 +1208,20 @@ func TestAVersionQuestionKeepsTheSameRules(t *testing.T) {
 	}
 }
 
+func newBankGroup(t *testing.T, tx *sql.Tx, author string) string {
+	t.Helper()
+	var id string
+	if err := tx.QueryRow(`INSERT INTO app.question_groups (title, created_by, owner_id)
+		VALUES ('Bài đọc', $1, $1) RETURNING id`, author).Scan(&id); err != nil {
+		t.Fatalf("group fixture: %v", err)
+	}
+	return id
+}
+
 func TestATfngOrMatchingGroupMemberMayKeepAFixedOrder(t *testing.T) {
 	for _, qtype := range []string{"tfng", "matching"} {
 		withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
-			group := newGroup(t, tx, f.adminID, nil)
+			group := newBankGroup(t, tx, f.adminID)
 			mustExec(t, tx, `INSERT INTO app.questions
 				(type, prompt, points, created_by, owner_id, context_group_id, context_ordinal, context_option_order)
 				VALUES ($2::app.question_type, 'Câu trong nhóm', 1.0, $1, $1, $3, 0, 'fixed')`, f.adminID, qtype, group)
@@ -1221,7 +1231,7 @@ func TestATfngOrMatchingGroupMemberMayKeepAFixedOrder(t *testing.T) {
 
 func TestAnEssayGroupMemberCannotKeepAFixedOrder(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
-		group := newGroup(t, tx, f.adminID, nil)
+		group := newBankGroup(t, tx, f.adminID)
 		rejectsWith(t, tx, "questions_context_option_order",
 			`INSERT INTO app.questions
 			   (type, prompt, points, created_by, owner_id, context_group_id, context_ordinal, context_option_order)
