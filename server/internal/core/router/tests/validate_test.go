@@ -104,11 +104,18 @@ func TestAuthenticationIsDecidedBeforeValidation(t *testing.T) {
 		const (
 			forbiddenUser = "01935000-0000-7000-8000-00000000f403"
 			permittedUser = "01935000-0000-7000-8000-00000000f400"
+			disabledUser  = "01935000-0000-7000-8000-00000000f401"
+			staleUser     = "01935000-0000-7000-8000-00000000f402"
+			temporaryUser = "01935000-0000-7000-8000-00000000f404"
 		)
+		everything := access.NewSet(access.All()...)
 		issuer := testIssuer(t)
 		principals := newFakePrincipals().
 			set(access.Principal{UserID: forbiddenUser, RoleID: "role-none", Permissions: access.NewSet()}).
-			set(access.Principal{UserID: permittedUser, RoleID: "role-all", Permissions: access.NewSet(access.All()...)})
+			set(access.Principal{UserID: permittedUser, RoleID: "role-all", Permissions: everything}).
+			set(access.Principal{UserID: disabledUser, RoleID: "role-all", Permissions: everything, Disabled: true}).
+			set(access.Principal{UserID: staleUser, RoleID: "role-all", Permissions: everything, Epoch: 1}).
+			set(access.Principal{UserID: temporaryUser, RoleID: "role-all", Permissions: everything, MustChangePassword: true})
 		logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 		gated, err := router.New(router.Deps{Principals: principals, DB: fakeDB{}, Tokens: issuer}, logger, []string{"https://app.quizzivy.com"}, "")
 		if err != nil {
@@ -122,7 +129,8 @@ func TestAuthenticationIsDecidedBeforeValidation(t *testing.T) {
 			}
 			return signed
 		}
-		forbidden, permitted := token(forbiddenUser), token(permittedUser)
+		forbidden, permitted, temporary := token(forbiddenUser), token(permittedUser), token(temporaryUser)
+		refused := map[string]string{"disabled": token(disabledUser), "an older session epoch": token(staleUser), "not a token": "pretzel"}
 
 		spec := freshSpec(t)
 		requirements, err := httpx.PermissionRequirements(spec, "bearerAuth")
@@ -146,6 +154,16 @@ func TestAuthenticationIsDecidedBeforeValidation(t *testing.T) {
 				}
 				if rec := send(""); rec.Code != http.StatusUnauthorized {
 					t.Errorf("anonymous %s: status = %d, want 401 before %s is bound", c.target, rec.Code, c.parameter)
+				}
+				for who, bearer := range refused {
+					if rec := send(bearer); rec.Code != http.StatusUnauthorized {
+						t.Errorf("caller %s %s: status = %d, want 401 before %s is bound", who, c.target, rec.Code, c.parameter)
+					}
+				}
+				if !requirements[c.pattern].AllowsTemporaryPassword() {
+					if rec := send(temporary); rec.Code != http.StatusForbidden || errorCode(t, rec) != "PASSWORD_CHANGE_REQUIRED" {
+						t.Errorf("caller on a temporary password %s: status = %d, want 403 PASSWORD_CHANGE_REQUIRED before %s is bound", c.target, rec.Code, c.parameter)
+					}
 				}
 				if !requirements[c.pattern].SatisfiedBy(access.NewSet()) {
 					if rec := send(forbidden); rec.Code != http.StatusForbidden || errorCode(t, rec) != "FORBIDDEN" {
