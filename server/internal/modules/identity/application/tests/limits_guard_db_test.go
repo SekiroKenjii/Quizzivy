@@ -18,7 +18,8 @@ import (
 
 // guardWorld writes inside one transaction that is rolled back, so a limit it
 // sets on the centre's one settings row is never seen by the packages that
-// share the database.
+// share the database. It holds the accounts and the role permissions in SHARE
+// mode, so what it counts cannot move under it while other packages write.
 type guardWorld struct {
 	t        *testing.T
 	tx       pgx.Tx
@@ -38,12 +39,15 @@ type role struct {
 
 func newGuardWorld(t *testing.T) *guardWorld {
 	t.Helper()
-	tx, err := newPool(t).BeginTx(context.Background(), pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+	tx, err := newPool(t).Begin(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
 	if _, err := tx.Exec(context.Background(), `SET LOCAL lock_timeout = '5s'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(context.Background(), `LOCK TABLE app.users, app.role_permissions IN SHARE MODE`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := tx.Exec(context.Background(), `SELECT 1 FROM app.organization_settings FOR UPDATE`); err != nil {
