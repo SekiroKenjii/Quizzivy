@@ -3652,8 +3652,8 @@ export interface paths {
          *     only when the request says `withCodes=true`, which the class cards send and
          *     the pickers do not. It is then the code exactly when `getJoinCode` would
          *     read it for the same caller and class: the caller holds
-         *     `teaching.classes.write`, reaches the class, and the code is readable (not
-         *     a legacy code, and sealed under a key this server holds). In every other
+         *     `teaching.classes.write`, reaches the class, and the code is readable
+         *     (sealed under a key this server holds). In every other
          *     case `code` is `null`, a missing permission included, which is not an
          *     error. The answer is never cached, whether or not codes are asked for, and
          *     the operation is limited like the others that reveal one: 60 a minute and
@@ -9040,6 +9040,10 @@ export interface components {
          *     The three `ai.*` kinds are for the teacher's bell. `ai.credit_request`
          *     is written for every holder of `ai.credits.manage`, who reads it in the
          *     teacher workspace until the Admin console has a bell of its own.
+         *
+         *     `join_codes.rotated` was written by the one-time start-up rotation of
+         *     pre-v0.8.0 join codes, which v0.12.0 removed. Nothing writes it now;
+         *     the kind stays so that the notifications it wrote still read.
          * @enum {string}
          */
         NotificationKind: "attempt.submitted" | "attempt.flagged" | "assignment.closing" | "class.joined" | "join_codes.rotated" | "assignment.opened" | "assignment.due_soon" | "assignment.extended" | "result.ready" | "ai.allowance_warning" | "ai.credit_request" | "ai.credit_request.decided" | "content.transferred" | "class.teacher_changed";
@@ -9075,7 +9079,7 @@ export interface components {
         NotificationParams: {
             /** @description The title of the test the assignment gives. */
             title?: string;
-            /** @description Papers handed in (`attempt.submitted`), classes whose join code was replaced (`join_codes.rotated`), or classes, tests, questions, question groups, media and assignments given to the reader (`content.transferred`). */
+            /** @description Papers handed in (`attempt.submitted`), classes whose pre-v0.8.0 join code was replaced at start-up (`join_codes.rotated`, no longer written), or classes, tests, questions, question groups, media and assignments given to the reader (`content.transferred`). */
             count?: number;
             /** @description Of the papers handed in, those with an answer waiting for a mark. */
             toGrade?: number;

@@ -92,7 +92,7 @@ and that the storage tests ran against MinIO and did not skip.
 | 70 §8.1 locally in order | 2.1; one log per step kept in the scratchpad, summarised in the handoff | Rel | tester |
 | Canaries untouched | Section 3; `git diff <v0.9.0 or branch point>..HEAD -- <five files>` shows only the disclosed T-R4.51b fixture change in `publish_snapshot_test.go` and the router-chunks regexes | Rel | tester |
 | Security block | Section 5: isolation suite entries (kinds `notification` and `override` exist), payload-leak walk, credential-limit test lists `resetStudentsPasswords` and `listClasses`, `STUDENT_SHARED` case, `/me/*` responses `no-store` | Rel | tester |
-| Migrations rehearsed on a Neon branch | Timings, count of questions with more than 8 options, count of legacy codes to rotate. Not reproducible in this container | Rel | Thuong or platform engineer; tester checks the numbers are recorded |
+| Migrations rehearsed on a Neon branch | Timings, count of questions with more than 8 options, count of legacy codes to rotate (R4 only: from v0.12.0, `00141` refuses a live legacy code). Not reproducible in this container | Rel | Thuong or platform engineer; tester checks the numbers are recorded |
 | Exam windows | Query assignments closing inside the deploy window | Rel | Thuong |
 | No import queued or running | Query imports by status; `word-pipeline-v3` retires v2 runs | Rel | Thuong |
 | Cloudflare headers, `.env.example`, Fly config | `grep -E 'MEDIA_OWNER_QUOTA_MIB|EMAIL_DAILY_LIMIT|PLAN_' fly.toml` must find nothing, since the limits live in Settings → Plan & usage (v0.12.2); `grep VITE_RICH_QUESTION_EDITOR -r .env.example web/ .github/` must find nothing except history | Rel | tester (repo part), Thuong (Cloudflare) |
@@ -311,7 +311,8 @@ Also assert on the product page alone:
 `document.documentElement.scrollWidth <= innerWidth` (never scrolls sideways) and
 the document-scroll probe of section 4.3, with scrollbars shown,
 no raw colour (the unit test covers source; check computed colours resolve from
-tokens), `data-scale="deck"` present on the root.
+tokens). (R4 also checked `data-scale="deck"` on the root; T-R5.30 removed the
+attribute, and `grep -rn "data-scale" web/src` must find nothing.)
 
 ### 4.6 Dimensions to cover, every screen
 
