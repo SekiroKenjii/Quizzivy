@@ -13,15 +13,16 @@ import (
 	"quizzivy/internal/platform/db"
 )
 
-// The migrations of T-R6.1a: before them, the type values, and the file whose
-// Down refuses while an essay has a sample answer.
+// The migrations of T-R6.1a, by the version each one leaves.
 const (
 	beforeQuestionTypes int64 = 144
 	questionTypes       int64 = 145
+	selectCount         int64 = 146
 	essaySampleAnswer   int64 = 148
+	fixedOrderChoices   int64 = 149
 )
 
-func TestTheQuestionTypeRollbackRefusesWhileARowUsesANewType(t *testing.T) {
+func TestTheQuestionTypeRollbacksRefuseWhileARowNeedsThem(t *testing.T) {
 	if os.Getenv("TEST_DESTRUCTIVE") != "1" {
 		t.Skip("TEST_DESTRUCTIVE=1 required for an isolated migration database")
 	}
@@ -39,45 +40,66 @@ func TestTheQuestionTypeRollbackRefusesWhileARowUsesANewType(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := schemaSnapshot(t, conn)
-	if err := goose.UpTo(conn, dir, essaySampleAnswer); err != nil {
+	if err := goose.UpTo(conn, dir, fixedOrderChoices); err != nil {
 		t.Fatal(err)
 	}
 
-	var essay string
+	var essay, chooseTwo, member, frozen string
 	withTx(t, conn, func(tx *sql.Tx, f fixture) {
-		if err := tx.QueryRow(`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, sample_answer)
-			VALUES ('essay', 'Viết bài luận', 9.0, $1, $1, 'Bài mẫu') RETURNING id`, f.adminID).Scan(&essay); err != nil {
-			t.Fatal(err)
+		scan := func(dest *string, insert string, args ...any) {
+			t.Helper()
+			if err := tx.QueryRow(insert, args...).Scan(dest); err != nil {
+				t.Fatal(err)
+			}
 		}
+		scan(&essay, `INSERT INTO app.questions (type, prompt, points, created_by, owner_id, sample_answer)
+			VALUES ('essay', 'Viết bài luận', 9.0, $1, $1, 'Bài mẫu') RETURNING id`, f.adminID)
+		scan(&chooseTwo, `INSERT INTO app.questions (type, prompt, points, created_by, owner_id, select_count)
+			VALUES ('multiple_choice', 'Chọn HAI đáp án', 2.0, $1, $1, 2) RETURNING id`, f.adminID)
+		scan(&member, `INSERT INTO app.questions
+			(type, prompt, points, created_by, owner_id, context_group_id, context_ordinal, context_option_order)
+			VALUES ('tfng', 'Đúng, sai hay không có', 1.0, $1, $1, $2, 0, 'fixed') RETURNING id`,
+			f.adminID, newGroup(t, tx, f.adminID, nil))
+		scan(&frozen, `INSERT INTO app.test_version_questions (test_version_section_id, ordinal, type, prompt, points)
+			VALUES ($1, 0, 'tfng', 'Câu đã chốt', 1.0) RETURNING id`, newVersion(t, tx, f.adminID))
 		if err := tx.Commit(); err != nil {
 			t.Fatal(err)
 		}
 	})
-	t.Cleanup(func() {
-		if _, err := conn.Exec(`DELETE FROM app.questions WHERE id = $1`, essay); err != nil {
-			t.Errorf("cleanup: %v", err)
+
+	for _, step := range []struct {
+		name          string
+		target, stays int64
+		clear         string
+		id            *string
+	}{
+		{"a fixed tfng member", essaySampleAnswer, fixedOrderChoices,
+			`UPDATE app.questions SET context_option_order = 'shuffle' WHERE id = $1`, &member},
+		{"an essay's sample answer", essaySampleAnswer - 1, essaySampleAnswer,
+			`UPDATE app.questions SET sample_answer = NULL WHERE id = $1`, &essay},
+		{"a choose-two question", questionTypes, selectCount,
+			`UPDATE app.questions SET select_count = NULL WHERE id = $1`, &chooseTwo},
+		{"a bank question of a new type", beforeQuestionTypes, questionTypes,
+			`DELETE FROM app.questions WHERE id = $1`, &essay},
+		{"a tfng bank question", beforeQuestionTypes, questionTypes,
+			`DELETE FROM app.questions WHERE id = $1`, &member},
+		{"a frozen question of a new type", beforeQuestionTypes, questionTypes,
+			`DELETE FROM app.test_version_questions WHERE id = $1`, &frozen},
+	} {
+		if err := goose.DownTo(conn, dir, step.target); err == nil {
+			t.Fatalf("the rollback to %d ran while %s exists", step.target, step.name)
 		}
-	})
-
-	if err := goose.DownTo(conn, dir, essaySampleAnswer-1); err == nil {
-		t.Fatal("the sample-answer rollback ran while an essay has a sample answer")
-	}
-	if _, err := conn.Exec(`UPDATE app.questions SET sample_answer = NULL WHERE id = $1`, essay); err != nil {
-		t.Fatal(err)
-	}
-	if err := goose.DownTo(conn, dir, beforeQuestionTypes); err == nil {
-		t.Fatal("the type rollback ran while an essay exists")
-	}
-	if version, err := goose.GetDBVersion(conn); err != nil || version != questionTypes {
-		t.Fatalf("version after the refused rollback: %d, %v; want %d", version, err, questionTypes)
-	}
-
-	if _, err := conn.Exec(`DELETE FROM app.questions WHERE id = $1`, essay); err != nil {
-		t.Fatal(err)
+		if version, err := goose.GetDBVersion(conn); err != nil || version != step.stays {
+			t.Fatalf("version after refusing %s: %d, %v; want %d", step.name, version, err, step.stays)
+		}
+		if _, err := conn.Exec(step.clear, *step.id); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if err := goose.DownTo(conn, dir, beforeQuestionTypes); err != nil {
 		t.Fatalf("the rollback refused with no row of a new type: %v", err)
 	}
+
 	var labels string
 	if err := conn.QueryRow(`SELECT array_to_string(enum_range(NULL::app.question_type), ',')`).Scan(&labels); err != nil {
 		t.Fatal(err)
@@ -85,7 +107,7 @@ func TestTheQuestionTypeRollbackRefusesWhileARowUsesANewType(t *testing.T) {
 	if want := "single_choice,multiple_choice,true_false,fill_blank,short_answer,tfng,matching,essay"; labels != want {
 		t.Errorf("question_type after the rollback = %s, want %s: the Down leaves the values (D-62)", labels, want)
 	}
-	if err := goose.UpTo(conn, dir, essaySampleAnswer); err != nil {
+	if err := goose.UpTo(conn, dir, fixedOrderChoices); err != nil {
 		t.Fatalf("up after the rollback found the values present and failed: %v", err)
 	}
 	if err := goose.DownTo(conn, dir, beforeQuestionTypes); err != nil {

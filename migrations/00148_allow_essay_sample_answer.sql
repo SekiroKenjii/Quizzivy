@@ -4,6 +4,8 @@
 -- grader reads it beside the student's text. 00011's rule allowed short answers
 -- only. The new rule is added first, so no moment has neither, and it names
 -- 'essay', which 00145 committed.
+SET LOCAL lock_timeout = '5s';
+
 ALTER TABLE app.questions
   ADD CONSTRAINT questions_sample_answer_only_written
     CHECK (sample_answer IS NULL OR type IN ('short_answer', 'essay'))

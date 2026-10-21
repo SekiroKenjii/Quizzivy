@@ -1434,8 +1434,8 @@ listed here matches the spec.
 | D-60 | A third role, `quizzivy_maintenance`, created outside migrations (§1); `00139` grants it table by table and column by column only what `cmd/maintenance`'s commands read and write: `INSERT` alone on `audit_log`, `DELETE` only where a command deletes, nothing on a sequence or on `ai_usage_ledger`, `USAGE` on schemas `app` and `public` and `CREATE` on neither. The file fails when the role is missing, and adds `users_maintenance_guard`, a `BEFORE UPDATE` trigger on `users` fired only for this role, which refuses (`42501`) an update that does not leave the row anonymised | §13.5 had two roles, and before R5 `MAINTENANCE_DATABASE_URL` named the owner or another privileged role. The retention sweep runs unattended from a nightly workflow (T-R5.17a, D16), so its credential holds the least the commands need, and a grant nothing uses is a fault too: `privileges_test.go` compares the role's effective column privileges with its own list of them, which §55's table mirrors, in both directions. There is no conditional grant, so a database that migrates has the role. The `UPDATE` on the login columns that anonymising needs is also what a leaked credential would use to take an account over, so the guard pins the anonymised shape (D-042). It reads no ownership: by direct SQL the role can still anonymise any account but the last active Admin, a teacher's included, and only the sweep and `anonymize-user` skip owners (D-045). See §55 |
 | D-61 | An answer the retention sweep removes keeps its `attempt_answers` row, with `payload` replaced by the marker `{"removed": true}` (`retention.RemovedAnswer`); no column is added | Only the response goes: `auto_score`, `manual_score`, the grader's comment and the grader stay, so no result or average moves (plan 75, "Removing answers keeps scores and comments"). The marker is a JSON object, which the existing `jsonb_typeof(payload) = 'object'` check accepts, so neither T-R5.17a nor T-R5.17b needed a migration. It has no `type`, so no real answer shape can be mistaken for it and `answered.SaysSomething` counts it as saying nothing. Every reader goes through one test: `attempts/domain.AnswerRemoved` in Go, and an equality with `retention.RemovedAnswer` in SQL, where `answered.AwaitsGrade` drops it from every count of answers awaiting a mark (`attempt_answers_pending_idx` still serves them, the marker filtering the rows it returns), a grade naming one is refused whole (`409 ANSWER_REMOVED`), the sweep and the settings page's impact count skip a row already removed, and the data export's `removed` column reports it. See §55 |
 | D-62 | `app.question_type` gains `tfng`, `matching` and `essay` (`00145`), and that file's Down leaves the three values in place, refusing while any question or version question uses one | PostgreSQL cannot drop an enum value, and rebuilding the type fails, because `ALTER COLUMN … TYPE` re-parses every CHECK that compares `type` and each fails with `operator does not exist`. An unused value is harmless, so the Down still undoes everything an older binary could notice; a full reset drops the type with `00002`. Enum values rather than text, because the column is already the enum and every query, index (`questions_type_id_idx`) and CHECK compares it as one (§58) |
-| D-63 | `questions` and `test_version_questions` gain nullable `select_count smallint` (a multiple choice only, 2 to 7) and `max_words smallint` (a short answer only, 1 to 100) | "Choose exactly N" and the word limit are rules of the question (T-R6.1a, plan 76): NULL keeps every existing question's rule, and the frozen copy carries both because marking and the engine read the version, never the bank. Seven is the 8-option cap (DG-63) less one. The word limit is advice: the server stores whatever was typed (§58) |
-| D-64 | `questions_sample_answer_only_short_answer` becomes `questions_sample_answer_only_written`: a short answer or an essay | The grader reads an essay's sample answer beside the student's text, as a short answer's (T-R6.1a). `00148`'s Down refuses while an essay has one and otherwise restores the original rule (§58) |
+| D-63 | `questions` and `test_version_questions` gain nullable `select_count smallint` (a multiple choice only, 2 to 7) and `max_words smallint` (a short answer only, 1 to 100) | "Choose exactly N" and the word limit are rules of the question (T-R6.1a, plan 76): NULL keeps every existing question's rule, and the frozen copy carries both because marking and the engine read the version, never the bank. Seven is the 8-option cap (DG-63) less one. The word limit is advice: the server stores whatever was typed. Each Down refuses while a row in either table has a value, since the rule cannot be rebuilt once the column goes (§58) |
+| D-64 | Two CHECKs that list types widen: `questions_sample_answer_only_short_answer` becomes `questions_sample_answer_only_written` (a short answer or an essay, `00148`), and `questions_context_option_order` lets a `tfng` or `matching` group member keep a `fixed` order (`00149`) | The grader reads an essay's sample answer beside the student's text, as a short answer's; a True / False / Not given question's options are never shuffled and matching's choices keep the order their keys name, so `shuffle` would record an order nobody applies (T-R6.1a, QC-R6M-3). Each Down refuses while a row uses what it allowed and otherwise restores the original rule (§58) |
 
 ---
 
@@ -1580,9 +1580,10 @@ the file it adds.
 | `00140_create_avatar_sweeps.sql` | `avatar_sweeps` and the `REVOKE UPDATE, DELETE` from the app role | R5 (T-R5.16), D-59, §56 |
 | `00141_require_encrypted_join_codes.sql` | refuses a live code without a ciphertext, revokes each expired unrevoked legacy code at its `expires_at`, and adds and validates `class_join_codes_live_encrypted`; Down drops the constraint and keeps the revocations | R5 (T-R5.1), §33 |
 | `00145_add_question_types.sql` | `tfng`, `matching` and `essay` on `app.question_type`; Down refuses while a row uses one and leaves the values | R6 (T-R6.1a), D-62 |
-| `00146_add_question_select_count.sql` | `select_count` on `questions` and `test_version_questions`, CHECK added `NOT VALID` and validated | R6 (T-R6.1a), D-63 |
-| `00147_add_question_max_words.sql` | `max_words` on `questions` and `test_version_questions`, the same pattern | R6 (T-R6.1a), D-63 |
+| `00146_add_question_select_count.sql` | `select_count` on `questions` and `test_version_questions`, CHECK added `NOT VALID` and validated; Down refuses while a value exists | R6 (T-R6.1a), D-63 |
+| `00147_add_question_max_words.sql` | `max_words` on `questions` and `test_version_questions`, the same pattern and Down | R6 (T-R6.1a), D-63 |
 | `00148_allow_essay_sample_answer.sql` | `questions_sample_answer_only_written` replaces `questions_sample_answer_only_short_answer`; Down refuses while an essay has a sample answer | R6 (T-R6.1a), D-64 |
+| `00149_allow_fixed_order_for_tfng_and_matching.sql` | `questions_context_option_order` admits `fixed` on `tfng` and `matching`; Down refuses while such a member keeps it | R6 (T-R6.1a), D-64 |
 
 Notes on migration mechanics (§13.7):
 
@@ -4170,10 +4171,23 @@ Both tables hold rows, so each CHECK is added `NOT VALID` and then validated, th
 gets (§13). Each file runs in one transaction, so the `ADD COLUMN`'s `ACCESS EXCLUSIVE` lock is held through the
 `VALIDATE`: the pattern buys no weaker lock here, and the scan reads a centre's bank, where the column is NULL on
 every row. It keeps the two steps apart, so the Neon rehearsal times each, and it is already the shape a table too
-large to scan under that lock would need, split across two files. The Downs drop the columns.
+large to scan under that lock would need, split across two files. Each file sets `lock_timeout = '5s'`, so a
+lock it cannot get fails the deploy at once, to be run again, rather than queueing every writer behind it (as
+`00103` does). The Downs refuse while either table holds a value, since an older binary would mark a choose-N
+question all or nothing and the rule cannot be rebuilt once the column goes, as `00145` refuses for the types; with
+no value they drop the columns.
 
 **`00148_allow_essay_sample_answer.sql`** replaces `questions_sample_answer_only_short_answer` with
 `questions_sample_answer_only_written`, `CHECK (sample_answer IS NULL OR type IN ('short_answer', 'essay'))`, added
 `NOT VALID` and validated before the old rule is dropped, so no moment has neither (D-64). `test_version_questions`
 has no such rule and gains none. The Down refuses while an essay has a sample answer and otherwise restores the
 original the same way.
+
+**`00149_allow_fixed_order_for_tfng_and_matching.sql`** widens 00035's `questions_context_option_order` to
+`CHECK (context_option_order IS DISTINCT FROM 'fixed' OR type IN ('single_choice', 'multiple_choice', 'true_false',
+'tfng', 'matching'))` (D-64). A True / False / Not given question's three options are never shuffled, and matching's
+choices keep the order their keys name, so a group member of either type stores `fixed`; `shuffle` would record an
+order nobody applies. An essay has no options and stays out. The rule keeps its name: it is dropped and added in one
+`ALTER TABLE`, `NOT VALID`, then validated. The Down refuses while a `tfng` or `matching` member keeps `fixed` and
+otherwise restores the original. Group members' frozen copy (`test_version_group_members.option_order`) has no
+type rule and needs none.

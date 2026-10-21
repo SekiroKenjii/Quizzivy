@@ -631,12 +631,14 @@ func TestSampleAnswerOnShortAnswerIsAccepted(t *testing.T) {
 	})
 }
 
-func TestAMatchingQuestionCannotCarryASampleAnswer(t *testing.T) {
-	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
-		rejectsWith(t, tx, "questions_sample_answer_only_written",
-			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, sample_answer)
-			 VALUES ('matching', 'Nối tiêu đề với đoạn văn', 1.0, $1, $1, 'Đáp án mẫu')`, f.adminID)
-	})
+func TestANewChoiceTypeCannotCarryASampleAnswer(t *testing.T) {
+	for _, qtype := range []string{"tfng", "matching"} {
+		withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+			rejectsWith(t, tx, "questions_sample_answer_only_written",
+				`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, sample_answer)
+				 VALUES ($2::app.question_type, 'Câu hỏi', 1.0, $1, $1, 'Đáp án mẫu')`, f.adminID, qtype)
+		})
+	}
 }
 
 func TestSampleAnswerOnAnEssayIsAccepted(t *testing.T) {
@@ -1158,10 +1160,20 @@ func TestAWordLimitOfZeroIsRefused(t *testing.T) {
 }
 
 func TestAWordLimitIsForShortAnswersOnly(t *testing.T) {
+	for _, qtype := range []string{"essay", "fill_blank"} {
+		withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+			rejectsWith(t, tx, "questions_max_words_check",
+				`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, max_words)
+				 VALUES ($2::app.question_type, 'Không quá 50 từ', 1.0, $1, $1, 50)`, f.adminID, qtype)
+		})
+	}
+}
+
+func TestAWordLimitStopsAtAHundred(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 		rejectsWith(t, tx, "questions_max_words_check",
 			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, max_words)
-			 VALUES ('essay', 'Viết bài luận', 9.0, $1, $1, 250)`, f.adminID)
+			 VALUES ('short_answer', 'Không quá 101 từ', 1.0, $1, $1, 101)`, f.adminID)
 	})
 }
 
@@ -1174,18 +1186,66 @@ func TestAShortAnswerOfThreeWordsIsAccepted(t *testing.T) {
 }
 
 func TestAVersionQuestionKeepsTheSameRules(t *testing.T) {
-	for _, c := range []struct{ constraint, column, qtype string }{
-		{"test_version_questions_select_count_check", "select_count", "single_choice"},
-		{"test_version_questions_max_words_check", "max_words", "multiple_choice"},
+	for _, c := range []struct {
+		name, constraint, column, qtype string
+		value                           int
+	}{
+		{"select count on a single choice", "test_version_questions_select_count_check", "select_count", "single_choice", 3},
+		{"select count of one", "test_version_questions_select_count_check", "select_count", "multiple_choice", 1},
+		{"select count of eight", "test_version_questions_select_count_check", "select_count", "multiple_choice", 8},
+		{"word limit on a multiple choice", "test_version_questions_max_words_check", "max_words", "multiple_choice", 3},
+		{"word limit of zero", "test_version_questions_max_words_check", "max_words", "short_answer", 0},
+		{"word limit of 101", "test_version_questions_max_words_check", "max_words", "short_answer", 101},
 	} {
-		t.Run(c.column, func(t *testing.T) {
+		t.Run(c.name, func(t *testing.T) {
 			withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
 				section := newVersion(t, tx, f.adminID)
 				rejectsWith(t, tx, c.constraint,
 					`INSERT INTO app.test_version_questions (test_version_section_id, ordinal, type, prompt, points, `+c.column+`)
-					 VALUES ($1, 0, $2::app.question_type, 'Câu đã chốt', 1.0, 3)`, section, c.qtype)
+					 VALUES ($1, 0, $2::app.question_type, 'Câu đã chốt', 1.0, $3)`, section, c.qtype, c.value)
 			})
 		})
+	}
+}
+
+func TestATfngOrMatchingGroupMemberMayKeepAFixedOrder(t *testing.T) {
+	for _, qtype := range []string{"tfng", "matching"} {
+		withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+			group := newGroup(t, tx, f.adminID, nil)
+			mustExec(t, tx, `INSERT INTO app.questions
+				(type, prompt, points, created_by, owner_id, context_group_id, context_ordinal, context_option_order)
+				VALUES ($2::app.question_type, 'Câu trong nhóm', 1.0, $1, $1, $3, 0, 'fixed')`, f.adminID, qtype, group)
+		})
+	}
+}
+
+func TestAnEssayGroupMemberCannotKeepAFixedOrder(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		group := newGroup(t, tx, f.adminID, nil)
+		rejectsWith(t, tx, "questions_context_option_order",
+			`INSERT INTO app.questions
+			   (type, prompt, points, created_by, owner_id, context_group_id, context_ordinal, context_option_order)
+			 VALUES ('essay', 'Bài luận trong nhóm', 9.0, $1, $1, $2, 0, 'fixed')`, f.adminID, group)
+	})
+}
+
+// TestTheR6ChecksAreValidated fails when a migration adds one of its CHECKs NOT
+// VALID and skips the VALIDATE.
+func TestTheR6ChecksAreValidated(t *testing.T) {
+	conn := migrated(t)
+	for _, name := range []string{
+		"questions_select_count_check", "test_version_questions_select_count_check",
+		"questions_max_words_check", "test_version_questions_max_words_check",
+		"questions_sample_answer_only_written", "questions_context_option_order",
+	} {
+		var validated bool
+		if err := conn.QueryRow(`SELECT convalidated FROM pg_constraint
+			WHERE conname = $1 AND connamespace = 'app'::regnamespace`, name).Scan(&validated); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if !validated {
+			t.Errorf("%s is NOT VALID", name)
+		}
 	}
 }
 
