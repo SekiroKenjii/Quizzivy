@@ -615,9 +615,9 @@ func TestMediaPairMustBeCompleteOrAbsent(t *testing.T) {
 	})
 }
 
-func TestSampleAnswerIsShortAnswerOnly(t *testing.T) {
+func TestSampleAnswerIsForWrittenAnswersOnly(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
-		rejectsWith(t, tx, "questions_sample_answer_only_short_answer",
+		rejectsWith(t, tx, "questions_sample_answer_only_written",
 			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, sample_answer)
 			 VALUES ('single_choice', 'Chọn một đáp án', 1.0, $1, $1, 'Đáp án mẫu')`, f.adminID)
 	})
@@ -628,6 +628,24 @@ func TestSampleAnswerOnShortAnswerIsAccepted(t *testing.T) {
 		mustExec(t, tx,
 			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, sample_answer)
 			 VALUES ('short_answer', 'Viết câu trả lời', 1.0, $1, $1, 'Đáp án mẫu')`, f.adminID)
+	})
+}
+
+func TestANewChoiceTypeCannotCarryASampleAnswer(t *testing.T) {
+	for _, qtype := range []string{"tfng", "matching"} {
+		withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+			rejectsWith(t, tx, "questions_sample_answer_only_written",
+				`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, sample_answer)
+				 VALUES ($2::app.question_type, 'Câu hỏi', 1.0, $1, $1, 'Đáp án mẫu')`, f.adminID, qtype)
+		})
+	}
+}
+
+func TestSampleAnswerOnAnEssayIsAccepted(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		mustExec(t, tx,
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, sample_answer)
+			 VALUES ('essay', 'Viết bài luận 250 từ', 9.0, $1, $1, 'Bài mẫu')`, f.adminID)
 	})
 }
 
@@ -1103,4 +1121,170 @@ func TestAnInsertWithoutAnOwnerIsRefused(t *testing.T) {
 			})
 		})
 	}
+}
+
+// ---------------------------------------------------------------- R6 question types (T-R6.1a)
+
+func TestASelectCountNeedsAMultipleChoice(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "questions_select_count_check",
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, select_count)
+			 VALUES ('single_choice', 'Chọn một đáp án', 1.0, $1, $1, 2)`, f.adminID)
+	})
+}
+
+func TestASelectCountStaysBelowTheOptionCap(t *testing.T) {
+	for _, n := range []int{1, 8} {
+		withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+			rejectsWith(t, tx, "questions_select_count_check",
+				`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, select_count)
+				 VALUES ('multiple_choice', 'Chọn N đáp án', 1.0, $1, $1, $2)`, f.adminID, n)
+		})
+	}
+}
+
+func TestAChooseTwoQuestionIsAccepted(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		mustExec(t, tx,
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, select_count)
+			 VALUES ('multiple_choice', 'Chọn HAI đáp án', 2.0, $1, $1, 2)`, f.adminID)
+	})
+}
+
+func TestAWordLimitOfZeroIsRefused(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "questions_max_words_check",
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, max_words)
+			 VALUES ('short_answer', 'Không quá 0 từ', 1.0, $1, $1, 0)`, f.adminID)
+	})
+}
+
+func TestAWordLimitIsForShortAnswersOnly(t *testing.T) {
+	for _, qtype := range []string{"essay", "fill_blank"} {
+		withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+			rejectsWith(t, tx, "questions_max_words_check",
+				`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, max_words)
+				 VALUES ($2::app.question_type, 'Không quá 50 từ', 1.0, $1, $1, 50)`, f.adminID, qtype)
+		})
+	}
+}
+
+func TestAWordLimitStopsAtAHundred(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "questions_max_words_check",
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, max_words)
+			 VALUES ('short_answer', 'Không quá 101 từ', 1.0, $1, $1, 101)`, f.adminID)
+	})
+}
+
+func TestAShortAnswerOfThreeWordsIsAccepted(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		mustExec(t, tx,
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, max_words)
+			 VALUES ('short_answer', 'Không quá BA từ', 1.0, $1, $1, 3)`, f.adminID)
+	})
+}
+
+func TestAVersionQuestionKeepsTheSameRules(t *testing.T) {
+	for _, c := range []struct {
+		name, constraint, column, qtype string
+		value                           int
+	}{
+		{"select count on a single choice", "test_version_questions_select_count_check", "select_count", "single_choice", 3},
+		{"select count of one", "test_version_questions_select_count_check", "select_count", "multiple_choice", 1},
+		{"select count of eight", "test_version_questions_select_count_check", "select_count", "multiple_choice", 8},
+		{"word limit on a multiple choice", "test_version_questions_max_words_check", "max_words", "multiple_choice", 3},
+		{"word limit of zero", "test_version_questions_max_words_check", "max_words", "short_answer", 0},
+		{"word limit of 101", "test_version_questions_max_words_check", "max_words", "short_answer", 101},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+				section := newVersion(t, tx, f.adminID)
+				rejectsWith(t, tx, c.constraint,
+					`INSERT INTO app.test_version_questions (test_version_section_id, ordinal, type, prompt, points, `+c.column+`)
+					 VALUES ($1, 0, $2::app.question_type, 'Câu đã chốt', 1.0, $3)`, section, c.qtype, c.value)
+			})
+		})
+	}
+}
+
+func newBankGroup(t *testing.T, tx *sql.Tx, author string) string {
+	t.Helper()
+	var id string
+	if err := tx.QueryRow(`INSERT INTO app.question_groups (title, created_by, owner_id)
+		VALUES ('Bài đọc', $1, $1) RETURNING id`, author).Scan(&id); err != nil {
+		t.Fatalf("group fixture: %v", err)
+	}
+	return id
+}
+
+func TestATfngOrMatchingGroupMemberMayKeepAFixedOrder(t *testing.T) {
+	for _, qtype := range []string{"tfng", "matching"} {
+		withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+			group := newBankGroup(t, tx, f.adminID)
+			mustExec(t, tx, `INSERT INTO app.questions
+				(type, prompt, points, created_by, owner_id, context_group_id, context_ordinal, context_option_order)
+				VALUES ($2::app.question_type, 'Câu trong nhóm', 1.0, $1, $1, $3, 0, 'fixed')`, f.adminID, qtype, group)
+		})
+	}
+}
+
+func TestAnEssayGroupMemberCannotKeepAFixedOrder(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		group := newBankGroup(t, tx, f.adminID)
+		rejectsWith(t, tx, "questions_context_option_order",
+			`INSERT INTO app.questions
+			   (type, prompt, points, created_by, owner_id, context_group_id, context_ordinal, context_option_order)
+			 VALUES ('essay', 'Bài luận trong nhóm', 9.0, $1, $1, $2, 0, 'fixed')`, f.adminID, group)
+	})
+}
+
+// TestTheR6ChecksAreValidated fails when a migration adds one of its CHECKs NOT
+// VALID and skips the VALIDATE.
+func TestTheR6ChecksAreValidated(t *testing.T) {
+	conn := migrated(t)
+	for _, name := range []string{
+		"questions_select_count_check", "test_version_questions_select_count_check",
+		"questions_max_words_check", "test_version_questions_max_words_check",
+		"questions_sample_answer_only_written", "questions_context_option_order",
+	} {
+		var validated bool
+		if err := conn.QueryRow(`SELECT convalidated FROM pg_constraint
+			WHERE conname = $1 AND connamespace = 'app'::regnamespace`, name).Scan(&validated); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if !validated {
+			t.Errorf("%s is NOT VALID", name)
+		}
+	}
+}
+
+// TestTheV0120WritesStillInsert runs the bank's and the publish's inserts with
+// the column lists of v0.12.0 (questions/repositories/store.go and
+// tests/repositories/publish_snapshot.go before R6), which an old binary sends
+// while the new schema is live.
+func TestTheV0120WritesStillInsert(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		for _, qtype := range []string{"single_choice", "multiple_choice", "true_false", "fill_blank", "short_answer"} {
+			mustExec(t, tx, `
+				INSERT INTO app.questions
+				       (type, prompt, media_asset_id, media_asset_kind,
+				        audio_max_plays, audio_allow_seek, audio_show_transcript_after,
+				        transcript, points, explanation, sample_answer, tags, created_by, prompt_content, explanation_content,
+				        id, context_group_id, context_ordinal, context_option_order, owner_id, level, skill, media_alt,
+				        audio_allow_pause, copied_from_id)
+				VALUES ($1::app.question_type, 'Câu hỏi cũ', NULL, NULL, NULL, NULL, NULL,
+				        NULL, 1.0, NULL, CASE WHEN $1 = 'short_answer' THEN 'Đáp án mẫu' END, '{}', $2, NULL, NULL,
+				        uuidv7(), NULL, NULL, NULL, $2, NULL, NULL, NULL, NULL, NULL)`, qtype, f.adminID)
+		}
+		section := newVersion(t, tx, f.adminID)
+		mustExec(t, tx, `
+			INSERT INTO app.test_version_questions
+			       (test_version_section_id, ordinal, source_question_id, type, prompt,
+			        media_asset_id, media_asset_kind, audio_max_plays, audio_allow_seek,
+			        audio_show_transcript_after, transcript, points, explanation, sample_answer, prompt_content, explanation_content, level, skill, media_alt,
+			        audio_allow_pause)
+			VALUES ($1, 0, NULL, 'multiple_choice', 'Câu đã chốt', NULL, NULL, NULL, NULL, NULL,
+			        NULL, 1.0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)`, section)
+	})
 }
