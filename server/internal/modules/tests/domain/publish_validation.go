@@ -15,7 +15,7 @@ func validateQuestion(section DraftSection, q DraftQuestion, add func(Violation)
 	for _, field := range invalid.Fields {
 		rule := questionRule(field.Field, q.Type)
 		if !seen[rule] {
-			add(Violation{Rule: rule, Message: field.Message, SectionID: section.ID, QuestionID: q.SourceID})
+			add(Violation{Rule: rule, Message: field.Message, English: field.English, SectionID: section.ID, QuestionID: q.SourceID})
 			seen[rule] = true
 		}
 	}

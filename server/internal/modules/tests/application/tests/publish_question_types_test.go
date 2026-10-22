@@ -229,7 +229,7 @@ func TestPublishRefusesARuleTheBankNoLongerHolds(t *testing.T) {
 			if !errors.As(err, &invalid) || len(invalid.Violations) != 1 {
 				t.Fatalf("publish = %v, want one violation", err)
 			}
-			if v := invalid.Violations[0]; v.Rule != domain.ChoiceHasCorrectOption || v.QuestionID != id {
+			if v := invalid.Violations[0]; v.Rule != domain.ChoiceHasCorrectOption || v.QuestionID != id || v.Message == "" || v.English == "" {
 				t.Fatalf("violation %+v, want %s on %s", v, domain.ChoiceHasCorrectOption, id)
 			}
 		})

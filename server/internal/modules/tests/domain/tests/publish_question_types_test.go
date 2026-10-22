@@ -66,33 +66,37 @@ func TestEveryNewTypePublishesWhenItIsWhole(t *testing.T) {
 	}
 }
 
+func wantRefusal(t *testing.T, name string, v domain.Violation, message, english string) {
+	t.Helper()
+	if v.Rule != domain.ChoiceHasCorrectOption {
+		t.Errorf("%s gave rule %s, want %s", name, v.Rule, domain.ChoiceHasCorrectOption)
+	}
+	if v.Message != message || v.English != english {
+		t.Errorf("%s says %q / %q, want %q / %q", name, v.Message, v.English, message, english)
+	}
+	if v.QuestionID != base().SourceID {
+		t.Errorf("%s: violation names %q", name, v.QuestionID)
+	}
+}
+
 func TestAChooseNWhoseCorrectCountDiffersFromNIsRefusedAsAMissingKey(t *testing.T) {
 	for _, correct := range [][]bool{{true, false, false, false}, {true, true, true, false}} {
-		v := onlyViolation(t, draftWith(chooseTwo(correct...)))
-		if v.Rule != domain.ChoiceHasCorrectOption {
-			t.Errorf("%v correct gave rule %s, want %s", correct, v.Rule, domain.ChoiceHasCorrectOption)
-		}
+		wantRefusal(t, "choose two", onlyViolation(t, draftWith(chooseTwo(correct...))),
+			"Cần đúng 2 phương án đúng, bằng số đáp án cần chọn.", "Mark exactly 2 options correct, the number of answers to choose.")
 	}
 }
 
 func TestATFNGWithoutExactlyOneCorrectOptionIsRefused(t *testing.T) {
 	for _, correct := range [][]bool{{false, false, false}, {true, false, true}} {
-		v := onlyViolation(t, draftWith(tfngQuestion(correct...)))
-		if v.Rule != domain.ChoiceHasCorrectOption {
-			t.Errorf("%v correct gave rule %s, want %s", correct, v.Rule, domain.ChoiceHasCorrectOption)
-		}
+		wantRefusal(t, "tfng", onlyViolation(t, draftWith(tfngQuestion(correct...))),
+			"Câu Đúng/Sai/Không có thông tin cần đúng một phương án đúng.", "A True / False / Not given question has exactly one correct option.")
 	}
 }
 
-func TestAMatchingItemKeyedToNoChoiceIsRefused(t *testing.T) {
+func TestAMatchingItemKeyedToNoChoiceIsRefusedByItsKey(t *testing.T) {
 	for _, keys := range [][]int{{0, -1, 1}, {0, 3, 1}} {
-		v := onlyViolation(t, draftWith(matchingQuestion(keys...)))
-		if v.Rule != domain.ChoiceHasCorrectOption {
-			t.Errorf("keys %v gave rule %s, want %s", keys, v.Rule, domain.ChoiceHasCorrectOption)
-		}
-		if v.QuestionID != base().SourceID {
-			t.Errorf("keys %v: violation names %q", keys, v.QuestionID)
-		}
+		wantRefusal(t, "matching", onlyViolation(t, draftWith(matchingQuestion(keys...))),
+			"Mục B chưa nối với lựa chọn nào của câu này.", "Item B has no matching choice in this question.")
 	}
 }
 
@@ -148,6 +152,11 @@ func TestTheDiffNamesEachNewFieldAsAChange(t *testing.T) {
 	reuse := matchingQuestion(0, 1, 2)
 	reuse.MatchAllowReuse = boolOf(true)
 
+	reordered := matchingQuestion(0, 1, 2)
+	reordered.MatchItems = []domain.DraftMatchItem{
+		{Ordinal: 0, Text: "item B", CorrectOption: 1}, {Ordinal: 1, Text: "item A", CorrectOption: 0}, {Ordinal: 2, Text: "item C", CorrectOption: 2},
+	}
+
 	chooseThree := chooseTwo(true, true, true, false)
 	chooseThree.SelectCount = intOf(3)
 
@@ -164,6 +173,9 @@ func TestTheDiffNamesEachNewFieldAsAChange(t *testing.T) {
 		{"choice text", matchingQuestion(0, 1, 2), renamedChoice, []domain.ChangedField{domain.FieldOptions}, false},
 		{"rubric label", essayQuestion("Task", "Lexis"), essayQuestion("Task", "Vocabulary"), []domain.ChangedField{domain.FieldRubric}, false},
 		{"rubric added", essayQuestion("Task"), essayQuestion("Task", "Grammar"), []domain.ChangedField{domain.FieldRubric}, false},
+		{"rubric removed", essayQuestion("Task", "Grammar"), essayQuestion("Task"), []domain.ChangedField{domain.FieldRubric}, false},
+		{"rubric reordered", essayQuestion("Task", "Grammar"), essayQuestion("Grammar", "Task"), []domain.ChangedField{domain.FieldRubric}, false},
+		{"items reordered", matchingQuestion(0, 1, 2), reordered, []domain.ChangedField{domain.FieldItems}, true},
 	} {
 		changes := onlyChange(t, c.from, c.to)
 		wantFields(t, c.name, changes, c.want...)
