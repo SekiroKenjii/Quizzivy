@@ -90,8 +90,7 @@ func (c *editChecker) question(q DraftQuestion) {
 	c.claim(q.ID)
 	c.check(runes(q.Label) <= 32 && runes(q.Task) <= 32 && slices.Contains(questionTypes, q.Type) && pointsPattern.MatchString(q.Points))
 	c.check(len(q.Options) <= maxOptions && len(q.Blanks) <= maxBlanks && len(q.Source) <= maxMembers)
-	c.check(q.SelectCount == nil || (*q.SelectCount >= 2 && *q.SelectCount <= questions.MaxSelectCount))
-	c.check(q.MaxWords == nil || (*q.MaxWords >= 1 && *q.MaxWords <= questions.MaxWordsLimit))
+	c.check(typeFieldsInBounds(q))
 	c.check(validOrigin(q.Origins.Type) && validOrigin(q.Origins.Prompt) && validOrigin(q.Origins.Options) && validOrigin(q.Origins.Answer) && validOrigin(q.Origins.Points))
 	_, err := content.Parse(q.Prompt)
 	c.check(err == nil)
@@ -123,6 +122,12 @@ func (c *editChecker) answer(a DraftAnswer, options map[string]bool) {
 	for _, candidate := range a.Candidates {
 		c.check(runes(candidate.Value) <= maxTextLength)
 	}
+}
+
+// typeFieldsInBounds holds selectCount and maxWords to the contract's bounds; which type may carry them is a finding.
+func typeFieldsInBounds(q DraftQuestion) bool {
+	return (q.SelectCount == nil || (*q.SelectCount >= 2 && *q.SelectCount <= questions.MaxSelectCount)) &&
+		(q.MaxWords == nil || (*q.MaxWords >= 1 && *q.MaxWords <= questions.MaxWordsLimit))
 }
 
 func validOrigin(o Origin) bool { return slices.Contains(origins, o) }
