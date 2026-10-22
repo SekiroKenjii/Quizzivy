@@ -4328,7 +4328,15 @@
     "keySep": "·",
     "keyEnter": "Enter",
     "wordCount_one": "{{count}} word",
-    "wordCount_other": "{{count}} words"
+    "wordCount_other": "{{count}} words",
+    "overLimit": "Over the word limit ({{words}} of {{max}})",
+    "notMatched": "Not matched",
+    "matchedTo": "Matched to {{choice}}",
+    "matchKey": "Key: {{choice}}",
+    "essayBand": "Band {{band}}",
+    "chooseCount": "Choose {{n}} · {{correct}} of {{n}} picks correct",
+    "chooseOver": "Choose {{n}} · {{picked}} picked, more than {{n}}, so none count",
+    "paperBand": "{{band}} band"
   },
   "timeline": {
     "loadFailed": "Couldn't load this attempt's timeline.",
@@ -5258,6 +5266,10 @@
         "OPTION_LABEL_REFERENCE": {
           "title": "An option refers to another option",
           "help": "This option refers to another option by its letter, such as “Both A and B”, which breaks if the options are shuffled. Reword the option, or confirm if you won't shuffle this question's options."
+        },
+        "LONG_INSTRUCTION": {
+          "title": "This instruction is long",
+          "help": "If part of it is a reading passage, move it into the section's passage."
         },
         "COLORED_TEXT_IN_CONTENT": {
           "title": "Coloured text inside a question",

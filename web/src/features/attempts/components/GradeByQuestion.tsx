@@ -468,6 +468,7 @@ function AnswerRow({
 /**
  * EssayRowMarks marks one paper's essay in G-04: its band, or a band per
  * rubric criterion with the derived band, and Save once the mark is complete.
+ * Before that Save looks paused (R6-00) and, if pressed, says what is missing.
  */
 function EssayRowMarks({
   row,
@@ -486,18 +487,36 @@ function EssayRowMarks({
 }>) {
   const { t } = useTranslation();
   const [mark, setMark] = useState<EssayMark>(() => markOf(row));
+  const [missing, setMissing] = useState<string | null>(null);
   const complete = markBand(rubric, mark) !== null;
   return (
     <div
       className="space-y-3"
       ref={(el) => inputRef(el?.querySelector<HTMLElement>("[data-score]") ?? null)}
     >
-      <EssayBands rubric={rubric} mark={mark} error={error} onChange={setMark} />
+      <EssayBands
+        rubric={rubric}
+        mark={mark}
+        error={error ?? missing}
+        onChange={(next) => {
+          setMissing(null);
+          setMark(next);
+        }}
+      />
       <div className="flex justify-end">
         <Button
           size="sm"
-          disabled={!complete || pending}
-          onClick={() => onSave(markFields(rubric, mark))}
+          disabled={pending}
+          aria-disabled={!complete}
+          onClick={() => {
+            if (complete) onSave(markFields(rubric, mark));
+            else
+              setMissing(
+                t(
+                  rubric.length ? "grading.pickCriteriaFirst" : "grading.pickBandFirst",
+                ),
+              );
+          }}
         >
           <Check aria-hidden="true" />
           {t("byQuestion.save")}

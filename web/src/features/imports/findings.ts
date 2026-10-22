@@ -22,6 +22,7 @@ export const FINDING_CODES = [
   "NUMBERING_IRREGULAR",
   "COLORED_TEXT_IN_CONTENT",
   "OPTION_LABEL_REFERENCE",
+  "LONG_INSTRUCTION",
 ] as const;
 
 export type FindingCode = (typeof FINDING_CODES)[number];

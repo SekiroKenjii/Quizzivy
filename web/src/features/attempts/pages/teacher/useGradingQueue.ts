@@ -156,6 +156,13 @@ function commentUnsettled(item: GradingQueueItem, draft: GradingDraft | undefine
   return comment !== saved || (draft.points === null && comment !== "");
 }
 
+/** withoutPartials is the drafts without the part-marked rubrics, which no save can write. */
+function withoutPartials(drafts: Record<string, GradingDraft>) {
+  return Object.fromEntries(
+    Object.entries(drafts).filter(([, entry]) => !halfMarked(entry.item, entry)),
+  );
+}
+
 /** markUnsaved says an essay's complete mark is not the one its last save wrote, as after a refused save. */
 function markUnsaved(item: GradingQueueItem, draft: GradingDraft | undefined) {
   if (!essay(item) || !draft?.mark || draft.points === null) return false;
@@ -521,6 +528,30 @@ export function useGradingQueue(params: GradingQueueParams) {
     return t(essay(item) ? "grading.pickBandFirst" : "grading.pickFirst");
   };
   /**
+   * saveAndGo saves `item`'s comment and score, if it has unsaved ones, and
+   * then runs `action` and the held leave, if any. A refused save keeps the
+   * page and every draft, and says why.
+   */
+  const saveAndGo = async (item: GradingQueueItem | undefined, action?: () => void) => {
+    if (!acquire()) return;
+    try {
+      const unscored = item ? commentWithoutScore(item) : null;
+      if (unscored !== null) {
+        setError(unscored);
+        return;
+      }
+      if (item) await flush(item);
+      if (!current()) return;
+      setHeldLeave(null);
+      action?.();
+      heldLeave?.();
+    } catch (cause) {
+      if (current()) report(cause, item);
+    } finally {
+      release();
+    }
+  };
+  /**
    * leave saves the open answer and runs `action`. While any essay holds a
    * part-marked rubric, which no save can write, it holds `action` in
    * `heldLeave` instead, for the page to ask whether to `discard` those bands.
@@ -530,34 +561,23 @@ export function useGradingQueue(params: GradingQueueParams) {
       if (current() && !lock.current) setHeldLeave(() => action);
       return;
     }
-    if (!acquire()) return;
-    try {
-      const unscored = selected ? commentWithoutScore(selected) : null;
-      if (unscored !== null) {
-        setError(unscored);
-        return;
-      }
-      if (selected) await flush(selected);
-      if (current()) action();
-    } catch (cause) {
-      if (current()) report(cause, selected);
-    } finally {
-      release();
-    }
+    await saveAndGo(selected, action);
   };
-  /** discard drops every part-marked rubric's bands, saves nothing, and runs the held leave and `action`. */
-  const discard = (action?: () => void) => {
+  /**
+   * discard leaves as `leave` does, dropping every part-marked rubric's
+   * bands and comment, which no save can write: the open answer's comment
+   * and score, unless it is one of those rubrics, are saved first, and the
+   * bands go only once that save succeeds.
+   */
+  const discard = async (action?: () => void) => {
     if (!current() || lock.current) return;
-    const held = heldLeave;
-    setHeldLeave(null);
     setError(null);
-    setDrafts((previous) =>
-      Object.fromEntries(
-        Object.entries(previous).filter(([, entry]) => !halfMarked(entry.item, entry)),
-      ),
-    );
-    held?.();
-    action?.();
+    const open =
+      selected && !halfMarked(selected, draftFor(selected)) ? selected : undefined;
+    await saveAndGo(open, () => {
+      setDrafts(withoutPartials);
+      action?.();
+    });
   };
   /** keepMarking closes the leave question and keeps the part-marked rubric. */
   const keepMarking = () => setHeldLeave(null);
