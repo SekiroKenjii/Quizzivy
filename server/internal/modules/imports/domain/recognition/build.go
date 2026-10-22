@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 const inlineObject = "INLINE_OBJECT_REQUIRES_REVIEW"
@@ -170,13 +172,10 @@ func (b *builder) applyBlank(entry keyEntry) bool {
 	return true
 }
 
-// markTrueFalseSections finds the sections whose keys say what their option-less questions are: a section keyed
-// only true and false, with at least one true, is true/false; one keyed only true, false and not given, with at
-// least one not given, is tfng.
 func (b *builder) markTrueFalseSections() {
-	b.tfSection, b.tfngSection = map[*sectionBuilder]bool{}, map[*sectionBuilder]bool{}
-	sawTrue, sawNotGiven := map[*sectionBuilder]bool{}, map[*sectionBuilder]bool{}
-	other, otherThanTFNG := map[*sectionBuilder]bool{}, map[*sectionBuilder]bool{}
+	b.tfSection = map[*sectionBuilder]bool{}
+	sawTrue := map[*sectionBuilder]bool{}
+	other := map[*sectionBuilder]bool{}
 	for _, q := range b.exam.all() {
 		if len(q.options) > 0 || q.openCloze {
 			continue
@@ -188,24 +187,58 @@ func (b *builder) markTrueFalseSections() {
 			case value == "T":
 				sawTrue[q.section] = true
 			}
-			switch value, ok := tfngValue(k.value); {
-			case !ok:
-				otherThanTFNG[q.section] = true
-			case value == "NG":
-				sawNotGiven[q.section] = true
-			}
 		}
 	}
 	for s := range sawTrue {
 		b.tfSection[s] = !other[s]
 	}
-	for s := range sawNotGiven {
-		b.tfngSection[s] = !otherThanTFNG[s]
+}
+
+// markTFNGSections finds the sections whose keys alone say they are tfng: every option-less question in the
+// section is keyed and has no gap, every key is true, false or not given, and all three appear.
+func (b *builder) markTFNGSections() {
+	b.tfngSection = map[*sectionBuilder]bool{}
+	seen, refused := map[*sectionBuilder]map[string]bool{}, map[*sectionBuilder]bool{}
+	for _, q := range b.exam.all() {
+		if len(q.options) > 0 || q.openCloze {
+			continue
+		}
+		values, ok := tfngKeys(q)
+		if !ok {
+			refused[q.section] = true
+			continue
+		}
+		if seen[q.section] == nil {
+			seen[q.section] = map[string]bool{}
+		}
+		for _, v := range values {
+			seen[q.section][v] = true
+		}
 	}
+	for s, values := range seen {
+		b.tfngSection[s] = !refused[s] && len(values) == 3
+	}
+}
+
+// tfngKeys reads every key of a keyed, gapless question as true, false or not given; ok is false otherwise.
+func tfngKeys(q *questionBuilder) ([]string, bool) {
+	if len(q.keys) == 0 || len(q.gaps()) > 0 {
+		return nil, false
+	}
+	values := make([]string, 0, len(q.keys))
+	for _, k := range q.keys {
+		value, ok := tfngValue(k.value)
+		if !ok {
+			return nil, false
+		}
+		values = append(values, value)
+	}
+	return values, true
 }
 
 func (b *builder) draft() domain.Draft {
 	b.markTrueFalseSections()
+	b.markTFNGSections()
 	d := domain.Draft{Version: domain.DraftVersion, Title: b.exam.title, Sections: []domain.DraftSection{}, Notices: []domain.Finding{}, Acknowledged: []string{}}
 	for i, s := range b.exam.sections {
 		id := s.id
@@ -392,7 +425,7 @@ func trueFalseOptions(options []optionPart) bool {
 }
 
 func trueFalseValue(v string) (string, bool) {
-	switch strings.ToLower(strings.Trim(v, " .")) {
+	switch strings.ToLower(strings.Trim(norm.NFC.String(v), " .")) {
 	case "t", "true", "đúng", "dung":
 		return "T", true
 	case "f", "false", "sai":
@@ -406,8 +439,8 @@ func tfngValue(v string) (string, bool) {
 	if value, ok := trueFalseValue(v); ok {
 		return value, true
 	}
-	switch strings.Join(strings.Fields(strings.ToLower(strings.Trim(v, " ."))), " ") {
-	case "ng", "not given", "không có thông tin":
+	switch strings.Join(strings.Fields(strings.ToLower(strings.Trim(norm.NFC.String(v), " ."))), " ") {
+	case "ng", "not given", "không có thông tin", "khong co thong tin":
 		return "NG", true
 	}
 	return "", false

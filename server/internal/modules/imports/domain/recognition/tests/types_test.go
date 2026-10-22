@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 // The fixtures below are written for these tests; no real paper is copied into the repo.
@@ -251,3 +253,90 @@ func finding(t *testing.T, r domain.Review, code, target string) domain.Finding 
 	t.Fatalf("no %s finding on %s among %+v", code, target, r.Findings)
 	return domain.Finding{}
 }
+
+func TestAWordLimitOverTheBanksBoundStaysInstructionText(t *testing.T) {
+	for instruction, want := range map[string]int{
+		"Write NO MORE THAN 150 WORDS.": 0,
+		"Write NO MORE THAN 101 WORDS.": 0,
+		"Write NO MORE THAN 100 WORDS.": 100,
+	} {
+		t.Run(instruction, func(t *testing.T) {
+			d := recognize(t, exam(lines("I. "+instruction, "1. Where does the guide live?")), key(lines("1. in Hue")))
+			q := question(t, d, "1")
+			switch {
+			case want == 0 && q.MaxWords != nil:
+				t.Fatalf("a limit over 100 is not a maxWords: %+v", q)
+			case want > 0 && (q.MaxWords == nil || *q.MaxWords != want):
+				t.Fatalf("limit %d: %+v", want, q)
+			}
+			if err := domain.ValidateEdit(d); err != nil {
+				t.Fatalf("the draft saves back unchanged: %v", err)
+			}
+		})
+	}
+}
+
+func TestAnInstructionNamingTwoCountsSetsNone(t *testing.T) {
+	d := recognize(t, exam(lines(
+		"I. Question 1: Choose TWO letters. Questions 2-3: Choose ONE letter.",
+		"1. Which two?",
+		"A. one\tB. two\tC. three\tD. four",
+		"2. Which one?",
+		"A. one\tB. two\tC. three\tD. four",
+		"3. Which one?",
+		"A. one\tB. two\tC. three\tD. four",
+	)), key(lines("1. A, C", "2. B", "3. A")))
+	for label, want := range map[string]string{"1": "multiple_choice", "2": "single_choice", "3": "single_choice"} {
+		if q := question(t, d, label); q.Type != want || q.SelectCount != nil {
+			t.Fatalf("question %s: %+v", label, q)
+		}
+	}
+	d = recognize(t, choosePaper("Choose TWO letters. For each question, choose TWO answers."), key(lines("1. B, D")))
+	if q := question(t, d, "1"); q.SelectCount == nil || *q.SelectCount != 2 {
+		t.Fatalf("the same count twice still reads: %+v", q)
+	}
+	d = recognize(t, choosePaper("Choose 6 letters."), key(lines("1. B, D")))
+	if q := question(t, d, "1"); q.SelectCount != nil {
+		t.Fatalf("a count over the bound is ignored: %+v", q)
+	}
+}
+
+func TestVietnameseWithoutDiacriticsAndNFDTextReadAsTFNG(t *testing.T) {
+	nfd := "Chọn đúng / sai / không có thông tin."
+	for name, c := range map[string]struct{ instruction, notGiven string }{
+		"no diacritics": {"Ghi Dung / Sai / Khong co thong tin.", "khong co thong tin"},
+		"nfd":           {decompose(nfd), decompose("Không có thông tin")},
+	} {
+		t.Run(name, func(t *testing.T) {
+			d := recognize(t, tfngPaper(c.instruction), key(lines("I.\t1. Dung\t2. "+c.notGiven+"\t3. Sai\t4. NG")))
+			for label, want := range map[string]string{"1": "T", "2": "NG", "3": "F", "4": "NG"} {
+				if q := question(t, d, label); q.Type != "tfng" || !slices.Equal(answerLabels(q), []string{want}) {
+					t.Fatalf("question %s: %+v", label, q)
+				}
+			}
+		})
+	}
+}
+
+func TestTheKeyOnlyTFNGRuleNeedsEveryQuestionKeyedAndAllThreeValues(t *testing.T) {
+	for name, keyed := range map[string][]string{
+		"an unkeyed question":   {"1. NOT GIVEN", "2. TRUE", "3. FALSE"},
+		"only F and NG":         {"1. F", "2. NG", "3. F", "4. NG"},
+		"a key outside the set": {"1. TRUE", "2. NOT GIVEN", "3. FALSE", "4. in Hue"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			d := recognize(t, tfngPaper("Read the passage about the museum."), key(lines(keyed...)))
+			for _, q := range d.Questions() {
+				if q.Type == "tfng" {
+					t.Fatalf("no TFNG instruction and the keys do not say so: %+v", q)
+				}
+			}
+		})
+	}
+	d := recognize(t, exam(lines("I. Read the passage.", "1. The museum opens at ……….", "2. It closes at ……….", "3. Guides speak French.")), key(lines("1. T", "2. F", "3. NG")))
+	if q := question(t, d, "1"); q.Type == "tfng" {
+		t.Fatalf("a gap question keyed T/F/NG keeps its gap: %+v", q)
+	}
+}
+
+func decompose(s string) string { return norm.NFD.String(s) }

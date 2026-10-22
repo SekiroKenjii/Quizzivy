@@ -1,11 +1,14 @@
 package recognition
 
 import (
+	questions "quizzivy/internal/modules/questions/domain"
 	"regexp"
 	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 type taskSet uint16
@@ -59,10 +62,11 @@ var taskPatterns = []struct {
 	{taskCloze, regexp.MustCompile(`(?i)fill (?:in )?(?:the|each)? ?(?:blank|gap|space)|numbered (?:blank|gap)`)},
 	{taskReading, regexp.MustCompile(`(?i)\bread\b.*\b(?:passage|text|paragraph)|đọc`)},
 	{taskWordForm, regexp.MustCompile(`(?i)form of the word|word in (?:capitals|brackets)|correct form of the word`)},
-	{taskTFNG, regexp.MustCompile(`(?is)\btrue\b.{0,80}?\bfalse\b.{0,80}?\bnot\s+given\b|\bT\s*[/,]\s*F\s*(?:[/,]|\bor\b)\s*NG\b|đúng.{0,40}?sai.{0,40}?không\s+có\s+thông\s+tin`)},
+	{taskTFNG, regexp.MustCompile(`(?is)\btrue\b.{0,80}?\bfalse\b.{0,80}?\bnot\s+given\b|\bT\s*[/,]\s*F\s*(?:[/,]|\bor\b)\s*NG\b|(?:đúng|dung).{0,40}?sai.{0,40}?(?:không|khong)\s+(?:có|co)\s+(?:thông|thong)\s+tin`)},
 }
 
 func tasksOf(text string) taskSet {
+	text = norm.NFC.String(text)
 	var s taskSet
 	for _, p := range taskPatterns {
 		if p.pattern.MatchString(text) {
@@ -78,24 +82,38 @@ var (
 	numberWords = map[string]int{"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
 )
 
-// selectCountOf reads the N of a "Choose N letters" instruction, as a word or a digit; zero when there is none.
+// selectCountOf reads the N of a "Choose N letters" instruction, as a word or a digit. It is zero when there is
+// none, when the text names two different counts (each belongs to its own questions, and which is not known), or
+// when N is outside the bank's bound.
 func selectCountOf(text string) int {
-	if m := chooseCount.FindStringSubmatch(text); m != nil {
-		return countValue(m[1])
-	}
-	return 0
+	return only(chooseCount.FindAllStringSubmatch(norm.NFC.String(text), -1), func(m []string) int { return countValue(m[1]) }, questions.MaxSelectCount)
 }
 
-// wordLimitOf reads the n of "NO MORE THAN n WORDS" or "ONE WORD ONLY"; zero when there is none.
+// wordLimitOf reads the n of "NO MORE THAN n WORDS" or "ONE WORD ONLY", under the same rules as selectCountOf: a
+// limit over the bank's 100 stays instruction text.
 func wordLimitOf(text string) int {
-	m := wordLimit.FindStringSubmatch(text)
-	if m == nil {
-		return 0
+	return only(wordLimit.FindAllStringSubmatch(norm.NFC.String(text), -1), func(m []string) int {
+		if m[1] != "" {
+			return countValue(m[1])
+		}
+		return countValue(m[2])
+	}, questions.MaxWordsLimit)
+}
+
+// only is the one value every match reads, when it is at most limit; zero otherwise.
+func only(matches [][]string, value func([]string) int, limit int) int {
+	n := 0
+	for _, m := range matches {
+		switch v := value(m); {
+		case v > limit:
+			return 0
+		case n == 0:
+			n = v
+		case v != n:
+			return 0
+		}
 	}
-	if m[1] != "" {
-		return countValue(m[1])
-	}
-	return countValue(m[2])
+	return n
 }
 
 func countValue(word string) int {
