@@ -10,10 +10,12 @@ import {
   dropsAnswerData,
   exceedsBlankLimit,
   pickCandidate,
+  removeOption,
   restore,
   exclude,
   selectCountChoices,
   selectCountMismatch,
+  selectCountOutOfRange,
   setMaxWords,
   setPrompt,
   setSelectCount,
@@ -482,6 +484,81 @@ describe("TFNG, Choose N and word limits", () => {
         answer: { state: "unknown", optionIds: [], evidence: [] },
       }),
     ).toBe(false);
+  });
+
+  it("resets a Choose N count that the options left after a removal cannot hold", () => {
+    const three = setSelectCount(
+      question({ id: "m", label: "1", type: "multiple_choice" }),
+      3,
+    );
+    expect(selectCountOutOfRange(three)).toBe(false);
+    const fewer = removeOption(three, "m-d");
+    expect(fewer.options).toHaveLength(3);
+    expect(fewer).not.toHaveProperty("selectCount");
+    const two = setSelectCount(three, 2);
+    expect(removeOption(two, "m-d").selectCount).toBe(2);
+    expect(removeOption(removeOption(two, "m-d"), "m-c")).not.toHaveProperty(
+      "selectCount",
+    );
+    expect(selectCountOutOfRange({ ...two, options: two.options.slice(0, 2) })).toBe(
+      true,
+    );
+  });
+
+  it("counts a dropped Choose N count or word limit as lost answer data", () => {
+    const two = setSelectCount(
+      question({
+        id: "m",
+        label: "1",
+        type: "multiple_choice",
+        answer: { state: "known", optionIds: ["m-a"], evidence: [] },
+      }),
+      2,
+    );
+    expect(dropsAnswerData(two, changeType(two, "single_choice"))).toBe(true);
+    const limited = setMaxWords(
+      question({
+        id: "s",
+        label: "2",
+        type: "short_answer",
+        options: [],
+        answer: { state: "unknown", optionIds: [], evidence: [] },
+      }),
+      2,
+    );
+    expect(dropsAnswerData(limited, changeType(limited, "multiple_choice"))).toBe(true);
+    const plain = setSelectCount(two, null);
+    expect(dropsAnswerData(plain, changeType(plain, "single_choice"))).toBe(false);
+  });
+
+  it("carries a True or False key between true/false and tfng, and drops Not given", () => {
+    const keyed = (id: string) => ({
+      ...tfng,
+      answer: { state: "known" as const, optionIds: [id], evidence: [] },
+    });
+    const toTrueFalse = changeType(keyed("t-f"), "true_false");
+    expect(toTrueFalse.options.map((o) => o.label)).toEqual(["T", "F"]);
+    expect(toTrueFalse.answer).toMatchObject({
+      state: "known",
+      optionIds: [toTrueFalse.options[1]!.id],
+    });
+    const back = changeType(toTrueFalse, "tfng");
+    expect(back.answer).toMatchObject({
+      state: "known",
+      optionIds: [back.options[1]!.id],
+    });
+    const notGiven = changeType(keyed("t-ng"), "true_false");
+    expect(notGiven.answer).toMatchObject({ state: "unknown", optionIds: [] });
+    expect(dropsAnswerData(keyed("t-ng"), notGiven)).toBe(true);
+    const lettered = question({
+      id: "b",
+      label: "3",
+      type: "true_false",
+      options: [option("b-a", "A", "Đúng"), option("b-b", "B", "Sai")],
+      answer: { state: "known", optionIds: ["b-a"], evidence: [] },
+    });
+    const fromLetters = changeType(lettered, "tfng");
+    expect(fromLetters.answer.optionIds).toEqual([fromLetters.options[0]!.id]);
   });
 
   it("accepts a word limit from 1 to 100, or none", () => {
