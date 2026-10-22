@@ -381,3 +381,19 @@ func TestGroupMembersMayBeOfEveryNewType(t *testing.T) {
 		t.Error("a criterion reusing a matching item's id was accepted")
 	}
 }
+
+// QC-R6L-1: a member over the bank's eight-option cap is an invalid member,
+// refused as group_question, never an internal error.
+func TestAMemberWithNineOptionsIsAnInvalidMember(t *testing.T) {
+	bundle := groupFixture()
+	for len(bundle.Questions[0].Input.Options) < 9 {
+		bundle.Questions[0].Input.Options = append(bundle.Questions[0].Input.Options, questions.OptionInput{Text: "thêm"})
+	}
+	var invalid *domain.GroupError
+	if err := bundle.ValidateAuthoring(); !errors.As(err, &invalid) || invalid.Rule != "group_question" || invalid.QuestionID != bundle.Questions[0].ID {
+		t.Fatalf("nine options answered %v, want group_question on %s", err, bundle.Questions[0].ID)
+	}
+	if err := groupFixture().ValidateAuthoring(); err != nil {
+		t.Errorf("the fixture was refused: %v", err)
+	}
+}

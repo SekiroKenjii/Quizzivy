@@ -84,6 +84,18 @@ func (v *groupValidator) members(members []GroupMember, questions []GroupQuestio
 	return nil
 }
 
+// ValidateAuthoring bounds what a save sends for each member as the bank bounds
+// a question's own save (at most eight options on a choice type), refusing the
+// first member over it as a group_question, as any other invalid member is.
+func (b GroupBundle) ValidateAuthoring() error {
+	for _, question := range b.Questions {
+		if question.Input.ValidateAuthoring() != nil {
+			return &GroupError{Rule: "group_question", QuestionID: question.ID}
+		}
+	}
+	return nil
+}
+
 func (v *groupValidator) memberQuestion(question GroupQuestion) error {
 	if !v.claimID(question.ID) {
 		return &GroupError{Rule: groupIdentity, QuestionID: question.ID}
