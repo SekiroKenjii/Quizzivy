@@ -523,6 +523,22 @@ describe("True / False / Not given", () => {
     expect(bodies[0]!["types"]).not.toContain("tfng");
   });
 
+  it("keeps True / False / Not given chosen while other chips change in a standalone run", async () => {
+    const { dialog, user } = await openPanel(context({ section: reading }));
+    await user.click(within(dialog).getByRole("button", { name: tfngChip }));
+    await user.click(within(dialog).getByRole("radio", { name: /^Câu độc lập/ }));
+    const fill = vi_.questionEditor.type.fill_blank;
+    await user.click(within(dialog).getByRole("button", { name: fill }));
+    await user.click(within(dialog).getByRole("button", { name: fill }));
+    await user.click(within(dialog).getByRole("radio", { name: /^Theo bài đọc/ }));
+    expect(
+      within(dialog).getByRole("button", { name: tfngChip, pressed: true }),
+    ).toBeVisible();
+    expect(
+      within(dialog).getByRole("button", { name: fill, pressed: false }),
+    ).toBeVisible();
+  });
+
   it("asks for another type when a standalone run has only True / False / Not given", async () => {
     const tfngOnly: AiSection = { ...grammar, types: ["tfng"] };
     const { dialog } = await openPanel(

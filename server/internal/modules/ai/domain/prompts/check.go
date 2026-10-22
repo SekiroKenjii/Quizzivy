@@ -3,6 +3,7 @@ package prompts
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -100,13 +101,13 @@ func Check(in CheckInput) (Prompt, error) {
 }
 
 type rawFix struct {
-	Kind        string      `json:"kind"`
-	Description string      `json:"description"`
-	Label       string      `json:"label"`
-	Option      string      `json:"option"`
-	Blank       int         `json:"blank"`
-	Words       json.Number `json:"words"`
-	Text        string      `json:"text"`
+	Kind        string          `json:"kind"`
+	Description string          `json:"description"`
+	Label       string          `json:"label"`
+	Option      string          `json:"option"`
+	Blank       int             `json:"blank"`
+	Words       json.RawMessage `json:"words"`
+	Text        string          `json:"text"`
 }
 
 type rawFinding struct {
@@ -173,14 +174,23 @@ func tidyFix(f rawFix, issue string, q domain.PaperQuestion) Fix {
 	case FixTfngAnswer:
 		fix.OptionID, fix.Text, ok = tfngKey(f.Option, q)
 	case FixWordLimit:
-		words, err := strconv.Atoi(f.Words.String())
-		ok = err == nil && q.Type == ShortAnswer && q.MaxWords == 0 && words >= 1 && words <= MaxWordLimit
+		words, whole := wholeNumber(f.Words)
+		ok = whole && q.Type == ShortAnswer && q.MaxWords == 0 && words >= 1 && words <= MaxWordLimit
 		fix.MaxWords, fix.Text = words, WordLimitRule(words)
 	}
 	if !ok {
 		return advice
 	}
 	return fix
+}
+
+// wholeNumber reads a JSON number with no fraction, such as 3 or 3.0; anything else, a string or a bool included, is false, so one odd field leaves its fix advice rather than failing the check.
+func wholeNumber(raw json.RawMessage) (int, bool) {
+	var v float64
+	if json.Unmarshal(raw, &v) != nil || v != math.Trunc(v) || math.Abs(v) > 1e6 {
+		return 0, false
+	}
+	return int(v), true
 }
 
 func tfngKey(letter string, q domain.PaperQuestion) (string, string, bool) {

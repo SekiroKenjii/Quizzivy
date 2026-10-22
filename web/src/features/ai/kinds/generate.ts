@@ -205,6 +205,22 @@ function chosenTypes(types: readonly string[], mode: PlanMode) {
   return OFFERED[mode].filter((type) => types.includes(type));
 }
 
+/**
+ * withHidden is the chip group's new choice with the chosen types this mode
+ * hides kept, so True / False / Not given chosen from a passage is chosen
+ * again when the run goes back to one.
+ */
+function withHidden(
+  chosen: readonly string[],
+  previous: readonly string[],
+  mode: PlanMode,
+) {
+  const hidden = previous.filter(
+    (type) => !(OFFERED[mode] as readonly string[]).includes(type),
+  );
+  return [...chosen, ...hidden];
+}
+
 function rowMode(row: { perPassage: boolean }): PlanMode {
   return row.perPassage ? "passage" : "standalone";
 }
@@ -823,7 +839,11 @@ function sectionFields(
       label: t("ai.generate.types"),
       options: typeOptions(t, values.style),
       value: chosenTypes(values.types, values.style),
-      onChange: (types) => set({ types, typesTouched: true }),
+      onChange: (types) =>
+        set({
+          types: withHidden(types, values.types, values.style),
+          typesTouched: true,
+        }),
     },
     {
       kind: "stepper",
@@ -901,7 +921,10 @@ function planFields(
         hint: section.types?.length ? ` · ${t("ai.generate.typesFromSection")}` : "",
         options: typeOptions(t, rowMode({ perPassage })),
         value: chosenTypes(entry.types, rowMode({ perPassage })),
-        onChange: (types) => patch(section.id, entry, { types }),
+        onChange: (types) =>
+          patch(section.id, entry, {
+            types: withHidden(types, entry.types, rowMode({ perPassage })),
+          }),
       },
       level: {
         label: t("ai.generate.level"),

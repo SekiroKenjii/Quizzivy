@@ -78,7 +78,7 @@ func Score(in ScoreInput) Prompt {
 	return Prompt{Feature: domain.FeatureScore, Tier: domain.TierCapable, System: scoreSystem, User: user, Schema: json.RawMessage(scoreSchema), MaxTokens: 700}
 }
 
-// DecodeScore reads the provider's answer and moves the score to the nearest allowed one, the lower on a tie. A score that is not a number is ErrUnusable; an unknown confidence reads as medium. For an essay every band is moved onto Bands by bandOf, half up as grading rounds, and a band that is missing or 0 or below is ErrUnusable; with rubric criteria each criterion must have a band (the first, for one named twice) and the essay's band is CriteriaBand of them whatever the model's own band said, and a criterion left without one is ErrUnusable.
+// DecodeScore reads the provider's answer and moves the score to the nearest allowed one, the lower on a tie. A score that is not a number is ErrUnusable; an unknown confidence reads as medium. For an essay every band is moved onto Bands by bandOf, half up as grading rounds, and a band that is missing or more than half a band below 3 is ErrUnusable; with rubric criteria each criterion must have a band (the first, for one named twice) and the essay's band is CriteriaBand of them whatever the model's own band said, and a criterion left without one is ErrUnusable.
 func DecodeScore(raw json.RawMessage, in ScoreInput) (Suggestion, error) {
 	if in.Answer.Type == Essay {
 		return decodeEssayScore(raw, in)

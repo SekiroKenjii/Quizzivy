@@ -156,7 +156,7 @@ func TestAnEssayBandIsDerivedFromItsCriteriaAndMovedToTheBandScale(t *testing.T)
 			{"criterion": 1, "band": 9, "reason": "a second band for the same criterion"},
 			{"criterion": 9, "band": 9, "reason": "a criterion that is not there"},
 			{"criterion": 2, "band": 12, "reason": ""},
-			{"criterion": 3, "band": 2, "reason": "vocabulary"},
+			{"criterion": 3, "band": 2.8, "reason": "vocabulary"},
 		},
 	}
 	got, err := prompts.DecodeScore(marshal(t, answer), in)
@@ -193,13 +193,13 @@ func TestAnEssayWithoutCriteriaGetsOneBand(t *testing.T) {
 	if got.Band == nil || *got.Band != 7 || got.Score != 1.56 || got.Criteria != nil || !slices.Equal(got.Reasons, []string{"Clear", "Few figures"}) {
 		t.Errorf("the suggestion reads %+v (band %v), want band 7.0 (half up, as grading rounds), 7 × 2 ÷ 9 = 1.56 and no criteria", got, got.Band)
 	}
-	for raw, want := range map[string]float64{"6.25": 6.5, "6.2": 6, "2": 3, "10": 9} {
+	for raw, want := range map[string]float64{"6.25": 6.5, "6.2": 6, "2.8": 3, "10": 9} {
 		got, err := prompts.DecodeScore([]byte(`{"band":`+raw+`,"criteria":[],"confidence":"high","reasons":[],"comment":""}`), in)
 		if err != nil || got.Band == nil || *got.Band != want {
 			t.Errorf("band %s reads %v (%v), want %v", raw, got.Band, err, want)
 		}
 	}
-	for _, raw := range []string{`"band":0,`, `"band":-1,`, `"band":null,`, ``} {
+	for _, raw := range []string{`"band":0,`, `"band":-1,`, `"band":null,`, `"band":0.1,`, `"band":1,`, `"band":2.7,`, ``} {
 		if _, err := prompts.DecodeScore([]byte(`{`+raw+`"criteria":[],"confidence":"high","reasons":[],"comment":""}`), in); !errors.Is(err, prompts.ErrUnusable) {
 			t.Errorf("an answer with %q: err = %v, want ErrUnusable rather than band 3", raw, err)
 		}
@@ -248,6 +248,25 @@ func TestTheEssayPromptSendsTheTaskTheEssayAndTheCriteriaAndNoOneElse(t *testing
 	}
 	if strings.Contains(prompts.Score(essayInput()).User, "only its first") {
 		t.Error("a short essay is said to be cut")
+	}
+	for name, c := range map[string]struct {
+		essay string
+		cut   bool
+	}{
+		"exactly the most":           {strings.Repeat("a", prompts.MaxEssay), false},
+		"the most with spaces round": {"  " + strings.Repeat("a", prompts.MaxEssay) + "\n ", false},
+		"one past the most":          {strings.Repeat("a", prompts.MaxEssay+1), true},
+	} {
+		in := essayInput()
+		in.Answer.Answer = c.essay
+		if got := strings.Contains(prompts.Score(in).User, "only its first"); got != c.cut {
+			t.Errorf("%s: the prompt says cut = %v, want %v", name, got, c.cut)
+		}
+	}
+	words := essayInput()
+	words.Answer.Answer = strings.Repeat("abcdefg ", 800)
+	if sent := prompts.Score(words).User; !strings.Contains(sent, "abcdefg\"\"\"") {
+		t.Errorf("a long essay was cut inside a word:\n%s", sent[strings.Index(sent, "\"\"\"\n")-40:][:60])
 	}
 	if p.Feature != domain.FeatureScore || p.MaxTokens > 1000 {
 		t.Errorf("the essay prompt meters as %s with %d tokens; it must stay inside the score ceiling and the call budget", p.Feature, p.MaxTokens)

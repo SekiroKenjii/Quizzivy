@@ -461,6 +461,8 @@ func TestACheckKeepsAFixOnlyWhenItsWriteExists(t *testing.T) {
 		"the word limit it has":           {"question": 7, "kind": "word_limit", "words": 2},
 		"a word limit over another":       {"question": 7, "kind": "word_limit", "words": 3},
 		"half a word":                     {"question": 6, "kind": "word_limit", "words": 2.5},
+		"words as a word":                 {"question": 6, "kind": "word_limit", "words": "abc"},
+		"words as yes":                    {"question": 6, "kind": "word_limit", "words": true},
 	}
 	var rows []map[string]any
 	for name, f := range fixes {

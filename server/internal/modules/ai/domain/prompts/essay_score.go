@@ -6,6 +6,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"quizzivy/internal/modules/ai/domain"
@@ -49,8 +50,9 @@ func essayScore(in ScoreInput) Prompt {
 	if len(a.Accepted) > 0 {
 		fmt.Fprintf(&b, "The teacher's sample answer: \"\"\"%s\"\"\"\n", clip(strings.Join(a.Accepted, "\n"), 1500))
 	}
-	fmt.Fprintf(&b, "Student essay: \"\"\"%s\"\"\"\n", clip(a.Answer, MaxEssay))
-	if utf8.RuneCountInString(strings.TrimSpace(a.Answer)) > MaxEssay {
+	essay, cut := clipEssay(a.Answer)
+	fmt.Fprintf(&b, "Student essay: \"\"\"%s\"\"\"\n", essay)
+	if cut {
 		fmt.Fprintf(&b, "The essay is longer than this; only its first %d characters are shown. Judge what is shown and say in the comment that the rest was not read.\n", MaxEssay)
 	}
 	fmt.Fprintf(&b, "Bands: %s.\n", scoreList(Bands()))
@@ -128,9 +130,22 @@ func criterionReason(label, reason string, band float64) string {
 	return clip(oneLine(label)+": "+reason, 300)
 }
 
-// bandOf moves the model's band onto the band scale, rounding half up to 0.5 as grading rounds a criteria mean, so 6.25 is 6.5, and clamping to 3–9. A band that is missing, not finite, or 0 or below is no band, and false.
+// clipEssay is the essay as sent: all of it when it has at most MaxEssay characters, and otherwise its first MaxEssay characters backed off to the last space, so no word is cut in two, and true.
+func clipEssay(essay string) (string, bool) {
+	essay = strings.TrimSpace(essay)
+	if utf8.RuneCountInString(essay) <= MaxEssay {
+		return essay, false
+	}
+	head := string([]rune(essay)[:MaxEssay])
+	if space := strings.LastIndexFunc(head, unicode.IsSpace); space > 0 {
+		head = head[:space]
+	}
+	return strings.TrimSpace(head), true
+}
+
+// bandOf moves the model's band onto the band scale, rounding half up to 0.5 as grading rounds a criteria mean, so 6.25 is 6.5, and clamping to 3–9. A band that is missing, not finite, or more than half a band below 3 (a model on another scale) is no band, and false.
 func bandOf(v *float64) (float64, bool) {
-	if v == nil || math.IsNaN(*v) || math.IsInf(*v, 0) || *v <= 0 {
+	if v == nil || math.IsNaN(*v) || math.IsInf(*v, 0) || *v < 2.75 {
 		return 0, false
 	}
 	halves := min(max(math.Floor(*v*2+0.5), 6), 18)
