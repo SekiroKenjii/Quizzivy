@@ -261,3 +261,53 @@ func TestAnEssayAnswerAwaitsTheTeacher(t *testing.T) {
 		t.Fatal("an answer over the word limit was not stored as typed")
 	}
 }
+
+func TestAnEssayStillAwaitsTheTeacherAfterSubmitAndTheNewTypesAreScored(t *testing.T) {
+	pool := newPool(t)
+	w := seedTypedWorld(t, pool)
+	session := startTyped(t, pool, w)
+	svc := newService(t, pool)
+	ctx := context.Background()
+	chooseTwo := questionOf(t, session, w.chooseTwo).Options
+	var right []string
+	for _, o := range chooseTwo {
+		if o.Text == "choice 0" || o.Text == "choice 2" {
+			right = append(right, o.ID)
+		}
+	}
+	tfng := questionOf(t, session, w.tfng).Options
+	if _, err := svc.Commands.Save.Handle(ctx, command.Save{Input: domain.SaveInput{
+		AttemptID: session.Attempt.ID, StudentID: w.student, SessionID: session.SessionID,
+		Answers: []domain.Answer{
+			{QuestionID: w.essay, Payload: []byte(`{"type":"text","value":"An essay."}`)},
+			{QuestionID: w.tfng, Payload: []byte(fmt.Sprintf(`{"type":"choice","optionIds":[%q]}`, tfng[2].ID))},
+			{QuestionID: w.chooseTwo, Payload: []byte(fmt.Sprintf(`{"type":"choice","optionIds":[%q]}`, right[0]))},
+			{QuestionID: w.matching, Payload: []byte(fmt.Sprintf(`{"type":"matching","pairs":{%q:%q,%q:%q}}`, w.items[0], w.choices[2], w.items[1], w.choices[1]))},
+		},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Commands.Submit.Handle(ctx, command.Submit{AttemptID: session.Attempt.ID, StudentID: w.student, Reason: domain.Manual}); err != nil {
+		t.Fatal(err)
+	}
+	scored := func(question string) (manual bool, auto *float64) {
+		t.Helper()
+		if err := pool.QueryRow(ctx, `SELECT requires_manual, auto_score FROM app.attempt_answers WHERE attempt_id = $1::uuid AND question_id = $2::uuid`,
+			session.Attempt.ID, question).Scan(&manual, &auto); err != nil {
+			t.Fatal(err)
+		}
+		return manual, auto
+	}
+	if manual, _ := scored(w.essay); !manual {
+		t.Error("the essay was settled at submit; it must wait for the teacher (QC-R6SP-2)")
+	}
+	for question, want := range map[string]float64{w.tfng: 2, w.chooseTwo: 1, w.matching: 1} {
+		if manual, auto := scored(question); manual || auto == nil || *auto != want {
+			t.Errorf("question %s scored %v (manual %v), want %v", question, auto, manual, want)
+		}
+	}
+	var status string
+	if err := pool.QueryRow(ctx, `SELECT status::text FROM app.attempts WHERE id = $1::uuid`, session.Attempt.ID).Scan(&status); err != nil || status != "submitted" {
+		t.Errorf("status %q (%v): with an essay to grade the paper is not graded yet", status, err)
+	}
+}
